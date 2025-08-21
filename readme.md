@@ -1,6 +1,8 @@
 # GrandProjetV2
 
-**Dernière mise à jour :** 2025-07-15
+[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC) [![Leaflet](https://img.shields.io/badge/Leaflet-1.9.x-brightgreen)](#)
+
+**Dernière mise à jour :** 2025-08-21
 
 ---
 
@@ -17,6 +19,9 @@
 - [10. FAQ / Erreurs fréquentes](#10-faq--erreurs-fr%C3%A9quentes)
 - [11. Conseils pour la maintenance et l’évolution](#11-conseils-pour-la-maintenance-et-l%C3%A9volution)
 - [12. Modèle de données Supabase](#12-mod%C3%A8le-de-donn%C3%A9es-supabase)
+- [13. Déploiement](#13-d%C3%A9ploiement)
+- [14. Contribuer (CONTRIBUTING)](#14-contribuer-contributing)
+- [15. Changelog](#15-changelog)
 
 ---
 
@@ -39,17 +44,17 @@ grandprojetV2/
 ├── index.html                  # Entrée unique, charge tous les modules JS dans l’ordre
 ├── style.css                   # Styles globaux (layout, nav, popups)
 ├── ficheprojet.css             # Styles dédiés aux pages statiques de fiche projet
-├── data.js                     # Config zoom + descriptions Markdown en dur
+├── data.js                     # (Hérité) Placeholder non utilisé pour le contenu; données chargées dynamiquement
 ├── main.js                     # Orchestration, bootstrap général
 ├── README.md                   # Documentation complète du projet
 ├── modules/
-│   ├── supabaseService.js      # Accès/fetch Supabase (toutes les tables)
-│   ├── DataModule.js           # Cache réseau, gestion GeoJSON, parsing
-│   ├── MapModule.js            # Initialisation Leaflet, gestion des couches
-│   ├── FilterModule.js         # Stockage des critères de filtre actifs
-│   ├── UIModule.js             # UI filtres, popups, menu basemap, panneau détail
-│   ├── NavigationModule.js     # Navigation projets, rendu des listes, panneau détail
-│   ├── EventBindings.js        # Liaison boutons & filtres → logique métier
+│   ├── supabaseservice.js      # Accès/fetch Supabase (toutes les tables)
+│   ├── datamodule.js           # Cache réseau, gestion GeoJSON, parsing
+│   ├── mapmodule.js            # Initialisation Leaflet, gestion des couches
+│   ├── filtermodule.js         # Stockage des critères de filtre actifs
+│   ├── uimodule.js             # UI filtres, popups, menu basemap, panneau détail
+│   ├── navigationmodule.js     # Navigation projets, rendu des listes, panneau détail
+│   ├── eventbindings.js        # Liaison boutons & filtres → logique métier
 │   └── ficheprojet.js          # (si utilisé, logique fiche projet statique)
 ├── pages/
 │   ├── velo/
@@ -102,11 +107,11 @@ grandprojetV2/
 
 ## 4. Détail des modules
 
-### 4.1. supabaseService.js
-- **Rôle** : centralise tous les accès à Supabase (via CDN, pas de clé dans le code en prod !)
-- **Tables attendues** : `layersConfig`, `metroColors`, `mobilityData`, `projectPages`, `urbanismeProjects`, `filtersConfig`, `projectFilterMapping`, `projectColors`, `layerInfoConfig`, `basemaps`
+### 4.1. supabaseservice.js
+- **Rôle** : centralise tous les accès à Supabase (via CDN, pas de clé admin en prod !)
+- **Tables attendues** : `layers`, `metro_colors`, `mobility_data`, `project_pages`, `urbanisme_projects`, `filter_categories`/`filter_items` (via `fetchFiltersConfig()`), `project_filter_mapping`, `project_colors`, `layer_info_config` (+ tables liées), `basemaps`
 - **Fonctions principales** :
-  - `fetchLayersConfig()`, `fetchMetroColors()`, etc. → récupèrent chaque table
+  - `fetchLayersConfig()`, `fetchMetroColors()`, etc. → récupèrent chaque table (la table `layers` est exposée en `window.layersConfig` via `initAllData()`)
   - `initAllData()` → lance tous les fetchers et expose les résultats sur `window`
 - **Exemple d’appel** :
   ```js
@@ -114,10 +119,10 @@ grandprojetV2/
   ```
 
 ### 4.2. data.js
-- Définit `window.zoomConfig` (minZoom par couche, pour masquer les markers si zoom trop faible)
-- Définit `window.projectDetails` : dictionnaire `{ "NomProjet": markdown }` utilisé pour le panneau détail
+- Actuellement non utilisé pour stocker le contenu. Conservé pour compatibilité.
+- Optionnel: vous pouvez définir `window.zoomConfig` pour contrôler la visibilité des marqueurs selon le zoom. `MapModule.updateMarkerVisibility()` lira cette config si présente.
 
-### 4.3. DataModule.js
+### 4.3. datamodule.js
 - **Cache réseau** : `simpleCache` (objet clé/valeur) et `CacheManager` (limite la taille du cache)
 - **initConfig({urlMap, styleMap, defaultLayers})** : configure les URLs et styles de chaque couche
 - **fetchLayerData(layer)** : récupère (et met en cache) le GeoJSON d’une couche
@@ -125,7 +130,7 @@ grandprojetV2/
 - **createGeoJsonLayer(layer, data)** : applique le style, les tooltips, les événements
 - **getProjectDetails(name, category)** : renvoie l’objet projet (description, propriétés)
 
-### 4.4. MapModule.js
+### 4.4. mapmodule.js
 - Initialise la carte Leaflet (`L.map`), gère les fonds et overlays
 - **initBaseLayer()**, **setBaseLayer(tileLayer)** : changent le fond de carte
 - **addLayer(name, layer)**, **removeLayer(name)** : ajout/suppression de couches
@@ -148,14 +153,12 @@ grandprojetV2/
   - gère les clics sur `.filter-item` (ajout/suppression d’un **critère** de filtre, pas la couche elle-même)
   - gère les clics sur `.settings-btn` (ouverture des sous-filtres)
 
-### 4.8. NavigationModule.js
+### 4.8. navigationmodule.js
 - **showProjectDetail(name, category, event)** :
   1. empêche la propagation, masque les sous-menus
-  2. récupère le contenu :
-     - via **fetch()** d’un fichier Markdown (`/pages/velo/*.md`) pour les projets « Vélo » ;
-     - via **DataModule.getProjectDetails()** pour les autres catégories (Transport, Urbanisme, Travaux).
+  2. récupère le contenu via **fetch()** d’un fichier Markdown sous `pages/<cat>/*.md` pour toutes les catégories (Vélo, Mobilité/Transport, Urbanisme)
   3. extrait le front-matter YAML (couverture, itinéraire `from/to`, **line**, **trafic**, description) et **n'affiche plus** le corps Markdown, pour garder le panneau synthétique
-  4. cherche `window.projectPages[name]` pour afficher un bouton « Voir la fiche complète »
+  4. cherche `window.projectPages[name]` (chargé via Supabase) pour afficher un bouton « Voir la fiche complète »; fallback: vérifie l’existence d’une page `.html` correspondante
   5. applique des animations (zoom, surbrillance)
 - **renderTransportProjects()**, **renderVeloProjects()**, etc. : génèrent dynamiquement les listes de projets selon la catégorie
 - **zoomOutOnLoadedLayers()** : ajuste la vue pour englober toutes les couches visibles
@@ -167,6 +170,14 @@ grandprojetV2/
 - **NavigationModule.showProjectDetail()** : ré-utilise le rendu Markdown mais **n’injecte que** la couverture, les chips et la description ; le corps Markdown est volontairement omis pour conserver une vue concise.
 - Les classes de bannière générées (`banner-info`, `banner-wip`, `banner-postponed`, `banner-modified`, `banner-unsecured`, etc.) sont stylées dans `ficheprojet.css` pour assurer une apparence homogène.
 
+### 4.10. searchmodule.js
+- **Rôle** : recherche d’adresses via l’API Adresse (data.gouv), overlay de résultats, ajout d’un marqueur et recentrage de la carte.
+- **API** : `SearchModule.init(map)`
+
+### 4.11. geolocation.js
+- **Rôle** : bouton « Centrer sur ma position », récupère la position via `navigator.geolocation`, affiche un marqueur/cercle de précision et recadre la carte.
+- **API** : `GeolocationModule.init(map)`, `handleLocationButtonClick()`
+
 ---
 
 ## 5. Fonctionnement des fiches projets (Project Sheets)
@@ -174,16 +185,11 @@ grandprojetV2/
 Les "fiches projets" sont les pages de détail qui présentent chaque projet urbain (transport, vélo, urbanisme...) de façon riche et interactive. Il existe deux types de fiches : **fiches dynamiques (Markdown)** et **fiches statiques (HTML)**.
 
 ### 5.1 Fiches dynamiques (Markdown)
-- **Stockage** : Les contenus sont stockés dans `data.js` sous la forme d’un objet `window.projectDetails` :
-  ```js
-  window.projectDetails = {
-    "Nom du projet": "# Titre\nDescription en markdown...",
-    ...
-  }
-  ```
-- **Affichage** : Lorsqu’un utilisateur clique sur un projet, le module `NavigationModule.js` appelle :
-  1. `DataModule.getProjectDetails(name, category)` pour récupérer la description Markdown.
-  2. Le front-matter est extrait (couverture, itinéraire, trafic, description) et inséré dans le panneau détail ; le corps Markdown complet n’est plus affiché dans cette vue.
+- **Stockage** : Les contenus sont stockés sous forme de fichiers `.md` dans `pages/velo/`, `pages/mobilite/` et `pages/urbanisme/`.
+- **Affichage** : Lorsqu’un utilisateur clique sur un projet, `NavigationModule.showProjectDetail()` :
+  1. calcule le chemin du fichier Markdown (`pages/<cat>/<slug>.md`)
+  2. lit le fichier avec `fetch()` puis passe par `MarkdownUtils.renderMarkdown()`
+  3. extrait le front‑matter (couverture, itinéraire, trafic, description) et insère ces éléments dans le panneau détail; le corps Markdown complet n’est pas affiché dans cette vue.
 - **Structure recommandée** du Markdown :
   - Un titre (`# ...`)
   - Une introduction
@@ -193,7 +199,7 @@ Les "fiches projets" sont les pages de détail qui présentent chaque projet urb
 
 ### 5.2 Fiches statiques (HTML)
 - **Stockage** : Les pages HTML sont placées dans `pages/velo/`, `pages/mobilite/`, etc. (ex : `pages/velo/voie-lyonnaise-5.html`).
-- **Association** : Le mapping entre un projet et sa fiche HTML se fait via la table Supabase `projectPages` (chargée par `supabaseService.js`), puis injectée dans `window.projectPages` :
+- **Association** : Le mapping entre un projet et sa fiche HTML se fait via la table Supabase `project_pages` (chargée par `supabaseservice.js`), puis injectée dans `window.projectPages` :
   ```js
   window.projectPages = {
     "Nom du projet": "/pages/velo/voie-lyonnaise-5.html",
@@ -209,19 +215,20 @@ Les "fiches projets" sont les pages de détail qui présentent chaque projet urb
   1. L’utilisateur clique sur un projet dans la liste (UI ou carte).
   2. `NavigationModule.showProjectDetail(name, category, event)` est appelé.
   3. Ce module :
-     - Cherche la description Markdown dans `window.projectDetails`.
-     - Cherche l’URL HTML dans `window.projectPages`.
-     - Affiche la couverture, les chips itinéraire/trafic ainsi que la description issue du front-matter (le corps Markdown complet est masqué).
+     - Lit le Markdown depuis `pages/<cat>/*.md` et en extrait les métadonnées et la description.
+     - Cherche l’URL HTML dans `window.projectPages` (mapping Supabase) — sinon tente une page `.html` correspondante.
+     - Affiche la couverture, les chips itinéraire/trafic ainsi que la description issue du front‑matter (le corps Markdown complet est masqué).
      - Si une fiche HTML existe, affiche un bouton « Voir la fiche complète » (ouvre la page dans un nouvel onglet).
-- **Modules impliqués** : `NavigationModule.js`, `DataModule.js`, `UIModule.js`, `supabaseService.js` (pour le mapping projectPages).
+- **Modules impliqués** : `modules/navigationmodule.js`, `modules/datamodule.js`, `modules/uimodule.js`, `modules/supabaseservice.js` (pour le mapping projectPages).
 
 ### 5.4 Ajouter ou modifier une fiche projet
 - **Pour une fiche dynamique** :
-  - Ajouter ou modifier l’entrée correspondante dans `window.projectDetails` dans `data.js`.
-  - Utiliser le Markdown pour structurer le contenu.
+  - Créer/éditer un fichier `.md` dans `pages/velo/`, `pages/mobilite/` ou `pages/urbanisme/`.
+  - Respecter le slug attendu par `navigationmodule.js` (ex. vélo: `ligne-<num>.md` ou `pages/velo/<slug>.md`).
+  - Renseigner le front‑matter (couverture, itinéraire, trafic, description) en tête de fichier.
 - **Pour une fiche statique** :
   - Créer un fichier `.html` dans le bon sous-dossier de `pages/`.
-  - Ajouter ou mettre à jour le mapping dans Supabase (`projectPages`), ou dans le mapping local si utilisé.
+  - Ajouter ou mettre à jour le mapping dans Supabase (`project_pages`), ou dans le mapping local si utilisé.
   - Vérifier que le nom du projet correspond à la clé utilisée dans l’UI.
 
 ### 5.5 Résumé visuel du flux
@@ -229,9 +236,7 @@ Les "fiches projets" sont les pages de détail qui présentent chaque projet urb
 ```
 [UI] --clic--> NavigationModule.showProjectDetail
          |
-         |-- (cat. Vélo) -- fetch /pages/velo/*.md ----\
-         |                                              |--> MarkdownUtils.renderMarkdown --> attrs --> projectDetailPanel
-         |-- (autres cat.) DataModule.getProjectDetails -/
+         |-- fetch pages/<cat>/*.md ---------------------> MarkdownUtils.renderMarkdown --> attrs --> projectDetailPanel
          |
          |-- window.projectPages ? --> affiche bouton fiche HTML (nouvel onglet)
          |
@@ -239,7 +244,7 @@ Les "fiches projets" sont les pages de détail qui présentent chaque projet urb
 ```
 
 ### 5.6 Bonnes pratiques
-- Garder les titres de projets cohérents entre Supabase, `data.js` et les fichiers HTML.
+- Garder les titres de projets cohérents entre Supabase et les noms/chemins des fichiers Markdown/HTML.
 - Préférer le Markdown pour les fiches simples ou fréquemment modifiées.
 - Utiliser les fiches HTML pour les contenus très riches ou nécessitant une mise en page avancée.
 - Toujours tester l’ouverture des fiches sur différents navigateurs pour vérifier le rendu.
@@ -268,19 +273,34 @@ Les "fiches projets" sont les pages de détail qui présentent chaque projet urb
 
 ## 8. Lancement et configuration
 
-1. Lancer l’application en local :
+1. Lancer l’application en local (recommandé — live-server via npm) :
 
    ```powershell
-   # (Facultatif) fermer d’éventuels serveurs encore actifs
-   taskkill /F /IM node.exe 2>NUL
-   taskkill /F /IM python.exe 2>NUL
+   # 1) Installer les dépendances
+   npm install
 
-   # Démarrer le serveur statique Python sur le port 8000
+   # 2) Démarrer le serveur de dev (port 3000)
+   npm run start
+   ```
+   Puis ouvrir `http://127.0.0.1:3000` (ou l’URL affichée par live-server).
+
+   Étapes optionnelles (SEO/Build utilitaires) :
+   ```powershell
+   # Générer les métadonnées SEO statiques (si Python dispo)
+   npm run build:seo   # ou
+   npm run build:seo:py
+
+   # Build placeholder (aucun bundling requis)
+   npm run build
+   ```
+
+   Alternative Python (optionnelle) :
+   ```powershell
    python -m http.server 8000
    ```
-   Puis ouvrir `http://localhost:8000` dans votre navigateur.
+   Puis ouvrir `http://localhost:8000`.
 
-2. Vérifier les variables d’environnement Supabase (URL, API key) dans `supabaseService.js` (⚠️ ne jamais exposer la clé admin en prod !).
+2. Supabase : `modules/supabaseservice.js` initialise le client à partir d’une URL et d’une clé publique (rôle `anon`). En production, préférez charger ces valeurs via variables d’environnement/injection de build et n’exposez jamais de clé admin.
 3. Profiter de l’application : navigation, filtres, fonds de carte, fiches projet.
 
 ---
@@ -315,7 +335,7 @@ Les "fiches projets" sont les pages de détail qui présentent chaque projet urb
 ### 9.5 Affichage du détail d’un projet
 - Clic sur un projet dans la liste :
   1. `NavigationModule.showProjectDetail(name, category, event)` est appelé
-  2. Le Markdown de `window.projectDetails[name]` est converti en HTML et affiché
+  2. Le Markdown du fichier `pages/<cat>/<slug>.md` est lu, puis ses métadonnées (couverture, itinéraire, etc.) sont affichées dans le panneau
   3. Si une fiche statique existe, le bouton “Voir la fiche complète” apparaît
   4. La carte zoome sur le projet, affiche une surbrillance
 
@@ -345,21 +365,21 @@ Les "fiches projets" sont les pages de détail qui présentent chaque projet urb
 
 **Q : Je ne vois aucune donnée sur la carte ?**
 - Vérifier la connexion internet (CDN, Supabase)
-- Vérifier la configuration des URLs dans Supabase et dans `supabaseService.js`
+- Vérifier la configuration des URLs dans Supabase et dans `modules/supabaseservice.js`
 
 **Q : Les filtres ne fonctionnent pas ?**
-- Vérifier la structure de la table `filtersConfig` dans Supabase
+- Vérifier la structure des tables `filter_categories` et `filter_items` dans Supabase
 - S’assurer que les propriétés des GeoJSON sont cohérentes
 
 **Q : Les fiches projet ne s’affichent pas ?**
-- Vérifier que la clé du projet existe dans `window.projectDetails` ou dans `window.projectPages`
+- Vérifier qu’un fichier Markdown existe au bon chemin (`pages/<cat>/<slug>.md`) et/ou qu’un mapping existe dans `window.projectPages` (provenant de la table `project_pages`)
 
 ---
 
 ## 11. Conseils pour la maintenance et l’évolution
 
 - Pour ajouter une nouvelle catégorie ou couche :
-  - Ajouter la config dans Supabase (`layersConfig`, `filtersConfig`, etc.)
+  - Configurer les tables Supabase concernées (`layers`, `filter_categories`/`filter_items`, etc.)
   - Ajouter les styles dans `style.css` si besoin
   - Générer les pages Markdown/HTML associées dans `pages/`
 - Pour modifier un module :
@@ -418,6 +438,12 @@ Cette section documente la structure et un aperçu du contenu de la base Supabas
     - `id`, `project_name` text unique, `page_url` text
   - `urbanisme_projects` (PK: `id` bigint identity always)
     - `id`, `name` text, `city` text
+  - `consultation_dossiers` (PK: `id` bigint identity always)
+    - `id`, `project_name` text, `title` text, `pdf_url` text
+  - `grandlyon_project_links` (PK: `id` bigint identity always)
+    - `id`, `project_slug` text unique, `project_name` text, `url` text
+  - `sytral_project_links` (PK: `id` bigint identity always)
+    - `id`, `project_name` text, `url` text
 
 - __Relations utiles__
   - `filter_items.category_id` → `filter_categories.id`
@@ -446,6 +472,52 @@ Notes:
 - Les schémas `auth`, `storage`, `realtime`, `vault`, `pgsodium` contiennent des tables gérées par Supabase (potentiellement sensibles). Exporter ces contenus uniquement si nécessaire.
 - Les fiches Urbanisme en Markdown référencent une image de couverture via front‑matter; stocker les fichiers sous `/img/cover/urbanisme/` et utiliser un chemin relatif correct dans chaque `.md`.
 
+## 13. Déploiement
+
+### 13.1 Windsurf (statique)
+- Le projet est un site statique. Le fichier `windsurf_deployment.yaml` indique :
+  - `framework: html`
+  - `publish_directory: "."`
+  - `build_command: ""` (aucun build requis par défaut)
+- Déployer via l’action de déploiement Windsurf. Assurez‑vous que `index.html` est à la racine et que les chemins relatifs pointent correctement vers `pages/`, `modules/`, `img/`, `vendor/`.
+
+### 13.2 Netlify (alternative)
+- Créer un nouveau site sur Netlify et pointer sur ce dossier (ou connecter le dépôt Git).
+- Paramètres de build :
+  - Build command : vide (ou `npm run build` si vous introduisez un process de build)
+  - Publish directory : `.`
+- Variables d’environnement (optionnel) :
+  - Si vous externalisez `SUPABASE_URL` et `SUPABASE_ANON_KEY`, injectez‑les et chargez‑les dans `modules/supabaseservice.js` (via injection au build ou un petit script qui lit `import.meta.env`/`window.__ENV__`). N’exposez jamais de clé admin.
+
+### 13.3 Autres hébergeurs
+- GitHub Pages, Vercel (static export), S3/CloudFront… fonctionnent tant que le site est servi tel quel.
+- Vérifier les chemins relatifs et l’accès aux fichiers Markdown sous `pages/`.
+
 ---
 
+## 14. Contribuer (CONTRIBUTING)
+
+- **Style de code**
+  - JavaScript ES6 sans bundler. Modules attachés à `window.*` (ex: `window.UIModule`).
+  - Respecter la casse des fichiers (`modules/supabaseservice.js`, pas `SupabaseService.js`).
+  - Imports/chargements au début des fichiers. Pas d’imports au milieu du code.
+  - Logs: limiter `console.log` au debug utile, éviter le bruit en production.
+- **Workflow Git**
+  - Créer une branche par fonctionnalité (`feat/…`, `fix/…`).
+  - Petits commits; messages clairs (Conventional Commits recommandé mais non obligatoire).
+  - Ouvrir une PR avec description courte, captures si UI, et étapes de test.
+- **Tests manuels**
+  - `npm run start` puis vérifier: chargement basemaps, filtres, couches, panneau détail Markdown + lien fiche HTML.
+  - Vérifier l’absence d’erreurs JS dans la console.
+- **Issues**
+  - Décrire le contexte, étapes de reproduction, résultat attendu, captures, logs.
+
+## 15. Changelog
+
+Suivi au format inspiré de « Keep a Changelog ».
+
+### [Unreleased]
+- Documentation: README refondu (modules, Supabase, Quickstart, Déploiement Windsurf/Netlify, FAQ, maintenance).
+
+---
 *(Ce README est conçu pour permettre à une IA ou un développeur de comprendre, maintenir et faire évoluer l’application sans ambiguïté.)*
