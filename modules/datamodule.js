@@ -546,152 +546,209 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
     // Tooltip personnalisé pour la couche 'travaux'
     if (layerName === 'travaux') {
       const props = feature.properties || {};
-      // Construction du contenu du tooltip avec les champs demandés
-      const tooltipContent = `
-        <div class="travaux-tooltip-content">
-          <div class="tt-row">
-            <span class="icon">📍</span><span class="tt-label">Adresse</span><br>
-            <span class="tt-value">${props.adresse ? props.adresse.replace(/\n/g, '<br>') : '-'}</span>
-          </div>
-          <div class="tt-row">
-            <span class="icon">📅</span><span class="tt-label">Date des travaux prévue</span><br>
-            <span class="tt-value">${(() => {
-              const debut = props.date_debut;
-              const fin = props.date_fin;
-              const opts = { day: 'numeric', month: 'long', year: 'numeric' };
-              const now = new Date();
-              const safeDate = (v) => {
-                const d = v ? new Date(v) : null;
-                return d && !isNaN(d.getTime()) ? d : null;
-              };
+      const safeDate = (v) => {
+        const d = v ? new Date(v) : null;
+        return d && !isNaN(d.getTime()) ? d : null;
+      };
+      const debut = safeDate(props.date_debut);
+      const fin = safeDate(props.date_fin);
+      const now = new Date();
+      const dateFmt = (d) => d ? d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
+      const durationDays = (debut && fin && fin > debut) ? Math.max(1, Math.round((fin - debut) / 86400000)) : null;
+      const progressPct = (() => {
+        if (!(debut && fin) || fin <= debut) return 0;
+        const total = fin - debut;
+        const elapsed = now - debut;
+        return Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
+      })();
+      const endColor = progressPct >= 100 ? '#14AE5C' : '#F59E0B';
+      const gradientBg = `linear-gradient(90deg, #E1002A 0%, ${endColor} 100%)`;
+      const todayPct = (() => {
+        if (!(debut && fin) || fin <= debut) return 0;
+        const total = fin - debut;
+        return Math.max(0, Math.min(100, ((now - debut) / total) * 100));
+      })();
+      const commune = props.commune || props.ville || props.COMMUNE || '';
+      const titre = props.nature_travaux || 'Chantier';
+      const etat = props.etat || '—';
+      const etatClass = (() => {
+        const e = (etat || '').toLowerCase();
+        if (e.includes('ouver')) return 'etat--ouvert';
+        if (e.includes('prochain')) return 'etat--prochain';
+        if (e.includes('termin')) return 'etat--termine';
+        return 'etat--neutre';
+      })();
+      const adrs = (props.adresse || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
 
-              if (debut && fin) {
-                try {
-                  const d = safeDate(debut);
-                  const f = safeDate(fin);
-                  if (d && f) {
-                    const dStr = d.toLocaleDateString('fr-FR', opts);
-                    const fStr = f.toLocaleDateString('fr-FR', opts);
-                    // Calcul du pourcentage d'avancement entre d et f
-                    let pctStr = '';
-                    if (f.getTime() > d.getTime()) {
-                      const total = f.getTime() - d.getTime();
-                      const elapsed = now.getTime() - d.getTime();
-                      const raw = Math.round((elapsed / total) * 100);
-                      const clamped = Math.max(0, Math.min(100, raw));
-                      pctStr = ` — ${clamped}%`;
-                    }
-                    return `du ${dStr} au ${fStr}${pctStr}`;
-                  }
-                  // Fallback si parsing invalide
-                  return `${debut} au ${fin}`;
-                } catch {
-                  return `${debut} au ${fin}`;
-                }
-              } else if (debut) {
-                try {
-                  const d = safeDate(debut);
-                  return d ? `le ${d.toLocaleDateString('fr-FR', opts)}` : debut;
-                } catch {
-                  return debut;
-                }
-              } else if (fin) {
-                try {
-                  const f = safeDate(fin);
-                  return f ? `jusqu'au ${f.toLocaleDateString('fr-FR', opts)}` : fin;
-                } catch {
-                  return fin;
-                }
-              } else {
-                return 'Non renseigné';
-              }
-            })()}</span>
-            <div class="travaux-date-slider" data-debut="${props.date_debut || ''}" data-fin="${props.date_fin || ''}" aria-label="Curseur de date des travaux">
-              <input class="travaux-range" type="range" min="0" max="100" value="${(() => {
-                const d = props.date_debut ? new Date(props.date_debut) : null;
-                const f = props.date_fin ? new Date(props.date_fin) : null;
-                if (d && f && !isNaN(d) && !isNaN(f) && f.getTime() > d.getTime()) {
-                  const now = new Date();
-                  const total = f.getTime() - d.getTime();
-                  const elapsed = now.getTime() - d.getTime();
-                  const raw = Math.round((elapsed / total) * 100);
-                  return Math.max(0, Math.min(100, raw));
-                }
-                return 0;
-              })()}" />
-              <div class="slider-label" aria-hidden="true"></div>
+      // HTML bento structure
+      const tooltipContent = `
+        <div class="gp-travaux glass">
+          <div class="gp-hero">
+            <div class="hero-left">
+              <span class="hero-icon">🚧</span>
+              <div>
+                <div class="hero-title">Travaux ${commune ? `— ${commune}` : ''}</div>
+                <div class="hero-sub">${titre}</div>
+              </div>
             </div>
+            <span class="etat-pill ${etatClass}">${etat}</span>
           </div>
-          <div class="tt-row">
-            <span class="icon">🟢</span><span class="tt-label">État</span><br>
-            <span class="tt-value">${props.etat || '-'}</span>
-          </div>
-          <div class="tt-row">
-            <span class="icon">🚧</span><span class="tt-label">Nature chantier</span><br>
-            <span class="tt-value">${props.nature_chantier || '-'}</span>
-          </div>
-          <div class="tt-row">
-            <span class="icon">🛠️</span><span class="tt-label">Nature travaux</span><br>
-            <span class="tt-value">${props.nature_travaux || '-'}</span>
+
+          <div class="gp-bento">
+            <section class="tile tile--etat tile--timeline span-2">
+              <h3>Avancement</h3>
+              <div class="timeline">
+                <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPct}" aria-label="Avancement des travaux">
+                  <div class="fill" data-target="${progressPct}" style="width:0%; background:${gradientBg}; box-shadow: 0 0 10px ${progressPct>=100 ? 'rgba(20,174,92,0.25)' : 'rgba(245,158,11,0.25)'}"></div>
+                  <div class="today" style="left:${todayPct}%; background:${endColor}; box-shadow: 0 0 0 3px ${progressPct>=100 ? 'rgba(20,174,92,0.25)' : 'rgba(245,158,11,0.25)'}, 0 0 10px ${progressPct>=100 ? 'rgba(20,174,92,0.4)' : 'rgba(245,158,11,0.4)'};"></div>
+                </div>
+                <div class="dates">
+                  <span>${debut ? dateFmt(debut) : '-'}</span>
+                  <span>${fin ? dateFmt(fin) : '-'}</span>
+                </div>
+                <div class="meta">
+                  <span>${durationDays ? `${durationDays} jours` : ''}</span>
+                  <span>${progressPct}%</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="tile">
+              <h3>Natures</h3>
+              <div class="badges">
+                ${props.nature_chantier ? `<span class="badge">${props.nature_chantier}</span>` : ''}
+                ${props.nature_travaux ? `<span class="badge">${props.nature_travaux}</span>` : ''}
+              </div>
+            </section>
+
+            <section class="tile">
+              <h3>Adresses</h3>
+              <ul class="addresses ${adrs.length > 5 ? 'collapsed' : ''}">
+                ${adrs.map((a)=>`<li><span>${a}</span></li>`).join('')}
+              </ul>
+              <div class="tile-actions">
+                ${adrs.length>5 ? '<button class="toggle-addresses">Voir plus</button>' : ''}
+              </div>
+            </section>
           </div>
         </div>
       `;
       
-      // Bind du popup au clic avec positionnement automatique
-      layer.bindPopup(tooltipContent, {
-        className: 'travaux-tooltip',
-        closeButton: true,
-        autoPan: true,
-        autoPanPadding: [100, 20],
-        maxWidth: 400
-      });
-
-      // Initialiser le curseur lors de l'ouverture du popup
-      layer.on('popupopen', (e) => {
+      // Ouvrir un modal avec flou d'arrière-plan au lieu d'un popup Leaflet
+      const openTravauxModal = (html) => {
         try {
-          const el = e.popup.getElement();
-          if (!el) return;
-          const wrap = el.querySelector('.travaux-date-slider');
-          if (!wrap) return;
-          const dStr = wrap.getAttribute('data-debut');
-          const fStr = wrap.getAttribute('data-fin');
-          const safeDate = (v) => {
-            const d = v ? new Date(v) : null;
-            return d && !isNaN(d.getTime()) ? d : null;
-          };
-          const d = safeDate(dStr);
-          const f = safeDate(fStr);
-          const input = wrap.querySelector('input[type="range"]');
-          const label = wrap.querySelector('.slider-label');
-          if (!d || !f || f.getTime() <= d.getTime()) {
-            // Dates invalides -> masquer le contrôle
-            wrap.style.display = 'none';
-            return;
+          // Overlay
+          const overlay = document.createElement('div');
+          overlay.className = 'gp-modal-overlay';
+          overlay.setAttribute('role', 'dialog');
+          overlay.setAttribute('aria-modal', 'true');
+          overlay.innerHTML = `
+            <div class="gp-modal gp-travaux-modal">
+              <div class="gp-modal-header">
+                <div class="gp-modal-title">Détails du chantier</div>
+                <button class="gp-modal-close" aria-label="Fermer">✖</button>
+              </div>
+              <div class="gp-modal-body">
+                ${html}
+              </div>
+            </div>
+          `;
+          document.body.appendChild(overlay);
+          // Accessibility: link dialog to title
+          const titleEl = overlay.querySelector('.gp-modal-title');
+          if (titleEl) {
+            const titleId = `gp-modal-title-${Date.now()}`;
+            titleEl.id = titleId;
+            overlay.setAttribute('aria-labelledby', titleId);
           }
-          // Couleurs selon avancement (0% rouge -> 100% vert)
-          const scale = ['#E1002A','#E71922','#ED3319','#F34C11','#F96608','#D08812','#A19225','#729B37','#43A54A','#14AE5C'];
-          const colorFromPct = (pct) => {
-            const idx = Math.max(0, Math.min(scale.length - 1, Math.round((pct / 100) * (scale.length - 1))));
-            return scale[idx];
-          };
-          const update = () => {
-            const pct = Math.max(0, Math.min(100, Number(input.value) || 0));
-            const color = colorFromPct(pct);
-            // Colorer la piste jusqu'au pourcentage et le pouce
-            const gradient = `linear-gradient(to right, ${color} 0%, ${color} ${pct}%, #e9eef2 ${pct}%, #e9eef2 100%)`;
-            input.style.background = gradient;
-            // Colorer le thumb (WebKit/Firefox nécessitent CSS, mais on donne une teinte via filter si supportée)
-            input.style.setProperty('--thumb-color', color);
-            // Mettre à jour le label et sa position
-            if (label) {
-              label.textContent = `${pct}%`;
-              // Position approx: calc(% - moitié du label)
-              label.style.left = `calc(${pct}% - 12px)`;
+
+          // Prevent background scroll while modal is open
+          let prevOverflow = document.body.style.overflow;
+          document.body.style.overflow = 'hidden';
+
+          // Focus trap within the modal
+          const modalRoot = overlay.querySelector('.gp-modal');
+          const focusableSelector = 'a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])';
+          const focusables = Array.from(modalRoot?.querySelectorAll(focusableSelector) || []).filter(el => !el.hasAttribute('disabled'));
+          const firstFocusable = focusables[0];
+          const lastFocusable = focusables[focusables.length - 1];
+          const previouslyFocused = document.activeElement;
+
+          const trapTab = (e) => {
+            if (e.key !== 'Tab' || focusables.length === 0) return;
+            if (e.shiftKey) {
+              if (document.activeElement === firstFocusable) {
+                e.preventDefault();
+                lastFocusable?.focus();
+              }
+            } else {
+              if (document.activeElement === lastFocusable) {
+                e.preventDefault();
+                firstFocusable?.focus();
+              }
             }
           };
-          input.addEventListener('input', update);
-          update();
-        } catch (_) { /* silencieux */ }
+          overlay.addEventListener('keydown', trapTab);
+
+          // Set initial focus to close button or first focusable
+          (overlay.querySelector('.gp-modal-close') || firstFocusable)?.focus();
+
+          const close = () => {
+            try {
+              document.removeEventListener('keydown', onKey);
+              overlay.removeEventListener('keydown', trapTab);
+              // Restore background scroll
+              document.body.style.overflow = prevOverflow || '';
+              // Restore previous focus
+              if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+                setTimeout(() => previouslyFocused.focus(), 0);
+              }
+              overlay.remove();
+            } catch(_) {}
+          };
+          const onKey = (ev) => { if (ev.key === 'Escape') close(); };
+          document.addEventListener('keydown', onKey);
+
+          // Fermer en cliquant hors du modal
+          overlay.addEventListener('click', (ev) => {
+            if (ev.target === overlay) close();
+          });
+          overlay.querySelector('.gp-modal-close')?.addEventListener('click', close);
+
+          // Initialisations spécifiques Bento
+          const modalEl = overlay.querySelector('.gp-travaux');
+          if (modalEl) {
+            // Progress bar animation
+            const fill = modalEl.querySelector('.timeline .fill');
+            const target = Number(fill?.getAttribute('data-target') || 0);
+            if (fill && !isNaN(target)) {
+              requestAnimationFrame(() => {
+                fill.style.width = '0%';
+                setTimeout(()=>{ fill.style.width = `${target}%`; }, 40);
+              });
+            }
+
+            // Addresses toggle/copy
+            const ul = modalEl.querySelector('.addresses');
+            const toggleBtn = modalEl.querySelector('.toggle-addresses');
+            toggleBtn?.addEventListener('click', () => {
+              ul?.classList.toggle('collapsed');
+              if (toggleBtn.textContent.includes('plus')) toggleBtn.textContent = 'Voir moins';
+              else toggleBtn.textContent = 'Voir plus';
+            });
+
+          }
+        } catch(_) { /* noop */ }
+      };
+
+      // Clic sur la feature: ouvrir le modal et marquer l'événement comme géré
+      layer.on('click', (evt) => {
+        try {
+          if (evt && evt.originalEvent) {
+            evt.originalEvent.__gpHandledTravaux = true;
+          }
+        } catch(_) {}
+        openTravauxModal(tooltipContent);
       });
     }
     
@@ -721,6 +778,10 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
 
     // Ajout d'un gestionnaire de clic robuste
     layer.on('click', (e) => {
+      // Si le clic a déjà été géré par l'ouverture d'un modal Travaux, ne rien faire
+      if (e?.originalEvent?.__gpHandledTravaux) {
+        return;
+      }
       e.originalEvent.preventDefault();
       e.originalEvent.stopPropagation();
       
