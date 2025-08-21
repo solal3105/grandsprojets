@@ -1639,6 +1639,21 @@ submenu.insertBefore(filterUX, listEl);
           }
         });
         
+        // 4. Rendre le contenu du sous-menu correspondant (minimal fix)
+        try {
+          if (category === 'velo') {
+            renderVeloProjects();
+          } else if (category === 'transport') {
+            renderTransportProjects();
+          } else if (category === 'urbanisme') {
+            renderUrbanismeTabs();
+          } else if (category === 'travaux') {
+            renderTravauxProjects();
+          }
+        } catch (e) {
+          console.warn('[NavigationModule] rendu sous-menu échoué (non bloquant):', e);
+        }
+        
         return; // Ne pas continuer avec la réinitialisation complète
       }
     }

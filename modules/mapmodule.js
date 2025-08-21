@@ -7,8 +7,10 @@ window.MapModule = (() => {
   // Global invisible hitline pane and SVG renderer (for wider clickable area on paths)
   const hitPaneName = 'hitlinePane';
   const hitPane = map.createPane(hitPaneName);
-  // Place above vector overlays but below markers to preserve marker interactivity
-  hitPane.style.zIndex = 550;
+  // Place above clickable layers to avoid hover jitter; still below popups
+  // Leaflet defaults: tilePane=200, overlayPane=400, markerPane=600, tooltipPane=650, popupPane=700
+  // clickableLayers pane is set to 650 in DataModule
+  hitPane.style.zIndex = 660;
   const hitRenderer = L.svg({ pane: hitPaneName });
   
   /**

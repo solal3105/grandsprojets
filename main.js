@@ -355,52 +355,55 @@
 
       // Fonction pour obtenir la catégorie à partir du nom de la couche
       function getCategoryFromLayer(layerName) {
-        if (layerName.includes('voielyonnaise')) return 'velo';
-        if (layerName.includes('reseauProjete') || layerName.includes('metro') || layerName.includes('tramway')) return 'transport';
-        if (layerName.includes('urbanisme')) return 'urbanisme';
+        const ln = String(layerName || '');
+        if (ln.includes('voielyonnaise')) return 'velo';
+        if (ln.includes('reseauProjete') || ln.includes('metro') || ln.includes('tramway')) return 'transport';
+        if (ln.includes('urbanisme')) return 'urbanisme';
         return 'autre';
       }
 
-      // Exposition de NavigationModule et ajout du gestionnaire de clic
+      // Exposition de NavigationModule et ajout du gestionnaire de clic (robuste aux features incomplètes)
       window.handleFeatureClick = function(feature, layerName) {
-        console.log('Feature cliquée:', feature, 'Layer:', layerName);
-        
-        const projectName = feature.properties?.name || 
-                         feature.properties?.Name || 
-                         feature.properties?.LIBELLE;
-        
-        if (!projectName) {
-            console.error('Impossible de trouver le nom du projet');
-            return;
-        }
-
-        const category = getCategoryFromLayer(layerName);
-        console.log('Ouverture du projet:', { projectName, category });
-        
-        // Essayer d'utiliser NavigationModule s'il est disponible
-        if (typeof NavigationModule !== 'undefined' && NavigationModule.showProjectDetail) {
-          NavigationModule.showProjectDetail(projectName, category);
-        } 
-        // Sinon, essayer window.NavigationModule
-        else if (window.NavigationModule?.showProjectDetail) {
-          window.NavigationModule.showProjectDetail(projectName, category);
-        }
-        // Sinon, essayer de trouver le panneau de détail et de le remplir manuellement
-        else {
-          console.warn('NavigationModule non disponible, tentative de chargement manuel');
-          const detailPanel = document.getElementById('project-detail');
-          const detailContent = document.getElementById('detail-content');
+        try {
+          console.log('Feature cliquée:', feature, 'Layer:', layerName);
+          const p = (feature && feature.properties) || {};
+          const projectName = p.name || p.Name || p.LIBELLE;
           
-          if (detailPanel && detailContent) {
-            // Afficher le panneau
-            detailPanel.style.display = 'block';
-            detailPanel.dataset.category = category;
-            
-            // Récupérer les détails du projet
-            detailContent.innerHTML = `# ${projectName}\n\nAucun détail disponible pour ce projet.`;
-          } else {
-            console.error('Impossible de trouver le panneau de détail');
+          if (!projectName) {
+            console.warn('handleFeatureClick: nom de projet introuvable', { feature });
+            return;
           }
+
+          const category = getCategoryFromLayer(layerName);
+          console.log('Ouverture du projet:', { projectName, category });
+          
+          // Essayer d'utiliser NavigationModule s'il est disponible
+          if (typeof NavigationModule !== 'undefined' && NavigationModule.showProjectDetail) {
+            NavigationModule.showProjectDetail(projectName, category);
+          } 
+          // Sinon, essayer window.NavigationModule
+          else if (window.NavigationModule?.showProjectDetail) {
+            window.NavigationModule.showProjectDetail(projectName, category);
+          }
+          // Sinon, essayer de trouver le panneau de détail et de le remplir manuellement
+          else {
+            console.warn('NavigationModule non disponible, tentative de chargement manuel');
+            const detailPanel = document.getElementById('project-detail');
+            const detailContent = document.getElementById('detail-content');
+            
+            if (detailPanel && detailContent) {
+              // Afficher le panneau
+              detailPanel.style.display = 'block';
+              detailPanel.dataset.category = category;
+              
+              // Récupérer les détails du projet
+              detailContent.innerHTML = `# ${projectName}\n\nAucun détail disponible pour ce projet.`;
+            } else {
+              console.error('Impossible de trouver le panneau de détail');
+            }
+          }
+        } catch (e) {
+          console.error('handleFeatureClick: erreur inattendue', e);
         }
       };
       
@@ -418,7 +421,7 @@
   function updateFilterUI() {
     document.querySelectorAll('.filter-item').forEach(item => {
       const layerName = item.dataset.layer;
-      const active    = !!window.MapModule.layers[layerName];
+      const active    = !!(window.MapModule?.layers?.[layerName]);
       item.classList.toggle('active-filter', active);
     });
   }

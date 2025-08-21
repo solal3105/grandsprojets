@@ -383,6 +383,11 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
     
     // Récupère le style par défaut depuis la configuration Supabase
     const baseStyle = getDefaultStyle(layerName) || {};
+    const p = feature?.properties || null;
+    if (!p) {
+      // Si la feature ou ses propriétés sont absentes, revenir au style par défaut
+      return baseStyle;
+    }
     
     // Applique des styles spécifiques selon le type de couche
     switch(layerName) {
@@ -391,13 +396,13 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
         const metroColors = window.dataConfig?.metroColors || {};
         return {
           ...baseStyle,
-          color: metroColors[feature.properties.ligne] || baseStyle.color || 'green',
+          color: metroColors[p.ligne] || baseStyle.color || 'green',
           weight: baseStyle.weight || 3
         };
         
       case 'voielyonnaise':
         // Pour les voies lyonnaises, on gère l'état de réalisation
-        const isDone = feature.properties?.status === 'done';
+        const isDone = p.status === 'done';
         return {
           ...baseStyle,
           fill: false,
@@ -430,8 +435,8 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
             const d = v ? new Date(v) : null;
             return d && !isNaN(d.getTime()) ? d : null;
           };
-          const d = safeDate(feature?.properties?.date_debut);
-          const f = safeDate(feature?.properties?.date_fin);
+          const d = safeDate(p.date_debut);
+          const f = safeDate(p.date_fin);
           const now = new Date();
           // Palette 0% -> 100% (10 paliers) — inversée (0% rouge, 100% vert)
           const scale = [
@@ -706,7 +711,8 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
       
       // Mise à jour du panneau latéral si nécessaire
       if (window.updateSidePanel) {
-        window.updateSidePanel(feature.properties);
+        const props = (feature && feature.properties) || {};
+        window.updateSidePanel(props);
       }
     }
 
@@ -718,7 +724,9 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
       e.originalEvent.preventDefault();
       e.originalEvent.stopPropagation();
       
-      const projectName = feature.properties.name || feature.properties.line || feature.properties.Name || feature.properties.LIBELLE;
+      const p = (feature && feature.properties) || {};
+      const props = p;
+      const projectName = props?.name || props?.line || props?.Name || props?.LIBELLE;
       
       
       if (projectName) {
@@ -741,7 +749,7 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
           window.handleFeatureClick(feature, layerName);
         }
       } else {
-        console.warn('Projet sans nom détecté:', feature.properties);
+        console.warn('Projet sans nom détecté:', p);
       }
     });
 
@@ -765,23 +773,27 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
       layer.on('mouseover', function(e) {
         // Identifier le projet du segment en fonction de la couche
         let currentProjectName;
+        const p = (feature && feature.properties) || {};
         if (layerName === 'reseauProjeteSitePropre') {
-          currentProjectName = feature.properties.Name || feature.properties.name;
+          currentProjectName = p.Name || p.name;
         } else if (layerName === 'voielyonnaise') {
-          currentProjectName = feature.properties.line;
+          currentProjectName = p.line;
         } else {
-          currentProjectName = feature.properties.name || feature.properties.Name;
+          currentProjectName = p.name || p.Name;
         }
 
         // Réinitialiser tous les styles de la couche
         geojsonLayer.eachLayer(otherLayer => {
           let otherProjectName;
           if (layerName === 'reseauProjeteSitePropre') {
-            otherProjectName = otherLayer.feature.properties.Name || otherLayer.feature.properties.name;
+            const op = (otherLayer && otherLayer.feature && otherLayer.feature.properties) || {};
+            otherProjectName = op.Name || op.name;
           } else if (layerName === 'voielyonnaise') {
-            otherProjectName = otherLayer.feature.properties.line;
+            const op = (otherLayer && otherLayer.feature && otherLayer.feature.properties) || {};
+            otherProjectName = op.line;
           } else {
-            otherProjectName = otherLayer.feature.properties.name || otherLayer.feature.properties.Name;
+            const op = (otherLayer && otherLayer.feature && otherLayer.feature.properties) || {};
+            otherProjectName = op.name || op.Name;
           }
 
           if (otherProjectName === currentProjectName) {
@@ -935,7 +947,8 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
 
       // Sélectionner et mettre en évidence les segments du projet
       geojsonLayer.eachLayer(otherLayer => {
-        const otherProjectName = otherLayer.feature.properties.line || otherLayer.feature.properties.name;
+        const op = (otherLayer && otherLayer.feature && otherLayer.feature.properties) || {};
+        const otherProjectName = op.line || op.name;
         
         if (otherProjectName === projectName) {
           if (typeof otherLayer.setStyle === 'function') {
@@ -956,14 +969,15 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
     layer.on('click', () => {
       // 1. Récupérer le nom du projet selon la couche
       let projectName;
+      const p = (feature && feature.properties) || {};
       if (layerName === 'voielyonnaise') {
-        projectName = feature.properties.line;
+        projectName = p.line;
       } else if (layerName === 'reseauProjeteSitePropre') {
-        projectName = feature.properties.Name;
+        projectName = p.Name;
       } else if (layerName === 'urbanisme') {
-        projectName = feature.properties.name;
+        projectName = p.name;
       } else {
-        projectName = feature.properties.name || feature.properties.nom || feature.properties.Name;
+        projectName = p.name || p.nom || p.Name;
       }
 
       // 2. Préparer le nom d'affichage (ajustement pour Voie Lyonnaise)
@@ -1114,17 +1128,17 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
         if (feature && feature.geometry && feature.geometry.type === 'Point') {
           return false;
         }
+        const props = (feature && feature.properties) || {};
         // 1. Vérifier les critères de filtrage standards
         const standardCriteriaMatch = Object.entries(criteria)
           .filter(([key]) => !key.startsWith('_')) // Exclure les critères spéciaux (commençant par _)
           .every(([key, value]) => 
-            ("" + (feature.properties[key] || "")).toLowerCase() === String(value).toLowerCase()
+            ("" + (props[key] || "")).toLowerCase() === String(value).toLowerCase()
           );
         
         // 2. Vérifier le filtre des réseaux si activé
         const hideReseaux = criteria._hideReseaux === true;
         if (hideReseaux) {
-          const props = feature.properties || {};
           const isFeatureReseau = isReseau(props.nature_travaux) || isReseau(props.nature_chantier);
           return standardCriteriaMatch && !isFeatureReseau;
         }
@@ -1140,13 +1154,15 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
           const g = feature && feature.geometry;
           const t = g && g.type;
           const isLine = t === 'LineString' || t === 'MultiLineString';
-          if (isLine && MapModule?.hitRenderer && MapModule?.hitPaneName) {
+          // Create hitline only for clickable layers (those that open a project sheet)
+          if (isLine && isClickable && MapModule?.hitRenderer && MapModule?.hitPaneName) {
             const hit = L.geoJSON(feature, {
               renderer: MapModule.hitRenderer,
               pane: MapModule.hitPaneName,
               interactive: true,
               bubblingMouseEvents: false,
               style: {
+                // Invisible mais interactif (large zone de clic)
                 color: '#000',
                 opacity: 0.001,
                 weight: 24,
@@ -1154,29 +1170,37 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
                 lineJoin: 'round'
               }
             });
-            // Add to the same group so removal is automatic with the layer
-            hit.addTo(geojsonLayer);
+            // Add directly to map to ensure it renders in its pane regardless of parent layer
+            hit.addTo(MapModule.map);
 
-            // Forward pointer events from the hitline to the original visible layer
+            // Forward pointer events from each hit sublayer to the original visible layer
             const forward = (eventName) => {
-              hit.on(eventName, (e) => {
-                try {
-                  if (e && e.originalEvent) {
-                    e.originalEvent.preventDefault?.();
-                    e.originalEvent.stopPropagation?.();
-                  }
-                  layer.fire(eventName, {
-                    latlng: e.latlng,
-                    layerPoint: e.layerPoint,
-                    containerPoint: e.containerPoint,
-                    originalEvent: e.originalEvent,
-                    target: layer,
-                    propagatedFrom: 'hitline'
-                  });
-                } catch (_) { /* noop */ }
+              hit.eachLayer(h => {
+                h.on(eventName, (e) => {
+                  try {
+                    if (e && e.originalEvent) {
+                      e.originalEvent.preventDefault?.();
+                      e.originalEvent.stopPropagation?.();
+                    }
+                    layer.fire(eventName, {
+                      latlng: e.latlng,
+                      layerPoint: e.layerPoint,
+                      containerPoint: e.containerPoint,
+                      originalEvent: e.originalEvent,
+                      target: layer,
+                      propagatedFrom: 'hitline'
+                    });
+                  } catch (_) { /* noop */ }
+                });
               });
             };
-            ['click','mouseover','mouseout','mousemove','contextmenu','touchstart','touchend'].forEach(forward);
+            // Rétablit l'animation au survol en relayant aussi hover/move
+            ['click', 'touchstart', 'mouseover', 'mouseout', 'mousemove'].forEach(forward);
+
+            // Keep lifecycle in sync: remove hitline when original layer is removed
+            layer.on('remove', () => {
+              try { MapModule.map.removeLayer(hit); } catch (_) { /* noop */ }
+            });
           }
         } catch (_) { /* noop */ }
       }
