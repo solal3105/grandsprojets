@@ -1,0 +1,128 @@
+BHNS 2030
+Reliera Part-Dieu à Parilly d’ici 2029, 50 000 voyageurs/jour, alternative rapide et écolo à la voiture dans l’Est lyonnais.
+
+BHNS
+Liaison rapide Part-Dieu – Sept-Chemins dès 2026, 50 000 voyageurs/jour, bus confortables et priorités aux feux pour trajets fiables.
+
+T10
+Tramway Gerland–Vénissieux dès 2027 via Saint-Fons, 38 000 voyageurs/jour, rues requalifiées et correspondances métro/tram optimisées.
+
+T6 Nord
+Prolongement T6 vers La Doua dès 2026 via Villeurbanne, 55 000 voyageurs/jour, accès direct campus et centre-ville.
+
+T8
+Tram Vaulx-la Soie – Vénissieux via Parilly, 35 000 voyageurs/jour, mise en service 2032, requalification urbaine de l’Est lyonnais.
+
+T9
+Tram La Soie–Charpennes en 2026, 11 km, 19 stations, 40 000 voyageurs/jour, pont sur le canal et meilleur maillage est-nord.
+
+TEOL
+Tram express Alaï–Confluence en 2032 via tunnel et site propre, alternative rapide au métro E abandonné pour l’ouest lyonnais.
+
+Lyon Confluence phase 2
+35 ha côté Rhône, 1 200 logements, bureaux, commerces, parc du Champ, mobilité douce et continuité avec Perrache d’ici 2032.
+
+Lyon Garibaldi phase 3
+Trottoirs élargis, pistes cyclables, 156 arbres, apaisement de la rue Garibaldi entre Arménie et Guillotière d’ici 2026.
+
+Lyon La Duchère
+Rénovation urbaine jusqu’en 2030 : mixité sociale, parc du Vallon, équipements publics et espaces verts renforcés.
+
+Lyon La Part-Dieu
+Transformation jusqu’en 2029 : gare agrandie, 2 040 arbres, pistes cyclables, logements et nouveaux espaces verts.
+
+Lyon Mermoz Sud
+D’ici 2027 : 700 logements neufs, espaces publics végétalisés, équipements scolaires et sportifs pour un quartier attractif.
+
+Lyon Perrache
+Réouverture et végétalisation du centre d’échange Perrache d’ici 2030, meilleure accessibilité piétonne et multimodale.
+
+Lyon Presqu’île à vivre
+Centre historique apaisé et végétalisé d’ici 2030, 42 000 m² d’espaces publics, zone à trafic limité dès 2025.
+
+Lyon Rive Droite
+2,5 km de berges du Rhône transformées en promenade verte, 1 200 arbres, belvédères et terrasses, horizon 2030.
+
+Oullins La Saulaie
+40 ha requalifiés d’ici 2033, logements, activités, espaces verts et passerelle vers le métro B pour un quartier durable.
+
+Rillieux Ostérode
+Ancien site militaire en écoquartier d’ici 2027 : logements, hôtel, activités, 9 ha de bois préservés.
+
+Rillieux Ville nouvelle
+Renouvellement urbain jusqu’en 2030 : logements, espaces publics, équipements, mixité et qualité de vie renforcées.
+
+Saint-Fons Carnot-Parmentier
+Quartier requalifié d’ici 2030 : logements, parc urbain, équipements publics et arrivée du tram T10.
+
+Saint-Genis-Laval Le Vallon
+55 ha mixtes d’ici 2040 : logements, bureaux, parc central, écoles, en lien avec le prolongement du métro B.
+
+Vaulx-en-Velin Grande Île
+151 ha rénovés d’ici 2030 : logements, activités, commerces et arrivée du tram T9 pour une meilleure desserte.
+
+Vaulx-en-Velin La Soie
+20 ha autour de l’usine Tase : logements, activités, espaces verts, patrimoine préservé et pôle tertiaire dynamique.
+
+Vénissieux Grand Parilly
+Quartier mixte autour d’IKEA et Leroy Merlin, logements, commerces, espaces verts, connecté métro D et tram T4.
+
+Vénissieux Minguettes
+Rénovation urbaine jusqu’en 2040 : logements, pôle économique, équipements, espaces publics et mobilités douces.
+
+Villeurbanne Buers
+Renouvellement urbain d’ici 2030 : logements, activités, espaces verts et pistes cyclables dans un quartier repensé.
+
+Villeurbanne Grandclément
+45 ha aménagés d’ici 2030 : logements, commerces, espaces verts, desserte tram T6.
+
+Villeurbanne La Soie
+ZAC de 11 ha avec logements, bureaux, commerces, équipements publics, parc et aménagements d’ici 2027.
+
+Villeurbanne Saint-Jean
+Quartier transformé jusqu’en 2040 : logements, parc central, pôle santé, équipements, digue contre les crues.
+
+Villeurbanne site ACI
+Ancien site industriel en quartier mixte d’ici 2028 : logements, activités, parc, espaces publics et tram T6.
+
+ZAC Bron Parilly
+2019-2032 : logements neufs, réhabilitation, équipements et espaces publics requalifiés pour plus de mixité.
+
+ZAC Bron Terraillon
+Rénovation urbaine jusqu’en 2030 : logements neufs, rénovation énergétique, espaces verts et équipements.
+
+Voie Lyonnaise 1
+Piste cyclable Vaulx–Saint-Fons via Doua, quais du Rhône et Gerland, axe au plus fort trafic vélo de la Métropole.
+
+Voie Lyonnaise 10
+Itinéraire cyclable Est-Ouest Tassin–Meyzieu via Part-Dieu, Décines et La Soie sur plus de 20 km.
+
+Voie Lyonnaise 11
+Axe vélo ouest-est Point du Jour–Chassieu via Presqu’île, Part-Dieu et Montchat Nord.
+
+Voie Lyonnaise 12
+Piste cyclable Valmy–Bron via Bellecour, Guillotière et Montplaisir, traversant des zones denses.
+
+Voie Lyonnaise 2
+Axe vélo nord-sud Fontaines–Saint-Priest via Caluire, Lyon centre et Parilly, transformant les boulevards urbains.
+
+Voie Lyonnaise 3
+57 km le long de la Saône de Quincieux à Givors, traversant Vaise, Vieux Lyon, Oullins et Pierre-Bénite.
+
+Voie Lyonnaise 4
+Itinéraire cyclable Monts d’Or–Villeurbanne via Vaise et Lyon 6, sécurisant les secteurs peu aménagés.
+
+Voie Lyonnaise 5
+Périphérique vélo partiel Bron–Feyzin via campus Doua, Vaise, Tassin, Oullins et vallée de la Chimie.
+
+Voie Lyonnaise 6
+Axe vélo Crépieux–Saint-Genis-Laval le long du Rhône, en lien avec la requalification de la rive droite.
+
+Voie Lyonnaise 7
+Rillieux–Feyzin via Croix-Rousse, Garibaldi et Saint-Fons, transformant l’axe central nord-sud.
+
+Voie Lyonnaise 8
+La-Tour-de-Salvagny–Saint-Priest via Tassin, Jean Macé et Bron Université, apaisant l’espace public.
+
+Voie Lyonnaise 9
+Oullins–Jonage via Gerland, Part-Dieu, Doua et parc de Miribel-Jonage, le long de la ViaRhôna.

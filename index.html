@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Carte des grands projets d’urbanisme et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
+  <link rel="icon" type="image/png" href="/img/logomin.png" sizes="32x32">
+  <title>Grands Projets de Lyon – Urbanisme et Mobilité</title>
+  <link rel="canonical" href="https://grandsprojets.com/">
+  <meta property="og:site_name" content="Grands Projets de Lyon">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Grands Projets de Lyon – Urbanisme et Mobilité">
+  <meta property="og:description" content="Carte des grands projets d’urbanisme et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
+  <meta property="og:url" content="https://grandsprojets.com/">
+  <meta property="og:image" content="https://grandsprojets.com/img/cover/meta.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Grands Projets de Lyon – Urbanisme et Mobilité">
+  <meta name="twitter:description" content="Carte des grands projets d’urbanisme et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
+  <meta name="twitter:image" content="https://grandsprojets.com/img/cover/meta.png">
+  <script type="application/ld+json" id="site-jsonld">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Grands Projets de Lyon",
+    "url": "https://grandsprojets.com/",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://grandsprojets.com/?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+  <script>
+    (function() {
+      try {
+        var theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Chargement de Leaflet depuis des fichiers locaux -->
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="ficheprojet.css">
+  <!-- Font Awesome via cdnjs -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css"
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body>
+  <div id="container">
+    <!-- Carte Leaflet -->
+    <div id="map"></div>
+
+    <!-- Barre de navigation -->
+    <div id="left-nav">
+      <div class="logo">
+          <img src="img/logo.svg" alt="GrandsProjet.fr" />
+        </div>
+      <button class="nav-category" id="nav-transport">
+        <i class="fa-solid fa-bus" aria-hidden="true"></i>
+        <span class="label">transport</span>
+      </button>
+      <button class="nav-category" id="nav-velo">
+        <i class="fa-solid fa-bicycle" aria-hidden="true"></i>
+        <span class="label">vélo</span>
+      </button>
+      <button class="nav-category" id="nav-urbanisme">
+        <i class="fa-solid fa-city" aria-hidden="true"></i>
+        <span class="label">urbanisme</span>
+      </button>
+      <button class="nav-category" id="nav-travaux">
+        <i class="fa-solid fa-person-digging" aria-hidden="true"></i>
+        <span class="label">travaux</span>
+      </button>
+      <!-- Sous-menus -->
+      <div id="transport-submenu" class="submenu">
+        <ul class="project-list" id="transport-project-list"></ul>
+          </div>
+      <div id="velo-submenu" class="submenu">
+        <ul class="project-list" id="velo-project-list"></ul>
+        </div>
+      <div id="urbanisme-submenu" class="submenu">
+        <div class="submenu-tabs" id="urbanisme-tabs"></div>
+        <ul class="project-list" id="urbanisme-project-list"></ul>
+      </div>
+      <div id="travaux-submenu" class="submenu" style="display:none">
+        <ul class="project-list" id="travaux-project-list"></ul>
+      </div>
+  </div>
+      <div id="project-detail" class="project-detail">
+        <div class="project-detail-header project-header-container">
+          <button id="detail-back-btn" class="detail-back-btn">&larr; Retour</button>
+           <h3 id="project-title" class="project-title">Titre du Projet</h3>
+           <button id="detail-toggle-btn" style="display:none; color:grey;  border:none; cursor:pointer; margin:0 1rem;"><i class="fas fa-chevron-down"></i></button>
+           <button id="detail-close-btn" class="detail-close-btn">✖</button>
+        </div>
+        <div id="detail-content" class="project-detail-content"></div>
+      </div>
+    </div>
+
+    <!-- Barre de recherche d'adresse -->
+    <div id="search-container" class="search-container">
+      <button id="location-toggle" class="location-toggle" aria-label="Centrer sur ma position" title="Centrer sur ma position"
+              onclick="window.GeolocationModule && window.GeolocationModule.handleLocationButtonClick(event)">
+        <i class="fas fa-location-arrow"></i>
+      </button>
+      <div id="search-toggle" class="search-toggle">
+        <i class="fas fa-search"></i>
+      </div>
+      <div id="search-overlay" class="search-overlay">
+        <div class="search-bar">
+          <input type="text" id="address-search" placeholder="Rechercher une adresse..." />
+          <div id="search-results" class="search-results"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bouton de sélection du fond de carte -->
+    <div id="theme-toggle" class="theme-toggle" role="button" tabindex="0" aria-pressed="false" title="Mode sombre">
+      <i class="fas fa-moon"></i>
+    </div>
+    <div id="basemap-toggle" class="basemap-toggle">
+      <i class="fas fa-globe"></i>
+    </div>
+    <!-- Menu des fonds de carte en mode tuile -->
+    <div id="basemap-menu" class="basemap-menu"></div>
+
+    <!-- Zone de filtres -->
+    <div id="filters-toggle" class="filters-toggle">
+      <i class="fas fa-map"></i>
+      <span class="filter-count">0</span>
+    </div>
+    <!-- Contenu des filtres -->
+    <div id="filters-container" style="display: none">
+      <div id="dynamic-filters"></div>
+      <button id="reset-all-filters">Réinitialiser tous les filtres</button>
+    </div>
+  </div>
+
+  <!-- Supabase client via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
+  <!-- Chargement de Leaflet JS depuis des fichiers locaux -->
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <!-- Marked via jsDelivr -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Chargement des scripts locaux -->
+   
+  <script src="modules/supabaseservice.js"></script>
+  <script src="modules/mapmodule.js"></script>
+  <script src="modules/filtermodule.js"></script>
+  <script src="modules/datamodule.js"></script>
+  <script src="modules/uimodule.js"></script>
+  <script src="modules/searchmodule.js"></script>
+  <script src="modules/geolocation.js"></script>
+  <script src="modules/navigationmodule.js"></script>
+  <script src="modules/eventbindings.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

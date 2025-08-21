@@ -1,0 +1,432 @@
+[
+  {
+    "md_path": "pages/mobilite/bhns-2030.md",
+    "title": "BHNS 2030",
+    "category": "bus",
+    "cover": "/img/cover/mobilite/bhns2030.png",
+    "description": "\"Le BHNS 2030 reliera Part-Dieu à Parilly d’ici 2029, en complément du futur tram T8, pour mailler l’Est lyonnais et faciliter les trajets transversaux. Son tracé en site propre, estimé à 50 000 voyageurs/jour, croisera le T8 à Parilly pour optimiser les correspondances. Objectif : offrir une alternative rapide et écologique à la voiture et structurer un réseau en rocades.",
+    "html_path": "pages/mobilite/bhns-2030.html",
+    "url": "https://grandsprojets.com/pages/mobilite/bhns-2030.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/mobilite/bhns.md",
+    "title": "BHNS",
+    "category": "bus",
+    "cover": "/img/cover/mobilite/bhns.png",
+    "description": "\"Le BHNS Part-Dieu <> Sept-Chemins, prévu pour 2026/2027, offrira une liaison rapide et régulière via l’avenue Félix-Faure, avec site propre, priorités aux feux et bus confortables. Pensé pour combler le manque de desserte lourde entre la Part-Dieu et le nord-est lyonnais, il vise 50 000 voyageurs/jour et un temps de trajet inférieur à 25 minutes. Objectif : fiabiliser les déplacements dans un corridor stratégique et accompagner la requalification urbaine de l’axe.",
+    "html_path": "pages/mobilite/bhns.html",
+    "url": "https://grandsprojets.com/pages/mobilite/bhns.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/mobilite/t10.md",
+    "title": "T10",
+    "category": "tramway",
+    "cover": "/img/cover/mobilite/t10.webp",
+    "description": "\"Le tramway T10, prévu pour 2027, reliera Gerland à Vénissieux via Saint-Fons et les Minguettes, sur un tracé conçu pour 38 000 voyageurs/jour. Il offrira des correspondances directes avec le métro et d’autres lignes de tram, tout en requalifiant les rues traversées avec trottoirs élargis, pistes cyclables et plantations. Objectif : améliorer la desserte des quartiers du sud-ouest lyonnais et réduire la dépendance à la voiture.",
+    "html_path": "pages/mobilite/t10.html",
+    "url": "https://grandsprojets.com/pages/mobilite/t10.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/mobilite/t6-nord.md",
+    "title": "T6 nord",
+    "category": "tramway",
+    "cover": "/img/cover/mobilite/t6n.png",
+    "description": "\"Le prolongement T6 Nord, en travaux jusqu’en 2026, étendra la ligne des Hôpitaux Est à La Doua – Gaston Berger via Villeurbanne centre, Gratte-Ciel et Grandclément. Sur 5,4 km et environ 10 stations, il visera un temps de trajet de 7 minutes entre La Doua et Villeurbanne centre, avec une fréquentation attendue de 55 000 voyageurs/jour. Il apportera une connexion directe au campus et aux quartiers centraux de Villeurbanne, tout en accompagnant les aménagements urbains le long de l’axe.",
+    "html_path": "pages/mobilite/t6-nord.html",
+    "url": "https://grandsprojets.com/pages/mobilite/t6-nord.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/mobilite/t8.md",
+    "title": "T8",
+    "category": "tramway",
+    "cover": "/img/cover/mobilite/t8.png",
+    "description": "Le tramway T8, en concertation jusqu’en 2025, reliera Vaulx-en-Velin La Soie à la gare de Vénissieux via Bron-Terraillon, le campus Porte des Alpes et Parilly. Pensé pour relier efficacement des territoires de l’Est lyonnais sans passer par l’hypercentre, il vise 35 000 voyageurs/jour et soutiendra la requalification de plusieurs quartiers. Mise en service envisagée à l’horizon 2032, après concertation, enquête publique et travaux d’infrastructure.",
+    "html_path": "pages/mobilite/t8.html",
+    "url": "https://grandsprojets.com/pages/mobilite/t8.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/mobilite/t9.md",
+    "title": "T9",
+    "category": "tramway",
+    "cover": "/img/cover/mobilite/t9.png",
+    "description": "\"Le tramway T9, prévu pour fin 2026, reliera La Soie à Charpennes via le centre de Vaulx-en-Velin et le campus de La Doua, sur 11 km et 19 stations. Il offrira une liaison directe est–nord évitant Part-Dieu, avec un nouveau pont sur le canal de Jonage et des aménagements urbains favorisant piétons et cyclistes. Objectif : 40 000 voyageurs/jour, désaturation des lignes existantes et meilleur maillage des transports dans l’est de la métropole.",
+    "html_path": "pages/mobilite/t9.html",
+    "url": "https://grandsprojets.com/pages/mobilite/t9.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/mobilite/teol.md",
+    "title": "TEOL",
+    "category": "tramway",
+    "cover": "/img/cover/mobilite/teol.jpg",
+    "description": "Le Tramway Express de l’Ouest Lyonnais (TEOL), prévu pour 2032, reliera Alaï à Confluence puis aux lignes T1 et T2, en passant par Libération, Ménival, Point du Jour et Charcot. Conçu après l’abandon du métro E, il offrira un trajet rapide grâce à un tunnel sous la colline et un site propre sur la majorité du parcours. Objectif : réduire le temps de trajet entre l’ouest et le centre, offrir une alternative à la voiture et requalifier les espaces publics traversés.",
+    "html_path": "pages/mobilite/teol.html",
+    "url": "https://grandsprojets.com/pages/mobilite/teol.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/lyon-confluence-phase-2.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/confluence.jpg",
+    "description": "La phase 2 du projet urbain Lyon Confluence, engagée en 2012 et prévue jusqu’en 2032, concerne 35 hectares côté Rhône entre la gare de Perrache et le fleuve. Elle prévoit 1 200 logements (dont 60 % accessibles), 70 000 m² de bureaux, 9 000 m² de commerces, 23,5 m² d’espaces verts par habitant et la création du parc du Champ (6 ha). Les travaux incluent la requalification de la gare de Perrache, la dépollution et la gestion des risques d’inondation, avec pour objectifs la mixité fonctionnelle, la continuité des mobilités douces et l’ouverture du quartier sur le Rhône.",
+    "html_path": "pages/urbanisme/lyon-confluence-phase-2.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/lyon-confluence-phase-2.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/lyon-garibaldi-phase-3.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/garibaldi.png",
+    "description": "La phase 3 du projet de requalification de la rue Garibaldi à Lyon, en cours de 2023 à 2026 sur le tronçon Arménie – Grande rue de la Guillotière, vise à élargir les trottoirs, créer des pistes cyclables bidirectionnelles, combler le passage souterrain Félix-Faure / Garibaldi, planter 156 arbres et tripler les surfaces végétalisées. Cette étape s’inscrit dans la transformation globale de l’axe long de 2,6 km, débutée en 2010, pour réduire la circulation automobile, favoriser les modes actifs et améliorer la qualité urbaine.",
+    "html_path": "pages/urbanisme/lyon-garibaldi-phase-3.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/lyon-garibaldi-phase-3.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/lyon-la-duchere.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/duchere.jpg",
+    "description": "Le programme de rénovation urbaine de La Duchère à Lyon, lancé en 2003 et prévu jusqu’en 2030, concerne un quartier de 10 000 habitants sur le plateau lyonnais. Il prévoit la démolition de 1 700 logements sociaux, la reconstruction de 850 logements, la construction de 1 300 logements supplémentaires, la création du parc du Vallon (11 ha) et d’un axe vert structurant, ainsi que de nouveaux équipements publics. Les objectifs sont de réduire la part de logements sociaux à 55 %, diversifier l’habitat, renforcer la centralité et améliorer les espaces publics.",
+    "html_path": "pages/urbanisme/lyon-la-duchere.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/lyon-la-duchere.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/lyon-la-part-dieu.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/partdieu.jpg",
+    "description": "Le projet de transformation du quartier de la Part-Dieu à Lyon, lancé en 2011 et prévu jusqu’en 2029, vise à en faire un espace mixte et durable. Il comprend la plantation de 2 040 arbres, la création du parc Mandela et du Bois de la Part-Dieu, le doublement de la surface de la gare pour accueillir 100 000 voyageurs supplémentaires par jour, 9,5 km de pistes cyclables avec 1 300 places vélo, et 46 % de logements à prix maîtrisé. Les travaux doivent améliorer la qualité urbaine, développer les mobilités douces et renforcer l’attractivité résidentielle et économique du quartier.",
+    "html_path": "pages/urbanisme/lyon-la-part-dieu.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/lyon-la-part-dieu.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/lyon-mermoz-sud.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/mermoz.jpg",
+    "description": "Le projet de rénovation urbaine de Mermoz Sud à Lyon, inscrit dans le NPNRU et mené par la ZAC Mermoz Nord depuis 2016, s’étend jusqu’en 2027. Il prévoit la démolition de 525 logements sociaux, la construction de plus de 700 logements neufs pour diversifier l’habitat, la création de nouveaux espaces publics (promenade plantée, place Latarjet, agrandissement du Jardin Mermoz), ainsi que la réalisation d’un groupe scolaire et d’un complexe socio-sportif et culturel. Les objectifs sont d’améliorer la mixité sociale, de moderniser les équipements et de renforcer les liaisons piétonnes et cyclables.",
+    "html_path": "pages/urbanisme/lyon-mermoz-sud.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/lyon-mermoz-sud.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/lyon-perrache.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/perrache.jpg",
+    "description": "Le projet « Ouvrons Perrache », mené de 2025 à 2030, transforme l’ancien centre d’échange de Perrache pour reconnecter le nord et le sud de la presqu’île lyonnaise. Il prévoit l’ouverture d’une faille de 12 m reliant la place Carnot à la gare, la création d’un toit-terrasse végétalisé de 3 700 m², l’aménagement de 300 places vélo, le maintien de 530 places de parking, l’installation de commerces, bureaux, hôtel et coworking, ainsi que l’extension de la ligne de tram T2. L’objectif est d’améliorer l’accessibilité piétonne et multimodale tout en valorisant les espaces publics.",
+    "html_path": "pages/urbanisme/lyon-perrache.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/lyon-perrache.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/lyon-presquile-a-vivre.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/presquile.jpg",
+    "description": "Le programme « Presqu’île à vivre » à Lyon, prévu jusqu’en 2030, vise à transformer le centre historique en un espace apaisé et végétalisé. Il comprend la création de 42 000 m² d’espaces publics, la mise en place d’une zone à trafic limité dès juin 2025, le réaménagement complet de secteurs clés (Bas des Pentes, Cordeliers-Grenette, Jacobins-Bellecour), l’élargissement des trottoirs, de nouvelles pistes cyclables, des plantations et la création d’une ligne de bus C23. L’objectif est de réduire la circulation automobile, améliorer la qualité de l’air et renforcer l’attractivité piétonne et commerciale.",
+    "html_path": "pages/urbanisme/lyon-presquile-a-vivre.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/lyon-presquile-a-vivre.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/lyon-rive-droite.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/rivedroite.jpg",
+    "description": "Le projet Lyon Rive Droite, prévu de 2025 à 2030, vise à transformer 2,5 km de berges entre les ponts de Lattre de Tassigny et Gallieni en promenade végétalisée et accessible. Il prévoit 30 000 m² de plantations, 1 200 arbres, 53 % de surface dédiée aux modes actifs, quatre terrasses au bord de l’eau, neuf belvédères et l’aménagement de 17 800 m² de terrasses pour cafés et restaurants. Les objectifs sont d’améliorer la biodiversité, offrir un front fluvial continu et renforcer l’attractivité des quais du Rhône.",
+    "html_path": "pages/urbanisme/lyon-rive-droite.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/lyon-rive-droite.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/oullins-la-saulaie.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/saullaie.png",
+    "description": "Le projet de requalification de La Saulaie à Oullins, engagé en 2018 et prévu jusqu’en 2033, concerne 40 ha dont 20 ha en ZAC. Il prévoit 870 logements (60 % abordables et sociaux), 47 500 m² d’activités économiques, 6 600 m² de commerces, 16 700 m² d’équipements publics, 4,8 ha d’espaces verts, un réseau de boucle tempérée pour 160 000 m² et une passerelle vers le métro B. Les objectifs sont de créer un quartier mixte et durable, améliorer les mobilités douces et valoriser les espaces naturels.",
+    "html_path": "pages/urbanisme/oullins-la-saulaie.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/oullins-la-saulaie.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/rillieux-la-pape-osterode.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/rillieux-osterode.png",
+    "description": "Le projet d’aménagement d’Ostérode à Rillieux-la-Pape, prévu de 2015 à 2027, concerne un ancien site militaire de 15 ha transformé en éco-quartier. Il prévoit 34 000 m² d’activités productives et artisanales, 250 logements (environ 550 habitants), un hôtel trois étoiles, une crèche, des commerces, la conservation de 9 ha de bois et la création de sentiers. Les objectifs sont de favoriser un développement mixte habitat-emploi, préserver la biodiversité et créer jusqu’à 3 500 emplois.",
+    "html_path": "pages/urbanisme/rillieux-la-pape-osterode.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/rillieux-la-pape-osterode.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/rillieux-la-pape-ville-nouvelle.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/rillieux-ville-nouvelle.jpg",
+    "description": "Le programme de renouvellement urbain de la « Ville nouvelle » de Rillieux-la-Pape, inscrit au NPNRU 2019-2030, prévoit la démolition de 747 logements, la construction de plus de 800 logements neufs, la réhabilitation de 1 302 logements, la création ou rénovation de 5 équipements publics et l’aménagement d’un parc linéaire est-ouest. Les opérations concernent plusieurs secteurs (Bottet, Alagniers/Mont-Blanc, Velette-Balcons de Sermenaz) et visent à diversifier l’habitat, réduire la part de logements sociaux à 64 %, améliorer les espaces publics et renforcer la centralité du quartier.",
+    "html_path": "pages/urbanisme/rillieux-la-pape-ville-nouvelle.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/rillieux-la-pape-ville-nouvelle.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/saint-fons-carnot-parmentier.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/saintfons.png",
+    "description": "Le projet de requalification Carnot-Parmentier à Saint-Fons, mené de 2017 à 2030 sur 13 ha, prévoit la construction de 400 logements, la réhabilitation de 280 logements existants pour ramener la part de logements sociaux à 53 %, la création du parc urbain Louis Nicollin, d’une promenade verte et de plusieurs équipements publics (école Rosa Parks, gymnase Mohamed Ali, école de musique, centre social). Il inclut la plantation de 325 arbres, la désimperméabilisation de 50 % des sols et l’arrivée du tramway T10 en 2026, avec pour objectifs d’améliorer le cadre de vie, la mobilité et la mixité sociale.",
+    "html_path": "pages/urbanisme/saint-fons-carnot-parmentier.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/saint-fons-carnot-parmentier.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/saint-genis-laval-le-vallon.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/saintgenislaval.webp",
+    "description": "Le projet du Vallon à Saint-Genis-Laval, prévu de 2019 à 2040 sur 55 ha, prévoit 1 350 logements (60 % abordables), 84 000 m² de bureaux, activités et extension hospitalière, un parc central de 13 ha dont 6,5 ha de bois préservés, deux écoles, un pôle scolaire et un pôle multimodal (877 places de parc-relais, 490 places vélos). Il inclut 2,5 km de nouvelles voiries, une promenade, 700 arbres plantés et des aménagements en terrasses. Les objectifs sont de créer un quartier mixte, préserver la biodiversité et tirer parti du prolongement du métro B.",
+    "html_path": "pages/urbanisme/saint-genis-laval-le-vallon.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/saint-genis-laval-le-vallon.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/vaulx-en-velin-grande-ile.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/vaulx-grande-ile.png",
+    "description": "Le programme de rénovation de la Grande Île à Vaulx-en-Velin, engagé depuis 2014 et prévu jusqu’en 2030, concerne 151 ha et 22 000 habitants. Il vise à réduire la part de logements sociaux de 77 % à 51 %, réhabiliter 2 533 logements sociaux, construire 1 460 logements privés, créer 25 000 m² d’activités économiques et 2 300 m² de commerces, ainsi que sept équipements publics. Des aménagements majeurs sont prévus au Mas du Taureau (1 300 logements neufs, parc de 2 ha) et dans d’autres quartiers, avec l’arrivée du tram T9 en 2026 pour améliorer la desserte.",
+    "html_path": "pages/urbanisme/vaulx-en-velin-grande-ile.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/vaulx-en-velin-grande-ile.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/vaulx-en-velin-la-soie.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/vaulx-lasoie.png",
+    "description": "Autour de l’ancienne usine Tase, le projet de 20 ha à Vaulx-en-Velin La Soie réunit deux opérations : le PAE Tase (819 logements, 52 000 m² d’activités, école et crèche) et le PUP Karré (144 logements, 17 400 m² d’activités). La halle et les sheds, initialement menacés, ont été inscrits aux monuments historiques en 2011. L’opération intègre 1,5 ha d’espaces publics (Esplanade Tase, jardin partagé, 200 arbres). Les premières livraisons (bureaux, logements, hôtel) ont eu lieu dès 2010, l’Esplanade a ouvert en 2020 et l’école Odette Cartailhac a été inaugurée en 2024. À terme, le quartier comptera près de 2 000 habitants et 3 200 emplois, avec un pôle tertiaire dynamique et un patrimoine industriel préservé.",
+    "html_path": "pages/urbanisme/vaulx-en-velin-la-soie.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/vaulx-en-velin-la-soie.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/venissieux-grand-parilly.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/venissieux-grand-parilly.jpg",
+    "description": "Sur 20 ha au sud de la zone commerciale de Vénissieux, Grand Parilly transforme une friche et un parking en quartier mixte relié au métro D et au tram T4. Copiloté par la Métropole, la Ville et Lionheart (Leroy Merlin), le projet a vu l’ouverture d’IKEA et Leroy Merlin en 2019, suivie d’environ 600 logements, d’une crèche, d’un centre médical, d’un hôtel et de commerces de proximité. Un sillon planté relie le quartier au parc de Parilly, tandis que des voies internes privilégient la marche et le vélo. Livraison complète prévue en 2025, avec un quartier animé, des services variés et une forte attractivité économique.",
+    "html_path": "pages/urbanisme/venissieux-grand-parilly.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/venissieux-grand-parilly.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/venissieux-minguettes.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/venissieux-minguettes.png",
+    "description": "Le programme de rénovation urbaine des Minguettes et du quartier des Clochettes (Vénissieux et Saint-Fons), engagé depuis 2005 et prévu jusqu’en 2040, couvre 300 ha. Il prévoit 1 800 logements neufs, la rénovation de 384 logements, un pôle économique autour de la santé et de la formation, 3 km de digue contre les inondations, des espaces publics et liaisons douces, ainsi que plusieurs équipements (collège, centre social, gymnase). Les objectifs sont de diversifier l’habitat, renforcer l’activité économique et améliorer la qualité de vie et les mobilités.",
+    "html_path": "pages/urbanisme/venissieux-minguettes.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/venissieux-minguettes.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/villeurbanne-buers.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/villeurbanne-buers.png",
+    "description": "Le projet de rénovation urbaine des Buers à Villeurbanne, engagé en 2012 et prévu jusqu’en 2030, couvre environ 6 000 habitants. Il prévoit la rénovation de 600 logements et la construction de 500 neufs, 12 000 m² d’activités et commerces, 2,3 km de pistes cyclables et des espaces publics végétalisés. Le programme Buers Nord inclut la rénovation de 497 logements sociaux, la démolition de 150, la reconstruction d’environ 100, un pôle économique de 4 000 m² et la renaturation de sols, tandis que le Terrain des Sœurs (3,5 ha) accueille 440 logements, 2 100 m² de commerces et un parc de 4 300 m².",
+    "html_path": "pages/urbanisme/villeurbanne-buers.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/villeurbanne-buers.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/villeurbanne-grandclement.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/villeurbanne-grandclement.jpg",
+    "description": "Aménagement du quartier Grandclément à Villeurbanne avec transformation d’un ancien carrefour ferroviaire et industriel en quartier mixte de 45 ha comprenant 1 225 logements, commerces, équipements publics, espaces verts et desserte par le tram T6 dès 2026, pour un achèvement en 2030.",
+    "html_path": "pages/urbanisme/villeurbanne-grandclement.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/villeurbanne-grandclement.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/villeurbanne-la-soie.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/villeurbanne-lasoie.jpg",
+    "description": "La ZAC Villeurbanne La Soie (11 ha) prévoit 1 625 logements, 57 000 m² de bureaux, 3 600 m² de commerces, un groupe scolaire de 25 classes, une crèche, un gymnase, un terrain sportif, une esplanade de 5 000 m² et un parc de 5 300 m², avec une première phase achevée en 2024 et un site d’urbanisme transitoire de 5 ha (Étape 22D) actif jusqu’en 2027, avant une seconde phase d’aménagement à l’ouest.",
+    "html_path": "pages/urbanisme/villeurbanne-la-soie.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/villeurbanne-la-soie.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/villeurbanne-saint-jean.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/villeurbanne-saintjean.jpg",
+    "description": "Le projet de renouvellement du quartier Saint-Jean à Villeurbanne (jusqu’en 2040) prévoit 1 800 logements neufs, la rénovation de 384 logements sociaux, 12 ha d’espaces publics avec parc central et promenade le long du canal, un pôle de santé, une école de 20 classes, une crèche, un pôle sportif, des commerces, la réorganisation de la voirie et la reconstruction d’une digue de 3 km pour protéger contre les crues.",
+    "html_path": "pages/urbanisme/villeurbanne-saint-jean.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/villeurbanne-saint-jean.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/villeurbanne-site-aci.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/villeurbanne-aci.jpeg",
+    "description": "Le projet “Quartier de la Filature” sur l’ancien site ACI à Villeurbanne (5,4 ha) prévoit ~700 logements (familiaux, étudiants, séniors, >1/3 sociaux/BRS), 8 000 m² d’activités, un parc municipal de 2 à 2,3 ha, ~1 ha d’espaces publics, l’intégration du tram T6, la réhabilitation de bâtiments emblématiques et un important chantier de dépollution/désamiantage, avec premières livraisons en 2026 et achèvement des espaces publics en 2028.",
+    "html_path": "pages/urbanisme/villeurbanne-site-aci.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/villeurbanne-site-aci.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/zac-bron-parilly.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/parilly.jpg",
+    "description": "La ZAC Bron Parilly (2019-2032) prévoit la réhabilitation de 536 logements sociaux, la démolition de 401 logements, la construction de 710 logements neufs (dont une part en accession), la création d’équipements scolaires, sportifs et commerciaux, la requalification des espaces publics et l’intégration de voies cyclables, avec un objectif de mixité sociale et une fin de chantier prévue en 2032.",
+    "html_path": "pages/urbanisme/zac-bron-parilly.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/zac-bron-parilly.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/urbanisme/zac-bron-terraillon.md",
+    "title": null,
+    "category": "urbanisme",
+    "cover": "/img/cover/urbanisme/terraillon.png",
+    "description": "Lancé en 2008 dans le cadre du programme national de rénovation urbaine, le projet de la ZAC Bron Terraillon transforme un quartier construit dans les années 1960, autrefois dominé par de grandes barres locatives dégradées. Après la création de la ZAC Terraillon Sud en 2011, il combine démolition de 390 logements, reconstruction de 467 logements neufs, rénovation énergétique de 995 logements, aménagement de 11 200 m² d’espaces verts et construction d’équipements publics (écoles, crèche, gymnase, EHPAD), avec une finalisation prévue en 2030.",
+    "html_path": "pages/urbanisme/zac-bron-terraillon.html",
+    "url": "https://grandsprojets.com/pages/urbanisme/zac-bron-terraillon.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/velo/ligne-1.md",
+    "title": null,
+    "category": null,
+    "cover": "https://cyclopolis.lavilleavelo.org/vl1/quai-claude-bernard-4.jpg",
+    "description": "La ligne 1 des Voies Lyonnaises permettra de relier Vaulx-en-Velin à Saint-Fons en passant par le campus de la Doua, les quais hauts de la rive gauche du Rhône et le quartier de Gerland. Cette ligne a la particularité d'accueillir le trafic vélo le plus élevé de la Métropole, au niveau du quai Augagneur.",
+    "html_path": "pages/velo/voie-lyonnaise-1.html",
+    "url": "https://grandsprojets.com/pages/velo/voie-lyonnaise-1.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/velo/ligne-10.md",
+    "title": null,
+    "category": null,
+    "cover": "https://cyclopolis.lavilleavelo.org/vl10/voie-lyonnaise-10.png",
+    "description": "La Voie Lyonnaise 10 permettra de rejoindre Meyzieu depuis Tassin en passant par Vaise, Lyon 6, la Part-Dieu, Dauphiné-Lacassagne, Grandclément, La Soie, et Décines-Charpieu. Il s'agira donc d'un itinéraire cyclable qui permettra de traverser la métropole de Lyon dans un axe Est-Ouest sur plus de 20km.",
+    "html_path": "pages/velo/voie-lyonnaise-10.html",
+    "url": "https://grandsprojets.com/pages/velo/voie-lyonnaise-10.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/velo/ligne-11.md",
+    "title": null,
+    "category": null,
+    "cover": "https://cyclopolis.lavilleavelo.org/vl11/rue-de-bonnel-ouest.png",
+    "description": "La Voie Lyonnaise 11 permettra de traverser la métropole lyonnaise sur un axe ouest-est. Elle partira du quartier du Point du Jour à Lyon 5 pour desservir la Favorite et Saint-Just. Elle traversera la Presqu'Île avant de remonter rue de Bonnel, puis continuera vers l'Est par la Part Dieu, Maisons-Neuves, Montchat Nord avant de poursuivre sur la route de Genas vers les Sept Chemins puis Chassieu.",
+    "html_path": "pages/velo/voie-lyonnaise-11.html",
+    "url": "https://grandsprojets.com/pages/velo/voie-lyonnaise-11.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/velo/ligne-12.md",
+    "title": null,
+    "category": null,
+    "cover": "https://cyclopolis.lavilleavelo.org/vl12/cours-gambetta.png",
+    "description": "La Voie Lyonnaise 12 doit permettre aux cyclistes de traverser Lyon d'Ouest en Est depuis Valmy dans le 9ème jusqu'à l'entrée de Bron au giratoire de la Boutasse. Elle passera par Gorge de Loup, les hauteurs de Saint-Just, Saint-Jean, Bellecour, la Guillotière, Garibaldi, Sans Souci, Montplaisir, Grange Blanche et le Vinatier. Ce projet très ambitieux vise à aménager des lieux très denses où les aménagements cyclables sont rudimentaires ou en mixité avec d'autres usages.",
+    "html_path": "pages/velo/voie-lyonnaise-12.html",
+    "url": "https://grandsprojets.com/pages/velo/voie-lyonnaise-12.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/velo/ligne-2.md",
+    "title": null,
+    "category": null,
+    "cover": "https://cyclopolis.lavilleavelo.org/vl2/bd-vivier-merle.jpg",
+    "description": "La Voie Lyonnaise 2 permettra de relier Fontaines-sur-Saône à Saint-Priest en traversant Lyon sur un axe nord-sud. Après avoir longé la Saône jusqu'à l'Île Barbe, elle traversera le plateau Nord en desservant le centre de Caluire, puis redescendra vers Lyon via le pont Poincaré. Elle transformera ensuite plusieurs autoroutes urbaines majeures sur le boulevard Stalingrad, le boulevard Vivier-Merle et le boulevard des Tchécoslovaques. Après le carrefour de Jet d'Eau, elle empruntera l'avenue des Etats-Unis puis l'avenue Viviani en direction du quartier de Parilly. Elle terminera son parcours le long de la route de Lyon, aux portes du centre-ville de Saint-Priest.",
+    "html_path": "pages/velo/voie-lyonnaise-2.html",
+    "url": "https://grandsprojets.com/pages/velo/voie-lyonnaise-2.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/velo/ligne-3.md",
+    "title": null,
+    "category": null,
+    "cover": "https://cyclopolis.lavilleavelo.org/vl3/quai-fulchiron.jpg",
+    "description": "La Voie Lyonnaise 3 longera la Saône depuis Quincieux au Nord. A hauteur de Neuville-sur-Saône, elle rejoindra une autre branche depuis Genay. Elle continue ensuite en rive droite de Saône le long des Monts d'Or puis de l'Île Barbe, dessert le quartier de Vaise puis le Vieux Lyon avant de continuer vers les quais de La Mulatière en face du quartier de Confluence. Elle chemine ensuite dans le quartier de la Saulaie à Oullins, puis dans le centre-ville de Pierre-Bénite. Enfin, elle rejoint les berges du Rhône en rive droite à travers les communes de Vernaison, Grigny et Givors en tronçon commun avec la ViaRhôna. Une fois terminée, il s'agira de la plus longue des voies lyonnaises (57km).",
+    "html_path": "pages/velo/voie-lyonnaise-3.html",
+    "url": "https://grandsprojets.com/pages/velo/voie-lyonnaise-3.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/velo/ligne-4.md",
+    "title": null,
+    "category": null,
+    "cover": "https://cyclopolis.lavilleavelo.org/vl4/av-verguin.jpg",
+    "description": "La Voie Lyonnaise 4 promet de pouvoir traverser la métropole lyonnaise du Nord-Ouest des Monts d'Or à Villeurbanne en passant par Limonest, Techlid, Champagne, Vaise et le 6ème arrondissement. Cette ligne prévoit d'aménager des secteurs aujourd'hui très peu pourvus en aménagements cyclables et peu sécurisés. Elle va transformer l'espace public des territoires traversés en faveur des modes actifs.",
+    "html_path": "pages/velo/voie-lyonnaise-4.html",
+    "url": "https://grandsprojets.com/pages/velo/voie-lyonnaise-4.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/velo/ligne-5.md",
+    "title": null,
+    "category": null,
+    "cover": "https://cyclopolis.lavilleavelo.org/vl5/decines-av-roosevelt.png",
+    "description": "La Voie Lyonnaise 5 sera la seule ligne en rocade du réseau des Voies Lyonnaises. Cette ligne circulaire constituera le périphérique cyclable de la métropole de Lyon à l'horizon 2030. Il ne sera cependant pas bouclé en 2026 et reliera Bron à Feyzin en passant par le Nord et l'Ouest via Vaulx-en-Velin, le campus de la Doua, Vaise, Tassin-la-Demi-Lune, Francheville, Oullins, Pierre-Bénite et la vallée de la Chimie.",
+    "html_path": "pages/velo/voie-lyonnaise-5.html",
+    "url": "https://grandsprojets.com/pages/velo/voie-lyonnaise-5.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/velo/ligne-6.md",
+    "title": null,
+    "category": null,
+    "cover": "https://cyclopolis.lavilleavelo.org/vl6/lyon-nord.jpg",
+    "description": "La Voie Lyonnaise 6 permettra de longer le Rhône du nord au sud de la Métropole, depuis les bas quartiers de Crépieux-la-Pape jusqu'à Saint-Genis-Laval, via Saint-Clair, Lyon Rive Droite, les bas quartiers de la Mulatière et Oullins. Elle s'inscrit dans le projet d'apaisement du centre-ville d'Oullins et le grand projet de réaménagement de la rive droite du Rhône.",
+    "html_path": "pages/velo/voie-lyonnaise-6.html",
+    "url": "https://grandsprojets.com/pages/velo/voie-lyonnaise-6.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/velo/ligne-7.md",
+    "title": null,
+    "category": null,
+    "cover": "https://cyclopolis.lavilleavelo.org/vl7/rue-garibaldi.png",
+    "description": "La Voie Lyonnaise 7 permettra de traverser la métropole de Lyon en suivant un axe nord-sud central. Elle traversera Rillieux-la-Pape depuis le nouveau quartier Osterode avant de rejoindre la voie verte des Dombes à travers Caluire-et-Cuire, en direction de la Croix-Rousse ou du parc de la Tête d'Or. Elle passera à travers Lyon sur la rue Garibaldi, puis la route de Vienne avant de rejoindre le centre-ville de Saint-Fons puis Feyzin. Ce projet très ambitieux devrait métamorphoser le paysage urbain tout en révolutionnant la mobilité de nombreux habitants.",
+    "html_path": "pages/velo/voie-lyonnaise-7.html",
+    "url": "https://grandsprojets.com/pages/velo/voie-lyonnaise-7.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/velo/ligne-8.md",
+    "title": null,
+    "category": null,
+    "cover": "https://cyclopolis.lavilleavelo.org/vl8/route-de-paris.jpg",
+    "description": "La Voie Lyonnaise 8 traversera la Métropole de Lyon d'Ouest en Est, de La-Tour-de-Salvagny à la Porte des Alpes à Saint-Priest. Elle traversera de nombreuses localités aujourd'hui hostiles au vélo, comme Charbonnières, Tassin, Champvert, Jean Macé, Blandan, Bachut, Mermoz et Bron Université. Ce projet ambitieux transformera les espaces publics traversés au bénéfice des modes actifs.",
+    "html_path": "pages/velo/voie-lyonnaise-8.html",
+    "url": "https://grandsprojets.com/pages/velo/voie-lyonnaise-8.html",
+    "html_exists": true
+  },
+  {
+    "md_path": "pages/velo/ligne-9.md",
+    "title": null,
+    "category": null,
+    "cover": "https://cyclopolis.lavilleavelo.org/vl9/voie-lyonnaise-9.jpg",
+    "description": "La Voie Lyonnaise 9 permettra de relier la commune d'Oullins à Jonage en passant par Gerland, Jean Macé, la rue Garibaldi, la Tête d'Or, le campus de la Doua ainsi que Vaulx-en-Velin et le parc de Miribel-Jonage le long de la ViaRhôna.",
+    "html_path": "pages/velo/voie-lyonnaise-9.html",
+    "url": "https://grandsprojets.com/pages/velo/voie-lyonnaise-9.html",
+    "html_exists": true
+  }
+]
