@@ -693,43 +693,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         card.setAttribute('tabindex', '0');
         const title = d.title || (d.pdf_url ? d.pdf_url.split('/').pop() : 'Document PDF');
 
-        if (layerName === 'urbanisme') {
-          // Urbanisme: pas de prévisualisation, uniquement le téléchargement/ouverture dans un nouvel onglet
-          card.innerHTML = `
-            <div class="doc-card-icon"><i class="fa fa-file-pdf" aria-hidden="true"></i></div>
-            <div class="doc-card-content">
-              <h3 class="doc-card-title">${title}</h3>
-              <div class="doc-card-actions">
-                <a class="btn-download" href="${d.pdf_url}" target="_blank" rel="noopener">
-                  <i class="fa fa-download" aria-hidden="true"></i> Télécharger
-                </a>
-              </div>
-            </div>`;
-          // Empêcher que le clic sur la carte ouvre une prévisualisation
-          const dl = card.querySelector('.btn-download');
-          dl.addEventListener('click', (e) => { e.stopPropagation(); /* laisser le comportement par défaut */ });
-        } else {
-          // Autres types de fiches: garder la prévisualisation
-          card.innerHTML = `
-            <div class="doc-card-icon"><i class="fa fa-file-pdf" aria-hidden="true"></i></div>
-            <div class="doc-card-content">
-              <h3 class="doc-card-title">${title}</h3>
-              <div class="doc-card-actions">
-                <button type="button" class="btn-preview"><i class="fa fa-eye" aria-hidden="true"></i> Prévisualiser</button>
-                <a class="btn-download" href="${d.pdf_url}" target="_blank" rel="noopener">
-                  <i class="fa fa-download" aria-hidden="true"></i> Télécharger
-                </a>
-              </div>
-            </div>`;
-          // Clic sur la carte => prévisualisation
-          card.addEventListener('click', () => openPdfPreview(d.pdf_url, title));
-          card.addEventListener('keypress', (e) => { if (e.key === 'Enter') openPdfPreview(d.pdf_url, title); });
-          // Boutons internes
-          const previewBtn = card.querySelector('.btn-preview');
-          previewBtn.addEventListener('click', (e) => { e.stopPropagation(); openPdfPreview(d.pdf_url, title); });
-          const dl = card.querySelector('.btn-download');
-          dl.addEventListener('click', (e) => { e.stopPropagation(); /* laisser le comportement par défaut */ });
-        }
+        // Affiche la prévisualisation et le téléchargement pour tous les types de fiches (incl. urbanisme)
+        card.innerHTML = `
+          <div class="doc-card-icon"><i class="fa fa-file-pdf" aria-hidden="true"></i></div>
+          <div class="doc-card-content">
+            <h3 class="doc-card-title">${title}</h3>
+            <div class="doc-card-actions">
+              <button type="button" class="btn-preview"><i class="fa fa-eye" aria-hidden="true"></i> Prévisualiser</button>
+              <a class="btn-download" href="${d.pdf_url}" target="_blank" rel="noopener">
+                <i class="fa fa-download" aria-hidden="true"></i> Télécharger
+              </a>
+            </div>
+          </div>`;
+        // Clic sur la carte => prévisualisation
+        card.addEventListener('click', () => openPdfPreview(d.pdf_url, title));
+        card.addEventListener('keypress', (e) => { if (e.key === 'Enter') openPdfPreview(d.pdf_url, title); });
+        // Boutons internes
+        const previewBtn = card.querySelector('.btn-preview');
+        previewBtn.addEventListener('click', (e) => { e.stopPropagation(); openPdfPreview(d.pdf_url, title); });
+        const dl = card.querySelector('.btn-download');
+        dl.addEventListener('click', (e) => { e.stopPropagation(); /* laisser le comportement par défaut */ });
         grid.appendChild(card);
       });
 

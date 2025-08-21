@@ -520,4 +520,3 @@ Suivi au format inspiré de « Keep a Changelog ».
 - Documentation: README refondu (modules, Supabase, Quickstart, Déploiement Windsurf/Netlify, FAQ, maintenance).
 
 ---
-*(Ce README est conçu pour permettre à une IA ou un développeur de comprendre, maintenir et faire évoluer l’application sans ambiguïté.)*
