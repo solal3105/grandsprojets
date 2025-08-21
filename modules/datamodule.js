@@ -389,6 +389,23 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
       return baseStyle;
     }
     
+    // Styles explicites pour les couches PLU / Emplacement Réservé (polygones)
+    if (layerName === 'emplacementReserve' || /plu|emplacement|reserve/i.test(layerName)) {
+      return {
+        ...baseStyle,
+        // S'assurer que le contour reste visible
+        stroke: baseStyle.stroke !== false,
+        color: baseStyle.color || '#3F52F3',
+        weight: (baseStyle.weight ?? 2),
+        opacity: (baseStyle.opacity ?? 0.9),
+        // Remplissage lisible
+        fill: (baseStyle.fill !== undefined ? baseStyle.fill : true),
+        fillColor: baseStyle.fillColor || 'rgba(63,82,243,0.15)',
+        fillOpacity: (baseStyle.fillOpacity ?? 0.3),
+        dashArray: baseStyle.dashArray || null
+      };
+    }
+
     // Applique des styles spécifiques selon le type de couche
     switch(layerName) {
       case 'metroFuniculaire':
@@ -474,20 +491,43 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
   }
 
   // Applique un style de manière sécurisée à une couche
-  // Fonction utilitaire pour assombrir une couleur
+  // Fonction utilitaire: parse une couleur CSS en objet RGB
+  function parseColorToRgb(color) {
+    if (!color) return null;
+    const c = String(color).trim();
+    // Hex court ou long
+    const hexMatch = c.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (hexMatch) {
+      let hex = hexMatch[1];
+      if (hex.length === 3) {
+        hex = hex.split('').map(ch => ch + ch).join('');
+      }
+      return {
+        r: parseInt(hex.substring(0,2), 16),
+        g: parseInt(hex.substring(2,4), 16),
+        b: parseInt(hex.substring(4,6), 16)
+      };
+    }
+    // rgb/rgba
+    const rgbMatch = c.match(/^rgba?\((\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*(\d*\.?\d+))?\)$/i);
+    if (rgbMatch) {
+      const clamp = (n) => Math.max(0, Math.min(255, parseInt(n, 10)));
+      return {
+        r: clamp(rgbMatch[1]),
+        g: clamp(rgbMatch[2]),
+        b: clamp(rgbMatch[3])
+      };
+    }
+    return null; // Format non géré (nom CSS), on abandonne proprement
+  }
+
+  // Fonction utilitaire pour assombrir une couleur (hex ou rgb/rgba). Retourne la couleur d'origine si non gérable.
   function darkenColor(color, factor = 0.5) {
-    // Convertir la couleur en RVB
-    const hex = color.replace('#', '');
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
-
-    // Assombrir
-    const darkerR = Math.max(0, Math.round(r * (1 - factor)));
-    const darkerG = Math.max(0, Math.round(g * (1 - factor)));
-    const darkerB = Math.max(0, Math.round(b * (1 - factor)));
-
-    // Reconvertir en hexadécimal
+    const rgb = parseColorToRgb(color);
+    if (!rgb) return color;
+    const darkerR = Math.max(0, Math.round(rgb.r * (1 - factor)));
+    const darkerG = Math.max(0, Math.round(rgb.g * (1 - factor)));
+    const darkerB = Math.max(0, Math.round(rgb.b * (1 - factor)));
     return `#${darkerR.toString(16).padStart(2, '0')}${darkerG.toString(16).padStart(2, '0')}${darkerB.toString(16).padStart(2, '0')}`;
   }
 
@@ -775,44 +815,80 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
 
     const isFiltered = Object.keys(FilterModule.get(layerName)).length > 0;
     const detailSupportedLayers = ['voielyonnaise', 'transport', 'urbanisme', 'reseauProjeteSitePropre'];
+    const noInteractLayers = ['planVelo', 'amenagementCyclable'];
 
-    // Ajout d'un gestionnaire de clic robuste
-    layer.on('click', (e) => {
-      // Si le clic a déjà été géré par l'ouverture d'un modal Travaux, ne rien faire
-      if (e?.originalEvent?.__gpHandledTravaux) {
-        return;
-      }
-      e.originalEvent.preventDefault();
-      e.originalEvent.stopPropagation();
-      
-      const p = (feature && feature.properties) || {};
-      const props = p;
-      const projectName = props?.name || props?.line || props?.Name || props?.LIBELLE;
-      
-      
-      if (projectName) {
-        // Mise en évidence du projet
-        if (window.highlightProjectPath) {
-          window.highlightProjectPath(layerName, projectName);
+    // Tooltip générique (ou spécifique) pour les couches non cliquables (paths/polygones)
+    try {
+      if (layerName !== 'travaux' && typeof layer.bindTooltip === 'function') {
+        const p = (feature && feature.properties) || {};
+        const geomType = (feature && feature.geometry && feature.geometry.type) || '';
+        const isPathOrPoly = /LineString|Polygon/i.test(geomType);
+        const projectNameGuess = p?.name || p?.line || p?.Name || p?.LIBELLE;
+        const isDetailSupported = detailSupportedLayers.includes(layerName);
+        const isClickable = isDetailSupported && !!projectNameGuess;
+        if (!isClickable && isPathOrPoly) {
+          const esc = (s) => String(s || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+          const title = projectNameGuess || p?.titre || p?.title || '';
+          let inner;
+
+          // Règles spécifiques par couche
+          if (layerName === 'bus') {
+            const val = p.bus || p.BUS || p.Bus || '';
+            inner = `<div class="gp-tt-body">${esc(`bus ${val}`)}</div>`;
+          } else if (layerName === 'metroFuniculaire') {
+            const ligne = p.ligne || p.LIGNE || p.Line || '';
+            const isFuni = String(ligne).toUpperCase() === 'F1' || String(ligne).toUpperCase() === 'F2';
+            const label = isFuni ? `Funiculaire ${ligne}` : `Métro ${ligne}`;
+            inner = `<div class="gp-tt-body">${esc(label)}</div>`;
+          } else if (layerName === 'tramway') {
+            const val = p.tramway || p.ligne || p.LIGNE || '';
+            inner = `<div class="gp-tt-body">${esc(`Tramway ${val}`)}</div>`;
+          } else if (layerName === 'emplacementReserve' || /plu|emplacement|reserve/i.test(layerName)) {
+            const raw = (p.type ?? p.TYPE ?? p.Type ?? p.libelle ?? p.LIBELLE ?? p.code ?? p.CODE ?? p.typologie ?? '').toString().trim();
+            const normalizeKey = (s) => s
+              .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
+              .toUpperCase()
+              .replace(/[^A-Z]/g, ''); // remove spaces, dashes, underscores, etc.
+            const key = normalizeKey(raw);
+            const map = {
+              // Primary codes
+              'ELARVOIE': 'Élargissement de voirie',
+              'CREAVOIE': 'Création de voirie',
+              'CARREF': 'Aménagement de carrefour',
+              'EQUIPUBL': 'Équipements publics',
+              'MAILPLANTE': 'Mail planté / espace vert',
+              // Common variations/synonyms (defensive)
+              'ELARGVOIE': 'Élargissement de voirie',
+            };
+            const label = map[key] || raw || '';
+            inner = `<div class="gp-tt-body">${esc(`Objectif : ${label}`)}</div>`;
+          } else {
+            // Fallback générique précédent
+            let fieldsHtml = '';
+            try { fieldsHtml = buildTooltipFields(p, layerName) || ''; } catch (_) {}
+            inner = `
+              ${title ? `<div class="gp-tt-title">${esc(title)}</div>` : ''}
+              <div class="gp-tt-body">${fieldsHtml}</div>
+            `;
+          }
+          layer.bindTooltip(inner, {
+            className: 'gp-path-tooltip',
+            sticky: true,
+            direction: 'auto',
+            opacity: 1,
+            // interactive false: n'empêche pas le clic sur couches cliquables (non utilisé ici)
+            interactive: false
+          });
         }
-        
-        // Déterminer la catégorie
-        let category = 'autre';
-        if (layerName.includes('voielyonnaise')) category = 'velo';
-        else if (layerName.includes('reseauProjete') || layerName.includes('metro') || layerName.includes('tramway')) category = 'transport';
-        else if (layerName.includes('urbanisme')) category = 'urbanisme';
-        
-        
-        // Appel direct de la fonction de détail
-        if (window.NavigationModule?.showProjectDetail) {
-          window.NavigationModule.showProjectDetail(projectName, category, e);
-        } else if (window.handleFeatureClick) {
-          window.handleFeatureClick(feature, layerName);
-        }
-      } else {
-        console.warn('Projet sans nom détecté:', p);
       }
-    });
+    } catch (_) { /* noop */ }
+
+    // (clic géré plus bas dans la fonction; ici rien à faire)
 
     // Ajoute un style de survol si la couche supporte les fiches détails
     if (detailSupportedLayers.includes(layerName)) {
@@ -935,7 +1011,7 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
       // Différencier le comportement selon que le path est cliquable ou non
       const isClickablePath = detailSupportedLayers.includes(layerName);
 
-      if (!isClickablePath) {
+      if (!isClickablePath && !noInteractLayers.includes(layerName)) {
         // Survol avec assombrissement de la couleur, sans changement de poids
         layer.on('mouseover', () => {
           const originalStyle = getFeatureStyle(feature, layerName);
@@ -943,7 +1019,10 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
           
           safeSetStyle(layer, {
             ...originalStyle,
-            color: darkerColor
+            color: darkerColor || originalStyle.color,
+            // S'assurer que le contour reste actif et lisible
+            stroke: originalStyle.stroke !== false,
+            weight: (originalStyle.weight ?? 2)
           });
         });
 
@@ -1027,7 +1106,7 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
     };
 
     // Gestion du clic sur la feature
-    layer.on('click', () => {
+    if (!noInteractLayers.includes(layerName)) layer.on('click', () => {
       // 1. Récupérer le nom du projet selon la couche
       let projectName;
       const p = (feature && feature.properties) || {};

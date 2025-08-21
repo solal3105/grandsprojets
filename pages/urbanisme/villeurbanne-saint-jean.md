@@ -62,4 +62,5 @@ Saint‑Jean deviendra un quartier familial attractif avec une offre de logement
 ### Citations principales
 
 [\[79\]\[77\]\[78\]\[80\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/villeurbanne-saint-jean)
+
 '''

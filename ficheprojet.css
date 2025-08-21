@@ -532,6 +532,7 @@ html[data-theme='dark'] .project-v2-article .card-logo {
   display: block;
   padding: 0;
   margin: 0;
+  margin-bottom: 50px;
   gap: 0;
   background: transparent;
   border-radius: 0;

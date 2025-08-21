@@ -62,3 +62,4 @@ La Métropole envisage d’étendre le concept de ZTL à d’autres quartiers et
 
 [\[20\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-presquile-a-vivre#:~:text=Lyon%20)[\[21\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-presquile-a-vivre#:~:text=Quel%20est%20le%20calendrier%20des,travaux)[\[22\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-presquile-a-vivre#:~:text=Secteur%20Cordeliers%20)
 
+---

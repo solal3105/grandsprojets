@@ -105,4 +105,5 @@ Depuis fin 2023, le chantier est visible dans les rues : pose des mâts de lig
 ## 9 – Et après ?
 
 À terme, T6 Nord pourrait servir de base à des prolongements vers Saint-Priest ou Gerland, ou jouer un rôle dans un maillage périphérique encore plus dense. L’ambition : que chaque ligne remplisse un rôle clair, sans passer systématiquement par le centre, permettant des déplacements plus directs et efficaces chez tous les Lyonnais.
-```
+
+``

@@ -220,7 +220,6 @@ html[data-theme='dark'] .leaflet-container { background: var(--dm-body-bg); }
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
   padding: 15px;
-  z-index: 1000;
   max-height: calc(90vh - 80px);
   overflow-y: auto;
 }
@@ -2744,7 +2743,7 @@ svg path:focus {
   border-radius: 12px;
   padding: 15px;
   box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-  z-index: 1001; /* Au-dessus du basemap-menu */
+  z-index: 1300; /* Au-dessus du basemap-menu */
   display: none; /* Caché par défaut */
   min-width: 250px;
   max-height: 80vh;
@@ -2931,7 +2930,6 @@ svg path:focus {
 /* Responsive: reduce cover height on small screens */
 @media (max-width: 640px) {
   .project-cover { height: 240px; }
-  .project-cover-wrap { max-height: 260px; }
 }
 
 .cover-lightbox { position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center;
@@ -2955,6 +2953,7 @@ svg path:focus {
 /* Force GitHub-style markdown rendering to be light */
 .markdown-body {
   color: #000 !important;
+  margin-bottom: 50px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3460,3 +3459,37 @@ html[data-theme='dark'] .addresses li { background: rgba(255,255,255,0.06); bord
 html[data-theme='dark'] .addresses li .copy-line { background: rgba(255,255,255,0.06); color: var(--dm-text); }
 html[data-theme='dark'] .tile-actions button { background: rgba(255,255,255,0.08); border-color: var(--dm-menu-border); color: var(--dm-text); }
 html[data-theme='dark'] .btn-ghost { background: rgba(255,255,255,0.08); color: var(--dm-text); border-color: var(--dm-menu-border); }
+
+/* ---------------------------------------------------------------------------
+   Non-clickable layers tooltip (paths/polygons)
+--------------------------------------------------------------------------- */
+.leaflet-tooltip.gp-path-tooltip {
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #0f172a;
+  border: 1px solid rgba(255,255,255,0.6);
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.08);
+  padding: 10px 12px;
+  max-width: 320px;
+}
+.gp-path-tooltip .gp-tt-title {
+  font-weight: 800;
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+  letter-spacing: .2px;
+}
+.gp-path-tooltip .gp-tt-body {
+  font-size: 0.85rem;
+  line-height: 1.25rem;
+}
+.gp-path-tooltip em { font-style: normal; color: #475569; }
+
+/* Dark mode */
+html[data-theme='dark'] .leaflet-tooltip.gp-path-tooltip {
+  background: rgba(17,24,39,0.6);
+  color: var(--dm-text);
+  border-color: var(--dm-menu-border);
+  box-shadow: 0 10px 24px var(--dm-menu-shadow-1), 0 2px 6px var(--dm-menu-shadow-2);
+}

@@ -60,4 +60,5 @@ Après 2030, les dernières parcelles pourraient accueillir des programmes innov
 ### Citations principales
 
 [\[7\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-la-duchere#:~:text=%C3%80%20retenir)[\[8\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-la-duchere#:~:text=autres%20sont%20en%20cours%20de,logement%20social%20et%20r%C3%A9sidence%20Crous)[\[9\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-la-duchere#:~:text=Alors%20que%20le%20plateau%20de,projets%20%C3%A0%20mettre%20en%20%C5%93uvre)
+
 ---

@@ -58,4 +58,5 @@ Une fois la ZAC achevée, l’objectif est d’assurer la mixité durable du qua
 ### Citations principales
 
 [\[1\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/bron-parilly#:~:text=Quel%20est%20le%20calendrier%20du,projet)
+
 ---
