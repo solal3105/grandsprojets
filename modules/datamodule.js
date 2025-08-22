@@ -627,8 +627,8 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
             <div class="hero-left">
               <span class="hero-icon">🚧</span>
               <div>
-                <div class="hero-title">Travaux ${commune ? `— ${commune}` : ''}</div>
-                <div class="hero-sub">${titre}</div>
+                <div class="hero-title">${titre || 'Travaux'}</div>
+                <div class="hero-sub">${commune || ''}</div>
               </div>
             </div>
             <span class="etat-pill ${etatClass}">${etat}</span>
@@ -792,27 +792,6 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
       });
     }
     
-    // Style au survol
-    function highlightFeature(e) {
-      const layer = e.target;
-      layer.setStyle({
-        weight: 5,
-        color: '#ff0000',
-        dashArray: '',
-        fillOpacity: 0.7
-      });
-      
-      if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
-        layer.bringToFront();
-      }
-      
-      // Mise à jour du panneau latéral si nécessaire
-      if (window.updateSidePanel) {
-        const props = (feature && feature.properties) || {};
-        window.updateSidePanel(props);
-      }
-    }
-
     const isFiltered = Object.keys(FilterModule.get(layerName)).length > 0;
     const detailSupportedLayers = ['voielyonnaise', 'transport', 'urbanisme', 'reseauProjeteSitePropre'];
     const noInteractLayers = ['planVelo', 'amenagementCyclable'];
@@ -889,24 +868,24 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
     } catch (_) { /* noop */ }
 
     // (clic géré plus bas dans la fonction; ici rien à faire)
+    
+    // Helper: animation de pointillés (dédupliqué)
+    function animateDashLine(layer) {
+      let dashOffset = 0;
+      const animateInterval = setInterval(() => {
+        if (typeof layer.setStyle === 'function') {
+          layer.setStyle({
+            dashArray: '10, 10',
+            dashOffset: dashOffset
+          });
+        }
+        dashOffset = (dashOffset + 1) % 20;
+      }, 100);
+      return animateInterval;
+    }
 
     // Ajoute un style de survol si la couche supporte les fiches détails
     if (detailSupportedLayers.includes(layerName)) {
-      // Fonction pour animer les pointillés
-      const animateDashLine = (layer) => {
-        let dashOffset = 0;
-        const animateInterval = setInterval(() => {
-          if (typeof layer.setStyle === 'function') {
-            layer.setStyle({
-              dashArray: '10, 10',
-              dashOffset: dashOffset
-            });
-          }
-          dashOffset = (dashOffset + 1) % 20;
-        }, 100);
-        return animateInterval;
-      };
-
       layer.on('mouseover', function(e) {
         // Identifier le projet du segment en fonction de la couche
         let currentProjectName;
@@ -1052,20 +1031,7 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
     }
 
 
-    // Fonction pour animer les pointillés
-    const animateDashLine = (layer) => {
-      let dashOffset = 0;
-      const animateInterval = setInterval(() => {
-        if (typeof layer.setStyle === 'function') {
-          layer.setStyle({
-            dashArray: '10, 10',
-            dashOffset: dashOffset
-          });
-        }
-        dashOffset = (dashOffset + 1) % 20;
-      }, 100);
-      return animateInterval;
-    };
+    // (animateDashLine duplicate removed; using the earlier helper)
 
     // Fonction pour mettre en évidence le projet
     const highlightProjectPath = (layerName, projectName) => {
@@ -1093,7 +1059,6 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
         if (otherProjectName === projectName) {
           if (typeof otherLayer.setStyle === 'function') {
             otherLayer.setStyle({
-              color: 'red',
               weight: 5,
               dashArray: '10, 10'
             });
@@ -1132,75 +1097,35 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
         .replace(/\s+/g, ' ') // Remplace les espaces multiples par un seul
         .replace(/[\u00A0\u1680\u2000-\u200D\u202F\u205F\u3000\uFEFF]/g, ' '); // Remplace les espaces insécables par des espaces normaux
       
-      // Depuis la migration Markdown, nous laissons NavigationModule gérer l'affichage sans vérifier window.projectDetails
-
-
-      // 4. Masquer toutes les autres couches
-      Object.keys(MapModule.layers).forEach(l => {
-        if (l !== layerName) {
-          MapModule.removeLayer(l);
+      // Assurer le bon affichage pour Voie Lyonnaise: retirer tout filtre pour afficher toutes les sections de la ligne
+      try {
+        if (layerName === 'voielyonnaise' && window.UIModule?.applyFilter) {
+          window.UIModule.applyFilter(layerName, {});
         }
-      });
+      } catch (_) { /* noop */ }
 
-      // 5. Déterminer la clé de filtrage en fonction de la couche
-      let filterKey;
-      if (layerName === 'voielyonnaise') {
-        filterKey = 'line';
-      } else if (layerName === 'reseauProjeteSitePropre') {
-        filterKey = 'Name';
-      } else if (layerName === 'urbanisme') {
-        filterKey = 'name';
-      } else {
-        filterKey = 'name';
-      }
+      // Afficher la fiche détail (géré par UIModule -> NavigationModule)
+      try { UIModule.showDetailPanel(layerName, feature); } catch (_) { /* noop */ }
 
-      // 6. Construire le critère de filtrage en s'assurant que projectName est une chaîne
-      const filterCriteria = {};
-      if (filterKey && projectName != null) {
-        filterCriteria[filterKey] = String(projectName).toLowerCase();
-      }
-
-      // 7. Appliquer le filtre sur la couche cliquée
-      UIModule.applyFilter(layerName, filterCriteria);
-
-      // 3. Afficher la fiche détail
-      UIModule.showDetailPanel(layerName, feature);
-
-      // 4. Mettre en évidence le path du projet
       if (projectName) {
         highlightProjectPath(layerName, projectName);
       }
 
       UIModule.updateActiveFilterTagsForLayer(layerName);
 
-      // 8. Déterminer la catégorie en fonction de la couche
-      let category;
-      if (layerName === 'urbanisme') {
-        category = 'urbanisme';
-      } else if (["planVelo", "amenagementCyclable", "voielyonnaise"].includes(layerName)) {
-        category = 'velo';
-      } else if (["metroFuniculaire", "tramway", "reseauProjeteSitePropre"].includes(layerName)) {
-        category = 'transport';
-      } else {
-        category = 'transport'; // valeur par défaut
-      }
-
-      // 9. Afficher le détail du projet en passant la catégorie appropriée
-      const projectDetailPanel = document.getElementById('project-detail');
-      projectDetailPanel.dataset.filterLayer = layerName;
-      NavigationModule.showProjectDetail(displayProjectName, category);
-
-      // 10. Zoom sur la feature filtrée
-      const filteredLayer = MapModule.layers[layerName];
-      if (filteredLayer && typeof filteredLayer.getBounds === 'function') {
-        const bounds = filteredLayer.getBounds();
-        if (bounds && bounds.isValid()) {
-          MapModule.map.fitBounds(bounds, { padding: [50, 50] });
+      // 10. Zoom sur la feature filtrée (sauf Voie Lyonnaise : le zoom est géré par NavigationModule)
+      if (layerName !== 'voielyonnaise') {
+        const filteredLayer = MapModule.layers[layerName];
+        if (filteredLayer && typeof filteredLayer.getBounds === 'function') {
+          const bounds = filteredLayer.getBounds();
+          if (bounds && bounds.isValid()) {
+            MapModule.map.fitBounds(bounds, { padding: [50, 50] });
+          } else {
+            console.warn("Les bounds calculés ne sont pas valides.");
+          }
         } else {
-          console.warn("Les bounds calculés ne sont pas valides.");
+          console.warn("La couche filtrée ne supporte pas getBounds.");
         }
-      } else {
-        console.warn("La couche filtrée ne supporte pas getBounds.");
       }
     });
   }

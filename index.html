@@ -46,8 +46,21 @@
   <!-- Font Awesome via cdnjs -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css"
         crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-8LGDVJXTPK"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);} 
+    gtag('js', new Date());
+
+    gtag('config', 'G-8LGDVJXTPK');
+  </script>
 </head>
 <body>
+  <!-- Standalone fixed logo for small screens -->
+  <a class="mobile-fixed-logo" href="index.html" aria-label="Accueil">
+    <img src="img/logo.svg" alt="Grands Projets de Lyon" />
+  </a>
   <div id="container">
     <!-- Carte Leaflet -->
     <div id="map"></div>
@@ -81,7 +94,6 @@
         <ul class="project-list" id="velo-project-list"></ul>
         </div>
       <div id="urbanisme-submenu" class="submenu">
-        <div class="submenu-tabs" id="urbanisme-tabs"></div>
         <ul class="project-list" id="urbanisme-project-list"></ul>
       </div>
       <div id="travaux-submenu" class="submenu" style="display:none">
@@ -101,6 +113,9 @@
 
     <!-- Barre de recherche d'adresse -->
     <div id="search-container" class="search-container">
+      <button id="info-toggle" class="info-toggle" aria-label="À propos" title="À propos">
+        <i class="fas fa-info-circle" aria-hidden="true"></i>
+      </button>
       <button id="location-toggle" class="location-toggle" aria-label="Centrer sur ma position" title="Centrer sur ma position"
               onclick="window.GeolocationModule && window.GeolocationModule.handleLocationButtonClick(event)">
         <i class="fas fa-location-arrow"></i>
@@ -135,6 +150,55 @@
     <div id="filters-container" style="display: none">
       <div id="dynamic-filters"></div>
       <button id="reset-all-filters">Réinitialiser tous les filtres</button>
+    </div>
+  </div>
+
+  <!-- À propos modal -->
+  <div id="about-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="about-title" aria-hidden="true" style="display:none">
+    <div class="gp-modal" role="document">
+      <div class="gp-modal-header">
+        <div class="gp-modal-title" id="about-title">À propos de GrandsProjets.com</div>
+        <button class="gp-modal-close" id="about-close" aria-label="Fermer">&times;</button>
+      </div>
+      <div class="gp-modal-body">
+        <div class="about-content">
+          <section class="about-text markdown-body">
+            <p>Salut 👋 Moi c’est <strong>Solal Gendrin</strong>, Villeurbannais de cœur, passionné par la ville et ses transformations.</p>
+            <p>J’ai créé <strong>GrandsProjets.com</strong> pour montrer, sans jargon, ce qui se construit dans la métropole de Lyon.</p>
+
+            <h2>🚧 Pourquoi ce site</h2>
+            <p>À Lyon, les travaux sont partout : rues bloquées, tramways en chantier, immeubles qui sortent de terre.</p>
+            <p>Mais il reste difficile de savoir ce qui est prévu, pourquoi et jusqu’à quand.</p>
+            <p>Ce site met tout sur une carte : nouvelles lignes de tram, Voies Lyonnaises, réaménagements de quartiers.</p>
+            <p>L’idée est simple : permettre à chacun de voir rapidement ce qui se passe autour de chez lui.</p>
+
+            <h2>🙋‍♂️ Qui je suis</h2>
+            <p>Je ne représente aucune institution.</p>
+            <p>Je suis product manager de métier et passionné d’urbanisme.</p>
+            <p>J’ai rassemblé des données publiques et je les ai organisées pour les rendre accessibles à tous.</p>
+          </section>
+          <section class="about-sidebar">
+            <h2>✉️ Me contacter</h2>
+            <p class="about-note">Une remarque, une info, ou juste envie d’échanger ?</p>
+            <div class="contact-cards">
+              <a class="contact-card" href="mailto:solal.gendrin@gmail.com">
+                <span class="contact-icon"><i class="fas fa-envelope" aria-hidden="true"></i></span>
+                <div class="contact-meta">
+                  <div class="contact-title">Email</div>
+                  <div class="contact-sub">solal.gendrin@gmail.com</div>
+                </div>
+              </a>
+              <a class="contact-card" href="https://www.linkedin.com/in/solal-gendrin/" target="_blank" rel="noopener">
+                <span class="contact-icon"><i class="fab fa-linkedin-in" aria-hidden="true"></i></span>
+                <div class="contact-meta">
+                  <div class="contact-title">LinkedIn</div>
+                  <div class="contact-sub">Solal Gendrin</div>
+                </div>
+              </a>
+            </div>
+          </section>
+        </div>
+      </div>
     </div>
   </div>
 

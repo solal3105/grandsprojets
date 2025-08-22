@@ -56,7 +56,7 @@ const EventBindings = (() => {
     } else if (menu === 'velo') {
       NavigationModule.renderVeloProjects();
     } else if (menu === 'urbanisme') {
-      NavigationModule.renderUrbanismeTabs();
+      NavigationModule.renderUrbanismeProjects();
     } else if (menu === 'travaux') {
       NavigationModule.renderTravauxProjects();
       // Assurer la présence de la légende de progression

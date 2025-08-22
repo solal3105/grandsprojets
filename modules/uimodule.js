@@ -359,14 +359,19 @@
     
     // Vérifier si NavigationModule est disponible
     if (window.NavigationModule?.showProjectDetail) {
-      const projectName = feature.properties?.name || feature.properties?.Name || feature.properties?.LIBELLE;
-      if (projectName) {
+      // Récupérer un nom de projet robuste selon la couche
+      const isVL = layerName.includes('voielyonnaise');
+      const baseName = isVL
+        ? (feature.properties?.line || feature.properties?.name || feature.properties?.Name || feature.properties?.LIBELLE)
+        : (feature.properties?.name || feature.properties?.Name || feature.properties?.LIBELLE);
+      if (baseName) {
         let category = 'autre';
-        if (layerName.includes('voielyonnaise')) category = 'velo';
+        if (isVL) category = 'velo';
         else if (layerName.includes('reseauProjete') || layerName.includes('metro') || layerName.includes('tramway')) category = 'transport';
         else if (layerName.includes('urbanisme')) category = 'urbanisme';
         
-        window.NavigationModule.showProjectDetail(projectName, category);
+        const displayName = isVL ? `Voie Lyonnaise ${baseName}` : baseName;
+        window.NavigationModule.showProjectDetail(displayName, category);
       }
     } else {
       console.warn('NavigationModule non disponible pour afficher les détails');

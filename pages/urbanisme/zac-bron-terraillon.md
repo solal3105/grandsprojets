@@ -57,8 +57,4 @@ Depuis 2008, plusieurs bâtiments ont été démolis et remplacés par des rési
 
 La dernière étape concernera la livraison de l’EHPAD et de nouveaux logements diversifiés. Le quartier sera définitivement ouvert sur la ville grâce à des liaisons douces vers le centre de Bron et vers Parilly.
 
-### Citations principales
-
-[\[2\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/bron-terraillon#:~:text=Quelques%20chiffres%20cl%C3%A9s)[\[3\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/bron-terraillon#:~:text=futurs%20logements%20du%20secteur%20Lur%C3%A7at,%C2%A9%20M%C3%A9tropole%20de%20Lyon)
-
 ---

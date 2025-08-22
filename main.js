@@ -279,6 +279,77 @@
         });
       }
 
+      // À propos: ouverture/fermeture du modal
+      const infoToggle    = document.getElementById('info-toggle');
+      const aboutOverlay  = document.getElementById('about-overlay');
+      const aboutClose    = document.getElementById('about-close');
+      const aboutModal    = aboutOverlay ? aboutOverlay.querySelector('.gp-modal') : null;
+      let aboutLastFocus  = null;
+      let aboutCloseTimer = null;
+
+      const closeAbout = () => {
+        if (!aboutOverlay) return;
+        if (aboutCloseTimer) { clearTimeout(aboutCloseTimer); aboutCloseTimer = null; }
+        // play closing transition
+        if (aboutModal) aboutModal.classList.remove('is-open');
+        aboutOverlay.setAttribute('aria-hidden', 'true');
+        document.removeEventListener('keydown', escHandler);
+        document.body.style.overflow = '';
+        // hide after transition
+        aboutCloseTimer = setTimeout(() => {
+          aboutOverlay.style.display = 'none';
+          if (aboutLastFocus && typeof aboutLastFocus.focus === 'function') {
+            try { aboutLastFocus.focus(); } catch (_) {}
+          }
+        }, 180);
+      };
+
+      const openAbout = () => {
+        if (!aboutOverlay) return;
+        if (aboutCloseTimer) { clearTimeout(aboutCloseTimer); aboutCloseTimer = null; }
+        aboutLastFocus = document.activeElement;
+        aboutOverlay.style.display = 'flex';
+        aboutOverlay.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        // animate in on next frame
+        requestAnimationFrame(() => {
+          if (aboutModal) aboutModal.classList.add('is-open');
+        });
+        // focus sur le bouton fermer
+        if (aboutClose && typeof aboutClose.focus === 'function') {
+          try { aboutClose.focus(); } catch (_) {}
+        }
+        document.addEventListener('keydown', escHandler);
+      };
+
+      const escHandler = (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          closeAbout();
+        }
+      };
+
+      if (infoToggle) {
+        infoToggle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openAbout();
+        });
+      }
+      if (aboutClose) {
+        aboutClose.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeAbout();
+        });
+      }
+      if (aboutOverlay) {
+        aboutOverlay.addEventListener('click', (e) => {
+          // Fermer si clic en dehors de la boîte de dialogue
+          if (e.target === aboutOverlay) {
+            closeAbout();
+          }
+        });
+      }
+
       // Gestion du basculement du thème (sans modifier automatiquement le fond de carte)
       if (themeToggle) {
         themeToggle.addEventListener('click', (e) => {
@@ -339,14 +410,7 @@
           logoImg.setAttribute('draggable', 'false');
         }
       }
-      document.querySelectorAll('.submenu-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-          document.querySelectorAll('.submenu-tab')
-            .forEach(t => t.classList.remove('active'));
-          tab.classList.add('active');
-          NavigationModule.renderMobilityProjects(tab.dataset.tab);
-        });
-      });
+      // Ancien gestionnaire d'onglets supprimé (plus d'onglets Urbanisme)
 
       // 6️⃣ Injection finale des configs
       window.dataConfig = window.dataConfig || {};

@@ -195,12 +195,11 @@ html, body {
 #map {
   width: 100%;
   height: 100%;
-  background-color: var(--surface-90);
+  background-color: #fff;
 }
 
-urbanisme-submenu
-html[data-theme='dark'] #map { background-color: var(--dm-body-bg); }
-html[data-theme='dark'] .leaflet-container { background: var(--dm-body-bg); }
+html[data-theme='dark'] #map { background-color: #000; }
+html[data-theme='dark'] .leaflet-container { background: #000; }
 
 /* Ensure invisible hitline strokes in custom pane remain clickable */
 .leaflet-hitlinePane-pane path {
@@ -634,6 +633,9 @@ html[data-theme='dark'] .leaflet-container { background: var(--dm-body-bg); }
   align-items: center;
   padding: 15px 20px;
   margin: -20px -20px 20px -20px; /* Compense le padding du conteneur parent */
+  background: var(--surface-95);
+  backdrop-filter: blur(5px);
+  border-bottom: 1px solid var(--border);
 }
 
 #detail-toggle-btn {
@@ -650,7 +652,9 @@ html[data-theme='dark'] .leaflet-container { background: var(--dm-body-bg); }
 }
 
 .project-header-container {
-  position: relative;
+  position: sticky; /* ensure sticky, later rule should not reset to relative */
+  top: 0;
+  z-index: 10;
 }
 
 #detail-toggle-btn {
@@ -732,7 +736,7 @@ html[data-theme='dark'] .leaflet-container { background: var(--dm-body-bg); }
   border-radius: 6px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   transition: all 0.2s ease;
 }
 
@@ -772,7 +776,8 @@ html[data-theme='dark'] .leaflet-container { background: var(--dm-body-bg); }
   display: flex;
   align-items: center;
   gap: 12px;
-  padding:  10px 20px;
+  padding-top: 20px;
+  margin: 0 20px;
 }
 
 .project-title-container i {
@@ -796,6 +801,7 @@ html[data-theme='dark'] .leaflet-container { background: var(--dm-body-bg); }
 
 .detail-fullpage-btn {
   display: inline-flex;
+  width: calc(100% - 44px);
   align-items: center;
   justify-content: center;
   gap: 10px;
@@ -917,7 +923,7 @@ html[data-theme='dark'] .leaflet-container { background: var(--dm-body-bg); }
 
 #detail-content {
   flex: 1;
-  overflow-y: auto;
+  overflow: visible; /* let #project-detail be the scroll container for sticky header */
   padding: 20px;
   padding-top: 0;
 }
@@ -1004,7 +1010,7 @@ html[data-theme='dark'] .leaflet-container { background: var(--dm-body-bg); }
     overflow-y: auto !important;
     z-index: 1200 !important;
     box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1) !important;
-    border-radius: 12px 12px 0 0 !important;
+    border-radius: 20px 20px 0 0 !important;
   }
   #project-detail {
     position: absolute;
@@ -1018,13 +1024,46 @@ html[data-theme='dark'] .leaflet-container { background: var(--dm-body-bg); }
     overflow-y: auto !important;
     z-index: 1200 !important;
     box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1) !important;
-    border-radius: 12px 12px 0 0 !important;
+    border-radius: 20px 20px 0 0 !important;
     min-height: auto !important;
   }
   .detail-header-project-list {
-    position: relative !important;
+    position: sticky !important;
+    top: 0;
+    z-index: 10;
+  }
+  /* Mobile submenu panels: smooth collapse/expand */
+  #transport-submenu,
+  #velo-submenu,
+  #urbanisme-submenu,
+  #travaux-submenu {
+    transition: max-height 250ms ease;
+    will-change: max-height;
+  }
+  /* Header layout ensures space for chevron + close */
+  .detail-header-submenu {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  /* Show toggle on mobile */
+  .detail-header-submenu .submenu-toggle-btn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
   }
 }
+/* Submenu toggle button base styles (hidden by default; JS shows on mobile) */
+.submenu-toggle-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 4px;
+}
+/* No rotation-based state by default; icon class switches in JS */
 #left-nav {
   position: absolute;
   top: 10px;
@@ -1135,10 +1174,27 @@ html[data-theme='dark'] .leaflet-container { background: var(--dm-body-bg); }
 
 /* Detail header submenu styling */
 .detail-header-submenu {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 1rem;
+  /* stretch across submenu padded container */
+  padding: 12px 20px;
+  margin: -20px -20px 12px -20px;
+  background: var(--surface-70);
+  backdrop-filter: blur(5px);
+  border-bottom: 1px solid var(--border);
+}
+.detail-header-submenu .header-left {
+  display: inline-flex;
+  align-items: center;
+}
+.detail-header-submenu > div:last-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 .detail-header-submenu h2 {
   margin: 0;
@@ -1147,43 +1203,271 @@ html[data-theme='dark'] .leaflet-container { background: var(--dm-body-bg); }
   color: #333333;
 }
 .detail-header-submenu .close-btn {
-  background: none;
-  border: none;
-  padding: 0.4rem;
+  background: #fafafa; /* lighter base */
+  border: 1px solid var(--border);
+  padding: 8px 12px;
   cursor: pointer;
-  border-radius: 4px;
-  transition: background 0.2s ease;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px; /* align spacing with reduce button */
+  font-weight: 500; /* align with #detail-back-btn */
+  font-size: 0.95rem; /* align with #detail-back-btn */
+  color: var(--brand-grandlyon); /* subtle red theme */
+  line-height: 1;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 .detail-header-submenu .close-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background-color: color-mix(in srgb, var(--brand-grandlyon) 12%, white);
 }
+.detail-header-submenu .close-btn i,
 .detail-header-submenu .close-btn svg {
-  width: 1.2rem;
-  height: 1.2rem;
-  color: #555555;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: currentColor;
 }
+
+/* Dark mode hover for red-themed close button */
+html[data-theme='dark'] .detail-header-submenu .close-btn:hover {
+  background-color: color-mix(in srgb, var(--brand-grandlyon) 35%, black);
+}
+/* Dark mode base for red-themed close button (match submenu back button shell) */
+html[data-theme='dark'] .detail-header-submenu .close-btn {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--dm-menu-border);
+  color: var(--brand-grandlyon);
+}
+
+/* Project detail header actions: back (left) and reduce (right) with padding */
+.detail-header-submenu .header-actions {
+  display: flex !important; /* override legacy last-child inline-flex */
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 0 20px;
+}
+
+/* Always show the reduce toggle for project detail header */
+#project-detail .detail-header-submenu .submenu-toggle-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Full-width button helper */
+.gp-btn--block {
+  display: inline-flex;
+  width: 100%;
+  justify-content: center;
+}
+
+/* Resolve conflicts: ensure back button in detail header uses gp-btn visuals, not legacy link style */
+#project-detail .detail-header-submenu #detail-back-btn {
+  background: #f6f7f8;
+  border: 1px solid var(--border);
+  color: #333;
+  padding: 8px 12px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+#project-detail .detail-header-submenu #detail-back-btn::before { content: none; }
+#project-detail .detail-header-submenu #detail-back-btn:hover {
+  background: rgba(0,0,0,0.04);
+  transform: none;
+}
+
+/* Resolve conflicts: ensure reduce toggle matches submenu-toggle-btn visuals */
+#project-detail .detail-header-submenu #detail-panel-toggle-btn {
+  background: transparent;               /* like .gp-btn--secondary */
+  border: 1px solid #e5e7eb;             /* like .gp-btn--secondary */
+  color: #374151;                         /* like .gp-btn--secondary */
+  padding: 8px 12px;                      /* like .gp-btn */
+  border-radius: 10px;                    /* like .gp-btn */
+  display: inline-flex;                   /* like .gp-btn */
+  align-items: center;                    /* like .gp-btn */
+  gap: 8px;                               /* like .gp-btn */
+  background: var(--surface-70);
+}
+#project-detail .detail-header-submenu #detail-panel-toggle-btn:hover {
+  border-color: #d1d5db;
+  background: var(--surface-90);
+}
+
+/* Normalize header buttons inside project detail header (override .project-detail button) */
+#project-detail .detail-header-submenu button {
+  margin: 0;          /* use .header-actions gap instead */
+  font-weight: 500;   /* avoid bold from generic reset */
+}
+
+/* ---------------------------------------------------------------------------
+   Boutons génériques (utilisés dans les en-têtes des sous-menus)
+--------------------------------------------------------------------------- */
+.gp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #f6f7f8;
+  color: #333;
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  user-select: none;
+}
+.gp-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+.gp-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  filter: brightness(0.98);
+}
+.gp-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(20, 174, 92, 0.35);
+}
+.gp-btn__icon { font-size: 0.95rem; opacity: 0.85; }
+.gp-btn__label { white-space: nowrap; }
+
+/* Variantes */
+.gp-btn--secondary {
+  /* plus subtil/ghost pour le bouton Réduire */
+  background: transparent;
+  border-color: #e5e7eb;
+  color: #374151;
+}
+.gp-btn--secondary:hover {
+  background: rgba(0,0,0,0.04);
+  border-color: #d1d5db;
+}
+.gp-btn--danger {
+  /* version minimaliste/ghost pour "Fermer" */
+  background: transparent;
+  border-color: #e5e7eb;
+  color: #6b7280;
+  box-shadow: none;
+}
+.gp-btn--danger:hover {
+  background: rgba(0,0,0,0.04);
+  border-color: #d1d5db;
+  color: #111827;
+  box-shadow: none;
+}
+
+/* Spécificité plus forte pour le bouton Fermer dans l'en-tête */
+.detail-header-submenu .gp-btn.close-btn {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border-width: 1px;
+}
+.detail-header-submenu .gp-btn.close-btn.gp-btn--danger {
+  background: #fafafa;              /* lighter base across all submenus */
+  border-color: var(--border);
+  color: var(--brand-grandlyon);    /* subtle red theme */
+  box-shadow: none;
+  font-weight: 500;
+  font-size: 0.95rem;
+  gap: 8px;                         /* same spacing as reduce */
+}
+.detail-header-submenu .gp-btn.close-btn.gp-btn--danger:hover {
+  background-color: color-mix(in srgb, var(--brand-grandlyon) 12%, white);
+  border-color: var(--border);
+  color: var(--brand-grandlyon);
+  box-shadow: none;
+}
+
+/* Travaux submenu: close button sizing and red theme overrides */
+#travaux-submenu .detail-header-submenu #travaux-close-btn {
+  color: var(--brand-grandlyon);
+  background: #fafafa;
+  border-color: var(--border);
+  font-weight: 500;      /* match #detail-back-btn */
+  font-size: 0.95rem;    /* match #detail-back-btn */
+  gap: 8px;              /* align icon/label spacing */
+  min-height: 0;         /* avoid taller button than toggle */
+}
+#travaux-submenu .detail-header-submenu #travaux-close-btn:hover {
+  background-color: color-mix(in srgb, var(--brand-grandlyon) 12%, white);
+  border-color: var(--border);
+}
+html[data-theme='dark'] #travaux-submenu .detail-header-submenu #travaux-close-btn {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--dm-menu-border);
+  color: var(--brand-grandlyon);
+}
+html[data-theme='dark'] #travaux-submenu .detail-header-submenu #travaux-close-btn:hover {
+  background-color: color-mix(in srgb, var(--brand-grandlyon) 35%, black);
+  border-color: var(--dm-menu-border);
+}
+
+/* État réduit (pour le bouton toggle) */
+.submenu-toggle-btn.is-collapsed { opacity: 0.95; }
+.submenu-toggle-btn.is-collapsed .gp-btn__icon { transform: scale(0.95); transition: transform 0.15s ease; }
+
+/* Dark mode */
+html[data-theme='dark'] .gp-btn--secondary {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--dm-menu-border);
+  color: var(--dm-text);
+}
+html[data-theme='dark'] .gp-btn--secondary:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: var(--dm-menu-border);
+}
+html[data-theme='dark'] .gp-btn--danger {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--dm-menu-border);
+  color: var(--dm-text);
+  box-shadow: none;
+}
+
+/* Masquer le bouton Réduire au-delà de 1024px */
+@media (min-width: 1024px) {
+  .detail-header-submenu .submenu-toggle-btn { display: none !important; }
+}
+
+/* Ensure project detail toggle remains visible on desktop as well */
+#project-detail .detail-header-submenu .submenu-toggle-btn { display: inline-flex !important; }
+
 #left-nav.expanded {
   width: 300px;
 }
 
-/* Display logo fixed at top-left of the page under 640px, no background */
+/* Standalone mobile fixed logo (hidden by default) */
+.mobile-fixed-logo {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1300;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+.mobile-fixed-logo img {
+  height: 32px;
+  width: auto;
+  display: block;
+}
+
+/* Mobile: keep blur on #left-nav, hide its embedded logo, show standalone logo */
 @media (max-width: 640px) {
-  /* Important: éviter que le backdrop-filter du parent piège le positionnement fixed */
-  #left-nav {
-    backdrop-filter: none !important;
-    /* Si un filtre standard était appliqué ailleurs */
-    -webkit-backdrop-filter: none !important;
-    filter: none !important;
-  }
   #left-nav .logo {
-    display: block;
-    position: fixed;
-    top: 20px !important;
-    left: 20px !important;
-    z-index: 1300 !important;
-    width: 120px !important;
-    height: auto !important;
+    display: none !important;
   }
+  .mobile-fixed-logo {
+    display: inline-flex;
+  }
+  /* Make nav categories narrower on small screens */
+  .nav-category { width: 70px; }
 }
 
 /* ---------------------------------------------------------------------------
@@ -1199,29 +1483,6 @@ html[data-theme='dark'] .leaflet-container { background: var(--dm-body-bg); }
 }
 #mobility-submenu.active {
   display: block;
-}
-.submenu-tabs {
-  display: flex;
-  justify-content: space-between;
-  flex-direction: column;
-}
-.submenu-tab {
-  flex: 1;
-  text-align: center;
-  padding: 8px 4px;
-  margin: 0;
-  cursor: pointer;
-  font-weight: bold;
-}
-.submenu-tab.active {
-  background: #14AE5C;
-  color: var(--on-accent);
-}
-.submenu-tab:first-child {
-  border-radius: 8px 0 0 8px;
-}
-.submenu-tab:last-child {
-  border-radius: 0 8px 8px 0;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1600,9 +1861,9 @@ html[data-theme='dark'] .leaflet-container { background: var(--dm-body-bg); }
   max-height: 600px; /* Hauteur maximale ajoutée */
   background: var(--surface);
   box-shadow: 2px 0 12px rgba(0,0,0,0.08);
-  border-radius: 0 16px 16px 16px;
+  border-radius: 0 20px 20px 20px;
   z-index: 1200;
-  padding: 20px 20px 40px 20px;
+  padding: 0 20px 20px 20px;
   overflow-y: auto;
   /* Masquer la barre de défilement pour WebKit (Chrome, Safari, etc.) */
   scrollbar-width: none; /* Pour Firefox */
@@ -1617,27 +1878,6 @@ html[data-theme='dark'] .leaflet-container { background: var(--dm-body-bg); }
 #travaux-submenu::-webkit-scrollbar {
   display: none;
 }
-/* Onglets Urbanisme */
-#urbanisme-tabs {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-#urbanisme-tabs .submenu-tab {
-  flex: 1;
-  text-align: center;
-  padding: 6px 0;
-  margin: 0 5px;
-  border-radius: 8px;
-  background: #f0f0f0;
-  cursor: pointer;
-  font-weight: bold;
-}
-#urbanisme-tabs .submenu-tab.active {
-  background: #00bfa5;
-  color: #fff;
-}
-
 /* ---------------------------------------------------------------------------
    Liste de projets
 --------------------------------------------------------------------------- */
@@ -1663,7 +1903,7 @@ html[data-theme='dark'] .leaflet-container { background: var(--dm-body-bg); }
 .project-list {
   list-style: none;
   padding: 0;
-  margin: 0;
+  margin: 40px 0 0 0;
 }
 .project-item {
   position: relative;
@@ -1910,41 +2150,6 @@ html[data-theme='dark'] .project-arrow { color: var(--dm-muted-text); }
 --------------------------------------------------------------------------- */
 .hidden {
   display: none !important;
-}
-
-/* ---------------------------------------------------------------------------
-   Conteneur personnalisé du select Urbanisme
---------------------------------------------------------------------------- */
-.urbanisme-select-wrapper {
-  position: relative;
-  display: inline-block;
-  width: 100%;
-}
-.urbanisme-select-wrapper::after {
-  content: "\f107"; /* Code Unicode pour l'icône "angle-down" */
-  font-family: "Font Awesome 6 Free";
-  font-weight: 900;
-  position: absolute;
-  right: 1em;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  color: #14AE5C;
-}
-#urbanisme-select {
-  width: 100%;
-  display: block;
-  background-color: #fff;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  height: 34px;
-  border: 2px solid #eee;
-  color: #333;
-  padding: 0.5em 2.5em 0.5em 0.5em;
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
 }
 
 /* Style pour les marqueurs caméra */
@@ -2473,6 +2678,27 @@ svg path:focus {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+/* Bouton info - Mobile uniquement, placé à gauche du bouton de localisation */
+.info-toggle {
+  position: absolute;
+  top: 0px;
+  right: 100px; /* 50px à gauche du bouton de localisation (right:50px) */
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: none; /* Masqué par défaut */
+  align-items: center;
+  justify-content: center;
+  color: #333;
+  z-index: 1000;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 .location-toggle:hover {
   background: #f5f5f5;
   color: #14AE5C;
@@ -2549,6 +2775,9 @@ svg path:focus {
 /* Affichage du bouton uniquement sur mobile */
 @media (max-width: 1024px) {
   .location-toggle {
+    display: flex;
+  }
+  .info-toggle {
     display: flex;
   }
   
@@ -2698,6 +2927,7 @@ svg path:focus {
 /* Unified toggle styles for consistent look across controls */
 .search-toggle,
 .location-toggle,
+.info-toggle,
 .theme-toggle,
 .basemap-toggle,
 #filters-toggle,
@@ -2718,6 +2948,7 @@ svg path:focus {
 
 .search-toggle i,
 .location-toggle i,
+.info-toggle i,
 .theme-toggle i,
 .basemap-toggle i,
 #filters-toggle i,
@@ -2728,6 +2959,7 @@ svg path:focus {
 
 .search-toggle:hover,
 .location-toggle:hover,
+.info-toggle:hover,
 .theme-toggle:hover,
 .basemap-toggle:hover,
 #filters-toggle:hover,
@@ -2830,6 +3062,7 @@ svg path:focus {
 
 /* Formulaire Travaux */
 
+#travaux-filters-ux { margin-top: 40px; }
 #travaux-filters-ux .travaux-filters-header {
   display: flex;
   justify-content: space-between;
@@ -3020,12 +3253,39 @@ html[data-theme='dark'] #left-nav {
 html[data-theme='dark'] #left-nav p { color: var(--dm-muted-text); }
 /* Make main logo white in dark mode */
 html[data-theme='dark'] #left-nav .logo img { filter: brightness(0) invert(1); }
+/* Make standalone mobile logo white in dark mode */
+html[data-theme='dark'] .mobile-fixed-logo img { filter: brightness(0) invert(1); }
 /* Nav categories: improve readability in dark mode */
 html[data-theme='dark'] .nav-category i { color: #fff; }
 html[data-theme='dark'] .nav-category .label { color: #fff; }
 html[data-theme='dark'] #project-detail {
   background-color: var(--dm-panel-bg);
   color: var(--dm-text);
+}
+/* Detail header submenu: dark mode container and controls */
+html[data-theme='dark'] .detail-header-submenu {
+  background: var(--glass-topbar-bg);
+  border-bottom-color: var(--dm-menu-border);
+}
+html[data-theme='dark'] .detail-header-submenu .gp-btn__icon { color: var(--dm-text); }
+/* Back button (scoped override to counter light-theme override) */
+html[data-theme='dark'] #project-detail .detail-header-submenu #detail-back-btn {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--dm-menu-border);
+  color: var(--dm-text);
+}
+html[data-theme='dark'] #project-detail .detail-header-submenu #detail-back-btn:hover {
+  background: rgba(255,255,255,0.08);
+}
+/* Reduce toggle: ensure dark variant matches gp-btn--secondary */
+html[data-theme='dark'] #project-detail .detail-header-submenu #detail-panel-toggle-btn {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--dm-menu-border);
+  color: var(--dm-text);
+}
+html[data-theme='dark'] #project-detail .detail-header-submenu #detail-panel-toggle-btn:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: var(--dm-menu-border);
 }
 /* Legacy/class-based project detail panel */
 html[data-theme='dark'] .project-detail {
@@ -3054,16 +3314,10 @@ html[data-theme='dark'] #travaux-submenu {
 }
 html[data-theme='dark'] .detail-header-submenu h2 { color: var(--dm-text); }
 html[data-theme='dark'] .detail-header-submenu .close-btn svg { color: var(--dm-muted-text); }
-html[data-theme='dark'] .detail-header-submenu .close-btn:hover { background: rgba(255,255,255,0.06); }
-
-/* Tabs inside submenus */
-html[data-theme='dark'] #urbanisme-tabs .submenu-tab {
-  background: var(--dm-tile-bg);
-  color: var(--dm-text);
-  border: 1px solid var(--dm-menu-border);
+html[data-theme='dark'] .detail-header-submenu .close-btn:hover {
+  background-color: color-mix(in srgb, var(--brand-grandlyon) 35%, black);
+  border-color: var(--dm-menu-border);
 }
-html[data-theme='dark'] .submenu-tabs .submenu-tab { color: var(--dm-text); }
-html[data-theme='dark'] .submenu-tab.active { color: #fff; }
 
 /* Badges/filters in submenus */
 html[data-theme='dark'] .filter-badge { background: var(--dm-chip-bg); color: var(--dm-text); }
@@ -3084,6 +3338,7 @@ html[data-theme='dark'] #travaux-filters-ux #reset-all-filters {
 }
 html[data-theme='dark'] .search-toggle,
 html[data-theme='dark'] .location-toggle,
+html[data-theme='dark'] .info-toggle,
 html[data-theme='dark'] .theme-toggle,
 html[data-theme='dark'] .basemap-toggle,
 html[data-theme='dark'] #filters-toggle,
@@ -3094,6 +3349,7 @@ html[data-theme='dark'] .filters-toggle {
 }
 html[data-theme='dark'] .search-toggle i,
 html[data-theme='dark'] .location-toggle i,
+html[data-theme='dark'] .info-toggle i,
 html[data-theme='dark'] .theme-toggle i,
 html[data-theme='dark'] .basemap-toggle i,
 html[data-theme='dark'] #filters-toggle i,
@@ -3183,19 +3439,6 @@ html[data-theme='dark'] .subfilters-container {
   box-shadow: 0 4px 10px var(--dm-shadow-weak);
 }
 
-/* Urbanisme select in dark mode */
-html[data-theme='dark'] #urbanisme-select {
-  background-color: var(--dm-panel-bg);
-  color: var(--dm-text);
-  border: 1px solid var(--dm-menu-border);
-}
-html[data-theme='dark'] #urbanisme-select:focus {
-  outline: none;
-  border-color: #14AE5C;
-  box-shadow: 0 0 0 2px rgba(20,174,92,0.25);
-}
-html[data-theme='dark'] .urbanisme-select-wrapper::after { color: #14AE5C; }
-
 /* Project title and back button in dark mode */
 html[data-theme='dark'] .project-title { color: var(--dm-text); }
 html[data-theme='dark'] #detail-back-btn,
@@ -3281,6 +3524,127 @@ html[data-theme='dark'] .markdown-body hr { border-color: var(--dm-menu-border) 
   border-radius: 16px;
   box-shadow: 0 18px 60px rgba(0,0,0,0.25), 0 6px 18px rgba(0,0,0,0.12);
 }
+
+/* Scoped animation for About modal */
+#about-overlay .gp-modal {
+  transform: scale(0.98);
+  opacity: 0;
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+#about-overlay .gp-modal.is-open {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* About modal layout and cards */
+.gp-modal-body {
+  padding: 16px 18px 18px;
+}
+
+.about-content {
+  display: grid;
+  gap: 12px;
+}
+
+/* Always stacked: cards below text (even on desktop) */
+@media (min-width: 768px) {
+  .about-content { grid-template-columns: 1fr; align-items: start; }
+}
+
+.about-text {
+  max-width: none; /* take full modal width as requested */
+}
+
+.about-text h2 {
+  font-size: 1.2rem;
+  line-height: 1.3;
+  margin: 6px 0 4px;
+}
+
+.about-text p {
+  margin: 4px 0 8px;
+  line-height: 1.5;
+  color: #566474; /* slightly greyer than headings */
+}
+
+.about-sidebar {
+  display: grid;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0,0,0,0.06);
+}
+
+.contact-cards {
+  display: grid;
+  gap: 10px;
+}
+
+.contact-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+}
+
+.contact-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.10);
+  background: rgba(255,255,255,0.85);
+}
+
+.contact-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(20, 174, 92, 0.15);
+  color: #14AE5C;
+  flex: 0 0 36px;
+}
+
+.contact-title {
+  font-weight: 600;
+  font-size: 0.98rem;
+  line-height: 1.2;
+}
+
+.contact-sub {
+  font-size: 0.9rem;
+  color: #55626d;
+}
+
+.about-note {
+  margin-top: 4px;
+  font-size: 0.92rem;
+  color: #6b7a86;
+}
+
+/* Dark mode adjustments */
+html[data-theme='dark'] .gp-modal-body { color: var(--dm-text); }
+html[data-theme='dark'] .about-text h2 { color: var(--dm-text); }
+html[data-theme='dark'] .about-text p { color: #b3c3cf; }
+html[data-theme='dark'] .contact-card {
+  background: var(--dm-panel-bg);
+  border: 1px solid var(--dm-menu-border);
+  box-shadow: 0 1px 2px var(--dm-shadow-weak);
+}
+html[data-theme='dark'] .contact-card:hover {
+  background: rgba(255,255,255,0.06);
+  box-shadow: 0 4px 10px var(--dm-shadow-weak);
+}
+html[data-theme='dark'] .contact-sub { color: #9fb0bd; }
+html[data-theme='dark'] .about-note { color: #9fb0bd; }
+html[data-theme='dark'] .about-sidebar { border-top: 1px solid var(--dm-menu-border); }
 
 .gp-modal-header {
   position: sticky;
@@ -3371,6 +3735,12 @@ html[data-theme='dark'] .gp-modal-close:hover {
 .etat-pill.etat--prochain { color: #B45309; background: rgba(245,158,11,0.14); border-color: rgba(245,158,11,0.35); }
 .etat-pill.etat--termine { color: #4b5563; background: rgba(107,114,128,0.14); border-color: rgba(107,114,128,0.35); }
 .etat-pill.etat--neutre { color: #334155; background: rgba(148,163,184,0.16); border-color: rgba(148,163,184,0.35); }
+/* Dark mode: improve neutral pill contrast */
+html[data-theme='dark'] .etat-pill.etat--neutre {
+  color: #E5E7EB; /* slate-200 for readable text */
+  background: rgba(148,163,184,0.24); /* stronger slate-400 tint */
+  border-color: rgba(148,163,184,0.45);
+}
 
 .gp-bento {
   display: grid;

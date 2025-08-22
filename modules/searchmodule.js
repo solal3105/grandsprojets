@@ -78,6 +78,13 @@ window.SearchModule = (() => {
     searchOverlay.classList.toggle('visible');
     
     if (searchOverlay.classList.contains('visible')) {
+      // Close the project detail panel while searching (preserve map view)
+      try {
+        if (window.NavigationModule && typeof window.NavigationModule.resetToDefaultView === 'function') {
+          window.NavigationModule.resetToDefaultView(undefined, { preserveMapView: true });
+        }
+      } catch (_) {}
+
       // Focus the input when overlay is shown
       setTimeout(() => {
         searchInput.focus();

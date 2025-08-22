@@ -283,31 +283,36 @@ async function showProjectDetail(projectName, category, event) {
     }
     
     panel.innerHTML = `
-      <div class="detail-header-project-list">
-        <div class="detail-header-top project-header-container" style="display:flex; justify-content:space-between; align-items:center;">
-        <div style="display:flex; align-items:center; gap:.5rem;">
-          <button id="detail-back-btn">Retour</button>
-          <button id="detail-toggle-btn" style="display:none; margin:0 1rem; background:none; border:none; cursor:pointer;"><i class="fas fa-chevron-down"></i></button>
-        </div>
-        <div style="display:flex; align-items:center; gap:.5rem;">
-          <button id="detail-close-btn">✖</button>
+      <div class="detail-header-submenu">
+        <div class="header-actions">
+          <button id="detail-back-btn" class="gp-btn gp-btn--secondary" aria-label="Retour">
+            <i class="fa-solid fa-arrow-left gp-btn__icon" aria-hidden="true"></i>
+            <span class="gp-btn__label">Retour</span>
+          </button>
+          <button id="detail-panel-toggle-btn" class="gp-btn gp-btn--secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true" aria-controls="project-detail">
+            <i class="fa-solid fa-compress gp-btn__icon" aria-hidden="true"></i>
+            <span class="gp-btn__label">Réduire</span>
+          </button>
         </div>
       </div>
       <div class="project-title-container">
         <i class="fas ${icons[category]||'fa-map'}"></i>
         <h3 class="project-title">${projectName}</h3>
       </div>
-        ${fullPageUrl ? `<a href="${fullPageUrl}" class="detail-fullpage-btn">
-           <i class="fas fa-external-link-alt"></i>Voir la fiche complète
-          </a>` : ''}
-      </div>
+      ${fullPageUrl ? `<a href="${fullPageUrl}" class="detail-fullpage-btn">
+         <i class=\"fas fa-external-link-alt\"></i>Voir la fiche complète
+        </a>` : ''}
       <div id="detail-content" class="markdown-body">${body}</div>`;
     
-    // Ensure toggle icon starts in 'down' state on each open
+    // Ensure reduce button starts expanded state (compress icon + label)
     try {
-      const _btn = document.getElementById('detail-toggle-btn');
+      const _btn = document.getElementById('detail-panel-toggle-btn');
       const _ic = _btn?.querySelector('i');
-      if (_ic) { _ic.classList.remove('fa-chevron-up'); _ic.classList.add('fa-chevron-down'); }
+      const _lbl = _btn?.querySelector('.gp-btn__label');
+      if (_ic) { _ic.classList.remove('fa-expand'); _ic.classList.add('fa-compress'); }
+      if (_lbl) _lbl.textContent = 'Réduire';
+      _btn?.classList.remove('is-collapsed');
+      if (_btn) { _btn.setAttribute('aria-expanded', 'true'); _btn.setAttribute('aria-label', 'Réduire'); }
     } catch(_) {}
 
     // Le bouton de thème du panneau de détail a été supprimé; aucune synchronisation nécessaire ici.
@@ -388,132 +393,36 @@ async function showProjectDetail(projectName, category, event) {
       });
     })();
 
-    /**
-     * Gestionnaire d'événement pour le bouton de fermeture du panneau de détail.
-     * Effectue les opérations suivantes :
-     * 1. Masque le panneau de détail
-     * 2. Réinitialise le style de la navigation latérale
-     * 3. Ferme tous les sous-menus
-     * 4. Réinitialise tous les filtres actifs
-     * 5. Nettoie les couches actuelles de la carte
-     * 6. Recharge et affiche les couches par défaut
-     * 7. Met à jour l'interface utilisateur
-     */
-    document.getElementById('detail-close-btn').onclick = () => {
-      console.log('=== DÉBUT GESTIONNAIRE DE FERMETURE ===');
-      // Déconnecter l'observer du thème si actif
-      if (themeObserver) { try { themeObserver.disconnect(); } catch (_) {} themeObserver = null; }
-      
-      // 1. Cacher le panneau de détail
-      panel.style.display = 'none';
-      
-      // 2. Réinitialiser le style du panneau latéral gauche
-      const leftNav = document.getElementById('left-nav');
-      if (leftNav) {
-        leftNav.style.borderRadius = '20px';
-      }
-      
-      // 2bis. Réinitialiser les états actifs de la navigation (boutons catégories)
-      try {
-        document.querySelectorAll('#left-nav .nav-category.active').forEach(btn => btn.classList.remove('active'));
-      } catch (_) { /* no-op */ }
+    // (Bouton fermer supprimé)
 
-      // 3. Fermer tous les sous-menus (vélo, transport, mobilité, urbanisme)
-      ['velo', 'transport', 'mobilite', 'urbanisme'].forEach(id => {
-        const submenu = document.getElementById(`${id}-submenu`);
-        if (submenu) submenu.style.display = 'none';
-      });
-      
-      // 4. Réinitialiser les filtres
-      // 4.1 Réinitialiser les filtres de couches individuels via UIModule
-      if (window.UIModule && window.UIModule.resetLayerFilter) {
-        document.querySelectorAll('.filter-item').forEach(item => {
-          const layer = item.dataset.layer;
-          window.UIModule.resetLayerFilter(layer);
-          item.classList.remove('active-filter');
-        });
-      }
-      
-      // 4.2 Réinitialiser tous les filtres via FilterModule
-      if (window.FilterModule && window.FilterModule.resetAll) {
-        window.FilterModule.resetAll();
-      }
-      
-      // 5. Gestion des couches de la carte
-      // 5.1 Récupérer la liste des couches par défaut
-      const defaultLayers = window.defaultLayers || [];
-      console.log('Couches par défaut configurées:', defaultLayers);
-      console.log('Couches disponibles dans MapModule.layers:', Object.keys(MapModule.layers));
-      
-      // 5.2 Retirer toutes les couches actuellement visibles de la carte
-      Object.keys(MapModule.layers).forEach(layerName => {
-        const layer = MapModule.layers[layerName];
-        if (MapModule.map.hasLayer(layer)) {
-          console.log(`Retrait de la couche: ${layerName}`);
-          MapModule.map.removeLayer(layer);
-        }
-      });
-      
-      // 5.3 Charger et afficher les couches par défaut
-      defaultLayers.forEach(layerName => {
-        try {
-          // Si la couche n'est pas déjà chargée, on la charge via DataModule
-          if (!MapModule.layers[layerName]) {
-            console.log(`Chargement de la couche: ${layerName}`);
-            if (window.DataModule && window.DataModule.loadLayer) {
-              window.DataModule.loadLayer(layerName);
-            } else {
-              console.error('Impossible de charger la couche: DataModule.loadLayer non disponible');
-              return;
-            }
-          }
-          
-          // Ajouter la couche à la carte si elle n'y est pas déjà
-          const layer = MapModule.layers[layerName];
-          if (layer && !MapModule.map.hasLayer(layer)) {
-            console.log(`Ajout de la couche: ${layerName}`);
-            MapModule.map.addLayer(layer);
-            
-            // Mettre à jour visuellement l'état actif du filtre correspondant
-            const filterItem = document.querySelector(`.filter-item[data-layer="${layerName}"]`);
-            if (filterItem) {
-              filterItem.classList.add('active-filter');
-            }
-          }
-        } catch (error) {
-          console.error(`Erreur lors du chargement de la couche ${layerName}:`, error);
-        }
-      });
-      
-      console.log('=== FIN GESTIONNAIRE DE FERMETURE ===');
-      
-      // 6. Ne pas modifier le zoom/centrage actuel pour éviter le dézoom total
-      
-      // 7. Nettoyer les sélections visuelles
-      document.querySelectorAll('.selected').forEach(el => {
-        el.classList.remove('selected');
-      });
-      
-      // 8. Mettre à jour l'interface utilisateur pour refléter l'état actuel
-      if (window.UIModule && window.UIModule.updateLayerControls) {
-        window.UIModule.updateLayerControls();
-      }
-    };
-
-    // Toggle collapse control
-    const toggleBtn = document.getElementById('detail-toggle-btn');
-    if (window.innerWidth < 1024 && toggleBtn) {
-      toggleBtn.style.display = 'inline-block';
+    // Toggle collapse control (all sizes)
+    const toggleBtn = document.getElementById('detail-panel-toggle-btn');
+    if (toggleBtn) {
       toggleBtn.addEventListener('click', () => {
-        if (panel.style.maxHeight) {
+        const iconEl = toggleBtn.querySelector('i');
+        const labelEl = toggleBtn.querySelector('.gp-btn__label');
+        const isCollapsed = toggleBtn.getAttribute('aria-expanded') === 'false';
+        if (isCollapsed) {
+          // Expand
           panel.style.removeProperty('max-height');
           panel.style.removeProperty('overflow');
-          toggleBtn.querySelector('i').classList.replace('fa-chevron-up', 'fa-chevron-down');
+          if (iconEl) {
+            if (iconEl.classList.contains('fa-expand')) iconEl.classList.replace('fa-expand', 'fa-compress');
+            else iconEl.classList.add('fa-compress');
+          }
+          if (labelEl) labelEl.textContent = 'Réduire';
+          toggleBtn.classList.remove('is-collapsed');
+          toggleBtn.setAttribute('aria-expanded', 'true');
+          toggleBtn.setAttribute('aria-label', 'Réduire');
         } else {
-          // console.log(panel);
+          // Collapse
           panel.style.setProperty('max-height', '10vh', 'important');
           panel.style.setProperty('overflow', 'hidden', 'important');
-          toggleBtn.querySelector('i').classList.replace('fa-chevron-down', 'fa-chevron-up');
+          if (iconEl && iconEl.classList.contains('fa-compress')) iconEl.classList.replace('fa-compress', 'fa-expand');
+          if (labelEl) labelEl.textContent = 'Développer';
+          toggleBtn.classList.add('is-collapsed');
+          toggleBtn.setAttribute('aria-expanded', 'false');
+          toggleBtn.setAttribute('aria-label', 'Développer');
         }
       });
     }
@@ -531,25 +440,7 @@ async function showProjectDetail(projectName, category, event) {
   // Résoudre et appliquer le filtrage pour la couche cible (tolérant)
   await resolveAndApplyLayerFiltering(projectName, category);
 
-  /*
-   * Fonction pour animer les pointillés
-   * @param {Object} layer - La couche à animer
-   */
-  function animateDashLine(layer) {
-    let dashOffset = 0;
-    const animateInterval = setInterval(() => {
-      if (typeof layer.setStyle === 'function') {
-        layer.setStyle({
-          color: 'red',
-          dashArray: '10, 10',
-          dashOffset: dashOffset,
-          weight: 5
-        });
-      }
-      dashOffset = (dashOffset + 1) % 20;
-    }, 100);
-    return animateInterval;
-  }
+  // animateDashLine removed (dead code; deduped and color application removed)
 
   // ————————————————————————————————————————————————
   // Résolution robuste de la couche + filtrage tolérant
@@ -783,13 +674,47 @@ async function showProjectDetail(projectName, category, event) {
   // ————————————————————————————————————————————————
   // Helpers partagés pour les sous-menus (en-tête, fermeture, clic projet)
   // ————————————————————————————————————————————————
+  // Ensure each submenu starts expanded when (re)opened
+  function resetSubmenuExpanded(submenuId) {
+    try {
+      const panel = document.getElementById(submenuId);
+      if (panel) {
+        panel.style.removeProperty('max-height');
+        panel.style.removeProperty('overflow');
+      }
+      const toggleBtn = document.getElementById(`${submenuId.replace('-submenu','')}-toggle-btn`);
+      if (toggleBtn) {
+        const iconEl = toggleBtn.querySelector('i');
+        const labelEl = toggleBtn.querySelector('.gp-btn__label');
+        if (iconEl) {
+          if (iconEl.classList.contains('fa-expand')) iconEl.classList.replace('fa-expand','fa-compress');
+          else iconEl.classList.add('fa-compress');
+        }
+        if (labelEl) labelEl.textContent = 'Réduire';
+        toggleBtn.classList.remove('is-collapsed');
+        toggleBtn.setAttribute('aria-expanded','true');
+        toggleBtn.setAttribute('aria-label','Réduire');
+      }
+    } catch (_) { /* no-op */ }
+  }
+
   function setupSubmenu(containerId, { title, closeBtnId, navId, submenuId, listId, removeAllActiveTabs = false }) {
     const container = document.getElementById(containerId);
     if (!container) return null;
     container.innerHTML = `
       <div class="detail-header-submenu">
-        <h2>${title}</h2>
-        <button id="${closeBtnId}" class="close-btn" aria-label="Fermer">✖</button>
+        <div class="header-left">
+          <button id="${closeBtnId}" class="close-btn" aria-label="Fermer">
+            <i class="fa-solid fa-xmark gp-btn__icon" aria-hidden="true"></i>
+            <span class="gp-btn__label">Fermer</span>
+          </button>
+        </div>
+        <div class="header-right">
+          <button id="${submenuId.replace('-submenu','')}-toggle-btn" class="gp-btn gp-btn--secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true" aria-controls="${submenuId}">
+            <i class="fa-solid fa-compress gp-btn__icon" aria-hidden="true"></i>
+            <span class="gp-btn__label">Réduire</span>
+          </button>
+        </div>
       </div>
       <div id="${listId}" class="project-list"></div>
     `;
@@ -807,40 +732,100 @@ async function showProjectDetail(projectName, category, event) {
         }
         const submenu = document.getElementById(submenuId);
         if (submenu) submenu.style.display = 'none';
-        resetToDefaultView();
+        resetToDefaultView(undefined, { preserveMapView: true });
+      });
+    }
+    // Toggle reduce/expand behavior for the submenu panel
+    const toggleBtnId = `${submenuId.replace('-submenu','')}-toggle-btn`;
+    const toggleBtn = container.querySelector(`#${toggleBtnId}`);
+    const panel = document.getElementById(submenuId);
+    // Always start expanded when (re)rendered
+    resetSubmenuExpanded(submenuId);
+    if (toggleBtn && panel) {
+      toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isCollapsed = toggleBtn.getAttribute('aria-expanded') === 'false';
+        if (isCollapsed) {
+          // Expand
+          panel.style.removeProperty('max-height');
+          panel.style.removeProperty('overflow');
+          const iconEl = toggleBtn.querySelector('i');
+          const labelEl = toggleBtn.querySelector('.gp-btn__label');
+          if (iconEl) {
+            if (iconEl.classList.contains('fa-expand')) iconEl.classList.replace('fa-expand', 'fa-compress');
+            else iconEl.classList.add('fa-compress');
+          }
+          if (labelEl) labelEl.textContent = 'Réduire';
+          toggleBtn.classList.remove('is-collapsed');
+          toggleBtn.setAttribute('aria-expanded', 'true');
+          toggleBtn.setAttribute('aria-label', 'Réduire');
+        } else {
+          // Reduce/collapse
+          panel.style.setProperty('max-height', '10vh', 'important');
+          panel.style.setProperty('overflow', 'hidden', 'important');
+          const iconEl = toggleBtn.querySelector('i');
+          const labelEl = toggleBtn.querySelector('.gp-btn__label');
+          if (iconEl && iconEl.classList.contains('fa-compress')) iconEl.classList.replace('fa-compress', 'fa-expand');
+          if (labelEl) labelEl.textContent = 'Développer';
+          toggleBtn.classList.add('is-collapsed');
+          toggleBtn.setAttribute('aria-expanded', 'false');
+          toggleBtn.setAttribute('aria-label', 'Développer');
+        }
       });
     }
     return document.getElementById(listId);
   }
+  // Ne laisser visible que la couche cible (handled in the appropriate context above)
 
-  function createAndAppendHeader(containerEl, { title, closeBtnId, navId, submenuId, removeAllActiveTabs = false }) {
-    if (!containerEl) return null;
-    const header = document.createElement('div');
-    header.className = 'detail-header-submenu project-header-container';
-    header.innerHTML = `
-      <h2>${title}</h2>
-      <button id="${closeBtnId}" class="close-btn" aria-label="Fermer">✖</button>
-    `;
-    containerEl.appendChild(header);
-    const closeBtn = header.querySelector(`#${closeBtnId}`);
-    if (closeBtn) {
-      closeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (removeAllActiveTabs) {
-          document.querySelectorAll('.nav-category').forEach(tab => tab.classList.remove('active'));
-        } else {
-          const activeTab = document.querySelector('.nav-category.active');
-          if (activeTab && activeTab.id === navId) {
-            activeTab.classList.remove('active');
-          }
-        }
-        const submenu = document.getElementById(submenuId);
-        if (submenu) submenu.style.display = 'none';
-        resetToDefaultView();
-      });
+// Fonction pour filtrer et styliser les paths
+function highlightProjectPaths(projectName) {
+  const normalizedProjectName = normalizeString(projectName);
+  console.log("Nom du projet normalisé:", normalizedProjectName);
+
+  // Liste des couches à vérifier
+  const layersToCheck = ['voielyonnaise', 'reseauProjeteSitePropre', 'urbanisme'];
+
+  layersToCheck.forEach(layerName => {
+    const geojsonLayer = MapModule.layers[layerName];
+    
+    if (!geojsonLayer) {
+      console.warn(`Couche ${layerName} non trouvée`);
+      return;
     }
-    return header;
-  }
+
+    console.log(`Recherche dans la couche ${layerName}`);
+
+
+
+    // Parcourir chaque feature de la couche
+    geojsonLayer.eachLayer(featureLayer => {
+      const featureName = normalizeString(
+        featureLayer.feature.properties.line || 
+        featureLayer.feature.properties.name || 
+        ''
+      );
+
+      console.log(`Comparaison: ${featureName} === ${normalizedProjectName}`);
+
+      if (featureName === normalizedProjectName) {
+        console.log("Path correspondant trouvé !");
+      }
+    });
+  });
+}
+
+// Appeler la fonction de mise en évidence (debug visuel non bloquant)
+try { highlightProjectPaths(projectName); } catch(_) {}
+
+// Afficher le panneau de détail
+projectDetailPanel.classList.add('visible');
+
+
+
+
+
+
+// (duplicate submenu helper block removed)
 
   function createProjectClickHandler(p, category, submenuId, applyLegacyMapping = true) {
     return () => {
@@ -912,63 +897,32 @@ async function showProjectDetail(projectName, category, event) {
     });
   };
 
-
-  // Affichage des onglets pour Urbanisme
-  const renderUrbanismeTabs = () => {
+  // Affichage des projets d'Urbanisme (uniformisé, sans onglets/select)
+  const renderUrbanismeProjects = () => {
     if (!window.urbanismeProjects) {
       console.error("urbanismeProjects is undefined");
       return;
     }
-    const container = document.getElementById('urbanisme-tabs');
-    container.innerHTML = '';
-    
-    // Ajout de l'en-tête avec le bouton de fermeture (via helper)
-    createAndAppendHeader(container, {
+    const listEl = setupSubmenu('urbanisme-submenu', {
       title: "Projets d'Urbanisme",
       closeBtnId: 'urbanisme-close-btn',
       navId: 'nav-urbanisme',
       submenuId: 'urbanisme-submenu',
-      removeAllActiveTabs: true
+      listId: 'urbanisme-project-list'
     });
-    
-    // Contenu du sélecteur de ville
-    const select = document.createElement('select');
-    select.id = 'urbanisme-select';
-    select.className = 'submenu-select';
-    const villes = ["Tout", ...Array.from(new Set(window.urbanismeProjects.map(p => p.city))).sort()];
-    villes.forEach(ville => {
-      const option = document.createElement('option');
-      option.value = ville.toLowerCase();
-      option.textContent = ville;
-      select.appendChild(option);
-    });
-    select.addEventListener('change', (e) => {
-      renderUrbanismeProjects(e.target.value);
-    });
-    container.appendChild(select);
-    renderUrbanismeProjects(select.value);
-  };
-
-  // Affichage des projets d'Urbanisme
-  const renderUrbanismeProjects = (tabName = 'tout') => {
-    if (!window.urbanismeProjects) {
-      console.error("urbanismeProjects is undefined");
-      return;
-    }
-    const listEl = document.getElementById('urbanisme-project-list');
-    listEl.innerHTML = '';
-    const projects = tabName === 'tout'
-      ? window.urbanismeProjects
-      : window.urbanismeProjects.filter(p => p.city.toLowerCase() === tabName);
+    if (!listEl) return;
+    const projects = window.urbanismeProjects;
     projects.forEach(p => {
-      const li = createProjectItem(p, () => {
-        document.getElementById('urbanisme-submenu').style.display = 'none';
-        // Laisser showProjectDetail résoudre la couche et appliquer le filtrage de manière robuste
-        showProjectDetail(p.name, "urbanisme");
-      }, 'urbanisme');
+      const li = createProjectItem(
+        p,
+        createProjectClickHandler(p, 'urbanisme', 'urbanisme-submenu', false),
+        'urbanisme'
+      );
       listEl.appendChild(li);
     });
   };
+
+  // (ancienne version supprimée)
 
   // --- Helpers: slugify and cover fetching from Markdown ---
   const slugify = (str) => String(str || '')
@@ -1198,33 +1152,56 @@ async function showProjectDetail(projectName, category, event) {
     const submenu = document.getElementById('travaux-submenu');
     submenu.innerHTML = `
       <div class="detail-header-submenu">
-        <h2>Chantiers en cours</h2>
-        <div>
-        <button id="travaux-toggle-btn" style="display:none; color:grey; background:none; border:none; cursor:pointer; margin-right:1rem;"><i class="fas fa-chevron-down"></i></button>
-        <button id="travaux-close-btn" class="close-btn" aria-label="Fermer">✖</button>
+        <div class="header-left">
+          <button id="travaux-close-btn" class="gp-btn gp-btn--danger close-btn" aria-label="Fermer">
+            <i class="fa-solid fa-xmark gp-btn__icon" aria-hidden="true"></i>
+            <span class="gp-btn__label">Fermer</span>
+          </button>
+        </div>
+        <div class="header-right">
+          <button id="travaux-toggle-btn" class="gp-btn gp-btn--secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true" aria-controls="travaux-submenu">
+            <i class="fa-solid fa-compress gp-btn__icon" aria-hidden="true"></i>
+            <span class="gp-btn__label">Réduire</span>
+          </button>
         </div>
       </div>
       <div id="travaux-project-list" class="project-list"></div>
     `;
-    
+    // Always start expanded for Travaux when rendered
+    resetSubmenuExpanded('travaux-submenu');
+
     const listEl = document.getElementById('travaux-project-list');
     
-    // Gestionnaire d'événement pour le bouton de bascule
+    // Gestionnaire d'événement pour le bouton de réduction/extension
     const travauxToggleBtn = document.getElementById('travaux-toggle-btn');
     const travauxPanel = document.querySelector('#travaux-submenu');
-    
-    if (window.innerWidth < 1024 && travauxToggleBtn && travauxPanel) {
-      travauxToggleBtn.style.display = 'inline-block';
+    if (travauxToggleBtn && travauxPanel) {
       travauxToggleBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (travauxPanel.style.maxHeight) {
+        const isCollapsed = travauxToggleBtn.getAttribute('aria-expanded') === 'false';
+        const iconEl = travauxToggleBtn.querySelector('i');
+        const labelEl = travauxToggleBtn.querySelector('.gp-btn__label');
+        if (isCollapsed) {
+          // Expand
           travauxPanel.style.removeProperty('max-height');
           travauxPanel.style.removeProperty('overflow');
-          travauxToggleBtn.querySelector('i').classList.replace('fa-chevron-up', 'fa-chevron-down');
+          if (iconEl) {
+            if (iconEl.classList.contains('fa-expand')) iconEl.classList.replace('fa-expand', 'fa-compress');
+            else iconEl.classList.add('fa-compress');
+          }
+          if (labelEl) labelEl.textContent = 'Réduire';
+          travauxToggleBtn.classList.remove('is-collapsed');
+          travauxToggleBtn.setAttribute('aria-expanded', 'true');
+          travauxToggleBtn.setAttribute('aria-label', 'Réduire');
         } else {
+          // Reduce/collapse
           travauxPanel.style.setProperty('max-height', '10vh', 'important');
           travauxPanel.style.setProperty('overflow', 'hidden', 'important');
-          travauxToggleBtn.querySelector('i').classList.replace('fa-chevron-down', 'fa-chevron-up');
+          if (iconEl && iconEl.classList.contains('fa-compress')) iconEl.classList.replace('fa-compress', 'fa-expand');
+          if (labelEl) labelEl.textContent = 'Développer';
+          travauxToggleBtn.classList.add('is-collapsed');
+          travauxToggleBtn.setAttribute('aria-expanded', 'false');
+          travauxToggleBtn.setAttribute('aria-label', 'Développer');
         }
       });
     }
@@ -1243,7 +1220,7 @@ async function showProjectDetail(projectName, category, event) {
         travauxSubmenu.style.display = 'none';
       }
       // Réinitialiser la vue sans spécifier de catégorie
-      resetToDefaultView();
+      resetToDefaultView(undefined, { preserveMapView: true });
     });
     
     listEl.innerHTML = '';
@@ -1567,10 +1544,12 @@ submenu.insertBefore(filterUX, listEl);
    * - Si une catégorie est fournie, affiche uniquement le sous-menu correspondant
    * - Sinon, affiche uniquement les couches par défaut
    * - Masque tous les panneaux et sous-menus non concernés
-   * - Réinitialise la vue de la carte
+   * - Peut réinitialiser la vue de la carte (désactivable via options)
    * @param {string} [category] - Catégorie à afficher (optionnel)
+   * @param {{ preserveMapView?: boolean }} [options] - Options de réinitialisation
    */
-  const resetToDefaultView = (category) => {
+  const resetToDefaultView = (category, options = {}) => {
+    const { preserveMapView = false } = options;
     console.log('Réinitialisation de la vue à l\'état par défaut');
     
     // 1. Masquer le panneau de détail
@@ -1646,7 +1625,7 @@ submenu.insertBefore(filterUX, listEl);
           } else if (category === 'transport') {
             renderTransportProjects();
           } else if (category === 'urbanisme') {
-            renderUrbanismeTabs();
+            renderUrbanismeProjects();
           } else if (category === 'travaux') {
             renderTravauxProjects();
           }
@@ -1699,9 +1678,11 @@ submenu.insertBefore(filterUX, listEl);
       }
     }
     
-    // Réinitialiser le zoom et la position de la carte
-    if (window.NavigationModule && window.NavigationModule.zoomOutOnLoadedLayers) {
-      window.NavigationModule.zoomOutOnLoadedLayers();
+    // Réinitialiser le zoom et la position de la carte (sauf si préservé)
+    if (!preserveMapView) {
+      if (window.NavigationModule && window.NavigationModule.zoomOutOnLoadedLayers) {
+        window.NavigationModule.zoomOutOnLoadedLayers();
+      }
     }
     
     // Réinitialiser les sélections
@@ -1725,7 +1706,6 @@ submenu.insertBefore(filterUX, listEl);
     zoomOutOnLoadedLayers, 
     renderTransportProjects, 
     renderVeloProjects, 
-    renderUrbanismeTabs, 
     renderUrbanismeProjects, 
     renderTravauxProjects,
     resetToDefaultView
