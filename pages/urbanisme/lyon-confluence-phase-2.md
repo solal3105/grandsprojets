@@ -18,9 +18,9 @@ Les études menées au début des années 2000 envisageaient de conserver une la
 
 La seconde phase concerne la pointe sud de la presqu’île entre la gare de Perrache et le Rhône. Elle prévoit :
 
-- **1 200 nouveaux logements** pour environ 2 600 habitants, dont 60 % accessibles (20 % en bail réel solidaire et 40 % sociaux)[\[4\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-confluence#:~:text=%C3%80%20retenir).
-- **70 000 m² de bureaux et activités** et **9 000 m² de rez‑de‑chaussée actifs**[\[5\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-confluence#:~:text=La%20Confluence%20offrira%2C%20%C3%A0%20terme%2C,donn%C3%A9es%202019).
-- **23,5 m² d’espaces verts par habitant** (contre 8,46 m² dans Lyon) grâce à de grands cœurs d’îlots plantés[\[6\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-confluence#:~:text=Lanc%C3%A9e%20en%202003%2C%20la%20premi%C3%A8re,territoire%20dynamique%2C%20attractif%20et%20accessible).
+- **1 200 nouveaux logements** pour environ 2 600 habitants, dont 60 % accessibles (20 % en bail réel solidaire et 40 % sociaux).
+- **70 000 m² de bureaux et activités** et **9 000 m² de rez‑de‑chaussée actifs**.
+- **23,5 m² d’espaces verts par habitant** (contre 8,46 m² dans Lyon) grâce à de grands cœurs d’îlots plantés.
 - La création du **Parc du Champ** (6 ha) ouvert sur le Rhône et d’un « champ » central afin de compenser la couverture de la gare de Perrache.
 
 ### Enjeux et contraintes techniques
@@ -57,9 +57,5 @@ Confluence sera un quartier durable, mixte et fortement végétalisé. Les logem
 ### Et après ?
 
 Après 2032, de nouvelles opérations sont envisagées autour du port Rambaud et de la darse. Des études sur la réutilisation des friches ferroviaires pourraient prolonger le projet vers le sud.
-
-### Citations principales
-
-[\[4\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-confluence#:~:text=%C3%80%20retenir)[\[5\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-confluence#:~:text=La%20Confluence%20offrira%2C%20%C3%A0%20terme%2C,donn%C3%A9es%202019)[\[6\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-confluence#:~:text=Lanc%C3%A9e%20en%202003%2C%20la%20premi%C3%A8re,territoire%20dynamique%2C%20attractif%20et%20accessible)
 
 ---

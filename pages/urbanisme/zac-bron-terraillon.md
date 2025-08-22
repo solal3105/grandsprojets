@@ -19,9 +19,9 @@ La démarche de concertation a conduit à privilégier une rénovation par touch
 
 La ZAC Terraillon Sud, créée en 2011, et la rénovation du reste du quartier visent à :
 
-- Démolir **390 logements** et en reconstruire **186** dans l’îlot Caravelle et **281** dans la ZAC Terraillon Sud[\[2\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/bron-terraillon#:~:text=Quelques%20chiffres%20cl%C3%A9s).
-- Rénover **995 logements** pour améliorer l’efficacité énergétique[\[2\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/bron-terraillon#:~:text=Quelques%20chiffres%20cl%C3%A9s).
-- Offrir **11 200 m² d’espaces verts** et des aires de jeux[\[3\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/bron-terraillon#:~:text=futurs%20logements%20du%20secteur%20Lur%C3%A7at,%C2%A9%20M%C3%A9tropole%20de%20Lyon).
+- Démolir **390 logements** et en reconstruire **186** dans l’îlot Caravelle et **281** dans la ZAC Terraillon Sud.
+- Rénover **995 logements** pour améliorer l’efficacité énergétique.
+- Offrir **11 200 m² d’espaces verts** et des aires de jeux.
 - Créer des équipements : maison de la métropole, crèche, écoles, gymnase.
 
 ### Enjeux et contraintes techniques
@@ -36,7 +36,7 @@ Le quartier se trouve entre la rocade et l’avenue Franklin‑Roosevelt. Une at
 
 ### Le chantier et ses effets immédiats
 
-Depuis 2008, plusieurs bâtiments ont été démolis et remplacés par des résidences à taille humaine. Le quartier accueille une Maison de la Métropole, une crèche, un pôle santé et un terrain multisports. Les espaces publics ont été requalifiés avec de nouveaux arbres et des aires de jeux. Les démolitions finales et la construction d’un **EHPAD** de 80 lits sont programmées pour 2024‑2025[\[3\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/bron-terraillon#:~:text=futurs%20logements%20du%20secteur%20Lur%C3%A7at,%C2%A9%20M%C3%A9tropole%20de%20Lyon).
+Depuis 2008, plusieurs bâtiments ont été démolis et remplacés par des résidences à taille humaine. Le quartier accueille une Maison de la Métropole, une crèche, un pôle santé et un terrain multisports. Les espaces publics ont été requalifiés avec de nouveaux arbres et des aires de jeux. Les démolitions finales et la construction d’un **EHPAD** de 80 lits sont programmées pour 2024‑2025.
 
 ### Les dates clés
 
@@ -44,9 +44,9 @@ Depuis 2008, plusieurs bâtiments ont été démolis et remplacés par des rési
 | --- | --- | --- |
 | Lancement NPNRU | 2008 | Inscription au programme national de rénovation urbaine. |
 | Création ZAC Terraillon Sud | 2011 | Lancement des premiers chantiers. |
-| Démolitions principales | 2010‑2019 | 390 logements démolis[\[2\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/bron-terraillon#:~:text=Quelques%20chiffres%20cl%C3%A9s). |
-| Réhabilitations | 2010‑2030 | 995 logements rénovés[\[2\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/bron-terraillon#:~:text=Quelques%20chiffres%20cl%C3%A9s). |
-| Livraison du parc | 2010‑2025 | Création de 11 200 m² d’espaces verts[\[3\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/bron-terraillon#:~:text=futurs%20logements%20du%20secteur%20Lur%C3%A7at,%C2%A9%20M%C3%A9tropole%20de%20Lyon). |
+| Démolitions principales | 2010‑2019 | 390 logements démolis. |
+| Réhabilitations | 2010‑2030 | 995 logements rénovés. |
+| Livraison du parc | 2010‑2025 | Création de 11 200 m² d’espaces verts. |
 | Horizon | 2030 | Fin du programme NPNRU. |
 
 ### Les bénéfices attendus

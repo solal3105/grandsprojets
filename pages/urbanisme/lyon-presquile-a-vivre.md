@@ -19,10 +19,10 @@ Au départ, certains acteurs souhaitaient créer des parkings souterrains suppl�
 
 Le programme comprend :
 
-- La création de **42 000 m² d’espaces publics** apaisés, dont de nouvelles promenades et des places végétalisées[\[20\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-presquile-a-vivre#:~:text=Lyon%20).
-- La mise en place, à partir de juin 2025, d’une **zone à trafic limité** (ZTL) sur la Presqu’île pour réserver les rues aux riverains, livraisons et transports en commun[\[21\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-presquile-a-vivre#:~:text=Quel%20est%20le%20calendrier%20des,travaux).
-- Le réaménagement complet de secteurs clés : **Bas des Pentes**, **Cordeliers‑Grenette** et **Jacobins‑Bellecour**, avec élargissement des trottoirs, nouvelles pistes cyclables et plantations[\[22\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-presquile-a-vivre#:~:text=Secteur%20Cordeliers%20).
-- La création d’une nouvelle ligne de bus C23 reliant la Presqu’île à Cité Internationale et Villeurbanne[\[20\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-presquile-a-vivre#:~:text=Lyon%20).
+- La création de **42 000 m² d’espaces publics** apaisés, dont de nouvelles promenades et des places végétalisées.
+- La mise en place, à partir de juin 2025, d’une **zone à trafic limité** (ZTL) sur la Presqu’île pour réserver les rues aux riverains, livraisons et transports en commun.
+- Le réaménagement complet de secteurs clés : **Bas des Pentes**, **Cordeliers‑Grenette** et **Jacobins‑Bellecour**, avec élargissement des trottoirs, nouvelles pistes cyclables et plantations.
+- La création d’une nouvelle ligne de bus C23 reliant la Presqu’île à Cité Internationale et Villeurbanne.
 
 ### Enjeux et contraintes techniques
 
@@ -32,8 +32,8 @@ La Presqu’île est classée au patrimoine mondial de l’UNESCO ; chaque inter
 
 - **2023 :** concertation publique et expérimentation de secteurs piétons.
 - **2024 :** adoption du plan d’aménagement et début des travaux sur le secteur Bas des Pentes.
-- **2025 :** mise en service de la ZTL et lancement du bus C23[\[21\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-presquile-a-vivre#:~:text=Quel%20est%20le%20calendrier%20des,travaux).
-- **2028 :** livraison des travaux Cordeliers‑Grenette et Jacobins‑Bellecour[\[22\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-presquile-a-vivre#:~:text=Secteur%20Cordeliers%20).
+- **2025 :** mise en service de la ZTL et lancement du bus C23.
+- **2028 :** livraison des travaux Cordeliers‑Grenette et Jacobins‑Bellecour.
 - **2030 :** achèvement global.
 
 ### Le chantier et ses effets immédiats
@@ -45,9 +45,9 @@ Les premières interventions ont concerné la piétonisation temporaire de certa
 | Secteur | Période | Commentaire |
 | --- | --- | --- |
 | Concertation Bas des Pentes | 2023‑2024 | Ateliers avec habitants et commerçants. |
-| Mise en œuvre ZTL | Juin 2025 | Restriction du trafic motorisé[\[21\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-presquile-a-vivre#:~:text=Quel%20est%20le%20calendrier%20des,travaux). |
+| Mise en œuvre ZTL | Juin 2025 | Restriction du trafic motorisé. |
 | Travaux Cordeliers‑Grenette | 2024‑2028 | Nouveaux trottoirs et plantations. |
-| Travaux Jacobins‑Bellecour | 2025‑2028 | Réaménagement des places[\[22\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-presquile-a-vivre#:~:text=Secteur%20Cordeliers%20). |
+| Travaux Jacobins‑Bellecour | 2025‑2028 | Réaménagement des places. |
 | Horizon | 2030 | Fin de l’ensemble du programme. |
 
 ### Les bénéfices attendus
@@ -57,9 +57,5 @@ La Presqu’île offrira de larges promenades, des places ombragées et moins de
 ### Et après ?
 
 La Métropole envisage d’étendre le concept de ZTL à d’autres quartiers et de renforcer les liaisons cyclables avec les communes riveraines.
-
-### Citations principales
-
-[\[20\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-presquile-a-vivre#:~:text=Lyon%20)[\[21\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-presquile-a-vivre#:~:text=Quel%20est%20le%20calendrier%20des,travaux)[\[22\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-presquile-a-vivre#:~:text=Secteur%20Cordeliers%20)
 
 ---

@@ -8,20 +8,20 @@ description: "Le prolongement T6 Nord, en travaux jusqu’en 2026, étendra la l
 ---
 ## 1 – Contexte et manques initiaux
 
-Depuis 2019, la ligne T6 relie Debourg aux Hôpitaux Est – Pinel, formant une rocade urbaine utile, croisant plusieurs lignes métros et tramways. Mais un manque subsistait : l’accès direct au campus universitaire de La Doua, à la vie commerçante de Villeurbanne, ou aux quartiers des Gratte‑Ciel sans devoir retourner vers le centre. Le réseau restait trop centré, sans maillage périphérique efficace ([Wikipédia](https://fr.wikipedia.org/wiki/Ligne_6_du_tramway_de_Lyon?utm_source=chatgpt.com)).
+Depuis 2019, la ligne T6 relie Debourg aux Hôpitaux Est – Pinel, formant une rocade urbaine utile, croisant plusieurs lignes métros et tramways. Mais un manque subsistait : l’accès direct au campus universitaire de La Doua, à la vie commerçante de Villeurbanne, ou aux quartiers des Gratte‑Ciel sans devoir retourner vers le centre. Le réseau restait trop centré, sans maillage périphérique efficace .
 
 ----------
 
 ## 2 – Idées et pistes abandonnées
 
-Avant le projet, plusieurs hypothèses ont été explorées : prolonger T6 jusqu’à Suchet plutôt que Debourg, ou renforcer la desserte via bus ou trolleybus (BHNS). Mais ces options étaient insatisfaisantes : tronçon trop long, manque de lisibilité pour les usagers ou capacité insuffisante au regard de la fréquentation attendue. L’idée d’un tram dédié vers La Doua, évitant ces compromis, a finalement pris le pas ([Wikipédia](https://fr.wikipedia.org/wiki/Ligne_6_du_tramway_de_Lyon?utm_source=chatgpt.com), [Destinations 2026](https://destinations2026-sytral.fr/processes/t6-nord?utm_source=chatgpt.com)).
+Avant le projet, plusieurs hypothèses ont été explorées : prolonger T6 jusqu’à Suchet plutôt que Debourg, ou renforcer la desserte via bus ou trolleybus (BHNS). Mais ces options étaient insatisfaisantes : tronçon trop long, manque de lisibilité pour les usagers ou capacité insuffisante au regard de la fréquentation attendue. L’idée d’un tram dédié vers La Doua, évitant ces compromis, a finalement pris le pas .
 
 ----------
 
 ## 3 – Décision et tracé retenu
 
-Le Plan de Mandat 2021‑2026 du SYTRAL officialise le projet : rallonger T6 jusqu’à La Doua – Gaston Berger, via Villeurbanne centre, Gratte‑Ciel, la gare de Villeurbanne et Grandclément ([Sytral Mobilités](https://sytral-mobilites.fr/fr/t6-nord-declaration-d-intention_-n.html?utm_source=chatgpt.com)).  
-Deux tracés ont été soumis à la concertation, et le plus à l’ouest — celui passant par Grandclément et Gratte‑Ciel — a remporté l’adhésion majoritaire des habitants (près de 650 participants) ([Plan Immobilier](https://www.plan-immobilier.fr/actualites-immobilieres/lyon-villeurbanne-tram-t6-nord?utm_source=chatgpt.com)).
+Le Plan de Mandat 2021‑2026 du SYTRAL officialise le projet : rallonger T6 jusqu’à La Doua – Gaston Berger, via Villeurbanne centre, Gratte‑Ciel, la gare de Villeurbanne et Grandclément .  
+Deux tracés ont été soumis à la concertation, et le plus à l’ouest — celui passant par Grandclément et Gratte‑Ciel — a remporté l’adhésion majoritaire des habitants (près de 650 participants) .
 
 ----------
 
@@ -39,7 +39,7 @@ Le tracé doit :
       
     
 -   et désaturer les circulations routières en favorisant les modes doux.  
-    L’objectif est une liaison de 5,4 km, environ 10 nouvelles stations, et un temps de trajet de 7 minutes entre La Doua et Villeurbanne centre, 20 minutes jusqu’aux Hôpitaux Est, avec une fréquence d’environ 10 minutes jusqu’à 55 000 voyageurs/jour attendus à l’horizon 2026 ([Lyon Capitale](https://www.lyoncapitale.fr/actualite/projet-de-tram-t6-nord-a-villeurbanne-le-tram-pourrait-couter-beaucoup-plus-cher-que-prevu?utm_source=chatgpt.com), [Villeurbanne](https://www.villeurbanne.fr/ma-ville/nos-projets/projets-urbains/villeurbanne-grand-centre-votre-coeur-de-vi-ll-e/tramway-t6?utm_source=chatgpt.com)).  
+    L’objectif est une liaison de 5,4 km, environ 10 nouvelles stations, et un temps de trajet de 7 minutes entre La Doua et Villeurbanne centre, 20 minutes jusqu’aux Hôpitaux Est, avec une fréquence d’environ 10 minutes jusqu’à 55 000 voyageurs/jour attendus à l’horizon 2026 .  
       
     
 
@@ -47,16 +47,16 @@ Le tracé doit :
 
 ## 5 – Jalons réglementaires et politiques
 
--   13 janvier 2021 : déclaration d’intention par le SYTRAL, inscrite au SCOT, PDU (2017–2030) et PLU-H ([Sytral Mobilités](https://sytral-mobilites.fr/fr/t6-nord-declaration-d-intention_-n.html?utm_source=chatgpt.com)).  
+-   13 janvier 2021 : déclaration d’intention par le SYTRAL, inscrite au SCOT, PDU (2017–2030) et PLU-H .  
       
     
--   15 mars – 12 avril 2021 : concertation publique initiale ([Sytral Mobilités](https://sytral-mobilites.fr/fr/concertation-publique-sur-le-projet-de-tram-t6-nord_-n.html?utm_source=chatgpt.com)).  
+-   15 mars – 12 avril 2021 : concertation publique initiale .  
       
     
 -   20 juin – 21 juillet 2022 : enquête publique, suivie d’un arrêté d’utilité publique.  
       
     
--   Janvier 2023 : lancement des travaux préparatoires et dévoiements de réseaux ([Wikipédia](https://fr.wikipedia.org/wiki/Ligne_6_du_tramway_de_Lyon?utm_source=chatgpt.com), [TSO](https://www.tso.fr/nos-realisations/france-extension-du-tramway-t6-de-lyon/?utm_source=chatgpt.com)).  
+-   Janvier 2023 : lancement des travaux préparatoires et dévoiements de réseaux .  
       
     
 
@@ -64,7 +64,7 @@ Le tracé doit :
 
 ## 6 – Le chantier et ses effets immédiats
 
-Depuis fin 2023, le chantier est visible dans les rues : pose des mâts de ligne aérienne, fermetures temporaires de rues, installation des plans de circulation, adaptation des flux piétonniers et cyclistes. Un espace « info‑travaux » est régulièrement mis à jour par le SYTRAL pour informer riverains et usagers ([Destinations 2026](https://destinations2026-sytral.fr/processes/t6-nord/f/202/?utm_source=chatgpt.com)).
+Depuis fin 2023, le chantier est visible dans les rues : pose des mâts de ligne aérienne, fermetures temporaires de rues, installation des plans de circulation, adaptation des flux piétonniers et cyclistes. Un espace « info‑travaux » est régulièrement mis à jour par le SYTRAL pour informer riverains et usagers .
 
 ----------
 
@@ -82,7 +82,7 @@ Depuis fin 2023, le chantier est visible dans les rues : pose des mâts de lig
 -   2023 : début des travaux.  
       
     
--   Début 2026 : livraison prévue de l’ensemble du prolongement ([Wikipédia](https://fr.wikipedia.org/wiki/Ligne_6_du_tramway_de_Lyon?utm_source=chatgpt.com), [Sytral Mobilités](https://sytral-mobilites.fr/fr/t6-nord-declaration-d-intention_-n.html?utm_source=chatgpt.com), [Villeurbanne](https://www.villeurbanne.fr/ma-ville/nos-projets/projets-urbains/villeurbanne-grand-centre-votre-coeur-de-vi-ll-e/tramway-t6?utm_source=chatgpt.com)).  
+-   Début 2026 : livraison prévue de l’ensemble du prolongement .  
       
     
 
@@ -93,10 +93,10 @@ Depuis fin 2023, le chantier est visible dans les rues : pose des mâts de lig
 -   Connexion rapide entre campus La Doua et centre-ville de Villeurbanne — moins de 7 minutes.  
       
     
--   Reinforcement du maillage des transports sur l’Est lyonnais, avec interconnexions multiples (métro, tram, bus) ([Wikipédia](https://fr.wikipedia.org/wiki/Ligne_6_du_tramway_de_Lyon?utm_source=chatgpt.com), [Sytral Mobilités](https://sytral-mobilites.fr/fr/declaration-de-projet-du-prolongement-de-la-ligne-de-tramway-t6_-n.html?utm_source=chatgpt.com)).  
+-   Reinforcement du maillage des transports sur l’Est lyonnais, avec interconnexions multiples (métro, tram, bus) .  
       
     
--   Appui aux dynamiques urbaines : installation d’espaces publics revus, logistique locale facilitée, attractivité pour les commerces et l’immobilier ([Sytral Mobilités](https://sytral-mobilites.fr/fr/travaux-en-cours/prolongement-du-tramway-t6_-r.html?utm_source=chatgpt.com), [Plan Immobilier](https://www.plan-immobilier.fr/actualites-immobilieres/lyon-villeurbanne-tram-t6-nord?utm_source=chatgpt.com)).  
+-   Appui aux dynamiques urbaines : installation d’espaces publics revus, logistique locale facilitée, attractivité pour les commerces et l’immobilier .  
       
     
 

@@ -19,10 +19,10 @@ L’idée d’un remodelage uniquement commercial a été abandonnée en faveur 
 
 Le projet vise à :
 
-- Multiplier par six la surface végétalisée en plantant **2 040 arbres** et en créant le parc Mandela et le **Bois de la Part‑Dieu**[\[13\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-part-dieu#:~:text=Lyon%20).
-- Doubler la surface de la gare pour accueillir **100 000 voyageurs supplémentaires** par jour[\[13\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-part-dieu#:~:text=Lyon%20).
-- Étendre le réseau cyclable à **9,5 km** et créer **1 300 places de stationnement vélo**[\[14\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-part-dieu#:~:text=,Laurence%20Dani%C3%A8re).
-- Proposer des logements abordables (46 % des logements seront à prix maîtrisé)[\[13\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-part-dieu#:~:text=Lyon%20).
+- Multiplier par six la surface végétalisée en plantant **2 040 arbres** et en créant le parc Mandela et le **Bois de la Part‑Dieu**.
+- Doubler la surface de la gare pour accueillir **100 000 voyageurs supplémentaires** par jour.
+- Étendre le réseau cyclable à **9,5 km** et créer **1 300 places de stationnement vélo**.
+- Proposer des logements abordables (46 % des logements seront à prix maîtrisé).
 
 ### Enjeux et contraintes techniques
 
@@ -45,7 +45,7 @@ Plusieurs espaces publics sont déjà livrés : place Nelson‑Mandela, allée d
 | Étape | Date | Commentaire |
 | --- | --- | --- |
 | Lancement du projet | 2011 | Création de la SPL Part‑Dieu. |
-| Travaux gare | 2019‑2025 | Doublage de surface et nouvelles entrées[\[14\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-part-dieu#:~:text=,Laurence%20Dani%C3%A8re). |
+| Travaux gare | 2019‑2025 | Doublage de surface et nouvelles entrées. |
 | Livraison parc Mandela | 2023 | Premier grand parc du quartier. |
 | Achèvement | 2029 | Fin des opérations majeures. |
 
@@ -56,9 +56,5 @@ La Part‑Dieu offrira des espaces publics généreux, une gare multimodale perf
 ### Et après ?
 
 La SPL envisage des développements ultérieurs autour des halles Paul Bocuse et du secteur Vivier Merle nord. Une réflexion est aussi engagée sur la reconversion des bâtiments des années 1970.
-
-### Citations principales
-
-[\[13\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-part-dieu#:~:text=Lyon%20)[\[14\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-part-dieu#:~:text=,Laurence%20Dani%C3%A8re)[\[15\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-part-dieu#:~:text=,square%2C%20arbre%20isol%C3%A9%2C%20alignements%2C%20etc)
 
 ---

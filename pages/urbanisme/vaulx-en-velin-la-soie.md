@@ -13,15 +13,15 @@ Autour de l’ancienne usine de soie artificielle **Tase**, le secteur de Vaulx�
 
 ### Idées et pistes abandonnées
 
-La destruction de la halle Tase et des sheds était initialement envisagée, mais les mobilisations ont conduit à leur préservation et à leur inscription comme monument historique en 2011[\[46\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=2011).
+La destruction de la halle Tase et des sheds était initialement envisagée, mais les mobilisations ont conduit à leur préservation et à leur inscription comme monument historique en 2011.
 
 ### Décision et tracé retenu
 
 Le site de 20 ha comprend deux opérations :
 
-- **PAE Tase** : construction de **819 logements** (51 000 m²) pour environ 1 800 habitants et **52 000 m² de bureaux/activités** pour 3 200 emplois[\[47\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=). Une école Odette Cartailhac (15 classes) et une crèche sont intégrées[\[48\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=1%2C5%20ha%20d%E2%80%99espaces%20vert%20au,splanade%20Tase%20et%20voies%20pi%C3%A9tonnes).
-- **PUP Karré** : construction de **144 logements** (8 600 m²) et **17 400 m² de bureaux/activités**[\[49\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=PUP%20Karr%C3%A9%20,2).
-- **1,5 ha d’espaces publics** (Esplanade Tase, jardin et cheminements), plantés de 200 arbres[\[48\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=1%2C5%20ha%20d%E2%80%99espaces%20vert%20au,splanade%20Tase%20et%20voies%20pi%C3%A9tonnes)[\[50\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=Au%20pied%20de%20l%E2%80%99usine%20TASE,jardin%20partag%C3%A9%20Potager%20en%20Soie).
+- **PAE Tase** : construction de **819 logements** (51 000 m²) pour environ 1 800 habitants et **52 000 m² de bureaux/activités** pour 3 200 emplois. Une école Odette Cartailhac (15 classes) et une crèche sont intégrées.
+- **PUP Karré** : construction de **144 logements** (8 600 m²) et **17 400 m² de bureaux/activités**.
+- **1,5 ha d’espaces publics** (Esplanade Tase, jardin et cheminements), plantés de 200 arbres.
 
 ### Enjeux et contraintes techniques
 
@@ -29,26 +29,26 @@ La réhabilitation du patrimoine industriel est délicate : les halle Tase et se
 
 ### Jalons réglementaires et étapes politiques
 
-- **2007 :** lancement du PAE Tase[\[46\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=2011).
-- **2010 :** livraison du premier immeuble de bureaux[\[46\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=2011).
-- **2011 :** inscription de l’usine Tase à l’inventaire des monuments historiques[\[46\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=2011).
-- **2017 :** plus de la moitié des logements livrés[\[46\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=2011).
-- **2019 :** livraison de l’hôtel, des logements Indigo/Cobalt et du programme Karré[\[46\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=2011).
-- **2020 :** ouverture de l’Esplanade Tase[\[46\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=2011).
-- **2024 :** livraison de l’école Odette Cartailhac[\[46\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=2011).
+- **2007 :** lancement du PAE Tase.
+- **2010 :** livraison du premier immeuble de bureaux.
+- **2011 :** inscription de l’usine Tase à l’inventaire des monuments historiques.
+- **2017 :** plus de la moitié des logements livrés.
+- **2019 :** livraison de l’hôtel, des logements Indigo/Cobalt et du programme Karré.
+- **2020 :** ouverture de l’Esplanade Tase.
+- **2024 :** livraison de l’école Odette Cartailhac.
 
 ### Le chantier et ses effets immédiats
 
-L’Esplanade Tase (1,5 ha) est devenue un lieu de promenade doté de 200 arbres, d’un jardin partagé, d’une fontaine et d’aires de jeux[\[50\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=Au%20pied%20de%20l%E2%80%99usine%20TASE,jardin%20partag%C3%A9%20Potager%20en%20Soie). Les premières entreprises (Icade, BPD Marignan, Groupe Cardinal) ont investi les bureaux. Des ateliers et expositions valorisent la mémoire de la soie artificielle.
+L’Esplanade Tase (1,5 ha) est devenue un lieu de promenade doté de 200 arbres, d’un jardin partagé, d’une fontaine et d’aires de jeux. Les premières entreprises (Icade, BPD Marignan, Groupe Cardinal) ont investi les bureaux. Des ateliers et expositions valorisent la mémoire de la soie artificielle.
 
 ### Les dates clés
 
 | Étape | Date | Commentaire |
 | --- | --- | --- |
-| PAE Tase | 2007 | Lancement des opérations[\[46\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=2011). |
-| Inscription monument historique | 2011 | Sauvegarde de l’usine[\[46\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=2011). |
-| Livraison de l’Esplanade Tase | 2020 | Parc public de 1,5 ha[\[50\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=Au%20pied%20de%20l%E2%80%99usine%20TASE,jardin%20partag%C3%A9%20Potager%20en%20Soie). |
-| Livraison école Odette Cartailhac | 2024 | Équipement scolaire de 15 classes[\[46\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=2011). |
+| PAE Tase | 2007 | Lancement des opérations. |
+| Inscription monument historique | 2011 | Sauvegarde de l’usine. |
+| Livraison de l’Esplanade Tase | 2020 | Parc public de 1,5 ha. |
+| Livraison école Odette Cartailhac | 2024 | Équipement scolaire de 15 classes. |
 
 ### Les bénéfices attendus
 
@@ -57,9 +57,5 @@ Le quartier comptera environ **1 963 habitants** et **3 200 emplois**. La prése
 ### Et après ?
 
 Des études sont en cours pour aménager les terrains restant autour des voies ferrées. Des projets de réhabilitation supplémentaires pourraient accueillir des activités culturelles liées au textile.
-
-### Citations principales
-
-[\[47\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=)[\[49\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=PUP%20Karr%C3%A9%20,2)[\[48\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=1%2C5%20ha%20d%E2%80%99espaces%20vert%20au,splanade%20Tase%20et%20voies%20pi%C3%A9tonnes)[\[46\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=2011)[\[50\]](https://carredesoie.grandlyon.com/operations/vaulx-en-velin-la-soie/#:~:text=Au%20pied%20de%20l%E2%80%99usine%20TASE,jardin%20partag%C3%A9%20Potager%20en%20Soie)
 
 ---

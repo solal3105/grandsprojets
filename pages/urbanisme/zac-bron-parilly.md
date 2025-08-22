@@ -9,7 +9,7 @@ description: La ZAC Bron Parilly (2019-2032) prévoit la réhabilitation de 536 
 
 ### Contexte et manques initiaux
 
-Le quartier Parilly, situé au sud‑est de Bron, est marqué par les grands ensembles des années 1970. Conçu pour loger des familles modestes, il souffre depuis de coupures urbaines et d’une offre de logements peu diversifiée. La Métropole et la Ville de Bron ont décidé de lancer un programme de rénovation complet afin de reconnecter le quartier et d’y introduire de la mixité. Il s’inscrit dans le NPNRU 2019‑2032 et prévoit une recomposition du tissu urbain et des espaces publics[\[1\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/bron-parilly#:~:text=Quel%20est%20le%20calendrier%20du,projet).
+Le quartier Parilly, situé au sud‑est de Bron, est marqué par les grands ensembles des années 1970. Conçu pour loger des familles modestes, il souffre depuis de coupures urbaines et d’une offre de logements peu diversifiée. La Métropole et la Ville de Bron ont décidé de lancer un programme de rénovation complet afin de reconnecter le quartier et d’y introduire de la mixité. Il s’inscrit dans le NPNRU 2019‑2032 et prévoit une recomposition du tissu urbain et des espaces publics.
 
 ### Idées et pistes abandonnées
 
@@ -19,8 +19,8 @@ Les documents consultés n’évoquent pas d’options abandonnées pour Parilly
 
 La **ZAC Bron Parilly** délimitée en 2019 couvre les UC 1 à 5. Le programme vise à :
 
-- Réhabiliter **536 logements sociaux** et en démolir **401** pour aérer le tissu et créer de nouveaux espaces publics[\[1\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/bron-parilly#:~:text=Quel%20est%20le%20calendrier%20du,projet).
-- Construire **710 nouveaux logements**, dont 166 en transformation d’anciens immeubles, afin de réduire la part de logements sociaux de 95 % à 64 % et d’introduire une offre en accession[\[1\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/bron-parilly#:~:text=Quel%20est%20le%20calendrier%20du,projet).
+- Réhabiliter **536 logements sociaux** et en démolir **401** pour aérer le tissu et créer de nouveaux espaces publics.
+- Construire **710 nouveaux logements**, dont 166 en transformation d’anciens immeubles, afin de réduire la part de logements sociaux de 95 % à 64 % et d’introduire une offre en accession.
 - Créer un pôle éducatif et socio‑éducatif, des équipements sportifs et des commerces de proximité.
 
 ### Enjeux et contraintes techniques
@@ -31,7 +31,7 @@ Parilly est bordé par l’avenue Franklin‑Roosevelt et le boulevard périphé
 
 - **2019 :** création de la ZAC Bron Parilly.
 - **2022 :** lancement des premières démolitions et concertations dans le cadre du NPNRU.
-- **2023‑2032 :** phasage des travaux : UC1 et UC3 en 2023‑2027, UC3 et UC4 en 2026‑2029 et UC4‑UC5 en 2029‑2031[\[1\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/bron-parilly#:~:text=Quel%20est%20le%20calendrier%20du,projet).
+- **2023‑2032 :** phasage des travaux : UC1 et UC3 en 2023‑2027, UC3 et UC4 en 2026‑2029 et UC4‑UC5 en 2029‑2031.
 
 ### Le chantier et ses effets immédiats
 
@@ -42,7 +42,7 @@ Les premières démolitions ont ouvert des percées vers Parilly et l’universi
 | Annonce ou étape | Date ou période | Commentaire |
 | --- | --- | --- |
 | Création de la ZAC | 2019 | Délibération de la Métropole et lancement du projet. |
-| Démarrage des démolitions | 2023 | UC1 et UC3 ; début des relogements[\[1\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/bron-parilly#:~:text=Quel%20est%20le%20calendrier%20du,projet). |
+| Démarrage des démolitions | 2023 | UC1 et UC3 ; début des relogements. |
 | Phase UC3‑UC4 | 2026‑2029 | Travaux de réhabilitation et nouvelles constructions. |
 | Phase UC4‑UC5 | 2029‑2031 | Derniers chantiers et livraisons. |
 | Fin des travaux | 2032 | Bouclage du programme NPNRU. |
@@ -54,9 +54,5 @@ En 2032, Parilly comptera **710 logements neufs**, des équipements scolaires et
 ### Et après ?
 
 Une fois la ZAC achevée, l’objectif est d’assurer la mixité durable du quartier grâce à une diversification des statuts d’occupation. Des études sont en cours pour renforcer les connexions avec le parc de Parilly et le campus universitaire.
-
-### Citations principales
-
-[\[1\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/bron-parilly#:~:text=Quel%20est%20le%20calendrier%20du,projet)
 
 ---

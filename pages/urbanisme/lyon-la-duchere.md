@@ -19,9 +19,9 @@ Au départ, certaines études proposaient de maintenir l’intégralité des tou
 
 Depuis 2003, le programme prévoit :
 
-- La démolition de **1 700 logements sociaux** et la reconstruction de **850 logements** pour diversifier l’offre[\[7\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-la-duchere#:~:text=%C3%80%20retenir).
-- La construction de **1 300 nouveaux logements** et la réhabilitation d’autres bâtiments, visant à réduire la part de logement social à 55 % en 2018[\[8\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-la-duchere#:~:text=autres%20sont%20en%20cours%20de,logement%20social%20et%20r%C3%A9sidence%20Crous).
-- La création d’un **parc du Vallon** de 11 ha et d’un axe vert structurant autour de l’avenue Rosa Parks[\[7\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-la-duchere#:~:text=%C3%80%20retenir).
+- La démolition de **1 700 logements sociaux** et la reconstruction de **850 logements** pour diversifier l’offre.
+- La construction de **1 300 nouveaux logements** et la réhabilitation d’autres bâtiments, visant à réduire la part de logement social à 55 % en 2018.
+- La création d’un **parc du Vallon** de 11 ha et d’un axe vert structurant autour de l’avenue Rosa Parks.
 - La réalisation d’un nouveau centre autour de l’avenue du Plateau et de la place Abbé Pierre.
 
 ### Enjeux et contraintes techniques
@@ -32,7 +32,7 @@ Le plateau est dominé par la colline de Fourvière et souffre de pentes raides.
 
 - **2001 :** lancement des études de renouvellement.
 - **2003 :** démarrage du programme national de rénovation urbaine (PNRU).
-- **2016 :** La Duchère entre dans le NPNRU pour la seconde phase (quartiers Sauvegarde et Château)[\[9\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-la-duchere#:~:text=Alors%20que%20le%20plateau%20de,projets%20%C3%A0%20mettre%20en%20%C5%93uvre).
+- **2016 :** La Duchère entre dans le NPNRU pour la seconde phase (quartiers Sauvegarde et Château).
 - **2018 :** obtention du label EcoQuartier.
 - **2030 :** horizon final du NPNRU.
 
@@ -47,7 +47,7 @@ Les démolitions ont transformé la skyline de La Duchère. Le parc du Vallon es
 | Lancement du PNRU | 2003 | Démolitions et premières reconstructions. |
 | Parc du Vallon | 2012 | Ouverture de 11 ha de parc urbain. |
 | Label EcoQuartier | 2018 | Reconnaissance de la démarche durable. |
-| NPNRU Sauvegarde/Château | 2016‑2030 | Deuxième phase de renouvellement[\[9\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-la-duchere#:~:text=Alors%20que%20le%20plateau%20de,projets%20%C3%A0%20mettre%20en%20%C5%93uvre). |
+| NPNRU Sauvegarde/Château | 2016‑2030 | Deuxième phase de renouvellement. |
 
 ### Les bénéfices attendus
 
@@ -56,9 +56,5 @@ Le projet ambitionne de porter la population à 12 500 habitants d’ici 2030 av
 ### Et après ?
 
 Après 2030, les dernières parcelles pourraient accueillir des programmes innovants (habitat participatif). Le réaménagement du boulevard périphérique à proximité est également envisagé.
-
-### Citations principales
-
-[\[7\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-la-duchere#:~:text=%C3%80%20retenir)[\[8\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-la-duchere#:~:text=autres%20sont%20en%20cours%20de,logement%20social%20et%20r%C3%A9sidence%20Crous)[\[9\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-la-duchere#:~:text=Alors%20que%20le%20plateau%20de,projets%20%C3%A0%20mettre%20en%20%C5%93uvre)
 
 ---

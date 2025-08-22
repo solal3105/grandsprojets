@@ -1080,7 +1080,6 @@ html[data-theme='dark'] .leaflet-container { background: #000; }
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 20px;
 }
 #left-nav .logo img {
   width: auto;
@@ -1184,8 +1183,9 @@ html[data-theme='dark'] .leaflet-container { background: #000; }
   padding: 12px 20px;
   margin: -20px -20px 12px -20px;
   background: var(--surface-70);
-  backdrop-filter: blur(5px);
+  backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
+  width: calc(100% - 20px);
 }
 .detail-header-submenu .header-left {
   display: inline-flex;
@@ -1453,7 +1453,7 @@ html[data-theme='dark'] .gp-btn--danger {
   text-decoration: none;
 }
 .mobile-fixed-logo img {
-  height: 32px;
+  height: 48px;
   width: auto;
   display: block;
 }
@@ -2013,12 +2013,12 @@ html[data-theme='dark'] .gp-btn--danger {
   transition: max-height 420ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease, visibility 0s;
   max-height: min(var(--thumb-height, 300px), 300px);
 }
-/* Image inside cover: fill width, auto height */
+/* Image inside cover: fill and crop to container */
 .project-thumb__img {
   display: block;
   width: 100%;
-  height: auto;
-  max-height: 300px;
+  height: 100%;
+  object-fit: cover;
 }
 /* Reserve vertical space for the full-width bottom image when shown.
    The JS sets --thumb-height on the <li> after image load. Clamp to 300px. */
@@ -2963,10 +2963,50 @@ svg path:focus {
 .theme-toggle:hover,
 .basemap-toggle:hover,
 #filters-toggle:hover,
-.filters-toggle:hover {
-  background: rgba(255, 255, 255, 0.8);
+.filters-toggle:hover,
+.search-toggle:focus-visible,
+.location-toggle:focus-visible,
+.info-toggle:focus-visible,
+.theme-toggle:focus-visible,
+.basemap-toggle:focus-visible,
+#filters-toggle:focus-visible,
+.filters-toggle:focus-visible,
+.search-toggle:active,
+.location-toggle:active,
+.info-toggle:active,
+.theme-toggle:active,
+.basemap-toggle:active,
+#filters-toggle:active,
+.filters-toggle:active {
+  background: rgba(255, 255, 255, 0.85);
   transform: scale(1.05);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
 }
+
+.search-toggle:hover i,
+.location-toggle:hover i,
+.info-toggle:hover i,
+.theme-toggle:hover i,
+.basemap-toggle:hover i,
+#filters-toggle:hover i,
+.filters-toggle:hover i,
+.search-toggle:focus-visible i,
+.location-toggle:focus-visible i,
+.info-toggle:focus-visible i,
+.theme-toggle:focus-visible i,
+.basemap-toggle:focus-visible i,
+#filters-toggle:focus-visible i,
+.filters-toggle:focus-visible i,
+.search-toggle:active i,
+.location-toggle:active i,
+.info-toggle:active i,
+.theme-toggle:active i,
+.basemap-toggle:active i,
+#filters-toggle:active i,
+.filters-toggle:active i {
+  color: #14AE5C;
+}
+
 #filters-container {
   position: absolute;
   top: 70px;
@@ -3006,6 +3046,47 @@ svg path:focus {
   visibility: visible;
   pointer-events: auto; /* Réactive les interactions quand visible */
   display: grid; /* Garder display: grid pour le layout */
+}
+
+/* ---------------------------------------------------------------------------
+   Mobile: group top toggles into a single row (<=640px)
+   Order (left -> right): info, location, search | theme | basemap | filters (last)
+   Rounded left on info, rounded right on filters
+--------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  /* Make inner controls in search-container participate in row flow */
+  .search-container {
+    display: flex;
+    gap: 0;
+  }
+  .search-container .info-toggle,
+  .search-container .location-toggle {
+    position: static;
+    display: flex; /* ensure visible */
+  }
+
+  /* Flatten all toggles (no circles), add subtle border for group look */
+  .search-toggle,
+  .location-toggle,
+  .info-toggle,
+  .theme-toggle,
+  .basemap-toggle,
+  #filters-toggle,
+  .filters-toggle {
+    border-radius: 0;
+    box-shadow: none;
+    background-color: var(--surface-80);
+  }
+
+  /* Ends: round only first and last */
+  .info-toggle { border-radius: 999px 0 0 999px; }
+  #filters-toggle, .filters-toggle { border-radius: 0 999px 999px 0; }
+
+  /* Zero-gap spacing with original order (filters rightmost): 20, 60, 100, 140 */
+  .search-container { right: 140px; }
+  .theme-toggle { right: 100px; }
+  .basemap-toggle { right: 60px; }
+  #filters-toggle, .filters-toggle { right: 20px; }
 }
 
 .basemap-tile {
@@ -3355,6 +3436,55 @@ html[data-theme='dark'] .basemap-toggle i,
 html[data-theme='dark'] #filters-toggle i,
 html[data-theme='dark'] .filters-toggle i {
   color: var(--dm-text);
+}
+/* Dark mode: ensure unified hover/focus/active effects and green icon color on toggles */
+html[data-theme='dark'] .search-toggle:hover,
+html[data-theme='dark'] .location-toggle:hover,
+html[data-theme='dark'] .info-toggle:hover,
+html[data-theme='dark'] .theme-toggle:hover,
+html[data-theme='dark'] .basemap-toggle:hover,
+html[data-theme='dark'] #filters-toggle:hover,
+html[data-theme='dark'] .filters-toggle:hover,
+html[data-theme='dark'] .search-toggle:focus-visible,
+html[data-theme='dark'] .location-toggle:focus-visible,
+html[data-theme='dark'] .info-toggle:focus-visible,
+html[data-theme='dark'] .theme-toggle:focus-visible,
+html[data-theme='dark'] .basemap-toggle:focus-visible,
+html[data-theme='dark'] #filters-toggle:focus-visible,
+html[data-theme='dark'] .filters-toggle:focus-visible,
+html[data-theme='dark'] .search-toggle:active,
+html[data-theme='dark'] .location-toggle:active,
+html[data-theme='dark'] .info-toggle:active,
+html[data-theme='dark'] .theme-toggle:active,
+html[data-theme='dark'] .basemap-toggle:active,
+html[data-theme='dark'] #filters-toggle:active,
+html[data-theme='dark'] .filters-toggle:active {
+  background: color-mix(in srgb, var(--dm-toggle-bg) 80%, white 20%);
+  transform: scale(1.05);
+  box-shadow: 0 8px 20px var(--dm-shadow-weak);
+}
+html[data-theme='dark'] .search-toggle:hover i,
+html[data-theme='dark'] .location-toggle:hover i,
+html[data-theme='dark'] .info-toggle:hover i,
+html[data-theme='dark'] .theme-toggle:hover i,
+html[data-theme='dark'] .basemap-toggle:hover i,
+html[data-theme='dark'] #filters-toggle:hover i,
+html[data-theme='dark'] .filters-toggle:hover i,
+html[data-theme='dark'] .search-toggle:focus-visible i,
+html[data-theme='dark'] .location-toggle:focus-visible i,
+html[data-theme='dark'] .info-toggle:focus-visible i,
+html[data-theme='dark'] .theme-toggle:focus-visible i,
+html[data-theme='dark'] .basemap-toggle:focus-visible i,
+html[data-theme='dark'] #filters-toggle:focus-visible i,
+html[data-theme='dark'] .filters-toggle:focus-visible i,
+html[data-theme='dark'] .search-toggle:active i,
+html[data-theme='dark'] .location-toggle:active i,
+html[data-theme='dark'] .info-toggle:active i,
+html[data-theme='dark'] .theme-toggle:active i,
+html[data-theme='dark'] .basemap-toggle:active i,
+html[data-theme='dark'] #filters-toggle:active i,
+html[data-theme='dark'] .filters-toggle:active i {
+  color: #14AE5C;
 }
 html[data-theme='dark'] .filter-count { border-color: var(--dm-filters-bg); }
 /* Project list items inside submenus */

@@ -19,10 +19,10 @@ Certaines propositions prévoyaient de couvrir complètement le quai haut pour y
 
 Le projet prévoit :
 
-- **30 000 m² de plantations** et **1 200 arbres** pour absorber 100 tonnes de CO₂[\[23\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-rive-droite-du-rhone#:~:text=,et%20l%27ouverture%20des%20bas%20ports).
-- Réservation de **53 % de la surface aux modes actifs** (piétons, cyclistes) et de **45 % de surfaces perméables** pour infiltrer les eaux pluviales[\[24\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-rive-droite-du-rhone#:~:text=Quelques%20chiffres%20cl%C3%A9s).
-- Création de **quatre terrasses** au bord de l’eau et de **neuf belvédères** offrant des vues sur le Rhône[\[23\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-rive-droite-du-rhone#:~:text=,et%20l%27ouverture%20des%20bas%20ports).
-- Ouverture des ports bas (enclaves fluviales) et aménagement de **17 800 m² de terrasses** pour des cafés et restaurants[\[25\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-rive-droite-du-rhone#:~:text=Quel%20est%20le%20calendrier%20du,projet).
+- **30 000 m² de plantations** et **1 200 arbres** pour absorber 100 tonnes de CO₂.
+- Réservation de **53 % de la surface aux modes actifs** (piétons, cyclistes) et de **45 % de surfaces perméables** pour infiltrer les eaux pluviales.
+- Création de **quatre terrasses** au bord de l’eau et de **neuf belvédères** offrant des vues sur le Rhône.
+- Ouverture des ports bas (enclaves fluviales) et aménagement de **17 800 m² de terrasses** pour des cafés et restaurants.
 
 ### Enjeux et contraintes techniques
 
@@ -30,9 +30,9 @@ La réhabilitation doit composer avec des voies rapides existantes et la protect
 
 ### Jalons réglementaires et étapes politiques
 
-- **2021 :** concertation publique et appel à projets paysagers[\[25\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-rive-droite-du-rhone#:~:text=Quel%20est%20le%20calendrier%20du,projet).
+- **2021 :** concertation publique et appel à projets paysagers.
 - **2022 :** sélection de l’équipe de maîtrise d’œuvre et finalisation du programme.
-- **2023‑2024 :** seconde phase de concertation et dépôt du dossier réglementaire[\[24\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-rive-droite-du-rhone#:~:text=Quelques%20chiffres%20cl%C3%A9s).
+- **2023‑2024 :** seconde phase de concertation et dépôt du dossier réglementaire.
 - **2025 :** démarrage des travaux sur la section nord.
 - **2030 :** livraison complète.
 
@@ -46,7 +46,7 @@ Des aménagements transitoires (mobilier temporaire et fresques) animent déjà 
 | --- | --- | --- |
 | Concertation initiale | 2021 | Recueil des idées des habitants. |
 | Études et sélection | 2022 | Choix du projet paysager. |
-| Concertation approfondie | 2023‑2024 | Finalisation du projet[\[24\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-rive-droite-du-rhone#:~:text=Quelques%20chiffres%20cl%C3%A9s). |
+| Concertation approfondie | 2023‑2024 | Finalisation du projet. |
 | Début des travaux | 2025 | Premier chantier à l’amont du Rhône. |
 | Livraison complète | 2030 | Fin des aménagements. |
 
@@ -57,9 +57,5 @@ Ce projet offrira aux Lyonnais un nouveau front fluvial continu, accessible et o
 ### Et après ?
 
 La Métropole prévoit de prolonger la promenade vers le sud en direction de Gerland et d’étudier un franchissement piéton supplémentaire entre rive gauche et rive droite.
-
-### Citations principales
-
-[\[23\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-rive-droite-du-rhone#:~:text=,et%20l%27ouverture%20des%20bas%20ports)[\[24\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-rive-droite-du-rhone#:~:text=Quelques%20chiffres%20cl%C3%A9s)[\[25\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-rive-droite-du-rhone#:~:text=Quel%20est%20le%20calendrier%20du,projet)
 
 ---

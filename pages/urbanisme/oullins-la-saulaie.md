@@ -19,10 +19,10 @@ Les premières réflexions envisageaient un quartier entièrement dédié aux bu
 
 La ZAC La Saulaie comprend :
 
-- **870 logements**, dont 60 % abordables et sociaux, pour environ 2 000 nouveaux habitants[\[26\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/oullins-la-saulaie#:~:text=,environ%202%20000%20nouveaux%20habitants).
-- **47 500 m² d’activités économiques** (artisanat, PME), **6 600 m² de commerces** et **16 700 m² d’équipements publics**[\[26\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/oullins-la-saulaie#:~:text=,environ%202%20000%20nouveaux%20habitants).
-- **4,8 ha d’espaces verts** et des îlots faubouriens (maisonnette + jardin)[\[26\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/oullins-la-saulaie#:~:text=,environ%202%20000%20nouveaux%20habitants).
-- Un réseau de **boucle tempérée** utilisant la chaleur des eaux usées pour chauffer et rafraîchir 160 000 m²[\[27\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/oullins-la-saulaie#:~:text=Quelques%20chiffres%20cl%C3%A9s).
+- **870 logements**, dont 60 % abordables et sociaux, pour environ 2 000 nouveaux habitants.
+- **47 500 m² d’activités économiques** (artisanat, PME), **6 600 m² de commerces** et **16 700 m² d’équipements publics**.
+- **4,8 ha d’espaces verts** et des îlots faubouriens (maisonnette + jardin).
+- Un réseau de **boucle tempérée** utilisant la chaleur des eaux usées pour chauffer et rafraîchir 160 000 m².
 - Des infrastructures pour vélos et piétons et une passerelle vers le métro B à Oullins centre.
 
 ### Enjeux et contraintes techniques
@@ -31,13 +31,13 @@ Les principales contraintes sont la dépollution des sols ferroviaires, la gesti
 
 ### Jalons réglementaires et étapes politiques
 
-- **2018 :** création de la ZAC et approbation du plan guide[\[28\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/oullins-la-saulaie#:~:text=Quel%20est%20le%20calendrier%20du,projet).
-- **2020 :** désignation de la SERL (Société d’équipement) comme aménageur[\[28\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/oullins-la-saulaie#:~:text=Quel%20est%20le%20calendrier%20du,projet).
-- **2022 :** finalisation du plan de composition après concertation[\[28\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/oullins-la-saulaie#:~:text=Quel%20est%20le%20calendrier%20du,projet).
-- **2023 :** ouverture de la Maison du Projet et travaux de dépollution préalables[\[28\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/oullins-la-saulaie#:~:text=Quel%20est%20le%20calendrier%20du,projet).
+- **2018 :** création de la ZAC et approbation du plan guide.
+- **2020 :** désignation de la SERL (Société d’équipement) comme aménageur.
+- **2022 :** finalisation du plan de composition après concertation.
+- **2023 :** ouverture de la Maison du Projet et travaux de dépollution préalables.
 - **2025 :** premiers chantiers d’espaces publics.
 - **2027 :** arrivée des premiers habitants.
-- **2033 :** livraison finale[\[28\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/oullins-la-saulaie#:~:text=Quel%20est%20le%20calendrier%20du,projet).
+- **2033 :** livraison finale.
 
 ### Le chantier et ses effets immédiats
 
@@ -47,7 +47,7 @@ Actuellement, des travaux de déconstruction et de dépollution sont en cours. L
 
 | Étape | Période | Commentaire |
 | --- | --- | --- |
-| Création de la ZAC | 2018 | Lancement officiel du projet[\[28\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/oullins-la-saulaie#:~:text=Quel%20est%20le%20calendrier%20du,projet). |
+| Création de la ZAC | 2018 | Lancement officiel du projet. |
 | Désignation de l’aménageur | 2020 | Choix de la SERL. |
 | Travaux préparatoires | 2022‑2024 | Dépollution et démolitions. |
 | Début des aménagements publics | 2025 | Travaux de voirie et espaces verts. |
@@ -61,9 +61,5 @@ La Saulaie offrira un quartier exemplaire en matière de développement durable 
 ### Et après ?
 
 Une extension vers Saint‑Fons et le futur pôle multimodal du Vallon est envisagée. Des projets de reconversion des friches en bord de Rhône pourraient s’adosser à La Saulaie.
-
-### Citations principales
-
-[\[26\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/oullins-la-saulaie#:~:text=,environ%202%20000%20nouveaux%20habitants)[\[27\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/oullins-la-saulaie#:~:text=Quelques%20chiffres%20cl%C3%A9s)[\[28\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/oullins-la-saulaie#:~:text=Quel%20est%20le%20calendrier%20du,projet)
 
 ---

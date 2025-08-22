@@ -19,12 +19,12 @@ Une proposition initiale de créer un grand centre commercial en périphérie a 
 
 Le NPNRU 2019‑2030 vise :
 
-- La démolition de **747 logements** et la construction de plus de **800 logements** neufs[\[29\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape#:~:text=Rillieux).
-- La réhabilitation de **1 302 logements** et l’objectif de descendre à **64 % de logements sociaux**[\[29\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape#:~:text=Rillieux).
-- La création ou rénovation de **5 équipements publics** (écoles, médiathèque, équipements sportifs)[\[29\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape#:~:text=Rillieux).
-- La requalification de l’avenue de l’Europe pour créer un **parc linéaire** est‑ouest permettant aux piétons et cyclistes de traverser la ville[\[30\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape#:~:text=Quelques%20chiffres%20cl%C3%A9s).
+- La démolition de **747 logements** et la construction de plus de **800 logements** neufs.
+- La réhabilitation de **1 302 logements** et l’objectif de descendre à **64 % de logements sociaux**.
+- La création ou rénovation de **5 équipements publics** (écoles, médiathèque, équipements sportifs).
+- La requalification de l’avenue de l’Europe pour créer un **parc linéaire** est‑ouest permettant aux piétons et cyclistes de traverser la ville.
 
-Les secteurs concernés sont Bottet (nouveau centre autour d’une médiathèque et de 88 logements en 2021), Alagniers/Mont‑Blanc (reconstruction et réhabilitation, création d’une ZAC), Velette‑Balcons de Sermenaz (environ 500 logements), et le parc linéaire avec théâtre de verdure[\[29\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape#:~:text=Rillieux).
+Les secteurs concernés sont Bottet (nouveau centre autour d’une médiathèque et de 88 logements en 2021), Alagniers/Mont‑Blanc (reconstruction et réhabilitation, création d’une ZAC), Velette‑Balcons de Sermenaz (environ 500 logements), et le parc linéaire avec théâtre de verdure.
 
 ### Enjeux et contraintes techniques
 
@@ -33,9 +33,9 @@ La configuration collinéenne impose des contraintes de pente. Les démolitions 
 ### Jalons réglementaires et étapes politiques
 
 - **2019 :** inscription au NPNRU et lancement des études.
-- **2021 :** démolition d’immeubles Bottet et inauguration de la médiathèque (88 logements livrés)[\[29\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape#:~:text=Rillieux).
+- **2021 :** démolition d’immeubles Bottet et inauguration de la médiathèque (88 logements livrés).
 - **2022 :** livraison de l’école de Velette.
-- **2023 :** démarrages des réhabilitations et démolitions dans plusieurs secteurs[\[30\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape#:~:text=Quelques%20chiffres%20cl%C3%A9s).
+- **2023 :** démarrages des réhabilitations et démolitions dans plusieurs secteurs.
 - **2030 :** horizon de fin.
 
 ### Le chantier et ses effets immédiats
@@ -47,9 +47,9 @@ La nouvelle médiathèque et les logements du secteur Bottet constituent un cœu
 | Étape | Date ou période | Commentaire |
 | --- | --- | --- |
 | Lancement NPNRU | 2019 | Début du programme. |
-| Démolition et médiathèque Bottet | 2021 | 88 logements livrés[\[29\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape#:~:text=Rillieux). |
+| Démolition et médiathèque Bottet | 2021 | 88 logements livrés. |
 | Travaux Alagniers/Mont‑Blanc | 2022‑2025 | ZAC et nouvelles constructions. |
-| Parc linéaire | 2020‑2030 | Livraison par tronçons[\[30\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape#:~:text=Quelques%20chiffres%20cl%C3%A9s). |
+| Parc linéaire | 2020‑2030 | Livraison par tronçons. |
 | Achèvement | 2030 | Fin des opérations. |
 
 ### Les bénéfices attendus
@@ -59,9 +59,5 @@ La nouvelle médiathèque et les logements du secteur Bottet constituent un cœu
 ### Et après ?
 
 La commune envisage un futur prolongement du tram T6 jusqu’à Rillieux et l’implantation d’un pôle d’activités tertiaires dans le secteur Mont-Blanc.
-
-### Citations principales
-
-[\[29\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape#:~:text=Rillieux)[\[30\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape#:~:text=Quelques%20chiffres%20cl%C3%A9s)
 
 ---

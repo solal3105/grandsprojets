@@ -19,12 +19,12 @@ Une urbanisation plus dense avait été envisagée initialement. Suite aux consu
 
 Le programme prévoit :
 
-- **1 350 logements** dont 60 % abordables, pour environ 3 000 habitants[\[38\]\[39\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/saint-genis-laval-le-vallon).
-- **84 000 m² de bureaux, activités et extension hospitalière**, permettant la création de 2 400 emplois d’ici 2035[\[39\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/saint-genis-laval-le-vallon).
-- **13 ha de parc central**, dont 6,5 ha de bois préservés[\[39\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/saint-genis-laval-le-vallon).
-- Un **pôle scolaire de 15 classes** avec gymnase et crèche, et une seconde école sur le site Sainte‑Eugénie[\[39\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/saint-genis-laval-le-vallon).
-- Un **pôle multimodal** livré en 2023, comprenant 877 places de parc‑relais, 490 places vélos et une gare routière desservie par 11 lignes[\[40\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/saint-genis-laval-le-vallon).
-- 2,5 km de nouvelles routes, une promenade et **700 arbres plantés**[\[40\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/saint-genis-laval-le-vallon).
+- **1 350 logements** dont 60 % abordables, pour environ 3 000 habitants.
+- **84 000 m² de bureaux, activités et extension hospitalière**, permettant la création de 2 400 emplois d’ici 2035.
+- **13 ha de parc central**, dont 6,5 ha de bois préservés.
+- Un **pôle scolaire de 15 classes** avec gymnase et crèche, et une seconde école sur le site Sainte‑Eugénie.
+- Un **pôle multimodal** livré en 2023, comprenant 877 places de parc‑relais, 490 places vélos et une gare routière desservie par 11 lignes.
+- 2,5 km de nouvelles routes, une promenade et **700 arbres plantés**.
 
 ### Enjeux et contraintes techniques
 
@@ -34,10 +34,10 @@ Le site doit préserver les trames vertes et bleues et la faune locale (hirondel
 
 - **2019 :** lancement des études et concertations.
 - **2020 :** approbation du plan de référence.
-- **2023 :** arrivée du métro B prolongé et mise en service du pôle multimodal[\[40\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/saint-genis-laval-le-vallon).
-- **2026 :** premières livraisons de commerces et bureaux[\[40\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/saint-genis-laval-le-vallon).
-- **2027‑2028 :** premières livraisons de logements et de la première école[\[40\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/saint-genis-laval-le-vallon).
-- **2035‑2040 :** achèvement complet du quartier[\[40\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/saint-genis-laval-le-vallon).
+- **2023 :** arrivée du métro B prolongé et mise en service du pôle multimodal.
+- **2026 :** premières livraisons de commerces et bureaux.
+- **2027‑2028 :** premières livraisons de logements et de la première école.
+- **2035‑2040 :** achèvement complet du quartier.
 
 ### Le chantier et ses effets immédiats
 
@@ -48,10 +48,10 @@ La mise en service du métro prolongé a fortement amélioré l’accessibilité
 | Étape | Date ou période | Commentaire |
 | --- | --- | --- |
 | Lancement concertation | 2019 | Études et réunions publiques. |
-| Mise en service métro B et pôle multimodal | 2023 | 877 places de parc‑relais et 490 places vélo[\[40\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/saint-genis-laval-le-vallon). |
-| Premières constructions | 2026 | Commerces et bureaux[\[40\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/saint-genis-laval-le-vallon). |
-| Premiers logements et école | 2027‑2028 | Livraison des premières habitations[\[40\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/saint-genis-laval-le-vallon). |
-| Achèvement | 2035‑2040 | Fin du quartier[\[40\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/saint-genis-laval-le-vallon). |
+| Mise en service métro B et pôle multimodal | 2023 | 877 places de parc‑relais et 490 places vélo. |
+| Premières constructions | 2026 | Commerces et bureaux. |
+| Premiers logements et école | 2027‑2028 | Livraison des premières habitations. |
+| Achèvement | 2035‑2040 | Fin du quartier. |
 
 ### Les bénéfices attendus
 
@@ -60,9 +60,5 @@ Le Vallon offrira un quartier mixte ancré dans la nature avec un grand parc, de
 ### Et après ?
 
 Après 2040, d’autres extensions pourraient être envisagées autour de l’hôpital Lyon Sud. La requalification de la route de Vienne est également à l’étude.
-
-### Citations principales
-
-[\[38\]\[39\]\[40\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/saint-genis-laval-le-vallon)
 
 ---

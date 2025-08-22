@@ -19,11 +19,11 @@ L’idée d’un lotissement purement résidentiel a été écartée au profit d
 
 Le plan prévoit :
 
-- **34 000 m² d’activités productives et artisanales**[\[31\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=Rillieux).
-- **250 logements** (T1 à T5) pour environ 550 habitants[\[31\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=Rillieux).
-- Un hôtel trois étoiles, une crèche, un restaurant et des commerces[\[31\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=Rillieux).
-- Conservation de **9 ha de bois** et création de sentiers[\[31\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=Rillieux).
-- Réutilisation des matériaux de démolition et limitation des hauteurs à R+3[\[32\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=l%E2%80%99h%C3%A9bergement%20h%C3%B4telier,la%20ville%20et%20la%20m%C3%A9tropole).
+- **34 000 m² d’activités productives et artisanales**.
+- **250 logements** (T1 à T5) pour environ 550 habitants.
+- Un hôtel trois étoiles, une crèche, un restaurant et des commerces.
+- Conservation de **9 ha de bois** et création de sentiers.
+- Réutilisation des matériaux de démolition et limitation des hauteurs à R+3.
 
 ### Enjeux et contraintes techniques
 
@@ -31,13 +31,13 @@ Les principaux défis concernent la conservation des espaces naturels, la dépol
 
 ### Jalons réglementaires et étapes politiques
 
-- **2015 :** acquisition du site par la commune[\[31\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=Rillieux).
-- **2019 :** désignation de la société D2P comme aménageur[\[32\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=l%E2%80%99h%C3%A9bergement%20h%C3%B4telier,la%20ville%20et%20la%20m%C3%A9tropole).
-- **2021 :** études et concertations[\[32\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=l%E2%80%99h%C3%A9bergement%20h%C3%B4telier,la%20ville%20et%20la%20m%C3%A9tropole).
-- **2022 :** démarrage des démolitions et des consultations[\[32\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=l%E2%80%99h%C3%A9bergement%20h%C3%B4telier,la%20ville%20et%20la%20m%C3%A9tropole).
-- **2024 :** arrivée des premières entreprises[\[33\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=Quel%20est%20le%20calendrier%20du,projet).
-- **2025 :** premières livraisons de logements et ouverture de l’hôtel[\[33\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=Quel%20est%20le%20calendrier%20du,projet).
-- **2027 :** achèvement du projet[\[33\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=Quel%20est%20le%20calendrier%20du,projet).
+- **2015 :** acquisition du site par la commune.
+- **2019 :** désignation de la société D2P comme aménageur.
+- **2021 :** études et concertations.
+- **2022 :** démarrage des démolitions et des consultations.
+- **2024 :** arrivée des premières entreprises.
+- **2025 :** premières livraisons de logements et ouverture de l’hôtel.
+- **2027 :** achèvement du projet.
 
 ### Le chantier et ses effets immédiats
 
@@ -47,11 +47,11 @@ Les bâtiments militaires ont été partiellement démolis en 2022. Les premiers
 
 | Étape | Période | Commentaire |
 | --- | --- | --- |
-| Acquisition | 2015 | Rachat du site par la commune[\[31\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=Rillieux). |
-| Démarrage démolitions | 2022 | Premiers travaux et consultations[\[32\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=l%E2%80%99h%C3%A9bergement%20h%C3%B4telier,la%20ville%20et%20la%20m%C3%A9tropole). |
-| Installation des entreprises | 2024 | Arrivée des premières entreprises[\[33\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=Quel%20est%20le%20calendrier%20du,projet). |
-| Première tranche de logements | 2025 | Livraison et ouverture de l’hôtel[\[33\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=Quel%20est%20le%20calendrier%20du,projet). |
-| Achèvement | 2027 | Fin de l’opération[\[33\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=Quel%20est%20le%20calendrier%20du,projet). |
+| Acquisition | 2015 | Rachat du site par la commune. |
+| Démarrage démolitions | 2022 | Premiers travaux et consultations. |
+| Installation des entreprises | 2024 | Arrivée des premières entreprises. |
+| Première tranche de logements | 2025 | Livraison et ouverture de l’hôtel. |
+| Achèvement | 2027 | Fin de l’opération. |
 
 ### Les bénéfices attendus
 
@@ -60,9 +60,5 @@ Ostérode deviendra un quartier innovant associant habitat, activités et nature
 ### Et après ?
 
 La commune envisage d’intégrer Ostérode dans un réseau de pistes cyclables reliant Rillieux au parc de la Tête d’Or et à Caluire.
-
-### Citations principales
-
-[\[31\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=Rillieux)[\[32\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=l%E2%80%99h%C3%A9bergement%20h%C3%B4telier,la%20ville%20et%20la%20m%C3%A9tropole)[\[33\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/rillieux-la-pape-osterode#:~:text=Quel%20est%20le%20calendrier%20du,projet)
 
 ---

@@ -19,9 +19,9 @@ Des discussions ont envisagé de conserver l’ensemble de la dalle piétonne et
 
 Le projet, porté par la **ZAC Mermoz Nord** (créée en 2016), prévoit :
 
-- La démolition de **525 logements** et la construction de plus de **700 logements neufs** pour passer de 100 % de logements sociaux à une offre mixte[\[10\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-mermoz#:~:text=Un%20quartier%20%C3%A0%20taille%20humaine,pour%20redynamiser%20l%27Est%20de%20Lyon).
-- La création de nouveaux espaces publics : transformation de la passerelle Narvik en promenade plantée, réaménagement de la place Latarjet et agrandissement du **Jardin Mermoz**[\[10\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-mermoz#:~:text=Un%20quartier%20%C3%A0%20taille%20humaine,pour%20redynamiser%20l%27Est%20de%20Lyon).
-- La construction d’un **groupe scolaire Louis‑Pasteur** et d’un complexe socio‑sportif et culturel[\[11\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-mermoz#:~:text=525%C2%A0logements%20seront%20d%C3%A9molis%20et%20plus,en%20accession%20%C3%A0%20la%20propri%C3%A9t%C3%A9).
+- La démolition de **525 logements** et la construction de plus de **700 logements neufs** pour passer de 100 % de logements sociaux à une offre mixte.
+- La création de nouveaux espaces publics : transformation de la passerelle Narvik en promenade plantée, réaménagement de la place Latarjet et agrandissement du **Jardin Mermoz**.
+- La construction d’un **groupe scolaire Louis‑Pasteur** et d’un complexe socio‑sportif et culturel.
 
 ### Enjeux et contraintes techniques
 
@@ -30,24 +30,24 @@ Les contraintes sont liées à la proximité du périphérique et à la présenc
 ### Jalons réglementaires et étapes politiques
 
 - **2016 :** création de la ZAC Mermoz Nord.
-- **2019‑2024 :** premières démolitions, études et acquisitions foncières[\[10\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-mermoz#:~:text=Un%20quartier%20%C3%A0%20taille%20humaine,pour%20redynamiser%20l%27Est%20de%20Lyon).
-- **2025‑2027 :** construction des nouveaux logements et réhabilitation des bâtiments conservés[\[11\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-mermoz#:~:text=525%C2%A0logements%20seront%20d%C3%A9molis%20et%20plus,en%20accession%20%C3%A0%20la%20propri%C3%A9t%C3%A9).
-- **2026 :** livraison du groupe scolaire Louis‑Pasteur[\[12\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-mermoz#:~:text=Quel%20est%20le%20calendrier%20du,projet).
-- **2027 :** démarrage du complexe socio‑sportif et culturel[\[12\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-mermoz#:~:text=Quel%20est%20le%20calendrier%20du,projet).
+- **2019‑2024 :** premières démolitions, études et acquisitions foncières.
+- **2025‑2027 :** construction des nouveaux logements et réhabilitation des bâtiments conservés.
+- **2026 :** livraison du groupe scolaire Louis‑Pasteur.
+- **2027 :** démarrage du complexe socio‑sportif et culturel.
 
 ### Le chantier et ses effets immédiats
 
-Les premières démolitions ont libéré de grands espaces et permis des aménagements temporaires : jardins éphémères, terrain de sport provisoire, fresques participatives. La passerelle Narvik est déjà piétonnisée et reliée au parc Sergent Blandan. Les travaux attirent l’attention sur les enjeux de mixité sociale et sur la réduction des nuisances grâce à des murs antibruit financés par l’Agence de l’eau (310 992 €)[\[12\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-mermoz#:~:text=Quel%20est%20le%20calendrier%20du,projet).
+Les premières démolitions ont libéré de grands espaces et permis des aménagements temporaires : jardins éphémères, terrain de sport provisoire, fresques participatives. La passerelle Narvik est déjà piétonnisée et reliée au parc Sergent Blandan. Les travaux attirent l’attention sur les enjeux de mixité sociale et sur la réduction des nuisances grâce à des murs antibruit financés par l’Agence de l’eau (310 992 €).
 
 ### Les dates clés
 
 | Étape | Date ou période | Commentaire |
 | --- | --- | --- |
 | Création de la ZAC | 2016 | Lancement des études. |
-| Démolitions préalables | 2019‑2024 | Démolition de 525 logements[\[10\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-mermoz#:~:text=Un%20quartier%20%C3%A0%20taille%20humaine,pour%20redynamiser%20l%27Est%20de%20Lyon). |
+| Démolitions préalables | 2019‑2024 | Démolition de 525 logements. |
 | Construction des logements | 2025‑2027 | Plus de 700 logements neufs. |
-| Livraison du groupe scolaire | 2026 | Groupe Louis‑Pasteur[\[11\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-mermoz#:~:text=525%C2%A0logements%20seront%20d%C3%A9molis%20et%20plus,en%20accession%20%C3%A0%20la%20propri%C3%A9t%C3%A9). |
-| Complexe socio‑sportif | 2027 | Démarrage des travaux[\[12\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-mermoz#:~:text=Quel%20est%20le%20calendrier%20du,projet). |
+| Livraison du groupe scolaire | 2026 | Groupe Louis‑Pasteur. |
+| Complexe socio‑sportif | 2027 | Démarrage des travaux. |
 
 ### Les bénéfices attendus
 
@@ -56,9 +56,5 @@ Le quartier offrira un cadre de vie attractif avec une mixité sociale, des équ
 ### Et après ?
 
 Après 2027, la ZAC pourrait connaître d’autres programmes (logements étudiants, commerces). La Métropole envisage de prolonger la Voie lyonnaise n° 8 pour relier Mermoz aux berges du Rhône.
-
-### Citations principales
-
-[\[10\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-mermoz#:~:text=Un%20quartier%20%C3%A0%20taille%20humaine,pour%20redynamiser%20l%27Est%20de%20Lyon)[\[11\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-mermoz#:~:text=525%C2%A0logements%20seront%20d%C3%A9molis%20et%20plus,en%20accession%20%C3%A0%20la%20propri%C3%A9t%C3%A9)[\[12\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-mermoz#:~:text=Quel%20est%20le%20calendrier%20du,projet)
 
 ---

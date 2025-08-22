@@ -21,7 +21,7 @@ Le programme, réalisé par phases, comprend :
 
 - **Phase 1 (Vauban – Bouchut)** : livrée en 2014, elle a réduit la largeur de la chaussée et créé une promenade plantée.
 - **Phase 2 (Bouchut – Arménie)** : achevée en 2017, avec plantation de 140 arbres et insertion de pistes cyclables.
-- **Phase 3 (Arménie – Grande rue de la Guillotière)** : en cours (2023‑2026). Elle prévoit l’**élargissement des trottoirs**, la création de pistes cyclables bidirectionnelles, le **comblement du passage souterrain Félix‑Faure / Garibaldi**, la plantation de **156 nouveaux arbres** et le triplement des surfaces végétalisées[\[18\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-rue-garibaldi#:~:text=,la%20v%C3%A9g%C3%A9talisation%20de%20l%27espace%20urbain).
+- **Phase 3 (Arménie – Grande rue de la Guillotière)** : en cours (2023‑2026). Elle prévoit l’**élargissement des trottoirs**, la création de pistes cyclables bidirectionnelles, le **comblement du passage souterrain Félix‑Faure / Garibaldi**, la plantation de **156 nouveaux arbres** et le triplement des surfaces végétalisées.
 
 ### Enjeux et contraintes techniques
 
@@ -33,11 +33,11 @@ La rue traverse des quartiers densément construits (3ᵉ et 7ᵉ arrondissement
 - **2014 :** livraison de la phase 1.
 - **2017 :** fin de la phase 2.
 - **2023 :** début des travaux de la phase 3.
-- **2026 :** fin prévisionnelle de la phase 3[\[18\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-rue-garibaldi#:~:text=,la%20v%C3%A9g%C3%A9talisation%20de%20l%27espace%20urbain).
+- **2026 :** fin prévisionnelle de la phase 3.
 
 ### Le chantier et ses effets immédiats
 
-Les deux premières phases ont déjà offert une promenade arborée et des pistes cyclables. Les travaux en cours génèrent des déviations, mais les riverains constatent la diminution du trafic et la qualité des nouvelles plantations. La Métropole rappelle que la **contribution de l’Agence de l’eau** (530 400 €) finance la désimperméabilisation des sols[\[19\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-rue-garibaldi#:~:text=De%20la%20rue%20Vauban%20%C3%A0,totalit%C3%A9%20en%202014).
+Les deux premières phases ont déjà offert une promenade arborée et des pistes cyclables. Les travaux en cours génèrent des déviations, mais les riverains constatent la diminution du trafic et la qualité des nouvelles plantations. La Métropole rappelle que la **contribution de l’Agence de l’eau** (530 400 €) finance la désimperméabilisation des sols.
 
 ### Les dates clés
 
@@ -45,7 +45,7 @@ Les deux premières phases ont déjà offert une promenade arborée et des piste
 | --- | --- | --- |
 | Phase 1 | 2010‑2014 | Transformation du secteur Vauban – Bouchut. |
 | Phase 2 | 2014‑2017 | Requalification Bouchut – Arménie, 140 arbres plantés. |
-| Phase 3 | 2023‑2026 | Arménie – Grande rue de la Guillotière : 156 arbres, comblement du tunnel[\[18\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-rue-garibaldi#:~:text=,la%20v%C3%A9g%C3%A9talisation%20de%20l%27espace%20urbain). |
+| Phase 3 | 2023‑2026 | Arménie – Grande rue de la Guillotière : 156 arbres, comblement du tunnel. |
 
 ### Les bénéfices attendus
 
@@ -54,9 +54,5 @@ Les deux premières phases ont déjà offert une promenade arborée et des piste
 ### Et après ?
 
 La Métropole projette de prolonger la requalification jusqu’à la rue de Crimée et d’intégrer la rue Garibaldi aux futures « Voies lyonnaises ».
-
-### Citations principales
-
-[\[18\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-rue-garibaldi#:~:text=,la%20v%C3%A9g%C3%A9talisation%20de%20l%27espace%20urbain)[\[19\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-rue-garibaldi#:~:text=De%20la%20rue%20Vauban%20%C3%A0,totalit%C3%A9%20en%202014)
 
 ---

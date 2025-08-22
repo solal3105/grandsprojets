@@ -18,10 +18,10 @@ Le projet initial prévoyait une simple rénovation de la dalle de Perrache. Apr
 
 Le programme « Ouvrons Perrache » consiste à transformer l’ancien centre d’échange en un bâtiment ouvert :
 
-- Ouverture d’une **faille de 12 m de haut** reliant la place Carnot à la gare[\[16\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-ouvrons-perrache#:~:text=,vue%20%C3%A0%20360%C2%B0%20sur%20Lyon).
-- Requalification des trémies, maintien de **530 places de parking** et création d’un toit‑terrasse végétalisé de 3 700 m²[\[16\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-ouvrons-perrache#:~:text=,vue%20%C3%A0%20360%C2%B0%20sur%20Lyon).
-- Extension de la ligne **Tram T2** jusqu’à Montrochet et création de 300 places de stationnement vélo sécurisées[\[16\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-ouvrons-perrache#:~:text=,vue%20%C3%A0%20360%C2%B0%20sur%20Lyon).
-- Installation de commerces, d’un hôtel, de bureaux et d’un espace de coworking[\[17\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-ouvrons-perrache#:~:text=L%27objectif%20de%20la%20transformation%20du,marque%20le%20d%C3%A9but%20des%20travaux).
+- Ouverture d’une **faille de 12 m de haut** reliant la place Carnot à la gare.
+- Requalification des trémies, maintien de **530 places de parking** et création d’un toit‑terrasse végétalisé de 3 700 m².
+- Extension de la ligne **Tram T2** jusqu’à Montrochet et création de 300 places de stationnement vélo sécurisées.
+- Installation de commerces, d’un hôtel, de bureaux et d’un espace de coworking.
 
 ### Enjeux et contraintes techniques
 
@@ -30,8 +30,8 @@ Le chantier se déroule au‑dessus des voies SNCF et du métro. Il faut mainten
 ### Jalons réglementaires et étapes politiques
 
 - **2018‑2021 :** première étape : création du passage France Péjot et extension de la ligne T2.
-- **2025 :** démarrage des travaux principaux avec démolition d’une passerelle[\[16\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-ouvrons-perrache#:~:text=,vue%20%C3%A0%20360%C2%B0%20sur%20Lyon).
-- **2025‑2030 :** phasage des travaux : reconfiguration de la gare routière et du stationnement en 2025 ; réhabilitation du parking en 2026‑2029 ; création des espaces commerciaux et tertiaires en 2026‑2029 ; aménagements publics en 2028‑2030[\[17\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-ouvrons-perrache#:~:text=L%27objectif%20de%20la%20transformation%20du,marque%20le%20d%C3%A9but%20des%20travaux).
+- **2025 :** démarrage des travaux principaux avec démolition d’une passerelle.
+- **2025‑2030 :** phasage des travaux : reconfiguration de la gare routière et du stationnement en 2025 ; réhabilitation du parking en 2026‑2029 ; création des espaces commerciaux et tertiaires en 2026‑2029 ; aménagements publics en 2028‑2030.
 
 ### Le chantier et ses effets immédiats
 
@@ -42,9 +42,9 @@ Les premières interventions ont facilité la jonction entre la place Carnot et 
 | Étape | Date | Commentaire |
 | --- | --- | --- |
 | Première phase « Ouvrons Perrache » | 2018‑2021 | Passage France Péjot et extension tram T2. |
-| Démolition passerelle | Février 2025 | Lancement officiel des travaux[\[17\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-ouvrons-perrache#:~:text=L%27objectif%20de%20la%20transformation%20du,marque%20le%20d%C3%A9but%20des%20travaux). |
+| Démolition passerelle | Février 2025 | Lancement officiel des travaux. |
 | Reconfiguration gare routière | 2025 | Nouvelle organisation des bus. |
-| Réhabilitation parking | 2026‑2029 | Réduction et modernisation des stationnements[\[17\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-ouvrons-perrache#:~:text=L%27objectif%20de%20la%20transformation%20du,marque%20le%20d%C3%A9but%20des%20travaux). |
+| Réhabilitation parking | 2026‑2029 | Réduction et modernisation des stationnements. |
 | Livraison des nouveaux espaces | 2028‑2030 | Commerces, bureaux, toit‑terrasse végétalisé. |
 
 ### Les bénéfices attendus
@@ -54,9 +54,5 @@ En 2030, la rupture entre le nord et le sud de la presqu’île aura disparu. Le
 ### Et après ?
 
 Une fois le projet achevé, la Métropole étudiera la requalification de l’axe Autoroute A7/A6 au sud de Perrache et l’intégration des voies ferrées dans un ensemble paysager.
-
-### Citations principales
-
-[\[16\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-ouvrons-perrache#:~:text=,vue%20%C3%A0%20360%C2%B0%20sur%20Lyon)[\[17\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/lyon-ouvrons-perrache#:~:text=L%27objectif%20de%20la%20transformation%20du,marque%20le%20d%C3%A9but%20des%20travaux)
 
 ---

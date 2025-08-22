@@ -18,10 +18,10 @@ Une implantation massive d’activités logistiques avait été envisagée, mais
 
 Le projet, copiloté par la Métropole, la ville et le promoteur Lionheart (filiale de Leroy Merlin), prévoit :
 
-- L’arrivée de **deux grands magasins** (IKEA et Leroy Merlin) ouverts en 2019[\[57\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/venissieux-grand-parilly#:~:text=,commerces%2C%20bureaux%20et%20%C3%A9quipements%20publics).
-- La construction d’environ **600 logements**, d’une crèche, d’un centre médical, d’un hôtel, d’un pôle de mobilité et de **nombreux commerces de proximité**[\[57\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/venissieux-grand-parilly#:~:text=,commerces%2C%20bureaux%20et%20%C3%A9quipements%20publics)[\[58\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/venissieux-grand-parilly#:~:text=L%27am%C3%A9nagement%20du%20quartier%20Grand%20Parilly,lui%20donnant%20une%20nouvelle%20image).
-- L’aménagement d’un **sillon planté** (promenade) reliant le quartier au parc de Parilly[\[57\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/venissieux-grand-parilly#:~:text=,commerces%2C%20bureaux%20et%20%C3%A9quipements%20publics).
-- Des voies internes favorisant la marche et le vélo avec un accès direct en voiture depuis les boulevards Bonnevay et Curie[\[59\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/venissieux-grand-parilly#:~:text=,entre%20V%C3%A9nissieux%20et%20Lyon%208).
+- L’arrivée de **deux grands magasins** (IKEA et Leroy Merlin) ouverts en 2019.
+- La construction d’environ **600 logements**, d’une crèche, d’un centre médical, d’un hôtel, d’un pôle de mobilité et de **nombreux commerces de proximité**.
+- L’aménagement d’un **sillon planté** (promenade) reliant le quartier au parc de Parilly.
+- Des voies internes favorisant la marche et le vélo avec un accès direct en voiture depuis les boulevards Bonnevay et Curie.
 
 ### Enjeux et contraintes techniques
 
@@ -29,12 +29,12 @@ Le site doit accueillir un flux important de visiteurs des magasins IKEA et Lero
 
 ### Jalons réglementaires et étapes politiques
 
-- **2015‑2016 :** concertation et enquête publique[\[60\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/venissieux-grand-parilly#:~:text=Quel%20est%20le%20calendrier%20du,projet).
-- **Mi‑2016 :** début des travaux préparatoires[\[60\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/venissieux-grand-parilly#:~:text=Quel%20est%20le%20calendrier%20du,projet).
-- **2017 :** démarrage des chantiers de construction des magasins et des accès[\[60\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/venissieux-grand-parilly#:~:text=Quel%20est%20le%20calendrier%20du,projet).
-- **Premier semestre 2019 :** ouverture d’IKEA et Leroy Merlin et des premiers espaces publics[\[60\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/venissieux-grand-parilly#:~:text=Quel%20est%20le%20calendrier%20du,projet).
-- **À partir de 2020 :** livraison des logements, bureaux et équipements[\[60\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/venissieux-grand-parilly#:~:text=Quel%20est%20le%20calendrier%20du,projet).
-- **2025 :** horizon final des programmes[\[60\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/venissieux-grand-parilly#:~:text=Quel%20est%20le%20calendrier%20du,projet).
+- **2015‑2016 :** concertation et enquête publique.
+- **Mi‑2016 :** début des travaux préparatoires.
+- **2017 :** démarrage des chantiers de construction des magasins et des accès.
+- **Premier semestre 2019 :** ouverture d’IKEA et Leroy Merlin et des premiers espaces publics.
+- **À partir de 2020 :** livraison des logements, bureaux et équipements.
+- **2025 :** horizon final des programmes.
 
 ### Le chantier et ses effets immédiats
 
@@ -44,10 +44,10 @@ L’ouverture des magasins a dynamisé la zone et créé des emplois. Les voies 
 
 | Étape | Date | Commentaire |
 | --- | --- | --- |
-| Concertation et enquête | 2015‑2016 | Échanges avec les habitants[\[60\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/venissieux-grand-parilly#:~:text=Quel%20est%20le%20calendrier%20du,projet). |
+| Concertation et enquête | 2015‑2016 | Échanges avec les habitants. |
 | Premiers travaux | 2016‑2017 | Préparation du site. |
-| Ouverture IKEA et Leroy Merlin | 2019 | Inauguration des magasins[\[60\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/venissieux-grand-parilly#:~:text=Quel%20est%20le%20calendrier%20du,projet). |
-| Livraison des logements | 2020‑2025 | Construction d’environ 600 logements[\[57\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/venissieux-grand-parilly#:~:text=,commerces%2C%20bureaux%20et%20%C3%A9quipements%20publics). |
+| Ouverture IKEA et Leroy Merlin | 2019 | Inauguration des magasins. |
+| Livraison des logements | 2020‑2025 | Construction d’environ 600 logements. |
 | Fin du projet | 2025 | Achèvement du quartier. |
 
 ### Les bénéfices attendus
@@ -57,9 +57,5 @@ Grand Parilly accueillera un quartier animé avec un large éventail de logement
 ### Et après ?
 
 La Ville envisage de prolonger la requalification vers le centre des Minguettes et de renforcer les liaisons cyclables vers Lyon.
-
-### Citations principales
-
-[\[57\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/venissieux-grand-parilly#:~:text=,commerces%2C%20bureaux%20et%20%C3%A9quipements%20publics)[\[58\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/venissieux-grand-parilly#:~:text=L%27am%C3%A9nagement%20du%20quartier%20Grand%20Parilly,lui%20donnant%20une%20nouvelle%20image)[\[60\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/venissieux-grand-parilly#:~:text=Quel%20est%20le%20calendrier%20du,projet)[\[59\]](https://www.grandlyon.com/mes-services-au-quotidien/sinformer-sur-les-projets-urbains-dans-la-metropole/venissieux-grand-parilly#:~:text=,entre%20V%C3%A9nissieux%20et%20Lyon%208)
 
 ---
