@@ -154,7 +154,6 @@
         layersConfig,
         metroColors,
         mobilityData,
-        projectPages, 
         filtersConfig,
         basemaps: remoteBasemaps
       } = await supabaseService.initAllData();
@@ -349,7 +348,7 @@
           }
         });
       }
-
+      
       // Gestion du basculement du thème (sans modifier automatiquement le fond de carte)
       if (themeToggle) {
         themeToggle.addEventListener('click', (e) => {
@@ -415,7 +414,7 @@
       // 6️⃣ Injection finale des configs
       window.dataConfig = window.dataConfig || {};
       window.dataConfig.metroColors = metroColors;
-      // mobilityData et projectPages sont déjà sur window
+      // mobilityData est déjà sur window
 
       // Fonction pour obtenir la catégorie à partir du nom de la couche
       function getCategoryFromLayer(layerName) {

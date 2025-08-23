@@ -86,6 +86,11 @@
         <i class="fa-solid fa-person-digging" aria-hidden="true"></i>
         <span class="label">travaux</span>
       </button>
+      <!-- Bouton contribution -->
+      <button class="nav-category" id="nav-contribute" aria-label="Proposer une contribution" title="Proposer une contribution">
+        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+        <span class="label">contribuer</span>
+      </button>
       <!-- Sous-menus -->
       <div id="transport-submenu" class="submenu">
         <ul class="project-list" id="transport-project-list"></ul>
@@ -99,6 +104,72 @@
       <div id="travaux-submenu" class="submenu" style="display:none">
         <ul class="project-list" id="travaux-project-list"></ul>
       </div>
+  </div>
+
+  <!-- Contribution modal -->
+  <div id="contrib-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="contrib-title" aria-hidden="true" style="display:none">
+    <div class="gp-modal" role="document">
+      <div class="gp-modal-header">
+        <div class="gp-modal-title" id="contrib-title">Proposer une contribution</div>
+        <button class="gp-modal-close" id="contrib-close" aria-label="Fermer">&times;</button>
+      </div>
+      <div class="gp-modal-body">
+        <form id="contrib-form" class="contrib-form">
+          <div class="form-row">
+            <label for="contrib-project-name">Nom du projet</label>
+            <input type="text" id="contrib-project-name" name="project_name" required placeholder="Ex: Tram T10 – Phase 2" />
+          </div>
+
+          <div class="form-row">
+            <label for="contrib-category">Catégorie</label>
+            <select id="contrib-category" name="category_layer" required>
+              <option value="tramway">Tramway</option>
+              <option value="urbanisme">Urbanisme</option>
+              <option value="voielyonnaise">Voie Lyonnaise</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <label for="contrib-geojson">Fichier GeoJSON</label>
+            <input type="file" id="contrib-geojson" name="geojson_file" accept=".geojson,application/geo+json,application/json" required />
+            <small>Fichier .geojson (ou .json au format GeoJSON).</small>
+          </div>
+
+          <fieldset class="form-fieldset">
+            <legend>Liens officiels (optionnels)</legend>
+            <div class="form-row">
+              <label for="contrib-grandlyon-url">Grand Lyon (urbanisme)</label>
+              <input type="url" id="contrib-grandlyon-url" name="grandlyon_url" placeholder="https://..." />
+            </div>
+            <div class="form-row">
+              <label for="contrib-sytral-url">SYTRAL (tramway)</label>
+              <input type="url" id="contrib-sytral-url" name="sytral_url" placeholder="https://..." />
+            </div>
+          </fieldset>
+
+          <fieldset class="form-fieldset" id="contrib-docs">
+            <legend>Dossiers de concertation (optionnels)</legend>
+            <div class="doc-row">
+              <input type="text" class="doc-title" placeholder="Titre du document PDF" />
+              <input type="url" class="doc-url" placeholder="URL du PDF (https://...)" />
+              <button type="button" class="doc-remove" aria-label="Supprimer" hidden>&times;</button>
+            </div>
+            <button type="button" id="contrib-doc-add" class="gp-btn gp-btn--secondary" style="margin-top:8px;">
+              <i class="fa fa-plus" aria-hidden="true"></i>
+              <span>Ajouter un document</span>
+            </button>
+          </fieldset>
+
+          <div class="form-actions" style="margin-top:12px; display:flex; gap:8px; align-items:center;">
+            <button type="submit" id="contrib-submit" class="gp-btn">
+              <i class="fa fa-paper-plane" aria-hidden="true"></i>
+              <span>Envoyer</span>
+            </button>
+            <div id="contrib-status" role="status" aria-live="polite" style="font-size:0.9em; opacity:0.8;"></div>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
       <div id="project-detail" class="project-detail">
         <div class="project-detail-header project-header-container">
@@ -204,6 +275,7 @@
 
   <!-- Supabase client via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
+  <script src="modules/auth.js"></script>
   <!-- Chargement de Leaflet JS depuis des fichiers locaux -->
   <script src="vendor/leaflet/leaflet.js"></script>
   <!-- Marked via jsDelivr -->
@@ -219,6 +291,7 @@
   <script src="modules/geolocation.js"></script>
   <script src="modules/navigationmodule.js"></script>
   <script src="modules/eventbindings.js"></script>
+  <script src="modules/contrib.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

@@ -215,70 +215,63 @@ async function showProjectDetail(projectName, category, event) {
     if(attrs.description) body+=`<p class="project-description">${attrs.description}</p>`;
 
     const icons={velo:'fa-bicycle',mobilite:'fa-bus-alt',transport:'fa-bus-alt',urbanisme:'fa-city'};
-    
-    // Vérifier si une fiche complète existe pour ce projet
+
+    // 1) Dériver d'abord l'URL HTML depuis le chemin Markdown
     let fullPageUrl = null;
-    if (window.projectPages) {
-      fullPageUrl = window.projectPages[projectName] || null;
-      if (!fullPageUrl) {
-        const normalizedProjectName = normalizeString(projectName);
-        const matchingKey = Object.keys(window.projectPages).find(k => normalizeString(k) === normalizedProjectName);
-        if (matchingKey) fullPageUrl = window.projectPages[matchingKey];
-      }
-    }
-
-    // Si une URL est fournie par projectPages, on la valide
-    if (fullPageUrl) {
-      try {
-        const head = await fetch(fullPageUrl, { method: 'HEAD' });
-        if (!head.ok) {
-          // Essayer une variante sans accents/ponctuation sur le nom de fichier (basename)
-          const normalizeBase = (s) => String(s || '')
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '') // accents
-            .toLowerCase()
-            .replace(/[^a-z0-9\s-]/g, '') // retirer ponctuation (apostrophes, etc.)
-            .trim()
-            .replace(/\s+/g, '-')
-            .replace(/-+/g, '-');
-          try {
-            const urlObj = new URL(fullPageUrl, window.location.origin);
-            const parts = urlObj.pathname.split('/');
-            const file = parts.pop();
-            if (file) {
-              const decoded = (() => { try { return decodeURIComponent(file); } catch { return file; } })();
-              const dot = decoded.lastIndexOf('.');
-              const base = dot >= 0 ? decoded.slice(0, dot) : decoded;
-              const ext  = dot >= 0 ? decoded.slice(dot) : '';
-              const altFile = `${normalizeBase(base)}${ext || '.html'}`;
-              const altPath = [...parts, altFile].join('/');
-              const altUrl = `${urlObj.origin}${altPath.startsWith('/') ? '' : '/'}${altPath}`;
-              const headAlt = await fetch(altUrl, { method: 'HEAD' });
-              if (headAlt.ok) {
-                fullPageUrl = altUrl;
-              } else {
-                fullPageUrl = null; // laisser le fallback mdPath prendre le relais
-              }
-            }
-          } catch (_) {
-            fullPageUrl = null;
-          }
-        }
-      } catch (_) {
-        fullPageUrl = null;
-      }
-    }
-
-    // Fallback: si aucune URL trouvée dans projectPages, tenter la page HTML déduite du chemin MD
-    if (!fullPageUrl && typeof mdPath === 'string') {
+    if (typeof mdPath === 'string') {
       const htmlCandidate = mdPath.replace(/\.md$/, '.html');
       try {
         const head = await fetch(htmlCandidate, { method: 'HEAD' });
         if (head.ok) {
           fullPageUrl = htmlCandidate;
         }
-      } catch (e) {
-        // silencieux: si HEAD échoue, on n'affiche pas le bouton
+      } catch (_) { /* no-op */ }
+    }
+
+    // 2) Fallback rétrocompatibilité: utiliser window.projectPages s'il est défini
+    if (!fullPageUrl && window.projectPages) {
+      fullPageUrl = window.projectPages[projectName] || null;
+      if (!fullPageUrl) {
+        const normalizedProjectName = normalizeString(projectName);
+        const matchingKey = Object.keys(window.projectPages).find(k => normalizeString(k) === normalizedProjectName);
+        if (matchingKey) fullPageUrl = window.projectPages[matchingKey];
+      }
+
+      // Valider/normaliser l'URL issue de projectPages
+      if (fullPageUrl) {
+        try {
+          const head = await fetch(fullPageUrl, { method: 'HEAD' });
+          if (!head.ok) {
+            const normalizeBase = (s) => String(s || '')
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .toLowerCase()
+              .replace(/[^a-z0-9\s-]/g, '')
+              .trim()
+              .replace(/\s+/g, '-')
+              .replace(/-+/g, '-');
+            try {
+              const urlObj = new URL(fullPageUrl, window.location.origin);
+              const parts = urlObj.pathname.split('/');
+              const file = parts.pop();
+              if (file) {
+                const decoded = (() => { try { return decodeURIComponent(file); } catch { return file; } })();
+                const dot = decoded.lastIndexOf('.');
+                const base = dot >= 0 ? decoded.slice(0, dot) : decoded;
+                const ext  = dot >= 0 ? decoded.slice(dot) : '';
+                const altFile = `${normalizeBase(base)}${ext || '.html'}`;
+                const altPath = [...parts, altFile].join('/');
+                const altUrl = `${urlObj.origin}${altPath.startsWith('/') ? '' : '/'}${altPath}`;
+                const headAlt = await fetch(altUrl, { method: 'HEAD' });
+                if (headAlt.ok) {
+                  fullPageUrl = altUrl;
+                } else {
+                  fullPageUrl = null;
+                }
+              }
+            } catch(_) { fullPageUrl = null; }
+          }
+        } catch(_) { fullPageUrl = null; }
       }
     }
     
@@ -899,10 +892,6 @@ projectDetailPanel.classList.add('visible');
 
   // Affichage des projets d'Urbanisme (uniformisé, sans onglets/select)
   const renderUrbanismeProjects = () => {
-    if (!window.urbanismeProjects) {
-      console.error("urbanismeProjects is undefined");
-      return;
-    }
     const listEl = setupSubmenu('urbanisme-submenu', {
       title: "Projets d'Urbanisme",
       closeBtnId: 'urbanisme-close-btn',
@@ -911,15 +900,41 @@ projectDetailPanel.classList.add('visible');
       listId: 'urbanisme-project-list'
     });
     if (!listEl) return;
-    const projects = window.urbanismeProjects;
-    projects.forEach(p => {
-      const li = createProjectItem(
-        p,
-        createProjectClickHandler(p, 'urbanisme', 'urbanisme-submenu', false),
-        'urbanisme'
-      );
-      listEl.appendChild(li);
-    });
+
+    // Assurer que la couche 'urbanisme' est chargée, puis dériver la liste des projets depuis ses features
+    const ensureUrbanisme = (DataModule.layerData && DataModule.layerData['urbanisme'])
+      ? Promise.resolve(DataModule.layerData['urbanisme'])
+      : DataModule.loadLayer('urbanisme');
+
+    ensureUrbanisme
+      .then(() => {
+        const geo = DataModule.layerData && DataModule.layerData['urbanisme'];
+        const features = (geo && geo.features) || [];
+        const seen = new Set();
+        const projects = [];
+        features.forEach(f => {
+          const props = (f && f.properties) || {};
+          const name = props.name || props.Name;
+          if (name && !seen.has(name)) {
+            seen.add(name);
+            projects.push({ name });
+          }
+        });
+        projects.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+
+        listEl.innerHTML = '';
+        projects.forEach(p => {
+          const li = createProjectItem(
+            p,
+            createProjectClickHandler(p, 'urbanisme', 'urbanisme-submenu', false),
+            'urbanisme'
+          );
+          listEl.appendChild(li);
+        });
+      })
+      .catch(err => {
+        console.error('[NavigationModule] Failed to load urbanisme layer for project list:', err);
+      });
   };
 
   // (ancienne version supprimée)

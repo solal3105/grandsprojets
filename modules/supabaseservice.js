@@ -303,6 +303,8 @@
       }
     },
 
+    // (Auth helpers migrated to modules/auth.js)
+
     /**
      * Récupère la liste des fonds de carte depuis Supabase.
      * @returns {Promise<Array<{name:string,url:string,attribution:string,label:string}>>}
@@ -400,16 +402,147 @@
     },
 
     /**
+     * Upload d'un fichier GeoJSON dans le bucket Storage 'uploads' et retourne son URL publique.
+     * Le chemin est dérivé de la catégorie et d'un slug du nom de projet.
+     * @param {File|Blob} file
+     * @param {string} categoryLayer - tramway | urbanisme | voielyonnaise
+     * @param {string} projectName
+     * @returns {Promise<string>} publicUrl
+     */
+    uploadGeoJSONToStorage: async function(file, categoryLayer, projectName) {
+      try {
+        if (!file || !categoryLayer || !projectName) throw new Error('Paramètres manquants');
+        const slugify = (str) => String(str || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[\u2018\u2019\u2032]/g, "'")
+          .replace(/[\u201C\u201D\u2033]/g, '"')
+          .replace(/[\u2013\u2014]/g, '-')
+          .replace(/["'`´]/g, '')
+          .replace(/&/g, ' et ')
+          .replace(/[^a-zA-Z0-9\s-\/]/g, '')
+          .replace(/\s*\/\s*/g, '-')
+          .replace(/[-_]+/g, '-')
+          .replace(/\s+/g, '-')
+          .trim()
+          .toLowerCase();
+        const safeCat = slugify(categoryLayer);
+        const safeName = slugify(projectName);
+        const path = `geojson/projects/${safeCat}/${safeName}.geojson`;
+        const bucket = 'uploads';
+        const { error: upErr } = await supabaseClient
+          .storage
+          .from(bucket)
+          .upload(path, file, { upsert: true, contentType: 'application/geo+json' });
+        if (upErr) {
+          console.error('[supabaseService] ❌ uploadGeoJSONToStorage error:', upErr);
+          throw upErr;
+        }
+        const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
+        return data.publicUrl;
+      } catch (e) {
+        console.error('[supabaseService] ❌ uploadGeoJSONToStorage exception:', e);
+        throw e;
+      }
+    },
+
+    /**
+     * Ajoute un lien GrandLyon pour un projet d'urbanisme (facultatif).
+     * @param {string} projectName
+     * @param {string} url
+     */
+    upsertGrandLyonLink: async function(projectName, url) {
+      try {
+        if (!projectName || !url) return { error: null };
+        const slugify = (str) => String(str || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[\u2018\u2019\u2032]/g, "'")
+          .replace(/[\u201C\u201D\u2033]/g, '"')
+          .replace(/[\u2013\u2014]/g, '-')
+          .replace(/["'`´]/g, '')
+          .replace(/&/g, ' et ')
+          .replace(/[^a-zA-Z0-9\s-\/]/g, '')
+          .replace(/\s*\/\s*/g, '-')
+          .replace(/[-_]+/g, '-')
+          .replace(/\s+/g, '-')
+          .trim()
+          .toLowerCase();
+        const slug = slugify(projectName);
+        const { error } = await supabaseClient
+          .from('grandlyon_project_links')
+          .insert({ project_name: projectName, project_slug: slug, url });
+        if (error) {
+          console.warn('[supabaseService] upsertGrandLyonLink insert error:', error);
+        }
+        return { error: null };
+      } catch (e) {
+        console.warn('[supabaseService] upsertGrandLyonLink exception:', e);
+        return { error: e };
+      }
+    },
+
+    /**
+     * Ajoute un lien Sytral pour un projet de mobilité (facultatif).
+     * @param {string} projectName
+     * @param {string} url
+     */
+    upsertSytralLink: async function(projectName, url) {
+      try {
+        if (!projectName || !url) return { error: null };
+        const { error } = await supabaseClient
+          .from('sytral_project_links')
+          .insert({ project_name: projectName, url });
+        if (error) {
+          console.warn('[supabaseService] upsertSytralLink insert error:', error);
+        }
+        return { error: null };
+      } catch (e) {
+        console.warn('[supabaseService] upsertSytralLink exception:', e);
+        return { error: e };
+      }
+    },
+
+    /**
+     * Insère des dossiers de concertation liés à un projet (facultatif).
+     * @param {string} projectName
+     * @param {Array<{title:string,pdf_url:string}>} docs
+     */
+    insertConsultationDossiers: async function(projectName, docs) {
+      try {
+        if (!projectName || !Array.isArray(docs) || !docs.length) return { error: null };
+        const rows = docs
+          .filter(d => d && d.title && d.pdf_url)
+          .map(d => ({ project_name: projectName, title: d.title, pdf_url: d.pdf_url }));
+        if (!rows.length) return { error: null };
+        const { error } = await supabaseClient
+          .from('consultation_dossiers')
+          .insert(rows);
+        if (error) {
+          console.warn('[supabaseService] insertConsultationDossiers insert error:', error);
+        }
+        return { error: null };
+      } catch (e) {
+        console.warn('[supabaseService] insertConsultationDossiers exception:', e);
+        return { error: e };
+      }
+    },
+
+
+    /**
      * Charge toutes les données fetch* en parallèle,
-     * injecte window.<nom> et retourne un objet { layersConfig, metroColors, mobilityData, projectPages }
+     * injecte window.<nom> et retourne un objet agrégé (ex: { layersConfig, metroColors, mobilityData, filtersConfig, basemaps, ... }).
+     * Note: projectPages (legacy) n'est plus chargé automatiquement.
      * @returns {Promise<Record<string, any>>}
      */
     initAllData: async function() {
       const svc = this;
-      // 1️⃣ repérer toutes les méthodes commençant par 'fetch'
+      // 1️⃣ repérer toutes les méthodes commençant par 'fetch' (sauf celles à exclure de l'auto-chargement)
       const fetchers = Object
         .entries(svc)
-        .filter(([key, fn]) => key.startsWith('fetch') && typeof fn === 'function');
+        .filter(([key, fn]) => key.startsWith('fetch') && typeof fn === 'function')
+        // Exclure les fetchers non nécessaires au démarrage
+        .filter(([key]) => key !== 'fetchUrbanismeProjects' && key !== 'fetchProjectPages');
 
       // 2️⃣ appeler tous les fetchers en parallèle
       const results = await Promise.all(
