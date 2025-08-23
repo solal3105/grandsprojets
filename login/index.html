@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Connexion – Grands Projets</title>
+  <link rel="icon" type="image/png" href="/img/logomin.png" sizes="32x32">
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    /* Lightweight page styles to center content */
+    body, html { height: 100%; }
+    .login-wrapper { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .login-card { width: 100%; max-width: 440px; background: var(--bg, #111); color: var(--fg, #eee); border-radius: 12px; padding: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+    .login-header { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+    .login-header img { height: 28px; }
+    .login-title { font-size: 1.25rem; margin: 0; }
+    .login-actions { margin-top: 16px; display: grid; gap: 12px; }
+    .gp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 14px; border-radius: 8px; border: 1px solid #2a2a2a; background: #181818; color: #fff; cursor: pointer; text-decoration: none; font-weight: 600; }
+    .gp-btn:hover { background: #202020; }
+    .gp-btn.github { border-color: #2b3137; background: #0d1117; }
+    .gp-btn.github:hover { background: #161b22; }
+    .status { font-size: 0.95rem; color: #bbb; margin-top: 8px; }
+    .note { font-size: .85rem; color:#999; margin-top:8px; }
+    .sep { height:1px; background:#2a2a2a; margin:16px 0; }
+    .muted { color:#888; font-size:.9rem; }
+  </style>
+  <script>
+    (function() {
+      try {
+        var theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <div class="login-wrapper">
+    <div class="login-card" role="region" aria-labelledby="login-title">
+      <div class="login-header">
+        <a href="/" aria-label="Accueil">
+          <img src="/img/logo.svg" alt="Grands Projets" />
+        </a>
+        <h1 id="login-title" class="login-title">Se connecter</h1>
+      </div>
+      <p class="muted">Connexion uniquement via GitHub.</p>
+
+      <div id="auth-area" class="login-actions">
+        <button id="github-btn" class="gp-btn github" type="button">
+          <i class="fab fa-github"></i>
+          <span>Se connecter avec GitHub</span>
+        </button>
+        <div id="status" class="status" aria-live="polite"></div>
+      </div>
+
+      <div class="sep"></div>
+      <a class="gp-btn" href="/" aria-label="Retour à l’accueil">← Retour</a>
+      <p class="note">Après la connexion, vous serez redirigé vers l’accueil.</p>
+    </div>
+  </div>
+
+  <!-- Supabase client via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
+  <script src="/modules/auth.js"></script>
+  <script>
+    // Use shared AuthModule
+    const auth = window.AuthModule;
+
+    const statusEl = document.getElementById('status');
+    const githubBtn = document.getElementById('github-btn');
+
+    function setStatus(msg) { statusEl.textContent = msg || ''; }
+
+    async function initAuthUI() {
+      try {
+        const { data: { session } } = await auth.getSession();
+        if (session?.user) {
+          setStatus(`Connecté en tant que ${session.user.user_metadata?.user_name || session.user.email || 'utilisateur'}.`);
+          githubBtn.style.display = 'none';
+        } else {
+          setStatus('');
+          githubBtn.style.display = 'inline-flex';
+        }
+      } catch (e) {
+        setStatus('');
+      }
+    }
+
+    githubBtn.addEventListener('click', async () => {
+      try {
+        setStatus('Redirection vers GitHub…');
+        const redirectUrl = window.location.origin + '/';
+        const { error } = await auth.signInWithGitHub(redirectUrl);
+        if (error) {
+          console.error('OAuth error:', error);
+          setStatus("Impossible de démarrer l'authentification GitHub.");
+        }
+      } catch (e) {
+        console.error(e);
+        setStatus('Erreur inattendue.');
+      }
+    });
+
+    // Also handle the case where GitHub redirects back to /login with a hash (rare)
+    auth.onAuthStateChange((_event, _session) => {
+      // If a session appears, go home.
+      if (_session?.user) {
+        window.location.replace('/');
+      }
+    });
+
+    initAuthUI();
+  </script>
+</body>
+</html>

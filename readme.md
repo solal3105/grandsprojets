@@ -2,7 +2,7 @@
 
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC) [![Leaflet](https://img.shields.io/badge/Leaflet-1.9.x-brightgreen)](#)
 
-**Dernière mise à jour :** 2025-08-21
+**Dernière mise à jour :** 2025-08-23
 
 ---
 
@@ -109,7 +109,7 @@ grandprojetV2/
 
 ### 4.1. supabaseservice.js
 - **Rôle** : centralise tous les accès à Supabase (via CDN, pas de clé admin en prod !)
-- **Tables attendues** : `layers`, `metro_colors`, `mobility_data`, `project_pages`, `urbanisme_projects`, `filter_categories`/`filter_items` (via `fetchFiltersConfig()`), `project_filter_mapping`, `project_colors`, `layer_info_config` (+ tables liées), `basemaps`
+- **Tables attendues** : `layers`, `metro_colors`, `mobility_data`, `urbanisme_projects` (désactivé au chargement auto), `filter_categories`/`filter_items` (via `fetchFiltersConfig()`), `project_filter_mapping`, `project_colors`, `layer_info_config` (+ tables liées), `basemaps`. `project_pages` est historique/optionnel (le front déduit désormais les URLs).
 - **Fonctions principales** :
   - `fetchLayersConfig()`, `fetchMetroColors()`, etc. → récupèrent chaque table (la table `layers` est exposée en `window.layersConfig` via `initAllData()`)
   - `initAllData()` → lance tous les fetchers et expose les résultats sur `window`
@@ -198,15 +198,9 @@ Les "fiches projets" sont les pages de détail qui présentent chaque projet urb
 - **Avantages** : Facile à éditer, versionnable, rendu dynamique, supporte la mise à jour sans rechargement de page.
 
 ### 5.2 Fiches statiques (HTML)
-- **Stockage** : Les pages HTML sont placées dans `pages/velo/`, `pages/mobilite/`, etc. (ex : `pages/velo/voie-lyonnaise-5.html`).
-- **Association** : Le mapping entre un projet et sa fiche HTML se fait via la table Supabase `project_pages` (chargée par `supabaseservice.js`), puis injectée dans `window.projectPages` :
-  ```js
-  window.projectPages = {
-    "Nom du projet": "/pages/velo/voie-lyonnaise-5.html",
-    ...
-  }
-  ```
-- **Affichage** : Quand l’utilisateur consulte le détail d’un projet (voir ci-dessous), un bouton « Voir la fiche complète » apparaît si une page HTML existe ; cliquer dessus ouvre la fiche dans un nouvel onglet.
+- **Stockage** : Les pages HTML sont placées dans `pages/velo/`, `pages/mobilite/`, `pages/urbanisme/` (ex : `pages/velo/voie-lyonnaise-5.html`).
+- **Association (dérivation automatique)** : L’URL de fiche HTML est déduite du chemin Markdown : `pages/<cat>/<slug>.md` ⇒ `pages/<cat>/<slug>.html`. La table Supabase `project_pages` devient optionnelle (legacy) et peut être ignorée.
+- **Affichage** : Lors de l’ouverture du détail, le bouton « Voir la fiche complète » s’affiche si la page `.html` correspondante existe. Sinon, seule la synthèse (couverture + chips + description) est visible.
 - **Structure HTML** : Pages autonomes, stylées avec `ficheprojet.css`, peuvent inclure images, tableaux, liens externes, etc.
 - **Utilité** : Permet d’afficher des contenus très riches ou spécifiques, ou d’intégrer des fiches produites hors du système.
 
@@ -216,9 +210,9 @@ Les "fiches projets" sont les pages de détail qui présentent chaque projet urb
   2. `NavigationModule.showProjectDetail(name, category, event)` est appelé.
   3. Ce module :
      - Lit le Markdown depuis `pages/<cat>/*.md` et en extrait les métadonnées et la description.
-     - Cherche l’URL HTML dans `window.projectPages` (mapping Supabase) — sinon tente une page `.html` correspondante.
-     - Affiche la couverture, les chips itinéraire/trafic ainsi que la description issue du front‑matter (le corps Markdown complet est masqué).
-     - Si une fiche HTML existe, affiche un bouton « Voir la fiche complète » (ouvre la page dans un nouvel onglet).
+     - Cherche directement une page `.html` dérivée du chemin Markdown; `window.projectPages` n’est plus requis (toujours supporté si présent).
+    - Affiche la couverture, les chips itinéraire/trafic ainsi que la description issue du front‑matter (le corps Markdown complet est masqué).
+    - Si une fiche HTML existe, affiche un bouton « Voir la fiche complète » (ouvre la page dans un nouvel onglet).
 - **Modules impliqués** : `modules/navigationmodule.js`, `modules/datamodule.js`, `modules/uimodule.js`, `modules/supabaseservice.js` (pour le mapping projectPages).
 
 ### 5.4 Ajouter ou modifier une fiche projet
@@ -372,7 +366,7 @@ Les "fiches projets" sont les pages de détail qui présentent chaque projet urb
 - S’assurer que les propriétés des GeoJSON sont cohérentes
 
 **Q : Les fiches projet ne s’affichent pas ?**
-- Vérifier qu’un fichier Markdown existe au bon chemin (`pages/<cat>/<slug>.md`) et/ou qu’un mapping existe dans `window.projectPages` (provenant de la table `project_pages`)
+- Vérifier qu’un fichier Markdown existe au bon chemin (`pages/<cat>/<slug>.md`) et qu’une page `.html` correspondante existe si vous attendez une fiche complète.
 
 ---
 
@@ -434,7 +428,7 @@ Cette section documente la structure et un aperçu du contenu de la base Supabas
     - `name` text, `background` text, `icon` text
   - `project_filter_mapping` (PK: `project_name` text)
     - `project_name` text, `layer` text, `key` text, `value` text
-  - `project_pages` (PK: `id` bigint identity always)
+  - `project_pages` (optionnel/historique) (PK: `id` bigint identity always)
     - `id`, `project_name` text unique, `page_url` text
   - `urbanisme_projects` (PK: `id` bigint identity always)
     - `id`, `name` text, `city` text
@@ -465,6 +459,10 @@ Cette section documente la structure et un aperçu du contenu de la base Supabas
     - T6 nord → `pages/mobilite/t6-nord.html`, T10 → `pages/mobilite/t10.html`, …
   - `project_filter_mapping` (ex.)
     - T6 nord → (`reseauProjeteSitePropre`, Name=T6 nord), Voie Lyonnaise 1 → (`voielyonnaise`, line=1)
+  - Conventions de filtrage (contributeurs)
+    - Tramway/Mobilité (couche `reseauProjeteSitePropre`) : clé `Name` ≈ nom du projet
+    - Voie Lyonnaise (couche `voielyonnaise`) : clé `line` = numéro extrait du nom (fallback : `name/nom`)
+    - Urbanisme (couche `urbanisme`) : clé `Name` ≈ nom du projet
   - `image_metadata` (≈113)
     - Points géolocalisés avec `image_path` sous `uploads/` et horodatage
 

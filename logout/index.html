@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Déconnexion – Grands Projets</title>
+  <link rel="icon" type="image/png" href="/img/logomin.png" sizes="32x32">
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    body, html { height: 100%; }
+    .logout-wrapper { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .logout-card { width: 100%; max-width: 420px; background: var(--bg, #111); color: var(--fg, #eee); border-radius: 12px; padding: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); text-align:center; }
+    .muted { color:#aaa; margin-top: 8px; }
+    .gp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 14px; border-radius: 8px; border: 1px solid #2a2a2a; background: #181818; color: #fff; cursor: pointer; text-decoration: none; font-weight: 600; margin-top: 16px; }
+    .gp-btn:hover { background: #202020; }
+  </style>
+</head>
+<body>
+  <div class="logout-wrapper">
+    <div class="logout-card" role="status" aria-live="polite">
+      <h1>Déconnexion…</h1>
+      <p class="muted" id="status">Merci de patienter, vous allez être redirigé.</p>
+      <a class="gp-btn" href="/" id="fallback-link" style="display:none">↩ Retour à l’accueil</a>
+    </div>
+  </div>
+
+  <!-- Supabase client via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
+  <script src="/modules/auth.js"></script>
+  <script>
+    (async function(){
+      const statusEl = document.getElementById('status');
+      const fallback = document.getElementById('fallback-link');
+      try {
+        if (!window.AuthModule) throw new Error('AuthModule indisponible');
+        await window.AuthModule.signOut();
+        statusEl.textContent = 'Déconnecté. Redirection…';
+        // Petite pause pour l’UX puis redirection
+        setTimeout(() => { window.location.replace('/'); }, 300);
+      } catch (e) {
+        console.warn('Erreur de déconnexion:', e);
+        statusEl.textContent = "Impossible de vous déconnecter automatiquement. Utilisez le bouton ci-dessous.";
+        fallback.style.display = 'inline-flex';
+      }
+    })();
+  </script>
+</body>
+</html>
