@@ -123,7 +123,7 @@
           <div class="form-row">
             <label for="contrib-category">Catégorie</label>
             <select id="contrib-category" name="category_layer" required>
-              <option value="tramway">Tramway</option>
+              <option value="mobilite">Mobilité</option>
               <option value="urbanisme">Urbanisme</option>
               <option value="voielyonnaise">Voie Lyonnaise</option>
             </select>
@@ -135,6 +135,28 @@
             <small>Fichier .geojson (ou .json au format GeoJSON).</small>
           </div>
 
+          <div class="form-row">
+            <label for="contrib-cover">Cover (optionnelle)</label>
+            <input type="file" id="contrib-cover" name="cover_file" accept="image/png,image/jpeg,image/webp" />
+            <small>Image .png, .jpg ou .webp. Elle sera stockée et son URL journalisée.</small>
+          </div>
+
+          <div class="form-row">
+            <label for="contrib-meta">Meta (optionnel)</label>
+            <input type="text" id="contrib-meta" name="meta" placeholder="Méta information (ex: tag, note, source)" />
+          </div>
+
+          <div class="form-row">
+            <label for="contrib-description">Description (optionnelle)</label>
+            <textarea id="contrib-description" name="description" rows="3" placeholder="Courte description du projet (ex: 1-3 phrases)"></textarea>
+          </div>
+
+          <div class="form-row">
+            <label for="contrib-markdown">Contenu Markdown (optionnel)</label>
+            <textarea id="contrib-markdown" name="markdown" rows="8" placeholder="# Titre\n\nDécrivez le projet, ajoutez des liens, etc."></textarea>
+            <small>Le contenu sera stocké en Markdown dans le stockage et lié à votre contribution.</small>
+          </div>
+
           <fieldset class="form-fieldset">
             <legend>Liens officiels (optionnels)</legend>
             <div class="form-row">
@@ -142,7 +164,7 @@
               <input type="url" id="contrib-grandlyon-url" name="grandlyon_url" placeholder="https://..." />
             </div>
             <div class="form-row">
-              <label for="contrib-sytral-url">SYTRAL (tramway)</label>
+              <label for="contrib-sytral-url">SYTRAL (mobilité)</label>
               <input type="url" id="contrib-sytral-url" name="sytral_url" placeholder="https://..." />
             </div>
           </fieldset>
