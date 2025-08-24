@@ -131,8 +131,12 @@
       const projectName = document.getElementById('contrib-project-name')?.value?.trim();
       const category = document.getElementById('contrib-category')?.value;
       const fileInput = document.getElementById('contrib-geojson');
+      const coverInput = document.getElementById('contrib-cover');
       const grandlyonUrl = document.getElementById('contrib-grandlyon-url')?.value?.trim();
       const sytralUrl = document.getElementById('contrib-sytral-url')?.value?.trim();
+      const meta = document.getElementById('contrib-meta')?.value?.trim();
+      const description = document.getElementById('contrib-description')?.value?.trim();
+      const mdTextRaw = document.getElementById('contrib-markdown')?.value || '';
 
       if (!projectName || !category || !fileInput || !fileInput.files?.length) {
         setStatus('Veuillez renseigner le nom, la catégorie et sélectionner un fichier GeoJSON.', 'error');
@@ -141,6 +145,7 @@
 
       // Basic validation for file type
       const file = fileInput.files[0];
+      const coverFile = coverInput && coverInput.files && coverInput.files[0] ? coverInput.files[0] : null;
       const nameLower = (file.name || '').toLowerCase();
       if (!nameLower.endsWith('.geojson') && !(file.type || '').includes('json')) {
         setStatus('Le fichier doit être un GeoJSON (.geojson ou JSON valide).', 'error');
@@ -155,21 +160,65 @@
         const session = await (win.AuthModule && win.AuthModule.requireAuthOrRedirect('/login/'));
         if (!session || !session.user) return; // redirected
 
+        // 0) Create a single DB row for this contribution (so both URLs land in the same row)
+        let rowId = null;
+        try {
+          if (win.supabaseService && typeof win.supabaseService.createContributionRow === 'function') {
+            rowId = await win.supabaseService.createContributionRow(projectName, category);
+          }
+        } catch (e) {
+          console.warn('[contrib] createContributionRow error:', e);
+        }
+        if (!rowId) {
+          setStatus("Impossible de créer l'entrée de contribution. Réessayez plus tard.", 'error');
+          if (submitBtn) submitBtn.disabled = false;
+          return;
+        }
+
         // 1) Upload GeoJSON to Supabase Storage
-        const publicUrl = await (win.supabaseService && win.supabaseService.uploadGeoJSONToStorage(file, category, projectName));
+        await (win.supabaseService && win.supabaseService.uploadGeoJSONToStorage(file, category, projectName, rowId));
+
+        // 1b) Optional cover upload (non-blocking)
+        if (coverFile) {
+          try {
+            await (win.supabaseService && win.supabaseService.uploadCoverToStorage(coverFile, category, projectName, rowId));
+          } catch (coverErr) {
+            console.warn('[contrib] cover upload error (non bloquant):', coverErr);
+          }
+        }
+
+        // 1c) Optional Markdown upload (non-blocking)
+        const mdText = (mdTextRaw || '').trim();
+        if (mdText) {
+          try {
+            const mdBlob = new Blob([mdText], { type: 'text/markdown' });
+            await (win.supabaseService && win.supabaseService.uploadMarkdownToStorage(mdBlob, category, projectName, rowId));
+          } catch (mdErr) {
+            console.warn('[contrib] markdown upload error (non bloquant):', mdErr);
+          }
+        }
 
         // 2) Optional links
         if (category === 'urbanisme' && grandlyonUrl) {
           await win.supabaseService.upsertGrandLyonLink(projectName, grandlyonUrl);
         }
-        if (category === 'tramway' && sytralUrl) {
+        if (category === 'mobilite' && sytralUrl) {
           await win.supabaseService.upsertSytralLink(projectName, sytralUrl);
         }
 
         // 3) Optional consultation dossiers
         const docs = collectDocs();
         if (docs.length) {
-          await win.supabaseService.insertConsultationDossiers(projectName, docs);
+          await win.supabaseService.insertConsultationDossiers(projectName, category, docs);
+        }
+
+        // 4) Optional meta/description patch
+        if ((meta && meta.length) || (description && description.length)) {
+          try {
+            await (win.supabaseService && win.supabaseService.updateContributionMeta(rowId, meta, description));
+          } catch (metaErr) {
+            console.warn('[contrib] update meta/description warning:', metaErr);
+          }
         }
 
         setStatus('Contribution enregistrée. Merci !', 'success');

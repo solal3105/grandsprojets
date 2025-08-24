@@ -4,6 +4,22 @@
   const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+ 
+  // Helper: slugify (réutilisé pour les chemins Storage)
+  const slugify = (str) => String(str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\u2018\u2019\u2032]/g, "'")
+    .replace(/[\u201C\u201D\u2033]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/["'`´]/g, '')
+    .replace(/&/g, ' et ')
+    .replace(/[^a-zA-Z0-9\s-\/]/g, '')
+    .replace(/\s*\/\s*/g, '-')
+    .replace(/[-_]+/g, '-')
+    .replace(/\s+/g, '-')
+    .trim()
+    .toLowerCase();
 
   // 2️⃣ Expose supabaseService sur window
   win.supabaseService = {
@@ -405,43 +421,89 @@
      * Upload d'un fichier GeoJSON dans le bucket Storage 'uploads' et retourne son URL publique.
      * Le chemin est dérivé de la catégorie et d'un slug du nom de projet.
      * @param {File|Blob} file
-     * @param {string} categoryLayer - tramway | urbanisme | voielyonnaise
+     * @param {string} categoryLayer - mobilite | urbanisme | voielyonnaise
      * @param {string} projectName
      * @returns {Promise<string>} publicUrl
      */
-    uploadGeoJSONToStorage: async function(file, categoryLayer, projectName) {
+    uploadGeoJSONToStorage: async function(file, categoryLayer, projectName, rowId) {
       try {
         if (!file || !categoryLayer || !projectName) throw new Error('Paramètres manquants');
-        const slugify = (str) => String(str || '')
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .replace(/[\u2018\u2019\u2032]/g, "'")
-          .replace(/[\u201C\u201D\u2033]/g, '"')
-          .replace(/[\u2013\u2014]/g, '-')
-          .replace(/["'`´]/g, '')
-          .replace(/&/g, ' et ')
-          .replace(/[^a-zA-Z0-9\s-\/]/g, '')
-          .replace(/\s*\/\s*/g, '-')
-          .replace(/[-_]+/g, '-')
-          .replace(/\s+/g, '-')
-          .trim()
-          .toLowerCase();
         const safeCat = slugify(categoryLayer);
         const safeName = slugify(projectName);
-        const path = `geojson/projects/${safeCat}/${safeName}.geojson`;
+        const ts = Date.now();
+        const path = `geojson/projects/${safeCat}/${safeName}-${ts}.geojson`;
         const bucket = 'uploads';
         const { error: upErr } = await supabaseClient
           .storage
           .from(bucket)
-          .upload(path, file, { upsert: true, contentType: 'application/geo+json' });
+          .upload(path, file, { upsert: false, contentType: 'application/geo+json' });
         if (upErr) {
-          console.error('[supabaseService] ❌ uploadGeoJSONToStorage error:', upErr);
+          console.error('[supabaseService] uploadGeoJSONToStorage error:', upErr);
           throw upErr;
         }
         const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
+        // Log applicatif minimal: renseigne geojson_url
+        try {
+          if (win.supabaseService && typeof win.supabaseService.logContributionUpload === 'function') {
+            await win.supabaseService.logContributionUpload(projectName, categoryLayer, data.publicUrl, 'geojson', rowId);
+          }
+        } catch (logErr) {
+          console.warn('[supabaseService] logContributionUpload (geojson) warning:', logErr);
+        }
         return data.publicUrl;
       } catch (e) {
-        console.error('[supabaseService] ❌ uploadGeoJSONToStorage exception:', e);
+        console.error('[supabaseService] uploadGeoJSONToStorage exception:', e);
+        throw e;
+      }
+    },
+
+    /**
+     * Upload d'une image de cover dans le bucket Storage 'uploads' et retourne son URL publique.
+     * Le chemin est dérivé de la catégorie et d'un slug du nom de projet.
+     * @param {File|Blob} file
+     * @param {string} categoryLayer - mobilite | urbanisme | voielyonnaise
+     * @param {string} projectName
+     * @returns {Promise<string>} publicUrl
+     */
+    uploadCoverToStorage: async function(file, categoryLayer, projectName, rowId) {
+      try {
+        if (!file || !categoryLayer || !projectName) throw new Error('Paramètres manquants');
+        const safeCat = slugify(categoryLayer);
+        const safeName = slugify(projectName);
+
+        // Déterminer l'extension à partir du nom/type de fichier
+        const lower = (file.name || '').toLowerCase();
+        const ext = (lower.endsWith('.jpg') || lower.endsWith('.jpeg'))
+          ? '.jpg'
+          : (lower.endsWith('.webp') ? '.webp' : '.png'); // éviter svg pour sécurité
+        const contentType = (file.type && file.type.startsWith('image/'))
+          ? file.type
+          : ({ '.jpg': 'image/jpeg', '.webp': 'image/webp', '.png': 'image/png' })[ext];
+
+        const ts = Date.now();
+        const path = `img/cover/${safeCat}/${safeName}-${ts}${ext}`;
+        const bucket = 'uploads';
+
+        const { error: upErr } = await supabaseClient
+          .storage
+          .from(bucket)
+          .upload(path, file, { upsert: false, contentType });
+        if (upErr) {
+          console.error('[supabaseService] uploadCoverToStorage error:', upErr);
+          throw upErr;
+        }
+
+        const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
+        try {
+          if (win.supabaseService && typeof win.supabaseService.logContributionUpload === 'function') {
+            await win.supabaseService.logContributionUpload(projectName, categoryLayer, data.publicUrl, 'cover', rowId);
+          }
+        } catch (logErr) {
+          console.warn('[supabaseService] logContributionUpload (cover) warning:', logErr);
+        }
+        return data.publicUrl;
+      } catch (e) {
+        console.error('[supabaseService] uploadCoverToStorage exception:', e);
         throw e;
       }
     },
@@ -506,14 +568,15 @@
     /**
      * Insère des dossiers de concertation liés à un projet (facultatif).
      * @param {string} projectName
+     * @param {string} category
      * @param {Array<{title:string,pdf_url:string}>} docs
      */
-    insertConsultationDossiers: async function(projectName, docs) {
+    insertConsultationDossiers: async function(projectName, category, docs) {
       try {
-        if (!projectName || !Array.isArray(docs) || !docs.length) return { error: null };
+        if (!projectName || !category || !Array.isArray(docs) || !docs.length) return { error: null };
         const rows = docs
           .filter(d => d && d.title && d.pdf_url)
-          .map(d => ({ project_name: projectName, title: d.title, pdf_url: d.pdf_url }));
+          .map(d => ({ project_name: projectName, category, title: d.title, pdf_url: d.pdf_url }));
         if (!rows.length) return { error: null };
         const { error } = await supabaseClient
           .from('consultation_dossiers')
@@ -524,6 +587,143 @@
         return { error: null };
       } catch (e) {
         console.warn('[supabaseService] insertConsultationDossiers exception:', e);
+        return { error: e };
+      }
+    },
+
+    /**
+     * Crée la ligne contribution (une seule par soumission) et retourne son id.
+     * Remplit created_by avec l'UUID de l'utilisateur connecté.
+     */
+    createContributionRow: async function(projectName, category) {
+      try {
+        if (!projectName || !category) throw new Error('Paramètres manquants');
+        let createdBy = null;
+        try {
+          const { data: userData } = await supabaseClient.auth.getUser();
+          if (userData && userData.user) createdBy = userData.user.id;
+        } catch (_) {}
+        const baseRow = { project_name: projectName, category };
+        if (createdBy) baseRow.created_by = createdBy;
+        const { data, error } = await supabaseClient
+          .from('contribution_uploads')
+          .insert(baseRow)
+          .select('id')
+          .single();
+        if (error) {
+          console.warn('[supabaseService] createContributionRow insert error:', error);
+          throw error;
+        }
+        return data?.id;
+      } catch (e) {
+        console.warn('[supabaseService] createContributionRow exception:', e);
+        throw e;
+      }
+    },
+
+    /**
+     * Journalise une contribution dans 'contribution_uploads' en remplissant directement
+     * geojson_url ou cover_url, et en rattachant l'UUID de l'utilisateur connecté dans created_by.
+     * Si rowId est fourni, effectue un UPDATE de cette ligne (une seule ligne par contribution).
+     * @param {string} projectName
+     * @param {string} category
+     * @param {string} url
+     * @param {'geojson'|'cover'|'markdown'} kind
+     * @param {number} [rowId]
+     */
+    logContributionUpload: async function(projectName, category, url, kind, rowId) {
+      try {
+        if (!rowId) {
+          const err = new Error('rowId required');
+          console.warn('[supabaseService] logContributionUpload:', err.message);
+          return { error: err };
+        }
+        if (!url || !kind) return { error: null };
+
+        const patch = (kind === 'geojson')
+          ? { geojson_url: url }
+          : (kind === 'cover')
+            ? { cover_url: url }
+            : (kind === 'markdown')
+              ? { markdown_url: url }
+              : null;
+        if (!patch) return { error: null };
+
+        const { error } = await supabaseClient
+          .from('contribution_uploads')
+          .update(patch)
+          .eq('id', rowId);
+        if (error) console.warn('[supabaseService] logContributionUpload update error:', error);
+        return { error: null };
+      } catch (e) {
+        console.warn('[supabaseService] logContributionUpload exception:', e);
+        return { error: e };
+      }
+    },
+
+    /**
+     * Upload d'un contenu Markdown dans le bucket Storage 'uploads' et retourne son URL publique.
+     * Le chemin est dérivé de la catégorie et d'un slug du nom de projet.
+     * @param {File|Blob} fileOrBlob
+     * @param {string} categoryLayer - mobilite | urbanisme | voielyonnaise
+     * @param {string} projectName
+     * @param {number} rowId
+     * @returns {Promise<string>} publicUrl
+     */
+    uploadMarkdownToStorage: async function(fileOrBlob, categoryLayer, projectName, rowId) {
+      try {
+        if (!fileOrBlob || !categoryLayer || !projectName) throw new Error('Paramètres manquants');
+        const safeCat = slugify(categoryLayer);
+        const safeName = slugify(projectName);
+        const ts = Date.now();
+        const path = `md/projects/${safeCat}/${safeName}-${ts}.md`;
+        const bucket = 'uploads';
+        const { error: upErr } = await supabaseClient
+          .storage
+          .from(bucket)
+          .upload(path, fileOrBlob, { upsert: false, contentType: 'text/markdown' });
+        if (upErr) {
+          console.error('[supabaseService] uploadMarkdownToStorage error:', upErr);
+          throw upErr;
+        }
+        const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
+        try {
+          if (win.supabaseService && typeof win.supabaseService.logContributionUpload === 'function') {
+            await win.supabaseService.logContributionUpload(projectName, categoryLayer, data.publicUrl, 'markdown', rowId);
+          }
+        } catch (logErr) {
+          console.warn('[supabaseService] logContributionUpload (markdown) warning:', logErr);
+        }
+        return data.publicUrl;
+      } catch (e) {
+        console.error('[supabaseService] uploadMarkdownToStorage exception:', e);
+        throw e;
+      }
+    },
+
+    /**
+     * Met à jour les champs meta et description sur la ligne de contribution.
+     * Les champs vides/indéfinis ne sont pas patchés.
+     * @param {number} rowId
+     * @param {string} [meta]
+     * @param {string} [description]
+     * @returns {Promise<{error:null|any}>}
+     */
+    updateContributionMeta: async function(rowId, meta, description) {
+      try {
+        if (!rowId) return { error: new Error('rowId required') };
+        const patch = {};
+        if (meta && meta.trim()) patch.meta = meta.trim();
+        if (description && description.trim()) patch.description = description.trim();
+        if (Object.keys(patch).length === 0) return { error: null };
+        const { error } = await supabaseClient
+          .from('contribution_uploads')
+          .update(patch)
+          .eq('id', rowId);
+        if (error) console.warn('[supabaseService] updateContributionMeta update error:', error);
+        return { error: null };
+      } catch (e) {
+        console.warn('[supabaseService] updateContributionMeta exception:', e);
         return { error: e };
       }
     },
