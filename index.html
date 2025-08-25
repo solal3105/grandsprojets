@@ -129,10 +129,48 @@
             </select>
           </div>
 
-          <div class="form-row">
+          <fieldset class="form-fieldset" id="contrib-geom-mode">
+            <legend>Mode de saisie du tracé</legend>
+            <div class="form-row">
+              <label>
+                <input type="radio" name="contrib-geom-mode" value="file" checked>
+                Importer un fichier GeoJSON
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                <input type="radio" name="contrib-geom-mode" value="draw">
+                Dessiner sur la carte
+              </label>
+            </div>
+          </fieldset>
+
+          <div class="form-row" id="contrib-file-row">
             <label for="contrib-geojson">Fichier GeoJSON</label>
             <input type="file" id="contrib-geojson" name="geojson_file" accept=".geojson,application/geo+json,application/json" required />
             <small>Fichier .geojson (ou .json au format GeoJSON).</small>
+          </div>
+
+          <div class="form-row" id="contrib-draw-panel" style="display:none;">
+            <div class="draw-controls" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+              <button type="button" id="draw-line" class="gp-btn gp-btn--secondary">
+                Tracer une ligne
+              </button>
+              <button type="button" id="draw-polygon" class="gp-btn gp-btn--secondary">
+                Tracer un polygone
+              </button>
+              <button type="button" id="draw-undo" class="gp-btn gp-btn--secondary">
+                Annuler point
+              </button>
+              <button type="button" id="draw-finish" class="gp-btn gp-btn--secondary">
+                Terminer
+              </button>
+              <button type="button" id="draw-clear" class="gp-btn gp-btn--secondary">
+                Effacer
+              </button>
+            </div>
+            <div id="contrib-draw-map" style="height:320px; border-radius:8px; overflow:hidden;"></div>
+            <small>Astuce: cliquez pour ajouter des points. Utilisez « Annuler point » pour corriger et « Terminer » pour finaliser la géométrie.</small>
           </div>
 
           <div class="form-row">

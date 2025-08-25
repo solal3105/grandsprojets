@@ -359,19 +359,31 @@
     
     // Vérifier si NavigationModule est disponible
     if (window.NavigationModule?.showProjectDetail) {
-      // Récupérer un nom de projet robuste selon la couche
-      const isVL = layerName.includes('voielyonnaise');
-      const baseName = isVL
-        ? (feature.properties?.line || feature.properties?.name || feature.properties?.Name || feature.properties?.LIBELLE)
-        : (feature.properties?.name || feature.properties?.Name || feature.properties?.LIBELLE);
-      if (baseName) {
-        let category = 'autre';
-        if (isVL) category = 'velo';
+      const props = feature.properties || {};
+      
+      // Utiliser project_name en priorité (injecté par fetchLayerData depuis contribution_uploads)
+      let projectName = props.project_name || props.name || props.Name || props.line || props.LIBELLE;
+      let category = props.category; // Catégorie directement depuis contribution_uploads
+      
+      // Fallback sur la détection par layerName si pas de catégorie
+      if (!category) {
+        if (layerName.includes('voielyonnaise')) category = 'velo';
         else if (layerName.includes('reseauProjete') || layerName.includes('metro') || layerName.includes('tramway')) category = 'transport';
         else if (layerName.includes('urbanisme')) category = 'urbanisme';
+        else category = 'autre';
+      }
+      
+      if (projectName) {
+        // Ajustement du nom d'affichage pour Voie Lyonnaise
+        let displayName = projectName;
+        if (layerName.includes('voielyonnaise') && !projectName.startsWith('Voie Lyonnaise')) {
+          displayName = `Voie Lyonnaise ${projectName}`;
+        }
         
-        const displayName = isVL ? `Voie Lyonnaise ${baseName}` : baseName;
-        window.NavigationModule.showProjectDetail(displayName, category);
+        // Passer directement les données enrichies à showProjectDetail
+        window.NavigationModule.showProjectDetail(displayName, category, null, props);
+      } else {
+        console.warn('Nom de projet non trouvé dans les properties:', props);
       }
     } else {
       console.warn('NavigationModule non disponible pour afficher les détails');

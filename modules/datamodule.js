@@ -296,18 +296,16 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
   }
 
   // Génère le contenu du popup (carte ou cover)
-  function generateTooltipContent(feature, layerName, variant = 'card') {
+  async function generateTooltipContent(feature, layerName, variant = 'card') {
     const props = feature?.properties || {};
-    const imgUrl = props.imgUrl;
-    let title = '';
-    if (layerName === 'voielyonnaise') {
-      title = (props.line ? `Voie Lyonnaise ${props.line}` : (props.name || props.Name || ''));
-    } else if (layerName === 'reseauProjeteSitePropre') {
-      title = props.Name || props.name || '';
-    } else if (layerName === 'urbanisme') {
-      title = props.name || props.Name || '';
-    } else {
-      title = props.name || props.Name || props.line || '';
+    
+    // Les données sont maintenant directement dans les properties depuis fetchLayerData
+    let imgUrl = props.cover_url || props.imgUrl;
+    let title = props.project_name || props.name || props.Name || props.line || '';
+    
+    // Ajustement du titre pour Voie Lyonnaise
+    if (layerName === 'voielyonnaise' && props.project_name && !title.startsWith('Voie Lyonnaise')) {
+      title = `Voie Lyonnaise ${props.project_name}`;
     }
 
     // Simple échappement pour éviter l'injection HTML
@@ -934,29 +932,32 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
 
         // Afficher un tooltip riche (image + titre) pour le projet lié
         try {
-          const html = generateTooltipContent(feature, layerName);
-          if (html) {
-            closeHoverTooltip();
-            window.__gpHoverTooltip = L.tooltip({
-              className: 'gp-project-tooltip',
-              direction: 'top',
-              permanent: false,
-              offset: [0, -12],
-              opacity: 1,
-              interactive: false
-            }).setLatLng(e.latlng)
-              .setContent(html)
-              .addTo(MapModule.map);
+          generateTooltipContent(feature, layerName).then(html => {
+            if (html) {
+              closeHoverTooltip();
+              window.__gpHoverTooltip = L.tooltip({
+                className: 'gp-project-tooltip',
+                direction: 'top',
+                permanent: false,
+                offset: [0, -12],
+                opacity: 1,
+                interactive: false
+              }).setLatLng(e.latlng)
+                .setContent(html)
+                .addTo(MapModule.map);
 
-            // Suivre la souris tant que l'on reste sur la même feature
-            const moveHandler = (ev) => {
-              if (window.__gpHoverTooltip) {
-                window.__gpHoverTooltip.setLatLng(ev.latlng);
-              }
-            };
-            layer.__gpMoveHandler = moveHandler;
-            layer.on('mousemove', moveHandler);
-          }
+              // Suivre la souris tant que l'on reste sur la même feature
+              const moveHandler = (ev) => {
+                if (window.__gpHoverTooltip) {
+                  window.__gpHoverTooltip.setLatLng(ev.latlng);
+                }
+              };
+              layer.__gpMoveHandler = moveHandler;
+              layer.on('mousemove', moveHandler);
+            }
+          }).catch(err => {
+            // silencieux en production
+          });
         } catch (err) {
           // silencieux en production
         }
@@ -1072,22 +1073,19 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
 
     // Gestion du clic sur la feature
     if (!noInteractLayers.includes(layerName)) layer.on('click', () => {
-      // 1. Récupérer le nom du projet selon la couche
-      let projectName;
+      // 1. Récupérer le nom du projet depuis les properties enrichies
       const p = (feature && feature.properties) || {};
-      if (layerName === 'voielyonnaise') {
-        projectName = p.line;
-      } else if (layerName === 'reseauProjeteSitePropre') {
-        projectName = p.Name;
-      } else if (layerName === 'urbanisme') {
-        projectName = p.name;
-      } else {
-        projectName = p.name || p.nom || p.Name;
+      let projectName = p.project_name || p.name || p.Name || p.line;
+      
+      // Vérification que projectName existe et est une string
+      if (!projectName || typeof projectName !== 'string') {
+        console.warn('Nom de projet non trouvé ou invalide dans les properties:', p);
+        return;
       }
 
       // 2. Préparer le nom d'affichage (ajustement pour Voie Lyonnaise)
       let displayProjectName = projectName;
-      if (layerName === 'voielyonnaise') {
+      if (layerName === 'voielyonnaise' && !projectName.startsWith('Voie Lyonnaise')) {
         displayProjectName = "Voie Lyonnaise " + projectName;
       }
 
@@ -1136,17 +1134,77 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
 
   // Récupère les données d'une couche avec cache
   async function fetchLayerData(layerName) {
-    // Vérification de l'URL
-    const url = urlMap[layerName];
-    if (!url) {
-      throw new Error(`Aucune URL définie pour la couche: ${layerName}`);
-    }
-    
     // Clé de cache simple
     const cacheKey = `layer_${layerName}`;
     
     // Utilisation du cache
     return simpleCache.get(cacheKey, async () => {
+      // 1️⃣ Charger depuis contribution_uploads pour cette catégorie
+      const effectiveCat = layerName === 'reseauProjeteSitePropre' ? 'mobilite' : 
+                          layerName === 'voielyonnaise' ? 'voielyonnaise' : layerName;
+      
+      if (window.supabaseService?.fetchProjectsByCategory) {
+        try {
+          const contributionProjects = await window.supabaseService.fetchProjectsByCategory(effectiveCat);
+          
+          // Construire un FeatureCollection depuis contribution_uploads
+          const features = [];
+          
+          for (const project of contributionProjects) {
+            if (project.geojson_url) {
+              try {
+                const geoResponse = await fetch(project.geojson_url);
+                if (geoResponse.ok) {
+                  const geoData = await geoResponse.json();
+                  
+                  // Traiter selon le type de GeoJSON
+                  if (geoData.type === 'FeatureCollection' && geoData.features) {
+                    // Enrichir chaque feature avec les métadonnées du projet
+                    geoData.features.forEach(feature => {
+                      if (!feature.properties) feature.properties = {};
+                      // Injecter les métadonnées directement dans les properties
+                      feature.properties.project_name = project.project_name;
+                      feature.properties.category = project.category;
+                      feature.properties.cover_url = project.cover_url;
+                      feature.properties.description = project.description;
+                      feature.properties.markdown_url = project.markdown_url;
+                      feature.properties.imgUrl = project.cover_url; // Pour compatibilité tooltip
+                    });
+                    features.push(...geoData.features);
+                  } else if (geoData.type === 'Feature') {
+                    // Feature unique
+                    if (!geoData.properties) geoData.properties = {};
+                    geoData.properties.project_name = project.project_name;
+                    geoData.properties.category = project.category;
+                    geoData.properties.cover_url = project.cover_url;
+                    geoData.properties.description = project.description;
+                    geoData.properties.markdown_url = project.markdown_url;
+                    geoData.properties.imgUrl = project.cover_url;
+                    features.push(geoData);
+                  }
+                }
+              } catch (error) {
+                console.warn(`Erreur lors du chargement du GeoJSON pour ${project.project_name}:`, error);
+              }
+            }
+          }
+          
+          if (features.length > 0) {
+            return {
+              type: 'FeatureCollection',
+              features: features
+            };
+          }
+        } catch (error) {
+          console.warn(`Erreur lors du chargement depuis contribution_uploads pour ${layerName}:`, error);
+        }
+      }
+      
+      // 2️⃣ Fallback: charger depuis les fichiers legacy
+      const url = urlMap[layerName];
+      if (!url) {
+        throw new Error(`Aucune URL définie pour la couche: ${layerName} et pas de données dans contribution_uploads`);
+      }
       
       const response = await fetch(url);
       if (!response.ok) {
@@ -1288,20 +1346,54 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
 
   // --- Fonctions publiques de chargement et préchargement des couches ---
 
+  // Fusionne les données de contribution_uploads avec les données existantes d'une couche
+  async function mergeContributionData(layerName, baseData) {
+    try {
+      // Mapping des couches vers les catégories de contribution_uploads
+      const layerCategoryMap = {
+        'urbanisme': 'urbanisme',
+        'voielyonnaise': 'voielyonnaise',
+        'reseauProjeteSitePropre': 'mobilite'
+      };
+
+      const category = layerCategoryMap[layerName];
+      if (!category || !window.supabaseService?.loadContributionGeoJSON) {
+        return baseData; // Pas de fusion possible
+      }
+
+      // Charger les données de contribution_uploads
+      const contributionData = await window.supabaseService.loadContributionGeoJSON(layerName, category);
+      
+      if (!contributionData.features || contributionData.features.length === 0) {
+        return baseData; // Pas de données de contribution
+      }
+
+      // Fusionner les features
+      const mergedFeatures = [...(baseData.features || []), ...contributionData.features];
+      
+      return {
+        type: 'FeatureCollection',
+        features: mergedFeatures
+      };
+    } catch (error) {
+      console.warn(`Erreur lors de la fusion des données de contribution pour ${layerName}:`, error);
+      return baseData; // Retourner les données de base en cas d'erreur
+    }
+  }
+
   // Charge une couche (depuis le cache ou le réseau) et l'ajoute à la carte
   function loadLayer(layerName) {
     return fetchLayerData(layerName)
-      .then(data => injectImgUrlsToFeatures(layerName, data))
-      .then(enrichedData => {
+      .then(finalData => {
         // Mise à jour des données en mémoire
-        layerData[layerName] = enrichedData;
+        layerData[layerName] = finalData;
 
         // Suppression de l'ancienne couche si elle existe
         MapModule.removeLayer(layerName);
 
-        // Création de la nouvelle couche après enrichissement (imgUrl dans properties)
-        createGeoJsonLayer(layerName, enrichedData);
-        return enrichedData;
+        // Création de la nouvelle couche
+        createGeoJsonLayer(layerName, finalData);
+        return finalData;
       })
       .catch(err => {
         throw err; // Propager l'erreur
@@ -1321,31 +1413,41 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
   }
 
   // Récupère les détails d'un projet
-  function getProjectDetails(projectName, category) {
+  async function getProjectDetails(projectName, category) {
     if (!projectName) {
       return null;
     }
     
     const normalizedName = projectName.toString().toLowerCase().trim();
     
-    // Vérifier que layerData[category] est un tableau
-    if (!Array.isArray(layerData[category])) {
-      console.warn(`Aucun projet trouvé pour la catégorie: ${category}`, layerData);
-      return null;
+    // Récupérer uniquement depuis contribution_uploads
+    if (window.supabaseService?.fetchProjectsByCategory) {
+      try {
+        const effectiveCat = (category === 'transport') ? 'mobilite' : category;
+        const contributionProjects = await window.supabaseService.fetchProjectsByCategory(effectiveCat);
+        const contributionProject = contributionProjects.find(p => 
+          p.project_name && p.project_name.toLowerCase().trim() === normalizedName
+        );
+        
+        if (contributionProject) {
+          return {
+            name: contributionProject.project_name,
+            category: contributionProject.category,
+            geojson_url: contributionProject.geojson_url,
+            cover_url: contributionProject.cover_url,
+            markdown_url: contributionProject.markdown_url,
+            meta: contributionProject.meta,
+            description: contributionProject.description,
+            source: 'contribution_uploads'
+          };
+        }
+      } catch (error) {
+        console.warn('Erreur lors de la recherche dans contribution_uploads:', error);
+      }
     }
     
-    // Recherche du projet avec correspondance insensible à la casse
-    const project = layerData[category].find(p => {
-      if (!p || typeof p !== 'object' || !p.name) return false;
-      return p.name.toString().toLowerCase().trim() === normalizedName;
-    });
-    
-    if (!project) {
-      console.warn(`Projet non trouvé: ${projectName} dans la catégorie ${category}`);
-      return null;
-    }
-    
-    return project;
+    console.warn(`Projet non trouvé dans contribution_uploads: ${projectName} dans la catégorie ${category}`);
+    return null;
   }
 
   // Exposer les fonctions nécessaires

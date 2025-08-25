@@ -1750,7 +1750,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return L.marker(latlng, { icon: cameraIcon });
           }
         },
-        onEachFeature: (feature, layer) => {
+        onEachFeature: async (feature, layer) => {
           console.log('Feature chargée:', feature);
           if (window.DataModule?.bindFeatureEvents) {
             window.DataModule.bindFeatureEvents(layer, feature, geoLayer, layerName);
@@ -1775,12 +1775,13 @@ document.addEventListener('DOMContentLoaded', async () => {
               if (imgUrl) {
                 const title = props.titre || props.title || props.name || props.nom || '';
                 const dmHtml = (window.DataModule && typeof window.DataModule.generateTooltipContent === 'function')
-                  ? window.DataModule.generateTooltipContent(feature, layerName, 'cover')
+                  ? await window.DataModule.generateTooltipContent(feature, layerName, 'cover')
                   : `
                     <div class="map-photo" style="max-width:260px">
                       <img src="${imgUrl}" alt="photo" style="max-width:260px;max-height:180px;display:block;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.35)" />
-                      ${title ? `<div style=\"margin-top:6px;font-size:12px;line-height:1.3\">${title}</div>` : ''}
-                    </div>`;
+                      ${title ? `<div style="margin-top:6px;font-weight:500;color:#333">${title}</div>` : ''}
+                    </div>
+                  `;
                 const ensurePopup = () => { try { layer.bindPopup(dmHtml, { autoPan: true, closeButton: true, maxWidth: 300 }); } catch(_) {} };
                 const openPopup = () => { ensurePopup(); try { layer.openPopup(); } catch(_) {} };
                 const closePopup = () => { try { layer.closePopup(); } catch(_) {} };
