@@ -1450,6 +1450,55 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
     return null;
   }
 
+  // Recherche d'une feature par nom de projet normalisé (slug)
+  async function findFeatureByProjectName(layerName, normalizedProjectName) {
+    try {
+      const targetSlug = slugify(String(normalizedProjectName || ''));
+      if (!targetSlug) return null;
+
+      // S'assurer que les données de couche sont disponibles
+      if (!layerData[layerName]) {
+        try {
+          await loadLayer(layerName);
+        } catch (_) {
+          try { await preloadLayer(layerName); } catch (_) {}
+        }
+      }
+
+      const features = (layerData[layerName] && layerData[layerName].features) || [];
+      if (!Array.isArray(features) || features.length === 0) return null;
+
+      const getCandidates = (p) => {
+        const cands = [];
+        if (!p) return cands;
+        if (p.project_name) cands.push(slugify(p.project_name));
+        if (p.name)         cands.push(slugify(p.name));
+        if (p.Name)         cands.push(slugify(p.Name));
+        if (p.LIBELLE)      cands.push(slugify(p.LIBELLE));
+        const line = p.line || p.ligne || p.Line;
+        if (line != null && line !== '') {
+          const lineStr = String(line).trim();
+          // Cas Voie Lyonnaise: supporter "voie-lyonnaise-X"
+          cands.push(slugify(`voie lyonnaise ${lineStr}`));
+          // Cas tolerant: juste le numéro (au cas où)
+          cands.push(slugify(lineStr));
+        }
+        return cands;
+      };
+
+      for (const f of features) {
+        const p = (f && f.properties) || {};
+        const candidates = getCandidates(p);
+        if (candidates.some(c => c === targetSlug)) {
+          return f;
+        }
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // Exposer les fonctions nécessaires
   return {
     initConfig, 
@@ -1458,6 +1507,7 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
     preloadLayer, 
     createGeoJsonLayer, 
     getProjectDetails,
+    findFeatureByProjectName,
     getFeatureStyle,  // Exposer explicitement getFeatureStyle
     getDefaultStyle,  // Exposer aussi getDefaultStyle pour le débogage
     bindFeatureEvents,

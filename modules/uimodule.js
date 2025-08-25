@@ -353,9 +353,20 @@
    * Affiche le panneau de détail pour une feature
    * @param {string} layerName - Nom de la couche
    * @param {Object} feature - Feature sélectionnée
+   * @param {{ updateHistory?: boolean }} [options]
    */
-  const showDetailPanel = (layerName, feature) => {
+  const showDetailPanel = (layerName, feature, options = {}) => {
     console.log('Affichage du détail pour:', { layerName, feature });
+    const { updateHistory = true } = options;
+    // Utilitaire local de slugification (harmonisé avec les autres modules)
+    const slugify = (str) => String(str || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
     
     // Vérifier si NavigationModule est disponible
     if (window.NavigationModule?.showProjectDetail) {
@@ -382,6 +393,21 @@
         
         // Passer directement les données enrichies à showProjectDetail
         window.NavigationModule.showProjectDetail(displayName, category, null, props);
+
+        // Mettre à jour l'URL pour refléter l'état courant (sauf si désactivé)
+        try {
+          if (updateHistory && typeof history?.pushState === 'function') {
+            const catForUrl = category || (layerName.includes('voielyonnaise') ? 'velo'
+              : (layerName.includes('urbanisme') ? 'urbanisme'
+              : (layerName.includes('reseauProjete') || layerName.includes('metro') || layerName.includes('tramway')) ? 'transport' : 'autre'));
+            const projSlug = slugify(displayName);
+            const params = new URLSearchParams();
+            params.set('cat', catForUrl);
+            params.set('project', projSlug);
+            const newUrl = `${location.pathname}?${params.toString()}`;
+            history.pushState({ cat: catForUrl, project: projSlug }, '', newUrl);
+          }
+        } catch(_) { /* noop */ }
       } else {
         console.warn('Nom de projet non trouvé dans les properties:', props);
       }

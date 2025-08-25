@@ -440,12 +440,14 @@
           const category = getCategoryFromLayer(layerName);
           console.log('Ouverture du projet:', { projectName, category });
           
-          // Essayer d'utiliser NavigationModule s'il est disponible
-          if (typeof NavigationModule !== 'undefined' && NavigationModule.showProjectDetail) {
-            NavigationModule.showProjectDetail(projectName, category);
+          // Préférer UIModule pour gérer l'historique et l'UI
+          if (window.UIModule?.showDetailPanel) {
+            window.UIModule.showDetailPanel(layerName, feature);
           } 
-          // Sinon, essayer window.NavigationModule
-          else if (window.NavigationModule?.showProjectDetail) {
+          // Sinon, fallback sur NavigationModule
+          else if (typeof NavigationModule !== 'undefined' && NavigationModule.showProjectDetail) {
+            NavigationModule.showProjectDetail(projectName, category);
+          } else if (window.NavigationModule?.showProjectDetail) {
             window.NavigationModule.showProjectDetail(projectName, category);
           }
           // Sinon, essayer de trouver le panneau de détail et de le remplir manuellement
@@ -472,6 +474,90 @@
       
       // Exposer la fonction pour qu'elle soit disponible globalement
       window.getCategoryFromLayer = getCategoryFromLayer;
+
+      // --- Navigation via paramètres d'URL (cat, project) ---
+      function parseUrlState() {
+        try {
+          const sp = new URLSearchParams(location.search);
+          const rawCat = String(sp.get('cat') || '').toLowerCase().trim();
+          const project = String(sp.get('project') || '').trim();
+          if (!rawCat || !project) return null;
+          const cat = rawCat === 'mobilite' ? 'transport' : rawCat;
+          return { cat, project };
+        } catch (_) { return null; }
+      }
+
+      function resolveSearchLayersByCategory(cat) {
+        switch (cat) {
+          case 'velo': return ['voielyonnaise'];
+          case 'urbanisme': return ['urbanisme'];
+          case 'transport': return ['reseauProjeteSitePropre', 'tramway', 'metroFuniculaire'];
+          case 'travaux': return ['travaux'];
+          default: return [];
+        }
+      }
+
+      async function showFromUrlState({ cat, project }) {
+        if (!cat || !project) return false;
+        const layers = resolveSearchLayersByCategory(cat);
+        if (!layers.length) return false;
+        for (const ln of layers) {
+          try {
+            const feat = await DataModule.findFeatureByProjectName(ln, project);
+            if (feat) {
+              if (window.UIModule?.showDetailPanel) {
+                window.UIModule.showDetailPanel(ln, feat, { updateHistory: false });
+              } else if (window.NavigationModule?.showProjectDetail) {
+                const props = feat.properties || {};
+                const name = props.project_name || props.name || props.Name || props.line || props.LIBELLE;
+                window.NavigationModule.showProjectDetail(name, cat, null, props);
+              }
+              return true;
+            }
+          } catch (_) {}
+        }
+        console.warn('Aucune feature trouvée pour', { cat, project });
+        return false;
+      }
+
+      // Traiter l'état initial de l'URL si présent
+      try {
+        const initial = parseUrlState();
+        if (initial) {
+          await showFromUrlState(initial);
+        }
+      } catch (_) { /* noop */ }
+
+      // Gérer la navigation arrière/avant du navigateur
+      window.addEventListener('popstate', async (e) => {
+        try {
+          // Accepter cat+project ainsi que cat seul
+          let state = e && e.state ? e.state : null;
+          if (!state) {
+            try {
+              const sp = new URLSearchParams(location.search);
+              const rawCat = String(sp.get('cat') || '').toLowerCase().trim();
+              const project = String(sp.get('project') || '').trim();
+              if (rawCat) {
+                const cat = rawCat === 'mobilite' ? 'transport' : rawCat;
+                state = { cat, project: project || null };
+              }
+            } catch (_) { /* noop */ }
+          }
+
+          if (state && state.cat && state.project) {
+            await showFromUrlState({ cat: state.cat, project: state.project });
+          } else if (state && state.cat && !state.project) {
+            // Catégorie seule: réinitialiser la vue sur la catégorie sans pousser d'historique
+            if (window.NavigationModule?.resetToDefaultView) {
+              window.NavigationModule.resetToDefaultView(state.cat, { preserveMapView: true, updateHistory: false });
+            }
+          } else if (window.NavigationModule?.resetToDefaultView) {
+            // Vue par défaut (sans cat ni project), sans pousser d'historique
+            window.NavigationModule.resetToDefaultView(undefined, { preserveMapView: true, updateHistory: false });
+          }
+        } catch (_) { /* noop */ }
+      });
     }
     catch (err) {
       console.error('Erreur initApp :', err);
