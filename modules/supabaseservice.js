@@ -97,18 +97,161 @@
 
 
     /**
-     * Récupère la liste des projets d'urbanisme
-     * @returns {Promise<Array<{name:string, city:string}>>}
+     * Récupère tous les projets depuis contribution_uploads
+     * @returns {Promise<Array<{project_name:string, category:string, geojson_url:string, cover_url:string, markdown_url:string, meta:string, description:string}>>}
+     */
+    fetchAllProjects: async function() {
+      const { data, error } = await supabaseClient
+        .from('contribution_uploads')
+        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description')
+        .order('created_at', { ascending: false });
+      if (error) {
+        console.error('fetchAllProjects error:', error);
+        return [];
+      }
+      return data; 
+    },
+
+    /**
+     * Récupère la liste des projets d'urbanisme depuis contribution_uploads
+     * @returns {Promise<Array<{project_name:string, category:string, geojson_url:string, cover_url:string, markdown_url:string, meta:string, description:string}>>}
      */
     fetchUrbanismeProjects: async function() {
       const { data, error } = await supabaseClient
-        .from('urbanisme_projects')
-        .select('name, city');
+        .from('contribution_uploads')
+        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description')
+        .eq('category', 'urbanisme')
+        .order('created_at', { ascending: false });
       if (error) {
         console.error('fetchUrbanismeProjects error:', error);
         return [];
       }
       return data; 
+    },
+
+    /**
+     * Récupère la liste des projets de mobilité depuis contribution_uploads
+     * @returns {Promise<Array<{project_name:string, category:string, geojson_url:string, cover_url:string, markdown_url:string, meta:string, description:string}>>}
+     */
+    fetchMobiliteProjects: async function() {
+      const { data, error } = await supabaseClient
+        .from('contribution_uploads')
+        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description')
+        .eq('category', 'mobilite')
+        .order('created_at', { ascending: false });
+      if (error) {
+        console.error('fetchMobiliteProjects error:', error);
+        return [];
+      }
+      return data; 
+    },
+
+    /**
+     * Récupère la liste des projets de voie lyonnaise depuis contribution_uploads
+     * @returns {Promise<Array<{project_name:string, category:string, geojson_url:string, cover_url:string, markdown_url:string, meta:string, description:string}>>}
+     */
+    fetchVoielyonnaiseProjects: async function() {
+      const { data, error } = await supabaseClient
+        .from('contribution_uploads')
+        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description')
+        .eq('category', 'voielyonnaise')
+        .order('created_at', { ascending: false });
+      if (error) {
+        console.error('fetchVoielyonnaiseProjects error:', error);
+        return [];
+      }
+      return data; 
+    },
+
+    /**
+     * Récupère les projets par catégorie depuis contribution_uploads
+     * @param {string} category - La catégorie de projets à récupérer
+     * @returns {Promise<Array<{project_name:string, category:string, geojson_url:string, cover_url:string, markdown_url:string, meta:string, description:string}>>}
+     */
+    fetchProjectsByCategory: async function(category) {
+      const { data, error } = await supabaseClient
+        .from('contribution_uploads')
+        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description')
+        .eq('category', category)
+        .order('created_at', { ascending: false });
+      if (error) {
+        console.error('fetchProjectsByCategory error:', error);
+        return [];
+      }
+      return data; 
+    },
+
+    /**
+     * Charge les données GeoJSON depuis les URLs stockées dans contribution_uploads
+     * et les fusionne avec les couches existantes
+     * @param {string} layerName - Nom de la couche cible
+     * @param {string} category - Catégorie des projets à charger
+     * @returns {Promise<Object>} - Données GeoJSON fusionnées
+     */
+    loadContributionGeoJSON: async function(layerName, category) {
+      try {
+        const projects = await this.fetchProjectsByCategory(category);
+        const geojsonFeatures = [];
+        
+        // Charger chaque GeoJSON en parallèle
+        const loadPromises = projects
+          .filter(project => project.geojson_url)
+          .map(async (project) => {
+            try {
+              const response = await fetch(project.geojson_url);
+              if (!response.ok) {
+                console.warn(`Impossible de charger le GeoJSON pour ${project.project_name}:`, response.status);
+                return null;
+              }
+              const geojson = await response.json();
+              
+              // Ajouter les métadonnées du projet aux features
+              if (geojson.type === 'FeatureCollection' && geojson.features) {
+                geojson.features.forEach(feature => {
+                  if (!feature.properties) feature.properties = {};
+                  feature.properties.project_name = project.project_name;
+                  feature.properties.category = project.category;
+                  feature.properties.cover_url = project.cover_url;
+                  feature.properties.markdown_url = project.markdown_url;
+                  feature.properties.meta = project.meta;
+                  feature.properties.description = project.description;
+                });
+                return geojson.features;
+              } else if (geojson.type === 'Feature') {
+                if (!geojson.properties) geojson.properties = {};
+                geojson.properties.project_name = project.project_name;
+                geojson.properties.category = project.category;
+                geojson.properties.cover_url = project.cover_url;
+                geojson.properties.markdown_url = project.markdown_url;
+                geojson.properties.meta = project.meta;
+                geojson.properties.description = project.description;
+                return [geojson];
+              }
+              return null;
+            } catch (error) {
+              console.error(`Erreur lors du chargement du GeoJSON pour ${project.project_name}:`, error);
+              return null;
+            }
+          });
+        
+        const results = await Promise.all(loadPromises);
+        results.forEach(features => {
+          if (features) {
+            geojsonFeatures.push(...features);
+          }
+        });
+        
+        return {
+          type: 'FeatureCollection',
+          features: geojsonFeatures
+        };
+      } catch (error) {
+        console.error('loadContributionGeoJSON error:', error);
+        return {
+          type: 'FeatureCollection',
+          features: []
+        };
+      }
     },
 
 
@@ -742,7 +885,7 @@
         .entries(svc)
         .filter(([key, fn]) => key.startsWith('fetch') && typeof fn === 'function')
         // Exclure les fetchers non nécessaires au démarrage
-        .filter(([key]) => key !== 'fetchUrbanismeProjects' && key !== 'fetchProjectPages');
+        .filter(([key]) => !['fetchUrbanismeProjects', 'fetchMobiliteProjects', 'fetchVoielyonnaiseProjects', 'fetchAllProjects', 'fetchProjectsByCategory', 'fetchProjectPages'].includes(key));
 
       // 2️⃣ appeler tous les fetchers en parallèle
       const results = await Promise.all(

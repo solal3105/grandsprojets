@@ -55,7 +55,7 @@ const NavigationModule = (() => {
  * @param {string} category - Catégorie du projet (velo, transport, mobilite, urbanisme)
  * @param {Event} [event] - Événement de clic (optionnel)
  */
-async function showProjectDetail(projectName, category, event) {
+async function showProjectDetail(projectName, category, event, enrichedProps = null) {
   console.group('=== showProjectDetail ===');
   console.log('Paramètres initiaux:', { projectName, category });
   
@@ -98,19 +98,6 @@ async function showProjectDetail(projectName, category, event) {
   // Déterminer la catégorie effective
   const effectiveCat = (category === 'transport') ? 'mobilite' : category;
   console.log('Catégorie effective:', effectiveCat);
-  
-  // Construire le chemin du fichier Markdown
-  let mdPath;
-  if (effectiveCat === 'velo') {
-    const numMatch = projectName.match(/(\d+)/);
-    mdPath = numMatch 
-      ? `pages/velo/ligne-${numMatch[1]}.md`
-      : `pages/velo/${slugify(projectName)}.md`;
-  } else {
-    const subfolder = effectiveCat === 'mobilite' ? 'mobilite' : 'urbanisme';
-    mdPath = `pages/${subfolder}/${slugify(projectName)}.md`;
-  }
-  console.log('Chemin du fichier Markdown construit:', mdPath);
 
   // Afficher le panneau de chargement
   const panel = document.getElementById('project-detail');
@@ -122,15 +109,109 @@ async function showProjectDetail(projectName, category, event) {
   console.log('Panneau de chargement affiché');
 
   try {
-    console.log('Tentative de chargement du fichier:', mdPath);
-    const response = await fetch(mdPath);
+    // 1️⃣ Utiliser les données enrichies si disponibles, sinon chercher dans contribution_uploads
+    let contributionProject = null;
     
-    if (!response.ok) {
-      throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}`);
+    if (enrichedProps && enrichedProps.project_name) {
+      // Utiliser directement les données enrichies depuis les properties de la feature
+      contributionProject = {
+        project_name: enrichedProps.project_name,
+        category: enrichedProps.category,
+        cover_url: enrichedProps.cover_url,
+        description: enrichedProps.description,
+        markdown_url: enrichedProps.markdown_url
+      };
+      console.log('Utilisation des données enrichies depuis les properties:', contributionProject);
+    } else if (window.supabaseService?.fetchProjectsByCategory) {
+      // Fallback: chercher dans contribution_uploads
+      try {
+        const contributionProjects = await window.supabaseService.fetchProjectsByCategory(effectiveCat);
+        contributionProject = contributionProjects.find(p => 
+          p.project_name && p.project_name.toLowerCase().trim() === projectName.toLowerCase().trim()
+        );
+        console.log('Projet trouvé dans contribution_uploads:', contributionProject);
+      } catch (error) {
+        console.warn('Erreur lors de la recherche dans contribution_uploads:', error);
+      }
+    }
+
+    let md = null;
+    let usedContribution = false;
+
+    // 2️⃣ Si trouvé dans contribution_uploads et qu'il a une markdown_url, l'utiliser
+    if (contributionProject?.markdown_url) {
+      try {
+        console.log('Chargement du markdown depuis contribution_uploads:', contributionProject.markdown_url);
+        const response = await fetch(contributionProject.markdown_url);
+        if (response.ok) {
+          md = await response.text();
+          usedContribution = true;
+          console.log('Markdown chargé depuis contribution_uploads, taille:', `${(md.length / 1024).toFixed(2)} KB`);
+        }
+      } catch (error) {
+        console.warn('Erreur lors du chargement du markdown depuis contribution_uploads:', error);
+      }
+    }
+
+    // 3️⃣ Si pas de markdown mais qu'on a un projet dans contribution_uploads, créer un contenu minimal
+    if (!md && contributionProject) {
+      console.log('Pas de markdown_url, création d\'un contenu minimal depuis contribution_uploads');
+      
+      let body = '';
+      
+      // Cover depuis contribution_uploads
+      if (contributionProject.cover_url) {
+        const coverUrl = resolveAssetUrl(contributionProject.cover_url);
+        body += `
+        <div class="project-cover-wrap">
+          <img class="project-cover" src="${coverUrl}" alt="${contributionProject.project_name || projectName}">
+          <button class="cover-extend-btn" aria-label="Agrandir l'image" title="Agrandir">
+            <i class="fa fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
+          </button>
+        </div>`;
+      }
+      
+      // Description depuis contribution_uploads
+      if (contributionProject.description) {
+        body += `<p class="project-description">${contributionProject.description}</p>`;
+      }
+      
+      // Afficher le contenu minimal
+      panel.innerHTML = `
+        <div class="project-detail-content">
+          <div class="project-header">
+            <h2 class="project-title">${contributionProject.project_name || projectName}</h2>
+          </div>
+          ${body}
+        </div>
+      `;
+      
+      // Gérer le clic sur l'image de couverture pour l'agrandir
+      const coverBtn = panel.querySelector('.cover-extend-btn');
+      if (coverBtn && contributionProject.cover_url) {
+        coverBtn.addEventListener('click', () => {
+          if (window.DataModule?.openCoverLightbox) {
+            window.DataModule.openCoverLightbox(contributionProject.cover_url, contributionProject.project_name || projectName);
+          }
+        });
+      }
+      
+      console.groupEnd();
+      return;
     }
     
-    const md = await response.text();
-    console.log('Fichier chargé avec succès, taille:', `${(md.length / 1024).toFixed(2)} KB`);
+    // 4️⃣ Si pas de markdown et pas de projet dans contribution_uploads, afficher un message
+    if (!md) {
+      panel.innerHTML = `
+        <div style="padding: 2em; text-align: center; color: #666;">
+          <h3>Projet non trouvé</h3>
+          <p>Le projet "${projectName}" n'a pas été trouvé dans la base de données.</p>
+          <p>Seuls les projets de la table contribution_uploads sont disponibles.</p>
+        </div>
+      `;
+      console.groupEnd();
+      return;
+    }
 
     /**
      * Charge les utilitaires Markdown si nécessaire
@@ -196,13 +277,13 @@ async function showProjectDetail(projectName, category, event) {
     };
 
     let body='';
-    // On ne garde que la couverture, les chips et la description
-    const coverCandidate = attrs.cover || extractFirstImageSrc(html);
+    // Utiliser les données de contribution_uploads en priorité
+    const coverCandidate = contributionProject?.cover_url || attrs.cover || extractFirstImageSrc(html);
     if (coverCandidate) {
       const coverUrl = resolveAssetUrl(coverCandidate);
       body+=`
       <div class="project-cover-wrap">
-        <img class="project-cover" src="${coverUrl}" alt="${attrs.name||''}">
+        <img class="project-cover" src="${coverUrl}" alt="${attrs.name||projectName||''}">
         <button class="cover-extend-btn" aria-label="Agrandir l'image" title="Agrandir">
           <i class="fa fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
         </button>
@@ -212,7 +293,10 @@ async function showProjectDetail(projectName, category, event) {
     if(attrs.from||attrs.to) chips.push(`<span class="chip chip-route">${attrs.from||''}${attrs.to?` → ${attrs.to}`:''}</span>`);
     if(attrs.trafic) chips.push(`<span class="chip chip-trafic">${attrs.trafic}</span>`);
     if(chips.length) body+=`<div class="project-chips">${chips.join('')}</div>`;
-    if(attrs.description) body+=`<p class="project-description">${attrs.description}</p>`;
+    
+    // Utiliser description de contribution_uploads en priorité
+    const description = contributionProject?.description || attrs.description;
+    if(description) body+=`<p class="project-description">${description}</p>`;
 
     const icons={velo:'fa-bicycle',mobilite:'fa-bus-alt',transport:'fa-bus-alt',urbanisme:'fa-city'};
 
@@ -857,7 +941,7 @@ projectDetailPanel.classList.add('visible');
   }
 
 
-  const renderTransportProjects = () => {
+  const renderTransportProjects = async () => {
     const listEl = setupSubmenu('transport-submenu', {
       title: 'Projets de Transport',
       closeBtnId: 'transport-close-btn',
@@ -866,15 +950,26 @@ projectDetailPanel.classList.add('visible');
       listId: 'transport-project-list'
     });
     if (!listEl) return;
-    // Combiner les projets de tram et de bus
-    const projects = [...window.mobilityData.tram, ...window.mobilityData.bus];
-    projects.forEach(p => {
-      const li = createProjectItem(p, createProjectClickHandler(p, 'transport', 'transport-submenu', true), 'transport');
-      listEl.appendChild(li);
-    });
+    
+    try {
+      // Récupérer uniquement les projets de mobilité depuis contribution_uploads
+      const mobiliteProjects = await window.supabaseService.fetchMobiliteProjects();
+      
+      mobiliteProjects.forEach(contributionProject => {
+        const projectItem = {
+          name: contributionProject.project_name,
+          category: contributionProject.category,
+          source: 'contribution_uploads'
+        };
+        const li = createProjectItem(projectItem, createProjectClickHandler(projectItem, 'transport', 'transport-submenu', false), 'transport');
+        listEl.appendChild(li);
+      });
+    } catch (error) {
+      console.error('Erreur lors du chargement des projets de transport:', error);
+    }
   };
 
-  const renderVeloProjects = () => {
+  const renderVeloProjects = async () => {
     const listEl = setupSubmenu('velo-submenu', {
       title: 'Projets Vélo',
       closeBtnId: 'velo-close-btn',
@@ -883,15 +978,27 @@ projectDetailPanel.classList.add('visible');
       listId: 'velo-project-list'
     });
     if (!listEl) return;
-    const projects = window.mobilityData.velo;
-    projects.forEach(p => {
-      const li = createProjectItem(p, createProjectClickHandler(p, 'velo', 'velo-submenu', true), 'velo');
-      listEl.appendChild(li);
-    });
+    
+    try {
+      // Récupérer les projets de voie lyonnaise depuis contribution_uploads
+      const voielyonnaiseProjects = await window.supabaseService.fetchVoielyonnaiseProjects();
+      
+      voielyonnaiseProjects.forEach(contributionProject => {
+        const projectItem = {
+          name: contributionProject.project_name,
+          category: contributionProject.category,
+          source: 'contribution_uploads'
+        };
+        const li = createProjectItem(projectItem, createProjectClickHandler(projectItem, 'velo', 'velo-submenu', false), 'velo');
+        listEl.appendChild(li);
+      });
+    } catch (error) {
+      console.error('Erreur lors du chargement des projets vélo:', error);
+    }
   };
 
   // Affichage des projets d'Urbanisme (uniformisé, sans onglets/select)
-  const renderUrbanismeProjects = () => {
+  const renderUrbanismeProjects = async () => {
     const listEl = setupSubmenu('urbanisme-submenu', {
       title: "Projets d'Urbanisme",
       closeBtnId: 'urbanisme-close-btn',
@@ -901,40 +1008,26 @@ projectDetailPanel.classList.add('visible');
     });
     if (!listEl) return;
 
-    // Assurer que la couche 'urbanisme' est chargée, puis dériver la liste des projets depuis ses features
-    const ensureUrbanisme = (DataModule.layerData && DataModule.layerData['urbanisme'])
-      ? Promise.resolve(DataModule.layerData['urbanisme'])
-      : DataModule.loadLayer('urbanisme');
-
-    ensureUrbanisme
-      .then(() => {
-        const geo = DataModule.layerData && DataModule.layerData['urbanisme'];
-        const features = (geo && geo.features) || [];
-        const seen = new Set();
-        const projects = [];
-        features.forEach(f => {
-          const props = (f && f.properties) || {};
-          const name = props.name || props.Name;
-          if (name && !seen.has(name)) {
-            seen.add(name);
-            projects.push({ name });
-          }
-        });
-        projects.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
-
-        listEl.innerHTML = '';
-        projects.forEach(p => {
-          const li = createProjectItem(
-            p,
-            createProjectClickHandler(p, 'urbanisme', 'urbanisme-submenu', false),
-            'urbanisme'
-          );
-          listEl.appendChild(li);
-        });
-      })
-      .catch(err => {
-        console.error('[NavigationModule] Failed to load urbanisme layer for project list:', err);
+    try {
+      // Récupérer les projets d'urbanisme depuis contribution_uploads
+      const urbanismeProjects = await window.supabaseService.fetchUrbanismeProjects();
+      
+      urbanismeProjects.forEach(contributionProject => {
+        const projectItem = {
+          name: contributionProject.project_name,
+          category: contributionProject.category,
+          source: 'contribution_uploads'
+        };
+        const li = createProjectItem(
+          projectItem,
+          createProjectClickHandler(projectItem, 'urbanisme', 'urbanisme-submenu', false),
+          'urbanisme'
+        );
+        listEl.appendChild(li);
       });
+    } catch (error) {
+      console.error('Erreur lors du chargement des projets d\'urbanisme:', error);
+    }
   };
 
   // (ancienne version supprimée)
@@ -988,6 +1081,24 @@ projectDetailPanel.classList.add('visible');
   async function fetchCoverForProject(name, category) {
     const key = `${category}|${name}`;
     if (coverCache.has(key)) return coverCache.get(key);
+    
+    // 1️⃣ Chercher d'abord dans contribution_uploads
+    try {
+      const effectiveCat = category === 'transport' ? 'mobilite' : category;
+      const contributionProjects = await window.supabaseService.fetchProjectsByCategory(effectiveCat);
+      const contributionProject = contributionProjects.find(p =>
+        p.project_name && p.project_name.toLowerCase().trim() === name.toLowerCase().trim()
+      );
+      
+      if (contributionProject?.cover_url) {
+        coverCache.set(key, contributionProject.cover_url);
+        return contributionProject.cover_url;
+      }
+    } catch (error) {
+      console.warn('Erreur lors de la récupération de la cover depuis contribution_uploads:', error);
+    }
+    
+    // 2️⃣ Fallback: chercher dans le markdown legacy (pour compatibilité)
     const mdPath = getMarkdownPathByCategory(name, category);
     if (!mdPath) { coverCache.set(key, null); return null; }
     try {
@@ -1100,18 +1211,20 @@ projectDetailPanel.classList.add('visible');
   // Fonction de création d'un item de liste pour un projet
   const createProjectItem = (p, onClick, category = null) => {
     let iconClass = "";
-    if (p.year) { // Projet de mobilité
-      if (window.mobilityData.tram && window.mobilityData.tram.find(item => item.name === p.name)) {
+    
+    // Utiliser la catégorie pour déterminer l'icône
+    switch (p.category) {
+      case 'mobilite':
         iconClass = "fas fa-train-tram";
-      } else if (window.mobilityData.bus && window.mobilityData.bus.find(item => item.name === p.name)) {
-        iconClass = "fas fa-bus";
-      } else if (window.mobilityData.velo && window.mobilityData.velo.find(item => item.name === p.name)) {
+        break;
+      case 'voielyonnaise':
         iconClass = "fas fa-bicycle";
-      } else {
+        break;
+      case 'urbanisme':
+        iconClass = "fas fa-building";
+        break;
+      default:
         iconClass = "fas fa-map";
-      }
-    } else { // Projet urbain
-      iconClass = "fas fa-city";
     }
     
     // Determine CSS class for project color swatch; CSS variables will provide colors

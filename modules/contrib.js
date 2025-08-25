@@ -9,6 +9,15 @@
     let contribLastFocus  = null;
     let contribCloseTimer = null;
 
+    // Drawing state for geometry input (modale contribution)
+    let drawMap = null;
+    let drawLayer = null;      // finalized geometry layer
+    let drawActive = false;    // whether we are currently capturing points
+    let drawType = null;       // 'LineString' | 'Polygon'
+    let tempLine = null;       // preview line while drawing
+    let tempPoly = null;       // preview polygon while drawing
+    let drawPoints = [];       // collected LatLng points during drawing
+
     const closeContrib = () => {
       if (!contribOverlay) return;
       if (contribCloseTimer) { clearTimeout(contribCloseTimer); contribCloseTimer = null; }
@@ -37,6 +46,10 @@
         try { contribCloseBtn.focus(); } catch (_) {}
       }
       document.addEventListener('keydown', contribEscHandler);
+      // Assurer le bon rendu de la carte de dessin si visible
+      setTimeout(() => {
+        try { if (drawMap) drawMap.invalidateSize(); } catch (_) {}
+      }, 200);
     };
 
     const contribEscHandler = (e) => {
@@ -82,10 +95,188 @@
     const addDocBtn = document.getElementById('contrib-doc-add');
     const docsFieldset = document.getElementById('contrib-docs');
 
+    // Geometry input UI elements
+    const geomModeFieldset = document.getElementById('contrib-geom-mode');
+    const geomModeRadios = geomModeFieldset ? geomModeFieldset.querySelectorAll('input[name="contrib-geom-mode"]') : [];
+    const fileRowEl = document.getElementById('contrib-file-row');
+    const drawPanelEl = document.getElementById('contrib-draw-panel');
+    const drawMapContainerId = 'contrib-draw-map';
+    const drawBtnLine = document.getElementById('draw-line');
+    const drawBtnPolygon = document.getElementById('draw-polygon');
+    const drawBtnUndo = document.getElementById('draw-undo');
+    const drawBtnFinish = document.getElementById('draw-finish');
+    const drawBtnClear = document.getElementById('draw-clear');
+
+    function slugify(str) {
+      return (str || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 64) || 'geom';
+    }
+
     function setStatus(msg, kind = 'info') {
       if (!statusEl) return;
       statusEl.textContent = msg || '';
       statusEl.style.color = kind === 'error' ? 'var(--danger, #b00020)' : (kind === 'success' ? 'var(--success, #2e7d32)' : '');
+    }
+
+    function initDrawMap() {
+      if (drawMap || !drawPanelEl) return;
+      try {
+        const container = document.getElementById(drawMapContainerId);
+        if (!container) return;
+        // Initialise Leaflet map
+        drawMap = L.map(drawMapContainerId).setView([45.75, 4.85], 12);
+        // Choose basemap similar to main map
+        const bmList = win.basemaps || [];
+        const defaultBm = bmList.find(b => b.default === true) || bmList[0];
+        let baseUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+        let attribution = '&copy; OpenStreetMap contributors';
+        if (defaultBm && defaultBm.url) {
+          baseUrl = defaultBm.url;
+          attribution = defaultBm.attribution || attribution;
+        }
+        L.tileLayer(baseUrl, { attribution }).addTo(drawMap);
+
+        // Map click to add points while drawing
+        drawMap.on('click', (e) => {
+          if (!drawActive || !drawType) return;
+          drawPoints.push(e.latlng);
+          if (drawType === 'LineString') {
+            if (!tempLine) {
+              tempLine = L.polyline(drawPoints, { color: '#ff5722', weight: 4, dashArray: '4,4' }).addTo(drawMap);
+            } else {
+              tempLine.setLatLngs(drawPoints);
+            }
+          } else if (drawType === 'Polygon') {
+            if (!tempPoly) {
+              tempPoly = L.polygon(drawPoints, { color: '#ff5722', weight: 3, dashArray: '4,4', fillOpacity: 0.2 }).addTo(drawMap);
+            } else {
+              tempPoly.setLatLngs([drawPoints]);
+            }
+          }
+        });
+      } catch (e) {
+        console.warn('[contrib] initDrawMap error:', e);
+      }
+    }
+
+    function setGeomMode(mode) {
+      const fileInput = document.getElementById('contrib-geojson');
+      if (mode === 'draw') {
+        if (fileRowEl) fileRowEl.style.display = 'none';
+        if (fileInput) {
+          fileInput.required = false;
+          fileInput.disabled = true;
+          try { fileInput.value = ''; } catch(_) {}
+        }
+        if (drawPanelEl) drawPanelEl.style.display = '';
+        initDrawMap();
+        setTimeout(() => { try { if (drawMap) drawMap.invalidateSize(); } catch(_){} }, 50);
+        // Démarrer automatiquement le mode dessin (ligne par défaut)
+        resetTemp();
+        if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
+        drawActive = true;
+        drawType = 'LineString';
+        try { if (drawMap) drawMap.getContainer().style.cursor = 'crosshair'; } catch(_){ }
+        setStatus('Mode dessin actif (ligne). Cliquez sur la carte pour ajouter des points.');
+      } else {
+        if (fileRowEl) fileRowEl.style.display = '';
+        if (fileInput) { fileInput.required = true; fileInput.disabled = false; }
+        if (drawPanelEl) drawPanelEl.style.display = 'none';
+        // Revenir au mode fichier doit nettoyer tout dessin en cours
+        try { clearAllDrawings(); } catch(_) {}
+      }
+    }
+
+    function resetTemp() {
+      drawPoints = [];
+      if (tempLine) { try { drawMap.removeLayer(tempLine); } catch(_) {} tempLine = null; }
+      if (tempPoly) { try { drawMap.removeLayer(tempPoly); } catch(_) {} tempPoly = null; }
+    }
+
+    function clearAllDrawings() {
+      resetTemp();
+      if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
+      drawActive = false;
+      drawType = null;
+      try { if (drawMap) drawMap.getContainer().style.cursor = ''; } catch(_){}
+    }
+
+    // Buttons handlers
+    if (drawBtnLine) {
+      drawBtnLine.addEventListener('click', () => {
+        resetTemp();
+        if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
+        drawActive = true;
+        drawType = 'LineString';
+        try { if (drawMap) drawMap.getContainer().style.cursor = 'crosshair'; } catch(_){}
+        setStatus('Mode dessin: ligne. Cliquez sur la carte pour ajouter des points.');
+      });
+    }
+    if (drawBtnPolygon) {
+      drawBtnPolygon.addEventListener('click', () => {
+        resetTemp();
+        if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
+        drawActive = true;
+        drawType = 'Polygon';
+        try { if (drawMap) drawMap.getContainer().style.cursor = 'crosshair'; } catch(_){}
+        setStatus('Mode dessin: polygone. Cliquez sur la carte pour ajouter des points.');
+      });
+    }
+    if (drawBtnUndo) {
+      drawBtnUndo.addEventListener('click', () => {
+        if (!drawPoints.length) return;
+        drawPoints.pop();
+        if (drawType === 'LineString' && tempLine) tempLine.setLatLngs(drawPoints);
+        if (drawType === 'Polygon' && tempPoly) tempPoly.setLatLngs([drawPoints]);
+      });
+    }
+    if (drawBtnFinish) {
+      drawBtnFinish.addEventListener('click', () => {
+        if (!drawType) return;
+        if (drawType === 'LineString' && drawPoints.length < 2) {
+          setStatus('Ajoutez au moins 2 points pour une ligne.', 'error');
+          return;
+        }
+        if (drawType === 'Polygon' && drawPoints.length < 3) {
+          setStatus('Ajoutez au moins 3 points pour un polygone.', 'error');
+          return;
+        }
+        if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
+        if (drawType === 'LineString') {
+          drawLayer = L.polyline(drawPoints, { color: '#1976d2', weight: 4 }).addTo(drawMap);
+        } else {
+          drawLayer = L.polygon(drawPoints, { color: '#1976d2', weight: 3, fillOpacity: 0.2 }).addTo(drawMap);
+        }
+        try { drawMap.fitBounds(drawLayer.getBounds(), { padding: [10, 10] }); } catch(_){}
+        resetTemp();
+        drawActive = false;
+        drawType = null;
+        try { if (drawMap) drawMap.getContainer().style.cursor = ''; } catch(_){}
+        setStatus('Géométrie finalisée. Vous pouvez soumettre la contribution.', 'success');
+      });
+    }
+    if (drawBtnClear) {
+      drawBtnClear.addEventListener('click', () => {
+        clearAllDrawings();
+        setStatus('Dessin effacé.');
+      });
+    }
+
+    // Mode change listeners
+    if (geomModeRadios && geomModeRadios.length) {
+      geomModeRadios.forEach(r => {
+        r.addEventListener('change', () => {
+          const checked = Array.from(geomModeRadios).find(x => x.checked)?.value || 'file';
+          setGeomMode(checked);
+        });
+      });
+      // Initialize UI state
+      const initialMode = Array.from(geomModeRadios).find(x => x.checked)?.value || 'file';
+      setGeomMode(initialMode);
     }
 
     function createDocRow() {
@@ -137,20 +328,55 @@
       const meta = document.getElementById('contrib-meta')?.value?.trim();
       const description = document.getElementById('contrib-description')?.value?.trim();
       const mdTextRaw = document.getElementById('contrib-markdown')?.value || '';
+      const geomMode = (function(){
+        const r = geomModeRadios && geomModeRadios.length ? Array.from(geomModeRadios).find(x => x.checked) : null;
+        return r ? r.value : 'file';
+      })();
 
-      if (!projectName || !category || !fileInput || !fileInput.files?.length) {
-        setStatus('Veuillez renseigner le nom, la catégorie et sélectionner un fichier GeoJSON.', 'error');
+      if (!projectName || !category) {
+        setStatus('Veuillez renseigner le nom et la catégorie.', 'error');
         return;
       }
 
-      // Basic validation for file type
-      const file = fileInput.files[0];
+      let fileForUpload = null;
+      if (geomMode === 'file') {
+        if (!fileInput || !fileInput.files?.length) {
+          setStatus('Veuillez sélectionner un fichier GeoJSON.', 'error');
+          return;
+        }
+        const file = fileInput.files[0];
+        const nameLower = (file.name || '').toLowerCase();
+        if (!nameLower.endsWith('.geojson') && !(file.type || '').includes('json')) {
+          setStatus('Le fichier doit être un GeoJSON (.geojson ou JSON valide).', 'error');
+          return;
+        }
+        fileForUpload = file;
+      } else if (geomMode === 'draw') {
+        if (!drawLayer) {
+          setStatus('Veuillez dessiner une géométrie (ligne ou polygone) avant de soumettre.', 'error');
+          return;
+        }
+        try {
+          const feature = drawLayer.toGeoJSON();
+          const feat = feature.type === 'Feature' ? feature : { type: 'Feature', properties: {}, geometry: feature };
+          const fc = { type: 'FeatureCollection', features: [feat] };
+          const blob = new Blob([JSON.stringify(fc)], { type: 'application/geo+json' });
+          try {
+            fileForUpload = new File([blob], `${slugify(projectName)}.geojson`, { type: 'application/geo+json' });
+          } catch (_) {
+            // Older browsers may not support File constructor; fallback to Blob
+            fileForUpload = blob;
+          }
+        } catch (gerr) {
+          setStatus('Impossible de convertir le dessin en GeoJSON.', 'error');
+          return;
+        }
+      } else {
+        setStatus('Mode de saisie inconnu.', 'error');
+        return;
+      }
+
       const coverFile = coverInput && coverInput.files && coverInput.files[0] ? coverInput.files[0] : null;
-      const nameLower = (file.name || '').toLowerCase();
-      if (!nameLower.endsWith('.geojson') && !(file.type || '').includes('json')) {
-        setStatus('Le fichier doit être un GeoJSON (.geojson ou JSON valide).', 'error');
-        return;
-      }
 
       setStatus('Envoi en cours…');
       if (submitBtn) submitBtn.disabled = true;
@@ -175,8 +401,8 @@
           return;
         }
 
-        // 1) Upload GeoJSON to Supabase Storage
-        await (win.supabaseService && win.supabaseService.uploadGeoJSONToStorage(file, category, projectName, rowId));
+        // 1) Upload GeoJSON (fichier importé ou dessiné) vers Supabase Storage
+        await (win.supabaseService && win.supabaseService.uploadGeoJSONToStorage(fileForUpload, category, projectName, rowId));
 
         // 1b) Optional cover upload (non-blocking)
         if (coverFile) {
@@ -223,6 +449,9 @@
 
         setStatus('Contribution enregistrée. Merci !', 'success');
         try { form.reset(); } catch(_) {}
+        // Nettoyer l'état de dessin et remettre l'UI en mode fichier par défaut
+        try { clearAllDrawings(); } catch(_) {}
+        try { setGeomMode('file'); } catch(_) {}
         // Close after a short delay
         setTimeout(() => { try { closeContrib(); } catch(_) {} }, 900);
       } catch (err) {
