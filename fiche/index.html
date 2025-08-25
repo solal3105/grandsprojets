@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fiche projet – Grands Projets de Lyon</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/ficheprojet.css">
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkfAmAD5lePZ/fWiiJqnhkkCBrum1+FiYqS2+1+E6f+9v+YxwV7QDLiIw==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
+</head>
+<body>
+  <article id="project-article"
+           data-project-name=""
+           data-layer-name=""
+           data-filter-key=""
+           data-filter-value="">
+    <!-- Le contenu sera injecté dynamiquement par ficheprojet.js -->
+  </article>
+
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
+  <script src="/modules/supabaseservice.js"></script>
+  <script src="/data.js"></script>
+  <script>
+    (function() {
+      try {
+        const params = new URLSearchParams(window.location.search || '');
+        const rawCat = (params.get('cat') || '').toLowerCase();
+        const projectParam = params.get('project') || '';
+        const projectName = projectParam; // URLSearchParams décode déjà
+        const article = document.getElementById('project-article');
+        if (!article) return;
+
+        // Déterminer layerName et éventuels filtres
+        let layerName = '';
+        let filterKey = '';
+        let filterValue = '';
+        const cat = (rawCat === 'transport') ? 'mobilite' : rawCat;
+        switch (cat) {
+          case 'velo':
+            layerName = 'voielyonnaise';
+            filterKey = 'line';
+            try {
+              const m = String(projectName).match(/(\d+)/);
+              if (m) filterValue = m[1];
+            } catch (_) {}
+            break;
+          case 'urbanisme':
+            layerName = 'urbanisme';
+            break;
+          case 'mobilite':
+          default:
+            layerName = 'reseauProjeteSitePropre';
+        }
+
+        // Appliquer sur l'article
+        if (projectName) article.dataset.projectName = projectName;
+        if (layerName) article.dataset.layerName = layerName;
+        if (filterKey) article.dataset.filterKey = filterKey;
+        if (filterValue) article.dataset.filterValue = filterValue;
+      } catch (e) {
+        console.warn('[fiche] init dataset from URL failed:', e);
+      }
+    })();
+  </script>
+  <script src="/modules/markdownutils.js"></script>
+  <script src="/modules/ficheprojet.js"></script>
+</body>
+</html>

@@ -95,6 +95,24 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
     .replace(/\s+/g, '-') // Remplacer les espaces par des tirets
     .replace(/-+/g, '-'); // Éviter les tirets multiples
 
+  // Résolution robuste de l'URL d'illustration (fonctionne en sous-chemin et en file://)
+  const resolveAssetUrl = (u) => {
+    try {
+      if (!u) return u;
+      if (/^https?:\/\//i.test(u)) return u; // URL absolue distante
+      if (location.protocol === 'file:' && u.startsWith('/')) {
+        // En file://, les chemins absolus "/img/..." ne fonctionnent pas -> rendre relatif
+        return '.' + u;
+      }
+      if (u.startsWith('/')) {
+        // Hébergement sous sous-chemin: préfixer par le répertoire courant
+        const baseDir = location.pathname.replace(/[^\/]*$/, ''); // conserve le dossier
+        return (baseDir.endsWith('/') ? baseDir.slice(0, -1) : baseDir) + u;
+      }
+      return u; // déjà relatif
+    } catch(_) { return u; }
+  };
+
   // Déterminer la catégorie effective
   const effectiveCat = (category === 'transport') ? 'mobilite' : category;
   console.log('Catégorie effective:', effectiveCat);
@@ -248,23 +266,7 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
     console.log('Traitement du contenu Markdown...');
     const { attrs, html } = window.MarkdownUtils.renderMarkdown(md);
     console.log('Contenu Markdown traité avec succès');
-    // Résolution robuste de l'URL d'illustration (fonctionne en sous-chemin et en file://)
-    const resolveAssetUrl = (u) => {
-      try {
-        if (!u) return u;
-        if (/^https?:\/\//i.test(u)) return u; // URL absolue distante
-        if (location.protocol === 'file:' && u.startsWith('/')) {
-          // En file://, les chemins absolus "/img/..." ne fonctionnent pas -> rendre relatif
-          return '.' + u;
-        }
-        if (u.startsWith('/')) {
-          // Hébergement sous sous-chemin: préfixer par le répertoire courant
-          const baseDir = location.pathname.replace(/[^\/]*$/, ''); // conserve le dossier
-          return (baseDir.endsWith('/') ? baseDir.slice(0, -1) : baseDir) + u;
-        }
-        return u; // déjà relatif
-      } catch(_) { return u; }
-    };
+    
 
     const extractFirstImageSrc = (markup) => {
       try {
@@ -300,65 +302,17 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
 
     const icons={velo:'fa-bicycle',mobilite:'fa-bus-alt',transport:'fa-bus-alt',urbanisme:'fa-city'};
 
-    // 1) Dériver d'abord l'URL HTML depuis le chemin Markdown
+    // 1) Utiliser la route dynamique pour la fiche complète
     let fullPageUrl = null;
-    if (typeof mdPath === 'string') {
-      const htmlCandidate = mdPath.replace(/\.md$/, '.html');
-      try {
-        const head = await fetch(htmlCandidate, { method: 'HEAD' });
-        if (head.ok) {
-          fullPageUrl = htmlCandidate;
-        }
-      } catch (_) { /* no-op */ }
+    try {
+      const params = new URLSearchParams();
+      if (category) params.set('cat', category);
+      if (projectName) params.set('project', projectName);
+      fullPageUrl = `/fiche/?${params.toString()}`;
+    } catch (_) {
+      fullPageUrl = `/fiche/?cat=${encodeURIComponent(category||'')}&project=${encodeURIComponent(projectName||'')}`;
     }
 
-    // 2) Fallback rétrocompatibilité: utiliser window.projectPages s'il est défini
-    if (!fullPageUrl && window.projectPages) {
-      fullPageUrl = window.projectPages[projectName] || null;
-      if (!fullPageUrl) {
-        const normalizedProjectName = normalizeString(projectName);
-        const matchingKey = Object.keys(window.projectPages).find(k => normalizeString(k) === normalizedProjectName);
-        if (matchingKey) fullPageUrl = window.projectPages[matchingKey];
-      }
-
-      // Valider/normaliser l'URL issue de projectPages
-      if (fullPageUrl) {
-        try {
-          const head = await fetch(fullPageUrl, { method: 'HEAD' });
-          if (!head.ok) {
-            const normalizeBase = (s) => String(s || '')
-              .normalize('NFD')
-              .replace(/[\u0300-\u036f]/g, '')
-              .toLowerCase()
-              .replace(/[^a-z0-9\s-]/g, '')
-              .trim()
-              .replace(/\s+/g, '-')
-              .replace(/-+/g, '-');
-            try {
-              const urlObj = new URL(fullPageUrl, window.location.origin);
-              const parts = urlObj.pathname.split('/');
-              const file = parts.pop();
-              if (file) {
-                const decoded = (() => { try { return decodeURIComponent(file); } catch { return file; } })();
-                const dot = decoded.lastIndexOf('.');
-                const base = dot >= 0 ? decoded.slice(0, dot) : decoded;
-                const ext  = dot >= 0 ? decoded.slice(dot) : '';
-                const altFile = `${normalizeBase(base)}${ext || '.html'}`;
-                const altPath = [...parts, altFile].join('/');
-                const altUrl = `${urlObj.origin}${altPath.startsWith('/') ? '' : '/'}${altPath}`;
-                const headAlt = await fetch(altUrl, { method: 'HEAD' });
-                if (headAlt.ok) {
-                  fullPageUrl = altUrl;
-                } else {
-                  fullPageUrl = null;
-                }
-              }
-            } catch(_) { fullPageUrl = null; }
-          }
-        } catch(_) { fullPageUrl = null; }
-      }
-    }
-    
     panel.innerHTML = `
       <div class="detail-header-submenu">
         <div class="header-actions">
@@ -428,46 +382,11 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
       btn?.addEventListener('click', openLightbox);
     })();
 
-    // Wire up "Voir la fiche complète" to open a modal by default (preserve modifier/middle click)
+    // Wire up "Voir la fiche complète": navigation native vers la route dynamique (pas de modal)
     (function(){
       const cta = panel.querySelector('.detail-fullpage-btn');
       if (!cta) return;
-      const url = cta.getAttribute('href');
-      const title = projectName || 'Fiche projet';
-
-      function openFicheModal() {
-        const overlay = document.createElement('div');
-        overlay.className = 'pdf-lightbox';
-        overlay.innerHTML = `
-          <div class="lightbox-content" role="dialog" aria-modal="true" aria-label="${title}">
-            <div class="lightbox-header">
-              <span class="lightbox-title">${title}</span>
-              <div style="display:flex; gap:8px; align-items:center; margin-left:auto;">
-                <a href="${url}" target="_blank" rel="noopener" title="Ouvrir dans un nouvel onglet" aria-label="Ouvrir dans un nouvel onglet" style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 10px; border-radius:10px; border:1px solid var(--border); background: var(--tooltip-bg); color: var(--text); text-decoration:none;">
-                  <i class="fa fa-external-link-alt" aria-hidden="true"></i>
-                  Nouvel onglet
-                </a>
-                <button class="lightbox-close" aria-label="Fermer"><i class="fa fa-xmark" aria-hidden="true"></i></button>
-              </div>
-            </div>
-            <div class="lightbox-body">
-              <iframe class="pdf-frame" src="${url}" title="${title}"></iframe>
-            </div>
-          </div>`;
-        document.body.appendChild(overlay);
-        const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
-        const onKey = (e) => { if (e.key === 'Escape') close(); };
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-        overlay.querySelector('.lightbox-close').addEventListener('click', close);
-        document.addEventListener('keydown', onKey);
-      }
-
-      cta.addEventListener('click', (e) => {
-        // Allow middle click or modifier keys to open in new tab/window
-        if (e.button === 1 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-        e.preventDefault();
-        openFicheModal();
-      });
+      // Ne pas intercepter le clic: laisser la navigation gérer l'historique/SEO
     })();
 
     // (Bouton fermer supprimé)
@@ -507,7 +426,7 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
     // Configuration du bouton retour pour utiliser la fonction de réinitialisation
     const backButton = document.getElementById('detail-back-btn');
     if (backButton) {
-      backButton.onclick = () => NavigationModule.resetToDefaultView(category);
+      backButton.onclick = () => NavigationModule.resetToDefaultView(category, { preserveMapView: true, updateHistory: true });
     }
   }catch(e){
     console.error('Erreur markdown:',e);
@@ -1673,11 +1592,12 @@ submenu.insertBefore(filterUX, listEl);
    * - Sinon, affiche uniquement les couches par défaut
    * - Masque tous les panneaux et sous-menus non concernés
    * - Peut réinitialiser la vue de la carte (désactivable via options)
+   * - Peut mettre à jour l'URL/historique (désactivable via options)
    * @param {string} [category] - Catégorie à afficher (optionnel)
-   * @param {{ preserveMapView?: boolean }} [options] - Options de réinitialisation
+   * @param {{ preserveMapView?: boolean, updateHistory?: boolean }} [options] - Options de réinitialisation
    */
   const resetToDefaultView = (category, options = {}) => {
-    const { preserveMapView = false } = options;
+    const { preserveMapView = false, updateHistory = false } = options;
     console.log('Réinitialisation de la vue à l\'état par défaut');
     
     // 1. Masquer le panneau de détail
@@ -1760,7 +1680,16 @@ submenu.insertBefore(filterUX, listEl);
         } catch (e) {
           console.warn('[NavigationModule] rendu sous-menu échoué (non bloquant):', e);
         }
-        
+        // Mettre à jour l'URL/historique avec uniquement la catégorie (sans project)
+        try {
+          if (updateHistory && typeof history?.pushState === 'function') {
+            const params = new URLSearchParams();
+            params.set('cat', category);
+            const newUrl = `${location.pathname}?${params.toString()}`;
+            history.pushState({ cat: category }, '', newUrl);
+          }
+        } catch (_) { /* noop */ }
+
         return; // Ne pas continuer avec la réinitialisation complète
       }
     }
@@ -1826,6 +1755,19 @@ submenu.insertBefore(filterUX, listEl);
     if (leftNav) {
       leftNav.style.borderRadius = '20px';
     }
+
+    // Mettre à jour l'URL/historique pour refléter la sortie du détail
+    // - Si une catégorie est fournie, on conserve ?cat=<category> (sans project)
+    // - Sinon, on nettoie l'URL (aucun paramètre)
+    try {
+      if (updateHistory && typeof history?.pushState === 'function') {
+        const params = new URLSearchParams();
+        if (category) params.set('cat', category);
+        const newQuery = params.toString();
+        const newUrl = `${location.pathname}${newQuery ? `?${newQuery}` : ''}`;
+        history.pushState(category ? { cat: category } : null, '', newUrl);
+      }
+    } catch (_) { /* noop */ }
   }
 
   // Exposer les fonctions publiques du module

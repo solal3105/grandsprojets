@@ -208,6 +208,18 @@ function normalizeText(str) {
     .toLowerCase();
 }
 
+// Slugify simple et robuste pour correspondre aux fichiers .md de /pages/
+function slugify(text) {
+  return String(text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/&/g, '-et-')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+}
+
 // --- Thème (clair/sombre) pour les fiches projets autonomes ---
 const FPTheme = (function(win) {
   let osThemeMediaQuery = null;
@@ -587,7 +599,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const rawTitle = (attrs && (attrs.title || attrs.name)) || projectName || siteName;
       const title = rawTitle ? `${rawTitle} – ${siteName}` : siteName;
       const description = (attrs && (attrs.meta || attrs.description)) || `Fiche projet: informations, carte et documents officiels.`;
-      const pageUrl = PROD_ORIGIN + (window.location && window.location.pathname ? window.location.pathname : '/');
+      const path = (window.location && window.location.pathname ? window.location.pathname : '/');
+      const qs = (window.location && window.location.search ? window.location.search : '');
+      const pageUrl = PROD_ORIGIN + path + qs;
       const cover = attrs && attrs.cover ? toAbsolute(attrs.cover) : `${PROD_ORIGIN}/img/logomin.png`;
 
       // Title
@@ -730,8 +744,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // Essayer d'abord de récupérer une URL markdown depuis contribution_uploads via Supabase
   let source = '';
-  if (layerName === 'voielyonnaise' && filterKey === 'line' && filterValue) {
+  let contributionMdUrl = '';
+  try {
+    const effCat = (() => {
+      const ln = (layerName || '').toLowerCase();
+      if (ln === 'urbanisme') return 'urbanisme';
+      if (ln === 'voielyonnaise') return 'velo';
+      return 'mobilite';
+    })();
+    if (window.supabaseService?.fetchProjectsByCategory && projectName) {
+      const list = await window.supabaseService.fetchProjectsByCategory(effCat);
+      const found = Array.isArray(list) ? list.find(p => p?.project_name && String(p.project_name).toLowerCase().trim() === String(projectName).toLowerCase().trim()) : null;
+      if (found?.markdown_url) {
+        contributionMdUrl = found.markdown_url;
+        console.log(`[ficheprojet] Markdown depuis contribution_uploads: ${contributionMdUrl}`);
+      }
+    }
+  } catch (e) {
+    console.warn('[ficheprojet] Recherche markdown via Supabase échouée:', e);
+  }
+
+  if (contributionMdUrl) {
+    source = contributionMdUrl; // URL absolue (https://...)
+  } else if (layerName === 'voielyonnaise' && filterKey === 'line' && filterValue) {
     source = `pages/velo/ligne-${filterValue}.md`;
     console.log(`Chargement du fichier Markdown pour la Voie Lyonnaise ${filterValue}`);
   } else if (layerName === 'urbanisme') {
@@ -752,7 +789,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Pour les Voies Lyonnaises, on utilise le chemin construit plus haut
     const markdownPath = layerName === 'voielyonnaise'
       ? `/pages/velo/ligne-${filterValue}.md`  // chemin absolu depuis la racine du site
-      : (source.startsWith('/') ? source : `/${source}`);
+      : ((/^https?:\/\//i.test(source)) ? source : (source.startsWith('/') ? source : `/${source}`));
     
     console.log(`Tentative de chargement du fichier: ${markdownPath}`);
     
