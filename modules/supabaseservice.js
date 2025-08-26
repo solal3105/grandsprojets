@@ -188,12 +188,28 @@
      * @param {string} category - Catégorie des projets à charger
      * @returns {Promise<Object>} - Données GeoJSON fusionnées
      */
-    loadContributionGeoJSON: async function(layerName, category) {
+    loadContributionGeoJSON: async function(layerName, category, options) {
       try {
-        const projects = await this.fetchProjectsByCategory(category);
+        const opts = options || {};
+        const normalize = (str) => String(str || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '')
+          .trim();
+
+        // 1) Récupérer les projets de la catégorie
+        let projects = await this.fetchProjectsByCategory(category);
+
+        // 1.a Filtrage au niveau projet si projectName fourni (réduit le nombre de fetch)
+        if (opts.projectName) {
+          const target = normalize(opts.projectName);
+          projects = projects.filter(p => normalize(p.project_name) === target);
+        }
+
         const geojsonFeatures = [];
-        
-        // Charger chaque GeoJSON en parallèle
+
+        // 2) Charger chaque GeoJSON en parallèle
         const loadPromises = projects
           .filter(project => project.geojson_url)
           .map(async (project) => {
@@ -204,7 +220,7 @@
                 return null;
               }
               const geojson = await response.json();
-              
+
               // Ajouter les métadonnées du projet aux features
               if (geojson.type === 'FeatureCollection' && geojson.features) {
                 geojson.features.forEach(feature => {
@@ -233,17 +249,45 @@
               return null;
             }
           });
-        
+
         const results = await Promise.all(loadPromises);
         results.forEach(features => {
-          if (features) {
-            geojsonFeatures.push(...features);
-          }
+          if (features) geojsonFeatures.push(...features);
         });
-        
+
+        // 3) Filtrage au niveau feature
+        let filtered = geojsonFeatures;
+        // 3.a Par nom de projet (fallback/garantie)
+        if (opts.projectName) {
+          const targetProj = normalize(opts.projectName);
+          const before = filtered.length;
+          filtered = filtered.filter(f => {
+            const props = (f && f.properties) ? f.properties : {};
+            const candidate = normalize(props.project_name || props.name || props.nom || props.Name || props.NOM || '');
+            return candidate === targetProj;
+          });
+          if (before !== filtered.length) {
+            try { console.debug(`[supabaseService] projectName filter applied: ${filtered.length}/${before}`); } catch(_) {}
+          }
+        }
+
+        // 3.b Par clé/valeur
+        if (opts.filterKey && (opts.filterValue !== undefined && opts.filterValue !== null)) {
+          const normKey = normalize(String(opts.filterKey)).replace(/\s+/g, '');
+          const normVal = normalize(String(opts.filterValue)).replace(/\s+/g, '');
+          filtered = filtered.filter(f => {
+            const props = (f && f.properties) ? f.properties : {};
+            const matchedKey = Object.keys(props).find(k => normalize(k).replace(/\s+/g, '') === normKey) || (Object.prototype.hasOwnProperty.call(props, opts.filterKey) ? opts.filterKey : null);
+            if (!matchedKey) return false;
+            const v = props[matchedKey];
+            if (v === undefined || v === null) return false;
+            return normalize(String(v)).replace(/\s+/g, '') === normVal;
+          });
+        }
+
         return {
           type: 'FeatureCollection',
-          features: geojsonFeatures
+          features: filtered
         };
       } catch (error) {
         console.error('loadContributionGeoJSON error:', error);
