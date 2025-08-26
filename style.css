@@ -3649,10 +3649,70 @@ html[data-theme='dark'] .markdown-body hr { border-color: var(--dm-menu-border) 
   width: min(720px, 92vw);
   max-height: 80vh;
   overflow: auto;
-  background: var(--surface, #ffffff);
-  color: #1c2b36;
+  
+  
+}
+
+/* ---------------------------------------------------------------------------
+   Contribution modal – Glassmorphism UI (scoped to avoid side effects)
+--------------------------------------------------------------------------- */
+/* Overlay tuning */
+#contrib-overlay.gp-modal-overlay {
+  background: radial-gradient(1200px 800px at 80% 90%, rgba(0,0,0,0.55), rgba(0,0,0,0.45));
+}
+
+/* Panel glass surface */
+#contrib-overlay .gp-modal {
+  background: var(--surface-92);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(255,255,255,0.28);
+  box-shadow:
+    0 24px 60px rgba(0,0,0,0.18),
+    0 8px 20px rgba(0,0,0,0.12),
+    inset 0 1px 0 rgba(255,255,255,0.25);
   border-radius: 16px;
-  box-shadow: 0 18px 60px rgba(0,0,0,0.25), 0 6px 18px rgba(0,0,0,0.12);
+}
+
+#contrib-overlay .gp-modal-header {
+  background: linear-gradient(180deg, var(--surface-92), var(--surface-80));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Minor header tweaks */
+#contrib-overlay .gp-modal-title { letter-spacing: 0.2px; }
+#contrib-overlay .gp-modal-close { border-radius: 10px; }
+
+/* Tabs (Créer / Contributions) */
+#contrib-overlay .contrib-tabs {
+  display: inline-flex;
+  gap: 6px;
+  padding: 6px;
+  background: var(--surface-70);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 12px;
+}
+#contrib-overlay .gp-tab {
+  appearance: none;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: var(--surface-80);
+  color: #111827;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+#contrib-overlay .gp-tab:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+#contrib-overlay .gp-tab:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(20,174,92,0.35); }
+#contrib-overlay .gp-tab[aria-selected="true"] {
+  background: color-mix(in srgb, var(--accent) 16%, white);
+  color: #0b3b22;
+  border-color: color-mix(in srgb, var(--accent) 30%, white);
 }
 
 /* Scoped animation for About modal */
@@ -3831,6 +3891,143 @@ html[data-theme='dark'] .gp-modal-title { color: var(--dm-text); }
 html[data-theme='dark'] .gp-modal-close:hover {
   background: rgba(255,255,255,0.06);
   color: var(--dm-text);
+}
+
+/* ---------------------- Contribution modal: Content Glass ---------------------- */
+/* Form layout & fields */
+#contrib-overlay .contrib-form { display: block; }
+#contrib-overlay .contrib-form .form-row { margin: 10px 0 14px; }
+#contrib-overlay .contrib-form label { font-weight: 600; display: inline-block; margin-bottom: 6px; }
+
+#contrib-overlay .contrib-form input[type="text"],
+#contrib-overlay .contrib-form input[type="url"],
+#contrib-overlay .contrib-form input[type="file"],
+#contrib-overlay .contrib-form select,
+#contrib-overlay .contrib-form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: var(--surface-80);
+  color: #111827;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+#contrib-overlay .contrib-form .form-row > * { min-width: 0; }
+#contrib-overlay .contrib-form textarea { resize: vertical; }
+#contrib-overlay .contrib-form input:focus-visible,
+#contrib-overlay .contrib-form select:focus-visible,
+#contrib-overlay .contrib-form textarea:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 45%, white);
+  box-shadow: 0 0 0 3px rgba(20,174,92,0.28);
+}
+
+/* Fieldsets */
+#contrib-overlay .form-fieldset {
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  padding: 10px 12px 12px;
+  background: var(--surface-70);
+  backdrop-filter: blur(6px);
+}
+#contrib-overlay .form-fieldset legend { padding: 0 6px; font-weight: 700; opacity: 0.9; }
+
+/* Draw panel */
+#contrib-overlay #contrib-draw-map {
+  border: 1px solid rgba(0,0,0,0.08);
+  background: var(--surface-70);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.25);
+}
+/* Abaisser le z-index des éléments Leaflet dans la carte de dessin (modale) */
+#contrib-overlay #contrib-draw-map .leaflet-control { z-index: 150 !important; }
+#contrib-overlay #contrib-draw-map .leaflet-pane { z-index: 100 !important; }
+#contrib-overlay #contrib-draw-map .leaflet-popup-pane { z-index: 110 !important; }
+#contrib-overlay #contrib-draw-map .leaflet-tooltip-pane { z-index: 110 !important; }
+#contrib-overlay .draw-controls .gp-btn { min-height: 36px; }
+
+/* Contributions list container */
+#contrib-overlay #contrib-list {
+  background: var(--surface-70) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(0,0,0,0.08) !important;
+}
+
+/* Card items (works for either .contrib-item or generic listitem roles) */
+#contrib-overlay .contrib-list .contrib-item,
+#contrib-overlay .contrib-list [role="listitem"] {
+  display: block;
+  background: var(--surface-80);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin: 6px;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+#contrib-overlay .contrib-list .contrib-item:hover,
+#contrib-overlay .contrib-list [role="listitem"]:hover {
+  transform: translateY(-1px);
+  background: var(--surface-90);
+  border-color: rgba(0,0,0,0.12);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.12);
+}
+#contrib-overlay .contrib-list .contrib-item small,
+#contrib-overlay .contrib-list [role="listitem"] small { opacity: 0.8; }
+
+/* Form actions */
+#contrib-overlay .form-actions { gap: 10px; }
+#contrib-overlay #contrib-status { opacity: 0.85 !important; }
+
+/* ------------------------------- Dark mode ------------------------------- */
+html[data-theme='dark'] #contrib-overlay.gp-modal-overlay {
+  background: radial-gradient(1200px 800px at 80% 90%, rgba(0,0,0,0.66), rgba(0,0,0,0.55));
+}
+html[data-theme='dark'] #contrib-overlay .gp-modal {
+  background: rgba(17,25,40,0.85);
+  border: 1px solid var(--dm-menu-border);
+  color: var(--dm-text);
+}
+html[data-theme='dark'] #contrib-overlay .gp-modal-header {
+  background: linear-gradient(180deg, rgba(17,25,40,0.92), rgba(17,25,40,0.85));
+  border-bottom: 1px solid var(--dm-menu-border);
+}
+html[data-theme='dark'] #contrib-overlay .gp-tab {
+  border-color: var(--dm-menu-border);
+  background: rgba(255,255,255,0.06);
+  color: var(--dm-text);
+}
+html[data-theme='dark'] #contrib-overlay .gp-tab[aria-selected="true"] {
+  background: color-mix(in srgb, var(--accent) 24%, black);
+  border-color: color-mix(in srgb, var(--accent) 36%, black);
+  color: var(--on-accent);
+}
+html[data-theme='dark'] #contrib-overlay .contrib-form input[type="text"],
+html[data-theme='dark'] #contrib-overlay .contrib-form input[type="url"],
+html[data-theme='dark'] #contrib-overlay .contrib-form input[type="file"],
+html[data-theme='dark'] #contrib-overlay .contrib-form select,
+html[data-theme='dark'] #contrib-overlay .contrib-form textarea {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--dm-menu-border);
+  color: var(--dm-text);
+}
+html[data-theme='dark'] #contrib-overlay .form-fieldset {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--dm-menu-border);
+}
+html[data-theme='dark'] #contrib-overlay #contrib-draw-map { background: rgba(255,255,255,0.04); border-color: var(--dm-menu-border); }
+html[data-theme='dark'] #contrib-overlay #contrib-list { border-color: var(--dm-menu-border) !important; }
+html[data-theme='dark'] #contrib-overlay .contrib-list .contrib-item,
+html[data-theme='dark'] #contrib-overlay .contrib-list [role="listitem"] {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--dm-menu-border);
+  color: var(--dm-text);
+}
+html[data-theme='dark'] #contrib-overlay .contrib-list .contrib-item:hover,
+html[data-theme='dark'] #contrib-overlay .contrib-list [role="listitem"]:hover {
+  background: rgba(255,255,255,0.08);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.35);
 }
 
 /* ---------------------------------------------------------------------------

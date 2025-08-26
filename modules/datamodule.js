@@ -886,35 +886,64 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
     if (detailSupportedLayers.includes(layerName)) {
       layer.on('mouseover', function(e) {
         // Identifier le projet du segment en fonction de la couche
-        let currentProjectName;
+        let currentProjectNameRaw;
         const p = (feature && feature.properties) || {};
         if (layerName === 'reseauProjeteSitePropre') {
-          currentProjectName = p.Name || p.name;
+          currentProjectNameRaw = p.Name || p.name;
         } else if (layerName === 'voielyonnaise') {
-          currentProjectName = p.line;
+          currentProjectNameRaw = p.line;
         } else {
-          currentProjectName = p.name || p.Name;
+          currentProjectNameRaw = p.name || p.Name;
+        }
+        const currentProjectName = currentProjectNameRaw ? String(currentProjectNameRaw).trim() : '';
+
+        // Réinitialiser tous les styles de la couche et stopper d'éventuelles animations en cours
+        geojsonLayer.eachLayer(otherLayer => {
+          const originalStyle = getFeatureStyle(otherLayer.feature, layerName);
+          if (typeof otherLayer.setStyle === 'function') {
+            otherLayer.setStyle(originalStyle);
+          }
+          if (otherLayer.dashInterval) {
+            try { clearInterval(otherLayer.dashInterval); } catch (_) {}
+            otherLayer.dashInterval = null;
+          }
+        });
+
+        // Si on ne dispose pas d'un identifiant de projet fiable, n'accentuer que la feature survolée
+        if (!currentProjectName) {
+          try {
+            const originalStyle = getFeatureStyle(feature, layerName);
+            safeSetStyle(layer, {
+              ...originalStyle,
+              color: darkenColor(originalStyle.color || '#3388ff', 0.2),
+              weight: (originalStyle.weight || 3) + 2,
+              dashArray: '10, 10',
+              opacity: 1,
+              fillOpacity: originalStyle.fillOpacity || 0.2
+            });
+            layer.dashInterval = animateDashLine(layer);
+          } catch (_) { /* noop */ }
+          return;
         }
 
-        // Réinitialiser tous les styles de la couche
+        // Mettre en évidence tous les segments correspondant au même projet
         geojsonLayer.eachLayer(otherLayer => {
-          let otherProjectName;
+          let otherProjectNameRaw;
+          const op = (otherLayer && otherLayer.feature && otherLayer.feature.properties) || {};
           if (layerName === 'reseauProjeteSitePropre') {
-            const op = (otherLayer && otherLayer.feature && otherLayer.feature.properties) || {};
-            otherProjectName = op.Name || op.name;
+            otherProjectNameRaw = op.Name || op.name;
           } else if (layerName === 'voielyonnaise') {
-            const op = (otherLayer && otherLayer.feature && otherLayer.feature.properties) || {};
-            otherProjectName = op.line;
+            otherProjectNameRaw = op.line;
           } else {
-            const op = (otherLayer && otherLayer.feature && otherLayer.feature.properties) || {};
-            otherProjectName = op.name || op.Name;
+            otherProjectNameRaw = op.name || op.Name;
           }
+          const otherProjectName = otherProjectNameRaw ? String(otherProjectNameRaw).trim() : '';
 
-          if (otherProjectName === currentProjectName) {
+          if (otherProjectName && otherProjectName === currentProjectName) {
             if (typeof otherLayer.setStyle === 'function') {
               // Récupérer le style d'origine
               const originalStyle = getFeatureStyle(otherLayer.feature, layerName);
-              
+
               // Créer un style de surbrillance basé sur le style d'origine
               otherLayer.setStyle({
                 color: darkenColor(originalStyle.color || '#3388ff', 0.2), // Assombrir légèrement la couleur d'origine
@@ -923,7 +952,7 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
                 opacity: 1,
                 fillOpacity: originalStyle.fillOpacity || 0.2
               });
-              
+
               // Ajouter l'animation de pointillés
               otherLayer.dashInterval = animateDashLine(otherLayer);
             }
@@ -1418,16 +1447,21 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
       return null;
     }
     
+    // Normalisation robuste: comparer sur des slugs (sans accents/ponctuation, insensible à la casse)
     const normalizedName = projectName.toString().toLowerCase().trim();
+    const normalizedSlug = slugify(projectName);
     
     // Récupérer uniquement depuis contribution_uploads
     if (window.supabaseService?.fetchProjectsByCategory) {
       try {
-        const effectiveCat = (category === 'transport') ? 'mobilite' : category;
+        const cat = (category || '').toString().toLowerCase().trim();
+        // Harmoniser les catégories de navigation → catégories contribution_uploads
+        // transport → mobilite ; velo → voielyonnaise
+        const effectiveCat = (cat === 'transport') ? 'mobilite' : (cat === 'velo' ? 'voielyonnaise' : cat);
         const contributionProjects = await window.supabaseService.fetchProjectsByCategory(effectiveCat);
-        const contributionProject = contributionProjects.find(p => 
-          p.project_name && p.project_name.toLowerCase().trim() === normalizedName
-        );
+        const contributionProject = Array.isArray(contributionProjects)
+          ? contributionProjects.find(p => p?.project_name && slugify(p.project_name) === normalizedSlug)
+          : null;
         
         if (contributionProject) {
           return {

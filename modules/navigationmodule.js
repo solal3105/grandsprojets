@@ -85,16 +85,6 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
     console.log('Style du panneau de navigation ajusté');
   }
 
-  // Fonction utilitaire pour créer des slugs
-  const slugify = str => String(str || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Supprimer les accents
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '') // Ne garder que les caractères alphanumériques, espaces et tirets
-    .trim()
-    .replace(/\s+/g, '-') // Remplacer les espaces par des tirets
-    .replace(/-+/g, '-'); // Éviter les tirets multiples
-
   // Résolution robuste de l'URL d'illustration (fonctionne en sous-chemin et en file://)
   const resolveAssetUrl = (u) => {
     try {
@@ -113,8 +103,10 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
     } catch(_) { return u; }
   };
 
-  // Déterminer la catégorie effective
-  const effectiveCat = (category === 'transport') ? 'mobilite' : category;
+  // Déterminer la catégorie effective (harmonisation avec contribution_uploads)
+  const effectiveCat = (category === 'transport')
+    ? 'mobilite'
+    : (category === 'velo' ? 'voielyonnaise' : category);
   console.log('Catégorie effective:', effectiveCat);
 
   // Afficher le panneau de chargement
@@ -140,16 +132,13 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
         markdown_url: enrichedProps.markdown_url
       };
       console.log('Utilisation des données enrichies depuis les properties:', contributionProject);
-    } else if (window.supabaseService?.fetchProjectsByCategory) {
-      // Fallback: chercher dans contribution_uploads
+    } else if (window.supabaseService?.fetchProjectByCategoryAndName) {
+      // Recherche stricte: catégorie + nom exact
       try {
-        const contributionProjects = await window.supabaseService.fetchProjectsByCategory(effectiveCat);
-        contributionProject = contributionProjects.find(p => 
-          p.project_name && p.project_name.toLowerCase().trim() === projectName.toLowerCase().trim()
-        );
-        console.log('Projet trouvé dans contribution_uploads:', contributionProject);
+        contributionProject = await window.supabaseService.fetchProjectByCategoryAndName(effectiveCat, projectName);
+        console.log('Projet trouvé (strict) dans contribution_uploads:', contributionProject);
       } catch (error) {
-        console.warn('Erreur lors de la recherche dans contribution_uploads:', error);
+        console.warn('Erreur lors de la recherche stricte dans contribution_uploads:', error);
       }
     }
 
@@ -951,86 +940,28 @@ projectDetailPanel.classList.add('visible');
 
   // (ancienne version supprimée)
 
-  // --- Helpers: slugify and cover fetching from Markdown ---
-  const slugify = (str) => String(str || '')
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
-  function getMarkdownPathByCategory(name, category) {
-    if (!name) return null;
-    const slug = slugify(name);
-    if (category === 'urbanisme') return `pages/urbanisme/${slug}.md`;
-    if (category === 'transport' || category === 'mobilite') return `pages/mobilite/${slug}.md`;
-    if (category === 'velo') {
-      // Try to match files like pages/velo/ligne-1.md by extracting the first number
-      const m = String(name).match(/(\d+)/);
-      if (m) {
-        return `pages/velo/ligne-${m[1]}.md`;
-      }
-      return `pages/velo/${slug}.md`;
-    }
-    return null;
-  }
-
-  function extractCoverFromMarkdown(md) {
-    try {
-      const fm = md.match(/^---\s*\r?\n([\s\S]*?)\r?\n---\s*/);
-      if (!fm) return null;
-      const yml = fm[1];
-      let cover = null;
-      yml.split(/\r?\n/).forEach(line => {
-        const m = line.match(/^(\w+)\s*:\s*(.*)$/);
-        if (m && m[1] === 'cover') {
-          let v = String(m[2] || '').trim();
-          if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
-            v = v.slice(1, -1);
-          }
-          cover = v;
-        }
-      });
-      return cover || null;
-    } catch (_) { return null; }
-  }
+  // (Helpers legacy supprimés: slugify, getMarkdownPathByCategory, extractCoverFromMarkdown)
 
   const coverCache = new Map(); // key: `${category}|${name}` -> url|null
   async function fetchCoverForProject(name, category) {
     const key = `${category}|${name}`;
     if (coverCache.has(key)) return coverCache.get(key);
     
-    // 1️⃣ Chercher d'abord dans contribution_uploads
+    // Chercher strictement dans contribution_uploads
     try {
-      const effectiveCat = category === 'transport' ? 'mobilite' : category;
-      const contributionProjects = await window.supabaseService.fetchProjectsByCategory(effectiveCat);
-      const contributionProject = contributionProjects.find(p =>
-        p.project_name && p.project_name.toLowerCase().trim() === name.toLowerCase().trim()
-      );
-      
-      if (contributionProject?.cover_url) {
-        coverCache.set(key, contributionProject.cover_url);
-        return contributionProject.cover_url;
+      const effectiveCat = category === 'transport' ? 'mobilite' : (category === 'velo' ? 'voielyonnaise' : category);
+      if (window.supabaseService?.fetchProjectByCategoryAndName) {
+        const p = await window.supabaseService.fetchProjectByCategoryAndName(effectiveCat, name);
+        if (p?.cover_url) {
+          coverCache.set(key, p.cover_url);
+          return p.cover_url;
+        }
       }
     } catch (error) {
-      console.warn('Erreur lors de la récupération de la cover depuis contribution_uploads:', error);
+      console.warn('Erreur lors de la récupération stricte de la cover:', error);
     }
-    
-    // 2️⃣ Fallback: chercher dans le markdown legacy (pour compatibilité)
-    const mdPath = getMarkdownPathByCategory(name, category);
-    if (!mdPath) { coverCache.set(key, null); return null; }
-    try {
-      const res = await fetch(mdPath, { cache: 'force-cache' });
-      if (!res.ok) { coverCache.set(key, null); return null; }
-      const txt = await res.text();
-      const cover = extractCoverFromMarkdown(txt);
-      coverCache.set(key, cover || null);
-      return cover || null;
-    } catch (_) {
-      coverCache.set(key, null);
-      return null;
-    }
+    coverCache.set(key, null);
+    return null;
   }
 
   function attachCoverThumbnail(li, projectName, category) {

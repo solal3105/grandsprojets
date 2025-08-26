@@ -201,6 +201,21 @@
         if (is_default) defaultLayers.push(name);
       });
       
+      // Injecter les styles pour les couches exclues (style uniquement, pas d'URL)
+      try {
+        const excludedStyleOnly = ['voielyonnaise', 'reseauProjeteSitePropre', 'urbanisme'];
+        if (Array.isArray(excludedStyleOnly) && typeof supabaseService?.fetchLayerStylesByNames === 'function') {
+          const extraStyles = await supabaseService.fetchLayerStylesByNames(excludedStyleOnly);
+          Object.entries(extraStyles || {}).forEach(([lname, st]) => {
+            if (!styleMap[lname] && st) {
+              styleMap[lname] = st;
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('Impossible d\'injecter les styles des couches exclues:', e);
+      }
+      
       // Exposer defaultLayers globalement pour qu'il soit accessible depuis d'autres modules
       win.defaultLayers = defaultLayers;
 
