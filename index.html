@@ -114,6 +114,14 @@
         <button class="gp-modal-close" id="contrib-close" aria-label="Fermer">&times;</button>
       </div>
       <div class="gp-modal-body">
+        <!-- Tabs: Créer / Contributions -->
+        <div class="contrib-tabs" role="tablist" aria-label="Contribution">
+          <button id="contrib-tab-create" role="tab" aria-selected="true" aria-controls="contrib-panel-create" tabindex="0" class="gp-tab">Créer</button>
+          <button id="contrib-tab-list" role="tab" aria-selected="false" aria-controls="contrib-panel-list" tabindex="-1" class="gp-tab">Contributions</button>
+        </div>
+
+        <!-- Panel: Création / Édition -->
+        <section id="contrib-panel-create" role="tabpanel" aria-labelledby="contrib-tab-create">
         <form id="contrib-form" class="contrib-form">
           <div class="form-row">
             <label for="contrib-project-name">Nom du projet</label>
@@ -177,6 +185,7 @@
             <label for="contrib-cover">Cover (optionnelle)</label>
             <input type="file" id="contrib-cover" name="cover_file" accept="image/png,image/jpeg,image/webp" />
             <small>Image .png, .jpg ou .webp. Elle sera stockée et son URL journalisée.</small>
+            <div id="contrib-cover-preview" style="margin-top:6px"></div>
           </div>
 
           <div class="form-row">
@@ -225,9 +234,50 @@
               <i class="fa fa-paper-plane" aria-hidden="true"></i>
               <span>Envoyer</span>
             </button>
+            <button type="button" id="contrib-cancel-edit" class="gp-btn gp-btn--secondary" style="display:none">
+              <span>Annuler la modification</span>
+            </button>
             <div id="contrib-status" role="status" aria-live="polite" style="font-size:0.9em; opacity:0.8;"></div>
           </div>
         </form>
+        </section>
+
+        <!-- Panel: Liste des contributions -->
+        <section id="contrib-panel-list" role="tabpanel" aria-labelledby="contrib-tab-list" hidden>
+          <div class="form-row" style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+            <div style="flex:1 1 220px;">
+              <label for="contrib-search">Rechercher</label>
+              <input type="text" id="contrib-search" placeholder="Nom, méta, description..." />
+            </div>
+            <div style="flex:0 0 200px;">
+              <label for="contrib-filter-category">Catégorie</label>
+              <select id="contrib-filter-category">
+                <option value="">Toutes</option>
+                <option value="mobilite">Mobilité</option>
+                <option value="urbanisme">Urbanisme</option>
+                <option value="voielyonnaise">Voie Lyonnaise</option>
+              </select>
+            </div>
+            <div style="flex:0 0 200px;">
+              <label for="contrib-sort">Tri</label>
+              <select id="contrib-sort">
+                <option value="updated_at:desc">Plus récentes</option>
+                <option value="updated_at:asc">Plus anciennes</option>
+              </select>
+            </div>
+            <div style="flex:0 0 auto; align-self:center;">
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                <input type="checkbox" id="contrib-mine-only" />
+                <span>Mes contributions</span>
+              </label>
+            </div>
+          </div>
+          <div id="contrib-list" class="contrib-list" role="list" style="max-height:340px; overflow:auto; border:1px solid rgba(0,0,0,0.1); border-radius:8px; padding:6px;">
+            <!-- Items injectés en JS -->
+            <div id="contrib-list-sentinel" style="height:1px;"></div>
+          </div>
+          <div id="contrib-list-status" role="status" aria-live="polite" style="margin-top:6px; font-size:0.9em; opacity:0.8;"></div>
+        </section>
       </div>
     </div>
   </div>
@@ -353,5 +403,8 @@
   <script src="modules/eventbindings.js"></script>
   <script src="modules/contrib.js"></script>
   <script src="main.js"></script>
+  <!-- Toast container for accessible notifications -->
+  <div id="toast-container" aria-live="polite" aria-atomic="false" role="region" aria-label="Notifications"
+       style="position:fixed;right:12px;bottom:12px;display:flex;flex-direction:column;gap:8px;z-index:9999;"></div>
 </body>
 </html>

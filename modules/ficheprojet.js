@@ -82,6 +82,43 @@ async function appendCyclopolisCard(lineNumber, containerEl) {
   }
 }
 
+// Ajoute les cartes de liens officiels selon la catégorie détectée
+async function addOfficialLinkCards({ projectName, layerName, filterKey, filterValue, containerEl }) {
+  try {
+    if (!containerEl) return;
+    const ln = normalizeText(layerName || '');
+    const cat = (() => {
+      if (ln.includes('urbanisme')) return 'urbanisme';
+      if (ln.includes('voielyonnaise') || ln.includes('plan velo') || ln.includes('amenagement cyclable') || ln.includes('velo')) return 'voielyonnaise';
+      return 'mobilite';
+    })();
+
+    if (cat === 'voielyonnaise') {
+      // Préférence au numéro de ligne depuis filterValue, sinon tenter depuis le nom de projet
+      let n = '';
+      if (filterKey === 'line' && filterValue) n = String(filterValue).trim();
+      if (!n && projectName) {
+        const m = String(projectName).match(/(\d+)/);
+        if (m) n = m[1];
+      }
+      if (n) await appendCyclopolisCard(n, containerEl);
+      return;
+    }
+
+    if (cat === 'urbanisme') {
+      if (projectName) await appendGrandLyonCard(projectName, containerEl);
+      return;
+    }
+
+    // Mobilité: afficher SYTRAL pour les couches transport pertinentes
+    if (ln.includes('metro') || ln.includes('tram') || ln.includes('reseau') || ln.includes('site propre')) {
+      if (projectName) await appendSytralCard(projectName, containerEl);
+    }
+  } catch (e) {
+    console.warn('[ficheprojet] addOfficialLinkCards error:', e);
+  }
+}
+
 // Ajoute une carte "Voir sur grandlyon.com" pour les projets Urbanisme
 async function appendGrandLyonCard(projectName, containerEl) {
   try {
@@ -744,7 +781,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Charger exclusivement depuis contribution_uploads via Supabase
+  // Charger exclusivement depuis contribution_uploads via Supabase (recherche stricte)
   let contributionMdUrl = '';
   let contributionProject = null;
   try {
@@ -754,17 +791,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (ln.includes('voielyonnaise') || ln.includes('plan velo') || ln.includes('amenagement cyclable') || ln.includes('velo')) return 'voielyonnaise';
       return 'mobilite';
     })();
-    if (window.supabaseService?.fetchProjectsByCategory && projectName) {
-      const list = await window.supabaseService.fetchProjectsByCategory(effCat);
-      const found = Array.isArray(list) ? list.find(p => p?.project_name && String(p.project_name).toLowerCase().trim() === String(projectName).toLowerCase().trim()) : null;
+    if (window.supabaseService?.fetchProjectByCategoryAndName && projectName) {
+      const found = await window.supabaseService.fetchProjectByCategoryAndName(effCat, projectName);
       if (found) contributionProject = found;
       if (found?.markdown_url) {
         contributionMdUrl = found.markdown_url;
-        console.log(`[ficheprojet] Markdown depuis contribution_uploads: ${contributionMdUrl}`);
+        console.log(`[ficheprojet] Markdown depuis contribution_uploads (strict): ${contributionMdUrl}`);
       }
     }
   } catch (e) {
-    console.warn('[ficheprojet] Recherche markdown via Supabase échouée:', e);
+    console.warn('[ficheprojet] Recherche markdown via Supabase (strict) échouée:', e);
   }
 
   if (contributionMdUrl) {
@@ -828,14 +864,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Injecter uniquement le header, puis Cyclopolis (si VL), puis les documents, puis le corps
         textEl.innerHTML = headerHtml;
         textEl.classList.add('markdown-body');
-        if (layerName === 'voielyonnaise' && filterKey === 'line' && filterValue) {
-          await appendCyclopolisCard(filterValue, textEl);
-        }
-        if (layerName === 'urbanisme' && projectName) {
-          await appendGrandLyonCard(projectName, textEl);
-        } else if (projectName && (layerName === 'reseauProjeteSitePropre' || layerName === 'metro' || layerName === 'tramway')) {
-          await appendSytralCard(projectName, textEl);
-        }
+        await addOfficialLinkCards({ projectName, layerName, filterKey, filterValue, containerEl: textEl });
         await appendConsultationDocs(projectName, textEl);
 
         // Ne pas injecter le corps markdown pour les fiches vélo (Voie Lyonnaise)
@@ -913,14 +942,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         textEl.innerHTML = headerHtml;
         (async () => {
-          if (layerName === 'voielyonnaise' && filterKey === 'line' && filterValue) {
-            await appendCyclopolisCard(filterValue, textEl);
-          }
-          if (layerName === 'urbanisme' && projectName) {
-            await appendGrandLyonCard(projectName, textEl);
-          } else if (projectName && (layerName === 'reseauProjeteSitePropre' || layerName === 'metro' || layerName === 'tramway')) {
-            await appendSytralCard(projectName, textEl);
-          }
+          await addOfficialLinkCards({ projectName, layerName, filterKey, filterValue, containerEl: textEl });
           await appendConsultationDocs(projectName, textEl);
         })();
       });
@@ -960,14 +982,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     textEl.innerHTML = headerHtml;
     textEl.classList.add('markdown-body');
-    if (layerName === 'voielyonnaise' && filterKey === 'line' && filterValue) {
-      await appendCyclopolisCard(filterValue, textEl);
-    }
-    if (layerName === 'urbanisme' && projectName) {
-      await appendGrandLyonCard(projectName, textEl);
-    } else if (projectName && (layerName === 'reseauProjeteSitePropre' || layerName === 'metro' || layerName === 'tramway')) {
-      await appendSytralCard(projectName, textEl);
-    }
+    await addOfficialLinkCards({ projectName, layerName, filterKey, filterValue, containerEl: textEl });
     await appendConsultationDocs(projectName, textEl);
   }
 

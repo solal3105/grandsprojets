@@ -28,16 +28,178 @@
      * @returns {Promise<Array<{name:string, url:string, style:string, is_default:boolean}>>}
      */
     fetchLayersConfig: async function() {
+      // Exclure certaines couches du chargement depuis la table 'layers'.
+      // Ces couches restent visibles via d'autres sources (ex: contribution_uploads).
+      const EXCLUDED = new Set(['voielyonnaise', 'reseauProjeteSitePropre', 'urbanisme']);
+
       const { data, error } = await supabaseClient
         .from('layers')
         .select('name, url, style, is_default');
-      
+
       if (error) {
         console.error('fetchLayersConfig error:', error);
         return [];
       }
-      
-      return data;
+
+      // Filtrage côté client pour rester compatible toutes versions de supabase-js/postgrest
+      return (data || []).filter(row => row && !EXCLUDED.has(row.name));
+    },
+
+    /**
+     * Récupère uniquement les styles pour une liste de couches données depuis la table 'layers'.
+     * N'inclut PAS les URLs afin d'éviter tout chargement legacy non souhaité.
+     * @param {string[]} names - Liste des noms de couches.
+     * @returns {Promise<Record<string, any>>} mapping { name: style }
+     */
+    fetchLayerStylesByNames: async function(names) {
+      try {
+        if (!Array.isArray(names) || names.length === 0) return {};
+        const { data, error } = await supabaseClient
+          .from('layers')
+          .select('name, style')
+          .in('name', names);
+        if (error) {
+          console.error('[supabaseService] fetchLayerStylesByNames error:', error);
+          return {};
+        }
+        return (data || []).reduce((acc, row) => {
+          if (row && row.name) acc[row.name] = row.style;
+          return acc;
+        }, {});
+      } catch (e) {
+        console.warn('[supabaseService] fetchLayerStylesByNames exception:', e);
+        return {};
+      }
+    },
+
+    /**
+     * Liste les contributions avec filtres, recherche, tri et pagination.
+     * @param {Object} params
+     * @param {string} [params.search] - texte recherché dans project_name/meta/description
+     * @param {string} [params.category] - mobilite | urbanisme | voielyonnaise
+     * @param {number} [params.page=1]
+     * @param {number} [params.pageSize=10]
+     * @param {boolean} [params.mineOnly=true] - limiter aux contributions de l'utilisateur courant
+     * @param {string} [params.sortBy='created_at']
+     * @param {'asc'|'desc'} [params.sortDir='desc']
+     * @returns {Promise<{items:Array, count:number}>}
+     */
+    listContributions: async function(params) {
+      try {
+        const {
+          search = '',
+          category,
+          page = 1,
+          pageSize = 10,
+          mineOnly = true,
+          sortBy = 'created_at',
+          sortDir = 'desc'
+        } = params || {};
+
+        const from = Math.max(0, (page - 1) * pageSize);
+        const to = from + Math.max(1, pageSize) - 1;
+
+        let query = supabaseClient
+          .from('contribution_uploads')
+          .select('id, project_name, category, geojson_url, cover_url, markdown_url, meta, description, created_at, created_by', { count: 'exact' });
+
+        if (category) query = query.eq('category', category);
+
+        if (search && search.trim()) {
+          const s = search.trim();
+          // OR ilike on multiple text columns
+          const orExpr = [
+            `project_name.ilike.%${s}%`,
+            `meta.ilike.%${s}%`,
+            `description.ilike.%${s}%`
+          ].join(',');
+          query = query.or(orExpr);
+        }
+
+        if (mineOnly) {
+          try {
+            const { data: userData } = await supabaseClient.auth.getUser();
+            const uid = userData && userData.user ? userData.user.id : null;
+            if (uid) query = query.eq('created_by', uid);
+          } catch (_) {}
+        }
+
+        // Sorting (map 'updated_at' -> 'created_at' and guard allowed columns)
+        if (sortBy) {
+          const mapped = (sortBy === 'updated_at') ? 'created_at' : sortBy;
+          const allowedSorts = ['created_at', 'project_name', 'category', 'id'];
+          const orderColumn = allowedSorts.includes(mapped) ? mapped : 'created_at';
+          query = query.order(orderColumn, { ascending: (String(sortDir).toLowerCase() === 'asc') });
+        }
+
+        // Pagination
+        query = query.range(from, to);
+
+        const { data, error, count } = await query;
+        if (error) {
+          console.warn('[supabaseService] listContributions error:', error);
+          return { items: [], count: 0 };
+        }
+        return { items: data || [], count: typeof count === 'number' ? count : (data ? data.length : 0) };
+      } catch (e) {
+        console.warn('[supabaseService] listContributions exception:', e);
+        return { items: [], count: 0 };
+      }
+    },
+
+    /**
+     * Retourne une contribution par son id.
+     * @param {number} id
+     * @returns {Promise<object|null>}
+     */
+    getContributionById: async function(id) {
+      try {
+        if (!id) return null;
+        const { data, error } = await supabaseClient
+          .from('contribution_uploads')
+          .select('*')
+          .eq('id', id)
+          .single();
+        if (error) {
+          console.warn('[supabaseService] getContributionById error:', error);
+          return null;
+        }
+        return data || null;
+      } catch (e) {
+        console.warn('[supabaseService] getContributionById exception:', e);
+        return null;
+      }
+    },
+
+    /**
+     * Met à jour une contribution. RLS côté base doit contrôler les permissions.
+     * @param {number} id
+     * @param {Object} patch - champs autorisés: project_name, category, meta, description, geojson_url, cover_url, markdown_url
+     * @returns {Promise<{data?:object,error?:any}>}
+     */
+    updateContribution: async function(id, patch) {
+      try {
+        if (!id || !patch || typeof patch !== 'object') return { error: new Error('invalid args') };
+        // Sanitize fields
+        const allowed = ['project_name', 'category', 'meta', 'description', 'geojson_url', 'cover_url', 'markdown_url'];
+        const body = {};
+        allowed.forEach(k => { if (patch[k] !== undefined) body[k] = patch[k]; });
+        if (Object.keys(body).length === 0) return { data: null };
+        const { data, error } = await supabaseClient
+          .from('contribution_uploads')
+          .update(body)
+          .eq('id', id)
+          .select('*')
+          .single();
+        if (error) {
+          console.warn('[supabaseService] updateContribution error:', error);
+          return { error };
+        }
+        return { data };
+      } catch (e) {
+        console.warn('[supabaseService] updateContribution exception:', e);
+        return { error: e };
+      }
     },
 
     /**
@@ -179,6 +341,33 @@
         return [];
       }
       return data; 
+    },
+
+    /**
+     * Récupère un projet par catégorie ET nom exact (strict, sans normalisation)
+     * @param {string} category
+     * @param {string} projectName
+     * @returns {Promise<Object|null>}
+     */
+    fetchProjectByCategoryAndName: async function(category, projectName) {
+      try {
+        if (!category || !projectName) return null;
+        const { data, error } = await supabaseClient
+          .from('contribution_uploads')
+          .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description')
+          .eq('category', category)
+          .eq('project_name', projectName)
+          .limit(1)
+          .maybeSingle();
+        if (error) {
+          console.warn('[supabaseService] fetchProjectByCategoryAndName error:', error);
+          return null;
+        }
+        return data || null;
+      } catch (e) {
+        console.warn('[supabaseService] fetchProjectByCategoryAndName exception:', e);
+        return null;
+      }
     },
 
     /**
@@ -929,7 +1118,7 @@
         .entries(svc)
         .filter(([key, fn]) => key.startsWith('fetch') && typeof fn === 'function')
         // Exclure les fetchers non nécessaires au démarrage
-        .filter(([key]) => !['fetchUrbanismeProjects', 'fetchMobiliteProjects', 'fetchVoielyonnaiseProjects', 'fetchAllProjects', 'fetchProjectsByCategory', 'fetchProjectPages'].includes(key));
+        .filter(([key]) => !['fetchUrbanismeProjects', 'fetchMobiliteProjects', 'fetchVoielyonnaiseProjects', 'fetchAllProjects', 'fetchProjectsByCategory', 'fetchProjectByCategoryAndName', 'fetchProjectPages'].includes(key));
 
       // 2️⃣ appeler tous les fetchers en parallèle
       const results = await Promise.all(
