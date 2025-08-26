@@ -184,7 +184,7 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
         <div class="project-cover-wrap">
           <img class="project-cover" src="${coverUrl}" alt="${contributionProject.project_name || projectName}">
           <button class="cover-extend-btn" aria-label="Agrandir l'image" title="Agrandir">
-            <i class="fa fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
+            <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
           </button>
         </div>`;
       }
@@ -287,7 +287,7 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
       <div class="project-cover-wrap">
         <img class="project-cover" src="${coverUrl}" alt="${attrs.name||projectName||''}">
         <button class="cover-extend-btn" aria-label="Agrandir l'image" title="Agrandir">
-          <i class="fa fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
+          <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
         </button>
       </div>`;
     }
@@ -300,7 +300,7 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
     const description = contributionProject?.description || attrs.description;
     if(description) body+=`<p class="project-description">${description}</p>`;
 
-    const icons={velo:'fa-bicycle',mobilite:'fa-bus-alt',transport:'fa-bus-alt',urbanisme:'fa-city'};
+    const icons={velo:'fa-bicycle',mobilite:'fa-bus-simple',transport:'fa-bus-simple',urbanisme:'fa-city'};
 
     // 1) Utiliser la route dynamique pour la fiche complète
     let fullPageUrl = null;
@@ -327,11 +327,11 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
         </div>
       </div>
       <div class="project-title-container">
-        <i class="fas ${icons[category]||'fa-map'}"></i>
+        <i class="fa-solid ${icons[category]||'fa-map'}"></i>
         <h3 class="project-title">${projectName}</h3>
       </div>
       ${fullPageUrl ? `<a href="${fullPageUrl}" class="detail-fullpage-btn">
-         <i class=\"fas fa-external-link-alt\"></i>Voir la fiche complète
+         <i class="fa-solid fa-up-right-from-square"></i>Voir la fiche complète
         </a>` : ''}
       <div id="detail-content" class="markdown-body">${body}</div>`;
     
@@ -365,7 +365,7 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
           <div class="lightbox-content">
             <img src="${img.getAttribute('src')}" alt="${img.getAttribute('alt') || ''}">
             <button class="lightbox-close" aria-label="Fermer">
-              <i class="fa fa-xmark" aria-hidden="true"></i>
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
             </button>
           </div>
         `;
@@ -1376,7 +1376,7 @@ projectDetailPanel.classList.add('visible');
           <input id="date-fin-input" type="date" />
         </div>
         <div class="travaux-field travaux-reset">
-          <button type="button" id="reset-all-filters" class="travaux-reset-btn"><i class="fa fa-times-circle"></i> Réinitialiser</button>
+          <button type="button" id="reset-all-filters" class="travaux-reset-btn"><i class="fa-solid fa-circle-xmark"></i> Réinitialiser</button>
         </div>
       </form>
     `;
@@ -1436,7 +1436,7 @@ submenu.insertBefore(filterUX, listEl);
         // Pour le filtre _hideReseaux, on affiche toujours 'Exclure les réseaux'
         const displayText = key === '_hideReseaux' ? 'Exclure les réseaux' : (labels[key] || key);
         badge.setAttribute('aria-label', `Retirer filtre ${displayText}`);
-        badge.innerHTML = `<i class='fa fa-times'></i> <strong>${displayText}</strong>`;
+        badge.innerHTML = `<i class='fa-solid fa-xmark'></i> <strong>${displayText}</strong>`;
         badge.addEventListener('click', () => {
           // Retirer le filtre correspondant
           switch (key) {
