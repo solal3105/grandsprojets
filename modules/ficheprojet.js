@@ -744,19 +744,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Essayer d'abord de récupérer une URL markdown depuis contribution_uploads via Supabase
-  let source = '';
+  // Charger exclusivement depuis contribution_uploads via Supabase
   let contributionMdUrl = '';
+  let contributionProject = null;
   try {
     const effCat = (() => {
-      const ln = (layerName || '').toLowerCase();
-      if (ln === 'urbanisme') return 'urbanisme';
-      if (ln === 'voielyonnaise') return 'velo';
+      const ln = normalizeText(layerName || '');
+      if (ln.includes('urbanisme')) return 'urbanisme';
+      if (ln.includes('voielyonnaise') || ln.includes('plan velo') || ln.includes('amenagement cyclable') || ln.includes('velo')) return 'voielyonnaise';
       return 'mobilite';
     })();
     if (window.supabaseService?.fetchProjectsByCategory && projectName) {
       const list = await window.supabaseService.fetchProjectsByCategory(effCat);
       const found = Array.isArray(list) ? list.find(p => p?.project_name && String(p.project_name).toLowerCase().trim() === String(projectName).toLowerCase().trim()) : null;
+      if (found) contributionProject = found;
       if (found?.markdown_url) {
         contributionMdUrl = found.markdown_url;
         console.log(`[ficheprojet] Markdown depuis contribution_uploads: ${contributionMdUrl}`);
@@ -767,32 +768,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   if (contributionMdUrl) {
-    source = contributionMdUrl; // URL absolue (https://...)
-  } else if (layerName === 'voielyonnaise' && filterKey === 'line' && filterValue) {
-    source = `pages/velo/ligne-${filterValue}.md`;
-    console.log(`Chargement du fichier Markdown pour la Voie Lyonnaise ${filterValue}`);
-  } else if (layerName === 'urbanisme') {
-    const slug = slugify(projectName);
-    source = `pages/urbanisme/${slug}.md`;
-    console.log(`Chargement du fichier Markdown pour le projet urbanisme '${projectName}' → ${source}`);
-  } else {
-    // Projets de mobilité
-    const slug = slugify(projectName);
-    source = `pages/mobilite/${slug}.md`;
-    console.log(`Chargement du fichier Markdown pour le projet mobilité '${projectName}' → ${source}`);
-  }
-  
-  // Si la source se termine par .md ou si c'est une Voie Lyonnaise, on charge le fichier
-  if ((typeof source === 'string' && source.trim().toLowerCase().endsWith('.md')) || 
-      (layerName === 'voielyonnaise' && filterKey === 'line' && filterValue)) {
-    
-    // Pour les Voies Lyonnaises, on utilise le chemin construit plus haut
-    const markdownPath = layerName === 'voielyonnaise'
-      ? `/pages/velo/ligne-${filterValue}.md`  // chemin absolu depuis la racine du site
-      : ((/^https?:\/\//i.test(source)) ? source : (source.startsWith('/') ? source : `/${source}`));
-    
-    console.log(`Tentative de chargement du fichier: ${markdownPath}`);
-    
+    const markdownPath = contributionMdUrl;
+    console.log(`Tentative de chargement du fichier (contribution): ${markdownPath}`);
     fetch(markdownPath)
       .then(response => {
         if (!response.ok) throw new Error(`Erreur ${response.status}: ${response.statusText}`);
@@ -801,49 +778,49 @@ document.addEventListener('DOMContentLoaded', async () => {
       .then(async md => {
         console.log('Contenu Markdown chargé avec succès');
         // Utiliser MarkdownUtils pour parser front-matter + markdown
-        const { attrs, html } = MarkdownUtils.renderMarkdown(md);
+        const { html } = MarkdownUtils.renderMarkdown(md);
 
-        // SEO from front matter
-        try { applySEO(projectName, attrs, layerName); } catch(_) {}
+        // SEO: utiliser exclusivement les champs de contribution
+        try {
+          const chosenCover = contributionProject?.cover_url || '';
+          const seoAttrs = {
+            cover: chosenCover,
+            description: contributionProject?.description || '',
+            meta: contributionProject?.meta || ''
+          };
+          applySEO(projectName, seoAttrs, layerName);
+        } catch(_) {}
 
-        // 1. Header (cover + chips + description)
+        // 1. Header (cover + description depuis contributions)
         let headerHtml = '';
-        if (attrs.cover) {
-          // Apply blurred background image behind content
+        const chosenCover = contributionProject?.cover_url || '';
+        if (chosenCover) {
+          // Apply blurred background image derrière le contenu
           try {
             const articleSection = document.querySelector('.project-v2-article');
             if (articleSection) {
               articleSection.classList.add('has-cover-bg');
-              articleSection.style.setProperty('--cover-bg', `url('${attrs.cover}')`);
+              const __coverUrl = toAbsolute(chosenCover) || `${PROD_ORIGIN}/img/logomin.png`;
+              articleSection.style.setProperty('--cover-bg', `url('${__coverUrl}')`);
             }
           } catch (_) { /* no-op */ }
           headerHtml += `
             <div class="project-cover-wrap">
-              <img class="project-cover" src="${attrs.cover}" alt="${attrs.name || ''}">
+              <img class="project-cover" src="${toAbsolute(chosenCover) || `${PROD_ORIGIN}/img/logomin.png`}" alt="${projectName || ''}">
               <button class="cover-extend-btn" aria-label="Agrandir l'image" title="Agrandir">
                 <i class="fa fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
               </button>
             </div>
           `;
         }
-        const chipsArr = [];
-        if (attrs.from && attrs.to) {
-          chipsArr.push(`<span class="chip chip-route">${attrs.from} → ${attrs.to}</span>`);
-        } else if (attrs.from || attrs.to) {
-          chipsArr.push(`<span class="chip chip-route">${attrs.from || ''}${attrs.to ? ' → ' + attrs.to : ''}</span>`);
-        }
-        if (attrs.trafic) {
-          chipsArr.push(`<span class="chip chip-trafic">${attrs.trafic}</span>`);
-        }
-        if (attrs.description || chipsArr.length) {
+        if (contributionProject?.description) {
           headerHtml += `
             <section class="project-desc-card" aria-label="Description du projet">
               <h3 class="project-desc-title">
                 <i class="fa fa-info-circle" aria-hidden="true"></i>
                 Description du projet
               </h3>
-              ${chipsArr.length ? `<div class="project-chips">${chipsArr.join('')}</div>` : ''}
-              ${attrs.description ? `<p class="project-description">${attrs.description}</p>` : ''}
+              <p class="project-description">${contributionProject.description}</p>
             </section>
           `;
         }
@@ -901,63 +878,97 @@ document.addEventListener('DOMContentLoaded', async () => {
       })
       .catch(err => {
         console.error('Erreur lors du chargement du Markdown:', err);
-        // Afficher un message d'erreur avec le nom du projet
-        textEl.innerHTML = `
-          <div style="padding: 1em; background: #fff3f3; border-left: 4px solid #ff6b6b; margin: 1em 0;">
-            <h3>${projectName}</h3>
-            <p>Impossible de charger la description détaillée pour ce projet.</p>
-            <p><small>Erreur: ${err.message}</small></p>
-          </div>
-        `;
+        // En cas d'erreur, continuer avec l'entête depuis contribution (si dispo) + cartes et documents
+        try {
+          const chosenCover = contributionProject?.cover_url || '';
+          const seoAttrs = {
+            cover: chosenCover,
+            description: contributionProject?.description || '',
+            meta: contributionProject?.meta || ''
+          };
+          applySEO(projectName, seoAttrs, layerName);
+        } catch(_) {}
+        let headerHtml = '';
+        const chosenCover = contributionProject?.cover_url || '';
+        if (chosenCover) {
+          headerHtml += `
+            <div class="project-cover-wrap">
+              <img class="project-cover" src="${toAbsolute(chosenCover) || `${PROD_ORIGIN}/img/logomin.png`}" alt="${projectName || ''}">
+              <button class="cover-extend-btn" aria-label="Agrandir l'image" title="Agrandir">
+                <i class="fa fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
+              </button>
+            </div>
+          `;
+        }
+        if (contributionProject?.description) {
+          headerHtml += `
+            <section class="project-desc-card" aria-label="Description du projet">
+              <h3 class="project-desc-title">
+                <i class="fa fa-info-circle" aria-hidden="true"></i>
+                Description du projet
+              </h3>
+              <p class="project-description">${contributionProject.description}</p>
+            </section>
+          `;
+        }
+        textEl.innerHTML = headerHtml;
+        (async () => {
+          if (layerName === 'voielyonnaise' && filterKey === 'line' && filterValue) {
+            await appendCyclopolisCard(filterValue, textEl);
+          }
+          if (layerName === 'urbanisme' && projectName) {
+            await appendGrandLyonCard(projectName, textEl);
+          } else if (projectName && (layerName === 'reseauProjeteSitePropre' || layerName === 'metro' || layerName === 'tramway')) {
+            await appendSytralCard(projectName, textEl);
+          }
+          await appendConsultationDocs(projectName, textEl);
+        })();
       });
-  } else if (source) {
-    // source est le markdown inline
-    console.log('Utilisation du contenu Markdown inline');
-    const htmlStr = marked.parse(source);
-    // SEO fallback
-    try { applySEO(projectName, {}, layerName); } catch(_) {}
-    textEl.innerHTML = '';
-    // Ajouter Cyclopolis (si VL), puis la section Documents (au-dessus du contenu)
-    if (layerName === 'voielyonnaise' && filterKey === 'line' && filterValue) {
-      await appendCyclopolisCard(filterValue, textEl);
-    }
-    if (layerName === 'urbanisme' && projectName) {
-      await appendGrandLyonCard(projectName, textEl);
-    }
-    await appendConsultationDocs(projectName, textEl);
-    // Ne pas injecter le corps markdown pour les fiches vélo (Voie Lyonnaise)
-    if (!(layerName === 'voielyonnaise' && filterKey === 'line' && filterValue)) {
-      const articleDiv = document.createElement('div');
-      articleDiv.className = 'project-article';
-      articleDiv.innerHTML = htmlStr;
-      textEl.appendChild(articleDiv);
-    }
   } else {
-    console.warn('Aucune source de contenu trouvée pour ce projet');
-    textEl.innerHTML = '';
-    // SEO minimal
-    try { applySEO(projectName, {}, layerName); } catch(_) {}
-    // Ajouter d'abord Cyclopolis (si VL), puis la section Documents si disponible
+    // Pas d'URL markdown de contribution: utiliser uniquement cover + description depuis contribution
+    try {
+      const chosenCover = contributionProject?.cover_url || '';
+      const seoAttrs = {
+        cover: chosenCover,
+        description: contributionProject?.description || '',
+        meta: contributionProject?.meta || ''
+      };
+      applySEO(projectName, seoAttrs, layerName);
+    } catch(_) {}
+    let headerHtml = '';
+    const chosenCover = contributionProject?.cover_url || '';
+    if (chosenCover) {
+      headerHtml += `
+        <div class="project-cover-wrap">
+          <img class="project-cover" src="${toAbsolute(chosenCover) || `${PROD_ORIGIN}/img/logomin.png`}" alt="${projectName || ''}">
+          <button class="cover-extend-btn" aria-label="Agrandir l'image" title="Agrandir">
+            <i class="fa fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
+          </button>
+        </div>
+      `;
+    }
+    if (contributionProject?.description) {
+      headerHtml += `
+        <section class="project-desc-card" aria-label="Description du projet">
+          <h3 class="project-desc-title">
+            <i class="fa fa-info-circle" aria-hidden="true"></i>
+            Description du projet
+          </h3>
+          <p class="project-description">${contributionProject.description}</p>
+        </section>
+      `;
+    }
+    textEl.innerHTML = headerHtml;
+    textEl.classList.add('markdown-body');
     if (layerName === 'voielyonnaise' && filterKey === 'line' && filterValue) {
       await appendCyclopolisCard(filterValue, textEl);
     }
     if (layerName === 'urbanisme' && projectName) {
       await appendGrandLyonCard(projectName, textEl);
+    } else if (projectName && (layerName === 'reseauProjeteSitePropre' || layerName === 'metro' || layerName === 'tramway')) {
+      await appendSytralCard(projectName, textEl);
     }
     await appendConsultationDocs(projectName, textEl);
-    // Ne pas afficher de fallback textuel pour les fiches vélo (seulement Cyclopolis + docs)
-    if (!(layerName === 'voielyonnaise' && filterKey === 'line' && filterValue)) {
-      const fallback = document.createElement('div');
-      fallback.style.padding = '1em';
-      fallback.style.background = '#fff8e6';
-      fallback.style.borderLeft = '4px solid #ffcc00';
-      fallback.style.margin = '1em 0';
-      fallback.innerHTML = `
-        <h3>${projectName}</h3>
-        <p>Aucune description disponible pour ce projet.</p>
-      `;
-      textEl.appendChild(fallback);
-    }
   }
 
   // S'assurer que Font Awesome est disponible (icônes back/toggle)
@@ -1637,26 +1648,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         return [];
       }
       
-      if (!layerConfig.url) {
-        console.error(`URL manquante pour la couche '${layerName}'`);
-        console.log('Configuration de la couche trouvée:', JSON.stringify(layerConfig, null, 2));
-        return [];
-      }
-      
       console.log(`Configuration de la couche '${layerName}' trouvée:`, layerConfig);
       
-      // 3. Charger le fichier GeoJSON depuis l'URL
-      console.log(`Chargement du GeoJSON depuis: ${layerConfig.url}`);
-      console.log(`Chargement des données depuis: ${layerConfig.url}`);
-      const response = await fetch(layerConfig.url);
-      
-      if (!response.ok) {
-        console.error(`Erreur HTTP ${response.status} pour l'URL: ${layerConfig.url}`);
-        throw new Error(`Erreur HTTP: ${response.status}`);
-      }
-      
-      const geojsonData = await response.json();
-      console.log(`Données GeoJSON brutes pour '${layerName}':`, geojsonData);
+      // 3. Charger les GeoJSON depuis contribution_uploads
+      const effCat = (() => {
+        const ln = normalizeText(layerName || '');
+        if (ln.includes('urbanisme')) return 'urbanisme';
+        if (ln.includes('voielyonnaise') || ln.includes('plan velo') || ln.includes('amenagement cyclable') || ln.includes('velo')) return 'voielyonnaise';
+        return 'mobilite';
+      })();
+      console.log(`[ficheprojet] Chargement des contributions pour catégorie: ${effCat}`);
+      const geojsonData = await window.supabaseService.loadContributionGeoJSON(
+        layerName,
+        effCat,
+        {
+          // Filtrage côté service pour limiter les fetch et unifier la logique
+          projectName: projectName || undefined,
+          filterKey: filterKey || undefined,
+          filterValue: filterValue || undefined
+        }
+      );
+      console.log(`Données GeoJSON (contributions) pour '${layerName}':`, geojsonData);
       
       // Afficher un résumé des propriétés des features
       if (geojsonData.features && geojsonData.features.length > 0) {
@@ -1664,37 +1676,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('Propriétés disponibles:', Object.keys(geojsonData.features[0].properties || {}).join(', '));
       }
       
-      // 4. Filtrer les features
-      let features = geojsonData.features || [];
-
-      // 4.a Filtrage explicite via filterKey/filterValue (ex. voies lyonnaises) avec normalisation
-      if (filterKey && filterValue) {
-        const normKey = normalizeText(filterKey).replace(/\s+/g, '');
-        const normVal = normalizeText(String(filterValue)).replace(/\s+/g, '');
-        const beforeCount = features.length;
-        features = features.filter(f => {
-          const props = (f && f.properties) ? f.properties : {};
-          // Trouver la clé de propriété en ignorant casse/accents/ponctuation
-          let matchedKey = Object.keys(props).find(k => normalizeText(k).replace(/\s+/g, '') === normKey) || (Object.prototype.hasOwnProperty.call(props, filterKey) ? filterKey : null);
-          if (!matchedKey) return false;
-          const v = props[matchedKey];
-          if (v === undefined || v === null) return false;
-          return normalizeText(String(v)).replace(/\s+/g, '') === normVal;
-        });
-        console.log(`Filtrage appliqué (normalisé): ${filterKey} ≈ ${filterValue} → ${features.length}/${beforeCount} features`);
-      }
-
-      // 4.b Filtrage automatique pour Urbanisme: ne garder que le projet courant (avec normalisation)
-      if (layerName === 'urbanisme' && projectName) {
-        const target = normalizeText(projectName);
-        const beforeCount = features.length;
-        features = features.filter(f => {
-          const props = f && f.properties ? f.properties : {};
-          const candidate = normalizeText(props.name || props.nom || props.Name || props.NOM || '');
-          return candidate === target;
-        });
-        console.log(`Filtrage Urbanisme par nom (normalisé) « ${projectName} » → ${features.length}/${beforeCount} features`);
-      }
+      // 4. Les features sont déjà filtrées côté service selon projectName/filterKey/filterValue
+      const features = geojsonData.features || [];
       
       return features;
       
@@ -1729,19 +1712,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     })
     .then(data => {
       // Conserver pour l'aperçu dans la carte (mobile)
+      try { window.__fpGeoPreview = data; } catch(_) {}
+
+      // Nettoyage: retirer l'ancienne couche et les anciens marqueurs caméra
       try {
-        filteredGeoJSONForPreview = data;
-        updateCardPreview();
+        if (geoLayerRef && map && typeof map.removeLayer === 'function' && map.hasLayer(geoLayerRef)) {
+          map.removeLayer(geoLayerRef);
+        }
       } catch(_) {}
-      
-      // Créer et ajouter la couche avec le style de DataModule si disponible
-      console.log('Configuration de style de la couche:', layerConfig.style);
-      
+      try {
+        __cameraMarkers.forEach(mk => {
+          try { if (map.hasLayer(mk)) map.removeLayer(mk); } catch(_) {}
+        });
+        __cameraMarkers.clear();
+      } catch(_) {}
+
       const geoLayer = L.geoJSON(data, {
         style: (feature) => {
           // Base: style provenant de la configuration de la couche (Supabase)
           const base = (layerConfig && layerConfig.style) ? layerConfig.style : {};
-          // Override possible par DataModule
           const dmStyle = window.DataModule?.getFeatureStyle?.(feature, layerName) || {};
           const style = { ...base, ...dmStyle };
 
@@ -1808,7 +1797,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
               };
 
-              const imgUrl = props.imgUrl; // clé fournie par l'utilisateur
+              const imgUrl = props.imgUrl || props.cover_url; // fallback sur cover_url des contributions
               if (imgUrl) {
                 const title = props.titre || props.title || props.name || props.nom || '';
                 const dmHtml = (window.DataModule && typeof window.DataModule.generateTooltipContent === 'function')
@@ -1816,7 +1805,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                   : `
                     <div class="map-photo" style="max-width:260px">
                       <img src="${imgUrl}" alt="photo" style="max-width:260px;max-height:180px;display:block;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.35)" />
-                      ${title ? `<div style="margin-top:6px;font-weight:500;color:#333">${title}</div>` : ''}
+                      ${title ? `<div style=\"margin-top:6px;font-weight:500;color:#333\">${title}</div>` : ''}
                     </div>
                   `;
                 const ensurePopup = () => { try { layer.bindPopup(dmHtml, { autoPan: true, closeButton: true, maxWidth: 300 }); } catch(_) {} };
