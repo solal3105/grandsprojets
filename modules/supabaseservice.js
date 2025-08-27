@@ -21,6 +21,16 @@
     .trim()
     .toLowerCase();
 
+  // Helper: get active city from window or URL param
+  const getActiveCity = () => {
+    try {
+      if (win.activeCity && String(win.activeCity).trim()) return String(win.activeCity).trim();
+      const url = new URL(win.location.href);
+      const c = url.searchParams.get('city');
+      return c && c.trim() ? c.trim() : '';
+    } catch (_) { return ''; }
+  };
+
   // 2️⃣ Expose supabaseService sur window
   win.supabaseService = {
     /**
@@ -93,7 +103,8 @@
           pageSize = 10,
           mineOnly = true,
           sortBy = 'created_at',
-          sortDir = 'desc'
+          sortDir = 'desc',
+          city
         } = params || {};
 
         const from = Math.max(0, (page - 1) * pageSize);
@@ -101,9 +112,12 @@
 
         let query = supabaseClient
           .from('contribution_uploads')
-          .select('id, project_name, category, geojson_url, cover_url, markdown_url, meta, description, created_at, created_by', { count: 'exact' });
+          .select('id, project_name, category, geojson_url, cover_url, markdown_url, meta, description, created_at, created_by, ville', { count: 'exact' });
 
         if (category) query = query.eq('category', category);
+
+        const activeCity = city || getActiveCity();
+        if (activeCity) query = query.or(`ville.eq.${activeCity},ville.is.null`);
 
         if (search && search.trim()) {
           const s = search.trim();
@@ -181,7 +195,7 @@
       try {
         if (!id || !patch || typeof patch !== 'object') return { error: new Error('invalid args') };
         // Sanitize fields
-        const allowed = ['project_name', 'category', 'meta', 'description', 'geojson_url', 'cover_url', 'markdown_url'];
+        const allowed = ['project_name', 'category', 'meta', 'description', 'geojson_url', 'cover_url', 'markdown_url', 'ville'];
         const body = {};
         allowed.forEach(k => { if (patch[k] !== undefined) body[k] = patch[k]; });
         if (Object.keys(body).length === 0) return { data: null };
@@ -199,6 +213,83 @@
       } catch (e) {
         console.warn('[supabaseService] updateContribution exception:', e);
         return { error: e };
+      }
+    },
+
+    /**
+     * Supprime une contribution et nettoie les éléments associés:
+     * - Fichiers Storage (geojson/cover/markdown) dans le bucket 'uploads'
+     * - Dossiers de concertation liés au project_name
+     * - Ligne dans contribution_uploads
+     * RLS/Storage doivent autoriser la suppression pour les utilisateurs authentifiés.
+     * @param {number} id
+     * @returns {Promise<{success:boolean, error?:any}>}
+     */
+    deleteContribution: async function(id) {
+      try {
+        if (!id) return { success: false, error: new Error('invalid id') };
+
+        // 1) Récupérer la ligne pour connaître project_name et URLs
+        const row = await this.getContributionById(id);
+        if (!row) return { success: false, error: new Error('not found') };
+
+        const urls = [row.geojson_url, row.cover_url, row.markdown_url].filter(Boolean);
+        const bucket = 'uploads';
+
+        // Helper: extraire le chemin Storage à partir d'une URL publique
+        const toStoragePath = (url) => {
+          try {
+            if (!url) return null;
+            const marker = '/object/public/';
+            const i = url.indexOf(marker);
+            if (i === -1) return null;
+            const after = url.slice(i + marker.length); // e.g. 'uploads/geojson/projects/...'
+            const prefix = 'uploads/';
+            return after.startsWith(prefix) ? after.slice(prefix.length) : null; // path relative to bucket
+          } catch (_) {
+            return null;
+          }
+        };
+
+        // 2) Supprimer les fichiers Storage s'ils existent
+        const paths = urls.map(toStoragePath).filter(Boolean);
+        if (paths.length) {
+          try {
+            const { data: remData, error: remErr } = await supabaseClient
+              .storage
+              .from(bucket)
+              .remove(paths);
+            if (remErr) console.warn('[supabaseService] deleteContribution storage.remove warning:', remErr, remData);
+          } catch (remEx) {
+            console.warn('[supabaseService] deleteContribution storage.remove exception:', remEx);
+          }
+        }
+
+        // 3) Supprimer les dossiers de concertation liés (par nom exact)
+        try {
+          const { error: delDocErr } = await supabaseClient
+            .from('consultation_dossiers')
+            .delete()
+            .eq('project_name', row.project_name);
+          if (delDocErr) console.warn('[supabaseService] deleteContribution dossiers warning:', delDocErr);
+        } catch (docEx) {
+          console.warn('[supabaseService] deleteContribution dossiers exception:', docEx);
+        }
+
+        // 4) Supprimer la ligne principale
+        const { error: delErr } = await supabaseClient
+          .from('contribution_uploads')
+          .delete()
+          .eq('id', id);
+        if (delErr) {
+          console.warn('[supabaseService] deleteContribution row error:', delErr);
+          return { success: false, error: delErr };
+        }
+
+        return { success: true };
+      } catch (e) {
+        console.warn('[supabaseService] deleteContribution exception:', e);
+        return { success: false, error: e };
       }
     },
 
@@ -263,10 +354,13 @@
      * @returns {Promise<Array<{project_name:string, category:string, geojson_url:string, cover_url:string, markdown_url:string, meta:string, description:string}>>}
      */
     fetchAllProjects: async function() {
-      const { data, error } = await supabaseClient
+      const activeCity = getActiveCity();
+      let q = supabaseClient
         .from('contribution_uploads')
-        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description')
+        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
         .order('created_at', { ascending: false });
+      if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
+      const { data, error } = await q;
       if (error) {
         console.error('fetchAllProjects error:', error);
         return [];
@@ -279,11 +373,14 @@
      * @returns {Promise<Array<{project_name:string, category:string, geojson_url:string, cover_url:string, markdown_url:string, meta:string, description:string}>>}
      */
     fetchUrbanismeProjects: async function() {
-      const { data, error } = await supabaseClient
+      const activeCity = getActiveCity();
+      let q = supabaseClient
         .from('contribution_uploads')
-        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description')
+        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
         .eq('category', 'urbanisme')
         .order('created_at', { ascending: false });
+      if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
+      const { data, error } = await q;
       if (error) {
         console.error('fetchUrbanismeProjects error:', error);
         return [];
@@ -296,11 +393,14 @@
      * @returns {Promise<Array<{project_name:string, category:string, geojson_url:string, cover_url:string, markdown_url:string, meta:string, description:string}>>}
      */
     fetchMobiliteProjects: async function() {
-      const { data, error } = await supabaseClient
+      const activeCity = getActiveCity();
+      let q = supabaseClient
         .from('contribution_uploads')
-        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description')
+        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
         .eq('category', 'mobilite')
         .order('created_at', { ascending: false });
+      if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
+      const { data, error } = await q;
       if (error) {
         console.error('fetchMobiliteProjects error:', error);
         return [];
@@ -313,11 +413,14 @@
      * @returns {Promise<Array<{project_name:string, category:string, geojson_url:string, cover_url:string, markdown_url:string, meta:string, description:string}>>}
      */
     fetchVoielyonnaiseProjects: async function() {
-      const { data, error } = await supabaseClient
+      const activeCity = getActiveCity();
+      let q = supabaseClient
         .from('contribution_uploads')
-        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description')
+        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
         .eq('category', 'voielyonnaise')
         .order('created_at', { ascending: false });
+      if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
+      const { data, error } = await q;
       if (error) {
         console.error('fetchVoielyonnaiseProjects error:', error);
         return [];
@@ -331,11 +434,14 @@
      * @returns {Promise<Array<{project_name:string, category:string, geojson_url:string, cover_url:string, markdown_url:string, meta:string, description:string}>>}
      */
     fetchProjectsByCategory: async function(category) {
-      const { data, error } = await supabaseClient
+      const activeCity = getActiveCity();
+      let q = supabaseClient
         .from('contribution_uploads')
-        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description')
+        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
         .eq('category', category)
         .order('created_at', { ascending: false });
+      if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
+      const { data, error } = await q;
       if (error) {
         console.error('fetchProjectsByCategory error:', error);
         return [];
@@ -713,6 +819,33 @@
     },
 
     /**
+     * Récupère les infos de branding pour une ville donnée.
+     * Table: public.city_branding(ville, brand_name, logo_url, dark_logo_url, favicon_url)
+     * @param {string} ville
+     * @returns {Promise<{ville:string,brand_name?:string,logo_url:string,dark_logo_url?:string,favicon_url?:string}|null>}
+     */
+    getCityBranding: async function(ville) {
+      try {
+        const v = String(ville || '').trim();
+        if (!v) return null;
+        const { data, error } = await supabaseClient
+          .from('city_branding')
+          .select('ville, brand_name, logo_url, dark_logo_url, favicon_url')
+          .eq('ville', v)
+          .limit(1)
+          .maybeSingle();
+        if (error) {
+          console.warn('[supabaseService] getCityBranding error:', error);
+          return null;
+        }
+        return data || null;
+      } catch (e) {
+        console.warn('[supabaseService] getCityBranding exception:', e);
+        return null;
+      }
+    },
+
+    /**
      * Retourne les dossiers de concertation pour un projet donné.
      * Ne commence pas par "fetch" pour éviter l'appel automatique dans initAllData.
      * @param {string} projectName
@@ -971,15 +1104,15 @@
      * Crée la ligne contribution (une seule par soumission) et retourne son id.
      * Remplit created_by avec l'UUID de l'utilisateur connecté.
      */
-    createContributionRow: async function(projectName, category) {
+    createContributionRow: async function(projectName, category, city) {
       try {
-        if (!projectName || !category) throw new Error('Paramètres manquants');
+        if (!projectName || !category || !city) throw new Error('Paramètres manquants');
         let createdBy = null;
         try {
           const { data: userData } = await supabaseClient.auth.getUser();
           if (userData && userData.user) createdBy = userData.user.id;
         } catch (_) {}
-        const baseRow = { project_name: projectName, category };
+        const baseRow = { project_name: projectName, category, ville: city };
         if (createdBy) baseRow.created_by = createdBy;
         const { data, error } = await supabaseClient
           .from('contribution_uploads')
@@ -994,6 +1127,31 @@
       } catch (e) {
         console.warn('[supabaseService] createContributionRow exception:', e);
         throw e;
+      }
+    },
+
+    /**
+     * Liste des villes distinctes présentes dans la base pour alimenter le sélecteur.
+     * Source: contribution_uploads.ville (filtrées, non null/non vide), dédupliquées côté client.
+     * @returns {Promise<string[]>}
+     */
+    listCities: async function() {
+      try {
+        const { data, error } = await supabaseClient
+          .from('contribution_uploads')
+          .select('ville');
+        if (error) {
+          console.warn('[supabaseService] listCities error:', error);
+          return [];
+        }
+        const vals = Array.isArray(data) ? data.map(r => (r && r.ville ? String(r.ville).trim() : '')) : [];
+        const uniq = Array.from(new Set(vals.filter(v => !!v)));
+        // tri alpha pour UX stable
+        uniq.sort((a,b) => a.localeCompare(b));
+        return uniq;
+      } catch (e) {
+        console.warn('[supabaseService] listCities exception:', e);
+        return [];
       }
     },
 

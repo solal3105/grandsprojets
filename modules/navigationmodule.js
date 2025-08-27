@@ -160,55 +160,8 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
       }
     }
 
-    // 3️⃣ Si pas de markdown mais qu'on a un projet dans contribution_uploads, créer un contenu minimal
-    if (!md && contributionProject) {
-      console.log('Pas de markdown_url, création d\'un contenu minimal depuis contribution_uploads');
-      
-      let body = '';
-      
-      // Cover depuis contribution_uploads
-      if (contributionProject.cover_url) {
-        const coverUrl = resolveAssetUrl(contributionProject.cover_url);
-        body += `
-        <div class="project-cover-wrap">
-          <img class="project-cover" src="${coverUrl}" alt="${contributionProject.project_name || projectName}">
-          <button class="cover-extend-btn" aria-label="Agrandir l'image" title="Agrandir">
-            <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
-          </button>
-        </div>`;
-      }
-      
-      // Description depuis contribution_uploads
-      if (contributionProject.description) {
-        body += `<p class="project-description">${contributionProject.description}</p>`;
-      }
-      
-      // Afficher le contenu minimal
-      panel.innerHTML = `
-        <div class="project-detail-content">
-          <div class="project-header">
-            <h2 class="project-title">${contributionProject.project_name || projectName}</h2>
-          </div>
-          ${body}
-        </div>
-      `;
-      
-      // Gérer le clic sur l'image de couverture pour l'agrandir
-      const coverBtn = panel.querySelector('.cover-extend-btn');
-      if (coverBtn && contributionProject.cover_url) {
-        coverBtn.addEventListener('click', () => {
-          if (window.DataModule?.openCoverLightbox) {
-            window.DataModule.openCoverLightbox(contributionProject.cover_url, contributionProject.project_name || projectName);
-          }
-        });
-      }
-      
-      console.groupEnd();
-      return;
-    }
-    
-    // 4️⃣ Si pas de markdown et pas de projet dans contribution_uploads, afficher un message
-    if (!md) {
+    // 3️⃣ Si pas de markdown et pas de projet dans contribution_uploads, afficher un message
+    if (!md && !contributionProject) {
       panel.innerHTML = `
         <div style="padding: 2em; text-align: center; color: #666;">
           <h3>Projet non trouvé</h3>
@@ -251,10 +204,15 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
       }
     }
 
-    await ensureMarkdownUtils();
-    console.log('Traitement du contenu Markdown...');
-    const { attrs, html } = window.MarkdownUtils.renderMarkdown(md);
-    console.log('Contenu Markdown traité avec succès');
+    // Traiter le markdown uniquement s'il existe; sinon continuer avec attrs/html vides
+    let attrs = {};
+    let html = '';
+    if (md) {
+      await ensureMarkdownUtils();
+      console.log('Traitement du contenu Markdown...');
+      ({ attrs, html } = window.MarkdownUtils.renderMarkdown(md));
+      console.log('Contenu Markdown traité avec succès');
+    }
     
 
     const extractFirstImageSrc = (markup) => {
