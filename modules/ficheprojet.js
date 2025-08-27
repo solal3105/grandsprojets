@@ -89,11 +89,11 @@ async function addOfficialLinkCards({ projectName, layerName, filterKey, filterV
     const ln = normalizeText(layerName || '');
     const cat = (() => {
       if (ln.includes('urbanisme')) return 'urbanisme';
-      if (ln.includes('voielyonnaise') || ln.includes('plan velo') || ln.includes('amenagement cyclable') || ln.includes('velo')) return 'voielyonnaise';
+      if (ln.includes('voielyonnaise') || ln.includes('plan velo') || ln.includes('amenagement cyclable') || ln.includes('velo')) return 'velo';
       return 'mobilite';
     })();
 
-    if (cat === 'voielyonnaise') {
+    if (cat === 'velo') {
       // Préférence au numéro de ligne depuis filterValue, sinon tenter depuis le nom de projet
       let n = '';
       if (filterKey === 'line' && filterValue) n = String(filterValue).trim();
@@ -788,7 +788,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const effCat = (() => {
       const ln = normalizeText(layerName || '');
       if (ln.includes('urbanisme')) return 'urbanisme';
-      if (ln.includes('voielyonnaise') || ln.includes('plan velo') || ln.includes('amenagement cyclable') || ln.includes('velo')) return 'voielyonnaise';
+      if (ln.includes('voielyonnaise') || ln.includes('plan velo') || ln.includes('amenagement cyclable') || ln.includes('velo')) return 'velo';
       return 'mobilite';
     })();
     if (window.supabaseService?.fetchProjectByCategoryAndName && projectName) {
@@ -1658,41 +1658,79 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
       
       if (!layerConfig) {
-        console.error(`Configuration de la couche '${layerName}' non trouvée (norm='${normTarget}')`);
-        console.log('Couches disponibles:', layersConfig.map(l => `${l.name} (norm='${normalizeText(l.name)}')`).join(', '));
-        return [];
+        console.warn(`Configuration de la couche '${layerName}' absente dans layersConfig (norm='${normTarget}'). Tentative de récupération du style direct depuis 'layers'.`);
+        try {
+          if (window.supabaseService?.fetchLayerStylesByNames) {
+            const stylesMap = await window.supabaseService.fetchLayerStylesByNames([layerName]);
+            const s = stylesMap && stylesMap[layerName] ? stylesMap[layerName] : null;
+            if (s && typeof s === 'object') {
+              layerConfig = { name: layerName, style: s };
+              // Optionnel: injecter dans DataModule pour cohérence des callbacks de style
+              try { window.DataModule?.initConfig?.({ styleMap: { [layerName]: s } }); } catch(_) {}
+              console.log(`[ficheprojet] Style récupéré depuis 'layers' pour '${layerName}':`, s);
+            }
+          }
+        } catch (e) {
+          console.warn(`[ficheprojet] fetchLayerStylesByNames a échoué pour '${layerName}':`, e);
+        }
+
+        // Fallback final: style par défaut DataModule pour garder un rendu
+        if (!layerConfig) {
+          const def = (window.DataModule && typeof window.DataModule.getDefaultStyle === 'function')
+            ? (window.DataModule.getDefaultStyle(layerName) || {})
+            : {};
+          layerConfig = { name: layerName, style: def };
+          console.warn(`[ficheprojet] Utilisation du style par défaut DataModule pour '${layerName}'.`);
+        }
       }
-      
-      console.log(`Configuration de la couche '${layerName}' trouvée:`, layerConfig);
+
+      console.log(`Configuration de la couche '${layerName}' (finale):`, layerConfig);
       
       // 3. Charger les GeoJSON depuis contribution_uploads
       const effCat = (() => {
         const ln = normalizeText(layerName || '');
         if (ln.includes('urbanisme')) return 'urbanisme';
-        if (ln.includes('voielyonnaise') || ln.includes('plan velo') || ln.includes('amenagement cyclable') || ln.includes('velo')) return 'voielyonnaise';
+        // Catégorie vélo standardisée: toujours 'velo'
+        if (ln.includes('voielyonnaise') || ln.includes('plan velo') || ln.includes('amenagement cyclable') || ln.includes('velo')) return 'velo';
         return 'mobilite';
       })();
-      console.log(`[ficheprojet] Chargement des contributions pour catégorie: ${effCat}`);
-      const geojsonData = await window.supabaseService.loadContributionGeoJSON(
-        layerName,
-        effCat,
-        {
-          // Filtrage côté service pour limiter les fetch et unifier la logique
-          projectName: projectName || undefined,
-          filterKey: filterKey || undefined,
-          filterValue: filterValue || undefined
-        }
-      );
-      console.log(`Données GeoJSON (contributions) pour '${layerName}':`, geojsonData);
-      
-      // Afficher un résumé des propriétés des features
-      if (geojsonData.features && geojsonData.features.length > 0) {
-        console.log(`Nombre de features: ${geojsonData.features.length}`);
-        console.log('Propriétés disponibles:', Object.keys(geojsonData.features[0].properties || {}).join(', '));
+      console.log(`[ficheprojet] Chargement du projet exact (category='${effCat}', project='${projectName}')`);
+      if (!projectName) {
+        console.warn('[ficheprojet] Paramètre project manquant dans l’URL, aucune donnée à charger.');
+        return [];
       }
-      
-      // 4. Les features sont déjà filtrées côté service selon projectName/filterKey/filterValue
-      const features = geojsonData.features || [];
+      const project = await window.supabaseService.fetchProjectByCategoryAndName(effCat, projectName);
+      if (!project || !project.geojson_url) {
+        console.warn(`[ficheprojet] Projet introuvable ou sans geojson_url (category='${effCat}', project='${projectName}')`);
+        return [];
+      }
+      let features = [];
+      try {
+        const resp = await fetch(project.geojson_url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const gj = await resp.json();
+        if (gj && gj.type === 'FeatureCollection' && Array.isArray(gj.features)) {
+          features = gj.features;
+        } else if (gj && gj.type === 'Feature') {
+          features = [gj];
+        } else {
+          features = [];
+        }
+        // Injecter les métadonnées du projet dans chaque feature
+        features.forEach(f => {
+          if (!f.properties) f.properties = {};
+          f.properties.project_name = project.project_name;
+          f.properties.category = project.category;
+          f.properties.cover_url = project.cover_url;
+          f.properties.markdown_url = project.markdown_url;
+          f.properties.meta = project.meta;
+          f.properties.description = project.description;
+        });
+        console.log(`[ficheprojet] Features chargées: ${features.length}`);
+      } catch (e) {
+        console.error('[ficheprojet] Erreur chargement GeoJSON du projet:', e);
+        features = [];
+      }
       
       return features;
       

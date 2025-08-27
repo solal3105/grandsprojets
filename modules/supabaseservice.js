@@ -86,7 +86,7 @@
      * Liste les contributions avec filtres, recherche, tri et pagination.
      * @param {Object} params
      * @param {string} [params.search] - texte recherché dans project_name/meta/description
-     * @param {string} [params.category] - mobilite | urbanisme | voielyonnaise
+     * @param {string} [params.category] - mobilite | urbanisme | velo
      * @param {number} [params.page=1]
      * @param {number} [params.pageSize=10]
      * @param {boolean} [params.mineOnly=true] - limiter aux contributions de l'utilisateur courant
@@ -409,7 +409,7 @@
     },
 
     /**
-     * Récupère la liste des projets de voie lyonnaise depuis contribution_uploads
+     * Récupère la liste des projets vélo depuis contribution_uploads
      * @returns {Promise<Array<{project_name:string, category:string, geojson_url:string, cover_url:string, markdown_url:string, meta:string, description:string}>>}
      */
     fetchVoielyonnaiseProjects: async function() {
@@ -417,7 +417,7 @@
       let q = supabaseClient
         .from('contribution_uploads')
         .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
-        .eq('category', 'voielyonnaise')
+        .eq('category', 'velo')
         .order('created_at', { ascending: false });
       if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
       const { data, error } = await q;
@@ -930,7 +930,7 @@
      * Upload d'un fichier GeoJSON dans le bucket Storage 'uploads' et retourne son URL publique.
      * Le chemin est dérivé de la catégorie et d'un slug du nom de projet.
      * @param {File|Blob} file
-     * @param {string} categoryLayer - mobilite | urbanisme | voielyonnaise
+     * @param {string} categoryLayer - mobilite | urbanisme | velo
      * @param {string} projectName
      * @returns {Promise<string>} publicUrl
      */

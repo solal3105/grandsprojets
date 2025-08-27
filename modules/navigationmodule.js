@@ -106,7 +106,7 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
   // Déterminer la catégorie effective (harmonisation avec contribution_uploads)
   const effectiveCat = (category === 'transport')
     ? 'mobilite'
-    : (category === 'velo' ? 'voielyonnaise' : category);
+    : (category === 'velo' ? 'velo' : category);
   console.log('Catégorie effective:', effectiveCat);
 
   // Afficher le panneau de chargement
@@ -907,7 +907,7 @@ projectDetailPanel.classList.add('visible');
     
     // Chercher strictement dans contribution_uploads
     try {
-      const effectiveCat = category === 'transport' ? 'mobilite' : (category === 'velo' ? 'voielyonnaise' : category);
+      const effectiveCat = category === 'transport' ? 'mobilite' : (category === 'velo' ? 'velo' : category);
       if (window.supabaseService?.fetchProjectByCategoryAndName) {
         const p = await window.supabaseService.fetchProjectByCategoryAndName(effectiveCat, name);
         if (p?.cover_url) {
