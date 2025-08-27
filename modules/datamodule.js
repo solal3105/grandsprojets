@@ -1192,7 +1192,7 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
     return simpleCache.get(cacheKey, async () => {
       // 1️⃣ Charger depuis contribution_uploads pour cette catégorie
       const effectiveCat = layerName === 'reseauProjeteSitePropre' ? 'mobilite' : 
-                          layerName === 'voielyonnaise' ? 'voielyonnaise' : layerName;
+                          layerName === 'voielyonnaise' ? 'velo' : layerName;
       
       if (window.supabaseService?.fetchProjectsByCategory) {
         try {
@@ -1299,14 +1299,24 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
       pane: isClickable ? 'clickableLayers' : 'overlayPane',  // Utiliser le panneau personnalisé pour les couches cliquables
       filter: feature => {
         const props = (feature && feature.properties) || {};
-        // Afficher par défaut les contributions, y compris si ce sont des Points
-        // On continue d'exclure les Points "legacy" (non contributions)
-        if (feature && feature.geometry && feature.geometry.type === 'Point') {
-          const isContribution = !!props.project_name;
-          if (!isContribution) {
-            return false;
+        // Détection de page: sur l'index on masque tous les markers (Point),
+        // sur les fiches (/fiche/) on conserve les Points de contribution.
+        try {
+          const path = (location && location.pathname) ? location.pathname : '';
+          const isFichePage = path.includes('/fiche/');
+          if (!isFichePage) {
+            // Index: masquer toutes les features de type Point
+            if (feature && feature.geometry && feature.geometry.type === 'Point') {
+              return false;
+            }
+          } else {
+            // Fiche: ne masquer que les Points legacy (sans project_name)
+            if (feature && feature.geometry && feature.geometry.type === 'Point') {
+              const isContribution = !!props.project_name;
+              if (!isContribution) return false;
+            }
           }
-        }
+        } catch (_) { /* noop */ }
         // 1. Vérifier les critères de filtrage standards
         const standardCriteriaMatch = Object.entries(criteria)
           .filter(([key]) => !key.startsWith('_')) // Exclure les critères spéciaux (commençant par _)
@@ -1407,7 +1417,7 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
       // Mapping des couches vers les catégories de contribution_uploads
       const layerCategoryMap = {
         'urbanisme': 'urbanisme',
-        'voielyonnaise': 'voielyonnaise',
+        'voielyonnaise': 'velo',
         'reseauProjeteSitePropre': 'mobilite'
       };
 
@@ -1482,8 +1492,8 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
       try {
         const cat = (category || '').toString().toLowerCase().trim();
         // Harmoniser les catégories de navigation → catégories contribution_uploads
-        // transport → mobilite ; velo → voielyonnaise
-        const effectiveCat = (cat === 'transport') ? 'mobilite' : (cat === 'velo' ? 'voielyonnaise' : cat);
+        // transport → mobilite ; velo → velo
+        const effectiveCat = (cat === 'transport') ? 'mobilite' : (cat === 'velo' ? 'velo' : cat);
         const contributionProjects = await window.supabaseService.fetchProjectsByCategory(effectiveCat);
         const contributionProject = Array.isArray(contributionProjects)
           ? contributionProjects.find(p => p?.project_name && slugify(p.project_name) === normalizedSlug)

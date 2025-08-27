@@ -358,6 +358,16 @@
       DataModule.initConfig({ city, urlMap, styleMap, defaultLayers });
       defaultLayers.forEach(layer => DataModule.loadLayer(layer));
 
+      // 3️⃣.b Charger les couches de contributions pour afficher toutes les contributions par défaut
+      // Ces couches sont exclues de layersConfig côté URL, mais leurs styles ont été injectés ci-dessus.
+      // Le chargement s'appuie sur contribution_uploads et respecte la ville active via supabaseService.
+      try {
+        const contributionLayers = ['urbanisme', 'voielyonnaise', 'reseauProjeteSitePropre'];
+        contributionLayers.forEach(l => {
+          try { DataModule.loadLayer(l); } catch (_) { /* noop */ }
+        });
+      } catch (_) { /* noop */ }
+
       // 4️⃣ Construction et mise à jour des filtres
       populateFilters();
       updateFilterUI();
