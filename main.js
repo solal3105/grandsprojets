@@ -21,6 +21,94 @@
       ensureHotjar(6496613);
     } catch(e) { console.warn('Hotjar injection failed', e); }
   })();
+  
+  // Helper: apply favicon URL
+  function applyFavicon(href) {
+    try {
+      if (!href) return;
+      let link = document.querySelector('link[rel="icon"]');
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
+      }
+      link.href = href;
+    } catch (_) {}
+  }
+
+  // Swap header and mobile logos based on active city, fetching branding from DB
+  async function updateLogoForCity(city) {
+    try {
+      const targets = [
+        document.querySelector('#left-nav .logo img'),
+        document.querySelector('.mobile-fixed-logo img')
+      ].filter(Boolean);
+
+      // Cache defaults once on first run
+      targets.forEach((img) => {
+        if (!img) return;
+        if (!img.dataset.defaultSrc) {
+          const attrSrc = img.getAttribute('src');
+          img.dataset.defaultSrc = attrSrc || img.src || 'img/logo.svg';
+        }
+        if (!img.dataset.defaultAlt) {
+          img.dataset.defaultAlt = img.getAttribute('alt') || 'Grands Projets';
+        }
+        if (!img.dataset.defaultClass) {
+          img.dataset.defaultClass = img.className || '';
+        }
+      });
+
+      // Fetch branding
+      let branding = null;
+      if (win.supabaseService && typeof win.supabaseService.getCityBranding === 'function' && city) {
+        branding = await win.supabaseService.getCityBranding(city);
+      }
+      win._cityBranding = branding || null;
+
+      const theme = (document.documentElement.getAttribute('data-theme') || 'light').toLowerCase();
+      const pickLogo = () => {
+        if (branding) {
+          if (theme === 'dark' && branding.dark_logo_url) return branding.dark_logo_url;
+          return branding.logo_url || null;
+        }
+        return null;
+      };
+
+      const picked = pickLogo();
+      const altText = (branding && branding.brand_name) ? branding.brand_name : (city ? city.charAt(0).toUpperCase() + city.slice(1) : (targets[0]?.dataset?.defaultAlt || ''));
+
+      targets.forEach((img) => {
+        if (!img) return;
+        // Always keep existing classes (unify)
+        if (img.dataset.defaultClass) img.className = img.dataset.defaultClass;
+
+        if (picked) {
+          img.style.display = '';
+          img.onerror = function() {
+            try {
+              img.onerror = null;
+              // Fallback to embedded default logo if remote fails
+              img.src = img.dataset.defaultSrc;
+              img.alt = img.dataset.defaultAlt || '';
+              img.style.display = '';
+            } catch (_) {}
+          };
+          img.src = picked;
+          img.alt = altText;
+        } else {
+          // No branding: show embedded default logo
+          img.onerror = null;
+          img.src = img.dataset.defaultSrc;
+          img.alt = img.dataset.defaultAlt || '';
+          img.style.display = '';
+        }
+      });
+
+      // Favicon
+      if (branding && branding.favicon_url) applyFavicon(branding.favicon_url);
+    } catch (_) { /* noop */ }
+  }
   // Vérifie que supabaseService est bien chargé
   if (!win.supabaseService) {
     console.error('supabaseService manquant : assurez-vous de charger supabaseService.js avant main.js');
@@ -117,6 +205,8 @@
         applyTheme(next);
         // Tenter d'aligner le fond de carte si disponible
         try { syncBasemapToTheme(next); } catch (_) {}
+        // Mettre à jour le logo selon le thème (dark_logo_url si dispo)
+        try { updateLogoForCity(win.activeCity); } catch (_) {}
       };
       // Appliquer immédiatement l'état courant
       applyFromOS();
@@ -145,10 +235,43 @@
     } catch (_) {}
   }
 
+  // --- City detection via ?city=lyon|besancon ---
+  // Returns '' when missing or invalid so callers can fallback to default assets
+  function getCityFromQuery(defaultCity = '') {
+    try {
+      const sp = new URLSearchParams(location.search);
+      const raw = String(sp.get('city') || '').toLowerCase().trim();
+      const allowed = ['lyon', 'besancon'];
+      return allowed.includes(raw) ? raw : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  // Set initial map view per city (safe no-op if MapModule not ready)
+  function applyCityInitialView(city) {
+    try {
+      const VIEWS = {
+        lyon: { center: [45.7578, 4.8320], zoom: 12 },
+        besancon: { center: [47.2378, 6.0241], zoom: 12 }
+      };
+      const v = VIEWS[city] || VIEWS['lyon'];
+      if (window.MapModule?.map?.setView) {
+        window.MapModule.map.setView(v.center, v.zoom);
+      }
+    } catch (_) { /* noop */ }
+  }
+
   async function initApp() {
     try {
       // Initialiser le thème le plus tôt possible (n'affecte pas le basemap)
       initTheme();
+      // Déterminer la ville active depuis l'URL
+      const city = getCityFromQuery();
+      win.activeCity = city;
+      // Update logos to match current city branding
+      updateLogoForCity(city);
+
       // 1️⃣ Charger toutes les données en une seule fois (contexte préservé)
       const {
         layersConfig,
@@ -156,14 +279,15 @@
         mobilityData,
         filtersConfig,
         basemaps: remoteBasemaps
-      } = await supabaseService.initAllData();
+      } = await supabaseService.initAllData(city);
 
 
-      // Mettre à jour les fonds de carte via UIModule
-      const basemapsToUse = remoteBasemaps && remoteBasemaps.length > 0 ? remoteBasemaps : window.basemaps;
-      
+      // Mettre à jour les fonds de carte via UIModule (filtrés par ville si applicable)
+      const basemapsToUse = (remoteBasemaps && remoteBasemaps.length > 0) ? remoteBasemaps : window.basemaps;
+      const basemapsForCity = (basemapsToUse || []).filter(b => !b || !('ville' in b) || !b.ville || b.ville === city);
+
       if (window.UIModule?.updateBasemaps) {
-        window.UIModule.updateBasemaps(basemapsToUse);
+        window.UIModule.updateBasemaps(basemapsForCity);
       } else {
         console.warn('UIModule.updateBasemaps non disponible');
       }
@@ -173,6 +297,8 @@
 
       // Synchroniser le fond de carte avec le thème courant (si un fond correspondant existe)
       syncBasemapToTheme(document.documentElement.getAttribute('data-theme') || getInitialTheme());
+      // Appliquer la vue initiale selon la ville
+      applyCityInitialView(city);
 
       // Initialiser le module de géolocalisation
       
@@ -191,11 +317,12 @@
       } = win;
 
 
-      // 2️⃣ Construire les maps de couches
+      // 2️⃣ Construire les maps de couches (filtrées par ville si colonne "ville" présente)
       const urlMap        = {};
       const styleMap      = {};
       const defaultLayers = [];
-      layersConfig.forEach(({ name, url, style, is_default }) => {
+      layersConfig.forEach(({ name, url, style, is_default, ville }) => {
+        if (ville && ville !== city) return; // ignorer les couches d'une autre ville
         urlMap[name]   = url;
         styleMap[name] = style;
         if (is_default) defaultLayers.push(name);
@@ -228,7 +355,7 @@
       };
 
       // 3️⃣ Initialiser DataModule et charger les couches par défaut
-      DataModule.initConfig({ urlMap, styleMap, defaultLayers });
+      DataModule.initConfig({ city, urlMap, styleMap, defaultLayers });
       defaultLayers.forEach(layer => DataModule.loadLayer(layer));
 
       // 4️⃣ Construction et mise à jour des filtres
@@ -261,7 +388,7 @@
       // Initialisation des modules UI avec les fonds de carte si disponibles
       if (window.UIModule?.init) {
         window.UIModule.init({
-          basemaps: basemapsToUse
+          basemaps: basemapsForCity
         });
       } else {
         console.warn('UIModule.init non disponible');
@@ -373,6 +500,8 @@
           applyTheme(next);
           // Aligner automatiquement le fond de carte sur le thème choisi
           syncBasemapToTheme(next);
+          // Actualiser le logo (dark vs light)
+          updateLogoForCity(win.activeCity);
           // Rester en mode automatique: ne pas persister ni arrêter la synchro OS
         });
 
@@ -489,6 +618,8 @@
       
       // Exposer la fonction pour qu'elle soit disponible globalement
       window.getCategoryFromLayer = getCategoryFromLayer;
+      // Exposer la ville active
+      window.getActiveCity = () => win.activeCity;
 
       // --- Navigation via paramètres d'URL (cat, project) ---
       function parseUrlState() {
@@ -546,6 +677,12 @@
       // Gérer la navigation arrière/avant du navigateur
       window.addEventListener('popstate', async (e) => {
         try {
+          // Rafraîchir la ville active depuis l'URL (pas de rechargement pour l'instant)
+          const nextCity = getCityFromQuery(win.activeCity || 'lyon');
+          if (nextCity && nextCity !== win.activeCity) {
+            win.activeCity = nextCity;
+            updateLogoForCity(nextCity);
+          }
           // Accepter cat+project ainsi que cat seul
           let state = e && e.state ? e.state : null;
           if (!state) {

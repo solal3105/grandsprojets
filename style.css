@@ -1082,7 +1082,7 @@ html[data-theme='dark'] .leaflet-container { background: #000; }
   justify-content: center;
 }
 #left-nav .logo img {
-  width: auto;
+  width: 80px;
   height: auto;
 }
 #left-nav p {
@@ -1093,6 +1093,12 @@ html[data-theme='dark'] .leaflet-container { background: #000; }
   text-align: center;
   padding: 0;
   margin-bottom: 20px;
+}
+
+/* Fixed mobile logo size */
+.mobile-fixed-logo img {
+  width: 80px;
+  height: auto;
 }
 .nav-category {
   display: flex;

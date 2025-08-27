@@ -800,7 +800,7 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
         const p = (feature && feature.properties) || {};
         const geomType = (feature && feature.geometry && feature.geometry.type) || '';
         const isPathOrPoly = /LineString|Polygon/i.test(geomType);
-        const projectNameGuess = p?.name || p?.line || p?.Name || p?.LIBELLE;
+        const projectNameGuess = p?.project_name || p?.name || p?.line || p?.Name || p?.LIBELLE;
         const isDetailSupported = detailSupportedLayers.includes(layerName);
         const isClickable = isDetailSupported && !!projectNameGuess;
         if (!isClickable && isPathOrPoly) {
@@ -889,11 +889,11 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
         let currentProjectNameRaw;
         const p = (feature && feature.properties) || {};
         if (layerName === 'reseauProjeteSitePropre') {
-          currentProjectNameRaw = p.Name || p.name;
+          currentProjectNameRaw = p.Name || p.name || p.project_name;
         } else if (layerName === 'voielyonnaise') {
           currentProjectNameRaw = p.line;
         } else {
-          currentProjectNameRaw = p.name || p.Name;
+          currentProjectNameRaw = p.name || p.Name || p.project_name;
         }
         const currentProjectName = currentProjectNameRaw ? String(currentProjectNameRaw).trim() : '';
 
@@ -931,11 +931,11 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
           let otherProjectNameRaw;
           const op = (otherLayer && otherLayer.feature && otherLayer.feature.properties) || {};
           if (layerName === 'reseauProjeteSitePropre') {
-            otherProjectNameRaw = op.Name || op.name;
+            otherProjectNameRaw = op.Name || op.name || op.project_name;
           } else if (layerName === 'voielyonnaise') {
             otherProjectNameRaw = op.line;
           } else {
-            otherProjectNameRaw = op.name || op.Name;
+            otherProjectNameRaw = op.name || op.Name || op.project_name;
           }
           const otherProjectName = otherProjectNameRaw ? String(otherProjectNameRaw).trim() : '';
 
@@ -970,10 +970,32 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
                 permanent: false,
                 offset: [0, -12],
                 opacity: 1,
-                interactive: false
+                // Rendre cliquable pour ouvrir la fiche projet (mobile/desktop)
+                interactive: true
               }).setLatLng(e.latlng)
                 .setContent(html)
                 .addTo(MapModule.map);
+
+              // Rendre le tooltip cliquable pour ouvrir la fiche détail
+              try {
+                const el = window.__gpHoverTooltip && typeof window.__gpHoverTooltip.getElement === 'function'
+                  ? window.__gpHoverTooltip.getElement()
+                  : null;
+                if (el) {
+                  el.style.cursor = 'pointer';
+                  el.addEventListener('click', (ev) => {
+                    try { ev.preventDefault(); ev.stopPropagation(); } catch(_) {}
+                    try {
+                      // Réutiliser la logique existante du clic sur la couche
+                      if (layer && typeof layer.fire === 'function') {
+                        layer.fire('click');
+                      } else if (window.UIModule && typeof window.UIModule.showDetailPanel === 'function') {
+                        window.UIModule.showDetailPanel(layerName, feature);
+                      }
+                    } catch(_) { /* noop */ }
+                  });
+                }
+              } catch(_) { /* noop */ }
 
               // Suivre la souris tant que l'on reste sur la même feature
               const moveHandler = (ev) => {
@@ -1084,7 +1106,7 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
       // Sélectionner et mettre en évidence les segments du projet
       geojsonLayer.eachLayer(otherLayer => {
         const op = (otherLayer && otherLayer.feature && otherLayer.feature.properties) || {};
-        const otherProjectName = op.line || op.name;
+        const otherProjectName = op.project_name || op.name || op.Name || op.line;
         
         if (otherProjectName === projectName) {
           if (typeof otherLayer.setStyle === 'function') {
@@ -1276,11 +1298,15 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
     const geojsonLayer = L.geoJSON(null, {
       pane: isClickable ? 'clickableLayers' : 'overlayPane',  // Utiliser le panneau personnalisé pour les couches cliquables
       filter: feature => {
-        // Exclure tous les points sur l'accueil (aucun marqueur souhaité)
-        if (feature && feature.geometry && feature.geometry.type === 'Point') {
-          return false;
-        }
         const props = (feature && feature.properties) || {};
+        // Afficher par défaut les contributions, y compris si ce sont des Points
+        // On continue d'exclure les Points "legacy" (non contributions)
+        if (feature && feature.geometry && feature.geometry.type === 'Point') {
+          const isContribution = !!props.project_name;
+          if (!isContribution) {
+            return false;
+          }
+        }
         // 1. Vérifier les critères de filtrage standards
         const standardCriteriaMatch = Object.entries(criteria)
           .filter(([key]) => !key.startsWith('_')) // Exclure les critères spéciaux (commençant par _)

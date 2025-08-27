@@ -93,8 +93,10 @@
     // —— Minimal contribution form wiring ——
     const form = document.getElementById('contrib-form');
     const statusEl = document.getElementById('contrib-status');
+    const cityEl = document.getElementById('contrib-city');
     const addDocBtn = document.getElementById('contrib-doc-add');
     const docsFieldset = document.getElementById('contrib-docs');
+    const existingDocsEl = document.getElementById('contrib-existing-docs');
 
     // Geometry input UI elements
     const geomModeFieldset = document.getElementById('contrib-geom-mode');
@@ -296,9 +298,160 @@
       if (listStatusEl) listStatusEl.textContent = msg || '';
     }
 
+    // —— Custom delete confirmation modal ——
+    function toStorageRelPathFromPublicUrl(url) {
+      try {
+        if (!url) return null;
+        const marker = '/object/public/';
+        const i = url.indexOf(marker);
+        if (i === -1) {
+          // fallback to basename
+          try { return new URL(url, win.location.href).pathname.split('/').slice(-1)[0] || url; } catch (_) { return String(url); }
+        }
+        const after = url.slice(i + marker.length); // e.g., 'uploads/geojson/...'
+        const prefix = 'uploads/';
+        return after.startsWith(prefix) ? after.slice(prefix.length) : after;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function openDeleteConfirmModal(details) {
+      const { id, projectName, filePaths = [], dossiersCount = 0 } = details || {};
+      return new Promise((resolve) => {
+        console.log('[contrib] openDeleteConfirmModal', { id, projectName, filePaths, dossiersCount });
+        const lastFocus = document.activeElement;
+
+        const overlay = document.createElement('div');
+        overlay.setAttribute('role', 'presentation');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:9999;';
+
+        const modal = document.createElement('div');
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-labelledby', 'delc-title');
+        modal.setAttribute('aria-describedby', 'delc-desc');
+        modal.style.cssText = 'max-width:560px;width:92%;background:#fff;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,0.25);padding:16px 18px;font-size:15px;color:#263238;';
+
+        const title = document.createElement('h2');
+        title.id = 'delc-title';
+        title.textContent = `Supprimer la contribution ${projectName ? `« ${projectName} »` : `#${id}`} ?`;
+        title.style.cssText = 'margin:0 0 8px 0;font-size:18px;';
+
+        const desc = document.createElement('div');
+        desc.id = 'delc-desc';
+        desc.innerHTML = `
+          <p>Cette action est définitive. Elle supprimera les éléments suivants :</p>
+          <ul style="margin:0 0 8px 18px;">
+            <li>La ligne <code>contribution_uploads</code> (id : <strong>#${id}</strong>)</li>
+            ${filePaths.length ? filePaths.map(p => `<li>Fichier de stockage : <code>${p}</code></li>`).join('') : '<li>Aucun fichier de stockage associé.</li>'}
+            <li>Dossiers de concertation liés : <strong>${dossiersCount}</strong></li>
+          </ul>
+          <p>Voulez-vous continuer ?</p>
+        `;
+
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;margin-top:12px;';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.textContent = 'Annuler';
+        cancelBtn.style.cssText = 'padding:8px 12px;border-radius:8px;border:1px solid rgba(0,0,0,0.15);background:#fff;';
+        const confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button';
+        confirmBtn.textContent = 'Supprimer';
+        confirmBtn.style.cssText = 'padding:8px 12px;border-radius:8px;border:0;background:#c62828;color:#fff;';
+
+        const close = (result) => {
+          try { document.removeEventListener('keydown', onKey); } catch(_){}
+          try { overlay.remove(); } catch(_){}
+          try { if (lastFocus && lastFocus.focus) lastFocus.focus(); } catch(_){}
+          resolve(!!result);
+        };
+
+        const onKey = (e) => {
+          if (e.key === 'Escape') { e.preventDefault(); close(false); }
+          if (e.key === 'Enter') { e.preventDefault(); confirmBtn.click(); }
+        };
+
+        cancelBtn.addEventListener('click', () => close(false));
+        confirmBtn.addEventListener('click', () => close(true));
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+
+        actions.appendChild(cancelBtn);
+        actions.appendChild(confirmBtn);
+        modal.appendChild(title);
+        modal.appendChild(desc);
+        modal.appendChild(actions);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        try { document.addEventListener('keydown', onKey); } catch(_){}
+        try { cancelBtn.focus(); } catch(_){}
+      });
+    }
+
+    // Shared delete flow for both list items and edit button
+    async function doDeleteContribution(id, projectName) {
+      try {
+        console.log('[contrib] doDeleteContribution called', { id, projectName });
+        if (!id) { console.log('[contrib] doDeleteContribution: missing id, abort'); return; }
+        // Fetch row details for richer confirmation content
+        let row = null;
+        try { row = await (win.supabaseService && win.supabaseService.getContributionById(id)); } catch(_) {}
+        const effectiveName = (row && row.project_name) || projectName || '';
+        const filePaths = [];
+        try {
+          if (row && row.geojson_url) { const p = toStorageRelPathFromPublicUrl(row.geojson_url); if (p) filePaths.push(p); }
+          if (row && row.cover_url)   { const p = toStorageRelPathFromPublicUrl(row.cover_url);   if (p) filePaths.push(p); }
+          if (row && row.markdown_url){ const p = toStorageRelPathFromPublicUrl(row.markdown_url);if (p) filePaths.push(p); }
+        } catch(_) {}
+        let dossiersCount = 0;
+        try {
+          if (effectiveName && win.supabaseService && typeof win.supabaseService.getConsultationDossiersByProject === 'function') {
+            const ds = await win.supabaseService.getConsultationDossiersByProject(effectiveName);
+            if (Array.isArray(ds)) dossiersCount = ds.length;
+          }
+        } catch(_) {}
+        console.log('[contrib] showing custom delete confirm modal');
+        const ok = await openDeleteConfirmModal({ id, projectName: effectiveName, filePaths, dossiersCount });
+        console.log('[contrib] confirm response', ok);
+        if (!ok) { console.log('[contrib] user canceled deletion'); return; }
+        setListStatus('Suppression en cours…');
+        console.log('[contrib] set aria-busy on list');
+        try { if (listEl) listEl.setAttribute('aria-busy', 'true'); } catch(_) {}
+        // Ensure authenticated session
+        console.log('[contrib] requesting session via AuthModule.requireAuthOrRedirect');
+        const session = await (win.AuthModule && win.AuthModule.requireAuthOrRedirect('/login/'));
+        console.log('[contrib] session result', { hasSession: !!session, hasUser: !!(session && session.user) });
+        if (!session || !session.user) { console.log('[contrib] no session/user, likely redirected to /login, aborting'); return; } // redirected
+        console.log('[contrib] calling supabaseService.deleteContribution', { id });
+        const result = await (win.supabaseService && win.supabaseService.deleteContribution(id));
+        console.log('[contrib] deleteContribution result', result);
+        setListStatus('');
+        if (!result || result.success !== true) {
+          console.log('[contrib] deletion failed branch');
+          showToast('Échec de la suppression.', 'error');
+          return;
+        }
+        // If we were editing this row, exit edit mode
+        if (currentEditId === id) {
+          console.log('[contrib] deleting currently edited item, exiting edit mode', { currentEditId });
+          try { exitEditMode(); } catch(_) {}
+          setStatus('Contribution supprimée.', 'success');
+        }
+        showToast('Contribution supprimée.', 'success');
+        console.log('[contrib] deletion success toast shown');
+        // Refresh list if visible
+        if (panelList && !panelList.hidden) { console.log('[contrib] refreshing list after delete'); listResetAndLoad(); }
+      } catch (e) {
+        console.warn('[contrib] delete error:', e);
+        showToast('Erreur lors de la suppression.', 'error');
+      } finally {
+        try { if (listEl) { listEl.removeAttribute('aria-busy'); console.log('[contrib] cleaned aria-busy on list'); } } catch(_) {}
+      }
+    }
+
     function renderItem(item) {
-      const el = document.createElement('button');
-      el.type = 'button';
+      const el = document.createElement('div');
       el.className = 'contrib-list-item';
       el.setAttribute('role', 'listitem');
       el.style.display = 'flex';
@@ -311,13 +464,21 @@
       const when = item.created_at ? new Date(item.created_at).toLocaleString() : '';
       el.innerHTML = `
         ${cover}
-        <div style="flex:1 1 auto;">
+        <div class="contrib-item-main" role="button" tabindex="0" style="flex:1 1 auto; cursor:pointer;">
           <div style="font-weight:600;">${item.project_name || '(sans nom)'} <span style="font-size:0.85em;opacity:0.75;">· ${item.category || ''}</span></div>
           <div style="font-size:0.85em;opacity:0.8;">Créé le: ${when}</div>
           ${item.meta ? `<div style=\"font-size:0.85em;opacity:0.85;\">${item.meta}</div>` : ''}
         </div>
+        <div class="contrib-item-actions" style="display:flex; align-items:center;">
+          <button type="button" class="contrib-item-delete" aria-label="Supprimer" title="Supprimer"
+            style="padding:6px 8px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; background:#fff; color:#c62828;">
+            <i class="fa fa-trash" aria-hidden="true"></i>
+          </button>
+        </div>
       `;
-      el.addEventListener('click', async () => {
+      const main = el.querySelector('.contrib-item-main');
+      const delBtn = el.querySelector('.contrib-item-delete');
+      if (main) main.addEventListener('click', async () => {
         try {
           setListStatus('Chargement…');
           const row = await (win.supabaseService && win.supabaseService.getContributionById(item.id));
@@ -330,6 +491,17 @@
           setListStatus('Erreur de chargement.');
           showToast('Erreur lors du chargement de la contribution.', 'error');
         }
+      });
+      if (main) main.addEventListener('keydown', (evt) => {
+        if (evt.key === 'Enter' || evt.key === ' ') {
+          evt.preventDefault();
+          main.click();
+        }
+      });
+      if (delBtn) delBtn.addEventListener('click', (ev) => {
+        console.log('[contrib] click delete in listing', { id: item.id, project_name: item.project_name });
+        ev.stopPropagation();
+        doDeleteContribution(item.id, item.project_name);
       });
       return el;
     }
@@ -418,6 +590,7 @@
 
     // —— Edit mode helpers ——
     const cancelEditBtn = document.getElementById('contrib-cancel-edit');
+    const deleteEditBtn = document.getElementById('contrib-delete');
     const coverPreview  = document.getElementById('contrib-cover-preview');
 
     function setEditUI(on) {
@@ -425,12 +598,14 @@
       const nameEl = document.getElementById('contrib-project-name');
       if (submitBtn) submitBtn.querySelector('span')?.replaceChildren(document.createTextNode(on ? 'Enregistrer' : 'Envoyer'));
       if (cancelEditBtn) cancelEditBtn.style.display = on ? '' : 'none';
+      if (deleteEditBtn) deleteEditBtn.style.display = on ? '' : 'none';
       if (nameEl) nameEl.focus();
     }
 
     function prefillForm(row) {
       const nameEl = document.getElementById('contrib-project-name');
       const catEl  = document.getElementById('contrib-category');
+      const citySel = document.getElementById('contrib-city');
       const metaEl = document.getElementById('contrib-meta');
       const descEl = document.getElementById('contrib-description');
       const mdEl   = document.getElementById('contrib-markdown');
@@ -438,6 +613,9 @@
       if (catEl) catEl.value = row.category || '';
       // Mettre à jour l'affichage des champs de liens officiels selon la catégorie pré-remplie
       try { updateOfficialLinkRows(catEl ? catEl.value : (row.category || '')); } catch(_) {}
+      if (citySel && row && row.ville) {
+        try { citySel.value = row.ville; } catch(_) {}
+      }
       if (metaEl) metaEl.value = row.meta || '';
       if (descEl) descEl.value = row.description || '';
       if (coverPreview) {
@@ -465,6 +643,8 @@
       if (row && row.geojson_url) {
         preloadGeometryOnMap(row.geojson_url);
       }
+      // Load existing consultation dossiers related to the project name
+      try { clearExistingDossiers(); renderExistingDossiers(row.project_name); } catch(_) {}
     }
 
     function exitEditMode() {
@@ -475,11 +655,22 @@
       setStatus('');
       try { clearAllDrawings(); } catch(_) {}
       try { setGeomMode('file'); } catch(_) {}
+      try { clearExistingDossiers(); } catch(_) {}
     }
 
     if (cancelEditBtn) {
       cancelEditBtn.addEventListener('click', () => {
         exitEditMode();
+      });
+    }
+
+    if (deleteEditBtn) {
+      deleteEditBtn.addEventListener('click', async () => {
+        console.log('[contrib] click delete in edit mode', { currentEditId });
+        if (!currentEditId) { console.log('[contrib] deleteEditBtn: no currentEditId, abort'); return; }
+        const projectName = document.getElementById('contrib-project-name')?.value?.trim();
+        console.log('[contrib] edit mode delete: resolved projectName', { projectName });
+        await doDeleteContribution(currentEditId, projectName);
       });
     }
 
@@ -656,6 +847,50 @@
       return out;
     }
 
+    // —— Existing consultation dossiers (display-only in edit mode) ——
+    function clearExistingDossiers() {
+      if (existingDocsEl) existingDocsEl.innerHTML = '';
+    }
+
+    async function renderExistingDossiers(projectName) {
+      try {
+        if (!existingDocsEl || !projectName) return;
+        existingDocsEl.innerHTML = '';
+        if (!win.supabaseService || typeof win.supabaseService.getConsultationDossiersByProject !== 'function') return;
+        const dossiers = await win.supabaseService.getConsultationDossiersByProject(projectName);
+        if (!Array.isArray(dossiers) || dossiers.length === 0) return;
+        const uniq = new Map();
+        dossiers.forEach(d => {
+          if (d && d.pdf_url && !uniq.has(d.pdf_url)) uniq.set(d.pdf_url, d);
+        });
+        const docs = Array.from(uniq.values());
+        if (!docs.length) return;
+        // Build a simple list
+        const wrap = document.createElement('div');
+        wrap.className = 'existing-docs-wrap';
+        const title = document.createElement('div');
+        title.textContent = 'Dossiers liés trouvés :';
+        title.style.cssText = 'font-weight:600;margin:4px 0;';
+        const ul = document.createElement('ul');
+        ul.style.cssText = 'margin:0;padding-left:18px;';
+        docs.forEach(d => {
+          const li = document.createElement('li');
+          const a = document.createElement('a');
+          a.href = d.pdf_url;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          a.textContent = d.title || d.pdf_url;
+          li.appendChild(a);
+          ul.appendChild(li);
+        });
+        wrap.appendChild(title);
+        wrap.appendChild(ul);
+        existingDocsEl.appendChild(wrap);
+      } catch (e) {
+        console.warn('[contrib] renderExistingDossiers error:', e);
+      }
+    }
+
     if (addDocBtn && docsFieldset) {
       addDocBtn.addEventListener('click', () => {
         const row = createDocRow();
@@ -673,6 +908,7 @@
       const category = document.getElementById('contrib-category')?.value;
       const fileInput = document.getElementById('contrib-geojson');
       const coverInput = document.getElementById('contrib-cover');
+      const city = document.getElementById('contrib-city')?.value?.trim();
       const grandlyonUrl = document.getElementById('contrib-grandlyon-url')?.value?.trim();
       const sytralUrl = document.getElementById('contrib-sytral-url')?.value?.trim();
       const meta = document.getElementById('contrib-meta')?.value?.trim();
@@ -683,8 +919,8 @@
         return r ? r.value : 'file';
       })();
 
-      if (!projectName || !category) {
-        setStatus('Veuillez renseigner le nom et la catégorie.', 'error');
+      if (!projectName || !category || !city) {
+        setStatus('Veuillez renseigner le nom, la catégorie et la ville.', 'error');
         return;
       }
 
@@ -741,7 +977,7 @@
           // 0) Create row (create mode)
           try {
             if (win.supabaseService && typeof win.supabaseService.createContributionRow === 'function') {
-              rowId = await win.supabaseService.createContributionRow(projectName, category);
+              rowId = await win.supabaseService.createContributionRow(projectName, category, city);
             }
           } catch (e) {
             console.warn('[contrib] createContributionRow error:', e);
@@ -798,6 +1034,7 @@
           await (win.supabaseService && win.supabaseService.updateContribution(rowId, {
             project_name: projectName,
             category: category,
+            ville: city,
             meta: meta || null,
             description: description || null
           }));
@@ -837,6 +1074,30 @@
     if (form) {
       form.addEventListener('submit', handleSubmit);
     }
+
+    // Populate city selector from DB and default to active city
+    async function populateCities() {
+      try {
+        if (!cityEl || !win.supabaseService || typeof win.supabaseService.listCities !== 'function') return;
+        // temporary placeholder
+        cityEl.innerHTML = '<option value="" disabled selected>Chargement…</option>';
+        const cities = await win.supabaseService.listCities();
+        const options = (Array.isArray(cities) && cities.length ? cities : ['lyon']).map(c => `<option value="${c}">${c}</option>`).join('');
+        cityEl.innerHTML = options;
+        // default selection
+        const active = (win.activeCity || '').trim();
+        if (active) {
+          try { cityEl.value = active; } catch(_) {}
+        }
+      } catch (err) {
+        console.warn('[contrib] populateCities error:', err);
+        if (cityEl && !cityEl.options.length) {
+          cityEl.innerHTML = '<option value="lyon" selected>lyon</option>';
+        }
+      }
+    }
+
+    try { populateCities(); } catch(_) {}
 
     // Ensure tab default is Create when opening
     // Open handler already focuses close btn; we set tab states explicitly here
