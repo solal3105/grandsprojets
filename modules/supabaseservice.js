@@ -834,7 +834,7 @@
         if (!v) return null;
         const { data, error } = await supabaseClient
           .from('city_branding')
-          .select('ville, brand_name, logo_url, dark_logo_url, favicon_url')
+          .select('ville, brand_name, logo_url, dark_logo_url, favicon_url, center_lat, center_lng, zoom')
           .eq('ville', v)
           .limit(1)
           .maybeSingle();
