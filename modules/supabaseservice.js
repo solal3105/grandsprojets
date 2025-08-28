@@ -21,9 +21,13 @@
     .trim()
     .toLowerCase();
 
-  // Helper: get active city from window or URL param
+  // Helper: get active city with delegation to global resolver when available
   const getActiveCity = () => {
     try {
+      if (typeof win.getActiveCity === 'function') {
+        const v = win.getActiveCity();
+        if (v && String(v).trim()) return String(v).trim();
+      }
       if (win.activeCity && String(win.activeCity).trim()) return String(win.activeCity).trim();
       const url = new URL(win.location.href);
       const c = url.searchParams.get('city');
@@ -842,6 +846,66 @@
       } catch (e) {
         console.warn('[supabaseService] getCityBranding exception:', e);
         return null;
+      }
+    },
+
+    /**
+     * Retourne la liste des villes valides (distinctes) depuis la base.
+     * Source principale: city_branding.ville
+     * Fallback: union de layers.ville et contribution_uploads.ville
+     * @returns {Promise<string[]>}
+     */
+    getValidCities: async function() {
+      try {
+        const norm = (v) => String(v || '').toLowerCase().trim();
+        const set = new Set();
+
+        // 1) Source principale: city_branding
+        try {
+          const { data, error } = await supabaseClient
+            .from('city_branding')
+            .select('ville');
+          if (!error && Array.isArray(data)) {
+            data.forEach(r => { const v = norm(r && r.ville); if (v) set.add(v); });
+          } else if (error) {
+            console.warn('[supabaseService] getValidCities city_branding error:', error);
+          }
+        } catch (e1) {
+          console.warn('[supabaseService] getValidCities city_branding exception:', e1);
+        }
+
+        // 2) Fallback: layers.ville
+        try {
+          const { data, error } = await supabaseClient
+            .from('layers')
+            .select('ville');
+          if (!error && Array.isArray(data)) {
+            data.forEach(r => { const v = norm(r && r.ville); if (v) set.add(v); });
+          } else if (error) {
+            console.warn('[supabaseService] getValidCities layers error:', error);
+          }
+        } catch (e2) {
+          console.warn('[supabaseService] getValidCities layers exception:', e2);
+        }
+
+        // 3) Fallback: contribution_uploads.ville
+        try {
+          const { data, error } = await supabaseClient
+            .from('contribution_uploads')
+            .select('ville');
+          if (!error && Array.isArray(data)) {
+            data.forEach(r => { const v = norm(r && r.ville); if (v) set.add(v); });
+          } else if (error) {
+            console.warn('[supabaseService] getValidCities contribution_uploads error:', error);
+          }
+        } catch (e3) {
+          console.warn('[supabaseService] getValidCities contribution_uploads exception:', e3);
+        }
+
+        return Array.from(set);
+      } catch (e) {
+        console.warn('[supabaseService] getValidCities exception (global):', e);
+        return [];
       }
     },
 
