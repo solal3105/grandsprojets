@@ -314,6 +314,11 @@
               onclick="window.GeolocationModule && window.GeolocationModule.handleLocationButtonClick(event)">
         <i class="fas fa-location-arrow"></i>
       </button>
+      <!-- City toggle (dynamic menu populated by main.js) -->
+      <button id="city-toggle" class="city-toggle" aria-label="Changer de ville" title="Changer de ville">
+        <i class="fas fa-city" aria-hidden="true"></i>
+      </button>
+      <div id="city-menu" class="city-menu" role="menu" aria-label="Villes" style="display:none"></div>
       <div id="search-toggle" class="search-toggle">
         <i class="fas fa-search"></i>
       </div>
