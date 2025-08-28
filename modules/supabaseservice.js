@@ -48,7 +48,7 @@
 
       const { data, error } = await supabaseClient
         .from('layers')
-        .select('name, url, style, is_default');
+        .select('name, url, style, is_default, ville');
 
       if (error) {
         console.error('fetchLayersConfig error:', error);
@@ -617,18 +617,15 @@
           )
         `)
         .order('id', { ascending: true })
-        .order('id', {
-          foreignTable: 'filter_items',
-          ascending: true
-        });
-    
+        .order('id', { foreignTable: 'filter_items', ascending: true });
+
       if (error) {
         console.error('fetchFiltersConfig error:', error);
         return [];
       }
-    
+
       // On renvoie juste [{ category, items }, …]
-      return data.map(cat => ({
+      return (data || []).map(cat => ({
         category: cat.category,
         items: cat.filter_items
       }));

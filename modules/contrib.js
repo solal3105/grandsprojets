@@ -11,13 +11,13 @@
 
     // Drawing state for geometry input (modale contribution)
     let drawMap = null;
-    let drawLayer = null;      // finalized geometry layer (can be L.GeoJSON or vector layer)
+    let drawLayer = null;      // finalized geometry layer (L.Layer, e.g., L.Polyline or L.Polygon)
     let drawLayerDirty = false; // whether current drawLayer was created/modified by user during this session
-    let drawActive = false;    // whether we are currently capturing points
-    let drawType = null;       // 'LineString' | 'Polygon'
-    let tempLine = null;       // preview line while drawing
-    let tempPoly = null;       // preview polygon while drawing
-    let drawPoints = [];       // collected LatLng points during drawing
+    // Manual draw state (fallback when Geoman is not used)
+    let manualDraw = { active: false, type: null, points: [], tempLayer: null };
+    // Basemap + city branding state for draw map
+    let drawBaseLayer = null;
+    let basemapsCache = null;
 
     const closeContrib = () => {
       if (!contribOverlay) return;
@@ -51,6 +51,17 @@
       setTimeout(() => {
         try { if (drawMap) drawMap.invalidateSize(); } catch (_) {}
       }, 200);
+      // Afficher l'écran d'accueil lors de la première ouverture de la session
+      try {
+        const seen = sessionStorage.getItem('contribLandingSeen') === '1';
+        if (!seen) {
+          showLanding();
+        } else {
+          // Initialiser par défaut sur l'onglet Créer et l'étape 1
+          try { activateTab('create'); } catch(_) {}
+          try { setStep(1, { force: true }); } catch(_) {}
+        }
+      } catch(_) {}
     };
 
     const contribEscHandler = (e) => {
@@ -83,10 +94,16 @@
     }
 
     if (contribOverlay) {
-      contribOverlay.addEventListener('click', (e) => {
-        if (e.target === contribOverlay) {
+      // Empêcher la fermeture lors d'un glisser-sélection depuis la modale vers l'extérieur
+      let overlayMouseDownOnSelf = false;
+      contribOverlay.addEventListener('mousedown', (e) => {
+        overlayMouseDownOnSelf = (e.target === contribOverlay);
+      });
+      contribOverlay.addEventListener('mouseup', (e) => {
+        if (overlayMouseDownOnSelf && e.target === contribOverlay) {
           closeContrib();
         }
+        overlayMouseDownOnSelf = false;
       });
     }
 
@@ -103,18 +120,426 @@
     const geomModeRadios = geomModeFieldset ? geomModeFieldset.querySelectorAll('input[name="contrib-geom-mode"]') : [];
     const fileRowEl = document.getElementById('contrib-file-row');
     const drawPanelEl = document.getElementById('contrib-draw-panel');
+    const dropzoneEl = document.getElementById('contrib-dropzone');
+    const dzFilenameEl = document.getElementById('contrib-dz-filename');
+    const geomCardFile = document.getElementById('geom-card-file');
+    const geomCardDraw = document.getElementById('geom-card-draw');
     const drawMapContainerId = 'contrib-draw-map';
-    const drawBtnLine = document.getElementById('draw-line');
-    const drawBtnPolygon = document.getElementById('draw-polygon');
-    const drawBtnUndo = document.getElementById('draw-undo');
-    const drawBtnFinish = document.getElementById('draw-finish');
-    const drawBtnClear = document.getElementById('draw-clear');
+    // Geoman removed: manual drawing only
 
-    // Tabs & list state
-    const tabCreateBtn = document.getElementById('contrib-tab-create');
-    const tabListBtn   = document.getElementById('contrib-tab-list');
+    function onMapClick(e) {
+      if (!manualDraw.active || !drawMap) return;
+      try {
+        manualDraw.points.push(e.latlng);
+        updateTempShape();
+        updateManualButtons();
+      } catch(_) {}
+    }
+
+    function clearGuide() {
+      try {
+        if (manualDraw && manualDraw.guideLayer && drawMap) {
+          drawMap.removeLayer(manualDraw.guideLayer);
+        }
+      } catch(_) {}
+      if (manualDraw) manualDraw.guideLayer = null;
+    }
+
+    function onMapMouseMove(e) {
+      // Show a dashed guide only in line mode with at least one point
+      if (!drawMap || !manualDraw.active || manualDraw.type !== 'line' || manualDraw.points.length === 0) {
+        clearGuide();
+        return;
+      }
+      const last = manualDraw.points[manualDraw.points.length - 1];
+      if (!last) { clearGuide(); return; }
+      const coords = [last, e.latlng];
+      // Replace previous guide with a dashed preview segment
+      clearGuide();
+      try {
+        manualDraw.guideLayer = L.polyline(coords, {
+          color: '#1976d2',
+          weight: 2,
+          opacity: 0.7,
+          dashArray: '6,6'
+        }).addTo(drawMap);
+      } catch(_) {}
+    }
+
+    function ensureManualToolbar() {
+      if (!drawPanelEl) return;
+      let toolbar = drawPanelEl.querySelector('#contrib-manual-draw-controls');
+      // If toolbar already exists, ensure it is visible again
+      if (toolbar) {
+        try { toolbar.style.display = ''; } catch(_) {}
+        updateManualButtons();
+        return;
+      }
+      toolbar = document.createElement('div');
+      toolbar.id = 'contrib-manual-draw-controls';
+      toolbar.className = 'draw-controls';
+      toolbar.style.cssText = 'display:flex;gap:8px;align-items:center;margin:6px 0 8px;flex-wrap:wrap;';
+      toolbar.innerHTML = `
+        <button type="button" class="gp-btn" id="btn-draw-line" title="Tracer une ligne"><i class="fa-solid fa-route" aria-hidden="true"></i> Ligne</button>
+        <button type="button" class="gp-btn" id="btn-draw-poly" title="Tracer un polygone"><i class="fa-solid fa-draw-polygon" aria-hidden="true"></i> Polygone</button>
+        <span style="width:1px;height:24px;background:rgba(0,0,0,0.08);"></span>
+        <button type="button" class="gp-btn" id="btn-undo-point" title="Annuler le dernier point"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Annuler point</button>
+        <button type="button" class="gp-btn" id="btn-finish" title="Terminer le tracé"><i class="fa-solid fa-check" aria-hidden="true"></i> Terminer</button>
+        <button type="button" class="gp-btn" id="btn-clear-geom" title="Effacer la géométrie"><i class="fa-solid fa-trash" aria-hidden="true"></i> Effacer</button>
+        <button type="button" class="gp-btn" id="btn-restart" title="Recommencer"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Recommencer</button>
+      `;
+      const helper = drawPanelEl.querySelector('.helper');
+      if (helper) helper.after(toolbar); else drawPanelEl.prepend(toolbar);
+      // Bind actions
+      toolbar.querySelector('#btn-draw-line')?.addEventListener('click', () => startManualDraw('line'));
+      toolbar.querySelector('#btn-draw-poly')?.addEventListener('click', () => startManualDraw('polygon'));
+      toolbar.querySelector('#btn-undo-point')?.addEventListener('click', () => undoManualPoint());
+      toolbar.querySelector('#btn-finish')?.addEventListener('click', () => finishManualDraw());
+      toolbar.querySelector('#btn-clear-geom')?.addEventListener('click', () => clearManualGeometry());
+      toolbar.querySelector('#btn-restart')?.addEventListener('click', () => clearManualGeometry());
+      updateManualButtons();
+    }
+
+    function updateManualButtons() {
+      const toolbar = drawPanelEl?.querySelector('#contrib-manual-draw-controls');
+      if (!toolbar) return;
+      const hasPoints = manualDraw.points.length > 0;
+      const active = manualDraw.active === true;
+      const btnLine = toolbar.querySelector('#btn-draw-line');
+      const btnPoly = toolbar.querySelector('#btn-draw-poly');
+      const btnUndo = toolbar.querySelector('#btn-undo-point');
+      const btnFinish = toolbar.querySelector('#btn-finish');
+      const btnClear = toolbar.querySelector('#btn-clear-geom');
+      const btnRestart = toolbar.querySelector('#btn-restart');
+
+      // Logic of visibility
+      const hasFinal = !!drawLayer; // a finalized geometry exists
+      const showChoice = (!active && !hasPoints && !hasFinal) || (active && !hasPoints); // show Line/Polygon until first point is placed
+      if (btnLine) btnLine.style.display = showChoice ? '' : 'none';
+      if (btnPoly) btnPoly.style.display = showChoice ? '' : 'none';
+
+      const showEdit = active && hasPoints; // after first point, show only undo/finish/clear
+      if (btnUndo) btnUndo.style.display = showEdit ? '' : 'none';
+      if (btnFinish) btnFinish.style.display = showEdit ? '' : 'none';
+      if (btnClear) btnClear.style.display = showEdit ? '' : 'none';
+
+      const showRestart = (!active && hasFinal);
+      if (btnRestart) btnRestart.style.display = showRestart ? '' : 'none';
+
+      // Enabled state
+      if (btnUndo) btnUndo.disabled = !(active && hasPoints);
+      if (btnFinish) btnFinish.disabled = !(active && (manualDraw.type === 'line' ? manualDraw.points.length >= 2 : manualDraw.points.length >= 3));
+    }
+
+    function startManualDraw(type) {
+      try { if (!drawMap) initDrawMap(); } catch(_) {}
+      if (!drawMap) return;
+      // Reset current temp
+      clearManualTemp();
+      manualDraw.active = true;
+      manualDraw.type = type === 'polygon' ? 'polygon' : 'line';
+      manualDraw.points = [];
+      try { drawMap.doubleClickZoom.disable(); } catch(_) {}
+      setStatus(`Mode ${manualDraw.type === 'line' ? 'ligne' : 'polygone'}: cliquez sur la carte pour ajouter des points. Terminez avec "Terminer".`);
+      updateManualButtons();
+    }
+
+    function updateTempShape() {
+      if (!drawMap) return;
+      // Remove previous temp layer
+      if (manualDraw.tempLayer) { try { drawMap.removeLayer(manualDraw.tempLayer); } catch(_) {}
+        manualDraw.tempLayer = null; }
+      if (!manualDraw.points.length) return;
+      const style = { color: '#1976d2', weight: 3, fillOpacity: 0.2 };
+      if (manualDraw.type === 'polygon') {
+        manualDraw.tempLayer = L.polygon(manualDraw.points, style).addTo(drawMap);
+      } else {
+        manualDraw.tempLayer = L.polyline(manualDraw.points, style).addTo(drawMap);
+      }
+    }
+
+    function undoManualPoint() {
+      if (!manualDraw.active || manualDraw.points.length === 0) return;
+      manualDraw.points.pop();
+      updateTempShape();
+      updateManualButtons();
+    }
+
+    function finishManualDraw() {
+      if (!manualDraw.active) return;
+      const minPts = manualDraw.type === 'line' ? 2 : 3;
+      if (manualDraw.points.length < minPts) {
+        setStatus(`Ajoutez au moins ${minPts} points avant de terminer.`, 'error');
+        return;
+      }
+      // Remove existing finalized layer
+      if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
+      // Finalized style: change color to confirm state
+      const style = manualDraw.type === 'polygon'
+        ? { color: '#2e7d32', weight: 3, fillOpacity: 0.25, fillColor: '#2e7d32' }
+        : { color: '#2e7d32', weight: 3, opacity: 0.9 };
+      if (manualDraw.type === 'polygon') {
+        drawLayer = L.polygon(manualDraw.points, style).addTo(drawMap);
+      } else {
+        drawLayer = L.polyline(manualDraw.points, style).addTo(drawMap);
+      }
+      try { drawMap.fitBounds(drawLayer.getBounds(), { padding: [10, 10] }); } catch(_) {}
+      drawLayerDirty = true;
+      setStatus('Géométrie finalisée. Cliquez sur Recommencer si vous souhaitez refaire.');
+      cancelManualDraw(true);
+      updateManualButtons();
+    }
+
+    function cancelManualDraw(keepStatus = false) {
+      manualDraw.active = false;
+      manualDraw.type = null;
+      manualDraw.points = [];
+      clearManualTemp();
+      clearGuide();
+      try { drawMap.doubleClickZoom.enable(); } catch(_) {}
+      if (!keepStatus) setStatus('Mode dessin manuel désactivé.');
+      updateManualButtons();
+    }
+
+    function clearManualTemp() {
+      if (manualDraw.tempLayer) { try { drawMap.removeLayer(manualDraw.tempLayer); } catch(_) {} manualDraw.tempLayer = null; }
+    }
+
+    function clearManualGeometry() {
+      // Clear both temp and finalized layers, and return to initial choice state
+      clearManualTemp();
+      if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
+      drawLayerDirty = false;
+      cancelManualDraw(true); // resets active/type/points
+      setStatus('Géométrie effacée. Choisissez Ligne ou Polygone.');
+      updateManualButtons();
+    }
+    
+    // —— Basemap and city helpers for the draw map ——
+    function pickDefaultBasemap(list) {
+      if (!Array.isArray(list) || !list.length) return null;
+      return list.find(b => b && (b.default === true || b.is_default === true)) || list[0];
+    }
+    
+    async function ensureBasemaps() {
+      if (Array.isArray(basemapsCache) && basemapsCache.length) return basemapsCache;
+      let res = [];
+      try {
+        if (win.supabaseService && typeof win.supabaseService.fetchBasemaps === 'function') {
+          res = await win.supabaseService.fetchBasemaps();
+        }
+      } catch (e) {
+        console.warn('[contrib] ensureBasemaps fetchBasemaps error:', e);
+      }
+      if (!Array.isArray(res) || !res.length) {
+        res = Array.isArray(win.basemaps) ? win.basemaps : [];
+      }
+      basemapsCache = res;
+      return res;
+    }
+    
+    function setDrawBaseLayer(bm) {
+      if (!drawMap) return;
+      try { if (drawBaseLayer) drawMap.removeLayer(drawBaseLayer); } catch(_) {}
+      drawBaseLayer = null;
+      const url = bm && bm.url ? bm.url : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      const attribution = (bm && bm.attribution) || '&copy; OpenStreetMap contributors';
+      try { drawBaseLayer = L.tileLayer(url, { attribution }).addTo(drawMap); } catch (e) { console.warn('[contrib] setDrawBaseLayer error:', e); }
+    }
+    
+    function buildContribBasemapMenu(basemaps, activeBm) {
+      try {
+        if (!drawPanelEl || !Array.isArray(basemaps) || !basemaps.length) return;
+        let menu = drawPanelEl.querySelector('#contrib-basemap-menu');
+        if (menu) { try { menu.remove(); } catch(_) {} }
+        menu = document.createElement('div');
+        menu.id = 'contrib-basemap-menu';
+        menu.setAttribute('role', 'group');
+        menu.setAttribute('aria-label', 'Fond de carte');
+        menu.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;';
+        basemaps.forEach((bm) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'gp-btn basemap-tile';
+          btn.textContent = bm.label || bm.name || 'Fond';
+          btn.style.cssText = 'padding:4px 8px;border-radius:8px;border:1px solid rgba(0,0,0,0.2);background:#fff;cursor:pointer;font-size:12px;';
+          const isActive = activeBm && ((activeBm.label && bm.label === activeBm.label) || (activeBm.url && bm.url === activeBm.url));
+          if (isActive) { btn.style.background = '#e3f2fd'; btn.setAttribute('aria-pressed', 'true'); }
+          btn.addEventListener('click', () => {
+            setDrawBaseLayer(bm);
+            try { menu.querySelectorAll('button').forEach(b => { b.style.background = '#fff'; b.removeAttribute('aria-pressed'); }); } catch(_) {}
+            btn.style.background = '#e3f2fd';
+            btn.setAttribute('aria-pressed', 'true');
+          });
+          menu.appendChild(btn);
+        });
+        const helper = drawPanelEl.querySelector('.helper');
+        if (helper) helper.after(menu); else drawPanelEl.prepend(menu);
+      } catch (e) {
+        console.warn('[contrib] buildContribBasemapMenu error:', e);
+      }
+    }
+    
+    async function applyCityBranding(ville) {
+      try {
+        if (!drawMap || !ville || !win.supabaseService || typeof win.supabaseService.getCityBranding !== 'function') return;
+        const branding = await win.supabaseService.getCityBranding(ville);
+        if (!branding) return;
+        // Accept multiple shapes: {center_lat, center_lng, zoom} OR {center:[lat,lng], zoom}
+        let lat = null, lng = null, zoom = 12;
+        if (typeof branding.zoom === 'number') zoom = branding.zoom;
+        if (Array.isArray(branding.center) && branding.center.length >= 2) {
+          lat = Number(branding.center[0]);
+          lng = Number(branding.center[1]);
+        } else if ('center_lat' in branding || 'lat' in branding) {
+          lat = Number(branding.center_lat ?? branding.lat);
+          lng = Number(branding.center_lng ?? branding.lng);
+        }
+        if (isFinite(lat) && isFinite(lng)) {
+          try { drawMap.setView([lat, lng], zoom || drawMap.getZoom()); } catch(_) {}
+        }
+      } catch (e) {
+        console.warn('[contrib] applyCityBranding error:', e);
+      }
+    }
+
+    // Stepper UI elements
+    const stepperEl = document.getElementById('contrib-stepper');
+    const stepTab1 = document.getElementById('contrib-step-1-tab');
+    const stepTab2 = document.getElementById('contrib-step-2-tab');
+    const stepTab3 = document.getElementById('contrib-step-3-tab');
+    const prevBtn  = document.getElementById('contrib-prev');
+    const nextBtn  = document.getElementById('contrib-next');
+    const submitBtn = document.getElementById('contrib-submit');
+
+    let currentStep = 1; // 1..3
+
+    function queryStepEls(n) {
+      return Array.from(document.querySelectorAll(`.contrib-step-${n}`));
+    }
+
+    function setStepHeaderActive(n) {
+      const tabs = [stepTab1, stepTab2, stepTab3];
+      tabs.forEach((t, idx) => {
+        if (!t) return;
+        const stepIndex = idx + 1;
+        const isActive = stepIndex === n;
+        const isComplete = stepIndex < n;
+        t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        t.tabIndex = isActive ? 0 : -1;
+        try {
+          t.classList.toggle('is-current', isActive);
+          t.classList.toggle('is-complete', isComplete);
+        } catch(_) {}
+      });
+    }
+
+    function updateStepButtons(n) {
+      if (prevBtn) prevBtn.style.display = (n > 1) ? '' : 'none';
+      if (nextBtn) nextBtn.style.display = (n < 3) ? '' : 'none';
+      if (submitBtn) submitBtn.style.display = (n === 3) ? '' : 'none';
+    }
+
+    function showOnlyStep(n) {
+      [1,2,3].forEach(i => {
+        queryStepEls(i).forEach(el => { el.style.display = (i === n) ? '' : 'none'; });
+      });
+    }
+
+    function validateStep1() {
+      const nameEl = document.getElementById('contrib-project-name');
+      const catEl  = document.getElementById('contrib-category');
+      const cityElSel = document.getElementById('contrib-city');
+      const ok = !!(nameEl && nameEl.value && nameEl.value.trim()) && !!(catEl && catEl.value) && !!(cityElSel && cityElSel.value);
+      if (!ok) setStatus('Veuillez renseigner nom, catégorie et ville.', 'error');
+      else setStatus('');
+      return ok;
+    }
+
+    function hasDrawGeometry() {
+      // Consider a geometry present if drawLayer exists or user created/loaded one
+      return !!(drawLayer) || !!drawLayerDirty;
+    }
+
+    function validateStep2() {
+      const mode = Array.from(geomModeRadios || []).find(r => r.checked)?.value || 'file';
+      if (mode === 'file') {
+        const fileInput = document.getElementById('contrib-geojson');
+        const ok = !!(fileInput && fileInput.files && fileInput.files.length > 0);
+        if (!ok) setStatus('Veuillez sélectionner un fichier GeoJSON.', 'error'); else setStatus('');
+        return ok;
+      }
+      // draw mode
+      const ok = hasDrawGeometry();
+      if (!ok) setStatus('Veuillez dessiner une géométrie puis terminer.', 'error'); else setStatus('');
+      return ok;
+    }
+
+    function canGoToStep(target) {
+      if (target <= 1) return true;
+      if (target === 2) return validateStep1();
+      if (target === 3) return validateStep1() && validateStep2();
+      return false;
+    }
+
+    function setStep(n, opts = {}) {
+      const { force = false } = opts || {};
+      if (!force && !canGoToStep(n)) return;
+      currentStep = Math.min(3, Math.max(1, n));
+      showOnlyStep(currentStep);
+      setStepHeaderActive(currentStep);
+      updateStepButtons(currentStep);
+
+      // Met à jour uniquement l'état visuel du stepper (classes)
+      // La barre de progression dédiée a été retirée pour privilégier le stepper existant
+
+      // Assurer l'initialisation de la carte et des contrôles de dessin dès l'entrée en étape 2
+      if (currentStep === 2) {
+        try {
+          const mode = Array.from(geomModeRadios || []).find(r => r.checked)?.value || 'file';
+          if (mode === 'draw') {
+            if (drawPanelEl) drawPanelEl.style.display = '';
+            if (fileRowEl) fileRowEl.style.display = 'none';
+            initDrawMap();
+            setTimeout(() => { try { if (drawMap) drawMap.invalidateSize(); } catch(_){} }, 50);
+            // Manual drawing only
+            ensureManualToolbar();
+            cancelManualDraw(true);
+            setStatus('Mode dessin manuel actif. Choisissez Ligne ou Polygone puis cliquez sur la carte.');
+          } else {
+            // Mode fichier: masquer le panneau de dessin et afficher le champ fichier
+            if (drawPanelEl) drawPanelEl.style.display = 'none';
+            if (fileRowEl) fileRowEl.style.display = '';
+          }
+        } catch(_) {}
+      }
+
+      // Focus first focusable in the step
+      try {
+        const stepEls = queryStepEls(currentStep);
+        const firstInput = stepEls.map(el => el.querySelector('input, select, textarea, button')).find(Boolean);
+        if (firstInput && firstInput.focus) firstInput.focus();
+      } catch(_){}
+    }
+
+    function onClickStepTab(targetStep) {
+      setStep(targetStep);
+    }
+
+    if (stepTab1) stepTab1.addEventListener('click', () => onClickStepTab(1));
+    if (stepTab2) stepTab2.addEventListener('click', () => onClickStepTab(2));
+    if (stepTab3) stepTab3.addEventListener('click', () => onClickStepTab(3));
+    if (prevBtn)  prevBtn.addEventListener('click', () => setStep(currentStep - 1));
+    if (nextBtn)  nextBtn.addEventListener('click', () => setStep(currentStep + 1));
+
+    // Panels & list state (tabs supprimés)
     const panelCreate  = document.getElementById('contrib-panel-create');
     const panelList    = document.getElementById('contrib-panel-list');
+    const backBtn      = document.getElementById('contrib-back');
+    // Landing elements
+    const landingEl = document.getElementById('contrib-landing');
+    const landingCreateBtn = document.getElementById('landing-create');
+    const landingEditBtn = document.getElementById('landing-edit');
     const listEl       = document.getElementById('contrib-list');
     const listStatusEl = document.getElementById('contrib-list-status');
     const listSearchEl = document.getElementById('contrib-search');
@@ -194,42 +619,29 @@
       }, 4200);
     }
 
-    function initDrawMap() {
+    async function initDrawMap() {
       if (drawMap || !drawPanelEl) return;
       try {
         const container = document.getElementById(drawMapContainerId);
         if (!container) return;
-        // Initialise Leaflet map
-        drawMap = L.map(drawMapContainerId).setView([45.75, 4.85], 12);
-        // Choose basemap similar to main map
-        const bmList = win.basemaps || [];
-        const defaultBm = bmList.find(b => b.default === true) || bmList[0];
-        let baseUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-        let attribution = '&copy; OpenStreetMap contributors';
-        if (defaultBm && defaultBm.url) {
-          baseUrl = defaultBm.url;
-          attribution = defaultBm.attribution || attribution;
-        }
-        L.tileLayer(baseUrl, { attribution }).addTo(drawMap);
-
-        // Map click to add points while drawing
-        drawMap.on('click', (e) => {
-          if (!drawActive || !drawType) return;
-          drawPoints.push(e.latlng);
-          if (drawType === 'LineString') {
-            if (!tempLine) {
-              tempLine = L.polyline(drawPoints, { color: '#ff5722', weight: 4, dashArray: '4,4' }).addTo(drawMap);
-            } else {
-              tempLine.setLatLngs(drawPoints);
-            }
-          } else if (drawType === 'Polygon') {
-            if (!tempPoly) {
-              tempPoly = L.polygon(drawPoints, { color: '#ff5722', weight: 3, dashArray: '4,4', fillOpacity: 0.2 }).addTo(drawMap);
-            } else {
-              tempPoly.setLatLngs([drawPoints]);
-            }
-          }
-        });
+        // Load basemaps and pick "Mode couleur" when available
+        const bmList = await ensureBasemaps();
+        const colorBm = Array.isArray(bmList)
+          ? (bmList.find(b => ((b.label || b.name || '').toLowerCase().includes('mode couleur'))) || pickDefaultBasemap(bmList))
+          : null;
+        // Initialise Leaflet map with a safe temporary view (updated by city branding)
+        drawMap = L.map(drawMapContainerId, { center: [45.75, 4.85], zoom: 12 });
+        try { drawMap.whenReady(() => setTimeout(() => { try { drawMap.invalidateSize(); } catch(_) {} }, 60)); } catch(_) {}
+        setDrawBaseLayer(colorBm);
+        // Ensure no basemap menu is displayed in contribution modal
+        try { drawPanelEl.querySelector('#contrib-basemap-menu')?.remove(); } catch(_) {}
+        // Attach a single map click handler for manual drawing
+        drawMap.on('click', onMapClick);
+        drawMap.on('mousemove', onMapMouseMove);
+        drawMap.on('mouseout', () => clearGuide());
+        // Center by selected/active city when available
+        const selectedCity = (cityEl && cityEl.value) ? cityEl.value.trim() : (win.activeCity || '').trim();
+        if (selectedCity) { await applyCityBranding(selectedCity); }
       } catch (e) {
         console.warn('[contrib] initDrawMap error:', e);
       }
@@ -238,16 +650,10 @@
     // —— Tabs logic (ARIA, keyboard) ——
     function activateTab(which) {
       const isCreate = which === 'create';
-      if (tabCreateBtn) {
-        tabCreateBtn.setAttribute('aria-selected', isCreate ? 'true' : 'false');
-        tabCreateBtn.tabIndex = isCreate ? 0 : -1;
-      }
-      if (tabListBtn) {
-        tabListBtn.setAttribute('aria-selected', !isCreate ? 'true' : 'false');
-        tabListBtn.tabIndex = !isCreate ? 0 : -1;
-      }
       if (panelCreate) panelCreate.hidden = !isCreate;
       if (panelList) panelList.hidden = isCreate;
+      // bouton retour visible quand on est hors landing
+      if (backBtn) backBtn.style.display = '';
 
       if (!isCreate) {
         // ensure list is initialized
@@ -261,37 +667,39 @@
       }
     }
 
-    function handleTabClick(e) {
-      if (e.currentTarget === tabCreateBtn) activateTab('create');
-      else if (e.currentTarget === tabListBtn) activateTab('list');
+    // —— Landing helpers ——
+    const tabsContainer = document.querySelector('#contrib-overlay .contrib-tabs');
+    function showLanding() {
+      try {
+        if (landingEl) landingEl.hidden = false;
+        if (tabsContainer) tabsContainer.style.display = 'none';
+        if (panelCreate) panelCreate.hidden = true;
+        if (panelList) panelList.hidden = true;
+        if (backBtn) backBtn.style.display = 'none';
+      } catch(_) {}
     }
-
-    function handleTabKeydown(e) {
-      const tabs = [tabCreateBtn, tabListBtn].filter(Boolean);
-      const idx = tabs.indexOf(e.currentTarget);
-      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Home' || e.key === 'End') {
-        e.preventDefault();
-        let nextIdx = idx;
-        if (e.key === 'ArrowRight') nextIdx = (idx + 1) % tabs.length;
-        if (e.key === 'ArrowLeft') nextIdx = (idx - 1 + tabs.length) % tabs.length;
-        if (e.key === 'Home') nextIdx = 0;
-        if (e.key === 'End') nextIdx = tabs.length - 1;
-        const next = tabs[nextIdx];
-        if (next) {
-          next.focus();
-          next.click();
-        }
+    function hideLanding() {
+      try {
+        if (landingEl) landingEl.hidden = true;
+        if (tabsContainer) tabsContainer.style.display = '';
+        if (backBtn) backBtn.style.display = '';
+      } catch(_) {}
+    }
+    function chooseLanding(target) {
+      try { sessionStorage.setItem('contribLandingSeen', '1'); } catch(_) {}
+      hideLanding();
+      if (target === 'list') {
+        activateTab('list');
+      } else {
+        activateTab('create');
+        try { setStep(1, { force: true }); } catch(_) {}
       }
     }
 
-    if (tabCreateBtn) {
-      tabCreateBtn.addEventListener('click', handleTabClick);
-      tabCreateBtn.addEventListener('keydown', handleTabKeydown);
-    }
-    if (tabListBtn) {
-      tabListBtn.addEventListener('click', handleTabClick);
-      tabListBtn.addEventListener('keydown', handleTabKeydown);
-    }
+    // Bind landing buttons
+    if (landingCreateBtn) landingCreateBtn.addEventListener('click', () => chooseLanding('create'));
+    if (landingEditBtn) landingEditBtn.addEventListener('click', () => chooseLanding('list'));
+    if (backBtn) backBtn.addEventListener('click', () => showLanding());
 
     // —— List helpers ——
     function setListStatus(msg) {
@@ -676,46 +1084,60 @@
 
     function setGeomMode(mode) {
       const fileInput = document.getElementById('contrib-geojson');
+      // Sync radios and cards visual state
+      try {
+        if (geomModeRadios && geomModeRadios.length) {
+          geomModeRadios.forEach(r => { r.checked = (r.value === mode); });
+        }
+        if (geomCardFile && geomCardDraw) {
+          const isDraw = mode === 'draw';
+          geomCardFile.classList.toggle('is-active', !isDraw);
+          geomCardDraw.classList.toggle('is-active', isDraw);
+          geomCardFile.setAttribute('aria-pressed', (!isDraw).toString());
+          geomCardDraw.setAttribute('aria-pressed', isDraw.toString());
+        }
+      } catch(_){}
       if (mode === 'draw') {
-        if (fileRowEl) fileRowEl.style.display = 'none';
+        if (fileRowEl) { fileRowEl.style.display = 'none'; fileRowEl.classList.remove('reveal'); }
         if (fileInput) {
           fileInput.required = false;
           fileInput.disabled = true;
           try { fileInput.value = ''; } catch(_) {}
         }
-        if (drawPanelEl) drawPanelEl.style.display = '';
+        if (drawPanelEl) { drawPanelEl.style.display = ''; drawPanelEl.classList.add('reveal'); }
         initDrawMap();
         setTimeout(() => { try { if (drawMap) drawMap.invalidateSize(); } catch(_){} }, 50);
-        // Démarrer automatiquement le mode dessin (ligne par défaut)
-        resetTemp();
+        // Manual drawing only
+        ensureManualToolbar();
+        cancelManualDraw(true);
+        setStatus('Mode dessin manuel actif. Choisissez Ligne ou Polygone puis cliquez sur la carte.');
+        // Nettoyer couche précédente
         if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
-        drawActive = true;
-        drawType = 'LineString';
-        try { if (drawMap) drawMap.getContainer().style.cursor = 'crosshair'; } catch(_){ }
-        setStatus('Mode dessin actif (ligne). Cliquez sur la carte pour ajouter des points.');
         drawLayerDirty = false;
       } else {
-        if (fileRowEl) fileRowEl.style.display = '';
+        if (fileRowEl) { fileRowEl.style.display = ''; fileRowEl.classList.add('reveal'); }
         if (fileInput) { fileInput.required = true; fileInput.disabled = false; }
-        if (drawPanelEl) drawPanelEl.style.display = 'none';
+        if (drawPanelEl) { drawPanelEl.style.display = 'none'; drawPanelEl.classList.remove('reveal'); }
         // Revenir au mode fichier doit nettoyer tout dessin en cours
         try { clearAllDrawings(); } catch(_) {}
+        try {
+          cancelManualDraw(true);
+          const manualTb = drawPanelEl && drawPanelEl.querySelector('#contrib-manual-draw-controls');
+          if (manualTb) manualTb.style.display = 'none';
+        } catch(_){ }
+      }
+      // Après un changement de mode, si on est en étape 2, re-valider l'étape
+      if (currentStep === 2) {
+        try { validateStep2(); } catch(_) {}
       }
     }
 
-    function resetTemp() {
-      drawPoints = [];
-      if (tempLine) { try { drawMap.removeLayer(tempLine); } catch(_) {} tempLine = null; }
-      if (tempPoly) { try { drawMap.removeLayer(tempPoly); } catch(_) {} tempPoly = null; }
-    }
-
     function clearAllDrawings() {
-      resetTemp();
       if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
-      drawActive = false;
-      drawType = null;
-      try { if (drawMap) drawMap.getContainer().style.cursor = ''; } catch(_){ }
       drawLayerDirty = false;
+      try {
+        cancelManualDraw(true);
+      } catch(_){ }
     }
 
     // Preload existing geometry into the draw map in edit mode
@@ -726,8 +1148,7 @@
         const drawRadio = Array.from(geomModeRadios || []).find(r => r.value === 'draw');
         if (drawRadio) { drawRadio.checked = true; }
         setGeomMode('draw');
-        // Only display geometry; not interactive drawing
-        drawActive = false; drawType = null; try { if (drawMap) drawMap.getContainer().style.cursor = ''; } catch(_){ }
+        // Nettoyer et afficher uniquement la géométrie existante
         try { clearAllDrawings(); } catch(_) {}
         const resp = await fetch(url);
         if (!resp.ok) throw new Error('GeoJSON non accessible');
@@ -744,68 +1165,7 @@
         showToast('Impossible de charger la géométrie existante.', 'error');
       }
     }
-
-    // Buttons handlers
-    if (drawBtnLine) {
-      drawBtnLine.addEventListener('click', () => {
-        resetTemp();
-        if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
-        drawActive = true;
-        drawType = 'LineString';
-        try { if (drawMap) drawMap.getContainer().style.cursor = 'crosshair'; } catch(_){}
-        setStatus('Mode dessin: ligne. Cliquez sur la carte pour ajouter des points.');
-      });
-    }
-    if (drawBtnPolygon) {
-      drawBtnPolygon.addEventListener('click', () => {
-        resetTemp();
-        if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
-        drawActive = true;
-        drawType = 'Polygon';
-        try { if (drawMap) drawMap.getContainer().style.cursor = 'crosshair'; } catch(_){}
-        setStatus('Mode dessin: polygone. Cliquez sur la carte pour ajouter des points.');
-      });
-    }
-    if (drawBtnUndo) {
-      drawBtnUndo.addEventListener('click', () => {
-        if (!drawPoints.length) return;
-        drawPoints.pop();
-        if (drawType === 'LineString' && tempLine) tempLine.setLatLngs(drawPoints);
-        if (drawType === 'Polygon' && tempPoly) tempPoly.setLatLngs([drawPoints]);
-      });
-    }
-    if (drawBtnFinish) {
-      drawBtnFinish.addEventListener('click', () => {
-        if (!drawType) return;
-        if (drawType === 'LineString' && drawPoints.length < 2) {
-          setStatus('Ajoutez au moins 2 points pour une ligne.', 'error');
-          return;
-        }
-        if (drawType === 'Polygon' && drawPoints.length < 3) {
-          setStatus('Ajoutez au moins 3 points pour un polygone.', 'error');
-          return;
-        }
-        if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
-        if (drawType === 'LineString') {
-          drawLayer = L.polyline(drawPoints, { color: '#1976d2', weight: 4 }).addTo(drawMap);
-        } else {
-          drawLayer = L.polygon(drawPoints, { color: '#1976d2', weight: 3, fillOpacity: 0.2 }).addTo(drawMap);
-        }
-        try { drawMap.fitBounds(drawLayer.getBounds(), { padding: [10, 10] }); } catch(_){}
-        resetTemp();
-        drawActive = false;
-        drawType = null;
-        try { if (drawMap) drawMap.getContainer().style.cursor = ''; } catch(_){ }
-        setStatus('Géométrie finalisée. Vous pouvez soumettre la contribution.', 'success');
-        drawLayerDirty = true;
-      });
-    }
-    if (drawBtnClear) {
-      drawBtnClear.addEventListener('click', () => {
-        clearAllDrawings();
-        setStatus('Dessin effacé.');
-      });
-    }
+    // Dessin manuel uniquement: pas d'intégration Leaflet-Geoman
 
     // Mode change listeners
     if (geomModeRadios && geomModeRadios.length) {
@@ -815,10 +1175,41 @@
           setGeomMode(checked);
         });
       });
-      // Initialize UI state
-      const initialMode = Array.from(geomModeRadios).find(x => x.checked)?.value || 'file';
-      setGeomMode(initialMode);
     }
+    // Card click listeners
+    if (geomCardFile) geomCardFile.addEventListener('click', () => setGeomMode('file'));
+    if (geomCardDraw) geomCardDraw.addEventListener('click', () => setGeomMode('draw'));
+    // Initialize UI state
+    const initialMode = (Array.from(geomModeRadios || []).find(x => x.checked)?.value) || 'file';
+    setGeomMode(initialMode);
+
+    // Dropzone: clic + drag&drop léger pour GeoJSON
+    (function setupDropzone(){
+      const fileInput = document.getElementById('contrib-geojson');
+      if (!dropzoneEl || !fileInput) return;
+      const openPicker = () => { if (!fileInput.disabled) fileInput.click(); };
+      dropzoneEl.addEventListener('click', openPicker);
+      dropzoneEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
+      });
+      const updateName = () => {
+        const f = fileInput.files && fileInput.files[0];
+        if (dzFilenameEl) dzFilenameEl.textContent = f ? f.name : '';
+        if (dropzoneEl) dropzoneEl.classList.toggle('has-file', !!f);
+      };
+      fileInput.addEventListener('change', () => { updateName(); try { validateStep2(); } catch(_){} });
+      ['dragenter','dragover'].forEach(ev => dropzoneEl.addEventListener(ev, (e)=>{
+        e.preventDefault(); e.stopPropagation(); dropzoneEl.classList.add('is-dragover');
+      }));
+      ['dragleave','dragend','drop'].forEach(ev => dropzoneEl.addEventListener(ev, (e)=>{
+        e.preventDefault(); e.stopPropagation(); dropzoneEl.classList.remove('is-dragover');
+      }));
+      dropzoneEl.addEventListener('drop', (e)=>{
+        const dt = e.dataTransfer; if (!dt) return;
+        const files = dt.files; if (!files || !files.length) return;
+        if (!fileInput.disabled) { fileInput.files = files; fileInput.dispatchEvent(new Event('change', { bubbles:true })); }
+      });
+    })();
 
     function createDocRow() {
       const row = document.createElement('div');
@@ -1078,10 +1469,20 @@
     // Populate city selector from DB and default to active city
     async function populateCities() {
       try {
-        if (!cityEl || !win.supabaseService || typeof win.supabaseService.listCities !== 'function') return;
+        if (!cityEl || !win.supabaseService) return;
         // temporary placeholder
         cityEl.innerHTML = '<option value="" disabled selected>Chargement…</option>';
-        const cities = await win.supabaseService.listCities();
+        let cities = [];
+        try {
+          if (typeof win.supabaseService.getValidCities === 'function') {
+            cities = await win.supabaseService.getValidCities();
+          }
+        } catch (e1) {
+          console.warn('[contrib] populateCities getValidCities error:', e1);
+        }
+        if ((!Array.isArray(cities) || !cities.length) && typeof win.supabaseService.listCities === 'function') {
+          try { cities = await win.supabaseService.listCities(); } catch (e2) { console.warn('[contrib] populateCities listCities fallback error:', e2); }
+        }
         const options = (Array.isArray(cities) && cities.length ? cities : ['lyon']).map(c => `<option value="${c}">${c}</option>`).join('');
         cityEl.innerHTML = options;
         // default selection
@@ -1095,6 +1496,16 @@
           cityEl.innerHTML = '<option value="lyon" selected>lyon</option>';
         }
       }
+    }
+
+    // Recenter draw map on city change
+    if (cityEl) {
+      cityEl.addEventListener('change', async () => {
+        try {
+          const v = (cityEl.value || '').trim();
+          if (v) await applyCityBranding(v);
+        } catch (_) {}
+      });
     }
 
     try { populateCities(); } catch(_) {}

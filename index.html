@@ -42,6 +42,7 @@
   <link rel="stylesheet" href="style.css" />
   <!-- Chargement de Leaflet depuis des fichiers locaux -->
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <!-- Geoman removed: manual drawing only -->
   <link rel="stylesheet" href="ficheprojet.css">
   <!-- Font Awesome via cdnjs -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css"
@@ -114,104 +115,125 @@
         <button class="gp-modal-close" id="contrib-close" aria-label="Fermer">&times;</button>
       </div>
       <div class="gp-modal-body">
-        <!-- Tabs: Créer / Contributions -->
-        <div class="contrib-tabs" role="tablist" aria-label="Contribution">
-          <button id="contrib-tab-create" role="tab" aria-selected="true" aria-controls="contrib-panel-create" tabindex="0" class="gp-tab">Créer</button>
-          <button id="contrib-tab-list" role="tab" aria-selected="false" aria-controls="contrib-panel-list" tabindex="-1" class="gp-tab">Contributions</button>
+        <!-- Landing: choix initial (affiché au premier lancement) -->
+        <section id="contrib-landing" class="contrib-landing" role="region" aria-label="Choisir une action" hidden>
+          <h3 class="landing-title">Que voulez-vous faire&nbsp;?</h3>
+          <div class="landing-cards" role="list">
+            <button class="choice-card" role="listitem" id="landing-create" data-target="create" aria-describedby="landing-create-desc">
+              <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-plus-circle"></i></span>
+              <span class="card-title">Créer une contribution</span>
+              <span class="card-desc" id="landing-create-desc">Ajoutez un nouveau projet avec son tracé et ses informations.</span>
+            </button>
+            <button class="choice-card" role="listitem" id="landing-edit" data-target="list" aria-describedby="landing-edit-desc">
+              <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-pen-to-square"></i></span>
+              <span class="card-title">Modifier mes contributions</span>
+              <span class="card-desc" id="landing-edit-desc">Consultez et mettez à jour vos contributions existantes.</span>
+            </button>
+          </div>
+        </section>
+        <!-- Bouton Retour vers la page d’accueil de la modale -->
+        <div class="contrib-toolbar" aria-hidden="false">
+          <button id="contrib-back" class="gp-btn gp-btn--secondary" style="display:none;">
+            <i class="fa fa-arrow-left" aria-hidden="true"></i>
+            <span>Retour</span>
+          </button>
         </div>
 
+        
+
         <!-- Panel: Création / Édition -->
-        <section id="contrib-panel-create" role="tabpanel" aria-labelledby="contrib-tab-create">
+        <section id="contrib-panel-create" role="tabpanel" aria-label="Créer">
+        <!-- Stepper navigation -->
+        <div class="contrib-stepper" id="contrib-stepper" role="tablist" aria-label="Étapes de contribution">
+          <button class="contrib-step" id="contrib-step-1-tab" role="tab" aria-selected="true" tabindex="0">1. Infos</button>
+          <button class="contrib-step" id="contrib-step-2-tab" role="tab" aria-selected="false" tabindex="-1">2. Tracé</button>
+          <button class="contrib-step" id="contrib-step-3-tab" role="tab" aria-selected="false" tabindex="-1">3. Options</button>
+        </div>
         <form id="contrib-form" class="contrib-form">
-          <div class="form-row">
+          <div class="form-row contrib-step-1">
             <label for="contrib-project-name">Nom du projet</label>
             <input type="text" id="contrib-project-name" name="project_name" required placeholder="Ex: Tram T10 – Phase 2" />
           </div>
 
-          <div class="form-row">
+          <div class="form-row contrib-step-1">
             <label for="contrib-category">Catégorie</label>
             <select id="contrib-category" name="category_layer" required>
               <option value="mobilite">Mobilité</option>
               <option value="urbanisme">Urbanisme</option>
-              <option value="voielyonnaise">Voie Lyonnaise</option>
+              <option value="velo">Vélo</option>
             </select>
           </div>
 
-          <div class="form-row">
+          <div class="form-row contrib-step-1">
             <label for="contrib-city">Ville</label>
             <select id="contrib-city" name="ville" required>
               <!-- Options peuplées dynamiquement depuis la base -->
             </select>
           </div>
 
-          <fieldset class="form-fieldset" id="contrib-geom-mode">
-            <legend>Mode de saisie du tracé</legend>
-            <div class="form-row">
-              <label>
-                <input type="radio" name="contrib-geom-mode" value="file" checked>
-                Importer un fichier GeoJSON
-              </label>
+          <div class="contrib-step-2" id="contrib-geom-mode">
+            <!-- Radios cachés pour l’accessibilité et la soumission -->
+            <div class="visually-hidden" aria-hidden="true">
+              <input type="radio" id="geom-mode-file" name="contrib-geom-mode" value="file" checked>
+              <input type="radio" id="geom-mode-draw" name="contrib-geom-mode" value="draw">
             </div>
-            <div class="form-row">
-              <label>
-                <input type="radio" name="contrib-geom-mode" value="draw">
-                Dessiner sur la carte
-              </label>
+            <div class="geom-mode-cards" role="list">
+              <button type="button" class="geom-card is-active" id="geom-card-file" role="listitem" aria-pressed="true" aria-controls="contrib-file-row" data-mode="file">
+                <span class="geom-icon" aria-hidden="true"><i class="fa-solid fa-file-arrow-up"></i></span>
+                <span class="geom-title">Importer un fichier GeoJSON</span>
+                <span class="geom-desc">Déposez votre tracé au format GeoJSON (.geojson, .json)</span>
+              </button>
+              <button type="button" class="geom-card" id="geom-card-draw" role="listitem" aria-pressed="false" aria-controls="contrib-draw-panel" data-mode="draw">
+                <span class="geom-icon" aria-hidden="true"><i class="fa-solid fa-pen-ruler"></i></span>
+                <span class="geom-title">Dessiner sur la carte</span>
+                <span class="geom-desc">Tracez votre itinéraire ou zone directement sur la carte</span>
+              </button>
             </div>
-          </fieldset>
-
-          <div class="form-row" id="contrib-file-row">
-            <label for="contrib-geojson">Fichier GeoJSON</label>
-            <input type="file" id="contrib-geojson" name="geojson_file" accept=".geojson,application/geo+json,application/json" required />
-            <small>Fichier .geojson (ou .json au format GeoJSON).</small>
           </div>
 
-          <div class="form-row" id="contrib-draw-panel" style="display:none;">
-            <div class="draw-controls" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
-              <button type="button" id="draw-line" class="gp-btn gp-btn--secondary">
-                Tracer une ligne
-              </button>
-              <button type="button" id="draw-polygon" class="gp-btn gp-btn--secondary">
-                Tracer un polygone
-              </button>
-              <button type="button" id="draw-undo" class="gp-btn gp-btn--secondary">
-                Annuler point
-              </button>
-              <button type="button" id="draw-finish" class="gp-btn gp-btn--secondary">
-                Terminer
-              </button>
-              <button type="button" id="draw-clear" class="gp-btn gp-btn--secondary">
-                Effacer
-              </button>
+          <div class="form-row contrib-step-2" id="contrib-file-row">
+            <input type="file" id="contrib-geojson" name="geojson_file" accept=".geojson,application/geo+json,application/json" required style="display:none;" />
+            <div id="contrib-dropzone" class="file-dropzone" role="button" tabindex="0" aria-label="Déposer un fichier GeoJSON ou cliquer pour choisir">
+              <div class="dz-text">
+                <div class="dz-title">Déposez votre fichier GeoJSON</div>
+                <div class="dz-sub">… ou cliquez pour choisir un fichier</div>
+              </div>
+              <div class="dz-selected">
+                <span class="dz-icon" aria-hidden="true"><i class="fa-regular fa-file-lines"></i></span>
+                <span id="contrib-dz-filename" class="dz-filename"></span>
+              </div>
             </div>
+            
+          </div>
+
+          <div class="form-row contrib-step-2" id="contrib-draw-panel" style="display:none;">
             <div id="contrib-draw-map" style="height:320px; border-radius:8px; overflow:hidden;"></div>
-            <small>Astuce: cliquez pour ajouter des points. Utilisez « Annuler point » pour corriger et « Terminer » pour finaliser la géométrie.</small>
           </div>
 
-          <div class="form-row">
+          <div class="form-row contrib-step-3">
             <label for="contrib-cover">Cover (optionnelle)</label>
             <input type="file" id="contrib-cover" name="cover_file" accept="image/png,image/jpeg,image/webp" />
             <small>Image .png, .jpg ou .webp. Elle sera stockée et son URL journalisée.</small>
             <div id="contrib-cover-preview" style="margin-top:6px"></div>
           </div>
 
-          <div class="form-row">
+          <div class="form-row contrib-step-3">
             <label for="contrib-meta">Meta (optionnel)</label>
             <input type="text" id="contrib-meta" name="meta" placeholder="Méta information (ex: tag, note, source)" />
           </div>
 
-          <div class="form-row">
+          <div class="form-row contrib-step-3">
             <label for="contrib-description">Description (optionnelle)</label>
             <textarea id="contrib-description" name="description" rows="3" placeholder="Courte description du projet (ex: 1-3 phrases)"></textarea>
           </div>
 
-          <div class="form-row">
+          <div class="form-row contrib-step-3">
             <label for="contrib-markdown">Contenu Markdown (optionnel)</label>
             <textarea id="contrib-markdown" name="markdown" rows="8" placeholder="# Titre\n\nDécrivez le projet, ajoutez des liens, etc."></textarea>
             <small>Le contenu sera stocké en Markdown dans le stockage et lié à votre contribution.</small>
           </div>
 
-          <fieldset class="form-fieldset">
+          <fieldset class="form-fieldset contrib-step-3">
             <legend>Liens officiels (optionnels)</legend>
             <div class="form-row">
               <label for="contrib-grandlyon-url">Grand Lyon (urbanisme)</label>
@@ -223,7 +245,7 @@
             </div>
           </fieldset>
 
-          <fieldset class="form-fieldset" id="contrib-docs">
+          <fieldset class="form-fieldset contrib-step-3" id="contrib-docs">
             <legend>Dossiers de concertation (optionnels)</legend>
             <div id="contrib-existing-docs" class="contrib-existing-docs" aria-live="polite" style="margin-bottom:8px;"></div>
             <div class="doc-row">
@@ -238,7 +260,13 @@
           </fieldset>
 
           <div class="form-actions" style="margin-top:12px; display:flex; gap:8px; align-items:center;">
-            <button type="submit" id="contrib-submit" class="gp-btn">
+            <button type="button" id="contrib-prev" class="gp-btn gp-btn--secondary">
+              <span>Précédent</span>
+            </button>
+            <button type="button" id="contrib-next" class="gp-btn">
+              <span>Suivant</span>
+            </button>
+            <button type="submit" id="contrib-submit" class="gp-btn" style="display:none;">
               <i class="fa fa-paper-plane" aria-hidden="true"></i>
               <span>Envoyer</span>
             </button>
@@ -268,7 +296,7 @@
                 <option value="">Toutes</option>
                 <option value="mobilite">Mobilité</option>
                 <option value="urbanisme">Urbanisme</option>
-                <option value="voielyonnaise">Voie Lyonnaise</option>
+                <option value="velo">Vélo</option>
               </select>
             </div>
             <div style="flex:0 0 200px;">
@@ -406,6 +434,7 @@
   <script src="modules/auth.js"></script>
   <!-- Chargement de Leaflet JS depuis des fichiers locaux -->
   <script src="vendor/leaflet/leaflet.js"></script>
+  <!-- Geoman removed: manual drawing only -->
   <!-- Marked via jsDelivr -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <!-- Chargement des scripts locaux -->
