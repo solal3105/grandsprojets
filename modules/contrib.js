@@ -186,7 +186,6 @@
         <button type="button" class="gp-btn" id="btn-undo-point" title="Annuler le dernier point"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Annuler point</button>
         <button type="button" class="gp-btn" id="btn-finish" title="Terminer le tracé"><i class="fa-solid fa-check" aria-hidden="true"></i> Terminer</button>
         <button type="button" class="gp-btn" id="btn-clear-geom" title="Effacer la géométrie"><i class="fa-solid fa-trash" aria-hidden="true"></i> Effacer</button>
-        <button type="button" class="gp-btn" id="btn-restart" title="Recommencer"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Recommencer</button>
       `;
       const helper = drawPanelEl.querySelector('.helper');
       if (helper) helper.after(toolbar); else drawPanelEl.prepend(toolbar);
@@ -196,7 +195,6 @@
       toolbar.querySelector('#btn-undo-point')?.addEventListener('click', () => undoManualPoint());
       toolbar.querySelector('#btn-finish')?.addEventListener('click', () => finishManualDraw());
       toolbar.querySelector('#btn-clear-geom')?.addEventListener('click', () => clearManualGeometry());
-      toolbar.querySelector('#btn-restart')?.addEventListener('click', () => clearManualGeometry());
       updateManualButtons();
     }
 
@@ -210,21 +208,28 @@
       const btnUndo = toolbar.querySelector('#btn-undo-point');
       const btnFinish = toolbar.querySelector('#btn-finish');
       const btnClear = toolbar.querySelector('#btn-clear-geom');
-      const btnRestart = toolbar.querySelector('#btn-restart');
 
       // Logic of visibility
       const hasFinal = !!drawLayer; // a finalized geometry exists
-      const showChoice = (!active && !hasPoints && !hasFinal) || (active && !hasPoints); // show Line/Polygon until first point is placed
+      // State A: initial (no active draw, no points, no final) OR active but 0 point -> show line/polygon
+      const showChoice = (!active && !hasPoints && !hasFinal) || (active && !hasPoints);
       if (btnLine) btnLine.style.display = showChoice ? '' : 'none';
       if (btnPoly) btnPoly.style.display = showChoice ? '' : 'none';
 
-      const showEdit = active && hasPoints; // after first point, show only undo/finish/clear
+      // State B: editing (after first point) -> show undo/finish/clear
+      const showEdit = active && hasPoints;
       if (btnUndo) btnUndo.style.display = showEdit ? '' : 'none';
       if (btnFinish) btnFinish.style.display = showEdit ? '' : 'none';
       if (btnClear) btnClear.style.display = showEdit ? '' : 'none';
 
-      const showRestart = (!active && hasFinal);
-      if (btnRestart) btnRestart.style.display = showRestart ? '' : 'none';
+      // State C: finalized (not active, has final) -> show only clear
+      if (!active && hasFinal) {
+        if (btnLine) btnLine.style.display = 'none';
+        if (btnPoly) btnPoly.style.display = 'none';
+        if (btnUndo) btnUndo.style.display = 'none';
+        if (btnFinish) btnFinish.style.display = 'none';
+        if (btnClear) btnClear.style.display = '';
+      }
 
       // Enabled state
       if (btnUndo) btnUndo.disabled = !(active && hasPoints);
@@ -240,7 +245,7 @@
       manualDraw.type = type === 'polygon' ? 'polygon' : 'line';
       manualDraw.points = [];
       try { drawMap.doubleClickZoom.disable(); } catch(_) {}
-      setStatus(`Mode ${manualDraw.type === 'line' ? 'ligne' : 'polygone'}: cliquez sur la carte pour ajouter des points. Terminez avec "Terminer".`);
+      // Removed informational status
       updateManualButtons();
     }
 
@@ -269,7 +274,7 @@
       if (!manualDraw.active) return;
       const minPts = manualDraw.type === 'line' ? 2 : 3;
       if (manualDraw.points.length < minPts) {
-        setStatus(`Ajoutez au moins ${minPts} points avant de terminer.`, 'error');
+        showToast(`Ajoutez au moins ${minPts} points avant de terminer.`, 'error');
         return;
       }
       // Remove existing finalized layer
@@ -285,7 +290,7 @@
       }
       try { drawMap.fitBounds(drawLayer.getBounds(), { padding: [10, 10] }); } catch(_) {}
       drawLayerDirty = true;
-      setStatus('Géométrie finalisée. Cliquez sur Recommencer si vous souhaitez refaire.');
+      // Removed informational status after finalize
       cancelManualDraw(true);
       updateManualButtons();
     }
@@ -297,7 +302,7 @@
       clearManualTemp();
       clearGuide();
       try { drawMap.doubleClickZoom.enable(); } catch(_) {}
-      if (!keepStatus) setStatus('Mode dessin manuel désactivé.');
+      // Removed informational status on cancel
       updateManualButtons();
     }
 
@@ -311,7 +316,7 @@
       if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
       drawLayerDirty = false;
       cancelManualDraw(true); // resets active/type/points
-      setStatus('Géométrie effacée. Choisissez Ligne ou Polygone.');
+      // Removed informational status on clear
       updateManualButtons();
     }
     
@@ -451,8 +456,7 @@
       const catEl  = document.getElementById('contrib-category');
       const cityElSel = document.getElementById('contrib-city');
       const ok = !!(nameEl && nameEl.value && nameEl.value.trim()) && !!(catEl && catEl.value) && !!(cityElSel && cityElSel.value);
-      if (!ok) setStatus('Veuillez renseigner nom, catégorie et ville.', 'error');
-      else setStatus('');
+      if (!ok) showToast('Veuillez renseigner nom, catégorie et ville.', 'error');
       return ok;
     }
 
@@ -466,12 +470,12 @@
       if (mode === 'file') {
         const fileInput = document.getElementById('contrib-geojson');
         const ok = !!(fileInput && fileInput.files && fileInput.files.length > 0);
-        if (!ok) setStatus('Veuillez sélectionner un fichier GeoJSON.', 'error'); else setStatus('');
+        if (!ok) showToast('Veuillez sélectionner un fichier GeoJSON.', 'error');
         return ok;
       }
       // draw mode
       const ok = hasDrawGeometry();
-      if (!ok) setStatus('Veuillez dessiner une géométrie puis terminer.', 'error'); else setStatus('');
+      if (!ok) showToast('Veuillez dessiner une géométrie puis terminer.', 'error');
       return ok;
     }
 
@@ -505,7 +509,7 @@
             // Manual drawing only
             ensureManualToolbar();
             cancelManualDraw(true);
-            setStatus('Mode dessin manuel actif. Choisissez Ligne ou Polygone puis cliquez sur la carte.');
+            // Removed informational status when entering draw mode
           } else {
             // Mode fichier: masquer le panneau de dessin et afficher le champ fichier
             if (drawPanelEl) drawPanelEl.style.display = 'none';
@@ -595,9 +599,12 @@
     }
 
     function setStatus(msg, kind = 'info') {
-      if (!statusEl) return;
-      statusEl.textContent = msg || '';
-      statusEl.style.color = kind === 'error' ? 'var(--danger, #b00020)' : (kind === 'success' ? 'var(--success, #2e7d32)' : '');
+      // Deprecated: we avoid using inline status area; only show errors as toasts
+      if (kind === 'error' && msg) {
+        try { showToast(msg, 'error'); } catch(_) {}
+      }
+      // Do not mutate #contrib-status anymore
+      if (statusEl) { try { statusEl.textContent = ''; } catch(_) {} }
     }
 
     // —— Accessible toast notifications ——
@@ -1001,6 +1008,245 @@
     const deleteEditBtn = document.getElementById('contrib-delete');
     const coverPreview  = document.getElementById('contrib-cover-preview');
 
+    // —— Cover preview + dropzone + compression ——
+    let coverCompressedFile = null;
+    (function setupCoverDropzone(){
+      try {
+        const coverInput = document.getElementById('contrib-cover');
+        if (!coverInput || !coverPreview) return;
+
+        // Hide native input like step 2
+        try { coverInput.style.display = 'none'; } catch(_){}
+
+        // Build same structure as step 2 dropzone
+        coverPreview.classList.add('file-dropzone');
+        coverPreview.setAttribute('role', 'button');
+        coverPreview.setAttribute('tabindex', '0');
+        coverPreview.setAttribute('aria-label', 'Déposer une image de couverture ou cliquer pour choisir');
+        coverPreview.innerHTML = `
+          <div class="dz-text">
+            <div class="dz-title">Déposez votre image de couverture</div>
+            <div class="dz-sub">… ou cliquez pour choisir un fichier</div>
+          </div>
+          <div class="dz-selected">
+            <span class="dz-icon" aria-hidden="true"><i class="fa-regular fa-image"></i></span>
+            <span class="dz-filename" id="cover-dz-filename"></span>
+          </div>
+        `;
+        const coverDzFilenameEl = coverPreview.querySelector('#cover-dz-filename');
+        // Create simple meta text (compression info)
+        let dzMeta = coverPreview.querySelector('.dz-meta');
+        if (!dzMeta) {
+          dzMeta = document.createElement('div');
+          dzMeta.className = 'dz-meta';
+          dzMeta.style.marginTop = '8px';
+          dzMeta.style.fontSize = '12px';
+          dzMeta.innerHTML = `<div class="dz-info" aria-live="polite"></div>`;
+          coverPreview.appendChild(dzMeta);
+        }
+        const dzInfo = coverPreview.querySelector('.dz-info');
+
+        // Same interactions as step 2
+        const openPicker = () => { try { coverInput.click(); } catch(_){} };
+        coverPreview.addEventListener('click', openPicker);
+        coverPreview.addEventListener('keydown', (e)=>{
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
+        });
+
+        ['dragenter','dragover'].forEach(ev => coverPreview.addEventListener(ev, (e)=>{
+          e.preventDefault(); e.stopPropagation(); coverPreview.classList.add('is-dragover');
+        }));
+        ;['dragleave','dragend','drop'].forEach(ev => coverPreview.addEventListener(ev, (e)=>{
+          e.preventDefault(); e.stopPropagation(); coverPreview.classList.remove('is-dragover');
+        }));
+
+        coverPreview.addEventListener('drop', (e)=>{
+          const dt = e.dataTransfer; if (!dt) return;
+          const f = dt.files && dt.files[0]; if (!f) return;
+          processCoverFile(f);
+        });
+
+        coverInput.addEventListener('change', ()=>{
+          const f = coverInput.files && coverInput.files[0];
+          if (f) processCoverFile(f);
+        });
+
+        function processCoverFile(file){
+          try {
+            const type = (file.type||'').toLowerCase();
+            if (!/image\/(png|jpe?g|webp)/.test(type)) {
+              showToast('Image invalide (png, jpg, webp)', 'error');
+              return;
+            }
+            // Create preview first
+            const url = URL.createObjectURL(file);
+            renderPreview(url, ''); // no filename displayed
+            // Compress
+            compressImage(file).then((compressed)=>{
+              coverCompressedFile = compressed || file;
+              try {
+                const before = file.size / (1024*1024);
+                const after = (coverCompressedFile && coverCompressedFile.size ? coverCompressedFile.size : file.size) / (1024*1024);
+                if (dzInfo) dzInfo.textContent = `image compressée de ${before.toFixed(2)} Mo à ${after.toFixed(2)} Mo`;
+              } catch(_){}
+            }).catch(()=>{ coverCompressedFile = file; });
+          } catch (e) {
+            console.warn('[contrib] processCoverFile error', e);
+            showToast("Impossible de lire l'image.", 'error');
+          }
+        }
+
+        function renderPreview(objectUrl, filename){
+          try {
+            // Switch to selected state and show filename + thumbnail
+            if (coverDzFilenameEl) {
+              try { coverDzFilenameEl.textContent = ''; } catch(_){ }
+            }
+            coverPreview.classList.add('has-file');
+            // Thumbnail
+            let thumb = coverPreview.querySelector('img.dz-thumb');
+            if (!thumb) {
+              thumb = document.createElement('img');
+              thumb.className = 'dz-thumb';
+              thumb.alt = 'Aperçu de la cover';
+              thumb.style.maxHeight = '140px';
+              thumb.style.maxWidth = '100%';
+              thumb.style.borderRadius = '10px';
+              thumb.style.boxShadow = '0 6px 16px rgba(0,0,0,0.18)';
+              thumb.style.transform = 'rotate(-0.75deg)';
+              thumb.style.transition = 'transform 0.2s ease';
+              // place thumbnail inside dz-selected, replacing icon
+              const sel = coverPreview.querySelector('.dz-selected');
+              if (sel) {
+                const icon = sel.querySelector('.dz-icon');
+                if (icon) { try { icon.remove(); } catch(_){} }
+                sel.prepend(thumb);
+              } else {
+                coverPreview.appendChild(thumb);
+              }
+            }
+            thumb.src = objectUrl;
+          } catch(_){ }
+        }
+
+        // Expose for edit-mode prefill
+        try { win.__contribRenderCoverPreview = (u, n) => renderPreview(u, n); } catch(_){}
+
+        function compressImage(file){
+          return new Promise((resolve)=>{
+            try {
+              const img = new Image();
+              img.onload = () => {
+                try {
+                  const maxDim = 2000; // milder resize
+                  let { width, height } = img;
+                  const ratio = Math.min(1, maxDim / Math.max(width, height));
+                  const canvas = document.createElement('canvas');
+                  canvas.width = Math.round(width * ratio);
+                  canvas.height = Math.round(height * ratio);
+                  const ctx = canvas.getContext('2d');
+                  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                  const preferType = 'image/webp';
+                  const fallbackType = 'image/jpeg';
+                  const quality = 0.9; // milder compression
+                  const toBlobType = (canvas.toDataURL(preferType).indexOf('data:image/webp') === 0) ? preferType : fallbackType;
+                  canvas.toBlob((blob)=>{
+                    if (!blob) { resolve(file); return; }
+                    try {
+                      const ext = toBlobType === 'image/webp' ? 'webp' : 'jpg';
+                      const name = (file.name || 'cover').replace(/\.[^.]+$/, '') + '.' + ext;
+                      const compressed = new File([blob], name, { type: toBlobType, lastModified: Date.now() });
+                      resolve(compressed);
+                    } catch(_) { resolve(file); }
+                  }, toBlobType, quality);
+                } catch(_) { resolve(file); }
+              };
+              img.onerror = () => resolve(file);
+              img.src = URL.createObjectURL(file);
+            } catch(_) { resolve(file); }
+          });
+        }
+      } catch (e) {
+        console.warn('[contrib] setupCoverDropzone error:', e);
+      }
+    })();
+
+    // —— Meta/Description char limits ——
+    (function setupCharLimits(){
+      const META_MAX = 160;
+      const DESC_MAX = 500;
+
+      initLimit('contrib-meta', META_MAX);
+      initLimit('contrib-description', DESC_MAX);
+
+      function initLimit(fieldId, max) {
+        const el = document.getElementById(fieldId);
+        if (!el) return;
+        // Overlay at bottom-right of the field (avoid overlapping helper <small>)
+        const row = el.closest('.form-row') || el.parentElement;
+        if (row && !row.style.position) row.style.position = 'relative';
+        const help = (row ? row.querySelector('small') : null);
+
+        // container for tiny progress (top) + counter (below), aligned right
+        const wrap = document.createElement('div');
+        wrap.className = 'char-hud';
+        wrap.style.display = 'flex';
+        wrap.style.flexDirection = 'column';
+        wrap.style.alignItems = 'flex-end';
+        wrap.style.gap = '4px';
+        wrap.style.position = 'absolute';
+        wrap.style.right = '8px';
+        wrap.style.bottom = help ? '28px' : '6px';
+        wrap.style.pointerEvents = 'none';
+
+        const progOuter = document.createElement('div');
+        progOuter.className = 'char-prog';
+        progOuter.style.height = '2px';
+        progOuter.style.width = '80px';
+        progOuter.style.borderRadius = '999px';
+        progOuter.style.background = 'rgba(0,0,0,0.08)';
+        progOuter.style.position = 'relative';
+
+        const progInner = document.createElement('div');
+        progInner.className = 'char-prog-fill';
+        progInner.style.height = '100%';
+        progInner.style.width = '0%';
+        progInner.style.borderRadius = '999px';
+        progInner.style.background = 'rgba(33,150,243,0.6)';
+        progInner.style.transition = 'width 0.1s linear';
+        progOuter.appendChild(progInner);
+
+        const counter = document.createElement('div');
+        counter.className = 'char-counter';
+        counter.style.fontSize = '11px';
+        counter.style.opacity = '0.65';
+        counter.id = `${fieldId}-counter`;
+
+        wrap.appendChild(progOuter);
+        wrap.appendChild(counter);
+        if (row) { row.appendChild(wrap); } else { el.insertAdjacentElement('afterend', wrap); }
+        try { el.setAttribute('aria-describedby', counter.id); } catch(_){}
+
+        const clamp = () => {
+          let v = el.value || '';
+          if (v.length > max) {
+            v = v.slice(0, max);
+            el.value = v;
+          }
+          const used = v.length;
+          const pct = Math.max(0, Math.min(100, (used / max) * 100));
+          const remaining = Math.max(0, max - used);
+          counter.textContent = `${remaining}`;
+          progInner.style.width = `${pct}%`;
+        };
+
+        // init + bind
+        clamp();
+        el.addEventListener('input', clamp);
+        el.addEventListener('blur', clamp);
+      }
+    })();
+
     function setEditUI(on) {
       const submitBtn = document.getElementById('contrib-submit');
       const nameEl = document.getElementById('contrib-project-name');
@@ -1027,7 +1273,28 @@
       if (metaEl) metaEl.value = row.meta || '';
       if (descEl) descEl.value = row.description || '';
       if (coverPreview) {
-        coverPreview.innerHTML = row.cover_url ? `<img src="${row.cover_url}" alt="Aperçu cover" style="max-height:80px;border-radius:6px;"/>` : '';
+        try {
+          if (row.cover_url && typeof win.__contribRenderCoverPreview === 'function') {
+            win.__contribRenderCoverPreview(row.cover_url, 'cover.jpg');
+          } else if (row.cover_url) {
+            // Fallback minimal preview if renderer not yet ready
+            coverPreview.innerHTML = `<img src="${row.cover_url}" alt="Aperçu cover" style="max-height:80px;border-radius:6px;"/>`;
+          } else {
+            coverPreview.classList.remove('has-file');
+            const fn = coverPreview.querySelector('#cover-dz-filename');
+            if (fn) fn.textContent = '';
+            const sel = coverPreview.querySelector('.dz-selected');
+            if (sel && !sel.querySelector('.dz-icon')) {
+              const icon = document.createElement('span');
+              icon.className = 'dz-icon';
+              icon.setAttribute('aria-hidden','true');
+              icon.innerHTML = '<i class="fa-regular fa-image"></i>';
+              sel.prepend(icon);
+            }
+            const thumb = coverPreview.querySelector('img.dz-thumb');
+            if (thumb) thumb.remove();
+          }
+        } catch(_){}
       }
       // Try fetching markdown content
       if (mdEl) {
@@ -1352,7 +1619,10 @@
         }
       }
 
-      const coverFile = coverInput && coverInput.files && coverInput.files[0] ? coverInput.files[0] : null;
+      // Prefer compressed cover produced by setupCoverDropzone
+      const coverFile = (typeof coverCompressedFile !== 'undefined' && coverCompressedFile)
+        ? coverCompressedFile
+        : (coverInput && coverInput.files && coverInput.files[0] ? coverInput.files[0] : null);
 
       setStatus('Envoi en cours…');
       if (submitBtn) submitBtn.disabled = true;
