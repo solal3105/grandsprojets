@@ -921,6 +921,16 @@
             persistCity(nextCity);
             updateLogoForCity(nextCity);
             try { renderCityMenu(nextCity); } catch (_) {}
+            // Repeupler les filtres pour refléter la nouvelle ville
+            try {
+              populateFilters();
+              updateFilterUI();
+              updateFilterCount();
+              // Re-lier les événements sur les nouveaux éléments
+              if (window.EventBindings?.bindFilterControls) {
+                window.EventBindings.bindFilterControls();
+              }
+            } catch (_) { /* noop */ }
           }
           // Accepter cat+project ainsi que cat seul
           let state = e && e.state ? e.state : null;
@@ -973,6 +983,10 @@
     const container = document.getElementById('dynamic-filters');
     if (!container || !win.filtersConfig) return;
     container.innerHTML = '';
+    const city = String(win.activeCity || '').toLowerCase();
+    const layers = Array.isArray(win.layersConfig) ? win.layersConfig : [];
+    const layerByName = Object.create(null);
+    layers.forEach(l => { if (l && l.name) layerByName[l.name] = l; });
 
     win.filtersConfig.forEach(group => {
       const groupDiv = document.createElement('div');
@@ -981,8 +995,18 @@
       const title = document.createElement('h4');
       title.textContent = group.category;
       groupDiv.appendChild(title);
+      // Only items whose layer is global (ville NULL/empty) or matches active city
+      const items = (group.items || []).filter(it => {
+        if (!it || !it.layer) return false;
+        const layer = layerByName[it.layer];
+        const layerCity = layer && 'ville' in layer ? layer.ville : null;
+        return !layerCity || String(layerCity).toLowerCase() === city;
+      });
+      if (!items.length) {
+        return; // skip empty groups
+      }
 
-      group.items.forEach(item => {
+      items.forEach(item => {
         const filterItem = document.createElement('div');
         filterItem.className = 'filter-item';
         filterItem.dataset.layer = item.layer;
