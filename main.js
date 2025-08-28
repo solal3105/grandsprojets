@@ -235,17 +235,71 @@
     } catch (_) {}
   }
 
-  // --- City detection via ?city=lyon|besancon ---
+  // --- City detection via query param ?city=... ---
   // Returns '' when missing or invalid so callers can fallback to default assets
   function getCityFromQuery(defaultCity = '') {
     try {
       const sp = new URLSearchParams(location.search);
       const raw = String(sp.get('city') || '').toLowerCase().trim();
-      const allowed = ['lyon', 'besancon'];
-      return allowed.includes(raw) ? raw : '';
+      return isValidCity(raw) ? raw : '';
     } catch (_) {
       return '';
     }
+  }
+
+  // --- Helpers de persistance et détection de ville ---
+  // Initial fallback; sera remplacé dynamiquement par la base (city_branding/layers/contribution_uploads)
+  let VALID_CITIES = new Set(['lyon', 'besancon']);
+  function isValidCity(city) {
+    try { return VALID_CITIES.has(String(city || '').toLowerCase()); } catch (_) { return false; }
+  }
+
+  function parseCityFromPath(pathname) {
+    try {
+      const path = String(pathname || location.pathname || '').toLowerCase();
+      const first = path.split('?')[0].split('#')[0].split('/').filter(Boolean)[0] || '';
+      return isValidCity(first) ? first : '';
+    } catch (_) { return ''; }
+  }
+
+  function persistCity(city) {
+    try { if (isValidCity(city)) localStorage.setItem('activeCity', city); } catch (_) {}
+  }
+
+  function restoreCity() {
+    try {
+      const v = localStorage.getItem('activeCity');
+      return isValidCity(v) ? v : '';
+    } catch (_) { return ''; }
+  }
+
+  // Charge dynamiquement les villes valides depuis la base
+  async function loadValidCities() {
+    try {
+      if (!win.supabaseService || typeof win.supabaseService.getValidCities !== 'function') return;
+      const list = await win.supabaseService.getValidCities();
+      if (Array.isArray(list) && list.length) {
+        VALID_CITIES = new Set(list.map(v => String(v || '').toLowerCase().trim()).filter(Boolean));
+      }
+    } catch (_) { /* keep fallback */ }
+  }
+
+  // Ville par défaut dynamique à partir de VALID_CITIES
+  function getDefaultCity() {
+    try {
+      const it = VALID_CITIES.values();
+      const first = it.next();
+      return first && !first.done ? first.value : '';
+    } catch (_) { return ''; }
+  }
+
+  function resolveActiveCity() {
+    const routeCity = parseCityFromPath(location.pathname);
+    if (routeCity) return routeCity;
+    const queryCity = getCityFromQuery('');
+    if (queryCity) return queryCity;
+    const saved = restoreCity();
+    return saved || getDefaultCity();
   }
 
   // Set initial map view per city (safe no-op if MapModule not ready)
@@ -266,9 +320,13 @@
     try {
       // Initialiser le thème le plus tôt possible (n'affecte pas le basemap)
       initTheme();
-      // Déterminer la ville active depuis l'URL
-      const city = getCityFromQuery();
+      // Charger dynamiquement la liste des villes valides avant de résoudre la ville active
+      await loadValidCities();
+      // Déterminer la ville active (priorité: chemin > query > localStorage > défaut)
+      const city = resolveActiveCity();
       win.activeCity = city;
+      // Persister si différent de la valeur sauvegardée
+      try { if (restoreCity() !== city) persistCity(city); } catch (_) {}
       // Update logos to match current city branding
       updateLogoForCity(city);
 
@@ -628,8 +686,8 @@
       
       // Exposer la fonction pour qu'elle soit disponible globalement
       window.getCategoryFromLayer = getCategoryFromLayer;
-      // Exposer la ville active
-      window.getActiveCity = () => win.activeCity;
+      // Exposer la ville active (fallback dynamique)
+      window.getActiveCity = () => (parseCityFromPath(location.pathname) || getCityFromQuery('') || restoreCity() || win.activeCity || getDefaultCity());
 
       // --- Navigation via paramètres d'URL (cat, project) ---
       function parseUrlState() {
@@ -687,10 +745,11 @@
       // Gérer la navigation arrière/avant du navigateur
       window.addEventListener('popstate', async (e) => {
         try {
-          // Rafraîchir la ville active depuis l'URL (pas de rechargement pour l'instant)
-          const nextCity = getCityFromQuery(win.activeCity || 'lyon');
+          // Recalculer la ville active (priorité: chemin > query > localStorage)
+          const nextCity = resolveActiveCity();
           if (nextCity && nextCity !== win.activeCity) {
             win.activeCity = nextCity;
+            persistCity(nextCity);
             updateLogoForCity(nextCity);
           }
           // Accepter cat+project ainsi que cat seul
