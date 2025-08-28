@@ -248,8 +248,8 @@
   }
 
   // --- Helpers de persistance et détection de ville ---
-  // Initial fallback; sera remplacé dynamiquement par la base (city_branding/layers/contribution_uploads)
-  let VALID_CITIES = new Set(['lyon', 'besancon']);
+  // Sera alimenté dynamiquement par la base (city_branding/layers/contribution_uploads)
+  let VALID_CITIES = new Set();
   function isValidCity(city) {
     try { return VALID_CITIES.has(String(city || '').toLowerCase()); } catch (_) { return false; }
   }
@@ -302,16 +302,17 @@
     return saved || getDefaultCity();
   }
 
-  // Set initial map view per city (safe no-op if MapModule not ready)
+  // Set initial map view per city using DB-provided branding (safe no-op if unavailable)
   function applyCityInitialView(city) {
     try {
-      const VIEWS = {
-        lyon: { center: [45.7578, 4.8320], zoom: 12 },
-        besancon: { center: [47.2378, 6.0241], zoom: 12 }
-      };
-      const v = VIEWS[city] || VIEWS['lyon'];
+      const branding = win._cityBranding || null; // rempli par updateLogoForCity(city)
+      const hasCoords = branding && typeof branding.center_lat === 'number' && typeof branding.center_lng === 'number';
+      const hasZoom   = branding && typeof branding.zoom === 'number';
+      if (!hasCoords || !hasZoom) return; // pas de coordonnées configurées: ne rien changer
+      const center = [branding.center_lat, branding.center_lng];
+      const zoom   = branding.zoom;
       if (window.MapModule?.map?.setView) {
-        window.MapModule.map.setView(v.center, v.zoom);
+        window.MapModule.map.setView(center, zoom);
       }
     } catch (_) { /* noop */ }
   }
