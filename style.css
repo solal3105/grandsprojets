@@ -2930,11 +2930,28 @@ svg path:focus {
   cursor: pointer;
   z-index: 999;
 }
+
+/* City toggle button */
+.city-toggle {
+  position: absolute;
+  top: 0px;
+  right: 150px; /* à gauche du theme-toggle */
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px);
+  border-radius: 50%;
+  width: 40px; height: 40px;
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  cursor: pointer;
+  z-index: 999;
+}
+
 /* Unified toggle styles for consistent look across controls */
 .search-toggle,
 .location-toggle,
 .info-toggle,
 .theme-toggle,
+.city-toggle,
 .basemap-toggle,
 #filters-toggle,
 .filters-toggle {
@@ -2956,6 +2973,7 @@ svg path:focus {
 .location-toggle i,
 .info-toggle i,
 .theme-toggle i,
+.city-toggle i,
 .basemap-toggle i,
 #filters-toggle i,
 .filters-toggle i {
@@ -2967,6 +2985,7 @@ svg path:focus {
 .location-toggle:hover,
 .info-toggle:hover,
 .theme-toggle:hover,
+.city-toggle:hover,
 .basemap-toggle:hover,
 #filters-toggle:hover,
 .filters-toggle:hover,
@@ -2974,6 +2993,7 @@ svg path:focus {
 .location-toggle:focus-visible,
 .info-toggle:focus-visible,
 .theme-toggle:focus-visible,
+.city-toggle:focus-visible,
 .basemap-toggle:focus-visible,
 #filters-toggle:focus-visible,
 .filters-toggle:focus-visible,
@@ -2981,6 +3001,7 @@ svg path:focus {
 .location-toggle:active,
 .info-toggle:active,
 .theme-toggle:active,
+.city-toggle:active,
 .basemap-toggle:active,
 #filters-toggle:active,
 .filters-toggle:active {
@@ -2993,6 +3014,7 @@ svg path:focus {
 .location-toggle:hover i,
 .info-toggle:hover i,
 .theme-toggle:hover i,
+.city-toggle:hover i,
 .basemap-toggle:hover i,
 #filters-toggle:hover i,
 .filters-toggle:hover i,
@@ -3000,6 +3022,7 @@ svg path:focus {
 .location-toggle:focus-visible i,
 .info-toggle:focus-visible i,
 .theme-toggle:focus-visible i,
+.city-toggle:focus-visible i,
 .basemap-toggle:focus-visible i,
 #filters-toggle:focus-visible i,
 .filters-toggle:focus-visible i,
@@ -3007,6 +3030,7 @@ svg path:focus {
 .location-toggle:active i,
 .info-toggle:active i,
 .theme-toggle:active i,
+.city-toggle:active i,
 .basemap-toggle:active i,
 #filters-toggle:active i,
 .filters-toggle:active i {
@@ -3076,6 +3100,7 @@ svg path:focus {
   .location-toggle,
   .info-toggle,
   .theme-toggle,
+  .city-toggle,
   .basemap-toggle,
   #filters-toggle,
   .filters-toggle {
@@ -3088,8 +3113,9 @@ svg path:focus {
   .info-toggle { border-radius: 999px 0 0 999px; }
   #filters-toggle, .filters-toggle { border-radius: 0 999px 999px 0; }
 
-  /* Zero-gap spacing with original order (filters rightmost): 20, 60, 100, 140 */
-  .search-container { right: 140px; }
+  /* Zero-gap spacing with new order (filters rightmost): 20, 60, 100, 140, 180 */
+  .search-container { right: 180px; }
+  .city-toggle { right: -40px; }
   .theme-toggle { right: 100px; }
   .basemap-toggle { right: 60px; }
   #filters-toggle, .filters-toggle { right: 20px; }
@@ -3427,6 +3453,7 @@ html[data-theme='dark'] .search-toggle,
 html[data-theme='dark'] .location-toggle,
 html[data-theme='dark'] .info-toggle,
 html[data-theme='dark'] .theme-toggle,
+html[data-theme='dark'] .city-toggle,
 html[data-theme='dark'] .basemap-toggle,
 html[data-theme='dark'] #filters-toggle,
 html[data-theme='dark'] .filters-toggle {
@@ -3438,6 +3465,7 @@ html[data-theme='dark'] .search-toggle i,
 html[data-theme='dark'] .location-toggle i,
 html[data-theme='dark'] .info-toggle i,
 html[data-theme='dark'] .theme-toggle i,
+html[data-theme='dark'] .city-toggle i,
 html[data-theme='dark'] .basemap-toggle i,
 html[data-theme='dark'] #filters-toggle i,
 html[data-theme='dark'] .filters-toggle i {
@@ -3448,6 +3476,7 @@ html[data-theme='dark'] .search-toggle:hover,
 html[data-theme='dark'] .location-toggle:hover,
 html[data-theme='dark'] .info-toggle:hover,
 html[data-theme='dark'] .theme-toggle:hover,
+html[data-theme='dark'] .city-toggle:hover,
 html[data-theme='dark'] .basemap-toggle:hover,
 html[data-theme='dark'] #filters-toggle:hover,
 html[data-theme='dark'] .filters-toggle:hover,
@@ -3455,6 +3484,7 @@ html[data-theme='dark'] .search-toggle:focus-visible,
 html[data-theme='dark'] .location-toggle:focus-visible,
 html[data-theme='dark'] .info-toggle:focus-visible,
 html[data-theme='dark'] .theme-toggle:focus-visible,
+html[data-theme='dark'] .city-toggle:focus-visible,
 html[data-theme='dark'] .basemap-toggle:focus-visible,
 html[data-theme='dark'] #filters-toggle:focus-visible,
 html[data-theme='dark'] .filters-toggle:focus-visible,
@@ -3462,6 +3492,7 @@ html[data-theme='dark'] .search-toggle:active,
 html[data-theme='dark'] .location-toggle:active,
 html[data-theme='dark'] .info-toggle:active,
 html[data-theme='dark'] .theme-toggle:active,
+html[data-theme='dark'] .city-toggle:active,
 html[data-theme='dark'] .basemap-toggle:active,
 html[data-theme='dark'] #filters-toggle:active,
 html[data-theme='dark'] .filters-toggle:active {
@@ -3473,6 +3504,7 @@ html[data-theme='dark'] .search-toggle:hover i,
 html[data-theme='dark'] .location-toggle:hover i,
 html[data-theme='dark'] .info-toggle:hover i,
 html[data-theme='dark'] .theme-toggle:hover i,
+html[data-theme='dark'] .city-toggle:hover i,
 html[data-theme='dark'] .basemap-toggle:hover i,
 html[data-theme='dark'] #filters-toggle:hover i,
 html[data-theme='dark'] .filters-toggle:hover i,
@@ -3480,6 +3512,7 @@ html[data-theme='dark'] .search-toggle:focus-visible i,
 html[data-theme='dark'] .location-toggle:focus-visible i,
 html[data-theme='dark'] .info-toggle:focus-visible i,
 html[data-theme='dark'] .theme-toggle:focus-visible i,
+html[data-theme='dark'] .city-toggle:focus-visible i,
 html[data-theme='dark'] .basemap-toggle:focus-visible i,
 html[data-theme='dark'] #filters-toggle:focus-visible i,
 html[data-theme='dark'] .filters-toggle:focus-visible i,
@@ -3487,10 +3520,99 @@ html[data-theme='dark'] .search-toggle:active i,
 html[data-theme='dark'] .location-toggle:active i,
 html[data-theme='dark'] .info-toggle:active i,
 html[data-theme='dark'] .theme-toggle:active i,
+html[data-theme='dark'] .city-toggle:active i,
 html[data-theme='dark'] .basemap-toggle:active i,
 html[data-theme='dark'] #filters-toggle:active i,
 html[data-theme='dark'] .filters-toggle:active i {
   color: #14AE5C;
+}
+
+/* City dropdown menu */
+.city-menu {
+  position: absolute;
+  top: 52px; /* just under the .city-toggle at top:0 */
+  right: 150px; /* align with updated .city-toggle */
+  min-width: 180px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  padding: 6px;
+  z-index: 1500;
+}
+.city-menu button.city-item {
+  display: flex;
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  color: #333;
+  font-weight: 600;
+}
+.city-menu button.city-item:hover,
+.city-menu button.city-item:focus-visible {
+  background: var(--surface-90);
+  outline: none;
+}
+.city-menu button.city-item.active {
+  background: rgba(20,174,92,0.12);
+  color: #14AE5C;
+}
+/* Card layout inside city item */
+.city-menu .city-card {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  align-items: center;
+  column-gap: 10px;
+  width: 100%;
+}
+.city-menu .city-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--surface-92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.city-menu .city-logo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.city-menu .city-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+.city-menu .city-name {
+  font-weight: 700;
+}
+.city-menu .city-slug {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+html[data-theme='dark'] .city-menu {
+  background: rgba(0,0,0,0.6);
+  border-color: rgba(255,255,255,0.12);
+}
+html[data-theme='dark'] .city-menu button.city-item { color: #ddd; }
+html[data-theme='dark'] .city-menu button.city-item:hover,
+html[data-theme='dark'] .city-menu button.city-item:focus-visible {
+  background: rgba(255,255,255,0.08);
+}
+@media (max-width: 640px) {
+  .city-menu {
+    top: 48px;
+    right: -40px; /* align with mobile city-toggle */
+  }
 }
 html[data-theme='dark'] .filter-count { border-color: var(--dm-filters-bg); }
 /* Project list items inside submenus */

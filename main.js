@@ -317,12 +317,178 @@
     } catch (_) { /* noop */ }
   }
 
+  // --- City Toggle UI (top-right) ---
+  let _cityMenuOpen = false;
+  let _cityMenuDocHandler = null;
+  const CITY_BRANDING_CACHE = new Map(); // ville -> { brand_name, logo_url, dark_logo_url }
+
+  async function getCityBrandingSafe(ville) {
+    const key = String(ville || '').toLowerCase();
+    if (!key) return null;
+    if (CITY_BRANDING_CACHE.has(key)) return CITY_BRANDING_CACHE.get(key);
+    try {
+      const data = await (win.supabaseService?.getCityBranding ? win.supabaseService.getCityBranding(key) : null);
+      const minimal = data ? {
+        ville: data.ville || key,
+        brand_name: data.brand_name || '',
+        logo_url: data.logo_url || '',
+        dark_logo_url: data.dark_logo_url || ''
+      } : null;
+      CITY_BRANDING_CACHE.set(key, minimal);
+      return minimal;
+    } catch(e) {
+      CITY_BRANDING_CACHE.set(key, null);
+      return null;
+    }
+  }
+
+  async function renderCityMenu(activeCity) {
+    try {
+      const menu = document.getElementById('city-menu');
+      if (!menu) return;
+      const items = Array.from(VALID_CITIES.values()).sort();
+      if (!items.length) { menu.innerHTML = ''; return; }
+
+      // Fetch branding for all cities in parallel (cached)
+      const brandings = await Promise.all(items.map(c => getCityBrandingSafe(c)));
+      const btns = items.map((c, idx) => {
+        const isActive = String(c) === String(activeCity);
+        const b = brandings[idx] || {};
+        const displayName = (b.brand_name && b.brand_name.trim()) ? b.brand_name : (c.charAt(0).toUpperCase() + c.slice(1));
+        const logo = (document.documentElement.getAttribute('data-theme') === 'dark' && b.dark_logo_url) ? b.dark_logo_url : (b.logo_url || '');
+        const logoImg = logo ? `<img src="${logo}" alt="${displayName} logo" loading="lazy" />` : `<i class=\"fas fa-city\" aria-hidden=\"true\"></i>`;
+        return (
+          `<button class="city-item${isActive ? ' active' : ''}" data-city="${c}" role="menuitem" aria-label="${displayName}">`+
+            `<div class="city-card">`+
+              `<div class="city-logo">${logoImg}</div>`+
+              `<div class="city-text">`+
+                `<div class="city-name">${displayName}</div>`+
+                `<div class="city-slug">${c}</div>`+
+              `</div>`+
+            `</div>`+
+          `</button>`
+        );
+      }).join('');
+      menu.innerHTML = btns;
+      menu.querySelectorAll('button.city-item').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const next = btn.getAttribute('data-city');
+          selectCity(next);
+        });
+      });
+    } catch (_) { /* noop */ }
+  }
+
+  function openCityMenu() {
+    const menu = document.getElementById('city-menu');
+    if (!menu) return;
+    menu.style.display = 'block';
+    _cityMenuOpen = true;
+    if (!_cityMenuDocHandler) {
+      _cityMenuDocHandler = (ev) => {
+        const toggle = document.getElementById('city-toggle');
+        const menuEl = document.getElementById('city-menu');
+        if (!toggle || !menuEl) return;
+        const t = ev.target;
+        if (t === toggle || toggle.contains(t) || t === menuEl || menuEl.contains(t)) return;
+        closeCityMenu();
+      };
+      document.addEventListener('click', _cityMenuDocHandler);
+      document.addEventListener('keydown', escCloseCityMenu, true);
+    }
+  }
+  function closeCityMenu() {
+    const menu = document.getElementById('city-menu');
+    if (!menu) return;
+    menu.style.display = 'none';
+    _cityMenuOpen = false;
+    if (_cityMenuDocHandler) {
+      document.removeEventListener('click', _cityMenuDocHandler);
+      document.removeEventListener('keydown', escCloseCityMenu, true);
+      _cityMenuDocHandler = null;
+    }
+  }
+  function toggleCityMenu() { _cityMenuOpen ? closeCityMenu() : openCityMenu(); }
+  function escCloseCityMenu(e) { if (e.key === 'Escape') closeCityMenu(); }
+
+  function selectCity(next) {
+    try {
+      const city = String(next || '').toLowerCase();
+      if (!isValidCity(city)) return;
+      persistCity(city);
+      if (city === win.activeCity) { closeCityMenu(); return; }
+      // Update UI immediately while navigating
+      win.activeCity = city;
+      try { updateLogoForCity(city); } catch (_) {}
+      closeCityMenu();
+      // Navigate to base path with ?city=<city> (preserve other query params, handle subdirs)
+      const path = String(location.pathname || '/');
+      const segments = path.split('/');
+      // Remove a trailing city segment if present to compute base dir
+      let lastIdx = -1;
+      for (let i = segments.length - 1; i >= 0; i--) { if (segments[i]) { lastIdx = i; break; } }
+      let baseDir;
+      if (lastIdx >= 0 && isValidCity(String(segments[lastIdx]).toLowerCase())) {
+        baseDir = segments.slice(0, lastIdx).join('/') + '/';
+      } else {
+        // Ensure trailing slash for a directory-like base
+        baseDir = path.endsWith('/') ? path : (path + '/');
+      }
+      const sp = new URLSearchParams(location.search);
+      sp.set('city', city);
+      const target = baseDir + (sp.toString() ? `?${sp.toString()}` : '');
+      location.href = target;
+    } catch (_) { /* noop */ }
+  }
+
+  async function initCityToggleUI(activeCity) {
+    try {
+      const toggle = document.getElementById('city-toggle');
+      if (!toggle) return;
+      toggle.addEventListener('click', (e) => { e.stopPropagation(); toggleCityMenu(); });
+      toggle.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle.click(); }
+      });
+      await renderCityMenu(activeCity);
+    } catch (_) { /* noop */ }
+  }
+
   async function initApp() {
     try {
       // Initialiser le thème le plus tôt possible (n'affecte pas le basemap)
       initTheme();
       // Charger dynamiquement la liste des villes valides avant de résoudre la ville active
       await loadValidCities();
+
+      // Rediriger /<city> -> base index avec ?city=<city> (aucune donnée en dur)
+      // Gère aussi les déploiements en sous-répertoire, ex: /app/lyon -> /app/?city=lyon
+      (function maybeRedirectCityPathToQuery() {
+        try {
+          const path = String(location.pathname || '/');
+          // Découper en segments en gardant les vides de tête/queue pour reconstruire la base
+          const segments = path.split('/');
+          // Trouver le dernier segment non vide
+          let lastIdx = -1;
+          for (let i = segments.length - 1; i >= 0; i--) {
+            if (segments[i]) { lastIdx = i; break; }
+          }
+          if (lastIdx < 0) return; // racine
+          const lastSeg = segments[lastIdx].toLowerCase();
+          if (!isValidCity(lastSeg)) return; // le dernier segment n'est pas une ville valide
+          // S'assurer qu'il n'y a pas d'autre segment utile après (par construction, lastIdx est le dernier non vide)
+          const sp = new URLSearchParams(location.search);
+          sp.set('city', lastSeg);
+          // Base dir = tout avant le dernier segment, toujours se terminer par '/'
+          const baseDir = segments.slice(0, lastIdx).join('/') + '/';
+          const target = baseDir + (sp.toString() ? `?${sp.toString()}` : '');
+          const absolute = location.origin + target;
+          if (absolute !== location.href) {
+            location.replace(absolute);
+          }
+        } catch (_) { /* noop */ }
+      })();
+
       // Déterminer la ville active (priorité: chemin > query > localStorage > défaut)
       const city = resolveActiveCity();
       win.activeCity = city;
@@ -330,6 +496,8 @@
       try { if (restoreCity() !== city) persistCity(city); } catch (_) {}
       // Update logos to match current city branding
       updateLogoForCity(city);
+      // Init City toggle UI and menu
+      initCityToggleUI(city);
 
       // 1️⃣ Charger toutes les données en une seule fois (contexte préservé)
       const {
@@ -752,6 +920,7 @@
             win.activeCity = nextCity;
             persistCity(nextCity);
             updateLogoForCity(nextCity);
+            try { renderCityMenu(nextCity); } catch (_) {}
           }
           // Accepter cat+project ainsi que cat seul
           let state = e && e.state ? e.state : null;
