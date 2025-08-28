@@ -218,19 +218,27 @@
           </div>
 
           <div class="form-row contrib-step-3">
-            <label for="contrib-meta">Meta (optionnel)</label>
-            <input type="text" id="contrib-meta" name="meta" placeholder="Méta information (ex: tag, note, source)" />
+            <label for="contrib-meta">Meta</label>
+            <input type="text" id="contrib-meta" name="meta" placeholder="Méta information (ex: tag, note, source)" required />
+            <small>Texte utilisé pour le SEO (extrait dans les résultats Google). Visez une phrase claire et percutante (~160 caractères).</small>
           </div>
 
           <div class="form-row contrib-step-3">
-            <label for="contrib-description">Description (optionnelle)</label>
-            <textarea id="contrib-description" name="description" rows="3" placeholder="Courte description du projet (ex: 1-3 phrases)"></textarea>
+            <label for="contrib-description">Description</label>
+            <textarea id="contrib-description" name="description" rows="3" placeholder="Courte description du projet (ex: 1-3 phrases)" required></textarea>
+            <small>Donnez l’essentiel du projet en 2–3 phrases, de façon engageante pour donner envie d’en savoir plus.</small>
           </div>
 
           <div class="form-row contrib-step-3">
             <label for="contrib-markdown">Contenu Markdown (optionnel)</label>
             <textarea id="contrib-markdown" name="markdown" rows="8" placeholder="# Titre\n\nDécrivez le projet, ajoutez des liens, etc."></textarea>
-            <small>Le contenu sera stocké en Markdown dans le stockage et lié à votre contribution.</small>
+            <small>
+              Rédigez le contenu de l’article en <strong>Markdown</strong> (titres, images, liens, tableaux…).
+              Astuce&nbsp;: utilisez un éditeur dédié comme
+              <a href="https://dillinger.io/" target="_blank" rel="noopener">Dillinger</a>
+              ou <a href="https://stackedit.io/app" target="_blank" rel="noopener">StackEdit</a> pour vous aider.
+              Le contenu sera stocké en Markdown et lié à votre contribution.
+            </small>
           </div>
 
           <fieldset class="form-fieldset contrib-step-3">
@@ -278,7 +286,6 @@
               <i class="fa fa-trash" aria-hidden="true"></i>
               <span>Supprimer</span>
             </button>
-            <div id="contrib-status" role="status" aria-live="polite" style="font-size:0.9em; opacity:0.8;"></div>
           </div>
         </form>
         </section>
@@ -435,8 +442,6 @@
   <!-- Chargement de Leaflet JS depuis des fichiers locaux -->
   <script src="vendor/leaflet/leaflet.js"></script>
   <!-- Geoman removed: manual drawing only -->
-  <!-- Marked via jsDelivr -->
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <!-- Chargement des scripts locaux -->
    
   <script src="modules/supabaseservice.js"></script>

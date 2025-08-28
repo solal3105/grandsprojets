@@ -1,3 +1,42 @@
+/* Contribution modal: sticky actions bar and green Next button */
+#contrib-overlay .form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: transparent; /* no white tint */
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  /* stretch edge-to-edge like header: compensate gp-modal-body 20px padding */
+  width: 100%;
+  margin-left: -20px;
+  margin-right: -20px;
+  padding: 10px 20px; /* keep same inner spacing as body */
+  box-shadow: 0 -6px 12px rgba(0,0,0,0.06);
+}
+
+#contrib-overlay #contrib-next.gp-btn {
+  background: #2e7d32; /* green */
+  border-color: #1b5e20;
+  color: #fff;
+}
+
+#contrib-overlay #contrib-next.gp-btn:hover,
+#contrib-overlay #contrib-next.gp-btn:focus {
+  background: #1b5e20;
+  border-color: #104a16;
+  color: #fff;
+}
+/* Helper descriptions and HUD spacing in contribution modal */
+#contrib-overlay .form-row small {
+  display: block;
+  margin-top: 6px;
+  color: rgba(0,0,0,0.55);
+}
+html[data-theme='dark'] #contrib-overlay .form-row small {
+  color: rgba(255,255,255,0.65);
+}
+#contrib-overlay .form-row .char-hud .char-prog { background: rgba(0,0,0,0.12); }
+html[data-theme='dark'] #contrib-overlay .form-row .char-hud .char-prog { background: rgba(255,255,255,0.18); }
 /* ---------------------------------------------------------------------------
    Base et réinitialisation
 --------------------------------------------------------------------------- */
@@ -3882,11 +3921,8 @@ html[data-theme='dark'] .markdown-body hr { border-color: var(--dm-menu-border) 
   background: var(--surface-92);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
-  border: 1px solid rgba(255,255,255,0.28);
-  box-shadow:
-    0 24px 60px rgba(0,0,0,0.18),
-    0 8px 20px rgba(0,0,0,0.12),
-    inset 0 1px 0 rgba(255,255,255,0.25);
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2);
   border-radius: 16px;
 }
 
@@ -3945,7 +3981,7 @@ html[data-theme='dark'] .markdown-body hr { border-color: var(--dm-menu-border) 
 
 /* About modal layout and cards */
 .gp-modal-body {
-  padding: 16px 18px 18px;
+  padding: 16px 18px 18px 0px;
 }
 
 .about-content {
@@ -4087,7 +4123,7 @@ html[data-theme='dark'] .about-sidebar { border-top: 1px solid var(--dm-menu-bor
 }
 
 .gp-modal-body {
-  padding: 16px 20px 20px 20px;
+  padding: 16px 20px 0px 20px;
 }
 
 /* Dark mode variants */
