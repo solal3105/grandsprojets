@@ -87,6 +87,50 @@
     },
 
     /**
+     * Téléverse un PDF de dossier de concertation vers Supabase Storage
+     * Bucket: uploads
+     * Path:   pdfs/projects/<cat>/<name>-<ts>.pdf
+     * @param {File|Blob} file
+     * @param {string} categoryLayer
+     * @param {string} projectName
+     * @param {number} rowId
+     * @returns {Promise<string>} publicUrl
+     */
+    uploadConsultationPdfToStorage: async function(file, categoryLayer, projectName, rowId) {
+      try {
+        if (!file || !categoryLayer || !projectName) throw new Error('Paramètres manquants');
+        const safeCat = slugify(categoryLayer);
+        const safeName = slugify(projectName);
+        const ts = Date.now();
+        const path = `pdfs/projects/${safeCat}/${safeName}-${ts}.pdf`;
+        const bucket = 'uploads';
+        const contentType = 'application/pdf';
+        const { error: upErr } = await supabaseClient
+          .storage
+          .from(bucket)
+          .upload(path, file, { upsert: false, contentType });
+        if (upErr) {
+          console.error('[supabaseService] uploadConsultationPdfToStorage error:', upErr);
+          throw upErr;
+        }
+        const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
+        // Optionally patch row
+        if (rowId && data && data.publicUrl) {
+          try {
+            await supabaseClient
+              .from('contribution_uploads')
+              .update({ updated_at: new Date().toISOString() })
+              .eq('id', rowId);
+          } catch(_) {}
+        }
+        return data.publicUrl;
+      } catch (e) {
+        console.error('[supabaseService] uploadConsultationPdfToStorage exception:', e);
+        throw e;
+      }
+    },
+
+    /**
      * Liste les contributions avec filtres, recherche, tri et pagination.
      * @param {Object} params
      * @param {string} [params.search] - texte recherché dans project_name/meta/description
@@ -199,7 +243,7 @@
       try {
         if (!id || !patch || typeof patch !== 'object') return { error: new Error('invalid args') };
         // Sanitize fields
-        const allowed = ['project_name', 'category', 'meta', 'description', 'geojson_url', 'cover_url', 'markdown_url', 'ville'];
+        const allowed = ['project_name', 'category', 'meta', 'description', 'geojson_url', 'cover_url', 'markdown_url', 'ville', 'official_url'];
         const body = {};
         allowed.forEach(k => { if (patch[k] !== undefined) body[k] = patch[k]; });
         if (Object.keys(body).length === 0) return { data: null };
