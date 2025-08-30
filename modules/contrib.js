@@ -51,17 +51,8 @@
       setTimeout(() => {
         try { if (drawMap) drawMap.invalidateSize(); } catch (_) {}
       }, 200);
-      // Afficher l'écran d'accueil lors de la première ouverture de la session
-      try {
-        const seen = sessionStorage.getItem('contribLandingSeen') === '1';
-        if (!seen) {
-          showLanding();
-        } else {
-          // Initialiser par défaut sur l'onglet Créer et l'étape 1
-          try { activateTab('create'); } catch(_) {}
-          try { setStep(1, { force: true }); } catch(_) {}
-        }
-      } catch(_) {}
+      // Toujours afficher l'écran d'accueil (choix Créer / Modifier)
+      try { showLanding(); } catch(_) {}
     };
 
     const contribEscHandler = (e) => {
@@ -413,18 +404,19 @@
     const stepTab1 = document.getElementById('contrib-step-1-tab');
     const stepTab2 = document.getElementById('contrib-step-2-tab');
     const stepTab3 = document.getElementById('contrib-step-3-tab');
+    const stepTab4 = document.getElementById('contrib-step-4-tab');
     const prevBtn  = document.getElementById('contrib-prev');
     const nextBtn  = document.getElementById('contrib-next');
     const submitBtn = document.getElementById('contrib-submit');
 
-    let currentStep = 1; // 1..3
+    let currentStep = 1; // 1..4
 
     function queryStepEls(n) {
       return Array.from(document.querySelectorAll(`.contrib-step-${n}`));
     }
 
     function setStepHeaderActive(n) {
-      const tabs = [stepTab1, stepTab2, stepTab3];
+      const tabs = [stepTab1, stepTab2, stepTab3, stepTab4];
       tabs.forEach((t, idx) => {
         if (!t) return;
         const stepIndex = idx + 1;
@@ -441,12 +433,12 @@
 
     function updateStepButtons(n) {
       if (prevBtn) prevBtn.style.display = (n > 1) ? '' : 'none';
-      if (nextBtn) nextBtn.style.display = (n < 3) ? '' : 'none';
-      if (submitBtn) submitBtn.style.display = (n === 3) ? '' : 'none';
+      if (nextBtn) nextBtn.style.display = (n < 4) ? '' : 'none';
+      if (submitBtn) submitBtn.style.display = (n === 4) ? '' : 'none';
     }
 
     function showOnlyStep(n) {
-      [1,2,3].forEach(i => {
+      [1,2,3,4].forEach(i => {
         queryStepEls(i).forEach(el => { el.style.display = (i === n) ? '' : 'none'; });
       });
     }
@@ -479,17 +471,26 @@
       return ok;
     }
 
+    function validateStep3() {
+      const meta = document.getElementById('contrib-meta')?.value?.trim();
+      const desc = document.getElementById('contrib-description')?.value?.trim();
+      const ok = !!meta && !!desc;
+      if (!ok) showToast('Renseignez Meta et Description avant de continuer.', 'error');
+      return ok;
+    }
+
     function canGoToStep(target) {
       if (target <= 1) return true;
       if (target === 2) return validateStep1();
       if (target === 3) return validateStep1() && validateStep2();
+      if (target === 4) return validateStep1() && validateStep2() && validateStep3();
       return false;
     }
 
     function setStep(n, opts = {}) {
       const { force = false } = opts || {};
       if (!force && !canGoToStep(n)) return;
-      currentStep = Math.min(3, Math.max(1, n));
+      currentStep = Math.min(4, Math.max(1, n));
       showOnlyStep(currentStep);
       setStepHeaderActive(currentStep);
       updateStepButtons(currentStep);
@@ -533,6 +534,8 @@
     if (stepTab1) stepTab1.addEventListener('click', () => onClickStepTab(1));
     if (stepTab2) stepTab2.addEventListener('click', () => onClickStepTab(2));
     if (stepTab3) stepTab3.addEventListener('click', () => onClickStepTab(3));
+    if (stepTab4) stepTab4.addEventListener('click', () => onClickStepTab(4));
+
     if (prevBtn)  prevBtn.addEventListener('click', () => setStep(currentStep - 1));
     if (nextBtn)  nextBtn.addEventListener('click', () => setStep(currentStep + 1));
 
@@ -566,28 +569,8 @@
       items: []
     };
 
-    // —— Official links fields visibility by category ——
-    const createCatEl = document.getElementById('contrib-category');
-    const grandlyonInput = document.getElementById('contrib-grandlyon-url');
-    const sytralInput = document.getElementById('contrib-sytral-url');
-    const grandlyonRow = grandlyonInput ? grandlyonInput.closest('.form-row') : null;
-    const sytralRow = sytralInput ? sytralInput.closest('.form-row') : null;
-
-    function updateOfficialLinkRows(category) {
-      const cat = category || '';
-      if (grandlyonRow) grandlyonRow.hidden = cat !== 'urbanisme';
-      if (sytralRow) sytralRow.hidden = cat !== 'mobilite';
-      if (grandlyonInput) grandlyonInput.disabled = cat !== 'urbanisme';
-      if (sytralInput) sytralInput.disabled = cat !== 'mobilite';
-    }
-
-    if (createCatEl) {
-      // Initial state based on default selection
-      try { updateOfficialLinkRows(createCatEl.value || ''); } catch(_) {}
-      createCatEl.addEventListener('change', (e) => {
-        try { updateOfficialLinkRows((e && e.target && e.target.value) || ''); } catch(_) {}
-      });
-    }
+    // —— Official project link (single field, all categories) ——
+    const officialInput = document.getElementById('contrib-official-url');
 
     function slugify(str) {
       return (str || '')
@@ -1265,8 +1248,10 @@
       const mdEl   = document.getElementById('contrib-markdown');
       if (nameEl) nameEl.value = row.project_name || '';
       if (catEl) catEl.value = row.category || '';
-      // Mettre à jour l'affichage des champs de liens officiels selon la catégorie pré-remplie
-      try { updateOfficialLinkRows(catEl ? catEl.value : (row.category || '')); } catch(_) {}
+      // Pré-remplir le lien officiel si présent
+      try {
+        if (officialInput) officialInput.value = row.official_url || '';
+      } catch(_) {}
       if (citySel && row && row.ville) {
         try { citySel.value = row.ville; } catch(_) {}
       }
@@ -1480,27 +1465,39 @@
 
     function createDocRow() {
       const row = document.createElement('div');
-      row.className = 'doc-row';
+      row.className = 'doc-card';
       row.innerHTML = `
-        <input type="text" class="doc-title" placeholder="Titre du document PDF" />
-        <input type="url" class="doc-url" placeholder="URL du PDF (https://...)" />
+        <div class="doc-card__header">
+          <input type="text" class="doc-title" placeholder="Titre du document PDF" />
+        </div>
+        <div class="doc-card__body">
+          <label class="doc-upload-label">
+            <input type="file" class="doc-file" accept="application/pdf" />
+            <span class="doc-upload-cta">Choisir un PDF…</span>
+          </label>
+          <span class="doc-filename" aria-live="polite"></span>
+        </div>
         <button type="button" class="doc-remove" aria-label="Supprimer">&times;</button>
       `;
       const removeBtn = row.querySelector('.doc-remove');
-      removeBtn?.addEventListener('click', () => {
-        row.remove();
+      const fileInput = row.querySelector('.doc-file');
+      const fileNameEl = row.querySelector('.doc-filename');
+      if (removeBtn) removeBtn.addEventListener('click', () => row.remove());
+      if (fileInput) fileInput.addEventListener('change', () => {
+        const f = fileInput.files && fileInput.files[0];
+        fileNameEl.textContent = f ? f.name : '';
       });
       return row;
     }
 
     function collectDocs() {
       if (!docsFieldset) return [];
-      const rows = docsFieldset.querySelectorAll('.doc-row');
+      const rows = docsFieldset.querySelectorAll('.doc-card');
       const out = [];
       rows.forEach((row) => {
         const title = row.querySelector('.doc-title')?.value?.trim();
-        const url = row.querySelector('.doc-url')?.value?.trim();
-        if (title && url) out.push({ title, pdf_url: url });
+        const file = row.querySelector('.doc-file')?.files?.[0] || null;
+        if (title && file) out.push({ title, file });
       });
       return out;
     }
@@ -1567,8 +1564,7 @@
       const fileInput = document.getElementById('contrib-geojson');
       const coverInput = document.getElementById('contrib-cover');
       const city = document.getElementById('contrib-city')?.value?.trim();
-      const grandlyonUrl = document.getElementById('contrib-grandlyon-url')?.value?.trim();
-      const sytralUrl = document.getElementById('contrib-sytral-url')?.value?.trim();
+      const officialUrl = document.getElementById('contrib-official-url')?.value?.trim();
       const meta = document.getElementById('contrib-meta')?.value?.trim();
       const description = document.getElementById('contrib-description')?.value?.trim();
       const mdTextRaw = document.getElementById('contrib-markdown')?.value || '';
@@ -1676,26 +1672,30 @@
           }
         }
 
-        // 2) Optional links
-        if (category === 'urbanisme' && grandlyonUrl) {
-          await win.supabaseService.upsertGrandLyonLink(projectName, grandlyonUrl);
-        }
-        if (category === 'mobilite' && sytralUrl) {
-          await win.supabaseService.upsertSytralLink(projectName, sytralUrl);
+        // 2) Optional consultation dossiers (upload PDFs then insert URLs)
+        const docEntries = collectDocs();
+        if (docEntries.length) {
+          const uploaded = [];
+          for (const d of docEntries) {
+            try {
+              const url = await (win.supabaseService && win.supabaseService.uploadConsultationPdfToStorage(d.file, category, projectName, rowId));
+              if (url) uploaded.push({ title: d.title, pdf_url: url });
+            } catch (pdfErr) {
+              console.warn('[contrib] upload PDF error:', pdfErr);
+            }
+          }
+          if (uploaded.length) {
+            await win.supabaseService.insertConsultationDossiers(projectName, category, uploaded);
+          }
         }
 
-        // 3) Optional consultation dossiers
-        const docs = collectDocs();
-        if (docs.length) {
-          await win.supabaseService.insertConsultationDossiers(projectName, category, docs);
-        }
-
-        // 4) Patch core fields (edit or create)
+        // 3) Patch core fields (edit or create) — inclut official_url
         try {
           await (win.supabaseService && win.supabaseService.updateContribution(rowId, {
             project_name: projectName,
             category: category,
             ville: city,
+            official_url: officialUrl || null,
             meta: meta || null,
             description: description || null
           }));
@@ -1780,9 +1780,14 @@
 
     try { populateCities(); } catch(_) {}
 
-    // Ensure tab default is Create when opening
-    // Open handler already focuses close btn; we set tab states explicitly here
-    activateTab('create');
+    // Ensure tab default is Create only if landing is not visible
+    // Ne pas écraser l'écran d'accueil (Créer / Modifier)
+    try {
+      const landingVisible = landingEl && landingEl.hidden === false;
+      if (!landingVisible) {
+        activateTab('create');
+      }
+    } catch(_) {}
   }
 
   if (document.readyState === 'loading') {

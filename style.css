@@ -4273,6 +4273,11 @@ html[data-theme='dark'] #contrib-overlay .contrib-stepper .contrib-step.is-compl
   box-shadow: 0 0 0 3px rgba(20,174,92,0.28);
 }
 
+/* Meta field: slightly larger typing area */
+#contrib-overlay #contrib-meta {
+  min-height: 92px; /* ~4 lignes confortables */
+}
+
 /* Fieldsets */
 #contrib-overlay .form-fieldset {
   border: 1px solid rgba(0,0,0,0.08);
