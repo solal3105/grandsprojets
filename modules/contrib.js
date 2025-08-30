@@ -63,6 +63,32 @@
     };
 
     if (contribToggle) {
+      // Masquer/afficher le bouton "Contribuer" selon l'état d'authentification
+      const applyContribVisibility = (session) => {
+        try {
+          const isAuthed = !!(session && session.user);
+          if (contribToggle) contribToggle.style.display = isAuthed ? '' : 'none';
+          // Si l'utilisateur se déconnecte pendant que la modale est ouverte, la fermer
+          if (!isAuthed && contribOverlay && contribOverlay.getAttribute('aria-hidden') === 'false') {
+            closeContrib();
+          }
+        } catch (_) { /* noop */ }
+      };
+
+      // État initial
+      try {
+        if (win.AuthModule && typeof win.AuthModule.getSession === 'function') {
+          win.AuthModule.getSession().then(({ data }) => applyContribVisibility(data?.session)).catch(() => applyContribVisibility(null));
+        }
+      } catch (_) { /* noop */ }
+
+      // Mises à jour dynamiques
+      try {
+        if (win.AuthModule && typeof win.AuthModule.onAuthStateChange === 'function') {
+          win.AuthModule.onAuthStateChange((_event, session) => applyContribVisibility(session));
+        }
+      } catch (_) { /* noop */ }
+
       contribToggle.addEventListener('click', async (e) => {
         e.stopPropagation();
         try {

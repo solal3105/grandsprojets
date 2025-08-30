@@ -1,0 +1,9 @@
+[functions]
+  directory = "netlify/functions"
+
+# Force the dynamic function over any static file with the same path
+[[redirects]]
+  from = "/sitemap.xml"
+  to = "/.netlify/functions/sitemap"
+  status = 200
+  force = true
