@@ -517,6 +517,21 @@
             if (fileRowEl) fileRowEl.style.display = '';
           }
         } catch(_) {}
+        // En mode édition, précharger la géométrie à l'entrée en étape 2
+        (async () => {
+          try {
+            if (!currentEditId) return;
+            if (editGeojsonUrl) {
+              return preloadGeometryOnMap(editGeojsonUrl);
+            }
+            // Fallback: recharger la ligne pour obtenir la dernière geojson_url
+            if (win.supabaseService && typeof win.supabaseService.getContributionById === 'function') {
+              const row = await win.supabaseService.getContributionById(currentEditId);
+              const url = row && row.geojson_url ? row.geojson_url : null;
+              if (url) { editGeojsonUrl = url; await preloadGeometryOnMap(url); }
+            }
+          } catch (_) {}
+        })();
       }
 
       // Focus first focusable in the step
@@ -556,6 +571,7 @@
     const listMineOnlyEl = document.getElementById('contrib-mine-only');
 
     let currentEditId = null; // when set, the form is in edit mode
+    let editGeojsonUrl = null; // holds existing geojson url during edit
     let listState = {
       search: '',
       category: '',
@@ -988,6 +1004,8 @@
 
     // —— Edit mode helpers ——
     const cancelEditBtn = document.getElementById('contrib-cancel-edit');
+    // Hide cancel-edit button permanently; back button handles exit
+    if (cancelEditBtn) cancelEditBtn.style.display = 'none';
     const deleteEditBtn = document.getElementById('contrib-delete');
     const coverPreview  = document.getElementById('contrib-cover-preview');
 
@@ -1234,7 +1252,7 @@
       const submitBtn = document.getElementById('contrib-submit');
       const nameEl = document.getElementById('contrib-project-name');
       if (submitBtn) submitBtn.querySelector('span')?.replaceChildren(document.createTextNode(on ? 'Enregistrer' : 'Envoyer'));
-      if (cancelEditBtn) cancelEditBtn.style.display = on ? '' : 'none';
+      // cancelEditBtn hidden globally (handled by Back button)
       if (deleteEditBtn) deleteEditBtn.style.display = on ? '' : 'none';
       if (nameEl) nameEl.focus();
     }
@@ -1296,19 +1314,19 @@
 
     function enterEditMode(row) {
       currentEditId = row.id;
+      editGeojsonUrl = row && row.geojson_url ? row.geojson_url : null;
       prefillForm(row);
       setStatus('Mode édition. Modifiez et cliquez sur Enregistrer.');
       setEditUI(true);
-      // Preload server-side geometry on map if available
-      if (row && row.geojson_url) {
-        preloadGeometryOnMap(row.geojson_url);
-      }
+      // En modification, démarrer explicitement au début du stepper (étape 1)
+      try { setStep(1, { force: true }); } catch(_) {}
       // Load existing consultation dossiers related to the project name
       try { clearExistingDossiers(); renderExistingDossiers(row.project_name); } catch(_) {}
     }
 
     function exitEditMode() {
       currentEditId = null;
+      editGeojsonUrl = null;
       try { form.reset(); } catch(_) {}
       if (coverPreview) coverPreview.innerHTML = '';
       setEditUI(false);
@@ -1318,11 +1336,7 @@
       try { clearExistingDossiers(); } catch(_) {}
     }
 
-    if (cancelEditBtn) {
-      cancelEditBtn.addEventListener('click', () => {
-        exitEditMode();
-      });
-    }
+    // cancelEditBtn removed; Back button already exits edit mode
 
     if (deleteEditBtn) {
       deleteEditBtn.addEventListener('click', async () => {
@@ -1400,6 +1414,8 @@
         const drawRadio = Array.from(geomModeRadios || []).find(r => r.value === 'draw');
         if (drawRadio) { drawRadio.checked = true; }
         setGeomMode('draw');
+        // Important: wait for the map to be initialized before adding layers
+        try { await initDrawMap(); } catch(_) {}
         // Nettoyer et afficher uniquement la géométrie existante
         try { clearAllDrawings(); } catch(_) {}
         const resp = await fetch(url);
