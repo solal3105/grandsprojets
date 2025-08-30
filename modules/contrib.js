@@ -1634,7 +1634,14 @@
           // 0) Create row (create mode)
           try {
             if (win.supabaseService && typeof win.supabaseService.createContributionRow === 'function') {
-              rowId = await win.supabaseService.createContributionRow(projectName, category, city);
+              rowId = await win.supabaseService.createContributionRow(
+                projectName,
+                category,
+                city,
+                meta,
+                description,
+                officialUrl
+              );
             }
           } catch (e) {
             console.warn('[contrib] createContributionRow error:', e);
