@@ -412,6 +412,48 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
     return Object.keys(props).find(k => normLoose(k) === want) || (Object.prototype.hasOwnProperty.call(props, desiredKey) ? desiredKey : null);
   }
 
+  // Applique un effet d'atténuation (dimming) aux couches non sélectionnées
+  // pour conserver leur visibilité tout en mettant en avant la couche ciblée
+  function dimNonSelectedLayers(selectedLayerName, options = {}) {
+    const { opacity = 0.2, fillOpacity = 0.1 } = options;
+    try {
+      const layersObj = window.MapModule?.layers || {};
+      Object.keys(layersObj).forEach(name => {
+        const layer = layersObj[name];
+        if (!layer) return;
+        if (name === selectedLayerName) {
+          // Remettre plein contraste sur la couche sélectionnée
+          // On n'écrase que les opacités pour ne pas perdre le style existant
+          window.DataModule?.safeSetStyle(layer, { opacity: 1, fillOpacity: 0.5 });
+          if (typeof layer.setOpacity === 'function') {
+            layer.setOpacity(1);
+          }
+        } else {
+          // Atténuer les autres couches
+          window.DataModule?.safeSetStyle(layer, { opacity, fillOpacity });
+          if (typeof layer.setOpacity === 'function') {
+            layer.setOpacity(opacity);
+          }
+        }
+      });
+    } catch (_) { /* noop */ }
+  }
+
+  // Restaure l'opacité normale sur toutes les couches connues
+  function restoreAllLayerOpacity() {
+    try {
+      const layersObj = window.MapModule?.layers || {};
+      Object.keys(layersObj).forEach(name => {
+        const layer = layersObj[name];
+        if (!layer) return;
+        window.DataModule?.safeSetStyle(layer, { opacity: 1, fillOpacity: 0.5 });
+        if (typeof layer.setOpacity === 'function') {
+          layer.setOpacity(1);
+        }
+      });
+    } catch (_) { /* noop */ }
+  }
+
   async function resolveAndApplyLayerFiltering(projectName, category) {
     const effectiveCat = (category === 'transport') ? 'mobilite' : category;
     const projLoose = normLoose(projectName);
@@ -557,8 +599,8 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
           setTimeout(() => { if (window.MapModule.map.getZoom() > 15) window.MapModule.map.setZoom(15); }, 300);
         }
       }
-      // Ne laisser visible que la couche cible
-      Object.keys(window.MapModule.layers).forEach(l => { if (l !== layerName) window.MapModule.removeLayer(l); });
+      // Au lieu de supprimer les autres couches, on les atténue pour les garder visibles
+      dimNonSelectedLayers(layerName, { opacity: 0.25, fillOpacity: 0.12 });
     } else {
       console.warn('[NavigationModule] Impossible de déterminer une clé/valeur de filtrage pour', { projectName, layerName, category });
     }
@@ -1494,6 +1536,8 @@ submenu.insertBefore(filterUX, listEl);
     if (projectDetail) {
       projectDetail.style.display = 'none';
     }
+    // Toujours restaurer l'opacité des couches au début du reset
+    try { restoreAllLayerOpacity(); } catch(_) {}
     
     // Si une catégorie est spécifiée, afficher uniquement le sous-menu correspondant
     if (category) {
@@ -1554,7 +1598,9 @@ submenu.insertBefore(filterUX, listEl);
             DataModule.loadLayer(layerName);
           }
         });
-        
+        // Restaurer l'opacité normale (au cas où des couches restent en mémoire)
+        try { restoreAllLayerOpacity(); } catch(_) {}
+
         // 4. Rendre le contenu du sous-menu correspondant (minimal fix)
         try {
           if (category === 'velo') {
