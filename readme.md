@@ -2,7 +2,7 @@
 
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC) [![Leaflet](https://img.shields.io/badge/Leaflet-1.9.x-brightgreen)](#)
 
-**Dernière mise à jour :** 2025-08-23
+**Dernière mise à jour :** 2025-08-30
 
 ---
 
@@ -44,7 +44,7 @@ grandprojetV2/
 ├── index.html                  # Entrée unique, charge tous les modules JS dans l’ordre
 ├── style.css                   # Styles globaux (layout, nav, popups)
 ├── ficheprojet.css             # Styles dédiés aux pages statiques de fiche projet
-├── data.js                     # (Hérité) Placeholder non utilisé pour le contenu; données chargées dynamiquement
+├── data.js                     # (Hérité) Placeholder; non requis (données chargées dynamiquement via Supabase)
 ├── main.js                     # Orchestration, bootstrap général
 ├── README.md                   # Documentation complète du projet
 ├── modules/
@@ -55,7 +55,8 @@ grandprojetV2/
 │   ├── uimodule.js             # UI filtres, popups, menu basemap, panneau détail
 │   ├── navigationmodule.js     # Navigation projets, rendu des listes, panneau détail
 │   ├── eventbindings.js        # Liaison boutons & filtres → logique métier
-│   └── ficheprojet.js          # (si utilisé, logique fiche projet statique)
+│   ├── ficheprojet.js          # (si utilisé, logique fiche projet statique)
+│   └── contrib.js              # Flux de contribution (stepper, édition, carte)
 ├── pages/
 │   ├── velo/
 │   │   ├── ligne-1.md
@@ -119,8 +120,9 @@ grandprojetV2/
   ```
 
 ### 4.2. data.js
-- Actuellement non utilisé pour stocker le contenu. Conservé pour compatibilité.
-- Optionnel: vous pouvez définir `window.zoomConfig` pour contrôler la visibilité des marqueurs selon le zoom. `MapModule.updateMarkerVisibility()` lira cette config si présente.
+- Statut: fichier hérité. Il n’est plus utilisé pour stocker du contenu; les données sont chargées dynamiquement via Supabase (`supabaseService.initAllData()`).
+- Compatibilité: plusieurs fiches statiques incluent encore `<script src="../../data.js"></script>`. Cela est sans effet si le fichier reste vide. Vous pouvez supprimer ces balises des pages si vous souhaitez nettoyer le code.
+- Hook optionnel: vous pouvez définir `window.zoomConfig` pour contrôler la visibilité de certains marqueurs selon le zoom. `MapModule.updateMarkerVisibility()` lira cette config si présente.
 
 ### 4.3. datamodule.js
 - **Cache réseau** : `simpleCache` (objet clé/valeur) et `CacheManager` (limite la taille du cache)
@@ -179,6 +181,18 @@ grandprojetV2/
 - **API** : `GeolocationModule.init(map)`, `handleLocationButtonClick()`
 
 ---
+
+### 4.12. contrib.js (Flux de contribution)
+- **Rôle** : gère l’envoi et la modification des contributions (métadonnées + GeoJSON) via un stepper multi-étapes.
+- **Comportements clés** :
+  - Entrée en mode édition commence directement à l’étape 1 du stepper. Implémenté par `enterEditMode(row)` qui force `setStep(1, { force: true })`.
+  - La carte/GeoJSON ne se charge qu’à l’étape 2. Lors du passage à l’étape 2, si on est en édition et qu’une URL GeoJSON existe, `preloadGeometryOnMap(url)` est appelée pour afficher la géométrie.
+  - Le bouton « annuler la modification » a été retiré (visuellement et côté JS). Le bouton « Retour » du stepper sert d’annulation/retour.
+- **API principale** : `enterEditMode(row)`, `exitEditMode()`, `setStep(n, opts)`, `preloadGeometryOnMap(url)`.
+- **Notes permissions (Supabase)** :
+  - RLS: utilisateurs authentifiés peuvent `INSERT` et `UPDATE` `public.contribution_uploads` (pas de restriction propriétaire stricte).
+  - Stockage: `INSERT` authentifié sur `uploads/img/cover/%` et `uploads/geojson/projects/%` (pas d’`UPDATE` requis; noms de fichiers uniques et `upsert:false`).
+
 
 ## 5. Fonctionnement des fiches projets (Project Sheets)
 

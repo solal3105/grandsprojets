@@ -1622,6 +1622,38 @@ submenu.insertBefore(filterUX, listEl);
           }
         });
       }
+      
+      // Afficher à nouveau toutes les contributions par défaut (urbanisme, voielyonnaise, reseauProjeteSitePropre)
+      try {
+        const contributionLayers = ['urbanisme', 'voielyonnaise', 'reseauProjeteSitePropre'];
+        contributionLayers.forEach(layerName => {
+          // Réinitialiser l'état visuel du filtre et les tags si disponibles
+          try {
+            const filterItem = document.querySelector(`.filter-item[data-layer="${layerName}"]`);
+            if (filterItem) filterItem.classList.add('active-filter');
+            if (window.UIModule?.resetLayerFilterWithoutRemoving) {
+              window.UIModule.resetLayerFilterWithoutRemoving(layerName);
+            } else if (window.UIModule?.resetLayerFilter) {
+              window.UIModule.resetLayerFilter(layerName);
+            }
+          } catch (_) { /* noop */ }
+
+          // (Re)créer/charger la couche si nécessaire
+          if (DataModule.layerData && DataModule.layerData[layerName]) {
+            DataModule.createGeoJsonLayer(layerName, DataModule.layerData[layerName]);
+          } else {
+            DataModule.loadLayer(layerName);
+          }
+
+          // S'assurer qu'elle est visible sur la carte
+          const lyr = window.MapModule.layers && window.MapModule.layers[layerName];
+          if (lyr && window.MapModule.map && !window.MapModule.map.hasLayer(lyr)) {
+            window.MapModule.map.addLayer(lyr);
+          }
+        });
+      } catch (e) {
+        console.warn('[NavigationModule] restauration des contributions échouée (non bloquant):', e);
+      }
     }
     
     // Réinitialiser le zoom et la position de la carte (sauf si préservé)
