@@ -9,9 +9,9 @@ exports.handler = async (event, context) => {
       return { statusCode: 500, body: 'Missing SUPABASE_URL or SUPABASE_ANON_KEY' };
     }
 
-    // Fetch minimal fields from contribution_uploads
+    // Fetch minimal fields from contribution_uploads (use project_name, not name)
     const url = new URL('/rest/v1/contribution_uploads', SUPABASE_URL);
-    url.searchParams.set('select', 'name,category,updated_at,markdown_url');
+    url.searchParams.set('select', 'project_name,category,markdown_url,created_at,updated_at');
     url.searchParams.set('order', 'updated_at.desc.nullslast');
 
     const resp = await fetch(url.toString(), {
@@ -57,12 +57,12 @@ exports.handler = async (event, context) => {
     });
 
     for (const it of items) {
-      const name = it?.name || '';
+      const name = it?.project_name || '';
       const cat = mapCat(it?.category);
       if (!name || !cat) continue;
       const encoded = encodeURIComponent(name);
       const loc = `${BASE_ORIGIN}/fiche/?cat=${cat}&project=${encoded}`;
-      const lastmod = fmtDate(it?.updated_at) || undefined;
+      const lastmod = fmtDate(it?.updated_at || it?.created_at) || undefined;
       const priority = it?.markdown_url ? '0.8' : '0.6';
       urlset.push({ loc, lastmod, changefreq: 'weekly', priority });
     }
