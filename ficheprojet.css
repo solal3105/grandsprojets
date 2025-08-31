@@ -357,134 +357,32 @@
 .project-v2-article .doc-card-actions .btn-download:active { transform: translateY(0.5px); }
 
 /* ---------------------------------------------------------------------------
-   Cyclopolis — external card link (Voies Lyonnaises)
-   Injected above the article body for vélo projects
+   Lien officiel — carte unifiée
+   Affichée si contribution_uploads.official_url est présent
 --------------------------------------------------------------------------- */
-.project-v2-article .cyclopolis-section { margin: 18px 0 22px; }
-.project-v2-article .cyclopolis-card {
+.project-v2-article .official-link-section { margin: 18px 0 22px; }
+.project-v2-article .official-link-card {
   display: flex; align-items: center; gap: 16px;
   padding: 16px 18px; border-radius: 14px;
-  background: var(--cyclopolis-card-bg);
+  background: var(--chip-bg);
   border: 1px solid var(--border);
   box-shadow: 0 8px 22px rgba(0,0,0,0.06);
   text-decoration: none; color: var(--text);
   transition: transform .15s ease, box-shadow .15s ease, background-color .2s ease;
 }
-.project-v2-article .cyclopolis-card:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(0,0,0,0.08); background: var(--cyclopolis-card-hover-bg); }
-.project-v2-article .cyclopolis-card:active { transform: translateY(0); }
+.project-v2-article .official-link-card:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(0,0,0,0.08); background: var(--chip-hover-bg); }
+.project-v2-article .official-link-card:active { transform: translateY(0); }
 
-.project-v2-article .cyclo-badge {
-  flex-shrink: 0;
-  padding: 6px 10px; border-radius: 999px;
-  background: var(--chip-bg); color: var(--text); font-weight: 700; font-size: .9rem;
-  border: 1px solid var(--border);
-}
-.project-v2-article .cyclo-content { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.project-v2-article .cyclo-content h2 { margin: 0; font-size: 1.05rem; line-height: 1.25; color: var(--text); }
-.project-v2-article .cyclo-content p { margin: 0; color: var(--text); opacity: .9; }
+.project-v2-article .official-link-content { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.project-v2-article .official-link-content h2 { margin: 0; font-size: 1.05rem; line-height: 1.25; color: var(--text); }
+.project-v2-article .official-link-content p { margin: 0; color: var(--text); opacity: .9; }
 
-.project-v2-article .cyclo-cta { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-weight: 600; }
-.project-v2-article .cyclo-cta .fa { color: var(--text); }
+.project-v2-article .official-link-cta { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-weight: 600; }
+.project-v2-article .official-link-cta .fa { color: var(--text); }
 
 @media (max-width: 560px) {
-  .project-v2-article .cyclopolis-card { flex-wrap: wrap; align-items: flex-start; }
-  .project-v2-article .cyclo-cta { margin-left: 0; }
-}
-
-/* Shared logo styles for external cards */
-.project-v2-article .card-logo-wrap {
-  flex-shrink: 0;
-  max-width: 120px; width: 100%; height: auto;
-  display: inline-flex; align-items: center; justify-content: center;
-}
-.project-v2-article .card-logo {
-  width: 100%; display: block;
-}
-
-/* Dark theme: render brand logos as white inside external cards */
-html[data-theme='dark'] .project-v2-article .card-logo {
-  filter: brightness(0) invert(1);
-}
-
-/* Ensure no underline on hover/focus for all external brand cards */
-.project-v2-article .cyclopolis-card,
-.project-v2-article .grandlyon-card,
-.project-v2-article .sytral-card { text-decoration: none; }
-.project-v2-article .cyclopolis-card:hover,
-.project-v2-article .grandlyon-card:hover,
-.project-v2-article .sytral-card:hover,
-.project-v2-article .cyclopolis-card:focus,
-.project-v2-article .grandlyon-card:focus,
-.project-v2-article .sytral-card:focus { text-decoration: none; }
-
-/* ---------------------------------------------------------------------------
-   GrandLyon — external card link (Urbanisme projects)
-   Injected above the article body for urbanisme projects
---------------------------------------------------------------------------- */
-.project-v2-article .grandlyon-section { margin: 18px 0 22px; }
-.project-v2-article .grandlyon-card {
-  display: flex; align-items: center; gap: 16px;
-  padding: 16px 18px; border-radius: 14px;
-  background: var(--grandlyon-card-bg);
-  border: 1px solid var(--border);
-  box-shadow: 0 8px 22px rgba(0,0,0,0.06);
-  text-decoration: none; color: var(--text);
-  transition: transform .15s ease, box-shadow .15s ease, background-color .2s ease;
-}
-.project-v2-article .grandlyon-card:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(0,0,0,0.08); background: var(--grandlyon-card-hover-bg); }
-.project-v2-article .grandlyon-card:active { transform: translateY(0); }
-
-.project-v2-article .gl-badge {
-  flex-shrink: 0;
-  padding: 6px 10px; border-radius: 999px;
-  background: var(--chip-bg); color: var(--text); font-weight: 700; font-size: .9rem;
-  border: 1px solid var(--border);
-}
-.project-v2-article .gl-content { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.project-v2-article .gl-content h2 { margin: 0; font-size: 1.05rem; line-height: 1.25; color: var(--text); }
-.project-v2-article .gl-content p { margin: 0; color: var(--text); opacity: .9; }
-
-.project-v2-article .gl-cta { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-weight: 600; }
-.project-v2-article .gl-cta .fa { color: var(--text); }
-
-@media (max-width: 560px) {
-  .project-v2-article .grandlyon-card { flex-wrap: wrap; align-items: flex-start; }
-  .project-v2-article .gl-cta { margin-left: 0; }
-}
-
-/* ---------------------------------------------------------------------------
-   SYTRAL — external card link (Mobilité projects)
-   Injected above the article body for transport projects
---------------------------------------------------------------------------- */
-.project-v2-article .sytral-section { margin: 18px 0 22px; }
-.project-v2-article .sytral-card {
-  display: flex; align-items: center; gap: 16px;
-  padding: 16px 18px; border-radius: 14px;
-  background: var(--sytral-card-bg);
-  border: 1px solid var(--border); /* theme-aware border */
-  box-shadow: 0 8px 22px rgba(0,0,0,0.06);
-  text-decoration: none; color: var(--text);
-  transition: transform .15s ease, box-shadow .15s ease, background-color .2s ease;
-}
-.project-v2-article .sytral-card:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(0,0,0,0.08); background: var(--sytral-card-hover-bg); }
-.project-v2-article .sytral-card:active { transform: translateY(0); }
-
-.project-v2-article .sy-badge {
-  flex-shrink: 0;
-  padding: 6px 10px; border-radius: 999px;
-  background: var(--chip-bg); color: var(--text); font-weight: 700; font-size: .9rem;
-  border: 1px solid var(--border);
-}
-.project-v2-article .sy-content { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.project-v2-article .sy-content h2 { margin: 0; font-size: 1.05rem; line-height: 1.25; color: var(--text); }
-.project-v2-article .sy-content p { margin: 0; color: var(--text); opacity: .9; }
-
-.project-v2-article .sy-cta { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-weight: 600; }
-.project-v2-article .sy-cta .fa { color: var(--text); }
-
-@media (max-width: 560px) {
-  .project-v2-article .sytral-card { flex-wrap: wrap; align-items: flex-start; }
-  .project-v2-article .sy-cta { margin-left: 0; }
+  .project-v2-article .official-link-card { flex-wrap: wrap; align-items: flex-start; }
+  .project-v2-article .official-link-cta { margin-left: 0; }
 }
 
 /* PDF Lightbox */

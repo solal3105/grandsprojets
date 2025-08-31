@@ -508,7 +508,7 @@
         if (!category || !projectName) return null;
         const { data, error } = await supabaseClient
           .from('contribution_uploads')
-          .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description')
+          .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, official_url')
           .eq('category', category)
           .eq('project_name', projectName)
           .limit(1)
@@ -959,72 +959,17 @@
     getConsultationDossiersByProject: async function(projectName) {
       try {
         if (!projectName) return [];
-        // Helpers for tolerant matching
-        const normalize = (str) => String(str || '')
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '') // strip accents
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, ' ') // keep alnum
-          .trim()
-          .replace(/\s+/g, ' ');
-        const tokens = normalize(projectName).split(' ').filter(t => t.length >= 3);
-
-        // 1) Exact match
-        let q1 = await supabaseClient
+        // Strict only: exact equality on project_name
+        const q = await supabaseClient
           .from('consultation_dossiers')
           .select('title, pdf_url, project_name')
           .eq('project_name', projectName)
           .order('title', { ascending: true });
-        if (q1.error) {
-          console.error('[supabaseService] ❌ getConsultationDossiersByProject exact error:', q1.error);
-        }
-        if (q1.data && q1.data.length) return q1.data;
-
-        // 2) Case-insensitive partial with ILIKE on the whole name
-        let q2 = await supabaseClient
-          .from('consultation_dossiers')
-          .select('title, pdf_url, project_name')
-          .ilike('project_name', `%${projectName}%`)
-          .order('title', { ascending: true });
-        if (q2.error) {
-          console.error('[supabaseService] ❌ getConsultationDossiersByProject ilike error:', q2.error);
-        }
-        if (q2.data && q2.data.length) return q2.data;
-
-        // 3) Token-based OR of ILIKE predicates (up to 3 tokens)
-        if (tokens.length) {
-          const orExpr = tokens.slice(0, 3)
-            .map(t => `project_name.ilike.%${t}%`)
-            .join(',');
-          let q3 = await supabaseClient
-            .from('consultation_dossiers')
-            .select('title, pdf_url, project_name')
-            .or(orExpr)
-            .order('title', { ascending: true });
-          if (q3.error) {
-            console.error('[supabaseService] ❌ getConsultationDossiersByProject tokens error:', q3.error);
-          }
-          if (q3.data && q3.data.length) return q3.data;
-        }
-
-        // 4) Client-side fuzzy: fetch all (bounded) and match by normalized token overlap
-        const q4 = await supabaseClient
-          .from('consultation_dossiers')
-          .select('title, pdf_url, project_name')
-          .limit(500);
-        if (q4.error) {
-          console.error('[supabaseService] ❌ getConsultationDossiersByProject fallback fetch-all error:', q4.error);
+        if (q.error) {
+          console.error('[supabaseService] ❌ getConsultationDossiersByProject exact error:', q.error);
           return [];
         }
-        const wanted = new Set(tokens);
-        const scored = (q4.data || []).map(row => {
-          const rowTokens = new Set(normalize(row.project_name).split(' ').filter(t => t.length >= 3));
-          let score = 0;
-          wanted.forEach(t => { if (rowTokens.has(t)) score++; });
-          return { row, score };
-        }).filter(x => x.score > 0);
-        scored.sort((a, b) => b.score - a.score || a.row.title.localeCompare(b.row.title));
-        return scored.map(x => x.row);
+        return Array.isArray(q.data) ? q.data : [];
       } catch (e) {
         console.error('[supabaseService] ❌ getConsultationDossiersByProject exception:', e);
         return [];

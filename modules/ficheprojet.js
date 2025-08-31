@@ -57,119 +57,34 @@ window.basemaps = window.basemaps || [
   }
 ];
 
-// Ajoute une carte "Voir sur Cyclopolis" pour les Voies Lyonnaises
-async function appendCyclopolisCard(lineNumber, containerEl) {
-  try {
-    if (!containerEl) return;
-    const n = String(lineNumber || '').trim().replace(/\D+/g, '');
-    if (!n) return;
-    const url = `https://cyclopolis.fr/voie-lyonnaise-${n}`;
+// (legacy partner cards removed)
 
-    const section = document.createElement('section');
-    section.className = 'cyclopolis-section';
-    section.innerHTML = `
-      <a class="cyclopolis-card" href="${url}" target="_blank" rel="noopener" aria-label="Voir la Voie Lyonnaise ${n} sur Cyclopolis (ouvre un nouvel onglet)">
-        <div class="card-logo-wrap"><img class="card-logo" src="/img/logos/cyclopolis-logo.svg" alt="Cyclopolis" loading="lazy"></div>
-        <div class="cyclo-content">
-          <h2>Voir sur Cyclopolis</h2>
-          <p>En savoir plus sur la Voie Lyonnaise ${n} sur cyclopolis.fr</p>
-        </div>
-        <div class="cyclo-cta"><span class="cta-text">Ouvrir</span> <i class="fa fa-arrow-up-right-from-square" aria-hidden="true"></i></div>
-      </a>`;
-    containerEl.appendChild(section);
-  } catch (e) {
-    console.error('[ficheprojet] appendCyclopolisCard error:', e);
-  }
-}
-
-// Ajoute les cartes de liens officiels selon la catégorie détectée
+// Ajoute une unique carte de lien officiel basé sur contribution_uploads.official_url
 async function addOfficialLinkCards({ projectName, layerName, filterKey, filterValue, containerEl }) {
   try {
     if (!containerEl) return;
-    const ln = normalizeText(layerName || '');
-    const cat = (() => {
-      if (ln.includes('urbanisme')) return 'urbanisme';
-      if (ln.includes('voielyonnaise') || ln.includes('plan velo') || ln.includes('amenagement cyclable') || ln.includes('velo')) return 'velo';
-      return 'mobilite';
-    })();
+    // Récupération de l'URL officielle depuis la contribution chargée
+    const contrib = (window.__fpContributionProject || (typeof contributionProject !== 'undefined' ? contributionProject : null));
+    const url = contrib && contrib.official_url ? String(contrib.official_url).trim() : '';
+    if (!url) return;
 
-    if (cat === 'velo') {
-      // Préférence au numéro de ligne depuis filterValue, sinon tenter depuis le nom de projet
-      let n = '';
-      if (filterKey === 'line' && filterValue) n = String(filterValue).trim();
-      if (!n && projectName) {
-        const m = String(projectName).match(/(\d+)/);
-        if (m) n = m[1];
-      }
-      if (n) await appendCyclopolisCard(n, containerEl);
-      return;
-    }
-
-    if (cat === 'urbanisme') {
-      if (projectName) await appendGrandLyonCard(projectName, containerEl);
-      return;
-    }
-
-    // Mobilité: afficher SYTRAL pour les couches transport pertinentes
-    if (ln.includes('metro') || ln.includes('tram') || ln.includes('reseau') || ln.includes('site propre')) {
-      if (projectName) await appendSytralCard(projectName, containerEl);
-    }
+    const section = document.createElement('section');
+    section.className = 'official-link-section';
+    section.innerHTML = `
+      <a class="official-link-card" href="${url}" target="_blank" rel="noopener" aria-label="Voir la page officielle du projet ${projectName || ''} (ouvre un nouvel onglet)">
+        <div class="official-link-content">
+          <h2>Voir la page officielle</h2>
+          <p>Accéder au site de référence du projet</p>
+        </div>
+        <div class="official-link-cta"><span class="cta-text">Ouvrir</span> <i class="fa fa-arrow-up-right-from-square" aria-hidden="true"></i></div>
+      </a>`;
+    containerEl.appendChild(section);
   } catch (e) {
     console.warn('[ficheprojet] addOfficialLinkCards error:', e);
   }
 }
 
-// Ajoute une carte "Voir sur grandlyon.com" pour les projets Urbanisme
-async function appendGrandLyonCard(projectName, containerEl) {
-  try {
-    if (!containerEl || !projectName) return;
-    const getUrl = window.supabaseService?.getGrandLyonUrlByProject;
-    if (typeof getUrl !== 'function') return;
-    const url = await getUrl(projectName);
-    if (!url) return;
-
-    const section = document.createElement('section');
-    section.className = 'grandlyon-section';
-    section.innerHTML = `
-      <a class="grandlyon-card" href="${url}" target="_blank" rel="noopener" aria-label="Voir la fiche de ${projectName} sur grandlyon.com (ouvre un nouvel onglet)">
-        <div class="card-logo-wrap"><img class="card-logo" src="/img/logos/grandlyon-logo.svg" alt="Grand Lyon" loading="lazy"></div>
-        <div class="gl-content">
-          <h2>Voir sur grandlyon.com</h2>
-          <p>Accéder à la page officielle du projet</p>
-        </div>
-        <div class="gl-cta"><span class="cta-text">Ouvrir</span> <i class="fa fa-arrow-up-right-from-square" aria-hidden="true"></i></div>
-      </a>`;
-    containerEl.appendChild(section);
-  } catch (e) {
-    console.error('[ficheprojet] appendGrandLyonCard error:', e);
-  }
-}
-
-// Ajoute une carte "Voir sur SYTRAL" pour les projets de transport (mobilité)
-async function appendSytralCard(projectName, containerEl) {
-  try {
-    if (!containerEl || !projectName) return;
-    const getUrl = window.supabaseService?.getSytralUrlByProject;
-    if (typeof getUrl !== 'function') return;
-    const url = await getUrl(projectName);
-    if (!url) return;
-
-    const section = document.createElement('section');
-    section.className = 'sytral-section';
-    section.innerHTML = `
-      <a class="sytral-card" href="${url}" target="_blank" rel="noopener" aria-label="Voir la page de ${projectName} sur SYTRAL Mobilités (ouvre un nouvel onglet)">
-        <div class="card-logo-wrap"><img class="card-logo" src="/img/logos/sytral-logo.svg" alt="SYTRAL" loading="lazy"></div>
-        <div class="sy-content">
-          <h2>Voir sur SYTRAL</h2>
-          <p>Accéder à la page officielle du projet</p>
-        </div>
-        <div class="sy-cta"><span class="cta-text">Ouvrir</span> <i class="fa fa-arrow-up-right-from-square" aria-hidden="true"></i></div>
-      </a>`;
-    containerEl.appendChild(section);
-  } catch (e) {
-    console.error('[ficheprojet] appendSytralCard error:', e);
-  }
-}
+// (legacy partner cards removed)
 
 // Marked est désormais chargé via MarkdownUtils.loadDeps()
 
@@ -794,6 +709,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (window.supabaseService?.fetchProjectByCategoryAndName && projectName) {
       const found = await window.supabaseService.fetchProjectByCategoryAndName(effCat, projectName);
       if (found) contributionProject = found;
+      try { window.__fpContributionProject = found || null; } catch(_) {}
       if (found?.markdown_url) {
         contributionMdUrl = found.markdown_url;
         console.log(`[ficheprojet] Markdown depuis contribution_uploads (strict): ${contributionMdUrl}`);
