@@ -560,6 +560,16 @@
         })();
       }
 
+      // Charger/rafraîchir les dossiers liés à l'entrée en étape 4 (nom courant du projet)
+      if (currentStep === 4) {
+        try {
+          const nameEl = document.getElementById('contrib-project-name');
+          const pname = nameEl && nameEl.value ? nameEl.value.trim() : '';
+          clearExistingDossiers();
+          if (pname) { renderExistingDossiers(pname); }
+        } catch (_) {}
+      }
+
       // Focus first focusable in the step
       try {
         const stepEls = queryStepEls(currentStep);
@@ -1346,8 +1356,7 @@
       setEditUI(true);
       // En modification, démarrer explicitement au début du stepper (étape 1)
       try { setStep(1, { force: true }); } catch(_) {}
-      // Load existing consultation dossiers related to the project name
-      try { clearExistingDossiers(); renderExistingDossiers(row.project_name); } catch(_) {}
+      // Les dossiers liés seront chargés dynamiquement à l'entrée en étape 4
     }
 
     function exitEditMode() {
@@ -1553,8 +1562,14 @@
       try {
         if (!existingDocsEl || !projectName) return;
         existingDocsEl.innerHTML = '';
+        // État chargement
+        const load = document.createElement('div');
+        load.textContent = 'Recherche des dossiers liés…';
+        load.style.cssText = 'font-size:0.9em; opacity:0.8; margin:4px 0;';
+        existingDocsEl.appendChild(load);
         if (!win.supabaseService || typeof win.supabaseService.getConsultationDossiersByProject !== 'function') return;
         const dossiers = await win.supabaseService.getConsultationDossiersByProject(projectName);
+        try { load.remove(); } catch(_) {}
         if (!Array.isArray(dossiers) || dossiers.length === 0) return;
         const uniq = new Map();
         dossiers.forEach(d => {
@@ -1585,6 +1600,15 @@
         existingDocsEl.appendChild(wrap);
       } catch (e) {
         console.warn('[contrib] renderExistingDossiers error:', e);
+        try {
+          // Afficher un état d'erreur discret
+          if (existingDocsEl) {
+            const err = document.createElement('div');
+            err.textContent = 'Impossible de charger les dossiers liés pour le moment.';
+            err.style.cssText = 'font-size:0.9em; color:#c62828; margin:4px 0;';
+            existingDocsEl.appendChild(err);
+          }
+        } catch(_) {}
       }
     }
 
