@@ -962,7 +962,7 @@
         // Strict only: exact equality on project_name
         const q = await supabaseClient
           .from('consultation_dossiers')
-          .select('title, pdf_url, project_name')
+          .select('id, title, pdf_url, project_name')
           .eq('project_name', projectName)
           .order('title', { ascending: true });
         if (q.error) {
@@ -973,6 +973,97 @@
       } catch (e) {
         console.error('[supabaseService] ❌ getConsultationDossiersByProject exception:', e);
         return [];
+      }
+    },
+
+    /**
+     * Met à jour le titre d'un dossier de concertation.
+     * @param {number|string} id
+     * @param {string} newTitle
+     * @returns {Promise<boolean>}
+     */
+    updateConsultationDossierTitle: async function(id, newTitle) {
+      try {
+        if (!id) throw new Error('id requis');
+        const { error } = await supabaseClient
+          .from('consultation_dossiers')
+          .update({ title: newTitle })
+          .eq('id', id);
+        if (error) { console.error('[supabaseService] updateConsultationDossierTitle error:', error); return false; }
+        return true;
+      } catch (e) {
+        console.error('[supabaseService] updateConsultationDossierTitle exception:', e);
+        return false;
+      }
+    },
+
+    /**
+     * Supprime un dossier de concertation par id.
+     * @param {number|string} id
+     * @returns {Promise<boolean>}
+     */
+    deleteConsultationDossier: async function(id) {
+      try {
+        if (!id) throw new Error('id requis');
+        const { error } = await supabaseClient
+          .from('consultation_dossiers')
+          .delete()
+          .eq('id', id);
+        if (error) { console.error('[supabaseService] deleteConsultationDossier error:', error); return false; }
+        return true;
+      } catch (e) {
+        console.error('[supabaseService] deleteConsultationDossier exception:', e);
+        return false;
+      }
+    },
+
+    /**
+     * Met à jour l'URL (pdf_url) d'un dossier de concertation.
+     * @param {number|string} id
+     * @param {string} newUrl
+     * @returns {Promise<boolean>}
+     */
+    updateConsultationDossierUrl: async function(id, newUrl) {
+      try {
+        if (!id) throw new Error('id requis');
+        const { error } = await supabaseClient
+          .from('consultation_dossiers')
+          .update({ pdf_url: newUrl })
+          .eq('id', id);
+        if (error) { console.error('[supabaseService] updateConsultationDossierUrl error:', error); return false; }
+        return true;
+      } catch (e) {
+        console.error('[supabaseService] updateConsultationDossierUrl exception:', e);
+        return false;
+      }
+    },
+
+    /**
+     * Upload d'un PDF de concertation dans Storage et retourne son URL publique.
+     * @param {File|Blob} file - PDF
+     * @param {string} projectName
+     * @returns {Promise<string>} publicUrl
+     */
+    uploadConsultationPdf: async function(file, projectName) {
+      try {
+        if (!file || !projectName) throw new Error('Paramètres manquants');
+        const lower = (file.name || '').toLowerCase();
+        const ext = lower.endsWith('.pdf') ? '.pdf' : '.pdf';
+        const contentType = 'application/pdf';
+        const safeName = slugify(projectName || 'projet');
+        const ts = Date.now();
+        const path = `docs/consultation/${safeName}-${ts}${ext}`;
+        const bucket = 'uploads';
+        const { error: upErr } = await supabaseClient
+          .storage
+          .from(bucket)
+          .upload(path, file, { upsert: false, contentType });
+        if (upErr) { console.error('[supabaseService] uploadConsultationPdf error:', upErr); throw upErr; }
+        const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
+        return data.publicUrl;
+      } catch (e) {
+        console.error('[supabaseService] uploadConsultationPdf exception:', e);
+        throw e;
       }
     },
 

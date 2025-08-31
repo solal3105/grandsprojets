@@ -242,31 +242,15 @@
             </small>
           </div>
 
-          <div class="form-row contrib-step-4">
-            <label for="contrib-official-url">Lien officiel du projet (optionnel)</label>
+          <div class="form-row contrib-step-4 official-link-card">
+            <label for="contrib-official-url">🔗 Lien officiel du projet (optionnel)</label>
             <input type="url" id="contrib-official-url" name="official_url" placeholder="https://..." />
             <small>Un unique lien officiel vers la page du projet (quelle que soit la catégorie).</small>
           </div>
 
           <div class="contrib-step-4" id="contrib-docs">
+            <div class="contrib-docs-title">📄 Documents liés</div>
             <div id="contrib-existing-docs" class="contrib-existing-docs" aria-live="polite" style="margin-bottom:8px;"></div>
-            <div class="doc-card">
-              <div class="doc-card__header">
-                <input type="text" class="doc-title" placeholder="Titre du document PDF" />
-              </div>
-              <div class="doc-card__body">
-                <label class="doc-upload-label">
-                  <input type="file" class="doc-file" accept="application/pdf" />
-                  <span class="doc-upload-cta">Choisir un PDF…</span>
-                </label>
-                <span class="doc-filename" aria-live="polite"></span>
-              </div>
-              <button type="button" class="doc-remove" aria-label="Supprimer" hidden>&times;</button>
-            </div>
-            <button type="button" id="contrib-doc-add" class="gp-btn gp-btn--secondary" style="margin-top:8px;">
-              <i class="fa fa-plus" aria-hidden="true"></i>
-              <span>Ajouter un document</span>
-            </button>
           </div>
 
           <div class="form-actions" style="margin-top:12px; display:flex; gap:8px; align-items:center;">

@@ -1516,28 +1516,61 @@
 
     function createDocRow() {
       const row = document.createElement('div');
-      row.className = 'doc-card';
+      row.className = 'doc-card is-idle';
       row.innerHTML = `
         <div class="doc-card__header">
           <input type="text" class="doc-title" placeholder="Titre du document PDF" />
         </div>
         <div class="doc-card__body">
-          <label class="doc-upload-label">
-            <input type="file" class="doc-file" accept="application/pdf" />
-            <span class="doc-upload-cta">Choisir un PDF…</span>
-          </label>
-          <span class="doc-filename" aria-live="polite"></span>
+          <input type="file" class="doc-file" accept="application/pdf" style="display:none" />
+          <div class="file-dropzone doc-dropzone" role="button" tabindex="0" aria-label="Déposer un fichier PDF ou cliquer pour choisir">
+            <div class="dz-text">
+              <div class="dz-title">Déposez votre PDF</div>
+              <div class="dz-sub">… ou cliquez pour choisir un fichier</div>
+            </div>
+            <div class="dz-selected">
+              <span class="dz-icon" aria-hidden="true"><i class="fa-regular fa-file-pdf"></i></span>
+              <span class="dz-filename doc-filename"></span>
+            </div>
+          </div>
         </div>
-        <button type="button" class="doc-remove" aria-label="Supprimer">&times;</button>
+        <div class="doc-card__footer">
+          <span class="doc-status" aria-live="polite"></span>
+          <button type="button" class="doc-remove gp-btn gp-btn-ghost" aria-label="Supprimer cette pièce">Supprimer</button>
+        </div>
       `;
       const removeBtn = row.querySelector('.doc-remove');
       const fileInput = row.querySelector('.doc-file');
       const fileNameEl = row.querySelector('.doc-filename');
+      const dropzoneEl = row.querySelector('.doc-dropzone');
+      // Remove
       if (removeBtn) removeBtn.addEventListener('click', () => row.remove());
-      if (fileInput) fileInput.addEventListener('change', () => {
+      // File selection via dialog
+      function onPicked() {
         const f = fileInput.files && fileInput.files[0];
         fileNameEl.textContent = f ? f.name : '';
-      });
+        row.classList.toggle('has-file', !!f);
+        dropzoneEl?.classList.toggle('has-file', !!f);
+      }
+      if (fileInput) fileInput.addEventListener('change', onPicked);
+      // Dropzone interactions
+      if (dropzoneEl) {
+        const openPicker = () => { fileInput?.click(); };
+        dropzoneEl.addEventListener('click', openPicker);
+        dropzoneEl.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
+        });
+        dropzoneEl.addEventListener('dragover', (e) => { e.preventDefault(); dropzoneEl.classList.add('is-dragover'); });
+        dropzoneEl.addEventListener('dragenter', (e) => { e.preventDefault(); dropzoneEl.classList.add('is-dragover'); });
+        dropzoneEl.addEventListener('dragleave', () => dropzoneEl.classList.remove('is-dragover'));
+        dropzoneEl.addEventListener('drop', (e) => {
+          e.preventDefault();
+          dropzoneEl.classList.remove('is-dragover');
+          const dt = e.dataTransfer; if (!dt) return;
+          const files = dt.files; if (!files || !files.length) return;
+          if (fileInput && !fileInput.disabled) { fileInput.files = files; fileInput.dispatchEvent(new Event('change', { bubbles:true })); }
+        });
+      }
       return row;
     }
 
@@ -1562,61 +1595,291 @@
       try {
         if (!existingDocsEl || !projectName) return;
         existingDocsEl.innerHTML = '';
+        // Grille conteneur pour cards
+        const grid = document.createElement('div');
+        grid.className = 'cards-grid existing-docs-grid';
+        existingDocsEl.appendChild(grid);
         // État chargement
         const load = document.createElement('div');
+        load.className = 'cards-loading';
         load.textContent = 'Recherche des dossiers liés…';
-        load.style.cssText = 'font-size:0.9em; opacity:0.8; margin:4px 0;';
-        existingDocsEl.appendChild(load);
+        grid.appendChild(load);
         if (!win.supabaseService || typeof win.supabaseService.getConsultationDossiersByProject !== 'function') return;
         const dossiers = await win.supabaseService.getConsultationDossiersByProject(projectName);
         try { load.remove(); } catch(_) {}
-        if (!Array.isArray(dossiers) || dossiers.length === 0) return;
+        if (!Array.isArray(dossiers) || dossiers.length === 0) {
+          const empty = document.createElement('div');
+          empty.className = 'card-empty-state';
+          empty.textContent = 'Aucun dossier lié trouvé pour ce projet.';
+          grid.appendChild(empty);
+          return;
+        }
         const uniq = new Map();
         dossiers.forEach(d => {
           if (d && d.pdf_url && !uniq.has(d.pdf_url)) uniq.set(d.pdf_url, d);
         });
         const docs = Array.from(uniq.values());
-        if (!docs.length) return;
-        // Build a simple list
-        const wrap = document.createElement('div');
-        wrap.className = 'existing-docs-wrap';
-        const title = document.createElement('div');
-        title.textContent = 'Dossiers liés trouvés :';
-        title.style.cssText = 'font-weight:600;margin:4px 0;';
-        const ul = document.createElement('ul');
-        ul.style.cssText = 'margin:0;padding-left:18px;';
+        if (!docs.length) {
+          const empty = document.createElement('div');
+          empty.className = 'card-empty-state';
+          empty.textContent = 'Aucun dossier lié trouvé pour ce projet.';
+          grid.appendChild(empty);
+          return;
+        }
+        // Build cards with actions
         docs.forEach(d => {
-          const li = document.createElement('li');
-          const a = document.createElement('a');
-          a.href = d.pdf_url;
-          a.target = '_blank';
-          a.rel = 'noopener';
-          a.textContent = d.title || d.pdf_url;
-          li.appendChild(a);
-          ul.appendChild(li);
+          const card = document.createElement('article');
+          card.className = 'existing-doc-card';
+          card.dataset.id = d.id != null ? String(d.id) : '';
+          card.dataset.url = d.pdf_url || '';
+          const header = document.createElement('div');
+          header.className = 'existing-doc-card__header';
+          const icon = document.createElement('span');
+          icon.className = 'doc-icon';
+          icon.innerHTML = '<i class="fa-regular fa-file-pdf" aria-hidden="true"></i>';
+          const title = document.createElement('h3');
+          title.className = 'existing-doc-card__title';
+          const link = document.createElement('a');
+          link.href = d.pdf_url;
+          link.target = '_blank';
+          link.rel = 'noopener';
+          link.textContent = d.title || d.pdf_url;
+          // Avoid toggling actions when clicking the link
+          link.addEventListener('click', (e) => { e.stopPropagation(); });
+          title.appendChild(link);
+          header.appendChild(icon);
+          header.appendChild(title);
+          card.appendChild(header);
+
+          const actions = document.createElement('div');
+          actions.className = 'existing-doc-card__actions';
+          // Icon-only buttons always visible
+          const btnPreview = document.createElement('button');
+          btnPreview.type = 'button';
+          btnPreview.className = 'icon-btn icon-btn--view';
+          btnPreview.setAttribute('aria-label', 'Prévisualiser');
+          btnPreview.innerHTML = '<i class="fa-regular fa-eye" aria-hidden="true"></i>';
+          const btnEdit = document.createElement('button');
+          btnEdit.type = 'button';
+          btnEdit.className = 'icon-btn icon-btn--edit';
+          btnEdit.setAttribute('aria-label', 'Modifier');
+          btnEdit.innerHTML = '<i class="fa-regular fa-pen-to-square" aria-hidden="true"></i>';
+          const btnDelete = document.createElement('button');
+          btnDelete.type = 'button';
+          btnDelete.className = 'icon-btn icon-btn--delete';
+          btnDelete.setAttribute('aria-label', 'Supprimer');
+          btnDelete.innerHTML = '<i class="fa-regular fa-trash-can" aria-hidden="true"></i>';
+          actions.appendChild(btnPreview);
+          actions.appendChild(btnEdit);
+          actions.appendChild(btnDelete);
+          card.appendChild(actions);
+
+          btnPreview.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const url = d.pdf_url;
+            if (url) window.open(url, '_blank', 'noopener');
+          });
+
+          btnEdit.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Inline simple editor: edit URL or upload a new PDF
+            let editor = card.querySelector('.inline-edit-url');
+            if (editor) { editor.remove(); }
+            editor = document.createElement('div');
+            editor.className = 'inline-edit-url';
+            const currentUrl = d.pdf_url || '';
+            editor.innerHTML = `
+              <div class="inline-edit-url__row">
+                <input type="url" class="edit-url-input" placeholder="https://…" value="${currentUrl.replace(/"/g, '&quot;')}">
+              </div>
+              <button type="button" class="gp-btn gp-btn--secondary pick-pdf inline-edit-url__full">Choisir PDF…</button>
+              <div class="inline-edit-url__actions">
+                <button type="button" class="gp-btn gp-btn-ghost cancel-edit">Annuler</button>
+                <button type="button" class="gp-btn gp-btn--primary save-url">Enregistrer</button>
+              </div>
+              <input type="file" class="hidden-pdf" accept="application/pdf" style="display:none" />
+              <div class="inline-edit-url__status" aria-live="polite"></div>
+            `;
+            card.appendChild(editor);
+
+            const input = editor.querySelector('.edit-url-input');
+            const statusEl = editor.querySelector('.inline-edit-url__status');
+            const hiddenPicker = editor.querySelector('.hidden-pdf');
+            const projectName = document.getElementById('contrib-project-name')?.value?.trim() || 'projet';
+
+            const setLoading = (on) => { editor.classList.toggle('is-loading', !!on); };
+            const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg || ''; };
+
+            editor.querySelector('.cancel-edit')?.addEventListener('click', (ev) => {
+              ev.stopPropagation(); editor.remove();
+            });
+
+            editor.querySelector('.save-url')?.addEventListener('click', async (ev) => {
+              ev.stopPropagation();
+              try {
+                if (!win.supabaseService || typeof win.supabaseService.updateConsultationDossierUrl !== 'function') return;
+                const newUrl = input.value.trim();
+                if (!newUrl) { setStatus('URL invalide.'); return; }
+                setLoading(true); setStatus('Mise à jour…');
+                const ok = await win.supabaseService.updateConsultationDossierUrl(d.id, newUrl);
+                setLoading(false);
+                if (ok) {
+                  d.pdf_url = newUrl;
+                  link.href = newUrl;
+                  // On garde le texte (titre), seul le lien change
+                  setStatus('URL mise à jour.');
+                  setTimeout(() => editor.remove(), 800);
+                } else {
+                  setStatus('Échec de la mise à jour.');
+                }
+              } catch (_) {
+                setLoading(false); setStatus('Erreur lors de la mise à jour.');
+              }
+            });
+
+            editor.querySelector('.pick-pdf')?.addEventListener('click', (ev) => {
+              ev.stopPropagation(); hiddenPicker?.click();
+            });
+
+            hiddenPicker?.addEventListener('change', async () => {
+              const f = hiddenPicker.files && hiddenPicker.files[0];
+              if (!f) return;
+              try {
+                if (!win.supabaseService || typeof win.supabaseService.uploadConsultationPdf !== 'function' || typeof win.supabaseService.updateConsultationDossierUrl !== 'function') return;
+                setLoading(true); setStatus('Téléversement du PDF…');
+                const publicUrl = await win.supabaseService.uploadConsultationPdf(f, projectName);
+                setStatus('Mise à jour du lien…');
+                const ok = await win.supabaseService.updateConsultationDossierUrl(d.id, publicUrl);
+                setLoading(false);
+                if (ok) {
+                  d.pdf_url = publicUrl;
+                  link.href = publicUrl;
+                  setStatus('PDF mis à jour.');
+                  setTimeout(() => editor.remove(), 800);
+                } else {
+                  setStatus('Échec de la mise à jour.');
+                }
+              } catch (_) {
+                setLoading(false); setStatus('Erreur pendant le téléversement.');
+              }
+            });
+          });
+
+          btnDelete.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Inline confirmation UI
+            let confirmBar = card.querySelector('.inline-confirm');
+            if (confirmBar) { confirmBar.remove(); }
+            confirmBar = document.createElement('div');
+            confirmBar.className = 'inline-confirm';
+            confirmBar.innerHTML = `
+              <span class="inline-confirm__text">Supprimer ce document ?</span>
+              <div class="inline-confirm__actions">
+                <button type="button" class="gp-btn gp-btn--danger confirm-delete">Supprimer</button>
+                <button type="button" class="gp-btn gp-btn--secondary cancel-delete">Annuler</button>
+              </div>
+            `;
+            card.appendChild(confirmBar);
+
+            const onCancel = (ev) => { ev.stopPropagation(); confirmBar.remove(); };
+            const onConfirm = async (ev) => {
+              ev.stopPropagation();
+              try {
+                if (!win.supabaseService || typeof win.supabaseService.deleteConsultationDossier !== 'function') return;
+                // Optional: loading state
+                confirmBar.classList.add('is-loading');
+                const ok = await win.supabaseService.deleteConsultationDossier(d.id);
+                if (ok) {
+                  card.remove();
+                } else {
+                  confirmBar.classList.remove('is-loading');
+                  confirmBar.querySelector('.inline-confirm__text').textContent = 'Échec de la suppression.';
+                }
+              } catch (_) {
+                confirmBar.classList.remove('is-loading');
+                confirmBar.querySelector('.inline-confirm__text').textContent = 'Erreur lors de la suppression.';
+              }
+            };
+
+            confirmBar.querySelector('.cancel-delete')?.addEventListener('click', onCancel);
+            confirmBar.querySelector('.confirm-delete')?.addEventListener('click', onConfirm);
+          });
+
+          grid.appendChild(card);
         });
-        wrap.appendChild(title);
-        wrap.appendChild(ul);
-        existingDocsEl.appendChild(wrap);
       } catch (e) {
         console.warn('[contrib] renderExistingDossiers error:', e);
         try {
           // Afficher un état d'erreur discret
           if (existingDocsEl) {
             const err = document.createElement('div');
+            err.className = 'card-error-state';
             err.textContent = 'Impossible de charger les dossiers liés pour le moment.';
-            err.style.cssText = 'font-size:0.9em; color:#c62828; margin:4px 0;';
             existingDocsEl.appendChild(err);
           }
         } catch(_) {}
       }
     }
 
-    if (addDocBtn && docsFieldset) {
-      addDocBtn.addEventListener('click', () => {
+    // Helper: ensure docs fieldset hosts a grid and an Add CTA card
+    function ensureDocsGrid() {
+      if (!docsFieldset) return null;
+      let grid = docsFieldset.querySelector('.cards-grid.docs-grid');
+      if (!grid) {
+        grid = document.createElement('div');
+        grid.className = 'cards-grid docs-grid';
+        // Move any existing .doc-card children into the grid
+        const existing = Array.from(docsFieldset.querySelectorAll(':scope > .doc-card'));
+        existing.forEach(el => grid.appendChild(el));
+        // Place grid AFTER existing docs block if present, else append at end
+        const existingBlock = docsFieldset.querySelector('#contrib-existing-docs');
+        if (existingBlock && existingBlock.parentNode === docsFieldset) {
+          existingBlock.insertAdjacentElement('afterend', grid);
+        } else {
+          docsFieldset.appendChild(grid);
+        }
+      }
+      return grid;
+    }
+
+    function createAddDocCtaCard() {
+      const cta = document.createElement('button');
+      cta.type = 'button';
+      cta.className = 'cta-card add-doc-cta';
+      cta.innerHTML = '<span class="cta-icon"><i class="fa-solid fa-plus" aria-hidden="true"></i></span><span class="cta-label">Ajouter un document</span>';
+      cta.addEventListener('click', () => {
+        const grid = ensureDocsGrid();
+        if (!grid) return;
         const row = createDocRow();
-        // Insert before the add button
-        docsFieldset.insertBefore(row, addDocBtn);
+        // Insert before CTA itself
+        grid.insertBefore(row, cta);
+        // Focus the newly added title field
+        row.querySelector('.doc-title')?.focus();
+      });
+      return cta;
+    }
+
+    // Initialize Add Document CTA behavior
+    if (docsFieldset) {
+      const grid = ensureDocsGrid();
+      if (grid) {
+        // Ensure CTA is present at the end of the grid
+        const existingCta = grid.querySelector('.add-doc-cta');
+        if (!existingCta) grid.appendChild(createAddDocCtaCard());
+      }
+    }
+
+    if (addDocBtn && docsFieldset) {
+      // Keep backward-compat: clicking legacy button adds a card before it
+      addDocBtn.addEventListener('click', () => {
+        const grid = ensureDocsGrid();
+        const row = createDocRow();
+        if (grid) {
+          const cta = grid.querySelector('.add-doc-cta');
+          if (cta) grid.insertBefore(row, cta); else grid.appendChild(row);
+        } else {
+          docsFieldset.insertBefore(row, addDocBtn);
+        }
       });
     }
 
