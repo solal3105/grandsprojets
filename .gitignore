@@ -61,3 +61,8 @@ coverage/
 *~
 # Local Netlify folder
 .netlify
+
+
+# Fichiers de configuration
+.config
+.config.local
