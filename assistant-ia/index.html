@@ -1,0 +1,916 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Assistant IA — Grands Projets</title>
+  <meta name="description" content="Assistant IA pour préparer les contenus: Markdown, méta et description à partir de PDFs, URLs et notes." />
+  <link rel="icon" href="/img/logomin.png" />
+  <style>
+    :root {
+      --green: #16a34a; --green-700:#047857; --green-800:#065f46; --bg:#f9fafb; --card:#ffffff;
+      --muted:#6b7280; --ring: rgba(22,163,74,.25);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, Noto Sans, "Apple Color Emoji", "Segoe UI Emoji"; background: var(--bg); color:#111827; }
+    .container { max-width: 980px; margin: 24px auto; padding: 0 16px; }
+    .topbar { display:flex; align-items:center; gap:12px; margin-bottom: 16px; }
+    .topbar a { color: var(--green-800); text-decoration:none; font-weight:600; }
+    .hero { background: linear-gradient(180deg,#ecfdf5,#f0fdf4); border:1px solid var(--green); border-radius: 16px; padding: 18px; box-shadow: 0 3px 10px rgba(0,128,0,.08); position:relative; overflow:hidden; }
+    .hero::after { content: ""; position:absolute; inset:-2px; border-radius:18px; border:2px solid var(--ring); pointer-events:none; animation: pulse 1600ms ease-out infinite; }
+    @keyframes pulse { 0% { opacity:.55 } 60% { opacity:.15 } 100% { opacity:.35 } }
+    .hero h1 { margin: 0 0 6px; font-size: 22px; color: var(--green-800); }
+    .hero p { margin: 0; color: #064e3b; }
+
+    .grid { display:grid; grid-template-columns: 1.1fr .9fr; gap: 16px; margin-top: 16px; }
+    @media (max-width: 840px) { .grid { grid-template-columns: 1fr; } }
+
+    .card { background: var(--card); border:1px solid #e5e7eb; border-radius: 14px; padding: 14px; box-shadow: 0 2px 10px rgba(17,24,39,.04); }
+    .card h2 { margin: 6px 0 10px; font-size: 18px; color: #1f2937; }
+    .hint { color: var(--muted); font-size: 13px; }
+    .row { display:flex; gap: 10px; align-items:center; flex-wrap: wrap; }
+
+    .btn { display:inline-flex; align-items:center; gap:8px; background: var(--green); color:#fff; padding:10px 14px; border-radius:10px; text-decoration:none; font-weight:600; border:0; cursor:pointer; box-shadow: 0 2px 8px rgba(22,163,74,.25); }
+    .btn.secondary { background:#e5e7eb; color:#111827; box-shadow:none; }
+    .btn:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+
+    .input, textarea { width: 100%; border:1px solid #d1d5db; border-radius:10px; padding:10px 12px; font: inherit; }
+    textarea { min-height: 140px; resize: vertical; }
+    .pill { display:inline-flex; align-items:center; gap:6px; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; padding:6px 10px; border-radius:999px; font-size:12px; }
+
+    .dropzone { border:2px dashed #a7f3d0; background:#f0fdf4; border-radius:12px; padding:16px; text-align:center; color:#065f46; cursor:pointer; }
+    .dropzone.dragover { background:#ecfdf5; border-color: var(--green); }
+    .dropzone:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+
+    ul.clean { list-style:none; padding:0; margin:8px 0 0; }
+    ul.clean li { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 8px; border:1px solid #eef2f7; border-radius:10px; }
+    ul.clean li .name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .small { font-size: 12px; color: var(--muted); }
+
+    .result-placeholder { border:1px dashed #d1d5db; border-radius:12px; padding:16px; color:#6b7280; background:#fafafa; }
+
+    /* S'assurer que les éléments [hidden] sont bien cachés dans tous les navigateurs */
+    [hidden] { display: none !important; }
+
+    /* Modale résultats */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(17,24,39,.5); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 1000; }
+    .modal { width: min(920px, 100%); max-height: 85vh; background: #fff; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.25); overflow: hidden; display:flex; flex-direction:column; }
+    .modal-header { display:flex; align-items:center; justify-content: space-between; gap: 8px; padding: 12px 14px; border-bottom: 1px solid #eef2f7; background: #f9fafb; }
+    .modal-body { padding: 12px 14px; overflow: auto; text-align:left; }
+    .result-item { display:flex; flex-direction:column; gap:6px; padding:14px; border:1px solid #eef2f7; border-radius:12px; margin-bottom:10px; background:#fff; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+    .result-item .title { font-weight:700; color:#111827; text-decoration:none; line-height:1.3; }
+    .result-item .title:hover { text-decoration:underline; }
+    .result-item .meta { display:flex; align-items:center; gap:8px; color:#6b7280; font-size:12px; }
+    .result-item .meta img { width:16px; height:16px; border-radius:4px; }
+    .result-item .url { display:none; }
+    .result-item .snippet { font-size:13px; color:#4b5563; }
+    .result-actions { display:flex; gap:8px; margin-top:6px; align-items:center; }
+    .btn-icon { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:6px 10px; border:1px solid #e5e7eb; border-radius:10px; background:#fff; color:#374151; cursor:pointer; font-size:13px; }
+    .btn-icon:hover { background:#f9fafb; }
+    .btn-icon[aria-pressed="true"] { border-color:#d1fae5; background:#ecfdf5; color:#065f46; }
+    .btn-icon[data-vote="down"][aria-pressed="true"] { border-color:#fee2e2; background:#fef2f2; color:#991b1b; }
+    /* Effets de "mini-collapse" (toujours visible et réversible) */
+    .result-item.collapse-up { background:#ecfdf5; border-color:#d1fae5; }
+    .result-item.collapse-down { background:#fef2f2; border-color:#fee2e2; }
+    .result-item.compact { padding:8px; gap:4px; opacity:0.95; transition: all .25s ease; }
+    .result-item.compact .snippet { display:none; }
+    /* Barre de progression */
+    .progress { position:relative; height:10px; background:#f3f4f6; border-radius:999px; margin:6px 0 12px; }
+    .progress-bar { position:absolute; left:0; top:0; bottom:0; width:0%; background:#10b981; border-radius:999px; transition:width .3s ease; }
+    .progress-label { display:block; font-size:12px; color:#6b7280; margin-top:6px; }
+    .spinner { display:inline-block; width:18px; height:18px; border:2px solid #d1d5db; border-top-color:#16a34a; border-radius:50%; animation: spin .9s linear infinite; vertical-align:middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* Erreur modale */
+    .alert-error { background:#fef2f2; color:#991b1b; border:1px solid #fee2e2; padding:8px 10px; border-radius:8px; font-size:13px; margin:0 0 10px; }
+    /* Affichage des résultats sur la page */
+    #gresults { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:12px; padding-left:0; max-height: 360px; overflow: auto; }
+    /* Modale de progression */
+    .pm-status { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#6b7280; }
+    .pm-status .dot { width:8px; height:8px; border-radius:999px; background:#9ca3af; display:inline-block; }
+    .pm-item { display:flex; flex-direction:column; gap:6px; padding:10px; border:1px solid #eef2f7; border-radius:12px; margin-bottom:8px; background:#fff; }
+    .pm-item .meta { display:flex; align-items:center; gap:8px; color:#6b7280; font-size:12px; }
+    .pm-item .meta img { width:16px; height:16px; border-radius:4px; }
+    .pm-item.done { border-color:#d1fae5; background:#ecfdf5; }
+    .pm-item.done .pm-title { color:#065f46; }
+    .pm-title { font-weight:600; color:#111827; }
+    .pm-badge { display:inline-flex; align-items:center; gap:6px; padding:2px 8px; border-radius:999px; font-size:11px; border:1px solid #e5e7eb; color:#374151; background:#f9fafb; }
+    .pm-check { color:#10b981; font-weight:700; }
+
+    /* Effet d'attente dans les champs (shimmer) */
+    .shimmer {
+      position: relative;
+      /* Dégradé multicolore pastel sur le fond (très léger) */
+      background-image: linear-gradient(90deg,
+        rgba(124, 58, 237, 0.06) 0%,   /* violet pâle */
+        rgba(219, 39, 119, 0.06) 20%,  /* rose pâle */
+        rgba(245, 158, 11, 0.06) 40%,  /* orange pâle */
+        rgba(16, 185, 129, 0.06) 60%,  /* vert pâle */
+        rgba(59, 130, 246, 0.06) 80%,  /* bleu pâle */
+        rgba(124, 58, 237, 0.06) 100%  /* violet boucle */
+      );
+      background-size: 300% 100%;
+      background-position: 200% 0;
+      animation: shimmerMove 1.6s linear infinite;
+      color: transparent !important;
+      caret-color: transparent !important;
+      text-shadow: none !important;
+      pointer-events: none;
+    }
+    @keyframes shimmerMove { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* Effet pop-in quand le texte est prêt */
+    .pop-in { animation: popIn .28s ease-out; }
+    @keyframes popIn { 0% { transform: scale(.98); box-shadow: 0 0 0 rgba(0,0,0,0); }
+                      60% { transform: scale(1.01); box-shadow: 0 6px 20px rgba(22,163,74,.15); }
+                      100% { transform: scale(1); box-shadow: 0 0 0 rgba(0,0,0,0); } }
+  </style>
+  <!-- PDF.js pour extraire du texte des PDFs côté client -->
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <span class="pill" aria-hidden="true">✨ Assistant IA</span>
+    </div>
+
+  <!-- Modale de progression extraction -->
+  <div id="pmodal" class="modal-overlay" hidden aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pmodal-title" tabindex="-1">
+      <div class="modal-header">
+        <h2 id="pmodal-title" style="margin:0; font-size:18px; color:#111827;">Préparation des contenus</h2>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <span class="pm-status"><span class="dot" id="pmodal-dot"></span><span id="pmodal-status-text">En attente…</span></span>
+          <button id="pmodal-generate" hidden
+            style="padding:8px 12px; border-radius:999px; border:0; cursor:pointer;
+                   background: linear-gradient(135deg, #a78bfa 0%, #f472b6 50%, #f59e0b 100%);
+                   color:white; font-weight:700; letter-spacing:.3px;
+                   box-shadow: 0 0 0 2px rgba(255,255,255,.6) inset, 0 8px 18px rgba(164,69,237,.28), 0 0 18px rgba(245,158,11,.25);
+                   transition: transform .15s ease, filter .2s ease, box-shadow .2s ease;"
+            onmouseover="this.style.filter='brightness(1.06)'; this.style.transform='translateY(-1px)';"
+            onmouseout="this.style.filter='none'; this.style.transform='none';"
+          >Générer le contenu</button>
+          <button id="pmodal-close" class="btn secondary" type="button" aria-label="Fermer la modale" disabled>Fermer</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <ul id="pmodal-list" class="clean"></ul>
+        <div id="pmodal-generated" hidden style="margin-top:12px; display:grid; gap:10px;">
+          <label class="small" for="pseo">Méta description (SEO)</label>
+          <textarea id="pseo" rows="3" style="width:100%; resize:vertical; border:1px solid #e5e7eb; border-radius:8px; padding:8px;"></textarea>
+          <label class="small" for="pdesc">Description du projet</label>
+          <textarea id="pdesc" rows="6" style="width:100%; resize:vertical; border:1px solid #e5e7eb; border-radius:8px; padding:8px;"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <section class="hero" aria-label="Assistant pour préparer vos contenus">
+      <h1>Préparez automatiquement vos contenus</h1>
+      <p>Déposez des PDFs, ajoutez des URLs et vos notes. Lancez la lecture des documents, puis générez une méta description SEO et une description en Markdown prêtes à publier.</p>
+    </section>
+
+    <div class="grid" role="region" aria-label="Zone de travail">
+      <!-- Colonne gauche: sources -->
+      <div class="card" aria-labelledby="sources-title">
+        <h2 id="sources-title">Sources</h2>
+
+        <!-- PDFs -->
+        <div class="block" aria-labelledby="pdf-title">
+          <div>
+            <div id="pdf-title" style="font-weight:600;">PDFs</div>
+            <div class="small">Glissez-déposez ou cliquez pour sélectionner des fichiers .pdf</div>
+          </div>
+          <input id="pdf-input" type="file" accept="application/pdf" multiple hidden />
+          <div id="pdf-drop" class="dropzone" role="button" tabindex="0" aria-label="Déposer ou choisir des fichiers PDF">
+            📄 Déposez vos PDFs ici ou cliquez pour choisir
+          </div>
+          <ul id="pdf-list" class="clean" aria-live="polite"></ul>
+        </div>
+
+        <hr style="border:none; border-top:1px solid #eef2f7; margin:14px 0;" />
+
+        <!-- URLs -->
+        <div class="block" aria-labelledby="url-title">
+          <div id="url-title" style="font-weight:600;">URLs</div>
+          <div class="row" style="margin-top:6px;">
+            <input id="url-input" class="input" type="url" placeholder="https://exemple.org/article" aria-label="Ajouter une URL" />
+            <button id="add-url" class="btn" type="button">Ajouter</button>
+          </div>
+          <ul id="url-list" class="clean" aria-live="polite"></ul>
+        </div>
+
+        <hr style="border:none; border-top:1px solid #eef2f7; margin:14px 0;" />
+
+        <!-- Notes texte -->
+        <div class="block" aria-labelledby="notes-title">
+          <div id="notes-title" style="font-weight:600;">Notes</div>
+          <textarea id="notes" placeholder="Collez ici un extrait, un résumé, des points clés…" aria-label="Notes libres"></textarea>
+          <div class="small" id="notes-count">0 caractères</div>
+        </div>
+
+        <hr style="border:none; border-top:1px solid #eef2f7; margin:14px 0;" />
+
+        <!-- Recherche Google par mots-clés (UI uniquement) -->
+        <div class="block" aria-labelledby="gsearch-title" style="background:linear-gradient(180deg,#fbfefc,#f7fdf9); border:1px solid #e5f6ea; border-radius:12px; padding:12px;">
+          <div class="row" style="justify-content:space-between; align-items:flex-end; gap:12px;">
+            <div>
+              <div id="gsearch-title" style="font-weight:600; color:#065f46;">Recherche Google (mots-clés)</div>
+              <div class="small">Prototype d’interface — la recherche sera branchée plus tard</div>
+            </div>
+          </div>
+          <div class="row" style="margin-top:8px; gap:8px;">
+            <input id="gq" class="input" type="text" placeholder="Ex: tram lyon T10 phase 2 dossier enquête" aria-label="Mots-clés" />
+            <button id="gsearch" class="btn" type="button" aria-label="Lancer la recherche">Rechercher</button>
+          </div>
+          <ul id="gresults" class="clean" aria-live="polite" style="margin-top:8px;">
+            <li class="small" aria-hidden="true">Les résultats apparaîtront ici…</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Colonne droite: préparation -->
+      <aside class="card" aria-labelledby="prep-title">
+        <h2 id="prep-title">Préparation Markdown / Méta / Description</h2>
+        <p class="hint">Le contenu généré apparaîtra ici après l'extraction et la génération.</p>
+        <div id="prep-output" style="display:grid; gap:10px;">
+          <div>
+            <label class="small" for="prep-meta">Méta description (SEO)</label>
+            <textarea id="prep-meta" rows="3" style="width:100%; resize:vertical; border:1px solid #e5e7eb; border-radius:8px; padding:8px;" placeholder="Sera remplie après génération"></textarea>
+          </div>
+          <div>
+            <label class="small" for="prep-description">Description (texte)</label>
+            <textarea id="prep-description" rows="5" style="width:100%; resize:vertical; border:1px solid #e5e7eb; border-radius:8px; padding:8px;" placeholder="Description courte générée ici (≤ 450 caractères)"></textarea>
+          </div>
+          <div>
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <label class="small" for="prep-markdown">Article (Markdown)</label>
+              <button id="copy-md" type="button" class="btn secondary" style="padding:6px 10px;">Copier</button>
+            </div>
+            <textarea id="prep-markdown" rows="12" style="width:100%; resize:vertical; border:1px solid #e5e7eb; border-radius:8px; padding:8px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;" placeholder="Markdown généré ici"></textarea>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="row" style="margin-top:16px; justify-content:flex-end; gap:8px;">
+      <button id="continue" class="btn" type="button" disabled>Lancer la lecture des documents</button>
+    </div>
+  </div>
+
+  <!-- Modale de résultats de recherche -->
+  <div id="gmodal" class="modal-overlay" hidden aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="gmodal-title" tabindex="-1">
+      <div class="modal-header">
+        <h2 id="gmodal-title" style="margin:0; font-size:18px; color:#111827;">Résultats de la recherche</h2>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button id="gmodal-add" class="btn" type="button" aria-label="Ajouter les éléments sélectionnés à la liste">Ajouter à la liste</button>
+          <button id="gmodal-close" class="btn secondary" type="button" aria-label="Fermer la modale">Fermer</button>
+        </div>
+      </div>
+      <div class="modal-body" id="gmodal-body">
+        <div id="gmodal-error" class="alert-error" hidden></div>
+        <div class="progress" aria-label="Progression des résultats utiles (cap à 10)">
+          <div id="gprogress-bar" class="progress-bar"></div>
+        </div>
+        <div id="gprogress-label" class="progress-label">0 utiles (max 10)</div>
+        <ul id="gresults-modal" class="clean"></ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const pdfInput = document.getElementById('pdf-input');
+      const pdfDrop = document.getElementById('pdf-drop');
+      const pdfList = document.getElementById('pdf-list');
+
+      const urlInput = document.getElementById('url-input');
+      const addUrlBtn = document.getElementById('add-url');
+      const urlList = document.getElementById('url-list');
+
+      const notes = document.getElementById('notes');
+      const notesCount = document.getElementById('notes-count');
+      const continueBtn = document.getElementById('continue');
+      // Google search UI (mock)
+      const gq = document.getElementById('gq');
+      const gsearch = document.getElementById('gsearch');
+      const gresults = document.getElementById('gresults');
+      // Modale
+      const gmodal = document.getElementById('gmodal');
+      const gmodalClose = document.getElementById('gmodal-close');
+      const gmodalAdd = document.getElementById('gmodal-add');
+      const gresultsModal = document.getElementById('gresults-modal');
+      const gmodalError = document.getElementById('gmodal-error');
+      // Modale progression
+      const pmodal = document.getElementById('pmodal');
+      const pmodalClose = document.getElementById('pmodal-close');
+      const pmodalList = document.getElementById('pmodal-list');
+      const pmodalDot = document.getElementById('pmodal-dot');
+      const pmodalStatusText = document.getElementById('pmodal-status-text');
+      // Bouton Générer dans la modale + champs générés
+      const pmodalGenerate = document.getElementById('pmodal-generate');
+      const pmodalGenerated = document.getElementById('pmodal-generated');
+      const pseo = document.getElementById('pseo');
+      const pdesc = document.getElementById('pdesc');
+      // Cibles hors modale (section prep-title)
+      const prepMeta = document.getElementById('prep-meta');
+      const prepDescription = document.getElementById('prep-description');
+      const prepMarkdown = document.getElementById('prep-markdown');
+      const copyMdBtn = document.getElementById('copy-md');
+      let upCount = 0; // compteur de votes utiles
+      function updateProgress(){
+        const bar = document.getElementById('gprogress-bar');
+        const label = document.getElementById('gprogress-label');
+        const capped = Math.min(upCount, 10);
+        if(bar) bar.style.width = (capped * 10) + '%';
+        if(label) label.textContent = capped + ' utiles (max 10)';
+      }
+      function showModalError(msg){
+        if(!gmodalError) return;
+        gmodalError.textContent = msg;
+        gmodalError.removeAttribute('hidden');
+        clearTimeout(gmodalError._t);
+        gmodalError._t = setTimeout(()=>{ gmodalError.setAttribute('hidden',''); }, 2500);
+      }
+      let lastFocusedBeforeModal = null;
+
+      const state = { pdfs: [], urls: [], notes: '', aggregated: '' };
+
+      function renderPdfs(){
+        pdfList.innerHTML = '';
+        state.pdfs.forEach((file, i) => {
+          const li = document.createElement('li');
+          const left = document.createElement('span');
+          left.className = 'name';
+          left.textContent = file.name + ' (' + Math.round(file.size/1024) + ' Ko)';
+          const rm = document.createElement('button');
+          rm.className = 'btn secondary';
+          rm.textContent = 'Retirer';
+          rm.type = 'button';
+          rm.onclick = () => { state.pdfs.splice(i,1); renderPdfs(); updateContinue(); };
+          li.appendChild(left); li.appendChild(rm); pdfList.appendChild(li);
+        });
+      }
+
+      function renderUrls(){
+        urlList.innerHTML = '';
+        state.urls.forEach((u, i) => {
+          const li = document.createElement('li');
+          const left = document.createElement('a');
+          left.className = 'name';
+          left.href = u; left.target = '_blank'; left.rel = 'noopener';
+          left.textContent = u;
+          const rm = document.createElement('button');
+          rm.className = 'btn secondary';
+          rm.textContent = 'Retirer';
+          rm.type = 'button';
+          rm.onclick = () => { state.urls.splice(i,1); renderUrls(); updateContinue(); };
+          li.appendChild(left); li.appendChild(rm); urlList.appendChild(li);
+        });
+      }
+
+      function updateContinue(){
+        const hasContent = state.pdfs.length > 0 || state.urls.length > 0 || (state.notes && state.notes.trim().length > 0);
+        continueBtn.disabled = !hasContent;
+      }
+
+      // PDFs via input
+      pdfInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files || []);
+        const pdfs = files.filter(f => f.type === 'application/pdf');
+        state.pdfs.push(...pdfs);
+        renderPdfs(); updateContinue();
+        pdfInput.value = '';
+      });
+
+      // PDFs via drag & drop + click/keyboard
+      ;['dragenter','dragover'].forEach(ev => pdfDrop.addEventListener(ev, (e)=>{ e.preventDefault(); pdfDrop.classList.add('dragover'); }));
+      ;['dragleave','drop'].forEach(ev => pdfDrop.addEventListener(ev, (e)=>{ e.preventDefault(); pdfDrop.classList.remove('dragover'); }));
+      pdfDrop.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer; if(!dt) return;
+        const files = Array.from(dt.files || []);
+        const pdfs = files.filter(f => f.type === 'application/pdf');
+        state.pdfs.push(...pdfs); renderPdfs(); updateContinue();
+      });
+      pdfDrop.addEventListener('click', () => pdfInput.click());
+      pdfDrop.addEventListener('keydown', (e) => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); pdfInput.click(); } });
+
+      // URLs
+      function addUrl(){
+        const v = (urlInput.value || '').trim();
+        if(!v) return;
+        try { new URL(v); } catch { urlInput.focus(); return; }
+        state.urls.push(v); urlInput.value=''; renderUrls(); updateContinue();
+      }
+      addUrlBtn.addEventListener('click', addUrl);
+      urlInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); addUrl(); } });
+
+      // Notes
+      notes.addEventListener('input', () => {
+        state.notes = notes.value;
+        notesCount.textContent = (state.notes.length||0) + ' caractères';
+        updateContinue();
+      });
+
+      // Init
+      renderPdfs(); renderUrls(); updateContinue();
+      // S'assurer que la modale est bien fermée au chargement
+      (function(){ const el = document.getElementById('gmodal'); if(el && !el.hasAttribute('hidden')){ el.setAttribute('hidden',''); el.setAttribute('aria-hidden','true'); } })();
+
+      // Config PDF.js (worker)
+      try { if(window.pdfjsLib && pdfjsLib.GlobalWorkerOptions){ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'; } } catch {}
+
+      // Helpers extraction
+      async function extractTextFromPdfFile(file){
+        try {
+          const buf = await file.arrayBuffer();
+          const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+          const maxPages = Math.min(doc.numPages, 30); // limite préventive
+          let out = `\n--- PDF: ${file.name} (${doc.numPages} pages, extrait ${maxPages}) ---\n`;
+          for(let p=1; p<=maxPages; p++){
+            const page = await doc.getPage(p);
+            const tc = await page.getTextContent();
+            const text = tc.items.map(it => it.str).join(' ');
+            out += `\n[Page ${p}]\n` + text + '\n';
+          }
+          return out;
+        } catch(e){
+          return `\n--- PDF: ${file.name} ---\n[Erreur d'extraction PDF]`;
+        }
+      }
+
+      function toReadableProxyUrl(raw){
+        try{
+          const u = new URL(raw);
+          const path = (u.pathname || '') + (u.search || '') + (u.hash || '');
+          return 'https://r.jina.ai/http://' + u.hostname + path;
+        }catch{ return null; }
+      }
+
+      async function fetchReadableText(url){
+        try{
+          const proxied = toReadableProxyUrl(url);
+          if(!proxied) return `\n--- URL: ${url} ---\n[URL invalide]`;
+          const res = await fetch(proxied, { headers: { 'Accept': 'text/plain' } });
+          if(!res.ok) throw new Error('HTTP '+res.status);
+          const txt = await res.text();
+          return `\n--- URL: ${url} ---\n` + txt + '\n';
+        }catch(e){
+          return `\n--- URL: ${url} ---\n[Impossible de récupérer le contenu lisible]`;
+        }
+      }
+
+      // Retrait de la section d'aperçu: on conserve uniquement l'agrégat en mémoire dans state.aggregated
+
+      // Animations: shimmer (attente) et écriture typewriter + pop-in
+      function startShimmer(el){
+        if(!el) return;
+        el.classList.add('shimmer');
+        try { el.dataset.prevPlaceholder = el.placeholder || ''; } catch {}
+        if('placeholder' in el) el.placeholder = 'Génération en cours…';
+        if('value' in el) el.value = '';
+      }
+      function stopShimmer(el){
+        if(!el) return;
+        el.classList.remove('shimmer');
+        try {
+          if(el.dataset && 'prevPlaceholder' in el.dataset){ el.placeholder = el.dataset.prevPlaceholder; delete el.dataset.prevPlaceholder; }
+        } catch {}
+      }
+      async function typewriter(el, text, delay=6){
+        if(!el) return;
+        el.classList.add('pop-in');
+        if('value' in el) el.value = '';
+        // Tape rapidement, puis colle la fin si trop long (performance)
+        const maxSteps = 800; // limite de frappes visibles
+        if(text.length <= maxSteps){
+          for(let i=0; i<text.length; i++){
+            el.value += text[i];
+            if(i % 3 === 0) await new Promise(r=>setTimeout(r, delay));
+          }
+        } else {
+          const head = text.slice(0, maxSteps);
+          const tail = text.slice(maxSteps);
+          for(let i=0; i<head.length; i++){
+            el.value += head[i];
+            if(i % 3 === 0) await new Promise(r=>setTimeout(r, delay));
+          }
+          el.value += tail; // colle le reste instantanément
+        }
+        setTimeout(()=> el.classList.remove('pop-in'), 420);
+      }
+
+      // Mock de recherche Google: juste pour illustrer le design (fallback)
+      function renderMockResultsTo(container, query){
+        container.innerHTML = '';
+        const howMany = 20;
+        if(!query){
+          const li = document.createElement('li'); li.className='small'; li.textContent='Entrez des mots-clés puis cliquez sur Rechercher';
+          container.appendChild(li); return;
+        }
+        for(let i=1;i<=howMany;i++){
+          const li = document.createElement('li'); li.className='result-item card';
+          const meta = document.createElement('div'); meta.className='meta';
+          const fav = document.createElement('img'); fav.src='https://www.google.com/s2/favicons?domain=exemple.org'; fav.alt=''; meta.appendChild(fav);
+          const host = document.createElement('span'); host.textContent='exemple.org'; meta.appendChild(host);
+          li.appendChild(meta);
+          const title = document.createElement('a'); title.className='title'; title.href='#'; title.target='_blank'; title.rel='noopener'; title.textContent = `[Mock] Résultat ${i} — ${query}`; li.appendChild(title);
+          // URL complète masquée (affichage via host dans meta uniquement)
+          const desc = document.createElement('div'); desc.className='snippet'; desc.textContent = 'Extrait d’aperçu… Le contenu réel sera rempli quand la recherche sera branchée.'; li.appendChild(desc);
+          const actions = document.createElement('div'); actions.className='result-actions';
+          const up = document.createElement('button'); up.type='button'; up.className='btn-icon'; up.setAttribute('data-vote','up'); up.innerText='👍 Utile';
+          const down = document.createElement('button'); down.type='button'; down.className='btn-icon'; down.setAttribute('data-vote','down'); down.innerText='👎 Pas utile';
+          actions.appendChild(up); actions.appendChild(down); li.appendChild(actions);
+          container.appendChild(li);
+        }
+      }
+
+      function openGModal(){
+        lastFocusedBeforeModal = document.activeElement;
+        gmodal.removeAttribute('hidden');
+        gmodal.setAttribute('aria-hidden','false');
+        gmodal.querySelector('.modal').focus();
+      }
+      function closeGModal(){
+        gmodal.setAttribute('hidden','');
+        gmodal.setAttribute('aria-hidden','true');
+        if(lastFocusedBeforeModal && lastFocusedBeforeModal.focus){ lastFocusedBeforeModal.focus(); }
+      }
+
+      function openPModal(){
+        lastFocusedBeforeModal = document.activeElement;
+        pmodal.removeAttribute('hidden');
+        pmodal.setAttribute('aria-hidden','false');
+        pmodal.querySelector('.modal').focus();
+      }
+      function closePModal(){
+        pmodal.setAttribute('hidden','');
+        pmodal.setAttribute('aria-hidden','true');
+        if(lastFocusedBeforeModal && lastFocusedBeforeModal.focus){ lastFocusedBeforeModal.focus(); }
+      }
+
+      async function doSearch(){
+        const query = (gq.value || '').trim();
+        gresultsModal.innerHTML = '';
+        upCount = 0; updateProgress();
+        gresultsModal.innerHTML = '<li class="result-item"><span class="spinner"></span> Chargement des résultats…</li>';
+        openGModal();
+        if(!query){
+          gresultsModal.innerHTML = '<li class="small">Entrez des mots-clés puis lancez la recherche</li>';
+          return;
+        }
+        try {
+          const howMany = 20;
+          const kl = 'fr-fr';
+
+          // Endpoint HTML léger de DuckDuckGo + proxy CORS public AllOrigins
+          const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}&kl=${encodeURIComponent(kl)}`;
+          const proxied = `https://api.allorigins.win/raw?url=${encodeURIComponent(ddgUrl)}`;
+
+          const res = await fetch(proxied, { headers: { 'Accept':'text/html' } });
+          if(!res.ok) throw new Error('HTTP ' + res.status);
+          const html = await res.text();
+
+          // Parse HTML côté client
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+          const resultBlocks = Array.from(doc.querySelectorAll('.result'));
+          const items = [];
+          // Ne pas proposer dans la modale des liens déjà affichés sur la page
+          const seenPage = new Set(Array.from(gresults.querySelectorAll('a')).map(a=> a.href));
+          for(const block of resultBlocks){
+            const a = block.querySelector('a.result__a');
+            if(!a) continue;
+            let href = a.getAttribute('href') || '';
+            // DDG wrap: /l/?uddg=encoded
+            try {
+              const u = new URL(href, 'https://duckduckgo.com');
+              const uddg = u.searchParams.get('uddg');
+              if(uddg) href = decodeURIComponent(uddg);
+            } catch {}
+            const title = a.textContent?.trim() || href;
+            const snippetEl = block.querySelector('.result__snippet');
+            const snippet = (snippetEl?.textContent || '').replace(/\s+/g,' ').trim();
+            let favicon = '';
+            try { const { hostname } = new URL(href); favicon = `https://www.google.com/s2/favicons?domain=${hostname}`; } catch {}
+            if(seenPage.has(href)) continue; // ignorer les doublons déjà sur la page
+            items.push({ title, link: href, snippet, favicon });
+            if(items.length >= howMany) break;
+          }
+
+          if(items.length === 0){
+            gresultsModal.innerHTML = '<li class="small">Aucun résultat (proxy CORS indisponible ou SERP vide)</li>';
+            return;
+          }
+
+          gresultsModal.innerHTML = '';
+          items.forEach((it)=>{
+            const li = document.createElement('li'); li.className='result-item';
+            const meta = document.createElement('div'); meta.className='meta';
+            if(it.favicon){ const img=document.createElement('img'); img.src=it.favicon; img.alt=''; img.decoding='async'; meta.appendChild(img); }
+            try { const { hostname } = new URL(it.link); const host = document.createElement('span'); host.textContent = hostname; meta.appendChild(host); } catch {}
+            li.appendChild(meta);
+            const link = document.createElement('a'); link.className='title'; link.href = it.link; link.target = '_blank'; link.rel='noopener'; link.textContent = it.title || it.link; li.appendChild(link);
+            // URL complète masquée (host déjà affiché dans meta)
+            if(it.snippet){ const s = document.createElement('div'); s.className='snippet'; s.textContent = it.snippet; li.appendChild(s); }
+            const actions = document.createElement('div'); actions.className='result-actions';
+            const up = document.createElement('button'); up.type='button'; up.className='btn-icon'; up.setAttribute('data-vote','up'); up.innerText='👍 Utile';
+            const down = document.createElement('button'); down.type='button'; down.className='btn-icon'; down.setAttribute('data-vote','down'); down.innerText='👎 Pas utile';
+            actions.appendChild(up); actions.appendChild(down); li.appendChild(actions);
+            gresultsModal.appendChild(li);
+          });
+        } catch (e) {
+          // Fallback sur mock en cas d'erreur (proxy HS, CORS, rate limit)
+          gresultsModal.innerHTML = '';
+          renderMockResultsTo(gresultsModal, query);
+        }
+      }
+
+      // Ouverture via bouton Rechercher / Enter sur le champ
+      gsearch.addEventListener('click', doSearch);
+      gq.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); doSearch(); }});
+
+      // Continuer: ouvre la modale de progression, traite séquentiellement et affiche l'agrégat en bas
+      continueBtn.addEventListener('click', async ()=>{
+        state.aggregated = '';
+        continueBtn.disabled = true;
+
+        // Construire la liste des tâches
+        const tasks = [];
+        const trimmedNotes = (state.notes || '').trim();
+        if(trimmedNotes){ tasks.push({ type:'notes', label:'Notes', data: trimmedNotes }); }
+        for(const f of state.pdfs){ tasks.push({ type:'pdf', label: f.name, data: f }); }
+        const usefulLinks = Array.from(gresults.querySelectorAll('a.title')).map(a=> ({ href:a.href, label: a.textContent || a.href })).filter(x=> !!x.href);
+        const manualUrls = Array.from(state.urls || []).map(u=> ({ href:u, label:u }));
+        const set = new Set();
+        const urlTasks = [];
+        [...usefulLinks, ...manualUrls].forEach(({href,label})=>{ if(!set.has(href)){ set.add(href); urlTasks.push({ type:'url', label, href }); } });
+        tasks.push(...urlTasks);
+
+        // Rendu initial des cartes
+        pmodalList.innerHTML = '';
+        tasks.forEach((t, idx)=>{
+          const li = document.createElement('li'); li.className='pm-item'; li.id = 'pm-'+idx;
+          const meta = document.createElement('div'); meta.className='meta';
+          if(t.type==='url'){
+            try{ const { hostname } = new URL(t.href); const fav=document.createElement('img'); fav.src='https://www.google.com/s2/favicons?domain='+hostname; fav.alt=''; meta.appendChild(fav); const host=document.createElement('span'); host.textContent=hostname; meta.appendChild(host);}catch{}
+          } else if(t.type==='pdf'){
+            const badge = document.createElement('span'); badge.className='pm-badge'; badge.textContent='PDF'; meta.appendChild(badge);
+          } else if(t.type==='notes'){
+            const badge = document.createElement('span'); badge.className='pm-badge'; badge.textContent='Notes'; meta.appendChild(badge);
+          }
+          li.appendChild(meta);
+          const title = document.createElement('div'); title.className='pm-title'; title.textContent = t.type==='url' ? (t.label || t.href) : t.label; li.appendChild(title);
+          const status = document.createElement('div'); status.className='pm-status'; status.innerHTML = '<span class="dot"></span><span>En attente…</span>'; li.appendChild(status);
+          pmodalList.appendChild(li);
+        });
+
+        // Ouvrir la modale
+        pmodalStatusText.textContent = 'Préparation en cours…';
+        pmodalDot.style.background = '#f59e0b';
+        pmodalClose.disabled = true;
+        openPModal();
+
+        // Exécution séquentielle
+        let result = '';
+        for(let i=0;i<tasks.length;i++){
+          const t = tasks[i];
+          const li = document.getElementById('pm-'+i);
+          const st = li ? li.querySelector('.pm-status') : null;
+          if(st){ st.querySelector('.dot').style.background = '#f59e0b'; st.querySelector('span:last-child').textContent = 'En cours…'; }
+          try{
+            if(t.type==='notes'){
+              result += '\n--- NOTES ---\n' + t.data + '\n';
+            } else if(t.type==='pdf'){
+              result += await extractTextFromPdfFile(t.data);
+            } else if(t.type==='url'){
+              result += await fetchReadableText(t.href);
+            }
+            if(li){ li.classList.add('done'); const s = li.querySelector('.pm-status'); if(s){ s.innerHTML = '<span class="pm-check">✔</span><span>Terminé</span>'; } }
+          } catch(e){
+            if(st){ st.querySelector('span:last-child').textContent = 'Erreur'; }
+          }
+          state.aggregated = result; // mise à jour en mémoire
+        }
+
+        // Fin
+        pmodalStatusText.textContent = 'Terminé';
+        pmodalDot.style.background = '#10b981';
+        pmodalClose.disabled = false;
+        continueBtn.disabled = false;
+        // Afficher le bouton Générer dans la modale seulement une fois fini
+        if(pmodalGenerate){ pmodalGenerate.hidden = false; pmodalGenerate.focus(); }
+      });
+
+      if(pmodalGenerate){
+        pmodalGenerate.addEventListener('click', async ()=>{
+          const src = state.aggregated || '';
+          // Fermer la modale immédiatement au clic
+          closePModal();
+          // Lancer l'attente visuelle dans les champs de sortie
+          startShimmer(prepMeta);
+          startShimmer(prepDescription);
+          startShimmer(prepMarkdown);
+
+          // 1) Essai via fonction Netlify locale/prod (clé côté serveur)
+          try{
+            const aiServer = await generateViaNetlify(src);
+            if(aiServer && (aiServer.meta || aiServer.description || aiServer.article)){
+              // Stop shimmer et révéler avec animation
+              stopShimmer(prepMeta);
+              stopShimmer(prepDescription);
+              stopShimmer(prepMarkdown);
+              if(aiServer.meta){
+                if(pseo) pseo.value = aiServer.meta;
+                await typewriter(prepMeta, aiServer.meta);
+              }
+              if(aiServer.description){
+                if(pdesc) pdesc.value = aiServer.description;
+                await typewriter(prepDescription, aiServer.description);
+              }
+              if(aiServer.article){
+                await typewriter(prepMarkdown, aiServer.article, 3);
+              }
+            }
+            if(pmodalGenerated) pmodalGenerated.hidden = false; // sans effet visible si modale fermée
+            return;
+          } catch(e){ console.warn('Fonction Netlify indisponible, tentative fallback côté client…', e); }
+
+          // 2) Fallback: Génération via OpenAI côté client (clé demandée côté navigateur)
+          try{
+            const aiClient = await generateWithOpenAI(src);
+            if(aiClient && (aiClient.meta || aiClient.description || aiClient.article)){
+              stopShimmer(prepMeta);
+              stopShimmer(prepDescription);
+              stopShimmer(prepMarkdown);
+              if(aiClient.meta){
+                if(pseo) pseo.value = aiClient.meta;
+                await typewriter(prepMeta, aiClient.meta);
+              }
+              if(aiClient.description){
+                if(pdesc) pdesc.value = aiClient.description;
+                await typewriter(prepDescription, aiClient.description);
+              }
+              if(aiClient.article){
+                await typewriter(prepMarkdown, aiClient.article, 3);
+              }
+            }
+            if(pmodalGenerated) pmodalGenerated.hidden = false;
+          } catch(err){
+            console.warn('OpenAI (client) génération échouée:', err);
+            // En cas d'échec: arrêter shimmer et remettre les placeholders
+            stopShimmer(prepMeta);
+            stopShimmer(prepDescription);
+            stopShimmer(prepMarkdown);
+          }
+        });
+      }
+
+      // Copie Markdown
+      if(copyMdBtn && prepMarkdown){
+        copyMdBtn.addEventListener('click', async ()=>{
+          try{ await navigator.clipboard.writeText(prepMarkdown.value || ''); copyMdBtn.textContent = 'Copié !'; setTimeout(()=> copyMdBtn.textContent='Copier', 1200); }catch{}
+        });
+      }
+
+      // Utilitaire: récupérer/solliciter la clé OpenAI
+      function getOpenAIKey(){
+        try{
+          let key = localStorage.getItem('OPENAI_API_KEY') || '';
+          if(!key){
+            key = window.prompt('Entrez votre clé OpenAI (sk-...)');
+            if(key){ localStorage.setItem('OPENAI_API_KEY', key); }
+          }
+          return key || '';
+        }catch{ return ''; }
+      }
+
+      // Appel Netlify Functions
+      async function generateViaNetlify(sourceText){
+        const resp = await fetch('/.netlify/functions/openai-generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: sourceText })
+        });
+        if(!resp.ok){ throw new Error('Netlify HTTP '+resp.status); }
+        const data = await resp.json();
+        return { meta: data.meta || '', description: data.description || '', article: data.article || data.markdown || '' };
+      }
+
+      // Appel OpenAI (client) pour générer { meta <=150, description <=450 (texte), article Markdown long }
+      async function generateWithOpenAI(sourceText){
+        const apiKey = getOpenAIKey();
+        if(!apiKey) throw new Error('Clé OpenAI manquante');
+        const sys = 'Tu es un assistant éditorial francophone expert en SEO et rédaction. Sortie STRICTE en JSON: {"meta": string <=150 chars SEO (sans emoji), "description": string <=450 chars (texte clair, engageant, sans markdown), "article": string en Markdown long, structuré, concret, sans bullshit, inclure anecdotes/historique pertinents si dispo). Aucune autre clé.';
+        const user = 'Voici le texte source (extraits agrégés). Respecte les limites: meta <150, description <450. Article Markdown: longueur illimitée utile. Texte source:\n\n' + (sourceText || '').slice(0, 12000);
+        const body = {
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: sys },
+            { role: 'user', content: user }
+          ],
+          temperature: 0.7,
+        };
+        const resp = await fetch('https://api.openai.com/v1/chat/completions',{
+          method:'POST',
+          headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + apiKey },
+          body: JSON.stringify(body)
+        });
+        if(!resp.ok){ throw new Error('HTTP ' + resp.status); }
+        const data = await resp.json();
+        const content = data?.choices?.[0]?.message?.content || '';
+        // Essayer de parser du JSON dans la réponse
+        try{
+          const start = content.indexOf('{');
+          const end = content.lastIndexOf('}');
+          if(start !== -1 && end !== -1){
+            const json = JSON.parse(content.slice(start, end+1));
+            return {
+              meta: (json.meta || '').slice(0,150),
+              description: (json.description || '').slice(0,450),
+              article: json.article || json.article_markdown || json.markdown || ''
+            };
+          }
+        }catch{}
+        // Fallback: retourner tout le contenu comme article
+        return { meta: (pseo && pseo.value) || '', description: (pdesc && pdesc.value) || '', article: content };
+      }
+
+      // Fermeture modale progression
+      pmodalClose.addEventListener('click', closePModal);
+      pmodal.addEventListener('click', (e)=>{ if(e.target === pmodal) closePModal(); });
+
+      // Fermeture
+      gmodalClose.addEventListener('click', closeGModal);
+      gmodal.addEventListener('click', (e)=>{ if(e.target === gmodal) closeGModal(); });
+      document.addEventListener('keydown', (e)=>{ if(!gmodal.hasAttribute('hidden') && e.key==='Escape'){ closeGModal(); }});
+      // Ajouter à la liste: ajoute uniquement les résultats marqués "Utile", puis ferme la modale
+      gmodalAdd.addEventListener('click', ()=>{
+        const ups = gresultsModal.querySelectorAll('li.result-item[data-vote="up"] a.title');
+        if(!ups.length) return;
+        const seen = new Set(Array.from(gresults.querySelectorAll('a')).map(a=> a.href));
+        ups.forEach(a=>{
+          if(!a.href || seen.has(a.href)) return;
+          seen.add(a.href);
+          const originLi = a.closest('li.result-item');
+          const snippetEl = originLi ? originLi.querySelector('.snippet') : null;
+          const out = document.createElement('li'); out.className='result-item card';
+          const meta = document.createElement('div'); meta.className='meta';
+          try{ const { hostname } = new URL(a.href); const fav=document.createElement('img'); fav.src = 'https://www.google.com/s2/favicons?domain='+hostname; fav.alt=''; meta.appendChild(fav); const host=document.createElement('span'); host.textContent=hostname; meta.appendChild(host);}catch{}
+          out.appendChild(meta);
+          const link = document.createElement('a'); link.className='title'; link.href=a.href; link.target='_blank'; link.rel='noopener'; link.textContent=a.textContent || a.href; out.appendChild(link);
+          if(snippetEl && snippetEl.textContent){ const s=document.createElement('div'); s.className='snippet'; s.textContent=snippetEl.textContent; out.appendChild(s); }
+          gresults.appendChild(out);
+        });
+        closeGModal();
+      });
+      // Votes: mini-collapse + progression (cap à 10) et vote réversible (max 10 utiles)
+      gresultsModal.addEventListener('click', (e)=>{
+        const btn = e.target.closest('button.btn-icon');
+        if(!btn) return;
+        const li = btn.closest('.result-item');
+        if(!li) return;
+        const vote = btn.getAttribute('data-vote');
+        const parent = btn.parentElement;
+        const upBtn = parent.querySelector('button.btn-icon[data-vote="up"]');
+        const downBtn = parent.querySelector('button.btn-icon[data-vote="down"]');
+        const current = li.getAttribute('data-vote') || 'none';
+
+        function setState(newState){
+          // Reset visuals
+          upBtn.setAttribute('aria-pressed','false');
+          downBtn.setAttribute('aria-pressed','false');
+          li.classList.remove('collapse-up','collapse-down','compact');
+          // Apply
+          if(newState === 'up'){
+            upBtn.setAttribute('aria-pressed','true');
+            li.classList.add('collapse-up','compact');
+          } else if(newState === 'down'){
+            downBtn.setAttribute('aria-pressed','true');
+            li.classList.add('collapse-down','compact');
+          }
+          li.setAttribute('data-vote', newState);
+        }
+
+        // Transition du compteur selon changement d'état
+        if(vote === 'up'){
+          // Limiter à 10 éléments marqués utiles
+          const currentUps = gresultsModal.querySelectorAll('li.result-item[data-vote="up"]').length;
+          if(current !== 'up' && currentUps >= 10){
+            showModalError('Limite atteinte: maximum 10 liens utiles.');
+            return;
+          }
+          if(current === 'up') { upCount = Math.max(0, upCount - 1); setState('none'); }
+          else if(current === 'down') { upCount = upCount + 1; setState('up'); }
+          else /* none */ { upCount = upCount + 1; setState('up'); }
+        } else { // vote === 'down'
+          if(current === 'down') { setState('none'); }
+          else if(current === 'up') { upCount = Math.max(0, upCount - 1); setState('down'); }
+          else /* none */ { setState('down'); }
+        }
+        updateProgress();
+      });
+    })();
+  </script>
+</body>
+</html>
