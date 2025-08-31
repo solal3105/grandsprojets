@@ -1738,6 +1738,15 @@ document.addEventListener('DOMContentLoaded', async () => {
           // Créer un Marker avec l'icône caméra (badge circulaire)
           try {
             const mk = L.marker(latlng, { riseOnHover: true, icon: cameraIcon });
+            try {
+              console.debug('[FicheProjet][debug] Création marker caméra', {
+                latlng,
+                geomType: feature?.geometry?.type || null,
+                id: feature?.properties?.id || feature?.properties?.gid || feature?.properties?.objectid || null,
+                hasImgUrl: !!feature?.properties?.imgUrl,
+                hasCoverUrl: !!feature?.properties?.cover_url
+              });
+            } catch(_) {}
             try { __cameraMarkers.add(mk); } catch(_) {}
             return mk;
           } catch (_) {
@@ -1756,6 +1765,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!layer.__fpPhotoBound) {
               layer.__fpPhotoBound = true;
               const props = (feature && feature.properties) || {};
+              try {
+                console.debug('[FicheProjet][debug] Propriétés de la feature', {
+                  keys: Object.keys(props || {}),
+                  id: props.id || props.gid || props.objectid || null,
+                  name: props.name || props.nom || props.titre || null,
+                  hasImgUrl: !!props.imgUrl,
+                  hasCoverUrl: !!props.cover_url
+                });
+              } catch(_) {}
               const logClick = () => {
                 console.log('[FicheProjet] Click sur feature', {
                   layer: layerName,
@@ -1767,6 +1785,12 @@ document.addEventListener('DOMContentLoaded', async () => {
               };
 
               const imgUrl = props.imgUrl || props.cover_url; // fallback sur cover_url des contributions
+              try {
+                console.debug('[FicheProjet][debug] Sélection URL image', {
+                  chosen: imgUrl || null,
+                  from: props.imgUrl ? 'imgUrl' : (props.cover_url ? 'cover_url' : 'none')
+                });
+              } catch(_) {}
               if (imgUrl) {
                 const title = props.titre || props.title || props.name || props.nom || '';
                 const dmHtml = (window.DataModule && typeof window.DataModule.generateTooltipContent === 'function')
@@ -1777,19 +1801,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                       ${title ? `<div style=\"margin-top:6px;font-weight:500;color:#333\">${title}</div>` : ''}
                     </div>
                   `;
+                try {
+                  console.debug('[FicheProjet][debug] Contenu popup généré', {
+                    via: (window.DataModule && typeof window.DataModule.generateTooltipContent === 'function') ? 'DataModule.generateTooltipContent' : 'fallback-inline',
+                    length: (dmHtml && typeof dmHtml === 'string') ? dmHtml.length : null
+                  });
+                } catch(_) {}
                 const ensurePopup = () => { try { layer.bindPopup(dmHtml, { autoPan: true, closeButton: true, maxWidth: 300 }); } catch(_) {} };
                 const openPopup = () => { ensurePopup(); try { layer.openPopup(); } catch(_) {} };
                 const closePopup = () => { try { layer.closePopup(); } catch(_) {} };
 
-                layer.on('mouseover', openPopup);
-                layer.on('mouseout', closePopup);
+                layer.on('mouseover', () => { try { console.debug('[FicheProjet][debug] mouseover: ouverture popup'); } catch(_) {} openPopup(); });
+                layer.on('mouseout',  () => { try { console.debug('[FicheProjet][debug] mouseout: fermeture popup'); } catch(_) {} closePopup(); });
                 layer.on('click', () => {
                   logClick();
                   const open = window.DataModule?.openCoverLightbox || openImageLightbox;
+                  try { console.debug('[FicheProjet][debug] click: ouverture lightbox', { title, imgUrl }); } catch(_) {}
                   try { open(imgUrl, title); } catch(_) { openImageLightbox(imgUrl, title); }
                 });
               } else {
                 // Pas d'image: on log seulement au clic
+                try { console.warn('[FicheProjet][debug] Aucune image pour la feature: ni props.imgUrl ni props.cover_url'); } catch(_) {}
                 layer.on('click', logClick);
               }
             }

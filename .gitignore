@@ -59,3 +59,5 @@ coverage/
 *.bak
 *.swp
 *~
+# Local Netlify folder
+.netlify
