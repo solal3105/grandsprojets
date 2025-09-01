@@ -1,8 +1,8 @@
 // modules/supabaseService.js
+import { SUPABASE_URL, SUPABASE_KEY } from '../config.js';
+
 ;(function(win){
   // 1️⃣ Initialise le client Supabase via le global `supabase` chargé par CDN
-  const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
-  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
  
   // Helper: slugify (réutilisé pour les chemins Storage)
