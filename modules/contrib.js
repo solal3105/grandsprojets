@@ -729,9 +729,10 @@
       if (!isCreate) {
         // ensure list is initialized
         try {
-          // Force mineOnly for invited before first load
+          // Force mineOnly for any non-admin before first load
           const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : '';
-          if (role === 'invited') {
+          const isAdmin = role === 'admin';
+          if (!isAdmin) {
             try { if (listMineOnlyEl) { listMineOnlyEl.checked = true; } } catch(_) {}
             listState.mineOnly = true;
           } else {
@@ -789,7 +790,7 @@
         const isInvited = role === 'invited';
         const isAdmin = role === 'admin';
 
-        // City field visibility/requirement by role
+        // City field visibility/requirement by role (no forced default value here)
         try {
           const cityInput = document.getElementById('contrib-city');
           const cityRow = cityInput ? cityInput.closest('.form-row') : null;
@@ -799,15 +800,6 @@
               cityRow.style.display = '';
               try { cityInput.required = false; } catch(_) {}
               if (cityLabel) cityLabel.textContent = 'Code collectivité';
-              // Ensure a default empty option exists and selected by default when none chosen
-              const firstOpt = cityInput.options && cityInput.options.length ? cityInput.options[0] : null;
-              const needsDefault = !firstOpt || firstOpt.value !== '';
-              if (needsDefault) {
-                const opt = document.createElement('option');
-                opt.value = '';
-                opt.textContent = 'Aucun code (par défaut)';
-                cityInput.insertBefore(opt, cityInput.firstChild);
-              }
             } else {
               // Hide for non-admins and remove requirement
               cityRow.style.display = 'none';
@@ -816,8 +808,8 @@
           }
         } catch(_) {}
 
-        if (isInvited) {
-          // Forcer mineOnly côté état et UI
+        if (!isAdmin) {
+          // Forcer mineOnly côté état et UI pour tous les non-admin
           if (listMineOnlyEl) {
             listMineOnlyEl.checked = true;
             try {
@@ -830,7 +822,7 @@
           // If list panel is visible and already loaded, refresh with mineOnly
           try { if (panelList && !panelList.hidden) { listResetAndLoad(); } } catch(_) {}
         } else {
-          // Rétablir l'UI si l'utilisateur n'est pas invité
+          // Rétablir l'UI si l'utilisateur est admin
           if (listMineOnlyEl) {
             try { listMineOnlyEl.disabled = false; } catch(_) {}
           }
@@ -2230,10 +2222,11 @@
           // 0) Create row (create mode)
           try {
             if (win.supabaseService && typeof win.supabaseService.createContributionRow === 'function') {
+              const cityToCreate = (role === 'admin') ? (city || null) : null;
               rowId = await win.supabaseService.createContributionRow(
                 projectName,
                 category,
-                city,
+                cityToCreate,
                 meta,
                 description,
                 officialUrl
@@ -2343,8 +2336,6 @@
     async function populateCities() {
       try {
         if (!cityEl || !win.supabaseService) return;
-        // temporary placeholder
-        cityEl.innerHTML = '<option value="" disabled selected>Chargement…</option>';
         let cities = [];
         try {
           if (typeof win.supabaseService.getValidCities === 'function') {
@@ -2356,17 +2347,13 @@
         if ((!Array.isArray(cities) || !cities.length) && typeof win.supabaseService.listCities === 'function') {
           try { cities = await win.supabaseService.listCities(); } catch (e2) { console.warn('[contrib] populateCities listCities fallback error:', e2); }
         }
-        const options = (Array.isArray(cities) && cities.length ? cities : ['lyon']).map(c => `<option value="${c}">${c}</option>`).join('');
-        cityEl.innerHTML = options;
-        // default selection
-        const active = (win.activeCity || '').trim();
-        if (active) {
-          try { cityEl.value = active; } catch(_) {}
-        }
+        // Append fetched cities; keep existing default from HTML ("Aucun")
+        const cityOptions = (Array.isArray(cities) ? cities : []).map(c => `<option value="${c}">${c}</option>`).join('');
+        if (cityOptions) cityEl.insertAdjacentHTML('beforeend', cityOptions);
       } catch (err) {
         console.warn('[contrib] populateCities error:', err);
         if (cityEl && !cityEl.options.length) {
-          cityEl.innerHTML = '<option value="lyon" selected>lyon</option>';
+          cityEl.innerHTML = '<option value="" selected>Aucun</option>';
         }
       }
     }

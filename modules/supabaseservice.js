@@ -1339,14 +1339,14 @@
      * Remplit created_by avec l'UUID de l'utilisateur connecté.
      * @param {string} projectName
      * @param {string} category
-     * @param {string} city
+     * @param {string|null} city - code collectivité (peut être null)
      * @param {string} [meta]
      * @param {string} [description]
      * @param {string} [officialUrl]
      */
     createContributionRow: async function(projectName, category, city, meta, description, officialUrl) {
       try {
-        if (!projectName || !category || !city) throw new Error('Paramètres manquants');
+        if (!projectName || !category) throw new Error('Paramètres manquants');
         let createdBy = null;
         try {
           const { data: userData } = await supabaseClient.auth.getUser();
@@ -1355,7 +1355,7 @@
         const baseRow = {
           project_name: projectName,
           category,
-          ville: city,
+          ville: (city && String(city).trim()) ? String(city).trim() : null,
           meta: (meta && meta.trim()) ? meta.trim() : null,
           description: (description && description.trim()) ? description.trim() : null,
           official_url: (officialUrl && officialUrl.trim()) ? officialUrl.trim() : null
