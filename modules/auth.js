@@ -46,6 +46,22 @@
       }
     },
 
+    // Passwordless via Magic Link (email)
+    signInWithMagicLink: async function(email, redirectTo) {
+      try {
+        if (!email || typeof email !== 'string') {
+          throw new Error('Email invalide');
+        }
+        return await client.auth.signInWithOtp({
+          email,
+          options: { emailRedirectTo: redirectTo || (win.location.origin + '/login/') }
+        });
+      } catch (e) {
+        console.warn('[AuthModule] signInWithMagicLink error:', e);
+        return { error: e };
+      }
+    },
+
     signOut: async function() {
       try {
         return await client.auth.signOut();

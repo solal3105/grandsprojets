@@ -43,13 +43,25 @@
         </a>
         <h1 id="login-title" class="login-title">Se connecter</h1>
       </div>
-      <p class="muted">Connexion uniquement via GitHub.</p>
+      <p class="muted">Choisissez une méthode de connexion&nbsp;: GitHub ou lien magique par email.</p>
 
       <div id="auth-area" class="login-actions">
         <button id="github-btn" class="gp-btn github" type="button">
           <i class="fab fa-github"></i>
           <span>Se connecter avec GitHub</span>
         </button>
+
+        <div class="sep" aria-hidden="true"></div>
+
+        <label for="email-input" class="muted">Connexion par lien magique</label>
+        <div style="display:grid; gap:8px; grid-template-columns: 1fr auto; align-items:center;">
+          <input id="email-input" type="email" inputmode="email" autocomplete="email" placeholder="votre.email@exemple.com" aria-label="Email" style="padding:12px 14px; border-radius:8px; border:1px solid #2a2a2a; background:#111; color:#fff;" />
+          <button id="magic-btn" class="gp-btn" type="button" aria-label="Envoyer un lien magique">
+            <i class="fa-regular fa-paper-plane"></i>
+            <span>Recevoir un lien magique</span>
+          </button>
+        </div>
+
         <div id="status" class="status" aria-live="polite"></div>
       </div>
 
@@ -68,6 +80,8 @@
 
     const statusEl = document.getElementById('status');
     const githubBtn = document.getElementById('github-btn');
+    const emailInput = document.getElementById('email-input');
+    const magicBtn = document.getElementById('magic-btn');
 
     function setStatus(msg) { statusEl.textContent = msg || ''; }
 
@@ -77,9 +91,13 @@
         if (session?.user) {
           setStatus(`Connecté en tant que ${session.user.user_metadata?.user_name || session.user.email || 'utilisateur'}.`);
           githubBtn.style.display = 'none';
+          if (magicBtn) magicBtn.style.display = 'none';
+          if (emailInput) emailInput.style.display = 'none';
         } else {
           setStatus('');
           githubBtn.style.display = 'inline-flex';
+          if (magicBtn) magicBtn.style.display = 'inline-flex';
+          if (emailInput) emailInput.style.display = 'block';
         }
       } catch (e) {
         setStatus('');
@@ -101,13 +119,76 @@
       }
     });
 
-    // Also handle the case where GitHub redirects back to /login with a hash (rare)
+    function isValidEmail(v){
+      return typeof v === 'string' && /.+@.+\..+/.test(v);
+    }
+
+    magicBtn.addEventListener('click', async () => {
+      try {
+        const email = (emailInput?.value || '').trim();
+        if (!isValidEmail(email)) {
+          setStatus('Veuillez saisir un email valide.');
+          emailInput?.focus();
+          return;
+        }
+        setStatus('Envoi du lien magique…');
+        magicBtn.disabled = true;
+        githubBtn.disabled = true;
+        const redirectUrl = window.location.origin + '/login/';
+        let error = null;
+        if (typeof auth.signInWithMagicLink === 'function') {
+          ({ error } = await auth.signInWithMagicLink(email, redirectUrl));
+        } else {
+          // Fallback si l'ancienne version de auth.js est en cache
+          const client = auth.getClient && auth.getClient();
+          if (client && client.auth && typeof client.auth.signInWithOtp === 'function') {
+            ({ error } = await client.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectUrl } }));
+          } else {
+            error = new Error('Méthode de magic link indisponible.');
+          }
+        }
+        if (error) {
+          console.error('Magic link error:', error);
+          setStatus("Échec de l'envoi du lien magique. Réessayez plus tard.");
+        } else {
+          setStatus('Email envoyé. Vérifiez votre boîte de réception.');
+        }
+      } catch (e) {
+        console.error(e);
+        setStatus('Erreur inattendue.');
+      } finally {
+        setTimeout(() => {
+          magicBtn.disabled = false;
+          githubBtn.disabled = false;
+        }, 2000);
+      }
+    });
+
+    // Handle redirects back to /login with a hash (GitHub or Magic Link)
     auth.onAuthStateChange((_event, _session) => {
       // If a session appears, go home.
       if (_session?.user) {
         window.location.replace('/');
       }
     });
+
+    // Display human-friendly error if Supabase returns an error hash
+    (function handleHashError(){
+      try {
+        const h = window.location.hash || '';
+        if (!h) return;
+        const params = new URLSearchParams(h.replace(/^#/, ''));
+        const err = params.get('error');
+        const code = params.get('error_code');
+        if (err) {
+          if (code === 'otp_expired') {
+            setStatus("Le lien a expiré ou n'est plus valide. Veuillez redemander un nouveau lien magique.");
+          } else {
+            setStatus('Erreur de connexion: ' + (code || err));
+          }
+        }
+      } catch(_) {}
+    })();
 
     initAuthUI();
   </script>
