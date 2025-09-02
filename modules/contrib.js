@@ -75,38 +75,41 @@
         } catch (_) { /* noop */ }
       };
 
-      // Détection admin via table public.profiles (source de vérité)
+      // Détection du rôle via table public.profiles (source de vérité)
       let __currentSession = null;
       let __isAdmin = false;
-      const computeIsAdminFromProfiles = async (session) => {
+      let __userRole = '';
+      const getUserRoleFromProfiles = async (session) => {
         try {
           const userId = session && session.user ? session.user.id : null;
-          if (!userId) return false;
+          if (!userId) return '';
           const client = (win.AuthModule && typeof win.AuthModule.getClient === 'function') ? win.AuthModule.getClient() : null;
-          if (!client) return false;
+          if (!client) return '';
           const { data, error } = await client.from('profiles').select('role').eq('id', userId).single();
-          if (error) return false;
-          const role = (data && data.role ? String(data.role) : '').toLowerCase();
-          return role === 'admin';
-        } catch (_) { return false; }
+          if (error) return '';
+          return (data && data.role ? String(data.role) : '').toLowerCase();
+        } catch (_) { return ''; }
       };
-      const updateAdminState = async (session) => {
+      const updateRoleState = async (session) => {
         __currentSession = session || null;
-        __isAdmin = await computeIsAdminFromProfiles(__currentSession);
+        __userRole = await getUserRoleFromProfiles(__currentSession);
+        __isAdmin = (__userRole === 'admin');
         try { win.__CONTRIB_IS_ADMIN = __isAdmin; } catch(_) {}
+        try { win.__CONTRIB_ROLE = __userRole; } catch(_) {}
+        applyRoleConstraints();
       };
 
       // État initial
       try {
         if (win.AuthModule && typeof win.AuthModule.getSession === 'function') {
-          win.AuthModule.getSession().then(({ data }) => { applyContribVisibility(data?.session); return updateAdminState(data?.session); }).catch(() => { applyContribVisibility(null); return updateAdminState(null); });
+          win.AuthModule.getSession().then(({ data }) => { applyContribVisibility(data?.session); return updateRoleState(data?.session); }).catch(() => { applyContribVisibility(null); return updateRoleState(null); });
         }
       } catch (_) { /* noop */ }
 
       // Mises à jour dynamiques
       try {
         if (win.AuthModule && typeof win.AuthModule.onAuthStateChange === 'function') {
-          win.AuthModule.onAuthStateChange((_event, session) => { applyContribVisibility(session); updateAdminState(session); });
+          win.AuthModule.onAuthStateChange((_event, session) => { applyContribVisibility(session); updateRoleState(session); });
         }
       } catch (_) { /* noop */ }
 
@@ -493,9 +496,12 @@
     function validateStep1() {
       const nameEl = document.getElementById('contrib-project-name');
       const catEl  = document.getElementById('contrib-category');
-      const cityElSel = document.getElementById('contrib-city');
-      const ok = !!(nameEl && nameEl.value && nameEl.value.trim()) && !!(catEl && catEl.value) && !!(cityElSel && cityElSel.value);
-      if (!ok) showToast('Veuillez renseigner nom, catégorie et ville.', 'error');
+      const hasName = !!(nameEl && nameEl.value && nameEl.value.trim());
+      const hasCat  = !!(catEl && catEl.value);
+      const ok = hasName && hasCat;
+      if (!ok) {
+        showToast('Veuillez renseigner le nom et la catégorie.', 'error');
+      }
       return ok;
     }
 
@@ -539,6 +545,8 @@
       if (!force && !canGoToStep(n)) return;
       currentStep = Math.min(4, Math.max(1, n));
       showOnlyStep(currentStep);
+      // Re-apply role constraints because showOnlyStep() resets display on step elements
+      try { applyRoleConstraints(); } catch(_) {}
       setStepHeaderActive(currentStep);
       updateStepButtons(currentStep);
 
@@ -720,7 +728,17 @@
 
       if (!isCreate) {
         // ensure list is initialized
-        try { if (listEl && !listState.items.length) listResetAndLoad(); } catch(_) {}
+        try {
+          // Force mineOnly for invited before first load
+          const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : '';
+          if (role === 'invited') {
+            try { if (listMineOnlyEl) { listMineOnlyEl.checked = true; } } catch(_) {}
+            listState.mineOnly = true;
+          } else {
+            listState.mineOnly = !!(listMineOnlyEl && listMineOnlyEl.checked);
+          }
+          if (listEl && !listState.items.length) listResetAndLoad();
+        } catch(_) {}
         // focus first tabbable in list filters
         try { listSearchEl && listSearchEl.focus(); } catch(_) {}
       } else {
@@ -765,8 +783,96 @@
     if (backBtn) backBtn.addEventListener('click', () => showLanding());
 
     // —— List helpers ——
+    function applyRoleConstraints() {
+      try {
+        const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : __userRole;
+        const isInvited = role === 'invited';
+        const isAdmin = role === 'admin';
+
+        // City field visibility/requirement by role
+        try {
+          const cityInput = document.getElementById('contrib-city');
+          const cityRow = cityInput ? cityInput.closest('.form-row') : null;
+          const cityLabel = cityRow ? cityRow.querySelector('label[for="contrib-city"]') : null;
+          if (cityRow && cityInput) {
+            if (isAdmin) {
+              cityRow.style.display = '';
+              try { cityInput.required = false; } catch(_) {}
+              if (cityLabel) cityLabel.textContent = 'Code collectivité';
+              // Ensure a default empty option exists and selected by default when none chosen
+              const firstOpt = cityInput.options && cityInput.options.length ? cityInput.options[0] : null;
+              const needsDefault = !firstOpt || firstOpt.value !== '';
+              if (needsDefault) {
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = 'Aucun code (par défaut)';
+                cityInput.insertBefore(opt, cityInput.firstChild);
+              }
+            } else {
+              // Hide for non-admins and remove requirement
+              cityRow.style.display = 'none';
+              try { cityInput.required = false; } catch(_) {}
+            }
+          }
+        } catch(_) {}
+
+        if (isInvited) {
+          // Forcer mineOnly côté état et UI
+          if (listMineOnlyEl) {
+            listMineOnlyEl.checked = true;
+            try {
+              listMineOnlyEl.checked = true;
+              listMineOnlyEl.disabled = true;
+              listMineOnlyEl.title = 'Limité à mes contributions (imposé par votre rôle)';
+            } catch(_) {}
+          }
+          try { listState.mineOnly = true; } catch(_) {}
+          // If list panel is visible and already loaded, refresh with mineOnly
+          try { if (panelList && !panelList.hidden) { listResetAndLoad(); } } catch(_) {}
+        } else {
+          // Rétablir l'UI si l'utilisateur n'est pas invité
+          if (listMineOnlyEl) {
+            try { listMineOnlyEl.disabled = false; } catch(_) {}
+          }
+          try { listState.mineOnly = !!(listMineOnlyEl && listMineOnlyEl.checked); } catch(_) {}
+        }
+      } catch(_) {}
+    }
     function setListStatus(msg) {
       if (listStatusEl) listStatusEl.textContent = msg || '';
+    }
+
+    // Empty state helpers for contribution list
+    function clearEmptyState() {
+      try {
+        if (!listEl) return;
+        const empty = listEl.querySelector('.contrib-empty');
+        if (empty) empty.remove();
+      } catch(_) {}
+    }
+    function renderEmptyState() {
+      try {
+        if (!listEl) return;
+        clearEmptyState();
+        const wrap = document.createElement('div');
+        wrap.className = 'contrib-empty';
+        wrap.setAttribute('role', 'status');
+        wrap.setAttribute('aria-live', 'polite');
+        wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;color:#546e7a;text-align:center;gap:14px;min-height:220px;';
+        wrap.innerHTML = `
+          <div class="empty-illu" aria-hidden="true" style="font-size:42px;color:#90a4ae"><i class="fa-regular fa-folder-open"></i></div>
+          <div class="empty-title" style="font-size:18px;font-weight:600;color:#37474f">Aucune contribution pour le moment</div>
+          <div class="empty-sub" style="font-size:14px;opacity:0.8;max-width:520px">Créez votre première contribution pour proposer un projet et le visualiser sur la carte.</div>
+          <div><button type="button" id="btn-empty-create" class="gp-btn" style="padding:8px 14px;border-radius:10px;background:#1976d2;color:#fff;border:none;cursor:pointer;box-shadow:0 3px 10px rgba(25,118,210,0.3);">Créer une contribution</button></div>
+        `;
+        if (listSentinel && listSentinel.parentNode === listEl) {
+          listEl.insertBefore(wrap, listSentinel);
+        } else {
+          listEl.appendChild(wrap);
+        }
+        const btn = wrap.querySelector('#btn-empty-create');
+        if (btn) btn.addEventListener('click', () => { try { activateTab('create'); setStep(1, { force: true }); } catch(_) {} });
+      } catch(_) {}
     }
 
     // —— Custom delete confirmation modal ——
@@ -1077,6 +1183,8 @@
       // Keep sentinel at end
       if (listSentinel) listEl.appendChild(listSentinel);
       listState.page = 1; listState.done = false; listState.items = [];
+      clearEmptyState();
+      setListStatus('');
       await listLoadMore();
     }
 
@@ -1117,10 +1225,11 @@
         // Clear skeletons once data arrives (or not)
         try { if (listEl) listEl.querySelectorAll('.contrib-skel').forEach(n => n.remove()); } catch(_) {}
         if (!items.length) {
-          if (page === 1) setListStatus('Aucune contribution.');
+          if (page === 1) { setListStatus(''); renderEmptyState(); }
           listState.done = true;
         } else {
           setListStatus('');
+          clearEmptyState();
           listState.items.push(...items);
           items.forEach(it => {
             const node = renderItem(it);
@@ -1181,6 +1290,13 @@
       debouncedReset();
     });
     if (listMineOnlyEl) listMineOnlyEl.addEventListener('change', () => {
+      const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : __userRole;
+      if (role === 'invited') {
+        // Empêcher toute modification et forcer coché
+        listMineOnlyEl.checked = true;
+        listState.mineOnly = true;
+        return; // pas de reset inutile
+      }
       listState.mineOnly = !!listMineOnlyEl.checked;
       debouncedReset();
     });
@@ -2052,8 +2168,9 @@
         return r ? r.value : 'file';
       })();
 
-      if (!projectName || !category || !city) {
-        setStatus('Veuillez renseigner le nom, la catégorie et la ville.', 'error');
+      const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : __userRole;
+      if (!projectName || !category) {
+        setStatus('Veuillez renseigner le nom et la catégorie.', 'error');
         return;
       }
 
@@ -2180,7 +2297,7 @@
           await (win.supabaseService && win.supabaseService.updateContribution(rowId, {
             project_name: projectName,
             category: category,
-            ville: city,
+            ville: (role === 'invited' ? null : (role === 'admin' ? (city || null) : null)),
             official_url: officialUrl || null,
             meta: meta || null,
             description: description || null
