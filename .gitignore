@@ -59,5 +59,10 @@ coverage/
 *.bak
 *.swp
 *~
+
+# Fichiers de configuration
+.config
+.config.local
+
 # Local Netlify folder
 .netlify
