@@ -925,31 +925,74 @@
       const el = document.createElement('div');
       el.className = 'contrib-list-item';
       el.setAttribute('role', 'listitem');
-      el.style.display = 'flex';
-      el.style.gap = '10px';
-      el.style.width = '100%';
-      el.style.textAlign = 'left';
-      el.style.padding = '8px';
-      el.style.borderBottom = '1px solid rgba(0,0,0,0.06)';
-      const cover = item.cover_url ? `<img src="${item.cover_url}" alt="" style="width:54px;height:40px;object-fit:cover;border-radius:4px;"/>` : '';
+      const cover = item.cover_url
+        ? `<div class="contrib-thumb"><img src="${item.cover_url}" alt="" /></div>`
+        : `<div class="contrib-thumb contrib-thumb--placeholder" aria-hidden="true"><i class="fa fa-file-image-o" aria-hidden="true"></i></div>`;
       const when = item.created_at ? new Date(item.created_at).toLocaleString() : '';
       el.innerHTML = `
         ${cover}
-        <div class="contrib-item-main" role="button" tabindex="0" style="flex:1 1 auto; cursor:pointer;">
-          <div style="font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <span>${item.project_name || '(sans nom)'} <span style="font-size:0.85em;opacity:0.75;">· ${item.category || ''}</span></span>
-            ${item.approved === true ? '<span class="badge-approved" style="font-size:11px;padding:2px 6px;border-radius:10px;background:#e8f5e9;color:#2e7d32;">Approuvé</span>' : '<span class="badge-pending" style="font-size:11px;padding:2px 6px;border-radius:10px;background:#fff3e0;color:#f57c00;">En attente</span>'}
+        <div class="contrib-item-right">
+          <div class="contrib-item-main" role="button" tabindex="0">
+            <div class="contrib-title-row">
+              <span class="contrib-title">${item.project_name || '(sans nom)'} <span class="contrib-category">· ${item.category || ''}</span></span>
+              ${item.approved === true
+                ? '<span class="badge-approved">Approuvé</span>'
+                : '<span class="badge-pending">En attente</span>'}
+            </div>
+            <div class="contrib-meta">Créé le: ${when}</div>
+            ${item.meta ? `<div class="contrib-extra">${item.meta}</div>` : ''}
           </div>
-          <div style="font-size:0.85em;opacity:0.8;">Créé le: ${when}</div>
-          ${item.meta ? `<div style=\"font-size:0.85em;opacity:0.85;\">${item.meta}</div>` : ''}
-        </div>
-        <div class="contrib-item-actions" style="display:flex; align-items:center;">
-          <button type="button" class="contrib-item-delete" aria-label="Supprimer" title="Supprimer"
-            style="padding:6px 8px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; background:#fff; color:#c62828;">
-            <i class="fa fa-trash" aria-hidden="true"></i>
-          </button>
+          <div class="contrib-item-actions">
+            <button type="button" class="contrib-item-delete" aria-label="Supprimer" title="Supprimer">
+              <i class="fa fa-trash" aria-hidden="true"></i>
+            </button>
+          </div>
         </div>
       `;
+      // Runtime enforcement: ensure two-column structure and no horizontal overflow
+      try {
+        // Clamp parent list horizontal overflow
+        const parentList = document.getElementById('contrib-list');
+        if (parentList) { parentList.style.overflowX = 'hidden'; parentList.style.maxWidth = '100%'; }
+
+        // Ensure thumb exists as first column
+        let thumb = el.querySelector('.contrib-thumb');
+        if (!thumb) {
+          thumb = document.createElement('div');
+          thumb.className = 'contrib-thumb contrib-thumb--placeholder';
+          thumb.setAttribute('aria-hidden', 'true');
+          thumb.innerHTML = '<i class="fa fa-file-image-o" aria-hidden="true"></i>';
+          el.insertBefore(thumb, el.firstChild);
+        }
+
+        // Ensure right wrapper exists and contains main + actions
+        let right = el.querySelector('.contrib-item-right');
+        let main = el.querySelector('.contrib-item-main');
+        let actions = el.querySelector('.contrib-item-actions');
+        if (!right) {
+          right = document.createElement('div');
+          right.className = 'contrib-item-right';
+          el.appendChild(right);
+        }
+        if (main && main.parentElement !== right) right.appendChild(main);
+        if (actions && actions.parentElement !== right) right.appendChild(actions);
+
+        // Force grid as last resort to beat conflicting rules
+        el.style.display = 'grid';
+        el.style.gridTemplateColumns = '96px minmax(0, 1fr)';
+        el.style.alignItems = 'center';
+        el.style.width = '100%';
+        el.style.boxSizing = 'border-box';
+
+        // Right column overflow safeguards
+        right.style.display = 'flex';
+        right.style.flexDirection = 'column';
+        right.style.gap = '8px';
+        right.style.minWidth = '0';
+        right.style.maxWidth = '100%';
+
+        if (main) { main.style.minWidth = '0'; main.style.maxWidth = '100%'; }
+      } catch(_) {}
       const main = el.querySelector('.contrib-item-main');
       const delBtn = el.querySelector('.contrib-item-delete');
 
@@ -960,7 +1003,7 @@
           const actions = el.querySelector('.contrib-item-actions');
           if (actions) {
             const wrap = document.createElement('label');
-            wrap.style.cssText = 'margin-left:8px;display:flex;align-items:center;gap:6px;font-size:12px;color:#333;';
+            wrap.className = 'contrib-approve-toggle';
             wrap.title = 'Basculer le statut approuvé';
             wrap.innerHTML = `<input type="checkbox" class="contrib-item-approve" ${item.approved ? 'checked' : ''} aria-label="Approuvé"/> <span>Approuvé</span>`;
             actions.prepend(wrap);
@@ -979,13 +1022,9 @@
                   try {
                     const bA = badgeApproved(); const bP = badgePending();
                     if (newVal) {
-                      if (!bA && bP) {
-                        bP.outerHTML = '<span class="badge-approved" style="font-size:11px;padding:2px 6px;border-radius:10px;background:#e8f5e9;color:#2e7d32;">Approuvé</span>';
-                      }
+                      if (!bA && bP) { bP.outerHTML = '<span class="badge-approved">Approuvé</span>'; }
                     } else {
-                      if (!bP && bA) {
-                        bA.outerHTML = '<span class="badge-pending" style="font-size:11px;padding:2px 6px;border-radius:10px;background:#fff3e0;color:#f57c00;">En attente</span>';
-                      }
+                      if (!bP && bA) { bA.outerHTML = '<span class="badge-pending">En attente</span>'; }
                     }
                   } catch(_) {}
                   showToast('Statut mis à jour.', 'success');
@@ -1046,12 +1085,37 @@
       listState.loading = true;
       setListStatus('Chargement…');
       try { if (listEl) listEl.setAttribute('aria-busy', 'true'); } catch(_) {}
+      // Insert skeletons on first page for better perceived performance
+      try {
+        if (listEl && listState.page === 1) {
+          const skelCount = Math.min(6, listState.pageSize);
+          for (let i = 0; i < skelCount; i++) {
+            const s = document.createElement('div');
+            s.className = 'contrib-skel';
+            s.innerHTML = `
+              <div class="skel-thumb"></div>
+              <div>
+                <div class="skel-line skel-line--lg"></div>
+                <div class="skel-line skel-line--md"></div>
+                <div class="skel-line skel-line--sm"></div>
+              </div>
+            `;
+            if (listSentinel && listSentinel.parentNode === listEl) {
+              listEl.insertBefore(s, listSentinel);
+            } else {
+              listEl.appendChild(s);
+            }
+          }
+        }
+      } catch(_) {}
       try {
         const { search, category, sortBy, sortDir, page, pageSize, mineOnly } = listState;
         const res = await (win.supabaseService && win.supabaseService.listContributions({
           search, category, page, pageSize, mineOnly, sortBy, sortDir
         }));
         const items = (res && res.items) ? res.items : [];
+        // Clear skeletons once data arrives (or not)
+        try { if (listEl) listEl.querySelectorAll('.contrib-skel').forEach(n => n.remove()); } catch(_) {}
         if (!items.length) {
           if (page === 1) setListStatus('Aucune contribution.');
           listState.done = true;
@@ -1073,6 +1137,8 @@
         setListStatus('Erreur lors du chargement.');
         showToast('Erreur lors du chargement des contributions.', 'error');
       } finally {
+        // Ensure skeletons are cleared on error as well
+        try { if (listEl) listEl.querySelectorAll('.contrib-skel').forEach(n => n.remove()); } catch(_) {}
         listState.loading = false;
         try { if (listEl) listEl.removeAttribute('aria-busy'); } catch(_) {}
       }
@@ -1097,6 +1163,14 @@
       debounceTimer = setTimeout(() => { listResetAndLoad(); }, 250);
     }
     if (listSearchEl) listSearchEl.addEventListener('input', () => { listState.search = listSearchEl.value || ''; debouncedReset(); });
+    // Trigger immediate search on Enter
+    if (listSearchEl) listSearchEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        listState.search = listSearchEl.value || '';
+        listResetAndLoad();
+      }
+    });
     if (listCatEl) listCatEl.addEventListener('change', () => { listState.category = listCatEl.value || ''; debouncedReset(); });
     if (listSortEl) listSortEl.addEventListener('change', () => {
       const v = listSortEl.value || 'created_at:desc';

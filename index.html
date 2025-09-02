@@ -345,7 +345,10 @@
           <div class="form-row" style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
             <div style="flex:1 1 220px;">
               <label for="contrib-search">Rechercher</label>
-              <input type="text" id="contrib-search" placeholder="Nom, méta, description..." />
+              <div class="contrib-searchbar">
+                <i class="fa fa-search" aria-hidden="true"></i>
+                <input type="text" id="contrib-search" placeholder="Nom du projet, description…" />
+              </div>
             </div>
             <div style="flex:0 0 200px;">
               <label for="contrib-filter-category">Catégorie</label>
@@ -370,7 +373,7 @@
               </label>
             </div>
           </div>
-          <div id="contrib-list" class="contrib-list" role="list" style="max-height:340px; overflow:auto; border:1px solid rgba(0,0,0,0.1); border-radius:8px; padding:6px;">
+          <div id="contrib-list" class="contrib-list" role="list" style="max-height:340px; overflow:auto;">
             <!-- Items injectés en JS -->
             <div id="contrib-list-sentinel" style="height:1px;"></div>
           </div>
