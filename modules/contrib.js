@@ -75,17 +75,38 @@
         } catch (_) { /* noop */ }
       };
 
+      // Détection admin via table public.profiles (source de vérité)
+      let __currentSession = null;
+      let __isAdmin = false;
+      const computeIsAdminFromProfiles = async (session) => {
+        try {
+          const userId = session && session.user ? session.user.id : null;
+          if (!userId) return false;
+          const client = (win.AuthModule && typeof win.AuthModule.getClient === 'function') ? win.AuthModule.getClient() : null;
+          if (!client) return false;
+          const { data, error } = await client.from('profiles').select('role').eq('id', userId).single();
+          if (error) return false;
+          const role = (data && data.role ? String(data.role) : '').toLowerCase();
+          return role === 'admin';
+        } catch (_) { return false; }
+      };
+      const updateAdminState = async (session) => {
+        __currentSession = session || null;
+        __isAdmin = await computeIsAdminFromProfiles(__currentSession);
+        try { win.__CONTRIB_IS_ADMIN = __isAdmin; } catch(_) {}
+      };
+
       // État initial
       try {
         if (win.AuthModule && typeof win.AuthModule.getSession === 'function') {
-          win.AuthModule.getSession().then(({ data }) => applyContribVisibility(data?.session)).catch(() => applyContribVisibility(null));
+          win.AuthModule.getSession().then(({ data }) => { applyContribVisibility(data?.session); return updateAdminState(data?.session); }).catch(() => { applyContribVisibility(null); return updateAdminState(null); });
         }
       } catch (_) { /* noop */ }
 
       // Mises à jour dynamiques
       try {
         if (win.AuthModule && typeof win.AuthModule.onAuthStateChange === 'function') {
-          win.AuthModule.onAuthStateChange((_event, session) => applyContribVisibility(session));
+          win.AuthModule.onAuthStateChange((_event, session) => { applyContribVisibility(session); updateAdminState(session); });
         }
       } catch (_) { /* noop */ }
 
@@ -915,7 +936,10 @@
       el.innerHTML = `
         ${cover}
         <div class="contrib-item-main" role="button" tabindex="0" style="flex:1 1 auto; cursor:pointer;">
-          <div style="font-weight:600;">${item.project_name || '(sans nom)'} <span style="font-size:0.85em;opacity:0.75;">· ${item.category || ''}</span></div>
+          <div style="font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span>${item.project_name || '(sans nom)'} <span style="font-size:0.85em;opacity:0.75;">· ${item.category || ''}</span></span>
+            ${item.approved === true ? '<span class="badge-approved" style="font-size:11px;padding:2px 6px;border-radius:10px;background:#e8f5e9;color:#2e7d32;">Approuvé</span>' : '<span class="badge-pending" style="font-size:11px;padding:2px 6px;border-radius:10px;background:#fff3e0;color:#f57c00;">En attente</span>'}
+          </div>
           <div style="font-size:0.85em;opacity:0.8;">Créé le: ${when}</div>
           ${item.meta ? `<div style=\"font-size:0.85em;opacity:0.85;\">${item.meta}</div>` : ''}
         </div>
@@ -928,6 +952,58 @@
       `;
       const main = el.querySelector('.contrib-item-main');
       const delBtn = el.querySelector('.contrib-item-delete');
+
+      // — Admin-only: toggle approved —
+      try {
+        const isAdmin = !!win.__CONTRIB_IS_ADMIN;
+        if (isAdmin) {
+          const actions = el.querySelector('.contrib-item-actions');
+          if (actions) {
+            const wrap = document.createElement('label');
+            wrap.style.cssText = 'margin-left:8px;display:flex;align-items:center;gap:6px;font-size:12px;color:#333;';
+            wrap.title = 'Basculer le statut approuvé';
+            wrap.innerHTML = `<input type="checkbox" class="contrib-item-approve" ${item.approved ? 'checked' : ''} aria-label="Approuvé"/> <span>Approuvé</span>`;
+            actions.prepend(wrap);
+            const checkbox = wrap.querySelector('.contrib-item-approve');
+            const badgeApproved = () => el.querySelector('.badge-approved');
+            const badgePending = () => el.querySelector('.badge-pending');
+            checkbox.addEventListener('change', async () => {
+              const newVal = !!checkbox.checked;
+              // disable during save
+              checkbox.disabled = true;
+              try {
+                const res = await (win.supabaseService && win.supabaseService.setContributionApproved(item.id, newVal));
+                if (res && !res.error) {
+                  item.approved = newVal;
+                  // Update badges
+                  try {
+                    const bA = badgeApproved(); const bP = badgePending();
+                    if (newVal) {
+                      if (!bA && bP) {
+                        bP.outerHTML = '<span class="badge-approved" style="font-size:11px;padding:2px 6px;border-radius:10px;background:#e8f5e9;color:#2e7d32;">Approuvé</span>';
+                      }
+                    } else {
+                      if (!bP && bA) {
+                        bA.outerHTML = '<span class="badge-pending" style="font-size:11px;padding:2px 6px;border-radius:10px;background:#fff3e0;color:#f57c00;">En attente</span>';
+                      }
+                    }
+                  } catch(_) {}
+                  showToast('Statut mis à jour.', 'success');
+                } else {
+                  // revert
+                  checkbox.checked = !newVal;
+                  showToast("Impossible de mettre à jour l'approbation.", 'error');
+                }
+              } catch (_) {
+                checkbox.checked = !newVal;
+                showToast("Erreur lors de la mise à jour de l'approbation.", 'error');
+              } finally {
+                checkbox.disabled = false;
+              }
+            });
+          }
+        }
+      } catch(_) {}
       if (main) main.addEventListener('click', async () => {
         try {
           setListStatus('Chargement…');
