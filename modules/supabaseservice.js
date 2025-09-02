@@ -432,8 +432,18 @@
       let q = supabaseClient
         .from('contribution_uploads')
         .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
-        .eq('approved', true)
         .order('created_at', { ascending: false });
+      try {
+        const { data: userData } = await supabaseClient.auth.getUser();
+        const uid = userData && userData.user ? userData.user.id : null;
+        if (uid) {
+          q = q.or(`approved.eq.true,created_by.eq.${uid}`);
+        } else {
+          q = q.eq('approved', true);
+        }
+      } catch(_) {
+        q = q.eq('approved', true);
+      }
       if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
       const { data, error } = await q;
       if (error) {
@@ -453,8 +463,18 @@
         .from('contribution_uploads')
         .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
         .eq('category', 'urbanisme')
-        .eq('approved', true)
         .order('created_at', { ascending: false });
+      try {
+        const { data: userData } = await supabaseClient.auth.getUser();
+        const uid = userData && userData.user ? userData.user.id : null;
+        if (uid) {
+          q = q.or(`approved.eq.true,created_by.eq.${uid}`);
+        } else {
+          q = q.eq('approved', true);
+        }
+      } catch(_) {
+        q = q.eq('approved', true);
+      }
       if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
       const { data, error } = await q;
       if (error) {
@@ -474,8 +494,18 @@
         .from('contribution_uploads')
         .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
         .eq('category', 'mobilite')
-        .eq('approved', true)
         .order('created_at', { ascending: false });
+      try {
+        const { data: userData } = await supabaseClient.auth.getUser();
+        const uid = userData && userData.user ? userData.user.id : null;
+        if (uid) {
+          q = q.or(`approved.eq.true,created_by.eq.${uid}`);
+        } else {
+          q = q.eq('approved', true);
+        }
+      } catch(_) {
+        q = q.eq('approved', true);
+      }
       if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
       const { data, error } = await q;
       if (error) {
@@ -495,8 +525,18 @@
         .from('contribution_uploads')
         .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
         .eq('category', 'velo')
-        .eq('approved', true)
         .order('created_at', { ascending: false });
+      try {
+        const { data: userData } = await supabaseClient.auth.getUser();
+        const uid = userData && userData.user ? userData.user.id : null;
+        if (uid) {
+          q = q.or(`approved.eq.true,created_by.eq.${uid}`);
+        } else {
+          q = q.eq('approved', true);
+        }
+      } catch(_) {
+        q = q.eq('approved', true);
+      }
       if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
       const { data, error } = await q;
       if (error) {
@@ -517,8 +557,18 @@
         .from('contribution_uploads')
         .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
         .eq('category', category)
-        .eq('approved', true)
         .order('created_at', { ascending: false });
+      try {
+        const { data: userData } = await supabaseClient.auth.getUser();
+        const uid = userData && userData.user ? userData.user.id : null;
+        if (uid) {
+          q = q.or(`approved.eq.true,created_by.eq.${uid}`);
+        } else {
+          q = q.eq('approved', true);
+        }
+      } catch(_) {
+        q = q.eq('approved', true);
+      }
       if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
       const { data, error } = await q;
       if (error) {
@@ -537,14 +587,24 @@
     fetchProjectByCategoryAndName: async function(category, projectName) {
       try {
         if (!category || !projectName) return null;
-        const { data, error } = await supabaseClient
+        let q = supabaseClient
           .from('contribution_uploads')
           .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, official_url')
           .eq('category', category)
           .eq('project_name', projectName)
-          .eq('approved', true)
-          .limit(1)
-          .maybeSingle();
+          .limit(1);
+        try {
+          const { data: userData } = await supabaseClient.auth.getUser();
+          const uid = userData && userData.user ? userData.user.id : null;
+          if (uid) {
+            q = q.or(`approved.eq.true,created_by.eq.${uid}`);
+          } else {
+            q = q.eq('approved', true);
+          }
+        } catch(_) {
+          q = q.eq('approved', true);
+        }
+        const { data, error } = await q.maybeSingle();
         if (error) {
           console.warn('[supabaseService] fetchProjectByCategoryAndName error:', error);
           return null;
