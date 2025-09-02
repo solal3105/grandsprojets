@@ -160,7 +160,7 @@
 
         let query = supabaseClient
           .from('contribution_uploads')
-          .select('id, project_name, category, geojson_url, cover_url, markdown_url, meta, description, created_at, created_by, ville', { count: 'exact' });
+          .select('id, project_name, category, geojson_url, cover_url, markdown_url, meta, description, approved, created_at, created_by, ville', { count: 'exact' });
 
         if (category) query = query.eq('category', category);
 
@@ -260,6 +260,32 @@
         return { data };
       } catch (e) {
         console.warn('[supabaseService] updateContribution exception:', e);
+        return { error: e };
+      }
+    },
+
+    /**
+     * Met à jour le statut d'approbation d'une contribution (admin uniquement côté UI; RLS doit le faire respecter côté DB).
+     * @param {number} id
+     * @param {boolean} approved
+     * @returns {Promise<{data?:object,error?:any}>}
+     */
+    setContributionApproved: async function(id, approved) {
+      try {
+        if (!id || typeof approved !== 'boolean') return { error: new Error('invalid args') };
+        const { data, error } = await supabaseClient
+          .from('contribution_uploads')
+          .update({ approved })
+          .eq('id', id)
+          .select('id, approved')
+          .single();
+        if (error) {
+          console.warn('[supabaseService] setContributionApproved error:', error);
+          return { error };
+        }
+        return { data };
+      } catch (e) {
+        console.warn('[supabaseService] setContributionApproved exception:', e);
         return { error: e };
       }
     },
@@ -1079,6 +1105,7 @@
      * @param {File|Blob} file
      * @param {string} categoryLayer - mobilite | urbanisme | velo
      * @param {string} projectName
+     * @param {number} rowId
      * @returns {Promise<string>} publicUrl
      */
     uploadGeoJSONToStorage: async function(file, categoryLayer, projectName, rowId) {
@@ -1359,7 +1386,7 @@
      * Upload d'un contenu Markdown dans le bucket Storage 'uploads' et retourne son URL publique.
      * Le chemin est dérivé de la catégorie et d'un slug du nom de projet.
      * @param {File|Blob} fileOrBlob
-     * @param {string} categoryLayer - mobilite | urbanisme | voielyonnaise
+     * @param {string} categoryLayer - mobilite | urbanisme | velo
      * @param {string} projectName
      * @param {number} rowId
      * @returns {Promise<string>} publicUrl

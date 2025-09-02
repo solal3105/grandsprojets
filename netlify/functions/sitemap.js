@@ -14,6 +14,8 @@ exports.handler = async (event, context) => {
     // Note: table does not have updated_at; use created_at only
     url.searchParams.set('select', 'project_name,category,markdown_url,created_at');
     url.searchParams.set('order', 'created_at.desc');
+    // Only approved contributions should be indexed
+    url.searchParams.set('approved', 'eq.true');
 
     const resp = await fetch(url.toString(), {
       headers: {
