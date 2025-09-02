@@ -85,6 +85,11 @@
     .alert-error { background:#fef2f2; color:#991b1b; border:1px solid #fee2e2; padding:8px 10px; border-radius:8px; font-size:13px; margin:0 0 10px; }
     /* Affichage des résultats sur la page */
     #gresults { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:12px; padding-left:0; max-height: 360px; overflow: auto; }
+    /* Aperçu Markdown */
+    .md-preview { border:1px solid #e5e7eb; border-radius:8px; padding:12px; background:#fafafa; font-size:14px; line-height:1.55; }
+    .md-preview h1, .md-preview h2, .md-preview h3 { margin-top: 1em; }
+    .md-preview pre { background:#111827; color:#f9fafb; padding:10px; border-radius:8px; overflow:auto; }
+    .md-preview code { background:#f3f4f6; padding:2px 4px; border-radius:4px; }
     /* Modale de progression */
     .pm-status { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#6b7280; }
     .pm-status .dot { width:8px; height:8px; border-radius:999px; background:#9ca3af; display:inline-block; }
@@ -127,6 +132,9 @@
   </style>
   <!-- PDF.js pour extraire du texte des PDFs côté client -->
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <!-- Markdown renderer + sanitizer -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 </head>
 <body>
   <div class="container">
@@ -245,9 +253,25 @@
           <div>
             <div style="display:flex; align-items:center; justify-content:space-between;">
               <label class="small" for="prep-markdown">Article (Markdown)</label>
-              <button id="copy-md" type="button" class="btn secondary" style="padding:6px 10px;">Copier</button>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <button id="toggle-preview" type="button" class="btn secondary" style="padding:6px 10px;">Aperçu</button>
+                <button id="copy-md" type="button" class="btn secondary" style="padding:6px 10px;">Copier</button>
+              </div>
             </div>
             <textarea id="prep-markdown" rows="12" style="width:100%; resize:vertical; border:1px solid #e5e7eb; border-radius:8px; padding:8px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;" placeholder="Markdown généré ici"></textarea>
+            <div id="md-preview" class="md-preview" hidden aria-live="polite"></div>
+            <!-- Panneau Statistiques tokens -->
+            <div id="usage-panel" class="small" hidden style="margin-top:8px; color:#374151;">
+              <div class="pill" style="margin-bottom:6px;">Statistiques tokens</div>
+              <div id="usage-values">
+                Prompt: <span id="u-prompt">-</span> ·
+                Completion: <span id="u-completion">-</span> ·
+                Total: <span id="u-total">-</span> ·
+                Max: <span id="u-max">-</span> ·
+                Source chars: <span id="u-src-chars">-</span> ·
+                Source tokens (est.): <span id="u-src-est">-</span>
+              </div>
+            </div>
           </div>
         </div>
       </aside>
@@ -318,6 +342,16 @@
       const prepDescription = document.getElementById('prep-description');
       const prepMarkdown = document.getElementById('prep-markdown');
       const copyMdBtn = document.getElementById('copy-md');
+      const togglePreviewBtn = document.getElementById('toggle-preview');
+      const mdPreview = document.getElementById('md-preview');
+      // Panneau usage tokens
+      const usagePanel = document.getElementById('usage-panel');
+      const uPrompt = document.getElementById('u-prompt');
+      const uCompletion = document.getElementById('u-completion');
+      const uTotal = document.getElementById('u-total');
+      const uMax = document.getElementById('u-max');
+      const uSrcChars = document.getElementById('u-src-chars');
+      const uSrcEst = document.getElementById('u-src-est');
       let upCount = 0; // compteur de votes utiles
       function updateProgress(){
         const bar = document.getElementById('gprogress-bar');
@@ -711,6 +745,16 @@
           startShimmer(prepMeta);
           startShimmer(prepDescription);
           startShimmer(prepMarkdown);
+          // Masquer/vider le panneau usage avant nouvelle génération
+          if(usagePanel){
+            usagePanel.hidden = true;
+            if(uPrompt) uPrompt.textContent = '-';
+            if(uCompletion) uCompletion.textContent = '-';
+            if(uTotal) uTotal.textContent = '-';
+            if(uMax) uMax.textContent = '-';
+            if(uSrcChars) uSrcChars.textContent = '-';
+            if(uSrcEst) uSrcEst.textContent = '-';
+          }
 
           // 1) Essai via fonction Netlify locale/prod (clé côté serveur)
           try{
@@ -730,6 +774,17 @@
               }
               if(aiServer.article){
                 await typewriter(prepMarkdown, aiServer.article, 3);
+              }
+              // Remplir panneau usage si disponible
+              const u = aiServer.usage || null;
+              if(u && usagePanel){
+                if(uPrompt) uPrompt.textContent = (u.prompt_tokens ?? '-') + '';
+                if(uCompletion) uCompletion.textContent = (u.completion_tokens ?? '-') + '';
+                if(uTotal) uTotal.textContent = (u.total_tokens ?? '-') + '';
+                if(uMax) uMax.textContent = (u.max_tokens ?? '-') + '';
+                if(uSrcChars) uSrcChars.textContent = (u.source_chars ?? '-') + '';
+                if(uSrcEst) uSrcEst.textContent = (u.source_est_tokens ?? '-') + '';
+                usagePanel.hidden = false;
               }
             }
             if(pmodalGenerated) pmodalGenerated.hidden = false; // sans effet visible si modale fermée
@@ -773,6 +828,38 @@
         });
       }
 
+      // Aperçu Markdown (rendu sécurisé)
+      function renderMarkdownPreview(){
+        if(!mdPreview) return;
+        try{
+          const raw = prepMarkdown.value || '';
+          const html = window.marked ? marked.parse(raw) : raw;
+          const safe = window.DOMPurify ? DOMPurify.sanitize(html) : html;
+          mdPreview.innerHTML = safe;
+        }catch{ mdPreview.textContent = prepMarkdown.value || ''; }
+      }
+      if(togglePreviewBtn && prepMarkdown && mdPreview){
+        togglePreviewBtn.addEventListener('click', ()=>{
+          const showingPreview = !mdPreview.hasAttribute('hidden');
+          if(showingPreview){
+            // Revenir à l'édition
+            mdPreview.setAttribute('hidden','');
+            prepMarkdown.removeAttribute('hidden');
+            togglePreviewBtn.textContent = 'Aperçu';
+          } else {
+            // Afficher l'aperçu
+            renderMarkdownPreview();
+            prepMarkdown.setAttribute('hidden','');
+            mdPreview.removeAttribute('hidden');
+            togglePreviewBtn.textContent = 'Éditer';
+          }
+        });
+        // Mise à jour live de l'aperçu quand on tape (si visible)
+        prepMarkdown.addEventListener('input', ()=>{
+          if(!mdPreview.hasAttribute('hidden')) renderMarkdownPreview();
+        });
+      }
+
       // Utilitaire: récupérer/solliciter la clé OpenAI
       function getOpenAIKey(){
         try{
@@ -794,7 +881,7 @@
         });
         if(!resp.ok){ throw new Error('Netlify HTTP '+resp.status); }
         const data = await resp.json();
-        return { meta: data.meta || '', description: data.description || '', article: data.article || data.markdown || '' };
+        return { meta: data.meta || '', description: data.description || '', article: data.article || data.markdown || '', usage: data.usage || null };
       }
 
       // Appel OpenAI (client) pour générer { meta <=150, description <=450 (texte), article Markdown long }

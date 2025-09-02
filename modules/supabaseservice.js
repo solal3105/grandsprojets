@@ -406,6 +406,7 @@
       let q = supabaseClient
         .from('contribution_uploads')
         .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
+        .eq('approved', true)
         .order('created_at', { ascending: false });
       if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
       const { data, error } = await q;
@@ -426,6 +427,7 @@
         .from('contribution_uploads')
         .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
         .eq('category', 'urbanisme')
+        .eq('approved', true)
         .order('created_at', { ascending: false });
       if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
       const { data, error } = await q;
@@ -446,6 +448,7 @@
         .from('contribution_uploads')
         .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
         .eq('category', 'mobilite')
+        .eq('approved', true)
         .order('created_at', { ascending: false });
       if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
       const { data, error } = await q;
@@ -466,6 +469,7 @@
         .from('contribution_uploads')
         .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
         .eq('category', 'velo')
+        .eq('approved', true)
         .order('created_at', { ascending: false });
       if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
       const { data, error } = await q;
@@ -487,6 +491,7 @@
         .from('contribution_uploads')
         .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
         .eq('category', category)
+        .eq('approved', true)
         .order('created_at', { ascending: false });
       if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
       const { data, error } = await q;
@@ -511,6 +516,7 @@
           .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, official_url')
           .eq('category', category)
           .eq('project_name', projectName)
+          .eq('approved', true)
           .limit(1)
           .maybeSingle();
         if (error) {
