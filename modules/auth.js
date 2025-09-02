@@ -1,5 +1,4 @@
 // modules/auth.js
-import { SUPABASE_URL, SUPABASE_KEY } from '../config.js';
 ;(function(win){
   if (!win.supabase) {
     console.error('[AuthModule] Supabase CDN not loaded. Load @supabase/supabase-js before auth.js');
@@ -7,6 +6,8 @@ import { SUPABASE_URL, SUPABASE_KEY } from '../config.js';
   }
 
   // Same project as other modules
+  const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
   const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   const AuthModule = {
