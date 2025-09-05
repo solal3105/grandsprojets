@@ -179,6 +179,15 @@
   }
 
   function initTheme() {
+    // Si l'utilisateur a déjà une préférence explicite, l'appliquer
+    try {
+      const stored = localStorage.getItem('theme');
+      if (stored === 'dark' || stored === 'light') {
+        applyTheme(stored);
+        return;
+      }
+    } catch (_) {}
+    // Sinon, utiliser la préférence système
     const initial = getInitialTheme();
     applyTheme(initial);
   }
@@ -196,6 +205,8 @@
 
   function startOSThemeSync() {
     try {
+      // Ne pas synchroniser avec l'OS si l'utilisateur a choisi un thème explicite
+      if (hasSavedPreference()) return;
       if (!win.matchMedia) return;
       if (!osThemeMediaQuery) {
         osThemeMediaQuery = win.matchMedia('(prefers-color-scheme: dark)');
@@ -390,10 +401,11 @@
       }).join('');
       // Propose city highlighted card
       const propose = `
-        <div id="propose-city-card" class="propose-city-card" role="button" tabindex="0" aria-label="Proposer une ville">
+        <div id="propose-city-card" class="propose-city-card" role="button" tabindex="0" aria-label="Proposer une collectivité">
           <div class="city-logo"><i class="fas fa-plus" aria-hidden="true"></i></div>
           <div class="city-text">
-            <div class="city-name">Proposer une ville</div>
+            <div class="city-name">Proposer une collectivité</div>
+            <div class="city-subline">Utilisez grandsprojets pour valoriser vos politiques locales en marque blanche</div>
           </div>
         </div>`;
       // City grid
@@ -818,7 +830,9 @@
           syncBasemapToTheme(next);
           // Actualiser le logo (dark vs light)
           updateLogoForCity(win.activeCity);
-          // Rester en mode automatique: ne pas persister ni arrêter la synchro OS
+          // Persister le choix utilisateur et désactiver la synchro OS
+          try { localStorage.setItem('theme', next); } catch(_) {}
+          try { stopOSThemeSync(); } catch(_) {}
         });
 
         // Accessibilité clavier: Enter/Space pour activer le bouton

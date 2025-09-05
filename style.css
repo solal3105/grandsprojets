@@ -3305,6 +3305,18 @@ svg path:focus {
   font-size: 1.1em;
 }
 
+/* Dark mode: improve icon contrast on top-right round toggles */
+html[data-theme='dark'] .search-toggle i,
+html[data-theme='dark'] .location-toggle i,
+html[data-theme='dark'] .info-toggle i,
+html[data-theme='dark'] .theme-toggle i,
+html[data-theme='dark'] .city-toggle i,
+html[data-theme='dark'] .basemap-toggle i,
+html[data-theme='dark'] #filters-toggle i,
+html[data-theme='dark'] .filters-toggle i {
+  color: #e5e7eb; /* Tailwind zinc-200 like */
+}
+
 .search-toggle:hover,
 .location-toggle:hover,
 .info-toggle:hover,
@@ -4954,7 +4966,10 @@ html[data-theme='dark'] #contrib-overlay .contrib-searchbar input[type="text"]::
   top: 56px;
   z-index: 1000;
   width: min(560px, 92vw);
-  background: var(--panel-solid, #fff);
+  /* Translucent background to enable backdrop blur */
+  background: rgba(255,255,255,0.65);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   border: 1px solid rgba(2,6,23,0.08);
   border-radius: 14px;
   box-shadow: 0 18px 42px rgba(2,6,23,0.12);
@@ -4985,7 +5000,8 @@ html[data-theme='dark'] #contrib-overlay .contrib-searchbar input[type="text"]::
 
 .city-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* 2 columns grid as requested */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 @media (max-width: 520px) {
@@ -5026,6 +5042,11 @@ html[data-theme='dark'] #contrib-overlay .contrib-searchbar input[type="text"]::
 }
 .city-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .city-logo i { font-size: 20px; opacity: .7; color: #334155; }
+.city-subline { color: #1e3a8a; }
+
+/* Dark mode: improve icon and subline contrast inside city cards */
+html[data-theme='dark'] .city-logo i { color: #e5e7eb; opacity: .9; }
+html[data-theme='dark'] .city-subline { color: #cbd5e1; }
 .city-name { font-weight: 650; font-size: 15px; color: #0f172a; }
 
 /* Disabled state: greyed cards */
@@ -5074,14 +5095,44 @@ html[data-theme='dark'] #contrib-overlay .contrib-searchbar input[type="text"]::
   color: #1d4ed8;
   cursor: pointer;
   transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
+  position: relative;
+  overflow: hidden;
 }
 .propose-city-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(29,78,216,0.16); border-color: #3b82f6; }
 .propose-city-card .city-logo { background: rgba(96,165,250,0.18); color: #1e3a8a; }
 .propose-city-card .city-name { color: #1e40af; }
+/* Subline for propose card */
+.propose-city-card .city-subline {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #1e3a8a;
+  opacity: .85;
+}
+/* Shimmer animation on hover */
+.propose-city-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -40%;
+  width: 40%; height: 100%;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.45) 50%, rgba(255,255,255,0) 100%);
+  transform: skewX(-20deg);
+  opacity: 0;
+  pointer-events: none;
+}
+.propose-city-card:hover::before {
+  animation: cityShimmer 0.9s ease forwards;
+}
+@keyframes cityShimmer {
+  0% { left: -40%; opacity: 0; }
+  10% { opacity: 1; }
+  100% { left: 120%; opacity: 0; }
+}
 
 /* Dark mode */
 html[data-theme='dark'] #city-menu {
-  background: rgba(255,255,255,0.06);
+  background: rgba(0,0,0,0.45);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   border-color: var(--dm-menu-border);
   box-shadow: 0 18px 42px var(--dm-menu-shadow-1), inset 0 0 0 1px rgba(255,255,255,0.06);
 }
@@ -5105,3 +5156,4 @@ html[data-theme='dark'] .propose-city-card {
 }
 html[data-theme='dark'] .propose-city-card .city-logo { background: rgba(96,165,250,0.22); color: #bfdbfe; }
 html[data-theme='dark'] .propose-city-card .city-name { color: #bfdbfe; }
+html[data-theme='dark'] .propose-city-card .city-subline { color: #93c5fd; opacity: .9; }

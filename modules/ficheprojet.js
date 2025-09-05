@@ -242,6 +242,8 @@ const FPTheme = (function(win) {
 
   function startOSThemeSync() {
     try {
+      // Si l'utilisateur a enregistré une préférence explicite, ne pas synchroniser avec l'OS
+      if (hasSavedPreference()) return;
       if (!win.matchMedia) return;
       if (!osThemeMediaQuery) {
         osThemeMediaQuery = win.matchMedia('(prefers-color-scheme: dark)');
@@ -302,9 +304,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   // marked est déjà disponible via MarkdownUtils.loadDeps()
   // Initialiser le thème le plus tôt possible
   try {
-    const __initialTheme = FPTheme.getInitialTheme();
-    FPTheme.applyTheme(__initialTheme);
-    FPTheme.startOSThemeSync();
+    // Si une préférence est sauvegardée, l'appliquer et ne pas démarrer la synchro OS
+    const stored = (function(){ try { return localStorage.getItem('theme'); } catch(_) { return null; } })();
+    if (stored === 'dark' || stored === 'light') {
+      FPTheme.applyTheme(stored);
+    } else {
+      const __initialTheme = FPTheme.getInitialTheme();
+      FPTheme.applyTheme(__initialTheme);
+      FPTheme.startOSThemeSync();
+    }
   } catch(_) {}
   // 1. Récupération de la config depuis l'article (avec trim)
   const article      = document.getElementById('project-article');
@@ -426,7 +434,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const next = current === 'dark' ? 'light' : 'dark';
       FPTheme.applyTheme(next);
       FPTheme.syncBasemapToTheme(next);
-      // Rester en mode automatique: ne pas persister ni arrêter la synchro OS
+      // Persister le choix et arrêter la synchro OS
+      try { localStorage.setItem('theme', next); } catch(_) {}
+      try { FPTheme.stopOSThemeSync(); } catch(_) {}
     });
     // Accessibilité clavier
     btn.addEventListener('keydown', (e) => {
@@ -1398,28 +1408,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     iconAnchor: [14, 14]
   });
   
-  // Gestion d'affichage des marqueurs caméra: toujours visibles (pas de min zoom)
-  const __cameraMarkers = new Set();
-  function updateCameraMarkersVisibility() {
+  // --- Helpers (architecture simplifiée) -------------------------------------
+  // 1) Résout l'URL image et le titre à partir des properties d'une feature
+  function resolveImageForFeature(props = {}) {
     try {
-      __cameraMarkers.forEach(mk => {
-        const onMap = map.hasLayer(mk);
-        if (!onMap) {
-          try {
-            if (typeof geoLayerRef?.addLayer === 'function') {
-              geoLayerRef.addLayer(mk);
-            } else {
-              mk.addTo(map);
-            }
-          } catch(_) { mk.addTo(map); }
-        }
-      });
-    } catch(_) {}
+      const imgUrl = props.imgUrl || '';
+      const title = props.titre || props.title || props.name || props.nom || '';
+      return { imgUrl: String(imgUrl || '').trim(), title: String(title || '').trim() };
+    } catch (_) {
+      return { imgUrl: '', title: '' };
+    }
   }
-  
-  // Helper: affichage plein écran avec blur (comme les covers)
-  // Ouvre une lightbox avec l'image en grand, un fond flouté et une croix de fermeture
-  function openImageLightbox(imgUrl, title = '') {
+
+  // 2) Construit un HTML simple et robuste pour le popup d'aperçu (image + titre)
+  function buildCameraPopupHtml(imgUrl, title = '') {
+    const safeUrl = String(imgUrl || '').trim();
+    // Masquer le texte dans le popup (aucun titre). Ajouter une ombre plus marquée derrière l'image
+    return `
+      <div class="map-photo" style="max-width:260px">
+        <img src="${safeUrl}" alt="photo" style="max-width:260px;max-height:180px;display:block;border-radius:8px;box-shadow:0 12px 32px rgba(0,0,0,0.45)" />
+      </div>`;
+  }
+
+  // 3) Détails "marker-level" (pas les properties du GeoJSON): coordonnées, type d'icône, data custom éventuelle
+  function buildMarkerDetailsHtml(layer) {
+    try {
+      const latlng = (typeof layer.getLatLng === 'function') ? layer.getLatLng() : null;
+      const coord = latlng ? `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}` : 'N/A';
+      const iconHtml = layer?.options?.icon?.options?.html || '';
+      const esc = (v) => String(v).replace(/[&<>]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+      return `
+        <div class="fp-marker-details" style="background:rgba(0,0,0,0.55);color:#fff;margin-top:8px;padding:10px;border-radius:8px;max-width:90vw">
+          <div style="font-weight:600;margin-bottom:6px">Détails du marqueur</div>
+          <div class="fp-prop-row"><div class="fp-prop-key">Coordonnées</div><div class="fp-prop-val">${coord}</div></div>
+          <div class="fp-prop-row"><div class="fp-prop-key">Icône</div><div class="fp-prop-val">${esc(iconHtml) || 'divIcon'}</div></div>
+        </div>`;
+    } catch(_) { return ''; }
+  }
+  function openImageLightbox(imgUrl, title = '', detailsHtml = '') {
     try {
       // Créer l'overlay une seule fois
       if (!window.__fpLightbox) {
@@ -1453,7 +1479,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const img = document.createElement('img');
         img.alt = title || 'image';
-        img.style.cssText = 'display:block;max-width:90vw;max-height:90vh;object-fit:contain;';
+        // Masquer tout texte dans la lightbox: l'image seule avec une ombre généreuse
+        img.style.cssText = 'display:block;max-width:90vw;max-height:85vh;object-fit:contain;box-shadow:0 24px 72px rgba(0,0,0,0.6)';
+
+        const details = document.createElement('div');
+        details.innerHTML = detailsHtml || '';
+        details.style.cssText = 'max-width:90vw;';
 
         const close = document.createElement('button');
         close.type = 'button';
@@ -1479,13 +1510,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.getElementById('fp-img-lightbox')) overlay.remove(); });
 
         box.appendChild(img);
+        // Ne pas afficher de bloc de texte/détails dans la lightbox
         box.appendChild(close);
         overlay.appendChild(box);
         window.__fpLightbox = overlay;
         window.__fpLightboxImg = img;
+        window.__fpLightboxDetails = details;
       }
 
       window.__fpLightboxImg.src = imgUrl;
+      if (window.__fpLightboxDetails) {
+        window.__fpLightboxDetails.innerHTML = detailsHtml || '';
+        if (!detailsHtml && window.__fpLightboxDetails.parentElement) {
+          try { window.__fpLightboxDetails.parentElement.removeChild(window.__fpLightboxDetails); } catch(_) {}
+        }
+      }
       document.body.appendChild(window.__fpLightbox);
     } catch (e) {
       console.warn('Lightbox error:', e);
@@ -1683,20 +1722,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Conserver pour l'aperçu dans la carte (mobile)
       try { window.__fpGeoPreview = data; } catch(_) {}
 
-      // Nettoyage: retirer l'ancienne couche et les anciens marqueurs caméra
+      // Nettoyage: retirer l'ancienne couche
       try {
         if (geoLayerRef && map && typeof map.removeLayer === 'function' && map.hasLayer(geoLayerRef)) {
           map.removeLayer(geoLayerRef);
         }
       } catch(_) {}
-      try {
-        __cameraMarkers.forEach(mk => {
-          try { if (map.hasLayer(mk)) map.removeLayer(mk); } catch(_) {}
-        });
-        __cameraMarkers.clear();
-      } catch(_) {}
 
       const geoLayer = L.geoJSON(data, {
+        // Masquer les points (markers) qui n'ont pas de properties.imgUrl
+        filter: (feature) => {
+          try {
+            const gtype = feature?.geometry?.type || '';
+            const isPoint = /Point$/i.test(gtype);
+            if (!isPoint) return true; // ne pas filtrer lignes/polygones
+            const props = feature && feature.properties ? feature.properties : {};
+            return !!props.imgUrl; // n'afficher que les points avec imgUrl
+          } catch(_) { return true; }
+        },
         style: (feature) => {
           // Base: style provenant de la configuration de la couche (Supabase)
           const base = (layerConfig && layerConfig.style) ? layerConfig.style : {};
@@ -1742,12 +1785,9 @@ document.addEventListener('DOMContentLoaded', async () => {
               console.debug('[FicheProjet][debug] Création marker caméra', {
                 latlng,
                 geomType: feature?.geometry?.type || null,
-                id: feature?.properties?.id || feature?.properties?.gid || feature?.properties?.objectid || null,
-                hasImgUrl: !!feature?.properties?.imgUrl,
-                hasCoverUrl: !!feature?.properties?.cover_url
+                id: feature?.properties?.id || feature?.properties?.gid || feature?.properties?.objectid || null
               });
             } catch(_) {}
-            try { __cameraMarkers.add(mk); } catch(_) {}
             return mk;
           } catch (_) {
             // Fallback si jamais Marker échoue pour une raison quelconque
@@ -1756,24 +1796,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         onEachFeature: async (feature, layer) => {
           console.log('Feature chargée:', feature);
-          if (window.DataModule?.bindFeatureEvents) {
-            window.DataModule.bindFeatureEvents(layer, feature, geoLayer, layerName);
-          }
+          // Intégration DataModule retirée pour cette partie: les marqueurs caméra sont autonomes
 
-          // Log console au clic + popup image (hover & clic) si props.imgUrl
+          // Log console au clic + popup image (hover & clic) selon URL résolue
           try {
             if (!layer.__fpPhotoBound) {
               layer.__fpPhotoBound = true;
               const props = (feature && feature.properties) || {};
-              try {
-                console.debug('[FicheProjet][debug] Propriétés de la feature', {
-                  keys: Object.keys(props || {}),
-                  id: props.id || props.gid || props.objectid || null,
-                  name: props.name || props.nom || props.titre || null,
-                  hasImgUrl: !!props.imgUrl,
-                  hasCoverUrl: !!props.cover_url
-                });
-              } catch(_) {}
+              try { console.debug('[FicheProjet][debug] Propriétés de la feature', { keys: Object.keys(props || {}), id: props.id || props.gid || props.objectid || null, name: props.name || props.nom || props.titre || null }); } catch(_) {}
               const logClick = () => {
                 console.log('[FicheProjet] Click sur feature', {
                   layer: layerName,
@@ -1784,30 +1814,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
               };
 
-              const imgUrl = props.imgUrl || props.cover_url; // fallback sur cover_url des contributions
-              try {
-                console.debug('[FicheProjet][debug] Sélection URL image', {
-                  chosen: imgUrl || null,
-                  from: props.imgUrl ? 'imgUrl' : (props.cover_url ? 'cover_url' : 'none')
-                });
-              } catch(_) {}
+              const { imgUrl, title } = resolveImageForFeature(props);
+              try { console.debug('[FicheProjet][debug] Sélection URL image', { chosen: imgUrl || null }); } catch(_) {}
               if (imgUrl) {
-                const title = props.titre || props.title || props.name || props.nom || '';
-                const dmHtml = (window.DataModule && typeof window.DataModule.generateTooltipContent === 'function')
-                  ? await window.DataModule.generateTooltipContent(feature, layerName, 'cover')
-                  : `
-                    <div class="map-photo" style="max-width:260px">
-                      <img src="${imgUrl}" alt="photo" style="max-width:260px;max-height:180px;display:block;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.35)" />
-                      ${title ? `<div style=\"margin-top:6px;font-weight:500;color:#333\">${title}</div>` : ''}
-                    </div>
-                  `;
-                try {
-                  console.debug('[FicheProjet][debug] Contenu popup généré', {
-                    via: (window.DataModule && typeof window.DataModule.generateTooltipContent === 'function') ? 'DataModule.generateTooltipContent' : 'fallback-inline',
-                    length: (dmHtml && typeof dmHtml === 'string') ? dmHtml.length : null
-                  });
-                } catch(_) {}
-                const ensurePopup = () => { try { layer.bindPopup(dmHtml, { autoPan: true, closeButton: true, maxWidth: 300 }); } catch(_) {} };
+                // Toujours utiliser le popup minimal pour simplicité et robustesse
+                const popupHtml = buildCameraPopupHtml(imgUrl, title);
+
+                const ensurePopup = () => { try { layer.bindPopup(popupHtml, { autoPan: true, closeButton: true, maxWidth: 300 }); } catch(_) {} };
                 const openPopup = () => { ensurePopup(); try { layer.openPopup(); } catch(_) {} };
                 const closePopup = () => { try { layer.closePopup(); } catch(_) {} };
 
@@ -1815,13 +1828,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 layer.on('mouseout',  () => { try { console.debug('[FicheProjet][debug] mouseout: fermeture popup'); } catch(_) {} closePopup(); });
                 layer.on('click', () => {
                   logClick();
-                  const open = window.DataModule?.openCoverLightbox || openImageLightbox;
                   try { console.debug('[FicheProjet][debug] click: ouverture lightbox', { title, imgUrl }); } catch(_) {}
-                  try { open(imgUrl, title); } catch(_) { openImageLightbox(imgUrl, title); }
+                  openImageLightbox(imgUrl, title, buildMarkerDetailsHtml(layer));
                 });
               } else {
                 // Pas d'image: on log seulement au clic
-                try { console.warn('[FicheProjet][debug] Aucune image pour la feature: ni props.imgUrl ni props.cover_url'); } catch(_) {}
+                try { console.warn('[FicheProjet][debug] Aucune image pour la feature: imgUrl manquant'); } catch(_) {}
                 layer.on('click', logClick);
               }
             }
@@ -1830,9 +1842,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }).addTo(map);
       // Conserver une référence pour recentrage (map-toggle)
       try { geoLayerRef = geoLayer; } catch(_) {}
-      // S'assurer que les marqueurs caméra sont visibles (sans contrainte de zoom)
-    try { map.off('zoomend', updateCameraMarkersVisibility); } catch(_) {}
-    try { updateCameraMarkersVisibility(); } catch(_) {}
+      // Les marqueurs caméra sont gérés par la couche elle-même (pas de gestion de visibilité additionnelle)
       // S'assurer que la couche est au-dessus des fonds et autres couches
       try { geoLayer.bringToFront(); } catch(_) {}
       // Ajuster la vue initiale sur l'objet affiché
