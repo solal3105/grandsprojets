@@ -247,6 +247,14 @@
     }
   }
 
+  // Raw helpers to detect explicit intent even if invalid
+  function getRawCityFromQueryParam() {
+    try {
+      const sp = new URLSearchParams(location.search);
+      return String(sp.get('city') || '').toLowerCase().trim();
+    } catch (_) { return ''; }
+  }
+
   // --- Helpers de persistance et détection de ville ---
   // Sera alimenté dynamiquement par la base (city_branding/layers/contribution_uploads)
   let VALID_CITIES = new Set();
@@ -262,6 +270,13 @@
     } catch (_) { return ''; }
   }
 
+  function getRawCityFromPathRaw(pathname) {
+    try {
+      const path = String(pathname || location.pathname || '').toLowerCase();
+      return path.split('?')[0].split('#')[0].split('/').filter(Boolean)[0] || '';
+    } catch (_) { return ''; }
+  }
+
   function persistCity(city) {
     try { if (isValidCity(city)) localStorage.setItem('activeCity', city); } catch (_) {}
   }
@@ -271,6 +286,11 @@
       const v = localStorage.getItem('activeCity');
       return isValidCity(v) ? v : '';
     } catch (_) { return ''; }
+  }
+
+  // Supprime la ville persistée quand elle est absente ou invalide
+  function clearPersistedCity() {
+    try { localStorage.removeItem('activeCity'); } catch (_) {}
   }
 
   // Charge dynamiquement les villes valides depuis la base
@@ -286,11 +306,8 @@
 
   // Ville par défaut dynamique à partir de VALID_CITIES
   function getDefaultCity() {
-    try {
-      const it = VALID_CITIES.values();
-      const first = it.next();
-      return first && !first.done ? first.value : '';
-    } catch (_) { return ''; }
+    // Suppression de la notion de ville par défaut: aucune ville si rien n'est précisé
+    return '';
   }
 
   function resolveActiveCity() {
@@ -299,7 +316,8 @@
     const queryCity = getCityFromQuery('');
     if (queryCity) return queryCity;
     const saved = restoreCity();
-    return saved || getDefaultCity();
+    // Ne plus retomber sur une ville par défaut; si rien n'est valide, aucune ville active
+    return saved;
   }
 
   // Set initial map view per city using DB-provided branding (safe no-op if unavailable)
@@ -357,27 +375,68 @@
         const displayName = (b.brand_name && b.brand_name.trim()) ? b.brand_name : (c.charAt(0).toUpperCase() + c.slice(1));
         const logo = (document.documentElement.getAttribute('data-theme') === 'dark' && b.dark_logo_url) ? b.dark_logo_url : (b.logo_url || '');
         const logoImg = logo ? `<img src="${logo}" alt="${displayName} logo" loading="lazy" />` : `<i class=\"fas fa-city\" aria-hidden=\"true\"></i>`;
+        // Disable interaction: coming soon
         return (
-          `<button class="city-item${isActive ? ' active' : ''}" data-city="${c}" role="menuitem" aria-label="${displayName}">`+
+          `<button class="city-item${isActive ? ' active' : ''} is-disabled" data-city="${c}" role="menuitem" aria-label="${displayName}" aria-disabled="true" disabled tabindex="-1" style="pointer-events:none; cursor:not-allowed;">`+
             `<div class="city-card">`+
               `<div class="city-logo">${logoImg}</div>`+
               `<div class="city-text">`+
                 `<div class="city-name">${displayName}</div>`+
-                `<div class="city-slug">${c}</div>`+
+                `<div class="city-soon">Bientôt disponible</div>`+
               `</div>`+
             `</div>`+
           `</button>`
         );
       }).join('');
-      menu.innerHTML = btns;
-      menu.querySelectorAll('button.city-item').forEach((btn) => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const next = btn.getAttribute('data-city');
-          selectCity(next);
+      // Propose city highlighted card
+      const propose = `
+        <div id="propose-city-card" class="propose-city-card" role="button" tabindex="0" aria-label="Proposer une ville">
+          <div class="city-logo"><i class="fas fa-plus" aria-hidden="true"></i></div>
+          <div class="city-text">
+            <div class="city-name">Proposer une ville</div>
+          </div>
+        </div>`;
+      // City grid
+      const grid = `<div class="city-grid" role="menu" aria-label="Villes disponibles (bientôt)">${btns}</div>`;
+      menu.innerHTML = propose + grid;
+      // Attach handler for propose-city card
+      const proposeCard = document.getElementById('propose-city-card');
+      if (proposeCard) {
+        const open = (e) => { e.stopPropagation(); openProposeCityModal(); };
+        proposeCard.addEventListener('click', open);
+        proposeCard.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e); }
         });
-      });
+      }
     } catch (_) { /* noop */ }
+  }
+
+  function openProposeCityModal() {
+    const overlay = document.getElementById('propose-city-overlay');
+    if (!overlay) return;
+    overlay.style.display = 'flex';
+    overlay.setAttribute('aria-hidden', 'false');
+    try { document.body.style.overflow = 'hidden'; } catch (_) {}
+    // Close button
+    const closeBtn = document.getElementById('propose-city-close');
+    if (closeBtn && !closeBtn._agp_bound) {
+      closeBtn.addEventListener('click', closeProposeCityModal);
+      closeBtn._agp_bound = true;
+    }
+    // Click outside to close
+    const onOverlayClick = (ev) => { if (ev.target === overlay) closeProposeCityModal(); };
+    overlay.addEventListener('click', onOverlayClick, { once: true });
+    // Escape key
+    const onKey = (ev) => { if (ev.key === 'Escape') { closeProposeCityModal(); } };
+    document.addEventListener('keydown', onKey, { once: true });
+  }
+
+  function closeProposeCityModal() {
+    const overlay = document.getElementById('propose-city-overlay');
+    if (!overlay) return;
+    overlay.style.display = 'none';
+    overlay.setAttribute('aria-hidden', 'true');
+    try { document.body.style.overflow = ''; } catch (_) {}
   }
 
   function openCityMenu() {
@@ -490,10 +549,30 @@
       })();
 
       // Déterminer la ville active (priorité: chemin > query > localStorage > défaut)
+      // Avant toute chose: si l'utilisateur a fourni une ville explicite (query/path) mais invalide, on nettoie.
+      const rawQueryCity = getRawCityFromQueryParam();
+      const rawPathCity  = getRawCityFromPathRaw();
+      const hasExplicitCity = !!(rawQueryCity || rawPathCity);
+      if ((rawQueryCity && !isValidCity(rawQueryCity)) || (rawPathCity && !isValidCity(rawPathCity))) {
+        clearPersistedCity();
+      } else if (!hasExplicitCity) {
+        // Aucun choix explicite → éviter de conserver une ancienne valeur potentiellement obsolète
+        clearPersistedCity();
+      }
+
       const city = resolveActiveCity();
       win.activeCity = city;
-      // Persister si différent de la valeur sauvegardée
-      try { if (restoreCity() !== city) persistCity(city); } catch (_) {}
+      // Persistance/Nettoyage:
+      // - Si ville valide ET explicitement demandée (query/path) -> persister
+      // - Si ville valide mais par défaut -> ne pas persister
+      // - Si invalide/vide -> nettoyer
+      try {
+        if (city && isValidCity(city)) {
+          if (hasExplicitCity && restoreCity() !== city) persistCity(city);
+        } else {
+          clearPersistedCity();
+        }
+      } catch (_) {}
       // Update logos to match current city branding
       updateLogoForCity(city);
       // Init City toggle UI and menu
