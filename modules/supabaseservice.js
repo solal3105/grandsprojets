@@ -165,7 +165,12 @@
         if (category) query = query.eq('category', category);
 
         const activeCity = city || getActiveCity();
-        if (activeCity) query = query.or(`ville.eq.${activeCity},ville.is.null`);
+        if (activeCity) {
+          query = query.eq('ville', activeCity);
+        } else {
+          // Si aucune ville active, ne montrer que les projets globaux (ville IS NULL)
+          query = query.is('ville', null);
+        }
 
         if (search && search.trim()) {
           const s = search.trim();
@@ -444,7 +449,12 @@
       } catch(_) {
         q = q.eq('approved', true);
       }
-      if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
+      if (activeCity) {
+        q = q.eq('ville', activeCity);
+      } else {
+        // Pas de ville sélectionnée → projets globaux uniquement
+        q = q.is('ville', null);
+      }
       const { data, error } = await q;
       if (error) {
         console.error('fetchAllProjects error:', error);
@@ -475,7 +485,11 @@
       } catch(_) {
         q = q.eq('approved', true);
       }
-      if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
+      if (activeCity) {
+        q = q.eq('ville', activeCity);
+      } else {
+        q = q.is('ville', null);
+      }
       const { data, error } = await q;
       if (error) {
         console.error('fetchUrbanismeProjects error:', error);
@@ -506,7 +520,11 @@
       } catch(_) {
         q = q.eq('approved', true);
       }
-      if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
+      if (activeCity) {
+        q = q.eq('ville', activeCity);
+      } else {
+        q = q.is('ville', null);
+      }
       const { data, error } = await q;
       if (error) {
         console.error('fetchMobiliteProjects error:', error);
@@ -537,7 +555,11 @@
       } catch(_) {
         q = q.eq('approved', true);
       }
-      if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
+      if (activeCity) {
+        q = q.eq('ville', activeCity);
+      } else {
+        q = q.is('ville', null);
+      }
       const { data, error } = await q;
       if (error) {
         console.error('fetchVoielyonnaiseProjects error:', error);
@@ -569,7 +591,11 @@
       } catch(_) {
         q = q.eq('approved', true);
       }
-      if (activeCity) q = q.or(`ville.eq.${activeCity},ville.is.null`);
+      if (activeCity) {
+        q = q.eq('ville', activeCity);
+      } else {
+        q = q.is('ville', null);
+      }
       const { data, error } = await q;
       if (error) {
         console.error('fetchProjectsByCategory error:', error);

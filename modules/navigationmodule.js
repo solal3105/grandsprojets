@@ -4,6 +4,7 @@ const NavigationModule = (() => {
 
   // Utilitaire pour normaliser les chaînes
   function normalizeString(str) {
+
     // Vérification explicite du type
     if (str === null || str === undefined) return "";
     
@@ -27,6 +28,28 @@ const NavigationModule = (() => {
       .replace(/\s+/g, ' ')
       .trim()
       .toLowerCase();
+  }
+
+  // Comparateur naturel pour les libellés avec numéro en fin (ex: "Voie Lyonnaise 2" < "Voie Lyonnaise 10")
+  function naturalCompareByName(aName, bName) {
+    const a = (aName || '').toString();
+    const b = (bName || '').toString();
+    const rx = /(\d+)\s*$/;
+    const am = a.match(rx);
+    const bm = b.match(rx);
+    const abase = a.replace(rx, '').trim();
+    const bbase = b.replace(rx, '').trim();
+    // D'abord comparer le préfixe textuel (insensible à la casse/accents)
+    const baseCmp = abase.localeCompare(bbase, 'fr', { sensitivity: 'base' });
+    if (baseCmp !== 0) return baseCmp;
+    // Si même préfixe, comparer les numéros finaux s'ils existent tous les deux
+    if (am && bm) {
+      const ai = parseInt(am[1], 10);
+      const bi = parseInt(bm[1], 10);
+      if (ai !== bi) return ai - bi;
+    }
+    // Sinon, fallback sur la comparaison locale complète
+    return a.localeCompare(b, 'fr', { sensitivity: 'base' });
   }
 
   // Fonction utilitaire pour ajuster la vue de la carte
@@ -247,7 +270,7 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
     const description = contributionProject?.description || attrs.description;
     if(description) body+=`<p class="project-description">${description}</p>`;
 
-    const icons={velo:'fa-bicycle',mobilite:'fa-bus-simple',transport:'fa-bus-simple',urbanisme:'fa-city'};
+    const icons={velo:'fa-bicycle',mobilite:'fa-train-tram',transport:'fa-train-tram',urbanisme:'fa-building'};
 
     // 1) Utiliser la route dynamique pour la fiche complète
     let fullPageUrl = null;
@@ -862,8 +885,11 @@ projectDetailPanel.classList.add('visible');
     try {
       // Récupérer uniquement les projets de mobilité depuis contribution_uploads
       const mobiliteProjects = await window.supabaseService.fetchMobiliteProjects();
+      // Tri alphabétique (FR, insensible à la casse/accents)
+      const sorted = (Array.isArray(mobiliteProjects) ? mobiliteProjects.slice() : [])
+        .sort((a, b) => naturalCompareByName(a?.project_name, b?.project_name));
       
-      mobiliteProjects.forEach(contributionProject => {
+      sorted.forEach(contributionProject => {
         const projectItem = {
           name: contributionProject.project_name,
           category: contributionProject.category,
@@ -890,8 +916,11 @@ projectDetailPanel.classList.add('visible');
     try {
       // Récupérer les projets de voie lyonnaise depuis contribution_uploads
       const voielyonnaiseProjects = await window.supabaseService.fetchVoielyonnaiseProjects();
+      // Tri alphabétique (FR, insensible à la casse/accents)
+      const sorted = (Array.isArray(voielyonnaiseProjects) ? voielyonnaiseProjects.slice() : [])
+        .sort((a, b) => naturalCompareByName(a?.project_name, b?.project_name));
       
-      voielyonnaiseProjects.forEach(contributionProject => {
+      sorted.forEach(contributionProject => {
         const projectItem = {
           name: contributionProject.project_name,
           category: contributionProject.category,
@@ -919,8 +948,11 @@ projectDetailPanel.classList.add('visible');
     try {
       // Récupérer les projets d'urbanisme depuis contribution_uploads
       const urbanismeProjects = await window.supabaseService.fetchUrbanismeProjects();
+      // Tri alphabétique (FR, insensible à la casse/accents)
+      const sorted = (Array.isArray(urbanismeProjects) ? urbanismeProjects.slice() : [])
+        .sort((a, b) => naturalCompareByName(a?.project_name, b?.project_name));
       
-      urbanismeProjects.forEach(contributionProject => {
+      sorted.forEach(contributionProject => {
         const projectItem = {
           name: contributionProject.project_name,
           category: contributionProject.category,
@@ -1068,6 +1100,7 @@ projectDetailPanel.classList.add('visible');
         iconClass = "fas fa-train-tram";
         break;
       case 'voielyonnaise':
+      case 'velo':
         iconClass = "fas fa-bicycle";
         break;
       case 'urbanisme':
@@ -1085,7 +1118,7 @@ projectDetailPanel.classList.add('visible');
       pcClass = 'pc-bus';
     } else if (iconClass === "fas fa-bicycle") {
       pcClass = 'pc-velo';
-    } else if (iconClass === "fas fa-city") {
+    } else if (iconClass === "fas fa-building") {
       pcClass = 'pc-urbanisme';
     } else {
       pcClass = 'pc-default';
