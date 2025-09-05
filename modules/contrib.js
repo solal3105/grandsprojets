@@ -155,6 +155,8 @@
     const addDocBtn = document.getElementById('contrib-doc-add');
     const docsFieldset = document.getElementById('contrib-docs');
     const existingDocsEl = document.getElementById('contrib-existing-docs');
+    // Flag to ensure we load the city code list only at Step 1 and only once
+    let citiesPopulatedOnce = false;
 
     // Geometry input UI elements
     const geomModeFieldset = document.getElementById('contrib-geom-mode');
@@ -552,6 +554,11 @@
 
       // Met à jour uniquement l'état visuel du stepper (classes)
       // La barre de progression dédiée a été retirée pour privilégier le stepper existant
+
+      // Charger le code collectivité UNIQUEMENT à l'étape 1, et une seule fois
+      if (currentStep === 1 && !citiesPopulatedOnce) {
+        try { populateCities(); citiesPopulatedOnce = true; } catch(_) {}
+      }
 
       // Assurer l'initialisation de la carte et des contrôles de dessin dès l'entrée en étape 2
       if (currentStep === 2) {
@@ -1565,7 +1572,17 @@
         if (officialInput) officialInput.value = row.official_url || '';
       } catch(_) {}
       if (citySel && row && row.ville) {
-        try { citySel.value = row.ville; } catch(_) {}
+        try {
+          const v = String(row.ville).trim();
+          // Si l'option n'existe pas encore (villes non chargées), l'ajouter de manière temporaire
+          if (!Array.from(citySel.options).some(opt => String(opt.value) === v)) {
+            const opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v;
+            citySel.appendChild(opt);
+          }
+          citySel.value = v;
+        } catch(_) {}
       }
       if (metaEl) metaEl.value = row.meta || '';
       if (descEl) descEl.value = row.description || '';
@@ -2332,7 +2349,7 @@
       form.addEventListener('submit', handleSubmit);
     }
 
-    // Populate city selector from DB and default to active city
+    // Populate city selector from DB and default to active city (called ONLY at Step 1)
     async function populateCities() {
       try {
         if (!cityEl || !win.supabaseService) return;
@@ -2368,7 +2385,7 @@
       });
     }
 
-    try { populateCities(); } catch(_) {}
+    // Ne pas charger les villes ici: cela sera fait uniquement à l'étape 1 via setStep()
 
     // Ensure tab default is Create only if landing is not visible
     // Ne pas écraser l'écran d'accueil (Créer / Modifier)
