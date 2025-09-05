@@ -21,17 +21,35 @@
     .trim()
     .toLowerCase();
 
+  // Helper: sanitizeCity → retourne '' si la ville n'est pas valide ou vide
+  function sanitizeCity(raw) {
+    try {
+      const v = String(raw || '').toLowerCase().trim();
+      if (!v) return '';
+      // Si un validateur global existe, l'utiliser
+      if (typeof win.isValidCity === 'function') {
+        return win.isValidCity(v) ? v : '';
+      }
+      // À défaut, accepter seulement [a-z-] pour éviter les valeurs numériques accidentelles
+      return (/^[a-z-]+$/i.test(v)) ? v : '';
+    } catch (_) { return ''; }
+  }
+
   // Helper: get active city with delegation to global resolver when available
   const getActiveCity = () => {
     try {
       if (typeof win.getActiveCity === 'function') {
         const v = win.getActiveCity();
-        if (v && String(v).trim()) return String(v).trim();
+        const s = sanitizeCity(v);
+        if (s) return s;
       }
-      if (win.activeCity && String(win.activeCity).trim()) return String(win.activeCity).trim();
+      if (win.activeCity && String(win.activeCity).trim()) {
+        const s = sanitizeCity(win.activeCity);
+        if (s) return s;
+      }
       const url = new URL(win.location.href);
       const c = url.searchParams.get('city');
-      return c && c.trim() ? c.trim() : '';
+      return sanitizeCity(c);
     } catch (_) { return ''; }
   };
 
@@ -164,7 +182,7 @@
 
         if (category) query = query.eq('category', category);
 
-        const activeCity = city || getActiveCity();
+        const activeCity = sanitizeCity(city) || getActiveCity();
         if (activeCity) {
           query = query.eq('ville', activeCity);
         } else {
@@ -1381,7 +1399,10 @@
         const baseRow = {
           project_name: projectName,
           category,
-          ville: (city && String(city).trim()) ? String(city).trim() : null,
+          ville: (function(){
+            const s = sanitizeCity(city);
+            return s ? s : null;
+          })(),
           meta: (meta && meta.trim()) ? meta.trim() : null,
           description: (description && description.trim()) ? description.trim() : null,
           official_url: (officialUrl && officialUrl.trim()) ? officialUrl.trim() : null
