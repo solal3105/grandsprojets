@@ -1159,7 +1159,7 @@ projectDetailPanel.classList.add('visible');
   };
 
   // Affichage des projets Travaux
-  const renderTravauxProjects = () => {
+  const renderTravauxProjects = async () => {
     const submenu = document.getElementById('travaux-submenu');
     submenu.innerHTML = `
       <div class="detail-header-submenu">
@@ -1181,8 +1181,21 @@ projectDetailPanel.classList.add('visible');
     // Always start expanded for Travaux when rendered
     resetSubmenuExpanded('travaux-submenu');
 
+    // Simple exclusivity safeguard: ensure only Travaux-related layers remain visible
+    // This prevents timing issues when opening the Travaux menu without a full reset
+    try {
+      const layersToDisplay = (window.CATEGORY_DEFAULT_LAYERS && window.CATEGORY_DEFAULT_LAYERS['travaux']) || ['travaux'];
+      if (window.MapModule && window.MapModule.layers) {
+        Object.keys(window.MapModule.layers).forEach(layerName => {
+          if (!layersToDisplay.includes(layerName)) {
+            try { window.MapModule.removeLayer(layerName); } catch(_) {}
+          }
+        });
+      }
+    } catch (_) { /* noop */ }
+
     const listEl = document.getElementById('travaux-project-list');
-    
+
     // Gestionnaire d'événement pour le bouton de réduction/extension
     const travauxToggleBtn = document.getElementById('travaux-toggle-btn');
     const travauxPanel = document.querySelector('#travaux-submenu');
@@ -1218,7 +1231,7 @@ projectDetailPanel.classList.add('visible');
     }
 
     // Gestionnaire d'événement pour le bouton de fermeture
-    document.getElementById('travaux-close-btn').addEventListener('click', (e) => {
+    document.getElementById('travaux-close-btn')?.addEventListener('click', (e) => {
       e.stopPropagation();
       // Désactiver l'onglet travaux actif
       const activeTab = document.querySelector('.nav-category.active');
@@ -1233,16 +1246,28 @@ projectDetailPanel.classList.add('visible');
       // Réinitialiser la vue sans spécifier de catégorie
       resetToDefaultView(undefined, { preserveMapView: true });
     });
-    
-    listEl.innerHTML = '';
+
     // Nettoyer les anciens filtres
+    listEl.innerHTML = '';
     const oldFilterUX = document.getElementById('travaux-filters-ux');
     if (oldFilterUX) oldFilterUX.remove();
     const oldFilterContainer = document.getElementById('travaux-filters-container');
     if (oldFilterContainer) oldFilterContainer.remove();
 
+    // Charger la couche 'travaux' si nécessaire (avec loader minimal)
+    try {
+      const hasData = !!(DataModule.layerData && DataModule.layerData['travaux'] && Array.isArray(DataModule.layerData['travaux'].features) && DataModule.layerData['travaux'].features.length);
+      if (!hasData) {
+        listEl.innerHTML = '<div class="gp-loading" aria-live="polite">Chargement des chantiers…</div>';
+        if (typeof DataModule.loadLayer === 'function') {
+          await DataModule.loadLayer('travaux');
+        }
+      }
+    } catch (_) { /* noop */ }
+
     const travauxData = DataModule.layerData && DataModule.layerData['travaux'];
     if (!travauxData || !travauxData.features || travauxData.features.length === 0) {
+      listEl.innerHTML = '';
       const li = document.createElement('li');
       li.textContent = 'Aucun chantier travaux à afficher.';
       listEl.appendChild(li);
