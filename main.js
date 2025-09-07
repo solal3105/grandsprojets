@@ -401,11 +401,11 @@
       }).join('');
       // Propose city highlighted card
       const propose = `
-        <div id="propose-city-card" class="propose-city-card" role="button" tabindex="0" aria-label="Proposer une collectivité">
+        <div id="propose-city-card" class="propose-city-card" role="button" tabindex="0" aria-label="Proposer ma structure">
           <div class="city-logo"><i class="fas fa-plus" aria-hidden="true"></i></div>
           <div class="city-text">
-            <div class="city-name">Proposer une collectivité</div>
-            <div class="city-subline">Utilisez grandsprojets pour valoriser vos politiques locales en marque blanche</div>
+            <div class="city-name">Proposer ma structure</div>
+            <div class="city-subline">Utilisez grandsprojets pour donner de la visibilité à vos actions locales.</div>
           </div>
         </div>`;
       // City grid
