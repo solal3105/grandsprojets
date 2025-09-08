@@ -22,25 +22,46 @@ export async function handler(event) {
       };
     }
 
-    const { text = '' } = JSON.parse(event.body || '{}');
+    const { text = '', mode = 'article' } = JSON.parse(event.body || '{}');
 
-    // Safety limit to avoid very long payloads (augmente pour permettre plus de contexte narratif)
-    const source = (text || '').slice(0, 100000);
+    // Safety limit selon le mode: meta/description n'ont pas besoin de tout le contexte
+    const RAW = text || '';
+    const source = mode === 'article'
+      ? RAW.slice(0, 100000)
+      : RAW.slice(0, 16000);
 
-    const sys = "Tu es un journaliste francophone spécialisé en urbanisme. Style: clair, factuel, mesuré et analytique. Priorité à la précision, à la vérification et à la clarté. Évite le lyrisme, les métaphores appuyées, les scènes romancées et toute dramatisation. N'invente rien et appuie-toi uniquement sur la matière fournie. SORTIE STRICTE en JSON: {\\\"meta\\\": string <=150 chars (sans emoji), \\\"description\\\": string entre 300 et 450 chars (texte clair, sans markdown), \\\"article\\\": string en Markdown}. Interdiction absolue d'ajouter autre chose que l'objet JSON final (pas de balises de code, pas de commentaires).";
+    // Construire prompts et limites selon le mode
+    let sys = '';
+    let userPrompt = '';
+    let temperature = 0.5;
+    let maxTokens = 12000;
 
-    // Prompt utilisateur mot pour mot
-    const userPrompt = `Tu es un journaliste francophone spécialisé en urbanisme, transport, mobilité et grands projets.
-Ta mission : rédiger un article narratif, immersif et détaillé sur un projet de transport ou d’aménagement, sous forme de chapitres progressifs.
+    if (mode === 'meta') {
+      sys = "Tu es un expert SEO francophone. SORTIE STRICTE en JSON: {\\\"meta\\\": string <=150 chars (sans emoji)}. Aucune autre clé ni texte.";
+      userPrompt = "Génère une méta description percutante en moins de 150 caractères, claire et informative, sans emoji, basée sur le texte source ci-dessous.";
+      temperature = 0.5;
+      maxTokens = 320;
+    } else if (mode === 'description') {
+      sys = "Tu es un rédacteur francophone. SORTIE STRICTE en JSON: {\\\"description\\\": string entre 300 et 450 chars (texte clair, sans markdown)}. Aucune autre clé ni texte.";
+      userPrompt = "Écris une description concise (300–450 caractères), fluide et accessible, sans markdown, basée sur le texte source ci-dessous.";
+      temperature = 0.5;
+      maxTokens = 800;
+    } else {
+      // article
+      sys = "Tu es un journaliste francophone spécialisé en urbanisme. Style: clair, factuel, mesuré, analytique. N'invente rien. SORTIE STRICTE en JSON: {\\\"article\\\": string en Markdown (peut être TRÈS long)}. Interdiction absolue d'ajouter autre chose que l'objet JSON final.";
+      userPrompt = `Tu es un journaliste francophone spécialisé en urbanisme, transport, mobilité et grands projets.
+Ta mission: rédiger un article narratif d'environ 2000 mots (objectif: ~2000), en chapitres progressifs, sans dépasser inutilement.
 
-Contraintes :
-- **Structure en chapitres** : Chaque chapitre doit être un bloc narratif autonome, mais l’ensemble doit former une histoire continue.
-- **Narration chronologique** : déroule l’histoire du projet en respectant la temporalité (genèse → débats → officialisation → tracé → procédures → impacts → perspectives) (C'est une indication, pas un ordre).
-- **Style immersif** : écris comme un grand reportage. Décris les lieux, les controverses, les anecdotes, les choix politiques et techniques, sans inventer mais en donnant de la densité.
-- **Profondeur factuelle** : chaque fait doit être replacé dans son contexte (pourquoi il est apparu, qui l’a soutenu ou contesté, ce que cela a changé concrètement).
-- **Fluidité** : transitions naturelles, pas de listes ni d’énumérations à puces.
-- **Longueur** : viser ≥ 4000 mots si la matière le permet.
-- **Neutralité engagée** : tu racontes, tu analyses, mais tu ne fais pas de slogans.`;
+Contraintes:
+- Structure en chapitres cohérents, histoire continue.
+- Narration chronologique (indicative): genèse → débats → officialisation → tracé → procédures → impacts → perspectives.
+- Style immersif, factualité et précision; pas de lyrisme ni scènes romancées.
+- Développe chaque chapitre en profondeur, sans listes à puces.
+- Ne t'arrête pas tant que tous les chapitres ne sont pas pleinement développés.
+`;
+      temperature = 0.5;
+      maxTokens = 4000;
+    }
 
     const body = {
       model: 'gpt-4o',
@@ -49,8 +70,9 @@ Contraintes :
         { role: 'user', content: userPrompt },
         { role: 'user', content: 'Texte source (extraits agrégés) :\n\n' + source },
       ],
-      temperature: 0.6,
-      max_tokens: 8000,
+      temperature,
+      max_tokens: maxTokens,
+      response_format: { type: 'json_object' },
     };
 
     const resp = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -61,18 +83,29 @@ Contraintes :
       },
       body: JSON.stringify(body),
     });
+    // Collecter des en-têtes utiles pour diagnostiquer d'éventuelles limites
+    const outHeaders = {
+      rate_limit_requests: resp.headers.get('x-ratelimit-limit-requests'),
+      rate_remaining_requests: resp.headers.get('x-ratelimit-remaining-requests'),
+      rate_limit_tokens: resp.headers.get('x-ratelimit-limit-tokens'),
+      rate_remaining_tokens: resp.headers.get('x-ratelimit-remaining-tokens'),
+      processing_ms: resp.headers.get('openai-processing-ms'),
+      model: resp.headers.get('openai-model'),
+    };
 
     if (!resp.ok) {
       const msg = await resp.text().catch(() => '');
       return {
         statusCode: resp.status,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ error: 'OpenAI HTTP ' + resp.status, details: msg.slice(0, 500) }),
+        body: JSON.stringify({ error: 'OpenAI HTTP ' + resp.status, details: msg.slice(0, 500), headers: outHeaders }),
       };
     }
 
     const data = await resp.json();
-    let content = data?.choices?.[0]?.message?.content || '';
+    const choice = data?.choices?.[0] || {};
+    const finish_reason = choice?.finish_reason || null;
+    let content = choice?.message?.content || '';
 
     // Helper: retirer balises de code éventuelles
     const stripCodeFences = (s) => {
@@ -84,7 +117,7 @@ Contraintes :
     };
     content = stripCodeFences(content);
 
-    // Try to extract JSON from the content (robuste même si du texte entoure)
+    // Extraction simple des champs sans troncature ni fallback
     let meta = '';
     let description = '';
     let article = '';
@@ -94,54 +127,29 @@ Contraintes :
       if (start !== -1 && end !== -1) {
         const jsonRaw = content.slice(start, end + 1);
         const json = JSON.parse(stripCodeFences(jsonRaw));
-        meta = (json.meta || '').slice(0, 150);
-        description = (json.description || '').slice(0, 450);
-        article = json.article || json.article_markdown || json.markdown || '';
+        if (typeof json.meta === 'string') meta = json.meta;
+        if (typeof json.description === 'string') description = json.description;
+        if (typeof json.article === 'string') article = json.article;
+        if (!article && typeof json.article_markdown === 'string') article = json.article_markdown;
+        if (!article && typeof json.markdown === 'string') article = json.markdown;
       }
     } catch (_) {}
 
-    if (!meta && !description && !article) {
-      // Fallback: mettre le contenu en article après avoir retiré d'éventuels blocs JSON
-      // Supprimer blocs ```json ... ```
-      let cleaned = content.replace(/```json[\s\S]*?```/gi, '');
-      // Supprimer tout premier objet JSON isolé
-      cleaned = cleaned.replace(/\{[\s\S]*?\}/, '').trim();
-      article = cleaned || content || '';
-    }
-
-    // Fallback description: synthétiser à partir de l'article s'il est présent
-    if (!description && article) {
-      const plain = (article || '')
-        .replace(/```[\s\S]*?```/g, ' ')
-        .replace(/`[^`]*`/g, ' ')
-        .replace(/^\s{0,3}[-*+]\s+/gm, '')
-        .replace(/^\s{0,3}\d+\.\s+/gm, '')
-        .replace(/[#>*_~`]|\[|\]|\(|\)|!|>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-      description = (plain || '').slice(0, 450);
-    }
-
-    // Fallback meta: dérivée de la description ou de l'article
-    if (!meta) {
-      const base = (description || article || '').replace(/\s+/g, ' ').trim();
-      meta = (base || '').slice(0, 150);
-      // garder une coupure propre si possible
-      if (meta.length === 150) {
-        const lastSpace = meta.lastIndexOf(' ');
-        if (lastSpace > 90) meta = meta.slice(0, lastSpace);
-      }
-    }
-
     // Usage tokens et métriques
     const usage = {
+      version: 'v2-diag-2025-09-08T10:48:00+02:00', // temporaire pour vérifier la version déployée
       prompt_tokens: data?.usage?.prompt_tokens ?? null,
       completion_tokens: data?.usage?.completion_tokens ?? null,
       total_tokens: data?.usage?.total_tokens ?? null,
       max_tokens: body.max_tokens,
+      body_max_tokens: body.max_tokens,
       source_chars: source.length,
       // estimation grossière ~ 4 caractères/token
       source_est_tokens: Math.ceil(source.length / 4),
+      // Diagnostics temporaires
+      finish_reason,
+      headers: outHeaders,
+      mode,
     };
 
     return {
