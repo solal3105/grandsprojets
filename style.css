@@ -3940,8 +3940,16 @@ html[data-theme='dark'] .city-menu button.city-item:focus-visible {
 }
 @media (max-width: 640px) {
   .city-menu {
-    top: 48px;
-    right: -40px; /* align with mobile city-toggle */
+    position: fixed; /* éviter le débordement dû au conteneur parent */
+    top: 56px;       /* aligné sous la barre de recherche sur mobile */
+    left: 12px;      /* marges latérales sûres */
+    right: 12px;
+    width: auto;
+    max-width: none; /* laisser la largeur se caler entre left/right */
+    max-height: calc(100vh - 72px); /* scroll interne si nécessaire */
+    overflow: auto;
+    margin: 0;
+    box-sizing: border-box;
   }
 }
 html[data-theme='dark'] .filter-count { border-color: var(--dm-filters-bg); }
@@ -4976,6 +4984,25 @@ html[data-theme='dark'] #contrib-overlay .contrib-searchbar input[type="text"]::
   padding: 14px;
   box-sizing: border-box;
 }
+/* Quand #city-menu est rendu dans la modale (#city-overlay), retirer le positionnement absolu/popover */
+#city-overlay .gp-modal-body #city-menu {
+  display: block;
+  position: static;
+  right: auto;
+  top: auto;
+  z-index: auto;
+  width: 100%;
+  max-width: none;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+/* Empêcher tout scroll horizontal de la modale ville */
+#city-overlay .gp-modal-body { overflow-x: hidden; }
 
 .city-menu-header {
   display: flex;
@@ -5013,6 +5040,8 @@ html[data-theme='dark'] #contrib-overlay .contrib-searchbar input[type="text"]::
   border: none;
   padding: 0;
   text-align: left;
+  display: block;
+  width: 100%;
 }
 .city-item.is-disabled { cursor: not-allowed; opacity: .7; }
 .city-item.active .city-card { outline: 2px solid #3b82f6; outline-offset: 0; }
@@ -5029,6 +5058,8 @@ html[data-theme='dark'] #contrib-overlay .contrib-searchbar input[type="text"]::
   background: #fff;
   box-shadow: 0 8px 20px rgba(2,6,23,0.06);
   transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
+  box-sizing: border-box;
+  max-width: 100%;
 }
 .city-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(2,6,23,0.10); border-color: rgba(2,6,23,0.18); }
 .city-logo {
@@ -5086,7 +5117,7 @@ html[data-theme='dark'] .city-subline { color: #cbd5e1; }
   grid-template-columns: 64px 1fr;
   align-items: center;
   gap: 10px;
-  width: calc(100% - 24px);
+  width: 100%;
   margin: 8px 0 14px 0;
   padding: 12px;
   border-radius: 12px;
@@ -5097,6 +5128,7 @@ html[data-theme='dark'] .city-subline { color: #cbd5e1; }
   transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
   position: relative;
   overflow: hidden;
+  box-sizing: border-box;
 }
 .propose-city-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(29,78,216,0.16); border-color: #3b82f6; }
 .propose-city-card .city-logo { background: rgba(96,165,250,0.18); color: #1e3a8a; }
@@ -5312,3 +5344,11 @@ html[data-theme='dark'] #propose-city-overlay .contact-card:hover {
   box-shadow: 0 14px 30px var(--dm-menu-shadow-1), inset 0 0 0 1px rgba(255,255,255,0.06);
 }
 html[data-theme='dark'] #propose-city-overlay .contact-card .contact-icon { background: color-mix(in srgb, #14AE5C 40%, black); color: #d1fae5; }
+
+/* Ultra-compact mobile: hide logos under 400px */
+@media (max-width: 400px) {
+  .mobile-fixed-logo,
+  #left-nav .logo {
+    display: none !important;
+  }
+}
