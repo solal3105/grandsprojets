@@ -408,24 +408,7 @@
       }, {});
     },
 
-    /**
-     * Récupère toutes les données de mobilité (tram/bus/velo)
-     * @returns {Promise<{tram:Array, bus:Array, velo:Array}>}
-     */
-    fetchMobilityData: async function() {
-      const { data, error } = await supabaseClient
-        .from('mobility_data')
-        .select('category, name, year, status');
-      if (error) {
-        console.error('fetchMobilityData error:', error);
-        return { tram: [], bus: [], velo: [] };
-      }
-      return data.reduce((acc, { category, name, year, status }) => {
-        if (!acc[category]) acc[category] = [];
-        acc[category].push({ name, year, status });
-        return acc;
-      }, { tram: [], bus: [], velo: [] });
-    },
+    // fetchMobilityData: removed (legacy). Mobility catalog table is no longer consumed by the UI.
 
     /**
      * Récupère le mapping projet → URL de fiche
@@ -811,48 +794,9 @@
       }));
     },
 
-    fetchProjectFilterMapping: async function() {
-      const { data, error } = await supabaseClient
-        .from('project_filter_mapping')
-        .select('*');
+    // fetchProjectFilterMapping: removed (legacy). Filtering relies on filter_categories/filter_items and GeoJSON properties.
 
-      if (error) {
-        console.error('fetchProjectFilterMapping error:', error);
-        return {};
-      }
-
-      return data.reduce((acc, row) => {
-        acc[row.project_name] = {
-          layer: row.layer,
-          key:   row.key,
-          value: row.value
-        };
-        return acc;
-      }, {});
-    },
-
-    /**
-     * Récupère les couleurs de projet depuis Supabase.
-     * @returns {Promise<Object>} un objet { [name]: { background, icon } }
-     */
-    fetchProjectColors: async function() {
-      const { data, error } = await supabaseClient
-        .from('project_colors')
-        .select('*');
-    
-      if (error) {
-        console.error('fetchProjectColors error:', error);
-        return {};
-      }
-    
-      return data.reduce((acc, row) => {
-        acc[row.name] = {
-          background: row.background,
-          icon:       row.icon
-        };
-        return acc;
-      }, {});
-    },
+    // fetchProjectColors: removed (legacy). Project colors are not used by the UI anymore.
 
 
     // (legacy retiré) fetchLayerInfoConfig supprimée: l'UI et les tooltips utilisent désormais uniquement les propriétés du GeoJSON
@@ -1419,11 +1363,9 @@
         switch(key) {
           case 'fetchLayersConfig': prop = 'layersConfig'; break;
           case 'fetchMetroColors':   prop = 'metroColors';   break;
-          case 'fetchMobilityData':  prop = 'mobilityData';  break;
           case 'fetchProjectPages':  prop = 'projectPages';  break;
           case 'fetchFiltersConfig':   prop = 'filtersConfig';  break;
           case 'fetchProjectFilterMapping':  prop = 'projectFilterMapping';  break;
-          case 'fetchProjectColors':        prop = 'projectColors';        break;
           case 'fetchBasemaps':             prop = 'basemaps';             break;
           default:
             const name = key.replace(/^fetch/, '');

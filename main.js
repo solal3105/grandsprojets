@@ -704,7 +704,6 @@
       const {
         layersConfig,
         metroColors,
-        mobilityData,
         filtersConfig,
         basemaps: remoteBasemaps
       } = await supabaseService.initAllData(city);
@@ -990,23 +989,7 @@
         
         if (logoImg) {
           logoImg.style.pointerEvents = 'none';
-          logoImg.setAttribute('draggable', 'false');
         }
-      }
-      // Ancien gestionnaire d'onglets supprimé (plus d'onglets Urbanisme)
-
-      // 6️⃣ Injection finale des configs
-      window.dataConfig = window.dataConfig || {};
-      window.dataConfig.metroColors = metroColors;
-      // mobilityData est déjà sur window
-
-      // Fonction pour obtenir la catégorie à partir du nom de la couche
-      function getCategoryFromLayer(layerName) {
-        const ln = String(layerName || '');
-        if (ln.includes('voielyonnaise')) return 'velo';
-        if (ln.includes('reseauProjete') || ln.includes('metro') || ln.includes('tramway')) return 'transport';
-        if (ln.includes('urbanisme')) return 'urbanisme';
-        return 'autre';
       }
 
       // Exposition de NavigationModule et ajout du gestionnaire de clic (robuste aux features incomplètes)

@@ -622,8 +622,15 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
           setTimeout(() => { if (window.MapModule.map.getZoom() > 15) window.MapModule.map.setZoom(15); }, 300);
         }
       }
-      // Au lieu de supprimer les autres couches, on les atténue pour les garder visibles
-      dimNonSelectedLayers(layerName, { opacity: 0.25, fillOpacity: 0.12 });
+      // Masquer toutes les autres couches pour ne garder que le projet sélectionné visible
+      try {
+        const layersObj = window.MapModule?.layers || {};
+        Object.keys(layersObj).forEach(name => {
+          if (name !== layerName) {
+            try { window.MapModule.removeLayer(name); } catch(_) { /* noop */ }
+          }
+        });
+      } catch(_) { /* noop */ }
     } else {
       console.warn('[NavigationModule] Impossible de déterminer une clé/valeur de filtrage pour', { projectName, layerName, category });
     }

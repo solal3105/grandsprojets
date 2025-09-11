@@ -110,7 +110,7 @@ grandprojetV2/
 
 ### 4.1. supabaseservice.js
  - **Rôle** : centralise tous les accès à Supabase (via CDN, pas de clé admin en prod !)
- - **Tables attendues** : `layers`, `metro_colors`, `mobility_data`, `urbanisme_projects` (désactivé au chargement auto), `filter_categories`/`filter_items` (via `fetchFiltersConfig()`), `project_filter_mapping`, `project_colors`, `basemaps`. `project_pages` est historique/optionnel (le front déduit désormais les URLs).
+ - **Tables attendues** : `layers`, `metro_colors`, `contribution_uploads` (source unique des projets toutes catégories), `filter_categories`/`filter_items` (via `fetchFiltersConfig()`), `basemaps`.
  - **Fonctions principales** :
    - `fetchLayersConfig()`, `fetchMetroColors()`, etc. → récupèrent chaque table (la table `layers` est exposée en `window.layersConfig` via `initAllData()`)
    - `initAllData()` → lance tous les fetchers et expose les résultats sur `window`
@@ -433,14 +433,9 @@ Cette section documente la structure et un aperçu du contenu de la base Supabas
     - `ligne` text, `color` text
   - `mobility_data` (PK: `id` bigint identity always)
     - `id`, `category` text, `name` text, `year` text?, `status` text?
-  - `project_colors` (PK: `name` text)
-    - `name` text, `background` text, `icon` text
-  - `project_filter_mapping` (PK: `project_name` text)
-    - `project_name` text, `layer` text, `key` text, `value` text
-  - `project_pages` (optionnel/historique) (PK: `id` bigint identity always)
-    - `id`, `project_name` text unique, `page_url` text
-  - `urbanisme_projects` (PK: `id` bigint identity always)
-    - `id`, `name` text, `city` text
+  
+  - `contribution_uploads` (PK: `id` bigint identity always)
+    - `id`, `project_name` text, `category` text (`mobilite` | `urbanisme` | `velo`), `geojson_url` text, `cover_url` text, `markdown_url` text, `meta` text, `description` text, `ville` text (nullable), `created_at` timestamptz, `updated_at` timestamptz
   - `consultation_dossiers` (PK: `id` bigint identity always)
     - `id`, `project_name` text, `title` text, `pdf_url` text
   
@@ -459,10 +454,7 @@ Cette section documente la structure et un aperçu du contenu de la base Supabas
     - `tramway` (default), `metroFuniculaire` (default), `reseauProjeteSitePropre` (default), `voielyonnaise` (default), `urbanisme` (default), `travaux`, `planVelo`, `amenagementCyclable`, `emplacementReserve`, `bus`
   - `mobility_data` (ex.)
     - Tram: T6 nord, T10, T9, T8, TEOL; Bus: BHNS; Vélo: Voies Lyonnaises 1–4
-  - `project_pages` (ex.)
-    - T6 nord → `pages/mobilite/t6-nord.html`, T10 → `pages/mobilite/t10.html`, …
-  - `project_filter_mapping` (ex.)
-    - T6 nord → (`reseauProjeteSitePropre`, Name=T6 nord), Voie Lyonnaise 1 → (`voielyonnaise`, line=1)
+  
   - Conventions de filtrage (contributeurs)
     - Tramway/Mobilité (couche `reseauProjeteSitePropre`) : clé `Name` ≈ nom du projet
     - Voie Lyonnaise (couche `voielyonnaise`) : clé `line` = numéro extrait du nom (fallback : `name/nom`)
@@ -473,8 +465,9 @@ Cette section documente la structure et un aperçu du contenu de la base Supabas
 Notes:
 - Les schémas `auth`, `storage`, `realtime`, `vault`, `pgsodium` contiennent des tables gérées par Supabase (potentiellement sensibles). Exporter ces contenus uniquement si nécessaire.
 - Les fiches Urbanisme en Markdown référencent une image de couverture via front‑matter; stocker les fichiers sous `/img/cover/urbanisme/` et utiliser un chemin relatif correct dans chaque `.md`.
+- **Tables retirées (legacy)** : `project_pages`, `urbanisme_projects`, `project_filter_mapping`, `project_colors`.
 
-## 13. Déploiement
+### 13. Déploiement
 
 ### 13.1 Windsurf (statique)
 - Le projet est un site statique. Le fichier `windsurf_deployment.yaml` indique :

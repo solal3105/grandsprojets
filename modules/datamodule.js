@@ -1118,58 +1118,67 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
 
     // Gestion du clic sur la feature
     if (!noInteractLayers.includes(layerName)) layer.on('click', () => {
-      // 1. Récupérer le nom du projet depuis les properties enrichies
+      // 1. Récupérer les propriétés du projet (enrichies via contribution_uploads si dispo)
       const p = (feature && feature.properties) || {};
-      let projectName = p.project_name || p.name || p.Name || p.line;
-      
-      // Vérification que projectName existe et est une string
-      if (!projectName || typeof projectName !== 'string') {
-        console.warn('Nom de projet non trouvé ou invalide dans les properties:', p);
+      const rawProjectName = p.project_name || p.name || p.Name || p.line;
+
+      if (!rawProjectName) {
+        console.warn('Nom de projet non trouvé dans les properties:', p);
         return;
       }
 
-      // 2. Préparer le nom d'affichage (ajustement pour Voie Lyonnaise)
-      let displayProjectName = projectName;
-      if (layerName === 'voielyonnaise' && !projectName.startsWith('Voie Lyonnaise')) {
-        displayProjectName = "Voie Lyonnaise " + projectName;
+      // 2. Construire un critère de filtrage robuste selon les propriétés disponibles
+      const criteria = {};
+      if (p.project_name) {
+        criteria.project_name = p.project_name;
+      } else if (layerName === 'voielyonnaise' && (p.line || p.ligne || p.Line)) {
+        criteria.line = p.line || p.ligne || p.Line;
+      } else if (p.Name) {
+        criteria.Name = p.Name;
+      } else if (p.name) {
+        criteria.name = p.name;
       }
 
-      // 3. Normalisation avancée du nom du projet
-      const normalizedProjectName = displayProjectName
-        .trim() // Supprime les espaces en début/fin
-        .replace(/\s+/g, ' ') // Remplace les espaces multiples par un seul
-        .replace(/[\u00A0\u1680\u2000-\u200D\u202F\u205F\u3000\uFEFF]/g, ' '); // Remplace les espaces insécables par des espaces normaux
-      
-      // Assurer le bon affichage pour Voie Lyonnaise: retirer tout filtre pour afficher toutes les sections de la ligne
+      // 3. Nettoyer la carte: retirer toutes les autres couches que celle cliquée
       try {
-        if (layerName === 'voielyonnaise' && window.UIModule?.applyFilter) {
-          window.UIModule.applyFilter(layerName, {});
+        Object.keys(MapModule.layers || {}).forEach((lname) => {
+          if (lname !== layerName) {
+            try { MapModule.removeLayer(lname); } catch (_) { /* noop */ }
+          }
+        });
+      } catch (_) { /* noop */ }
+
+      // 4. Appliquer le filtre au layer courant pour n'afficher que le projet sélectionné
+      try {
+        if (window.UIModule?.applyFilter) {
+          window.UIModule.applyFilter(layerName, criteria);
+        } else {
+          // Fallback si UIModule indisponible
+          FilterModule.set(layerName, criteria);
+          MapModule.removeLayer(layerName);
+          DataModule.createGeoJsonLayer(layerName, DataModule.layerData[layerName]);
         }
       } catch (_) { /* noop */ }
 
-      // Afficher la fiche détail (géré par UIModule -> NavigationModule)
+      // 5. Afficher la fiche détail (via UIModule -> NavigationModule)
       try { UIModule.showDetailPanel(layerName, feature); } catch (_) { /* noop */ }
 
-      if (projectName) {
-        highlightProjectPath(layerName, projectName);
-      }
+      // 6. Optionnel: surligner visuellement les segments du projet (utile si polylignes)
+      try { highlightProjectPath(layerName, rawProjectName); } catch (_) { /* noop */ }
 
-      UIModule.updateActiveFilterTagsForLayer(layerName);
+      // 7. Mettre à jour les tags de filtres actifs pour ce layer
+      try { UIModule.updateActiveFilterTagsForLayer(layerName); } catch (_) { /* noop */ }
 
-      // 10. Zoom sur la feature filtrée (sauf Voie Lyonnaise : le zoom est géré par NavigationModule)
-      if (layerName !== 'voielyonnaise') {
+      // 8. Zoomer sur l'étendue du projet filtré
+      try {
         const filteredLayer = MapModule.layers[layerName];
         if (filteredLayer && typeof filteredLayer.getBounds === 'function') {
           const bounds = filteredLayer.getBounds();
           if (bounds && bounds.isValid()) {
             MapModule.map.fitBounds(bounds, { padding: [50, 50] });
-          } else {
-            console.warn("Les bounds calculés ne sont pas valides.");
           }
-        } else {
-          console.warn("La couche filtrée ne supporte pas getBounds.");
         }
-      }
+      } catch (_) { /* noop */ }
     });
   }
 
