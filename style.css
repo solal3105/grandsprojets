@@ -372,17 +372,17 @@ html[data-theme='dark'] #contrib-overlay .file-dropzone.is-dragover { box-shadow
   --glass-topbar-bg: rgba(255,255,255,0.72);
   --tooltip-bg: var(--surface-70);
 
-  /* Brand card colors (light theme) */
-  --brand-cyclopolis: #1E88E5; /* blue */
-  --brand-grandlyon: #E1002A;  /* red  */
-  --brand-sytral: #14AE5C;     /* green */
+  /* Neutral accent colors (light theme) */
+  --accent-blue: #1E88E5;
+  --accent-red: #E1002A;
+  --accent-green: #14AE5C;
 
-  --cyclopolis-card-bg: color-mix(in srgb, var(--brand-cyclopolis) 12%, white);
-  --cyclopolis-card-hover-bg: color-mix(in srgb, var(--brand-cyclopolis) 18%, white);
-  --grandlyon-card-bg: color-mix(in srgb, var(--brand-grandlyon) 10%, white);
-  --grandlyon-card-hover-bg: color-mix(in srgb, var(--brand-grandlyon) 16%, white);
-  --sytral-card-bg: color-mix(in srgb, var(--brand-sytral) 10%, white);
-  --sytral-card-hover-bg: color-mix(in srgb, var(--brand-sytral) 16%, white);
+  --blue-card-bg: color-mix(in srgb, var(--accent-blue) 12%, white);
+  --blue-card-hover-bg: color-mix(in srgb, var(--accent-blue) 18%, white);
+  --red-card-bg: color-mix(in srgb, var(--accent-red) 10%, white);
+  --red-card-hover-bg: color-mix(in srgb, var(--accent-red) 16%, white);
+  --green-card-bg: color-mix(in srgb, var(--accent-green) 10%, white);
+  --green-card-hover-bg: color-mix(in srgb, var(--accent-green) 16%, white);
 
   /* Legend card for Travaux progress */
   .legend-card {
@@ -1543,12 +1543,12 @@ html[data-theme='dark'] .leaflet-container { background: #000; }
   gap: 8px; /* align spacing with reduce button */
   font-weight: 500; /* align with #detail-back-btn */
   font-size: 0.95rem; /* align with #detail-back-btn */
-  color: var(--brand-grandlyon); /* subtle red theme */
+  color: var(--accent-red); /* subtle red theme */
   line-height: 1;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 .detail-header-submenu .close-btn:hover {
-  background-color: color-mix(in srgb, var(--brand-grandlyon) 12%, white);
+  background-color: color-mix(in srgb, var(--accent-red) 12%, white);
 }
 .detail-header-submenu .close-btn i,
 .detail-header-submenu .close-btn svg {
@@ -1559,13 +1559,13 @@ html[data-theme='dark'] .leaflet-container { background: #000; }
 
 /* Dark mode hover for red-themed close button */
 html[data-theme='dark'] .detail-header-submenu .close-btn:hover {
-  background-color: color-mix(in srgb, var(--brand-grandlyon) 35%, black);
+  background-color: color-mix(in srgb, var(--accent-red) 35%, black);
 }
 /* Dark mode base for red-themed close button (match submenu back button shell) */
 html[data-theme='dark'] .detail-header-submenu .close-btn {
   background: rgba(255,255,255,0.06);
   border-color: var(--dm-menu-border);
-  color: var(--brand-grandlyon);
+  color: var(--accent-red);
 }
 
 /* Project detail header actions: back (left) and reduce (right) with padding */
@@ -1701,22 +1701,22 @@ html[data-theme='dark'] .detail-header-submenu .close-btn {
 .detail-header-submenu .gp-btn.close-btn.gp-btn--danger {
   background: #fafafa;              /* lighter base across all submenus */
   border-color: var(--border);
-  color: var(--brand-grandlyon);    /* subtle red theme */
+  color: var(--accent-red);    /* subtle red theme */
   box-shadow: none;
   font-weight: 500;
   font-size: 0.95rem;
   gap: 8px;                         /* same spacing as reduce */
 }
 .detail-header-submenu .gp-btn.close-btn.gp-btn--danger:hover {
-  background-color: color-mix(in srgb, var(--brand-grandlyon) 12%, white);
+  background-color: color-mix(in srgb, var(--accent-red) 12%, white);
   border-color: var(--border);
-  color: var(--brand-grandlyon);
+  color: var(--accent-red);
   box-shadow: none;
 }
 
 /* Travaux submenu: close button sizing and red theme overrides */
 #travaux-submenu .detail-header-submenu #travaux-close-btn {
-  color: var(--brand-grandlyon);
+  color: var(--accent-red);
   background: #fafafa;
   border-color: var(--border);
   font-weight: 500;      /* match #detail-back-btn */
@@ -1725,16 +1725,16 @@ html[data-theme='dark'] .detail-header-submenu .close-btn {
   min-height: 0;         /* avoid taller button than toggle */
 }
 #travaux-submenu .detail-header-submenu #travaux-close-btn:hover {
-  background-color: color-mix(in srgb, var(--brand-grandlyon) 12%, white);
+  background-color: color-mix(in srgb, var(--accent-red) 12%, white);
   border-color: var(--border);
 }
 html[data-theme='dark'] #travaux-submenu .detail-header-submenu #travaux-close-btn {
   background: rgba(255,255,255,0.06);
   border-color: var(--dm-menu-border);
-  color: var(--brand-grandlyon);
+  color: var(--accent-red);
 }
 html[data-theme='dark'] #travaux-submenu .detail-header-submenu #travaux-close-btn:hover {
-  background-color: color-mix(in srgb, var(--brand-grandlyon) 35%, black);
+  background-color: color-mix(in srgb, var(--accent-red) 35%, black);
   border-color: var(--dm-menu-border);
 }
 
@@ -3681,17 +3681,17 @@ html[data-theme='dark'] {
   --glass-topbar-bg: rgba(16,18,22,0.55);
   --tooltip-bg: rgba(24,27,34,0.85);
 
-  /* Brand card colors (dark theme) */
-  --brand-cyclopolis: #5AAAF0; /* slightly lighter blue for dark bg */
-  --brand-grandlyon: #FF2C45;  /* vivid red */
-  --brand-sytral: #2ECC71;     /* green */
+  /* Neutral accent colors (dark theme) */
+  --accent-blue: #5AAAF0;
+  --accent-red: #FF2C45;
+  --accent-green: #2ECC71;
 
-  --cyclopolis-card-bg: color-mix(in srgb, var(--brand-cyclopolis) 18%, var(--dm-panel-bg));
-  --cyclopolis-card-hover-bg: color-mix(in srgb, var(--brand-cyclopolis) 26%, var(--dm-panel-bg));
-  --grandlyon-card-bg: color-mix(in srgb, var(--brand-grandlyon) 18%, var(--dm-panel-bg));
-  --grandlyon-card-hover-bg: color-mix(in srgb, var(--brand-grandlyon) 26%, var(--dm-panel-bg));
-  --sytral-card-bg: color-mix(in srgb, var(--brand-sytral) 18%, var(--dm-panel-bg));
-  --sytral-card-hover-bg: color-mix(in srgb, var(--brand-sytral) 26%, var(--dm-panel-bg));
+  --blue-card-bg: color-mix(in srgb, var(--accent-blue) 18%, var(--dm-panel-bg));
+  --blue-card-hover-bg: color-mix(in srgb, var(--accent-blue) 26%, var(--dm-panel-bg));
+  --red-card-bg: color-mix(in srgb, var(--accent-red) 18%, var(--dm-panel-bg));
+  --red-card-hover-bg: color-mix(in srgb, var(--accent-red) 26%, var(--dm-panel-bg));
+  --green-card-bg: color-mix(in srgb, var(--accent-green) 18%, var(--dm-panel-bg));
+  --green-card-hover-bg: color-mix(in srgb, var(--accent-green) 26%, var(--dm-panel-bg));
 
 }
 html[data-theme='dark'] body { background: var(--dm-body-bg); color: var(--dm-text); }
@@ -3764,7 +3764,7 @@ html[data-theme='dark'] #travaux-submenu {
 html[data-theme='dark'] .detail-header-submenu h2 { color: var(--dm-text); }
 html[data-theme='dark'] .detail-header-submenu .close-btn svg { color: var(--dm-muted-text); }
 html[data-theme='dark'] .detail-header-submenu .close-btn:hover {
-  background-color: color-mix(in srgb, var(--brand-grandlyon) 35%, black);
+  background-color: color-mix(in srgb, var(--accent-red) 35%, black);
   border-color: var(--dm-menu-border);
 }
 

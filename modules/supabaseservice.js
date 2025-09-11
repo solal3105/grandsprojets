@@ -855,132 +855,15 @@
     },
 
 
-    /**
-     * Récupère la configuration des infos de couche depuis Supabase.
-     * @returns {Promise<Object>} 
-     *   { [layer]: { displayFields: string[], renameFields: { [orig]: string } } }
-     */
-    fetchLayerInfoConfig: async function() {
-
-      const { data, error } = await supabaseClient
-        .from('layer_info_config')
-        .select(`
-          layer,
-          layer_display_fields (
-            field_name,
-            field_order
-          ),
-          layer_rename_fields (
-            original_name,
-            display_name
-          )
-        `)
-        .order('layer', { ascending: true })
-        .order('field_order', {
-          foreignTable: 'layer_display_fields',
-          ascending: true
-        });
-
-      if (error) {
-        console.error('[supabaseService] ❌ fetchLayerInfoConfig error:', error);
-        return {};
-      }
-
-
-      const formatted = data.reduce((acc, row) => {
-        acc[row.layer] = {
-          displayFields: (row.layer_display_fields || [])
-            .sort((a, b) => a.field_order - b.field_order)
-            .map(f => f.field_name),
-          renameFields: (row.layer_rename_fields || [])
-            .reduce((m, r) => {
-              m[r.original_name] = r.display_name;
-              return m;
-            }, {})
-        };
-        return acc;
-      }, {});
-
-      return formatted;
-    },
+    // (legacy retiré) fetchLayerInfoConfig supprimée: l'UI et les tooltips utilisent désormais uniquement les propriétés du GeoJSON
 
     /**
-     * Retourne l'URL GrandLyon pour un projet d'urbanisme donné.
-     * Utilise une table 'grandlyon_project_links' (project_name, project_slug, url).
-     * @param {string} projectName
-     * @returns {Promise<string|null>} URL si trouvée, sinon null
+     * (legacy retiré) Ancienne résolution d'URL GrandLyon supprimée.
      */
-    getGrandLyonUrlByProject: async function(projectName) {
-      try {
-        if (!projectName) return null;
-        const slug = (function slugify(str) {
-          return String(str || '')
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[\u2018\u2019\u2032]/g, "'")
-            .replace(/[\u201C\u201D\u2033]/g, '"')
-            .replace(/[\u2013\u2014]/g, '-')
-            .replace(/["'`´]/g, '')
-            .replace(/&/g, ' et ')
-            .replace(/[^a-zA-Z0-9\s-\/]/g, '')
-            .replace(/\s*\/\s*/g, '-')
-            .replace(/[-_]+/g, '-')
-            .replace(/\s+/g, '-')
-            .trim()
-            .toLowerCase();
-        })(projectName);
-
-        // 1) try by slug
-        let { data, error } = await supabaseClient
-          .from('grandlyon_project_links')
-          .select('url')
-          .eq('project_slug', slug)
-          .limit(1)
-          .maybeSingle();
-        if (error) console.warn('[supabaseService] getGrandLyonUrlByProject slug query error:', error);
-        if (data?.url) return data.url;
-
-        // 2) fallback exact (case-insens) by name
-        const byName = await supabaseClient
-          .from('grandlyon_project_links')
-          .select('url')
-          .ilike('project_name', projectName)
-          .limit(1)
-          .maybeSingle();
-        if (byName.error) console.warn('[supabaseService] getGrandLyonUrlByProject name query error:', byName.error);
-        return byName.data?.url || null;
-      } catch (e) {
-        console.warn('[supabaseService] getGrandLyonUrlByProject exception:', e);
-        return null;
-      }
-    },
 
     /**
-     * Retourne l'URL Sytral pour un projet de mobilité donné.
-     * Utilise une table 'sytral_project_links' (id, project_name, url).
-     * @param {string} projectName
-     * @returns {Promise<string|null>} URL si trouvée, sinon null
+     * (legacy retiré) Ancienne résolution d'URL Sytral supprimée.
      */
-    getSytralUrlByProject: async function(projectName) {
-      try {
-        if (!projectName) return null;
-        // Table minimale: recherche sur project_name (insensible à la casse)
-        const { data, error } = await supabaseClient
-          .from('sytral_project_links')
-          .select('url')
-          .ilike('project_name', projectName)
-          .limit(1)
-          .maybeSingle();
-        if (error) {
-          console.warn('[supabaseService] getSytralUrlByProject query error:', error);
-          return null;
-        }
-        return data?.url || null;
-      } catch (e) {
-        console.warn('[supabaseService] getSytralUrlByProject exception:', e);
-        return null;
-      }
-    },
 
     // (Auth helpers migrated to modules/auth.js)
 
@@ -1296,61 +1179,12 @@
     },
 
     /**
-     * Ajoute un lien GrandLyon pour un projet d'urbanisme (facultatif).
-     * @param {string} projectName
-     * @param {string} url
+     * (legacy retiré) Ancien upsert de lien GrandLyon supprimé.
      */
-    upsertGrandLyonLink: async function(projectName, url) {
-      try {
-        if (!projectName || !url) return { error: null };
-        const slugify = (str) => String(str || '')
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .replace(/[\u2018\u2019\u2032]/g, "'")
-          .replace(/[\u201C\u201D\u2033]/g, '"')
-          .replace(/[\u2013\u2014]/g, '-')
-          .replace(/["'`´]/g, '')
-          .replace(/&/g, ' et ')
-          .replace(/[^a-zA-Z0-9\s-\/]/g, '')
-          .replace(/\s*\/\s*/g, '-')
-          .replace(/[-_]+/g, '-')
-          .replace(/\s+/g, '-')
-          .trim()
-          .toLowerCase();
-        const slug = slugify(projectName);
-        const { error } = await supabaseClient
-          .from('grandlyon_project_links')
-          .insert({ project_name: projectName, project_slug: slug, url });
-        if (error) {
-          console.warn('[supabaseService] upsertGrandLyonLink insert error:', error);
-        }
-        return { error: null };
-      } catch (e) {
-        console.warn('[supabaseService] upsertGrandLyonLink exception:', e);
-        return { error: e };
-      }
-    },
 
     /**
-     * Ajoute un lien Sytral pour un projet de mobilité (facultatif).
-     * @param {string} projectName
-     * @param {string} url
+     * (legacy retiré) Ancien upsert de lien Sytral supprimé.
      */
-    upsertSytralLink: async function(projectName, url) {
-      try {
-        if (!projectName || !url) return { error: null };
-        const { error } = await supabaseClient
-          .from('sytral_project_links')
-          .insert({ project_name: projectName, url });
-        if (error) {
-          console.warn('[supabaseService] upsertSytralLink insert error:', error);
-        }
-        return { error: null };
-      } catch (e) {
-        console.warn('[supabaseService] upsertSytralLink exception:', e);
-        return { error: e };
-      }
-    },
 
     /**
      * Insère des dossiers de concertation liés à un projet (facultatif).
@@ -1590,7 +1424,6 @@
           case 'fetchFiltersConfig':   prop = 'filtersConfig';  break;
           case 'fetchProjectFilterMapping':  prop = 'projectFilterMapping';  break;
           case 'fetchProjectColors':        prop = 'projectColors';        break;
-          case 'fetchLayerInfoConfig':       prop = 'layerInfoConfig';       break;
           case 'fetchBasemaps':             prop = 'basemaps';             break;
           default:
             const name = key.replace(/^fetch/, '');

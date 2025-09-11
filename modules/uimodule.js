@@ -103,10 +103,8 @@
         return;
       }
       container.innerHTML = '';
-      const config = window.layerInfoConfig?.[layerName] || {};
-      const keys = Array.isArray(config.displayFields) && config.displayFields.length
-        ? config.displayFields
-        : Object.keys(list[0].properties || {});
+      // layer_info_config supprimé: utiliser directement les propriétés du GeoJSON
+      const keys = Object.keys(list[0].properties || {});
 
       keys.forEach(key => {
         const values = [...new Set(list.map(f => f.properties?.[key]))]
@@ -115,7 +113,7 @@
         const group = document.createElement('div');
         group.className = 'filter-group';
         const label = document.createElement('label');
-        label.textContent = config.renameFields?.[key] || key;
+        label.textContent = key;
         label.htmlFor = `filter-${layerName}-${key}`;
         group.appendChild(label);
 
