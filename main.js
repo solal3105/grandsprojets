@@ -119,6 +119,74 @@
   const supabaseService = win.supabaseService;
   // Ces modules seront récupérés dynamiquement dans initApp après que tous les scripts soient bien chargés
 
+  // -------------------- ModalManager (logic only, design unchanged) --------------------
+  const ModalManager = (() => {
+    const stack = [];
+    let escBound = false;
+    let escHandler = null;
+
+    function el(id) { return document.getElementById(id); }
+    function isOpen(id) {
+      const e = el(id);
+      return !!(e && getComputedStyle(e).display !== 'none');
+    }
+    function top() { return stack[stack.length - 1] || null; }
+
+    function ensureOnTop(e) {
+      try { document.body.appendChild(e); } catch (_) {}
+    }
+
+    function show(id) {
+      const overlay = el(id);
+      if (!overlay) return false;
+      ensureOnTop(overlay);
+      overlay.style.display = 'flex';
+      overlay.setAttribute('aria-hidden', 'false');
+      // prevent background scroll only on first modal
+      if (stack.length === 0) { try { document.body.style.overflow = 'hidden'; } catch (_) {} }
+      // Focus close button if present
+      try { (overlay.querySelector('#' + id.replace('-overlay','') + '-close') || overlay.querySelector('.gp-modal-close'))?.focus(); } catch(_){}
+      // Click outside → close topmost
+      if (!overlay._mm_clickOutside) {
+        overlay._mm_clickOutside = (ev) => {
+          const panel = overlay.querySelector('.gp-modal');
+          if (!panel || !panel.contains(ev.target)) {
+            const t = top(); if (t && t.el === overlay) close(id);
+          }
+        };
+        overlay.addEventListener('click', overlay._mm_clickOutside);
+      }
+      // ESC → close topmost
+      if (!escBound) {
+        escHandler = (ev) => { if (ev.key === 'Escape') { const t = top(); if (t) close(t.id); } };
+        document.addEventListener('keydown', escHandler);
+        escBound = true;
+      }
+      stack.push({ id, el: overlay });
+      return true;
+    }
+
+    function hide(id) {
+      const overlay = el(id);
+      if (!overlay) return;
+      // if focus inside, move to body
+      try { if (overlay.contains(document.activeElement)) { document.body.focus(); } } catch(_){}
+      overlay.style.display = 'none';
+      overlay.setAttribute('aria-hidden', 'true');
+      const idx = stack.findIndex(x => x.id === id);
+      if (idx >= 0) stack.splice(idx, 1);
+      if (stack.length === 0) {
+        try { document.body.style.overflow = ''; } catch (_) {}
+        if (escBound && escHandler) { document.removeEventListener('keydown', escHandler); escBound = false; escHandler = null; }
+      }
+    }
+
+    function open(id) { return show(id); }
+    function close(id) { return hide(id); }
+    function switchTo(fromId, toId) { show(toId); hide(fromId); }
+
+    return { open, close, switch: switchTo, isOpen, top };
+  })();
   // ---- Thème (clair/sombre) : gestion simple avec persistance ----
   function getInitialTheme() {
     const prefersDark = win.matchMedia && win.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -426,29 +494,21 @@
   function openProposeCityModal() {
     const overlay = document.getElementById('propose-city-overlay');
     if (!overlay) return;
-    overlay.style.display = 'flex';
-    overlay.setAttribute('aria-hidden', 'false');
-    try { document.body.style.overflow = 'hidden'; } catch (_) {}
-    // Close button
-    const closeBtn = document.getElementById('propose-city-close');
-    if (closeBtn && !closeBtn._agp_bound) {
-      closeBtn.addEventListener('click', closeProposeCityModal);
-      closeBtn._agp_bound = true;
+    // If city modal is open, switch; otherwise open directly
+    if (ModalManager.isOpen('city-overlay')) {
+      ModalManager.switch('city-overlay', 'propose-city-overlay');
+    } else {
+      ModalManager.open('propose-city-overlay');
     }
-    // Click outside to close
-    const onOverlayClick = (ev) => { if (ev.target === overlay) closeProposeCityModal(); };
-    overlay.addEventListener('click', onOverlayClick, { once: true });
-    // Escape key
-    const onKey = (ev) => { if (ev.key === 'Escape') { closeProposeCityModal(); } };
-    document.addEventListener('keydown', onKey, { once: true });
+    // Bind close button once
+    const closeBtn = document.getElementById('propose-city-close');
+    if (closeBtn && !closeBtn._mm_bound) { closeBtn.addEventListener('click', () => ModalManager.close('propose-city-overlay')); closeBtn._mm_bound = true; }
   }
 
   function closeProposeCityModal() {
     const overlay = document.getElementById('propose-city-overlay');
     if (!overlay) return;
-    overlay.style.display = 'none';
-    overlay.setAttribute('aria-hidden', 'true');
-    try { document.body.style.overflow = ''; } catch (_) {}
+    ModalManager.close('propose-city-overlay');
   }
 
   // Crée dynamiquement la modale ville si absente (fallback robuste)
@@ -506,21 +566,11 @@
       }
     } catch (_) {}
     console.debug('[city] Ouverture de la modale ville');
-    overlay.style.display = 'flex';
-    overlay.setAttribute('aria-hidden', 'false');
-    try { document.body.style.overflow = 'hidden'; } catch (_) {}
+    ModalManager.open('city-overlay');
     _cityMenuOpen = true;
     // Bouton fermer
     const closeBtn = document.getElementById('city-close');
-    if (closeBtn && !closeBtn._agp_bound) {
-      closeBtn.addEventListener('click', closeCityMenu);
-      closeBtn._agp_bound = true;
-    }
-    // Clic en dehors
-    const onOverlayClick = (ev) => { if (ev.target === overlay) closeCityMenu(); };
-    overlay.addEventListener('click', onOverlayClick, { once: true });
-    // ESC
-    document.addEventListener('keydown', escCloseCityMenu, true);
+    if (closeBtn && !closeBtn._mm_bound) { closeBtn.addEventListener('click', closeCityMenu); closeBtn._mm_bound = true; }
     // Petite animation d'ouverture
     requestAnimationFrame(() => { if (modal) modal.classList.add('is-open'); });
     // Focus sur le bouton fermer pour accessibilité
@@ -531,15 +581,9 @@
     if (!overlay) return;
     const modal = overlay.querySelector('.gp-modal');
     if (modal) modal.classList.remove('is-open');
-    overlay.style.display = 'none';
-    overlay.setAttribute('aria-hidden', 'true');
-    try { document.body.style.overflow = ''; } catch (_) {}
+    ModalManager.close('city-overlay');
     _cityMenuOpen = false;
-    if (_cityMenuDocHandler) {
-      document.removeEventListener('click', _cityMenuDocHandler);
-      document.removeEventListener('keydown', escCloseCityMenu, true);
-      _cityMenuDocHandler = null;
-    }
+    // plus de binds doc-level ici: géré par ModalManager
   }
 
   function toggleCityMenu() { _cityMenuOpen ? closeCityMenu() : openCityMenu(); }

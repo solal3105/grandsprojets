@@ -3472,6 +3472,7 @@ html[data-theme='dark'] .filters-toggle i {
   text-transform: uppercase;
   letter-spacing: 1px;
   font-size: 0.8em;
+  text-align: center;
   transition: all 0.15s ease;
   position: relative;
   overflow: hidden;
@@ -5200,74 +5201,56 @@ html[data-theme='dark'] .propose-city-card .city-subline { color: #93c5fd; opaci
 
 #propose-city-overlay .gp-modal-header {
   position: relative;
-  background: var(--panel-solid);
-  border-bottom: 1px solid rgba(2,6,23,0.08);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 16px;
 }
 #propose-city-overlay .gp-modal-header::after {
-  content: none; /* retire le halo/gradient décoratif */
+  content: none; /* pas d'effet décoratif pour une esthétique minimaliste */
 }
 
 #propose-city-overlay .gp-modal-title {
-  font-weight: 800;
-  letter-spacing: 0.1px;
-  color: inherit; /* pas de gradient, texte normal */
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--text);
+  font-size: 1.1rem;
 }
 
 #propose-city-overlay .gp-modal-body {
-  background: linear-gradient(180deg, var(--panel-solid), var(--panel-solid)),
-              radial-gradient(1200px 40% at 100% -10%, rgba(20,174,92,0.10), transparent),
-              radial-gradient(900px 40% at 0% -10%, rgba(20,174,92,0.06), transparent);
+  background: var(--surface);
+  padding: 16px 18px 18px;
 }
 
 /* Content layout: stacked, compact spacing */
 #propose-city-overlay .about-content {
   display: block;
 }
-#propose-city-overlay .about-text {
-  margin-bottom: 10px;
-}
-#propose-city-overlay .about-text h2 {
-  margin: 14px 0 8px;
-  font-size: 1.20rem; /* un peu plus gros */
-  font-weight: 700;   /* un peu moins bold */
-  letter-spacing: .1px;
-}
-#propose-city-overlay .about-text p {
-  margin: 8px 0 10px; /* espaces un peu augmentés */
-  line-height: 1.6;   /* respiration accrue */
-  font-size: .99rem;
-}
+#propose-city-overlay .about-text { margin: 0 auto 8px; max-width: 720px; }
+#propose-city-overlay .about-text h2 { margin: 12px 0 6px; font-size: 1.06rem; font-weight: 600; letter-spacing: .2px; }
+#propose-city-overlay .about-text p { margin: 6px 0 8px; line-height: 1.6; font-size: .98rem; }
 #propose-city-overlay .about-text p:first-of-type {
-  font-size: 1.04rem; /* léger lead */
+  font-size: 1.02rem;
   font-weight: 600;
 }
 
 /* Value list with checkmarks */
-#propose-city-overlay .about-text ul {
-  list-style: none; padding-left: 0; margin: 10px 0 12px; display: grid; gap: 8px;
-}
+#propose-city-overlay .about-text ul { list-style: none; padding-left: 0; margin: 10px 0 12px; display: grid; gap: 8px; }
 #propose-city-overlay .about-text ul li {
   position: relative;
-  padding: 10px 10px 10px 38px;
+  padding: 10px 10px 10px 34px;
   line-height: 1.55;
-  background: var(--panel-solid);
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-left: 3px solid rgba(20,174,92,0.5); /* accent vert discret */
-  border-radius: 12px;
-  box-shadow: 0 4px 14px rgba(2,6,23,0.06);
+  border-radius: 10px;
 }
 #propose-city-overlay .about-text ul li::before {
   content: '✓';
   position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
   width: 18px; height: 18px; border-radius: 999px; display: grid; place-items: center;
-  background: #16a34a; color: #fff; font-size: 12px; font-weight: 800;
-  box-shadow: 0 2px 8px rgba(22,163,74,0.28);
+  background: color-mix(in srgb, var(--accent) 80%, white); color: #fff; font-size: 12px; font-weight: 800;
 }
 /* Hover focus to make check items pop slightly */
-#propose-city-overlay .about-text ul li:hover {
-  border-color: rgba(2,6,23,0.16);
-  box-shadow: 0 8px 20px rgba(2,6,23,0.10);
-}
+#propose-city-overlay .about-text ul li:hover { border-color: rgba(2,6,23,0.16); }
 
 /* Highlight for strong paragraph (e.g., offer for associations) */
 #propose-city-overlay .about-text p > strong {
@@ -5279,70 +5262,34 @@ html[data-theme='dark'] .propose-city-card .city-subline { color: #93c5fd; opaci
 #propose-city-overlay .about-sidebar { margin-top: 6px; }
 #propose-city-overlay .contact-cards { display: flex; flex-direction: column; gap: 10px; }
 #propose-city-overlay .contact-card {
-  background: var(--panel-solid); color: var(--text); border: 1px solid var(--border);
-  border-radius: 14px; padding: 12px; display: flex; gap: 10px; align-items: center;
-  text-decoration: none; box-shadow: 0 8px 20px rgba(2,6,23,0.06);
-  transition: transform .16s ease, box-shadow .2s ease, border-color .16s ease, background .16s ease;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px; display: flex; gap: 10px; align-items: center;
+  text-decoration: none; transition: transform .12s ease, border-color .12s ease, background .12s ease;
 }
-#propose-city-overlay .contact-card:hover {
-  transform: translateY(-2px); box-shadow: 0 14px 30px rgba(2,6,23,0.12); border-color: rgba(2,6,23,0.18);
-}
-#propose-city-overlay .contact-card .contact-icon {
-  width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center;
-  background: color-mix(in srgb, var(--accent) 22%, white); color: #065f46;
-}
+#propose-city-overlay .contact-card:hover { transform: translateY(-1px); border-color: rgba(2,6,23,0.18); }
+#propose-city-overlay .contact-card .contact-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, white); color: #065f46; }
 #propose-city-overlay .contact-card .contact-title { font-weight: 700; }
 #propose-city-overlay .contact-card .contact-sub { opacity: .85; font-size: .92rem; }
 
 /* CTA-like appearance mapped to explicit classes for stable ordering */
-#propose-city-overlay .contact-card--email {
-  background: linear-gradient(0deg, rgba(20,174,92,0.08), rgba(20,174,92,0.08));
-  border-color: rgba(20,174,92,0.28);
-}
+#propose-city-overlay .contact-card--email { background: var(--surface); border-color: rgba(20,174,92,0.28); }
 /* LinkedIn card in solid green */
-#propose-city-overlay .contact-card--linkedin {
-  background: #14AE5C;
-  border-color: #0e8f47;
-  color: var(--on-accent);
-}
+#propose-city-overlay .contact-card--linkedin { background: var(--surface); border-color: var(--border); color: var(--text); }
 #propose-city-overlay .contact-card--linkedin .contact-title,
-#propose-city-overlay .contact-card--linkedin .contact-sub { color: var(--on-accent); }
-#propose-city-overlay .contact-card--linkedin .contact-icon {
-  background: rgba(255,255,255,0.18);
-  color: #fff;
-}
-#propose-city-overlay .contact-card--linkedin:hover {
-  background: #0f9a51;
-  border-color: #0b7a40;
-}
+#propose-city-overlay .contact-card--linkedin .contact-sub { color: var(--text); }
+#propose-city-overlay .contact-card--linkedin .contact-icon { background: rgba(10,102,194,0.10); color: #0A66C2; }
 
 /* Dark mode adaptations */
-html[data-theme='dark'] #propose-city-overlay .gp-modal-header {
-  background: linear-gradient(135deg, rgba(20,174,92,0.26), rgba(20,174,92,0.20));
-  border-bottom-color: var(--dm-menu-border);
-}
-html[data-theme='dark'] #propose-city-overlay .gp-modal-header::after {
-  background: radial-gradient(closest-side, rgba(20,174,92,0.35), rgba(20,174,92,0));
-}
-html[data-theme='dark'] #propose-city-overlay .gp-modal-body {
-  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.06)),
-              radial-gradient(1200px 40% at 100% -10%, rgba(20,174,92,0.22), transparent),
-              radial-gradient(900px 40% at 0% -10%, rgba(20,174,92,0.18), transparent);
-}
+html[data-theme='dark'] #propose-city-overlay .gp-modal-header { background: var(--dm-panel-bg); border-bottom-color: var(--dm-menu-border); }
+html[data-theme='dark'] #propose-city-overlay .gp-modal-header::after { content: none; }
+html[data-theme='dark'] #propose-city-overlay .gp-modal-body { background: var(--dm-panel-bg); }
 html[data-theme='dark'] #propose-city-overlay .about-text ul li {
   background: rgba(255,255,255,0.06);
   border-color: var(--dm-menu-border);
-  border-left-color: color-mix(in srgb, #14AE5C 60%, black);
-  box-shadow: 0 8px 20px var(--dm-menu-shadow-1), inset 0 0 0 1px rgba(255,255,255,0.04);
 }
 html[data-theme='dark'] #propose-city-overlay .about-text p > strong { background: none; border: none; }
-html[data-theme='dark'] #propose-city-overlay .contact-card {
-  background: rgba(255,255,255,0.06); border-color: var(--dm-menu-border);
-  box-shadow: 0 10px 24px var(--dm-menu-shadow-1), inset 0 0 0 1px rgba(255,255,255,0.04);
-}
-html[data-theme='dark'] #propose-city-overlay .contact-card:hover {
-  box-shadow: 0 14px 30px var(--dm-menu-shadow-1), inset 0 0 0 1px rgba(255,255,255,0.06);
-}
+html[data-theme='dark'] #propose-city-overlay .contact-card { background: rgba(255,255,255,0.06); border-color: var(--dm-menu-border); }
+html[data-theme='dark'] #propose-city-overlay .contact-card:hover { box-shadow: none; }
 html[data-theme='dark'] #propose-city-overlay .contact-card .contact-icon { background: color-mix(in srgb, #14AE5C 40%, black); color: #d1fae5; }
 
 /* Ultra-compact mobile: hide logos under 400px */
