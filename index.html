@@ -403,11 +403,10 @@
               onclick="window.GeolocationModule && window.GeolocationModule.handleLocationButtonClick(event)">
         <i class="fas fa-location-arrow"></i>
       </button>
-      <!-- City toggle (dynamic menu populated by main.js) -->
+      <!-- City toggle (ouvre une modale) -->
       <button id="city-toggle" class="city-toggle" aria-label="Changer de ville" title="Changer de ville">
         <i class="fas fa-city" aria-hidden="true"></i>
       </button>
-      <div id="city-menu" class="city-menu" role="menu" aria-label="Villes" style="display:none"></div>
       <div id="search-toggle" class="search-toggle">
         <i class="fas fa-search"></i>
       </div>
@@ -484,12 +483,10 @@
                 </div>
               </a>
             </div>
-          </section>
-        </div>
       </div>
     </div>
   </div>
-  
+
   <!-- Proposer une ville modal (placed with other overlays) -->
   <div id="propose-city-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="propose-city-title" aria-hidden="true" style="display:none">
     <div class="gp-modal" role="document">

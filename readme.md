@@ -109,11 +109,11 @@ grandprojetV2/
 ## 4. Détail des modules
 
 ### 4.1. supabaseservice.js
-- **Rôle** : centralise tous les accès à Supabase (via CDN, pas de clé admin en prod !)
-- **Tables attendues** : `layers`, `metro_colors`, `mobility_data`, `urbanisme_projects` (désactivé au chargement auto), `filter_categories`/`filter_items` (via `fetchFiltersConfig()`), `project_filter_mapping`, `project_colors`, `layer_info_config` (+ tables liées), `basemaps`. `project_pages` est historique/optionnel (le front déduit désormais les URLs).
-- **Fonctions principales** :
-  - `fetchLayersConfig()`, `fetchMetroColors()`, etc. → récupèrent chaque table (la table `layers` est exposée en `window.layersConfig` via `initAllData()`)
-  - `initAllData()` → lance tous les fetchers et expose les résultats sur `window`
+ - **Rôle** : centralise tous les accès à Supabase (via CDN, pas de clé admin en prod !)
+ - **Tables attendues** : `layers`, `metro_colors`, `mobility_data`, `urbanisme_projects` (désactivé au chargement auto), `filter_categories`/`filter_items` (via `fetchFiltersConfig()`), `project_filter_mapping`, `project_colors`, `basemaps`. `project_pages` est historique/optionnel (le front déduit désormais les URLs).
+ - **Fonctions principales** :
+   - `fetchLayersConfig()`, `fetchMetroColors()`, etc. → récupèrent chaque table (la table `layers` est exposée en `window.layersConfig` via `initAllData()`)
+   - `initAllData()` → lance tous les fetchers et expose les résultats sur `window`
 - **Exemple d’appel** :
   ```js
   const { layersConfig, basemaps } = await supabaseService.initAllData();
@@ -426,12 +426,7 @@ Cette section documente la structure et un aperçu du contenu de la base Supabas
     - `id` text, `category_id` int4 → FK `filter_categories.id`, `layer` text, `icon` text, `label` text
   - `image_metadata` (PK: `id` bigint identity)
     - `id`, `upload_timestamp` timestamptz default now(), `latitude` float8, `longitude` float8, `image_path` text
-  - `layer_display_fields` (PK: `id` int4)
-    - `id` seq, `layer` text → FK `layer_info_config.layer`, `field_name` text, `field_order` int4
-  - `layer_info_config` (PK: `layer` text)
-    - `layer` text (référence centrale)
-  - `layer_rename_fields` (PK: `id` int4)
-    - `id` seq, `layer` text → FK `layer_info_config.layer`, `original_name` text, `display_name` text
+  
   - `layers` (PK: `id` int4)
     - `id` seq, `name` text unique, `url` text, `style` jsonb, `is_default` bool default false
   - `metro_colors` (PK: `ligne` text)
@@ -448,15 +443,10 @@ Cette section documente la structure et un aperçu du contenu de la base Supabas
     - `id`, `name` text, `city` text
   - `consultation_dossiers` (PK: `id` bigint identity always)
     - `id`, `project_name` text, `title` text, `pdf_url` text
-  - `grandlyon_project_links` (PK: `id` bigint identity always)
-    - `id`, `project_slug` text unique, `project_name` text, `url` text
-  - `sytral_project_links` (PK: `id` bigint identity always)
-    - `id`, `project_name` text, `url` text
+  
 
 - __Relations utiles__
   - `filter_items.category_id` → `filter_categories.id`
-  - `layer_display_fields.layer` → `layer_info_config.layer`
-  - `layer_rename_fields.layer` → `layer_info_config.layer`
 
 - __Aperçus de contenu (extraits)__
   - `basemaps` (6)

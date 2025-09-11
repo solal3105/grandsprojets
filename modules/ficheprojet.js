@@ -787,7 +787,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           `;
         }
 
-        // Injecter uniquement le header, puis Cyclopolis (si VL), puis les documents, puis le corps
+        // Injecter uniquement le header, puis les documents, puis le corps
         textEl.innerHTML = headerHtml;
         textEl.classList.add('markdown-body');
         await addOfficialLinkCards({ projectName, layerName, filterKey, filterValue, containerEl: textEl });

@@ -451,28 +451,89 @@
     try { document.body.style.overflow = ''; } catch (_) {}
   }
 
-  function openCityMenu() {
-    const menu = document.getElementById('city-menu');
-    if (!menu) return;
-    menu.style.display = 'block';
-    _cityMenuOpen = true;
-    if (!_cityMenuDocHandler) {
-      _cityMenuDocHandler = (ev) => {
-        const toggle = document.getElementById('city-toggle');
-        const menuEl = document.getElementById('city-menu');
-        if (!toggle || !menuEl) return;
-        const t = ev.target;
-        if (t === toggle || toggle.contains(t) || t === menuEl || menuEl.contains(t)) return;
-        closeCityMenu();
-      };
-      document.addEventListener('click', _cityMenuDocHandler);
-      document.addEventListener('keydown', escCloseCityMenu, true);
+  // Crée dynamiquement la modale ville si absente (fallback robuste)
+  function ensureCityOverlayExists() {
+    let overlay = document.getElementById('city-overlay');
+    if (overlay) return overlay;
+    try {
+      overlay = document.createElement('div');
+      overlay.id = 'city-overlay';
+      overlay.className = 'gp-modal-overlay';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.setAttribute('aria-labelledby', 'city-title');
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.style.display = 'none';
+      overlay.innerHTML = [
+        '<div class="gp-modal" role="document">',
+        '  <div class="gp-modal-header">',
+        '    <div class="gp-modal-title" id="city-title">Changer de ville<\/div>',
+        '    <button class="gp-modal-close" id="city-close" aria-label="Fermer">&times;<\/button>',
+        '  <\/div>',
+        '  <div class="gp-modal-body">',
+        '    <div id="city-menu" role="menu" aria-label="Villes disponibles"><\/div>',
+        '  <\/div>',
+        '<\/div>'
+      ].join('');
+      document.body.appendChild(overlay);
+      // Bind fermeture sur overlay click
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) closeCityMenu(); });
+      // Bouton fermer
+      const closeBtn = overlay.querySelector('#city-close');
+      if (closeBtn && !closeBtn._agp_bound) { closeBtn.addEventListener('click', closeCityMenu); closeBtn._agp_bound = true; }
+      return overlay;
+    } catch (e) {
+      console.error('[city] Impossible de créer #city-overlay dynamiquement', e);
+      return null;
     }
   }
+
+  function openCityMenu() {
+    let overlay = document.getElementById('city-overlay');
+    if (!overlay) {
+      console.warn('[city] #city-overlay introuvable – création dynamique');
+      overlay = ensureCityOverlayExists();
+    }
+    if (!overlay) { console.error('[city] #city-overlay toujours introuvable'); return; }
+    const modal = overlay.querySelector('.gp-modal');
+    // Rendre le contenu si vide (sécurité)
+    try {
+      const menu = document.getElementById('city-menu');
+      if (menu && !menu.hasChildNodes()) {
+        // Utiliser la ville active courante
+        console.debug('[city] Render menu (lazy)');
+        renderCityMenu(win.activeCity || '');
+      }
+    } catch (_) {}
+    console.debug('[city] Ouverture de la modale ville');
+    overlay.style.display = 'flex';
+    overlay.setAttribute('aria-hidden', 'false');
+    try { document.body.style.overflow = 'hidden'; } catch (_) {}
+    _cityMenuOpen = true;
+    // Bouton fermer
+    const closeBtn = document.getElementById('city-close');
+    if (closeBtn && !closeBtn._agp_bound) {
+      closeBtn.addEventListener('click', closeCityMenu);
+      closeBtn._agp_bound = true;
+    }
+    // Clic en dehors
+    const onOverlayClick = (ev) => { if (ev.target === overlay) closeCityMenu(); };
+    overlay.addEventListener('click', onOverlayClick, { once: true });
+    // ESC
+    document.addEventListener('keydown', escCloseCityMenu, true);
+    // Petite animation d'ouverture
+    requestAnimationFrame(() => { if (modal) modal.classList.add('is-open'); });
+    // Focus sur le bouton fermer pour accessibilité
+    try { document.getElementById('city-close')?.focus(); } catch (_) {}
+  }
   function closeCityMenu() {
-    const menu = document.getElementById('city-menu');
-    if (!menu) return;
-    menu.style.display = 'none';
+    const overlay = document.getElementById('city-overlay');
+    if (!overlay) return;
+    const modal = overlay.querySelector('.gp-modal');
+    if (modal) modal.classList.remove('is-open');
+    overlay.style.display = 'none';
+    overlay.setAttribute('aria-hidden', 'true');
+    try { document.body.style.overflow = ''; } catch (_) {}
     _cityMenuOpen = false;
     if (_cityMenuDocHandler) {
       document.removeEventListener('click', _cityMenuDocHandler);
@@ -480,6 +541,7 @@
       _cityMenuDocHandler = null;
     }
   }
+
   function toggleCityMenu() { _cityMenuOpen ? closeCityMenu() : openCityMenu(); }
   function escCloseCityMenu(e) { if (e.key === 'Escape') closeCityMenu(); }
 
@@ -516,10 +578,14 @@
   async function initCityToggleUI(activeCity) {
     try {
       const toggle = document.getElementById('city-toggle');
-      if (!toggle) return;
-      toggle.addEventListener('click', (e) => { e.stopPropagation(); toggleCityMenu(); });
+      if (!toggle) {
+        console.warn('[city] Bouton #city-toggle introuvable');
+        return;
+      }
+      console.debug('[city] Binding click/keyboard sur #city-toggle');
+      toggle.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); console.debug('[city] click #city-toggle'); openCityMenu(); });
       toggle.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle.click(); }
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); console.debug('[city] keydown open'); openCityMenu(); }
       });
       await renderCityMenu(activeCity);
     } catch (_) { /* noop */ }
@@ -1162,6 +1228,19 @@
   }
 
   // Attendre que le DOM soit chargé avant d'initialiser l'application
+  // Fallback de sécurité: déléguer le clic sur #city-toggle même si initApp échoue
+  try {
+    document.addEventListener('click', function(e) {
+      const btn = e.target && (e.target.id === 'city-toggle' ? e.target : e.target.closest && e.target.closest('#city-toggle'));
+      if (btn) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.debug('[city] delegated click -> openCityMenu');
+        openCityMenu();
+      }
+    }, true);
+  } catch (_) {}
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initApp);
   } else {

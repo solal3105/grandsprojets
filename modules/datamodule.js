@@ -280,17 +280,9 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
   // Construit le contenu HTML pour les champs à afficher
   function buildTooltipFields(props, layerName) {
     let content = "";
-    const config = window.layerInfoConfig && window.layerInfoConfig[layerName];
-    if (config && config.displayFields && config.displayFields.length) {
-      config.displayFields.forEach(field => {
-        const label = (config.renameFields && config.renameFields[field]) || field;
-        const value = props[field] || '';
-        content += `<strong>${label}</strong> : ${value}<br>`;
-      });
-    } else {
-      for (const key in props) {
-        content += `<em>${key}</em> : ${props[key]}<br>`;
-      }
+    // layer_info_config supprimé: utiliser toutes les propriétés telles quelles
+    for (const key in props) {
+      content += `<em>${key}</em> : ${props[key]}<br>`;
     }
     return content;
   }
@@ -853,14 +845,16 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
               <div class="gp-tt-body">${fieldsHtml}</div>
             `;
           }
-          layer.bindTooltip(inner, {
-            className: 'gp-path-tooltip',
-            sticky: true,
-            direction: 'auto',
-            opacity: 1,
-            // interactive false: n'empêche pas le clic sur couches cliquables (non utilisé ici)
-            interactive: false
-          });
+          // Désactiver la tooltip au survol pour certaines couches
+          if (layerName !== 'planVelo' && layerName !== 'amenagementCyclable') {
+            layer.bindTooltip(inner, {
+              className: 'gp-path-tooltip',
+              sticky: true,
+              direction: 'auto',
+              // Les lignes ayant une épaisseur fine, sticky améliore la UX
+              // offset est géré automatiquement par Leaflet
+            });
+          }
         }
       }
     } catch (_) { /* noop */ }
