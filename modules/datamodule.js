@@ -400,12 +400,29 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
     switch(layerName) {
       case 'metroFuniculaire':
         // Pour les métros et funiculaires, on utilise les couleurs spécifiques
-        const metroColors = window.dataConfig?.metroColors || {};
-        return {
-          ...baseStyle,
-          color: metroColors[p.ligne] || baseStyle.color || 'green',
-          weight: baseStyle.weight || 3
-        };
+        // Gérer les variations de nom de propriété selon les sources (ligne/LIGNE/Line)
+        {
+          const metroColors = window.dataConfig?.metroColors || {};
+          const rawLine = p.ligne || p.LIGNE || p.Line;
+          let lineColor = null;
+          if (rawLine != null) {
+            const upper = String(rawLine).toUpperCase();
+            // Clé compacte (retire préfixes et espaces): LIGNE/METRO/M/L. + espaces
+            const compact = upper.replace(/^LIGNE\s+|^METRO\s+|^M\s*|^L\.?\s*/,'').replace(/\s+/g,'');
+            if (metroColors[compact]) {
+              lineColor = metroColors[compact];
+            } else {
+              // Token simple (F1/F2/A/B/C/D)
+              const token = upper.match(/F\d|[A-Z]/);
+              if (token && metroColors[token[0]]) lineColor = metroColors[token[0]];
+            }
+          }
+          return {
+            ...baseStyle,
+            color: lineColor || baseStyle.color || '#3F52F3',
+            weight: baseStyle.weight || 3
+          };
+        }
         
       case 'voielyonnaise':
         // Pour les voies lyonnaises, on gère l'état de réalisation

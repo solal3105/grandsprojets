@@ -402,8 +402,10 @@
         console.error('fetchMetroColors error:', error);
         return {};
       }
-      return data.reduce((acc, { ligne, color }) => {
-        acc[ligne] = color;
+      // Normaliser les clés en MAJUSCULE pour simplifier la résolution côté front
+      return (data || []).reduce((acc, { ligne, color }) => {
+        const key = String(ligne ?? '').trim().toUpperCase();
+        if (key) acc[key] = color;
         return acc;
       }, {});
     },

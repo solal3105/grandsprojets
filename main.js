@@ -708,6 +708,9 @@
         basemaps: remoteBasemaps
       } = await supabaseService.initAllData(city);
 
+      // Rendre les couleurs de lignes métro disponibles
+      window.dataConfig = window.dataConfig || {};
+      window.dataConfig.metroColors = metroColors;
 
       // Mettre à jour les fonds de carte via UIModule (filtrés par ville si applicable)
       const basemapsToUse = (remoteBasemaps && remoteBasemaps.length > 0) ? remoteBasemaps : window.basemaps;
