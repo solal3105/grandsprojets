@@ -64,17 +64,50 @@
       // Ces couches restent visibles via d'autres sources (ex: contribution_uploads).
       const EXCLUDED = new Set(['voielyonnaise', 'reseauProjeteSitePropre', 'urbanisme']);
 
-      const { data, error } = await supabaseClient
+      // Récupérer la ville active
+      const activeCity = getActiveCity();
+
+      // Construire la requête et filtrer par ville
+      let q = supabaseClient
         .from('layers')
         .select('name, url, style, is_default, ville');
+
+      if (activeCity) {
+        q = q.eq('ville', activeCity);
+      } else {
+        // Si aucune ville n'est sélectionnée, on n'affiche que les couches "globales"
+        q = q.is('ville', null);
+      }
+
+      const { data, error } = await q;
 
       if (error) {
         console.error('fetchLayersConfig error:', error);
         return [];
       }
 
-      // Filtrage côté client pour rester compatible toutes versions de supabase-js/postgrest
-      return (data || []).filter(row => row && !EXCLUDED.has(row.name));
+      // A ce stade, on a UNIQUEMENT les couches de la ville active (ou globales si aucune ville),
+      // ce qui garantit que les URLs ne réintroduisent pas des couches globales quand une ville est active.
+      const rows = (data || []).filter(row => row && !EXCLUDED.has(row.name));
+
+      // Correction styles: si une ville est active, récupérer les styles avec fallback global
+      if (activeCity && rows.length > 0) {
+        try {
+          const names = Array.from(new Set(rows.map(r => r.name).filter(Boolean)));
+          if (names.length > 0 && typeof win.supabaseService?.fetchLayerStylesByNames === 'function') {
+            const styles = await win.supabaseService.fetchLayerStylesByNames(names);
+            rows.forEach(r => {
+              if (styles && Object.prototype.hasOwnProperty.call(styles, r.name)) {
+                r.style = styles[r.name];
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('[supabaseService] fetchLayersConfig: fusion des styles (fallback) échouée:', e);
+        }
+      }
+
+      return rows;
     },
 
     /**
@@ -86,18 +119,42 @@
     fetchLayerStylesByNames: async function(names) {
       try {
         if (!Array.isArray(names) || names.length === 0) return {};
-        const { data, error } = await supabaseClient
+
+        const activeCity = getActiveCity();
+
+        let q = supabaseClient
           .from('layers')
-          .select('name, style')
+          .select('name, style, ville')
           .in('name', names);
+
+        if (activeCity) {
+          // Important: pour les STYLES, on accepte un fallback global (ville IS NULL)
+          // afin d'éviter de perdre le style si aucune variante ville n'existe.
+          // On ne mélange pas les URL ici, uniquement les styles.
+          q = q.or(`ville.eq.${activeCity},ville.is.null`);
+        } else {
+          q = q.is('ville', null);
+        }
+
+        const { data, error } = await q;
         if (error) {
           console.error('[supabaseService] fetchLayerStylesByNames error:', error);
           return {};
         }
-        return (data || []).reduce((acc, row) => {
-          if (row && row.name) acc[row.name] = row.style;
-          return acc;
-        }, {});
+        // Si doublons (ville spécifique + global), privilégier la valeur spécifique à la ville
+        const out = {};
+        (data || []).forEach(row => {
+          if (!row || !row.name) return;
+          const hasAlready = Object.prototype.hasOwnProperty.call(out, row.name);
+          if (!hasAlready) {
+            // Première occurrence (peut être globale ou ville)
+            out[row.name] = row.style;
+          } else {
+            // Si l'entrée existante provient du global (inconnu ici), remplacer par la version ville si dispo
+            if (row.ville === activeCity) out[row.name] = row.style;
+          }
+        });
+        return out;
       } catch (e) {
         console.warn('[supabaseService] fetchLayerStylesByNames exception:', e);
         return {};
@@ -769,6 +826,7 @@
      * @returns {Promise<Array<{category:string, items:Array<{id:string, layer:string, icon:string, label:string}>}>>}
      */
     fetchFiltersConfig: async function() {
+      // 1) Charger la config des filtres (toutes villes)
       const { data, error } = await supabaseClient
         .from('filter_categories')
         .select(`
@@ -789,11 +847,30 @@
         return [];
       }
 
-      // On renvoie juste [{ category, items }, …]
-      return (data || []).map(cat => ({
-        category: cat.category,
-        items: cat.filter_items
-      }));
+      // 2) Récupérer les couches actives pour la ville courante
+      const activeCity = getActiveCity();
+      let q = supabaseClient
+        .from('layers')
+        .select('name, ville');
+      if (activeCity) {
+        q = q.eq('ville', activeCity);
+      } else {
+        q = q.is('ville', null);
+      }
+      const { data: layerRows, error: layerErr } = await q;
+      if (layerErr) {
+        console.error('[supabaseService] fetchFiltersConfig layers error:', layerErr);
+        return (data || []).map(cat => ({ category: cat.category, items: cat.filter_items }));
+      }
+      const allowedLayers = new Set((layerRows || []).map(r => r.name).filter(Boolean));
+
+      // 3) Filtrer les items par couches autorisées et supprimer les catégories vides
+      const filtered = (data || []).map(cat => {
+        const items = (cat.filter_items || []).filter(it => allowedLayers.has(it.layer));
+        return { category: cat.category, items };
+      }).filter(cat => (cat.items && cat.items.length > 0));
+
+      return filtered;
     },
 
     // fetchProjectFilterMapping: removed (legacy). Filtering relies on filter_categories/filter_items and GeoJSON properties.

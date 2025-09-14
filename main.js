@@ -676,9 +676,7 @@
       const rawPathCity  = getRawCityFromPathRaw();
       const hasExplicitCity = !!(rawQueryCity || rawPathCity);
       if ((rawQueryCity && !isValidCity(rawQueryCity)) || (rawPathCity && !isValidCity(rawPathCity))) {
-        clearPersistedCity();
-      } else if (!hasExplicitCity) {
-        // Aucun choix explicite → éviter de conserver une ancienne valeur potentiellement obsolète
+        // Si une ville explicite est fournie mais invalide, on nettoie.
         clearPersistedCity();
       }
 
@@ -690,7 +688,9 @@
       // - Si invalide/vide -> nettoyer
       try {
         if (city && isValidCity(city)) {
-          if (hasExplicitCity && restoreCity() !== city) persistCity(city);
+          // Persister la ville même si elle n'est pas explicitement fournie dans l'URL,
+          // afin de la conserver au rafraîchissement.
+          if (restoreCity() !== city) persistCity(city);
         } else {
           clearPersistedCity();
         }
