@@ -1,0 +1,27 @@
+{
+  "name": "grandsprojets",
+  "version": "1.0.0",
+  "description": "[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC) [![Leaflet](https://img.shields.io/badge/Leaflet-1.9.x-brightgreen)](#)",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/solal3105/grandsprojets.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/solal3105/grandsprojets/issues"
+  },
+  "homepage": "https://github.com/solal3105/grandsprojets#readme",
+  "devDependencies": {
+    "vite": "^6.3.6"
+  }
+}

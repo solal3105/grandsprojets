@@ -296,7 +296,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         s.onerror = () => tryLoad(srcs);
         document.head.appendChild(s);
       };
-      tryLoad(['/modules/MarkdownUtils.js', '/modules/markdownutils.js']);
+      tryLoad(['src/modules/MarkdownUtils.js', 'src/modules/markdownutils.js']);
     });
   }
   // Charger dépendances markdown/front-matter

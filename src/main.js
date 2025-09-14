@@ -1,3 +1,5 @@
+import './styles/style.css';
+
 // main.js
 // Version globale sans modules ES, utilisant window.supabaseService
 ;(function(win) {
@@ -834,6 +836,9 @@
         console.warn('UIModule.init non disponible');
       }
       
+      // After UI init, ensure Leaflet recalculates its size (prevents initial offset)
+      try { requestAnimationFrame(() => window.MapModule?.refreshSize && window.MapModule.refreshSize()); } catch(_) { try { window.MapModule?.refreshSize && window.MapModule.refreshSize(); } catch(_) {} }
+      
       // Initialiser le module de recherche d'adresse
       if (window.SearchModule?.init) {
         window.SearchModule.init(window.MapModule.map);
@@ -1007,8 +1012,7 @@
             return;
           }
 
-          const category = getCategoryFromLayer(layerName);
-          console.log('Ouverture du projet:', { projectName, category });
+          console.log('Ouverture du projet:', { projectName });
           
           // Préférer UIModule pour gérer l'historique et l'UI
           if (window.UIModule?.showDetailPanel) {
@@ -1016,9 +1020,9 @@
           } 
           // Sinon, fallback sur NavigationModule
           else if (typeof NavigationModule !== 'undefined' && NavigationModule.showProjectDetail) {
-            NavigationModule.showProjectDetail(projectName, category);
+            NavigationModule.showProjectDetail(projectName);
           } else if (window.NavigationModule?.showProjectDetail) {
-            window.NavigationModule.showProjectDetail(projectName, category);
+            window.NavigationModule.showProjectDetail(projectName);
           }
           // Sinon, essayer de trouver le panneau de détail et de le remplir manuellement
           else {
@@ -1029,7 +1033,6 @@
             if (detailPanel && detailContent) {
               // Afficher le panneau
               detailPanel.style.display = 'block';
-              detailPanel.dataset.category = category;
               
               // Récupérer les détails du projet
               detailContent.innerHTML = `# ${projectName}\n\nAucun détail disponible pour ce projet.`;
@@ -1042,8 +1045,6 @@
         }
       };
       
-      // Exposer la fonction pour qu'elle soit disponible globalement
-      window.getCategoryFromLayer = getCategoryFromLayer;
       // Exposer la ville active (fallback dynamique)
       window.getActiveCity = () => (parseCityFromPath(location.pathname) || getCityFromQuery('') || restoreCity() || win.activeCity || getDefaultCity());
 

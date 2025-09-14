@@ -4,6 +4,20 @@ window.MapModule = (() => {
   const map = L.map('map').setView([45.75, 4.85], 12);
   let baseLayer;
   
+  // Ensure map size is correct after load/layout changes
+  function invalidateSizeSafely(retries = 2) {
+    try { map.invalidateSize(true); } catch (_) {}
+    if (retries > 0) {
+      setTimeout(() => invalidateSizeSafely(retries - 1), 250);
+    }
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('load', () => {
+      // run on next frame to ensure CSS/layout is settled
+      try { requestAnimationFrame(() => invalidateSizeSafely(2)); } catch (_) { invalidateSizeSafely(2); }
+    });
+  }
+  
   // Global invisible hitline pane and SVG renderer (for wider clickable area on paths)
   const hitPaneName = 'hitlinePane';
   const hitPane = map.createPane(hitPaneName);
@@ -89,6 +103,8 @@ window.MapModule = (() => {
     initBaseLayer,
     // Expose hitline resources for other modules
     hitRenderer,
-    hitPaneName
+    hitPaneName,
+    // Public helper to force recalculation of map size
+    refreshSize: () => { try { map.invalidateSize(true); } catch (_) {} }
   };
 })();

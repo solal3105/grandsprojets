@@ -206,7 +206,7 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
         console.log('MarkdownUtils non trouvé, chargement en cours...');
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
-          script.src = '/modules/MarkdownUtils.js';
+          script.src = '/src/modules/MarkdownUtils.js';
           script.onload = () => {
             console.log('MarkdownUtils chargé avec succès');
             resolve();

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Déconnexion – Grands Projets</title>
   <link rel="icon" type="image/png" href="/img/logomin.png" sizes="32x32">
-  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/src/styles/style.css" />
   <style>
     body, html { height: 100%; }
     .logout-wrapper { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; }
@@ -26,7 +26,7 @@
 
   <!-- Supabase client via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
-  <script src="/modules/auth.js"></script>
+  <script src="/src/modules/auth.js"></script>
   <script>
     (async function(){
       const statusEl = document.getElementById('status');

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Fiche projet – Grands Projets de Lyon</title>
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/src/styles/style.css">
   <link rel="stylesheet" href="/ficheprojet.css">
   <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
@@ -20,10 +20,10 @@
 
   <script src="/vendor/leaflet/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
-  <script src="/modules/supabaseservice.js"></script>
-  <script src="/data.js"></script>
+  <script src="/src/modules/supabaseservice.js"></script>
+  <script src="/src/data.js"></script>
   <!-- Styles et interactions des features (nécéssaire pour getFeatureStyle/bindFeatureEvents) -->
-  <script src="/modules/datamodule.js"></script>
+  <script src="/src/modules/datamodule.js"></script>
   <script>
     (function() {
       try {
@@ -66,7 +66,7 @@
       }
     })();
   </script>
-  <script src="/modules/markdownutils.js"></script>
-  <script src="/modules/ficheprojet.js"></script>
+  <script src="/src/modules/markdownutils.js"></script>
+  <script src="/src/modules/ficheprojet.js"></script>
 </body>
 </html>

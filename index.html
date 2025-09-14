@@ -39,11 +39,10 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="style.css" />
   <!-- Chargement de Leaflet depuis des fichiers locaux -->
-  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
   <!-- Geoman removed: manual drawing only -->
-  <link rel="stylesheet" href="ficheprojet.css">
+  <link rel="stylesheet" href="/ficheprojet.css">
   <!-- Font Awesome via cdnjs -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css"
         crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -59,8 +58,8 @@
 </head>
 <body>
   <!-- Standalone fixed logo for small screens -->
-  <a class="mobile-fixed-logo" href="index.html" aria-label="Accueil">
-    <img src="img/logo.svg" alt="Grands Projets de Lyon" />
+  <a class="mobile-fixed-logo" href="/" aria-label="Accueil">
+    <img src="/img/logo.svg" alt="Grands Projets de Lyon" />
   </a>
   <div id="container">
     <!-- Carte Leaflet -->
@@ -69,7 +68,7 @@
     <!-- Barre de navigation -->
     <div id="left-nav">
       <div class="logo">
-          <img src="img/logo.svg" alt="GrandsProjet.fr" />
+          <img src="/img/logo.svg" alt="GrandsProjet.fr" />
         </div>
       <button class="nav-category" id="nav-transport">
         <i class="fa-solid fa-bus" aria-hidden="true"></i>
@@ -550,23 +549,22 @@
 
   <!-- Supabase client via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
-  <script src="modules/auth.js"></script>
+  <script src="/src/modules/auth.js"></script>
   <!-- Chargement de Leaflet JS depuis des fichiers locaux -->
-  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="/vendor/leaflet/leaflet.js"></script>
   <!-- Geoman removed: manual drawing only -->
-  <!-- Chargement des scripts locaux -->
-   
-  <script src="modules/supabaseservice.js"></script>
-  <script src="modules/mapmodule.js"></script>
-  <script src="modules/filtermodule.js"></script>
-  <script src="modules/datamodule.js"></script>
-  <script src="modules/uimodule.js"></script>
-  <script src="modules/searchmodule.js"></script>
-  <script src="modules/geolocation.js"></script>
-  <script src="modules/navigationmodule.js"></script>
-  <script src="modules/eventbindings.js"></script>
-  <script src="modules/contrib.js"></script>
-  <script src="main.js"></script>
+  <!-- Chargement des scripts locaux (ES modules via Vite) -->
+  <script src="/src/modules/supabaseservice.js"></script>
+  <script src="/src/modules/mapmodule.js"></script>
+  <script src="/src/modules/filtermodule.js"></script>
+  <script src="/src/modules/datamodule.js"></script>
+  <script src="/src/modules/uimodule.js"></script>
+  <script src="/src/modules/searchmodule.js"></script>
+  <script src="/src/modules/geolocation.js"></script>
+  <script src="/src/modules/navigationmodule.js"></script>
+  <script src="/src/modules/eventbindings.js"></script>
+  <script src="/src/modules/contrib.js"></script>
+  <script type="module" src="/src/main.js"></script>
   <!-- Toast container for accessible notifications -->
   <div id="toast-container" aria-live="polite" aria-atomic="false" role="region" aria-label="Notifications"
        style="position:fixed;right:12px;bottom:12px;display:flex;flex-direction:column;gap:8px;z-index:9999;"></div>

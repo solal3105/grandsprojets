@@ -1,6 +1,10 @@
 [functions]
   directory = "netlify/functions"
 
+[build] 
+  publish = "dist" 
+  command = "npm run build"
+
 # Force the dynamic function over any static file with the same path
 [[redirects]]
   from = "/sitemap.xml"
