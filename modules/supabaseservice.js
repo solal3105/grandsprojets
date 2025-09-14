@@ -25,6 +25,8 @@
   function sanitizeCity(raw) {
     try {
       const v = String(raw || '').toLowerCase().trim();
+      // Traiter explicitement 'default' comme absence de ville
+      if (v === 'default') return '';
       if (!v) return '';
       // Si un validateur global existe, l'utiliser
       if (typeof win.isValidCity === 'function') {

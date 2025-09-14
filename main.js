@@ -320,6 +320,8 @@
     try {
       const sp = new URLSearchParams(location.search);
       const raw = String(sp.get('city') || '').toLowerCase().trim();
+      // Traitement spécial: ?city=default force l'absence de ville
+      if (raw === 'default') return '';
       return isValidCity(raw) ? raw : '';
     } catch (_) {
       return '';
@@ -330,7 +332,10 @@
   function getRawCityFromQueryParam() {
     try {
       const sp = new URLSearchParams(location.search);
-      return String(sp.get('city') || '').toLowerCase().trim();
+      const raw = String(sp.get('city') || '').toLowerCase().trim();
+      // Aligner ?city=default et ?city= (vide) sur "aucune ville explicite"
+      if (raw === 'default') return '';
+      return raw;
     } catch (_) { return ''; }
   }
 
