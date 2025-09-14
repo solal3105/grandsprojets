@@ -1,3 +1,5 @@
+import L from 'leaflet';
+
 // modules/searchmodule.js
 window.SearchModule = (() => {
   // Reference to the map instance

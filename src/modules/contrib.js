@@ -1,4 +1,6 @@
 // modules/contrib.js
+import L from 'leaflet';
+
 ;(function (win) {
   function setupContrib() {
     const contribToggle   = document.getElementById('nav-contribute');

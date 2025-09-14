@@ -1,3 +1,6 @@
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
 // Module de gestion des données et de l'interface utilisateur
 
 // Cache ultra-simple en mémoire

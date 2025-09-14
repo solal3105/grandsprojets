@@ -1,4 +1,6 @@
 // modules/MapModule.js
+import L from 'leaflet';
+
 window.MapModule = (() => {
   // Initialize the map view (sans basemap)
   const map = L.map('map').setView([45.75, 4.85], 12);

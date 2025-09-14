@@ -39,8 +39,7 @@
       } catch (e) {}
     })();
   </script>
-  <!-- Chargement de Leaflet depuis des fichiers locaux -->
-  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+  <!-- Leaflet CSS is now bundled via Vite from node_modules in src/main.js -->
   <!-- Geoman removed: manual drawing only -->
   <link rel="stylesheet" href="/ficheprojet.css">
   <!-- Font Awesome via cdnjs -->
@@ -550,20 +549,19 @@
   <!-- Supabase client via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
   <script src="/src/modules/auth.js"></script>
-  <!-- Chargement de Leaflet JS depuis des fichiers locaux -->
-  <script src="/vendor/leaflet/leaflet.js"></script>
+  <!-- Leaflet now loaded via ES modules in scripts; vendor include removed -->
   <!-- Geoman removed: manual drawing only -->
   <!-- Chargement des scripts locaux (ES modules via Vite) -->
   <script src="/src/modules/supabaseservice.js"></script>
-  <script src="/src/modules/mapmodule.js"></script>
+  <script type="module" src="/src/modules/mapmodule.js"></script>
   <script src="/src/modules/filtermodule.js"></script>
-  <script src="/src/modules/datamodule.js"></script>
-  <script src="/src/modules/uimodule.js"></script>
-  <script src="/src/modules/searchmodule.js"></script>
-  <script src="/src/modules/geolocation.js"></script>
+  <script type="module" src="/src/modules/datamodule.js"></script>
+  <script type="module" src="/src/modules/uimodule.js"></script>
+  <script type="module" src="/src/modules/searchmodule.js"></script>
+  <script type="module" src="/src/modules/geolocation.js"></script>
   <script src="/src/modules/navigationmodule.js"></script>
   <script src="/src/modules/eventbindings.js"></script>
-  <script src="/src/modules/contrib.js"></script>
+  <script type="module" src="/src/modules/contrib.js"></script>
   <script type="module" src="/src/main.js"></script>
   <!-- Toast container for accessible notifications -->
   <div id="toast-container" aria-live="polite" aria-atomic="false" role="region" aria-label="Notifications"

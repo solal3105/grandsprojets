@@ -1,5 +1,7 @@
 // modules/geolocation.js
 
+import L from 'leaflet';
+
 window.GeolocationModule = (() => {
   let userLocationMarker = null;
   let userLocationCircle = null;

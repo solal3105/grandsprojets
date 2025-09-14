@@ -23,5 +23,8 @@
   "homepage": "https://github.com/solal3105/grandsprojets#readme",
   "devDependencies": {
     "vite": "^6.3.6"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4"
   }
 }

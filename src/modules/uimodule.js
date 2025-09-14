@@ -1,3 +1,5 @@
+import L from 'leaflet';
+
 // modules/UIModule.js
 // Module de gestion de l'interface utilisateur : filtres et popups
 (function(window, document, DataModule, FilterModule, MapModule) {
