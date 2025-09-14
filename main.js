@@ -333,7 +333,7 @@
     try {
       const sp = new URLSearchParams(location.search);
       const raw = String(sp.get('city') || '').toLowerCase().trim();
-      // Aligner ?city=default et ?city= (vide) sur "aucune ville explicite"
+      // Aligner 'default' sur une chaîne vide ABSOLUMENT partout
       if (raw === 'default') return '';
       return raw;
     } catch (_) { return ''; }
