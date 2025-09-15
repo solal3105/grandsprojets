@@ -335,6 +335,8 @@ L.Icon.Default.mergeOptions({
     try {
       const sp = new URLSearchParams(location.search);
       const raw = String(sp.get('city') || '').toLowerCase().trim();
+      // Traitement spécial: ?city=default force l'absence de ville
+      if (raw === 'default') return '';
       return isValidCity(raw) ? raw : '';
     } catch (_) {
       return '';
@@ -345,7 +347,10 @@ L.Icon.Default.mergeOptions({
   function getRawCityFromQueryParam() {
     try {
       const sp = new URLSearchParams(location.search);
-      return String(sp.get('city') || '').toLowerCase().trim();
+      const raw = String(sp.get('city') || '').toLowerCase().trim();
+      // Aligner 'default' sur une chaîne vide ABSOLUMENT partout
+      if (raw === 'default') return '';
+      return raw;
     } catch (_) { return ''; }
   }
 
@@ -690,24 +695,39 @@ L.Icon.Default.mergeOptions({
       const rawQueryCity = getRawCityFromQueryParam();
       const rawPathCity  = getRawCityFromPathRaw();
       const hasExplicitCity = !!(rawQueryCity || rawPathCity);
+      // Détecter la présence explicite du paramètre ?city= (même vide) et le cas 'default'
+      const spForDetect = new URLSearchParams(location.search);
+      const cityParamPresent = spForDetect.has('city');
+      const rawCityExact = String(spForDetect.get('city') || '').toLowerCase().trim();
+      const explicitNoCity = cityParamPresent && (rawCityExact === '' || rawCityExact === 'default');
       if ((rawQueryCity && !isValidCity(rawQueryCity)) || (rawPathCity && !isValidCity(rawPathCity))) {
-        clearPersistedCity();
-      } else if (!hasExplicitCity) {
-        // Aucun choix explicite → éviter de conserver une ancienne valeur potentiellement obsolète
+        // Si une ville explicite est fournie mais invalide, on nettoie.
         clearPersistedCity();
       }
 
-      const city = resolveActiveCity();
-      win.activeCity = city;
+      let city = resolveActiveCity();
+      // Forcer "aucune ville" quand ?city= (vide) ou ?city=default est passé explicitement
+      if (explicitNoCity) {
+        city = '';
+        win.activeCity = '';
+        // Nettoyer la persistance pour que la page reflète bien l'absence de ville
+        try { clearPersistedCity(); } catch (_) {}
+      } else {
+        win.activeCity = city;
+      }
       // Persistance/Nettoyage:
       // - Si ville valide ET explicitement demandée (query/path) -> persister
       // - Si ville valide mais par défaut -> ne pas persister
       // - Si invalide/vide -> nettoyer
       try {
-        if (city && isValidCity(city)) {
-          if (hasExplicitCity && restoreCity() !== city) persistCity(city);
-        } else {
-          clearPersistedCity();
+        if (!explicitNoCity) {
+          if (city && isValidCity(city)) {
+            // Persister la ville même si elle n'est pas explicitement fournie dans l'URL,
+            // afin de la conserver au rafraîchissement.
+            if (restoreCity() !== city) persistCity(city);
+          } else {
+            clearPersistedCity();
+          }
         }
       } catch (_) {}
       // Update logos to match current city branding
