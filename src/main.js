@@ -1,6 +1,12 @@
 import './styles/style.css';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { MapModule } from './modules/mapmodule.js';
+import { DataModule } from './modules/datamodule.js';
+import { SearchModule } from './modules/searchmodule.js';
+import { UIModule } from './modules/uimodule.js';
+import { NavigationModule } from './modules/navigationmodule.js';
+import { EventBindingsModule } from './modules/eventbindings.js';
 
 // Fix default marker icons so they work with Vite/bundlers
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -250,11 +256,11 @@ L.Icon.Default.mergeOptions({
       const bm = findBasemapForTheme(theme);
       if (!bm) return;
       const layer = L.tileLayer(bm.url, { attribution: bm.attribution });
-      if (window.MapModule?.setBaseLayer) {
-        window.MapModule.setBaseLayer(layer);
+      if (MapModule?.setBaseLayer) {
+        MapModule.setBaseLayer(layer);
       }
-      if (window.UIModule?.setActiveBasemap) {
-        window.UIModule.setActiveBasemap(bm.label);
+      if (UIModule?.setActiveBasemap) {
+        UIModule.setActiveBasemap(bm.label);
       }
     } catch (e) {
       console.warn('syncBasemapToTheme: erreur lors du changement de fond de carte', e);
@@ -428,8 +434,8 @@ L.Icon.Default.mergeOptions({
       if (!hasCoords || !hasZoom) return; // pas de coordonnées configurées: ne rien changer
       const center = [branding.center_lat, branding.center_lng];
       const zoom   = branding.zoom;
-      if (window.MapModule?.map?.setView) {
-        window.MapModule.map.setView(center, zoom);
+      if (MapModule?.map?.setView) {
+        MapModule.map.setView(center, zoom);
       }
     } catch (_) { /* noop */ }
   }
@@ -719,17 +725,15 @@ L.Icon.Default.mergeOptions({
       // - Si ville valide ET explicitement demandée (query/path) -> persister
       // - Si ville valide mais par défaut -> ne pas persister
       // - Si invalide/vide -> nettoyer
-      try {
-        if (!explicitNoCity) {
-          if (city && isValidCity(city)) {
-            // Persister la ville même si elle n'est pas explicitement fournie dans l'URL,
-            // afin de la conserver au rafraîchissement.
-            if (restoreCity() !== city) persistCity(city);
-          } else {
-            clearPersistedCity();
-          }
+      if (!explicitNoCity) {
+        if (city && isValidCity(city)) {
+          // Persister la ville même si elle n'est pas explicitement fournie dans l'URL,
+          // afin de la conserver au rafraîchissement.
+          if (restoreCity() !== city) persistCity(city);
+        } else {
+          clearPersistedCity();
         }
-      } catch (_) {}
+      }
       // Update logos to match current city branding
       updateLogoForCity(city);
       // Init City toggle UI and menu
@@ -751,14 +755,16 @@ L.Icon.Default.mergeOptions({
       const basemapsToUse = (remoteBasemaps && remoteBasemaps.length > 0) ? remoteBasemaps : window.basemaps;
       const basemapsForCity = (basemapsToUse || []).filter(b => !b || !('ville' in b) || !b.ville || b.ville === city);
 
-      if (window.UIModule?.updateBasemaps) {
-        window.UIModule.updateBasemaps(basemapsForCity);
+      if (UIModule?.updateBasemaps) {
+        UIModule.updateBasemaps(basemapsForCity);
       } else {
         console.warn('UIModule.updateBasemaps non disponible');
       }
       
       // Initialiser la couche de base
-      window.MapModule.initBaseLayer();
+      if (MapModule) {
+        MapModule.initBaseLayer();
+      }
 
       // Synchroniser le fond de carte avec le thème courant (si un fond correspondant existe)
       syncBasemapToTheme(document.documentElement.getAttribute('data-theme') || getInitialTheme());
@@ -768,18 +774,10 @@ L.Icon.Default.mergeOptions({
       // Initialiser le module de géolocalisation
       
       if (window.GeolocationModule) {
-        window.GeolocationModule.init(window.MapModule.map);
+        window.GeolocationModule.init(MapModule.map);
       } else {
         console.warn('❌ ERREUR: GeolocationModule non chargé');
       }
-
-      // Récupération dynamique des modules après chargement complet
-      const {
-        DataModule,
-        MapModule,
-        EventBindings,
-        NavigationModule
-      } = win;
 
 
       // 2️⃣ Construire les maps de couches (filtrées par ville si colonne "ville" présente)
@@ -858,11 +856,11 @@ L.Icon.Default.mergeOptions({
       if (DataModule.preloadLayer) {
         Object.keys(urlMap).forEach(layer => DataModule.preloadLayer(layer));
       }
-      EventBindings.bindFilterControls();
+      EventBindingsModule.bindFilterControls();
       
       // Initialisation des modules UI avec les fonds de carte si disponibles
-      if (window.UIModule?.init) {
-        window.UIModule.init({
+      if (UIModule?.init) {
+        UIModule.init({
           basemaps: basemapsForCity
         });
       } else {
@@ -870,11 +868,11 @@ L.Icon.Default.mergeOptions({
       }
       
       // After UI init, ensure Leaflet recalculates its size (prevents initial offset)
-      try { requestAnimationFrame(() => window.MapModule?.refreshSize && window.MapModule.refreshSize()); } catch(_) { try { window.MapModule?.refreshSize && window.MapModule.refreshSize(); } catch(_) {} }
+      try { requestAnimationFrame(() => MapModule?.refreshSize && MapModule.refreshSize()); } catch(_) { try { MapModule?.refreshSize && MapModule.refreshSize(); } catch(_) {} }
       
       // Initialiser le module de recherche d'adresse
-      if (window.SearchModule?.init) {
-        window.SearchModule.init(window.MapModule.map);
+      if (SearchModule?.init) {
+        SearchModule.init(MapModule.map);
       } else {
         console.warn('SearchModule non disponible');
       }
@@ -887,14 +885,14 @@ L.Icon.Default.mergeOptions({
       if (filtersToggle) {
         filtersToggle.addEventListener('click', (e) => {
           e.stopPropagation();
-          window.UIModule?.togglePopup('filter');
+          UIModule?.togglePopup('filter');
         });
       }
       
       if (basemapToggle) {
         basemapToggle.addEventListener('click', (e) => {
           e.stopPropagation();
-          window.UIModule?.togglePopup('basemap');
+          UIModule?.togglePopup('basemap');
         });
       }
 
@@ -1010,8 +1008,8 @@ L.Icon.Default.mergeOptions({
         }
         
         // Vérifier si NavigationModule est disponible
-        if (window.NavigationModule?.resetToDefaultView) {
-          window.NavigationModule.resetToDefaultView(activeCategory);
+        if (NavigationModule?.resetToDefaultView) {
+          NavigationModule.resetToDefaultView(activeCategory);
         } else {
           console.warn('NavigationModule.resetToDefaultView non disponible');
         }
@@ -1048,14 +1046,14 @@ L.Icon.Default.mergeOptions({
           console.log('Ouverture du projet:', { projectName });
           
           // Préférer UIModule pour gérer l'historique et l'UI
-          if (window.UIModule?.showDetailPanel) {
-            window.UIModule.showDetailPanel(layerName, feature);
+          if (UIModule?.showDetailPanel) {
+            UIModule.showDetailPanel(layerName, feature);
           } 
           // Sinon, fallback sur NavigationModule
           else if (typeof NavigationModule !== 'undefined' && NavigationModule.showProjectDetail) {
             NavigationModule.showProjectDetail(projectName);
-          } else if (window.NavigationModule?.showProjectDetail) {
-            window.NavigationModule.showProjectDetail(projectName);
+          } else if (NavigationModule?.showProjectDetail) {
+            NavigationModule.showProjectDetail(projectName);
           }
           // Sinon, essayer de trouver le panneau de détail et de le remplir manuellement
           else {
@@ -1111,12 +1109,12 @@ L.Icon.Default.mergeOptions({
           try {
             const feat = await DataModule.findFeatureByProjectName(ln, project);
             if (feat) {
-              if (window.UIModule?.showDetailPanel) {
-                window.UIModule.showDetailPanel(ln, feat, { updateHistory: false });
-              } else if (window.NavigationModule?.showProjectDetail) {
+              if (UIModule?.showDetailPanel) {
+                UIModule.showDetailPanel(ln, feat, { updateHistory: false });
+              } else if (NavigationModule?.showProjectDetail) {
                 const props = feat.properties || {};
                 const name = props.project_name || props.name || props.Name || props.line || props.LIBELLE;
-                window.NavigationModule.showProjectDetail(name, cat, null, props);
+                NavigationModule.showProjectDetail(name, cat, null, props);
               }
               return true;
             }
@@ -1150,8 +1148,8 @@ L.Icon.Default.mergeOptions({
               updateFilterUI();
               updateFilterCount();
               // Re-lier les événements sur les nouveaux éléments
-              if (window.EventBindings?.bindFilterControls) {
-                window.EventBindings.bindFilterControls();
+              if (EventBindingsModules?.bindFilterControls) {
+                EventBindingsModules.bindFilterControls();
               }
             } catch (_) { /* noop */ }
           }
@@ -1173,12 +1171,12 @@ L.Icon.Default.mergeOptions({
             await showFromUrlState({ cat: state.cat, project: state.project });
           } else if (state && state.cat && !state.project) {
             // Catégorie seule: réinitialiser la vue sur la catégorie sans pousser d'historique
-            if (window.NavigationModule?.resetToDefaultView) {
-              window.NavigationModule.resetToDefaultView(state.cat, { preserveMapView: true, updateHistory: false });
+            if (NavigationModule?.resetToDefaultView) {
+              NavigationModule.resetToDefaultView(state.cat, { preserveMapView: true, updateHistory: false });
             }
-          } else if (window.NavigationModule?.resetToDefaultView) {
+          } else if (NavigationModule?.resetToDefaultView) {
             // Vue par défaut (sans cat ni project), sans pousser d'historique
-            window.NavigationModule.resetToDefaultView(undefined, { preserveMapView: true, updateHistory: false });
+            NavigationModule.resetToDefaultView(undefined, { preserveMapView: true, updateHistory: false });
           }
         } catch (_) { /* noop */ }
       });
@@ -1194,7 +1192,7 @@ L.Icon.Default.mergeOptions({
   function updateFilterUI() {
     document.querySelectorAll('.filter-item').forEach(item => {
       const layerName = item.dataset.layer;
-      const active    = !!(window.MapModule?.layers?.[layerName]);
+      const active    = !!(MapModule?.layers?.[layerName]);
       item.classList.toggle('active-filter', active);
     });
   }

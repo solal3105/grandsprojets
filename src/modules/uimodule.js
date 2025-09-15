@@ -1,8 +1,13 @@
 import L from 'leaflet';
+import { FilterModule } from './filtermodule.js';
+import { MapModule } from './mapmodule.js';
+import { DataModule } from './datamodule.js';
+import { NavigationModule } from './navigationmodule.js';
+
 
 // modules/UIModule.js
 // Module de gestion de l'interface utilisateur : filtres et popups
-(function(window, document, DataModule, FilterModule, MapModule) {
+export const UIModule = (function() {
   // État global des popups
   const popupState = {
     filter: { isOpen: false, element: null },
@@ -334,7 +339,7 @@ import L from 'leaflet';
       tile.addEventListener('click', (e) => {
         e.stopPropagation();
         const layer = L.tileLayer(bm.url, { attribution: bm.attribution });
-        window.MapModule?.setBaseLayer(layer);
+        MapModule?.setBaseLayer(layer);
         
         // Mise à jour de l'état visuel
         document.querySelectorAll('.basemap-tile')
@@ -369,7 +374,7 @@ import L from 'leaflet';
       .replace(/-+/g, '-');
     
     // Vérifier si NavigationModule est disponible
-    if (window.NavigationModule?.showProjectDetail) {
+    if (NavigationModule?.showProjectDetail) {
       const props = feature.properties || {};
       
       // Utiliser project_name en priorité (injecté par fetchLayerData depuis contribution_uploads)
@@ -392,7 +397,7 @@ import L from 'leaflet';
         }
         
         // Passer directement les données enrichies à showProjectDetail
-        window.NavigationModule.showProjectDetail(displayName, category, null, props);
+        NavigationModule.showProjectDetail(displayName, category, null, props);
 
         // Mettre à jour l'URL pour refléter l'état courant (sauf si désactivé)
         try {
@@ -428,8 +433,10 @@ import L from 'leaflet';
     });
   };
 
-  // Exposition de l'API
-  const UIModule = {
+  // Initialisation au chargement du module
+  init();
+
+  return {
     toggleSubFilters,
     buildSubFilters,
     updateActiveFilterTagsForLayer,
@@ -443,10 +450,4 @@ import L from 'leaflet';
     initBasemapMenu, // Exposer la fonction initBasemapMenu
     updateBasemaps   // Exposer la fonction updateBasemaps
   };
-
-  // Initialisation au chargement du module
-  init();
-
-  // Publication globale
-  window.UIModule = UIModule;
-})(window, document, DataModule, FilterModule, MapModule);
+})();

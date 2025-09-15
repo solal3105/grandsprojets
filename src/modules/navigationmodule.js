@@ -1,5 +1,11 @@
+import { FilterModule } from './filtermodule.js';
+import { MapModule } from './mapmodule.js';
+import { UIModule } from './uimodule.js';
+import { DataModule } from './datamodule.js';
+import { MarkdownUtils } from './markdownutils.js';
+
 // modules/NavigationModule.js
-const NavigationModule = (() => {
+export const NavigationModule = (() => {
   const projectDetailPanel = document.getElementById('project-detail');
 
   // Utilitaire pour normaliser les chaînes
@@ -70,508 +76,470 @@ const NavigationModule = (() => {
     }
   }
 
-
-
-/**
- * Affiche les détails d'un projet dans le panneau latéral
- * @param {string} projectName - Nom du projet à afficher
- * @param {string} category - Catégorie du projet (velo, transport, mobilite, urbanisme)
- * @param {Event} [event] - Événement de clic (optionnel)
- */
-async function showProjectDetail(projectName, category, event, enrichedProps = null) {
-  console.group('=== showProjectDetail ===');
-  console.log('Paramètres initiaux:', { projectName, category });
-  
-  // Gestion de l'événement si fourni
-  if (event?.stopPropagation) {
-    event.stopPropagation();
-    console.log('Événement de clic arrêté');
-  }
-  
-  // Masquer tous les sous-menus
-  const submenus = ['velo', 'transport', 'mobilite', 'urbanisme'];
-  console.log('Masquage des sous-menus:', submenus);
-  submenus.forEach(id => {
-    const el = document.getElementById(`${id}-submenu`);
-    if (el) {
-      el.style.display = 'none';
-      console.log(`Sous-menu masqué: ${id}`);
-    }
-  });
-  
-  // Ajuster le style du panneau de navigation
-  const leftNav = document.getElementById('left-nav');
-  if (leftNav) {
-    leftNav.style.borderRadius = window.innerWidth < 1024 
-      ? '0 0 20px 20px' 
-      : '20px 0 0 20px';
-    console.log('Style du panneau de navigation ajusté');
-  }
-
-  // Résolution robuste de l'URL d'illustration (fonctionne en sous-chemin et en file://)
-  const resolveAssetUrl = (u) => {
-    try {
-      if (!u) return u;
-      if (/^https?:\/\//i.test(u)) return u; // URL absolue distante
-      if (location.protocol === 'file:' && u.startsWith('/')) {
-        // En file://, les chemins absolus "/img/..." ne fonctionnent pas -> rendre relatif
-        return '.' + u;
-      }
-      if (u.startsWith('/')) {
-        // Hébergement sous sous-chemin: préfixer par le répertoire courant
-        const baseDir = location.pathname.replace(/[^\/]*$/, ''); // conserve le dossier
-        return (baseDir.endsWith('/') ? baseDir.slice(0, -1) : baseDir) + u;
-      }
-      return u; // déjà relatif
-    } catch(_) { return u; }
-  };
-
-  // Déterminer la catégorie effective (harmonisation avec contribution_uploads)
-  const effectiveCat = (category === 'transport')
-    ? 'mobilite'
-    : (category === 'velo' ? 'velo' : category);
-  console.log('Catégorie effective:', effectiveCat);
-
-  // Afficher le panneau de chargement
-  const panel = document.getElementById('project-detail');
-  panel.innerHTML = '<p style="padding:1em">Chargement…</p>';
-  panel.style.display = 'block';
-  // Reset collapse state when opening a new project detail
-  panel.style.removeProperty('max-height');
-  panel.style.removeProperty('overflow');
-  console.log('Panneau de chargement affiché');
-
-  try {
-    // 1️⃣ Utiliser les données enrichies si disponibles, sinon chercher dans contribution_uploads
-    let contributionProject = null;
+  /**
+   * Affiche les détails d'un projet dans le panneau latéral
+   * @param {string} projectName - Nom du projet à afficher
+   * @param {string} category - Catégorie du projet (velo, transport, mobilite, urbanisme)
+   * @param {Event} [event] - Événement de clic (optionnel)
+   */
+  async function showProjectDetail(projectName, category, event, enrichedProps = null) {
+    console.group('=== showProjectDetail ===');
+    console.log('Paramètres initiaux:', { projectName, category });
     
-    if (enrichedProps && enrichedProps.project_name) {
-      // Utiliser directement les données enrichies depuis les properties de la feature
-      contributionProject = {
-        project_name: enrichedProps.project_name,
-        category: enrichedProps.category,
-        cover_url: enrichedProps.cover_url,
-        description: enrichedProps.description,
-        markdown_url: enrichedProps.markdown_url
-      };
-      console.log('Utilisation des données enrichies depuis les properties:', contributionProject);
-    } else if (window.supabaseService?.fetchProjectByCategoryAndName) {
-      // Recherche stricte: catégorie + nom exact
-      try {
-        contributionProject = await window.supabaseService.fetchProjectByCategoryAndName(effectiveCat, projectName);
-        console.log('Projet trouvé (strict) dans contribution_uploads:', contributionProject);
-      } catch (error) {
-        console.warn('Erreur lors de la recherche stricte dans contribution_uploads:', error);
+    // Gestion de l'événement si fourni
+    if (event?.stopPropagation) {
+      event.stopPropagation();
+      console.log('Événement de clic arrêté');
+    }
+    
+    // Masquer tous les sous-menus
+    const submenus = ['velo', 'transport', 'mobilite', 'urbanisme'];
+    console.log('Masquage des sous-menus:', submenus);
+    submenus.forEach(id => {
+      const el = document.getElementById(`${id}-submenu`);
+      if (el) {
+        el.style.display = 'none';
+        console.log(`Sous-menu masqué: ${id}`);
       }
+    });
+    
+    // Ajuster le style du panneau de navigation
+    const leftNav = document.getElementById('left-nav');
+    if (leftNav) {
+      leftNav.style.borderRadius = window.innerWidth < 1024 
+        ? '0 0 20px 20px' 
+        : '20px 0 0 20px';
+      console.log('Style du panneau de navigation ajusté');
     }
 
-    let md = null;
-    let usedContribution = false;
-
-    // 2️⃣ Si trouvé dans contribution_uploads et qu'il a une markdown_url, l'utiliser
-    if (contributionProject?.markdown_url) {
+    // Résolution robuste de l'URL d'illustration (fonctionne en sous-chemin et en file://)
+    const resolveAssetUrl = (u) => {
       try {
-        console.log('Chargement du markdown depuis contribution_uploads:', contributionProject.markdown_url);
-        const response = await fetch(contributionProject.markdown_url);
-        if (response.ok) {
-          md = await response.text();
-          usedContribution = true;
-          console.log('Markdown chargé depuis contribution_uploads, taille:', `${(md.length / 1024).toFixed(2)} KB`);
+        if (!u) return u;
+        if (/^https?:\/\//i.test(u)) return u; // URL absolue distante
+        if (location.protocol === 'file:' && u.startsWith('/')) {
+          // En file://, les chemins absolus "/img/..." ne fonctionnent pas -> rendre relatif
+          return '.' + u;
         }
-      } catch (error) {
-        console.warn('Erreur lors du chargement du markdown depuis contribution_uploads:', error);
-      }
-    }
-
-    // 3️⃣ Si pas de markdown et pas de projet dans contribution_uploads, afficher un message
-    if (!md && !contributionProject) {
-      panel.innerHTML = `
-        <div style="padding: 2em; text-align: center; color: #666;">
-          <h3>Projet non trouvé</h3>
-          <p>Le projet "${projectName}" n'a pas été trouvé dans la base de données.</p>
-          <p>Seuls les projets de la table contribution_uploads sont disponibles.</p>
-        </div>
-      `;
-      console.groupEnd();
-      return;
-    }
-
-    /**
-     * Charge les utilitaires Markdown si nécessaire
-     */
-    async function ensureMarkdownUtils() {
-      console.log('Vérification des utilitaires Markdown...');
-      
-      if (!window.MarkdownUtils) {
-        console.log('MarkdownUtils non trouvé, chargement en cours...');
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = '/src/modules/MarkdownUtils.js';
-          script.onload = () => {
-            console.log('MarkdownUtils chargé avec succès');
-            resolve();
-          };
-          script.onerror = () => {
-            const error = new Error('Échec du chargement de MarkdownUtils');
-            console.error(error);
-            reject(error);
-          };
-          document.head.appendChild(script);
-        });
-      }
-      
-      if (window.MarkdownUtils?.loadDeps) {
-        console.log('Chargement des dépendances Markdown...');
-        await window.MarkdownUtils.loadDeps();
-        console.log('Dépendances Markdown chargées');
-      }
-    }
-
-    // Traiter le markdown uniquement s'il existe; sinon continuer avec attrs/html vides
-    let attrs = {};
-    let html = '';
-    if (md) {
-      await ensureMarkdownUtils();
-      console.log('Traitement du contenu Markdown...');
-      ({ attrs, html } = window.MarkdownUtils.renderMarkdown(md));
-      console.log('Contenu Markdown traité avec succès');
-    }
-    
-
-    const extractFirstImageSrc = (markup) => {
-      try {
-        if (!markup) return null;
-        const doc = new DOMParser().parseFromString(markup, 'text/html');
-        const img = doc.querySelector('img');
-        const src = img?.getAttribute('src') || img?.getAttribute('data-src');
-        return src || null;
-      } catch(_) { return null; }
+        if (u.startsWith('/')) {
+          // Hébergement sous sous-chemin: préfixer par le répertoire courant
+          const baseDir = location.pathname.replace(/[^\/]*$/, ''); // conserve le dossier
+          return (baseDir.endsWith('/') ? baseDir.slice(0, -1) : baseDir) + u;
+        }
+        return u; // déjà relatif
+      } catch(_) { return u; }
     };
 
-    let body='';
-    // Utiliser les données de contribution_uploads en priorité
-    const coverCandidate = contributionProject?.cover_url || attrs.cover || extractFirstImageSrc(html);
-    if (coverCandidate) {
-      const coverUrl = resolveAssetUrl(coverCandidate);
-      body+=`
-      <div class="project-cover-wrap">
-        <img class="project-cover" src="${coverUrl}" alt="${attrs.name||projectName||''}">
-        <button class="cover-extend-btn" aria-label="Agrandir l'image" title="Agrandir">
-          <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
-        </button>
-      </div>`;
-    }
-    const chips=[];
-    if(attrs.from||attrs.to) chips.push(`<span class="chip chip-route">${attrs.from||''}${attrs.to?` → ${attrs.to}`:''}</span>`);
-    if(attrs.trafic) chips.push(`<span class="chip chip-trafic">${attrs.trafic}</span>`);
-    if(chips.length) body+=`<div class="project-chips">${chips.join('')}</div>`;
-    
-    // Utiliser description de contribution_uploads en priorité
-    const description = contributionProject?.description || attrs.description;
-    if(description) body+=`<p class="project-description">${description}</p>`;
+    // Déterminer la catégorie effective (harmonisation avec contribution_uploads)
+    const effectiveCat = (category === 'transport')
+      ? 'mobilite'
+      : (category === 'velo' ? 'velo' : category);
+    console.log('Catégorie effective:', effectiveCat);
 
-    const icons={velo:'fa-bicycle',mobilite:'fa-train-tram',transport:'fa-train-tram',urbanisme:'fa-building'};
+    // Afficher le panneau de chargement
+    const panel = document.getElementById('project-detail');
+    panel.innerHTML = '<p style="padding:1em">Chargement…</p>';
+    panel.style.display = 'block';
+    // Reset collapse state when opening a new project detail
+    panel.style.removeProperty('max-height');
+    panel.style.removeProperty('overflow');
+    console.log('Panneau de chargement affiché');
 
-    // 1) Utiliser la route dynamique pour la fiche complète
-    let fullPageUrl = null;
     try {
-      const params = new URLSearchParams();
-      if (category) params.set('cat', category);
-      if (projectName) params.set('project', projectName);
-      fullPageUrl = `/fiche/?${params.toString()}`;
-    } catch (_) {
-      fullPageUrl = `/fiche/?cat=${encodeURIComponent(category||'')}&project=${encodeURIComponent(projectName||'')}`;
-    }
+      // 1️⃣ Utiliser les données enrichies si disponibles, sinon chercher dans contribution_uploads
+      let contributionProject = null;
+      
+      if (enrichedProps && enrichedProps.project_name) {
+        // Utiliser directement les données enrichies depuis les properties de la feature
+        contributionProject = {
+          project_name: enrichedProps.project_name,
+          category: enrichedProps.category,
+          cover_url: enrichedProps.cover_url,
+          description: enrichedProps.description,
+          markdown_url: enrichedProps.markdown_url
+        };
+        console.log('Utilisation des données enrichies depuis les properties:', contributionProject);
+      } else if (window.supabaseService?.fetchProjectByCategoryAndName) {
+        // Recherche stricte: catégorie + nom exact
+        try {
+          contributionProject = await window.supabaseService.fetchProjectByCategoryAndName(effectiveCat, projectName);
+          console.log('Projet trouvé (strict) dans contribution_uploads:', contributionProject);
+        } catch (error) {
+          console.warn('Erreur lors de la recherche stricte dans contribution_uploads:', error);
+        }
+      }
 
-    panel.innerHTML = `
-      <div class="detail-header-submenu">
-        <div class="header-actions">
-          <button id="detail-back-btn" class="gp-btn gp-btn--secondary" aria-label="Retour">
-            <i class="fa-solid fa-arrow-left gp-btn__icon" aria-hidden="true"></i>
-            <span class="gp-btn__label">Retour</span>
-          </button>
-          <button id="detail-panel-toggle-btn" class="gp-btn gp-btn--secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true" aria-controls="project-detail">
-            <i class="fa-solid fa-compress gp-btn__icon" aria-hidden="true"></i>
-            <span class="gp-btn__label">Réduire</span>
-          </button>
-        </div>
-      </div>
-      <div class="project-title-container">
-        <i class="fa-solid ${icons[category]||'fa-map'}"></i>
-        <h3 class="project-title">${projectName}</h3>
-      </div>
-      ${fullPageUrl ? `<a href="${fullPageUrl}" class="detail-fullpage-btn">
-         <i class="fa-solid fa-up-right-from-square"></i>Voir la fiche complète
-        </a>` : ''}
-      <div id="detail-content" class="markdown-body">${body}</div>`;
-    
-    // Ensure reduce button starts expanded state (compress icon + label)
-    try {
-      const _btn = document.getElementById('detail-panel-toggle-btn');
-      const _ic = _btn?.querySelector('i');
-      const _lbl = _btn?.querySelector('.gp-btn__label');
-      if (_ic) { _ic.classList.remove('fa-expand'); _ic.classList.add('fa-compress'); }
-      if (_lbl) _lbl.textContent = 'Réduire';
-      _btn?.classList.remove('is-collapsed');
-      if (_btn) { _btn.setAttribute('aria-expanded', 'true'); _btn.setAttribute('aria-label', 'Réduire'); }
-    } catch(_) {}
+      let md = null;
+      let usedContribution = false;
 
-    // Le bouton de thème du panneau de détail a été supprimé; aucune synchronisation nécessaire ici.
-    let themeObserver = null;
+      // 2️⃣ Si trouvé dans contribution_uploads et qu'il a une markdown_url, l'utiliser
+      if (contributionProject?.markdown_url) {
+        try {
+          console.log('Chargement du markdown depuis contribution_uploads:', contributionProject.markdown_url);
+          const response = await fetch(contributionProject.markdown_url);
+          if (response.ok) {
+            md = await response.text();
+            usedContribution = true;
+            console.log('Markdown chargé depuis contribution_uploads, taille:', `${(md.length / 1024).toFixed(2)} KB`);
+          }
+        } catch (error) {
+          console.warn('Erreur lors du chargement du markdown depuis contribution_uploads:', error);
+        }
+      }
 
-    // Styles déplacés dans style.css (cover overlay + lightbox)
-
-    // Wire up Extend button in this panel
-    (function(){
-      const content = panel.querySelector('#detail-content');
-      const coverWrap = content?.querySelector('.project-cover-wrap');
-      if (!coverWrap) return;
-      const btn = coverWrap.querySelector('.cover-extend-btn');
-      const img = coverWrap.querySelector('img.project-cover');
-      const openLightbox = () => {
-        const overlay = document.createElement('div');
-        overlay.className = 'cover-lightbox';
-        overlay.innerHTML = `
-          <div class="lightbox-content">
-            <img src="${img.getAttribute('src')}" alt="${img.getAttribute('alt') || ''}">
-            <button class="lightbox-close" aria-label="Fermer">
-              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-            </button>
+      // 3️⃣ Si pas de markdown et pas de projet dans contribution_uploads, afficher un message
+      if (!md && !contributionProject) {
+        panel.innerHTML = `
+          <div style="padding: 2em; text-align: center; color: #666;">
+            <h3>Projet non trouvé</h3>
+            <p>Le projet "${projectName}" n'a pas été trouvé dans la base de données.</p>
+            <p>Seuls les projets de la table contribution_uploads sont disponibles.</p>
           </div>
         `;
-        document.body.appendChild(overlay);
-        const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
-        const onKey = (e) => { if (e.key === 'Escape') close(); };
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-        overlay.querySelector('.lightbox-close').addEventListener('click', close);
-        document.addEventListener('keydown', onKey);
-        // Set initial focus for accessibility
-        const closeBtn = overlay.querySelector('.lightbox-close');
-        if (closeBtn && typeof closeBtn.focus === 'function') closeBtn.focus();
-      };
-      btn?.addEventListener('click', openLightbox);
-    })();
+        console.groupEnd();
+        return;
+      }
 
-    // Wire up "Voir la fiche complète": navigation native vers la route dynamique (pas de modal)
-    (function(){
-      const cta = panel.querySelector('.detail-fullpage-btn');
-      if (!cta) return;
-      // Ne pas intercepter le clic: laisser la navigation gérer l'historique/SEO
-    })();
-
-    // (Bouton fermer supprimé)
-
-    // Toggle collapse control (all sizes)
-    const toggleBtn = document.getElementById('detail-panel-toggle-btn');
-    if (toggleBtn) {
-      toggleBtn.addEventListener('click', () => {
-        const iconEl = toggleBtn.querySelector('i');
-        const labelEl = toggleBtn.querySelector('.gp-btn__label');
-        const isCollapsed = toggleBtn.getAttribute('aria-expanded') === 'false';
-        if (isCollapsed) {
-          // Expand
-          panel.style.removeProperty('max-height');
-          panel.style.removeProperty('overflow');
-          if (iconEl) {
-            if (iconEl.classList.contains('fa-expand')) iconEl.classList.replace('fa-expand', 'fa-compress');
-            else iconEl.classList.add('fa-compress');
-          }
-          if (labelEl) labelEl.textContent = 'Réduire';
-          toggleBtn.classList.remove('is-collapsed');
-          toggleBtn.setAttribute('aria-expanded', 'true');
-          toggleBtn.setAttribute('aria-label', 'Réduire');
-        } else {
-          // Collapse
-          panel.style.setProperty('max-height', '10vh', 'important');
-          panel.style.setProperty('overflow', 'hidden', 'important');
-          if (iconEl && iconEl.classList.contains('fa-compress')) iconEl.classList.replace('fa-compress', 'fa-expand');
-          if (labelEl) labelEl.textContent = 'Développer';
-          toggleBtn.classList.add('is-collapsed');
-          toggleBtn.setAttribute('aria-expanded', 'false');
-          toggleBtn.setAttribute('aria-label', 'Développer');
+      /**
+       * Charge les utilitaires Markdown si nécessaire
+       */
+      async function ensureMarkdownUtils() {
+        console.log('Vérification des utilitaires Markdown...');
+        
+        if (!MarkdownUtils) {
+          console.log('MarkdownUtils non trouvé, chargement en cours...');
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = '/src/modules/MarkdownUtils.js';
+            script.onload = () => {
+              console.log('MarkdownUtils chargé avec succès');
+              resolve();
+            };
+            script.onerror = () => {
+              const error = new Error('Échec du chargement de MarkdownUtils');
+              console.error(error);
+              reject(error);
+            };
+            document.head.appendChild(script);
+          });
         }
-      });
+        
+        if (MarkdownUtils?.loadDeps) {
+          console.log('Chargement des dépendances Markdown...');
+          await MarkdownUtils.loadDeps();
+          console.log('Dépendances Markdown chargées');
+        }
+      }
+
+      // Traiter le markdown uniquement s'il existe; sinon continuer avec attrs/html vides
+      let attrs = {};
+      let html = '';
+      if (md) {
+        await ensureMarkdownUtils();
+        console.log('Traitement du contenu Markdown...');
+        ({ attrs, html } = MarkdownUtils.renderMarkdown(md));
+        console.log('Contenu Markdown traité avec succès');
+      }
+      
+
+      const extractFirstImageSrc = (markup) => {
+        try {
+          if (!markup) return null;
+          const doc = new DOMParser().parseFromString(markup, 'text/html');
+          const img = doc.querySelector('img');
+          const src = img?.getAttribute('src') || img?.getAttribute('data-src');
+          return src || null;
+        } catch(_) { return null; }
+      };
+
+      let body='';
+      // Utiliser les données de contribution_uploads en priorité
+      const coverCandidate = contributionProject?.cover_url || attrs.cover || extractFirstImageSrc(html);
+      if (coverCandidate) {
+        const coverUrl = resolveAssetUrl(coverCandidate);
+        body+=`
+        <div class="project-cover-wrap">
+          <img class="project-cover" src="${coverUrl}" alt="${attrs.name||projectName||''}">
+          <button class="cover-extend-btn" aria-label="Agrandir l'image" title="Agrandir">
+            <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
+          </button>
+        </div>`;
+      }
+      const chips=[];
+      if(attrs.from||attrs.to) chips.push(`<span class="chip chip-route">${attrs.from||''}${attrs.to?` → ${attrs.to}`:''}</span>`);
+      if(attrs.trafic) chips.push(`<span class="chip chip-trafic">${attrs.trafic}</span>`);
+      if(chips.length) body+=`<div class="project-chips">${chips.join('')}</div>`;
+      
+      // Utiliser description de contribution_uploads en priorité
+      const description = contributionProject?.description || attrs.description;
+      if(description) body+=`<p class="project-description">${description}</p>`;
+
+      const icons={velo:'fa-bicycle',mobilite:'fa-train-tram',transport:'fa-train-tram',urbanisme:'fa-building'};
+
+      // 1) Utiliser la route dynamique pour la fiche complète
+      let fullPageUrl = null;
+      try {
+        const params = new URLSearchParams();
+        if (category) params.set('cat', category);
+        if (projectName) params.set('project', projectName);
+        fullPageUrl = `/fiche/?${params.toString()}`;
+      } catch (_) {
+        fullPageUrl = `/fiche/?cat=${encodeURIComponent(category||'')}&project=${encodeURIComponent(projectName||'')}`;
+      }
+
+      panel.innerHTML = `
+        <div class="detail-header-submenu">
+          <div class="header-actions">
+            <button id="detail-back-btn" class="gp-btn gp-btn--secondary" aria-label="Retour">
+              <i class="fa-solid fa-arrow-left gp-btn__icon" aria-hidden="true"></i>
+              <span class="gp-btn__label">Retour</span>
+            </button>
+            <button id="detail-panel-toggle-btn" class="gp-btn gp-btn--secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true" aria-controls="project-detail">
+              <i class="fa-solid fa-compress gp-btn__icon" aria-hidden="true"></i>
+              <span class="gp-btn__label">Réduire</span>
+            </button>
+          </div>
+        </div>
+        <div class="project-title-container">
+          <i class="fa-solid ${icons[category]||'fa-map'}"></i>
+          <h3 class="project-title">${projectName}</h3>
+        </div>
+        ${fullPageUrl ? `<a href="${fullPageUrl}" class="detail-fullpage-btn">
+          <i class="fa-solid fa-up-right-from-square"></i>Voir la fiche complète
+          </a>` : ''}
+        <div id="detail-content" class="markdown-body">${body}</div>`;
+      
+      // Ensure reduce button starts expanded state (compress icon + label)
+      try {
+        const _btn = document.getElementById('detail-panel-toggle-btn');
+        const _ic = _btn?.querySelector('i');
+        const _lbl = _btn?.querySelector('.gp-btn__label');
+        if (_ic) { _ic.classList.remove('fa-expand'); _ic.classList.add('fa-compress'); }
+        if (_lbl) _lbl.textContent = 'Réduire';
+        _btn?.classList.remove('is-collapsed');
+        if (_btn) { _btn.setAttribute('aria-expanded', 'true'); _btn.setAttribute('aria-label', 'Réduire'); }
+      } catch(_) {}
+
+      // Le bouton de thème du panneau de détail a été supprimé; aucune synchronisation nécessaire ici.
+      let themeObserver = null;
+
+      // Styles déplacés dans style.css (cover overlay + lightbox)
+
+      // Wire up Extend button in this panel
+      (function(){
+        const content = panel.querySelector('#detail-content');
+        const coverWrap = content?.querySelector('.project-cover-wrap');
+        if (!coverWrap) return;
+        const btn = coverWrap.querySelector('.cover-extend-btn');
+        const img = coverWrap.querySelector('img.project-cover');
+        const openLightbox = () => {
+          const overlay = document.createElement('div');
+          overlay.className = 'cover-lightbox';
+          overlay.innerHTML = `
+            <div class="lightbox-content">
+              <img src="${img.getAttribute('src')}" alt="${img.getAttribute('alt') || ''}">
+              <button class="lightbox-close" aria-label="Fermer">
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+              </button>
+            </div>
+          `;
+          document.body.appendChild(overlay);
+          const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+          const onKey = (e) => { if (e.key === 'Escape') close(); };
+          overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+          overlay.querySelector('.lightbox-close').addEventListener('click', close);
+          document.addEventListener('keydown', onKey);
+          // Set initial focus for accessibility
+          const closeBtn = overlay.querySelector('.lightbox-close');
+          if (closeBtn && typeof closeBtn.focus === 'function') closeBtn.focus();
+        };
+        btn?.addEventListener('click', openLightbox);
+      })();
+
+      // Wire up "Voir la fiche complète": navigation native vers la route dynamique (pas de modal)
+      (function(){
+        const cta = panel.querySelector('.detail-fullpage-btn');
+        if (!cta) return;
+        // Ne pas intercepter le clic: laisser la navigation gérer l'historique/SEO
+      })();
+
+      // (Bouton fermer supprimé)
+
+      // Toggle collapse control (all sizes)
+      const toggleBtn = document.getElementById('detail-panel-toggle-btn');
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+          const iconEl = toggleBtn.querySelector('i');
+          const labelEl = toggleBtn.querySelector('.gp-btn__label');
+          const isCollapsed = toggleBtn.getAttribute('aria-expanded') === 'false';
+          if (isCollapsed) {
+            // Expand
+            panel.style.removeProperty('max-height');
+            panel.style.removeProperty('overflow');
+            if (iconEl) {
+              if (iconEl.classList.contains('fa-expand')) iconEl.classList.replace('fa-expand', 'fa-compress');
+              else iconEl.classList.add('fa-compress');
+            }
+            if (labelEl) labelEl.textContent = 'Réduire';
+            toggleBtn.classList.remove('is-collapsed');
+            toggleBtn.setAttribute('aria-expanded', 'true');
+            toggleBtn.setAttribute('aria-label', 'Réduire');
+          } else {
+            // Collapse
+            panel.style.setProperty('max-height', '10vh', 'important');
+            panel.style.setProperty('overflow', 'hidden', 'important');
+            if (iconEl && iconEl.classList.contains('fa-compress')) iconEl.classList.replace('fa-compress', 'fa-expand');
+            if (labelEl) labelEl.textContent = 'Développer';
+            toggleBtn.classList.add('is-collapsed');
+            toggleBtn.setAttribute('aria-expanded', 'false');
+            toggleBtn.setAttribute('aria-label', 'Développer');
+          }
+        });
+      }
+
+      // Configuration du bouton retour pour utiliser la fonction de réinitialisation
+      const backButton = document.getElementById('detail-back-btn');
+      if (backButton) {
+        backButton.onclick = () => NavigationModule.resetToDefaultView(category, { preserveMapView: true, updateHistory: true });
+      }
+    }catch(e){
+      console.error('Erreur markdown:',e);
+      panel.innerHTML=`<h3>${projectName}</h3><p>Aucun détail disponible.</p>`;
     }
 
-    // Configuration du bouton retour pour utiliser la fonction de réinitialisation
-    const backButton = document.getElementById('detail-back-btn');
-    if (backButton) {
-      backButton.onclick = () => NavigationModule.resetToDefaultView(category, { preserveMapView: true, updateHistory: true });
+    // Résoudre et appliquer le filtrage pour la couche cible (tolérant)
+    await resolveAndApplyLayerFiltering(projectName, category);
+
+    // animateDashLine removed (dead code; deduped and color application removed)
+
+    // ————————————————————————————————————————————————
+    // Résolution robuste de la couche + filtrage tolérant
+    // ————————————————————————————————————————————————
+    function normLoose(s) { return normalizeString(s).replace(/\s+/g, ''); }
+
+    function getProjectFilterConfig(projectName) {
+      try {
+        if (!window.projectFilterMapping || typeof window.projectFilterMapping !== 'object') return null;
+        const target = normLoose(projectName);
+        // 1) Essai direct (clé exacte)
+        if (window.projectFilterMapping[projectName]) return window.projectFilterMapping[projectName];
+        // 2) Correspondance tolérante sur les clés
+        const matchKey = Object.keys(window.projectFilterMapping).find(k => normLoose(k) === target);
+        return matchKey ? window.projectFilterMapping[matchKey] : null;
+      } catch (e) {
+        console.warn('[NavigationModule] getProjectFilterConfig error:', e);
+        return null;
+      }
     }
-  }catch(e){
-    console.error('Erreur markdown:',e);
-    panel.innerHTML=`<h3>${projectName}</h3><p>Aucun détail disponible.</p>`;
-  }
 
-  // Résoudre et appliquer le filtrage pour la couche cible (tolérant)
-  await resolveAndApplyLayerFiltering(projectName, category);
-
-  // animateDashLine removed (dead code; deduped and color application removed)
-
-  // ————————————————————————————————————————————————
-  // Résolution robuste de la couche + filtrage tolérant
-  // ————————————————————————————————————————————————
-  function normLoose(s) { return normalizeString(s).replace(/\s+/g, ''); }
-
-  function getProjectFilterConfig(projectName) {
-    try {
-      if (!window.projectFilterMapping || typeof window.projectFilterMapping !== 'object') return null;
-      const target = normLoose(projectName);
-      // 1) Essai direct (clé exacte)
-      if (window.projectFilterMapping[projectName]) return window.projectFilterMapping[projectName];
-      // 2) Correspondance tolérante sur les clés
-      const matchKey = Object.keys(window.projectFilterMapping).find(k => normLoose(k) === target);
-      return matchKey ? window.projectFilterMapping[matchKey] : null;
-    } catch (e) {
-      console.warn('[NavigationModule] getProjectFilterConfig error:', e);
-      return null;
+    function findMatchingPropertyKey(props, desiredKey) {
+      if (!props || typeof props !== 'object' || !desiredKey) return null;
+      const want = normLoose(desiredKey);
+      // match en ignorant casse/accents/espaces
+      return Object.keys(props).find(k => normLoose(k) === want) || (Object.prototype.hasOwnProperty.call(props, desiredKey) ? desiredKey : null);
     }
-  }
 
-  function findMatchingPropertyKey(props, desiredKey) {
-    if (!props || typeof props !== 'object' || !desiredKey) return null;
-    const want = normLoose(desiredKey);
-    // match en ignorant casse/accents/espaces
-    return Object.keys(props).find(k => normLoose(k) === want) || (Object.prototype.hasOwnProperty.call(props, desiredKey) ? desiredKey : null);
-  }
+    // Applique un effet d'atténuation (dimming) aux couches non sélectionnées
+    // pour conserver leur visibilité tout en mettant en avant la couche ciblée
+    function dimNonSelectedLayers(selectedLayerName, options = {}) {
+      const { opacity = 0.2, fillOpacity = 0.1 } = options;
+      try {
+        const layersObj = MapModule?.layers || {};
+        Object.keys(layersObj).forEach(name => {
+          const layer = layersObj[name];
+          if (!layer) return;
+          if (name === selectedLayerName) {
+            // Remettre plein contraste sur la couche sélectionnée
+            // On n'écrase que les opacités pour ne pas perdre le style existant
+            DataModule?.safeSetStyle(layer, { opacity: 1, fillOpacity: 0.5 });
+            if (typeof layer.setOpacity === 'function') {
+              layer.setOpacity(1);
+            }
+          } else {
+            // Atténuer les autres couches
+            DataModule?.safeSetStyle(layer, { opacity, fillOpacity });
+            if (typeof layer.setOpacity === 'function') {
+              layer.setOpacity(opacity);
+            }
+          }
+        });
+      } catch (_) { /* noop */ }
+    }
 
-  // Applique un effet d'atténuation (dimming) aux couches non sélectionnées
-  // pour conserver leur visibilité tout en mettant en avant la couche ciblée
-  function dimNonSelectedLayers(selectedLayerName, options = {}) {
-    const { opacity = 0.2, fillOpacity = 0.1 } = options;
-    try {
-      const layersObj = window.MapModule?.layers || {};
-      Object.keys(layersObj).forEach(name => {
-        const layer = layersObj[name];
-        if (!layer) return;
-        if (name === selectedLayerName) {
-          // Remettre plein contraste sur la couche sélectionnée
-          // On n'écrase que les opacités pour ne pas perdre le style existant
-          window.DataModule?.safeSetStyle(layer, { opacity: 1, fillOpacity: 0.5 });
+    // Restaure l'opacité normale sur toutes les couches connues
+    function restoreAllLayerOpacity() {
+      try {
+        const layersObj = MapModule?.layers || {};
+        Object.keys(layersObj).forEach(name => {
+          const layer = layersObj[name];
+          if (!layer) return;
+          DataModule?.safeSetStyle(layer, { opacity: 1, fillOpacity: 0.5 });
           if (typeof layer.setOpacity === 'function') {
             layer.setOpacity(1);
           }
-        } else {
-          // Atténuer les autres couches
-          window.DataModule?.safeSetStyle(layer, { opacity, fillOpacity });
-          if (typeof layer.setOpacity === 'function') {
-            layer.setOpacity(opacity);
-          }
-        }
-      });
-    } catch (_) { /* noop */ }
-  }
-
-  // Restaure l'opacité normale sur toutes les couches connues
-  function restoreAllLayerOpacity() {
-    try {
-      const layersObj = window.MapModule?.layers || {};
-      Object.keys(layersObj).forEach(name => {
-        const layer = layersObj[name];
-        if (!layer) return;
-        window.DataModule?.safeSetStyle(layer, { opacity: 1, fillOpacity: 0.5 });
-        if (typeof layer.setOpacity === 'function') {
-          layer.setOpacity(1);
-        }
-      });
-    } catch (_) { /* noop */ }
-  }
-
-  async function resolveAndApplyLayerFiltering(projectName, category) {
-    const effectiveCat = (category === 'transport') ? 'mobilite' : category;
-    const projLoose = normLoose(projectName);
-    let config = getProjectFilterConfig(projectName);
-
-    // Déterminer la couche cible
-    let layerName = config?.layer
-      || (effectiveCat === 'urbanisme' ? 'urbanisme'
-      : (effectiveCat === 'velo' ? 'voielyonnaise'
-      : (effectiveCat === 'mobilite' ? 'reseauProjeteSitePropre' : null)));
-
-    if (!layerName) {
-      console.warn('[NavigationModule] Aucune couche cible déduite pour', { projectName, category });
-      return;
+        });
+      } catch (_) { /* noop */ }
     }
 
-    // Assigner pour consommation ultérieure (ex: fermeture, reset)
-    projectDetailPanel.dataset.filterLayer = layerName;
+    async function resolveAndApplyLayerFiltering(projectName, category) {
+      const effectiveCat = (category === 'transport') ? 'mobilite' : category;
+      const projLoose = normLoose(projectName);
+      let config = getProjectFilterConfig(projectName);
 
-    // S'assurer que la couche est chargée
-    if (!window.DataModule?.layerData?.[layerName]) {
-      try {
-        await window.DataModule.loadLayer(layerName);
-      } catch (e) {
-        console.error('[NavigationModule] Échec du chargement de la couche', layerName, e);
+      // Déterminer la couche cible
+      let layerName = config?.layer
+        || (effectiveCat === 'urbanisme' ? 'urbanisme'
+        : (effectiveCat === 'velo' ? 'voielyonnaise'
+        : (effectiveCat === 'mobilite' ? 'reseauProjeteSitePropre' : null)));
+
+      if (!layerName) {
+        console.warn('[NavigationModule] Aucune couche cible déduite pour', { projectName, category });
         return;
       }
-    }
 
-    const data = window.DataModule.layerData[layerName];
-    const features = (data && data.features) ? data.features : [];
-    if (!features.length) {
-      console.warn('[NavigationModule] Aucune feature dans la couche', layerName);
-      return;
-    }
+      // Assigner pour consommation ultérieure (ex: fermeture, reset)
+      projectDetailPanel.dataset.filterLayer = layerName;
 
-    // Déterminer clé/valeur exactes pour le filtrage simple de DataModule
-    let actualKey = null;
-    let actualVal = null;
-
-    // 1) Si on dispose d'une config (clé/valeur), essayer de retrouver la clé réelle et une valeur existante
-    if (config?.key && config?.value != null) {
-      for (const f of features) {
-        const props = f && f.properties ? f.properties : {};
-        const k = findMatchingPropertyKey(props, config.key);
-        if (!k) continue;
-        const v = props[k];
-        if (v == null) continue;
-        if (normLoose(String(v)) === normLoose(String(config.value))) {
-          actualKey = k;
-          actualVal = v; // utiliser la valeur exacte trouvée dans les données
-          break;
+      // S'assurer que la couche est chargée
+      if (!DataModule?.layerData?.[layerName]) {
+        try {
+          await DataModule.loadLayer(layerName);
+        } catch (e) {
+          console.error('[NavigationModule] Échec du chargement de la couche', layerName, e);
+          return;
         }
       }
-    }
 
-    // 2) Urbanisme: matcher sur name/nom ≈ projectName
-    if ((!actualKey || actualVal == null) && layerName === 'urbanisme') {
-      const nameKeys = ['name', 'nom', 'Name', 'NOM'];
-      for (const f of features) {
-        const props = f && f.properties ? f.properties : {};
-        for (const candidate of nameKeys) {
-          const k = findMatchingPropertyKey(props, candidate);
-          if (!k) continue;
-          const v = props[k];
-          if (v != null && normLoose(String(v)) === projLoose) {
-            actualKey = k;
-            actualVal = v;
-            break;
-          }
-        }
-        if (actualKey) break;
+      const data = DataModule.layerData[layerName];
+      const features = (data && data.features) ? data.features : [];
+      if (!features.length) {
+        console.warn('[NavigationModule] Aucune feature dans la couche', layerName);
+        return;
       }
-    }
 
-    // 3) Vélo: tenter d'extraire le numéro de ligne, sinon fallback sur name/nom
-    if ((!actualKey || actualVal == null) && layerName === 'voielyonnaise') {
-      const m = String(projectName).match(/(\d+)/);
-      if (m) {
-        const targetLine = m[1];
+      // Déterminer clé/valeur exactes pour le filtrage simple de DataModule
+      let actualKey = null;
+      let actualVal = null;
+
+      // 1) Si on dispose d'une config (clé/valeur), essayer de retrouver la clé réelle et une valeur existante
+      if (config?.key && config?.value != null) {
         for (const f of features) {
           const props = f && f.properties ? f.properties : {};
-          const k = findMatchingPropertyKey(props, 'line');
+          const k = findMatchingPropertyKey(props, config.key);
           if (!k) continue;
           const v = props[k];
-          if (v != null && normLoose(String(v)) === normLoose(String(targetLine))) {
+          if (v == null) continue;
+          if (normLoose(String(v)) === normLoose(String(config.value))) {
             actualKey = k;
-            actualVal = v;
+            actualVal = v; // utiliser la valeur exacte trouvée dans les données
             break;
           }
         }
       }
-      if (!actualKey) {
-        // fallback sur name/nom
-        const nameKeys = ['name', 'nom'];
+
+      // 2) Urbanisme: matcher sur name/nom ≈ projectName
+      if ((!actualKey || actualVal == null) && layerName === 'urbanisme') {
+        const nameKeys = ['name', 'nom', 'Name', 'NOM'];
         for (const f of features) {
           const props = f && f.properties ? f.properties : {};
           for (const candidate of nameKeys) {
@@ -587,104 +555,135 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
           if (actualKey) break;
         }
       }
-    }
 
-    // 4) Autres couches (mobilité): tenter name/nom/libellé
-    if ((!actualKey || actualVal == null) && (layerName !== 'voielyonnaise' && layerName !== 'urbanisme')) {
-      const nameKeys = ['name', 'nom', 'libelle', 'libellé', 'Libelle', 'Libellé'];
-      for (const f of features) {
-        const props = f && f.properties ? f.properties : {};
-        for (const candidate of nameKeys) {
-          const k = findMatchingPropertyKey(props, candidate);
-          if (!k) continue;
-          const v = props[k];
-          if (v != null && normLoose(String(v)) === projLoose) {
-            actualKey = k;
-            actualVal = v;
-            break;
+      // 3) Vélo: tenter d'extraire le numéro de ligne, sinon fallback sur name/nom
+      if ((!actualKey || actualVal == null) && layerName === 'voielyonnaise') {
+        const m = String(projectName).match(/(\d+)/);
+        if (m) {
+          const targetLine = m[1];
+          for (const f of features) {
+            const props = f && f.properties ? f.properties : {};
+            const k = findMatchingPropertyKey(props, 'line');
+            if (!k) continue;
+            const v = props[k];
+            if (v != null && normLoose(String(v)) === normLoose(String(targetLine))) {
+              actualKey = k;
+              actualVal = v;
+              break;
+            }
           }
         }
-        if (actualKey) break;
+        if (!actualKey) {
+          // fallback sur name/nom
+          const nameKeys = ['name', 'nom'];
+          for (const f of features) {
+            const props = f && f.properties ? f.properties : {};
+            for (const candidate of nameKeys) {
+              const k = findMatchingPropertyKey(props, candidate);
+              if (!k) continue;
+              const v = props[k];
+              if (v != null && normLoose(String(v)) === projLoose) {
+                actualKey = k;
+                actualVal = v;
+                break;
+              }
+            }
+            if (actualKey) break;
+          }
+        }
+      }
+
+      // 4) Autres couches (mobilité): tenter name/nom/libellé
+      if ((!actualKey || actualVal == null) && (layerName !== 'voielyonnaise' && layerName !== 'urbanisme')) {
+        const nameKeys = ['name', 'nom', 'libelle', 'libellé', 'Libelle', 'Libellé'];
+        for (const f of features) {
+          const props = f && f.properties ? f.properties : {};
+          for (const candidate of nameKeys) {
+            const k = findMatchingPropertyKey(props, candidate);
+            if (!k) continue;
+            const v = props[k];
+            if (v != null && normLoose(String(v)) === projLoose) {
+              actualKey = k;
+              actualVal = v;
+              break;
+            }
+          }
+          if (actualKey) break;
+        }
+      }
+
+      if (actualKey && actualVal != null) {
+        console.log('[NavigationModule] Filtrage appliqué (clé/val trouvées):', { layerName, actualKey, actualVal });
+        if (UIModule?.applyFilter) {
+          UIModule.applyFilter(layerName, { [actualKey]: actualVal });
+          UIModule.updateActiveFilterTagsForLayer?.(layerName);
+        }
+        const layer = MapModule?.layers?.[layerName];
+        if (layer && typeof layer.getBounds === 'function') {
+          const b = layer.getBounds();
+          if (b.isValid()) {
+            MapModule.map.fitBounds(b, { padding: [100, 100] });
+            setTimeout(() => { if (MapModule.map.getZoom() > 15) MapModule.map.setZoom(15); }, 300);
+          }
+        }
+        // Masquer toutes les autres couches pour ne garder que le projet sélectionné visible
+        try {
+          const layersObj = MapModule?.layers || {};
+          Object.keys(layersObj).forEach(name => {
+            if (name !== layerName) {
+              try { MapModule.removeLayer(name); } catch(_) { /* noop */ }
+            }
+          });
+        } catch(_) { /* noop */ }
+      } else {
+        console.warn('[NavigationModule] Impossible de déterminer une clé/valeur de filtrage pour', { projectName, layerName, category });
       }
     }
 
-    if (actualKey && actualVal != null) {
-      console.log('[NavigationModule] Filtrage appliqué (clé/val trouvées):', { layerName, actualKey, actualVal });
-      if (window.UIModule?.applyFilter) {
-        window.UIModule.applyFilter(layerName, { [actualKey]: actualVal });
-        window.UIModule.updateActiveFilterTagsForLayer?.(layerName);
-      }
-      const layer = window.MapModule?.layers?.[layerName];
-      if (layer && typeof layer.getBounds === 'function') {
-        const b = layer.getBounds();
-        if (b.isValid()) {
-          window.MapModule.map.fitBounds(b, { padding: [100, 100] });
-          setTimeout(() => { if (window.MapModule.map.getZoom() > 15) window.MapModule.map.setZoom(15); }, 300);
+    // Fonction pour filtrer et styliser les paths
+    function highlightProjectPaths(projectName) {
+      const normalizedProjectName = normalizeString(projectName);
+      console.log("Nom du projet normalisé:", normalizedProjectName);
+
+      // Liste des couches à vérifier
+      const layersToCheck = ['voielyonnaise', 'reseauProjeteSitePropre', 'urbanisme'];
+
+      layersToCheck.forEach(layerName => {
+        const geojsonLayer = MapModule.layers[layerName];
+        
+        if (!geojsonLayer) {
+          console.warn(`Couche ${layerName} non trouvée`);
+          return;
         }
-      }
-      // Masquer toutes les autres couches pour ne garder que le projet sélectionné visible
-      try {
-        const layersObj = window.MapModule?.layers || {};
-        Object.keys(layersObj).forEach(name => {
-          if (name !== layerName) {
-            try { window.MapModule.removeLayer(name); } catch(_) { /* noop */ }
+
+        console.log(`Recherche dans la couche ${layerName}`);
+
+
+
+        // Parcourir chaque feature de la couche
+        geojsonLayer.eachLayer(featureLayer => {
+          const featureName = normalizeString(
+            featureLayer.feature.properties.line || 
+            featureLayer.feature.properties.name || 
+            ''
+          );
+
+          console.log(`Comparaison: ${featureName} === ${normalizedProjectName}`);
+
+          if (featureName === normalizedProjectName) {
+            console.log("Path correspondant trouvé !");
           }
         });
-      } catch(_) { /* noop */ }
-    } else {
-      console.warn('[NavigationModule] Impossible de déterminer une clé/valeur de filtrage pour', { projectName, layerName, category });
-    }
-  }
-
-  // Fonction pour filtrer et styliser les paths
-  function highlightProjectPaths(projectName) {
-    const normalizedProjectName = normalizeString(projectName);
-    console.log("Nom du projet normalisé:", normalizedProjectName);
-
-    // Liste des couches à vérifier
-    const layersToCheck = ['voielyonnaise', 'reseauProjeteSitePropre', 'urbanisme'];
-
-    layersToCheck.forEach(layerName => {
-      const geojsonLayer = MapModule.layers[layerName];
-      
-      if (!geojsonLayer) {
-        console.warn(`Couche ${layerName} non trouvée`);
-        return;
-      }
-
-      console.log(`Recherche dans la couche ${layerName}`);
-
-
-
-      // Parcourir chaque feature de la couche
-      geojsonLayer.eachLayer(featureLayer => {
-        const featureName = normalizeString(
-          featureLayer.feature.properties.line || 
-          featureLayer.feature.properties.name || 
-          ''
-        );
-
-        console.log(`Comparaison: ${featureName} === ${normalizedProjectName}`);
-
-        if (featureName === normalizedProjectName) {
-          console.log("Path correspondant trouvé !");
-        }
       });
-    });
+    }
+    
+    // Appeler la fonction de mise en évidence (debug visuel non bloquant)
+    try { highlightProjectPaths(projectName); } catch(_) {}
+
+    // Afficher le panneau de détail
+    projectDetailPanel.classList.add('visible');
+
   }
-  
-  // Appeler la fonction de mise en évidence (debug visuel non bloquant)
-  try { highlightProjectPaths(projectName); } catch(_) {}
-
-  // Afficher le panneau de détail
-  projectDetailPanel.classList.add('visible');
-
-}
-
-
-
-
-
 
   // ————————————————————————————————————————————————
   // Helpers partagés pour les sous-menus (en-tête, fermeture, clic projet)
@@ -792,55 +791,50 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
   }
   // Ne laisser visible que la couche cible (handled in the appropriate context above)
 
-// Fonction pour filtrer et styliser les paths
-function highlightProjectPaths(projectName) {
-  const normalizedProjectName = normalizeString(projectName);
-  console.log("Nom du projet normalisé:", normalizedProjectName);
+  // Fonction pour filtrer et styliser les paths
+  function highlightProjectPaths(projectName) {
+    const normalizedProjectName = normalizeString(projectName);
+    console.log("Nom du projet normalisé:", normalizedProjectName);
 
-  // Liste des couches à vérifier
-  const layersToCheck = ['voielyonnaise', 'reseauProjeteSitePropre', 'urbanisme'];
+    // Liste des couches à vérifier
+    const layersToCheck = ['voielyonnaise', 'reseauProjeteSitePropre', 'urbanisme'];
 
-  layersToCheck.forEach(layerName => {
-    const geojsonLayer = MapModule.layers[layerName];
-    
-    if (!geojsonLayer) {
-      console.warn(`Couche ${layerName} non trouvée`);
-      return;
-    }
-
-    console.log(`Recherche dans la couche ${layerName}`);
-
-
-
-    // Parcourir chaque feature de la couche
-    geojsonLayer.eachLayer(featureLayer => {
-      const featureName = normalizeString(
-        featureLayer.feature.properties.line || 
-        featureLayer.feature.properties.name || 
-        ''
-      );
-
-      console.log(`Comparaison: ${featureName} === ${normalizedProjectName}`);
-
-      if (featureName === normalizedProjectName) {
-        console.log("Path correspondant trouvé !");
+    layersToCheck.forEach(layerName => {
+      const geojsonLayer = MapModule.layers[layerName];
+      
+      if (!geojsonLayer) {
+        console.warn(`Couche ${layerName} non trouvée`);
+        return;
       }
+
+      console.log(`Recherche dans la couche ${layerName}`);
+
+
+
+      // Parcourir chaque feature de la couche
+      geojsonLayer.eachLayer(featureLayer => {
+        const featureName = normalizeString(
+          featureLayer.feature.properties.line || 
+          featureLayer.feature.properties.name || 
+          ''
+        );
+
+        console.log(`Comparaison: ${featureName} === ${normalizedProjectName}`);
+
+        if (featureName === normalizedProjectName) {
+          console.log("Path correspondant trouvé !");
+        }
+      });
     });
-  });
-}
+  }
 
-// Appeler la fonction de mise en évidence (debug visuel non bloquant)
-try { highlightProjectPaths(projectName); } catch(_) {}
+  // Appeler la fonction de mise en évidence (debug visuel non bloquant)
+  try { highlightProjectPaths(projectName); } catch(_) {}
 
-// Afficher le panneau de détail
-projectDetailPanel.classList.add('visible');
-
-
-
-
-
-
-// (duplicate submenu helper block removed)
+  // Afficher le panneau de détail
+  if (projectDetailPanel) {
+    projectDetailPanel.classList.add('visible');
+  }
 
   function createProjectClickHandler(p, category, submenuId, applyLegacyMapping = true) {
     return () => {
@@ -877,7 +871,6 @@ projectDetailPanel.classList.add('visible');
       }
     };
   }
-
 
   const renderTransportProjects = async () => {
     const listEl = setupSubmenu('transport-submenu', {
@@ -976,10 +969,6 @@ projectDetailPanel.classList.add('visible');
       console.error('Erreur lors du chargement des projets d\'urbanisme:', error);
     }
   };
-
-  // (ancienne version supprimée)
-
-  // (Helpers legacy supprimés: slugify, getMarkdownPathByCategory, extractCoverFromMarkdown)
 
   const coverCache = new Map(); // key: `${category}|${name}` -> url|null
   async function fetchCoverForProject(name, category) {
@@ -1192,10 +1181,10 @@ projectDetailPanel.classList.add('visible');
     // This prevents timing issues when opening the Travaux menu without a full reset
     try {
       const layersToDisplay = (window.CATEGORY_DEFAULT_LAYERS && window.CATEGORY_DEFAULT_LAYERS['travaux']) || ['travaux'];
-      if (window.MapModule && window.MapModule.layers) {
-        Object.keys(window.MapModule.layers).forEach(layerName => {
+      if (MapModule && MapModule.layers) {
+        Object.keys(MapModule.layers).forEach(layerName => {
           if (!layersToDisplay.includes(layerName)) {
-            try { window.MapModule.removeLayer(layerName); } catch(_) {}
+            try { MapModule.removeLayer(layerName); } catch(_) {}
           }
         });
       }
@@ -1638,8 +1627,8 @@ submenu.insertBefore(filterUX, listEl);
             const filterItem = document.querySelector(`.filter-item[data-layer="${layerName}"]`);
             if (filterItem) filterItem.classList.remove('active-filter');
             // Effacer les tags de filtres actifs
-            if (window.UIModule?.resetLayerFilterWithoutRemoving) {
-              window.UIModule.resetLayerFilterWithoutRemoving(layerName);
+            if (UIModule?.resetLayerFilterWithoutRemoving) {
+              UIModule.resetLayerFilterWithoutRemoving(layerName);
             }
           });
         } catch (e) { console.warn('Nettoyage UI filtres (non bloquant):', e); }
@@ -1711,23 +1700,23 @@ submenu.insertBefore(filterUX, listEl);
       
       // Charger les couches par défaut si elles ne sont pas déjà chargées
       window.defaultLayers.forEach(layerName => {
-        if (!window.MapModule.layers || !window.MapModule.layers[layerName]) {
+        if (!MapModule.layers || !MapModule.layers[layerName]) {
           DataModule.loadLayer(layerName);
         }
       });
       
       // S'assurer que seules les couches par défaut sont visibles
-      if (window.MapModule && window.MapModule.layers && window.MapModule.map) {
-        Object.keys(window.MapModule.layers).forEach(layerName => {
-          const layer = window.MapModule.layers[layerName];
+      if (MapModule && MapModule.layers && MapModule.map) {
+        Object.keys(MapModule.layers).forEach(layerName => {
+          const layer = MapModule.layers[layerName];
           if (layer) {
             if (window.defaultLayers.includes(layerName)) {
-              if (!window.MapModule.map.hasLayer(layer)) {
-                window.MapModule.map.addLayer(layer);
+              if (!MapModule.map.hasLayer(layer)) {
+                MapModule.map.addLayer(layer);
               }
             } else {
-              if (window.MapModule.map.hasLayer(layer)) {
-                window.MapModule.map.removeLayer(layer);
+              if (MapModule.map.hasLayer(layer)) {
+                MapModule.map.removeLayer(layer);
               }
             }
           }
@@ -1742,10 +1731,10 @@ submenu.insertBefore(filterUX, listEl);
           try {
             const filterItem = document.querySelector(`.filter-item[data-layer="${layerName}"]`);
             if (filterItem) filterItem.classList.add('active-filter');
-            if (window.UIModule?.resetLayerFilterWithoutRemoving) {
-              window.UIModule.resetLayerFilterWithoutRemoving(layerName);
-            } else if (window.UIModule?.resetLayerFilter) {
-              window.UIModule.resetLayerFilter(layerName);
+            if (UIModule?.resetLayerFilterWithoutRemoving) {
+              UIModule.resetLayerFilterWithoutRemoving(layerName);
+            } else if (UIModule?.resetLayerFilter) {
+              UIModule.resetLayerFilter(layerName);
             }
           } catch (_) { /* noop */ }
 
@@ -1757,9 +1746,9 @@ submenu.insertBefore(filterUX, listEl);
           }
 
           // S'assurer qu'elle est visible sur la carte
-          const lyr = window.MapModule.layers && window.MapModule.layers[layerName];
-          if (lyr && window.MapModule.map && !window.MapModule.map.hasLayer(lyr)) {
-            window.MapModule.map.addLayer(lyr);
+          const lyr = MapModule.layers && MapModule.layers[layerName];
+          if (lyr && MapModule.map && !MapModule.map.hasLayer(lyr)) {
+            MapModule.map.addLayer(lyr);
           }
         });
       } catch (e) {
@@ -1768,18 +1757,14 @@ submenu.insertBefore(filterUX, listEl);
     }
     
     // Réinitialiser le zoom et la position de la carte (sauf si préservé)
-    if (!preserveMapView) {
-      if (window.NavigationModule && window.NavigationModule.zoomOutOnLoadedLayers) {
-        window.NavigationModule.zoomOutOnLoadedLayers();
-      }
-    }
+    if (!preserveMapView) zoomOutOnLoadedLayers();
     
     // Réinitialiser les sélections
     document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     
     // Mettre à jour l'interface utilisateur
-    if (window.UIModule && window.UIModule.updateLayerControls) {
-      window.UIModule.updateLayerControls();
+    if (UIModule && UIModule.updateLayerControls) {
+      UIModule.updateLayerControls();
     }
     
     // Réinitialiser la bordure de la navigation
@@ -1802,8 +1787,7 @@ submenu.insertBefore(filterUX, listEl);
     } catch (_) { /* noop */ }
   }
 
-  // Exposer les fonctions publiques du module
-  const publicAPI = { 
+  return { 
     showProjectDetail, 
     zoomOutOnLoadedLayers, 
     renderTransportProjects, 
@@ -1812,9 +1796,4 @@ submenu.insertBefore(filterUX, listEl);
     renderTravauxProjects,
     resetToDefaultView
   };
-  
-  // Exposer le module globalement
-  window.NavigationModule = publicAPI;
-  
-  return publicAPI;
 })();

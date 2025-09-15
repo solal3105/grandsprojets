@@ -1,5 +1,8 @@
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { FilterModule } from './filtermodule.js';
+import { MapModule } from './mapmodule.js';
+import { UIModule } from './uimodule.js';
 
 // Module de gestion des données et de l'interface utilisateur
 
@@ -71,7 +74,7 @@ const simpleCache = {
 // Exposer pour le débogage
 // window.debugCache = simpleCache;
 
-window.DataModule = (function() {
+export const DataModule = (function() {
   /**
    * Gestionnaire de cache générique et réutilisable
    * Limite la taille du cache et gère les entrées
@@ -1003,8 +1006,8 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
                       // Réutiliser la logique existante du clic sur la couche
                       if (layer && typeof layer.fire === 'function') {
                         layer.fire('click');
-                      } else if (window.UIModule && typeof window.UIModule.showDetailPanel === 'function') {
-                        window.UIModule.showDetailPanel(layerName, feature);
+                      } else if (UIModule && typeof UIModule.showDetailPanel === 'function') {
+                        UIModule.showDetailPanel(layerName, feature);
                       }
                     } catch(_) { /* noop */ }
                   });
@@ -1170,8 +1173,8 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
 
       // 4. Appliquer le filtre au layer courant pour n'afficher que le projet sélectionné
       try {
-        if (window.UIModule?.applyFilter) {
-          window.UIModule.applyFilter(layerName, criteria);
+        if (UIModule?.applyFilter) {
+          UIModule.applyFilter(layerName, criteria);
         } else {
           // Fallback si UIModule indisponible
           FilterModule.set(layerName, criteria);
@@ -1201,10 +1204,6 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
       } catch (_) { /* noop */ }
     });
   }
-
-
-
-
 
   // Récupère les données d'une couche avec cache
   async function fetchLayerData(layerName) {

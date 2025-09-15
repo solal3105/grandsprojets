@@ -1,4 +1,5 @@
-// modules/ficheprojet.js
+import { DataModule } from './datamodule.js';
+import { MarkdownUtils } from './markdownutils.js';
 
 // Hotjar (analytics)
 (function(){
@@ -285,7 +286,7 @@ const FPTheme = (function(win) {
 
 document.addEventListener('DOMContentLoaded', async () => {
   // S'assurer que MarkdownUtils est chargé
-  if (!window.MarkdownUtils) {
+  if (!MarkdownUtils) {
     await new Promise((res, rej) => {
       const tryLoad = (srcs) => {
         if (!srcs.length) return rej(new Error('MarkdownUtils non chargé'));
@@ -1621,7 +1622,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (s && typeof s === 'object') {
               layerConfig = { name: layerName, style: s };
               // Optionnel: injecter dans DataModule pour cohérence des callbacks de style
-              try { window.DataModule?.initConfig?.({ styleMap: { [layerName]: s } }); } catch(_) {}
+              try { DataModule?.initConfig?.({ styleMap: { [layerName]: s } }); } catch(_) {}
               console.log(`[ficheprojet] Style récupéré depuis 'layers' pour '${layerName}':`, s);
             }
           }
@@ -1631,8 +1632,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Fallback final: style par défaut DataModule pour garder un rendu
         if (!layerConfig) {
-          const def = (window.DataModule && typeof window.DataModule.getDefaultStyle === 'function')
-            ? (window.DataModule.getDefaultStyle(layerName) || {})
+          const def = (DataModule && typeof DataModule.getDefaultStyle === 'function')
+            ? (DataModule.getDefaultStyle(layerName) || {})
             : {};
           layerConfig = { name: layerName, style: def };
           console.warn(`[ficheprojet] Utilisation du style par défaut DataModule pour '${layerName}'.`);
@@ -1743,7 +1744,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         style: (feature) => {
           // Base: style provenant de la configuration de la couche (Supabase)
           const base = (layerConfig && layerConfig.style) ? layerConfig.style : {};
-          const dmStyle = window.DataModule?.getFeatureStyle?.(feature, layerName) || {};
+          const dmStyle = DataModule?.getFeatureStyle?.(feature, layerName) || {};
           const style = { ...base, ...dmStyle };
 
           // Couches sans remplissage (projets transports & vélo)

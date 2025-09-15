@@ -1,9 +1,8 @@
 // modules/MarkdownUtils.js
 // Utilitaire global pour charger les dépendances Markdown et parser le front-matter
-// Expose : window.MarkdownUtils { loadDeps, renderMarkdown, preprocessCustomMarkdown }
+// Expose : MarkdownUtils { loadDeps, renderMarkdown, preprocessCustomMarkdown }
 
-(function () {
-  if (window.MarkdownUtils) return; // déjà chargé
+export const MarkdownUtils = (function () {
 
   // -------- Chargement dynamique des dépendances --------
   function loadScriptOnce(src) {
@@ -141,7 +140,10 @@
       : html;
     return { attrs, html: safeHtml };
   }
-
-  // Exposition globale
-  window.MarkdownUtils = { loadDeps, renderMarkdown, preprocessCustomMarkdown };
+  
+  return { 
+    loadDeps, 
+    renderMarkdown, 
+    preprocessCustomMarkdown 
+  };
 })();

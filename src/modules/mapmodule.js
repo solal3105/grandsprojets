@@ -1,61 +1,70 @@
 // modules/MapModule.js
 import L from 'leaflet';
+import { UIModule } from './uimodule.js';
 
-window.MapModule = (() => {
-  // Initialize the map view (sans basemap)
-  const map = L.map('map').setView([45.75, 4.85], 12);
-  let baseLayer;
-  
-  // Ensure map size is correct after load/layout changes
+export const MapModule = (() => {
+  // Lazy-initialized Leaflet map and resources
+  let map = null;
+  let baseLayer = null;
+  let containerId = 'map';
+
+  // Lazy pane/renderer for hitlines
+  const hitPaneName = 'hitlinePane';
+  let hitPane = null;
+  let hitRenderer = null;
+
   function invalidateSizeSafely(retries = 2) {
-    try { map.invalidateSize(true); } catch (_) {}
+    try { map?.invalidateSize(true); } catch (_) {}
     if (retries > 0) {
       setTimeout(() => invalidateSizeSafely(retries - 1), 250);
     }
   }
-  if (typeof window !== 'undefined') {
-    window.addEventListener('load', () => {
-      // run on next frame to ensure CSS/layout is settled
-      try { requestAnimationFrame(() => invalidateSizeSafely(2)); } catch (_) { invalidateSizeSafely(2); }
-    });
-  }
-  
-  // Global invisible hitline pane and SVG renderer (for wider clickable area on paths)
-  const hitPaneName = 'hitlinePane';
-  const hitPane = map.createPane(hitPaneName);
-  // Place above clickable layers to avoid hover jitter; still below popups
-  // Leaflet defaults: tilePane=200, overlayPane=400, markerPane=600, tooltipPane=650, popupPane=700
-  // clickableLayers pane is set to 650 in DataModule
-  hitPane.style.zIndex = 660;
-  const hitRenderer = L.svg({ pane: hitPaneName });
-  
-  /**
-   * Initialise le fond de carte après chargement de window.basemaps
-   */
-  function initBaseLayer() {
-    const bmList = window.basemaps || [];
-    if (!bmList.length) {
-      console.warn('MapModule.initBaseLayer : pas de basemaps dispo');
-      return;
-    }
-    // Find the default basemap (with default: true) or fall back to the first one
-    const defaultBm = bmList.find(b => b.default === true) || bmList[0];
-    
-    if (baseLayer) map.removeLayer(baseLayer);
-    baseLayer = L.tileLayer(defaultBm.url, { attribution: defaultBm.attribution });
-    baseLayer.addTo(map);
-    
-    // Update the UI to reflect the active basemap
-    if (window.UIModule?.setActiveBasemap) {
-      window.UIModule.setActiveBasemap(defaultBm.label);
-    }
+
+  function setupHitResources() {
+    if (!map || hitPane) return;
+    try {
+      hitPane = map.createPane(hitPaneName);
+      hitPane.style.zIndex = 660; // above clickable layers, below popups
+      hitRenderer = L.svg({ pane: hitPaneName });
+    } catch (_) {}
   }
 
+  // Ensure map exists when container is present
+  function ensureMap() {
+    if (map) return map;
+    const el = typeof document !== 'undefined' ? document.getElementById(containerId) : null;
+    if (!el) return null; // container not on this page
+    try {
+      map = L.map(containerId).setView([45.75, 4.85], 12);
+      // After load/layout, fix size
+      if (typeof window !== 'undefined') {
+        try {
+          window.addEventListener('load', () => {
+            try { requestAnimationFrame(() => invalidateSizeSafely(2)); } catch (_) { invalidateSizeSafely(2); }
+          });
+        } catch (_) {}
+      }
+      // Set up panes/renderers and listeners
+      setupHitResources();
+      map.on('zoomend', updateMarkerVisibility);
+    } catch (_) {
+      map = null;
+    }
+    return map;
+  }
 
+  // Public initializer to set custom container id if needed
+  function init(id = 'map') {
+    containerId = id || 'map';
+    return ensureMap();
+  }
+
+  // Layers registry
   const layers = {};
 
   // Update marker visibility based on minZoom
   const updateMarkerVisibility = () => {
+    if (!map) return;
     const currentZoom = map.getZoom();
     Object.entries(window.zoomConfig || {}).forEach(([layerName, { minZoom }]) => {
       const layer = layers[layerName];
@@ -69,8 +78,37 @@ window.MapModule = (() => {
     });
   };
 
+  /**
+   * Initialise le fond de carte après chargement de window.basemaps
+   */
+  function initBaseLayer() {
+    const m = ensureMap();
+    if (!m) {
+      console.warn('MapModule.initBaseLayer : conteneur #'+containerId+' introuvable');
+      return;
+    }
+    const bmList = window.basemaps || [];
+    if (!bmList.length) {
+      console.warn('MapModule.initBaseLayer : pas de basemaps dispo');
+      return;
+    }
+    // Find the default basemap (with default: true) or fall back to the first one
+    const defaultBm = bmList.find(b => b.default === true) || bmList[0];
+
+    if (baseLayer) m.removeLayer(baseLayer);
+    baseLayer = L.tileLayer(defaultBm.url, { attribution: defaultBm.attribution });
+    baseLayer.addTo(m);
+
+    // Update the UI to reflect the active basemap
+    if (UIModule?.setActiveBasemap) {
+      UIModule.setActiveBasemap(defaultBm.label);
+    }
+  }
+
   // Add a GeoJSON layer and update filter and marker visibility
   const addLayer = (name, layer) => {
+    const m = ensureMap();
+    if (!m) return; // silently no-op on fiche page
     layers[name] = layer;
     if (window.updateFilterUI) window.updateFilterUI();
     updateMarkerVisibility();  // ensure markers hidden if needed
@@ -78,8 +116,13 @@ window.MapModule = (() => {
 
   // Remove a layer and update filter and marker visibility
   const removeLayer = (name) => {
+    const m = ensureMap();
+    if (!m) {
+      delete layers[name];
+      return;
+    }
     if (layers[name]) {
-      map.removeLayer(layers[name]);
+      m.removeLayer(layers[name]);
       delete layers[name];
       if (window.updateFilterUI) window.updateFilterUI();
       updateMarkerVisibility();
@@ -88,25 +131,30 @@ window.MapModule = (() => {
 
   // Swap out the base layer
   const setBaseLayer = (tileLayer) => {
-    if (baseLayer) map.removeLayer(baseLayer);
+    const m = ensureMap();
+    if (!m) return;
+    if (baseLayer) m.removeLayer(baseLayer);
     baseLayer = tileLayer;
-    map.addLayer(baseLayer);
+    m.addLayer(baseLayer);
   };
 
-  // Recompute marker visibility on zoom end
-  map.on('zoomend', updateMarkerVisibility);
+  // Public helper to force recalculation of map size
+  const refreshSize = () => { try { ensureMap()?.invalidateSize(true); } catch (_) {} };
 
-  return { 
-    map, 
-    layers, 
-    addLayer, 
-    removeLayer, 
-    setBaseLayer, 
+  init();
+
+  return {
+    map,
+    layers,
+    addLayer,
+    removeLayer,
+    setBaseLayer,
     initBaseLayer,
     // Expose hitline resources for other modules
-    hitRenderer,
-    hitPaneName,
-    // Public helper to force recalculation of map size
-    refreshSize: () => { try { map.invalidateSize(true); } catch (_) {} }
+    get hitRenderer() { return hitRenderer; },
+    get hitPaneName() { return hitPaneName; },
+    // New APIs
+    init,
+    refreshSize
   };
 })();

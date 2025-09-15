@@ -1,7 +1,7 @@
 // modules/contrib.js
 import L from 'leaflet';
 
-;(function (win) {
+(function (win) {
   function setupContrib() {
     const contribToggle   = document.getElementById('nav-contribute');
     const contribOverlay  = document.getElementById('contrib-overlay');

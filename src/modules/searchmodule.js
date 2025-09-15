@@ -1,7 +1,8 @@
 import L from 'leaflet';
+import { NavigationModule } from './navigationmodule.js';
 
 // modules/searchmodule.js
-window.SearchModule = (() => {
+export const SearchModule = (() => {
   // Reference to the map instance
   let map;
   // Reference to the current marker
@@ -82,8 +83,8 @@ window.SearchModule = (() => {
     if (searchOverlay.classList.contains('visible')) {
       // Close the project detail panel while searching (preserve map view)
       try {
-        if (window.NavigationModule && typeof window.NavigationModule.resetToDefaultView === 'function') {
-          window.NavigationModule.resetToDefaultView(undefined, { preserveMapView: true });
+        if (NavigationModule && typeof NavigationModule.resetToDefaultView === 'function') {
+          NavigationModule.resetToDefaultView(undefined, { preserveMapView: true });
         }
       } catch (_) {}
 
@@ -331,7 +332,6 @@ window.SearchModule = (() => {
     searchResults.classList.remove('visible');
   }
 
-  // Public API
   return {
     init
   };

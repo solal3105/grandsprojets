@@ -366,15 +366,13 @@ window.GeolocationModule = (() => {
     }, 8000);
   }
   
-  // API publique
   return {
-    init: init,
-    handleLocationButtonClick: handleLocationButtonClick, // Exposer la fonction pour le HTML
-    // Exposer les fonctions nécessaires
-    isGeolocationAvailable: isGeolocationAvailable,
-    checkGeolocationPermission: checkGeolocationPermission,
-    handleGeolocationSuccess: handleGeolocationSuccess,
-    handleGeolocationError: handleGeolocationError,
-    clearLocationMarkers: clearLocationMarkers
+    init,
+    handleLocationButtonClick,
+    isGeolocationAvailable,
+    checkGeolocationPermission,
+    handleGeolocationSuccess,
+    handleGeolocationError,
+    clearLocationMarkers
   };
 })();

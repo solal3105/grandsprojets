@@ -1,5 +1,5 @@
 // modules/FilterModule.js
-const FilterModule = (() => {
+export const FilterModule = (() => {
   const filters = {};
 
   const set = (layer, criteria) => { filters[layer] = criteria; };
@@ -9,5 +9,11 @@ const FilterModule = (() => {
   };
   const get = (layer) => filters[layer] || {};
 
-  return { filters, set, reset, resetAll, get };
+  return { 
+    filters,
+    set,
+    reset,
+    resetAll,
+    get
+  };
 })();
