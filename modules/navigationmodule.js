@@ -189,7 +189,7 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
       } catch (error) {
         console.warn('Erreur lors du chargement du markdown depuis contribution_uploads:', error);
       }
-    } else {
+    } else if (!projectName) {
       panel.innerHTML = `
       <div style="padding: 2em; text-align: center; color: #666;">
         <h3>Projet non trouvé</h3>
