@@ -383,14 +383,8 @@
       }
       
       if (projectName) {
-        // Ajustement du nom d'affichage pour Voie Lyonnaise
-        let displayName = projectName;
-        if (layerName.includes('voielyonnaise') && !projectName.startsWith('Voie Lyonnaise')) {
-          displayName = `Voie Lyonnaise ${projectName}`;
-        }
-        
         // Passer directement les données enrichies à showProjectDetail
-        window.NavigationModule.showProjectDetail(displayName, category, null, props);
+        window.NavigationModule.showProjectDetail(projectName, category, null, props);
 
         // Mettre à jour l'URL pour refléter l'état courant (sauf si désactivé)
         try {
@@ -398,7 +392,7 @@
             const catForUrl = category || (layerName.includes('voielyonnaise') ? 'velo'
               : (layerName.includes('urbanisme') ? 'urbanisme'
               : (layerName.includes('reseauProjete') || layerName.includes('metro') || layerName.includes('tramway')) ? 'transport' : 'autre'));
-            const projSlug = slugify(displayName);
+            const projSlug = slugify(projectName);
             const params = new URLSearchParams();
             params.set('cat', catForUrl);
             params.set('project', projSlug);
