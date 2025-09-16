@@ -145,7 +145,7 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
     // 1️⃣ Utiliser les données enrichies si disponibles, sinon chercher dans contribution_uploads
     let contributionProject = null;
     
-    if (enrichedProps && enrichedProps.project_name) {
+    if (enrichedProps) {
       // Utiliser directement les données enrichies depuis les properties de la feature
       contributionProject = {
         project_name: enrichedProps.project_name,
@@ -165,37 +165,42 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
       }
     }
 
-    let md = null;
+    //A partir de là contributionProject est toujours définit on utilise que ca
+
+    projectName = contributionProject.project_name;
+    category = contributionProject.category;
+    cover_url = contributionProject.cover_url;
+    let description = contributionProject.description;
+    let markdown_url = contributionProject.markdown_url;
+
+    let markdown = null;
     let usedContribution = false;
 
     // 2️⃣ Si trouvé dans contribution_uploads et qu'il a une markdown_url, l'utiliser
-    if (contributionProject?.markdown_url) {
+    if (markdown_url) {
       try {
-        console.log('Chargement du markdown depuis contribution_uploads:', contributionProject.markdown_url);
-        const response = await fetch(contributionProject.markdown_url);
+        console.log('Chargement du markdown depuis contribution_uploads:', markdown_url);
+        const response = await fetch(markdown_url);
         if (response.ok) {
-          md = await response.text();
+          markdown = await response.text();
           usedContribution = true;
-          console.log('Markdown chargé depuis contribution_uploads, taille:', `${(md.length / 1024).toFixed(2)} KB`);
+          console.log('Markdown chargé depuis contribution_uploads, taille:', `${(markdown.length / 1024).toFixed(2)} KB`);
         }
       } catch (error) {
         console.warn('Erreur lors du chargement du markdown depuis contribution_uploads:', error);
       }
-    }
-
-    // 3️⃣ Si pas de markdown et pas de projet dans contribution_uploads, afficher un message
-    if (!md && !contributionProject) {
+    } else {
       panel.innerHTML = `
-        <div style="padding: 2em; text-align: center; color: #666;">
-          <h3>Projet non trouvé</h3>
-          <p>Le projet "${projectName}" n'a pas été trouvé dans la base de données.</p>
-          <p>Seuls les projets de la table contribution_uploads sont disponibles.</p>
-        </div>
+      <div style="padding: 2em; text-align: center; color: #666;">
+        <h3>Projet non trouvé</h3>
+        <p>Le projet "${projectName}" n'a pas été trouvé dans la base de données.</p>
+        <p>Seuls les projets de la table contribution_uploads sont disponibles.</p>
+      </div>
       `;
       console.groupEnd();
       return;
     }
-
+    
     /**
      * Charge les utilitaires Markdown si nécessaire
      */
@@ -230,10 +235,10 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
     // Traiter le markdown uniquement s'il existe; sinon continuer avec attrs/html vides
     let attrs = {};
     let html = '';
-    if (md) {
+    if (markdown) {
       await ensureMarkdownUtils();
       console.log('Traitement du contenu Markdown...');
-      ({ attrs, html } = window.MarkdownUtils.renderMarkdown(md));
+      ({ attrs, html } = window.MarkdownUtils.renderMarkdown(markdown));
       console.log('Contenu Markdown traité avec succès');
     }
     
@@ -250,7 +255,7 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
 
     let body='';
     // Utiliser les données de contribution_uploads en priorité
-    const coverCandidate = contributionProject?.cover_url || attrs.cover || extractFirstImageSrc(html);
+    const coverCandidate = cover_url || attrs.cover || extractFirstImageSrc(html);
     if (coverCandidate) {
       const coverUrl = resolveAssetUrl(coverCandidate);
       body+=`
@@ -267,7 +272,7 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
     if(chips.length) body+=`<div class="project-chips">${chips.join('')}</div>`;
     
     // Utiliser description de contribution_uploads en priorité
-    const description = contributionProject?.description || attrs.description;
+    description = description || attrs.description;
     if(description) body+=`<p class="project-description">${description}</p>`;
 
     const icons={velo:'fa-bicycle',mobilite:'fa-train-tram',transport:'fa-train-tram',urbanisme:'fa-building'};
