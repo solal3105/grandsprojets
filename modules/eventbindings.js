@@ -146,7 +146,7 @@ const bindFilterControls = () => {
   });
 
   // 3. Clic sur ⚙️ : active si besoin, puis bascule le panneau
-  document.querySelectorAll('.settings-btn').forEach(btn => {
+/*   document.querySelectorAll('.settings-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       const layer = btn.dataset.layer;
@@ -176,7 +176,7 @@ const bindFilterControls = () => {
         sub.style.display = 'block';
       }
     });
-  });
+  }); */
 };
 
   // Récupération des boutons de navigation

@@ -1222,7 +1222,7 @@
         filterItem.innerHTML = `
           <span class="filter-icon"><i class="${item.icon}"></i></span>
           <span class="filter-label">${item.label}</span>
-          <button class="settings-btn" data-layer="${item.layer}"><i class="fas fa-gear"></i></button>
+          <!-- <button class="settings-btn" data-layer="${item.layer}"><i class="fas fa-gear"></i></button> -->
         `;
         groupDiv.appendChild(filterItem);
 
