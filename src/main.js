@@ -1,12 +1,13 @@
-import './styles/style.css';
+import '/src/styles/style.css';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { MapModule } from './modules/mapmodule.js';
-import { DataModule } from './modules/datamodule.js';
-import { SearchModule } from './modules/searchmodule.js';
-import { UIModule } from './modules/uimodule.js';
-import { NavigationModule } from './modules/navigationmodule.js';
-import { EventBindingsModule } from './modules/eventbindings.js';
+import { MapModule } from '/src/modules/mapmodule.js';
+import { DataModule } from '/src/modules/datamodule.js';
+import { SearchModule } from '/src/modules/searchmodule.js';
+import { UIModule } from '/src/modules/uimodule.js';
+import { NavigationModule } from '/src/modules/navigationmodule.js';
+import { EventBindingsModule } from '/src/modules/eventbindings.js';  
+import { GeolocationModule } from '/src/modules/geolocation.js';
 
 // Fix default marker icons so they work with Vite/bundlers
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -772,12 +773,9 @@ L.Icon.Default.mergeOptions({
       applyCityInitialView(city);
 
       // Initialiser le module de géolocalisation
-      
-      if (window.GeolocationModule) {
-        window.GeolocationModule.init(MapModule.map);
-      } else {
-        console.warn('❌ ERREUR: GeolocationModule non chargé');
-      }
+      GeolocationModule.init(MapModule.map);
+      const btnLocation = document.getElementById('location-toggle');
+      btnLocation.addEventListener('click', GeolocationModule.handleLocationButtonClick);
 
 
       // 2️⃣ Construire les maps de couches (filtrées par ville si colonne "ville" présente)

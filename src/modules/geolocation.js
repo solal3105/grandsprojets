@@ -2,7 +2,7 @@
 
 import L from 'leaflet';
 
-window.GeolocationModule = (() => {
+export const GeolocationModule = (() => {
   let userLocationMarker = null;
   let userLocationCircle = null;
   let map = null;

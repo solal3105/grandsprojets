@@ -397,8 +397,7 @@
       <button id="info-toggle" class="info-toggle" aria-label="À propos" title="À propos">
         <i class="fas fa-info-circle" aria-hidden="true"></i>
       </button>
-      <button id="location-toggle" class="location-toggle" aria-label="Centrer sur ma position" title="Centrer sur ma position"
-              onclick="window.GeolocationModule && window.GeolocationModule.handleLocationButtonClick(event)">
+      <button id="location-toggle" class="location-toggle" aria-label="Centrer sur ma position" title="Centrer sur ma position">
         <i class="fas fa-location-arrow"></i>
       </button>
       <!-- City toggle (ouvre une modale) -->
@@ -548,19 +547,9 @@
 
   <!-- Supabase client via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
-  <script src="/src/modules/auth.js"></script>
-  <!-- Leaflet now loaded via ES modules in scripts; vendor include removed -->
-  <!-- Geoman removed: manual drawing only -->
-  <!-- Chargement des scripts locaux (ES modules via Vite) -->
+  <script type="module" src="/src/modules/auth.js"></script>
   <script src="/src/modules/supabaseservice.js"></script>
-  <script type="module" src="/src/modules/mapmodule.js"></script>
   <script type="module" src="/src/modules/filtermodule.js"></script>
-  <script type="module" src="/src/modules/datamodule.js"></script>
-  <script type="module" src="/src/modules/uimodule.js"></script>
-  <script type="module" src="/src/modules/searchmodule.js"></script>
-  <script type="module" src="/src/modules/geolocation.js"></script>
-  <script type="module" src="/src/modules/navigationmodule.js"></script>
-  <script type="module" src="/src/modules/eventbindings.js"></script>
   <script type="module" src="/src/modules/contrib.js"></script>
   <script type="module" src="/src/main.js"></script>
   <!-- Toast container for accessible notifications -->

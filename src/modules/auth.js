@@ -1,16 +1,16 @@
 // modules/auth.js
-;(function(win){
+export const AuthModule = (function(win){
   if (!win.supabase) {
     console.error('[AuthModule] Supabase CDN not loaded. Load @supabase/supabase-js before auth.js');
     return;
   }
-
+  console.log("supabase : ", supabase);
   // Same project as other modules
   const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
   const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  const AuthModule = {
+  const authModule = {
     getClient: function() { return client; },
 
     getSession: async function() {
@@ -73,7 +73,7 @@
 
     requireAuthOrRedirect: async function(loginUrl) {
       try {
-        const { data: { session } } = await AuthModule.getSession();
+        const { data: { session } } = await getSession();
         if (!session || !session.user) {
           win.location.href = loginUrl || '/login/';
           return null;
@@ -86,5 +86,5 @@
     }
   };
 
-  win.AuthModule = AuthModule;
+  return authModule;
 })(window);
