@@ -5299,3 +5299,38 @@ html[data-theme='dark'] #propose-city-overlay .contact-card .contact-icon { back
     display: none !important;
   }
 }
+
+/* Pop-in à l’apparition en étape 3 */
+#assistant-writer-card { animation: agp-pop 480ms cubic-bezier(.2,.8,.2,1) both; }
+@keyframes agp-pop { from { transform: translateY(-6px) scale(.98); opacity:.0; } to { transform: translateY(0) scale(1); opacity:1; } }
+
+/* Halo pulsant vert (accent non intrusif) */
+#assistant-writer-card::after {
+  content:""; position:absolute; inset:-2px; border-radius:16px;
+  border:2px solid rgba(22,163,74,.35); pointer-events:none; filter:blur(.3px);
+  animation: agp-pulse 1600ms ease-out infinite;
+}
+@keyframes agp-pulse { 0% { opacity:.55; } 60% { opacity:.15; } 100% { opacity:.35; } }
+
+/* L’emoji flotte légèrement */
+#assistant-writer-card .sparkle { animation: agp-float 2800ms ease-in-out infinite; }
+@keyframes agp-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+
+/* Titre scintillant discret */
+#assistant-writer-card .shimmer {
+  background: linear-gradient(90deg, #065f46 0%, #10b981 50%, #065f46 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  background-size: 200% 100%; animation: agp-shimmer 2200ms linear infinite;
+}
+@keyframes agp-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* Petites pastilles explicatives */
+#assistant-writer-card .chips { display:flex; gap:6px; flex-wrap:wrap; }
+#assistant-writer-card .chips span {
+  background:#e8f5e9; color:#065f46; border:1px solid #a7f3d0;
+  border-radius:999px; padding:4px 8px; font-size:12px; line-height:1;
+  animation: agp-chip-in 420ms cubic-bezier(.2,.8,.2,1) both;
+}
+#assistant-writer-card .chips span:nth-child(2) { animation-delay: 60ms; }
+#assistant-writer-card .chips span:nth-child(3) { animation-delay: 120ms; }
+@keyframes agp-chip-in { from { transform: translateY(4px); opacity:0; } to { transform: translateY(0); opacity:1; } }

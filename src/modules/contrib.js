@@ -1,5 +1,6 @@
 // modules/contrib.js
 import L from 'leaflet';
+import { AuthModule } from '/src/modules/auth.js';
 
 (function (win) {
   function setupContrib() {
@@ -74,7 +75,7 @@ import L from 'leaflet';
           if (!isAuthed && contribOverlay && contribOverlay.getAttribute('aria-hidden') === 'false') {
             closeContrib();
           }
-        } catch (_) { /* noop */ }
+        } catch (e) { console.error("applyContribVisibility error:", e); }
       };
 
       // Détection du rôle via table public.profiles (source de vérité)
@@ -85,12 +86,15 @@ import L from 'leaflet';
         try {
           const userId = session && session.user ? session.user.id : null;
           if (!userId) return '';
-          const client = (win.AuthModule && typeof win.AuthModule.getClient === 'function') ? win.AuthModule.getClient() : null;
+          const client = AuthModule.getClient();
           if (!client) return '';
           const { data, error } = await client.from('profiles').select('role').eq('id', userId).single();
           if (error) return '';
           return (data && data.role ? String(data.role) : '').toLowerCase();
-        } catch (_) { return ''; }
+        } catch (e) { 
+          console.error("getUserRoleFromProfiles error:", e); 
+          return ''; 
+        }
       };
       const updateRoleState = async (session) => {
         __currentSession = session || null;
@@ -103,26 +107,26 @@ import L from 'leaflet';
 
       // État initial
       try {
-        if (win.AuthModule && typeof win.AuthModule.getSession === 'function') {
-          win.AuthModule.getSession().then(({ data }) => { applyContribVisibility(data?.session); return updateRoleState(data?.session); }).catch(() => { applyContribVisibility(null); return updateRoleState(null); });
-        }
-      } catch (_) { /* noop */ }
+        AuthModule.getSession().then(({ data }) => { applyContribVisibility(data?.session); return updateRoleState(data?.session); }).catch(() => { applyContribVisibility(null); return updateRoleState(null); });
+      } catch (e) { 
+        console.error("contrib initial state error:", e); 
+      }
 
       // Mises à jour dynamiques
       try {
-        if (win.AuthModule && typeof win.AuthModule.onAuthStateChange === 'function') {
-          win.AuthModule.onAuthStateChange((_event, session) => { applyContribVisibility(session); updateRoleState(session); });
-        }
-      } catch (_) { /* noop */ }
+        AuthModule.onAuthStateChange((_event, session) => { applyContribVisibility(session); updateRoleState(session); });
+      } catch (e) { 
+        console.error("contrib auth state change error:", e); 
+      }
 
       contribToggle.addEventListener('click', async (e) => {
         e.stopPropagation();
         try {
-          const session = await (win.AuthModule && win.AuthModule.requireAuthOrRedirect('/login/'));
+          const session = await AuthModule.requireAuthOrRedirect('/login/');
           if (session && session.user) {
             openContrib();
           }
-        } catch (_) {
+        } catch (e) {
           // En cas d'erreur de session, on redirige vers la connexion
           win.location.href = '/login/';
         }
@@ -998,7 +1002,7 @@ import L from 'leaflet';
         try { if (listEl) listEl.setAttribute('aria-busy', 'true'); } catch(_) {}
         // Ensure authenticated session
         console.log('[contrib] requesting session via AuthModule.requireAuthOrRedirect');
-        const session = await (win.AuthModule && win.AuthModule.requireAuthOrRedirect('/login/'));
+        const session = await AuthModule.requireAuthOrRedirect('/login/');
         console.log('[contrib] session result', { hasSession: !!session, hasUser: !!(session && session.user) });
         if (!session || !session.user) { console.log('[contrib] no session/user, likely redirected to /login, aborting'); return; } // redirected
         console.log('[contrib] calling supabaseService.deleteContribution', { id });
@@ -2233,7 +2237,7 @@ import L from 'leaflet';
 
       try {
         // Ensure authenticated session
-        const session = await (win.AuthModule && win.AuthModule.requireAuthOrRedirect('/login/'));
+        const session = await AuthModule.requireAuthOrRedirect('/login/');
         if (!session || !session.user) return; // redirected
 
         let rowId = currentEditId;

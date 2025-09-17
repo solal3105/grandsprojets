@@ -21,6 +21,7 @@ async function initAuthUI() {
       githubBtn.style.display = 'inline-flex';
       if (magicBtn) magicBtn.style.display = 'inline-flex';
       if (emailInput) emailInput.style.display = 'block';
+      console.log('Not authenticated.', data);
     }
   } catch (e) {
     setStatus('');

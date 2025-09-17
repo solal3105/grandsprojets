@@ -1,4 +1,3 @@
-import '/src/styles/style.css';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { MapModule } from '/src/modules/mapmodule.js';
@@ -20,8 +19,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-// main.js
-// Version globale sans modules ES, utilisant window.supabaseService
 ;(function(win) {
   // Hotjar (analytics)
   (function(){

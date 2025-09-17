@@ -1,3 +1,6 @@
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
+
 (function(){
     const pdfInput = document.getElementById('pdf-input');
     const pdfDrop = document.getElementById('pdf-drop');
@@ -685,8 +688,8 @@
       if(!mdPreview) return;
       try{
         const raw = prepMarkdown.value || '';
-        const html = window.marked ? marked.parse(raw) : raw;
-        const safe = window.DOMPurify ? DOMPurify.sanitize(html) : html;
+        const html = marked.parse(raw);
+        const safe = DOMPurify.sanitize(html);
         mdPreview.innerHTML = safe;
       }catch{ mdPreview.textContent = prepMarkdown.value || ''; }
     }
