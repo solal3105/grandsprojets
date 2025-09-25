@@ -26,6 +26,45 @@
   border-color: #104a16;
   color: #fff;
 }
+
+/* Save/Submit button (if present) — align look & feel */
+#contrib-overlay #contrib-submit.gp-btn {
+  background: #2e7d32;
+  border-color: #1b5e20;
+  color: #fff;
+}
+#contrib-overlay #contrib-submit.gp-btn:hover,
+#contrib-overlay #contrib-submit.gp-btn:focus {
+  background: #1b5e20;
+  border-color: #104a16;
+  color: #fff;
+}
+
+/* Dark mode: generic buttons inside contribution modal */
+html[data-theme='dark'] #contrib-overlay .gp-btn {
+  background: rgba(255,255,255,0.06);
+  color: var(--dm-text);
+  border: 1px solid var(--dm-menu-border);
+}
+html[data-theme='dark'] #contrib-overlay .gp-btn:hover,
+html[data-theme='dark'] #contrib-overlay .gp-btn:focus {
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.28);
+}
+/* Dark mode: primary actions (Next/Submit) remain accented */
+html[data-theme='dark'] #contrib-overlay #contrib-next.gp-btn,
+html[data-theme='dark'] #contrib-overlay #contrib-submit.gp-btn {
+  background: #2e7d32;
+  border-color: #1b5e20;
+  color: var(--on-accent);
+}
+html[data-theme='dark'] #contrib-overlay #contrib-next.gp-btn:hover,
+html[data-theme='dark'] #contrib-overlay #contrib-next.gp-btn:focus,
+html[data-theme='dark'] #contrib-overlay #contrib-submit.gp-btn:hover,
+html[data-theme='dark'] #contrib-overlay #contrib-submit.gp-btn:focus {
+  background: #1b5e20;
+  border-color: #104a16;
+}
 /* Helper descriptions and HUD spacing in contribution modal */
 #contrib-overlay .form-row small {
   display: block;
@@ -37,6 +76,95 @@ html[data-theme='dark'] #contrib-overlay .form-row small {
 }
 #contrib-overlay .form-row .char-hud .char-prog { background: rgba(0,0,0,0.12); }
 html[data-theme='dark'] #contrib-overlay .form-row .char-hud .char-prog { background: rgba(255,255,255,0.18); }
+
+/* Inputs/selects/textareas inside contribution modal */
+#contrib-overlay .form-row input[type="text"],
+#contrib-overlay .form-row input[type="url"],
+#contrib-overlay .form-row input[type="search"],
+#contrib-overlay .form-row textarea,
+#contrib-overlay .form-row select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-sizing: border-box;
+}
+html[data-theme='dark'] #contrib-overlay .form-row input[type="text"],
+html[data-theme='dark'] #contrib-overlay .form-row input[type="url"],
+html[data-theme='dark'] #contrib-overlay .form-row input[type="search"],
+html[data-theme='dark'] #contrib-overlay .form-row textarea,
+html[data-theme='dark'] #contrib-overlay .form-row select {
+  background: rgba(255,255,255,0.06);
+  color: var(--dm-text);
+  border-color: var(--dm-menu-border);
+}
+html[data-theme='dark'] #contrib-overlay .form-row input::placeholder,
+html[data-theme='dark'] #contrib-overlay .form-row textarea::placeholder {
+  color: rgba(255,255,255,0.55);
+}
+
+/* Dark mode: specific adjustments for Meta field */
+html[data-theme='dark'] #contrib-overlay label[for="contrib-meta"] {
+  color: var(--dm-text);
+}
+html[data-theme='dark'] #contrib-meta {
+  background: rgba(255,255,255,0.06);
+  color: var(--dm-text);
+  border-color: var(--dm-menu-border);
+}
+html[data-theme='dark'] #contrib-meta:focus {
+  border-color: #16a34a;
+  box-shadow: 0 0 0 2px rgba(22,163,74,0.25);
+  outline: none;
+}
+/* Optional: darker scrollbar for the meta textarea (webkit browsers) */
+html[data-theme='dark'] #contrib-meta::-webkit-scrollbar { width: 10px; }
+html[data-theme='dark'] #contrib-meta::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 10px; }
+html[data-theme='dark'] #contrib-meta::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 10px; }
+html[data-theme='dark'] #contrib-meta::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.28); }
+
+/* Assistant Writer card title reinforcement */
+html[data-theme='dark'] #assistant-writer-card .title {
+  color: #a7f3d0 !important;
+}
+
+/* Dark mode overrides for the Assistant Writer card (inline styles require !important) */
+html[data-theme='dark'] #assistant-writer-card {
+  background: linear-gradient(180deg, #052e25, #083227) !important;
+  border-color: #0a3d2d !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.35) !important;
+}
+html[data-theme='dark'] #assistant-writer-card .title { color: #a7f3d0 !important; }
+html[data-theme='dark'] #assistant-writer-card .subtitle { color: #86efac !important; }
+html[data-theme='dark'] #assistant-writer-card .chips span {
+  background: #064e3b !important;
+  color: #d1fae5 !important;
+  border-color: #10b981 !important;
+}
+
+/* Dark mode for the CTA button inside assistant card */
+html[data-theme='dark'] #assistant-writer-card a#contrib-assistant-link {
+  background: #16a34a !important;
+  color: #fff !important;
+}
+html[data-theme='dark'] #assistant-writer-card a#contrib-assistant-link:hover {
+  background: #15803d !important;
+}
+
+/* Dark mode: options in selects (including multiple) */
+html[data-theme='dark'] #contrib-overlay select option,
+html[data-theme='dark'] #contrib-panel-list select option {
+  background: rgba(8, 8, 10, 0.95);
+  color: var(--dm-text);
+}
+/* Multiple selects: selected items */
+html[data-theme='dark'] #contrib-overlay select[multiple] option:checked,
+html[data-theme='dark'] #contrib-panel-list select[multiple] option:checked {
+  background: rgba(20, 174, 92, 0.35) linear-gradient(0deg, rgba(20,174,92,0.35), rgba(20,174,92,0.35));
+  color: #fff;
+}
 /* ---------------------------------------------------------------------------
    Base et réinitialisation
 --------------------------------------------------------------------------- */
@@ -193,6 +321,20 @@ html[data-theme='dark'] #contrib-overlay .file-dropzone.is-dragover { box-shadow
 #contrib-overlay .doc-card__body .doc-upload-cta { display: inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius: 8px; border:1px dashed var(--border); background: var(--panel-translucent); }
 #contrib-overlay .doc-card__body .doc-filename { font-size: 0.9rem; opacity: 0.75; }
 
+/* Dark mode: document upload CTA and text inputs */
+html[data-theme='dark'] #contrib-overlay .doc-card__header .doc-title {
+  background: rgba(255,255,255,0.06);
+  color: var(--dm-text);
+  border-color: var(--dm-menu-border);
+}
+html[data-theme='dark'] #contrib-overlay .doc-card__body .doc-upload-cta {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--dm-menu-border);
+}
+html[data-theme='dark'] #contrib-overlay .doc-card__body .doc-upload-cta:hover {
+  background: rgba(255,255,255,0.10);
+}
+
 #contrib-overlay .doc-card__footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 #contrib-overlay .doc-status { font-size: 0.85rem; opacity: 0.75; }
 
@@ -283,6 +425,58 @@ html[data-theme='dark'] #contrib-overlay .file-dropzone.is-dragover { box-shadow
 }
 #contrib-overlay .icon-btn--delete:hover {
   background: rgba(230,105,105,0.08);
+}
+
+/* Dark mode: icon buttons better contrast */
+html[data-theme='dark'] #contrib-overlay .icon-btn {
+  background: rgba(255,255,255,0.06);
+  color: var(--dm-text);
+  border-color: var(--dm-menu-border);
+}
+html[data-theme='dark'] #contrib-overlay .icon-btn:hover {
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.28);
+}
+html[data-theme='dark'] #contrib-overlay .icon-btn--delete {
+  border-color: rgba(239,68,68,0.45);
+  color: #ef4444;
+}
+html[data-theme='dark'] #contrib-overlay .icon-btn--delete:hover {
+  background: rgba(239,68,68,0.16);
+  border-color: rgba(239,68,68,0.55);
+}
+
+/* Dark mode: official link inputs */
+html[data-theme='dark'] #contrib-overlay .official-link-card input[type="url"],
+html[data-theme='dark'] #contrib-overlay .official-link-card input[type="text"] {
+  background: rgba(255,255,255,0.06);
+  color: var(--dm-text);
+  border-color: var(--dm-menu-border);
+}
+
+/* Optional AI assistant card if present */
+#contrib-overlay .ai-assistant-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--panel-solid);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+html[data-theme='dark'] #contrib-overlay .ai-assistant-card {
+  background: rgba(255,255,255,0.06);
+  color: var(--dm-text);
+  border-color: var(--dm-menu-border);
+}
+html[data-theme='dark'] #contrib-overlay .ai-assistant-card .gp-btn {
+  background: rgba(255,255,255,0.08);
+  border-color: var(--dm-menu-border);
+  color: var(--dm-text);
+}
+html[data-theme='dark'] #contrib-overlay .ai-assistant-card .gp-btn:hover {
+  background: rgba(255,255,255,0.12);
 }
 
 /* Inline confirmation bar inside existing doc card */
@@ -4966,6 +5160,14 @@ html[data-theme='dark'] #contrib-overlay .contrib-searchbar input[type="text"] {
 html[data-theme='dark'] #contrib-overlay .contrib-searchbar input[type="text"]::placeholder {
   color: rgba(255,255,255,0.55);
 }
+
+/* Dark mode: text colors inside contribution list items */
+html[data-theme='dark'] :is(#contrib-panel-list, #contrib-overlay) .contrib-title { color: var(--dm-text); }
+html[data-theme='dark'] :is(#contrib-panel-list, #contrib-overlay) .contrib-title a { color: var(--dm-text); }
+html[data-theme='dark'] :is(#contrib-panel-list, #contrib-overlay) .contrib-extra { color: var(--dm-muted-text); }
+html[data-theme='dark'] #contrib-overlay .contrib-list-item { color: var(--dm-text); }
+html[data-theme='dark'] #contrib-overlay .contrib-list-item small { color: var(--dm-muted-text); }
+html[data-theme='dark'] #contrib-overlay .contrib-item-right { color: var(--dm-text); }
 
 /* --- City Menu (cartes de villes) --- */
 #city-menu {

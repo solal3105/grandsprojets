@@ -702,15 +702,15 @@
       try {
         const container = document.getElementById(drawMapContainerId);
         if (!container) return;
-        // Load basemaps and pick "Mode couleur" when available
+        // Load basemaps and pick only the one named "OpenStreetMap"
         const bmList = await ensureBasemaps();
-        const colorBm = Array.isArray(bmList)
-          ? (bmList.find(b => ((b.label || b.name || '').toLowerCase().includes('mode couleur'))) || pickDefaultBasemap(bmList))
+        const osmBm = Array.isArray(bmList)
+          ? bmList.find(b => String(b?.name || b?.label || '').trim().toLowerCase() === 'openstreetmap')
           : null;
         // Initialise Leaflet map with a safe temporary view (updated by city branding)
         drawMap = L.map(drawMapContainerId, { center: [45.75, 4.85], zoom: 12 });
         try { drawMap.whenReady(() => setTimeout(() => { try { drawMap.invalidateSize(); } catch(_) {} }, 60)); } catch(_) {}
-        setDrawBaseLayer(colorBm);
+        setDrawBaseLayer(osmBm);
         // Ensure no basemap menu is displayed in contribution modal
         try { drawPanelEl.querySelector('#contrib-basemap-menu')?.remove(); } catch(_) {}
         // Attach a single map click handler for manual drawing
