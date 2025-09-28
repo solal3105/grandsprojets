@@ -62,9 +62,7 @@
      * @returns {Promise<Array<{name:string, url:string, style:string, is_default:boolean}>>}
      */
     fetchLayersConfig: async function() {
-      // Exclure certaines couches du chargement depuis la table 'layers'.
-      // Ces couches sont désormais gérées via contribution_uploads par catégorie.
-      const EXCLUDED = new Set(['velo', 'mobilite', 'urbanisme']);
+      // Plus d'exclusions - toutes les couches sont maintenant dans la table layers
 
       // Récupérer la ville active
       const activeCity = getActiveCity();
@@ -84,32 +82,33 @@
       const { data, error } = await q;
 
       if (error) {
-        console.error('fetchLayersConfig error:', error);
         return [];
       }
 
       // A ce stade, on a UNIQUEMENT les couches de la ville active (ou globales si aucune ville),
       // ce qui garantit que les URLs ne réintroduisent pas des couches globales quand une ville est active.
-      const rows = (data || []).filter(row => row && !EXCLUDED.has(row.name));
-
-      // Correction styles: si une ville est active, récupérer les styles avec fallback global
-      if (activeCity && rows.length > 0) {
-        try {
-          const names = Array.from(new Set(rows.map(r => r.name).filter(Boolean)));
-          if (names.length > 0 && typeof win.supabaseService?.fetchLayerStylesByNames === 'function') {
-            const styles = await win.supabaseService.fetchLayerStylesByNames(names);
-            rows.forEach(r => {
-              if (styles && Object.prototype.hasOwnProperty.call(styles, r.name)) {
-                r.style = styles[r.name];
-              }
-            });
+      return (data || [])
+        .filter(row => row && row.name)
+        .map(row => {
+          // Parser le style JSON si c'est une string
+          let parsedStyle = row.style;
+          if (typeof row.style === 'string') {
+            try {
+              parsedStyle = JSON.parse(row.style);
+            } catch (e) {
+              console.warn(`Style JSON invalide pour ${row.name}:`, row.style);
+              parsedStyle = {};
+            }
           }
-        } catch (e) {
-          console.warn('[supabaseService] fetchLayersConfig: fusion des styles (fallback) échouée:', e);
-        }
-      }
-
-      return rows;
+          
+          return {
+            name: row.name,
+            url: row.url || '',
+            style: parsedStyle,
+            is_default: row.is_default || false,
+            ville: row.ville
+          };
+        });
     },
 
     /**

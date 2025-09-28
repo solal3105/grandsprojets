@@ -451,20 +451,20 @@ Cette section documente la structure et un aperçu du contenu de la base Supabas
   - `filter_items` (ex.)
     - bus-check → layer `bus`; metro-check → `metroFuniculaire`; tram-check → `tramway`; travaux-check → `travaux`; urbanisme → `urbanisme`
   - `layers` (ex.)
-    - `tramway` (default), `metroFuniculaire` (default), `reseauProjeteSitePropre` (default), `voielyonnaise` (default), `urbanisme` (default), `travaux`, `planVelo`, `amenagementCyclable`, `emplacementReserve`, `bus`
+    - `tramway` (default), `metroFuniculaire` (default), `mobilite` (default), `velo` (default), `urbanisme` (default), `travaux`, `planVelo`, `amenagementCyclable`, `emplacementReserve`, `bus`
   - `mobility_data` (ex.)
     - Tram: T6 nord, T10, T9, T8, TEOL; Bus: BHNS; Vélo: Voies Lyonnaises 1–4
   
   - Conventions de filtrage (contributeurs)
-    - Tramway/Mobilité (couche `reseauProjeteSitePropre`) : clé `Name` ≈ nom du projet
-    - Voie Lyonnaise (couche `voielyonnaise`) : clé `line` = numéro extrait du nom (fallback : `name/nom`)
-    - Urbanisme (couche `urbanisme`) : clé `Name` ≈ nom du projet
+    - Tramway/Mobilité (couche `mobilite`) : clé `project_name` depuis contribution_uploads
+    - Voie Lyonnaise (couche `velo`) : clé `project_name` depuis contribution_uploads
+    - Urbanisme (couche `urbanisme`) : clé `project_name` depuis contribution_uploads
   - `image_metadata` (≈113)
     - Points géolocalisés avec `image_path` sous `uploads/` et horodatage
 
 Notes:
 - Les schémas `auth`, `storage`, `realtime`, `vault`, `pgsodium` contiennent des tables gérées par Supabase (potentiellement sensibles). Exporter ces contenus uniquement si nécessaire.
-- Les fiches Urbanisme en Markdown référencent une image de couverture via front‑matter; stocker les fichiers sous `/img/cover/urbanisme/` et utiliser un chemin relatif correct dans chaque `.md`.
+- Les clés de filtrage sont maintenant basées sur `project_name` pour les couches `mobilite`, `velo`, `urbanisme`.
 - **Tables retirées (legacy)** : `project_pages`, `urbanisme_projects`, `project_filter_mapping`, `project_colors`.
 
 ### 13. Déploiement

@@ -941,13 +941,8 @@ const simpleCache = {
           geojsonLayer.eachLayer(otherLayer => {
             let otherProjectNameRaw;
             const op = (otherLayer && otherLayer.feature && otherLayer.feature.properties) || {};
-            if (layerName === 'mobilite') {
-              otherProjectNameRaw = op.Name || op.name || op.project_name;
-            } else if (layerName === 'velo') {
-              otherProjectNameRaw = op.line;
-            } else {
-              otherProjectNameRaw = op.name || op.Name || op.project_name;
-            }
+            // Utiliser project_name en priorité pour toutes les catégories
+            otherProjectNameRaw = op.project_name || op.name || op.Name || op.line;
             const otherProjectName = otherProjectNameRaw ? String(otherProjectNameRaw).trim() : '';
   
             if (otherProjectName && otherProjectName === currentProjectName) {
@@ -1135,16 +1130,15 @@ const simpleCache = {
   
       // Gestion du clic sur la feature
       if (!noInteractLayers.includes(layerName)) layer.on('click', () => {
-        // 1. Récupérer les propriétés du projet (enrichies via contribution_uploads si dispo)
         const p = (feature && feature.properties) || {};
         const rawProjectName = p.project_name || p.name || p.Name || p.line;
-  
+
         if (!rawProjectName) {
           console.warn('Nom de projet non trouvé dans les properties:', p);
           return;
         }
-  
-        // 2. Construire un critère de filtrage robuste selon les propriétés disponibles
+
+        // Construire un critère de filtrage
         const criteria = {};
         if (p.project_name) {
           criteria.project_name = p.project_name;
@@ -1186,14 +1180,13 @@ const simpleCache = {
           FilterModule.set(layerName, criteria);
         } catch (_) { /* noop */ }
   
-        // 5. Afficher la fiche détail (via UIModule -> NavigationModule)
-        try { UIModule.showDetailPanel(layerName, feature); } catch (_) { /* noop */ }
-  
-        // 6. Optionnel: surligner visuellement les segments du projet (utile si polylignes)
-        try { highlightProjectPath(layerName, rawProjectName); } catch (_) { /* noop */ }
-  
-        // 7. Mettre à jour les tags de filtres actifs pour ce layer
-        try { UIModule.updateActiveFilterTagsForLayer(layerName); } catch (_) { /* noop */ }
+        // Actions post-clic
+        const actions = [
+          () => UIModule.showDetailPanel(layerName, feature),
+          () => highlightProjectPath(layerName, rawProjectName),
+          () => UIModule.updateActiveFilterTagsForLayer(layerName)
+        ];
+        actions.forEach(action => { try { action(); } catch (_) {} });
   
         // 8. Zoomer sur l'étendue du projet filtré
         try {
@@ -1219,80 +1212,86 @@ const simpleCache = {
       
       // Utilisation du cache
       return simpleCache.get(cacheKey, async () => {
-        // 1️⃣ Charger depuis contribution_uploads pour cette catégorie
-        const effectiveCat = layerName === 'mobilite' ? 'mobilite' : 
-                            layerName === 'velo' ? 'velo' : layerName;
+        // Couches de contributions (chargées depuis contribution_uploads)
+        const contributionCategories = ['urbanisme', 'velo', 'mobilite'];
         
-        if (window.supabaseService?.fetchProjectsByCategory) {
-          try {
-            const contributionProjects = await window.supabaseService.fetchProjectsByCategory(effectiveCat);
-            
-            // Construire un FeatureCollection depuis contribution_uploads
-            const features = [];
-            
-            for (const project of contributionProjects) {
-              if (project.geojson_url) {
-                try {
-                  const geoResponse = await fetch(project.geojson_url);
-                  if (geoResponse.ok) {
-                    const geoData = await geoResponse.json();
-                    
-                    // Traiter selon le type de GeoJSON
-                    if (geoData.type === 'FeatureCollection' && geoData.features) {
-                      // Enrichir chaque feature avec les métadonnées du projet
-                      geoData.features.forEach(feature => {
-                        if (!feature.properties) feature.properties = {};
-                        // Injecter les métadonnées directement dans les properties
-                        feature.properties.project_name = project.project_name;
-                        feature.properties.category = project.category;
-                        feature.properties.cover_url = project.cover_url;
-                        feature.properties.description = project.description;
-                        feature.properties.markdown_url = project.markdown_url;
-                        feature.properties.imgUrl = project.cover_url; // Pour compatibilité tooltip
-                      });
-                      features.push(...geoData.features);
-                    } else if (geoData.type === 'Feature') {
-                      // Feature unique
-                      if (!geoData.properties) geoData.properties = {};
-                      geoData.properties.project_name = project.project_name;
-                      geoData.properties.category = project.category;
-                      geoData.properties.cover_url = project.cover_url;
-                      geoData.properties.description = project.description;
-                      geoData.properties.markdown_url = project.markdown_url;
-                      geoData.properties.imgUrl = project.cover_url;
-                      features.push(geoData);
+        if (contributionCategories.includes(layerName)) {
+          // Charger depuis contribution_uploads
+          if (window.supabaseService?.fetchProjectsByCategory) {
+            try {
+              const contributionProjects = await window.supabaseService.fetchProjectsByCategory(layerName);
+              
+              // Construire un FeatureCollection depuis contribution_uploads
+              const features = [];
+              
+              for (const project of contributionProjects) {
+                if (project.geojson_url) {
+                  try {
+                    const geoResponse = await fetch(project.geojson_url);
+                    if (geoResponse.ok) {
+                      const geoData = await geoResponse.json();
+                      
+                      // Traiter selon le type de GeoJSON
+                      if (geoData.type === 'FeatureCollection' && geoData.features) {
+                        // Enrichir chaque feature avec les métadonnées du projet
+                        geoData.features.forEach(feature => {
+                          if (!feature.properties) feature.properties = {};
+                          // Injecter les métadonnées directement dans les properties
+                          feature.properties.project_name = project.project_name;
+                          feature.properties.category = project.category;
+                          feature.properties.cover_url = project.cover_url;
+                          feature.properties.description = project.description;
+                          feature.properties.markdown_url = project.markdown_url;
+                          feature.properties.imgUrl = project.cover_url; // Pour compatibilité tooltip
+                        });
+                        features.push(...geoData.features);
+                      } else if (geoData.type === 'Feature') {
+                        // Feature unique
+                        if (!geoData.properties) geoData.properties = {};
+                        geoData.properties.project_name = project.project_name;
+                        geoData.properties.category = project.category;
+                        geoData.properties.cover_url = project.cover_url;
+                        geoData.properties.description = project.description;
+                        geoData.properties.markdown_url = project.markdown_url;
+                        geoData.properties.imgUrl = project.cover_url;
+                        features.push(geoData);
+                      }
                     }
+                  } catch (error) {
+                    console.warn(`Erreur lors du chargement du GeoJSON pour ${project.project_name}:`, error);
                   }
-                } catch (error) {
-                  console.warn(`Erreur lors du chargement du GeoJSON pour ${project.project_name}:`, error);
                 }
               }
+              
+              if (features.length > 0) {
+                return {
+                  type: 'FeatureCollection',
+                  features: features
+                };
+              }
+            } catch (error) {
+              console.warn(`Erreur lors du chargement depuis contribution_uploads pour ${layerName}:`, error);
             }
-            
-            if (features.length > 0) {
-              return {
-                type: 'FeatureCollection',
-                features: features
-              };
-            }
-          } catch (error) {
-            console.warn(`Erreur lors du chargement depuis contribution_uploads pour ${layerName}:`, error);
           }
+          
+          // Pas de données trouvées pour cette catégorie
+          console.warn(`Aucune donnée trouvée pour la catégorie: ${layerName}`);
+          return { type: 'FeatureCollection', features: [] };
+        } else {
+          // Couches legacy (tramway, métro, etc.) - charger depuis les fichiers GeoJSON
+          const url = urlMap[layerName];
+          if (!url) {
+            throw new Error(`Aucune URL définie pour la couche legacy: ${layerName}`);
+          }
+          
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status} sur ${layerName}`);
+          }
+          
+          const data = await response.json();
+          return data;
         }
-        
-        // 2️⃣ Fallback: charger depuis les fichiers legacy
-        const url = urlMap[layerName];
-        if (!url) {
-          throw new Error(`Aucune URL définie pour la couche: ${layerName} et pas de données dans contribution_uploads`);
-        }
-        
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status} sur ${layerName}`);
-        }
-        
-        const data = await response.json();
-        return data;
       });
     }
   
@@ -1480,14 +1479,11 @@ const simpleCache = {
       const normalizedName = projectName.toString().toLowerCase().trim();
       const normalizedSlug = slugify(projectName);
       
-      // Récupérer uniquement depuis contribution_uploads
+      // Récupérer directement depuis contribution_uploads
       if (window.supabaseService?.fetchProjectsByCategory) {
         try {
-          const cat = (category || '').toString().toLowerCase().trim();
-          // Harmoniser les catégories de navigation → catégories contribution_uploads
-          // transport → mobilite ; velo → velo
-          const effectiveCat = (cat === 'transport') ? 'mobilite' : (cat === 'velo' ? 'velo' : cat);
-          const contributionProjects = await window.supabaseService.fetchProjectsByCategory(effectiveCat);
+          const category_clean = (category || '').toString().toLowerCase().trim();
+          const contributionProjects = await window.supabaseService.fetchProjectsByCategory(category_clean);
           const contributionProject = Array.isArray(contributionProjects)
             ? contributionProjects.find(p => p?.project_name && slugify(p.project_name) === normalizedSlug)
             : null;

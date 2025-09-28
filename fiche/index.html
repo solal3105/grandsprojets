@@ -34,33 +34,12 @@
         const article = document.getElementById('project-article');
         if (!article) return;
 
-        // Déterminer layerName et éventuels filtres
-        let layerName = '';
-        let filterKey = '';
-        let filterValue = '';
-        const cat = rawCat;
-        switch (cat) {
-          case 'velo':
-            layerName = 'voielyonnaise';
-            filterKey = 'line';
-            try {
-              const m = String(projectName).match(/(\d+)/);
-              if (m) filterValue = m[1];
-            } catch (_) {}
-            break;
-          case 'urbanisme':
-            layerName = 'urbanisme';
-            break;
-          case 'mobilite':
-          default:
-            layerName = 'reseauProjeteSitePropre';
-        }
+        // Utiliser directement la catégorie et le nom du projet
+        const layerName = rawCat || 'velo'; // fallback sur velo
 
-        // Appliquer sur l'article
+        // Appliquer sur l'article - plus besoin de filterKey/filterValue legacy
         if (projectName) article.dataset.projectName = projectName;
         if (layerName) article.dataset.layerName = layerName;
-        if (filterKey) article.dataset.filterKey = filterKey;
-        if (filterValue) article.dataset.filterValue = filterValue;
       } catch (e) {
         console.warn('[fiche] init dataset from URL failed:', e);
       }

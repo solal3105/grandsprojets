@@ -146,7 +146,7 @@ const bindFilterControls = () => {
   navMobilite.addEventListener('click', () => {
     // Appeler la navigation pour Mobilité
     const mobiliteLayers = (window.CATEGORY_DEFAULT_LAYERS && window.CATEGORY_DEFAULT_LAYERS.mobilite)
-      || ['metroFuniculaire', 'tramway', 'reseauProjeteSitePropre'];
+      || ['metroFuniculaire', 'tramway', 'mobilite'];
     EventBindings.handleNavigation('mobilite', mobiliteLayers);
     // Afficher le sous-menu mobilite et masquer les autres
     document.getElementById('mobilite-submenu').style.display = 'block';

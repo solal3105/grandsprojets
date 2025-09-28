@@ -19,7 +19,7 @@
         } catch(e) {}
       }
       ensureHotjar(6496613);
-    } catch(e) { console.warn('Hotjar injection failed', e); }
+    } catch(e) {}
   })();
   
   // Helper: apply favicon URL
@@ -241,9 +241,7 @@
       if (window.UIModule?.setActiveBasemap) {
         window.UIModule.setActiveBasemap(bm.label);
       }
-    } catch (e) {
-      console.warn('syncBasemapToTheme: erreur lors du changement de fond de carte', e);
-    }
+    } catch (e) {}
   }
 
   function initTheme() {
@@ -556,21 +554,18 @@
   function openCityMenu() {
     let overlay = document.getElementById('city-overlay');
     if (!overlay) {
-      console.warn('[city] #city-overlay introuvable – création dynamique');
       overlay = ensureCityOverlayExists();
     }
-    if (!overlay) { console.error('[city] #city-overlay toujours introuvable'); return; }
+    if (!overlay) return;
     const modal = overlay.querySelector('.gp-modal');
     // Rendre le contenu si vide (sécurité)
     try {
       const menu = document.getElementById('city-menu');
       if (menu && !menu.hasChildNodes()) {
         // Utiliser la ville active courante
-        console.debug('[city] Render menu (lazy)');
         renderCityMenu(win.activeCity || '');
       }
     } catch (_) {}
-    console.debug('[city] Ouverture de la modale ville');
     ModalManager.open('city-overlay');
     _cityMenuOpen = true;
     // Bouton fermer
@@ -628,13 +623,11 @@
     try {
       const toggle = document.getElementById('city-toggle');
       if (!toggle) {
-        console.warn('[city] Bouton #city-toggle introuvable');
         return;
       }
-      console.debug('[city] Binding click/keyboard sur #city-toggle');
-      toggle.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); console.debug('[city] click #city-toggle'); openCityMenu(); });
+      toggle.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); openCityMenu(); });
       toggle.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); console.debug('[city] keydown open'); openCityMenu(); }
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCityMenu(); }
       });
       await renderCityMenu(activeCity);
     } catch (_) { /* noop */ }
@@ -720,7 +713,7 @@
       // Init City toggle UI and menu
       initCityToggleUI(city);
 
-      // 1️⃣ Charger toutes les données en une seule fois (contexte préservé)
+      // Charger toutes les données
       const {
         layersConfig,
         metroColors,
@@ -739,7 +732,6 @@
       if (window.UIModule?.updateBasemaps) {
         window.UIModule.updateBasemaps(basemapsForCity);
       } else {
-        console.warn('UIModule.updateBasemaps non disponible');
       }
       
       // Initialiser la couche de base
@@ -755,7 +747,6 @@
       if (window.GeolocationModule) {
         window.GeolocationModule.init(window.MapModule.map);
       } else {
-        console.warn('❌ ERREUR: GeolocationModule non chargé');
       }
 
       // Récupération dynamique des modules après chargement complet
@@ -767,31 +758,22 @@
       } = win;
 
 
-      // 2️⃣ Construire les maps de couches (filtrées par ville si colonne "ville" présente)
+      // Construire les maps de couches
       const urlMap        = {};
       const styleMap      = {};
       const defaultLayers = [];
+      
       layersConfig.forEach(({ name, url, style, is_default, ville }) => {
         if (ville && ville !== city) return; // ignorer les couches d'une autre ville
-        urlMap[name]   = url;
-        styleMap[name] = style;
+        
+        // Ajouter URL seulement si elle existe (contribution_uploads n'ont pas d'URL)
+        if (url) urlMap[name] = url;
+        
+        // Ajouter style s'il existe (peu importe is_default)
+        if (style) styleMap[name] = style;
+        
         if (is_default) defaultLayers.push(name);
       });
-      
-      // Injecter les styles pour les couches exclues (style uniquement, pas d'URL)
-      try {
-        const excludedStyleOnly = ['urbanisme', 'velo', 'mobilite'];
-        if (Array.isArray(excludedStyleOnly) && typeof supabaseService?.fetchLayerStylesByNames === 'function') {
-          const extraStyles = await supabaseService.fetchLayerStylesByNames(excludedStyleOnly);
-          Object.entries(extraStyles || {}).forEach(([lname, st]) => {
-            if (!styleMap[lname] && st) {
-              styleMap[lname] = st;
-            }
-          });
-        }
-      } catch (e) {
-        console.warn('Impossible d\'injecter les styles des couches exclues:', e);
-      }
       
       // Exposer defaultLayers globalement pour qu'il soit accessible depuis d'autres modules
       win.defaultLayers = defaultLayers;
@@ -804,13 +786,11 @@
         travaux: ['travaux']
       };
 
-      // 3️⃣ Initialiser DataModule et charger les couches par défaut
+      // Initialiser DataModule
       DataModule.initConfig({ city, urlMap, styleMap, defaultLayers });
       defaultLayers.forEach(layer => DataModule.loadLayer(layer));
 
-      // 3️⃣.b Charger les couches de contributions pour afficher toutes les contributions par défaut
-      // Ces couches sont exclues de layersConfig côté URL, mais leurs styles ont été injectés ci-dessus.
-      // Le chargement s'appuie sur contribution_uploads et respecte la ville active via supabaseService.
+      // Charger les couches de contributions
       try {
         // Récupérer dynamiquement les catégories depuis contribution_uploads
         let contributionLayers = ['urbanisme', 'velo', 'mobilite']; // Fallback
@@ -820,18 +800,16 @@
             const dynamicCategories = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
             if (dynamicCategories.length > 0) {
               contributionLayers = dynamicCategories;
-              console.log('[Main] Catégories dynamiques chargées:', contributionLayers);
             }
           }
         } catch (error) {
-          console.warn('[Main] Erreur récupération catégories, utilisation fallback:', error);
         }
         contributionLayers.forEach(l => {
           try { DataModule.loadLayer(l); } catch (_) { /* noop */ }
         });
       } catch (_) { /* noop */ }
 
-      // 4️⃣ Construction et mise à jour des filtres
+      // Construction des filtres
       await populateFilters();
       updateFilterUI();
       updateFilterCount();
@@ -852,7 +830,7 @@
         });
       }
 
-      // 5️⃣ Préchargement des couches, bindings et menus
+      // Préchargement et bindings
       if (DataModule.preloadLayer) {
         Object.keys(urlMap).forEach(layer => DataModule.preloadLayer(layer));
       }
@@ -864,14 +842,12 @@
           basemaps: basemapsForCity
         });
       } else {
-        console.warn('UIModule.init non disponible');
       }
       
       // Initialiser le module de recherche d'adresse
       if (window.SearchModule?.init) {
         window.SearchModule.init(window.MapModule.map);
       } else {
-        console.warn('SearchModule non disponible');
       }
       
       // Configuration des gestionnaires d'événements
@@ -1008,7 +984,6 @@
         if (window.NavigationModule?.resetToDefaultView) {
           window.NavigationModule.resetToDefaultView(activeCategory);
         } else {
-          console.warn('NavigationModule.resetToDefaultView non disponible');
         }
         
         return false;
@@ -1031,18 +1006,15 @@
       // Gestionnaire de clic sur les features de la carte
       const handleFeatureClick = (feature, layerName) => {
         try {
-          console.log('Feature cliquée:', feature, 'Layer:', layerName);
           const p = (feature && feature.properties) || {};
           const projectName = p.project_name || p.name || p.Name || p.LIBELLE;
           
           if (!projectName) {
-            console.warn('handleFeatureClick: nom de projet introuvable', { feature });
             return;
           }
 
           // Utiliser la catégorie directement depuis les données contribution_uploads
           const category = p.category || layerName;
-          console.log('Ouverture du projet:', { projectName, category });
           
           // Utiliser la fonction centralisée pour l'affichage de contribution spécifique
           if (window.NavigationModule?.showSpecificContribution) {
@@ -1058,7 +1030,6 @@
           }
           // Sinon, essayer de trouver le panneau de détail et de le remplir manuellement
           else {
-            console.warn('NavigationModule non disponible, tentative de chargement manuel');
             const detailPanel = document.getElementById('project-detail');
             const detailContent = document.getElementById('detail-content');
             
@@ -1112,10 +1083,8 @@
             }
           }
         } catch (e) {
-          console.warn('Erreur lors de la recherche dans contribution_uploads:', e);
         }
         
-        console.warn('Aucun projet trouvé dans contribution_uploads pour', { cat, project });
         return false;
       }
 
@@ -1194,10 +1163,8 @@
       if (window.supabaseService?.fetchAllProjects) {
         const allContributions = await window.supabaseService.fetchAllProjects();
         contributionCategories = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
-        console.log('[populateFilters] Catégories trouvées:', contributionCategories);
       }
     } catch (error) {
-      console.warn('[populateFilters] Erreur récupération catégories:', error);
       contributionCategories = ['urbanisme', 'velo', 'mobilite']; // Fallback
     }
 
@@ -1353,7 +1320,6 @@
       if (btn) {
         e.preventDefault();
         e.stopPropagation();
-        console.debug('[city] delegated click -> openCityMenu');
         openCityMenu();
       }
     }, true);
