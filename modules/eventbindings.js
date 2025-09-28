@@ -51,8 +51,12 @@ const EventBindings = (() => {
 
     // Lancer l'affichage des projets selon le menu sélectionné
     if (menu === 'travaux') {
-      // Travaux garde son système spécialisé pour le moment
-      NavigationModule.renderTravauxProjects();
+      // Utiliser le nouveau TravauxModule
+      if (window.TravauxModule?.renderTravauxProjects) {
+        window.TravauxModule.renderTravauxProjects();
+      } else {
+        console.warn('[EventBindings] TravauxModule non disponible');
+      }
     } else {
       // Utiliser le nouveau système unifié pour les autres catégories
       if (window.SubmenuModule?.renderProjectsByCategory) {
