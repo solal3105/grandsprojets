@@ -415,7 +415,7 @@ function initConfig({ urlMap: u, styleMap: s, defaultLayers: d }) {
               // Token simple (F1/F2/A/B/C/D)
               const token = upper.match(/F\d|[A-Z]/);
               if (token && metroColors[token[0]]) lineColor = metroColors[token[0]];
-            }
+            } 
           }
           return {
             ...baseStyle,

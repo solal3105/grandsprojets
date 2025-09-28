@@ -1516,7 +1516,7 @@ html[data-theme='dark'] .leaflet-container { background: #000; }
     display: none;
   }
   /* Positionner les sous-menus au-dessus du nav bar*/
-  .submenu, #velo-submenu, #transport-submenu, #travaux-submenu {
+  .submenu, #velo-submenu, #mobilite-submenu, #travaux-submenu {
     position: absolute;
     bottom: 100px !important;
     top: auto !important;
@@ -1551,7 +1551,7 @@ html[data-theme='dark'] .leaflet-container { background: #000; }
     z-index: 10;
   }
   /* Mobile submenu panels: smooth collapse/expand */
-  #transport-submenu,
+  #mobilite-submenu,
   #velo-submenu,
   #urbanisme-submenu,
   #travaux-submenu {
@@ -2368,14 +2368,14 @@ html[data-theme='dark'] .gp-btn--danger {
 /* Cacher par défaut */
 #urbanisme-submenu,
 #velo-submenu,
-#transport-submenu,
+#mobilite-submenu,
 #travaux-submenu {
   display: none;
 }
 /* Règles de positionnement et style */
 #urbanisme-submenu,
 #velo-submenu,
-#transport-submenu,
+#mobilite-submenu,
 #travaux-submenu {
   position: absolute;
   top: 0;  /* même position verticale que left-nav */
@@ -2398,7 +2398,7 @@ html[data-theme='dark'] .gp-btn--danger {
 /* Masquer la barre de défilement pour WebKit (Chrome, Safari, etc.) */
 #urbanisme-submenu::-webkit-scrollbar,
 #velo-submenu::-webkit-scrollbar,
-#transport-submenu::-webkit-scrollbar,
+#mobilite-submenu::-webkit-scrollbar,
 #travaux-submenu::-webkit-scrollbar {
   display: none;
 }
@@ -2656,7 +2656,7 @@ html[data-theme='dark'] .project-arrow { color: var(--dm-muted-text); }
   transform: scale(1.02);
 }
 
-/* Détail du projet et sous-menus Urbanisme/Vélo/Transport */
+/* Détail du projet et sous-menus Urbanisme/Vélo/Mobilité */
 #project-detail {
   position: absolute;
   top: 10px;      /* même position verticale que left-nav */

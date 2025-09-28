@@ -51,8 +51,8 @@ const EventBindings = (() => {
     }
 
     // Lancer l’affichage des projets selon le menu sélectionné
-    if (menu === 'transport') {
-      NavigationModule.renderTransportProjects();
+    if (menu === 'mobilite') {
+      NavigationModule.renderMobiliteProjects();
     } else if (menu === 'velo') {
       NavigationModule.renderVeloProjects();
     } else if (menu === 'urbanisme') {
@@ -62,40 +62,6 @@ const EventBindings = (() => {
       // Assurer la présence de la légende de progression
       ensureTravauxLegend();
     }
-  };
-
-  // Insère une card de légende dans le sous-menu Travaux (une seule fois)
-  const ensureTravauxLegend = () => {
-    try {
-      const container = document.getElementById('travaux-submenu');
-      if (!container) return;
-      if (container.querySelector('#travaux-legend-card')) return; // déjà présent
-
-      const list = container.querySelector('#travaux-project-list');
-      const card = document.createElement('div');
-      card.id = 'travaux-legend-card';
-      card.className = 'legend-card travaux-legend-card';
-      card.innerHTML = `
-        <div class="legend-header">
-          <i class="fa-solid fa-gauge-high" aria-hidden="true"></i>
-          <span class="legend-title">Avancement des travaux</span>
-        </div>
-        <div class="legend-gradient" aria-hidden="true"></div>
-        <div class="legend-scale" aria-hidden="true">
-          <span>0%</span>
-          <span>25%</span>
-          <span>50%</span>
-          <span>75%</span>
-          <span>100%</span>
-        </div>`;
-
-      // Insérer la card avant la liste
-      if (list && list.parentNode) {
-        list.parentNode.insertBefore(card, list);
-      } else {
-        container.prepend(card);
-      }
-    } catch (_) { /* silencieux */ }
   };
 
   // Gestion des contrôles de filtres
@@ -146,7 +112,7 @@ const bindFilterControls = () => {
   });
 
   // 3. Clic sur ⚙️ : active si besoin, puis bascule le panneau
-/*   document.querySelectorAll('.settings-btn').forEach(btn => {
+  /* document.querySelectorAll('.settings-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       const layer = btn.dataset.layer;
@@ -180,18 +146,18 @@ const bindFilterControls = () => {
 };
 
   // Récupération des boutons de navigation
-  const navTransport = document.getElementById('nav-transport');
+  const navMobilite = document.getElementById('nav-mobilite');
   const navVelo = document.getElementById('nav-velo');
   const navUrbanisme = document.getElementById('nav-urbanisme');
   const navTravaux = document.getElementById('nav-travaux');
 
-  navTransport.addEventListener('click', () => {
-    // Appeler la navigation pour Transport
-    const transportLayers = (window.CATEGORY_DEFAULT_LAYERS && window.CATEGORY_DEFAULT_LAYERS.transport)
+  navMobilite.addEventListener('click', () => {
+    // Appeler la navigation pour Mobilité
+    const mobiliteLayers = (window.CATEGORY_DEFAULT_LAYERS && window.CATEGORY_DEFAULT_LAYERS.mobilite)
       || ['metroFuniculaire', 'tramway', 'reseauProjeteSitePropre'];
-    EventBindings.handleNavigation('transport', transportLayers);
-    // Afficher le sous-menu transport et masquer les autres
-    document.getElementById('transport-submenu').style.display = 'block';
+    EventBindings.handleNavigation('mobilite', mobiliteLayers);
+    // Afficher le sous-menu mobilite et masquer les autres
+    document.getElementById('mobilite-submenu').style.display = 'block';
     document.getElementById('velo-submenu').style.display = 'none';
     document.getElementById('urbanisme-submenu').style.display = 'none';
     document.getElementById('travaux-submenu').style.display = 'none';
@@ -202,7 +168,7 @@ const bindFilterControls = () => {
       || ['planVelo', 'voielyonnaise'];
     EventBindings.handleNavigation('velo', veloLayers);
     document.getElementById('velo-submenu').style.display = 'block';
-    document.getElementById('transport-submenu').style.display = 'none';
+    document.getElementById('mobilite-submenu').style.display = 'none';
     document.getElementById('urbanisme-submenu').style.display = 'none';
     document.getElementById('travaux-submenu').style.display = 'none';
   });
@@ -212,7 +178,7 @@ const bindFilterControls = () => {
       || ['urbanisme'];
     EventBindings.handleNavigation('urbanisme', urbLayers);
     document.getElementById('urbanisme-submenu').style.display = 'block';
-    document.getElementById('transport-submenu').style.display = 'none';
+    document.getElementById('mobilite-submenu').style.display = 'none';
     document.getElementById('velo-submenu').style.display = 'none';
     document.getElementById('travaux-submenu').style.display = 'none';
   });
@@ -222,7 +188,7 @@ const bindFilterControls = () => {
       || ['travaux'];
     EventBindings.handleNavigation('travaux', trvxLayers);
     document.getElementById('travaux-submenu').style.display = 'block';
-    document.getElementById('transport-submenu').style.display = 'none';
+    document.getElementById('mobilite-submenu').style.display = 'none';
     document.getElementById('velo-submenu').style.display = 'none';
     document.getElementById('urbanisme-submenu').style.display = 'none';
     // Sécurité: s'assurer que la légende est présente après clic direct

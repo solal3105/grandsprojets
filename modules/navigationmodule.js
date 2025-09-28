@@ -89,7 +89,7 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
   }
   
   // Masquer tous les sous-menus
-  const submenus = ['velo', 'transport', 'mobilite', 'urbanisme'];
+  const submenus = ['velo', 'mobilite', 'urbanisme'];
   console.log('Masquage des sous-menus:', submenus);
   submenus.forEach(id => {
     const el = document.getElementById(`${id}-submenu`);
@@ -275,7 +275,7 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
     description = description || attrs.description;
     if(description) body+=`<p class="project-description">${description}</p>`;
 
-    const icons={velo:'fa-bicycle',mobilite:'fa-train-tram',transport:'fa-train-tram',urbanisme:'fa-building'};
+    const icons={velo:'fa-bicycle',mobilite:'fa-train-tram',urbanisme:'fa-building'};
 
     // 1) Utiliser la route dynamique pour la fiche complète
     let fullPageUrl = null;
@@ -884,19 +884,19 @@ projectDetailPanel.classList.add('visible');
   }
 
 
-  const renderTransportProjects = async () => {
-    const listEl = setupSubmenu('transport-submenu', {
-      title: 'Projets de Transport',
-      closeBtnId: 'transport-close-btn',
-      navId: 'nav-transport',
-      submenuId: 'transport-submenu',
-      listId: 'transport-project-list'
+  const renderMobiliteProjects = async () => {
+    const listEl = setupSubmenu('mobilite-submenu', {
+      title: 'Projets de Mobilité',
+      closeBtnId: 'mobilite-close-btn',
+      navId: 'nav-mobilite',
+      submenuId: 'mobilite-submenu',
+      listId: 'mobilite-project-list'
     });
     if (!listEl) return;
     
     try {
       // Récupérer uniquement les projets de mobilité depuis contribution_uploads
-      const mobiliteProjects = await window.supabaseService.fetchMobiliteProjects();
+      const mobiliteProjects = await window.supabaseService.fetchProjectsByCategory('mobilite');
       // Tri alphabétique (FR, insensible à la casse/accents)
       const sorted = (Array.isArray(mobiliteProjects) ? mobiliteProjects.slice() : [])
         .sort((a, b) => naturalCompareByName(a?.project_name, b?.project_name));
@@ -907,11 +907,11 @@ projectDetailPanel.classList.add('visible');
           category: contributionProject.category,
           source: 'contribution_uploads'
         };
-        const li = createProjectItem(projectItem, createProjectClickHandler(projectItem, 'transport', 'transport-submenu', false), 'transport');
+        const li = createProjectItem(projectItem, createProjectClickHandler(projectItem, 'mobilite', 'mobilite-submenu', false), 'mobilite');
         listEl.appendChild(li);
       });
     } catch (error) {
-      console.error('Erreur lors du chargement des projets de transport:', error);
+      console.error('Erreur lors du chargement des projets de mobilité:', error);
     }
   };
 
@@ -927,7 +927,7 @@ projectDetailPanel.classList.add('visible');
     
     try {
       // Récupérer les projets de voie lyonnaise depuis contribution_uploads
-      const voielyonnaiseProjects = await window.supabaseService.fetchVoielyonnaiseProjects();
+      const voielyonnaiseProjects = await window.supabaseService.fetchProjectsByCategory('velo');
       // Tri alphabétique (FR, insensible à la casse/accents)
       const sorted = (Array.isArray(voielyonnaiseProjects) ? voielyonnaiseProjects.slice() : [])
         .sort((a, b) => naturalCompareByName(a?.project_name, b?.project_name));
@@ -959,7 +959,7 @@ projectDetailPanel.classList.add('visible');
 
     try {
       // Récupérer les projets d'urbanisme depuis contribution_uploads
-      const urbanismeProjects = await window.supabaseService.fetchUrbanismeProjects();
+      const urbanismeProjects = await window.supabaseService.fetchProjectsByCategory('urbanisme');
       // Tri alphabétique (FR, insensible à la casse/accents)
       const sorted = (Array.isArray(urbanismeProjects) ? urbanismeProjects.slice() : [])
         .sort((a, b) => naturalCompareByName(a?.project_name, b?.project_name));
@@ -1675,8 +1675,8 @@ submenu.insertBefore(filterUX, listEl);
         try {
           if (category === 'velo') {
             renderVeloProjects();
-          } else if (category === 'transport') {
-            renderTransportProjects();
+          } else if (category === 'mobilite') {
+            renderMobiliteProjects();
           } else if (category === 'urbanisme') {
             renderUrbanismeProjects();
           } else if (category === 'travaux') {
@@ -1811,7 +1811,7 @@ submenu.insertBefore(filterUX, listEl);
   const publicAPI = { 
     showProjectDetail, 
     zoomOutOnLoadedLayers, 
-    renderTransportProjects, 
+    renderMobiliteProjects, 
     renderVeloProjects, 
     renderUrbanismeProjects, 
     renderTravauxProjects,

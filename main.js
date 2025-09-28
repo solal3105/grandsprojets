@@ -798,7 +798,7 @@
 
       // Centraliser les couches par défaut par catégorie pour éviter la duplication
       win.CATEGORY_DEFAULT_LAYERS = {
-        transport: ['metroFuniculaire', 'tramway', 'reseauProjeteSitePropre'],
+        mobilite: ['metroFuniculaire', 'tramway', 'reseauProjeteSitePropre'],
         velo: ['planVelo', 'voielyonnaise'],
         urbanisme: ['urbanisme'],
         travaux: ['travaux']
@@ -1071,19 +1071,19 @@
       function parseUrlState() {
         try {
           const sp = new URLSearchParams(location.search);
-          const rawCat = String(sp.get('cat') || '').toLowerCase().trim();
+          const cat = String(sp.get('cat') || '').toLowerCase().trim();
           const project = String(sp.get('project') || '').trim();
-          if (!rawCat || !project) return null;
-          const cat = rawCat === 'mobilite' ? 'transport' : rawCat;
-          return { cat, project };
-        } catch (_) { return null; }
+          return (cat && project) ? { cat, project } : null;
+        } catch (_) {
+          return null;
+        }
       }
 
       function resolveSearchLayersByCategory(cat) {
         switch (cat) {
           case 'velo': return ['voielyonnaise'];
           case 'urbanisme': return ['urbanisme'];
-          case 'transport': return ['reseauProjeteSitePropre', 'tramway', 'metroFuniculaire'];
+          case 'mobilite': return ['reseauProjeteSitePropre', 'tramway', 'metroFuniculaire'];
           case 'travaux': return ['travaux'];
           default: return [];
         }
@@ -1146,10 +1146,9 @@
           if (!state) {
             try {
               const sp = new URLSearchParams(location.search);
-              const rawCat = String(sp.get('cat') || '').toLowerCase().trim();
+              const cat = String(sp.get('cat') || '').toLowerCase().trim();
               const project = String(sp.get('project') || '').trim();
-              if (rawCat) {
-                const cat = rawCat === 'mobilite' ? 'transport' : rawCat;
+              if (cat) {
                 state = { cat, project: project || null };
               }
             } catch (_) { /* noop */ }
