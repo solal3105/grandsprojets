@@ -70,15 +70,13 @@ const NavigationModule = (() => {
     }
   }
 
-
-
-/**
- * Affiche les détails d'un projet dans le panneau latéral
- * @param {string} projectName - Nom du projet à afficher
- * @param {string} category - Catégorie du projet (velo, transport, mobilite, urbanisme)
- * @param {Event} [event] - Événement de clic (optionnel)
- */
-async function showProjectDetail(projectName, category, event, enrichedProps = null) {
+  /**
+   * Affiche les détails d'un projet dans le panneau latéral
+   * @param {string} projectName - Nom du projet à afficher
+   * @param {string} category - Catégorie du projet (velo, mobilite, urbanisme)
+   * @param {Event} [event] - Événement de clic (optionnel)
+   */
+  async function showProjectDetail(projectName, category, event, enrichedProps = null) {
   console.group('=== showProjectDetail ===');
   console.log('Paramètres initiaux:', { projectName, category });
   
@@ -126,10 +124,8 @@ async function showProjectDetail(projectName, category, event, enrichedProps = n
     } catch(_) { return u; }
   };
 
-  // Déterminer la catégorie effective (harmonisation avec contribution_uploads)
-  const effectiveCat = (category === 'transport')
-    ? 'mobilite'
-    : (category === 'velo' ? 'velo' : category);
+  // Déterminer la catégorie effective (catégorie directe)
+  const effectiveCat = (category === 'velo' ? 'velo' : category);
   console.log('Catégorie effective:', effectiveCat);
 
   // Afficher le panneau de chargement

@@ -2360,7 +2360,7 @@ html[data-theme='dark'] .gp-btn--danger {
 }
 
 /* ---------------------------------------------------------------------------
-   Sous-menu Urbanisme, Vélo, Transport, Travaux
+   Sous-menu Urbanisme, Vélo, Mobilité, Travaux
 --------------------------------------------------------------------------- */
 
 
@@ -3949,7 +3949,7 @@ html[data-theme='dark'] #filters-container {
 html[data-theme='dark'] .submenu,
 html[data-theme='dark'] #urbanisme-submenu,
 html[data-theme='dark'] #velo-submenu,
-html[data-theme='dark'] #transport-submenu,
+html[data-theme='dark'] #mobilite-submenu,
 html[data-theme='dark'] #travaux-submenu {
   background: linear-gradient(145deg, var(--dm-menu-bg-start) 0%, var(--dm-menu-bg-end) 100%);
   color: var(--dm-text);

@@ -49,7 +49,7 @@ export async function handler(event) {
     } else {
       // article
       sys = "Tu es un journaliste francophone spécialisé en urbanisme. Style: clair, factuel, mesuré, analytique. N'invente rien. SORTIE STRICTE en JSON: {\\\"article\\\": string en Markdown (peut être TRÈS long)}. Interdiction absolue d'ajouter autre chose que l'objet JSON final.";
-      userPrompt = `Tu es un journaliste francophone spécialisé en urbanisme, transport, mobilité et grands projets.
+      userPrompt = `Tu es un journaliste francophone spécialisé en urbanisme, mobilité et grands projets.
 Ta mission: rédiger un article narratif d'environ 2000 mots (objectif: ~2000), en chapitres progressifs, sans dépasser inutilement.
 
 Contraintes:

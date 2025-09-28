@@ -117,7 +117,7 @@ function preprocessCustomMarkdown(rawMd) {
   // 3. Supprimer directives restant ::: or ::
   md = md.replace(/^::$/gm, '');
 
-  // 4. Remplacer les pseudo liens :transport-link{...} ou :line-link{...}
+  // 4. Remplacer les pseudo liens :mobilite-link{...} ou :line-link{...}
   md = md.replace(/:[\w-]+-link\{[^}]+\}/g, '');
 
   return md;
@@ -1746,7 +1746,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const dmStyle = window.DataModule?.getFeatureStyle?.(feature, layerName) || {};
           const style = { ...base, ...dmStyle };
 
-          // Couches sans remplissage (projets transports & vélo)
+          // Couches sans remplissage (projets mobilité & vélo)
           const noFillLayers = new Set(['planVelo','amenagementCyclable','voielyonnaise','bus','tramway','metroFuniculaire','reseauProjeteSitePropre']);
 
           // Normaliser et fournir des valeurs par défaut compatibles Leaflet

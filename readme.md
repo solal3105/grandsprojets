@@ -28,7 +28,7 @@
 ## 1. Présentation générale
 
 GrandProjetV2 est une application web **single-page** écrite en JavaScript ES6 (sans framework), destinée à explorer les projets urbains du Grand Lyon via une carte interactive Leaflet. Elle permet :
-- d’afficher des couches GeoJSON dynamiques (transport, vélo, urbanisme, travaux)
+- d’afficher des couches GeoJSON dynamiques (mobilité, vélo, urbanisme, travaux)
 - de filtrer ces couches selon des critères multi-niveaux
 - de consulter des fiches projets détaillées (Markdown rendu dynamiquement ou pages statiques)
 - de stocker la configuration (couches, filtres, pages) dans Supabase
@@ -71,7 +71,7 @@ grandprojetV2/
 │       ├── ...
 ├── img/
 │   ├── logo.svg
-│   ├── transport.svg
+│   ├── mobilite.svg
 │   ├── velo.svg
 │   ├── urbanisme.svg
 │   ├── travaux.svg
@@ -158,7 +158,7 @@ grandprojetV2/
 ### 4.8. navigationmodule.js
 - **showProjectDetail(name, category, event)** :
   1. empêche la propagation, masque les sous-menus
-  2. récupère le contenu via **fetch()** d’un fichier Markdown sous `pages/<cat>/*.md` pour toutes les catégories (Vélo, Mobilité/Transport, Urbanisme)
+  2. récupère le contenu via **fetch()** d’un fichier Markdown sous `pages/<cat>/*.md` pour toutes les catégories (Vélo, Mobilité, Urbanisme)
   3. extrait le front-matter YAML (couverture, itinéraire `from/to`, **line**, **trafic**, description) et **n'affiche plus** le corps Markdown, pour garder le panneau synthétique
   4. cherche `window.projectPages[name]` (chargé via Supabase) pour afficher un bouton « Voir la fiche complète »; fallback: vérifie l’existence d’une page `.html` correspondante
   5. applique des animations (zoom, surbrillance)
@@ -196,7 +196,7 @@ grandprojetV2/
 
 ## 5. Fonctionnement des fiches projets (Project Sheets)
 
-Les "fiches projets" sont les pages de détail qui présentent chaque projet urbain (transport, vélo, urbanisme...) de façon riche et interactive. Il existe deux types de fiches : **fiches dynamiques (Markdown)** et **fiches statiques (HTML)**.
+Les "fiches projets" sont les pages de détail qui présentent chaque projet urbain (mobilité, vélo, urbanisme...) de façon riche et interactive. Il existe deux types de fiches : **fiches dynamiques (Markdown)** et **fiches statiques (HTML)**.
 
 ### 5.1 Fiches dynamiques (Markdown)
 - **Stockage** : Les contenus sont stockés sous forme de fichiers `.md` dans `pages/velo/`, `pages/mobilite/` et `pages/urbanisme/`.
@@ -319,7 +319,7 @@ Les "fiches projets" sont les pages de détail qui présentent chaque projet urb
 - L’utilisateur arrive sur `index.html` :
   1. `main.js` attend le DOM, puis lance tout le chargement via `supabaseService.initAllData()`
   2. Les couches par défaut sont chargées, les filtres générés, la navigation initialisée
-  3. La catégorie “Transport” (ou autre par défaut) s’affiche avec la liste de projets
+  3. La catégorie “Mobilité” (ou autre par défaut) s’affiche avec la liste de projets
 
 ### 9.2 Navigation par catégorie
 - Clic sur un onglet de catégorie (ex : “Vélo”) :
