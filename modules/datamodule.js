@@ -188,7 +188,7 @@ const simpleCache = {
     function getMarkdownPathForFeature(layerName, props) {
       try {
         if (!props) return null;
-        if (layerName === 'voielyonnaise') {
+        if (layerName === 'velo') {
           const line = props.line || props.Line || props.ligne;
           if (!line) return null;
           const n = String(line).trim().replace(/\D+/g, '');
@@ -200,7 +200,7 @@ const simpleCache = {
           if (!name) return null;
           return `/pages/urbanisme/${slugify(name)}.md`;
         }
-        if (layerName === 'reseauProjeteSitePropre') {
+        if (layerName === 'mobilite') {
           const name = props.Name || props.name;
           if (!name) return null;
           return `/pages/mobilite/${slugify(name)}.md`;
@@ -236,7 +236,7 @@ const simpleCache = {
     async function injectImgUrlsToFeatures(layerName, data) {
       try {
         // Ne traiter que les couches pertinentes
-        const supported = ['voielyonnaise', 'urbanisme', 'reseauProjeteSitePropre'];
+        const supported = ['velo', 'urbanisme', 'mobilite'];
         if (!supported.includes(layerName)) return data;
   
         // Récupération de la liste de features selon la forme du GeoJSON
@@ -296,7 +296,7 @@ const simpleCache = {
       let title = props.project_name || props.name || props.Name || props.line || '';
       
       // Ajustement du titre pour Voie Lyonnaise
-      if (layerName === 'voielyonnaise' && props.project_name && !title.startsWith('Voie Lyonnaise')) {
+      if (layerName === 'velo' && props.project_name && !title.startsWith('Voie Lyonnaise')) {
         title = `Voie Lyonnaise ${props.project_name}`;
       }
   
@@ -328,7 +328,7 @@ const simpleCache = {
         : `<div class=\"gp-card-media gp-card-media--placeholder\"></div>`;
   
       // Afficher un petit CTA uniquement pour les couches cliquables
-      const clickableLayers = ['voielyonnaise', 'urbanisme', 'reseauProjeteSitePropre'];
+      const clickableLayers = ['velo', 'urbanisme', 'mobilite'];
       const showCta = clickableLayers.includes(layerName);
   
       return `
@@ -361,7 +361,7 @@ const simpleCache = {
           weight: 3,
           opacity: 0.8,
           fill: false,
-          dashArray: layerName === 'voielyonnaise' ? '10, 5' : null
+          dashArray: layerName === 'velo' ? '10, 5' : null
         };
       }
       
@@ -424,7 +424,7 @@ const simpleCache = {
             };
           }
           
-        case 'voielyonnaise':
+        case 'velo':
           // Pour les voies lyonnaises, on gère l'état de réalisation
           const isDone = p.status === 'done';
           return {
@@ -433,7 +433,7 @@ const simpleCache = {
             dashArray: isDone ? null : (baseStyle.dashArray || '5,5')
           };
           
-        case 'reseauProjeteSitePropre':
+        case 'mobilite':
           // Pour le réseau projeté, on s'assure que le style est cohérent
           return {
             ...baseStyle,
@@ -586,7 +586,7 @@ const simpleCache = {
     function bindFeatureEvents(layer, feature, geojsonLayer, layerName) {
       // Ne pas attacher d'événements aux marqueurs caméra
       if (layer.options && layer.options.icon && layer.options.icon.options && 
-          layer.options.icon.options.className === 'camera-marker') {
+          layer.options.icon.options.className === 'legacy-camera-removed') {
         return;
       }
       
@@ -800,7 +800,7 @@ const simpleCache = {
       }
       
       const isFiltered = Object.keys(FilterModule.get(layerName)).length > 0;
-      const detailSupportedLayers = ['voielyonnaise', 'urbanisme', 'reseauProjeteSitePropre'];
+      const detailSupportedLayers = ['velo', 'urbanisme', 'mobilite'];
       const noInteractLayers = ['planVelo', 'amenagementCyclable'];
   
       // Tooltip générique (ou spécifique) pour les couches non cliquables (paths/polygones)
@@ -899,9 +899,9 @@ const simpleCache = {
           // Identifier le projet du segment en fonction de la couche
           let currentProjectNameRaw;
           const p = (feature && feature.properties) || {};
-          if (layerName === 'reseauProjeteSitePropre') {
+          if (layerName === 'mobilite') {
             currentProjectNameRaw = p.Name || p.name || p.project_name;
-          } else if (layerName === 'voielyonnaise') {
+          } else if (layerName === 'velo') {
             currentProjectNameRaw = p.line;
           } else {
             currentProjectNameRaw = p.name || p.Name || p.project_name;
@@ -941,9 +941,9 @@ const simpleCache = {
           geojsonLayer.eachLayer(otherLayer => {
             let otherProjectNameRaw;
             const op = (otherLayer && otherLayer.feature && otherLayer.feature.properties) || {};
-            if (layerName === 'reseauProjeteSitePropre') {
+            if (layerName === 'mobilite') {
               otherProjectNameRaw = op.Name || op.name || op.project_name;
-            } else if (layerName === 'voielyonnaise') {
+            } else if (layerName === 'velo') {
               otherProjectNameRaw = op.line;
             } else {
               otherProjectNameRaw = op.name || op.Name || op.project_name;
@@ -1148,7 +1148,7 @@ const simpleCache = {
         const criteria = {};
         if (p.project_name) {
           criteria.project_name = p.project_name;
-        } else if (layerName === 'voielyonnaise' && (p.line || p.ligne || p.Line)) {
+        } else if (layerName === 'velo' && (p.line || p.ligne || p.Line)) {
           criteria.line = p.line || p.ligne || p.Line;
         } else if (p.Name) {
           criteria.Name = p.Name;
@@ -1165,16 +1165,25 @@ const simpleCache = {
           });
         } catch (_) { /* noop */ }
   
-        // 4. Appliquer le filtre au layer courant pour n'afficher que le projet sélectionné
+        // 4. Filtrer visuellement sans recréer la couche (préserve les styles)
         try {
-          if (window.UIModule?.applyFilter) {
-            window.UIModule.applyFilter(layerName, criteria);
-          } else {
-            // Fallback si UIModule indisponible
-            FilterModule.set(layerName, criteria);
-            MapModule.removeLayer(layerName);
-            DataModule.createGeoJsonLayer(layerName, DataModule.layerData[layerName]);
+          const currentLayer = MapModule.layers[layerName];
+          if (currentLayer) {
+            // Masquer toutes les features qui ne correspondent pas au projet cliqué
+            currentLayer.eachLayer(otherLayer => {
+              const op = (otherLayer && otherLayer.feature && otherLayer.feature.properties) || {};
+              const otherProjectName = op.project_name || op.name || op.Name || op.line;
+              
+              if (otherProjectName !== rawProjectName) {
+                // Masquer les autres projets
+                if (typeof otherLayer.setStyle === 'function') {
+                  otherLayer.setStyle({ opacity: 0, fillOpacity: 0 });
+                }
+              }
+            });
           }
+          // Définir le filtre pour la cohérence avec le système
+          FilterModule.set(layerName, criteria);
         } catch (_) { /* noop */ }
   
         // 5. Afficher la fiche détail (via UIModule -> NavigationModule)
@@ -1211,8 +1220,8 @@ const simpleCache = {
       // Utilisation du cache
       return simpleCache.get(cacheKey, async () => {
         // 1️⃣ Charger depuis contribution_uploads pour cette catégorie
-        const effectiveCat = layerName === 'reseauProjeteSitePropre' ? 'mobilite' : 
-                            layerName === 'voielyonnaise' ? 'velo' : layerName;
+        const effectiveCat = layerName === 'mobilite' ? 'mobilite' : 
+                            layerName === 'velo' ? 'velo' : layerName;
         
         if (window.supabaseService?.fetchProjectsByCategory) {
           try {
@@ -1295,7 +1304,7 @@ const simpleCache = {
       const criteria = FilterModule.get(layerName);
       
       // Définir les couches cliquables
-      const clickableLayers = ['voielyonnaise', 'reseauProjeteSitePropre', 'urbanisme'];
+      const clickableLayers = ['velo', 'mobilite', 'urbanisme'];
       const isClickable = clickableLayers.includes(layerName);
       
       // Créer un panneau personnalisé pour les couches cliquables

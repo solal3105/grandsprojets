@@ -32,17 +32,15 @@ const NavigationModule = (() => {
 
   // naturalCompareByName supprimée - tri désormais géré dans SubmenuModule
 
-  // Constantes centralisées
-  const CONTRIBUTION_LAYERS = ['urbanisme', 'voielyonnaise', 'reseauProjeteSitePropre'];
+  // Constantes centralisées - couches basées sur les catégories contribution_uploads
+  const CONTRIBUTION_LAYERS = ['urbanisme', 'velo', 'mobilite'];
 
   /**
-   * Utilitaire : Mapping catégorie → nom de couche
+   * Utilitaire : Normalise les catégories (supprime le mapping legacy)
    */
-  function getCategoryLayerName(category) {
-    const effectiveCat = (category === 'transport') ? 'mobilite' : category;
-    return effectiveCat === 'urbanisme' ? 'urbanisme'
-      : effectiveCat === 'velo' ? 'voielyonnaise'
-      : effectiveCat === 'mobilite' ? 'reseauProjeteSitePropre' : null;
+  function normalizeCategoryName(category) {
+    // Seule transformation : transport → mobilite (pour compatibilité)
+    return (category === 'transport') ? 'mobilite' : category;
   }
 
   /**
@@ -91,7 +89,7 @@ const NavigationModule = (() => {
    * @param {string} category - Catégorie du projet
    */
   async function applyContributionFilter(projectName, category) {
-    const layerName = getCategoryLayerName(category);
+    const layerName = normalizeCategoryName(category);
 
     if (!layerName) {
       console.warn('[NavigationModule] Aucune couche cible pour', { projectName, category });

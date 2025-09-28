@@ -780,7 +780,7 @@
       
       // Injecter les styles pour les couches exclues (style uniquement, pas d'URL)
       try {
-        const excludedStyleOnly = ['voielyonnaise', 'reseauProjeteSitePropre', 'urbanisme'];
+        const excludedStyleOnly = ['urbanisme', 'velo', 'mobilite'];
         if (Array.isArray(excludedStyleOnly) && typeof supabaseService?.fetchLayerStylesByNames === 'function') {
           const extraStyles = await supabaseService.fetchLayerStylesByNames(excludedStyleOnly);
           Object.entries(extraStyles || {}).forEach(([lname, st]) => {
@@ -798,8 +798,8 @@
 
       // Centraliser les couches par défaut par catégorie pour éviter la duplication
       win.CATEGORY_DEFAULT_LAYERS = {
-        mobilite: ['metroFuniculaire', 'tramway', 'reseauProjeteSitePropre'],
-        velo: ['planVelo', 'voielyonnaise'],
+        mobilite: ['metroFuniculaire', 'tramway', 'mobilite'],
+        velo: ['planVelo', 'velo'],
         urbanisme: ['urbanisme'],
         travaux: ['travaux']
       };
@@ -812,14 +812,27 @@
       // Ces couches sont exclues de layersConfig côté URL, mais leurs styles ont été injectés ci-dessus.
       // Le chargement s'appuie sur contribution_uploads et respecte la ville active via supabaseService.
       try {
-        const contributionLayers = ['urbanisme', 'voielyonnaise', 'reseauProjeteSitePropre'];
+        // Récupérer dynamiquement les catégories depuis contribution_uploads
+        let contributionLayers = ['urbanisme', 'velo', 'mobilite']; // Fallback
+        try {
+          if (window.supabaseService?.fetchAllProjects) {
+            const allContributions = await window.supabaseService.fetchAllProjects();
+            const dynamicCategories = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
+            if (dynamicCategories.length > 0) {
+              contributionLayers = dynamicCategories;
+              console.log('[Main] Catégories dynamiques chargées:', contributionLayers);
+            }
+          }
+        } catch (error) {
+          console.warn('[Main] Erreur récupération catégories, utilisation fallback:', error);
+        }
         contributionLayers.forEach(l => {
           try { DataModule.loadLayer(l); } catch (_) { /* noop */ }
         });
       } catch (_) { /* noop */ }
 
       // 4️⃣ Construction et mise à jour des filtres
-      populateFilters();
+      await populateFilters();
       updateFilterUI();
       updateFilterCount();
 
@@ -1126,7 +1139,7 @@
             try { renderCityMenu(nextCity); } catch (_) {}
             // Repeupler les filtres pour refléter la nouvelle ville
             try {
-              populateFilters();
+              await populateFilters();
               updateFilterUI();
               updateFilterCount();
               // Re-lier les événements sur les nouveaux éléments
@@ -1168,6 +1181,124 @@
   }
 
   /**
+   * Génère dynamiquement le DOM des filtres basé sur contribution_uploads
+   */
+  async function populateFilters() {
+    const container = document.getElementById('dynamic-filters');
+    if (!container) return;
+    container.innerHTML = '';
+
+    // Récupérer les catégories dynamiquement depuis contribution_uploads
+    let contributionCategories = [];
+    try {
+      if (window.supabaseService?.fetchAllProjects) {
+        const allContributions = await window.supabaseService.fetchAllProjects();
+        contributionCategories = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
+        console.log('[populateFilters] Catégories trouvées:', contributionCategories);
+      }
+    } catch (error) {
+      console.warn('[populateFilters] Erreur récupération catégories:', error);
+      contributionCategories = ['urbanisme', 'velo', 'mobilite']; // Fallback
+    }
+
+    // Mapping des catégories vers des icônes et labels
+    const categoryConfig = {
+      urbanisme: { icon: 'fas fa-building', label: 'Urbanisme' },
+      velo: { icon: 'fas fa-bicycle', label: 'Vélo' },
+      mobilite: { icon: 'fas fa-subway', label: 'Mobilité' },
+    };
+
+    // Créer le groupe "Projets" avec les catégories dynamiques
+    if (contributionCategories.length > 0) {
+      const groupDiv = document.createElement('div');
+      groupDiv.className = 'filter-group';
+
+      const title = document.createElement('h4');
+      title.textContent = 'Projets';
+      groupDiv.appendChild(title);
+
+      contributionCategories.forEach(category => {
+        const config = categoryConfig[category] || { icon: 'fas fa-layer-group', label: category };
+        
+        const filterItem = document.createElement('div');
+        filterItem.className = 'filter-item';
+        filterItem.dataset.layer = category;
+        filterItem.innerHTML = `
+          <span class="filter-icon"><i class="${config.icon}"></i></span>
+          <span class="filter-label">${config.label}</span>
+        `;
+        groupDiv.appendChild(filterItem);
+
+        const tags = document.createElement('div');
+        tags.className = 'active-filter-tags';
+        tags.dataset.layer = category;
+        groupDiv.appendChild(tags);
+
+        const sub = document.createElement('div');
+        sub.className = 'subfilters-container';
+        sub.dataset.layer = category;
+        groupDiv.appendChild(sub);
+      });
+
+      container.appendChild(groupDiv);
+    }
+
+    // Ajouter les autres filtres depuis filtersConfig (travaux, métro, etc.) SAUF les 3 anciens projets
+    if (win.filtersConfig) {
+      const city = String(win.activeCity || '').toLowerCase();
+      const layers = Array.isArray(win.layersConfig) ? win.layersConfig : [];
+      const layerByName = Object.create(null);
+      layers.forEach(l => { if (l && l.name) layerByName[l.name] = l; });
+
+      win.filtersConfig.forEach(group => {
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'filter-group';
+
+        const title = document.createElement('h4');
+        title.textContent = group.category;
+        groupDiv.appendChild(title);
+
+        // Exclure SEULEMENT les 3 anciens noms de projets
+        const excludedLayers = ['voielyonnaise', 'reseauProjeteSitePropre', 'urbanisme'];
+        const items = (group.items || []).filter(it => {
+          if (!it || !it.layer) return false;
+          // Exclure les 3 anciens projets
+          if (excludedLayers.includes(it.layer)) return false;
+          
+          const layer = layerByName[it.layer];
+          const layerCity = layer && 'ville' in layer ? layer.ville : null;
+          return !layerCity || String(layerCity).toLowerCase() === city;
+        });
+
+        if (!items.length) return;
+
+        items.forEach(item => {
+          const filterItem = document.createElement('div');
+          filterItem.className = 'filter-item';
+          filterItem.dataset.layer = item.layer;
+          filterItem.innerHTML = `
+            <span class="filter-icon"><i class="${item.icon}"></i></span>
+            <span class="filter-label">${item.label}</span>
+          `;
+          groupDiv.appendChild(filterItem);
+
+          const tags = document.createElement('div');
+          tags.className = 'active-filter-tags';
+          tags.dataset.layer = item.layer;
+          groupDiv.appendChild(tags);
+
+          const sub = document.createElement('div');
+          sub.className = 'subfilters-container';
+          sub.dataset.layer = item.layer;
+          groupDiv.appendChild(sub);
+        });
+
+        container.appendChild(groupDiv);
+      });
+    }
+  }
+
+  /**
    * Met à jour l'UI des filtres selon l'état des layers
    */
   function updateFilterUI() {
@@ -1179,63 +1310,7 @@
   }
 
   /**
-   * Génère dynamiquement le DOM des filtres
-   */
-  function populateFilters() {
-    const container = document.getElementById('dynamic-filters');
-    if (!container || !win.filtersConfig) return;
-    container.innerHTML = '';
-    const city = String(win.activeCity || '').toLowerCase();
-    const layers = Array.isArray(win.layersConfig) ? win.layersConfig : [];
-    const layerByName = Object.create(null);
-    layers.forEach(l => { if (l && l.name) layerByName[l.name] = l; });
-
-    win.filtersConfig.forEach(group => {
-      const groupDiv = document.createElement('div');
-      groupDiv.className = 'filter-group';
-
-      const title = document.createElement('h4');
-      title.textContent = group.category;
-      groupDiv.appendChild(title);
-      // Only items whose layer is global (ville NULL/empty) or matches active city
-      const items = (group.items || []).filter(it => {
-        if (!it || !it.layer) return false;
-        const layer = layerByName[it.layer];
-        const layerCity = layer && 'ville' in layer ? layer.ville : null;
-        return !layerCity || String(layerCity).toLowerCase() === city;
-      });
-      if (!items.length) {
-        return; // skip empty groups
-      }
-
-      items.forEach(item => {
-        const filterItem = document.createElement('div');
-        filterItem.className = 'filter-item';
-        filterItem.dataset.layer = item.layer;
-        filterItem.innerHTML = `
-          <span class="filter-icon"><i class="${item.icon}"></i></span>
-          <span class="filter-label">${item.label}</span>
-          <!-- <button class="settings-btn" data-layer="${item.layer}"><i class="fas fa-gear"></i></button> -->
-        `;
-        groupDiv.appendChild(filterItem);
-
-        const tags = document.createElement('div');
-        tags.className = 'active-filter-tags';
-        tags.dataset.layer = item.layer;
-        groupDiv.appendChild(tags);
-
-        const sub = document.createElement('div');
-        sub.className = 'subfilters-container';
-        sub.dataset.layer = item.layer;
-        groupDiv.appendChild(sub);
-      });
-
-      container.appendChild(groupDiv);
-    });
-  }
-
-  /**
-   * Met à jour le compteur de filtres actifs
+   * Met à jour le comptage des filtres actifs
    */
   function updateFilterCount() {
     const countEl = document.querySelector('.filter-count');

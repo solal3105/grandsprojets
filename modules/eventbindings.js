@@ -157,7 +157,7 @@ const bindFilterControls = () => {
 
   navVelo.addEventListener('click', () => {
     const veloLayers = (window.CATEGORY_DEFAULT_LAYERS && window.CATEGORY_DEFAULT_LAYERS.velo)
-      || ['planVelo', 'voielyonnaise'];
+      || ['velo']; // Utiliser directement la catégorie
     EventBindings.handleNavigation('velo', veloLayers);
     document.getElementById('velo-submenu').style.display = 'block';
     document.getElementById('mobilite-submenu').style.display = 'none';

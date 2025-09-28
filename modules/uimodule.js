@@ -376,8 +376,8 @@
       
       // Fallback sur la détection par layerName si pas de catégorie
       if (!category) {
-        if (layerName.includes('voielyonnaise')) category = 'velo';
-        else if (layerName.includes('reseauProjete') || layerName.includes('metro') || layerName.includes('tramway')) category = 'mobilite';
+        if (layerName.includes('velo')) category = 'velo';
+        else if (layerName.includes('mobilite') || layerName.includes('metro') || layerName.includes('tramway')) category = 'mobilite';
         else if (layerName.includes('urbanisme')) category = 'urbanisme';
         else category = 'autre';
       }
@@ -389,9 +389,9 @@
         // Mettre à jour l'URL pour refléter l'état courant (sauf si désactivé)
         try {
           if (updateHistory && typeof history?.pushState === 'function') {
-            const catForUrl = category || (layerName.includes('voielyonnaise') ? 'velo'
+            const catForUrl = category || (layerName.includes('velo') ? 'velo'
               : (layerName.includes('urbanisme') ? 'urbanisme'
-              : ((layerName.includes('reseauProjete') || layerName.includes('metro') || layerName.includes('tramway')) ? 'mobilite' : 'autre')));
+              : ((layerName.includes('mobilite') || layerName.includes('metro') || layerName.includes('tramway')) ? 'mobilite' : 'autre')));
             const projSlug = slugify(projectName);
             const params = new URLSearchParams();
             params.set('cat', catForUrl);

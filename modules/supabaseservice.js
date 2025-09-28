@@ -63,8 +63,8 @@
      */
     fetchLayersConfig: async function() {
       // Exclure certaines couches du chargement depuis la table 'layers'.
-      // Ces couches restent visibles via d'autres sources (ex: contribution_uploads).
-      const EXCLUDED = new Set(['voielyonnaise', 'reseauProjeteSitePropre', 'urbanisme']);
+      // Ces couches sont désormais gérées via contribution_uploads par catégorie.
+      const EXCLUDED = new Set(['velo', 'mobilite', 'urbanisme']);
 
       // Récupérer la ville active
       const activeCity = getActiveCity();
@@ -1051,7 +1051,7 @@
      * Upload d'une image de cover dans le bucket Storage 'uploads' et retourne son URL publique.
      * Le chemin est dérivé de la catégorie et d'un slug du nom de projet.
      * @param {File|Blob} file
-     * @param {string} categoryLayer - mobilite | urbanisme | voielyonnaise
+     * @param {string} categoryLayer - mobilite | urbanisme | velo
      * @param {string} projectName
      * @returns {Promise<string>} publicUrl
      */

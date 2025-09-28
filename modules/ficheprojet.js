@@ -60,7 +60,7 @@ window.basemaps = window.basemaps || [
 // (legacy partner cards removed)
 
 // Ajoute une unique carte de lien officiel basé sur contribution_uploads.official_url
-async function addOfficialLinkCards({ projectName, layerName, filterKey, filterValue, containerEl }) {
+async function addOfficialLinkCards({ projectName, category, filterKey, filterValue, containerEl }) {
   try {
     if (!containerEl) return;
     // Récupération de l'URL officielle depuis la contribution chargée
@@ -314,19 +314,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       FPTheme.startOSThemeSync();
     }
   } catch(_) {}
-  // 1. Récupération de la config depuis l'article (avec trim)
-  const article      = document.getElementById('project-article');
-  const projectName  = (article.dataset.projectName || '').trim();   // ex. "Voie Lyonnaise 1"
-  const layerName    = (article.dataset.layerName || '').trim();     // ex. "voielyonnaise"
-  const filterKey    = (article.dataset.filterKey || '').trim();     // ex. "line"
-  const filterValue  = (article.dataset.filterValue || '').trim();   // ex. "1"
-  console.log('[ficheprojet] dataset inputs:', {
+  // 1. Récupération de la config depuis l'URL (comme les autres catégories)
+  const urlParams = new URLSearchParams(location.search);
+  const projectName = urlParams.get('project') || '';
+  const category = urlParams.get('cat') || 'velo'; // fallback
+  
+  // Legacy: récupération depuis l'article pour compatibilité
+  const article = document.getElementById('project-article');
+  const filterKey = (article?.dataset.filterKey || '').trim();
+  const filterValue = (article?.dataset.filterValue || '').trim();
+  console.log('[ficheprojet] URL inputs:', {
     projectName,
-    layerName,
+    category,
     filterKey,
     filterValue,
     normalized: {
-      layerName: normalizeText(layerName),
+      category: normalizeText(category),
       filterKey: normalizeText(filterKey),
       filterValue: normalizeText(filterValue)
     }
@@ -555,7 +558,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch(_) { return ''; }
   }
 
-  function applySEO(projectName, attrs = {}, layerName = '') {
+  function applySEO(projectName, attrs = {}, category = '') {
     try {
       const siteName = 'Grands Projets de Lyon';
       const rawTitle = (attrs && (attrs.title || attrs.name)) || projectName || siteName;
@@ -710,14 +713,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   let contributionMdUrl = '';
   let contributionProject = null;
   try {
-    const effCat = (() => {
-      const ln = normalizeText(layerName || '');
-      if (ln.includes('urbanisme')) return 'urbanisme';
-      if (ln.includes('voielyonnaise') || ln.includes('plan velo') || ln.includes('amenagement cyclable') || ln.includes('velo')) return 'velo';
-      return 'mobilite';
-    })();
     if (window.supabaseService?.fetchProjectByCategoryAndName && projectName) {
-      const found = await window.supabaseService.fetchProjectByCategoryAndName(effCat, projectName);
+      const found = await window.supabaseService.fetchProjectByCategoryAndName(category, projectName);
       if (found) contributionProject = found;
       try { window.__fpContributionProject = found || null; } catch(_) {}
       if (found?.markdown_url) {
@@ -750,7 +747,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: contributionProject?.description || '',
             meta: contributionProject?.meta || ''
           };
-          applySEO(projectName, seoAttrs, layerName);
+          applySEO(projectName, seoAttrs, category);
         } catch(_) {}
 
         // 1. Header (cover + description depuis contributions)
@@ -790,16 +787,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Injecter uniquement le header, puis les documents, puis le corps
         textEl.innerHTML = headerHtml;
         textEl.classList.add('markdown-body');
-        await addOfficialLinkCards({ projectName, layerName, filterKey, filterValue, containerEl: textEl });
+        await addOfficialLinkCards({ projectName, category, filterKey, filterValue, containerEl: textEl });
         await appendConsultationDocs(projectName, textEl);
 
-        // Ne pas injecter le corps markdown pour les fiches vélo (Voie Lyonnaise)
-        if (!(layerName === 'voielyonnaise' && filterKey === 'line' && filterValue)) {
-          const articleDiv = document.createElement('div');
-          articleDiv.className = 'project-article';
-          articleDiv.innerHTML = html;
-          textEl.appendChild(articleDiv);
-        }
+        // Injecter le corps markdown
+        const articleDiv = document.createElement('div');
+        articleDiv.className = 'project-article';
+        articleDiv.innerHTML = html;
+        textEl.appendChild(articleDiv);
 
         // Styles déplacés dans style.css (cover overlay + lightbox)
 
@@ -841,7 +836,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: contributionProject?.description || '',
             meta: contributionProject?.meta || ''
           };
-          applySEO(projectName, seoAttrs, layerName);
+          applySEO(projectName, seoAttrs, category);
         } catch(_) {}
         let headerHtml = '';
         const chosenCover = contributionProject?.cover_url || '';
@@ -868,7 +863,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         textEl.innerHTML = headerHtml;
         (async () => {
-          await addOfficialLinkCards({ projectName, layerName, filterKey, filterValue, containerEl: textEl });
+          await addOfficialLinkCards({ projectName, category, filterKey, filterValue, containerEl: textEl });
           await appendConsultationDocs(projectName, textEl);
         })();
       });
@@ -881,7 +876,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         description: contributionProject?.description || '',
         meta: contributionProject?.meta || ''
       };
-      applySEO(projectName, seoAttrs, layerName);
+      applySEO(projectName, seoAttrs, category);
     } catch(_) {}
     let headerHtml = '';
     const chosenCover = contributionProject?.cover_url || '';
@@ -908,7 +903,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     textEl.innerHTML = headerHtml;
     textEl.classList.add('markdown-body');
-    await addOfficialLinkCards({ projectName, layerName, filterKey, filterValue, containerEl: textEl });
+    await addOfficialLinkCards({ projectName, category, filterKey, filterValue, containerEl: textEl });
     await appendConsultationDocs(projectName, textEl);
   }
 
@@ -1577,11 +1572,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     FPTheme.syncBasemapToTheme(document.documentElement.getAttribute('data-theme') || FPTheme.getInitialTheme());
   } catch(_) {}
 
-  // 4. Fonction pour charger les données de la couche spécifiée dans layerName
+  // 4. Fonction pour charger les données de la couche spécifiée dans category
   let layerConfig; // Déclarer la variable dans la portée de la fonction
   
   async function loadLayerData() {
-    console.log(`Début du chargement des données pour la couche: ${layerName}`);
+    console.log(`Début du chargement des données pour la couche: ${category}`);
     
     // Vérifier si supabaseService est disponible
     if (!window.supabaseService) {
@@ -1604,7 +1599,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       // 2. Trouver la configuration de la couche spécifiée (avec normalisation tolérante)
       //    On retire aussi les espaces pour matcher camelCase vs libellés avec espaces
-      const normTarget = normalizeText(layerName).replace(/\s+/g, '');
+      const normTarget = normalizeText(category).replace(/\s+/g, '');
       layerConfig =
         layersConfig.find(l => normalizeText(l.name).replace(/\s+/g, '') === normTarget)
         || layersConfig.find(l => {
@@ -1613,50 +1608,43 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
       
       if (!layerConfig) {
-        console.warn(`Configuration de la couche '${layerName}' absente dans layersConfig (norm='${normTarget}'). Tentative de récupération du style direct depuis 'layers'.`);
+        console.warn(`Configuration de la couche '${category}' absente dans layersConfig (norm='${normTarget}'). Tentative de récupération du style direct depuis 'layers'.`);
         try {
           if (window.supabaseService?.fetchLayerStylesByNames) {
-            const stylesMap = await window.supabaseService.fetchLayerStylesByNames([layerName]);
-            const s = stylesMap && stylesMap[layerName] ? stylesMap[layerName] : null;
+            const stylesMap = await window.supabaseService.fetchLayerStylesByNames([category]);
+            const s = stylesMap && stylesMap[category] ? stylesMap[category] : null;
             if (s && typeof s === 'object') {
-              layerConfig = { name: layerName, style: s };
+              layerConfig = { name: category, style: s };
               // Optionnel: injecter dans DataModule pour cohérence des callbacks de style
-              try { window.DataModule?.initConfig?.({ styleMap: { [layerName]: s } }); } catch(_) {}
-              console.log(`[ficheprojet] Style récupéré depuis 'layers' pour '${layerName}':`, s);
+              try { window.DataModule?.initConfig?.({ styleMap: { [category]: s } }); } catch(_) {}
+              console.log(`[ficheprojet] Style récupéré depuis 'layers' pour '${category}':`, s);
             }
           }
         } catch (e) {
-          console.warn(`[ficheprojet] fetchLayerStylesByNames a échoué pour '${layerName}':`, e);
+          console.warn(`[ficheprojet] fetchLayerStylesByNames a échoué pour '${category}':`, e);
         }
 
         // Fallback final: style par défaut DataModule pour garder un rendu
         if (!layerConfig) {
           const def = (window.DataModule && typeof window.DataModule.getDefaultStyle === 'function')
-            ? (window.DataModule.getDefaultStyle(layerName) || {})
+            ? (window.DataModule.getDefaultStyle(category) || {})
             : {};
-          layerConfig = { name: layerName, style: def };
-          console.warn(`[ficheprojet] Utilisation du style par défaut DataModule pour '${layerName}'.`);
+          layerConfig = { name: category, style: def };
+          console.warn(`[ficheprojet] Utilisation du style par défaut DataModule pour '${category}'.`);
         }
       }
 
-      console.log(`Configuration de la couche '${layerName}' (finale):`, layerConfig);
+      console.log(`Configuration de la couche '${category}' (finale):`, layerConfig);
       
       // 3. Charger les GeoJSON depuis contribution_uploads
-      const effCat = (() => {
-        const ln = normalizeText(layerName || '');
-        if (ln.includes('urbanisme')) return 'urbanisme';
-        // Catégorie vélo standardisée: toujours 'velo'
-        if (ln.includes('voielyonnaise') || ln.includes('plan velo') || ln.includes('amenagement cyclable') || ln.includes('velo')) return 'velo';
-        return 'mobilite';
-      })();
-      console.log(`[ficheprojet] Chargement du projet exact (category='${effCat}', project='${projectName}')`);
+      console.log(`[ficheprojet] Chargement du projet exact (category='${category}', project='${projectName}')`);
       if (!projectName) {
         console.warn('[ficheprojet] Paramètre project manquant dans l’URL, aucune donnée à charger.');
         return [];
       }
-      const project = await window.supabaseService.fetchProjectByCategoryAndName(effCat, projectName);
+      const project = await window.supabaseService.fetchProjectByCategoryAndName(category, projectName);
       if (!project || !project.geojson_url) {
-        console.warn(`[ficheprojet] Projet introuvable ou sans geojson_url (category='${effCat}', project='${projectName}')`);
+        console.warn(`[ficheprojet] Projet introuvable ou sans geojson_url (category='${category}', project='${projectName}')`);
         return [];
       }
       let features = [];
@@ -1699,7 +1687,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadLayerData()
     .then(data => {
       if (!data || data.length === 0) {
-        console.warn(`Aucune donnée trouvée pour la couche ${layerName}`);
+        console.warn(`Aucune donnée trouvée pour la couche ${category}`);
         return { type: 'FeatureCollection', features: [] };
       }
       
@@ -1743,14 +1731,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         style: (feature) => {
           // Base: style provenant de la configuration de la couche (Supabase)
           const base = (layerConfig && layerConfig.style) ? layerConfig.style : {};
-          const dmStyle = window.DataModule?.getFeatureStyle?.(feature, layerName) || {};
+          const dmStyle = window.DataModule?.getFeatureStyle?.(feature, category) || {};
           const style = { ...base, ...dmStyle };
 
           // Couches sans remplissage (projets mobilité & vélo)
-          const noFillLayers = new Set(['planVelo','amenagementCyclable','voielyonnaise','bus','tramway','metroFuniculaire','reseauProjeteSitePropre']);
+          const noFillLayers = new Set(['planVelo','amenagementCyclable','velo','bus','tramway','metroFuniculaire','mobilite']);
 
           // Normaliser et fournir des valeurs par défaut compatibles Leaflet
-          const computedFill = noFillLayers.has(layerName)
+          const computedFill = noFillLayers.has(category)
             ? false
             : (typeof style.fill === 'boolean' ? style.fill : true);
 
@@ -1794,55 +1782,35 @@ document.addEventListener('DOMContentLoaded', async () => {
             return L.marker(latlng, { icon: cameraIcon });
           }
         },
-        onEachFeature: async (feature, layer) => {
-          console.log('Feature chargée:', feature);
-          // Intégration DataModule retirée pour cette partie: les marqueurs caméra sont autonomes
-
-          // Log console au clic + popup image (hover & clic) selon URL résolue
-          try {
-            if (!layer.__fpPhotoBound) {
-              layer.__fpPhotoBound = true;
-              const props = (feature && feature.properties) || {};
-              try { console.debug('[FicheProjet][debug] Propriétés de la feature', { keys: Object.keys(props || {}), id: props.id || props.gid || props.objectid || null, name: props.name || props.nom || props.titre || null }); } catch(_) {}
-              const logClick = () => {
-                console.log('[FicheProjet] Click sur feature', {
-                  layer: layerName,
-                  geometryType: feature?.geometry?.type,
-                  id: props.id || props.gid || props.objectid || null,
-                  name: props.name || props.nom || props.titre || null,
-                  props
-                });
-              };
-
-              const { imgUrl, title } = resolveImageForFeature(props);
-              try { console.debug('[FicheProjet][debug] Sélection URL image', { chosen: imgUrl || null }); } catch(_) {}
-              if (imgUrl) {
-                // Toujours utiliser le popup minimal pour simplicité et robustesse
-                const popupHtml = buildCameraPopupHtml(imgUrl, title);
-
-                const ensurePopup = () => { try { layer.bindPopup(popupHtml, { autoPan: true, closeButton: true, maxWidth: 300 }); } catch(_) {} };
-                const openPopup = () => { ensurePopup(); try { layer.openPopup(); } catch(_) {} };
-                const closePopup = () => { try { layer.closePopup(); } catch(_) {} };
-
-                layer.on('mouseover', () => { try { console.debug('[FicheProjet][debug] mouseover: ouverture popup'); } catch(_) {} openPopup(); });
-                layer.on('mouseout',  () => { try { console.debug('[FicheProjet][debug] mouseout: fermeture popup'); } catch(_) {} closePopup(); });
-                layer.on('click', () => {
-                  logClick();
-                  try { console.debug('[FicheProjet][debug] click: ouverture lightbox', { title, imgUrl }); } catch(_) {}
-                  openImageLightbox(imgUrl, title, buildMarkerDetailsHtml(layer));
-                });
-              } else {
-                // Pas d'image: on log seulement au clic
-                try { console.warn('[FicheProjet][debug] Aucune image pour la feature: imgUrl manquant'); } catch(_) {}
-                layer.on('click', logClick);
-              }
+        onEachFeature: (feature, layer) => {
+          const props = feature?.properties || {};
+          const geomType = feature?.geometry?.type || '';
+          const isPoint = /Point$/i.test(geomType);
+          
+          // Système simple : différencier points (caméras) vs lignes/polygones (contributions)
+          if (isPoint && props.imgUrl) {
+            // Points avec images : système caméra
+            const { imgUrl, title } = resolveImageForFeature(props);
+            if (imgUrl) {
+              const popupHtml = buildCameraPopupHtml(imgUrl, title);
+              layer.bindPopup(popupHtml, { maxWidth: 300 });
+              layer.on('click', () => openImageLightbox(imgUrl, title, buildMarkerDetailsHtml(layer)));
             }
-          } catch (e) { console.warn('Erreur ajout listener (hover/click):', e); }
+          } else {
+            // Lignes/polygones : système contributions simple
+            const projectName = props.project_name || props.name || props.Name || 'Projet';
+            layer.bindTooltip(projectName, { permanent: false, direction: 'top' });
+            layer.on('click', () => {
+              console.log('[FicheProjet] Clic sur contribution:', { projectName, category, props });
+            });
+          }
         }
-      }).addTo(map);
-      // Conserver une référence pour recentrage (map-toggle)
-      try { geoLayerRef = geoLayer; } catch(_) {}
-      // Les marqueurs caméra sont gérés par la couche elle-même (pas de gestion de visibilité additionnelle)
+      });
+
+      // Ajouter la couche à la carte
+      geoLayerRef = geoLayer;
+      map.addLayer(geoLayer);
+
       // S'assurer que la couche est au-dessus des fonds et autres couches
       try { geoLayer.bringToFront(); } catch(_) {}
       // Ajuster la vue initiale sur l'objet affiché
