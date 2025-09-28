@@ -1134,8 +1134,7 @@ const simpleCache = {
         const rawProjectName = p.project_name || p.name || p.Name || p.line;
 
         if (!rawProjectName) {
-          console.warn('Nom de projet non trouvé dans les properties:', p);
-          return;
+            return;
         }
 
         // Construire un critère de filtrage
@@ -1258,7 +1257,6 @@ const simpleCache = {
                       }
                     }
                   } catch (error) {
-                    console.warn(`Erreur lors du chargement du GeoJSON pour ${project.project_name}:`, error);
                   }
                 }
               }
@@ -1270,12 +1268,9 @@ const simpleCache = {
                 };
               }
             } catch (error) {
-              console.warn(`Erreur lors du chargement depuis contribution_uploads pour ${layerName}:`, error);
-            }
+              }
           }
           
-          // Pas de données trouvées pour cette catégorie
-          console.warn(`Aucune donnée trouvée pour la catégorie: ${layerName}`);
           return { type: 'FeatureCollection', features: [] };
         } else {
           // Couches legacy (tramway, métro, etc.) - charger depuis les fichiers GeoJSON

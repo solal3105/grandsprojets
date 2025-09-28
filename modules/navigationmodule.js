@@ -1,51 +1,28 @@
 // modules/NavigationModule.js
 const NavigationModule = (() => {
   const projectDetailPanel = document.getElementById('project-detail');
-
-  // Utilitaire pour normaliser les chaînes
   function normalizeString(str) {
-
-    // Vérification explicite du type
     if (str === null || str === undefined) return "";
-    
-    // Conversion en chaîne si ce n'est pas déjà une chaîne
-    const strValue = String(str);
-
-    // 1) Normaliser les diacritiques (NFD) puis les supprimer (ex: î -> i, é -> e)
-    // 2) Unifier les apostrophes et guillemets typographiques vers l'apostrophe simple
-    // 3) Normaliser les tirets (– —) vers le tiret simple, puis réduire à un espace pour la comparaison souple
-    // 4) Réduire les espaces (y compris insécables), trim et toLowerCase
-    return strValue
+    return String(str)
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // remove diacritics
-      .replace(/[\u2018\u2019\u2032]/g, "'") // curly/smart quotes to straight apostrophe
-      .replace(/[\u201C\u201D\u2033]/g, '"') // curly double quotes to straight double quote
-      .replace(/[\u2013\u2014]/g, '-') // en/em dashes to hyphen
-      .replace(/['"`´]/g, "'") // unify remaining quotes to apostrophe
-      .replace(/\u00A0/g, ' ') // nbsp to space
-      .replace(/[^a-zA-Z0-9\s-]/g, '') // drop other punct for robust compare
-      .replace(/[-_]+/g, ' ') // treat dashes/underscores as spaces
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[\u2018\u2019\u2032]/g, "'")
+      .replace(/[\u201C\u201D\u2033]/g, '"')
+      .replace(/[\u2013\u2014]/g, '-')
+      .replace(/['"\`´]/g, "'")
+      .replace(/\u00A0/g, ' ')
+      .replace(/[^a-zA-Z0-9\s-]/g, '')
+      .replace(/[-_]+/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
       .toLowerCase();
   }
-
-  // naturalCompareByName supprimée - tri désormais géré dans SubmenuModule
-
-  // Constantes centralisées - couches basées sur les catégories contribution_uploads
   const CONTRIBUTION_LAYERS = ['urbanisme', 'velo', 'mobilite'];
 
-  /**
-   * Utilitaire : Normalise les catégories (supprime le mapping legacy)
-   */
   function normalizeCategoryName(category) {
-    // Seule transformation : transport → mobilite (pour compatibilité)
     return (category === 'transport') ? 'mobilite' : category;
   }
 
-  /**
-   * Utilitaire : Masquer toutes les couches sauf une
-   */
   function hideAllLayersExcept(keepLayerName) {
     try {
       const layersObj = window.MapModule?.layers || {};
@@ -57,23 +34,16 @@ const NavigationModule = (() => {
     } catch(_) {}
   }
 
-  /**
-   * Utilitaire : S'assurer qu'une couche est chargée
-   */
   async function ensureLayerLoaded(layerName) {
     if (!window.DataModule?.layerData?.[layerName]) {
       try {
         await window.DataModule.loadLayer(layerName);
       } catch (e) {
-        console.error('[NavigationModule] Échec du chargement de la couche', layerName, e);
         throw e;
       }
     }
   }
 
-  /**
-   * Utilitaire : Charger ou créer une couche (pattern récurrent)
-   */
   function loadOrCreateLayer(layerName) {
     if (DataModule.layerData && DataModule.layerData[layerName]) {
       DataModule.createGeoJsonLayer(layerName, DataModule.layerData[layerName]);
@@ -82,31 +52,21 @@ const NavigationModule = (() => {
     }
   }
 
-  /**
-   * Applique un filtrage spécifique pour afficher uniquement une contribution
-   * Fonction centralisée pour masquer les autres couches et filtrer
-   * @param {string} projectName - Nom du projet
-   * @param {string} category - Catégorie du projet
-   */
   async function applyContributionFilter(projectName, category) {
     const layerName = normalizeCategoryName(category);
 
     if (!layerName) {
-      console.warn('[NavigationModule] Aucune couche cible pour', { projectName, category });
       return;
     }
 
-    // S'assurer que la couche est chargée
     try {
       await ensureLayerLoaded(layerName);
     } catch (e) {
       return;
     }
 
-    // Masquer toutes les autres couches
     hideAllLayersExcept(layerName);
 
-    // Appliquer le filtre spécifique
     if (window.UIModule?.applyFilter && projectName) {
       window.UIModule.applyFilter(layerName, { project_name: projectName });
       if (window.UIModule.updateActiveFilterTagsForLayer) {
@@ -114,7 +74,6 @@ const NavigationModule = (() => {
       }
     }
 
-    // Ajuster la vue
     const layer = window.MapModule?.layers?.[layerName];
     if (layer && typeof layer.getBounds === 'function') {
       const bounds = layer.getBounds();
@@ -154,79 +113,54 @@ const NavigationModule = (() => {
     }
   }
 
-  /**
-   * Affiche les détails d'un projet dans le panneau latéral
-   * @param {string} projectName - Nom du projet à afficher
-   * @param {string} category - Catégorie du projet (velo, mobilite, urbanisme)
-   * @param {Event} [event] - Événement de clic (optionnel)
-   */
   async function showProjectDetail(projectName, category, event, enrichedProps = null) {
-  console.group('=== showProjectDetail ===');
-  console.log('Paramètres initiaux:', { projectName, category });
   
-  // Gestion de l'événement si fourni
   if (event?.stopPropagation) {
     event.stopPropagation();
-    console.log('Événement de clic arrêté');
   }
   
-  // Masquer tous les sous-menus
   const submenus = ['velo', 'mobilite', 'urbanisme'];
-  console.log('Masquage des sous-menus:', submenus);
   submenus.forEach(id => {
     const el = document.getElementById(`${id}-submenu`);
     if (el) {
       el.style.display = 'none';
-      console.log(`Sous-menu masqué: ${id}`);
     }
   });
   
-  // Ajuster le style du panneau de navigation
   const leftNav = document.getElementById('left-nav');
   if (leftNav) {
     leftNav.style.borderRadius = window.innerWidth < 1024 
       ? '0 0 20px 20px' 
       : '20px 0 0 20px';
-    console.log('Style du panneau de navigation ajusté');
   }
 
-  // Résolution robuste de l'URL d'illustration (fonctionne en sous-chemin et en file://)
   const resolveAssetUrl = (u) => {
     try {
       if (!u) return u;
-      if (/^https?:\/\//i.test(u)) return u; // URL absolue distante
+      if (/^https?:\/\//i.test(u)) return u;
       if (location.protocol === 'file:' && u.startsWith('/')) {
-        // En file://, les chemins absolus "/img/..." ne fonctionnent pas -> rendre relatif
         return '.' + u;
       }
       if (u.startsWith('/')) {
-        // Hébergement sous sous-chemin: préfixer par le répertoire courant
-        const baseDir = location.pathname.replace(/[^\/]*$/, ''); // conserve le dossier
+        const baseDir = location.pathname.replace(/[^\/]*$/, '');
         return (baseDir.endsWith('/') ? baseDir.slice(0, -1) : baseDir) + u;
       }
-      return u; // déjà relatif
+      return u;
     } catch(_) { return u; }
   };
 
-  // Déterminer la catégorie effective (catégorie directe)
   const effectiveCat = (category === 'velo' ? 'velo' : category);
-  console.log('Catégorie effective:', effectiveCat);
 
-  // Afficher le panneau de chargement
   const panel = document.getElementById('project-detail');
   panel.innerHTML = '<p style="padding:1em">Chargement…</p>';
   panel.style.display = 'block';
-  // Reset collapse state when opening a new project detail
   panel.style.removeProperty('max-height');
   panel.style.removeProperty('overflow');
-  console.log('Panneau de chargement affiché');
 
   try {
-    // 1️⃣ Utiliser les données enrichies si disponibles, sinon chercher dans contribution_uploads
     let contributionProject = null;
     
     if (enrichedProps) {
-      // Utiliser directement les données enrichies depuis les properties de la feature
       contributionProject = {
         project_name: enrichedProps.project_name,
         category: enrichedProps.category,
@@ -234,18 +168,13 @@ const NavigationModule = (() => {
         description: enrichedProps.description,
         markdown_url: enrichedProps.markdown_url
       };
-      console.log('Utilisation des données enrichies depuis les properties:', contributionProject);
     } else if (window.supabaseService?.fetchProjectByCategoryAndName) {
-      // Recherche stricte: catégorie + nom exact
       try {
         contributionProject = await window.supabaseService.fetchProjectByCategoryAndName(effectiveCat, projectName);
-        console.log('Projet trouvé (strict) dans contribution_uploads:', contributionProject);
       } catch (error) {
-        console.warn('Erreur lors de la recherche stricte dans contribution_uploads:', error);
       }
     }
 
-    //A partir de là contributionProject est toujours définit on utilise que ca
 
     projectName = contributionProject.project_name;
     category = contributionProject.category;
@@ -256,18 +185,14 @@ const NavigationModule = (() => {
     let markdown = null;
     let usedContribution = false;
 
-    // 2️⃣ Si trouvé dans contribution_uploads et qu'il a une markdown_url, l'utiliser
     if (markdown_url) {
       try {
-        console.log('Chargement du markdown depuis contribution_uploads:', markdown_url);
         const response = await fetch(markdown_url);
         if (response.ok) {
           markdown = await response.text();
           usedContribution = true;
-          console.log('Markdown chargé depuis contribution_uploads, taille:', `${(markdown.length / 1024).toFixed(2)} KB`);
         }
       } catch (error) {
-        console.warn('Erreur lors du chargement du markdown depuis contribution_uploads:', error);
       }
     } else if (!projectName) {
       panel.innerHTML = `
@@ -277,28 +202,20 @@ const NavigationModule = (() => {
         <p>Seuls les projets de la table contribution_uploads sont disponibles.</p>
       </div>
       `;
-      console.groupEnd();
       return;
     }
     
-    /**
-     * Charge les utilitaires Markdown si nécessaire
-     */
     async function ensureMarkdownUtils() {
-      console.log('Vérification des utilitaires Markdown...');
       
       if (!window.MarkdownUtils) {
-        console.log('MarkdownUtils non trouvé, chargement en cours...');
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
           script.src = '/modules/MarkdownUtils.js';
           script.onload = () => {
-            console.log('MarkdownUtils chargé avec succès');
             resolve();
           };
           script.onerror = () => {
             const error = new Error('Échec du chargement de MarkdownUtils');
-            console.error(error);
             reject(error);
           };
           document.head.appendChild(script);
@@ -306,20 +223,15 @@ const NavigationModule = (() => {
       }
       
       if (window.MarkdownUtils?.loadDeps) {
-        console.log('Chargement des dépendances Markdown...');
         await window.MarkdownUtils.loadDeps();
-        console.log('Dépendances Markdown chargées');
       }
     }
 
-    // Traiter le markdown uniquement s'il existe; sinon continuer avec attrs/html vides
     let attrs = {};
     let html = '';
     if (markdown) {
       await ensureMarkdownUtils();
-      console.log('Traitement du contenu Markdown...');
       ({ attrs, html } = window.MarkdownUtils.renderMarkdown(markdown));
-      console.log('Contenu Markdown traité avec succès');
     }
     
 
@@ -478,31 +390,17 @@ const NavigationModule = (() => {
       });
     }
 
-    // Configuration du bouton retour pour utiliser la fonction de réinitialisation
     const backButton = document.getElementById('detail-back-btn');
     if (backButton) {
       backButton.onclick = () => NavigationModule.resetToDefaultView(category, { preserveMapView: true, updateHistory: true });
     }
   }catch(e){
-    console.error('Erreur markdown:',e);
     panel.innerHTML=`<h3>${projectName}</h3><p>Aucun détail disponible.</p>`;
   }
 
-  // Résoudre et appliquer le filtrage pour la couche cible (tolérant)
   await resolveAndApplyLayerFiltering(projectName, category);
 
-  // animateDashLine removed (dead code; deduped and color application removed)
-
-  // ————————————————————————————————————————————————
-  // Résolution robuste de la couche + filtrage tolérant
-  // ————————————————————————————————————————————————
   function normLoose(s) { return normalizeString(s).replace(/\s+/g, ''); }
-
-  // Fonctions de configuration de filtres supprimées - logique simplifiée dans resolveAndApplyLayerFiltering
-
-  // dimNonSelectedLayers supprimée - fonctionnalité peu utilisée
-
-  // Restaure l'opacité normale sur toutes les couches connues
   function restoreAllLayerOpacity() {
     try {
       const layersObj = window.MapModule?.layers || {};
@@ -586,46 +484,35 @@ const NavigationModule = (() => {
         // 1.bis Nettoyer l'UI des filtres pour ces couches (tags + état visuel)
         try {
           layersToDisplay.forEach(layerName => {
-            // Enlever l'état visuel actif du bouton de filtre
             const filterItem = document.querySelector(`.filter-item[data-layer="${layerName}"]`);
             if (filterItem) filterItem.classList.remove('active-filter');
-            // Effacer les tags de filtres actifs
             if (window.UIModule?.resetLayerFilterWithoutRemoving) {
               window.UIModule.resetLayerFilterWithoutRemoving(layerName);
             }
           });
-        } catch (e) { console.warn('Nettoyage UI filtres (non bloquant):', e); }
+        } catch (e) {}
 
-        // 2. Parcourir les couches actuellement chargées et supprimer tout pour repartir propre
         Object.keys(MapModule.layers).forEach(layerName => {
           if (!layersToDisplay.includes(layerName)) {
-            // Couche hors catégorie -> retirer
             MapModule.removeLayer(layerName);
           } else {
-            // Couche de la catégorie -> retirer pour forcer une recréation sans filtre
             MapModule.removeLayer(layerName);
           }
         });
 
-        // 3. Recharger proprement les couches de la catégorie (sans filtre)
         layersToDisplay.forEach(layerName => {
-          // Charger ou créer la couche
           loadOrCreateLayer(layerName);
         });
         
-        // Restaurer l'opacité normale (au cas où des couches restent en mémoire)
         try { restoreAllLayerOpacity(); } catch(_) {}
 
-        // 4. Rendre le contenu du sous-menu correspondant via SubmenuManager
         try {
           if (window.SubmenuManager?.renderSubmenu) {
             await window.SubmenuManager.renderSubmenu(category);
           }
         } catch (e) {
-          console.warn('[NavigationModule] rendu sous-menu échoué (non bloquant):', e);
         }
         
-        // Mettre à jour l'URL/historique avec uniquement la catégorie (sans project)
         try {
           if (updateHistory && typeof history?.pushState === 'function') {
             const params = new URLSearchParams();
@@ -635,33 +522,26 @@ const NavigationModule = (() => {
           }
         } catch (_) { /* noop */ }
 
-        return; // Ne pas continuer avec la réinitialisation complète
+        return;
       }
     }
     
-    // Si on arrive ici, c'est qu'aucune catégorie valide n'a été fournie
-    // ou qu'une réinitialisation complète est nécessaire
     document.querySelectorAll('.submenu').forEach(menu => {
       menu.style.display = 'none';
     });
     
-    // Désactiver tous les onglets actifs
     document.querySelectorAll('.nav-category.active').forEach(tab => {
       tab.classList.remove('active');
     });
     
-    // Restaurer les couches par défaut depuis la configuration globale
     if (window.defaultLayers && window.defaultLayers.length > 0) {
-      console.log('Restauration des couches par défaut:', window.defaultLayers);
       
-      // Charger les couches par défaut si elles ne sont pas déjà chargées
       window.defaultLayers.forEach(layerName => {
         if (!window.MapModule.layers || !window.MapModule.layers[layerName]) {
           DataModule.loadLayer(layerName);
         }
       });
       
-      // S'assurer que seules les couches par défaut sont visibles
       if (window.MapModule && window.MapModule.layers && window.MapModule.map) {
         Object.keys(window.MapModule.layers).forEach(layerName => {
           const layer = window.MapModule.layers[layerName];
@@ -694,44 +574,33 @@ const NavigationModule = (() => {
             }
           } catch (_) { /* noop */ }
 
-          // (Re)créer/charger la couche si nécessaire
           loadOrCreateLayer(layerName);
-
-          // S'assurer qu'elle est visible sur la carte
           const lyr = window.MapModule.layers && window.MapModule.layers[layerName];
           if (lyr && window.MapModule.map && !window.MapModule.map.hasLayer(lyr)) {
             window.MapModule.map.addLayer(lyr);
           }
         });
       } catch (e) {
-        console.warn('[NavigationModule] restauration des contributions échouée (non bloquant):', e);
       }
     }
     
-    // Réinitialiser le zoom et la position de la carte (sauf si préservé)
     if (!preserveMapView) {
       if (window.NavigationModule && window.NavigationModule.zoomOutOnLoadedLayers) {
         window.NavigationModule.zoomOutOnLoadedLayers();
       }
     }
     
-    // Réinitialiser les sélections
     document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     
-    // Mettre à jour l'interface utilisateur
     if (window.UIModule && window.UIModule.updateLayerControls) {
       window.UIModule.updateLayerControls();
     }
     
-    // Réinitialiser la bordure de la navigation
     const leftNav = document.getElementById('left-nav');
     if (leftNav) {
       leftNav.style.borderRadius = '20px';
     }
 
-    // Mettre à jour l'URL/historique pour refléter la sortie du détail
-    // - Si une catégorie est fournie, on conserve ?cat=<category> (sans project)
-    // - Sinon, on nettoie l'URL (aucun paramètre)
     try {
       if (updateHistory && typeof history?.pushState === 'function') {
         const params = new URLSearchParams();
@@ -743,18 +612,13 @@ const NavigationModule = (() => {
     } catch (_) { /* noop */ }
   }
 
-  // Exposer les fonctions publiques du module
   const publicAPI = { 
     showProjectDetail, 
-    showSpecificContribution,  // Nouvelle fonction centralisée
+    showSpecificContribution,
     zoomOutOnLoadedLayers, 
     resetToDefaultView
-    // renderMobiliteProjects, renderVeloProjects, renderUrbanismeProjects supprimées
-    // -> remplacées par SubmenuModule.renderProjectsByCategory()
-    // renderTravauxProjects déplacée vers TravauxModule
   };
   
-  // Exposer le module globalement
   window.NavigationModule = publicAPI;
   
   return publicAPI;

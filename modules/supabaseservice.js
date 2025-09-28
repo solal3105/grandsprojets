@@ -96,7 +96,6 @@
             try {
               parsedStyle = JSON.parse(row.style);
             } catch (e) {
-              console.warn(`Style JSON invalide pour ${row.name}:`, row.style);
               parsedStyle = {};
             }
           }
@@ -139,7 +138,6 @@
 
         const { data, error } = await q;
         if (error) {
-          console.error('[supabaseService] fetchLayerStylesByNames error:', error);
           return {};
         }
         // Si doublons (ville spécifique + global), privilégier la valeur spécifique à la ville
@@ -157,7 +155,6 @@
         });
         return out;
       } catch (e) {
-        console.warn('[supabaseService] fetchLayerStylesByNames exception:', e);
         return {};
       }
     },
@@ -186,7 +183,6 @@
           .from(bucket)
           .upload(path, file, { upsert: false, contentType });
         if (upErr) {
-          console.error('[supabaseService] uploadConsultationPdfToStorage error:', upErr);
           throw upErr;
         }
         const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
@@ -201,7 +197,6 @@
         }
         return data.publicUrl;
       } catch (e) {
-        console.error('[supabaseService] uploadConsultationPdfToStorage exception:', e);
         throw e;
       }
     },
@@ -280,12 +275,10 @@
 
         const { data, error, count } = await query;
         if (error) {
-          console.warn('[supabaseService] listContributions error:', error);
           return { items: [], count: 0 };
         }
         return { items: data || [], count: typeof count === 'number' ? count : (data ? data.length : 0) };
       } catch (e) {
-        console.warn('[supabaseService] listContributions exception:', e);
         return { items: [], count: 0 };
       }
     },
@@ -304,12 +297,10 @@
           .eq('id', id)
           .single();
         if (error) {
-          console.warn('[supabaseService] getContributionById error:', error);
-          return null;
+            return null;
         }
         return data || null;
       } catch (e) {
-        console.warn('[supabaseService] getContributionById exception:', e);
         return null;
       }
     },
@@ -335,12 +326,10 @@
           .select('*')
           .single();
         if (error) {
-          console.warn('[supabaseService] updateContribution error:', error);
           return { error };
         }
         return { data };
       } catch (e) {
-        console.warn('[supabaseService] updateContribution exception:', e);
         return { error: e };
       }
     },
@@ -361,12 +350,10 @@
           .select('id, approved')
           .single();
         if (error) {
-          console.warn('[supabaseService] setContributionApproved error:', error);
           return { error };
         }
         return { data };
       } catch (e) {
-        console.warn('[supabaseService] setContributionApproved exception:', e);
         return { error: e };
       }
     },
@@ -414,9 +401,7 @@
               .storage
               .from(bucket)
               .remove(paths);
-            if (remErr) console.warn('[supabaseService] deleteContribution storage.remove warning:', remErr, remData);
           } catch (remEx) {
-            console.warn('[supabaseService] deleteContribution storage.remove exception:', remEx);
           }
         }
 
@@ -426,9 +411,7 @@
             .from('consultation_dossiers')
             .delete()
             .eq('project_name', row.project_name);
-          if (delDocErr) console.warn('[supabaseService] deleteContribution dossiers warning:', delDocErr);
         } catch (docEx) {
-          console.warn('[supabaseService] deleteContribution dossiers exception:', docEx);
         }
 
         // 4) Supprimer la ligne principale
@@ -437,13 +420,11 @@
           .delete()
           .eq('id', id);
         if (delErr) {
-          console.warn('[supabaseService] deleteContribution row error:', delErr);
           return { success: false, error: delErr };
         }
 
         return { success: true };
       } catch (e) {
-        console.warn('[supabaseService] deleteContribution exception:', e);
         return { success: false, error: e };
       }
     },
@@ -457,7 +438,6 @@
         .from('metro_colors')
         .select('ligne, color');
       if (error) {
-        console.error('fetchMetroColors error:', error);
         return {};
       }
       // Normaliser les clés en MAJUSCULE pour simplifier la résolution côté front
@@ -479,7 +459,6 @@
         .from('project_pages')
         .select('project_name, page_url');
       if (error) {
-        console.error('fetchProjectPages error:', error);
         return {};
       }
       return data.reduce((acc, { project_name, page_url }) => {
@@ -518,7 +497,6 @@
       }
       const { data, error } = await q;
       if (error) {
-        console.error('fetchAllProjects error:', error);
         return [];
       }
       return data; 

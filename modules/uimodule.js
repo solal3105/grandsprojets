@@ -17,7 +17,6 @@
     basemapToggle = document.getElementById('basemap-toggle');
 
     if (!popupState.filter.element || !popupState.basemap.element || !filterToggle || !basemapToggle) {
-      console.error('Éléments du DOM non trouvés');
       return false;
     }
     return true;
@@ -55,23 +54,15 @@
     }
   };
   /**
-   * Affiche ou masque les sous-filtres pour une couche donnée.
    * @param {string} layerName - Nom de la couche.
    */
   const toggleSubFilters = layerName => {
-    console.log('toggleSubFilters called for', layerName);
     const filterItem = document.querySelector(`.filter-item[data-layer="${layerName}"]`);
     const container  = document.querySelector(`.subfilters-container[data-layer="${layerName}"]`);
-    console.log('toggleSubFilters: elements:', {filterItem, container});
-    console.log('toggleSubFilters: elements:', filterItem, container);
-  if (!filterItem || !container) {
-        console.log('toggleSubFilters: missing DOM elements for', layerName, {filterItem, container});
-        return;
-      }
-
-    // Basculer l'état du filtre
+    if (!filterItem || !container) {
+      return;
+    }
     filterItem.classList.toggle('active-filter');
-      console.log('toggleSubFilters: active-filter state for', layerName, filterItem.classList.contains('active-filter'));
 
     // Si le filtre n'est pas actif, masquer les sous-filtres
     if (!filterItem.classList.contains('active-filter')) {
@@ -150,14 +141,11 @@
     if (Array.isArray(cached)) {
       render(cached);
     } else {
-      console.log('buildSubFilters: loading layer', layerName);
       DataModule.loadLayer(layerName)
         .then(data => {
-          console.log('buildSubFilters: loadLayer resolved for', layerName, data);
           render(data.features || []);
         })
         .catch(err => {
-          console.error('Erreur lors du chargement de la couche:', err);
           container.innerHTML = '<p>Impossible de charger la couche.</p>';
         });
     }
@@ -249,7 +237,6 @@
    */
   const togglePopup = (popupType) => {
     if (!popupState[popupType] || !popupState[popupType].element) {
-      console.warn(`Type de popup invalide ou élément non trouvé: ${popupType}`);
       return;
     }
 
@@ -297,7 +284,6 @@
   // Fonction pour mettre à jour les fonds de carte après le chargement initial
   const updateBasemaps = (basemaps) => {
     if (!basemaps || !Array.isArray(basemaps) || basemaps.length === 0) {
-      console.warn('Aucun fond de carte valide fourni');
       return false;
     }
     window.basemaps = basemaps;
@@ -317,7 +303,6 @@
     
     // Vérification de l'existence des basemaps
     if (!availableBasemaps || !Array.isArray(availableBasemaps) || availableBasemaps.length === 0) {
-      console.warn('Aucun fond de carte valide disponible');
       return false;
     }
     
@@ -354,7 +339,6 @@
    * @param {{ updateHistory?: boolean }} [options]
    */
   const showDetailPanel = (layerName, feature, options = {}) => {
-    console.log('Affichage du détail pour:', { layerName, feature });
     const { updateHistory = true } = options;
     // Utilitaire local de slugification (harmonisé avec les autres modules)
     const slugify = (str) => String(str || '')
@@ -401,10 +385,8 @@
           }
         } catch(_) { /* noop */ }
       } else {
-        console.warn('Nom de projet non trouvé dans les properties:', props);
       }
     } else {
-      console.warn('NavigationModule non disponible pour afficher les détails');
     }
   };
 

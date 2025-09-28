@@ -19,7 +19,7 @@
         } catch(e) {}
       }
       ensureHotjar(6496613);
-    } catch(e) {}
+    } catch(e) { console.warn('Hotjar injection failed', e); }
   })();
   
   // Helper: apply favicon URL
@@ -241,7 +241,9 @@
       if (window.UIModule?.setActiveBasemap) {
         window.UIModule.setActiveBasemap(bm.label);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('syncBasemapToTheme: erreur lors du changement de fond de carte', e);
+    }
   }
 
   function initTheme() {
@@ -546,7 +548,6 @@
       if (closeBtn && !closeBtn._agp_bound) { closeBtn.addEventListener('click', closeCityMenu); closeBtn._agp_bound = true; }
       return overlay;
     } catch (e) {
-      console.error('[city] Impossible de créer #city-overlay dynamiquement', e);
       return null;
     }
   }
@@ -713,7 +714,7 @@
       // Init City toggle UI and menu
       initCityToggleUI(city);
 
-      // Charger toutes les données
+      // 1️⃣ Charger toutes les données en une seule fois (contexte préservé)
       const {
         layersConfig,
         metroColors,
@@ -724,32 +725,21 @@
       // Rendre les couleurs de lignes métro disponibles
       window.dataConfig = window.dataConfig || {};
       window.dataConfig.metroColors = metroColors;
-
       // Mettre à jour les fonds de carte via UIModule (filtrés par ville si applicable)
       const basemapsToUse = (remoteBasemaps && remoteBasemaps.length > 0) ? remoteBasemaps : window.basemaps;
       const basemapsForCity = (basemapsToUse || []).filter(b => !b || !('ville' in b) || !b.ville || b.ville === city);
 
       if (window.UIModule?.updateBasemaps) {
         window.UIModule.updateBasemaps(basemapsForCity);
-      } else {
       }
       
-      // Initialiser la couche de base
       window.MapModule.initBaseLayer();
-
-      // Synchroniser le fond de carte avec le thème courant (si un fond correspondant existe)
       syncBasemapToTheme(document.documentElement.getAttribute('data-theme') || getInitialTheme());
-      // Appliquer la vue initiale selon la ville
       applyCityInitialView(city);
-
-      // Initialiser le module de géolocalisation
       
       if (window.GeolocationModule) {
         window.GeolocationModule.init(window.MapModule.map);
-      } else {
       }
-
-      // Récupération dynamique des modules après chargement complet
       const {
         DataModule,
         MapModule,
@@ -757,28 +747,21 @@
         NavigationModule
       } = win;
 
-
       // Construire les maps de couches
       const urlMap        = {};
       const styleMap      = {};
       const defaultLayers = [];
       
       layersConfig.forEach(({ name, url, style, is_default, ville }) => {
-        if (ville && ville !== city) return; // ignorer les couches d'une autre ville
+        if (ville && ville !== city) return;
         
-        // Ajouter URL seulement si elle existe (contribution_uploads n'ont pas d'URL)
         if (url) urlMap[name] = url;
-        
-        // Ajouter style s'il existe (peu importe is_default)
         if (style) styleMap[name] = style;
         
         if (is_default) defaultLayers.push(name);
       });
       
-      // Exposer defaultLayers globalement pour qu'il soit accessible depuis d'autres modules
       win.defaultLayers = defaultLayers;
-
-      // Centraliser les couches par défaut par catégorie pour éviter la duplication
       win.CATEGORY_DEFAULT_LAYERS = {
         mobilite: ['metroFuniculaire', 'tramway', 'mobilite'],
         velo: ['planVelo', 'velo'],
@@ -786,14 +769,11 @@
         travaux: ['travaux']
       };
 
-      // Initialiser DataModule
       DataModule.initConfig({ city, urlMap, styleMap, defaultLayers });
       defaultLayers.forEach(layer => DataModule.loadLayer(layer));
 
-      // Charger les couches de contributions
       try {
-        // Récupérer dynamiquement les catégories depuis contribution_uploads
-        let contributionLayers = ['urbanisme', 'velo', 'mobilite']; // Fallback
+        let contributionLayers = ['urbanisme', 'velo', 'mobilite'];
         try {
           if (window.supabaseService?.fetchAllProjects) {
             const allContributions = await window.supabaseService.fetchAllProjects();
@@ -802,14 +782,12 @@
               contributionLayers = dynamicCategories;
             }
           }
-        } catch (error) {
-        }
+        } catch (e) {}
         contributionLayers.forEach(l => {
           try { DataModule.loadLayer(l); } catch (_) { /* noop */ }
         });
       } catch (_) { /* noop */ }
 
-      // Construction des filtres
       await populateFilters();
       updateFilterUI();
       updateFilterCount();
@@ -830,27 +808,21 @@
         });
       }
 
-      // Préchargement et bindings
       if (DataModule.preloadLayer) {
         Object.keys(urlMap).forEach(layer => DataModule.preloadLayer(layer));
       }
       EventBindings.bindFilterControls();
       
-      // Initialisation des modules UI avec les fonds de carte si disponibles
       if (window.UIModule?.init) {
         window.UIModule.init({
           basemaps: basemapsForCity
         });
-      } else {
       }
       
-      // Initialiser le module de recherche d'adresse
       if (window.SearchModule?.init) {
         window.SearchModule.init(window.MapModule.map);
-      } else {
       }
       
-      // Configuration des gestionnaires d'événements
       const filtersToggle = document.getElementById('filters-toggle');
       const basemapToggle = document.getElementById('basemap-toggle');
       const themeToggle   = document.getElementById('theme-toggle');
@@ -869,7 +841,6 @@
         });
       }
 
-      // À propos: ouverture/fermeture du modal
       const infoToggle    = document.getElementById('info-toggle');
       const aboutOverlay  = document.getElementById('about-overlay');
       const aboutClose    = document.getElementById('about-close');
@@ -880,12 +851,10 @@
       const closeAbout = () => {
         if (!aboutOverlay) return;
         if (aboutCloseTimer) { clearTimeout(aboutCloseTimer); aboutCloseTimer = null; }
-        // play closing transition
         if (aboutModal) aboutModal.classList.remove('is-open');
         aboutOverlay.setAttribute('aria-hidden', 'true');
         document.removeEventListener('keydown', escHandler);
         document.body.style.overflow = '';
-        // hide after transition
         aboutCloseTimer = setTimeout(() => {
           aboutOverlay.style.display = 'none';
           if (aboutLastFocus && typeof aboutLastFocus.focus === 'function') {
@@ -901,11 +870,9 @@
         aboutOverlay.style.display = 'flex';
         aboutOverlay.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
-        // animate in on next frame
         requestAnimationFrame(() => {
           if (aboutModal) aboutModal.classList.add('is-open');
         });
-        // focus sur le bouton fermer
         if (aboutClose && typeof aboutClose.focus === 'function') {
           try { aboutClose.focus(); } catch (_) {}
         }
@@ -933,30 +900,24 @@
       }
       if (aboutOverlay) {
         aboutOverlay.addEventListener('click', (e) => {
-          // Fermer si clic en dehors de la boîte de dialogue
           if (e.target === aboutOverlay) {
             closeAbout();
           }
         });
       }
       
-      // Gestion du basculement du thème (sans modifier automatiquement le fond de carte)
       if (themeToggle) {
         themeToggle.addEventListener('click', (e) => {
           e.stopPropagation();
           const current = document.documentElement.getAttribute('data-theme') || 'light';
           const next = current === 'dark' ? 'light' : 'dark';
           applyTheme(next);
-          // Aligner automatiquement le fond de carte sur le thème choisi
           syncBasemapToTheme(next);
-          // Actualiser le logo (dark vs light)
           updateLogoForCity(win.activeCity);
-          // Persister le choix utilisateur et désactiver la synchro OS
           try { localStorage.setItem('theme', next); } catch(_) {}
           try { stopOSThemeSync(); } catch(_) {}
         });
 
-        // Accessibilité clavier: Enter/Space pour activer le bouton
         themeToggle.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
@@ -965,22 +926,18 @@
         });
       }
 
-      // Démarrer la synchro avec l'OS en permanence
       startOSThemeSync();
       
-      // Gestion du clic sur le logo
       function handleLogoClick(e) {
         e.preventDefault();
         e.stopPropagation();
         
-        // Trouver la catégorie active
         let activeCategory = null;
         const activeTab = document.querySelector('.nav-category.active');
         if (activeTab) {
           activeCategory = activeTab.id.replace('nav-', '');
         }
         
-        // Vérifier si NavigationModule est disponible
         if (window.NavigationModule?.resetToDefaultView) {
           window.NavigationModule.resetToDefaultView(activeCategory);
         } else {
@@ -989,13 +946,11 @@
         return false;
       }
       
-      // Gestion du clic sur le conteneur du logo
       const logoContainer = document.querySelector('#left-nav .logo');
       
       if (logoContainer) {
-        logoContainer.addEventListener('click', handleLogoClick, false); // Changé à false pour la phase de bouillonnement
+        logoContainer.addEventListener('click', handleLogoClick, false);
         
-        // Gestion spécifique du clic sur l'image du logo
         const logoImg = logoContainer.querySelector('img');
         
         if (logoImg) {
@@ -1003,7 +958,6 @@
         }
       }
 
-      // Gestionnaire de clic sur les features de la carte
       const handleFeatureClick = (feature, layerName) => {
         try {
           const p = (feature && feature.properties) || {};
@@ -1013,47 +967,35 @@
             return;
           }
 
-          // Utiliser la catégorie directement depuis les données contribution_uploads
           const category = p.category || layerName;
           
-          // Utiliser la fonction centralisée pour l'affichage de contribution spécifique
           if (window.NavigationModule?.showSpecificContribution) {
             window.NavigationModule.showSpecificContribution(projectName, category, p);
           }
-          // Fallback sur UIModule si la fonction centralisée n'est pas disponible
           else if (window.UIModule?.showDetailPanel) {
             window.UIModule.showDetailPanel(layerName, feature);
           } 
-          // Dernier fallback sur l'ancienne méthode
           else if (window.NavigationModule?.showProjectDetail) {
             window.NavigationModule.showProjectDetail(projectName, category);
           }
-          // Sinon, essayer de trouver le panneau de détail et de le remplir manuellement
           else {
             const detailPanel = document.getElementById('project-detail');
             const detailContent = document.getElementById('detail-content');
             
             if (detailPanel && detailContent) {
-              // Afficher le panneau
               detailPanel.style.display = 'block';
               detailPanel.dataset.category = category;
               
-              // Récupérer les détails du projet
               detailContent.innerHTML = `# ${projectName}\n\nAucun détail disponible pour ce projet.`;
             } else {
-              console.error('Impossible de trouver le panneau de détail');
             }
           }
         } catch (e) {
-          console.error('handleFeatureClick: erreur inattendue', e);
         }
       };
       
-      // getCategoryFromLayer supprimée - catégorie désormais dans contribution_uploads.category
-      // Exposer la ville active (fallback dynamique)
       window.getActiveCity = () => (parseCityFromPath(location.pathname) || getCityFromQuery('') || restoreCity() || win.activeCity || getDefaultCity());
 
-      // --- Navigation via paramètres d'URL (cat, project) ---
       function parseUrlState() {
         try {
           const sp = new URLSearchParams(location.search);
@@ -1087,8 +1029,6 @@
         
         return false;
       }
-
-      // Traiter l'état initial de l'URL si présent
       try {
         const initial = parseUrlState();
         if (initial) {
@@ -1096,28 +1036,23 @@
         }
       } catch (_) { /* noop */ }
 
-      // Gérer la navigation arrière/avant du navigateur
       window.addEventListener('popstate', async (e) => {
         try {
-          // Recalculer la ville active (priorité: chemin > query > localStorage)
           const nextCity = resolveActiveCity();
           if (nextCity && nextCity !== win.activeCity) {
             win.activeCity = nextCity;
             persistCity(nextCity);
             updateLogoForCity(nextCity);
             try { renderCityMenu(nextCity); } catch (_) {}
-            // Repeupler les filtres pour refléter la nouvelle ville
             try {
               await populateFilters();
               updateFilterUI();
               updateFilterCount();
-              // Re-lier les événements sur les nouveaux éléments
               if (window.EventBindings?.bindFilterControls) {
                 window.EventBindings.bindFilterControls();
               }
             } catch (_) { /* noop */ }
           }
-          // Accepter cat+project ainsi que cat seul
           let state = e && e.state ? e.state : null;
           if (!state) {
             try {
@@ -1133,20 +1068,15 @@
           if (state && state.cat && state.project) {
             await showFromUrlState({ cat: state.cat, project: state.project });
           } else if (state && state.cat && !state.project) {
-            // Catégorie seule: réinitialiser la vue sur la catégorie sans pousser d'historique
             if (window.NavigationModule?.resetToDefaultView) {
               window.NavigationModule.resetToDefaultView(state.cat, { preserveMapView: true, updateHistory: false });
             }
           } else if (window.NavigationModule?.resetToDefaultView) {
-            // Vue par défaut (sans cat ni project), sans pousser d'historique
             window.NavigationModule.resetToDefaultView(undefined, { preserveMapView: true, updateHistory: false });
           }
         } catch (_) { /* noop */ }
       });
-    }
-    catch (err) {
-      console.error('Erreur initApp :', err);
-    }
+    } catch (err) {}
   }
 
   /**
@@ -1320,6 +1250,7 @@
       if (btn) {
         e.preventDefault();
         e.stopPropagation();
+        console.debug('[city] delegated click -> openCityMenu');
         openCityMenu();
       }
     }, true);
