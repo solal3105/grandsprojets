@@ -1428,43 +1428,7 @@ const simpleCache = {
       }
     }
   
-  
     // --- Fonctions publiques de chargement et préchargement des couches ---
-  
-    // Fusionne les données de contribution_uploads avec les données existantes d'une couche
-    async function mergeContributionData(layerName, baseData) {
-      try {
-        // Mapping des couches vers les catégories de contribution_uploads
-        const layerCategoryMap = {
-          'urbanisme': 'urbanisme',
-          'voielyonnaise': 'velo',
-          'reseauProjeteSitePropre': 'mobilite'
-        };
-  
-        const category = layerCategoryMap[layerName];
-        if (!category || !window.supabaseService?.loadContributionGeoJSON) {
-          return baseData; // Pas de fusion possible
-        }
-  
-        // Charger les données de contribution_uploads
-        const contributionData = await window.supabaseService.loadContributionGeoJSON(layerName, category);
-        
-        if (!contributionData.features || contributionData.features.length === 0) {
-          return baseData; // Pas de données de contribution
-        }
-  
-        // Fusionner les features
-        const mergedFeatures = [...(baseData.features || []), ...contributionData.features];
-        
-        return {
-          type: 'FeatureCollection',
-          features: mergedFeatures
-        };
-      } catch (error) {
-        console.warn(`Erreur lors de la fusion des données de contribution pour ${layerName}:`, error);
-        return baseData; // Retourner les données de base en cas d'erreur
-      }
-    }
   
     // Charge une couche (depuis le cache ou le réseau) et l'ajoute à la carte
     function loadLayer(layerName) {
@@ -1472,10 +1436,10 @@ const simpleCache = {
         .then(finalData => {
           // Mise à jour des données en mémoire
           layerData[layerName] = finalData;
-  
+
           // Suppression de l'ancienne couche si elle existe
           MapModule.removeLayer(layerName);
-  
+
           // Création de la nouvelle couche
           createGeoJsonLayer(layerName, finalData);
           return finalData;
