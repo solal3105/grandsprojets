@@ -690,107 +690,7 @@ const NavigationModule = (() => {
   // ————————————————————————————————————————————————
   // Helpers partagés pour les sous-menus (en-tête, fermeture, clic projet)
   // ————————————————————————————————————————————————
-  // Ensure each submenu starts expanded when (re)opened
-  function resetSubmenuExpanded(submenuId) {
-    try {
-      const panel = document.getElementById(submenuId);
-      if (panel) {
-        panel.style.removeProperty('max-height');
-        panel.style.removeProperty('overflow');
-      }
-      const toggleBtn = document.getElementById(`${submenuId.replace('-submenu','')}-toggle-btn`);
-      if (toggleBtn) {
-        const iconEl = toggleBtn.querySelector('i');
-        const labelEl = toggleBtn.querySelector('.gp-btn__label');
-        if (iconEl) {
-          if (iconEl.classList.contains('fa-expand')) iconEl.classList.replace('fa-expand','fa-compress');
-          else iconEl.classList.add('fa-compress');
-        }
-        if (labelEl) labelEl.textContent = 'Réduire';
-        toggleBtn.classList.remove('is-collapsed');
-        toggleBtn.setAttribute('aria-expanded','true');
-        toggleBtn.setAttribute('aria-label','Réduire');
-      }
-    } catch (_) { /* no-op */ }
-  }
-
-  function setupSubmenu(containerId, { title, closeBtnId, navId, submenuId, listId, removeAllActiveTabs = false }) {
-    const container = document.getElementById(containerId);
-    if (!container) return null;
-    container.innerHTML = `
-      <div class="detail-header-submenu">
-        <div class="header-left">
-          <button id="${closeBtnId}" class="close-btn" aria-label="Fermer">
-            <i class="fa-solid fa-xmark gp-btn__icon" aria-hidden="true"></i>
-            <span class="gp-btn__label">Fermer</span>
-          </button>
-        </div>
-        <div class="header-right">
-          <button id="${submenuId.replace('-submenu','')}-toggle-btn" class="gp-btn gp-btn--secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true" aria-controls="${submenuId}">
-            <i class="fa-solid fa-compress gp-btn__icon" aria-hidden="true"></i>
-            <span class="gp-btn__label">Réduire</span>
-          </button>
-        </div>
-      </div>
-      <div id="${listId}" class="project-list"></div>
-    `;
-    const closeBtn = container.querySelector(`#${closeBtnId}`);
-    if (closeBtn) {
-      closeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (removeAllActiveTabs) {
-          document.querySelectorAll('.nav-category').forEach(tab => tab.classList.remove('active'));
-        } else {
-          const activeTab = document.querySelector('.nav-category.active');
-          if (activeTab && activeTab.id === navId) {
-            activeTab.classList.remove('active');
-          }
-        }
-        const submenu = document.getElementById(submenuId);
-        if (submenu) submenu.style.display = 'none';
-        resetToDefaultView(undefined, { preserveMapView: true });
-      });
-    }
-    // Toggle reduce/expand behavior for the submenu panel
-    const toggleBtnId = `${submenuId.replace('-submenu','')}-toggle-btn`;
-    const toggleBtn = container.querySelector(`#${toggleBtnId}`);
-    const panel = document.getElementById(submenuId);
-    // Always start expanded when (re)rendered
-    resetSubmenuExpanded(submenuId);
-    if (toggleBtn && panel) {
-      toggleBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isCollapsed = toggleBtn.getAttribute('aria-expanded') === 'false';
-        if (isCollapsed) {
-          // Expand
-          panel.style.removeProperty('max-height');
-          panel.style.removeProperty('overflow');
-          const iconEl = toggleBtn.querySelector('i');
-          const labelEl = toggleBtn.querySelector('.gp-btn__label');
-          if (iconEl) {
-            if (iconEl.classList.contains('fa-expand')) iconEl.classList.replace('fa-expand', 'fa-compress');
-            else iconEl.classList.add('fa-compress');
-          }
-          if (labelEl) labelEl.textContent = 'Réduire';
-          toggleBtn.classList.remove('is-collapsed');
-          toggleBtn.setAttribute('aria-expanded', 'true');
-          toggleBtn.setAttribute('aria-label', 'Réduire');
-        } else {
-          // Reduce/collapse
-          panel.style.setProperty('max-height', '10vh', 'important');
-          panel.style.setProperty('overflow', 'hidden', 'important');
-          const iconEl = toggleBtn.querySelector('i');
-          const labelEl = toggleBtn.querySelector('.gp-btn__label');
-          if (iconEl && iconEl.classList.contains('fa-compress')) iconEl.classList.replace('fa-compress', 'fa-expand');
-          if (labelEl) labelEl.textContent = 'Développer';
-          toggleBtn.classList.add('is-collapsed');
-          toggleBtn.setAttribute('aria-expanded', 'false');
-          toggleBtn.setAttribute('aria-label', 'Développer');
-        }
-      });
-    }
-    return document.getElementById(listId);
-  }
+  // Fonctions setupSubmenu et resetSubmenuExpanded supprimées - désormais dans SubmenuModule
   // Ne laisser visible que la couche cible (handled in the appropriate context above)
 
 // Fonction pour filtrer et styliser les paths
@@ -879,224 +779,24 @@ projectDetailPanel.classList.add('visible');
     };
   }
 
+  // renderVeloProjects supprimée - remplacée par SubmenuModule.renderProjectsByCategory('velo')
 
-  const renderMobiliteProjects = async () => {
-    const listEl = setupSubmenu('mobilite-submenu', {
-      title: 'Projets de Mobilité',
-      closeBtnId: 'mobilite-close-btn',
-      navId: 'nav-mobilite',
-      submenuId: 'mobilite-submenu',
-      listId: 'mobilite-project-list'
-    });
-    if (!listEl) return;
-    
-    try {
-      // Récupérer uniquement les projets de mobilité depuis contribution_uploads
-      const mobiliteProjects = await window.supabaseService.fetchProjectsByCategory('mobilite');
-      // Tri alphabétique (FR, insensible à la casse/accents)
-      const sorted = (Array.isArray(mobiliteProjects) ? mobiliteProjects.slice() : [])
-        .sort((a, b) => naturalCompareByName(a?.project_name, b?.project_name));
-      
-      sorted.forEach(contributionProject => {
-        const projectItem = {
-          name: contributionProject.project_name,
-          category: contributionProject.category,
-          source: 'contribution_uploads'
-        };
-        const li = createProjectItem(projectItem, createProjectClickHandler(projectItem, 'mobilite', 'mobilite-submenu', false), 'mobilite');
-        listEl.appendChild(li);
-      });
-    } catch (error) {
-      console.error('Erreur lors du chargement des projets de mobilité:', error);
-    }
-  };
-
-  const renderVeloProjects = async () => {
-    const listEl = setupSubmenu('velo-submenu', {
-      title: 'Projets Vélo',
-      closeBtnId: 'velo-close-btn',
-      navId: 'nav-velo',
-      submenuId: 'velo-submenu',
-      listId: 'velo-project-list'
-    });
-    if (!listEl) return;
-    
-    try {
-      // Récupérer les projets de voie lyonnaise depuis contribution_uploads
-      const voielyonnaiseProjects = await window.supabaseService.fetchProjectsByCategory('velo');
-      // Tri alphabétique (FR, insensible à la casse/accents)
-      const sorted = (Array.isArray(voielyonnaiseProjects) ? voielyonnaiseProjects.slice() : [])
-        .sort((a, b) => naturalCompareByName(a?.project_name, b?.project_name));
-      
-      sorted.forEach(contributionProject => {
-        const projectItem = {
-          name: contributionProject.project_name,
-          category: contributionProject.category,
-          source: 'contribution_uploads'
-        };
-        const li = createProjectItem(projectItem, createProjectClickHandler(projectItem, 'velo', 'velo-submenu', false), 'velo');
-        listEl.appendChild(li);
-      });
-    } catch (error) {
-      console.error('Erreur lors du chargement des projets vélo:', error);
-    }
-  };
-
-  // Affichage des projets d'Urbanisme (uniformisé, sans onglets/select)
-  const renderUrbanismeProjects = async () => {
-    const listEl = setupSubmenu('urbanisme-submenu', {
-      title: "Projets d'Urbanisme",
-      closeBtnId: 'urbanisme-close-btn',
-      navId: 'nav-urbanisme',
-      submenuId: 'urbanisme-submenu',
-      listId: 'urbanisme-project-list'
-    });
-    if (!listEl) return;
-
-    try {
-      // Récupérer les projets d'urbanisme depuis contribution_uploads
-      const urbanismeProjects = await window.supabaseService.fetchProjectsByCategory('urbanisme');
-      // Tri alphabétique (FR, insensible à la casse/accents)
-      const sorted = (Array.isArray(urbanismeProjects) ? urbanismeProjects.slice() : [])
-        .sort((a, b) => naturalCompareByName(a?.project_name, b?.project_name));
-      
-      sorted.forEach(contributionProject => {
-        const projectItem = {
-          name: contributionProject.project_name,
-          category: contributionProject.category,
-          source: 'contribution_uploads'
-        };
-        const li = createProjectItem(
-          projectItem,
-          createProjectClickHandler(projectItem, 'urbanisme', 'urbanisme-submenu', false),
-          'urbanisme'
-        );
-        listEl.appendChild(li);
-      });
-    } catch (error) {
-      console.error('Erreur lors du chargement des projets d\'urbanisme:', error);
-    }
-  };
+  // renderUrbanismeProjects supprimée - remplacée par SubmenuModule.renderProjectsByCategory('urbanisme')
 
   // (ancienne version supprimée)
 
   // (Helpers legacy supprimés: slugify, getMarkdownPathByCategory, extractCoverFromMarkdown)
 
   const coverCache = new Map(); // key: `${category}|${name}` -> url|null
-  async function fetchCoverForProject(name, category) {
-    const key = `${category}|${name}`;
-    if (coverCache.has(key)) return coverCache.get(key);
-    
-    // Chercher strictement dans contribution_uploads
-    try {
-      const effectiveCat = category === 'transport' ? 'mobilite' : (category === 'velo' ? 'velo' : category);
-      if (window.supabaseService?.fetchProjectByCategoryAndName) {
-        const p = await window.supabaseService.fetchProjectByCategoryAndName(effectiveCat, name);
-        if (p?.cover_url) {
-          coverCache.set(key, p.cover_url);
-          return p.cover_url;
-        }
-      }
-    } catch (error) {
-      console.warn('Erreur lors de la récupération stricte de la cover:', error);
-    }
-    coverCache.set(key, null);
-    return null;
-  }
 
-  function attachCoverThumbnail(li, projectName, category) {
-    const thumb = li.querySelector('.project-thumb');
-    if (!thumb) return;
-    // If an img already exists with a src, skip
-    const existingImg = thumb.querySelector('img.project-thumb__img');
-    if (existingImg && existingImg.getAttribute('src')) return;
-    fetchCoverForProject(projectName, category).then(url => {
-      if (!url) return;
-      let img = existingImg;
-      if (!img) {
-        img = document.createElement('img');
-        img.className = 'project-thumb__img';
-        img.alt = '';
-        img.setAttribute('aria-hidden', 'true');
-        thumb.appendChild(img);
-      }
-      img.onload = () => {
-        // Measure computed height and set CSS var on the li to reserve space
-        updateThumbHeight(li);
-      };
-      img.src = url;
 
-      // Setup resize observer once to keep height in sync on responsive changes
-      if (!li._thumbRO && typeof ResizeObserver !== 'undefined') {
-        li._thumbRO = new ResizeObserver(() => updateThumbHeight(li));
-        li._thumbRO.observe(thumb);
-      }
-    });
-  }
+  
 
-  function updateThumbHeight(li) {
-    const thumb = li.querySelector('.project-thumb');
-    if (!thumb) return;
-    const img = thumb.querySelector('img.project-thumb__img');
-    const h = img ? img.getBoundingClientRect().height : thumb.getBoundingClientRect().height;
-    const cap = 300;
-    const clamped = Math.min(h, cap);
-    if (clamped > 0) {
-      li.style.setProperty('--thumb-height', `${clamped}px`);
-    }
-  }
+  
 
-  // Delayed hover logic: show cover after 1s hover, hide on leave
-  function scheduleShowCover(li, projectName, category) {
-    cancelShowCover(li);
-    li._coverHoverTimer = setTimeout(() => {
-      if (category) {
-        attachCoverThumbnail(li, projectName, category);
-      }
-      li.classList.add('show-thumb');
-      // Next frame, ensure we measure and set the height var
-      requestAnimationFrame(() => updateThumbHeight(li));
-    }, 1000);
-  }
+  
 
-  function cancelShowCover(li) {
-    if (li._coverHoverTimer) {
-      clearTimeout(li._coverHoverTimer);
-      li._coverHoverTimer = null;
-    }
-    li.classList.remove('show-thumb');
-  }
-
-  // Delayed progress bar: appear after 0.3s, fill until 1s total
-  function scheduleProgress(li) {
-    cancelProgress(li);
-    li._progressTimer = setTimeout(() => {
-      li.classList.add('progress-visible');
-      const bar = li.querySelector('.hover-progress__bar');
-      if (!bar) return;
-      // Reset transition and width to ensure replay
-      bar.style.transition = 'none';
-      bar.style.width = '0%';
-      // Force reflow then animate to 100% over 700ms (1s total - 300ms delay)
-      // eslint-disable-next-line no-unused-expressions
-      bar.offsetHeight;
-      bar.style.transition = 'width 700ms linear';
-      bar.style.width = '100%';
-    }, 300);
-  }
-
-  function cancelProgress(li) {
-    if (li._progressTimer) {
-      clearTimeout(li._progressTimer);
-      li._progressTimer = null;
-    }
-    const bar = li.querySelector('.hover-progress__bar');
-    if (bar) {
-      bar.style.transition = 'none';
-      bar.style.width = '0%';
-    }
-    li.classList.remove('progress-visible');
-  }
+  
 
   // Fonction de création d'un item de liste pour un projet
   const createProjectItem = (p, onClick, category = null) => {
@@ -1664,23 +1364,24 @@ submenu.insertBefore(filterUX, listEl);
             DataModule.loadLayer(layerName);
           }
         });
+        
         // Restaurer l'opacité normale (au cas où des couches restent en mémoire)
         try { restoreAllLayerOpacity(); } catch(_) {}
 
         // 4. Rendre le contenu du sous-menu correspondant (minimal fix)
         try {
-          if (category === 'velo') {
-            renderVeloProjects();
-          } else if (category === 'mobilite') {
-            renderMobiliteProjects();
-          } else if (category === 'urbanisme') {
-            renderUrbanismeProjects();
-          } else if (category === 'travaux') {
+          if (category === 'travaux') {
             renderTravauxProjects();
+          } else {
+            // Utiliser le nouveau système unifié pour les autres catégories
+            if (window.SubmenuModule?.renderProjectsByCategory) {
+              window.SubmenuModule.renderProjectsByCategory(category);
+            }
           }
         } catch (e) {
           console.warn('[NavigationModule] rendu sous-menu échoué (non bloquant):', e);
         }
+        
         // Mettre à jour l'URL/historique avec uniquement la catégorie (sans project)
         try {
           if (updateHistory && typeof history?.pushState === 'function') {
@@ -1807,11 +1508,10 @@ submenu.insertBefore(filterUX, listEl);
   const publicAPI = { 
     showProjectDetail, 
     zoomOutOnLoadedLayers, 
-    renderMobiliteProjects, 
-    renderVeloProjects, 
-    renderUrbanismeProjects, 
     renderTravauxProjects,
     resetToDefaultView
+    // renderMobiliteProjects, renderVeloProjects, renderUrbanismeProjects supprimées
+    // -> remplacées par SubmenuModule.renderProjectsByCategory()
   };
   
   // Exposer le module globalement

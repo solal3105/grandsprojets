@@ -44,23 +44,30 @@ const EventBindings = (() => {
           if (DataModule.layerData && DataModule.layerData[layerName]) {
             DataModule.createGeoJsonLayer(layerName, DataModule.layerData[layerName]);
           } else {
-            DataModule.loadLayer(layerName);
           }
         }
       });
     }
 
-    // Lancer l’affichage des projets selon le menu sélectionné
-    if (menu === 'mobilite') {
-      NavigationModule.renderMobiliteProjects();
-    } else if (menu === 'velo') {
-      NavigationModule.renderVeloProjects();
-    } else if (menu === 'urbanisme') {
-      NavigationModule.renderUrbanismeProjects();
-    } else if (menu === 'travaux') {
+    // Lancer l'affichage des projets selon le menu sélectionné
+    if (menu === 'travaux') {
+      // Travaux garde son système spécialisé pour le moment
       NavigationModule.renderTravauxProjects();
-      // Assurer la présence de la légende de progression
-      ensureTravauxLegend();
+    } else {
+      // Utiliser le nouveau système unifié pour les autres catégories
+      if (window.SubmenuModule?.renderProjectsByCategory) {
+        window.SubmenuModule.renderProjectsByCategory(menu);
+      } else {
+        console.warn('[EventBindings] SubmenuModule non disponible, fallback sur ancien système');
+        // Fallback sur l'ancien système si le nouveau module n'est pas chargé
+        if (menu === 'mobilite') {
+          NavigationModule.renderMobiliteProjects();
+        } else if (menu === 'velo') {
+          NavigationModule.renderVeloProjects();
+        } else if (menu === 'urbanisme') {
+          NavigationModule.renderUrbanismeProjects();
+        }
+      }
     }
   };
 
@@ -191,8 +198,6 @@ const bindFilterControls = () => {
     document.getElementById('mobilite-submenu').style.display = 'none';
     document.getElementById('velo-submenu').style.display = 'none';
     document.getElementById('urbanisme-submenu').style.display = 'none';
-    // Sécurité: s'assurer que la légende est présente après clic direct
-    ensureTravauxLegend();
   });
 
   return {
