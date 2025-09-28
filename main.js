@@ -1031,14 +1031,16 @@
           const category = p.category || layerName;
           console.log('Ouverture du projet:', { projectName, category });
           
-          // Préférer UIModule pour gérer l'historique et l'UI
-          if (window.UIModule?.showDetailPanel) {
+          // Utiliser la fonction centralisée pour l'affichage de contribution spécifique
+          if (window.NavigationModule?.showSpecificContribution) {
+            window.NavigationModule.showSpecificContribution(projectName, category, p);
+          }
+          // Fallback sur UIModule si la fonction centralisée n'est pas disponible
+          else if (window.UIModule?.showDetailPanel) {
             window.UIModule.showDetailPanel(layerName, feature);
           } 
-          // Sinon, fallback sur NavigationModule
-          else if (typeof NavigationModule !== 'undefined' && NavigationModule.showProjectDetail) {
-            NavigationModule.showProjectDetail(projectName, category);
-          } else if (window.NavigationModule?.showProjectDetail) {
+          // Dernier fallback sur l'ancienne méthode
+          else if (window.NavigationModule?.showProjectDetail) {
             window.NavigationModule.showProjectDetail(projectName, category);
           }
           // Sinon, essayer de trouver le panneau de détail et de le remplir manuellement

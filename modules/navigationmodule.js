@@ -32,6 +32,112 @@ const NavigationModule = (() => {
 
   // naturalCompareByName supprimée - tri désormais géré dans SubmenuModule
 
+  // Constantes centralisées
+  const CONTRIBUTION_LAYERS = ['urbanisme', 'voielyonnaise', 'reseauProjeteSitePropre'];
+
+  /**
+   * Utilitaire : Mapping catégorie → nom de couche
+   */
+  function getCategoryLayerName(category) {
+    const effectiveCat = (category === 'transport') ? 'mobilite' : category;
+    return effectiveCat === 'urbanisme' ? 'urbanisme'
+      : effectiveCat === 'velo' ? 'voielyonnaise'
+      : effectiveCat === 'mobilite' ? 'reseauProjeteSitePropre' : null;
+  }
+
+  /**
+   * Utilitaire : Masquer toutes les couches sauf une
+   */
+  function hideAllLayersExcept(keepLayerName) {
+    try {
+      const layersObj = window.MapModule?.layers || {};
+      Object.keys(layersObj).forEach(name => {
+        if (name !== keepLayerName) {
+          try { window.MapModule.removeLayer(name); } catch(_) {}
+        }
+      });
+    } catch(_) {}
+  }
+
+  /**
+   * Utilitaire : S'assurer qu'une couche est chargée
+   */
+  async function ensureLayerLoaded(layerName) {
+    if (!window.DataModule?.layerData?.[layerName]) {
+      try {
+        await window.DataModule.loadLayer(layerName);
+      } catch (e) {
+        console.error('[NavigationModule] Échec du chargement de la couche', layerName, e);
+        throw e;
+      }
+    }
+  }
+
+  /**
+   * Utilitaire : Charger ou créer une couche (pattern récurrent)
+   */
+  function loadOrCreateLayer(layerName) {
+    if (DataModule.layerData && DataModule.layerData[layerName]) {
+      DataModule.createGeoJsonLayer(layerName, DataModule.layerData[layerName]);
+    } else {
+      DataModule.loadLayer(layerName);
+    }
+  }
+
+  /**
+   * Applique un filtrage spécifique pour afficher uniquement une contribution
+   * Fonction centralisée pour masquer les autres couches et filtrer
+   * @param {string} projectName - Nom du projet
+   * @param {string} category - Catégorie du projet
+   */
+  async function applyContributionFilter(projectName, category) {
+    const layerName = getCategoryLayerName(category);
+
+    if (!layerName) {
+      console.warn('[NavigationModule] Aucune couche cible pour', { projectName, category });
+      return;
+    }
+
+    // S'assurer que la couche est chargée
+    try {
+      await ensureLayerLoaded(layerName);
+    } catch (e) {
+      return;
+    }
+
+    // Masquer toutes les autres couches
+    hideAllLayersExcept(layerName);
+
+    // Appliquer le filtre spécifique
+    if (window.UIModule?.applyFilter && projectName) {
+      window.UIModule.applyFilter(layerName, { project_name: projectName });
+      if (window.UIModule.updateActiveFilterTagsForLayer) {
+        window.UIModule.updateActiveFilterTagsForLayer(layerName);
+      }
+    }
+
+    // Ajuster la vue
+    const layer = window.MapModule?.layers?.[layerName];
+    if (layer && typeof layer.getBounds === 'function') {
+      const bounds = layer.getBounds();
+      if (bounds.isValid()) {
+        window.MapModule.map.fitBounds(bounds, { padding: [100, 100] });
+        setTimeout(() => { if (window.MapModule.map.getZoom() > 15) window.MapModule.map.setZoom(15); }, 300);
+      }
+    }
+
+    return layerName; // Retourner le nom de couche pour compatibilité
+  }
+
+  /**
+   * Affiche une contribution spécifique (filtrage + panneau de détail)
+   * Utilisé pour les clics directs sur la carte
+   */
+  async function showSpecificContribution(projectName, category, contributionData = null) {
+    await applyContributionFilter(projectName, category);
+    showProjectDetail(projectName, category, null, contributionData);
+  }
+
   // Fonction utilitaire pour ajuster la vue de la carte
   function zoomOutOnLoadedLayers() {
     let combinedBounds = null;
@@ -414,63 +520,12 @@ const NavigationModule = (() => {
   }
 
   async function resolveAndApplyLayerFiltering(projectName, category) {
-    const effectiveCat = (category === 'transport') ? 'mobilite' : category;
+    // Déléguer à la fonction centralisée
+    const layerName = await applyContributionFilter(projectName, category);
     
-    // Déterminer la couche cible
-    const layerName = effectiveCat === 'urbanisme' ? 'urbanisme'
-      : effectiveCat === 'velo' ? 'voielyonnaise'
-      : effectiveCat === 'mobilite' ? 'reseauProjeteSitePropre' : null;
-
-    if (!layerName) {
-      console.warn('[NavigationModule] Aucune couche cible pour', { projectName, category });
-      return;
-    }
-
-    // Assigner pour consommation ultérieure
-    projectDetailPanel.dataset.filterLayer = layerName;
-
-    // S'assurer que la couche est chargée
-    if (!window.DataModule?.layerData?.[layerName]) {
-      try {
-        await window.DataModule.loadLayer(layerName);
-      } catch (e) {
-        console.error('[NavigationModule] Échec du chargement de la couche', layerName, e);
-        return;
-      }
-    }
-
-    // Masquer toutes les autres couches pour ne garder que celle du projet sélectionné
-    try {
-      const layersObj = window.MapModule?.layers || {};
-      Object.keys(layersObj).forEach(name => {
-        if (name !== layerName) {
-          try { 
-            window.MapModule.removeLayer(name); 
-          } catch(_) { /* noop */ }
-        }
-      });
-    } catch(_) { /* noop */ }
-
-    // Appliquer un filtre pour afficher uniquement le projet sélectionné
-    if (window.UIModule?.applyFilter && projectName) {
-      // Utiliser project_name pour filtrer
-      const filterCriteria = { project_name: projectName };
-      window.UIModule.applyFilter(layerName, filterCriteria);
-      
-      // Mettre à jour les tags de filtres actifs
-      if (window.UIModule.updateActiveFilterTagsForLayer) {
-        window.UIModule.updateActiveFilterTagsForLayer(layerName);
-      }
-    }
-
-    // Ajuster la vue sur la couche filtrée
-    const layer = window.MapModule?.layers?.[layerName];
-    if (layer && typeof layer.getBounds === 'function') {
-      const bounds = layer.getBounds();
-      if (bounds.isValid()) {
-        window.MapModule.map.fitBounds(bounds, { padding: [100, 100] });
-        setTimeout(() => { if (window.MapModule.map.getZoom() > 15) window.MapModule.map.setZoom(15); }, 300);
-      }
+    // Assigner pour consommation ultérieure (compatibilité)
+    if (layerName) {
+      projectDetailPanel.dataset.filterLayer = layerName;
     }
   }
 
@@ -556,11 +611,8 @@ const NavigationModule = (() => {
 
         // 3. Recharger proprement les couches de la catégorie (sans filtre)
         layersToDisplay.forEach(layerName => {
-          if (DataModule.layerData && DataModule.layerData[layerName]) {
-            DataModule.createGeoJsonLayer(layerName, DataModule.layerData[layerName]);
-          } else {
-            DataModule.loadLayer(layerName);
-          }
+          // Charger ou créer la couche
+          loadOrCreateLayer(layerName);
         });
         
         // Restaurer l'opacité normale (au cas où des couches restent en mémoire)
@@ -629,9 +681,9 @@ const NavigationModule = (() => {
         });
       }
       
-      // Afficher à nouveau toutes les contributions par défaut (urbanisme, voielyonnaise, reseauProjeteSitePropre)
+      // Afficher à nouveau toutes les contributions par défaut
       try {
-        const contributionLayers = ['urbanisme', 'voielyonnaise', 'reseauProjeteSitePropre'];
+        const contributionLayers = CONTRIBUTION_LAYERS;
         contributionLayers.forEach(layerName => {
           // Réinitialiser l'état visuel du filtre et les tags si disponibles
           try {
@@ -645,11 +697,7 @@ const NavigationModule = (() => {
           } catch (_) { /* noop */ }
 
           // (Re)créer/charger la couche si nécessaire
-          if (DataModule.layerData && DataModule.layerData[layerName]) {
-            DataModule.createGeoJsonLayer(layerName, DataModule.layerData[layerName]);
-          } else {
-            DataModule.loadLayer(layerName);
-          }
+          loadOrCreateLayer(layerName);
 
           // S'assurer qu'elle est visible sur la carte
           const lyr = window.MapModule.layers && window.MapModule.layers[layerName];
@@ -700,6 +748,7 @@ const NavigationModule = (() => {
   // Exposer les fonctions publiques du module
   const publicAPI = { 
     showProjectDetail, 
+    showSpecificContribution,  // Nouvelle fonction centralisée
     zoomOutOnLoadedLayers, 
     resetToDefaultView
     // renderMobiliteProjects, renderVeloProjects, renderUrbanismeProjects supprimées
