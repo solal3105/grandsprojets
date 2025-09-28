@@ -30,27 +30,7 @@ const NavigationModule = (() => {
       .toLowerCase();
   }
 
-  // Comparateur naturel pour les libellés avec numéro en fin (ex: "Voie Lyonnaise 2" < "Voie Lyonnaise 10")
-  function naturalCompareByName(aName, bName) {
-    const a = (aName || '').toString();
-    const b = (bName || '').toString();
-    const rx = /(\d+)\s*$/;
-    const am = a.match(rx);
-    const bm = b.match(rx);
-    const abase = a.replace(rx, '').trim();
-    const bbase = b.replace(rx, '').trim();
-    // D'abord comparer le préfixe textuel (insensible à la casse/accents)
-    const baseCmp = abase.localeCompare(bbase, 'fr', { sensitivity: 'base' });
-    if (baseCmp !== 0) return baseCmp;
-    // Si même préfixe, comparer les numéros finaux s'ils existent tous les deux
-    if (am && bm) {
-      const ai = parseInt(am[1], 10);
-      const bi = parseInt(bm[1], 10);
-      if (ai !== bi) return ai - bi;
-    }
-    // Sinon, fallback sur la comparaison locale complète
-    return a.localeCompare(b, 'fr', { sensitivity: 'base' });
-  }
+  // naturalCompareByName supprimée - tri désormais géré dans SubmenuModule
 
   // Fonction utilitaire pour ajuster la vue de la carte
   function zoomOutOnLoadedLayers() {
@@ -414,54 +394,9 @@ const NavigationModule = (() => {
   // ————————————————————————————————————————————————
   function normLoose(s) { return normalizeString(s).replace(/\s+/g, ''); }
 
-  function getProjectFilterConfig(projectName) {
-    try {
-      if (!window.projectFilterMapping || typeof window.projectFilterMapping !== 'object') return null;
-      const target = normLoose(projectName);
-      // 1) Essai direct (clé exacte)
-      if (window.projectFilterMapping[projectName]) return window.projectFilterMapping[projectName];
-      // 2) Correspondance tolérante sur les clés
-      const matchKey = Object.keys(window.projectFilterMapping).find(k => normLoose(k) === target);
-      return matchKey ? window.projectFilterMapping[matchKey] : null;
-    } catch (e) {
-      console.warn('[NavigationModule] getProjectFilterConfig error:', e);
-      return null;
-    }
-  }
+  // Fonctions de configuration de filtres supprimées - logique simplifiée dans resolveAndApplyLayerFiltering
 
-  function findMatchingPropertyKey(props, desiredKey) {
-    if (!props || typeof props !== 'object' || !desiredKey) return null;
-    const want = normLoose(desiredKey);
-    // match en ignorant casse/accents/espaces
-    return Object.keys(props).find(k => normLoose(k) === want) || (Object.prototype.hasOwnProperty.call(props, desiredKey) ? desiredKey : null);
-  }
-
-  // Applique un effet d'atténuation (dimming) aux couches non sélectionnées
-  // pour conserver leur visibilité tout en mettant en avant la couche ciblée
-  function dimNonSelectedLayers(selectedLayerName, options = {}) {
-    const { opacity = 0.2, fillOpacity = 0.1 } = options;
-    try {
-      const layersObj = window.MapModule?.layers || {};
-      Object.keys(layersObj).forEach(name => {
-        const layer = layersObj[name];
-        if (!layer) return;
-        if (name === selectedLayerName) {
-          // Remettre plein contraste sur la couche sélectionnée
-          // On n'écrase que les opacités pour ne pas perdre le style existant
-          window.DataModule?.safeSetStyle(layer, { opacity: 1, fillOpacity: 0.5 });
-          if (typeof layer.setOpacity === 'function') {
-            layer.setOpacity(1);
-          }
-        } else {
-          // Atténuer les autres couches
-          window.DataModule?.safeSetStyle(layer, { opacity, fillOpacity });
-          if (typeof layer.setOpacity === 'function') {
-            layer.setOpacity(opacity);
-          }
-        }
-      });
-    } catch (_) { /* noop */ }
-  }
+  // dimNonSelectedLayers supprimée - fonctionnalité peu utilisée
 
   // Restaure l'opacité normale sur toutes les couches connues
   function restoreAllLayerOpacity() {
@@ -480,21 +415,18 @@ const NavigationModule = (() => {
 
   async function resolveAndApplyLayerFiltering(projectName, category) {
     const effectiveCat = (category === 'transport') ? 'mobilite' : category;
-    const projLoose = normLoose(projectName);
-    let config = getProjectFilterConfig(projectName);
-
+    
     // Déterminer la couche cible
-    let layerName = config?.layer
-      || (effectiveCat === 'urbanisme' ? 'urbanisme'
-      : (effectiveCat === 'velo' ? 'voielyonnaise'
-      : (effectiveCat === 'mobilite' ? 'reseauProjeteSitePropre' : null)));
+    const layerName = effectiveCat === 'urbanisme' ? 'urbanisme'
+      : effectiveCat === 'velo' ? 'voielyonnaise'
+      : effectiveCat === 'mobilite' ? 'reseauProjeteSitePropre' : null;
 
     if (!layerName) {
-      console.warn('[NavigationModule] Aucune couche cible déduite pour', { projectName, category });
+      console.warn('[NavigationModule] Aucune couche cible pour', { projectName, category });
       return;
     }
 
-    // Assigner pour consommation ultérieure (ex: fermeture, reset)
+    // Assigner pour consommation ultérieure
     projectDetailPanel.dataset.filterLayer = layerName;
 
     // S'assurer que la couche est chargée
@@ -507,223 +439,47 @@ const NavigationModule = (() => {
       }
     }
 
-    const data = window.DataModule.layerData[layerName];
-    const features = (data && data.features) ? data.features : [];
-    if (!features.length) {
-      console.warn('[NavigationModule] Aucune feature dans la couche', layerName);
-      return;
-    }
-
-    // Déterminer clé/valeur exactes pour le filtrage simple de DataModule
-    let actualKey = null;
-    let actualVal = null;
-
-    // 1) Si on dispose d'une config (clé/valeur), essayer de retrouver la clé réelle et une valeur existante
-    if (config?.key && config?.value != null) {
-      for (const f of features) {
-        const props = f && f.properties ? f.properties : {};
-        const k = findMatchingPropertyKey(props, config.key);
-        if (!k) continue;
-        const v = props[k];
-        if (v == null) continue;
-        if (normLoose(String(v)) === normLoose(String(config.value))) {
-          actualKey = k;
-          actualVal = v; // utiliser la valeur exacte trouvée dans les données
-          break;
-        }
-      }
-    }
-
-    // 2) Urbanisme: matcher sur name/nom ≈ projectName
-    if ((!actualKey || actualVal == null) && layerName === 'urbanisme') {
-      const nameKeys = ['name', 'nom', 'Name', 'NOM'];
-      for (const f of features) {
-        const props = f && f.properties ? f.properties : {};
-        for (const candidate of nameKeys) {
-          const k = findMatchingPropertyKey(props, candidate);
-          if (!k) continue;
-          const v = props[k];
-          if (v != null && normLoose(String(v)) === projLoose) {
-            actualKey = k;
-            actualVal = v;
-            break;
-          }
-        }
-        if (actualKey) break;
-      }
-    }
-
-    // 3) Vélo: tenter d'extraire le numéro de ligne, sinon fallback sur name/nom
-    if ((!actualKey || actualVal == null) && layerName === 'voielyonnaise') {
-      const m = String(projectName).match(/(\d+)/);
-      if (m) {
-        const targetLine = m[1];
-        for (const f of features) {
-          const props = f && f.properties ? f.properties : {};
-          const k = findMatchingPropertyKey(props, 'line');
-          if (!k) continue;
-          const v = props[k];
-          if (v != null && normLoose(String(v)) === normLoose(String(targetLine))) {
-            actualKey = k;
-            actualVal = v;
-            break;
-          }
-        }
-      }
-      if (!actualKey) {
-        // fallback sur name/nom
-        const nameKeys = ['name', 'nom'];
-        for (const f of features) {
-          const props = f && f.properties ? f.properties : {};
-          for (const candidate of nameKeys) {
-            const k = findMatchingPropertyKey(props, candidate);
-            if (!k) continue;
-            const v = props[k];
-            if (v != null && normLoose(String(v)) === projLoose) {
-              actualKey = k;
-              actualVal = v;
-              break;
-            }
-          }
-          if (actualKey) break;
-        }
-      }
-    }
-
-    // 4) Autres couches (mobilité): tenter name/nom/libellé
-    if ((!actualKey || actualVal == null) && (layerName !== 'voielyonnaise' && layerName !== 'urbanisme')) {
-      const nameKeys = ['name', 'nom', 'libelle', 'libellé', 'Libelle', 'Libellé'];
-      for (const f of features) {
-        const props = f && f.properties ? f.properties : {};
-        for (const candidate of nameKeys) {
-          const k = findMatchingPropertyKey(props, candidate);
-          if (!k) continue;
-          const v = props[k];
-          if (v != null && normLoose(String(v)) === projLoose) {
-            actualKey = k;
-            actualVal = v;
-            break;
-          }
-        }
-        if (actualKey) break;
-      }
-    }
-
-    if (actualKey && actualVal != null) {
-      console.log('[NavigationModule] Filtrage appliqué (clé/val trouvées):', { layerName, actualKey, actualVal });
-      if (window.UIModule?.applyFilter) {
-        window.UIModule.applyFilter(layerName, { [actualKey]: actualVal });
-        window.UIModule.updateActiveFilterTagsForLayer?.(layerName);
-      }
-      const layer = window.MapModule?.layers?.[layerName];
-      if (layer && typeof layer.getBounds === 'function') {
-        const b = layer.getBounds();
-        if (b.isValid()) {
-          window.MapModule.map.fitBounds(b, { padding: [100, 100] });
-          setTimeout(() => { if (window.MapModule.map.getZoom() > 15) window.MapModule.map.setZoom(15); }, 300);
-        }
-      }
-      // Masquer toutes les autres couches pour ne garder que le projet sélectionné visible
-      try {
-        const layersObj = window.MapModule?.layers || {};
-        Object.keys(layersObj).forEach(name => {
-          if (name !== layerName) {
-            try { window.MapModule.removeLayer(name); } catch(_) { /* noop */ }
-          }
-        });
-      } catch(_) { /* noop */ }
-    } else {
-      console.warn('[NavigationModule] Impossible de déterminer une clé/valeur de filtrage pour', { projectName, layerName, category });
-    }
-  }
-
-  // Fonction pour filtrer et styliser les paths
-  function highlightProjectPaths(projectName) {
-    const normalizedProjectName = normalizeString(projectName);
-    console.log("Nom du projet normalisé:", normalizedProjectName);
-
-    // Liste des couches à vérifier
-    const layersToCheck = ['voielyonnaise', 'reseauProjeteSitePropre', 'urbanisme'];
-
-    layersToCheck.forEach(layerName => {
-      const geojsonLayer = MapModule.layers[layerName];
-      
-      if (!geojsonLayer) {
-        console.warn(`Couche ${layerName} non trouvée`);
-        return;
-      }
-
-      console.log(`Recherche dans la couche ${layerName}`);
-
-
-
-      // Parcourir chaque feature de la couche
-      geojsonLayer.eachLayer(featureLayer => {
-        const featureName = normalizeString(
-          featureLayer.feature.properties.line || 
-          featureLayer.feature.properties.name || 
-          ''
-        );
-
-        console.log(`Comparaison: ${featureName} === ${normalizedProjectName}`);
-
-        if (featureName === normalizedProjectName) {
-          console.log("Path correspondant trouvé !");
+    // Masquer toutes les autres couches pour ne garder que celle du projet sélectionné
+    try {
+      const layersObj = window.MapModule?.layers || {};
+      Object.keys(layersObj).forEach(name => {
+        if (name !== layerName) {
+          try { 
+            window.MapModule.removeLayer(name); 
+          } catch(_) { /* noop */ }
         }
       });
-    });
+    } catch(_) { /* noop */ }
+
+    // Appliquer un filtre pour afficher uniquement le projet sélectionné
+    if (window.UIModule?.applyFilter && projectName) {
+      // Utiliser project_name pour filtrer
+      const filterCriteria = { project_name: projectName };
+      window.UIModule.applyFilter(layerName, filterCriteria);
+      
+      // Mettre à jour les tags de filtres actifs
+      if (window.UIModule.updateActiveFilterTagsForLayer) {
+        window.UIModule.updateActiveFilterTagsForLayer(layerName);
+      }
+    }
+
+    // Ajuster la vue sur la couche filtrée
+    const layer = window.MapModule?.layers?.[layerName];
+    if (layer && typeof layer.getBounds === 'function') {
+      const bounds = layer.getBounds();
+      if (bounds.isValid()) {
+        window.MapModule.map.fitBounds(bounds, { padding: [100, 100] });
+        setTimeout(() => { if (window.MapModule.map.getZoom() > 15) window.MapModule.map.setZoom(15); }, 300);
+      }
+    }
   }
-  
-  // Code mort supprimé - highlightProjectPaths orphelin
+
+  // highlightProjectPaths supprimée - debug uniquement, non utilisée en production
 
 }
 
-  function createProjectClickHandler(p, category, submenuId, applyLegacyMapping = true) {
-    return () => {
-      const submenu = document.getElementById(submenuId);
-      if (submenu) submenu.style.display = 'none';
-      if (applyLegacyMapping && window.projectFilterMapping && window.projectFilterMapping[p.name]) {
-        const config = window.projectFilterMapping[p.name];
-        projectDetailPanel.dataset.filterLayer = config.layer;
-      }
-      showProjectDetail(p.name, category);
-      if (applyLegacyMapping && window.projectFilterMapping && window.projectFilterMapping[p.name]) {
-        const config = window.projectFilterMapping[p.name];
-        const applyConfig = () => {
-          UIModule.applyFilter(config.layer, { [config.key]: config.value });
-          UIModule.updateActiveFilterTagsForLayer(config.layer);
-          const layer = MapModule.layers[config.layer];
-          if (layer && typeof layer.getBounds === "function") {
-            const bounds = layer.getBounds();
-            if (bounds.isValid()) {
-              MapModule.map.fitBounds(bounds, { padding: [100, 100] });
-              setTimeout(() => {
-                if (MapModule.map.getZoom() > 15) {
-                  MapModule.map.setZoom(15);
-                }
-              }, 300);
-            }
-          }
-        };
-        if (!DataModule.layerData[config.layer]) {
-          DataModule.loadLayer(config.layer).then(applyConfig);
-        } else {
-          applyConfig();
-        }
-      }
-    };
-  }
-
-  // renderVeloProjects supprimée - remplacée par SubmenuModule.renderProjectsByCategory('velo')
-
-  // renderUrbanismeProjects supprimée - remplacée par SubmenuModule.renderProjectsByCategory('urbanisme')
-
-  // (ancienne version supprimée)
-
-  // (Helpers legacy supprimés: slugify, getMarkdownPathByCategory, extractCoverFromMarkdown)
-  // coverCache supprimé - désormais dans SubmenuModule
-
-  // renderTravauxProjects déplacée vers TravauxModule
+  // Legacy code supprimé - createProjectClickHandler, renderVeloProjects, renderUrbanismeProjects, renderTravauxProjects
+  // Désormais géré par SubmenuManager → SubmenuModule/TravauxModule
 
   /**
    * Réinitialise la vue à l'état par défaut de l'application
@@ -735,7 +491,7 @@ const NavigationModule = (() => {
    * @param {string} [category] - Catégorie à afficher (optionnel)
    * @param {{ preserveMapView?: boolean, updateHistory?: boolean }} [options] - Options de réinitialisation
    */
-  const resetToDefaultView = (category, options = {}) => {
+  const resetToDefaultView = async (category, options = {}) => {
     const { preserveMapView = false, updateHistory = false } = options;
     console.log('Réinitialisation de la vue à l\'état par défaut');
     
@@ -810,17 +566,10 @@ const NavigationModule = (() => {
         // Restaurer l'opacité normale (au cas où des couches restent en mémoire)
         try { restoreAllLayerOpacity(); } catch(_) {}
 
-        // 4. Rendre le contenu du sous-menu correspondant (minimal fix)
+        // 4. Rendre le contenu du sous-menu correspondant via SubmenuManager
         try {
-          if (category === 'travaux') {
-            if (window.TravauxModule?.renderTravauxProjects) {
-              window.TravauxModule.renderTravauxProjects();
-            }
-          } else {
-            // Utiliser le nouveau système unifié pour les autres catégories
-            if (window.SubmenuModule?.renderProjectsByCategory) {
-              window.SubmenuModule.renderProjectsByCategory(category);
-            }
+          if (window.SubmenuManager?.renderSubmenu) {
+            await window.SubmenuManager.renderSubmenu(category);
           }
         } catch (e) {
           console.warn('[NavigationModule] rendu sous-menu échoué (non bloquant):', e);

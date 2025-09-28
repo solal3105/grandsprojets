@@ -1015,19 +1015,20 @@
         }
       }
 
-      // Exposition de NavigationModule et ajout du gestionnaire de clic (robuste aux features incomplètes)
-      window.handleFeatureClick = function(feature, layerName) {
+      // Gestionnaire de clic sur les features de la carte
+      const handleFeatureClick = (feature, layerName) => {
         try {
           console.log('Feature cliquée:', feature, 'Layer:', layerName);
           const p = (feature && feature.properties) || {};
-          const projectName = p.name || p.Name || p.LIBELLE;
+          const projectName = p.project_name || p.name || p.Name || p.LIBELLE;
           
           if (!projectName) {
             console.warn('handleFeatureClick: nom de projet introuvable', { feature });
             return;
           }
 
-          const category = getCategoryFromLayer(layerName);
+          // Utiliser la catégorie directement depuis les données contribution_uploads
+          const category = p.category || layerName;
           console.log('Ouverture du projet:', { projectName, category });
           
           // Préférer UIModule pour gérer l'historique et l'UI
@@ -1062,8 +1063,7 @@
         }
       };
       
-      // Exposer la fonction pour qu'elle soit disponible globalement
-      window.getCategoryFromLayer = getCategoryFromLayer;
+      // getCategoryFromLayer supprimée - catégorie désormais dans contribution_uploads.category
       // Exposer la ville active (fallback dynamique)
       window.getActiveCity = () => (parseCityFromPath(location.pathname) || getCityFromQuery('') || restoreCity() || win.activeCity || getDefaultCity());
 
@@ -1079,36 +1079,28 @@
         }
       }
 
-      function resolveSearchLayersByCategory(cat) {
-        switch (cat) {
-          case 'velo': return ['voielyonnaise'];
-          case 'urbanisme': return ['urbanisme'];
-          case 'mobilite': return ['reseauProjeteSitePropre', 'tramway', 'metroFuniculaire'];
-          case 'travaux': return ['travaux'];
-          default: return [];
-        }
-      }
-
       async function showFromUrlState({ cat, project }) {
         if (!cat || !project) return false;
-        const layers = resolveSearchLayersByCategory(cat);
-        if (!layers.length) return false;
-        for (const ln of layers) {
-          try {
-            const feat = await DataModule.findFeatureByProjectName(ln, project);
-            if (feat) {
-              if (window.UIModule?.showDetailPanel) {
-                window.UIModule.showDetailPanel(ln, feat, { updateHistory: false });
-              } else if (window.NavigationModule?.showProjectDetail) {
-                const props = feat.properties || {};
-                const name = props.project_name || props.name || props.Name || props.line || props.LIBELLE;
-                window.NavigationModule.showProjectDetail(name, cat, null, props);
-              }
+        
+        // Utiliser directement le système contribution_uploads
+        try {
+          if (window.supabaseService?.fetchProjectByCategoryAndName) {
+            const contributionProject = await window.supabaseService.fetchProjectByCategoryAndName(cat, project);
+            if (contributionProject && window.NavigationModule?.showProjectDetail) {
+              window.NavigationModule.showProjectDetail(
+                contributionProject.project_name, 
+                contributionProject.category, 
+                null, 
+                contributionProject
+              );
               return true;
             }
-          } catch (_) {}
+          }
+        } catch (e) {
+          console.warn('Erreur lors de la recherche dans contribution_uploads:', e);
         }
-        console.warn('Aucune feature trouvée pour', { cat, project });
+        
+        console.warn('Aucun projet trouvé dans contribution_uploads pour', { cat, project });
         return false;
       }
 

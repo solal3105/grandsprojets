@@ -1,7 +1,7 @@
 // modules/EventBindings.js
 const EventBindings = (() => {
 
-  const handleNavigation = (menu, layersToDisplay) => {
+  const handleNavigation = async (menu, layersToDisplay) => {
   // 0. Toggle “active” on the clicked nav button
   document.querySelectorAll('.nav-category').forEach(tab => tab.classList.remove('active'));
   document.getElementById(`nav-${menu}`).classList.add('active');
@@ -43,35 +43,16 @@ const EventBindings = (() => {
         if (!MapModule.layers[layerName]) {
           if (DataModule.layerData && DataModule.layerData[layerName]) {
             DataModule.createGeoJsonLayer(layerName, DataModule.layerData[layerName]);
-          } else {
           }
         }
       });
     }
 
-    // Lancer l'affichage des projets selon le menu sélectionné
-    if (menu === 'travaux') {
-      // Utiliser le nouveau TravauxModule
-      if (window.TravauxModule?.renderTravauxProjects) {
-        window.TravauxModule.renderTravauxProjects();
-      } else {
-        console.warn('[EventBindings] TravauxModule non disponible');
-      }
+    // Rendu unifié via SubmenuManager (gère automatiquement Travaux vs Projets)
+    if (window.SubmenuManager?.renderSubmenu) {
+      await window.SubmenuManager.renderSubmenu(menu);
     } else {
-      // Utiliser le nouveau système unifié pour les autres catégories
-      if (window.SubmenuModule?.renderProjectsByCategory) {
-        window.SubmenuModule.renderProjectsByCategory(menu);
-      } else {
-        console.warn('[EventBindings] SubmenuModule non disponible, fallback sur ancien système');
-        // Fallback sur l'ancien système si le nouveau module n'est pas chargé
-        if (menu === 'mobilite') {
-          NavigationModule.renderMobiliteProjects();
-        } else if (menu === 'velo') {
-          NavigationModule.renderVeloProjects();
-        } else if (menu === 'urbanisme') {
-          NavigationModule.renderUrbanismeProjects();
-        }
-      }
+      console.error(`[EventBindings] SubmenuManager non disponible pour ${menu}`);
     }
   };
 
