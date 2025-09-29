@@ -530,7 +530,16 @@
   <script src="vendor/leaflet/leaflet.js"></script>
   <!-- Geoman removed: manual drawing only -->
   <!-- Chargement des scripts locaux -->
-   
+  
+  <!-- Nouveaux modules réorganisés -->
+  <script src="modules/analytics.js"></script>
+  <script src="modules/modalmanager.js"></script>
+  <script src="modules/appconfig.js"></script>
+  <script src="modules/thememanager.js"></script>
+  <script src="modules/citymanager.js"></script>
+  <script src="modules/filtermanager.js"></script>
+  
+  <!-- Modules existants -->
   <script src="modules/supabaseservice.js"></script>
   <script src="modules/mapmodule.js"></script>
   <script src="modules/filtermodule.js"></script>
@@ -544,6 +553,8 @@
   <script src="modules/navigationmodule.js"></script>
   <script src="modules/eventbindings.js"></script>
   <script src="modules/contrib.js"></script>
+  
+  <!-- Main simplifié -->
   <script src="main.js"></script>
   <!-- Toast container for accessible notifications -->
   <div id="toast-container" aria-live="polite" aria-atomic="false" role="region" aria-label="Notifications"
