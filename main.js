@@ -784,6 +784,13 @@
 
       // 2️⃣ Extraire les catégories UNIQUES présentes dans les contributions
       const categoriesWithData = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
+      
+      // Ajouter "travaux" si elle existe dans layers_config (couche legacy)
+      const travauxLayer = layersConfig.find(layer => layer.name === 'travaux');
+      if (travauxLayer && !categoriesWithData.includes('travaux')) {
+        categoriesWithData.push('travaux');
+      }
+      
       console.log('[Main] 📊 Catégories avec données:', categoriesWithData);
 
       // 3️⃣ Récupérer TOUTES les métadonnées des catégories (toutes les villes)
@@ -845,10 +852,20 @@
         } else {
           // Créer des métadonnées par défaut pour cette catégorie
           console.warn(`[Main] ⚠️ Pas d'icône définie pour "${category}", utilisation de l'icône par défaut`);
+          
+          // Icônes par défaut selon la catégorie
+          let defaultIcon = 'fa-solid fa-layer-group';
+          let defaultOrder = 100 + index;
+          
+          if (category === 'travaux') {
+            defaultIcon = 'fa-solid fa-helmet-safety';
+            defaultOrder = 99; // Après urbanisme(1), velo(3), mobilite(2)
+          }
+          
           return {
             category: category,
-            icon_class: 'fa-solid fa-layer-group', // Icône par défaut
-            display_order: 100 + index // Ordre par défaut
+            icon_class: defaultIcon,
+            display_order: defaultOrder
           };
         }
       });
