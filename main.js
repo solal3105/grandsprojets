@@ -171,23 +171,23 @@
           // En faisant une requête sans filtre de ville pour avoir toutes les icônes disponibles
           if (!city || city === 'default' || city === '') {
             try {
-              const { data } = await window.supabase.createClient(
-                'https://wqqsuybmyqemhojsamgq.supabase.co',
-                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0'
-              )
-                .from('category_icons')
-                .select('category, icon_class, display_order, ville')
-                .order('display_order', { ascending: true });
-              
-              if (data) {
-                // Ajouter toutes les icônes, en évitant les doublons
-                data.forEach(icon => {
-                  if (!allCategoryIconsFromDB.find(existing => 
-                    existing.category === icon.category && existing.ville === icon.ville
-                  )) {
-                    allCategoryIconsFromDB.push(icon);
-                  }
-                });
+              const client = window.supabaseService?.getClient();
+              if (client) {
+                const { data } = await client
+                  .from('category_icons')
+                  .select('category, icon_class, display_order, ville')
+                  .order('display_order', { ascending: true });
+                
+                if (data) {
+                  // Ajouter toutes les icônes, en évitant les doublons
+                  data.forEach(icon => {
+                    if (!allCategoryIconsFromDB.find(existing => 
+                      existing.category === icon.category && existing.ville === icon.ville
+                    )) {
+                      allCategoryIconsFromDB.push(icon);
+                    }
+                  });
+                }
               }
             } catch (e) {
               console.warn('[Main] ⚠️ Erreur fetch all category icons:', e);
@@ -471,79 +471,11 @@
 
       win.ThemeManager?.startOSThemeSync();
       
-      function handleLogoClick(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        let activeCategory = null;
-        const activeTab = document.querySelector('.nav-category.active');
-        if (activeTab) {
-          activeCategory = activeTab.id.replace('nav-', '');
-        }
-        
-        if (window.NavigationModule?.resetToDefaultView) {
-          window.NavigationModule.resetToDefaultView(activeCategory);
-        } else {
-        }
-        
-        return false;
-      }
+      // Initialiser les event listeners du logo
+      EventBindings.bindLogoClick();
       
-      const logoContainer = document.querySelector('#left-nav .logo');
-      
-      if (logoContainer) {
-        logoContainer.addEventListener('click', handleLogoClick, false);
-        
-        const logoImg = logoContainer.querySelector('img');
-        
-        if (logoImg) {
-          logoImg.style.pointerEvents = 'none';
-        }
-      }
-
-      const handleFeatureClick = (feature, layerName) => {
-        try {
-          const p = (feature && feature.properties) || {};
-          const projectName = p.project_name || p.name || p.Name || p.LIBELLE;
-          
-          if (!projectName) {
-            return;
-          }
-
-          const category = p.category || layerName;
-          
-          if (window.NavigationModule?.showSpecificContribution) {
-            window.NavigationModule.showSpecificContribution(projectName, category, p);
-          }
-          else if (window.UIModule?.showDetailPanel) {
-            window.UIModule.showDetailPanel(layerName, feature);
-          } 
-          else if (window.NavigationModule?.showProjectDetail) {
-            window.NavigationModule.showProjectDetail(projectName, category);
-          }
-          else {
-            const detailPanel = document.getElementById('project-detail');
-            const detailContent = document.getElementById('detail-content');
-            
-            if (detailPanel && detailContent) {
-              detailPanel.style.display = 'block';
-              detailPanel.dataset.category = category;
-              
-              detailContent.innerHTML = `# ${projectName}\n\nAucun détail disponible pour ce projet.`;
-            } else {
-            }
-          }
-        } catch (e) {
-        }
-      };
-      
-      window.getActiveCity = () => {
-        return win.CityManager?.parseCityFromPath(location.pathname) || 
-               win.CityManager?.getCityFromQuery('') || 
-               win.CityManager?.restoreCity() || 
-               win.activeCity || 
-               win.CityManager?.getDefaultCity();
-      };
+      // Exposer getActiveCity via CityManager
+      window.getActiveCity = () => win.CityManager?.getActiveCity() || '';
 
       function parseUrlState() {
         try {

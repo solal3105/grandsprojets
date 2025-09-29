@@ -447,6 +447,18 @@
         
         await this.renderCityMenu(activeCity);
       } catch (_) { /* noop */ }
+    },
+
+    /**
+     * Retourne la ville active en utilisant toutes les sources disponibles
+     * @returns {string} Ville active ou chaîne vide
+     */
+    getActiveCity() {
+      return this.parseCityFromPath(location.pathname) || 
+             this.getCityFromQuery('') || 
+             this.restoreCity() || 
+             win.activeCity || 
+             this.getDefaultCity();
     }
   };
 

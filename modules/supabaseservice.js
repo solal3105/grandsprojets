@@ -1361,6 +1361,14 @@
         window[prop] = results[i];
       });
       return out;
+    },
+
+    /**
+     * Expose le client Supabase pour usage interne
+     * @returns {Object} Client Supabase
+     */
+    getClient() {
+      return supabaseClient;
     }
   };
 })(window);

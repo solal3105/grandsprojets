@@ -167,9 +167,87 @@ const bindFilterControls = () => {
   // Appeler la fonction de binding après un court délai pour s'assurer que les éléments sont créés
   setTimeout(bindCategoryNavigation, 100);
 
+  /**
+   * Gère le clic sur le logo pour réinitialiser la vue
+   */
+  const handleLogoClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    let activeCategory = null;
+    const activeTab = document.querySelector('.nav-category.active');
+    if (activeTab) {
+      activeCategory = activeTab.id.replace('nav-', '');
+    }
+    
+    if (window.NavigationModule?.resetToDefaultView) {
+      window.NavigationModule.resetToDefaultView(activeCategory);
+    }
+    
+    return false;
+  };
+
+  /**
+   * Gère le clic sur une feature de la carte
+   */
+  const handleFeatureClick = (feature, layerName) => {
+    try {
+      const p = (feature && feature.properties) || {};
+      const projectName = p.project_name || p.name || p.Name || p.LIBELLE;
+      
+      if (!projectName) {
+        return;
+      }
+
+      const category = p.category || layerName;
+      
+      if (window.NavigationModule?.showSpecificContribution) {
+        window.NavigationModule.showSpecificContribution(projectName, category, p);
+      }
+      else if (window.UIModule?.showDetailPanel) {
+        window.UIModule.showDetailPanel(layerName, feature);
+      } 
+      else if (window.NavigationModule?.showProjectDetail) {
+        window.NavigationModule.showProjectDetail(projectName, category);
+      }
+      else {
+        const detailPanel = document.getElementById('project-detail');
+        const detailContent = document.getElementById('detail-content');
+        
+        if (detailPanel && detailContent) {
+          detailPanel.style.display = 'block';
+          detailPanel.dataset.category = category;
+          
+          detailContent.innerHTML = `# ${projectName}\n\nAucun détail disponible pour ce projet.`;
+        }
+      }
+    } catch (e) {
+      console.warn('[EventBindings] handleFeatureClick error:', e);
+    }
+  };
+
+  /**
+   * Initialise les event listeners du logo
+   */
+  const bindLogoClick = () => {
+    const logoContainer = document.querySelector('#left-nav .logo');
+    
+    if (logoContainer) {
+      logoContainer.addEventListener('click', handleLogoClick, false);
+      
+      const logoImg = logoContainer.querySelector('img');
+      if (logoImg) {
+        logoImg.style.pointerEvents = 'none';
+      }
+    }
+  };
+
   return {
     bindFilterControls,
-    handleNavigation
+    handleNavigation,
+    handleLogoClick,
+    handleFeatureClick,
+    bindLogoClick
   };
 })();
 
