@@ -459,6 +459,49 @@
              this.restoreCity() || 
              win.activeCity || 
              this.getDefaultCity();
+    },
+
+    /**
+     * Initialise et résout la ville active avec gestion de la persistance
+     * @returns {string} Ville active résolue
+     */
+    initializeActiveCity() {
+      const rawQueryCity = this.getRawCityFromQueryParam();
+      const rawPathCity = this.getRawCityFromPathRaw();
+      const spForDetect = new URLSearchParams(location.search);
+      const cityParamPresent = spForDetect.has('city');
+      const rawCityExact = String(spForDetect.get('city') || '').toLowerCase().trim();
+      const explicitNoCity = cityParamPresent && (rawCityExact === '' || rawCityExact === 'default');
+      
+      // Nettoyer si ville invalide
+      if ((rawQueryCity && !this.isValidCity(rawQueryCity)) || 
+          (rawPathCity && !this.isValidCity(rawPathCity))) {
+        this.clearPersistedCity();
+      }
+
+      let city = this.resolveActiveCity();
+      
+      // Forcer absence de ville si explicitement demandé
+      if (explicitNoCity) {
+        city = '';
+        win.activeCity = '';
+        try { this.clearPersistedCity(); } catch (_) {}
+      } else {
+        win.activeCity = city;
+      }
+      
+      // Gérer la persistance
+      try {
+        if (!explicitNoCity) {
+          if (city && this.isValidCity(city)) {
+            if (this.restoreCity() !== city) this.persistCity(city);
+          } else {
+            this.clearPersistedCity();
+          }
+        }
+      } catch (_) {}
+      
+      return city;
     }
   };
 

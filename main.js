@@ -1,26 +1,48 @@
-// main.js
-// Version globale sans modules ES, utilisant window.supabaseService
+// ============================================================================
+// main.js - Point d'entrée principal de l'application
+// ============================================================================
+// Orchestration de l'initialisation de l'application :
+// - Gestion des villes et du branding
+// - Chargement des données depuis Supabase
+// - Création dynamique des menus de navigation
+// - Initialisation des modules (carte, filtres, recherche, etc.)
+// - Gestion du routing et de l'historique
+// ============================================================================
+
 ;(function(win) {
-  // Vérifie que supabaseService est bien chargé
+  'use strict';
+
+  // ============================================================================
+  // VALIDATION DES DÉPENDANCES
+  // ============================================================================
+  
   if (!win.supabaseService) {
-    console.error('supabaseService manquant : assurez-vous de charger supabaseService.js avant main.js');
+    console.error('[Main] supabaseService manquant : assurez-vous de charger supabaseService.js avant main.js');
     return;
   }
 
-  // Récupérer supabaseService sans perdre le contexte `this`
   const supabaseService = win.supabaseService;
 
+  // ============================================================================
+  // FONCTION PRINCIPALE D'INITIALISATION
+  // ============================================================================
+  
   async function initApp() {
     try {
-      // Initialiser les modules
+      // --------------------------------------------------------------------------
+      // PHASE 1 : Initialisation des modules de base
+      // --------------------------------------------------------------------------
+      
       win.AnalyticsModule?.init();
       win.AppConfig?.init();
       win.ThemeManager?.init();
-      
-      // Charger dynamiquement la liste des villes valides avant de résoudre la ville active
       await win.CityManager?.loadValidCities();
 
-      // Rediriger /<city> -> base index avec ?city=<city>
+      // --------------------------------------------------------------------------
+      // PHASE 2 : Gestion de la ville active
+      // --------------------------------------------------------------------------
+      
+      // Redirection automatique : /lyon -> /?city=lyon
       (function maybeRedirectCityPathToQuery() {
         try {
           const path = String(location.pathname || '/');
@@ -43,43 +65,16 @@
         } catch (_) { /* noop */ }
       })();
 
-      // Déterminer la ville active
-      const rawQueryCity = win.CityManager?.getRawCityFromQueryParam();
-      const rawPathCity  = win.CityManager?.getRawCityFromPathRaw();
-      const spForDetect = new URLSearchParams(location.search);
-      const cityParamPresent = spForDetect.has('city');
-      const rawCityExact = String(spForDetect.get('city') || '').toLowerCase().trim();
-      const explicitNoCity = cityParamPresent && (rawCityExact === '' || rawCityExact === 'default');
+      // Résolution et initialisation de la ville active
+      const city = win.CityManager?.initializeActiveCity() || '';
       
-      if ((rawQueryCity && !win.CityManager?.isValidCity(rawQueryCity)) || 
-          (rawPathCity && !win.CityManager?.isValidCity(rawPathCity))) {
-        win.CityManager?.clearPersistedCity();
-      }
-
-      let city = win.CityManager?.resolveActiveCity();
-      if (explicitNoCity) {
-        city = '';
-        win.activeCity = '';
-        try { win.CityManager?.clearPersistedCity(); } catch (_) {}
-      } else {
-        win.activeCity = city;
-      }
-      
-      try {
-        if (!explicitNoCity) {
-          if (city && win.CityManager?.isValidCity(city)) {
-            if (win.CityManager?.restoreCity() !== city) win.CityManager?.persistCity(city);
-          } else {
-            win.CityManager?.clearPersistedCity();
-          }
-        }
-      } catch (_) {}
-      
-      // Update logos et UI
+      // Appliquer le branding de la ville (logos, favicon)
       await win.CityManager?.updateLogoForCity(city);
       await win.CityManager?.initCityToggleUI(city);
 
-      // 1️⃣ Charger toutes les données en une seule fois (contexte préservé)
+      // --------------------------------------------------------------------------
+      // PHASE 3 : Chargement des données depuis Supabase
+      // --------------------------------------------------------------------------
       const {
         layersConfig,
         metroColors,
@@ -87,10 +82,15 @@
         basemaps: remoteBasemaps
       } = await supabaseService.initAllData(city);
 
-      // Rendre les couleurs de lignes métro disponibles
+      // --------------------------------------------------------------------------
+      // PHASE 4 : Configuration de la carte et des couches
+      // --------------------------------------------------------------------------
+      
+      // Configuration globale
       window.dataConfig = window.dataConfig || {};
       window.dataConfig.metroColors = metroColors;
-      // Mettre à jour les fonds de carte via UIModule (filtrés par ville si applicable)
+      
+      // Basemaps filtrés par ville
       const basemapsToUse = (remoteBasemaps && remoteBasemaps.length > 0) ? remoteBasemaps : window.basemaps;
       const basemapsForCity = (basemapsToUse || []).filter(b => !b || !('ville' in b) || !b.ville || b.ville === city);
 
@@ -98,22 +98,21 @@
         window.UIModule.updateBasemaps(basemapsForCity);
       }
       
+      // Initialisation de la carte
       window.MapModule.initBaseLayer();
       const currentTheme = document.documentElement.getAttribute('data-theme') || win.ThemeManager?.getInitialTheme() || 'light';
       win.ThemeManager?.syncBasemapToTheme(currentTheme);
       win.CityManager?.applyCityInitialView(city);
       
+      // Géolocalisation
       if (window.GeolocationModule) {
         window.GeolocationModule.init(window.MapModule.map);
       }
-      const {
-        DataModule,
-        MapModule,
-        EventBindings,
-        NavigationModule
-      } = win;
+      
+      // Références aux modules
+      const { DataModule, MapModule, EventBindings } = win;
 
-      // Construire les maps de couches
+      // Construction des mappings de couches
       const urlMap        = {};
       const styleMap      = {};
       const defaultLayers = [];
@@ -132,11 +131,12 @@
       DataModule.initConfig({ city, urlMap, styleMap, defaultLayers });
       defaultLayers.forEach(layer => DataModule.loadLayer(layer));
 
-      // ========================================
-      // LOGIQUE DATA-DRIVEN : Les contributions dictent les menus
-      // ========================================
+      // --------------------------------------------------------------------------
+      // PHASE 5 : Création dynamique des menus (data-driven)
+      // --------------------------------------------------------------------------
+      // Les contributions de la base dictent quels menus afficher
       
-      // 1️⃣ Charger TOUTES les contributions de la ville
+      // Étape 1 : Charger toutes les contributions
       let allContributions = [];
       try {
         if (window.supabaseService?.fetchAllProjects) {
@@ -148,7 +148,7 @@
         console.error('[Main] ❌ Erreur fetchAllProjects:', err);
       }
 
-      // 2️⃣ Extraire les catégories UNIQUES présentes dans les contributions
+      // Étape 2 : Extraire les catégories uniques
       const categoriesWithData = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
       
       // Ajouter "travaux" si elle existe dans layers_config (couche legacy)
@@ -159,7 +159,7 @@
       
       console.log('[Main] 📊 Catégories avec données:', categoriesWithData);
 
-      // 3️⃣ Récupérer TOUTES les métadonnées des catégories (toutes les villes)
+      // Étape 3 : Récupérer les métadonnées des catégories (icônes, ordre)
       let allCategoryIconsFromDB = [];
       try {
         if (window.supabaseService?.fetchCategoryIcons) {
@@ -198,8 +198,8 @@
         console.warn('[Main] ⚠️ Erreur fetch category icons:', e);
       }
 
-      // 4️⃣ Créer les métadonnées pour TOUTES les catégories avec données
-      // Chercher l'icône appropriée : ville spécifique > EMPTY > défaut
+      // Étape 4 : Créer les métadonnées complètes
+      // Priorité : icône ville spécifique > icône globale > icône par défaut
       const activeCategoryIcons = categoriesWithData.map((category, index) => {
         // Chercher d'abord pour la ville active
         let existingIcon = allCategoryIconsFromDB.find(icon => 
@@ -243,7 +243,7 @@
       
       win.categoryIcons = activeCategoryIcons;
 
-      // 5️⃣ Construire le mapping catégorie -> couches
+      // Étape 5 : Construire le mapping catégorie → couches
       win.categoryLayersMap = {};
       activeCategoryIcons.forEach(({ category }) => {
         const matchingLayers = layersConfig
@@ -253,7 +253,7 @@
         win.categoryLayersMap[category] = matchingLayers.length > 0 ? matchingLayers : [category];
       });
 
-      // 6️⃣ Exposer les fonctions helper
+      // Étape 6 : Exposer les fonctions helper globales
       win.getAllCategories = () => {
         return (win.categoryIcons || []).map(c => c.category);
       };
@@ -267,7 +267,7 @@
         return allCategories.includes(layerName);
       };
 
-      // 7️⃣ Créer les menus UNIQUEMENT pour les catégories actives
+      // Étape 7 : Créer le DOM des menus de navigation
       const categoriesContainer = document.getElementById('dynamic-categories');
       const submenusContainer = document.getElementById('dynamic-submenus');
       
@@ -329,7 +329,7 @@
         console.log('[Main] 🔗 Event listeners attachés aux menus');
       }
 
-      // 8️⃣ Grouper les contributions par catégorie et charger les couches
+      // Étape 8 : Grouper les contributions par catégorie
       const contributionsByCategory = {};
       allContributions.forEach(contrib => {
         const cat = contrib.category;
@@ -341,7 +341,7 @@
         }
       });
       
-      // 9️⃣ Charger une couche par catégorie (préserve les styles de la table layers)
+      // Étape 9 : Charger les couches GeoJSON
       for (const [category, contribs] of Object.entries(contributionsByCategory)) {
         if (contribs.length > 0) {
           try {
@@ -354,23 +354,29 @@
         }
       }
 
-      // Initialiser les filtres
+      // --------------------------------------------------------------------------
+      // PHASE 6 : Initialisation des modules UI
+      // --------------------------------------------------------------------------
+      
       await win.FilterManager?.init();
 
       if (DataModule.preloadLayer) {
         Object.keys(urlMap).forEach(layer => DataModule.preloadLayer(layer));
       }
+      
       EventBindings.bindFilterControls();
       
       if (window.UIModule?.init) {
-        window.UIModule.init({
-          basemaps: basemapsForCity
-        });
+        window.UIModule.init({ basemaps: basemapsForCity });
       }
       
       if (window.SearchModule?.init) {
         window.SearchModule.init(window.MapModule.map);
       }
+      
+      // --------------------------------------------------------------------------
+      // PHASE 7 : Event listeners des contrôles UI
+      // --------------------------------------------------------------------------
       
       const filtersToggle = document.getElementById('filters-toggle');
       const basemapToggle = document.getElementById('basemap-toggle');
@@ -390,68 +396,21 @@
         });
       }
 
-      const infoToggle    = document.getElementById('info-toggle');
-      const aboutOverlay  = document.getElementById('about-overlay');
-      const aboutClose    = document.getElementById('about-close');
-      const aboutModal    = aboutOverlay ? aboutOverlay.querySelector('.gp-modal') : null;
-      let aboutLastFocus  = null;
-      let aboutCloseTimer = null;
-
-      const closeAbout = () => {
-        if (!aboutOverlay) return;
-        if (aboutCloseTimer) { clearTimeout(aboutCloseTimer); aboutCloseTimer = null; }
-        if (aboutModal) aboutModal.classList.remove('is-open');
-        aboutOverlay.setAttribute('aria-hidden', 'true');
-        document.removeEventListener('keydown', escHandler);
-        document.body.style.overflow = '';
-        aboutCloseTimer = setTimeout(() => {
-          aboutOverlay.style.display = 'none';
-          if (aboutLastFocus && typeof aboutLastFocus.focus === 'function') {
-            try { aboutLastFocus.focus(); } catch (_) {}
-          }
-        }, 180);
-      };
-
-      const openAbout = () => {
-        if (!aboutOverlay) return;
-        if (aboutCloseTimer) { clearTimeout(aboutCloseTimer); aboutCloseTimer = null; }
-        aboutLastFocus = document.activeElement;
-        aboutOverlay.style.display = 'flex';
-        aboutOverlay.setAttribute('aria-hidden', 'false');
-        document.body.style.overflow = 'hidden';
-        requestAnimationFrame(() => {
-          if (aboutModal) aboutModal.classList.add('is-open');
-        });
-        if (aboutClose && typeof aboutClose.focus === 'function') {
-          try { aboutClose.focus(); } catch (_) {}
-        }
-        document.addEventListener('keydown', escHandler);
-      };
-
-      const escHandler = (e) => {
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          closeAbout();
-        }
-      };
-
+      // Modale "À propos" (utilise ModalManager)
+      const infoToggle = document.getElementById('info-toggle');
+      const aboutClose = document.getElementById('about-close');
+      
       if (infoToggle) {
         infoToggle.addEventListener('click', (e) => {
           e.stopPropagation();
-          openAbout();
+          win.ModalManager?.open('about-overlay');
         });
       }
+      
       if (aboutClose) {
         aboutClose.addEventListener('click', (e) => {
           e.stopPropagation();
-          closeAbout();
-        });
-      }
-      if (aboutOverlay) {
-        aboutOverlay.addEventListener('click', (e) => {
-          if (e.target === aboutOverlay) {
-            closeAbout();
-          }
+          win.ModalManager?.close('about-overlay');
         });
       }
       
@@ -469,14 +428,22 @@
         });
       }
 
+      // Synchronisation automatique du thème avec l'OS
       win.ThemeManager?.startOSThemeSync();
       
-      // Initialiser les event listeners du logo
+      // Event listener du logo (retour à la vue par défaut)
       EventBindings.bindLogoClick();
       
-      // Exposer getActiveCity via CityManager
+      // Exposer l'API globale
       window.getActiveCity = () => win.CityManager?.getActiveCity() || '';
 
+      // --------------------------------------------------------------------------
+      // PHASE 8 : Gestion du routing et de l'historique
+      // --------------------------------------------------------------------------
+
+      /**
+       * Parse l'état de l'URL (?cat=...&project=...)
+       */
       function parseUrlState() {
         try {
           const sp = new URLSearchParams(location.search);
@@ -488,6 +455,9 @@
         }
       }
 
+      /**
+       * Affiche un projet depuis l'état de l'URL
+       */
       async function showFromUrlState({ cat, project }) {
         if (!cat || !project) return false;
         
@@ -506,17 +476,25 @@
             }
           }
         } catch (e) {
+          console.warn('[Main] Erreur showFromUrlState:', e);
         }
         
         return false;
       }
+      
+      // Afficher le projet initial si présent dans l'URL
       try {
         const initial = parseUrlState();
         if (initial) {
           await showFromUrlState(initial);
         }
-      } catch (_) { /* noop */ }
+      } catch (e) {
+        console.warn('[Main] Erreur affichage projet initial:', e);
+      }
 
+      /**
+       * Gestion de la navigation (boutons précédent/suivant du navigateur)
+       */
       window.addEventListener('popstate', async (e) => {
         try {
           const nextCity = win.CityManager?.resolveActiveCity();
@@ -555,10 +533,16 @@
           }
         } catch (_) { /* noop */ }
       });
-    } catch (err) {}
+    } catch (err) {
+      console.error('[Main] Erreur lors de l\'initialisation:', err);
+    }
   }
 
-  // Fallback de sécurité: déléguer le clic sur #city-toggle
+  // ============================================================================
+  // FALLBACKS ET BOOTSTRAP
+  // ============================================================================
+  
+  // Fallback de sécurité pour le sélecteur de ville
   try {
     document.addEventListener('click', function(e) {
       const btn = e.target && (e.target.id === 'city-toggle' ? e.target : e.target.closest && e.target.closest('#city-toggle'));
@@ -571,10 +555,10 @@
     }, true);
   } catch (_) {}
 
+  // Bootstrap de l'application
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initApp);
   } else {
-    // Le DOM est déjà chargé
     initApp();
   }
 })(window);

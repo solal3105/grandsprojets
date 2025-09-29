@@ -43,6 +43,14 @@
         } catch (_) {} 
       }
 
+      // Ajouter la classe is-open pour l'animation
+      const modal = overlay.querySelector('.gp-modal');
+      if (modal) {
+        requestAnimationFrame(() => {
+          modal.classList.add('is-open');
+        });
+      }
+
       // Focus sur le bouton de fermeture si présent
       try { 
         const closeBtn = overlay.querySelector('#' + id.replace('-overlay', '') + '-close') || 
@@ -82,6 +90,12 @@
       const overlay = el(id);
       if (!overlay) return;
 
+      // Retirer la classe is-open pour l'animation
+      const modal = overlay.querySelector('.gp-modal');
+      if (modal) {
+        modal.classList.remove('is-open');
+      }
+
       // Si le focus est dans la modale, le déplacer vers le body
       try { 
         if (overlay.contains(document.activeElement)) { 
@@ -89,8 +103,11 @@
         } 
       } catch(_) {}
 
-      overlay.style.display = 'none';
-      overlay.setAttribute('aria-hidden', 'true');
+      // Attendre la fin de l'animation avant de masquer
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        overlay.setAttribute('aria-hidden', 'true');
+      }, 180);
 
       const idx = stack.findIndex(x => x.id === id);
       if (idx >= 0) stack.splice(idx, 1);
