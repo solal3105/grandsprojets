@@ -2,12 +2,7 @@
 // Système unifié pour la construction des sous-menus basé uniquement sur contribution_uploads
 const SubmenuModule = (() => {
 
-  // Configuration des icônes par catégorie (codé en dur pour le moment)
-  const CATEGORY_ICONS = {
-    'velo': 'fa-bicycle',
-    'mobilite': 'fa-train-tram', 
-    'urbanisme': 'fa-building'
-  };
+  // Icônes: désormais pilotées par la DB via window.categoryConfig[cat].icon (voir main.js)
 
   // Fonction pour récupérer le label d'une catégorie depuis la source unique
   function getCategoryLabel(category) {
@@ -210,22 +205,13 @@ const SubmenuModule = (() => {
     let pcClass = 'pc-default';
     
     // Déterminer l'icône et la classe de couleur selon la catégorie
-    switch (category) {
-      case 'mobilite':
-        iconClass = "fas fa-train-tram";
-        pcClass = 'pc-tram';
-        break;
-      case 'velo':
-        iconClass = "fas fa-bicycle";
-        pcClass = 'pc-velo';
-        break;
-      case 'urbanisme':
-        iconClass = "fas fa-building";
-        pcClass = 'pc-urbanisme';
-        break;
-      default:
-        iconClass = "fas fa-map";
-        pcClass = 'pc-default';
+    {
+      const cfgIcon = (window.categoryConfig && window.categoryConfig[category] && window.categoryConfig[category].icon) || '';
+      iconClass = cfgIcon;
+      if (category === 'velo') pcClass = 'pc-velo';
+      else if (category === 'urbanisme') pcClass = 'pc-urbanisme';
+      else if (category === 'mobilite') pcClass = 'pc-tram';
+      else pcClass = 'pc-default';
     }
     
     const li = document.createElement('li');
@@ -389,8 +375,7 @@ const SubmenuModule = (() => {
    */
   async function initializeAllSubmenus() {
     console.log('[SubmenuModule] Initialisation de tous les sous-menus');
-    
-    const categories = Object.keys(CATEGORY_ICONS);
+    const categories = Object.keys(window.categoryConfig || {});
     
     for (const category of categories) {
       try {
@@ -406,11 +391,6 @@ const SubmenuModule = (() => {
    * @param {string} category - Catégorie à mettre à jour
    */
   async function updateSubmenu(category) {
-    if (!CATEGORY_ICONS[category]) {
-      console.warn(`[SubmenuModule] Catégorie non supportée: ${category}`);
-      return;
-    }
-    
     await renderProjectsByCategory(category);
   }
 
@@ -420,11 +400,10 @@ const SubmenuModule = (() => {
   function clearAllSubmenus() {
     console.log('[SubmenuModule] Nettoyage de tous les sous-menus');
     
-    Object.keys(CATEGORY_ICONS).forEach(category => {
-      const projectList = document.getElementById(`${category}-project-list`);
-      if (projectList) {
-        projectList.innerHTML = '';
-      }
+    (Object.keys(window.categoryConfig || {})).forEach(category => {
+      const container = document.getElementById(`${category}-submenu`);
+      const projectList = container && container.querySelector('.project-list');
+      if (projectList) projectList.innerHTML = '';
     });
   }
 
@@ -434,7 +413,6 @@ const SubmenuModule = (() => {
     initializeAllSubmenus,
     updateSubmenu,
     clearAllSubmenus,
-    CATEGORY_ICONS,
     getCategoryLabel
   };
 })();

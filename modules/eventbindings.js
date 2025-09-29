@@ -137,53 +137,35 @@ const bindFilterControls = () => {
   }); */
 };
 
-  // Récupération des boutons de navigation
-  const navMobilite = document.getElementById('nav-mobilite');
-  const navVelo = document.getElementById('nav-velo');
-  const navUrbanisme = document.getElementById('nav-urbanisme');
-  const navTravaux = document.getElementById('nav-travaux');
-
-  navMobilite.addEventListener('click', () => {
-    // Appeler la navigation pour Mobilité
-    const mobiliteLayers = (window.CATEGORY_DEFAULT_LAYERS && window.CATEGORY_DEFAULT_LAYERS.mobilite)
-      || ['metroFuniculaire', 'tramway', 'mobilite'];
-    EventBindings.handleNavigation('mobilite', mobiliteLayers);
-    // Afficher le sous-menu mobilite et masquer les autres
-    document.getElementById('mobilite-submenu').style.display = 'block';
-    document.getElementById('velo-submenu').style.display = 'none';
-    document.getElementById('urbanisme-submenu').style.display = 'none';
-    document.getElementById('travaux-submenu').style.display = 'none';
-  });
-
-  navVelo.addEventListener('click', () => {
-    const veloLayers = (window.CATEGORY_DEFAULT_LAYERS && window.CATEGORY_DEFAULT_LAYERS.velo)
-      || ['velo']; // Utiliser directement la catégorie
-    EventBindings.handleNavigation('velo', veloLayers);
-    document.getElementById('velo-submenu').style.display = 'block';
-    document.getElementById('mobilite-submenu').style.display = 'none';
-    document.getElementById('urbanisme-submenu').style.display = 'none';
-    document.getElementById('travaux-submenu').style.display = 'none';
-  });
-
-  navUrbanisme.addEventListener('click', () => {
-    const urbLayers = (window.CATEGORY_DEFAULT_LAYERS && window.CATEGORY_DEFAULT_LAYERS.urbanisme)
-      || ['urbanisme'];
-    EventBindings.handleNavigation('urbanisme', urbLayers);
-    document.getElementById('urbanisme-submenu').style.display = 'block';
-    document.getElementById('mobilite-submenu').style.display = 'none';
-    document.getElementById('velo-submenu').style.display = 'none';
-    document.getElementById('travaux-submenu').style.display = 'none';
-  });
-
-  navTravaux.addEventListener('click', () => {
-    const trvxLayers = (window.CATEGORY_DEFAULT_LAYERS && window.CATEGORY_DEFAULT_LAYERS.travaux)
-      || ['travaux'];
-    EventBindings.handleNavigation('travaux', trvxLayers);
-    document.getElementById('travaux-submenu').style.display = 'block';
-    document.getElementById('mobilite-submenu').style.display = 'none';
-    document.getElementById('velo-submenu').style.display = 'none';
-    document.getElementById('urbanisme-submenu').style.display = 'none';
-  });
+  // Gestion dynamique des boutons de navigation basée sur categoryIcons
+  function bindCategoryNavigation() {
+    const categoryIcons = window.categoryIcons || [];
+    const categoryLayersMap = window.categoryLayersMap || {};
+    
+    categoryIcons.forEach(({ category }) => {
+      const navButton = document.getElementById(`nav-${category}`);
+      if (!navButton) return;
+      
+      navButton.addEventListener('click', () => {
+        // Récupérer les couches associées à cette catégorie
+        const categoryLayers = categoryLayersMap[category] || [category];
+        EventBindings.handleNavigation(category, categoryLayers);
+        
+        // Afficher le sous-menu de cette catégorie et masquer les autres
+        document.querySelectorAll('.submenu').forEach(submenu => {
+          submenu.style.display = 'none';
+        });
+        
+        const targetSubmenu = document.getElementById(`${category}-submenu`);
+        if (targetSubmenu) {
+          targetSubmenu.style.display = 'block';
+        }
+      });
+    });
+  }
+  
+  // Appeler la fonction de binding après un court délai pour s'assurer que les éléments sont créés
+  setTimeout(bindCategoryNavigation, 100);
 
   return {
     bindFilterControls,

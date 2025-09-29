@@ -17,7 +17,10 @@ const NavigationModule = (() => {
       .trim()
       .toLowerCase();
   }
-  const CONTRIBUTION_LAYERS = ['urbanisme', 'velo', 'mobilite'];
+  // Fonction helper pour obtenir les catégories de contribution dynamiquement
+  const getContributionLayers = () => {
+    return (typeof window.getAllCategories === 'function') ? window.getAllCategories() : [];
+  };
 
   function normalizeCategoryName(category) {
     return (category === 'transport') ? 'mobilite' : category;
@@ -119,9 +122,10 @@ const NavigationModule = (() => {
     event.stopPropagation();
   }
   
-  const submenus = ['velo', 'mobilite', 'urbanisme'];
-  submenus.forEach(id => {
-    const el = document.getElementById(`${id}-submenu`);
+  // Récupérer dynamiquement les sous-menus depuis les catégories
+  const allCategories = getContributionLayers();
+  allCategories.forEach(category => {
+    const el = document.getElementById(`${category}-submenu`);
     if (el) {
       el.style.display = 'none';
     }
@@ -457,7 +461,7 @@ const NavigationModule = (() => {
     // Si une catégorie est spécifiée, afficher uniquement le sous-menu correspondant
     if (category) {
       // Définir les couches à afficher en fonction de la catégorie
-      const layersToDisplay = (window.CATEGORY_DEFAULT_LAYERS && window.CATEGORY_DEFAULT_LAYERS[category]) || [];
+      const layersToDisplay = (window.categoryLayersMap && window.categoryLayersMap[category]) || [category];
       
       // Masquer tous les sous-menus d'abord
       document.querySelectorAll('.submenu').forEach(menu => {

@@ -71,40 +71,15 @@
       <div class="logo">
           <img src="img/logo.svg" alt="GrandsProjet.fr" />
         </div>
-      <button class="nav-category" id="nav-mobilite">
-        <i class="fa-solid fa-bus" aria-hidden="true"></i>
-        <span class="label">Mobilité</span>
-      </button>
-      <button class="nav-category" id="nav-velo">
-        <i class="fa-solid fa-bicycle" aria-hidden="true"></i>
-        <span class="label">Vélo</span>
-      </button>
-      <button class="nav-category" id="nav-urbanisme">
-        <i class="fa-solid fa-city" aria-hidden="true"></i>
-        <span class="label">Urbanisme</span>
-      </button>
-      <button class="nav-category" id="nav-travaux">
-        <i class="fa-solid fa-person-digging" aria-hidden="true"></i>
-        <span class="label">travaux</span>
-      </button>
+      <!-- Catégories dynamiques générées depuis category_icons -->
+      <div id="dynamic-categories"></div>
       <!-- Bouton contribution -->
       <button class="nav-category" id="nav-contribute" aria-label="Proposer une contribution" title="Proposer une contribution">
         <i class="fa-solid fa-plus" aria-hidden="true"></i>
         <span class="label">contribuer</span>
       </button>
-      <!-- Sous-menus -->
-      <div id="mobilite-submenu" class="submenu">
-        <ul class="project-list" id="mobilite-project-list"></ul>
-          </div>
-      <div id="velo-submenu" class="submenu">
-        <ul class="project-list" id="velo-project-list"></ul>
-        </div>
-      <div id="urbanisme-submenu" class="submenu">
-        <ul class="project-list" id="urbanisme-project-list"></ul>
-      </div>
-      <div id="travaux-submenu" class="submenu" style="display:none">
-        <ul class="project-list" id="travaux-project-list"></ul>
-      </div>
+      <!-- Sous-menus dynamiques -->
+      <div id="dynamic-submenus"></div>
   </div>
 
   <!-- Contribution modal -->

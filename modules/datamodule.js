@@ -235,8 +235,10 @@ const simpleCache = {
     // Enrichit les features d'une couche avec properties.imgUrl si possible
     async function injectImgUrlsToFeatures(layerName, data) {
       try {
-        // Ne traiter que les couches pertinentes
-        const supported = ['velo', 'urbanisme', 'mobilite'];
+        // Ne traiter que les couches pertinentes (catégories dynamiques)
+        const supported = (typeof window.getAllCategories === 'function') 
+          ? window.getAllCategories() 
+          : [];
         if (!supported.includes(layerName)) return data;
   
         // Récupération de la liste de features selon la forme du GeoJSON
@@ -327,8 +329,10 @@ const simpleCache = {
         ? `<div class=\"gp-card-media\"><img src=\"${esc(imgUrl)}\" alt=\"${titleHtml || 'Illustration'}\"/></div>`
         : `<div class=\"gp-card-media gp-card-media--placeholder\"></div>`;
   
-      // Afficher un petit CTA uniquement pour les couches cliquables
-      const clickableLayers = ['velo', 'urbanisme', 'mobilite'];
+      // Afficher un petit CTA uniquement pour les couches cliquables (catégories dynamiques)
+      const clickableLayers = (typeof window.getAllCategories === 'function') 
+        ? window.getAllCategories() 
+        : [];
       const showCta = clickableLayers.includes(layerName);
   
       return `
@@ -1211,67 +1215,61 @@ const simpleCache = {
       
       // Utilisation du cache
       return simpleCache.get(cacheKey, async () => {
-        // Couches de contributions (chargées depuis contribution_uploads)
-        const contributionCategories = ['urbanisme', 'velo', 'mobilite'];
+        // Vérifier si c'est une couche de contributions (stockée temporairement)
+        const contributionProjects = window[`contributions_${layerName}`];
         
-        if (contributionCategories.includes(layerName)) {
-          // Charger depuis contribution_uploads
-          if (window.supabaseService?.fetchProjectsByCategory) {
-            try {
-              const contributionProjects = await window.supabaseService.fetchProjectsByCategory(layerName);
-              
-              // Construire un FeatureCollection depuis contribution_uploads
-              const features = [];
-              
-              for (const project of contributionProjects) {
-                if (project.geojson_url) {
-                  try {
-                    const geoResponse = await fetch(project.geojson_url);
-                    if (geoResponse.ok) {
-                      const geoData = await geoResponse.json();
-                      
-                      // Traiter selon le type de GeoJSON
-                      if (geoData.type === 'FeatureCollection' && geoData.features) {
-                        // Enrichir chaque feature avec les métadonnées du projet
-                        geoData.features.forEach(feature => {
-                          if (!feature.properties) feature.properties = {};
-                          // Injecter les métadonnées directement dans les properties
-                          feature.properties.project_name = project.project_name;
-                          feature.properties.category = project.category;
-                          feature.properties.cover_url = project.cover_url;
-                          feature.properties.description = project.description;
-                          feature.properties.markdown_url = project.markdown_url;
-                          feature.properties.imgUrl = project.cover_url; // Pour compatibilité tooltip
-                        });
-                        features.push(...geoData.features);
-                      } else if (geoData.type === 'Feature') {
-                        // Feature unique
-                        if (!geoData.properties) geoData.properties = {};
-                        geoData.properties.project_name = project.project_name;
-                        geoData.properties.category = project.category;
-                        geoData.properties.cover_url = project.cover_url;
-                        geoData.properties.description = project.description;
-                        geoData.properties.markdown_url = project.markdown_url;
-                        geoData.properties.imgUrl = project.cover_url;
-                        features.push(geoData);
-                      }
-                    }
-                  } catch (error) {
+        if (contributionProjects && Array.isArray(contributionProjects)) {
+          console.log(`[DataModule] Chargement contributions pour "${layerName}":`, contributionProjects.length, 'projets');
+          
+          // Construire un FeatureCollection depuis contribution_uploads
+          const features = [];
+          
+          for (const project of contributionProjects) {
+            if (project.geojson_url) {
+              try {
+                const geoResponse = await fetch(project.geojson_url);
+                if (geoResponse.ok) {
+                  const geoData = await geoResponse.json();
+                  
+                  // Traiter selon le type de GeoJSON
+                  if (geoData.type === 'FeatureCollection' && geoData.features) {
+                    // Enrichir chaque feature avec les métadonnées du projet
+                    geoData.features.forEach(feature => {
+                      if (!feature.properties) feature.properties = {};
+                      // Injecter les métadonnées directement dans les properties
+                      feature.properties.project_name = project.project_name;
+                      feature.properties.category = project.category;
+                      feature.properties.cover_url = project.cover_url;
+                      feature.properties.description = project.description;
+                      feature.properties.markdown_url = project.markdown_url;
+                      feature.properties.imgUrl = project.cover_url; // Pour compatibilité tooltip
+                    });
+                    features.push(...geoData.features);
+                  } else if (geoData.type === 'Feature') {
+                    // Feature unique
+                    if (!geoData.properties) geoData.properties = {};
+                    geoData.properties.project_name = project.project_name;
+                    geoData.properties.category = project.category;
+                    geoData.properties.cover_url = project.cover_url;
+                    geoData.properties.description = project.description;
+                    geoData.properties.markdown_url = project.markdown_url;
+                    geoData.properties.imgUrl = project.cover_url;
+                    features.push(geoData);
                   }
                 }
+              } catch (error) {
+                console.warn(`[DataModule] Erreur chargement GeoJSON pour ${project.project_name}:`, error);
               }
-              
-              if (features.length > 0) {
-                return {
-                  type: 'FeatureCollection',
-                  features: features
-                };
-              }
-            } catch (error) {
-              }
+            }
           }
           
-          return { type: 'FeatureCollection', features: [] };
+          // Nettoyer la variable temporaire après utilisation
+          delete window[`contributions_${layerName}`];
+          
+          return {
+            type: 'FeatureCollection',
+            features: features
+          };
         } else {
           // Couches legacy (tramway, métro, etc.) - charger depuis les fichiers GeoJSON
           const url = urlMap[layerName];
@@ -1297,8 +1295,10 @@ const simpleCache = {
     function createGeoJsonLayer(layerName, data) {
       const criteria = FilterModule.get(layerName);
       
-      // Définir les couches cliquables
-      const clickableLayers = ['velo', 'mobilite', 'urbanisme'];
+      // Définir les couches cliquables (catégories dynamiques)
+      const clickableLayers = (typeof window.getAllCategories === 'function') 
+        ? window.getAllCategories() 
+        : [];
       const isClickable = clickableLayers.includes(layerName);
       
       // Créer un panneau personnalisé pour les couches cliquables

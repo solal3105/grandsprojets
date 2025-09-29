@@ -54,16 +54,22 @@ const TravauxModule = (() => {
     // Always start expanded for Travaux when rendered
     resetSubmenuExpanded('travaux-submenu');
 
-    // Simple exclusivity safeguard: ensure only Travaux-related layers remain visible
-    // This prevents timing issues when opening the Travaux menu without a full reset
+    // Simple exclusivity safeguard: ensure only category-related layers remain visible
+    // This prevents timing issues when opening the menu without a full reset
     try {
-      const layersToDisplay = (window.CATEGORY_DEFAULT_LAYERS && window.CATEGORY_DEFAULT_LAYERS['travaux']) || ['travaux'];
-      if (window.MapModule && window.MapModule.layers) {
-        Object.keys(window.MapModule.layers).forEach(layerName => {
-          if (!layersToDisplay.includes(layerName)) {
-            try { window.MapModule.removeLayer(layerName); } catch(_) {}
-          }
-        });
+      // Récupérer dynamiquement la catégorie depuis l'ID du submenu
+      const categoryMatch = submenu.id.match(/^(.+)-submenu$/);
+      const category = categoryMatch ? categoryMatch[1] : null;
+      
+      if (category) {
+        const layersToDisplay = (window.categoryLayersMap && window.categoryLayersMap[category]) || [category];
+        if (window.MapModule && window.MapModule.layers) {
+          Object.keys(window.MapModule.layers).forEach(layerName => {
+            if (!layersToDisplay.includes(layerName)) {
+              try { window.MapModule.removeLayer(layerName); } catch(_) {}
+            }
+          });
+        }
       }
     } catch (_) { /* noop */ }
 

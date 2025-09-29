@@ -160,6 +160,39 @@
     },
 
     /**
+     * Récupère les catégories et leurs icônes depuis la table 'category_icons'
+     * @returns {Promise<Array<{category:string, icon_class:string, display_order:number}>>}
+     */
+    fetchCategoryIcons: async function() {
+      try {
+        const activeCity = getActiveCity();
+
+        let q = supabaseClient
+          .from('category_icons')
+          .select('category, icon_class, display_order')
+          .order('display_order', { ascending: true });
+
+        if (activeCity) {
+          q = q.eq('ville', activeCity);
+        } else {
+          q = q.is('ville', null);
+        }
+
+        const { data, error } = await q;
+
+        if (error) {
+          console.warn('[supabaseService] fetchCategoryIcons error:', error);
+          return [];
+        }
+
+        return (data || []).filter(row => row && row.category);
+      } catch (e) {
+        console.error('[supabaseService] fetchCategoryIcons exception:', e);
+        return [];
+      }
+    },
+
+    /**
      * Téléverse un PDF de dossier de concertation vers Supabase Storage
      * Bucket: uploads
      * Path:   pdfs/projects/<cat>/<name>-<ts>.pdf

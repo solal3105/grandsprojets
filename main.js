@@ -762,31 +762,167 @@
       });
       
       win.defaultLayers = defaultLayers;
-      win.CATEGORY_DEFAULT_LAYERS = {
-        mobilite: ['metroFuniculaire', 'tramway', 'mobilite'],
-        velo: ['planVelo', 'velo'],
-        urbanisme: ['urbanisme'],
-        travaux: ['travaux']
-      };
-
+      
       DataModule.initConfig({ city, urlMap, styleMap, defaultLayers });
       defaultLayers.forEach(layer => DataModule.loadLayer(layer));
 
+      // ========================================
+      // LOGIQUE DATA-DRIVEN : Les contributions dictent les menus
+      // ========================================
+      
+      // 1️⃣ Charger TOUTES les contributions de la ville
+      let allContributions = [];
       try {
-        let contributionLayers = ['urbanisme', 'velo', 'mobilite'];
-        try {
-          if (window.supabaseService?.fetchAllProjects) {
-            const allContributions = await window.supabaseService.fetchAllProjects();
-            const dynamicCategories = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
-            if (dynamicCategories.length > 0) {
-              contributionLayers = dynamicCategories;
-            }
-          }
-        } catch (e) {}
-        contributionLayers.forEach(l => {
-          try { DataModule.loadLayer(l); } catch (_) { /* noop */ }
+        if (window.supabaseService?.fetchAllProjects) {
+          allContributions = await window.supabaseService.fetchAllProjects();
+          console.log('[Main] 📦 Contributions chargées:', allContributions.length, 'projets');
+          win.allContributions = allContributions;
+        }
+      } catch (err) {
+        console.error('[Main] ❌ Erreur fetchAllProjects:', err);
+      }
+
+      // 2️⃣ Extraire les catégories UNIQUES présentes dans les contributions
+      const categoriesWithData = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
+      console.log('[Main] 📊 Catégories avec données:', categoriesWithData);
+
+      // 3️⃣ Récupérer les métadonnées des catégories (icônes, ordre d'affichage)
+      let allCategoryIcons = [];
+      try {
+        if (window.supabaseService?.fetchCategoryIcons) {
+          allCategoryIcons = await window.supabaseService.fetchCategoryIcons();
+        }
+      } catch (e) {
+        console.warn('[Main] ⚠️ Erreur fetch category icons:', e);
+      }
+
+      // 4️⃣ Créer les métadonnées pour TOUTES les catégories avec données
+      // Si une catégorie n'a pas d'icône dans category_icons, utiliser une icône par défaut
+      const activeCategoryIcons = categoriesWithData.map((category, index) => {
+        // Chercher si cette catégorie a des métadonnées dans category_icons
+        const existingIcon = allCategoryIcons.find(icon => icon.category === category);
+        
+        if (existingIcon) {
+          return existingIcon;
+        } else {
+          // Créer des métadonnées par défaut pour cette catégorie
+          console.warn(`[Main] ⚠️ Pas d'icône définie pour "${category}", utilisation de l'icône par défaut`);
+          return {
+            category: category,
+            icon_class: 'fa-solid fa-layer-group', // Icône par défaut
+            display_order: 100 + index // Ordre par défaut
+          };
+        }
+      });
+      
+      // Trier par display_order
+      activeCategoryIcons.sort((a, b) => a.display_order - b.display_order);
+      
+      console.log('[Main] ✅ Catégories actives (avec contributions):', activeCategoryIcons.map(c => c.category));
+      
+      win.categoryIcons = activeCategoryIcons;
+
+      // 5️⃣ Construire le mapping catégorie -> couches
+      win.categoryLayersMap = {};
+      activeCategoryIcons.forEach(({ category }) => {
+        const matchingLayers = layersConfig
+          .filter(layer => layer.name === category || layer.name.includes(category))
+          .map(layer => layer.name);
+        
+        win.categoryLayersMap[category] = matchingLayers.length > 0 ? matchingLayers : [category];
+      });
+
+      // 6️⃣ Exposer les fonctions helper
+      win.getAllCategories = () => {
+        return (win.categoryIcons || []).map(c => c.category);
+      };
+      
+      win.getCategoryLayers = (category) => {
+        return (win.categoryLayersMap && win.categoryLayersMap[category]) || [category];
+      };
+      
+      win.isCategoryLayer = (layerName) => {
+        const allCategories = win.getAllCategories();
+        return allCategories.includes(layerName);
+      };
+
+      // 7️⃣ Créer les menus UNIQUEMENT pour les catégories actives
+      const categoriesContainer = document.getElementById('dynamic-categories');
+      const submenusContainer = document.getElementById('dynamic-submenus');
+      
+      if (categoriesContainer && submenusContainer && activeCategoryIcons.length > 0) {
+        activeCategoryIcons.forEach(({ category, icon_class }) => {
+          // Créer le bouton de navigation
+          const navButton = document.createElement('button');
+          navButton.className = 'nav-category';
+          navButton.id = `nav-${category}`;
+          navButton.innerHTML = `
+            <i class="${icon_class}" aria-hidden="true"></i>
+            <span class="label">${category}</span>
+          `;
+          categoriesContainer.appendChild(navButton);
+          
+          // Créer le sous-menu correspondant
+          const submenu = document.createElement('div');
+          submenu.id = `${category}-submenu`;
+          submenu.className = 'submenu';
+          submenu.style.display = 'none';
+          submenu.innerHTML = `<ul class="project-list" id="${category}-project-list"></ul>`;
+          submenusContainer.appendChild(submenu);
         });
-      } catch (_) { /* noop */ }
+        console.log('[Main] 🎨 Menus créés pour:', activeCategoryIcons.map(c => c.category).join(', '));
+        
+        // Attacher les event listeners aux boutons de navigation
+        activeCategoryIcons.forEach(({ category }) => {
+          const navButton = document.getElementById(`nav-${category}`);
+          if (!navButton) return;
+          
+          navButton.addEventListener('click', () => {
+            // Récupérer les couches associées à cette catégorie
+            const categoryLayers = win.categoryLayersMap[category] || [category];
+            
+            if (window.EventBindings?.handleNavigation) {
+              window.EventBindings.handleNavigation(category, categoryLayers);
+            }
+            
+            // Afficher le sous-menu de cette catégorie et masquer les autres
+            document.querySelectorAll('.submenu').forEach(submenu => {
+              submenu.style.display = 'none';
+            });
+            
+            const targetSubmenu = document.getElementById(`${category}-submenu`);
+            if (targetSubmenu) {
+              targetSubmenu.style.display = 'block';
+            }
+          });
+        });
+        console.log('[Main] 🔗 Event listeners attachés aux menus');
+      }
+
+      // 8️⃣ Grouper les contributions par catégorie et charger les couches
+      const contributionsByCategory = {};
+      allContributions.forEach(contrib => {
+        const cat = contrib.category;
+        if (cat && categoriesWithData.includes(cat)) {
+          if (!contributionsByCategory[cat]) {
+            contributionsByCategory[cat] = [];
+          }
+          contributionsByCategory[cat].push(contrib);
+        }
+      });
+      
+      // 9️⃣ Charger une couche par catégorie (préserve les styles de la table layers)
+      for (const [category, contribs] of Object.entries(contributionsByCategory)) {
+        if (contribs.length > 0) {
+          try {
+            win[`contributions_${category}`] = contribs;
+            await DataModule.loadLayer(category);
+            console.log(`[Main] 🗺️ Couche "${category}" chargée: ${contribs.length} contributions`);
+          } catch (err) {
+            console.error(`[Main] ❌ Erreur chargement ${category}:`, err);
+          }
+        }
+      }
 
       await populateFilters();
       updateFilterUI();
@@ -1095,18 +1231,32 @@
         contributionCategories = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
       }
     } catch (error) {
-      contributionCategories = ['urbanisme', 'velo', 'mobilite']; // Fallback
+      contributionCategories = [];
     }
 
-    // Mapping des catégories vers des icônes et labels
-    const categoryConfig = {
-      urbanisme: { icon: 'fas fa-building', label: 'Urbanisme' },
-      velo: { icon: 'fas fa-bicycle', label: 'Vélo' },
-      mobilite: { icon: 'fas fa-subway', label: 'Mobilité' },
-    };
+    // Config catégories: alimentée uniquement par la base (icônes). Pas de données en dur.
+    const categoryConfig = {};
 
     // Exposer categoryConfig globalement pour les autres modules
     window.categoryConfig = categoryConfig;
+
+    // Hydrater les icônes de catégories depuis la base (ville+catégorie), si disponible
+    try {
+      if (typeof supabaseService.fetchCategoryIcons === 'function') {
+        const rows = await supabaseService.fetchCategoryIcons();
+        if (Array.isArray(rows)) {
+          rows.forEach(r => {
+            if (!r || !r.category) return;
+            const cat = String(r.category).trim();
+            if (!cat) return;
+            const iconClass = String(r.icon_class || '').trim();
+            if (!window.categoryConfig[cat]) window.categoryConfig[cat] = {};
+            // Utiliser la classe telle que définie en DB (ex: 'fas fa-bicycle' ou 'fa-bicycle')
+            window.categoryConfig[cat].icon = iconClass;
+          });
+        }
+      }
+    } catch (_) { /* no-op: pas de fallback */ }
 
     // Créer le groupe "Projets" avec les catégories dynamiques
     if (contributionCategories.length > 0) {
@@ -1118,14 +1268,16 @@
       groupDiv.appendChild(title);
 
       contributionCategories.forEach(category => {
-        const config = categoryConfig[category] || { icon: 'fas fa-layer-group', label: category };
+        const cfg = (window.categoryConfig && window.categoryConfig[category]) || {};
+        const iconClass = cfg.icon || '';
+        const labelText = String(category || '');
         
         const filterItem = document.createElement('div');
         filterItem.className = 'filter-item';
         filterItem.dataset.layer = category;
         filterItem.innerHTML = `
-          <span class="filter-icon"><i class="${config.icon}"></i></span>
-          <span class="filter-label">${config.label}</span>
+          <span class="filter-icon"><i class="${iconClass}"></i></span>
+          <span class="filter-label">${labelText}</span>
         `;
         groupDiv.appendChild(filterItem);
 
