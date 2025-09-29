@@ -1,48 +1,26 @@
 // ============================================================================
-// main.js - Point d'entrée principal de l'application
-// ============================================================================
-// Orchestration de l'initialisation de l'application :
-// - Gestion des villes et du branding
-// - Chargement des données depuis Supabase
-// - Création dynamique des menus de navigation
-// - Initialisation des modules (carte, filtres, recherche, etc.)
-// - Gestion du routing et de l'historique
+// main.js - Point d'entrée de l'application
 // ============================================================================
 
 ;(function(win) {
   'use strict';
 
-  // ============================================================================
-  // VALIDATION DES DÉPENDANCES
-  // ============================================================================
-  
   if (!win.supabaseService) {
-    console.error('[Main] supabaseService manquant : assurez-vous de charger supabaseService.js avant main.js');
+    console.error('[Main] supabaseService manquant');
     return;
   }
 
   const supabaseService = win.supabaseService;
 
-  // ============================================================================
-  // FONCTION PRINCIPALE D'INITIALISATION
-  // ============================================================================
-  
   async function initApp() {
     try {
-      // --------------------------------------------------------------------------
-      // PHASE 1 : Initialisation des modules de base
-      // --------------------------------------------------------------------------
-      
+      // PHASE 1 : Modules de base
       win.AnalyticsModule?.init();
       win.AppConfig?.init();
       win.ThemeManager?.init();
       await win.CityManager?.loadValidCities();
 
-      // --------------------------------------------------------------------------
-      // PHASE 2 : Gestion de la ville active
-      // --------------------------------------------------------------------------
-      
-      // Redirection automatique : /lyon -> /?city=lyon
+      // PHASE 2 : Ville active
       (function maybeRedirectCityPathToQuery() {
         try {
           const path = String(location.pathname || '/');
@@ -65,16 +43,11 @@
         } catch (_) { /* noop */ }
       })();
 
-      // Résolution et initialisation de la ville active
       const city = win.CityManager?.initializeActiveCity() || '';
-      
-      // Appliquer le branding de la ville (logos, favicon)
       await win.CityManager?.updateLogoForCity(city);
       await win.CityManager?.initCityToggleUI(city);
 
-      // --------------------------------------------------------------------------
-      // PHASE 3 : Chargement des données depuis Supabase
-      // --------------------------------------------------------------------------
+      // PHASE 3 : Données Supabase
       const {
         layersConfig,
         metroColors,
@@ -82,15 +55,10 @@
         basemaps: remoteBasemaps
       } = await supabaseService.initAllData(city);
 
-      // --------------------------------------------------------------------------
-      // PHASE 4 : Configuration de la carte et des couches
-      // --------------------------------------------------------------------------
-      
-      // Configuration globale
+      // PHASE 4 : Carte et couches
       window.dataConfig = window.dataConfig || {};
       window.dataConfig.metroColors = metroColors;
       
-      // Basemaps filtrés par ville
       const basemapsToUse = (remoteBasemaps && remoteBasemaps.length > 0) ? remoteBasemaps : window.basemaps;
       const basemapsForCity = (basemapsToUse || []).filter(b => !b || !('ville' in b) || !b.ville || b.ville === city);
 
@@ -98,21 +66,16 @@
         window.UIModule.updateBasemaps(basemapsForCity);
       }
       
-      // Initialisation de la carte
       window.MapModule.initBaseLayer();
       const currentTheme = document.documentElement.getAttribute('data-theme') || win.ThemeManager?.getInitialTheme() || 'light';
       win.ThemeManager?.syncBasemapToTheme(currentTheme);
       win.CityManager?.applyCityInitialView(city);
       
-      // Géolocalisation
       if (window.GeolocationModule) {
         window.GeolocationModule.init(window.MapModule.map);
       }
       
-      // Références aux modules
       const { DataModule, MapModule, EventBindings } = win;
-
-      // Construction des mappings de couches
       const urlMap        = {};
       const styleMap      = {};
       const defaultLayers = [];
@@ -131,12 +94,7 @@
       DataModule.initConfig({ city, urlMap, styleMap, defaultLayers });
       defaultLayers.forEach(layer => DataModule.loadLayer(layer));
 
-      // --------------------------------------------------------------------------
-      // PHASE 5 : Création dynamique des menus (data-driven)
-      // --------------------------------------------------------------------------
-      // Les contributions de la base dictent quels menus afficher
-      
-      // Étape 1 : Charger toutes les contributions
+      // PHASE 5 : Menus dynamiques
       let allContributions = [];
       try {
         if (window.supabaseService?.fetchAllProjects) {
@@ -148,27 +106,19 @@
         console.error('[Main] ❌ Erreur fetchAllProjects:', err);
       }
 
-      // Étape 2 : Extraire les catégories uniques
       const categoriesWithData = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
-      
-      // Ajouter "travaux" si elle existe dans layers_config (couche legacy)
       const travauxLayer = layersConfig.find(layer => layer.name === 'travaux');
       if (travauxLayer && !categoriesWithData.includes('travaux')) {
         categoriesWithData.push('travaux');
       }
       
-      console.log('[Main] 📊 Catégories avec données:', categoriesWithData);
+      console.log('[Main] 📊 Catégories:', categoriesWithData);
 
-      // Étape 3 : Récupérer les métadonnées des catégories (icônes, ordre)
       let allCategoryIconsFromDB = [];
       try {
         if (window.supabaseService?.fetchCategoryIcons) {
-          // Récupérer pour la ville active
           const cityIcons = await window.supabaseService.fetchCategoryIcons();
           allCategoryIconsFromDB.push(...cityIcons);
-          
-          // Si on est en mode "default" (pas de ville), récupérer aussi les icônes globales
-          // En faisant une requête sans filtre de ville pour avoir toutes les icônes disponibles
           if (!city || city === 'default' || city === '') {
             try {
               const client = window.supabaseService?.getClient();
@@ -179,7 +129,6 @@
                   .order('display_order', { ascending: true });
                 
                 if (data) {
-                  // Ajouter toutes les icônes, en évitant les doublons
                   data.forEach(icon => {
                     if (!allCategoryIconsFromDB.find(existing => 
                       existing.category === icon.category && existing.ville === icon.ville
@@ -198,10 +147,7 @@
         console.warn('[Main] ⚠️ Erreur fetch category icons:', e);
       }
 
-      // Étape 4 : Créer les métadonnées complètes
-      // Priorité : icône ville spécifique > icône globale > icône par défaut
       const activeCategoryIcons = categoriesWithData.map((category, index) => {
-        // Chercher d'abord pour la ville active
         let existingIcon = allCategoryIconsFromDB.find(icon => 
           icon.category === category && icon.ville === city
         );
@@ -216,16 +162,12 @@
         if (existingIcon) {
           return existingIcon;
         } else {
-          // Créer des métadonnées par défaut pour cette catégorie
-          console.warn(`[Main] ⚠️ Pas d'icône définie pour "${category}", utilisation de l'icône par défaut`);
-          
-          // Icônes par défaut selon la catégorie
           let defaultIcon = 'fa-solid fa-layer-group';
           let defaultOrder = 100 + index;
           
           if (category === 'travaux') {
             defaultIcon = 'fa-solid fa-helmet-safety';
-            defaultOrder = 99; // Après urbanisme(1), velo(3), mobilite(2)
+            defaultOrder = 99;
           }
           
           return {
@@ -236,14 +178,9 @@
         }
       });
       
-      // Trier par display_order
       activeCategoryIcons.sort((a, b) => a.display_order - b.display_order);
-      
-      console.log('[Main] ✅ Catégories actives (avec contributions):', activeCategoryIcons.map(c => c.category));
-      
+      console.log('[Main] ✅ Catégories actives:', activeCategoryIcons.map(c => c.category));
       win.categoryIcons = activeCategoryIcons;
-
-      // Étape 5 : Construire le mapping catégorie → couches
       win.categoryLayersMap = {};
       activeCategoryIcons.forEach(({ category }) => {
         const matchingLayers = layersConfig
@@ -253,32 +190,17 @@
         win.categoryLayersMap[category] = matchingLayers.length > 0 ? matchingLayers : [category];
       });
 
-      // Étape 6 : Exposer les fonctions helper globales
-      win.getAllCategories = () => {
-        return (win.categoryIcons || []).map(c => c.category);
-      };
-      
-      win.getCategoryLayers = (category) => {
-        return (win.categoryLayersMap && win.categoryLayersMap[category]) || [category];
-      };
-      
-      win.isCategoryLayer = (layerName) => {
-        const allCategories = win.getAllCategories();
-        return allCategories.includes(layerName);
-      };
-
-      // Étape 7 : Créer le DOM des menus de navigation
+      win.getAllCategories = () => (win.categoryIcons || []).map(c => c.category);
+      win.getCategoryLayers = (category) => (win.categoryLayersMap && win.categoryLayersMap[category]) || [category];
+      win.isCategoryLayer = (layerName) => win.getAllCategories().includes(layerName);
       const categoriesContainer = document.getElementById('dynamic-categories');
       const submenusContainer = document.getElementById('dynamic-submenus');
       
       if (categoriesContainer && submenusContainer && activeCategoryIcons.length > 0) {
         activeCategoryIcons.forEach(({ category, icon_class }) => {
-          // Créer le bouton de navigation
           const navButton = document.createElement('button');
           navButton.className = 'nav-category';
           navButton.id = `nav-${category}`;
-          
-          // S'assurer que l'icône a le bon format (ajouter fa-solid si manquant)
           let fullIconClass = icon_class;
           if (icon_class && !icon_class.includes('fa-solid') && !icon_class.includes('fa-regular') && !icon_class.includes('fa-brands')) {
             fullIconClass = `fa-solid ${icon_class}`;
@@ -290,30 +212,25 @@
           `;
           categoriesContainer.appendChild(navButton);
           
-          // Créer le sous-menu correspondant
           const submenu = document.createElement('div');
           submenu.className = 'submenu';
-          submenu.dataset.category = category; // Utiliser data-category au lieu d'un ID
+          submenu.dataset.category = category;
           submenu.style.display = 'none';
           submenu.innerHTML = `<ul class="project-list"></ul>`;
           submenusContainer.appendChild(submenu);
         });
-        console.log('[Main] 🎨 Menus créés pour:', activeCategoryIcons.map(c => c.category).join(', '));
+        console.log('[Main] 🎨 Menus créés:', activeCategoryIcons.map(c => c.category).join(', '));
         
-        // Attacher les event listeners aux boutons de navigation
         activeCategoryIcons.forEach(({ category }) => {
           const navButton = document.getElementById(`nav-${category}`);
           if (!navButton) return;
           
           navButton.addEventListener('click', () => {
-            // Récupérer les couches associées à cette catégorie
             const categoryLayers = win.categoryLayersMap[category] || [category];
             
             if (window.EventBindings?.handleNavigation) {
               window.EventBindings.handleNavigation(category, categoryLayers);
             }
-            
-            // Afficher le sous-menu de cette catégorie et masquer les autres
             document.querySelectorAll('.submenu').forEach(submenu => {
               submenu.style.display = 'none';
               submenu.classList.remove('active');
@@ -326,10 +243,8 @@
             }
           });
         });
-        console.log('[Main] 🔗 Event listeners attachés aux menus');
+        console.log('[Main] 🔗 Listeners attachés');
       }
-
-      // Étape 8 : Grouper les contributions par catégorie
       const contributionsByCategory = {};
       allContributions.forEach(contrib => {
         const cat = contrib.category;
@@ -341,7 +256,6 @@
         }
       });
       
-      // Étape 9 : Charger les couches GeoJSON
       for (const [category, contribs] of Object.entries(contributionsByCategory)) {
         if (contribs.length > 0) {
           try {
@@ -354,10 +268,7 @@
         }
       }
 
-      // --------------------------------------------------------------------------
-      // PHASE 6 : Initialisation des modules UI
-      // --------------------------------------------------------------------------
-      
+      // PHASE 6 : Modules UI
       await win.FilterManager?.init();
 
       if (DataModule.preloadLayer) {
@@ -374,10 +285,7 @@
         window.SearchModule.init(window.MapModule.map);
       }
       
-      // --------------------------------------------------------------------------
-      // PHASE 7 : Event listeners des contrôles UI
-      // --------------------------------------------------------------------------
-      
+      // PHASE 7 : Event listeners
       const filtersToggle = document.getElementById('filters-toggle');
       const basemapToggle = document.getElementById('basemap-toggle');
       const themeToggle   = document.getElementById('theme-toggle');
