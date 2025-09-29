@@ -786,21 +786,59 @@
       const categoriesWithData = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
       console.log('[Main] 📊 Catégories avec données:', categoriesWithData);
 
-      // 3️⃣ Récupérer les métadonnées des catégories (icônes, ordre d'affichage)
-      let allCategoryIcons = [];
+      // 3️⃣ Récupérer TOUTES les métadonnées des catégories (toutes les villes)
+      let allCategoryIconsFromDB = [];
       try {
         if (window.supabaseService?.fetchCategoryIcons) {
-          allCategoryIcons = await window.supabaseService.fetchCategoryIcons();
+          // Récupérer pour la ville active
+          const cityIcons = await window.supabaseService.fetchCategoryIcons();
+          allCategoryIconsFromDB.push(...cityIcons);
+          
+          // Si on est en mode "default" (pas de ville), récupérer aussi les icônes globales
+          // En faisant une requête sans filtre de ville pour avoir toutes les icônes disponibles
+          if (!city || city === 'default' || city === '') {
+            try {
+              const { data } = await window.supabase.createClient(
+                'https://wqqsuybmyqemhojsamgq.supabase.co',
+                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0'
+              )
+                .from('category_icons')
+                .select('category, icon_class, display_order, ville')
+                .order('display_order', { ascending: true });
+              
+              if (data) {
+                // Ajouter toutes les icônes, en évitant les doublons
+                data.forEach(icon => {
+                  if (!allCategoryIconsFromDB.find(existing => 
+                    existing.category === icon.category && existing.ville === icon.ville
+                  )) {
+                    allCategoryIconsFromDB.push(icon);
+                  }
+                });
+              }
+            } catch (e) {
+              console.warn('[Main] ⚠️ Erreur fetch all category icons:', e);
+            }
+          }
         }
       } catch (e) {
         console.warn('[Main] ⚠️ Erreur fetch category icons:', e);
       }
 
       // 4️⃣ Créer les métadonnées pour TOUTES les catégories avec données
-      // Si une catégorie n'a pas d'icône dans category_icons, utiliser une icône par défaut
+      // Chercher l'icône appropriée : ville spécifique > EMPTY > défaut
       const activeCategoryIcons = categoriesWithData.map((category, index) => {
-        // Chercher si cette catégorie a des métadonnées dans category_icons
-        const existingIcon = allCategoryIcons.find(icon => icon.category === category);
+        // Chercher d'abord pour la ville active
+        let existingIcon = allCategoryIconsFromDB.find(icon => 
+          icon.category === category && icon.ville === city
+        );
+        
+        // Sinon, chercher pour ville EMPTY (global)
+        if (!existingIcon) {
+          existingIcon = allCategoryIconsFromDB.find(icon => 
+            icon.category === category && (!icon.ville || icon.ville === null)
+          );
+        }
         
         if (existingIcon) {
           return existingIcon;
@@ -856,18 +894,25 @@
           const navButton = document.createElement('button');
           navButton.className = 'nav-category';
           navButton.id = `nav-${category}`;
+          
+          // S'assurer que l'icône a le bon format (ajouter fa-solid si manquant)
+          let fullIconClass = icon_class;
+          if (icon_class && !icon_class.includes('fa-solid') && !icon_class.includes('fa-regular') && !icon_class.includes('fa-brands')) {
+            fullIconClass = `fa-solid ${icon_class}`;
+          }
+          
           navButton.innerHTML = `
-            <i class="${icon_class}" aria-hidden="true"></i>
+            <i class="${fullIconClass}" aria-hidden="true"></i>
             <span class="label">${category}</span>
           `;
           categoriesContainer.appendChild(navButton);
           
           // Créer le sous-menu correspondant
           const submenu = document.createElement('div');
-          submenu.id = `${category}-submenu`;
           submenu.className = 'submenu';
+          submenu.dataset.category = category; // Utiliser data-category au lieu d'un ID
           submenu.style.display = 'none';
-          submenu.innerHTML = `<ul class="project-list" id="${category}-project-list"></ul>`;
+          submenu.innerHTML = `<ul class="project-list"></ul>`;
           submenusContainer.appendChild(submenu);
         });
         console.log('[Main] 🎨 Menus créés pour:', activeCategoryIcons.map(c => c.category).join(', '));
@@ -888,11 +933,13 @@
             // Afficher le sous-menu de cette catégorie et masquer les autres
             document.querySelectorAll('.submenu').forEach(submenu => {
               submenu.style.display = 'none';
+              submenu.classList.remove('active');
             });
             
-            const targetSubmenu = document.getElementById(`${category}-submenu`);
+            const targetSubmenu = document.querySelector(`.submenu[data-category="${category}"]`);
             if (targetSubmenu) {
               targetSubmenu.style.display = 'block';
+              targetSubmenu.classList.add('active');
             }
           });
         });

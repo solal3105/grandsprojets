@@ -2,7 +2,7 @@
 // Système unifié pour la construction des sous-menus basé uniquement sur contribution_uploads
 const SubmenuModule = (() => {
 
-  // Icônes: désormais pilotées par la DB via window.categoryConfig[cat].icon (voir main.js)
+  // Icônes: désormais pilotées par la DB via window.categoryIcons (voir main.js et table category_icons)
 
   // Fonction pour récupérer le label d'une catégorie depuis la source unique
   function getCategoryLabel(category) {
@@ -27,8 +27,7 @@ const SubmenuModule = (() => {
       return;
     }
     const config = {
-      // On conserve uniquement l'ID du conteneur externe (déjà présent dans le DOM)
-      submenuId: `${cat}-submenu`,
+      category: cat, // Utiliser la catégorie directement
     };
     if (!config) {
       console.warn(`[SubmenuModule] Configuration non trouvée pour la catégorie: ${category}`);
@@ -90,7 +89,7 @@ const SubmenuModule = (() => {
    * Setup complet du sous-menu avec gestion des boutons
    */
   function setupSubmenuFallback(config) {
-    const container = document.getElementById(config.submenuId);
+    const container = document.querySelector(`.submenu[data-category="${config.category}"]`);
     if (!container) return null;
     
     // Utiliser le même HTML que l'ancien système
@@ -103,17 +102,17 @@ const SubmenuModule = (() => {
           </button>
         </div>
         <div class="header-right">
-          <button class="gp-btn gp-btn--secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true" aria-controls="${config.submenuId}">
+          <button class="gp-btn gp-btn--secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true">
             <i class="fa-solid fa-compress gp-btn__icon" aria-hidden="true"></i>
             <span class="gp-btn__label">Réduire</span>
           </button>
         </div>
       </div>
-      <div class="project-list"></div>
+      <ul class="project-list"></ul>
     `;
     
     // S'assurer que le sous-menu démarre en mode étendu
-    resetSubmenuExpanded(config.submenuId);
+    resetSubmenuExpanded(container);
     
     // Setup du bouton fermer
     const closeBtn = container.querySelector('.close-btn');
@@ -122,8 +121,7 @@ const SubmenuModule = (() => {
         e.stopPropagation();
         const activeTab = document.querySelector('.nav-category.active');
         if (activeTab) activeTab.classList.remove('active');
-        const submenu = document.getElementById(config.submenuId);
-        if (submenu) submenu.style.display = 'none';
+        if (container) container.style.display = 'none';
         if (window.NavigationModule?.resetToDefaultView) {
           window.NavigationModule.resetToDefaultView(undefined, { preserveMapView: true });
         }
@@ -132,7 +130,7 @@ const SubmenuModule = (() => {
     
     // Setup du bouton réduire/étendre
     const toggleBtn = container.querySelector('.submenu-toggle-btn');
-    const panel = document.getElementById(config.submenuId);
+    const panel = container;
     
     if (toggleBtn && panel) {
       toggleBtn.addEventListener('click', (e) => {
@@ -170,9 +168,8 @@ const SubmenuModule = (() => {
   }
 
   // Fonction helper pour réinitialiser l'état étendu du sous-menu
-  function resetSubmenuExpanded(submenuId) {
+  function resetSubmenuExpanded(panel) {
     try {
-      const panel = document.getElementById(submenuId);
       if (panel) {
         panel.style.removeProperty('max-height');
         panel.style.removeProperty('overflow');
@@ -181,16 +178,16 @@ const SubmenuModule = (() => {
           const iconEl = toggleBtn.querySelector('i');
           const labelEl = toggleBtn.querySelector('.gp-btn__label');
           if (iconEl) {
-            if (iconEl.classList.contains('fa-expand')) iconEl.classList.replace('fa-expand','fa-compress');
-            else iconEl.classList.add('fa-compress');
+            iconEl.className = 'fa-solid fa-compress gp-btn__icon';
           }
-          if (labelEl) labelEl.textContent = 'Réduire';
-          toggleBtn.classList.remove('is-collapsed');
-          toggleBtn.setAttribute('aria-expanded','true');
-          toggleBtn.setAttribute('aria-label','Réduire');
+          if (labelEl) {
+            labelEl.textContent = 'Réduire';
+          }
+          toggleBtn.setAttribute('aria-expanded', 'true');
+          toggleBtn.setAttribute('aria-label', 'Réduire');
         }
       }
-    } catch (_) { /* no-op */ }
+    } catch (_) { /* noop */ }
   }
 
   /**
@@ -206,8 +203,17 @@ const SubmenuModule = (() => {
     
     // Déterminer l'icône et la classe de couleur selon la catégorie
     {
-      const cfgIcon = (window.categoryConfig && window.categoryConfig[category] && window.categoryConfig[category].icon) || '';
-      iconClass = cfgIcon;
+      // Récupérer l'icône depuis window.categoryIcons
+      const categoryIcon = (window.categoryIcons || []).find(c => c.category === category);
+      let cfgIcon = categoryIcon ? categoryIcon.icon_class : '';
+      
+      // S'assurer que l'icône a le bon format (ajouter fa-solid si manquant)
+      if (cfgIcon && !cfgIcon.includes('fa-solid') && !cfgIcon.includes('fa-regular') && !cfgIcon.includes('fa-brands')) {
+        cfgIcon = `fa-solid ${cfgIcon}`;
+      }
+      
+      iconClass = cfgIcon || 'fa-solid fa-layer-group'; // Icône par défaut
+      
       if (category === 'velo') pcClass = 'pc-velo';
       else if (category === 'urbanisme') pcClass = 'pc-urbanisme';
       else if (category === 'mobilite') pcClass = 'pc-tram';
@@ -400,9 +406,8 @@ const SubmenuModule = (() => {
   function clearAllSubmenus() {
     console.log('[SubmenuModule] Nettoyage de tous les sous-menus');
     
-    (Object.keys(window.categoryConfig || {})).forEach(category => {
-      const container = document.getElementById(`${category}-submenu`);
-      const projectList = container && container.querySelector('.project-list');
+    document.querySelectorAll('.submenu').forEach(container => {
+      const projectList = container.querySelector('.project-list');
       if (projectList) projectList.innerHTML = '';
     });
   }

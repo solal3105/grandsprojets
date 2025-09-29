@@ -1,13 +1,12 @@
 // modules/TravauxModule.js
-// Module spécialisé pour la gestion du sous-menu Travaux
 const TravauxModule = (() => {
 
   /**
    * Fonction helper pour réinitialiser l'état étendu du sous-menu
    */
-  function resetSubmenuExpanded(submenuId) {
+  function resetSubmenuExpanded(panelId) {
+    const panel = document.getElementById(panelId);
     try {
-      const panel = document.getElementById(submenuId);
       if (panel) {
         panel.style.removeProperty('max-height');
         panel.style.removeProperty('overflow');
@@ -15,24 +14,21 @@ const TravauxModule = (() => {
         if (toggleBtn) {
           const iconEl = toggleBtn.querySelector('i');
           const labelEl = toggleBtn.querySelector('.gp-btn__label');
-          if (iconEl) {
-            if (iconEl.classList.contains('fa-expand')) iconEl.classList.replace('fa-expand','fa-compress');
-            else iconEl.classList.add('fa-compress');
-          }
+          if (iconEl && iconEl.classList.contains('fa-expand')) iconEl.classList.replace('fa-expand', 'fa-compress');
           if (labelEl) labelEl.textContent = 'Réduire';
           toggleBtn.classList.remove('is-collapsed');
-          toggleBtn.setAttribute('aria-expanded','true');
-          toggleBtn.setAttribute('aria-label','Réduire');
+          toggleBtn.setAttribute('aria-expanded', 'true');
+          toggleBtn.setAttribute('aria-label', 'Réduire');
         }
       }
-    } catch (_) { /* no-op */ }
+    } catch (_) { /* noop */ }
   }
 
   /**
    * Affichage des projets Travaux avec système de filtres avancé
    */
   async function renderTravauxProjects() {
-    const submenu = document.getElementById('travaux-submenu');
+    const submenu = document.querySelector('.submenu[data-category="travaux"]');
     submenu.innerHTML = `
       <div class="detail-header-submenu">
         <div class="header-left">
@@ -42,7 +38,7 @@ const TravauxModule = (() => {
           </button>
         </div>
         <div class="header-right">
-          <button class="gp-btn gp-btn--secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true" aria-controls="travaux-submenu">
+          <button class="gp-btn gp-btn--secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true">
             <i class="fa-solid fa-compress gp-btn__icon" aria-hidden="true"></i>
             <span class="gp-btn__label">Réduire</span>
           </button>
@@ -52,14 +48,13 @@ const TravauxModule = (() => {
     `;
     
     // Always start expanded for Travaux when rendered
-    resetSubmenuExpanded('travaux-submenu');
+    resetSubmenuExpanded(submenu);
 
     // Simple exclusivity safeguard: ensure only category-related layers remain visible
     // This prevents timing issues when opening the menu without a full reset
     try {
-      // Récupérer dynamiquement la catégorie depuis l'ID du submenu
-      const categoryMatch = submenu.id.match(/^(.+)-submenu$/);
-      const category = categoryMatch ? categoryMatch[1] : null;
+      // Récupérer la catégorie depuis data-category
+      const category = submenu.dataset.category;
       
       if (category) {
         const layersToDisplay = (window.categoryLayersMap && window.categoryLayersMap[category]) || [category];
@@ -118,7 +113,7 @@ const TravauxModule = (() => {
         activeTab.classList.remove('active');
       }
       // Masquer explicitement le sous-menu travaux
-      const travauxSubmenu = document.getElementById('travaux-submenu');
+      const travauxSubmenu = document.querySelector('.submenu[data-category="travaux"]');
       if (travauxSubmenu) {
         travauxSubmenu.style.display = 'none';
       }

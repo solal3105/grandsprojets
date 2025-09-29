@@ -1516,7 +1516,7 @@ html[data-theme='dark'] .leaflet-container { background: #000; }
     display: none;
   }
   /* Positionner les sous-menus au-dessus du nav bar*/
-  .submenu, #velo-submenu, #mobilite-submenu, #travaux-submenu {
+  .submenu {
     position: absolute;
     bottom: 100px !important;
     top: auto !important;
@@ -1551,10 +1551,7 @@ html[data-theme='dark'] .leaflet-container { background: #000; }
     z-index: 10;
   }
   /* Mobile submenu panels: smooth collapse/expand */
-  #mobilite-submenu,
-  #velo-submenu,
-  #urbanisme-submenu,
-  #travaux-submenu {
+  .submenu {
     transition: max-height 250ms ease;
     will-change: max-height;
   }
@@ -1964,12 +1961,7 @@ html[data-theme='dark'] .gp-btn--danger {
   display: none !important;
 }
 
-#mobility-submenu {
-  display: none;
-}
-#mobility-submenu.active {
-  display: block;
-}
+/* Removed legacy #mobility-submenu - now using .submenu[data-category] */
 
 /* ---------------------------------------------------------------------------
    Bouton Voir la fiche complète
@@ -2328,17 +2320,11 @@ html[data-theme='dark'] .gp-btn--danger {
 
 
 /* Cacher par défaut */
-#urbanisme-submenu,
-#velo-submenu,
-#mobilite-submenu,
-#travaux-submenu {
+.submenu {
   display: none;
 }
 /* Règles de positionnement et style */
-#urbanisme-submenu,
-#velo-submenu,
-#mobilite-submenu,
-#travaux-submenu {
+.submenu {
   position: absolute;
   top: 0;  /* même position verticale que left-nav */
   left: 100%;
@@ -2358,10 +2344,7 @@ html[data-theme='dark'] .gp-btn--danger {
 }
 
 /* Masquer la barre de défilement pour WebKit (Chrome, Safari, etc.) */
-#urbanisme-submenu::-webkit-scrollbar,
-#velo-submenu::-webkit-scrollbar,
-#mobilite-submenu::-webkit-scrollbar,
-#travaux-submenu::-webkit-scrollbar {
+.submenu::-webkit-scrollbar {
   display: none;
 }
 /* ---------------------------------------------------------------------------
@@ -3908,11 +3891,7 @@ html[data-theme='dark'] #filters-container {
   box-shadow: 0 10px 25px var(--dm-shadow-weak);
 }
 /* Submenus and inner elements in dark theme */
-html[data-theme='dark'] .submenu,
-html[data-theme='dark'] #urbanisme-submenu,
-html[data-theme='dark'] #velo-submenu,
-html[data-theme='dark'] #mobilite-submenu,
-html[data-theme='dark'] #travaux-submenu {
+html[data-theme='dark'] .submenu {
   background: linear-gradient(145deg, var(--dm-menu-bg-start) 0%, var(--dm-menu-bg-end) 100%);
   color: var(--dm-text);
   border: 1px solid var(--dm-menu-border);

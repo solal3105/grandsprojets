@@ -156,7 +156,7 @@ const bindFilterControls = () => {
           submenu.style.display = 'none';
         });
         
-        const targetSubmenu = document.getElementById(`${category}-submenu`);
+        const targetSubmenu = document.querySelector(`.submenu[data-category="${category}"]`);
         if (targetSubmenu) {
           targetSubmenu.style.display = 'block';
         }

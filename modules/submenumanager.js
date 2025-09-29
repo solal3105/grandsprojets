@@ -33,7 +33,7 @@ const SubmenuManager = (() => {
    * @param {string} category - Catégorie du sous-menu
    */
   function showSubmenu(category) {
-    const submenu = document.getElementById(`${category}-submenu`);
+    const submenu = document.querySelector(`.submenu[data-category="${category}"]`);
     if (submenu) {
       submenu.style.display = 'block';
     }
@@ -98,7 +98,7 @@ const SubmenuManager = (() => {
    * @returns {boolean}
    */
   function isSubmenuOpen(category) {
-    const submenu = document.getElementById(`${category}-submenu`);
+    const submenu = document.querySelector(`.submenu[data-category="${category}"]`);
     return submenu && submenu.style.display !== 'none';
   }
 

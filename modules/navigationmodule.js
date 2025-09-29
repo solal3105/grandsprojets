@@ -122,13 +122,9 @@ const NavigationModule = (() => {
     event.stopPropagation();
   }
   
-  // Récupérer dynamiquement les sous-menus depuis les catégories
-  const allCategories = getContributionLayers();
-  allCategories.forEach(category => {
-    const el = document.getElementById(`${category}-submenu`);
-    if (el) {
-      el.style.display = 'none';
-    }
+  // Masquer tous les sous-menus
+  document.querySelectorAll('.submenu').forEach(el => {
+    el.style.display = 'none';
   });
   
   const leftNav = document.getElementById('left-nav');
@@ -469,7 +465,7 @@ const NavigationModule = (() => {
       });
       
       // Afficher le sous-menu de la catégorie spécifiée
-      const submenu = document.getElementById(`${category}-submenu`);
+      const submenu = document.querySelector(`.submenu[data-category="${category}"]`);
       if (submenu) {
         submenu.style.display = 'block';
         
