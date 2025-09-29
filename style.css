@@ -1709,7 +1709,7 @@ html[data-theme='dark'] .leaflet-container { background: #000; }
   background: var(--surface-70);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
-  width: calc(100% - 20px);
+  width: calc(100%);
 }
 .detail-header-submenu .header-left {
   display: inline-flex;
@@ -1727,7 +1727,7 @@ html[data-theme='dark'] .leaflet-container { background: #000; }
   color: #333333;
 }
 .detail-header-submenu .close-btn {
-  background: #fafafa; /* lighter base */
+  background: transparent; /* ghost style unified */
   border: 1px solid var(--border);
   padding: 8px 12px;
   cursor: pointer;
@@ -1741,8 +1741,9 @@ html[data-theme='dark'] .leaflet-container { background: #000; }
   line-height: 1;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
+/* Unified ghost style: no background on hover */
 .detail-header-submenu .close-btn:hover {
-  background-color: color-mix(in srgb, var(--accent-red) 12%, white);
+  background-color: transparent;
 }
 .detail-header-submenu .close-btn i,
 .detail-header-submenu .close-btn svg {
@@ -1753,11 +1754,11 @@ html[data-theme='dark'] .leaflet-container { background: #000; }
 
 /* Dark mode hover for red-themed close button */
 html[data-theme='dark'] .detail-header-submenu .close-btn:hover {
-  background-color: color-mix(in srgb, var(--accent-red) 35%, black);
+  background-color: transparent;
 }
 /* Dark mode base for red-themed close button (match submenu back button shell) */
 html[data-theme='dark'] .detail-header-submenu .close-btn {
-  background: rgba(255,255,255,0.06);
+  background: transparent; /* ghost style unified in dark */
   border-color: var(--dm-menu-border);
   color: var(--accent-red);
 }
@@ -1891,51 +1892,12 @@ html[data-theme='dark'] .detail-header-submenu .close-btn {
   padding: 8px 12px;
   border-radius: 10px;
   border-width: 1px;
-}
-.detail-header-submenu .gp-btn.close-btn.gp-btn--danger {
-  background: #fafafa;              /* lighter base across all submenus */
-  border-color: var(--border);
-  color: var(--accent-red);    /* subtle red theme */
-  box-shadow: none;
-  font-weight: 500;
-  font-size: 0.95rem;
-  gap: 8px;                         /* same spacing as reduce */
-}
-.detail-header-submenu .gp-btn.close-btn.gp-btn--danger:hover {
-  background-color: color-mix(in srgb, var(--accent-red) 12%, white);
-  border-color: var(--border);
-  color: var(--accent-red);
-  box-shadow: none;
-}
-
-/* Travaux submenu: close button sizing and red theme overrides */
-#travaux-submenu .detail-header-submenu #travaux-close-btn {
-  color: var(--accent-red);
-  background: #fafafa;
-  border-color: var(--border);
-  font-weight: 500;      /* match #detail-back-btn */
-  font-size: 0.95rem;    /* match #detail-back-btn */
-  gap: 8px;              /* align icon/label spacing */
-  min-height: 0;         /* avoid taller button than toggle */
-}
-#travaux-submenu .detail-header-submenu #travaux-close-btn:hover {
-  background-color: color-mix(in srgb, var(--accent-red) 12%, white);
-  border-color: var(--border);
-}
-html[data-theme='dark'] #travaux-submenu .detail-header-submenu #travaux-close-btn {
-  background: rgba(255,255,255,0.06);
-  border-color: var(--dm-menu-border);
-  color: var(--accent-red);
-}
-html[data-theme='dark'] #travaux-submenu .detail-header-submenu #travaux-close-btn:hover {
-  background-color: color-mix(in srgb, var(--accent-red) 35%, black);
-  border-color: var(--dm-menu-border);
+  background: transparent; /* ensure override over .gp-btn default */
 }
 
 /* État réduit (pour le bouton toggle) */
 .submenu-toggle-btn.is-collapsed { opacity: 0.95; }
 .submenu-toggle-btn.is-collapsed .gp-btn__icon { transform: scale(0.95); transition: transform 0.15s ease; }
-
 /* Dark mode */
 html[data-theme='dark'] .gp-btn--secondary {
   background: rgba(255,255,255,0.06);

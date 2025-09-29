@@ -1105,6 +1105,9 @@
       mobilite: { icon: 'fas fa-subway', label: 'Mobilité' },
     };
 
+    // Exposer categoryConfig globalement pour les autres modules
+    window.categoryConfig = categoryConfig;
+
     // Créer le groupe "Projets" avec les catégories dynamiques
     if (contributionCategories.length > 0) {
       const groupDiv = document.createElement('div');

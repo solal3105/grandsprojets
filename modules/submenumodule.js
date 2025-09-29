@@ -9,12 +9,14 @@ const SubmenuModule = (() => {
     'urbanisme': 'fa-building'
   };
 
-  // Configuration des libellés par catégorie
-  const CATEGORY_LABELS = {
-    'velo': 'Vélo',
-    'mobilite': 'Mobilité',
-    'urbanisme': 'Urbanisme'
-  };
+  // Fonction pour récupérer le label d'une catégorie depuis la source unique
+  function getCategoryLabel(category) {
+    return (window.categoryConfig && window.categoryConfig[category]
+      ? window.categoryConfig[category].label
+      : category);
+  }
+
+  // Sous-menus: même structure et mêmes classes; on ne génère pas de variantes de classes
 
   /**
    * Fonction générique pour rendre les projets d'une catégorie (avec setup du sous-menu)
@@ -23,32 +25,16 @@ const SubmenuModule = (() => {
   async function renderProjectsByCategory(category) {
     console.log(`[SubmenuModule] Rendu des projets pour la catégorie: ${category}`);
     
-    // Configuration du sous-menu selon la catégorie
-    const submenuConfig = {
-      velo: {
-        title: 'Projets Vélo',
-        closeBtnId: 'velo-close-btn',
-        navId: 'nav-velo',
-        submenuId: 'velo-submenu',
-        listId: 'velo-project-list'
-      },
-      mobilite: {
-        title: 'Projets de Mobilité',
-        closeBtnId: 'mobilite-close-btn',
-        navId: 'nav-mobilite',
-        submenuId: 'mobilite-submenu',
-        listId: 'mobilite-project-list'
-      },
-      urbanisme: {
-        title: "Projets d'Urbanisme",
-        closeBtnId: 'urbanisme-close-btn',
-        navId: 'nav-urbanisme',
-        submenuId: 'urbanisme-submenu',
-        listId: 'urbanisme-project-list'
-      }
+    // Configuration minimale dérivée de la catégorie (IDs uniquement)
+    const cat = String(category || '').trim();
+    if (!cat) {
+      console.warn('[SubmenuModule] Catégorie vide ou invalide');
+      return;
+    }
+    const config = {
+      // On conserve uniquement l'ID du conteneur externe (déjà présent dans le DOM)
+      submenuId: `${cat}-submenu`,
     };
-
-    const config = submenuConfig[category];
     if (!config) {
       console.warn(`[SubmenuModule] Configuration non trouvée pour la catégorie: ${category}`);
       return;
@@ -68,7 +54,7 @@ const SubmenuModule = (() => {
       
       if (!projects || !Array.isArray(projects)) {
         console.warn(`[SubmenuModule] Aucun projet trouvé pour la catégorie: ${category}`);
-        projectList.innerHTML = `<li class="no-projects">Aucun projet ${CATEGORY_LABELS[category] || category} disponible.</li>`;
+        projectList.innerHTML = `<li class="no-projects">Aucun projet ${getCategoryLabel(category)} disponible.</li>`;
         return;
       }
 
@@ -76,7 +62,7 @@ const SubmenuModule = (() => {
       projectList.innerHTML = '';
 
       if (projects.length === 0) {
-        projectList.innerHTML = `<li class="no-projects">Aucun projet ${CATEGORY_LABELS[category] || category} disponible.</li>`;
+        projectList.innerHTML = `<li class="no-projects">Aucun projet ${getCategoryLabel(category)} disponible.</li>`;
         return;
       }
 
@@ -100,7 +86,7 @@ const SubmenuModule = (() => {
       
       // Afficher un message d'erreur dans l'interface
       if (projectList) {
-        projectList.innerHTML = `<li class="error-message">Erreur lors du chargement des projets ${CATEGORY_LABELS[category] || category}.</li>`;
+        projectList.innerHTML = `<li class="error-message">Erreur lors du chargement des projets ${getCategoryLabel(category)}.</li>`;
       }
     }
   }
@@ -116,33 +102,31 @@ const SubmenuModule = (() => {
     container.innerHTML = `
       <div class="detail-header-submenu">
         <div class="header-left">
-          <button id="${config.closeBtnId}" class="close-btn" aria-label="Fermer">
+          <button class="close-btn" aria-label="Fermer">
             <i class="fa-solid fa-xmark gp-btn__icon" aria-hidden="true"></i>
             <span class="gp-btn__label">Fermer</span>
           </button>
         </div>
         <div class="header-right">
-          <button id="${config.submenuId.replace('-submenu','')}-toggle-btn" class="gp-btn gp-btn--secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true" aria-controls="${config.submenuId}">
+          <button class="gp-btn gp-btn--secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true" aria-controls="${config.submenuId}">
             <i class="fa-solid fa-compress gp-btn__icon" aria-hidden="true"></i>
             <span class="gp-btn__label">Réduire</span>
           </button>
         </div>
       </div>
-      <div id="${config.listId}" class="project-list"></div>
+      <div class="project-list"></div>
     `;
     
     // S'assurer que le sous-menu démarre en mode étendu
     resetSubmenuExpanded(config.submenuId);
     
     // Setup du bouton fermer
-    const closeBtn = container.querySelector(`#${config.closeBtnId}`);
+    const closeBtn = container.querySelector('.close-btn');
     if (closeBtn) {
       closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const activeTab = document.querySelector('.nav-category.active');
-        if (activeTab && activeTab.id === config.navId) {
-          activeTab.classList.remove('active');
-        }
+        if (activeTab) activeTab.classList.remove('active');
         const submenu = document.getElementById(config.submenuId);
         if (submenu) submenu.style.display = 'none';
         if (window.NavigationModule?.resetToDefaultView) {
@@ -152,8 +136,7 @@ const SubmenuModule = (() => {
     }
     
     // Setup du bouton réduire/étendre
-    const toggleBtnId = `${config.submenuId.replace('-submenu','')}-toggle-btn`;
-    const toggleBtn = container.querySelector(`#${toggleBtnId}`);
+    const toggleBtn = container.querySelector('.submenu-toggle-btn');
     const panel = document.getElementById(config.submenuId);
     
     if (toggleBtn && panel) {
@@ -188,7 +171,7 @@ const SubmenuModule = (() => {
       });
     }
     
-    return document.getElementById(config.listId);
+    return container.querySelector('.project-list');
   }
 
   // Fonction helper pour réinitialiser l'état étendu du sous-menu
@@ -198,19 +181,19 @@ const SubmenuModule = (() => {
       if (panel) {
         panel.style.removeProperty('max-height');
         panel.style.removeProperty('overflow');
-      }
-      const toggleBtn = document.getElementById(`${submenuId.replace('-submenu','')}-toggle-btn`);
-      if (toggleBtn) {
-        const iconEl = toggleBtn.querySelector('i');
-        const labelEl = toggleBtn.querySelector('.gp-btn__label');
-        if (iconEl) {
-          if (iconEl.classList.contains('fa-expand')) iconEl.classList.replace('fa-expand','fa-compress');
-          else iconEl.classList.add('fa-compress');
+        const toggleBtn = panel.querySelector('.submenu-toggle-btn');
+        if (toggleBtn) {
+          const iconEl = toggleBtn.querySelector('i');
+          const labelEl = toggleBtn.querySelector('.gp-btn__label');
+          if (iconEl) {
+            if (iconEl.classList.contains('fa-expand')) iconEl.classList.replace('fa-expand','fa-compress');
+            else iconEl.classList.add('fa-compress');
+          }
+          if (labelEl) labelEl.textContent = 'Réduire';
+          toggleBtn.classList.remove('is-collapsed');
+          toggleBtn.setAttribute('aria-expanded','true');
+          toggleBtn.setAttribute('aria-label','Réduire');
         }
-        if (labelEl) labelEl.textContent = 'Réduire';
-        toggleBtn.classList.remove('is-collapsed');
-        toggleBtn.setAttribute('aria-expanded','true');
-        toggleBtn.setAttribute('aria-label','Réduire');
       }
     } catch (_) { /* no-op */ }
   }
@@ -452,7 +435,7 @@ const SubmenuModule = (() => {
     updateSubmenu,
     clearAllSubmenus,
     CATEGORY_ICONS,
-    CATEGORY_LABELS
+    getCategoryLabel
   };
 })();
 

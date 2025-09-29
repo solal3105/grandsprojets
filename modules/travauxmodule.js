@@ -11,19 +11,19 @@ const TravauxModule = (() => {
       if (panel) {
         panel.style.removeProperty('max-height');
         panel.style.removeProperty('overflow');
-      }
-      const toggleBtn = document.getElementById(`${submenuId.replace('-submenu','')}-toggle-btn`);
-      if (toggleBtn) {
-        const iconEl = toggleBtn.querySelector('i');
-        const labelEl = toggleBtn.querySelector('.gp-btn__label');
-        if (iconEl) {
-          if (iconEl.classList.contains('fa-expand')) iconEl.classList.replace('fa-expand','fa-compress');
-          else iconEl.classList.add('fa-compress');
+        const toggleBtn = panel.querySelector('.submenu-toggle-btn');
+        if (toggleBtn) {
+          const iconEl = toggleBtn.querySelector('i');
+          const labelEl = toggleBtn.querySelector('.gp-btn__label');
+          if (iconEl) {
+            if (iconEl.classList.contains('fa-expand')) iconEl.classList.replace('fa-expand','fa-compress');
+            else iconEl.classList.add('fa-compress');
+          }
+          if (labelEl) labelEl.textContent = 'Réduire';
+          toggleBtn.classList.remove('is-collapsed');
+          toggleBtn.setAttribute('aria-expanded','true');
+          toggleBtn.setAttribute('aria-label','Réduire');
         }
-        if (labelEl) labelEl.textContent = 'Réduire';
-        toggleBtn.classList.remove('is-collapsed');
-        toggleBtn.setAttribute('aria-expanded','true');
-        toggleBtn.setAttribute('aria-label','Réduire');
       }
     } catch (_) { /* no-op */ }
   }
@@ -36,19 +36,19 @@ const TravauxModule = (() => {
     submenu.innerHTML = `
       <div class="detail-header-submenu">
         <div class="header-left">
-          <button id="travaux-close-btn" class="gp-btn gp-btn--danger close-btn" aria-label="Fermer">
+          <button class="gp-btn gp-btn--danger close-btn" aria-label="Fermer">
             <i class="fa-solid fa-xmark gp-btn__icon" aria-hidden="true"></i>
             <span class="gp-btn__label">Fermer</span>
           </button>
         </div>
         <div class="header-right">
-          <button id="travaux-toggle-btn" class="gp-btn gp-btn--secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true" aria-controls="travaux-submenu">
+          <button class="gp-btn gp-btn--secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true" aria-controls="travaux-submenu">
             <i class="fa-solid fa-compress gp-btn__icon" aria-hidden="true"></i>
             <span class="gp-btn__label">Réduire</span>
           </button>
         </div>
       </div>
-      <div id="travaux-project-list" class="project-list"></div>
+      <div class="project-list"></div>
     `;
     
     // Always start expanded for Travaux when rendered
@@ -67,11 +67,11 @@ const TravauxModule = (() => {
       }
     } catch (_) { /* noop */ }
 
-    const listEl = document.getElementById('travaux-project-list');
+    const listEl = submenu.querySelector('.project-list');
 
     // Gestionnaire d'événement pour le bouton de réduction/extension
-    const travauxToggleBtn = document.getElementById('travaux-toggle-btn');
-    const travauxPanel = document.querySelector('#travaux-submenu');
+    const travauxToggleBtn = submenu.querySelector('.submenu-toggle-btn');
+    const travauxPanel = submenu;
     if (travauxToggleBtn && travauxPanel) {
       travauxToggleBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -104,7 +104,7 @@ const TravauxModule = (() => {
     }
 
     // Gestionnaire d'événement pour le bouton de fermeture
-    document.getElementById('travaux-close-btn')?.addEventListener('click', (e) => {
+    submenu.querySelector('.close-btn')?.addEventListener('click', (e) => {
       e.stopPropagation();
       // Désactiver l'onglet travaux actif
       const activeTab = document.querySelector('.nav-category.active');
