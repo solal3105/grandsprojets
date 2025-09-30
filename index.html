@@ -108,6 +108,11 @@
               <span class="card-title">Modifier mes contributions</span>
               <span class="card-desc" id="landing-edit-desc">Consultez et mettez à jour vos contributions existantes.</span>
             </button>
+            <button class="choice-card" role="listitem" id="landing-categories" data-target="categories" aria-describedby="landing-categories-desc">
+              <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-tags"></i></span>
+              <span class="card-title">Gérer les catégories</span>
+              <span class="card-desc" id="landing-categories-desc">Créez ou modifiez les catégories et leurs icônes.</span>
+            </button>
           </div>
         </section>
         <!-- Bouton Retour vers la page d’accueil de la modale -->
@@ -355,6 +360,95 @@
           </div>
           <div id="contrib-list-status" role="status" aria-live="polite" style="margin-top:6px; font-size:0.9em; opacity:0.8;"></div>
         </section>
+
+        <!-- Panel: Gestion des catégories -->
+        <section id="contrib-panel-categories" role="tabpanel" aria-label="Gérer les catégories" hidden>
+          <div id="category-ville-selector-container" style="margin-bottom:20px; padding:16px; border:1px solid #ddd; border-radius:8px; background:#f9f9f9;">
+            <label for="category-ville-selector" style="display:block; font-weight:600; margin-bottom:8px;">
+              <i class="fa-solid fa-city"></i> Sélectionner une ville
+            </label>
+            <select id="category-ville-selector" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; font-size:1em;">
+              <option value="">-- Choisir une ville --</option>
+              <!-- Options peuplées dynamiquement -->
+            </select>
+          </div>
+          
+          <div id="categories-content" style="display:none;">
+            <div style="margin-bottom:16px;">
+              <button id="category-add-btn" class="gp-btn gp-btn--primary" type="button">
+                <i class="fa-solid fa-plus"></i> Nouvelle catégorie
+              </button>
+            </div>
+            <div id="categories-list" class="categories-list"></div>
+          </div>
+          
+          <!-- Formulaire de création/édition de catégorie -->
+          <div id="category-form-container" style="display:none; margin-top:20px; padding:16px; border:1px solid #ddd; border-radius:8px; background:#f9f9f9;">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+              <button type="button" id="category-form-back" class="gp-btn gp-btn--secondary" style="display:none;">
+                <i class="fa-solid fa-arrow-left"></i> Retour à la liste
+              </button>
+              <h4 id="category-form-title" style="margin:0;">Nouvelle catégorie</h4>
+            </div>
+            <form id="category-form">
+              <input type="hidden" id="category-edit-mode" value="create" />
+              <input type="hidden" id="category-original-name" value="" />
+              
+              <div class="form-row">
+                <label for="category-name">Nom de la catégorie</label>
+                <input type="text" id="category-name" name="category" required placeholder="Ex: mobilite" />
+                <small style="display:block; margin-top:4px; opacity:0.7;">Utilisé comme identifiant technique (minuscules, sans espaces)</small>
+              </div>
+
+              <div class="form-row">
+                <label for="category-icon">Classe d'icône FontAwesome</label>
+                <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+                  <input type="text" id="category-icon" name="icon_class" required placeholder="fa-solid fa-bus" style="flex:1;" />
+                  <div id="category-icon-preview" style="width:40px; height:40px; display:flex; align-items:center; justify-content:center; border:1px solid #ddd; border-radius:4px; background:#fff; font-size:20px; transition:all 0.2s;">
+                    <i class="fa-solid fa-question" aria-hidden="true"></i>
+                  </div>
+                  <button type="button" id="category-icon-picker-btn" class="gp-btn gp-btn--secondary" style="white-space:nowrap;">
+                    <i class="fa-solid fa-icons"></i> Choisir
+                  </button>
+                </div>
+                <small style="display:block; margin-bottom:8px; opacity:0.7;">
+                  Format : <strong>fa-solid fa-nom</strong> ou <strong>fa-regular fa-nom</strong> • 
+                  <a href="https://fontawesome.com/search?o=r&m=free" target="_blank" rel="noopener" style="color:#1976d2;">🔍 Rechercher une icône</a>
+                </small>
+                
+                <!-- Icon Picker -->
+                <div id="category-icon-picker" style="display:none; padding:12px; border:1px solid #ddd; border-radius:8px; background:#f9f9f9; max-height:300px; overflow-y:auto;">
+                  <div style="margin-bottom:8px; font-weight:600; color:#666;">Sélectionner une icône :</div>
+                  <div id="category-icon-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(50px, 1fr)); gap:6px;">
+                    <!-- Icons will be populated by JS -->
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <label for="category-order">Ordre d'affichage</label>
+                <input type="number" id="category-order" name="display_order" value="100" min="0" step="1" />
+              </div>
+
+              <div class="form-row">
+                <label for="category-ville">Ville</label>
+                <select id="category-ville" name="ville" required>
+                  <option value="">Sélectionner une ville</option>
+                  <!-- Options peuplées dynamiquement -->
+                </select>
+              </div>
+
+              <div style="display:flex; gap:8px; margin-top:16px;">
+                <button type="submit" class="gp-btn gp-btn--primary">
+                  <i class="fa-solid fa-save"></i> Enregistrer
+                </button>
+                <button type="button" id="category-form-cancel" class="gp-btn gp-btn--secondary">
+                  Annuler
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
       </div>
     </div>
   </div>
@@ -534,7 +628,6 @@
   <!-- Nouveaux modules réorganisés -->
   <script src="modules/analytics.js"></script>
   <script src="modules/modalmanager.js"></script>
-  <script src="modules/appconfig.js"></script>
   <script src="modules/thememanager.js"></script>
   <script src="modules/citymanager.js"></script>
   <script src="modules/filtermanager.js"></script>

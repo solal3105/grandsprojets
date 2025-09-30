@@ -16,7 +16,6 @@
     try {
       // PHASE 1 : Modules de base
       win.AnalyticsModule?.init();
-      win.AppConfig?.init();
       win.ThemeManager?.init();
       await win.CityManager?.loadValidCities();
 
@@ -59,8 +58,7 @@
       window.dataConfig = window.dataConfig || {};
       window.dataConfig.metroColors = metroColors;
       
-      const basemapsToUse = (remoteBasemaps && remoteBasemaps.length > 0) ? remoteBasemaps : window.basemaps;
-      const basemapsForCity = (basemapsToUse || []).filter(b => !b || !('ville' in b) || !b.ville || b.ville === city);
+      const basemapsForCity = (remoteBasemaps || []).filter(b => !b || !('ville' in b) || !b.ville || b.ville === city);
 
       if (window.UIModule?.updateBasemaps) {
         window.UIModule.updateBasemaps(basemapsForCity);

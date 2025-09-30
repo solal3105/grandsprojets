@@ -629,11 +629,13 @@
     // Panels & list state (tabs supprimés)
     const panelCreate  = document.getElementById('contrib-panel-create');
     const panelList    = document.getElementById('contrib-panel-list');
+    const panelCategories = document.getElementById('contrib-panel-categories');
     const backBtn      = document.getElementById('contrib-back');
     // Landing elements
     const landingEl = document.getElementById('contrib-landing');
     const landingCreateBtn = document.getElementById('landing-create');
     const landingEditBtn = document.getElementById('landing-edit');
+    const landingCategoriesBtn = document.getElementById('landing-categories');
     const listEl       = document.getElementById('contrib-list');
     const listStatusEl = document.getElementById('contrib-list-status');
     const listSearchEl = document.getElementById('contrib-search');
@@ -728,12 +730,15 @@
     // —— Tabs logic (ARIA, keyboard) ——
     function activateTab(which) {
       const isCreate = which === 'create';
+      const isList = which === 'list';
+      const isCategories = which === 'categories';
       if (panelCreate) panelCreate.hidden = !isCreate;
-      if (panelList) panelList.hidden = isCreate;
+      if (panelList) panelList.hidden = !isList;
+      if (panelCategories) panelCategories.hidden = !isCategories;
       // bouton retour visible quand on est hors landing
       if (backBtn) backBtn.style.display = '';
 
-      if (!isCreate) {
+      if (isList) {
         // ensure list is initialized
         try {
           // Force mineOnly for any non-admin before first load
@@ -749,10 +754,13 @@
         } catch(_) {}
         // focus first tabbable in list filters
         try { listSearchEl && listSearchEl.focus(); } catch(_) {}
-      } else {
+      } else if (isCreate) {
         // focus close button for accessibility or project name
         const nameEl = document.getElementById('contrib-project-name');
         try { (nameEl && nameEl.focus && nameEl.focus()); } catch(_) {}
+      } else if (isCategories) {
+        // Load categories panel
+        try { loadCategoriesPanel(); } catch(e) { console.error('[contrib] loadCategoriesPanel error:', e); }
       }
     }
 
@@ -764,6 +772,7 @@
         if (tabsContainer) tabsContainer.style.display = 'none';
         if (panelCreate) panelCreate.hidden = true;
         if (panelList) panelList.hidden = true;
+        if (panelCategories) panelCategories.hidden = true;
         if (backBtn) backBtn.style.display = 'none';
       } catch(_) {}
     }
@@ -779,6 +788,8 @@
       hideLanding();
       if (target === 'list') {
         activateTab('list');
+      } else if (target === 'categories') {
+        activateTab('categories');
       } else {
         activateTab('create');
         try { setStep(1, { force: true }); } catch(_) {}
@@ -788,6 +799,7 @@
     // Bind landing buttons
     if (landingCreateBtn) landingCreateBtn.addEventListener('click', () => chooseLanding('create'));
     if (landingEditBtn) landingEditBtn.addEventListener('click', () => chooseLanding('list'));
+    if (landingCategoriesBtn) landingCategoriesBtn.addEventListener('click', () => chooseLanding('categories'));
     if (backBtn) backBtn.addEventListener('click', () => showLanding());
 
     // —— List helpers ——
@@ -2386,6 +2398,530 @@
     }
 
     // Ne pas charger les villes ici: cela sera fait uniquement à l'étape 1 via setStep()
+
+    // ==================== Gestion des catégories ====================
+    
+    const categoryFormContainer = document.getElementById('category-form-container');
+    const categoryForm = document.getElementById('category-form');
+    const categoryAddBtn = document.getElementById('category-add-btn');
+    const categoriesList = document.getElementById('categories-list');
+    const categoriesContent = document.getElementById('categories-content');
+    const categoryFormTitle = document.getElementById('category-form-title');
+    const categoryFormBack = document.getElementById('category-form-back');
+    const categoryFormCancel = document.getElementById('category-form-cancel');
+    
+    const categoryVilleSelector = document.getElementById('category-ville-selector');
+    const categoryVilleSelectorContainer = document.getElementById('category-ville-selector-container');
+    const categoryNameInput = document.getElementById('category-name');
+    const categoryIconInput = document.getElementById('category-icon');
+    const categoryIconPreview = document.getElementById('category-icon-preview');
+    const categoryIconPickerBtn = document.getElementById('category-icon-picker-btn');
+    const categoryIconPicker = document.getElementById('category-icon-picker');
+    const categoryIconGrid = document.getElementById('category-icon-grid');
+    const categoryOrderInput = document.getElementById('category-order');
+    const categoryVilleSelect = document.getElementById('category-ville');
+    const categoryEditModeInput = document.getElementById('category-edit-mode');
+    const categoryOriginalNameInput = document.getElementById('category-original-name');
+
+    // 50 preset icons organized by theme
+    const ICON_PRESETS = [
+      // Mobilité & Transport (15)
+      { icon: 'fa-solid fa-bus', label: 'Bus' },
+      { icon: 'fa-solid fa-train', label: 'Train' },
+      { icon: 'fa-solid fa-subway', label: 'Métro' },
+      { icon: 'fa-solid fa-train-tram', label: 'Tram' },
+      { icon: 'fa-solid fa-car', label: 'Voiture' },
+      { icon: 'fa-solid fa-taxi', label: 'Taxi' },
+      { icon: 'fa-solid fa-shuttle-van', label: 'Navette' },
+      { icon: 'fa-solid fa-truck', label: 'Camion' },
+      { icon: 'fa-solid fa-plane', label: 'Avion' },
+      { icon: 'fa-solid fa-ship', label: 'Bateau' },
+      { icon: 'fa-solid fa-ferry', label: 'Ferry' },
+      { icon: 'fa-solid fa-helicopter', label: 'Hélicoptère' },
+      { icon: 'fa-solid fa-road', label: 'Route' },
+      { icon: 'fa-solid fa-traffic-light', label: 'Feu' },
+      { icon: 'fa-solid fa-signs-post', label: 'Signalisation' },
+      
+      // Vélo & Mobilité douce (10)
+      { icon: 'fa-solid fa-bicycle', label: 'Vélo' },
+      { icon: 'fa-solid fa-person-biking', label: 'Cycliste' },
+      { icon: 'fa-solid fa-person-walking', label: 'Piéton' },
+      { icon: 'fa-solid fa-wheelchair', label: 'Accessibilité' },
+      { icon: 'fa-solid fa-motorcycle', label: 'Moto' },
+      { icon: 'fa-solid fa-charging-station', label: 'Borne' },
+      { icon: 'fa-solid fa-square-parking', label: 'Parking' },
+      { icon: 'fa-solid fa-p', label: 'P' },
+      { icon: 'fa-solid fa-bolt', label: 'Électrique' },
+      { icon: 'fa-solid fa-leaf', label: 'Écologie' },
+      
+      // Urbanisme & Construction (15)
+      { icon: 'fa-solid fa-building', label: 'Bâtiment' },
+      { icon: 'fa-solid fa-city', label: 'Ville' },
+      { icon: 'fa-solid fa-house', label: 'Maison' },
+      { icon: 'fa-solid fa-hotel', label: 'Hôtel' },
+      { icon: 'fa-solid fa-shop', label: 'Commerce' },
+      { icon: 'fa-solid fa-industry', label: 'Industrie' },
+      { icon: 'fa-solid fa-warehouse', label: 'Entrepôt' },
+      { icon: 'fa-solid fa-landmark', label: 'Monument' },
+      { icon: 'fa-solid fa-hospital', label: 'Hôpital' },
+      { icon: 'fa-solid fa-school', label: 'École' },
+      { icon: 'fa-solid fa-graduation-cap', label: 'Université' },
+      { icon: 'fa-solid fa-church', label: 'Église' },
+      { icon: 'fa-solid fa-mosque', label: 'Mosquée' },
+      { icon: 'fa-solid fa-synagogue', label: 'Synagogue' },
+      { icon: 'fa-solid fa-gopuram', label: 'Temple' },
+      
+      // Infrastructure & Services (10)
+      { icon: 'fa-solid fa-bridge', label: 'Pont' },
+      { icon: 'fa-solid fa-tower-observation', label: 'Tour' },
+      { icon: 'fa-solid fa-water', label: 'Eau' },
+      { icon: 'fa-solid fa-fire', label: 'Pompiers' },
+      { icon: 'fa-solid fa-shield-halved', label: 'Police' },
+      { icon: 'fa-solid fa-recycle', label: 'Recyclage' },
+      { icon: 'fa-solid fa-dumpster', label: 'Déchets' },
+      { icon: 'fa-solid fa-lightbulb', label: 'Éclairage' },
+      { icon: 'fa-solid fa-plug', label: 'Énergie' },
+      { icon: 'fa-solid fa-wifi', label: 'Wifi' }
+    ];
+
+    async function loadCategoriesPanel() {
+      try {
+        // Populate main ville selector
+        await populateCategoryVilleSelector();
+        
+        // Populate form ville selector
+        await populateCategoryFormVilleSelector();
+        
+        // Populate icon picker
+        populateIconPicker();
+        
+        // Hide content and form initially
+        if (categoriesContent) categoriesContent.style.display = 'none';
+        if (categoryFormContainer) categoryFormContainer.style.display = 'none';
+        
+        // Focus on ville selector
+        if (categoryVilleSelector) categoryVilleSelector.focus();
+      } catch(e) {
+        console.error('[contrib] loadCategoriesPanel error:', e);
+      }
+    }
+
+    function populateIconPicker() {
+      try {
+        if (!categoryIconGrid) return;
+        
+        const html = ICON_PRESETS.map(preset => `
+          <button type="button" class="icon-preset-btn" data-icon="${preset.icon}" title="${preset.label}" 
+                  style="width:50px; height:50px; display:flex; align-items:center; justify-content:center; border:1px solid #ddd; border-radius:6px; background:#fff; cursor:pointer; transition:all 0.2s; font-size:20px;">
+            <i class="${preset.icon}" aria-hidden="true"></i>
+          </button>
+        `).join('');
+        
+        categoryIconGrid.innerHTML = html;
+        
+        // Bind click events
+        categoryIconGrid.querySelectorAll('.icon-preset-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const iconClass = btn.dataset.icon;
+            if (categoryIconInput) {
+              categoryIconInput.value = iconClass;
+              categoryIconInput.dispatchEvent(new Event('input'));
+            }
+            // Hide picker after selection
+            if (categoryIconPicker) categoryIconPicker.style.display = 'none';
+          });
+          
+          // Hover effect
+          btn.addEventListener('mouseenter', () => {
+            btn.style.borderColor = '#1976d2';
+            btn.style.background = '#e3f2fd';
+            btn.style.transform = 'scale(1.1)';
+          });
+          btn.addEventListener('mouseleave', () => {
+            btn.style.borderColor = '#ddd';
+            btn.style.background = '#fff';
+            btn.style.transform = 'scale(1)';
+          });
+        });
+      } catch(e) {
+        console.error('[contrib] populateIconPicker error:', e);
+      }
+    }
+
+    async function populateCategoryVilleSelector() {
+      try {
+        if (!categoryVilleSelector || !win.supabaseService) return;
+        let cities = [];
+        try {
+          if (typeof win.supabaseService.getValidCities === 'function') {
+            cities = await win.supabaseService.getValidCities();
+          }
+        } catch (e) {
+          console.warn('[contrib] populateCategoryVilleSelector error:', e);
+        }
+        
+        // Clear and repopulate main selector
+        categoryVilleSelector.innerHTML = '<option value="">-- Choisir une ville --</option>';
+        const cityOptions = (Array.isArray(cities) ? cities : []).map(c => `<option value="${c}">${c}</option>`).join('');
+        if (cityOptions) categoryVilleSelector.insertAdjacentHTML('beforeend', cityOptions);
+        
+        // Default to active city if available
+        const activeCity = win.activeCity || '';
+        if (activeCity && cities.includes(activeCity)) {
+          categoryVilleSelector.value = activeCity;
+          // Auto-load categories for active city
+          await refreshCategoriesList();
+        }
+      } catch(err) {
+        console.warn('[contrib] populateCategoryVilleSelector error:', err);
+      }
+    }
+
+    async function populateCategoryFormVilleSelector() {
+      try {
+        if (!categoryVilleSelect || !win.supabaseService) return;
+        let cities = [];
+        try {
+          if (typeof win.supabaseService.getValidCities === 'function') {
+            cities = await win.supabaseService.getValidCities();
+          }
+        } catch (e) {
+          console.warn('[contrib] populateCategoryFormVilleSelector error:', e);
+        }
+        
+        // Clear and repopulate form selector
+        categoryVilleSelect.innerHTML = '<option value="">Sélectionner une ville</option>';
+        const cityOptions = (Array.isArray(cities) ? cities : []).map(c => `<option value="${c}">${c}</option>`).join('');
+        if (cityOptions) categoryVilleSelect.insertAdjacentHTML('beforeend', cityOptions);
+      } catch(err) {
+        console.warn('[contrib] populateCategoryFormVilleSelector error:', err);
+      }
+    }
+
+    async function refreshCategoriesList() {
+      try {
+        if (!categoriesList || !win.supabaseService) return;
+        
+        const ville = categoryVilleSelector?.value || '';
+        if (!ville) {
+          if (categoriesContent) categoriesContent.style.display = 'none';
+          return;
+        }
+        
+        // Show content area
+        if (categoriesContent) categoriesContent.style.display = '';
+
+        const categories = await win.supabaseService.getCategoryIconsByCity(ville);
+        
+        if (!categories || categories.length === 0) {
+          categoriesList.innerHTML = '<p style="opacity:0.6; padding:12px; text-align:center;">Aucune catégorie pour cette ville.<br><small>Cliquez sur "Nouvelle catégorie" pour en créer une.</small></p>';
+          return;
+        }
+
+        const html = categories.map(cat => {
+          // Escape HTML to prevent XSS
+          const escapedCategory = String(cat.category || '').replace(/[<>"'&]/g, (c) => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
+          let iconClass = String(cat.icon_class || '');
+          
+          // Auto-fix icon class if missing style prefix
+          if (iconClass.startsWith('fa-') && !iconClass.startsWith('fa-solid') && !iconClass.startsWith('fa-regular') && !iconClass.startsWith('fa-brands') && !iconClass.startsWith('fa-light') && !iconClass.startsWith('fa-thin') && !iconClass.startsWith('fa-duotone')) {
+            iconClass = 'fa-solid ' + iconClass;
+          }
+          
+          const escapedIconClass = iconClass.replace(/[<>"'&]/g, (c) => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
+          const escapedVille = String(cat.ville || '').replace(/[<>"'&]/g, (c) => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
+          
+          return `
+          <div class="category-item" style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid #ddd; border-radius:8px; margin-bottom:8px; background:#fff;">
+            <div style="flex:0 0 40px; text-align:center; font-size:24px; color:#333;">
+              <i class="${escapedIconClass}" aria-hidden="true"></i>
+            </div>
+            <div style="flex:1;">
+              <div style="font-weight:600;">${escapedCategory}</div>
+              <div style="font-size:0.85em; opacity:0.7;"><code style="background:#f5f5f5; padding:2px 4px; border-radius:3px;">${escapedIconClass}</code> • Ordre: ${cat.display_order}</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button type="button" class="gp-btn gp-btn--secondary" data-action="edit" data-ville="${escapedVille}" data-category="${escapedCategory}" data-icon="${escapedIconClass}" data-order="${cat.display_order}">
+                <i class="fa-solid fa-pen"></i> Modifier
+              </button>
+              <button type="button" class="gp-btn gp-btn--danger" data-action="delete" data-ville="${escapedVille}" data-category="${escapedCategory}">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        `;
+        }).join('');
+
+        categoriesList.innerHTML = html;
+
+        // Bind edit/delete buttons
+        categoriesList.querySelectorAll('[data-action="edit"]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const ville = btn.dataset.ville;
+            const category = btn.dataset.category;
+            const icon = btn.dataset.icon;
+            const order = btn.dataset.order;
+            showCategoryForm('edit', { ville, category, icon_class: icon, display_order: order });
+          });
+        });
+
+        categoriesList.querySelectorAll('[data-action="delete"]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const ville = btn.dataset.ville;
+            const category = btn.dataset.category;
+            if (!confirm(`Supprimer la catégorie "${category}" ?`)) return;
+            await deleteCategory(ville, category);
+          });
+        });
+      } catch(err) {
+        console.error('[contrib] refreshCategoriesList error:', err);
+        if (categoriesList) categoriesList.innerHTML = '<p style="color:red; padding:12px;">Erreur de chargement.</p>';
+      }
+    }
+
+    function showCategoryForm(mode, data = {}) {
+      try {
+        if (!categoryFormContainer || !categoryForm) return;
+        
+        categoryEditModeInput.value = mode;
+        
+        if (mode === 'edit') {
+          categoryFormTitle.textContent = 'Modifier la catégorie';
+          categoryOriginalNameInput.value = data.category || '';
+          categoryNameInput.value = data.category || '';
+          categoryIconInput.value = data.icon_class || '';
+          categoryOrderInput.value = data.display_order || 100;
+          categoryVilleSelect.value = data.ville || '';
+          categoryVilleSelect.disabled = true; // Cannot change ville in edit mode
+          
+          // Show back button in edit mode
+          if (categoryFormBack) categoryFormBack.style.display = '';
+          
+          // Hide ville selector and categories list when editing
+          if (categoryVilleSelectorContainer) categoryVilleSelectorContainer.style.display = 'none';
+          if (categoriesContent) categoriesContent.style.display = 'none';
+          
+          // Update icon preview
+          if (categoryIconPreview) {
+            const iconEl = categoryIconPreview.querySelector('i');
+            if (iconEl && data.icon_class) {
+              iconEl.className = data.icon_class;
+            }
+          }
+        } else {
+          categoryFormTitle.textContent = 'Nouvelle catégorie';
+          categoryOriginalNameInput.value = '';
+          categoryForm.reset();
+          categoryVilleSelect.disabled = false;
+          // Default to selected city from main selector
+          const selectedCity = categoryVilleSelector?.value || win.activeCity || '';
+          if (selectedCity) categoryVilleSelect.value = selectedCity;
+          
+          // Hide back button in create mode
+          if (categoryFormBack) categoryFormBack.style.display = 'none';
+          
+          // Keep categories list visible when creating
+          if (categoriesContent && categoryVilleSelector?.value) {
+            categoriesContent.style.display = '';
+          }
+          
+          // Reset icon preview
+          if (categoryIconPreview) {
+            const iconEl = categoryIconPreview.querySelector('i');
+            if (iconEl) iconEl.className = 'fa-solid fa-question';
+          }
+        }
+        
+        categoryFormContainer.style.display = '';
+      } catch(e) {
+        console.error('[contrib] showCategoryForm error:', e);
+      }
+    }
+
+    function hideCategoryForm() {
+      try {
+        if (categoryFormContainer) categoryFormContainer.style.display = 'none';
+        if (categoryIconPicker) categoryIconPicker.style.display = 'none';
+        if (categoryForm) categoryForm.reset();
+        
+        // Restore ville selector and categories list visibility
+        if (categoryVilleSelectorContainer) categoryVilleSelectorContainer.style.display = '';
+        const ville = categoryVilleSelector?.value || '';
+        if (categoriesContent && ville) {
+          categoriesContent.style.display = '';
+        }
+      } catch(_) {}
+    }
+
+    async function deleteCategory(ville, category) {
+      try {
+        if (!win.supabaseService) return;
+        
+        const result = await win.supabaseService.deleteCategoryIcon(ville, category);
+        
+        if (result.success) {
+          showToast('Catégorie supprimée.', 'success');
+          await refreshCategoriesList();
+        } else {
+          showToast('Erreur: ' + (result.error || 'Échec de suppression'), 'error');
+        }
+      } catch(err) {
+        console.error('[contrib] deleteCategory error:', err);
+        showToast('Erreur de suppression.', 'error');
+      }
+    }
+
+    // Bind category add button
+    if (categoryAddBtn) {
+      categoryAddBtn.addEventListener('click', () => showCategoryForm('create'));
+    }
+
+    // Bind category form back button
+    if (categoryFormBack) {
+      categoryFormBack.addEventListener('click', () => hideCategoryForm());
+    }
+
+    // Bind category form cancel
+    if (categoryFormCancel) {
+      categoryFormCancel.addEventListener('click', () => hideCategoryForm());
+    }
+
+    // Bind category form submit
+    if (categoryForm) {
+      categoryForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        try {
+          const mode = categoryEditModeInput.value;
+          const category = categoryNameInput.value.trim().toLowerCase();
+          const icon_class = categoryIconInput.value.trim();
+          const display_order = parseInt(categoryOrderInput.value) || 100;
+          const ville = categoryVilleSelect.value.trim().toLowerCase();
+          
+          if (!category || !icon_class || !ville) {
+            showToast('Tous les champs sont requis.', 'error');
+            return;
+          }
+
+          let result;
+          if (mode === 'edit') {
+            const originalCategory = categoryOriginalNameInput.value.trim().toLowerCase();
+            result = await win.supabaseService.updateCategoryIcon(ville, originalCategory, {
+              category,
+              icon_class,
+              display_order
+            });
+          } else {
+            result = await win.supabaseService.createCategoryIcon({
+              category,
+              icon_class,
+              display_order,
+              ville
+            });
+          }
+
+          if (result.success) {
+            showToast(mode === 'edit' ? 'Catégorie modifiée.' : 'Catégorie créée.', 'success');
+            hideCategoryForm();
+            
+            // Refresh list and ensure ville selector + list are visible
+            if (categoryVilleSelectorContainer) categoryVilleSelectorContainer.style.display = '';
+            await refreshCategoriesList();
+            if (categoriesContent && ville) {
+              categoriesContent.style.display = '';
+            }
+            
+            // Emit event to refresh dynamic categories in nav
+            try { 
+              window.dispatchEvent(new CustomEvent('categories:updated', { detail: { ville } })); 
+            } catch(_) {}
+          } else {
+            showToast('Erreur: ' + (result.error || 'Échec'), 'error');
+          }
+        } catch(err) {
+          console.error('[contrib] category form submit error:', err);
+          showToast('Erreur lors de l\'enregistrement.', 'error');
+        }
+      });
+    }
+
+    // Listen to main ville selector change to refresh list
+    if (categoryVilleSelector) {
+      categoryVilleSelector.addEventListener('change', async () => {
+        await refreshCategoriesList();
+        // Hide form when changing city
+        hideCategoryForm();
+      });
+    }
+
+    // Toggle icon picker
+    if (categoryIconPickerBtn && categoryIconPicker) {
+      categoryIconPickerBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isVisible = categoryIconPicker.style.display !== 'none';
+        categoryIconPicker.style.display = isVisible ? 'none' : 'block';
+      });
+      
+      // Close picker when clicking outside
+      document.addEventListener('click', (e) => {
+        if (categoryIconPicker && categoryIconPicker.style.display !== 'none') {
+          if (!categoryIconPicker.contains(e.target) && e.target !== categoryIconPickerBtn && !categoryIconPickerBtn.contains(e.target)) {
+            categoryIconPicker.style.display = 'none';
+          }
+        }
+      });
+    }
+
+    // Live preview of icon in form
+    if (categoryIconInput && categoryIconPreview) {
+      const updateIconPreview = () => {
+        try {
+          let iconClass = categoryIconInput.value.trim();
+          const iconEl = categoryIconPreview.querySelector('i');
+          
+          if (iconEl) {
+            if (iconClass) {
+              // Auto-fix: if user enters "fa-building" without style prefix, add "fa-solid"
+              if (iconClass.startsWith('fa-') && !iconClass.startsWith('fa-solid') && !iconClass.startsWith('fa-regular') && !iconClass.startsWith('fa-brands') && !iconClass.startsWith('fa-light') && !iconClass.startsWith('fa-thin') && !iconClass.startsWith('fa-duotone')) {
+                iconClass = 'fa-solid ' + iconClass;
+              }
+              iconEl.className = iconClass;
+              
+              // Visual feedback: check if icon loaded
+              setTimeout(() => {
+                const computed = window.getComputedStyle(iconEl, ':before');
+                const content = computed.getPropertyValue('content');
+                if (content && content !== 'none' && content !== '""') {
+                  iconEl.parentElement.style.borderColor = '#4caf50';
+                  iconEl.parentElement.style.background = '#e8f5e9';
+                } else {
+                  iconEl.parentElement.style.borderColor = '#f44336';
+                  iconEl.parentElement.style.background = '#ffebee';
+                }
+              }, 50);
+            } else {
+              iconEl.className = 'fa-solid fa-question';
+              iconEl.parentElement.style.borderColor = '#ddd';
+              iconEl.parentElement.style.background = '#fff';
+            }
+          }
+        } catch(_) {}
+      };
+      
+      categoryIconInput.addEventListener('input', updateIconPreview);
+      categoryIconInput.addEventListener('change', updateIconPreview);
+      
+      // Auto-correct on blur
+      categoryIconInput.addEventListener('blur', () => {
+        try {
+          let iconClass = categoryIconInput.value.trim();
+          if (iconClass && iconClass.startsWith('fa-') && !iconClass.startsWith('fa-solid') && !iconClass.startsWith('fa-regular') && !iconClass.startsWith('fa-brands') && !iconClass.startsWith('fa-light') && !iconClass.startsWith('fa-thin') && !iconClass.startsWith('fa-duotone')) {
+            categoryIconInput.value = 'fa-solid ' + iconClass;
+            updateIconPreview();
+          }
+        } catch(_) {}
+      });
+    }
 
     // Ensure tab default is Create only if landing is not visible
     // Ne pas écraser l'écran d'accueil (Créer / Modifier)

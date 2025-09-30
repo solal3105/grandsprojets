@@ -1369,6 +1369,194 @@
      */
     getClient() {
       return supabaseClient;
+    },
+
+    // ==================== CRUD pour category_icons ====================
+
+    /**
+     * Crée une nouvelle catégorie dans category_icons
+     * @param {Object} categoryData - {category, icon_class, display_order, ville}
+     * @returns {Promise<{success:boolean, data?:Object, error?:string}>}
+     */
+    async createCategoryIcon(categoryData) {
+      try {
+        const { category, icon_class, display_order, ville } = categoryData;
+        if (!category || !icon_class || !ville) {
+          return { success: false, error: 'Champs requis manquants' };
+        }
+
+        const { data, error } = await supabaseClient
+          .from('category_icons')
+          .insert([{
+            category: String(category).toLowerCase().trim(),
+            icon_class: String(icon_class).trim(),
+            display_order: parseInt(display_order) || 100,
+            ville: String(ville).toLowerCase().trim()
+          }])
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[supabaseService] createCategoryIcon error:', error);
+          return { success: false, error: error.message };
+        }
+
+        return { success: true, data };
+      } catch (e) {
+        console.error('[supabaseService] createCategoryIcon exception:', e);
+        return { success: false, error: e.message };
+      }
+    },
+
+    /**
+     * Met à jour une catégorie existante dans category_icons
+     * @param {string} ville - Ville de la catégorie
+     * @param {string} originalCategory - Nom original de la catégorie (clé primaire)
+     * @param {Object} updates - {category?, icon_class?, display_order?}
+     * @returns {Promise<{success:boolean, data?:Object, error?:string}>}
+     */
+    async updateCategoryIcon(ville, originalCategory, updates) {
+      try {
+        if (!ville || !originalCategory) {
+          return { success: false, error: 'Ville et catégorie requises' };
+        }
+
+        const normalizedVille = String(ville).toLowerCase().trim();
+        const normalizedOriginal = String(originalCategory).toLowerCase().trim();
+        const newCategory = updates.category !== undefined ? String(updates.category).toLowerCase().trim() : normalizedOriginal;
+        
+        // Si le nom de la catégorie change, on doit supprimer et recréer (clé primaire)
+        if (newCategory !== normalizedOriginal) {
+          // Récupérer les données actuelles
+          const { data: existing, error: fetchError } = await supabaseClient
+            .from('category_icons')
+            .select('*')
+            .eq('ville', normalizedVille)
+            .eq('category', normalizedOriginal)
+            .single();
+
+          if (fetchError || !existing) {
+            console.error('[supabaseService] updateCategoryIcon fetch error:', fetchError);
+            return { success: false, error: 'Catégorie introuvable' };
+          }
+
+          // Supprimer l'ancienne
+          const { error: deleteError } = await supabaseClient
+            .from('category_icons')
+            .delete()
+            .eq('ville', normalizedVille)
+            .eq('category', normalizedOriginal);
+
+          if (deleteError) {
+            console.error('[supabaseService] updateCategoryIcon delete error:', deleteError);
+            return { success: false, error: deleteError.message };
+          }
+
+          // Créer la nouvelle avec le nouveau nom
+          const { data, error: insertError } = await supabaseClient
+            .from('category_icons')
+            .insert([{
+              ville: normalizedVille,
+              category: newCategory,
+              icon_class: updates.icon_class !== undefined ? String(updates.icon_class).trim() : existing.icon_class,
+              display_order: updates.display_order !== undefined ? parseInt(updates.display_order) || 100 : existing.display_order
+            }])
+            .select()
+            .single();
+
+          if (insertError) {
+            console.error('[supabaseService] updateCategoryIcon insert error:', insertError);
+            return { success: false, error: insertError.message };
+          }
+
+          return { success: true, data };
+        } else {
+          // Mise à jour simple (pas de changement de nom)
+          const payload = {};
+          if (updates.icon_class !== undefined) payload.icon_class = String(updates.icon_class).trim();
+          if (updates.display_order !== undefined) payload.display_order = parseInt(updates.display_order) || 100;
+          payload.updated_at = new Date().toISOString();
+
+          const { data, error } = await supabaseClient
+            .from('category_icons')
+            .update(payload)
+            .eq('ville', normalizedVille)
+            .eq('category', normalizedOriginal)
+            .select()
+            .single();
+
+          if (error) {
+            console.error('[supabaseService] updateCategoryIcon error:', error);
+            return { success: false, error: error.message };
+          }
+
+          return { success: true, data };
+        }
+      } catch (e) {
+        console.error('[supabaseService] updateCategoryIcon exception:', e);
+        return { success: false, error: e.message };
+      }
+    },
+
+    /**
+     * Supprime une catégorie de category_icons
+     * @param {string} ville - Ville de la catégorie
+     * @param {string} category - Nom de la catégorie
+     * @returns {Promise<{success:boolean, error?:string}>}
+     */
+    async deleteCategoryIcon(ville, category) {
+      try {
+        if (!ville || !category) {
+          return { success: false, error: 'Ville et catégorie requises' };
+        }
+
+        const { error } = await supabaseClient
+          .from('category_icons')
+          .delete()
+          .eq('ville', String(ville).toLowerCase().trim())
+          .eq('category', String(category).toLowerCase().trim());
+
+        if (error) {
+          console.error('[supabaseService] deleteCategoryIcon error:', error);
+          return { success: false, error: error.message };
+        }
+
+        return { success: true };
+      } catch (e) {
+        console.error('[supabaseService] deleteCategoryIcon exception:', e);
+        return { success: false, error: e.message };
+      }
+    },
+
+    /**
+     * Récupère toutes les catégories pour une ville donnée
+     * @param {string} ville - Ville (optionnel, utilise activeCity si non fourni)
+     * @returns {Promise<Array>}
+     */
+    async getCategoryIconsByCity(ville) {
+      try {
+        const targetCity = ville || getActiveCity();
+        if (!targetCity) {
+          console.warn('[supabaseService] getCategoryIconsByCity: pas de ville spécifiée');
+          return [];
+        }
+
+        const { data, error } = await supabaseClient
+          .from('category_icons')
+          .select('*')
+          .eq('ville', String(targetCity).toLowerCase().trim())
+          .order('display_order', { ascending: true });
+
+        if (error) {
+          console.error('[supabaseService] getCategoryIconsByCity error:', error);
+          return [];
+        }
+
+        return data || [];
+      } catch (e) {
+        console.error('[supabaseService] getCategoryIconsByCity exception:', e);
+        return [];
+      }
     }
   };
 })(window);

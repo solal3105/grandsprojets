@@ -22,23 +22,18 @@
 
     // ==================== Détection de ville ====================
 
-    parseCityFromPath(pathname) {
-      try {
-        const path = String(pathname || location.pathname || '').toLowerCase();
-        const first = path.split('?')[0].split('#')[0].split('/').filter(Boolean)[0] || '';
-        return this.isValidCity(first) ? first : '';
-      } catch (_) { 
-        return ''; 
-      }
-    },
-
-    getRawCityFromPathRaw(pathname) {
+    getRawCityFromPath(pathname) {
       try {
         const path = String(pathname || location.pathname || '').toLowerCase();
         return path.split('?')[0].split('#')[0].split('/').filter(Boolean)[0] || '';
       } catch (_) { 
         return ''; 
       }
+    },
+
+    parseCityFromPath(pathname) {
+      const raw = this.getRawCityFromPath(pathname);
+      return this.isValidCity(raw) ? raw : '';
     },
 
     getCityFromQuery(defaultCity = '') {
@@ -115,6 +110,12 @@
 
     // ==================== Branding (logos, favicon) ====================
 
+    selectLogoForTheme(branding, theme) {
+      if (!branding) return null;
+      if (theme === 'dark' && branding.dark_logo_url) return branding.dark_logo_url;
+      return branding.logo_url || null;
+    },
+
     applyFavicon(href) {
       try {
         if (!href) return;
@@ -158,15 +159,7 @@
         win._cityBranding = branding || null;
 
         const theme = (document.documentElement.getAttribute('data-theme') || 'light').toLowerCase();
-        const pickLogo = () => {
-          if (branding) {
-            if (theme === 'dark' && branding.dark_logo_url) return branding.dark_logo_url;
-            return branding.logo_url || null;
-          }
-          return null;
-        };
-
-        const picked = pickLogo();
+        const picked = this.selectLogoForTheme(branding, theme);
         const altText = (branding && branding.brand_name) ? branding.brand_name : (city ? city.charAt(0).toUpperCase() + city.slice(1) : (targets[0]?.dataset?.defaultAlt || ''));
 
         targets.forEach((img) => {
@@ -279,12 +272,13 @@
 
         // Handler pour la carte "Proposer"
         const proposeCard = document.getElementById('propose-city-card');
-        if (proposeCard) {
+        if (proposeCard && !proposeCard._bound) {
           const open = (e) => { e.stopPropagation(); this.openProposeCityModal(); };
           proposeCard.addEventListener('click', open);
           proposeCard.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e); }
           });
+          proposeCard._bound = true;
         }
       } catch (_) { /* noop */ }
     },
@@ -300,9 +294,9 @@
       }
       
       const closeBtn = document.getElementById('propose-city-close');
-      if (closeBtn && !closeBtn._mm_bound) { 
+      if (closeBtn && !closeBtn._bound) { 
         closeBtn.addEventListener('click', () => win.ModalManager?.close('propose-city-overlay')); 
-        closeBtn._mm_bound = true; 
+        closeBtn._bound = true; 
       }
     },
 
@@ -339,9 +333,9 @@
         overlay.addEventListener('click', (e) => { if (e.target === overlay) this.closeCityMenu(); });
         
         const closeBtn = overlay.querySelector('#city-close');
-        if (closeBtn && !closeBtn._agp_bound) { 
+        if (closeBtn && !closeBtn._bound) { 
           closeBtn.addEventListener('click', () => this.closeCityMenu()); 
-          closeBtn._agp_bound = true; 
+          closeBtn._bound = true; 
         }
         return overlay;
       } catch (e) {
@@ -367,9 +361,9 @@
       this._cityMenuOpen = true;
 
       const closeBtn = document.getElementById('city-close');
-      if (closeBtn && !closeBtn._mm_bound) { 
+      if (closeBtn && !closeBtn._bound) { 
         closeBtn.addEventListener('click', () => this.closeCityMenu()); 
-        closeBtn._mm_bound = true; 
+        closeBtn._bound = true; 
       }
 
       const modal = overlay.querySelector('.gp-modal');
@@ -467,11 +461,7 @@
      */
     initializeActiveCity() {
       const rawQueryCity = this.getRawCityFromQueryParam();
-      const rawPathCity = this.getRawCityFromPathRaw();
-      const spForDetect = new URLSearchParams(location.search);
-      const cityParamPresent = spForDetect.has('city');
-      const rawCityExact = String(spForDetect.get('city') || '').toLowerCase().trim();
-      const explicitNoCity = cityParamPresent && (rawCityExact === '' || rawCityExact === 'default');
+      const rawPathCity = this.getRawCityFromPath();
       
       // Nettoyer si ville invalide
       if ((rawQueryCity && !this.isValidCity(rawQueryCity)) || 
@@ -479,27 +469,23 @@
         this.clearPersistedCity();
       }
 
-      let city = this.resolveActiveCity();
-      
-      // Forcer absence de ville si explicitement demandé
-      if (explicitNoCity) {
-        city = '';
-        win.activeCity = '';
-        try { this.clearPersistedCity(); } catch (_) {}
-      } else {
-        win.activeCity = city;
+      // Cas spécial : ?city=default ou ?city= force l'absence de ville
+      const sp = new URLSearchParams(location.search);
+      if (sp.has('city') && (!sp.get('city') || sp.get('city').toLowerCase() === 'default')) {
+        this.clearPersistedCity();
+        return win.activeCity = '';
       }
+
+      // Résolution normale
+      const city = this.resolveActiveCity();
+      win.activeCity = city;
       
       // Gérer la persistance
-      try {
-        if (!explicitNoCity) {
-          if (city && this.isValidCity(city)) {
-            if (this.restoreCity() !== city) this.persistCity(city);
-          } else {
-            this.clearPersistedCity();
-          }
-        }
-      } catch (_) {}
+      if (city && this.isValidCity(city)) {
+        if (this.restoreCity() !== city) this.persistCity(city);
+      } else {
+        this.clearPersistedCity();
+      }
       
       return city;
     }
