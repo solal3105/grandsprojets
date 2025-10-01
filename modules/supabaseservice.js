@@ -161,21 +161,23 @@
 
     /**
      * Récupère les catégories et leurs icônes depuis la table 'category_icons'
-     * @returns {Promise<Array<{category:string, icon_class:string, display_order:number}>>}
+     * @returns {Promise<Array<{category:string, icon_class:string, display_order:number, layers_to_display:string[]}>>}
      */
     fetchCategoryIcons: async function() {
       try {
         const activeCity = getActiveCity();
 
+        // Récupérer les catégories spécifiques à la ville ET les fallbacks globaux (ville = '' ou null)
         let q = supabaseClient
           .from('category_icons')
-          .select('category, icon_class, display_order')
+          .select('category, icon_class, display_order, layers_to_display, ville')
           .order('display_order', { ascending: true });
 
         if (activeCity) {
-          q = q.eq('ville', activeCity);
+          // Inclure les lignes pour la ville active OU les lignes sans ville (fallback global)
+          q = q.or(`ville.eq.${activeCity},ville.eq.,ville.is.null`);
         } else {
-          q = q.is('ville', null);
+          q = q.or('ville.eq.,ville.is.null');
         }
 
         const { data, error } = await q;
@@ -185,11 +187,68 @@
           return [];
         }
 
-        return (data || []).filter(row => row && row.category);
+        const filtered = (data || []).filter(row => row && row.category);
+        
+        // Dédupliquer : priorité aux configs spécifiques à la ville sur les fallbacks globaux
+        const categoryMap = new Map();
+        
+        // D'abord, ajouter les fallbacks globaux (ville vide ou null)
+        filtered.forEach(row => {
+          if (!row.ville || row.ville === '') {
+            categoryMap.set(row.category, row);
+          }
+        });
+        
+        // Ensuite, écraser avec les configs spécifiques à la ville (priorité)
+        filtered.forEach(row => {
+          if (row.ville && row.ville !== '') {
+            categoryMap.set(row.category, row);
+          }
+        });
+        
+        return Array.from(categoryMap.values()).sort((a, b) => a.display_order - b.display_order);
       } catch (e) {
         console.error('[supabaseService] fetchCategoryIcons exception:', e);
         return [];
       }
+    },
+
+    /**
+     * Construit le mapping catégorie → layers depuis les données de category_icons
+     * Le layer de la catégorie elle-même est toujours inclus automatiquement
+     * @param {Array<{category:string, layers_to_display:string[]}>} categoryIcons - Données depuis fetchCategoryIcons
+     * @returns {Object<string, string[]>} - Ex: { 'mobilite': ['mobilite', 'metro', 'tram'], 'urbanisme': ['urbanisme'] }
+     */
+    buildCategoryLayersMap: function(categoryIcons) {
+      const map = {};
+      
+      if (!Array.isArray(categoryIcons)) {
+        console.warn('[supabaseService] buildCategoryLayersMap: categoryIcons n\'est pas un tableau');
+        return map;
+      }
+
+      categoryIcons.forEach(cat => {
+        if (!cat || !cat.category) return;
+        
+        const layers = [];
+        
+        // Toujours inclure le layer de la catégorie elle-même en premier
+        layers.push(cat.category);
+        
+        // Ajouter les layers additionnels depuis layers_to_display (s'ils existent)
+        if (Array.isArray(cat.layers_to_display) && cat.layers_to_display.length > 0) {
+          cat.layers_to_display.forEach(layerName => {
+            // Éviter les doublons (si layers_to_display contient déjà le nom de la catégorie)
+            if (layerName !== cat.category && !layers.includes(layerName)) {
+              layers.push(layerName);
+            }
+          });
+        }
+        
+        map[cat.category] = layers;
+      });
+
+      return map;
     },
 
     /**
@@ -1380,19 +1439,26 @@
      */
     async createCategoryIcon(categoryData) {
       try {
-        const { category, icon_class, display_order, ville } = categoryData;
+        const { category, icon_class, display_order, ville, layers_to_display } = categoryData;
         if (!category || !icon_class || !ville) {
           return { success: false, error: 'Champs requis manquants' };
         }
 
+        const insertData = {
+          category: String(category).toLowerCase().trim(),
+          icon_class: String(icon_class).trim(),
+          display_order: parseInt(display_order) || 100,
+          ville: String(ville).toLowerCase().trim()
+        };
+
+        // Ajouter layers_to_display si fourni
+        if (Array.isArray(layers_to_display)) {
+          insertData.layers_to_display = layers_to_display;
+        }
+
         const { data, error } = await supabaseClient
           .from('category_icons')
-          .insert([{
-            category: String(category).toLowerCase().trim(),
-            icon_class: String(icon_class).trim(),
-            display_order: parseInt(display_order) || 100,
-            ville: String(ville).toLowerCase().trim()
-          }])
+          .insert([insertData])
           .select()
           .single();
 
@@ -1417,13 +1483,23 @@
      */
     async updateCategoryIcon(ville, originalCategory, updates) {
       try {
-        if (!ville || !originalCategory) {
+        console.log('[supabaseService] updateCategoryIcon DÉBUT - params reçus:', { ville, originalCategory, updates });
+        
+        // Permettre ville = '' pour les catégories globales, mais ville doit être définie (pas null/undefined)
+        if (ville === null || ville === undefined || !originalCategory) {
           return { success: false, error: 'Ville et catégorie requises' };
         }
 
         const normalizedVille = String(ville).toLowerCase().trim();
         const normalizedOriginal = String(originalCategory).toLowerCase().trim();
         const newCategory = updates.category !== undefined ? String(updates.category).toLowerCase().trim() : normalizedOriginal;
+        
+        console.log('[supabaseService] updateCategoryIcon called:', {
+          ville: normalizedVille,
+          originalCategory: normalizedOriginal,
+          newCategory,
+          updates
+        });
         
         // Si le nom de la catégorie change, on doit supprimer et recréer (clé primaire)
         if (newCategory !== normalizedOriginal) {
@@ -1440,7 +1516,23 @@
             return { success: false, error: 'Catégorie introuvable' };
           }
 
-          // Supprimer l'ancienne
+          // ÉTAPE 1 : Mettre à jour les contributions qui utilisent cette catégorie
+          console.log('[supabaseService] Updating contributions with category:', { ville: normalizedVille, oldCategory: normalizedOriginal, newCategory });
+          const { data: updatedContribs, error: updateContribsError } = await supabaseClient
+            .from('contribution_uploads')
+            .update({ category: newCategory })
+            .eq('ville', normalizedVille)
+            .eq('category', normalizedOriginal)
+            .select('id');
+
+          if (updateContribsError) {
+            console.error('[supabaseService] updateCategoryIcon: error updating contributions:', updateContribsError);
+            return { success: false, error: 'Erreur lors de la mise à jour des contributions: ' + updateContribsError.message };
+          }
+
+          console.log('[supabaseService] Updated', updatedContribs?.length || 0, 'contributions');
+
+          // ÉTAPE 2 : Supprimer l'ancienne catégorie
           const { error: deleteError } = await supabaseClient
             .from('category_icons')
             .delete()
@@ -1449,48 +1541,105 @@
 
           if (deleteError) {
             console.error('[supabaseService] updateCategoryIcon delete error:', deleteError);
+            // Rollback : remettre l'ancien nom dans les contributions
+            await supabaseClient
+              .from('contribution_uploads')
+              .update({ category: normalizedOriginal })
+              .eq('ville', normalizedVille)
+              .eq('category', newCategory);
             return { success: false, error: deleteError.message };
           }
 
-          // Créer la nouvelle avec le nouveau nom
+          // ÉTAPE 3 : Créer la nouvelle catégorie avec le nouveau nom
+          const insertData = {
+            ville: normalizedVille,
+            category: newCategory,
+            icon_class: updates.icon_class !== undefined ? String(updates.icon_class).trim() : existing.icon_class,
+            display_order: updates.display_order !== undefined ? parseInt(updates.display_order) || 100 : existing.display_order
+          };
+          
+          // Ajouter layers_to_display si fourni, sinon garder l'existant
+          if (updates.layers_to_display !== undefined) {
+            insertData.layers_to_display = updates.layers_to_display;
+          } else if (existing.layers_to_display) {
+            insertData.layers_to_display = existing.layers_to_display;
+          }
+          
           const { data, error: insertError } = await supabaseClient
             .from('category_icons')
-            .insert([{
-              ville: normalizedVille,
-              category: newCategory,
-              icon_class: updates.icon_class !== undefined ? String(updates.icon_class).trim() : existing.icon_class,
-              display_order: updates.display_order !== undefined ? parseInt(updates.display_order) || 100 : existing.display_order
-            }])
+            .insert([insertData])
             .select()
             .single();
 
           if (insertError) {
             console.error('[supabaseService] updateCategoryIcon insert error:', insertError);
+            // Rollback : remettre l'ancien nom dans les contributions et recréer l'ancienne catégorie
+            await supabaseClient
+              .from('contribution_uploads')
+              .update({ category: normalizedOriginal })
+              .eq('ville', normalizedVille)
+              .eq('category', newCategory);
+            await supabaseClient
+              .from('category_icons')
+              .insert([existing]);
             return { success: false, error: insertError.message };
           }
 
-          return { success: true, data };
+          return { success: true, data, updatedContributions: updatedContribs?.length || 0 };
         } else {
           // Mise à jour simple (pas de changement de nom)
+          // D'abord vérifier que la ligne existe
+          const { data: existing, error: checkError } = await supabaseClient
+            .from('category_icons')
+            .select('*')
+            .eq('ville', normalizedVille)
+            .eq('category', normalizedOriginal)
+            .maybeSingle();
+
+          if (checkError) {
+            console.error('[supabaseService] updateCategoryIcon check error:', checkError);
+            return { success: false, error: checkError.message };
+          }
+
+          if (!existing) {
+            console.error('[supabaseService] updateCategoryIcon: category not found', { ville: normalizedVille, category: normalizedOriginal });
+            return { success: false, error: `La catégorie "${normalizedOriginal}" n'existe pas pour la ville "${normalizedVille}"` };
+          }
+
           const payload = {};
           if (updates.icon_class !== undefined) payload.icon_class = String(updates.icon_class).trim();
           if (updates.display_order !== undefined) payload.display_order = parseInt(updates.display_order) || 100;
+          if (updates.layers_to_display !== undefined) {
+            console.log('[supabaseService] layers_to_display reçu:', updates.layers_to_display);
+            payload.layers_to_display = updates.layers_to_display;
+          }
           payload.updated_at = new Date().toISOString();
+
+          console.log('[supabaseService] About to UPDATE with:', {
+            payload,
+            where: { ville: normalizedVille, category: normalizedOriginal }
+          });
 
           const { data, error } = await supabaseClient
             .from('category_icons')
             .update(payload)
             .eq('ville', normalizedVille)
             .eq('category', normalizedOriginal)
-            .select()
-            .single();
+            .select();
+
+          console.log('[supabaseService] UPDATE result:', { data, error, rowCount: data?.length });
 
           if (error) {
             console.error('[supabaseService] updateCategoryIcon error:', error);
             return { success: false, error: error.message };
           }
 
-          return { success: true, data };
+          if (!data || data.length === 0) {
+            console.error('[supabaseService] updateCategoryIcon: UPDATE affected 0 rows');
+            return { success: false, error: 'Aucune ligne mise à jour. Vérifiez les permissions RLS.' };
+          }
+
+          return { success: true, data: data[0] };
         }
       } catch (e) {
         console.error('[supabaseService] updateCategoryIcon exception:', e);
@@ -1535,8 +1684,9 @@
      */
     async getCategoryIconsByCity(ville) {
       try {
-        const targetCity = ville || getActiveCity();
-        if (!targetCity) {
+        // Utiliser ville si elle est définie (même si c'est ''), sinon getActiveCity()
+        const targetCity = ville !== undefined ? ville : getActiveCity();
+        if (targetCity === undefined || targetCity === null) {
           console.warn('[supabaseService] getCategoryIconsByCity: pas de ville spécifiée');
           return [];
         }

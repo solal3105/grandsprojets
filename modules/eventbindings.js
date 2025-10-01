@@ -32,18 +32,33 @@ const EventBindings = (() => {
 
     // Gestion des couches à afficher
     if (Array.isArray(layersToDisplay)) {
+      console.log('[EventBindings] handleNavigation - Layers à afficher:', layersToDisplay);
+      
       // Retirer les couches non désirées
       Object.keys(MapModule.layers).forEach(layerName => {
         if (!layersToDisplay.includes(layerName)) {
+          console.log('[EventBindings] Retrait du layer:', layerName);
           MapModule.removeLayer(layerName);
         }
       });
+      
       // Charger les couches désirées
       layersToDisplay.forEach(layerName => {
         if (!MapModule.layers[layerName]) {
+          console.log('[EventBindings] Layer non présent sur la carte:', layerName);
+          
+          // Si les données sont déjà chargées, créer le layer
           if (DataModule.layerData && DataModule.layerData[layerName]) {
+            console.log('[EventBindings] Création du layer depuis layerData:', layerName);
             DataModule.createGeoJsonLayer(layerName, DataModule.layerData[layerName]);
+          } 
+          // Sinon, charger les données depuis la DB
+          else if (DataModule.loadLayer) {
+            console.log('[EventBindings] Chargement du layer depuis DB:', layerName);
+            DataModule.loadLayer(layerName);
           }
+        } else {
+          console.log('[EventBindings] Layer déjà présent sur la carte:', layerName);
         }
       });
     }
@@ -142,13 +157,29 @@ const bindFilterControls = () => {
     const categoryIcons = window.categoryIcons || [];
     const categoryLayersMap = window.categoryLayersMap || {};
     
+    if (categoryIcons.length === 0) {
+      console.warn('[EventBindings] bindCategoryNavigation: aucune catégorie disponible');
+      return;
+    }
+    
     categoryIcons.forEach(({ category }) => {
       const navButton = document.getElementById(`nav-${category}`);
-      if (!navButton) return;
+      if (!navButton) {
+        console.warn(`[EventBindings] Bouton de navigation introuvable pour: ${category}`);
+        return;
+      }
       
       navButton.addEventListener('click', () => {
-        // Récupérer les couches associées à cette catégorie
-        const categoryLayers = categoryLayersMap[category] || [category];
+        // Récupérer les couches associées à cette catégorie depuis la DB
+        const categoryLayers = categoryLayersMap[category];
+        
+        if (!categoryLayers) {
+          console.error(`[EventBindings] Aucun layer défini pour la catégorie: ${category}`);
+          return;
+        }
+        
+        console.log(`[EventBindings] Navigation vers ${category}, layers:`, categoryLayers);
+        
         EventBindings.handleNavigation(category, categoryLayers);
         
         // Afficher le sous-menu de cette catégorie et masquer les autres
@@ -164,8 +195,10 @@ const bindFilterControls = () => {
     });
   }
   
-  // Appeler la fonction de binding après un court délai pour s'assurer que les éléments sont créés
-  setTimeout(bindCategoryNavigation, 100);
+  // Exposer la fonction pour permettre un appel explicite depuis main.js
+  const initCategoryNavigation = () => {
+    bindCategoryNavigation();
+  };
 
   /**
    * Gère le clic sur le logo pour réinitialiser la vue
@@ -247,7 +280,8 @@ const bindFilterControls = () => {
     handleNavigation,
     handleLogoClick,
     handleFeatureClick,
-    bindLogoClick
+    bindLogoClick,
+    initCategoryNavigation
   };
 })();
 

@@ -152,9 +152,13 @@
     const form = document.getElementById('contrib-form');
     const statusEl = document.getElementById('contrib-status');
     const cityEl = document.getElementById('contrib-city');
+    const categoryEl = document.getElementById('contrib-category');
+    const categoryHelpEl = document.getElementById('contrib-category-help');
+    const createCategoryLink = document.getElementById('contrib-create-category-link');
     const addDocBtn = document.getElementById('contrib-doc-add');
     const docsFieldset = document.getElementById('contrib-docs');
     const existingDocsEl = document.getElementById('contrib-existing-docs');
+    
     // Flag to ensure we load the city code list only at Step 1 and only once
     let citiesPopulatedOnce = false;
 
@@ -2387,12 +2391,103 @@
       }
     }
 
-    // Recenter draw map on city change
+    // Charger les catégories dynamiquement selon la ville sélectionnée
+    async function loadCategoriesForCity(ville) {
+      try {
+        if (!categoryEl) return;
+        
+        // Réinitialiser
+        categoryEl.disabled = true;
+        categoryEl.innerHTML = '<option value="">Chargement...</option>';
+        if (categoryHelpEl) categoryHelpEl.style.display = 'none';
+        
+        if (!ville) {
+          categoryEl.innerHTML = '<option value="">Sélectionnez d\'abord une ville</option>';
+          return;
+        }
+        
+        // Si "default", charger les catégories avec ville EMPTY ('')
+        let categories;
+        if (ville.toLowerCase() === 'default') {
+          // Requête spéciale pour ville EMPTY
+          categories = await win.supabaseService.getCategoryIconsByCity('');
+        } else {
+          // Charger les catégories depuis la base pour une ville spécifique
+          categories = await win.supabaseService.getCategoryIconsByCity(ville);
+        }
+        
+        if (!categories || categories.length === 0) {
+          // Aucune catégorie disponible
+          categoryEl.innerHTML = '<option value="">Aucune catégorie disponible</option>';
+          if (categoryHelpEl) categoryHelpEl.style.display = 'block';
+          return;
+        }
+        
+        // Peupler le select avec les catégories
+        categoryEl.innerHTML = '<option value="">-- Choisir une catégorie --</option>' +
+          categories.map(cat => `<option value="${cat.category}">${cat.category}</option>`).join('');
+        categoryEl.disabled = false;
+        
+      } catch (err) {
+        console.error('[contrib] loadCategoriesForCity error:', err);
+        categoryEl.innerHTML = '<option value="">Erreur de chargement</option>';
+      }
+    }
+    
+    // Lien pour créer une catégorie
+    if (createCategoryLink) {
+      createCategoryLink.addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+          // Sauvegarder la ville sélectionnée
+          const selectedVille = cityEl?.value || '';
+          
+          // Réinitialiser complètement le formulaire de contribution
+          if (form) form.reset();
+          if (currentEditId) exitEditMode();
+          
+          // Masquer tous les panels
+          if (panelCreate) panelCreate.hidden = true;
+          if (panelList) panelList.hidden = true;
+          if (panelCategories) panelCategories.hidden = true;
+          
+          // Afficher le landing
+          showLanding();
+          
+          // Attendre un peu pour que l'UI se stabilise
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // Activer le panel catégories
+          chooseLanding('categories');
+          
+          // Pré-sélectionner la ville si elle était définie
+          if (selectedVille && categoryVilleSelector) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            categoryVilleSelector.value = selectedVille;
+            categoryVilleSelector.dispatchEvent(new Event('change'));
+          }
+        } catch(err) {
+          console.error('[contrib] createCategoryLink error:', err);
+        }
+      });
+    }
+
+    // Recenter draw map on city change + charger les catégories
     if (cityEl) {
       cityEl.addEventListener('change', async () => {
         try {
           const v = (cityEl.value || '').trim();
-          if (v) await applyCityBranding(v);
+          if (v) {
+            await applyCityBranding(v);
+            await loadCategoriesForCity(v);
+          } else {
+            // Réinitialiser les catégories si pas de ville
+            if (categoryEl) {
+              categoryEl.disabled = true;
+              categoryEl.innerHTML = '<option value="">Sélectionnez d\'abord une ville</option>';
+            }
+            if (categoryHelpEl) categoryHelpEl.style.display = 'none';
+          }
         } catch (_) {}
       });
     }
@@ -2420,6 +2515,7 @@
     const categoryIconGrid = document.getElementById('category-icon-grid');
     const categoryOrderInput = document.getElementById('category-order');
     const categoryVilleSelect = document.getElementById('category-ville');
+    const categoryLayersCheckboxes = document.getElementById('category-layers-checkboxes');
     const categoryEditModeInput = document.getElementById('category-edit-mode');
     const categoryOriginalNameInput = document.getElementById('category-original-name');
 
@@ -2486,23 +2582,30 @@
 
     async function loadCategoriesPanel() {
       try {
-        // Populate main ville selector
-        await populateCategoryVilleSelector();
-        
-        // Populate form ville selector
-        await populateCategoryFormVilleSelector();
-        
-        // Populate icon picker
-        populateIconPicker();
-        
-        // Hide content and form initially
+        // Masquer tout pendant le chargement pour éviter les clignotements
+        if (categoryVilleSelectorContainer) categoryVilleSelectorContainer.style.opacity = '0';
         if (categoriesContent) categoriesContent.style.display = 'none';
         if (categoryFormContainer) categoryFormContainer.style.display = 'none';
+        
+        // Charger les données en parallèle
+        await Promise.all([
+          populateCategoryVilleSelector(),
+          populateCategoryFormVilleSelector(),
+          Promise.resolve(populateIconPicker())
+        ]);
+        
+        // Afficher le sélecteur de ville avec une transition douce
+        if (categoryVilleSelectorContainer) {
+          categoryVilleSelectorContainer.style.transition = 'opacity 0.2s ease-in';
+          categoryVilleSelectorContainer.style.opacity = '1';
+        }
         
         // Focus on ville selector
         if (categoryVilleSelector) categoryVilleSelector.focus();
       } catch(e) {
         console.error('[contrib] loadCategoriesPanel error:', e);
+        // En cas d'erreur, afficher quand même le sélecteur
+        if (categoryVilleSelectorContainer) categoryVilleSelectorContainer.style.opacity = '1';
       }
     }
 
@@ -2562,6 +2665,8 @@
         
         // Clear and repopulate main selector
         categoryVilleSelector.innerHTML = '<option value="">-- Choisir une ville --</option>';
+        // Ajouter "default" en premier pour les catégories globales
+        categoryVilleSelector.insertAdjacentHTML('beforeend', '<option value="default">🌍 Catégories globales (default)</option>');
         const cityOptions = (Array.isArray(cities) ? cities : []).map(c => `<option value="${c}">${c}</option>`).join('');
         if (cityOptions) categoryVilleSelector.insertAdjacentHTML('beforeend', cityOptions);
         
@@ -2569,8 +2674,8 @@
         const activeCity = win.activeCity || '';
         if (activeCity && cities.includes(activeCity)) {
           categoryVilleSelector.value = activeCity;
-          // Auto-load categories for active city
-          await refreshCategoriesList();
+          // Auto-load categories for active city (sans attendre pour éviter le blocage)
+          refreshCategoriesList().catch(e => console.warn('[contrib] Auto-load categories error:', e));
         }
       } catch(err) {
         console.warn('[contrib] populateCategoryVilleSelector error:', err);
@@ -2591,11 +2696,88 @@
         
         // Clear and repopulate form selector
         categoryVilleSelect.innerHTML = '<option value="">Sélectionner une ville</option>';
+        // Ajouter "default" pour les catégories globales
+        categoryVilleSelect.insertAdjacentHTML('beforeend', '<option value="default">🌍 Catégories globales (default)</option>');
         const cityOptions = (Array.isArray(cities) ? cities : []).map(c => `<option value="${c}">${c}</option>`).join('');
         if (cityOptions) categoryVilleSelect.insertAdjacentHTML('beforeend', cityOptions);
       } catch(err) {
         console.warn('[contrib] populateCategoryFormVilleSelector error:', err);
       }
+    }
+
+    async function populateCategoryLayersCheckboxes(ville) {
+      try {
+        if (!categoryLayersCheckboxes || !win.supabaseService) return;
+        
+        categoryLayersCheckboxes.innerHTML = '';
+        
+        // Convertir "default" en null
+        if (ville === 'default') ville = null;
+        
+        // Récupérer les layers de cette ville (ou ville NULL si pas de ville)
+        let query = win.supabaseService.getClient()
+          .from('layers')
+          .select('name')
+          .order('name');
+        
+        if (ville) {
+          query = query.eq('ville', ville);
+        } else {
+          query = query.is('ville', null);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) {
+          console.warn('[contrib] Erreur lors du chargement des layers:', error);
+          categoryLayersCheckboxes.innerHTML = '<small style="color:#999;">Aucun layer disponible</small>';
+          return;
+        }
+        
+        const layers = data || [];
+        
+        if (layers.length === 0) {
+          categoryLayersCheckboxes.innerHTML = '<small style="color:#999;">Aucun layer disponible pour cette ville</small>';
+          return;
+        }
+        
+        // Créer les checkboxes
+        layers.forEach(layer => {
+          const checkbox = document.createElement('label');
+          checkbox.style.cssText = 'display:flex; align-items:center; gap:6px; cursor:pointer; padding:6px; border-radius:4px; transition:background 0.2s;';
+          checkbox.innerHTML = `
+            <input type="checkbox" name="category-layer-checkbox" value="${layer.name}" style="cursor:pointer;">
+            <span style="font-size:0.9em;">${layer.name}</span>
+          `;
+          checkbox.addEventListener('mouseenter', () => checkbox.style.background = '#e5e7eb');
+          checkbox.addEventListener('mouseleave', () => checkbox.style.background = 'transparent');
+          categoryLayersCheckboxes.appendChild(checkbox);
+        });
+        
+      } catch (err) {
+        console.error('[contrib] populateCategoryLayersCheckboxes error:', err);
+        categoryLayersCheckboxes.innerHTML = '<small style="color:#f87171;">Erreur de chargement</small>';
+      }
+    }
+
+    // Listener sur le changement de ville dans le formulaire de catégorie
+    if (categoryVilleSelect) {
+      categoryVilleSelect.addEventListener('change', async () => {
+        const ville = categoryVilleSelect.value;
+        
+        // Sauvegarder les sélections actuelles avant de recharger
+        const currentSelections = Array.from(document.querySelectorAll('input[name="category-layer-checkbox"]:checked'))
+          .map(cb => cb.value);
+        
+        // Recharger les checkboxes pour la nouvelle ville
+        await populateCategoryLayersCheckboxes(ville);
+        
+        // Restaurer les sélections si les layers existent toujours
+        currentSelections.forEach(layerName => {
+          const checkbox = document.querySelector(`input[name="category-layer-checkbox"][value="${layerName}"]`);
+          if (checkbox) checkbox.checked = true;
+        });
+      });
     }
 
     async function refreshCategoriesList() {
@@ -2608,10 +2790,20 @@
           return;
         }
         
-        // Show content area
-        if (categoriesContent) categoriesContent.style.display = '';
+        // Afficher un loader pendant le chargement
+        if (categoriesContent) {
+          categoriesContent.style.display = '';
+          categoriesList.innerHTML = '<p style="opacity:0.6; padding:12px; text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Chargement...</p>';
+        }
 
-        const categories = await win.supabaseService.getCategoryIconsByCity(ville);
+        // Si "default", charger les catégories avec ville EMPTY ('')
+        let categories;
+        if (ville.toLowerCase() === 'default') {
+          // Requête spéciale pour ville EMPTY
+          categories = await win.supabaseService.getCategoryIconsByCity('');
+        } else {
+          categories = await win.supabaseService.getCategoryIconsByCity(ville);
+        }
         
         if (!categories || categories.length === 0) {
           categoriesList.innerHTML = '<p style="opacity:0.6; padding:12px; text-align:center;">Aucune catégorie pour cette ville.<br><small>Cliquez sur "Nouvelle catégorie" pour en créer une.</small></p>';
@@ -2621,27 +2813,29 @@
         const html = categories.map(cat => {
           // Escape HTML to prevent XSS
           const escapedCategory = String(cat.category || '').replace(/[<>"'&]/g, (c) => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
-          let iconClass = String(cat.icon_class || '');
+          const originalIconClass = String(cat.icon_class || '');
+          let displayIconClass = originalIconClass;
           
-          // Auto-fix icon class if missing style prefix
-          if (iconClass.startsWith('fa-') && !iconClass.startsWith('fa-solid') && !iconClass.startsWith('fa-regular') && !iconClass.startsWith('fa-brands') && !iconClass.startsWith('fa-light') && !iconClass.startsWith('fa-thin') && !iconClass.startsWith('fa-duotone')) {
-            iconClass = 'fa-solid ' + iconClass;
+          // Auto-fix icon class for DISPLAY only if missing style prefix
+          if (displayIconClass.startsWith('fa-') && !displayIconClass.startsWith('fa-solid') && !displayIconClass.startsWith('fa-regular') && !displayIconClass.startsWith('fa-brands') && !displayIconClass.startsWith('fa-light') && !displayIconClass.startsWith('fa-thin') && !displayIconClass.startsWith('fa-duotone')) {
+            displayIconClass = 'fa-solid ' + displayIconClass;
           }
           
-          const escapedIconClass = iconClass.replace(/[<>"'&]/g, (c) => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
+          const escapedDisplayIconClass = displayIconClass.replace(/[<>"'&]/g, (c) => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
+          const escapedOriginalIconClass = originalIconClass.replace(/[<>"'&]/g, (c) => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
           const escapedVille = String(cat.ville || '').replace(/[<>"'&]/g, (c) => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
           
           return `
           <div class="category-item" style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid #ddd; border-radius:8px; margin-bottom:8px; background:#fff;">
             <div style="flex:0 0 40px; text-align:center; font-size:24px; color:#333;">
-              <i class="${escapedIconClass}" aria-hidden="true"></i>
+              <i class="${escapedDisplayIconClass}" aria-hidden="true"></i>
             </div>
             <div style="flex:1;">
               <div style="font-weight:600;">${escapedCategory}</div>
-              <div style="font-size:0.85em; opacity:0.7;"><code style="background:#f5f5f5; padding:2px 4px; border-radius:3px;">${escapedIconClass}</code> • Ordre: ${cat.display_order}</div>
+              <div style="font-size:0.85em; opacity:0.7;"><code style="background:#f5f5f5; padding:2px 4px; border-radius:3px;">${escapedOriginalIconClass}</code> • Ordre: ${cat.display_order}</div>
             </div>
             <div style="display:flex; gap:6px;">
-              <button type="button" class="gp-btn gp-btn--secondary" data-action="edit" data-ville="${escapedVille}" data-category="${escapedCategory}" data-icon="${escapedIconClass}" data-order="${cat.display_order}">
+              <button type="button" class="gp-btn gp-btn--secondary" data-action="edit" data-ville="${escapedVille}" data-category="${escapedCategory}" data-icon="${escapedOriginalIconClass}" data-order="${cat.display_order}" data-layers="${JSON.stringify(cat.layers_to_display || []).replace(/"/g, '&quot;')}">
                 <i class="fa-solid fa-pen"></i> Modifier
               </button>
               <button type="button" class="gp-btn gp-btn--danger" data-action="delete" data-ville="${escapedVille}" data-category="${escapedCategory}">
@@ -2661,7 +2855,13 @@
             const category = btn.dataset.category;
             const icon = btn.dataset.icon;
             const order = btn.dataset.order;
-            showCategoryForm('edit', { ville, category, icon_class: icon, display_order: order });
+            let layers_to_display = [];
+            try {
+              layers_to_display = JSON.parse(btn.dataset.layers || '[]');
+            } catch (e) {
+              console.warn('[contrib] Erreur parsing layers_to_display:', e);
+            }
+            showCategoryForm('edit', { ville, category, icon_class: icon, display_order: order, layers_to_display });
           });
         });
 
@@ -2686,13 +2886,36 @@
         categoryEditModeInput.value = mode;
         
         if (mode === 'edit') {
+          console.log('[contrib] Mode édition, data reçue:', data);
           categoryFormTitle.textContent = 'Modifier la catégorie';
           categoryOriginalNameInput.value = data.category || '';
           categoryNameInput.value = data.category || '';
           categoryIconInput.value = data.icon_class || '';
           categoryOrderInput.value = data.display_order || 100;
-          categoryVilleSelect.value = data.ville || '';
+          // Convertir EMPTY ('') en "default" pour l'affichage
+          const displayVille = data.ville === '' ? 'default' : (data.ville || 'default');
+          categoryVilleSelect.value = displayVille;
+          categoryVilleSelect.dataset.originalVille = displayVille;
           categoryVilleSelect.disabled = true; // Cannot change ville in edit mode
+          
+          // Charger les layers et pré-sélectionner ceux de la catégorie
+          populateCategoryLayersCheckboxes(displayVille).then(() => {
+            const layersToDisplay = data.layers_to_display || [];
+            console.log('[contrib] data.layers_to_display:', data.layers_to_display);
+            console.log('[contrib] Pré-sélection des layers:', layersToDisplay);
+            
+            // Attendre un tick pour que les checkboxes soient dans le DOM
+            setTimeout(() => {
+              const checkboxes = document.querySelectorAll('input[name="category-layer-checkbox"]');
+              console.log('[contrib] Checkboxes trouvées:', checkboxes.length);
+              
+              checkboxes.forEach(cb => {
+                const shouldCheck = layersToDisplay.includes(cb.value);
+                console.log(`[contrib] Layer ${cb.value}: ${shouldCheck ? 'coché' : 'non coché'}`);
+                cb.checked = shouldCheck;
+              });
+            }, 50);
+          });
           
           // Show back button in edit mode
           if (categoryFormBack) categoryFormBack.style.display = '';
@@ -2715,7 +2938,11 @@
           categoryVilleSelect.disabled = false;
           // Default to selected city from main selector
           const selectedCity = categoryVilleSelector?.value || win.activeCity || '';
-          if (selectedCity) categoryVilleSelect.value = selectedCity;
+          if (selectedCity) {
+            categoryVilleSelect.value = selectedCity;
+            // Charger les layers pour la ville sélectionnée
+            populateCategoryLayersCheckboxes(selectedCity);
+          }
           
           // Hide back button in create mode
           if (categoryFormBack) categoryFormBack.style.display = 'none';
@@ -2796,32 +3023,62 @@
           const category = categoryNameInput.value.trim().toLowerCase();
           const icon_class = categoryIconInput.value.trim();
           const display_order = parseInt(categoryOrderInput.value) || 100;
-          const ville = categoryVilleSelect.value.trim().toLowerCase();
+          let ville = categoryVilleSelect.value.trim().toLowerCase();
           
-          if (!category || !icon_class || !ville) {
-            showToast('Tous les champs sont requis.', 'error');
+          // Récupérer les layers sélectionnés
+          const checkboxes = document.querySelectorAll('input[name="category-layer-checkbox"]');
+          console.log('[contrib] Total checkboxes trouvées:', checkboxes.length);
+          
+          const selectedLayers = Array.from(document.querySelectorAll('input[name="category-layer-checkbox"]:checked'))
+            .map(cb => cb.value);
+          
+          console.log('[contrib] Layers sélectionnés à sauvegarder:', selectedLayers);
+          
+          // Convertir "default" en EMPTY ('') pour la base de données
+          if (ville === 'default') {
+            ville = '';
+          }
+          
+          if (!category || !icon_class) {
+            showToast('Le nom et l\'icône sont requis.', 'error');
             return;
           }
 
           let result;
           if (mode === 'edit') {
-            const originalCategory = categoryOriginalNameInput.value.trim().toLowerCase();
-            result = await win.supabaseService.updateCategoryIcon(ville, originalCategory, {
+            let originalCategory = categoryOriginalNameInput.value.trim().toLowerCase();
+            let originalVille = categoryVilleSelect.dataset.originalVille;
+            // Convertir "default" en EMPTY ('')
+            if (originalVille === 'default') originalVille = '';
+            
+            console.log('[contrib] Updating category:', {
+              ville: originalVille,
+              originalCategory,
+              updates: { category, icon_class, display_order, layers_to_display: selectedLayers }
+            });
+            result = await win.supabaseService.updateCategoryIcon(originalVille, originalCategory, {
               category,
               icon_class,
-              display_order
+              display_order,
+              layers_to_display: selectedLayers
             });
           } else {
             result = await win.supabaseService.createCategoryIcon({
               category,
               icon_class,
               display_order,
-              ville
+              ville,
+              layers_to_display: selectedLayers
             });
           }
 
           if (result.success) {
-            showToast(mode === 'edit' ? 'Catégorie modifiée.' : 'Catégorie créée.', 'success');
+            const message = mode === 'edit' 
+              ? (result.updatedContributions > 0 
+                  ? `Catégorie modifiée. ${result.updatedContributions} projet(s) mis à jour.`
+                  : 'Catégorie modifiée.')
+              : 'Catégorie créée.';
+            showToast(message, 'success');
             hideCategoryForm();
             
             // Refresh list and ensure ville selector + list are visible

@@ -57,7 +57,7 @@ const TravauxModule = (() => {
       const category = submenu.dataset.category;
       
       if (category) {
-        const layersToDisplay = (window.categoryLayersMap && window.categoryLayersMap[category]) || [category];
+        const layersToDisplay = window.categoryLayersMap?.[category] || [];
         if (window.MapModule && window.MapModule.layers) {
           Object.keys(window.MapModule.layers).forEach(layerName => {
             if (!layersToDisplay.includes(layerName)) {

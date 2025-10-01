@@ -457,7 +457,7 @@ const NavigationModule = (() => {
     // Si une catégorie est spécifiée, afficher uniquement le sous-menu correspondant
     if (category) {
       // Définir les couches à afficher en fonction de la catégorie
-      const layersToDisplay = (window.categoryLayersMap && window.categoryLayersMap[category]) || [category];
+      const layersToDisplay = window.categoryLayersMap?.[category] || [];
       
       // Masquer tous les sous-menus d'abord
       document.querySelectorAll('.submenu').forEach(menu => {

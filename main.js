@@ -179,17 +179,13 @@
       activeCategoryIcons.sort((a, b) => a.display_order - b.display_order);
       console.log('[Main] ✅ Catégories actives:', activeCategoryIcons.map(c => c.category));
       win.categoryIcons = activeCategoryIcons;
-      win.categoryLayersMap = {};
-      activeCategoryIcons.forEach(({ category }) => {
-        const matchingLayers = layersConfig
-          .filter(layer => layer.name === category || layer.name.includes(category))
-          .map(layer => layer.name);
-        
-        win.categoryLayersMap[category] = matchingLayers.length > 0 ? matchingLayers : [category];
-      });
+      
+      // Construire le mapping catégorie → layers depuis la DB
+      win.categoryLayersMap = window.supabaseService.buildCategoryLayersMap(activeCategoryIcons);
+      console.log('[Main] ✅ categoryLayersMap construit depuis DB:', win.categoryLayersMap);
 
       win.getAllCategories = () => (win.categoryIcons || []).map(c => c.category);
-      win.getCategoryLayers = (category) => (win.categoryLayersMap && win.categoryLayersMap[category]) || [category];
+      win.getCategoryLayers = (category) => win.categoryLayersMap?.[category] || [];
       win.isCategoryLayer = (layerName) => win.getAllCategories().includes(layerName);
       const categoriesContainer = document.getElementById('dynamic-categories');
       const submenusContainer = document.getElementById('dynamic-submenus');
@@ -219,29 +215,13 @@
         });
         console.log('[Main] 🎨 Menus créés:', activeCategoryIcons.map(c => c.category).join(', '));
         
-        activeCategoryIcons.forEach(({ category }) => {
-          const navButton = document.getElementById(`nav-${category}`);
-          if (!navButton) return;
-          
-          navButton.addEventListener('click', () => {
-            const categoryLayers = win.categoryLayersMap[category] || [category];
-            
-            if (window.EventBindings?.handleNavigation) {
-              window.EventBindings.handleNavigation(category, categoryLayers);
-            }
-            document.querySelectorAll('.submenu').forEach(submenu => {
-              submenu.style.display = 'none';
-              submenu.classList.remove('active');
-            });
-            
-            const targetSubmenu = document.querySelector(`.submenu[data-category="${category}"]`);
-            if (targetSubmenu) {
-              targetSubmenu.style.display = 'block';
-              targetSubmenu.classList.add('active');
-            }
-          });
-        });
-        console.log('[Main] 🔗 Listeners attachés');
+        // Initialiser les event listeners de navigation via EventBindings
+        if (window.EventBindings?.initCategoryNavigation) {
+          window.EventBindings.initCategoryNavigation();
+          console.log('[Main] 🔗 Navigation initialisée via EventBindings');
+        } else {
+          console.warn('[Main] EventBindings.initCategoryNavigation non disponible');
+        }
       }
       const contributionsByCategory = {};
       allContributions.forEach(contrib => {

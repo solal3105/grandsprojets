@@ -201,20 +201,22 @@
           </div>
 
           <div class="form-row contrib-step-1">
-            <label for="contrib-category">Catégorie</label>
-            <select id="contrib-category" name="category_layer" required>
-              <option value="mobilite">Mobilité</option>
-              <option value="urbanisme">Urbanisme</option>
-              <option value="velo">Vélo</option>
-            </select>
-          </div>
-
-          <div class="form-row contrib-step-1">
             <label for="contrib-city">Code collectivité</label>
             <select id="contrib-city" name="ville">
               <option value="">Aucun</option>
               <!-- Options peuplées dynamiquement depuis la base -->
             </select>
+          </div>
+
+          <div class="form-row contrib-step-1">
+            <label for="contrib-category">Catégorie</label>
+            <select id="contrib-category" name="category_layer" required disabled>
+              <option value="">Sélectionnez d'abord une ville</option>
+            </select>
+            <small id="contrib-category-help" style="display:none; margin-top:4px; color:#f59e0b;">
+              <i class="fa-solid fa-exclamation-triangle"></i> Aucune catégorie disponible. 
+              <a href="#" id="contrib-create-category-link" style="color:#1976d2; text-decoration:underline;">Créer une catégorie</a>
+            </small>
           </div>
 
           <div class="contrib-step-2" id="contrib-geom-mode">
@@ -363,7 +365,7 @@
 
         <!-- Panel: Gestion des catégories -->
         <section id="contrib-panel-categories" role="tabpanel" aria-label="Gérer les catégories" hidden>
-          <div id="category-ville-selector-container" style="margin-bottom:20px; padding:16px; border:1px solid #ddd; border-radius:8px; background:#f9f9f9;">
+          <div id="category-ville-selector-container" style="margin-bottom:20px; padding:16px; border:1px solid #ddd; border-radius:8px; background:#f9f9f9; opacity:0;">
             <label for="category-ville-selector" style="display:block; font-weight:600; margin-bottom:8px;">
               <i class="fa-solid fa-city"></i> Sélectionner une ville
             </label>
@@ -373,7 +375,7 @@
             </select>
           </div>
           
-          <div id="categories-content" style="display:none;">
+          <div id="categories-content" style="display:none; transition:opacity 0.2s ease-in;">
             <div style="margin-bottom:16px;">
               <button id="category-add-btn" class="gp-btn gp-btn--primary" type="button">
                 <i class="fa-solid fa-plus"></i> Nouvelle catégorie
@@ -436,6 +438,18 @@
                   <option value="">Sélectionner une ville</option>
                   <!-- Options peuplées dynamiquement -->
                 </select>
+              </div>
+
+              <div class="form-row">
+                <label for="category-layers">Layers à afficher (en plus du layer de la catégorie)</label>
+                <div id="category-layers-container" style="padding:12px; border:1px solid #ddd; border-radius:8px; background:#f9f9f9; min-height:60px;">
+                  <div id="category-layers-checkboxes" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:8px;">
+                    <!-- Checkboxes peuplées dynamiquement -->
+                  </div>
+                  <small style="display:block; margin-top:8px; opacity:0.7; font-style:italic;">
+                    Le layer portant le nom de la catégorie est toujours affiché automatiquement.
+                  </small>
+                </div>
               </div>
 
               <div style="display:flex; gap:8px; margin-top:16px;">
