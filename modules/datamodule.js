@@ -249,9 +249,13 @@ window.DataModule = (function() {
 
 	// Lie les événements (tooltip, mouseover, click, etc.) à une feature
 	function bindFeatureEvents(layer, feature, geojsonLayer, layerName) {
-		// Ne pas attacher d'événements aux marqueurs caméra
-		if (layer.options && layer.options.icon && layer.options.icon.options &&
-			layer.options.icon.options.className === 'legacy-camera-removed') {
+		// Détecter si c'est un point avec image (camera marker)
+		const isPoint = /Point$/i.test(feature?.geometry?.type || '');
+		const hasImage = !!(feature?.properties?.imgUrl);
+		
+		// Si c'est un camera marker, déléguer à CameraMarkers
+		if (isPoint && hasImage && window.CameraMarkers?.bindCameraMarkerEvents) {
+			window.CameraMarkers.bindCameraMarkerEvents(feature, layer);
 			return;
 		}
 
@@ -814,7 +818,8 @@ window.DataModule = (function() {
 										feature.properties.cover_url = project.cover_url;
 										feature.properties.description = project.description;
 										feature.properties.markdown_url = project.markdown_url;
-										feature.properties.imgUrl = project.cover_url; // Pour compatibilité tooltip
+										// NE PAS écraser imgUrl s'il existe déjà dans le GeoJSON
+										// (imgUrl est spécifique à chaque feature, cover_url est pour le projet)
 									});
 									features.push(...geoData.features);
 								} else if (geoData.type === 'Feature') {
@@ -825,7 +830,7 @@ window.DataModule = (function() {
 									geoData.properties.cover_url = project.cover_url;
 									geoData.properties.description = project.description;
 									geoData.properties.markdown_url = project.markdown_url;
-									geoData.properties.imgUrl = project.cover_url;
+									// NE PAS écraser imgUrl s'il existe déjà dans le GeoJSON
 									features.push(geoData);
 								}
 							}
@@ -894,15 +899,16 @@ window.DataModule = (function() {
 			pane: isClickable ? 'clickableLayers' : 'overlayPane', // Utiliser le panneau personnalisé pour les couches cliquables
 			filter: feature => {
 				const props = (feature && feature.properties) || {};
-				// Détection de page: sur l'index on masque tous les markers (Point),
+				// Détection de page: sur l'index on masque les Points SAUF ceux avec images (camera markers)
 				// sur les fiches (/fiche/) on conserve les Points de contribution.
 				try {
 					const path = (location && location.pathname) ? location.pathname : '';
 					const isFichePage = path.includes('/fiche/');
 					if (!isFichePage) {
-						// Index: masquer toutes les features de type Point
+						// Index: masquer les Points SAUF ceux avec imgUrl (camera markers)
 						if (feature && feature.geometry && feature.geometry.type === 'Point') {
-							return false;
+							const hasImage = !!props.imgUrl;
+							return hasImage; // Garder uniquement les points avec images
 						}
 					} else {
 						// Fiche: ne masquer que les Points legacy (sans project_name)
@@ -930,8 +936,32 @@ window.DataModule = (function() {
 				return standardCriteriaMatch;
 			},
 			style: feature => getFeatureStyle(feature, layerName),
+			pointToLayer: (feature, latlng) => {
+				// Ne créer un marker que pour les points avec images (camera markers)
+				const hasImage = !!(feature?.properties?.imgUrl);
+				if (hasImage && window.CameraMarkers?.createCameraMarker) {
+					// Récupérer la couleur de la couche
+					const featureStyle = getFeatureStyle(feature, layerName);
+					const color = featureStyle?.color || null;
+					
+					return window.CameraMarkers.createCameraMarker(
+						latlng, 
+						MapModule?.cameraPaneName || 'markerPane',
+						color
+					);
+				}
+				// Pas de marker pour les autres points
+				return null;
+			},
 			onEachFeature: (feature, layer) => {
 				bindFeatureEvents(layer, feature, geojsonLayer, layerName);
+				
+				// Enregistrer les camera markers pour la gestion du zoom
+				const isPoint = /Point$/i.test(feature?.geometry?.type || '');
+				const hasImage = !!(feature?.properties?.imgUrl);
+				if (isPoint && hasImage && layer instanceof L.Marker && window.CameraMarkers?.registerCameraMarker) {
+					window.CameraMarkers.registerCameraMarker(layer, geojsonLayer);
+				}
 
 				// Add an invisible wide "hitline" above the visible path for easier interactions on lines
 				try {

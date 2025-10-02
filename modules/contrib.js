@@ -75,27 +75,37 @@
         } catch (_) { /* noop */ }
       };
 
-      // Détection du rôle via table public.profiles (source de vérité)
+      // Détection du rôle et des villes autorisées via table public.profiles (source de vérité)
       let __currentSession = null;
       let __isAdmin = false;
       let __userRole = '';
-      const getUserRoleFromProfiles = async (session) => {
+      let __userVilles = null; // null = toutes les villes, array = villes spécifiques
+      const getUserProfileFromProfiles = async (session) => {
         try {
           const userId = session && session.user ? session.user.id : null;
-          if (!userId) return '';
+          if (!userId) return { role: '', ville: null };
           const client = (win.AuthModule && typeof win.AuthModule.getClient === 'function') ? win.AuthModule.getClient() : null;
-          if (!client) return '';
-          const { data, error } = await client.from('profiles').select('role').eq('id', userId).single();
-          if (error) return '';
-          return (data && data.role ? String(data.role) : '').toLowerCase();
-        } catch (_) { return ''; }
+          if (!client) return { role: '', ville: null };
+          const { data, error } = await client.from('profiles').select('role, ville').eq('id', userId).single();
+          if (error) return { role: '', ville: null };
+          return {
+            role: (data && data.role ? String(data.role) : '').toLowerCase(),
+            ville: data && data.ville ? data.ville : null
+          };
+        } catch (_) { return { role: '', ville: null }; }
       };
       const updateRoleState = async (session) => {
         __currentSession = session || null;
-        __userRole = await getUserRoleFromProfiles(__currentSession);
+        const profile = await getUserProfileFromProfiles(__currentSession);
+        __userRole = profile.role;
+        __userVilles = profile.ville;
         __isAdmin = (__userRole === 'admin');
+        console.log('[DEBUG updateRoleState] Profile récupéré:', profile);
+        console.log('[DEBUG updateRoleState] __userRole:', __userRole);
+        console.log('[DEBUG updateRoleState] __userVilles:', __userVilles);
         try { win.__CONTRIB_IS_ADMIN = __isAdmin; } catch(_) {}
         try { win.__CONTRIB_ROLE = __userRole; } catch(_) {}
+        try { win.__CONTRIB_VILLES = __userVilles; } catch(_) {}
         applyRoleConstraints();
       };
 
@@ -770,6 +780,83 @@
 
     // —— Landing helpers ——
     const tabsContainer = document.querySelector('#contrib-overlay .contrib-tabs');
+    
+    // Créer et afficher la card d'information utilisateur
+    function renderUserInfoCard() {
+      try {
+        // Récupérer la session depuis AuthModule plutôt que __currentSession (hors scope)
+        let email = 'Non connecté';
+        try {
+          if (win.AuthModule && typeof win.AuthModule.getSession === 'function') {
+            win.AuthModule.getSession().then(({ data }) => {
+              if (data?.session?.user?.email) {
+                const emailEl = document.querySelector('#user-info-card .user-email');
+                if (emailEl) emailEl.textContent = data.session.user.email;
+              }
+            }).catch(() => {});
+          }
+        } catch(_) {}
+        
+        const role = window.__CONTRIB_ROLE || 'aucun';
+        const villes = window.__CONTRIB_VILLES;
+        
+        let villesText = '';
+        const hasGlobalAccess = Array.isArray(villes) && villes.includes('global');
+        
+        if (hasGlobalAccess) {
+          villesText = '<span style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; border-radius:20px; font-weight:600; font-size:0.9em; box-shadow:0 2px 8px rgba(16,185,129,0.25);"><i class="fa-solid fa-globe" style="font-size:0.95em;"></i> Toutes les collectivités</span>';
+        } else if (Array.isArray(villes) && villes.length > 0) {
+          villesText = villes.map(v => `<span style="display:inline-flex; align-items:center; padding:5px 12px; background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; border-radius:16px; font-size:0.85em; font-weight:500; box-shadow:0 2px 6px rgba(16,185,129,0.2); margin:2px 4px 2px 0;">${v}</span>`).join('');
+        } else {
+          // villes === null ou villes.length === 0
+          villesText = '<span style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:#fef2f2; color:#dc2626; border-radius:16px; font-weight:500; font-size:0.9em; border:1px solid #fecaca;"><i class="fa-solid fa-triangle-exclamation" style="font-size:0.9em;"></i> Aucune collectivité autorisée</span>';
+        }
+        
+        // Icône selon le rôle mais couleurs vertes uniformes
+        const roleIcons = {
+          admin: 'fa-user-shield',
+          invited: 'fa-user-check',
+          default: 'fa-user'
+        };
+        const roleIcon = roleIcons[role] || roleIcons.default;
+        
+        const cardHTML = `
+          <div id="user-info-card" style="margin-bottom:24px; padding:20px; background:#ffffff; border-radius:16px; border:1px solid #d1fae5; box-shadow:0 4px 16px rgba(16,185,129,0.12), 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid #d1fae5;">
+              <div style="display:flex; align-items:center; justify-content:center; width:52px; height:52px; background:linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border-radius:14px; border:2px solid #6ee7b7; box-shadow:0 2px 8px rgba(16,185,129,0.15);">
+                <i class="fa-solid ${roleIcon}" style="font-size:24px; color:#047857;"></i>
+              </div>
+              <div style="flex:1; min-width:0;">
+                <div style="font-size:0.75em; color:#6b7280; text-transform:uppercase; letter-spacing:0.8px; font-weight:600; margin-bottom:4px;">Connecté en tant que</div>
+                <div class="user-email" style="font-weight:600; font-size:1.05em; color:#111827; overflow:hidden; text-overflow:ellipsis;">${email}</div>
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="min-width:90px; font-size:0.9em; color:#6b7280; font-weight:500;">Rôle</div>
+                <div style="display:inline-flex; align-items:center; gap:8px; padding:6px 14px; background:linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); color:#047857; border-radius:20px; font-weight:600; font-size:0.9em; text-transform:capitalize; border:1px solid #6ee7b7;">
+                  <i class="fa-solid fa-circle" style="font-size:6px;"></i> ${role}
+                </div>
+              </div>
+              <div style="display:flex; align-items:flex-start; gap:12px;">
+                <div style="min-width:90px; font-size:0.9em; color:#6b7280; font-weight:500; padding-top:4px;">Collectivités</div>
+                <div style="flex:1; display:flex; flex-wrap:wrap; align-items:center;">${villesText}</div>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        // Injecter la card au début du landing
+        if (landingEl) {
+          let existingCard = landingEl.querySelector('#user-info-card');
+          if (existingCard) existingCard.remove();
+          landingEl.insertAdjacentHTML('afterbegin', cardHTML);
+        }
+      } catch(e) {
+        console.warn('[contrib] renderUserInfoCard error:', e);
+      }
+    }
+    
     function showLanding() {
       try {
         if (landingEl) landingEl.hidden = false;
@@ -778,6 +865,8 @@
         if (panelList) panelList.hidden = true;
         if (panelCategories) panelCategories.hidden = true;
         if (backBtn) backBtn.style.display = 'none';
+        // Afficher la card d'info utilisateur
+        renderUserInfoCard();
       } catch(_) {}
     }
     function hideLanding() {
@@ -813,18 +902,19 @@
         const isInvited = role === 'invited';
         const isAdmin = role === 'admin';
 
-        // City field visibility/requirement by role (no forced default value here)
+        // City field visibility: toujours visible pour admin et invited (filtré par permissions)
         try {
           const cityInput = document.getElementById('contrib-city');
           const cityRow = cityInput ? cityInput.closest('.form-row') : null;
           const cityLabel = cityRow ? cityRow.querySelector('label[for="contrib-city"]') : null;
           if (cityRow && cityInput) {
-            if (isAdmin) {
+            if (isAdmin || isInvited) {
+              // Afficher le champ ville pour admin et invited (sera filtré par populateCities)
               cityRow.style.display = '';
               try { cityInput.required = false; } catch(_) {}
               if (cityLabel) cityLabel.textContent = 'Code collectivité';
             } else {
-              // Hide for non-admins and remove requirement
+              // Masquer pour les autres rôles
               cityRow.style.display = 'none';
               try { cityInput.required = false; } catch(_) {}
             }
@@ -1236,7 +1326,22 @@
         const res = await (win.supabaseService && win.supabaseService.listContributions({
           search, category, page, pageSize, mineOnly, sortBy, sortDir
         }));
-        const items = (res && res.items) ? res.items : [];
+        let items = (res && res.items) ? res.items : [];
+        
+        // Filtrer les contributions selon les villes autorisées
+        const userVilles = window.__CONTRIB_VILLES;
+        const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
+        
+        if (hasGlobalAccess) {
+          // Accès global : toutes les contributions sont visibles
+          // Pas de filtrage
+        } else if (Array.isArray(userVilles) && userVilles.length > 0) {
+          items = items.filter(item => userVilles.includes(item.ville));
+        } else {
+          // Si userVilles est null ou vide, aucune contribution n'est visible
+          items = [];
+        }
+        
         // Clear skeletons once data arrives (or not)
         try { if (listEl) listEl.querySelectorAll('.contrib-skel').forEach(n => n.remove()); } catch(_) {}
         if (!items.length) {
@@ -2365,10 +2470,12 @@
       form.addEventListener('submit', handleSubmit);
     }
 
-    // Populate city selector from DB and default to active city (called ONLY at Step 1)
+    // Populate city selector from DB, filtered by user permissions
     async function populateCities() {
       try {
         if (!cityEl || !win.supabaseService) return;
+        
+        // Récupérer toutes les villes disponibles
         let cities = [];
         try {
           if (typeof win.supabaseService.getValidCities === 'function') {
@@ -2380,9 +2487,50 @@
         if ((!Array.isArray(cities) || !cities.length) && typeof win.supabaseService.listCities === 'function') {
           try { cities = await win.supabaseService.listCities(); } catch (e2) { console.warn('[contrib] populateCities listCities fallback error:', e2); }
         }
-        // Append fetched cities; keep existing default from HTML ("Aucun")
-        const cityOptions = (Array.isArray(cities) ? cities : []).map(c => `<option value="${c}">${c}</option>`).join('');
-        if (cityOptions) cityEl.insertAdjacentHTML('beforeend', cityOptions);
+        
+        console.log('[DEBUG populateCities] Villes récupérées:', cities);
+        console.log('[DEBUG populateCities] window.__CONTRIB_VILLES:', window.__CONTRIB_VILLES);
+        
+        // Filtrer selon les permissions de l'utilisateur
+        const userVilles = window.__CONTRIB_VILLES; // null = aucune ville, array = villes spécifiques
+        let filteredCities = cities;
+        const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
+        
+        if (hasGlobalAccess) {
+          // Accès global : toutes les villes sont disponibles
+          console.log('[DEBUG populateCities] Accès global détecté, toutes les villes disponibles');
+          filteredCities = cities;
+        } else if (Array.isArray(userVilles) && userVilles.length > 0) {
+          // Filtrer pour ne garder que les villes autorisées
+          filteredCities = cities.filter(c => userVilles.includes(c));
+          console.log('[DEBUG populateCities] Villes filtrées:', filteredCities);
+        } else {
+          // Si userVilles est null ou vide, aucune ville n'est autorisée
+          console.log('[DEBUG populateCities] Aucune ville autorisée (userVilles:', userVilles, ')');
+          filteredCities = [];
+        }
+        
+        // Générer les options
+        let cityOptionsHTML = '';
+        
+        // Ajouter l'option "default" (catégories globales) uniquement pour les utilisateurs avec accès global
+        if (hasGlobalAccess) {
+          cityOptionsHTML += '<option value="default">🌍 Catégories globales (default)</option>';
+        }
+        
+        // Ajouter les villes filtrées
+        cityOptionsHTML += (Array.isArray(filteredCities) ? filteredCities : [])
+          .map(c => `<option value="${c}">${c}</option>`)
+          .join('');
+        
+        console.log('[DEBUG populateCities] Options HTML générées:', cityOptionsHTML ? 'OUI' : 'NON');
+        
+        if (cityOptionsHTML) {
+          cityEl.insertAdjacentHTML('beforeend', cityOptionsHTML);
+        } else {
+          // Aucune ville autorisée
+          cityEl.innerHTML = '<option value="" selected>Aucune collectivité autorisée</option>';
+        }
       } catch (err) {
         console.warn('[contrib] populateCities error:', err);
         if (cityEl && !cityEl.options.length) {
@@ -2402,7 +2550,7 @@
         if (categoryHelpEl) categoryHelpEl.style.display = 'none';
         
         if (!ville) {
-          categoryEl.innerHTML = '<option value="">Sélectionnez d\'abord une ville</option>';
+          categoryEl.innerHTML = '<option value="">Sélectionnez d\'abord une collectivité</option>';
           return;
         }
         
@@ -2484,7 +2632,7 @@
             // Réinitialiser les catégories si pas de ville
             if (categoryEl) {
               categoryEl.disabled = true;
-              categoryEl.innerHTML = '<option value="">Sélectionnez d\'abord une ville</option>';
+              categoryEl.innerHTML = '<option value="">Sélectionnez d\'abord une collectivité</option>';
             }
             if (categoryHelpEl) categoryHelpEl.style.display = 'none';
           }
@@ -2733,16 +2881,34 @@
           console.warn('[contrib] populateCategoryVilleSelector error:', e);
         }
         
+        // Filtrer selon les permissions de l'utilisateur
+        const userVilles = window.__CONTRIB_VILLES;
+        let filteredCities = [];
+        let showGlobalOption = false;
+        const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
+        
+        if (hasGlobalAccess) {
+          // Accès global : toutes les villes + option globale
+          filteredCities = cities;
+          showGlobalOption = true;
+        } else if (Array.isArray(userVilles) && userVilles.length > 0) {
+          // Filtrer pour ne garder que les villes autorisées
+          filteredCities = cities.filter(c => userVilles.includes(c));
+        }
+        // Si userVilles est null ou vide, aucune ville n'est disponible
+        
         // Clear and repopulate main selector
-        categoryVilleSelector.innerHTML = '<option value="">-- Choisir une ville --</option>';
-        // Ajouter "default" en premier pour les catégories globales
-        categoryVilleSelector.insertAdjacentHTML('beforeend', '<option value="default">🌍 Catégories globales (default)</option>');
-        const cityOptions = (Array.isArray(cities) ? cities : []).map(c => `<option value="${c}">${c}</option>`).join('');
+        categoryVilleSelector.innerHTML = '<option value="">-- Choisir une collectivité --</option>';
+        // Ajouter "default" uniquement pour les utilisateurs avec accès global
+        if (showGlobalOption) {
+          categoryVilleSelector.insertAdjacentHTML('beforeend', '<option value="default">🌍 Catégories globales (default)</option>');
+        }
+        const cityOptions = (Array.isArray(filteredCities) ? filteredCities : []).map(c => `<option value="${c}">${c}</option>`).join('');
         if (cityOptions) categoryVilleSelector.insertAdjacentHTML('beforeend', cityOptions);
         
-        // Default to active city if available
+        // Default to active city if available and authorized
         const activeCity = win.activeCity || '';
-        if (activeCity && cities.includes(activeCity)) {
+        if (activeCity && filteredCities.includes(activeCity)) {
           categoryVilleSelector.value = activeCity;
           // Auto-load categories for active city (sans attendre pour éviter le blocage)
           refreshCategoriesList().catch(e => console.warn('[contrib] Auto-load categories error:', e));
@@ -2764,11 +2930,29 @@
           console.warn('[contrib] populateCategoryFormVilleSelector error:', e);
         }
         
+        // Filtrer selon les permissions de l'utilisateur
+        const userVilles = window.__CONTRIB_VILLES;
+        let filteredCities = [];
+        let showGlobalOption = false;
+        const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
+        
+        if (hasGlobalAccess) {
+          // Accès global : toutes les villes + option globale
+          filteredCities = cities;
+          showGlobalOption = true;
+        } else if (Array.isArray(userVilles) && userVilles.length > 0) {
+          // Filtrer pour ne garder que les villes autorisées
+          filteredCities = cities.filter(c => userVilles.includes(c));
+        }
+        // Si userVilles est null ou vide, aucune ville n'est disponible
+        
         // Clear and repopulate form selector
-        categoryVilleSelect.innerHTML = '<option value="">Sélectionner une ville</option>';
-        // Ajouter "default" pour les catégories globales
-        categoryVilleSelect.insertAdjacentHTML('beforeend', '<option value="default">🌍 Catégories globales (default)</option>');
-        const cityOptions = (Array.isArray(cities) ? cities : []).map(c => `<option value="${c}">${c}</option>`).join('');
+        categoryVilleSelect.innerHTML = '<option value="">Sélectionner une collectivité</option>';
+        // Ajouter "default" uniquement pour les utilisateurs avec accès global
+        if (showGlobalOption) {
+          categoryVilleSelect.insertAdjacentHTML('beforeend', '<option value="default">🌍 Catégories globales (default)</option>');
+        }
+        const cityOptions = (Array.isArray(filteredCities) ? filteredCities : []).map(c => `<option value="${c}">${c}</option>`).join('');
         if (cityOptions) categoryVilleSelect.insertAdjacentHTML('beforeend', cityOptions);
       } catch(err) {
         console.warn('[contrib] populateCategoryFormVilleSelector error:', err);
@@ -3435,6 +3619,34 @@
       }
     } catch(_) {}
   }
+
+  // Fonction helper exportée pour vérifier si l'utilisateur peut éditer une ville
+  win.canEditVille = function(villeCode) {
+    try {
+      const villes = win.__CONTRIB_VILLES;
+      const role = win.__CONTRIB_ROLE;
+      
+      // Si pas de rôle ou rôle non autorisé, refuser
+      if (!role || (role !== 'admin' && role !== 'invited')) {
+        return false;
+      }
+      
+      // Si l'utilisateur a l'accès global
+      if (Array.isArray(villes) && villes.includes('global')) {
+        return true;
+      }
+      
+      // Vérifier si la ville est dans la liste des villes autorisées
+      if (Array.isArray(villes) && villes.length > 0) {
+        return villes.includes(villeCode);
+      }
+      
+      // Si villes est null ou vide, aucune ville n'est autorisée
+      return false;
+    } catch (_) {
+      return false;
+    }
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', setupContrib);

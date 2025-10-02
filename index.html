@@ -211,7 +211,7 @@
           <div class="form-row contrib-step-1">
             <label for="contrib-category">Catégorie</label>
             <select id="contrib-category" name="category_layer" required disabled>
-              <option value="">Sélectionnez d'abord une ville</option>
+              <option value="">Sélectionnez d'abord une collectivité</option>
             </select>
             <small id="contrib-category-help" style="display:none; margin-top:4px; color:#f59e0b;">
               <i class="fa-solid fa-exclamation-triangle"></i> Aucune catégorie disponible. 
@@ -367,10 +367,10 @@
         <section id="contrib-panel-categories" role="tabpanel" aria-label="Gérer les catégories" hidden>
           <div id="category-ville-selector-container" style="margin-bottom:20px; padding:16px; border:1px solid #ddd; border-radius:8px; background:#f9f9f9; opacity:0;">
             <label for="category-ville-selector" style="display:block; font-weight:600; margin-bottom:8px;">
-              <i class="fa-solid fa-city"></i> Sélectionner une ville
+              <i class="fa-solid fa-city"></i> Sélectionner une collectivité
             </label>
             <select id="category-ville-selector" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; font-size:1em;">
-              <option value="">-- Choisir une ville --</option>
+              <option value="">-- Choisir une collectivité --</option>
               <!-- Options peuplées dynamiquement -->
             </select>
           </div>
@@ -743,6 +743,7 @@
   <script src="modules/mapmodule.js"></script>
   <script src="modules/filtermodule.js"></script>
   <script src="modules/layerstyles.js"></script>
+  <script src="modules/cameramarkers.js"></script>
   <script src="modules/datamodule.js"></script>
   <script src="modules/uimodule.js"></script>
   <script src="modules/searchmodule.js"></script>

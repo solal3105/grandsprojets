@@ -1,24 +1,32 @@
 // modules/ficheprojet.js
 
 // Hotjar (analytics)
-(function(){
+(function() {
   try {
-    function ensureHotjar(hjid){
+    function ensureHotjar(hjid) {
       try {
         if (window._hjSettings && window._hjSettings.hjid === hjid) return;
         if (document.querySelector('script[src*="static.hotjar.com/c/hotjar-"]')) return;
-        (function(h,o,t,j,a,r){
-            h.hj=h.hj||function(){(h.hj.q=h.hj.q||[]).push(arguments)};
-            h._hjSettings={hjid:hjid,hjsv:6};
-            a=o.getElementsByTagName('head')[0];
-            r=o.createElement('script');r.async=1;
-            r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;
-            a.appendChild(r);
-        })(window,document,'https://static.hotjar.com/c/hotjar-','.js?sv=');
-      } catch(e) {}
+        (function(h, o, t, j, a, r) {
+          h.hj = h.hj || function() {
+            (h.hj.q = h.hj.q || []).push(arguments)
+          };
+          h._hjSettings = {
+            hjid: hjid,
+            hjsv: 6
+          };
+          a = o.getElementsByTagName('head')[0];
+          r = o.createElement('script');
+          r.async = 1;
+          r.src = t + h._hjSettings.hjid + j + h._hjSettings.hjsv;
+          a.appendChild(r);
+        })(window, document, 'https://static.hotjar.com/c/hotjar-', '.js?sv=');
+      } catch (e) {}
     }
     ensureHotjar(6496613);
-  } catch(e) { console.warn('Hotjar injection failed', e); }
+  } catch (e) {
+    console.warn('Hotjar injection failed', e);
+  }
 })();
 
 // Assure l'icône du site (favicon) sur les pages fiche projet
@@ -37,8 +45,7 @@ function ensureFavicon() {
 document.addEventListener('DOMContentLoaded', ensureFavicon);
 
 // Configuration des fonds de carte par défaut
-window.basemaps = window.basemaps || [
-  {
+window.basemaps = window.basemaps || [{
     label: 'OSM',
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '© OpenStreetMap contributors',
@@ -60,7 +67,13 @@ window.basemaps = window.basemaps || [
 // (legacy partner cards removed)
 
 // Ajoute une unique carte de lien officiel basé sur contribution_uploads.official_url
-async function addOfficialLinkCards({ projectName, category, filterKey, filterValue, containerEl }) {
+async function addOfficialLinkCards({
+  projectName,
+  category,
+  filterKey,
+  filterValue,
+  containerEl
+}) {
   try {
     if (!containerEl) return;
     // Récupération de l'URL officielle depuis la contribution chargée
@@ -186,7 +199,9 @@ const FPTheme = (function(win) {
     try {
       const v = localStorage.getItem('theme');
       return v === 'dark' || v === 'light';
-    } catch (_) { return false; }
+    } catch (_) {
+      return false;
+    }
   }
 
   function applyTheme(theme) {
@@ -230,10 +245,14 @@ const FPTheme = (function(win) {
       const bm = findBasemapForTheme(theme);
       if (!bm || !win.__fpMap) return;
       if (win.__fpBaseLayer) {
-        try { win.__fpMap.removeLayer(win.__fpBaseLayer); } catch(_) {}
+        try {
+          win.__fpMap.removeLayer(win.__fpBaseLayer);
+        } catch (_) {}
         win.__fpBaseLayer = null;
       }
-      const layer = L.tileLayer(bm.url, { attribution: bm.attribution });
+      const layer = L.tileLayer(bm.url, {
+        attribution: bm.attribution
+      });
       win.__fpBaseLayer = layer.addTo(win.__fpMap);
     } catch (e) {
       console.warn('[ficheprojet] syncBasemapToTheme error:', e);
@@ -251,7 +270,9 @@ const FPTheme = (function(win) {
       const applyFromOS = () => {
         const next = osThemeMediaQuery.matches ? 'dark' : 'light';
         applyTheme(next);
-        try { syncBasemapToTheme(next); } catch(_) {}
+        try {
+          syncBasemapToTheme(next);
+        } catch (_) {}
       };
       // Appliquer immédiatement l'état courant
       applyFromOS();
@@ -280,7 +301,14 @@ const FPTheme = (function(win) {
     } catch (_) {}
   }
 
-  return { getInitialTheme, applyTheme, syncBasemapToTheme, startOSThemeSync, stopOSThemeSync, hasSavedPreference };
+  return {
+    getInitialTheme,
+    applyTheme,
+    syncBasemapToTheme,
+    startOSThemeSync,
+    stopOSThemeSync,
+    hasSavedPreference
+  };
 })(window);
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -305,7 +333,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initialiser le thème le plus tôt possible
   try {
     // Si une préférence est sauvegardée, l'appliquer et ne pas démarrer la synchro OS
-    const stored = (function(){ try { return localStorage.getItem('theme'); } catch(_) { return null; } })();
+    const stored = (function() {
+      try {
+        return localStorage.getItem('theme');
+      } catch (_) {
+        return null;
+      }
+    })();
     if (stored === 'dark' || stored === 'light') {
       FPTheme.applyTheme(stored);
     } else {
@@ -313,12 +347,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       FPTheme.applyTheme(__initialTheme);
       FPTheme.startOSThemeSync();
     }
-  } catch(_) {}
+  } catch (_) {}
   // 1. Récupération de la config depuis l'URL (comme les autres catégories)
   const urlParams = new URLSearchParams(location.search);
   const projectName = urlParams.get('project') || '';
   const category = urlParams.get('cat') || 'velo'; // fallback
-  
+
   // Legacy: récupération depuis l'article pour compatibilité
   const article = document.getElementById('project-article');
   const filterKey = (article?.dataset.filterKey || '').trim();
@@ -334,7 +368,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       filterValue: normalizeText(filterValue)
     }
   });
-  
+
   // Détection du mode embed (iframe ou paramètre d'URL)
   const __isEmbedded = (() => {
     try {
@@ -343,11 +377,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (v === '1' || v === 'true' || v === 'yes') return true;
       if (v === '0' || v === 'false' || v === 'no') return false;
       return window.self !== window.top;
-    } catch (_) { return true; }
+    } catch (_) {
+      return true;
+    }
   })();
   // Large embed mode: allow map to be visible when iframe/modal is wide
   const __isEmbedWide = (() => {
-    try { return __isEmbedded && window.matchMedia('(min-width: 1025px)').matches; } catch(_) { return false; }
+    try {
+      return __isEmbedded && window.matchMedia('(min-width: 1025px)').matches;
+    } catch (_) {
+      return false;
+    }
   })();
 
   // Nouvelle structure V2 (sobre, responsive)
@@ -388,7 +428,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         </section>
       </div>
     </div>`;
-  
+
   // Styles spécifiques au mode embed: article plein écran si pas d'en-tête, et pas de marge top sur #project-text
   if (__isEmbedded) {
     try {
@@ -406,15 +446,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Re-render dynamique en cas de bascule large/étroit (>=1025px)
       try {
         const mq = window.matchMedia('(min-width: 1025px)');
-        const handle = () => { try { window.location.reload(); } catch(_) {} };
+        const handle = () => {
+          try {
+            window.location.reload();
+          } catch (_) {}
+        };
         if (mq.addEventListener) mq.addEventListener('change', handle);
         else if (mq.addListener) mq.addListener(handle);
-      } catch(_) {}
-    } catch(_) {}
+      } catch (_) {}
+    } catch (_) {}
   }
-  
-  const textEl       = document.getElementById('project-text');
-  
+
+  const textEl = document.getElementById('project-text');
+
   // Synchronisation du bouton de thème (icône/aria) + gestionnaires
   (function() {
     const btn = document.getElementById('detail-theme-toggle');
@@ -438,8 +482,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       FPTheme.applyTheme(next);
       FPTheme.syncBasemapToTheme(next);
       // Persister le choix et arrêter la synchro OS
-      try { localStorage.setItem('theme', next); } catch(_) {}
-      try { FPTheme.stopOSThemeSync(); } catch(_) {}
+      try {
+        localStorage.setItem('theme', next);
+      } catch (_) {}
+      try {
+        FPTheme.stopOSThemeSync();
+      } catch (_) {}
     });
     // Accessibilité clavier
     btn.addEventListener('keydown', (e) => {
@@ -454,8 +502,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const t = document.documentElement.getAttribute('data-theme') || 'light';
         updateFromTheme(t);
       });
-      obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    } catch(_) {}
+      obs.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['data-theme']
+      });
+    } catch (_) {}
   })();
   // Cacher l'ancien header de détail s'il est présent et non désiré
   const legacyHeader = document.getElementById('detail-header');
@@ -475,10 +526,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // verrouiller le scroll global, on déléguera le scroll à .project-v2-article
     document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
-  } catch(_) {}
+  } catch (_) {}
 
   // 2. Injection du Markdown (inline ou fetch .md)
-  
+
   // Détermination du chemin du fichier Markdown
   // Harmonisé avec NavigationModule: on supprime les apostrophes/ponctuations au lieu de les transformer en tirets
   const slugify = (str) => String(str || '')
@@ -488,9 +539,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     .replace(/[^a-z0-9\s-]/g, '') // retirer la ponctuation (ex: apostrophes)
     .trim()
     .replace(/\s+/g, '-') // espaces -> tirets
-    .replace(/-+/g, '-')   // éviter les doubles tirets
+    .replace(/-+/g, '-') // éviter les doubles tirets
     .replace(/^-+|-+$/g, ''); // trim des tirets
-  
+
   // --- SEO helpers: canonical, OG/Twitter, JSON-LD ---
   const PROD_ORIGIN = 'https://grandsprojets.com';
 
@@ -505,7 +556,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       el.setAttribute('content', content);
       el.setAttribute('data-fp-seo', '1');
-    } catch(_) {}
+    } catch (_) {}
   }
 
   function ensureOG(property, content) {
@@ -519,7 +570,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       el.setAttribute('content', content);
       el.setAttribute('data-fp-seo', '1');
-    } catch(_) {}
+    } catch (_) {}
   }
 
   function ensureLink(rel, href) {
@@ -533,7 +584,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       el.setAttribute('href', href);
       el.setAttribute('data-fp-seo', '1');
-    } catch(_) {}
+    } catch (_) {}
   }
 
   function ensureJsonLd(id, data) {
@@ -548,14 +599,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       el.textContent = JSON.stringify(data);
       el.setAttribute('data-fp-seo', '1');
-    } catch(_) {}
+    } catch (_) {}
   }
 
   function toAbsolute(u) {
     try {
       if (!u) return '';
       return new URL(u, PROD_ORIGIN).href;
-    } catch(_) { return ''; }
+    } catch (_) {
+      return '';
+    }
   }
 
   function applySEO(projectName, attrs = {}, category = '') {
@@ -570,7 +623,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const cover = attrs && attrs.cover ? toAbsolute(attrs.cover) : `${PROD_ORIGIN}/img/logomin.png`;
 
       // Title
-      try { document.title = title; } catch(_) {}
+      try {
+        document.title = title;
+      } catch (_) {}
 
       // Basic meta
       ensureMeta('description', description);
@@ -606,17 +661,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       const breadcrumbs = {
         '@context': 'https://schema.org',
         '@type': 'BreadcrumbList',
-        itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Accueil', item: PROD_ORIGIN + '/' },
-          { '@type': 'ListItem', position: 2, name: rawTitle || siteName, item: pageUrl }
+        itemListElement: [{
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Accueil',
+            item: PROD_ORIGIN + '/'
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: rawTitle || siteName,
+            item: pageUrl
+          }
         ]
       };
       ensureJsonLd('fp-jsonld-breadcrumb', breadcrumbs);
-    } catch(e) {
+    } catch (e) {
       console.warn('[ficheprojet] applySEO error', e);
     }
   }
-  
+
   // Ajoute une section "Documents de concertation" avec les PDF du projet s'ils existent
   async function appendConsultationDocs(projectName, containerEl) {
     try {
@@ -659,12 +723,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
           </div>`;
         document.body.appendChild(overlay);
-        const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
-        const onKey = (e) => { if (e.key === 'Escape') close(); };
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+        const close = () => {
+          overlay.remove();
+          document.removeEventListener('keydown', onKey);
+        };
+        const onKey = (e) => {
+          if (e.key === 'Escape') close();
+        };
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) close();
+        });
         overlay.querySelector('.lightbox-close').addEventListener('click', close);
         document.addEventListener('keydown', onKey);
-     };
+      };
 
       docs.forEach(d => {
         const card = document.createElement('article');
@@ -686,12 +757,19 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>`;
         // Clic sur la carte => prévisualisation
         card.addEventListener('click', () => openPdfPreview(d.pdf_url, title));
-        card.addEventListener('keypress', (e) => { if (e.key === 'Enter') openPdfPreview(d.pdf_url, title); });
+        card.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') openPdfPreview(d.pdf_url, title);
+        });
         // Boutons internes
         const previewBtn = card.querySelector('.btn-preview');
-        previewBtn.addEventListener('click', (e) => { e.stopPropagation(); openPdfPreview(d.pdf_url, title); });
+        previewBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openPdfPreview(d.pdf_url, title);
+        });
         const dl = card.querySelector('.btn-download');
-        dl.addEventListener('click', (e) => { e.stopPropagation(); /* laisser le comportement par défaut */ });
+        dl.addEventListener('click', (e) => {
+          e.stopPropagation(); /* laisser le comportement par défaut */
+        });
         grid.appendChild(card);
       });
 
@@ -716,7 +794,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (window.supabaseService?.fetchProjectByCategoryAndName && projectName) {
       const found = await window.supabaseService.fetchProjectByCategoryAndName(category, projectName);
       if (found) contributionProject = found;
-      try { window.__fpContributionProject = found || null; } catch(_) {}
+      try {
+        window.__fpContributionProject = found || null;
+      } catch (_) {}
       if (found?.markdown_url) {
         contributionMdUrl = found.markdown_url;
         console.log(`[ficheprojet] Markdown depuis contribution_uploads (strict): ${contributionMdUrl}`);
@@ -737,7 +817,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       .then(async md => {
         console.log('Contenu Markdown chargé avec succès');
         // Utiliser MarkdownUtils pour parser front-matter + markdown
-        const { html } = MarkdownUtils.renderMarkdown(md);
+        const {
+          html
+        } = MarkdownUtils.renderMarkdown(md);
 
         // SEO: utiliser exclusivement les champs de contribution
         try {
@@ -748,7 +830,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             meta: contributionProject?.meta || ''
           };
           applySEO(projectName, seoAttrs, category);
-        } catch(_) {}
+        } catch (_) {}
 
         // 1. Header (cover + description depuis contributions)
         let headerHtml = '';
@@ -762,7 +844,9 @@ document.addEventListener('DOMContentLoaded', async () => {
               const __coverUrl = toAbsolute(chosenCover) || `${PROD_ORIGIN}/img/logomin.png`;
               articleSection.style.setProperty('--cover-bg', `url('${__coverUrl}')`);
             }
-          } catch (_) { /* no-op */ }
+          } catch (_) {
+            /* no-op */
+          }
           headerHtml += `
             <div class="project-cover-wrap">
               <img class="project-cover" src="${toAbsolute(chosenCover) || `${PROD_ORIGIN}/img/logomin.png`}" alt="${projectName || ''}">
@@ -787,7 +871,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Injecter uniquement le header, puis les documents, puis le corps
         textEl.innerHTML = headerHtml;
         textEl.classList.add('markdown-body');
-        await addOfficialLinkCards({ projectName, category, filterKey, filterValue, containerEl: textEl });
+        await addOfficialLinkCards({
+          projectName,
+          category,
+          filterKey,
+          filterValue,
+          containerEl: textEl
+        });
         await appendConsultationDocs(projectName, textEl);
 
         // Injecter le corps markdown
@@ -817,9 +907,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
             document.body.appendChild(overlay);
 
-            const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
-            const onKey = (e) => { if (e.key === 'Escape') close(); };
-            overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+            const close = () => {
+              overlay.remove();
+              document.removeEventListener('keydown', onKey);
+            };
+            const onKey = (e) => {
+              if (e.key === 'Escape') close();
+            };
+            overlay.addEventListener('click', (e) => {
+              if (e.target === overlay) close();
+            });
             overlay.querySelector('.lightbox-close').addEventListener('click', close);
             document.addEventListener('keydown', onKey);
           };
@@ -837,7 +934,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             meta: contributionProject?.meta || ''
           };
           applySEO(projectName, seoAttrs, category);
-        } catch(_) {}
+        } catch (_) {}
         let headerHtml = '';
         const chosenCover = contributionProject?.cover_url || '';
         if (chosenCover) {
@@ -863,7 +960,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         textEl.innerHTML = headerHtml;
         (async () => {
-          await addOfficialLinkCards({ projectName, category, filterKey, filterValue, containerEl: textEl });
+          await addOfficialLinkCards({
+            projectName,
+            category,
+            filterKey,
+            filterValue,
+            containerEl: textEl
+          });
           await appendConsultationDocs(projectName, textEl);
         })();
       });
@@ -877,7 +980,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         meta: contributionProject?.meta || ''
       };
       applySEO(projectName, seoAttrs, category);
-    } catch(_) {}
+    } catch (_) {}
     let headerHtml = '';
     const chosenCover = contributionProject?.cover_url || '';
     if (chosenCover) {
@@ -903,7 +1006,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     textEl.innerHTML = headerHtml;
     textEl.classList.add('markdown-body');
-    await addOfficialLinkCards({ projectName, category, filterKey, filterValue, containerEl: textEl });
+    await addOfficialLinkCards({
+      projectName,
+      category,
+      filterKey,
+      filterValue,
+      containerEl: textEl
+    });
     await appendConsultationDocs(projectName, textEl);
   }
 
@@ -913,16 +1022,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 3. Initialisation de la carte Leaflet
   // En mode embed étroit, on ne rend pas l'en-tête fixe ni la carte → on saute l'init
   if (__isEmbedded && !__isEmbedWide) {
-    try { console.log('Mode embed: carte désactivée, initialisation ignorée'); } catch(_) {}
+    try {
+      console.log('Mode embed: carte désactivée, initialisation ignorée');
+    } catch (_) {}
     return;
   }
-  
+
   const mapElement = document.getElementById('project-map-v2');
   if (!mapElement) {
     console.error("Élément 'project-map-v2' non trouvé");
     return;
   }
-  
+
   // Vérifier que L (Leaflet) est disponible
   if (typeof L === 'undefined') {
     console.warn("Leaflet n'est pas chargé à l'initialisation, attente…");
@@ -934,10 +1045,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       check();
     });
   }
+
+  const map = L.map('project-map-v2', {
+    preferCanvas: true
+  }).setView([45.75, 4.85], 12);
   
-  const map = L.map('project-map-v2', { preferCanvas: true }).setView([45.75, 4.85], 12);
+  // Créer un pane pour les camera markers (au premier plan)
+  const cameraPane = map.createPane('cameraPane');
+  cameraPane.style.zIndex = 680;
+  
   // Exposer la carte pour la synchronisation des fonds
-  try { window.__fpMap = map; } catch(_) {}
+  try {
+    window.__fpMap = map;
+  } catch (_) {}
   let geoLayerRef = null; // référence à la couche affichée pour recentrage
   // Filtered GeoJSON kept for small card preview (mobile)
   let filteredGeoJSONForPreview = null;
@@ -952,38 +1072,53 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!container || !featureCollection || !Array.isArray(featureCollection.features) || featureCollection.features.length === 0) return;
       const FC = featureCollection;
       // Compute bounds
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      let minX = Infinity,
+        minY = Infinity,
+        maxX = -Infinity,
+        maxY = -Infinity;
       const visitCoords = (coords) => {
         // coords is [lon, lat]
         const x = coords[0];
         const y = coords[1];
-        if (x < minX) minX = x; if (x > maxX) maxX = x;
-        if (y < minY) minY = y; if (y > maxY) maxY = y;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
       };
       const walkGeom = (geom, onlyOuter = true) => {
         if (!geom) return;
         const t = geom.type;
         const c = geom.coordinates;
         if (!t || !c) return;
-        if (t === 'Point') { visitCoords(c); }
-        else if (t === 'MultiPoint' || t === 'LineString') { c.forEach(visitCoords); }
-        else if (t === 'MultiLineString') { c.forEach(line => line.forEach(visitCoords)); }
-        else if (t === 'Polygon') {
+        if (t === 'Point') {
+          visitCoords(c);
+        } else if (t === 'MultiPoint' || t === 'LineString') {
+          c.forEach(visitCoords);
+        } else if (t === 'MultiLineString') {
+          c.forEach(line => line.forEach(visitCoords));
+        } else if (t === 'Polygon') {
           // Use outer ring (0) for preview
           if (c[0]) c[0].forEach(visitCoords);
-        }
-        else if (t === 'MultiPolygon') {
-          c.forEach(poly => { if (poly[0]) poly[0].forEach(visitCoords); });
+        } else if (t === 'MultiPolygon') {
+          c.forEach(poly => {
+            if (poly[0]) poly[0].forEach(visitCoords);
+          });
         }
       };
       FC.features.forEach(f => walkGeom(f.geometry));
       if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) return;
-      if (minX === maxX) { minX -= 0.0005; maxX += 0.0005; }
-      if (minY === maxY) { minY -= 0.0005; maxY += 0.0005; }
+      if (minX === maxX) {
+        minX -= 0.0005;
+        maxX += 0.0005;
+      }
+      if (minY === maxY) {
+        minY -= 0.0005;
+        maxY += 0.0005;
+      }
 
       // Build SVG
       const VB = 100; // viewBox size
-      const pad = 8;  // padding inside viewBox
+      const pad = 8; // padding inside viewBox
       const inner = VB - pad * 2;
       const sx = inner / (maxX - minX);
       const sy = inner / (maxY - minY);
@@ -1015,8 +1150,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // Background subtle
       const bg = document.createElementNS(svgNS, 'rect');
-      bg.setAttribute('x', '0'); bg.setAttribute('y', '0');
-      bg.setAttribute('width', String(VB)); bg.setAttribute('height', String(VB));
+      bg.setAttribute('x', '0');
+      bg.setAttribute('y', '0');
+      bg.setAttribute('width', String(VB));
+      bg.setAttribute('height', String(VB));
       bg.setAttribute('fill', '#ffffff');
       bg.setAttribute('opacity', '1');
       svg.appendChild(bg);
@@ -1026,8 +1163,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       const strokeWidth = 4; // tuned for 100x100 viewBox
 
       FC.features.forEach(f => {
-        const g = f && f.geometry; if (!g) return;
-        const t = g.type; const c = g.coordinates;
+        const g = f && f.geometry;
+        if (!g) return;
+        const t = g.type;
+        const c = g.coordinates;
         if (t === 'Point') {
           const [cx, cy] = proj(c[0], c[1]);
           const circle = document.createElementNS(svgNS, 'circle');
@@ -1107,7 +1246,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const container = mapCardElRef.querySelector('.card-logo-wrap');
       if (!container) return;
       drawGeoPreviewToContainer(container, filteredGeoJSONForPreview);
-    } catch(_) {}
+    } catch (_) {}
   };
   // Corriger la taille juste après init au cas où le container vient d'être injecté
   requestAnimationFrame(() => map.invalidateSize());
@@ -1119,8 +1258,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       map.invalidateSize();
     });
     ro.observe(mapElement);
-  } catch(_) {}
-  
+  } catch (_) {}
+
   // Mobile sticky / card open + fullscreen with topbar visible
   try {
     const root = article.querySelector('.project-v2');
@@ -1212,7 +1351,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Bind open handler once
         if (!mapCardElRef.__bound) {
           const btn = mapCardElRef.querySelector('.btn-open-map');
-          btn?.addEventListener('click', (e) => { e.preventDefault(); openMap(); });
+          btn?.addEventListener('click', (e) => {
+            e.preventDefault();
+            openMap();
+          });
           mapCardElRef.__bound = true;
         }
 
@@ -1220,8 +1362,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateCardPreview();
       };
 
-      const showCard = () => { if (mapCardElRef) mapCardElRef.style.display = ''; };
-      const hideCard = () => { if (mapCardElRef) mapCardElRef.style.display = 'none'; };
+      const showCard = () => {
+        if (mapCardElRef) mapCardElRef.style.display = '';
+      };
+      const hideCard = () => {
+        if (mapCardElRef) mapCardElRef.style.display = 'none';
+      };
 
       const openMap = () => {
         root.classList.remove('map-collapsed');
@@ -1237,11 +1383,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (geoLayerRef && typeof geoLayerRef.getBounds === 'function') {
               const b = geoLayerRef.getBounds();
               if (b && b.isValid && b.isValid()) {
-                map.fitBounds(b, { padding: [20, 20] });
+                map.fitBounds(b, {
+                  padding: [20, 20]
+                });
                 setTimeout(() => map.invalidateSize(), 150);
               }
             }
-          } catch(e) { console.warn('Recentrage échoué:', e); }
+          } catch (e) {
+            console.warn('Recentrage échoué:', e);
+          }
         };
         setTimeout(refit, 180);
       };
@@ -1287,17 +1437,24 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (geoLayerRef && typeof geoLayerRef.getBounds === 'function') {
               const b = geoLayerRef.getBounds();
               if (b && b.isValid && b.isValid()) {
-                map.fitBounds(b, { padding: [20, 20] });
+                map.fitBounds(b, {
+                  padding: [20, 20]
+                });
                 setTimeout(() => map.invalidateSize(), 150);
               }
             }
-          } catch(e) { console.warn('Recentrage échoué:', e); }
+          } catch (e) {
+            console.warn('Recentrage échoué:', e);
+          }
         };
         setTimeout(refit, 180);
       });
 
       // Close button in topbar (visible only when expanded on mobile)
-      closeBtn?.addEventListener('click', (e) => { e.preventDefault(); closeMap(); });
+      closeBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        closeMap();
+      });
 
       // Resize listener
       let rTOA;
@@ -1346,7 +1503,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           ensureMapCard();
           showCard();
           // Re-check shortly to guard against late DOM mutations
-          setTimeout(() => { try { ensureMapCard(); showCard(); } catch(_) {} }, 60);
+          setTimeout(() => {
+            try {
+              ensureMapCard();
+              showCard();
+            } catch (_) {}
+          }, 60);
           articleSection?.removeEventListener('scroll', onScroll);
         } else {
           // Desktop: no card, map visible and tall
@@ -1367,7 +1529,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const bindScrollIfNeeded = () => {
         if (!articleSection) return;
         if (prefersMobile() && !scrollBound && !root.classList.contains('map-collapsed')) {
-          articleSection.addEventListener('scroll', onScroll, { passive: true });
+          articleSection.addEventListener('scroll', onScroll, {
+            passive: true
+          });
           scrollBound = true;
         } else if ((!prefersMobile() || root.classList.contains('map-collapsed')) && scrollBound) {
           articleSection.removeEventListener('scroll', onScroll);
@@ -1378,8 +1542,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Apply now and on resize/orientation changes
       applyMode();
       bindScrollIfNeeded();
-      mql.addEventListener?.('change', () => { applyMode(); bindScrollIfNeeded(); });
-      window.addEventListener('orientationchange', () => setTimeout(() => { applyMode(); bindScrollIfNeeded(); }, 50));
+      mql.addEventListener?.('change', () => {
+        applyMode();
+        bindScrollIfNeeded();
+      });
+      window.addEventListener('orientationchange', () => setTimeout(() => {
+        applyMode();
+        bindScrollIfNeeded();
+      }, 50));
       // Extra: on resize, keep map correct
       let rTO2;
       window.addEventListener('resize', () => {
@@ -1392,146 +1562,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 150);
       });
     }
-  } catch(e) { console.warn('Sticky/extend indisponible:', e); }
-  
-  // Création d'une icône personnalisée avec Font Awesome
-  // Badge circulaire blanc bord vert avec pictogramme caméra centré
-  const cameraIcon = L.divIcon({
-    html: '<i class="fa fa-camera fa-fw" aria-hidden="true"></i>',
-    className: 'camera-marker',
-    iconSize: [28, 28],
-    iconAnchor: [14, 14]
-  });
-  
-  // --- Helpers (architecture simplifiée) -------------------------------------
-  // 1) Résout l'URL image et le titre à partir des properties d'une feature
-  function resolveImageForFeature(props = {}) {
-    try {
-      const imgUrl = props.imgUrl || '';
-      const title = props.titre || props.title || props.name || props.nom || '';
-      return { imgUrl: String(imgUrl || '').trim(), title: String(title || '').trim() };
-    } catch (_) {
-      return { imgUrl: '', title: '' };
-    }
+  } catch (e) {
+    console.warn('Sticky/extend indisponible:', e);
   }
 
-  // 2) Construit un HTML simple et robuste pour le popup d'aperçu (image + titre)
-  function buildCameraPopupHtml(imgUrl, title = '') {
-    const safeUrl = String(imgUrl || '').trim();
-    // Masquer le texte dans le popup (aucun titre). Ajouter une ombre plus marquée derrière l'image
-    return `
-      <div class="map-photo" style="max-width:260px">
-        <img src="${safeUrl}" alt="photo" style="max-width:260px;max-height:180px;display:block;border-radius:8px;box-shadow:0 12px 32px rgba(0,0,0,0.45)" />
-      </div>`;
-  }
-
-  // 3) Détails "marker-level" (pas les properties du GeoJSON): coordonnées, type d'icône, data custom éventuelle
-  function buildMarkerDetailsHtml(layer) {
-    try {
-      const latlng = (typeof layer.getLatLng === 'function') ? layer.getLatLng() : null;
-      const coord = latlng ? `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}` : 'N/A';
-      const iconHtml = layer?.options?.icon?.options?.html || '';
-      const esc = (v) => String(v).replace(/[&<>]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-      return `
-        <div class="fp-marker-details" style="background:rgba(0,0,0,0.55);color:#fff;margin-top:8px;padding:10px;border-radius:8px;max-width:90vw">
-          <div style="font-weight:600;margin-bottom:6px">Détails du marqueur</div>
-          <div class="fp-prop-row"><div class="fp-prop-key">Coordonnées</div><div class="fp-prop-val">${coord}</div></div>
-          <div class="fp-prop-row"><div class="fp-prop-key">Icône</div><div class="fp-prop-val">${esc(iconHtml) || 'divIcon'}</div></div>
-        </div>`;
-    } catch(_) { return ''; }
-  }
-  function openImageLightbox(imgUrl, title = '', detailsHtml = '') {
-    try {
-      // Créer l'overlay une seule fois
-      if (!window.__fpLightbox) {
-        const overlay = document.createElement('div');
-        overlay.id = 'fp-img-lightbox';
-        overlay.setAttribute('role', 'dialog');
-        overlay.setAttribute('aria-modal', 'true');
-        overlay.style.cssText = [
-          'position:fixed',
-          'inset:0',
-          'z-index:9999',
-          'display:flex',
-          'align-items:center',
-          'justify-content:center',
-          'background:rgba(0,0,0,0.55)',
-          'backdrop-filter:blur(6px)',
-          '-webkit-backdrop-filter:blur(6px)',
-          'padding:24px'
-        ].join(';');
-
-        const box = document.createElement('div');
-        box.style.cssText = [
-          'position:relative',
-          'max-width:90vw',
-          'max-height:90vh',
-          'box-shadow:0 8px 24px rgba(0,0,0,0.45)',
-          'border-radius:10px',
-          'overflow:hidden',
-          'background:#000'
-        ].join(';');
-
-        const img = document.createElement('img');
-        img.alt = title || 'image';
-        // Masquer tout texte dans la lightbox: l'image seule avec une ombre généreuse
-        img.style.cssText = 'display:block;max-width:90vw;max-height:85vh;object-fit:contain;box-shadow:0 24px 72px rgba(0,0,0,0.6)';
-
-        const details = document.createElement('div');
-        details.innerHTML = detailsHtml || '';
-        details.style.cssText = 'max-width:90vw;';
-
-        const close = document.createElement('button');
-        close.type = 'button';
-        close.setAttribute('aria-label', 'Fermer');
-        close.innerHTML = '&times;';
-        close.style.cssText = [
-          'position:absolute',
-          'top:8px',
-          'right:10px',
-          'width:36px',
-          'height:36px',
-          'border:none',
-          'border-radius:18px',
-          'background:rgba(0,0,0,0.55)',
-          'color:#fff',
-          'font-size:26px',
-          'line-height:36px',
-          'cursor:pointer'
-        ].join(';');
-
-        close.addEventListener('click', () => overlay.remove());
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-        window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.getElementById('fp-img-lightbox')) overlay.remove(); });
-
-        box.appendChild(img);
-        // Ne pas afficher de bloc de texte/détails dans la lightbox
-        box.appendChild(close);
-        overlay.appendChild(box);
-        window.__fpLightbox = overlay;
-        window.__fpLightboxImg = img;
-        window.__fpLightboxDetails = details;
-      }
-
-      window.__fpLightboxImg.src = imgUrl;
-      if (window.__fpLightboxDetails) {
-        window.__fpLightboxDetails.innerHTML = detailsHtml || '';
-        if (!detailsHtml && window.__fpLightboxDetails.parentElement) {
-          try { window.__fpLightboxDetails.parentElement.removeChild(window.__fpLightboxDetails); } catch(_) {}
-        }
-      }
-      document.body.appendChild(window.__fpLightbox);
-    } catch (e) {
-      console.warn('Lightbox error:', e);
-      // Fallback: new tab
-      try { window.open(imgUrl, '_blank'); } catch(_) {}
-    }
-  }
-  
   // Vérifier que window.basemaps est défini et contient des éléments
   if (!window.basemaps || window.basemaps.length === 0) {
-    window.basemaps = [
-      {
+    window.basemaps = [{
         label: 'OSM',
         url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         attribution: '© OpenStreetMap contributors',
@@ -1550,16 +1587,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     ];
   }
-  
+
   // Utiliser Positron s'il existe, sinon le premier fond de carte disponible
   const basemapCfg = window.basemaps.find(b => b.label === 'Positron') || window.basemaps[0];
-  
+
   if (basemapCfg && basemapCfg.url) {
     try {
-      baseLayerRef = L.tileLayer(basemapCfg.url, { 
-        attribution: basemapCfg.attribution || '' 
+      baseLayerRef = L.tileLayer(basemapCfg.url, {
+        attribution: basemapCfg.attribution || ''
       }).addTo(map);
-      try { window.__fpBaseLayer = baseLayerRef; } catch(_) {}
+      try {
+        window.__fpBaseLayer = baseLayerRef;
+      } catch (_) {}
     } catch (e) {
       console.error('Erreur lors de l\'ajout du fond de carte', e);
     }
@@ -1570,115 +1609,56 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Aligner immédiatement le fond de carte sur le thème courant si un fond correspondant existe
   try {
     FPTheme.syncBasemapToTheme(document.documentElement.getAttribute('data-theme') || FPTheme.getInitialTheme());
-  } catch(_) {}
+  } catch (_) {}
 
   // 4. Fonction pour charger les données de la couche spécifiée dans category
   let layerConfig; // Déclarer la variable dans la portée de la fonction
-  
+
   async function loadLayerData() {
-    console.log(`Début du chargement des données pour la couche: ${category}`);
-    
-    // Vérifier si supabaseService est disponible
-    if (!window.supabaseService) {
-      console.error('supabaseService non disponible');
-      return [];
-    }
-    
+    if (!window.supabaseService) return [];
+
     try {
-      // 1. Charger la configuration des couches
-      console.log('Chargement de la configuration des couches...');
-      const layersConfig = await window.supabaseService.fetchLayersConfig();
-      
-      if (!layersConfig || !Array.isArray(layersConfig)) {
-        console.error('Erreur: la configuration des couches est invalide');
-        return [];
-      }
-      
-      // Afficher la configuration des couches
-      console.log('Configuration des couches depuis Supabase:', JSON.stringify(layersConfig, null, 2));
-      
-      // 2. Trouver la configuration de la couche spécifiée (avec normalisation tolérante)
-      //    On retire aussi les espaces pour matcher camelCase vs libellés avec espaces
-      const normTarget = normalizeText(category).replace(/\s+/g, '');
-      layerConfig =
-        layersConfig.find(l => normalizeText(l.name).replace(/\s+/g, '') === normTarget)
-        || layersConfig.find(l => {
-          const n = normalizeText(l.name).replace(/\s+/g, '');
-          return n.includes(normTarget) || normTarget.includes(n);
-        });
-      
-      if (!layerConfig) {
-        console.warn(`Configuration de la couche '${category}' absente dans layersConfig (norm='${normTarget}'). Tentative de récupération du style direct depuis 'layers'.`);
-        try {
-          if (window.supabaseService?.fetchLayerStylesByNames) {
-            const stylesMap = await window.supabaseService.fetchLayerStylesByNames([category]);
-            const s = stylesMap && stylesMap[category] ? stylesMap[category] : null;
-            if (s && typeof s === 'object') {
-              layerConfig = { name: category, style: s };
-              // Optionnel: injecter dans DataModule pour cohérence des callbacks de style
-              try { window.DataModule?.initConfig?.({ styleMap: { [category]: s } }); } catch(_) {}
-              console.log(`[ficheprojet] Style récupéré depuis 'layers' pour '${category}':`, s);
-            }
-          }
-        } catch (e) {
-          console.warn(`[ficheprojet] fetchLayerStylesByNames a échoué pour '${category}':`, e);
-        }
+      // Charger les styles des catégories depuis category_icons
+      const categoryIconsData = await window.supabaseService.fetchCategoryIcons();
+      const categoryStylesMap = window.supabaseService.buildCategoryStylesMap(categoryIconsData);
+      const categoryStyle = categoryStylesMap[category] || {};
+      layerConfig = {
+        name: category,
+        style: categoryStyle
+      };
 
-        // Fallback final: style par défaut DataModule pour garder un rendu
-        if (!layerConfig) {
-          const def = (window.DataModule && typeof window.DataModule.getDefaultStyle === 'function')
-            ? (window.DataModule.getDefaultStyle(category) || {})
-            : {};
-          layerConfig = { name: category, style: def };
-          console.warn(`[ficheprojet] Utilisation du style par défaut DataModule pour '${category}'.`);
-        }
-      }
-
-      console.log(`Configuration de la couche '${category}' (finale):`, layerConfig);
-      
-      // 3. Charger les GeoJSON depuis contribution_uploads
-      console.log(`[ficheprojet] Chargement du projet exact (category='${category}', project='${projectName}')`);
-      if (!projectName) {
-        console.warn('[ficheprojet] Paramètre project manquant dans l’URL, aucune donnée à charger.');
-        return [];
-      }
+      // Charger le projet depuis contribution_uploads
+      if (!projectName) return [];
       const project = await window.supabaseService.fetchProjectByCategoryAndName(category, projectName);
-      if (!project || !project.geojson_url) {
-        console.warn(`[ficheprojet] Projet introuvable ou sans geojson_url (category='${category}', project='${projectName}')`);
-        return [];
-      }
+      if (!project?.geojson_url) return [];
+
+      // Charger le GeoJSON
+      const resp = await fetch(project.geojson_url);
+      if (!resp.ok) return [];
+      const gj = await resp.json();
+
       let features = [];
-      try {
-        const resp = await fetch(project.geojson_url);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const gj = await resp.json();
-        if (gj && gj.type === 'FeatureCollection' && Array.isArray(gj.features)) {
-          features = gj.features;
-        } else if (gj && gj.type === 'Feature') {
-          features = [gj];
-        } else {
-          features = [];
-        }
-        // Injecter les métadonnées du projet dans chaque feature
-        features.forEach(f => {
-          if (!f.properties) f.properties = {};
-          f.properties.project_name = project.project_name;
-          f.properties.category = project.category;
-          f.properties.cover_url = project.cover_url;
-          f.properties.markdown_url = project.markdown_url;
-          f.properties.meta = project.meta;
-          f.properties.description = project.description;
-        });
-        console.log(`[ficheprojet] Features chargées: ${features.length}`);
-      } catch (e) {
-        console.error('[ficheprojet] Erreur chargement GeoJSON du projet:', e);
-        features = [];
+      if (gj?.type === 'FeatureCollection' && Array.isArray(gj.features)) {
+        features = gj.features;
+      } else if (gj?.type === 'Feature') {
+        features = [gj];
       }
-      
+
+      // Injecter les métadonnées du projet dans chaque feature
+      features.forEach(f => {
+        if (!f.properties) f.properties = {};
+        Object.assign(f.properties, {
+          project_name: project.project_name,
+          category: project.category,
+          cover_url: project.cover_url,
+          markdown_url: project.markdown_url,
+          meta: project.meta,
+          description: project.description
+        });
+      });
+
       return features;
-      
     } catch (error) {
-      console.error('Erreur lors du chargement des données:', error);
       return [];
     }
   }
@@ -1686,36 +1666,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 5. Chargement et affichage des données
   loadLayerData()
     .then(data => {
-      if (!data || data.length === 0) {
-        console.warn(`Aucune donnée trouvée pour la couche ${category}`);
-        return { type: 'FeatureCollection', features: [] };
-      }
-      
-      // Convertir les données en format GeoJSON
+      if (!data?.length) return {
+        type: 'FeatureCollection',
+        features: []
+      };
+
       return {
         type: 'FeatureCollection',
-        features: data.map(item => ({
-          type: 'Feature',
-          // Conserver des propriétés plates pour compatibilité (éviter properties.properties)
-          properties: item && item.properties ? item.properties : item,
-          geometry: item.geometry 
-            ? (typeof item.geometry === 'string' 
-              ? JSON.parse(item.geometry) 
-              : item.geometry)
-            : null
-        })).filter(f => f.geometry) // Filtrer les entrées sans géométrie
+        features: data
+          .map(item => ({
+            type: 'Feature',
+            properties: item?.properties || item,
+            geometry: typeof item.geometry === 'string' ? JSON.parse(item.geometry) : item.geometry
+          }))
+          .filter(f => f.geometry)
       };
     })
     .then(data => {
       // Conserver pour l'aperçu dans la carte (mobile)
-      try { window.__fpGeoPreview = data; } catch(_) {}
+      try {
+        window.__fpGeoPreview = data;
+      } catch (_) {}
 
       // Nettoyage: retirer l'ancienne couche
       try {
         if (geoLayerRef && map && typeof map.removeLayer === 'function' && map.hasLayer(geoLayerRef)) {
           map.removeLayer(geoLayerRef);
         }
-      } catch(_) {}
+      } catch (_) {}
 
       const geoLayer = L.geoJSON(data, {
         // Masquer les points (markers) qui n'ont pas de properties.imgUrl
@@ -1726,82 +1704,45 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!isPoint) return true; // ne pas filtrer lignes/polygones
             const props = feature && feature.properties ? feature.properties : {};
             return !!props.imgUrl; // n'afficher que les points avec imgUrl
-          } catch(_) { return true; }
+          } catch (_) {
+            return true;
+          }
         },
         style: (feature) => {
-          // Base: style provenant de la configuration de la couche (Supabase)
-          const base = (layerConfig && layerConfig.style) ? layerConfig.style : {};
-          const dmStyle = window.DataModule?.getFeatureStyle?.(feature, category) || {};
-          const style = { ...base, ...dmStyle };
-
-          // Couches sans remplissage (projets mobilité & vélo)
-          const noFillLayers = new Set(['planVelo','amenagementCyclable','velo','bus','tramway','metroFuniculaire','mobilite']);
-
-          // Normaliser et fournir des valeurs par défaut compatibles Leaflet
-          const computedFill = noFillLayers.has(category)
-            ? false
-            : (typeof style.fill === 'boolean' ? style.fill : true);
-
-          // Épaissir fortement les traits dans les fiches projets
-          const minLineWeight = 6; // poids minimum souhaité
-          const parsedWeight = (typeof style.weight === 'number' ? style.weight : parseFloat(style.weight)) || 0;
-          const lineWeight = Math.max(parsedWeight, minLineWeight);
-
-          // Dash fixes très espacés (valeur fixe demandée) — uniquement pour les lignes
-          const spacedDash = '20,10';
-          const geomType = feature?.geometry?.type || '';
-          const isLine = /LineString/i.test(geomType);
-
-          const finalStyle = {
-            color: style.color || '#3388ff',
-            weight: lineWeight,
-            opacity: typeof style.opacity === 'number' ? style.opacity : parseFloat(style.opacity) || 1.0,
-            fill: computedFill,
-            fillColor: style.fillColor || style.color || '#3388ff',
-            fillOpacity: typeof style.fillOpacity === 'number' ? style.fillOpacity : parseFloat(style.fillOpacity) || (computedFill ? 0.2 : 0),
-            dashArray: isLine ? spacedDash : null // pas de dash sur les polygones
-          };
-
-          console.log('Style appliqué (merge layerConfig/DataModule):', finalStyle);
-          return finalStyle;
+          const baseStyle = layerConfig?.style || {};
+          return window.LayerStyles?.applyCustomLayerStyle ?
+            window.LayerStyles.applyCustomLayerStyle(feature, category, baseStyle) :
+            baseStyle;
         },
         pointToLayer: (feature, latlng) => {
-          // Créer un Marker avec l'icône caméra (badge circulaire)
-          try {
-            const mk = L.marker(latlng, { riseOnHover: true, icon: cameraIcon });
-            try {
-              console.debug('[FicheProjet][debug] Création marker caméra', {
-                latlng,
-                geomType: feature?.geometry?.type || null,
-                id: feature?.properties?.id || feature?.properties?.gid || feature?.properties?.objectid || null
-              });
-            } catch(_) {}
-            return mk;
-          } catch (_) {
-            // Fallback si jamais Marker échoue pour une raison quelconque
-            return L.marker(latlng, { icon: cameraIcon });
+          // Utiliser la fonction centralisée de CameraMarkers
+          if (window.CameraMarkers?.createCameraMarker) {
+            // Récupérer la couleur de la couche
+            const baseStyle = layerConfig?.style || {};
+            const featureStyle = window.LayerStyles?.applyCustomLayerStyle ?
+              window.LayerStyles.applyCustomLayerStyle(feature, category, baseStyle) :
+              baseStyle;
+            const color = featureStyle?.color || null;
+            
+            return window.CameraMarkers.createCameraMarker(latlng, 'cameraPane', color);
           }
+          // Fallback si CameraMarkers n'est pas disponible
+          return L.marker(latlng, { riseOnHover: true });
         },
         onEachFeature: (feature, layer) => {
           const props = feature?.properties || {};
-          const geomType = feature?.geometry?.type || '';
-          const isPoint = /Point$/i.test(geomType);
+          const isPoint = /Point$/i.test(feature?.geometry?.type || '');
           
-          // Système simple : différencier points (caméras) vs lignes/polygones (contributions)
           if (isPoint && props.imgUrl) {
-            // Points avec images : système caméra
-            const { imgUrl, title } = resolveImageForFeature(props);
-            if (imgUrl) {
-              const popupHtml = buildCameraPopupHtml(imgUrl, title);
-              layer.bindPopup(popupHtml, { maxWidth: 300 });
-              layer.on('click', () => openImageLightbox(imgUrl, title, buildMarkerDetailsHtml(layer)));
+            // Déléguer la gestion des camera markers à cameramarkers.js
+            if (window.CameraMarkers?.bindCameraMarkerEvents) {
+              window.CameraMarkers.bindCameraMarkerEvents(feature, layer);
             }
           } else {
-            // Lignes/polygones : système contributions simple
-            const projectName = props.project_name || props.name || props.Name || 'Projet';
-            layer.bindTooltip(projectName, { permanent: false, direction: 'top' });
-            layer.on('click', () => {
-              console.log('[FicheProjet] Clic sur contribution:', { projectName, category, props });
+            const name = props.project_name || props.name || props.Name || 'Projet';
+            layer.bindTooltip(name, {
+              permanent: false,
+              direction: 'top'
             });
           }
         }
@@ -1812,16 +1753,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       map.addLayer(geoLayer);
 
       // S'assurer que la couche est au-dessus des fonds et autres couches
-      try { geoLayer.bringToFront(); } catch(_) {}
+      try {
+        geoLayer.bringToFront();
+      } catch (_) {}
       // Ajuster la vue initiale sur l'objet affiché
       try {
         if (typeof geoLayer.getBounds === 'function') {
           const b = geoLayer.getBounds();
           if (b && b.isValid && b.isValid()) {
-            map.fitBounds(b, { padding: [20, 20] });
+            map.fitBounds(b, {
+              padding: [20, 20]
+            });
           }
         }
-      } catch(_) {}
+      } catch (_) {}
 
       // Animation des tirets (dash) : uniquement pour les lignes, throttle ~30fps et pause pendant le zoom
       let __dashAnimId;
@@ -1830,10 +1775,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       let __lastTime = 0;
       const __animateDashes = (t = 0) => {
         // throttle ~30fps
-        if (__pausedDash) { __dashAnimId = requestAnimationFrame(__animateDashes); return; }
+        if (__pausedDash) {
+          __dashAnimId = requestAnimationFrame(__animateDashes);
+          return;
+        }
         if (!__lastTime) __lastTime = t;
         const dt = t - __lastTime;
-        if (dt < 33) { __dashAnimId = requestAnimationFrame(__animateDashes); return; }
+        if (dt < 33) {
+          __dashAnimId = requestAnimationFrame(__animateDashes);
+          return;
+        }
         __lastTime = t;
         __dashOffset = (__dashOffset + 1) % 1000;
         try {
@@ -1842,31 +1793,40 @@ document.addEventListener('DOMContentLoaded', async () => {
             const isLine = /LineString/i.test(gtype);
             // n'animer que les lignes qui ont un dash défini
             if (isLine && l && l.options && l.options.dashArray && typeof l.setStyle === 'function') {
-              l.setStyle({ dashOffset: String(__dashOffset) });
+              l.setStyle({
+                dashOffset: String(__dashOffset)
+              });
             }
           });
         } catch (_) {}
         __dashAnimId = requestAnimationFrame(__animateDashes);
       };
-      map.on('zoomstart', () => { __pausedDash = true; });
-      map.on('zoomend',   () => { __pausedDash = false; });
+      map.on('zoomstart', () => {
+        __pausedDash = true;
+      });
+      map.on('zoomend', () => {
+        __pausedDash = false;
+      });
       __animateDashes();
 
       // Nettoyage de l'animation si on quitte la page
       window.addEventListener('beforeunload', () => {
         if (__dashAnimId) cancelAnimationFrame(__dashAnimId);
-      }, { once: true });
+      }, {
+        once: true
+      });
 
       // Ajustement de la vue et correction de la taille
       const bounds = geoLayer.getBounds();
       if (bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [50, 50] });
+        map.fitBounds(bounds, {
+          padding: [50, 50]
+        });
         // si le container était masqué/reflow
         setTimeout(() => map.invalidateSize(), 100);
       }
     })
-    .catch(err => {
-      console.error('Erreur chargement GeoJSON :', err);
+    .catch(() => {
       textEl.insertAdjacentHTML('beforeend',
         '<p style="color:red;">Impossible de charger la carte.</p>');
     });
