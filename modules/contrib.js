@@ -1,23 +1,63 @@
 // modules/contrib.js
 ;(function (win) {
+  let modalLoaded = false;
+  
+  // Lazy load modal template
+  async function loadModalTemplate() {
+    if (modalLoaded) return true;
+    
+    try {
+      const response = await fetch('modules/contrib/contrib-modal.html');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const html = await response.text();
+      const container = document.getElementById('contrib-modal-container');
+      
+      if (!container) {
+        console.error('[contrib] Modal container not found in DOM');
+        return false;
+      }
+      
+      container.innerHTML = html;
+      modalLoaded = true;
+      console.log('[contrib] Modal template loaded successfully');
+      return true;
+      
+    } catch (error) {
+      console.error('[contrib] Error loading modal template:', error);
+      // Show user-friendly error
+      const container = document.getElementById('contrib-modal-container');
+      if (container) {
+        container.innerHTML = `
+          <div style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); 
+                      padding:24px; background:#fff; border-radius:12px; box-shadow:0 4px 24px rgba(0,0,0,0.15);
+                      max-width:400px; text-align:center; z-index:10000;">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size:48px; color:#f59e0b; margin-bottom:16px;"></i>
+            <h3 style="margin:0 0 8px 0; color:#111;">Erreur de chargement</h3>
+            <p style="margin:0 0 16px 0; color:#666;">Impossible de charger le formulaire de contribution.</p>
+            <button onclick="location.reload()" class="gp-btn gp-btn--primary">
+              <i class="fa-solid fa-rotate-right"></i> Recharger la page
+            </button>
+          </div>
+        `;
+      }
+      return false;
+    }
+  }
+
   function setupContrib() {
     const contribToggle   = document.getElementById('nav-contribute');
-    const contribOverlay  = document.getElementById('contrib-overlay');
-    const contribCloseBtn = document.getElementById('contrib-close');
-    const contribModal    = contribOverlay ? contribOverlay.querySelector('.gp-modal') : null;
+    let contribOverlay  = document.getElementById('contrib-overlay');
+    let contribCloseBtn = document.getElementById('contrib-close');
+    let contribModal    = contribOverlay ? contribOverlay.querySelector('.gp-modal') : null;
 
     let contribLastFocus  = null;
     let contribCloseTimer = null;
 
-    // Drawing state for geometry input (modale contribution)
-    let drawMap = null;
-    let drawLayer = null;      // finalized geometry layer (L.Layer, e.g., L.Polyline or L.Polygon)
-    let drawLayerDirty = false; // whether current drawLayer was created/modified by user during this session
-    // Manual draw state (fallback when Geoman is not used)
-    let manualDraw = { active: false, type: null, points: [], tempLayer: null };
-    // Basemap + city branding state for draw map
-    let drawBaseLayer = null;
-    let basemapsCache = null;
+    // Drawing state moved to contrib-map.js
+    const ContribMap = win.ContribMap || {};
 
     const closeContrib = () => {
       if (!contribOverlay) return;
@@ -34,6 +74,30 @@
       }, 180);
     };
 
+    // Helper function to show landing page
+    const showLanding = () => {
+      try {
+        const landingEl = document.getElementById('contrib-landing');
+        const tabsContainer = document.querySelector('#contrib-overlay .contrib-tabs');
+        const panelCreate = document.getElementById('contrib-panel-create');
+        const panelList = document.getElementById('contrib-panel-list');
+        const panelCategories = document.getElementById('contrib-panel-categories');
+        const backBtn = document.getElementById('contrib-back');
+        
+        if (landingEl) landingEl.hidden = false;
+        if (tabsContainer) tabsContainer.style.display = 'none';
+        if (panelCreate) panelCreate.hidden = true;
+        if (panelList) panelList.hidden = true;
+        if (panelCategories) panelCategories.hidden = true;
+        if (backBtn) backBtn.style.display = 'none';
+        
+        // Afficher la card d'info utilisateur
+        renderUserInfoCard();
+      } catch(e) {
+        console.warn('[contrib] showLanding error:', e);
+      }
+    };
+
     const openContrib = () => {
       if (!contribOverlay) return;
       if (contribCloseTimer) { clearTimeout(contribCloseTimer); contribCloseTimer = null; }
@@ -42,7 +106,7 @@
       contribOverlay.setAttribute('aria-hidden', 'false');
       document.body.style.overflow = 'hidden';
       requestAnimationFrame(() => { if (contribModal) contribModal.classList.add('is-open'); });
-      // Focus sur le bouton fermer pour l’accessibilité
+      // Focus sur le bouton fermer pour l'accessibilité
       if (contribCloseBtn && typeof contribCloseBtn.focus === 'function') {
         try { contribCloseBtn.focus(); } catch (_) {}
       }
@@ -52,7 +116,7 @@
         try { if (drawMap) drawMap.invalidateSize(); } catch (_) {}
       }, 200);
       // Toujours afficher l'écran d'accueil (choix Créer / Modifier)
-      try { showLanding(); } catch(_) {}
+      showLanding();
     };
 
     const contribEscHandler = (e) => {
@@ -106,7 +170,12 @@
         try { win.__CONTRIB_IS_ADMIN = __isAdmin; } catch(_) {}
         try { win.__CONTRIB_ROLE = __userRole; } catch(_) {}
         try { win.__CONTRIB_VILLES = __userVilles; } catch(_) {}
-        applyRoleConstraints();
+        // applyRoleConstraints will be called after form initialization
+        try {
+          if (typeof applyRoleConstraints === 'function') {
+            applyRoleConstraints();
+          }
+        } catch(_) {}
       };
 
       // État initial
@@ -125,27 +194,51 @@
 
       contribToggle.addEventListener('click', async (e) => {
         e.stopPropagation();
+        
         try {
           const session = await (win.AuthModule && win.AuthModule.requireAuthOrRedirect('/login/'));
-          if (session && session.user) {
-            openContrib();
+          if (!session || !session.user) return;
+          
+          // Load modal template if not already loaded
+          const loaded = await loadModalTemplate();
+          if (!loaded) {
+            console.error('[contrib] Failed to load modal template');
+            return;
           }
-        } catch (_) {
+          
+          // Re-query DOM elements after template load
+          contribOverlay = document.getElementById('contrib-overlay');
+          contribCloseBtn = document.getElementById('contrib-close');
+          contribModal = contribOverlay ? contribOverlay.querySelector('.gp-modal') : null;
+          
+          // Bind modal events (only once)
+          bindModalEvents();
+          
+          // Initialize form elements and bindings
+          initializeContribForm();
+          
+          // Open the modal
+          openContrib();
+          
+        } catch (error) {
+          console.error('[contrib] Error opening modal:', error);
           // En cas d'erreur de session, on redirige vers la connexion
           win.location.href = '/login/';
         }
       });
     }
-
-    if (contribCloseBtn) {
+    
+    // Bind modal close events (called once after template load)
+    function bindModalEvents() {
+      if (!contribCloseBtn || !contribOverlay) return;
+      
+      // Close button
       contribCloseBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         closeContrib();
       });
-    }
-
-    if (contribOverlay) {
-      // Empêcher la fermeture lors d'un glisser-sélection depuis la modale vers l'extérieur
+      
+      // Click outside to close
       let overlayMouseDownOnSelf = false;
       contribOverlay.addEventListener('mousedown', (e) => {
         overlayMouseDownOnSelf = (e.target === contribOverlay);
@@ -158,8 +251,87 @@
       });
     }
 
-    // —— Minimal contribution form wiring ——
-    const form = document.getElementById('contrib-form');
+    // Close button and overlay bindings are now done dynamically after template load
+
+    // Helper function to render user info card (needs to be accessible from openContrib)
+    function renderUserInfoCard() {
+      try {
+        const landingEl = document.getElementById('contrib-landing');
+        if (!landingEl) return;
+        
+        // Récupérer la session depuis AuthModule
+        let email = 'Non connecté';
+        try {
+          if (win.AuthModule && typeof win.AuthModule.getSession === 'function') {
+            win.AuthModule.getSession().then(({ data }) => {
+              if (data?.session?.user?.email) {
+                const emailEl = document.querySelector('#user-info-card .user-email');
+                if (emailEl) emailEl.textContent = data.session.user.email;
+              }
+            }).catch(() => {});
+          }
+        } catch(_) {}
+        
+        const role = window.__CONTRIB_ROLE || 'aucun';
+        const villes = window.__CONTRIB_VILLES;
+        
+        let villesText = '';
+        const hasGlobalAccess = Array.isArray(villes) && villes.includes('global');
+        
+        if (hasGlobalAccess) {
+          villesText = '<span style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; border-radius:20px; font-weight:600; font-size:0.9em; box-shadow:0 2px 8px rgba(16,185,129,0.25);"><i class="fa-solid fa-globe" style="font-size:0.95em;"></i> Toutes les collectivités</span>';
+        } else if (Array.isArray(villes) && villes.length > 0) {
+          villesText = villes.map(v => `<span style="display:inline-flex; align-items:center; padding:5px 12px; background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; border-radius:16px; font-size:0.85em; font-weight:500; box-shadow:0 2px 6px rgba(16,185,129,0.2); margin:2px 4px 2px 0;">${v}</span>`).join('');
+        } else {
+          villesText = '<span style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:#fef2f2; color:#dc2626; border-radius:16px; font-weight:500; font-size:0.9em; border:1px solid #fecaca;"><i class="fa-solid fa-triangle-exclamation" style="font-size:0.9em;"></i> Aucune collectivité autorisée</span>';
+        }
+        
+        const roleIcons = {
+          admin: 'fa-user-shield',
+          invited: 'fa-user-check',
+          default: 'fa-user'
+        };
+        const roleIcon = roleIcons[role] || roleIcons.default;
+        
+        const cardHTML = `
+          <div id="user-info-card" style="margin-bottom:24px; padding:20px; background:#ffffff; border-radius:16px; border:1px solid #d1fae5; box-shadow:0 4px 16px rgba(16,185,129,0.12), 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid #d1fae5;">
+              <div style="display:flex; align-items:center; justify-content:center; width:52px; height:52px; background:linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border-radius:14px; border:2px solid #6ee7b7; box-shadow:0 2px 8px rgba(16,185,129,0.15);">
+                <i class="fa-solid ${roleIcon}" style="font-size:24px; color:#047857;"></i>
+              </div>
+              <div style="flex:1; min-width:0;">
+                <div style="font-size:0.75em; color:#6b7280; text-transform:uppercase; letter-spacing:0.8px; font-weight:600; margin-bottom:4px;">Connecté en tant que</div>
+                <div class="user-email" style="font-weight:600; font-size:1.05em; color:#111827; overflow:hidden; text-overflow:ellipsis;">${email}</div>
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="min-width:90px; font-size:0.9em; color:#6b7280; font-weight:500;">Rôle</div>
+                <div style="display:inline-flex; align-items:center; gap:8px; padding:6px 14px; background:linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); color:#047857; border-radius:20px; font-weight:600; font-size:0.9em; text-transform:capitalize; border:1px solid #6ee7b7;">
+                  <i class="fa-solid fa-circle" style="font-size:6px;"></i> ${role}
+                </div>
+              </div>
+              <div style="display:flex; align-items:flex-start; gap:12px;">
+                <div style="min-width:90px; font-size:0.9em; color:#6b7280; font-weight:500; padding-top:4px;">Collectivités</div>
+                <div style="flex:1; display:flex; flex-wrap:wrap; align-items:center;">${villesText}</div>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        // Injecter la card au début du landing
+        let existingCard = landingEl.querySelector('#user-info-card');
+        if (existingCard) existingCard.remove();
+        landingEl.insertAdjacentHTML('afterbegin', cardHTML);
+      } catch(e) {
+        console.warn('[contrib] renderUserInfoCard error:', e);
+      }
+    }
+
+    // Function to initialize all form elements and bindings after template load
+    function initializeContribForm() {
+      // Re-query all DOM elements
+      const form = document.getElementById('contrib-form');
     const statusEl = document.getElementById('contrib-status');
     const cityEl = document.getElementById('contrib-city');
     const categoryEl = document.getElementById('contrib-category');
@@ -182,287 +354,29 @@
     const geomCardFile = document.getElementById('geom-card-file');
     const geomCardDraw = document.getElementById('geom-card-draw');
     const drawMapContainerId = 'contrib-draw-map';
-    // Geoman removed: manual drawing only
+    // Manual drawing functions moved to contrib-map.js
 
-    function onMapClick(e) {
-      if (!manualDraw.active || !drawMap) return;
-      try {
-        manualDraw.points.push(e.latlng);
-        updateTempShape();
-        updateManualButtons();
-      } catch(_) {}
-    }
-
-    function clearGuide() {
-      try {
-        if (manualDraw && manualDraw.guideLayer && drawMap) {
-          drawMap.removeLayer(manualDraw.guideLayer);
-        }
-      } catch(_) {}
-      if (manualDraw) manualDraw.guideLayer = null;
-    }
-
-    function onMapMouseMove(e) {
-      // Show a dashed guide only in line mode with at least one point
-      if (!drawMap || !manualDraw.active || manualDraw.type !== 'line' || manualDraw.points.length === 0) {
-        clearGuide();
-        return;
-      }
-      const last = manualDraw.points[manualDraw.points.length - 1];
-      if (!last) { clearGuide(); return; }
-      const coords = [last, e.latlng];
-      // Replace previous guide with a dashed preview segment
-      clearGuide();
-      try {
-        manualDraw.guideLayer = L.polyline(coords, {
-          color: '#1976d2',
-          weight: 2,
-          opacity: 0.7,
-          dashArray: '6,6'
-        }).addTo(drawMap);
-      } catch(_) {}
+    // Drawing toolbar and functions moved to contrib-draw-controls.js
+    const ContribDrawControls = win.ContribDrawControls || {};
+    
+    // Setup callback for state changes
+    if (ContribMap) {
+      ContribMap.onDrawStateChange = () => {
+        ContribDrawControls.updateButtonStates?.();
+      };
     }
 
     function ensureManualToolbar() {
       if (!drawPanelEl) return;
-      let toolbar = drawPanelEl.querySelector('#contrib-manual-draw-controls');
-      // If toolbar already exists, ensure it is visible again
-      if (toolbar) {
-        try { toolbar.style.display = ''; } catch(_) {}
-        updateManualButtons();
-        return;
-      }
-      toolbar = document.createElement('div');
-      toolbar.id = 'contrib-manual-draw-controls';
-      toolbar.className = 'draw-controls';
-      toolbar.style.cssText = 'display:flex;gap:8px;align-items:center;margin:6px 0 8px;flex-wrap:wrap;';
-      toolbar.innerHTML = `
-        <button type="button" class="gp-btn" id="btn-draw-line" title="Tracer une ligne"><i class="fa-solid fa-route" aria-hidden="true"></i> Ligne</button>
-        <button type="button" class="gp-btn" id="btn-draw-poly" title="Tracer un polygone"><i class="fa-solid fa-draw-polygon" aria-hidden="true"></i> Polygone</button>
-        <span style="width:1px;height:24px;background:rgba(0,0,0,0.08);"></span>
-        <button type="button" class="gp-btn" id="btn-undo-point" title="Annuler le dernier point"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Annuler point</button>
-        <button type="button" class="gp-btn" id="btn-finish" title="Terminer le tracé"><i class="fa-solid fa-check" aria-hidden="true"></i> Terminer</button>
-        <button type="button" class="gp-btn" id="btn-clear-geom" title="Effacer la géométrie"><i class="fa-solid fa-trash" aria-hidden="true"></i> Effacer</button>
-      `;
-      const helper = drawPanelEl.querySelector('.helper');
-      if (helper) helper.after(toolbar); else drawPanelEl.prepend(toolbar);
-      // Bind actions
-      toolbar.querySelector('#btn-draw-line')?.addEventListener('click', () => startManualDraw('line'));
-      toolbar.querySelector('#btn-draw-poly')?.addEventListener('click', () => startManualDraw('polygon'));
-      toolbar.querySelector('#btn-undo-point')?.addEventListener('click', () => undoManualPoint());
-      toolbar.querySelector('#btn-finish')?.addEventListener('click', () => finishManualDraw());
-      toolbar.querySelector('#btn-clear-geom')?.addEventListener('click', () => clearManualGeometry());
-      updateManualButtons();
+      console.log('[contrib] Initializing draw controls toolbar');
+      ContribDrawControls.initToolbar?.(drawPanelEl, () => {
+        // Callback appelé lors des changements d'état
+        console.log('[contrib] Draw state changed');
+      });
     }
 
     function updateManualButtons() {
-      const toolbar = drawPanelEl?.querySelector('#contrib-manual-draw-controls');
-      if (!toolbar) return;
-      const hasPoints = manualDraw.points.length > 0;
-      const active = manualDraw.active === true;
-      const btnLine = toolbar.querySelector('#btn-draw-line');
-      const btnPoly = toolbar.querySelector('#btn-draw-poly');
-      const btnUndo = toolbar.querySelector('#btn-undo-point');
-      const btnFinish = toolbar.querySelector('#btn-finish');
-      const btnClear = toolbar.querySelector('#btn-clear-geom');
-
-      // Logic of visibility
-      const hasFinal = !!drawLayer; // a finalized geometry exists
-      // State A: initial (no active draw, no points, no final) OR active but 0 point -> show line/polygon
-      const showChoice = (!active && !hasPoints && !hasFinal) || (active && !hasPoints);
-      if (btnLine) btnLine.style.display = showChoice ? '' : 'none';
-      if (btnPoly) btnPoly.style.display = showChoice ? '' : 'none';
-
-      // State B: editing (after first point) -> show undo/finish/clear
-      const showEdit = active && hasPoints;
-      if (btnUndo) btnUndo.style.display = showEdit ? '' : 'none';
-      if (btnFinish) btnFinish.style.display = showEdit ? '' : 'none';
-      if (btnClear) btnClear.style.display = showEdit ? '' : 'none';
-
-      // State C: finalized (not active, has final) -> show only clear
-      if (!active && hasFinal) {
-        if (btnLine) btnLine.style.display = 'none';
-        if (btnPoly) btnPoly.style.display = 'none';
-        if (btnUndo) btnUndo.style.display = 'none';
-        if (btnFinish) btnFinish.style.display = 'none';
-        if (btnClear) btnClear.style.display = '';
-      }
-
-      // Enabled state
-      if (btnUndo) btnUndo.disabled = !(active && hasPoints);
-      if (btnFinish) btnFinish.disabled = !(active && (manualDraw.type === 'line' ? manualDraw.points.length >= 2 : manualDraw.points.length >= 3));
-    }
-
-    function startManualDraw(type) {
-      try { if (!drawMap) initDrawMap(); } catch(_) {}
-      if (!drawMap) return;
-      // Reset current temp
-      clearManualTemp();
-      manualDraw.active = true;
-      manualDraw.type = type === 'polygon' ? 'polygon' : 'line';
-      manualDraw.points = [];
-      try { drawMap.doubleClickZoom.disable(); } catch(_) {}
-      // Removed informational status
-      updateManualButtons();
-    }
-
-    function updateTempShape() {
-      if (!drawMap) return;
-      // Remove previous temp layer
-      if (manualDraw.tempLayer) { try { drawMap.removeLayer(manualDraw.tempLayer); } catch(_) {}
-        manualDraw.tempLayer = null; }
-      if (!manualDraw.points.length) return;
-      const style = { color: '#1976d2', weight: 3, fillOpacity: 0.2 };
-      if (manualDraw.type === 'polygon') {
-        manualDraw.tempLayer = L.polygon(manualDraw.points, style).addTo(drawMap);
-      } else {
-        manualDraw.tempLayer = L.polyline(manualDraw.points, style).addTo(drawMap);
-      }
-    }
-
-    function undoManualPoint() {
-      if (!manualDraw.active || manualDraw.points.length === 0) return;
-      manualDraw.points.pop();
-      updateTempShape();
-      updateManualButtons();
-    }
-
-    function finishManualDraw() {
-      if (!manualDraw.active) return;
-      const minPts = manualDraw.type === 'line' ? 2 : 3;
-      if (manualDraw.points.length < minPts) {
-        showToast(`Ajoutez au moins ${minPts} points avant de terminer.`, 'error');
-        return;
-      }
-      // Remove existing finalized layer
-      if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
-      // Finalized style: change color to confirm state
-      const style = manualDraw.type === 'polygon'
-        ? { color: '#2e7d32', weight: 3, fillOpacity: 0.25, fillColor: '#2e7d32' }
-        : { color: '#2e7d32', weight: 3, opacity: 0.9 };
-      if (manualDraw.type === 'polygon') {
-        drawLayer = L.polygon(manualDraw.points, style).addTo(drawMap);
-      } else {
-        drawLayer = L.polyline(manualDraw.points, style).addTo(drawMap);
-      }
-      try { drawMap.fitBounds(drawLayer.getBounds(), { padding: [10, 10] }); } catch(_) {}
-      drawLayerDirty = true;
-      // Removed informational status after finalize
-      cancelManualDraw(true);
-      updateManualButtons();
-    }
-
-    function cancelManualDraw(keepStatus = false) {
-      manualDraw.active = false;
-      manualDraw.type = null;
-      manualDraw.points = [];
-      clearManualTemp();
-      clearGuide();
-      try { drawMap.doubleClickZoom.enable(); } catch(_) {}
-      // Removed informational status on cancel
-      updateManualButtons();
-    }
-
-    function clearManualTemp() {
-      if (manualDraw.tempLayer) { try { drawMap.removeLayer(manualDraw.tempLayer); } catch(_) {} manualDraw.tempLayer = null; }
-    }
-
-    function clearManualGeometry() {
-      // Clear both temp and finalized layers, and return to initial choice state
-      clearManualTemp();
-      if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
-      drawLayerDirty = false;
-      cancelManualDraw(true); // resets active/type/points
-      // Removed informational status on clear
-      updateManualButtons();
-    }
-    
-    // —— Basemap and city helpers for the draw map ——
-    function pickDefaultBasemap(list) {
-      if (!Array.isArray(list) || !list.length) return null;
-      return list.find(b => b && (b.default === true || b.is_default === true)) || list[0];
-    }
-    
-    async function ensureBasemaps() {
-      if (Array.isArray(basemapsCache) && basemapsCache.length) return basemapsCache;
-      let res = [];
-      try {
-        if (win.supabaseService && typeof win.supabaseService.fetchBasemaps === 'function') {
-          res = await win.supabaseService.fetchBasemaps();
-        }
-      } catch (e) {
-        console.warn('[contrib] ensureBasemaps fetchBasemaps error:', e);
-      }
-      if (!Array.isArray(res) || !res.length) {
-        res = Array.isArray(win.basemaps) ? win.basemaps : [];
-      }
-      basemapsCache = res;
-      return res;
-    }
-    
-    function setDrawBaseLayer(bm) {
-      if (!drawMap) return;
-      try { if (drawBaseLayer) drawMap.removeLayer(drawBaseLayer); } catch(_) {}
-      drawBaseLayer = null;
-      const url = bm && bm.url ? bm.url : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-      const attribution = (bm && bm.attribution) || '&copy; OpenStreetMap contributors';
-      try { drawBaseLayer = L.tileLayer(url, { attribution }).addTo(drawMap); } catch (e) { console.warn('[contrib] setDrawBaseLayer error:', e); }
-    }
-    
-    function buildContribBasemapMenu(basemaps, activeBm) {
-      try {
-        if (!drawPanelEl || !Array.isArray(basemaps) || !basemaps.length) return;
-        let menu = drawPanelEl.querySelector('#contrib-basemap-menu');
-        if (menu) { try { menu.remove(); } catch(_) {} }
-        menu = document.createElement('div');
-        menu.id = 'contrib-basemap-menu';
-        menu.setAttribute('role', 'group');
-        menu.setAttribute('aria-label', 'Fond de carte');
-        menu.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;';
-        basemaps.forEach((bm) => {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'gp-btn basemap-tile';
-          btn.textContent = bm.label || bm.name || 'Fond';
-          btn.style.cssText = 'padding:4px 8px;border-radius:8px;border:1px solid rgba(0,0,0,0.2);background:#fff;cursor:pointer;font-size:12px;';
-          const isActive = activeBm && ((activeBm.label && bm.label === activeBm.label) || (activeBm.url && bm.url === activeBm.url));
-          if (isActive) { btn.style.background = '#e3f2fd'; btn.setAttribute('aria-pressed', 'true'); }
-          btn.addEventListener('click', () => {
-            setDrawBaseLayer(bm);
-            try { menu.querySelectorAll('button').forEach(b => { b.style.background = '#fff'; b.removeAttribute('aria-pressed'); }); } catch(_) {}
-            btn.style.background = '#e3f2fd';
-            btn.setAttribute('aria-pressed', 'true');
-          });
-          menu.appendChild(btn);
-        });
-        const helper = drawPanelEl.querySelector('.helper');
-        if (helper) helper.after(menu); else drawPanelEl.prepend(menu);
-      } catch (e) {
-        console.warn('[contrib] buildContribBasemapMenu error:', e);
-      }
-    }
-    
-    async function applyCityBranding(ville) {
-      try {
-        if (!drawMap || !ville || !win.supabaseService || typeof win.supabaseService.getCityBranding !== 'function') return;
-        const branding = await win.supabaseService.getCityBranding(ville);
-        if (!branding) return;
-        // Accept multiple shapes: {center_lat, center_lng, zoom} OR {center:[lat,lng], zoom}
-        let lat = null, lng = null, zoom = 12;
-        if (typeof branding.zoom === 'number') zoom = branding.zoom;
-        if (Array.isArray(branding.center) && branding.center.length >= 2) {
-          lat = Number(branding.center[0]);
-          lng = Number(branding.center[1]);
-        } else if ('center_lat' in branding || 'lat' in branding) {
-          lat = Number(branding.center_lat ?? branding.lat);
-          lng = Number(branding.center_lng ?? branding.lng);
-        }
-        if (isFinite(lat) && isFinite(lng)) {
-          try { drawMap.setView([lat, lng], zoom || drawMap.getZoom()); } catch(_) {}
-        }
-      } catch (e) {
-        console.warn('[contrib] applyCityBranding error:', e);
-      }
+      ContribDrawControls.updateButtonStates?.();
     }
 
     // Stepper UI elements
@@ -521,23 +435,10 @@
       return ok;
     }
 
-    function hasDrawGeometry() {
-      // Consider a geometry present if drawLayer exists or user created/loaded one
-      return !!(drawLayer) || !!drawLayerDirty;
-    }
-
+    // hasDrawGeometry and validateStep2 moved to contrib-geometry.js
     function validateStep2() {
-      const mode = Array.from(geomModeRadios || []).find(r => r.checked)?.value || 'file';
-      if (mode === 'file') {
-        const fileInput = document.getElementById('contrib-geojson');
-        const ok = !!(fileInput && fileInput.files && fileInput.files.length > 0);
-        if (!ok) showToast('Veuillez sélectionner un fichier GeoJSON.', 'error');
-        return ok;
-      }
-      // draw mode
-      const ok = hasDrawGeometry();
-      if (!ok) showToast('Veuillez dessiner une géométrie puis terminer.', 'error');
-      return ok;
+      const fileInput = document.getElementById('contrib-geojson');
+      return ContribGeometry.validateStep2?.({ geomModeRadios, fileInput }) || false;
     }
 
     function validateStep3() {
@@ -585,7 +486,7 @@
             setTimeout(() => { try { if (drawMap) drawMap.invalidateSize(); } catch(_){} }, 50);
             // Manual drawing only
             ensureManualToolbar();
-            cancelManualDraw(true);
+            // cancelManualDraw removed - handled by ContribMap
             // Removed informational status when entering draw mode
           } else {
             // Mode fichier: masquer le panneau de dessin et afficher le champ fichier
@@ -596,15 +497,22 @@
         // En mode édition, précharger la géométrie à l'entrée en étape 2
         (async () => {
           try {
+            const currentEditId = ContribForm.getCurrentEditId?.();
             if (!currentEditId) return;
-            if (editGeojsonUrl) {
-              return preloadGeometryOnMap(editGeojsonUrl);
+            const editUrl = ContribGeometry.getEditGeojsonUrl?.();
+            if (editUrl) {
+              const elements = { drawPanelEl, cityEl, geomModeRadios, fileInput: document.getElementById('contrib-geojson') };
+              return ContribGeometry.preloadGeometryOnMap?.(editUrl, elements);
             }
             // Fallback: recharger la ligne pour obtenir la dernière geojson_url
             if (win.supabaseService && typeof win.supabaseService.getContributionById === 'function') {
               const row = await win.supabaseService.getContributionById(currentEditId);
               const url = row && row.geojson_url ? row.geojson_url : null;
-              if (url) { editGeojsonUrl = url; await preloadGeometryOnMap(url); }
+              if (url) { 
+                ContribGeometry.setEditGeojsonUrl?.(url);
+                const elements = { drawPanelEl, cityEl, geomModeRadios, fileInput: document.getElementById('contrib-geojson') };
+                await ContribGeometry.preloadGeometryOnMap?.(url, elements);
+              }
             }
           } catch (_) {}
         })();
@@ -658,87 +566,34 @@
     const listSentinel = document.getElementById('contrib-list-sentinel');
     const listMineOnlyEl = document.getElementById('contrib-mine-only');
 
-    let currentEditId = null; // when set, the form is in edit mode
-    let editGeojsonUrl = null; // holds existing geojson url during edit
-    let listState = {
-      search: '',
-      category: '',
-      sortBy: 'created_at',
-      sortDir: 'desc',
-      page: 1,
-      pageSize: 10,
-      mineOnly: false,
-      loading: false,
-      done: false,
-      items: []
-    };
+    // currentEditId moved to contrib-form.js
+    // editGeojsonUrl moved to contrib-geometry.js
+    const ContribGeometry = win.ContribGeometry || {};
+    const ContribUpload = win.ContribUpload || {};
+    const ContribList = win.ContribList || {};
+    const ContribForm = win.ContribForm || {};
+    const ContribCities = win.ContribCities || {};
+    const ContribCategories = win.ContribCategories || {};
+    const ContribCategoriesCrud = win.ContribCategoriesCrud || {};
+    // listState moved to contrib-list.js
 
     // —— Official project link (single field, all categories) ——
     const officialInput = document.getElementById('contrib-official-url');
 
-    function slugify(str) {
-      return (str || '')
-        .toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .slice(0, 64) || 'geom';
-    }
+    // Utilities moved to contrib-utils.js
+    const { slugify, setStatus, showToast } = window.ContribUtils || {};
 
-    function setStatus(msg, kind = 'info') {
-      // Deprecated: we avoid using inline status area; only show errors as toasts
-      if (kind === 'error' && msg) {
-        try { showToast(msg, 'error'); } catch(_) {}
-      }
-      // Do not mutate #contrib-status anymore
-      if (statusEl) { try { statusEl.textContent = ''; } catch(_) {} }
-    }
-
-    // —— Accessible toast notifications ——
-    const toastContainer = document.getElementById('toast-container');
-    function showToast(message, kind = 'info') {
-      if (!toastContainer || !message) return;
-      const toast = document.createElement('div');
-      const isError = kind === 'error';
-      const isSuccess = kind === 'success';
-      toast.setAttribute('role', isError ? 'alert' : 'status');
-      toast.setAttribute('aria-live', isError ? 'assertive' : 'polite');
-      toast.style.cssText = 'min-width:200px;max-width:360px;padding:10px 12px;border-radius:8px;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,0.15);font-size:14px;';
-      toast.style.background = isError ? '#c62828' : (isSuccess ? '#2e7d32' : '#455a64');
-      toast.textContent = message;
-      toastContainer.appendChild(toast);
-      setTimeout(() => {
-        try { toast.style.opacity = '0'; toast.style.transition = 'opacity 200ms'; } catch(_){ }
-        setTimeout(() => { try { toast.remove(); } catch(_){} }, 220);
-      }, 4200);
-    }
-
+    // initDrawMap moved to contrib-map.js
     async function initDrawMap() {
-      if (drawMap || !drawPanelEl) return;
-      try {
-        const container = document.getElementById(drawMapContainerId);
-        if (!container) return;
-        // Load basemaps and pick only the one named "OpenStreetMap"
-        const bmList = await ensureBasemaps();
-        const osmBm = Array.isArray(bmList)
-          ? bmList.find(b => String(b?.name || b?.label || '').trim().toLowerCase() === 'openstreetmap')
-          : null;
-        // Initialise Leaflet map with a safe temporary view (updated by city branding)
-        drawMap = L.map(drawMapContainerId, { center: [45.75, 4.85], zoom: 12 });
-        try { drawMap.whenReady(() => setTimeout(() => { try { drawMap.invalidateSize(); } catch(_) {} }, 60)); } catch(_) {}
-        setDrawBaseLayer(osmBm);
-        // Ensure no basemap menu is displayed in contribution modal
-        try { drawPanelEl.querySelector('#contrib-basemap-menu')?.remove(); } catch(_) {}
-        // Attach a single map click handler for manual drawing
-        drawMap.on('click', onMapClick);
-        drawMap.on('mousemove', onMapMouseMove);
-        drawMap.on('mouseout', () => clearGuide());
-        // Center by selected/active city when available
-        const selectedCity = (cityEl && cityEl.value) ? cityEl.value.trim() : (win.activeCity || '').trim();
-        if (selectedCity) { await applyCityBranding(selectedCity); }
-      } catch (e) {
-        console.warn('[contrib] initDrawMap error:', e);
+      const existingMap = ContribMap.getDrawMap?.();
+      if (existingMap) {
+        console.log('[contrib] Draw map already initialized, skipping');
+        return existingMap;
       }
+      console.log('[contrib] Initializing draw map...');
+      const map = await ContribMap.initDrawMap?.(drawMapContainerId, drawPanelEl, cityEl);
+      console.log('[contrib] Draw map initialized:', map);
+      return map;
     }
 
     // —— Tabs logic (ARIA, keyboard) ——
@@ -760,11 +615,12 @@
           const isAdmin = role === 'admin';
           if (!isAdmin) {
             try { if (listMineOnlyEl) { listMineOnlyEl.checked = true; } } catch(_) {}
-            listState.mineOnly = true;
+            ContribList.updateListState?.({ mineOnly: true });
           } else {
-            listState.mineOnly = !!(listMineOnlyEl && listMineOnlyEl.checked);
+            ContribList.updateListState?.({ mineOnly: !!(listMineOnlyEl && listMineOnlyEl.checked) });
           }
-          if (listEl && !listState.items.length) listResetAndLoad();
+          const state = ContribList.getListState?.() || {};
+          if (listEl && !state.items?.length) listResetAndLoad();
         } catch(_) {}
         // focus first tabbable in list filters
         try { listSearchEl && listSearchEl.focus(); } catch(_) {}
@@ -931,7 +787,7 @@
               listMineOnlyEl.title = 'Limité à mes contributions (imposé par votre rôle)';
             } catch(_) {}
           }
-          try { listState.mineOnly = true; } catch(_) {}
+          try { ContribList.updateListState?.({ mineOnly: true }); } catch(_) {}
           // If list panel is visible and already loaded, refresh with mineOnly
           try { if (panelList && !panelList.hidden) { listResetAndLoad(); } } catch(_) {}
         } else {
@@ -939,322 +795,57 @@
           if (listMineOnlyEl) {
             try { listMineOnlyEl.disabled = false; } catch(_) {}
           }
-          try { listState.mineOnly = !!(listMineOnlyEl && listMineOnlyEl.checked); } catch(_) {}
+          try { ContribList.updateListState?.({ mineOnly: !!(listMineOnlyEl && listMineOnlyEl.checked) }); } catch(_) {}
         }
       } catch(_) {}
     }
-    function setListStatus(msg) {
-      if (listStatusEl) listStatusEl.textContent = msg || '';
-    }
+    // List helpers moved to contrib-list.js
+    const setListStatus = (msg) => ContribList.setListStatus?.(msg, listStatusEl);
+    const clearEmptyState = () => ContribList.clearEmptyState?.(listEl);
+    const renderEmptyState = () => {
+      const onCreateClick = () => { try { activateTab('create'); setStep(1, { force: true }); } catch(_) {} };
+      ContribList.renderEmptyState?.(listEl, listSentinel, onCreateClick);
+    };
 
-    // Empty state helpers for contribution list
-    function clearEmptyState() {
-      try {
-        if (!listEl) return;
-        const empty = listEl.querySelector('.contrib-empty');
-        if (empty) empty.remove();
-      } catch(_) {}
-    }
-    function renderEmptyState() {
-      try {
-        if (!listEl) return;
-        clearEmptyState();
-        const wrap = document.createElement('div');
-        wrap.className = 'contrib-empty';
-        wrap.setAttribute('role', 'status');
-        wrap.setAttribute('aria-live', 'polite');
-        wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;color:#546e7a;text-align:center;gap:14px;min-height:220px;';
-        wrap.innerHTML = `
-          <div class="empty-illu" aria-hidden="true" style="font-size:42px;color:#90a4ae"><i class="fa-regular fa-folder-open"></i></div>
-          <div class="empty-title" style="font-size:18px;font-weight:600;color:#37474f">Aucune contribution pour le moment</div>
-          <div class="empty-sub" style="font-size:14px;opacity:0.8;max-width:520px">Créez votre première contribution pour proposer un projet et le visualiser sur la carte.</div>
-          <div><button type="button" id="btn-empty-create" class="gp-btn" style="padding:8px 14px;border-radius:10px;background:#1976d2;color:#fff;border:none;cursor:pointer;box-shadow:0 3px 10px rgba(25,118,210,0.3);">Créer une contribution</button></div>
-        `;
-        if (listSentinel && listSentinel.parentNode === listEl) {
-          listEl.insertBefore(wrap, listSentinel);
-        } else {
-          listEl.appendChild(wrap);
-        }
-        const btn = wrap.querySelector('#btn-empty-create');
-        if (btn) btn.addEventListener('click', () => { try { activateTab('create'); setStep(1, { force: true }); } catch(_) {} });
-      } catch(_) {}
-    }
-
-    // —— Custom delete confirmation modal ——
-    function toStorageRelPathFromPublicUrl(url) {
-      try {
-        if (!url) return null;
-        const marker = '/object/public/';
-        const i = url.indexOf(marker);
-        if (i === -1) {
-          // fallback to basename
-          try { return new URL(url, win.location.href).pathname.split('/').slice(-1)[0] || url; } catch (_) { return String(url); }
-        }
-        const after = url.slice(i + marker.length); // e.g., 'uploads/geojson/...'
-        const prefix = 'uploads/';
-        return after.startsWith(prefix) ? after.slice(prefix.length) : after;
-      } catch (_) {
-        return null;
-      }
-    }
-
-    function openDeleteConfirmModal(details) {
-      const { id, projectName, filePaths = [], dossiersCount = 0 } = details || {};
-      return new Promise((resolve) => {
-        console.log('[contrib] openDeleteConfirmModal', { id, projectName, filePaths, dossiersCount });
-        const lastFocus = document.activeElement;
-
-        const overlay = document.createElement('div');
-        overlay.setAttribute('role', 'presentation');
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:9999;';
-
-        const modal = document.createElement('div');
-        modal.setAttribute('role', 'dialog');
-        modal.setAttribute('aria-modal', 'true');
-        modal.setAttribute('aria-labelledby', 'delc-title');
-        modal.setAttribute('aria-describedby', 'delc-desc');
-        modal.style.cssText = 'max-width:560px;width:92%;background:#fff;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,0.25);padding:16px 18px;font-size:15px;color:#263238;';
-
-        const title = document.createElement('h2');
-        title.id = 'delc-title';
-        title.textContent = `Supprimer la contribution ${projectName ? `« ${projectName} »` : `#${id}`} ?`;
-        title.style.cssText = 'margin:0 0 8px 0;font-size:18px;';
-
-        const desc = document.createElement('div');
-        desc.id = 'delc-desc';
-        desc.innerHTML = `
-          <p>Cette action est définitive. Elle supprimera les éléments suivants :</p>
-          <ul style="margin:0 0 8px 18px;">
-            <li>La ligne <code>contribution_uploads</code> (id : <strong>#${id}</strong>)</li>
-            ${filePaths.length ? filePaths.map(p => `<li>Fichier de stockage : <code>${p}</code></li>`).join('') : '<li>Aucun fichier de stockage associé.</li>'}
-            <li>Dossiers de concertation liés : <strong>${dossiersCount}</strong></li>
-          </ul>
-          <p>Voulez-vous continuer ?</p>
-        `;
-
-        const actions = document.createElement('div');
-        actions.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;margin-top:12px;';
-        const cancelBtn = document.createElement('button');
-        cancelBtn.type = 'button';
-        cancelBtn.textContent = 'Annuler';
-        cancelBtn.style.cssText = 'padding:8px 12px;border-radius:8px;border:1px solid rgba(0,0,0,0.15);background:#fff;';
-        const confirmBtn = document.createElement('button');
-        confirmBtn.type = 'button';
-        confirmBtn.textContent = 'Supprimer';
-        confirmBtn.style.cssText = 'padding:8px 12px;border-radius:8px;border:0;background:#c62828;color:#fff;';
-
-        const close = (result) => {
-          try { document.removeEventListener('keydown', onKey); } catch(_){}
-          try { overlay.remove(); } catch(_){}
-          try { if (lastFocus && lastFocus.focus) lastFocus.focus(); } catch(_){}
-          resolve(!!result);
-        };
-
-        const onKey = (e) => {
-          if (e.key === 'Escape') { e.preventDefault(); close(false); }
-          if (e.key === 'Enter') { e.preventDefault(); confirmBtn.click(); }
-        };
-
-        cancelBtn.addEventListener('click', () => close(false));
-        confirmBtn.addEventListener('click', () => close(true));
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
-
-        actions.appendChild(cancelBtn);
-        actions.appendChild(confirmBtn);
-        modal.appendChild(title);
-        modal.appendChild(desc);
-        modal.appendChild(actions);
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
-        try { document.addEventListener('keydown', onKey); } catch(_){}
-        try { cancelBtn.focus(); } catch(_){}
-      });
-    }
-
-    // Shared delete flow for both list items and edit button
+    // Delete functions moved to contrib-list.js
     async function doDeleteContribution(id, projectName) {
-      try {
-        console.log('[contrib] doDeleteContribution called', { id, projectName });
-        if (!id) { console.log('[contrib] doDeleteContribution: missing id, abort'); return; }
-        // Fetch row details for richer confirmation content
-        let row = null;
-        try { row = await (win.supabaseService && win.supabaseService.getContributionById(id)); } catch(_) {}
-        const effectiveName = (row && row.project_name) || projectName || '';
-        const filePaths = [];
-        try {
-          if (row && row.geojson_url) { const p = toStorageRelPathFromPublicUrl(row.geojson_url); if (p) filePaths.push(p); }
-          if (row && row.cover_url)   { const p = toStorageRelPathFromPublicUrl(row.cover_url);   if (p) filePaths.push(p); }
-          if (row && row.markdown_url){ const p = toStorageRelPathFromPublicUrl(row.markdown_url);if (p) filePaths.push(p); }
-        } catch(_) {}
-        let dossiersCount = 0;
-        try {
-          if (effectiveName && win.supabaseService && typeof win.supabaseService.getConsultationDossiersByProject === 'function') {
-            const ds = await win.supabaseService.getConsultationDossiersByProject(effectiveName);
-            if (Array.isArray(ds)) dossiersCount = ds.length;
-          }
-        } catch(_) {}
-        console.log('[contrib] showing custom delete confirm modal');
-        const ok = await openDeleteConfirmModal({ id, projectName: effectiveName, filePaths, dossiersCount });
-        console.log('[contrib] confirm response', ok);
-        if (!ok) { console.log('[contrib] user canceled deletion'); return; }
-        setListStatus('Suppression en cours…');
-        console.log('[contrib] set aria-busy on list');
-        try { if (listEl) listEl.setAttribute('aria-busy', 'true'); } catch(_) {}
-        // Ensure authenticated session
-        console.log('[contrib] requesting session via AuthModule.requireAuthOrRedirect');
-        const session = await (win.AuthModule && win.AuthModule.requireAuthOrRedirect('/login/'));
-        console.log('[contrib] session result', { hasSession: !!session, hasUser: !!(session && session.user) });
-        if (!session || !session.user) { console.log('[contrib] no session/user, likely redirected to /login, aborting'); return; } // redirected
-        console.log('[contrib] calling supabaseService.deleteContribution', { id });
-        const result = await (win.supabaseService && win.supabaseService.deleteContribution(id));
-        console.log('[contrib] deleteContribution result', result);
-        setListStatus('');
-        if (!result || result.success !== true) {
-          console.log('[contrib] deletion failed branch');
-          showToast('Échec de la suppression.', 'error');
-          return;
-        }
-        // If we were editing this row, exit edit mode
-        if (currentEditId === id) {
-          console.log('[contrib] deleting currently edited item, exiting edit mode', { currentEditId });
+      const onExitEditMode = (deletedId) => {
+        const currentEditId = ContribForm.getCurrentEditId?.();
+        if (currentEditId === deletedId) {
           try { exitEditMode(); } catch(_) {}
           setStatus('Contribution supprimée.', 'success');
         }
-        showToast('Contribution supprimée.', 'success');
-        console.log('[contrib] deletion success toast shown');
-        // Refresh list if visible
-        if (panelList && !panelList.hidden) { console.log('[contrib] refreshing list after delete'); listResetAndLoad(); }
-      } catch (e) {
-        console.warn('[contrib] delete error:', e);
-        showToast('Erreur lors de la suppression.', 'error');
-      } finally {
-        try { if (listEl) { listEl.removeAttribute('aria-busy'); console.log('[contrib] cleaned aria-busy on list'); } } catch(_) {}
-      }
+      };
+      const onRefreshList = () => {
+        if (panelList && !panelList.hidden) listResetAndLoad();
+      };
+      const elements = { listEl, listStatusEl, onExitEditMode, onRefreshList };
+      await ContribList.doDeleteContribution?.(id, projectName, elements);
     }
 
+    // renderItem moved to contrib-list.js
     function renderItem(item) {
-      const el = document.createElement('div');
-      el.className = 'contrib-list-item';
-      el.setAttribute('role', 'listitem');
-      const cover = item.cover_url
-        ? `<div class="contrib-thumb"><img src="${item.cover_url}" alt="" /></div>`
-        : `<div class="contrib-thumb contrib-thumb--placeholder" aria-hidden="true"><i class="fa fa-file-image-o" aria-hidden="true"></i></div>`;
-      const when = item.created_at ? new Date(item.created_at).toLocaleString() : '';
-      el.innerHTML = `
-        ${cover}
-        <div class="contrib-item-right">
-          <div class="contrib-item-main" role="button" tabindex="0">
-            <div class="contrib-title-row">
-              <span class="contrib-title">${item.project_name || '(sans nom)'} <span class="contrib-category">· ${item.category || ''}</span></span>
-              ${item.approved === true
-                ? '<span class="badge-approved">Approuvé</span>'
-                : '<span class="badge-pending">En attente</span>'}
-            </div>
-            <div class="contrib-meta">Créé le: ${when}</div>
-            ${item.meta ? `<div class="contrib-extra">${item.meta}</div>` : ''}
-          </div>
-          <div class="contrib-item-actions">
-            <button type="button" class="contrib-item-delete" aria-label="Supprimer" title="Supprimer">
-              <i class="fa fa-trash" aria-hidden="true"></i>
-            </button>
-          </div>
-        </div>
-      `;
-      // Runtime enforcement: ensure two-column structure and no horizontal overflow
-      try {
-        // Clamp parent list horizontal overflow
-        const parentList = document.getElementById('contrib-list');
-        if (parentList) { parentList.style.overflowX = 'hidden'; parentList.style.maxWidth = '100%'; }
-
-        // Ensure thumb exists as first column
-        let thumb = el.querySelector('.contrib-thumb');
-        if (!thumb) {
-          thumb = document.createElement('div');
-          thumb.className = 'contrib-thumb contrib-thumb--placeholder';
-          thumb.setAttribute('aria-hidden', 'true');
-          thumb.innerHTML = '<i class="fa fa-file-image-o" aria-hidden="true"></i>';
-          el.insertBefore(thumb, el.firstChild);
-        }
-
-        // Ensure right wrapper exists and contains main + actions
-        let right = el.querySelector('.contrib-item-right');
-        let main = el.querySelector('.contrib-item-main');
-        let actions = el.querySelector('.contrib-item-actions');
-        if (!right) {
-          right = document.createElement('div');
-          right.className = 'contrib-item-right';
-          el.appendChild(right);
-        }
-        if (main && main.parentElement !== right) right.appendChild(main);
-        if (actions && actions.parentElement !== right) right.appendChild(actions);
-
-        // Force grid as last resort to beat conflicting rules
-        el.style.display = 'grid';
-        el.style.gridTemplateColumns = '96px minmax(0, 1fr)';
-        el.style.alignItems = 'center';
-        el.style.width = '100%';
-        el.style.boxSizing = 'border-box';
-
-        // Right column overflow safeguards
-        right.style.display = 'flex';
-        right.style.flexDirection = 'column';
-        right.style.gap = '8px';
-        right.style.minWidth = '0';
-        right.style.maxWidth = '100%';
-
-        if (main) { main.style.minWidth = '0'; main.style.maxWidth = '100%'; }
-      } catch(_) {}
-      const main = el.querySelector('.contrib-item-main');
-      const delBtn = el.querySelector('.contrib-item-delete');
-
-      // — Admin-only: toggle approved —
-      try {
-        const isAdmin = !!win.__CONTRIB_IS_ADMIN;
-        if (isAdmin) {
-          const actions = el.querySelector('.contrib-item-actions');
-          if (actions) {
-            const wrap = document.createElement('label');
-            wrap.className = 'contrib-approve-toggle';
-            wrap.title = 'Basculer le statut approuvé';
-            wrap.innerHTML = `<input type="checkbox" class="contrib-item-approve" ${item.approved ? 'checked' : ''} aria-label="Approuvé"/> <span>Approuvé</span>`;
-            actions.prepend(wrap);
-            const checkbox = wrap.querySelector('.contrib-item-approve');
-            const badgeApproved = () => el.querySelector('.badge-approved');
-            const badgePending = () => el.querySelector('.badge-pending');
-            checkbox.addEventListener('change', async () => {
-              const newVal = !!checkbox.checked;
-              // disable during save
-              checkbox.disabled = true;
-              try {
-                const res = await (win.supabaseService && win.supabaseService.setContributionApproved(item.id, newVal));
-                if (res && !res.error) {
-                  item.approved = newVal;
-                  // Update badges
-                  try {
-                    const bA = badgeApproved(); const bP = badgePending();
-                    if (newVal) {
-                      if (!bA && bP) { bP.outerHTML = '<span class="badge-approved">Approuvé</span>'; }
-                    } else {
-                      if (!bP && bA) { bA.outerHTML = '<span class="badge-pending">En attente</span>'; }
-                    }
-                  } catch(_) {}
-                  showToast('Statut mis à jour.', 'success');
-                } else {
-                  // revert
-                  checkbox.checked = !newVal;
-                  showToast("Impossible de mettre à jour l'approbation.", 'error');
-                }
-              } catch (_) {
-                checkbox.checked = !newVal;
-                showToast("Erreur lors de la mise à jour de l'approbation.", 'error');
-              } finally {
-                checkbox.disabled = false;
-              }
-            });
+      const onEdit = async (it) => {
+        try {
+          setListStatus('Chargement…');
+          const row = await (win.supabaseService && win.supabaseService.getContributionById(it.id));
+          setListStatus('');
+          if (row) {
+            enterEditMode(row);
+            activateTab('create');
           }
+        } catch (e) {
+          setListStatus('Erreur de chargement.');
+          showToast('Erreur lors du chargement de la contribution.', 'error');
         }
-      } catch(_) {}
-      if (main) main.addEventListener('click', async () => {
+      };
+      const onDelete = (id, name) => doDeleteContribution(id, name);
+      return ContribList.renderItem?.(item, onEdit, onDelete) || document.createElement('div');
+    }
+
+    // listResetAndLoad moved to contrib-list.js
+    async function listResetAndLoad() {
+      const onEdit = async (item) => {
         try {
           setListStatus('Chargement…');
           const row = await (win.supabaseService && win.supabaseService.getContributionById(item.id));
@@ -1267,122 +858,54 @@
           setListStatus('Erreur de chargement.');
           showToast('Erreur lors du chargement de la contribution.', 'error');
         }
-      });
-      if (main) main.addEventListener('keydown', (evt) => {
-        if (evt.key === 'Enter' || evt.key === ' ') {
-          evt.preventDefault();
-          main.click();
-        }
-      });
-      if (delBtn) delBtn.addEventListener('click', (ev) => {
-        console.log('[contrib] click delete in listing', { id: item.id, project_name: item.project_name });
-        ev.stopPropagation();
-        doDeleteContribution(item.id, item.project_name);
-      });
-      return el;
+      };
+      const onDelete = (id, name) => doDeleteContribution(id, name);
+      const onCreateClick = () => { try { activateTab('create'); setStep(1, { force: true }); } catch(_) {} };
+      const elements = { listEl, listSentinel, listStatusEl, onEdit, onDelete, onCreateClick };
+      await ContribList.listResetAndLoad?.(elements);
     }
 
-    async function listResetAndLoad() {
-      if (!listEl) return;
-      listEl.innerHTML = '';
-      // Keep sentinel at end
-      if (listSentinel) listEl.appendChild(listSentinel);
-      listState.page = 1; listState.done = false; listState.items = [];
-      clearEmptyState();
-      setListStatus('');
-      await listLoadMore();
-    }
-
+    // listLoadMore and initInfiniteScroll moved to contrib-list.js
     async function listLoadMore() {
-      if (listState.loading || listState.done) return;
-      listState.loading = true;
-      setListStatus('Chargement…');
-      try { if (listEl) listEl.setAttribute('aria-busy', 'true'); } catch(_) {}
-      // Insert skeletons on first page for better perceived performance
-      try {
-        if (listEl && listState.page === 1) {
-          const skelCount = Math.min(6, listState.pageSize);
-          for (let i = 0; i < skelCount; i++) {
-            const s = document.createElement('div');
-            s.className = 'contrib-skel';
-            s.innerHTML = `
-              <div class="skel-thumb"></div>
-              <div>
-                <div class="skel-line skel-line--lg"></div>
-                <div class="skel-line skel-line--md"></div>
-                <div class="skel-line skel-line--sm"></div>
-              </div>
-            `;
-            if (listSentinel && listSentinel.parentNode === listEl) {
-              listEl.insertBefore(s, listSentinel);
-            } else {
-              listEl.appendChild(s);
-            }
-          }
-        }
-      } catch(_) {}
-      try {
-        const { search, category, sortBy, sortDir, page, pageSize, mineOnly } = listState;
-        const res = await (win.supabaseService && win.supabaseService.listContributions({
-          search, category, page, pageSize, mineOnly, sortBy, sortDir
-        }));
-        let items = (res && res.items) ? res.items : [];
-        
-        // Filtrer les contributions selon les villes autorisées
-        const userVilles = window.__CONTRIB_VILLES;
-        const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
-        
-        if (hasGlobalAccess) {
-          // Accès global : toutes les contributions sont visibles
-          // Pas de filtrage
-        } else if (Array.isArray(userVilles) && userVilles.length > 0) {
-          items = items.filter(item => userVilles.includes(item.ville));
-        } else {
-          // Si userVilles est null ou vide, aucune contribution n'est visible
-          items = [];
-        }
-        
-        // Clear skeletons once data arrives (or not)
-        try { if (listEl) listEl.querySelectorAll('.contrib-skel').forEach(n => n.remove()); } catch(_) {}
-        if (!items.length) {
-          if (page === 1) { setListStatus(''); renderEmptyState(); }
-          listState.done = true;
-        } else {
+      const onEdit = async (item) => {
+        try {
+          setListStatus('Chargement…');
+          const row = await (win.supabaseService && win.supabaseService.getContributionById(item.id));
           setListStatus('');
-          clearEmptyState();
-          listState.items.push(...items);
-          items.forEach(it => {
-            const node = renderItem(it);
-            if (listSentinel && listSentinel.parentNode === listEl) {
-              listEl.insertBefore(node, listSentinel);
-            } else {
-              listEl.appendChild(node);
-            }
-          });
-          listState.page += 1;
-          if (items.length < listState.pageSize) listState.done = true;
+          if (row) {
+            enterEditMode(row);
+            activateTab('create');
+          }
+        } catch (e) {
+          setListStatus('Erreur de chargement.');
+          showToast('Erreur lors du chargement de la contribution.', 'error');
         }
-      } catch (e) {
-        setListStatus('Erreur lors du chargement.');
-        showToast('Erreur lors du chargement des contributions.', 'error');
-      } finally {
-        // Ensure skeletons are cleared on error as well
-        try { if (listEl) listEl.querySelectorAll('.contrib-skel').forEach(n => n.remove()); } catch(_) {}
-        listState.loading = false;
-        try { if (listEl) listEl.removeAttribute('aria-busy'); } catch(_) {}
-      }
+      };
+      const onDelete = (id, name) => doDeleteContribution(id, name);
+      const onCreateClick = () => { try { activateTab('create'); setStep(1, { force: true }); } catch(_) {} };
+      const elements = { listEl, listSentinel, listStatusEl, onEdit, onDelete, onCreateClick };
+      await ContribList.listLoadMore?.(elements);
     }
 
-    let io = null;
     function initInfiniteScroll() {
-      if (!listEl || !listSentinel) return;
-      try { if (io) { io.disconnect(); io = null; } } catch(_) {}
-      io = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) listLoadMore();
-        });
-      }, { root: listEl, threshold: 0.1 });
-      io.observe(listSentinel);
+      const onEdit = async (item) => {
+        try {
+          setListStatus('Chargement…');
+          const row = await (win.supabaseService && win.supabaseService.getContributionById(item.id));
+          setListStatus('');
+          if (row) {
+            enterEditMode(row);
+            activateTab('create');
+          }
+        } catch (e) {
+          setListStatus('Erreur de chargement.');
+          showToast('Erreur lors du chargement de la contribution.', 'error');
+        }
+      };
+      const onDelete = (id, name) => doDeleteContribution(id, name);
+      const onCreateClick = () => { try { activateTab('create'); setStep(1, { force: true }); } catch(_) {} };
+      const elements = { listEl, listSentinel, listStatusEl, onEdit, onDelete, onCreateClick };
+      ContribList.initInfiniteScroll?.(listEl, listSentinel, elements);
     }
 
     // Filters listeners with debounce
@@ -1391,22 +914,30 @@
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => { listResetAndLoad(); }, 250);
     }
-    if (listSearchEl) listSearchEl.addEventListener('input', () => { listState.search = listSearchEl.value || ''; debouncedReset(); });
+    if (listSearchEl) listSearchEl.addEventListener('input', () => { 
+      ContribList.updateListState?.({ search: listSearchEl.value || '' }); 
+      debouncedReset(); 
+    });
     // Trigger immediate search on Enter
     if (listSearchEl) listSearchEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        listState.search = listSearchEl.value || '';
+        ContribList.updateListState?.({ search: listSearchEl.value || '' });
         listResetAndLoad();
       }
     });
-    if (listCatEl) listCatEl.addEventListener('change', () => { listState.category = listCatEl.value || ''; debouncedReset(); });
+    if (listCatEl) listCatEl.addEventListener('change', () => { 
+      ContribList.updateListState?.({ category: listCatEl.value || '' }); 
+      debouncedReset(); 
+    });
     if (listSortEl) listSortEl.addEventListener('change', () => {
       const v = listSortEl.value || 'created_at:desc';
       const [by, dir] = v.split(':');
       const mapped = (by === 'updated_at') ? 'created_at' : (by || 'created_at');
-      listState.sortBy = mapped;
-      listState.sortDir = (dir === 'asc') ? 'asc' : 'desc';
+      ContribList.updateListState?.({ 
+        sortBy: mapped, 
+        sortDir: (dir === 'asc') ? 'asc' : 'desc' 
+      });
       debouncedReset();
     });
     if (listMineOnlyEl) listMineOnlyEl.addEventListener('change', () => {
@@ -1414,10 +945,10 @@
       if (role === 'invited') {
         // Empêcher toute modification et forcer coché
         listMineOnlyEl.checked = true;
-        listState.mineOnly = true;
+        ContribList.updateListState?.({ mineOnly: true });
         return; // pas de reset inutile
       }
-      listState.mineOnly = !!listMineOnlyEl.checked;
+      ContribList.updateListState?.({ mineOnly: !!listMineOnlyEl.checked });
       debouncedReset();
     });
 
@@ -1431,168 +962,11 @@
     const deleteEditBtn = document.getElementById('contrib-delete');
     const coverPreview  = document.getElementById('contrib-cover-preview');
 
-    // —— Cover preview + dropzone + compression ——
-    let coverCompressedFile = null;
-    (function setupCoverDropzone(){
-      try {
-        const coverInput = document.getElementById('contrib-cover');
-        if (!coverInput || !coverPreview) return;
-
-        // Hide native input like step 2
-        try { coverInput.style.display = 'none'; } catch(_){}
-
-        // Build same structure as step 2 dropzone
-        coverPreview.classList.add('file-dropzone');
-        coverPreview.setAttribute('role', 'button');
-        coverPreview.setAttribute('tabindex', '0');
-        coverPreview.setAttribute('aria-label', 'Déposer une image de couverture ou cliquer pour choisir');
-        coverPreview.innerHTML = `
-          <div class="dz-text">
-            <div class="dz-title">Déposez votre image de couverture</div>
-            <div class="dz-sub">… ou cliquez pour choisir un fichier</div>
-          </div>
-          <div class="dz-selected">
-            <span class="dz-icon" aria-hidden="true"><i class="fa-regular fa-image"></i></span>
-            <span class="dz-filename" id="cover-dz-filename"></span>
-          </div>
-        `;
-        const coverDzFilenameEl = coverPreview.querySelector('#cover-dz-filename');
-        // Create simple meta text (compression info)
-        let dzMeta = coverPreview.querySelector('.dz-meta');
-        if (!dzMeta) {
-          dzMeta = document.createElement('div');
-          dzMeta.className = 'dz-meta';
-          dzMeta.style.marginTop = '8px';
-          dzMeta.style.fontSize = '12px';
-          dzMeta.innerHTML = `<div class="dz-info" aria-live="polite"></div>`;
-          coverPreview.appendChild(dzMeta);
-        }
-        const dzInfo = coverPreview.querySelector('.dz-info');
-
-        // Same interactions as step 2
-        const openPicker = () => { try { coverInput.click(); } catch(_){} };
-        coverPreview.addEventListener('click', openPicker);
-        coverPreview.addEventListener('keydown', (e)=>{
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
-        });
-
-        ['dragenter','dragover'].forEach(ev => coverPreview.addEventListener(ev, (e)=>{
-          e.preventDefault(); e.stopPropagation(); coverPreview.classList.add('is-dragover');
-        }));
-        ;['dragleave','dragend','drop'].forEach(ev => coverPreview.addEventListener(ev, (e)=>{
-          e.preventDefault(); e.stopPropagation(); coverPreview.classList.remove('is-dragover');
-        }));
-
-        coverPreview.addEventListener('drop', (e)=>{
-          const dt = e.dataTransfer; if (!dt) return;
-          const f = dt.files && dt.files[0]; if (!f) return;
-          processCoverFile(f);
-        });
-
-        coverInput.addEventListener('change', ()=>{
-          const f = coverInput.files && coverInput.files[0];
-          if (f) processCoverFile(f);
-        });
-
-        function processCoverFile(file){
-          try {
-            const type = (file.type||'').toLowerCase();
-            if (!/image\/(png|jpe?g|webp)/.test(type)) {
-              showToast('Image invalide (png, jpg, webp)', 'error');
-              return;
-            }
-            // Create preview first
-            const url = URL.createObjectURL(file);
-            renderPreview(url, ''); // no filename displayed
-            // Compress
-            compressImage(file).then((compressed)=>{
-              coverCompressedFile = compressed || file;
-              try {
-                const before = file.size / (1024*1024);
-                const after = (coverCompressedFile && coverCompressedFile.size ? coverCompressedFile.size : file.size) / (1024*1024);
-                if (dzInfo) dzInfo.textContent = `image compressée de ${before.toFixed(2)} Mo à ${after.toFixed(2)} Mo`;
-              } catch(_){}
-            }).catch(()=>{ coverCompressedFile = file; });
-          } catch (e) {
-            console.warn('[contrib] processCoverFile error', e);
-            showToast("Impossible de lire l'image.", 'error');
-          }
-        }
-
-        function renderPreview(objectUrl, filename){
-          try {
-            // Switch to selected state and show filename + thumbnail
-            if (coverDzFilenameEl) {
-              try { coverDzFilenameEl.textContent = ''; } catch(_){ }
-            }
-            coverPreview.classList.add('has-file');
-            // Thumbnail
-            let thumb = coverPreview.querySelector('img.dz-thumb');
-            if (!thumb) {
-              thumb = document.createElement('img');
-              thumb.className = 'dz-thumb';
-              thumb.alt = 'Aperçu de la cover';
-              thumb.style.maxHeight = '140px';
-              thumb.style.maxWidth = '100%';
-              thumb.style.borderRadius = '10px';
-              thumb.style.boxShadow = '0 6px 16px rgba(0,0,0,0.18)';
-              thumb.style.transform = 'rotate(-0.75deg)';
-              thumb.style.transition = 'transform 0.2s ease';
-              // place thumbnail inside dz-selected, replacing icon
-              const sel = coverPreview.querySelector('.dz-selected');
-              if (sel) {
-                const icon = sel.querySelector('.dz-icon');
-                if (icon) { try { icon.remove(); } catch(_){} }
-                sel.prepend(thumb);
-              } else {
-                coverPreview.appendChild(thumb);
-              }
-            }
-            thumb.src = objectUrl;
-          } catch(_){ }
-        }
-
-        // Expose for edit-mode prefill
-        try { win.__contribRenderCoverPreview = (u, n) => renderPreview(u, n); } catch(_){}
-
-        function compressImage(file){
-          return new Promise((resolve)=>{
-            try {
-              const img = new Image();
-              img.onload = () => {
-                try {
-                  const maxDim = 2000; // milder resize
-                  let { width, height } = img;
-                  const ratio = Math.min(1, maxDim / Math.max(width, height));
-                  const canvas = document.createElement('canvas');
-                  canvas.width = Math.round(width * ratio);
-                  canvas.height = Math.round(height * ratio);
-                  const ctx = canvas.getContext('2d');
-                  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                  const preferType = 'image/webp';
-                  const fallbackType = 'image/jpeg';
-                  const quality = 0.9; // milder compression
-                  const toBlobType = (canvas.toDataURL(preferType).indexOf('data:image/webp') === 0) ? preferType : fallbackType;
-                  canvas.toBlob((blob)=>{
-                    if (!blob) { resolve(file); return; }
-                    try {
-                      const ext = toBlobType === 'image/webp' ? 'webp' : 'jpg';
-                      const name = (file.name || 'cover').replace(/\.[^.]+$/, '') + '.' + ext;
-                      const compressed = new File([blob], name, { type: toBlobType, lastModified: Date.now() });
-                      resolve(compressed);
-                    } catch(_) { resolve(file); }
-                  }, toBlobType, quality);
-                } catch(_) { resolve(file); }
-              };
-              img.onerror = () => resolve(file);
-              img.src = URL.createObjectURL(file);
-            } catch(_) { resolve(file); }
-          });
-        }
-      } catch (e) {
-        console.warn('[contrib] setupCoverDropzone error:', e);
-      }
-    })();
+    // —— Cover preview + dropzone + compression moved to contrib-upload.js ——
+    const coverInput = document.getElementById('contrib-cover');
+    if (ContribUpload?.setupCoverDropzone) {
+      ContribUpload.setupCoverDropzone(coverPreview, coverInput);
+    }
 
     // —— Meta/Description char limits ——
     (function setupCharLimits(){
@@ -1679,98 +1053,57 @@
       if (nameEl) nameEl.focus();
     }
 
+    // prefillForm, enterEditMode, exitEditMode moved to contrib-form.js
     function prefillForm(row) {
-      const nameEl = document.getElementById('contrib-project-name');
-      const catEl  = document.getElementById('contrib-category');
-      const citySel = document.getElementById('contrib-city');
-      const metaEl = document.getElementById('contrib-meta');
-      const descEl = document.getElementById('contrib-description');
-      const mdEl   = document.getElementById('contrib-markdown');
-      if (nameEl) nameEl.value = row.project_name || '';
-      if (catEl) catEl.value = row.category || '';
-      // Pré-remplir le lien officiel si présent
-      try {
-        if (officialInput) officialInput.value = row.official_url || '';
-      } catch(_) {}
-      if (citySel && row && row.ville) {
-        try {
-          const v = String(row.ville).trim();
-          // Si l'option n'existe pas encore (villes non chargées), l'ajouter de manière temporaire
-          if (!Array.from(citySel.options).some(opt => String(opt.value) === v)) {
-            const opt = document.createElement('option');
-            opt.value = v;
-            opt.textContent = v;
-            citySel.appendChild(opt);
-          }
-          citySel.value = v;
-        } catch(_) {}
-      }
-      if (metaEl) metaEl.value = row.meta || '';
-      if (descEl) descEl.value = row.description || '';
-      if (coverPreview) {
-        try {
-          if (row.cover_url && typeof win.__contribRenderCoverPreview === 'function') {
-            win.__contribRenderCoverPreview(row.cover_url, 'cover.jpg');
-          } else if (row.cover_url) {
-            // Fallback minimal preview if renderer not yet ready
-            coverPreview.innerHTML = `<img src="${row.cover_url}" alt="Aperçu cover" style="max-height:80px;border-radius:6px;"/>`;
-          } else {
-            coverPreview.classList.remove('has-file');
-            const fn = coverPreview.querySelector('#cover-dz-filename');
-            if (fn) fn.textContent = '';
-            const sel = coverPreview.querySelector('.dz-selected');
-            if (sel && !sel.querySelector('.dz-icon')) {
-              const icon = document.createElement('span');
-              icon.className = 'dz-icon';
-              icon.setAttribute('aria-hidden','true');
-              icon.innerHTML = '<i class="fa-regular fa-image"></i>';
-              sel.prepend(icon);
-            }
-            const thumb = coverPreview.querySelector('img.dz-thumb');
-            if (thumb) thumb.remove();
-          }
-        } catch(_){}
-      }
-      // Try fetching markdown content
-      if (mdEl) {
-        mdEl.value = '';
-        if (row.markdown_url) {
-          fetch(row.markdown_url).then(r => r.ok ? r.text() : '').then(txt => { if (typeof txt === 'string') mdEl.value = txt; }).catch(()=>{});
-        }
-      }
-      // Geometry inputs: reset file and drawings (loading from server handled separately)
-      const fileInput = document.getElementById('contrib-geojson');
-      if (fileInput) { try { fileInput.value = ''; } catch(_){} }
-      try { clearAllDrawings(); } catch(_) {}
+      const elements = {
+        nameEl: document.getElementById('contrib-project-name'),
+        catEl: document.getElementById('contrib-category'),
+        citySel: document.getElementById('contrib-city'),
+        metaEl: document.getElementById('contrib-meta'),
+        descEl: document.getElementById('contrib-description'),
+        mdEl: document.getElementById('contrib-markdown'),
+        officialInput,
+        coverPreview
+      };
+      ContribForm.prefillForm?.(row, elements);
     }
 
     function enterEditMode(row) {
-      currentEditId = row.id;
-      editGeojsonUrl = row && row.geojson_url ? row.geojson_url : null;
-      prefillForm(row);
-      setStatus('Mode édition. Modifiez et cliquez sur Enregistrer.');
-      setEditUI(true);
-      // En modification, démarrer explicitement au début du stepper (étape 1)
-      try { setStep(1, { force: true }); } catch(_) {}
-      // Les dossiers liés seront chargés dynamiquement à l'entrée en étape 4
+      const elements = {
+        nameEl: document.getElementById('contrib-project-name'),
+        catEl: document.getElementById('contrib-category'),
+        citySel: document.getElementById('contrib-city'),
+        metaEl: document.getElementById('contrib-meta'),
+        descEl: document.getElementById('contrib-description'),
+        mdEl: document.getElementById('contrib-markdown'),
+        officialInput,
+        coverPreview,
+        geomModeRadios,
+        fileRowEl,
+        drawPanelEl,
+        geomCardFile,
+        geomCardDraw
+      };
+      ContribForm.enterEditMode?.(row, elements, setEditUI, setStatus, setStep);
     }
 
     function exitEditMode() {
-      currentEditId = null;
-      editGeojsonUrl = null;
-      try { form.reset(); } catch(_) {}
-      if (coverPreview) coverPreview.innerHTML = '';
-      setEditUI(false);
-      setStatus('');
-      try { clearAllDrawings(); } catch(_) {}
-      try { setGeomMode('file'); } catch(_) {}
-      try { clearExistingDossiers(); } catch(_) {}
+      const elements = {
+        coverPreview,
+        geomModeRadios,
+        fileRowEl,
+        drawPanelEl,
+        geomCardFile,
+        geomCardDraw
+      };
+      ContribForm.exitEditMode?.(form, elements, setEditUI, setStatus, clearExistingDossiers);
     }
 
     // cancelEditBtn removed; Back button already exits edit mode
 
     if (deleteEditBtn) {
       deleteEditBtn.addEventListener('click', async () => {
+        const currentEditId = ContribForm.getCurrentEditId?.();
         console.log('[contrib] click delete in edit mode', { currentEditId });
         if (!currentEditId) { console.log('[contrib] deleteEditBtn: no currentEditId, abort'); return; }
         const projectName = document.getElementById('contrib-project-name')?.value?.trim();
@@ -1779,208 +1112,67 @@
       });
     }
 
-    function setGeomMode(mode) {
-      const fileInput = document.getElementById('contrib-geojson');
-      // Sync radios and cards visual state
-      try {
-        if (geomModeRadios && geomModeRadios.length) {
-          geomModeRadios.forEach(r => { r.checked = (r.value === mode); });
-        }
-        if (geomCardFile && geomCardDraw) {
-          const isDraw = mode === 'draw';
-          geomCardFile.classList.toggle('is-active', !isDraw);
-          geomCardDraw.classList.toggle('is-active', isDraw);
-          geomCardFile.setAttribute('aria-pressed', (!isDraw).toString());
-          geomCardDraw.setAttribute('aria-pressed', isDraw.toString());
-        }
-      } catch(_){}
-      if (mode === 'draw') {
-        if (fileRowEl) { fileRowEl.style.display = 'none'; fileRowEl.classList.remove('reveal'); }
-        if (fileInput) {
-          fileInput.required = false;
-          fileInput.disabled = true;
-          try { fileInput.value = ''; } catch(_) {}
-        }
-        if (drawPanelEl) { drawPanelEl.style.display = ''; drawPanelEl.classList.add('reveal'); }
-        initDrawMap();
-        setTimeout(() => { try { if (drawMap) drawMap.invalidateSize(); } catch(_){} }, 50);
-        // Manual drawing only
-        ensureManualToolbar();
-        cancelManualDraw(true);
-        setStatus('Mode dessin manuel actif. Choisissez Ligne ou Polygone puis cliquez sur la carte.');
-        // Nettoyer couche précédente
-        if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
-        drawLayerDirty = false;
-      } else {
-        if (fileRowEl) { fileRowEl.style.display = ''; fileRowEl.classList.add('reveal'); }
-        if (fileInput) { fileInput.required = true; fileInput.disabled = false; }
-        if (drawPanelEl) { drawPanelEl.style.display = 'none'; drawPanelEl.classList.remove('reveal'); }
-        // Revenir au mode fichier doit nettoyer tout dessin en cours
-        try { clearAllDrawings(); } catch(_) {}
-        try {
-          cancelManualDraw(true);
-          const manualTb = drawPanelEl && drawPanelEl.querySelector('#contrib-manual-draw-controls');
-          if (manualTb) manualTb.style.display = 'none';
-        } catch(_){ }
-      }
-      // Après un changement de mode, si on est en étape 2, re-valider l'étape
-      if (currentStep === 2) {
-        try { validateStep2(); } catch(_) {}
-      }
-    }
-
-    function clearAllDrawings() {
-      if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
-      drawLayerDirty = false;
-      try {
-        cancelManualDraw(true);
-      } catch(_){ }
-    }
-
-    // Preload existing geometry into the draw map in edit mode
-    async function preloadGeometryOnMap(url) {
-      try {
-        setStatus('Chargement de la géométrie…');
-        // Switch UI to draw mode and ensure map exists
-        const drawRadio = Array.from(geomModeRadios || []).find(r => r.value === 'draw');
-        if (drawRadio) { drawRadio.checked = true; }
-        setGeomMode('draw');
-        // Important: wait for the map to be initialized before adding layers
-        try { await initDrawMap(); } catch(_) {}
-        // Nettoyer et afficher uniquement la géométrie existante
-        try { clearAllDrawings(); } catch(_) {}
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error('GeoJSON non accessible');
-        const gj = await resp.json();
-        const style = { color: '#1976d2', weight: 3, fillOpacity: 0.2 };
-        const pointToLayer = (feature, latlng) => L.circleMarker(latlng, { radius: 5, color: '#1976d2', weight: 2, fillOpacity: 0.7 });
-        drawLayer = L.geoJSON(gj, { style, pointToLayer }).addTo(drawMap);
-        try { drawMap.fitBounds(drawLayer.getBounds(), { padding: [10, 10] }); } catch(_){ }
-        drawLayerDirty = false; // Loaded from server; don't re-upload unless user redraws
-        setStatus('Géométrie chargée depuis la contribution.', 'success');
-      } catch (err) {
-        console.warn('[contrib] preloadGeometryOnMap error:', err);
-        setStatus('Impossible de charger la géométrie existante.', 'error');
-        showToast('Impossible de charger la géométrie existante.', 'error');
-      }
-    }
-    // Dessin manuel uniquement: pas d'intégration Leaflet-Geoman
-
+    // setGeomMode, clearAllDrawings, preloadGeometryOnMap moved to contrib-geometry.js
+    
     // Mode change listeners
+    const elements = { 
+      geomModeRadios, 
+      fileRowEl, 
+      drawPanelEl, 
+      geomCardFile, 
+      geomCardDraw,
+      fileInput: document.getElementById('contrib-geojson'),
+      dropzoneEl,
+      dzFilenameEl,
+      cityEl
+    };
+    
     if (geomModeRadios && geomModeRadios.length) {
       geomModeRadios.forEach(r => {
         r.addEventListener('change', () => {
           const checked = Array.from(geomModeRadios).find(x => x.checked)?.value || 'file';
-          setGeomMode(checked);
+          ContribGeometry.setGeomMode?.(checked, elements);
+          // Initialize draw map when switching to draw mode
+          if (checked === 'draw') {
+            setTimeout(() => {
+              initDrawMap();
+              ensureManualToolbar();
+            }, 100);
+          }
         });
       });
     }
     // Card click listeners
-    if (geomCardFile) geomCardFile.addEventListener('click', () => setGeomMode('file'));
-    if (geomCardDraw) geomCardDraw.addEventListener('click', () => setGeomMode('draw'));
-    // Initialize UI state
-    const initialMode = (Array.from(geomModeRadios || []).find(x => x.checked)?.value) || 'file';
-    setGeomMode(initialMode);
-
-    // Dropzone: clic + drag&drop léger pour GeoJSON
-    (function setupDropzone(){
-      const fileInput = document.getElementById('contrib-geojson');
-      if (!dropzoneEl || !fileInput) return;
-      const openPicker = () => { if (!fileInput.disabled) fileInput.click(); };
-      dropzoneEl.addEventListener('click', openPicker);
-      dropzoneEl.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
-      });
-      const updateName = () => {
-        const f = fileInput.files && fileInput.files[0];
-        if (dzFilenameEl) dzFilenameEl.textContent = f ? f.name : '';
-        if (dropzoneEl) dropzoneEl.classList.toggle('has-file', !!f);
-      };
-      fileInput.addEventListener('change', () => { updateName(); try { validateStep2(); } catch(_){} });
-      ['dragenter','dragover'].forEach(ev => dropzoneEl.addEventListener(ev, (e)=>{
-        e.preventDefault(); e.stopPropagation(); dropzoneEl.classList.add('is-dragover');
-      }));
-      ['dragleave','dragend','drop'].forEach(ev => dropzoneEl.addEventListener(ev, (e)=>{
-        e.preventDefault(); e.stopPropagation(); dropzoneEl.classList.remove('is-dragover');
-      }));
-      dropzoneEl.addEventListener('drop', (e)=>{
-        const dt = e.dataTransfer; if (!dt) return;
-        const files = dt.files; if (!files || !files.length) return;
-        if (!fileInput.disabled) { fileInput.files = files; fileInput.dispatchEvent(new Event('change', { bubbles:true })); }
-      });
-    })();
-
-    function createDocRow() {
-      const row = document.createElement('div');
-      row.className = 'doc-card is-idle';
-      row.innerHTML = `
-        <div class="doc-card__header">
-          <input type="text" class="doc-title" placeholder="Titre du document PDF" />
-        </div>
-        <div class="doc-card__body">
-          <input type="file" class="doc-file" accept="application/pdf" style="display:none" />
-          <div class="file-dropzone doc-dropzone" role="button" tabindex="0" aria-label="Déposer un fichier PDF ou cliquer pour choisir">
-            <div class="dz-text">
-              <div class="dz-title">Déposez votre PDF</div>
-              <div class="dz-sub">… ou cliquez pour choisir un fichier</div>
-            </div>
-            <div class="dz-selected">
-              <span class="dz-icon" aria-hidden="true"><i class="fa-regular fa-file-pdf"></i></span>
-              <span class="dz-filename doc-filename"></span>
-            </div>
-          </div>
-        </div>
-        <div class="doc-card__footer">
-          <span class="doc-status" aria-live="polite"></span>
-          <button type="button" class="doc-remove gp-btn gp-btn-ghost" aria-label="Supprimer cette pièce">Supprimer</button>
-        </div>
-      `;
-      const removeBtn = row.querySelector('.doc-remove');
-      const fileInput = row.querySelector('.doc-file');
-      const fileNameEl = row.querySelector('.doc-filename');
-      const dropzoneEl = row.querySelector('.doc-dropzone');
-      // Remove
-      if (removeBtn) removeBtn.addEventListener('click', () => row.remove());
-      // File selection via dialog
-      function onPicked() {
-        const f = fileInput.files && fileInput.files[0];
-        fileNameEl.textContent = f ? f.name : '';
-        row.classList.toggle('has-file', !!f);
-        dropzoneEl?.classList.toggle('has-file', !!f);
+    if (geomCardFile) geomCardFile.addEventListener('click', () => {
+      ContribGeometry.setGeomMode?.('file', elements);
+    });
+    if (geomCardDraw) geomCardDraw.addEventListener('click', () => {
+      ContribGeometry.setGeomMode?.('draw', elements);
+      // Initialize draw map when switching to draw mode
+      setTimeout(() => {
+        initDrawMap();
+        ensureManualToolbar();
+      }, 100);
+    });
+    
+    // Initialize UI state - IMPORTANT: Call this to show/hide correct panels
+    setTimeout(() => {
+      const initialMode = (Array.from(geomModeRadios || []).find(x => x.checked)?.value) || 'file';
+      ContribGeometry.setGeomMode?.(initialMode, elements);
+      
+      // Initialize draw map if needed
+      if (initialMode === 'draw') {
+        initDrawMap();
+        ensureManualToolbar();
       }
-      if (fileInput) fileInput.addEventListener('change', onPicked);
-      // Dropzone interactions
-      if (dropzoneEl) {
-        const openPicker = () => { fileInput?.click(); };
-        dropzoneEl.addEventListener('click', openPicker);
-        dropzoneEl.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
-        });
-        dropzoneEl.addEventListener('dragover', (e) => { e.preventDefault(); dropzoneEl.classList.add('is-dragover'); });
-        dropzoneEl.addEventListener('dragenter', (e) => { e.preventDefault(); dropzoneEl.classList.add('is-dragover'); });
-        dropzoneEl.addEventListener('dragleave', () => dropzoneEl.classList.remove('is-dragover'));
-        dropzoneEl.addEventListener('drop', (e) => {
-          e.preventDefault();
-          dropzoneEl.classList.remove('is-dragover');
-          const dt = e.dataTransfer; if (!dt) return;
-          const files = dt.files; if (!files || !files.length) return;
-          if (fileInput && !fileInput.disabled) { fileInput.files = files; fileInput.dispatchEvent(new Event('change', { bubbles:true })); }
-        });
-      }
-      return row;
-    }
+    }, 100);
 
-    function collectDocs() {
-      if (!docsFieldset) return [];
-      const rows = docsFieldset.querySelectorAll('.doc-card');
-      const out = [];
-      rows.forEach((row) => {
-        const title = row.querySelector('.doc-title')?.value?.trim();
-        const file = row.querySelector('.doc-file')?.files?.[0] || null;
-        if (title && file) out.push({ title, file });
-      });
-      return out;
-    }
+    // Dropzone setup moved to contrib-geometry.js
+    ContribGeometry.setupDropzone?.(elements);
+
+    // createDocRow and collectDocs moved to contrib-upload.js
+    const createDocRow = ContribUpload?.createDocRow || (() => null);
+    const collectDocs = () => ContribUpload?.collectDocs?.(docsFieldset) || [];
 
     // —— Existing consultation dossiers (display-only in edit mode) ——
     function clearExistingDossiers() {
@@ -2279,307 +1471,41 @@
       });
     }
 
+    // handleSubmit moved to contrib-form.js
     async function handleSubmit(e) {
-      e.preventDefault();
-      if (!form) return;
-
-      const submitBtn = document.getElementById('contrib-submit');
-      const projectName = document.getElementById('contrib-project-name')?.value?.trim();
-      const category = document.getElementById('contrib-category')?.value;
-      const fileInput = document.getElementById('contrib-geojson');
-      const coverInput = document.getElementById('contrib-cover');
-      const city = document.getElementById('contrib-city')?.value?.trim();
-      const officialUrl = document.getElementById('contrib-official-url')?.value?.trim();
-      const meta = document.getElementById('contrib-meta')?.value?.trim();
-      const description = document.getElementById('contrib-description')?.value?.trim();
-      const mdTextRaw = document.getElementById('contrib-markdown')?.value || '';
-      const geomMode = (function(){
-        const r = geomModeRadios && geomModeRadios.length ? Array.from(geomModeRadios).find(x => x.checked) : null;
-        return r ? r.value : 'file';
-      })();
-
-      const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : __userRole;
-      if (!projectName || !category) {
-        setStatus('Veuillez renseigner le nom et la catégorie.', 'error');
-        return;
-      }
-
-      // Build potential GeoJSON upload only when creating or when explicitly provided in edit
-      let fileForUpload = null;
-      if (!currentEditId || (currentEditId && (geomMode === 'file' ? (fileInput && fileInput.files && fileInput.files.length) : (!!drawLayer && drawLayerDirty)))) {
-        if (geomMode === 'file') {
-          if (!fileInput || !fileInput.files?.length) {
-            if (!currentEditId) { setStatus('Veuillez sélectionner un fichier GeoJSON.', 'error'); return; }
-          } else {
-            const file = fileInput.files[0];
-            const nameLower = (file.name || '').toLowerCase();
-            if (!nameLower.endsWith('.geojson') && !(file.type || '').includes('json')) {
-              setStatus('Le fichier doit être un GeoJSON (.geojson ou JSON valide).', 'error');
-              return;
-            }
-            fileForUpload = file;
-          }
-        } else if (geomMode === 'draw') {
-          if (!drawLayer) {
-            if (!currentEditId) { setStatus('Veuillez dessiner une géométrie (ligne ou polygone) avant de soumettre.', 'error'); return; }
-          } else {
-            try {
-              const feature = drawLayer.toGeoJSON();
-              const feat = feature.type === 'Feature' ? feature : { type: 'Feature', properties: {}, geometry: feature };
-              const fc = { type: 'FeatureCollection', features: Array.isArray(feature.features) ? feature.features : [feat] };
-              const blob = new Blob([JSON.stringify(fc)], { type: 'application/geo+json' });
-              try { fileForUpload = new File([blob], `${slugify(projectName)}.geojson`, { type: 'application/geo+json' }); }
-              catch (_) { fileForUpload = blob; }
-            } catch (gerr) {
-              setStatus('Impossible de convertir le dessin en GeoJSON.', 'error');
-              return;
-            }
-          }
-        } else {
-          setStatus('Mode de saisie inconnu.', 'error');
-          return;
-        }
-      }
-
-      // Prefer compressed cover produced by setupCoverDropzone
-      const coverFile = (typeof coverCompressedFile !== 'undefined' && coverCompressedFile)
-        ? coverCompressedFile
-        : (coverInput && coverInput.files && coverInput.files[0] ? coverInput.files[0] : null);
-
-      setStatus('Envoi en cours…');
-      if (submitBtn) submitBtn.disabled = true;
-      try { if (form) form.setAttribute('aria-busy', 'true'); } catch(_) {}
-
-      try {
-        // Ensure authenticated session
-        const session = await (win.AuthModule && win.AuthModule.requireAuthOrRedirect('/login/'));
-        if (!session || !session.user) return; // redirected
-
-        let rowId = currentEditId;
-        if (!currentEditId) {
-          // 0) Create row (create mode)
-          try {
-            if (win.supabaseService && typeof win.supabaseService.createContributionRow === 'function') {
-              const cityToCreate = (role === 'admin') ? (city || null) : null;
-              rowId = await win.supabaseService.createContributionRow(
-                projectName,
-                category,
-                cityToCreate,
-                meta,
-                description,
-                officialUrl
-              );
-            }
-          } catch (e) {
-            console.warn('[contrib] createContributionRow error:', e);
-          }
-          if (!rowId) {
-            setStatus("Impossible de créer l'entrée de contribution. Réessayez plus tard.", 'error');
-            showToast("Création impossible pour le moment.", 'error');
-            if (submitBtn) submitBtn.disabled = false;
-            return;
-          }
-        }
-
-        // 1) Upload GeoJSON (fichier importé ou dessiné) vers Supabase Storage
-        if (fileForUpload) {
-          await (win.supabaseService && win.supabaseService.uploadGeoJSONToStorage(fileForUpload, category, projectName, rowId));
-        }
-
-        // 1b) Optional cover upload (non-blocking)
-        if (coverFile) {
-          try {
-            await (win.supabaseService && win.supabaseService.uploadCoverToStorage(coverFile, category, projectName, rowId));
-          } catch (coverErr) {
-            console.warn('[contrib] cover upload error (non bloquant):', coverErr);
-          }
-        }
-
-        // 1c) Optional Markdown upload (non-blocking)
-        const mdText = (mdTextRaw || '').trim();
-        if (mdText) {
-          try {
-            const mdBlob = new Blob([mdText], { type: 'text/markdown' });
-            await (win.supabaseService && win.supabaseService.uploadMarkdownToStorage(mdBlob, category, projectName, rowId));
-          } catch (mdErr) {
-            console.warn('[contrib] markdown upload error (non bloquant):', mdErr);
-          }
-        }
-
-        // 2) Optional consultation dossiers (upload PDFs then insert URLs)
-        const docEntries = collectDocs();
-        if (docEntries.length) {
-          const uploaded = [];
-          for (const d of docEntries) {
-            try {
-              const url = await (win.supabaseService && win.supabaseService.uploadConsultationPdfToStorage(d.file, category, projectName, rowId));
-              if (url) uploaded.push({ title: d.title, pdf_url: url });
-            } catch (pdfErr) {
-              console.warn('[contrib] upload PDF error:', pdfErr);
-            }
-          }
-          if (uploaded.length) {
-            await win.supabaseService.insertConsultationDossiers(projectName, category, uploaded);
-          }
-        }
-
-        // 3) Patch core fields (edit or create) — inclut official_url
-        try {
-          await (win.supabaseService && win.supabaseService.updateContribution(rowId, {
-            project_name: projectName,
-            category: category,
-            ville: (role === 'invited' ? null : (role === 'admin' ? (city || null) : null)),
-            official_url: officialUrl || null,
-            meta: meta || null,
-            description: description || null
-          }));
-        } catch (patchErr) {
-          console.warn('[contrib] updateContribution warning:', patchErr);
-        }
-
-        if (currentEditId) {
-          setStatus('Modifications enregistrées.', 'success');
-          showToast('Modifications enregistrées.', 'success');
-          // Emit event for refresh
-          try { window.dispatchEvent(new CustomEvent('contribution:updated', { detail: { id: rowId, project_name: projectName, category } })); } catch(_) {}
-          // Keep modal open but exit edit mode
-          exitEditMode();
-          // Refresh list if visible
-          if (panelList && !panelList.hidden) listResetAndLoad();
-        } else {
-          setStatus('Contribution enregistrée. Merci !', 'success');
-          showToast('Contribution enregistrée. Merci !', 'success');
-          try { form.reset(); } catch(_) {}
-          // Nettoyer l'état de dessin et remettre l'UI en mode fichier par défaut
-          try { clearAllDrawings(); } catch(_) {}
-          try { setGeomMode('file'); } catch(_) {}
-          // Close after a short delay
-          setTimeout(() => { try { closeContrib(); } catch(_) {} }, 900);
-        }
-      } catch (err) {
-        console.error('[contrib] submit error:', err);
-        setStatus('Échec de l’envoi. Réessayez plus tard.', 'error');
-        showToast('Échec de l’envoi de la contribution.', 'error');
-      } finally {
-        if (submitBtn) submitBtn.disabled = false;
-        try { if (form) form.removeAttribute('aria-busy'); } catch(_) {}
-      }
+      const elements = {
+        geomModeRadios,
+        fileRowEl,
+        drawPanelEl,
+        geomCardFile,
+        geomCardDraw
+      };
+      const config = {
+        form,
+        elements,
+        onSetStatus: setStatus,
+        onShowToast: showToast,
+        onExitEditMode: exitEditMode,
+        onRefreshList: () => { if (panelList && !panelList.hidden) listResetAndLoad(); },
+        onCloseContrib: closeContrib,
+        __userRole
+      };
+      await ContribForm.handleSubmit?.(e, config);
     }
 
     if (form) {
       form.addEventListener('submit', handleSubmit);
     }
 
-    // Populate city selector from DB, filtered by user permissions
+    // Old handleSubmit implementation removed (~185 lines moved to contrib-form.js)
+
+    // populateCities and loadCategoriesForCity moved to contrib-cities.js
     async function populateCities() {
-      try {
-        if (!cityEl || !win.supabaseService) return;
-        
-        // Récupérer toutes les villes disponibles
-        let cities = [];
-        try {
-          if (typeof win.supabaseService.getValidCities === 'function') {
-            cities = await win.supabaseService.getValidCities();
-          }
-        } catch (e1) {
-          console.warn('[contrib] populateCities getValidCities error:', e1);
-        }
-        if ((!Array.isArray(cities) || !cities.length) && typeof win.supabaseService.listCities === 'function') {
-          try { cities = await win.supabaseService.listCities(); } catch (e2) { console.warn('[contrib] populateCities listCities fallback error:', e2); }
-        }
-        
-        console.log('[DEBUG populateCities] Villes récupérées:', cities);
-        console.log('[DEBUG populateCities] window.__CONTRIB_VILLES:', window.__CONTRIB_VILLES);
-        
-        // Filtrer selon les permissions de l'utilisateur
-        const userVilles = window.__CONTRIB_VILLES; // null = aucune ville, array = villes spécifiques
-        let filteredCities = cities;
-        const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
-        
-        if (hasGlobalAccess) {
-          // Accès global : toutes les villes sont disponibles
-          console.log('[DEBUG populateCities] Accès global détecté, toutes les villes disponibles');
-          filteredCities = cities;
-        } else if (Array.isArray(userVilles) && userVilles.length > 0) {
-          // Filtrer pour ne garder que les villes autorisées
-          filteredCities = cities.filter(c => userVilles.includes(c));
-          console.log('[DEBUG populateCities] Villes filtrées:', filteredCities);
-        } else {
-          // Si userVilles est null ou vide, aucune ville n'est autorisée
-          console.log('[DEBUG populateCities] Aucune ville autorisée (userVilles:', userVilles, ')');
-          filteredCities = [];
-        }
-        
-        // Générer les options
-        let cityOptionsHTML = '';
-        
-        // Ajouter l'option "default" (catégories globales) uniquement pour les utilisateurs avec accès global
-        if (hasGlobalAccess) {
-          cityOptionsHTML += '<option value="default">🌍 Catégories globales (default)</option>';
-        }
-        
-        // Ajouter les villes filtrées
-        cityOptionsHTML += (Array.isArray(filteredCities) ? filteredCities : [])
-          .map(c => `<option value="${c}">${c}</option>`)
-          .join('');
-        
-        console.log('[DEBUG populateCities] Options HTML générées:', cityOptionsHTML ? 'OUI' : 'NON');
-        
-        if (cityOptionsHTML) {
-          cityEl.insertAdjacentHTML('beforeend', cityOptionsHTML);
-        } else {
-          // Aucune ville autorisée
-          cityEl.innerHTML = '<option value="" selected>Aucune collectivité autorisée</option>';
-        }
-      } catch (err) {
-        console.warn('[contrib] populateCities error:', err);
-        if (cityEl && !cityEl.options.length) {
-          cityEl.innerHTML = '<option value="" selected>Aucun</option>';
-        }
-      }
+      await ContribCities.populateCities?.(cityEl);
     }
 
-    // Charger les catégories dynamiquement selon la ville sélectionnée
     async function loadCategoriesForCity(ville) {
-      try {
-        if (!categoryEl) return;
-        
-        // Réinitialiser
-        categoryEl.disabled = true;
-        categoryEl.innerHTML = '<option value="">Chargement...</option>';
-        if (categoryHelpEl) categoryHelpEl.style.display = 'none';
-        
-        if (!ville) {
-          categoryEl.innerHTML = '<option value="">Sélectionnez d\'abord une collectivité</option>';
-          return;
-        }
-        
-        // Si "default", charger les catégories avec ville EMPTY ('')
-        let categories;
-        if (ville.toLowerCase() === 'default') {
-          // Requête spéciale pour ville EMPTY
-          categories = await win.supabaseService.getCategoryIconsByCity('');
-        } else {
-          // Charger les catégories depuis la base pour une ville spécifique
-          categories = await win.supabaseService.getCategoryIconsByCity(ville);
-        }
-        
-        if (!categories || categories.length === 0) {
-          // Aucune catégorie disponible
-          categoryEl.innerHTML = '<option value="">Aucune catégorie disponible</option>';
-          if (categoryHelpEl) categoryHelpEl.style.display = 'block';
-          return;
-        }
-        
-        // Peupler le select avec les catégories
-        categoryEl.innerHTML = '<option value="">-- Choisir une catégorie --</option>' +
-          categories.map(cat => `<option value="${cat.category}">${cat.category}</option>`).join('');
-        categoryEl.disabled = false;
-        
-      } catch (err) {
-        console.error('[contrib] loadCategoriesForCity error:', err);
-        categoryEl.innerHTML = '<option value="">Erreur de chargement</option>';
-      }
+      await ContribCities.loadCategoriesForCity?.(ville, categoryEl, categoryHelpEl);
     }
     
     // Lien pour créer une catégorie
@@ -2592,6 +1518,7 @@
           
           // Réinitialiser complètement le formulaire de contribution
           if (form) form.reset();
+          const currentEditId = ContribForm.getCurrentEditId?.();
           if (currentEditId) exitEditMode();
           
           // Masquer tous les panels
@@ -2626,7 +1553,7 @@
         try {
           const v = (cityEl.value || '').trim();
           if (v) {
-            await applyCityBranding(v);
+            await ContribCities.applyCityBrandingToDrawMap?.(v);
             await loadCategoriesForCity(v);
           } else {
             // Réinitialiser les catégories si pas de ville
@@ -2675,148 +1602,48 @@
     const categoryEditModeInput = document.getElementById('category-edit-mode');
     const categoryOriginalNameInput = document.getElementById('category-original-name');
 
-    // 50 preset icons organized by theme
-    const ICON_PRESETS = [
-      // Mobilité & Transport (15)
-      { icon: 'fa-solid fa-bus', label: 'Bus' },
-      { icon: 'fa-solid fa-train', label: 'Train' },
-      { icon: 'fa-solid fa-subway', label: 'Métro' },
-      { icon: 'fa-solid fa-train-tram', label: 'Tram' },
-      { icon: 'fa-solid fa-car', label: 'Voiture' },
-      { icon: 'fa-solid fa-taxi', label: 'Taxi' },
-      { icon: 'fa-solid fa-shuttle-van', label: 'Navette' },
-      { icon: 'fa-solid fa-truck', label: 'Camion' },
-      { icon: 'fa-solid fa-plane', label: 'Avion' },
-      { icon: 'fa-solid fa-ship', label: 'Bateau' },
-      { icon: 'fa-solid fa-ferry', label: 'Ferry' },
-      { icon: 'fa-solid fa-helicopter', label: 'Hélicoptère' },
-      { icon: 'fa-solid fa-road', label: 'Route' },
-      { icon: 'fa-solid fa-traffic-light', label: 'Feu' },
-      { icon: 'fa-solid fa-signs-post', label: 'Signalisation' },
-      
-      // Vélo & Mobilité douce (10)
-      { icon: 'fa-solid fa-bicycle', label: 'Vélo' },
-      { icon: 'fa-solid fa-person-biking', label: 'Cycliste' },
-      { icon: 'fa-solid fa-person-walking', label: 'Piéton' },
-      { icon: 'fa-solid fa-wheelchair', label: 'Accessibilité' },
-      { icon: 'fa-solid fa-motorcycle', label: 'Moto' },
-      { icon: 'fa-solid fa-charging-station', label: 'Borne' },
-      { icon: 'fa-solid fa-square-parking', label: 'Parking' },
-      { icon: 'fa-solid fa-p', label: 'P' },
-      { icon: 'fa-solid fa-bolt', label: 'Électrique' },
-      { icon: 'fa-solid fa-leaf', label: 'Écologie' },
-      
-      // Urbanisme & Construction (15)
-      { icon: 'fa-solid fa-building', label: 'Bâtiment' },
-      { icon: 'fa-solid fa-city', label: 'Ville' },
-      { icon: 'fa-solid fa-house', label: 'Maison' },
-      { icon: 'fa-solid fa-hotel', label: 'Hôtel' },
-      { icon: 'fa-solid fa-shop', label: 'Commerce' },
-      { icon: 'fa-solid fa-industry', label: 'Industrie' },
-      { icon: 'fa-solid fa-warehouse', label: 'Entrepôt' },
-      { icon: 'fa-solid fa-landmark', label: 'Monument' },
-      { icon: 'fa-solid fa-hospital', label: 'Hôpital' },
-      { icon: 'fa-solid fa-school', label: 'École' },
-      { icon: 'fa-solid fa-graduation-cap', label: 'Université' },
-      { icon: 'fa-solid fa-church', label: 'Église' },
-      { icon: 'fa-solid fa-mosque', label: 'Mosquée' },
-      { icon: 'fa-solid fa-synagogue', label: 'Synagogue' },
-      { icon: 'fa-solid fa-gopuram', label: 'Temple' },
-      
-      // Infrastructure & Services (10)
-      { icon: 'fa-solid fa-bridge', label: 'Pont' },
-      { icon: 'fa-solid fa-tower-observation', label: 'Tour' },
-      { icon: 'fa-solid fa-water', label: 'Eau' },
-      { icon: 'fa-solid fa-fire', label: 'Pompiers' },
-      { icon: 'fa-solid fa-shield-halved', label: 'Police' },
-      { icon: 'fa-solid fa-recycle', label: 'Recyclage' },
-      { icon: 'fa-solid fa-dumpster', label: 'Déchets' },
-      { icon: 'fa-solid fa-lightbulb', label: 'Éclairage' },
-      { icon: 'fa-solid fa-plug', label: 'Énergie' },
-      { icon: 'fa-solid fa-wifi', label: 'Wifi' }
-    ];
+    // ICON_PRESETS moved to contrib-categories.js
 
+    // loadCategoriesPanel, populateIconPicker, populateCategoryVilleSelector, etc. moved to contrib-categories.js
     async function loadCategoriesPanel() {
-      try {
-        // Réinitialiser complètement l'état du panneau catégories
-        // Masquer le formulaire de catégorie s'il était visible
-        if (categoryFormContainer) categoryFormContainer.style.display = 'none';
-        if (categoryIconPicker) categoryIconPicker.style.display = 'none';
-        
-        // Masquer temporairement le sélecteur de ville pendant le chargement
-        if (categoryVilleSelectorContainer) {
-          categoryVilleSelectorContainer.style.opacity = '0';
-          categoryVilleSelectorContainer.style.display = '';  // S'assurer qu'il est visible
-        }
-        if (categoriesContent) categoriesContent.style.display = 'none';
-        
-        // Charger les données en parallèle
-        await Promise.all([
-          populateCategoryVilleSelector(),
-          populateCategoryFormVilleSelector(),
-          Promise.resolve(populateIconPicker())
-        ]);
-        
-        // Afficher le sélecteur de ville avec une transition douce
-        if (categoryVilleSelectorContainer) {
-          categoryVilleSelectorContainer.style.transition = 'opacity 0.2s ease-in';
-          categoryVilleSelectorContainer.style.opacity = '1';
-        }
-        
-        // Focus on ville selector
-        if (categoryVilleSelector) categoryVilleSelector.focus();
-      } catch(e) {
-        console.error('[contrib] loadCategoriesPanel error:', e);
-        // En cas d'erreur, afficher quand même le sélecteur
-        if (categoryVilleSelectorContainer) {
-          categoryVilleSelectorContainer.style.display = '';
-          categoryVilleSelectorContainer.style.opacity = '1';
-        }
-      }
+      const elements = {
+        categoryFormContainer,
+        categoryIconPicker,
+        categoryVilleSelectorContainer,
+        categoryVilleSelector,
+        categoriesContent,
+        categoryIconGrid,
+        categoryIconInput,
+        categoryVilleSelect,
+        categoryLayersCheckboxes
+      };
+      await ContribCategories.loadCategoriesPanel?.(elements, refreshCategoriesList);
     }
 
-    function populateIconPicker() {
-      try {
-        if (!categoryIconGrid) return;
+    // Old category panel functions removed (~330 lines moved to contrib-categories.js)
+
+    // Listener sur le changement de ville dans le formulaire de catégorie
+    if (categoryVilleSelect) {
+      categoryVilleSelect.addEventListener('change', async () => {
+        const ville = categoryVilleSelect.value;
         
-        const html = ICON_PRESETS.map(preset => `
-          <button type="button" class="icon-preset-btn" data-icon="${preset.icon}" title="${preset.label}" 
-                  style="width:50px; height:50px; display:flex; align-items:center; justify-content:center; border:1px solid #ddd; border-radius:6px; background:#fff; cursor:pointer; transition:all 0.2s; font-size:20px;">
-            <i class="${preset.icon}" aria-hidden="true"></i>
-          </button>
-        `).join('');
+        // Sauvegarder les sélections actuelles
+        const currentSelections = Array.from(document.querySelectorAll('input[name="category-layer-checkbox"]:checked'))
+          .map(cb => cb.value);
         
-        categoryIconGrid.innerHTML = html;
+        // Recharger les checkboxes
+        await ContribCategories.populateCategoryLayersCheckboxes?.(ville, categoryLayersCheckboxes);
         
-        // Bind click events
-        categoryIconGrid.querySelectorAll('.icon-preset-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const iconClass = btn.dataset.icon;
-            if (categoryIconInput) {
-              categoryIconInput.value = iconClass;
-              categoryIconInput.dispatchEvent(new Event('input'));
-            }
-            // Hide picker after selection
-            if (categoryIconPicker) categoryIconPicker.style.display = 'none';
-          });
-          
-          // Hover effect
-          btn.addEventListener('mouseenter', () => {
-            btn.style.borderColor = '#1976d2';
-            btn.style.background = '#e3f2fd';
-            btn.style.transform = 'scale(1.1)';
-          });
-          btn.addEventListener('mouseleave', () => {
-            btn.style.borderColor = '#ddd';
-            btn.style.background = '#fff';
-            btn.style.transform = 'scale(1)';
-          });
+        // Restaurer les sélections
+        currentSelections.forEach(layerName => {
+          const checkbox = document.querySelector(`input[name="category-layer-checkbox"][value="${layerName}"]`);
+          if (checkbox) checkbox.checked = true;
         });
-      } catch(e) {
-        console.error('[contrib] populateIconPicker error:', e);
-      }
+      });
     }
 
+    // Removed ~290 lines of old category panel code (moved to contrib-categories.js)
+    
     // Listener pour afficher/masquer les options de remplissage
     if (categoryStyleFill && categoryStyleFillOptions) {
       categoryStyleFill.addEventListener('change', () => {
@@ -2869,543 +1696,68 @@
       updateStylePreview();
     }, 100);
 
-    async function populateCategoryVilleSelector() {
-      try {
-        if (!categoryVilleSelector || !win.supabaseService) return;
-        let cities = [];
-        try {
-          if (typeof win.supabaseService.getValidCities === 'function') {
-            cities = await win.supabaseService.getValidCities();
-          }
-        } catch (e) {
-          console.warn('[contrib] populateCategoryVilleSelector error:', e);
-        }
-        
-        // Filtrer selon les permissions de l'utilisateur
-        const userVilles = window.__CONTRIB_VILLES;
-        let filteredCities = [];
-        let showGlobalOption = false;
-        const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
-        
-        if (hasGlobalAccess) {
-          // Accès global : toutes les villes + option globale
-          filteredCities = cities;
-          showGlobalOption = true;
-        } else if (Array.isArray(userVilles) && userVilles.length > 0) {
-          // Filtrer pour ne garder que les villes autorisées
-          filteredCities = cities.filter(c => userVilles.includes(c));
-        }
-        // Si userVilles est null ou vide, aucune ville n'est disponible
-        
-        // Clear and repopulate main selector
-        categoryVilleSelector.innerHTML = '<option value="">-- Choisir une collectivité --</option>';
-        // Ajouter "default" uniquement pour les utilisateurs avec accès global
-        if (showGlobalOption) {
-          categoryVilleSelector.insertAdjacentHTML('beforeend', '<option value="default">🌍 Catégories globales (default)</option>');
-        }
-        const cityOptions = (Array.isArray(filteredCities) ? filteredCities : []).map(c => `<option value="${c}">${c}</option>`).join('');
-        if (cityOptions) categoryVilleSelector.insertAdjacentHTML('beforeend', cityOptions);
-        
-        // Default to active city if available and authorized
-        const activeCity = win.activeCity || '';
-        if (activeCity && filteredCities.includes(activeCity)) {
-          categoryVilleSelector.value = activeCity;
-          // Auto-load categories for active city (sans attendre pour éviter le blocage)
-          refreshCategoriesList().catch(e => console.warn('[contrib] Auto-load categories error:', e));
-        }
-      } catch(err) {
-        console.warn('[contrib] populateCategoryVilleSelector error:', err);
-      }
-    }
-
-    async function populateCategoryFormVilleSelector() {
-      try {
-        if (!categoryVilleSelect || !win.supabaseService) return;
-        let cities = [];
-        try {
-          if (typeof win.supabaseService.getValidCities === 'function') {
-            cities = await win.supabaseService.getValidCities();
-          }
-        } catch (e) {
-          console.warn('[contrib] populateCategoryFormVilleSelector error:', e);
-        }
-        
-        // Filtrer selon les permissions de l'utilisateur
-        const userVilles = window.__CONTRIB_VILLES;
-        let filteredCities = [];
-        let showGlobalOption = false;
-        const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
-        
-        if (hasGlobalAccess) {
-          // Accès global : toutes les villes + option globale
-          filteredCities = cities;
-          showGlobalOption = true;
-        } else if (Array.isArray(userVilles) && userVilles.length > 0) {
-          // Filtrer pour ne garder que les villes autorisées
-          filteredCities = cities.filter(c => userVilles.includes(c));
-        }
-        // Si userVilles est null ou vide, aucune ville n'est disponible
-        
-        // Clear and repopulate form selector
-        categoryVilleSelect.innerHTML = '<option value="">Sélectionner une collectivité</option>';
-        // Ajouter "default" uniquement pour les utilisateurs avec accès global
-        if (showGlobalOption) {
-          categoryVilleSelect.insertAdjacentHTML('beforeend', '<option value="default">🌍 Catégories globales (default)</option>');
-        }
-        const cityOptions = (Array.isArray(filteredCities) ? filteredCities : []).map(c => `<option value="${c}">${c}</option>`).join('');
-        if (cityOptions) categoryVilleSelect.insertAdjacentHTML('beforeend', cityOptions);
-      } catch(err) {
-        console.warn('[contrib] populateCategoryFormVilleSelector error:', err);
-      }
-    }
-
-    async function populateCategoryLayersCheckboxes(ville) {
-      try {
-        if (!categoryLayersCheckboxes || !win.supabaseService) return;
-        
-        categoryLayersCheckboxes.innerHTML = '';
-        
-        // Convertir "default" en null
-        if (ville === 'default') ville = null;
-        
-        // Récupérer les layers de cette ville (ou ville NULL si pas de ville)
-        let query = win.supabaseService.getClient()
-          .from('layers')
-          .select('name')
-          .order('name');
-        
-        if (ville) {
-          query = query.eq('ville', ville);
-        } else {
-          query = query.is('ville', null);
-        }
-        
-        const { data, error } = await query;
-        
-        if (error) {
-          console.warn('[contrib] Erreur lors du chargement des layers:', error);
-          categoryLayersCheckboxes.innerHTML = '<small style="color:#999;">Aucun layer disponible</small>';
-          return;
-        }
-        
-        const layers = data || [];
-        
-        if (layers.length === 0) {
-          categoryLayersCheckboxes.innerHTML = '<small style="color:#999;">Aucun layer disponible pour cette ville</small>';
-          return;
-        }
-        
-        // Créer les checkboxes compactes (style chips)
-        layers.forEach(layer => {
-          const chip = document.createElement('label');
-          chip.style.cssText = 'display:inline-flex; align-items:center; gap:6px; cursor:pointer; padding:6px 12px; border-radius:16px; border:1px solid var(--border, #e0e0e0); background:var(--surface, #fff); transition:all 0.15s; font-size:13px; font-weight:500; user-select:none;';
-          
-          const checkbox = document.createElement('input');
-          checkbox.type = 'checkbox';
-          checkbox.name = 'category-layer-checkbox';
-          checkbox.value = layer.name;
-          checkbox.style.cssText = 'width:16px; height:16px; cursor:pointer; accent-color:var(--accent, #14AE5C); margin:0;';
-          
-          const label = document.createElement('span');
-          label.textContent = layer.name;
-          label.style.cssText = 'color:var(--text-strong, #333);';
-          
-          chip.appendChild(checkbox);
-          chip.appendChild(label);
-          
-          // Interactions
-          checkbox.addEventListener('change', () => {
-            if (checkbox.checked) {
-              chip.style.background = 'var(--accent, #14AE5C)';
-              chip.style.borderColor = 'var(--accent, #14AE5C)';
-              label.style.color = '#fff';
-            } else {
-              chip.style.background = 'var(--surface, #fff)';
-              chip.style.borderColor = 'var(--border, #e0e0e0)';
-              label.style.color = 'var(--text-strong, #333)';
-            }
-          });
-          
-          chip.addEventListener('mouseenter', () => {
-            if (!checkbox.checked) {
-              chip.style.borderColor = 'var(--accent, #14AE5C)';
-            }
-          });
-          
-          chip.addEventListener('mouseleave', () => {
-            if (!checkbox.checked) {
-              chip.style.borderColor = 'var(--border, #e0e0e0)';
-            }
-          });
-          
-          categoryLayersCheckboxes.appendChild(chip);
-        });
-        
-      } catch (err) {
-        console.error('[contrib] populateCategoryLayersCheckboxes error:', err);
-        categoryLayersCheckboxes.innerHTML = '<small style="color:#f87171;">Erreur de chargement</small>';
-      }
-    }
-
-    // Listener sur le changement de ville dans le formulaire de catégorie
-    if (categoryVilleSelect) {
-      categoryVilleSelect.addEventListener('change', async () => {
-        const ville = categoryVilleSelect.value;
-        
-        // Sauvegarder les sélections actuelles avant de recharger
-        const currentSelections = Array.from(document.querySelectorAll('input[name="category-layer-checkbox"]:checked'))
-          .map(cb => cb.value);
-        
-        // Recharger les checkboxes pour la nouvelle ville
-        await populateCategoryLayersCheckboxes(ville);
-        
-        // Restaurer les sélections si les layers existent toujours
-        currentSelections.forEach(layerName => {
-          const checkbox = document.querySelector(`input[name="category-layer-checkbox"][value="${layerName}"]`);
-          if (checkbox) checkbox.checked = true;
-        });
-      });
-    }
-
+    // refreshCategoriesList moved to contrib-categories-crud.js
     async function refreshCategoriesList() {
-      try {
-        if (!categoriesList || !win.supabaseService) return;
-        
-        const ville = categoryVilleSelector?.value || '';
-        if (!ville) {
-          if (categoriesContent) categoriesContent.style.display = 'none';
-          return;
-        }
-        
-        // Afficher un loader pendant le chargement
-        if (categoriesContent) {
-          categoriesContent.style.display = '';
-          categoriesList.innerHTML = '<p style="opacity:0.6; padding:12px; text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Chargement...</p>';
-        }
-
-        // Si "default", charger les catégories avec ville EMPTY ('')
-        let categories;
-        if (ville.toLowerCase() === 'default') {
-          // Requête spéciale pour ville EMPTY
-          categories = await win.supabaseService.getCategoryIconsByCity('');
-        } else {
-          categories = await win.supabaseService.getCategoryIconsByCity(ville);
-        }
-        
-        if (!categories || categories.length === 0) {
-          categoriesList.innerHTML = '<p style="opacity:0.6; padding:12px; text-align:center;">Aucune catégorie pour cette ville.<br><small>Cliquez sur "Nouvelle catégorie" pour en créer une.</small></p>';
-          return;
-        }
-
-        const html = categories.map(cat => {
-          // Escape HTML to prevent XSS
-          const escapedCategory = String(cat.category || '').replace(/[<>"'&]/g, (c) => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
-          const originalIconClass = String(cat.icon_class || '');
-          let displayIconClass = originalIconClass;
-          
-          // Auto-fix icon class for DISPLAY only if missing style prefix
-          if (displayIconClass.startsWith('fa-') && !displayIconClass.startsWith('fa-solid') && !displayIconClass.startsWith('fa-regular') && !displayIconClass.startsWith('fa-brands') && !displayIconClass.startsWith('fa-light') && !displayIconClass.startsWith('fa-thin') && !displayIconClass.startsWith('fa-duotone')) {
-            displayIconClass = 'fa-solid ' + displayIconClass;
-          }
-          
-          const escapedDisplayIconClass = displayIconClass.replace(/[<>"'&]/g, (c) => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
-          const escapedOriginalIconClass = originalIconClass.replace(/[<>"'&]/g, (c) => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
-          const escapedVille = String(cat.ville || '').replace(/[<>"'&]/g, (c) => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
-          
-          return `
-          <div class="category-item" style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid #ddd; border-radius:8px; margin-bottom:8px; background:#fff;">
-            <div style="flex:0 0 40px; text-align:center; font-size:24px; color:#333;">
-              <i class="${escapedDisplayIconClass}" aria-hidden="true"></i>
-            </div>
-            <div style="flex:1;">
-              <div style="font-weight:600;">${escapedCategory}</div>
-              <div style="font-size:0.85em; opacity:0.7;"><code style="background:#f5f5f5; padding:2px 4px; border-radius:3px;">${escapedOriginalIconClass}</code> • Ordre: ${cat.display_order}</div>
-            </div>
-            <div style="display:flex; gap:6px;">
-              <button type="button" class="gp-btn gp-btn--secondary" data-action="edit" data-ville="${escapedVille}" data-category="${escapedCategory}" data-icon="${escapedOriginalIconClass}" data-order="${cat.display_order}" data-layers="${JSON.stringify(cat.layers_to_display || []).replace(/"/g, '&quot;')}" data-styles="${JSON.stringify(cat.category_styles || {}).replace(/"/g, '&quot;')}">
-                <i class="fa-solid fa-pen"></i> Modifier
-              </button>
-              <button type="button" class="gp-btn gp-btn--danger" data-action="delete" data-ville="${escapedVille}" data-category="${escapedCategory}">
-                <i class="fa-solid fa-trash"></i>
-              </button>
-            </div>
-          </div>
-        `;
-        }).join('');
-
-        categoriesList.innerHTML = html;
-
-        // Bind edit/delete buttons
-        categoriesList.querySelectorAll('[data-action="edit"]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const ville = btn.dataset.ville;
-            const category = btn.dataset.category;
-            const icon = btn.dataset.icon;
-            const order = btn.dataset.order;
-            let layers_to_display = [];
-            let category_styles = {};
-            try {
-              layers_to_display = JSON.parse(btn.dataset.layers || '[]');
-            } catch (e) {
-              console.warn('[contrib] Erreur parsing layers_to_display:', e);
-            }
-            try {
-              category_styles = JSON.parse(btn.dataset.styles || '{}');
-            } catch (e) {
-              console.warn('[contrib] Erreur parsing category_styles:', e);
-            }
-            showCategoryForm('edit', { ville, category, icon_class: icon, display_order: order, layers_to_display, category_styles });
-          });
-        });
-
-        categoriesList.querySelectorAll('[data-action="delete"]').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const ville = btn.dataset.ville;
-            const category = btn.dataset.category;
-            
-            // Message de confirmation avec avertissement
-            const confirmMessage = 
-              `⚠️ Supprimer la catégorie "${category}" ?\n\n` +
-              `Note : La suppression n'est possible que si aucune contribution n'est liée à cette catégorie.\n\n` +
-              `Voulez-vous continuer ?`;
-            
-            if (!confirm(confirmMessage)) return;
-            
-            await deleteCategory(ville, category);
-          });
-        });
-      } catch(err) {
-        console.error('[contrib] refreshCategoriesList error:', err);
-        if (categoriesList) categoriesList.innerHTML = '<p style="color:red; padding:12px;">Erreur de chargement.</p>';
-      }
+      const elements = { categoriesList, categoriesContent, categoryVilleSelector };
+      await ContribCategoriesCrud.refreshCategoriesList?.(elements, showCategoryForm, deleteCategory);
     }
 
+    // showCategoryForm moved to contrib-categories-crud.js
     function showCategoryForm(mode, data = {}) {
-      try {
-        if (!categoryFormContainer || !categoryForm) return;
-        
-        categoryEditModeInput.value = mode;
-        
-        if (mode === 'edit') {
-          categoryFormTitle.textContent = 'Modifier la catégorie';
-          categoryOriginalNameInput.value = data.category || '';
-          categoryNameInput.value = data.category || '';
-          
-          // Ajouter fa-solid si manquant lors du chargement
-          let iconClass = data.icon_class || '';
-          if (iconClass && iconClass.startsWith('fa-') && !iconClass.startsWith('fa-solid') && !iconClass.startsWith('fa-regular') && !iconClass.startsWith('fa-brands') && !iconClass.startsWith('fa-light') && !iconClass.startsWith('fa-thin') && !iconClass.startsWith('fa-duotone')) {
-            iconClass = 'fa-solid ' + iconClass;
-          }
-          categoryIconInput.value = iconClass;
-          // Déclencher la mise à jour de la prévisualisation
-          categoryIconInput.dispatchEvent(new Event('input'));
-          
-          categoryOrderInput.value = data.display_order || 100;
-          // Convertir EMPTY ('') en "default" pour l'affichage
-          const displayVille = data.ville === '' ? 'default' : (data.ville || 'default');
-          categoryVilleSelect.value = displayVille;
-          categoryVilleSelect.dataset.originalVille = displayVille;
-          categoryVilleSelect.disabled = true; // Cannot change ville in edit mode
-          
-          // Charger les layers et pré-sélectionner ceux de la catégorie
-          populateCategoryLayersCheckboxes(displayVille).then(() => {
-            const layersToDisplay = data.layers_to_display || [];
-            
-            // Attendre un tick pour que les checkboxes soient dans le DOM
-            setTimeout(() => {
-              const checkboxes = document.querySelectorAll('input[name="category-layer-checkbox"]');
-              checkboxes.forEach(cb => {
-                cb.checked = layersToDisplay.includes(cb.value);
-              });
-            }, 50);
-          });
-          
-          // Pré-remplir les champs de styles
-          const styles = data.category_styles || {};
-          if (categoryStyleColor) {
-            const trimmedColor = (styles.color && typeof styles.color === 'string') ? styles.color.trim() : '';
-            categoryStyleColor.value = (trimmedColor && /^#[0-9A-Fa-f]{6}$/.test(trimmedColor)) ? trimmedColor : '#000000';
-          }
-          if (categoryStyleWeight) categoryStyleWeight.value = styles.weight || '';
-          if (categoryStyleDashArray) categoryStyleDashArray.value = styles.dashArray || '';
-          if (categoryStyleOpacity) categoryStyleOpacity.value = styles.opacity || '';
-          if (categoryStyleFill) {
-            categoryStyleFill.checked = styles.fill === true;
-            if (categoryStyleFillOptions) {
-              categoryStyleFillOptions.style.display = styles.fill ? 'block' : 'none';
-            }
-          }
-          if (categoryStyleFillColor) {
-            const trimmedFillColor = (styles.fillColor && typeof styles.fillColor === 'string') ? styles.fillColor.trim() : '';
-            categoryStyleFillColor.value = (trimmedFillColor && /^#[0-9A-Fa-f]{6}$/.test(trimmedFillColor)) ? trimmedFillColor : '#999999';
-          }
-          if (categoryStyleFillOpacity) categoryStyleFillOpacity.value = styles.fillOpacity || '';
-          
-          // Mettre à jour la prévisualisation avec les styles chargés
-          setTimeout(() => {
-            if (typeof updateStylePreview === 'function') {
-              updateStylePreview();
-            }
-          }, 150);
-          
-          // Show back button in edit mode
-          if (categoryFormBack) categoryFormBack.style.display = '';
-          
-          // Hide ville selector and categories list when editing
-          if (categoryVilleSelectorContainer) categoryVilleSelectorContainer.style.display = 'none';
-          if (categoriesContent) categoriesContent.style.display = 'none';
-          
-          // Update icon preview
-          if (categoryIconPreview) {
-            const iconEl = categoryIconPreview.querySelector('i');
-            if (iconEl && data.icon_class) {
-              iconEl.className = data.icon_class;
-            }
-          }
-        } else {
-          categoryFormTitle.textContent = 'Nouvelle catégorie';
-          categoryOriginalNameInput.value = '';
-          categoryVilleSelect.disabled = false;
-          
-          // Réinitialiser le formulaire SAUF les champs color (pour éviter l'erreur de validation)
-          if (categoryNameInput) categoryNameInput.value = '';
-          if (categoryIconInput) categoryIconInput.value = '';
-          if (categoryOrderInput) categoryOrderInput.value = '100';
-          
-          // Default to selected city from main selector
-          const selectedCity = categoryVilleSelector?.value || win.activeCity || '';
-          if (selectedCity) {
-            categoryVilleSelect.value = selectedCity;
-            // Charger les layers pour la ville sélectionnée
-            populateCategoryLayersCheckboxes(selectedCity);
-          }
-          
-          // Réinitialiser les champs de styles avec des valeurs par défaut valides
-          if (categoryStyleColor) categoryStyleColor.value = '#000000';
-          if (categoryStyleWeight) categoryStyleWeight.value = '';
-          if (categoryStyleDashArray) categoryStyleDashArray.value = '';
-          if (categoryStyleOpacity) categoryStyleOpacity.value = '';
-          if (categoryStyleFill) {
-            categoryStyleFill.checked = false;
-            if (categoryStyleFillOptions) categoryStyleFillOptions.style.display = 'none';
-          }
-          if (categoryStyleFillColor) categoryStyleFillColor.value = '#999999';
-          if (categoryStyleFillOpacity) categoryStyleFillOpacity.value = '';
-          
-          // Hide back button in create mode
-          if (categoryFormBack) categoryFormBack.style.display = 'none';
-          
-          // Show ville selector in create mode
-          if (categoryVilleSelectorContainer) {
-            categoryVilleSelectorContainer.style.display = '';
-            categoryVilleSelectorContainer.style.opacity = '1';
-          }
-          
-          // Keep categories list visible when creating
-          if (categoriesContent && categoryVilleSelector?.value) {
-            categoriesContent.style.display = '';
-          }
-          
-          // Reset icon preview
-          if (categoryIconPreview) {
-            const iconEl = categoryIconPreview.querySelector('i');
-            if (iconEl) iconEl.className = 'fa-solid fa-question';
-          }
-        }
-        
-        categoryFormContainer.style.display = '';
-      } catch(e) {
-        console.error('[contrib] showCategoryForm error:', e);
-      }
+      const elements = {
+        categoryFormContainer,
+        categoryForm,
+        categoryEditModeInput,
+        categoryFormTitle,
+        categoryOriginalNameInput,
+        categoryNameInput,
+        categoryIconInput,
+        categoryOrderInput,
+        categoryVilleSelect,
+        categoryLayersCheckboxes,
+        categoryStyleColor,
+        categoryStyleWeight,
+        categoryStyleDashArray,
+        categoryStyleOpacity,
+        categoryStyleFill,
+        categoryStyleFillOptions,
+        categoryStyleFillColor,
+        categoryStyleFillOpacity,
+        categoryFormBack,
+        categoryVilleSelectorContainer,
+        categoriesContent,
+        categoryIconPreview,
+        categoryVilleSelector
+      };
+      ContribCategoriesCrud.showCategoryForm?.(mode, data, elements, updateStylePreview);
     }
 
+    // hideCategoryForm moved to contrib-categories-crud.js
     async function hideCategoryForm() {
-      try {
-        // Masquer le formulaire et le picker d'icônes
-        if (categoryFormContainer) categoryFormContainer.style.display = 'none';
-        if (categoryIconPicker) categoryIconPicker.style.display = 'none';
-        
-        // Réinitialiser manuellement les champs (éviter reset() qui cause des erreurs de validation sur les champs color)
-        if (categoryNameInput) categoryNameInput.value = '';
-        if (categoryIconInput) categoryIconInput.value = '';
-        if (categoryOrderInput) categoryOrderInput.value = '100';
-        if (categoryStyleColor) categoryStyleColor.value = '#000000';
-        if (categoryStyleWeight) categoryStyleWeight.value = '';
-        if (categoryStyleDashArray) categoryStyleDashArray.value = '';
-        if (categoryStyleOpacity) categoryStyleOpacity.value = '';
-        if (categoryStyleFill) categoryStyleFill.checked = false;
-        if (categoryStyleFillColor) categoryStyleFillColor.value = '#999999';
-        if (categoryStyleFillOpacity) categoryStyleFillOpacity.value = '';
-        if (categoryStyleFillOptions) categoryStyleFillOptions.style.display = 'none';
-        
-        // Réafficher le sélecteur de ville
-        if (categoryVilleSelectorContainer) {
-          categoryVilleSelectorContainer.style.display = '';
-          categoryVilleSelectorContainer.style.opacity = '1';
-        }
-        
-        // Recharger la liste des catégories si une ville est sélectionnée
-        const ville = categoryVilleSelector?.value || '';
-        if (ville) {
-          await refreshCategoriesList();
-          if (categoriesContent) categoriesContent.style.display = '';
-        } else {
-          if (categoriesContent) categoriesContent.style.display = 'none';
-        }
-      } catch(err) {
-        console.error('[contrib] hideCategoryForm error:', err);
-      }
+      const elements = {
+        categoryFormContainer,
+        categoryIconPicker,
+        categoryNameInput,
+        categoryIconInput,
+        categoryOrderInput,
+        categoryStyleColor,
+        categoryStyleWeight,
+        categoryStyleDashArray,
+        categoryStyleOpacity,
+        categoryStyleFill,
+        categoryStyleFillColor,
+        categoryStyleFillOpacity,
+        categoryStyleFillOptions,
+        categoryVilleSelectorContainer,
+        categoryVilleSelector,
+        categoriesContent
+      };
+      await ContribCategoriesCrud.hideCategoryForm?.(elements, refreshCategoriesList);
     }
 
+    // deleteCategory moved to contrib-categories-crud.js
     async function deleteCategory(ville, category) {
-      try {
-        if (!win.supabaseService) return;
-        
-        // Vérifier s'il existe des contributions liées à cette catégorie
-        console.log('[deleteCategory] Vérification des contributions pour:', { ville, category });
-        
-        const contributions = await win.supabaseService.fetchProjectsByCategory(category);
-        
-        if (!contributions) {
-          console.error('[deleteCategory] Erreur lors de la vérification des contributions');
-          showToast('Erreur lors de la vérification des contributions.', 'error');
-          return;
-        }
-        
-        // Si des contributions existent, bloquer la suppression
-        if (contributions.length > 0) {
-          const count = contributions.length;
-          const projectNames = contributions.slice(0, 3).map(c => c.project_name).join(', ');
-          const moreText = count > 3 ? ` et ${count - 3} autre(s)` : '';
-          
-          // Afficher un message détaillé avec les contributions liées
-          alert(
-            `❌ Suppression impossible\n\n` +
-            `La catégorie "${category}" ne peut pas être supprimée car elle contient ${count} contribution(s) :\n\n` +
-            `• ${projectNames}${moreText}\n\n` +
-            `📋 Action requise :\n` +
-            `Rendez-vous dans "Mes contributions" et supprimez d'abord toutes les contributions de cette catégorie, puis réessayez.`
-          );
-          
-          console.warn('[deleteCategory] Suppression bloquée:', { category, count, contributions });
-          return;
-        }
-        
-        // Aucune contribution, procéder à la suppression
-        console.log('[deleteCategory] Aucune contribution trouvée, suppression autorisée');
-        
-        const result = await win.supabaseService.deleteCategoryIcon(ville, category);
-        
-        if (result.success) {
-          showToast('✅ Catégorie supprimée avec succès.', 'success');
-          await refreshCategoriesList();
-        } else {
-          showToast('Erreur: ' + (result.error || 'Échec de suppression'), 'error');
-        }
-      } catch(err) {
-        console.error('[contrib] deleteCategory error:', err);
-        showToast('Erreur de suppression.', 'error');
-      }
+      await ContribCategoriesCrud.deleteCategory?.(ville, category, showToast, refreshCategoriesList);
     }
 
     // Bind category add button
@@ -3427,108 +1779,27 @@
       });
     }
 
-    // Bind category form submit
+    // Bind category form submit - moved to contrib-categories-crud.js
     if (categoryForm) {
       categoryForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        try {
-          const mode = categoryEditModeInput.value;
-          const category = categoryNameInput.value.trim().toLowerCase();
-          const icon_class = categoryIconInput.value.trim();
-          const display_order = parseInt(categoryOrderInput.value) || 100;
-          let ville = categoryVilleSelect.value.trim().toLowerCase();
-          
-          // Récupérer les layers sélectionnés
-          const selectedLayers = Array.from(document.querySelectorAll('input[name="category-layer-checkbox"]:checked'))
-            .map(cb => cb.value);
-          
-          // Récupérer les styles personnalisés
-          const category_styles = {};
-          if (categoryStyleColor && categoryStyleColor.value) {
-            category_styles.color = categoryStyleColor.value;
-          }
-          if (categoryStyleWeight && categoryStyleWeight.value) {
-            category_styles.weight = parseInt(categoryStyleWeight.value);
-          }
-          if (categoryStyleDashArray && categoryStyleDashArray.value) {
-            category_styles.dashArray = categoryStyleDashArray.value;
-          }
-          if (categoryStyleOpacity && categoryStyleOpacity.value) {
-            category_styles.opacity = parseFloat(categoryStyleOpacity.value);
-          }
-          if (categoryStyleFill && categoryStyleFill.checked) {
-            category_styles.fill = true;
-            if (categoryStyleFillColor && categoryStyleFillColor.value) {
-              category_styles.fillColor = categoryStyleFillColor.value;
-            }
-            if (categoryStyleFillOpacity && categoryStyleFillOpacity.value) {
-              category_styles.fillOpacity = parseFloat(categoryStyleFillOpacity.value);
-            }
-          }
-          
-          // Convertir "default" en EMPTY ('') pour la base de données
-          if (ville === 'default') {
-            ville = '';
-          }
-          
-          if (!category || !icon_class) {
-            showToast('Le nom et l\'icône sont requis.', 'error');
-            return;
-          }
-
-          let result;
-          if (mode === 'edit') {
-            let originalCategory = categoryOriginalNameInput.value.trim().toLowerCase();
-            let originalVille = categoryVilleSelect.dataset.originalVille;
-            // Convertir "default" en EMPTY ('')
-            if (originalVille === 'default') originalVille = '';
-            
-            result = await win.supabaseService.updateCategoryIcon(originalVille, originalCategory, {
-              category,
-              icon_class,
-              display_order,
-              layers_to_display: selectedLayers,
-              category_styles
-            });
-          } else {
-            result = await win.supabaseService.createCategoryIcon({
-              category,
-              icon_class,
-              display_order,
-              ville,
-              layers_to_display: selectedLayers,
-              category_styles
-            });
-          }
-
-          if (result.success) {
-            const message = mode === 'edit' 
-              ? (result.updatedContributions > 0 
-                  ? `Catégorie modifiée. ${result.updatedContributions} projet(s) mis à jour.`
-                  : 'Catégorie modifiée.')
-              : 'Catégorie créée.';
-            showToast(message, 'success');
-            hideCategoryForm();
-            
-            // Refresh list and ensure ville selector + list are visible
-            if (categoryVilleSelectorContainer) categoryVilleSelectorContainer.style.display = '';
-            await refreshCategoriesList();
-            if (categoriesContent && ville) {
-              categoriesContent.style.display = '';
-            }
-            
-            // Emit event to refresh dynamic categories in nav
-            try { 
-              window.dispatchEvent(new CustomEvent('categories:updated', { detail: { ville } })); 
-            } catch(_) {}
-          } else {
-            showToast('Erreur: ' + (result.error || 'Échec'), 'error');
-          }
-        } catch(err) {
-          console.error('[contrib] category form submit error:', err);
-          showToast('Erreur lors de l\'enregistrement.', 'error');
-        }
+        const elements = {
+          categoryEditModeInput,
+          categoryNameInput,
+          categoryIconInput,
+          categoryOrderInput,
+          categoryVilleSelect,
+          categoryOriginalNameInput,
+          categoryStyleColor,
+          categoryStyleWeight,
+          categoryStyleDashArray,
+          categoryStyleOpacity,
+          categoryStyleFill,
+          categoryStyleFillColor,
+          categoryStyleFillOpacity,
+          categoryVilleSelectorContainer,
+          categoriesContent
+        };
+        await ContribCategoriesCrud.handleCategoryFormSubmit?.(e, elements, showToast, hideCategoryForm, refreshCategoriesList);
       });
     }
 
@@ -3618,6 +1889,8 @@
         activateTab('create');
       }
     } catch(_) {}
+    
+    } // End of initializeContribForm()
   }
 
   // Fonction helper exportée pour vérifier si l'utilisateur peut éditer une ville
