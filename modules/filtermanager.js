@@ -56,7 +56,13 @@
 
         contributionCategories.forEach(category => {
           const cfg = (window.categoryConfig && window.categoryConfig[category]) || {};
-          const iconClass = cfg.icon || '';
+          let iconClass = cfg.icon || '';
+          
+          // Ajouter fa-solid si manquant
+          if (iconClass && !iconClass.includes('fa-solid') && !iconClass.includes('fa-regular') && !iconClass.includes('fa-brands')) {
+            iconClass = `fa-solid ${iconClass}`;
+          }
+          
           const labelText = String(category || '');
           
           const filterItem = document.createElement('div');
@@ -112,11 +118,17 @@
           if (!items.length) return;
 
           items.forEach(item => {
-            const filterItem = document.createElement('div');
+            // Ajouter fa-solid si manquant
+          let iconClass = item.icon || '';
+          if (iconClass && !iconClass.includes('fa-solid') && !iconClass.includes('fa-regular') && !iconClass.includes('fa-brands')) {
+            iconClass = `fa-solid ${iconClass}`;
+          }
+          
+          const filterItem = document.createElement('div');
             filterItem.className = 'filter-item';
             filterItem.dataset.layer = item.layer;
             filterItem.innerHTML = `
-              <span class="filter-icon"><i class="${item.icon}"></i></span>
+              <span class="filter-icon"><i class="${iconClass}"></i></span>
               <span class="filter-label">${item.label}</span>
             `;
             groupDiv.appendChild(filterItem);

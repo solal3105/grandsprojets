@@ -119,12 +119,64 @@ const SubmenuModule = (() => {
     if (closeBtn) {
       closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const activeTab = document.querySelector('.nav-category.active');
-        if (activeTab) activeTab.classList.remove('active');
-        if (container) container.style.display = 'none';
-        if (window.NavigationModule?.resetToDefaultView) {
-          window.NavigationModule.resetToDefaultView(undefined, { preserveMapView: true });
+        
+        console.log('[SubmenuModule] Fermeture du submenu');
+        
+        // 1. Masquer le submenu
+        container.style.display = 'none';
+        
+        // 2. Désactiver tous les onglets
+        document.querySelectorAll('.nav-category.active').forEach(tab => tab.classList.remove('active'));
+        
+        // 3. Réinitialiser les border-radius de la navigation (tous les coins arrondis)
+        const leftNav = document.getElementById('left-nav');
+        if (leftNav) {
+          leftNav.style.borderRadius = '20px';
         }
+        
+        // 4. Supprimer tous les filtres
+        if (window.FilterModule?.resetAll) {
+          window.FilterModule.resetAll();
+        }
+        
+        // 5. Masquer TOUTES les couches actuelles
+        if (window.MapModule?.layers) {
+          Object.keys(window.MapModule.layers).forEach(layerName => {
+            window.MapModule.removeLayer(layerName);
+          });
+        }
+        
+        // 6. Afficher TOUTES les contributions (toutes les catégories)
+        const layersToDisplay = new Set(); // Pour éviter les doublons
+        
+        if (window.allContributions && Array.isArray(window.allContributions)) {
+          const categoriesWithContributions = [...new Set(window.allContributions.map(c => c.category))];
+          console.log('[SubmenuModule] Affichage des contributions:', categoriesWithContributions);
+          
+          categoriesWithContributions.forEach(catName => {
+            if (window.DataModule?.layerData?.[catName] && window.DataModule?.createGeoJsonLayer) {
+              window.DataModule.createGeoJsonLayer(catName, window.DataModule.layerData[catName]);
+              layersToDisplay.add(catName);
+            }
+          });
+        }
+        
+        // 7. Afficher les couches is_default = true (seulement si pas déjà affichées)
+        if (window.defaultLayers && Array.isArray(window.defaultLayers)) {
+          console.log('[SubmenuModule] Affichage des couches par défaut:', window.defaultLayers);
+          
+          window.defaultLayers.forEach(layerName => {
+            // Ne pas afficher si déjà affichée comme contribution
+            if (!layersToDisplay.has(layerName) && 
+                window.DataModule?.layerData?.[layerName] && 
+                window.DataModule?.createGeoJsonLayer) {
+              window.DataModule.createGeoJsonLayer(layerName, window.DataModule.layerData[layerName]);
+              layersToDisplay.add(layerName);
+            }
+          });
+        }
+        
+        console.log('[SubmenuModule] Couches affichées:', Array.from(layersToDisplay));
       });
     }
     

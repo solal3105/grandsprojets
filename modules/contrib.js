@@ -2590,10 +2590,17 @@
 
     async function loadCategoriesPanel() {
       try {
-        // Masquer tout pendant le chargement pour éviter les clignotements
-        if (categoryVilleSelectorContainer) categoryVilleSelectorContainer.style.opacity = '0';
-        if (categoriesContent) categoriesContent.style.display = 'none';
+        // Réinitialiser complètement l'état du panneau catégories
+        // Masquer le formulaire de catégorie s'il était visible
         if (categoryFormContainer) categoryFormContainer.style.display = 'none';
+        if (categoryIconPicker) categoryIconPicker.style.display = 'none';
+        
+        // Masquer temporairement le sélecteur de ville pendant le chargement
+        if (categoryVilleSelectorContainer) {
+          categoryVilleSelectorContainer.style.opacity = '0';
+          categoryVilleSelectorContainer.style.display = '';  // S'assurer qu'il est visible
+        }
+        if (categoriesContent) categoriesContent.style.display = 'none';
         
         // Charger les données en parallèle
         await Promise.all([
@@ -2613,7 +2620,10 @@
       } catch(e) {
         console.error('[contrib] loadCategoriesPanel error:', e);
         // En cas d'erreur, afficher quand même le sélecteur
-        if (categoryVilleSelectorContainer) categoryVilleSelectorContainer.style.opacity = '1';
+        if (categoryVilleSelectorContainer) {
+          categoryVilleSelectorContainer.style.display = '';
+          categoryVilleSelectorContainer.style.opacity = '1';
+        }
       }
     }
 
@@ -2663,8 +2673,53 @@
     if (categoryStyleFill && categoryStyleFillOptions) {
       categoryStyleFill.addEventListener('change', () => {
         categoryStyleFillOptions.style.display = categoryStyleFill.checked ? 'block' : 'none';
+        updateStylePreview();
       });
     }
+    
+    // Prévisualisation en temps réel des styles
+    function updateStylePreview() {
+      const line = document.getElementById('style-preview-line');
+      const polygon = document.getElementById('style-preview-polygon');
+      
+      if (!line || !polygon) return;
+      
+      const color = categoryStyleColor?.value || '#000000';
+      const weight = categoryStyleWeight?.value || 3;
+      const dashArray = categoryStyleDashArray?.value || '';
+      const opacity = categoryStyleOpacity?.value || 1;
+      const fill = categoryStyleFill?.checked || false;
+      const fillColor = categoryStyleFillColor?.value || '#999999';
+      const fillOpacity = categoryStyleFillOpacity?.value || 0.3;
+      
+      // Appliquer à la ligne
+      line.setAttribute('stroke', color);
+      line.setAttribute('stroke-width', weight);
+      line.setAttribute('stroke-opacity', opacity);
+      line.setAttribute('stroke-dasharray', dashArray);
+      
+      // Appliquer au polygone
+      polygon.setAttribute('stroke', color);
+      polygon.setAttribute('stroke-width', weight);
+      polygon.setAttribute('stroke-opacity', opacity);
+      polygon.setAttribute('stroke-dasharray', dashArray);
+      polygon.setAttribute('fill', fill ? fillColor : 'none');
+      polygon.setAttribute('fill-opacity', fill ? fillOpacity : 0);
+    }
+    
+    // Écouter les changements sur tous les champs de style
+    [categoryStyleColor, categoryStyleWeight, categoryStyleDashArray, categoryStyleOpacity, 
+     categoryStyleFillColor, categoryStyleFillOpacity].forEach(input => {
+      if (input) {
+        input.addEventListener('input', updateStylePreview);
+        input.addEventListener('change', updateStylePreview);
+      }
+    });
+    
+    // Initialiser la prévisualisation après un court délai pour s'assurer que le DOM est prêt
+    setTimeout(() => {
+      updateStylePreview();
+    }, 100);
 
     async function populateCategoryVilleSelector() {
       try {
@@ -2756,17 +2811,50 @@
           return;
         }
         
-        // Créer les checkboxes
+        // Créer les checkboxes compactes (style chips)
         layers.forEach(layer => {
-          const checkbox = document.createElement('label');
-          checkbox.style.cssText = 'display:flex; align-items:center; gap:6px; cursor:pointer; padding:6px; border-radius:4px; transition:background 0.2s;';
-          checkbox.innerHTML = `
-            <input type="checkbox" name="category-layer-checkbox" value="${layer.name}" style="cursor:pointer;">
-            <span style="font-size:0.9em;">${layer.name}</span>
-          `;
-          checkbox.addEventListener('mouseenter', () => checkbox.style.background = '#e5e7eb');
-          checkbox.addEventListener('mouseleave', () => checkbox.style.background = 'transparent');
-          categoryLayersCheckboxes.appendChild(checkbox);
+          const chip = document.createElement('label');
+          chip.style.cssText = 'display:inline-flex; align-items:center; gap:6px; cursor:pointer; padding:6px 12px; border-radius:16px; border:1px solid var(--border, #e0e0e0); background:var(--surface, #fff); transition:all 0.15s; font-size:13px; font-weight:500; user-select:none;';
+          
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.name = 'category-layer-checkbox';
+          checkbox.value = layer.name;
+          checkbox.style.cssText = 'width:16px; height:16px; cursor:pointer; accent-color:var(--accent, #14AE5C); margin:0;';
+          
+          const label = document.createElement('span');
+          label.textContent = layer.name;
+          label.style.cssText = 'color:var(--text-strong, #333);';
+          
+          chip.appendChild(checkbox);
+          chip.appendChild(label);
+          
+          // Interactions
+          checkbox.addEventListener('change', () => {
+            if (checkbox.checked) {
+              chip.style.background = 'var(--accent, #14AE5C)';
+              chip.style.borderColor = 'var(--accent, #14AE5C)';
+              label.style.color = '#fff';
+            } else {
+              chip.style.background = 'var(--surface, #fff)';
+              chip.style.borderColor = 'var(--border, #e0e0e0)';
+              label.style.color = 'var(--text-strong, #333)';
+            }
+          });
+          
+          chip.addEventListener('mouseenter', () => {
+            if (!checkbox.checked) {
+              chip.style.borderColor = 'var(--accent, #14AE5C)';
+            }
+          });
+          
+          chip.addEventListener('mouseleave', () => {
+            if (!checkbox.checked) {
+              chip.style.borderColor = 'var(--border, #e0e0e0)';
+            }
+          });
+          
+          categoryLayersCheckboxes.appendChild(chip);
         });
         
       } catch (err) {
@@ -2890,7 +2978,15 @@
           btn.addEventListener('click', async () => {
             const ville = btn.dataset.ville;
             const category = btn.dataset.category;
-            if (!confirm(`Supprimer la catégorie "${category}" ?`)) return;
+            
+            // Message de confirmation avec avertissement
+            const confirmMessage = 
+              `⚠️ Supprimer la catégorie "${category}" ?\n\n` +
+              `Note : La suppression n'est possible que si aucune contribution n'est liée à cette catégorie.\n\n` +
+              `Voulez-vous continuer ?`;
+            
+            if (!confirm(confirmMessage)) return;
+            
             await deleteCategory(ville, category);
           });
         });
@@ -2910,7 +3006,16 @@
           categoryFormTitle.textContent = 'Modifier la catégorie';
           categoryOriginalNameInput.value = data.category || '';
           categoryNameInput.value = data.category || '';
-          categoryIconInput.value = data.icon_class || '';
+          
+          // Ajouter fa-solid si manquant lors du chargement
+          let iconClass = data.icon_class || '';
+          if (iconClass && iconClass.startsWith('fa-') && !iconClass.startsWith('fa-solid') && !iconClass.startsWith('fa-regular') && !iconClass.startsWith('fa-brands') && !iconClass.startsWith('fa-light') && !iconClass.startsWith('fa-thin') && !iconClass.startsWith('fa-duotone')) {
+            iconClass = 'fa-solid ' + iconClass;
+          }
+          categoryIconInput.value = iconClass;
+          // Déclencher la mise à jour de la prévisualisation
+          categoryIconInput.dispatchEvent(new Event('input'));
+          
           categoryOrderInput.value = data.display_order || 100;
           // Convertir EMPTY ('') en "default" pour l'affichage
           const displayVille = data.ville === '' ? 'default' : (data.ville || 'default');
@@ -2951,6 +3056,13 @@
             categoryStyleFillColor.value = (trimmedFillColor && /^#[0-9A-Fa-f]{6}$/.test(trimmedFillColor)) ? trimmedFillColor : '#999999';
           }
           if (categoryStyleFillOpacity) categoryStyleFillOpacity.value = styles.fillOpacity || '';
+          
+          // Mettre à jour la prévisualisation avec les styles chargés
+          setTimeout(() => {
+            if (typeof updateStylePreview === 'function') {
+              updateStylePreview();
+            }
+          }, 150);
           
           // Show back button in edit mode
           if (categoryFormBack) categoryFormBack.style.display = '';
@@ -2998,6 +3110,12 @@
           
           // Hide back button in create mode
           if (categoryFormBack) categoryFormBack.style.display = 'none';
+          
+          // Show ville selector in create mode
+          if (categoryVilleSelectorContainer) {
+            categoryVilleSelectorContainer.style.display = '';
+            categoryVilleSelectorContainer.style.opacity = '1';
+          }
           
           // Keep categories list visible when creating
           if (categoriesContent && categoryVilleSelector?.value) {
@@ -3059,10 +3177,43 @@
       try {
         if (!win.supabaseService) return;
         
+        // Vérifier s'il existe des contributions liées à cette catégorie
+        console.log('[deleteCategory] Vérification des contributions pour:', { ville, category });
+        
+        const contributions = await win.supabaseService.fetchProjectsByCategory(category);
+        
+        if (!contributions) {
+          console.error('[deleteCategory] Erreur lors de la vérification des contributions');
+          showToast('Erreur lors de la vérification des contributions.', 'error');
+          return;
+        }
+        
+        // Si des contributions existent, bloquer la suppression
+        if (contributions.length > 0) {
+          const count = contributions.length;
+          const projectNames = contributions.slice(0, 3).map(c => c.project_name).join(', ');
+          const moreText = count > 3 ? ` et ${count - 3} autre(s)` : '';
+          
+          // Afficher un message détaillé avec les contributions liées
+          alert(
+            `❌ Suppression impossible\n\n` +
+            `La catégorie "${category}" ne peut pas être supprimée car elle contient ${count} contribution(s) :\n\n` +
+            `• ${projectNames}${moreText}\n\n` +
+            `📋 Action requise :\n` +
+            `Rendez-vous dans "Mes contributions" et supprimez d'abord toutes les contributions de cette catégorie, puis réessayez.`
+          );
+          
+          console.warn('[deleteCategory] Suppression bloquée:', { category, count, contributions });
+          return;
+        }
+        
+        // Aucune contribution, procéder à la suppression
+        console.log('[deleteCategory] Aucune contribution trouvée, suppression autorisée');
+        
         const result = await win.supabaseService.deleteCategoryIcon(ville, category);
         
         if (result.success) {
-          showToast('Catégorie supprimée.', 'success');
+          showToast('✅ Catégorie supprimée avec succès.', 'success');
           await refreshCategoriesList();
         } else {
           showToast('Erreur: ' + (result.error || 'Échec de suppression'), 'error');

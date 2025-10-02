@@ -444,95 +444,57 @@ const NavigationModule = (() => {
    */
   const resetToDefaultView = async (category, options = {}) => {
     const { preserveMapView = false, updateHistory = false } = options;
-    console.log('Réinitialisation de la vue à l\'état par défaut');
     
-    // 1. Masquer le panneau de détail
+    // Masquer le panneau de détail
     const projectDetail = document.getElementById('project-detail');
-    if (projectDetail) {
-      projectDetail.style.display = 'none';
-    }
-    // Toujours restaurer l'opacité des couches au début du reset
+    if (projectDetail) projectDetail.style.display = 'none';
+    
+    // Restaurer l'opacité
     try { restoreAllLayerOpacity(); } catch(_) {}
     
-    // Si une catégorie est spécifiée, afficher uniquement le sous-menu correspondant
+    // Si une catégorie est spécifiée
     if (category) {
-      // Définir les couches à afficher en fonction de la catégorie
-      const layersToDisplay = window.categoryLayersMap?.[category] || [];
+      // Masquer tous les submenus puis afficher celui de la catégorie
+      document.querySelectorAll('.submenu').forEach(menu => menu.style.display = 'none');
+      const submenu = document.querySelector(`.submenu[data-category="${category}"]`);
+      if (submenu) submenu.style.display = 'block';
       
-      // Masquer tous les sous-menus d'abord
-      document.querySelectorAll('.submenu').forEach(menu => {
-        menu.style.display = 'none';
+      // Activer l'onglet
+      document.querySelectorAll('.nav-category').forEach(tab => {
+        tab.classList.toggle('active', tab.id === `nav-${category}`);
       });
       
-      // Afficher le sous-menu de la catégorie spécifiée
-      const submenu = document.querySelector(`.submenu[data-category="${category}"]`);
-      if (submenu) {
-        submenu.style.display = 'block';
-        
-        // Mettre à jour l'onglet actif
-        document.querySelectorAll('.nav-category').forEach(tab => {
-          if (tab.id === `nav-${category}`) {
-            tab.classList.add('active');
-          } else {
-            tab.classList.remove('active');
-          }
-        });
-        
-        // 1. D'abord, réinitialiser tous les filtres
-        FilterModule.resetAll();
-
-        // 1.bis Nettoyer l'UI des filtres pour ces couches (tags + état visuel)
-        try {
-          layersToDisplay.forEach(layerName => {
-            const filterItem = document.querySelector(`.filter-item[data-layer="${layerName}"]`);
-            if (filterItem) filterItem.classList.remove('active-filter');
-            if (window.UIModule?.resetLayerFilterWithoutRemoving) {
-              window.UIModule.resetLayerFilterWithoutRemoving(layerName);
-            }
-          });
-        } catch (e) {}
-
-        Object.keys(MapModule.layers).forEach(layerName => {
-          if (!layersToDisplay.includes(layerName)) {
-            MapModule.removeLayer(layerName);
-          } else {
-            MapModule.removeLayer(layerName);
-          }
-        });
-
-        layersToDisplay.forEach(layerName => {
-          loadOrCreateLayer(layerName);
-        });
-        
-        try { restoreAllLayerOpacity(); } catch(_) {}
-
-        try {
-          if (window.SubmenuManager?.renderSubmenu) {
-            await window.SubmenuManager.renderSubmenu(category);
-          }
-        } catch (e) {
+      // Supprimer les filtres et recharger la couche
+      FilterModule.resetAll();
+      MapModule.removeLayer(category);
+      DataModule.loadLayer(category);
+      
+      try { restoreAllLayerOpacity(); } catch(_) {}
+      
+      // Rafraîchir le submenu
+      try {
+        if (window.SubmenuManager?.renderSubmenu) {
+          await window.SubmenuManager.renderSubmenu(category);
         }
-        
-        try {
-          if (updateHistory && typeof history?.pushState === 'function') {
-            const params = new URLSearchParams();
-            params.set('cat', category);
-            const newUrl = `${location.pathname}?${params.toString()}`;
-            history.pushState({ cat: category }, '', newUrl);
-          }
-        } catch (_) { /* noop */ }
-
-        return;
+      } catch (e) {
+        console.error('[resetToDefaultView] Erreur:', e);
       }
+      
+      // Historique
+      if (updateHistory) {
+        try {
+          const params = new URLSearchParams();
+          params.set('cat', category);
+          history.pushState({ cat: category }, '', `${location.pathname}?${params}`);
+        } catch (_) {}
+      }
+      
+      return;
     }
     
-    document.querySelectorAll('.submenu').forEach(menu => {
-      menu.style.display = 'none';
-    });
-    
-    document.querySelectorAll('.nav-category.active').forEach(tab => {
-      tab.classList.remove('active');
-    });
+    // Pas de catégorie : masquer tout et afficher uniquement les couches par défaut
+    document.querySelectorAll('.submenu').forEach(menu => menu.style.display = 'none');
+    document.querySelectorAll('.nav-category.active').forEach(tab => tab.classList.remove('active'));
     
     if (window.defaultLayers && window.defaultLayers.length > 0) {
       

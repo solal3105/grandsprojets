@@ -384,110 +384,158 @@
             <div id="categories-list" class="categories-list"></div>
           </div>
           
-          <!-- Formulaire de création/édition de catégorie -->
-          <div id="category-form-container" style="display:none; margin-top:20px; padding:16px; border:1px solid #ddd; border-radius:8px; background:#f9f9f9;">
-            <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-              <button type="button" id="category-form-back" class="gp-btn gp-btn--secondary" style="display:none;">
-                <i class="fa-solid fa-arrow-left"></i> Retour à la liste
+          <!-- Formulaire de création/édition de catégorie - Design moderne -->
+          <div id="category-form-container" style="display:none; margin-top:24px; padding:0; border:none; background:transparent;">
+            <!-- Header moderne avec retour -->
+            <div style="display:flex; align-items:center; gap:16px; margin-bottom:24px; padding-bottom:16px; border-bottom:2px solid var(--border, #e0e0e0);">
+              <button type="button" id="category-form-back" class="gp-btn gp-btn--secondary" style="display:none; padding:8px 12px; border-radius:8px;">
+                <i class="fa-solid fa-arrow-left"></i>
               </button>
-              <h4 id="category-form-title" style="margin:0;">Nouvelle catégorie</h4>
+              <div style="flex:1;">
+                <h3 id="category-form-title" style="margin:0; font-size:24px; font-weight:700; color:var(--text-strong, #1a1a1a);">Nouvelle catégorie</h3>
+                <p style="margin:4px 0 0 0; font-size:14px; color:var(--text-muted, #666); font-weight:400;">Configurez l'apparence et le comportement de votre catégorie</p>
+              </div>
             </div>
-            <form id="category-form">
+            
+            <form id="category-form" style="max-width:800px;">
               <input type="hidden" id="category-edit-mode" value="create" />
               <input type="hidden" id="category-original-name" value="" />
               
-              <div class="form-row">
-                <label for="category-name">Nom de la catégorie</label>
-                <input type="text" id="category-name" name="category" required placeholder="Ex: mobilite" />
-                <small style="display:block; margin-top:4px; opacity:0.7;">Utilisé comme identifiant technique (minuscules, sans espaces)</small>
-              </div>
-
-              <div class="form-row">
-                <label for="category-icon">Classe d'icône FontAwesome</label>
-                <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-                  <input type="text" id="category-icon" name="icon_class" required placeholder="fa-solid fa-bus" style="flex:1;" />
-                  <div id="category-icon-preview" style="width:40px; height:40px; display:flex; align-items:center; justify-content:center; border:1px solid #ddd; border-radius:4px; background:#fff; font-size:20px; transition:all 0.2s;">
-                    <i class="fa-solid fa-question" aria-hidden="true"></i>
-                  </div>
-                  <button type="button" id="category-icon-picker-btn" class="gp-btn gp-btn--secondary" style="white-space:nowrap;">
-                    <i class="fa-solid fa-icons"></i> Choisir
-                  </button>
-                </div>
-                <small style="display:block; margin-bottom:8px; opacity:0.7;">
-                  Format : <strong>fa-solid fa-nom</strong> ou <strong>fa-regular fa-nom</strong> • 
-                  <a href="https://fontawesome.com/search?o=r&m=free" target="_blank" rel="noopener" style="color:#1976d2;">🔍 Rechercher une icône</a>
-                </small>
+              <!-- Section: Informations de base -->
+              <div style="margin-bottom:32px;">
+                <h4 style="margin:0 0 16px 0; font-size:16px; font-weight:600; color:var(--text-strong, #1a1a1a); display:flex; align-items:center; gap:8px;">
+                  <i class="fa-solid fa-circle-info" style="color:var(--accent, #14AE5C); font-size:18px;"></i>
+                  Informations de base
+                </h4>
                 
-                <!-- Icon Picker -->
-                <div id="category-icon-picker" style="display:none; padding:12px; border:1px solid #ddd; border-radius:8px; background:#f9f9f9; max-height:300px; overflow-y:auto;">
-                  <div style="margin-bottom:8px; font-weight:600; color:#666;">Sélectionner une icône :</div>
-                  <div id="category-icon-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(50px, 1fr)); gap:6px;">
-                    <!-- Icons will be populated by JS -->
+                <div style="display:grid; gap:20px;">
+                  <!-- Nom + Ordre sur la même ligne -->
+                  <div style="background:var(--surface, #fff); padding:16px; border-radius:12px; border:1px solid var(--border, #e0e0e0);">
+                    <div style="display:grid; grid-template-columns:1fr auto; gap:16px; align-items:start;">
+                      <div>
+                        <label for="category-name" style="display:block; font-size:13px; font-weight:600; color:var(--text-muted, #666); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Nom de la catégorie</label>
+                        <input type="text" id="category-name" name="category" required placeholder="Ex: mobilite" 
+                               style="width:100%; padding:12px; border:1px solid var(--border, #e0e0e0); border-radius:8px; font-size:15px; background:var(--surface, #fff); box-sizing:border-box;" />
+                        <small style="display:block; margin-top:8px; font-size:12px; color:var(--text-muted, #999);">
+                          <i class="fa-solid fa-lightbulb" style="color:#FFA726;"></i> Identifiant technique
+                        </small>
+                      </div>
+                      <div style="min-width:120px;">
+                        <label for="category-order" style="display:block; font-size:13px; font-weight:600; color:var(--text-muted, #666); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Ordre</label>
+                        <input type="number" id="category-order" name="display_order" value="100" min="0" step="1" 
+                               style="width:100%; padding:12px; border:1px solid var(--border, #e0e0e0); border-radius:8px; font-size:15px; background:var(--surface, #fff); box-sizing:border-box;" />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Icône -->
+                  <div style="background:var(--surface, #fff); padding:16px; border-radius:12px; border:1px solid var(--border, #e0e0e0);">
+                    <label for="category-icon" style="display:block; font-size:13px; font-weight:600; color:var(--text-muted, #666); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Icône</label>
+                    <div style="display:flex; gap:12px; align-items:stretch;">
+                      <input type="text" id="category-icon" name="icon_class" required placeholder="fa-solid fa-bus" 
+                             style="flex:1; padding:12px; border:1px solid var(--border, #e0e0e0); border-radius:8px; font-size:14px; font-family:monospace; background:var(--surface, #fff);" />
+                      <div id="category-icon-preview" style="width:56px; height:56px; display:flex; align-items:center; justify-content:center; border:2px solid var(--border, #e0e0e0); border-radius:10px; background:linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); font-size:24px; transition:all 0.3s; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+                        <i class="fa-solid fa-question" aria-hidden="true" style="color:#666;"></i>
+                      </div>
+                      <button type="button" id="category-icon-picker-btn" class="gp-btn gp-btn--secondary" 
+                              style="white-space:nowrap; padding:12px 20px; border-radius:8px; font-weight:600; display:flex; align-items:center; gap:8px;">
+                        <i class="fa-solid fa-icons"></i> Choisir
+                      </button>
+                    </div>
+                    <small style="display:block; margin-top:8px; font-size:12px; color:var(--text-muted, #999);">
+                      <a href="https://fontawesome.com/search?o=r&m=free" target="_blank" rel="noopener" style="color:var(--accent, #14AE5C); text-decoration:none; font-weight:500;">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Parcourir les icônes FontAwesome
+                      </a>
+                    </small>
+                    
+                    <!-- Icon Picker moderne -->
+                    <div id="category-icon-picker" style="display:none; margin-top:16px; padding:16px; border:1px solid var(--border, #e0e0e0); border-radius:12px; background:var(--surface-alt, #f9fafb); max-height:320px; overflow-y:auto;">
+                      <div style="margin-bottom:12px; font-size:14px; font-weight:600; color:var(--text-strong, #333);">
+                        <i class="fa-solid fa-grid-2"></i> Sélectionner une icône
+                      </div>
+                      <div id="category-icon-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(56px, 1fr)); gap:8px;">
+                        <!-- Icons populated by JS -->
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Champ ville caché mais toujours présent pour le JS -->
+                  <input type="hidden" id="category-ville" name="ville" value="default" />
+                </div>
+              </div>
+
+              <!-- Section: Layers associés (compact) -->
+              <div style="margin-bottom:32px;">
+                <div style="background:var(--surface, #fff); padding:16px; border-radius:12px; border:1px solid var(--border, #e0e0e0);">
+                  <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                    <i class="fa-solid fa-layer-group" style="color:var(--accent, #14AE5C); font-size:16px;"></i>
+                    <div style="flex:1;">
+                      <div style="font-size:14px; font-weight:600; color:var(--text-strong, #333);">Layers additionnels</div>
+                      <div style="font-size:12px; color:var(--text-muted, #666); margin-top:2px;">Sélectionnez les couches à afficher en plus de la catégorie</div>
+                    </div>
+                  </div>
+                  <div id="category-layers-checkboxes" style="display:flex; flex-wrap:wrap; gap:8px;">
+                    <!-- Populated by JS -->
                   </div>
                 </div>
               </div>
 
-              <div class="form-row">
-                <label for="category-order">Ordre d'affichage</label>
-                <input type="number" id="category-order" name="display_order" value="100" min="0" step="1" />
-              </div>
-
-              <div class="form-row">
-                <label for="category-ville">Ville</label>
-                <select id="category-ville" name="ville" required>
-                  <option value="">Sélectionner une ville</option>
-                  <!-- Options peuplées dynamiquement -->
-                </select>
-              </div>
-
-              <div class="form-row">
-                <label for="category-layers">Layers à afficher (en plus du layer de la catégorie)</label>
-                <div id="category-layers-container" style="padding:12px; border:1px solid #ddd; border-radius:8px; background:#f9f9f9; min-height:60px;">
-                  <div id="category-layers-checkboxes" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:8px;">
-                    <!-- Checkboxes peuplées dynamiquement -->
+              <!-- Section: Styles personnalisés avec prévisualisation -->
+              <div style="margin-bottom:32px;">
+                <h4 style="margin:0 0 16px 0; font-size:16px; font-weight:600; color:var(--text-strong, #1a1a1a); display:flex; align-items:center; gap:8px;">
+                  <i class="fa-solid fa-palette" style="color:var(--accent, #14AE5C); font-size:18px;"></i>
+                  Styles personnalisés
+                </h4>
+                <div style="background:var(--surface, #fff); padding:20px; border-radius:12px; border:1px solid var(--border, #e0e0e0);">
+                  
+                  <!-- Prévisualisation en temps réel -->
+                  <div id="style-preview-container" style="margin-bottom:24px; padding:20px; background:linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius:10px; border:1px solid var(--border, #e0e0e0);">
+                    <div style="font-size:12px; font-weight:600; color:var(--text-muted, #666); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">
+                      <i class="fa-solid fa-eye"></i> Prévisualisation
+                    </div>
+                    <svg width="100%" height="80" style="background:#fff; border-radius:8px; border:1px solid var(--border, #e0e0e0);">
+                      <line id="style-preview-line" x1="20" y1="40" x2="280" y2="40" stroke="#000000" stroke-width="3" />
+                      <rect id="style-preview-polygon" x="300" y="15" width="80" height="50" fill="none" stroke="#000000" stroke-width="3" />
+                    </svg>
                   </div>
-                  <small style="display:block; margin-top:8px; opacity:0.7; font-style:italic;">
-                    Le layer portant le nom de la catégorie est toujours affiché automatiquement.
-                  </small>
-                </div>
-              </div>
-
-              <div class="form-row">
-                <label>Styles personnalisés</label>
-                <div style="padding:16px; border:1px solid #ddd; border-radius:8px; background:#f9f9f9;">
-                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                  
+                  <!-- Contrôles de style en grid -->
+                  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:20px;">
                     <div>
-                      <label for="category-style-color" style="display:block; font-size:0.9em; margin-bottom:4px; font-weight:600;">Couleur (color)</label>
-                      <input type="color" id="category-style-color" value="#000000" style="width:100%; height:40px; border:1px solid #ddd; border-radius:4px; cursor:pointer;">
+                      <label for="category-style-color" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, #666); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Couleur</label>
+                      <input type="color" id="category-style-color" value="#000000" style="width:100%; height:48px; border:2px solid var(--border, #e0e0e0); border-radius:8px; cursor:pointer; transition:all 0.2s;">
                     </div>
                     <div>
-                      <label for="category-style-weight" style="display:block; font-size:0.9em; margin-bottom:4px; font-weight:600;">Épaisseur (weight)</label>
-                      <input type="number" id="category-style-weight" min="0" max="10" step="1" placeholder="2" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                      <label for="category-style-weight" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, #666); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Épaisseur</label>
+                      <input type="number" id="category-style-weight" min="0" max="10" step="1" placeholder="3" style="width:100%; padding:12px; border:1px solid var(--border, #e0e0e0); border-radius:8px; font-size:15px;">
                     </div>
                     <div>
-                      <label for="category-style-dasharray" style="display:block; font-size:0.9em; margin-bottom:4px; font-weight:600;">Pointillés (dashArray)</label>
-                      <input type="text" id="category-style-dasharray" placeholder="4,4" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                      <small style="display:block; margin-top:2px; opacity:0.6; font-size:0.8em;">Ex: 4,4 ou 5,5</small>
+                      <label for="category-style-dasharray" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, #666); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Pointillés</label>
+                      <input type="text" id="category-style-dasharray" placeholder="Ex: 5,5" style="width:100%; padding:12px; border:1px solid var(--border, #e0e0e0); border-radius:8px; font-size:14px; font-family:monospace;">
                     </div>
                     <div>
-                      <label for="category-style-opacity" style="display:block; font-size:0.9em; margin-bottom:4px; font-weight:600;">Opacité (opacity)</label>
-                      <input type="number" id="category-style-opacity" min="0" max="1" step="0.1" placeholder="1" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                      <label for="category-style-opacity" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, #666); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Opacité</label>
+                      <input type="number" id="category-style-opacity" min="0" max="1" step="0.1" placeholder="1" style="width:100%; padding:12px; border:1px solid var(--border, #e0e0e0); border-radius:8px; font-size:15px;">
                     </div>
                   </div>
-                  <div style="margin-top:12px; padding-top:12px; border-top:1px solid #ddd;">
-                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:8px;">
-                      <input type="checkbox" id="category-style-fill" style="cursor:pointer;">
-                      <span style="font-weight:600;">Remplissage (fill) - Pour les polygones</span>
+                  
+                  <!-- Options de remplissage (polygones) -->
+                  <div style="padding:16px; background:var(--surface-alt, #f9fafb); border-radius:10px; border:1px solid var(--border, #e0e0e0);">
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; margin-bottom:16px;">
+                      <input type="checkbox" id="category-style-fill" style="width:20px; height:20px; cursor:pointer; accent-color:var(--accent, #14AE5C);">
+                      <span style="font-weight:600; font-size:14px; color:var(--text-strong, #333);">
+                        <i class="fa-solid fa-fill-drip"></i> Activer le remplissage (polygones)
+                      </span>
                     </label>
-                    <div id="category-style-fill-options" style="display:none; margin-left:28px; padding:12px; background:#fff; border:1px solid #ddd; border-radius:4px;">
-                      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div id="category-style-fill-options" style="display:none;">
+                      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
                         <div>
-                          <label for="category-style-fillcolor" style="display:block; font-size:0.9em; margin-bottom:4px; font-weight:600;">Couleur de remplissage</label>
-                          <input type="color" id="category-style-fillcolor" value="#999999" style="width:100%; height:40px; border:1px solid #ddd; border-radius:4px; cursor:pointer;">
+                          <label for="category-style-fillcolor" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, #666); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Couleur de remplissage</label>
+                          <input type="color" id="category-style-fillcolor" value="#999999" style="width:100%; height:48px; border:2px solid var(--border, #e0e0e0); border-radius:8px; cursor:pointer;">
                         </div>
                         <div>
-                          <label for="category-style-fillopacity" style="display:block; font-size:0.9em; margin-bottom:4px; font-weight:600;">Opacité du remplissage</label>
-                          <input type="number" id="category-style-fillopacity" min="0" max="1" step="0.1" placeholder="0.3" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                          <label for="category-style-fillopacity" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, #666); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Opacité du remplissage</label>
+                          <input type="number" id="category-style-fillopacity" min="0" max="1" step="0.1" placeholder="0.3" style="width:100%; padding:12px; border:1px solid var(--border, #e0e0e0); border-radius:8px; font-size:15px;">
                         </div>
                       </div>
                     </div>
@@ -495,11 +543,12 @@
                 </div>
               </div>
 
-              <div style="display:flex; gap:8px; margin-top:16px;">
-                <button type="submit" class="gp-btn gp-btn--primary">
-                  <i class="fa-solid fa-save"></i> Enregistrer
+              <!-- Actions -->
+              <div style="display:flex; gap:12px; padding-top:24px; border-top:2px solid var(--border, #e0e0e0);">
+                <button type="submit" class="gp-btn gp-btn--primary" style="padding:14px 28px; border-radius:10px; font-weight:600; font-size:15px; display:flex; align-items:center; gap:10px;">
+                  <i class="fa-solid fa-check"></i> Enregistrer la catégorie
                 </button>
-                <button type="button" id="category-form-cancel" class="gp-btn gp-btn--secondary">
+                <button type="button" id="category-form-cancel" class="gp-btn gp-btn--secondary" style="padding:14px 24px; border-radius:10px; font-weight:600; font-size:15px;">
                   Annuler
                 </button>
               </div>
@@ -693,6 +742,7 @@
   <script src="modules/supabaseservice.js"></script>
   <script src="modules/mapmodule.js"></script>
   <script src="modules/filtermodule.js"></script>
+  <script src="modules/layerstyles.js"></script>
   <script src="modules/datamodule.js"></script>
   <script src="modules/uimodule.js"></script>
   <script src="modules/searchmodule.js"></script>
