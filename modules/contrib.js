@@ -91,6 +91,9 @@
         if (panelCategories) panelCategories.hidden = true;
         if (backBtn) backBtn.style.display = 'none';
         
+        // Mettre à jour le titre de la modale
+        updateModalTitle('landing');
+        
         // Afficher la card d'info utilisateur
         renderUserInfoCard();
       } catch(e) {
@@ -596,6 +599,23 @@
       return map;
     }
 
+    // —— Modal title update ——
+    function updateModalTitle(context) {
+      const titleEl = document.getElementById('contrib-title');
+      if (!titleEl) return;
+      
+      const titles = {
+        'create': 'Créer une contribution',
+        'list': 'Modifier mes contributions',
+        'categories': 'Gérer les catégories',
+        'landing': 'Proposer une contribution'
+      };
+      
+      const newTitle = titles[context] || 'Proposer une contribution';
+      titleEl.textContent = newTitle;
+      console.log('[contrib] Modal title updated:', newTitle);
+    }
+
     // —— Tabs logic (ARIA, keyboard) ——
     function activateTab(which) {
       const isCreate = which === 'create';
@@ -606,6 +626,9 @@
       if (panelCategories) panelCategories.hidden = !isCategories;
       // bouton retour visible quand on est hors landing
       if (backBtn) backBtn.style.display = '';
+      
+      // Mettre à jour le titre de la modale selon le contexte
+      updateModalTitle(which);
 
       if (isList) {
         // ensure list is initialized
@@ -758,19 +781,21 @@
         const isInvited = role === 'invited';
         const isAdmin = role === 'admin';
 
-        // City field visibility: toujours visible pour admin et invited (filtré par permissions)
+        // City field visibility: visible uniquement à l'étape 1 pour admin et invited
         try {
           const cityInput = document.getElementById('contrib-city');
           const cityRow = cityInput ? cityInput.closest('.form-row') : null;
           const cityLabel = cityRow ? cityRow.querySelector('label[for="contrib-city"]') : null;
           if (cityRow && cityInput) {
+            // Le champ a déjà la classe contrib-step-1, donc il sera masqué par showOnlyStep()
+            // On ne force le display que si on est à l'étape 1
             if (isAdmin || isInvited) {
-              // Afficher le champ ville pour admin et invited (sera filtré par populateCities)
-              cityRow.style.display = '';
+              // Afficher le champ ville pour admin et invited UNIQUEMENT à l'étape 1
+              // showOnlyStep() gère déjà la visibilité selon l'étape
               try { cityInput.required = false; } catch(_) {}
               if (cityLabel) cityLabel.textContent = 'Code collectivité';
             } else {
-              // Masquer pour les autres rôles
+              // Masquer pour les autres rôles (toujours)
               cityRow.style.display = 'none';
               try { cityInput.required = false; } catch(_) {}
             }
