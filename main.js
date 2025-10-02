@@ -87,6 +87,40 @@
         if (is_default) defaultLayers.push(name);
       });
       
+      // Fusionner les styles des catégories depuis category_icons
+      // Les category_styles ont la priorité sur les styles de layers_config
+      if (window.supabaseService?.buildCategoryStylesMap && window.supabaseService?.fetchCategoryIcons) {
+        const categoryIconsData = await window.supabaseService.fetchCategoryIcons();
+        const categoryStylesFromDB = window.supabaseService.buildCategoryStylesMap(categoryIconsData);
+        
+        // Appliquer les styles de catégorie (ils écrasent les styles de couche si présents)
+        Object.keys(categoryStylesFromDB).forEach(category => {
+          const categoryStyle = categoryStylesFromDB[category];
+          if (categoryStyle && Object.keys(categoryStyle).length > 0) {
+            // Fusionner avec le style existant (si présent) ou créer un nouveau
+            styleMap[category] = {
+              ...(styleMap[category] || {}),
+              ...categoryStyle
+            };
+            
+            // Appliquer aussi le style aux couches associées (layers_to_display)
+            const categoryIcon = categoryIconsData.find(icon => icon.category === category);
+            if (categoryIcon && Array.isArray(categoryIcon.layers_to_display)) {
+              categoryIcon.layers_to_display.forEach(layerName => {
+                // Ne pas écraser si la couche a déjà un style spécifique
+                // Mais fusionner avec le style de catégorie comme base
+                if (layerName !== category) {
+                  styleMap[layerName] = {
+                    ...categoryStyle,
+                    ...(styleMap[layerName] || {})
+                  };
+                }
+              });
+            }
+          }
+        });
+      }
+      
       win.defaultLayers = defaultLayers;
       
       DataModule.initConfig({ city, urlMap, styleMap, defaultLayers });
@@ -322,6 +356,65 @@
       
       // Exposer l'API globale
       window.getActiveCity = () => win.CityManager?.getActiveCity() || '';
+
+      // Listener pour recharger les styles quand les catégories sont modifiées
+      window.addEventListener('categories:updated', async (e) => {
+        try {
+          console.log('[Main] 🔄 Rechargement des styles suite à modification de catégorie');
+          
+          // Recharger les category_icons depuis la DB
+          if (window.supabaseService?.fetchCategoryIcons && window.supabaseService?.buildCategoryStylesMap) {
+            const categoryIconsData = await window.supabaseService.fetchCategoryIcons();
+            const categoryStylesFromDB = window.supabaseService.buildCategoryStylesMap(categoryIconsData);
+            
+            // Mettre à jour le styleMap
+            Object.keys(categoryStylesFromDB).forEach(category => {
+              const categoryStyle = categoryStylesFromDB[category];
+              if (categoryStyle && Object.keys(categoryStyle).length > 0) {
+                styleMap[category] = {
+                  ...(styleMap[category] || {}),
+                  ...categoryStyle
+                };
+                
+                // Appliquer aussi aux couches associées
+                const categoryIcon = categoryIconsData.find(icon => icon.category === category);
+                if (categoryIcon && Array.isArray(categoryIcon.layers_to_display)) {
+                  categoryIcon.layers_to_display.forEach(layerName => {
+                    if (layerName !== category) {
+                      styleMap[layerName] = {
+                        ...categoryStyle,
+                        ...(styleMap[layerName] || {})
+                      };
+                    }
+                  });
+                }
+              }
+            });
+            
+            // Réinitialiser la config du DataModule avec les nouveaux styles
+            DataModule.initConfig({ city, urlMap, styleMap, defaultLayers });
+            
+            // Recharger les couches visibles pour appliquer les nouveaux styles
+            if (MapModule?.layers) {
+              const layersToReload = Object.keys(MapModule.layers);
+              console.log('[Main] 🔄 Rechargement des couches:', layersToReload);
+              
+              // Recharger chaque couche pour appliquer les nouveaux styles
+              for (const layerName of layersToReload) {
+                try {
+                  await DataModule.loadLayer(layerName);
+                } catch (err) {
+                  console.warn(`[Main] ⚠️ Erreur rechargement ${layerName}:`, err);
+                }
+              }
+            }
+            
+            console.log('[Main] ✅ Styles rechargés et appliqués');
+          }
+        } catch (err) {
+          console.error('[Main] ❌ Erreur rechargement styles:', err);
+        }
+      });
 
       // --------------------------------------------------------------------------
       // PHASE 8 : Gestion du routing et de l'historique

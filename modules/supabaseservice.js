@@ -170,7 +170,7 @@
         // Récupérer les catégories spécifiques à la ville ET les fallbacks globaux (ville = '' ou null)
         let q = supabaseClient
           .from('category_icons')
-          .select('category, icon_class, display_order, layers_to_display, ville')
+          .select('category, icon_class, display_order, layers_to_display, category_styles, ville')
           .order('display_order', { ascending: true });
 
         if (activeCity) {
@@ -246,6 +246,31 @@
         }
         
         map[cat.category] = layers;
+      });
+
+      return map;
+    },
+
+    /**
+     * Construit le mapping catégorie → styles depuis les données de category_icons
+     * @param {Array<{category:string, category_styles:Object}>} categoryIcons - Données depuis fetchCategoryIcons
+     * @returns {Object<string, Object>} - Ex: { 'urbanisme': {fill: true, color: '#3F52F3', ...}, 'mobilite': {color: '#8C368C', ...} }
+     */
+    buildCategoryStylesMap: function(categoryIcons) {
+      const map = {};
+      
+      if (!Array.isArray(categoryIcons)) {
+        console.warn('[supabaseService] buildCategoryStylesMap: categoryIcons n\'est pas un tableau');
+        return map;
+      }
+
+      categoryIcons.forEach(cat => {
+        if (!cat || !cat.category) return;
+        
+        // Si category_styles existe et n'est pas vide, l'ajouter au mapping
+        if (cat.category_styles && typeof cat.category_styles === 'object' && Object.keys(cat.category_styles).length > 0) {
+          map[cat.category] = cat.category_styles;
+        }
       });
 
       return map;
@@ -1439,7 +1464,7 @@
      */
     async createCategoryIcon(categoryData) {
       try {
-        const { category, icon_class, display_order, ville, layers_to_display } = categoryData;
+        const { category, icon_class, display_order, ville, layers_to_display, category_styles } = categoryData;
         if (!category || !icon_class || !ville) {
           return { success: false, error: 'Champs requis manquants' };
         }
@@ -1454,6 +1479,11 @@
         // Ajouter layers_to_display si fourni
         if (Array.isArray(layers_to_display)) {
           insertData.layers_to_display = layers_to_display;
+        }
+
+        // Ajouter category_styles si fourni
+        if (category_styles && typeof category_styles === 'object') {
+          insertData.category_styles = category_styles;
         }
 
         const { data, error } = await supabaseClient
@@ -1483,8 +1513,6 @@
      */
     async updateCategoryIcon(ville, originalCategory, updates) {
       try {
-        console.log('[supabaseService] updateCategoryIcon DÉBUT - params reçus:', { ville, originalCategory, updates });
-        
         // Permettre ville = '' pour les catégories globales, mais ville doit être définie (pas null/undefined)
         if (ville === null || ville === undefined || !originalCategory) {
           return { success: false, error: 'Ville et catégorie requises' };
@@ -1493,13 +1521,6 @@
         const normalizedVille = String(ville).toLowerCase().trim();
         const normalizedOriginal = String(originalCategory).toLowerCase().trim();
         const newCategory = updates.category !== undefined ? String(updates.category).toLowerCase().trim() : normalizedOriginal;
-        
-        console.log('[supabaseService] updateCategoryIcon called:', {
-          ville: normalizedVille,
-          originalCategory: normalizedOriginal,
-          newCategory,
-          updates
-        });
         
         // Si le nom de la catégorie change, on doit supprimer et recréer (clé primaire)
         if (newCategory !== normalizedOriginal) {
@@ -1565,6 +1586,13 @@
             insertData.layers_to_display = existing.layers_to_display;
           }
           
+          // Ajouter category_styles si fourni, sinon garder l'existant
+          if (updates.category_styles !== undefined) {
+            insertData.category_styles = updates.category_styles;
+          } else if (existing.category_styles) {
+            insertData.category_styles = existing.category_styles;
+          }
+          
           const { data, error: insertError } = await supabaseClient
             .from('category_icons')
             .insert([insertData])
@@ -1610,15 +1638,12 @@
           if (updates.icon_class !== undefined) payload.icon_class = String(updates.icon_class).trim();
           if (updates.display_order !== undefined) payload.display_order = parseInt(updates.display_order) || 100;
           if (updates.layers_to_display !== undefined) {
-            console.log('[supabaseService] layers_to_display reçu:', updates.layers_to_display);
             payload.layers_to_display = updates.layers_to_display;
           }
+          if (updates.category_styles !== undefined) {
+            payload.category_styles = updates.category_styles;
+          }
           payload.updated_at = new Date().toISOString();
-
-          console.log('[supabaseService] About to UPDATE with:', {
-            payload,
-            where: { ville: normalizedVille, category: normalizedOriginal }
-          });
 
           const { data, error } = await supabaseClient
             .from('category_icons')
@@ -1626,8 +1651,6 @@
             .eq('ville', normalizedVille)
             .eq('category', normalizedOriginal)
             .select();
-
-          console.log('[supabaseService] UPDATE result:', { data, error, rowCount: data?.length });
 
           if (error) {
             console.error('[supabaseService] updateCategoryIcon error:', error);

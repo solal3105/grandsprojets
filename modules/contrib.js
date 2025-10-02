@@ -2516,6 +2516,14 @@
     const categoryOrderInput = document.getElementById('category-order');
     const categoryVilleSelect = document.getElementById('category-ville');
     const categoryLayersCheckboxes = document.getElementById('category-layers-checkboxes');
+    const categoryStyleColor = document.getElementById('category-style-color');
+    const categoryStyleWeight = document.getElementById('category-style-weight');
+    const categoryStyleDashArray = document.getElementById('category-style-dasharray');
+    const categoryStyleOpacity = document.getElementById('category-style-opacity');
+    const categoryStyleFill = document.getElementById('category-style-fill');
+    const categoryStyleFillOptions = document.getElementById('category-style-fill-options');
+    const categoryStyleFillColor = document.getElementById('category-style-fillcolor');
+    const categoryStyleFillOpacity = document.getElementById('category-style-fillopacity');
     const categoryEditModeInput = document.getElementById('category-edit-mode');
     const categoryOriginalNameInput = document.getElementById('category-original-name');
 
@@ -2649,6 +2657,13 @@
       } catch(e) {
         console.error('[contrib] populateIconPicker error:', e);
       }
+    }
+
+    // Listener pour afficher/masquer les options de remplissage
+    if (categoryStyleFill && categoryStyleFillOptions) {
+      categoryStyleFill.addEventListener('change', () => {
+        categoryStyleFillOptions.style.display = categoryStyleFill.checked ? 'block' : 'none';
+      });
     }
 
     async function populateCategoryVilleSelector() {
@@ -2835,7 +2850,7 @@
               <div style="font-size:0.85em; opacity:0.7;"><code style="background:#f5f5f5; padding:2px 4px; border-radius:3px;">${escapedOriginalIconClass}</code> • Ordre: ${cat.display_order}</div>
             </div>
             <div style="display:flex; gap:6px;">
-              <button type="button" class="gp-btn gp-btn--secondary" data-action="edit" data-ville="${escapedVille}" data-category="${escapedCategory}" data-icon="${escapedOriginalIconClass}" data-order="${cat.display_order}" data-layers="${JSON.stringify(cat.layers_to_display || []).replace(/"/g, '&quot;')}">
+              <button type="button" class="gp-btn gp-btn--secondary" data-action="edit" data-ville="${escapedVille}" data-category="${escapedCategory}" data-icon="${escapedOriginalIconClass}" data-order="${cat.display_order}" data-layers="${JSON.stringify(cat.layers_to_display || []).replace(/"/g, '&quot;')}" data-styles="${JSON.stringify(cat.category_styles || {}).replace(/"/g, '&quot;')}">
                 <i class="fa-solid fa-pen"></i> Modifier
               </button>
               <button type="button" class="gp-btn gp-btn--danger" data-action="delete" data-ville="${escapedVille}" data-category="${escapedCategory}">
@@ -2856,12 +2871,18 @@
             const icon = btn.dataset.icon;
             const order = btn.dataset.order;
             let layers_to_display = [];
+            let category_styles = {};
             try {
               layers_to_display = JSON.parse(btn.dataset.layers || '[]');
             } catch (e) {
               console.warn('[contrib] Erreur parsing layers_to_display:', e);
             }
-            showCategoryForm('edit', { ville, category, icon_class: icon, display_order: order, layers_to_display });
+            try {
+              category_styles = JSON.parse(btn.dataset.styles || '{}');
+            } catch (e) {
+              console.warn('[contrib] Erreur parsing category_styles:', e);
+            }
+            showCategoryForm('edit', { ville, category, icon_class: icon, display_order: order, layers_to_display, category_styles });
           });
         });
 
@@ -2886,7 +2907,6 @@
         categoryEditModeInput.value = mode;
         
         if (mode === 'edit') {
-          console.log('[contrib] Mode édition, data reçue:', data);
           categoryFormTitle.textContent = 'Modifier la catégorie';
           categoryOriginalNameInput.value = data.category || '';
           categoryNameInput.value = data.category || '';
@@ -2901,21 +2921,36 @@
           // Charger les layers et pré-sélectionner ceux de la catégorie
           populateCategoryLayersCheckboxes(displayVille).then(() => {
             const layersToDisplay = data.layers_to_display || [];
-            console.log('[contrib] data.layers_to_display:', data.layers_to_display);
-            console.log('[contrib] Pré-sélection des layers:', layersToDisplay);
             
             // Attendre un tick pour que les checkboxes soient dans le DOM
             setTimeout(() => {
               const checkboxes = document.querySelectorAll('input[name="category-layer-checkbox"]');
-              console.log('[contrib] Checkboxes trouvées:', checkboxes.length);
-              
               checkboxes.forEach(cb => {
-                const shouldCheck = layersToDisplay.includes(cb.value);
-                console.log(`[contrib] Layer ${cb.value}: ${shouldCheck ? 'coché' : 'non coché'}`);
-                cb.checked = shouldCheck;
+                cb.checked = layersToDisplay.includes(cb.value);
               });
             }, 50);
           });
+          
+          // Pré-remplir les champs de styles
+          const styles = data.category_styles || {};
+          if (categoryStyleColor) {
+            const trimmedColor = (styles.color && typeof styles.color === 'string') ? styles.color.trim() : '';
+            categoryStyleColor.value = (trimmedColor && /^#[0-9A-Fa-f]{6}$/.test(trimmedColor)) ? trimmedColor : '#000000';
+          }
+          if (categoryStyleWeight) categoryStyleWeight.value = styles.weight || '';
+          if (categoryStyleDashArray) categoryStyleDashArray.value = styles.dashArray || '';
+          if (categoryStyleOpacity) categoryStyleOpacity.value = styles.opacity || '';
+          if (categoryStyleFill) {
+            categoryStyleFill.checked = styles.fill === true;
+            if (categoryStyleFillOptions) {
+              categoryStyleFillOptions.style.display = styles.fill ? 'block' : 'none';
+            }
+          }
+          if (categoryStyleFillColor) {
+            const trimmedFillColor = (styles.fillColor && typeof styles.fillColor === 'string') ? styles.fillColor.trim() : '';
+            categoryStyleFillColor.value = (trimmedFillColor && /^#[0-9A-Fa-f]{6}$/.test(trimmedFillColor)) ? trimmedFillColor : '#999999';
+          }
+          if (categoryStyleFillOpacity) categoryStyleFillOpacity.value = styles.fillOpacity || '';
           
           // Show back button in edit mode
           if (categoryFormBack) categoryFormBack.style.display = '';
@@ -2934,8 +2969,13 @@
         } else {
           categoryFormTitle.textContent = 'Nouvelle catégorie';
           categoryOriginalNameInput.value = '';
-          categoryForm.reset();
           categoryVilleSelect.disabled = false;
+          
+          // Réinitialiser le formulaire SAUF les champs color (pour éviter l'erreur de validation)
+          if (categoryNameInput) categoryNameInput.value = '';
+          if (categoryIconInput) categoryIconInput.value = '';
+          if (categoryOrderInput) categoryOrderInput.value = '100';
+          
           // Default to selected city from main selector
           const selectedCity = categoryVilleSelector?.value || win.activeCity || '';
           if (selectedCity) {
@@ -2943,6 +2983,18 @@
             // Charger les layers pour la ville sélectionnée
             populateCategoryLayersCheckboxes(selectedCity);
           }
+          
+          // Réinitialiser les champs de styles avec des valeurs par défaut valides
+          if (categoryStyleColor) categoryStyleColor.value = '#000000';
+          if (categoryStyleWeight) categoryStyleWeight.value = '';
+          if (categoryStyleDashArray) categoryStyleDashArray.value = '';
+          if (categoryStyleOpacity) categoryStyleOpacity.value = '';
+          if (categoryStyleFill) {
+            categoryStyleFill.checked = false;
+            if (categoryStyleFillOptions) categoryStyleFillOptions.style.display = 'none';
+          }
+          if (categoryStyleFillColor) categoryStyleFillColor.value = '#999999';
+          if (categoryStyleFillOpacity) categoryStyleFillOpacity.value = '';
           
           // Hide back button in create mode
           if (categoryFormBack) categoryFormBack.style.display = 'none';
@@ -2965,19 +3017,42 @@
       }
     }
 
-    function hideCategoryForm() {
+    async function hideCategoryForm() {
       try {
+        // Masquer le formulaire et le picker d'icônes
         if (categoryFormContainer) categoryFormContainer.style.display = 'none';
         if (categoryIconPicker) categoryIconPicker.style.display = 'none';
-        if (categoryForm) categoryForm.reset();
         
-        // Restore ville selector and categories list visibility
-        if (categoryVilleSelectorContainer) categoryVilleSelectorContainer.style.display = '';
-        const ville = categoryVilleSelector?.value || '';
-        if (categoriesContent && ville) {
-          categoriesContent.style.display = '';
+        // Réinitialiser manuellement les champs (éviter reset() qui cause des erreurs de validation sur les champs color)
+        if (categoryNameInput) categoryNameInput.value = '';
+        if (categoryIconInput) categoryIconInput.value = '';
+        if (categoryOrderInput) categoryOrderInput.value = '100';
+        if (categoryStyleColor) categoryStyleColor.value = '#000000';
+        if (categoryStyleWeight) categoryStyleWeight.value = '';
+        if (categoryStyleDashArray) categoryStyleDashArray.value = '';
+        if (categoryStyleOpacity) categoryStyleOpacity.value = '';
+        if (categoryStyleFill) categoryStyleFill.checked = false;
+        if (categoryStyleFillColor) categoryStyleFillColor.value = '#999999';
+        if (categoryStyleFillOpacity) categoryStyleFillOpacity.value = '';
+        if (categoryStyleFillOptions) categoryStyleFillOptions.style.display = 'none';
+        
+        // Réafficher le sélecteur de ville
+        if (categoryVilleSelectorContainer) {
+          categoryVilleSelectorContainer.style.display = '';
+          categoryVilleSelectorContainer.style.opacity = '1';
         }
-      } catch(_) {}
+        
+        // Recharger la liste des catégories si une ville est sélectionnée
+        const ville = categoryVilleSelector?.value || '';
+        if (ville) {
+          await refreshCategoriesList();
+          if (categoriesContent) categoriesContent.style.display = '';
+        } else {
+          if (categoriesContent) categoriesContent.style.display = 'none';
+        }
+      } catch(err) {
+        console.error('[contrib] hideCategoryForm error:', err);
+      }
     }
 
     async function deleteCategory(ville, category) {
@@ -3005,12 +3080,16 @@
 
     // Bind category form back button
     if (categoryFormBack) {
-      categoryFormBack.addEventListener('click', () => hideCategoryForm());
+      categoryFormBack.addEventListener('click', async () => {
+        await hideCategoryForm();
+      });
     }
 
     // Bind category form cancel
     if (categoryFormCancel) {
-      categoryFormCancel.addEventListener('click', () => hideCategoryForm());
+      categoryFormCancel.addEventListener('click', async () => {
+        await hideCategoryForm();
+      });
     }
 
     // Bind category form submit
@@ -3026,13 +3105,32 @@
           let ville = categoryVilleSelect.value.trim().toLowerCase();
           
           // Récupérer les layers sélectionnés
-          const checkboxes = document.querySelectorAll('input[name="category-layer-checkbox"]');
-          console.log('[contrib] Total checkboxes trouvées:', checkboxes.length);
-          
           const selectedLayers = Array.from(document.querySelectorAll('input[name="category-layer-checkbox"]:checked'))
             .map(cb => cb.value);
           
-          console.log('[contrib] Layers sélectionnés à sauvegarder:', selectedLayers);
+          // Récupérer les styles personnalisés
+          const category_styles = {};
+          if (categoryStyleColor && categoryStyleColor.value) {
+            category_styles.color = categoryStyleColor.value;
+          }
+          if (categoryStyleWeight && categoryStyleWeight.value) {
+            category_styles.weight = parseInt(categoryStyleWeight.value);
+          }
+          if (categoryStyleDashArray && categoryStyleDashArray.value) {
+            category_styles.dashArray = categoryStyleDashArray.value;
+          }
+          if (categoryStyleOpacity && categoryStyleOpacity.value) {
+            category_styles.opacity = parseFloat(categoryStyleOpacity.value);
+          }
+          if (categoryStyleFill && categoryStyleFill.checked) {
+            category_styles.fill = true;
+            if (categoryStyleFillColor && categoryStyleFillColor.value) {
+              category_styles.fillColor = categoryStyleFillColor.value;
+            }
+            if (categoryStyleFillOpacity && categoryStyleFillOpacity.value) {
+              category_styles.fillOpacity = parseFloat(categoryStyleFillOpacity.value);
+            }
+          }
           
           // Convertir "default" en EMPTY ('') pour la base de données
           if (ville === 'default') {
@@ -3051,16 +3149,12 @@
             // Convertir "default" en EMPTY ('')
             if (originalVille === 'default') originalVille = '';
             
-            console.log('[contrib] Updating category:', {
-              ville: originalVille,
-              originalCategory,
-              updates: { category, icon_class, display_order, layers_to_display: selectedLayers }
-            });
             result = await win.supabaseService.updateCategoryIcon(originalVille, originalCategory, {
               category,
               icon_class,
               display_order,
-              layers_to_display: selectedLayers
+              layers_to_display: selectedLayers,
+              category_styles
             });
           } else {
             result = await win.supabaseService.createCategoryIcon({
@@ -3068,7 +3162,8 @@
               icon_class,
               display_order,
               ville,
-              layers_to_display: selectedLayers
+              layers_to_display: selectedLayers,
+              category_styles
             });
           }
 
