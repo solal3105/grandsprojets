@@ -85,8 +85,11 @@
       // Trier par ville (alphabétique)
       filteredCities.sort((a, b) => (a.ville || '').localeCompare(b.ville || ''));
 
-      // Render cities
-      citiesListEl.innerHTML = cities.map(city => renderCityCard(city)).join('');
+      // Render cities (avec info si l'utilisateur peut les modifier)
+      citiesListEl.innerHTML = filteredCities.map(city => {
+        const canManage = isGlobalAdmin || userVilles.includes(city.ville);
+        return renderCityCard(city, canManage);
+      }).join('');
 
       // Bind actions
       citiesListEl.querySelectorAll('.city-card__view').forEach(btn => {
@@ -103,7 +106,7 @@
       citiesListEl.querySelectorAll('.city-card__edit').forEach(btn => {
         btn.addEventListener('click', () => {
           const ville = btn.dataset.ville;
-          const city = cities.find(c => c.ville === ville);
+          const city = filteredCities.find(c => c.ville === ville);
           if (city) showCityModal(city, elements);
         });
       });
@@ -111,7 +114,7 @@
       citiesListEl.querySelectorAll('.city-card__delete').forEach(btn => {
         btn.addEventListener('click', () => {
           const ville = btn.dataset.ville;
-          const city = cities.find(c => c.ville === ville);
+          const city = filteredCities.find(c => c.ville === ville);
           if (city) confirmDeleteCity(city, elements);
         });
       });
@@ -125,8 +128,10 @@
 
   /**
    * Render une card ville
+   * @param {Object} city - Données de la ville
+   * @param {boolean} canManage - Si l'utilisateur peut gérer cette ville
    */
-  function renderCityCard(city) {
+  function renderCityCard(city, canManage = true) {
     const logoUrl = city.logo_url || '/img/logos/default.svg';
     const brandName = escapeHtml(city.brand_name || city.ville);
     const ville = escapeHtml(city.ville);
@@ -135,7 +140,7 @@
     const hasNoAdmin = adminCount === 0;
 
     return `
-      <div class="city-card ${hasNoAdmin ? 'city-card--warning' : ''}" data-ville="${ville}">
+      <div class="city-card ${hasNoAdmin ? 'city-card--warning' : ''} ${!canManage ? 'city-card--readonly' : ''}" data-ville="${ville}">
         <div class="city-card__logo">
           <img src="${escapeHtml(logoUrl)}" alt="${brandName}" onerror="this.src='/img/logos/default.svg'">
         </div>
@@ -143,6 +148,7 @@
           <div class="city-card__header">
             <h4 class="city-card__name">${brandName}</h4>
             <span class="city-card__code">${ville}</span>
+            ${!canManage ? '<span class="city-card__readonly-badge"><i class="fa-solid fa-lock"></i> Lecture seule</span>' : ''}
           </div>
           <div class="city-card__meta">
             ${hasCoords ? `
@@ -174,10 +180,10 @@
           <button class="city-card__view gp-btn gp-btn--secondary" data-ville="${ville}" title="Voir la ville">
             <i class="fa-solid fa-eye"></i>
           </button>
-          <button class="city-card__edit gp-btn gp-btn--secondary" data-ville="${ville}" title="Modifier">
+          <button class="city-card__edit gp-btn gp-btn--secondary" data-ville="${ville}" title="Modifier" ${!canManage ? 'disabled' : ''}>
             <i class="fa-solid fa-pen"></i>
           </button>
-          <button class="city-card__delete gp-btn gp-btn--danger" data-ville="${ville}" title="Supprimer">
+          <button class="city-card__delete gp-btn gp-btn--danger" data-ville="${ville}" title="Supprimer" ${!canManage ? 'disabled' : ''}>
             <i class="fa-solid fa-trash"></i>
           </button>
         </div>

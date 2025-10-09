@@ -241,6 +241,26 @@ html, body {
   font-family: monospace;
 }
 
+.city-card__readonly-badge {
+  padding: 2px 8px;
+  background: #e0e0e0;
+  color: #616161;
+  border-radius: 4px;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.city-card--readonly {
+  opacity: 0.7;
+}
+
+.city-card--readonly .city-card__actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .city-card__meta {
   display: flex;
   gap: 12px;
@@ -328,6 +348,11 @@ html[data-theme='dark'] .city-card--warning {
   background: rgba(255, 152, 0, 0.1);
 }
 
+html[data-theme='dark'] .city-card__readonly-badge {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.5);
+}
+
 /* User Info Card */
 .user-info-card {
   margin-bottom: 20px;
@@ -412,6 +437,31 @@ html[data-theme='dark'] .city-card--warning {
   color: rgba(0, 0, 0, 0.65);
 }
 
+.user-info-card__logout {
+  margin-left: auto;
+  padding: 10px 12px;
+  background: transparent;
+  border: 1px solid rgba(211, 47, 47, 0.3);
+  border-radius: 8px;
+  color: #d32f2f;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.user-info-card__logout:hover {
+  background: rgba(211, 47, 47, 0.08);
+  border-color: #d32f2f;
+  transform: translateY(-1px);
+}
+
+.user-info-card__logout:active {
+  transform: translateY(0);
+}
+
 /* Dark mode */
 html[data-theme='dark'] .user-info-card {
   background: linear-gradient(135deg, rgba(66, 165, 245, 0.12) 0%, rgba(66, 165, 245, 0.05) 100%);
@@ -440,6 +490,16 @@ html[data-theme='dark'] .user-info-card__badge {
 
 html[data-theme='dark'] .user-info-card__cities {
   color: rgba(255, 255, 255, 0.65);
+}
+
+html[data-theme='dark'] .user-info-card__logout {
+  border-color: rgba(239, 83, 80, 0.4);
+  color: #ef5350;
+}
+
+html[data-theme='dark'] .user-info-card__logout:hover {
+  background: rgba(239, 83, 80, 0.15);
+  border-color: #ef5350;
 }
 
 /* Landing (choix initial) */

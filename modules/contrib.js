@@ -201,6 +201,19 @@
           citiesBadge.innerHTML = citiesText;
           
           card.style.display = 'flex';
+          
+          // Bind logout button
+          const logoutBtn = document.getElementById('user-logout-btn');
+          if (logoutBtn) {
+            // Remove previous listeners
+            const newLogoutBtn = logoutBtn.cloneNode(true);
+            logoutBtn.parentNode.replaceChild(newLogoutBtn, logoutBtn);
+            
+            // Add new listener
+            newLogoutBtn.addEventListener('click', () => {
+              window.location.href = '/logout';
+            });
+          }
         } catch (e) {
           console.error('[contrib] updateUserInfoCard error:', e);
         }
@@ -276,8 +289,14 @@
           openContrib();
           
           // Appliquer les contraintes de rôle après l'ouverture (pour garantir que les éléments existent)
+          console.log('[DEBUG] Ouverture modale, rôle actuel:', win.__CONTRIB_ROLE, __userRole);
           setTimeout(() => {
-            try { applyRoleConstraints(); } catch(_) {}
+            try { 
+              console.log('[DEBUG] Appel applyRoleConstraints après timeout');
+              applyRoleConstraints(); 
+            } catch(e) { 
+              console.error('[DEBUG] Erreur applyRoleConstraints:', e);
+            }
           }, 100);
           
         } catch (error) {
@@ -367,6 +386,96 @@
       } catch(e) {
         console.warn('[contrib] showLanding error:', e);
       }
+    }
+
+    // Function to apply role-based constraints (defined early to be available everywhere)
+    function applyRoleConstraints() {
+      try {
+        const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : __userRole;
+        const isInvited = role === 'invited';
+        const isAdmin = role === 'admin';
+        
+        console.log('[DEBUG applyRoleConstraints] role:', role, 'isAdmin:', isAdmin, 'isInvited:', isInvited);
+
+        // City field visibility: visible uniquement à l'étape 1 pour admin et invited
+        try {
+          const cityInput = document.getElementById('contrib-city');
+          const cityRow = cityInput ? cityInput.closest('.form-row') : null;
+          const cityLabel = cityRow ? cityRow.querySelector('label[for="contrib-city"]') : null;
+          if (cityRow && cityInput) {
+            if (isAdmin || isInvited) {
+              try { cityInput.required = false; } catch(_) {}
+              if (cityLabel) cityLabel.textContent = 'Code collectivité';
+            } else {
+              cityRow.style.display = 'none';
+              try { cityInput.required = false; } catch(_) {}
+            }
+          }
+        } catch(_) {}
+
+        // Afficher/masquer les boutons de gestion selon le rôle (admin uniquement)
+        try {
+          const landingCategoriesBtn = document.getElementById('landing-categories');
+          console.log('[DEBUG] landingCategoriesBtn:', landingCategoriesBtn, 'isAdmin:', isAdmin);
+          if (landingCategoriesBtn) {
+            landingCategoriesBtn.style.display = isAdmin ? '' : 'none';
+          }
+        } catch(_) {}
+
+        try {
+          const landingUsersBtn = document.getElementById('landing-users');
+          if (landingUsersBtn) {
+            landingUsersBtn.style.display = isAdmin ? '' : 'none';
+          }
+        } catch(_) {}
+        
+        try {
+          const inviteUserBtn = document.getElementById('invite-user-btn');
+          if (inviteUserBtn) {
+            inviteUserBtn.style.display = isAdmin ? '' : 'none';
+          }
+        } catch(_) {}
+
+        // Afficher/masquer le bouton "Gérer les villes" selon le rôle (admin global uniquement)
+        const userVilles = (typeof win.__CONTRIB_VILLES !== 'undefined') ? win.__CONTRIB_VILLES : __userVilles;
+        const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
+        const isGlobalAdmin = isAdmin && hasGlobalAccess;
+        
+        console.log('[DEBUG] Gérer les villes - isAdmin:', isAdmin, 'userVilles:', userVilles, 'hasGlobalAccess:', hasGlobalAccess, 'isGlobalAdmin:', isGlobalAdmin);
+        
+        try {
+          const landingCitiesBtn = document.getElementById('landing-cities');
+          if (landingCitiesBtn) {
+            landingCitiesBtn.style.display = isGlobalAdmin ? '' : 'none';
+            console.log('[DEBUG] landingCitiesBtn.style.display =', landingCitiesBtn.style.display);
+          }
+        } catch(_) {}
+        
+        try {
+          const addCityBtn = document.getElementById('add-city-btn');
+          if (addCityBtn) {
+            addCityBtn.style.display = isGlobalAdmin ? '' : 'none';
+          }
+        } catch(_) {}
+
+        if (!isAdmin) {
+          // Forcer mineOnly côté état et UI pour tous les non-admin
+          if (listMineOnlyEl) {
+            try {
+              listMineOnlyEl.checked = true;
+              listMineOnlyEl.disabled = true;
+              listMineOnlyEl.title = 'Limité à mes contributions (imposé par votre rôle)';
+            } catch(_) {}
+          }
+          try { ContribList.updateListState?.({ mineOnly: true }); } catch(_) {}
+          try { if (panelList && !panelList.hidden) { listResetAndLoad(); } } catch(_) {}
+        } else {
+          if (listMineOnlyEl) {
+            try { listMineOnlyEl.disabled = false; } catch(_) {}
+          }
+          try { ContribList.updateListState?.({ mineOnly: !!(listMineOnlyEl && listMineOnlyEl.checked) }); } catch(_) {}
+        }
+      } catch(_) {}
     }
 
     // Function to initialize all form elements and bindings after template load
@@ -748,87 +857,7 @@
     if (backBtn) backBtn.addEventListener('click', () => showLanding());
 
     // —— List helpers ——
-    function applyRoleConstraints() {
-      try {
-        const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : __userRole;
-        const isInvited = role === 'invited';
-        const isAdmin = role === 'admin';
-
-        // City field visibility: visible uniquement à l'étape 1 pour admin et invited
-        try {
-          const cityInput = document.getElementById('contrib-city');
-          const cityRow = cityInput ? cityInput.closest('.form-row') : null;
-          const cityLabel = cityRow ? cityRow.querySelector('label[for="contrib-city"]') : null;
-          if (cityRow && cityInput) {
-            // Le champ a déjà la classe contrib-step-1, donc il sera masqué par showOnlyStep()
-            // On ne force le display que si on est à l'étape 1
-            if (isAdmin || isInvited) {
-              // Afficher le champ ville pour admin et invited UNIQUEMENT à l'étape 1
-              // showOnlyStep() gère déjà la visibilité selon l'étape
-              try { cityInput.required = false; } catch(_) {}
-              if (cityLabel) cityLabel.textContent = 'Code collectivité';
-            } else {
-              // Masquer pour les autres rôles (toujours)
-              cityRow.style.display = 'none';
-              try { cityInput.required = false; } catch(_) {}
-            }
-          }
-        } catch(_) {}
-
-        // Afficher/masquer le bouton "Gérer les utilisateurs" selon le rôle
-        try {
-          const landingUsersBtn = document.getElementById('landing-users');
-          if (landingUsersBtn) {
-            landingUsersBtn.style.display = isAdmin ? '' : 'none';
-          }
-        } catch(_) {}
-        
-        try {
-          const inviteUserBtn = document.getElementById('invite-user-btn');
-          if (inviteUserBtn) {
-            inviteUserBtn.style.display = isAdmin ? '' : 'none';
-          }
-        } catch(_) {}
-
-        // Afficher/masquer le bouton "Gérer les villes" selon le rôle (admin global uniquement)
-        const hasGlobalAccess = Array.isArray(__userVilles) && __userVilles.includes('global');
-        const isGlobalAdmin = isAdmin && hasGlobalAccess;
-        
-        try {
-          const landingCitiesBtn = document.getElementById('landing-cities');
-          if (landingCitiesBtn) {
-            landingCitiesBtn.style.display = isGlobalAdmin ? '' : 'none';
-          }
-        } catch(_) {}
-        
-        try {
-          const addCityBtn = document.getElementById('add-city-btn');
-          if (addCityBtn) {
-            addCityBtn.style.display = isGlobalAdmin ? '' : 'none';
-          }
-        } catch(_) {}
-
-        if (!isAdmin) {
-          // Forcer mineOnly côté état et UI pour tous les non-admin
-          if (listMineOnlyEl) {
-            try {
-              listMineOnlyEl.checked = true;
-              listMineOnlyEl.disabled = true;
-              listMineOnlyEl.title = 'Limité à mes contributions (imposé par votre rôle)';
-            } catch(_) {}
-          }
-          try { ContribList.updateListState?.({ mineOnly: true }); } catch(_) {}
-          // If list panel is visible and already loaded, refresh with mineOnly
-          try { if (panelList && !panelList.hidden) { listResetAndLoad(); } } catch(_) {}
-        } else {
-          // Rétablir l'UI si l'utilisateur est admin
-          if (listMineOnlyEl) {
-            try { listMineOnlyEl.disabled = false; } catch(_) {}
-          }
-          try { ContribList.updateListState?.({ mineOnly: !!(listMineOnlyEl && listMineOnlyEl.checked) }); } catch(_) {}
-        }
-      } catch(_) {}
-    }
+    // applyRoleConstraints() is now defined earlier (after showLanding)
     // List helpers moved to contrib-list.js
     const setListStatus = (msg) => ContribList.setListStatus?.(msg, listStatusEl);
     const clearEmptyState = () => ContribList.clearEmptyState?.(listEl);
