@@ -61,19 +61,29 @@
 
       if (citiesStatusEl) citiesStatusEl.textContent = '';
 
-      if (!cities || cities.length === 0) {
+      // Filtrer selon les permissions de l'utilisateur
+      const userVilles = win.__CONTRIB_VILLES || [];
+      const isGlobalAdmin = Array.isArray(userVilles) && userVilles.includes('global');
+      
+      let filteredCities = cities;
+      if (!isGlobalAdmin) {
+        // Si pas admin global, ne montrer que les villes dont on est responsable
+        filteredCities = cities.filter(city => userVilles.includes(city.ville));
+      }
+
+      if (!filteredCities || filteredCities.length === 0) {
         citiesListEl.innerHTML = `
           <div style="text-align:center;padding:40px;color:#666;">
             <i class="fa-solid fa-city" style="font-size:48px;opacity:0.3;margin-bottom:16px;"></i>
-            <p style="margin:0;font-size:15px;">Aucune ville configurée</p>
-            <p style="margin:8px 0 0 0;font-size:13px;opacity:0.7;">Cliquez sur "Ajouter une ville" pour commencer</p>
+            <p style="margin:0;font-size:15px;">Aucune ville accessible</p>
+            <p style="margin:8px 0 0 0;font-size:13px;opacity:0.7;">${isGlobalAdmin ? 'Cliquez sur "Ajouter une ville" pour commencer' : 'Vous n\'avez accès à aucune ville'}</p>
           </div>
         `;
         return;
       }
 
       // Trier par ville (alphabétique)
-      cities.sort((a, b) => (a.ville || '').localeCompare(b.ville || ''));
+      filteredCities.sort((a, b) => (a.ville || '').localeCompare(b.ville || ''));
 
       // Render cities
       citiesListEl.innerHTML = cities.map(city => renderCityCard(city)).join('');
