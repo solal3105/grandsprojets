@@ -8,15 +8,22 @@
   // STATE
   // ============================================================================
 
+  // State
   let drawMap = null;
-  let drawLayer = null;      // finalized geometry layer (L.Layer)
-  let drawLayerDirty = false; // whether current drawLayer was created/modified
-  let drawBaseLayer = null;
+  let drawBaseLayer = null; // Couche de fond de carte
+  let drawLayer = null; // Couche de géométrie finalisée
+  let drawLayerDirty = false; // Indique si la géométrie a été modifiée
+  let drawMode = null; // 'line' | 'polygon' | null
+  let currentPolyline = null;
+  let currentPolygon = null;
+  let tempMarkers = [];
+  let guideLayer = null;
+  let isInitializing = false; // Flag pour éviter les initialisations multiples
   let basemapsCache = null;
 
   // Manual draw state
   let manualDraw = { 
-    active: false, 
+    active: false,
     type: null, 
     points: [], 
     tempLayer: null,
@@ -35,31 +42,47 @@
    * @returns {Promise<L.Map>} Instance de la carte
    */
   async function initDrawMap(containerId, drawPanelEl, cityEl) {
-    // Si la carte existe déjà, la retourner
-    if (drawMap) {
-      console.log('[contrib-map] Draw map already exists, returning existing instance');
+    if (!drawPanelEl) return null;
+    
+    // Éviter les initialisations multiples simultanées
+    if (isInitializing) {
+      console.log('[contrib-map] Already initializing, waiting...');
+      // Attendre un peu et retourner la carte si elle existe
+      await new Promise(resolve => setTimeout(resolve, 100));
       return drawMap;
     }
     
-    if (!drawPanelEl) return null;
+    isInitializing = true;
     
     try {
-      const container = document.getElementById(containerId);
+      // Clear any existing map instance first
+      if (drawMap) {
+        console.log('[contrib-map] Cleaning up existing map instance');
+        try { 
+          drawMap.off(); // Remove all event listeners
+          drawMap.remove(); 
+        } catch(_) {}
+        drawMap = null;
+      }
+      
+      let container = document.getElementById(containerId);
       if (!container) {
         console.error('[contrib-map] Container not found:', containerId);
         return null;
       }
       
-      // Détruire complètement toute instance Leaflet existante
-      if (container._leaflet_id) {
-        console.warn('[contrib-map] Destroying existing Leaflet instance on container');
-        // Supprimer tous les enfants du conteneur
-        while (container.firstChild) {
-          container.removeChild(container.firstChild);
-        }
-        // Supprimer l'ID Leaflet
-        delete container._leaflet_id;
-      }
+      // Nettoyage complet : recréer le container pour éviter les problèmes Leaflet
+      const parent = container.parentNode;
+      const newContainer = document.createElement('div');
+      newContainer.id = containerId;
+      newContainer.className = container.className;
+      newContainer.style.cssText = container.style.cssText;
+      
+      // Remplacer l'ancien container
+      parent.replaceChild(newContainer, container);
+      container = newContainer;
+      
+      console.log('[contrib-map] Container recreated, _leaflet_id:', container._leaflet_id);
       
       // Load basemaps and pick only the one named "OpenStreetMap"
       const bmList = await ensureBasemaps();
@@ -93,9 +116,11 @@
         await applyCityBranding(selectedCity); 
       }
       
+      isInitializing = false;
       return drawMap;
     } catch (e) {
       console.warn('[contrib-map] initDrawMap error:', e);
+      isInitializing = false;
       return null;
     }
   }

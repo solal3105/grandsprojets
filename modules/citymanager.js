@@ -488,6 +488,16 @@
       }
       
       return city;
+    },
+
+    /**
+     * Récupère les informations d'une ville
+     * @param {string} cityCode - Code de la ville
+     * @returns {Object|null} - Informations de la ville ou null
+     */
+    getCityInfo: function(cityCode) {
+      if (!cityCode || !validCities) return null;
+      return validCities.find(c => c.ville === cityCode) || null;
     }
   };
 

@@ -534,6 +534,13 @@
     }, true);
   } catch (_) {}
 
+  // Initialiser le système de redirection automatique vers la ville
+  try {
+    if (win.CityRedirect && typeof win.CityRedirect.init === 'function') {
+      win.CityRedirect.init();
+    }
+  } catch (_) {}
+
   // Bootstrap de l'application
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initApp);

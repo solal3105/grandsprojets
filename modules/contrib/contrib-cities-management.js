@@ -201,6 +201,7 @@
    * @param {Object} elements - {citiesListEl, citiesStatusEl}
    */
   async function showCityModal(city = null, elements) {
+    console.log('[city-modal] Opening modal, city:', city, 'elements:', elements);
     const isEdit = !!city;
     const title = isEdit ? 'Modifier une ville' : 'Ajouter une ville';
 
@@ -396,6 +397,19 @@
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
+    // Auto-normalize city code on input
+    const cityCodeInput = modal.querySelector('#city-code');
+    if (cityCodeInput && !isEdit) {
+      cityCodeInput.addEventListener('input', (e) => {
+        const normalized = slugify(e.target.value);
+        if (normalized !== e.target.value) {
+          const cursorPos = e.target.selectionStart;
+          e.target.value = normalized;
+          e.target.setSelectionRange(cursorPos, cursorPos);
+        }
+      });
+    }
+
     // Add CSS animations
     const style = document.createElement('style');
     style.textContent = `
@@ -407,6 +421,14 @@
 
     // Initialize map
     const mapState = initializeCityMap(modal, city);
+    console.log('[city-modal] Map state:', mapState);
+
+    if (!mapState) {
+      console.error('[city-modal] Failed to initialize map!');
+      showToast('Erreur : impossible d\'initialiser la carte', 'error');
+      overlay.remove();
+      return;
+    }
 
     // Setup image uploads
     setupImageUploads(modal);
@@ -427,10 +449,17 @@
     });
 
     // Form submit
-    modal.querySelector('#city-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      await handleCityFormSubmit(modal, mapState, city, elements, close);
-    });
+    const form = modal.querySelector('#city-form');
+    console.log('[city-modal] Form element:', form);
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        console.log('[city-modal] Form submit event triggered');
+        e.preventDefault();
+        await handleCityFormSubmit(modal, mapState, city, elements, close);
+      });
+    } else {
+      console.error('[city-modal] Form element not found!');
+    }
   }
 
   // ============================================================================
@@ -700,14 +729,21 @@
     const submitBtn = modal.querySelector('.submit-btn');
     const originalBtnText = submitBtn.innerHTML;
 
+    console.log('[city-form] Submit started');
+
     try {
       // Disable button
       submitBtn.disabled = true;
       submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enregistrement...';
 
       // Get form data
-      const code = modal.querySelector('#city-code').value.trim().toLowerCase();
+      const codeRaw = modal.querySelector('#city-code').value.trim();
       const name = modal.querySelector('#city-name').value.trim();
+
+      // Normalize code: remove accents, lowercase, replace spaces with dashes
+      const code = slugify(codeRaw);
+
+      console.log('[city-form] Code raw:', codeRaw, '→ normalized:', code, 'Name:', name);
 
       // Validation
       if (!code || !name) {
@@ -717,46 +753,63 @@
         return;
       }
 
-      // Validate code format
+      // Validate code format (should always pass after slugify, but double-check)
       if (!/^[a-z0-9-]+$/.test(code)) {
-        showToast('Code ville invalide. Utilisez uniquement des lettres minuscules, chiffres et tirets.', 'error');
+        console.log('[city-form] Invalid code format after normalization:', code);
+        showToast('Code ville invalide après normalisation. Contactez le support.', 'error');
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalBtnText;
         return;
       }
+
+      console.log('[city-form] Code format valid');
 
       // Check logo
       const logoZone = modal.querySelector('.image-upload-zone[data-type="logo"]');
       const hasNewLogo = logoZone.dataset.file === 'pending';
       const hasExistingLogo = existingCity?.logo_url;
 
+      console.log('[city-form] Logo check - hasNewLogo:', hasNewLogo, 'hasExistingLogo:', hasExistingLogo);
+      console.log('[city-form] logoZone:', logoZone, 'dataset.file:', logoZone?.dataset?.file);
+
       if (!hasNewLogo && !hasExistingLogo) {
+        console.log('[city-form] No logo provided');
         showToast('Logo principal requis', 'error');
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalBtnText;
         return;
       }
 
+      console.log('[city-form] Logo validation passed');
+
       // Upload images
       let logoUrl = existingCity?.logo_url || null;
       let darkLogoUrl = existingCity?.dark_logo_url || null;
       let faviconUrl = existingCity?.favicon_url || null;
 
+      console.log('[city-form] Starting image uploads...');
+
       if (hasNewLogo) {
+        console.log('[city-form] Uploading main logo...');
         submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Upload logo...';
         logoUrl = await uploadCityImage(logoZone.fileObject, code, 'logo');
+        console.log('[city-form] Logo uploaded:', logoUrl);
       }
 
       const darkLogoZone = modal.querySelector('.image-upload-zone[data-type="logo-dark"]');
       if (darkLogoZone.dataset.file === 'pending') {
+        console.log('[city-form] Uploading dark logo...');
         submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Upload logo dark...';
         darkLogoUrl = await uploadCityImage(darkLogoZone.fileObject, code, 'logo-dark');
+        console.log('[city-form] Dark logo uploaded:', darkLogoUrl);
       }
 
       const faviconZone = modal.querySelector('.image-upload-zone[data-type="favicon"]');
       if (faviconZone.dataset.file === 'pending') {
+        console.log('[city-form] Uploading favicon...');
         submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Upload favicon...';
         faviconUrl = await uploadCityImage(faviconZone.fileObject, code, 'favicon');
+        console.log('[city-form] Favicon uploaded:', faviconUrl);
       }
 
       // Prepare city data
@@ -771,14 +824,19 @@
         zoom: mapState.zoom
       };
 
+      console.log('[city-form] City data prepared:', cityData);
+
       // Save to database
       submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enregistrement...';
       
       if (existingCity) {
+        console.log('[city-form] Updating city...');
         await win.supabaseService.updateCity(code, cityData);
         showToast(`Ville "${name}" mise à jour avec succès !`, 'success');
       } else {
-        await win.supabaseService.createCity(cityData);
+        console.log('[city-form] Creating city...');
+        const result = await win.supabaseService.createCity(cityData);
+        console.log('[city-form] City created:', result);
         showToast(`Ville "${name}" créée avec succès !`, 'success');
       }
 

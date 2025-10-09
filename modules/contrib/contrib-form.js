@@ -181,12 +181,17 @@
   async function handleSubmit(e, config) {
     e.preventDefault();
     
+    console.log('[contrib-form] handleSubmit called', config);
+    
     const {
       form, elements, onSetStatus, onShowToast, onExitEditMode,
       onRefreshList, onCloseContrib, __userRole
     } = config || {};
     
-    if (!form) return;
+    if (!form) {
+      console.error('[contrib-form] No form element provided');
+      return;
+    }
 
     const submitBtn = document.getElementById('contrib-submit');
     const projectName = document.getElementById('contrib-project-name')?.value?.trim();
@@ -207,7 +212,10 @@
 
     const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : __userRole;
     
+    console.log('[contrib-form] Form data:', { projectName, category, city, geomMode, role });
+    
     if (!projectName || !category) {
+      console.warn('[contrib-form] Missing required fields');
       if (onSetStatus) onSetStatus('Veuillez renseigner le nom et la catégorie.', 'error');
       return;
     }
@@ -274,17 +282,28 @@
     if (submitBtn) submitBtn.disabled = true;
     try { if (form) form.setAttribute('aria-busy', 'true'); } catch(_) {}
 
+    // Désactiver la redirection automatique pendant l'upload
+    const previousRedirectState = win.__DISABLE_CITY_REDIRECT;
+    win.__DISABLE_CITY_REDIRECT = true;
+
     try {
       // Ensure authenticated session
+      console.log('[contrib-form] Checking authentication...');
       const session = await (win.AuthModule && win.AuthModule.requireAuthOrRedirect('/login/'));
-      if (!session || !session.user) return;
+      if (!session || !session.user) {
+        console.error('[contrib-form] No authenticated session');
+        return;
+      }
+      console.log('[contrib-form] User authenticated:', session.user.id);
 
       let rowId = currentEditId;
       if (!currentEditId) {
         // Create row
+        console.log('[contrib-form] Creating new contribution row...');
         try {
           if (win.supabaseService && typeof win.supabaseService.createContributionRow === 'function') {
             const cityToCreate = (role === 'admin') ? (city || null) : null;
+            console.log('[contrib-form] Calling createContributionRow with:', { projectName, category, cityToCreate });
             rowId = await win.supabaseService.createContributionRow(
               projectName,
               category,
@@ -293,12 +312,16 @@
               description,
               officialUrl
             );
+            console.log('[contrib-form] Row created with ID:', rowId);
+          } else {
+            console.error('[contrib-form] supabaseService.createContributionRow not available');
           }
         } catch (e) {
-          console.warn('[contrib-form] createContributionRow error:', e);
+          console.error('[contrib-form] createContributionRow error:', e);
         }
         
         if (!rowId) {
+          console.error('[contrib-form] Failed to create row, rowId is:', rowId);
           if (onSetStatus) onSetStatus("Impossible de créer l'entrée de contribution. Réessayez plus tard.", 'error');
           if (onShowToast) onShowToast("Création impossible pour le moment.", 'error');
           if (submitBtn) submitBtn.disabled = false;
@@ -308,7 +331,11 @@
 
       // Upload GeoJSON
       if (fileForUpload) {
+        console.log('[contrib-form] Uploading GeoJSON...');
         await (win.supabaseService && win.supabaseService.uploadGeoJSONToStorage(fileForUpload, category, projectName, rowId));
+        console.log('[contrib-form] GeoJSON uploaded');
+      } else {
+        console.log('[contrib-form] No GeoJSON file to upload');
       }
 
       // Upload cover (non-blocking)
@@ -410,6 +437,9 @@
       if (onSetStatus) onSetStatus("Échec de l'envoi. Réessayez plus tard.", 'error');
       if (onShowToast) onShowToast("Échec de l'envoi de la contribution.", 'error');
     } finally {
+      // Restaurer l'état de la redirection
+      win.__DISABLE_CITY_REDIRECT = previousRedirectState;
+      
       if (submitBtn) submitBtn.disabled = false;
       try { if (form) form.removeAttribute('aria-busy'); } catch(_) {}
     }

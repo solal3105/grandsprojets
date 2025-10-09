@@ -997,8 +997,14 @@
     // Bouton d'ajout de ville
     if (addCityBtn) {
       addCityBtn.addEventListener('click', () => {
+        console.log('[contrib] Add city button clicked');
+        console.log('[contrib] ContribCitiesManagement:', window.ContribCitiesManagement);
         const elements = { citiesListEl, citiesStatusEl };
-        ContribCitiesManagement.showCityModal?.(null, elements);
+        if (window.ContribCitiesManagement && typeof window.ContribCitiesManagement.showCityModal === 'function') {
+          window.ContribCitiesManagement.showCityModal(null, elements);
+        } else {
+          console.error('[contrib] ContribCitiesManagement.showCityModal not available');
+        }
       });
     }
 
@@ -1535,7 +1541,7 @@
         onExitEditMode: exitEditMode,
         onRefreshList: () => { if (panelList && !panelList.hidden) listResetAndLoad(); },
         onCloseContrib: closeContrib,
-        __userRole
+        __userRole: (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : ''
       };
       await ContribForm.handleSubmit?.(e, config);
     }
