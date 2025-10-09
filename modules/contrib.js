@@ -74,33 +74,6 @@
       }, 180);
     };
 
-    // Helper function to show landing page
-    const showLanding = () => {
-      try {
-        const landingEl = document.getElementById('contrib-landing');
-        const tabsContainer = document.querySelector('#contrib-overlay .contrib-tabs');
-        const panelCreate = document.getElementById('contrib-panel-create');
-        const panelList = document.getElementById('contrib-panel-list');
-        const panelCategories = document.getElementById('contrib-panel-categories');
-        const backBtn = document.getElementById('contrib-back');
-        
-        if (landingEl) landingEl.hidden = false;
-        if (tabsContainer) tabsContainer.style.display = 'none';
-        if (panelCreate) panelCreate.hidden = true;
-        if (panelList) panelList.hidden = true;
-        if (panelCategories) panelCategories.hidden = true;
-        if (backBtn) backBtn.style.display = 'none';
-        
-        // Mettre à jour le titre de la modale
-        updateModalTitle('landing');
-        
-        // Afficher la card d'info utilisateur
-        renderUserInfoCard();
-      } catch(e) {
-        console.warn('[contrib] showLanding error:', e);
-      }
-    };
-
     const openContrib = () => {
       if (!contribOverlay) return;
       if (contribCloseTimer) { clearTimeout(contribCloseTimer); contribCloseTimer = null; }
@@ -161,6 +134,77 @@
           };
         } catch (_) { return { role: '', ville: null }; }
       };
+      
+      const updateUserInfoCard = async (session, profile) => {
+        try {
+          const card = document.getElementById('user-info-card');
+          const emailEl = document.getElementById('user-info-email');
+          const roleBadge = document.getElementById('user-role-badge');
+          const citiesBadge = document.getElementById('user-cities-badge');
+          
+          if (!card || !emailEl || !roleBadge || !citiesBadge) return;
+          
+          if (!session || !session.user) {
+            card.style.display = 'none';
+            return;
+          }
+          
+          const email = session.user.email || 'Utilisateur';
+          const role = profile.role || '';
+          const villes = profile.ville;
+          
+          emailEl.textContent = email;
+          
+          // Badge de rôle avec icône
+          const roleLabel = role === 'admin' ? 'Admin' : role === 'invited' ? 'Invited' : 'User';
+          const roleIcon = role === 'admin' ? 'fa-shield-halved' : 'fa-user-check';
+          roleBadge.innerHTML = `<i class="fa-solid ${roleIcon}"></i> ${roleLabel}`;
+          
+          // Badge des villes
+          let citiesText = '';
+          if (Array.isArray(villes)) {
+            const filtered = villes.filter(v => v !== 'global');
+            if (villes.includes('global')) {
+              // Si global, récupérer toutes les villes de city_branding
+              try {
+                const client = (win.AuthModule && typeof win.AuthModule.getClient === 'function') ? win.AuthModule.getClient() : null;
+                if (client) {
+                  const { data: cities, error } = await client
+                    .from('city_branding')
+                    .select('ville, brand_name')
+                    .order('ville', { ascending: true });
+                  
+                  if (!error && cities && cities.length > 0) {
+                    const cityNames = cities.map(c => c.brand_name || c.ville).join(', ');
+                    citiesText = `<i class="fa-solid fa-globe"></i> ${cityNames}`;
+                  } else {
+                    console.error('[contrib] city_branding query error:', error);
+                    citiesText = '<i class="fa-solid fa-globe"></i> Toutes les collectivités';
+                  }
+                } else {
+                  citiesText = '<i class="fa-solid fa-globe"></i> Toutes les collectivités';
+                }
+              } catch (e) {
+                console.error('[contrib] Failed to fetch cities:', e);
+                citiesText = '<i class="fa-solid fa-globe"></i> Toutes les collectivités';
+              }
+            } else if (filtered.length > 0) {
+              citiesText = `<i class="fa-solid fa-location-dot"></i> ${filtered.join(', ')}`;
+            } else {
+              citiesText = '<i class="fa-solid fa-triangle-exclamation"></i> Aucune collectivité';
+            }
+          } else if (villes) {
+            citiesText = `<i class="fa-solid fa-location-dot"></i> ${villes}`;
+          } else {
+            citiesText = '<i class="fa-solid fa-triangle-exclamation"></i> Aucune collectivité';
+          }
+          citiesBadge.innerHTML = citiesText;
+          
+          card.style.display = 'flex';
+        } catch (e) {
+          console.error('[contrib] updateUserInfoCard error:', e);
+        }
+      };
       const updateRoleState = async (session) => {
         __currentSession = session || null;
         const profile = await getUserProfileFromProfiles(__currentSession);
@@ -173,12 +217,17 @@
         try { win.__CONTRIB_IS_ADMIN = __isAdmin; } catch(_) {}
         try { win.__CONTRIB_ROLE = __userRole; } catch(_) {}
         try { win.__CONTRIB_VILLES = __userVilles; } catch(_) {}
+        
+        // Mettre à jour la user-info-card (async)
+        updateUserInfoCard(session, profile).catch(e => console.error('[contrib] updateUserInfoCard error:', e));
+        
         // applyRoleConstraints will be called after form initialization
         try {
           if (typeof applyRoleConstraints === 'function') {
             applyRoleConstraints();
           }
         } catch(_) {}
+        // La user-info-card est déjà mise à jour par updateUserInfoCard() ci-dessus
       };
 
       // État initial
@@ -220,8 +269,16 @@
           // Initialize form elements and bindings
           initializeContribForm();
           
+          // Mettre à jour le rôle avant d'ouvrir la modale
+          await updateRoleState(session);
+          
           // Open the modal
           openContrib();
+          
+          // Appliquer les contraintes de rôle après l'ouverture (pour garantir que les éléments existent)
+          setTimeout(() => {
+            try { applyRoleConstraints(); } catch(_) {}
+          }, 100);
           
         } catch (error) {
           console.error('[contrib] Error opening modal:', error);
@@ -256,78 +313,59 @@
 
     // Close button and overlay bindings are now done dynamically after template load
 
-    // Helper function to render user info card (needs to be accessible from openContrib)
-    function renderUserInfoCard() {
+    // —— Helper functions (defined early for use in initializeContribForm) ——
+
+    // Helper function to update modal title
+    function updateModalTitle(context) {
+      const titleEl = document.getElementById('contrib-title');
+      if (!titleEl) return;
+      
+      const titles = {
+        'create': 'Créer une contribution',
+        'list': 'Modifier mes contributions',
+        'categories': 'Gérer les catégories',
+        'users': 'Gérer les utilisateurs',
+        'cities': 'Gérer les villes',
+        'landing': 'Proposer une contribution'
+      };
+      
+      const newTitle = titles[context] || 'Proposer une contribution';
+      titleEl.textContent = newTitle;
+      console.log('[contrib] Modal title updated:', newTitle);
+    }
+
+    // Helper function to show landing page
+    function showLanding() {
       try {
         const landingEl = document.getElementById('contrib-landing');
-        if (!landingEl) return;
+        const tabsContainer = document.querySelector('#contrib-overlay .contrib-tabs');
+        const panelCreate = document.getElementById('contrib-panel-create');
+        const panelList = document.getElementById('contrib-panel-list');
+        const panelCategories = document.getElementById('contrib-panel-categories');
+        const panelUsers = document.getElementById('contrib-panel-users');
+        const panelCities = document.getElementById('contrib-panel-cities');
+        const backBtn = document.getElementById('contrib-back');
         
-        // Récupérer la session depuis AuthModule
-        let email = 'Non connecté';
+        if (landingEl) landingEl.hidden = false;
+        if (tabsContainer) tabsContainer.style.display = 'none';
+        if (panelCreate) panelCreate.hidden = true;
+        if (panelList) panelList.hidden = true;
+        if (panelCategories) panelCategories.hidden = true;
+        if (panelUsers) panelUsers.hidden = true;
+        if (panelCities) panelCities.hidden = true;
+        if (backBtn) backBtn.style.display = 'none';
+        
+        // Mettre à jour le titre de la modale
+        updateModalTitle('landing');
+        
+        // Réappliquer les contraintes de rôle pour masquer/afficher les bons boutons
         try {
-          if (win.AuthModule && typeof win.AuthModule.getSession === 'function') {
-            win.AuthModule.getSession().then(({ data }) => {
-              if (data?.session?.user?.email) {
-                const emailEl = document.querySelector('#user-info-card .user-email');
-                if (emailEl) emailEl.textContent = data.session.user.email;
-              }
-            }).catch(() => {});
+          if (typeof applyRoleConstraints === 'function') {
+            applyRoleConstraints();
           }
         } catch(_) {}
-        
-        const role = window.__CONTRIB_ROLE || 'aucun';
-        const villes = window.__CONTRIB_VILLES;
-        
-        let villesText = '';
-        const hasGlobalAccess = Array.isArray(villes) && villes.includes('global');
-        
-        if (hasGlobalAccess) {
-          villesText = '<span style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; border-radius:20px; font-weight:600; font-size:0.9em; box-shadow:0 2px 8px rgba(16,185,129,0.25);"><i class="fa-solid fa-globe" style="font-size:0.95em;"></i> Toutes les collectivités</span>';
-        } else if (Array.isArray(villes) && villes.length > 0) {
-          villesText = villes.map(v => `<span style="display:inline-flex; align-items:center; padding:5px 12px; background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; border-radius:16px; font-size:0.85em; font-weight:500; box-shadow:0 2px 6px rgba(16,185,129,0.2); margin:2px 4px 2px 0;">${v}</span>`).join('');
-        } else {
-          villesText = '<span style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:#fef2f2; color:#dc2626; border-radius:16px; font-weight:500; font-size:0.9em; border:1px solid #fecaca;"><i class="fa-solid fa-triangle-exclamation" style="font-size:0.9em;"></i> Aucune collectivité autorisée</span>';
-        }
-        
-        const roleIcons = {
-          admin: 'fa-user-shield',
-          invited: 'fa-user-check',
-          default: 'fa-user'
-        };
-        const roleIcon = roleIcons[role] || roleIcons.default;
-        
-        const cardHTML = `
-          <div id="user-info-card" style="margin-bottom:24px; padding:20px; background:#ffffff; border-radius:16px; border:1px solid #d1fae5; box-shadow:0 4px 16px rgba(16,185,129,0.12), 0 1px 3px rgba(0,0,0,0.05);">
-            <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid #d1fae5;">
-              <div style="display:flex; align-items:center; justify-content:center; width:52px; height:52px; background:linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border-radius:14px; border:2px solid #6ee7b7; box-shadow:0 2px 8px rgba(16,185,129,0.15);">
-                <i class="fa-solid ${roleIcon}" style="font-size:24px; color:#047857;"></i>
-              </div>
-              <div style="flex:1; min-width:0;">
-                <div style="font-size:0.75em; color:#6b7280; text-transform:uppercase; letter-spacing:0.8px; font-weight:600; margin-bottom:4px;">Connecté en tant que</div>
-                <div class="user-email" style="font-weight:600; font-size:1.05em; color:#111827; overflow:hidden; text-overflow:ellipsis;">${email}</div>
-              </div>
-            </div>
-            <div style="display:flex; flex-direction:column; gap:12px;">
-              <div style="display:flex; align-items:center; gap:12px;">
-                <div style="min-width:90px; font-size:0.9em; color:#6b7280; font-weight:500;">Rôle</div>
-                <div style="display:inline-flex; align-items:center; gap:8px; padding:6px 14px; background:linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); color:#047857; border-radius:20px; font-weight:600; font-size:0.9em; text-transform:capitalize; border:1px solid #6ee7b7;">
-                  <i class="fa-solid fa-circle" style="font-size:6px;"></i> ${role}
-                </div>
-              </div>
-              <div style="display:flex; align-items:flex-start; gap:12px;">
-                <div style="min-width:90px; font-size:0.9em; color:#6b7280; font-weight:500; padding-top:4px;">Collectivités</div>
-                <div style="flex:1; display:flex; flex-wrap:wrap; align-items:center;">${villesText}</div>
-              </div>
-            </div>
-          </div>
-        `;
-        
-        // Injecter la card au début du landing
-        let existingCard = landingEl.querySelector('#user-info-card');
-        if (existingCard) existingCard.remove();
-        landingEl.insertAdjacentHTML('afterbegin', cardHTML);
       } catch(e) {
-        console.warn('[contrib] renderUserInfoCard error:', e);
+        console.warn('[contrib] showLanding error:', e);
       }
     }
 
@@ -335,14 +373,14 @@
     function initializeContribForm() {
       // Re-query all DOM elements
       const form = document.getElementById('contrib-form');
-    const statusEl = document.getElementById('contrib-status');
-    const cityEl = document.getElementById('contrib-city');
-    const categoryEl = document.getElementById('contrib-category');
-    const categoryHelpEl = document.getElementById('contrib-category-help');
-    const createCategoryLink = document.getElementById('contrib-create-category-link');
-    const addDocBtn = document.getElementById('contrib-doc-add');
-    const docsFieldset = document.getElementById('contrib-docs');
-    const existingDocsEl = document.getElementById('contrib-existing-docs');
+      const statusEl = document.getElementById('contrib-status');
+      const cityEl = document.getElementById('contrib-city');
+      const categoryEl = document.getElementById('contrib-category');
+      const categoryHelpEl = document.getElementById('contrib-category-help');
+      const createCategoryLink = document.getElementById('contrib-create-category-link');
+      const addDocBtn = document.getElementById('contrib-doc-add');
+      const docsFieldset = document.getElementById('contrib-docs');
+      const existingDocsEl = document.getElementById('contrib-existing-docs');
     
     // Flag to ensure we load the city code list only at Step 1 and only once
     let citiesPopulatedOnce = false;
@@ -555,12 +593,15 @@
     const panelCreate  = document.getElementById('contrib-panel-create');
     const panelList    = document.getElementById('contrib-panel-list');
     const panelCategories = document.getElementById('contrib-panel-categories');
+    const panelUsers   = document.getElementById('contrib-panel-users');
     const backBtn      = document.getElementById('contrib-back');
     // Landing elements
     const landingEl = document.getElementById('contrib-landing');
     const landingCreateBtn = document.getElementById('landing-create');
     const landingEditBtn = document.getElementById('landing-edit');
     const landingCategoriesBtn = document.getElementById('landing-categories');
+    const landingUsersBtn = document.getElementById('landing-users');
+    const landingCitiesBtn = document.getElementById('landing-cities');
     const listEl       = document.getElementById('contrib-list');
     const listStatusEl = document.getElementById('contrib-list-status');
     const listSearchEl = document.getElementById('contrib-search');
@@ -568,6 +609,15 @@
     const listSortEl   = document.getElementById('contrib-sort');
     const listSentinel = document.getElementById('contrib-list-sentinel');
     const listMineOnlyEl = document.getElementById('contrib-mine-only');
+    // Users panel elements
+    const usersListEl  = document.getElementById('users-list');
+    const usersStatusEl = document.getElementById('users-status');
+    const usersSearchEl = document.getElementById('users-search');
+    const inviteUserBtn = document.getElementById('invite-user-btn');
+    // Cities panel elements
+    const citiesListEl  = document.getElementById('cities-list');
+    const citiesStatusEl = document.getElementById('cities-status');
+    const addCityBtn = document.getElementById('add-city-btn');
 
     // currentEditId moved to contrib-form.js
     // editGeojsonUrl moved to contrib-geometry.js
@@ -578,6 +628,8 @@
     const ContribCities = win.ContribCities || {};
     const ContribCategories = win.ContribCategories || {};
     const ContribCategoriesCrud = win.ContribCategoriesCrud || {};
+    const ContribUsers = win.ContribUsers || {};
+    const ContribCitiesManagement = win.ContribCitiesManagement || {};
     // listState moved to contrib-list.js
 
     // —— Official project link (single field, all categories) ——
@@ -599,31 +651,20 @@
       return map;
     }
 
-    // —— Modal title update ——
-    function updateModalTitle(context) {
-      const titleEl = document.getElementById('contrib-title');
-      if (!titleEl) return;
-      
-      const titles = {
-        'create': 'Créer une contribution',
-        'list': 'Modifier mes contributions',
-        'categories': 'Gérer les catégories',
-        'landing': 'Proposer une contribution'
-      };
-      
-      const newTitle = titles[context] || 'Proposer une contribution';
-      titleEl.textContent = newTitle;
-      console.log('[contrib] Modal title updated:', newTitle);
-    }
-
     // —— Tabs logic (ARIA, keyboard) ——
+    // updateModalTitle() is defined earlier in the "Helper functions" section
     function activateTab(which) {
       const isCreate = which === 'create';
       const isList = which === 'list';
       const isCategories = which === 'categories';
+      const isUsers = which === 'users';
+      const isCities = which === 'cities';
       if (panelCreate) panelCreate.hidden = !isCreate;
       if (panelList) panelList.hidden = !isList;
       if (panelCategories) panelCategories.hidden = !isCategories;
+      if (panelUsers) panelUsers.hidden = !isUsers;
+      const panelCities = document.getElementById('contrib-panel-cities');
+      if (panelCities) panelCities.hidden = !isCities;
       // bouton retour visible quand on est hors landing
       if (backBtn) backBtn.style.display = '';
       
@@ -654,100 +695,26 @@
       } else if (isCategories) {
         // Load categories panel
         try { loadCategoriesPanel(); } catch(e) { console.error('[contrib] loadCategoriesPanel error:', e); }
+      } else if (isUsers) {
+        // Load users panel
+        try { 
+          const elements = { usersListEl, usersStatusEl };
+          ContribUsers.loadUsersList?.(elements);
+        } catch(e) { console.error('[contrib] loadUsersList error:', e); }
+      } else if (isCities) {
+        // Load cities panel
+        try { 
+          const elements = { citiesListEl, citiesStatusEl };
+          ContribCitiesManagement.loadCitiesList?.(elements);
+        } catch(e) { console.error('[contrib] loadCitiesList error:', e); }
       }
     }
 
     // —— Landing helpers ——
     const tabsContainer = document.querySelector('#contrib-overlay .contrib-tabs');
     
-    // Créer et afficher la card d'information utilisateur
-    function renderUserInfoCard() {
-      try {
-        // Récupérer la session depuis AuthModule plutôt que __currentSession (hors scope)
-        let email = 'Non connecté';
-        try {
-          if (win.AuthModule && typeof win.AuthModule.getSession === 'function') {
-            win.AuthModule.getSession().then(({ data }) => {
-              if (data?.session?.user?.email) {
-                const emailEl = document.querySelector('#user-info-card .user-email');
-                if (emailEl) emailEl.textContent = data.session.user.email;
-              }
-            }).catch(() => {});
-          }
-        } catch(_) {}
-        
-        const role = window.__CONTRIB_ROLE || 'aucun';
-        const villes = window.__CONTRIB_VILLES;
-        
-        let villesText = '';
-        const hasGlobalAccess = Array.isArray(villes) && villes.includes('global');
-        
-        if (hasGlobalAccess) {
-          villesText = '<span style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; border-radius:20px; font-weight:600; font-size:0.9em; box-shadow:0 2px 8px rgba(16,185,129,0.25);"><i class="fa-solid fa-globe" style="font-size:0.95em;"></i> Toutes les collectivités</span>';
-        } else if (Array.isArray(villes) && villes.length > 0) {
-          villesText = villes.map(v => `<span style="display:inline-flex; align-items:center; padding:5px 12px; background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; border-radius:16px; font-size:0.85em; font-weight:500; box-shadow:0 2px 6px rgba(16,185,129,0.2); margin:2px 4px 2px 0;">${v}</span>`).join('');
-        } else {
-          // villes === null ou villes.length === 0
-          villesText = '<span style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:#fef2f2; color:#dc2626; border-radius:16px; font-weight:500; font-size:0.9em; border:1px solid #fecaca;"><i class="fa-solid fa-triangle-exclamation" style="font-size:0.9em;"></i> Aucune collectivité autorisée</span>';
-        }
-        
-        // Icône selon le rôle mais couleurs vertes uniformes
-        const roleIcons = {
-          admin: 'fa-user-shield',
-          invited: 'fa-user-check',
-          default: 'fa-user'
-        };
-        const roleIcon = roleIcons[role] || roleIcons.default;
-        
-        const cardHTML = `
-          <div id="user-info-card" style="margin-bottom:24px; padding:20px; background:#ffffff; border-radius:16px; border:1px solid #d1fae5; box-shadow:0 4px 16px rgba(16,185,129,0.12), 0 1px 3px rgba(0,0,0,0.05);">
-            <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid #d1fae5;">
-              <div style="display:flex; align-items:center; justify-content:center; width:52px; height:52px; background:linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border-radius:14px; border:2px solid #6ee7b7; box-shadow:0 2px 8px rgba(16,185,129,0.15);">
-                <i class="fa-solid ${roleIcon}" style="font-size:24px; color:#047857;"></i>
-              </div>
-              <div style="flex:1; min-width:0;">
-                <div style="font-size:0.75em; color:#6b7280; text-transform:uppercase; letter-spacing:0.8px; font-weight:600; margin-bottom:4px;">Connecté en tant que</div>
-                <div class="user-email" style="font-weight:600; font-size:1.05em; color:#111827; overflow:hidden; text-overflow:ellipsis;">${email}</div>
-              </div>
-            </div>
-            <div style="display:flex; flex-direction:column; gap:12px;">
-              <div style="display:flex; align-items:center; gap:12px;">
-                <div style="min-width:90px; font-size:0.9em; color:#6b7280; font-weight:500;">Rôle</div>
-                <div style="display:inline-flex; align-items:center; gap:8px; padding:6px 14px; background:linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); color:#047857; border-radius:20px; font-weight:600; font-size:0.9em; text-transform:capitalize; border:1px solid #6ee7b7;">
-                  <i class="fa-solid fa-circle" style="font-size:6px;"></i> ${role}
-                </div>
-              </div>
-              <div style="display:flex; align-items:flex-start; gap:12px;">
-                <div style="min-width:90px; font-size:0.9em; color:#6b7280; font-weight:500; padding-top:4px;">Collectivités</div>
-                <div style="flex:1; display:flex; flex-wrap:wrap; align-items:center;">${villesText}</div>
-              </div>
-            </div>
-          </div>
-        `;
-        
-        // Injecter la card au début du landing
-        if (landingEl) {
-          let existingCard = landingEl.querySelector('#user-info-card');
-          if (existingCard) existingCard.remove();
-          landingEl.insertAdjacentHTML('afterbegin', cardHTML);
-        }
-      } catch(e) {
-        console.warn('[contrib] renderUserInfoCard error:', e);
-      }
-    }
+    // showLanding() is defined earlier in the "Helper functions" section
     
-    function showLanding() {
-      try {
-        if (landingEl) landingEl.hidden = false;
-        if (tabsContainer) tabsContainer.style.display = 'none';
-        if (panelCreate) panelCreate.hidden = true;
-        if (panelList) panelList.hidden = true;
-        if (panelCategories) panelCategories.hidden = true;
-        if (backBtn) backBtn.style.display = 'none';
-        // Afficher la card d'info utilisateur
-        renderUserInfoCard();
-      } catch(_) {}
-    }
     function hideLanding() {
       try {
         if (landingEl) landingEl.hidden = true;
@@ -762,6 +729,10 @@
         activateTab('list');
       } else if (target === 'categories') {
         activateTab('categories');
+      } else if (target === 'users') {
+        activateTab('users');
+      } else if (target === 'cities') {
+        activateTab('cities');
       } else {
         activateTab('create');
         try { setStep(1, { force: true }); } catch(_) {}
@@ -772,6 +743,8 @@
     if (landingCreateBtn) landingCreateBtn.addEventListener('click', () => chooseLanding('create'));
     if (landingEditBtn) landingEditBtn.addEventListener('click', () => chooseLanding('list'));
     if (landingCategoriesBtn) landingCategoriesBtn.addEventListener('click', () => chooseLanding('categories'));
+    if (landingUsersBtn) landingUsersBtn.addEventListener('click', () => chooseLanding('users'));
+    if (landingCitiesBtn) landingCitiesBtn.addEventListener('click', () => chooseLanding('cities'));
     if (backBtn) backBtn.addEventListener('click', () => showLanding());
 
     // —— List helpers ——
@@ -802,10 +775,42 @@
           }
         } catch(_) {}
 
+        // Afficher/masquer le bouton "Gérer les utilisateurs" selon le rôle
+        try {
+          const landingUsersBtn = document.getElementById('landing-users');
+          if (landingUsersBtn) {
+            landingUsersBtn.style.display = isAdmin ? '' : 'none';
+          }
+        } catch(_) {}
+        
+        try {
+          const inviteUserBtn = document.getElementById('invite-user-btn');
+          if (inviteUserBtn) {
+            inviteUserBtn.style.display = isAdmin ? '' : 'none';
+          }
+        } catch(_) {}
+
+        // Afficher/masquer le bouton "Gérer les villes" selon le rôle (admin global uniquement)
+        const hasGlobalAccess = Array.isArray(__userVilles) && __userVilles.includes('global');
+        const isGlobalAdmin = isAdmin && hasGlobalAccess;
+        
+        try {
+          const landingCitiesBtn = document.getElementById('landing-cities');
+          if (landingCitiesBtn) {
+            landingCitiesBtn.style.display = isGlobalAdmin ? '' : 'none';
+          }
+        } catch(_) {}
+        
+        try {
+          const addCityBtn = document.getElementById('add-city-btn');
+          if (addCityBtn) {
+            addCityBtn.style.display = isGlobalAdmin ? '' : 'none';
+          }
+        } catch(_) {}
+
         if (!isAdmin) {
           // Forcer mineOnly côté état et UI pour tous les non-admin
           if (listMineOnlyEl) {
-            listMineOnlyEl.checked = true;
             try {
               listMineOnlyEl.checked = true;
               listMineOnlyEl.disabled = true;
@@ -848,88 +853,47 @@
       await ContribList.doDeleteContribution?.(id, projectName, elements);
     }
 
+    // Shared callbacks for list operations (defined once, reused everywhere)
+    const sharedOnEdit = async (item) => {
+      try {
+        setListStatus('Chargement…');
+        const row = await (win.supabaseService && win.supabaseService.getContributionById(item.id));
+        setListStatus('');
+        if (row) {
+          enterEditMode(row);
+          activateTab('create');
+        }
+      } catch (e) {
+        setListStatus('Erreur de chargement.');
+        showToast('Erreur lors du chargement de la contribution.', 'error');
+      }
+    };
+
+    const sharedOnDelete = (id, name) => doDeleteContribution(id, name);
+
+    const sharedOnCreateClick = () => { 
+      try { activateTab('create'); setStep(1, { force: true }); } catch(_) {} 
+    };
+
     // renderItem moved to contrib-list.js
     function renderItem(item) {
-      const onEdit = async (it) => {
-        try {
-          setListStatus('Chargement…');
-          const row = await (win.supabaseService && win.supabaseService.getContributionById(it.id));
-          setListStatus('');
-          if (row) {
-            enterEditMode(row);
-            activateTab('create');
-          }
-        } catch (e) {
-          setListStatus('Erreur de chargement.');
-          showToast('Erreur lors du chargement de la contribution.', 'error');
-        }
-      };
-      const onDelete = (id, name) => doDeleteContribution(id, name);
-      return ContribList.renderItem?.(item, onEdit, onDelete) || document.createElement('div');
+      return ContribList.renderItem?.(item, sharedOnEdit, sharedOnDelete) || document.createElement('div');
     }
 
     // listResetAndLoad moved to contrib-list.js
     async function listResetAndLoad() {
-      const onEdit = async (item) => {
-        try {
-          setListStatus('Chargement…');
-          const row = await (win.supabaseService && win.supabaseService.getContributionById(item.id));
-          setListStatus('');
-          if (row) {
-            enterEditMode(row);
-            activateTab('create');
-          }
-        } catch (e) {
-          setListStatus('Erreur de chargement.');
-          showToast('Erreur lors du chargement de la contribution.', 'error');
-        }
-      };
-      const onDelete = (id, name) => doDeleteContribution(id, name);
-      const onCreateClick = () => { try { activateTab('create'); setStep(1, { force: true }); } catch(_) {} };
-      const elements = { listEl, listSentinel, listStatusEl, onEdit, onDelete, onCreateClick };
+      const elements = { listEl, listSentinel, listStatusEl, onEdit: sharedOnEdit, onDelete: sharedOnDelete, onCreateClick: sharedOnCreateClick };
       await ContribList.listResetAndLoad?.(elements);
     }
 
     // listLoadMore and initInfiniteScroll moved to contrib-list.js
     async function listLoadMore() {
-      const onEdit = async (item) => {
-        try {
-          setListStatus('Chargement…');
-          const row = await (win.supabaseService && win.supabaseService.getContributionById(item.id));
-          setListStatus('');
-          if (row) {
-            enterEditMode(row);
-            activateTab('create');
-          }
-        } catch (e) {
-          setListStatus('Erreur de chargement.');
-          showToast('Erreur lors du chargement de la contribution.', 'error');
-        }
-      };
-      const onDelete = (id, name) => doDeleteContribution(id, name);
-      const onCreateClick = () => { try { activateTab('create'); setStep(1, { force: true }); } catch(_) {} };
-      const elements = { listEl, listSentinel, listStatusEl, onEdit, onDelete, onCreateClick };
+      const elements = { listEl, listSentinel, listStatusEl, onEdit: sharedOnEdit, onDelete: sharedOnDelete, onCreateClick: sharedOnCreateClick };
       await ContribList.listLoadMore?.(elements);
     }
 
     function initInfiniteScroll() {
-      const onEdit = async (item) => {
-        try {
-          setListStatus('Chargement…');
-          const row = await (win.supabaseService && win.supabaseService.getContributionById(item.id));
-          setListStatus('');
-          if (row) {
-            enterEditMode(row);
-            activateTab('create');
-          }
-        } catch (e) {
-          setListStatus('Erreur de chargement.');
-          showToast('Erreur lors du chargement de la contribution.', 'error');
-        }
-      };
-      const onDelete = (id, name) => doDeleteContribution(id, name);
-      const onCreateClick = () => { try { activateTab('create'); setStep(1, { force: true }); } catch(_) {} };
-      const elements = { listEl, listSentinel, listStatusEl, onEdit, onDelete, onCreateClick };
+      const elements = { listEl, listSentinel, listStatusEl, onEdit: sharedOnEdit, onDelete: sharedOnDelete, onCreateClick: sharedOnCreateClick };
       ContribList.initInfiniteScroll?.(listEl, listSentinel, elements);
     }
 
@@ -979,6 +943,35 @@
 
     // Initialize infinite scroll once
     initInfiniteScroll();
+
+    // —— Users panel helpers ——
+    // Recherche en temps réel dans la liste des utilisateurs
+    if (usersSearchEl) {
+      usersSearchEl.addEventListener('input', () => {
+        const query = usersSearchEl.value.toLowerCase();
+        const cards = usersListEl?.querySelectorAll('.user-card') || [];
+        cards.forEach(card => {
+          const email = card.querySelector('.user-card__email')?.textContent.toLowerCase() || '';
+          card.style.display = email.includes(query) ? '' : 'none';
+        });
+      });
+    }
+
+    // Bouton d'invitation d'utilisateur
+    if (inviteUserBtn) {
+      inviteUserBtn.addEventListener('click', () => {
+        const elements = { usersListEl, usersStatusEl };
+        ContribUsers.showInviteModal?.(elements);
+      });
+    }
+
+    // Bouton d'ajout de ville
+    if (addCityBtn) {
+      addCityBtn.addEventListener('click', () => {
+        const elements = { citiesListEl, citiesStatusEl };
+        ContribCitiesManagement.showCityModal?.(null, elements);
+      });
+    }
 
     // —— Edit mode helpers ——
     const cancelEditBtn = document.getElementById('contrib-cancel-edit');

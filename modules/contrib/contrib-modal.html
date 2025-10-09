@@ -12,6 +12,23 @@
     <div class="gp-modal-body">
       <!-- Landing: choix initial (affiché au premier lancement) -->
       <section id="contrib-landing" class="contrib-landing" role="region" aria-label="Choisir une action" hidden>
+        <!-- User Info Card -->
+        <div id="user-info-card" class="user-info-card" style="display:none;">
+          <div class="user-info-card__avatar">
+            <i class="fa-solid fa-user"></i>
+          </div>
+          <div class="user-info-card__content">
+            <div class="user-info-card__header">
+              <span class="user-info-card__label">Connecté en tant que</span>
+              <div id="user-info-email" class="user-info-card__email"></div>
+            </div>
+            <div class="user-info-card__meta">
+              <span id="user-role-badge" class="user-info-card__badge"></span>
+              <span id="user-cities-badge" class="user-info-card__cities"></span>
+            </div>
+          </div>
+        </div>
+        
         <h3 class="landing-title">Que voulez-vous faire&nbsp;?</h3>
         <div class="landing-cards" role="list">
           <button class="choice-card" role="listitem" id="landing-create" data-target="create" aria-describedby="landing-create-desc">
@@ -28,6 +45,16 @@
             <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-tags"></i></span>
             <span class="card-title">Gérer les catégories</span>
             <span class="card-desc" id="landing-categories-desc">Créez ou modifiez les catégories et leurs icônes.</span>
+          </button>
+          <button class="choice-card" role="listitem" id="landing-users" data-target="users" aria-describedby="landing-users-desc">
+            <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-users"></i></span>
+            <span class="card-title">Gérer les utilisateurs</span>
+            <span class="card-desc" id="landing-users-desc">Visualisez et modifiez les rôles des utilisateurs.</span>
+          </button>
+          <button class="choice-card" role="listitem" id="landing-cities" data-target="cities" aria-describedby="landing-cities-desc">
+            <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-city"></i></span>
+            <span class="card-title">Gérer les villes</span>
+            <span class="card-desc" id="landing-cities-desc">Ajoutez ou modifiez les villes disponibles.</span>
           </button>
         </div>
       </section>
@@ -470,6 +497,71 @@
             </div>
           </form>
         </div>
+      </section>
+
+      <!-- Panel: Gérer les utilisateurs -->
+      <section id="contrib-panel-users" class="contrib-panel" hidden>
+        <div class="panel-header">
+          <h2 style="margin:0 0 8px 0;display:flex;align-items:center;gap:8px;">
+            <i class="fa-solid fa-users" style="color:#1976d2;"></i>
+            Gérer les utilisateurs
+          </h2>
+          <p class="panel-subtitle" style="margin:0;color:#666;font-size:14px;">Visualisez et modifiez les rôles des utilisateurs partageant vos villes</p>
+        </div>
+        
+        <div class="panel-toolbar" style="margin:16px 0;display:flex;gap:12px;align-items:center;">
+          <button 
+            type="button" 
+            id="invite-user-btn" 
+            class="gp-btn gp-btn--primary"
+            style="padding:10px 16px;display:flex;align-items:center;gap:8px;white-space:nowrap;"
+          >
+            <i class="fa-solid fa-user-plus"></i>
+            Inviter un utilisateur
+          </button>
+          
+          <div class="search-box" style="position:relative;flex:1;">
+            <i class="fa-solid fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#999;"></i>
+            <input 
+              type="search" 
+              id="users-search" 
+              placeholder="Rechercher par email..."
+              autocomplete="off"
+              style="width:100%;padding:10px 12px 10px 40px;border:1px solid #ddd;border-radius:8px;font-size:14px;"
+            />
+          </div>
+        </div>
+        
+        <div id="users-status" class="panel-status" role="status" aria-live="polite" style="margin:12px 0;color:#666;font-size:14px;"></div>
+        
+        <div id="users-list" class="users-list" style="max-height:500px;overflow-y:auto;padding-right:8px;"></div>
+      </section>
+
+      <!-- Panel: Gérer les villes -->
+      <section id="contrib-panel-cities" class="contrib-panel" hidden>
+        <div class="panel-header">
+          <h2 style="margin:0 0 8px 0;display:flex;align-items:center;gap:8px;">
+            <i class="fa-solid fa-city" style="color:#1976d2;"></i>
+            Gérer les villes
+          </h2>
+          <p class="panel-subtitle" style="margin:0;color:#666;font-size:14px;">Ajoutez ou modifiez les villes disponibles dans l'application</p>
+        </div>
+        
+        <div class="panel-toolbar" style="margin:16px 0;">
+          <button 
+            type="button" 
+            id="add-city-btn" 
+            class="gp-btn gp-btn--primary"
+            style="padding:10px 16px;display:flex;align-items:center;gap:8px;"
+          >
+            <i class="fa-solid fa-plus"></i>
+            Ajouter une ville
+          </button>
+        </div>
+        
+        <div id="cities-status" class="panel-status" role="status" aria-live="polite" style="margin:12px 0;color:#666;font-size:14px;"></div>
+        
+        <div id="cities-list" class="cities-list" style="max-height:500px;overflow-y:auto;padding-right:8px;"></div>
       </section>
     </div>
   </div>

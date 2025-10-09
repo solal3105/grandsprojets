@@ -1730,6 +1730,488 @@
         console.error('[supabaseService] getCategoryIconsByCity exception:', e);
         return [];
       }
+    },
+
+    // ========================================================================
+    // USER MANAGEMENT (Admin only)
+    // ========================================================================
+
+    /**
+     * Récupère les utilisateurs visibles par l'admin connecté
+     * @returns {Promise<Array>} Liste des utilisateurs avec email, role, ville, created_at
+     */
+    async getVisibleUsers() {
+      try {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (!user) {
+          console.error('[supabaseService] getVisibleUsers: not authenticated');
+          return [];
+        }
+        
+        // Récupérer le profil de l'admin connecté
+        const { data: adminProfile, error: profileError } = await supabaseClient
+          .from('profiles')
+          .select('role, ville')
+          .eq('id', user.id)
+          .single();
+        
+        if (profileError || !adminProfile) {
+          console.error('[supabaseService] getVisibleUsers: failed to get admin profile', profileError);
+          return [];
+        }
+        
+        // Vérifier que l'utilisateur est admin
+        if (adminProfile.role !== 'admin') {
+          console.error('[supabaseService] getVisibleUsers: user is not admin');
+          return [];
+        }
+        
+        // Récupérer les villes de l'admin (déjà un array JavaScript natif depuis Supabase)
+        let adminVilles = [];
+        if (adminProfile.ville) {
+          if (Array.isArray(adminProfile.ville)) {
+            adminVilles = adminProfile.ville;
+          } else {
+            // Fallback si c'est une string ou autre
+            console.warn('[supabaseService] getVisibleUsers: ville is not an array, converting');
+            adminVilles = [adminProfile.ville];
+          }
+        }
+        
+        const isGlobalAdmin = Array.isArray(adminVilles) && adminVilles.includes('global');
+        
+        console.log('[supabaseService] getVisibleUsers: admin villes:', adminVilles, 'isGlobal:', isGlobalAdmin);
+        
+        // Récupérer tous les utilisateurs (sauf soi-même) avec leur email via la fonction
+        const { data: allUsers, error: usersError } = await supabaseClient
+          .rpc('get_profiles_with_email');
+        
+        if (usersError) {
+          console.error('[supabaseService] getVisibleUsers: failed to get users', usersError);
+          return [];
+        }
+        
+        // Filtrer pour exclure l'utilisateur connecté et parser ville
+        const filteredUsers = (allUsers || [])
+          .filter(u => u.id !== user.id)
+          .map(u => {
+            // Parser ville - peut être soit JSON array soit PostgreSQL array format
+            let parsedVille = u.ville;
+            if (typeof u.ville === 'string' && u.ville) {
+              // Si c'est un PostgreSQL array format: {lyon,divonne}
+              if (u.ville.startsWith('{') && u.ville.endsWith('}')) {
+                const content = u.ville.slice(1, -1); // Enlever { et }
+                parsedVille = content ? content.split(',') : [];
+              } else {
+                // Sinon essayer de parser comme JSON
+                try {
+                  parsedVille = JSON.parse(u.ville);
+                } catch (e) {
+                  // Si le parsing échoue, garder la valeur originale
+                }
+              }
+            }
+            return { ...u, ville: parsedVille };
+          });
+        
+        console.log('[supabaseService] getVisibleUsers: fetched', filteredUsers.length, 'users from get_profiles_with_email');
+        
+        // Filtrer selon les permissions (la fonction a déjà filtré par admin, mais on filtre encore par ville si nécessaire)
+        let visibleUsers = filteredUsers;
+        
+        if (!isGlobalAdmin) {
+          // Admin ville : filtrer uniquement les utilisateurs avec au moins une ville commune
+          console.log('[supabaseService] getVisibleUsers: filtering by cities, admin has:', adminVilles);
+          visibleUsers = filteredUsers.filter(u => {
+            if (!u.ville) {
+              console.log('[supabaseService] User', u.id, 'has no ville');
+              return false;
+            }
+            
+            // ville doit être un array
+            if (!Array.isArray(u.ville)) {
+              console.log('[supabaseService] User', u.id, 'ville is not an array:', typeof u.ville, u.ville);
+              return false;
+            }
+            
+            console.log('[supabaseService] User', u.id, 'has villes:', u.ville);
+            
+            // Vérifier s'il y a au moins une ville en commun
+            const hasMatch = adminVilles.some(adminCity => u.ville.includes(adminCity));
+            console.log('[supabaseService] User', u.id, 'match:', hasMatch);
+            return hasMatch;
+          });
+          console.log('[supabaseService] getVisibleUsers: after filtering:', visibleUsers.length, 'users');
+        } else {
+          console.log('[supabaseService] getVisibleUsers: global admin, showing all users');
+        }
+        
+        // Les emails sont déjà dans les données depuis la vue profiles_with_email
+        const result = visibleUsers.map(u => ({
+          id: u.id,
+          email: u.email || `User ${u.id.substring(0, 8)}...`,
+          role: u.role,
+          ville: u.ville,
+          created_at: u.created_at
+        }));
+        
+        console.log('[supabaseService] getVisibleUsers: returning', result.length, 'users');
+        
+        return result;
+      } catch (e) {
+        console.error('[supabaseService] getVisibleUsers exception:', e);
+        return [];
+      }
+    },
+
+    /**
+     * Modifie le rôle d'un utilisateur (admin ↔ invited)
+     * @param {string} targetUserId - ID de l'utilisateur cible
+     * @param {string} newRole - Nouveau rôle ('admin' ou 'invited')
+     * @returns {Promise<boolean>} True si succès
+     */
+    async updateUserRole(targetUserId, newRole) {
+      try {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (!user) {
+          throw new Error('Not authenticated');
+        }
+        
+        if (!['admin', 'invited'].includes(newRole)) {
+          throw new Error('Invalid role: must be admin or invited');
+        }
+        
+        // Empêcher l'auto-modification
+        if (user.id === targetUserId) {
+          throw new Error('Cannot modify your own role');
+        }
+        
+        // Récupérer le profil de l'admin
+        const { data: adminProfile, error: adminError } = await supabaseClient
+          .from('profiles')
+          .select('role, ville')
+          .eq('id', user.id)
+          .single();
+        
+        if (adminError || !adminProfile || adminProfile.role !== 'admin') {
+          throw new Error('Unauthorized: caller is not admin');
+        }
+        
+        // Récupérer les villes de l'admin (déjà un array JavaScript natif depuis Supabase)
+        let adminVilles = [];
+        if (adminProfile.ville) {
+          if (Array.isArray(adminProfile.ville)) {
+            adminVilles = adminProfile.ville;
+          } else {
+            adminVilles = [adminProfile.ville];
+          }
+        }
+        
+        const isGlobalAdmin = Array.isArray(adminVilles) && adminVilles.includes('global');
+        
+        // Récupérer le profil de la cible
+        const { data: targetProfile, error: targetError } = await supabaseClient
+          .from('profiles')
+          .select('role, ville')
+          .eq('id', targetUserId)
+          .single();
+        
+        if (targetError || !targetProfile) {
+          throw new Error('Target user not found');
+        }
+        
+        // Si le rôle est déjà celui demandé, ne rien faire
+        if (targetProfile.role === newRole) {
+          return true;
+        }
+        
+        // Si admin global, autoriser directement
+        if (!isGlobalAdmin) {
+          // Admin ville : vérifier qu'il y a au moins une ville commune
+          if (!targetProfile.ville) {
+            throw new Error('Target user has no cities assigned');
+          }
+          
+          let targetVilles = [];
+          if (Array.isArray(targetProfile.ville)) {
+            targetVilles = targetProfile.ville;
+          } else if (targetProfile.ville) {
+            targetVilles = [targetProfile.ville];
+          }
+          
+          const hasSharedCity = adminVilles.some(adminCity => targetVilles.includes(adminCity));
+          
+          if (!hasSharedCity) {
+            throw new Error('Unauthorized: no shared cities with target user');
+          }
+        }
+        
+        // Mettre à jour le rôle
+        const { error: updateError } = await supabaseClient
+          .from('profiles')
+          .update({ role: newRole })
+          .eq('id', targetUserId);
+        
+        if (updateError) {
+          console.error('[supabaseService] updateUserRole error:', updateError);
+          throw new Error(updateError.message);
+        }
+        
+        return true;
+      } catch (e) {
+        console.error('[supabaseService] updateUserRole exception:', e);
+        throw e;
+      }
+    },
+
+    // ========================================================================
+    // USER INVITATION (Admin only)
+    // ========================================================================
+
+    /**
+     * Récupère les villes disponibles pour l'admin connecté
+     * @returns {Promise<Array<{value: string, label: string}>>} Liste des villes disponibles
+     */
+    async getAvailableCities() {
+      try {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (!user) {
+          console.error('[supabaseService] getAvailableCities: not authenticated');
+          return [];
+        }
+
+        // Récupérer le profil de l'admin
+        const { data: adminProfile, error: profileError } = await supabaseClient
+          .from('profiles')
+          .select('role, ville')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError || !adminProfile || adminProfile.role !== 'admin') {
+          console.error('[supabaseService] getAvailableCities: user is not admin');
+          return [];
+        }
+
+        // Parser les villes
+        let adminVilles = [];
+        if (adminProfile.ville) {
+          if (Array.isArray(adminProfile.ville)) {
+            adminVilles = adminProfile.ville;
+          } else {
+            adminVilles = [adminProfile.ville];
+          }
+        }
+
+        const isGlobalAdmin = adminVilles.includes('global');
+
+        // Si admin global, récupérer toutes les villes depuis city_branding
+        if (isGlobalAdmin) {
+          const { data: cities, error: citiesError } = await supabaseClient
+            .from('city_branding')
+            .select('ville, brand_name')
+            .order('ville', { ascending: true });
+
+          if (citiesError) {
+            console.error('[supabaseService] getAvailableCities: failed to fetch city_branding', citiesError);
+            return [];
+          }
+
+          if (!cities || cities.length === 0) {
+            console.warn('[supabaseService] getAvailableCities: no cities found in city_branding');
+            return [];
+          }
+
+          // Retourner les villes avec leur brand_name
+          return cities.map(city => ({
+            value: city.ville,
+            label: city.brand_name || (city.ville.charAt(0).toUpperCase() + city.ville.slice(1))
+          }));
+        }
+
+        // Si admin ville, retourner uniquement ses villes
+        return adminVilles
+          .filter(v => v !== 'global')
+          .map(v => ({
+            value: v,
+            label: v.charAt(0).toUpperCase() + v.slice(1) // Capitaliser
+          }));
+
+      } catch (e) {
+        console.error('[supabaseService] getAvailableCities exception:', e);
+        return [];
+      }
+    },
+
+    /**
+     * Invite un nouvel utilisateur
+     * @param {string} email - Email de l'utilisateur à inviter
+     * @param {Array<string>} villes - Liste des villes à assigner
+     * @param {string} role - Rôle de l'utilisateur ('admin' ou 'invited')
+     * @returns {Promise<Object>} Résultat de l'invitation
+     */
+    async inviteUser(email, villes, role = 'invited') {
+      try {
+        // Utiliser fetch directement pour avoir le détail complet des erreurs
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) {
+          throw new Error('Not authenticated');
+        }
+
+        const response = await fetch(`${supabaseClient.supabaseUrl}/functions/v1/invite-user`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+            'apikey': supabaseClient.supabaseKey
+          },
+          body: JSON.stringify({ email, villes, role })
+        });
+
+        const data = await response.json();
+
+        console.log('[supabaseService] inviteUser response:', { status: response.status, data });
+
+        if (!response.ok) {
+          const errorMessage = data.error || data.details || `HTTP ${response.status}: ${response.statusText}`;
+          throw new Error(errorMessage);
+        }
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        return data;
+      } catch (e) {
+        console.error('[supabaseService] inviteUser exception:', e);
+        throw e;
+      }
+    },
+
+    // ============================================================================
+    // CITIES MANAGEMENT (Admin Global only)
+    // ============================================================================
+
+    /**
+     * Récupère toutes les villes pour la gestion (admin global)
+     * @returns {Promise<Array>}
+     */
+    async getAllCitiesForManagement() {
+      try {
+        const { data, error } = await supabaseClient
+          .from('city_branding')
+          .select('*')
+          .order('ville', { ascending: true });
+
+        if (error) {
+          console.error('[supabaseService] getAllCitiesForManagement error:', error);
+          throw error;
+        }
+
+        // Récupérer le nombre d'admins par ville
+        const { data: profiles, error: profilesError } = await supabaseClient
+          .from('profiles')
+          .select('ville, role');
+
+        if (!profilesError && profiles) {
+          // Compter les admins par ville
+          const adminCounts = {};
+          
+          profiles.forEach(profile => {
+            if (profile.role === 'admin' && profile.ville) {
+              const villes = Array.isArray(profile.ville) ? profile.ville : [profile.ville];
+              villes.forEach(ville => {
+                if (ville && ville !== 'global') {
+                  adminCounts[ville] = (adminCounts[ville] || 0) + 1;
+                }
+              });
+            }
+          });
+
+          // Ajouter le compteur à chaque ville
+          (data || []).forEach(city => {
+            city.admin_count = adminCounts[city.ville] || 0;
+          });
+        }
+
+        return data || [];
+      } catch (e) {
+        console.error('[supabaseService] getAllCitiesForManagement exception:', e);
+        throw e;
+      }
+    },
+
+    /**
+     * Crée une nouvelle ville
+     * @param {Object} cityData - Données de la ville
+     * @returns {Promise<Object>}
+     */
+    async createCity(cityData) {
+      try {
+        const { data, error } = await supabaseClient
+          .from('city_branding')
+          .insert([cityData])
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[supabaseService] createCity error:', error);
+          throw error;
+        }
+
+        return data;
+      } catch (e) {
+        console.error('[supabaseService] createCity exception:', e);
+        throw e;
+      }
+    },
+
+    /**
+     * Met à jour une ville existante
+     * @param {string} ville - Code ville
+     * @param {Object} cityData - Nouvelles données
+     * @returns {Promise<Object>}
+     */
+    async updateCity(ville, cityData) {
+      try {
+        const { data, error } = await supabaseClient
+          .from('city_branding')
+          .update(cityData)
+          .eq('ville', ville)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[supabaseService] updateCity error:', error);
+          throw error;
+        }
+
+        return data;
+      } catch (e) {
+        console.error('[supabaseService] updateCity exception:', e);
+        throw e;
+      }
+    },
+
+    /**
+     * Supprime une ville
+     * @param {string} ville - Code ville
+     * @returns {Promise<void>}
+     */
+    async deleteCity(ville) {
+      try {
+        const { error } = await supabaseClient
+          .from('city_branding')
+          .delete()
+          .eq('ville', ville);
+
+        if (error) {
+          console.error('[supabaseService] deleteCity error:', error);
+          throw error;
+        }
+      } catch (e) {
+        console.error('[supabaseService] deleteCity exception:', e);
+        throw e;
+      }
     }
   };
 })(window);
