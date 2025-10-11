@@ -293,57 +293,82 @@
   <div id="contact-form-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" style="display:none">
     <div class="gp-modal" role="document">
       <div class="gp-modal-header">
+        <button class="gp-modal-back" id="contact-form-back" aria-label="Retour">
+          <i class="fas fa-arrow-left"></i>
+        </button>
         <div class="gp-modal-title">Contactez-moi</div>
         <button class="gp-modal-close" id="contact-form-close" aria-label="Fermer">&times;</button>
       </div>
       <div class="gp-modal-body">
+        <!-- Email reveal section (en premier) -->
+        <div class="form-email-reveal">
+          <p class="email-reveal-text">Préférez-vous m'écrire directement ?</p>
+          <button type="button" class="email-reveal-btn" id="reveal-email-btn">
+            <i class="fas fa-envelope"></i>
+            <span>Afficher mon adresse email</span>
+          </button>
+          <div class="email-revealed" id="email-revealed" style="display:none">
+            <div class="email-link-wrapper">
+              <a href="mailto:solal.gendrin@gmail.com" class="email-link">
+                <i class="fas fa-envelope"></i>
+                solal.gendrin@gmail.com
+              </a>
+              <button type="button" class="email-copy-btn" id="email-copy-btn">
+                <i class="fas fa-copy"></i>
+                <span>Copier</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-divider">
+          <span>ou</span>
+        </div>
+
         <form id="contact-form" class="contact-form">
           <div class="form-intro">
-            <p>💬 Parlez-moi de votre projet</p>
+            <p>💬 Remplissez le formulaire</p>
+            <p class="form-intro-subtitle">Les champs marqués d'un astérisque (*) sont obligatoires</p>
           </div>
 
-          <div class="form-group">
-            <label for="contact-name">Nom et prénom *</label>
-            <input type="text" id="contact-name" name="full_name" required>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="contact-name">Nom et prénom *</label>
+              <input type="text" id="contact-name" name="full_name" required placeholder="Jean Dupont">
+            </div>
+
+            <div class="form-group">
+              <label for="contact-email">Email *</label>
+              <input type="email" id="contact-email" name="email" required placeholder="jean.dupont@example.com">
+            </div>
           </div>
 
-          <div class="form-group">
-            <label for="contact-email">Email *</label>
-            <input type="email" id="contact-email" name="email" required>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="contact-phone">
+                Téléphone 
+                <span class="field-optional">(facultatif)</span>
+              </label>
+              <input type="tel" id="contact-phone" name="phone" placeholder="06 12 34 56 78">
+            </div>
+
+            <div class="form-group">
+              <label for="contact-org">Structure / Organisation *</label>
+              <input type="text" id="contact-org" name="organization" required placeholder="Ville de Lyon">
+            </div>
           </div>
 
-          <div class="form-group">
-            <label for="contact-phone">Téléphone</label>
-            <input type="tel" id="contact-phone" name="phone">
-          </div>
-
-          <div class="form-group">
-            <label for="contact-org">Structure / Organisation *</label>
-            <input type="text" id="contact-org" name="organization" required>
-          </div>
-
-          <div class="form-group">
-            <label for="contact-org-type">Type de structure *</label>
-            <select id="contact-org-type" name="organization_type" required>
-              <option value="">Sélectionnez...</option>
-              <option value="commune">Commune</option>
-              <option value="metropole">Métropole</option>
-              <option value="association">Association</option>
-              <option value="conseil_quartier">Conseil de quartier</option>
-              <option value="mission_locale">Mission locale</option>
-              <option value="etablissement_public">Établissement public</option>
-              <option value="autre">Autre</option>
-            </select>
-          </div>
-
-          <div class="form-group">
+          <div class="form-group form-group-full">
             <label for="contact-message">Message *</label>
-            <textarea id="contact-message" name="message" rows="5" required></textarea>
+            <textarea id="contact-message" name="message" rows="5" required placeholder="Décrivez votre projet..."></textarea>
           </div>
 
-          <div class="form-group">
-            <label for="contact-referrer">Comment avez-vous connu GrandsProjets.com ?</label>
-            <input type="text" id="contact-referrer" name="referrer">
+          <div class="form-group form-group-full">
+            <label for="contact-referrer">
+              Comment avez-vous connu GrandsProjets.com ?
+              <span class="field-optional">(facultatif)</span>
+            </label>
+            <input type="text" id="contact-referrer" name="referrer" placeholder="LinkedIn, bouche à oreille...">
           </div>
 
           <div class="form-actions">
@@ -351,10 +376,6 @@
               <span>Envoyer le message</span>
               <i class="fas fa-paper-plane"></i>
             </button>
-          </div>
-
-          <div class="form-footer">
-            <p>Ou par email : <a href="mailto:solal.gendrin@gmail.com">solal.gendrin@gmail.com</a></p>
           </div>
         </form>
 

@@ -27,7 +27,11 @@
   const contactSuccess = document.getElementById('contact-success');
   const contactError = document.getElementById('contact-error');
   const closeBtn = document.getElementById('contact-form-close');
+  const backBtn = document.getElementById('contact-form-back');
   const ctaButton = document.querySelector('.about-cta-button');
+  const revealEmailBtn = document.getElementById('reveal-email-btn');
+  const emailRevealed = document.getElementById('email-revealed');
+  const emailCopyBtn = document.getElementById('email-copy-btn');
 
   // Ouvrir la modale depuis le CTA
   if (ctaButton) {
@@ -38,11 +42,47 @@
     });
   }
 
+  // Bouton retour
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      win.ModalManager?.close('contact-form-overlay');
+      win.ModalManager?.open('about-overlay');
+      resetForm();
+    });
+  }
+
   // Fermer la modale
   if (closeBtn) {
     closeBtn.addEventListener('click', () => {
       win.ModalManager?.close('contact-form-overlay');
       resetForm();
+    });
+  }
+
+  // Révéler l'email (protection anti-bot)
+  if (revealEmailBtn && emailRevealed) {
+    revealEmailBtn.addEventListener('click', () => {
+      revealEmailBtn.style.display = 'none';
+      emailRevealed.style.display = 'block';
+    });
+  }
+
+  // Copier l'email
+  if (emailCopyBtn) {
+    emailCopyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText('solal.gendrin@gmail.com');
+        emailCopyBtn.classList.add('copied');
+        const icon = emailCopyBtn.querySelector('i');
+        icon.className = 'fas fa-check';
+        
+        setTimeout(() => {
+          emailCopyBtn.classList.remove('copied');
+          icon.className = 'fas fa-copy';
+        }, 2000);
+      } catch (err) {
+        console.error('Erreur copie:', err);
+      }
     });
   }
 
@@ -72,7 +112,6 @@
           email: formData.get('email'),
           phone: formData.get('phone') || null,
           organization: formData.get('organization'),
-          organization_type: formData.get('organization_type'),
           message: formData.get('message'),
           referrer: formData.get('referrer') || null,
         };
@@ -123,6 +162,11 @@
       contactForm.style.display = 'block';
       contactSuccess.style.display = 'none';
       contactError.style.display = 'none';
+    }
+    // Réinitialiser l'état du bouton email
+    if (revealEmailBtn && emailRevealed) {
+      revealEmailBtn.style.display = 'inline-flex';
+      emailRevealed.style.display = 'none';
     }
   }
 
