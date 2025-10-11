@@ -217,10 +217,10 @@
             <div class="about-cta-benefit">✓ Aucune compétence technique requise</div>
             <div class="about-cta-benefit">✓ <strong>Gratuit</strong> pour les associations, conseils de quartier et missions locales</div>
           </div>
-          <a href="mailto:solal.gendrin@gmail.com?subject=Demande%20d'information%20-%20GrandsProjets.com" class="about-cta-button">
+          <button class="about-cta-button">
             <span>Discutons ensemble de la solution</span>
             <i class="fas fa-arrow-right" aria-hidden="true"></i>
-          </a>
+          </button>
         </section>
 
         <!-- Values Section -->
@@ -289,6 +289,92 @@
     </div>
   </div>
 
+  <!-- Contact Form Modal -->
+  <div id="contact-form-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" style="display:none">
+    <div class="gp-modal" role="document">
+      <div class="gp-modal-header">
+        <div class="gp-modal-title">Contactez-moi</div>
+        <button class="gp-modal-close" id="contact-form-close" aria-label="Fermer">&times;</button>
+      </div>
+      <div class="gp-modal-body">
+        <form id="contact-form" class="contact-form">
+          <div class="form-intro">
+            <p>💬 Parlez-moi de votre projet</p>
+          </div>
+
+          <div class="form-group">
+            <label for="contact-name">Nom et prénom *</label>
+            <input type="text" id="contact-name" name="full_name" required>
+          </div>
+
+          <div class="form-group">
+            <label for="contact-email">Email *</label>
+            <input type="email" id="contact-email" name="email" required>
+          </div>
+
+          <div class="form-group">
+            <label for="contact-phone">Téléphone</label>
+            <input type="tel" id="contact-phone" name="phone">
+          </div>
+
+          <div class="form-group">
+            <label for="contact-org">Structure / Organisation *</label>
+            <input type="text" id="contact-org" name="organization" required>
+          </div>
+
+          <div class="form-group">
+            <label for="contact-org-type">Type de structure *</label>
+            <select id="contact-org-type" name="organization_type" required>
+              <option value="">Sélectionnez...</option>
+              <option value="commune">Commune</option>
+              <option value="metropole">Métropole</option>
+              <option value="association">Association</option>
+              <option value="conseil_quartier">Conseil de quartier</option>
+              <option value="mission_locale">Mission locale</option>
+              <option value="etablissement_public">Établissement public</option>
+              <option value="autre">Autre</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="contact-message">Message *</label>
+            <textarea id="contact-message" name="message" rows="5" required></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="contact-referrer">Comment avez-vous connu GrandsProjets.com ?</label>
+            <input type="text" id="contact-referrer" name="referrer">
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="form-submit-btn">
+              <span>Envoyer le message</span>
+              <i class="fas fa-paper-plane"></i>
+            </button>
+          </div>
+
+          <div class="form-footer">
+            <p>Ou par email : <a href="mailto:solal.gendrin@gmail.com">solal.gendrin@gmail.com</a></p>
+          </div>
+        </form>
+
+        <!-- Success message -->
+        <div id="contact-success" class="contact-success" style="display:none">
+          <div class="success-icon">✓</div>
+          <h3>Message envoyé !</h3>
+          <p>Merci pour votre intérêt. Je vous recontacte très rapidement.</p>
+        </div>
+
+        <!-- Error message -->
+        <div id="contact-error" class="contact-error" style="display:none">
+          <div class="error-icon">✕</div>
+          <h3>Erreur</h3>
+          <p>Une erreur est survenue. Vous pouvez me contacter directement par email.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Supabase client via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
   <script src="modules/auth.js"></script>
@@ -339,6 +425,9 @@
   
   <!-- Toggles Manager - Refactored -->
   <script type="module" src="modules/ui/toggles.js"></script>
+  
+  <!-- Contact Form -->
+  <script src="modules/contact-form.js"></script>
   
   <!-- Main simplifié -->
   <script src="main.js"></script>

@@ -551,9 +551,206 @@ html[data-theme='dark'] .about-contact-subtitle {
   .about-contact-cards {
     grid-template-columns: repeat(3, 1fr);
   }
+}
 
-  .about-contact-card {
-    flex-direction: column;
-    text-align: center;
-  }
+/* ============================================================================
+   CONTACT FORM STYLES
+   ============================================================================ */
+
+.contact-form {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.form-intro {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.form-intro p {
+  font-size: 1.1rem;
+  color: #475569;
+  margin: 0;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #1e293b;
+  font-size: 0.95rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #14AE5C;
+  box-shadow: 0 0 0 3px rgba(20, 174, 92, 0.1);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.form-actions {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.form-submit-btn {
+  background: linear-gradient(135deg, #14AE5C 0%, #10b981 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 1rem 2.5rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(20, 174, 92, 0.3);
+}
+
+.form-submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(20, 174, 92, 0.4);
+}
+
+.form-submit-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.form-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-footer {
+  margin-top: 2rem;
+  text-align: center;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.form-footer p {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.form-footer a {
+  color: #14AE5C;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.form-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Success/Error messages */
+.contact-success,
+.contact-error {
+  text-align: center;
+  padding: 3rem 2rem;
+}
+
+.success-icon,
+.error-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 1.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  font-weight: bold;
+}
+
+.success-icon {
+  background: #d1fae5;
+  color: #14AE5C;
+}
+
+.error-icon {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.contact-success h3,
+.contact-error h3 {
+  font-size: 1.5rem;
+  margin: 0 0 0.5rem 0;
+  color: #1e293b;
+}
+
+.contact-success p,
+.contact-error p {
+  font-size: 1rem;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Dark mode */
+html[data-theme='dark'] .form-intro p {
+  color: #cbd5e1;
+}
+
+html[data-theme='dark'] .form-group label {
+  color: #e2e8f0;
+}
+
+html[data-theme='dark'] .form-group input,
+html[data-theme='dark'] .form-group select,
+html[data-theme='dark'] .form-group textarea {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+html[data-theme='dark'] .form-group input:focus,
+html[data-theme='dark'] .form-group select:focus,
+html[data-theme='dark'] .form-group textarea:focus {
+  border-color: #14AE5C;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme='dark'] .form-footer {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+html[data-theme='dark'] .form-footer p {
+  color: #94a3b8;
+}
+
+html[data-theme='dark'] .contact-success h3,
+html[data-theme='dark'] .contact-error h3 {
+  color: #e2e8f0;
+}
+
+html[data-theme='dark'] .contact-success p,
+html[data-theme='dark'] .contact-error p {
+  color: #94a3b8;
 }
