@@ -264,15 +264,22 @@
 
   // Initialisation du module
   const init = (options = {}) => {
-    if (!initElements()) return false;
+    // Toujours réinitialiser les éléments (au cas où le DOM a changé)
+    if (!initElements()) {
+      console.warn('[UIModule] Impossible d\'initialiser les éléments DOM');
+      return false;
+    }
     
     // Initialisation du menu basemap si les fonds sont disponibles
     if (options.basemaps) {
       initBasemapMenu(options.basemaps);
     }
     
-    // Ajout du gestionnaire de clic en dehors des popups
-    document.addEventListener('click', handleClickOutside);
+    // Ajout du gestionnaire de clic en dehors des popups (une seule fois)
+    if (!init._clickHandlerBound) {
+      document.addEventListener('click', handleClickOutside);
+      init._clickHandlerBound = true;
+    }
     
     // Empêcher la propagation des clics à l'intérieur des popups
     popupState.filter.element?.addEventListener('click', (e) => e.stopPropagation());
@@ -418,8 +425,8 @@
     updateBasemaps   // Exposer la fonction updateBasemaps
   };
 
-  // Initialisation au chargement du module
-  init();
+  // L'initialisation est maintenant gérée par main.js après le chargement du DOM
+  // init() sera appelé explicitement quand tous les éléments sont prêts
 
   // Publication globale
   window.UIModule = UIModule;

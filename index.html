@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Carte des grands projets d’urbanisme et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
+  <meta name="description" content="Carte des grands projets d'urbanisme et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
   <link rel="icon" type="image/png" href="/img/logomin.png" sizes="32x32">
   <title>Grands Projets de Lyon – Urbanisme et Mobilité</title>
   <link rel="canonical" href="https://grandsprojets.com/">
@@ -11,12 +11,12 @@
   <meta property="og:locale" content="fr_FR">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Grands Projets de Lyon – Urbanisme et Mobilité">
-  <meta property="og:description" content="Carte des grands projets d’urbanisme et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
+  <meta property="og:description" content="Carte des grands projets d'urbanisme et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
   <meta property="og:url" content="https://grandsprojets.com/">
   <meta property="og:image" content="https://grandsprojets.com/img/cover/meta.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Grands Projets de Lyon – Urbanisme et Mobilité">
-  <meta name="twitter:description" content="Carte des grands projets d’urbanisme et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
+  <meta name="twitter:description" content="Carte des grands projets d'urbanisme et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
   <meta name="twitter:image" content="https://grandsprojets.com/img/cover/meta.png">
   <script type="application/ld+json" id="site-jsonld">
   {
@@ -40,6 +40,10 @@
     })();
   </script>
   <link rel="stylesheet" href="style.css" />
+  <!-- Toggles UI - Refactored -->
+  <link rel="stylesheet" href="modules/ui/toggles.css" />
+  <!-- About Modal - New design -->
+  <link rel="stylesheet" href="modules/ui/about-modal.css" />
   <!-- Chargement de Leaflet depuis des fichiers locaux -->
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <!-- Geoman removed: manual drawing only -->
@@ -68,17 +72,20 @@
 
     <!-- Barre de navigation -->
     <div id="left-nav">
-      <div class="logo">
-          <img src="img/logo.svg" alt="GrandsProjet.fr" />
-        </div>
-      <!-- Catégories dynamiques générées depuis category_icons -->
-      <div id="dynamic-categories"></div>
-      <!-- Bouton contribution -->
-      <button class="nav-category" id="nav-contribute" aria-label="Proposer une contribution" title="Proposer une contribution">
-        <i class="fa-solid fa-plus" aria-hidden="true"></i>
-        <span class="label">contribuer</span>
-      </button>
-      <!-- Sous-menus dynamiques -->
+      <!-- Wrapper pour le scroll (ne contient PAS les submenus) -->
+      <div class="nav-scroll-wrapper">
+        <div class="logo">
+            <img src="img/logo.svg" alt="GrandsProjet.fr" />
+          </div>
+        <!-- Catégories dynamiques générées depuis category_icons -->
+        <div id="dynamic-categories"></div>
+        <!-- Bouton contribution -->
+        <button class="nav-category" id="nav-contribute" aria-label="Proposer une contribution" title="Proposer une contribution">
+          <i class="fa-solid fa-plus" aria-hidden="true"></i>
+          <span class="label">contribuer</span>
+        </button>
+      </div>
+      <!-- Sous-menus dynamiques (EN DEHORS du wrapper pour ne pas être affectés par overflow) -->
       <div id="dynamic-submenus"></div>
   </div>
 
@@ -95,27 +102,23 @@
       </div>
     </div>
 
-    <!-- Barre de recherche d'adresse -->
-    <div id="search-container" class="search-container">
-      <button id="info-toggle" class="info-toggle" aria-label="À propos" title="À propos">
-        <i class="fas fa-info-circle" aria-hidden="true"></i>
-      </button>
-      <button id="location-toggle" class="location-toggle" aria-label="Centrer sur ma position" title="Centrer sur ma position"
-              onclick="window.GeolocationModule && window.GeolocationModule.handleLocationButtonClick(event)">
-        <i class="fas fa-location-arrow"></i>
-      </button>
-      <!-- City toggle (ouvre une modale) -->
-      <button id="city-toggle" class="city-toggle" aria-label="Changer de ville" title="Changer de ville">
-        <i class="fas fa-city" aria-hidden="true"></i>
-      </button>
-      <div id="search-toggle" class="search-toggle">
-        <i class="fas fa-search"></i>
-      </div>
-      <div id="search-overlay" class="search-overlay">
-        <div class="search-bar">
-          <input type="text" id="address-search" placeholder="Rechercher une adresse..." />
-          <div id="search-results" class="search-results"></div>
-        </div>
+    <!-- Toggles UI - Refactored (no container wrapper) -->
+    <button id="info-toggle" aria-label="À propos" title="À propos">
+      <i class="fas fa-info-circle" aria-hidden="true"></i>
+    </button>
+    <button id="location-toggle" aria-label="Centrer sur ma position" title="Centrer sur ma position"
+            onclick="window.GeolocationModule && window.GeolocationModule.handleLocationButtonClick(event)">
+      <i class="fas fa-location-arrow"></i>
+    </button>
+    <button id="search-toggle" aria-label="Rechercher une adresse" title="Rechercher une adresse">
+      <i class="fas fa-search"></i>
+    </button>
+    
+    <!-- Search overlay -->
+    <div id="search-overlay" class="search-overlay">
+      <div class="search-bar">
+        <input type="text" id="address-search" placeholder="Rechercher une adresse..." />
+        <div id="search-results" class="search-results"></div>
       </div>
     </div>
 
@@ -141,7 +144,7 @@
     </div>
   </div>
 
-  <!-- À propos modal -->
+  <!-- À propos modal - NOUVEAU DESIGN -->
   <div id="about-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="about-title" aria-hidden="true" style="display:none">
     <div class="gp-modal" role="document">
       <div class="gp-modal-header">
@@ -149,102 +152,139 @@
         <button class="gp-modal-close" id="about-close" aria-label="Fermer">&times;</button>
       </div>
       <div class="gp-modal-body">
-        <div class="about-content">
-          <section class="about-text markdown-body">
-            <p>Salut 👋 Moi c’est <strong>Solal Gendrin</strong>, Villeurbannais de cœur, passionné par la ville et ses transformations.</p>
-            <p>J’ai créé <strong>GrandsProjets.com</strong> pour montrer, sans jargon, ce qui se construit dans la métropole de Lyon.</p>
+        <!-- Hero Section -->
+        <section class="about-hero">
+          <div class="about-hero-emoji">👋</div>
+          <h1 class="about-hero-title">Salut, moi c'est Solal</h1>
+          <p class="about-hero-subtitle">Je crée des outils open source pour rendre l’urbanisme et l’information travaux accessibles à tous.</p>
+          <div class="about-hero-meta">
+            <span class="about-hero-role">Product Manager × Passionné d’urbanisme</span>
+            <span class="about-hero-location">📍 Fait à Villeurbanne</span>
+          </div>
+        </section>
 
-            <h2>🚧 Pourquoi ce site</h2>
-            <p>À Lyon, les travaux sont partout : rues bloquées, tramways en chantier, immeubles qui sortent de terre.</p>
-            <p>Mais il reste difficile de savoir ce qui est prévu, pourquoi et jusqu’à quand.</p>
-            <p>Ce site met tout sur une carte : nouvelles lignes de tram, Voies Lyonnaises, réaménagements de quartiers.</p>
-            <p>L’idée est simple : permettre à chacun de voir rapidement ce qui se passe autour de chez lui.</p>
+        <!-- Stats Section -->
+        <section class="about-stats">
+          <div class="about-stat-card">
+            <div class="about-stat-number">100+</div>
+            <div class="about-stat-label">Projets cartographiés</div>
+          </div>
+          <div class="about-stat-card">
+            <div class="about-stat-number">10K+</div>
+            <div class="about-stat-label">Visiteurs / mois</div>
+          </div>
+        </section>
 
-            <h2>🙋‍♂️ Qui je suis</h2>
-            <p>Je ne représente aucune institution.</p>
-            <p>Je suis product manager de métier et passionné d’urbanisme.</p>
-            <p>J’ai rassemblé des données publiques et je les ai organisées pour les rendre accessibles à tous.</p>
-          </section>
-          <section class="about-sidebar">
-            <h2>✉️ Me contacter</h2>
-            <p class="about-note">Une remarque, une info, ou juste envie d’échanger ?</p>
-            <div class="contact-cards">
-              <a class="contact-card" href="mailto:solal.gendrin@gmail.com">
-                <span class="contact-icon"><i class="fas fa-envelope" aria-hidden="true"></i></span>
-                <div class="contact-meta">
-                  <div class="contact-title">Email</div>
-                  <div class="contact-sub">solal.gendrin@gmail.com</div>
-                </div>
-              </a>
-              <a class="contact-card" href="https://www.linkedin.com/in/solal-gendrin/" target="_blank" rel="noopener">
-                <span class="contact-icon"><i class="fab fa-linkedin-in" aria-hidden="true"></i></span>
-                <div class="contact-meta">
-                  <div class="contact-title">LinkedIn</div>
-                  <div class="contact-sub">Solal Gendrin</div>
-                </div>
-              </a>
+        <!-- Problem Section -->
+        <section class="about-section">
+          <div class="about-section-icon">🚧</div>
+          <h2 class="about-section-title">Le constat</h2>
+          <p class="about-section-text">
+            Partout, les chantiers s’enchaînent : rues fermées, lignes de transport en travaux, programmes immobiliers…
+          </p>
+          <p class="about-section-text">
+            Pourtant, il reste difficile pour les usagers de savoir ce qui est en cours, ce qui arrive bientôt et combien de temps cela va durer.
+          </p>
+          <p class="about-section-text">
+            Informer clairement, c’est réduire la frustration et renforcer la confiance avec le public.
+          </p>
+        </section>
+
+        <!-- Solution Section -->
+        <section class="about-section">
+          <div class="about-section-icon">💡</div>
+          <h2 class="about-section-title">La solution : GrandsProjets.com</h2>
+          <p class="about-section-text">
+            Une carte interactive qui centralise vos projets et actions (travaux, aménagements, mobilités, équipements), présentés de façon simple et compréhensible pour le public.
+          </p>
+          <div class="about-features">
+            <div class="about-feature">✓ Mettez en avant vos données publiques</div>
+            <div class="about-feature">✓ Interface simple et claire</div>
+            <div class="about-feature">✓ 100% à votre image, en marque blanche</div>
+          </div>
+        </section>
+
+        <!-- CTA Section -->
+        <section class="about-cta">
+          <div class="about-cta-icon">🏛️</div>
+          <h2 class="about-cta-title">Votre structure mérite sa propre carte</h2>
+          <p class="about-cta-subtitle">Commune • Métropole • Association • Conseil de quartier • Mission locale • Établissement public</p>
+          <p class="about-cta-description">
+            Déployez GrandsProjets.com en <strong>marque blanche</strong> : une carte à votre nom, avec votre logo, intégrée sur votre site, pour informer vos usagers et valoriser l’avancement de vos projets.
+          </p>
+          <div class="about-cta-benefits">
+            <div class="about-cta-benefit">✓ Interface de gestion autonome</div>
+            <div class="about-cta-benefit">✓ Aucune compétence technique requise</div>
+            <div class="about-cta-benefit">✓ <strong>Gratuit</strong> pour les associations, conseils de quartier et missions locales</div>
+          </div>
+          <a href="mailto:solal.gendrin@gmail.com?subject=Demande%20d'information%20-%20GrandsProjets.com" class="about-cta-button">
+            <span>Discutons ensemble de la solution</span>
+            <i class="fas fa-arrow-right" aria-hidden="true"></i>
+          </a>
+        </section>
+
+        <!-- Values Section -->
+        <section class="about-section">
+          <div class="about-section-icon">🌟</div>
+          <h2 class="about-section-title">Mes engagements</h2>
+          <div class="about-values">
+            <div class="about-value-card">
+              <div class="about-value-icon">🔓</div>
+              <h3 class="about-value-title">Open Source</h3>
+              <p class="about-value-text">Le code est public, dans un esprit de transparence et de commun numérique.</p>
             </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Proposer une ville modal (placed with other overlays) -->
-  <div id="propose-city-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="propose-city-title" aria-hidden="true" style="display:none">
-    <div class="gp-modal" role="document">
-      <div class="gp-modal-header">
-        <div class="gp-modal-title" id="propose-city-title">Votre propre carte de projets, à votre nom</div>
-        <button class="gp-modal-close" id="propose-city-close" aria-label="Fermer">&times;</button>
-      </div>
-      <div class="gp-modal-body">
-        <div class="about-content">
-          <section class="about-text markdown-body">
-            <h2>Qu’est-ce que c’est&nbsp;?</h2>
-            <p>
-              Grandsprojets.com peut être déployé en <strong>marque blanche</strong> pour votre structure&nbsp;:
-              commune, métropole, association, conseil de quartier, mission locale…
+            <div class="about-value-card">
+              <div class="about-value-icon">🌍</div>
+              <h3 class="about-value-title">Citoyen</h3>
+              <p class="about-value-text">    Né d’une initiative indépendante, GrandsProjets.com met les données publiques à la portée de tous pour mieux comprendre les transformations du territoire. 
+                C’est un outil sans publicité, conçu par et pour les citoyens.
             </p>
-            <p>
-              Vous obtenez une <strong>carte en ligne à votre nom</strong>, avec votre logo, intégrée sur votre site,
-              pour présenter vos projets et vos actions.
-            </p>
-            <p>
-              L’interface de gestion est simple&nbsp;: <strong>ajouter ou modifier vos projets ne demande aucune compétence technique</strong>.
-            </p>
-            
-
-            <h2>Pourquoi c’est utile&nbsp;?</h2>
-            <ul>
-              <li>Informer clairement vos habitants, adhérents ou publics</li>
-              <li>Mettre en valeur vos initiatives et leur avancement</li>
-              <li>Renforcer l’image d’une structure innovante, transparente et proche de ses publics</li>
-            </ul>
-            <p><strong>💸 Pour les associations, conseils de quartier et missions locales, le service est proposé gratuitement. J’accompagne également bénévolement les structures de terrain dans la mise en place et la duplication.</strong></p>
-
-            <h2>Un projet commun</h2>
-            <p>Le code est <strong>open source</strong>, accessible à tous dans un esprit de transparence.</p>
-            
-            <h2>Intéressé·e&nbsp;?</h2>
-            <p>Envie d’en discuter et de voir comment l’adapter à votre structure&nbsp;?</p>
-          </section>
-          <section class="about-sidebar">
-            <div class="contact-cards">
-              <a class="contact-card contact-card--linkedin" href="https://www.linkedin.com/in/solal-gendrin/" target="_blank" rel="noopener">
-                <span class="contact-icon"><i class="fab fa-linkedin-in" aria-hidden="true"></i></span>
-                <div class="contact-meta">
-                  <div class="contact-title">Me contacter sur LinkedIn</div>
-                  <div class="contact-sub">Solal Gendrin</div>
-                </div>
-              </a>
-              <a class="contact-card contact-card--email" href="mailto:solal.gendrin@gmail.com">
-                <span class="contact-icon"><i class="fas fa-envelope" aria-hidden="true"></i></span>
-                <div class="contact-meta">
-                  <div class="contact-title">Écrire un email</div>
-                  <div class="contact-sub">solal.gendrin@gmail.com</div>
-                </div>
-              </a>
             </div>
-          </section>
-        </div>
+            <div class="about-value-card">
+              <div class="about-value-icon">🤝</div>
+              <h3 class="about-value-title">Accessibilité</h3>
+              <p class="about-value-text">
+                Gratuit pour les structures locales à but non lucratif (associations, conseils de quartier...).
+                Tarification adaptée pour collectivités et structures publiques.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Contact Section -->
+        <section class="about-section about-contact">
+          <div class="about-section-icon">✉️</div>
+          <h2 class="about-section-title">Envie d’en discuter ?</h2>
+          <div class="about-contact-cards">
+            <a class="about-contact-card" href="mailto:solal.gendrin@gmail.com">
+              <div class="about-contact-icon about-contact-icon--email">
+                <i class="fas fa-envelope" aria-hidden="true"></i>
+              </div>
+              <div class="about-contact-content">
+                <div class="about-contact-title">Email</div>
+                <div class="about-contact-subtitle">solal.gendrin@gmail.com</div>
+              </div>
+            </a>
+            <a class="about-contact-card" href="https://www.linkedin.com/in/solal-gendrin/" target="_blank" rel="noopener">
+              <div class="about-contact-icon about-contact-icon--linkedin">
+                <i class="fab fa-linkedin-in" aria-hidden="true"></i>
+              </div>
+              <div class="about-contact-content">
+                <div class="about-contact-title">LinkedIn</div>
+                <div class="about-contact-subtitle">Solal Gendrin</div>
+              </div>
+            </a>
+            <a class="about-contact-card" href="https://github.com/solal3105/grandsprojets" target="_blank" rel="noopener">
+              <div class="about-contact-icon about-contact-icon--github">
+                <i class="fab fa-github" aria-hidden="true"></i>
+              </div>
+              <div class="about-contact-content">
+                <div class="about-contact-title">GitHub</div>
+                <div class="about-contact-subtitle">Voir le code source</div>
+              </div>
+            </a>
+          </div>
+        </section>
       </div>
     </div>
   </div>
@@ -296,6 +336,9 @@
   
   <!-- City redirect -->
   <script src="modules/city-redirect.js"></script>
+  
+  <!-- Toggles Manager - Refactored -->
+  <script type="module" src="modules/ui/toggles.js"></script>
   
   <!-- Main simplifié -->
   <script src="main.js"></script>

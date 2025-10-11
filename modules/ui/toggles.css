@@ -1,0 +1,464 @@
+/* ============================================================================
+   TOGGLES - Boutons de contrôle en haut à droite
+   Refactorisation centralisée - 2025-10-10
+   ============================================================================ */
+
+/* ============================================================================
+   VARIABLES CSS
+   ============================================================================ */
+
+:root {
+  /* Dimensions */
+  --toggle-size: 40px;
+  
+  /* Couleurs - Light mode */
+  --toggle-bg: rgba(255, 255, 255, 0.6);
+  --toggle-bg-hover: rgba(255, 255, 255, 0.85);
+  --toggle-color: #333;
+  --toggle-color-active: #14AE5C;
+  
+  /* Shadows */
+  --toggle-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --toggle-shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.15);
+  
+  /* Transitions */
+  --toggle-transition: all 0.2s ease;
+  
+  /* Spacing system - Basé sur un système de grille */
+  --toggle-gap: 50px;
+  --toggle-offset-base: 20px;
+}
+
+/* Dark mode variables */
+html[data-theme='dark'] {
+  --toggle-bg: var(--dm-toggle-bg);
+  --toggle-bg-hover: rgba(255, 255, 255, 0.1);
+  --toggle-color: #e5e7eb;
+}
+
+/* ============================================================================
+   BASE STYLES - Styles communs à tous les toggles
+   ============================================================================ */
+
+.app-toggle {
+  position: absolute;
+  top: 20px;
+  width: var(--toggle-size);
+  height: var(--toggle-size);
+  background: var(--toggle-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--toggle-transition);
+  box-shadow: var(--toggle-shadow);
+  z-index: 1000;
+  padding: 0;
+}
+
+.app-toggle i {
+  color: var(--toggle-color);
+  font-size: 1.1em;
+  transition: color 0.2s ease;
+  pointer-events: none;
+}
+
+/* Hover & Focus states */
+.app-toggle:hover,
+.app-toggle:focus-visible {
+  background: var(--toggle-bg-hover);
+  transform: scale(1.05);
+  box-shadow: var(--toggle-shadow-hover);
+  outline: none;
+}
+
+.app-toggle:active {
+  transform: scale(0.98);
+}
+
+.app-toggle:hover i,
+.app-toggle:focus-visible i,
+.app-toggle.active i {
+  color: var(--toggle-color-active);
+}
+
+/* ============================================================================
+   DESKTOP POSITIONING (> 640px)
+   Système de positionnement basé sur des multiples de --toggle-gap
+   ============================================================================ */
+
+/* Filters - Position 0 (le plus à droite) */
+#filters-toggle {
+  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 0);
+}
+
+/* Basemap - Position 1 */
+#basemap-toggle {
+  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 1);
+}
+
+/* Theme - Position 2 */
+#theme-toggle {
+  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 2);
+}
+
+/* Search - Position 3 */
+#search-toggle {
+  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 3);
+}
+
+/* Location - Position 4 */
+#location-toggle {
+  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 4);
+}
+
+/* Info - Position 5 */
+#info-toggle {
+  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 5);
+}
+
+/* Hide location toggle on desktop (géolocalisation mobile-only) */
+@media (min-width: 641px) {
+  #location-toggle {
+    display: none;
+  }
+}
+
+/* ============================================================================
+   SPECIFIC TOGGLE STYLES
+   ============================================================================ */
+
+/* Filters toggle - Badge counter */
+.filter-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #14AE5C;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+#filters-toggle.active {
+  background: #fff;
+  border-color: #00796b;
+}
+
+#filters-toggle.active i {
+  color: #14AE5C;
+}
+
+/* Location toggle - Special states */
+#location-toggle.active .fa-location-arrow {
+  color: #14AE5C;
+  animation: pulse 2s infinite;
+}
+
+#location-toggle.loading .fa-location-arrow {
+  animation: spin 1s linear infinite;
+}
+
+#location-toggle.error {
+  color: #ff4444;
+  animation: shake 0.5s;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* ============================================================================
+   MOBILE LAYOUT (≤ 640px)
+   Transformation en barre horizontale unifiée
+   ============================================================================ */
+
+@media (max-width: 640px) {
+  /* Tous les toggles deviennent carrés et collés */
+  .app-toggle {
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--toggle-bg); /* Utilise la variable qui change en dark mode */
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Dark mode - bordure adaptée */
+  html[data-theme='dark'] .app-toggle {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  /* Afficher le toggle location en mobile */
+  #location-toggle {
+    display: flex;
+  }
+  
+  /* Arrondis uniquement aux extrémités de la barre */
+  #info-toggle {
+    border-radius: 999px 0 0 999px; /* Premier à gauche */
+  }
+  
+  #filters-toggle {
+    border-radius: 0 999px 999px 0; /* Dernier à droite */
+  }
+  
+  /* Positionnement mobile - De gauche à droite */
+  /* Info (gauche) → Location → Search → Theme → Basemap → Filters (droite) */
+  
+  #info-toggle {
+    right: calc(20px + 40px * 5); /* 220px */
+  }
+  
+  #location-toggle {
+    right: calc(20px + 40px * 4); /* 180px */
+  }
+  
+  #search-toggle {
+    right: calc(20px + 40px * 3); /* 140px */
+  }
+  
+  #theme-toggle {
+    right: calc(20px + 40px * 2); /* 100px */
+  }
+  
+  #basemap-toggle {
+    right: calc(20px + 40px * 1); /* 60px */
+  }
+  
+  #filters-toggle {
+    right: 20px; /* 20px */
+  }
+}
+
+/* ============================================================================
+   OVERLAYS & MENUS
+   ============================================================================ */
+
+/* Search overlay - Full screen backdrop */
+.search-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  z-index: 2000;
+}
+
+.search-overlay.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Search bar container */
+.search-bar {
+  width: 90%;
+  max-width: 600px;
+  position: relative;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* Search input */
+#address-search {
+  width: 100%;
+  padding: 12px 20px;
+  font-size: 1em;
+  border: none;
+  border-radius: 30px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  outline: none;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+#address-search:focus {
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+}
+
+/* Style quand la barre de recherche contient du texte */
+#address-search:not(:placeholder-shown) {
+  border-radius: 20px 20px 0 0;
+}
+
+/* Search results dropdown */
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+  max-height: 400px;
+  overflow-y: auto;
+  display: none;
+}
+
+.search-results.visible {
+  display: block;
+}
+
+/* Individual search result item */
+.search-result-item {
+  padding: 12px 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-bottom: 1px solid #f0f0f0;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: fadeInUp 0.3s ease forwards;
+}
+
+@keyframes fadeInUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.search-result-item:nth-child(1) { animation-delay: 0.05s; }
+.search-result-item:nth-child(2) { animation-delay: 0.1s; }
+.search-result-item:nth-child(3) { animation-delay: 0.15s; }
+.search-result-item:nth-child(4) { animation-delay: 0.2s; }
+.search-result-item:nth-child(5) { animation-delay: 0.25s; }
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-result-item:hover {
+  background: #f8f8f8;
+}
+
+.search-result-item h4 {
+  margin: 0 0 5px 0;
+  color: #333;
+  font-size: 0.95em;
+}
+
+.search-result-item p {
+  margin: 0;
+  color: #666;
+  font-size: 0.85em;
+}
+
+/* Mobile adjustments */
+@media (max-width: 1024px) {
+  .search-bar {
+    width: 95%;
+  }
+  
+  #address-search {
+    font-size: 0.95em;
+    padding: 10px 15px;
+  }
+  
+  .search-results {
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+  
+  .search-result-item {
+    padding: 10px 15px;
+  }
+  
+  .search-result-item h4 {
+    font-size: 0.9em;
+  }
+  
+  .search-result-item p {
+    font-size: 0.8em;
+  }
+}
+
+/* Dark mode */
+html[data-theme='dark'] .search-results {
+  background: var(--dm-panel-bg);
+  border: 1px solid var(--dm-menu-border);
+  box-shadow: 0 10px 25px var(--dm-menu-shadow-1), 0 6px 10px var(--dm-menu-shadow-2);
+}
+
+html[data-theme='dark'] .search-result-item {
+  border-bottom-color: var(--dm-menu-border);
+  color: var(--dm-text);
+}
+
+html[data-theme='dark'] .search-result-item:hover {
+  background: var(--dm-tile-bg);
+}
+
+html[data-theme='dark'] .search-result-item h4 {
+  color: var(--dm-text);
+}
+
+html[data-theme='dark'] .search-result-item p {
+  color: var(--dm-muted-text);
+}
+
+/* Basemap menu */
+.basemap-menu {
+  position: absolute;
+  top: 70px;
+  right: 70px;
+  background: white;
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: none;
+  gap: 10px;
+  z-index: 1100;
+}
+
+.basemap-menu.active {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* ============================================================================
+   ACCESSIBILITY
+   ============================================================================ */
+
+/* Focus visible pour keyboard navigation */
+.app-toggle:focus-visible {
+  outline: 2px solid #14AE5C;
+  outline-offset: 2px;
+}
+
+/* Reduce motion pour accessibilité */
+@media (prefers-reduced-motion: reduce) {
+  .app-toggle,
+  .app-toggle i {
+    transition: none;
+    animation: none;
+  }
+}

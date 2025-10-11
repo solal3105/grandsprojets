@@ -75,9 +75,18 @@ window.SearchModule = (() => {
    * Toggle the search overlay visibility
    */
   function toggleSearchOverlay() {
+    console.log('[SearchModule] Toggle overlay, current state:', searchOverlay.classList.contains('visible'));
+    
+    if (!searchOverlay) {
+      console.error('[SearchModule] searchOverlay element not found!');
+      return;
+    }
+    
     searchOverlay.classList.toggle('visible');
     
     if (searchOverlay.classList.contains('visible')) {
+      console.log('[SearchModule] Overlay now visible');
+      
       // Close the project detail panel while searching (preserve map view)
       try {
         if (window.NavigationModule && typeof window.NavigationModule.resetToDefaultView === 'function') {
@@ -90,6 +99,7 @@ window.SearchModule = (() => {
         searchInput.focus();
       }, 100);
     } else {
+      console.log('[SearchModule] Overlay now hidden');
       // Clear results when closing
       clearSearchResults();
       searchInput.value = '';
@@ -331,6 +341,8 @@ window.SearchModule = (() => {
 
   // Public API
   return {
-    init
+    init,
+    toggleSearchOverlay,
+    closeSearchOverlay
   };
 })();

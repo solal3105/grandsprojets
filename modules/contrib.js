@@ -762,7 +762,7 @@
 
     // —— Tabs logic (ARIA, keyboard) ——
     // updateModalTitle() is defined earlier in the "Helper functions" section
-    function activateTab(which) {
+    async function activateTab(which) {
       const isCreate = which === 'create';
       const isList = which === 'list';
       const isCategories = which === 'categories';
@@ -783,6 +783,9 @@
       if (isList) {
         // ensure list is initialized
         try {
+          // Peupler le dropdown de catégories dynamiquement
+          await populateCategoryFilter();
+          
           // Force mineOnly for any non-admin before first load
           const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : '';
           const isAdmin = role === 'admin';
@@ -831,19 +834,19 @@
         if (backBtn) backBtn.style.display = '';
       } catch(_) {}
     }
-    function chooseLanding(target) {
+    async function chooseLanding(target) {
       try { sessionStorage.setItem('contribLandingSeen', '1'); } catch(_) {}
       hideLanding();
       if (target === 'list') {
-        activateTab('list');
+        await activateTab('list');
       } else if (target === 'categories') {
-        activateTab('categories');
+        await activateTab('categories');
       } else if (target === 'users') {
-        activateTab('users');
+        await activateTab('users');
       } else if (target === 'cities') {
-        activateTab('cities');
+        await activateTab('cities');
       } else {
-        activateTab('create');
+        await activateTab('create');
         try { setStep(1, { force: true }); } catch(_) {}
       }
     }
@@ -855,6 +858,90 @@
     if (landingUsersBtn) landingUsersBtn.addEventListener('click', () => chooseLanding('users'));
     if (landingCitiesBtn) landingCitiesBtn.addEventListener('click', () => chooseLanding('cities'));
     if (backBtn) backBtn.addEventListener('click', () => showLanding());
+
+    // —— Category filter population ——
+    /**
+     * Peuple le dropdown de catégories en fonction de toutes les villes accessibles à l'utilisateur
+     */
+    async function populateCategoryFilter() {
+      if (!listCatEl) return;
+      
+      try {
+        // Récupérer les villes de l'utilisateur
+        const userVilles = win.__CONTRIB_VILLES || [];
+        const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
+        
+        if (!userVilles || userVilles.length === 0) {
+          console.warn('[contrib] User has no accessible cities');
+          listCatEl.innerHTML = '<option value="">Aucune catégorie disponible</option>';
+          return;
+        }
+        
+        // Récupérer toutes les catégories de toutes les villes accessibles
+        const allCategories = new Map(); // Map pour éviter les doublons
+        
+        if (hasGlobalAccess) {
+          // Admin global : récupérer toutes les catégories de toutes les villes
+          const allCities = await win.supabaseService.getAvailableCities();
+          for (const city of allCities) {
+            const categories = await win.supabaseService.getCategoryIconsByCity(city.value);
+            if (categories && categories.length > 0) {
+              categories.forEach(cat => {
+                if (!allCategories.has(cat.category)) {
+                  allCategories.set(cat.category, cat);
+                }
+              });
+            }
+          }
+        } else {
+          // Admin ville : récupérer les catégories de ses villes uniquement
+          for (const ville of userVilles) {
+            if (ville === 'global') continue; // Skip 'global' marker
+            const categories = await win.supabaseService.getCategoryIconsByCity(ville);
+            if (categories && categories.length > 0) {
+              categories.forEach(cat => {
+                if (!allCategories.has(cat.category)) {
+                  allCategories.set(cat.category, cat);
+                }
+              });
+            }
+          }
+        }
+        
+        if (allCategories.size === 0) {
+          console.warn('[contrib] No categories found for user cities');
+          listCatEl.innerHTML = '<option value="">Aucune catégorie disponible</option>';
+          return;
+        }
+        
+        // Sauvegarder la valeur actuelle
+        const currentValue = listCatEl.value;
+        
+        // Vider et repeupler
+        listCatEl.innerHTML = '<option value="">Toutes</option>';
+        
+        // Trier les catégories par ordre alphabétique
+        const sortedCategories = Array.from(allCategories.values()).sort((a, b) => 
+          a.category.localeCompare(b.category)
+        );
+        
+        sortedCategories.forEach(cat => {
+          const option = document.createElement('option');
+          option.value = cat.category;
+          option.textContent = cat.category.charAt(0).toUpperCase() + cat.category.slice(1);
+          listCatEl.appendChild(option);
+        });
+        
+        // Restaurer la valeur si elle existe toujours
+        if (currentValue && Array.from(listCatEl.options).some(opt => opt.value === currentValue)) {
+          listCatEl.value = currentValue;
+        }
+        
+      } catch (error) {
+        console.error('[contrib] Error populating category filter:', error);
+        listCatEl.innerHTML = '<option value="">Erreur de chargement</option>';
+      }
+    }
 
     // —— List helpers ——
     // applyRoleConstraints() is now defined earlier (after showLanding)

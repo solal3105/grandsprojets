@@ -1,0 +1,559 @@
+/* ============================================================================
+   ABOUT MODAL - Design commercial et authentique
+   Structure en sections empilées (mobile-first)
+   ============================================================================ */
+
+/* ============================================================================
+   HERO SECTION
+   ============================================================================ */
+
+.about-hero {
+  text-align: center;
+  padding: 2rem 1rem 1.5rem;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-radius: 16px;
+  margin-bottom: 2rem;
+}
+
+.about-hero-emoji {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  animation: wave 2s ease-in-out infinite;
+}
+
+@keyframes wave {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(20deg); }
+  75% { transform: rotate(-20deg); }
+}
+
+.about-hero-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 0.5rem 0;
+  line-height: 1.2;
+}
+
+.about-hero-subtitle {
+  font-size: 1.1rem;
+  color: #475569;
+  margin: 0 0 1.5rem 0;
+  line-height: 1.5;
+}
+
+.about-hero-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: #64748b;
+}
+
+.about-hero-role {
+  font-weight: 500;
+}
+
+.about-hero-location {
+  opacity: 0.8;
+}
+
+/* ============================================================================
+   STATS SECTION
+   ============================================================================ */
+
+.about-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.about-stat-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem 0.75rem;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.about-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+  border-color: #14AE5C;
+}
+
+.about-stat-number {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #14AE5C;
+  margin-bottom: 0.25rem;
+}
+
+.about-stat-label {
+  font-size: 0.85rem;
+  color: #64748b;
+  line-height: 1.3;
+}
+
+/* ============================================================================
+   GENERIC SECTION
+   ============================================================================ */
+
+.about-section {
+  padding: 2rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.about-section:last-child {
+  border-bottom: none;
+}
+
+.about-section-icon {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.about-section-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 1rem 0;
+  line-height: 1.3;
+}
+
+.about-section-text {
+  font-size: 1rem;
+  color: #475569;
+  line-height: 1.6;
+  margin: 0 0 0.75rem 0;
+}
+
+.about-section-text:last-child {
+  margin-bottom: 0;
+}
+
+/* ============================================================================
+   FEATURES LIST
+   ============================================================================ */
+
+.about-features {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.about-feature {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.875rem 1rem;
+  font-size: 0.95rem;
+  color: #334155;
+  transition: all 0.2s ease;
+}
+
+.about-feature:hover {
+  background: white;
+  border-color: #14AE5C;
+  transform: translateX(4px);
+}
+
+/* ============================================================================
+   CTA SECTION (Highlight)
+   ============================================================================ */
+
+.about-cta {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 2px solid #14AE5C;
+  border-radius: 16px;
+  padding: 2rem 1.5rem;
+  margin: 2rem 0;
+  text-align: center;
+}
+
+.about-cta-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.about-cta-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #065f46;
+  margin: 0 0 0.5rem 0;
+  line-height: 1.3;
+}
+
+.about-cta-subtitle {
+  font-size: 0.95rem;
+  color: #047857;
+  margin: 0 0 1rem 0;
+  font-weight: 500;
+}
+
+.about-cta-description {
+  font-size: 1rem;
+  color: #064e3b;
+  margin: 0 0 1.5rem 0;
+  line-height: 1.6;
+}
+
+.about-cta-benefits {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+.about-cta-benefit {
+  background: white;
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+  padding: 0.875rem 1rem;
+  font-size: 0.95rem;
+  color: #065f46;
+  font-weight: 500;
+}
+
+.about-cta-button {
+  background: linear-gradient(135deg, #14AE5C 0%, #10b981 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 1rem 2rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(20, 174, 92, 0.3);
+  text-decoration: none;
+  justify-content: center;
+}
+
+.about-cta-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(20, 174, 92, 0.4);
+}
+
+.about-cta-button:active {
+  transform: translateY(0);
+}
+
+.about-cta-button i {
+  transition: transform 0.3s ease;
+}
+
+.about-cta-button:hover i {
+  transform: translateX(4px);
+}
+
+/* ============================================================================
+   VALUES CARDS
+   ============================================================================ */
+
+.about-values {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.about-value-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: all 0.2s ease;
+}
+
+.about-value-card:hover {
+  border-color: #14AE5C;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.about-value-icon {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.about-value-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 0.5rem 0;
+}
+
+.about-value-text {
+  font-size: 0.95rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ============================================================================
+   CONTACT CARDS
+   ============================================================================ */
+
+.about-contact {
+  padding-top: 2rem;
+  padding-bottom: 0;
+}
+
+.about-contact-cards {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.about-contact-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.about-contact-card:hover {
+  border-color: #14AE5C;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.about-contact-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.about-contact-icon--email {
+  background: rgba(20, 174, 92, 0.1);
+  color: #14AE5C;
+}
+
+.about-contact-icon--linkedin {
+  background: rgba(10, 102, 194, 0.1);
+  color: #0A66C2;
+}
+
+.about-contact-icon--github {
+  background: rgba(36, 41, 47, 0.1);
+  color: #24292f;
+}
+
+.about-contact-content {
+  flex: 1;
+}
+
+.about-contact-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 0.25rem 0;
+}
+
+.about-contact-subtitle {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin: 0;
+}
+
+/* ============================================================================
+   DARK MODE
+   ============================================================================ */
+
+html[data-theme='dark'] .about-hero {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);
+}
+
+html[data-theme='dark'] .about-hero-title {
+  color: #e2e8f0;
+}
+
+html[data-theme='dark'] .about-hero-subtitle {
+  color: #cbd5e1;
+}
+
+html[data-theme='dark'] .about-hero-meta {
+  color: #94a3b8;
+}
+
+html[data-theme='dark'] .about-stat-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html[data-theme='dark'] .about-stat-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: #14AE5C;
+}
+
+html[data-theme='dark'] .about-stat-label {
+  color: #94a3b8;
+}
+
+html[data-theme='dark'] .about-section {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+html[data-theme='dark'] .about-section-title {
+  color: #e2e8f0;
+}
+
+html[data-theme='dark'] .about-section-text {
+  color: #cbd5e1;
+}
+
+html[data-theme='dark'] .about-feature {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+html[data-theme='dark'] .about-feature:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme='dark'] .about-cta {
+  background: linear-gradient(135deg, rgba(20, 174, 92, 0.15) 0%, rgba(16, 185, 129, 0.15) 100%);
+  border-color: #14AE5C;
+}
+
+html[data-theme='dark'] .about-cta-title {
+  color: #6ee7b7;
+}
+
+html[data-theme='dark'] .about-cta-subtitle {
+  color: #a7f3d0;
+}
+
+html[data-theme='dark'] .about-cta-description {
+  color: #d1fae5;
+}
+
+html[data-theme='dark'] .about-cta-benefit {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(167, 243, 208, 0.3);
+  color: #d1fae5;
+}
+
+html[data-theme='dark'] .about-value-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html[data-theme='dark'] .about-value-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme='dark'] .about-value-title {
+  color: #e2e8f0;
+}
+
+html[data-theme='dark'] .about-value-text {
+  color: #94a3b8;
+}
+
+html[data-theme='dark'] .about-contact-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html[data-theme='dark'] .about-contact-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme='dark'] .about-contact-icon--email {
+  background: rgba(20, 174, 92, 0.2);
+  color: #6ee7b7;
+}
+
+html[data-theme='dark'] .about-contact-icon--linkedin {
+  background: rgba(10, 102, 194, 0.2);
+  color: #60a5fa;
+}
+
+html[data-theme='dark'] .about-contact-icon--github {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+html[data-theme='dark'] .about-contact-title {
+  color: #e2e8f0;
+}
+
+html[data-theme='dark'] .about-contact-subtitle {
+  color: #94a3b8;
+}
+
+/* ============================================================================
+   RESPONSIVE - TABLET & DESKTOP
+   ============================================================================ */
+
+@media (min-width: 640px) {
+  .about-hero {
+    padding: 2.5rem 2rem;
+  }
+
+  .about-hero-title {
+    font-size: 2rem;
+  }
+
+  .about-hero-subtitle {
+    font-size: 1.15rem;
+  }
+
+  .about-hero-meta {
+    flex-direction: row;
+    justify-content: center;
+    gap: 1.5rem;
+  }
+
+  .about-stats {
+    gap: 1.5rem;
+  }
+
+  .about-stat-card {
+    padding: 1.5rem 1rem;
+  }
+
+  .about-stat-number {
+    font-size: 2rem;
+  }
+
+  .about-cta {
+    padding: 2.5rem 2rem;
+  }
+
+  .about-cta-title {
+    font-size: 1.75rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .about-values {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .about-contact-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .about-contact-card {
+    flex-direction: column;
+    text-align: center;
+  }
+}

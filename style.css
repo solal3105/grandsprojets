@@ -1057,6 +1057,7 @@ html[data-theme='dark'] .leaflet-container { background: #000; }
   padding: 15px;
   max-height: calc(90vh - 80px);
   overflow-y: auto;
+  z-index: 1500; /* Au-dessus des toggles (z-index: 999) et du basemap-menu (z-index: 1000) */
 }
 
 #filters-container h3 {
@@ -1821,18 +1822,79 @@ html[data-theme='dark'] .leaflet-container { background: #000; }
     left: 20px !important;
     right: 20px !important;
     height: 60px !important;
+    max-height: 60px !important;
     padding: 0 10px;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
+    transition: none;
+    /* Pas d'overflow ici pour ne pas casser les submenus */
+    display: flex; /* Nécessaire pour que le wrapper fonctionne */
+    align-items: center;
+  }
+  
+  /* Wrapper de scroll en mobile */
+  .nav-scroll-wrapper {
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: space-around;
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
-    transition: none;
+    justify-content: space-evenly; /* Espacement harmonieux */
+    gap: 16px; /* Gap généreux entre les éléments */
+    /* Scroll horizontal sur mobile */
+    overflow-x: scroll !important; /* FORCER LE SCROLL */
+    overflow-y: hidden !important;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    /* Scrollbar native du système */
+    scrollbar-width: auto; /* Scrollbar native Firefox */
+    scrollbar-color: initial; /* Couleurs par défaut du système */
+    height: 60px;
+    max-height: 60px;
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    padding: 0 12px; /* Padding pour espacer des bords */
   }
+  
+  /* Scrollbar native en mobile - pas de style personnalisé */
+  /* La scrollbar du système s'affichera automatiquement */
+  
+  /* Empêcher les boutons de rétrécir et forcer une largeur minimale */
+  .nav-scroll-wrapper .nav-category {
+    flex-shrink: 0;
+    flex-grow: 0; /* Ne pas grandir */
+    scroll-snap-align: center; /* Snap au centre pour un meilleur alignement */
+    min-width: 70px;
+    width: 70px;
+    margin: 0; /* Reset margin pour utiliser gap */
+  }
+  
+  /* Le logo dans le wrapper est caché en mobile (< 1024px) */
+  .nav-scroll-wrapper .logo {
+    display: none; /* Caché car le logo fixe est affiché en haut à gauche */
+  }
+  
+  /* Le container des catégories dynamiques doit permettre le scroll */
+  .nav-scroll-wrapper #dynamic-categories {
+    display: flex;
+    gap: 16px; /* Même gap que le wrapper */
+    flex-shrink: 0;
+    flex-grow: 0;
+    flex-wrap: nowrap; /* Empêcher le retour à la ligne */
+    align-items: center;
+  }
+  
+  /* Le bouton contribuer aussi */
+  .nav-scroll-wrapper #nav-contribute {
+    flex-shrink: 0;
+    flex-grow: 0;
+    min-width: 70px;
+    margin-left: 8px; /* Espace avant le bouton contribuer */
+  }
+  
   /* Cacher les légendes pour plus de place */
   #left-nav p {
     display: none;
   }
+  
   /* Positionner les sous-menus au-dessus du nav bar*/
   .submenu {
     position: absolute;
@@ -1908,6 +1970,37 @@ html[data-theme='dark'] .leaflet-container { background: #000; }
   z-index: 1000;
   padding: 20px;
   transition: width 0.3s;
+  /* Pas d'overflow ici pour ne pas casser les submenus */
+  max-height: 70vh; /* Capé à 70% de la hauteur viewport */
+}
+
+/* Wrapper interne pour le scroll */
+.nav-scroll-wrapper {
+  /* Desktop : scroll vertical */
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: calc(70vh - 60px); /* Ajusté pour correspondre au cap de #left-nav */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  /* Pas de flex par défaut en desktop, les éléments s'empilent naturellement */
+}
+
+/* Scrollbar styling pour Webkit (Chrome, Safari) */
+.nav-scroll-wrapper::-webkit-scrollbar {
+  width: 6px;
+}
+
+.nav-scroll-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nav-scroll-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.nav-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
 }
 #left-nav .logo {
   display: flex;
@@ -2260,14 +2353,17 @@ html[data-theme='dark'] .gp-btn--danger {
 }
 
 /* Mobile: keep blur on #left-nav, hide its embedded logo, show standalone logo */
-@media (max-width: 640px) {
+@media (max-width: 1024px) {
   #left-nav .logo {
     display: none !important;
   }
   .mobile-fixed-logo {
     display: inline-flex;
   }
-  /* Make nav categories narrower on small screens */
+}
+
+/* Make nav categories narrower on small screens */
+@media (max-width: 640px) {
   .nav-category { width: 70px; }
 }
 
@@ -3195,46 +3291,8 @@ html[data-theme='dark'] .gp-card-cta span {
 }
 
 /* ---------------------------------------------------------------------------
-   Bouton filters-toggle et filter-count
+   Bouton filters-toggle et filter-count - MOVED TO modules/ui/toggles.css
 --------------------------------------------------------------------------- */
-.filters-toggle {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(10px);
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  padding: 10px;
-  cursor: pointer; 
-  z-index: 1000;
-  border: none;
-}
-.filters-toggle i {
-  color: #14AE5C;
-}
-.filter-count {
-  text-align: center;
-  position: absolute;
-  top: -10px;
-  right: -10px;
-  background: #14AE5C;
-  color: #fff;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  padding: 2px;
-  font-size: 0.8rem;
-  line-height: 1;
-  width: 12px;
-  height: 12px;
-}
-span .filter-count {
-  text-align: center;
-}
-.filters-toggle.active {
-  background: #fff;
-  border-color: #00796b;
-}
 
 .active-filter-tag {
     background: #fff;
@@ -3411,465 +3469,11 @@ svg path:focus {
   -webkit-backdrop-filter: blur(5px);
 }
 
-/* ---------------------------------------------------------------------------
-   Barre de recherche d'adresse
---------------------------------------------------------------------------- */
-.search-container {
-  position: absolute;
-  top: 20px;
-  right: 170px; /* Positioned to the left of the new theme toggle */
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
+/* ===========================================================================
+   TOGGLES - Styles déplacés vers modules/ui/toggles.css
+   =========================================================================== */
 
-.search-toggle {
-  width: 40px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(10px);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.search-toggle:hover {
-  background: rgba(255, 255, 255, 0.8);
-  transform: scale(1.05);
-}
-
-.search-toggle i {
-  color: #333;
-  font-size: 1.1em;
-}
-
-.search-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(5px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  visibility: hidden;
-  transition: all 0.3s ease;
-  z-index: 2000;
-}
-
-.search-overlay.visible {
-  opacity: 1;
-  visibility: visible;
-}
-
-/* Bouton de localisation - Mobile uniquement */
-.location-toggle {
-  position: absolute;
-  top: 0px;
-  right: 50px; /* 30px à gauche du bouton de recherche (qui est à 120px) */
-  width: 40px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(10px);
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  display: none; /* Masqué par défaut */
-  align-items: center;
-  justify-content: center;
-  color: #333;
-  z-index: 1000;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* Bouton info - Mobile uniquement, placé à gauche du bouton de localisation */
-.info-toggle {
-  position: absolute;
-  top: 0px;
-  right: 100px; /* 50px à gauche du bouton de localisation (right:50px) */
-  width: 40px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(10px);
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  display: none; /* Masqué par défaut */
-  align-items: center;
-  justify-content: center;
-  color: #333;
-  z-index: 1000;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.location-toggle:hover {
-  background: #f5f5f5;
-  color: #14AE5C;
-  transform: translateY(-1px);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
-}
-
-.location-toggle:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-}
-
-.location-toggle .fa-location-arrow {
-  transition: transform 0.3s ease;
-}
-
-.location-toggle.active .fa-location-arrow {
-  color: #14AE5C;
-  animation: pulse 2s infinite;
-}
-
-.location-toggle.loading .fa-location-arrow {
-  animation: spin 1s linear infinite;
-}
-
-.location-toggle.error {
-  color: #ff4444;
-  animation: shake 0.5s;
-}
-
-@keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-3px); }
-  75% { transform: translateX(3px); }
-}
-
-.search-bar {
-  width: 90%;
-  max-width: 600px;
-  position: relative;
-  margin: 0 auto;
-  box-sizing: border-box;
-}
-
-#address-search {
-  width: 100%;
-  padding: 12px 20px;
-  font-size: 1em;
-  border: none;
-  border-radius: 30px;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
-  outline: none;
-  transition: all 1s ease;
-  box-sizing: border-box;
-  max-width: 100%;
-}
-
-/* Style quand la barre de recherche contient du texte */
-#address-search:not(:placeholder-shown) {
-  border-radius: 20px 20px 0 0;
-}
-
-/* Affichage du bouton uniquement sur mobile */
-@media (max-width: 1024px) {
-  .location-toggle {
-    display: flex;
-  }
-  .info-toggle {
-    display: flex;
-  }
-  
-  .search-bar {
-    width: 95%;
-  }
-  
-  #address-search {
-    font-size: 0.95em;
-    padding: 10px 15px;
-  }
-  
-  .search-results {
-    max-height: 60vh;
-    overflow-y: auto;
-  }
-  
-  .search-result-item {
-    padding: 10px 15px;
-  }
-  
-  .search-result-item h4 {
-    font-size: 0.9em;
-  }
-  
-  .search-result-item p {
-    font-size: 0.8em;
-  }
-}
-
-#address-search:focus {
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
-}
-
-.search-results {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: white;
-  border-radius: 0 0 10px 10px;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
-  max-height: 400px;
-  overflow-y: auto;
-  display: none;
-}
-
-.search-results.visible {
-  display: block;
-}
-
-.search-result-item {
-  padding: 12px 20px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border-bottom: 1px solid #f0f0f0;
-  opacity: 0;
-  transform: translateY(10px);
-  animation: fadeInUp 0.3s ease forwards;
-}
-
-@keyframes fadeInUp {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.search-result-item:nth-child(1) { animation-delay: 0.05s; }
-.search-result-item:nth-child(2) { animation-delay: 0.1s; }
-.search-result-item:nth-child(3) { animation-delay: 0.15s; }
-.search-result-item:nth-child(4) { animation-delay: 0.2s; }
-.search-result-item:nth-child(5) { animation-delay: 0.25s; }
-
-.search-result-item:last-child {
-  border-bottom: none;
-}
-
-.search-result-item:hover {
-  background: #f8f8f8;
-}
-
-.search-result-item h4 {
-  margin: 0 0 5px 0;
-  color: #333;
-  font-size: 0.95em;
-}
-
-.search-result-item p {
-  margin: 0;
-  color: #666;
-  font-size: 0.85em;
-}
-
-/* ---------------------------------------------------------------------------
-   Nouveau menu de fond de carte
---------------------------------------------------------------------------- */
-#filters-toggle {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  width: 40px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(10px);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 999;
-  padding: 0;
-}
-
-.basemap-toggle {
-  position: absolute;
-  top: 20px;
-  right: 70px; /* Positionné à gauche du bouton des filtres (qui est à right:20px) */
-  width: 40px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(10px);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 999;
-}
-
-/* Theme (light/dark) toggle button */
-.theme-toggle {
-  position: absolute;
-  top: 20px;
-  right: 120px; /* Placé entre la recherche et le bouton basemap */
-  width: 40px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(10px);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 999;
-}
-
-/* City toggle button */
-.city-toggle {
-  position: absolute;
-  top: 0px;
-  right: 150px; /* à gauche du theme-toggle */
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(10px);
-  border-radius: 50%;
-  width: 40px; height: 40px;
-  display: inline-flex;
-  align-items: center; justify-content: center;
-  cursor: pointer;
-  z-index: 999;
-}
-
-/* Unified toggle styles for consistent look across controls */
-.search-toggle,
-.location-toggle,
-.info-toggle,
-.theme-toggle,
-.city-toggle,
-.basemap-toggle,
-#filters-toggle,
-.filters-toggle {
-  width: 40px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(10px);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.search-toggle i,
-.location-toggle i,
-.info-toggle i,
-.theme-toggle i,
-.city-toggle i,
-.basemap-toggle i,
-#filters-toggle i,
-.filters-toggle i {
-  color: #333;
-  font-size: 1.1em;
-}
-
-/* Dark mode: improve icon contrast on top-right round toggles */
-html[data-theme='dark'] .search-toggle i,
-html[data-theme='dark'] .location-toggle i,
-html[data-theme='dark'] .info-toggle i,
-html[data-theme='dark'] .theme-toggle i,
-html[data-theme='dark'] .city-toggle i,
-html[data-theme='dark'] .basemap-toggle i,
-html[data-theme='dark'] #filters-toggle i,
-html[data-theme='dark'] .filters-toggle i {
-  color: #e5e7eb; /* Tailwind zinc-200 like */
-}
-
-.search-toggle:hover,
-.location-toggle:hover,
-.info-toggle:hover,
-.theme-toggle:hover,
-.city-toggle:hover,
-.basemap-toggle:hover,
-#filters-toggle:hover,
-.filters-toggle:hover,
-.search-toggle:focus-visible,
-.location-toggle:focus-visible,
-.info-toggle:focus-visible,
-.theme-toggle:focus-visible,
-.city-toggle:focus-visible,
-.basemap-toggle:focus-visible,
-#filters-toggle:focus-visible,
-.filters-toggle:focus-visible,
-.search-toggle:active,
-.location-toggle:active,
-.info-toggle:active,
-.theme-toggle:active,
-.city-toggle:active,
-.basemap-toggle:active,
-#filters-toggle:active,
-.filters-toggle:active {
-  background: rgba(255, 255, 255, 0.85);
-  transform: scale(1.05);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-}
-
-.search-toggle:hover i,
-.location-toggle:hover i,
-.info-toggle:hover i,
-.theme-toggle:hover i,
-.city-toggle:hover i,
-.basemap-toggle:hover i,
-#filters-toggle:hover i,
-.filters-toggle:hover i,
-.search-toggle:focus-visible i,
-.location-toggle:focus-visible i,
-.info-toggle:focus-visible i,
-.theme-toggle:focus-visible i,
-.city-toggle:focus-visible i,
-.basemap-toggle:focus-visible i,
-#filters-toggle:focus-visible i,
-.filters-toggle:focus-visible i,
-.search-toggle:active i,
-.location-toggle:active i,
-.info-toggle:active i,
-.theme-toggle:active i,
-.city-toggle:active i,
-.basemap-toggle:active i,
-#filters-toggle:active i,
-.filters-toggle:active i {
-  color: #14AE5C;
-}
-
-#filters-container {
-  position: absolute;
-  top: 70px;
-  right: 20px;
-  background: white;
-  border-radius: 12px;
-  padding: 15px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-  z-index: 1300; /* Au-dessus du basemap-menu */
-  display: none; /* Caché par défaut */
-  min-width: 250px;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-
+/* Basemap menu */
 .basemap-menu {
   position: absolute;
   top: 70px;
@@ -3885,58 +3489,15 @@ html[data-theme='dark'] .filters-toggle i {
   transition: opacity 0.3s ease, visibility 0.3s ease;
   opacity: 0;
   visibility: hidden;
-  pointer-events: none; /* Empêche les interactions quand caché */
+  pointer-events: none;
   display: grid;
 }
 
 .basemap-menu.open {
   opacity: 1;
   visibility: visible;
-  pointer-events: auto; /* Réactive les interactions quand visible */
-  display: grid; /* Garder display: grid pour le layout */
-}
-
-/* ---------------------------------------------------------------------------
-   Mobile: group top toggles into a single row (<=640px)
-   Order (left -> right): info, location, search | theme | basemap | filters (last)
-   Rounded left on info, rounded right on filters
---------------------------------------------------------------------------- */
-@media (max-width: 640px) {
-  /* Make inner controls in search-container participate in row flow */
-  .search-container {
-    display: flex;
-    gap: 0;
-  }
-  .search-container .info-toggle,
-  .search-container .location-toggle {
-    position: static;
-    display: flex; /* ensure visible */
-  }
-
-  /* Flatten all toggles (no circles), add subtle border for group look */
-  .search-toggle,
-  .location-toggle,
-  .info-toggle,
-  .theme-toggle,
-  .city-toggle,
-  .basemap-toggle,
-  #filters-toggle,
-  .filters-toggle {
-    border-radius: 0;
-    box-shadow: none;
-    background-color: var(--surface-80);
-  }
-
-  /* Ends: round only first and last */
-  .info-toggle { border-radius: 999px 0 0 999px; }
-  #filters-toggle, .filters-toggle { border-radius: 0 999px 999px 0; }
-
-  /* Zero-gap spacing with new order (filters rightmost): 20, 60, 100, 140, 180 */
-  .search-container { right: 180px; }
-  .city-toggle { right: -40px; }
-  .theme-toggle { right: 100px; }
-  .basemap-toggle { right: 60px; }
-  #filters-toggle, .filters-toggle { right: 20px; }
+  pointer-events: auto;
+  display: grid;
 }
 
 .basemap-tile {
@@ -4264,78 +3825,7 @@ html[data-theme='dark'] #travaux-filters-ux .travaux-field input[type="date"] {
 html[data-theme='dark'] #travaux-filters-ux #reset-all-filters {
   background: transparent;
 }
-html[data-theme='dark'] .search-toggle,
-html[data-theme='dark'] .location-toggle,
-html[data-theme='dark'] .info-toggle,
-html[data-theme='dark'] .theme-toggle,
-html[data-theme='dark'] .city-toggle,
-html[data-theme='dark'] .basemap-toggle,
-html[data-theme='dark'] #filters-toggle,
-html[data-theme='dark'] .filters-toggle {
-  background: var(--dm-toggle-bg);
-  border-color: var(--dm-toggle-border);
-  box-shadow: 0 2px 6px var(--dm-shadow-weak);
-}
-html[data-theme='dark'] .search-toggle i,
-html[data-theme='dark'] .location-toggle i,
-html[data-theme='dark'] .info-toggle i,
-html[data-theme='dark'] .theme-toggle i,
-html[data-theme='dark'] .city-toggle i,
-html[data-theme='dark'] .basemap-toggle i,
-html[data-theme='dark'] #filters-toggle i,
-html[data-theme='dark'] .filters-toggle i {
-  color: var(--dm-text);
-}
-/* Dark mode: ensure unified hover/focus/active effects and green icon color on toggles */
-html[data-theme='dark'] .search-toggle:hover,
-html[data-theme='dark'] .location-toggle:hover,
-html[data-theme='dark'] .info-toggle:hover,
-html[data-theme='dark'] .theme-toggle:hover,
-html[data-theme='dark'] .city-toggle:hover,
-html[data-theme='dark'] .basemap-toggle:hover,
-html[data-theme='dark'] #filters-toggle:hover,
-html[data-theme='dark'] .filters-toggle:hover,
-html[data-theme='dark'] .search-toggle:focus-visible,
-html[data-theme='dark'] .location-toggle:focus-visible,
-html[data-theme='dark'] .info-toggle:focus-visible,
-html[data-theme='dark'] .theme-toggle:focus-visible,
-html[data-theme='dark'] .city-toggle:focus-visible,
-html[data-theme='dark'] .basemap-toggle:focus-visible,
-html[data-theme='dark'] #filters-toggle:focus-visible,
-html[data-theme='dark'] .filters-toggle:focus-visible,
-html[data-theme='dark'] .search-toggle:active,
-html[data-theme='dark'] .location-toggle:active,
-html[data-theme='dark'] .info-toggle:active,
-html[data-theme='dark'] .theme-toggle:active,
-html[data-theme='dark'] .city-toggle:active,
-html[data-theme='dark'] .basemap-toggle:active,
-html[data-theme='dark'] #filters-toggle:active,
-html[data-theme='dark'] .filters-toggle:active {
-  background: color-mix(in srgb, var(--dm-toggle-bg) 80%, white 20%);
-}
-html[data-theme='dark'] .theme-toggle:hover i,
-html[data-theme='dark'] .city-toggle:hover i,
-html[data-theme='dark'] .basemap-toggle:hover i,
-html[data-theme='dark'] #filters-toggle:hover i,
-html[data-theme='dark'] .filters-toggle:hover i,
-html[data-theme='dark'] .search-toggle:focus-visible i,
-html[data-theme='dark'] .location-toggle:focus-visible i,
-html[data-theme='dark'] .info-toggle:focus-visible i,
-html[data-theme='dark'] .theme-toggle:focus-visible i,
-html[data-theme='dark'] .city-toggle:focus-visible i,
-html[data-theme='dark'] .basemap-toggle:focus-visible i,
-html[data-theme='dark'] #filters-toggle:focus-visible i,
-html[data-theme='dark'] .filters-toggle:focus-visible i,
-html[data-theme='dark'] .search-toggle:active i,
-html[data-theme='dark'] .location-toggle:active i,
-html[data-theme='dark'] .info-toggle:active i,
-html[data-theme='dark'] .theme-toggle:active i,
-html[data-theme='dark'] .city-toggle:active i,
-html[data-theme='dark'] .basemap-toggle:active i,
-html[data-theme='dark'] #filters-toggle:active i,
-html[data-theme='dark'] .filters-toggle:active i {
-  color: #14AE5C;
-}
+/* Dark mode toggles - Déplacé vers modules/ui/toggles.css */
 
 /* City dropdown menu */
 .city-menu {
@@ -4677,110 +4167,8 @@ html[data-theme='dark'] .markdown-body hr { border-color: var(--dm-menu-border) 
 .gp-modal-body {
   padding: 16px 18px 18px 0px;
 }
-
-.about-content {
-  display: grid;
-  gap: 12px;
-}
-
-/* Always stacked: cards below text (even on desktop) */
-@media (min-width: 768px) {
-  .about-content { grid-template-columns: 1fr; align-items: start; }
-}
-
-.about-text {
-  max-width: none; /* take full modal width as requested */
-}
-
-.about-text h2 {
-  font-size: 1.2rem;
-  line-height: 1.3;
-  margin: 6px 0 4px;
-}
-
-.about-text p {
-  margin: 4px 0 8px;
-  line-height: 1.5;
-  color: #566474; /* slightly greyer than headings */
-}
-
-.about-sidebar {
-  display: grid;
-  gap: 12px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(0,0,0,0.06);
-}
-
-.contact-cards {
-  display: grid;
-  gap: 10px;
-}
-
-.contact-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  background: rgba(255,255,255,0.7);
-  backdrop-filter: blur(6px);
-  border: 1px solid rgba(0,0,0,0.06);
-  border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-  text-decoration: none;
-  color: inherit;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
-}
-
-.contact-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.10);
-  background: rgba(255,255,255,0.85);
-}
-
-.contact-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: rgba(20, 174, 92, 0.15);
-  color: #14AE5C;
-  flex: 0 0 36px;
-}
-
-.contact-title {
-  font-weight: 600;
-  font-size: 0.98rem;
-  line-height: 1.2;
-}
-
-.contact-sub {
-  font-size: 0.9rem;
-  color: #55626d;
-}
-
-.about-note {
-  margin-top: 4px;
-  font-size: 0.92rem;
-  color: #6b7a86;
-}
-
 /* Dark mode adjustments */
 html[data-theme='dark'] .gp-modal-body { color: var(--dm-text); }
-html[data-theme='dark'] .about-text h2 { color: var(--dm-text); }
-html[data-theme='dark'] .about-text p { color: #b3c3cf; }
-html[data-theme='dark'] .contact-card {
-  background: var(--dm-panel-bg);
-  border: 1px solid var(--dm-menu-border);
-  box-shadow: 0 1px 2px var(--dm-shadow-weak);
-}
-html[data-theme='dark'] .contact-card:hover {
-  background: rgba(255,255,255,0.06);
-  box-shadow: 0 4px 10px var(--dm-shadow-weak);
-}
-html[data-theme='dark'] .contact-sub { color: #9fb0bd; }
-html[data-theme='dark'] .about-note { color: #9fb0bd; }
-html[data-theme='dark'] .about-sidebar { border-top: 1px solid var(--dm-menu-border); }
 
 .gp-modal-header {
   position: sticky;
@@ -5676,107 +5064,6 @@ html[data-theme='dark'] .propose-city-card {
 html[data-theme='dark'] .propose-city-card .city-logo { background: rgba(96,165,250,0.22); color: #bfdbfe; }
 html[data-theme='dark'] .propose-city-card .city-name { color: #bfdbfe; }
 html[data-theme='dark'] .propose-city-card .city-subline { color: #93c5fd; opacity: .9; }
-
-/* ---------------------------------------------------------------------------
-   Proposer une ville – Marketing/Product design
-   Scoped styles to enhance only this modal visually
---------------------------------------------------------------------------- */
-#propose-city-overlay .gp-modal {
-  overflow: hidden; /* allow header gradient to clip */
-}
-
-#propose-city-overlay .gp-modal-header {
-  position: relative;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 14px 16px;
-}
-#propose-city-overlay .gp-modal-header::after {
-  content: none; /* pas d'effet décoratif pour une esthétique minimaliste */
-}
-
-#propose-city-overlay .gp-modal-title {
-  font-weight: 700;
-  letter-spacing: 0.2px;
-  color: var(--text);
-  font-size: 1.1rem;
-}
-
-#propose-city-overlay .gp-modal-body {
-  background: var(--surface);
-  padding: 16px 18px 18px;
-}
-
-/* Content layout: stacked, compact spacing */
-#propose-city-overlay .about-content {
-  display: block;
-}
-#propose-city-overlay .about-text { margin: 0 auto 8px; max-width: 720px; }
-#propose-city-overlay .about-text h2 { margin: 12px 0 6px; font-size: 1.06rem; font-weight: 600; letter-spacing: .2px; }
-#propose-city-overlay .about-text p { margin: 6px 0 8px; line-height: 1.6; font-size: .98rem; }
-#propose-city-overlay .about-text p:first-of-type {
-  font-size: 1.02rem;
-  font-weight: 600;
-}
-
-/* Value list with checkmarks */
-#propose-city-overlay .about-text ul { list-style: none; padding-left: 0; margin: 10px 0 12px; display: grid; gap: 8px; }
-#propose-city-overlay .about-text ul li {
-  position: relative;
-  padding: 10px 10px 10px 34px;
-  line-height: 1.55;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-}
-#propose-city-overlay .about-text ul li::before {
-  content: '✓';
-  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
-  width: 18px; height: 18px; border-radius: 999px; display: grid; place-items: center;
-  background: color-mix(in srgb, var(--accent) 80%, white); color: #fff; font-size: 12px; font-weight: 800;
-}
-/* Hover focus to make check items pop slightly */
-#propose-city-overlay .about-text ul li:hover { border-color: rgba(2,6,23,0.16); }
-
-/* Highlight for strong paragraph (e.g., offer for associations) */
-#propose-city-overlay .about-text p > strong {
-  background: none; border: none; box-shadow: none; padding: 0; border-radius: 0;
-  font-weight: 700; /* mise en valeur simple, sans chip */
-}
-
-/* Contact cards stacked with product-y treatments */
-#propose-city-overlay .about-sidebar { margin-top: 6px; }
-#propose-city-overlay .contact-cards { display: flex; flex-direction: column; gap: 10px; }
-#propose-city-overlay .contact-card {
-  background: var(--surface); color: var(--text); border: 1px solid var(--border);
-  border-radius: 12px; padding: 12px; display: flex; gap: 10px; align-items: center;
-  text-decoration: none; transition: transform .12s ease, border-color .12s ease, background .12s ease;
-}
-#propose-city-overlay .contact-card:hover { transform: translateY(-1px); border-color: rgba(2,6,23,0.18); }
-#propose-city-overlay .contact-card .contact-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, white); color: #065f46; }
-#propose-city-overlay .contact-card .contact-title { font-weight: 700; }
-#propose-city-overlay .contact-card .contact-sub { opacity: .85; font-size: .92rem; }
-
-/* CTA-like appearance mapped to explicit classes for stable ordering */
-#propose-city-overlay .contact-card--email { background: var(--surface); border-color: rgba(20,174,92,0.28); }
-/* LinkedIn card in solid green */
-#propose-city-overlay .contact-card--linkedin { background: var(--surface); border-color: var(--border); color: var(--text); }
-#propose-city-overlay .contact-card--linkedin .contact-title,
-#propose-city-overlay .contact-card--linkedin .contact-sub { color: var(--text); }
-#propose-city-overlay .contact-card--linkedin .contact-icon { background: rgba(10,102,194,0.10); color: #0A66C2; }
-
-/* Dark mode adaptations */
-html[data-theme='dark'] #propose-city-overlay .gp-modal-header { background: var(--dm-panel-bg); border-bottom-color: var(--dm-menu-border); }
-html[data-theme='dark'] #propose-city-overlay .gp-modal-header::after { content: none; }
-html[data-theme='dark'] #propose-city-overlay .gp-modal-body { background: var(--dm-panel-bg); }
-html[data-theme='dark'] #propose-city-overlay .about-text ul li {
-  background: rgba(255,255,255,0.06);
-  border-color: var(--dm-menu-border);
-}
-html[data-theme='dark'] #propose-city-overlay .about-text p > strong { background: none; border: none; }
-html[data-theme='dark'] #propose-city-overlay .contact-card { background: rgba(255,255,255,0.06); border-color: var(--dm-menu-border); }
-html[data-theme='dark'] #propose-city-overlay .contact-card:hover { box-shadow: none; }
-html[data-theme='dark'] #propose-city-overlay .contact-card .contact-icon { background: color-mix(in srgb, #14AE5C 40%, black); color: #d1fae5; }
 
 /* Ultra-compact mobile: hide logos under 400px */
 @media (max-width: 400px) {

@@ -316,6 +316,8 @@
         });
       }
 
+      // Note: Le bouton search-toggle est géré par SearchModule.init()
+      
       // Modale "À propos" (utilise ModalManager)
       const infoToggle = document.getElementById('info-toggle');
       const aboutClose = document.getElementById('about-close');
@@ -521,18 +523,7 @@
   // FALLBACKS ET BOOTSTRAP
   // ============================================================================
   
-  // Fallback de sécurité pour le sélecteur de ville
-  try {
-    document.addEventListener('click', function(e) {
-      const btn = e.target && (e.target.id === 'city-toggle' ? e.target : e.target.closest && e.target.closest('#city-toggle'));
-      if (btn) {
-        e.preventDefault();
-        e.stopPropagation();
-        console.debug('[city] delegated click -> openCityMenu');
-        win.CityManager?.openCityMenu();
-      }
-    }, true);
-  } catch (_) {}
+  // City toggle removed - functionality handled by CityManager if needed
 
   // Initialiser le système de redirection automatique vers la ville
   try {
