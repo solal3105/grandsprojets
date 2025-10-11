@@ -213,7 +213,7 @@
         
         const isActive = activeBm && ((activeBm.label && bm.label === activeBm.label) || (activeBm.url && bm.url === activeBm.url));
         if (isActive) { 
-          btn.style.background = '#e3f2fd'; 
+          btn.style.background = 'var(--info-lighter)'; 
           btn.setAttribute('aria-pressed', 'true'); 
         }
         
@@ -225,7 +225,7 @@
               b.removeAttribute('aria-pressed'); 
             }); 
           } catch(_) {}
-          btn.style.background = '#e3f2fd';
+          btn.style.background = 'var(--info-lighter)';
           btn.setAttribute('aria-pressed', 'true');
         });
         

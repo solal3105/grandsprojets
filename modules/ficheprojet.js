@@ -1154,12 +1154,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       bg.setAttribute('y', '0');
       bg.setAttribute('width', String(VB));
       bg.setAttribute('height', String(VB));
-      bg.setAttribute('fill', '#ffffff');
+      bg.setAttribute('fill', 'var(--white)');
       bg.setAttribute('opacity', '1');
       svg.appendChild(bg);
 
-      const strokeColor = '#0a6d54';
-      const fillColor = '#0a6d5415';
+      const strokeColor = 'var(--primary-hover)';
+      const fillColor = 'var(--primary-alpha-1)';
       const strokeWidth = 4; // tuned for 100x100 viewBox
 
       FC.features.forEach(f => {

@@ -106,7 +106,7 @@
         // Hover effect
         btn.addEventListener('mouseenter', () => {
           btn.style.borderColor = 'var(--info)';
-          btn.style.background = '#e3f2fd';
+          btn.style.background = 'var(--info-lighter)';
           btn.style.transform = 'scale(1.1)';
         });
         btn.addEventListener('mouseleave', () => {
@@ -266,7 +266,7 @@
       // Créer les checkboxes compactes (style chips)
       layers.forEach(layer => {
         const chip = document.createElement('label');
-        chip.style.cssText = 'display:inline-flex; align-items:center; gap:6px; cursor:pointer; padding:6px 12px; border-radius:16px; border:1px solid var(--border, #e0e0e0); background:var(--surface, var(--white)); transition:all 0.15s; font-size:13px; font-weight:500; user-select:none;';
+        chip.style.cssText = 'display:inline-flex; align-items:center; gap:6px; cursor:pointer; padding:6px 12px; border-radius:16px; border:1px solid var(--border, var(--gray-200)); background:var(--surface, var(--white)); transition:all 0.15s; font-size:13px; font-weight:500; user-select:none;';
         
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
@@ -289,7 +289,7 @@
             label.style.color = 'var(--white)';
           } else {
             chip.style.background = 'var(--surface, var(--white))';
-            chip.style.borderColor = 'var(--border, #e0e0e0)';
+            chip.style.borderColor = 'var(--border, var(--gray-200))';
             label.style.color = 'var(--text-strong, var(--gray-700))';
           }
         });
@@ -302,7 +302,7 @@
         
         chip.addEventListener('mouseleave', () => {
           if (!checkbox.checked) {
-            chip.style.borderColor = 'var(--border, #e0e0e0)';
+            chip.style.borderColor = 'var(--border, var(--gray-200))';
           }
         });
         
@@ -311,7 +311,7 @@
       
     } catch (err) {
       console.error('[contrib-categories] populateCategoryLayersCheckboxes error:', err);
-      categoryLayersCheckboxes.innerHTML = '<small style="color:#f87171;">Erreur de chargement</small>';
+      categoryLayersCheckboxes.innerHTML = '<small style="color:var(--danger);">Erreur de chargement</small>';
     }
   }
 

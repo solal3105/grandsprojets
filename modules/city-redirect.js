@@ -53,7 +53,7 @@
       popup.innerHTML = `
         <div style="padding:32px;text-align:center;">
           <div style="margin-bottom:24px;">
-            <i class="fa-solid fa-city" style="font-size:48px;color:#1976d2;margin-bottom:16px;"></i>
+            <i class="fa-solid fa-city" style="font-size:48px;color:var(--info);margin-bottom:16px;"></i>
             <h2 style="margin:0 0 8px 0;font-size:24px;color:var(--gray-700);">Sélectionnez votre ville</h2>
             <p style="margin:0;color:var(--gray-500);font-size:15px;">Vous avez accès à ${cities.length} ville${cities.length > 1 ? 's' : ''}</p>
           </div>
@@ -68,15 +68,15 @@
                   align-items:center;
                   gap:16px;
                   padding:16px;
-                  border:2px solid #e0e0e0;
+                  border:2px solid var(--gray-200);
                   border-radius:12px;
                   background:white;
                   cursor:pointer;
                   transition:all 0.2s;
                   text-align:left;
                 "
-                onmouseover="this.style.borderColor='#1976d2';this.style.background='#f5f9ff';"
-                onmouseout="this.style.borderColor='#e0e0e0';this.style.background='white';"
+                onmouseover="this.style.borderColor='var(--info)';this.style.background='var(--info-lighter)';"
+                onmouseout="this.style.borderColor='var(--gray-200)';this.style.background='var(--white)';"
               >
                 <img 
                   src="${city.logo}" 
@@ -88,7 +88,7 @@
                   <div style="font-weight:600;font-size:16px;color:var(--gray-700);margin-bottom:4px;">${city.name}</div>
                   <div style="font-size:13px;color:var(--gray-500);font-family:monospace;">${city.code}</div>
                 </div>
-                <i class="fa-solid fa-arrow-right" style="color:#1976d2;font-size:20px;"></i>
+                <i class="fa-solid fa-arrow-right" style="color:var(--info);font-size:20px;"></i>
               </button>
             `).join('')}
           </div>

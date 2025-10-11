@@ -166,11 +166,10 @@ window.DataModule = (function() {
 	function getFeatureStyle(feature, layerName) {
 		// Récupérer le style depuis styleMap ou utiliser un fallback
 		const baseStyle = styleMap[layerName] || {
-			color: '#3498db',
+			color: 'var(--info)',
 			weight: 3,
 			opacity: 0.8,
 			fill: false,
-			dashArray: layerName === 'velo' ? '10, 5' : null
 		};
 
 		// Appliquer les styles personnalisés via le module LayerStyles
@@ -284,7 +283,7 @@ window.DataModule = (function() {
 			const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
 			const warningColor = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim();
 			const endColor = progressPct >= 100 ? primaryColor : warningColor;
-			const gradientBg = `linear-gradient(90deg, #E1002A 0%, ${endColor} 100%)`;
+			const gradientBg = `linear-gradient(90deg, var(--danger) 0%, ${endColor} 100%)`;
 			const todayPct = (() => {
 				if (!(debut && fin) || fin <= debut) return 0;
 				const total = fin - debut;
@@ -617,7 +616,7 @@ window.DataModule = (function() {
 						if (op.project_name === contributionName && typeof otherLayer.setStyle === 'function') {
 							const originalStyle = getFeatureStyle(otherLayer.feature, layerName);
 							otherLayer.setStyle({
-								color: darkenColor(originalStyle.color || '#3388ff', 0.2),
+								color: darkenColor(originalStyle.color || 'var(--info)', 0.2),
 								weight: (originalStyle.weight || 3) + 2,
 								dashArray: '10, 10',
 								opacity: 1,

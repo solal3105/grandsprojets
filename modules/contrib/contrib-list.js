@@ -65,10 +65,10 @@
       const wrap = document.createElement('div');
       wrap.className = 'contrib-empty';
       wrap.setAttribute('role', 'status');
-      wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;color:#546e7a;text-align:center;gap:14px;min-height:220px;';
+      wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;color:var(--gray-500);text-align:center;gap:14px;min-height:220px;';
       wrap.innerHTML = `
-        <div class="empty-illu" aria-hidden="true" style="font-size:42px;color:#90a4ae"><i class="fa-regular fa-folder-open"></i></div>
-        <div class="empty-title" style="font-size:18px;font-weight:600;color:#37474f">Aucune contribution pour le moment</div>
+        <div class="empty-illu" aria-hidden="true" style="font-size:42px;color:var(--gray-400)"><i class="fa-regular fa-folder-open"></i></div>
+        <div class="empty-title" style="font-size:18px;font-weight:600;color:var(--gray-700)">Aucune contribution pour le moment</div>
         <div class="empty-sub" style="font-size:14px;opacity:0.8;max-width:520px">Créez votre première contribution pour proposer un projet et le visualiser sur la carte.</div>
         <div><button type="button" id="btn-empty-create" class="gp-btn" style="padding:8px 14px;border-radius:10px;background:var(--primary);color:var(--white);border:none;cursor:pointer;box-shadow:0 3px 10px rgba(25,118,210,0.3);">Créer une contribution</button></div>
       `;
@@ -105,7 +105,7 @@
       modal.setAttribute('aria-modal', 'true');
       modal.setAttribute('aria-labelledby', 'delc-title');
       modal.setAttribute('aria-describedby', 'delc-desc');
-      modal.style.cssText = 'max-width:560px;width:92%;background:var(--white);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,0.25);padding:16px 18px;font-size:15px;color:#263238;';
+      modal.style.cssText = 'max-width:560px;width:92%;background:var(--white);border-radius:12px;box-shadow:0 12px 30px var(--black-alpha-25);padding:16px 18px;font-size:15px;color:var(--gray-800);';
 
       const title = document.createElement('h2');
       title.id = 'delc-title';
@@ -133,7 +133,7 @@
       const confirmBtn = document.createElement('button');
       confirmBtn.type = 'button';
       confirmBtn.textContent = 'Supprimer';
-      confirmBtn.style.cssText = 'padding:8px 12px;border-radius:8px;border:0;background:#c62828;color:var(--white);';
+      confirmBtn.style.cssText = 'padding:8px 12px;border-radius:8px;border:0;background:var(--danger);color:var(--white);';
 
       const close = (result) => {
         try { document.removeEventListener('keydown', onKey); } catch(_) {}
@@ -437,7 +437,7 @@
           const s = document.createElement('div');
           s.className = 'contrib-skel';
           s.setAttribute('aria-hidden', 'true');
-          s.style.cssText = 'height:96px;background:linear-gradient(90deg,#eceff1 25%,#cfd8dc 50%,#eceff1 75%);background-size:200% 100%;animation:skeleton-loading 1.5s infinite;border-radius:12px;';
+          s.style.cssText = 'height:96px;background:linear-gradient(90deg,var(--gray-200) 25%,var(--gray-300) 50%,var(--gray-200) 75%);background-size:200% 100%;animation:skeleton-loading 1.5s infinite;border-radius:12px;';
           if (listSentinel && listSentinel.parentNode === listEl) {
             listEl.insertBefore(s, listSentinel);
           } else {

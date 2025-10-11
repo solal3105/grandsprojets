@@ -17,33 +17,33 @@
 
     /* Theme Variables */
     :root {
-      --bg-page: #FAFAFA;
-      --bg-card: #FFFFFF;
-      --text-primary: #1A1A1A;
-      --text-secondary: #666666;
-      --text-muted: #999999;
-      --accent: #1976D2;
-      --accent-hover: #1565C0;
-      --border: #E0E0E0;
-      --info-bg: #E3F2FD;
-      --info-text: #0D47A1;
-      --input-bg: #F5F5F5;
+      --bg-page: var(--gray-50);
+      --bg-card: var(--white);
+      --text-primary: var(--gray-900);
+      --text-secondary: var(--gray-500);
+      --text-muted: var(--gray-400);
+      --accent: var(--info);
+      --accent-hover: var(--info-hover);
+      --border: var(--gray-200);
+      --info-bg: var(--info-lighter);
+      --info-text: var(--info-active);
+      --input-bg: var(--gray-100);
       --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
       --shadow-hover: 0 6px 24px rgba(0, 0, 0, 0.12);
     }
 
     [data-theme="dark"] {
-      --bg-page: #0A0A0A;
-      --bg-card: #1A1A1A;
-      --text-primary: #FFFFFF;
-      --text-secondary: #AAAAAA;
-      --text-muted: #777777;
-      --accent: #42A5F5;
-      --accent-hover: #64B5F6;
-      --border: #2A2A2A;
-      --info-bg: #1E3A5F;
-      --info-text: #90CAF9;
-      --input-bg: #0F0F0F;
+      --bg-page: var(--black);
+      --bg-card: var(--gray-900);
+      --text-primary: var(--white);
+      --text-secondary: var(--gray-400);
+      --text-muted: var(--gray-500);
+      --accent: var(--info-light);
+      --accent-hover: var(--info-light);
+      --border: var(--gray-800);
+      --info-bg: var(--info-alpha-20);
+      --info-text: var(--info-light);
+      --input-bg: var(--gray-900);
       --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
       --shadow-hover: 0 6px 24px rgba(0, 0, 0, 0.5);
     }
@@ -171,23 +171,23 @@
     }
 
     .btn-github {
-      background: #24292e;
+      background: var(--gray-800);
       color: white;
-      border: 1px solid #1b1f23;
+      border: 1px solid var(--gray-900);
     }
 
     .btn-github:hover:not(:disabled) {
-      background: #2f363d;
+      background: var(--gray-700);
       transform: translateY(-1px);
     }
 
     [data-theme="dark"] .btn-github {
-      background: #0d1117;
-      border: 1px solid #30363d;
+      background: var(--black);
+      border: 1px solid var(--gray-700);
     }
 
     [data-theme="dark"] .btn-github:hover:not(:disabled) {
-      background: #161b22;
+      background: var(--gray-900);
     }
 
     /* Separator */
@@ -251,27 +251,27 @@
     }
 
     .status.success {
-      background: #E8F5E9;
-      color: #2E7D32;
-      border: 1px solid #A5D6A7;
+      background: var(--primary-lighter);
+      color: var(--primary);
+      border: 1px solid var(--primary-light);
     }
 
     .status.error {
-      background: #FFEBEE;
-      color: #C62828;
-      border: 1px solid #EF9A9A;
+      background: var(--danger-lighter);
+      color: var(--danger);
+      border: 1px solid var(--danger-light);
     }
 
     [data-theme="dark"] .status.success {
-      background: #1B5E20;
-      color: #A5D6A7;
-      border: 1px solid #2E7D32;
+      background: var(--primary-active);
+      color: var(--primary-light);
+      border: 1px solid var(--primary);
     }
 
     [data-theme="dark"] .status.error {
-      background: #B71C1C;
-      color: #EF9A9A;
-      border: 1px solid #C62828;
+      background: var(--danger-hover);
+      color: var(--danger-light);
+      border: 1px solid var(--danger);
     }
 
     /* Back Link */

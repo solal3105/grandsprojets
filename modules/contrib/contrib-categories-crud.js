@@ -211,7 +211,7 @@
         const styles = data.category_styles || {};
         if (categoryStyleColor) {
           const trimmedColor = (styles.color && typeof styles.color === 'string') ? styles.color.trim() : '';
-          categoryStyleColor.value = (trimmedColor && /^#[0-9A-Fa-f]{6}$/.test(trimmedColor)) ? trimmedColor : '#000000';
+          categoryStyleColor.value = (trimmedColor && /^#[0-9A-Fa-f]{6}$/.test(trimmedColor)) ? trimmedColor : '#000000'; // Default black color
         }
         if (categoryStyleWeight) categoryStyleWeight.value = styles.weight || '';
         if (categoryStyleDashArray) categoryStyleDashArray.value = styles.dashArray || '';
@@ -269,7 +269,7 @@
         }
         
         // Réinitialiser les champs de styles avec des valeurs par défaut valides
-        if (categoryStyleColor) categoryStyleColor.value = '#000000';
+        if (categoryStyleColor) categoryStyleColor.value = '#000000'; // Default black
         if (categoryStyleWeight) categoryStyleWeight.value = '';
         if (categoryStyleDashArray) categoryStyleDashArray.value = '';
         if (categoryStyleOpacity) categoryStyleOpacity.value = '';
