@@ -1,0 +1,206 @@
+/* ===========================================================================
+   LAYOUT - Structure globale de l'application
+   =========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   Container global
+--------------------------------------------------------------------------- */
+#container {
+  position: relative;
+  height: 100%;
+}
+
+/* ---------------------------------------------------------------------------
+   Carte Leaflet
+--------------------------------------------------------------------------- */
+#map {
+  width: 100%;
+  height: 100%;
+  background-color: var(--surface-base);
+}
+
+/* Ensure invisible hitline strokes in custom pane remain clickable */
+.leaflet-hitlinePane-pane path {
+  pointer-events: stroke;
+}
+
+/* ---------------------------------------------------------------------------
+   Zone de filtres
+--------------------------------------------------------------------------- */
+#filters-container {
+  position: absolute;
+  top: 70px;
+  right: 20px;
+  width: 300px;
+  background: var(--surface-60);
+  backdrop-filter: blur(10px);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px var(--black-alpha-15);
+  padding: 45px 15px 15px 15px;
+  max-height: calc(90vh - 100px);
+  overflow-y: auto;
+  z-index: 1500;
+}
+
+.filters-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: var(--white);
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--gray-500);
+  font-size: 1rem;
+  z-index: 10;
+  box-shadow: 0 2px 4px var(--black-alpha-10);
+}
+
+.filters-close-btn:hover {
+  background: var(--danger);
+  color: var(--white);
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px var(--danger-alpha-3);
+}
+
+#filters-container h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+.filter-group {
+  margin-bottom: 1.5rem;
+}
+
+.filter-group h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+/* ---------------------------------------------------------------------------
+   Modal de filtrage
+--------------------------------------------------------------------------- */
+#filter-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+  background: var(--black-alpha-50);
+  z-index: 2000;
+  justify-content: center;
+  align-items: center;
+}
+
+#filter-modal .modal-content {
+  background: var(--surface-base);
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80%;
+  overflow-y: auto;
+}
+
+#filter-modal h3 {
+  margin-top: 0;
+}
+
+#filter-modal label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+#filter-modal input[type="text"],
+#filter-modal input[type="date"] {
+  width: 100%;
+  padding: 5px;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+
+#filter-modal select {
+  width: 100%;
+  padding: 5px;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+
+#filter-modal .modal-buttons {
+  text-align: right;
+}
+
+#filter-modal button {
+  padding: 5px 10px;
+  margin-left: 5px;
+}
+
+/* ---------------------------------------------------------------------------
+   Panneau de détails (droite)
+--------------------------------------------------------------------------- */
+#detail-content {
+  flex: 1;
+  overflow: visible; /* let #project-detail be the scroll container for sticky header */
+  padding: 20px;
+  padding-top: 0;
+  background: var(--white);
+}
+
+/* Détail du projet et sous-menus Urbanisme/Vélo/Mobilité */
+#project-detail {
+  position: absolute;
+  top: 10px; /* même position verticale que left-nav */
+  left: 121px; /* marge gauche + largeur de left-nav + espace */
+  width: 350px;
+  min-height: 500px;
+  max-height: 70vh;
+  overflow-y: auto;
+  border-radius: 0 20px 20px 20px;
+  z-index: 1050;
+}
+
+#project-detail.visible {
+  transform: translateX(0);
+}
+
+#project-detail h2 {
+  margin-top: 0;
+}
+
+#close-details-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  float: right;
+  color: var(--gray-400);
+}
+
+#close-details-btn:hover {
+  color: var(--gray-700);
+}
+
+/* ---------------------------------------------------------------------------
+   Ensure Leaflet panes layer above UI components
+--------------------------------------------------------------------------- */
+.leaflet-tooltip-pane {
+  z-index: 2500 !important;
+}
+
+.leaflet-popup-pane {
+  z-index: 2400 !important;
+}
+
+/* Always hide Leaflet zoom controls */
+.leaflet-control-zoom {
+  display: none !important;
+}

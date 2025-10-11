@@ -133,6 +133,8 @@
   --surface-base: #FFFFFF;
   --surface-raised: var(--gray-50);
   --surface-overlay: var(--gray-100);
+  --surface-60: rgba(255, 255, 255, 0.6);
+  --surface-92: rgba(255, 255, 255, 0.92);
   
   /* Opacités blanc/noir */
   --white-alpha-04: rgba(255, 255, 255, 0.04);
@@ -185,6 +187,8 @@
   --dark-blue-alpha-16: rgba(2, 6, 23, 0.16);
   --dark-blue-alpha-18: rgba(2, 6, 23, 0.18);
   
+  /* Tile background for thumbnails */
+  --tile-bg: var(--gray-100);
 }
 
 /* ============================================================================

@@ -1,0 +1,453 @@
+/* ===========================================================================
+   ADMIN - Interfaces d'administration
+   =========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   City Management Cards
+--------------------------------------------------------------------------- */
+.city-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  transition: all 0.2s;
+}
+
+.city-card:hover {
+  box-shadow: 0 4px 12px var(--black-alpha-10);
+  border-color: var(--info);
+}
+
+.city-card__logo {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+}
+
+.city-card__logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.city-card__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.city-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.city-card__name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.city-card__code {
+  padding: 2px 8px;
+  background: var(--info-lighter);
+  color: var(--info);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.city-card__readonly-badge {
+  padding: 2px 8px;
+  background: var(--gray-200);
+  color: var(--gray-600);
+  border-radius: 4px;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.city-card--readonly {
+  opacity: 0.7;
+}
+
+.city-card--readonly .city-card__actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.city-card__meta {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--gray-600);
+  margin-bottom: 8px;
+}
+
+.city-card__coord,
+.city-card__zoom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.city-card__admins {
+  margin-top: 8px;
+}
+
+.city-card__admin-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--primary-lighter);
+  color: var(--primary);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.city-card__admin-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--warning-lighter);
+  color: var(--warning);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.city-card--warning {
+  border-color: var(--warning);
+  background: var(--warning-lighter);
+}
+
+.city-card__actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ---------------------------------------------------------------------------
+   User Info Card
+--------------------------------------------------------------------------- */
+.user-info-card {
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, var(--info-alpha-08) 0%, var(--info-alpha-03) 100%);
+  border: 1px solid var(--info-alpha-15);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px var(--info-alpha-08);
+}
+
+.user-info-card__avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--info) 0%, var(--info) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--white);
+  font-size: 22px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px var(--info-alpha-25);
+}
+
+.user-info-card__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-info-card__header {
+  margin-bottom: 8px;
+}
+
+.user-info-card__label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--black-alpha-50);
+  margin-bottom: 4px;
+}
+
+.user-info-card__email {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, var(--gray-900));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-info-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.user-info-card__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--info-alpha-12);
+  color: var(--info);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--info-alpha-2);
+}
+
+.user-info-card__cities {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--black-alpha-66);
+}
+
+.user-info-card__logout {
+  margin-left: auto;
+  padding: 10px 12px;
+  background: transparent;
+  border: 1px solid var(--danger-alpha-3);
+  border-radius: 8px;
+  color: var(--danger);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.user-info-card__logout:hover {
+  background: var(--danger-alpha-08);
+  border-color: var(--danger);
+  transform: translateY(-1px);
+}
+
+.user-info-card__logout:active {
+  transform: translateY(0);
+}
+
+/* ---------------------------------------------------------------------------
+   Branding Management (Admin)
+--------------------------------------------------------------------------- */
+.branding-management {
+  padding: 1rem 0;
+}
+
+.branding-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.branding-item {
+  background: var(--surface-base);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 1rem;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.branding-item:hover {
+  border-color: var(--border-medium);
+  box-shadow: 0 4px 12px var(--black-alpha-08);
+}
+
+.branding-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.branding-city-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: capitalize;
+}
+
+.branding-color-preview {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 2px solid var(--border-medium);
+  box-shadow: 0 2px 6px var(--black-alpha-10);
+}
+
+.branding-item-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.branding-save-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.branding-save-btn:active {
+  transform: translateY(0);
+}
+
+.branding-save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.loading-state,
+.empty-state,
+.error-state {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+/* ---------------------------------------------------------------------------
+   User Management Cards (Admin panel)
+--------------------------------------------------------------------------- */
+.user-card {
+  background: var(--surface-base);
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.user-card:hover {
+  box-shadow: 0 4px 12px var(--black-alpha-10);
+  transform: translateY(-2px);
+}
+
+.user-card__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.user-card__icon {
+  font-size: 24px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gray-100);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.user-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-card__email {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--gray-900);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-card__meta {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--gray-500);
+  flex-wrap: wrap;
+}
+
+.user-card__role {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.user-card__date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.user-card__body {
+  margin-bottom: 12px;
+}
+
+.user-card__cities {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--gray-600);
+  padding: 8px 12px;
+  background: var(--gray-100);
+  border-radius: 8px;
+}
+
+.user-card__warning {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--warning-lighter);
+  border-left: 4px solid var(--warning);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--warning);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.users-list {
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* Scrollbar styling for users list */
+.users-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.users-list::-webkit-scrollbar-track {
+  background: var(--gray-100);
+  border-radius: 4px;
+}
+
+.users-list::-webkit-scrollbar-thumb {
+  background: var(--gray-400);
+  border-radius: 4px;
+}
+
+.users-list::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-400);
+}

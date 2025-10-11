@@ -1,4 +1,6 @@
-
+/* ===========================================================================
+   FICHE PROJET - Page de détail des projets
+   =========================================================================== */
 
 /* ---------------------------------------------------------------------------
    Project V2 — Clean, mobile-first layout
@@ -86,7 +88,6 @@
   content: "";
   position: fixed;
   inset: 0;
-  background: linear-gradient(180deg, var(--black-alpha-66), var(--black-alpha-20));
   z-index: 0;
   pointer-events: none;
 }
