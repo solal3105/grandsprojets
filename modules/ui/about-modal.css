@@ -81,13 +81,13 @@
 .about-stat-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
-  border-color: #14AE5C;
+  border-color: var(--primary);
 }
 
 .about-stat-number {
   font-size: 1.75rem;
   font-weight: 700;
-  color: #14AE5C;
+  color: var(--primary);
   margin-bottom: 0.25rem;
 }
 
@@ -156,7 +156,7 @@
 
 .about-feature:hover {
   background: white;
-  border-color: #14AE5C;
+  border-color: var(--primary);
   transform: translateX(4px);
 }
 
@@ -166,7 +166,7 @@
 
 .about-cta {
   background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-  border: 2px solid #14AE5C;
+  border: 2px solid var(--primary);
   border-radius: 16px;
   padding: 2rem 1.5rem;
   margin: 2rem 0;
@@ -218,7 +218,7 @@
 }
 
 .about-cta-button {
-  background: linear-gradient(135deg, #14AE5C 0%, #10b981 100%);
+  background: var(--primary);
   color: white;
   border: none;
   border-radius: 12px;
@@ -230,14 +230,14 @@
   align-items: center;
   gap: 0.75rem;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(20, 174, 92, 0.3);
+  box-shadow: 0 4px 12px var(--primary-alpha-3);
   text-decoration: none;
   justify-content: center;
 }
 
 .about-cta-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(20, 174, 92, 0.4);
+  box-shadow: 0 8px 20px var(--primary-alpha-4);
 }
 
 .about-cta-button:active {
@@ -271,7 +271,7 @@
 }
 
 .about-value-card:hover {
-  border-color: #14AE5C;
+  border-color: var(--primary);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
   transform: translateY(-2px);
 }
@@ -323,7 +323,7 @@
 }
 
 .about-contact-card:hover {
-  border-color: #14AE5C;
+  border-color: var(--primary);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
   transform: translateY(-2px);
 }
@@ -340,8 +340,8 @@
 }
 
 .about-contact-icon--email {
-  background: rgba(20, 174, 92, 0.1);
-  color: #14AE5C;
+  background: var(--primary-alpha-10);
+  color: var(--primary);
 }
 
 .about-contact-icon--linkedin {
@@ -376,7 +376,7 @@
    ============================================================================ */
 
 html[data-theme='dark'] .about-hero {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, var(--primary-alpha-1) 100%);
 }
 
 html[data-theme='dark'] .about-hero-title {
@@ -398,7 +398,7 @@ html[data-theme='dark'] .about-stat-card {
 
 html[data-theme='dark'] .about-stat-card:hover {
   background: rgba(255, 255, 255, 0.08);
-  border-color: #14AE5C;
+  border-color: var(--primary);
 }
 
 html[data-theme='dark'] .about-stat-label {
@@ -428,8 +428,8 @@ html[data-theme='dark'] .about-feature:hover {
 }
 
 html[data-theme='dark'] .about-cta {
-  background: linear-gradient(135deg, rgba(20, 174, 92, 0.15) 0%, rgba(16, 185, 129, 0.15) 100%);
-  border-color: #14AE5C;
+  background: linear-gradient(135deg, var(--primary-alpha-10) 0%, var(--primary-alpha-10) 100%);
+  border-color: var(--primary);
 }
 
 html[data-theme='dark'] .about-cta-title {
@@ -477,7 +477,7 @@ html[data-theme='dark'] .about-contact-card:hover {
 }
 
 html[data-theme='dark'] .about-contact-icon--email {
-  background: rgba(20, 174, 92, 0.2);
+  background: var(--primary-alpha-2);
   color: #6ee7b7;
 }
 
@@ -644,9 +644,9 @@ html[data-theme='dark'] .about-contact-subtitle {
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #14AE5C;
+  border-color: var(--primary);
   background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 0 3px rgba(20, 174, 92, 0.15);
+  box-shadow: 0 0 0 3px var(--primary-alpha-10);
 }
 
 .form-group select {
@@ -690,7 +690,7 @@ html[data-theme='dark'] .about-contact-subtitle {
 }
 
 .form-submit-btn {
-  background: linear-gradient(135deg, #14AE5C 0%, #10b981 100%);
+  background: var(--primary);
   color: white;
   border: none;
   border-radius: 12px;
@@ -702,12 +702,12 @@ html[data-theme='dark'] .about-contact-subtitle {
   align-items: center;
   gap: 0.75rem;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(20, 174, 92, 0.3);
+  box-shadow: 0 4px 12px var(--primary-alpha-3);
 }
 
 .form-submit-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(20, 174, 92, 0.4);
+  box-shadow: 0 8px 20px var(--primary-alpha-4);
 }
 
 .form-submit-btn:active:not(:disabled) {
@@ -733,7 +733,7 @@ html[data-theme='dark'] .about-contact-subtitle {
 }
 
 .form-footer a {
-  color: #14AE5C;
+  color: var(--primary);
   text-decoration: none;
   font-weight: 500;
 }
@@ -764,7 +764,7 @@ html[data-theme='dark'] .about-contact-subtitle {
 
 .success-icon {
   background: #d1fae5;
-  color: #14AE5C;
+  color: var(--primary);
 }
 
 .error-icon {
@@ -819,11 +819,11 @@ html[data-theme='dark'] .about-contact-subtitle {
 .form-email-reveal {
   text-align: center;
   padding: 2.5rem 2rem;
-  background: linear-gradient(135deg, rgba(20, 174, 92, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%);
+  background: linear-gradient(135deg, var(--primary-alpha-10) 0%, rgba(255, 255, 255, 0.04) 100%);
   border-radius: 16px;
-  border: 2px solid #14AE5C;
+  border: 2px solid var(--primary);
   margin-bottom: 0;
-  box-shadow: 0 6px 20px rgba(20, 174, 92, 0.2);
+  box-shadow: 0 6px 20px var(--primary-alpha-20);
 }
 
 .email-reveal-text {
@@ -835,8 +835,8 @@ html[data-theme='dark'] .about-contact-subtitle {
 
 .email-reveal-btn {
   background: rgba(255, 255, 255, 0.08);
-  border: 2px solid #14AE5C;
-  color: #14AE5C;
+  border: 2px solid var(--primary);
+  color: var(--primary);
   border-radius: 12px;
   padding: 0.875rem 1.75rem;
   font-size: 1.05rem;
@@ -849,10 +849,10 @@ html[data-theme='dark'] .about-contact-subtitle {
 }
 
 .email-reveal-btn:hover {
-  background: #14AE5C;
+  background: var(--primary);
   color: white;
   transform: translateY(-3px);
-  box-shadow: 0 6px 16px rgba(20, 174, 92, 0.3);
+  box-shadow: 0 6px 16px var(--primary-alpha-20);
 }
 
 .email-reveal-btn i {
@@ -888,9 +888,9 @@ html[data-theme='dark'] .about-contact-subtitle {
   gap: 0.625rem;
   padding: 1.125rem 1.75rem;
   background: rgba(255, 255, 255, 0.08);
-  border: 2px solid #14AE5C;
+  border: 2px solid var(--primary);
   border-radius: 12px;
-  color: #14AE5C;
+  color: var(--primary);
   text-decoration: none;
   font-weight: 600;
   font-size: 1.1rem;
@@ -898,10 +898,10 @@ html[data-theme='dark'] .about-contact-subtitle {
 }
 
 .email-link:hover {
-  background: #14AE5C;
+  background: var(--primary);
   color: white;
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(20, 174, 92, 0.35);
+  box-shadow: 0 6px 16px var(--primary-alpha-20);
 }
 
 .email-link i {
@@ -928,8 +928,8 @@ html[data-theme='dark'] .about-contact-subtitle {
 
 .email-copy-btn:hover {
   background: rgba(255, 255, 255, 0.12);
-  border-color: #14AE5C;
-  color: #14AE5C;
+  border-color: var(--primary);
+  color: var(--primary);
   transform: translateY(-2px);
 }
 
@@ -938,8 +938,8 @@ html[data-theme='dark'] .about-contact-subtitle {
 }
 
 .email-copy-btn.copied {
-  background: #14AE5C;
-  border-color: #14AE5C;
+  background: var(--primary);
+  border-color: var(--primary);
   color: white;
 }
 
@@ -962,8 +962,8 @@ html[data-theme='dark'] .about-contact-subtitle {
 
 .gp-modal-back:hover {
   background: rgba(255, 255, 255, 0.12);
-  border-color: #14AE5C;
-  color: #14AE5C;
+  border-color: var(--primary);
+  color: var(--primary);
   transform: translateX(-2px);
 }
 
@@ -1023,7 +1023,7 @@ html[data-theme='light'] .form-divider span {
 
 html[data-theme='light'] .form-email-reveal {
   background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 100%);
-  box-shadow: 0 6px 20px rgba(20, 174, 92, 0.15);
+  box-shadow: 0 6px 20px var(--primary-alpha-15);
 }
 
 html[data-theme='light'] .email-reveal-text {
@@ -1035,7 +1035,7 @@ html[data-theme='light'] .email-reveal-btn {
 }
 
 html[data-theme='light'] .email-reveal-btn:hover {
-  background: #14AE5C;
+  background: var(--primary);
   color: white;
 }
 
@@ -1044,7 +1044,7 @@ html[data-theme='light'] .email-link {
 }
 
 html[data-theme='light'] .email-link:hover {
-  background: #14AE5C;
+  background: var(--primary);
   color: white;
 }
 
@@ -1056,8 +1056,8 @@ html[data-theme='light'] .email-copy-btn {
 
 html[data-theme='light'] .email-copy-btn:hover {
   background: #f8fafc;
-  border-color: #14AE5C;
-  color: #14AE5C;
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 html[data-theme='light'] .gp-modal-back {
@@ -1068,6 +1068,6 @@ html[data-theme='light'] .gp-modal-back {
 
 html[data-theme='light'] .gp-modal-back:hover {
   background: #f8fafc;
-  border-color: #14AE5C;
-  color: #14AE5C;
+  border-color: var(--primary);
+  color: var(--primary);
 }

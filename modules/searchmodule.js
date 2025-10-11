@@ -295,8 +295,9 @@ window.SearchModule = (() => {
     }
     
     // Create a custom icon
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
     const customIcon = L.divIcon({
-      html: '<i class="fas fa-map-marker-alt" style="color: #14AE5C; font-size: 32px;"></i>',
+      html: `<i class="fas fa-map-marker-alt" style="color: ${primaryColor}; font-size: 32px;"></i>`,
       className: 'custom-marker',
       iconSize: [32, 32],
       iconAnchor: [16, 32],

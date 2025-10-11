@@ -147,9 +147,10 @@ window.GeolocationModule = (() => {
     clearLocationMarkers();
     
     // Créer un marqueur pour la position de l'utilisateur
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
     userLocationMarker = L.marker(userLocation, {
       icon: L.divIcon({
-        html: '<i class="fas fa-map-marker-alt" style="color: #14AE5C; font-size: 24px;"></i>',
+        html: `<i class="fas fa-map-marker-alt" style="color: ${primaryColor}; font-size: 24px;"></i>`,
         className: 'user-location-marker',
         iconSize: [24, 24],
         iconAnchor: [12, 24],
@@ -159,8 +160,8 @@ window.GeolocationModule = (() => {
     
     // Créer un cercle pour représenter la précision
     userLocationCircle = L.circle(userLocation, {
-      color: '#14AE5C',
-      fillColor: '#14AE5C',
+      color: primaryColor,
+      fillColor: primaryColor,
       fillOpacity: 0.2,
       radius: accuracy
     }).addTo(map);

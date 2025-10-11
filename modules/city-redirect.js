@@ -54,8 +54,8 @@
         <div style="padding:32px;text-align:center;">
           <div style="margin-bottom:24px;">
             <i class="fa-solid fa-city" style="font-size:48px;color:#1976d2;margin-bottom:16px;"></i>
-            <h2 style="margin:0 0 8px 0;font-size:24px;color:#333;">Sélectionnez votre ville</h2>
-            <p style="margin:0;color:#666;font-size:15px;">Vous avez accès à ${cities.length} ville${cities.length > 1 ? 's' : ''}</p>
+            <h2 style="margin:0 0 8px 0;font-size:24px;color:var(--gray-700);">Sélectionnez votre ville</h2>
+            <p style="margin:0;color:var(--gray-500);font-size:15px;">Vous avez accès à ${cities.length} ville${cities.length > 1 ? 's' : ''}</p>
           </div>
 
           <div class="city-list" style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
@@ -85,8 +85,8 @@
                   onerror="this.src='/img/logos/default.svg'"
                 />
                 <div style="flex:1;">
-                  <div style="font-weight:600;font-size:16px;color:#333;margin-bottom:4px;">${city.name}</div>
-                  <div style="font-size:13px;color:#666;font-family:monospace;">${city.code}</div>
+                  <div style="font-weight:600;font-size:16px;color:var(--gray-700);margin-bottom:4px;">${city.name}</div>
+                  <div style="font-size:13px;color:var(--gray-500);font-family:monospace;">${city.code}</div>
                 </div>
                 <i class="fa-solid fa-arrow-right" style="color:#1976d2;font-size:20px;"></i>
               </button>
@@ -97,15 +97,15 @@
             class="cancel-btn"
             style="
               padding:12px 24px;
-              border:1px solid #ddd;
+              border:1px solid var(--gray-300);
               border-radius:8px;
               background:white;
-              color:#666;
+              color:var(--gray-500);
               cursor:pointer;
               font-size:14px;
               transition:all 0.2s;
             "
-            onmouseover="this.style.background='#f5f5f5';"
+            onmouseover="this.style.background='var(--gray-100)';"
             onmouseout="this.style.background='white';"
           >
             Annuler

@@ -234,12 +234,12 @@
     `;
 
     modal.innerHTML = `
-      <div style="padding:24px;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;gap:12px;">
+      <div style="padding:24px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:12px;">
         <button type="button" class="cancel-btn gp-btn gp-btn--secondary" style="padding:8px 12px;">
           <i class="fa-solid fa-arrow-left"></i>
         </button>
         <h3 style="margin:0;display:flex;align-items:center;gap:12px;font-size:22px;flex:1;">
-          <i class="fa-solid fa-city" style="color:#1976d2;"></i>
+          <i class="fa-solid fa-city" style="color:var(--info);"></i>
           ${escapeHtml(title)}
         </h3>
       </div>
@@ -248,7 +248,7 @@
         <!-- Code ville -->
         <div class="form-group" style="margin-bottom:20px;">
           <label style="display:block;margin-bottom:6px;font-weight:600;font-size:14px;">
-            Code ville <span style="color:#d32f2f;">*</span>
+            Code ville <span style="color:var(--danger);">*</span>
           </label>
           <input 
             type="text" 
@@ -257,9 +257,9 @@
             placeholder="lyon"
             ${isEdit ? 'readonly' : ''}
             value="${escapeHtml(city?.ville || '')}"
-            style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;${isEdit ? 'background:#f5f5f5;' : ''}"
+            style="width:100%;padding:12px;border:1px solid var(--gray-300);border-radius:8px;font-size:14px;${isEdit ? 'background:var(--gray-100);' : ''}"
           />
-          <p style="margin:4px 0 0 0;font-size:12px;color:#666;">
+          <p style="margin:4px 0 0 0;font-size:12px;color:var(--gray-500);">
             Minuscules, sans espaces ni accents (ex: lyon, besancon)
           </p>
         </div>
@@ -267,7 +267,7 @@
         <!-- Nom affiché -->
         <div class="form-group" style="margin-bottom:20px;">
           <label style="display:block;margin-bottom:6px;font-weight:600;font-size:14px;">
-            Nom affiché <span style="color:#d32f2f;">*</span>
+            Nom affiché <span style="color:var(--danger);">*</span>
           </label>
           <input 
             type="text" 
@@ -282,7 +282,7 @@
         <!-- Carte interactive -->
         <div class="form-group" style="margin-bottom:20px;">
           <label style="display:block;margin-bottom:8px;font-weight:600;font-size:14px;">
-            📍 Position et zoom de la carte <span style="color:#d32f2f;">*</span>
+            📍 Position et zoom de la carte <span style="color:var(--danger);">*</span>
           </label>
           
           <!-- Barre de recherche -->
@@ -296,11 +296,11 @@
           </div>
 
           <!-- Carte -->
-          <div id="city-map" style="width:100%;height:400px;border-radius:12px;border:2px solid #e0e0e0;margin-bottom:12px;"></div>
+          <div id="city-map" style="width:100%;height:400px;border-radius:12px;border:2px solid var(--gray-200);margin-bottom:12px;"></div>
 
           <!-- Info position -->
-          <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#f5f5f5;border-radius:8px;margin-bottom:12px;">
-            <i class="fa-solid fa-location-dot" style="color:#1976d2;"></i>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--gray-100);border-radius:8px;margin-bottom:12px;">
+            <i class="fa-solid fa-location-dot" style="color:var(--info);"></i>
             <span id="city-coords" style="font-size:14px;font-family:monospace;">
               Lat: ${city?.center_lat || 45.7578}, Lng: ${city?.center_lng || 4.8320}, Zoom: ${city?.zoom || 12}
             </span>
@@ -322,18 +322,18 @@
         <!-- Logo principal -->
         <div class="form-group" style="margin-bottom:20px;">
           <label style="display:block;margin-bottom:8px;font-weight:600;font-size:14px;">
-            🖼️ Logo principal <span style="color:#d32f2f;">*</span>
+            🖼️ Logo principal <span style="color:var(--danger);">*</span>
           </label>
           <div class="image-upload-zone" data-type="logo">
             <input type="file" id="city-logo" accept="image/svg+xml,image/png,image/jpeg,image/webp" style="display:none;">
             <div class="upload-dropzone" style="border:2px dashed #ddd;border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:all 0.2s;">
-              <i class="fa-solid fa-cloud-arrow-up" style="font-size:32px;color:#1976d2;margin-bottom:8px;"></i>
-              <p style="margin:0;font-size:14px;color:#666;">Cliquez ou glissez une image</p>
+              <i class="fa-solid fa-cloud-arrow-up" style="font-size:32px;color:var(--info);margin-bottom:8px;"></i>
+              <p style="margin:0;font-size:14px;color:var(--gray-500);">Cliquez ou glissez une image</p>
               <p style="margin:4px 0 0 0;font-size:12px;color:#999;">SVG, PNG, JPG, WEBP - Max 2MB</p>
             </div>
             <div class="upload-preview" style="display:${city?.logo_url ? 'block' : 'none'};margin-top:12px;text-align:center;">
               <img src="${escapeHtml(city?.logo_url || '')}" style="max-width:200px;max-height:100px;border:1px solid #ddd;border-radius:8px;padding:8px;">
-              <button type="button" class="remove-image" style="display:block;margin:8px auto 0;padding:6px 12px;background:#d32f2f;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">
+              <button type="button" class="remove-image" style="display:block;margin:8px auto 0;padding:6px 12px;background:var(--danger);color:var(--on-danger);border:none;border-radius:6px;cursor:pointer;font-size:12px;">
                 <i class="fa-solid fa-trash"></i> Supprimer
               </button>
             </div>
@@ -348,12 +348,12 @@
           <div class="image-upload-zone" data-type="logo-dark">
             <input type="file" id="city-logo-dark" accept="image/svg+xml,image/png,image/jpeg,image/webp" style="display:none;">
             <div class="upload-dropzone" style="border:2px dashed #ddd;border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:all 0.2s;">
-              <i class="fa-solid fa-cloud-arrow-up" style="font-size:32px;color:#1976d2;margin-bottom:8px;"></i>
-              <p style="margin:0;font-size:14px;color:#666;">Cliquez ou glissez une image</p>
+              <i class="fa-solid fa-cloud-arrow-up" style="font-size:32px;color:var(--info);margin-bottom:8px;"></i>
+              <p style="margin:0;font-size:14px;color:var(--gray-500);">Cliquez ou glissez une image</p>
             </div>
-            <div class="upload-preview" style="display:${city?.dark_logo_url ? 'block' : 'none'};margin-top:12px;text-align:center;background:#1a1a1a;padding:12px;border-radius:8px;">
-              <img src="${escapeHtml(city?.dark_logo_url || '')}" style="max-width:200px;max-height:100px;border:1px solid #333;border-radius:8px;padding:8px;">
-              <button type="button" class="remove-image" style="display:block;margin:8px auto 0;padding:6px 12px;background:#d32f2f;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">
+            <div class="upload-preview" style="display:${city?.dark_logo_url ? 'block' : 'none'};margin-top:12px;text-align:center;background:var(--gray-900);padding:12px;border-radius:8px;">
+              <img src="${escapeHtml(city?.dark_logo_url || '')}" style="max-width:200px;max-height:100px;border:1px solid var(--gray-700);border-radius:8px;padding:8px;">
+              <button type="button" class="remove-image" style="display:block;margin:8px auto 0;padding:6px 12px;background:var(--danger);color:var(--on-danger);border:none;border-radius:6px;cursor:pointer;font-size:12px;">
                 <i class="fa-solid fa-trash"></i> Supprimer
               </button>
             </div>
@@ -368,13 +368,13 @@
           <div class="image-upload-zone" data-type="favicon">
             <input type="file" id="city-favicon" accept="image/png,image/jpeg,image/webp" style="display:none;">
             <div class="upload-dropzone" style="border:2px dashed #ddd;border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:all 0.2s;">
-              <i class="fa-solid fa-cloud-arrow-up" style="font-size:32px;color:#1976d2;margin-bottom:8px;"></i>
-              <p style="margin:0;font-size:14px;color:#666;">Cliquez ou glissez une image</p>
+              <i class="fa-solid fa-cloud-arrow-up" style="font-size:32px;color:var(--info);margin-bottom:8px;"></i>
+              <p style="margin:0;font-size:14px;color:var(--gray-500);">Cliquez ou glissez une image</p>
               <p style="margin:4px 0 0 0;font-size:12px;color:#999;">PNG, JPG, WEBP - 32x32 ou 64x64px recommandé</p>
             </div>
             <div class="upload-preview" style="display:${city?.favicon_url ? 'block' : 'none'};margin-top:12px;text-align:center;">
               <img src="${escapeHtml(city?.favicon_url || '')}" style="width:32px;height:32px;border:1px solid #ddd;border-radius:4px;">
-              <button type="button" class="remove-image" style="display:block;margin:8px auto 0;padding:6px 12px;background:#d32f2f;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">
+              <button type="button" class="remove-image" style="display:block;margin:8px auto 0;padding:6px 12px;background:var(--danger);color:var(--on-danger);border:none;border-radius:6px;cursor:pointer;font-size:12px;">
                 <i class="fa-solid fa-trash"></i> Supprimer
               </button>
             </div>
@@ -382,7 +382,7 @@
         </div>
 
         <!-- Actions -->
-        <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:24px;padding-top:24px;border-top:1px solid #e0e0e0;">
+        <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:24px;padding-top:24px;border-top:1px solid var(--gray-200);">
           <button type="button" class="cancel-btn gp-btn gp-btn--secondary" style="padding:12px 24px;">
             Annuler
           </button>
@@ -415,7 +415,7 @@
     style.textContent = `
       @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-      .upload-dropzone:hover { border-color: #1976d2; background: #f5f9ff; }
+      .upload-dropzone:hover { border-color: var(--info); background: var(--info-lighter); }
     `;
     document.head.appendChild(style);
 
@@ -652,8 +652,8 @@
       // Drag & drop
       dropzone.addEventListener('dragover', (e) => {
         e.preventDefault();
-        dropzone.style.borderColor = '#1976d2';
-        dropzone.style.background = '#f5f9ff';
+        dropzone.style.borderColor = 'var(--info)';
+        dropzone.style.background = 'var(--info-lighter)';
       });
 
       dropzone.addEventListener('dragleave', () => {

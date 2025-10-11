@@ -281,7 +281,9 @@ window.DataModule = (function() {
 				const elapsed = now - debut;
 				return Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
 			})();
-			const endColor = progressPct >= 100 ? '#14AE5C' : '#F59E0B';
+			const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
+			const warningColor = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim();
+			const endColor = progressPct >= 100 ? primaryColor : warningColor;
 			const gradientBg = `linear-gradient(90deg, #E1002A 0%, ${endColor} 100%)`;
 			const todayPct = (() => {
 				if (!(debut && fin) || fin <= debut) return 0;
@@ -977,7 +979,7 @@ window.DataModule = (function() {
 							bubblingMouseEvents: false,
 							style: {
 								// Invisible mais interactif (large zone de clic)
-								color: '#000',
+								color: 'var(--black)',
 								opacity: 0.001,
 								weight: 24,
 								lineCap: 'round',

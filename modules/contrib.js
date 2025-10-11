@@ -32,11 +32,11 @@
       if (container) {
         container.innerHTML = `
           <div style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); 
-                      padding:24px; background:#fff; border-radius:12px; box-shadow:0 4px 24px rgba(0,0,0,0.15);
+                      padding:24px; background:var(--surface); border-radius:12px; box-shadow:0 4px 24px var(--black-alpha-15);
                       max-width:400px; text-align:center; z-index:10000;">
-            <i class="fa-solid fa-triangle-exclamation" style="font-size:48px; color:#f59e0b; margin-bottom:16px;"></i>
-            <h3 style="margin:0 0 8px 0; color:#111;">Erreur de chargement</h3>
-            <p style="margin:0 0 16px 0; color:#666;">Impossible de charger le formulaire de contribution.</p>
+            <i class="fa-solid fa-triangle-exclamation" style="font-size:48px; color:var(--warning); margin-bottom:16px;"></i>
+            <h3 style="margin:0 0 8px 0; color:var(--gray-900);">Erreur de chargement</h3>
+            <p style="margin:0 0 16px 0; color:var(--gray-500);">Impossible de charger le formulaire de contribution.</p>
             <button onclick="location.reload()" class="gp-btn gp-btn--primary">
               <i class="fa-solid fa-rotate-right"></i> Recharger la page
             </button>
@@ -1799,12 +1799,12 @@
       
       if (!line || !polygon) return;
       
-      const color = categoryStyleColor?.value || '#000000';
+      const color = categoryStyleColor?.value || 'var(--black)';
       const weight = categoryStyleWeight?.value || 3;
       const dashArray = categoryStyleDashArray?.value || '';
       const opacity = categoryStyleOpacity?.value || 1;
       const fill = categoryStyleFill?.checked || false;
-      const fillColor = categoryStyleFillColor?.value || '#999999';
+      const fillColor = categoryStyleFillColor?.value || 'var(--gray-400)';
       const fillOpacity = categoryStyleFillOpacity?.value || 0.3;
       
       // Appliquer à la ligne
@@ -1990,17 +1990,17 @@
                 const computed = window.getComputedStyle(iconEl, ':before');
                 const content = computed.getPropertyValue('content');
                 if (content && content !== 'none' && content !== '""') {
-                  iconEl.parentElement.style.borderColor = '#4caf50';
-                  iconEl.parentElement.style.background = '#e8f5e9';
+                  iconEl.parentElement.style.borderColor = 'var(--primary)';
+                  iconEl.parentElement.style.background = 'var(--primary-lighter)';
                 } else {
-                  iconEl.parentElement.style.borderColor = '#f44336';
-                  iconEl.parentElement.style.background = '#ffebee';
+                  iconEl.parentElement.style.borderColor = 'var(--danger)';
+                  iconEl.parentElement.style.background = 'var(--danger-lighter)';
                 }
               }, 50);
             } else {
               iconEl.className = 'fa-solid fa-question';
-              iconEl.parentElement.style.borderColor = '#ddd';
-              iconEl.parentElement.style.background = '#fff';
+              iconEl.parentElement.style.borderColor = 'var(--gray-300)';
+              iconEl.parentElement.style.background = 'var(--surface)';
             }
           }
         } catch(_) {}

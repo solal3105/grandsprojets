@@ -84,7 +84,7 @@
       
       const html = ICON_PRESETS.map(preset => `
         <button type="button" class="icon-preset-btn" data-icon="${preset.icon}" title="${preset.label}" 
-                style="width:50px; height:50px; display:flex; align-items:center; justify-content:center; border:1px solid #ddd; border-radius:6px; background:#fff; cursor:pointer; transition:all 0.2s; font-size:20px;">
+                style="width:50px; height:50px; display:flex; align-items:center; justify-content:center; border:1px solid var(--gray-300); border-radius:6px; background:var(--white); cursor:pointer; transition:all 0.2s; font-size:20px;">
           <i class="${preset.icon}" aria-hidden="true"></i>
         </button>
       `).join('');
@@ -105,13 +105,13 @@
         
         // Hover effect
         btn.addEventListener('mouseenter', () => {
-          btn.style.borderColor = '#1976d2';
+          btn.style.borderColor = 'var(--info)';
           btn.style.background = '#e3f2fd';
           btn.style.transform = 'scale(1.1)';
         });
         btn.addEventListener('mouseleave', () => {
-          btn.style.borderColor = '#ddd';
-          btn.style.background = '#fff';
+          btn.style.borderColor = 'var(--gray-300)';
+          btn.style.background = 'var(--white)';
           btn.style.transform = 'scale(1)';
         });
       });
@@ -252,31 +252,31 @@
       
       if (error) {
         console.warn('[contrib-categories] Erreur lors du chargement des layers:', error);
-        categoryLayersCheckboxes.innerHTML = '<small style="color:#999;">Aucun layer disponible</small>';
+        categoryLayersCheckboxes.innerHTML = '<small style="color:var(--gray-400);">Aucun layer disponible</small>';
         return;
       }
       
       const layers = data || [];
       
       if (layers.length === 0) {
-        categoryLayersCheckboxes.innerHTML = '<small style="color:#999;">Aucun layer disponible pour cette ville</small>';
+        categoryLayersCheckboxes.innerHTML = '<small style="color:var(--gray-400);">Aucun layer disponible pour cette ville</small>';
         return;
       }
       
       // Créer les checkboxes compactes (style chips)
       layers.forEach(layer => {
         const chip = document.createElement('label');
-        chip.style.cssText = 'display:inline-flex; align-items:center; gap:6px; cursor:pointer; padding:6px 12px; border-radius:16px; border:1px solid var(--border, #e0e0e0); background:var(--surface, #fff); transition:all 0.15s; font-size:13px; font-weight:500; user-select:none;';
+        chip.style.cssText = 'display:inline-flex; align-items:center; gap:6px; cursor:pointer; padding:6px 12px; border-radius:16px; border:1px solid var(--border, #e0e0e0); background:var(--surface, var(--white)); transition:all 0.15s; font-size:13px; font-weight:500; user-select:none;';
         
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.name = 'category-layer-checkbox';
         checkbox.value = layer.name;
-        checkbox.style.cssText = 'width:16px; height:16px; cursor:pointer; accent-color:var(--accent, #14AE5C); margin:0;';
+        checkbox.style.cssText = 'width:16px; height:16px; cursor:pointer; accent-color:var(--primary); margin:0;';
         
         const label = document.createElement('span');
         label.textContent = layer.name;
-        label.style.cssText = 'color:var(--text-strong, #333);';
+        label.style.cssText = 'color:var(--text-strong, var(--gray-700));';
         
         chip.appendChild(checkbox);
         chip.appendChild(label);
@@ -284,19 +284,19 @@
         // Interactions
         checkbox.addEventListener('change', () => {
           if (checkbox.checked) {
-            chip.style.background = 'var(--accent, #14AE5C)';
-            chip.style.borderColor = 'var(--accent, #14AE5C)';
-            label.style.color = '#fff';
+            chip.style.background = 'var(--primary)';
+            chip.style.borderColor = 'var(--primary)';
+            label.style.color = 'var(--white)';
           } else {
-            chip.style.background = 'var(--surface, #fff)';
+            chip.style.background = 'var(--surface, var(--white))';
             chip.style.borderColor = 'var(--border, #e0e0e0)';
-            label.style.color = 'var(--text-strong, #333)';
+            label.style.color = 'var(--text-strong, var(--gray-700))';
           }
         });
         
         chip.addEventListener('mouseenter', () => {
           if (!checkbox.checked) {
-            chip.style.borderColor = 'var(--accent, #14AE5C)';
+            chip.style.borderColor = 'var(--primary)';
           }
         });
         

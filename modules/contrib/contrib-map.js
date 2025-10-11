@@ -209,7 +209,7 @@
         btn.type = 'button';
         btn.className = 'gp-btn basemap-tile';
         btn.textContent = bm.label || bm.name || 'Fond';
-        btn.style.cssText = 'padding:4px 8px;border-radius:8px;border:1px solid rgba(0,0,0,0.2);background:#fff;cursor:pointer;font-size:12px;';
+        btn.style.cssText = 'padding:4px 8px;border-radius:8px;border:1px solid rgba(0,0,0,0.2);background:var(--white);cursor:pointer;font-size:12px;';
         
         const isActive = activeBm && ((activeBm.label && bm.label === activeBm.label) || (activeBm.url && bm.url === activeBm.url));
         if (isActive) { 
@@ -221,7 +221,7 @@
           setDrawBaseLayer(bm);
           try { 
             menu.querySelectorAll('button').forEach(b => { 
-              b.style.background = '#fff'; 
+              b.style.background = 'var(--white)'; 
               b.removeAttribute('aria-pressed'); 
             }); 
           } catch(_) {}
@@ -319,7 +319,7 @@
     
     try {
       manualDraw.guideLayer = L.polyline(coords, {
-        color: '#1976d2',
+        color: getComputedStyle(document.documentElement).getPropertyValue('--info').trim(),
         weight: 2,
         opacity: 0.7,
         dashArray: '6,6'
@@ -361,7 +361,8 @@
     
     if (!manualDraw.points.length) return;
     
-    const style = { color: '#1976d2', weight: 3, fillOpacity: 0.2 };
+    const infoColor = getComputedStyle(document.documentElement).getPropertyValue('--info').trim();
+    const style = { color: infoColor, weight: 3, fillOpacity: 0.2 };
     if (manualDraw.type === 'polygon') {
       manualDraw.tempLayer = L.polygon(manualDraw.points, style).addTo(drawMap);
     } else {
@@ -404,8 +405,8 @@
     
     // Finalized style
     const style = manualDraw.type === 'polygon'
-      ? { color: '#2e7d32', weight: 3, fillOpacity: 0.25, fillColor: '#2e7d32' }
-      : { color: '#2e7d32', weight: 3, opacity: 0.9 };
+      ? { color: 'var(--primary)', weight: 3, fillOpacity: 0.25, fillColor: 'var(--primary)' }
+      : { color: getComputedStyle(document.documentElement).getPropertyValue('--primary').trim(), weight: 3, opacity: 0.9 };
     
     if (manualDraw.type === 'polygon') {
       drawLayer = L.polygon(manualDraw.points, style).addTo(drawMap);
@@ -532,7 +533,7 @@
       
       // Add new geometry
       drawLayer = L.geoJSON(geojson, {
-        style: { color: '#2e7d32', weight: 3, fillOpacity: 0.25 }
+        style: { color: 'var(--primary)', weight: 3, fillOpacity: 0.25 }
       }).addTo(drawMap);
       
       drawLayerDirty = true;

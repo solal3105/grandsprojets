@@ -30,11 +30,11 @@
       align-items: center;
       margin: 12px 0;
       padding: 12px;
-      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-      border: 1px solid #e2e8f0;
+      background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
+      border: 1px solid var(--gray-200);
       border-radius: 10px;
       flex-wrap: wrap;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      box-shadow: 0 2px 8px var(--black-alpha-06);
     `;
 
     toolbarEl.innerHTML = `
@@ -51,7 +51,7 @@
         </button>
       </div>
       
-      <div style="width: 1px; height: 28px; background: #cbd5e1;"></div>
+      <div style="width: 1px; height: 28px; background: var(--gray-300);"></div>
       
       <div style="display: flex; gap: 6px; align-items: center;">
         <button type="button" class="draw-btn draw-btn--undo" id="btn-undo-point" 
@@ -66,7 +66,7 @@
         </button>
       </div>
       
-      <div style="width: 1px; height: 28px; background: #cbd5e1;"></div>
+      <div style="width: 1px; height: 28px; background: var(--gray-300);"></div>
       
       <button type="button" class="draw-btn draw-btn--clear" id="btn-clear-geom" 
               title="Effacer la géométrie" data-action="clear" disabled>
@@ -74,7 +74,7 @@
         <span>Effacer</span>
       </button>
       
-      <div id="draw-status" style="margin-left: auto; font-size: 13px; color: #64748b; font-weight: 500; display: flex; align-items: center; gap: 6px;">
+      <div id="draw-status" style="margin-left: auto; font-size: 13px; color: var(--gray-500); font-weight: 500; display: flex; align-items: center; gap: 6px;">
         <i class="fa-solid fa-info-circle" style="font-size: 14px;"></i>
         <span id="draw-status-text">Choisissez un type de tracé</span>
       </div>
@@ -100,10 +100,10 @@
         align-items: center;
         gap: 6px;
         padding: 8px 14px;
-        border: 1px solid #cbd5e1;
+        border: 1px solid var(--gray-300);
         border-radius: 8px;
-        background: #ffffff;
-        color: #334155;
+        background: var(--surface);
+        color: var(--gray-700);
         font-size: 14px;
         font-weight: 500;
         cursor: pointer;
@@ -112,54 +112,54 @@
       }
 
       .draw-btn:hover:not(:disabled) {
-        background: #f8fafc;
-        border-color: #94a3b8;
+        background: var(--gray-50);
+        border-color: var(--gray-400);
         transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 4px var(--black-alpha-10);
       }
 
       .draw-btn:active:not(:disabled) {
         transform: translateY(0);
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 1px 2px var(--black-alpha-10);
       }
 
       .draw-btn:disabled {
         opacity: 0.5;
         cursor: not-allowed;
-        background: #f1f5f9;
+        background: var(--gray-100);
       }
 
       .draw-btn.is-active {
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-        color: #ffffff;
-        border-color: #2563eb;
-        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+        background: linear-gradient(135deg, var(--info-light) 0%, var(--info) 100%);
+        color: var(--on-accent);
+        border-color: var(--info);
+        box-shadow: 0 2px 8px var(--info-alpha-3);
       }
 
       .draw-btn.is-active:hover {
-        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        background: linear-gradient(135deg, var(--info) 0%, var(--info-hover) 100%);
       }
 
       .draw-btn--finish:not(:disabled) {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        color: #ffffff;
-        border-color: #059669;
+        background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
+        color: var(--on-accent);
+        border-color: var(--primary);
       }
 
       .draw-btn--finish:not(:disabled):hover {
-        background: linear-gradient(135deg, #059669 0%, #047857 100%);
-        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+        box-shadow: 0 2px 8px var(--primary-alpha-3);
       }
 
       .draw-btn--clear:not(:disabled) {
-        background: #fee2e2;
-        color: #dc2626;
-        border-color: #fecaca;
+        background: var(--danger-lighter);
+        color: var(--danger);
+        border-color: var(--danger-light);
       }
 
       .draw-btn--clear:not(:disabled):hover {
-        background: #fecaca;
-        border-color: #fca5a5;
+        background: var(--danger-light);
+        border-color: var(--danger-light);
       }
 
       .draw-btn i {
@@ -331,14 +331,14 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-      color: white;
+      background: linear-gradient(135deg, var(--info-light) 0%, var(--info) 100%);
+      color: var(--white);
       padding: 20px 28px;
       border-radius: 12px;
       font-size: 16px;
       font-weight: 600;
       z-index: 1000;
-      box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4);
+      box-shadow: 0 8px 24px var(--info-alpha-4);
       pointer-events: none;
       animation: pulse-helper 2s ease-in-out infinite;
       text-align: center;

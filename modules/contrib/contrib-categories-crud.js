@@ -62,13 +62,13 @@
         const escapedVille = String(cat.ville || '').replace(/[<>"'&]/g, (c) => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
         
         return `
-        <div class="category-item" style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid #ddd; border-radius:8px; margin-bottom:8px; background:#fff;">
-          <div style="flex:0 0 40px; text-align:center; font-size:24px; color:#333;">
+        <div class="category-item" style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid var(--gray-300); border-radius:8px; margin-bottom:8px; background:var(--white);">
+          <div style="flex:0 0 40px; text-align:center; font-size:24px; color:var(--gray-700);">
             <i class="${escapedDisplayIconClass}" aria-hidden="true"></i>
           </div>
           <div style="flex:1;">
             <div style="font-weight:600;">${escapedCategory}</div>
-            <div style="font-size:0.85em; opacity:0.7;"><code style="background:#f5f5f5; padding:2px 4px; border-radius:3px;">${escapedOriginalIconClass}</code> • Ordre: ${cat.display_order}</div>
+            <div style="font-size:0.85em; opacity:0.7;"><code style="background:var(--gray-100); padding:2px 4px; border-radius:3px;">${escapedOriginalIconClass}</code> • Ordre: ${cat.display_order}</div>
           </div>
           <div style="display:flex; gap:6px;">
             <button type="button" class="gp-btn gp-btn--secondary" data-action="edit" data-ville="${escapedVille}" data-category="${escapedCategory}" data-icon="${escapedOriginalIconClass}" data-order="${cat.display_order}" data-layers="${JSON.stringify(cat.layers_to_display || []).replace(/"/g, '&quot;')}" data-styles="${JSON.stringify(cat.category_styles || {}).replace(/"/g, '&quot;')}">
@@ -224,7 +224,7 @@
         }
         if (categoryStyleFillColor) {
           const trimmedFillColor = (styles.fillColor && typeof styles.fillColor === 'string') ? styles.fillColor.trim() : '';
-          categoryStyleFillColor.value = (trimmedFillColor && /^#[0-9A-Fa-f]{6}$/.test(trimmedFillColor)) ? trimmedFillColor : '#999999';
+          categoryStyleFillColor.value = (trimmedFillColor && /^#[0-9A-Fa-f]{6}$/.test(trimmedFillColor)) ? trimmedFillColor : 'var(--gray-400)999';
         }
         if (categoryStyleFillOpacity) categoryStyleFillOpacity.value = styles.fillOpacity || '';
         
@@ -277,7 +277,7 @@
           categoryStyleFill.checked = false;
           if (categoryStyleFillOptions) categoryStyleFillOptions.style.display = 'none';
         }
-        if (categoryStyleFillColor) categoryStyleFillColor.value = '#999999';
+        if (categoryStyleFillColor) categoryStyleFillColor.value = 'var(--gray-400)999';
         if (categoryStyleFillOpacity) categoryStyleFillOpacity.value = '';
         
         // Hide back button in create mode
@@ -346,7 +346,7 @@
       if (categoryStyleDashArray) categoryStyleDashArray.value = '';
       if (categoryStyleOpacity) categoryStyleOpacity.value = '';
       if (categoryStyleFill) categoryStyleFill.checked = false;
-      if (categoryStyleFillColor) categoryStyleFillColor.value = '#999999';
+      if (categoryStyleFillColor) categoryStyleFillColor.value = 'var(--gray-400)999';
       if (categoryStyleFillOpacity) categoryStyleFillOpacity.value = '';
       if (categoryStyleFillOptions) categoryStyleFillOptions.style.display = 'none';
       

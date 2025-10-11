@@ -65,13 +65,12 @@
       const wrap = document.createElement('div');
       wrap.className = 'contrib-empty';
       wrap.setAttribute('role', 'status');
-      wrap.setAttribute('aria-live', 'polite');
       wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;color:#546e7a;text-align:center;gap:14px;min-height:220px;';
       wrap.innerHTML = `
         <div class="empty-illu" aria-hidden="true" style="font-size:42px;color:#90a4ae"><i class="fa-regular fa-folder-open"></i></div>
         <div class="empty-title" style="font-size:18px;font-weight:600;color:#37474f">Aucune contribution pour le moment</div>
         <div class="empty-sub" style="font-size:14px;opacity:0.8;max-width:520px">Créez votre première contribution pour proposer un projet et le visualiser sur la carte.</div>
-        <div><button type="button" id="btn-empty-create" class="gp-btn" style="padding:8px 14px;border-radius:10px;background:#1976d2;color:#fff;border:none;cursor:pointer;box-shadow:0 3px 10px rgba(25,118,210,0.3);">Créer une contribution</button></div>
+        <div><button type="button" id="btn-empty-create" class="gp-btn" style="padding:8px 14px;border-radius:10px;background:var(--primary);color:var(--white);border:none;cursor:pointer;box-shadow:0 3px 10px rgba(25,118,210,0.3);">Créer une contribution</button></div>
       `;
       if (listSentinel && listSentinel.parentNode === listEl) {
         listEl.insertBefore(wrap, listSentinel);
@@ -106,7 +105,7 @@
       modal.setAttribute('aria-modal', 'true');
       modal.setAttribute('aria-labelledby', 'delc-title');
       modal.setAttribute('aria-describedby', 'delc-desc');
-      modal.style.cssText = 'max-width:560px;width:92%;background:#fff;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,0.25);padding:16px 18px;font-size:15px;color:#263238;';
+      modal.style.cssText = 'max-width:560px;width:92%;background:var(--white);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,0.25);padding:16px 18px;font-size:15px;color:#263238;';
 
       const title = document.createElement('h2');
       title.id = 'delc-title';
@@ -130,11 +129,11 @@
       const cancelBtn = document.createElement('button');
       cancelBtn.type = 'button';
       cancelBtn.textContent = 'Annuler';
-      cancelBtn.style.cssText = 'padding:8px 12px;border-radius:8px;border:1px solid rgba(0,0,0,0.15);background:#fff;';
+      cancelBtn.style.cssText = 'padding:8px 12px;border-radius:8px;border:1px solid rgba(0,0,0,0.15);background:var(--white);';
       const confirmBtn = document.createElement('button');
       confirmBtn.type = 'button';
       confirmBtn.textContent = 'Supprimer';
-      confirmBtn.style.cssText = 'padding:8px 12px;border-radius:8px;border:0;background:#c62828;color:#fff;';
+      confirmBtn.style.cssText = 'padding:8px 12px;border-radius:8px;border:0;background:#c62828;color:var(--white);';
 
       const close = (result) => {
         try { document.removeEventListener('keydown', onKey); } catch(_) {}

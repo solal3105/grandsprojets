@@ -54,7 +54,7 @@
     const hasNoVilles = villes.length === 0;
     
     const roleIcon = isAdmin ? 'fa-user-shield' : 'fa-user';
-    const roleColor = isAdmin ? '#1976d2' : '#757575';
+    const roleColor = isAdmin ? 'var(--info)' : 'var(--gray-500)';
     const roleLabel = isAdmin ? 'Admin' : 'Invited';
     
     const createdDate = new Date(user.created_at).toLocaleDateString('fr-FR');
@@ -121,7 +121,7 @@
     
     const modal = document.createElement('div');
     modal.className = 'user-confirm-modal';
-    modal.style.cssText = 'background:#fff;border-radius:12px;padding:24px;max-width:480px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
+    modal.style.cssText = 'background:var(--surface);border-radius:12px;padding:24px;max-width:480px;width:90%;box-shadow:0 8px 32px var(--black-alpha-20);';
     
     const currentRoleLabel = user.role === 'admin' ? 'Admin' : 'Invited';
     const newRoleLabel = newRole === 'admin' ? 'Admin' : 'Invited';
@@ -131,17 +131,17 @@
     
     modal.innerHTML = `
       <h3 style="margin:0 0 16px 0;display:flex;align-items:center;gap:8px;">
-        <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i>
+        <i class="fa-solid fa-triangle-exclamation" style="color:var(--warning);"></i>
         Confirmer le changement de rôle
       </h3>
-      <div style="margin-bottom:16px;padding:12px;background:#f5f5f5;border-radius:8px;">
+      <div style="margin-bottom:16px;padding:12px;background:var(--gray-100);border-radius:8px;">
         <div style="margin-bottom:8px;"><strong>Utilisateur :</strong> ${escapeHtml(user.email)}</div>
         <div style="margin-bottom:8px;"><strong>Villes :</strong> ${villesText}</div>
         <div style="margin-bottom:8px;"><strong>Rôle actuel :</strong> ${currentRoleLabel}</div>
         <div><strong>Nouveau rôle :</strong> ${newRoleLabel}</div>
       </div>
-      <div style="padding:12px;background:#fff3cd;border-left:4px solid #f59e0b;margin-bottom:16px;border-radius:4px;">
-        <i class="fa-solid fa-info-circle" style="color:#f59e0b;"></i>
+      <div style="padding:12px;background:var(--warning-lighter);border-left:4px solid var(--warning);margin-bottom:16px;border-radius:4px;">
+        <i class="fa-solid fa-info-circle" style="color:var(--warning);"></i>
         Cette action est immédiate et modifiera les permissions de l'utilisateur.
       </div>
       <div style="display:flex;gap:12px;justify-content:flex-end;">
@@ -192,7 +192,7 @@
    */
   function renderEmptyState(container) {
     container.innerHTML = `
-      <div style="display:flex;flex-direction:column;align-items:center;padding:48px 24px;color:#757575;text-align:center;">
+      <div style="display:flex;flex-direction:column;align-items:center;padding:48px 24px;color:var(--gray-500);text-align:center;">
         <i class="fa-regular fa-user" style="font-size:48px;margin-bottom:16px;opacity:0.5;"></i>
         <div style="font-size:18px;font-weight:600;margin-bottom:8px;">Aucun utilisateur</div>
         <div style="font-size:14px;opacity:0.8;">Aucun utilisateur ne partage vos villes.</div>
@@ -248,7 +248,7 @@
       // Créer la modale
       const modal = document.createElement('div');
       modal.className = 'invite-modal';
-      modal.style.cssText = 'background:#fff;border-radius:16px;padding:32px;max-width:520px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.2);animation:slideUp 0.3s;';
+      modal.style.cssText = 'background:var(--surface);border-radius:16px;padding:32px;max-width:520px;width:90%;box-shadow:0 8px 32px var(--black-alpha-20);animation:slideUp 0.3s;';
 
       // Générer les checkboxes pour les villes
       const citiesHTML = cities.map(city => `
@@ -260,42 +260,42 @@
 
       modal.innerHTML = `
         <h3 style="margin:0 0 8px 0;display:flex;align-items:center;gap:10px;font-size:22px;">
-          <i class="fa-solid fa-envelope" style="color:#1976d2;"></i>
+          <i class="fa-solid fa-envelope" style="color:var(--info);"></i>
           Inviter un nouvel utilisateur
         </h3>
-        <p style="margin:0 0 24px 0;color:#666;font-size:14px;">L'utilisateur recevra un email pour se connecter.</p>
+        <p style="margin:0 0 24px 0;color:var(--gray-500);font-size:14px;">L'utilisateur recevra un email pour se connecter.</p>
         
         <form id="invite-form" style="display:flex;flex-direction:column;gap:20px;">
           <div>
             <label style="display:block;margin-bottom:6px;font-weight:600;font-size:14px;">
-              Email de l'utilisateur <span style="color:#d32f2f;">*</span>
+              Email de l'utilisateur <span style="color:var(--danger);">*</span>
             </label>
             <input 
               type="email" 
               id="invite-email" 
               required 
               placeholder="user@example.com"
-              style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;"
+              style="width:100%;padding:12px;border:1px solid var(--gray-300);border-radius:8px;font-size:14px;box-sizing:border-box;"
             />
           </div>
           
           <div>
             <label style="display:block;margin-bottom:8px;font-weight:600;font-size:14px;">
-              Rôle <span style="color:#d32f2f;">*</span>
+              Rôle <span style="color:var(--danger);">*</span>
             </label>
             <div style="display:flex;gap:12px;">
-              <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:1px solid #ddd;border-radius:8px;cursor:pointer;transition:all 0.2s;" class="role-option">
+              <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:1px solid var(--gray-300);border-radius:8px;cursor:pointer;transition:all 0.2s;" class="role-option">
                 <input type="radio" name="role" value="invited" checked style="width:18px;height:18px;cursor:pointer;">
                 <div>
                   <div style="font-weight:600;font-size:14px;">Invited</div>
-                  <div style="font-size:12px;color:#666;">Accès limité à ses contributions</div>
+                  <div style="font-size:12px;color:var(--gray-500);">Accès limité à ses contributions</div>
                 </div>
               </label>
-              <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:1px solid #ddd;border-radius:8px;cursor:pointer;transition:all 0.2s;" class="role-option">
+              <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:1px solid var(--gray-300);border-radius:8px;cursor:pointer;transition:all 0.2s;" class="role-option">
                 <input type="radio" name="role" value="admin" style="width:18px;height:18px;cursor:pointer;">
                 <div>
                   <div style="font-weight:600;font-size:14px;">Admin</div>
-                  <div style="font-size:12px;color:#666;">Accès complet et gestion</div>
+                  <div style="font-size:12px;color:var(--gray-500);">Accès complet et gestion</div>
                 </div>
               </label>
             </div>
@@ -303,12 +303,12 @@
           
           <div>
             <label style="display:block;margin-bottom:8px;font-weight:600;font-size:14px;">
-              Villes autorisées <span style="color:#d32f2f;">*</span>
+              Villes autorisées <span style="color:var(--danger);">*</span>
             </label>
-            <div id="cities-list" style="max-height:200px;overflow-y:auto;border:1px solid #ddd;border-radius:8px;padding:8px;">
+            <div id="cities-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--gray-300);border-radius:8px;padding:8px;">
               ${citiesHTML}
             </div>
-            <p id="cities-error" style="margin:6px 0 0 0;color:#d32f2f;font-size:13px;display:none;">
+            <p id="cities-error" style="margin:6px 0 0 0;color:var(--danger);font-size:13px;display:none;">
               <i class="fa-solid fa-triangle-exclamation"></i> Sélectionnez au moins une ville
             </p>
           </div>
@@ -333,9 +333,9 @@
       style.textContent = `
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .city-checkbox-label:hover { background: #f5f5f5; }
-        .role-option:hover { background: #f9f9f9; border-color: #1976d2; }
-        .role-option:has(input:checked) { background: #e3f2fd; border-color: #1976d2; }
+        .city-checkbox-label:hover { background: var(--gray-100); }
+        .role-option:hover { background: var(--gray-50); border-color: var(--info); }
+        .role-option:has(input:checked) { background: var(--info-lighter); border-color: var(--info); }
       `;
       document.head.appendChild(style);
 
