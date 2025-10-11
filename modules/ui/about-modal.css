@@ -70,7 +70,7 @@
 }
 
 .about-stat-card {
-  background: white;
+  background: var(--white);
   border: 1px solid var(--gray-200);
   border-radius: 12px;
   padding: 1.25rem 0.75rem;
@@ -155,7 +155,7 @@
 }
 
 .about-feature:hover {
-  background: white;
+  background: var(--white);
   border-color: var(--primary);
   transform: translateX(4px);
 }
@@ -208,7 +208,7 @@
 }
 
 .about-cta-benefit {
-  background: white;
+  background: var(--white);
   border: 1px solid var(--primary-lighter);
   border-radius: 8px;
   padding: 0.875rem 1rem;
@@ -219,7 +219,7 @@
 
 .about-cta-button {
   background: var(--primary);
-  color: white;
+  color: var(--white);
   border: none;
   border-radius: 12px;
   padding: 1rem 2rem;
@@ -263,7 +263,7 @@
 }
 
 .about-value-card {
-  background: white;
+  background: var(--white);
   border: 1px solid var(--gray-200);
   border-radius: 12px;
   padding: 1.5rem;
@@ -314,7 +314,7 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  background: white;
+  background: var(--white);
   border: 1px solid var(--gray-200);
   border-radius: 12px;
   padding: 1.25rem;
@@ -371,133 +371,6 @@
   margin: 0;
 }
 
-/* ============================================================================
-   DARK MODE
-   ============================================================================ */
-
-html[data-theme='dark'] .about-hero {
-  background: linear-gradient(135deg, var(--info-alpha-1) 0%, var(--primary-alpha-1) 100%);
-}
-
-html[data-theme='dark'] .about-hero-title {
-  color: var(--gray-200);
-}
-
-html[data-theme='dark'] .about-hero-subtitle {
-  color: var(--gray-300);
-}
-
-html[data-theme='dark'] .about-hero-meta {
-  color: var(--gray-400);
-}
-
-html[data-theme='dark'] .about-stat-card {
-  background: var(--white-alpha-06);
-  border-color: var(--white-alpha-10);
-}
-
-html[data-theme='dark'] .about-stat-card:hover {
-  background: var(--white-alpha-08);
-  border-color: var(--primary);
-}
-
-html[data-theme='dark'] .about-stat-label {
-  color: var(--gray-400);
-}
-
-html[data-theme='dark'] .about-section {
-  border-bottom-color: var(--white-alpha-10);
-}
-
-html[data-theme='dark'] .about-section-title {
-  color: var(--gray-200);
-}
-
-html[data-theme='dark'] .about-section-text {
-  color: var(--gray-300);
-}
-
-html[data-theme='dark'] .about-feature {
-  background: var(--white-alpha-06);
-  border-color: var(--white-alpha-10);
-  color: var(--gray-200);
-}
-
-html[data-theme='dark'] .about-feature:hover {
-  background: var(--white-alpha-08);
-}
-
-html[data-theme='dark'] .about-cta {
-  background: linear-gradient(135deg, var(--primary-alpha-10) 0%, var(--primary-alpha-10) 100%);
-  border-color: var(--primary);
-}
-
-html[data-theme='dark'] .about-cta-title {
-  color: var(--primary-light);
-}
-
-html[data-theme='dark'] .about-cta-subtitle {
-  color: var(--primary-lighter);
-}
-
-html[data-theme='dark'] .about-cta-description {
-  color: var(--primary-lighter);
-}
-
-html[data-theme='dark'] .about-cta-benefit {
-  background: var(--white-alpha-08);
-  border-color: var(--primary-alpha-3);
-  color: var(--primary-lighter);
-}
-
-html[data-theme='dark'] .about-value-card {
-  background: var(--white-alpha-06);
-  border-color: var(--white-alpha-10);
-}
-
-html[data-theme='dark'] .about-value-card:hover {
-  background: var(--white-alpha-08);
-}
-
-html[data-theme='dark'] .about-value-title {
-  color: var(--gray-200);
-}
-
-html[data-theme='dark'] .about-value-text {
-  color: var(--gray-400);
-}
-
-html[data-theme='dark'] .about-contact-card {
-  background: var(--white-alpha-06);
-  border-color: var(--white-alpha-10);
-}
-
-html[data-theme='dark'] .about-contact-card:hover {
-  background: var(--white-alpha-08);
-}
-
-html[data-theme='dark'] .about-contact-icon--email {
-  background: var(--primary-alpha-2);
-  color: var(--primary-light);
-}
-
-html[data-theme='dark'] .about-contact-icon--linkedin {
-  background: var(--info-alpha-2);
-  color: var(--info-light);
-}
-
-html[data-theme='dark'] .about-contact-icon--github {
-  background: var(--white-alpha-10);
-  color: var(--gray-200);
-}
-
-html[data-theme='dark'] .about-contact-title {
-  color: var(--gray-200);
-}
-
-html[data-theme='dark'] .about-contact-subtitle {
-  color: var(--gray-400);
-}
 
 /* ============================================================================
    RESPONSIVE - TABLET & DESKTOP
@@ -691,7 +564,7 @@ html[data-theme='dark'] .about-contact-subtitle {
 
 .form-submit-btn {
   background: var(--primary);
-  color: white;
+  color: var(--white);
   border: none;
   border-radius: 12px;
   padding: 1rem 2.5rem;
@@ -850,7 +723,7 @@ html[data-theme='dark'] .about-contact-subtitle {
 
 .email-reveal-btn:hover {
   background: var(--primary);
-  color: white;
+  color: var(--white);
   transform: translateY(-3px);
   box-shadow: 0 6px 16px var(--primary-alpha-20);
 }
@@ -899,7 +772,7 @@ html[data-theme='dark'] .about-contact-subtitle {
 
 .email-link:hover {
   background: var(--primary);
-  color: white;
+  color: var(--white);
   transform: translateY(-2px);
   box-shadow: 0 6px 16px var(--primary-alpha-20);
 }
@@ -940,7 +813,7 @@ html[data-theme='dark'] .about-contact-subtitle {
 .email-copy-btn.copied {
   background: var(--primary);
   border-color: var(--primary);
-  color: white;
+  color: var(--white);
 }
 
 /* Bouton retour */
@@ -993,7 +866,7 @@ html[data-theme='light'] .field-optional {
 html[data-theme='light'] .form-group input,
 html[data-theme='light'] .form-group select,
 html[data-theme='light'] .form-group textarea {
-  background: white;
+  background: var(--white);
   border-color: var(--gray-200);
   color: var(--gray-800);
 }
@@ -1008,7 +881,7 @@ html[data-theme='light'] .form-group select {
 }
 
 html[data-theme='light'] .form-group select option {
-  background: white;
+  background: var(--white);
   color: var(--gray-800);
 }
 
@@ -1017,7 +890,7 @@ html[data-theme='light'] .form-divider::before {
 }
 
 html[data-theme='light'] .form-divider span {
-  background: white;
+  background: var(--white);
   color: var(--gray-400);
 }
 
@@ -1031,25 +904,25 @@ html[data-theme='light'] .email-reveal-text {
 }
 
 html[data-theme='light'] .email-reveal-btn {
-  background: white;
+  background: var(--white);
 }
 
 html[data-theme='light'] .email-reveal-btn:hover {
   background: var(--primary);
-  color: white;
+  color: var(--white);
 }
 
 html[data-theme='light'] .email-link {
-  background: white;
+  background: var(--white);
 }
 
 html[data-theme='light'] .email-link:hover {
   background: var(--primary);
-  color: white;
+  color: var(--white);
 }
 
 html[data-theme='light'] .email-copy-btn {
-  background: white;
+  background: var(--white);
   border-color: var(--gray-200);
   color: var(--gray-500);
 }
@@ -1061,7 +934,7 @@ html[data-theme='light'] .email-copy-btn:hover {
 }
 
 html[data-theme='light'] .gp-modal-back {
-  background: white;
+  background: var(--white);
   border-color: var(--gray-200);
   color: var(--gray-800);
 }

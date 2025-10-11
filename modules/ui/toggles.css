@@ -11,12 +11,6 @@
   /* Dimensions */
   --toggle-size: 40px;
   
-  /* Couleurs - Light mode */
-  --toggle-bg: var(--white-alpha-60);
-  --toggle-bg-hover: var(--white-alpha-85);
-  --toggle-color: var(--gray-700);
-  --toggle-color-active: var(--primary);
-  
   /* Shadows */
   --toggle-shadow: 0 2px 4px var(--black-alpha-10);
   --toggle-shadow-hover: 0 8px 20px var(--black-alpha-15);
@@ -29,13 +23,6 @@
   --toggle-offset-base: 20px;
 }
 
-/* Dark mode variables */
-html[data-theme='dark'] {
-  --toggle-bg: var(--black-alpha-66);
-  --toggle-bg-hover: var(--white-alpha-10);
-  --toggle-color: var(--gray-200);
-}
-
 /* ============================================================================
    BASE STYLES - Styles communs à tous les toggles
    ============================================================================ */
@@ -45,7 +32,7 @@ html[data-theme='dark'] {
   top: 20px;
   width: var(--toggle-size);
   height: var(--toggle-size);
-  background: var(--toggle-bg);
+  background: var(--white-alpha-30);
   backdrop-filter: blur(10px);
   border: 1px solid var(--black-alpha-06);
   border-radius: 50%;
@@ -60,7 +47,7 @@ html[data-theme='dark'] {
 }
 
 .app-toggle i {
-  color: var(--toggle-color);
+  color: var(--gray-700);
   font-size: 1.1em;
   transition: color 0.2s ease;
   pointer-events: none;
@@ -69,7 +56,7 @@ html[data-theme='dark'] {
 /* Hover & Focus states */
 .app-toggle:hover,
 .app-toggle:focus-visible {
-  background: var(--toggle-bg-hover);
+  background: var(--white-alpha-90);
   transform: scale(1.05);
   box-shadow: var(--toggle-shadow-hover);
   outline: none;
@@ -81,7 +68,7 @@ html[data-theme='dark'] {
 
 .app-toggle:hover i,
 .app-toggle:focus-visible i {
-  color: var(--toggle-color-active);
+  color: var(--primary);
 }
 
 /* ============================================================================
@@ -136,7 +123,7 @@ html[data-theme='dark'] {
   top: -5px;
   right: -5px;
   background: var(--primary);
-  color: white;
+  color: var(--white);
   border-radius: 50%;
   width: 20px;
   height: 20px;
@@ -191,14 +178,10 @@ html[data-theme='dark'] {
   .app-toggle {
     border-radius: 0;
     box-shadow: none;
-    background: var(--toggle-bg); /* Utilise la variable qui change en dark mode */
+    background: var(--white-alpha-60); /* Utilise la variable qui change en dark mode */
     border: 1px solid var(--black-alpha-10);
   }
   
-  /* Dark mode - bordure adaptée */
-  html[data-theme='dark'] .app-toggle {
-    border-color: var(--white-alpha-10);
-  }
   
   /* Afficher le toggle location en mobile */
   #location-toggle {
@@ -307,7 +290,7 @@ html[data-theme='dark'] {
   top: 100%;
   left: 0;
   right: 0;
-  background: white;
+  background: var(--white);
   border-radius: 0 0 10px 10px;
   box-shadow: 0 5px 20px var(--black-alpha-15);
   max-height: 400px;
@@ -391,37 +374,12 @@ html[data-theme='dark'] {
     font-size: 0.8em;
   }
 }
-
-/* Dark mode */
-html[data-theme='dark'] .search-results {
-  background: var(--surface-raised);
-  border: 1px solid var(--border-medium);
-  box-shadow: 0 10px 25px var(--black-alpha-45), 0 6px 10px var(--black-alpha-20);
-}
-
-html[data-theme='dark'] .search-result-item {
-  border-bottom-color: var(--border-medium);
-  color: var(--text-primary);
-}
-
-html[data-theme='dark'] .search-result-item:hover {
-  background: var(--black-alpha-40);
-}
-
-html[data-theme='dark'] .search-result-item h4 {
-  color: var(--text-primary);
-}
-
-html[data-theme='dark'] .search-result-item p {
-  color: var(--text-tertiary);
-}
-
 /* Basemap menu */
 .basemap-menu {
   position: absolute;
   top: 70px;
   right: 70px;
-  background: white;
+  background: var(--white);
   border-radius: 10px;
   padding: 10px;
   box-shadow: 0 4px 12px var(--black-alpha-15);

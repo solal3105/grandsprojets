@@ -502,12 +502,12 @@
   /* Solid green CTA */
   .project-v2-article .btn-open-map {
     background: var(--primary);
-    color: white;
+    color: var(--white);
     border-color: var(--primary);
   }
   .project-v2-article .btn-open-map:hover { background: color-mix(in srgb, var(--primary) 90%, black); }
   .project-v2-article .btn-open-map:active { background: color-mix(in srgb, var(--primary) 82%, black); }
-  .project-v2-article .btn-open-map i { color: white; }
+  .project-v2-article .btn-open-map i { color: var(--white); }
 }
 
 /* ---------------------------------------------------------------------------

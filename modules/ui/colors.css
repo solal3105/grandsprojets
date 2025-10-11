@@ -12,7 +12,7 @@
   --white: #FFFFFF;
   --black: #000000;
   
-  --color-primary: #21b929;    /* Vert principal */
+  --color-primary: #ffdd00;    /* Couleur principale */
   --color-danger: #EF4444;     /* Rouge */
   --color-info: #2563EB;       /* Bleu */
   --color-warning: #F59E0B;    /* Orange */
@@ -26,8 +26,8 @@
   --primary: var(--color-primary);
   --primary-hover: color-mix(in srgb, var(--color-primary) 85%, black);
   --primary-active: color-mix(in srgb, var(--color-primary) 70%, black);
-  --primary-light: color-mix(in srgb, var(--color-primary) 15%, white);
-  --primary-lighter: color-mix(in srgb, var(--color-primary) 8%, white);
+  --primary-light: color-mix(in srgb, var(--color-primary) 25%, transparent);
+  --primary-lighter: color-mix(in srgb, var(--color-primary) 12%, transparent);
   --primary-alpha-1: color-mix(in srgb, var(--color-primary) 10%, transparent);
   --primary-alpha-2: color-mix(in srgb, var(--color-primary) 20%, transparent);
   --primary-alpha-3: color-mix(in srgb, var(--color-primary) 30%, transparent);
@@ -53,8 +53,10 @@
   --danger: var(--color-danger);
   --danger-hover: color-mix(in srgb, var(--color-danger) 85%, black);
   --danger-active: color-mix(in srgb, var(--color-danger) 70%, black);
-  --danger-light: color-mix(in srgb, var(--color-danger) 15%, white);
-  --danger-lighter: color-mix(in srgb, var(--color-danger) 8%, white);
+  --danger-light: color-mix(in srgb, var(--color-danger) 25%, transparent);
+  --danger-lighter: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  --danger-300: color-mix(in srgb, var(--color-danger) 30%, transparent);
+  --danger-700: color-mix(in srgb, var(--color-danger) 70%, black);
   --danger-alpha-10: color-mix(in srgb, var(--color-danger) 10%, transparent);
   --danger-alpha-20: color-mix(in srgb, var(--color-danger) 20%, transparent);
   --danger-alpha-3: color-mix(in srgb, var(--color-danger) 30%, transparent);
@@ -66,8 +68,8 @@
   /* Info (bleu) */
   --info: var(--color-info);
   --info-hover: color-mix(in srgb, var(--color-info) 85%, black);
-  --info-light: color-mix(in srgb, var(--color-info) 15%, white);
-  --info-lighter: color-mix(in srgb, var(--color-info) 8%, white);
+  --info-light: color-mix(in srgb, var(--color-info) 25%, transparent);
+  --info-lighter: color-mix(in srgb, var(--color-info) 12%, transparent);
   --info-alpha-20: color-mix(in srgb, var(--color-info) 20%, transparent);
   --info-alpha-2: color-mix(in srgb, var(--color-info) 20%, transparent);
   --info-alpha-3: color-mix(in srgb, var(--color-info) 30%, transparent);
@@ -85,8 +87,8 @@
   /* Warning (orange) */
   --warning: var(--color-warning);
   --warning-hover: color-mix(in srgb, var(--color-warning) 85%, black);
-  --warning-light: color-mix(in srgb, var(--color-warning) 15%, white);
-  --warning-lighter: color-mix(in srgb, var(--color-warning) 8%, white);
+  --warning-light: color-mix(in srgb, var(--color-warning) 25%, transparent);
+  --warning-lighter: color-mix(in srgb, var(--color-warning) 12%, transparent);
   --warning-alpha-14: color-mix(in srgb, var(--color-warning) 14%, transparent);
   --warning-alpha-22: color-mix(in srgb, var(--color-warning) 22%, transparent);
   --warning-alpha-25: color-mix(in srgb, var(--color-warning) 25%, transparent);
@@ -211,48 +213,49 @@ html[data-theme='dark'] {
   --white: #0f172a;        /* Devient le fond sombre slate profond */
   --black: #f8fafc;        /* Devient le texte clair bleuté */
   
-  /* Opacités blanches bleutées (pour glassmorphism élégant) */
-  --white-alpha-04: rgba(248, 250, 252, 0.04);
-  --white-alpha-05: rgba(248, 250, 252, 0.05);
-  --white-alpha-06: rgba(248, 250, 252, 0.06);
-  --white-alpha-08: rgba(248, 250, 252, 0.08);
-  --white-alpha-10: rgba(248, 250, 252, 0.1);
-  --white-alpha-12: rgba(248, 250, 252, 0.12);
-  --white-alpha-18: rgba(248, 250, 252, 0.18);
-  --white-alpha-20: rgba(248, 250, 252, 0.2);
-  --white-alpha-25: rgba(248, 250, 252, 0.25);
-  --white-alpha-28: rgba(248, 250, 252, 0.28);
-  --white-alpha-35: rgba(248, 250, 252, 0.35);
-  --white-alpha-40: rgba(248, 250, 252, 0.4);
-  --white-alpha-45: rgba(248, 250, 252, 0.45);
-  --white-alpha-50: rgba(248, 250, 252, 0.5);
-  --white-alpha-55: rgba(248, 250, 252, 0.55);
-  --white-alpha-60: rgba(248, 250, 252, 0.6);
-  --white-alpha-65: rgba(248, 250, 252, 0.65);
-  --white-alpha-72: rgba(248, 250, 252, 0.72);
-  --white-alpha-75: rgba(248, 250, 252, 0.75);
-  --white-alpha-80: rgba(248, 250, 252, 0.8);
-  --white-alpha-90: rgba(248, 250, 252, 0.9);
-  --white-alpha-95: rgba(248, 250, 252, 0.95);
+  /* Opacités INVERSÉES en dark mode - sombre translucide (cohérence visuelle) */
+  --white-alpha-04: rgba(15, 23, 42, 0.04);
+  --white-alpha-05: rgba(15, 23, 42, 0.05);
+  --white-alpha-06: rgba(15, 23, 42, 0.06);
+  --white-alpha-08: rgba(15, 23, 42, 0.08);
+  --white-alpha-10: rgba(15, 23, 42, 0.1);
+  --white-alpha-12: rgba(15, 23, 42, 0.12);
+  --white-alpha-18: rgba(15, 23, 42, 0.18);
+  --white-alpha-20: rgba(15, 23, 42, 0.2);
+  --white-alpha-25: rgba(15, 23, 42, 0.25);
+  --white-alpha-28: rgba(15, 23, 42, 0.28);
+  --white-alpha-30: rgba(15, 23, 42, 0.30);
+  --white-alpha-35: rgba(15, 23, 42, 0.35);
+  --white-alpha-40: rgba(15, 23, 42, 0.4);
+  --white-alpha-45: rgba(15, 23, 42, 0.45);
+  --white-alpha-50: rgba(15, 23, 42, 0.5);
+  --white-alpha-55: rgba(15, 23, 42, 0.55);
+  --white-alpha-60: rgba(15, 23, 42, 0.6);
+  --white-alpha-65: rgba(15, 23, 42, 0.65);
+  --white-alpha-72: rgba(15, 23, 42, 0.72);
+  --white-alpha-75: rgba(15, 23, 42, 0.75);
+  --white-alpha-80: rgba(15, 23, 42, 0.8);
+  --white-alpha-90: rgba(15, 23, 42, 0.9);
+  --white-alpha-95: rgba(15, 23, 42, 0.95);
   
-  /* Opacités slate bleuté (au lieu de noir pur) */
-  --black-alpha-04: rgba(15, 23, 42, 0.04);
-  --black-alpha-06: rgba(15, 23, 42, 0.06);
-  --black-alpha-08: rgba(15, 23, 42, 0.08);
-  --black-alpha-10: rgba(15, 23, 42, 0.1);
-  --black-alpha-12: rgba(15, 23, 42, 0.12);
-  --black-alpha-15: rgba(15, 23, 42, 0.15);
-  --black-alpha-16: rgba(15, 23, 42, 0.16);
-  --black-alpha-18: rgba(15, 23, 42, 0.18);
-  --black-alpha-20: rgba(15, 23, 42, 0.2);
-  --black-alpha-30: rgba(15, 23, 42, 0.3);
-  --black-alpha-35: rgba(15, 23, 42, 0.35);
-  --black-alpha-40: rgba(15, 23, 42, 0.4);
-  --black-alpha-45: rgba(15, 23, 42, 0.45);
-  --black-alpha-50: rgba(15, 23, 42, 0.5);
-  --black-alpha-55: rgba(15, 23, 42, 0.55);
-  --black-alpha-66: rgba(15, 23, 42, 0.66);
-  --black-alpha-95: rgba(15, 23, 42, 0.95);
+  /* Opacités INVERSÉES - clair translucide pour highlights */
+  --black-alpha-04: rgba(248, 250, 252, 0.04);
+  --black-alpha-06: rgba(248, 250, 252, 0.06);
+  --black-alpha-08: rgba(248, 250, 252, 0.08);
+  --black-alpha-10: rgba(248, 250, 252, 0.1);
+  --black-alpha-12: rgba(248, 250, 252, 0.12);
+  --black-alpha-15: rgba(248, 250, 252, 0.15);
+  --black-alpha-16: rgba(248, 250, 252, 0.16);
+  --black-alpha-18: rgba(248, 250, 252, 0.18);
+  --black-alpha-20: rgba(248, 250, 252, 0.2);
+  --black-alpha-30: rgba(248, 250, 252, 0.3);
+  --black-alpha-35: rgba(248, 250, 252, 0.35);
+  --black-alpha-40: rgba(248, 250, 252, 0.4);
+  --black-alpha-45: rgba(248, 250, 252, 0.45);
+  --black-alpha-50: rgba(248, 250, 252, 0.5);
+  --black-alpha-55: rgba(248, 250, 252, 0.55);
+  --black-alpha-66: rgba(248, 250, 252, 0.66);
+  --black-alpha-95: rgba(248, 250, 252, 0.95);
   
   /* Soft blue alpha (au lieu de dark-blue) */
   --dark-blue-alpha-45: rgba(15, 23, 42, 0.45);
@@ -278,8 +281,7 @@ html[data-theme='dark'] {
   --primary: var(--color-primary);
   --primary-hover: color-mix(in srgb, var(--color-primary) 115%, white);
   --primary-active: color-mix(in srgb, var(--color-primary) 130%, white);
-  --primary-light: color-mix(in srgb, var(--color-primary) 25%, white);
-  --primary-lighter: color-mix(in srgb, var(--color-primary) 15%, white);
+  /* -light et -lighter utilisent la transparence définie dans :root et s'adaptent automatiquement */
   
   /* ========================================
      DANGER (recalculé avec la couleur plus douce)
@@ -287,24 +289,21 @@ html[data-theme='dark'] {
   --danger: var(--color-danger);
   --danger-hover: color-mix(in srgb, var(--color-danger) 115%, white);
   --danger-active: color-mix(in srgb, var(--color-danger) 130%, white);
-  --danger-light: color-mix(in srgb, var(--color-danger) 25%, white);
-  --danger-lighter: color-mix(in srgb, var(--color-danger) 15%, white);
+  /* -light et -lighter utilisent la transparence définie dans :root et s'adaptent automatiquement */
   
   /* ========================================
      INFO (recalculé avec la couleur plus douce)
      ======================================== */
   --info: var(--color-info);
   --info-hover: color-mix(in srgb, var(--color-info) 115%, white);
-  --info-light: color-mix(in srgb, var(--color-info) 25%, white);
-  --info-lighter: color-mix(in srgb, var(--color-info) 15%, white);
+  /* -light et -lighter utilisent la transparence définie dans :root et s'adaptent automatiquement */
   
   /* ========================================
      WARNING (recalculé avec la couleur plus douce)
      ======================================== */
   --warning: var(--color-warning);
   --warning-hover: color-mix(in srgb, var(--color-warning) 115%, white);
-  --warning-light: color-mix(in srgb, var(--color-warning) 25%, white);
-  --warning-lighter: color-mix(in srgb, var(--color-warning) 15%, white);
+  /* -light et -lighter utilisent la transparence définie dans :root et s'adaptent automatiquement */
   
   /* ========================================
      SUCCESS (alias de primary)
@@ -334,6 +333,7 @@ html[data-theme='dark'] {
   --surface-base: #0f172a;     /* Fond principal slate profond (gray-50) */
   --surface-raised: #1e293b;   /* Cartes et éléments surélevés (gray-100) */
   --surface-overlay: #334155;  /* Overlays et modals (gray-200) */
+  
 }
 
 /* ============================================================================
