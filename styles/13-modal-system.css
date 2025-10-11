@@ -1,8 +1,36 @@
 /* ===========================================================================
    MODAL SYSTEM - Système unifié pour toutes les modales
    
-   Toutes les modales de la plateforme utilisent ce système cohérent.
-   Structure : .gp-modal-overlay > .gp-modal > (.gp-modal-header, .gp-modal-body, .gp-modal-footer)
+   Design system unifié avec filters-container et basemap-menu:
+   - Même glassmorphism (blur 24px + saturate 180%)
+   - Même border-radius (20px)
+   - Même système de couleurs (CSS variables)
+   - Même transitions et animations
+   - Dark mode compatible
+   
+   Background Colors (toujours définis):
+   - .gp-modal: background-color: var(--surface-base) + gradient
+   - .gp-modal-header: background-color: var(--surface-base) + gradient
+   - .gp-modal-body: background-color: transparent (hérite du container)
+   - .gp-modal-footer: background-color: var(--surface-base) + gradient
+   
+   Structure HTML:
+   <div class="gp-modal-overlay" role="dialog" aria-modal="true">
+     <div class="gp-modal">
+       <div class="gp-modal-header">
+         <h2 class="gp-modal-title">Titre</h2>
+         <button class="gp-modal-close">&times;</button>
+       </div>
+       <div class="gp-modal-body">
+         Contenu...
+       </div>
+       <div class="gp-modal-footer">
+         <button class="gp-btn gp-btn--secondary">Annuler</button>
+         <button class="gp-btn gp-btn--primary">Confirmer</button>
+       </div>
+     </div>
+   </div>
+   
    =========================================================================== */
 
 /* ---------------------------------------------------------------------------
@@ -13,7 +41,7 @@
   position: fixed;
   inset: 0;
   /* Gradient subtil pour donner de la profondeur */
-  background: radial-gradient(circle at 50% 50%, var(--black-alpha-50), var(--black-alpha-45));
+  background: radial-gradient(circle at 50% 50%, var(--black-alpha-80), var(--black-alpha-90));
   /* Blur uniforme sur l'arrière-plan */
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -36,24 +64,27 @@
 /* ---------------------------------------------------------------------------
    BASE - Container modal
    UNIFIÉ : Glassmorphism léger + ombres cohérentes
+   Background color défini pour toutes les modales
 --------------------------------------------------------------------------- */
 .gp-modal {
   width: min(720px, 92vw);
   max-height: 85vh;
   overflow: auto;
+  /* Background color de base */
+  background-color: var(--surface-base);
   /* Glassmorphism subtil sur toutes les modales */
-  background: var(--white-alpha-92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background-image: linear-gradient(145deg, var(--white-alpha-95) 0%, var(--white-alpha-90) 100%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
   color: var(--text-primary);
   /* Bordure légère pour la définition */
-  border: 1px solid var(--white-alpha-30);
-  border-radius: 16px;
-  /* Ombre unifiée et élégante */
+  border: 1px solid var(--white-alpha-50);
+  border-radius: 20px;
+  /* Ombre unifiée et élégante (matching filters/basemap) */
   box-shadow: 
-    0 24px 48px var(--black-alpha-18),
-    0 8px 16px var(--black-alpha-12),
-    0 0 0 1px var(--white-alpha-10) inset;
+    0 20px 60px var(--black-alpha-15),
+    0 8px 16px var(--black-alpha-08),
+    inset 0 1px 0 var(--white-alpha-80);
   /* Animation scale + fade cohérente */
   transform: scale(0.94) translateY(20px);
   opacity: 0;
@@ -69,6 +100,7 @@
 /* ---------------------------------------------------------------------------
    BASE - Header
    UNIFIÉ : Glassmorphism avec backdrop blur pour scroll
+   Background color défini pour tous les headers
 --------------------------------------------------------------------------- */
 .gp-modal-header {
   position: sticky;
@@ -77,11 +109,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 20px;
+  padding: 18px 20px;
+  /* Background color par défaut */
+  background-color: var(--surface-base);
   /* Bordure subtile */
-  border-bottom: 1px solid var(--white-alpha-20);
+  border-bottom: 1px solid var(--border-light);
   /* Background glassmorphism unifié */
-  background: linear-gradient(180deg, var(--white-alpha-95), var(--white-alpha-88));
+  background-image: linear-gradient(180deg, var(--white-alpha-95), var(--white-alpha-88));
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   /* Légère ombre pour le relief */
@@ -162,10 +196,13 @@
 /* ---------------------------------------------------------------------------
    BASE - Body
    UNIFIÉ : Padding et scroll cohérents
+   Background color défini pour tous les body
 --------------------------------------------------------------------------- */
 .gp-modal-body {
   padding: 24px;
   overflow-y: auto;
+  /* Background color transparent par défaut (hérite du container) */
+  background-color: transparent;
   /* Scroll smooth unifié */
   scroll-behavior: smooth;
   /* Performance scroll sur mobile */
@@ -175,6 +212,7 @@
 /* ---------------------------------------------------------------------------
    BASE - Footer (optionnel)
    UNIFIÉ : Glassmorphism cohérent avec header
+   Background color défini pour tous les footers
 --------------------------------------------------------------------------- */
 .gp-modal-footer {
   position: sticky;
@@ -183,11 +221,13 @@
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  padding: 16px 20px;
+  padding: 18px 20px;
+  /* Background color par défaut */
+  background-color: var(--surface-base);
   /* Bordure subtile */
-  border-top: 1px solid var(--white-alpha-20);
+  border-top: 1px solid var(--border-light);
   /* Background glassmorphism unifié */
-  background: linear-gradient(0deg, var(--white-alpha-95), var(--white-alpha-88));
+  background-image: linear-gradient(0deg, var(--white-alpha-95), var(--white-alpha-88));
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   /* Légère ombre inversée pour le relief */
@@ -231,7 +271,7 @@
 
 /* Glassmorphism : effet verre sur l'overlay uniquement */
 .gp-modal-overlay.gp-modal--glass {
-  background: radial-gradient(1200px 800px at 80% 90%, var(--black-alpha-55), var(--black-alpha-45));
+  background: radial-gradient(1200px 800px at 80% 90%, var(--black-alpha-80), var(--black-alpha-90));
 }
 
 /* Minimal : bordures et ombres légères */
@@ -338,61 +378,12 @@
 }
 
 /* ---------------------------------------------------------------------------
-   DARK MODE - Glassmorphism unifié en mode sombre
+   DARK MODE
+   Les styles dark mode sont gérés automatiquement via les CSS variables
+   définies dans 00-colors.css. Les variables comme --surface-base, 
+   --text-primary, --border-light, etc. s'adaptent automatiquement au thème.
+   Aucune règle [data-theme="dark"] n'est nécessaire ici.
 --------------------------------------------------------------------------- */
-[data-theme="dark"] .gp-modal-overlay {
-  /* Gradient plus profond pour le dark mode */
-  background: radial-gradient(circle at 50% 50%, var(--black-alpha-75), var(--black-alpha-65));
-}
-
-[data-theme="dark"] .gp-modal {
-  /* Glassmorphism dark mode */
-  background: rgba(30, 30, 35, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 
-    0 24px 48px rgba(0, 0, 0, 0.4),
-    0 8px 16px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-}
-
-[data-theme="dark"] .gp-modal-header {
-  background: linear-gradient(180deg, rgba(35, 35, 40, 0.95), rgba(30, 30, 35, 0.88));
-  border-bottom-color: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
-}
-
-[data-theme="dark"] .gp-modal-footer {
-  background: linear-gradient(0deg, rgba(35, 35, 40, 0.95), rgba(30, 30, 35, 0.88));
-  border-top-color: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.04) inset;
-}
-
-[data-theme="dark"] .gp-modal-back {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: var(--gray-300);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-[data-theme="dark"] .gp-modal-back:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: var(--gray-100);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-[data-theme="dark"] .gp-modal-close {
-  color: var(--gray-400);
-}
-
-[data-theme="dark"] .gp-modal-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: var(--gray-100);
-}
 
 /* ---------------------------------------------------------------------------
    UTILITÉS - Classes helper pour les modales
@@ -410,18 +401,11 @@
 .gp-modal::-webkit-scrollbar-thumb {
   background: var(--gray-300);
   border-radius: 4px;
+  transition: background 0.2s ease;
 }
 
 .gp-modal::-webkit-scrollbar-thumb:hover {
-  background: var(--gray-400);
-}
-
-[data-theme="dark"] .gp-modal::-webkit-scrollbar-thumb {
-  background: var(--gray-700);
-}
-
-[data-theme="dark"] .gp-modal::-webkit-scrollbar-thumb:hover {
-  background: var(--gray-600);
+  background: var(--primary);
 }
 
 /* ---------------------------------------------------------------------------
@@ -484,11 +468,6 @@
   margin: 0;
   color: var(--text-secondary);
   font-size: 0.875rem;
-}
-
-/* Dark mode pour search */
-[data-theme="dark"] #search-overlay .search-result-item:hover {
-  background: var(--gray-800);
 }
 
 /* ---------------------------------------------------------------------------
@@ -557,6 +536,293 @@ body.modal-open {
 }
 
 /* ---------------------------------------------------------------------------
+   BUTTONS - Styles unifiés pour tous les boutons dans les modales
+--------------------------------------------------------------------------- */
+
+/* Button Base */
+.gp-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Primary Button */
+.gp-btn--primary {
+  background: var(--primary);
+  color: var(--white);
+  border-color: var(--primary);
+  box-shadow: 
+    0 2px 8px var(--primary-alpha-25),
+    0 1px 2px var(--black-alpha-08);
+}
+
+.gp-btn--primary:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 20px var(--primary-alpha-3),
+    0 4px 8px var(--black-alpha-10);
+}
+
+.gp-btn--primary:active {
+  transform: translateY(0);
+}
+
+/* Secondary Button */
+.gp-btn--secondary {
+  background: var(--surface-base);
+  color: var(--text-primary);
+  border-color: var(--border-light);
+  box-shadow: 
+    0 2px 4px var(--black-alpha-04);
+}
+
+.gp-btn--secondary:hover {
+  background: var(--gray-50);
+  border-color: var(--gray-300);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 4px 12px var(--black-alpha-08);
+}
+
+.gp-btn--secondary:active {
+  transform: translateY(0);
+}
+
+/* Danger Button */
+.gp-btn--danger {
+  background: var(--danger);
+  color: var(--white);
+  border-color: var(--danger);
+  box-shadow: 
+    0 2px 8px var(--danger-alpha-25),
+    0 1px 2px var(--black-alpha-08);
+}
+
+.gp-btn--danger:hover {
+  background: var(--danger-hover);
+  border-color: var(--danger-hover);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 20px var(--danger-alpha-35),
+    0 4px 8px var(--black-alpha-10);
+}
+
+.gp-btn--danger:active {
+  transform: translateY(0);
+}
+
+/* Ghost Button */
+.gp-btn--ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: transparent;
+}
+
+.gp-btn--ghost:hover {
+  background: var(--gray-50);
+  color: var(--text-primary);
+}
+
+/* Button Sizes */
+.gp-btn--sm {
+  padding: 8px 16px;
+  font-size: 0.875rem;
+}
+
+.gp-btn--lg {
+  padding: 16px 28px;
+  font-size: 1rem;
+}
+
+/* Button States */
+.gp-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.gp-btn.is-loading {
+  position: relative;
+  color: transparent;
+  pointer-events: none;
+}
+
+.gp-btn.is-loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin 0.6s linear infinite;
+}
+
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------------------------------------------------------------------------
+   CONTENT SECTIONS - Éléments de contenu typiques
+--------------------------------------------------------------------------- */
+
+/* Section avec titre */
+.gp-modal-section {
+  margin-bottom: 24px;
+}
+
+.gp-modal-section:last-child {
+  margin-bottom: 0;
+}
+
+.gp-modal-section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 12px 0;
+}
+
+.gp-modal-section-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+}
+
+/* Form Elements */
+.gp-form-group {
+  margin-bottom: 20px;
+}
+
+.gp-form-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.gp-form-input,
+.gp-form-textarea,
+.gp-form-select {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 0.9375rem;
+  background: var(--surface-base);
+  color: var(--text-primary);
+  border: 2px solid var(--border-light);
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.gp-form-input:focus,
+.gp-form-textarea:focus,
+.gp-form-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 
+    0 0 0 3px var(--primary-alpha-12),
+    0 2px 8px var(--black-alpha-08);
+}
+
+.gp-form-textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.gp-form-help {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-top: 6px;
+}
+
+.gp-form-error {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--danger);
+  margin-top: 6px;
+}
+
+/* Alert Box */
+.gp-alert {
+  padding: 16px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.gp-alert--info {
+  background: var(--info-alpha-1);
+  border: 1px solid var(--info-alpha-2);
+  color: var(--info);
+}
+
+.gp-alert--success {
+  background: var(--success-alpha-1);
+  border: 1px solid var(--success-alpha-2);
+  color: var(--success);
+}
+
+.gp-alert--warning {
+  background: var(--warning-alpha-1);
+  border: 1px solid var(--warning-alpha-2);
+  color: var(--warning);
+}
+
+.gp-alert--danger {
+  background: var(--danger-alpha-1);
+  border: 1px solid var(--danger-alpha-2);
+  color: var(--danger);
+}
+
+/* Divider */
+.gp-divider {
+  height: 1px;
+  background: var(--border-light);
+  margin: 24px 0;
+  border: none;
+}
+
+/* List Styles */
+.gp-modal-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.gp-modal-list-item {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.gp-modal-list-item:last-child {
+  border-bottom: none;
+}
+
+/* ---------------------------------------------------------------------------
    FOCUS TRAP - Améliorer l'accessibilité
    Styles pour le focus visible unifié
 --------------------------------------------------------------------------- */
@@ -588,3 +854,120 @@ body.modal-open {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* ===========================================================================
+   EXEMPLES D'UTILISATION
+   ===========================================================================
+
+   1. MODALE SIMPLE (confirmation)
+   --------------------------------
+   <div class="gp-modal-overlay" role="dialog" aria-modal="true">
+     <div class="gp-modal gp-modal--compact">
+       <div class="gp-modal-header">
+         <h2 class="gp-modal-title">Confirmer l'action</h2>
+         <button class="gp-modal-close">&times;</button>
+       </div>
+       <div class="gp-modal-body">
+         <p>Êtes-vous sûr de vouloir continuer ?</p>
+       </div>
+       <div class="gp-modal-footer">
+         <button class="gp-btn gp-btn--secondary">Annuler</button>
+         <button class="gp-btn gp-btn--primary">Confirmer</button>
+       </div>
+     </div>
+   </div>
+
+   2. MODALE AVEC FORMULAIRE
+   --------------------------
+   <div class="gp-modal-overlay" role="dialog" aria-modal="true">
+     <div class="gp-modal">
+       <div class="gp-modal-header">
+         <h2 class="gp-modal-title">Nouveau projet</h2>
+         <button class="gp-modal-close">&times;</button>
+       </div>
+       <div class="gp-modal-body">
+         <div class="gp-form-group">
+           <label class="gp-form-label">Nom du projet</label>
+           <input type="text" class="gp-form-input" placeholder="Mon projet">
+           <span class="gp-form-help">Choisissez un nom descriptif</span>
+         </div>
+         <div class="gp-form-group">
+           <label class="gp-form-label">Description</label>
+           <textarea class="gp-form-textarea"></textarea>
+         </div>
+       </div>
+       <div class="gp-modal-footer">
+         <button class="gp-btn gp-btn--secondary">Annuler</button>
+         <button class="gp-btn gp-btn--primary">Créer</button>
+       </div>
+     </div>
+   </div>
+
+   3. MODALE AVEC SECTIONS
+   ------------------------
+   <div class="gp-modal-overlay" role="dialog" aria-modal="true">
+     <div class="gp-modal gp-modal--large">
+       <div class="gp-modal-header">
+         <button class="gp-modal-back">← Retour</button>
+         <h2 class="gp-modal-title">Détails du projet</h2>
+         <button class="gp-modal-close">&times;</button>
+       </div>
+       <div class="gp-modal-body">
+         <div class="gp-modal-section">
+           <h3 class="gp-modal-section-title">Informations générales</h3>
+           <p class="gp-modal-section-subtitle">Description du projet et métadonnées</p>
+           <div class="gp-alert gp-alert--info">
+             <i class="fas fa-info-circle"></i>
+             <span>Informations à jour</span>
+           </div>
+         </div>
+         <hr class="gp-divider">
+         <div class="gp-modal-section">
+           <h3 class="gp-modal-section-title">Documents</h3>
+           <ul class="gp-modal-list">
+             <li class="gp-modal-list-item">
+               <span>Plan.pdf</span>
+               <button class="gp-btn gp-btn--sm gp-btn--ghost">Télécharger</button>
+             </li>
+           </ul>
+         </div>
+       </div>
+       <div class="gp-modal-footer">
+         <button class="gp-btn gp-btn--danger">Supprimer</button>
+         <button class="gp-btn gp-btn--primary">Enregistrer</button>
+       </div>
+     </div>
+   </div>
+
+   4. CLASSES DISPONIBLES
+   -----------------------
+   Tailles:
+   - .gp-modal--compact      420px
+   - .gp-modal (défaut)      720px
+   - .gp-modal--large        960px
+   - .gp-modal--xlarge       1200px
+   - .gp-modal--fullscreen   100vw/100vh
+
+   Boutons:
+   - .gp-btn--primary        Bouton principal
+   - .gp-btn--secondary      Bouton secondaire
+   - .gp-btn--danger         Action destructive
+   - .gp-btn--ghost          Sans bordure
+   - .gp-btn--sm / --lg      Tailles
+
+   Alerts:
+   - .gp-alert--info
+   - .gp-alert--success
+   - .gp-alert--warning
+   - .gp-alert--danger
+
+   Comportements:
+   - .gp-modal--no-padding   Pas de padding dans body
+   - .gp-modal--no-scroll    Désactive scroll
+   - .gp-modal--fixed-body   Hauteur fixe (iframe/embed)
+   - .no-dismiss             Empêche fermeture overlay
+   - .shake                  Animation erreur
+   - .pulse                  Animation attention
+   - .is-loading             État de chargement
+
+   =========================================================================== */

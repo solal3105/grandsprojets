@@ -73,32 +73,10 @@ const EventBindings = (() => {
 
   // Gestion des contrôles de filtres
 const bindFilterControls = () => {
-  // 5. Clic en-dehors → fermer tous les sous-panneaux
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.filter-item') && !e.target.closest('.subfilters-container')) {
-      document.querySelectorAll('.subfilters-container').forEach(sub => sub.style.display = 'none');
-    }
-  });
-
-  // 1. Réinitialisation globale
-  const resetBtn = document.getElementById('reset-all-filters');
-  resetBtn.addEventListener('click', () => {
-    document.querySelectorAll('.filter-item').forEach(item => {
-      const layer = item.dataset.layer;
-      item.classList.remove('active-filter');
-      UIModule.resetLayerFilter(layer);
-      const sub = document.querySelector(`.subfilters-container[data-layer="${layer}"]`);
-      if (sub) sub.style.display = 'none';
-    });
-    FilterModule.resetAll();
-  });
-
-  // 2. Clic sur un filtre (pas le ⚙️) : active/désactive sans ouvrir le panneau
+  // Clic sur un filtre : active/désactive la couche
   document.querySelectorAll('.filter-item').forEach(item => {
     item.addEventListener('click', e => {
-      if (e.target.closest('.settings-btn')) return;
       const layer = item.dataset.layer;
-      const sub = document.querySelector(`.subfilters-container[data-layer="${layer}"]`);
 
       if (!item.classList.contains('active-filter')) {
         // Activation
@@ -113,43 +91,9 @@ const bindFilterControls = () => {
         item.classList.remove('active-filter');
         MapModule.removeLayer(layer);
         UIModule.resetLayerFilter(layer);
-        if (sub) sub.style.display = 'none';
       }
     });
   });
-
-  // 3. Clic sur ⚙️ : active si besoin, puis bascule le panneau
-  /* document.querySelectorAll('.settings-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const layer = btn.dataset.layer;
-      const item  = document.querySelector(`.filter-item[data-layer="${layer}"]`);
-      const sub   = document.querySelector(`.subfilters-container[data-layer="${layer}"]`);
-
-      // Si déjà ouvert, fermer simplement
-      if (sub && !(sub.style.display === 'none' || getComputedStyle(sub).display === 'none')) {
-        sub.style.display = 'none';
-        return;
-      }
-
-      // Assurer l'activation de la couche si nécessaire
-      if (!item.classList.contains('active-filter')) {
-        if (DataModule.layerData?.[layer]) {
-          DataModule.createGeoJsonLayer(layer, DataModule.layerData[layer]);
-        } else {
-          DataModule.loadLayer(layer);
-        }
-        item.classList.add('active-filter');
-      }
-
-      // Construire et afficher les sous-filtres
-      if (window.UIModule?.buildSubFilters) {
-        window.UIModule.buildSubFilters(layer);
-      } else if (sub) {
-        sub.style.display = 'block';
-      }
-    });
-  }); */
 };
 
   // Gestion dynamique des boutons de navigation basée sur categoryIcons

@@ -1,5 +1,12 @@
 /* ===========================================================================
-   LAYOUT - Structure globale de l'application
+   LAYOUT - Structure générale de la page
+   
+   Organisation:
+   - Map Container: #map layout and positioning
+   - Filters Container: Container layout (items in 04-components.css)
+   - Filter Modals: Modal dialogs for filters
+   - Basemap Menu: Positioning (styles in 04-components.css)
+   
    =========================================================================== */
 
 /* ---------------------------------------------------------------------------
@@ -25,48 +32,93 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Zone de filtres
+   Filters Container - Layout & Positioning
+   
+   Note: Filter items styles are in 04-components.css
+   This section contains only the container layout, positioning, and header
 --------------------------------------------------------------------------- */
+
+/* Main Container */
 #filters-container {
   position: absolute;
   top: 70px;
   right: 20px;
-  width: 300px;
-  background: var(--surface-60);
-  backdrop-filter: blur(10px);
-  border-radius: 10px;
-  box-shadow: 0 2px 8px var(--black-alpha-15);
-  padding: 45px 15px 15px 15px;
-  max-height: calc(90vh - 100px);
+  width: 360px;
+  max-height: 600px;
+  background: linear-gradient(145deg, var(--white-alpha-95) 0%, var(--white-alpha-90) 100%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border-radius: 20px;
+  border: 1px solid var(--white-alpha-50);
+  box-shadow: 
+    0 20px 60px var(--black-alpha-15),
+    0 8px 16px var(--black-alpha-08),
+    inset 0 1px 0 var(--white-alpha-80);
+  padding: 60px 16px 16px 16px;
   overflow-y: auto;
+  overflow-x: hidden;
   z-index: 1500;
+  animation: filtersSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes filtersSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Filters Header Title */
+#filters-container::before {
+  content: 'Calques';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 18px 20px;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-light);
+  letter-spacing: 0.02em;
+  text-align: center;
+  background: linear-gradient(180deg, var(--white-alpha-80) 0%, transparent 100%);
+  border-radius: 20px 20px 0 0;
 }
 
 .filters-close-btn {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  background: var(--white);
-  border: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  top: 16px;
+  right: 16px;
+  background: var(--surface-base);
+  border: 1px solid var(--border-light);
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
-  color: var(--gray-500);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text-secondary);
   font-size: 1rem;
   z-index: 10;
-  box-shadow: 0 2px 4px var(--black-alpha-10);
+  box-shadow: 0 2px 4px var(--black-alpha-06);
 }
 
 .filters-close-btn:hover {
   background: var(--danger);
   color: var(--white);
-  transform: scale(1.05);
-  box-shadow: 0 4px 8px var(--danger-alpha-3);
+  border-color: var(--danger);
+  transform: scale(1.08) rotate(90deg);
+  box-shadow: 0 4px 12px var(--danger-alpha-25);
+}
+
+.filters-close-btn:active {
+  transform: scale(0.95) rotate(90deg);
 }
 
 #filters-container h3 {
@@ -74,75 +126,11 @@
   margin-bottom: 1rem;
 }
 
-.filter-group {
-  margin-bottom: 1.5rem;
-}
-
-.filter-group h4 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1rem;
-  font-weight: bold;
-}
-
 /* ---------------------------------------------------------------------------
-   Modal de filtrage
+   FILTER MODALS - NOTE
+   Les modales de filtrage utilisent le système unifié dans 13-modal-system.css
+   Utiliser les classes .gp-modal-overlay, .gp-modal, .gp-modal-header, etc.
 --------------------------------------------------------------------------- */
-#filter-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: none;
-  background: var(--black-alpha-50);
-  z-index: 2000;
-  justify-content: center;
-  align-items: center;
-}
-
-#filter-modal .modal-content {
-  background: var(--surface-base);
-  padding: 20px;
-  border-radius: 10px;
-  max-width: 500px;
-  width: 90%;
-  max-height: 80%;
-  overflow-y: auto;
-}
-
-#filter-modal h3 {
-  margin-top: 0;
-}
-
-#filter-modal label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-
-#filter-modal input[type="text"],
-#filter-modal input[type="date"] {
-  width: 100%;
-  padding: 5px;
-  margin-bottom: 10px;
-  box-sizing: border-box;
-}
-
-#filter-modal select {
-  width: 100%;
-  padding: 5px;
-  margin-bottom: 10px;
-  box-sizing: border-box;
-}
-
-#filter-modal .modal-buttons {
-  text-align: right;
-}
-
-#filter-modal button {
-  padding: 5px 10px;
-  margin-left: 5px;
-}
 
 /* ---------------------------------------------------------------------------
    Panneau de détails (droite)

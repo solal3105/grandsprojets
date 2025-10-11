@@ -18,9 +18,15 @@
 
     /**
      * Applique le thème et met à jour l'UI
+     * Désactive temporairement les transitions pour un changement instantané
      */
     applyTheme(theme) {
       const root = document.documentElement;
+      
+      // Désactiver toutes les transitions temporairement
+      root.classList.add('theme-transitioning');
+      
+      // Changer le thème
       root.setAttribute('data-theme', theme);
 
       // Mettre à jour l'icône du bouton toggle
@@ -35,6 +41,16 @@
         toggleEl.setAttribute('aria-label', toggleEl.title);
         toggleEl.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
       }
+      
+      // Forcer un reflow pour appliquer les changements
+      void root.offsetHeight;
+      
+      // Réactiver les transitions après un court délai
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          root.classList.remove('theme-transitioning');
+        });
+      });
     },
 
     /**

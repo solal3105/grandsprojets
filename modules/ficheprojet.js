@@ -206,6 +206,9 @@ const FPTheme = (function(win) {
 
   function applyTheme(theme) {
     const root = document.documentElement;
+    // Désactiver toutes les transitions temporairement
+    root.classList.add('theme-transitioning');
+    // Changer le thème
     root.setAttribute('data-theme', theme);
     const updateBtn = (selector) => {
       const btn = document.querySelector(selector);
@@ -219,6 +222,14 @@ const FPTheme = (function(win) {
     };
     updateBtn('#theme-toggle');
     updateBtn('#detail-theme-toggle');
+    // Forcer un reflow pour appliquer les changements
+    void root.offsetHeight;
+    // Réactiver les transitions après un court délai
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        root.classList.remove('theme-transitioning');
+      });
+    });
   }
 
   function findBasemapForTheme(theme) {

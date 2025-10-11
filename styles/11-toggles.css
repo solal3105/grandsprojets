@@ -32,9 +32,9 @@
   top: 20px;
   width: var(--toggle-size);
   height: var(--toggle-size);
-  background: var(--white-alpha-30);
+  background: var(--white-alpha-80);
   backdrop-filter: blur(10px);
-  border: 1px solid var(--black-alpha-06);
+  border: 1px solid var(--black-alpha-10);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -47,10 +47,11 @@
 }
 
 .app-toggle i {
-  color: var(--gray-700);
+  color: var(--gray-800);
   font-size: 1.1em;
   transition: color 0.2s ease;
   pointer-events: none;
+  opacity: 0.85;
 }
 
 /* Hover & Focus states */
@@ -69,6 +70,7 @@
 .app-toggle:hover i,
 .app-toggle:focus-visible i {
   color: var(--primary);
+  opacity: 1;
 }
 
 /* ============================================================================
@@ -227,27 +229,10 @@
 
 /* ============================================================================
    BASEMAP MENU
-   Note: Search overlay migré vers 13-modal-system.css
    ============================================================================ */
 
-/* Basemap menu */
-.basemap-menu {
-  position: absolute;
-  top: 70px;
-  right: 70px;
-  background: var(--white);
-  border-radius: 10px;
-  padding: 10px;
-  box-shadow: 0 4px 12px var(--black-alpha-15);
-  display: none;
-  gap: 10px;
-  z-index: 1100;
-}
-
-.basemap-menu.active {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-}
+/* NOTE: All basemap menu styles have been moved to 04-components.css
+   for unified design with filters-container. See there for complete styling. */
 
 /* ============================================================================
    ACCESSIBILITY

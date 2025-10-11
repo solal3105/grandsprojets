@@ -1,43 +1,91 @@
 /* ===========================================================================
    COMPONENTS - Composants réutilisables
+   
+   Organisation:
+   - Filters Container: Filter items, cards, animations (layout in 02-layout.css)
+   - Basemap Menu: Tiles, animations, unified with filters
+   - Active Filter Tags: Chips and badges
+   - Buttons: Apply, reset, etc.
+   - Legend Cards: Map legends
+   - Project Details: Detail panels
+   
    =========================================================================== */
 
 /* ---------------------------------------------------------------------------
-   Filtres
+   Filters Container - Icon Grid Design Ultra Clean
+   
+   Design system:
+   - Grid layout 2x2 for filter items
+   - Compact cards with icons
+   - Transparent active state (primary-alpha-12)
+   - Smooth animations and transitions
+   - Dark mode compatible with CSS variables
+   - Mobile responsive
 --------------------------------------------------------------------------- */
+
+/* Grid Container */
+#dynamic-filters {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  padding: 4px 0;
+}
+
+/* Filter Card */
 .filter-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  margin: 0.3rem 0;
-  padding: 10px;
-  border-radius: 8px;
-  transition: all 0.15s ease;
+  justify-content: center;
+  padding: 14px 10px;
+  min-height: 95px;
+  border-radius: 12px;
+  background: var(--surface-base);
+  border: 2px solid var(--border-light);
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  background-color: var(--white-alpha-72);
-  backdrop-filter: blur(5px);
-  border: 1px solid var(--primary-alpha-1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 2px 8px var(--black-alpha-04),
+    0 1px 2px var(--black-alpha-04);
 }
 
+/* Icon Container */
 .filter-icon {
-  margin-right: 12px;
-  font-size: 1.5rem;
-  width: 30px;
-  text-align: center;
-  color: var(--primary);
-  opacity: 0.7;
-  transition: all 0.0s ease;
+  font-size: 1.875rem;
+  margin-bottom: 6px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 2;
+  color: var(--text-primary);
+  opacity: 0.6;
 }
 
+/* Label */
 .filter-label {
+  font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--gray-700);
-  transition: color 0.15s ease;
-  flex-grow: 1;
+  color: var(--text-primary);
+  text-align: center;
+  transition: all 0.3s ease;
+  letter-spacing: 0.01em;
+  position: relative;
+  z-index: 2;
+}
+
+/* Hover State */
+.filter-item:hover {
+  transform: translateY(-4px) scale(1.02);
+  border-color: var(--primary-alpha-3);
+  box-shadow: 
+    0 12px 24px var(--black-alpha-10),
+    0 4px 8px var(--black-alpha-06),
+    0 0 0 1px var(--primary-alpha-2);
 }
 
 .filter-item:hover .filter-icon {
+  transform: scale(1.1) rotate(5deg);
   opacity: 1;
   color: var(--primary);
 }
@@ -46,140 +94,101 @@
   color: var(--primary);
 }
 
-.filter-item::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(45deg, transparent, var(--primary-alpha-1), transparent);
-  transform: translateX(-100%);
-  transition: transform 0.3s ease;
-  z-index: 1;
-}
-
-.filter-item:hover::before {
-  transform: translateX(100%);
-}
-
-.filter-item:hover {
-  box-shadow: 0 6px 12px var(--black-alpha-10), 0 3px 6px var(--black-alpha-08);
-  transform: translateY(-3px) scale(1.02);
-  background-color: var(--white-alpha-90);
-  border-color: var(--primary-alpha-3);
-}
-
+/* Active State - Transparent Primary */
 .filter-item.active-filter {
-  background-color: var(--primary);
-  color: var(--white-alpha-90);
-  padding: 8px 12px;
-  border-left: 4px solid var(--primary);
-  transform: scale(1.01);
+  background: var(--primary-alpha-12);
+  border-color: var(--primary);
+  box-shadow: 
+    0 0 0 2px var(--primary-alpha-2),
+    0 8px 20px var(--primary-alpha-15),
+    0 4px 8px var(--black-alpha-08);
+  animation: filterActivate 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.filter-item.active-filter:hover {
-  color: var(--white);
-  box-shadow: 0 4px 6px var(--black-alpha-10) !important;
-}
-
-.filter-item.active-filter:hover .filter-label,
-.filter-item.active-filter:hover .filter-icon {
-  color: var(--white);
-}
-
-/* Force white color on children when filter is active */
-.filter-item.active-filter .filter-label,
 .filter-item.active-filter .filter-icon {
-  color: var(--white);
-}
-
-/* Force white color on h4 inside filter-group when parent filter is active */
-.filter-item.active-filter + .subfilters-container .filter-group h4 {
-  color: var(--white);
-}
-
-.filter-item:not(.active-filter) .settings-btn {
-  display: none;
-}
-
-.settings-btn {
-  background: none;
-  border: none;
-  color: var(--gray-400);
-  transition: color 0.0s ease;
-  margin-left: auto;
-  cursor: pointer;
-  padding: 2px 4px;
-  font-size: 1rem;
-}
-
-.settings-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
   color: var(--primary);
 }
 
-.filter-item input[type="checkbox"] {
-  margin-right: 8px;
-  cursor: pointer;
+.filter-item.active-filter .filter-label {
+  color: var(--primary);
+  font-weight: 700;
 }
 
-.filter-item label {
-  cursor: pointer;
+.filter-item.active-filter:hover {
+  transform: translateY(-6px) scale(1.03);
+  background: var(--primary-alpha-18);
+  box-shadow: 
+    0 0 0 2px var(--primary-alpha-3),
+    0 12px 28px var(--primary-alpha-25),
+    0 6px 12px var(--black-alpha-10);
 }
 
-.subfilters-container {
-  background-color: var(--white-alpha-80);
-  border-radius: 8px;
-  padding: 10px;
-  margin-top: 10px;
-  box-shadow: 0 4px 6px var(--black-alpha-06);
-  max-height: 300px;
-  overflow-y: auto;
-  display: none;
-}
 
-.filter-item.active-filter + .subfilters-container {
-  display: block;
-  animation: slideDown 0.15s ease;
-}
 
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
+/* Animations */
+@keyframes filterActivate {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
   }
-  to {
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
-.subfilters-container .filter-group {
-  margin-bottom: 15px;
+
+/* Mobile Optimizations */
+@media (max-width: 640px) {
+  #filters-container {
+    width: calc(100vw - 40px);
+    max-width: 360px;
+    right: 20px;
+    left: 20px;
+    margin: 0 auto;
+  }
+  
+  #dynamic-filters {
+    gap: 8px;
+  }
+  
+  .filter-item {
+    min-height: 85px;
+    padding: 12px 8px;
+  }
+  
+  .filter-icon {
+    font-size: 1.625rem;
+    margin-bottom: 5px;
+  }
+  
+  .filter-label {
+    font-size: 0.75rem;
+  }
 }
 
-.subfilters-container label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 600;
-  color: var(--gray-700);
+/* Smooth Scrollbar */
+#filters-container::-webkit-scrollbar {
+  width: 6px;
 }
 
-.subfilters-container input[type='range'],
-.subfilters-container select {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid var(--border-medium);
-  border-radius: 4px;
-  background: var(--surface-base);
-  color: var(--text-primary);
-  transition: all 0.15s ease;
+#filters-container::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.subfilters-container input[type='range']:focus,
-.subfilters-container select:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 5px var(--primary-alpha-3);
+#filters-container::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: 10px;
+  transition: background 0.2s ease;
+}
+
+#filters-container::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
 }
 
 .filter-field {
@@ -954,83 +963,334 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Basemap menu
+   Basemap Menu - Unified with Filters Container
+   
+   Design system:
+   - Same glassmorphism effect (blur + saturation)
+   - Same border-radius (20px)
+   - Same header with title
+   - Same close button style
+   - Same card/tile style with transparent active state
+   - Same animations and transitions
+   - Same dark mode compatibility
 --------------------------------------------------------------------------- */
+
+/* Container */
 .basemap-menu {
   position: absolute;
   top: 70px;
   right: 80px;
-  background: linear-gradient(145deg, var(--white-alpha-95) 0%, var(--white-alpha-95) 100%);
-  border: 1px solid var(--gray-300);
-  border-radius: 12px;
-  padding: 15px;
-  box-shadow: 0 10px 25px var(--black-alpha-10), 0 6px 10px var(--black-alpha-06);
+  width: 340px;
+  max-height: 500px;
+  background: linear-gradient(145deg, var(--white-alpha-95) 0%, var(--white-alpha-90) 100%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--white-alpha-50);
+  border-radius: 20px;
+  padding: 60px 16px 16px 16px;
+  box-shadow: 
+    0 20px 60px var(--black-alpha-15),
+    0 8px 16px var(--black-alpha-08),
+    inset 0 1px 0 var(--white-alpha-80);
   z-index: 1000;
   grid-template-columns: repeat(2, 1fr);
-  gap: 15px;
+  gap: 10px;
   transition: opacity 0.3s ease, visibility 0.3s ease;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  display: grid;
+  display: none;
+  overflow-y: auto;
+  animation: basemapSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .basemap-menu.open {
+  display: grid;
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  display: grid;
 }
 
-.basemap-tile {
-  width: 120px;
-  height: 70px;
-  border: 2px solid transparent;
-  border-radius: 8px;
+@keyframes basemapSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Header title */
+.basemap-menu::before {
+  content: 'Fonds de carte';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 18px 20px;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-light);
+  letter-spacing: 0.02em;
+  text-align: center;
+  background: linear-gradient(180deg, var(--white-alpha-80) 0%, transparent 100%);
+  border-radius: 20px 20px 0 0;
+}
+
+/* Close button */
+.basemap-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: var(--surface-base);
+  border: 1px solid var(--border-light);
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  background: var(--white-alpha-80);
-  font-weight: 600;
-  color: var(--gray-700);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  font-size: 0.8em;
-  text-align: center;
-  transition: all 0.15s ease;
-  position: relative;
-  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text-secondary);
+  font-size: 1rem;
+  z-index: 10;
+  box-shadow: 0 2px 4px var(--black-alpha-06);
 }
 
-.basemap-tile::before {
+.basemap-close-btn:hover {
+  background: var(--danger);
+  color: var(--white);
+  border-color: var(--danger);
+  transform: scale(1.08) rotate(90deg);
+  box-shadow: 0 4px 12px var(--danger-alpha-25);
+}
+
+.basemap-close-btn:active {
+  transform: scale(0.95) rotate(90deg);
+}
+
+.basemap-tile {
+  min-height: 85px;
+  padding: 14px 10px;
+  border: 2px solid var(--border-light);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: var(--surface-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  text-align: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: visible;
+  box-shadow: 
+    0 2px 8px var(--black-alpha-04),
+    0 1px 2px var(--black-alpha-04);
+}
+
+/* Progress Bar Container - Caché par défaut */
+.basemap-tile::after {
   content: '';
   position: absolute;
-  top: 0;
+  bottom: -2px;
   left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(45deg, transparent, var(--primary-alpha-1), transparent);
-  transform: translateX(-100%);
-  transition: transform 0.3s ease;
+  right: 0;
+  height: 4px;
+  background: var(--gray-400);
+  border-radius: 0 0 10px 10px;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 
-.basemap-tile:hover::before {
-  transform: translateX(100%);
+/* Progress Bar Fill - Caché par défaut */
+.basemap-progress {
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  height: 4px;
+  background: linear-gradient(90deg, 
+    var(--primary) 0%, 
+    var(--primary-hover) 100%
+  );
+  width: 0;
+  border-radius: 0 0 10px 10px;
+  box-shadow: 
+    0 0 20px var(--primary),
+    0 0 40px var(--primary-alpha-55),
+    0 2px 12px var(--primary-alpha-50),
+    0 0 6px var(--primary);
+  z-index: 11;
+  pointer-events: none;
+  transition: none;
+  will-change: width;
+  opacity: 0;
+}
+
+/* Afficher la barre uniquement pendant le survol (is-hovering) */
+.basemap-tile.is-hovering::after {
+  opacity: 1;
+}
+
+.basemap-tile.is-hovering .basemap-progress {
+  opacity: 1;
+  width: 100% !important;
+  transition: width 1s linear !important;
+}
+
+/* Cacher pour les tiles actives */
+.basemap-tile.active-basemap::after,
+.basemap-tile.active-basemap .basemap-progress {
+  opacity: 0 !important;
+  display: none;
+}
+
+/* Reset après mouseleave */
+.basemap-tile:not(.is-hovering) .basemap-progress {
+  width: 0 !important;
+  transition: width 0.15s ease-out !important;
+  opacity: 0;
+}
+
+.basemap-tile:not(.is-hovering)::after {
+  opacity: 0;
 }
 
 .basemap-tile:hover {
-  transform: scale(1.05);
-  border-color: var(--primary);
-  box-shadow: 0 5px 15px var(--primary-alpha-2);
+  transform: translateY(-4px) scale(1.02);
+  border-color: var(--primary-alpha-3);
+  box-shadow: 
+    0 12px 24px var(--black-alpha-10),
+    0 4px 8px var(--black-alpha-06),
+    0 0 0 1px var(--primary-alpha-2);
   color: var(--primary);
 }
 
-.basemap-tile.active-basemap {
-  background: var(--primary);
-  color: var(--white);
+/* Glow effect during hover - plus visible */
+.basemap-tile.is-hovering {
+  transform: translateY(-4px) scale(1.02);
   border-color: var(--primary);
-  box-shadow: 0 5px 15px var(--primary-alpha-3);
+  color: var(--primary);
+  animation: basemapGlow 1s ease-in-out infinite, basemapBackgroundPulse 1s ease-in-out infinite;
+}
+
+@keyframes basemapGlow {
+  0%, 100% {
+    box-shadow: 
+      0 12px 24px var(--black-alpha-10),
+      0 4px 8px var(--black-alpha-06),
+      0 0 0 2px var(--primary-alpha-25),
+      0 0 16px var(--primary-alpha-25);
+  }
+  50% {
+    box-shadow: 
+      0 16px 32px var(--black-alpha-15),
+      0 8px 16px var(--black-alpha-10),
+      0 0 0 2px var(--primary-alpha-35),
+      0 0 32px var(--primary-alpha-45);
+  }
+}
+
+/* Background pulse avec couleur primaire */
+@keyframes basemapBackgroundPulse {
+  0%, 100% {
+    background: var(--surface-base);
+  }
+  50% {
+    background: linear-gradient(135deg, 
+      var(--primary-alpha-10) 0%, 
+      var(--surface-base) 50%, 
+      var(--primary-alpha-10) 100%
+    );
+  }
+}
+
+.basemap-tile.active-basemap {
+  background: var(--primary-alpha-12);
+  color: var(--primary);
+  border-color: var(--primary);
+  font-weight: 700;
+  box-shadow: 
+    0 0 0 2px var(--primary-alpha-2),
+    0 8px 20px var(--primary-alpha-15),
+    0 4px 8px var(--black-alpha-08);
+  animation: basemapActivate 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes basemapActivate {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Smooth Scrollbar for basemap menu */
+.basemap-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.basemap-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.basemap-menu::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: 10px;
+  transition: background 0.2s ease;
+}
+
+.basemap-menu::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* Mobile Optimizations for basemap menu */
+@media (max-width: 640px) {
+  .basemap-menu {
+    width: calc(100vw - 40px);
+    max-width: 340px;
+    right: 20px;
+    left: 20px;
+    margin: 0 auto;
+  }
+  
+  .basemap-tile {
+    min-height: 75px;
+    padding: 12px 8px;
+    font-size: 0.65rem;
+  }
+  
+  /* Progress bar plus visible sur mobile */
+  .basemap-progress {
+    height: 5px;
+    bottom: -3px;
+    box-shadow: 
+      0 0 30px var(--primary),
+      0 0 50px var(--primary-alpha-55),
+      0 3px 15px var(--primary-alpha-50),
+      0 0 8px var(--primary);
+  }
+  
+  .basemap-tile::after {
+    height: 5px;
+    bottom: -3px;
+  }
 }
 
 /* ---------------------------------------------------------------------------

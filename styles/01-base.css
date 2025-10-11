@@ -49,6 +49,18 @@ html, body {
   transition: none !important;
 }
 
+/* ---------------------------------------------------------------------------
+   Theme Transitioning - Désactive les transitions pendant changement de thème
+   Pour un changement instantané et synchrone de tous les éléments
+--------------------------------------------------------------------------- */
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition: none !important;
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+}
+
 .leaflet-container,
 .leaflet-container * {
   transition: none !important;

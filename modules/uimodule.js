@@ -76,110 +76,12 @@
     }
   };
   /**
-   * @param {string} layerName - Nom de la couche.
-   */
-  const toggleSubFilters = layerName => {
-    const filterItem = document.querySelector(`.filter-item[data-layer="${layerName}"]`);
-    const container  = document.querySelector(`.subfilters-container[data-layer="${layerName}"]`);
-    if (!filterItem || !container) {
-      return;
-    }
-    filterItem.classList.toggle('active-filter');
-
-    // Si le filtre n'est pas actif, masquer les sous-filtres
-    if (!filterItem.classList.contains('active-filter')) {
-      container.style.display = 'none';
-      MapModule.removeLayer(layerName);
-      return;
-    }
-
-    // Afficher le panneau et construire le contenu
-    buildSubFilters(layerName);
-  };
-
-  /**
-   * Construit le contenu des sous-filtres pour une couche SANS modifier l'état actif du filtre.
-   * Utilisé par le clic sur l'icône ⚙️ pour éviter de désactiver la couche.
-   * @param {string} layerName
-   */
-  const buildSubFilters = (layerName) => {
-    const container = document.querySelector(`.subfilters-container[data-layer="${layerName}"]`);
-    if (!container) return;
-
-    container.style.display = 'block';
-    container.innerHTML = '<p>Chargement des sous-filtres...</p>';
-
-    const render = (features) => {
-      const list = Array.isArray(features) ? features : [];
-      if (!list.length) {
-        container.innerHTML = '<p>Aucune donnée disponible pour filtrer.</p>';
-        return;
-      }
-      container.innerHTML = '';
-      // layer_info_config supprimé: utiliser directement les propriétés du GeoJSON
-      const keys = Object.keys(list[0].properties || {});
-
-      keys.forEach(key => {
-        const values = [...new Set(list.map(f => f.properties?.[key]))]
-          .filter(v => v != null)
-          .sort();
-        const group = document.createElement('div');
-        group.className = 'filter-group';
-        const label = document.createElement('label');
-        label.textContent = key;
-        label.htmlFor = `filter-${layerName}-${key}`;
-        group.appendChild(label);
-
-        let input;
-        if (typeof values[0] === 'number') {
-          input = document.createElement('input');
-          input.type = 'range';
-          input.min = Math.min(...values);
-          input.max = Math.max(...values);
-          input.value = input.min;
-        } else {
-          input = document.createElement('select');
-          const defaultOpt = document.createElement('option');
-          defaultOpt.value = '';
-          defaultOpt.textContent = 'Tous';
-          input.appendChild(defaultOpt);
-          values.forEach(v => {
-            const opt = document.createElement('option');
-            opt.value = v;
-            opt.textContent = v;
-            input.appendChild(opt);
-          });
-        }
-        input.id = `filter-${layerName}-${key}`;
-        input.dataset.field = key;
-        input.addEventListener('change', () => applyFilter(layerName, getCurrentCriteria(layerName)));
-        group.appendChild(input);
-        container.appendChild(group);
-      });
-    };
-
-    // Utiliser les données déjà chargées si disponibles, sinon charger
-    const cached = DataModule.layerData?.[layerName]?.features;
-    if (Array.isArray(cached)) {
-      render(cached);
-    } else {
-      DataModule.loadLayer(layerName)
-        .then(data => {
-          render(data.features || []);
-        })
-        .catch(err => {
-          container.innerHTML = '<p>Impossible de charger la couche.</p>';
-        });
-    }
-  };
-
-  /**
    * Récupère les critères de filtre actuellement sélectionnés.
    * @param {string} layerName
    * @returns {Object} Critères de filtrage
    */
   const getCurrentCriteria = layerName => {
-    const container = document.querySelector(`.subfilters-container[data-layer=\"${layerName}\"]`);
+    const container = document.querySelector(`.filter-criteria[data-layer=\"${layerName}\"]`);
     const criteria = {};
     if (!container) return criteria;
     container.querySelectorAll('[data-field]').forEach(el => {
@@ -338,7 +240,31 @@
       return false;
     }
     
+    // Ajouter le bouton fermer
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'basemap-close-btn';
+    closeBtn.setAttribute('aria-label', 'Fermer le menu des fonds de carte');
+    closeBtn.innerHTML = '<i class="fas fa-times"></i>';
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePopup('basemap');
+    });
+    menu.appendChild(closeBtn);
+    
     const defaultBm = availableBasemaps.find(b => b.default) || availableBasemaps[0];
+    
+    let previewLayer = null;
+    let currentActiveBasemap = defaultBm;
+    
+    // Fonction pour obtenir le basemap actuellement actif
+    const getActiveBasemap = () => {
+      const activeTile = menu.querySelector('.basemap-tile.active-basemap');
+      if (!activeTile) return currentActiveBasemap;
+      
+      const activeLabel = activeTile.textContent.trim();
+      const activeMap = availableBasemaps.find(b => b.label === activeLabel);
+      return activeMap || currentActiveBasemap;
+    };
     
     availableBasemaps.forEach(bm => {
       const tile = document.createElement('div');
@@ -346,18 +272,103 @@
       tile.textContent = bm.label;
       if (bm.label === defaultBm.label) tile.classList.add('active-basemap');
 
+      // Créer la barre de progression
+      const progressBar = document.createElement('div');
+      progressBar.className = 'basemap-progress';
+      tile.appendChild(progressBar);
+
+      let hoverTimer = null;
+      let isPreviewActive = false;
+
+      // Survol : démarre le timer de 2s pour preview
+      tile.addEventListener('mouseenter', () => {
+        // Ne rien faire si déjà actif
+        if (tile.classList.contains('active-basemap')) return;
+        
+        // Retirer d'abord la classe
+        tile.classList.remove('is-hovering');
+        
+        // Reset complet de la progress bar avec !important dans le style inline
+        progressBar.style.cssText = 'width: 0 !important; transition: none !important;';
+        
+        // Force reflow (IMPORTANT pour redémarrer l'animation)
+        void tile.offsetHeight;
+        void progressBar.offsetHeight;
+        
+        // Ajouter la classe dans le prochain frame
+        requestAnimationFrame(() => {
+          tile.classList.add('is-hovering');
+          // Forcer le démarrage de la transition
+          progressBar.style.cssText = '';
+        });
+        
+        // Timer de 1 seconde pour PREVIEW
+        hoverTimer = setTimeout(() => {
+          // PREVIEW du fond de carte (pas définitif)
+          previewLayer = L.tileLayer(bm.url, { attribution: bm.attribution });
+          window.MapModule?.setBaseLayer(previewLayer);
+          isPreviewActive = true;
+          
+          console.log(`Preview: ${bm.label}`);
+        }, 1000);
+      });
+
+      // Quitter le survol : annule et restaure
+      tile.addEventListener('mouseleave', () => {
+        if (hoverTimer) {
+          clearTimeout(hoverTimer);
+          hoverTimer = null;
+        }
+        
+        tile.classList.remove('is-hovering');
+        
+        // Reset la progress bar avec cssText
+        progressBar.style.cssText = '';
+        
+        // Si preview active, restaurer le basemap ACTUELLEMENT ACTIF
+        if (isPreviewActive) {
+          const activeBasemap = getActiveBasemap();
+          const activeLayer = L.tileLayer(activeBasemap.url, { 
+            attribution: activeBasemap.attribution 
+          });
+          window.MapModule?.setBaseLayer(activeLayer);
+          isPreviewActive = false;
+          console.log(`Restored: ${activeBasemap.label}`);
+        }
+      });
+
+      // Clic : applique définitivement le fond
       tile.addEventListener('click', (e) => {
         e.stopPropagation();
+        
+        // Annuler le timer si en cours
+        if (hoverTimer) {
+          clearTimeout(hoverTimer);
+          hoverTimer = null;
+        }
+        
+        // Appliquer le fond de carte définitivement
         const layer = L.tileLayer(bm.url, { attribution: bm.attribution });
         window.MapModule?.setBaseLayer(layer);
+        currentActiveBasemap = bm;
         
         // Mise à jour de l'état visuel
         document.querySelectorAll('.basemap-tile')
-          .forEach(t => t.classList.remove('active-basemap'));
+          .forEach(t => {
+            t.classList.remove('active-basemap', 'is-hovering');
+            const pb = t.querySelector('.basemap-progress');
+            if (pb) {
+              pb.style.cssText = '';
+            }
+          });
         tile.classList.add('active-basemap');
+        tile.classList.remove('is-hovering');
+        isPreviewActive = false;
         
-        // Fermer le menu après la sélection
-        togglePopup('basemap');
+        console.log(`Applied: ${bm.label}`);
+        
+        // Fermer le menu après application
+        setTimeout(() => togglePopup('basemap'), 300);
       });
 
       menu.appendChild(tile);
@@ -436,8 +447,6 @@
 
   // Exposition de l'API
   const UIModule = {
-    toggleSubFilters,
-    buildSubFilters,
     updateActiveFilterTagsForLayer,
     setActiveBasemap,
     showDetailPanel,

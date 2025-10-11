@@ -45,15 +45,30 @@
         }
       } catch (_) { /* no-op */ }
 
-      // Créer le groupe "Projets" avec les catégories dynamiques
+      // Récupérer les infos de filter_items pour les labels et icônes
+      const filterItemsMap = {};
+      try {
+        // Essayer d'abord depuis window (déjà chargé au démarrage)
+        let filterItems = win.filterItems;
+        
+        // Si pas disponible, charger depuis Supabase
+        if (!filterItems && typeof win.supabaseService?.fetchFilterItems === 'function') {
+          filterItems = await win.supabaseService.fetchFilterItems();
+        }
+        
+        if (Array.isArray(filterItems)) {
+          filterItems.forEach(item => {
+            if (!item || !item.layer) return;
+            filterItemsMap[item.layer] = {
+              label: item.label,
+              icon: item.icon
+            };
+          });
+        }
+      } catch (_) { /* no-op */ }
+
+      // Ajouter les catégories dynamiques directement (sans groupe)
       if (contributionCategories.length > 0) {
-        const groupDiv = document.createElement('div');
-        groupDiv.className = 'filter-group';
-
-        const title = document.createElement('h4');
-        title.textContent = 'Projets';
-        groupDiv.appendChild(title);
-
         contributionCategories.forEach(category => {
           const cfg = (window.categoryConfig && window.categoryConfig[category]) || {};
           let iconClass = cfg.icon || '';
@@ -72,81 +87,60 @@
             <span class="filter-icon"><i class="${iconClass}"></i></span>
             <span class="filter-label">${labelText}</span>
           `;
-          groupDiv.appendChild(filterItem);
-
-          const tags = document.createElement('div');
-          tags.className = 'active-filter-tags';
-          tags.dataset.layer = category;
-          groupDiv.appendChild(tags);
-
-          const sub = document.createElement('div');
-          sub.className = 'subfilters-container';
-          sub.dataset.layer = category;
-          groupDiv.appendChild(sub);
-        });
-
-        container.appendChild(groupDiv);
-      }
-
-      // Ajouter les autres filtres depuis filtersConfig (travaux, métro, etc.)
-      // SAUF les 3 anciens projets
-      if (win.filtersConfig) {
-        const city = String(win.activeCity || '').toLowerCase();
-        const layers = Array.isArray(win.layersConfig) ? win.layersConfig : [];
-        const layerByName = Object.create(null);
-        layers.forEach(l => { if (l && l.name) layerByName[l.name] = l; });
-
-        win.filtersConfig.forEach(group => {
-          const groupDiv = document.createElement('div');
-          groupDiv.className = 'filter-group';
-
-          const title = document.createElement('h4');
-          title.textContent = group.category;
-          groupDiv.appendChild(title);
-
-          // Exclure les 3 anciens noms de projets
-          const excludedLayers = ['voielyonnaise', 'reseauProjeteSitePropre', 'urbanisme'];
-          const items = (group.items || []).filter(it => {
-            if (!it || !it.layer) return false;
-            if (excludedLayers.includes(it.layer)) return false;
-            
-            const layer = layerByName[it.layer];
-            const layerCity = layer && 'ville' in layer ? layer.ville : null;
-            return !layerCity || String(layerCity).toLowerCase() === city;
-          });
-
-          if (!items.length) return;
-
-          items.forEach(item => {
-            // Ajouter fa-solid si manquant
-          let iconClass = item.icon || '';
-          if (iconClass && !iconClass.includes('fa-solid') && !iconClass.includes('fa-regular') && !iconClass.includes('fa-brands')) {
-            iconClass = `fa-solid ${iconClass}`;
-          }
-          
-          const filterItem = document.createElement('div');
-            filterItem.className = 'filter-item';
-            filterItem.dataset.layer = item.layer;
-            filterItem.innerHTML = `
-              <span class="filter-icon"><i class="${iconClass}"></i></span>
-              <span class="filter-label">${item.label}</span>
-            `;
-            groupDiv.appendChild(filterItem);
-
-            const tags = document.createElement('div');
-            tags.className = 'active-filter-tags';
-            tags.dataset.layer = item.layer;
-            groupDiv.appendChild(tags);
-
-            const sub = document.createElement('div');
-            sub.className = 'subfilters-container';
-            sub.dataset.layer = item.layer;
-            groupDiv.appendChild(sub);
-          });
-
-          container.appendChild(groupDiv);
+          container.appendChild(filterItem);
         });
       }
+
+      // Ajouter les autres layers depuis layersConfig
+      const city = String(win.activeCity || '').toLowerCase();
+      const layers = Array.isArray(win.layersConfig) ? win.layersConfig : [];
+      
+      // Exclure les 3 anciens noms de projets et les catégories déjà ajoutées
+      const excludedLayers = ['voielyonnaise', 'reseauProjeteSitePropre', 'urbanisme'];
+      const alreadyAdded = new Set(contributionCategories);
+      
+      layers.forEach(layer => {
+        if (!layer || !layer.name) return;
+        if (excludedLayers.includes(layer.name)) return;
+        if (alreadyAdded.has(layer.name)) return;
+        
+        // Filtrer par ville si applicable
+        const layerCity = layer.ville ? String(layer.ville).toLowerCase() : null;
+        if (layerCity && layerCity !== city) return;
+        
+        // Récupérer les infos depuis filter_items en priorité
+        const filterItemInfo = filterItemsMap[layer.name];
+        
+        // Déterminer l'icône : priorité à filter_items, puis layer config
+        let iconClass = '';
+        if (filterItemInfo && filterItemInfo.icon) {
+          iconClass = filterItemInfo.icon;
+        } else {
+          iconClass = layer.icon_class || layer.icon || '';
+        }
+        
+        // Si pas d'icône trouvée, utiliser une icône par défaut
+        if (!iconClass) {
+          iconClass = 'fa-layer-group';
+        }
+        
+        // Ajouter fa-solid si manquant
+        if (iconClass && !iconClass.includes('fa-solid') && !iconClass.includes('fa-regular') && !iconClass.includes('fa-brands')) {
+          iconClass = `fa-solid ${iconClass}`;
+        }
+        
+        // Déterminer le label : priorité à filter_items
+        const label = (filterItemInfo && filterItemInfo.label) || layer.label || layer.name;
+        
+        const filterItem = document.createElement('div');
+        filterItem.className = 'filter-item';
+        filterItem.dataset.layer = layer.name;
+        filterItem.innerHTML = `
+          <span class="filter-icon"><i class="${iconClass}"></i></span>
+          <span class="filter-label">${label}</span>
+        `;
+        container.appendChild(filterItem);
+      });
     },
 
     /**
@@ -155,7 +149,7 @@
     updateFilterUI() {
       document.querySelectorAll('.filter-item').forEach(item => {
         const layerName = item.dataset.layer;
-        const active    = !!(window.MapModule?.layers?.[layerName]);
+        const active = !!(window.MapModule?.layers?.[layerName]);
         item.classList.toggle('active-filter', active);
       });
     },
@@ -180,7 +174,7 @@
       this.updateFilterCount();
 
       // Exposer les fonctions globalement pour compatibilité
-      window.updateFilterUI    = () => this.updateFilterUI();
+      window.updateFilterUI = () => this.updateFilterUI();
       window.updateFilterCount = () => this.updateFilterCount();
 
       // Observer les changements dans le container de filtres

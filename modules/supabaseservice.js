@@ -810,60 +810,46 @@
       }
     },
 
-
-
     /**
-     * Récupère la configuration des filtres (catégories + items) depuis Supabase
-     * @returns {Promise<Array<{category:string, items:Array<{id:string, layer:string, icon:string, label:string}>}>>}
+     * Récupère les items de filtres depuis filter_items pour les labels et icônes
+     * @returns {Promise<Array>}
      */
-    fetchFiltersConfig: async function() {
-      // 1) Charger la config des filtres (toutes villes)
-      const { data, error } = await supabaseClient
-        .from('filter_categories')
-        .select(`
-          id,
-          category,
-          filter_items (
-            id,
-            layer,
-            icon,
-            label
-          )
-        `)
-        .order('id', { ascending: true })
-        .order('id', { foreignTable: 'filter_items', ascending: true });
-
-      if (error) {
-        console.error('fetchFiltersConfig error:', error);
-        return [];
-      }
-
-      // 2) Récupérer les couches actives pour la ville courante
+    fetchFilterItems: async function() {
       const activeCity = getActiveCity();
       let q = supabaseClient
-        .from('layers')
-        .select('name, ville');
+        .from('filter_items')
+        .select('id, layer, icon, label');
+      
       if (activeCity) {
-        q = q.eq('ville', activeCity);
+        // Joindre avec layers pour filtrer par ville
+        const { data: layerRows, error: layerErr } = await supabaseClient
+          .from('layers')
+          .select('name, ville')
+          .eq('ville', activeCity);
+        
+        if (layerErr) {
+          console.error('[supabaseService] fetchFilterItems layers error:', layerErr);
+          const { data, error } = await q;
+          return error ? [] : (data || []);
+        }
+        
+        const allowedLayers = new Set((layerRows || []).map(r => r.name).filter(Boolean));
+        const { data, error } = await q;
+        if (error) {
+          console.error('[supabaseService] fetchFilterItems error:', error);
+          return [];
+        }
+        return (data || []).filter(item => allowedLayers.has(item.layer));
       } else {
-        q = q.is('ville', null);
+        const { data, error } = await q;
+        if (error) {
+          console.error('[supabaseService] fetchFilterItems error:', error);
+          return [];
+        }
+        return data || [];
       }
-      const { data: layerRows, error: layerErr } = await q;
-      if (layerErr) {
-        console.error('[supabaseService] fetchFiltersConfig layers error:', layerErr);
-        return (data || []).map(cat => ({ category: cat.category, items: cat.filter_items }));
-      }
-      const allowedLayers = new Set((layerRows || []).map(r => r.name).filter(Boolean));
-
-      // 3) Filtrer les items par couches autorisées et supprimer les catégories vides
-      const filtered = (data || []).map(cat => {
-        const items = (cat.filter_items || []).filter(it => allowedLayers.has(it.layer));
-        return { category: cat.category, items };
-      }).filter(cat => (cat.items && cat.items.length > 0));
-
-      return filtered;
     },
-
+    
     // fetchProjectFilterMapping: removed (legacy). Filtering relies on filter_categories/filter_items and GeoJSON properties.
 
     // fetchProjectColors: removed (legacy). Project colors are not used by the UI anymore.
@@ -1434,8 +1420,6 @@
           case 'fetchLayersConfig': prop = 'layersConfig'; break;
           case 'fetchMetroColors':   prop = 'metroColors';   break;
           case 'fetchProjectPages':  prop = 'projectPages';  break;
-          case 'fetchFiltersConfig':   prop = 'filtersConfig';  break;
-          case 'fetchProjectFilterMapping':  prop = 'projectFilterMapping';  break;
           case 'fetchBasemaps':             prop = 'basemaps';             break;
           default:
             const name = key.replace(/^fetch/, '');
