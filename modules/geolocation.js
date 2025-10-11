@@ -307,7 +307,7 @@ window.GeolocationModule = (() => {
       Object.assign(contentEl.style, {
         background: '#fff',
         color: '#111',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+        boxShadow: '0 8px 24px var(--black-alpha-18)',
         borderRadius: '12px',
         padding: '12px 14px',
         fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif',

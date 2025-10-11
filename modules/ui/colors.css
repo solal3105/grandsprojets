@@ -12,7 +12,7 @@
   --white: #FFFFFF;
   --black: #000000;
   
-  --color-primary: #388e3c;    /* Vert principal */
+  --color-primary: #21b929;    /* Vert principal */
   --color-danger: #EF4444;     /* Rouge */
   --color-info: #2563EB;       /* Bleu */
   --color-warning: #F59E0B;    /* Orange */
@@ -190,28 +190,150 @@
    ============================================================================ */
 
 html[data-theme='dark'] {
-  /* Gris inversés */
-  --gray-50: #0F172A;
-  --gray-100: #1E293B;
-  --gray-200: #334155;
-  --gray-300: #475569;
-  --gray-400: #64748B;
-  --gray-500: #94A3B8;
-  --gray-600: #CBD5E1;
-  --gray-700: #E2E8F0;
-  --gray-800: #F1F5F9;
-  --gray-900: #F8FAFC;
+  /* ========================================
+     SOFT BLUE-GREY ÉLÉGANT (Inspired by Slate + Blue)
+     Palette douce bleutée et sophistiquée - moins de noir, plus de bleu
+     ======================================== */
+  --gray-50: #0f172a;      /* Slate profond avec forte nuance bleue */
+  --gray-100: #1e293b;     /* Bleu-ardoise sombre et élégant */
+  --gray-200: #334155;     /* Bleu-gris doux et équilibré */
+  --gray-300: #475569;     /* Bleu-gris moyen sophistiqué */
+  --gray-400: #64748b;     /* Bleu-gris moyen lumineux */
+  --gray-500: #94a3b8;     /* Bleu-gris clair apaisant */
+  --gray-600: #cbd5e1;     /* Bleu-gris très clair raffiné */
+  --gray-700: #e2e8f0;     /* Presque blanc bleuté délicat */
+  --gray-800: #f1f5f9;     /* Blanc cassé bleuté pur */
+  --gray-900: #f8fafc;     /* Blanc doux comme neige */
   
-  /* Surfaces dark */
-  --surface-base: #0A0F1A;
-  --surface-raised: var(--gray-50);
-  --surface-overlay: var(--gray-100);
+  /* ========================================
+     BLANC & NOIR SOFT BLUE (inversés en dark mode)
+     ======================================== */
+  --white: #0f172a;        /* Devient le fond sombre slate profond */
+  --black: #f8fafc;        /* Devient le texte clair bleuté */
   
-  /* Couleurs principales légèrement plus claires en dark */
-  --primary: color-mix(in srgb, var(--color-primary) 120%, white);
-  --danger: color-mix(in srgb, var(--color-danger) 110%, white);
-  --info: color-mix(in srgb, var(--color-info) 110%, white);
-  --warning: color-mix(in srgb, var(--color-warning) 110%, white);
+  /* Opacités blanches bleutées (pour glassmorphism élégant) */
+  --white-alpha-04: rgba(248, 250, 252, 0.04);
+  --white-alpha-05: rgba(248, 250, 252, 0.05);
+  --white-alpha-06: rgba(248, 250, 252, 0.06);
+  --white-alpha-08: rgba(248, 250, 252, 0.08);
+  --white-alpha-10: rgba(248, 250, 252, 0.1);
+  --white-alpha-12: rgba(248, 250, 252, 0.12);
+  --white-alpha-18: rgba(248, 250, 252, 0.18);
+  --white-alpha-20: rgba(248, 250, 252, 0.2);
+  --white-alpha-25: rgba(248, 250, 252, 0.25);
+  --white-alpha-28: rgba(248, 250, 252, 0.28);
+  --white-alpha-35: rgba(248, 250, 252, 0.35);
+  --white-alpha-40: rgba(248, 250, 252, 0.4);
+  --white-alpha-45: rgba(248, 250, 252, 0.45);
+  --white-alpha-50: rgba(248, 250, 252, 0.5);
+  --white-alpha-55: rgba(248, 250, 252, 0.55);
+  --white-alpha-60: rgba(248, 250, 252, 0.6);
+  --white-alpha-65: rgba(248, 250, 252, 0.65);
+  --white-alpha-72: rgba(248, 250, 252, 0.72);
+  --white-alpha-75: rgba(248, 250, 252, 0.75);
+  --white-alpha-80: rgba(248, 250, 252, 0.8);
+  --white-alpha-90: rgba(248, 250, 252, 0.9);
+  --white-alpha-95: rgba(248, 250, 252, 0.95);
+  
+  /* Opacités slate bleuté (au lieu de noir pur) */
+  --black-alpha-04: rgba(15, 23, 42, 0.04);
+  --black-alpha-06: rgba(15, 23, 42, 0.06);
+  --black-alpha-08: rgba(15, 23, 42, 0.08);
+  --black-alpha-10: rgba(15, 23, 42, 0.1);
+  --black-alpha-12: rgba(15, 23, 42, 0.12);
+  --black-alpha-15: rgba(15, 23, 42, 0.15);
+  --black-alpha-16: rgba(15, 23, 42, 0.16);
+  --black-alpha-18: rgba(15, 23, 42, 0.18);
+  --black-alpha-20: rgba(15, 23, 42, 0.2);
+  --black-alpha-30: rgba(15, 23, 42, 0.3);
+  --black-alpha-35: rgba(15, 23, 42, 0.35);
+  --black-alpha-40: rgba(15, 23, 42, 0.4);
+  --black-alpha-45: rgba(15, 23, 42, 0.45);
+  --black-alpha-50: rgba(15, 23, 42, 0.5);
+  --black-alpha-55: rgba(15, 23, 42, 0.55);
+  --black-alpha-66: rgba(15, 23, 42, 0.66);
+  --black-alpha-95: rgba(15, 23, 42, 0.95);
+  
+  /* Soft blue alpha (au lieu de dark-blue) */
+  --dark-blue-alpha-45: rgba(15, 23, 42, 0.45);
+  --dark-blue-alpha-06: rgba(15, 23, 42, 0.06);
+  --dark-blue-alpha-08: rgba(15, 23, 42, 0.08);
+  --dark-blue-alpha-10: rgba(15, 23, 42, 0.10);
+  --dark-blue-alpha-12: rgba(15, 23, 42, 0.12);
+  --dark-blue-alpha-16: rgba(15, 23, 42, 0.16);
+  --dark-blue-alpha-18: rgba(15, 23, 42, 0.18);
+  
+  /* ========================================
+     COULEURS DE BASE (harmonisées avec le fond soft blue)
+     Palette raffinée et élégante pour un confort visuel optimal
+     ======================================== */
+  --color-primary: #6ee7b7;    /* Vert émeraude doux et lumineux */
+  --color-danger: #f87171;     /* Rouge corail doux et chaleureux */
+  --color-info: #60a5fa;       /* Bleu ciel doux et harmonieux */
+  --color-warning: #fbbf24;    /* Ambre doux et chaleureux */
+  
+  /* ========================================
+     PRIMARY (recalculé avec la couleur plus douce)
+     ======================================== */
+  --primary: var(--color-primary);
+  --primary-hover: color-mix(in srgb, var(--color-primary) 115%, white);
+  --primary-active: color-mix(in srgb, var(--color-primary) 130%, white);
+  --primary-light: color-mix(in srgb, var(--color-primary) 25%, white);
+  --primary-lighter: color-mix(in srgb, var(--color-primary) 15%, white);
+  
+  /* ========================================
+     DANGER (recalculé avec la couleur plus douce)
+     ======================================== */
+  --danger: var(--color-danger);
+  --danger-hover: color-mix(in srgb, var(--color-danger) 115%, white);
+  --danger-active: color-mix(in srgb, var(--color-danger) 130%, white);
+  --danger-light: color-mix(in srgb, var(--color-danger) 25%, white);
+  --danger-lighter: color-mix(in srgb, var(--color-danger) 15%, white);
+  
+  /* ========================================
+     INFO (recalculé avec la couleur plus douce)
+     ======================================== */
+  --info: var(--color-info);
+  --info-hover: color-mix(in srgb, var(--color-info) 115%, white);
+  --info-light: color-mix(in srgb, var(--color-info) 25%, white);
+  --info-lighter: color-mix(in srgb, var(--color-info) 15%, white);
+  
+  /* ========================================
+     WARNING (recalculé avec la couleur plus douce)
+     ======================================== */
+  --warning: var(--color-warning);
+  --warning-hover: color-mix(in srgb, var(--color-warning) 115%, white);
+  --warning-light: color-mix(in srgb, var(--color-warning) 25%, white);
+  --warning-lighter: color-mix(in srgb, var(--color-warning) 15%, white);
+  
+  /* ========================================
+     SUCCESS (alias de primary)
+     ======================================== */
+  --success: var(--primary);
+  --success-hover: var(--primary-hover);
+  --success-light: var(--primary-light);
+  
+  /* ========================================
+     ALIAS SÉMANTIQUES (optimisés pour le fond bleu-sombre)
+     ======================================== */
+  
+  /* Texte - Contraste doux mais lisible */
+  --text-primary: #f8fafc;     /* Blanc doux pour texte principal */
+  --text-secondary: #cbd5e1;   /* Bleu-gris clair pour texte secondaire */
+  --text-tertiary: #94a3b8;    /* Bleu-gris moyen pour texte tertiaire */
+  --text-disabled: #64748b;    /* Bleu-gris sombre pour désactivé */
+  
+  /* Borders - Bordures subtiles bleutées et élégantes */
+  --border-light: #334155;     /* Bordure très subtile (gray-200) */
+  --border-medium: #475569;    /* Bordure moyenne douce (gray-300) */
+  --border-strong: #64748b;    /* Bordure visible (gray-400) */
+  
+  /* ========================================
+     SURFACES - Fond soft blue avec profondeur élégante
+     ======================================== */
+  --surface-base: #0f172a;     /* Fond principal slate profond (gray-50) */
+  --surface-raised: #1e293b;   /* Cartes et éléments surélevés (gray-100) */
+  --surface-overlay: #334155;  /* Overlays et modals (gray-200) */
 }
 
 /* ============================================================================

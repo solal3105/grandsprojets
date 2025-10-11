@@ -17,39 +17,18 @@
 #contrib-overlay #contrib-next.gp-btn {
   background: var(--primary);
   border-color: var(--primary-hover);
-  color: var(--dm-text);
-  border: 1px solid var(--dm-menu-border);
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium);
 }
-html[data-theme='dark'] #contrib-overlay .gp-btn:hover,
-html[data-theme='dark'] #contrib-overlay .gp-btn:focus {
-  background: var(--white-alpha-10);
-  border-color: var(--white-alpha-28);
-}
-/* Dark mode: primary actions (Next/Submit) remain accented */
-html[data-theme='dark'] #contrib-overlay #contrib-next.gp-btn,
-html[data-theme='dark'] #contrib-overlay #contrib-submit.gp-btn {
-  background: var(--primary);
-  border-color: var(--primary-hover);
-  color: var(--on-accent);
-}
-html[data-theme='dark'] #contrib-overlay #contrib-next.gp-btn:hover,
-html[data-theme='dark'] #contrib-overlay #contrib-next.gp-btn:focus,
-html[data-theme='dark'] #contrib-overlay #contrib-submit.gp-btn:hover,
-html[data-theme='dark'] #contrib-overlay #contrib-submit.gp-btn:focus {
-  background: var(--primary-hover);
-  border-color: var(--primary-active);
-}
+
+
 /* Helper descriptions and HUD spacing in contribution modal */
 #contrib-overlay .form-row small {
   display: block;
   margin-top: 6px;
   color: var(--black-alpha-55);
 }
-html[data-theme='dark'] #contrib-overlay .form-row small {
-  color: var(--white-alpha-65);
-}
 #contrib-overlay .form-row .char-hud .char-prog { background: var(--black-alpha-12); }
-html[data-theme='dark'] #contrib-overlay .form-row .char-hud .char-prog { background: var(--white-alpha-18); }
 
 /* Inputs/selects/textareas inside contribution modal */
 #contrib-overlay .form-row input[type="text"],
@@ -59,86 +38,13 @@ html[data-theme='dark'] #contrib-overlay .form-row .char-hud .char-prog { backgr
 #contrib-overlay .form-row select {
   width: 100%;
   padding: 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
+  background: var(--surface-base);
+  color: var(--text-primary);
   box-sizing: border-box;
 }
-html[data-theme='dark'] #contrib-overlay .form-row input[type="text"],
-html[data-theme='dark'] #contrib-overlay .form-row input[type="url"],
-html[data-theme='dark'] #contrib-overlay .form-row input[type="search"],
-html[data-theme='dark'] #contrib-overlay .form-row textarea,
-html[data-theme='dark'] #contrib-overlay .form-row select {
-  background: var(--white-alpha-06);
-  color: var(--dm-text);
-  border-color: var(--dm-menu-border);
-}
-html[data-theme='dark'] #contrib-overlay .form-row input::placeholder,
-html[data-theme='dark'] #contrib-overlay .form-row textarea::placeholder {
-  color: var(--white-alpha-55);
-}
 
-/* Dark mode: specific adjustments for Meta field */
-html[data-theme='dark'] #contrib-overlay label[for="contrib-meta"] {
-  color: var(--dm-text);
-}
-html[data-theme='dark'] #contrib-meta {
-  background: var(--white-alpha-06);
-  color: var(--dm-text);
-  border-color: var(--dm-menu-border);
-}
-html[data-theme='dark'] #contrib-meta:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 2px var(--primary-alpha-25);
-  outline: none;
-}
-/* Optional: darker scrollbar for the meta textarea (webkit browsers) */
-html[data-theme='dark'] #contrib-meta::-webkit-scrollbar { width: 10px; }
-html[data-theme='dark'] #contrib-meta::-webkit-scrollbar-track { background: var(--white-alpha-04); border-radius: 10px; }
-html[data-theme='dark'] #contrib-meta::-webkit-scrollbar-thumb { background: var(--white-alpha-18); border-radius: 10px; }
-html[data-theme='dark'] #contrib-meta::-webkit-scrollbar-thumb:hover { background: var(--white-alpha-28); }
-
-/* Assistant Writer card title reinforcement */
-html[data-theme='dark'] #assistant-writer-card .title {
-  color: var(--primary-light) !important;
-}
-
-/* Dark mode overrides for the Assistant Writer card (inline styles require !important) */
-html[data-theme='dark'] #assistant-writer-card {
-  background: linear-gradient(180deg, var(--gray-900), var(--gray-900)) !important;
-  border-color: var(--gray-900) !important;
-  box-shadow: 0 2px 10px var(--black-alpha-35) !important;
-}
-html[data-theme='dark'] #assistant-writer-card .title { color: var(--primary-light) !important; }
-html[data-theme='dark'] #assistant-writer-card .subtitle { color: var(--primary-light) !important; }
-html[data-theme='dark'] #assistant-writer-card .chips span {
-  background: var(--primary-active) !important;
-  color: var(--primary-lighter) !important;
-  border-color: var(--primary) !important;
-}
-
-/* Dark mode for the CTA button inside assistant card */
-html[data-theme='dark'] #assistant-writer-card a#contrib-assistant-link {
-  background: var(--primary) !important;
-  color: var(--on-accent) !important;
-}
-html[data-theme='dark'] #assistant-writer-card a#contrib-assistant-link:hover {
-  background: var(--primary-hover) !important;
-}
-
-/* Dark mode: options in selects (including multiple) */
-html[data-theme='dark'] #contrib-overlay select option,
-html[data-theme='dark'] #contrib-panel-list select option {
-  background: var(--black-alpha-95);
-  color: var(--dm-text);
-}
-/* Multiple selects: selected items */
-html[data-theme='dark'] #contrib-overlay select[multiple] option:checked,
-html[data-theme='dark'] #contrib-panel-list select[multiple] option:checked {
-  background: linear-gradient(0deg, var(--primary-alpha-20), var(--primary-alpha-20));
-  color: var(--on-accent);
-}
 /* ---------------------------------------------------------------------------
    Base et réinitialisation
 --------------------------------------------------------------------------- */
@@ -287,46 +193,6 @@ html, body {
   display: flex;
   gap: 8px;
 }
-
-html[data-theme='dark'] .city-card {
-  background: var(--white-alpha-06);
-  border-color: var(--dm-menu-border);
-}
-
-html[data-theme='dark'] .city-card:hover {
-  box-shadow: 0 4px 12px var(--black-alpha-40);
-  border-color: var(--accent);
-}
-
-html[data-theme='dark'] .city-card__code {
-  background: var(--info-alpha-15);
-  color: var(--info-light);
-}
-
-html[data-theme='dark'] .city-card__meta {
-  color: var(--white-alpha-65);
-}
-
-html[data-theme='dark'] .city-card__admin-count {
-  background: var(--primary-alpha-2);
-  color: var(--primary-light);
-}
-
-html[data-theme='dark'] .city-card__admin-warning {
-  background: var(--warning-alpha-22);
-  color: var(--primary);
-}
-
-html[data-theme='dark'] .city-card--warning {
-  border-color: var(--warning);
-  background: var(--warning-alpha-10);
-}
-
-html[data-theme='dark'] .city-card__readonly-badge {
-  background: var(--white-alpha-10);
-  color: var(--white-alpha-50);
-}
-
 /* User Info Card */
 .user-info-card {
   margin-bottom: 20px;
@@ -436,46 +302,6 @@ html[data-theme='dark'] .city-card__readonly-badge {
   transform: translateY(0);
 }
 
-/* Dark mode */
-html[data-theme='dark'] .user-info-card {
-  background: linear-gradient(135deg, var(--info-alpha-12) 0%, var(--info-alpha-05) 100%);
-  border-color: var(--info-alpha-2);
-  box-shadow: 0 2px 8px var(--black-alpha-30);
-}
-
-html[data-theme='dark'] .user-info-card__avatar {
-  background: linear-gradient(135deg, var(--info-light) 0%, var(--info-light) 100%);
-  box-shadow: 0 4px 12px var(--info-alpha-3);
-}
-
-html[data-theme='dark'] .user-info-card__label {
-  color: var(--white-alpha-50);
-}
-
-html[data-theme='dark'] .user-info-card__email {
-  color: var(--text-primary);
-}
-
-html[data-theme='dark'] .user-info-card__badge {
-  background: var(--info-alpha-15);
-  color: var(--info-light);
-  border-color: var(--info-alpha-25);
-}
-
-html[data-theme='dark'] .user-info-card__cities {
-  color: var(--white-alpha-65);
-}
-
-html[data-theme='dark'] .user-info-card__logout {
-  border-color: var(--danger-alpha-45);
-  color: var(--danger);
-}
-
-html[data-theme='dark'] .user-info-card__logout:hover {
-  background: var(--danger-alpha-16);
-  border-color: var(--danger);
-}
-
 /* Landing (choix initial) */
 #contrib-overlay .contrib-landing { margin-bottom: 10px; }
 #contrib-overlay .contrib-landing .landing-title { margin: 0 0 10px; font-size: 16px; opacity: 0.9; }
@@ -483,18 +309,14 @@ html[data-theme='dark'] .user-info-card__logout:hover {
 #contrib-overlay .contrib-landing .choice-card {
   display:flex; flex-direction:column; align-items:flex-start; gap:6px;
   min-width:220px; flex:1 1 220px; padding:14px; border-radius:14px; text-align:left;
-  border:1px solid var(--black-alpha-10); background:var(--surface-80); cursor:pointer;
+  border:1px solid var(--black-alpha-10); background:var(--white-alpha-80); cursor:pointer;
   transition: transform .15s ease, box-shadow .2s ease, border-color .15s ease;
 }
 #contrib-overlay .contrib-landing .choice-card:hover { transform: translateY(-2px); box-shadow:0 8px 20px var(--black-alpha-12); border-color: var(--black-alpha-18); }
 #contrib-overlay .contrib-landing .choice-card:active { transform: translateY(0); }
-#contrib-overlay .contrib-landing .card-icon { width:34px; height:34px; display:inline-grid; place-items:center; border-radius:10px; background: color-mix(in srgb, var(--accent) 20%, white); color:var(--primary-active); }
+#contrib-overlay .contrib-landing .card-icon { width:34px; height:34px; display:inline-grid; place-items:center; border-radius:10px; background: color-mix(in srgb, var(--primary) 20%, white); color:var(--primary-active); }
 #contrib-overlay .contrib-landing .card-title { font-weight:700; }
 #contrib-overlay .contrib-landing .card-desc { font-size: 0.95rem; opacity:0.85; }
-
-html[data-theme='dark'] #contrib-overlay .contrib-landing .choice-card { background: var(--white-alpha-06); border-color: var(--dm-menu-border); }
-html[data-theme='dark'] #contrib-overlay .contrib-landing .choice-card:hover { box-shadow:0 10px 24px var(--black-alpha-35); }
-html[data-theme='dark'] #contrib-overlay .contrib-landing .card-icon { background: color-mix(in srgb, var(--accent) 26%, black); color: var(--on-accent); }
 
 /* Geom mode cards */
 #contrib-overlay #contrib-geom-mode { margin-top: 8px; }
@@ -502,20 +324,15 @@ html[data-theme='dark'] #contrib-overlay .contrib-landing .card-icon { backgroun
 #contrib-overlay #contrib-geom-mode .geom-card {
   display:flex; flex-direction:column; gap:6px; align-items:flex-start;
   min-width:220px; flex:1 1 220px; padding:12px 14px; border-radius:14px; text-align:left;
-  border:1px solid var(--black-alpha-10); background:var(--surface-90); cursor:pointer;
+  border:1px solid var(--black-alpha-10); background:var(--white-alpha-90); cursor:pointer;
   transition: transform .15s ease, box-shadow .2s ease, border-color .15s ease, background .2s ease;
 }
 #contrib-overlay #contrib-geom-mode .geom-card:hover { transform: translateY(-2px); box-shadow:0 8px 20px var(--black-alpha-12); border-color: var(--black-alpha-18); }
 #contrib-overlay #contrib-geom-mode .geom-card:active { transform: translateY(0); }
-#contrib-overlay #contrib-geom-mode .geom-card .geom-icon { width:34px; height:34px; display:inline-grid; place-items:center; border-radius:10px; background: color-mix(in srgb, var(--accent) 20%, white); color:var(--primary-active); }
+#contrib-overlay #contrib-geom-mode .geom-card .geom-icon { width:34px; height:34px; display:inline-grid; place-items:center; border-radius:10px; background: color-mix(in srgb, var(--primary) 20%, white); color:var(--primary-active); }
 #contrib-overlay #contrib-geom-mode .geom-card .geom-title { font-weight:700; }
 #contrib-overlay #contrib-geom-mode .geom-card .geom-desc { font-size: 0.95rem; opacity:0.85; }
-#contrib-overlay #contrib-geom-mode .geom-card.is-active { border-color: var(--accent, var(--primary)); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); background: var(--surface-95); }
-
-html[data-theme='dark'] #contrib-overlay #contrib-geom-mode .geom-card { background: var(--white-alpha-06); border-color: var(--dm-menu-border); }
-html[data-theme='dark'] #contrib-overlay #contrib-geom-mode .geom-card:hover { box-shadow:0 10px 24px var(--black-alpha-35); }
-html[data-theme='dark'] #contrib-overlay #contrib-geom-mode .geom-card .geom-icon { background: color-mix(in srgb, var(--accent) 26%, black); color: var(--on-accent); }
-html[data-theme='dark'] #contrib-overlay #contrib-geom-mode .geom-card.is-active { background: var(--white-alpha-10); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+#contrib-overlay #contrib-geom-mode .geom-card.is-active { border-color: var(--accent, var(--primary)); box-shadow:0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent); background: var(--white-alpha-95); }
 
 /* Reveal animations for panels */
 #contrib-overlay .reveal {
@@ -531,7 +348,7 @@ html[data-theme='dark'] #contrib-overlay #contrib-geom-mode .geom-card.is-active
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   gap:8px; padding:24px 18px; min-height:140px; width:100%; max-width:100%;
   box-sizing:border-box; border-radius:14px; text-align:center;
-  border:2px dashed var(--black-alpha-20); background: var(--surface-95); cursor:pointer;
+  border:2px dashed var(--black-alpha-20); background: var(--white-alpha-95); cursor:pointer;
   transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
   overflow:hidden;
 }
@@ -546,7 +363,7 @@ html[data-theme='dark'] #contrib-overlay #contrib-geom-mode .geom-card.is-active
 #contrib-overlay .file-name { margin-top:6px; font-size:0.92rem; opacity:0.75; }
 #contrib-overlay .file-dropzone.is-dragover {
   border-color: var(--black-alpha-45);
-  background: var(--surface-95);
+  background: var(--white-alpha-95);
   box-shadow: inset 0 0 0 1px var(--black-alpha-08);
 }
 
@@ -555,11 +372,6 @@ html[data-theme='dark'] #contrib-overlay #contrib-geom-mode .geom-card.is-active
 #contrib-overlay .file-dropzone.has-file .dz-selected { display:flex; }
 #contrib-overlay .file-dropzone .dz-selected .dz-icon { color: var(--black-alpha-55); }
 #contrib-overlay .file-dropzone .dz-filename { font-size:0.92rem; opacity:0.85; }
-
-html[data-theme='dark'] #contrib-overlay .file-dropzone { background: var(--white-alpha-06); border-color: var(--dm-menu-border); }
-html[data-theme='dark'] #contrib-overlay .file-dropzone:hover,
-html[data-theme='dark'] #contrib-overlay .file-dropzone:focus { box-shadow: 0 0 0 2px var(--white-alpha-12); border-color: var(--white-alpha-55); }
-html[data-theme='dark'] #contrib-overlay .file-dropzone.is-dragover { box-shadow: inset 0 0 0 1px var(--white-alpha-12); border-color: var(--white-alpha-55); }
 
 /* ---------------------------------------------------------------------------
    Step 4 cards: grid and card components
@@ -578,9 +390,9 @@ html[data-theme='dark'] #contrib-overlay .file-dropzone.is-dragover { box-shadow
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: var(--panel-solid);
-  color: var(--text);
-  border: 1px solid var(--border);
+  background: var(--surface-base);
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium);
   border-radius: 14px;
   padding: 12px 14px;
   box-shadow: 0 4px 14px var(--black-alpha-06);
@@ -602,7 +414,7 @@ html[data-theme='dark'] #contrib-overlay .file-dropzone.is-dragover { box-shadow
 #contrib-overlay .doc-card__header .doc-title {
   width: 100%;
   padding: 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
   box-sizing: border-box;
 }
@@ -610,22 +422,9 @@ html[data-theme='dark'] #contrib-overlay .file-dropzone.is-dragover { box-shadow
 #contrib-overlay .doc-card__body { display: flex; align-items: center; gap: 10px; }
 #contrib-overlay .doc-card__body .doc-upload-label { cursor: pointer; }
 #contrib-overlay .doc-card__body .doc-upload-label input[type="file"] { display: none; }
-#contrib-overlay .doc-card__body .doc-upload-cta { display: inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius: 8px; border:1px dashed var(--border); background: var(--panel-translucent); }
+#contrib-overlay .doc-card__body .doc-upload-cta { display: inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius: 8px; border:1px dashed var(--border-medium); background: var(--white-alpha-80); }
 #contrib-overlay .doc-card__body .doc-filename { font-size: 0.9rem; opacity: 0.75; }
 
-/* Dark mode: document upload CTA and text inputs */
-html[data-theme='dark'] #contrib-overlay .doc-card__header .doc-title {
-  background: var(--white-alpha-06);
-  color: var(--dm-text);
-  border-color: var(--dm-menu-border);
-}
-html[data-theme='dark'] #contrib-overlay .doc-card__body .doc-upload-cta {
-  background: var(--white-alpha-06);
-  border-color: var(--dm-menu-border);
-}
-html[data-theme='dark'] #contrib-overlay .doc-card__body .doc-upload-cta:hover {
-  background: var(--white-alpha-10);
-}
 
 #contrib-overlay .doc-card__footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 #contrib-overlay .doc-status { font-size: 0.85rem; opacity: 0.75; }
@@ -641,11 +440,11 @@ html[data-theme='dark'] #contrib-overlay .doc-card__body .doc-upload-cta:hover {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: var(--panel-translucent);
+  background: var(--white-alpha-80);
   cursor: pointer;
   transition: transform .15s ease, box-shadow .2s ease, border-color .15s ease;
 }
-#contrib-overlay .cta-card .cta-icon { width:34px; height:34px; display:inline-grid; place-items:center; border-radius:10px; background: color-mix(in srgb, var(--accent) 20%, white); color:var(--primary-active); }
+#contrib-overlay .cta-card .cta-icon { width:34px; height:34px; display:inline-grid; place-items:center; border-radius:10px; background: color-mix(in srgb, var(--primary) 20%, white); color:var(--primary-active); }
 #contrib-overlay .cta-card .cta-label { font-weight: 700; }
 #contrib-overlay .cta-card:hover { transform: translateY(-2px); box-shadow:0 8px 20px var(--black-alpha-12); border-color: var(--black-alpha-18); }
 
@@ -661,7 +460,7 @@ html[data-theme='dark'] #contrib-overlay .doc-card__body .doc-upload-cta:hover {
 #contrib-overlay .official-link-card input[type="text"] {
   width: 100%;
   padding: 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
 }
 
@@ -697,9 +496,9 @@ html[data-theme='dark'] #contrib-overlay .doc-card__body .doc-upload-cta:hover {
 }
 #contrib-overlay .icon-btn {
   appearance: none;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-strong);
+  border: 1px solid var(--border-medium);
+  background: var(--surface-base);
+  color: var(--text-primary);
   border-radius: 6px;
   padding: 6px 8px;
   line-height: 1;
@@ -709,7 +508,7 @@ html[data-theme='dark'] #contrib-overlay .doc-card__body .doc-upload-cta:hover {
   cursor: pointer;
 }
 #contrib-overlay .icon-btn:hover {
-  background: var(--surface-95);
+  background: var(--white-alpha-95);
 }
 #contrib-overlay .icon-btn--delete {
   border-color: var(--danger-300, var(--danger-light));
@@ -718,57 +517,16 @@ html[data-theme='dark'] #contrib-overlay .doc-card__body .doc-upload-cta:hover {
 #contrib-overlay .icon-btn--delete:hover {
   background: var(--danger-alpha-20);
 }
-
-/* Dark mode: icon buttons better contrast */
-html[data-theme='dark'] #contrib-overlay .icon-btn {
-  background: var(--white-alpha-06);
-  color: var(--dm-text);
-  border-color: var(--dm-menu-border);
-}
-html[data-theme='dark'] #contrib-overlay .icon-btn:hover {
-  background: var(--white-alpha-10);
-  border-color: var(--white-alpha-28);
-}
-html[data-theme='dark'] #contrib-overlay .icon-btn--delete {
-  border-color: var(--danger-alpha-45);
-  color: var(--danger);
-}
-html[data-theme='dark'] #contrib-overlay .icon-btn--delete:hover {
-  background: var(--danger-alpha-16);
-  border-color: var(--danger-alpha-55);
-}
-
-/* Dark mode: official link inputs */
-html[data-theme='dark'] #contrib-overlay .official-link-card input[type="url"],
-html[data-theme='dark'] #contrib-overlay .official-link-card input[type="text"] {
-  background: var(--white-alpha-06);
-  color: var(--dm-text);
-  border-color: var(--dm-menu-border);
-}
-
 /* Optional AI assistant card if present */
 #contrib-overlay .ai-assistant-card {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: var(--panel-solid);
-  color: var(--text);
-  border: 1px solid var(--border);
+  background: var(--surface-base);
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium);
   border-radius: 14px;
   padding: 12px 14px;
-}
-html[data-theme='dark'] #contrib-overlay .ai-assistant-card {
-  background: var(--white-alpha-06);
-  color: var(--dm-text);
-  border-color: var(--dm-menu-border);
-}
-html[data-theme='dark'] #contrib-overlay .ai-assistant-card .gp-btn {
-  background: var(--white-alpha-08);
-  border-color: var(--dm-menu-border);
-  color: var(--dm-text);
-}
-html[data-theme='dark'] #contrib-overlay .ai-assistant-card .gp-btn:hover {
-  background: var(--white-alpha-12);
 }
 
 /* Inline confirmation bar inside existing doc card */
@@ -797,9 +555,9 @@ html[data-theme='dark'] #contrib-overlay .ai-assistant-card .gp-btn:hover {
   flex-direction: column;
   gap: 8px;
   padding: 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--surface-base);
 }
 #contrib-overlay .inline-edit-url__row {
   display: flex;
@@ -846,17 +604,17 @@ html[data-theme='dark'] #contrib-overlay .ai-assistant-card .gp-btn:hover {
 
   /* Theme variables used by ficheprojet.css (light defaults) */
   --text: var(--text-primary);
-  --panel-solid: var(--surface);
-  --panel-translucent: var(--surface-80);
+  --panel-solid: var(--surface-base);
+  --panel-translucent: var(--white-alpha-80);
   --border: var(--border-light);
   --chip-bg: var(--primary-lighter);
   --chip-hover-bg: var(--primary-light);
   --accent: var(--primary);
-  --accent-contrast: var(--on-accent);
+  --accent-contrast: white;
   --overlay-strong: var(--white-alpha-60);
   --overlay-weak: var(--white-alpha-18);
   --glass-topbar-bg: var(--white-alpha-72);
-  --tooltip-bg: var(--surface-70);
+  --tooltip-bg: var(--white-alpha-72);
 
   /* Neutral accent colors (light theme) */
   --accent-blue: var(--info);
@@ -873,9 +631,9 @@ html[data-theme='dark'] #contrib-overlay .ai-assistant-card .gp-btn:hover {
   /* Legend card for Travaux progress */
   .legend-card {
     display: block;
-    background: var(--panel-solid);
-    color: var(--text);
-    border: 1px solid var(--border);
+    background: var(--surface-base);
+    color: var(--text-primary);
+    border: 1px solid var(--border-medium);
     border-radius: 14px;
     padding: 12px 14px;
     box-shadow: 0 4px 14px var(--black-alpha-06);
@@ -889,14 +647,14 @@ html[data-theme='dark'] #contrib-overlay .ai-assistant-card .gp-btn:hover {
     margin-bottom: 10px;
   }
 
-  .legend-card .legend-header i { color: var(--text); opacity: 0.8; }
+  .legend-card .legend-header i { color: var(--text-primary); opacity: 0.8; }
 
   .legend-card .legend-title { font-size: 0.95rem; }
 
   .legend-card .legend-gradient {
     height: 12px;
     border-radius: 999px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-medium);
     background: linear-gradient(90deg,
       var(--danger) 0%,
       var(--danger) 10%,
@@ -964,7 +722,7 @@ html[data-theme='dark'] #contrib-overlay .ai-assistant-card .gp-btn:hover {
   display: inline-block;
   width: 18px;
   height: 18px;
-  background-color: var(--surface);
+  background-color: var(--surface-base);
   border: 2px solid var(--primary);
   border-radius: 4px;
   margin-right: 10px;
@@ -979,7 +737,7 @@ html[data-theme='dark'] #contrib-overlay .ai-assistant-card .gp-btn:hover {
 .travaux-checkbox:checked ~ .travaux-checkbox-custom::after {
   content: "✓";
   position: absolute;
-  color: var(--on-accent);
+  color: white;
   font-size: 12px;
   left: 50%;
   top: 50%;
@@ -1005,11 +763,8 @@ html[data-theme='dark'] #contrib-overlay .ai-assistant-card .gp-btn:hover {
 #map {
   width: 100%;
   height: 100%;
-  background-color: var(--surface);
+  background-color: var(--surface-base);
 }
-
-html[data-theme='dark'] #map { background-color: var(--gray-900); }
-html[data-theme='dark'] .leaflet-container { background: var(--gray-900); }
 
 /* Ensure invisible hitline strokes in custom pane remain clickable */
 .leaflet-hitlinePane-pane path {
@@ -1061,15 +816,6 @@ html[data-theme='dark'] .leaflet-container { background: var(--gray-900); }
   box-shadow: 0 4px 8px var(--danger-alpha-3);
 }
 
-html[data-theme='dark'] .filters-close-btn {
-  background: var(--white-alpha-10);
-  color: var(--gray-300);
-}
-
-html[data-theme='dark'] .filters-close-btn:hover {
-  background: var(--danger);
-  color: white;
-}
 
 #filters-container h3 {
   margin-top: 0;
@@ -1093,7 +839,7 @@ html[data-theme='dark'] .filters-close-btn:hover {
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  background-color: var(--surface-70);
+  background-color: var(--white-alpha-72);
   backdrop-filter: blur(5px);
   border: 1px solid var(--primary-alpha-1);
 }
@@ -1147,7 +893,7 @@ html[data-theme='dark'] .filters-close-btn:hover {
   box-shadow: 0 6px 12px var(--black-alpha-10),
               0 3px 6px var(--black-alpha-08);
   transform: translateY(-3px) scale(1.02);
-  background-color: var(--surface-90);
+  background-color: var(--white-alpha-90);
   border-color: var(--primary-alpha-3);
 }
 
@@ -1195,7 +941,7 @@ html[data-theme='dark'] .filters-close-btn:hover {
   padding: 2px 4px;
 }
 .settings-btn:hover {
-  color: var(--on-accent);
+  color: white;
 }
 .active-filter {
   background-color: var(--primary);
@@ -1226,7 +972,7 @@ html[data-theme='dark'] .filters-close-btn:hover {
 
 .filter-item.active-filter:hover .filter-label,
 .filter-item.active-filter:hover .filter-icon {
-  color: var(--on-accent);
+  color: white;
 }
 
 @keyframes slideDown {
@@ -1342,7 +1088,7 @@ html[data-theme='dark'] .filters-close-btn:hover {
   align-items: center;
 }
 #filter-modal .modal-content {
-  background: var(--surface);
+  background: var(--surface-base);
   padding: 20px;
   border-radius: 10px;
   max-width: 500px;
@@ -1404,7 +1150,7 @@ html[data-theme='dark'] .filters-close-btn:hover {
   display: inline-flex;
   align-items: center;
   gap: 0.4em;
-  background: linear-gradient(135deg, var(--surface), var(--surface));
+  background: linear-gradient(135deg, var(--surface-base), var(--surface-base));
   color: var(--gray-700);
   border-radius: 8px;
   font-size: 0.9em;
@@ -1445,7 +1191,7 @@ html[data-theme='dark'] .filters-close-btn:hover {
   display: flex;
   justify-content: space-between;
   padding: 20px 0;
-  background: var(--surface-95);
+  background: var(--white-alpha-95);
   backdrop-filter: blur(5px);
   flex-direction: column;
 }
@@ -1481,9 +1227,9 @@ html[data-theme='dark'] .filters-close-btn:hover {
   align-items: center;
   padding: 15px 20px;
   margin: -20px -20px 20px -20px; /* Compense le padding du conteneur parent */
-  background: var(--surface-95);
+  background: var(--white-alpha-95);
   backdrop-filter: blur(5px);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-medium);
 }
 
 #detail-toggle-btn {
@@ -1656,7 +1402,7 @@ html[data-theme='dark'] .filters-close-btn:hover {
   position: relative;
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary) 50%, var(--primary-hover) 100%);
   background-size: 220% 220%;
-  color: var(--on-accent);
+  color: white;
   border: 1px solid var(--white-alpha-28);
   padding: 12px 22px;
   border-radius: 999px;
@@ -1974,7 +1720,7 @@ html[data-theme='dark'] .filters-close-btn:hover {
   position: absolute;
   top: 10px;
   left: 10px;
-  background: var(--surface-80);
+  background: var(--white-alpha-80);
   backdrop-filter: blur(20px);
   border-radius: 20px;
   box-shadow: 0 2px 8px var(--black-alpha-15);
@@ -2049,10 +1795,10 @@ html[data-theme='dark'] .filters-close-btn:hover {
   padding: 10px 10px;
   cursor: pointer;
   font-size: 1rem;
-  background: var(--surface-30);
+  background: var(--white-alpha-30);
   text-align: center;
   margin: 20px 0;
-  border: 0px var(--on-accent);
+  border: 0px white;
   position: relative;
   overflow: hidden;
   transform: translateZ(0);
@@ -2088,16 +1834,16 @@ html[data-theme='dark'] .filters-close-btn:hover {
 }
 .nav-category.active{
   background: var(--primary);
-  color: var(--on-accent);
+  color: white;
   border-bottom: 0;
   transform: scale(1.03);
   box-shadow: 0 5px 15px var(--primary-alpha-25);
 }
 .nav-category.active i {
-  color: var(--on-accent);
+  color: white;
 }
 .nav-category.active .label {
-  color: var(--on-accent);
+  color: white;
 }
 .nav-category i {
   margin: 0;
@@ -2125,9 +1871,9 @@ html[data-theme='dark'] .filters-close-btn:hover {
   /* stretch across submenu padded container */
   padding: 12px 20px;
   margin: -20px -20px 12px -20px;
-  background: var(--surface-70);
+  background: var(--white-alpha-72);
   backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-medium);
   width: calc(100%);
 }
 .detail-header-submenu .header-left {
@@ -2147,7 +1893,7 @@ html[data-theme='dark'] .filters-close-btn:hover {
 }
 .detail-header-submenu .close-btn {
   background: transparent; /* ghost style unified */
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-medium);
   padding: 8px 12px;
   cursor: pointer;
   border-radius: 10px;
@@ -2171,16 +1917,6 @@ html[data-theme='dark'] .filters-close-btn:hover {
   color: currentColor;
 }
 
-/* Dark mode hover for red-themed close button */
-html[data-theme='dark'] .detail-header-submenu .close-btn:hover {
-  background-color: transparent;
-}
-/* Dark mode base for red-themed close button (match submenu back button shell) */
-html[data-theme='dark'] .detail-header-submenu .close-btn {
-  background: transparent; /* ghost style unified in dark */
-  border-color: var(--dm-menu-border);
-  color: var(--accent-red);
-}
 
 /* Project detail header actions: back (left) and reduce (right) with padding */
 .detail-header-submenu .header-actions {
@@ -2209,7 +1945,7 @@ html[data-theme='dark'] .detail-header-submenu .close-btn {
 /* Resolve conflicts: ensure back button in detail header uses gp-btn visuals, not legacy link style */
 #project-detail .detail-header-submenu #detail-back-btn {
   background: var(--gray-50);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-medium);
   color: var(--gray-700);
   padding: 8px 12px;
   border-radius: 10px;
@@ -2233,11 +1969,11 @@ html[data-theme='dark'] .detail-header-submenu .close-btn {
   display: inline-flex;                   /* like .gp-btn */
   align-items: center;                    /* like .gp-btn */
   gap: 8px;                               /* like .gp-btn */
-  background: var(--surface-70);
+  background: var(--white-alpha-72);
 }
 #project-detail .detail-header-submenu #detail-panel-toggle-btn:hover {
   border-color: var(--gray-300);
-  background: var(--surface-90);
+  background: var(--white-alpha-90);
 }
 
 /* Normalize header buttons inside project detail header (override .project-detail button) */
@@ -2255,7 +1991,7 @@ html[data-theme='dark'] .detail-header-submenu .close-btn {
   gap: 8px;
   padding: 8px 12px;
   border-radius: 10px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-medium);
   background: var(--gray-50);
   color: var(--gray-700);
   font-weight: 600;
@@ -2317,22 +2053,7 @@ html[data-theme='dark'] .detail-header-submenu .close-btn {
 /* État réduit (pour le bouton toggle) */
 .submenu-toggle-btn.is-collapsed { opacity: 0.95; }
 .submenu-toggle-btn.is-collapsed .gp-btn__icon { transform: scale(0.95); transition: transform 0.15s ease; }
-/* Dark mode */
-html[data-theme='dark'] .gp-btn--secondary {
-  background: var(--white-alpha-06);
-  border-color: var(--dm-menu-border);
-  color: var(--dm-text);
-}
-html[data-theme='dark'] .gp-btn--secondary:hover {
-  background: var(--white-alpha-08);
-  border-color: var(--dm-menu-border);
-}
-html[data-theme='dark'] .gp-btn--danger {
-  background: var(--white-alpha-06);
-  border-color: var(--dm-menu-border);
-  color: var(--dm-text);
-  box-shadow: none;
-}
+
 
 /* Masquer le bouton Réduire au-delà de 1024px */
 @media (min-width: 1024px) {
@@ -2400,7 +2121,7 @@ html[data-theme='dark'] .gp-btn--danger {
   padding: 0.8rem 1.5rem;
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
   background-size: 200% 100%;
-  color: var(--on-accent);
+  color: white;
   border: none;
   border-radius: 50px;
   font-size: 1rem;
@@ -2596,7 +2317,7 @@ html[data-theme='dark'] .gp-btn--danger {
   height: 18px;
   border-radius: 50%;
   background: var(--primary);
-  border: 2px solid var(--surface);
+  border: 2px solid var(--surface-base);
   margin-top: -6px; /* center on 6px track */
   box-shadow: 0 2px 6px var(--black-alpha-15);
   transition: transform 0.12s ease;
@@ -2618,7 +2339,7 @@ html[data-theme='dark'] .gp-btn--danger {
 .travaux-tooltip-content .travaux-date-slider input[type="range"]::-moz-range-thumb {
   width: 18px;
   height: 18px;
-  border: 2px solid var(--surface);
+  border: 2px solid var(--surface-base);
   border-radius: 50%;
   background: var(--primary);
   box-shadow: 0 2px 6px var(--black-alpha-15);
@@ -2643,7 +2364,7 @@ html[data-theme='dark'] .gp-btn--danger {
 .travaux-tooltip-content .travaux-date-slider input[type="range"]::-ms-thumb {
   width: 18px;
   height: 18px;
-  border: 2px solid var(--surface);
+  border: 2px solid var(--surface-base);
   border-radius: 50%;
   background: var(--primary);
   box-shadow: 0 2px 6px var(--black-alpha-15);
@@ -2756,7 +2477,7 @@ html[data-theme='dark'] .gp-btn--danger {
   width: 320px;
   min-height: 100%;
   max-height: 600px; /* Hauteur maximale ajoutée */
-  background: var(--surface);
+  background: var(--surface-base);
   box-shadow: 2px 0 12px var(--black-alpha-08);
   border-radius: 0 20px 20px 20px;
   z-index: 1200;
@@ -2803,7 +2524,7 @@ html[data-theme='dark'] .gp-btn--danger {
   position: relative;
   display: flex;
   align-items: center;
-  background: var(--surface);
+  background: var(--surface-base);
   margin-bottom: 10px;
   border-radius: 12px;
   padding: 10px;
@@ -2816,7 +2537,7 @@ html[data-theme='dark'] .gp-btn--danger {
 }
 
 .project-item:hover {
-  background: var(--surface);
+  background: var(--surface-base);
   transform: translateY(-2px);
   box-shadow: 0 10px 20px var(--black-alpha-08);
   border-color: var(--gray-300);
@@ -2876,7 +2597,7 @@ html[data-theme='dark'] .gp-btn--danger {
 .project-item:focus-visible {
   outline: 3px solid var(--primary-alpha-35);
   outline-offset: 2px;
-  background: var(--surface);
+  background: var(--surface-base);
 }
 .project-item.active,
 .project-item[aria-current='true'] {
@@ -2919,11 +2640,6 @@ html[data-theme='dark'] .gp-btn--danger {
    The JS sets --thumb-height on the <li> after image load. Clamp to 300px. */
 .project-item.show-thumb { padding-bottom: calc(10px + min(var(--thumb-height, 300px), 300px)); }
 
-/* Dark theme thumbnail */
-html[data-theme='dark'] .project-thumb {
-  background: var(--dm-tile-bg) center/cover no-repeat;
-  box-shadow: inset 0 0 0 1px var(--white-alpha-06);
-}
 
 /* Hover progress bar (appears after 0.3s, fills by 1s) */
 .hover-progress {
@@ -2952,22 +2668,11 @@ html[data-theme='dark'] .project-thumb {
   opacity: 1;
   visibility: visible;
 }
-html[data-theme='dark'] .hover-progress {
-  background: var(--primary-alpha-12);
-}
 
 /* Ensure main content stays above the cover image */
 .project-item .project-color,
 .project-item .project-info,
 .project-item .project-arrow { position: relative; z-index: 2; }
-
-/* Improve contrast of nested elements */
-html[data-theme='dark'] .project-item:hover .project-arrow { color: var(--primary); }
-html[data-theme='dark'] .project-item:hover .project-arrow { transform: translateX(2px); }
-html[data-theme='dark'] .project-color { box-shadow: inset 0 0 0 1px var(--white-alpha-08); }
-html[data-theme='dark'] .project-info .project-year,
-html[data-theme='dark'] .project-info .project-status,
-html[data-theme='dark'] .project-arrow { color: var(--dm-muted-text); }
 
 /* ---------------------------------------------------------------------------
    Écran de détail projet
@@ -2997,7 +2702,7 @@ html[data-theme='dark'] .project-arrow { color: var(--dm-muted-text); }
 }
 .project-detail .pill.green {
   background: var(--primary);
-  color: var(--on-accent);
+  color: white;
 }
 .project-detail .pill-outline {
   background: none;
@@ -3234,7 +2939,7 @@ html[data-theme='dark'] .project-arrow { color: var(--dm-muted-text); }
   aspect-ratio: 16 / 9;
   border-radius: 12px;
   overflow: hidden;
-  background: var(--surface-70);
+  background: var(--white-alpha-72);
   box-shadow: inset 0 0 0 1px var(--black-alpha-04);
 }
 .gp-card-media img {
@@ -3283,31 +2988,13 @@ html[data-theme='dark'] .project-arrow { color: var(--dm-muted-text); }
   text-shadow: 0 1px 0 var(--text-shadow-bright);
 }
 
-/* Dark mode overrides (respect project theme attribute) */
-html[data-theme='dark'] .gp-card-media {
-  background: var(--panel-translucent);
-}
-html[data-theme='dark'] .gp-card-title {
-  color: var(--dm-text);
-  text-shadow: none;
-}
-html[data-theme='dark'] .gp-card-cta {
-  color: var(--accent, var(--primary));
-}
-html[data-theme='dark'] .gp-card-cta i {
-  color: var(--accent, var(--primary));
-}
-html[data-theme='dark'] .gp-card-cta span {
-  color: inherit;
-  text-shadow: none;
-}
 
 /* ---------------------------------------------------------------------------
    Bouton filters-toggle et filter-count - MOVED TO modules/ui/toggles.css
 --------------------------------------------------------------------------- */
 
 .active-filter-tag {
-    background: var(--surface);
+    background: var(--surface-base);
   display: inline-flex;
   align-items: center;
   color: var(--gray-700);
@@ -3355,7 +3042,7 @@ color: var(--gray-400);
   box-shadow: 0 4px 6px var(--black-alpha-10),
                 0 1px 3px var(--black-alpha-08);
                 border: 1px solid var(--danger);
-                color: var(--on-accent);
+                color: white;
                 background-color: var(--danger);
 }
 
@@ -3632,7 +3319,7 @@ svg path:focus {
   gap: 0.3rem;
   padding: 0.5rem 0.8rem;
   border: 1px solid var(--danger);
-  background: var(--surface);
+  background: var(--surface-base);
   color: var(--danger);
   border-radius: 4px;
   font-size: 0.9rem;
@@ -3641,7 +3328,7 @@ svg path:focus {
 }
 #travaux-filters-ux #reset-all-filters:hover {
   background: var(--danger);
-  color: var(--on-accent);
+  color: white;
 }
 
 /* ---------------------------------------------------------------------------
@@ -3699,154 +3386,14 @@ svg path:focus {
   html:focus-within { scroll-behavior: auto; }
 }
 
-/* ---------------------------------------------------------------------------
-   Thème sombre (sans changement automatique de fond de carte)
---------------------------------------------------------------------------- */
-html[data-theme='dark'] {
-  /* Dark mode design tokens */
-  --dm-body-bg: var(--gray-900);
-  --dm-text: var(--gray-200);
-  --dm-muted-text: var(--gray-300);
-  --dm-leftnav-bg: var(--black-alpha-66);
-  --dm-panel-bg: var(--black-alpha-66);
-  --dm-filters-bg: var(--gray-900);
-  --dm-toggle-bg: var(--black-alpha-66);
-  --dm-toggle-border: var(--gray-700);
-  --dm-shadow-weak: var(--black-alpha-35);
-  --dm-menu-bg-start: var(--black-alpha-95);
-  --dm-menu-bg-end: var(--black-alpha-95);
-  --dm-menu-border: var(--gray-500);
-  --dm-menu-shadow-1: var(--black-alpha-45);
-  --dm-menu-shadow-2: var(--black-alpha-20);
-  --dm-tile-bg: var(--black-alpha-40);
-  --dm-chip-bg: var(--gray-700);
-  /* Inform the UA of dark color scheme for form controls */
-  color-scheme: dark;
-
-  /* Theme variables used by ficheprojet.css (dark overrides) */
-  --text: var(--dm-text);
-  --panel-solid: var(--dm-panel-bg);
-  --panel-translucent: var(--dm-panel-bg);
-  --border: var(--dm-menu-border);
-  --chip-bg: var(--dm-chip-bg);
-  --chip-hover-bg: var(--gray-800);
-  --accent: var(--primary);
-  --accent-contrast: var(--on-accent);
-  --overlay-strong: var(--black-alpha-66);
-  --overlay-weak: var(--black-alpha-20);
-  --glass-topbar-bg: var(--black-alpha-55);
-  --tooltip-bg: var(--black-alpha-66);
-
-  /* Neutral accent colors (dark theme) */
-  --accent-blue: var(--info-light);
-  --accent-red: var(--danger);
-  --accent-green: var(--primary);
-
-  --blue-card-bg: color-mix(in srgb, var(--accent-blue) 18%, var(--dm-panel-bg));
-  --blue-card-hover-bg: color-mix(in srgb, var(--accent-blue) 26%, var(--dm-panel-bg));
-  --red-card-bg: color-mix(in srgb, var(--accent-red) 18%, var(--dm-panel-bg));
-  --red-card-hover-bg: color-mix(in srgb, var(--accent-red) 26%, var(--dm-panel-bg));
-  --green-card-bg: color-mix(in srgb, var(--accent-green) 18%, var(--dm-panel-bg));
-  --green-card-hover-bg: color-mix(in srgb, var(--accent-green) 26%, var(--dm-panel-bg));
-
-}
-html[data-theme='dark'] body { background: var(--dm-body-bg); color: var(--dm-text); }
-html[data-theme='dark'] #left-nav {
-  background: var(--dm-leftnav-bg);
-  color: var(--dm-text);
-}
-html[data-theme='dark'] #left-nav p { color: var(--dm-muted-text); }
-/* Make main logo white in dark mode */
-html[data-theme='dark'] #left-nav .logo img { filter: brightness(0) invert(1); }
-/* Make standalone mobile logo white in dark mode */
-html[data-theme='dark'] .mobile-fixed-logo img { filter: brightness(0) invert(1); }
-/* Nav categories: improve readability in dark mode */
-html[data-theme='dark'] .nav-category i { color: var(--on-accent); }
-html[data-theme='dark'] .nav-category .label { color: var(--on-accent); }
-html[data-theme='dark'] #project-detail {
-  background-color: var(--dm-panel-bg);
-  color: var(--dm-text);
-}
-/* Detail header submenu: dark mode container and controls */
-html[data-theme='dark'] .detail-header-submenu {
-  background: var(--glass-topbar-bg);
-  border-bottom-color: var(--dm-menu-border);
-}
-html[data-theme='dark'] .detail-header-submenu .gp-btn__icon { color: var(--dm-text); }
-/* Back button (scoped override to counter light-theme override) */
-html[data-theme='dark'] #project-detail .detail-header-submenu #detail-back-btn {
-  background: var(--white-alpha-06);
-  border-color: var(--dm-menu-border);
-  color: var(--dm-text);
-}
-html[data-theme='dark'] #project-detail .detail-header-submenu #detail-back-btn:hover {
-  background: var(--white-alpha-08);
-}
-/* Reduce toggle: ensure dark variant matches gp-btn--secondary */
-html[data-theme='dark'] #project-detail .detail-header-submenu #detail-panel-toggle-btn {
-  background: var(--white-alpha-06);
-  border-color: var(--dm-menu-border);
-  color: var(--dm-text);
-}
-html[data-theme='dark'] #project-detail .detail-header-submenu #detail-panel-toggle-btn:hover {
-  background: var(--white-alpha-08);
-  border-color: var(--dm-menu-border);
-}
-/* Legacy/class-based project detail panel */
-html[data-theme='dark'] .project-detail {
-  background-color: var(--dm-panel-bg);
-  color: var(--dm-text);
-}
-html[data-theme='dark'] .project-detail button { color: var(--dm-text); }
-html[data-theme='dark'] .project-detail .pill { background: var(--dm-chip-bg); color: var(--dm-text); }
-html[data-theme='dark'] .project-detail .pill.green { background: var(--primary); color: var(--on-accent); }
-html[data-theme='dark'] .project-detail .pill-outline { background: transparent; border-color: var(--primary); color: var(--primary); }
-html[data-theme='dark'] #filters-container {
-  background: var(--dm-filters-bg);
-  color: var(--dm-text);
-  box-shadow: 0 10px 25px var(--dm-shadow-weak);
-}
-/* Submenus and inner elements in dark theme */
-html[data-theme='dark'] .submenu {
-  background: linear-gradient(145deg, var(--dm-menu-bg-start) 0%, var(--dm-menu-bg-end) 100%);
-  color: var(--dm-text);
-  border: 1px solid var(--dm-menu-border);
-  box-shadow: 2px 0 12px var(--dm-menu-shadow-1);
-}
-html[data-theme='dark'] .detail-header-submenu h2 { color: var(--dm-text); }
-html[data-theme='dark'] .detail-header-submenu .close-btn svg { color: var(--dm-muted-text); }
-html[data-theme='dark'] .detail-header-submenu .close-btn:hover {
-  background-color: color-mix(in srgb, var(--accent-red) 35%, black);
-  border-color: var(--dm-menu-border);
-}
-
-/* Badges/filters in submenus */
-html[data-theme='dark'] .filter-badge { background: var(--dm-chip-bg); color: var(--dm-text); }
-html[data-theme='dark'] .gpv2-filter-badge { background: var(--dm-chip-bg); color: var(--dm-text); }
-
-/* Travaux filters form in submenu */
-html[data-theme='dark'] #travaux-filters-ux .travaux-filters-title { color: var(--dm-text); }
-html[data-theme='dark'] #travaux-filters-ux .travaux-filters-count { color: var(--dm-muted-text); }
-html[data-theme='dark'] #travaux-filters-ux .travaux-field label { color: var(--dm-muted-text); }
-html[data-theme='dark'] #travaux-filters-ux .travaux-field select,
-html[data-theme='dark'] #travaux-filters-ux .travaux-field input[type="date"] {
-  background: var(--dm-panel-bg);
-  color: var(--dm-text);
-  border: 1px solid var(--dm-menu-border);
-}
-html[data-theme='dark'] #travaux-filters-ux #reset-all-filters {
-  background: transparent;
-}
-/* Dark mode toggles - Déplacé vers modules/ui/toggles.css */
-
 /* City dropdown menu */
 .city-menu {
   position: absolute;
   top: 52px; /* just under the .city-toggle at top:0 */
   right: 150px; /* align with updated .city-toggle */
   min-width: 180px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--surface-base);
+  border: 1px solid var(--border-medium);
   border-radius: 12px;
   box-shadow: 0 8px 24px var(--black-alpha-12);
   padding: 6px;
@@ -3867,7 +3414,7 @@ html[data-theme='dark'] #travaux-filters-ux #reset-all-filters {
 }
 .city-menu button.city-item:hover,
 .city-menu button.city-item:focus-visible {
-  background: var(--surface-90);
+  background: var(--white-alpha-90);
   outline: none;
 }
 .city-menu button.city-item.active {
@@ -3910,15 +3457,6 @@ html[data-theme='dark'] #travaux-filters-ux #reset-all-filters {
   font-size: 0.8rem;
   opacity: 0.7;
 }
-html[data-theme='dark'] .city-menu {
-  background: var(--black-alpha-66);
-  border-color: var(--white-alpha-12);
-}
-html[data-theme='dark'] .city-menu button.city-item { color: var(--gray-300); }
-html[data-theme='dark'] .city-menu button.city-item:hover,
-html[data-theme='dark'] .city-menu button.city-item:focus-visible {
-  background: var(--white-alpha-08);
-}
 @media (max-width: 640px) {
   .city-menu {
     position: fixed; /* éviter le débordement dû au conteneur parent */
@@ -3933,146 +3471,6 @@ html[data-theme='dark'] .city-menu button.city-item:focus-visible {
     box-sizing: border-box;
   }
 }
-html[data-theme='dark'] .filter-count { border-color: var(--dm-filters-bg); }
-/* Project list items inside submenus */
-html[data-theme='dark'] .project-item {
-  background: var(--dm-panel-bg);
-  color: var(--dm-text);
-  border: 1px solid var(--dm-menu-border);
-  box-shadow: 0 1px 3px var(--dm-shadow-weak);
-  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
-}
-html[data-theme='dark'] .project-item:hover {
-  background: var(--dm-tile-bg);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 18px var(--dm-shadow-weak);
-}
-/* Keyboard focus accessibility in dark mode */
-html[data-theme='dark'] .project-item:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-  background: var(--dm-tile-bg);
-}
-/* Optional selected/active state for project item */
-html[data-theme='dark'] .project-item.active,
-html[data-theme='dark'] .project-item[aria-current='true'] {
-  background-color: var(--primary-alpha-18);
-  border-left: 4px solid var(--primary);
-}
-/* Improve contrast of nested elements */
-html[data-theme='dark'] .project-item:hover .project-arrow { color: var(--primary); }
-html[data-theme='dark'] .project-item:hover .project-arrow { transform: translateX(2px); }
-html[data-theme='dark'] .project-color { box-shadow: inset 0 0 0 1px var(--white-alpha-08); }
-html[data-theme='dark'] .project-info .project-year,
-html[data-theme='dark'] .project-info .project-status,
-html[data-theme='dark'] .project-arrow { color: var(--dm-muted-text); }
-html[data-theme='dark'] .basemap-menu {
-  background: linear-gradient(145deg, var(--dm-menu-bg-start) 0%, var(--dm-menu-bg-end) 100%);
-  border: 1px solid var(--dm-menu-border);
-  box-shadow: 0 10px 25px var(--dm-menu-shadow-1), 0 6px 10px var(--dm-menu-shadow-2);
-}
-html[data-theme='dark'] .basemap-tile {
-  background: var(--dm-tile-bg);
-  color: var(--dm-text);
-}
-html[data-theme='dark'] .active-filter-tag { background: var(--dm-chip-bg); color: var(--dm-text); }
-/* Headers in dark mode */
-html[data-theme='dark'] .detail-header-project-list {
-  background: linear-gradient(145deg, var(--dm-menu-bg-start) 0%, var(--dm-menu-bg-end) 100%);
-  color: var(--dm-text);
-}
-html[data-theme='dark'] .detail-header-project-list h2,
-html[data-theme='dark'] .project-header-container .project-title { color: var(--dm-text); }
-html[data-theme='dark'] .project-header-container {
-  color: var(--dm-text);
-}
-
-/* Chips in dark mode */
-html[data-theme='dark'] .chip {
-  background: var(--dm-panel-bg);
-  color: var(--dm-text);
-  border: 1px solid var(--dm-menu-border);
-  box-shadow: 0 4px 10px var(--dm-shadow-weak);
-}
-
-/* Filter items in dark mode */
-html[data-theme='dark'] .filter-item {
-  background: var(--dm-filters-bg);
-  border: 1px solid var(--dm-menu-border);
-}
-html[data-theme='dark'] .filter-item:hover {
-  background: var(--dm-tile-bg);
-  border-color: var(--dm-menu-border);
-  box-shadow: 0 4px 10px var(--dm-shadow-weak);
-}
-html[data-theme='dark'] .filter-item .filter-label { color: var(--dm-text); }
-html[data-theme='dark'] .filter-item.active-filter {
-  background-color: var(--primary-alpha-18);
-  border-left: 4px solid var(--primary);
-}
-html[data-theme='dark'] .subfilters-container {
-  background: var(--dm-panel-bg);
-  border: 1px solid var(--dm-menu-border);
-  box-shadow: 0 4px 10px var(--dm-shadow-weak);
-}
-
-/* Project title and back button in dark mode */
-html[data-theme='dark'] .project-title { color: var(--dm-text); }
-html[data-theme='dark'] #detail-back-btn,
-html[data-theme='dark'] .detail-back-btn {
-  color: var(--primary);
-}
-html[data-theme='dark'] #detail-back-btn:hover,
-html[data-theme='dark'] .detail-back-btn:hover {
-  background-color: var(--primary-alpha-10);
-  color: var(--primary);
-}
-
-/* Title icon pill in dark mode */
-html[data-theme='dark'] .project-title-container i {
-  background: var(--primary-alpha-10);
-  border: 1px solid var(--primary-alpha-20);
-  color: var(--primary);
-}
-
-/* Cover extend button and lightbox close in dark mode */
-html[data-theme='dark'] .project-cover-wrap .cover-extend-btn {
-  border: 1px solid var(--white-alpha-25);
-  background: var(--dm-toggle-bg);
-  color: var(--dm-text);
-  box-shadow: 0 6px 16px var(--dm-shadow-weak);
-}
-html[data-theme='dark'] .cover-lightbox .lightbox-close {
-  border: 1px solid var(--dm-menu-border);
-  background: var(--dm-toggle-bg);
-  color: var(--dm-text);
-  box-shadow: 0 6px 20px var(--dm-menu-shadow-1);
-}
-
-/* Search results in dark mode */
-html[data-theme='dark'] .search-results {
-  background: var(--dm-panel-bg);
-  border: 1px solid var(--dm-menu-border);
-  box-shadow: 0 10px 25px var(--dm-menu-shadow-1), 0 6px 10px var(--dm-menu-shadow-2);
-}
-html[data-theme='dark'] .search-result-item { border-bottom: 1px solid var(--dm-menu-border); }
-html[data-theme='dark'] .search-result-item:hover { background: var(--dm-tile-bg); }
-html[data-theme='dark'] .search-result-item h4 { color: var(--dm-text); }
-html[data-theme='dark'] .search-result-item p { color: var(--dm-muted-text); }
-
-/* Markdown body inside project detail and other panels */
-html[data-theme='dark'] .markdown-body {
-  background: transparent !important;
-  color: var(--dm-text) !important;
-}
-html[data-theme='dark'] .markdown-body h1,
-html[data-theme='dark'] .markdown-body h2,
-html[data-theme='dark'] .markdown-body h3,
-html[data-theme='dark'] .markdown-body h4,
-html[data-theme='dark'] .markdown-body h5,
-html[data-theme='dark'] .markdown-body h6 { color: var(--dm-text) !important; }
-html[data-theme='dark'] .markdown-body hr { border-color: var(--dm-menu-border) !important; }
-
 /* Ensure Leaflet panes layer above UI components (except full-screen overlays) */
 .leaflet-tooltip-pane { z-index: 2500 !important; }
 .leaflet-popup-pane { z-index: 2400 !important; }
@@ -4097,9 +3495,9 @@ html[data-theme='dark'] .markdown-body hr { border-color: var(--dm-menu-border) 
   max-height: 80vh;
   overflow: auto;
   /* Base surface for generic modals (light theme) */
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
+  background: var(--surface-base);
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium);
   border-radius: 16px;
   box-shadow: 0 20px 60px var(--black-alpha-20), 0 4px 16px var(--black-alpha-16);
 }
@@ -4123,10 +3521,10 @@ html[data-theme='dark'] .markdown-body hr { border-color: var(--dm-menu-border) 
 }
 
 #contrib-overlay .gp-modal-header {
-  background: linear-gradient(180deg, var(--surface-92), var(--surface-80));
+  background: linear-gradient(180deg, var(--surface-92), var(--white-alpha-80));
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-medium);
 }
 
 /* Minor header tweaks */
@@ -4138,7 +3536,7 @@ html[data-theme='dark'] .markdown-body hr { border-color: var(--dm-menu-border) 
   display: inline-flex;
   gap: 6px;
   padding: 6px;
-  background: var(--surface-70);
+  background: var(--white-alpha-72);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--black-alpha-06);
@@ -4147,7 +3545,7 @@ html[data-theme='dark'] .markdown-body hr { border-color: var(--dm-menu-border) 
 #contrib-overlay .gp-tab {
   appearance: none;
   border: 1px solid var(--black-alpha-08);
-  background: var(--surface-80);
+  background: var(--white-alpha-80);
   color: var(--gray-800);
   padding: 8px 12px;
   border-radius: 10px;
@@ -4158,9 +3556,9 @@ html[data-theme='dark'] .markdown-body hr { border-color: var(--dm-menu-border) 
 #contrib-overlay .gp-tab:hover { transform: translateY(-1px); box-shadow: 0 4px 10px var(--black-alpha-08); }
 #contrib-overlay .gp-tab:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--primary-alpha-35); }
 #contrib-overlay .gp-tab[aria-selected="true"] {
-  background: color-mix(in srgb, var(--accent) 16%, white);
+  background: color-mix(in srgb, var(--primary) 16%, white);
   color: var(--primary-active);
-  border-color: color-mix(in srgb, var(--accent) 30%, white);
+  border-color: color-mix(in srgb, var(--primary) 30%, white);
 }
 
 /* Scoped animation for About modal */
@@ -4179,8 +3577,6 @@ html[data-theme='dark'] .markdown-body hr { border-color: var(--dm-menu-border) 
 .gp-modal-body {
   padding: 16px 18px 18px 0px;
 }
-/* Dark mode adjustments */
-html[data-theme='dark'] .gp-modal-body { color: var(--dm-text); }
 
 .gp-modal-header {
   position: sticky;
@@ -4220,24 +3616,6 @@ html[data-theme='dark'] .gp-modal-body { color: var(--dm-text); }
   padding:20px;
 }
 
-/* Dark mode variants */
-html[data-theme='dark'] .gp-modal-overlay {
-  background: var(--black-alpha-55);
-}
-html[data-theme='dark'] .gp-modal {
-  background: var(--dm-panel-bg);
-  color: var(--dm-text);
-  border: 1px solid var(--dm-menu-border);
-}
-html[data-theme='dark'] .gp-modal-header {
-  border-bottom: 1px solid var(--dm-menu-border);
-  background: var(--dm-panel-bg);
-}
-html[data-theme='dark'] .gp-modal-title { color: var(--dm-text); }
-html[data-theme='dark'] .gp-modal-close:hover {
-  background: var(--white-alpha-06);
-  color: var(--dm-text);
-}
 
 /* ---------------------- Contribution modal: Content Glass ---------------------- */
 /* Form layout & fields */
@@ -4257,7 +3635,7 @@ html[data-theme='dark'] .gp-modal-close:hover {
   position: relative;
   appearance: none;
   border: 1px solid var(--black-alpha-12);
-  background: var(--surface-80);
+  background: var(--white-alpha-80);
   color: var(--gray-900);
   padding: 6px 12px; /* pills plus fines */
   border-radius: 999px;
@@ -4272,14 +3650,14 @@ html[data-theme='dark'] .gp-modal-close:hover {
 
 /* Current */
 #contrib-overlay .contrib-stepper .contrib-step.is-current {
-  background: color-mix(in srgb, var(--accent) 18%, white);
+  background: color-mix(in srgb, var(--primary) 18%, white);
   color: var(--primary-active);
-  border-color: color-mix(in srgb, var(--accent) 35%, white);
+  border-color: color-mix(in srgb, var(--primary) 35%, white);
 }
 
 /* Complete */
 #contrib-overlay .contrib-stepper .contrib-step.is-complete {
-  background: color-mix(in srgb, var(--accent) 10%, white);
+  background: color-mix(in srgb, var(--primary) 10%, white);
   border-color: var(--primary-alpha-25);
   color: var(--primary-active);
 }
@@ -4315,33 +3693,6 @@ html[data-theme='dark'] .gp-modal-close:hover {
   background: var(--primary);
 }
 
-/* Dark mode variants for stepper */
-html[data-theme='dark'] #contrib-overlay .contrib-stepper .contrib-step {
-  background: var(--white-alpha-06);
-  border-color: var(--dm-menu-border);
-  color: var(--dm-text);
-}
-html[data-theme='dark'] #contrib-overlay .contrib-stepper .contrib-step.is-current {
-  background: color-mix(in srgb, var(--accent) 24%, black);
-  color: var(--on-accent);
-  border-color: color-mix(in srgb, var(--accent) 36%, black);
-}
-html[data-theme='dark'] #contrib-overlay .contrib-stepper .contrib-step.is-complete {
-  background: color-mix(in srgb, var(--accent) 14%, var(--dm-panel-bg));
-  border-color: color-mix(in srgb, var(--accent) 26%, var(--dm-panel-bg));
-  color: var(--dm-text);
-}
-html[data-theme='dark'] #contrib-overlay .contrib-stepper .contrib-step::after {
-  background: var(--white-alpha-18);
-}
-html[data-theme='dark'] #contrib-overlay .contrib-stepper .contrib-step.is-current::after,
-html[data-theme='dark'] #contrib-overlay .contrib-stepper .contrib-step.is-complete::after {
-  background: var(--primary);
-}
-html[data-theme='dark'] #contrib-overlay .contrib-stepper .contrib-step.is-complete::before {
-  color: var(--primary);
-}
-
 #contrib-overlay .contrib-form input[type="text"],
 #contrib-overlay .contrib-form input[type="url"],
 #contrib-overlay .contrib-form input[type="file"],
@@ -4351,7 +3702,7 @@ html[data-theme='dark'] #contrib-overlay .contrib-stepper .contrib-step.is-compl
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--black-alpha-12);
-  background: var(--surface-80);
+  background: var(--white-alpha-80);
   color: var(--gray-800);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
   max-width: 100%;
@@ -4363,7 +3714,7 @@ html[data-theme='dark'] #contrib-overlay .contrib-stepper .contrib-step.is-compl
 #contrib-overlay .contrib-form select:focus-visible,
 #contrib-overlay .contrib-form textarea:focus-visible {
   outline: none;
-  border-color: color-mix(in srgb, var(--accent) 45%, white);
+  border-color: color-mix(in srgb, var(--primary) 45%, white);
   box-shadow: 0 0 0 3px var(--primary-alpha-28);
 }
 
@@ -4377,7 +3728,7 @@ html[data-theme='dark'] #contrib-overlay .contrib-stepper .contrib-step.is-compl
   border: 1px solid var(--black-alpha-08);
   border-radius: 12px;
   padding: 10px 12px 12px;
-  background: var(--surface-70);
+  background: var(--white-alpha-72);
   backdrop-filter: blur(6px);
 }
 #contrib-overlay .form-fieldset legend { padding: 0 6px; font-weight: 700; opacity: 0.9; }
@@ -4385,7 +3736,7 @@ html[data-theme='dark'] #contrib-overlay .contrib-stepper .contrib-step.is-compl
 /* Draw panel */
 #contrib-overlay #contrib-draw-map {
   border: 1px solid var(--black-alpha-08);
-  background: var(--surface-70);
+  background: var(--white-alpha-72);
   box-shadow: inset 0 1px 0 var(--white-alpha-25);
 }
 /* Abaisser le z-index des éléments Leaflet dans la carte de dessin (modale) */
@@ -4412,7 +3763,7 @@ html[data-theme='dark'] #contrib-overlay .contrib-stepper .contrib-step.is-compl
 #contrib-overlay .contrib-list .contrib-item,
 #contrib-overlay .contrib-list [role="listitem"] {
   display: block;
-  background: var(--surface-80);
+  background: var(--white-alpha-80);
   border: 1px solid var(--black-alpha-08);
   border-radius: 12px;
   padding: 10px 12px;
@@ -4422,7 +3773,7 @@ html[data-theme='dark'] #contrib-overlay .contrib-stepper .contrib-step.is-compl
 #contrib-overlay .contrib-list .contrib-item:hover,
 #contrib-overlay .contrib-list [role="listitem"]:hover {
   transform: translateY(-1px);
-  background: var(--surface-90);
+  background: var(--white-alpha-90);
   border-color: var(--black-alpha-12);
   box-shadow: 0 6px 14px var(--black-alpha-12);
 }
@@ -4433,55 +3784,6 @@ html[data-theme='dark'] #contrib-overlay .contrib-stepper .contrib-step.is-compl
 #contrib-overlay .form-actions { gap: 10px; }
 #contrib-overlay #contrib-status { opacity: 0.85 !important; }
 
-/* ------------------------------- Dark mode ------------------------------- */
-html[data-theme='dark'] #contrib-overlay.gp-modal-overlay {
-  background: radial-gradient(1200px 800px at 80% 90%, var(--black-alpha-66), var(--black-alpha-55));
-}
-html[data-theme='dark'] #contrib-overlay .gp-modal {
-  background: var(--black-alpha-66);
-  border: 1px solid var(--dm-menu-border);
-  color: var(--dm-text);
-}
-html[data-theme='dark'] #contrib-overlay .gp-modal-header {
-  background: linear-gradient(180deg, var(--black-alpha-95), var(--black-alpha-66));
-  border-bottom: 1px solid var(--dm-menu-border);
-}
-html[data-theme='dark'] #contrib-overlay .gp-tab {
-  border-color: var(--dm-menu-border);
-  background: var(--white-alpha-06);
-  color: var(--dm-text);
-}
-html[data-theme='dark'] #contrib-overlay .gp-tab[aria-selected="true"] {
-  background: color-mix(in srgb, var(--accent) 24%, black);
-  border-color: color-mix(in srgb, var(--accent) 36%, black);
-  color: var(--on-accent);
-}
-html[data-theme='dark'] #contrib-overlay .contrib-form input[type="text"],
-html[data-theme='dark'] #contrib-overlay .contrib-form input[type="url"],
-html[data-theme='dark'] #contrib-overlay .contrib-form input[type="file"],
-html[data-theme='dark'] #contrib-overlay .contrib-form select,
-html[data-theme='dark'] #contrib-overlay .contrib-form textarea {
-  background: var(--white-alpha-06);
-  border-color: var(--dm-menu-border);
-  color: var(--dm-text);
-}
-html[data-theme='dark'] #contrib-overlay .form-fieldset {
-  background: var(--white-alpha-06);
-  border-color: var(--dm-menu-border);
-}
-html[data-theme='dark'] #contrib-overlay #contrib-draw-map { background: var(--white-alpha-04); border-color: var(--dm-menu-border); }
-html[data-theme='dark'] #contrib-overlay #contrib-list { border-color: var(--dm-menu-border) !important; }
-html[data-theme='dark'] #contrib-overlay .contrib-list .contrib-item,
-html[data-theme='dark'] #contrib-overlay .contrib-list [role="listitem"] {
-  background: var(--white-alpha-06);
-  border-color: var(--dm-menu-border);
-  color: var(--dm-text);
-}
-html[data-theme='dark'] #contrib-overlay .contrib-list .contrib-item:hover,
-html[data-theme='dark'] #contrib-overlay .contrib-list [role="listitem"]:hover {
-  background: var(--white-alpha-08);
-  box-shadow: 0 10px 22px var(--black-alpha-35);
-}
 
 /* ---------------------------------------------------------------------------
    Travaux Bento + Glassmorphism
@@ -4515,12 +3817,6 @@ html[data-theme='dark'] #contrib-overlay .contrib-list [role="listitem"]:hover {
 .etat-pill.etat--prochain { color: var(--warning); background: var(--warning-alpha-14); border-color: var(--warning-alpha-35); }
 .etat-pill.etat--termine { color: var(--gray-600); background: var(--gray-600); border-color: var(--gray-600); }
 .etat-pill.etat--neutre { color: var(--gray-700); background: var(--gray-400); border-color: var(--gray-400); }
-/* Dark mode: improve neutral pill contrast */
-html[data-theme='dark'] .etat-pill.etat--neutre {
-  color: var(--gray-200); /* slate-200 for readable text */
-  background: var(--gray-400); /* stronger slate-400 tint */
-  border-color: var(--gray-400);
-}
 
 .gp-bento {
   display: grid;
@@ -4588,28 +3884,6 @@ html[data-theme='dark'] .etat-pill.etat--neutre {
 /* Responsive */
 @media (max-width: 860px) { .gp-bento { grid-template-columns: 1fr; } .gp-travaux .donut { width: 90px; height: 90px; } }
 
-/* Dark mode variants */
-html[data-theme='dark'] .gp-travaux .gp-hero {
-  background: linear-gradient(135deg, var(--black-alpha-55), var(--black-alpha-35));
-  border-color: var(--dm-menu-border);
-}
-html[data-theme='dark'] .gp-bento .tile {
-  background: var(--black-alpha-55);
-  border-color: var(--dm-menu-border);
-  box-shadow: 0 10px 28px var(--dm-menu-shadow-1), inset 0 0 0 1px var(--white-alpha-06);
-}
-html[data-theme='dark'] .gp-bento .tile h3 { color: var(--dm-text); }
-html[data-theme='dark'] .tile--timeline .dates, 
-html[data-theme='dark'] .tile--timeline .meta { color: var(--dm-muted-text); }
-html[data-theme='dark'] .donut-bg { stroke: var(--white-alpha-12); }
-html[data-theme='dark'] .donut-text { fill: var(--dm-text); }
-html[data-theme='dark'] .badge { background: var(--white-alpha-06); color: var(--dm-text); border-color: var(--dm-menu-border); }
-html[data-theme='dark'] .badge-strong { background: var(--primary-alpha-2); color: var(--dm-text); border-color: var(--primary-alpha-3); }
-html[data-theme='dark'] .addresses li { background: var(--white-alpha-06); border-color: var(--dm-menu-border); }
-html[data-theme='dark'] .addresses li .copy-line { background: var(--white-alpha-06); color: var(--dm-text); }
-html[data-theme='dark'] .tile-actions button { background: var(--white-alpha-08); border-color: var(--dm-menu-border); color: var(--dm-text); }
-html[data-theme='dark'] .btn-ghost { background: var(--white-alpha-08); color: var(--dm-text); border-color: var(--dm-menu-border); }
-
 /* ---------------------------------------------------------------------------
    Non-clickable layers tooltip (paths/polygons)
 --------------------------------------------------------------------------- */
@@ -4636,14 +3910,6 @@ html[data-theme='dark'] .btn-ghost { background: var(--white-alpha-08); color: v
 }
 .gp-path-tooltip em { font-style: normal; color: var(--gray-600); }
 
-/* Dark mode */
-html[data-theme='dark'] .leaflet-tooltip.gp-path-tooltip {
-  background: var(--black-alpha-66);
-  color: var(--dm-text);
-  border-color: var(--dm-menu-border);
-  box-shadow: 0 10px 24px var(--dm-menu-shadow-1), 0 2px 6px var(--dm-menu-shadow-2);
-}
-
 /* ---------------------------------------------------------------------------
    Contribution list cards (inside modal)
 --------------------------------------------------------------------------- */
@@ -4652,7 +3918,7 @@ html[data-theme='dark'] .leaflet-tooltip.gp-path-tooltip {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--surface);
+  background: var(--surface-base);
   border: 1px solid var(--black-alpha-12);
   border-radius: 10px;
   padding: 8px 10px 8px 34px;
@@ -4676,11 +3942,11 @@ html[data-theme='dark'] .leaflet-tooltip.gp-path-tooltip {
   color: var(--dark-blue-alpha-45);
 }
 #contrib-overlay .contrib-searchbar:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 24%, transparent);
 }
 #contrib-overlay .contrib-searchbar:focus-within > i {
-  color: color-mix(in srgb, var(--accent) 70%, var(--gray-500));
+  color: color-mix(in srgb, var(--primary) 70%, var(--gray-500));
 }
 #contrib-overlay #contrib-list {
   background: transparent !important;
@@ -4737,7 +4003,7 @@ html[data-theme='dark'] .leaflet-tooltip.gp-path-tooltip {
   max-width: 100%;
   box-sizing: border-box;
   overflow: hidden;
-  background: var(--panel-solid);
+  background: var(--surface-base);
   border: 1px solid var(--dark-blue-alpha-08);
   border-radius: 14px;
   padding: 12px;
@@ -4805,53 +4071,20 @@ html[data-theme='dark'] .leaflet-tooltip.gp-path-tooltip {
 /* Toolbar selects compact styling (scoped) */
 #contrib-panel-list .form-row select {
   height: 36px; border-radius: 10px; border: 1px solid var(--dark-blue-alpha-12);
-  background: var(--surface); color: var(--gray-900); padding: 0 10px;
-}
-html[data-theme='dark'] #contrib-panel-list .form-row select {
-  background: var(--white-alpha-06); color: var(--dm-text); border-color: var(--dm-menu-border);
+  background: var(--surface-base); color: var(--gray-900); padding: 0 10px;
 }
 
 /* Skeletons */
 @keyframes contrib-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 #contrib-overlay .contrib-skel {
   display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: center; width: 100%;
-  background: var(--panel-solid); border: 1px solid var(--dark-blue-alpha-08); border-radius: 14px; padding: 12px; box-shadow: 0 10px 24px var(--dark-blue-alpha-06);
+  background: var(--surface-base); border: 1px solid var(--dark-blue-alpha-08); border-radius: 14px; padding: 12px; box-shadow: 0 10px 24px var(--dark-blue-alpha-06);
 }
 #contrib-overlay .contrib-skel .skel-thumb { width: 96px; aspect-ratio: 4 / 3; border-radius: 12px; background: linear-gradient(90deg, var(--gray-100) 25%, var(--gray-200) 37%, var(--gray-100) 63%); background-size: 400% 100%; animation: contrib-shimmer 1.4s ease infinite; }
 #contrib-overlay .contrib-skel .skel-line { height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--gray-100) 25%, var(--gray-200) 37%, var(--gray-100) 63%); background-size: 400% 100%; animation: contrib-shimmer 1.4s ease infinite; }
 #contrib-overlay .contrib-skel .skel-line--lg { width: 60%; }
 #contrib-overlay .contrib-skel .skel-line--md { width: 40%; margin-top: 8px; }
 #contrib-overlay .contrib-skel .skel-line--sm { width: 30%; margin-top: 6px; }
-html[data-theme='dark'] #contrib-overlay .contrib-skel { background: var(--white-alpha-06); border-color: var(--dm-menu-border); box-shadow: 0 10px 24px var(--dm-menu-shadow-1), inset 0 0 0 1px var(--white-alpha-04); }
-html[data-theme='dark'] #contrib-overlay .contrib-skel .skel-thumb,
-html[data-theme='dark'] #contrib-overlay .contrib-skel .skel-line { background: linear-gradient(90deg, var(--white-alpha-06) 25%, var(--white-alpha-12) 37%, var(--white-alpha-06) 63%); }
-
-/* Dark mode tweaks */
-html[data-theme='dark'] #contrib-overlay .contrib-list-item { background: var(--white-alpha-06); border-color: var(--dm-menu-border); box-shadow: 0 10px 24px var(--dm-menu-shadow-1), inset 0 0 0 1px var(--white-alpha-04); }
-html[data-theme='dark'] #contrib-overlay .contrib-list-item:hover { box-shadow: 0 14px 30px var(--dm-menu-shadow-1), inset 0 0 0 1px var(--white-alpha-06); }
-html[data-theme='dark'] #contrib-overlay .contrib-thumb { background: var(--white-alpha-08); color: var(--dm-text); }
-html[data-theme='dark'] #contrib-overlay .badge-approved { background: var(--primary-alpha-20); color: var(--dm-text); border-color: var(--primary-alpha-35); }
-html[data-theme='dark'] #contrib-overlay .contrib-item-actions .contrib-item-delete { border-color: var(--white-alpha-18); }
-html[data-theme='dark'] #contrib-overlay .contrib-item-actions .contrib-item-delete:hover { background: var(--danger-alpha-16); border-color: var(--white-alpha-28); }
-html[data-theme='dark'] #contrib-overlay .contrib-searchbar {
-  background: var(--white-alpha-06);
-  color: var(--dm-text);
-  border-color: var(--dm-menu-border);
-}
-html[data-theme='dark'] #contrib-overlay .contrib-searchbar input[type="text"] {
-  color: var(--dm-text);
-}
-html[data-theme='dark'] #contrib-overlay .contrib-searchbar input[type="text"]::placeholder {
-  color: var(--white-alpha-55);
-}
-
-/* Dark mode: text colors inside contribution list items */
-html[data-theme='dark'] :is(#contrib-panel-list, #contrib-overlay) .contrib-title { color: var(--dm-text); }
-html[data-theme='dark'] :is(#contrib-panel-list, #contrib-overlay) .contrib-title a { color: var(--dm-text); }
-html[data-theme='dark'] :is(#contrib-panel-list, #contrib-overlay) .contrib-extra { color: var(--dm-muted-text); }
-html[data-theme='dark'] #contrib-overlay .contrib-list-item { color: var(--dm-text); }
-html[data-theme='dark'] #contrib-overlay .contrib-list-item small { color: var(--dm-muted-text); }
-html[data-theme='dark'] #contrib-overlay .contrib-item-right { color: var(--dm-text); }
 
 /* --- City Menu (cartes de villes) --- */
 #city-menu {
@@ -4942,7 +4175,7 @@ html[data-theme='dark'] #contrib-overlay .contrib-item-right { color: var(--dm-t
   padding: 12px;
   border: 1px solid var(--dark-blue-alpha-10);
   border-radius: 12px;
-  background: var(--surface);
+  background: var(--surface-base);
   box-shadow: 0 8px 20px var(--dark-blue-alpha-06);
   transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
   box-sizing: border-box;
@@ -4962,9 +4195,6 @@ html[data-theme='dark'] #contrib-overlay .contrib-item-right { color: var(--dm-t
 .city-logo i { font-size: 20px; opacity: .7; color: var(--gray-700); }
 .city-subline { color: var(--info); }
 
-/* Dark mode: improve icon and subline contrast inside city cards */
-html[data-theme='dark'] .city-logo i { color: var(--gray-200); opacity: .9; }
-html[data-theme='dark'] .city-subline { color: var(--gray-300); }
 .city-name { font-weight: 650; font-size: 15px; color: var(--gray-900); }
 
 /* Disabled state: greyed cards */
@@ -5047,36 +4277,6 @@ html[data-theme='dark'] .city-subline { color: var(--gray-300); }
   100% { left: 120%; opacity: 0; }
 }
 
-/* Dark mode */
-html[data-theme='dark'] #city-menu {
-  background: var(--black-alpha-45);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  border-color: var(--dm-menu-border);
-  box-shadow: 0 18px 42px var(--dm-menu-shadow-1), inset 0 0 0 1px var(--white-alpha-06);
-}
-html[data-theme='dark'] .city-menu-header { border-bottom-color: var(--dm-menu-border); }
-html[data-theme='dark'] .city-menu-header .chip { background: var(--white-alpha-10); color: var(--dm-text); }
-html[data-theme='dark'] .city-card {
-  background: var(--white-alpha-06);
-  border-color: var(--dm-menu-border);
-  box-shadow: 0 8px 20px var(--dm-menu-shadow-1), inset 0 0 0 1px var(--white-alpha-04);
-}
-html[data-theme='dark'] .city-card:hover { box-shadow: 0 12px 28px var(--dm-menu-shadow-1), inset 0 0 0 1px var(--white-alpha-06); }
-html[data-theme='dark'] .city-logo { background: var(--white-alpha-08); }
-html[data-theme='dark'] .city-name { color: var(--dm-text); }
-html[data-theme='dark'] .city-item.is-disabled .city-name { color: var(--white-alpha-75); }
-html[data-theme='dark'] .city-item.is-disabled .city-logo i { color: var(--white-alpha-75); opacity: .7; }
-html[data-theme='dark'] .city-soon { color: var(--white-alpha-75); }
-html[data-theme='dark'] .propose-city-card {
-  background: linear-gradient(0deg, var(--info-alpha-18), var(--info-alpha-18));
-  border-color: var(--info-alpha-6);
-  color: var(--info-light);
-}
-html[data-theme='dark'] .propose-city-card .city-logo { background: var(--info-alpha-22); color: var(--info-lighter); }
-html[data-theme='dark'] .propose-city-card .city-name { color: var(--info-lighter); }
-html[data-theme='dark'] .propose-city-card .city-subline { color: var(--info-light); opacity: .9; }
-
 /* Ultra-compact mobile: hide logos under 400px */
 @media (max-width: 400px) {
   .mobile-fixed-logo,
@@ -5090,7 +4290,7 @@ html[data-theme='dark'] .propose-city-card .city-subline { color: var(--info-lig
    ============================================================================ */
 
 .user-card {
-  background: var(--surface);
+  background: var(--surface-base);
   border: 1px solid var(--gray-200);
   border-radius: 12px;
   padding: 16px;
@@ -5214,27 +4414,4 @@ html[data-theme='dark'] .propose-city-card .city-subline { color: var(--info-lig
 
 .users-list::-webkit-scrollbar-thumb:hover {
   background: var(--gray-400);
-}
-
-/* Dark mode support */
-html[data-theme='dark'] .user-card {
-  background: var(--dm-card-bg);
-  border-color: var(--dm-menu-border);
-}
-
-html[data-theme='dark'] .user-card__email {
-  color: var(--dm-text);
-}
-
-html[data-theme='dark'] .user-card__meta {
-  color: var(--dm-text-muted);
-}
-
-html[data-theme='dark'] .user-card__cities {
-  background: var(--dm-menu-bg);
-  color: var(--dm-text);
-}
-
-html[data-theme='dark'] .user-card__icon {
-  background: var(--dm-menu-bg);
 }

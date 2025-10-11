@@ -100,7 +100,7 @@
     
     toast.setAttribute('role', isError ? 'alert' : 'status');
     toast.setAttribute('aria-live', isError ? 'assertive' : 'polite');
-    toast.style.cssText = 'min-width:200px;max-width:360px;padding:10px 12px;border-radius:8px;color:var(--white);box-shadow:0 6px 18px rgba(0,0,0,0.15);font-size:14px;';
+    toast.style.cssText = 'min-width:200px;max-width:360px;padding:10px 12px;border-radius:8px;color:var(--white);box-shadow:0 6px 18px var(--black-alpha-15);font-size:14px;';
     const dangerColor = getComputedStyle(document.documentElement).getPropertyValue('--danger').trim();
     const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
     toast.style.background = isError ? dangerColor : (isSuccess ? primaryColor : 'var(--gray-700)');

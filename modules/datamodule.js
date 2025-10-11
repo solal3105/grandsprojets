@@ -320,8 +320,8 @@ window.DataModule = (function() {
                 <h3>Avancement</h3>
                 <div class="timeline">
                   <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPct}" aria-label="Avancement des travaux">
-                    <div class="fill" data-target="${progressPct}" style="width:0%; background:${gradientBg}; box-shadow: 0 0 10px ${progressPct>=100 ? 'rgba(20,174,92,0.25)' : 'rgba(245,158,11,0.25)'}"></div>
-                    <div class="today" style="left:${todayPct}%; background:${endColor}; box-shadow: 0 0 0 3px ${progressPct>=100 ? 'rgba(20,174,92,0.25)' : 'rgba(245,158,11,0.25)'}, 0 0 10px ${progressPct>=100 ? 'rgba(20,174,92,0.4)' : 'rgba(245,158,11,0.4)'};"></div>
+                    <div class="fill" data-target="${progressPct}" style="width:0%; background:${gradientBg}; box-shadow: 0 0 10px ${progressPct>=100 ? 'var(--primary-alpha-25)' : 'var(--warning-alpha-25)'}"></div>
+                    <div class="today" style="left:${todayPct}%; background:${endColor}; box-shadow: 0 0 0 3px ${progressPct>=100 ? 'var(--primary-alpha-25)' : 'var(--warning-alpha-25)'}, 0 0 10px ${progressPct>=100 ? 'var(--primary-alpha-4)' : 'var(--warning-alpha-4)'};"></div>
                   </div>
                   <div class="dates">
                     <span>${debut ? dateFmt(debut) : '-'}</span>

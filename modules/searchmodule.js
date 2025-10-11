@@ -318,7 +318,7 @@ window.SearchModule = (() => {
     }
 
     const popupHtml = `
-      <div style="min-width:220px; background:rgba(255,255,255,0.85); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,0.18); padding:12px 14px;">
+      <div style="min-width:220px; background:var(--white-alpha-85); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border-radius:12px; box-shadow:0 8px 24px var(--black-alpha-18); padding:12px 14px;">
         <div style="font-weight:600; font-size:14px; margin-bottom:4px;">${title}</div>
         ${subtitle ? `<div style=\"color:#555; font-size:13px; margin-bottom:8px;\">${subtitle}</div>` : ''}
         <div style="font-family:monospace; font-size:12px; color:#666;">${lat.toFixed(6)}, ${lng.toFixed(6)}</div>

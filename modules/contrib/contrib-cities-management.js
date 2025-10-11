@@ -211,7 +211,7 @@
     overlay.style.cssText = `
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.5);
+      background: var(--black-alpha-50);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -229,7 +229,7 @@
       max-width: 800px;
       max-height: 90vh;
       overflow-y: auto;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      box-shadow: 0 20px 60px var(--black-alpha-30);
       animation: slideUp 0.3s ease;
     `;
 

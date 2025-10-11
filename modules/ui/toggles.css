@@ -12,14 +12,14 @@
   --toggle-size: 40px;
   
   /* Couleurs - Light mode */
-  --toggle-bg: rgba(255, 255, 255, 0.6);
-  --toggle-bg-hover: rgba(255, 255, 255, 0.85);
-  --toggle-color: #333;
+  --toggle-bg: var(--white-alpha-60);
+  --toggle-bg-hover: var(--white-alpha-85);
+  --toggle-color: var(--gray-700);
   --toggle-color-active: var(--primary);
   
   /* Shadows */
-  --toggle-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  --toggle-shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.15);
+  --toggle-shadow: 0 2px 4px var(--black-alpha-10);
+  --toggle-shadow-hover: 0 8px 20px var(--black-alpha-15);
   
   /* Transitions */
   --toggle-transition: all 0.2s ease;
@@ -31,9 +31,9 @@
 
 /* Dark mode variables */
 html[data-theme='dark'] {
-  --toggle-bg: var(--dm-toggle-bg);
-  --toggle-bg-hover: rgba(255, 255, 255, 0.1);
-  --toggle-color: #e5e7eb;
+  --toggle-bg: var(--black-alpha-66);
+  --toggle-bg-hover: var(--white-alpha-10);
+  --toggle-color: var(--gray-200);
 }
 
 /* ============================================================================
@@ -47,7 +47,7 @@ html[data-theme='dark'] {
   height: var(--toggle-size);
   background: var(--toggle-bg);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--black-alpha-06);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -160,7 +160,7 @@ html[data-theme='dark'] {
 }
 
 #location-toggle.error {
-  color: #ff4444;
+  color: var(--danger);
   animation: shake 0.5s;
 }
 
@@ -192,12 +192,12 @@ html[data-theme='dark'] {
     border-radius: 0;
     box-shadow: none;
     background: var(--toggle-bg); /* Utilise la variable qui change en dark mode */
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--black-alpha-10);
   }
   
   /* Dark mode - bordure adaptée */
   html[data-theme='dark'] .app-toggle {
-    border-color: rgba(255, 255, 255, 0.1);
+    border-color: var(--white-alpha-10);
   }
   
   /* Afficher le toggle location en mobile */
@@ -253,7 +253,7 @@ html[data-theme='dark'] {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--black-alpha-50);
   backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
@@ -285,7 +285,7 @@ html[data-theme='dark'] {
   font-size: 1em;
   border: none;
   border-radius: 30px;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 5px 20px var(--black-alpha-20);
   outline: none;
   transition: all 0.3s ease;
   box-sizing: border-box;
@@ -293,7 +293,7 @@ html[data-theme='dark'] {
 }
 
 #address-search:focus {
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 8px 25px var(--black-alpha-25);
 }
 
 /* Style quand la barre de recherche contient du texte */
@@ -309,7 +309,7 @@ html[data-theme='dark'] {
   right: 0;
   background: white;
   border-radius: 0 0 10px 10px;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 5px 20px var(--black-alpha-15);
   max-height: 400px;
   overflow-y: auto;
   display: none;
@@ -324,7 +324,7 @@ html[data-theme='dark'] {
   padding: 12px 20px;
   cursor: pointer;
   transition: all 0.3s ease;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--gray-100);
   opacity: 0;
   transform: translateY(10px);
   animation: fadeInUp 0.3s ease forwards;
@@ -348,18 +348,18 @@ html[data-theme='dark'] {
 }
 
 .search-result-item:hover {
-  background: #f8f8f8;
+  background: var(--gray-50);
 }
 
 .search-result-item h4 {
   margin: 0 0 5px 0;
-  color: #333;
+  color: var(--gray-700);
   font-size: 0.95em;
 }
 
 .search-result-item p {
   margin: 0;
-  color: #666;
+  color: var(--gray-500);
   font-size: 0.85em;
 }
 
@@ -394,26 +394,26 @@ html[data-theme='dark'] {
 
 /* Dark mode */
 html[data-theme='dark'] .search-results {
-  background: var(--dm-panel-bg);
-  border: 1px solid var(--dm-menu-border);
-  box-shadow: 0 10px 25px var(--dm-menu-shadow-1), 0 6px 10px var(--dm-menu-shadow-2);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-medium);
+  box-shadow: 0 10px 25px var(--black-alpha-45), 0 6px 10px var(--black-alpha-20);
 }
 
 html[data-theme='dark'] .search-result-item {
-  border-bottom-color: var(--dm-menu-border);
-  color: var(--dm-text);
+  border-bottom-color: var(--border-medium);
+  color: var(--text-primary);
 }
 
 html[data-theme='dark'] .search-result-item:hover {
-  background: var(--dm-tile-bg);
+  background: var(--black-alpha-40);
 }
 
 html[data-theme='dark'] .search-result-item h4 {
-  color: var(--dm-text);
+  color: var(--text-primary);
 }
 
 html[data-theme='dark'] .search-result-item p {
-  color: var(--dm-muted-text);
+  color: var(--text-tertiary);
 }
 
 /* Basemap menu */
@@ -424,7 +424,7 @@ html[data-theme='dark'] .search-result-item p {
   background: white;
   border-radius: 10px;
   padding: 10px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px var(--black-alpha-15);
   display: none;
   gap: 10px;
   z-index: 1100;

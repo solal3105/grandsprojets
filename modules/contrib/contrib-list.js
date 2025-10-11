@@ -70,7 +70,7 @@
         <div class="empty-illu" aria-hidden="true" style="font-size:42px;color:var(--gray-400)"><i class="fa-regular fa-folder-open"></i></div>
         <div class="empty-title" style="font-size:18px;font-weight:600;color:var(--gray-700)">Aucune contribution pour le moment</div>
         <div class="empty-sub" style="font-size:14px;opacity:0.8;max-width:520px">Créez votre première contribution pour proposer un projet et le visualiser sur la carte.</div>
-        <div><button type="button" id="btn-empty-create" class="gp-btn" style="padding:8px 14px;border-radius:10px;background:var(--primary);color:var(--white);border:none;cursor:pointer;box-shadow:0 3px 10px rgba(25,118,210,0.3);">Créer une contribution</button></div>
+        <div><button type="button" id="btn-empty-create" class="gp-btn" style="padding:8px 14px;border-radius:10px;background:var(--primary);color:var(--white);border:none;cursor:pointer;box-shadow:0 3px 10px var(--primary-alpha-3);">Créer une contribution</button></div>
       `;
       if (listSentinel && listSentinel.parentNode === listEl) {
         listEl.insertBefore(wrap, listSentinel);
@@ -98,7 +98,7 @@
 
       const overlay = document.createElement('div');
       overlay.setAttribute('role', 'presentation');
-      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:9999;';
+      overlay.style.cssText = 'position:fixed;inset:0;background:var(--black-alpha-45);display:flex;align-items:center;justify-content:center;z-index:9999;';
 
       const modal = document.createElement('div');
       modal.setAttribute('role', 'dialog');
@@ -129,7 +129,7 @@
       const cancelBtn = document.createElement('button');
       cancelBtn.type = 'button';
       cancelBtn.textContent = 'Annuler';
-      cancelBtn.style.cssText = 'padding:8px 12px;border-radius:8px;border:1px solid rgba(0,0,0,0.15);background:var(--white);';
+      cancelBtn.style.cssText = 'padding:8px 12px;border-radius:8px;border:1px solid var(--black-alpha-15);background:var(--white);';
       const confirmBtn = document.createElement('button');
       confirmBtn.type = 'button';
       confirmBtn.textContent = 'Supprimer';

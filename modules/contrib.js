@@ -1141,15 +1141,15 @@
         progOuter.style.height = '2px';
         progOuter.style.width = '80px';
         progOuter.style.borderRadius = '999px';
-        progOuter.style.background = 'rgba(0,0,0,0.08)';
+        progOuter.style.background = 'var(--black-alpha-08)';
         progOuter.style.position = 'relative';
 
         const progInner = document.createElement('div');
-        progInner.className = 'char-prog-fill';
+        progInner.id = 'geojson-upload-progress-inner';
         progInner.style.height = '100%';
         progInner.style.width = '0%';
         progInner.style.borderRadius = '999px';
-        progInner.style.background = 'rgba(33,150,243,0.6)';
+        progInner.style.background = 'var(--info-alpha-6)';
         progInner.style.transition = 'width 0.1s linear';
         progOuter.appendChild(progInner);
 

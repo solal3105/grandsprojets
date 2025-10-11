@@ -117,7 +117,7 @@
   function showConfirmModal(user, newRole, elements) {
     const overlay = document.createElement('div');
     overlay.className = 'user-confirm-overlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10001;';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--black-alpha-50);display:flex;align-items:center;justify-content:center;z-index:10001;';
     
     const modal = document.createElement('div');
     modal.className = 'user-confirm-modal';
@@ -243,7 +243,7 @@
       // Créer l'overlay
       const overlay = document.createElement('div');
       overlay.className = 'invite-modal-overlay';
-      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10001;animation:fadeIn 0.2s;';
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--black-alpha-50);display:flex;align-items:center;justify-content:center;z-index:10001;animation:fadeIn 0.2s;';
 
       // Créer la modale
       const modal = document.createElement('div');

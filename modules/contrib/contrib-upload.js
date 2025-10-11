@@ -170,7 +170,7 @@
             thumb.style.maxHeight = '140px';
             thumb.style.maxWidth = '100%';
             thumb.style.borderRadius = '10px';
-            thumb.style.boxShadow = '0 6px 16px rgba(0,0,0,0.18)';
+            thumb.style.boxShadow = '0 6px 16px var(--black-alpha-18)';
             thumb.style.transform = 'rotate(-0.75deg)';
             thumb.style.transition = 'transform 0.2s ease';
             // place thumbnail inside dz-selected, replacing icon

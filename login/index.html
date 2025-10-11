@@ -28,8 +28,8 @@
       --info-bg: var(--info-lighter);
       --info-text: var(--info-active);
       --input-bg: var(--gray-100);
-      --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-      --shadow-hover: 0 6px 24px rgba(0, 0, 0, 0.12);
+      --shadow: 0 4px 20px var(--black-alpha-08);
+      --shadow-hover: 0 6px 24px var(--black-alpha-12);
     }
 
     [data-theme="dark"] {
@@ -44,8 +44,8 @@
       --info-bg: var(--info-alpha-20);
       --info-text: var(--info-light);
       --input-bg: var(--gray-900);
-      --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-      --shadow-hover: 0 6px 24px rgba(0, 0, 0, 0.5);
+      --shadow: 0 4px 20px var(--black-alpha-40);
+      --shadow-hover: 0 6px 24px var(--black-alpha-50);
     }
 
     body {
@@ -130,11 +130,11 @@
     .form-input:focus {
       outline: none;
       border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+      box-shadow: 0 0 0 3px var(--info-alpha-1);
     }
 
     [data-theme="dark"] .form-input:focus {
-      box-shadow: 0 0 0 3px rgba(66, 165, 245, 0.15);
+      box-shadow: 0 0 0 3px var(--info-alpha-18);
     }
 
     /* Buttons */

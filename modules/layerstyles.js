@@ -99,8 +99,8 @@
       
       const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
       const progressScale = [
-        'var(--danger)', 'var(--danger-hover)', '#ED3319', '#F34C11', 'var(--warning)',
-        '#D08812', '#A19225', '#729B37', '#43A54A', primaryColor
+        'var(--danger)', 'var(--danger-hover)', 'var(--danger-hover)', 'var(--warning)', 'var(--warning)',
+        'var(--warning)', 'var(--warning)', 'var(--primary-light)', 'var(--primary-light)', primaryColor
       ];
       
       let color = baseStyle.color;

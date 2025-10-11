@@ -75,7 +75,7 @@
   function setupHoverPopup(layer, imgUrl) {
     const popupHtml = `
       <div class="map-photo" style="max-width:260px">
-        <img src="${imgUrl}" alt="photo" style="max-width:260px;max-height:180px;display:block;border-radius:8px;box-shadow:0 12px 32px rgba(0,0,0,0.45)" />
+        <img src="${imgUrl}" alt="photo" style="max-width:260px;max-height:180px;display:block;border-radius:8px;box-shadow:0 12px 32px var(--black-alpha-45)" />
       </div>`;
     
     layer.bindPopup(popupHtml, { 
@@ -116,20 +116,20 @@
     overlay.style.cssText = [
       'position:fixed', 'inset:0', 'z-index:9999',
       'display:flex', 'align-items:center', 'justify-content:center',
-      'background:rgba(0,0,0,0.55)', 'backdrop-filter:blur(6px)',
+      'background:var(--black-alpha-55)', 'backdrop-filter:blur(6px)',
       '-webkit-backdrop-filter:blur(6px)', 'padding:24px'
     ].join(';');
 
     const box = document.createElement('div');
     box.style.cssText = [
       'position:relative', 'max-width:90vw', 'max-height:90vh',
-      'box-shadow:0 8px 24px rgba(0,0,0,0.45)', 'border-radius:10px',
+      'box-shadow:0 8px 24px var(--black-alpha-45)', 'border-radius:10px',
       'overflow:hidden', 'background:#000'
     ].join(';');
 
     const img = document.createElement('img');
     img.alt = title || 'image';
-    img.style.cssText = 'display:block;max-width:90vw;max-height:85vh;object-fit:contain;box-shadow:0 24px 72px rgba(0,0,0,0.6)';
+    img.style.cssText = 'display:block;max-width:90vw;max-height:85vh;object-fit:contain;box-shadow:0 24px 72px var(--black-alpha-60)';
 
     const close = document.createElement('button');
     close.type = 'button';
@@ -138,7 +138,7 @@
     close.style.cssText = [
       'position:absolute', 'top:8px', 'right:10px',
       'width:36px', 'height:36px', 'border:none', 'border-radius:18px',
-      'background:rgba(0,0,0,0.55)', 'color:#fff',
+      'background:var(--black-alpha-55)', 'color:#fff',
       'font-size:26px', 'line-height:36px', 'cursor:pointer'
     ].join(';');
 

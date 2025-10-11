@@ -78,7 +78,7 @@
       </div>
       <!-- Assistant rédacteur (Carte verte animée, étape 3 uniquement) -->
       <div id="assistant-writer-card" class="contrib-step-3" role="region" aria-label="Assistant rédacteur"
-           style="margin:12px 0 14px; border:1px solid #16a34a; border-radius:14px; padding:14px; background:linear-gradient(180deg,#ecfdf5,#f0fdf4); box-shadow:0 2px 8px rgba(0,128,0,.08); position:relative; overflow:hidden;">
+           style="margin:12px 0 14px; border:1px solid var(--primary); border-radius:14px; padding:14px; background:linear-gradient(180deg,var(--primary-lighter),var(--primary-lighter)); box-shadow:0 2px 8px var(--primary-alpha-1); position:relative; overflow:hidden;">
         <!-- overlay cliquable sur toute la carte -->
         <a href="/assistant-ia/" target="_blank" rel="noopener" aria-label="Ouvrir l'assistant IA"
            style="position:absolute; inset:0; z-index:1; opacity:0;">
@@ -86,10 +86,10 @@
         <div style="display:flex; gap:12px; align-items:center; position:relative; z-index:2;">
           <div class="sparkle" aria-hidden="true" style="font-size:28px; line-height:1;">✨</div>
           <div style="flex:1 1 auto; min-width:0;">
-            <h3 class="title" style="margin:0; color:#065f46; font-size:18px;">
+            <h3 class="title" style="margin:0; color:var(--primary-active); font-size:18px;">
               <span class="shimmer">Rédiger avec l'assistant</span>
             </h3>
-            <div class="subtitle" style="margin:2px 0 8px; color:#064e3b; font-size:14px;">Premier jet en 1 minute</div>
+            <div class="subtitle" style="margin:2px 0 8px; color:var(--primary-active); font-size:14px;">Premier jet en 1 minute</div>
             <div class="chips" aria-label="L'assistant vous aide pour">
               <span>Markdown</span>
               <span>Méta</span>
@@ -97,7 +97,7 @@
             </div>
           </div>
           <a id="contrib-assistant-link" href="/assistant-ia/" target="_blank" rel="noopener"
-             style="display:inline-block; background:#16a34a; color:#fff; padding:10px 14px; border-radius:10px; text-decoration:none; font-weight:600; white-space:nowrap; position:relative; z-index:3;">
+             style="display:inline-block; background:var(--primary); color:var(--white); padding:10px 14px; border-radius:10px; text-decoration:none; font-weight:600; white-space:nowrap; position:relative; z-index:3;">
             Ouvrir
           </a>
         </div>
@@ -111,7 +111,7 @@
         /* Halo pulsant vert (accent non intrusif) */
         #assistant-writer-card::after {
           content:""; position:absolute; inset:-2px; border-radius:16px;
-          border:2px solid rgba(22,163,74,.35); pointer-events:none; filter:blur(.3px);
+          border:2px solid var(--primary-alpha-35); pointer-events:none; filter:blur(.3px);
           animation: agp-pulse 1600ms ease-out infinite;
         }
         @keyframes agp-pulse { 0% { opacity:.55; } 60% { opacity:.15; } 100% { opacity:.35; } }
@@ -122,7 +122,7 @@
 
         /* Titre scintillant discret */
         #assistant-writer-card .shimmer {
-          background: linear-gradient(90deg, #065f46 0%, #10b981 50%, #065f46 100%);
+          background: linear-gradient(90deg, var(--primary-active) 0%, var(--primary-light) 50%, var(--primary-active) 100%);
           -webkit-background-clip: text; background-clip: text; color: transparent;
           background-size: 200% 100%; animation: agp-shimmer 2200ms linear infinite;
         }
@@ -131,7 +131,7 @@
         /* Petites pastilles explicatives */
         #assistant-writer-card .chips { display:flex; gap:6px; flex-wrap:wrap; }
         #assistant-writer-card .chips span {
-          background:#e8f5e9; color:#065f46; border:1px solid #a7f3d0;
+          background:var(--primary-lighter); color:var(--primary-active); border:1px solid var(--primary-lighter);
           border-radius:999px; padding:4px 8px; font-size:12px; line-height:1;
           animation: agp-chip-in 420ms cubic-bezier(.2,.8,.2,1) both;
         }
@@ -159,9 +159,9 @@
           <select id="contrib-category" name="category_layer" required disabled>
             <option value="">Sélectionnez d'abord une collectivité</option>
           </select>
-          <small id="contrib-category-help" style="display:none; margin-top:4px; color:#f59e0b;">
+          <small id="contrib-category-help" style="display:none; margin-top:4px; color:var(--warning);">
             <i class="fa-solid fa-exclamation-triangle"></i> Aucune catégorie disponible. 
-            <a href="#" id="contrib-create-category-link" style="color:#1976d2; text-decoration:underline;">Créer une catégorie</a>
+            <a href="#" id="contrib-create-category-link" style="color:var(--info); text-decoration:underline;">Créer une catégorie</a>
           </small>
         </div>
 
@@ -261,7 +261,7 @@
             <span>Annuler la modification</span>
           </button>
           <button type="button" id="contrib-delete" class="gp-btn gp-btn--secondary" title="Supprimer la contribution"
-                  style="display:none; color:#fff; background:#c62828; border-color:#b71c1c;">
+                  style="display:none; color:var(--white); background:var(--danger); border-color:var(--danger-hover);">
             <i class="fa fa-trash" aria-hidden="true"></i>
             <span>Supprimer</span>
           </button>
@@ -309,7 +309,7 @@
 
       <!-- Panel: Gestion des catégories -->
       <section id="contrib-panel-categories" role="tabpanel" aria-label="Gérer les catégories" hidden>
-        <div id="category-ville-selector-container" style="margin-bottom:20px; padding:16px; border:1px solid #ddd; border-radius:8px; background:#f9f9f9; opacity:0;">
+        <div id="category-ville-selector-container" style="margin-bottom:20px; padding:16px; border:1px solid var(--gray-300); border-radius:8px; background:var(--gray-50); opacity:0;">
           <label for="category-ville-selector" style="display:block; font-weight:600; margin-bottom:8px;">
             <i class="fa-solid fa-city"></i> Sélectionner une collectivité
           </label>
@@ -331,13 +331,13 @@
         <!-- Formulaire de création/édition de catégorie - Design moderne -->
         <div id="category-form-container" style="display:none; margin-top:24px; padding:0; border:none; background:transparent;">
           <!-- Header moderne avec retour -->
-          <div style="display:flex; align-items:center; gap:16px; margin-bottom:24px; padding-bottom:16px; border-bottom:2px solid var(--border, #e0e0e0);">
+          <div style="display:flex; align-items:center; gap:16px; margin-bottom:24px; padding-bottom:16px; border-bottom:2px solid var(--border, var(--gray-200));">
             <button type="button" id="category-form-back" class="gp-btn gp-btn--secondary" style="display:none; padding:8px 12px; border-radius:8px;">
               <i class="fa-solid fa-arrow-left"></i>
             </button>
             <div style="flex:1;">
-              <h3 id="category-form-title" style="margin:0; font-size:24px; font-weight:700; color:var(--text-strong, #1a1a1a);">Nouvelle catégorie</h3>
-              <p style="margin:4px 0 0 0; font-size:14px; color:var(--text-muted, #666); font-weight:400;">Configurez l'apparence et le comportement de votre catégorie</p>
+              <h3 id="category-form-title" style="margin:0; font-size:24px; font-weight:700; color:var(--text-strong, var(--gray-900));">Nouvelle catégorie</h3>
+              <p style="margin:4px 0 0 0; font-size:14px; color:var(--text-muted, var(--gray-500)); font-weight:400;">Configurez l'apparence et le comportement de votre catégorie</p>
             </div>
           </div>
           
@@ -347,54 +347,54 @@
             
             <!-- Section: Informations de base -->
             <div style="margin-bottom:32px;">
-              <h4 style="margin:0 0 16px 0; font-size:16px; font-weight:600; color:var(--text-strong, #1a1a1a); display:flex; align-items:center; gap:8px;">
-                <i class="fa-solid fa-circle-info" style="color:var(--accent, #14AE5C); font-size:18px;"></i>
+              <h4 style="margin:0 0 16px 0; font-size:16px; font-weight:600; color:var(--text-strong, var(--gray-900)); display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-circle-info" style="color:var(--accent, var(--primary)); font-size:18px;"></i>
                 Informations de base
               </h4>
               
               <div style="display:grid; gap:20px;">
                 <!-- Nom + Ordre sur la même ligne -->
-                <div style="background:var(--surface, #fff); padding:16px; border-radius:12px; border:1px solid var(--border, #e0e0e0);">
+                <div style="background:var(--surface, var(--white)); padding:16px; border-radius:12px; border:1px solid var(--border, var(--gray-200));">
                   <div style="display:grid; grid-template-columns:1fr auto; gap:16px; align-items:start;">
                     <div>
-                      <label for="category-name" style="display:block; font-size:13px; font-weight:600; color:var(--text-muted, #666); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Nom de la catégorie</label>
+                      <label for="category-name" style="display:block; font-size:13px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Nom de la catégorie</label>
                       <input type="text" id="category-name" name="category" required placeholder="Ex: mobilite" 
-                             style="width:100%; padding:12px; border:1px solid var(--border, #e0e0e0); border-radius:8px; font-size:15px; background:var(--surface, #fff); box-sizing:border-box;" />
-                      <small style="display:block; margin-top:8px; font-size:12px; color:var(--text-muted, #999);">
-                        <i class="fa-solid fa-lightbulb" style="color:#FFA726;"></i> Identifiant technique
+                             style="width:100%; padding:12px; border:1px solid var(--border, var(--gray-200)); border-radius:8px; font-size:15px; background:var(--surface, var(--white)); box-sizing:border-box;" />
+                      <small style="display:block; margin-top:8px; font-size:12px; color:var(--text-muted, var(--gray-400));">
+                        <i class="fa-solid fa-lightbulb" style="color:var(--warning);"></i> Identifiant technique
                       </small>
                     </div>
                     <div style="min-width:120px;">
-                      <label for="category-order" style="display:block; font-size:13px; font-weight:600; color:var(--text-muted, #666); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Ordre</label>
+                      <label for="category-order" style="display:block; font-size:13px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Ordre</label>
                       <input type="number" id="category-order" name="display_order" value="100" min="0" step="1" 
-                             style="width:100%; padding:12px; border:1px solid var(--border, #e0e0e0); border-radius:8px; font-size:15px; background:var(--surface, #fff); box-sizing:border-box;" />
+                             style="width:100%; padding:12px; border:1px solid var(--border, var(--gray-200)); border-radius:8px; font-size:15px; background:var(--surface, var(--white)); box-sizing:border-box;" />
                     </div>
                   </div>
                 </div>
                 
                 <!-- Icône -->
-                <div style="background:var(--surface, #fff); padding:16px; border-radius:12px; border:1px solid var(--border, #e0e0e0);">
-                  <label for="category-icon" style="display:block; font-size:13px; font-weight:600; color:var(--text-muted, #666); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Icône</label>
+                <div style="background:var(--surface, var(--white)); padding:16px; border-radius:12px; border:1px solid var(--border, var(--gray-200));">
+                  <label for="category-icon" style="display:block; font-size:13px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Icône</label>
                   <div style="display:flex; gap:12px; align-items:stretch;">
                     <input type="text" id="category-icon" name="icon_class" required placeholder="fa-solid fa-bus" 
-                           style="flex:1; padding:12px; border:1px solid var(--border, #e0e0e0); border-radius:8px; font-size:14px; font-family:monospace; background:var(--surface, #fff);" />
-                    <div id="category-icon-preview" style="width:56px; height:56px; display:flex; align-items:center; justify-content:center; border:2px solid var(--border, #e0e0e0); border-radius:10px; background:linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); font-size:24px; transition:all 0.3s; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-                      <i class="fa-solid fa-question" aria-hidden="true" style="color:#666;"></i>
+                           style="flex:1; padding:12px; border:1px solid var(--border, var(--gray-200)); border-radius:8px; font-size:14px; font-family:monospace; background:var(--surface, var(--white));" />
+                    <div id="category-icon-preview" style="width:56px; height:56px; display:flex; align-items:center; justify-content:center; border:2px solid var(--border, var(--gray-200)); border-radius:10px; background:linear-gradient(135deg, var(--gray-50) 0%, var(--gray-300) 100%); font-size:24px; transition:all 0.3s; box-shadow:0 2px 8px var(--black-alpha-08);">
+                      <i class="fa-solid fa-question" aria-hidden="true" style="color:var(--gray-500);"></i>
                     </div>
                     <button type="button" id="category-icon-picker-btn" class="gp-btn gp-btn--secondary" 
                             style="white-space:nowrap; padding:12px 20px; border-radius:8px; font-weight:600; display:flex; align-items:center; gap:8px;">
                       <i class="fa-solid fa-icons"></i> Choisir
                     </button>
                   </div>
-                  <small style="display:block; margin-top:8px; font-size:12px; color:var(--text-muted, #999);">
-                    <a href="https://fontawesome.com/search?o=r&m=free" target="_blank" rel="noopener" style="color:var(--accent, #14AE5C); text-decoration:none; font-weight:500;">
+                  <small style="display:block; margin-top:8px; font-size:12px; color:var(--text-muted, var(--gray-400));">
+                    <a href="https://fontawesome.com/search?o=r&m=free" target="_blank" rel="noopener" style="color:var(--accent, var(--primary)); text-decoration:none; font-weight:500;">
                       <i class="fa-solid fa-arrow-up-right-from-square"></i> Parcourir les icônes FontAwesome
                     </a>
                   </small>
                   
                   <!-- Icon Picker moderne -->
-                  <div id="category-icon-picker" style="display:none; margin-top:16px; padding:16px; border:1px solid var(--border, #e0e0e0); border-radius:12px; background:var(--surface-alt, #f9fafb); max-height:320px; overflow-y:auto;">
-                    <div style="margin-bottom:12px; font-size:14px; font-weight:600; color:var(--text-strong, #333);">
+                  <div id="category-icon-picker" style="display:none; margin-top:16px; padding:16px; border:1px solid var(--border, var(--gray-200)); border-radius:12px; background:var(--surface-alt, var(--gray-50)); max-height:320px; overflow-y:auto;">
+                    <div style="margin-bottom:12px; font-size:14px; font-weight:600; color:var(--text-strong, var(--gray-700));">
                       <i class="fa-solid fa-grid-2"></i> Sélectionner une icône
                     </div>
                     <div id="category-icon-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(56px, 1fr)); gap:8px;">
@@ -410,12 +410,12 @@
 
             <!-- Section: Layers associés (compact) -->
             <div style="margin-bottom:32px;">
-              <div style="background:var(--surface, #fff); padding:16px; border-radius:12px; border:1px solid var(--border, #e0e0e0);">
+              <div style="background:var(--surface, var(--white)); padding:16px; border-radius:12px; border:1px solid var(--border, var(--gray-200));">
                 <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-                  <i class="fa-solid fa-layer-group" style="color:var(--accent, #14AE5C); font-size:16px;"></i>
+                  <i class="fa-solid fa-layer-group" style="color:var(--accent, var(--primary)); font-size:16px;"></i>
                   <div style="flex:1;">
-                    <div style="font-size:14px; font-weight:600; color:var(--text-strong, #333);">Layers additionnels</div>
-                    <div style="font-size:12px; color:var(--text-muted, #666); margin-top:2px;">Sélectionnez les couches à afficher en plus de la catégorie</div>
+                    <div style="font-size:14px; font-weight:600; color:var(--text-strong, var(--gray-700));">Layers additionnels</div>
+                    <div style="font-size:12px; color:var(--text-muted, var(--gray-500)); margin-top:2px;">Sélectionnez les couches à afficher en plus de la catégorie</div>
                   </div>
                 </div>
                 <div id="category-layers-checkboxes" style="display:flex; flex-wrap:wrap; gap:8px;">
@@ -426,60 +426,60 @@
 
             <!-- Section: Styles personnalisés avec prévisualisation -->
             <div style="margin-bottom:32px;">
-              <h4 style="margin:0 0 16px 0; font-size:16px; font-weight:600; color:var(--text-strong, #1a1a1a); display:flex; align-items:center; gap:8px;">
-                <i class="fa-solid fa-palette" style="color:var(--accent, #14AE5C); font-size:18px;"></i>
+              <h4 style="margin:0 0 16px 0; font-size:16px; font-weight:600; color:var(--text-strong, var(--gray-900)); display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-palette" style="color:var(--accent, var(--primary)); font-size:18px;"></i>
                 Styles personnalisés
               </h4>
-              <div style="background:var(--surface, #fff); padding:20px; border-radius:12px; border:1px solid var(--border, #e0e0e0);">
+              <div style="background:var(--surface, var(--white)); padding:20px; border-radius:12px; border:1px solid var(--border, var(--gray-200));">
                 
                 <!-- Prévisualisation en temps réel -->
-                <div id="style-preview-container" style="margin-bottom:24px; padding:20px; background:linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius:10px; border:1px solid var(--border, #e0e0e0);">
-                  <div style="font-size:12px; font-weight:600; color:var(--text-muted, #666); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">
+                <div id="style-preview-container" style="margin-bottom:24px; padding:20px; background:linear-gradient(135deg, var(--gray-50) 0%, var(--gray-300) 100%); border-radius:10px; border:1px solid var(--border, var(--gray-200));">
+                  <div style="font-size:12px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">
                     <i class="fa-solid fa-eye"></i> Prévisualisation
                   </div>
-                  <svg width="100%" height="80" style="background:#fff; border-radius:8px; border:1px solid var(--border, #e0e0e0);">
-                    <line id="style-preview-line" x1="20" y1="40" x2="280" y2="40" stroke="#000000" stroke-width="3" />
-                    <rect id="style-preview-polygon" x="300" y="15" width="80" height="50" fill="none" stroke="#000000" stroke-width="3" />
+                  <svg width="100%" height="80" style="background:var(--white); border-radius:8px; border:1px solid var(--border, var(--gray-200));">
+                    <line id="style-preview-line" x1="20" y1="40" x2="280" y2="40" stroke="var(--black)" stroke-width="3" />
+                    <rect id="style-preview-polygon" x="300" y="15" width="80" height="50" fill="none" stroke="var(--black)" stroke-width="3" />
                   </svg>
                 </div>
                 
                 <!-- Contrôles de style en grid -->
                 <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:20px;">
                   <div>
-                    <label for="category-style-color" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, #666); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Couleur</label>
-                    <input type="color" id="category-style-color" value="#000000" style="width:100%; height:48px; border:2px solid var(--border, #e0e0e0); border-radius:8px; cursor:pointer; transition:all 0.2s;">
+                    <label for="category-style-color" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Couleur</label>
+                    <input type="color" id="category-style-color" value="#000000" style="width:100%; height:48px; border:2px solid var(--border, var(--gray-200)); border-radius:8px; cursor:pointer; transition:all 0.2s;">
                   </div>
                   <div>
-                    <label for="category-style-weight" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, #666); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Épaisseur</label>
-                    <input type="number" id="category-style-weight" min="0" max="10" step="1" placeholder="3" style="width:100%; padding:12px; border:1px solid var(--border, #e0e0e0); border-radius:8px; font-size:15px;">
+                    <label for="category-style-weight" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Épaisseur</label>
+                    <input type="number" id="category-style-weight" min="0" max="10" step="1" placeholder="3" style="width:100%; padding:12px; border:1px solid var(--border, var(--gray-200)); border-radius:8px; font-size:15px;">
                   </div>
                   <div>
-                    <label for="category-style-dasharray" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, #666); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Pointillés</label>
-                    <input type="text" id="category-style-dasharray" placeholder="Ex: 5,5" style="width:100%; padding:12px; border:1px solid var(--border, #e0e0e0); border-radius:8px; font-size:14px; font-family:monospace;">
+                    <label for="category-style-dasharray" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Pointillés</label>
+                    <input type="text" id="category-style-dasharray" placeholder="Ex: 5,5" style="width:100%; padding:12px; border:1px solid var(--border, var(--gray-200)); border-radius:8px; font-size:14px; font-family:monospace;">
                   </div>
                   <div>
-                    <label for="category-style-opacity" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, #666); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Opacité</label>
-                    <input type="number" id="category-style-opacity" min="0" max="1" step="0.1" placeholder="1" style="width:100%; padding:12px; border:1px solid var(--border, #e0e0e0); border-radius:8px; font-size:15px;">
+                    <label for="category-style-opacity" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Opacité</label>
+                    <input type="number" id="category-style-opacity" min="0" max="1" step="0.1" placeholder="1" style="width:100%; padding:12px; border:1px solid var(--border, var(--gray-200)); border-radius:8px; font-size:15px;">
                   </div>
                 </div>
                 
                 <!-- Options de remplissage (polygones) -->
-                <div style="padding:16px; background:var(--surface-alt, #f9fafb); border-radius:10px; border:1px solid var(--border, #e0e0e0);">
+                <div style="padding:16px; background:var(--surface-alt, var(--gray-50)); border-radius:10px; border:1px solid var(--border, var(--gray-200));">
                   <label style="display:flex; align-items:center; gap:10px; cursor:pointer; margin-bottom:16px;">
-                    <input type="checkbox" id="category-style-fill" style="width:20px; height:20px; cursor:pointer; accent-color:var(--accent, #14AE5C);">
-                    <span style="font-weight:600; font-size:14px; color:var(--text-strong, #333);">
+                    <input type="checkbox" id="category-style-fill" style="width:20px; height:20px; cursor:pointer; accent-color:var(--accent, var(--primary));">
+                    <span style="font-weight:600; font-size:14px; color:var(--text-strong, var(--gray-700));">
                       <i class="fa-solid fa-fill-drip"></i> Activer le remplissage (polygones)
                     </span>
                   </label>
                   <div id="category-style-fill-options" style="display:none;">
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
                       <div>
-                        <label for="category-style-fillcolor" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, #666); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Couleur de remplissage</label>
-                        <input type="color" id="category-style-fillcolor" value="#999999" style="width:100%; height:48px; border:2px solid var(--border, #e0e0e0); border-radius:8px; cursor:pointer;">
+                        <label for="category-style-fillcolor" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Couleur de remplissage</label>
+                        <input type="color" id="category-style-fillcolor" value="var(--gray-400)999" style="width:100%; height:48px; border:2px solid var(--border, var(--gray-200)); border-radius:8px; cursor:pointer;">
                       </div>
                       <div>
-                        <label for="category-style-fillopacity" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, #666); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Opacité du remplissage</label>
-                        <input type="number" id="category-style-fillopacity" min="0" max="1" step="0.1" placeholder="0.3" style="width:100%; padding:12px; border:1px solid var(--border, #e0e0e0); border-radius:8px; font-size:15px;">
+                        <label for="category-style-fillopacity" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Opacité du remplissage</label>
+                        <input type="number" id="category-style-fillopacity" min="0" max="1" step="0.1" placeholder="0.3" style="width:100%; padding:12px; border:1px solid var(--border, var(--gray-200)); border-radius:8px; font-size:15px;">
                       </div>
                     </div>
                   </div>
@@ -488,7 +488,7 @@
             </div>
 
             <!-- Actions -->
-            <div style="display:flex; gap:12px; padding-top:24px; border-top:2px solid var(--border, #e0e0e0);">
+            <div style="display:flex; gap:12px; padding-top:24px; border-top:2px solid var(--border, var(--gray-200));">
               <button type="submit" class="gp-btn gp-btn--primary" style="padding:14px 28px; border-radius:10px; font-weight:600; font-size:15px; display:flex; align-items:center; gap:10px;">
                 <i class="fa-solid fa-check"></i> Enregistrer la catégorie
               </button>
@@ -504,10 +504,10 @@
       <section id="contrib-panel-users" class="contrib-panel" hidden>
         <div class="panel-header">
           <h2 style="margin:0 0 8px 0;display:flex;align-items:center;gap:8px;">
-            <i class="fa-solid fa-users" style="color:#1976d2;"></i>
+            <i class="fa-solid fa-users" style="color:var(--info);"></i>
             Gérer les utilisateurs
           </h2>
-          <p class="panel-subtitle" style="margin:0;color:#666;font-size:14px;">Visualisez et modifiez les rôles des utilisateurs partageant vos villes</p>
+          <p class="panel-subtitle" style="margin:0;color:var(--gray-500);font-size:14px;">Visualisez et modifiez les rôles des utilisateurs partageant vos villes</p>
         </div>
         
         <div class="panel-toolbar" style="margin:16px 0;display:flex;gap:12px;align-items:center;">
@@ -522,18 +522,18 @@
           </button>
           
           <div class="search-box" style="position:relative;flex:1;">
-            <i class="fa-solid fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#999;"></i>
+            <i class="fa-solid fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--gray-400);"></i>
             <input 
               type="search" 
               id="users-search" 
               placeholder="Rechercher par email..."
               autocomplete="off"
-              style="width:100%;padding:10px 12px 10px 40px;border:1px solid #ddd;border-radius:8px;font-size:14px;"
+              style="width:100%;padding:10px 12px 10px 40px;border:1px solid var(--gray-300);border-radius:8px;font-size:14px;"
             />
           </div>
         </div>
         
-        <div id="users-status" class="panel-status" role="status" aria-live="polite" style="margin:12px 0;color:#666;font-size:14px;"></div>
+        <div id="users-status" class="panel-status" role="status" aria-live="polite" style="margin:12px 0;color:var(--gray-500);font-size:14px;"></div>
         
         <div id="users-list" class="users-list" style="max-height:500px;overflow-y:auto;padding-right:8px;"></div>
       </section>
@@ -542,10 +542,10 @@
       <section id="contrib-panel-cities" class="contrib-panel" hidden>
         <div class="panel-header">
           <h2 style="margin:0 0 8px 0;display:flex;align-items:center;gap:8px;">
-            <i class="fa-solid fa-city" style="color:#1976d2;"></i>
+            <i class="fa-solid fa-city" style="color:var(--info);"></i>
             Gérer les villes
           </h2>
-          <p class="panel-subtitle" style="margin:0;color:#666;font-size:14px;">Ajoutez ou modifiez les villes disponibles dans l'application</p>
+          <p class="panel-subtitle" style="margin:0;color:var(--gray-500);font-size:14px;">Ajoutez ou modifiez les villes disponibles dans l'application</p>
         </div>
         
         <div class="panel-toolbar" style="margin:16px 0;">
@@ -560,7 +560,7 @@
           </button>
         </div>
         
-        <div id="cities-status" class="panel-status" role="status" aria-live="polite" style="margin:12px 0;color:#666;font-size:14px;"></div>
+        <div id="cities-status" class="panel-status" role="status" aria-live="polite" style="margin:12px 0;color:var(--gray-500);font-size:14px;"></div>
         
         <div id="cities-list" class="cities-list" style="max-height:500px;overflow-y:auto;padding-right:8px;"></div>
       </section>
