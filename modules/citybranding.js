@@ -58,8 +58,16 @@
    */
   async loadAndApplyBranding(ville) {
     const branding = await this.getBrandingForCity(ville);
-    if (branding && branding.primary_color) {
-      this.applyPrimaryColor(branding.primary_color);
+    if (branding) {
+      // Appliquer la couleur primaire
+      if (branding.primary_color) {
+        this.applyPrimaryColor(branding.primary_color);
+      }
+      
+      // Appliquer la configuration des toggles
+      if (branding.enabled_toggles) {
+        this.applyTogglesConfig(branding.enabled_toggles);
+      }
     }
   },
 
@@ -116,6 +124,80 @@
       console.error('Error updating city branding:', err);
       throw err;
     }
+  },
+
+  /**
+   * Met à jour la configuration des toggles pour une ville
+   * @param {string} ville - Nom de la ville
+   * @param {Array<string>} enabledToggles - Liste des toggles activés
+   * @returns {Promise<Object>} Configuration mise à jour
+   */
+  async updateTogglesConfig(ville, enabledToggles) {
+    if (!ville || !Array.isArray(enabledToggles)) {
+      throw new Error('Ville et liste de toggles requis');
+    }
+
+    try {
+      const supabase = win.AuthModule?.getClient?.();
+      if (!supabase) {
+        throw new Error('Client Supabase non disponible');
+      }
+
+      // Récupérer l'utilisateur actuel
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
+      const { data, error } = await supabase
+        .from('city_branding')
+        .update({
+          enabled_toggles: enabledToggles,
+          updated_by: user.id
+        })
+        .eq('ville', ville.toLowerCase())
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log('Toggles config updated:', data);
+
+      // Appliquer immédiatement si c'est la ville active
+      const activeCity = localStorage.getItem('activeCity');
+      if (activeCity === ville.toLowerCase()) {
+        this.applyTogglesConfig(enabledToggles);
+      }
+
+      return data;
+    } catch (err) {
+      console.error('Error updating toggles config:', err);
+      throw err;
+    }
+  },
+
+  /**
+   * Applique la configuration des toggles (masque/affiche les contrôles)
+   * @param {Array<string>} enabledToggles - Liste des toggles activés
+   */
+  applyTogglesConfig(enabledToggles) {
+    if (!Array.isArray(enabledToggles)) return;
+
+    console.log('[CityBranding] Applying toggles config:', enabledToggles);
+
+    // Liste de tous les toggles possibles
+    const allToggles = ['filters', 'basemap', 'theme', 'search', 'location', 'info'];
+
+    allToggles.forEach(toggleKey => {
+      const toggleElement = document.getElementById(`${toggleKey}-toggle`);
+      if (toggleElement) {
+        if (enabledToggles.includes(toggleKey)) {
+          toggleElement.style.display = '';
+        } else {
+          toggleElement.style.display = 'none';
+        }
+      }
+    });
   },
 
   /**

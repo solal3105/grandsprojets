@@ -1348,7 +1348,7 @@ html, body {
   justify-content: center;
   gap: 10px;
   position: relative;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary) 50%, var(--primary-hover) 100%);
+  background: linear-gradient(135deg, var(--color-primary, var(--primary)) 0%, var(--color-primary, var(--primary)) 50%, var(--primary-hover) 100%);
   background-size: 220% 220%;
   color: var(--black);
   border: 1px solid var(--white-alpha-28);
@@ -1360,7 +1360,7 @@ html, body {
   text-decoration: none;
   transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, background-position 0.6s ease;
   box-shadow:
-    0 10px 24px var(--primary-alpha-35),
+    0 10px 24px rgba(0, 0, 0, 0.15),
     0 2px 6px var(--black-alpha-08),
     inset 0 1px 0 var(--white-alpha-35);
   text-align: center;
@@ -1391,18 +1391,18 @@ html, body {
   transform: translateY(-2px) scale(1.02);
   background-position: 90% 10%;
   box-shadow:
-    0 14px 30px var(--primary-alpha-42),
+    0 14px 30px rgba(0, 0, 0, 0.2),
     0 4px 10px var(--black-alpha-10),
     inset 0 1px 0 var(--white-alpha-40);
 }
 
 .detail-fullpage-btn:active {
   transform: translateY(0) scale(0.99);
-  box-shadow: 0 6px 14px var(--primary-alpha-35), 0 2px 6px var(--black-alpha-08);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15), 0 2px 6px var(--black-alpha-08);
 }
 
 .detail-fullpage-btn:focus-visible {
-  outline: 3px solid var(--primary-alpha-55);
+  outline: 3px solid rgba(0, 0, 0, 0.3);
   outline-offset: 3px;
 }
 
@@ -2068,7 +2068,7 @@ html, body {
   position: relative;
   margin: 1.5rem 0 0 0;
   padding: 0.8rem 1.5rem;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+  background: var(--color-primary);
   background-size: 200% 100%;
   color: var(--black);
   border: none;
@@ -2077,7 +2077,7 @@ html, body {
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
-  box-shadow: 0 4px 15px var(--primary-alpha-2);
+  box-shadow: 0 4px 15px var(--color-primary);
   transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
   box-sizing: border-box;
@@ -2101,7 +2101,7 @@ html, body {
 
 #detail-fullpage-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px var(--primary-alpha-3);
+  box-shadow: 0 6px 20px var(--color-primary);
 }
 
 #detail-fullpage-btn:hover::before {
@@ -2111,7 +2111,7 @@ html, body {
 
 #detail-fullpage-btn:active {
   transform: translateY(0);
-  box-shadow: 0 2px 10px var(--primary-alpha-3);
+  box-shadow: 0 6px 20px var(--color-primary);
 }
 
 #detail-fullpage-btn::after {
@@ -2522,6 +2522,7 @@ html, body {
 .project-info .project-name {
   font-weight: bold;
   margin-bottom: 2px;
+  color: var(--gray-900);
 }
 .project-info .project-year {
   font-size: 0.85rem;

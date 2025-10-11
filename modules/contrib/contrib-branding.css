@@ -1,0 +1,216 @@
+/**
+ * Styles pour le panneau de gestion du branding
+ */
+
+.branding-management {
+  padding: 1rem;
+}
+
+.branding-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.branding-item {
+  background: transparent;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.branding-item:hover {
+  border-color: var(--border-medium);
+}
+
+.branding-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 1.25rem;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.branding-item-header:hover {
+  background: var(--surface-raised);
+}
+
+.branding-item.is-open .branding-item-header {
+  border-bottom: 1px solid var(--border-light);
+}
+
+.branding-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.branding-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.branding-chevron {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  transition: transform 0.2s ease;
+}
+
+.branding-item.is-open .branding-chevron {
+  transform: rotate(90deg);
+}
+
+.branding-city-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.3px;
+}
+
+.branding-color-preview {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 2px solid var(--border-medium);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.branding-controls-count {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.branding-item-body {
+  padding: 1.5rem;
+}
+
+.branding-section {
+  margin-bottom: 1rem;
+}
+
+.branding-section:last-child {
+  margin-bottom: 0;
+}
+
+/* Configuration des toggles - Grille compacte */
+.toggles-config-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.toggle-config-compact {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--surface-base);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.toggle-config-compact:hover {
+  background: var(--surface-raised);
+  border-color: var(--border-medium);
+}
+
+.toggle-config-compact.active {
+  background: var(--surface-raised);
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.toggle-config-compact input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.toggle-config-compact i {
+  font-size: 0.9rem;
+}
+
+.toggle-config-compact span {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+/* États de chargement et erreur */
+.loading-state,
+.empty-state,
+.error-state {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.error-state {
+  color: var(--danger);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .branding-management {
+    padding: 0.75rem;
+  }
+
+  .branding-item-header {
+    padding: 0.75rem 1rem;
+  }
+
+  .branding-item-body {
+    padding: 1rem;
+  }
+  
+  .branding-city-name {
+    font-size: 0.9rem;
+  }
+  
+  .branding-controls-count {
+    font-size: 0.75rem;
+  }
+  
+  .branding-color-preview {
+    width: 20px;
+    height: 20px;
+  }
+
+  .toggles-config-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.4rem;
+  }
+
+  .toggle-config-compact {
+    padding: 0.55rem 0.65rem;
+    font-size: 0.8rem;
+  }
+  
+  .toggle-config-compact i {
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .toggles-config-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .branding-header-right {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+  }
+}
