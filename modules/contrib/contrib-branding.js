@@ -56,21 +56,24 @@
       return;
     }
 
-    // Ajouter le bouton Branding dans le landing
-    const brandingCard = document.createElement('button');
-    brandingCard.className = 'choice-card';
-    brandingCard.setAttribute('role', 'listitem');
-    brandingCard.id = 'landing-branding';
-    brandingCard.setAttribute('data-target', 'branding');
-    brandingCard.setAttribute('aria-describedby', 'landing-branding-desc');
-    brandingCard.innerHTML = `
-      <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-palette"></i></span>
-      <span class="card-title">Gérer le branding</span>
-      <span class="card-desc" id="landing-branding-desc">Personnalisez l'apparence et les contrôles d'interface par ville.</span>
-    `;
-    landingCards.appendChild(brandingCard);
+    // Ajouter le bouton Branding dans le landing (seulement s'il n'existe pas déjà)
+    let brandingCard = document.getElementById('landing-branding');
+    if (!brandingCard) {
+      brandingCard = document.createElement('button');
+      brandingCard.className = 'choice-card';
+      brandingCard.setAttribute('role', 'listitem');
+      brandingCard.id = 'landing-branding';
+      brandingCard.setAttribute('data-target', 'branding');
+      brandingCard.setAttribute('aria-describedby', 'landing-branding-desc');
+      brandingCard.innerHTML = `
+        <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-palette"></i></span>
+        <span class="card-title">Gérer le branding</span>
+        <span class="card-desc" id="landing-branding-desc">Personnalisez l'apparence et les contrôles d'interface par ville.</span>
+      `;
+      landingCards.appendChild(brandingCard);
+    }
 
-    // Créer le panneau de branding
+    // Créer le panneau de branding (seulement s'il n'existe pas déjà)
     const modalBody = document.querySelector('#contrib-overlay .gp-modal-body');
     console.log('[ContribBranding] modalBody:', modalBody);
     if (!modalBody) {
@@ -78,34 +81,39 @@
       return;
     }
 
-    const brandingPanel = document.createElement('div');
-    brandingPanel.id = 'contrib-panel-branding';
-    brandingPanel.className = 'contrib-panel';
-    brandingPanel.setAttribute('role', 'tabpanel');
-    brandingPanel.setAttribute('aria-labelledby', 'tab-branding');
-    brandingPanel.style.display = 'none';
-    console.log('[ContribBranding] Creating branding panel');
-    brandingPanel.innerHTML = `
-      <div class="branding-management">
-        <h3 style="margin-top: 0; font-size: 1.2rem; color: var(--text-primary);">
-          Gestion du branding par ville
-        </h3>
-        <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1.5rem;">
-          Personnalisez l'apparence et les contrôles d'interface pour chaque ville.
-        </p>
-        
-        <div id="branding-list" class="branding-list">
-          <div class="loading-state">Chargement...</div>
+    let brandingPanel = document.getElementById('contrib-panel-branding');
+    if (!brandingPanel) {
+      brandingPanel = document.createElement('div');
+      brandingPanel.id = 'contrib-panel-branding';
+      brandingPanel.className = 'contrib-panel';
+      brandingPanel.setAttribute('role', 'tabpanel');
+      brandingPanel.setAttribute('aria-labelledby', 'tab-branding');
+      brandingPanel.style.display = 'none';
+      console.log('[ContribBranding] Creating branding panel');
+      brandingPanel.innerHTML = `
+        <div class="branding-management">
+          <h3 style="margin-top: 0; font-size: 1.2rem; color: var(--text-primary);">
+            Gestion du branding par ville
+          </h3>
+          <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1.5rem;">
+            Personnalisez l'apparence et les contrôles d'interface pour chaque ville.
+          </p>
+          
+          <div id="branding-list" class="branding-list">
+            <div class="loading-state">Chargement...</div>
+          </div>
         </div>
-      </div>
-    `;
-    modalBody.appendChild(brandingPanel);
+      `;
+      modalBody.appendChild(brandingPanel);
+    }
 
     // Charger les configurations de branding
     await this.loadBrandingList();
 
-    // Gérer le clic sur le bouton landing
-    brandingCard.addEventListener('click', () => {
+    // Gérer le clic sur le bouton landing (retirer les anciens listeners pour éviter les doublons)
+    const newBrandingCard = brandingCard.cloneNode(true);
+    brandingCard.parentNode.replaceChild(newBrandingCard, brandingCard);
+    newBrandingCard.addEventListener('click', () => {
       this.showBrandingPanel();
     });
     

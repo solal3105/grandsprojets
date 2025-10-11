@@ -46,10 +46,10 @@
       await win.CityManager?.updateLogoForCity(city);
       await win.CityManager?.initCityToggleUI(city);
 
-      // PHASE 2.5 : Charger le branding de la ville
-      if (city && typeof CityBrandingModule !== 'undefined') {
+      // PHASE 2.5 : Charger le branding de la ville (ou couleur par défaut si pas de ville)
+      if (win.CityBrandingModule) {
         try {
-          await CityBrandingModule.loadAndApplyBranding(city);
+          await win.CityBrandingModule.loadAndApplyBranding(city);
         } catch (err) {
           console.warn('[Main] Failed to load city branding:', err);
         }

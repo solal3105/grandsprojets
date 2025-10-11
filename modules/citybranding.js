@@ -57,17 +57,31 @@
    * @param {string} ville - Nom de la ville
    */
   async loadAndApplyBranding(ville) {
+    // Si pas de ville, utiliser la couleur par défaut
+    if (!ville) {
+      console.log('[CityBranding] No city specified, using default color');
+      this.applyPrimaryColor('#21b929');
+      return;
+    }
+    
     const branding = await this.getBrandingForCity(ville);
     if (branding) {
       // Appliquer la couleur primaire
       if (branding.primary_color) {
         this.applyPrimaryColor(branding.primary_color);
+      } else {
+        // Fallback si pas de couleur définie pour cette ville
+        this.applyPrimaryColor('#21b929');
       }
       
       // Appliquer la configuration des toggles
       if (branding.enabled_toggles) {
         this.applyTogglesConfig(branding.enabled_toggles);
       }
+    } else {
+      // Fallback si pas de branding trouvé pour cette ville
+      console.log(`[CityBranding] No branding found for ${ville}, using default color`);
+      this.applyPrimaryColor('#21b929');
     }
   },
 

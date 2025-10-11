@@ -479,7 +479,10 @@ window.DataModule = (function() {
 		}
 
 		const isFiltered = Object.keys(FilterModule.get(layerName)).length > 0;
-		const detailSupportedLayers = ['velo', 'urbanisme', 'mobilite'];
+		// Récupérer dynamiquement toutes les catégories de contributions
+		const detailSupportedLayers = (typeof window.getAllCategories === 'function') ? 
+			window.getAllCategories() : 
+			[];
 		const noInteractLayers = ['planVelo', 'amenagementCyclable'];
 
 		// Tooltip générique (ou spécifique) pour les couches non cliquables (paths/polygones)
