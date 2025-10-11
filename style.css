@@ -1047,17 +1047,54 @@ html[data-theme='dark'] .leaflet-container { background: #000; }
 --------------------------------------------------------------------------- */
 #filters-container {
   position: absolute;
-  top: 20px;
+  top: 70px;
   right: 20px;
   width: 300px;
-  background: var(--surface-60); /* blanc avec 60% d'opacité */
-  backdrop-filter: blur(10px);          /* flou en arrière-plan */
+  background: var(--surface-60);
+  backdrop-filter: blur(10px);
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-  padding: 15px;
-  max-height: calc(90vh - 80px);
+  padding: 45px 15px 15px 15px;
+  max-height: calc(90vh - 100px);
   overflow-y: auto;
-  z-index: 1500; /* Au-dessus des toggles (z-index: 999) et du basemap-menu (z-index: 1000) */
+  z-index: 1500;
+}
+
+.filters-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: white;
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #64748b;
+  font-size: 1rem;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.filters-close-btn:hover {
+  background: #ef4444;
+  color: white;
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(239,68,68,0.3);
+}
+
+html[data-theme='dark'] .filters-close-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+}
+
+html[data-theme='dark'] .filters-close-btn:hover {
+  background: #ef4444;
+  color: white;
 }
 
 #filters-container h3 {

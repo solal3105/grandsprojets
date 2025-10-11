@@ -8,7 +8,7 @@
   };
 
   // Initialisation des éléments du DOM
-  let filterToggle, basemapToggle;
+  let filterToggle, basemapToggle, filtersCloseBtn;
 
   const initElements = () => {
     popupState.filter.element = document.getElementById('filters-container');
@@ -19,7 +19,29 @@
     if (!popupState.filter.element || !popupState.basemap.element || !filterToggle || !basemapToggle) {
       return false;
     }
+    
     return true;
+  };
+  
+  // Initialiser le bouton fermer
+  const initFiltersCloseBtn = () => {
+    // Utiliser le container parent qui est toujours dans le DOM
+    const container = document.getElementById('filters-container');
+    if (container) {
+      container.addEventListener('click', (e) => {
+        const closeBtn = e.target.closest('#filters-close-btn');
+        if (closeBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('[UIModule] Close button clicked');
+          // Simuler un clic sur le toggle pour fermer
+          const filtersToggle = document.getElementById('filters-toggle');
+          if (filtersToggle) {
+            filtersToggle.click();
+          }
+        }
+      });
+    }
   };
 
   // Ferme tous les popups sauf celui spécifié
@@ -269,6 +291,9 @@
       console.warn('[UIModule] Impossible d\'initialiser les éléments DOM');
       return false;
     }
+    
+    // Initialiser le bouton fermer
+    initFiltersCloseBtn();
     
     // Initialisation du menu basemap si les fonds sont disponibles
     if (options.basemaps) {

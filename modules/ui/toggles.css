@@ -80,8 +80,7 @@ html[data-theme='dark'] {
 }
 
 .app-toggle:hover i,
-.app-toggle:focus-visible i,
-.app-toggle.active i {
+.app-toggle:focus-visible i {
   color: var(--toggle-color-active);
 }
 
@@ -149,14 +148,6 @@ html[data-theme='dark'] {
   pointer-events: none;
 }
 
-#filters-toggle.active {
-  background: #fff;
-  border-color: #00796b;
-}
-
-#filters-toggle.active i {
-  color: #14AE5C;
-}
 
 /* Location toggle - Special states */
 #location-toggle.active .fa-location-arrow {

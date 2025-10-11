@@ -137,55 +137,42 @@ class ToggleManager {
    */
   setState(key, state) {
     const toggle = this.toggles.get(key);
-    if (!toggle) {
-      console.warn(`[ToggleManager] Toggle not found: ${key}`);
-      return;
-    }
+    if (!toggle) return;
 
     const oldState = this.state.get(key);
-    if (oldState === state) return; // Pas de changement
+    if (oldState === state) return;
 
     this.state.set(key, state);
     
-    // Update UI
-    toggle.element.classList.toggle('active', state);
+    // Update ARIA
     toggle.element.setAttribute('aria-pressed', state.toString());
-    
     if (toggle.config.hasMenu || toggle.config.hasOverlay || toggle.config.hasModal) {
       toggle.element.setAttribute('aria-expanded', state.toString());
     }
 
-    // Update icon si nécessaire (ex: theme toggle)
+    // Update icon (theme toggle)
     if (toggle.config.iconActive) {
       const icon = toggle.element.querySelector('i');
       if (icon) {
-        icon.className = state 
-          ? `fas ${toggle.config.iconActive}`
-          : `fas ${toggle.config.icon}`;
+        icon.className = state ? `fas ${toggle.config.iconActive}` : `fas ${toggle.config.icon}`;
       }
     }
 
-    // Gestion des overlays/menus
-    if (toggle.config.hasOverlay && toggle.config.overlaySelector) {
+    // Overlays/menus/modals
+    if (toggle.config.overlaySelector) {
       const overlay = document.querySelector(toggle.config.overlaySelector);
       if (overlay) {
         overlay.classList.toggle('active', state);
-        if (state) {
-          overlay.style.display = 'flex';
-        } else {
-          overlay.style.display = 'none';
-        }
+        overlay.style.display = state ? 'flex' : 'none';
       }
     }
 
-    if (toggle.config.hasMenu && toggle.config.menuSelector) {
+    if (toggle.config.menuSelector) {
       const menu = document.querySelector(toggle.config.menuSelector);
-      if (menu) {
-        menu.classList.toggle('active', state);
-      }
+      if (menu) menu.classList.toggle('active', state);
     }
 
-    if (toggle.config.hasModal && toggle.config.modalSelector) {
+    if (toggle.config.modalSelector) {
       const modal = document.querySelector(toggle.config.modalSelector);
       if (modal) {
         modal.style.display = state ? 'flex' : 'none';
@@ -193,24 +180,18 @@ class ToggleManager {
       }
     }
 
-    // Gestion du target element (ex: filters-container)
     if (toggle.config.targetElement) {
       const target = document.getElementById(toggle.config.targetElement);
-      if (target) {
-        target.style.display = state ? 'block' : 'none';
-      }
+      if (target) target.style.display = state ? 'block' : 'none';
     }
 
-    // Persist state
+    // Persist
     if (toggle.config.persistent) {
-      const storageKey = toggle.config.storageKey || `toggle-${key}`;
-      localStorage.setItem(storageKey, state.toString());
+      localStorage.setItem(toggle.config.storageKey || `toggle-${key}`, state.toString());
     }
 
-    // Emit event
+    // Emit
     this.emit(key, state);
-
-    console.log(`[ToggleManager] ${key} state changed:`, state);
   }
 
   /**

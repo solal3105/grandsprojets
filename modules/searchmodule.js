@@ -41,8 +41,16 @@ window.SearchModule = (() => {
    * Set up event listeners for the search functionality
    */
   function setupEventListeners() {
-    // Toggle search overlay
-    searchToggle.addEventListener('click', toggleSearchOverlay);
+    // Listen to ToggleManager instead of direct click
+    if (window.toggleManager) {
+      window.toggleManager.on('search', (isOpen) => {
+        if (isOpen) {
+          openSearchOverlay();
+        } else {
+          closeSearchOverlay();
+        }
+      });
+    }
     
     // Handle search input
     searchInput.addEventListener('input', handleSearchInput);
@@ -53,7 +61,9 @@ window.SearchModule = (() => {
     // Close search when clicking outside
     searchOverlay.addEventListener('click', (e) => {
       if (e.target === searchOverlay) {
-        closeSearchOverlay();
+        if (window.toggleManager) {
+          window.toggleManager.setState('search', false);
+        }
       }
     });
     
@@ -66,50 +76,38 @@ window.SearchModule = (() => {
           firstResult.click();
         }
       } else if (e.key === 'Escape') {
-        closeSearchOverlay();
+        if (window.toggleManager) {
+          window.toggleManager.setState('search', false);
+        }
       }
     });
   }
 
   /**
-   * Toggle the search overlay visibility
+   * Open the search overlay
    */
-  function toggleSearchOverlay() {
-    console.log('[SearchModule] Toggle overlay, current state:', searchOverlay.classList.contains('visible'));
+  function openSearchOverlay() {
+    if (!searchOverlay) return;
     
-    if (!searchOverlay) {
-      console.error('[SearchModule] searchOverlay element not found!');
-      return;
-    }
+    searchOverlay.classList.add('visible');
     
-    searchOverlay.classList.toggle('visible');
-    
-    if (searchOverlay.classList.contains('visible')) {
-      console.log('[SearchModule] Overlay now visible');
-      
-      // Close the project detail panel while searching (preserve map view)
-      try {
-        if (window.NavigationModule && typeof window.NavigationModule.resetToDefaultView === 'function') {
-          window.NavigationModule.resetToDefaultView(undefined, { preserveMapView: true });
-        }
-      } catch (_) {}
+    // Close the project detail panel while searching
+    try {
+      if (window.NavigationModule && typeof window.NavigationModule.resetToDefaultView === 'function') {
+        window.NavigationModule.resetToDefaultView(undefined, { preserveMapView: true });
+      }
+    } catch (_) {}
 
-      // Focus the input when overlay is shown
-      setTimeout(() => {
-        searchInput.focus();
-      }, 100);
-    } else {
-      console.log('[SearchModule] Overlay now hidden');
-      // Clear results when closing
-      clearSearchResults();
-      searchInput.value = '';
-    }
+    // Focus the input
+    setTimeout(() => searchInput.focus(), 100);
   }
 
   /**
    * Close the search overlay
    */
   function closeSearchOverlay() {
+    if (!searchOverlay) return;
+    
     searchOverlay.classList.remove('visible');
     clearSearchResults();
     searchInput.value = '';
@@ -342,7 +340,7 @@ window.SearchModule = (() => {
   // Public API
   return {
     init,
-    toggleSearchOverlay,
+    openSearchOverlay,
     closeSearchOverlay
   };
 })();
