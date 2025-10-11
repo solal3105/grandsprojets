@@ -290,12 +290,17 @@
           
           // Appliquer les contraintes de rôle après l'ouverture (pour garantir que les éléments existent)
           console.log('[DEBUG] Ouverture modale, rôle actuel:', win.__CONTRIB_ROLE, __userRole);
-          setTimeout(() => {
+          setTimeout(async () => {
             try { 
               console.log('[DEBUG] Appel applyRoleConstraints après timeout');
               applyRoleConstraints(); 
+              
+              // Initialize branding module after modal is open
+              if (ContribBranding && typeof ContribBranding.init === 'function') {
+                await ContribBranding.init();
+              }
             } catch(e) { 
-              console.error('[DEBUG] Erreur applyRoleConstraints:', e);
+              console.error('[DEBUG] Erreur applyRoleConstraints ou branding:', e);
             }
           }, 100);
           
@@ -363,6 +368,7 @@
         const panelCategories = document.getElementById('contrib-panel-categories');
         const panelUsers = document.getElementById('contrib-panel-users');
         const panelCities = document.getElementById('contrib-panel-cities');
+        const panelBranding = document.getElementById('contrib-panel-branding');
         const backBtn = document.getElementById('contrib-back');
         
         if (landingEl) landingEl.hidden = false;
@@ -372,6 +378,7 @@
         if (panelCategories) panelCategories.hidden = true;
         if (panelUsers) panelUsers.hidden = true;
         if (panelCities) panelCities.hidden = true;
+        if (panelBranding) { panelBranding.hidden = true; panelBranding.style.display = 'none'; }
         if (backBtn) backBtn.style.display = 'none';
         
         // Mettre à jour le titre de la modale
@@ -739,6 +746,7 @@
     const ContribCategoriesCrud = win.ContribCategoriesCrud || {};
     const ContribUsers = win.ContribUsers || {};
     const ContribCitiesManagement = win.ContribCitiesManagement || {};
+    const ContribBranding = win.ContribBranding || {};
     // listState moved to contrib-list.js
 
     // —— Official project link (single field, all categories) ——

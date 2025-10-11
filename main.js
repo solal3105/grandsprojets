@@ -46,6 +46,15 @@
       await win.CityManager?.updateLogoForCity(city);
       await win.CityManager?.initCityToggleUI(city);
 
+      // PHASE 2.5 : Charger le branding de la ville
+      if (city && typeof CityBrandingModule !== 'undefined') {
+        try {
+          await CityBrandingModule.loadAndApplyBranding(city);
+        } catch (err) {
+          console.warn('[Main] Failed to load city branding:', err);
+        }
+      }
+
       // PHASE 3 : Données Supabase
       const {
         layersConfig,

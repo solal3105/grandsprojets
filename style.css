@@ -1350,7 +1350,7 @@ html, body {
   position: relative;
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary) 50%, var(--primary-hover) 100%);
   background-size: 220% 220%;
-  color: var(--white);
+  color: var(--black);
   border: 1px solid var(--white-alpha-28);
   padding: 12px 22px;
   border-radius: 999px;
@@ -1468,6 +1468,7 @@ html, body {
   overflow: visible; /* let #project-detail be the scroll container for sticky header */
   padding: 20px;
   padding-top: 0;
+  background: var(--white);
 }
 
 #detail-fullpage-btn {
@@ -2069,7 +2070,7 @@ html, body {
   padding: 0.8rem 1.5rem;
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
   background-size: 200% 100%;
-  color: var(--white);
+  color: var(--black);
   border: none;
   border-radius: 50px;
   font-size: 1rem;
@@ -4026,6 +4027,83 @@ svg path:focus {
 #contrib-overlay .contrib-skel .skel-line--lg { width: 60%; }
 #contrib-overlay .contrib-skel .skel-line--md { width: 40%; margin-top: 8px; }
 #contrib-overlay .contrib-skel .skel-line--sm { width: 30%; margin-top: 6px; }
+
+/* ---------------------------------------------------------------------------
+   Branding Management (Admin)
+--------------------------------------------------------------------------- */
+.branding-management {
+  padding: 1rem 0;
+}
+
+.branding-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.branding-item {
+  background: var(--surface-base);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 1rem;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.branding-item:hover {
+  border-color: var(--border-medium);
+  box-shadow: 0 4px 12px var(--black-alpha-08);
+}
+
+.branding-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.branding-city-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: capitalize;
+}
+
+.branding-color-preview {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 2px solid var(--border-medium);
+  box-shadow: 0 2px 6px var(--black-alpha-10);
+}
+
+.branding-item-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.branding-save-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.branding-save-btn:active {
+  transform: translateY(0);
+}
+
+.branding-save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.loading-state,
+.empty-state,
+.error-state {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
 
 /* --- City Menu (cartes de villes) --- */
 #city-menu {
