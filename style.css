@@ -2499,8 +2499,16 @@ html, body {
   display: grid;
   place-items: center;
   transition: transform 0.18s ease;
+  border: 2px solid transparent;
+  /* Fallback si pas de style inline */
+  background: var(--surface-raised);
 }
-.project-color i { position: static; font-size: 20px; }
+.project-color i { 
+  position: static; 
+  font-size: 20px;
+  /* Fallback si pas de style inline */
+  color: var(--text-secondary);
+}
 
 /* Subtle icon lift on hover */
 .project-item:hover .project-color { transform: scale(1.05); }

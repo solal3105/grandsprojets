@@ -251,9 +251,9 @@ const SubmenuModule = (() => {
   function createProjectListItem(project, category) {
     // Utiliser la même logique de style que l'ancien système
     let iconClass = "";
-    let pcClass = 'pc-default';
+    let categoryColor = null;
     
-    // Déterminer l'icône et la classe de couleur selon la catégorie
+    // Déterminer l'icône et la couleur selon la catégorie
     {
       // Récupérer l'icône depuis window.categoryIcons
       const categoryIcon = (window.categoryIcons || []).find(c => c.category === category);
@@ -266,20 +266,31 @@ const SubmenuModule = (() => {
       
       iconClass = cfgIcon || 'fa-solid fa-layer-group'; // Icône par défaut
       
-      if (category === 'velo') pcClass = 'pc-velo';
-      else if (category === 'urbanisme') pcClass = 'pc-urbanisme';
-      else if (category === 'mobilite') pcClass = 'pc-tram';
-      else pcClass = 'pc-default';
+      // Récupérer la couleur depuis category_styles dans categoryIcons
+      if (categoryIcon && categoryIcon.category_styles) {
+        try {
+          const styleObj = typeof categoryIcon.category_styles === 'string' ? 
+            JSON.parse(categoryIcon.category_styles) : 
+            categoryIcon.category_styles;
+          categoryColor = styleObj.color || styleObj.fillColor || null;
+        } catch (e) {
+          console.warn(`[SubmenuModule] Failed to parse category_styles for ${category}:`, e);
+        }
+      }
     }
     
     const li = document.createElement('li');
     li.classList.add('project-item');
     li.dataset.project = project.project_name;
     
+    // Générer le style inline pour la couleur
+    const colorStyle = categoryColor ? `background: ${categoryColor}20; border-color: ${categoryColor};` : '';
+    const iconColorStyle = categoryColor ? `color: ${categoryColor};` : '';
+    
     // Utiliser le même HTML que l'ancien système
     li.innerHTML = `
-      <div class="project-color ${pcClass}">
-        <i class="${iconClass}"></i>
+      <div class="project-color" style="${colorStyle}">
+        <i class="${iconClass}" style="${iconColorStyle}"></i>
       </div>
       <div class="project-info">
         <div class="project-name">${project.project_name || 'Projet sans nom'}</div>
