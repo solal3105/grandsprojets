@@ -39,23 +39,10 @@
       } catch (e) {}
     })();
   </script>
-  <!-- Color system -->
-  <link rel="stylesheet" href="modules/ui/colors.css" />
   <link rel="stylesheet" href="style.css" />
-  <!-- Toggles UI - Refactored -->
-  <link rel="stylesheet" href="modules/ui/toggles.css" />
-  <!-- Branding management -->
-  <link rel="stylesheet" href="modules/contrib/contrib-branding.css" />
-  <!-- About Modal - New design -->
-  <link rel="stylesheet" href="modules/ui/about-modal.css" />
-  <!-- Chargement de Leaflet depuis des fichiers locaux -->
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-  <!-- Geoman removed: manual drawing only -->
-  <link rel="stylesheet" href="ficheprojet.css">
-  <!-- Font Awesome via cdnjs -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css"
         crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-8LGDVJXTPK"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -118,11 +105,13 @@
       <i class="fas fa-search"></i>
     </button>
     
-    <!-- Search overlay -->
-    <div id="search-overlay" class="search-overlay">
-      <div class="search-bar">
-        <input type="text" id="address-search" placeholder="Rechercher une adresse..." />
-        <div id="search-results" class="search-results"></div>
+    <!-- Search modal -->
+    <div id="search-overlay" class="gp-modal-overlay gp-modal--centered" role="dialog" aria-modal="true" aria-hidden="true" style="display:none">
+      <div class="gp-modal gp-modal--compact gp-modal--no-padding">
+        <div class="gp-modal-body">
+          <input type="text" id="address-search" placeholder="Rechercher une adresse..." />
+          <div id="search-results" class="search-results"></div>
+        </div>
       </div>
     </div>
 
@@ -403,6 +392,32 @@
     </div>
   </div>
 
+  <!-- Travaux Modal -->
+  <div id="travaux-overlay" class="gp-modal-overlay gp-modal--glass" role="dialog" aria-modal="true" style="display:none">
+    <div class="gp-modal gp-modal--large gp-modal--no-padding" role="document">
+      <div class="gp-modal-header">
+        <div class="gp-modal-title">Détails du chantier</div>
+        <button class="gp-modal-close" aria-label="Fermer">×</button>
+      </div>
+      <div class="gp-modal-body" id="travaux-modal-content">
+        <!-- Le contenu sera injecté dynamiquement -->
+      </div>
+    </div>
+  </div>
+
+  <!-- PDF Preview Modal -->
+  <div id="pdf-preview-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-hidden="true" style="display:none">
+    <div class="gp-modal gp-modal--xlarge gp-modal--fixed-body" role="document">
+      <div class="gp-modal-header">
+        <div class="gp-modal-title" id="pdf-preview-title">Prévisualisation du document</div>
+        <button class="gp-modal-close" aria-label="Fermer">×</button>
+      </div>
+      <div class="gp-modal-body">
+        <iframe id="pdf-preview-frame" title="Prévisualisation PDF"></iframe>
+      </div>
+    </div>
+  </div>
+
   <!-- Supabase client via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
   <script src="modules/auth.js"></script>
@@ -413,7 +428,7 @@
   
   <!-- Nouveaux modules réorganisés -->
   <script src="modules/analytics.js"></script>
-  <script src="modules/modalmanager.js"></script>
+  <script src="modules/modal-helper.js"></script>
   <script src="modules/thememanager.js"></script>
   <script src="modules/citymanager.js"></script>
   <script src="modules/filtermanager.js"></script>

@@ -12,13 +12,14 @@ styles/
 ├── 03-navigation.css        (~850 lignes) - Navigation, sous-menus, listes projets
 ├── 04-components.css        (~1100 lignes) - Filtres, badges, covers, CTA, basemap
 ├── 05-map.css               (~700 lignes) - Leaflet, tooltips, popups, markers
-├── 06-modals.css            (~830 lignes) - Modales (contrib, travaux, city menu)
+├── 06-modals.css            (~730 lignes) - Composants UI spécifiques contrib
 ├── 07-admin.css             (~400 lignes) - Admin (villes, users, branding)
 ├── 08-responsive.css        (~200 lignes) - Media queries
 ├── 09-ficheprojet.css       (~515 lignes) - Page de détail des projets
 ├── 10-about-modal.css       (~950 lignes) - Modale À propos
-├── 11-toggles.css           - Boutons de basculement
-└── 12-contrib-branding.css  - Gestion branding contributions
+├── 11-toggles.css           (~250 lignes) - Boutons de basculement
+├── 12-contrib-branding.css  (~80 lignes) - Gestion branding contributions
+└── 13-modal-system.css      (~410 lignes) - Système unifié pour toutes les modales ⭐
 ```
 
 ## 🎯 Description des modules
@@ -124,6 +125,17 @@ styles/
 - Customisation des couleurs par ville
 - Interface admin pour le branding
 
+### **13-modal-system.css** - Système de modales unifié ⭐ NOUVEAU
+- **Système de design cohérent** pour toutes les modales de la plateforme
+- Structure BEM : `.gp-modal-overlay` > `.gp-modal` > (header, body, footer)
+- **Variants de taille** : compact, default, large, xlarge, fullscreen
+- **Variants de style** : glassmorphism, minimal, centered
+- **Variants de comportement** : no-padding, no-scroll, sticky header/footer
+- Animations et transitions fluides
+- Support dark mode complet
+- Accessibilité intégrée (ARIA, focus-visible)
+- Styles spécifiques pour search modal
+
 ## 🚀 Utilisation
 
 ### Dans `index.html` :
@@ -169,9 +181,78 @@ Le fichier `style.css` a été réorganisé et importe maintenant tous les modul
 
 ### Résultat
 **Tous les CSS sont maintenant réunifiés dans `/styles/`** avec une architecture cohérente et maintenable.
-- **12 fichiers CSS modulaires** au lieu de multiples fichiers dispersés
+- **13 fichiers CSS modulaires** au lieu de multiples fichiers dispersés
 - **Architecture simplifiée** : plus de fichiers "-part2"
 - **Imports optimisés** dans `style.css`
+- **Système de modales unifié** (13-modal-system.css)
+
+---
+
+## 🎨 Système de Modales Unifié (13-modal-system.css)
+
+### Utilisation
+
+Toutes les modales de la plateforme utilisent maintenant la même structure :
+
+```html
+<!-- Structure HTML standard -->
+<div id="my-modal-overlay" 
+     class="gp-modal-overlay [variants]" 
+     role="dialog" 
+     aria-modal="true" 
+     style="display:none">
+  <div class="gp-modal">
+    <div class="gp-modal-header">
+      <div class="gp-modal-title">Titre</div>
+      <button class="gp-modal-close">×</button>
+    </div>
+    <div class="gp-modal-body">
+      Contenu
+    </div>
+    <div class="gp-modal-footer">
+      <!-- Boutons optionnels -->
+    </div>
+  </div>
+</div>
+```
+
+### Variants disponibles
+
+**Tailles :**
+- `gp-modal--compact` : 420px max (alertes, confirmations)
+- `gp-modal--default` : 720px max (par défaut)
+- `gp-modal--large` : 960px max
+- `gp-modal--xlarge` : 1200px max
+- `gp-modal--fullscreen` : plein écran
+
+**Styles :**
+- `gp-modal--glass` : effet glassmorphism
+- `gp-modal--minimal` : bordures légères
+- `gp-modal--centered` : centrage vertical strict
+
+**Comportements :**
+- `gp-modal--no-padding` : pas de padding dans le body
+- `gp-modal--no-scroll` : désactive le scroll
+- `gp-modal--no-header-border` / `gp-modal--no-footer-border`
+
+### JavaScript
+
+```javascript
+// Ouvrir une modale
+const overlay = document.getElementById('my-modal-overlay');
+const modal = overlay.querySelector('.gp-modal');
+
+overlay.style.display = 'flex';
+overlay.setAttribute('aria-hidden', 'false');
+setTimeout(() => modal.classList.add('is-open'), 10);
+
+// Fermer une modale
+modal.classList.remove('is-open');
+setTimeout(() => {
+  overlay.style.display = 'none';
+  overlay.setAttribute('aria-hidden', 'true');
+}, 200);
+```
 
 ---
 

@@ -89,8 +89,6 @@ window.SearchModule = (() => {
   function openSearchOverlay() {
     if (!searchOverlay) return;
     
-    searchOverlay.classList.add('visible');
-    
     // Close the project detail panel while searching
     try {
       if (window.NavigationModule && typeof window.NavigationModule.resetToDefaultView === 'function') {
@@ -98,8 +96,20 @@ window.SearchModule = (() => {
       }
     } catch (_) {}
 
-    // Focus the input
-    setTimeout(() => searchInput.focus(), 100);
+    // Utiliser ModalHelper pour une gestion unifiée
+    window.ModalHelper.open('search-overlay', {
+      dismissible: true,
+      lockScroll: true,
+      focusTrap: true,
+      onOpen: () => {
+        // Focus the input après l'animation
+        if (searchInput) searchInput.focus();
+      },
+      onClose: () => {
+        clearSearchResults();
+        if (searchInput) searchInput.value = '';
+      }
+    });
   }
 
   /**
@@ -108,9 +118,8 @@ window.SearchModule = (() => {
   function closeSearchOverlay() {
     if (!searchOverlay) return;
     
-    searchOverlay.classList.remove('visible');
-    clearSearchResults();
-    searchInput.value = '';
+    // Utiliser ModalHelper pour une gestion unifiée
+    window.ModalHelper.close('search-overlay');
   }
 
   /**

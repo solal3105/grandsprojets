@@ -840,12 +840,6 @@
   transform: translateX(-2px);
 }
 
-.gp-modal-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
 /* Light mode overrides */
 html[data-theme='light'] .form-intro p {
   color: var(--gray-800);

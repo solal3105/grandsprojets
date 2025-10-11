@@ -386,42 +386,8 @@
   .project-v2-article .official-link-cta { margin-left: 0; }
 }
 
-/* PDF Lightbox */
-.pdf-lightbox {
-  position: fixed; inset: 0; z-index: 99999;
-  background: var(--black-alpha-40);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  display: flex; align-items: center; justify-content: center;
-  animation: lb-fade .2s ease both;
-}
-.pdf-lightbox .lightbox-content {
-  position: relative; display: flex; flex-direction: column;
-  width: min(96vw, 1100px);
-  height: min(92vh, 900px);
-  border-radius: 12px; background: var(--surface-base);
-  box-shadow: 0 16px 48px var(--black-alpha-30);
-}
-.pdf-lightbox .lightbox-header {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--black-alpha-08);
-}
-.pdf-lightbox .lightbox-title { font-weight: 600; font-size: .98rem; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pdf-lightbox .lightbox-close {
-  width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border-medium);
-  background: var(--white-alpha-95); color: var(--text-primary); cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center;
-  box-shadow: 0 6px 18px var(--black-alpha-12);
-}
-.pdf-lightbox .lightbox-close i { font-size: 16px; }
-.pdf-lightbox .lightbox-body { flex: 1 1 auto; min-height: 0; }
-.pdf-lightbox .pdf-frame { width: 100%; height: 100%; border: 0; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
-
 @media (max-width: 480px) {
   .project-v2-article .doc-cards { grid-template-columns: 1fr; }
-  .pdf-lightbox .lightbox-content {
-    width: 96vw; height: 86vh;
-  }
 }
 
 /* ---------------------------------------------------------------------------

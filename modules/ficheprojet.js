@@ -703,38 +703,93 @@ document.addEventListener('DOMContentLoaded', async () => {
       const section = document.createElement('section');
       section.className = 'project-documents';
       const h2 = document.createElement('h2');
-      h2.className = 'project-documents-title';
-      h2.innerHTML = '<i class="fa fa-file-pdf" aria-hidden="true"></i> Documents de concertation';
+      h2.textContent = 'Documents de concertation';
       const grid = document.createElement('div');
       grid.className = 'doc-cards';
 
-      // Helper: ouverture d'une lightbox PDF
+      // Helper: ouverture d'une lightbox PDF avec ModalHelper
       const openPdfPreview = (url, title = '') => {
-        const overlay = document.createElement('div');
-        overlay.className = 'pdf-lightbox';
-        overlay.innerHTML = `
-          <div class="lightbox-content">
-            <div class="lightbox-header">
-              <span class="lightbox-title">${title ? title : 'Prévisualisation du document'}</span>
-              <button class="lightbox-close" aria-label="Fermer"><i class="fa fa-xmark" aria-hidden="true"></i></button>
+        // Vérifier si la modale existe, sinon la créer
+        let overlay = document.getElementById('pdf-preview-overlay');
+        
+        if (!overlay) {
+          // Créer la modale dynamiquement si elle n'existe pas dans le HTML
+          overlay = document.createElement('div');
+          overlay.id = 'pdf-preview-overlay';
+          overlay.className = 'gp-modal-overlay';
+          overlay.setAttribute('role', 'dialog');
+          overlay.setAttribute('aria-modal', 'true');
+          overlay.setAttribute('aria-hidden', 'true');
+          overlay.style.display = 'none';
+          
+          overlay.innerHTML = `
+            <div class="gp-modal gp-modal--xlarge gp-modal--fixed-body" role="document">
+              <div class="gp-modal-header">
+                <div class="gp-modal-title" id="pdf-preview-title">Prévisualisation du document</div>
+                <button class="gp-modal-close" aria-label="Fermer">×</button>
+              </div>
+              <div class="gp-modal-body">
+                <iframe id="pdf-preview-frame" title="Prévisualisation PDF"></iframe>
+              </div>
             </div>
-            <div class="lightbox-body">
-              <iframe class="pdf-frame" src="${url}#toolbar=0" title="${title ? title : 'Prévisualisation PDF'}"></iframe>
-            </div>
-          </div>`;
-        document.body.appendChild(overlay);
-        const close = () => {
-          overlay.remove();
-          document.removeEventListener('keydown', onKey);
-        };
-        const onKey = (e) => {
-          if (e.key === 'Escape') close();
-        };
-        overlay.addEventListener('click', (e) => {
-          if (e.target === overlay) close();
-        });
-        overlay.querySelector('.lightbox-close').addEventListener('click', close);
-        document.addEventListener('keydown', onKey);
+          `;
+          
+          document.body.appendChild(overlay);
+        }
+        
+        const titleEl = document.getElementById('pdf-preview-title');
+        const iframe = document.getElementById('pdf-preview-frame');
+        
+        if (!titleEl || !iframe) {
+          console.error('[PDF Preview] Modal elements not found after creation attempt');
+          return;
+        }
+        
+        // Mettre à jour le titre et l'URL de l'iframe
+        titleEl.textContent = title || 'Prévisualisation du document';
+        iframe.src = url + '#toolbar=0';
+        
+        // Utiliser ModalHelper pour ouvrir la modale
+        if (window.ModalHelper && typeof window.ModalHelper.open === 'function') {
+          window.ModalHelper.open('pdf-preview-overlay', {
+            dismissible: true,
+            lockScroll: true,
+            focusTrap: true,
+            onClose: () => {
+              // Nettoyer l'iframe après fermeture
+              iframe.src = '';
+            }
+          });
+        } else {
+          // Fallback simple si ModalHelper n'est pas encore chargé
+          overlay.style.display = 'flex';
+          overlay.setAttribute('aria-hidden', 'false');
+          
+          const modal = overlay.querySelector('.gp-modal');
+          if (modal) {
+            requestAnimationFrame(() => {
+              modal.classList.add('is-open');
+            });
+          }
+          
+          document.body.classList.add('modal-open');
+          
+          // Gestion fermeture manuelle
+          const closeModal = () => {
+            if (modal) modal.classList.remove('is-open');
+            setTimeout(() => {
+              overlay.style.display = 'none';
+              overlay.setAttribute('aria-hidden', 'true');
+              document.body.classList.remove('modal-open');
+              iframe.src = '';
+            }, 220);
+          };
+          
+          const closeBtn = overlay.querySelector('.gp-modal-close');
+          if (closeBtn) closeBtn.onclick = closeModal;
+          overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
+          document.onkeydown = (e) => { if (e.key === 'Escape') closeModal(); };
+        }
       };
 
       docs.forEach(d => {

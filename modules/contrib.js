@@ -53,53 +53,33 @@
     let contribCloseBtn = document.getElementById('contrib-close');
     let contribModal    = contribOverlay ? contribOverlay.querySelector('.gp-modal') : null;
 
-    let contribLastFocus  = null;
-    let contribCloseTimer = null;
-
     // Drawing state moved to contrib-map.js
     const ContribMap = win.ContribMap || {};
 
     const closeContrib = () => {
       if (!contribOverlay) return;
-      if (contribCloseTimer) { clearTimeout(contribCloseTimer); contribCloseTimer = null; }
-      if (contribModal) contribModal.classList.remove('is-open');
-      contribOverlay.setAttribute('aria-hidden', 'true');
-      document.removeEventListener('keydown', contribEscHandler);
-      document.body.style.overflow = '';
-      contribCloseTimer = setTimeout(() => {
-        contribOverlay.style.display = 'none';
-        if (contribLastFocus && typeof contribLastFocus.focus === 'function') {
-          try { contribLastFocus.focus(); } catch (_) {}
-        }
-      }, 180);
+      
+      // Utiliser ModalHelper pour une gestion unifiée
+      win.ModalHelper.close('contrib-overlay');
     };
 
     const openContrib = () => {
       if (!contribOverlay) return;
-      if (contribCloseTimer) { clearTimeout(contribCloseTimer); contribCloseTimer = null; }
-      contribLastFocus = document.activeElement;
-      contribOverlay.style.display = 'flex';
-      contribOverlay.setAttribute('aria-hidden', 'false');
-      document.body.style.overflow = 'hidden';
-      requestAnimationFrame(() => { if (contribModal) contribModal.classList.add('is-open'); });
-      // Focus sur le bouton fermer pour l'accessibilité
-      if (contribCloseBtn && typeof contribCloseBtn.focus === 'function') {
-        try { contribCloseBtn.focus(); } catch (_) {}
-      }
-      document.addEventListener('keydown', contribEscHandler);
-      // Assurer le bon rendu de la carte de dessin si visible
-      setTimeout(() => {
-        try { if (drawMap) drawMap.invalidateSize(); } catch (_) {}
-      }, 200);
-      // Toujours afficher l'écran d'accueil (choix Créer / Modifier)
-      showLanding();
-    };
-
-    const contribEscHandler = (e) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        closeContrib();
-      }
+      
+      // Utiliser ModalHelper pour une gestion unifiée
+      win.ModalHelper.open('contrib-overlay', {
+        dismissible: true,
+        lockScroll: true,
+        focusTrap: true,
+        onOpen: () => {
+          // Assurer le bon rendu de la carte de dessin si visible
+          setTimeout(() => {
+            try { if (drawMap) drawMap.invalidateSize(); } catch (_) {}
+          }, 200);
+          // Toujours afficher l'écran d'accueil (choix Créer / Modifier)
+          showLanding();
+        }
+      });
     };
 
     if (contribToggle) {

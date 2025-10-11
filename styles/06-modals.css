@@ -1,93 +1,13 @@
 /* ===========================================================================
-   MODALS - Modales et overlays
+   CONTRIBUTION UI - Composants spécifiques aux contributions
+   
+   Note: Les modales de base sont dans 13-modal-system.css
+   Ce fichier contient uniquement les composants UI spécifiques au module contrib
    =========================================================================== */
 
 /* ---------------------------------------------------------------------------
-   Generic modal overlay
+   Contribution modal – Contenu spécifique
 --------------------------------------------------------------------------- */
-.gp-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--black-alpha-45);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 4000;
-}
-
-.gp-modal {
-  width: min(720px, 92vw);
-  max-height: 80vh;
-  overflow: auto;
-  background: var(--surface-base);
-  color: var(--text-primary);
-  border: 1px solid var(--border-medium);
-  border-radius: 16px;
-  box-shadow: 0 20px 60px var(--black-alpha-20), 0 4px 16px var(--black-alpha-16);
-}
-
-.gp-modal-header {
-  position: sticky;
-  top: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--gray-50);
-  background: inherit;
-  z-index: 1;
-}
-
-.gp-modal-title {
-  font-size: 1.1rem;
-  font-weight: 700;
-}
-
-.gp-modal-close {
-  appearance: none;
-  background: transparent;
-  border: none;
-  padding: 6px 8px;
-  font-size: 18px;
-  line-height: 1;
-  border-radius: 10px;
-  color: var(--gray-500);
-  cursor: pointer;
-}
-
-.gp-modal-close:hover {
-  background: var(--black-alpha-06);
-  color: var(--gray-800);
-}
-
-.gp-modal-body {
-  padding: 20px;
-}
-
-/* ---------------------------------------------------------------------------
-   Contribution modal – Glassmorphism UI
---------------------------------------------------------------------------- */
-#contrib-overlay.gp-modal-overlay {
-  background: radial-gradient(1200px 800px at 80% 90%, var(--black-alpha-55), var(--black-alpha-45));
-}
-
-#contrib-overlay .gp-modal-header {
-  background: linear-gradient(180deg, var(--surface-92), var(--white-alpha-80));
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border-medium);
-}
-
-#contrib-overlay .gp-modal-title {
-  letter-spacing: 0.2px;
-}
-
-#contrib-overlay .gp-modal-close {
-  border-radius: 10px;
-}
 
 /* Tabs (Créer / Contributions) */
 #contrib-overlay .contrib-tabs {
@@ -127,18 +47,6 @@
   background: var(--primary-alpha-16);
   color: var(--primary);
   border-color: var(--primary-alpha-30);
-}
-
-/* Scoped animation for About modal */
-#about-overlay .gp-modal {
-  transform: scale(0.98);
-  opacity: 0;
-  transition: transform 180ms ease, opacity 180ms ease;
-}
-
-#about-overlay .gp-modal.is-open {
-  transform: scale(1);
-  opacity: 1;
 }
 
 /* ---------------------------------------------------------------------------
@@ -681,12 +589,13 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Travaux Bento
+   Travaux Bento - Design moderne pour la modale travaux
 --------------------------------------------------------------------------- */
 .gp-travaux {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  padding: 20px;
 }
 
 .gp-travaux .gp-hero {
@@ -698,8 +607,33 @@
   border-radius: 14px;
   background: linear-gradient(135deg, var(--white-alpha-55), var(--white-alpha-35));
   backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--white-alpha-45);
   box-shadow: 0 8px 24px var(--black-alpha-12);
+}
+
+.gp-travaux .hero-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gp-travaux .hero-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.gp-travaux .hero-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.gp-travaux .hero-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  opacity: 0.8;
 }
 
 .gp-bento {
@@ -711,6 +645,7 @@
 .gp-bento .tile {
   background: var(--white-alpha-55);
   backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--white-alpha-50);
   border-radius: 14px;
   padding: 14px;
@@ -720,6 +655,160 @@
 
 .gp-bento .tile:hover {
   transform: translateY(-2px);
+}
+
+.gp-bento .tile h3 {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.gp-bento .tile.span-2 {
+  grid-column: 1 / -1;
+}
+
+/* Timeline pour l'avancement */
+.gp-travaux .timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gp-travaux .timeline .bar {
+  position: relative;
+  height: 12px;
+  background: var(--gray-200);
+  border-radius: 999px;
+  overflow: visible;
+}
+
+.gp-travaux .timeline .fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.gp-travaux .timeline .today {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 20px;
+  border-radius: 2px;
+  z-index: 2;
+}
+
+.gp-travaux .timeline .dates {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.gp-travaux .timeline .meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Badges */
+.gp-travaux .badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gp-travaux .badge {
+  display: inline-block;
+  padding: 6px 12px;
+  background: var(--white-alpha-70);
+  border: 1px solid var(--white-alpha-30);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Adresses */
+.gp-travaux .addresses {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.gp-travaux .addresses.collapsed {
+  max-height: 120px;
+}
+
+.gp-travaux .addresses li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--white-alpha-20);
+}
+
+.gp-travaux .addresses li:last-child {
+  border-bottom: none;
+}
+
+.gp-travaux .tile-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.gp-travaux .toggle-addresses {
+  appearance: none;
+  background: var(--primary-alpha-10);
+  border: 1px solid var(--primary-alpha-25);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.gp-travaux .toggle-addresses:hover {
+  background: var(--primary-alpha-18);
+  transform: translateY(-1px);
+}
+
+/* Dark mode pour travaux */
+[data-theme="dark"] .gp-travaux .gp-hero {
+  background: linear-gradient(135deg, rgba(50, 50, 55, 0.6), rgba(40, 40, 45, 0.5));
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .gp-bento .tile {
+  background: rgba(50, 50, 55, 0.6);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .gp-travaux .timeline .bar {
+  background: var(--gray-800);
+}
+
+[data-theme="dark"] .gp-travaux .badge {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="dark"] .gp-travaux .addresses li {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
 /* ---------------------------------------------------------------------------

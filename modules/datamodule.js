@@ -355,116 +355,62 @@ window.DataModule = (function() {
           </div>
         `;
 
-			// Ouvrir un modal avec flou d'arrière-plan au lieu d'un popup Leaflet
+			// Ouvrir un modal avec ModalHelper unifié
 			const openTravauxModal = (html) => {
 				try {
-					// Overlay
-					const overlay = document.createElement('div');
-					overlay.className = 'gp-modal-overlay';
-					overlay.setAttribute('role', 'dialog');
-					overlay.setAttribute('aria-modal', 'true');
-					overlay.innerHTML = `
-              <div class="gp-modal gp-travaux-modal">
-                <div class="gp-modal-header">
-                  <div class="gp-modal-title">Détails du chantier</div>
-                  <button class="gp-modal-close" aria-label="Fermer">✖</button>
-                </div>
-                <div class="gp-modal-body">
-                  ${html}
-                </div>
-              </div>
-            `;
-					document.body.appendChild(overlay);
-					// Accessibility: link dialog to title
-					const titleEl = overlay.querySelector('.gp-modal-title');
-					if (titleEl) {
-						const titleId = `gp-modal-title-${Date.now()}`;
-						titleEl.id = titleId;
-						overlay.setAttribute('aria-labelledby', titleId);
+					// Injecter le contenu dans la modale statique
+					const contentEl = document.getElementById('travaux-modal-content');
+					if (!contentEl) {
+						console.error('[Travaux] Modal content container not found');
+						return;
 					}
+					
+					contentEl.innerHTML = html;
 
-					// Prevent background scroll while modal is open
-					let prevOverflow = document.body.style.overflow;
-					document.body.style.overflow = 'hidden';
+					// Utiliser ModalHelper pour ouvrir la modale
+					window.ModalHelper.open('travaux-overlay', {
+							dismissible: true,
+							lockScroll: true,
+							focusTrap: true,
+							onOpen: () => {
+								// Initialisations spécifiques Bento après ouverture
+								const modalEl = contentEl.querySelector('.gp-travaux');
+								if (modalEl) {
+									// Progress bar animation
+									const fill = modalEl.querySelector('.timeline .fill');
+									const target = Number(fill?.getAttribute('data-target') || 0);
+									if (fill && !isNaN(target)) {
+										requestAnimationFrame(() => {
+											fill.style.width = '0%';
+											setTimeout(() => {
+												fill.style.width = `${target}%`;
+											}, 40);
+										});
+									}
 
-					// Focus trap within the modal
-					const modalRoot = overlay.querySelector('.gp-modal');
-					const focusableSelector = 'a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])';
-					const focusables = Array.from(modalRoot?.querySelectorAll(focusableSelector) || []).filter(el => !el.hasAttribute('disabled'));
-					const firstFocusable = focusables[0];
-					const lastFocusable = focusables[focusables.length - 1];
-					const previouslyFocused = document.activeElement;
-
-					const trapTab = (e) => {
-						if (e.key !== 'Tab' || focusables.length === 0) return;
-						if (e.shiftKey) {
-							if (document.activeElement === firstFocusable) {
-								e.preventDefault();
-								lastFocusable?.focus();
-							}
-						} else {
-							if (document.activeElement === lastFocusable) {
-								e.preventDefault();
-								firstFocusable?.focus();
-							}
+									// Addresses toggle/copy
+									const ul = modalEl.querySelector('.addresses');
+									const toggleBtn = modalEl.querySelector('.toggle-addresses');
+									if (toggleBtn) {
+										toggleBtn.addEventListener('click', () => {
+											ul?.classList.toggle('collapsed');
+											if (toggleBtn.textContent.includes('plus')) {
+												toggleBtn.textContent = 'Voir moins';
+											} else {
+												toggleBtn.textContent = 'Voir plus';
+											}
+										});
+									}
+								}
+							},
+							onClose: () => {
+							// Nettoyer le contenu après fermeture
+							contentEl.innerHTML = '';
 						}
-					};
-					overlay.addEventListener('keydown', trapTab);
-
-					// Set initial focus to close button or first focusable
-					(overlay.querySelector('.gp-modal-close') || firstFocusable)?.focus();
-
-					const close = () => {
-						try {
-							document.removeEventListener('keydown', onKey);
-							overlay.removeEventListener('keydown', trapTab);
-							// Restore background scroll
-							document.body.style.overflow = prevOverflow || '';
-							// Restore previous focus
-							if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
-								setTimeout(() => previouslyFocused.focus(), 0);
-							}
-							overlay.remove();
-						} catch (_) {}
-					};
-					const onKey = (ev) => {
-						if (ev.key === 'Escape') close();
-					};
-					document.addEventListener('keydown', onKey);
-
-					// Fermer en cliquant hors du modal
-					overlay.addEventListener('click', (ev) => {
-						if (ev.target === overlay) close();
 					});
-					overlay.querySelector('.gp-modal-close')?.addEventListener('click', close);
-
-					// Initialisations spécifiques Bento
-					const modalEl = overlay.querySelector('.gp-travaux');
-					if (modalEl) {
-						// Progress bar animation
-						const fill = modalEl.querySelector('.timeline .fill');
-						const target = Number(fill?.getAttribute('data-target') || 0);
-						if (fill && !isNaN(target)) {
-							requestAnimationFrame(() => {
-								fill.style.width = '0%';
-								setTimeout(() => {
-									fill.style.width = `${target}%`;
-								}, 40);
-							});
-						}
-
-						// Addresses toggle/copy
-						const ul = modalEl.querySelector('.addresses');
-						const toggleBtn = modalEl.querySelector('.toggle-addresses');
-						toggleBtn?.addEventListener('click', () => {
-							ul?.classList.toggle('collapsed');
-							if (toggleBtn.textContent.includes('plus')) toggleBtn.textContent = 'Voir moins';
-							else toggleBtn.textContent = 'Voir plus';
-						});
-
-					}
-				} catch (_) {
-					/* noop */ }
+				} catch (e) {
+					console.error('[Travaux] Error opening modal:', e);
+				}
 			};
 
 			// Clic sur la feature: ouvrir le modal et marquer l'événement comme géré

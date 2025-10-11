@@ -1,0 +1,590 @@
+/* ===========================================================================
+   MODAL SYSTEM - Système unifié pour toutes les modales
+   
+   Toutes les modales de la plateforme utilisent ce système cohérent.
+   Structure : .gp-modal-overlay > .gp-modal > (.gp-modal-header, .gp-modal-body, .gp-modal-footer)
+   =========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   BASE - Overlay (backdrop)
+   UNIFIÉ : Toutes les modales ont un backdrop blur cohérent
+--------------------------------------------------------------------------- */
+.gp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  /* Gradient subtil pour donner de la profondeur */
+  background: radial-gradient(circle at 50% 50%, var(--black-alpha-50), var(--black-alpha-45));
+  /* Blur uniforme sur l'arrière-plan */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4000;
+  /* Animation d'entrée/sortie fluide */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 200ms ease, visibility 200ms ease;
+}
+
+/* Overlay visible */
+.gp-modal-overlay[aria-hidden="false"] {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ---------------------------------------------------------------------------
+   BASE - Container modal
+   UNIFIÉ : Glassmorphism léger + ombres cohérentes
+--------------------------------------------------------------------------- */
+.gp-modal {
+  width: min(720px, 92vw);
+  max-height: 85vh;
+  overflow: auto;
+  /* Glassmorphism subtil sur toutes les modales */
+  background: var(--white-alpha-92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--text-primary);
+  /* Bordure légère pour la définition */
+  border: 1px solid var(--white-alpha-30);
+  border-radius: 16px;
+  /* Ombre unifiée et élégante */
+  box-shadow: 
+    0 24px 48px var(--black-alpha-18),
+    0 8px 16px var(--black-alpha-12),
+    0 0 0 1px var(--white-alpha-10) inset;
+  /* Animation scale + fade cohérente */
+  transform: scale(0.94) translateY(20px);
+  opacity: 0;
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), 
+              opacity 220ms ease;
+}
+
+.gp-modal.is-open {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+/* ---------------------------------------------------------------------------
+   BASE - Header
+   UNIFIÉ : Glassmorphism avec backdrop blur pour scroll
+--------------------------------------------------------------------------- */
+.gp-modal-header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  /* Bordure subtile */
+  border-bottom: 1px solid var(--white-alpha-20);
+  /* Background glassmorphism unifié */
+  background: linear-gradient(180deg, var(--white-alpha-95), var(--white-alpha-88));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  /* Légère ombre pour le relief */
+  box-shadow: 0 1px 0 var(--white-alpha-50) inset;
+  z-index: 10;
+}
+
+.gp-modal-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+/* Bouton retour (optionnel) - Style unifié */
+.gp-modal-back {
+  appearance: none;
+  background: var(--white-alpha-80);
+  border: 1px solid var(--white-alpha-30);
+  padding: 8px 12px;
+  border-radius: 10px;
+  color: var(--gray-700);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* Transitions cohérentes */
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.gp-modal-back:hover {
+  background: var(--white-alpha-95);
+  color: var(--gray-900);
+  transform: translateX(-2px);
+  box-shadow: 0 2px 8px var(--black-alpha-08);
+}
+
+.gp-modal-back:active {
+  transform: translateX(0) scale(0.98);
+}
+
+/* Bouton fermer - Style unifié */
+.gp-modal-close {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 6px 10px;
+  font-size: 24px;
+  line-height: 1;
+  border-radius: 10px;
+  color: var(--gray-500);
+  cursor: pointer;
+  /* Transitions cohérentes */
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.gp-modal-close:hover {
+  background: var(--white-alpha-70);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--gray-900);
+  transform: rotate(90deg) scale(1.1);
+}
+
+.gp-modal-close:active {
+  transform: rotate(90deg) scale(0.95);
+}
+
+.gp-modal-close:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   BASE - Body
+   UNIFIÉ : Padding et scroll cohérents
+--------------------------------------------------------------------------- */
+.gp-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  /* Scroll smooth unifié */
+  scroll-behavior: smooth;
+  /* Performance scroll sur mobile */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ---------------------------------------------------------------------------
+   BASE - Footer (optionnel)
+   UNIFIÉ : Glassmorphism cohérent avec header
+--------------------------------------------------------------------------- */
+.gp-modal-footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  /* Bordure subtile */
+  border-top: 1px solid var(--white-alpha-20);
+  /* Background glassmorphism unifié */
+  background: linear-gradient(0deg, var(--white-alpha-95), var(--white-alpha-88));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  /* Légère ombre inversée pour le relief */
+  box-shadow: 0 -1px 0 var(--white-alpha-50) inset;
+  z-index: 10;
+}
+
+/* ---------------------------------------------------------------------------
+   VARIANTS - Tailles
+--------------------------------------------------------------------------- */
+
+/* Compact : petites modales (confirmations, alertes) */
+.gp-modal--compact {
+  width: min(420px, 92vw);
+}
+
+/* Large : modales avec beaucoup de contenu */
+.gp-modal--large {
+  width: min(960px, 95vw);
+  max-height: 90vh;
+}
+
+/* Extra-large : pour tableaux et contenus complexes */
+.gp-modal--xlarge {
+  width: min(1200px, 96vw);
+  max-height: 92vh;
+}
+
+/* Fullscreen : plein écran sur desktop */
+.gp-modal--fullscreen {
+  width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  border-radius: 0;
+  border: none;
+}
+
+/* ---------------------------------------------------------------------------
+   VARIANTS - Styles visuels
+--------------------------------------------------------------------------- */
+
+/* Glassmorphism : effet verre sur l'overlay uniquement */
+.gp-modal-overlay.gp-modal--glass {
+  background: radial-gradient(1200px 800px at 80% 90%, var(--black-alpha-55), var(--black-alpha-45));
+}
+
+/* Minimal : bordures et ombres légères */
+.gp-modal--minimal {
+  border: 1px solid var(--border-light);
+  box-shadow: 0 8px 24px var(--black-alpha-12);
+}
+
+/* Centered : centrage strict vertical */
+.gp-modal-overlay.gp-modal--centered {
+  align-items: center;
+}
+
+/* ---------------------------------------------------------------------------
+   VARIANTS - Comportements
+--------------------------------------------------------------------------- */
+
+/* Pas de padding dans le body */
+.gp-modal--no-padding .gp-modal-body {
+  padding: 0;
+}
+
+/* Pas de scroll (contenu fixe) */
+.gp-modal--no-scroll {
+  overflow: hidden;
+}
+
+.gp-modal--no-scroll .gp-modal-body {
+  overflow: hidden;
+}
+
+/* Body avec hauteur fixe pour iframe/embed 
+   Usage: Modales contenant des PDF, vidéos, cartes embeddées
+   Le body prend une hauteur fixe et l'iframe/embed prend tout l'espace */
+.gp-modal--fixed-body .gp-modal-body {
+  height: 80vh;
+  padding: 0;
+}
+
+.gp-modal--fixed-body iframe,
+.gp-modal--fixed-body embed,
+.gp-modal--fixed-body object {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+/* Header sans bordure */
+.gp-modal--no-header-border .gp-modal-header {
+  border-bottom: none;
+}
+
+/* Footer sans bordure */
+.gp-modal--no-footer-border .gp-modal-footer {
+  border-top: none;
+}
+
+/* ---------------------------------------------------------------------------
+   RESPONSIVE
+--------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .gp-modal {
+    width: 100vw;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+  
+  .gp-modal--compact {
+    width: 100vw;
+  }
+  
+  .gp-modal--large,
+  .gp-modal--xlarge {
+    width: 100vw;
+    max-height: 100vh;
+  }
+  
+  .gp-modal-header {
+    padding: 12px 16px;
+  }
+  
+  .gp-modal-body {
+    padding: 16px;
+  }
+  
+  .gp-modal-footer {
+    padding: 12px 16px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   ANIMATIONS - Préférences de mouvement réduit
+--------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .gp-modal-overlay,
+  .gp-modal {
+    transition: none;
+  }
+  
+  .gp-modal {
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   DARK MODE - Glassmorphism unifié en mode sombre
+--------------------------------------------------------------------------- */
+[data-theme="dark"] .gp-modal-overlay {
+  /* Gradient plus profond pour le dark mode */
+  background: radial-gradient(circle at 50% 50%, var(--black-alpha-75), var(--black-alpha-65));
+}
+
+[data-theme="dark"] .gp-modal {
+  /* Glassmorphism dark mode */
+  background: rgba(30, 30, 35, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    0 24px 48px rgba(0, 0, 0, 0.4),
+    0 8px 16px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+}
+
+[data-theme="dark"] .gp-modal-header {
+  background: linear-gradient(180deg, rgba(35, 35, 40, 0.95), rgba(30, 30, 35, 0.88));
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+}
+
+[data-theme="dark"] .gp-modal-footer {
+  background: linear-gradient(0deg, rgba(35, 35, 40, 0.95), rgba(30, 30, 35, 0.88));
+  border-top-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.04) inset;
+}
+
+[data-theme="dark"] .gp-modal-back {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--gray-300);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+[data-theme="dark"] .gp-modal-back:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--gray-100);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .gp-modal-close {
+  color: var(--gray-400);
+}
+
+[data-theme="dark"] .gp-modal-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--gray-100);
+}
+
+/* ---------------------------------------------------------------------------
+   UTILITÉS - Classes helper pour les modales
+--------------------------------------------------------------------------- */
+
+/* Scrollbar custom dans les modales (Webkit) */
+.gp-modal::-webkit-scrollbar {
+  width: 8px;
+}
+
+.gp-modal::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.gp-modal::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: 4px;
+}
+
+.gp-modal::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-400);
+}
+
+[data-theme="dark"] .gp-modal::-webkit-scrollbar-thumb {
+  background: var(--gray-700);
+}
+
+[data-theme="dark"] .gp-modal::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-600);
+}
+
+/* ---------------------------------------------------------------------------
+   SEARCH MODAL - Styles spécifiques pour la recherche d'adresse
+--------------------------------------------------------------------------- */
+
+#search-overlay #address-search {
+  width: 100%;
+  padding: 16px 20px;
+  font-size: 1.05rem;
+  border: none;
+  border-radius: 16px 16px 0 0;
+  background: var(--surface-base);
+  color: var(--text-primary);
+  outline: none;
+  transition: box-shadow 0.2s ease;
+  box-sizing: border-box;
+}
+
+#search-overlay #address-search:focus {
+  box-shadow: 0 4px 12px var(--black-alpha-08);
+}
+
+/* Search results dropdown */
+#search-overlay .search-results {
+  max-height: 400px;
+  overflow-y: auto;
+  background: var(--surface-base);
+  border-radius: 0 0 16px 16px;
+}
+
+#search-overlay .search-results.visible {
+  display: block;
+}
+
+/* Individual search result item */
+#search-overlay .search-result-item {
+  padding: 14px 20px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border-bottom: 1px solid var(--border-light);
+}
+
+#search-overlay .search-result-item:last-child {
+  border-bottom: none;
+}
+
+#search-overlay .search-result-item:hover {
+  background: var(--gray-50);
+}
+
+#search-overlay .search-result-item h4 {
+  margin: 0 0 6px 0;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+#search-overlay .search-result-item p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+/* Dark mode pour search */
+[data-theme="dark"] #search-overlay .search-result-item:hover {
+  background: var(--gray-800);
+}
+
+/* ---------------------------------------------------------------------------
+   COMPORTEMENTS UNIFIÉS - Body scroll lock
+   Empêcher le scroll du body quand une modale est ouverte
+--------------------------------------------------------------------------- */
+body.modal-open {
+  overflow: hidden;
+  /* Empêcher le bounce sur iOS */
+  position: fixed;
+  width: 100%;
+}
+
+/* ---------------------------------------------------------------------------
+   HELPERS - Classes utilitaires pour comportements spéciaux
+--------------------------------------------------------------------------- */
+
+/* Empêcher la fermeture au clic sur l'overlay (modal critique) */
+.gp-modal-overlay.no-dismiss {
+  pointer-events: none;
+}
+
+.gp-modal-overlay.no-dismiss .gp-modal {
+  pointer-events: all;
+}
+
+/* Animation d'attention (shake) pour erreur de validation */
+.gp-modal.shake {
+  animation: modal-shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes modal-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-8px); }
+  20%, 40%, 60%, 80% { transform: translateX(8px); }
+}
+
+/* Pulse pour attirer l'attention */
+.gp-modal.pulse {
+  animation: modal-pulse 1.5s ease-in-out;
+}
+
+@keyframes modal-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+/* Loading state pour modale */
+.gp-modal.is-loading {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.gp-modal.is-loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--white-alpha-50);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  z-index: 9999;
+}
+
+/* ---------------------------------------------------------------------------
+   FOCUS TRAP - Améliorer l'accessibilité
+   Styles pour le focus visible unifié
+--------------------------------------------------------------------------- */
+.gp-modal *:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.gp-modal button:focus-visible,
+.gp-modal a:focus-visible {
+  outline-offset: 4px;
+}
+
+/* ---------------------------------------------------------------------------
+   PERFORMANCE - Optimisations
+--------------------------------------------------------------------------- */
+.gp-modal-overlay {
+  /* GPU acceleration */
+  will-change: opacity;
+  transform: translateZ(0);
+}
+
+.gp-modal {
+  /* GPU acceleration */
+  will-change: transform, opacity;
+  transform: translateZ(0);
+  /* Améliorer le rendu des polices */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
