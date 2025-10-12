@@ -73,7 +73,7 @@
 
       if (!filteredCities || filteredCities.length === 0) {
         citiesListEl.innerHTML = `
-          <div style="text-align:center;padding:40px;color:#666;">
+          <div style="text-align:center;padding:40px;color:var(--gray-600);">
             <i class="fa-solid fa-city" style="font-size:48px;opacity:0.3;margin-bottom:16px;"></i>
             <p style="margin:0;font-size:15px;">Aucune ville accessible</p>
             <p style="margin:8px 0 0 0;font-size:13px;opacity:0.7;">${isGlobalAdmin ? 'Cliquez sur "Ajouter une ville" pour commencer' : 'Vous n\'avez accès à aucune ville'}</p>
@@ -160,7 +160,7 @@
                 <i class="fa-solid fa-magnifying-glass"></i>
                 Zoom ${city.zoom || 12}
               </span>
-            ` : '<span style="color:#999;">Pas de coordonnées</span>'}
+            ` : '<span style="color:var(--gray-500);">Pas de coordonnées</span>'}
           </div>
           <div class="city-card__admins">
             ${hasNoAdmin ? `
@@ -201,7 +201,11 @@
    * @param {Object} elements - {citiesListEl, citiesStatusEl}
    */
   async function showCityModal(city = null, elements) {
-    console.log('[city-modal] Opening modal, city:', city, 'elements:', elements);
+    console.log('[city-modal] Opening modal');
+    console.log('[city-modal] Mode:', city ? 'EDIT' : 'CREATE');
+    console.log('[city-modal] City data:', JSON.stringify(city, null, 2));
+    console.log('[city-modal] Elements:', elements);
+    
     const isEdit = !!city;
     const title = isEdit ? 'Modifier une ville' : 'Ajouter une ville';
 
@@ -215,14 +219,15 @@
 
     // Create modal
     const modal = document.createElement('div');
-    modal.className = 'gp-modal gp-modal--large';
+    modal.className = 'gp-modal';
     modal.setAttribute('role', 'document');
 
     modal.innerHTML = `
       <div class="gp-modal-header">
         <h2 id="city-management-title" class="gp-modal-title">
-          <i class="fa-solid fa-city" style="color:var(--info);margin-right:8px;"></i>
+          <i class="fa-solid ${isEdit ? 'fa-pen-to-square' : 'fa-city'}" style="color:var(--info);margin-right:8px;"></i>
           ${escapeHtml(title)}
+          ${isEdit ? `<span style="margin-left:8px;padding:4px 8px;background:var(--info-lighter);color:var(--info);border-radius:6px;font-size:12px;font-weight:600;">ÉDITION</span>` : ''}
         </h2>
         <button type="button" class="gp-modal-close" aria-label="Fermer">&times;</button>
       </div>
@@ -230,19 +235,33 @@
       <div class="gp-modal-body" style="max-height:70vh;overflow-y:auto;">
       
       <form id="city-form" style="padding:24px;">
-        <!-- Code ville -->
-        <div class="form-group" style="margin-bottom:20px;">
+        ${isEdit ? `
+        <!-- Info ville en édition -->
+        <div style="margin-bottom:20px;padding:16px;background:var(--info-lighter);border:1px solid var(--info-light);border-radius:8px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <i class="fa-solid fa-info-circle" style="color:var(--info);font-size:20px;"></i>
+            <div>
+              <div style="font-weight:600;color:var(--info);margin-bottom:4px;">Édition de la ville</div>
+              <div style="font-size:13px;color:var(--gray-700);">
+                Code : <strong>${escapeHtml(city?.ville || '')}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+        
+        <!-- Code ville (masqué en édition) -->
+        <div class="form-group" style="margin-bottom:20px;${isEdit ? 'display:none;' : ''}">
           <label style="display:block;margin-bottom:6px;font-weight:600;font-size:14px;">
             Code ville <span style="color:var(--danger);">*</span>
           </label>
           <input 
             type="text" 
             id="city-code" 
-            required 
+            ${isEdit ? '' : 'required'}
             placeholder="lyon"
-            ${isEdit ? 'readonly' : ''}
             value="${escapeHtml(city?.ville || '')}"
-            style="width:100%;padding:12px;border:1px solid var(--gray-300);border-radius:8px;font-size:14px;${isEdit ? 'background:var(--gray-100);' : ''}"
+            style="width:100%;padding:12px;border:1px solid var(--gray-300);border-radius:8px;font-size:14px;"
           />
           <p style="margin:4px 0 0 0;font-size:12px;color:var(--gray-500);">
             Minuscules, sans espaces ni accents (ex: lyon, besancon)
@@ -260,7 +279,7 @@
             required 
             placeholder="Grand Lyon"
             value="${escapeHtml(city?.brand_name || '')}"
-            style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;"
+            style="width:100%;padding:12px;border:1px solid var(--gray-300);border-radius:8px;font-size:14px;"
           />
         </div>
 
@@ -276,7 +295,7 @@
               type="text" 
               id="city-search" 
               placeholder="🔍 Rechercher une adresse..."
-              style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;"
+              style="width:100%;padding:12px;border:1px solid var(--gray-300);border-radius:8px;font-size:14px;"
             />
           </div>
 
@@ -311,13 +330,13 @@
           </label>
           <div class="image-upload-zone" data-type="logo">
             <input type="file" id="city-logo" accept="image/svg+xml,image/png,image/jpeg,image/webp" style="display:none;">
-            <div class="upload-dropzone" style="border:2px dashed #ddd;border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:all 0.2s;">
+            <div class="upload-dropzone" style="border:2px dashed var(--gray-300);border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:all 0.2s;">
               <i class="fa-solid fa-cloud-arrow-up" style="font-size:32px;color:var(--info);margin-bottom:8px;"></i>
-              <p style="margin:0;font-size:14px;color:var(--gray-500);">Cliquez ou glissez une image</p>
-              <p style="margin:4px 0 0 0;font-size:12px;color:#999;">SVG, PNG, JPG, WEBP - Max 2MB</p>
+              <p style="margin:0;font-size:14px;color:var(--gray-600);">Cliquez ou glissez une image</p>
+              <p style="margin:4px 0 0 0;font-size:12px;color:var(--gray-500);">SVG, PNG, JPG, WEBP - Max 2MB</p>
             </div>
             <div class="upload-preview" style="display:${city?.logo_url ? 'block' : 'none'};margin-top:12px;text-align:center;">
-              <img src="${escapeHtml(city?.logo_url || '')}" style="max-width:200px;max-height:100px;border:1px solid #ddd;border-radius:8px;padding:8px;">
+              <img src="${escapeHtml(city?.logo_url || '')}" style="max-width:200px;max-height:100px;border:1px solid var(--gray-300);border-radius:8px;padding:8px;">
               <button type="button" class="remove-image" style="display:block;margin:8px auto 0;padding:6px 12px;background:var(--danger);color:var(--on-danger);border:none;border-radius:6px;cursor:pointer;font-size:12px;">
                 <i class="fa-solid fa-trash"></i> Supprimer
               </button>
@@ -332,12 +351,12 @@
           </label>
           <div class="image-upload-zone" data-type="logo-dark">
             <input type="file" id="city-logo-dark" accept="image/svg+xml,image/png,image/jpeg,image/webp" style="display:none;">
-            <div class="upload-dropzone" style="border:2px dashed #ddd;border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:all 0.2s;">
+            <div class="upload-dropzone" style="border:2px dashed var(--gray-300);border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:all 0.2s;">
               <i class="fa-solid fa-cloud-arrow-up" style="font-size:32px;color:var(--info);margin-bottom:8px;"></i>
               <p style="margin:0;font-size:14px;color:var(--gray-500);">Cliquez ou glissez une image</p>
             </div>
             <div class="upload-preview" style="display:${city?.dark_logo_url ? 'block' : 'none'};margin-top:12px;text-align:center;background:var(--gray-900);padding:12px;border-radius:8px;">
-              <img src="${escapeHtml(city?.dark_logo_url || '')}" style="max-width:200px;max-height:100px;border:1px solid var(--gray-700);border-radius:8px;padding:8px;">
+              <img src="${escapeHtml(city?.dark_logo_url || '')}" style="max-width:200px;max-height:100px;border:1px solid var(--gray-600);border-radius:8px;padding:8px;">
               <button type="button" class="remove-image" style="display:block;margin:8px auto 0;padding:6px 12px;background:var(--danger);color:var(--on-danger);border:none;border-radius:6px;cursor:pointer;font-size:12px;">
                 <i class="fa-solid fa-trash"></i> Supprimer
               </button>
@@ -352,13 +371,13 @@
           </label>
           <div class="image-upload-zone" data-type="favicon">
             <input type="file" id="city-favicon" accept="image/png,image/jpeg,image/webp" style="display:none;">
-            <div class="upload-dropzone" style="border:2px dashed #ddd;border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:all 0.2s;">
+            <div class="upload-dropzone" style="border:2px dashed var(--gray-300);border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:all 0.2s;">
               <i class="fa-solid fa-cloud-arrow-up" style="font-size:32px;color:var(--info);margin-bottom:8px;"></i>
               <p style="margin:0;font-size:14px;color:var(--gray-500);">Cliquez ou glissez une image</p>
-              <p style="margin:4px 0 0 0;font-size:12px;color:#999;">PNG, JPG, WEBP - 32x32 ou 64x64px recommandé</p>
+              <p style="margin:4px 0 0 0;font-size:12px;color:var(--gray-500);">PNG, JPG, WEBP - 32x32 ou 64x64px recommandé</p>
             </div>
             <div class="upload-preview" style="display:${city?.favicon_url ? 'block' : 'none'};margin-top:12px;text-align:center;">
-              <img src="${escapeHtml(city?.favicon_url || '')}" style="width:32px;height:32px;border:1px solid #ddd;border-radius:4px;">
+              <img src="${escapeHtml(city?.favicon_url || '')}" style="width:32px;height:32px;border:1px solid var(--gray-300);border-radius:4px;">
               <button type="button" class="remove-image" style="display:block;margin:8px auto 0;padding:6px 12px;background:var(--danger);color:var(--on-danger);border:none;border-radius:6px;cursor:pointer;font-size:12px;">
                 <i class="fa-solid fa-trash"></i> Supprimer
               </button>
@@ -467,6 +486,15 @@
     const searchInput = modal.querySelector('#city-search');
     const geolocateBtn = modal.querySelector('#city-geolocate');
     const resetBtn = modal.querySelector('#city-reset-map');
+
+    console.log('[city-map] Elements found:', { mapEl, coordsEl, searchInput, geolocateBtn, resetBtn });
+
+    // Check DOM elements
+    if (!mapEl) {
+      console.error('[city-map] Map element #city-map not found');
+      showToast('Erreur : élément carte introuvable', 'error');
+      return null;
+    }
 
     // Check if Leaflet is loaded
     if (typeof L === 'undefined') {
@@ -649,13 +677,13 @@
       });
 
       dropzone.addEventListener('dragleave', () => {
-        dropzone.style.borderColor = '#ddd';
+        dropzone.style.borderColor = 'var(--gray-300)';
         dropzone.style.background = '';
       });
 
       dropzone.addEventListener('drop', (e) => {
         e.preventDefault();
-        dropzone.style.borderColor = '#ddd';
+        dropzone.style.borderColor = 'var(--gray-300)';
         dropzone.style.background = '';
         
         const file = e.dataTransfer.files[0];
@@ -909,7 +937,8 @@
 
   win.ContribCitiesManagement = {
     loadCitiesList,
-    showCityModal
+    showCityModal,
+    showAddCityModal: (elements) => showCityModal(null, elements) // Alias pour ajouter une ville
   };
 
 })(window);

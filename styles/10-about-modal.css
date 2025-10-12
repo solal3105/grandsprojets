@@ -479,7 +479,7 @@
   display: block;
   font-weight: 600;
   margin-bottom: 0.6rem;
-  color: var(--gray-200);
+  color: var(--gray-800);
   font-size: 0.95rem;
 }
 
@@ -501,7 +501,7 @@
   font-family: inherit;
   transition: all 0.2s ease;
   background: var(--white-alpha-06);
-  color: var(--gray-200);
+  color: var(--gray-400);
   box-sizing: border-box;
 }
 
@@ -835,103 +835,4 @@
   border-color: var(--primary);
   color: var(--primary);
   transform: translateX(-2px);
-}
-
-/* Light mode overrides */
-html[data-theme='light'] .form-intro p {
-  color: var(--gray-800);
-}
-
-html[data-theme='light'] .form-intro-subtitle {
-  color: var(--gray-500) !important;
-}
-
-html[data-theme='light'] .form-group label {
-  color: var(--gray-800);
-}
-
-html[data-theme='light'] .field-optional {
-  color: var(--gray-400);
-}
-
-html[data-theme='light'] .form-group input,
-html[data-theme='light'] .form-group select,
-html[data-theme='light'] .form-group textarea {
-  background: var(--white);
-  border-color: var(--gray-200);
-  color: var(--gray-800);
-}
-
-html[data-theme='light'] .form-group input::placeholder,
-html[data-theme='light'] .form-group textarea::placeholder {
-  color: var(--gray-400);
-}
-
-html[data-theme='light'] .form-group select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath fill='%2364748b' d='M7 10L2 5h10z'/%3E%3C/svg%3E");
-}
-
-html[data-theme='light'] .form-group select option {
-  background: var(--white);
-  color: var(--gray-800);
-}
-
-html[data-theme='light'] .form-divider::before {
-  background: var(--gray-200);
-}
-
-html[data-theme='light'] .form-divider span {
-  background: var(--white);
-  color: var(--gray-400);
-}
-
-html[data-theme='light'] .form-email-reveal {
-  background: linear-gradient(135deg, var(--primary-lighter) 0%, var(--gray-50) 100%);
-  box-shadow: 0 6px 20px var(--primary-alpha-15);
-}
-
-html[data-theme='light'] .email-reveal-text {
-  color: var(--gray-600);
-}
-
-html[data-theme='light'] .email-reveal-btn {
-  background: var(--white);
-}
-
-html[data-theme='light'] .email-reveal-btn:hover {
-  background: var(--primary);
-  color: var(--white);
-}
-
-html[data-theme='light'] .email-link {
-  background: var(--white);
-}
-
-html[data-theme='light'] .email-link:hover {
-  background: var(--primary);
-  color: var(--white);
-}
-
-html[data-theme='light'] .email-copy-btn {
-  background: var(--white);
-  border-color: var(--gray-200);
-  color: var(--gray-500);
-}
-
-html[data-theme='light'] .email-copy-btn:hover {
-  background: var(--gray-50);
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-html[data-theme='light'] .gp-modal-back {
-  background: var(--white);
-  border-color: var(--gray-200);
-  color: var(--gray-800);
-}
-
-html[data-theme='light'] .gp-modal-back:hover {
-  background: var(--gray-50);
-  border-color: var(--primary);
-  color: var(--primary);
 }
