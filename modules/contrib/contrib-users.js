@@ -6,20 +6,19 @@
 
   /**
    * Charge et affiche la liste des utilisateurs
-   * @param {Object} elements - Éléments DOM { usersListEl, usersStatusEl }
+   * @param {Object} elements - Éléments DOM { usersListEl }
    */
   async function loadUsersList(elements) {
-    const { usersListEl, usersStatusEl } = elements;
+    const { usersListEl } = elements;
     
     if (!usersListEl) return;
     
     try {
-      if (usersStatusEl) usersStatusEl.textContent = 'Chargement des utilisateurs...';
-      usersListEl.innerHTML = '';
+      usersListEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> Chargement des utilisateurs...</div>';
       
       const users = await win.supabaseService.getVisibleUsers();
       
-      if (usersStatusEl) usersStatusEl.textContent = '';
+      usersListEl.innerHTML = '';
       
       if (!users || users.length === 0) {
         renderEmptyState(usersListEl);
@@ -33,7 +32,7 @@
       
     } catch (error) {
       console.error('[contrib-users] loadUsersList error:', error);
-      if (usersStatusEl) usersStatusEl.textContent = 'Erreur lors du chargement des utilisateurs.';
+      usersListEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--danger);">Erreur lors du chargement des utilisateurs.</div>';
     }
   }
 
@@ -50,8 +49,12 @@
     
     const isAdmin = user.role === 'admin';
     const villes = parseVilles(user.ville);
-    const villesText = villes.length > 0 ? villes.join(', ') : 'Aucune';
     const hasNoVilles = villes.length === 0;
+    
+    // Générer les badges de villes
+    const villesBadges = villes.length > 0 
+      ? villes.map(v => `<span class="user-city-badge">${escapeHtml(v)}</span>`).join('')
+      : '<span class="user-city-badge user-city-badge--empty">Aucune structure</span>';
     
     const roleIcon = isAdmin ? 'fa-user-shield' : 'fa-user';
     const roleColor = isAdmin ? 'var(--info)' : 'var(--gray-500)';
@@ -79,7 +82,7 @@
       <div class="user-card__body">
         <div class="user-card__cities">
           <i class="fa-solid fa-location-dot"></i>
-          <span>${villesText}</span>
+          <div class="user-cities-badges">${villesBadges}</div>
         </div>
         ${hasNoVilles ? '<div class="user-card__warning"><i class="fa-solid fa-triangle-exclamation"></i> Cet utilisateur n\'a aucune structure assignée</div>' : ''}
       </div>
@@ -88,7 +91,7 @@
           ? `<button type="button" class="gp-btn gp-btn--secondary user-action-btn" data-action="demote">
                <i class="fa-solid fa-arrow-down"></i> Rétrograder en invited
              </button>`
-          : `<button type="button" class="gp-btn gp-btn--primary user-action-btn" data-action="promote">
+          : `<button type="button" class="gp-btn gp-btn--secondary user-action-btn" data-action="promote">
                <i class="fa-solid fa-arrow-up"></i> Promouvoir en admin
              </button>`
         }

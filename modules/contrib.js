@@ -801,7 +801,6 @@
     const listMineOnlyEl = document.getElementById('contrib-mine-only');
     // Users panel elements
     const usersListEl  = document.getElementById('users-list');
-    const usersStatusEl = document.getElementById('users-status');
     const usersSearchEl = document.getElementById('users-search');
     const inviteUserBtn = document.getElementById('invite-user-btn');
 
@@ -886,7 +885,7 @@
       } else if (which === 'users') {
         // Load users panel
         try { 
-          const elements = { usersListEl, usersStatusEl, selectedCity: CityContext.getSelectedCity?.() };
+          const elements = { usersListEl, selectedCity: CityContext.getSelectedCity?.() };
           ContribUsers.loadUsersList?.(elements);
         } catch(e) { console.error('[contrib] loadUsersList error:', e); }
       }
@@ -1038,7 +1037,7 @@
           break;
           
         case 'invite-user-btn':
-          const usersElements = { usersListEl, usersStatusEl };
+          const usersElements = { usersListEl };
           ContribUsers.showInviteModal?.(usersElements);
           break;
           

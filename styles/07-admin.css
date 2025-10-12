@@ -192,13 +192,43 @@
 
 .user-card__cities {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   font-size: 14px;
   color: var(--gray-600);
   padding: 8px 12px;
   background: var(--gray-100);
   border-radius: 8px;
+}
+
+.user-card__cities i {
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.user-cities-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+
+.user-city-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  background: var(--info-alpha-12);
+  color: var(--info);
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: 1px solid var(--info-alpha-25);
+}
+
+.user-city-badge--empty {
+  background: var(--gray-200);
+  color: var(--gray-600);
+  border-color: var(--gray-300);
 }
 
 .user-card__warning {
