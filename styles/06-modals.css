@@ -498,6 +498,14 @@
 
 .contrib-form .form-row {
   margin: 16px 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Empêcher tout débordement dans les form-rows */
+.contrib-form .form-row * {
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .contrib-form label {
@@ -516,6 +524,8 @@
 .contrib-form select,
 .contrib-form textarea {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 10px 14px;
   border: 1px solid var(--border-medium);
   border-radius: 8px;

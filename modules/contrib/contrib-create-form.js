@@ -176,6 +176,15 @@
         // Initialiser le mode géométrie (met à jour les cartes et l'état interne)
         ContribGeometry.setGeomMode?.(mode, geomElements);
         
+        // Charger le GeoJSON existant en mode édition
+        const editGeojsonUrl = form.dataset.geojsonUrl;
+        if (editGeojsonUrl) {
+          console.log('[setStep] Loading existing GeoJSON:', editGeojsonUrl);
+          setTimeout(() => {
+            ContribGeometry.preloadGeometryOnMap?.(editGeojsonUrl, geomElements);
+          }, 300);
+        }
+        
         // Initialiser la carte si mode dessin
         if (mode === 'draw') {
           initDrawMap();
@@ -374,8 +383,7 @@
     // ============================================================================
 
     if (ContribUpload && typeof ContribUpload.initCoverUpload === 'function') {
-      const uploadElements = { coverInput, coverPreview };
-      ContribUpload.initCoverUpload(uploadElements);
+      ContribUpload.initCoverUpload({ coverInput });
     }
 
     // ============================================================================
@@ -390,14 +398,23 @@
         if (projectNameEl && data.project_name) projectNameEl.value = data.project_name;
         
         // Catégorie avec retry si le select n'est pas encore peuplé
-        if (categoryEl && data.category_layer) {
-          categoryEl.value = data.category_layer;
-          if (categoryEl.value !== data.category_layer) {
-            console.warn('[contrib-create-form] Category not found in select, retrying...');
+        const categoryValue = data.category_layer || data.category;
+        if (categoryEl && categoryValue) {
+          console.log('[contrib-create-form] Setting category to:', categoryValue);
+          categoryEl.value = categoryValue;
+          
+          if (categoryEl.value !== categoryValue) {
+            console.warn('[contrib-create-form] Category not found in select, retrying...', {
+              expected: categoryValue,
+              got: categoryEl.value,
+              options: Array.from(categoryEl.options).map(o => o.value)
+            });
             setTimeout(() => {
-              categoryEl.value = data.category_layer;
-              console.log('[contrib-create-form] Category set to:', categoryEl.value);
+              categoryEl.value = categoryValue;
+              console.log('[contrib-create-form] Category after retry:', categoryEl.value);
             }, 200);
+          } else {
+            console.log('[contrib-create-form] Category set successfully:', categoryEl.value);
           }
         }
         
@@ -420,6 +437,10 @@
       // Géométrie - URL stockée pour être chargée à l'étape 2
       if (data.geojson_url) {
         form.dataset.geojsonUrl = data.geojson_url;
+        // Enregistrer dans ContribGeometry pour préserver lors des changements de mode
+        if (ContribGeometry.setEditGeojsonUrl) {
+          ContribGeometry.setEditGeojsonUrl(data.geojson_url);
+        }
       }
     }
 
@@ -444,6 +465,10 @@
       reset: () => {
         form.reset();
         setStep(1, { force: true });
+        // Nettoyer l'URL du GeoJSON d'édition
+        if (ContribGeometry.clearEditGeojsonUrl) {
+          ContribGeometry.clearEditGeojsonUrl();
+        }
       }
     };
   }

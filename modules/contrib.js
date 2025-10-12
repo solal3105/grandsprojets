@@ -2150,6 +2150,10 @@
         setTimeout(() => {
           overlay.setAttribute('aria-hidden', 'true');
           form.reset();
+          // Nettoyer l'URL du GeoJSON d'édition
+          if (ContribGeometry && ContribGeometry.clearEditGeojsonUrl) {
+            ContribGeometry.clearEditGeojsonUrl();
+          }
         }, 220);
       };
       

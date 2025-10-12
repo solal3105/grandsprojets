@@ -65,7 +65,9 @@
         /* Titre scintillant discret */
         #assistant-writer-card .shimmer {
           background: linear-gradient(90deg, var(--primary-active) 0%, var(--primary-light) 50%, var(--primary-active) 100%);
-          -webkit-background-clip: text; background-clip: text; color: transparent;
+          -webkit-background-clip: text; background-clip: text; 
+          color: var(--primary-active); /* Fallback color */
+          -webkit-text-fill-color: transparent;
           background-size: 200% 100%; animation: agp-shimmer 2200ms linear infinite;
         }
         @keyframes agp-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
@@ -143,7 +145,17 @@
 
         <div class="form-row contrib-step-3">
           <label for="contrib-cover">Cover (optionnelle)</label>
-          <input type="file" id="contrib-cover" name="cover_file" accept="image/png,image/jpeg,image/webp" />
+          <input type="file" id="contrib-cover" name="cover_file" accept="image/png,image/jpeg,image/webp" style="display:none;" />
+          <div id="contrib-cover-dropzone" class="file-dropzone cover-dropzone" role="button" tabindex="0" aria-label="Déposer une image de couverture ou cliquer pour choisir">
+            <div class="dz-text">
+              <div class="dz-title">Déposez votre image de couverture</div>
+              <div class="dz-sub">… ou cliquez pour choisir un fichier</div>
+            </div>
+            <div class="dz-selected">
+              <span class="dz-icon"><i class="fa-regular fa-image"></i></span>
+              <span class="dz-filename" id="contrib-cover-filename"></span>
+            </div>
+          </div>
           <small>Image .png, .jpg ou .webp. Elle sera stockée et son URL journalisée.</small>
           <div id="contrib-cover-preview" style="margin-top:6px"></div>
         </div>

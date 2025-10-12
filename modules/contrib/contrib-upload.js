@@ -60,61 +60,47 @@
 
   /**
    * Configure la dropzone pour l'upload de cover
-   * @param {HTMLElement} coverPreview - Élément de prévisualisation
+   * @param {HTMLElement} coverDropzone - Élément dropzone
    * @param {HTMLInputElement} coverInput - Input file
    */
-  function setupCoverDropzone(coverPreview, coverInput) {
+  function setupCoverDropzone(coverDropzone, coverInput) {
     try {
-      if (!coverInput || !coverPreview) return;
-
-      // Hide native input
-      try { coverInput.style.display = 'none'; } catch(_) {}
-
-      // Build dropzone structure
-      coverPreview.classList.add('file-dropzone');
-      coverPreview.setAttribute('role', 'button');
-      coverPreview.setAttribute('tabindex', '0');
-      coverPreview.setAttribute('aria-label', 'Déposer une image de couverture ou cliquer pour choisir');
-      coverPreview.innerHTML = `
-        <div class="dz-text">
-          <div class="dz-title">Déposez votre image de couverture</div>
-          <div class="dz-sub">… ou cliquez pour choisir un fichier</div>
-        </div>
-        <div class="dz-selected">
-          <span class="dz-icon" aria-hidden="true"><i class="fa-regular fa-image"></i></span>
-          <span class="dz-filename" id="cover-dz-filename"></span>
-        </div>
-      `;
-
-      const coverDzFilenameEl = coverPreview.querySelector('#cover-dz-filename');
-
-      // Create meta text (compression info)
-      let dzMeta = coverPreview.querySelector('.dz-meta');
-      if (!dzMeta) {
-        dzMeta = document.createElement('div');
-        dzMeta.className = 'dz-meta';
-        dzMeta.style.marginTop = '8px';
-        dzMeta.style.fontSize = '12px';
-        dzMeta.innerHTML = `<div class="dz-info" aria-live="polite"></div>`;
-        coverPreview.appendChild(dzMeta);
+      if (!coverInput || !coverDropzone) {
+        console.warn('[contrib-upload] setupCoverDropzone: missing elements');
+        return;
       }
-      const dzInfo = coverPreview.querySelector('.dz-info');
+
+      // Récupérer les éléments de la dropzone
+      const coverDzFilenameEl = coverDropzone.querySelector('.dz-filename');
+      
+      // Créer ou récupérer l'élément d'info
+      let dzInfo = coverDropzone.querySelector('.dz-info');
+      if (!dzInfo) {
+        const dzMeta = document.createElement('div');
+        dzMeta.className = 'dz-meta';
+        dzMeta.style.cssText = 'margin-top:8px;font-size:12px;';
+        dzInfo = document.createElement('div');
+        dzInfo.className = 'dz-info';
+        dzInfo.setAttribute('aria-live', 'polite');
+        dzMeta.appendChild(dzInfo);
+        coverDropzone.appendChild(dzMeta);
+      }
 
       // Interactions
       const openPicker = () => { try { coverInput.click(); } catch(_) {} };
-      coverPreview.addEventListener('click', openPicker);
-      coverPreview.addEventListener('keydown', (e) => {
+      coverDropzone.addEventListener('click', openPicker);
+      coverDropzone.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
       });
 
-      ['dragenter','dragover'].forEach(ev => coverPreview.addEventListener(ev, (e) => {
-        e.preventDefault(); e.stopPropagation(); coverPreview.classList.add('is-dragover');
+      ['dragenter','dragover'].forEach(ev => coverDropzone.addEventListener(ev, (e) => {
+        e.preventDefault(); e.stopPropagation(); coverDropzone.classList.add('is-dragover');
       }));
-      ['dragleave','dragend','drop'].forEach(ev => coverPreview.addEventListener(ev, (e) => {
-        e.preventDefault(); e.stopPropagation(); coverPreview.classList.remove('is-dragover');
+      ['dragleave','dragend','drop'].forEach(ev => coverDropzone.addEventListener(ev, (e) => {
+        e.preventDefault(); e.stopPropagation(); coverDropzone.classList.remove('is-dragover');
       }));
 
-      coverPreview.addEventListener('drop', (e) => {
+      coverDropzone.addEventListener('drop', (e) => {
         const dt = e.dataTransfer; if (!dt) return;
         const f = dt.files && dt.files[0]; if (!f) return;
         processCoverFile(f);
@@ -158,41 +144,52 @@
         try {
           // Switch to selected state
           if (coverDzFilenameEl) {
-            try { coverDzFilenameEl.textContent = ''; } catch(_) {}
+            try { coverDzFilenameEl.textContent = filename || 'Image sélectionnée'; } catch(_) {}
           }
-          coverPreview.classList.add('has-file');
+          coverDropzone.classList.add('has-file');
           // Thumbnail
-          let thumb = coverPreview.querySelector('img.dz-thumb');
+          let thumb = coverDropzone.querySelector('img.dz-thumb');
           if (!thumb) {
             thumb = document.createElement('img');
             thumb.className = 'dz-thumb';
             thumb.alt = 'Aperçu de la cover';
-            thumb.style.maxHeight = '140px';
-            thumb.style.maxWidth = '100%';
-            thumb.style.borderRadius = '10px';
-            thumb.style.boxShadow = '0 6px 16px var(--black-alpha-18)';
-            thumb.style.transform = 'rotate(-0.75deg)';
-            thumb.style.transition = 'transform 0.2s ease';
+            thumb.style.cssText = 'max-height:140px;max-width:100%;border-radius:10px;box-shadow:0 6px 16px var(--black-alpha-18);transform:rotate(-0.75deg);transition:transform 0.2s ease;';
             // place thumbnail inside dz-selected, replacing icon
-            const sel = coverPreview.querySelector('.dz-selected');
+            const sel = coverDropzone.querySelector('.dz-selected');
             if (sel) {
               const icon = sel.querySelector('.dz-icon');
               if (icon) { try { icon.remove(); } catch(_) {} }
               sel.prepend(thumb);
             } else {
-              coverPreview.appendChild(thumb);
+              coverDropzone.appendChild(thumb);
             }
           }
           thumb.src = objectUrl;
-        } catch(_) {}
+        } catch(err) {
+          console.warn('[contrib-upload] renderPreview error:', err);
+        }
       }
-
-      // Expose for edit-mode prefill
-      try { win.__contribRenderCoverPreview = (u, n) => renderPreview(u, n); } catch(_) {}
 
     } catch (e) {
       console.warn('[contrib-upload] setupCoverDropzone error:', e);
     }
+  }
+
+  /**
+   * Initialise l'upload de la cover
+   * @param {Object} elements - Éléments DOM nécessaires
+   * @param {HTMLInputElement} elements.coverInput - Input file
+   */
+  function initCoverUpload(elements) {
+    const { coverInput } = elements || {};
+    const dropzone = document.getElementById('contrib-cover-dropzone');
+    
+    if (!dropzone || !coverInput) {
+      console.warn('[contrib-upload] initCoverUpload: dropzone or input not found');
+      return;
+    }
+    
+    setupCoverDropzone(dropzone, coverInput);
   }
 
   /**
@@ -312,6 +309,7 @@
     compressImage,
     
     // Cover upload
+    initCoverUpload,
     setupCoverDropzone,
     getCoverFile,
     resetCoverFile,

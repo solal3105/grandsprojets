@@ -65,14 +65,34 @@
       if (fileRowEl) fileRowEl.style.display = 'none';
       if (drawPanelEl) {
         drawPanelEl.style.display = '';
-        setTimeout(() => {
+        setTimeout(async () => {
           try { 
             drawPanelEl.classList.add('reveal'); 
             // Ensure map is initialized
             if (win.ContribMap?.initDrawMap) {
               const drawMapContainerId = 'contrib-draw-map';
               const cityEl = document.getElementById('contrib-city');
-              win.ContribMap.initDrawMap(drawMapContainerId, drawPanelEl, cityEl);
+              await win.ContribMap.initDrawMap(drawMapContainerId, drawPanelEl, cityEl);
+            }
+            
+            // Si on a un GeoJSON d'édition, le recharger APRÈS l'init de la carte
+            if (editGeojsonUrl) {
+              console.log('[contrib-geometry] Reloading edit GeoJSON on mode switch:', editGeojsonUrl);
+              // Attendre que la carte soit vraiment prête
+              setTimeout(async () => {
+                try {
+                  const response = await fetch(editGeojsonUrl);
+                  if (!response.ok) throw new Error('Failed to fetch GeoJSON');
+                  const gj = await response.json();
+                  
+                  if (win.ContribMap?.setDrawnGeometry) {
+                    win.ContribMap.setDrawnGeometry(gj);
+                    console.log('[contrib-geometry] GeoJSON reloaded successfully');
+                  }
+                } catch(err) {
+                  console.warn('[contrib-geometry] Error reloading GeoJSON:', err);
+                }
+              }, 500); // Augmenté le délai pour laisser la carte se stabiliser
             }
           } catch(_) {}
         }, 50);
@@ -99,10 +119,13 @@
         drawPanelEl.style.display = 'none'; 
         drawPanelEl.classList.remove('reveal'); 
       }
-      // Revenir au mode fichier doit nettoyer tout dessin en cours
-      try { 
-        clearAllDrawings(); 
-      } catch(_) {}
+      // NE PAS effacer les dessins en mode édition (on doit pouvoir switch entre les modes)
+      // On nettoie seulement si on est en création et qu'on n'a pas de GeoJSON d'édition
+      if (!editGeojsonUrl) {
+        try { 
+          clearAllDrawings(); 
+        } catch(_) {}
+      }
       try {
         if (win.ContribMap?.cancelManualDraw) {
           win.ContribMap.cancelManualDraw(true);
@@ -144,6 +167,9 @@
       if (win.ContribUtils?.setStatus) {
         win.ContribUtils.setStatus('Chargement de la géométrie…');
       }
+
+      // Stocker l'URL pour préserver les données lors des changements de mode
+      setEditGeojsonUrl(url);
 
       // Switch UI to draw mode and ensure map exists
       setGeomMode('draw', elements);

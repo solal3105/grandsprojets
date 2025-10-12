@@ -55,6 +55,13 @@
     isInitializing = true;
     
     try {
+      // Sauvegarder le GeoJSON existant avant de nettoyer la carte
+      let savedGeometry = null;
+      if (drawMap && drawnFeatures && drawnFeatures.getLayers().length > 0) {
+        console.log('[contrib-map] Saving existing geometry before cleanup');
+        savedGeometry = drawnFeatures.toGeoJSON();
+      }
+      
       // Clear any existing map instance first
       if (drawMap) {
         console.log('[contrib-map] Cleaning up existing map instance');
@@ -114,6 +121,18 @@
       const selectedCity = (cityEl && cityEl.value) ? cityEl.value.trim() : (win.activeCity || '').trim();
       if (selectedCity) { 
         await applyCityBranding(selectedCity); 
+      }
+      
+      // Restaurer la géométrie sauvegardée
+      if (savedGeometry) {
+        console.log('[contrib-map] Restoring saved geometry');
+        setTimeout(() => {
+          try {
+            setDrawnGeometry(savedGeometry);
+          } catch(err) {
+            console.warn('[contrib-map] Error restoring geometry:', err);
+          }
+        }, 100);
       }
       
       isInitializing = false;
