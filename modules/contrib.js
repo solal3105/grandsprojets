@@ -662,38 +662,100 @@
       });
     }
 
-    function validateStep1() {
-      const nameEl = document.getElementById('contrib-project-name');
-      const catEl  = document.getElementById('contrib-category');
-      const hasName = !!(nameEl && nameEl.value && nameEl.value.trim());
-      const hasCat  = !!(catEl && catEl.value);
-      const ok = hasName && hasCat;
-      if (!ok) {
-        showToast('Veuillez renseigner le nom et la catégorie.', 'error');
-      }
-      return ok;
-    }
-
-    // hasDrawGeometry and validateStep2 moved to contrib-geometry.js
-    function validateStep2() {
-      const fileInput = document.getElementById('contrib-geojson');
-      return ContribGeometry.validateStep2?.({ geomModeRadios, fileInput }) || false;
-    }
-
-    function validateStep3() {
-      const meta = document.getElementById('contrib-meta')?.value?.trim();
-      const desc = document.getElementById('contrib-description')?.value?.trim();
-      const ok = !!meta && !!desc;
-      if (!ok) showToast('Renseignez Meta et Description avant de continuer.', 'error');
-      return ok;
-    }
-
+    // ============================================================================
+    // VALIDATION UNIFIÉE DU STEPPER
+    // ============================================================================
+    
+    /**
+     * Vérifie si on peut aller à l'étape cible
+     * Utilise la validation HTML5 native + validations custom
+     * @param {number} target - Numéro de l'étape cible
+     * @returns {boolean} True si la navigation est autorisée
+     */
     function canGoToStep(target) {
-      if (target <= 1) return true;
-      if (target === 2) return validateStep1();
-      if (target === 3) return validateStep1() && validateStep2();
-      if (target === 4) return validateStep1() && validateStep2() && validateStep3();
-      return false;
+      // Retour en arrière toujours autorisé
+      if (target <= currentStep) {
+        console.log(`[contrib] Going back from step ${currentStep} to ${target} - allowed`);
+        return true;
+      }
+      
+      console.log(`[contrib] Attempting to go from step ${currentStep} to ${target}`);
+      
+      // Validation HTML5 des champs required visibles de l'étape actuelle
+      const form = document.getElementById('contrib-form');
+      if (!form) {
+        console.error('[contrib] Form #contrib-form not found');
+        return false;
+      }
+      
+      // Récupérer TOUS les éléments de l'étape actuelle (peut y en avoir plusieurs)
+      const currentStepElements = queryStepEls(currentStep);
+      if (!currentStepElements || currentStepElements.length === 0) {
+        console.warn(`[contrib] No step elements found for step ${currentStep}`);
+        return false;
+      }
+      
+      console.log(`[contrib] Found ${currentStepElements.length} elements for step ${currentStep}`);
+      
+      // Récupérer tous les champs required de l'étape actuelle (dans TOUS les éléments)
+      const requiredFields = [];
+      currentStepElements.forEach(el => {
+        const fields = Array.from(el.querySelectorAll('[required]'));
+        requiredFields.push(...fields);
+      });
+      
+      console.log(`[contrib] Found ${requiredFields.length} required fields for step ${currentStep}`);
+      
+      // Valider chaque champ required visible
+      for (const field of requiredFields) {
+        // Ignorer les champs cachés ou désactivés
+        if (field.offsetParent === null || field.disabled) {
+          console.log(`[contrib] Skipping hidden/disabled field:`, field.id || field.name);
+          continue;
+        }
+        
+        console.log(`[contrib] Validating field:`, field.id || field.name, 'value:', field.value);
+        
+        // Utiliser la validation HTML5 native
+        if (!field.checkValidity()) {
+          console.error(`[contrib] ❌ Field validation FAILED:`, field.id || field.name, field.validationMessage);
+          
+          // Afficher le message d'erreur natif
+          field.reportValidity();
+          
+          // Toast personnalisé
+          const fieldLabel = field.labels?.[0]?.textContent || field.name || field.id || 'Ce champ';
+          showToast(`${fieldLabel} est obligatoire.`, 'error');
+          
+          // Focus sur le champ invalide
+          try { field.focus(); } catch(_) {}
+          
+          return false;
+        }
+      }
+      
+      // Validations custom supplémentaires par étape
+      if (target >= 3) {
+        console.log('[contrib] Validating step 2 geometry...');
+        // Validation étape 2 : géométrie (file OU draw)
+        const mode = Array.from(geomModeRadios || []).find(r => r.checked)?.value || 'file';
+        const fileInput = document.getElementById('contrib-geojson');
+        const hasGeom = ContribGeometry?.hasGeometry?.(mode, fileInput) || false;
+        
+        if (!hasGeom) {
+          console.error('[contrib] ❌ Geometry validation FAILED');
+          const message = mode === 'file' 
+            ? 'Veuillez sélectionner un fichier GeoJSON.'
+            : 'Veuillez dessiner une géométrie puis terminer.';
+          showToast(message, 'error');
+          return false;
+        }
+        
+        console.log('[contrib] ✅ Geometry validation passed');
+      }
+      
+      console.log(`[contrib] ✅ Step ${currentStep} validation passed, proceeding to step ${target}`);
+      return true;
     }
 
     function setStep(n, opts = {}) {
@@ -770,15 +832,21 @@
       } catch(_){}
     }
 
+    /**
+     * Gestionnaire de clic sur un onglet du stepper
+     * La validation est gérée par canGoToStep() appelé dans setStep()
+     */
     function onClickStepTab(targetStep) {
       setStep(targetStep);
     }
 
+    // Event listeners pour les onglets du stepper
     if (stepTab1) stepTab1.addEventListener('click', () => onClickStepTab(1));
     if (stepTab2) stepTab2.addEventListener('click', () => onClickStepTab(2));
     if (stepTab3) stepTab3.addEventListener('click', () => onClickStepTab(3));
     if (stepTab4) stepTab4.addEventListener('click', () => onClickStepTab(4));
 
+    // Event listeners pour les boutons Précédent/Suivant
     if (prevBtn)  prevBtn.addEventListener('click', () => setStep(currentStep - 1));
     if (nextBtn)  nextBtn.addEventListener('click', () => setStep(currentStep + 1));
 

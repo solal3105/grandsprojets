@@ -197,8 +197,84 @@
     // STEPPER
     // ============================================================================
 
+    /**
+     * Validation des champs required de l'étape actuelle
+     */
+    function canGoToStep(target) {
+      // Retour en arrière toujours autorisé
+      if (target <= currentStep) {
+        console.log(`[contrib-create-form-v2] ✅ Going back from step ${currentStep} to ${target} - allowed`);
+        return true;
+      }
+      
+      console.log(`[contrib-create-form-v2] 🔍 Attempting to go from step ${currentStep} to ${target}`);
+      
+      // Récupérer tous les champs required visibles de l'étape actuelle
+      const currentStepElements = overlay.querySelectorAll(`.contrib-step-${currentStep}`);
+      const requiredFields = [];
+      
+      currentStepElements.forEach(el => {
+        el.querySelectorAll('[required]').forEach(field => requiredFields.push(field));
+      });
+      
+      console.log(`[contrib-create-form-v2] Found ${requiredFields.length} required fields for step ${currentStep}`);
+      
+      // Valider chaque champ
+      for (const field of requiredFields) {
+        // Ignorer les champs cachés ou désactivés
+        if (field.offsetParent === null || field.disabled) {
+          console.log(`[contrib-create-form-v2] Skipping hidden/disabled:`, field.id);
+          continue;
+        }
+        
+        console.log(`[contrib-create-form-v2] Validating:`, field.id, 'value:', field.value);
+        
+        if (!field.checkValidity()) {
+          console.error(`[contrib-create-form-v2] ❌ VALIDATION FAILED:`, field.id, field.validationMessage);
+          
+          field.reportValidity();
+          
+          const fieldLabel = field.labels?.[0]?.textContent || field.name || field.id || 'Ce champ';
+          showToast(`${fieldLabel} est obligatoire.`, 'error');
+          
+          try { field.focus(); } catch(_) {}
+          
+          return false;
+        }
+      }
+      
+      // Validation custom étape 2 : géométrie
+      if (target >= 3) {
+        console.log('[contrib-create-form-v2] Validating geometry...');
+        const mode = Array.from(elements.geomModeRadios || []).find(r => r.checked)?.value || 'file';
+        const fileInput = elements.geojsonInput;
+        const hasGeom = win.ContribGeometry?.hasGeometry?.(mode, fileInput) || false;
+        
+        if (!hasGeom) {
+          console.error('[contrib-create-form-v2] ❌ Geometry validation FAILED');
+          const message = mode === 'file' 
+            ? 'Veuillez sélectionner un fichier GeoJSON.'
+            : 'Veuillez dessiner une géométrie puis terminer.';
+          showToast(message, 'error');
+          return false;
+        }
+      }
+      
+      console.log(`[contrib-create-form-v2] ✅ Validation passed, proceeding to step ${target}`);
+      return true;
+    }
+
     function setStep(n, opts = {}) {
+      const { force = false } = opts || {};
+      
+      // Vérifier la validation avant de changer d'étape
+      if (!force && !canGoToStep(n)) {
+        console.log(`[contrib-create-form-v2] ❌ Navigation BLOCKED by validation`);
+        return;
+      }
+      
       currentStep = Math.min(4, Math.max(1, n));
+      console.log(`[contrib-create-form-v2] ➡️ Moving to step ${currentStep}`);
       
       // Afficher/masquer les éléments de chaque étape
       [1,2,3,4].forEach(i => {

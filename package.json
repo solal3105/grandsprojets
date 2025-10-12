@@ -1,0 +1,29 @@
+{
+  "name": "grandsprojets-lyon",
+  "version": "2.0.0",
+  "description": "Carte des grands projets d'urbanisme et de mobilité de la Métropole de Lyon",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:headed": "playwright test --headed",
+    "test:contrib": "playwright test tests/contribution",
+    "test:contrib:ui": "playwright test tests/contribution --ui",
+    "test:report": "playwright show-report",
+    "test:codegen": "playwright codegen http://localhost:3000"
+  },
+  "keywords": [
+    "lyon",
+    "urbanisme",
+    "mobilité",
+    "tram",
+    "vélo"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "dotenv": "^17.2.3"
+  }
+}
