@@ -188,8 +188,8 @@
 
 .gp-modal-back:hover {
   background: var(--surface-raised);
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--info);
+  color: var(--info);
   transform: translateX(-2px);
   box-shadow: 0 2px 8px var(--black-alpha-08);
 }
@@ -230,7 +230,7 @@
 }
 
 .gp-modal-close:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--info);
   outline-offset: 2px;
 }
 
@@ -458,7 +458,7 @@
 }
 
 .gp-modal::-webkit-scrollbar-thumb:hover {
-  background: var(--primary);
+  background: var(--info);
 }
 
 /* ---------------------------------------------------------------------------
@@ -614,20 +614,20 @@ body.modal-open {
 
 /* Primary Button */
 .gp-btn--primary {
-  background: var(--primary);
+  background: var(--info);
   color: var(--white);
-  border-color: var(--primary);
+  border-color: var(--info);
   box-shadow: 
-    0 2px 8px var(--primary-alpha-25),
+    0 2px 8px var(--info-alpha-25),
     0 1px 2px var(--black-alpha-08);
 }
 
 .gp-btn--primary:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
+  background: var(--info-hover);
+  border-color: var(--info-hover);
   transform: translateY(-2px);
   box-shadow: 
-    0 8px 20px var(--primary-alpha-3),
+    0 8px 20px var(--info-alpha-3),
     0 4px 8px var(--black-alpha-10);
 }
 
@@ -788,9 +788,9 @@ body.modal-open {
 .gp-form-textarea:focus,
 .gp-form-select:focus {
   outline: none;
-  border-color: var(--primary);
+  border-color: var(--info);
   box-shadow: 
-    0 0 0 3px var(--primary-alpha-12),
+    0 0 0 3px var(--info-alpha-12),
     0 2px 8px var(--black-alpha-08);
 }
 
@@ -880,7 +880,7 @@ body.modal-open {
    Styles pour le focus visible unifié
 --------------------------------------------------------------------------- */
 .gp-modal *:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--info);
   outline-offset: 2px;
   border-radius: 4px;
 }

@@ -19,7 +19,7 @@
       
       <!-- Assistant rédacteur (Carte verte animée, étape 3 uniquement) -->
       <div id="assistant-writer-card" class="contrib-step-3" role="region" aria-label="Assistant rédacteur"
-           style="margin:12px 0 14px; border:1px solid var(--primary); border-radius:14px; padding:14px; background:linear-gradient(180deg,var(--primary-lighter),var(--primary-lighter)); box-shadow:0 2px 8px var(--primary-alpha-1); position:relative; overflow:hidden;">
+           style="margin:12px 0 14px; border:1px solid var(--info); border-radius:14px; padding:14px; background:linear-gradient(180deg,var(--info-lighter),var(--info-lighter)); box-shadow:0 2px 8px var(--info-alpha-1); position:relative; overflow:hidden;">
         <!-- overlay cliquable sur toute la carte -->
         <a href="/assistant-ia/" target="_blank" rel="noopener" aria-label="Ouvrir l'assistant IA"
            style="position:absolute; inset:0; z-index:1; opacity:0;">
@@ -27,10 +27,10 @@
         <div style="display:flex; gap:12px; align-items:center; position:relative; z-index:2;">
           <div class="sparkle" aria-hidden="true" style="font-size:28px; line-height:1;">✨</div>
           <div style="flex:1 1 auto; min-width:0;">
-            <h3 class="title" style="margin:0; color:var(--primary-active); font-size:18px;">
+            <h3 class="title" style="margin:0; color:var(--info-active); font-size:18px;">
               <span class="shimmer">Rédiger avec l'assistant</span>
             </h3>
-            <div class="subtitle" style="margin:2px 0 8px; color:var(--primary-active); font-size:14px;">Premier jet en 1 minute</div>
+            <div class="subtitle" style="margin:2px 0 8px; color:var(--info-active); font-size:14px;">Premier jet en 1 minute</div>
             <div class="chips" aria-label="L'assistant vous aide pour">
               <span>Markdown</span>
               <span>Méta</span>
@@ -38,7 +38,7 @@
             </div>
           </div>
           <a id="contrib-assistant-link" href="/assistant-ia/" target="_blank" rel="noopener"
-             style="display:inline-block; background:var(--primary); color:var(--white); padding:10px 14px; border-radius:10px; text-decoration:none; font-weight:600; white-space:nowrap; position:relative; z-index:3;">
+             style="display:inline-block; background:var(--info); color:var(--white); padding:10px 14px; border-radius:10px; text-decoration:none; font-weight:600; white-space:nowrap; position:relative; z-index:3;">
             Ouvrir
           </a>
         </div>
@@ -53,7 +53,7 @@
         /* Halo pulsant vert (accent non intrusif) */
         #assistant-writer-card::after {
           content:""; position:absolute; inset:-2px; border-radius:16px;
-          border:2px solid var(--primary-alpha-35); pointer-events:none; filter:blur(.3px);
+          border:2px solid var(--info-alpha-35); pointer-events:none; filter:blur(.3px);
           animation: agp-pulse 1600ms ease-out infinite;
         }
         @keyframes agp-pulse { 0% { opacity:.55; } 60% { opacity:.15; } 100% { opacity:.35; } }
@@ -64,9 +64,9 @@
 
         /* Titre scintillant discret */
         #assistant-writer-card .shimmer {
-          background: linear-gradient(90deg, var(--primary-active) 0%, var(--primary-light) 50%, var(--primary-active) 100%);
+          background: linear-gradient(90deg, var(--info-active) 0%, var(--info-light) 50%, var(--info-active) 100%);
           -webkit-background-clip: text; background-clip: text; 
-          color: var(--primary-active); /* Fallback color */
+          color: var(--info-active); /* Fallback color */
           -webkit-text-fill-color: transparent;
           background-size: 200% 100%; animation: agp-shimmer 2200ms linear infinite;
         }
@@ -75,7 +75,7 @@
         /* Petites pastilles explicatives */
         #assistant-writer-card .chips { display:flex; gap:6px; flex-wrap:wrap; }
         #assistant-writer-card .chips span {
-          background:var(--primary-lighter); color:var(--primary-active); border:1px solid var(--primary-lighter);
+          background:var(--info-lighter); color:var(--info-active); border:1px solid var(--info-lighter);
           border-radius:999px; padding:4px 8px; font-size:12px; line-height:1;
           animation: agp-chip-in 420ms cubic-bezier(.2,.8,.2,1) both;
         }
