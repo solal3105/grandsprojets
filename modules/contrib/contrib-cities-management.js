@@ -106,8 +106,14 @@
       citiesListEl.querySelectorAll('.city-card__edit').forEach(btn => {
         btn.addEventListener('click', () => {
           const ville = btn.dataset.ville;
+          console.log('[cities-list] EDIT button clicked for ville:', ville);
           const city = filteredCities.find(c => c.ville === ville);
-          if (city) showCityModal(city, elements);
+          console.log('[cities-list] Found city object:', city);
+          if (city) {
+            showCityModal(city, elements);
+          } else {
+            console.error('[cities-list] City not found in filteredCities!');
+          }
         });
       });
 
@@ -208,6 +214,13 @@
     
     const isEdit = !!city;
     const title = isEdit ? 'Modifier une ville' : 'Ajouter une ville';
+
+    // Supprimer toute modale existante avant d'en créer une nouvelle
+    const existingOverlay = document.getElementById('city-management-overlay');
+    if (existingOverlay) {
+      console.log('[city-modal] Removing existing modal');
+      existingOverlay.remove();
+    }
 
     // Create overlay avec le système unifié
     const overlay = document.createElement('div');
@@ -757,13 +770,22 @@
       submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enregistrement...';
 
       // Get form data
-      const codeRaw = modal.querySelector('#city-code').value.trim();
       const name = modal.querySelector('#city-name').value.trim();
+      
+      // En mode édition, utiliser le code existant. En création, lire le champ.
+      let code;
+      if (existingCity) {
+        // Mode édition : utiliser le code de la ville existante (non modifiable)
+        code = existingCity.ville;
+        console.log('[city-form] EDIT mode - using existing code:', code);
+      } else {
+        // Mode création : lire et normaliser le champ code
+        const codeRaw = modal.querySelector('#city-code').value.trim();
+        code = slugify(codeRaw);
+        console.log('[city-form] CREATE mode - Code raw:', codeRaw, '→ normalized:', code);
+      }
 
-      // Normalize code: remove accents, lowercase, replace spaces with dashes
-      const code = slugify(codeRaw);
-
-      console.log('[city-form] Code raw:', codeRaw, '→ normalized:', code, 'Name:', name);
+      console.log('[city-form] Final - Code:', code, 'Name:', name);
 
       // Validation
       if (!code || !name) {
