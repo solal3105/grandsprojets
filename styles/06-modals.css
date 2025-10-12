@@ -1239,7 +1239,8 @@
 /* Geom mode cards - Utilisent .gp-action-card du nouveau système */
 
 /* File dropzone */
-#contrib-overlay .file-dropzone {
+#contrib-overlay .file-dropzone,
+#create-modal-overlay .file-dropzone {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1260,52 +1261,63 @@
 }
 
 #contrib-overlay .file-dropzone:hover,
-#contrib-overlay .file-dropzone:focus {
+#contrib-overlay .file-dropzone:focus,
+#create-modal-overlay .file-dropzone:hover,
+#create-modal-overlay .file-dropzone:focus {
   outline: none;
   border-color: var(--black-alpha-45);
   box-shadow: 0 0 0 2px var(--black-alpha-12);
 }
 
-#contrib-overlay .file-dropzone .dz-title {
+#contrib-overlay .file-dropzone .dz-title,
+#create-modal-overlay .file-dropzone .dz-title {
   font-weight: 400;
   opacity: 0.85;
   font-size: 0.98rem;
 }
 
-#contrib-overlay .file-dropzone .dz-sub {
+#contrib-overlay .file-dropzone .dz-sub,
+#create-modal-overlay .file-dropzone .dz-sub {
   font-size: 0.9rem;
   opacity: 0.6;
 }
 
-#contrib-overlay .file-name {
-  margin-top: 6px;
-  font-size: 0.92rem;
+#contrib-overlay .file-dropzone .dz-text,
+#create-modal-overlay .file-dropzone .dz-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   opacity: 0.75;
 }
 
-#contrib-overlay .file-dropzone.is-dragover {
+#contrib-overlay .file-dropzone.is-dragover,
+#create-modal-overlay .file-dropzone.is-dragover {
   border-color: var(--black-alpha-45);
   background: var(--white-alpha-95);
   box-shadow: inset 0 0 0 1px var(--black-alpha-08);
 }
 
 /* Selected filename row inside dropzone */
-#contrib-overlay .file-dropzone .dz-selected {
+#contrib-overlay .file-dropzone .dz-selected,
+#create-modal-overlay .file-dropzone .dz-selected {
   display: none;
   gap: 8px;
   align-items: center;
   margin-top: 6px;
 }
 
-#contrib-overlay .file-dropzone.has-file .dz-selected {
+#contrib-overlay .file-dropzone.has-file .dz-selected,
+#create-modal-overlay .file-dropzone.has-file .dz-selected {
   display: flex;
 }
 
-#contrib-overlay .file-dropzone .dz-selected .dz-icon {
+#contrib-overlay .file-dropzone .dz-selected .dz-icon,
+#create-modal-overlay .file-dropzone .dz-selected .dz-icon {
   color: var(--black-alpha-55);
 }
 
-#contrib-overlay .file-dropzone .dz-filename {
+#contrib-overlay .file-dropzone .dz-filename,
+#create-modal-overlay .file-dropzone .dz-filename {
   font-size: 0.92rem;
   opacity: 0.85;
 }

@@ -2,6 +2,7 @@
 ;(function (win) {
   let modalLoaded = false;
   let categoryModalLoaded = false;
+  let createModalLoaded = false;
   
   // Lazy load modal template
   async function loadModalTemplate() {
@@ -107,6 +108,36 @@
       
     } catch (error) {
       console.error('[contrib] Error loading invite modal template:', error);
+      return false;
+    }
+  }
+  
+  // Lazy load create modal template
+  async function loadCreateModalTemplate() {
+    if (createModalLoaded) return true;
+    
+    try {
+      const response = await fetch('modules/contrib/contrib-create-modal.html');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const html = await response.text();
+      const container = document.getElementById('contrib-modal-container');
+      
+      if (!container) {
+        console.error('[contrib] Modal container not found in DOM');
+        return false;
+      }
+      
+      // Ajouter la modale création après les autres modales
+      container.insertAdjacentHTML('beforeend', html);
+      createModalLoaded = true;
+      console.log('[contrib] Create modal template loaded successfully');
+      return true;
+      
+    } catch (error) {
+      console.error('[contrib] Error loading create modal template:', error);
       return false;
     }
   }
@@ -393,12 +424,6 @@
               label: '<i class="fa fa-home"></i> Accueil',
               title: 'Proposer une contribution',
               hasFooter: false,
-              headerActions: []
-            },
-            create: {
-              label: 'Créer',
-              title: 'Créer une contribution',
-              hasFooter: true,
               headerActions: []
             },
             list: {
@@ -769,14 +794,12 @@
     if (nextBtn)  nextBtn.addEventListener('click', () => setStep(currentStep + 1));
 
     // Panels & list state (tabs supprimés)
-    const panelCreate  = document.getElementById('contrib-panel-create');
     const panelList    = document.getElementById('contrib-panel-list');
     const panelCategories = document.getElementById('contrib-panel-categories');
     const panelUsers   = document.getElementById('contrib-panel-users');
     const backBtn      = document.getElementById('contrib-back');
     // Landing elements
     const landingEl = document.getElementById('contrib-landing');
-    const landingCreateBtn = document.getElementById('landing-create');
     const landingEditBtn = document.getElementById('landing-edit');
     const landingCategoriesBtn = document.getElementById('landing-categories');
     const landingUsersBtn = document.getElementById('landing-users');
@@ -862,11 +885,6 @@
         } catch(e) {
           console.error('[activateTab list] Error:', e);
         }
-      } else if (which === 'create') {
-        // focus project name for accessibility
-        try { 
-          document.getElementById('contrib-project-name')?.focus(); 
-        } catch(_) {}
       } else if (which === 'categories') {
         // Load categories panel
         try { 
@@ -924,8 +942,7 @@
       
       // Activer le panel approprié
       if (target === 'create') {
-        await activateTab('create');
-        try { setStep(1, { force: true }); } catch(_) {}
+        await openCreateModal('create');
       } else if (['list', 'categories', 'users', 'cities'].includes(target)) {
         await activateTab(target);
       }
@@ -951,7 +968,6 @@
     }
 
     // Bind landing buttons
-    if (landingCreateBtn) landingCreateBtn.addEventListener('click', () => chooseLanding('create'));
     if (landingEditBtn) landingEditBtn.addEventListener('click', () => chooseLanding('list'));
     if (landingCategoriesBtn) landingCategoriesBtn.addEventListener('click', () => chooseLanding('categories'));
     if (landingUsersBtn) landingUsersBtn.addEventListener('click', () => chooseLanding('users'));
@@ -973,7 +989,7 @@
       // Router les actions selon le bouton
       switch (buttonId) {
         case 'contrib-list-create-btn':
-          window.ModalNavigation?.navigateTo('create');
+          await openCreateModal('create');
           break;
           
         case 'category-add-btn':
@@ -1081,9 +1097,10 @@
       try {
         const row = await (win.supabaseService && win.supabaseService.getContributionById(item.id));
         if (row) {
-          enterEditMode(row);
-          window.ModalNavigation?.navigateTo('create');
-          activateTab('create');
+          // TODO: Implémenter l'édition dans la modale indépendante
+          showToast('Édition à implémenter', 'info');
+          // enterEditMode(row);
+          // await openCreateModal('edit', row);
         }
       } catch (e) {
         showToast('Erreur lors du chargement de la contribution.', 'error');
@@ -1094,26 +1111,7 @@
 
     const sharedOnCreateClick = async () => { 
       try {
-        // Récupérer la ville sélectionnée
-        const selectedCity = CityContext.getSelectedCity?.();
-        if (!selectedCity) {
-          showToast('Aucune ville sélectionnée', 'error');
-          return;
-        }
-        
-        // Pré-remplir le champ ville
-        const cityEl = document.getElementById('contrib-city');
-        if (cityEl) {
-          cityEl.value = selectedCity;
-        }
-        
-        // Charger les catégories pour cette ville
-        await loadCategoriesForCity(selectedCity);
-        
-        // Navigation et activation
-        window.ModalNavigation?.navigateTo('create');
-        activateTab('create'); 
-        setStep(1, { force: true }); 
+        await openCreateModal('create');
       } catch(e) {
         console.error('[sharedOnCreateClick] Error:', e);
       } 
@@ -2056,6 +2054,141 @@
       
       // Stocker la fonction de fermeture pour l'appeler après succès
       win.__closeCategoryModal = closeModal;
+    }
+
+    // Ouvre la modale de création de contribution
+    async function openCreateModal(mode = 'create', data = {}) {
+      console.log('[openCreateModal] Opening with mode:', mode);
+      
+      // Charger la modale si nécessaire
+      const loaded = await loadCreateModalTemplate();
+      if (!loaded) {
+        showToast('Erreur de chargement du formulaire', 'error');
+        return;
+      }
+      
+      // Récupérer les éléments
+      const overlay = document.getElementById('create-modal-overlay');
+      const closeBtn = document.getElementById('create-modal-close');
+      const form = document.getElementById('contrib-form');
+      const prevBtn = document.getElementById('contrib-prev');
+      const nextBtn = document.getElementById('contrib-next');
+      const submitBtn = document.getElementById('contrib-submit');
+      
+      if (!overlay || !form) {
+        console.error('[openCreateModal] Elements not found');
+        return;
+      }
+      
+      // Récupérer la ville depuis CityContext
+      const selectedCity = CityContext.getSelectedCity?.();
+      if (!selectedCity) {
+        showToast('Aucune ville sélectionnée', 'error');
+        return;
+      }
+      
+      // Pré-remplir le champ ville
+      const cityInput = document.querySelector('#create-modal-overlay #contrib-city');
+      if (cityInput) cityInput.value = selectedCity;
+      
+      // Charger les catégories pour la ville dans le select de la modale
+      try {
+        const categories = await win.supabaseService.getCategoryIconsByCity(selectedCity);
+        const categorySelect = document.querySelector('#create-modal-overlay #contrib-category');
+        const categoryHelp = document.querySelector('#create-modal-overlay #contrib-category-help');
+        
+        if (categorySelect) {
+          if (!categories || categories.length === 0) {
+            categorySelect.innerHTML = '<option value="">Aucune catégorie disponible</option>';
+            categorySelect.disabled = true;
+            if (categoryHelp) categoryHelp.style.display = 'block';
+          } else {
+            categorySelect.innerHTML = '<option value="">Sélectionnez une catégorie</option>';
+            const sortedCategories = categories.sort((a, b) => a.category.localeCompare(b.category));
+            sortedCategories.forEach(cat => {
+              const option = document.createElement('option');
+              option.value = cat.category;
+              option.textContent = cat.category.charAt(0).toUpperCase() + cat.category.slice(1);
+              categorySelect.appendChild(option);
+            });
+            categorySelect.disabled = false;
+            if (categoryHelp) categoryHelp.style.display = 'none';
+          }
+        }
+      } catch (error) {
+        console.error('[openCreateModal] Error loading categories:', error);
+      }
+      
+      // Bind le lien "Créer une catégorie"
+      const createCategoryLink = document.querySelector('#create-modal-overlay #contrib-create-category-link');
+      if (createCategoryLink) {
+        createCategoryLink.onclick = async (e) => {
+          e.preventDefault();
+          await openCategoryModal('create');
+        };
+      }
+      
+      // Fonction de fermeture
+      const closeModal = () => {
+        const modalInner = overlay.querySelector('.gp-modal');
+        if (modalInner) {
+          modalInner.classList.remove('is-open');
+        }
+        setTimeout(() => {
+          overlay.setAttribute('aria-hidden', 'true');
+          form.reset();
+        }, 220);
+      };
+      
+      // Fonction de succès
+      const onSuccess = async () => {
+        closeModal();
+        
+        // Rafraîchir la liste si on est dans contrib
+        if (ContribList && typeof ContribList.reloadList === 'function') {
+          ContribList.reloadList();
+        }
+        
+        showToast('Contribution créée avec succès', 'success');
+      };
+      
+      // Initialiser le formulaire avec ContribCreateForm
+      const ContribCreateForm = win.ContribCreateForm || {};
+      if (ContribCreateForm.initCreateForm) {
+        const formInstance = ContribCreateForm.initCreateForm({
+          form,
+          overlay,
+          onClose: closeModal,
+          onSuccess
+        });
+        
+        console.log('[openCreateModal] Form initialized', formInstance);
+      } else {
+        console.error('[openCreateModal] ContribCreateForm module not found');
+      }
+      
+      // Bind close button
+      if (closeBtn) closeBtn.onclick = closeModal;
+      
+      // Clic sur overlay
+      overlay.onclick = (e) => {
+        if (e.target === overlay) closeModal();
+      };
+      
+      // Ouvrir la modale
+      overlay.setAttribute('aria-hidden', 'false');
+      const modalInner = overlay.querySelector('.gp-modal');
+      if (modalInner) {
+        requestAnimationFrame(() => {
+          modalInner.classList.add('is-open');
+        });
+      }
+      
+      // Focus sur le premier champ
+      setTimeout(() => {
+        const firstInput = form.querySelector('input[type="text"]');
+        if (firstInput) firstInput.focus();
+      }, 250);
     }
 
     // deleteCategory moved to contrib-categories-crud.js
