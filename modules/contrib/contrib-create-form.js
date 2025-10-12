@@ -385,13 +385,27 @@
     if (mode === 'edit' && data) {
       console.log('[contrib-create-form] Prefilling form with data:', data);
       
-      // Pré-remplir les champs
-      if (projectNameEl && data.project_name) projectNameEl.value = data.project_name;
-      if (categoryEl && data.category_layer) categoryEl.value = data.category_layer;
-      if (metaEl && data.meta) metaEl.value = data.meta;
-      if (descEl && data.description) descEl.value = data.description;
-      if (mdEl && data.markdown) mdEl.value = data.markdown;
-      if (officialInput && data.official_url) officialInput.value = data.official_url;
+      // Pré-remplir les champs (setTimeout pour laisser le temps aux selects de se peupler)
+      setTimeout(() => {
+        if (projectNameEl && data.project_name) projectNameEl.value = data.project_name;
+        
+        // Catégorie avec retry si le select n'est pas encore peuplé
+        if (categoryEl && data.category_layer) {
+          categoryEl.value = data.category_layer;
+          if (categoryEl.value !== data.category_layer) {
+            console.warn('[contrib-create-form] Category not found in select, retrying...');
+            setTimeout(() => {
+              categoryEl.value = data.category_layer;
+              console.log('[contrib-create-form] Category set to:', categoryEl.value);
+            }, 200);
+          }
+        }
+        
+        if (metaEl && data.meta) metaEl.value = data.meta;
+        if (descEl && data.description) descEl.value = data.description;
+        if (mdEl && data.markdown) mdEl.value = data.markdown;
+        if (officialInput && data.official_url) officialInput.value = data.official_url;
+      }, 100);
       
       // Cover preview
       if (data.cover_url && coverPreview) {
@@ -403,7 +417,7 @@
         form.dataset.editId = data.id;
       }
       
-      // Géométrie - sera chargée à l'étape 2 via ContribGeometry
+      // Géométrie - URL stockée pour être chargée à l'étape 2
       if (data.geojson_url) {
         form.dataset.geojsonUrl = data.geojson_url;
       }
