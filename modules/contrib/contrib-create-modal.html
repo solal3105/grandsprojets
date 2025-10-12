@@ -157,7 +157,6 @@
             </div>
           </div>
           <small>Image .png, .jpg ou .webp. Elle sera stockée et son URL journalisée.</small>
-          <div id="contrib-cover-preview" style="margin-top:6px"></div>
         </div>
 
         <div class="form-row contrib-step-3">
@@ -191,8 +190,18 @@
         </div>
 
         <div class="contrib-step-4" id="contrib-docs">
-          <div class="contrib-docs-title">📄 Documents liés</div>
-          <div id="contrib-existing-docs" class="contrib-existing-docs" aria-live="polite" style="margin-bottom:8px;"></div>
+          <div class="contrib-docs-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div class="contrib-docs-title" style="font-size:1.1rem;font-weight:600;display:flex;align-items:center;gap:8px;">
+              <span>📄</span>
+              <span>Documents liés</span>
+            </div>
+            <button type="button" id="contrib-doc-add" class="gp-btn gp-btn--secondary gp-btn--sm">
+              <i class="fa-solid fa-plus"></i>
+              <span>Ajouter un document</span>
+            </button>
+          </div>
+          <div id="contrib-existing-docs" class="contrib-existing-docs" aria-live="polite"></div>
+          <fieldset id="contrib-docs-fieldset" style="border:none;padding:0;margin:0;"></fieldset>
         </div>
       </form>
     </div>

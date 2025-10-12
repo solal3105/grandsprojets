@@ -2149,10 +2149,18 @@
         }
         setTimeout(() => {
           overlay.setAttribute('aria-hidden', 'true');
-          form.reset();
-          // Nettoyer l'URL du GeoJSON d'édition
-          if (ContribGeometry && ContribGeometry.clearEditGeojsonUrl) {
-            ContribGeometry.clearEditGeojsonUrl();
+          
+          // Détruire proprement l'instance du formulaire (v2)
+          if (formInstance && typeof formInstance.destroy === 'function') {
+            console.log('[openCreateModal] Destroying form instance');
+            formInstance.destroy();
+            formInstance = null;
+          } else {
+            // Fallback pour l'ancien système
+            form.reset();
+            if (ContribGeometry && ContribGeometry.clearEditGeojsonUrl) {
+              ContribGeometry.clearEditGeojsonUrl();
+            }
           }
         }, 220);
       };
@@ -2172,8 +2180,10 @@
       
       // Initialiser le formulaire avec ContribCreateForm
       const ContribCreateForm = win.ContribCreateForm || {};
+      let formInstance = null;
+      
       if (ContribCreateForm.initCreateForm) {
-        const formInstance = ContribCreateForm.initCreateForm({
+        formInstance = ContribCreateForm.initCreateForm({
           form,
           overlay,
           mode,

@@ -22,7 +22,7 @@
   function prefillForm(row, elements) {
     const {
       nameEl, catEl, citySel, metaEl, descEl, mdEl,
-      officialInput, coverPreview
+      officialInput
     } = elements || {};
 
     if (!row) {
@@ -35,7 +35,6 @@
         if (descEl) descEl.value = '';
         if (mdEl) mdEl.value = '';
         if (officialInput) officialInput.value = '';
-        if (coverPreview) coverPreview.innerHTML = '';
       } catch(_) {}
       return;
     }
@@ -48,15 +47,6 @@
       if (metaEl && row.meta) metaEl.value = row.meta;
       if (descEl && row.description) descEl.value = row.description;
       if (officialInput && row.official_url) officialInput.value = row.official_url;
-
-      // Cover preview
-      if (coverPreview && row.cover_url) {
-        try {
-          if (win.__contribRenderCoverPreview) {
-            win.__contribRenderCoverPreview(row.cover_url, '');
-          }
-        } catch(_) {}
-      }
     } catch(_) {}
 
     // Try fetching markdown content
@@ -129,9 +119,6 @@
     
     try { form.reset(); } catch(_) {}
     
-    const { coverPreview } = elements || {};
-    if (coverPreview) coverPreview.innerHTML = '';
-    
     if (onSetEditUI) {
       onSetEditUI(false);
     }
@@ -167,6 +154,14 @@
    */
   function getCurrentEditId() {
     return currentEditId;
+  }
+
+  /**
+   * Définit l'ID de la contribution en cours d'édition
+   * @param {number|null} id - ID de la contribution
+   */
+  function setCurrentEditId(id) {
+    currentEditId = id;
   }
 
   // ============================================================================
@@ -400,7 +395,8 @@
           })); 
         } catch(_) {}
         
-        // Exit edit mode
+        // Exit edit mode - réinitialiser currentEditId
+        currentEditId = null;
         if (onExitEditMode) onExitEditMode();
         
         // Refresh list
@@ -457,6 +453,7 @@
     enterEditMode,
     exitEditMode,
     getCurrentEditId,
+    setCurrentEditId,
     
     // Submission
     handleSubmit

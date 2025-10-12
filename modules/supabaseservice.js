@@ -303,15 +303,6 @@
           throw upErr;
         }
         const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
-        // Optionally patch row
-        if (rowId && data && data.publicUrl) {
-          try {
-            await supabaseClient
-              .from('contribution_uploads')
-              .update({ updated_at: new Date().toISOString() })
-              .eq('id', rowId);
-          } catch(_) {}
-        }
         return data.publicUrl;
       } catch (e) {
         throw e;
@@ -1187,7 +1178,38 @@
      */
 
     /**
-     * Insère des dossiers de concertation liés à un projet (facultatif).
+     * Récupère les documents de consultation pour un projet.
+     * @param {string} projectName
+     * @param {string|null} category - optionnel, pour filtrer par catégorie
+     * @returns {Promise<Array>}
+     */
+    fetchConsultationDossiers: async function(projectName, category = null) {
+      try {
+        if (!projectName) return [];
+        let query = supabaseClient
+          .from('consultation_dossiers')
+          .select('id, project_name, category, title, pdf_url')
+          .eq('project_name', projectName)
+          .order('id', { ascending: true });
+        
+        if (category) {
+          query = query.eq('category', category);
+        }
+        
+        const { data, error } = await query;
+        if (error) {
+          console.warn('[supabaseService] fetchConsultationDossiers error:', error);
+          return [];
+        }
+        return data || [];
+      } catch (e) {
+        console.warn('[supabaseService] fetchConsultationDossiers exception:', e);
+        return [];
+      }
+    },
+
+    /**
+     * Insère plusieurs lignes de consultation_dossiers (dossiers de concertation).
      * @param {string} projectName
      * @param {string} category
      * @param {Array<{title:string,pdf_url:string}>} docs
@@ -1311,12 +1333,16 @@
               : null;
         if (!patch) return { error: null };
 
-        const { error } = await supabaseClient
+        const { data, error } = await supabaseClient
           .from('contribution_uploads')
           .update(patch)
-          .eq('id', rowId);
-        if (error) console.warn('[supabaseService] logContributionUpload update error:', error);
-        return { error: null };
+          .eq('id', rowId)
+          .select('id');
+        if (error) {
+          console.warn('[supabaseService] logContributionUpload update error:', error);
+          return { error };
+        }
+        return { data, error: null };
       } catch (e) {
         console.warn('[supabaseService] logContributionUpload exception:', e);
         return { error: e };
