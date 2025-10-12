@@ -794,6 +794,12 @@ body.modal-open {
     0 2px 8px var(--black-alpha-08);
 }
 
+.gp-form-input::placeholder,
+.gp-form-textarea::placeholder {
+  color: var(--text-tertiary);
+  opacity: 1;
+}
+
 .gp-form-textarea {
   resize: vertical;
   min-height: 100px;

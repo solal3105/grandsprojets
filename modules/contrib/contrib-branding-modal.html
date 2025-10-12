@@ -1,0 +1,112 @@
+<!-- Branding Modal -->
+<div id="branding-modal-overlay" class="gp-modal-overlay gp-modal--glass" role="dialog" aria-modal="true" aria-labelledby="branding-modal-title" aria-hidden="true">
+  <div class="gp-modal gp-modal--medium" role="document">
+    <header class="gp-modal-header">
+      <h1 class="gp-modal-title" id="branding-modal-title">
+        <i class="fa-solid fa-palette"></i>
+        <span id="branding-modal-city-name">Branding</span>
+      </h1>
+      <button class="gp-modal-close" id="branding-modal-close" aria-label="Fermer">&times;</button>
+    </header>
+    
+    <div class="gp-modal-body">
+      <!-- Section 1: Couleur primaire -->
+      <section class="gp-modal-section gp-modal-section--info">
+        <div class="gp-modal-section-header">
+          <div class="section-icon">
+            <i class="fa-solid fa-palette"></i>
+          </div>
+          <div class="section-head">
+            <h2 class="gp-modal-section-title">Couleur primaire</h2>
+            <p class="gp-modal-section-subtitle">
+              Cette couleur sera appliquée à toute l'interface pour cette ville
+            </p>
+          </div>
+        </div>
+        
+        <div class="gp-modal-section-content">
+          <!-- Logo de la ville -->
+          <div class="branding-logo-container">
+            <img id="branding-city-logo" class="branding-city-logo" src="" alt="" style="display:none;" />
+          </div>
+          
+          <div class="branding-color-picker">
+            <input 
+              type="color" 
+              id="branding-color-input" 
+              class="branding-color-native"
+              value="#21b929"
+            />
+            <input 
+              type="text" 
+              id="branding-color-text" 
+              class="gp-form-input branding-color-hex"
+              placeholder="#21b929" 
+              pattern="^#[0-9A-Fa-f]{6}$"
+              maxlength="7"
+            />
+          </div>
+          
+          <!-- Preview des composants -->
+          <div class="branding-preview">
+            <div class="branding-preview-label">Aperçu en direct</div>
+            <div class="branding-preview-components">
+              <button class="branding-preview-btn" id="branding-preview-btn">
+                <i class="fa-solid fa-check"></i>
+                Bouton primaire
+              </button>
+              <span class="branding-preview-badge" id="branding-preview-badge">
+                <i class="fa-solid fa-tag"></i>
+                Badge
+              </span>
+              <div class="branding-preview-icon" id="branding-preview-icon">
+                <i class="fa-solid fa-map-marked-alt"></i>
+              </div>
+              <div class="branding-preview-link" id="branding-preview-link">
+                <i class="fa-solid fa-arrow-right"></i>
+                Lien accentué
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Section 2: Contrôles actifs -->
+      <section class="gp-modal-section gp-modal-section--info">
+        <div class="gp-modal-section-header">
+          <div class="section-icon">
+            <i class="fa-solid fa-toggle-on"></i>
+          </div>
+          <div class="section-head">
+            <h2 class="gp-modal-section-title">Contrôles d'interface</h2>
+            <p class="gp-modal-section-subtitle">
+              Sélectionnez les contrôles visibles par les utilisateurs
+            </p>
+          </div>
+        </div>
+        
+        <div class="gp-modal-section-content">
+          <div class="branding-toggles-grid" id="branding-toggles-grid">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </section>
+    </div>
+    
+    <footer class="gp-modal-footer">
+      <div class="gp-modal-footer-left">
+        <span class="footer-status footer-status--success" id="branding-status">
+          <i class="fa-solid fa-circle-check"></i>
+          Modifications enregistrées automatiquement
+        </span>
+      </div>
+      <div class="gp-modal-footer-right">
+        <button type="button" class="gp-btn gp-btn--secondary" id="branding-modal-cancel">
+          Fermer
+        </button>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<!-- Styles moved to styles/06-modals.css -->

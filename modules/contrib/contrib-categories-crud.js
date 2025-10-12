@@ -21,8 +21,11 @@
       if (!categoriesList || !win.supabaseService) return;
       
       // Utiliser selectedCity en priorité, sinon fallback sur le sélecteur (legacy)
-      const ville = selectedCity || categoryVilleSelector?.value || '';
-      if (!ville) {
+      let ville = selectedCity || categoryVilleSelector?.value || '';
+      
+      // Vérifier si une ville est sélectionnée (accepter "default" comme valide)
+      const hasValidCity = ville && (ville.toLowerCase() === 'default' || ville.trim() !== '');
+      if (!hasValidCity) {
         if (categoriesContent) categoriesContent.style.display = 'none';
         console.warn('[contrib-categories-crud] No city selected for categories');
         return;
@@ -549,7 +552,8 @@
         // Refresh list and ensure ville selector + list are visible
         if (categoryVilleSelectorContainer) categoryVilleSelectorContainer.style.display = '';
         await refreshCallback();
-        if (categoriesContent && ville) {
+        // Toujours afficher le contenu des catégories après le refresh
+        if (categoriesContent) {
           categoriesContent.style.display = '';
         }
         

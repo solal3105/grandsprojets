@@ -366,12 +366,7 @@
           // Appliquer les contraintes de rôle après l'ouverture (pour garantir que les éléments existent)
           setTimeout(async () => {
             try { 
-              applyRoleConstraints(); 
-              
-              // Initialize branding module after modal is open
-              if (ContribBranding && typeof ContribBranding.init === 'function') {
-                await ContribBranding.init();
-              }
+              applyRoleConstraints();
             } catch(e) { 
               console.error('[DEBUG] Erreur applyRoleConstraints ou branding:', e);
             }
@@ -513,6 +508,13 @@
           const landingUsersBtn = document.getElementById('landing-users');
           if (landingUsersBtn) {
             landingUsersBtn.style.display = isAdmin ? '' : 'none';
+          }
+        } catch(_) {}
+        
+        try {
+          const landingBrandingBtn = document.getElementById('landing-branding');
+          if (landingBrandingBtn) {
+            landingBrandingBtn.style.display = isAdmin ? '' : 'none';
           }
         } catch(_) {}
         
@@ -814,7 +816,7 @@
     const ContribCategoriesCrud = win.ContribCategoriesCrud || {};
     const ContribUsers = win.ContribUsers || {};
     const ContribCitiesManagement = win.ContribCitiesManagement || {};
-    const ContribBranding = win.ContribBranding || {};
+    const ContribBrandingSimple = win.ContribBrandingSimple || {};
     // listState moved to contrib-list.js
 
     // —— Official project link (single field, all categories) ——
@@ -954,6 +956,29 @@
     if (landingEditBtn) landingEditBtn.addEventListener('click', () => chooseLanding('list'));
     if (landingCategoriesBtn) landingCategoriesBtn.addEventListener('click', () => chooseLanding('categories'));
     if (landingUsersBtn) landingUsersBtn.addEventListener('click', () => chooseLanding('users'));
+    
+    // Bouton "Gérer le branding" : ouvre la modale de branding pour la ville sélectionnée
+    const landingBrandingBtn = document.getElementById('landing-branding');
+    if (landingBrandingBtn) {
+      landingBrandingBtn.addEventListener('click', async () => {
+        const landingCitySelect = document.getElementById('landing-city-select');
+        const selectedCity = landingCitySelect?.value?.trim();
+        
+        if (!selectedCity) {
+          showToast('Veuillez d\'abord sélectionner une structure', 'error');
+          landingCitySelect?.focus();
+          return;
+        }
+        
+        // Ouvrir la modale de branding
+        if (ContribBrandingSimple?.openBrandingModal) {
+          await ContribBrandingSimple.openBrandingModal(selectedCity);
+        } else {
+          console.error('[contrib] ContribBrandingSimple.openBrandingModal not available');
+          showToast('Module de branding non disponible', 'error');
+        }
+      });
+    }
     
     // Bouton "Gérer ma collectivité" : ouvre directement la modale d'édition de la ville sélectionnée
     if (landingEditCityBtn) {
