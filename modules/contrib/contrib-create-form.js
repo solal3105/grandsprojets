@@ -8,6 +8,8 @@
    * @param {Object} options - Configuration
    * @param {HTMLFormElement} options.form - Le formulaire
    * @param {HTMLElement} options.overlay - L'overlay de la modale
+   * @param {String} options.mode - 'create' ou 'edit'
+   * @param {Object} options.data - Données à pré-remplir (en mode édition)
    * @param {Function} options.onClose - Callback de fermeture
    * @param {Function} options.onSuccess - Callback après succès
    */
@@ -15,6 +17,8 @@
     const {
       form,
       overlay,
+      mode = 'create',
+      data = {},
       onClose,
       onSuccess
     } = options;
@@ -77,7 +81,13 @@
     const ContribDrawControls = win.ContribDrawControls || {};
     const ContribForm = win.ContribForm || {};
     const ContribUtils = win.ContribUtils || {};
-    const { showToast } = ContribUtils || {};
+    const { showToast: utilsShowToast } = ContribUtils || {};
+    
+    // Fallback si showToast n'est pas disponible
+    const showToast = utilsShowToast || ((msg, kind) => {
+      console.warn('[contrib-create-form] showToast not available from ContribUtils');
+      console.log('[Toast]', kind, ':', msg);
+    });
 
     // ============================================================================
     // STEPPER LOGIC
@@ -369,12 +379,43 @@
     }
 
     // ============================================================================
+    // PRÉ-REMPLISSAGE EN MODE ÉDITION
+    // ============================================================================
+
+    if (mode === 'edit' && data) {
+      console.log('[contrib-create-form] Prefilling form with data:', data);
+      
+      // Pré-remplir les champs
+      if (projectNameEl && data.project_name) projectNameEl.value = data.project_name;
+      if (categoryEl && data.category_layer) categoryEl.value = data.category_layer;
+      if (metaEl && data.meta) metaEl.value = data.meta;
+      if (descEl && data.description) descEl.value = data.description;
+      if (mdEl && data.markdown) mdEl.value = data.markdown;
+      if (officialInput && data.official_url) officialInput.value = data.official_url;
+      
+      // Cover preview
+      if (data.cover_url && coverPreview) {
+        coverPreview.innerHTML = `<img src="${data.cover_url}" alt="Cover" style="max-width:200px;border-radius:8px;">`;
+      }
+      
+      // Stocker l'ID pour la soumission
+      if (data.id) {
+        form.dataset.editId = data.id;
+      }
+      
+      // Géométrie - sera chargée à l'étape 2 via ContribGeometry
+      if (data.geojson_url) {
+        form.dataset.geojsonUrl = data.geojson_url;
+      }
+    }
+
+    // ============================================================================
     // INITIALISATION FINALE
     // ============================================================================
 
     // Initialiser à l'étape 1 (force pour éviter les validations)
     setStep(1, { force: true });
-    console.log('[contrib-create-form] Initialized at step 1');
+    console.log('[contrib-create-form] Initialized at step 1, mode:', mode);
 
     // ============================================================================
     // RETOURNER LES MÉTHODES PUBLIQUES

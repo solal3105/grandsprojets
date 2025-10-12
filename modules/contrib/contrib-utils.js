@@ -84,15 +84,22 @@
   // TOAST NOTIFICATIONS
   // ============================================================================
 
-  const toastContainer = document.getElementById('toast-container');
-
   /**
    * Affiche une notification toast accessible
    * @param {string} message - Message à afficher
    * @param {string} kind - Type de toast ('info', 'success', 'error')
    */
   function showToast(message, kind = 'info') {
-    if (!toastContainer || !message) return;
+    // Récupérer le container à chaque appel (lazy)
+    const toastContainer = document.getElementById('toast-container');
+    
+    if (!toastContainer) {
+      console.warn('[showToast] Toast container not found in DOM');
+      console.log('[showToast]', kind, ':', message);
+      return;
+    }
+    
+    if (!message) return;
     
     const toast = document.createElement('div');
     const isError = kind === 'error';

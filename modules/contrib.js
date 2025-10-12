@@ -838,7 +838,13 @@
     const officialInput = document.getElementById('contrib-official-url');
 
     // Utilities moved to contrib-utils.js
-    const { slugify, setStatus, showToast } = window.ContribUtils || {};
+    const { slugify, setStatus, showToast: utilsShowToast } = window.ContribUtils || {};
+    
+    // Fallback si showToast n'est pas disponible
+    const showToast = utilsShowToast || ((msg, kind) => {
+      console.warn('[contrib] showToast not available from ContribUtils');
+      console.log('[Toast]', kind, ':', msg);
+    });
 
     // initDrawMap moved to contrib-map.js
     async function initDrawMap() {
@@ -1097,10 +1103,7 @@
       try {
         const row = await (win.supabaseService && win.supabaseService.getContributionById(item.id));
         if (row) {
-          // TODO: Implémenter l'édition dans la modale indépendante
-          showToast('Édition à implémenter', 'info');
-          // enterEditMode(row);
-          // await openCreateModal('edit', row);
+          await openCreateModal('edit', row);
         }
       } catch (e) {
         showToast('Erreur lors du chargement de la contribution.', 'error');
@@ -2070,6 +2073,7 @@
       // Récupérer les éléments
       const overlay = document.getElementById('create-modal-overlay');
       const closeBtn = document.getElementById('create-modal-close');
+      const modalTitle = document.getElementById('create-modal-title');
       const form = document.getElementById('contrib-form');
       const prevBtn = document.getElementById('contrib-prev');
       const nextBtn = document.getElementById('contrib-next');
@@ -2080,8 +2084,17 @@
         return;
       }
       
-      // Récupérer la ville depuis CityContext
-      const selectedCity = CityContext.getSelectedCity?.();
+      // Adapter le titre selon le mode
+      if (modalTitle) {
+        if (mode === 'edit') {
+          modalTitle.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Modifier la contribution';
+        } else {
+          modalTitle.innerHTML = '<i class="fa-solid fa-plus-circle"></i> Créer une contribution';
+        }
+      }
+      
+      // Récupérer la ville (depuis les données en mode édition, sinon depuis CityContext)
+      const selectedCity = mode === 'edit' && data.ville ? data.ville : CityContext.getSelectedCity?.();
       if (!selectedCity) {
         showToast('Aucune ville sélectionnée', 'error');
         return;
@@ -2149,7 +2162,8 @@
           ContribList.reloadList();
         }
         
-        showToast('Contribution créée avec succès', 'success');
+        const successMsg = mode === 'edit' ? 'Contribution modifiée avec succès' : 'Contribution créée avec succès';
+        showToast(successMsg, 'success');
       };
       
       // Initialiser le formulaire avec ContribCreateForm
@@ -2158,6 +2172,8 @@
         const formInstance = ContribCreateForm.initCreateForm({
           form,
           overlay,
+          mode,
+          data,
           onClose: closeModal,
           onSuccess
         });
