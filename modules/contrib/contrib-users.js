@@ -232,161 +232,111 @@
    */
   async function showInviteModal(elements) {
     try {
-      // Récupérer les villes disponibles
-      const cities = await win.supabaseService.getAvailableCities();
+      // Charger la modale si nécessaire
+      if (typeof win.loadInviteModalTemplate === 'function') {
+        const loaded = await win.loadInviteModalTemplate();
+        if (!loaded) {
+          win.ContribUtils?.showToast('Erreur lors du chargement du formulaire', 'error');
+          return;
+        }
+      }
       
-      if (!cities || cities.length === 0) {
-        win.ContribUtils?.showToast('Aucune ville disponible pour l\'invitation.', 'error');
+      // Récupérer la ville sélectionnée depuis le contexte
+      const CityContext = win.ContribCityContext || {};
+      const selectedCity = CityContext.getSelectedCity?.();
+      
+      if (!selectedCity) {
+        win.ContribUtils?.showToast('Aucune ville sélectionnée.', 'error');
         return;
       }
 
-      // Créer l'overlay
-      const overlay = document.createElement('div');
-      overlay.className = 'invite-modal-overlay';
-      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--black-alpha-50);display:flex;align-items:center;justify-content:center;z-index:10001;animation:fadeIn 0.2s;';
+      // Récupérer les villes disponibles pour obtenir le label
+      const cities = await win.supabaseService.getAvailableCities();
+      const selectedCityData = cities?.find(c => c.value === selectedCity);
+      const cityLabel = selectedCityData?.label || selectedCity;
 
-      // Créer la modale
-      const modal = document.createElement('div');
-      modal.className = 'invite-modal';
-      modal.style.cssText = 'background:var(--surface);border-radius:16px;padding:32px;max-width:520px;width:90%;box-shadow:0 8px 32px var(--black-alpha-20);animation:slideUp 0.3s;';
+      // Récupérer les éléments de la modale
+      const overlay = document.getElementById('invite-modal-overlay');
+      const closeBtn = document.getElementById('invite-modal-close');
+      const cancelBtn = document.getElementById('invite-cancel');
+      const inviteForm = document.getElementById('invite-form');
+      const citiesListEl = document.getElementById('invite-cities-list');
+      
+      if (!overlay || !inviteForm || !citiesListEl) {
+        console.error('[contrib-users] Invite modal elements not found');
+        return;
+      }
 
-      // Générer les checkboxes pour les villes
-      const citiesHTML = cities.map(city => `
-        <label style="display:flex;align-items:center;gap:8px;padding:8px;cursor:pointer;border-radius:6px;transition:background 0.2s;" class="city-checkbox-label">
-          <input type="checkbox" name="ville" value="${escapeHtml(city.value)}" style="width:18px;height:18px;cursor:pointer;">
-          <span style="font-size:14px;">${escapeHtml(city.label)}</span>
-        </label>
-      `).join('');
-
-      modal.innerHTML = `
-        <h3 style="margin:0 0 8px 0;display:flex;align-items:center;gap:10px;font-size:22px;">
-          <i class="fa-solid fa-envelope" style="color:var(--info);"></i>
-          Inviter un nouvel utilisateur
-        </h3>
-        <p style="margin:0 0 24px 0;color:var(--gray-500);font-size:14px;">L'utilisateur recevra un email pour se connecter.</p>
-        
-        <form id="invite-form" style="display:flex;flex-direction:column;gap:20px;">
-          <div>
-            <label style="display:block;margin-bottom:6px;font-weight:600;font-size:14px;">
-              Email de l'utilisateur <span style="color:var(--danger);">*</span>
-            </label>
-            <input 
-              type="email" 
-              id="invite-email" 
-              required 
-              placeholder="user@example.com"
-              style="width:100%;padding:12px;border:1px solid var(--gray-300);border-radius:8px;font-size:14px;box-sizing:border-box;"
-            />
-          </div>
-          
-          <div>
-            <label style="display:block;margin-bottom:8px;font-weight:600;font-size:14px;">
-              Rôle <span style="color:var(--danger);">*</span>
-            </label>
-            <div style="display:flex;gap:12px;">
-              <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:1px solid var(--gray-300);border-radius:8px;cursor:pointer;transition:all 0.2s;" class="role-option">
-                <input type="radio" name="role" value="invited" checked style="width:18px;height:18px;cursor:pointer;">
-                <div>
-                  <div style="font-weight:600;font-size:14px;">Invited</div>
-                  <div style="font-size:12px;color:var(--gray-500);">Accès limité à ses contributions</div>
-                </div>
-              </label>
-              <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:1px solid var(--gray-300);border-radius:8px;cursor:pointer;transition:all 0.2s;" class="role-option">
-                <input type="radio" name="role" value="admin" style="width:18px;height:18px;cursor:pointer;">
-                <div>
-                  <div style="font-weight:600;font-size:14px;">Admin</div>
-                  <div style="font-size:12px;color:var(--gray-500);">Accès complet et gestion</div>
-                </div>
-              </label>
-            </div>
-          </div>
-          
-          <div>
-            <label style="display:block;margin-bottom:8px;font-weight:600;font-size:14px;">
-              Villes autorisées <span style="color:var(--danger);">*</span>
-            </label>
-            <div id="cities-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--gray-300);border-radius:8px;padding:8px;">
-              ${citiesHTML}
-            </div>
-            <p id="cities-error" style="margin:6px 0 0 0;color:var(--danger);font-size:13px;display:none;">
-              <i class="fa-solid fa-triangle-exclamation"></i> Sélectionnez au moins une ville
-            </p>
-          </div>
-          
-          <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:8px;">
-            <button type="button" class="gp-btn gp-btn--secondary cancel-btn" style="padding:12px 24px;">
-              Annuler
-            </button>
-            <button type="submit" class="gp-btn gp-btn--primary submit-btn" style="padding:12px 24px;display:flex;align-items:center;gap:8px;">
-              <i class="fa-solid fa-envelope"></i>
-              Envoyer l'invitation
-            </button>
-          </div>
-        </form>
+      // Afficher uniquement la ville sélectionnée (pré-cochée et disabled)
+      const citiesHTML = `
+        <div style="padding:12px; background:var(--gray-50); border-radius:8px; border:1px solid var(--gray-200);">
+          <label style="display:flex;align-items:center;gap:8px;">
+            <input type="checkbox" name="ville" value="${escapeHtml(selectedCity)}" checked disabled style="width:18px;height:18px;">
+            <span style="font-size:14px; font-weight:500;">${escapeHtml(cityLabel)}</span>
+          </label>
+        </div>
       `;
+      
+      citiesListEl.innerHTML = citiesHTML;
 
-      overlay.appendChild(modal);
-      document.body.appendChild(overlay);
-
-      // Ajouter les animations CSS
-      const style = document.createElement('style');
-      style.textContent = `
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .city-checkbox-label:hover { background: var(--gray-100); }
-        .role-option:hover { background: var(--gray-50); border-color: var(--info); }
-        .role-option:has(input:checked) { background: var(--info-lighter); border-color: var(--info); }
-      `;
-      document.head.appendChild(style);
-
-      const close = () => {
-        overlay.remove();
-        style.remove();
+      // Ouvrir la modale
+      overlay.setAttribute('aria-hidden', 'false');
+      const inviteModalInner = overlay.querySelector('.gp-modal');
+      if (inviteModalInner) {
+        requestAnimationFrame(() => {
+          inviteModalInner.classList.add('is-open');
+        });
+      }
+      
+      // Fonction de fermeture
+      const closeModal = () => {
+        const inviteModalInner = overlay.querySelector('.gp-modal');
+        if (inviteModalInner) {
+          inviteModalInner.classList.remove('is-open');
+        }
+        setTimeout(() => {
+          overlay.setAttribute('aria-hidden', 'true');
+          inviteForm.reset();
+        }, 220);
+      };
+      
+      // Boutons de fermeture
+      if (closeBtn) closeBtn.onclick = closeModal;
+      if (cancelBtn) cancelBtn.onclick = closeModal;
+      
+      // Clic sur overlay
+      overlay.onclick = (e) => {
+        if (e.target === overlay) closeModal();
       };
 
-      // Bind cancel button
-      modal.querySelector('.cancel-btn').addEventListener('click', close);
-
-      // Bind overlay click
-      overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) close();
-      });
-
       // Bind form submit
-      const form = modal.querySelector('#invite-form');
-      const emailInput = modal.querySelector('#invite-email');
-      const citiesError = modal.querySelector('#cities-error');
-      const submitBtn = modal.querySelector('.submit-btn');
+      const emailInput = document.getElementById('invite-email');
+      const submitBtn = overlay.querySelector('button[type="submit"]');
 
-      form.addEventListener('submit', async (e) => {
+      inviteForm.onsubmit = async (e) => {
         e.preventDefault();
 
-        const email = emailInput.value.trim();
-        const selectedRole = modal.querySelector('input[name="role"]:checked')?.value || 'invited';
-        const selectedCities = Array.from(modal.querySelectorAll('input[name="ville"]:checked'))
-          .map(cb => cb.value);
+        const email = emailInput?.value.trim();
+        const selectedRole = inviteForm.querySelector('input[name="role"]:checked')?.value || 'invited';
+        // La ville est toujours celle sélectionnée au landing
+        const selectedCities = [selectedCity];
 
         // Validation
         if (!email) {
-          emailInput.focus();
+          emailInput?.focus();
           return;
         }
-
-        if (selectedCities.length === 0) {
-          citiesError.style.display = 'block';
-          return;
-        }
-
-        citiesError.style.display = 'none';
 
         // Désactiver le bouton
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Envoi en cours...';
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Envoi en cours...</span>';
+        }
 
         try {
           await win.supabaseService.inviteUser(email, selectedCities, selectedRole);
 
-          close();
+          closeModal();
           const roleLabel = selectedRole === 'admin' ? 'Admin' : 'Invited';
           win.ContribUtils?.showToast(`Invitation envoyée à ${email} avec le rôle ${roleLabel} !`, 'success');
 
@@ -400,10 +350,12 @@
           win.ContribUtils?.showToast(error.message || 'Erreur lors de l\'invitation.', 'error');
           
           // Réactiver le bouton
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = '<i class="fa-solid fa-envelope"></i> Envoyer l\'invitation';
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-envelope"></i> <span>Envoyer l\'invitation</span>';
+          }
         }
-      });
+      };
 
     } catch (error) {
       console.error('[contrib-users] showInviteModal error:', error);

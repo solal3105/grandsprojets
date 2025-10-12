@@ -1,6 +1,7 @@
 // modules/contrib.js
 ;(function (win) {
   let modalLoaded = false;
+  let categoryModalLoaded = false;
   
   // Lazy load modal template
   async function loadModalTemplate() {
@@ -43,6 +44,69 @@
           </div>
         `;
       }
+      return false;
+    }
+  }
+  
+  // Lazy load category modal template
+  async function loadCategoryModalTemplate() {
+    if (categoryModalLoaded) return true;
+    
+    try {
+      const response = await fetch('modules/contrib/contrib-category-modal.html');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const html = await response.text();
+      const container = document.getElementById('contrib-modal-container');
+      
+      if (!container) {
+        console.error('[contrib] Modal container not found in DOM');
+        return false;
+      }
+      
+      // Ajouter la modale catégorie après la modale contrib
+      container.insertAdjacentHTML('beforeend', html);
+      categoryModalLoaded = true;
+      console.log('[contrib] Category modal template loaded successfully');
+      
+      return true;
+      
+    } catch (error) {
+      console.error('[contrib] Error loading category modal template:', error);
+      return false;
+    }
+  }
+  
+  let inviteModalLoaded = false;
+  
+  // Lazy load invite modal template
+  async function loadInviteModalTemplate() {
+    if (inviteModalLoaded) return true;
+    
+    try {
+      const response = await fetch('modules/contrib/contrib-invite-modal.html');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const html = await response.text();
+      const container = document.getElementById('contrib-modal-container');
+      
+      if (!container) {
+        console.error('[contrib] Modal container not found in DOM');
+        return false;
+      }
+      
+      // Ajouter la modale invitation après les autres modales
+      container.insertAdjacentHTML('beforeend', html);
+      inviteModalLoaded = true;
+      console.log('[contrib] Invite modal template loaded successfully');
+      return true;
+      
+    } catch (error) {
+      console.error('[contrib] Error loading invite modal template:', error);
       return false;
     }
   }
@@ -204,9 +268,6 @@
         __userRole = profile.role;
         __userVilles = profile.ville;
         __isAdmin = (__userRole === 'admin');
-        console.log('[DEBUG updateRoleState] Profile récupéré:', profile);
-        console.log('[DEBUG updateRoleState] __userRole:', __userRole);
-        console.log('[DEBUG updateRoleState] __userVilles:', __userVilles);
         try { win.__CONTRIB_IS_ADMIN = __isAdmin; } catch(_) {}
         try { win.__CONTRIB_ROLE = __userRole; } catch(_) {}
         try { win.__CONTRIB_VILLES = __userVilles; } catch(_) {}
@@ -259,6 +320,9 @@
           // Bind modal events (only once)
           bindModalEvents();
           
+          // Initialize Modal Navigation System
+          initializeModalNavigation();
+          
           // Initialize form elements and bindings
           initializeContribForm();
           
@@ -269,10 +333,8 @@
           openContrib();
           
           // Appliquer les contraintes de rôle après l'ouverture (pour garantir que les éléments existent)
-          console.log('[DEBUG] Ouverture modale, rôle actuel:', win.__CONTRIB_ROLE, __userRole);
           setTimeout(async () => {
             try { 
-              console.log('[DEBUG] Appel applyRoleConstraints après timeout');
               applyRoleConstraints(); 
               
               // Initialize branding module after modal is open
@@ -317,59 +379,102 @@
 
     // Close button and overlay bindings are now done dynamically after template load
 
+    // —— Modal Navigation System ——
+    function initializeModalNavigation() {
+      if (!window.ModalNavigation) {
+        console.warn('[contrib] ModalNavigation.js not loaded');
+        return;
+      }
+      
+      try {
+        window.ModalNavigation.init('contrib-overlay', {
+          panels: {
+            landing: {
+              label: '<i class="fa fa-home"></i> Accueil',
+              title: 'Proposer une contribution',
+              hasFooter: false,
+              headerActions: []
+            },
+            create: {
+              label: 'Créer',
+              title: 'Créer une contribution',
+              hasFooter: true,
+              headerActions: []
+            },
+            list: {
+              label: 'Mes contributions',
+              title: 'Modifier mes contributions',
+              hasFooter: false,
+              headerActions: [
+                {
+                  id: 'contrib-list-create-btn',
+                  icon: 'fa-solid fa-plus',
+                  label: 'Créer',
+                  variant: 'primary'
+                }
+              ]
+            },
+            categories: {
+              label: 'Catégories',
+              title: 'Gérer les catégories',
+              hasFooter: false,
+              headerActions: [
+                {
+                  id: 'category-add-btn',
+                  icon: 'fa-solid fa-plus',
+                  label: 'Nouvelle catégorie',
+                  variant: 'primary'
+                }
+              ]
+            },
+            users: {
+              label: 'Utilisateurs',
+              title: 'Gérer les utilisateurs',
+              hasFooter: false,
+              headerActions: [
+                {
+                  id: 'invite-user-btn',
+                  icon: 'fa-solid fa-user-plus',
+                  label: 'Inviter un utilisateur',
+                  variant: 'primary'
+                }
+              ]
+            },
+            cities: {
+              label: 'Villes',
+              title: 'Gérer les villes',
+              hasFooter: false,
+              headerActions: [
+                {
+                  id: 'add-city-btn',
+                  icon: 'fa-solid fa-plus',
+                  label: 'Ajouter une ville',
+                  variant: 'primary'
+                }
+              ]
+            }
+          }
+        });
+        
+        console.log('[contrib] ModalNavigation initialized');
+      } catch (error) {
+        console.error('[contrib] Error initializing ModalNavigation:', error);
+      }
+    }
+
     // —— Helper functions (defined early for use in initializeContribForm) ——
 
-    // Helper function to update modal title
-    function updateModalTitle(context) {
-      const titleEl = document.getElementById('contrib-title');
-      if (!titleEl) return;
-      
-      const titles = {
-        'create': 'Créer une contribution',
-        'list': 'Modifier mes contributions',
-        'categories': 'Gérer les catégories',
-        'users': 'Gérer les utilisateurs',
-        'cities': 'Gérer les villes',
-        'landing': 'Proposer une contribution'
-      };
-      
-      const newTitle = titles[context] || 'Proposer une contribution';
-      titleEl.textContent = newTitle;
-      console.log('[contrib] Modal title updated:', newTitle);
-    }
 
     // Helper function to show landing page
     function showLanding() {
+      window.ModalNavigation?.navigateTo('landing');
+      
+      // Initialiser le sélecteur de ville
+      CityContext.initLandingCitySelector?.();
+      
+      // Réappliquer les contraintes de rôle
       try {
-        const landingEl = document.getElementById('contrib-landing');
-        const tabsContainer = document.querySelector('#contrib-overlay .contrib-tabs');
-        const panelCreate = document.getElementById('contrib-panel-create');
-        const panelList = document.getElementById('contrib-panel-list');
-        const panelCategories = document.getElementById('contrib-panel-categories');
-        const panelUsers = document.getElementById('contrib-panel-users');
-        const panelCities = document.getElementById('contrib-panel-cities');
-        const panelBranding = document.getElementById('contrib-panel-branding');
-        const backBtn = document.getElementById('contrib-back');
-        
-        if (landingEl) landingEl.hidden = false;
-        if (tabsContainer) tabsContainer.style.display = 'none';
-        if (panelCreate) panelCreate.hidden = true;
-        if (panelList) panelList.hidden = true;
-        if (panelCategories) panelCategories.hidden = true;
-        if (panelUsers) panelUsers.hidden = true;
-        if (panelCities) panelCities.hidden = true;
-        if (panelBranding) { panelBranding.hidden = true; panelBranding.style.display = 'none'; }
-        if (backBtn) backBtn.style.display = 'none';
-        
-        // Mettre à jour le titre de la modale
-        updateModalTitle('landing');
-        
-        // Réappliquer les contraintes de rôle pour masquer/afficher les bons boutons
-        try {
-          if (typeof applyRoleConstraints === 'function') {
-            applyRoleConstraints();
-          }
-        } catch(_) {}
+        applyRoleConstraints?.();
       } catch(e) {
         console.warn('[contrib] showLanding error:', e);
       }
@@ -381,29 +486,12 @@
         const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : __userRole;
         const isInvited = role === 'invited';
         const isAdmin = role === 'admin';
-        
-        console.log('[DEBUG applyRoleConstraints] role:', role, 'isAdmin:', isAdmin, 'isInvited:', isInvited);
 
-        // City field visibility: visible uniquement à l'étape 1 pour admin et invited
-        try {
-          const cityInput = document.getElementById('contrib-city');
-          const cityRow = cityInput ? cityInput.closest('.form-row') : null;
-          const cityLabel = cityRow ? cityRow.querySelector('label[for="contrib-city"]') : null;
-          if (cityRow && cityInput) {
-            if (isAdmin || isInvited) {
-              try { cityInput.required = false; } catch(_) {}
-              if (cityLabel) cityLabel.textContent = 'Code collectivité';
-            } else {
-              cityRow.style.display = 'none';
-              try { cityInput.required = false; } catch(_) {}
-            }
-          }
-        } catch(_) {}
+        // La ville est maintenant sélectionnée sur le landing - pas de gestion ici
 
         // Afficher/masquer les boutons de gestion selon le rôle (admin uniquement)
         try {
           const landingCategoriesBtn = document.getElementById('landing-categories');
-          console.log('[DEBUG] landingCategoriesBtn:', landingCategoriesBtn, 'isAdmin:', isAdmin);
           if (landingCategoriesBtn) {
             landingCategoriesBtn.style.display = isAdmin ? '' : 'none';
           }
@@ -428,13 +516,10 @@
         const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
         const isGlobalAdmin = isAdmin && hasGlobalAccess;
         
-        console.log('[DEBUG] Gérer les villes - isAdmin:', isAdmin, 'userVilles:', userVilles, 'hasGlobalAccess:', hasGlobalAccess, 'isGlobalAdmin:', isGlobalAdmin);
-        
         try {
           const landingCitiesBtn = document.getElementById('landing-cities');
           if (landingCitiesBtn) {
             landingCitiesBtn.style.display = isGlobalAdmin ? '' : 'none';
-            console.log('[DEBUG] landingCitiesBtn.style.display =', landingCitiesBtn.style.display);
           }
         } catch(_) {}
         
@@ -465,6 +550,9 @@
       } catch(_) {}
     }
 
+    // Gestion du contexte de ville via module dédié
+    const CityContext = win.ContribCityContext || {};
+
     // Function to initialize all form elements and bindings after template load
     function initializeContribForm() {
       // Re-query all DOM elements
@@ -477,9 +565,9 @@
       const addDocBtn = document.getElementById('contrib-doc-add');
       const docsFieldset = document.getElementById('contrib-docs');
       const existingDocsEl = document.getElementById('contrib-existing-docs');
-    
-    // Flag to ensure we load the city code list only at Step 1 and only once
-    let citiesPopulatedOnce = false;
+      
+      // Landing city selector
+      const landingCitySelect = document.getElementById('landing-city-select');
 
     // Geometry input UI elements
     const geomModeFieldset = document.getElementById('contrib-geom-mode');
@@ -522,9 +610,9 @@
     const stepTab2 = document.getElementById('contrib-step-2-tab');
     const stepTab3 = document.getElementById('contrib-step-3-tab');
     const stepTab4 = document.getElementById('contrib-step-4-tab');
-    const prevBtn  = document.getElementById('contrib-prev');
-    const nextBtn  = document.getElementById('contrib-next');
-    const submitBtn = document.getElementById('contrib-submit');
+    const prevBtn  = document.getElementById('contrib-prev-footer');
+    const nextBtn  = document.getElementById('contrib-next-footer');
+    const submitBtn = document.getElementById('contrib-submit-footer');
 
     let currentStep = 1; // 1..4
 
@@ -606,11 +694,6 @@
 
       // Met à jour uniquement l'état visuel du stepper (classes)
       // La barre de progression dédiée a été retirée pour privilégier le stepper existant
-
-      // Charger le code collectivité UNIQUEMENT à l'étape 1, et une seule fois
-      if (currentStep === 1 && !citiesPopulatedOnce) {
-        try { populateCities(); citiesPopulatedOnce = true; } catch(_) {}
-      }
 
       // Assurer l'initialisation de la carte et des contrôles de dessin dès l'entrée en étape 2
       if (currentStep === 2) {
@@ -699,7 +782,6 @@
     const landingUsersBtn = document.getElementById('landing-users');
     const landingCitiesBtn = document.getElementById('landing-cities');
     const listEl       = document.getElementById('contrib-list');
-    const listStatusEl = document.getElementById('contrib-list-status');
     const listSearchEl = document.getElementById('contrib-search');
     const listCatEl    = document.getElementById('contrib-filter-category');
     const listSortEl   = document.getElementById('contrib-sort');
@@ -748,95 +830,124 @@
       return map;
     }
 
-    // —— Tabs logic (ARIA, keyboard) ——
-    // updateModalTitle() is defined earlier in the "Helper functions" section
+    // —— Tabs logic ——
     async function activateTab(which) {
-      const isCreate = which === 'create';
-      const isList = which === 'list';
-      const isCategories = which === 'categories';
-      const isUsers = which === 'users';
-      const isCities = which === 'cities';
-      if (panelCreate) panelCreate.hidden = !isCreate;
-      if (panelList) panelList.hidden = !isList;
-      if (panelCategories) panelCategories.hidden = !isCategories;
-      if (panelUsers) panelUsers.hidden = !isUsers;
-      const panelCities = document.getElementById('contrib-panel-cities');
-      if (panelCities) panelCities.hidden = !isCities;
-      // bouton retour visible quand on est hors landing
-      if (backBtn) backBtn.style.display = '';
-      
-      // Mettre à jour le titre de la modale selon le contexte
-      updateModalTitle(which);
-
-      if (isList) {
-        // ensure list is initialized
+      if (which === 'list') {
         try {
-          // Peupler le dropdown de catégories dynamiquement
+          // Valider qu'une ville est sélectionnée
+          if (!CityContext.hasSelectedCity?.()) {
+            console.warn('[activateTab] No city selected, cannot load list');
+            return;
+          }
+          
+          // Peupler le dropdown de catégories
           await populateCategoryFilter();
           
-          // Force mineOnly for any non-admin before first load
+          // Configurer les filtres
           const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : '';
           const isAdmin = role === 'admin';
-          if (!isAdmin) {
-            try { if (listMineOnlyEl) { listMineOnlyEl.checked = true; } } catch(_) {}
-            ContribList.updateListState?.({ mineOnly: true });
-          } else {
-            ContribList.updateListState?.({ mineOnly: !!(listMineOnlyEl && listMineOnlyEl.checked) });
+          const filterCity = CityContext.getSelectedCity?.();
+          
+          const mineOnly = isAdmin ? !!(listMineOnlyEl?.checked) : true;
+          if (!isAdmin && listMineOnlyEl) {
+            listMineOnlyEl.checked = true;
           }
-          const state = ContribList.getListState?.() || {};
-          if (listEl && !state.items?.length) listResetAndLoad();
+          
+          // Appliquer les filtres et charger
+          ContribList.updateListState?.({ mineOnly, filterCity });
+          await listResetAndLoad();
+          
+          // Focus
+          listSearchEl?.focus();
+        } catch(e) {
+          console.error('[activateTab list] Error:', e);
+        }
+      } else if (which === 'create') {
+        // focus project name for accessibility
+        try { 
+          document.getElementById('contrib-project-name')?.focus(); 
         } catch(_) {}
-        // focus first tabbable in list filters
-        try { listSearchEl && listSearchEl.focus(); } catch(_) {}
-      } else if (isCreate) {
-        // focus close button for accessibility or project name
-        const nameEl = document.getElementById('contrib-project-name');
-        try { (nameEl && nameEl.focus && nameEl.focus()); } catch(_) {}
-      } else if (isCategories) {
+      } else if (which === 'categories') {
         // Load categories panel
-        try { loadCategoriesPanel(); } catch(e) { console.error('[contrib] loadCategoriesPanel error:', e); }
-      } else if (isUsers) {
+        try { 
+          await refreshCategoriesList(); 
+        } catch(e) { 
+          console.error('[contrib] refreshCategoriesList error:', e); 
+        }
+      } else if (which === 'users') {
         // Load users panel
         try { 
-          const elements = { usersListEl, usersStatusEl };
+          const elements = { usersListEl, usersStatusEl, selectedCity: CityContext.getSelectedCity?.() };
           ContribUsers.loadUsersList?.(elements);
         } catch(e) { console.error('[contrib] loadUsersList error:', e); }
-      } else if (isCities) {
+      } else if (which === 'cities') {
         // Load cities panel
         try { 
-          const elements = { citiesListEl, citiesStatusEl };
+          const elements = { citiesListEl, citiesStatusEl, selectedCity: CityContext.getSelectedCity?.() };
           ContribCitiesManagement.loadCitiesList?.(elements);
         } catch(e) { console.error('[contrib] loadCitiesList error:', e); }
       }
     }
 
     // —— Landing helpers ——
-    const tabsContainer = document.querySelector('#contrib-overlay .contrib-tabs');
     
-    // showLanding() is defined earlier in the "Helper functions" section
-    
-    function hideLanding() {
-      try {
-        if (landingEl) landingEl.hidden = true;
-        if (tabsContainer) tabsContainer.style.display = '';
-        if (backBtn) backBtn.style.display = '';
-      } catch(_) {}
-    }
     async function chooseLanding(target) {
       try { sessionStorage.setItem('contribLandingSeen', '1'); } catch(_) {}
-      hideLanding();
-      if (target === 'list') {
-        await activateTab('list');
-      } else if (target === 'categories') {
-        await activateTab('categories');
-      } else if (target === 'users') {
-        await activateTab('users');
-      } else if (target === 'cities') {
-        await activateTab('cities');
+      
+      // Valider qu'une ville est sélectionnée
+      const landingCitySelect = document.getElementById('landing-city-select');
+      const selectedCity = landingCitySelect?.value?.trim();
+      
+      if (!selectedCity) {
+        showToast('Veuillez d\'abord sélectionner une collectivité', 'error');
+        landingCitySelect?.focus();
+        return;
+      }
+      
+      // Définir la ville sélectionnée
+      CityContext.setSelectedCity?.(selectedCity);
+      
+      // Récupérer le nom d'affichage
+      const selectedOption = landingCitySelect.options[landingCitySelect.selectedIndex];
+      const cityDisplayName = selectedOption?.text || selectedCity;
+      
+      // Actions spécifiques par type de panel
+      if (target === 'create' || target === 'list') {
+        await handleContributionPanels(target, selectedCity, cityDisplayName);
       } else {
+        // Afficher le badge pour les panels de gestion
+        showManagementPanelBadges(target, cityDisplayName);
+      }
+      
+      // Navigation
+      window.ModalNavigation?.navigateTo(target || 'create');
+      
+      // Activer le panel approprié
+      if (target === 'create') {
         await activateTab('create');
         try { setStep(1, { force: true }); } catch(_) {}
+      } else if (['list', 'categories', 'users', 'cities'].includes(target)) {
+        await activateTab(target);
       }
+    }
+    
+    // Gère les panels de contribution (create/list)
+    async function handleContributionPanels(target, city, cityDisplayName) {
+      const cityEl = document.getElementById('contrib-city');
+      if (!cityEl) return;
+      
+      cityEl.value = city;
+      
+      // Charger les catégories et le branding
+      await Promise.all([
+        loadCategoriesForCity(city),
+        ContribCities.applyCityBrandingToDrawMap?.(city)
+      ]);
+    }
+    
+    // Affiche les badges pour les panels de gestion (fonction legacy vide)
+    function showManagementPanelBadges(target, cityDisplayName) {
+      // Badges retirés - fonction conservée pour compatibilité
     }
 
     // Bind landing buttons
@@ -845,59 +956,69 @@
     if (landingCategoriesBtn) landingCategoriesBtn.addEventListener('click', () => chooseLanding('categories'));
     if (landingUsersBtn) landingUsersBtn.addEventListener('click', () => chooseLanding('users'));
     if (landingCitiesBtn) landingCitiesBtn.addEventListener('click', () => chooseLanding('cities'));
+    
+    // —— Header Actions Handler (système unifié) ——
+    // Tous les boutons du header sont gérés ici via délégation d'événements
+    document.addEventListener('click', async (e) => {
+      const target = e.target.closest('[id$="-btn"]');
+      if (!target) return;
+      
+      // Vérifier si c'est un bouton d'action du header
+      const headerActions = document.querySelector('.gp-modal-header-actions');
+      if (!headerActions || !headerActions.contains(target)) return;
+      
+      const buttonId = target.id;
+      console.log('[contrib] Header action clicked:', buttonId);
+      
+      // Router les actions selon le bouton
+      switch (buttonId) {
+        case 'contrib-list-create-btn':
+          window.ModalNavigation?.navigateTo('create');
+          break;
+          
+        case 'category-add-btn':
+          await openCategoryModal('create');
+          break;
+          
+        case 'invite-user-btn':
+          const usersElements = { usersListEl, usersStatusEl };
+          ContribUsers.showInviteModal?.(usersElements);
+          break;
+          
+        case 'add-city-btn':
+          const citiesElements = { citiesListEl, citiesStatusEl };
+          ContribCitiesManagement.showAddCityModal?.(citiesElements);
+          break;
+          
+        default:
+          console.warn('[contrib] Unknown header action:', buttonId);
+      }
+    });
+    
     if (backBtn) backBtn.addEventListener('click', () => showLanding());
 
     // —— Category filter population ——
     /**
-     * Peuple le dropdown de catégories en fonction de toutes les villes accessibles à l'utilisateur
+     * Peuple le dropdown de catégories en fonction de la ville sélectionnée
      */
     async function populateCategoryFilter() {
       if (!listCatEl) return;
       
       try {
-        // Récupérer les villes de l'utilisateur
-        const userVilles = win.__CONTRIB_VILLES || [];
-        const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
+        // Récupérer la ville sélectionnée
+        const selectedCity = CityContext.getSelectedCity?.();
         
-        if (!userVilles || userVilles.length === 0) {
-          console.warn('[contrib] User has no accessible cities');
-          listCatEl.innerHTML = '<option value="">Aucune catégorie disponible</option>';
+        if (!selectedCity) {
+          console.warn('[contrib] No city selected');
+          listCatEl.innerHTML = '<option value="">Sélectionnez d\'abord une collectivité</option>';
           return;
         }
         
-        // Récupérer toutes les catégories de toutes les villes accessibles
-        const allCategories = new Map(); // Map pour éviter les doublons
+        // Récupérer les catégories de la ville sélectionnée uniquement
+        const categories = await win.supabaseService.getCategoryIconsByCity(selectedCity);
         
-        if (hasGlobalAccess) {
-          // Admin global : récupérer toutes les catégories de toutes les villes
-          const allCities = await win.supabaseService.getAvailableCities();
-          for (const city of allCities) {
-            const categories = await win.supabaseService.getCategoryIconsByCity(city.value);
-            if (categories && categories.length > 0) {
-              categories.forEach(cat => {
-                if (!allCategories.has(cat.category)) {
-                  allCategories.set(cat.category, cat);
-                }
-              });
-            }
-          }
-        } else {
-          // Admin ville : récupérer les catégories de ses villes uniquement
-          for (const ville of userVilles) {
-            if (ville === 'global') continue; // Skip 'global' marker
-            const categories = await win.supabaseService.getCategoryIconsByCity(ville);
-            if (categories && categories.length > 0) {
-              categories.forEach(cat => {
-                if (!allCategories.has(cat.category)) {
-                  allCategories.set(cat.category, cat);
-                }
-              });
-            }
-          }
-        }
-        
-        if (allCategories.size === 0) {
-          console.warn('[contrib] No categories found for user cities');
+        if (!categories || categories.length === 0) {
+          console.warn('[contrib] No categories found for selected city:', selectedCity);
           listCatEl.innerHTML = '<option value="">Aucune catégorie disponible</option>';
           return;
         }
@@ -906,10 +1027,10 @@
         const currentValue = listCatEl.value;
         
         // Vider et repeupler
-        listCatEl.innerHTML = '<option value="">Toutes</option>';
+        listCatEl.innerHTML = '<option value="">Toutes les catégories</option>';
         
         // Trier les catégories par ordre alphabétique
-        const sortedCategories = Array.from(allCategories.values()).sort((a, b) => 
+        const sortedCategories = categories.sort((a, b) => 
           a.category.localeCompare(b.category)
         );
         
@@ -934,11 +1055,9 @@
     // —— List helpers ——
     // applyRoleConstraints() is now defined earlier (after showLanding)
     // List helpers moved to contrib-list.js
-    const setListStatus = (msg) => ContribList.setListStatus?.(msg, listStatusEl);
     const clearEmptyState = () => ContribList.clearEmptyState?.(listEl);
     const renderEmptyState = () => {
-      const onCreateClick = () => { try { activateTab('create'); setStep(1, { force: true }); } catch(_) {} };
-      ContribList.renderEmptyState?.(listEl, listSentinel, onCreateClick);
+      ContribList.renderEmptyState?.(listEl, listSentinel, sharedOnCreateClick);
     };
 
     // Delete functions moved to contrib-list.js
@@ -953,30 +1072,51 @@
       const onRefreshList = () => {
         if (panelList && !panelList.hidden) listResetAndLoad();
       };
-      const elements = { listEl, listStatusEl, onExitEditMode, onRefreshList };
+      const elements = { listEl, onExitEditMode, onRefreshList };
       await ContribList.doDeleteContribution?.(id, projectName, elements);
     }
 
     // Shared callbacks for list operations (defined once, reused everywhere)
     const sharedOnEdit = async (item) => {
       try {
-        setListStatus('Chargement…');
         const row = await (win.supabaseService && win.supabaseService.getContributionById(item.id));
-        setListStatus('');
         if (row) {
           enterEditMode(row);
+          window.ModalNavigation?.navigateTo('create');
           activateTab('create');
         }
       } catch (e) {
-        setListStatus('Erreur de chargement.');
         showToast('Erreur lors du chargement de la contribution.', 'error');
       }
     };
 
     const sharedOnDelete = (id, name) => doDeleteContribution(id, name);
 
-    const sharedOnCreateClick = () => { 
-      try { activateTab('create'); setStep(1, { force: true }); } catch(_) {} 
+    const sharedOnCreateClick = async () => { 
+      try {
+        // Récupérer la ville sélectionnée
+        const selectedCity = CityContext.getSelectedCity?.();
+        if (!selectedCity) {
+          showToast('Aucune ville sélectionnée', 'error');
+          return;
+        }
+        
+        // Pré-remplir le champ ville
+        const cityEl = document.getElementById('contrib-city');
+        if (cityEl) {
+          cityEl.value = selectedCity;
+        }
+        
+        // Charger les catégories pour cette ville
+        await loadCategoriesForCity(selectedCity);
+        
+        // Navigation et activation
+        window.ModalNavigation?.navigateTo('create');
+        activateTab('create'); 
+        setStep(1, { force: true }); 
+      } catch(e) {
+        console.error('[sharedOnCreateClick] Error:', e);
+      } 
     };
 
     // renderItem moved to contrib-list.js
@@ -986,18 +1126,18 @@
 
     // listResetAndLoad moved to contrib-list.js
     async function listResetAndLoad() {
-      const elements = { listEl, listSentinel, listStatusEl, onEdit: sharedOnEdit, onDelete: sharedOnDelete, onCreateClick: sharedOnCreateClick };
+      const elements = { listEl, listSentinel, onEdit: sharedOnEdit, onDelete: sharedOnDelete, onCreateClick: sharedOnCreateClick };
       await ContribList.listResetAndLoad?.(elements);
     }
 
     // listLoadMore and initInfiniteScroll moved to contrib-list.js
     async function listLoadMore() {
-      const elements = { listEl, listSentinel, listStatusEl, onEdit: sharedOnEdit, onDelete: sharedOnDelete, onCreateClick: sharedOnCreateClick };
+      const elements = { listEl, listSentinel, onEdit: sharedOnEdit, onDelete: sharedOnDelete, onCreateClick: sharedOnCreateClick };
       await ContribList.listLoadMore?.(elements);
     }
 
     function initInfiniteScroll() {
-      const elements = { listEl, listSentinel, listStatusEl, onEdit: sharedOnEdit, onDelete: sharedOnDelete, onCreateClick: sharedOnCreateClick };
+      const elements = { listEl, listSentinel, onEdit: sharedOnEdit, onDelete: sharedOnDelete, onCreateClick: sharedOnCreateClick };
       ContribList.initInfiniteScroll?.(listEl, listSentinel, elements);
     }
 
@@ -1061,27 +1201,7 @@
       });
     }
 
-    // Bouton d'invitation d'utilisateur
-    if (inviteUserBtn) {
-      inviteUserBtn.addEventListener('click', () => {
-        const elements = { usersListEl, usersStatusEl };
-        ContribUsers.showInviteModal?.(elements);
-      });
-    }
-
-    // Bouton d'ajout de ville
-    if (addCityBtn) {
-      addCityBtn.addEventListener('click', () => {
-        console.log('[contrib] Add city button clicked');
-        console.log('[contrib] ContribCitiesManagement:', window.ContribCitiesManagement);
-        const elements = { citiesListEl, citiesStatusEl };
-        if (window.ContribCitiesManagement && typeof window.ContribCitiesManagement.showCityModal === 'function') {
-          window.ContribCitiesManagement.showCityModal(null, elements);
-        } else {
-          console.error('[contrib] ContribCitiesManagement.showCityModal not available');
-        }
-      });
-    }
+    // Boutons d'invitation et d'ajout de ville gérés par le Header Actions Handler unifié ci-dessus
 
     // —— Edit mode helpers ——
     const cancelEditBtn = document.getElementById('contrib-cancel-edit');
@@ -1627,11 +1747,7 @@
 
     // Old handleSubmit implementation removed (~185 lines moved to contrib-form.js)
 
-    // populateCities and loadCategoriesForCity moved to contrib-cities.js
-    async function populateCities() {
-      await ContribCities.populateCities?.(cityEl);
-    }
-
+    // loadCategoriesForCity moved to contrib-cities.js
     async function loadCategoriesForCity(ville) {
       await ContribCities.loadCategoriesForCity?.(ville, categoryEl, categoryHelpEl);
     }
@@ -1649,18 +1765,8 @@
           const currentEditId = ContribForm.getCurrentEditId?.();
           if (currentEditId) exitEditMode();
           
-          // Masquer tous les panels
-          if (panelCreate) panelCreate.hidden = true;
-          if (panelList) panelList.hidden = true;
-          if (panelCategories) panelCategories.hidden = true;
-          
-          // Afficher le landing
-          showLanding();
-          
-          // Attendre un peu pour que l'UI se stabilise
+          // Naviguer vers catégories
           await new Promise(resolve => setTimeout(resolve, 100));
-          
-          // Activer le panel catégories
           chooseLanding('categories');
           
           // Pré-sélectionner la ville si elle était définie
@@ -1675,212 +1781,281 @@
       });
     }
 
-    // Recenter draw map on city change + charger les catégories
-    if (cityEl) {
-      cityEl.addEventListener('change', async () => {
-        try {
-          const v = (cityEl.value || '').trim();
-          if (v) {
-            await ContribCities.applyCityBrandingToDrawMap?.(v);
-            await loadCategoriesForCity(v);
-          } else {
-            // Réinitialiser les catégories si pas de ville
-            if (categoryEl) {
-              categoryEl.disabled = true;
-              categoryEl.innerHTML = '<option value="">Sélectionnez d\'abord une collectivité</option>';
-            }
-            if (categoryHelpEl) categoryHelpEl.style.display = 'none';
-          }
-        } catch (_) {}
-      });
-    }
-
-    // Ne pas charger les villes ici: cela sera fait uniquement à l'étape 1 via setStep()
+    // La ville est maintenant fixée depuis le landing - pas besoin de listener
 
     // ==================== Gestion des catégories ====================
     
-    const categoryFormContainer = document.getElementById('category-form-container');
-    const categoryForm = document.getElementById('category-form');
-    const categoryAddBtn = document.getElementById('category-add-btn');
     const categoriesList = document.getElementById('categories-list');
     const categoriesContent = document.getElementById('categories-content');
-    const categoryFormTitle = document.getElementById('category-form-title');
-    const categoryFormBack = document.getElementById('category-form-back');
-    const categoryFormCancel = document.getElementById('category-form-cancel');
     
-    const categoryVilleSelector = document.getElementById('category-ville-selector');
-    const categoryVilleSelectorContainer = document.getElementById('category-ville-selector-container');
-    const categoryNameInput = document.getElementById('category-name');
-    const categoryIconInput = document.getElementById('category-icon');
-    const categoryIconPreview = document.getElementById('category-icon-preview');
-    const categoryIconPickerBtn = document.getElementById('category-icon-picker-btn');
-    const categoryIconPicker = document.getElementById('category-icon-picker');
-    const categoryIconGrid = document.getElementById('category-icon-grid');
-    const categoryOrderInput = document.getElementById('category-order');
-    const categoryVilleSelect = document.getElementById('category-ville');
-    const categoryLayersCheckboxes = document.getElementById('category-layers-checkboxes');
-    const categoryStyleColor = document.getElementById('category-style-color');
-    const categoryStyleWeight = document.getElementById('category-style-weight');
-    const categoryStyleDashArray = document.getElementById('category-style-dasharray');
-    const categoryStyleOpacity = document.getElementById('category-style-opacity');
-    const categoryStyleFill = document.getElementById('category-style-fill');
-    const categoryStyleFillOptions = document.getElementById('category-style-fill-options');
-    const categoryStyleFillColor = document.getElementById('category-style-fillcolor');
-    const categoryStyleFillOpacity = document.getElementById('category-style-fillopacity');
-    const categoryEditModeInput = document.getElementById('category-edit-mode');
-    const categoryOriginalNameInput = document.getElementById('category-original-name');
-
-    // ICON_PRESETS moved to contrib-categories.js
-
-    // loadCategoriesPanel, populateIconPicker, populateCategoryVilleSelector, etc. moved to contrib-categories.js
-    async function loadCategoriesPanel() {
-      const elements = {
-        categoryFormContainer,
-        categoryIconPicker,
-        categoryVilleSelectorContainer,
-        categoryVilleSelector,
-        categoriesContent,
-        categoryIconGrid,
-        categoryIconInput,
-        categoryVilleSelect,
-        categoryLayersCheckboxes
-      };
-      await ContribCategories.loadCategoriesPanel?.(elements, refreshCategoriesList);
-    }
-
-    // Old category panel functions removed (~330 lines moved to contrib-categories.js)
-
-    // Listener sur le changement de ville dans le formulaire de catégorie
-    if (categoryVilleSelect) {
-      categoryVilleSelect.addEventListener('change', async () => {
-        const ville = categoryVilleSelect.value;
-        
-        // Sauvegarder les sélections actuelles
-        const currentSelections = Array.from(document.querySelectorAll('input[name="category-layer-checkbox"]:checked'))
-          .map(cb => cb.value);
-        
-        // Recharger les checkboxes
-        await ContribCategories.populateCategoryLayersCheckboxes?.(ville, categoryLayersCheckboxes);
-        
-        // Restaurer les sélections
-        currentSelections.forEach(layerName => {
-          const checkbox = document.querySelector(`input[name="category-layer-checkbox"][value="${layerName}"]`);
-          if (checkbox) checkbox.checked = true;
-        });
-      });
-    }
-
-    // Removed ~290 lines of old category panel code (moved to contrib-categories.js)
-    
-    // Listener pour afficher/masquer les options de remplissage
-    if (categoryStyleFill && categoryStyleFillOptions) {
-      categoryStyleFill.addEventListener('change', () => {
-        categoryStyleFillOptions.style.display = categoryStyleFill.checked ? 'block' : 'none';
-        updateStylePreview();
-      });
-    }
-    
-    // Prévisualisation en temps réel des styles
-    function updateStylePreview() {
-      const line = document.getElementById('style-preview-line');
-      const polygon = document.getElementById('style-preview-polygon');
-      
-      if (!line || !polygon) return;
-      
-      const color = categoryStyleColor?.value || 'var(--black)';
-      const weight = categoryStyleWeight?.value || 3;
-      const dashArray = categoryStyleDashArray?.value || '';
-      const opacity = categoryStyleOpacity?.value || 1;
-      const fill = categoryStyleFill?.checked || false;
-      const fillColor = categoryStyleFillColor?.value || 'var(--gray-400)';
-      const fillOpacity = categoryStyleFillOpacity?.value || 0.3;
-      
-      // Appliquer à la ligne
-      line.setAttribute('stroke', color);
-      line.setAttribute('stroke-width', weight);
-      line.setAttribute('stroke-opacity', opacity);
-      line.setAttribute('stroke-dasharray', dashArray);
-      
-      // Appliquer au polygone
-      polygon.setAttribute('stroke', color);
-      polygon.setAttribute('stroke-width', weight);
-      polygon.setAttribute('stroke-opacity', opacity);
-      polygon.setAttribute('stroke-dasharray', dashArray);
-      polygon.setAttribute('fill', fill ? fillColor : 'none');
-      polygon.setAttribute('fill-opacity', fill ? fillOpacity : 0);
-    }
-    
-    // Écouter les changements sur tous les champs de style
-    [categoryStyleColor, categoryStyleWeight, categoryStyleDashArray, categoryStyleOpacity, 
-     categoryStyleFillColor, categoryStyleFillOpacity].forEach(input => {
-      if (input) {
-        input.addEventListener('input', updateStylePreview);
-        input.addEventListener('change', updateStylePreview);
-      }
-    });
-    
-    // Initialiser la prévisualisation après un court délai pour s'assurer que le DOM est prêt
-    setTimeout(() => {
-      updateStylePreview();
-    }, 100);
+    console.log('[contrib] Categories elements:', { categoriesList: !!categoriesList, categoriesContent: !!categoriesContent });
 
     // refreshCategoriesList moved to contrib-categories-crud.js
     async function refreshCategoriesList() {
-      const elements = { categoriesList, categoriesContent, categoryVilleSelector };
-      await ContribCategoriesCrud.refreshCategoriesList?.(elements, showCategoryForm, deleteCategory);
+      const selectedCity = CityContext.getSelectedCity?.();
+      console.log('[refreshCategoriesList] Called with city:', selectedCity);
+      
+      if (!selectedCity) {
+        console.warn('[refreshCategoriesList] No city selected');
+        return;
+      }
+      
+      const elements = { 
+        categoriesList, 
+        categoriesContent, 
+        categoryVilleSelector: null,
+        selectedCity: selectedCity
+      };
+      
+      await ContribCategoriesCrud.refreshCategoriesList?.(elements, openCategoryModal, deleteCategory);
     }
 
-    // showCategoryForm moved to contrib-categories-crud.js
-    function showCategoryForm(mode, data = {}) {
+    // Ouvre la modale de catégorie
+    async function openCategoryModal(mode, data = {}) {
+      console.log('[openCategoryModal] Called with mode:', mode, 'data:', data);
+      
+      // Charger la modale catégorie si nécessaire
+      const loaded = await loadCategoryModalTemplate();
+      console.log('[openCategoryModal] Template loaded:', loaded);
+      
+      if (!loaded) {
+        showToast('Erreur lors du chargement du formulaire', 'error');
+        return;
+      }
+      
+      // Récupérer les éléments de la modale (après chargement)
+      const categoryModalOverlay = document.getElementById('category-modal-overlay');
+      const categoryModalClose = document.getElementById('category-modal-close');
+      const categoryModalTitle = document.getElementById('category-modal-title');
+      const categoryFormModal = document.getElementById('category-form');
+      
+      console.log('[openCategoryModal] Modal elements:', {
+        overlay: !!categoryModalOverlay,
+        close: !!categoryModalClose,
+        title: !!categoryModalTitle,
+        form: !!categoryFormModal
+      });
+      
+      if (!categoryModalOverlay || !categoryFormModal) {
+        console.error('[contrib] Category modal elements not found');
+        return;
+      }
+      
+      // Définir le titre selon le mode
+      if (categoryModalTitle) {
+        categoryModalTitle.textContent = mode === 'edit' ? 'Modifier la catégorie' : 'Nouvelle catégorie';
+      }
+      
+      // Récupérer la ville sélectionnée
+      const selectedCity = CityContext.getSelectedCity?.();
+      console.log('[openCategoryModal] Selected city:', selectedCity);
+      
+      // Remplir le champ ville caché
+      const categoryVilleInput = document.getElementById('category-ville');
+      if (categoryVilleInput && selectedCity) {
+        categoryVilleInput.value = selectedCity;
+        console.log('[openCategoryModal] Set category-ville to:', selectedCity);
+      }
+      
+      // Récupérer tous les éléments du formulaire depuis la nouvelle modale
       const elements = {
-        categoryFormContainer,
-        categoryForm,
-        categoryEditModeInput,
-        categoryFormTitle,
-        categoryOriginalNameInput,
-        categoryNameInput,
-        categoryIconInput,
-        categoryOrderInput,
-        categoryVilleSelect,
-        categoryLayersCheckboxes,
-        categoryStyleColor,
-        categoryStyleWeight,
-        categoryStyleDashArray,
-        categoryStyleOpacity,
-        categoryStyleFill,
-        categoryStyleFillOptions,
-        categoryStyleFillColor,
-        categoryStyleFillOpacity,
-        categoryFormBack,
-        categoryVilleSelectorContainer,
-        categoriesContent,
-        categoryIconPreview,
-        categoryVilleSelector
+        categoryFormContainer: categoryModalOverlay,
+        categoryForm: categoryFormModal,
+        categoryEditModeInput: document.getElementById('category-edit-mode'),
+        categoryFormTitle: categoryModalTitle,
+        categoryOriginalNameInput: document.getElementById('category-original-name'),
+        categoryNameInput: document.getElementById('category-name'),
+        categoryIconInput: document.getElementById('category-icon'),
+        categoryOrderInput: document.getElementById('category-order'),
+        categoryVilleSelect: categoryVilleInput,
+        categoryLayersCheckboxes: null, // Plus utilisé
+        categoryStyleColor: document.getElementById('category-style-color'),
+        categoryStyleWeight: document.getElementById('category-style-weight'),
+        categoryStyleDashArray: document.getElementById('category-style-dasharray'),
+        categoryStyleOpacity: document.getElementById('category-style-opacity'),
+        categoryStyleFill: document.getElementById('category-style-fill'),
+        categoryStyleFillOptions: document.getElementById('category-style-fill-options'),
+        categoryStyleFillColor: document.getElementById('category-style-fillcolor'),
+        categoryStyleFillOpacity: document.getElementById('category-style-fillopacity'),
+        categoryFormBack: null, // Pas de bouton retour dans la nouvelle modale
+        categoryVilleSelectorContainer: null, // Plus utilisé
+        categoriesContent: categoriesContent,
+        categoryIconPreview: document.getElementById('category-icon-preview'),
+        categoryVilleSelector: null, // Plus utilisé
+        selectedCity: selectedCity
       };
-      ContribCategoriesCrud.showCategoryForm?.(mode, data, elements, updateStylePreview);
-    }
-
-    // hideCategoryForm moved to contrib-categories-crud.js
-    async function hideCategoryForm() {
-      const elements = {
-        categoryFormContainer,
-        categoryIconPicker,
-        categoryNameInput,
-        categoryIconInput,
-        categoryOrderInput,
-        categoryStyleColor,
-        categoryStyleWeight,
-        categoryStyleDashArray,
-        categoryStyleOpacity,
-        categoryStyleFill,
-        categoryStyleFillColor,
-        categoryStyleFillOpacity,
-        categoryStyleFillOptions,
-        categoryVilleSelectorContainer,
-        categoryVilleSelector,
-        categoriesContent
+      
+      // Pré-remplir le formulaire
+      ContribCategoriesCrud.showCategoryForm?.(mode, data, elements, null);
+      
+      // Configurer la soumission du formulaire
+      categoryFormModal.onsubmit = async (e) => {
+        e.preventDefault();
+        await ContribCategoriesCrud.handleCategoryFormSubmit?.(e, elements, showToast, async () => {
+          // Callback de fermeture après succès
+          console.log('[openCategoryModal] Form submitted successfully, closing modal');
+          const modalInner = categoryModalOverlay.querySelector('.gp-modal');
+          if (modalInner) {
+            modalInner.classList.remove('is-open');
+          }
+          setTimeout(() => {
+            categoryModalOverlay.setAttribute('aria-hidden', 'true');
+          }, 220);
+          
+          // Rafraîchir la liste et s'assurer qu'elle est visible
+          console.log('[openCategoryModal] Refreshing categories list');
+          await refreshCategoriesList();
+          if (categoriesContent) {
+            categoriesContent.style.display = '';
+            console.log('[openCategoryModal] Categories content displayed');
+          }
+        }, refreshCategoriesList);
       };
-      await ContribCategoriesCrud.hideCategoryForm?.(elements, refreshCategoriesList);
+      
+      // Configurer le bouton de sélection d'icône
+      const categoryIconPickerBtn = document.getElementById('category-icon-picker-btn');
+      const categoryIconPicker = document.getElementById('category-icon-picker');
+      const categoryIconInput = document.getElementById('category-icon');
+      const categoryIconPreview = document.getElementById('category-icon-preview');
+      
+      if (categoryIconPickerBtn && categoryIconPicker) {
+        categoryIconPickerBtn.onclick = (e) => {
+          e.stopPropagation();
+          const isVisible = categoryIconPicker.style.display !== 'none';
+          categoryIconPicker.style.display = isVisible ? 'none' : 'block';
+        };
+      }
+      
+      // Prévisualisation en direct de l'icône
+      if (categoryIconInput && categoryIconPreview) {
+        const updateIconPreview = () => {
+          try {
+            let iconClass = categoryIconInput.value.trim();
+            const iconEl = categoryIconPreview.querySelector('i');
+            
+            if (iconEl && iconClass) {
+              // Auto-fix: ajouter fa-solid si nécessaire
+              if (iconClass.startsWith('fa-') && !iconClass.startsWith('fa-solid') && !iconClass.startsWith('fa-regular') && !iconClass.startsWith('fa-brands')) {
+                iconClass = 'fa-solid ' + iconClass;
+              }
+              iconEl.className = iconClass;
+            }
+          } catch (e) {
+            console.warn('[contrib] Error updating icon preview:', e);
+          }
+        };
+        
+        categoryIconInput.addEventListener('input', updateIconPreview);
+        // Mise à jour initiale
+        updateIconPreview();
+      }
+      
+      // Configurer la prévisualisation des styles
+      const stylePreviewLine = document.getElementById('style-preview-line');
+      const stylePreviewPolygon = document.getElementById('style-preview-polygon');
+      const styleColor = document.getElementById('category-style-color');
+      const styleWeight = document.getElementById('category-style-weight');
+      const styleDashArray = document.getElementById('category-style-dasharray');
+      const styleOpacity = document.getElementById('category-style-opacity');
+      const styleFill = document.getElementById('category-style-fill');
+      const styleFillColor = document.getElementById('category-style-fillcolor');
+      const styleFillOpacity = document.getElementById('category-style-fillopacity');
+      const styleFillOptions = document.getElementById('category-style-fill-options');
+      
+      const updateModalStylePreview = () => {
+        if (!stylePreviewLine || !stylePreviewPolygon) return;
+        
+        const color = styleColor?.value || '#000000';
+        const weight = styleWeight?.value || 3;
+        const dashArray = styleDashArray?.value || '';
+        const opacity = styleOpacity?.value || 1;
+        const fill = styleFill?.checked || false;
+        const fillColor = styleFillColor?.value || '#9CA3AF';
+        const fillOpacity = styleFillOpacity?.value || 0.3;
+        
+        // Appliquer à la ligne
+        stylePreviewLine.setAttribute('stroke', color);
+        stylePreviewLine.setAttribute('stroke-width', weight);
+        stylePreviewLine.setAttribute('stroke-opacity', opacity);
+        stylePreviewLine.setAttribute('stroke-dasharray', dashArray);
+        
+        // Appliquer au polygone
+        stylePreviewPolygon.setAttribute('stroke', color);
+        stylePreviewPolygon.setAttribute('stroke-width', weight);
+        stylePreviewPolygon.setAttribute('stroke-opacity', opacity);
+        stylePreviewPolygon.setAttribute('stroke-dasharray', dashArray);
+        stylePreviewPolygon.setAttribute('fill', fill ? fillColor : 'none');
+        stylePreviewPolygon.setAttribute('fill-opacity', fill ? fillOpacity : 0);
+      };
+      
+      // Event listeners pour la prévisualisation
+      [styleColor, styleWeight, styleDashArray, styleOpacity, styleFillColor, styleFillOpacity].forEach(input => {
+        if (input) {
+          input.addEventListener('input', updateModalStylePreview);
+          input.addEventListener('change', updateModalStylePreview);
+        }
+      });
+      
+      // Toggle fill options
+      if (styleFill && styleFillOptions) {
+        styleFill.addEventListener('change', () => {
+          styleFillOptions.style.display = styleFill.checked ? 'block' : 'none';
+          updateModalStylePreview();
+        });
+      }
+      
+      // Initialiser la prévisualisation
+      setTimeout(updateModalStylePreview, 50);
+      
+      // Ouvrir la modale
+      categoryModalOverlay.setAttribute('aria-hidden', 'false');
+      const categoryModalInner = categoryModalOverlay.querySelector('.gp-modal');
+      if (categoryModalInner) {
+        requestAnimationFrame(() => {
+          categoryModalInner.classList.add('is-open');
+        });
+      }
+      
+      // Gérer la fermeture
+      const closeModal = () => {
+        const categoryModalInner = categoryModalOverlay.querySelector('.gp-modal');
+        if (categoryModalInner) {
+          categoryModalInner.classList.remove('is-open');
+        }
+        setTimeout(() => {
+          categoryModalOverlay.setAttribute('aria-hidden', 'true');
+        }, 220);
+      };
+      
+      // Bouton fermer
+      if (categoryModalClose) {
+        categoryModalClose.onclick = closeModal;
+      }
+      
+      // Clic sur overlay
+      categoryModalOverlay.onclick = (e) => {
+        if (e.target === categoryModalOverlay) closeModal();
+      };
+      
+      // Fermer le picker d'icône si clic en dehors
+      if (categoryIconPicker) {
+        document.addEventListener('click', (e) => {
+          if (categoryIconPicker.style.display !== 'none') {
+            if (!categoryIconPicker.contains(e.target) && e.target !== categoryIconPickerBtn && !categoryIconPickerBtn?.contains(e.target)) {
+              categoryIconPicker.style.display = 'none';
+            }
+          }
+        });
+      }
+      
+      // Bouton annuler
+      const cancelBtn = document.getElementById('category-form-cancel');
+      if (cancelBtn) {
+        cancelBtn.onclick = closeModal;
+      }
+      
+      // Stocker la fonction de fermeture pour l'appeler après succès
+      win.__closeCategoryModal = closeModal;
     }
 
     // deleteCategory moved to contrib-categories-crud.js
@@ -1888,137 +2063,9 @@
       await ContribCategoriesCrud.deleteCategory?.(ville, category, showToast, refreshCategoriesList);
     }
 
-    // Bind category add button
-    if (categoryAddBtn) {
-      categoryAddBtn.addEventListener('click', () => showCategoryForm('create'));
-    }
-
-    // Bind category form back button
-    if (categoryFormBack) {
-      categoryFormBack.addEventListener('click', async () => {
-        await hideCategoryForm();
-      });
-    }
-
-    // Bind category form cancel
-    if (categoryFormCancel) {
-      categoryFormCancel.addEventListener('click', async () => {
-        await hideCategoryForm();
-      });
-    }
-
-    // Bind category form submit - moved to contrib-categories-crud.js
-    if (categoryForm) {
-      categoryForm.addEventListener('submit', async (e) => {
-        const elements = {
-          categoryEditModeInput,
-          categoryNameInput,
-          categoryIconInput,
-          categoryOrderInput,
-          categoryVilleSelect,
-          categoryOriginalNameInput,
-          categoryStyleColor,
-          categoryStyleWeight,
-          categoryStyleDashArray,
-          categoryStyleOpacity,
-          categoryStyleFill,
-          categoryStyleFillColor,
-          categoryStyleFillOpacity,
-          categoryVilleSelectorContainer,
-          categoriesContent
-        };
-        await ContribCategoriesCrud.handleCategoryFormSubmit?.(e, elements, showToast, hideCategoryForm, refreshCategoriesList);
-      });
-    }
-
-    // Listen to main ville selector change to refresh list
-    if (categoryVilleSelector) {
-      categoryVilleSelector.addEventListener('change', async () => {
-        await refreshCategoriesList();
-        // Hide form when changing city
-        hideCategoryForm();
-      });
-    }
-
-    // Toggle icon picker
-    if (categoryIconPickerBtn && categoryIconPicker) {
-      categoryIconPickerBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isVisible = categoryIconPicker.style.display !== 'none';
-        categoryIconPicker.style.display = isVisible ? 'none' : 'block';
-      });
-      
-      // Close picker when clicking outside
-      document.addEventListener('click', (e) => {
-        if (categoryIconPicker && categoryIconPicker.style.display !== 'none') {
-          if (!categoryIconPicker.contains(e.target) && e.target !== categoryIconPickerBtn && !categoryIconPickerBtn.contains(e.target)) {
-            categoryIconPicker.style.display = 'none';
-          }
-        }
-      });
-    }
-
-    // Live preview of icon in form
-    if (categoryIconInput && categoryIconPreview) {
-      const updateIconPreview = () => {
-        try {
-          let iconClass = categoryIconInput.value.trim();
-          const iconEl = categoryIconPreview.querySelector('i');
-          
-          if (iconEl) {
-            if (iconClass) {
-              // Auto-fix: if user enters "fa-building" without style prefix, add "fa-solid"
-              if (iconClass.startsWith('fa-') && !iconClass.startsWith('fa-solid') && !iconClass.startsWith('fa-regular') && !iconClass.startsWith('fa-brands') && !iconClass.startsWith('fa-light') && !iconClass.startsWith('fa-thin') && !iconClass.startsWith('fa-duotone')) {
-                iconClass = 'fa-solid ' + iconClass;
-              }
-              iconEl.className = iconClass;
-              
-              // Visual feedback: check if icon loaded
-              setTimeout(() => {
-                const computed = window.getComputedStyle(iconEl, ':before');
-                const content = computed.getPropertyValue('content');
-                if (content && content !== 'none' && content !== '""') {
-                  iconEl.parentElement.style.borderColor = 'var(--primary)';
-                  iconEl.parentElement.style.background = 'var(--primary-lighter)';
-                } else {
-                  iconEl.parentElement.style.borderColor = 'var(--danger)';
-                  iconEl.parentElement.style.background = 'var(--danger-lighter)';
-                }
-              }, 50);
-            } else {
-              iconEl.className = 'fa-solid fa-question';
-              iconEl.parentElement.style.borderColor = 'var(--gray-300)';
-              iconEl.parentElement.style.background = 'var(--surface)';
-            }
-          }
-        } catch(_) {}
-      };
-      
-      categoryIconInput.addEventListener('input', updateIconPreview);
-      categoryIconInput.addEventListener('change', updateIconPreview);
-      
-      // Auto-correct on blur
-      categoryIconInput.addEventListener('blur', () => {
-        try {
-          let iconClass = categoryIconInput.value.trim();
-          if (iconClass && iconClass.startsWith('fa-') && !iconClass.startsWith('fa-solid') && !iconClass.startsWith('fa-regular') && !iconClass.startsWith('fa-brands') && !iconClass.startsWith('fa-light') && !iconClass.startsWith('fa-thin') && !iconClass.startsWith('fa-duotone')) {
-            categoryIconInput.value = 'fa-solid ' + iconClass;
-            updateIconPreview();
-          }
-        } catch(_) {}
-      });
-    }
-
-    // Ensure tab default is Create only if landing is not visible
-    // Ne pas écraser l'écran d'accueil (Créer / Modifier)
-    try {
-      const landingVisible = landingEl && landingEl.hidden === false;
-      if (!landingVisible) {
-        activateTab('create');
-      }
-    } catch(_) {}
+    // Bouton d'ajout de catégorie géré par le Header Actions Handler unifié ci-dessus
     
-    } // End of initializeContribForm()
+  } // End of initializeContribForm()
   }
 
   // Fonction helper exportée pour vérifier si l'utilisateur peut éditer une ville
@@ -2048,6 +2095,9 @@
       return false;
     }
   };
+
+  // Exposer les fonctions de chargement des modales
+  win.loadInviteModalTemplate = loadInviteModalTemplate;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', setupContrib);

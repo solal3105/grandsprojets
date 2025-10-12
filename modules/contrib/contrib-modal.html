@@ -1,14 +1,15 @@
 <!-- Contribution modal template -->
 <div id="contrib-overlay" class="gp-modal-overlay gp-modal--glass" role="dialog" aria-modal="true" aria-labelledby="contrib-title" aria-hidden="true" style="display:none">
   <div class="gp-modal" role="document">
-    <div class="gp-modal-header">
-      <button id="contrib-back" class="gp-btn gp-btn--secondary" style="display:none; margin-right:8px;">
+    <header class="gp-modal-header">
+      <button id="contrib-back" class="gp-modal-back" style="display:none;">
         <i class="fa fa-arrow-left" aria-hidden="true"></i>
         <span>Retour</span>
       </button>
-      <div class="gp-modal-title" id="contrib-title">Proposer une contribution</div>
+      <h1 class="gp-modal-title" id="contrib-title">Proposer une contribution</h1>
+      <div class="gp-modal-header-actions" id="contrib-header-actions"></div>
       <button class="gp-modal-close" id="contrib-close" aria-label="Fermer">&times;</button>
-    </div>
+    </header>
     <div class="gp-modal-body">
       <!-- Landing: choix initial (affiché au premier lancement) -->
       <section id="contrib-landing" class="contrib-landing" role="region" aria-label="Choisir une action" hidden>
@@ -32,8 +33,21 @@
           </button>
         </div>
         
-        <h3 class="landing-title">Que voulez-vous faire&nbsp;?</h3>
-        <div class="landing-cards" role="list">
+        <!-- Sélecteur de ville -->
+        <div class="landing-city-selector" id="landing-city-selector-container">
+          <label for="landing-city-select" class="landing-city-label">
+            <i class="fa-solid fa-location-dot"></i>
+            Sélectionnez votre collectivité
+          </label>
+          <select id="landing-city-select" class="landing-city-select" required>
+            <option value="">-- Choisissez une ville --</option>
+            <!-- Options peuplées dynamiquement -->
+          </select>
+          <p class="landing-city-help">Cette ville sera utilisée pour toutes vos contributions</p>
+        </div>
+        
+        <h3 class="landing-title" id="landing-actions-title" style="display:none;">Que voulez-vous faire&nbsp;?</h3>
+        <div class="landing-cards" id="landing-cards" role="list" style="display:none;">
           <button class="choice-card" role="listitem" id="landing-create" data-target="create" aria-describedby="landing-create-desc">
             <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-plus-circle"></i></span>
             <span class="card-title">Créer une contribution</span>
@@ -146,13 +160,8 @@
           <input type="text" id="contrib-project-name" name="project_name" required placeholder="Ex: Tram T10 – Phase 2" />
         </div>
 
-        <div class="form-row contrib-step-1">
-          <label for="contrib-city">Code collectivité</label>
-          <select id="contrib-city" name="ville">
-            <option value="">Aucun</option>
-            <!-- Options peuplées dynamiquement depuis la base -->
-          </select>
-        </div>
+        <!-- Champ ville caché - Pré-rempli depuis le landing -->
+        <input type="hidden" id="contrib-city" name="ville" />
 
         <div class="form-row contrib-step-1">
           <label for="contrib-category">Catégorie</label>
@@ -246,17 +255,9 @@
           <div id="contrib-existing-docs" class="contrib-existing-docs" aria-live="polite" style="margin-bottom:8px;"></div>
         </div>
 
-        <div class="form-actions" style="margin-top:12px; display:flex; gap:8px; align-items:center;">
-          <button type="button" id="contrib-prev" class="gp-btn gp-btn--secondary">
-            <span>Précédent</span>
-          </button>
-          <button type="button" id="contrib-next" class="gp-btn">
-            <span>Suivant</span>
-          </button>
-          <button type="submit" id="contrib-submit" class="gp-btn" style="display:none;">
-            <i class="fa fa-paper-plane" aria-hidden="true"></i>
-            <span>Envoyer</span>
-          </button>
+        <!-- Legacy form actions - Supprimé, maintenant dans footer -->
+        <!-- Boutons d'édition spéciaux - restent dans le form car contextuels -->
+        <div class="form-actions" style="margin-top:12px; display:none; gap:8px; align-items:center;">
           <button type="button" id="contrib-cancel-edit" class="gp-btn gp-btn--secondary" style="display:none">
             <span>Annuler la modification</span>
           </button>
@@ -271,256 +272,70 @@
 
       <!-- Panel: Liste des contributions -->
       <section id="contrib-panel-list" role="tabpanel" aria-labelledby="contrib-tab-list" hidden>
-        <div class="form-row" style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
-          <div style="flex:1 1 220px;">
-            <label for="contrib-search">Rechercher</label>
-            <div class="contrib-searchbar">
-              <i class="fa fa-search" aria-hidden="true"></i>
-              <input type="text" id="contrib-search" placeholder="Nom du projet, description…" />
+        <!-- Toolbar de filtres -->
+        <div class="list-toolbar">
+          <div class="list-toolbar__primary">
+            <!-- Recherche -->
+            <div class="search-input-wrapper">
+              <i class="fa-solid fa-search search-input-icon"></i>
+              <input 
+                type="text" 
+                id="contrib-search" 
+                class="search-input"
+                placeholder="Rechercher un projet..." 
+                autocomplete="off"
+              />
+            </div>
+
+            <!-- Filtres secondaires -->
+            <div class="list-toolbar__filters">
+              <div class="filter-group">
+                <select id="contrib-filter-category" class="filter-select" aria-label="Filtrer par catégorie">
+                  <option value="">Toutes les catégories</option>
+                </select>
+              </div>
+
+              <div class="filter-group">
+                <select id="contrib-sort" class="filter-select" aria-label="Trier par">
+                  <option value="updated_at:desc">Plus récentes</option>
+                  <option value="updated_at:asc">Plus anciennes</option>
+                  <option value="project_name:asc">Nom A→Z</option>
+                  <option value="project_name:desc">Nom Z→A</option>
+                </select>
+              </div>
+
+              <label class="filter-toggle">
+                <input type="checkbox" id="contrib-mine-only" />
+                <span class="filter-toggle-label">
+                  <i class="fa-solid fa-user"></i>
+                  Mes contributions uniquement
+                </span>
+              </label>
             </div>
           </div>
-          <div style="flex:0 0 200px;">
-            <label for="contrib-filter-category">Catégorie</label>
-            <select id="contrib-filter-category">
-              <option value="">Toutes</option>
-              <!-- Options peuplées dynamiquement selon la ville -->
-            </select>
-          </div>
-          <div style="flex:0 0 200px;">
-            <label for="contrib-sort">Tri</label>
-            <select id="contrib-sort">
-              <option value="updated_at:desc">Plus récentes</option>
-              <option value="updated_at:asc">Plus anciennes</option>
-            </select>
-          </div>
-          <div style="flex:0 0 auto; align-self:center;">
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-              <input type="checkbox" id="contrib-mine-only" />
-              <span>Mes contributions</span>
-            </label>
+        </div>
+
+        <!-- Liste des contributions -->
+        <div class="list-container">
+          <div id="contrib-list" class="contrib-list" role="list">
+            <!-- Items injectés en JS -->
+            <div id="contrib-list-sentinel" style="height:1px;"></div>
           </div>
         </div>
-        <div id="contrib-list" class="contrib-list" role="list" style="max-height:340px; overflow:auto;">
-          <!-- Items injectés en JS -->
-          <div id="contrib-list-sentinel" style="height:1px;"></div>
-        </div>
-        <div id="contrib-list-status" role="status" aria-live="polite" style="margin-top:6px; font-size:0.9em; opacity:0.8;"></div>
       </section>
 
       <!-- Panel: Gestion des catégories -->
       <section id="contrib-panel-categories" role="tabpanel" aria-label="Gérer les catégories" hidden>
-        <div id="category-ville-selector-container" style="margin-bottom:20px; padding:16px; border:1px solid var(--gray-300); border-radius:8px; background:var(--gray-50); opacity:0;">
-          <label for="category-ville-selector" style="display:block; font-weight:600; margin-bottom:8px;">
-            <i class="fa-solid fa-city"></i> Sélectionner une collectivité
-          </label>
-          <select id="category-ville-selector" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; font-size:1em;">
-            <option value="">-- Choisir une collectivité --</option>
-            <!-- Options peuplées dynamiquement -->
-          </select>
-        </div>
-        
         <div id="categories-content" style="display:none; transition:opacity 0.2s ease-in;">
-          <div style="margin-bottom:16px;">
-            <button id="category-add-btn" class="gp-btn gp-btn--primary" type="button">
-              <i class="fa-solid fa-plus"></i> Nouvelle catégorie
-            </button>
-          </div>
           <div id="categories-list" class="categories-list"></div>
         </div>
         
-        <!-- Formulaire de création/édition de catégorie - Design moderne -->
-        <div id="category-form-container" style="display:none; margin-top:24px; padding:0; border:none; background:transparent;">
-          <!-- Header moderne avec retour -->
-          <div style="display:flex; align-items:center; gap:16px; margin-bottom:24px; padding-bottom:16px; border-bottom:2px solid var(--border, var(--gray-200));">
-            <button type="button" id="category-form-back" class="gp-btn gp-btn--secondary" style="display:none; padding:8px 12px; border-radius:8px;">
-              <i class="fa-solid fa-arrow-left"></i>
-            </button>
-            <div style="flex:1;">
-              <h3 id="category-form-title" style="margin:0; font-size:24px; font-weight:700; color:var(--text-strong, var(--gray-900));">Nouvelle catégorie</h3>
-              <p style="margin:4px 0 0 0; font-size:14px; color:var(--text-muted, var(--gray-500)); font-weight:400;">Configurez l'apparence et le comportement de votre catégorie</p>
-            </div>
-          </div>
-          
-          <form id="category-form" style="max-width:800px;">
-            <input type="hidden" id="category-edit-mode" value="create" />
-            <input type="hidden" id="category-original-name" value="" />
-            
-            <!-- Section: Informations de base -->
-            <div style="margin-bottom:32px;">
-              <h4 style="margin:0 0 16px 0; font-size:16px; font-weight:600; color:var(--text-strong, var(--gray-900)); display:flex; align-items:center; gap:8px;">
-                <i class="fa-solid fa-circle-info" style="color:var(--accent, var(--primary)); font-size:18px;"></i>
-                Informations de base
-              </h4>
-              
-              <div style="display:grid; gap:20px;">
-                <!-- Nom + Ordre sur la même ligne -->
-                <div style="background:var(--surface, var(--white)); padding:16px; border-radius:12px; border:1px solid var(--border, var(--gray-200));">
-                  <div style="display:grid; grid-template-columns:1fr auto; gap:16px; align-items:start;">
-                    <div>
-                      <label for="category-name" style="display:block; font-size:13px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Nom de la catégorie</label>
-                      <input type="text" id="category-name" name="category" required placeholder="Ex: mobilite" 
-                             style="width:100%; padding:12px; border:1px solid var(--border, var(--gray-200)); border-radius:8px; font-size:15px; background:var(--surface, var(--white)); box-sizing:border-box;" />
-                      <small style="display:block; margin-top:8px; font-size:12px; color:var(--text-muted, var(--gray-400));">
-                        <i class="fa-solid fa-lightbulb" style="color:var(--warning);"></i> Identifiant technique
-                      </small>
-                    </div>
-                    <div style="min-width:120px;">
-                      <label for="category-order" style="display:block; font-size:13px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Ordre</label>
-                      <input type="number" id="category-order" name="display_order" value="100" min="0" step="1" 
-                             style="width:100%; padding:12px; border:1px solid var(--border, var(--gray-200)); border-radius:8px; font-size:15px; background:var(--surface, var(--white)); box-sizing:border-box;" />
-                    </div>
-                  </div>
-                </div>
-                
-                <!-- Icône -->
-                <div style="background:var(--surface, var(--white)); padding:16px; border-radius:12px; border:1px solid var(--border, var(--gray-200));">
-                  <label for="category-icon" style="display:block; font-size:13px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Icône</label>
-                  <div style="display:flex; gap:12px; align-items:stretch;">
-                    <input type="text" id="category-icon" name="icon_class" required placeholder="fa-solid fa-bus" 
-                           style="flex:1; padding:12px; border:1px solid var(--border, var(--gray-200)); border-radius:8px; font-size:14px; font-family:monospace; background:var(--surface, var(--white));" />
-                    <div id="category-icon-preview" style="width:56px; height:56px; display:flex; align-items:center; justify-content:center; border:2px solid var(--border, var(--gray-200)); border-radius:10px; background:linear-gradient(135deg, var(--gray-50) 0%, var(--gray-300) 100%); font-size:24px; transition:all 0.3s; box-shadow:0 2px 8px var(--black-alpha-08);">
-                      <i class="fa-solid fa-question" aria-hidden="true" style="color:var(--gray-500);"></i>
-                    </div>
-                    <button type="button" id="category-icon-picker-btn" class="gp-btn gp-btn--secondary" 
-                            style="white-space:nowrap; padding:12px 20px; border-radius:8px; font-weight:600; display:flex; align-items:center; gap:8px;">
-                      <i class="fa-solid fa-icons"></i> Choisir
-                    </button>
-                  </div>
-                  <small style="display:block; margin-top:8px; font-size:12px; color:var(--text-muted, var(--gray-400));">
-                    <a href="https://fontawesome.com/search?o=r&m=free" target="_blank" rel="noopener" style="color:var(--accent, var(--primary)); text-decoration:none; font-weight:500;">
-                      <i class="fa-solid fa-arrow-up-right-from-square"></i> Parcourir les icônes FontAwesome
-                    </a>
-                  </small>
-                  
-                  <!-- Icon Picker moderne -->
-                  <div id="category-icon-picker" style="display:none; margin-top:16px; padding:16px; border:1px solid var(--border, var(--gray-200)); border-radius:12px; background:var(--surface-alt, var(--gray-50)); max-height:320px; overflow-y:auto;">
-                    <div style="margin-bottom:12px; font-size:14px; font-weight:600; color:var(--text-strong, var(--gray-700));">
-                      <i class="fa-solid fa-grid-2"></i> Sélectionner une icône
-                    </div>
-                    <div id="category-icon-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(56px, 1fr)); gap:8px;">
-                      <!-- Icons populated by JS -->
-                    </div>
-                  </div>
-                </div>
-                
-                <!-- Champ ville caché mais toujours présent pour le JS -->
-                <input type="hidden" id="category-ville" name="ville" value="default" />
-              </div>
-            </div>
-
-            <!-- Section: Layers associés (compact) -->
-            <div style="margin-bottom:32px;">
-              <div style="background:var(--surface, var(--white)); padding:16px; border-radius:12px; border:1px solid var(--border, var(--gray-200));">
-                <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-                  <i class="fa-solid fa-layer-group" style="color:var(--accent, var(--primary)); font-size:16px;"></i>
-                  <div style="flex:1;">
-                    <div style="font-size:14px; font-weight:600; color:var(--text-strong, var(--gray-700));">Layers additionnels</div>
-                    <div style="font-size:12px; color:var(--text-muted, var(--gray-500)); margin-top:2px;">Sélectionnez les couches à afficher en plus de la catégorie</div>
-                  </div>
-                </div>
-                <div id="category-layers-checkboxes" style="display:flex; flex-wrap:wrap; gap:8px;">
-                  <!-- Populated by JS -->
-                </div>
-              </div>
-            </div>
-
-            <!-- Section: Styles personnalisés avec prévisualisation -->
-            <div style="margin-bottom:32px;">
-              <h4 style="margin:0 0 16px 0; font-size:16px; font-weight:600; color:var(--text-strong, var(--gray-900)); display:flex; align-items:center; gap:8px;">
-                <i class="fa-solid fa-palette" style="color:var(--accent, var(--primary)); font-size:18px;"></i>
-                Styles personnalisés
-              </h4>
-              <div style="background:var(--surface, var(--white)); padding:20px; border-radius:12px; border:1px solid var(--border, var(--gray-200));">
-                
-                <!-- Prévisualisation en temps réel -->
-                <div id="style-preview-container" style="margin-bottom:24px; padding:20px; background:linear-gradient(135deg, var(--gray-50) 0%, var(--gray-300) 100%); border-radius:10px; border:1px solid var(--border, var(--gray-200));">
-                  <div style="font-size:12px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">
-                    <i class="fa-solid fa-eye"></i> Prévisualisation
-                  </div>
-                  <svg width="100%" height="80" style="background:var(--white); border-radius:8px; border:1px solid var(--border, var(--gray-200));">
-                    <line id="style-preview-line" x1="20" y1="40" x2="280" y2="40" stroke="var(--black)" stroke-width="3" />
-                    <rect id="style-preview-polygon" x="300" y="15" width="80" height="50" fill="none" stroke="var(--black)" stroke-width="3" />
-                  </svg>
-                </div>
-                
-                <!-- Contrôles de style en grid -->
-                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:20px;">
-                  <div>
-                    <label for="category-style-color" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Couleur</label>
-                    <input type="color" id="category-style-color" value="#000000" style="width:100%; height:48px; border:2px solid var(--border, var(--gray-200)); border-radius:8px; cursor:pointer; transition:all 0.2s;">
-                  </div>
-                  <div>
-                    <label for="category-style-weight" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Épaisseur</label>
-                    <input type="number" id="category-style-weight" min="0" max="10" step="1" placeholder="3" style="width:100%; padding:12px; border:1px solid var(--border, var(--gray-200)); border-radius:8px; font-size:15px;">
-                  </div>
-                  <div>
-                    <label for="category-style-dasharray" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Pointillés</label>
-                    <input type="text" id="category-style-dasharray" placeholder="Ex: 5,5" style="width:100%; padding:12px; border:1px solid var(--border, var(--gray-200)); border-radius:8px; font-size:14px; font-family:monospace;">
-                  </div>
-                  <div>
-                    <label for="category-style-opacity" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Opacité</label>
-                    <input type="number" id="category-style-opacity" min="0" max="1" step="0.1" placeholder="1" style="width:100%; padding:12px; border:1px solid var(--border, var(--gray-200)); border-radius:8px; font-size:15px;">
-                  </div>
-                </div>
-                
-                <!-- Options de remplissage (polygones) -->
-                <div style="padding:16px; background:var(--surface-alt, var(--gray-50)); border-radius:10px; border:1px solid var(--border, var(--gray-200));">
-                  <label style="display:flex; align-items:center; gap:10px; cursor:pointer; margin-bottom:16px;">
-                    <input type="checkbox" id="category-style-fill" style="width:20px; height:20px; cursor:pointer; accent-color:var(--accent, var(--primary));">
-                    <span style="font-weight:600; font-size:14px; color:var(--text-strong, var(--gray-700));">
-                      <i class="fa-solid fa-fill-drip"></i> Activer le remplissage (polygones)
-                    </span>
-                  </label>
-                  <div id="category-style-fill-options" style="display:none;">
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-                      <div>
-                        <label for="category-style-fillcolor" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Couleur de remplissage</label>
-                        <input type="color" id="category-style-fillcolor" value="var(--gray-400)999" style="width:100%; height:48px; border:2px solid var(--border, var(--gray-200)); border-radius:8px; cursor:pointer;">
-                      </div>
-                      <div>
-                        <label for="category-style-fillopacity" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Opacité du remplissage</label>
-                        <input type="number" id="category-style-fillopacity" min="0" max="1" step="0.1" placeholder="0.3" style="width:100%; padding:12px; border:1px solid var(--border, var(--gray-200)); border-radius:8px; font-size:15px;">
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Actions -->
-            <div style="display:flex; gap:12px; padding-top:24px; border-top:2px solid var(--border, var(--gray-200));">
-              <button type="submit" class="gp-btn gp-btn--primary" style="padding:14px 28px; border-radius:10px; font-weight:600; font-size:15px; display:flex; align-items:center; gap:10px;">
-                <i class="fa-solid fa-check"></i> Enregistrer la catégorie
-              </button>
-              <button type="button" id="category-form-cancel" class="gp-btn gp-btn--secondary" style="padding:14px 24px; border-radius:10px; font-weight:600; font-size:15px;">
-                Annuler
-              </button>
-            </div>
-          </form>
-        </div>
+        <!-- Formulaire de catégorie déplacé dans contrib-category-modal.html -->
       </section>
 
       <!-- Panel: Gérer les utilisateurs -->
       <section id="contrib-panel-users" class="contrib-panel" hidden>
-        <div class="panel-header">
-          <h2 style="margin:0 0 8px 0;display:flex;align-items:center;gap:8px;">
-            <i class="fa-solid fa-users" style="color:var(--info);"></i>
-            Gérer les utilisateurs
-          </h2>
-          <p class="panel-subtitle" style="margin:0;color:var(--gray-500);font-size:14px;">Visualisez et modifiez les rôles des utilisateurs partageant vos villes</p>
-        </div>
-        
-        <div class="panel-toolbar" style="margin:16px 0;display:flex;gap:12px;align-items:center;">
-          <button 
-            type="button" 
-            id="invite-user-btn" 
-            class="gp-btn gp-btn--primary"
-            style="padding:10px 16px;display:flex;align-items:center;gap:8px;white-space:nowrap;"
-          >
-            <i class="fa-solid fa-user-plus"></i>
-            Inviter un utilisateur
-          </button>
-          
+        <div class="panel-toolbar" style="margin:16px 0;">
           <div class="search-box" style="position:relative;flex:1;">
             <i class="fa-solid fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--gray-400);"></i>
             <input 
@@ -540,30 +355,29 @@
 
       <!-- Panel: Gérer les villes -->
       <section id="contrib-panel-cities" class="contrib-panel" hidden>
-        <div class="panel-header">
-          <h2 style="margin:0 0 8px 0;display:flex;align-items:center;gap:8px;">
-            <i class="fa-solid fa-city" style="color:var(--info);"></i>
-            Gérer les villes
-          </h2>
-          <p class="panel-subtitle" style="margin:0;color:var(--gray-500);font-size:14px;">Ajoutez ou modifiez les villes disponibles dans l'application</p>
-        </div>
-        
-        <div class="panel-toolbar" style="margin:16px 0;">
-          <button 
-            type="button" 
-            id="add-city-btn" 
-            class="gp-btn gp-btn--primary"
-            style="padding:10px 16px;display:flex;align-items:center;gap:8px;"
-          >
-            <i class="fa-solid fa-plus"></i>
-            Ajouter une ville
-          </button>
-        </div>
         
         <div id="cities-status" class="panel-status" role="status" aria-live="polite" style="margin:12px 0;color:var(--gray-500);font-size:14px;"></div>
         
         <div id="cities-list" class="cities-list" style="max-height:500px;overflow-y:auto;padding-right:8px;"></div>
       </section>
     </div>
+    
+    <footer class="gp-modal-footer" id="contrib-footer">
+      <div class="gp-modal-footer-left">
+        <span class="footer-status" id="contrib-status"></span>
+      </div>
+      <div class="gp-modal-footer-right">
+        <button type="button" id="contrib-prev-footer" class="gp-btn gp-btn--secondary">
+          <span>Précédent</span>
+        </button>
+        <button type="button" id="contrib-next-footer" class="gp-btn gp-btn--primary">
+          <span>Suivant</span>
+        </button>
+        <button type="submit" id="contrib-submit-footer" class="gp-btn gp-btn--primary" style="display:none;">
+          <i class="fa fa-paper-plane" aria-hidden="true"></i>
+          <span>Envoyer</span>
+        </button>
+      </div>
+    </footer>
   </div>
 </div>

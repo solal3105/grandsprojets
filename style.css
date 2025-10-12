@@ -46,3 +46,6 @@
 
 /* 13 - Modal system - Système unifié pour toutes les modales */
 @import url('./styles/13-modal-system.css');
+
+/* 14 - Modal components - Composants avancés pour modales (breadcrumb, sections, footer) */
+@import url('./styles/14-modal-components.css');

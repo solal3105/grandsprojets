@@ -334,7 +334,8 @@
       categoryIconGrid,
       categoryIconInput,
       categoryVilleSelect,
-      categoryLayersCheckboxes
+      categoryLayersCheckboxes,
+      selectedCity  // Ville pré-sélectionnée depuis le landing
     } = elements || {};
     
     try {
@@ -342,33 +343,37 @@
       if (categoryFormContainer) categoryFormContainer.style.display = 'none';
       if (categoryIconPicker) categoryIconPicker.style.display = 'none';
       
+      // Cacher l'ancien sélecteur de ville (legacy)
       if (categoryVilleSelectorContainer) {
-        categoryVilleSelectorContainer.style.opacity = '0';
-        categoryVilleSelectorContainer.style.display = '';
-      }
-      if (categoriesContent) categoriesContent.style.display = 'none';
-      
-      // Charger les données en parallèle
-      await Promise.all([
-        populateCategoryVilleSelector(categoryVilleSelector, onRefreshCategories),
-        populateCategoryFormVilleSelector(categoryVilleSelect),
-        Promise.resolve(populateIconPicker(categoryIconGrid, categoryIconInput, categoryIconPicker))
-      ]);
-      
-      // Afficher le sélecteur avec transition
-      if (categoryVilleSelectorContainer) {
-        categoryVilleSelectorContainer.style.transition = 'opacity 0.2s ease-in';
-        categoryVilleSelectorContainer.style.opacity = '1';
+        categoryVilleSelectorContainer.style.display = 'none';
       }
       
-      // Focus
-      if (categoryVilleSelector) categoryVilleSelector.focus();
+      // Afficher le contenu directement si ville sélectionnée
+      if (selectedCity && categoriesContent) {
+        categoriesContent.style.display = '';
+        
+        // Charger les données nécessaires
+        await Promise.all([
+          populateCategoryFormVilleSelector(categoryVilleSelect),
+          Promise.resolve(populateIconPicker(categoryIconGrid, categoryIconInput, categoryIconPicker))
+        ]);
+        
+        // Pré-sélectionner la ville dans le formulaire
+        if (categoryVilleSelect) {
+          categoryVilleSelect.value = selectedCity;
+        }
+        
+        // Charger les catégories pour cette ville
+        if (onRefreshCategories) {
+          await onRefreshCategories();
+        }
+      } else {
+        // Pas de ville sélectionnée - ne rien afficher
+        if (categoriesContent) categoriesContent.style.display = 'none';
+        console.warn('[contrib-categories] No city selected');
+      }
     } catch(e) {
       console.error('[contrib-categories] loadCategoriesPanel error:', e);
-      if (categoryVilleSelectorContainer) {
-        categoryVilleSelectorContainer.style.display = '';
-        categoryVilleSelectorContainer.style.opacity = '1';
-      }
     }
   }
 

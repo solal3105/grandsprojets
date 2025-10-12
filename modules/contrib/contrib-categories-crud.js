@@ -15,14 +15,16 @@
    * @param {Function} deleteCategory - Callback pour supprimer une catégorie
    */
   async function refreshCategoriesList(elements, showCategoryForm, deleteCategory) {
-    const { categoriesList, categoriesContent, categoryVilleSelector } = elements;
+    const { categoriesList, categoriesContent, categoryVilleSelector, selectedCity } = elements;
     
     try {
       if (!categoriesList || !win.supabaseService) return;
       
-      const ville = categoryVilleSelector?.value || '';
+      // Utiliser selectedCity en priorité, sinon fallback sur le sélecteur (legacy)
+      const ville = selectedCity || categoryVilleSelector?.value || '';
       if (!ville) {
         if (categoriesContent) categoriesContent.style.display = 'none';
+        console.warn('[contrib-categories-crud] No city selected for categories');
         return;
       }
       
@@ -164,7 +166,8 @@
       categoryVilleSelectorContainer,
       categoriesContent,
       categoryIconPreview,
-      categoryVilleSelector
+      categoryVilleSelector,
+      selectedCity  // Ville pré-sélectionnée
     } = elements;
     
     try {
@@ -259,13 +262,13 @@
         if (categoryIconInput) categoryIconInput.value = '';
         if (categoryOrderInput) categoryOrderInput.value = '100';
         
-        // Default to selected city from main selector
-        const selectedCity = categoryVilleSelector?.value || win.activeCity || '';
-        if (selectedCity) {
-          categoryVilleSelect.value = selectedCity;
+        // Default to selected city from landing or main selector
+        const cityToUse = selectedCity || categoryVilleSelector?.value || win.activeCity || '';
+        if (cityToUse) {
+          categoryVilleSelect.value = cityToUse;
           // Charger les layers pour la ville sélectionnée
           const ContribCategories = win.ContribCategories || {};
-          ContribCategories.populateCategoryLayersCheckboxes?.(selectedCity, categoryLayersCheckboxes);
+          ContribCategories.populateCategoryLayersCheckboxes?.(cityToUse, categoryLayersCheckboxes);
         }
         
         // Réinitialiser les champs de styles avec des valeurs par défaut valides
@@ -471,9 +474,9 @@
       const display_order = parseInt(categoryOrderInput.value) || 100;
       let ville = categoryVilleSelect.value.trim().toLowerCase();
       
-      // Récupérer les layers sélectionnés
-      const selectedLayers = Array.from(document.querySelectorAll('input[name="category-layer-checkbox"]:checked'))
-        .map(cb => cb.value);
+      // Les layers ne sont plus sélectionnés ici car la ville est fixée depuis le landing
+      // On envoie un tableau vide pour layers_to_display
+      const selectedLayers = [];
       
       // Récupérer les styles personnalisés
       const category_styles = {};

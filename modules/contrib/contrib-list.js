@@ -16,6 +16,7 @@
     page: 1,
     pageSize: 10,
     mineOnly: false,
+    filterCity: null,  // Filtrer par ville
     loading: false,
     done: false,
     items: []
@@ -24,16 +25,22 @@
   let io = null; // IntersectionObserver for infinite scroll
 
   // ============================================================================
-  // LIST STATUS
+  // LIST STATUS (DEPRECATED - Removed)
   // ============================================================================
 
   /**
-   * Définit le message de statut de la liste
-   * @param {string} msg - Message à afficher
-   * @param {HTMLElement} listStatusEl - Élément de statut
+   * Legacy function - No longer used
    */
-  function setListStatus(msg, listStatusEl) {
-    if (listStatusEl) listStatusEl.textContent = msg || '';
+  function setListStatus() {
+    // Deprecated - status messages removed for cleaner UI
+  }
+
+  /**
+   * Met à jour le compteur de contributions (DEPRECATED - élément retiré)
+   * @param {number} count - Nombre total de contributions
+   */
+  function updateListCount(count) {
+    // No-op - Le header avec compteur a été retiré
   }
 
   // ============================================================================
@@ -70,15 +77,12 @@
         <div class="empty-illu" aria-hidden="true" style="font-size:42px;color:var(--gray-400)"><i class="fa-regular fa-folder-open"></i></div>
         <div class="empty-title" style="font-size:18px;font-weight:600;color:var(--gray-700)">Aucune contribution pour le moment</div>
         <div class="empty-sub" style="font-size:14px;opacity:0.8;max-width:520px">Créez votre première contribution pour proposer un projet et le visualiser sur la carte.</div>
-        <div><button type="button" id="btn-empty-create" class="gp-btn" style="padding:8px 14px;border-radius:10px;background:var(--primary);color:var(--white);border:none;cursor:pointer;box-shadow:0 3px 10px var(--primary-alpha-3);">Créer une contribution</button></div>
       `;
       if (listSentinel && listSentinel.parentNode === listEl) {
         listEl.insertBefore(wrap, listSentinel);
       } else {
         listEl.appendChild(wrap);
       }
-      const btn = wrap.querySelector('#btn-empty-create');
-      if (btn && onCreateClick) btn.addEventListener('click', onCreateClick);
     } catch(_) {}
   }
 
@@ -170,7 +174,7 @@
    * @param {Object} elements - Éléments DOM et callbacks
    */
   async function doDeleteContribution(id, projectName, elements) {
-    const { listEl, listStatusEl, onExitEditMode, onRefreshList } = elements || {};
+    const { listEl, onExitEditMode, onRefreshList } = elements || {};
     
     try {
       if (!id) return;
@@ -212,7 +216,6 @@
       const ok = await openDeleteConfirmModal({ id, projectName: effectiveName, filePaths, dossiersCount });
       if (!ok) return;
       
-      setListStatus('Suppression en cours…', listStatusEl);
       try { if (listEl) listEl.setAttribute('aria-busy', 'true'); } catch(_) {}
       
       // Ensure authenticated session
@@ -220,7 +223,6 @@
       if (!session || !session.user) return;
       
       const result = await (win.supabaseService && win.supabaseService.deleteContribution(id));
-      setListStatus('', listStatusEl);
       
       if (!result || result.success !== true) {
         if (win.ContribUtils?.showToast) {
@@ -257,142 +259,199 @@
   // ============================================================================
 
   /**
-   * Rend un élément de liste
+   * Rend un item de contribution moderne
    * @param {Object} item - Données de la contribution
    * @param {Function} onEdit - Callback pour éditer
    * @param {Function} onDelete - Callback pour supprimer
    * @returns {HTMLElement} Élément DOM
    */
   function renderItem(item, onEdit, onDelete) {
-    const el = document.createElement('div');
-    el.className = 'contrib-list-item';
-    el.setAttribute('role', 'listitem');
+    const card = document.createElement('article');
+    card.className = 'contrib-card';
+    card.setAttribute('data-contrib-id', item.id);
     
-    const cover = item.cover_url
-      ? `<div class="contrib-thumb"><img src="${item.cover_url}" alt="" /></div>`
-      : `<div class="contrib-thumb contrib-thumb--placeholder" aria-hidden="true"><i class="fa fa-file-image-o" aria-hidden="true"></i></div>`;
+    // Image de couverture
+    const coverHtml = item.cover_url
+      ? `<img src="${item.cover_url}" alt="${item.project_name || 'Projet'}" class="contrib-card__image" loading="lazy" />`
+      : `<div class="contrib-card__image contrib-card__image--placeholder">
+           <i class="fa-solid fa-image"></i>
+         </div>`;
     
-    const when = item.created_at ? new Date(item.created_at).toLocaleString() : '';
+    // Badge de statut
+    const statusBadge = item.approved
+      ? `<span class="contrib-card__badge contrib-card__badge--approved">
+           <i class="fa-solid fa-circle-check"></i> Approuvé
+         </span>`
+      : `<span class="contrib-card__badge contrib-card__badge--pending">
+           <i class="fa-solid fa-clock"></i> En attente
+         </span>`;
     
-    el.innerHTML = `
-      ${cover}
-      <div class="contrib-item-right">
-        <div class="contrib-item-main" role="button" tabindex="0">
-          <div class="contrib-title-row">
-            <span class="contrib-title">${item.project_name || '(sans nom)'} <span class="contrib-category">· ${item.category || ''}</span></span>
-            ${item.approved === true
-              ? '<span class="badge-approved">Approuvé</span>'
-              : '<span class="badge-pending">En attente</span>'}
-          </div>
-          <div class="contrib-meta">Créé le: ${when}</div>
-          ${item.meta ? `<div class="contrib-extra">${item.meta}</div>` : ''}
+    // Date formatée
+    const createdDate = item.created_at 
+      ? new Date(item.created_at).toLocaleDateString('fr-FR', { 
+          day: 'numeric', 
+          month: 'short', 
+          year: 'numeric' 
+        })
+      : '';
+    
+    // Catégorie avec icône
+    const categoryIcon = getCategoryIcon(item.category);
+    
+    card.innerHTML = `
+      <div class="contrib-card__media">
+        ${coverHtml}
+        <div class="contrib-card__overlay">
+          ${statusBadge}
         </div>
-        <div class="contrib-item-actions">
-          <button type="button" class="contrib-item-delete" aria-label="Supprimer" title="Supprimer">
-            <i class="fa fa-trash" aria-hidden="true"></i>
-          </button>
+      </div>
+      
+      <div class="contrib-card__content">
+        <div class="contrib-card__header">
+          <h3 class="contrib-card__title">${escapeHtml(item.project_name || 'Sans nom')}</h3>
+          ${item.category ? `
+            <div class="contrib-card__category">
+              <i class="fa-solid ${categoryIcon}"></i>
+              <span>${escapeHtml(item.category)}</span>
+            </div>
+          ` : ''}
         </div>
+        
+        ${item.description ? `
+          <p class="contrib-card__description">${escapeHtml(item.description).substring(0, 120)}${item.description.length > 120 ? '...' : ''}</p>
+        ` : ''}
+        
+        <div class="contrib-card__meta">
+          <span class="contrib-card__date">
+            <i class="fa-solid fa-calendar-days"></i>
+            ${createdDate}
+          </span>
+        </div>
+      </div>
+      
+      <div class="contrib-card__actions">
+        <button type="button" class="contrib-card__action contrib-card__action--edit" title="Modifier">
+          <i class="fa-solid fa-pen"></i>
+        </button>
+        <button type="button" class="contrib-card__action contrib-card__action--delete" title="Supprimer">
+          <i class="fa-solid fa-trash"></i>
+        </button>
       </div>
     `;
     
-    // Runtime enforcement: ensure two-column structure
-    try {
-      el.style.display = 'grid';
-      el.style.gridTemplateColumns = '96px minmax(0, 1fr)';
-      el.style.alignItems = 'center';
-      el.style.width = '100%';
-      el.style.boxSizing = 'border-box';
-
-      const right = el.querySelector('.contrib-item-right');
-      if (right) {
-        right.style.display = 'flex';
-        right.style.flexDirection = 'column';
-        right.style.gap = '8px';
-        right.style.minWidth = '0';
-        right.style.maxWidth = '100%';
-      }
-
-      const main = el.querySelector('.contrib-item-main');
-      if (main) { 
-        main.style.minWidth = '0'; 
-        main.style.maxWidth = '100%'; 
-      }
-    } catch(_) {}
+    // Événements
+    const editBtn = card.querySelector('.contrib-card__action--edit');
+    const deleteBtn = card.querySelector('.contrib-card__action--delete');
+    const content = card.querySelector('.contrib-card__content');
     
-    const main = el.querySelector('.contrib-item-main');
-    const delBtn = el.querySelector('.contrib-item-delete');
-
-    // Admin-only: toggle approved
-    try {
-      const isAdmin = !!win.__CONTRIB_IS_ADMIN;
-      if (isAdmin) {
-        const actions = el.querySelector('.contrib-item-actions');
-        if (actions) {
-          const wrap = document.createElement('label');
-          wrap.className = 'contrib-approve-toggle';
-          wrap.title = 'Basculer le statut approuvé';
-          wrap.innerHTML = `<input type="checkbox" class="contrib-item-approve" ${item.approved ? 'checked' : ''} aria-label="Approuvé"/> <span>Approuvé</span>`;
-          actions.prepend(wrap);
-          const checkbox = wrap.querySelector('.contrib-item-approve');
-          checkbox.addEventListener('change', async () => {
-            const newVal = !!checkbox.checked;
-            checkbox.disabled = true;
-            try {
-              const res = await (win.supabaseService && win.supabaseService.setContributionApproved(item.id, newVal));
-              if (res && !res.error) {
-                item.approved = newVal;
-                // Update badges
-                const badgeApproved = el.querySelector('.badge-approved');
-                const badgePending = el.querySelector('.badge-pending');
-                if (newVal) {
-                  if (!badgeApproved && badgePending) { 
-                    badgePending.outerHTML = '<span class="badge-approved">Approuvé</span>'; 
-                  }
-                } else {
-                  if (!badgePending && badgeApproved) { 
-                    badgeApproved.outerHTML = '<span class="badge-pending">En attente</span>'; 
-                  }
-                }
-                if (win.ContribUtils?.showToast) {
-                  win.ContribUtils.showToast('Statut mis à jour.', 'success');
-                }
-              } else {
-                checkbox.checked = !newVal;
-                if (win.ContribUtils?.showToast) {
-                  win.ContribUtils.showToast("Impossible de mettre à jour l'approbation.", 'error');
-                }
-              }
-            } catch (_) {
-              checkbox.checked = !newVal;
-              if (win.ContribUtils?.showToast) {
-                win.ContribUtils.showToast("Erreur lors de la mise à jour de l'approbation.", 'error');
-              }
-            } finally {
-              checkbox.disabled = false;
-            }
-          });
-        }
-      }
-    } catch(_) {}
-    
-    if (main && onEdit) {
-      main.addEventListener('click', () => onEdit(item));
-      main.addEventListener('keydown', (evt) => {
-        if (evt.key === 'Enter' || evt.key === ' ') {
-          evt.preventDefault();
-          main.click();
-        }
+    if (editBtn && onEdit) {
+      editBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onEdit(item);
       });
     }
     
-    if (delBtn && onDelete) {
-      delBtn.addEventListener('click', (ev) => {
-        ev.stopPropagation();
+    if (deleteBtn && onDelete) {
+      deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
         onDelete(item.id, item.project_name);
       });
     }
     
-    return el;
+    // Cliquer sur le contenu = éditer
+    if (content && onEdit) {
+      content.style.cursor = 'pointer';
+      content.addEventListener('click', () => onEdit(item));
+    }
+    
+    // Admin: Bouton approuver
+    const isAdmin = !!win.__CONTRIB_IS_ADMIN;
+    if (isAdmin) {
+      const actions = card.querySelector('.contrib-card__actions');
+      const btnHtml = `
+        <button type="button" class="contrib-card__action contrib-card__action--approve ${item.approved ? 'is-approved' : ''}" title="${item.approved ? 'Révoquer l\'approbation' : 'Approuver'}">
+          <i class="fa-solid fa-circle-check"></i>
+        </button>
+      `;
+      actions.insertAdjacentHTML('afterbegin', btnHtml);
+      
+      const approveBtn = actions.querySelector('.contrib-card__action--approve');
+      if (approveBtn) {
+        approveBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const newVal = !item.approved;
+          approveBtn.disabled = true;
+          
+          try {
+            const res = await win.supabaseService?.setContributionApproved(item.id, newVal);
+            if (res && !res.error) {
+              item.approved = newVal;
+              
+              // Mettre à jour le bouton
+              approveBtn.className = `contrib-card__action contrib-card__action--approve ${newVal ? 'is-approved' : ''}`;
+              approveBtn.title = newVal ? 'Révoquer l\'approbation' : 'Approuver';
+              
+              // Mettre à jour le badge
+              const badge = card.querySelector('.contrib-card__badge');
+              if (badge) {
+                badge.className = newVal 
+                  ? 'contrib-card__badge contrib-card__badge--approved'
+                  : 'contrib-card__badge contrib-card__badge--pending';
+                badge.innerHTML = newVal
+                  ? '<i class="fa-solid fa-circle-check"></i> Approuvé'
+                  : '<i class="fa-solid fa-clock"></i> En attente';
+              }
+              
+              win.ContribUtils?.showToast(newVal ? 'Contribution approuvée' : 'Approbation révoquée', 'success');
+            } else {
+              win.ContribUtils?.showToast('Erreur lors de la mise à jour', 'error');
+            }
+          } catch (err) {
+            win.ContribUtils?.showToast('Erreur réseau', 'error');
+          } finally {
+            approveBtn.disabled = false;
+          }
+        });
+      }
+    }
+    
+    return card;
+  }
+  
+  /**
+   * Retourne l'icône FontAwesome pour une catégorie
+   */
+  function getCategoryIcon(category) {
+    const icons = {
+      'urbanisme': 'fa-city',
+      'mobilites': 'fa-bus',
+      'mobilité': 'fa-bus',
+      'transport': 'fa-train',
+      'ecologie': 'fa-leaf',
+      'écologie': 'fa-leaf',
+      'education': 'fa-graduation-cap',
+      'éducation': 'fa-graduation-cap',
+      'culture': 'fa-masks-theater',
+      'sport': 'fa-futbol',
+      'sante': 'fa-heart-pulse',
+      'santé': 'fa-heart-pulse',
+      'solidarité': 'fa-handshake-angle',
+      'solidarite': 'fa-handshake-angle',
+      'sécurité': 'fa-shield-halved',
+      'securite': 'fa-shield-halved'
+    };
+    
+    return icons[category?.toLowerCase()] || 'fa-folder';
+  }
+  
+  /**
+   * Échappe les caractères HTML pour éviter les XSS
+   */
+  function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   // ============================================================================
@@ -404,7 +463,7 @@
    * @param {Object} elements - Éléments DOM
    */
   async function listResetAndLoad(elements) {
-    const { listEl, listSentinel, listStatusEl, onEdit, onDelete, onCreateClick } = elements || {};
+    const { listEl, listSentinel, onEdit, onDelete, onCreateClick } = elements || {};
     
     if (!listEl) return;
     listEl.innerHTML = '';
@@ -413,7 +472,6 @@
     listState.done = false;
     listState.items = [];
     clearEmptyState(listEl);
-    setListStatus('', listStatusEl);
     await listLoadMore(elements);
   }
 
@@ -422,11 +480,10 @@
    * @param {Object} elements - Éléments DOM et callbacks
    */
   async function listLoadMore(elements) {
-    const { listEl, listSentinel, listStatusEl, onEdit, onDelete, onCreateClick } = elements || {};
+    const { listEl, listSentinel, onEdit, onDelete, onCreateClick } = elements || {};
     
     if (listState.loading || listState.done) return;
     listState.loading = true;
-    setListStatus('Chargement…', listStatusEl);
     try { if (listEl) listEl.setAttribute('aria-busy', 'true'); } catch(_) {}
     
     // Insert skeletons on first page
@@ -455,24 +512,32 @@
     } catch(_) {}
     
     try {
-      const { search, category, sortBy, sortDir, page, pageSize, mineOnly } = listState;
-      console.log('[contrib-list] Loading contributions with params:', { search, category, sortBy, sortDir, page, pageSize, mineOnly });
+      const { search, category, sortBy, sortDir, page, pageSize, mineOnly, filterCity } = listState;
+      console.log('[contrib-list] Loading contributions with params:', { search, category, sortBy, sortDir, page, pageSize, mineOnly, filterCity });
       
       if (!win.supabaseService || !win.supabaseService.listContributions) {
         console.error('[contrib-list] supabaseService.listContributions not available');
-        setListStatus('Erreur: Service non disponible', listStatusEl);
+        if (win.ContribUtils?.showToast) {
+          win.ContribUtils.showToast('Service non disponible', 'error');
+        }
         return;
       }
       
       const res = await win.supabaseService.listContributions({
-        search, category, page, pageSize, mineOnly, sortBy, sortDir
+        search, category, page, pageSize, mineOnly, sortBy, sortDir, city: filterCity
       });
       
       console.log('[contrib-list] Response:', res);
       
       // La réponse peut avoir soit res.data soit res.items
       const items = (res && res.data) ? res.data : (res && res.items) ? res.items : [];
-      console.log('[contrib-list] Items count:', items.length);
+      const totalCount = res && res.count !== undefined ? res.count : items.length;
+      console.log('[contrib-list] Items count:', items.length, 'Total:', totalCount);
+      
+      // Mettre à jour le compteur
+      if (page === 1) {
+        updateListCount(totalCount);
+      }
       
       // Clear skeletons
       try { if (listEl) listEl.querySelectorAll('.contrib-skel').forEach(n => n.remove()); } catch(_) {}
@@ -480,13 +545,12 @@
       if (!items.length) {
         console.log('[contrib-list] No items found, showing empty state');
         if (page === 1) { 
-          setListStatus('', listStatusEl); 
-          renderEmptyState(listEl, listSentinel, onCreateClick); 
+          renderEmptyState(listEl, listSentinel, onCreateClick);
+          updateListCount(0);
         }
         listState.done = true;
       } else {
         console.log('[contrib-list] Rendering', items.length, 'items');
-        setListStatus('', listStatusEl);
         clearEmptyState(listEl);
         listState.items.push(...items);
         items.forEach(it => {
@@ -501,7 +565,9 @@
         if (items.length < listState.pageSize) listState.done = true;
       }
     } catch (e) {
-      setListStatus('Erreur lors du chargement.', listStatusEl);
+      if (win.ContribUtils?.showToast) {
+        win.ContribUtils.showToast('Erreur lors du chargement', 'error');
+      }
       console.warn('[contrib-list] load error:', e);
     } finally {
       try { if (listEl) listEl.querySelectorAll('.contrib-skel').forEach(n => n.remove()); } catch(_) {}
@@ -560,6 +626,7 @@
   win.ContribList = {
     // Status
     setListStatus,
+    updateListCount,
     
     // Empty state
     clearEmptyState,

@@ -455,11 +455,9 @@
   font-weight: 400 !important;
 }
 
-/* Form row (2 colonnes) */
+/* Form row (1 colonne - empilé verticalement) */
 .form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  display: block;
   margin-bottom: 1rem;
 }
 
@@ -548,8 +546,7 @@
 
 @media (max-width: 640px) {
   .form-row {
-    grid-template-columns: 1fr;
-    gap: 1rem;
+    display: block;
   }
   
   .contact-form {
