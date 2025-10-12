@@ -254,24 +254,24 @@
                     citiesText = `<i class="fa-solid fa-globe"></i> ${cityNames}`;
                   } else {
                     console.error('[contrib] city_branding query error:', error);
-                    citiesText = '<i class="fa-solid fa-globe"></i> Toutes les collectivités';
+                    citiesText = '<i class="fa-solid fa-globe"></i> Toutes les structures';
                   }
                 } else {
-                  citiesText = '<i class="fa-solid fa-globe"></i> Toutes les collectivités';
+                  citiesText = '<i class="fa-solid fa-globe"></i> Toutes les structures';
                 }
               } catch (e) {
                 console.error('[contrib] Failed to fetch cities:', e);
-                citiesText = '<i class="fa-solid fa-globe"></i> Toutes les collectivités';
+                citiesText = '<i class="fa-solid fa-globe"></i> Toutes les structures';
               }
             } else if (filtered.length > 0) {
               citiesText = `<i class="fa-solid fa-location-dot"></i> ${filtered.join(', ')}`;
             } else {
-              citiesText = '<i class="fa-solid fa-triangle-exclamation"></i> Aucune collectivité';
+              citiesText = '<i class="fa-solid fa-triangle-exclamation"></i> Aucune structure';
             }
           } else if (villes) {
             citiesText = `<i class="fa-solid fa-location-dot"></i> ${villes}`;
           } else {
-            citiesText = '<i class="fa-solid fa-triangle-exclamation"></i> Aucune collectivité';
+            citiesText = '<i class="fa-solid fa-triangle-exclamation"></i> Aucune structure';
           }
           citiesBadge.innerHTML = citiesText;
           
@@ -461,19 +461,6 @@
                   id: 'invite-user-btn',
                   icon: 'fa-solid fa-user-plus',
                   label: 'Inviter un utilisateur',
-                  variant: 'primary'
-                }
-              ]
-            },
-            cities: {
-              label: 'Villes',
-              title: 'Gérer les villes',
-              hasFooter: false,
-              headerActions: [
-                {
-                  id: 'add-city-btn',
-                  icon: 'fa-solid fa-plus',
-                  label: 'Ajouter une ville',
                   variant: 'primary'
                 }
               ]
@@ -803,7 +790,7 @@
     const landingEditBtn = document.getElementById('landing-edit');
     const landingCategoriesBtn = document.getElementById('landing-categories');
     const landingUsersBtn = document.getElementById('landing-users');
-    const landingCitiesBtn = document.getElementById('landing-cities');
+    const landingEditCityBtn = document.getElementById('landing-edit-city');
     const listEl       = document.getElementById('contrib-list');
     const listSearchEl = document.getElementById('contrib-search');
     const listCatEl    = document.getElementById('contrib-filter-category');
@@ -815,10 +802,6 @@
     const usersStatusEl = document.getElementById('users-status');
     const usersSearchEl = document.getElementById('users-search');
     const inviteUserBtn = document.getElementById('invite-user-btn');
-    // Cities panel elements
-    const citiesListEl  = document.getElementById('cities-list');
-    const citiesStatusEl = document.getElementById('cities-status');
-    const addCityBtn = document.getElementById('add-city-btn');
 
     // currentEditId moved to contrib-form.js
     // editGeojsonUrl moved to contrib-geometry.js
@@ -904,12 +887,6 @@
           const elements = { usersListEl, usersStatusEl, selectedCity: CityContext.getSelectedCity?.() };
           ContribUsers.loadUsersList?.(elements);
         } catch(e) { console.error('[contrib] loadUsersList error:', e); }
-      } else if (which === 'cities') {
-        // Load cities panel
-        try { 
-          const elements = { citiesListEl, citiesStatusEl, selectedCity: CityContext.getSelectedCity?.() };
-          ContribCitiesManagement.loadCitiesList?.(elements);
-        } catch(e) { console.error('[contrib] loadCitiesList error:', e); }
       }
     }
 
@@ -923,7 +900,7 @@
       const selectedCity = landingCitySelect?.value?.trim();
       
       if (!selectedCity) {
-        showToast('Veuillez d\'abord sélectionner une collectivité', 'error');
+        showToast('Veuillez d\'abord sélectionner une structure', 'error');
         landingCitySelect?.focus();
         return;
       }
@@ -949,7 +926,7 @@
       // Activer le panel approprié
       if (target === 'create') {
         await openCreateModal('create');
-      } else if (['list', 'categories', 'users', 'cities'].includes(target)) {
+      } else if (['list', 'categories', 'users'].includes(target)) {
         await activateTab(target);
       }
     }
@@ -977,7 +954,40 @@
     if (landingEditBtn) landingEditBtn.addEventListener('click', () => chooseLanding('list'));
     if (landingCategoriesBtn) landingCategoriesBtn.addEventListener('click', () => chooseLanding('categories'));
     if (landingUsersBtn) landingUsersBtn.addEventListener('click', () => chooseLanding('users'));
-    if (landingCitiesBtn) landingCitiesBtn.addEventListener('click', () => chooseLanding('cities'));
+    
+    // Bouton "Gérer ma collectivité" : ouvre directement la modale d'édition de la ville sélectionnée
+    if (landingEditCityBtn) {
+      landingEditCityBtn.addEventListener('click', async () => {
+        const landingCitySelect = document.getElementById('landing-city-select');
+        const selectedCityCode = landingCitySelect?.value?.trim();
+        
+        if (!selectedCityCode) {
+          showToast('Veuillez d\'abord sélectionner une structure', 'error');
+          landingCitySelect?.focus();
+          return;
+        }
+        
+        // Récupérer les données de la ville
+        try {
+          const cityData = await win.supabaseService?.getCityBranding?.(selectedCityCode);
+          
+          if (!cityData) {
+            showToast('Impossible de récupérer les données de la ville', 'error');
+            return;
+          }
+          
+          // Ouvrir la modale d'édition
+          if (ContribCitiesManagement?.showCityModal) {
+            ContribCitiesManagement.showCityModal(cityData, { citiesListEl: null, citiesStatusEl: null });
+          } else {
+            console.error('[contrib] ContribCitiesManagement.showCityModal not available');
+          }
+        } catch (error) {
+          console.error('[contrib] Error opening city edit modal:', error);
+          showToast('Erreur lors de l\'ouverture de la modale', 'error');
+        }
+      });
+    }
     
     // —— Header Actions Handler (système unifié) ——
     // Tous les boutons du header sont gérés ici via délégation d'événements
@@ -1007,11 +1017,6 @@
           ContribUsers.showInviteModal?.(usersElements);
           break;
           
-        case 'add-city-btn':
-          const citiesElements = { citiesListEl, citiesStatusEl };
-          ContribCitiesManagement.showAddCityModal?.(citiesElements);
-          break;
-          
         default:
           console.warn('[contrib] Unknown header action:', buttonId);
       }
@@ -1032,7 +1037,7 @@
         
         if (!selectedCity) {
           console.warn('[contrib] No city selected');
-          listCatEl.innerHTML = '<option value="">Sélectionnez d\'abord une collectivité</option>';
+          listCatEl.innerHTML = '<option value="">Sélectionnez d\'abord une structure</option>';
           return;
         }
         

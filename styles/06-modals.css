@@ -1005,8 +1005,7 @@
 }
 
 .categories-list,
-.users-list,
-.cities-list {
+.users-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1015,8 +1014,7 @@
 }
 
 .category-item,
-.user-item,
-.city-item {
+.user-item {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1028,16 +1026,14 @@
 }
 
 .category-item:hover,
-.user-item:hover,
-.city-item:hover {
+.user-item:hover {
   background: var(--surface-elevated);
   box-shadow: 0 2px 8px var(--black-alpha-06);
   transform: translateX(2px);
 }
 
 .category-item-icon,
-.user-item-icon,
-.city-item-icon {
+.user-item-icon {
   width: 40px;
   height: 40px;
   display: flex;
@@ -1051,15 +1047,13 @@
 }
 
 .category-item-content,
-.user-item-content,
-.city-item-content {
+.user-item-content {
   flex: 1;
   min-width: 0;
 }
 
 .category-item-name,
-.user-item-name,
-.city-item-name {
+.user-item-name {
   font-weight: 600;
   font-size: 0.9375rem;
   color: var(--text-primary);
@@ -1067,15 +1061,13 @@
 }
 
 .category-item-meta,
-.user-item-meta,
-.city-item-meta {
+.user-item-meta {
   font-size: 0.8125rem;
   color: var(--text-secondary);
 }
 
 .category-item-actions,
-.user-item-actions,
-.city-item-actions {
+.user-item-actions {
   display: flex;
   gap: 6px;
   flex-shrink: 0;

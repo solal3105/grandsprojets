@@ -81,7 +81,7 @@
           <i class="fa-solid fa-location-dot"></i>
           <span>${villesText}</span>
         </div>
-        ${hasNoVilles ? '<div class="user-card__warning"><i class="fa-solid fa-triangle-exclamation"></i> Cet utilisateur n\'a aucune ville assignée</div>' : ''}
+        ${hasNoVilles ? '<div class="user-card__warning"><i class="fa-solid fa-triangle-exclamation"></i> Cet utilisateur n\'a aucune structure assignée</div>' : ''}
       </div>
       <div class="user-card__actions">
         ${isAdmin 
@@ -159,7 +159,7 @@
     body.innerHTML = `
       <div style="margin-bottom:16px;padding:12px;background:var(--gray-100);border-radius:8px;">
         <div style="margin-bottom:8px;"><strong>Utilisateur :</strong> ${escapeHtml(user.email)}</div>
-        <div style="margin-bottom:8px;"><strong>Villes :</strong> ${villesText}</div>
+        <div style="margin-bottom:8px;"><strong>Structures :</strong> ${villesText}</div>
         <div style="margin-bottom:8px;"><strong>Rôle actuel :</strong> ${currentRoleLabel}</div>
         <div><strong>Nouveau rôle :</strong> ${newRoleLabel}</div>
       </div>
@@ -243,7 +243,7 @@
       <div style="display:flex;flex-direction:column;align-items:center;padding:48px 24px;color:var(--gray-500);text-align:center;">
         <i class="fa-regular fa-user" style="font-size:48px;margin-bottom:16px;opacity:0.5;"></i>
         <div style="font-size:18px;font-weight:600;margin-bottom:8px;">Aucun utilisateur</div>
-        <div style="font-size:14px;opacity:0.8;">Aucun utilisateur ne partage vos villes.</div>
+        <div style="font-size:14px;opacity:0.8;">Aucun utilisateur ne partage vos structures.</div>
       </div>
     `;
   }
@@ -294,7 +294,7 @@
       const selectedCity = CityContext.getSelectedCity?.();
       
       if (!selectedCity) {
-        win.ContribUtils?.showToast('Aucune ville sélectionnée.', 'error');
+        win.ContribUtils?.showToast('Aucune structure sélectionnée.', 'error');
         return;
       }
 

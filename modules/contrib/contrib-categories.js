@@ -156,7 +156,7 @@
       }
       
       // Clear and repopulate
-      categoryVilleSelector.innerHTML = '<option value="">-- Choisir une collectivité --</option>';
+      categoryVilleSelector.innerHTML = '<option value="">-- Choisir une structure --</option>';
       if (showGlobalOption) {
         categoryVilleSelector.insertAdjacentHTML('beforeend', '<option value="default">🌍 Catégories globales (default)</option>');
       }
@@ -207,7 +207,7 @@
       }
       
       // Clear and repopulate
-      categoryVilleSelect.innerHTML = '<option value="">Sélectionner une collectivité</option>';
+      categoryVilleSelect.innerHTML = '<option value="">Sélectionner une structure</option>';
       if (showGlobalOption) {
         categoryVilleSelect.insertAdjacentHTML('beforeend', '<option value="default">🌍 Catégories globales (default)</option>');
       }

@@ -63,19 +63,6 @@
             variant: 'primary'
           }
         ]
-      },
-      cities: {
-        label: 'Villes',
-        title: 'Gérer les villes',
-        hasFooter: true,
-        headerActions: [
-          {
-            id: 'add-city-btn',
-            icon: 'fa-solid fa-plus',
-            label: 'Ajouter une ville',
-            variant: 'primary'
-          }
-        ]
       }
     },
     

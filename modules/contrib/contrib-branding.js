@@ -131,7 +131,7 @@
     if (landing) landing.hidden = true;
     
     // Cacher tous les autres panneaux
-    const panels = ['contrib-panel-create', 'contrib-panel-list', 'contrib-panel-categories', 'contrib-panel-users', 'contrib-panel-cities'];
+    const panels = ['contrib-panel-create', 'contrib-panel-list', 'contrib-panel-categories', 'contrib-panel-users'];
     panels.forEach(panelId => {
       const panel = document.getElementById(panelId);
       if (panel) panel.hidden = true;

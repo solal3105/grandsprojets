@@ -49,9 +49,12 @@
    * @param {Object} elements - {citiesListEl, citiesStatusEl}
    */
   async function loadCitiesList(elements) {
-    const { citiesListEl, citiesStatusEl } = elements;
+    const { citiesListEl, citiesStatusEl } = elements || {};
     
-    if (!citiesListEl) return;
+    if (!citiesListEl) {
+      console.log('[cities-list] No citiesListEl provided, skipping list reload');
+      return;
+    }
 
     try {
       if (citiesStatusEl) citiesStatusEl.textContent = 'Chargement...';
@@ -128,7 +131,7 @@
     } catch (error) {
       console.error('[contrib-cities-management] loadCitiesList error:', error);
       if (citiesStatusEl) citiesStatusEl.textContent = 'Erreur de chargement';
-      showToast('Erreur lors du chargement des villes', 'error');
+      showToast('Erreur lors du chargement des structures', 'error');
     }
   }
 
@@ -789,7 +792,7 @@
 
       // Validation
       if (!code || !name) {
-        showToast('Code ville et nom sont requis', 'error');
+        showToast('Code structure et nom sont requis', 'error');
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalBtnText;
         return;
@@ -798,7 +801,7 @@
       // Validate code format (should always pass after slugify, but double-check)
       if (!/^[a-z0-9-]+$/.test(code)) {
         console.log('[city-form] Invalid code format after normalization:', code);
-        showToast('Code ville invalide après normalisation. Contactez le support.', 'error');
+        showToast('Code structure invalide après normalisation. Contactez le support.', 'error');
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalBtnText;
         return;
@@ -882,8 +885,32 @@
         showToast(`Ville "${name}" créée avec succès !`, 'success');
       }
 
-      // Reload list
+      // Reload list (si disponible)
       await loadCitiesList(elements);
+
+      // Recharger les villes valides et le select de la landing si on a créé une nouvelle ville
+      if (!existingCity) {
+        console.log('[city-form] New city created, refreshing city lists...');
+        
+        // Recharger CityManager
+        if (win.CityManager?.loadValidCities) {
+          await win.CityManager.loadValidCities();
+        }
+        
+        // Rafraîchir le select de la landing si présent
+        const landingCitySelect = document.getElementById('landing-city-select');
+        if (landingCitySelect && win.ContribCities?.populateCities) {
+          console.log('[city-form] Refreshing landing city selector...');
+          // Vider le select (sauf la première option)
+          while (landingCitySelect.options.length > 1) {
+            landingCitySelect.remove(1);
+          }
+          // Repeupler
+          await win.ContribCities.populateCities(landingCitySelect);
+          // Pré-sélectionner la nouvelle ville
+          landingCitySelect.value = code;
+        }
+      }
 
       // Close modal
       close();

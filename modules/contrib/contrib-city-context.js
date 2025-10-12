@@ -104,6 +104,32 @@
       const ContribCities = win.ContribCities || {};
       await ContribCities.populateCities?.(landingCitySelect);
       
+      // Afficher le bouton "Ajouter une ville" si admin global
+      const addCityBtn = document.getElementById('landing-add-city-btn');
+      if (addCityBtn) {
+        const userVilles = win.__CONTRIB_VILLES || [];
+        const isGlobalAdmin = Array.isArray(userVilles) && userVilles.includes('global');
+        
+        if (isGlobalAdmin) {
+          addCityBtn.style.display = 'flex';
+          
+          // Lier le bouton à la modale de création
+          if (!addCityBtn._bound) {
+            addCityBtn.addEventListener('click', () => {
+              if (win.ContribCitiesManagement?.showAddCityModal) {
+                // Préparer les éléments nécessaires
+                const citiesListEl = null; // Pas de liste à recharger depuis la landing
+                const citiesStatusEl = null;
+                win.ContribCitiesManagement.showAddCityModal({ citiesListEl, citiesStatusEl });
+              } else {
+                console.error('[CityContext] ContribCitiesManagement.showAddCityModal not available');
+              }
+            });
+            addCityBtn._bound = true;
+          }
+        }
+      }
+      
       // Pré-sélectionner si déjà choisie
       if (selectedCity) {
         landingCitySelect.value = selectedCity;
@@ -144,7 +170,7 @@
   function requireCity(showToast) {
     if (!hasSelectedCity()) {
       if (showToast) {
-        showToast('Veuillez d\'abord sélectionner une collectivité', 'error');
+        showToast('Veuillez d\'abord sélectionner une structure', 'error');
       }
       
       const landingCitySelect = document.getElementById('landing-city-select');

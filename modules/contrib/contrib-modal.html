@@ -37,13 +37,24 @@
         <div class="landing-city-selector" id="landing-city-selector-container">
           <label for="landing-city-select" class="landing-city-label">
             <i class="fa-solid fa-location-dot"></i>
-            Sélectionnez votre collectivité
+            Sélectionnez votre structure
           </label>
-          <select id="landing-city-select" class="landing-city-select" required>
-            <option value="">-- Choisissez une ville --</option>
-            <!-- Options peuplées dynamiquement -->
-          </select>
-          <p class="landing-city-help">Cette ville sera utilisée pour toutes vos contributions</p>
+          <div style="display:flex;gap:8px;align-items:flex-start;">
+            <select id="landing-city-select" class="landing-city-select" required style="flex:1;">
+              <option value="">-- Choisissez une structure --</option>
+              <!-- Options peuplées dynamiquement -->
+            </select>
+            <button 
+              id="landing-add-city-btn" 
+              class="gp-btn gp-btn--secondary" 
+              type="button"
+              title="Ajouter une nouvelle structure"
+              style="display:none;padding:10px 16px;white-space:nowrap;"
+            >
+              <i class="fa-solid fa-plus"></i>
+              <span>Ajouter une structure</span>
+            </button>
+          </div>
         </div>
         
         <h3 class="landing-title" id="landing-actions-title" style="display:none;">Que voulez-vous faire&nbsp;?</h3>
@@ -63,10 +74,10 @@
             <span class="card-title">Gérer les utilisateurs</span>
             <span class="card-desc" id="landing-users-desc">Visualisez et modifiez les rôles des utilisateurs.</span>
           </button>
-          <button class="choice-card" role="listitem" id="landing-cities" data-target="cities" aria-describedby="landing-cities-desc">
+          <button class="choice-card" role="listitem" id="landing-edit-city" data-target="edit-city" aria-describedby="landing-edit-city-desc">
             <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-city"></i></span>
-            <span class="card-title">Gérer les villes</span>
-            <span class="card-desc" id="landing-cities-desc">Ajoutez ou modifiez les villes disponibles.</span>
+            <span class="card-title">Gérer ma structure</span>
+            <span class="card-desc" id="landing-edit-city-desc">Modifiez les informations et le branding de votre structure.</span>
           </button>
         </div>
       </section>
@@ -156,13 +167,6 @@
         <div id="users-list" class="users-list" style="max-height:500px;overflow-y:auto;padding-right:8px;"></div>
       </section>
 
-      <!-- Panel: Gérer les villes -->
-      <section id="contrib-panel-cities" class="contrib-panel" hidden>
-        
-        <div id="cities-status" class="panel-status" role="status" aria-live="polite" style="margin:12px 0;color:var(--gray-500);font-size:14px;"></div>
-        
-        <div id="cities-list" class="cities-list" style="max-height:500px;overflow-y:auto;padding-right:8px;"></div>
-      </section>
     </div>
     
     <footer class="gp-modal-footer" id="contrib-footer">

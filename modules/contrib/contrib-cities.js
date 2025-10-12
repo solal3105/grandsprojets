@@ -74,7 +74,7 @@
       if (cityOptionsHTML) {
         cityEl.insertAdjacentHTML('beforeend', cityOptionsHTML);
       } else {
-        cityEl.innerHTML = '<option value="" selected>Aucune collectivité autorisée</option>';
+        cityEl.innerHTML = '<option value="" selected>Aucune structure autorisée</option>';
       }
     } catch (err) {
       console.warn('[contrib-cities] populateCities error:', err);
@@ -104,7 +104,7 @@
       if (categoryHelpEl) categoryHelpEl.style.display = 'none';
       
       if (!ville) {
-        categoryEl.innerHTML = '<option value="">Sélectionnez d\'abord une collectivité</option>';
+        categoryEl.innerHTML = '<option value="">Sélectionnez d\'abord une structure</option>';
         return;
       }
       
