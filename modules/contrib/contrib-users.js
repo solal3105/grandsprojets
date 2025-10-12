@@ -115,50 +115,93 @@
    * @param {Object} elements - Éléments DOM
    */
   function showConfirmModal(user, newRole, elements) {
+    // Créer l'overlay avec le système unifié
     const overlay = document.createElement('div');
-    overlay.className = 'user-confirm-overlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--black-alpha-50);display:flex;align-items:center;justify-content:center;z-index:10001;';
+    overlay.id = 'user-role-confirm-overlay';
+    overlay.className = 'gp-modal-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'user-role-title');
     
+    // Créer la modale
     const modal = document.createElement('div');
-    modal.className = 'user-confirm-modal';
-    modal.style.cssText = 'background:var(--surface);border-radius:12px;padding:24px;max-width:480px;width:90%;box-shadow:0 8px 32px var(--black-alpha-20);';
+    modal.className = 'gp-modal gp-modal--compact';
+    modal.setAttribute('role', 'document');
     
+    // Données
     const currentRoleLabel = user.role === 'admin' ? 'Admin' : 'Invited';
     const newRoleLabel = newRole === 'admin' ? 'Admin' : 'Invited';
     const actionLabel = newRole === 'admin' ? 'Promouvoir' : 'Rétrograder';
     const villes = parseVilles(user.ville);
     const villesText = villes.length > 0 ? villes.join(', ') : 'Aucune';
     
-    modal.innerHTML = `
-      <h3 style="margin:0 0 16px 0;display:flex;align-items:center;gap:8px;">
-        <i class="fa-solid fa-triangle-exclamation" style="color:var(--warning);"></i>
-        Confirmer le changement de rôle
-      </h3>
+    // Header
+    const header = document.createElement('div');
+    header.className = 'gp-modal-header';
+    
+    const title = document.createElement('h2');
+    title.id = 'user-role-title';
+    title.className = 'gp-modal-title';
+    title.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--warning);margin-right:8px;"></i>Confirmer le changement de rôle';
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'gp-modal-close';
+    closeBtn.setAttribute('aria-label', 'Fermer');
+    closeBtn.innerHTML = '&times;';
+    
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+    
+    // Body
+    const body = document.createElement('div');
+    body.className = 'gp-modal-body';
+    body.innerHTML = `
       <div style="margin-bottom:16px;padding:12px;background:var(--gray-100);border-radius:8px;">
         <div style="margin-bottom:8px;"><strong>Utilisateur :</strong> ${escapeHtml(user.email)}</div>
         <div style="margin-bottom:8px;"><strong>Villes :</strong> ${villesText}</div>
         <div style="margin-bottom:8px;"><strong>Rôle actuel :</strong> ${currentRoleLabel}</div>
         <div><strong>Nouveau rôle :</strong> ${newRoleLabel}</div>
       </div>
-      <div style="padding:12px;background:var(--warning-lighter);border-left:4px solid var(--warning);margin-bottom:16px;border-radius:4px;">
-        <i class="fa-solid fa-info-circle" style="color:var(--warning);"></i>
+      <div style="padding:12px;background:var(--warning-lighter);border-left:4px solid var(--warning);border-radius:4px;">
+        <i class="fa-solid fa-info-circle" style="color:var(--warning);margin-right:8px;"></i>
         Cette action est immédiate et modifiera les permissions de l'utilisateur.
-      </div>
-      <div style="display:flex;gap:12px;justify-content:flex-end;">
-        <button type="button" class="gp-btn gp-btn--secondary cancel-btn">Annuler</button>
-        <button type="button" class="gp-btn gp-btn--primary confirm-btn">${actionLabel}</button>
       </div>
     `;
     
+    // Footer
+    const footer = document.createElement('div');
+    footer.className = 'gp-modal-footer';
+    
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'gp-btn gp-btn--secondary';
+    cancelBtn.textContent = 'Annuler';
+    
+    const confirmBtn = document.createElement('button');
+    confirmBtn.type = 'button';
+    confirmBtn.className = 'gp-btn gp-btn--primary';
+    confirmBtn.textContent = actionLabel;
+    
+    footer.appendChild(cancelBtn);
+    footer.appendChild(confirmBtn);
+    
+    // Assembler
+    modal.appendChild(header);
+    modal.appendChild(body);
+    modal.appendChild(footer);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
     
-    const close = () => overlay.remove();
+    // Handlers
+    const close = () => {
+      window.ModalHelper?.close('user-role-confirm-overlay');
+    };
     
-    modal.querySelector('.cancel-btn').addEventListener('click', close);
-    modal.querySelector('.confirm-btn').addEventListener('click', async () => {
+    closeBtn.addEventListener('click', close);
+    cancelBtn.addEventListener('click', close);
+    confirmBtn.addEventListener('click', async () => {
       try {
-        const confirmBtn = modal.querySelector('.confirm-btn');
         confirmBtn.disabled = true;
         confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Traitement...';
         
@@ -181,9 +224,14 @@
       }
     });
     
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close();
+    // Ouvrir avec ModalHelper
+    window.ModalHelper?.open('user-role-confirm-overlay', {
+      focusTrap: true,
+      dismissible: true,
+      onClose: close
     });
+    
+    setTimeout(() => cancelBtn.focus(), 100);
   }
 
   /**

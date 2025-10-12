@@ -91,79 +91,104 @@
   // ============================================================================
 
   /**
-   * Ouvre une modale de confirmation de suppression
+   * Ouvre la modale de confirmation de suppression
    * @param {Object} details - Détails de la contribution
    * @returns {Promise<boolean>} True si confirmé
    */
   function openDeleteConfirmModal(details) {
     const { id, projectName, filePaths = [], dossiersCount = 0 } = details || {};
     return new Promise((resolve) => {
-      const lastFocus = document.activeElement;
-
+      // Créer l'overlay avec le système unifié
       const overlay = document.createElement('div');
-      overlay.setAttribute('role', 'presentation');
-      overlay.style.cssText = 'position:fixed;inset:0;background:var(--black-alpha-45);display:flex;align-items:center;justify-content:center;z-index:9999;';
+      overlay.id = 'delete-confirm-overlay';
+      overlay.className = 'gp-modal-overlay';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.setAttribute('aria-labelledby', 'delete-confirm-title');
+      overlay.setAttribute('aria-describedby', 'delete-confirm-desc');
 
+      // Créer la modale avec structure unifiée
       const modal = document.createElement('div');
-      modal.setAttribute('role', 'dialog');
-      modal.setAttribute('aria-modal', 'true');
-      modal.setAttribute('aria-labelledby', 'delc-title');
-      modal.setAttribute('aria-describedby', 'delc-desc');
-      modal.style.cssText = 'max-width:560px;width:92%;background:var(--white);border-radius:12px;box-shadow:0 12px 30px var(--black-alpha-25);padding:16px 18px;font-size:15px;color:var(--gray-800);';
+      modal.className = 'gp-modal gp-modal--compact';
+      modal.setAttribute('role', 'document');
 
+      // Header
+      const header = document.createElement('div');
+      header.className = 'gp-modal-header';
       const title = document.createElement('h2');
-      title.id = 'delc-title';
+      title.id = 'delete-confirm-title';
+      title.className = 'gp-modal-title';
       title.textContent = `Supprimer la contribution ${projectName ? `« ${projectName} »` : `#${id}`} ?`;
-      title.style.cssText = 'margin:0 0 8px 0;font-size:18px;';
+      
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'gp-modal-close';
+      closeBtn.setAttribute('aria-label', 'Fermer');
+      closeBtn.innerHTML = '&times;';
+      
+      header.appendChild(title);
+      header.appendChild(closeBtn);
 
-      const desc = document.createElement('div');
-      desc.id = 'delc-desc';
-      desc.innerHTML = `
+      // Body
+      const body = document.createElement('div');
+      body.className = 'gp-modal-body';
+      body.id = 'delete-confirm-desc';
+      body.innerHTML = `
         <p>Cette action est définitive. Elle supprimera les éléments suivants :</p>
-        <ul style="margin:0 0 8px 18px;">
+        <ul style="margin:0 0 12px 18px;padding-left:0;">
           <li>La ligne <code>contribution_uploads</code> (id : <strong>#${id}</strong>)</li>
           ${filePaths.length ? filePaths.map(p => `<li>Fichier de stockage : <code>${p}</code></li>`).join('') : '<li>Aucun fichier de stockage associé.</li>'}
           <li>Dossiers de concertation liés : <strong>${dossiersCount}</strong></li>
         </ul>
-        <p>Voulez-vous continuer ?</p>
+        <p style="margin-bottom:0;">Voulez-vous continuer ?</p>
       `;
 
-      const actions = document.createElement('div');
-      actions.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;margin-top:12px;';
+      // Footer avec boutons
+      const footer = document.createElement('div');
+      footer.className = 'gp-modal-footer';
+      
       const cancelBtn = document.createElement('button');
       cancelBtn.type = 'button';
+      cancelBtn.className = 'gp-btn gp-btn--secondary';
       cancelBtn.textContent = 'Annuler';
-      cancelBtn.style.cssText = 'padding:8px 12px;border-radius:8px;border:1px solid var(--black-alpha-15);background:var(--white);';
+      
       const confirmBtn = document.createElement('button');
       confirmBtn.type = 'button';
+      confirmBtn.className = 'gp-btn gp-btn--danger';
       confirmBtn.textContent = 'Supprimer';
-      confirmBtn.style.cssText = 'padding:8px 12px;border-radius:8px;border:0;background:var(--danger);color:var(--white);';
 
+      footer.appendChild(cancelBtn);
+      footer.appendChild(confirmBtn);
+
+      // Assembler la modale
+      modal.appendChild(header);
+      modal.appendChild(body);
+      modal.appendChild(footer);
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+
+      // Gérer la fermeture
       const close = (result) => {
-        try { document.removeEventListener('keydown', onKey); } catch(_) {}
-        try { overlay.remove(); } catch(_) {}
-        try { if (lastFocus && lastFocus.focus) lastFocus.focus(); } catch(_) {}
+        window.ModalHelper?.close('delete-confirm-overlay');
         resolve(!!result);
       };
 
-      const onKey = (e) => {
-        if (e.key === 'Escape') { e.preventDefault(); close(false); }
-        if (e.key === 'Enter') { e.preventDefault(); confirmBtn.click(); }
-      };
-
+      // Listeners
+      closeBtn.addEventListener('click', () => close(false));
       cancelBtn.addEventListener('click', () => close(false));
       confirmBtn.addEventListener('click', () => close(true));
-      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
 
-      actions.appendChild(cancelBtn);
-      actions.appendChild(confirmBtn);
-      modal.appendChild(title);
-      modal.appendChild(desc);
-      modal.appendChild(actions);
-      overlay.appendChild(modal);
-      document.body.appendChild(overlay);
-      try { document.addEventListener('keydown', onKey); } catch(_) {}
-      try { cancelBtn.focus(); } catch(_) {}
+      // Ouvrir avec ModalHelper
+      window.ModalHelper?.open('delete-confirm-overlay', {
+        focusTrap: true,
+        dismissible: true,
+        onClose: () => resolve(false)
+      });
+
+      // Focus sur le bouton Annuler
+      setTimeout(() => {
+        try { cancelBtn.focus(); } catch(_) {}
+      }, 100);
     });
   }
 

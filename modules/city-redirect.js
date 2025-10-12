@@ -11,34 +11,18 @@
    */
   function showCitySelectionPopup(cities) {
     return new Promise((resolve) => {
-      // Créer l'overlay
+      // Créer l'overlay avec le système unifié
       const overlay = document.createElement('div');
-      overlay.className = 'city-redirect-overlay';
-      overlay.style.cssText = `
-        position: fixed;
-        inset: 0;
-        background: var(--black-alpha-60);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10001;
-        animation: fadeIn 0.2s ease;
-        backdrop-filter: blur(4px);
-      `;
+      overlay.id = 'city-selection-overlay';
+      overlay.className = 'gp-modal-overlay';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.setAttribute('aria-labelledby', 'city-selection-title');
 
-      // Créer la popup
-      const popup = document.createElement('div');
-      popup.className = 'city-redirect-popup';
-      popup.style.cssText = `
-        background: white;
-        border-radius: 20px;
-        width: 90%;
-        max-width: 500px;
-        max-height: 80vh;
-        overflow-y: auto;
-        box-shadow: 0 20px 60px var(--black-alpha-30);
-        animation: slideUp 0.3s ease;
-      `;
+      // Créer la modale
+      const modal = document.createElement('div');
+      modal.className = 'gp-modal gp-modal--compact';
+      modal.setAttribute('role', 'document');
 
       // Récupérer les infos des villes depuis window.CityManager
       const cityInfos = cities.map(code => {
@@ -50,108 +34,110 @@
         };
       });
 
-      popup.innerHTML = `
-        <div style="padding:32px;text-align:center;">
-          <div style="margin-bottom:24px;">
-            <i class="fa-solid fa-city" style="font-size:48px;color:var(--info);margin-bottom:16px;"></i>
-            <h2 style="margin:0 0 8px 0;font-size:24px;color:var(--gray-700);">Sélectionnez votre ville</h2>
-            <p style="margin:0;color:var(--gray-500);font-size:15px;">Vous avez accès à ${cities.length} ville${cities.length > 1 ? 's' : ''}</p>
-          </div>
+      // Header
+      const header = document.createElement('div');
+      header.className = 'gp-modal-header';
+      
+      const title = document.createElement('h2');
+      title.id = 'city-selection-title';
+      title.className = 'gp-modal-title';
+      title.innerHTML = '<i class="fa-solid fa-city" style="color:var(--info);margin-right:8px;"></i>Sélectionnez votre ville';
+      
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'gp-modal-close';
+      closeBtn.setAttribute('aria-label', 'Fermer');
+      closeBtn.innerHTML = '&times;';
+      
+      header.appendChild(title);
+      header.appendChild(closeBtn);
 
-          <div class="city-list" style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
-            ${cityInfos.map(city => `
-              <button 
-                class="city-option" 
-                data-city="${city.code}"
-                style="
-                  display:flex;
-                  align-items:center;
-                  gap:16px;
-                  padding:16px;
-                  border:2px solid var(--gray-200);
-                  border-radius:12px;
-                  background:white;
-                  cursor:pointer;
-                  transition:all 0.2s;
-                  text-align:left;
-                "
-                onmouseover="this.style.borderColor='var(--info)';this.style.background='var(--info-lighter)';"
-                onmouseout="this.style.borderColor='var(--gray-200)';this.style.background='var(--white)';"
-              >
-                <img 
-                  src="${city.logo}" 
-                  alt="${city.name}"
-                  style="width:48px;height:48px;object-fit:contain;flex-shrink:0;"
-                  onerror="this.src='/img/logos/default.svg'"
-                />
-                <div style="flex:1;">
-                  <div style="font-weight:600;font-size:16px;color:var(--gray-700);margin-bottom:4px;">${city.name}</div>
-                  <div style="font-size:13px;color:var(--gray-500);font-family:monospace;">${city.code}</div>
-                </div>
-                <i class="fa-solid fa-arrow-right" style="color:var(--info);font-size:20px;"></i>
-              </button>
-            `).join('')}
-          </div>
-
-          <button 
-            class="cancel-btn"
-            style="
-              padding:12px 24px;
-              border:1px solid var(--gray-300);
-              border-radius:8px;
-              background:white;
-              color:var(--gray-500);
-              cursor:pointer;
-              font-size:14px;
-              transition:all 0.2s;
-            "
-            onmouseover="this.style.background='var(--gray-100)';"
-            onmouseout="this.style.background='white';"
-          >
-            Annuler
-          </button>
+      // Body
+      const body = document.createElement('div');
+      body.className = 'gp-modal-body';
+      body.innerHTML = `
+        <p style="margin:0 0 16px 0;color:var(--gray-500);text-align:center;">
+          Vous avez accès à ${cities.length} ville${cities.length > 1 ? 's' : ''}
+        </p>
+        <div class="city-list" style="display:flex;flex-direction:column;gap:12px;">
+          ${cityInfos.map(city => `
+            <button 
+              class="city-option gp-btn gp-btn--outline" 
+              data-city="${city.code}"
+              style="
+                display:flex;
+                align-items:center;
+                gap:16px;
+                padding:16px;
+                text-align:left;
+                justify-content:flex-start;
+              "
+            >
+              <img 
+                src="${city.logo}" 
+                alt="${city.name}"
+                style="width:48px;height:48px;object-fit:contain;flex-shrink:0;border-radius:8px;"
+                onerror="this.src='/img/logos/default.svg'"
+              />
+              <div style="flex:1;">
+                <div style="font-weight:600;font-size:16px;margin-bottom:4px;">${city.name}</div>
+                <div style="font-size:13px;opacity:0.7;font-family:monospace;">${city.code}</div>
+              </div>
+              <i class="fa-solid fa-arrow-right" style="color:var(--info);font-size:18px;"></i>
+            </button>
+          `).join('')}
         </div>
       `;
 
-      overlay.appendChild(popup);
+      // Footer
+      const footer = document.createElement('div');
+      footer.className = 'gp-modal-footer';
+      
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'gp-btn gp-btn--secondary';
+      cancelBtn.textContent = 'Annuler';
+      
+      footer.appendChild(cancelBtn);
+
+      // Assembler
+      modal.appendChild(header);
+      modal.appendChild(body);
+      modal.appendChild(footer);
+      overlay.appendChild(modal);
       document.body.appendChild(overlay);
 
-      // Ajouter les animations CSS
-      const style = document.createElement('style');
-      style.textContent = `
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-      `;
-      document.head.appendChild(style);
-
-      // Fonction de nettoyage
-      const cleanup = () => {
-        overlay.remove();
-        style.remove();
+      // Handlers
+      const close = (city = null) => {
+        win.ModalHelper?.close('city-selection-overlay');
+        resolve(city);
       };
 
       // Gérer les clics sur les villes
-      popup.querySelectorAll('.city-option').forEach(btn => {
+      body.querySelectorAll('.city-option').forEach(btn => {
         btn.addEventListener('click', () => {
-          const city = btn.dataset.city;
-          cleanup();
-          resolve(city);
+          close(btn.dataset.city);
         });
       });
 
-      // Gérer l'annulation
-      popup.querySelector('.cancel-btn').addEventListener('click', () => {
-        cleanup();
-        resolve(null);
+      // Gérer les fermetures
+      closeBtn.addEventListener('click', () => close(null));
+      cancelBtn.addEventListener('click', () => close(null));
+
+      // Ouvrir avec ModalHelper
+      win.ModalHelper?.open('city-selection-overlay', {
+        focusTrap: true,
+        dismissible: true,
+        onClose: () => resolve(null)
       });
 
-      // Fermer en cliquant sur l'overlay
-      overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) {
-          cleanup();
-          resolve(null);
-        }
-      });
+      // Focus sur la première ville
+      setTimeout(() => {
+        try { 
+          const firstCity = body.querySelector('.city-option');
+          if (firstCity) firstCity.focus();
+        } catch(_) {}
+      }, 100);
     });
   }
 

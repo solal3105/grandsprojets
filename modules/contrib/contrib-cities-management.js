@@ -205,44 +205,29 @@
     const isEdit = !!city;
     const title = isEdit ? 'Modifier une ville' : 'Ajouter une ville';
 
-    // Create overlay
+    // Create overlay avec le système unifié
     const overlay = document.createElement('div');
-    overlay.className = 'city-modal-overlay';
-    overlay.style.cssText = `
-      position: fixed;
-      inset: 0;
-      background: var(--black-alpha-50);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 10000;
-      animation: fadeIn 0.2s ease;
-    `;
+    overlay.id = 'city-management-overlay';
+    overlay.className = 'gp-modal-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'city-management-title');
 
     // Create modal
     const modal = document.createElement('div');
-    modal.className = 'city-modal';
-    modal.style.cssText = `
-      background: white;
-      border-radius: 16px;
-      width: 90%;
-      max-width: 800px;
-      max-height: 90vh;
-      overflow-y: auto;
-      box-shadow: 0 20px 60px var(--black-alpha-30);
-      animation: slideUp 0.3s ease;
-    `;
+    modal.className = 'gp-modal gp-modal--large';
+    modal.setAttribute('role', 'document');
 
     modal.innerHTML = `
-      <div style="padding:24px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:12px;">
-        <button type="button" class="cancel-btn gp-btn gp-btn--secondary" style="padding:8px 12px;">
-          <i class="fa-solid fa-arrow-left"></i>
-        </button>
-        <h3 style="margin:0;display:flex;align-items:center;gap:12px;font-size:22px;flex:1;">
-          <i class="fa-solid fa-city" style="color:var(--info);"></i>
+      <div class="gp-modal-header">
+        <h2 id="city-management-title" class="gp-modal-title">
+          <i class="fa-solid fa-city" style="color:var(--info);margin-right:8px;"></i>
           ${escapeHtml(title)}
-        </h3>
+        </h2>
+        <button type="button" class="gp-modal-close" aria-label="Fermer">&times;</button>
       </div>
+      
+      <div class="gp-modal-body" style="max-height:70vh;overflow-y:auto;">
       
       <form id="city-form" style="padding:24px;">
         <!-- Code ville -->
@@ -382,16 +367,18 @@
         </div>
 
         <!-- Actions -->
-        <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:24px;padding-top:24px;border-top:1px solid var(--gray-200);">
-          <button type="button" class="cancel-btn gp-btn gp-btn--secondary" style="padding:12px 24px;">
-            Annuler
-          </button>
-          <button type="submit" class="submit-btn gp-btn gp-btn--primary" style="padding:12px 24px;display:flex;align-items:center;gap:8px;">
-            <i class="fa-solid fa-check"></i>
-            ${isEdit ? 'Enregistrer' : 'Créer la ville'}
-          </button>
-        </div>
       </form>
+      </div>
+      
+      <div class="gp-modal-footer">
+        <button type="button" class="cancel-btn gp-btn gp-btn--secondary">
+          Annuler
+        </button>
+        <button type="submit" form="city-form" class="submit-btn gp-btn gp-btn--primary">
+          <i class="fa-solid fa-check" style="margin-right:6px;"></i>
+          ${isEdit ? 'Enregistrer' : 'Créer la ville'}
+        </button>
+      </div>
     `;
 
     overlay.appendChild(modal);
@@ -410,11 +397,9 @@
       });
     }
 
-    // Add CSS animations
+    // Add CSS for dropzone hover
     const style = document.createElement('style');
     style.textContent = `
-      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-      @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
       .upload-dropzone:hover { border-color: var(--info); background: var(--info-lighter); }
     `;
     document.head.appendChild(style);
@@ -436,16 +421,16 @@
     // Close handlers
     const close = () => {
       if (mapState && mapState.map) mapState.map.remove();
-      overlay.remove();
+      win.ModalHelper?.close('city-management-overlay');
       style.remove();
     };
 
-    // Bind both cancel buttons (header and footer)
+    // Bind cancel and close buttons
+    const closeBtn = modal.querySelector('.gp-modal-close');
+    if (closeBtn) closeBtn.addEventListener('click', close);
+    
     modal.querySelectorAll('.cancel-btn').forEach(btn => {
       btn.addEventListener('click', close);
-    });
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close();
     });
 
     // Form submit
@@ -460,6 +445,13 @@
     } else {
       console.error('[city-modal] Form element not found!');
     }
+
+    // Ouvrir avec ModalHelper
+    win.ModalHelper?.open('city-management-overlay', {
+      focusTrap: true,
+      dismissible: true,
+      onClose: close
+    });
   }
 
   // ============================================================================
