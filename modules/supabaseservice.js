@@ -78,6 +78,14 @@
   // 2️⃣ Expose supabaseService sur window
   win.supabaseService = {
     /**
+     * Retourne le client Supabase pour accès direct (auth, etc.)
+     * @returns {Object} Le client Supabase
+     */
+    getClient: function() {
+      return supabaseClient;
+    },
+    
+    /**
      * Récupère toutes les couches dans la table 'layers'
      * @returns {Promise<Array<{name:string, url:string, style:string, is_default:boolean}>>}
      */
@@ -365,11 +373,19 @@
 
         // IMPORTANT : Appliquer le filtre ville EN PREMIER
         const activeCity = sanitizeCity(city) || getActiveCity();
+        console.log('🏙️ [listContributions] Filtre ville:', { 
+          cityParam: city, 
+          activeCityFromContext: getActiveCity(), 
+          finalActiveCity: activeCity 
+        });
+        
         if (activeCity) {
           query = query.eq('ville', activeCity);
+          console.log('✅ [listContributions] Filtrage appliqué: ville =', activeCity);
         } else {
           // Si aucune ville active, ne montrer que les projets globaux (ville IS NULL)
           query = query.is('ville', null);
+          console.log('⚠️ [listContributions] Aucune ville active, filtre sur ville = NULL');
         }
 
         if (search && search.trim()) {
@@ -432,10 +448,29 @@
 
         const { data, error, count } = await query;
         if (error) {
+          console.error('❌ [listContributions] Erreur Supabase:', error);
           return { items: [], count: 0 };
         }
+        
+        // Vérifier que toutes les contributions retournées ont bien la bonne ville
+        if (data && data.length > 0) {
+          const villes = [...new Set(data.map(item => item.ville))];
+          console.log('📊 [listContributions] Résultats:', {
+            count: data.length,
+            villesDistinctes: villes,
+            expectedCity: activeCity
+          });
+          
+          // Alerte si des contributions d'autres villes sont retournées
+          const wrongCity = data.filter(item => item.ville !== activeCity);
+          if (wrongCity.length > 0) {
+            console.error('🚨 [listContributions] ATTENTION: Contributions d\'autres villes détectées!', wrongCity.map(c => ({ id: c.id, name: c.project_name, ville: c.ville })));
+          }
+        }
+        
         return { items: data || [], count: typeof count === 'number' ? count : (data ? data.length : 0) };
       } catch (e) {
+        console.error('❌ [listContributions] Exception:', e);
         return { items: [], count: 0 };
       }
     },

@@ -27,9 +27,9 @@ test.describe('Contribution - Gestion des utilisateurs (Lecture)', () => {
     const panel = page.locator('#contrib-panel-users:not([hidden])');
     await expect(panel).toBeVisible();
     
-    // Vérifier que le titre est correct
-    const title = page.locator('#contrib-panel-users h2, #contrib-panel-users .panel-title');
-    await expect(title).toBeVisible();
+    // Vérifier que le contenu du panel est présent (liste d'utilisateurs)
+    const usersList = page.locator('#users-list');
+    await expect(usersList).toBeVisible();
   });
 
   test('Admin global peut accéder au panel des utilisateurs', async ({ page }) => {
@@ -207,8 +207,11 @@ test.describe('Contribution - Gestion des utilisateurs (Lecture)', () => {
     
     await page.waitForTimeout(1500);
     
-    // Chercher un champ de recherche dans le panel
-    const searchInput = page.locator('#users-search, #user-filter, input[placeholder*="cherch"], input[placeholder*="filtr"]');
+    // Chercher un champ de recherche DANS le panel utilisateurs visible uniquement
+    const usersPanel = page.locator('#contrib-panel-users:not([hidden])');
+    await expect(usersPanel).toBeVisible();
+    
+    const searchInput = usersPanel.locator('#users-search, #user-filter, input[placeholder*="Rechercher"], input[placeholder*="Filtrer"]');
     const searchExists = await searchInput.count();
     
     if (searchExists > 0) {
@@ -219,7 +222,8 @@ test.describe('Contribution - Gestion des utilisateurs (Lecture)', () => {
       
       console.log('Champ de recherche d\'utilisateurs disponible');
     } else {
-      console.log('Pas de champ de recherche (normal si peu d\'utilisateurs)');
+      console.log('Pas de champ de recherche (fonctionnalité non implémentée pour les utilisateurs)');
+      // C'est normal - le panel utilisateurs n'a pas encore de recherche
     }
   });
 
@@ -233,15 +237,19 @@ test.describe('Contribution - Gestion des utilisateurs (Lecture)', () => {
     
     await page.waitForTimeout(1500);
     
-    // Chercher un sélecteur de rôle
-    const roleFilter = page.locator('#user-role-filter, #filter-role, select[name*="role"]');
+    // Chercher un sélecteur de rôle DANS le panel utilisateurs visible uniquement
+    const usersPanel = page.locator('#contrib-panel-users:not([hidden])');
+    await expect(usersPanel).toBeVisible();
+    
+    const roleFilter = usersPanel.locator('#user-role-filter, #filter-role, select[name*="role"]');
     const filterExists = await roleFilter.count();
     
     if (filterExists > 0) {
       await expect(roleFilter.first()).toBeVisible();
       console.log('Filtre par rôle disponible');
     } else {
-      console.log('Pas de filtre par rôle (peut être dans un menu déroulant)');
+      console.log('Pas de filtre par rôle (fonctionnalité non implémentée pour les utilisateurs)');
+      // C'est normal - le panel utilisateurs n'a pas encore de filtre par rôle
     }
   });
 

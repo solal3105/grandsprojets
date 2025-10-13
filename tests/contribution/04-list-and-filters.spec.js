@@ -16,7 +16,7 @@ test.describe('Contribution - Liste et filtres', () => {
     // Se connecter et ouvrir le panel liste
     await page.goto('/');
     await page.waitForSelector('#map', { state: 'visible', timeout: 30000 });
-    await login(page, TEST_USERS.user);
+    await login(page, TEST_USERS.invited);
     await openContributionModal(page);
     await selectCity(page, 'lyon');
     await clickEditContributions(page);
@@ -446,8 +446,51 @@ test.describe('Contribution - Liste et filtres', () => {
     // Note: Adapter les sélecteurs selon votre markup
   });
 
-  test.skip('Admin (ville) voit toutes les contributions de sa ville uniquement', async ({ page }) => {
-    // Test skip: nécessite un compte admin de ville et plusieurs villes pour tester le scope
+  test('Admin (ville) voit toutes les contributions de sa ville uniquement', async ({ page }) => {
+    // Se reconnecter en tant qu'admin classique de ville (scope: Lyon)
+    await page.goto('/logout/');
+    await page.waitForURL('/', { timeout: 10000 });
+    
+    await login(page, TEST_USERS.admin);
+    await openContributionModal(page);
+    await selectCity(page, 'lyon');
+    await clickEditContributions(page);
+    
+    await page.waitForTimeout(1500);
+    
+    // Vérifier que la checkbox "Mes contributions uniquement" est visible et modifiable
+    const toggle = page.locator('#contrib-mine-only-toggle');
+    await expect(toggle).toBeVisible();
+    
+    const checkbox = page.locator('#contrib-mine-only');
+    await expect(checkbox).not.toBeDisabled();
+    
+    // Décocher pour voir toutes les contributions de sa ville
+    if (await checkbox.isChecked()) {
+      await checkbox.click();
+      await page.waitForTimeout(1000);
+    }
+    
+    const itemCount = await page.locator('.contrib-card').count();
+    console.log(`[Admin ville] Voit ${itemCount} contributions de Lyon (toutes)`);
+    
+    // L'admin de ville peut voir toutes les contributions de sa ville (Lyon)
+    // mais pas celles des autres villes (scope limité par RLS)
+    
+    // Vérifier que les boutons d'édition et d'approbation sont visibles
+    if (itemCount > 0) {
+      const editButtons = page.locator('.contrib-card__action--edit');
+      const editCount = await editButtons.count();
+      
+      const approveButtons = page.locator('.contrib-card__action--approve');
+      const approveCount = await approveButtons.count();
+      
+      console.log(`[Admin ville] Peut modifier ${editCount} contributions`);
+      console.log(`[Admin ville] Peut approuver ${approveCount} contributions`);
+      
+      // Admin de ville devrait pouvoir modifier/approuver toutes les contributions de sa ville
+      expect(editCount).toBe(itemCount);
+    }
   });
 
   test('Admin global voit toutes les contributions (scope global)', async ({ page }) => {

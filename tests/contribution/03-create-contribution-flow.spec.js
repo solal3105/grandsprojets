@@ -27,7 +27,7 @@ test.describe('Contribution - Flux de création complet', () => {
     // Se connecter et ouvrir la modale
     await page.goto('/');
     await page.waitForSelector('#map', { state: 'visible', timeout: 30000 });
-    await login(page, TEST_USERS.user);
+    await login(page, TEST_USERS.invited);
     await openContributionModal(page);
     
     // Sélectionner une ville et aller sur le panel liste

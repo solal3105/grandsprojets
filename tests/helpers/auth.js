@@ -118,17 +118,13 @@ export async function isLoggedIn(page) {
 
 /**
  * Configuration des utilisateurs de test
+ * 
+ * TEST_ADMIN_EMAIL = solal.gendrin+testadminglobal@gmail.com (super admin global)
+ * TEST_INVITED_EMAIL = solal.gendrin+testadmin@gmail.com (admin classique de ville)
+ * TEST_USER_EMAIL = solal.gendrin+testauth@gmail.com (utilisateur invité simple)
  */
 export const TEST_USERS = {
-  // Admin global (accès complet à toutes les villes)
-  admin: {
-    email: process.env.TEST_ADMIN_EMAIL,
-    password: process.env.TEST_ADMIN_PASSWORD,
-    role: 'admin',
-    cities: ['global']
-  },
-  
-  // Alias pour admin global
+  // Super admin global (accès complet à toutes les villes, peut créer des structures)
   adminGlobal: {
     email: process.env.TEST_ADMIN_EMAIL,
     password: process.env.TEST_ADMIN_PASSWORD,
@@ -136,16 +132,16 @@ export const TEST_USERS = {
     cities: ['global']
   },
   
-  // Invited (accès limité à Lyon)
-  invited: {
+  // Admin classique (accès admin limité à sa ville)
+  admin: {
     email: process.env.TEST_INVITED_EMAIL,
     password: process.env.TEST_INVITED_PASSWORD,
-    role: 'invited',
+    role: 'admin',
     cities: ['lyon']
   },
   
-  // User standard (accès à Lyon)
-  user: {
+  // Utilisateur invité (peut créer des contributions mais ne peut pas gérer)
+  invited: {
     email: process.env.TEST_USER_EMAIL,
     password: process.env.TEST_USER_PASSWORD,
     role: 'invited',

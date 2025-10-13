@@ -22,8 +22,8 @@ import {
 
 test.describe('Contribution - Édition (Tests généraux)', () => {
 
-  test('Le bouton "Modifier" ouvre la modale d\'édition', async ({ page }) => {
-    // Se connecter en tant qu'invited
+  test.beforeEach(async ({ page }) => {
+    // Setup commun : Se connecter et ouvrir la liste des contributions
     await page.goto('/');
     await page.waitForSelector('#map', { state: 'visible', timeout: 30000 });
     await login(page, TEST_USERS.invited);
@@ -31,6 +31,9 @@ test.describe('Contribution - Édition (Tests généraux)', () => {
     await selectCity(page, 'lyon');
     await clickEditContributions(page);
     await page.waitForTimeout(1500);
+  });
+
+  test('Le bouton "Modifier" ouvre la modale d\'édition', async ({ page }) => {
     
     // Vérifier qu'il y a au moins une contribution
     const itemCount = await page.locator('.contrib-card').count();
@@ -387,8 +390,11 @@ test.describe('Contribution - Édition (Permissions ADMIN)', () => {
     // Vérifier qu'on peut effectivement ouvrir en édition
     const firstEditBtn = editButtons.first();
     await expect(firstEditBtn).toBeVisible();
+    await expect(firstEditBtn).toBeEnabled();
+    
+    console.log('[Admin] Clic sur le bouton Modifier...');
     await firstEditBtn.click();
-    await page.waitForSelector('#create-modal-overlay[aria-hidden="false"]', { timeout: 10000 });
+    await page.waitForSelector('#create-modal-overlay', { state: 'visible', timeout: 10000 });
     
     const projectNameInput = page.locator('#contrib-project-name');
     await expect(projectNameInput).toBeEditable();
@@ -429,9 +435,13 @@ test.describe('Contribution - Édition (Permissions ADMIN GLOBAL)', () => {
     // Essayer de modifier une contribution
     const editBtn = page.locator('.contrib-card').first().locator('button[title*="Modifier"], button:has-text("Modifier")').first();
     await expect(editBtn).toBeVisible();
+    await expect(editBtn).toBeEnabled();
     
+    console.log('[Admin Global] Clic sur le bouton Modifier...');
     await editBtn.click();
-    await page.waitForSelector('#create-modal-overlay[aria-hidden="false"]', { timeout: 10000 });
+    
+    // Attendre que la modale apparaisse (soit avec aria-hidden="false", soit visible)
+    await page.waitForSelector('#create-modal-overlay', { state: 'visible', timeout: 10000 });
     
     // Vérifier qu'on peut modifier
     const projectNameInput = page.locator('#contrib-project-name');

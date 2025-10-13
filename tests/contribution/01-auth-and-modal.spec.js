@@ -20,7 +20,7 @@ test.describe('Contribution - Authentification et ouverture modale', () => {
 
   test('Un utilisateur peut se connecter et voir le bouton "Contribuer"', async ({ page }) => {
     // Se connecter avec un utilisateur de test
-    await login(page, TEST_USERS.user);
+    await login(page, TEST_USERS.invited);
     
     // Vérifier que l'utilisateur est connecté
     expect(await isLoggedIn(page)).toBe(true);
@@ -32,7 +32,7 @@ test.describe('Contribution - Authentification et ouverture modale', () => {
 
   test('La modale de contribution s\'ouvre correctement', async ({ page }) => {
     // Se connecter
-    await login(page, TEST_USERS.user);
+    await login(page, TEST_USERS.invited);
     
     // Ouvrir la modale de contribution
     await openContributionModal(page);
@@ -52,7 +52,7 @@ test.describe('Contribution - Authentification et ouverture modale', () => {
 
   test('La modale se ferme correctement avec le bouton X', async ({ page }) => {
     // Se connecter et ouvrir la modale
-    await login(page, TEST_USERS.user);
+    await login(page, TEST_USERS.invited);
     await openContributionModal(page);
     
     // Vérifier que la modale est ouverte
@@ -67,7 +67,7 @@ test.describe('Contribution - Authentification et ouverture modale', () => {
 
   test('La modale se ferme en cliquant sur l\'overlay (ESC)', async ({ page }) => {
     // Se connecter et ouvrir la modale
-    await login(page, TEST_USERS.user);
+    await login(page, TEST_USERS.invited);
     await openContributionModal(page);
     
     // Appuyer sur ESC
@@ -85,7 +85,7 @@ test.describe('Contribution - Authentification et ouverture modale', () => {
 
   test('La carte utilisateur affiche les bonnes informations', async ({ page }) => {
     // Se connecter
-    await login(page, TEST_USERS.user);
+    await login(page, TEST_USERS.invited);
     
     // Ouvrir la modale
     await openContributionModal(page);
@@ -96,7 +96,7 @@ test.describe('Contribution - Authentification et ouverture modale', () => {
     
     // Vérifier que l'email est affiché
     const email = page.locator('#user-info-email');
-    await expect(email).toHaveText(TEST_USERS.user.email);
+    await expect(email).toHaveText(TEST_USERS.invited.email);
     
     // Vérifier que le badge de rôle est affiché
     const roleBadge = page.locator('#user-role-badge');
@@ -109,7 +109,7 @@ test.describe('Contribution - Authentification et ouverture modale', () => {
 
   test('Le bouton de déconnexion fonctionne', async ({ page }) => {
     // Se connecter
-    await login(page, TEST_USERS.user);
+    await login(page, TEST_USERS.invited);
     
     // Ouvrir la modale
     await openContributionModal(page);
@@ -129,7 +129,7 @@ test.describe('Contribution - Authentification et ouverture modale', () => {
 
   test('Un utilisateur admin global voit toutes les options du landing', async ({ page }) => {
     // Se connecter en tant qu'admin global (ville=['global'])
-    await login(page, TEST_USERS.admin);
+    await login(page, TEST_USERS.adminGlobal);
     
     // Ouvrir la modale
     await openContributionModal(page);

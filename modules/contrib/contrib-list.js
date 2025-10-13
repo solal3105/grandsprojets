@@ -298,10 +298,25 @@
     // Vérifier si l'utilisateur est propriétaire de la contribution
     let isOwner = false;
     try {
-      const { data: userData } = await win.supabaseClient.auth.getUser();
-      const uid = userData?.user?.id;
-      isOwner = (uid && item.created_by === uid);
-    } catch(_) {}
+      const client = win.supabaseService?.getClient();
+      if (client) {
+        const { data: userData } = await client.auth.getUser();
+        const uid = userData?.user?.id;
+        isOwner = (uid && item.created_by === uid);
+        console.log('[contrib-list] isOwner check:', { 
+          itemId: item.id, 
+          projectName: item.project_name,
+          userId: uid, 
+          createdBy: item.created_by, 
+          isOwner,
+          isAdmin: win.__CONTRIB_IS_ADMIN
+        });
+      } else {
+        console.warn('[contrib-list] supabaseService.getClient() not available');
+      }
+    } catch(err) {
+      console.warn('[contrib-list] Error checking ownership:', err);
+    }
     
     // Image de couverture
     const coverHtml = item.cover_url
@@ -319,6 +334,13 @@
            <i class="fa-solid fa-clock"></i> En attente
          </span>`;
     
+    // Badge "Votre contribution" si l'utilisateur est le créateur
+    const ownerBadge = isOwner
+      ? `<span class="contrib-card__badge contrib-card__badge--owner" style="background: var(--primary-color, #2563eb); color: white;">
+           <i class="fa-solid fa-user"></i> Votre contribution
+         </span>`
+      : '';
+    
     // Date formatée
     const createdDate = item.created_at 
       ? new Date(item.created_at).toLocaleDateString('fr-FR', { 
@@ -334,8 +356,9 @@
     card.innerHTML = `
       <div class="contrib-card__media">
         ${coverHtml}
-        <div class="contrib-card__overlay">
+        <div class="contrib-card__overlay" style="display: flex; gap: 6px; flex-wrap: wrap;">
           ${statusBadge}
+          ${ownerBadge}
         </div>
       </div>
       
@@ -382,6 +405,7 @@
     if (editBtn && onEdit) {
       editBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+        console.log('[contrib-card] Clic bouton Modifier pour:', { id: item.id, name: item.project_name });
         onEdit(item);
       });
     }

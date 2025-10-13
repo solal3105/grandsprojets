@@ -14,7 +14,7 @@ test.describe('Contribution - Sélection de ville et navigation landing', () => 
     // Se connecter
     await page.goto('/');
     await page.waitForSelector('#map', { state: 'visible', timeout: 30000 });
-    await login(page, TEST_USERS.user);
+    await login(page, TEST_USERS.invited);
     
     // Ouvrir la modale
     await openContributionModal(page);
@@ -99,7 +99,7 @@ test.describe('Contribution - Sélection de ville et navigation landing', () => 
   test('Un admin global peut changer de ville', async ({ page }) => {
     // Se reconnecter en tant qu'admin global (a accès à toutes les villes)
     await page.goto('/');
-    await login(page, TEST_USERS.admin);
+    await login(page, TEST_USERS.adminGlobal);
     await openContributionModal(page);
     
     // Vérifier qu'on a plusieurs villes disponibles

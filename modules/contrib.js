@@ -1238,11 +1238,18 @@
     // Shared callbacks for list operations (defined once, reused everywhere)
     const sharedOnEdit = async (item) => {
       try {
+        console.log('[sharedOnEdit] Ouverture édition pour:', item);
         const row = await (win.supabaseService && win.supabaseService.getContributionById(item.id));
+        console.log('[sharedOnEdit] Données chargées:', row);
         if (row) {
+          console.log('[sharedOnEdit] Appel de openCreateModal...');
           await openCreateModal('edit', row);
+          console.log('[sharedOnEdit] Modale ouverte avec succès');
+        } else {
+          console.warn('[sharedOnEdit] Aucune donnée trouvée pour ID:', item.id);
         }
       } catch (e) {
+        console.error('[sharedOnEdit] Erreur:', e);
         showToast('Erreur lors du chargement de la contribution.', 'error');
       }
     };
