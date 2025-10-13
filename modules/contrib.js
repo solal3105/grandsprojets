@@ -158,7 +158,7 @@
       win.ModalHelper.close('contrib-overlay');
     };
 
-    const openContrib = () => {
+    const openContrib = async () => {
       if (!contribOverlay) return;
       
       // Utiliser ModalHelper pour une gestion unifiée
@@ -166,13 +166,26 @@
         dismissible: true,
         lockScroll: true,
         focusTrap: true,
-        onOpen: () => {
+        onOpen: async () => {
           // Assurer le bon rendu de la carte de dessin si visible
           setTimeout(() => {
             try { if (drawMap) drawMap.invalidateSize(); } catch (_) {}
           }, 200);
-          // Toujours afficher l'écran d'accueil (choix Créer / Modifier)
+          
+          // Afficher le landing pour sélectionner une ville
           showLanding();
+          
+          // Attendre que l'utilisateur sélectionne une ville et clique sur une action
+          // OU ouvrir directement la création si une ville est déjà sélectionnée via l'URL
+          const urlParams = new URLSearchParams(window.location.search);
+          const autoCreateCity = urlParams.get('city');
+          
+          if (autoCreateCity) {
+            // Si ville dans l'URL, passer directement à la création
+            const CityContext = win.ContribCityContext || {};
+            CityContext.setSelectedCity?.(autoCreateCity);
+            await openCreateModal('create');
+          }
         }
       });
     };
@@ -519,6 +532,13 @@
         } catch(_) {}
         
         try {
+          const landingEditCityBtn = document.getElementById('landing-edit-city');
+          if (landingEditCityBtn) {
+            landingEditCityBtn.style.display = isAdmin ? '' : 'none';
+          }
+        } catch(_) {}
+        
+        try {
           const inviteUserBtn = document.getElementById('invite-user-btn');
           if (inviteUserBtn) {
             inviteUserBtn.style.display = isAdmin ? '' : 'none';
@@ -544,23 +564,37 @@
           }
         } catch(_) {}
 
-        if (!isAdmin) {
-          // Forcer mineOnly côté état et UI pour tous les non-admin
-          if (listMineOnlyEl) {
-            try {
-              listMineOnlyEl.checked = true;
-              listMineOnlyEl.disabled = true;
-              listMineOnlyEl.title = 'Limité à mes contributions (imposé par votre rôle)';
-            } catch(_) {}
+        // Pour tous : afficher la checkbox et le message informatif selon le rôle
+        try {
+          const toggleEl = document.getElementById('contrib-mine-only-toggle');
+          const noticeEl = document.getElementById('contrib-invited-notice');
+          
+          if (!isAdmin) {
+            // Invited : checkbox visible, message informatif visible
+            if (toggleEl) toggleEl.style.display = '';
+            if (noticeEl) noticeEl.style.display = 'block';
+            
+            // Par défaut : voir ses contributions + celles approuvées (mineOnly = false)
+            if (listMineOnlyEl) {
+              try {
+                listMineOnlyEl.checked = false;
+                listMineOnlyEl.disabled = false;
+              } catch(_) {}
+            }
+            try { ContribList.updateListState?.({ mineOnly: false }); } catch(_) {}
+          } else {
+            // Admin : checkbox visible, message masqué
+            if (toggleEl) toggleEl.style.display = '';
+            if (noticeEl) noticeEl.style.display = 'none';
+            
+            if (listMineOnlyEl) {
+              try { listMineOnlyEl.disabled = false; } catch(_) {}
+            }
+            try { ContribList.updateListState?.({ mineOnly: !!(listMineOnlyEl && listMineOnlyEl.checked) }); } catch(_) {}
           }
-          try { ContribList.updateListState?.({ mineOnly: true }); } catch(_) {}
+          
           try { if (panelList && !panelList.hidden) { listResetAndLoad(); } } catch(_) {}
-        } else {
-          if (listMineOnlyEl) {
-            try { listMineOnlyEl.disabled = false; } catch(_) {}
-          }
-          try { ContribList.updateListState?.({ mineOnly: !!(listMineOnlyEl && listMineOnlyEl.checked) }); } catch(_) {}
-        }
+        } catch(_) {}
       } catch(_) {}
     }
 
@@ -924,15 +958,21 @@
           // Peupler le dropdown de catégories
           await populateCategoryFilter();
           
-          // Configurer les filtres
+          // Appliquer les contraintes de rôle AVANT de configurer les filtres
+          applyRoleConstraints();
+          
+          // Configurer les filtres APRÈS applyRoleConstraints
           const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : '';
           const isAdmin = role === 'admin';
           const filterCity = CityContext.getSelectedCity?.();
           
-          const mineOnly = isAdmin ? !!(listMineOnlyEl?.checked) : true;
-          if (!isAdmin && listMineOnlyEl) {
-            listMineOnlyEl.checked = true;
-          }
+          console.log('[activateTab list] filterCity:', filterCity, 'role:', role);
+          
+          // Pour invited : mineOnly est déjà configuré à false par applyRoleConstraints
+          // Pour admin : on prend la valeur de la checkbox
+          const mineOnly = listMineOnlyEl?.checked || false;
+          
+          console.log('[activateTab list] Applying filters:', { mineOnly, filterCity });
           
           // Appliquer les filtres et charger
           ContribList.updateListState?.({ mineOnly, filterCity });
@@ -976,38 +1016,31 @@
       
       // Définir la ville sélectionnée
       CityContext.setSelectedCity?.(selectedCity);
+      console.log('[chooseLanding] Selected city set to:', selectedCity);
       
       // Récupérer le nom d'affichage
       const selectedOption = landingCitySelect.options[landingCitySelect.selectedIndex];
       const cityDisplayName = selectedOption?.text || selectedCity;
-      
-      // Actions spécifiques par type de panel
-      if (target === 'create' || target === 'list') {
-        await handleContributionPanels(target, selectedCity, cityDisplayName);
-      } else {
-        // Afficher le badge pour les panels de gestion
-        showManagementPanelBadges(target, cityDisplayName);
-      }
       
       // Navigation
       window.ModalNavigation?.navigateTo(target || 'create');
       
       // Activer le panel approprié
       if (target === 'create') {
-        await openCreateModal('create');
-      } else if (['list', 'categories', 'users'].includes(target)) {
+        // IMPORTANT : Passer explicitement la ville à openCreateModal
+        await openCreateModal('create', { ville: selectedCity });
+      } else if (target === 'list') {
+        // Pour la liste, on doit charger les catégories et le branding
+        await handleContributionPanels(target, selectedCity, cityDisplayName);
+        await activateTab(target);
+      } else if (['categories', 'users'].includes(target)) {
         await activateTab(target);
       }
     }
     
-    // Gère les panels de contribution (create/list)
+    // Gère les panels de contribution (create/list) - charge catégories et branding
     async function handleContributionPanels(target, city, cityDisplayName) {
-      const cityEl = document.getElementById('contrib-city');
-      if (!cityEl) return;
-      
-      cityEl.value = city;
-      
-      // Charger les catégories et le branding
+      // Charger les catégories et le branding pour le panel liste
       await Promise.all([
         loadCategoriesForCity(city),
         ContribCities.applyCityBrandingToDrawMap?.(city)
@@ -1097,7 +1130,14 @@
       // Router les actions selon le bouton
       switch (buttonId) {
         case 'contrib-list-create-btn':
-          await openCreateModal('create');
+          // Récupérer la ville depuis le contexte
+          const CityContext = win.ContribCityContext || {};
+          const currentCity = CityContext.getSelectedCity?.();
+          if (!currentCity) {
+            showToast('Erreur: ville non sélectionnée', 'error');
+            return;
+          }
+          await openCreateModal('create', { ville: currentCity });
           break;
           
         case 'category-add-btn':
@@ -1272,13 +1312,7 @@
       debouncedReset();
     });
     if (listMineOnlyEl) listMineOnlyEl.addEventListener('change', () => {
-      const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : __userRole;
-      if (role === 'invited') {
-        // Empêcher toute modification et forcer coché
-        listMineOnlyEl.checked = true;
-        ContribList.updateListState?.({ mineOnly: true });
-        return; // pas de reset inutile
-      }
+      // Mettre à jour l'état (pour admin seulement, car checkbox masquée pour invited)
       ContribList.updateListState?.({ mineOnly: !!listMineOnlyEl.checked });
       debouncedReset();
     });
@@ -2158,7 +2192,7 @@
 
     // Ouvre la modale de création de contribution
     async function openCreateModal(mode = 'create', data = {}) {
-      console.log('[openCreateModal] Opening with mode:', mode);
+      console.log('[openCreateModal] Called with mode:', mode, 'data:', data);
       
       // Charger la modale si nécessaire
       const loaded = await loadCreateModalTemplate();
@@ -2190,16 +2224,15 @@
         }
       }
       
-      // Récupérer la ville (depuis les données en mode édition, sinon depuis CityContext)
-      const selectedCity = mode === 'edit' && data.ville ? data.ville : CityContext.getSelectedCity?.();
+      // ✅ IMPORTANT : Récupérer la ville depuis data.ville (passé en paramètre)
+      const selectedCity = data.ville || null;
+      console.log('[openCreateModal] ✅ City from data.ville:', selectedCity);
+      
       if (!selectedCity) {
-        showToast('Aucune ville sélectionnée', 'error');
+        console.error('[openCreateModal] ❌ ERREUR: Aucune ville dans data.ville !');
+        showToast('Erreur: Aucune ville sélectionnée', 'error');
         return;
       }
-      
-      // Pré-remplir le champ ville
-      const cityInput = document.querySelector('#create-modal-overlay #contrib-city');
-      if (cityInput) cityInput.value = selectedCity;
       
       // Charger les catégories pour la ville dans le select de la modale
       try {
@@ -2292,6 +2325,26 @@
         console.log('[openCreateModal] Form initialized', formInstance);
       } else {
         console.error('[openCreateModal] ContribCreateForm module not found');
+      }
+      
+      // ✅ IMPORTANT : Remplir le champ ville APRÈS initCreateForm
+      // car initCreateForm peut faire un form.reset() qui efface tout
+      const cityInput = document.querySelector('#create-modal-overlay #contrib-city');
+      if (!cityInput) {
+        console.error('[openCreateModal] ❌ CRITIQUE: #contrib-city NOT FOUND in DOM!');
+        showToast('Erreur: formulaire non chargé correctement', 'error');
+        return;
+      }
+      
+      console.log('[openCreateModal] ✅ Setting #contrib-city value to:', selectedCity);
+      cityInput.value = selectedCity;
+      
+      // Vérification immédiate
+      console.log('[openCreateModal] ✅ Confirmation: #contrib-city.value =', cityInput.value);
+      
+      if (cityInput.value !== selectedCity) {
+        console.error('[openCreateModal] ❌ ERREUR: La ville ne s\'est pas enregistrée correctement!');
+        console.error('[openCreateModal] Expected:', selectedCity, 'Got:', cityInput.value);
       }
       
       // Bind close button

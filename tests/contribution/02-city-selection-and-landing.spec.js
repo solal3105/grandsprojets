@@ -174,22 +174,37 @@ test.describe('Contribution - Sélection de ville et navigation landing', () => 
     console.log('Admin permissions:', { categoriesVisible, usersVisible });
   });
 
-  test('Le bouton "Ajouter une structure" est visible pour les admins', async ({ page }) => {
-    // Se reconnecter en tant qu'admin
+  test('Invited ne voit PAS le bouton "Ajouter une structure"', async ({ page }) => {
+    // Se connecter en tant qu'invited (pas admin global)
     await page.goto('/');
-    await login(page, TEST_USERS.admin);
+    await login(page, TEST_USERS.invited);
     await openContributionModal(page);
+    await selectCity(page, 'lyon');
     
-    // Le bouton doit être visible pour un admin
+    await page.waitForSelector('#contrib-landing', { state: 'visible', timeout: 5000 });
+    await page.waitForFunction(() => window.__CONTRIB_VILLES !== undefined, { timeout: 5000 });
+    
+    // Le bouton "Ajouter une structure" ne doit PAS être visible pour invited
     const addCityBtn = page.locator('#landing-add-city-btn');
+    await expect(addCityBtn).toBeHidden();
     
-    // Note: Vérifier si le bouton existe et est visible
-    // Adapter selon votre logique de rôles
-    const isVisible = await addCityBtn.isVisible().catch(() => false);
+    console.log('[Invited] Ne voit pas le bouton "Ajouter une structure" ✅');
+  });
+
+  test('Admin global voit le bouton "Ajouter une structure"', async ({ page }) => {
+    // Se reconnecter en tant qu'admin global
+    await page.goto('/');
+    await login(page, TEST_USERS.adminGlobal);
+    await openContributionModal(page);
+    await selectCity(page, 'lyon');
     
-    if (isVisible) {
-      await expect(addCityBtn).toBeVisible();
-    }
+    await page.waitForSelector('#contrib-landing', { state: 'visible', timeout: 5000 });
+    await page.waitForFunction(() => window.__CONTRIB_VILLES !== undefined, { timeout: 5000 });
+    
+    // Le bouton "Ajouter une structure" doit être visible (seul l'admin global le voit)
+    const addCityBtn = page.locator('#landing-add-city-btn');
+    await expect(addCityBtn).toBeVisible();
+    await expect(addCityBtn).toHaveText(/Ajouter une structure/i);
   });
 
   test('Les cartes du landing ont les bons textes et icônes', async ({ page }) => {
@@ -198,30 +213,26 @@ test.describe('Contribution - Sélection de ville et navigation landing', () => 
     // Attendre que les permissions soient appliquées
     await page.waitForTimeout(200);
     
-    // Vérifier la carte "Modifier mes contributions" (toujours visible)
+    // Vérifier la carte "Modifier mes contributions" (visible pour invited)
     const editCard = page.locator('#landing-edit');
     await expect(editCard).toBeVisible();
     await expect(editCard.locator('.card-title')).toHaveText('Modifier mes contributions');
     await expect(editCard.locator('.card-icon i')).toHaveClass(/fa-pen-to-square/);
     
-    // Vérifier la carte "Gérer ma structure" (toujours visible)
-    const cityCard = page.locator('#landing-edit-city');
-    await expect(cityCard).toBeVisible();
-    await expect(cityCard.locator('.card-title')).toHaveText('Gérer ma structure');
-    await expect(cityCard.locator('.card-icon i')).toHaveClass(/fa-city/);
-    
-    // Les cartes admin (catégories, users) ne sont visibles QUE pour les admins
-    // Pour un utilisateur "invited" (par défaut dans beforeEach), elles sont masquées
+    // Les cartes admin ne sont PAS visibles pour un invited (par défaut dans beforeEach)
     const categoriesCard = page.locator('#landing-categories');
     const usersCard = page.locator('#landing-users');
+    const cityCard = page.locator('#landing-edit-city');
     
     // Vérifier qu'elles existent dans le DOM
     await expect(categoriesCard).toBeAttached();
     await expect(usersCard).toBeAttached();
+    await expect(cityCard).toBeAttached();
     
     // Pour un invited, elles doivent être masquées
     await expect(categoriesCard).toBeHidden();
     await expect(usersCard).toBeHidden();
+    await expect(cityCard).toBeHidden();
   });
 
   test('Les cartes du landing sont accessibles au clavier', async ({ page }) => {

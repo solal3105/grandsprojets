@@ -26,6 +26,7 @@
     }
     
     selectedCity = city;
+    console.log('[CityContext] ✅ City set to:', city);
     
     // Synchroniser avec sessionStorage et contexte global
     try {

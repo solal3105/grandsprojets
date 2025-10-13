@@ -24,17 +24,37 @@
   // Helper: sanitizeCity → retourne '' si la ville n'est pas valide ou vide
   function sanitizeCity(raw) {
     try {
+      console.log('🔍 [sanitizeCity] Input raw:', raw);
       const v = String(raw || '').toLowerCase().trim();
+      console.log('🔍 [sanitizeCity] After lowercase/trim:', v);
+      
       // Traiter explicitement 'default' comme absence de ville
-      if (v === 'default') return '';
-      if (!v) return '';
+      if (v === 'default') {
+        console.log('🔍 [sanitizeCity] Rejected: is "default"');
+        return '';
+      }
+      if (!v) {
+        console.log('🔍 [sanitizeCity] Rejected: empty');
+        return '';
+      }
+      
       // Si un validateur global existe, l'utiliser
       if (typeof win.isValidCity === 'function') {
-        return win.isValidCity(v) ? v : '';
+        const isValid = win.isValidCity(v);
+        console.log('🔍 [sanitizeCity] win.isValidCity exists, returned:', isValid);
+        return isValid ? v : '';
       }
+      
       // À défaut, accepter seulement [a-z-] pour éviter les valeurs numériques accidentelles
-      return (/^[a-z-]+$/i.test(v)) ? v : '';
-    } catch (_) { return ''; }
+      const regexTest = /^[a-z-]+$/i.test(v);
+      console.log('🔍 [sanitizeCity] Regex test /^[a-z-]+$/i:', regexTest);
+      const result = regexTest ? v : '';
+      console.log('🔍 [sanitizeCity] Final result:', result);
+      return result;
+    } catch (e) {
+      console.error('❌ [sanitizeCity] Exception:', e);
+      return '';
+    }
   }
 
   // Helper: get active city with delegation to global resolver when available
@@ -343,6 +363,7 @@
 
         if (category) query = query.eq('category', category);
 
+        // IMPORTANT : Appliquer le filtre ville EN PREMIER
         const activeCity = sanitizeCity(city) || getActiveCity();
         if (activeCity) {
           query = query.eq('ville', activeCity);
@@ -362,13 +383,41 @@
           query = query.or(orExpr);
         }
 
-        if (mineOnly) {
-          try {
-            const { data: userData } = await supabaseClient.auth.getUser();
-            const uid = userData && userData.user ? userData.user.id : null;
-            if (uid) query = query.eq('created_by', uid);
-          } catch (_) {}
-        }
+        // Logique de filtrage selon le rôle
+        try {
+          const { data: userData } = await supabaseClient.auth.getUser();
+          const uid = userData && userData.user ? userData.user.id : null;
+          
+          if (uid) {
+            // Récupérer le rôle de l'utilisateur
+            const { data: userProfile } = await supabaseClient
+              .from('users')
+              .select('role, ville')
+              .eq('user_id', uid)
+              .single();
+            
+            const userRole = userProfile?.role || 'invited';
+            const userVille = userProfile?.ville || [];
+            
+            if (userRole === 'invited') {
+              // Pour invited : voir ses contributions + celles approuvées de son équipe
+              // IMPORTANT : Le filtre ville est déjà appliqué plus haut avec .eq('ville', activeCity)
+              // Le .or() ci-dessous s'applique DANS le contexte de cette ville
+              if (mineOnly) {
+                // Si mineOnly = true, on montre uniquement ses contributions (de cette ville)
+                query = query.eq('created_by', uid);
+              } else {
+                // Si mineOnly = false, on montre ses contributions + celles approuvées (de cette ville)
+                // Le filtre ville reste actif car il a été appliqué AVANT
+                query = query.or(`created_by.eq.${uid},approved.eq.true`);
+              }
+            } else if (mineOnly) {
+              // Pour admin : comportement classique du mineOnly
+              query = query.eq('created_by', uid);
+            }
+            // Si admin et pas mineOnly : on voit tout (de cette ville, grâce au filtre ville appliqué plus haut)
+          }
+        } catch (_) {}
 
         // Sorting (map 'updated_at' -> 'created_at' and guard allowed columns)
         if (sortBy) {
@@ -1246,36 +1295,64 @@
      */
     createContributionRow: async function(projectName, category, city, meta, description, officialUrl) {
       try {
+        console.log('🔍 [supabaseService] createContributionRow called');
+        console.log('🔍 [supabaseService] Received params:', { projectName, category, city, meta, description, officialUrl });
+        
         if (!projectName || !category) throw new Error('Paramètres manquants');
+        
         let createdBy = null;
         try {
           const { data: userData } = await supabaseClient.auth.getUser();
           if (userData && userData.user) createdBy = userData.user.id;
         } catch (_) {}
+        
+        console.log('🔍 [supabaseService] city param before sanitize:', city);
+        const sanitizedCity = sanitizeCity(city);
+        console.log('🔍 [supabaseService] city after sanitize:', sanitizedCity);
+        
         const baseRow = {
           project_name: projectName,
           category,
-          ville: (function(){
-            const s = sanitizeCity(city);
-            return s ? s : null;
-          })(),
+          ville: sanitizedCity ? sanitizedCity : null,
           meta: (meta && meta.trim()) ? meta.trim() : null,
           description: (description && description.trim()) ? description.trim() : null,
           official_url: (officialUrl && officialUrl.trim()) ? officialUrl.trim() : null
         };
+        
         if (createdBy) baseRow.created_by = createdBy;
+        
+        console.log('🔍 [supabaseService] Final baseRow to insert:', baseRow);
+        console.log('🔍 [supabaseService] baseRow.ville:', baseRow.ville);
+        console.log('🔍 [supabaseService] JSON.stringify(baseRow):', JSON.stringify(baseRow, null, 2));
+        
+        if (!baseRow.ville) {
+          console.error('❌ [supabaseService] CRITIQUE: baseRow.ville est null!');
+        }
+        
         const { data, error } = await supabaseClient
           .from('contribution_uploads')
           .insert(baseRow)
-          .select('id')
+          .select('*')  // ✅ Sélectionner TOUTES les colonnes pour voir ce qui est vraiment inséré
           .single();
+          
         if (error) {
-          console.warn('[supabaseService] createContributionRow insert error:', error);
+          console.error('❌ [supabaseService] Insert error:', error);
           throw error;
         }
+        
+        console.log('✅ [supabaseService] Row inserted with ID:', data?.id);
+        console.log('🔍 [supabaseService] VERIFICATION: Row returned from DB:', data);
+        console.log('🔍 [supabaseService] VERIFICATION: data.ville =', data?.ville);
+        
+        if (!data?.ville) {
+          console.error('❌ [supabaseService] PROBLEME: La BDD a retourné ville = null/undefined!');
+          console.error('❌ On a envoyé:', baseRow.ville);
+          console.error('❌ La BDD a enregistré:', data?.ville);
+        }
+        
         return data?.id;
       } catch (e) {
-        console.warn('[supabaseService] createContributionRow exception:', e);
+        console.error('❌ [supabaseService] Exception:', e);
         throw e;
       }
     },

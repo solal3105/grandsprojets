@@ -123,13 +123,19 @@
                 </select>
               </div>
 
-              <label class="filter-toggle">
+              <label class="filter-toggle" id="contrib-mine-only-toggle">
                 <input type="checkbox" id="contrib-mine-only" />
                 <span class="filter-toggle-label">
                   <i class="fa-solid fa-user"></i>
                   Mes contributions uniquement
                 </span>
               </label>
+              
+              <!-- Message pour les invited -->
+              <div id="contrib-invited-notice" style="display:none;padding:8px 12px;background:var(--primary-50);border-radius:6px;font-size:13px;color:var(--primary-700);">
+                <i class="fa-solid fa-info-circle" style="margin-right:6px;"></i>
+                Vous voyez vos contributions et celles approuvées de votre équipe. Vous ne pouvez modifier que les vôtres.
+              </div>
             </div>
           </div>
         </div>

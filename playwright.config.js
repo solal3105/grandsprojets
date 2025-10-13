@@ -98,12 +98,11 @@ export default defineConfig({
     },
   ],
 
-  // Serveur de développement (désactivé - vous le lancez manuellement)
-  // Décommentez si vous voulez que Playwright démarre le serveur automatiquement
-  // webServer: {
-  //   command: 'npx http-server -p 3000 -c-1',
-  //   url: 'http://localhost:3000',
-  //   reuseExistingServer: !process.env.CI,
-  //   timeout: 120 * 1000,
-  // },
+  // Serveur de développement - Playwright le démarre automatiquement
+  webServer: {
+    command: 'python -m http.server 3000',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120 * 1000,
+  },
 });

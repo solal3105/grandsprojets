@@ -1,8 +1,22 @@
 # GrandProjetV2
 
-[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC) [![Leaflet](https://img.shields.io/badge/Leaflet-1.9.x-brightgreen)](#)
+[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC) [![Leaflet](https://img.shields.io/badge/Leaflet-1.9.x-brightgreen)](#) [![Tests](https://img.shields.io/badge/Tests-Playwright-45ba4b)](#)
 
 **Dernière mise à jour :** 2025-08-30
+
+---
+
+## Démarrage rapide
+
+### Lancer les tests automatiques en une commande
+
+Double-cliquez sur `lancer-tests.bat` ou lancez :
+
+```powershell
+npm run test:contrib:ui
+```
+
+Playwright démarre automatiquement le serveur et lance les tests en mode UI. [Documentation →](./tests-scripts/TESTS.md)
 
 ---
 

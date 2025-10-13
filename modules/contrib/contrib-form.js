@@ -193,7 +193,16 @@
     const category = document.getElementById('contrib-category')?.value;
     const fileInput = document.getElementById('contrib-geojson');
     const coverInput = document.getElementById('contrib-cover');
-    const city = document.getElementById('contrib-city')?.value?.trim();
+    
+    // 🔍 DEBUG VILLE - Tracer le problème
+    const cityInput = document.getElementById('contrib-city');
+    console.log('🔍 [contrib-form] cityInput element:', cityInput);
+    console.log('🔍 [contrib-form] cityInput.value:', cityInput?.value);
+    console.log('🔍 [contrib-form] cityInput.type:', cityInput?.type);
+    
+    const city = cityInput?.value?.trim();
+    console.log('🔍 [contrib-form] Final city value:', city);
+    
     const officialUrl = document.getElementById('contrib-official-url')?.value?.trim();
     const meta = document.getElementById('contrib-meta')?.value?.trim();
     const description = document.getElementById('contrib-description')?.value?.trim();
@@ -208,6 +217,17 @@
     const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : __userRole;
     
     console.log('[contrib-form] Form data:', { projectName, category, city, geomMode, role });
+    
+    if (!city) {
+      console.error('❌ [contrib-form] CRITIQUE: city est vide/null/undefined!');
+      console.error('❌ Tous les champs du formulaire:', {
+        projectName,
+        category,
+        city,
+        meta,
+        description
+      });
+    }
     
     if (!projectName || !category) {
       console.warn('[contrib-form] Missing required fields');
@@ -297,8 +317,25 @@
         console.log('[contrib-form] Creating new contribution row...');
         try {
           if (win.supabaseService && typeof win.supabaseService.createContributionRow === 'function') {
-            const cityToCreate = (role === 'admin') ? (city || null) : null;
-            console.log('[contrib-form] Calling createContributionRow with:', { projectName, category, cityToCreate });
+            // IMPORTANT : Tous les utilisateurs (invited et admin) doivent passer la ville
+            const cityToCreate = city || null;
+            
+            console.log('🔍 [contrib-form] Preparing to call createContributionRow');
+            console.log('🔍 [contrib-form] city variable:', city);
+            console.log('🔍 [contrib-form] cityToCreate:', cityToCreate);
+            console.log('🔍 [contrib-form] Full params:', { projectName, category, cityToCreate, role });
+            
+            if (!cityToCreate) {
+              console.error('❌ [contrib-form] ERREUR: cityToCreate est null/undefined!');
+              console.error('❌ [contrib-form] city était:', city);
+              if (onSetStatus) onSetStatus("Erreur: Aucune ville sélectionnée", 'error');
+              if (onShowToast) onShowToast("Erreur: Ville manquante", 'error');
+              if (submitBtn) submitBtn.disabled = false;
+              return;
+            }
+            
+            console.log('✅ [contrib-form] City OK, calling createContributionRow with city:', cityToCreate);
+            
             rowId = await win.supabaseService.createContributionRow(
               projectName,
               category,
@@ -313,6 +350,7 @@
           }
         } catch (e) {
           console.error('[contrib-form] createContributionRow error:', e);
+          console.error('[contrib-form] Error details:', e.message, e.code, e.details);
         }
         
         if (!rowId) {

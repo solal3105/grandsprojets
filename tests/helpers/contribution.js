@@ -100,6 +100,17 @@ export async function clickManageUsers(page) {
 }
 
 /**
+ * Cliquer sur "Gérer ma structure"
+ * @param {import('@playwright/test').Page} page
+ */
+export async function clickEditCity(page) {
+  await page.click('#landing-edit-city');
+  
+  // Attendre que le panel structure soit visible
+  await page.waitForSelector('#contrib-panel-edit-city:not([hidden])', { state: 'visible', timeout: 5000 });
+}
+
+/**
  * Ouvrir la modale de création de contribution
  * @param {import('@playwright/test').Page} page
  */
@@ -358,7 +369,7 @@ export async function toggleMineOnly(page, checked = true) {
  */
 export async function editContribution(page, projectName) {
   // Trouver la contribution et cliquer sur éditer
-  const editBtn = page.locator(`.contrib-item:has-text("${projectName}") button[title*="Modifier"]`).first();
+  const editBtn = page.locator(`.contrib-card:has-text("${projectName}") button[title*="Modifier"]`).first();
   await editBtn.click();
   
   // Attendre que la modale d'édition s'ouvre
@@ -372,7 +383,7 @@ export async function editContribution(page, projectName) {
  */
 export async function deleteContribution(page, projectName) {
   // Trouver la contribution et cliquer sur supprimer
-  const deleteBtn = page.locator(`.contrib-item:has-text("${projectName}") button[title*="Supprimer"]`).first();
+  const deleteBtn = page.locator(`.contrib-card:has-text("${projectName}") button[title*="Supprimer"]`).first();
   await deleteBtn.click();
   
   // Confirmer la suppression dans la modale de confirmation

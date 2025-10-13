@@ -290,10 +290,18 @@
    * @param {Function} onDelete - Callback pour supprimer
    * @returns {HTMLElement} Élément DOM
    */
-  function renderItem(item, onEdit, onDelete) {
+  async function renderItem(item, onEdit, onDelete) {
     const card = document.createElement('article');
     card.className = 'contrib-card';
     card.setAttribute('data-contrib-id', item.id);
+    
+    // Vérifier si l'utilisateur est propriétaire de la contribution
+    let isOwner = false;
+    try {
+      const { data: userData } = await win.supabaseClient.auth.getUser();
+      const uid = userData?.user?.id;
+      isOwner = (uid && item.created_by === uid);
+    } catch(_) {}
     
     // Image de couverture
     const coverHtml = item.cover_url
@@ -355,12 +363,14 @@
       </div>
       
       <div class="contrib-card__actions">
-        <button type="button" class="contrib-card__action contrib-card__action--edit" title="Modifier">
-          <i class="fa-solid fa-pen"></i>
-        </button>
-        <button type="button" class="contrib-card__action contrib-card__action--delete" title="Supprimer">
-          <i class="fa-solid fa-trash"></i>
-        </button>
+        ${isOwner || win.__CONTRIB_IS_ADMIN ? `
+          <button type="button" class="contrib-card__action contrib-card__action--edit" title="Modifier">
+            <i class="fa-solid fa-pen"></i>
+          </button>
+          <button type="button" class="contrib-card__action contrib-card__action--delete" title="Supprimer">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        ` : ''}
       </div>
     `;
     
@@ -383,8 +393,8 @@
       });
     }
     
-    // Cliquer sur le contenu = éditer
-    if (content && onEdit) {
+    // Cliquer sur le contenu = éditer (uniquement si propriétaire ou admin)
+    if (content && onEdit && (isOwner || win.__CONTRIB_IS_ADMIN)) {
       content.style.cursor = 'pointer';
       content.addEventListener('click', () => onEdit(item));
     }
@@ -578,14 +588,15 @@
         console.log('[contrib-list] Rendering', items.length, 'items');
         clearEmptyState(listEl);
         listState.items.push(...items);
-        items.forEach(it => {
-          const node = renderItem(it, onEdit, onDelete);
+        // Rendre les items (async maintenant)
+        for (const it of items) {
+          const node = await renderItem(it, onEdit, onDelete);
           if (listSentinel && listSentinel.parentNode === listEl) {
             listEl.insertBefore(node, listSentinel);
           } else {
             listEl.appendChild(node);
           }
-        });
+        }
         listState.page += 1;
         if (items.length < listState.pageSize) listState.done = true;
       }

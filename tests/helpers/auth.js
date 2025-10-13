@@ -120,26 +120,34 @@ export async function isLoggedIn(page) {
  * Configuration des utilisateurs de test
  */
 export const TEST_USERS = {
-  // Utilisateur admin avec accès complet (global)
+  // Admin global (accès complet à toutes les villes)
   admin: {
-    email: process.env.TEST_ADMIN_EMAIL || 'admin@test.local',
-    password: process.env.TEST_ADMIN_PASSWORD || 'TestPassword123!',
+    email: process.env.TEST_ADMIN_EMAIL,
+    password: process.env.TEST_ADMIN_PASSWORD,
     role: 'admin',
     cities: ['global']
   },
   
-  // Utilisateur invité avec accès limité à une ville
+  // Alias pour admin global
+  adminGlobal: {
+    email: process.env.TEST_ADMIN_EMAIL,
+    password: process.env.TEST_ADMIN_PASSWORD,
+    role: 'admin',
+    cities: ['global']
+  },
+  
+  // Invited (accès limité à Lyon)
   invited: {
-    email: process.env.TEST_INVITED_EMAIL || 'invited@test.local',
-    password: process.env.TEST_INVITED_PASSWORD || 'TestPassword123!',
+    email: process.env.TEST_INVITED_EMAIL,
+    password: process.env.TEST_INVITED_PASSWORD,
     role: 'invited',
     cities: ['lyon']
   },
   
-  // Alias pour "user" -> pointe vers "invited" (compatibilité)
+  // User standard (accès à Lyon)
   user: {
-    email: process.env.TEST_USER_EMAIL || process.env.TEST_INVITED_EMAIL || 'invited@test.local',
-    password: process.env.TEST_USER_PASSWORD || process.env.TEST_INVITED_PASSWORD || 'TestPassword123!',
+    email: process.env.TEST_USER_EMAIL,
+    password: process.env.TEST_USER_PASSWORD,
     role: 'invited',
     cities: ['lyon']
   }

@@ -166,12 +166,10 @@ test.describe('Contribution - Authentification et ouverture modale', () => {
     // Vérifier que la carte "Modifier mes contributions" est visible
     await expect(page.locator('#landing-edit')).toBeVisible();
     
-    // Vérifier que la carte "Gérer ma structure" est visible
-    await expect(page.locator('#landing-edit-city')).toBeVisible();
-    
     // Vérifier que les cartes admin sont MASQUÉES (display:none)
     await expect(page.locator('#landing-categories')).toBeHidden(); // Gérer les catégories
     await expect(page.locator('#landing-users')).toBeHidden(); // Gérer les utilisateurs
+    await expect(page.locator('#landing-edit-city')).toBeHidden(); // Gérer ma structure
     await expect(page.locator('#landing-branding')).toBeHidden(); // Gérer le branding
   });
 });
