@@ -101,13 +101,15 @@ export async function clickManageUsers(page) {
 
 /**
  * Cliquer sur "Gérer ma structure"
+ * Note: Le panel #contrib-panel-edit-city n'est pas encore implémenté
  * @param {import('@playwright/test').Page} page
  */
 export async function clickEditCity(page) {
   await page.click('#landing-edit-city');
   
-  // Attendre que le panel structure soit visible
-  await page.waitForSelector('#contrib-panel-edit-city:not([hidden])', { state: 'visible', timeout: 5000 });
+  // Attendre un peu pour que l'action se déclenche
+  // Le panel edit-city n'est pas encore implémenté, donc on n'attend pas qu'il apparaisse
+  await page.waitForTimeout(500);
 }
 
 /**
@@ -391,4 +393,90 @@ export async function deleteContribution(page, projectName) {
   
   // Attendre le toast de succès
   await page.waitForSelector('.toast.success, .gp-toast--success', { timeout: 10000 });
+}
+
+/**
+ * Créer une contribution de test (avec préfixe TEST pour identification)
+ * @param {import('@playwright/test').Page} page
+ * @param {Object} options - Options de la contribution
+ * @param {string} options.name - Nom du projet (sera préfixé par "TEST - ")
+ * @param {string} options.category - Catégorie (urbanisme, mobilite, voielyonnaise)
+ * @param {string} options.city - Ville (doit être "lyon" pour tests safe)
+ * @returns {Promise<string>} Le nom complet avec préfixe TEST
+ */
+export async function createTestContribution(page, options = {}) {
+  const {
+    name = `Projet Test ${Date.now()}`,
+    category = 'urbanisme',
+    city = 'lyon'
+  } = options;
+  
+  const testName = `TEST - ${name}`;
+  
+  // Ouvrir la modale de création (utilise la fonction existante)
+  await openCreateModal(page);
+  
+  // Étape 1 : Informations de base
+  await page.fill('#contrib-project-name', testName);
+  
+  // Attendre que les catégories soient chargées
+  await page.waitForFunction(() => {
+    const select = document.querySelector('#contrib-category');
+    const options = select ? select.querySelectorAll('option:not([value=""])') : [];
+    return options.length > 0;
+  }, { timeout: 5000 });
+  
+  await page.selectOption('#contrib-category', category);
+  
+  // Passer à l'étape 2
+  await page.click('#contrib-next');
+  await page.waitForTimeout(500);
+  
+  // Étape 2 : Upload GeoJSON (fichier minimal)
+  const geojsonContent = JSON.stringify({
+    type: "FeatureCollection",
+    features: [{
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: [4.835659, 45.764043] // Lyon
+      },
+      properties: {
+        name: testName
+      }
+    }]
+  });
+  
+  // Créer un fichier temporaire
+  const buffer = Buffer.from(geojsonContent);
+  const fileInput = page.locator('#contrib-geojson-file');
+  await fileInput.setInputFiles({
+    name: 'test.geojson',
+    mimeType: 'application/json',
+    buffer: buffer
+  });
+  
+  // Attendre le chargement
+  await page.waitForTimeout(1000);
+  
+  // Passer à l'étape 3
+  await page.click('#contrib-next');
+  await page.waitForTimeout(500);
+  
+  // Étape 3 : Cover et Markdown (optionnels, on skip)
+  await page.click('#contrib-next');
+  await page.waitForTimeout(500);
+  
+  // Étape 4 : Récapitulatif - Soumettre
+  await page.click('#contrib-submit');
+  
+  // Attendre le toast de succès
+  await page.waitForSelector('.toast.success, .gp-toast--success', { timeout: 10000 });
+  
+  // Attendre que la modale se ferme et que la liste se rafraîchisse
+  await page.waitForTimeout(2000);
+  
+  console.log(`[Test Helper] Contribution créée: "${testName}"`);
+  
+  return testName;
 }

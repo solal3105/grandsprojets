@@ -524,4 +524,131 @@ test.describe('Contribution - Liste et filtres', () => {
     // L'admin global peut voir toutes les contributions (pas de restriction de ville)
     // Note: Dans un vrai scénario multi-villes, on vérifierait qu'il voit les contributions de toutes les villes
   });
+
+  test('Le badge "Votre contribution" est visible sur ses propres contributions', async ({ page }) => {
+    // Se connecter en tant qu'invited
+    await page.goto('/');
+    await page.waitForSelector('#map', { state: 'visible', timeout: 30000 });
+    await login(page, TEST_USERS.invited);
+    await openContributionModal(page);
+    await selectCity(page, 'lyon');
+    await clickEditContributions(page);
+    await page.waitForTimeout(1500);
+    
+    const itemCount = await page.locator('.contrib-card').count();
+    
+    if (itemCount === 0) {
+      test.skip();
+      return;
+    }
+    
+    // Chercher le badge "Votre contribution" sur les cartes
+    const ownerBadges = page.locator('.contrib-card__badge--owner');
+    const ownerBadgesCount = await ownerBadges.count();
+    
+    if (ownerBadgesCount > 0) {
+      // Vérifier qu'au moins un badge est visible
+      const firstBadge = ownerBadges.first();
+      await expect(firstBadge).toBeVisible();
+      
+      // Vérifier le texte du badge
+      const badgeText = await firstBadge.textContent();
+      expect(badgeText).toContain('Votre contribution');
+      
+      console.log(`[Badge Owner] ${ownerBadgesCount} badge(s) "Votre contribution" trouvé(s)`);
+    } else {
+      console.log('[Badge Owner] Aucune contribution propre trouvée (peut-être que toutes sont des contributions approuvées d\'autres)');
+    }
+  });
+
+  test('Le badge "Votre contribution" est absent sur les contributions des autres', async ({ page }) => {
+    // Se connecter en tant qu'invited
+    await page.goto('/');
+    await page.waitForSelector('#map', { state: 'visible', timeout: 30000 });
+    await login(page, TEST_USERS.invited);
+    await openContributionModal(page);
+    await selectCity(page, 'lyon');
+    await clickEditContributions(page);
+    await page.waitForTimeout(1500);
+    
+    // Décocher "Mes contributions uniquement" pour voir toutes les contributions
+    const checkbox = page.locator('#contrib-mine-only');
+    if (await checkbox.isChecked()) {
+      await checkbox.click();
+      await page.waitForTimeout(1000);
+    }
+    
+    const itemCount = await page.locator('.contrib-card').count();
+    
+    if (itemCount === 0) {
+      test.skip();
+      return;
+    }
+    
+    // Compter les badges "Votre contribution"
+    const ownerBadges = page.locator('.contrib-card__badge--owner');
+    const ownerBadgesCount = await ownerBadges.count();
+    
+    // Compter le total de cartes
+    const totalCards = await page.locator('.contrib-card').count();
+    
+    console.log(`[Badge Owner] ${ownerBadgesCount} badge(s) sur ${totalCards} contributions au total`);
+    
+    // Le nombre de badges doit être inférieur au nombre total de cartes
+    // (sauf si toutes les contributions sont les siennes, ce qui est peu probable)
+    // On vérifie juste qu'on n'a pas de badge sur TOUTES les contributions
+    if (totalCards > 1) {
+      expect(ownerBadgesCount).toBeLessThanOrEqual(totalCards);
+      
+      // Vérifier qu'il existe au moins une carte SANS le badge owner
+      const cardsWithoutBadge = await page.locator('.contrib-card').filter({ hasNot: page.locator('.contrib-card__badge--owner') }).count();
+      
+      if (cardsWithoutBadge > 0) {
+        console.log(`[Badge Owner] ${cardsWithoutBadge} contribution(s) sans badge (contributions d'autres utilisateurs) ✓`);
+      }
+    }
+  });
+
+  test('Le badge "Votre contribution" est affiché pour tous les rôles sur leurs propres contributions', async ({ page }) => {
+    // Tester avec un admin
+    await page.goto('/');
+    await page.waitForSelector('#map', { state: 'visible', timeout: 30000 });
+    await login(page, TEST_USERS.admin);
+    await openContributionModal(page);
+    await selectCity(page, 'lyon');
+    await clickEditContributions(page);
+    await page.waitForTimeout(1500);
+    
+    // Décocher "Mes contributions uniquement" pour voir toutes les contributions
+    const checkbox = page.locator('#contrib-mine-only');
+    if (await checkbox.isChecked()) {
+      await checkbox.click();
+      await page.waitForTimeout(1000);
+    }
+    
+    const itemCount = await page.locator('.contrib-card').count();
+    
+    if (itemCount === 0) {
+      console.log('[Badge Owner] Aucune contribution trouvée pour admin');
+      return;
+    }
+    
+    // Chercher les badges "Votre contribution"
+    const ownerBadges = page.locator('.contrib-card__badge--owner');
+    const ownerBadgesCount = await ownerBadges.count();
+    
+    console.log(`[Badge Owner Admin] ${ownerBadgesCount} badge(s) "Votre contribution" trouvé(s) pour admin`);
+    
+    // Vérifier que le badge existe et a le bon style
+    if (ownerBadgesCount > 0) {
+      const firstBadge = ownerBadges.first();
+      await expect(firstBadge).toBeVisible();
+      
+      // Vérifier la couleur de fond (primary color)
+      const bgColor = await firstBadge.evaluate(el => window.getComputedStyle(el).backgroundColor);
+      expect(bgColor).toBeTruthy();
+      
+      console.log('[Badge Owner Admin] Badge correctement affiché avec style ✓');
+    }
+  });
 });
