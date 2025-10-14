@@ -417,11 +417,8 @@
       });
     }
     
-    // Cliquer sur le contenu = éditer (uniquement si propriétaire ou admin)
-    if (content && onEdit && (isOwner || win.__CONTRIB_IS_ADMIN)) {
-      content.style.cursor = 'pointer';
-      content.addEventListener('click', () => onEdit(item));
-    }
+    // Note: Avant, toute la carte était cliquable pour éditer
+    // Maintenant, seul le bouton "Modifier" permet l'édition (lignes 406-410)
     
     // Admin: Bouton approuver
     const isAdmin = !!win.__CONTRIB_IS_ADMIN;

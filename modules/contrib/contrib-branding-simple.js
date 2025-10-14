@@ -246,6 +246,8 @@
         }
         setTimeout(() => {
           overlay.setAttribute('aria-hidden', 'true');
+          // ✅ Bloquer les interactions
+          overlay.inert = true;
         }, 220);
       };
       
@@ -258,6 +260,8 @@
       
       // Ouvrir la modale
       overlay.setAttribute('aria-hidden', 'false');
+      // ✅ Réactiver les interactions
+      overlay.inert = false;
       const modalInner = overlay.querySelector('.gp-modal');
       if (modalInner) {
         requestAnimationFrame(() => {

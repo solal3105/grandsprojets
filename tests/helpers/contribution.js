@@ -316,7 +316,12 @@ export async function submitForm(page) {
  * @param {string} searchTerm
  */
 export async function searchContribution(page, searchTerm) {
-  await page.fill('#contrib-search', searchTerm);
+  // Attendre que le champ de recherche soit visible et éditable
+  const searchInput = page.locator('#contrib-search');
+  await searchInput.waitFor({ state: 'visible', timeout: 10000 });
+  
+  // Remplir le champ
+  await searchInput.fill(searchTerm);
   
   // Attendre un peu pour le debounce
   await page.waitForTimeout(500);

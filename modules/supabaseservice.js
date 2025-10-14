@@ -460,7 +460,7 @@
           return { items: [], count: 0 };
         }
         
-        // Vérifier que toutes les contributions retournées ont bien la bonne ville
+        // Vérifier les résultats
         if (data && data.length > 0) {
           const villes = [...new Set(data.map(item => item.ville))];
           console.log('📊 [listContributions] Résultats:', {

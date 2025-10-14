@@ -332,6 +332,8 @@
 
       // Ouvrir la modale
       overlay.setAttribute('aria-hidden', 'false');
+      // ✅ Réactiver les interactions
+      overlay.inert = false;
       const inviteModalInner = overlay.querySelector('.gp-modal');
       if (inviteModalInner) {
         requestAnimationFrame(() => {
@@ -347,6 +349,8 @@
         }
         setTimeout(() => {
           overlay.setAttribute('aria-hidden', 'true');
+          // ✅ Bloquer les interactions
+          overlay.inert = true;
           inviteForm.reset();
         }, 220);
       };

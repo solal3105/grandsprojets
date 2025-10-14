@@ -409,11 +409,12 @@
       }
 
       // Update core fields
+      // Note: ville n'est PAS mise à jour ici car elle est déjà correctement définie lors de createContributionRow
+      // Ne pas écraser la ville avec null pour les invited, sinon ils ne verront plus leur contribution dans la liste filtrée par ville
       try {
         await (win.supabaseService && win.supabaseService.updateContribution(rowId, {
           project_name: projectName,
           category: category,
-          ville: (role === 'invited' ? null : (role === 'admin' ? (city || null) : null)),
           official_url: officialUrl || null,
           meta: meta || null,
           description: description || null
@@ -442,15 +443,6 @@
       } else {
         if (onSetStatus) onSetStatus('Contribution enregistrée. Merci !', 'success');
         if (onShowToast) onShowToast('Contribution enregistrée. Merci !', 'success');
-        
-        // Rafraîchir la liste après création
-        if (onRefreshList) {
-          try {
-            await onRefreshList();
-          } catch(err) {
-            console.error('[contrib-form] Erreur lors du rafraîchissement:', err);
-          }
-        }
         
         // Emit event for refresh (pour les listeners externes)
         try { 
@@ -488,10 +480,18 @@
             const modalInner = createModal.querySelector('.gp-modal');
             if (modalInner) modalInner.classList.remove('is-open');
             
-            setTimeout(() => {
+            setTimeout(async () => {
               createModal.setAttribute('aria-hidden', 'true');
-              console.log('[contrib-form] Sous-modale de création fermée, restant sur le panel liste');
-            }, 220);
+              
+              // Rafraîchir la liste APRÈS la fermeture de la modale
+              if (onRefreshList) {
+                try {
+                  await onRefreshList();
+                } catch(err) {
+                  console.error('[contrib-form] Erreur lors du rafraîchissement:', err);
+                }
+              }
+            }, 300);
           }
         } else {
           // Si on n'est pas dans le panel liste, fermer la modale principale

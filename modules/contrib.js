@@ -2019,6 +2019,8 @@
           }
           setTimeout(() => {
             categoryModalOverlay.setAttribute('aria-hidden', 'true');
+            // ✅ Bloquer les interactions
+            categoryModalOverlay.inert = true;
           }, 220);
           
           // Rafraîchir la liste et s'assurer qu'elle est visible
@@ -2128,6 +2130,8 @@
       
       // Ouvrir la modale
       categoryModalOverlay.setAttribute('aria-hidden', 'false');
+      // ✅ Réactiver les interactions
+      categoryModalOverlay.inert = false;
       const categoryModalInner = categoryModalOverlay.querySelector('.gp-modal');
       if (categoryModalInner) {
         requestAnimationFrame(() => {
@@ -2143,6 +2147,8 @@
         }
         setTimeout(() => {
           categoryModalOverlay.setAttribute('aria-hidden', 'true');
+          // ✅ Bloquer les interactions
+          categoryModalOverlay.inert = true;
         }, 220);
       };
       
@@ -2267,9 +2273,11 @@
         setTimeout(() => {
           overlay.setAttribute('aria-hidden', 'true');
           
+          // ✅ Bloquer toutes les interactions avec la modale masquée
+          overlay.inert = true;
+          
           // Détruire proprement l'instance du formulaire (v2)
           if (formInstance && typeof formInstance.destroy === 'function') {
-            console.log('[openCreateModal] Destroying form instance');
             formInstance.destroy();
             formInstance = null;
           } else {
@@ -2349,6 +2357,9 @@
       
       // Ouvrir la modale
       overlay.setAttribute('aria-hidden', 'false');
+      // ✅ Réactiver les interactions
+      overlay.inert = false;
+      
       const modalInner = overlay.querySelector('.gp-modal');
       if (modalInner) {
         requestAnimationFrame(() => {
