@@ -356,7 +356,7 @@
           category,
           page = 1,
           pageSize = 10,
-          mineOnly = true,
+          mineOnly = false,
           sortBy = 'created_at',
           sortDir = 'desc',
           city
@@ -405,15 +405,12 @@
           const uid = userData && userData.user ? userData.user.id : null;
           
           if (uid) {
-            // Récupérer le rôle de l'utilisateur
-            const { data: userProfile } = await supabaseClient
-              .from('users')
-              .select('role, ville')
-              .eq('user_id', uid)
-              .single();
+            // Utiliser le rôle depuis le contexte global (plus fiable que la requête DB)
+            const userRole = (typeof window.__CONTRIB_ROLE === 'string' && window.__CONTRIB_ROLE) 
+              ? window.__CONTRIB_ROLE 
+              : 'invited';
             
-            const userRole = userProfile?.role || 'invited';
-            const userVille = userProfile?.ville || [];
+            console.log('🔐 [listContributions] User role:', userRole, 'mineOnly:', mineOnly);
             
             if (userRole === 'invited') {
               // Pour invited : voir ses contributions + celles approuvées de son équipe
@@ -422,18 +419,29 @@
               if (mineOnly) {
                 // Si mineOnly = true, on montre uniquement ses contributions (de cette ville)
                 query = query.eq('created_by', uid);
+                console.log('✅ [listContributions] Filtre invited mineOnly: created_by =', uid);
               } else {
                 // Si mineOnly = false, on montre ses contributions + celles approuvées (de cette ville)
                 // Le filtre ville reste actif car il a été appliqué AVANT
                 query = query.or(`created_by.eq.${uid},approved.eq.true`);
+                console.log('✅ [listContributions] Filtre invited: created_by =', uid, 'OR approved = true');
               }
-            } else if (mineOnly) {
-              // Pour admin : comportement classique du mineOnly
-              query = query.eq('created_by', uid);
+            } else if (userRole === 'admin') {
+              // Pour admin
+              if (mineOnly) {
+                // Si mineOnly = true, on montre uniquement ses contributions
+                query = query.eq('created_by', uid);
+                console.log('✅ [listContributions] Filtre admin mineOnly: created_by =', uid);
+              } else {
+                // Si mineOnly = false, on voit TOUT (de cette ville)
+                // Pas de filtre supplémentaire
+                console.log('✅ [listContributions] Admin voit TOUT (ville:', activeCity, ')');
+              }
             }
-            // Si admin et pas mineOnly : on voit tout (de cette ville, grâce au filtre ville appliqué plus haut)
           }
-        } catch (_) {}
+        } catch (err) {
+          console.error('❌ [listContributions] Error applying role filter:', err);
+        }
 
         // Sorting (map 'updated_at' -> 'created_at' and guard allowed columns)
         if (sortBy) {

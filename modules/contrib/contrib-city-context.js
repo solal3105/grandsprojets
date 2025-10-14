@@ -88,8 +88,8 @@
     const title = document.getElementById('landing-actions-title');
     const cards = document.getElementById('landing-cards');
     
-    if (title) title.style.display = show ? '' : 'none';
-    if (cards) cards.style.display = show ? '' : 'none';
+    if (title) title.hidden = !show;
+    if (cards) cards.hidden = !show;
   }
 
   /**

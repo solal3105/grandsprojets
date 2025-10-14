@@ -443,6 +443,22 @@
         if (onSetStatus) onSetStatus('Contribution enregistrée. Merci !', 'success');
         if (onShowToast) onShowToast('Contribution enregistrée. Merci !', 'success');
         
+        // Rafraîchir la liste après création
+        if (onRefreshList) {
+          try {
+            await onRefreshList();
+          } catch(err) {
+            console.error('[contrib-form] Erreur lors du rafraîchissement:', err);
+          }
+        }
+        
+        // Emit event for refresh (pour les listeners externes)
+        try { 
+          window.dispatchEvent(new CustomEvent('contribution:created', { 
+            detail: { id: rowId, project_name: projectName, category } 
+          })); 
+        } catch(_) {}
+        
         try { form.reset(); } catch(_) {}
         
         // Clean drawing state
@@ -461,9 +477,27 @@
           try { win.ContribGeometry.setGeomMode('file', geomElements); } catch(_) {}
         }
         
-        // Close modal
-        if (onCloseContrib) {
-          setTimeout(() => { try { onCloseContrib(); } catch(_) {} }, 900);
+        // Vérifier si on est dans le panel liste (contrib-panel-list existe et est visible)
+        const listPanel = document.getElementById('contrib-panel-list');
+        const isInListPanel = listPanel && !listPanel.hidden;
+        
+        if (isInListPanel) {
+          // Si on est dans le panel liste, fermer uniquement la sous-modale de création
+          const createModal = document.getElementById('create-modal-overlay');
+          if (createModal) {
+            const modalInner = createModal.querySelector('.gp-modal');
+            if (modalInner) modalInner.classList.remove('is-open');
+            
+            setTimeout(() => {
+              createModal.setAttribute('aria-hidden', 'true');
+              console.log('[contrib-form] Sous-modale de création fermée, restant sur le panel liste');
+            }, 220);
+          }
+        } else {
+          // Si on n'est pas dans le panel liste, fermer la modale principale
+          if (onCloseContrib) {
+            setTimeout(() => { try { onCloseContrib(); } catch(_) {} }, 900);
+          }
         }
       }
     } catch (err) {

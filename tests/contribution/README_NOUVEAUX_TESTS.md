@@ -1,3 +1,28 @@
+## ✅ Tests Récemment Ajoutés
+
+### **05-create-and-delete-contribution.spec.js** 🆕
+Tests de création, suppression et permissions de contributions avec sécurité maximale :
+
+**Tests de CRUD :**
+- ✅ Invited peut créer et supprimer sa propre contribution
+- ✅ Admin peut créer et supprimer sa propre contribution
+- ✅ Invited ne peut PAS supprimer les contributions des autres
+
+**Tests de Permissions (NEW) :**
+- ✅ Admin voit les contributions non-approuvées des autres utilisateurs
+- ✅ Invited ne voit PAS les contributions non-approuvées des autres
+- ✅ Invited voit les contributions après qu'elles soient approuvées
+- ✅ Admin peut approuver/révoquer l'approbation
+
+**Mécanismes de sécurité** 🛡️ : 
+  - Préfixe unique `TEST-E2E-` pour toutes les contributions de test
+  - Système de tracking pour garantir qu'on ne supprime que ce qu'on a créé
+  - Nettoyage automatique (afterEach) même en cas d'échec
+  - Impossible de supprimer des données de production
+
+**Documentation complète** : Voir `SECURITE_TESTS.md`
+
+---
 
 ## 🎯 Prochaines Étapes
 

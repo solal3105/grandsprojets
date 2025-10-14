@@ -35,7 +35,8 @@
       mode = 'create',
       data = {},
       onClose,
-      onSuccess
+      onSuccess,
+      onRefreshList
     } = options;
 
     if (!form || !overlay) {
@@ -559,7 +560,7 @@
         onSetStatus: (msg) => console.log('[Status]', msg),
         onShowToast: showToast,
         onExitEditMode: () => {},
-        onRefreshList: () => {},
+        onRefreshList: onRefreshList || (() => {}),
         onCloseContrib: onClose,
         __userRole: win.__CONTRIB_ROLE || ''
       });

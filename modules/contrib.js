@@ -587,10 +587,14 @@
             if (toggleEl) toggleEl.style.display = '';
             if (noticeEl) noticeEl.style.display = 'none';
             
+            // Par défaut : voir toutes les contributions de la ville (mineOnly = false)
             if (listMineOnlyEl) {
-              try { listMineOnlyEl.disabled = false; } catch(_) {}
+              try {
+                listMineOnlyEl.checked = false;
+                listMineOnlyEl.disabled = false;
+              } catch(_) {}
             }
-            try { ContribList.updateListState?.({ mineOnly: !!(listMineOnlyEl && listMineOnlyEl.checked) }); } catch(_) {}
+            try { ContribList.updateListState?.({ mineOnly: false }); } catch(_) {}
           }
           
           try { if (panelList && !panelList.hidden) { listResetAndLoad(); } } catch(_) {}
@@ -1858,33 +1862,9 @@
       });
     }
 
-    // handleSubmit moved to contrib-form.js
-    async function handleSubmit(e) {
-      const elements = {
-        geomModeRadios,
-        fileRowEl,
-        drawPanelEl,
-        geomCardFile,
-        geomCardDraw
-      };
-      const config = {
-        form,
-        elements,
-        onSetStatus: setStatus,
-        onShowToast: showToast,
-        onExitEditMode: exitEditMode,
-        onRefreshList: () => { if (panelList && !panelList.hidden) listResetAndLoad(); },
-        onCloseContrib: closeContrib,
-        __userRole: (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : ''
-      };
-      await ContribForm.handleSubmit?.(e, config);
-    }
-
-    if (form) {
-      form.addEventListener('submit', handleSubmit);
-    }
-
-    // Old handleSubmit implementation removed (~185 lines moved to contrib-form.js)
+    // handleSubmit is now handled by contrib-create-form-v2.js
+    // via openCreateModal() → initCreateForm()
+    // Legacy code removed - form submission handled by the new module
 
     // loadCategoriesForCity moved to contrib-cities.js
     async function loadCategoriesForCity(ville) {
@@ -2326,7 +2306,12 @@
           mode,
           data,
           onClose: closeModal,
-          onSuccess
+          onSuccess,
+          onRefreshList: async () => {
+            if (panelList && !panelList.hidden) {
+              await listResetAndLoad();
+            }
+          }
         });
         
         console.log('[openCreateModal] Form initialized', formInstance);

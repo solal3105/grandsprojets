@@ -300,8 +300,8 @@ export async function submitForm(page) {
   // Cliquer sur le bouton Enregistrer (le vrai ID est #contrib-submit)
   await page.click('#contrib-submit');
   
-  // Attendre le toast de succès (le toast peut prendre du temps)
-  await page.waitForSelector('.toast.success, .gp-toast--success', { timeout: 15000 });
+  // Attendre le toast de succès (utilise role="status" pour les succès)
+  await page.waitForSelector('#toast-container [role="status"]', { timeout: 15000 });
   
   // Attendre que la modale se ferme (vérifier que aria-hidden="true")
   await page.waitForFunction(() => {
@@ -391,8 +391,8 @@ export async function deleteContribution(page, projectName) {
   // Confirmer la suppression dans la modale de confirmation
   await page.click('button:has-text("Confirmer")');
   
-  // Attendre le toast de succès
-  await page.waitForSelector('.toast.success, .gp-toast--success', { timeout: 10000 });
+  // Attendre le toast de succès (utilise role="status" pour les succès)
+  await page.waitForSelector('#toast-container [role="status"]', { timeout: 10000 });
 }
 
 /**
@@ -470,8 +470,8 @@ export async function createTestContribution(page, options = {}) {
   // Étape 4 : Récapitulatif - Soumettre
   await page.click('#contrib-submit');
   
-  // Attendre le toast de succès
-  await page.waitForSelector('.toast.success, .gp-toast--success', { timeout: 10000 });
+  // Attendre le toast de succès (utilise role="status" pour les succès)
+  await page.waitForSelector('#toast-container [role="status"]', { timeout: 10000 });
   
   // Attendre que la modale se ferme et que la liste se rafraîchisse
   await page.waitForTimeout(2000);
