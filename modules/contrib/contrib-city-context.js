@@ -20,22 +20,22 @@
    * @param {string} city - Code ville
    */
   function setSelectedCity(city) {
-    if (!city) {
-      console.warn('[CityContext] Attempting to set empty city');
-      return;
-    }
-    
+    // Note: city peut être null (= "Global")
     selectedCity = city;
-    console.log('[CityContext] ✅ City set to:', city);
+    console.log('[CityContext] ✅ City set to:', city === null ? 'Global' : city);
     
-    // Synchroniser avec sessionStorage et contexte global
+    // Synchroniser avec window.activeCity (utilisé par supabaseService.getActiveCity)
+    win.activeCity = city;
+    
+    // Synchroniser avec sessionStorage
     try {
-      sessionStorage.setItem('activeCity', city);
-      if (win.setActiveCity && typeof win.setActiveCity === 'function') {
-        win.setActiveCity(city);
+      if (city === null) {
+        sessionStorage.setItem('activeCity', '__global__');
+      } else {
+        sessionStorage.setItem('activeCity', city);
       }
     } catch(e) {
-      console.warn('[CityContext] Could not persist active city:', e);
+      console.warn('[CityContext] Could not persist to sessionStorage:', e);
     }
   }
 

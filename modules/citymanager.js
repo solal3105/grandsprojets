@@ -95,8 +95,8 @@
     },
 
     getDefaultCity() {
-      // Pas de ville par défaut
-      return '';
+      // Mode Global par défaut si aucune ville
+      return null;
     },
 
     resolveActiveCity() {
@@ -105,7 +105,9 @@
       const queryCity = this.getCityFromQuery('');
       if (queryCity) return queryCity;
       const saved = this.restoreCity();
-      return saved;
+      if (saved) return saved;
+      // Aucune ville trouvée : retourner null (mode Global)
+      return null;
     },
 
     // ==================== Branding (logos, favicon) ====================
@@ -457,27 +459,56 @@
 
     /**
      * Initialise et résout la ville active avec gestion de la persistance
-     * @returns {string} Ville active résolue
+     * Redirige vers /?city=default si la ville est invalide ou inconnue
+     * @returns {string|null} Ville active résolue (null = mode Global)
      */
     initializeActiveCity() {
       const rawQueryCity = this.getRawCityFromQueryParam();
       const rawPathCity = this.getRawCityFromPath();
       
-      // Nettoyer si ville invalide
-      if ((rawQueryCity && !this.isValidCity(rawQueryCity)) || 
-          (rawPathCity && !this.isValidCity(rawPathCity))) {
-        this.clearPersistedCity();
-      }
-
-      // Cas spécial : ?city=default ou ?city= force l'absence de ville
+      // Cas spécial : ?city=default ou ?city= force le mode Global (ville NULL)
       const sp = new URLSearchParams(location.search);
       if (sp.has('city') && (!sp.get('city') || sp.get('city').toLowerCase() === 'default')) {
         this.clearPersistedCity();
-        return win.activeCity = '';
+        return win.activeCity = null;
+      }
+
+      // Si pas de villes valides chargées, on ne peut pas valider
+      // → rediriger vers default par sécurité
+      if (!this.VALID_CITIES || this.VALID_CITIES.size === 0) {
+        console.warn('[CityManager] Aucune ville valide chargée → Redirection vers ?city=default');
+        this.clearPersistedCity();
+        this.redirectToDefaultCity();
+        return win.activeCity = null;
+      }
+
+      // REDIRECTION : Si ville invalide ou inconnue, rediriger vers ?city=default
+      if (rawQueryCity && !this.isValidCity(rawQueryCity)) {
+        console.warn('[CityManager] Ville invalide détectée:', rawQueryCity, '→ Redirection vers ?city=default');
+        this.clearPersistedCity();
+        this.redirectToDefaultCity();
+        return win.activeCity = null; // Temporaire en attendant la redirection
+      }
+      
+      if (rawPathCity && !this.isValidCity(rawPathCity)) {
+        console.warn('[CityManager] Ville invalide dans le path:', rawPathCity, '→ Redirection vers ?city=default');
+        this.clearPersistedCity();
+        this.redirectToDefaultCity();
+        return win.activeCity = null; // Temporaire en attendant la redirection
       }
 
       // Résolution normale
       const city = this.resolveActiveCity();
+      
+      // Si résolution échoue (ville vide) → OK, mode sans ville
+      // Si ville résolue mais invalide → rediriger
+      if (city && !this.isValidCity(city)) {
+        console.warn('[CityManager] Ville résolue invalide:', city, '→ Redirection vers ?city=default');
+        this.clearPersistedCity();
+        this.redirectToDefaultCity();
+        return win.activeCity = null; // Temporaire en attendant la redirection
+      }
+      
       win.activeCity = city;
       
       // Gérer la persistance
@@ -491,13 +522,58 @@
     },
 
     /**
-     * Récupère les informations d'une ville
+     * Redirige vers /?city=default (mode Global)
+     */
+    redirectToDefaultCity() {
+      try {
+        const url = new URL(location.href);
+        url.searchParams.set('city', 'default');
+        // Nettoyer les autres paramètres si nécessaire
+        const targetUrl = url.pathname + '?city=default' + url.hash;
+        console.log('[CityManager] Redirection vers:', targetUrl);
+        location.replace(targetUrl);
+      } catch (e) {
+        console.error('[CityManager] Erreur lors de la redirection:', e);
+        // Fallback
+        location.replace('/?city=default');
+      }
+    },
+
+    /**
+     * Récupère les informations d'une ville (version synchrone depuis le cache)
      * @param {string} cityCode - Code de la ville
      * @returns {Object|null} - Informations de la ville ou null
      */
-    getCityInfo: function(cityCode) {
-      if (!cityCode || !validCities) return null;
-      return validCities.find(c => c.ville === cityCode) || null;
+    getCityInfo(cityCode) {
+      if (!cityCode) return null;
+      if (!this.isValidCity(cityCode)) return null;
+      
+      const key = String(cityCode).toLowerCase();
+      // Retourner depuis le cache si disponible
+      if (this.CITY_BRANDING_CACHE.has(key)) {
+        return this.CITY_BRANDING_CACHE.get(key);
+      }
+      
+      // Sinon retourner un objet minimal
+      return {
+        ville: key,
+        brand_name: key.charAt(0).toUpperCase() + key.slice(1),
+        logo_url: '/img/logos/default.svg',
+        dark_logo_url: null
+      };
+    },
+
+    /**
+     * Récupère les informations d'une ville (version async avec fetch)
+     * @param {string} cityCode - Code de la ville
+     * @returns {Promise<Object|null>} - Informations de la ville ou null
+     */
+    async getCityInfoAsync(cityCode) {
+      if (!cityCode) return null;
+      if (!this.isValidCity(cityCode)) return null;
+      
+      // Utiliser getCityBrandingSafe qui gère le cache et fetch si nécessaire
+      return await this.getCityBrandingSafe(cityCode);
     }
   };
 

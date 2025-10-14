@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Connexion – Grands Projets</title>
   <link rel="icon" type="image/png" href="/img/logomin.png" sizes="32x32">
+  <!-- Colors System -->
+  <link rel="stylesheet" href="/styles/00-colors.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
     /* Reset & Base */
@@ -15,42 +17,28 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     }
 
-    /* Theme Variables */
+    /* Page-specific Theme Variables (utilise colors.css) */
     :root {
       --bg-page: var(--gray-50);
       --bg-card: var(--white);
-      --text-primary: var(--gray-900);
-      --text-secondary: var(--gray-500);
-      --text-muted: var(--gray-400);
-      --accent: var(--info);
-      --accent-hover: var(--info-hover);
       --border: var(--gray-200);
       --info-bg: var(--info-lighter);
-      --info-text: var(--info-active);
+      --info-text: var(--info);
       --input-bg: var(--gray-100);
-      --shadow: 0 4px 20px var(--black-alpha-08);
-      --shadow-hover: 0 6px 24px var(--black-alpha-12);
     }
 
     [data-theme="dark"] {
-      --bg-page: var(--black);
-      --bg-card: var(--gray-900);
-      --text-primary: var(--white);
-      --text-secondary: var(--gray-400);
-      --text-muted: var(--gray-500);
-      --accent: var(--info-light);
-      --accent-hover: var(--info-light);
-      --border: var(--gray-800);
+      --bg-page: var(--gray-50);
+      --bg-card: var(--gray-100);
+      --border: var(--gray-300);
       --info-bg: var(--info-alpha-20);
-      --info-text: var(--info-light);
-      --input-bg: var(--gray-900);
-      --shadow: 0 4px 20px var(--black-alpha-40);
-      --shadow-hover: 0 6px 24px var(--black-alpha-50);
+      --info-text: var(--info);
+      --input-bg: var(--gray-200);
     }
 
     body {
       background: var(--bg-page);
-      color: var(--text-primary);
+      color: var(--text-primary); /* Variable de colors.css */
       transition: background 0.3s ease, color 0.3s ease;
     }
 
@@ -90,7 +78,6 @@
       background: var(--bg-card);
       border-radius: 12px;
       padding: 32px;
-      box-shadow: var(--shadow);
       border: 1px solid var(--border);
       transition: all 0.2s ease;
     }
@@ -129,12 +116,7 @@
 
     .form-input:focus {
       outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--info-alpha-1);
-    }
-
-    [data-theme="dark"] .form-input:focus {
-      box-shadow: 0 0 0 3px var(--info-alpha-18);
+      border-color: var(--info); /* colors.css */
     }
 
     /* Buttons */
@@ -160,34 +142,32 @@
     }
 
     .btn-primary {
-      background: var(--accent);
+      background: var(--info); /* colors.css */
       color: white;
     }
 
     .btn-primary:hover:not(:disabled) {
-      background: var(--accent-hover);
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-hover);
+      background: var(--info-hover); /* colors.css */
     }
 
     .btn-github {
-      background: var(--gray-800);
-      color: white;
-      border: 1px solid var(--gray-900);
+      background: var(--gray-800); /* colors.css */
+      color: var(--white); /* colors.css */
+      border: 1px solid var(--gray-700);
     }
 
     .btn-github:hover:not(:disabled) {
       background: var(--gray-700);
-      transform: translateY(-1px);
     }
 
     [data-theme="dark"] .btn-github {
-      background: var(--black);
-      border: 1px solid var(--gray-700);
+      background: var(--gray-200); /* Inversé en dark mode */
+      color: var(--gray-900); /* Inversé en dark mode */
+      border: 1px solid var(--gray-300);
     }
 
     [data-theme="dark"] .btn-github:hover:not(:disabled) {
-      background: var(--gray-900);
+      background: var(--gray-300);
     }
 
     /* Separator */
@@ -251,27 +231,27 @@
     }
 
     .status.success {
-      background: var(--primary-lighter);
-      color: var(--primary);
-      border: 1px solid var(--primary-light);
+      background: var(--primary-lighter); /* colors.css */
+      color: var(--primary); /* colors.css */
+      border: 1px solid var(--primary-light); /* colors.css */
     }
 
     .status.error {
-      background: var(--danger-lighter);
-      color: var(--danger);
-      border: 1px solid var(--danger-light);
+      background: var(--danger-lighter); /* colors.css */
+      color: var(--danger); /* colors.css */
+      border: 1px solid var(--danger-light); /* colors.css */
     }
 
     [data-theme="dark"] .status.success {
-      background: var(--primary-active);
-      color: var(--primary-light);
-      border: 1px solid var(--primary);
+      background: var(--primary-active); /* colors.css */
+      color: var(--primary-light); /* colors.css */
+      border: 1px solid var(--primary); /* colors.css */
     }
 
     [data-theme="dark"] .status.error {
-      background: var(--danger-hover);
-      color: var(--danger-light);
-      border: 1px solid var(--danger);
+      background: var(--danger-hover); /* colors.css */
+      color: var(--danger-light); /* colors.css */
+      border: 1px solid var(--danger); /* colors.css */
     }
 
     /* Back Link */
@@ -287,7 +267,7 @@
     }
 
     .back-link a:hover {
-      color: var(--accent);
+      color: var(--info); /* colors.css */
     }
 
     /* Responsive */
@@ -306,11 +286,23 @@
     }
   </style>
   <script>
+    // Synchronise avec le toggle dark mode de l'app principale
     (function() {
       try {
-        var theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+        // 1. Lire depuis localStorage (même clé que ThemeManager)
+        var savedTheme = localStorage.getItem('theme');
+        
+        // 2. Sinon, détecter la préférence système
+        var systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        // 3. Appliquer le thème
+        var theme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
         document.documentElement.setAttribute('data-theme', theme);
-      } catch (e) {}
+        
+        console.log('[Login] Theme appliqué:', theme, '(source:', savedTheme ? 'localStorage' : 'system', ')');
+      } catch (e) {
+        console.error('[Login] Erreur initialisation theme:', e);
+      }
     })();
   </script>
 </head>

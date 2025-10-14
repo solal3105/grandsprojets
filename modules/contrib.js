@@ -2226,23 +2226,10 @@
         }
       }
       
-      // ✅ IMPORTANT : Récupérer la ville depuis data.ville (passé en paramètre)
-      // Si data.ville est null (anciennes contributions), utiliser la ville active du contexte
-      let selectedCity = data.ville || null;
-      console.log('[openCreateModal] City from data.ville:', selectedCity);
-      
-      if (!selectedCity) {
-        // Fallback : récupérer la ville depuis le contexte actif
-        selectedCity = win.__CONTRIB_ACTIVE_CITY || null;
-        console.warn('[openCreateModal] ⚠️ data.ville is null, using active city:', selectedCity);
-      }
-      
-      if (!selectedCity) {
-        console.error('[openCreateModal] ❌ FAILED: No city in data.ville and no active city');
-        console.error('[openCreateModal] data object keys:', Object.keys(data));
-        showToast('Erreur: Aucune ville sélectionnée', 'error');
-        return;
-      }
+      // ✅ Récupérer la ville depuis data.ville
+      // Note: ville peut être null (= "Global"), c'est normal
+      const selectedCity = data.ville;
+      console.log('[openCreateModal] City:', selectedCity === null ? 'Global' : selectedCity);
       
       // Charger les catégories pour la ville dans le select de la modale
       try {

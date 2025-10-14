@@ -75,6 +75,9 @@ export async function clickEditContributions(page) {
   
   // Attendre que le panel liste soit visible
   await page.waitForSelector('#contrib-panel-list:not([hidden])', { state: 'visible', timeout: 5000 });
+  
+  // Attendre un peu pour laisser le temps à CityContext de se mettre à jour et à la liste de se charger
+  await page.waitForTimeout(1000);
 }
 
 /**

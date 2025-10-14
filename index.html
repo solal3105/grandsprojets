@@ -70,7 +70,7 @@
           </div>
         <!-- Catégories dynamiques générées depuis category_icons -->
         <div id="dynamic-categories"></div>
-        <!-- Bouton contribution -->
+        <!-- Bouton contribution (DANS le wrapper) -->
         <button class="nav-category" id="nav-contribute" aria-label="Proposer une contribution" title="Proposer une contribution">
           <i class="fa-solid fa-plus" aria-hidden="true"></i>
           <span class="label">contribuer</span>
@@ -115,21 +115,23 @@
       </div>
     </div>
 
-    <!-- Bouton de sélection du fond de carte -->
-    <div id="theme-toggle" class="theme-toggle" role="button" tabindex="0" aria-pressed="false" title="Mode sombre">
+    <!-- Bouton de sélection du thème -->
+    <button id="theme-toggle" aria-label="Mode sombre" aria-pressed="false" title="Mode sombre">
       <i class="fas fa-moon"></i>
-    </div>
-    <div id="basemap-toggle" class="basemap-toggle">
+    </button>
+    
+    <!-- Bouton de sélection du fond de carte -->
+    <button id="basemap-toggle" aria-label="Fonds de carte" title="Changer le fond de carte">
       <i class="fas fa-globe"></i>
-    </div>
+    </button>
     <!-- Menu des fonds de carte en mode tuile -->
     <div id="basemap-menu" class="basemap-menu"></div>
 
     <!-- Zone de filtres -->
-    <div id="filters-toggle" class="filters-toggle">
+    <button id="filters-toggle" aria-label="Filtres de couches" title="Afficher/Masquer les filtres">
       <i class="fas fa-map"></i>
       <span class="filter-count">0</span>
-    </div>
+    </button>
     <!-- Contenu des filtres -->
     <div id="filters-container" style="display: none">
       <button class="filters-close-btn" id="filters-close-btn" aria-label="Fermer les filtres">

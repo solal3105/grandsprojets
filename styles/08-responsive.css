@@ -14,9 +14,8 @@
     bottom: 20px !important;
     left: 20px !important;
     right: 20px !important;
-    height: 60px !important;
-    max-height: 60px !important;
-    padding: 0 10px;
+    height: 100px !important;
+    max-height: 100px !important;
     box-shadow: 0 -2px 8px var(--black-alpha-15);
     transition: none;
     display: flex;
@@ -28,20 +27,24 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: space-evenly;
-    gap: 16px;
-    overflow-x: scroll !important;
-    overflow-y: hidden !important;
+    justify-content: flex-start;
+    gap: 12px;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: auto;
-    scrollbar-color: initial;
-    height: 60px;
-    max-height: 60px;
+    scrollbar-width: none;
+    height: 100%;
     flex: 1;
     min-width: 0;
     position: relative;
-    padding: 0 12px;
+    padding: 0;
+    margin: 0;
+  }
+
+  /* Masquer la scrollbar en mobile */
+  .nav-scroll-wrapper::-webkit-scrollbar {
+    display: none;
   }
 
   /* Empêcher les boutons de rétrécir */
@@ -50,8 +53,11 @@
     flex-grow: 0;
     scroll-snap-align: center;
     min-width: 70px;
-    width: 70px;
+    width: auto;
+    height: 100%;
     margin: 0;
+    padding: 10px 14px;
+    justify-content: center;
   }
 
   /* Le logo dans le wrapper est caché en mobile */
@@ -62,19 +68,22 @@
   /* Le container des catégories dynamiques */
   .nav-scroll-wrapper #dynamic-categories {
     display: flex;
-    gap: 16px;
+    flex-direction: row;
+    gap: 12px;
     flex-shrink: 0;
-    flex-grow: 0;
+    flex-grow: 1;
     flex-wrap: nowrap;
     align-items: center;
+    height: 100%;
+    padding: 0 20px;
   }
 
-  /* Le bouton contribuer */
+  /* Le bouton contribuer - collé à droite uniquement */
   .nav-scroll-wrapper #nav-contribute {
-    flex-shrink: 0;
-    flex-grow: 0;
-    min-width: 70px;
-    margin-left: 8px;
+    margin-left: auto;
+    position: sticky;
+    right: 0;
+    z-index: 10;
   }
 
   /* Cacher les légendes */
@@ -85,7 +94,7 @@
   /* Positionner les sous-menus au-dessus du nav bar */
   .submenu {
     position: absolute;
-    bottom: 100px !important;
+    bottom: 120px !important;
     top: auto !important;
     left: 0px !important;
     width: calc(100vw - 80px) !important;
@@ -96,11 +105,26 @@
     z-index: 1200 !important;
     box-shadow: 0 -2px 8px var(--black-alpha-10) !important;
     border-radius: 20px 20px 0 0 !important;
+    
+    /* Animation mobile : slide up depuis le bas */
+    opacity: 0;
+    transform: translateY(30px) scale(0.96);
+    transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* État visible mobile */
+  .submenu[style*="display: block"],
+  .submenu.visible {
+    opacity: 1 !important;
+    transform: translateY(0) scale(1) !important;
+    box-shadow: 0 -4px 20px var(--black-alpha-15) !important;
   }
 
   #project-detail {
     position: absolute;
-    bottom: 120px !important;
+    bottom: 160px !important;
     top: auto !important;
     left: 20px !important;
     right: 20px !important;
@@ -112,6 +136,21 @@
     box-shadow: 0 -2px 8px var(--black-alpha-10) !important;
     border-radius: 20px 20px 0 0 !important;
     min-height: auto !important;
+    
+    /* Animation mobile : slide up avec effet de profondeur */
+    opacity: 0;
+    transform: translateY(40px) scale(0.94);
+    transition: opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* État visible pour project-detail mobile */
+  #project-detail[style*="display: block"],
+  #project-detail.visible {
+    opacity: 1 !important;
+    transform: translateY(0) scale(1) !important;
+    box-shadow: 0 -6px 24px var(--black-alpha-18) !important;
   }
 
   .detail-header-project-list {

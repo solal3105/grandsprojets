@@ -44,6 +44,15 @@
   box-shadow: var(--toggle-shadow);
   z-index: 1000;
   padding: 0;
+  margin: 0;
+  font-family: inherit;
+  font-size: 100%;
+  line-height: 1;
+  overflow: visible;
+  text-transform: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
 }
 
 .app-toggle i {
@@ -172,58 +181,83 @@
 
 /* ============================================================================
    MOBILE LAYOUT (≤ 640px)
-   Transformation en barre horizontale unifiée
+   Transformation en barre horizontale unifiée avec positionnement automatique
    ============================================================================ */
 
 @media (max-width: 640px) {
+  /* Container virtuel pour le groupe de toggles */
+  /* Les toggles sont toujours position: absolute, mais on utilise leur ordre visuel */
+  
   /* Tous les toggles deviennent carrés et collés */
   .app-toggle {
     border-radius: 0;
     box-shadow: none;
-    background: var(--white-alpha-60); /* Utilise la variable qui change en dark mode */
+    background: var(--white-alpha-60);
     border: 1px solid var(--black-alpha-10);
+    /* Position calculée dynamiquement via data-mobile-index */
   }
-  
   
   /* Afficher le toggle location en mobile */
   #location-toggle {
     display: flex;
   }
   
-  /* Arrondis uniquement aux extrémités de la barre */
-  #info-toggle {
-    border-radius: 999px 0 0 999px; /* Premier à gauche */
+  /* ============================================================================
+     BORDER RADIUS DYNAMIQUES - S'adaptent au premier et dernier toggle visible
+     Utilisent des attributs data ajoutés par JS pour marquer les extrémités
+     ============================================================================ */
+  
+  /* Réinitialiser tous les border-radius */
+  .app-toggle {
+    border-radius: 0 !important;
   }
   
-  #filters-toggle {
-    border-radius: 0 999px 999px 0; /* Dernier à droite */
+  /* Premier toggle visible (gauche) - marqué par data-edge="first" */
+  .app-toggle[data-edge="first"],
+  .app-toggle[data-edge="both"] {
+    border-radius: 999px 0 0 999px !important;
   }
   
-  /* Positionnement mobile - De gauche à droite */
+  /* Dernier toggle visible (droite) - marqué par data-edge="last" */
+  .app-toggle[data-edge="last"],
+  .app-toggle[data-edge="both"] {
+    border-radius: 0 999px 999px 0 !important;
+  }
+  
+  /* Si un seul toggle visible - marqué par data-edge="both" */
+  .app-toggle[data-edge="both"] {
+    border-radius: 999px !important;
+  }
+  
+  /* ============================================================================
+     POSITIONNEMENT MOBILE - Ordre visuel de gauche à droite
+     Ces valeurs seront surchargées dynamiquement par JS si un toggle est masqué
+     ============================================================================ */
+  
   /* Info (gauche) → Location → Search → Theme → Basemap → Filters (droite) */
   
   #info-toggle {
-    right: calc(20px + 40px * 5); /* 220px */
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 5);
   }
   
   #location-toggle {
-    right: calc(20px + 40px * 4); /* 180px */
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 4);
   }
   
   #search-toggle {
-    right: calc(20px + 40px * 3); /* 140px */
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 3);
   }
   
   #theme-toggle {
-    right: calc(20px + 40px * 2); /* 100px */
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 2);
   }
   
   #basemap-toggle {
-    right: calc(20px + 40px * 1); /* 60px */
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 1);
   }
   
   #filters-toggle {
-    right: 20px; /* 20px */
+    right: var(--toggle-offset-base);
   }
 }
 

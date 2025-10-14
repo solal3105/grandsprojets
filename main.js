@@ -42,7 +42,8 @@
         } catch (_) { /* noop */ }
       })();
 
-      const city = win.CityManager?.initializeActiveCity() || '';
+      const city = win.CityManager?.initializeActiveCity();
+      // city peut être null (mode Global), une string (ville spécifique), ou '' (invalide)
       await win.CityManager?.updateLogoForCity(city);
       await win.CityManager?.initCityToggleUI(city);
 
@@ -67,7 +68,13 @@
       window.dataConfig = window.dataConfig || {};
       window.dataConfig.metroColors = metroColors;
       
-      const basemapsForCity = (remoteBasemaps || []).filter(b => !b || !('ville' in b) || !b.ville || b.ville === city);
+      const basemapsForCity = (remoteBasemaps || []).filter(b => {
+        if (!b || !('ville' in b)) return true;
+        // Mode Global (city === null) : uniquement basemaps globaux (ville === null)
+        if (city === null) return b.ville === null;
+        // Ville spécifique : basemaps de cette ville OU globaux
+        return !b.ville || b.ville === city;
+      });
 
       if (window.UIModule?.updateBasemaps) {
         window.UIModule.updateBasemaps(basemapsForCity);
@@ -88,7 +95,10 @@
       const defaultLayers = [];
       
       layersConfig.forEach(({ name, url, style, is_default, ville }) => {
-        if (ville && ville !== city) return;
+        // Mode Global (city === null) : uniquement couches globales (ville === null)
+        if (city === null && ville !== null) return;
+        // Ville spécifique : uniquement couches de cette ville (pas de fallback global)
+        if (city !== null && ville !== city) return;
         
         if (url) urlMap[name] = url;
         if (style) styleMap[name] = style;
@@ -160,45 +170,15 @@
         if (window.supabaseService?.fetchCategoryIcons) {
           const cityIcons = await window.supabaseService.fetchCategoryIcons();
           allCategoryIconsFromDB.push(...cityIcons);
-          if (!city || city === 'default' || city === '') {
-            try {
-              const client = window.supabaseService?.getClient();
-              if (client) {
-                const { data } = await client
-                  .from('category_icons')
-                  .select('category, icon_class, display_order, ville')
-                  .order('display_order', { ascending: true });
-                
-                if (data) {
-                  data.forEach(icon => {
-                    if (!allCategoryIconsFromDB.find(existing => 
-                      existing.category === icon.category && existing.ville === icon.ville
-                    )) {
-                      allCategoryIconsFromDB.push(icon);
-                    }
-                  });
-                }
-              }
-            } catch (e) {
-              console.warn('[Main] ⚠️ Erreur fetch all category icons:', e);
-            }
-          }
         }
       } catch (e) {
         console.warn('[Main] ⚠️ Erreur fetch category icons:', e);
       }
 
       const activeCategoryIcons = categoriesWithData.map((category, index) => {
-        let existingIcon = allCategoryIconsFromDB.find(icon => 
-          icon.category === category && icon.ville === city
-        );
-        
-        // Sinon, chercher pour ville EMPTY (global)
-        if (!existingIcon) {
-          existingIcon = allCategoryIconsFromDB.find(icon => 
-            icon.category === category && (!icon.ville || icon.ville === null)
-          );
-        }
+        // Chercher l'icône pour cette catégorie
+        // fetchCategoryIcons() a déjà filtré par ville (strict)
+        let existingIcon = allCategoryIconsFromDB.find(icon => icon.category === category);
         
         if (existingIcon) {
           return existingIcon;

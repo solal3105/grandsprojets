@@ -62,6 +62,12 @@ class ToggleManager {
 
     this.initialized = true;
     console.log('[ToggleManager] All toggles initialized:', this.toggles.size);
+
+    // Observer les changements de visibilité
+    this.observeVisibilityChanges();
+
+    // Calcul initial des positions
+    this.recalculatePositions();
   }
 
   /**
@@ -293,9 +299,175 @@ class ToggleManager {
   }
 
   /**
+   * Affiche ou masque un toggle
+   * @param {string} key - Clé du toggle
+   * @param {boolean} visible - true pour afficher, false pour masquer
+   */
+  setVisible(key, visible) {
+    const toggle = this.toggles.get(key);
+    if (!toggle) {
+      console.warn(`[ToggleManager] Toggle not found: ${key}`);
+      return;
+    }
+
+    toggle.element.style.display = visible ? 'flex' : 'none';
+    console.log(`[ToggleManager] ${key} visibility set to:`, visible);
+    
+    // Le MutationObserver déclenchera automatiquement recalculatePositions()
+  }
+
+  /**
+   * Vérifie si un toggle est actuellement visible
+   * @param {string} key - Clé du toggle
+   * @returns {boolean}
+   */
+  isVisible(key) {
+    const toggle = this.toggles.get(key);
+    if (!toggle) return false;
+    
+    return this.isToggleVisible(toggle.element);
+  }
+
+  /**
+   * Recalcule les positions et border-radius des toggles visibles
+   * Appelé automatiquement quand un toggle est masqué/affiché
+   */
+  recalculatePositions() {
+    const isMobile = window.innerWidth <= 640;
+    
+    if (isMobile) {
+      this.recalculateMobileLayout();
+    } else {
+      this.recalculateDesktopLayout();
+    }
+  }
+
+  /**
+   * Recalcule le layout mobile (barre horizontale)
+   */
+  recalculateMobileLayout() {
+    const MOBILE_ORDER = ['info', 'location', 'search', 'theme', 'basemap', 'filters'];
+    const visibleToggles = [];
+
+    // Identifier les toggles visibles dans l'ordre mobile
+    MOBILE_ORDER.forEach(key => {
+      const toggle = this.toggles.get(key);
+      if (toggle && this.isToggleVisible(toggle.element)) {
+        visibleToggles.push({ key, element: toggle.element });
+      }
+    });
+
+    const totalVisible = visibleToggles.length;
+    if (totalVisible === 0) return;
+
+    // Recalculer les positions (de gauche à droite)
+    visibleToggles.forEach((toggle, index) => {
+      const positionFromRight = totalVisible - 1 - index;
+      const right = `calc(var(--toggle-offset-base) + var(--toggle-size) * ${positionFromRight})`;
+      toggle.element.style.right = right;
+
+      // Gérer les border-radius
+      toggle.element.removeAttribute('data-edge');
+      
+      if (totalVisible === 1) {
+        toggle.element.setAttribute('data-edge', 'both');
+      } else if (index === 0) {
+        toggle.element.setAttribute('data-edge', 'first');
+      } else if (index === totalVisible - 1) {
+        toggle.element.setAttribute('data-edge', 'last');
+      }
+    });
+
+    console.log(`[ToggleManager] Mobile layout recalculated: ${totalVisible} toggles visible`);
+  }
+
+  /**
+   * Recalcule le layout desktop (toggles espacés)
+   */
+  recalculateDesktopLayout() {
+    const DESKTOP_ORDER = ['filters', 'basemap', 'theme', 'search', 'location', 'info'];
+    const visibleToggles = [];
+
+    // Identifier les toggles visibles dans l'ordre desktop
+    DESKTOP_ORDER.forEach(key => {
+      const toggle = this.toggles.get(key);
+      if (toggle && this.isToggleVisible(toggle.element)) {
+        visibleToggles.push({ key, element: toggle.element });
+      }
+    });
+
+    // Recalculer les positions (de droite à gauche)
+    visibleToggles.forEach((toggle, index) => {
+      const right = `calc(var(--toggle-offset-base) + var(--toggle-gap) * ${index})`;
+      toggle.element.style.right = right;
+      
+      // Pas de border-radius en desktop (cercles complets)
+      toggle.element.removeAttribute('data-edge');
+    });
+
+    console.log(`[ToggleManager] Desktop layout recalculated: ${visibleToggles.length} toggles visible`);
+  }
+
+  /**
+   * Vérifie si un toggle est visible
+   */
+  isToggleVisible(element) {
+    if (!element) return false;
+    
+    const style = window.getComputedStyle(element);
+    return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+  }
+
+  /**
+   * Observe les changements de visibilité et recalcule
+   * Utilise MutationObserver pour détecter les changements de style
+   */
+  observeVisibilityChanges() {
+    // Debounce pour éviter trop d'appels
+    let debounceTimer;
+    const debouncedRecalculate = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        this.recalculatePositions();
+      }, 50);
+    };
+
+    // Observer tous les toggles
+    this.toggles.forEach((toggle) => {
+      const observer = new MutationObserver(() => {
+        debouncedRecalculate();
+      });
+
+      observer.observe(toggle.element, {
+        attributes: true,
+        attributeFilter: ['style', 'class']
+      });
+
+      // Stocker l'observer pour cleanup
+      if (!this.observers) this.observers = [];
+      this.observers.push(observer);
+    });
+
+    // Observer les resize de window avec debounce
+    this.resizeHandler = () => debouncedRecalculate();
+    window.addEventListener('resize', this.resizeHandler);
+  }
+
+  /**
    * Destroy - cleanup
    */
   destroy() {
+    // Cleanup observers
+    if (this.observers) {
+      this.observers.forEach(obs => obs.disconnect());
+      this.observers = [];
+    }
+
+    // Cleanup resize handler
+    if (this.resizeHandler) {
+      window.removeEventListener('resize', this.resizeHandler);
+    }
+
     this.toggles.clear();
     this.state.clear();
     this.listeners.clear();

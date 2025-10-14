@@ -22,57 +22,41 @@
     .toLowerCase();
 
   // Helper: sanitizeCity → retourne '' si la ville n'est pas valide ou vide
-  function sanitizeCity(raw) {
-    try {
-      console.log('🔍 [sanitizeCity] Input raw:', raw);
-      const v = String(raw || '').toLowerCase().trim();
-      console.log('🔍 [sanitizeCity] After lowercase/trim:', v);
-      
-      // Traiter explicitement 'default' comme absence de ville
-      if (v === 'default') {
-        console.log('🔍 [sanitizeCity] Rejected: is "default"');
-        return '';
-      }
-      if (!v) {
-        console.log('🔍 [sanitizeCity] Rejected: empty');
-        return '';
-      }
-      
-      // Si un validateur global existe, l'utiliser
-      if (typeof win.isValidCity === 'function') {
-        const isValid = win.isValidCity(v);
-        console.log('🔍 [sanitizeCity] win.isValidCity exists, returned:', isValid);
-        return isValid ? v : '';
-      }
-      
-      // À défaut, accepter seulement [a-z-] pour éviter les valeurs numériques accidentelles
-      const regexTest = /^[a-z-]+$/i.test(v);
-      console.log('🔍 [sanitizeCity] Regex test /^[a-z-]+$/i:', regexTest);
-      const result = regexTest ? v : '';
-      console.log('🔍 [sanitizeCity] Final result:', result);
-      return result;
-    } catch (e) {
-      console.error('❌ [sanitizeCity] Exception:', e);
-      return '';
-    }
+  const sanitizeCity = (raw) => {
+    // null = "Global" (valide)
+    if (raw === null) return null;
+    
+    // Vide = invalide
+    if (!raw) return '';
+    
+    // Convertir en string et nettoyer
+    const v = String(raw).toLowerCase().trim();
+    
+    // 'default' = Global (contributions avec ville NULL)
+    if (v === 'default') return null;
+    
+    // Vide après trim = invalide
+    if (!v) return '';
+    
+    // Valider avec regex: lettres et tirets uniquement
+    return /^[a-z-]+$/i.test(v) ? v : '';
   }
 
-  // Helper: get active city with delegation to global resolver when available
+  // Helper: get active city (peut retourner null pour "Global")
   const getActiveCity = () => {
     try {
-      if (typeof win.getActiveCity === 'function') {
-        const v = win.getActiveCity();
-        const s = sanitizeCity(v);
-        if (s) return s;
+      // 1. window.activeCity (peut être null)
+      if (win.activeCity !== undefined) {
+        return sanitizeCity(win.activeCity); // null si Global
       }
-      if (win.activeCity && String(win.activeCity).trim()) {
-        const s = sanitizeCity(win.activeCity);
-        if (s) return s;
-      }
+      
+      // 2. URL param
       const url = new URL(win.location.href);
       const c = url.searchParams.get('city');
       return sanitizeCity(c);
-    } catch (_) { return ''; }
+    } catch (_) {
+      return '';
+    }
   };
 
   // 2️⃣ Expose supabaseService sur window
@@ -100,11 +84,14 @@
         .from('layers')
         .select('name, url, style, is_default, ville');
 
-      if (activeCity) {
+      // Filtre ville : null = "Global" (NULL ou empty string pour legacy)
+      if (activeCity === null) {
+        q = q.or('ville.is.null,ville.eq.');
+      } else if (activeCity) {
         q = q.eq('ville', activeCity);
       } else {
-        // Si aucune ville n'est sélectionnée, on n'affiche que les couches "globales"
-        q = q.is('ville', null);
+        // Pas de ville : retourner vide
+        return [];
       }
 
       const { data, error } = await q;
@@ -156,12 +143,13 @@
           .in('name', names);
 
         if (activeCity) {
-          // Important: pour les STYLES, on accepte un fallback global (ville IS NULL)
+          // Important: pour les STYLES, on accepte un fallback global (ville IS NULL ou '')
           // afin d'éviter de perdre le style si aucune variante ville n'existe.
           // On ne mélange pas les URL ici, uniquement les styles.
-          q = q.or(`ville.eq.${activeCity},ville.is.null`);
+          q = q.or(`ville.eq.${activeCity},ville.is.null,ville.eq.`);
         } else {
-          q = q.is('ville', null);
+          // Mode Global : NULL ou empty string (legacy)
+          q = q.or('ville.is.null,ville.eq.');
         }
 
         const { data, error } = await q;
@@ -189,23 +177,29 @@
 
     /**
      * Récupère les catégories et leurs icônes depuis la table 'category_icons'
+     * Filtrage strict par ville :
+     * - Mode Global (city=null) : ville IS NULL OU ville = '' (legacy)
+     * - Ville spécifique : uniquement ville = 'xxx'
      * @returns {Promise<Array<{category:string, icon_class:string, display_order:number, layers_to_display:string[]}>>}
      */
     fetchCategoryIcons: async function() {
       try {
         const activeCity = getActiveCity();
 
-        // Récupérer les catégories spécifiques à la ville ET les fallbacks globaux (ville = '' ou null)
         let q = supabaseClient
           .from('category_icons')
           .select('category, icon_class, display_order, layers_to_display, category_styles, ville')
           .order('display_order', { ascending: true });
 
-        if (activeCity) {
-          // Inclure les lignes pour la ville active OU les lignes sans ville (fallback global)
-          q = q.or(`ville.eq.${activeCity},ville.eq.,ville.is.null`);
+        if (activeCity === null) {
+          // Mode Global : ville IS NULL OU ville = '' (compatibilité legacy)
+          q = q.or('ville.is.null,ville.eq.');
+        } else if (activeCity) {
+          // Ville spécifique : uniquement les catégories de cette ville
+          q = q.eq('ville', activeCity);
         } else {
-          q = q.or('ville.eq.,ville.is.null');
+          // Pas de ville : retourner vide
+          return [];
         }
 
         const { data, error } = await q;
@@ -215,26 +209,7 @@
           return [];
         }
 
-        const filtered = (data || []).filter(row => row && row.category);
-        
-        // Dédupliquer : priorité aux configs spécifiques à la ville sur les fallbacks globaux
-        const categoryMap = new Map();
-        
-        // D'abord, ajouter les fallbacks globaux (ville vide ou null)
-        filtered.forEach(row => {
-          if (!row.ville || row.ville === '') {
-            categoryMap.set(row.category, row);
-          }
-        });
-        
-        // Ensuite, écraser avec les configs spécifiques à la ville (priorité)
-        filtered.forEach(row => {
-          if (row.ville && row.ville !== '') {
-            categoryMap.set(row.category, row);
-          }
-        });
-        
-        return Array.from(categoryMap.values()).sort((a, b) => a.display_order - b.display_order);
+        return (data || []).filter(row => row && row.category);
       } catch (e) {
         console.error('[supabaseService] fetchCategoryIcons exception:', e);
         return [];
@@ -371,21 +346,20 @@
 
         if (category) query = query.eq('category', category);
 
-        // IMPORTANT : Appliquer le filtre ville EN PREMIER
-        const activeCity = sanitizeCity(city) || getActiveCity();
-        console.log('🏙️ [listContributions] Filtre ville:', { 
-          cityParam: city, 
-          activeCityFromContext: getActiveCity(), 
-          finalActiveCity: activeCity 
-        });
+        // Filtre ville : null = "Global" (NULL ou empty string pour legacy), sinon ville spécifique
+        const activeCity = city !== undefined ? sanitizeCity(city) : getActiveCity();
         
-        if (activeCity) {
+        if (activeCity === null) {
+          // "Global" sélectionné : contributions avec ville = NULL ou '' (legacy)
+          query = query.or('ville.is.null,ville.eq.');
+          console.log('🏙️ [listContributions] Filtre: Global (ville IS NULL OR ville = "")');
+        } else if (activeCity) {
+          // Ville spécifique : contributions de cette ville uniquement
           query = query.eq('ville', activeCity);
-          console.log('✅ [listContributions] Filtrage appliqué: ville =', activeCity);
+          console.log('🏙️ [listContributions] Filtre: ville =', activeCity);
         } else {
-          // Si aucune ville active, ne montrer que les projets globaux (ville IS NULL)
-          query = query.is('ville', null);
-          console.log('⚠️ [listContributions] Aucune ville active, filtre sur ville = NULL');
+          // Pas de ville sélectionnée : erreur (ne devrait pas arriver)
+          throw new Error('No city selected');
         }
 
         if (search && search.trim()) {
@@ -460,20 +434,14 @@
           return { items: [], count: 0 };
         }
         
-        // Vérifier les résultats
+        // Vérifier les résultats (debug)
         if (data && data.length > 0) {
           const villes = [...new Set(data.map(item => item.ville))];
           console.log('📊 [listContributions] Résultats:', {
             count: data.length,
-            villesDistinctes: villes,
-            expectedCity: activeCity
+            ville: activeCity === null ? 'Global' : activeCity,
+            villesDistinctes: villes
           });
-          
-          // Alerte si des contributions d'autres villes sont retournées
-          const wrongCity = data.filter(item => item.ville !== activeCity);
-          if (wrongCity.length > 0) {
-            console.error('🚨 [listContributions] ATTENTION: Contributions d\'autres villes détectées!', wrongCity.map(c => ({ id: c.id, name: c.project_name, ville: c.ville })));
-          }
         }
         
         return { items: data || [], count: typeof count === 'number' ? count : (data ? data.length : 0) };
@@ -689,11 +657,11 @@
       } catch(_) {
         q = q.eq('approved', true);
       }
-      if (activeCity) {
+      // Filtre ville : null = "Global" (NULL ou empty string pour legacy)
+      if (activeCity === null) {
+        q = q.or('ville.is.null,ville.eq.');
+      } else if (activeCity) {
         q = q.eq('ville', activeCity);
-      } else {
-        // Pas de ville sélectionnée → projets globaux uniquement
-        q = q.is('ville', null);
       }
       const { data, error } = await q;
       if (error) {
@@ -725,10 +693,11 @@
       } catch(_) {
         q = q.eq('approved', true);
       }
-      if (activeCity) {
+      // Filtre ville : null = "Global" (NULL ou empty string pour legacy)
+      if (activeCity === null) {
+        q = q.or('ville.is.null,ville.eq.');
+      } else if (activeCity) {
         q = q.eq('ville', activeCity);
-      } else {
-        q = q.is('ville', null);
       }
       const { data, error } = await q;
       if (error) {
@@ -899,38 +868,44 @@
      */
     fetchFilterItems: async function() {
       const activeCity = getActiveCity();
-      let q = supabaseClient
+      
+      if (!activeCity && activeCity !== null) {
+        // Pas de ville sélectionnée
+        return [];
+      }
+      
+      // Récupérer les layers de la ville (ou globaux)
+      let layersQuery = supabaseClient
+        .from('layers')
+        .select('name, ville');
+        
+      if (activeCity === null) {
+        // Mode Global : NULL ou empty string (legacy)
+        layersQuery = layersQuery.or('ville.is.null,ville.eq.');
+      } else {
+        layersQuery = layersQuery.eq('ville', activeCity);
+      }
+      
+      const { data: layerRows, error: layerErr } = await layersQuery;
+      
+      if (layerErr) {
+        console.error('[supabaseService] fetchFilterItems layers error:', layerErr);
+        return [];
+      }
+      
+      const allowedLayers = new Set((layerRows || []).map(r => r.name).filter(Boolean));
+      
+      // Récupérer tous les filter_items et filtrer par layers autorisés
+      const { data, error } = await supabaseClient
         .from('filter_items')
         .select('id, layer, icon, label');
-      
-      if (activeCity) {
-        // Joindre avec layers pour filtrer par ville
-        const { data: layerRows, error: layerErr } = await supabaseClient
-          .from('layers')
-          .select('name, ville')
-          .eq('ville', activeCity);
         
-        if (layerErr) {
-          console.error('[supabaseService] fetchFilterItems layers error:', layerErr);
-          const { data, error } = await q;
-          return error ? [] : (data || []);
-        }
-        
-        const allowedLayers = new Set((layerRows || []).map(r => r.name).filter(Boolean));
-        const { data, error } = await q;
-        if (error) {
-          console.error('[supabaseService] fetchFilterItems error:', error);
-          return [];
-        }
-        return (data || []).filter(item => allowedLayers.has(item.layer));
-      } else {
-        const { data, error } = await q;
-        if (error) {
-          console.error('[supabaseService] fetchFilterItems error:', error);
-          return [];
-        }
-        return data || [];
+      if (error) {
+        console.error('[supabaseService] fetchFilterItems error:', error);
+        return [];
       }
+      
+      return (data || []).filter(item => allowedLayers.has(item.layer));
     },
     
     // fetchProjectFilterMapping: removed (legacy). Filtering relies on filter_categories/filter_items and GeoJSON properties.
