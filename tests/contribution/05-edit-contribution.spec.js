@@ -440,8 +440,20 @@ test.describe('Contribution - Édition (Permissions ADMIN GLOBAL)', () => {
     console.log('[Admin Global] Clic sur le bouton Modifier...');
     await editBtn.click();
     
-    // Attendre que la modale apparaisse (soit avec aria-hidden="false", soit visible)
-    await page.waitForSelector('#create-modal-overlay', { state: 'visible', timeout: 10000 });
+    // Attendre un peu pour laisser le temps à l'async de s'exécuter
+    await page.waitForTimeout(500);
+    
+    // Attendre que aria-hidden passe à false
+    await page.waitForFunction(() => {
+      const modal = document.querySelector('#create-modal-overlay');
+      return modal && modal.getAttribute('aria-hidden') === 'false';
+    }, { timeout: 10000 });
+    
+    // Puis attendre que la classe is-open soit ajoutée
+    await page.waitForSelector('#create-modal-overlay .gp-modal.is-open', { 
+      state: 'visible', 
+      timeout: 5000 
+    });
     
     // Vérifier qu'on peut modifier
     const projectNameInput = page.locator('#contrib-project-name');

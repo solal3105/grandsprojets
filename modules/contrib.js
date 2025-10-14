@@ -1245,15 +1245,18 @@
         console.log('[sharedOnEdit] Ouverture édition pour:', item);
         const row = await (win.supabaseService && win.supabaseService.getContributionById(item.id));
         console.log('[sharedOnEdit] Données chargées:', row);
+        console.log('[sharedOnEdit] row.ville:', row?.ville);
         if (row) {
           console.log('[sharedOnEdit] Appel de openCreateModal...');
           await openCreateModal('edit', row);
           console.log('[sharedOnEdit] Modale ouverte avec succès');
         } else {
           console.warn('[sharedOnEdit] Aucune donnée trouvée pour ID:', item.id);
+          showToast('Contribution introuvable.', 'error');
         }
       } catch (e) {
         console.error('[sharedOnEdit] Erreur:', e);
+        console.error('[sharedOnEdit] Stack:', e.stack);
         showToast('Erreur lors du chargement de la contribution.', 'error');
       }
     };
@@ -2185,11 +2188,15 @@
 
     // Ouvre la modale de création de contribution
     async function openCreateModal(mode = 'create', data = {}) {
-      console.log('[openCreateModal] Called with mode:', mode, 'data:', data);
+      console.log('[openCreateModal] ========== START ==========');
+      console.log('[openCreateModal] Mode:', mode);
+      console.log('[openCreateModal] Data:', JSON.stringify(data, null, 2));
       
       // Charger la modale si nécessaire
       const loaded = await loadCreateModalTemplate();
+      console.log('[openCreateModal] Template loaded:', loaded);
       if (!loaded) {
+        console.error('[openCreateModal] ❌ FAILED: Template not loaded');
         showToast('Erreur de chargement du formulaire', 'error');
         return;
       }
@@ -2203,8 +2210,10 @@
       const nextBtn = document.getElementById('contrib-next');
       const submitBtn = document.getElementById('contrib-submit');
       
+      console.log('[openCreateModal] Elements found:', { overlay: !!overlay, form: !!form });
+      
       if (!overlay || !form) {
-        console.error('[openCreateModal] Elements not found');
+        console.error('[openCreateModal] ❌ FAILED: Elements not found');
         return;
       }
       
@@ -2218,11 +2227,19 @@
       }
       
       // ✅ IMPORTANT : Récupérer la ville depuis data.ville (passé en paramètre)
-      const selectedCity = data.ville || null;
-      console.log('[openCreateModal] ✅ City from data.ville:', selectedCity);
+      // Si data.ville est null (anciennes contributions), utiliser la ville active du contexte
+      let selectedCity = data.ville || null;
+      console.log('[openCreateModal] City from data.ville:', selectedCity);
       
       if (!selectedCity) {
-        console.error('[openCreateModal] ❌ ERREUR: Aucune ville dans data.ville !');
+        // Fallback : récupérer la ville depuis le contexte actif
+        selectedCity = win.__CONTRIB_ACTIVE_CITY || null;
+        console.warn('[openCreateModal] ⚠️ data.ville is null, using active city:', selectedCity);
+      }
+      
+      if (!selectedCity) {
+        console.error('[openCreateModal] ❌ FAILED: No city in data.ville and no active city');
+        console.error('[openCreateModal] data object keys:', Object.keys(data));
         showToast('Erreur: Aucune ville sélectionnée', 'error');
         return;
       }
@@ -2356,14 +2373,17 @@
       };
       
       // Ouvrir la modale
+      console.log('[openCreateModal] Opening modal...');
       overlay.setAttribute('aria-hidden', 'false');
       // ✅ Réactiver les interactions
       overlay.inert = false;
+      console.log('[openCreateModal] Modal state - aria-hidden:', overlay.getAttribute('aria-hidden'), 'inert:', overlay.inert);
       
       const modalInner = overlay.querySelector('.gp-modal');
       if (modalInner) {
         requestAnimationFrame(() => {
           modalInner.classList.add('is-open');
+          console.log('[openCreateModal] Modal inner class added: is-open');
         });
       }
       
@@ -2372,6 +2392,8 @@
         const firstInput = form.querySelector('input[type="text"]');
         if (firstInput) firstInput.focus();
       }, 250);
+      
+      console.log('[openCreateModal] ========== END ==========');
     }
 
     // deleteCategory moved to contrib-categories-crud.js

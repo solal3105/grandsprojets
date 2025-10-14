@@ -409,16 +409,28 @@
       }
 
       // Update core fields
-      // Note: ville n'est PAS mise à jour ici car elle est déjà correctement définie lors de createContributionRow
-      // Ne pas écraser la ville avec null pour les invited, sinon ils ne verront plus leur contribution dans la liste filtrée par ville
+      // Note: ville n'est normalement PAS mise à jour car elle est déjà correctement définie lors de createContributionRow
+      // MAIS si ville est null (anciennes contributions), on la met à jour avec la ville du contexte
       try {
-        await (win.supabaseService && win.supabaseService.updateContribution(rowId, {
+        const updateData = {
           project_name: projectName,
           category: category,
           official_url: officialUrl || null,
           meta: meta || null,
           description: description || null
-        }));
+        };
+        
+        // Si on édite une contribution qui a ville = null, la corriger
+        if (currentEditId && city) {
+          // Vérifier si la contribution a ville = null
+          const currentRow = await win.supabaseService.getContributionById(currentEditId);
+          if (currentRow && currentRow.ville === null) {
+            console.log('[contrib-form] ⚠️ Correction: contribution avec ville=null, mise à jour avec:', city);
+            updateData.ville = city;
+          }
+        }
+        
+        await (win.supabaseService && win.supabaseService.updateContribution(rowId, updateData));
       } catch (patchErr) {
         console.warn('[contrib-form] updateContribution warning:', patchErr);
       }
