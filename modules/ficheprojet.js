@@ -81,20 +81,119 @@ async function addOfficialLinkCards({
     const url = contrib && contrib.official_url ? String(contrib.official_url).trim() : '';
     if (!url) return;
 
+    // Extraire le domaine de l'URL
+    let domain = '';
+    try {
+      const urlObj = new URL(url);
+      domain = urlObj.hostname.replace('www.', '');
+    } catch (e) {
+      domain = url;
+    }
+
+    // Récupérer le favicon du site
+    const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+
     const section = document.createElement('section');
     section.className = 'official-link-section';
     section.innerHTML = `
-      <a class="official-link-card" href="${url}" target="_blank" rel="noopener" aria-label="Voir la page officielle du projet ${projectName || ''} (ouvre un nouvel onglet)">
-        <div class="official-link-content">
-          <h2>Voir la page officielle</h2>
-          <p>Accéder au site de référence du projet</p>
+      <div class="official-link-card gp-card">
+        <div class="gp-card-header">
+          <i class="fa-solid fa-bookmark" aria-hidden="true"></i>
+          <h3>Site de référence</h3>
         </div>
-        <div class="official-link-cta"><span class="cta-text">Ouvrir</span> <i class="fa fa-arrow-up-right-from-square" aria-hidden="true"></i></div>
-      </a>`;
+        
+        <div class="official-link-domain">
+          <img src="${faviconUrl}" alt="" class="site-favicon" onerror="this.style.display='none'">
+          <span class="domain-name">${domain}</span>
+        </div>
+        
+        <div class="official-link-actions">
+          <a href="${url}" target="_blank" rel="noopener" class="btn-primary" aria-label="Ouvrir ${domain} dans un nouvel onglet">
+            <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+            Ouvrir le site
+          </a>
+          <button type="button" class="btn-secondary" aria-label="Afficher le QR Code">
+            <i class="fa-solid fa-qrcode" aria-hidden="true"></i>
+            QR Code
+          </button>
+        </div>
+      </div>`;
+    
     containerEl.appendChild(section);
+
+    // Gestionnaire pour le bouton QR Code
+    const qrBtn = section.querySelector('.btn-secondary');
+    if (qrBtn) {
+      qrBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        showQRCodeModal(url, domain);
+      });
+    }
   } catch (e) {
     console.warn('[ficheprojet] addOfficialLinkCards error:', e);
   }
+}
+
+// Affiche le QR Code dans une modale
+function showQRCodeModal(url, domain) {
+  // Générer le QR code via API
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
+  
+  // Créer la modale avec notre système
+  const modalHTML = `
+    <div class="gp-modal-overlay" id="qr-code-modal" role="dialog" aria-modal="true" aria-labelledby="qr-modal-title">
+      <div class="gp-modal gp-modal--medium" role="document">
+        <div class="gp-modal-header">
+          <h2 class="gp-modal-title" id="qr-modal-title">QR Code - ${domain}</h2>
+          <button class="gp-modal-close" aria-label="Fermer">×</button>
+        </div>
+        <div class="gp-modal-body">
+          <div class="qr-code-container">
+            <img src="${qrCodeUrl}" alt="QR Code pour ${domain}" class="qr-code-image">
+            <p class="qr-code-description">Scannez ce QR code avec votre téléphone pour ouvrir le site</p>
+            <div class="qr-code-url">${url}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Ajouter au DOM
+  const modalContainer = document.createElement('div');
+  modalContainer.innerHTML = modalHTML;
+  document.body.appendChild(modalContainer.firstElementChild);
+  
+  const modal = document.getElementById('qr-code-modal');
+  
+  // Afficher la modale
+  setTimeout(() => {
+    modal.style.display = 'flex';
+  }, 10);
+  
+  // Fermer au clic sur le bouton close
+  const closeBtn = modal.querySelector('.gp-modal-close');
+  closeBtn?.addEventListener('click', () => {
+    modal.style.display = 'none';
+    setTimeout(() => modal.remove(), 300);
+  });
+  
+  // Fermer au clic sur l'overlay
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.style.display = 'none';
+      setTimeout(() => modal.remove(), 300);
+    }
+  });
+  
+  // Fermer avec Escape
+  const handleEscape = (e) => {
+    if (e.key === 'Escape') {
+      modal.style.display = 'none';
+      setTimeout(() => modal.remove(), 300);
+      document.removeEventListener('keydown', handleEscape);
+    }
+  };
+  document.addEventListener('keydown', handleEscape);
 }
 
 // (legacy partner cards removed)
@@ -710,11 +809,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       const docs = Array.from(uniq.values());
       if (docs.length === 0) return;
 
-      // Section + grille de cartes
+      // Section avec card englobante
       const section = document.createElement('section');
       section.className = 'project-documents';
-      const h2 = document.createElement('h2');
-      h2.textContent = 'Documents de concertation';
+      
+      const card = document.createElement('div');
+      card.className = 'project-documents-card gp-card';
+      
+      const titleDiv = document.createElement('div');
+      titleDiv.className = 'gp-card-header';
+      titleDiv.innerHTML = `
+        <i class="fa-solid fa-file-pdf" aria-hidden="true"></i>
+        <h2>Documents de concertation</h2>
+      `;
+      
       const grid = document.createElement('div');
       grid.className = 'doc-cards';
 
@@ -804,39 +912,43 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
 
       docs.forEach(d => {
-        const card = document.createElement('article');
-        card.className = 'doc-card';
-        card.setAttribute('tabindex', '0');
+        const docItem = document.createElement('article');
+        docItem.className = 'doc-card';
+        docItem.setAttribute('tabindex', '0');
         const title = d.title || (d.pdf_url ? d.pdf_url.split('/').pop() : 'Document PDF');
 
         // Affiche la prévisualisation et le téléchargement pour tous les types de fiches (incl. urbanisme)
-        card.innerHTML = `
-          <div class="doc-card-icon"><i class="fa fa-file-pdf" aria-hidden="true"></i></div>
+        docItem.innerHTML = `
+          <div class="doc-card-icon"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i></div>
           <div class="doc-card-content">
             <h3 class="doc-card-title">${title}</h3>
-            <div class="doc-card-actions">
-              <button type="button" class="btn-preview"><i class="fa fa-eye" aria-hidden="true"></i> Prévisualiser</button>
-              <a class="btn-download" href="${d.pdf_url}" target="_blank" rel="noopener">
-                <i class="fa fa-download" aria-hidden="true"></i> Télécharger
-              </a>
-            </div>
+          </div>
+          <div class="doc-card-actions">
+            <button type="button" class="btn-secondary btn-preview">
+              <i class="fa-solid fa-eye" aria-hidden="true"></i>
+              Prévisualiser
+            </button>
+            <a class="btn-secondary btn-download" href="${d.pdf_url}" target="_blank" rel="noopener">
+              <i class="fa-solid fa-download" aria-hidden="true"></i>
+              Télécharger
+            </a>
           </div>`;
         // Clic sur la carte => prévisualisation
-        card.addEventListener('click', () => openPdfPreview(d.pdf_url, title));
-        card.addEventListener('keypress', (e) => {
+        docItem.addEventListener('click', () => openPdfPreview(d.pdf_url, title));
+        docItem.addEventListener('keypress', (e) => {
           if (e.key === 'Enter') openPdfPreview(d.pdf_url, title);
         });
         // Boutons internes
-        const previewBtn = card.querySelector('.btn-preview');
+        const previewBtn = docItem.querySelector('.btn-preview');
         previewBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           openPdfPreview(d.pdf_url, title);
         });
-        const dl = card.querySelector('.btn-download');
+        const dl = docItem.querySelector('.btn-download');
         dl.addEventListener('click', (e) => {
           e.stopPropagation(); /* laisser le comportement par défaut */
         });
-        grid.appendChild(card);
+        grid.appendChild(docItem);
       });
 
       // Si plus de 4 documents, activer un conteneur scrollable (max-height 400px)
@@ -845,8 +957,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         grid.setAttribute('aria-label', 'Documents de concertation (défilement interne)');
       }
 
-      section.appendChild(h2);
-      section.appendChild(grid);
+      card.appendChild(titleDiv);
+      card.appendChild(grid);
+      section.appendChild(card);
       containerEl.appendChild(section);
     } catch (e) {
       console.error('[ficheprojet] appendConsultationDocs error:', e);
@@ -924,11 +1037,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         if (contributionProject?.description) {
           headerHtml += `
-            <section class="project-desc-card" aria-label="Description du projet">
-              <h3 class="project-desc-title">
-                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                Description du projet
-              </h3>
+            <section class="project-desc-card gp-card" aria-label="Description du projet">
+              <div class="gp-card-header">
+                <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
+                <h3>Description du projet</h3>
+              </div>
               <p class="project-description">${contributionProject.description}</p>
             </section>
           `;
@@ -1015,11 +1128,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         if (contributionProject?.description) {
           headerHtml += `
-            <section class="project-desc-card" aria-label="Description du projet">
-              <h3 class="project-desc-title">
-                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                Description du projet
-              </h3>
+            <section class="project-desc-card gp-card" aria-label="Description du projet">
+              <div class="gp-card-header">
+                <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
+                <h3>Description du projet</h3>
+              </div>
               <p class="project-description">${contributionProject.description}</p>
             </section>
           `;
@@ -1380,36 +1493,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         const container = textContainer || articleSection || root;
         if (!container) return;
 
-        // Create the card section if it doesn't exist yet
-        if (!mapCardElRef) {
-          const section = document.createElement('section');
-          section.className = 'map-open-section';
-          section.innerHTML = `
-            <div class="map-open-card" role="region" aria-label="Accéder à la carte du projet">
-              <div class="card-logo-wrap"><i class="fa fa-map fallback-icon" aria-hidden="true"></i></div>
-              <div class="map-card-content">
-                <h2>Carte du projet</h2>
-                <p>Explorez le tracé et les informations géographiques</p>
-              </div>
-              <div class="map-cta">
-                <button type="button" class="btn-open-map" aria-label="Ouvrir la carte">Ouvrir la carte</button>
-              </div>
-            </div>`;
-          mapCardElRef = section;
-        }
+      // Create the card section if it doesn't exist yet
+      if (!mapCardElRef) {
+        const section = document.createElement('section');
+        section.className = 'map-open-section';
+        section.innerHTML = `
+          <div class="map-open-card gp-card" role="region" aria-label="Accéder à la carte du projet">
+            <div class="gp-card-header">
+              <i class="fa-solid fa-map" aria-hidden="true"></i>
+              <h2>Carte du projet</h2>
+            </div>
+            <p class="map-card-description">Explorez le tracé et les informations géographiques</p>
+            <button type="button" class="btn-primary btn-open-map" aria-label="Ouvrir la carte">
+              <i class="fa-solid fa-expand" aria-hidden="true"></i>
+              Ouvrir la carte
+            </button>
+          </div>`;
+        mapCardElRef = section;
+      }
 
-        // If the card is detached from DOM or not in the right spot, (re)insert it
-        const coverWrap = (container.querySelector && container.querySelector('.project-cover-wrap')) || null;
-        const targetParent = container;
-        if (!mapCardElRef.isConnected || mapCardElRef.parentNode !== targetParent) {
-          if (coverWrap && coverWrap.parentNode === targetParent) {
-            coverWrap.insertAdjacentElement('afterend', mapCardElRef);
-          } else if (targetParent.firstElementChild) {
-            targetParent.insertBefore(mapCardElRef, targetParent.firstElementChild);
-          } else {
-            targetParent.appendChild(mapCardElRef);
-          }
+      // If the card is detached from DOM or not in the right spot, (re)insert it
+      const coverWrap = (container.querySelector && container.querySelector('.project-cover-wrap')) || null;
+      const targetParent = container;
+      if (!mapCardElRef.isConnected || mapCardElRef.parentNode !== targetParent) {
+        if (coverWrap && coverWrap.parentNode === targetParent) {
+          coverWrap.insertAdjacentElement('afterend', mapCardElRef);
+        } else if (targetParent.firstElementChild) {
+          targetParent.insertBefore(mapCardElRef, targetParent.firstElementChild);
+        } else {
+          targetParent.appendChild(mapCardElRef);
         }
+      }
 
         // Mark the article section so CSS can style the cover/card as a glued block on mobile
         if (articleSection) articleSection.classList.add('has-map-card');
@@ -1678,77 +1792,62 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (_) {}
 
   // 4. Fonction pour charger les données de la couche spécifiée dans category
-  let layerConfig; // Déclarer la variable dans la portée de la fonction
-
+  // Charge manuellement comme DataModule mais sans ajouter à la carte
   async function loadLayerData() {
-    if (!window.supabaseService) return [];
+    if (!window.supabaseService) return null;
 
     try {
-      // Charger les styles des catégories depuis category_icons
-      const categoryIconsData = await window.supabaseService.fetchCategoryIcons();
-      const categoryStylesMap = window.supabaseService.buildCategoryStylesMap(categoryIconsData);
-      const categoryStyle = categoryStylesMap[category] || {};
-      layerConfig = {
-        name: category,
-        style: categoryStyle
-      };
-
       // Charger le projet depuis contribution_uploads
-      if (!projectName) return [];
+      if (!projectName) return null;
       const project = await window.supabaseService.fetchProjectByCategoryAndName(category, projectName);
-      if (!project?.geojson_url) return [];
+      if (!project?.geojson_url) return null;
 
       // Charger le GeoJSON
       const resp = await fetch(project.geojson_url);
-      if (!resp.ok) return [];
-      const gj = await resp.json();
+      if (!resp.ok) return null;
+      const geoData = await resp.json();
 
-      let features = [];
-      if (gj?.type === 'FeatureCollection' && Array.isArray(gj.features)) {
-        features = gj.features;
-      } else if (gj?.type === 'Feature') {
-        features = [gj];
+      // Construire le FeatureCollection comme dans DataModule.fetchLayerData
+      const features = [];
+      
+      if (geoData.type === 'FeatureCollection' && geoData.features) {
+        // Enrichir chaque feature avec les métadonnées du projet
+        geoData.features.forEach(feature => {
+          if (!feature.properties) feature.properties = {};
+          // Injecter les métadonnées directement dans les properties
+          feature.properties.project_name = project.project_name;
+          feature.properties.category = project.category;
+          feature.properties.cover_url = project.cover_url;
+          feature.properties.description = project.description;
+          feature.properties.markdown_url = project.markdown_url;
+        });
+        features.push(...geoData.features);
+      } else if (geoData.type === 'Feature') {
+        // Feature unique
+        if (!geoData.properties) geoData.properties = {};
+        geoData.properties.project_name = project.project_name;
+        geoData.properties.category = project.category;
+        geoData.properties.cover_url = project.cover_url;
+        geoData.properties.description = project.description;
+        geoData.properties.markdown_url = project.markdown_url;
+        features.push(geoData);
       }
 
-      // Injecter les métadonnées du projet dans chaque feature
-      features.forEach(f => {
-        if (!f.properties) f.properties = {};
-        Object.assign(f.properties, {
-          project_name: project.project_name,
-          category: project.category,
-          cover_url: project.cover_url,
-          markdown_url: project.markdown_url,
-          meta: project.meta,
-          description: project.description
-        });
-      });
-
-      return features;
+      return {
+        type: 'FeatureCollection',
+        features: features
+      };
     } catch (error) {
-      return [];
+      console.error('[ficheprojet] Erreur chargement données:', error);
+      return null;
     }
   }
 
   // 5. Chargement et affichage des données
   loadLayerData()
-    .then(data => {
-      if (!data?.length) return {
-        type: 'FeatureCollection',
-        features: []
-      };
+    .then(async data => {
+      if (!data) return null;
 
-      return {
-        type: 'FeatureCollection',
-        features: data
-          .map(item => ({
-            type: 'Feature',
-            properties: item?.properties || item,
-            geometry: typeof item.geometry === 'string' ? JSON.parse(item.geometry) : item.geometry
-          }))
-          .filter(f => f.geometry)
-      };
-    })
-    .then(data => {
       // Conserver pour l'aperçu dans la carte (mobile)
       try {
         window.__fpGeoPreview = data;
@@ -1761,38 +1860,50 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       } catch (_) {}
 
+      // Récupérer les styles de la catégorie depuis category_icons (TOUTES les catégories)
+      let categoryStyle = {};
+      try {
+        console.log('[ficheprojet] 🎨 Chargement des styles pour catégorie:', category);
+        const categoryIconsData = await window.supabaseService.fetchAllCategoryIcons();
+        console.log('[ficheprojet] 📦 Category icons récupérés (toutes villes):', categoryIconsData.length, 'entrées');
+        
+        const categoryStylesMap = window.supabaseService.buildCategoryStylesMap(categoryIconsData);
+        console.log('[ficheprojet] 🗺️ Styles map construit:', categoryStylesMap);
+        
+        categoryStyle = categoryStylesMap[category] || {};
+        console.log('[ficheprojet] ✨ Style final pour', category, ':', categoryStyle);
+        
+        if (Object.keys(categoryStyle).length === 0) {
+          console.warn('[ficheprojet] ⚠️ Aucun style trouvé pour la catégorie:', category);
+        }
+      } catch (e) {
+        console.error('[ficheprojet] ❌ Erreur chargement styles:', e);
+      }
+
+      // Créer la couche GeoJSON avec les styles appropriés
       const geoLayer = L.geoJSON(data, {
-        // Masquer les points (markers) qui n'ont pas de properties.imgUrl
         filter: (feature) => {
-          try {
-            const gtype = feature?.geometry?.type || '';
-            const isPoint = /Point$/i.test(gtype);
-            if (!isPoint) return true; // ne pas filtrer lignes/polygones
-            const props = feature && feature.properties ? feature.properties : {};
-            return !!props.imgUrl; // n'afficher que les points avec imgUrl
-          } catch (_) {
-            return true;
-          }
+          const gtype = feature?.geometry?.type || '';
+          const isPoint = /Point$/i.test(gtype);
+          if (!isPoint) return true;
+          return !!feature?.properties?.imgUrl;
         },
         style: (feature) => {
-          const baseStyle = layerConfig?.style || {};
-          return window.LayerStyles?.applyCustomLayerStyle ?
-            window.LayerStyles.applyCustomLayerStyle(feature, category, baseStyle) :
-            baseStyle;
+          const appliedStyle = window.LayerStyles?.applyCustomLayerStyle ?
+            window.LayerStyles.applyCustomLayerStyle(feature, category, categoryStyle) :
+            categoryStyle;
+          
+          console.log('[ficheprojet] 🖌️ Style appliqué à la feature:', appliedStyle);
+          return appliedStyle;
         },
         pointToLayer: (feature, latlng) => {
-          // Utiliser la fonction centralisée de CameraMarkers
           if (window.CameraMarkers?.createCameraMarker) {
-            // Récupérer la couleur de la couche
-            const baseStyle = layerConfig?.style || {};
             const featureStyle = window.LayerStyles?.applyCustomLayerStyle ?
-              window.LayerStyles.applyCustomLayerStyle(feature, category, baseStyle) :
-              baseStyle;
+              window.LayerStyles.applyCustomLayerStyle(feature, category, categoryStyle) :
+              categoryStyle;
             const color = featureStyle?.color || null;
-            
             return window.CameraMarkers.createCameraMarker(latlng, 'cameraPane', color);
           }
-          // Fallback si CameraMarkers n'est pas disponible
           return L.marker(latlng, { riseOnHover: true });
         },
         onEachFeature: (feature, layer) => {
@@ -1800,39 +1911,33 @@ document.addEventListener('DOMContentLoaded', async () => {
           const isPoint = /Point$/i.test(feature?.geometry?.type || '');
           
           if (isPoint && props.imgUrl) {
-            // Déléguer la gestion des camera markers à cameramarkers.js
             if (window.CameraMarkers?.bindCameraMarkerEvents) {
               window.CameraMarkers.bindCameraMarkerEvents(feature, layer);
             }
           } else {
             const name = props.project_name || props.name || props.Name || 'Projet';
-            layer.bindTooltip(name, {
-              permanent: false,
-              direction: 'top'
-            });
+            layer.bindTooltip(name, { permanent: false, direction: 'top' });
           }
         }
       });
+      
+      if (!geoLayer) return;
 
       // Ajouter la couche à la carte
+      console.log('[ficheprojet] 🗺️ Ajout de la couche à la carte');
       geoLayerRef = geoLayer;
       map.addLayer(geoLayer);
+      console.log('[ficheprojet] ✅ Couche ajoutée avec succès');
 
-      // S'assurer que la couche est au-dessus des fonds et autres couches
-      try {
-        geoLayer.bringToFront();
-      } catch (_) {}
+      geoLayer.bringToFront();
+      
       // Ajuster la vue initiale sur l'objet affiché
-      try {
-        if (typeof geoLayer.getBounds === 'function') {
-          const b = geoLayer.getBounds();
-          if (b && b.isValid && b.isValid()) {
-            map.fitBounds(b, {
-              padding: [20, 20]
-            });
-          }
+      if (typeof geoLayer.getBounds === 'function') {
+        const b = geoLayer.getBounds();
+        if (b?.isValid?.()) {
+          map.fitBounds(b, { padding: [20, 20] });
         }
-      } catch (_) {}
+      }
 
       // Animation des tirets (dash) : uniquement pour les lignes, throttle ~30fps et pause pendant le zoom
       let __dashAnimId;

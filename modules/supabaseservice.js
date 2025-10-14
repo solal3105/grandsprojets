@@ -217,6 +217,30 @@
     },
 
     /**
+     * Récupère TOUTES les catégories sans filtre de ville
+     * Utile pour récupérer les styles de n'importe quelle catégorie
+     * @returns {Promise<Array>}
+     */
+    fetchAllCategoryIcons: async function() {
+      try {
+        const { data, error } = await supabaseClient
+          .from('category_icons')
+          .select('category, icon_class, display_order, layers_to_display, category_styles, ville')
+          .order('display_order', { ascending: true });
+
+        if (error) {
+          console.warn('[supabaseService] fetchAllCategoryIcons error:', error);
+          return [];
+        }
+
+        return (data || []).filter(row => row && row.category);
+      } catch (e) {
+        console.error('[supabaseService] fetchAllCategoryIcons exception:', e);
+        return [];
+      }
+    },
+
+    /**
      * Construit le mapping catégorie → layers depuis les données de category_icons
      * Le layer de la catégorie elle-même est toujours inclus automatiquement
      * @param {Array<{category:string, layers_to_display:string[]}>} categoryIcons - Données depuis fetchCategoryIcons
@@ -270,9 +294,23 @@
       categoryIcons.forEach(cat => {
         if (!cat || !cat.category) return;
         
+        // Parser category_styles si c'est une string JSON
+        let styles = cat.category_styles;
+        if (typeof styles === 'string') {
+          try {
+            styles = JSON.parse(styles);
+          } catch (e) {
+            console.warn(`[supabaseService] Impossible de parser category_styles pour ${cat.category}:`, styles);
+            return;
+          }
+        }
+        
         // Si category_styles existe et n'est pas vide, l'ajouter au mapping
-        if (cat.category_styles && typeof cat.category_styles === 'object' && Object.keys(cat.category_styles).length > 0) {
-          map[cat.category] = cat.category_styles;
+        if (styles && typeof styles === 'object' && Object.keys(styles).length > 0) {
+          // Si la catégorie existe déjà, ne pas écraser si le nouveau style est vide
+          if (!map[cat.category] || Object.keys(map[cat.category]).length === 0) {
+            map[cat.category] = styles;
+          }
         }
       });
 
