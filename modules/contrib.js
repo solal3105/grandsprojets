@@ -142,6 +142,27 @@
     }
   }
 
+  // ============================================================================
+  // CITY HELPER - POINT D'ENTRÉE UNIQUE POUR RÉCUPÉRER LA VILLE
+  // ============================================================================
+  
+  /**
+   * Point d'entrée unique pour récupérer la ville sélectionnée dans le panel contrib.
+   * Valide automatiquement et affiche un toast si la ville n'est pas définie.
+   * 
+   * @returns {string|null} - Code ville ou null si non définie
+   */
+  function getCurrentCity() {
+    const CityContext = win.ContribCityContext || {};
+    const city = CityContext.ensureCity?.(win.ContribUtils?.showToast);
+    
+    if (!city) {
+      console.warn('[contrib] ⚠️ Aucune ville sélectionnée');
+    }
+    
+    return city;
+  }
+
   function setupContrib() {
     const contribToggle   = document.getElementById('nav-contribute');
     let contribOverlay  = document.getElementById('contrib-overlay');
@@ -315,6 +336,12 @@
         try { win.__CONTRIB_IS_ADMIN = __isAdmin; } catch(_) {}
         try { win.__CONTRIB_ROLE = __userRole; } catch(_) {}
         try { win.__CONTRIB_VILLES = __userVilles; } catch(_) {}
+        
+        // Initialiser la ville immédiatement
+        const CityContext = win.ContribCityContext || {};
+        if (typeof CityContext.autoInitializeCity === 'function') {
+          CityContext.autoInitializeCity();
+        }
         
         // Mettre à jour la user-info-card (async)
         updateUserInfoCard(session, profile).catch(e => console.error('[contrib] updateUserInfoCard error:', e));
@@ -597,7 +624,7 @@
             try { ContribList.updateListState?.({ mineOnly: false }); } catch(_) {}
           }
           
-          try { if (panelList && !panelList.hidden) { listResetAndLoad(); } } catch(_) {}
+          // listResetAndLoad() est appelé dans activateTab('list') après définition de filterCity
         } catch(_) {}
       } catch(_) {}
     }
@@ -953,9 +980,10 @@
     async function activateTab(which) {
       if (which === 'list') {
         try {
-          // Valider qu'une ville est sélectionnée
-          if (!CityContext.hasSelectedCity?.()) {
-            console.warn('[activateTab] No city selected, cannot load list');
+          // Récupérer la ville avec validation centralisée
+          const filterCity = getCurrentCity();
+          if (!filterCity) {
+            console.warn('[activateTab list] No city selected, cannot load list');
             return;
           }
           
@@ -965,21 +993,12 @@
           // Appliquer les contraintes de rôle AVANT de configurer les filtres
           applyRoleConstraints();
           
-          // Configurer les filtres APRÈS applyRoleConstraints
-          const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : '';
-          const isAdmin = role === 'admin';
-          const filterCity = CityContext.getSelectedCity?.();
-          
-          console.log('[activateTab list] filterCity:', filterCity, 'role:', role);
-          
-          // Pour invited : mineOnly est déjà configuré à false par applyRoleConstraints
-          // Pour admin : on prend la valeur de la checkbox
           const mineOnly = listMineOnlyEl?.checked || false;
           
-          console.log('[activateTab list] Applying filters:', { mineOnly, filterCity });
-          
-          // Appliquer les filtres et charger
+          // Appliquer les filtres puis initialiser l'infinite scroll
           ContribList.updateListState?.({ mineOnly, filterCity });
+          initInfiniteScroll();
+          
           await listResetAndLoad();
           
           // Focus
@@ -989,15 +1008,24 @@
         }
       } else if (which === 'categories') {
         // Load categories panel
+        const city = getCurrentCity();
+        if (!city) {
+          console.warn('[activateTab categories] No city selected');
+          return;
+        }
+        
         try { 
-          await refreshCategoriesList(); 
+          await refreshCategoriesList(city); 
         } catch(e) { 
           console.error('[contrib] refreshCategoriesList error:', e); 
         }
       } else if (which === 'users') {
         // Load users panel
+        const city = getCurrentCity();
+        // Note: pour les users, pas de return si pas de ville car l'admin voit selon ses villes
+        
         try { 
-          const elements = { usersListEl, selectedCity: CityContext.getSelectedCity?.() };
+          const elements = { usersListEl, selectedCity: city };
           ContribUsers.loadUsersList?.(elements);
         } catch(e) { console.error('[contrib] loadUsersList error:', e); }
       }
@@ -1134,13 +1162,10 @@
       // Router les actions selon le bouton
       switch (buttonId) {
         case 'contrib-list-create-btn':
-          // Récupérer la ville depuis le contexte
-          const CityContext = win.ContribCityContext || {};
-          const currentCity = CityContext.getSelectedCity?.();
-          if (!currentCity) {
-            showToast('Erreur: ville non sélectionnée', 'error');
-            return;
-          }
+          // Récupérer la ville avec validation centralisée
+          const currentCity = getCurrentCity();
+          if (!currentCity) return; // Toast déjà affiché par getCurrentCity
+          
           await openCreateModal('create', { ville: currentCity });
           break;
           
@@ -1168,11 +1193,10 @@
       if (!listCatEl) return;
       
       try {
-        // Récupérer la ville sélectionnée
-        const selectedCity = CityContext.getSelectedCity?.();
+        // Récupérer la ville avec validation centralisée
+        const selectedCity = getCurrentCity();
         
         if (!selectedCity) {
-          console.warn('[contrib] No city selected');
           listCatEl.innerHTML = '<option value="">Sélectionnez d\'abord une structure</option>';
           return;
         }
@@ -1331,8 +1355,7 @@
       debouncedReset();
     });
 
-    // Initialize infinite scroll once
-    initInfiniteScroll();
+    // L'infinite scroll est initialisé dans activateTab('list')
 
     // —— Users panel helpers ——
     // Recherche en temps réel dans la liste des utilisateurs
@@ -1913,12 +1936,11 @@
     console.log('[contrib] Categories elements:', { categoriesList: !!categoriesList, categoriesContent: !!categoriesContent });
 
     // refreshCategoriesList moved to contrib-categories-crud.js
-    async function refreshCategoriesList() {
-      const selectedCity = CityContext.getSelectedCity?.();
-      console.log('[refreshCategoriesList] Called with city:', selectedCity);
+    async function refreshCategoriesList(city) {
+      console.log('[refreshCategoriesList] Called with city:', city);
       
-      if (!selectedCity) {
-        console.warn('[refreshCategoriesList] No city selected');
+      if (!city) {
+        console.warn('[refreshCategoriesList] No city provided');
         return;
       }
       
@@ -1926,7 +1948,7 @@
         categoriesList, 
         categoriesContent, 
         categoryVilleSelector: null,
-        selectedCity: selectedCity
+        selectedCity: city
       };
       
       await ContribCategoriesCrud.refreshCategoriesList?.(elements, openCategoryModal, deleteCategory);
@@ -1968,8 +1990,8 @@
         categoryModalTitle.textContent = mode === 'edit' ? 'Modifier la catégorie' : 'Nouvelle catégorie';
       }
       
-      // Récupérer la ville sélectionnée
-      const selectedCity = CityContext.getSelectedCity?.();
+      // Récupérer la ville avec validation centralisée
+      const selectedCity = getCurrentCity();
       console.log('[openCategoryModal] Selected city:', selectedCity);
       
       // Remplir le champ ville caché
@@ -2022,7 +2044,6 @@
           }
           setTimeout(() => {
             categoryModalOverlay.setAttribute('aria-hidden', 'true');
-            // ✅ Bloquer les interactions
             categoryModalOverlay.inert = true;
           }, 220);
           
@@ -2133,7 +2154,6 @@
       
       // Ouvrir la modale
       categoryModalOverlay.setAttribute('aria-hidden', 'false');
-      // ✅ Réactiver les interactions
       categoryModalOverlay.inert = false;
       const categoryModalInner = categoryModalOverlay.querySelector('.gp-modal');
       if (categoryModalInner) {
@@ -2150,7 +2170,6 @@
         }
         setTimeout(() => {
           categoryModalOverlay.setAttribute('aria-hidden', 'true');
-          // ✅ Bloquer les interactions
           categoryModalOverlay.inert = true;
         }, 220);
       };
@@ -2188,15 +2207,10 @@
 
     // Ouvre la modale de création de contribution
     async function openCreateModal(mode = 'create', data = {}) {
-      console.log('[openCreateModal] ========== START ==========');
-      console.log('[openCreateModal] Mode:', mode);
-      console.log('[openCreateModal] Data:', JSON.stringify(data, null, 2));
-      
       // Charger la modale si nécessaire
       const loaded = await loadCreateModalTemplate();
-      console.log('[openCreateModal] Template loaded:', loaded);
       if (!loaded) {
-        console.error('[openCreateModal] ❌ FAILED: Template not loaded');
+        console.error('[openCreateModal] Template not loaded');
         showToast('Erreur de chargement du formulaire', 'error');
         return;
       }
@@ -2210,10 +2224,8 @@
       const nextBtn = document.getElementById('contrib-next');
       const submitBtn = document.getElementById('contrib-submit');
       
-      console.log('[openCreateModal] Elements found:', { overlay: !!overlay, form: !!form });
-      
       if (!overlay || !form) {
-        console.error('[openCreateModal] ❌ FAILED: Elements not found');
+        console.error('[openCreateModal] Elements not found');
         return;
       }
       
@@ -2226,10 +2238,8 @@
         }
       }
       
-      // ✅ Récupérer la ville depuis data.ville
-      // Note: ville peut être null (= "Global"), c'est normal
+      // Note: ville peut être null (= "Global")
       const selectedCity = data.ville;
-      console.log('[openCreateModal] City:', selectedCity === null ? 'Global' : selectedCity);
       
       // Charger les catégories pour la ville dans le select de la modale
       try {
@@ -2276,11 +2286,9 @@
         }
         setTimeout(() => {
           overlay.setAttribute('aria-hidden', 'true');
-          
-          // ✅ Bloquer toutes les interactions avec la modale masquée
           overlay.inert = true;
           
-          // Détruire proprement l'instance du formulaire (v2)
+          // Détruire proprement l'instance du formulaire
           if (formInstance && typeof formInstance.destroy === 'function') {
             formInstance.destroy();
             formInstance = null;
@@ -2326,30 +2334,18 @@
           }
         });
         
-        console.log('[openCreateModal] Form initialized', formInstance);
       } else {
         console.error('[openCreateModal] ContribCreateForm module not found');
       }
       
-      // ✅ IMPORTANT : Remplir le champ ville APRÈS initCreateForm
-      // car initCreateForm peut faire un form.reset() qui efface tout
+      // Remplir le champ ville APRÈS initCreateForm
       const cityInput = document.querySelector('#create-modal-overlay #contrib-city');
       if (!cityInput) {
-        console.error('[openCreateModal] ❌ CRITIQUE: #contrib-city NOT FOUND in DOM!');
+        console.error('[openCreateModal] City input not found');
         showToast('Erreur: formulaire non chargé correctement', 'error');
         return;
       }
-      
-      console.log('[openCreateModal] ✅ Setting #contrib-city value to:', selectedCity);
       cityInput.value = selectedCity;
-      
-      // Vérification immédiate
-      console.log('[openCreateModal] ✅ Confirmation: #contrib-city.value =', cityInput.value);
-      
-      if (cityInput.value !== selectedCity) {
-        console.error('[openCreateModal] ❌ ERREUR: La ville ne s\'est pas enregistrée correctement!');
-        console.error('[openCreateModal] Expected:', selectedCity, 'Got:', cityInput.value);
-      }
       
       // Bind close button
       if (closeBtn) closeBtn.onclick = closeModal;
@@ -2360,17 +2356,13 @@
       };
       
       // Ouvrir la modale
-      console.log('[openCreateModal] Opening modal...');
       overlay.setAttribute('aria-hidden', 'false');
-      // ✅ Réactiver les interactions
       overlay.inert = false;
-      console.log('[openCreateModal] Modal state - aria-hidden:', overlay.getAttribute('aria-hidden'), 'inert:', overlay.inert);
       
       const modalInner = overlay.querySelector('.gp-modal');
       if (modalInner) {
         requestAnimationFrame(() => {
           modalInner.classList.add('is-open');
-          console.log('[openCreateModal] Modal inner class added: is-open');
         });
       }
       
@@ -2379,8 +2371,6 @@
         const firstInput = form.querySelector('input[type="text"]');
         if (firstInput) firstInput.focus();
       }, 250);
-      
-      console.log('[openCreateModal] ========== END ==========');
     }
 
     // deleteCategory moved to contrib-categories-crud.js
@@ -2392,6 +2382,17 @@
     
   } // End of initializeContribForm()
   }
+
+  // ============================================================================
+  // EXPORTS GLOBAUX
+  // ============================================================================
+
+  /**
+   * Fonction centralisée pour récupérer la ville active
+   * Exportée globalement pour utilisation dans tous les sous-modules
+   * @returns {string|null} - Ville sélectionnée ou null
+   */
+  win.getCurrentCity = getCurrentCity;
 
   // Fonction helper exportée pour vérifier si l'utilisateur peut éditer une ville
   win.canEditVille = function(villeCode) {

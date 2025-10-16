@@ -164,10 +164,6 @@
    */
   async function preloadGeometryOnMap(url, elements) {
     try {
-      if (win.ContribUtils?.setStatus) {
-        win.ContribUtils.setStatus('Chargement de la géométrie…');
-      }
-
       // Stocker l'URL pour préserver les données lors des changements de mode
       setEditGeojsonUrl(url);
 
@@ -193,15 +189,8 @@
       if (win.ContribMap?.setDrawnGeometry) {
         win.ContribMap.setDrawnGeometry(gj);
       }
-
-      if (win.ContribUtils?.setStatus) {
-        win.ContribUtils.setStatus('Géométrie chargée depuis la contribution.', 'success');
-      }
     } catch (err) {
       console.warn('[contrib-geometry] preloadGeometryOnMap error:', err);
-      if (win.ContribUtils?.setStatus) {
-        win.ContribUtils.setStatus('Impossible de charger la géométrie existante.', 'error');
-      }
       if (win.ContribUtils?.showToast) {
         win.ContribUtils.showToast('Impossible de charger la géométrie existante.', 'error');
       }

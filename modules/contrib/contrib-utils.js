@@ -126,22 +126,6 @@
     }, 4200);
   }
 
-  /**
-   * Affiche un message de statut (deprecated, utilise showToast pour les erreurs)
-   * @param {string} msg - Message à afficher
-   * @param {string} kind - Type de message
-   */
-  function setStatus(msg, kind = 'info') {
-    // Deprecated: we avoid using inline status area; only show errors as toasts
-    if (kind === 'error' && msg) {
-      try { showToast(msg, 'error'); } catch(_) {}
-    }
-    // Do not mutate #contrib-status anymore
-    const statusEl = document.getElementById('contrib-status');
-    if (statusEl) { 
-      try { statusEl.textContent = ''; } catch(_) {} 
-    }
-  }
 
   // ============================================================================
   // VALIDATION UTILITIES
@@ -193,7 +177,6 @@
     
     // Toast notifications
     showToast,
-    setStatus,
     
     // Validation
     isValidUrl,

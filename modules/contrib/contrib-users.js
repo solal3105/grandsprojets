@@ -292,12 +292,11 @@
         }
       }
       
-      // Récupérer la ville sélectionnée depuis le contexte
-      const CityContext = win.ContribCityContext || {};
-      const selectedCity = CityContext.getSelectedCity?.();
+      // Récupérer la ville avec validation centralisée
+      const selectedCity = win.getCurrentCity?.();
       
       if (!selectedCity) {
-        win.ContribUtils?.showToast('Aucune structure sélectionnée.', 'error');
+        // Toast déjà affiché par getCurrentCity
         return;
       }
 

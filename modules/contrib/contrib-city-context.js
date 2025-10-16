@@ -12,6 +12,43 @@
   let landingCityListenerAdded = false;
 
   // ============================================================================
+  // INITIALIZATION
+  // ============================================================================
+
+  /**
+   * Initialise automatiquement la ville au chargement du module
+   * Tente de restaurer depuis sessionStorage ou présélectionne si ville unique
+   */
+  function autoInitializeCity() {
+    try {
+      // 1. Restaurer depuis sessionStorage
+      const stored = sessionStorage.getItem('activeCity');
+      if (stored && stored !== '__global__') {
+        selectedCity = stored;
+        console.log('[CityContext] 🔄 Restored from session:', stored);
+        // Synchroniser avec window.activeCity
+        win.activeCity = stored;
+        return;
+      }
+      
+      // 2. Si admin a UNE seule ville, la présélectionner automatiquement
+      const userVilles = win.__CONTRIB_VILLES || [];
+      const validCities = userVilles.filter(v => v !== 'global');
+      if (validCities.length === 1) {
+        selectedCity = validCities[0];
+        win.activeCity = selectedCity;
+        sessionStorage.setItem('activeCity', selectedCity);
+        console.log('[CityContext] ✨ Auto-selected single city:', selectedCity);
+      }
+    } catch(e) {
+      console.warn('[CityContext] Auto-init failed:', e);
+    }
+  }
+
+  // Ne PAS initialiser automatiquement ici car __CONTRIB_VILLES n'est pas encore défini
+  // L'initialisation doit être appelée explicitement depuis contrib.js APRÈS fetchAndApplyRole
+
+  // ============================================================================
   // GETTERS / SETTERS
   // ============================================================================
 
@@ -22,10 +59,9 @@
   function setSelectedCity(city) {
     // Note: city peut être null (= "Global")
     selectedCity = city;
-    console.log('[CityContext] ✅ City set to:', city === null ? 'Global' : city);
-    
-    // Synchroniser avec window.activeCity (utilisé par supabaseService.getActiveCity)
     win.activeCity = city;
+    
+    console.log('[CityContext] ✅ City set to:', city === null ? 'Global' : city);
     
     // Synchroniser avec sessionStorage
     try {
@@ -37,14 +73,6 @@
     } catch(e) {
       console.warn('[CityContext] Could not persist to sessionStorage:', e);
     }
-  }
-
-  /**
-   * Récupère la ville sélectionnée
-   * @returns {string|null}
-   */
-  function getSelectedCity() {
-    return selectedCity;
   }
 
   /**
@@ -63,6 +91,23 @@
     try {
       sessionStorage.removeItem('activeCity');
     } catch(e) {}
+  }
+
+  /**
+   * S'assure qu'une ville est sélectionnée, sinon affiche un toast
+   * @param {Function} showToast - Fonction pour afficher un message d'erreur
+   * @returns {string|null} - Ville sélectionnée ou null si non définie
+   */
+  function ensureCity(showToast) {
+    if (!selectedCity) {
+      if (showToast && typeof showToast === 'function') {
+        showToast('Veuillez sélectionner une structure dans le menu de gauche.', 'warning');
+      }
+      console.warn('[CityContext] ⚠️ No city selected');
+      return null;
+    }
+    
+    return selectedCity;
   }
 
   // ============================================================================
@@ -188,11 +233,14 @@
   // ============================================================================
 
   win.ContribCityContext = {
+    // Init
+    autoInitializeCity,
+    
     // Getters / Setters
     setSelectedCity,
-    getSelectedCity,
     hasSelectedCity,
     clearSelectedCity,
+    ensureCity,
     
     // UI Helpers
     showCityBadge,

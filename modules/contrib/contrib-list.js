@@ -25,25 +25,6 @@
   let io = null; // IntersectionObserver for infinite scroll
 
   // ============================================================================
-  // LIST STATUS (DEPRECATED - Removed)
-  // ============================================================================
-
-  /**
-   * Legacy function - No longer used
-   */
-  function setListStatus() {
-    // Deprecated - status messages removed for cleaner UI
-  }
-
-  /**
-   * Met à jour le compteur de contributions (DEPRECATED - élément retiré)
-   * @param {number} count - Nombre total de contributions
-   */
-  function updateListCount(count) {
-    // No-op - Le header avec compteur a été retiré
-  }
-
-  // ============================================================================
   // EMPTY STATE
   // ============================================================================
 
@@ -590,11 +571,6 @@
       const totalCount = res && res.count !== undefined ? res.count : items.length;
       console.log('[contrib-list] Items count:', items.length, 'Total:', totalCount);
       
-      // Mettre à jour le compteur
-      if (page === 1) {
-        updateListCount(totalCount);
-      }
-      
       // Clear skeletons
       try { if (listEl) listEl.querySelectorAll('.contrib-skel').forEach(n => n.remove()); } catch(_) {}
       
@@ -602,7 +578,6 @@
         console.log('[contrib-list] No items found, showing empty state');
         if (page === 1) { 
           renderEmptyState(listEl, listSentinel, onCreateClick);
-          updateListCount(0);
         }
         listState.done = true;
       } else {
@@ -625,7 +600,8 @@
       if (win.ContribUtils?.showToast) {
         win.ContribUtils.showToast('Erreur lors du chargement', 'error');
       }
-      console.warn('[contrib-list] load error:', e);
+      console.error('[contrib-list] load error:', e);
+      listState.done = true; // Arrêter les tentatives de rechargement
     } finally {
       try { if (listEl) listEl.querySelectorAll('.contrib-skel').forEach(n => n.remove()); } catch(_) {}
       listState.loading = false;
@@ -681,10 +657,6 @@
   // ============================================================================
 
   win.ContribList = {
-    // Status
-    setListStatus,
-    updateListCount,
-    
     // Empty state
     clearEmptyState,
     renderEmptyState,

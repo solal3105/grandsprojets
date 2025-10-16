@@ -44,7 +44,7 @@
   top: 70px;
   right: 20px;
   width: 360px;
-  max-height: 600px;
+  max-height: 70vh;
   background: linear-gradient(145deg, var(--white-alpha-95) 0%, var(--white-alpha-90) 100%);
   backdrop-filter: blur(24px) saturate(180%);
   border-radius: 20px;

@@ -981,7 +981,7 @@
   top: 70px;
   right: 80px;
   width: 340px;
-  max-height: 500px;
+  max-height: 70vh;
   background: linear-gradient(145deg, var(--white-alpha-95) 0%, var(--white-alpha-90) 100%);
   backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid var(--white-alpha-50);
