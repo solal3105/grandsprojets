@@ -213,7 +213,8 @@
     justify-content: stretch;
   }
   
-  .gp-modal-footer-right .gp-btn {
+  .gp-modal-footer-right .btn-primary,
+  .gp-modal-footer-right .btn-secondary {
     flex: 1;
   }
 }

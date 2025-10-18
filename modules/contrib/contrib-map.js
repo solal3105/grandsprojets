@@ -226,7 +226,7 @@
       basemaps.forEach((bm) => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'gp-btn basemap-tile';
+        btn.className = 'btn-secondary basemap-tile';
         btn.textContent = bm.label || bm.name || 'Fond';
         btn.style.cssText = 'padding:4px 8px;border-radius:8px;border:1px solid var(--black-alpha-20);background:var(--white);cursor:pointer;font-size:12px;';
         

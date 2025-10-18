@@ -89,36 +89,12 @@
   border-radius: 20px 20px 0 0;
 }
 
+/* .filters-close-btn utilise .btn-secondary */
 .filters-close-btn {
   position: absolute;
   top: 16px;
   right: 16px;
-  background: var(--surface-base);
-  border: 1px solid var(--border-light);
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  color: var(--text-secondary);
-  font-size: 1rem;
   z-index: 10;
-  box-shadow: 0 2px 4px var(--black-alpha-06);
-}
-
-.filters-close-btn:hover {
-  background: var(--danger);
-  color: var(--white);
-  border-color: var(--danger);
-  transform: scale(1.08) rotate(90deg);
-  box-shadow: 0 4px 12px var(--danger-alpha-25);
-}
-
-.filters-close-btn:active {
-  transform: scale(0.95) rotate(90deg);
 }
 
 #filters-container h3 {

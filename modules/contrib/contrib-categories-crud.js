@@ -76,10 +76,10 @@
             <div style="font-size:0.85em; opacity:0.7;"><code style="background:var(--gray-100); padding:2px 4px; border-radius:3px;">${escapedOriginalIconClass}</code> • Ordre: ${cat.display_order}</div>
           </div>
           <div style="display:flex; gap:6px;">
-            <button type="button" class="gp-btn gp-btn--secondary" data-action="edit" data-ville="${escapedVille}" data-category="${escapedCategory}" data-icon="${escapedOriginalIconClass}" data-order="${cat.display_order}" data-layers="${JSON.stringify(cat.layers_to_display || []).replace(/"/g, '&quot;')}" data-styles="${JSON.stringify(cat.category_styles || {}).replace(/"/g, '&quot;')}">
+            <button type="button" class="btn-secondary" data-action="edit" data-ville="${escapedVille}" data-category="${escapedCategory}" data-icon="${escapedOriginalIconClass}" data-order="${cat.display_order}" data-layers="${JSON.stringify(cat.layers_to_display || []).replace(/"/g, '&quot;')}" data-styles="${JSON.stringify(cat.category_styles || {}).replace(/"/g, '&quot;')}">
               <i class="fa-solid fa-pen"></i> Modifier
             </button>
-            <button type="button" class="gp-btn gp-btn--danger" data-action="delete" data-ville="${escapedVille}" data-category="${escapedCategory}">
+            <button type="button" class="btn-danger" data-action="delete" data-ville="${escapedVille}" data-category="${escapedCategory}">
               <i class="fa-solid fa-trash"></i>
             </button>
           </div>

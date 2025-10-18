@@ -62,7 +62,7 @@
         <div class="city-list" style="display:flex;flex-direction:column;gap:12px;">
           ${cityInfos.map(city => `
             <button 
-              class="city-option gp-btn gp-btn--outline" 
+              class="city-option btn-secondary" 
               data-city="${city.code}"
               style="
                 display:flex;
@@ -95,7 +95,7 @@
       
       const cancelBtn = document.createElement('button');
       cancelBtn.type = 'button';
-      cancelBtn.className = 'gp-btn gp-btn--secondary';
+      cancelBtn.className = 'btn-secondary';
       cancelBtn.textContent = 'Annuler';
       
       footer.appendChild(cancelBtn);

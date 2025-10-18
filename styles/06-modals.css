@@ -1124,23 +1124,6 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Official Link Card - Carte mise en évidence pour lien officiel
---------------------------------------------------------------------------- */
-.official-link-card {
-  padding: 16px;
-  background: linear-gradient(135deg, var(--info-alpha-05), var(--info-alpha-08));
-  border: 1px solid var(--info-alpha-20);
-  border-radius: 12px;
-  margin: 20px 0;
-}
-
-.official-link-card label {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--info);
-}
-
-/* ---------------------------------------------------------------------------
    Contrib Docs - Documents liés
 --------------------------------------------------------------------------- */
 .contrib-docs-title {
@@ -1190,7 +1173,8 @@
   z-index: 110 !important;
 }
 
-#contrib-overlay .draw-controls .gp-btn {
+#contrib-overlay .draw-controls .btn-primary,
+#contrib-overlay .draw-controls .btn-secondary {
   min-height: 36px;
 }
 

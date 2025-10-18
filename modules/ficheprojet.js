@@ -70,8 +70,6 @@ window.basemaps = window.basemaps || [{
 async function addOfficialLinkCards({
   projectName,
   category,
-  filterKey,
-  filterValue,
   containerEl
 }) {
   try {
@@ -93,30 +91,30 @@ async function addOfficialLinkCards({
     // Récupérer le favicon du site
     const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
 
-    const section = document.createElement('section');
-    section.className = 'official-link-section';
+    const section = document.createElement('div');
+    section.className = 'gp-card gp-card--link';
     section.innerHTML = `
-      <div class="official-link-card gp-card">
-        <div class="gp-card-header">
-          <i class="fa-solid fa-bookmark" aria-hidden="true"></i>
-          <h3>Site de référence</h3>
+      <div class="gp-card-header">
+        <i class="fa-solid fa-bookmark" aria-hidden="true"></i>
+        <h3>Site de référence</h3>
+      </div>
+      
+      <div class="gp-card-body">
+        <div class="gp-card-link-preview">
+          <img src="${faviconUrl}" alt="" onerror="this.style.display='none'">
+          <span>${domain}</span>
         </div>
-        
-        <div class="official-link-domain">
-          <img src="${faviconUrl}" alt="" class="site-favicon" onerror="this.style.display='none'">
-          <span class="domain-name">${domain}</span>
-        </div>
-        
-        <div class="official-link-actions">
-          <a href="${url}" target="_blank" rel="noopener" class="btn-primary" aria-label="Ouvrir ${domain} dans un nouvel onglet">
-            <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
-            Ouvrir le site
-          </a>
-          <button type="button" class="btn-secondary" aria-label="Afficher le QR Code">
-            <i class="fa-solid fa-qrcode" aria-hidden="true"></i>
-            QR Code
-          </button>
-        </div>
+      </div>
+      
+      <div class="gp-card-footer">
+        <a href="${url}" target="_blank" rel="noopener" class="btn-primary" aria-label="Ouvrir ${domain} dans un nouvel onglet">
+          <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+          Ouvrir le site
+        </a>
+        <button type="button" class="btn-secondary" aria-label="Afficher le QR Code">
+          <i class="fa-solid fa-qrcode" aria-hidden="true"></i>
+          QR Code
+        </button>
       </div>`;
     
     containerEl.appendChild(section);
@@ -145,7 +143,7 @@ function showQRCodeModal(url, domain) {
       <div class="gp-modal gp-modal--medium" role="document">
         <div class="gp-modal-header">
           <h2 class="gp-modal-title" id="qr-modal-title">QR Code - ${domain}</h2>
-          <button class="gp-modal-close" aria-label="Fermer">×</button>
+          <button class="btn-secondary gp-modal-close" aria-label="Fermer">×</button>
         </div>
         <div class="gp-modal-body">
           <div class="qr-code-container">
@@ -440,6 +438,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Charger dépendances markdown/front-matter
   await MarkdownUtils.loadDeps();
   // marked est déjà disponible via MarkdownUtils.loadDeps()
+  
   // Initialiser le thème le plus tôt possible
   try {
     // Si une préférence est sauvegardée, l'appliquer et ne pas démarrer la synchro OS
@@ -458,26 +457,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       FPTheme.startOSThemeSync();
     }
   } catch (_) {}
-  // 1. Récupération de la config depuis l'URL (comme les autres catégories)
+  
+  // Récupération de la config depuis l'URL
   const urlParams = new URLSearchParams(location.search);
   const projectName = urlParams.get('project') || '';
-  const category = urlParams.get('cat') || 'velo'; // fallback
-
-  // Legacy: récupération depuis l'article pour compatibilité
+  const category = urlParams.get('cat') || 'velo';
   const article = document.getElementById('project-article');
-  const filterKey = (article?.dataset.filterKey || '').trim();
-  const filterValue = (article?.dataset.filterValue || '').trim();
-  console.log('[ficheprojet] URL inputs:', {
-    projectName,
-    category,
-    filterKey,
-    filterValue,
-    normalized: {
-      category: normalizeText(category),
-      filterKey: normalizeText(filterKey),
-      filterValue: normalizeText(filterValue)
-    }
-  });
 
   // Détection du mode embed (iframe ou paramètre d'URL)
   const __isEmbedded = (() => {
@@ -809,12 +794,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const docs = Array.from(uniq.values());
       if (docs.length === 0) return;
 
-      // Section avec card englobante
-      const section = document.createElement('section');
-      section.className = 'project-documents';
-      
+      // Card documents de concertation
       const card = document.createElement('div');
-      card.className = 'project-documents-card gp-card';
+      card.className = 'gp-card gp-card--documents';
       
       const titleDiv = document.createElement('div');
       titleDiv.className = 'gp-card-header';
@@ -823,8 +805,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         <h2>Documents de concertation</h2>
       `;
       
+      const bodyDiv = document.createElement('div');
+      bodyDiv.className = 'gp-card-body';
+      
       const grid = document.createElement('div');
-      grid.className = 'doc-cards';
+      grid.className = 'gp-card-grid';
 
       // Helper: ouverture d'une lightbox PDF avec ModalHelper
       const openPdfPreview = (url, title = '') => {
@@ -845,7 +830,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="gp-modal gp-modal--xlarge gp-modal--fixed-body" role="document">
               <div class="gp-modal-header">
                 <div class="gp-modal-title" id="pdf-preview-title">Prévisualisation du document</div>
-                <button class="gp-modal-close" aria-label="Fermer">×</button>
+                <button class="btn-secondary gp-modal-close" aria-label="Fermer">×</button>
               </div>
               <div class="gp-modal-body">
                 <iframe id="pdf-preview-frame" title="Prévisualisation PDF"></iframe>
@@ -913,17 +898,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       docs.forEach(d => {
         const docItem = document.createElement('article');
-        docItem.className = 'doc-card';
+        docItem.className = 'gp-card-grid-item';
         docItem.setAttribute('tabindex', '0');
         const title = d.title || (d.pdf_url ? d.pdf_url.split('/').pop() : 'Document PDF');
 
-        // Affiche la prévisualisation et le téléchargement pour tous les types de fiches (incl. urbanisme)
         docItem.innerHTML = `
-          <div class="doc-card-icon"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i></div>
-          <div class="doc-card-content">
-            <h3 class="doc-card-title">${title}</h3>
+          <div class="gp-card-grid-item-icon"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i></div>
+          <div class="gp-card-grid-item-content">
+            <h3 class="gp-card-grid-item-title">${title}</h3>
           </div>
-          <div class="doc-card-actions">
+          <div class="gp-card-grid-item-actions">
             <button type="button" class="btn-secondary btn-preview">
               <i class="fa-solid fa-eye" aria-hidden="true"></i>
               Prévisualiser
@@ -932,13 +916,9 @@ document.addEventListener('DOMContentLoaded', async () => {
               <i class="fa-solid fa-download" aria-hidden="true"></i>
               Télécharger
             </a>
-          </div>`;
-        // Clic sur la carte => prévisualisation
-        docItem.addEventListener('click', () => openPdfPreview(d.pdf_url, title));
-        docItem.addEventListener('keypress', (e) => {
-          if (e.key === 'Enter') openPdfPreview(d.pdf_url, title);
-        });
-        // Boutons internes
+          </div>
+        `;
+
         const previewBtn = docItem.querySelector('.btn-preview');
         previewBtn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -946,7 +926,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         const dl = docItem.querySelector('.btn-download');
         dl.addEventListener('click', (e) => {
-          e.stopPropagation(); /* laisser le comportement par défaut */
+          e.stopPropagation();
         });
         grid.appendChild(docItem);
       });
@@ -958,9 +938,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       card.appendChild(titleDiv);
-      card.appendChild(grid);
-      section.appendChild(card);
-      containerEl.appendChild(section);
+      bodyDiv.appendChild(grid);
+      card.appendChild(bodyDiv);
+      containerEl.appendChild(card);
     } catch (e) {
       console.error('[ficheprojet] appendConsultationDocs error:', e);
     }
@@ -978,23 +958,32 @@ document.addEventListener('DOMContentLoaded', async () => {
       } catch (_) {}
       if (found?.markdown_url) {
         contributionMdUrl = found.markdown_url;
-        console.log(`[ficheprojet] Markdown depuis contribution_uploads (strict): ${contributionMdUrl}`);
       }
     }
   } catch (e) {
     console.warn('[ficheprojet] Recherche markdown via Supabase (strict) échouée:', e);
   }
+  
+  // Initialiser le branding selon le contexte de navigation
+  try {
+    const cityParam = new URLSearchParams(location.search).get('city');
+    const activeCity = cityParam || null;
+    
+    if (window.CityBrandingModule) {
+      await window.CityBrandingModule.loadAndApplyBranding(activeCity);
+    }
+  } catch (err) {
+    console.warn('[ficheprojet] Failed to load city branding:', err);
+  }
 
   if (contributionMdUrl) {
     const markdownPath = contributionMdUrl;
-    console.log(`Tentative de chargement du fichier (contribution): ${markdownPath}`);
     fetch(markdownPath)
       .then(response => {
         if (!response.ok) throw new Error(`Erreur ${response.status}: ${response.statusText}`);
         return response.text();
       })
       .then(async md => {
-        console.log('Contenu Markdown chargé avec succès');
         // Utiliser MarkdownUtils pour parser front-matter + markdown
         const {
           html
@@ -1027,23 +1016,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             /* no-op */
           }
           headerHtml += `
-            <div class="project-cover-wrap">
-              <img class="project-cover" src="${toAbsolute(chosenCover) || `${PROD_ORIGIN}/img/logomin.png`}" alt="${projectName || ''}">
-              <button class="cover-extend-btn" aria-label="Agrandir l'image" title="Agrandir">
-                <i class="fa fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
-              </button>
+            <div class="gp-card gp-card--media">
+              <div class="gp-card-media">
+                <img src="${toAbsolute(chosenCover) || `${PROD_ORIGIN}/img/logomin.png`}" alt="${projectName || ''}">
+                <button class="gp-card-media-action" aria-label="Agrandir l'image" title="Agrandir">
+                  <i class="fa fa-expand" aria-hidden="true"></i>
+                </button>
+              </div>
             </div>
           `;
         }
         if (contributionProject?.description) {
           headerHtml += `
-            <section class="project-desc-card gp-card" aria-label="Description du projet">
+            <div class="gp-card gp-card--info" aria-label="Description du projet">
               <div class="gp-card-header">
                 <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
                 <h3>Description du projet</h3>
               </div>
-              <p class="project-description">${contributionProject.description}</p>
-            </section>
+              <div class="gp-card-body">
+                <p>${contributionProject.description}</p>
+              </div>
+            </div>
           `;
         }
 
@@ -1053,8 +1046,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         await addOfficialLinkCards({
           projectName,
           category,
-          filterKey,
-          filterValue,
           containerEl: textEl
         });
         await appendConsultationDocs(projectName, textEl);
@@ -1068,10 +1059,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Styles déplacés dans style.css (cover overlay + lightbox)
 
         // Wire up Extend buttons
-        const coverWrap = textEl.querySelector('.project-cover-wrap');
+        const coverWrap = textEl.querySelector('.gp-card--media');
         if (coverWrap) {
-          const btn = coverWrap.querySelector('.cover-extend-btn');
-          const img = coverWrap.querySelector('img.project-cover');
+          const btn = coverWrap.querySelector('.gp-card-media-action');
+          const img = coverWrap.querySelector('.gp-card-media img');
           // Suppression: ne plus appliquer la cover comme fond flouté derrière l'article
           const openLightbox = () => {
             const overlay = document.createElement('div');
@@ -1079,7 +1070,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             overlay.innerHTML = `
               <div class="lightbox-content">
                 <img src="${img.getAttribute('src')}" alt="${img.getAttribute('alt') || ''}">
-                <button class="lightbox-close" aria-label="Fermer">
+                <button class="btn-secondary lightbox-close" aria-label="Fermer">
                   <i class="fa fa-xmark" aria-hidden="true"></i>
                 </button>
               </div>
@@ -1118,23 +1109,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         const chosenCover = contributionProject?.cover_url || '';
         if (chosenCover) {
           headerHtml += `
-            <div class="project-cover-wrap">
-              <img class="project-cover" src="${toAbsolute(chosenCover) || `${PROD_ORIGIN}/img/logomin.png`}" alt="${projectName || ''}">
-              <button class="cover-extend-btn" aria-label="Agrandir l'image" title="Agrandir">
-                <i class="fa fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
-              </button>
+            <div class="gp-card gp-card--media">
+              <div class="gp-card-media">
+                <img src="${toAbsolute(chosenCover) || `${PROD_ORIGIN}/img/logomin.png`}" alt="${projectName || ''}">
+                <button class="gp-card-media-action" aria-label="Agrandir l'image" title="Agrandir">
+                  <i class="fa fa-expand" aria-hidden="true"></i>
+                </button>
+              </div>
             </div>
           `;
         }
         if (contributionProject?.description) {
           headerHtml += `
-            <section class="project-desc-card gp-card" aria-label="Description du projet">
+            <div class="gp-card gp-card--info" aria-label="Description du projet">
               <div class="gp-card-header">
                 <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
                 <h3>Description du projet</h3>
               </div>
-              <p class="project-description">${contributionProject.description}</p>
-            </section>
+              <div class="gp-card-body">
+                <p>${contributionProject.description}</p>
+              </div>
+            </div>
           `;
         }
         textEl.innerHTML = headerHtml;
@@ -1142,8 +1137,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           await addOfficialLinkCards({
             projectName,
             category,
-            filterKey,
-            filterValue,
             containerEl: textEl
           });
           await appendConsultationDocs(projectName, textEl);
@@ -1164,23 +1157,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     const chosenCover = contributionProject?.cover_url || '';
     if (chosenCover) {
       headerHtml += `
-        <div class="project-cover-wrap">
-          <img class="project-cover" src="${toAbsolute(chosenCover) || `${PROD_ORIGIN}/img/logomin.png`}" alt="${projectName || ''}">
-          <button class="cover-extend-btn" aria-label="Agrandir l'image" title="Agrandir">
-            <i class="fa fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
-          </button>
+        <div class="gp-card gp-card--media">
+          <div class="gp-card-media">
+            <img src="${toAbsolute(chosenCover) || `${PROD_ORIGIN}/img/logomin.png`}" alt="${projectName || ''}">
+            <button class="gp-card-media-action" aria-label="Agrandir l'image" title="Agrandir">
+              <i class="fa fa-expand" aria-hidden="true"></i>
+            </button>
+          </div>
         </div>
       `;
     }
     if (contributionProject?.description) {
       headerHtml += `
-        <section class="project-desc-card" aria-label="Description du projet">
-          <h3 class="project-desc-title">
-            <i class="fa fa-info-circle" aria-hidden="true"></i>
-            Description du projet
-          </h3>
-          <p class="project-description">${contributionProject.description}</p>
-        </section>
+        <div class="gp-card gp-card--info" aria-label="Description du projet">
+          <div class="gp-card-header">
+            <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
+            <h3>Description du projet</h3>
+          </div>
+          <div class="gp-card-body">
+            <p>${contributionProject.description}</p>
+          </div>
+        </div>
       `;
     }
     textEl.innerHTML = headerHtml;
@@ -1188,8 +1185,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     await addOfficialLinkCards({
       projectName,
       category,
-      filterKey,
-      filterValue,
       containerEl: textEl
     });
     await appendConsultationDocs(projectName, textEl);
@@ -1199,11 +1194,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadFontAwesome();
 
   // 3. Initialisation de la carte Leaflet
-  // En mode embed étroit, on ne rend pas l'en-tête fixe ni la carte → on saute l'init
+  // En mode embed étroit, on ne rend pas l'en-tête fixe ni la carte
   if (__isEmbedded && !__isEmbedWide) {
-    try {
-      console.log('Mode embed: carte désactivée, initialisation ignorée');
-    } catch (_) {}
     return;
   }
 
@@ -1513,7 +1505,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       // If the card is detached from DOM or not in the right spot, (re)insert it
-      const coverWrap = (container.querySelector && container.querySelector('.project-cover-wrap')) || null;
+      const coverWrap = (container.querySelector && container.querySelector('.gp-card--media')) || null;
       const targetParent = container;
       if (!mapCardElRef.isConnected || mapCardElRef.parentNode !== targetParent) {
         if (coverWrap && coverWrap.parentNode === targetParent) {
@@ -1860,22 +1852,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       } catch (_) {}
 
-      // Récupérer les styles de la catégorie depuis category_icons (TOUTES les catégories)
+      // Récupérer les styles de la catégorie depuis category_icons
       let categoryStyle = {};
       try {
-        console.log('[ficheprojet] 🎨 Chargement des styles pour catégorie:', category);
         const categoryIconsData = await window.supabaseService.fetchAllCategoryIcons();
-        console.log('[ficheprojet] 📦 Category icons récupérés (toutes villes):', categoryIconsData.length, 'entrées');
-        
         const categoryStylesMap = window.supabaseService.buildCategoryStylesMap(categoryIconsData);
-        console.log('[ficheprojet] 🗺️ Styles map construit:', categoryStylesMap);
-        
         categoryStyle = categoryStylesMap[category] || {};
-        console.log('[ficheprojet] ✨ Style final pour', category, ':', categoryStyle);
-        
-        if (Object.keys(categoryStyle).length === 0) {
-          console.warn('[ficheprojet] ⚠️ Aucun style trouvé pour la catégorie:', category);
-        }
       } catch (e) {
         console.error('[ficheprojet] ❌ Erreur chargement styles:', e);
       }
@@ -1889,12 +1871,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           return !!feature?.properties?.imgUrl;
         },
         style: (feature) => {
-          const appliedStyle = window.LayerStyles?.applyCustomLayerStyle ?
+          return window.LayerStyles?.applyCustomLayerStyle ?
             window.LayerStyles.applyCustomLayerStyle(feature, category, categoryStyle) :
             categoryStyle;
-          
-          console.log('[ficheprojet] 🖌️ Style appliqué à la feature:', appliedStyle);
-          return appliedStyle;
         },
         pointToLayer: (feature, latlng) => {
           if (window.CameraMarkers?.createCameraMarker) {
@@ -1923,11 +1902,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       if (!geoLayer) return;
 
-      // Ajouter la couche à la carte
-      console.log('[ficheprojet] 🗺️ Ajout de la couche à la carte');
       geoLayerRef = geoLayer;
       map.addLayer(geoLayer);
-      console.log('[ficheprojet] ✅ Couche ajoutée avec succès');
 
       geoLayer.bringToFront();
       

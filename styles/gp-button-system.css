@@ -1,0 +1,225 @@
+/* ============================================================================
+   GP BUTTON SYSTEM - Système de boutons unifié
+   Utilisable partout dans l'application
+   ============================================================================ */
+
+/* ---------------------------------------------------------------------------
+   Base Button - Unifié pour <button> et <a>
+   --------------------------------------------------------------------------- */
+.btn-primary,
+.btn-secondary,
+a.btn-primary,
+a.btn-secondary,
+button.btn-primary,
+button.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Primary Button - Texte primary, fond transparent
+   --------------------------------------------------------------------------- */
+.btn-primary,
+a.btn-primary,
+button.btn-primary {
+  background: var(--primary-alpha-08);
+  color: var(--primary);
+  border-color: var(--primary-alpha-20);
+  box-shadow: 0 1px 2px var(--black-alpha-04);
+}
+
+.btn-primary:hover,
+a.btn-primary:hover,
+button.btn-primary:hover {
+  background: var(--primary-alpha-15);
+  border-color: var(--primary-alpha-35);
+  box-shadow: 0 2px 8px var(--primary-alpha-15);
+  transform: translateY(-2px);
+}
+
+.btn-primary:active,
+a.btn-primary:active,
+button.btn-primary:active {
+  transform: translateY(0);
+  background: var(--primary-alpha-12);
+  box-shadow: 0 1px 2px var(--black-alpha-04);
+}
+
+.btn-primary:disabled,
+button.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Secondary Button - Nuances de gris
+   --------------------------------------------------------------------------- */
+.btn-secondary,
+a.btn-secondary,
+button.btn-secondary {
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-medium);
+  box-shadow: 0 1px 2px var(--black-alpha-04);
+}
+
+.btn-secondary:hover,
+a.btn-secondary:hover,
+button.btn-secondary:hover {
+  background: var(--gray-100);
+  border-color: var(--border-dark);
+  box-shadow: 0 2px 8px var(--black-alpha-06);
+  transform: translateY(-1px);
+}
+
+.btn-secondary:active,
+a.btn-secondary:active,
+button.btn-secondary:active {
+  transform: translateY(0);
+  background: var(--gray-50);
+  box-shadow: 0 1px 2px var(--black-alpha-04);
+}
+
+.btn-secondary:disabled,
+button.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Button Sizes
+   --------------------------------------------------------------------------- */
+.btn-small {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.btn-large {
+  padding: 12px 24px;
+  font-size: 1rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Button Variants - Danger et Info
+   --------------------------------------------------------------------------- */
+.btn-danger,
+a.btn-danger,
+button.btn-danger {
+  background: var(--danger-alpha-08);
+  color: var(--danger);
+  border-color: var(--danger-alpha-20);
+  box-shadow: 0 1px 2px var(--black-alpha-04);
+}
+
+.btn-danger:hover,
+a.btn-danger:hover,
+button.btn-danger:hover {
+  background: var(--danger-alpha-15);
+  border-color: var(--danger-alpha-35);
+  box-shadow: 0 2px 8px var(--danger-alpha-15);
+  transform: translateY(-2px);
+}
+
+.btn-danger:active,
+a.btn-danger:active,
+button.btn-danger:active {
+  transform: translateY(0);
+  background: var(--danger-alpha-12);
+}
+
+.btn-info,
+a.btn-info,
+button.btn-info {
+  background: var(--info-alpha-08);
+  color: var(--info);
+  border-color: var(--info-alpha-20);
+  box-shadow: 0 1px 2px var(--black-alpha-04);
+}
+
+.btn-info:hover,
+a.btn-info:hover,
+button.btn-info:hover {
+  background: var(--info-alpha-15);
+  border-color: var(--info-alpha-35);
+  box-shadow: 0 2px 8px var(--info-alpha-15);
+  transform: translateY(-2px);
+}
+
+.btn-info:active,
+a.btn-info:active,
+button.btn-info:active {
+  transform: translateY(0);
+  background: var(--info-alpha-12);
+}
+
+/* ---------------------------------------------------------------------------
+   Ghost Button - Transparent
+   --------------------------------------------------------------------------- */
+.btn-ghost,
+a.btn-ghost,
+button.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.btn-ghost:hover,
+a.btn-ghost:hover,
+button.btn-ghost:hover {
+  background: var(--gray-100);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px var(--black-alpha-04);
+  transform: translateY(-1px);
+}
+
+.btn-ghost:active,
+a.btn-ghost:active,
+button.btn-ghost:active {
+  transform: translateY(0);
+  background: var(--gray-50);
+}
+
+/* ---------------------------------------------------------------------------
+   Button Icons
+   --------------------------------------------------------------------------- */
+.btn-primary i,
+.btn-secondary i,
+.btn-danger i,
+.btn-info i,
+.btn-ghost i {
+  font-size: 0.9em;
+}
+
+/* ---------------------------------------------------------------------------
+   Responsive
+   --------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger,
+  .btn-info,
+  .btn-ghost,
+  a.btn-primary,
+  a.btn-secondary,
+  a.btn-danger,
+  a.btn-info,
+  a.btn-ghost {
+    width: 100%;
+    justify-content: center;
+  }
+}

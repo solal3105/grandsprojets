@@ -17,6 +17,15 @@
 /* 03 - Navigation - Left nav, sous-menus, listes projets */
 @import url('./styles/03-navigation.css');
 
+/* 03.5 - GP Card System - Système de cartes unifié */
+@import url('./styles/gp-card-system.css');
+
+/* 03.6 - GP Button System - Système de boutons unifié */
+@import url('./styles/gp-button-system.css');
+
+/* 03.7 - GP Markdown Content - Styles pour contenu markdown */
+@import url('./styles/gp-markdown-content.css');
+
 /* 04 - Components - Composants réutilisables (filtres, badges, covers, CTA) */
 @import url('./styles/04-components.css');
 

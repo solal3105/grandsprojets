@@ -269,27 +269,24 @@ const NavigationModule = (() => {
 
     const icons={velo:'fa-bicycle',mobilite:'fa-train-tram',urbanisme:'fa-building'};
 
-    // 1) Utiliser la route dynamique pour la fiche complète
-    let fullPageUrl = null;
-    try {
-      const params = new URLSearchParams();
-      if (category) params.set('cat', category);
-      if (projectName) params.set('project', projectName);
-      fullPageUrl = `/fiche/?${params.toString()}`;
-    } catch (_) {
-      fullPageUrl = `/fiche/?cat=${encodeURIComponent(category||'')}&project=${encodeURIComponent(projectName||'')}`;
-    }
+    // Construire l'URL de la fiche complète
+    const params = new URLSearchParams();
+    if (category) params.set('cat', category);
+    if (projectName) params.set('project', projectName);
+    const currentCity = new URLSearchParams(location.search).get('city');
+    if (currentCity) params.set('city', currentCity);
+    const fullPageUrl = `/fiche/?${params.toString()}`;
 
     panel.innerHTML = `
       <div class="detail-header-submenu">
         <div class="header-actions">
-          <button id="detail-back-btn" class="gp-btn gp-btn--secondary" aria-label="Retour">
-            <i class="fa-solid fa-arrow-left gp-btn__icon" aria-hidden="true"></i>
-            <span class="gp-btn__label">Retour</span>
+          <button id="detail-back-btn" class="btn-secondary detail-back-btn" aria-label="Retour">
+            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+            <span>Retour</span>
           </button>
-          <button id="detail-panel-toggle-btn" class="gp-btn gp-btn--secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true" aria-controls="project-detail">
-            <i class="fa-solid fa-compress gp-btn__icon" aria-hidden="true"></i>
-            <span class="gp-btn__label">Réduire</span>
+          <button id="detail-panel-toggle-btn" class="btn-secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true" aria-controls="project-detail">
+            <i class="fa-solid fa-compress" aria-hidden="true"></i>
+            <span>Réduire</span>
           </button>
         </div>
       </div>
@@ -306,7 +303,7 @@ const NavigationModule = (() => {
     try {
       const _btn = document.getElementById('detail-panel-toggle-btn');
       const _ic = _btn?.querySelector('i');
-      const _lbl = _btn?.querySelector('.gp-btn__label');
+      const _lbl = _btn?.querySelector('span');
       if (_ic) { _ic.classList.remove('fa-expand'); _ic.classList.add('fa-compress'); }
       if (_lbl) _lbl.textContent = 'Réduire';
       _btn?.classList.remove('is-collapsed');
@@ -331,7 +328,7 @@ const NavigationModule = (() => {
         overlay.innerHTML = `
           <div class="lightbox-content">
             <img src="${img.getAttribute('src')}" alt="${img.getAttribute('alt') || ''}">
-            <button class="lightbox-close" aria-label="Fermer">
+            <button class="btn-secondary lightbox-close" aria-label="Fermer">
               <i class="fa-solid fa-xmark" aria-hidden="true"></i>
             </button>
           </div>
@@ -363,7 +360,7 @@ const NavigationModule = (() => {
     if (toggleBtn) {
       toggleBtn.addEventListener('click', () => {
         const iconEl = toggleBtn.querySelector('i');
-        const labelEl = toggleBtn.querySelector('.gp-btn__label');
+        const labelEl = toggleBtn.querySelector('span');
         const isCollapsed = toggleBtn.getAttribute('aria-expanded') === 'false';
         if (isCollapsed) {
           // Expand

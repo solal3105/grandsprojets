@@ -3,7 +3,7 @@
   <div class="gp-modal gp-modal--large" role="document">
     <header class="gp-modal-header">
       <h1 class="gp-modal-title" id="category-modal-title">Nouvelle catégorie</h1>
-      <button class="gp-modal-close" id="category-modal-close" aria-label="Fermer">&times;</button>
+      <button class="btn-secondary gp-modal-close" id="category-modal-close" aria-label="Fermer">&times;</button>
     </header>
     <div class="gp-modal-body">
       <form id="category-form">
@@ -46,7 +46,7 @@
                 <div id="category-icon-preview" style="width:56px; height:56px; display:flex; align-items:center; justify-content:center; border:2px solid var(--border, var(--gray-200)); border-radius:10px; background:linear-gradient(135deg, var(--gray-50) 0%, var(--gray-300) 100%); font-size:24px; transition:all 0.3s; box-shadow:0 2px 8px var(--black-alpha-08);">
                   <i class="fa-solid fa-question" aria-hidden="true" style="color:var(--gray-500);"></i>
                 </div>
-                <button type="button" id="category-icon-picker-btn" class="gp-btn gp-btn--secondary" 
+                <button type="button" id="category-icon-picker-btn" class="btn-secondary" 
                         style="white-space:nowrap; padding:12px 20px; border-radius:8px; font-weight:600; display:flex; align-items:center; gap:8px;">
                   <i class="fa-solid fa-icons"></i> Choisir
                 </button>
@@ -140,10 +140,10 @@
       </form>
     </div>
     <footer class="gp-modal-footer">
-      <button type="button" id="category-form-cancel" class="gp-btn gp-btn--secondary">
+      <button type="button" id="category-form-cancel" class="btn-secondary">
         Annuler
       </button>
-      <button type="submit" form="category-form" class="gp-btn gp-btn--primary">
+      <button type="submit" form="category-form" class="btn-primary">
         <i class="fa-solid fa-check"></i>
         <span>Enregistrer la catégorie</span>
       </button>

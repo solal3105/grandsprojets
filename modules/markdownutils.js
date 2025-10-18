@@ -64,8 +64,7 @@
       await loadScriptOnce('https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js');
     }
 
-    // CSS GitHub Markdown pour un rendu propre de .markdown-body
-    await loadStyleOnce('https://cdn.jsdelivr.net/npm/github-markdown-css/github-markdown.min.css');
+    // Le CSS markdown est maintenant géré par gp-markdown-content.css
   }
 
   // -------- Pré-traitement markdown pour directives custom --------

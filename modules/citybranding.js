@@ -16,8 +16,11 @@
     if (!ville) return null;
     
     try {
-      const supabase = win.AuthModule?.getClient?.();
-      if (!supabase) return null;
+      const supabase = win.AuthModule?.getClient?.() || win.supabaseService?.getClient?.();
+      if (!supabase) {
+        console.warn('[CityBranding] No Supabase client available');
+        return null;
+      }
       
       const { data, error } = await supabase
         .from('city_branding')
@@ -26,13 +29,13 @@
         .single();
       
       if (error) {
-        console.warn(`No branding found for city: ${ville}`, error);
+        console.warn(`[CityBranding] No branding found for city: ${ville}`);
         return null;
       }
       
       return data;
     } catch (err) {
-      console.error('Error fetching city branding:', err);
+      console.error('[CityBranding] Error fetching city branding:', err);
       return null;
     }
   },
@@ -43,13 +46,11 @@
    */
   applyPrimaryColor(primaryColor) {
     if (!primaryColor || !primaryColor.match(/^#[0-9A-Fa-f]{6}$/)) {
-      console.warn('Invalid primary color format:', primaryColor);
+      console.warn('[CityBranding] Invalid primary color format:', primaryColor);
       return;
     }
     
-    // Appliquer la couleur à la racine du document
     document.documentElement.style.setProperty('--color-primary', primaryColor);
-    console.log(`Applied primary color: ${primaryColor}`);
   },
 
   /**
@@ -57,30 +58,24 @@
    * @param {string} ville - Nom de la ville
    */
   async loadAndApplyBranding(ville) {
-    // Si pas de ville, utiliser la couleur par défaut
     if (!ville) {
-      console.log('[CityBranding] No city specified, using default color');
       this.applyPrimaryColor('#21b929');
       return;
     }
     
     const branding = await this.getBrandingForCity(ville);
+    
     if (branding) {
-      // Appliquer la couleur primaire
       if (branding.primary_color) {
         this.applyPrimaryColor(branding.primary_color);
       } else {
-        // Fallback si pas de couleur définie pour cette ville
         this.applyPrimaryColor('#21b929');
       }
       
-      // Appliquer la configuration des toggles
       if (branding.enabled_toggles) {
         this.applyTogglesConfig(branding.enabled_toggles);
       }
     } else {
-      // Fallback si pas de branding trouvé pour cette ville
-      console.log(`[CityBranding] No branding found for ${ville}, using default color`);
       this.applyPrimaryColor('#21b929');
     }
   },

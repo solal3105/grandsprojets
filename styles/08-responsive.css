@@ -176,8 +176,6 @@
   /* Show toggle on mobile */
   .detail-header-submenu .submenu-toggle-btn {
     display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
   }
 
   /* Mobile: keep blur on #left-nav, hide its embedded logo, show standalone logo */

@@ -96,16 +96,6 @@
 
 /* Ensure children are above the background layers */
 .project-v2-article > * { position: relative; z-index: 1; }
-.project-v2-article .project-cover-wrap { 
-  margin-bottom: 12px; 
-  margin-top: 40px;
-  max-width: 100%;
-}
-
-.project-v2-article .project-cover {
-  width: 100%;
-  border-radius: var(--card-radius);
-}
 
 /* Neutralize legacy styles on #project-text when inside the new layout */
 .project-v2-article #project-text {
@@ -150,12 +140,7 @@
   box-shadow: 0 6px 18px var(--black-alpha-12);
 }
 
-/* Readability defaults inside the new article */
-.project-v2-article h1, .project-v2-article h2, .project-v2-article h3 { margin: 1.2em 0 .5em; line-height: 1.25; }
-.project-v2-article p { margin: 0 0 1em; line-height: 1.6; }
-.project-v2-article img { max-width: 100%; height: auto; }
-.project-v2-article figure { margin: 1em 0; }
-.project-v2-article blockquote { margin: 1em 0; padding: 12px 14px; border-left: 3px solid color-mix(in srgb, var(--primary) 15%, transparent); background: color-mix(in srgb, var(--primary) 6%, white); border-radius: 8px; }
+/* Les styles markdown sont gérés par gp-markdown-content.css */
 
 /* Project topbar logo */
 .project-v2 .project-v2-logo {
@@ -260,284 +245,38 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Documents de concertation — Cards grid + Lightbox
+   Project cards - Toutes les cards utilisent le système gp-card unifié
    Scope: within .project-v2-article
 --------------------------------------------------------------------------- */
-.project-v2-article .map-open-section { margin: 0; }
-
-.project-v2-article .map-open-card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.project-v2-article .map-card-description {
-  margin: 0;
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-.project-v2-article .btn-open-map {
-  width: 100%;
-  justify-content: center;
-}
 
 /* Hide map-open card on desktop */
 @media (min-width: 1025px) {
   .project-v2-article .map-open-section { display: none; }
 }
 
-.project-v2-article .project-documents { 
-  margin: 0; 
-}
-
-.project-v2-article .project-documents-card {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.project-v2-article .doc-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 0;
-}
-
-/* When many documents, cap to 400px and allow inner scroll */
-.project-v2-article .doc-cards.is-scrollable {
+/* Override specifique pour scrollable grids */
+.project-v2-article .gp-card-grid.is-scrollable {
   max-height: 400px;
   overflow: auto;
-  padding-right: 4px; /* keep content visible with scrollbar */
+  padding-right: 4px;
   overscroll-behavior: contain;
 }
 
-.project-v2-article .doc-card {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  border-radius: 10px;
-  background: var(--surface-elevated);
-  border: 1px solid var(--border-light);
-  cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
-}
-
-.project-v2-article .doc-card:hover {
-  background: var(--gray-100);
-  border-color: var(--border-medium);
-}
-
-.project-v2-article .doc-card:focus-visible { 
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
-.project-v2-article .doc-card-icon {
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  border-radius: 8px;
-  background: var(--gray-100);
-  color: var(--primary);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.project-v2-article .doc-card-icon i { font-size: 18px; }
-
-.project-v2-article .doc-card-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.project-v2-article .doc-card-title {
-  margin: 0;
-  font-size: 0.95rem;
-  line-height: 1.4;
-  color: var(--text-primary);
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.project-v2-article .doc-card-actions { 
-  display: flex;
-  flex-shrink: 0;
-  gap: 8px;
-  margin-left: auto;
-}
-
-.project-v2-article .doc-card-actions .btn-secondary {
-  padding: 8px 14px;
-  font-size: 0.85rem;
-  white-space: nowrap;
-}
-
-/* Responsive pour les petits écrans */
+/* Responsive pour les grid items */
 @media (max-width: 640px) {
-  .project-v2-article .doc-card {
+  .project-v2-article .gp-card-grid-item {
     flex-wrap: wrap;
   }
   
-  .project-v2-article .doc-card-content {
+  .project-v2-article .gp-card-grid-item-actions {
     flex-basis: 100%;
-    order: 1;
-  }
-  
-  .project-v2-article .doc-card-icon {
-    order: 0;
-  }
-  
-  .project-v2-article .doc-card-actions {
-    flex-basis: 100%;
-    order: 2;
-    margin-left: 0;
-    margin-top: 8px;
-  }
-  
-  .project-v2-article .doc-card-actions .btn-secondary {
-    flex: 1;
-    justify-content: center;
+    margin: 8px 0 0 0;
   }
 }
 
-/* ---------------------------------------------------------------------------
-   Système unifié de cards
---------------------------------------------------------------------------- */
-/* Card de base - utilisée par toutes les cards */
-.project-v2-article .gp-card {
+/* Force full width pour le bouton d'ouverture de la carte */
+.project-v2-article .btn-open-map {
   width: 100%;
-  max-width: 100%;
-  padding: 20px;
-  border-radius: var(--card-radius);
-  background: var(--surface-base);
-  border: 1px solid var(--border-medium);
-  box-shadow: 0 4px 12px var(--black-alpha-06);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-  margin: var(--card-margin) 0;
-  box-sizing: border-box;
-}
-
-.project-v2-article .gp-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px var(--black-alpha-10);
-  border-color: var(--border-dark);
-}
-
-/* Header unifié pour toutes les cards */
-.project-v2-article .gp-card-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-  border: none;
-}
-
-.project-v2-article .gp-card-header i {
-  font-size: 1.1rem;
-  color: var(--primary);
-}
-
-.project-v2-article .gp-card-header h3,
-.project-v2-article .gp-card-header h2 {
-  margin: 0;
-  padding: 0;
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border: none;
-  text-decoration: none;
-}
-
-/* Boutons unifiés dans les cards */
-.project-v2-article .gp-card .btn-primary,
-.project-v2-article .gp-card .btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 18px;
-  border-radius: 10px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  text-decoration: none;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.project-v2-article .gp-card .btn-primary {
-  background: var(--primary);
-  color: var(--gray-900);
-  box-shadow: 0 2px 8px var(--primary-alpha-25);
-}
-
-.project-v2-article .gp-card .btn-primary:hover {
-  background: var(--primary-hover);
-  box-shadow: 0 4px 12px var(--primary-alpha-35);
-  transform: translateY(-1px);
-}
-
-.project-v2-article .gp-card .btn-secondary {
-  background: var(--surface-elevated);
-  color: var(--text-primary);
-  border: 1px solid var(--border-medium);
-}
-
-.project-v2-article .gp-card .btn-secondary:hover {
-  background: var(--gray-200);
-  border-color: var(--border-dark);
-}
-
-/* ---------------------------------------------------------------------------
-   Lien officiel — carte unifiée
-   Affichée si contribution_uploads.official_url est présent
---------------------------------------------------------------------------- */
-.project-v2-article .official-link-section { margin: 0; }
-
-.project-v2-article .official-link-card {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-
-/* Domaine avec favicon */
-.project-v2-article .official-link-domain {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px;
-  background: var(--surface-elevated);
-  border-radius: 10px;
-  border: 1px solid var(--border-light);
-}
-
-.project-v2-article .site-favicon {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-}
-
-.project-v2-article .domain-name {
-  font-size: 1rem;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-/* Boutons d'action */
-.project-v2-article .official-link-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.project-v2-article .official-link-actions .btn-primary,
-.project-v2-article .official-link-actions .btn-secondary {
-  flex: 1;
   justify-content: center;
 }
 
@@ -589,10 +328,6 @@
 }
 
 @media (max-width: 560px) {
-  .project-v2-article .official-link-actions {
-    flex-direction: column;
-  }
-  
   .qr-code-image {
     width: 250px;
     height: 250px;
@@ -628,41 +363,11 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Project description card
---------------------------------------------------------------------------- */
-.project-v2-article .project-description { 
-  margin: 0; 
-  line-height: 1.7; 
-}
-
-/* Supprimer tous les underlines sur les titres dans les cards */
-.project-v2-article .gp-card h1,
-.project-v2-article .gp-card h2,
-.project-v2-article .gp-card h3,
-.project-v2-article .gp-card h4,
-.project-v2-article .gp-card h5,
-.project-v2-article .gp-card h6 {
-  border-bottom: none !important;
-  text-decoration: none !important;
-}
-
-/* ---------------------------------------------------------------------------
-   Mobile: Glue cover + map card and apply white theme
-   Scope: project detail page only
+   Mobile: Spacing adjustments
  --------------------------------------------------------------------------- */
 @media (max-width: 1024px) {
-  /* Remove spacing between cover and card when present */
-  .project-v2-article.has-map-card .project-cover-wrap { margin-bottom: 0; }
-
-
-  /* Remove top margin on the card section to stick to the cover */
-  .project-v2-article.has-map-card .map-open-section { margin-top: 0; }
-
-  /* White card with black text, glued top corners */
-  .project-v2-article.has-map-card .map-open-card {
-    background: var(--surface-base);
-    color: var(--text-primary);
-    border: 1px solid var(--border-medium);
+  .project-v2-article.has-map-card .map-open-section { 
+    margin-top: 0; 
   }
 }
 

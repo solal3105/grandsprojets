@@ -130,12 +130,12 @@
       
       const cancelBtn = document.createElement('button');
       cancelBtn.type = 'button';
-      cancelBtn.className = 'gp-btn gp-btn--secondary';
+      cancelBtn.className = 'btn-secondary';
       cancelBtn.textContent = 'Annuler';
       
       const confirmBtn = document.createElement('button');
       confirmBtn.type = 'button';
-      confirmBtn.className = 'gp-btn gp-btn--danger';
+      confirmBtn.className = 'btn-danger';
       confirmBtn.textContent = 'Supprimer';
 
       footer.appendChild(cancelBtn);

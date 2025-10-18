@@ -305,7 +305,7 @@
         const button = document.createElement('button');
         button.type = 'button';
         button.id = action.id;
-        button.className = `gp-btn gp-btn--${action.variant || 'primary'} gp-modal-header-action`;
+        button.className = `btn-${action.variant || 'primary'} gp-modal-header-action`;
         
         if (action.icon) {
           const icon = document.createElement('i');

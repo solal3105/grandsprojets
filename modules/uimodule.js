@@ -242,7 +242,7 @@
     
     // Ajouter le bouton fermer
     const closeBtn = document.createElement('button');
-    closeBtn.className = 'basemap-close-btn';
+    closeBtn.className = 'btn-secondary basemap-close-btn';
     closeBtn.setAttribute('aria-label', 'Fermer le menu des fonds de carte');
     closeBtn.innerHTML = '<i class="fas fa-times"></i>';
     closeBtn.addEventListener('click', (e) => {

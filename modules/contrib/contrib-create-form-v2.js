@@ -457,8 +457,8 @@
               ${doc.pdf_url ? `<a href="${doc.pdf_url}" target="_blank" rel="noopener" style="font-size:0.85rem;color:var(--primary);text-decoration:none;display:inline-flex;align-items:center;gap:4px;"><i class="fa-solid fa-external-link" style="font-size:0.75rem;"></i><span>Voir le PDF</span></a>` : ''}
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0;">
-              <button type="button" class="doc-save-btn gp-btn gp-btn--primary gp-btn--sm" style="display:none;" title="Enregistrer"><i class="fa-solid fa-check"></i></button>
-              <button type="button" class="doc-delete-btn gp-btn gp-btn--danger gp-btn--sm" title="Supprimer"><i class="fa-solid fa-trash"></i></button>
+              <button type="button" class="doc-save-btn btn-primary btn-small" style="display:none;" title="Enregistrer"><i class="fa-solid fa-check"></i></button>
+              <button type="button" class="doc-delete-btn btn-danger btn-small" title="Supprimer"><i class="fa-solid fa-trash"></i></button>
             </div>
           </div>
         `).join('');

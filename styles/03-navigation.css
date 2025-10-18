@@ -411,18 +411,9 @@
   font-weight: 600;
 }
 
+/* .detail-header .close-btn utilise .btn-secondary */
 .detail-header .close-btn {
   margin-left: auto;
-  background: none;
-  border: none;
-  padding: 5px;
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--gray-600);
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .detail-header-top {
@@ -433,31 +424,7 @@
   margin: 0;
 }
 
-#detail-back-btn {
-  background: none;
-  border: none;
-  color: var(--primary);
-  font-size: 0.95rem;
-  font-weight: 500;
-  cursor: pointer;
-  padding: 6px 12px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.2s ease;
-}
-
-#detail-back-btn:hover {
-  background-color: var(--primary-lighter);
-  transform: translateX(-2px);
-}
-
-#detail-back-btn::before {
-  content: '←';
-  font-size: 1.1em;
-  line-height: 1;
-}
+/* #detail-back-btn utilise .btn-secondary du système gp-button-system.css */
 
 .project-title-container {
   display: flex;
@@ -517,35 +484,10 @@
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--gray-700)333;
+  color: var(--gray-700);
 }
 
-.detail-header-submenu .close-btn {
-  background: transparent;
-  border: 1px solid var(--border-medium);
-  padding: 8px 12px;
-  cursor: pointer;
-  border-radius: 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 500;
-  font-size: 0.95rem;
-  color: var(--danger);
-  line-height: 1;
-  transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-.detail-header-submenu .close-btn:hover {
-  background-color: transparent;
-}
-
-.detail-header-submenu .close-btn i,
-.detail-header-submenu .close-btn svg {
-  width: 1.1rem;
-  height: 1.1rem;
-  color: currentColor;
-}
+/* .detail-header-submenu .close-btn utilise .btn-secondary */
 
 /* Project detail header actions */
 .detail-header-submenu .header-actions {
@@ -560,47 +502,9 @@
 /* Always show the reduce toggle for project detail header */
 #project-detail .detail-header-submenu .submenu-toggle-btn {
   display: inline-flex !important;
-  align-items: center;
-  justify-content: center;
 }
 
-/* Resolve conflicts: ensure back button uses gp-btn visuals */
-#project-detail .detail-header-submenu #detail-back-btn {
-  background: var(--gray-50);
-  border: 1px solid var(--border-medium);
-  color: var(--gray-700);
-  padding: 8px 12px;
-  border-radius: 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-#project-detail .detail-header-submenu #detail-back-btn::before {
-  content: none;
-}
-
-#project-detail .detail-header-submenu #detail-back-btn:hover {
-  background: var(--black-alpha-04);
-  transform: none;
-}
-
-/* Resolve conflicts: ensure reduce toggle matches submenu-toggle-btn */
-#project-detail .detail-header-submenu #detail-panel-toggle-btn {
-  background: var(--white-alpha-72);
-  border: 1px solid var(--gray-200);
-  color: var(--gray-700);
-  padding: 8px 12px;
-  border-radius: 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-#project-detail .detail-header-submenu #detail-panel-toggle-btn:hover {
-  border-color: var(--gray-300);
-  background: var(--white-alpha-90);
-}
+/* Les boutons utilisent le système unifié */
 
 /* Normalize header buttons inside project detail header */
 #project-detail .detail-header-submenu button {
@@ -609,108 +513,18 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Boutons génériques (utilisés dans les en-têtes des sous-menus)
+   Boutons - Utilise le système gp-button-system.css (.btn-primary, .btn-secondary, etc.)
 --------------------------------------------------------------------------- */
-.gp-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border-medium);
-  background: var(--gray-50);
-  color: var(--gray-700);
-  font-weight: 600;
-  font-size: 0.95rem;
-  line-height: 1;
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-  user-select: none;
-}
-
-.gp-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px var(--black-alpha-12);
-}
-
-.gp-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 6px var(--black-alpha-12);
-  filter: brightness(0.98);
-}
-
-.gp-btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--primary-alpha-35);
-}
-
-.gp-btn__icon {
-  font-size: 0.95rem;
-  opacity: 0.85;
-}
-
-.gp-btn__label {
-  white-space: nowrap;
-}
-
-/* Variantes */
-.gp-btn--secondary {
-  background: transparent;
-  border-color: var(--gray-200);
-  color: var(--gray-700);
-}
-
-.gp-btn--secondary:hover {
-  background: var(--black-alpha-04);
-  border-color: var(--gray-300);
-}
-
-.gp-btn--danger {
-  background: transparent;
-  border-color: var(--gray-200);
-  color: var(--gray-600);
-  box-shadow: none;
-}
-
-.gp-btn--danger:hover {
-  background: var(--black-alpha-04);
-  border-color: var(--gray-300);
-  color: var(--gray-800);
-  box-shadow: none;
-}
-
-.gp-btn--block {
-  display: inline-flex;
-  width: 100%;
-  justify-content: center;
-}
-
-/* Spécificité plus forte pour le bouton Fermer dans l'en-tête */
-.detail-header-submenu .gp-btn.close-btn {
-  padding: 8px 12px;
-  border-radius: 10px;
-  border-width: 1px;
-  background: transparent;
-}
+/* Les boutons utilisent maintenant le système unifié gp-button-system.css */
 
 /* État réduit (pour le bouton toggle) */
 .submenu-toggle-btn.is-collapsed {
   opacity: 0.95;
 }
 
-.submenu-toggle-btn.is-collapsed .gp-btn__icon {
-  transform: scale(0.95);
-  transition: transform 0.15s ease;
-}
-
-/* Submenu toggle button base styles */
+/* .submenu-toggle-btn utilise .btn-secondary */
 .submenu-toggle-btn {
   display: none;
-  background: none;
-  border: none;
-  color: var(--gray-500);
-  cursor: pointer;
-  padding: 4px;
 }
 
 /* Ensure project detail toggle remains visible on desktop as well */

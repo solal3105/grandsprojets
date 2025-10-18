@@ -88,10 +88,10 @@
       </div>
       <div class="user-card__actions">
         ${isAdmin 
-          ? `<button type="button" class="gp-btn gp-btn--secondary user-action-btn" data-action="demote">
+          ? `<button type="button" class="btn-secondary user-action-btn" data-action="demote">
                <i class="fa-solid fa-arrow-down"></i> Rétrograder en invited
              </button>`
-          : `<button type="button" class="gp-btn gp-btn--secondary user-action-btn" data-action="promote">
+          : `<button type="button" class="btn-secondary user-action-btn" data-action="promote">
                <i class="fa-solid fa-arrow-up"></i> Promouvoir en admin
              </button>`
         }
@@ -178,12 +178,12 @@
     
     const cancelBtn = document.createElement('button');
     cancelBtn.type = 'button';
-    cancelBtn.className = 'gp-btn gp-btn--secondary';
+    cancelBtn.className = 'btn-secondary';
     cancelBtn.textContent = 'Annuler';
     
     const confirmBtn = document.createElement('button');
     confirmBtn.type = 'button';
-    confirmBtn.className = 'gp-btn gp-btn--primary';
+    confirmBtn.className = 'btn-primary';
     confirmBtn.textContent = actionLabel;
     
     footer.appendChild(cancelBtn);

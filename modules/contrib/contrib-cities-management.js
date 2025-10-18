@@ -186,13 +186,13 @@
           </div>
         </div>
         <div class="city-card__actions">
-          <button class="city-card__view gp-btn gp-btn--secondary" data-ville="${ville}" title="Voir la ville">
+          <button class="city-card__view btn-secondary" data-ville="${ville}" title="Voir la ville">
             <i class="fa-solid fa-eye"></i>
           </button>
-          <button class="city-card__edit gp-btn gp-btn--secondary" data-ville="${ville}" title="Modifier" ${!canManage ? 'disabled' : ''}>
+          <button class="city-card__edit btn-secondary" data-ville="${ville}" title="Modifier" ${!canManage ? 'disabled' : ''}>
             <i class="fa-solid fa-pen"></i>
           </button>
-          <button class="city-card__delete gp-btn gp-btn--danger" data-ville="${ville}" title="Supprimer" ${!canManage ? 'disabled' : ''}>
+          <button class="city-card__delete btn-danger" data-ville="${ville}" title="Supprimer" ${!canManage ? 'disabled' : ''}>
             <i class="fa-solid fa-trash"></i>
           </button>
         </div>
@@ -245,7 +245,7 @@
           ${escapeHtml(title)}
           ${isEdit ? `<span style="margin-left:8px;padding:4px 8px;background:var(--info-lighter);color:var(--info);border-radius:6px;font-size:12px;font-weight:600;">ÉDITION</span>` : ''}
         </h2>
-        <button type="button" class="gp-modal-close" aria-label="Fermer">&times;</button>
+        <button type="button" class="btn-secondary gp-modal-close" aria-label="Fermer">&times;</button>
       </div>
       
       <div class="gp-modal-body" style="max-height:70vh;overflow-y:auto;">
@@ -328,11 +328,11 @@
 
           <!-- Actions carte -->
           <div style="display:flex;gap:8px;">
-            <button type="button" id="city-geolocate" class="gp-btn gp-btn--secondary" style="flex:1;">
+            <button type="button" id="city-geolocate" class="btn-secondary" style="flex:1;">
               <i class="fa-solid fa-location-crosshairs"></i>
               Centrer sur ma position
             </button>
-            <button type="button" id="city-reset-map" class="gp-btn gp-btn--secondary" style="flex:1;">
+            <button type="button" id="city-reset-map" class="btn-secondary" style="flex:1;">
               <i class="fa-solid fa-rotate-left"></i>
               Réinitialiser
             </button>
@@ -406,10 +406,10 @@
       </div>
       
       <div class="gp-modal-footer">
-        <button type="button" class="cancel-btn gp-btn gp-btn--secondary">
+        <button type="button" class="cancel-btn btn-secondary">
           Annuler
         </button>
-        <button type="submit" form="city-form" class="submit-btn gp-btn gp-btn--primary">
+        <button type="submit" form="city-form" class="submit-btn btn-primary">
           <i class="fa-solid fa-check" style="margin-right:6px;"></i>
           ${isEdit ? 'Enregistrer' : 'Créer la ville'}
         </button>

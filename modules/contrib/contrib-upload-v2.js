@@ -286,7 +286,7 @@
       </div>
       <div class="doc-card__footer">
         <span class="doc-status" aria-live="polite"></span>
-        <button type="button" class="doc-remove gp-btn gp-btn-ghost" aria-label="Supprimer cette pièce">Supprimer</button>
+        <button type="button" class="doc-remove btn-ghost" aria-label="Supprimer cette pièce">Supprimer</button>
       </div>
     `;
 

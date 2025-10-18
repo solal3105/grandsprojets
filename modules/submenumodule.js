@@ -96,15 +96,15 @@ const SubmenuModule = (() => {
     container.innerHTML = `
       <div class="detail-header-submenu">
         <div class="header-left">
-          <button class="close-btn" aria-label="Fermer">
-            <i class="fa-solid fa-xmark gp-btn__icon" aria-hidden="true"></i>
-            <span class="gp-btn__label">Fermer</span>
+          <button class="btn-secondary close-btn" aria-label="Fermer">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            <span>Fermer</span>
           </button>
         </div>
         <div class="header-right">
-          <button class="gp-btn gp-btn--secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true">
-            <i class="fa-solid fa-compress gp-btn__icon" aria-hidden="true"></i>
-            <span class="gp-btn__label">Réduire</span>
+          <button class="btn-secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true">
+            <i class="fa-solid fa-compress" aria-hidden="true"></i>
+            <span>Réduire</span>
           </button>
         </div>
       </div>
@@ -189,7 +189,7 @@ const SubmenuModule = (() => {
         e.stopPropagation();
         const isCollapsed = toggleBtn.getAttribute('aria-expanded') === 'false';
         const iconEl = toggleBtn.querySelector('i');
-        const labelEl = toggleBtn.querySelector('.gp-btn__label');
+        const labelEl = toggleBtn.querySelector('span');
         
         if (isCollapsed) {
           // Expand
@@ -228,9 +228,9 @@ const SubmenuModule = (() => {
         const toggleBtn = panel.querySelector('.submenu-toggle-btn');
         if (toggleBtn) {
           const iconEl = toggleBtn.querySelector('i');
-          const labelEl = toggleBtn.querySelector('.gp-btn__label');
+          const labelEl = toggleBtn.querySelector('span');
           if (iconEl) {
-            iconEl.className = 'fa-solid fa-compress gp-btn__icon';
+            iconEl.className = 'fa-solid fa-compress';
           }
           if (labelEl) {
             labelEl.textContent = 'Réduire';

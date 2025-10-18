@@ -202,37 +202,7 @@
   font-size: 0.875rem;
 }
 
-/* Bouton fermer - Style unifié */
-.gp-modal-close {
-  appearance: none;
-  background: transparent;
-  border: none;
-  padding: 6px 10px;
-  font-size: 24px;
-  line-height: 1;
-  border-radius: 10px;
-  color: var(--gray-500);
-  cursor: pointer;
-  /* Transitions cohérentes */
-  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.gp-modal-close:hover {
-  background: var(--white-alpha-70);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: var(--gray-900);
-  transform: rotate(90deg) scale(1.1);
-}
-
-.gp-modal-close:active {
-  transform: rotate(90deg) scale(0.95);
-}
-
-.gp-modal-close:focus-visible {
-  outline: 2px solid var(--info);
-  outline-offset: 2px;
-}
+/* .gp-modal-close utilise .btn-secondary */
 
 /* ---------------------------------------------------------------------------
    BASE - Body
@@ -589,146 +559,10 @@ body.modal-open {
 }
 
 /* ---------------------------------------------------------------------------
-   BUTTONS - Styles unifiés pour tous les boutons dans les modales
+   Boutons - Redirige vers le système gp-button-system.css
+   Utiliser: .btn-primary, .btn-secondary, .btn-danger, .btn-info
 --------------------------------------------------------------------------- */
-
-/* Button Base */
-.gp-btn {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 20px;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  line-height: 1;
-  border-radius: 12px;
-  border: 2px solid transparent;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  text-decoration: none;
-  white-space: nowrap;
-  user-select: none;
-}
-
-/* Primary Button */
-.gp-btn--primary {
-  background: var(--info);
-  color: var(--white);
-  border-color: var(--info);
-  box-shadow: 
-    0 2px 8px var(--info-alpha-25),
-    0 1px 2px var(--black-alpha-08);
-}
-
-.gp-btn--primary:hover {
-  background: var(--info-hover);
-  border-color: var(--info-hover);
-  transform: translateY(-2px);
-  box-shadow: 
-    0 8px 20px var(--info-alpha-3),
-    0 4px 8px var(--black-alpha-10);
-}
-
-.gp-btn--primary:active {
-  transform: translateY(0);
-}
-
-/* Secondary Button */
-.gp-btn--secondary {
-  background: var(--surface-base);
-  color: var(--text-primary);
-  border-color: var(--border-light);
-  box-shadow: 
-    0 2px 4px var(--black-alpha-04);
-}
-
-.gp-btn--secondary:hover {
-  background: var(--gray-50);
-  border-color: var(--gray-300);
-  transform: translateY(-2px);
-  box-shadow: 
-    0 4px 12px var(--black-alpha-08);
-}
-
-.gp-btn--secondary:active {
-  transform: translateY(0);
-}
-
-/* Danger Button */
-.gp-btn--danger {
-  background: var(--danger);
-  color: var(--white);
-  border-color: var(--danger);
-  box-shadow: 
-    0 2px 8px var(--danger-alpha-25),
-    0 1px 2px var(--black-alpha-08);
-}
-
-.gp-btn--danger:hover {
-  background: var(--danger-hover);
-  border-color: var(--danger-hover);
-  transform: translateY(-2px);
-  box-shadow: 
-    0 8px 20px var(--danger-alpha-35),
-    0 4px 8px var(--black-alpha-10);
-}
-
-.gp-btn--danger:active {
-  transform: translateY(0);
-}
-
-/* Ghost Button */
-.gp-btn--ghost {
-  background: transparent;
-  color: var(--text-secondary);
-  border-color: transparent;
-}
-
-.gp-btn--ghost:hover {
-  background: var(--gray-50);
-  color: var(--text-primary);
-}
-
-/* Button Sizes */
-.gp-btn--sm {
-  padding: 8px 16px;
-  font-size: 0.875rem;
-}
-
-.gp-btn--lg {
-  padding: 16px 28px;
-  font-size: 1rem;
-}
-
-/* Button States */
-.gp-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none !important;
-}
-
-.gp-btn.is-loading {
-  position: relative;
-  color: transparent;
-  pointer-events: none;
-}
-
-.gp-btn.is-loading::after {
-  content: '';
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  border: 2px solid currentColor;
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: btn-spin 0.6s linear infinite;
-}
-
-@keyframes btn-spin {
-  to { transform: rotate(360deg); }
-}
+/* Les classes .gp-btn sont dépréciées - utiliser .btn-* à la place */
 
 /* ---------------------------------------------------------------------------
    CONTENT SECTIONS - Éléments de contenu typiques
@@ -1007,12 +841,12 @@ body.modal-open {
    - .gp-modal--xlarge       1200px
    - .gp-modal--fullscreen   100vw/100vh
 
-   Boutons:
-   - .gp-btn--primary        Bouton principal
-   - .gp-btn--secondary      Bouton secondaire
-   - .gp-btn--danger         Action destructive
-   - .gp-btn--ghost          Sans bordure
-   - .gp-btn--sm / --lg      Tailles
+   Boutons (système unifié gp-button-system.css):
+   - .btn-primary            Bouton principal
+   - .btn-secondary          Bouton secondaire
+   - .btn-danger             Action destructive
+   - .btn-info               Information
+   - .btn-small / .btn-large Tailles
 
    Alerts:
    - .gp-alert--info

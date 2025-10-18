@@ -323,7 +323,7 @@
           '<div class="gp-modal" role="document">',
           '  <div class="gp-modal-header">',
           '    <div class="gp-modal-title" id="city-title">Changer de ville<\/div>',
-          '    <button class="gp-modal-close" id="city-close" aria-label="Fermer">&times;<\/button>',
+          '    <button class="btn-secondary gp-modal-close" id="city-close" aria-label="Fermer">&times;<\/button>',
           '  <\/div>',
           '  <div class="gp-modal-body">',
           '    <div id="city-menu" role="menu" aria-label="Villes disponibles"><\/div>',

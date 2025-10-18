@@ -39,7 +39,7 @@
             <i class="fa-solid fa-triangle-exclamation" style="font-size:48px; color:var(--warning); margin-bottom:16px;"></i>
             <h3 style="margin:0 0 8px 0; color:var(--gray-900);">Erreur de chargement</h3>
             <p style="margin:0 0 16px 0; color:var(--gray-500);">Impossible de charger le formulaire de contribution.</p>
-            <button onclick="location.reload()" class="gp-btn gp-btn--primary">
+            <button onclick="location.reload()" class="btn-primary">
               <i class="fa-solid fa-rotate-right"></i> Recharger la page
             </button>
           </div>
@@ -1697,10 +1697,10 @@
               <div class="inline-edit-url__row">
                 <input type="url" class="edit-url-input" placeholder="https://…" value="${currentUrl.replace(/"/g, '&quot;')}">
               </div>
-              <button type="button" class="gp-btn gp-btn--secondary pick-pdf inline-edit-url__full">Choisir PDF…</button>
+              <button type="button" class="btn-secondary pick-pdf inline-edit-url__full">Choisir PDF…</button>
               <div class="inline-edit-url__actions">
-                <button type="button" class="gp-btn gp-btn-ghost cancel-edit">Annuler</button>
-                <button type="button" class="gp-btn gp-btn--primary save-url">Enregistrer</button>
+                <button type="button" class="btn-ghost cancel-edit">Annuler</button>
+                <button type="button" class="btn-primary save-url">Enregistrer</button>
               </div>
               <input type="file" class="hidden-pdf" accept="application/pdf" style="display:none" />
               <div class="inline-edit-url__status" aria-live="polite"></div>
@@ -1780,8 +1780,8 @@
             confirmBar.innerHTML = `
               <span class="inline-confirm__text">Supprimer ce document ?</span>
               <div class="inline-confirm__actions">
-                <button type="button" class="gp-btn gp-btn--danger confirm-delete">Supprimer</button>
-                <button type="button" class="gp-btn gp-btn--secondary cancel-delete">Annuler</button>
+                <button type="button" class="btn-danger confirm-delete">Supprimer</button>
+                <button type="button" class="btn-secondary cancel-delete">Annuler</button>
               </div>
             `;
             card.appendChild(confirmBar);

@@ -756,7 +756,7 @@
         if (!category || !projectName) return null;
         let q = supabaseClient
           .from('contribution_uploads')
-          .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, official_url')
+          .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, official_url, ville')
           .eq('category', category)
           .eq('project_name', projectName)
           .limit(1);
