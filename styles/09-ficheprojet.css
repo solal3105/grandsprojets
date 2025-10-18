@@ -1,287 +1,425 @@
 /* ===========================================================================
-   FICHE PROJET - Page de détail des projets
+   FICHE PROJET - Design moderne avec sidebar fixe
+   Architecture: Option 17 - Fixed Sidebar
    =========================================================================== */
 
 /* ---------------------------------------------------------------------------
-   Project V2 — Clean, mobile-first layout
-   Sections: Variables • Header/Back • Main Grid • Map • Article • Toggle • Responsive • Legacy overrides
-   Namespace: .project-v2 (no leaks)
---------------------------------------------------------------------------- */
-.project-v2 {
-  --gap: 20px;
-  --hdrBarH: 56px;    /* mobile topbar height */
-  --mapH: 15vh;       /* mobile map height (minified) */
-  --mapRadius: 14px;  /* map corners - unifié avec les cards */
-  --card-radius: 14px; /* border-radius unifié pour toutes les cards */
-  --card-margin: 20px; /* margin unifié pour toutes les sections */
+   VARIABLES
+   --------------------------------------------------------------------------- */
+:root {
+  --fp-sidebar-width-desktop: 500px;
+  --fp-sidebar-width-tablet: 420px;
+  --fp-map-height-desktop: 45vh;
+  --fp-map-height-tablet: 40vh;
+  --fp-map-height-mobile: 30vh;
+  --fp-header-height: 56px;
+  --fp-gap: 20px;
 }
-/* Optional legacy header (not used in fixed topbar mode) */
-/* Back button - Utilise le système de boutons unifié */
-.project-v2-back {
-  display: inline-flex;
+
+/* ---------------------------------------------------------------------------
+   CONTENEUR PRINCIPAL
+   --------------------------------------------------------------------------- */
+.fiche-projet {
+  width: 100%;
+  min-height: 100vh;
+  background: var(--surface-base);
+}
+
+/* ---------------------------------------------------------------------------
+   HEADER (Titre + Bouton retour)
+   --------------------------------------------------------------------------- */
+.fiche-projet-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: var(--fp-header-height);
+  padding: 0 var(--fp-gap);
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 18px;
-  border-radius: 12px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  border: none;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  white-space: nowrap;
-  user-select: none;
-  background: var(--white-alpha-80);
-  color: var(--text-primary);
-  box-shadow: 0 2px 4px var(--black-alpha-08);
-  backdrop-filter: blur(8px);
-}
-
-.project-v2-back:hover {
+  gap: 16px;
   background: var(--white-alpha-90);
-  box-shadow: 0 4px 12px var(--black-alpha-12);
-  transform: translateY(-1px);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-light);
 }
 
-.project-v2-back:active {
-  transform: translateY(0);
-  background: var(--white-alpha-85);
-  box-shadow: 0 2px 4px var(--black-alpha-08);
+.fiche-projet-title {
+  flex: 1;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.project-v2-back i {
-  font-size: 0.9em;
+/* ---------------------------------------------------------------------------
+   LAYOUT PRINCIPAL (Grid Desktop/Tablet, Flex Mobile)
+   --------------------------------------------------------------------------- */
+
+/* Mobile (<768px) - Stack vertical */
+@media (max-width: 767px) {
+  .fiche-projet-main {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .fiche-projet-map {
+    order: 1;
+  }
+
+  .fiche-projet-sidebar {
+    order: 2;
+    width: 100%;
+    padding: var(--fp-gap);
+    background: color-mix(in srgb, var(--primary) 5%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  }
+  
+  .fiche-projet-article {
+    order: 3;
+  }
 }
 
-.project-v2-main {
-  /* Mobile-first: single column, full viewport height, only article scrolls */
-  display: grid;
-  grid-template-columns: 1fr;
-  align-items: start;
-  height: 100vh;
-  overflow: hidden; /* page does not scroll */
+/* Tablet (768px - 1199px) - Grid avec sidebar 360px */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .fiche-projet-main {
+    display: grid;
+    grid-template-columns: 1fr var(--fp-sidebar-width-tablet);
+    grid-template-rows: auto 1fr;
+    gap: 0;
+    height: calc(100vh - var(--fp-header-height));
+  }
+  
+  .fiche-projet-map {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .fiche-projet-article {
+    grid-column: 1;
+    grid-row: 2;
+    overflow-y: auto;
+    padding: 0;
+  }
+
+  .fiche-projet-sidebar {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    overflow-y: auto;
+    padding: var(--fp-gap);
+    border-left: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    background: color-mix(in srgb, var(--primary) 5%, transparent);
+    /* Scroll smooth */
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
-.project-v2-map-wrap {
+/* Desktop (>1200px) - Grid avec sidebar 420px */
+@media (min-width: 1200px) {
+  .fiche-projet-main {
+    display: grid;
+    grid-template-columns: 1fr var(--fp-sidebar-width-desktop);
+    grid-template-rows: auto 1fr;
+    gap: 0;
+    height: calc(100vh - var(--fp-header-height));
+  }
+  
+  .fiche-projet-map {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .fiche-projet-article {
+    grid-column: 1;
+    grid-row: 2;
+    overflow-y: auto;
+    padding: 0;
+  }
+
+  .fiche-projet-sidebar {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    overflow-y: auto;
+    padding: var(--fp-gap);
+    border-left: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    background: color-mix(in srgb, var(--primary) 2%, transparent);
+    /* Scroll smooth */
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   CARTE LEAFLET
+   --------------------------------------------------------------------------- */
+
+/* Hauteurs responsive */
+@media (max-width: 767px) {
+  .fiche-projet-map {
+    height: var(--fp-map-height-mobile);
+    border-radius: 0;
+    box-shadow: none;
+    border-bottom: 1px solid var(--border-light);
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  .fiche-projet-map {
+    height: var(--fp-map-height-tablet);
+    margin: var(--fp-gap);
+    margin-bottom: 0;
+  }
+}
+
+@media (min-width: 1200px) {
+  .fiche-projet-map {
+    height: var(--fp-map-height-desktop);
+    margin: var(--fp-gap);
+    margin-bottom: 0;
+  }
+}
+
+#project-map {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  background: var(--surface-base);
+}
+
+/* ---------------------------------------------------------------------------
+   ARTICLE MARKDOWN
+   --------------------------------------------------------------------------- */
+.fiche-projet-article {
+  padding: var(--fp-gap);
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* Mobile - pleine largeur */
+@media (max-width: 767px) {
+  .fiche-projet-article {
+    max-width: 100%;
+  }
+}
+
+/* Le contenu markdown utilise .markdown-body (déjà stylé par gp-markdown-content.css) */
+
+/* ---------------------------------------------------------------------------
+   SIDEBAR - GP-CARDS
+   --------------------------------------------------------------------------- */
+.fiche-projet-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fp-gap);
+}
+
+/* Mobile - cards en stack vertical pleine largeur */
+@media (max-width: 767px) {
+  .fiche-projet-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .fiche-projet-sidebar .gp-card {
+    width: 100%;
+  }
+}
+
+/* Les GP-Cards utilisent déjà le système unifié gp-card-system.css */
+
+/* Fond blanc pour toutes les GP-Cards dans la sidebar */
+.fiche-projet-sidebar .gp-card {
+  background: var(--surface-base);
+}
+
+/* ---------------------------------------------------------------------------
+   STYLES SPÉCIFIQUES GP-CARD MEDIA (dans sidebar)
+   --------------------------------------------------------------------------- */
+
+/* Reset padding de la card */
+.fiche-projet-sidebar .gp-card--media {
+  padding: 0;
+  overflow: visible;
+}
+
+/* Container de l'image */
+.fiche-projet-sidebar .gp-card--media .gp-card-media {
   position: relative;
   width: 100%;
-  height: auto;
+  height: 300px;
+  background: var(--gray-50);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Image - mode cover pour remplir tout l'espace */
+.fiche-projet-sidebar .gp-card--media .gp-card-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* Bouton expand - toujours visible */
+.fiche-projet-sidebar .gp-card--media .gp-card-media-action {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 44px;
+  height: 44px;
   padding: 0;
-  border-radius: 0;
-  overflow: visible;
-  box-sizing: border-box;
-}
-#project-map-v2 {
-  width: 100%; height: 100%;
-}
-/* Map container fills its wrapper */
-/* (Leaflet sets its own classes; height is driven by the wrapper) */
-
-.project-v2-article {
-  /* Blurred cover background (set via --cover-bg) */
-  background: var(--white-alpha-80); /* fallback compatible thème */
-  padding: 18px 20px;
-  overflow: auto;
-  position: relative;
+  background: var(--white-alpha-90);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-light);
+  border-radius: 50%;
+  color: var(--text-primary);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 10;
+  box-shadow: 0 2px 12px var(--black-alpha-20);
 }
 
-/* Render the blurred cover behind content */
-.project-v2-article.has-cover-bg::before {
-  content: "";
-    position: fixed;
-    top: 0;
-    right: 0;
-    left: 0;;
-    /* Height mirrors the container height via --articleH, with 100% fallback */
-    height: var(--articleH, 100%);
-    background-image: var(--cover-bg);
-    background-size: cover;
-    background-position: center;
-    filter: blur(22px);
-    opacity: 0.2;
-    z-index: 0;
-    pointer-events: none;
+.fiche-projet-sidebar .gp-card--media .gp-card-media-action:hover {
+  background: var(--white);
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: scale(1.1);
+  box-shadow: 0 4px 16px var(--black-alpha-30);
 }
 
-/* Soft overlay to keep readability over the blur */
-.project-v2-article.has-cover-bg::after {
+.fiche-projet-sidebar .gp-card--media .gp-card-media-action:active {
+  transform: scale(0.95);
+}
+
+/* ---------------------------------------------------------------------------
+   COVER BLURRED BACKGROUND (optionnel)
+   --------------------------------------------------------------------------- */
+.fiche-projet-article.has-cover-bg::before {
   content: "";
   position: fixed;
-  inset: 0;
+  top: var(--fp-header-height);
+  left: 0;
+  right: var(--fp-sidebar-width-desktop);
+  bottom: 0;
+  background-image: var(--cover-bg);
+  background-size: cover;
+  background-position: center;
+  filter: blur(22px);
+  opacity: 0.15;
   z-index: 0;
   pointer-events: none;
 }
 
-/* Ensure children are above the background layers */
-.project-v2-article > * { position: relative; z-index: 1; }
-
-/* Neutralize legacy styles on #project-text when inside the new layout */
-.project-v2-article #project-text {
-  padding: 0;
-  margin-top: 60px;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  max-width: none;
-  width: auto;
-  overflow: visible;
-  flex: initial;
-  align-self: auto;
-  display: block;
+/* Desktop/Tablet - ajuster right selon sidebar */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .fiche-projet-article.has-cover-bg::before {
+    right: var(--fp-sidebar-width-tablet);
+  }
 }
 
-/* Map toggle (mobile helper) */
-.project-v2 .map-toggle {
-  position: absolute; right: 18px; top: 18px;
-  z-index: 500;
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 36px; height: 36px; border-radius: 10px;
-  border: 1px solid var(--border-medium);
-  background: var(--white-alpha-95);
-  backdrop-filter: blur(6px) saturate(120%);
-  -webkit-backdrop-filter: blur(6px) saturate(120%);
-  color: var(--text-primary); cursor: pointer;
-  box-shadow: 0 6px 18px var(--black-alpha-12);
-}
-.project-v2 .map-toggle i { font-size: 16px; }
-
-/* Topbar close button (hidden by default, shown on mobile when map expanded) */
-.project-v2 .map-close {
-  display: none;
-  margin-left: auto;
-  height: 32px;
-  padding: 0 10px;
-  border-radius: 10px;
-  border: 1px solid var(--border-medium);
-  background: var(--white-alpha-95);
-  color: var(--text-primary); cursor: pointer;
-  box-shadow: 0 6px 18px var(--black-alpha-12);
+/* Mobile - pas de sidebar à droite, pas de blur background */
+@media (max-width: 767px) {
+  .fiche-projet-article.has-cover-bg::before {
+    display: none;
+  }
 }
 
-/* Les styles markdown sont gérés par gp-markdown-content.css */
-
-/* Responsive */
-@media (max-width: 1024px) {
-  .project-v2-main { grid-template-columns: 1fr; }
-  /* Header fixe qui regroupe la barre (back + titre) et la carte */
-  .project-v2 .project-v2-fixed-header {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 110;
-    display: flex; flex-direction: column; width: 100%;
-    background: transparent;
-  }
-  .project-v2 .project-v2-topbar {
-    height: var(--hdrBarH);
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 12px;
-    background: var(--white-alpha-80);
-    backdrop-filter: saturate(140%) blur(18px);
-    position: fixed;
-    z-index: 110;
-    width: calc(100% - 24px);
-  }
-  .project-v2 .project-v2-title { font-weight: 600; font-size: 16px; line-height: 1.2; color: var(--text-primary); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .project-v2 .project-v2-map-wrap {
-    position: relative;
-    height: 20vh;
-    width: 100%;
-    border-radius: var(--mapRadius, 12px);
-    overflow: hidden;
-    box-sizing: border-box;
-    z-index: 10;
-    box-shadow: 0 6px 18px var(--black-alpha-12);
-  }
-  .project-v2 #project-map-v2 { height: 100%; }
-  /* État fullscreen: 100vh */
-  .project-v2.is-expanded .project-v2-map-wrap { height: calc(100vh - var(--hdrBarH)); min-height: calc(100vh - var(--hdrBarH)); }
-  .project-v2-article { 
-    /* l'article occupe l'espace restant et gère le scroll */
-    --articleH: calc(100vh - (var(--hdrBarH) + var(--mapH) + 10px));
-    height: var(--articleH);
-    overflow: auto; 
-    max-height: none; 
-  }
-  /* Mirror the computed height on the background layer */
-  .project-v2-article.has-cover-bg::before { top: 0; height: var(--articleH); }
-  /* Collapsed state: hide map wrapper and rely on card button */
-  .project-v2.map-collapsed .project-v2-map-wrap { display: none; }
-  /* Show/Hide controls in mobile states */
-  .project-v2.map-collapsed .map-toggle { display: none; }
-  .project-v2.is-expanded .map-toggle { display: none; }
-  .project-v2.is-expanded .map-close { display: inline-flex; align-items: center; gap: 6px; }
-  .project-v2.map-collapsed .map-close { display: none; }
+/* Overlay doux pour lisibilité */
+.fiche-projet-article.has-cover-bg::after {
+  content: "";
+  position: fixed;
+  top: var(--fp-header-height);
+  left: 0;
+  right: var(--fp-sidebar-width-desktop);
+  bottom: 0;
+  background: var(--white-alpha-80);
+  z-index: 0;
+  pointer-events: none;
 }
 
-/* Desktop: carte plein écran en hauteur, pas de bouton toggle */
-@media (min-width: 1025px) {
-  .project-v2-main { display: grid; grid-template-columns: minmax(420px, 1fr) minmax(380px, 560px); align-items: start; padding-top: 0; height: 100vh; overflow: hidden; }
-  .project-v2 .project-v2-fixed-header { position: relative; display: flex; flex-direction: column; grid-column: 1; grid-row: 1; height: 100vh; width: 100%; }
-  .project-v2 .project-v2-article { grid-column: 2; grid-row: 1; --articleH: 100vh; height: var(--articleH); overflow: auto; }
-  /* Mirror desktop height on the background layer */
-  .project-v2 .project-v2-article.has-cover-bg::before { top: 0; height: var(--articleH); }
-  .project-v2 .project-v2-topbar { 
-    top: 0; left: 0; right: 0;
-    z-index: 1000;
-    display: flex; align-items: center; gap: 8px; height: var(--hdrBarH); padding: 8px 12px;
-    background: transparent;
-    backdrop-filter: saturate(140%) blur(8px);
+@media (min-width: 768px) and (max-width: 1199px) {
+  .fiche-projet-article.has-cover-bg::after {
+    right: var(--fp-sidebar-width-tablet);
   }
-  .project-v2 .project-v2-map-wrap { position: absolute; top: auto; height: 100vh; min-height: 0; flex: 1 1 auto; width: 100%; padding: 0; border-radius: var(--mapRadius, 12px); overflow: hidden; box-sizing: border-box; }
-  .project-v2 #project-map-v2 { height: 100%; min-height: 300px; border-radius: 12px; }
-  .project-v2 .map-toggle { display: none; }
-  .project-v2 .map-close { display: none; }
+}
+
+@media (max-width: 767px) {
+  .fiche-projet-article.has-cover-bg::after {
+    display: none;
+  }
+}
+
+/* Assurer que le contenu markdown est au-dessus du blur */
+.fiche-projet-article #project-markdown-content {
+  position: relative;
+  z-index: 1;
 }
 
 /* ---------------------------------------------------------------------------
-   Project cards - Toutes les cards utilisent le système gp-card unifié
-   Scope: within .project-v2-article
---------------------------------------------------------------------------- */
-
-/* Hide map-open card on desktop */
-@media (min-width: 1025px) {
-  .project-v2-article .map-open-section { display: none; }
-}
-
-/* Override specifique pour scrollable grids */
-.project-v2-article .gp-card-grid.is-scrollable {
-  max-height: 400px;
-  overflow: auto;
-  padding-right: 4px;
-  overscroll-behavior: contain;
-}
-
-/* Responsive pour les grid items */
-@media (max-width: 640px) {
-  .project-v2-article .gp-card-grid-item {
-    flex-wrap: wrap;
-  }
-  
-  .project-v2-article .gp-card-grid-item-actions {
-    flex-basis: 100%;
-    margin: 8px 0 0 0;
-  }
-}
-
-/* Force full width pour le bouton d'ouverture de la carte */
-.project-v2-article .btn-open-map {
-  width: 100%;
-  justify-content: center;
-}
-
-/* Modale QR Code */
-#qr-code-modal.gp-modal-overlay {
+   LIGHTBOX IMAGE (Modal plein écran)
+   --------------------------------------------------------------------------- */
+#image-lightbox-overlay {
   display: none;
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--black-alpha-95);
   z-index: 10000;
   align-items: center;
   justify-content: center;
+  cursor: zoom-out;
 }
 
+#image-lightbox-overlay.active {
+  display: flex;
+}
+
+.lightbox-image {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px var(--black-alpha-50);
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: var(--white-alpha-90);
+  color: var(--text-primary);
+  border: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  transition: all 0.2s;
+  backdrop-filter: blur(8px);
+}
+
+.lightbox-close:hover {
+  background: var(--white);
+  transform: scale(1.1);
+}
+
+/* ---------------------------------------------------------------------------
+   QR CODE MODAL (Styles spécifiques)
+   --------------------------------------------------------------------------- */
 .qr-code-container {
   display: flex;
   flex-direction: column;
@@ -322,43 +460,89 @@
   }
 }
 
-@media (max-width: 480px) {
-  .project-v2-article .doc-cards { grid-template-columns: 1fr; }
-}
-
 /* ---------------------------------------------------------------------------
-   Neutralize legacy ficheprojet layout wrappers (start from a clean base)
---------------------------------------------------------------------------- */
-#project-article {
-  display: block;
-  padding: 0;
-  margin: 0;
-  margin-bottom: 50px;
-  gap: 0;
-  background: transparent;
-  border-radius: 0;
-  box-shadow: none;
-  overflow: visible;
-}
+   RESPONSIVE - Adjustments Mobile
+   --------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .fiche-projet-header {
+    padding: 0 12px;
+  }
 
-/* Hide deprecated mobile fixed button if still present in the DOM */
-#detail-fullpage-btn { display: none !important; }
+  .fiche-projet-title {
+    font-size: 1rem;
+  }
 
-/* Force overrides to prevent old mobile rule from blocking scroll */
-@media (max-width: 768px) {
-  #project-article { height: auto !important; overflow: visible !important; }
-  .project-v2-article { max-height: none !important; overflow: auto !important; }
-}
-
-/* ---------------------------------------------------------------------------
-   Mobile: Spacing adjustments
- --------------------------------------------------------------------------- */
-@media (max-width: 1024px) {
-  .project-v2-article.has-map-card .map-open-section { 
-    margin-top: 0; 
+  .fiche-projet-article {
+    padding: 16px 12px;
   }
 }
 
 /* ---------------------------------------------------------------------------
-   Camera markers - Styles définis dans style.css (utilisé partout)
---------------------------------------------------------------------------- */
+   DOCUMENTS LAYOUT VERTICAL
+   --------------------------------------------------------------------------- */
+.gp-card-grid-item--vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gp-card-grid-item-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0; /* Allow flex child to shrink */
+}
+
+.gp-card-grid-item--vertical .gp-card-grid-item-content {
+  flex: 1;
+  min-width: 0; /* Allow text to wrap */
+}
+
+.gp-card-grid-item--vertical .gp-card-grid-item-title {
+  /* Override du système de base */
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  
+  /* Permettre le retour à la ligne */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  line-height: 1.4;
+}
+
+.gp-card-grid-item--vertical .gp-card-grid-item-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.gp-card-grid-item--vertical .gp-card-grid-item-actions .btn-primary {
+  flex: 1;
+}
+
+.gp-card-grid-item--vertical .gp-card-grid-item-actions .btn-secondary {
+  flex-shrink: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   CAMERA MARKERS (Font Awesome icons)
+   --------------------------------------------------------------------------- */
+.camera-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--white);
+  border: 2px solid var(--primary);
+  border-radius: 50%;
+  box-shadow: 0 2px 8px var(--black-alpha-20);
+  transition: all 0.2s ease;
+}
+
+.camera-marker:hover {
+  transform: scale(1.2);
+  box-shadow: 0 4px 12px var(--black-alpha-30);
+  z-index: 1000 !important;
+}

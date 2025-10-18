@@ -225,22 +225,3 @@ button.btn-ghost:active {
 .btn-ghost i {
   font-size: 0.9em;
 }
-
-/* ---------------------------------------------------------------------------
-   Responsive
-   --------------------------------------------------------------------------- */
-@media (max-width: 640px) {
-  .btn-primary,
-  .btn-secondary,
-  .btn-danger,
-  .btn-info,
-  .btn-ghost,
-  a.btn-primary,
-  a.btn-secondary,
-  a.btn-danger,
-  a.btn-info,
-  a.btn-ghost {
-    width: 100%;
-    justify-content: center;
-  }
-}
