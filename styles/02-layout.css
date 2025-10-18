@@ -123,7 +123,7 @@
 #project-detail {
   position: absolute;
   top: 10px; /* même position verticale que left-nav */
-  left: 121px; /* marge gauche + largeur de left-nav + espace */
+  left: 150px; /* marge gauche + largeur de left-nav + espace */
   width: 350px;
   min-height: 500px;
   max-height: 70vh;

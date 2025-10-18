@@ -264,7 +264,6 @@
   box-shadow: 2px 0 12px var(--black-alpha-08);
   border-radius: 0 20px 20px 20px;
   z-index: 1200;
-  padding: 0 20px 20px 20px;
   overflow-y: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -461,12 +460,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 20px;
-  margin: -20px -20px 12px -20px;
   background: var(--white-alpha-72);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border-medium);
-  width: calc(100%);
+  padding: 20px;
 }
 
 .detail-header-submenu .header-left {
@@ -496,7 +493,6 @@
   justify-content: space-between;
   gap: 8px;
   width: 100%;
-  padding: 0 20px;
 }
 
 /* Always show the reduce toggle for project detail header */
@@ -538,7 +534,7 @@
 .project-list {
   list-style: none;
   padding: 0;
-  margin: 40px 0 0 0;
+  margin: 20px;
 }
 
 .project-item {
