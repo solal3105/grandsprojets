@@ -38,8 +38,10 @@
               const cat = String(r.category).trim();
               if (!cat) return;
               const iconClass = String(r.icon_class || '').trim();
+              const label = String(r.label || r.category || '').trim();
               if (!window.categoryConfig[cat]) window.categoryConfig[cat] = {};
               window.categoryConfig[cat].icon = iconClass;
+              window.categoryConfig[cat].label = label;
             });
           }
         }

@@ -21,13 +21,12 @@
    */
   function autoInitializeCity() {
     try {
-      // 1. Restaurer depuis sessionStorage
-      const stored = sessionStorage.getItem('activeCity');
+      // 1. Restaurer depuis sessionStorage (contrib uniquement)
+      const stored = sessionStorage.getItem('contrib_selectedCity');
       if (stored && stored !== '__global__') {
         selectedCity = stored;
-        console.log('[CityContext] 🔄 Restored from session:', stored);
-        // Synchroniser avec window.activeCity
-        win.activeCity = stored;
+        console.log('[CityContext] 🔄 Restored contrib city from session:', stored);
+        // NE PAS modifier window.activeCity (utilisé par la navigation)
         return;
       }
       
@@ -36,9 +35,9 @@
       const validCities = userVilles.filter(v => v !== 'global');
       if (validCities.length === 1) {
         selectedCity = validCities[0];
-        win.activeCity = selectedCity;
-        sessionStorage.setItem('activeCity', selectedCity);
-        console.log('[CityContext] ✨ Auto-selected single city:', selectedCity);
+        sessionStorage.setItem('contrib_selectedCity', selectedCity);
+        console.log('[CityContext] ✨ Auto-selected single contrib city:', selectedCity);
+        // NE PAS modifier window.activeCity
       }
     } catch(e) {
       console.warn('[CityContext] Auto-init failed:', e);
@@ -53,22 +52,22 @@
   // ============================================================================
 
   /**
-   * Définit la ville sélectionnée
+   * Définit la ville sélectionnée (pour les contributions uniquement)
    * @param {string} city - Code ville
    */
   function setSelectedCity(city) {
     // Note: city peut être null (= "Global")
     selectedCity = city;
-    win.activeCity = city;
+    // NE PAS modifier window.activeCity (utilisé par la navigation)
     
-    console.log('[CityContext] ✅ City set to:', city === null ? 'Global' : city);
+    console.log('[CityContext] ✅ Contrib city set to:', city === null ? 'Global' : city);
     
-    // Synchroniser avec sessionStorage
+    // Synchroniser avec sessionStorage (contrib uniquement)
     try {
       if (city === null) {
-        sessionStorage.setItem('activeCity', '__global__');
+        sessionStorage.setItem('contrib_selectedCity', '__global__');
       } else {
-        sessionStorage.setItem('activeCity', city);
+        sessionStorage.setItem('contrib_selectedCity', city);
       }
     } catch(e) {
       console.warn('[CityContext] Could not persist to sessionStorage:', e);
@@ -84,12 +83,12 @@
   }
 
   /**
-   * Réinitialise la ville sélectionnée
+   * Réinitialise la ville sélectionnée (contrib uniquement)
    */
   function clearSelectedCity() {
     selectedCity = null;
     try {
-      sessionStorage.removeItem('activeCity');
+      sessionStorage.removeItem('contrib_selectedCity');
     } catch(e) {}
   }
 

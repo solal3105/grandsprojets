@@ -175,6 +175,11 @@
     const closeContrib = () => {
       if (!contribOverlay) return;
       
+      // Retirer la classe active du bouton contribuer
+      if (contribToggle) {
+        contribToggle.classList.remove('active');
+      }
+      
       // Utiliser ModalHelper pour une gestion unifiée
       win.ModalHelper.close('contrib-overlay');
     };

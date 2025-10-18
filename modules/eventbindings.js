@@ -2,9 +2,18 @@
 const EventBindings = (() => {
 
   const handleNavigation = async (menu, layersToDisplay) => {
-  // 0. Toggle “active” on the clicked nav button
+  // Validation du menu
+  if (!menu) {
+    console.error('[EventBindings] handleNavigation appelé avec menu invalide:', menu);
+    return;
+  }
+  
+  // 0. Toggle "active" on the clicked nav button
   document.querySelectorAll('.nav-category').forEach(tab => tab.classList.remove('active'));
-  document.getElementById(`nav-${menu}`).classList.add('active');
+  const navButton = document.getElementById(`nav-${menu}`);
+  if (navButton) {
+    navButton.classList.add('active');
+  }
     // Masquer complètement le panneau de détail du projet
     const projectDetailPanel = document.getElementById('project-detail');
     if (projectDetailPanel) {
@@ -107,6 +116,12 @@ const bindFilterControls = () => {
     }
     
     categoryIcons.forEach(({ category }) => {
+      // Ignorer le bouton "Contribuer" qui a son propre gestionnaire dans contrib.js
+      if (category === 'contribute') {
+        console.log('[EventBindings] Ignore le bouton contribute (géré par contrib.js)');
+        return;
+      }
+      
       const navButton = document.getElementById(`nav-${category}`);
       if (!navButton) {
         console.warn(`[EventBindings] Bouton de navigation introuvable pour: ${category}`);
