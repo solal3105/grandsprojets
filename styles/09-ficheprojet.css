@@ -16,24 +16,43 @@
   --card-margin: 20px; /* margin unifié pour toutes les sections */
 }
 /* Optional legacy header (not used in fixed topbar mode) */
-/* .project-v2-header { margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
-.project-v2-title { font-size: 1.4rem; font-weight: 700; margin: 0 0 6px; } */
-/* Back link (cohérent avec la plateforme) */
+/* Back button - Utilise le système de boutons unifié */
 .project-v2-back {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 10px; border-radius: 10px;
-  border: 1px solid var(--border-medium);
-  color: var(--text-primary); text-decoration: none;
-  transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  user-select: none;
+  background: var(--white-alpha-80);
+  color: var(--text-primary);
+  box-shadow: 0 2px 4px var(--black-alpha-08);
+  backdrop-filter: blur(8px);
 }
+
 .project-v2-back:hover {
-  transform: translateY(-1px); box-shadow: 0 8px 22px var(--black-alpha-08);
-  background-color: var(--gray-200);
-  
-  box-shadow: 0 6px 18px var(--black-alpha-06);
+  background: var(--white-alpha-90);
+  box-shadow: 0 4px 12px var(--black-alpha-12);
+  transform: translateY(-1px);
 }
-.project-v2-back i { font-size: 14px; }
-.project-v2-back:active { transform: translateY(0); }
+
+.project-v2-back:active {
+  transform: translateY(0);
+  background: var(--white-alpha-85);
+  box-shadow: 0 2px 4px var(--black-alpha-08);
+}
+
+.project-v2-back i {
+  font-size: 0.9em;
+}
 
 .project-v2-main {
   /* Mobile-first: single column, full viewport height, only article scrolls */
@@ -142,16 +161,6 @@
 
 /* Les styles markdown sont gérés par gp-markdown-content.css */
 
-/* Project topbar logo */
-.project-v2 .project-v2-logo {
-  height: 22px;
-  width: auto;
-  display: inline-block;
-  flex: 0 0 auto;
-  margin-left: 6px;
-  vertical-align: middle;
-}
-
 /* Responsive */
 @media (max-width: 1024px) {
   .project-v2-main { grid-template-columns: 1fr; }
@@ -221,27 +230,6 @@
   .project-v2 #project-map-v2 { height: 100%; min-height: 300px; border-radius: 12px; }
   .project-v2 .map-toggle { display: none; }
   .project-v2 .map-close { display: none; }
-}
-
-/* Detail theme toggle inside the project topbar */
-.project-v2 .detail-theme-toggle {
-  /* override global .theme-toggle absolute positioning */
-  position: static;
-  margin-left: auto;
-  z-index: 501;
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 36px; height: 36px; border-radius: 10px;
-  border: 1px solid var(--border-medium);
-  background: var(--white-alpha-95);
-  backdrop-filter: blur(6px) saturate(120%);
-  -webkit-backdrop-filter: blur(6px) saturate(120%);
-  color: var(--text-primary); cursor: pointer;
-  box-shadow: 0 6px 18px var(--black-alpha-12);
-}
-.project-v2 .detail-theme-toggle i { font-size: 16px; }
-
-@media (min-width: 1025px) {
-  .project-v2 .detail-theme-toggle { margin-right: 0; }
 }
 
 /* ---------------------------------------------------------------------------

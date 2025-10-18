@@ -318,7 +318,6 @@ const FPTheme = (function(win) {
       btn.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
     };
     updateBtn('#theme-toggle');
-    updateBtn('#detail-theme-toggle');
     // Forcer un reflow pour appliquer les changements
     void root.offsetHeight;
     // Réactiver les transitions après un court délai
@@ -503,12 +502,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           <div class="project-v2-topbar">
             <a href="/" class="project-v2-back" aria-label="Retour à l'accueil" title="Accueil">
               <i class="fa fa-arrow-left" aria-hidden="true"></i>
-              <img src="/img/logo.svg" class="project-v2-logo" alt="Logo" />
+              <span>Retour</span>
             </a>
             <h1 class="project-v2-title">${projectName || ''}</h1>
-            <button id="detail-theme-toggle" class="theme-toggle detail-theme-toggle" aria-pressed="false" aria-label="Mode sombre" title="Mode sombre">
-              <i class="fas fa-moon" aria-hidden="true"></i>
-            </button>
             <button class="map-toggle" aria-label="Agrandir la carte" title="Agrandir">
               <i class="fa fa-expand" aria-hidden="true"></i>
             </button>
@@ -553,56 +549,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   const textEl = document.getElementById('project-text');
-
-  // Synchronisation du bouton de thème (icône/aria) + gestionnaires
-  (function() {
-    const btn = document.getElementById('detail-theme-toggle');
-    if (!btn) return;
-    const updateFromTheme = (theme) => {
-      const iconEl = btn.querySelector('i');
-      if (iconEl) iconEl.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-      const title = theme === 'dark' ? 'Mode clair' : 'Mode sombre';
-      btn.title = title;
-      btn.setAttribute('aria-label', title);
-      btn.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
-    };
-    // État initial
-    updateFromTheme(document.documentElement.getAttribute('data-theme') || FPTheme.getInitialTheme());
-
-    // Clic bascule
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const current = document.documentElement.getAttribute('data-theme') || 'light';
-      const next = current === 'dark' ? 'light' : 'dark';
-      FPTheme.applyTheme(next);
-      FPTheme.syncBasemapToTheme(next);
-      // Persister le choix et arrêter la synchro OS
-      try {
-        localStorage.setItem('theme', next);
-      } catch (_) {}
-      try {
-        FPTheme.stopOSThemeSync();
-      } catch (_) {}
-    });
-    // Accessibilité clavier
-    btn.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        btn.click();
-      }
-    });
-    // Observer les changements externes de thème
-    try {
-      const obs = new MutationObserver(() => {
-        const t = document.documentElement.getAttribute('data-theme') || 'light';
-        updateFromTheme(t);
-      });
-      obs.observe(document.documentElement, {
-        attributes: true,
-        attributeFilter: ['data-theme']
-      });
-    } catch (_) {}
-  })();
   // Cacher l'ancien header de détail s'il est présent et non désiré
   const legacyHeader = document.getElementById('detail-header');
   if (legacyHeader) legacyHeader.style.display = 'none';

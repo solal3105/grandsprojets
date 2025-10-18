@@ -1,51 +1,57 @@
 /* ============================================================================
-   GP BUTTON SYSTEM - Système de boutons unifié
-   Utilisable partout dans l'application
+   GP BUTTON SYSTEM - Design moderne sans bordures
    ============================================================================ */
 
 /* ---------------------------------------------------------------------------
-   Base Button - Unifié pour <button> et <a>
+   Base Button
    --------------------------------------------------------------------------- */
 .btn-primary,
 .btn-secondary,
+.btn-danger,
+.btn-info,
+.btn-ghost,
 a.btn-primary,
 a.btn-secondary,
+a.btn-danger,
+a.btn-info,
+a.btn-ghost,
 button.btn-primary,
-button.btn-secondary {
+button.btn-secondary,
+button.btn-danger,
+button.btn-info,
+button.btn-ghost {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   padding: 10px 18px;
-  border-radius: 10px;
+  border-radius: 12px;
   font-size: 0.9rem;
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
-  border: 1px solid transparent;
+  border: none;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
   user-select: none;
 }
 
 /* ---------------------------------------------------------------------------
-   Primary Button - Texte primary, fond transparent
+   Primary Button - Fond primary 20% transparent
    --------------------------------------------------------------------------- */
 .btn-primary,
 a.btn-primary,
 button.btn-primary {
-  background: var(--primary-alpha-08);
+  background: var(--primary-alpha-20);
   color: var(--primary);
-  border-color: var(--primary-alpha-20);
-  box-shadow: 0 1px 2px var(--black-alpha-04);
+  box-shadow: 0 2px 4px var(--black-alpha-08);
 }
 
 .btn-primary:hover,
 a.btn-primary:hover,
 button.btn-primary:hover {
-  background: var(--primary-alpha-15);
-  border-color: var(--primary-alpha-35);
-  box-shadow: 0 2px 8px var(--primary-alpha-15);
+  background: var(--primary-alpha-3);
+  box-shadow: 0 4px 12px var(--black-alpha-12);
   transform: translateY(-2px);
 }
 
@@ -53,8 +59,8 @@ button.btn-primary:hover {
 a.btn-primary:active,
 button.btn-primary:active {
   transform: translateY(0);
-  background: var(--primary-alpha-12);
-  box-shadow: 0 1px 2px var(--black-alpha-04);
+  background: var(--primary-alpha-25);
+  box-shadow: 0 2px 4px var(--black-alpha-08);
 }
 
 .btn-primary:disabled,
@@ -65,23 +71,22 @@ button.btn-primary:disabled {
 }
 
 /* ---------------------------------------------------------------------------
-   Secondary Button - Nuances de gris
+   Secondary Button - Fond blanc 80% transparent
    --------------------------------------------------------------------------- */
 .btn-secondary,
 a.btn-secondary,
 button.btn-secondary {
-  background: var(--surface-elevated);
+  background: var(--white-alpha-80);
   color: var(--text-primary);
-  border-color: var(--border-medium);
-  box-shadow: 0 1px 2px var(--black-alpha-04);
+  box-shadow: 0 2px 4px var(--black-alpha-08);
+  backdrop-filter: blur(8px);
 }
 
 .btn-secondary:hover,
 a.btn-secondary:hover,
 button.btn-secondary:hover {
-  background: var(--gray-100);
-  border-color: var(--border-dark);
-  box-shadow: 0 2px 8px var(--black-alpha-06);
+  background: var(--white-alpha-90);
+  box-shadow: 0 4px 12px var(--black-alpha-12);
   transform: translateY(-1px);
 }
 
@@ -89,8 +94,8 @@ button.btn-secondary:hover {
 a.btn-secondary:active,
 button.btn-secondary:active {
   transform: translateY(0);
-  background: var(--gray-50);
-  box-shadow: 0 1px 2px var(--black-alpha-04);
+  background: var(--white-alpha-85);
+  box-shadow: 0 2px 4px var(--black-alpha-08);
 }
 
 .btn-secondary:disabled,
@@ -101,36 +106,21 @@ button.btn-secondary:disabled {
 }
 
 /* ---------------------------------------------------------------------------
-   Button Sizes
-   --------------------------------------------------------------------------- */
-.btn-small {
-  padding: 6px 12px;
-  font-size: 0.8rem;
-}
-
-.btn-large {
-  padding: 12px 24px;
-  font-size: 1rem;
-}
-
-/* ---------------------------------------------------------------------------
-   Button Variants - Danger et Info
+   Danger Button - Fond danger 20% transparent
    --------------------------------------------------------------------------- */
 .btn-danger,
 a.btn-danger,
 button.btn-danger {
-  background: var(--danger-alpha-08);
+  background: var(--danger-alpha-20);
   color: var(--danger);
-  border-color: var(--danger-alpha-20);
-  box-shadow: 0 1px 2px var(--black-alpha-04);
+  box-shadow: 0 2px 4px var(--black-alpha-08);
 }
 
 .btn-danger:hover,
 a.btn-danger:hover,
 button.btn-danger:hover {
-  background: var(--danger-alpha-15);
-  border-color: var(--danger-alpha-35);
-  box-shadow: 0 2px 8px var(--danger-alpha-15);
+  background: var(--danger-alpha-3);
+  box-shadow: 0 4px 12px var(--danger-alpha-20);
   transform: translateY(-2px);
 }
 
@@ -138,24 +128,33 @@ button.btn-danger:hover {
 a.btn-danger:active,
 button.btn-danger:active {
   transform: translateY(0);
-  background: var(--danger-alpha-12);
+  background: var(--danger-alpha-25);
+  box-shadow: 0 2px 4px var(--black-alpha-08);
 }
 
+.btn-danger:disabled,
+button.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Info Button - Fond info 20% transparent
+   --------------------------------------------------------------------------- */
 .btn-info,
 a.btn-info,
 button.btn-info {
-  background: var(--info-alpha-08);
+  background: var(--info-alpha-20);
   color: var(--info);
-  border-color: var(--info-alpha-20);
-  box-shadow: 0 1px 2px var(--black-alpha-04);
+  box-shadow: 0 2px 4px var(--black-alpha-08);
 }
 
 .btn-info:hover,
 a.btn-info:hover,
 button.btn-info:hover {
-  background: var(--info-alpha-15);
-  border-color: var(--info-alpha-35);
-  box-shadow: 0 2px 8px var(--info-alpha-15);
+  background: var(--info-alpha-3);
+  box-shadow: 0 4px 12px var(--info-alpha-20);
   transform: translateY(-2px);
 }
 
@@ -163,7 +162,15 @@ button.btn-info:hover {
 a.btn-info:active,
 button.btn-info:active {
   transform: translateY(0);
-  background: var(--info-alpha-12);
+  background: var(--info-alpha-25);
+  box-shadow: 0 2px 4px var(--black-alpha-08);
+}
+
+.btn-info:disabled,
+button.btn-info:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* ---------------------------------------------------------------------------
@@ -174,16 +181,15 @@ a.btn-ghost,
 button.btn-ghost {
   background: transparent;
   color: var(--text-secondary);
-  border-color: transparent;
   box-shadow: none;
 }
 
 .btn-ghost:hover,
 a.btn-ghost:hover,
 button.btn-ghost:hover {
-  background: var(--gray-100);
+  background: var(--white-alpha-50);
   color: var(--text-primary);
-  box-shadow: 0 1px 2px var(--black-alpha-04);
+  box-shadow: 0 2px 4px var(--black-alpha-08);
   transform: translateY(-1px);
 }
 
@@ -191,7 +197,22 @@ button.btn-ghost:hover {
 a.btn-ghost:active,
 button.btn-ghost:active {
   transform: translateY(0);
-  background: var(--gray-50);
+  background: var(--white-alpha-30);
+}
+
+/* ---------------------------------------------------------------------------
+   Button Sizes
+   --------------------------------------------------------------------------- */
+.btn-small {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  border-radius: 8px;
+}
+
+.btn-large {
+  padding: 14px 28px;
+  font-size: 1rem;
+  border-radius: 14px;
 }
 
 /* ---------------------------------------------------------------------------
