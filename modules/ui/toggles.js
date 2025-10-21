@@ -24,41 +24,13 @@ class ToggleManager {
 
     console.log('[ToggleManager] Initializing toggles...');
 
+    // Initialiser tous les toggles de TOGGLE_ORDER
     TOGGLE_ORDER.forEach(key => {
-      const config = TOGGLES_CONFIG[key];
-      const element = document.getElementById(config.id);
-      
-      if (!element) {
-        console.warn(`[ToggleManager] Element not found: ${config.id}`);
-        return;
-      }
-
-      // Ajouter la classe commune
-      element.classList.add('app-toggle');
-
-      // Stocker la référence
-      this.toggles.set(key, {
-        element,
-        config,
-        state: config.defaultState
-      });
-
-      // Initialiser l'état
-      this.state.set(key, config.defaultState);
-
-      // Bind events
-      this.bindToggleEvents(key, element, config);
-
-      // Restaurer l'état persistant
-      if (config.persistent) {
-        this.restoreState(key);
-      }
-
-      // Appliquer l'accessibilité
-      this.setupAccessibility(element, config);
-
-      console.log(`[ToggleManager] ✓ ${key} initialized`);
+      this.initToggle(key);
     });
+
+    // Initialiser contribute séparément (pas dans TOGGLE_ORDER mais géré normalement)
+    this.initToggle('contribute');
 
     this.initialized = true;
     console.log('[ToggleManager] All toggles initialized:', this.toggles.size);
@@ -68,6 +40,50 @@ class ToggleManager {
 
     // Calcul initial des positions
     this.recalculatePositions();
+  }
+
+  /**
+   * Initialise un toggle individuel
+   */
+  initToggle(key) {
+    const config = TOGGLES_CONFIG[key];
+    if (!config) {
+      console.warn(`[ToggleManager] Config not found: ${key}`);
+      return;
+    }
+
+    const element = document.getElementById(config.id);
+    
+    if (!element) {
+      console.warn(`[ToggleManager] Element not found: ${config.id}`);
+      return;
+    }
+
+    // Ajouter la classe commune
+    element.classList.add('app-toggle');
+
+    // Stocker la référence
+    this.toggles.set(key, {
+      element,
+      config,
+      state: config.defaultState
+    });
+
+    // Initialiser l'état
+    this.state.set(key, config.defaultState);
+
+    // Bind events
+    this.bindToggleEvents(key, element, config);
+
+    // Restaurer l'état persistant
+    if (config.persistent) {
+      this.restoreState(key);
+    }
+
+    // Appliquer l'accessibilité
+    this.setupAccessibility(element, config);
+
+    console.log(`[ToggleManager] ✓ ${key} initialized`);
   }
 
   /**
@@ -346,7 +362,7 @@ class ToggleManager {
    * Recalcule le layout mobile (barre horizontale)
    */
   recalculateMobileLayout() {
-    const MOBILE_ORDER = ['info', 'location', 'search', 'theme', 'basemap', 'filters'];
+    const MOBILE_ORDER = ['info', 'location', 'search', 'theme', 'basemap', 'filters', 'contribute'];
     const visibleToggles = [];
 
     // Identifier les toggles visibles dans l'ordre mobile
@@ -385,7 +401,7 @@ class ToggleManager {
    * Recalcule le layout desktop (toggles espacés)
    */
   recalculateDesktopLayout() {
-    const DESKTOP_ORDER = ['filters', 'basemap', 'theme', 'search', 'location', 'info'];
+    const DESKTOP_ORDER = ['contribute', 'filters', 'basemap', 'theme', 'search', 'location', 'info'];
     const visibleToggles = [];
 
     // Identifier les toggles visibles dans l'ordre desktop

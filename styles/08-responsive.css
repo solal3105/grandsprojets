@@ -1,212 +1,171 @@
 /* ===========================================================================
-   RESPONSIVE - Media queries
+   RESPONSIVE - Media queries (Mobile-First)
    =========================================================================== */
 
-/* ---------------------------------------------------------------------------
-   Tablet et petits écrans (≤ 1024px)
---------------------------------------------------------------------------- */
-@media (max-width: 1024px) {
-  /* Navigation en bas */
-  #left-nav {
-    width: auto !important;
-    max-width: 600px !important;
-    top: auto !important;
-    bottom: 20px !important;
-    left: 20px !important;
-    right: 20px !important;
-    height: 100px !important;
-    max-height: 100px !important;
-    box-shadow: 0 -2px 8px var(--black-alpha-15);
-    transition: none;
-    display: flex;
-    align-items: center;
-  }
-
-  /* Wrapper de scroll en mobile */
-  .nav-scroll-wrapper {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 12px;
-    overflow-x: auto !important;
-    overflow-y: visible !important;
-    scroll-snap-type: x proximity;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    height: 100%;
-    flex: 1;
-    min-width: 0;
-    position: relative;
-    padding: 0;
-    margin: 0;
-  }
-
-  /* Masquer la scrollbar en mobile */
-  .nav-scroll-wrapper::-webkit-scrollbar {
+/* ========================================
+   MOBILE - Ultra compact (≤ 400px)
+   ======================================== */
+@media (max-width: 400px) {
+  .mobile-fixed-logo {
     display: none;
   }
 
-  /* Empêcher les boutons de rétrécir */
-  .nav-scroll-wrapper .nav-category {
-    flex-shrink: 0;
-    flex-grow: 0;
-    scroll-snap-align: center;
-    min-width: 70px;
-    width: auto;
-    height: 100%;
-    margin: 0;
-    padding: 10px 14px;
-    justify-content: center;
+  #dynamic-categories {
+    gap: 8px;
+    padding: 0 12px;
   }
 
-  /* Le logo dans le wrapper est caché en mobile */
+  .nav-category {
+    padding: 10px 6px;
+    gap: 8px;
+  }
+
+  .nav-category .label {
+    font-size: 11px;
+  }
+}
+
+/* ========================================
+   MOBILE - Compact (≤ 520px)
+   ======================================== */
+@media (max-width: 520px) {
+  #contrib-overlay .contrib-list-item {
+    grid-template-columns: 72px 1fr;
+    gap: 12px;
+  }
+}
+
+/* ========================================
+   MOBILE - Small (≤ 640px)
+   ======================================== */
+@media (max-width: 640px) {
+  .project-cover {
+    height: 240px;
+  }
+
+  .city-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .image-tooltip img {
+    max-width: 200px;
+    max-height: 150px;
+  }
+}
+
+/* ========================================
+   MOBILE - Base (≤ 720px)
+   ======================================== */
+@media (max-width: 720px) {
+  
+  /* Navigation */
+  #left-nav {
+    position: fixed;
+    top: auto;
+    bottom: 20px;
+    left: 20px;
+    right: auto;
+    width: calc(100vw - 40px);
+    max-width: 500px;
+    height: 100px;
+    max-height: 100px;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    box-shadow: 0 -2px 8px var(--black-alpha-15);
+  }
+
+  #left-nav .logo,
   .nav-scroll-wrapper .logo {
     display: none;
   }
 
-  /* Le container des catégories dynamiques */
-  .nav-scroll-wrapper #dynamic-categories {
+  .nav-scroll-wrapper {
+    display: flex;
+    gap: 12px;
+    padding: 0;
+    width: 100%;
+  }
+
+  #dynamic-categories {
     display: flex;
     flex-direction: row;
     gap: 12px;
-    flex-shrink: 0;
-    flex-grow: 1;
-    flex-wrap: nowrap;
-    align-items: center;
     height: 100%;
-    padding: 0 20px;
+    min-height: 100%;
+    align-items: stretch;
+    justify-content: space-around;
   }
 
-  /* Le bouton contribuer - collé à droite uniquement */
-  .nav-scroll-wrapper #nav-contribute {
-    margin-left: auto;
-    position: sticky;
-    right: 0;
-    z-index: 10;
+  .nav-category {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 100px;
+    height: 100%;
+    padding: 10px 8px;
   }
 
-  /* Cacher les légendes */
-  #left-nav p {
-    display: none;
+  .nav-category .label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
   }
 
-  /* Positionner les sous-menus au-dessus du nav bar */
-  .submenu {
-    position: absolute;
-    bottom: 120px !important;
-    top: auto !important;
-    left: 0px !important;
-    width: calc(100vw - 80px) !important;
-    max-width: 600px !important;
-    min-height: auto !important;
-    max-height: 40vh !important;
-    overflow-y: auto !important;
-    z-index: 1200 !important;
-    box-shadow: 0 -2px 8px var(--black-alpha-10) !important;
-    border-radius: 20px 20px 0 0 !important;
-    
-    /* Animation mobile : slide up depuis le bas */
+  .nav-category i {
+    flex-shrink: 0;
+  }
+
+  /* Submenus & Project detail - Unified mobile panels */
+  .submenu,
+  #project-detail {
+    position: fixed;
+    inset: auto 20px 120px 20px;
+    width: calc(100vw - 40px);
+    max-width: 500px;
+    min-height: auto;
+    max-height: 40vh;
+    margin: 0;
+    border-radius: 20px 20px 0 0;
+    box-sizing: border-box;
     opacity: 0;
     transform: translateY(30px) scale(0.96);
     transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-                transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-                box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  
-  /* État visible mobile */
-  .submenu[style*="display: block"],
-  .submenu.visible {
-    opacity: 1 !important;
-    transform: translateY(0) scale(1) !important;
-    box-shadow: 0 -4px 20px var(--black-alpha-15) !important;
+                transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  #project-detail {
-    position: absolute;
-    bottom: 160px !important;
-    top: auto !important;
-    left: 20px !important;
-    right: 20px !important;
-    width: auto !important;
-    max-width: 640px !important;
-    max-height: 50vh !important;
-    overflow-y: auto !important;
-    z-index: 1200 !important;
-    box-shadow: 0 -2px 8px var(--black-alpha-10) !important;
-    border-radius: 20px 20px 0 0 !important;
-    min-height: auto !important;
-    
-    /* Animation mobile : slide up avec effet de profondeur */
-    opacity: 0;
-    transform: translateY(40px) scale(0.94);
-    transition: opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1),
-                transform 0.45s cubic-bezier(0.4, 0, 0.2, 1),
-                box-shadow 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Compensation pour submenu (enfant de #left-nav) */
+  .submenu {
+    bottom: 100px;
+    left: 0;
+    right: 0;
   }
   
-  /* État visible pour project-detail mobile */
+  .submenu[style*="display: block"],
+  .submenu.visible,
   #project-detail[style*="display: block"],
   #project-detail.visible {
-    opacity: 1 !important;
-    transform: translateY(0) scale(1) !important;
-    box-shadow: 0 -6px 24px var(--black-alpha-18) !important;
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 
-  .detail-header-project-list {
-    position: sticky !important;
-    top: 0;
-    z-index: 10;
-  }
-
-  /* Mobile submenu panels: smooth collapse/expand */
-  .submenu {
-    transition: max-height 250ms ease;
-    will-change: max-height;
-  }
-
-  /* Header layout ensures space for chevron + close */
-  .detail-header-submenu {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-
-  /* Show toggle on mobile */
   .detail-header-submenu .submenu-toggle-btn {
-    display: inline-flex !important;
+    display: inline-flex;
   }
 
-  /* Mobile: keep blur on #left-nav, hide its embedded logo, show standalone logo */
-  #left-nav .logo {
-    display: none !important;
-  }
-
+  /* UI Elements */
   .mobile-fixed-logo {
     display: inline-flex;
   }
 
-  /* City menu responsive */
   .city-menu {
     position: fixed;
     top: 56px;
     left: 12px;
     right: 12px;
-    width: auto;
-    max-width: none;
     max-height: calc(100vh - 72px);
-    overflow: auto;
-    margin: 0;
-    box-sizing: border-box;
   }
 
-  /* Masquer le bouton Réduire au-delà de 1024px */
-  .detail-header-submenu .submenu-toggle-btn {
-    display: inline-flex !important;
-  }
-
-  /* Responsive Travaux Bento */
   .gp-bento {
     grid-template-columns: 1fr;
   }
@@ -217,23 +176,9 @@
   }
 }
 
-/* ---------------------------------------------------------------------------
-   Masquer le bouton Réduire au-delà de 1024px (Desktop)
---------------------------------------------------------------------------- */
-@media (min-width: 1024px) {
-  .detail-header-submenu .submenu-toggle-btn {
-    display: none !important;
-  }
-
-  /* Ensure project detail toggle remains visible on desktop as well */
-  #project-detail .detail-header-submenu .submenu-toggle-btn {
-    display: inline-flex !important;
-  }
-}
-
-/* ---------------------------------------------------------------------------
-   Desktop (≥ 768px)
---------------------------------------------------------------------------- */
+/* ========================================
+   TABLET - Medium (≥ 768px)
+   ======================================== */
 @media (min-width: 768px) {
   #detail-fullpage-btn {
     width: auto;
@@ -241,75 +186,33 @@
   }
 }
 
-/* ---------------------------------------------------------------------------
-   Petits écrans mobiles (≤ 640px)
---------------------------------------------------------------------------- */
-@media (max-width: 640px) {
-  .nav-category {
-    width: 70px;
+/* ========================================
+   DESKTOP - Large (≥ 1024px)
+   ======================================== */
+@media (min-width: 1024px) {
+  .detail-header-submenu .submenu-toggle-btn {
+    display: none;
   }
 
-  .project-cover {
-    height: 240px;
-  }
-
-  .city-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .city-menu {
-    position: fixed;
-    top: 56px;
-    left: 12px;
-    right: 12px;
-    width: auto;
-    max-width: none;
-    max-height: calc(100vh - 72px);
-    overflow: auto;
-    margin: 0;
-    box-sizing: border-box;
-  }
-
-  /* Ajustement pour les tooltips */
-  .image-tooltip img {
-    max-width: 200px;
-    max-height: 150px;
+  #project-detail .detail-header-submenu .submenu-toggle-btn {
+    display: inline-flex;
   }
 }
 
-/* ---------------------------------------------------------------------------
-   Contribution lists responsive
---------------------------------------------------------------------------- */
-@media (max-width: 520px) {
-  #contrib-overlay .contrib-list-item {
-    grid-template-columns: 72px 1fr;
-    gap: 12px;
-  }
-
-  .city-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-/* ---------------------------------------------------------------------------
-   Ultra-compact mobile (≤ 400px)
---------------------------------------------------------------------------- */
-@media (max-width: 400px) {
-  .mobile-fixed-logo,
-  #left-nav .logo {
-    display: none !important;
-  }
-}
-
-/* ---------------------------------------------------------------------------
-   Préférences de mouvement réduit (Accessibilité)
---------------------------------------------------------------------------- */
+/* ========================================
+   ACCESSIBILITY - Reduced motion
+   ======================================== */
 @media (prefers-reduced-motion: reduce) {
-  .detail-fullpage-btn {
-    animation: none !important;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
   }
 
+  .detail-fullpage-btn,
   .detail-fullpage-btn::after {
-    animation: none !important;
+    animation: none;
   }
 }

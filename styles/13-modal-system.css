@@ -412,25 +412,6 @@
    UTILITÉS - Classes helper pour les modales
 --------------------------------------------------------------------------- */
 
-/* Scrollbar custom dans les modales (Webkit) */
-.gp-modal::-webkit-scrollbar {
-  width: 8px;
-}
-
-.gp-modal::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.gp-modal::-webkit-scrollbar-thumb {
-  background: var(--gray-300);
-  border-radius: 4px;
-  transition: background 0.2s ease;
-}
-
-.gp-modal::-webkit-scrollbar-thumb:hover {
-  background: var(--info);
-}
-
 /* ---------------------------------------------------------------------------
    SEARCH MODAL - Styles spécifiques pour la recherche d'adresse
 --------------------------------------------------------------------------- */

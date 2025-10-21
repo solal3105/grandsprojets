@@ -117,6 +117,27 @@
   right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 5);
 }
 
+/* Contribute - Position 6 - Style primary comme dans la nav */
+#contribute-toggle {
+  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 6);
+  background: var(--primary);
+}
+
+#contribute-toggle i {
+  color: var(--white);
+  opacity: 1;
+}
+
+
+#contribute-toggle:hover i,
+#contribute-toggle:focus-visible i {
+  color: var(--white);
+}
+
+#contribute-toggle:active {
+  background: var(--primary-active);
+}
+
 /* Hide location toggle on desktop (géolocalisation mobile-only) */
 @media (min-width: 641px) {
   #location-toggle {

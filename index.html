@@ -63,22 +63,14 @@
 
     <!-- Barre de navigation -->
     <div id="left-nav">
-      <!-- Wrapper pour le scroll (ne contient PAS les submenus) -->
       <div class="nav-scroll-wrapper">
         <div class="logo">
-            <img src="img/logo.svg" alt="GrandsProjet.fr" />
-          </div>
-        <!-- Catégories dynamiques générées depuis category_icons -->
+          <img src="img/logo.svg" alt="GrandsProjet.fr" />
+        </div>
         <div id="dynamic-categories"></div>
-        <!-- Bouton contribution (DANS le wrapper) -->
-        <button class="nav-category" id="nav-contribute" aria-label="Proposer une contribution" title="Proposer une contribution">
-          <i class="fa-solid fa-plus" aria-hidden="true"></i>
-          <span class="label">contribuer</span>
-        </button>
       </div>
-      <!-- Sous-menus dynamiques (EN DEHORS du wrapper pour ne pas être affectés par overflow) -->
       <div id="dynamic-submenus"></div>
-  </div>
+    </div>
 
   <!-- Contribution modal (loaded dynamically) -->
   <div id="contrib-modal-container"></div>
@@ -103,6 +95,9 @@
     </button>
     <button id="search-toggle" aria-label="Rechercher une adresse" title="Rechercher une adresse">
       <i class="fas fa-search"></i>
+    </button>
+    <button id="contribute-toggle" aria-label="Proposer une contribution" title="Proposer une contribution">
+      <i class="fas fa-plus"></i>
     </button>
     
     <!-- Search modal -->

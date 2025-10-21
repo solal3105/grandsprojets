@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="fr" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GrandsProjets – Votre carte publique des projets urbains</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#14AE5C',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    
+    * { 
+      -webkit-font-smoothing: antialiased; 
+      -moz-osx-font-smoothing: grayscale; 
+    }
+    
+    body { 
+      font-family: 'Inter', sans-serif;
+      line-height: 1.6;
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+    
+    p {
+      line-height: 1.75;
+    }
+    
+    .hero-bg { 
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 100%), 
+                  url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600"><rect fill="%230f172a" width="1200" height="600"/></svg>');
+      background-size: cover;
+      background-attachment: fixed;
+    }
+    
+    .gradient-text {
+      background: linear-gradient(135deg, #14AE5C 0%, #10b981 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .card-hover {
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .card-hover:hover {
+      transform: translateY(-8px) scale(1.02);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+    
+    .btn-hover {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .btn-hover::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s;
+    }
+    
+    .btn-hover:hover::before {
+      left: 100%;
+    }
+    
+    .smooth-scroll {
+      scroll-behavior: smooth;
+    }
+    
+    details summary {
+      list-style: none;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.3s ease;
+    }
+    
+    details summary::-webkit-details-marker {
+      display: none;
+    }
+    
+    details summary::after {
+      content: '+';
+      float: right;
+      font-size: 1.5rem;
+      font-weight: bold;
+      transition: transform 0.3s ease;
+    }
+    
+    details[open] summary::after {
+      transform: rotate(45deg);
+    }
+    
+    details[open] summary {
+      color: #ffdd00;
+    }
+    
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .animate-fade-in {
+      animation: fadeInUp 0.6s ease-out forwards;
+    }
+    
+    /* Hero Background Image */
+    .hero-background {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background-image: url('landing-page/header.png');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      z-index: 0;
+    }
+    
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(17, 24, 39, 0.8) 0%, rgba(31, 41, 55, 0.9) 100%);
+      z-index: 1;
+    }
+  </style>
+</head>
+<body class="bg-white">
+
+  <!-- HEADER -->
+  <header class="fixed top-0 w-full bg-white/95 backdrop-blur-md shadow-sm z-50 border-b border-gray-100">
+    <nav class="container mx-auto px-6 py-5 flex items-center justify-between">
+      <a href="#" class="flex items-center space-x-3 group">
+        <img src="../img/logo.svg" alt="GrandsProjets" class="h-12 transition-all group-hover:scale-105">
+      </a>
+      <div class="hidden md:flex items-center space-x-2">
+        <a href="#fonctionnement" class="px-5 py-2.5 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-xl font-medium transition-all">Fonctionnement</a>
+        <a href="#tarifs" class="px-5 py-2.5 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-xl font-medium transition-all">Tarifs</a>
+        <a href="https://grandsprojets.com" target="_blank" class="px-5 py-2.5 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-xl font-medium transition-all">Voir la carte</a>
+      </div>
+      <button class="contact-modal-btn bg-primary hover:bg-green-600 px-7 py-3 rounded-full font-bold text-white btn-hover shadow-lg hover:shadow-xl transition-all border-0 cursor-pointer">Demander une démo</button>
+    </nav>
+  </header>
+
+  <!-- HERO -->
+  <section class="relative min-h-screen flex items-center text-white pt-20 overflow-hidden">
+    <!-- Background Image -->
+    <div class="hero-background"></div>
+    
+    <!-- Overlay pour lisibilité -->
+    <div class="hero-overlay"></div>
+    
+    <!-- Content -->
+    <div class="container mx-auto px-6 text-center relative z-20">
+      <h1 class="text-4xl md:text-6xl font-extrabold mb-6 leading-tight">
+        Votre carte publique des projets<br><span class="gradient-text">et travaux du territoire</span>
+      </h1>
+      <p class="text-xl md:text-2xl mb-12 font-light text-gray-100">Tous vos projets sur une carte publique</p>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center mb-16">
+        <button class="contact-modal-btn bg-primary hover:bg-green-600 px-10 py-5 rounded-full font-bold text-xl text-white btn-hover shadow-2xl border-0 cursor-pointer">Demander une démo</button>
+        <a href="https://grandsprojets.com" target="_blank" class="bg-white/10 hover:bg-white/20 backdrop-blur-sm px-10 py-5 rounded-full font-semibold text-xl border border-white/20 btn-hover">Voir un exemple <i class="fas fa-arrow-right ml-2"></i></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- UNE CARTE PUBLIQUE -->
+  <section class="py-20 bg-white">
+    <div class="container mx-auto px-6 max-w-6xl">
+      <!-- Titre + Accroche -->
+      <div class="text-center mb-16">
+        <div class="text-5xl mb-4">🗺️</div>
+        <h2 class="text-3xl md:text-5xl font-extrabold mb-6">Une carte publique, claire et ouverte</h2>
+        <p class="text-xl text-gray-600 leading-relaxed max-w-4xl mx-auto">
+          Restituer de façon synthétique et ludique les grands projets urbains. Expliquer le sens des travaux à travers un outil numérique en open data.
+        </p>
+      </div>
+
+      <!-- Constat vs Solution -->
+      <div class="grid md:grid-cols-2 gap-8 mb-12">
+        <!-- Le Constat -->
+        <div class="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-8 border border-gray-100 shadow-sm">
+          <div class="flex items-center mb-6">
+            <div class="text-3xl mr-3">🚧</div>
+            <h3 class="text-2xl font-bold text-gray-900">Le constat</h3>
+          </div>
+          <p class="text-base text-gray-700 mb-5 font-medium">Les usagers peinent à :</p>
+          <ul class="space-y-3 text-base text-gray-700">
+            <li class="flex items-start">
+              <i class="fas fa-times-circle text-red-500 mr-3 mt-1 flex-shrink-0"></i>
+              <span>Savoir ce qui se passe près de chez eux</span>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-times-circle text-red-500 mr-3 mt-1 flex-shrink-0"></i>
+              <span>Connaître la durée des travaux</span>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-times-circle text-red-500 mr-3 mt-1 flex-shrink-0"></i>
+              <span>Comprendre les impacts sur leur quotidien</span>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-times-circle text-red-500 mr-3 mt-1 flex-shrink-0"></i>
+              <span>Trouver les documents officiels</span>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-times-circle text-red-500 mr-3 mt-1 flex-shrink-0"></i>
+              <span>Avoir une vision d'ensemble du territoire</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- La Solution -->
+        <div class="bg-gradient-to-br from-primary/5 to-green-50/50 rounded-2xl p-8 border border-primary/20 shadow-sm">
+          <div class="flex items-center mb-6">
+            <div class="text-3xl mr-3">💡</div>
+            <h3 class="text-2xl font-bold text-gray-900">La solution</h3>
+          </div>
+          <ul class="space-y-5 text-base text-gray-800">
+            <li class="flex items-start">
+              <i class="fas fa-check-circle text-primary mr-3 mt-1 flex-shrink-0 text-lg"></i>
+              <div>
+                <span class="font-bold block mb-1">Une carte travaux</span>
+                <span class="text-gray-700">Tous vos projets et chantiers sur une carte interactive</span>
+              </div>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-check-circle text-primary mr-3 mt-1 flex-shrink-0 text-lg"></i>
+              <div>
+                <span class="font-bold block mb-1">Un outil de cartographie des projets urbains intuitif</span>
+                <span class="text-gray-700">Interface simple, accessible à tous</span>
+              </div>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-check-circle text-primary mr-3 mt-1 flex-shrink-0 text-lg"></i>
+              <div>
+                <span class="font-bold block mb-1">Une mise en valeur des données publiques existantes</span>
+                <span class="text-gray-700">Redirection vers sites, PDF de concertation, images des projets</span>
+              </div>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-check-circle text-primary mr-3 mt-1 flex-shrink-0 text-lg"></i>
+              <div>
+                <span class="font-bold block mb-1">Un outil en marque blanche</span>
+                <span class="text-gray-700">À votre image, intégrable sur votre site web</span>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Preuve + CTA -->
+      <div class="text-center">
+        <p class="text-lg text-gray-600 mb-6 font-medium">
+          <i class="fas fa-clock text-primary mr-2"></i>Déploiement rapide
+          <span class="mx-3">•</span>
+          <i class="fas fa-shield-alt text-primary mr-2"></i>Données sous votre contrôle
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <button class="contact-modal-btn bg-primary hover:bg-green-600 px-8 py-4 rounded-full font-bold text-lg text-white btn-hover shadow-lg border-0 cursor-pointer">Demander une démo</button>
+          <a href="https://grandsprojets.com" target="_blank" class="bg-gray-100 hover:bg-gray-200 px-8 py-4 rounded-full font-semibold text-lg text-gray-900 btn-hover">Voir un exemple <i class="fas fa-arrow-right ml-2"></i></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CARTE INTERACTIVE -->
+  <section class="py-16 bg-gradient-to-br from-gray-900 to-gray-800">
+    <div class="container mx-auto px-6 max-w-6xl">
+      <div class="text-center mb-10">
+        <h2 class="text-3xl md:text-4xl font-extrabold mb-3 text-white">Exemple d'intégration</h2>
+        <p class="text-lg text-gray-300 max-w-2xl mx-auto">La métropole de lyon</p>
+      </div>
+      <div class="relative group">
+        <div class="absolute -inset-1 bg-gradient-to-r from-primary via-green-400 to-primary rounded-3xl blur opacity-25 group-hover:opacity-40 transition duration-1000"></div>
+        <div class="relative bg-white rounded-3xl p-3 shadow-2xl">
+          <div class="aspect-video rounded-2xl overflow-hidden">
+            <iframe 
+              src="https://grandsprojets.com" 
+              class="w-full h-full border-0"
+              title="Carte interactive GrandsProjets - Exemple Lyon"
+              loading="lazy">
+            </iframe>
+          </div>
+        </div>
+      </div>
+      <div class="text-center mt-8">
+        <a href="https://grandsprojets.com" target="_blank" class="inline-flex items-center text-primary hover:text-green-400 font-bold text-base bg-white/10 hover:bg-white/20 px-6 py-3 rounded-full transition-all backdrop-blur-sm">
+          Explorer la carte en plein écran <i class="fas fa-external-link-alt ml-3"></i>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- POUR QUI -->
+  <section id="fonctionnement" class="py-20 bg-white">
+    <div class="container mx-auto px-6 max-w-6xl">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-5xl font-extrabold mb-6">Pour qui ?</h2>
+        <p class="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+          Un outil pensé pour tous les acteurs publics qui souhaitent informer clairement sur leurs projets urbains
+        </p>
+      </div>
+
+      <!-- Grille 3 colonnes -->
+      <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        
+        <!-- Collectivités -->
+        <div class="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-8 border border-gray-100 shadow-sm hover:shadow-lg transition-all">
+          <div class="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+            <i class="fas fa-landmark text-primary text-3xl"></i>
+          </div>
+          <h3 class="text-2xl font-bold mb-3 text-center text-gray-900">Collectivités</h3>
+          <p class="text-base text-gray-600 mb-6 text-center leading-relaxed">
+            Communes, métropoles, intercommunalités
+          </p>
+          <div class="space-y-3">
+            <div class="flex items-start">
+              <i class="fas fa-arrow-right text-primary mr-3 mt-1 flex-shrink-0 text-sm"></i>
+              <p class="text-sm text-gray-700"><span class="font-semibold">Informer</span> les habitants sur les travaux et projets</p>
+            </div>
+            <div class="flex items-start">
+              <i class="fas fa-arrow-right text-primary mr-3 mt-1 flex-shrink-0 text-sm"></i>
+              <p class="text-sm text-gray-700"><span class="font-semibold">Valoriser</span> l'action publique et les investissements</p>
+            </div>
+            <div class="flex items-start">
+              <i class="fas fa-arrow-right text-primary mr-3 mt-1 flex-shrink-0 text-sm"></i>
+              <p class="text-sm text-gray-700"><span class="font-semibold">Réduire</span> les sollicitations et réclamations</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Services techniques -->
+        <div class="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-8 border border-gray-100 shadow-sm hover:shadow-lg transition-all">
+          <div class="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+            <i class="fas fa-hard-hat text-primary text-3xl"></i>
+          </div>
+          <h3 class="text-2xl font-bold mb-3 text-center text-gray-900">Services techniques</h3>
+          <p class="text-base text-gray-600 mb-6 text-center leading-relaxed">
+            Voirie, urbanisme, mobilités, espaces publics
+          </p>
+          <div class="space-y-3">
+            <div class="flex items-start">
+              <i class="fas fa-arrow-right text-primary mr-3 mt-1 flex-shrink-0 text-sm"></i>
+              <p class="text-sm text-gray-700"><span class="font-semibold">Publier</span> rapidement les chantiers en cours</p>
+            </div>
+            <div class="flex items-start">
+              <i class="fas fa-arrow-right text-primary mr-3 mt-1 flex-shrink-0 text-sm"></i>
+              <p class="text-sm text-gray-700"><span class="font-semibold">Centraliser</span> toutes les données projets</p>
+            </div>
+            <div class="flex items-start">
+              <i class="fas fa-arrow-right text-primary mr-3 mt-1 flex-shrink-0 text-sm"></i>
+              <p class="text-sm text-gray-700"><span class="font-semibold">Faciliter</span> la coordination entre services</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Associations & citoyens -->
+        <div class="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-8 border border-gray-100 shadow-sm hover:shadow-lg transition-all">
+          <div class="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+            <i class="fas fa-users text-primary text-3xl"></i>
+          </div>
+          <h3 class="text-2xl font-bold mb-3 text-center text-gray-900">Associations</h3>
+          <p class="text-base text-gray-600 mb-6 text-center leading-relaxed">
+            Conseils de quartier, associations citoyennes
+          </p>
+          <div class="space-y-3">
+            <div class="flex items-start">
+              <i class="fas fa-arrow-right text-primary mr-3 mt-1 flex-shrink-0 text-sm"></i>
+              <p class="text-sm text-gray-700"><span class="font-semibold">Suivre</span> les projets du territoire</p>
+            </div>
+            <div class="flex items-start">
+              <i class="fas fa-arrow-right text-primary mr-3 mt-1 flex-shrink-0 text-sm"></i>
+              <p class="text-sm text-gray-700"><span class="font-semibold">Accéder</span> aux documents de concertation</p>
+            </div>
+            <div class="flex items-start">
+              <i class="fas fa-arrow-right text-primary mr-3 mt-1 flex-shrink-0 text-sm"></i>
+              <p class="text-sm text-gray-700"><span class="font-semibold">Dialoguer</span> avec les porteurs de projets</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- TARIFS -->
+  <section id="tarifs" class="py-20 bg-gradient-to-br from-primary to-green-500">
+    <div class="container mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-5xl font-extrabold mb-3 text-gray-900">Tarifs</h2>
+        <p class="text-xl text-gray-800 font-medium">Simple et transparent</p>
+      </div>
+      <div class="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+        
+        <!-- GRATUIT -->
+        <div class="bg-white rounded-2xl p-6 shadow-lg">
+          <h3 class="text-xl font-bold mb-2 text-gray-900">GRATUIT</h3>
+          <p class="text-gray-600 mb-3 text-sm">Associations, missions locales, ONG</p>
+          <div class="text-3xl font-bold mb-5 text-gray-900">0€<span class="text-base font-normal text-gray-600">/mois</span></div>
+          <ul class="space-y-3 mb-8">
+            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Carte publique</span></li>
+            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">50 projets max</span></li>
+            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Support email</span></li>
+          </ul>
+          <a href="#contact" class="block text-center bg-gray-200 hover:bg-gray-300 px-6 py-3 rounded-full font-semibold btn-hover transition-all text-gray-900">Demander accès</a>
+        </div>
+
+        <!-- STANDARD (MISE EN AVANT) -->
+        <div class="bg-white rounded-2xl p-6 shadow-2xl border-2 border-gray-900 relative transform md:scale-105">
+          <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-gray-900 text-primary px-4 py-1 rounded-full text-xs font-bold">⭐ POPULAIRE</div>
+          <h3 class="text-xl font-bold mb-2 text-gray-900">STANDARD</h3>
+          <p class="text-gray-600 mb-3 text-sm">Collectivités, communes</p>
+          <div class="text-4xl font-extrabold mb-1 text-gray-900">199€<span class="text-base font-normal text-gray-600">/mois</span></div>
+          <p class="text-xs text-gray-500 mb-5">À partir de</p>
+          <ul class="space-y-3 mb-8">
+            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm font-medium">Tout Gratuit +</span></li>
+            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Marque blanche</span></li>
+            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Votre nom de domaine</span></li>
+            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Projets illimités</span></li>
+            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Formation incluse</span></li>
+            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Support prioritaire</span></li>
+          </ul>
+          <button class="contact-modal-btn block w-full text-center bg-gray-900 hover:bg-gray-800 text-white px-6 py-3 rounded-full font-bold btn-hover shadow-lg border-0 cursor-pointer">Demander une démo</button>
+        </div>
+
+        <!-- PRO -->
+        <div class="bg-white rounded-2xl p-6 shadow-lg">
+          <h3 class="text-xl font-bold mb-2 text-gray-900">PRO</h3>
+          <p class="text-gray-600 mb-3 text-sm">Développement sur mesure</p>
+          <div class="text-3xl font-bold mb-5 text-gray-900">Nous contacter</div>
+          <p class="text-xs text-gray-500 mb-5">Sur devis</p>
+          <ul class="space-y-3 mb-8">
+            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm font-medium">Tout Standard +</span></li>
+            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">API REST complète</span></li>
+            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Support dédié</span></li>
+            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">SLA garanti</span></li>
+            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Développement personnalisé</span></li>
+          </ul>
+          <a href="#contact" class="block text-center bg-gray-200 hover:bg-gray-300 px-6 py-3 rounded-full font-semibold btn-hover transition-all text-gray-900">Nous contacter</a>
+        </div>
+
+      </div>
+      <p class="text-center text-gray-900 font-medium mt-12">Sans engagement • Données sous votre contrôle</p>
+    </div>
+  </section>
+
+  <!-- VALEURS -->
+  <section class="py-20 bg-white">
+    <div class="container mx-auto px-6">
+      <h2 class="text-3xl md:text-5xl font-extrabold text-center mb-16">Nos valeurs</h2>
+      <div class="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div class="text-center p-6 bg-gradient-to-br from-gray-50 to-white rounded-3xl">
+          <div class="text-5xl mb-5">🔓</div>
+          <h3 class="text-xl font-bold mb-3">Open Source</h3>
+          <p class="text-gray-600 mb-5 text-base leading-relaxed">Code ouvert et transparent</p>
+          <a href="https://github.com/solal3105/grandsprojets/" target="_blank" class="text-primary hover:text-green-600 font-semibold">Voir le code →</a>
+        </div>
+        <div class="text-center p-6 bg-gradient-to-br from-gray-50 to-white rounded-3xl">
+          <div class="text-5xl mb-5">🌍</div>
+          <h3 class="text-xl font-bold mb-3">Citoyen</h3>
+          <p class="text-gray-600 text-base leading-relaxed">Indépendant et sans publicité</p>
+        </div>
+        <div class="text-center p-6 bg-gradient-to-br from-gray-50 to-white rounded-3xl">
+          <div class="text-5xl mb-5">🤝</div>
+          <h3 class="text-xl font-bold mb-3">Accessibilité</h3>
+          <p class="text-gray-600 text-base leading-relaxed">Gratuit pour les associations</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="py-20 bg-gradient-to-br from-gray-50 to-gray-100">
+    <div class="container mx-auto px-6 max-w-4xl">
+      <h2 class="text-3xl md:text-5xl font-extrabold text-center mb-16">Questions</h2>
+      <div class="space-y-4">
+        <details class="bg-white rounded-xl p-6 shadow-sm">
+          <summary class="font-semibold cursor-pointer">Où sont stockées nos données ?</summary>
+          <p class="mt-4 text-gray-600">Vos données sont hébergées en Europe (Supabase/PostgreSQL) et restent votre propriété. Compatible RGPD.</p>
+        </details>
+        <details class="bg-white rounded-xl p-6 shadow-sm">
+          <summary class="font-semibold cursor-pointer">Comment intégrer la carte à notre site ?</summary>
+          <p class="mt-4 text-gray-600">Via iframe simple ou nom de domaine personnalisé (ex: projets.votrecommune.fr)</p>
+        </details>
+        <details class="bg-white rounded-xl p-6 shadow-sm">
+          <summary class="font-semibold cursor-pointer">Qui peut publier et modifier les projets ?</summary>
+          <p class="mt-4 text-gray-600">Vous contrôlez les accès. Interface simple sans compétence technique requise.</p>
+        </details>
+        <details class="bg-white rounded-xl p-6 shadow-sm">
+          <summary class="font-semibold cursor-pointer">Est-ce compatible avec nos données GeoJSON existantes ?</summary>
+          <p class="mt-4 text-gray-600">Oui, import GeoJSON standard et API REST disponible.</p>
+        </details>
+        <details class="bg-white rounded-xl p-6 shadow-sm">
+          <summary class="font-semibold cursor-pointer">Combien de temps pour une mise en ligne ?</summary>
+          <p class="mt-4 text-gray-600">Déploiement en 48-72h après validation du périmètre.</p>
+        </details>
+        <details class="bg-white rounded-xl p-6 shadow-sm">
+          <summary class="font-semibold cursor-pointer">Peut-on avoir notre propre nom de domaine ?</summary>
+          <p class="mt-4 text-gray-600">Oui, nom de domaine personnalisé inclus dans les offres Pro et Entreprise.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA FINAL -->
+  <section id="contact" class="py-24 bg-gradient-to-br from-green-400 to-primary text-gray-900">
+    <div class="container mx-auto px-6 text-center">
+      <h2 class="text-3xl md:text-5xl font-extrabold mb-8 leading-tight">Prêt à informer<br>vos usagers ?</h2>
+      <button id="contact-cta-btn" class="inline-block bg-gray-900 hover:bg-gray-800 text-white px-12 py-5 rounded-full font-bold text-xl shadow-2xl hover:shadow-3xl btn-hover border-0 cursor-pointer">Demander une démo personnalisée</button>
+      <div class="mt-8 space-y-2">
+        <p class="flex items-center justify-center"><i class="fas fa-check-circle mr-2"></i>Sans engagement</p>
+        <p class="flex items-center justify-center"><i class="fas fa-check-circle mr-2"></i>Réponse sous 24h</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="bg-gray-900 text-white py-12">
+    <div class="container mx-auto px-6">
+      <div class="grid md:grid-cols-3 gap-8 mb-8">
+        <div>
+          <div class="flex items-center space-x-2 mb-4">
+            <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+              <i class="fas fa-map-marked-alt text-gray-900"></i>
+            </div>
+            <span class="text-xl font-bold">GrandsProjets</span>
+          </div>
+          <p class="text-gray-400">Votre carte publique des projets urbains</p>
+        </div>
+        <div>
+          <h3 class="font-bold mb-4">Navigation</h3>
+          <ul class="space-y-2 text-gray-400">
+            <li><a href="#fonctionnement" class="hover:text-white">Fonctionnement</a></li>
+            <li><a href="#tarifs" class="hover:text-white">Tarifs</a></li>
+            <li><a href="https://grandsprojets.com" target="_blank" class="hover:text-white transition">Exemple en direct</a></li>
+            <li><a href="https://github.com/solal3105/grandsprojets/" target="_blank" class="hover:text-white">Code source</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="font-bold mb-4">Contact</h3>
+          <ul class="space-y-2 text-gray-400">
+            <li><a href="mailto:solal.gendrin@gmail.com" class="hover:text-white">solal.gendrin@gmail.com</a></li>
+            <li><a href="https://github.com/solal3105/grandsprojets/" target="_blank" class="hover:text-white">Code source</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="border-t border-gray-800 pt-8 text-center text-gray-400 text-sm">
+        <p class="mb-4">© 2025 GrandsProjets • Développé avec ❤️ par Solal • Code open source sur GitHub</p>
+        <p><a href="#" class="hover:text-white">Mentions légales</a> • <a href="#" class="hover:text-white">CGU</a> • <a href="#" class="hover:text-white">Politique de confidentialité</a></p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- MODALE DE CONTACT -->
+  <div id="contact-modal" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="contact-title" aria-hidden="true" style="display:none">
+    <div class="gp-modal" role="document">
+      <header class="gp-modal-header">
+        <h1 class="gp-modal-title" id="contact-title">Demander une démo</h1>
+        <button class="btn-secondary gp-modal-close" id="contact-close" aria-label="Fermer">&times;</button>
+      </header>
+      <div class="gp-modal-body">
+        <form id="contact-form">
+          <div class="space-y-4">
+            <div>
+              <label for="contact-name" class="block text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
+              <input type="text" id="contact-name" name="name" required 
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+            <div>
+              <label for="contact-email" class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+              <input type="email" id="contact-email" name="email" required 
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+            <div>
+              <label for="contact-organization" class="block text-sm font-medium text-gray-700 mb-1">Organisation</label>
+              <input type="text" id="contact-organization" name="organization" 
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+            <div>
+              <label for="contact-message" class="block text-sm font-medium text-gray-700 mb-1">Message</label>
+              <textarea id="contact-message" name="message" rows="4" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        placeholder="Décrivez votre projet et vos besoins..."></textarea>
+            </div>
+          </div>
+          <div class="mt-6 flex gap-3">
+            <button type="button" class="btn-secondary flex-1" id="contact-cancel">Annuler</button>
+            <button type="submit" class="btn-primary flex-1">Envoyer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- STYLES POUR LA MODALE -->
+  <style>
+    .gp-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(8px);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .gp-modal {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      max-width: 500px;
+      width: 100%;
+      max-height: 90vh;
+      overflow: hidden;
+      animation: modalSlideIn 0.3s ease-out;
+    }
+
+    .gp-modal-header {
+      padding: 24px 24px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+
+    .gp-modal-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #111827;
+      margin: 0;
+    }
+
+    .gp-modal-close {
+      background: #f3f4f6;
+      border: none;
+      border-radius: 8px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 18px;
+      color: #6b7280;
+      transition: all 0.2s;
+    }
+
+    .gp-modal-close:hover {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .gp-modal-body {
+      padding: 0 24px 24px;
+    }
+
+    .btn-primary {
+      background: #14AE5C;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary:hover {
+      background: #10b981;
+    }
+
+    .btn-secondary {
+      background: #f3f4f6;
+      color: #374151;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: #e5e7eb;
+    }
+
+    @keyframes modalSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+  </style>
+
+  <!-- JAVASCRIPT POUR LA MODALE -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const modal = document.getElementById('contact-modal');
+      const openButtons = document.querySelectorAll('.contact-modal-btn, #contact-cta-btn');
+      const closeButton = document.getElementById('contact-close');
+      const cancelButton = document.getElementById('contact-cancel');
+      const form = document.getElementById('contact-form');
+
+      // Ouvrir la modale
+      openButtons.forEach(button => {
+        button.addEventListener('click', function() {
+          modal.style.display = 'flex';
+          modal.setAttribute('aria-hidden', 'false');
+          document.body.style.overflow = 'hidden';
+        });
+      });
+
+      // Fermer la modale
+      function closeModal() {
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        form.reset();
+      }
+
+      closeButton.addEventListener('click', closeModal);
+      cancelButton.addEventListener('click', closeModal);
+
+      // Fermer en cliquant sur l'overlay
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          closeModal();
+        }
+      });
+
+      // Fermer avec Escape
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal.style.display === 'flex') {
+          closeModal();
+        }
+      });
+
+      // Gérer l'envoi du formulaire
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        const data = {
+          name: formData.get('name'),
+          email: formData.get('email'),
+          organization: formData.get('organization'),
+          message: formData.get('message')
+        };
+
+        // Créer le lien mailto
+        const subject = encodeURIComponent('Demande de démo - GrandsProjets');
+        const body = encodeURIComponent(
+          `Bonjour,\n\n` +
+          `Je souhaite demander une démo de GrandsProjets.\n\n` +
+          `Nom: ${data.name}\n` +
+          `Email: ${data.email}\n` +
+          `Organisation: ${data.organization || 'Non spécifiée'}\n\n` +
+          `Message:\n${data.message || 'Aucun message spécifique'}\n\n` +
+          `Cordialement,\n${data.name}`
+        );
+        
+        const mailtoLink = `mailto:solal.gendrin@gmail.com?subject=${subject}&body=${body}`;
+        window.location.href = mailtoLink;
+        
+        closeModal();
+      });
+    });
+  </script>
+
+</body>
+</html>

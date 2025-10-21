@@ -2,6 +2,7 @@
    COMPONENTS - Composants réutilisables
    
    Organisation:
+   - Global Scrollbars: Apple-style minimalist scrollbars
    - Filters Container: Filter items, cards, animations (layout in 02-layout.css)
    - Basemap Menu: Tiles, animations, unified with filters
    - Active Filter Tags: Chips and badges
@@ -10,6 +11,55 @@
    - Project Details: Detail panels
    
    =========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   Global Scrollbars - Apple-style Minimalist
+   
+   Design system:
+   - Ultra thin and discrete (6px width)
+   - Rounded corners (pill shape)
+   - Transparent track
+   - Visible on hover only
+   - Auto-adapts to light/dark mode via CSS variables
+   - Works on Webkit (Chrome, Safari, Edge) and Firefox
+--------------------------------------------------------------------------- */
+
+/* Firefox - Thin scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-medium) transparent;
+}
+
+/* Webkit (Chrome, Safari, Edge) */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 10px;
+  transition: background 0.2s ease;
+}
+
+/* Visible on hover or active scroll */
+*:hover::-webkit-scrollbar-thumb,
+*:active::-webkit-scrollbar-thumb {
+  background: var(--border-medium);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-400);
+}
+
+/* Coins arrondis pour un look Apple */
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
 
 /* ---------------------------------------------------------------------------
    Filters Container - Icon Grid Design Ultra Clean
@@ -170,25 +220,6 @@
   .filter-label {
     font-size: 0.75rem;
   }
-}
-
-/* Smooth Scrollbar */
-#filters-container::-webkit-scrollbar {
-  width: 6px;
-}
-
-#filters-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-#filters-container::-webkit-scrollbar-thumb {
-  background: var(--gray-300);
-  border-radius: 10px;
-  transition: background 0.2s ease;
-}
-
-#filters-container::-webkit-scrollbar-thumb:hover {
-  background: var(--primary);
 }
 
 .filter-field {
@@ -723,9 +754,9 @@
   justify-content: center;
   gap: 10px;
   position: relative;
-  background: linear-gradient(135deg, var(--color-primary, var(--primary)) 0%, var(--color-primary, var(--primary)) 50%, var(--primary-hover) 100%);
+  background: var(--color-primary);
   background-size: 220% 220%;
-  color: var(--black);
+  color: var(--white);
   border: 1px solid var(--white-alpha-28);
   padding: 12px 22px;
   border-radius: 999px;
@@ -1167,25 +1198,6 @@
     transform: scale(1);
     opacity: 1;
   }
-}
-
-/* Smooth Scrollbar for basemap menu */
-.basemap-menu::-webkit-scrollbar {
-  width: 6px;
-}
-
-.basemap-menu::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.basemap-menu::-webkit-scrollbar-thumb {
-  background: var(--gray-300);
-  border-radius: 10px;
-  transition: background 0.2s ease;
-}
-
-.basemap-menu::-webkit-scrollbar-thumb:hover {
-  background: var(--primary);
 }
 
 /* Mobile Optimizations for basemap menu */

@@ -23,56 +23,28 @@
   width: 300px;
 }
 
-/* Wrapper interne pour le scroll */
+/* Wrapper interne */
 .nav-scroll-wrapper {
-  overflow-y: auto;
-  overflow-x: hidden;
-  max-height: calc(70vh - 60px);
-  scrollbar-width: thin;
-  scrollbar-color: var(--black-alpha-20) transparent;
   display: flex;
   flex-direction: column;
   gap: 0;
-  min-height: 100%;
 }
 
-/* Container des catégories dynamiques - ne doit pas grandir */
+/* Container des catégories dynamiques */
 #dynamic-categories {
   display: flex;
   flex-direction: column;
   gap: 0;
-  flex-shrink: 0;
-  flex-grow: 0;
   padding: 20px 0;
 }
 
-/* Boutons dans dynamic-categories prennent toute la hauteur/largeur */
-#dynamic-categories .nav-category,
-#nav-contribute {
+/* Boutons de catégories */
+#dynamic-categories .nav-category {
   width: 100%;
-  height: auto;
   min-height: 80px;
-  flex: 1;
   margin: 0;
 }
 
-/* Scrollbar styling pour Webkit (Chrome, Safari) */
-.nav-scroll-wrapper::-webkit-scrollbar {
-  width: 6px;
-}
-
-.nav-scroll-wrapper::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.nav-scroll-wrapper::-webkit-scrollbar-thumb {
-  background: var(--black-alpha-20);
-  border-radius: 3px;
-}
-
-.nav-scroll-wrapper::-webkit-scrollbar-thumb:hover {
-  background: var(--black-alpha-30);
-}
 
 /* Logo */
 #left-nav .logo {
@@ -86,17 +58,7 @@
   height: auto;
 }
 
-#left-nav p {
-  font-size: 12px;
-  margin: 0;
-  font-weight: 600;
-  width: 100%;
-  text-align: center;
-  padding: 0;
-  margin-bottom: 20px;
-}
-
-/* Standalone mobile fixed logo (hidden by default) */
+/* Standalone mobile fixed logo */
 .mobile-fixed-logo {
   position: fixed;
   top: 20px;
@@ -114,9 +76,7 @@
   display: block;
 }
 
-/* ---------------------------------------------------------------------------
-   Boutons de catégories (.nav-category)
---------------------------------------------------------------------------- */
+/* Boutons de catégories */
 .nav-category {
   display: flex;
   flex-direction: column;
@@ -216,46 +176,11 @@
   color: var(--gray-700);
 }
 
-/* Bouton contribuer - couleur primaire uniquement */
-#nav-contribute {
-  background: var(--primary);
-}
-
-#nav-contribute i,
-#nav-contribute .label {
-  color: var(--gray-900);
-}
-
-#nav-contribute:hover {
-  background: var(--primary-hover);
-}
-
-#nav-contribute:hover i,
-#nav-contribute:hover .label {
-  color: var(--gray-900);
-}
-
-#nav-contribute.active {
-  background: var(--primary-active);
-}
-
-#nav-contribute.active i,
-#nav-contribute.active .label {
-  color: var(--gray-900);
-}
-
-/* ---------------------------------------------------------------------------
-   Sous-menus (.submenu)
---------------------------------------------------------------------------- */
-/* Cacher par défaut */
+/* Sous-menus */
 .submenu {
   display: none;
-}
-
-/* Règles de positionnement et style */
-.submenu {
   position: absolute;
-  top: 0; /* même position verticale que left-nav */
+  top: 0;
   left: 100%;
   width: 320px;
   min-height: 100%;
@@ -265,10 +190,6 @@
   border-radius: 0 20px 20px 20px;
   z-index: 1200;
   overflow-y: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  
-  /* Animation d'apparition élégante */
   opacity: 0;
   transform: translateX(-20px) scale(0.95);
   transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1),
@@ -276,7 +197,7 @@
               box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* État visible avec animation */
+/* État visible */
 .submenu[style*="display: block"],
 .submenu.visible {
   opacity: 1;
@@ -284,7 +205,7 @@
   box-shadow: 2px 0 20px var(--black-alpha-12);
 }
 
-/* Animation des items de la liste au chargement */
+/* Animation des items */
 .submenu .project-item {
   opacity: 0;
   transform: translateY(10px);
@@ -308,15 +229,7 @@
   }
 }
 
-/* Masquer la barre de défilement pour WebKit */
-.submenu::-webkit-scrollbar {
-  display: none;
-}
-
-/* ---------------------------------------------------------------------------
-   Headers de sous-menus
---------------------------------------------------------------------------- */
-/* En-tête pour les listes de projets dans les sous-menus */
+/* Headers de sous-menus */
 .detail-header-project-list {
   position: sticky;
   top: 0;
@@ -329,7 +242,7 @@
   flex-direction: column;
 }
 
-/* En-tête spécifique pour les détails de projet */
+/* Header détails projet */
 .project-header-container {
   position: sticky;
   top: 0;
@@ -386,7 +299,7 @@
   border-radius: 50% !important;
 }
 
-/* Titre dans les en-têtes */
+/* Titres */
 .detail-header-project-list h2,
 .project-header-container .project-title {
   font-weight: bold;
@@ -429,7 +342,6 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding-top: 20px;
   margin: 0 20px;
 }
 
@@ -462,8 +374,7 @@
   justify-content: space-between;
   background: var(--white-alpha-72);
   backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border-medium);
-  padding: 20px;
+  padding: 10px 20px;
 }
 
 .detail-header-submenu .header-left {

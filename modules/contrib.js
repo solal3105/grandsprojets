@@ -164,7 +164,7 @@
   }
 
   function setupContrib() {
-    const contribToggle   = document.getElementById('nav-contribute');
+    const contribToggle   = document.getElementById('contribute-toggle');
     let contribOverlay  = document.getElementById('contrib-overlay');
     let contribCloseBtn = document.getElementById('contrib-close');
     let contribModal    = contribOverlay ? contribOverlay.querySelector('.gp-modal') : null;

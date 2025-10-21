@@ -71,11 +71,22 @@ export const TOGGLES_CONFIG = {
     hasModal: true,
     modalSelector: '#about-overlay',
     defaultState: false
+  },
+  
+  contribute: {
+    id: 'contribute-toggle',
+    icon: 'fa-plus',
+    label: 'Contribuer',
+    ariaLabel: 'Proposer une contribution',
+    position: 6,
+    defaultState: false
   }
 };
 
 /**
  * Ordre d'affichage des toggles (de droite à gauche en desktop)
+ * Note: 'contribute' est dans TOGGLES_CONFIG mais PAS dans TOGGLE_ORDER
+ * pour éviter qu'il soit géré dans une éventuelle modale de configuration
  */
 export const TOGGLE_ORDER = [
   'filters',
