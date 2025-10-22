@@ -159,8 +159,14 @@
 
       const categoriesWithData = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
       
-      // Vérifier city_branding.travaux pour activer le menu Travaux
-      if (city && city !== null && !categoriesWithData.includes('travaux')) {
+      // EXCEPTION: Toujours inclure "travaux" en mode Global (ville null/default)
+      if ((city === null || city === '' || city === 'default') && !categoriesWithData.includes('travaux')) {
+        console.log('[Main] ✅ Mode Global détecté, activation automatique du menu Travaux');
+        categoriesWithData.push('travaux');
+      }
+      
+      // Vérifier city_branding.travaux pour activer le menu Travaux (ville spécifique)
+      if (city && city !== null && city !== '' && city !== 'default' && !categoriesWithData.includes('travaux')) {
         try {
           if (window.supabaseService?.getCityBranding) {
             const branding = await window.supabaseService.getCityBranding(city);

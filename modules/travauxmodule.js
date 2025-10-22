@@ -180,13 +180,17 @@ const TravauxModule = (() => {
     const oldFilterContainer = document.getElementById('travaux-filters-container');
     if (oldFilterContainer) oldFilterContainer.remove();
 
-    // Charger la couche 'travaux' si nécessaire (avec loader minimal)
+    // Déterminer le layer à charger: 'chantiers' pour ville spécifique, 'travaux' pour Global
+    const activeCity = (typeof window.getActiveCity === 'function') ? window.getActiveCity() : (window.activeCity || null);
+    const layerToLoad = (activeCity && activeCity !== 'default') ? 'chantiers' : 'travaux';
+    
+    // Charger la couche si nécessaire (avec loader minimal)
     try {
-      const hasData = !!(DataModule.layerData && DataModule.layerData['travaux'] && Array.isArray(DataModule.layerData['travaux'].features) && DataModule.layerData['travaux'].features.length);
+      const hasData = !!(DataModule.layerData && DataModule.layerData[layerToLoad] && Array.isArray(DataModule.layerData[layerToLoad].features) && DataModule.layerData[layerToLoad].features.length);
       if (!hasData) {
         listEl.innerHTML = '<div class="gp-loading" aria-live="polite">Chargement des chantiers…</div>';
         if (typeof DataModule.loadLayer === 'function') {
-          await DataModule.loadLayer('travaux');
+          await DataModule.loadLayer(layerToLoad);
         }
       }
     } catch (_) { /* noop */ }
@@ -234,7 +238,7 @@ const TravauxModule = (() => {
       }
     }
 
-    const travauxData = DataModule.layerData && DataModule.layerData['travaux'];
+    const travauxData = DataModule.layerData && DataModule.layerData[layerToLoad];
     if (!travauxData || !travauxData.features || travauxData.features.length === 0) {
       listEl.innerHTML = '';
       const li = document.createElement('li');

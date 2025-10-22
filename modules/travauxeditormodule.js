@@ -20,7 +20,7 @@ const TravauxEditorModule = (() => {
       L.Icon.Default.mergeOptions({
         iconRetinaUrl: 'vendor/leaflet/images/marker-icon-2x.png',
         iconUrl: 'vendor/leaflet/images/marker-icon.png',
-        shadowUrl: 'vendor/leaflet/images/marker-shadow.png'
+        shadowUrl: '' // Désactiver le shadow pour éviter 404
       });
     }
     
