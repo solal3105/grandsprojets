@@ -158,9 +158,20 @@
       }
 
       const categoriesWithData = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
-      const travauxLayer = layersConfig.find(layer => layer.name === 'travaux');
-      if (travauxLayer && !categoriesWithData.includes('travaux')) {
-        categoriesWithData.push('travaux');
+      
+      // Vérifier city_branding.travaux pour activer le menu Travaux
+      if (city && city !== null && !categoriesWithData.includes('travaux')) {
+        try {
+          if (window.supabaseService?.getCityBranding) {
+            const branding = await window.supabaseService.getCityBranding(city);
+            if (branding && branding.travaux === true) {
+              console.log(`[Main] ✅ city_branding.travaux=true pour ${city}, activation menu Travaux`);
+              categoriesWithData.push('travaux');
+            }
+          }
+        } catch (err) {
+          console.warn('[Main] ⚠️ Erreur vérification city_branding.travaux:', err);
+        }
       }
       
       console.log('[Main] 📊 Catégories:', categoriesWithData);

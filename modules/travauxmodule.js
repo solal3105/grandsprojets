@@ -37,6 +37,12 @@ const TravauxModule = (() => {
             <span>Fermer</span>
           </button>
         </div>
+        <div class="header-center">
+          <button class="btn-primary travaux-add-btn" aria-label="Ajouter un chantier" style="display:none;">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+            <span>Ajouter un chantier</span>
+          </button>
+        </div>
         <div class="header-right">
           <button class="btn-secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true">
             <i class="fa-solid fa-compress" aria-hidden="true"></i>
@@ -44,7 +50,51 @@ const TravauxModule = (() => {
           </button>
         </div>
       </div>
-      <div class="project-list"></div>
+      
+      <!-- Zone de dessin (cachée par défaut) -->
+      <div id="travaux-drawing-panel" style="display:none; background: var(--surface-elevated); border-bottom: 1px solid var(--border-color); padding: 1em; margin: 0;">
+        <div style="display: flex; align-items: center; gap: 1em; margin-bottom: 1em;">
+          <i class="fa-solid fa-pen-to-square" style="color: var(--primary); font-size: 1.5em;"></i>
+          <div style="flex: 1;">
+            <strong style="display: block; margin-bottom: 0.25em;">Mode dessin activé</strong>
+            <p style="margin: 0; font-size: 0.9em; opacity: 0.8;">
+              Utilisez les outils ci-dessous pour dessiner la géométrie du chantier sur la carte
+            </p>
+          </div>
+        </div>
+        
+        <!-- Outils de dessin redesignés -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.5em; margin-bottom: 1em;">
+          <button id="draw-polyline" class="travaux-draw-tool" data-tool="polyline" title="Dessiner une ligne">
+            <i class="fa-solid fa-route"></i>
+            <span>Ligne</span>
+          </button>
+          <button id="draw-polygon" class="travaux-draw-tool" data-tool="polygon" title="Dessiner un polygone">
+            <i class="fa-solid fa-draw-polygon"></i>
+            <span>Polygone</span>
+          </button>
+          <button id="draw-marker" class="travaux-draw-tool" data-tool="marker" title="Placer un marqueur">
+            <i class="fa-solid fa-location-dot"></i>
+            <span>Marqueur</span>
+          </button>
+          <button id="draw-rectangle" class="travaux-draw-tool" data-tool="rectangle" title="Dessiner un rectangle">
+            <i class="fa-solid fa-square"></i>
+            <span>Rectangle</span>
+          </button>
+        </div>
+        
+        <!-- Actions -->
+        <div style="display: flex; gap: 0.5em; justify-content: flex-end;">
+          <button id="travaux-cancel-drawing" class="btn-secondary">
+            <i class="fa-solid fa-xmark"></i> Annuler
+          </button>
+          <button id="travaux-finish-drawing" class="btn-primary">
+            <i class="fa-solid fa-check"></i> Terminer
+          </button>
+        </div>
+      </div>
+      
+      <ul class="project-list"></ul>
     `;
     
     // Always start expanded for Travaux when rendered
@@ -140,6 +190,49 @@ const TravauxModule = (() => {
         }
       }
     } catch (_) { /* noop */ }
+
+    // Gestionnaire pour le bouton "Ajouter un chantier" (AVANT le return early)
+    const addBtn = submenu.querySelector('.travaux-add-btn');
+    if (addBtn) {
+      // Event listener
+      addBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.TravauxEditorModule?.openEditor) {
+          window.TravauxEditorModule.openEditor();
+        } else {
+          console.warn('[TravauxModule] TravauxEditorModule non chargé');
+        }
+      });
+      
+      // Vérifier si l'utilisateur est authentifié et admin de la ville
+      try {
+        const session = await window.supabaseService?.getClient()?.auth.getSession();
+        if (session?.data?.session?.user) {
+          // Utiliser les variables globales définies par contrib.js (depuis table profiles)
+          const role = window.__CONTRIB_ROLE || '';
+          const userVilles = window.__CONTRIB_VILLES || [];
+          const activeCity = (typeof window.getActiveCity === 'function') ? window.getActiveCity() : window.activeCity;
+          
+          // Vérifier si admin
+          const isAdmin = role === 'admin';
+          if (!isAdmin) return;
+          
+          // Admin global: ville contient 'global'
+          const isGlobalAdmin = Array.isArray(userVilles) && userVilles.includes('global');
+          
+          // Admin de la ville spécifique
+          const isCityAdmin = Array.isArray(userVilles) && userVilles.includes(activeCity);
+          
+          // Afficher si admin global OU admin de cette ville
+          if (isGlobalAdmin || isCityAdmin) {
+            addBtn.style.display = '';
+            console.log('[TravauxModule] ✅ Bouton "Ajouter un chantier" affiché pour admin', { role, userVilles, activeCity, isGlobalAdmin, isCityAdmin });
+          }
+        }
+      } catch (err) {
+        console.warn('[TravauxModule] Erreur vérification auth:', err);
+      }
+    }
 
     const travauxData = DataModule.layerData && DataModule.layerData['travaux'];
     if (!travauxData || !travauxData.features || travauxData.features.length === 0) {

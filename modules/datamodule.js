@@ -766,6 +766,33 @@ window.DataModule = (function() {
 
 		// Utilisation du cache
 		return simpleCache.get(cacheKey, async () => {
+			// ===== CITY_TRAVAUX: Prioriser pour layerName='travaux' si ville spécifique =====
+			if (layerName === 'travaux' && window.supabaseService?.loadCityTravauxGeoJSON) {
+				try {
+					// Récupérer la ville active
+					const activeCity = (typeof window.getActiveCity === 'function') 
+						? window.getActiveCity() 
+						: (window.activeCity || null);
+					
+					// Si ville spécifique (pas null), essayer city_travaux
+					if (activeCity && activeCity !== 'default') {
+						console.log(`[DataModule] Chargement travaux depuis city_travaux pour ville: ${activeCity}`);
+						const cityTravauxData = await window.supabaseService.loadCityTravauxGeoJSON(activeCity);
+						
+						// Si des features existent, utiliser ces données
+						if (cityTravauxData && cityTravauxData.features && cityTravauxData.features.length > 0) {
+							console.log(`[DataModule] ✅ city_travaux: ${cityTravauxData.features.length} features chargées`);
+							return cityTravauxData;
+						} else {
+							console.log('[DataModule] ⚠️ city_travaux vide, fallback sur layers');
+						}
+					}
+				} catch (error) {
+					console.warn('[DataModule] Erreur chargement city_travaux, fallback sur layers:', error);
+				}
+			}
+			// ===== FIN CITY_TRAVAUX =====
+			
 			// Vérifier si c'est une couche de contributions (stockée temporairement)
 			const contributionProjects = window[`contributions_${layerName}`];
 

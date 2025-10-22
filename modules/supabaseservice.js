@@ -990,7 +990,7 @@
         if (!v) return null;
         const { data, error } = await supabaseClient
           .from('city_branding')
-          .select('ville, brand_name, logo_url, dark_logo_url, favicon_url, center_lat, center_lng, zoom')
+          .select('ville, brand_name, logo_url, dark_logo_url, favicon_url, center_lat, center_lng, zoom, travaux')
           .eq('ville', v)
           .limit(1)
           .maybeSingle();
@@ -2342,7 +2342,7 @@
      */
     async deleteCity(ville) {
       try {
-        const { error } = await supabaseClient
+        const { error} = await supabaseClient
           .from('city_branding')
           .delete()
           .eq('ville', ville);
@@ -2353,6 +2353,226 @@
         }
       } catch (e) {
         console.error('[supabaseService] deleteCity exception:', e);
+        throw e;
+      }
+    },
+
+    // ============================================================================
+    // CITY TRAVAUX (Module Travaux multi-villes)
+    // ============================================================================
+
+    /**
+     * Récupère les chantiers travaux pour une ville (approved=true uniquement en public)
+     * @param {string|null} city - Code ville ou null pour Global
+     * @returns {Promise<Array>} Liste des chantiers
+     */
+    async fetchCityTravaux(city) {
+      try {
+        const sanitized = sanitizeCity(city);
+        
+        // Si pas de ville spécifique, retourner vide (Global utilise layers)
+        if (!sanitized && sanitized !== null) {
+          return [];
+        }
+
+        const { data, error } = await supabaseClient
+          .from('city_travaux')
+          .select('*')
+          .eq('ville', sanitized)
+          .eq('approved', true)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('[supabaseService] fetchCityTravaux error:', error);
+          return [];
+        }
+
+        return data || [];
+      } catch (e) {
+        console.error('[supabaseService] fetchCityTravaux exception:', e);
+        return [];
+      }
+    },
+
+    /**
+     * Charge et agrège tous les GeoJSON des chantiers d'une ville
+     * @param {string} city - Code ville
+     * @returns {Promise<Object>} FeatureCollection agrégé
+     */
+    async loadCityTravauxGeoJSON(city) {
+      try {
+        const chantiers = await this.fetchCityTravaux(city);
+        
+        if (!chantiers.length) {
+          return { type: 'FeatureCollection', features: [] };
+        }
+
+        // Charger tous les GeoJSON en parallèle
+        const geojsonPromises = chantiers.map(async (chantier) => {
+          try {
+            const response = await fetch(chantier.geojson_url);
+            if (!response.ok) {
+              console.warn(`[supabaseService] Impossible de charger ${chantier.geojson_url}`);
+              return null;
+            }
+            const geojson = await response.json();
+            
+            // Normaliser les propriétés de chaque feature
+            if (geojson.features && Array.isArray(geojson.features)) {
+              geojson.features.forEach(feature => {
+                if (!feature.properties) feature.properties = {};
+                
+                // Injecter les propriétés du chantier
+                feature.properties.project_name = chantier.name;
+                feature.properties.nature_travaux = chantier.nature || '';
+                feature.properties.nature_chantier = chantier.nature || '';
+                feature.properties.etat = chantier.etat || '';
+                feature.properties.date_debut = chantier.date_debut || '';
+                feature.properties.date_fin = chantier.date_fin || '';
+                feature.properties.last_update = chantier.last_update || '';
+                feature.properties.description = chantier.description || '';
+                
+                // Mapper localisation → commune/adresse (à affiner)
+                const loc = chantier.localisation || '';
+                feature.properties.commune = loc;
+                feature.properties.adresse = loc;
+                feature.properties.code_insee = '';
+              });
+            }
+            
+            return geojson;
+          } catch (err) {
+            console.warn(`[supabaseService] Erreur chargement ${chantier.name}:`, err);
+            return null;
+          }
+        });
+
+        const geojsons = (await Promise.all(geojsonPromises)).filter(Boolean);
+        
+        // Agréger toutes les features
+        const allFeatures = geojsons.reduce((acc, geojson) => {
+          if (geojson.features && Array.isArray(geojson.features)) {
+            return [...acc, ...geojson.features];
+          }
+          return acc;
+        }, []);
+
+        return {
+          type: 'FeatureCollection',
+          features: allFeatures
+        };
+      } catch (e) {
+        console.error('[supabaseService] loadCityTravauxGeoJSON exception:', e);
+        return { type: 'FeatureCollection', features: [] };
+      }
+    },
+
+    /**
+     * Upload d'un GeoJSON dans Storage
+     * @param {string} ville - Code ville
+     * @param {Object} geojson - FeatureCollection
+     * @returns {Promise<string>} URL publique du fichier
+     */
+    async uploadTravauxGeoJSON(ville, geojson) {
+      try {
+        const filename = `${crypto.randomUUID()}.geojson`;
+        const path = `${ville}/${filename}`;
+        const blob = new Blob([JSON.stringify(geojson)], { type: 'application/json' });
+
+        const { data, error } = await supabaseClient.storage
+          .from('travaux-geojson')
+          .upload(path, blob, {
+            contentType: 'application/json',
+            upsert: false
+          });
+
+        if (error) {
+          console.error('[supabaseService] uploadTravauxGeoJSON error:', error);
+          throw error;
+        }
+
+        // Construire l'URL publique
+        const { data: publicUrlData } = supabaseClient.storage
+          .from('travaux-geojson')
+          .getPublicUrl(path);
+
+        return publicUrlData.publicUrl;
+      } catch (e) {
+        console.error('[supabaseService] uploadTravauxGeoJSON exception:', e);
+        throw e;
+      }
+    },
+
+    /**
+     * Crée un nouveau chantier travaux
+     * @param {Object} chanterData - { ville, name, geojson_url, nature, etat, date_debut, date_fin, localisation, description, approved }
+     * @returns {Promise<Object>}
+     */
+    async createCityTravaux(chantierData) {
+      try {
+        const { data, error } = await supabaseClient
+          .from('city_travaux')
+          .insert([chantierData])
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[supabaseService] createCityTravaux error:', error);
+          throw error;
+        }
+
+        return data;
+      } catch (e) {
+        console.error('[supabaseService] createCityTravaux exception:', e);
+        throw e;
+      }
+    },
+
+    /**
+     * Met à jour un chantier travaux
+     * @param {string} id - UUID du chantier
+     * @param {Object} chantierData - Données à mettre à jour
+     * @returns {Promise<Object>}
+     */
+    async updateCityTravaux(id, chantierData) {
+      try {
+        const { data, error } = await supabaseClient
+          .from('city_travaux')
+          .update(chantierData)
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[supabaseService] updateCityTravaux error:', error);
+          throw error;
+        }
+
+        return data;
+      } catch (e) {
+        console.error('[supabaseService] updateCityTravaux exception:', e);
+        throw e;
+      }
+    },
+
+    /**
+     * Supprime un chantier travaux
+     * @param {string} id - UUID du chantier
+     * @returns {Promise<void>}
+     */
+    async deleteCityTravaux(id) {
+      try {
+        const { error } = await supabaseClient
+          .from('city_travaux')
+          .delete()
+          .eq('id', id);
+
+        if (error) {
+          console.error('[supabaseService] deleteCityTravaux error:', error);
+          throw error;
+        }
+      } catch (e) {
+        console.error('[supabaseService] deleteCityTravaux exception:', e);
         throw e;
       }
     }
