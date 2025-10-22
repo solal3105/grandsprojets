@@ -6,6 +6,10 @@
   <title>GrandsProjets – Votre carte publique des projets urbains</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="../styles/00-colors.css">
+  <link rel="stylesheet" href="../styles/gp-button-system.css">
+  <link rel="stylesheet" href="../styles/13-modal-system.css">
+  <link rel="stylesheet" href="../styles/14-modal-components.css">
   <script>
     tailwind.config = {
       theme: {
@@ -297,10 +301,10 @@
       <div class="relative group">
         <div class="absolute -inset-1 bg-gradient-to-r from-primary via-green-400 to-primary rounded-3xl blur opacity-25 group-hover:opacity-40 transition duration-1000"></div>
         <div class="relative bg-white rounded-3xl p-3 shadow-2xl">
-          <div class="aspect-video rounded-2xl overflow-hidden">
+          <div class="min-h-[500px] rounded-2xl overflow-hidden">
             <iframe 
               src="https://grandsprojets.com" 
-              class="w-full h-full border-0"
+              class="w-full h-full border-0 min-h-[500px]"
               title="Carte interactive GrandsProjets - Exemple Lyon"
               loading="lazy">
             </iframe>
@@ -310,6 +314,194 @@
       <div class="text-center mt-8">
         <a href="https://grandsprojets.com" target="_blank" class="inline-flex items-center text-primary hover:text-green-400 font-bold text-base bg-white/10 hover:bg-white/20 px-6 py-3 rounded-full transition-all backdrop-blur-sm">
           Explorer la carte en plein écran <i class="fas fa-external-link-alt ml-3"></i>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- TÉMOIGNAGES -->
+  <section class="py-20 bg-gradient-to-br from-gray-50 to-white">
+    <div class="container mx-auto px-6 max-w-7xl">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-5xl font-extrabold mb-4">Ce que disent les utilisateurs</h2>
+        <p class="text-lg text-gray-600 max-w-2xl mx-auto">Plus de 250 retours positifs de citoyens, élus et professionnels</p>
+      </div>
+
+      <!-- Grid de témoignages -->
+      <div class="grid md:grid-cols-3 lg:grid-cols-4 gap-6 mb-12">
+        
+        <!-- Témoignage 1 -->
+        <div class="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all border border-gray-100">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full flex items-center justify-center text-2xl">🏛️</div>
+            <div class="flex-1">
+              <p class="font-bold text-sm">Président Métropole</p>
+              <p class="text-xs text-gray-500">Élu</p>
+            </div>
+          </div>
+          <p class="text-gray-700 text-sm leading-relaxed italic">« Ce travail de synthèse est absolument incroyable. Un énorme bravo ! »</p>
+        </div>
+
+        <!-- Témoignage 2 -->
+        <div class="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all border border-gray-100">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center text-2xl">👤</div>
+            <div class="flex-1">
+              <p class="font-bold text-sm">Citoyen lyonnais</p>
+              <p class="text-xs text-gray-500">Utilisateur quotidien</p>
+            </div>
+          </div>
+          <p class="text-gray-700 text-sm leading-relaxed italic">« Très utile, je l'utilise encore aujourd'hui pour savoir ce qu'ils font devant ma salle de sport. »</p>
+        </div>
+
+        <!-- Témoignage 3 -->
+        <div class="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all border border-gray-100">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 bg-gradient-to-br from-purple-100 to-purple-50 rounded-full flex items-center justify-center text-2xl">💼</div>
+            <div class="flex-1">
+              <p class="font-bold text-sm">Directeur de projet</p>
+              <p class="text-xs text-gray-500">Innovation publique</p>
+            </div>
+          </div>
+          <p class="text-gray-700 text-sm leading-relaxed italic">« L'ergonomie est exemplaire autant que l'effort de rendre compte de l'impact sur le temps long. »</p>
+        </div>
+
+        <!-- Témoignage 4 -->
+        <div class="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all border border-gray-100">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 bg-gradient-to-br from-orange-100 to-orange-50 rounded-full flex items-center justify-center text-2xl">🎓</div>
+            <div class="flex-1">
+              <p class="font-bold text-sm">Enseignante</p>
+              <p class="text-xs text-gray-500">Higher education</p>
+            </div>
+          </div>
+          <p class="text-gray-700 text-sm leading-relaxed italic">« BRAVOS (des, parce que ça mérite un pluriel). Au-delà du résultat, j'admire la démarche ! »</p>
+        </div>
+
+        <!-- Témoignage 5 -->
+        <div class="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all border border-gray-100">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 bg-gradient-to-br from-green-100 to-green-50 rounded-full flex items-center justify-center text-2xl">🚴</div>
+            <div class="flex-1">
+              <p class="font-bold text-sm">Optimiseur hydro-météo</p>
+              <p class="text-xs text-gray-500">Administrateur associatif</p>
+            </div>
+          </div>
+          <p class="text-gray-700 text-sm leading-relaxed italic">« Fantastique travail ! L'interface est très soignée et donne envie de naviguer à l'intérieur. »</p>
+        </div>
+
+        <!-- Témoignage 6 -->
+        <div class="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all border border-gray-100">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 bg-gradient-to-br from-red-100 to-red-50 rounded-full flex items-center justify-center text-2xl">🏗️</div>
+            <div class="flex-1">
+              <p class="font-bold text-sm">Cheffe de projet</p>
+              <p class="text-xs text-gray-500">Développement territorial</p>
+            </div>
+          </div>
+          <p class="text-gray-700 text-sm leading-relaxed italic">« Quel travail colossal ! Ce serait trop cool de l'avoir aussi pour ma commune. »</p>
+        </div>
+
+        <!-- Témoignage 7 -->
+        <div class="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all border border-gray-100">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 bg-gradient-to-br from-yellow-100 to-yellow-50 rounded-full flex items-center justify-center text-2xl">🏙️</div>
+            <div class="flex-1">
+              <p class="font-bold text-sm">Maire de Lyon</p>
+              <p class="text-xs text-gray-500">Élu</p>
+            </div>
+          </div>
+          <p class="text-gray-700 text-sm leading-relaxed italic">« Quelle enquête ! Chapeau ! »</p>
+        </div>
+
+        <!-- Témoignage 8 -->
+        <div class="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all border border-gray-100">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 bg-gradient-to-br from-pink-100 to-pink-50 rounded-full flex items-center justify-center text-2xl">📊</div>
+            <div class="flex-1">
+              <p class="font-bold text-sm">Directeur Innovation</p>
+              <p class="text-xs text-gray-500">Métropole de Lyon</p>
+            </div>
+          </div>
+          <p class="text-gray-700 text-sm leading-relaxed italic">« Bravo ! Et merci pour cette belle valorisation des données ouvertes. »</p>
+        </div>
+
+        <!-- Témoignage 9 -->
+        <div class="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all border border-gray-100">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 bg-gradient-to-br from-indigo-100 to-indigo-50 rounded-full flex items-center justify-center text-2xl">🎨</div>
+            <div class="flex-1">
+              <p class="font-bold text-sm">Designer produit</p>
+              <p class="text-xs text-gray-500">Freelance</p>
+            </div>
+          </div>
+          <p class="text-gray-700 text-sm leading-relaxed italic">« Bien cool ça, bravo pour le taff ! »</p>
+        </div>
+
+        <!-- Témoignage 10 -->
+        <div class="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all border border-gray-100">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 bg-gradient-to-br from-teal-100 to-teal-50 rounded-full flex items-center justify-center text-2xl">🌍</div>
+            <div class="flex-1">
+              <p class="font-bold text-sm">Entrepreneur</p>
+              <p class="text-xs text-gray-500">Environnement</p>
+            </div>
+          </div>
+          <p class="text-gray-700 text-sm leading-relaxed italic">« Travail impressionnant et tellement utile ! Une belle inspiration pour chaque collectivité. »</p>
+        </div>
+
+        <!-- Témoignage 11 -->
+        <div class="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all border border-gray-100">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 bg-gradient-to-br from-cyan-100 to-cyan-50 rounded-full flex items-center justify-center text-2xl">🚀</div>
+            <div class="flex-1">
+              <p class="font-bold text-sm">Product Manager</p>
+              <p class="text-xs text-gray-500">Tech</p>
+            </div>
+          </div>
+          <p class="text-gray-700 text-sm leading-relaxed italic">« Un triple bravo : pour l'initiative citoyenne, le temps passé et la qualité du site produit ! »</p>
+        </div>
+
+        <!-- Témoignage 12 -->
+        <div class="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all border border-gray-100">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 bg-gradient-to-br from-lime-100 to-lime-50 rounded-full flex items-center justify-center text-2xl">📱</div>
+            <div class="flex-1">
+              <p class="font-bold text-sm">Responsable mobilité</p>
+              <p class="text-xs text-gray-500">Métropole de Lyon</p>
+            </div>
+          </div>
+          <p class="text-gray-700 text-sm leading-relaxed italic">« Bravo pour ce travail. L'Agence des Mobilités propose des outils similaires, mais moins investigués. »</p>
+        </div>
+
+      </div>
+
+      <!-- Stats d'impact -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto mb-12">
+        <div class="text-center p-6 bg-white rounded-2xl shadow-md border border-gray-100">
+          <div class="text-4xl font-extrabold text-primary mb-2">142K+</div>
+          <p class="text-sm text-gray-600 font-medium">Impressions</p>
+        </div>
+        <div class="text-center p-6 bg-white rounded-2xl shadow-md border border-gray-100">
+          <div class="text-4xl font-extrabold text-primary mb-2">2K+</div>
+          <p class="text-sm text-gray-600 font-medium">Réactions</p>
+        </div>
+        <div class="text-center p-6 bg-white rounded-2xl shadow-md border border-gray-100">
+          <div class="text-4xl font-extrabold text-primary mb-2">255</div>
+          <p class="text-sm text-gray-600 font-medium">Commentaires</p>
+        </div>
+        <div class="text-center p-6 bg-white rounded-2xl shadow-md border border-gray-100">
+          <div class="text-4xl font-extrabold text-primary mb-2">100%</div>
+          <p class="text-sm text-gray-600 font-medium">Open Source</p>
+        </div>
+      </div>
+
+      <!-- CTA vers LinkedIn -->
+      <div class="text-center">
+        <a href="https://www.linkedin.com/posts/solal-gendrin_a-lyon-r%C3%A2ler-sur-les-travaux-est-une-tradition-activity-7365714624702304256-IF6X?utm_source=share&utm_medium=member_desktop&rcm=ACoAABnHwWUBZlHC38HMsoPBDOiR7k6evmrukC0" target="_blank" class="inline-flex items-center gap-3 bg-white text-gray-700 hover:text-primary font-semibold px-8 py-4 rounded-full shadow-md hover:shadow-xl transition-all border border-gray-200">
+          <i class="fab fa-linkedin text-2xl text-blue-600"></i>
+          <span>Lire tous les témoignages sur LinkedIn</span>
+          <i class="fas fa-arrow-right"></i>
         </a>
       </div>
     </div>
@@ -424,23 +616,22 @@
           <div class="text-3xl font-bold mb-5 text-gray-900">0€<span class="text-base font-normal text-gray-600">/mois</span></div>
           <ul class="space-y-3 mb-8">
             <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Carte publique</span></li>
-            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">50 projets max</span></li>
+            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Projets illimités</span></li>
             <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Support email</span></li>
           </ul>
-          <a href="#contact" class="block text-center bg-gray-200 hover:bg-gray-300 px-6 py-3 rounded-full font-semibold btn-hover transition-all text-gray-900">Demander accès</a>
+          <button class="contact-modal-btn block w-full text-center bg-gray-200 hover:bg-gray-300 px-6 py-3 rounded-full font-semibold btn-hover transition-all text-gray-900 border-0 cursor-pointer">Demander accès</button>
         </div>
 
         <!-- STANDARD (MISE EN AVANT) -->
         <div class="bg-white rounded-2xl p-6 shadow-2xl border-2 border-gray-900 relative transform md:scale-105">
-          <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-gray-900 text-primary px-4 py-1 rounded-full text-xs font-bold">⭐ POPULAIRE</div>
+          <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-gray-900 text-primary px-4 py-1 rounded-full text-xs font-bold">⭐ RECOMMANDE</div>
           <h3 class="text-xl font-bold mb-2 text-gray-900">STANDARD</h3>
           <p class="text-gray-600 mb-3 text-sm">Collectivités, communes</p>
           <div class="text-4xl font-extrabold mb-1 text-gray-900">199€<span class="text-base font-normal text-gray-600">/mois</span></div>
           <p class="text-xs text-gray-500 mb-5">À partir de</p>
           <ul class="space-y-3 mb-8">
-            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm font-medium">Tout Gratuit +</span></li>
             <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Marque blanche</span></li>
-            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Votre nom de domaine</span></li>
+            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Intégrable sur votre site</span></li>
             <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Projets illimités</span></li>
             <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Formation incluse</span></li>
             <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Support prioritaire</span></li>
@@ -455,13 +646,10 @@
           <div class="text-3xl font-bold mb-5 text-gray-900">Nous contacter</div>
           <p class="text-xs text-gray-500 mb-5">Sur devis</p>
           <ul class="space-y-3 mb-8">
-            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm font-medium">Tout Standard +</span></li>
-            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">API REST complète</span></li>
-            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Support dédié</span></li>
-            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">SLA garanti</span></li>
+            <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm font-medium">Tout Standard</span></li>
             <li class="flex items-start"><i class="fas fa-check text-primary mr-2 mt-1 flex-shrink-0"></i><span class="text-sm">Développement personnalisé</span></li>
           </ul>
-          <a href="#contact" class="block text-center bg-gray-200 hover:bg-gray-300 px-6 py-3 rounded-full font-semibold btn-hover transition-all text-gray-900">Nous contacter</a>
+          <button class="contact-modal-btn block w-full text-center bg-gray-200 hover:bg-gray-300 px-6 py-3 rounded-full font-semibold btn-hover transition-all text-gray-900 border-0 cursor-pointer">Nous contacter</button>
         </div>
 
       </div>
@@ -564,20 +752,19 @@
         <div>
           <h3 class="font-bold mb-4">Contact</h3>
           <ul class="space-y-2 text-gray-400">
-            <li><a href="mailto:solal.gendrin@gmail.com" class="hover:text-white">solal.gendrin@gmail.com</a></li>
+            <li><a href="#" class="hover:text-white contact-modal-btn">solal.gendrin@gmail.com</a></li>
             <li><a href="https://github.com/solal3105/grandsprojets/" target="_blank" class="hover:text-white">Code source</a></li>
           </ul>
         </div>
       </div>
       <div class="border-t border-gray-800 pt-8 text-center text-gray-400 text-sm">
-        <p class="mb-4">© 2025 GrandsProjets • Développé avec ❤️ par Solal • Code open source sur GitHub</p>
-        <p><a href="#" class="hover:text-white">Mentions légales</a> • <a href="#" class="hover:text-white">CGU</a> • <a href="#" class="hover:text-white">Politique de confidentialité</a></p>
+        <p class="mb-4">© 2025 GrandsProjets • Développé avec ❤️ à Villeurbanne par Solal • Code open source sur GitHub</p>
       </div>
     </div>
   </footer>
 
   <!-- MODALE DE CONTACT -->
-  <div id="contact-modal" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="contact-title" aria-hidden="true" style="display:none">
+  <div id="contact-modal" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="contact-title" aria-hidden="true">
     <div class="gp-modal" role="document">
       <header class="gp-modal-header">
         <h1 class="gp-modal-title" id="contact-title">Demander une démo</h1>
@@ -617,188 +804,20 @@
     </div>
   </div>
 
-  <!-- STYLES POUR LA MODALE -->
-  <style>
-    .gp-modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(8px);
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-
-    .gp-modal {
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-      max-width: 500px;
-      width: 100%;
-      max-height: 90vh;
-      overflow: hidden;
-      animation: modalSlideIn 0.3s ease-out;
-    }
-
-    .gp-modal-header {
-      padding: 24px 24px 0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid #e5e7eb;
-      padding-bottom: 16px;
-      margin-bottom: 24px;
-    }
-
-    .gp-modal-title {
-      font-size: 1.25rem;
-      font-weight: 600;
-      color: #111827;
-      margin: 0;
-    }
-
-    .gp-modal-close {
-      background: #f3f4f6;
-      border: none;
-      border-radius: 8px;
-      width: 32px;
-      height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 18px;
-      color: #6b7280;
-      transition: all 0.2s;
-    }
-
-    .gp-modal-close:hover {
-      background: #e5e7eb;
-      color: #374151;
-    }
-
-    .gp-modal-body {
-      padding: 0 24px 24px;
-    }
-
-    .btn-primary {
-      background: #14AE5C;
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn-primary:hover {
-      background: #10b981;
-    }
-
-    .btn-secondary {
-      background: #f3f4f6;
-      color: #374151;
-      border: none;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn-secondary:hover {
-      background: #e5e7eb;
-    }
-
-    @keyframes modalSlideIn {
-      from {
-        opacity: 0;
-        transform: translateY(-20px) scale(0.95);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
-  </style>
-
-  <!-- JAVASCRIPT POUR LA MODALE -->
+  <!-- Import JS modal system + Hook minimal -->
+  <script src="../modules/modal-helper.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
-      const modal = document.getElementById('contact-modal');
-      const openButtons = document.querySelectorAll('.contact-modal-btn, #contact-cta-btn');
-      const closeButton = document.getElementById('contact-close');
-      const cancelButton = document.getElementById('contact-cancel');
+      const openers = document.querySelectorAll('.contact-modal-btn, #contact-cta-btn');
       const form = document.getElementById('contact-form');
 
-      // Ouvrir la modale
-      openButtons.forEach(button => {
-        button.addEventListener('click', function() {
-          modal.style.display = 'flex';
-          modal.setAttribute('aria-hidden', 'false');
-          document.body.style.overflow = 'hidden';
-        });
-      });
+      // Ouvrir via système unifié
+      openers.forEach(btn => btn.addEventListener('click', () => ModalHelper.open('contact-modal')));
 
-      // Fermer la modale
-      function closeModal() {
-        modal.style.display = 'none';
-        modal.setAttribute('aria-hidden', 'true');
-        document.body.style.overflow = '';
-        form.reset();
-      }
-
-      closeButton.addEventListener('click', closeModal);
-      cancelButton.addEventListener('click', closeModal);
-
-      // Fermer en cliquant sur l'overlay
-      modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
-          closeModal();
-        }
-      });
-
-      // Fermer avec Escape
-      document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && modal.style.display === 'flex') {
-          closeModal();
-        }
-      });
-
-      // Gérer l'envoi du formulaire
-      form.addEventListener('submit', function(e) {
+      // Soumission: pas d'envoi mailto, on garde la modale ouverte
+      form.addEventListener('submit', (e) => {
         e.preventDefault();
-        
-        const formData = new FormData(form);
-        const data = {
-          name: formData.get('name'),
-          email: formData.get('email'),
-          organization: formData.get('organization'),
-          message: formData.get('message')
-        };
-
-        // Créer le lien mailto
-        const subject = encodeURIComponent('Demande de démo - GrandsProjets');
-        const body = encodeURIComponent(
-          `Bonjour,\n\n` +
-          `Je souhaite demander une démo de GrandsProjets.\n\n` +
-          `Nom: ${data.name}\n` +
-          `Email: ${data.email}\n` +
-          `Organisation: ${data.organization || 'Non spécifiée'}\n\n` +
-          `Message:\n${data.message || 'Aucun message spécifique'}\n\n` +
-          `Cordialement,\n${data.name}`
-        );
-        
-        const mailtoLink = `mailto:solal.gendrin@gmail.com?subject=${subject}&body=${body}`;
-        window.location.href = mailtoLink;
-        
-        closeModal();
+        // Optionnel: ajouter un léger feedback visuel plus tard
       });
     });
   </script>

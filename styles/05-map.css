@@ -299,11 +299,7 @@
 /* ---------------------------------------------------------------------------
    Card layout used inside tooltips/popups
 --------------------------------------------------------------------------- */
-.gp-card {
-  display: flex;
-  flex-direction: column;
-  width: clamp(220px, 32vw, 360px);
-}
+
 
 .gp-card-media {
   width: 100%;

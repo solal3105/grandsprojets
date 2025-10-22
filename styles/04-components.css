@@ -688,9 +688,10 @@
 .project-cover-wrap:hover .cover-extend-btn {
   opacity: 1;
 }
-
+.cover-extend-btn {
+  background: var(--white);
+}
 .cover-extend-btn:hover {
-  background: white;
   box-shadow: 0 4px 12px var(--black-alpha-12);
   transform: translateY(-1px);
 }

@@ -70,7 +70,6 @@
 
   .fiche-projet-sidebar {
     order: 2;
-    width: 100%;
     padding: var(--fp-gap);
     background: color-mix(in srgb, var(--primary) 5%, transparent);
     border-top: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
@@ -79,6 +78,21 @@
   
   .fiche-projet-article {
     order: 3;
+    max-width: 400px;
+    flex: 1;                /* take remaining height */
+    overflow-y: auto;       /* make article the scroll container */
+    position: relative;     /* containing block for sticky */
+    min-height: 0;          /* allow scrolling inside flex child */
+  }
+
+  /* Sticky map inside the article for mobile as well */
+  .fiche-projet-article .fiche-projet-map.gp-card {
+    position: -webkit-sticky; /* Safari */
+    position: sticky;
+    top: 0; /* stick to top within the article */
+    width: 100%;
+    border-radius: 16px;
+    z-index: 2;
   }
 }
 
@@ -99,21 +113,24 @@
 
   .fiche-projet-article {
     grid-column: 1;
-    grid-row: 2;
+    grid-row: 1 / span 2;
     overflow-y: auto;
     padding: 0;
+    min-height: 0; /* allow scrolling inside grid child */
+    position: relative; /* establish containing block for sticky */
   }
 
   .fiche-projet-sidebar {
     grid-column: 2;
     grid-row: 1 / span 2;
     overflow-y: auto;
-    padding: var(--fp-gap);
+    padding: 0 var(--fp-gap);
     border-left: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
     background: color-mix(in srgb, var(--primary) 5%, transparent);
     /* Scroll smooth */
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
+    
   }
 }
 
@@ -134,7 +151,7 @@
 
   .fiche-projet-article {
     grid-column: 1;
-    grid-row: 2;
+    grid-row: 1 / span 2;
     overflow-y: auto;
     padding: 0;
   }
@@ -169,7 +186,6 @@
 @media (min-width: 768px) and (max-width: 1199px) {
   .fiche-projet-map {
     height: var(--fp-map-height-tablet);
-    margin: var(--fp-gap);
     margin-bottom: 0;
   }
 }
@@ -177,7 +193,7 @@
 @media (min-width: 1200px) {
   .fiche-projet-map {
     height: var(--fp-map-height-desktop);
-    margin: var(--fp-gap);
+    margin-top: 40px;
     margin-bottom: 0;
   }
 }
@@ -189,21 +205,41 @@
   background: var(--surface-base);
 }
 
+/* Map inside GP Card: remove paddings so the map fills the card */
+.fiche-projet-article .fiche-projet-map.gp-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.fiche-projet-article .fiche-projet-map .gp-card-body {
+  padding: 0;
+  height: 100%;
+}
+
+/* Sticky behavior for map card inside the article (tablet/desktop only) */
+@media (min-width: 768px) {
+  .fiche-projet-article .fiche-projet-map.gp-card {
+    width: 100%;
+    margin-bottom: var(--fp-gap);
+    border-radius: 16px; /* ensure rounded corners stronger */
+    box-shadow:
+      0 20px 60px var(--black-alpha-15),
+      0 8px 16px var(--black-alpha-08),
+      inset 0 1px 0 var(--white-alpha-80);
+    z-index: 2; /* above article bg effects */
+  }
+}
+
 /* ---------------------------------------------------------------------------
    ARTICLE MARKDOWN
    --------------------------------------------------------------------------- */
 .fiche-projet-article {
   padding: var(--fp-gap);
-  max-width: 900px;
   margin: 0 auto;
+  width: 100%;
+  max-width: 500px;
 }
 
-/* Mobile - pleine largeur */
-@media (max-width: 767px) {
-  .fiche-projet-article {
-    max-width: 100%;
-  }
-}
 
 /* Le contenu markdown utilise .markdown-body (déjà stylé par gp-markdown-content.css) */
 
@@ -213,7 +249,6 @@
 .fiche-projet-sidebar {
   display: flex;
   flex-direction: column;
-  gap: var(--fp-gap);
 }
 
 /* Mobile - cards en stack vertical pleine largeur */
@@ -221,7 +256,6 @@
   .fiche-projet-sidebar {
     display: flex;
     flex-direction: column;
-    gap: 16px;
   }
   
   .fiche-projet-sidebar .gp-card {
@@ -234,6 +268,8 @@
 /* Fond blanc pour toutes les GP-Cards dans la sidebar */
 .fiche-projet-sidebar .gp-card {
   background: var(--surface-base);
+  max-width: 500px;
+  margin: 10px auto;
 }
 
 /* ---------------------------------------------------------------------------
@@ -362,6 +398,7 @@
 .fiche-projet-article #project-markdown-content {
   position: relative;
   z-index: 1;
+  max-width: 500px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -417,48 +454,6 @@
   transform: scale(1.1);
 }
 
-/* ---------------------------------------------------------------------------
-   QR CODE MODAL (Styles spécifiques)
-   --------------------------------------------------------------------------- */
-.qr-code-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  padding: 20px;
-}
-
-.qr-code-image {
-  width: 300px;
-  height: 300px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px var(--black-alpha-10);
-}
-
-.qr-code-description {
-  text-align: center;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-.qr-code-url {
-  padding: 10px 16px;
-  background: var(--surface-elevated);
-  border-radius: 8px;
-  font-family: monospace;
-  font-size: 0.9rem;
-  color: var(--text-primary);
-  word-break: break-all;
-  text-align: center;
-  max-width: 100%;
-}
-
-@media (max-width: 560px) {
-  .qr-code-image {
-    width: 250px;
-    height: 250px;
-  }
-}
 
 /* ---------------------------------------------------------------------------
    RESPONSIVE - Adjustments Mobile

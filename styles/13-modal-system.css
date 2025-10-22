@@ -202,7 +202,43 @@
   font-size: 0.875rem;
 }
 
-/* .gp-modal-close utilise .btn-secondary */
+ /* .gp-modal-close utilise .btn-secondary */
+
+ /*
+  * Close button (specialized) — animated rotation + subtle red hover
+  * Builds upon .btn-secondary from gp-button-system.css
+  */
+ .gp-modal-close.btn-secondary {
+   width: 40px;
+   height: 40px;
+   padding: 10px; /* square icon button */
+   border-radius: 12px;
+   line-height: 1;
+   transform: rotate(0deg);
+   transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+               background-color 160ms ease,
+               box-shadow 180ms ease,
+               color 160ms ease;
+   will-change: transform;
+ }
+ 
+ .gp-modal-close.btn-secondary:hover {
+   color: var(--danger);
+   background: var(--danger-alpha-08);
+   transform: rotate(90deg) scale(1.05);
+   box-shadow: 0 6px 16px var(--danger-alpha-20), 0 2px 4px var(--black-alpha-08);
+ }
+ 
+ .gp-modal-close.btn-secondary:active {
+   transform: rotate(90deg) scale(0.98);
+   background: var(--danger-alpha-16);
+   box-shadow: 0 2px 6px var(--black-alpha-08);
+ }
+ 
+ .gp-modal-close.btn-secondary:focus-visible {
+   outline: 2px solid var(--danger);
+   outline-offset: 3px;
+ }
 
 /* ---------------------------------------------------------------------------
    BASE - Body

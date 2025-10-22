@@ -164,17 +164,10 @@ function createOfficialLinkCard(url) {
         <div class="gp-card-link-preview">
           <img src="${faviconUrl}" alt="" onerror="this.style.display='none'">
           <span>${domain}</span>
+          <a href="${url}" target="_blank" rel="noopener" class="btn-primary" aria-label="Ouvrir le site">
+            <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+          </a>
         </div>
-      </div>
-      <div class="gp-card-footer">
-        <a href="${url}" target="_blank" rel="noopener" class="btn-primary">
-          <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
-          Ouvrir le site
-        </a>
-        <button type="button" class="btn-secondary" data-qr-url="${url}" data-qr-domain="${domain}">
-          <i class="fa-solid fa-qrcode" aria-hidden="true"></i>
-          QR Code
-        </button>
       </div>
     </div>
   `;
@@ -286,73 +279,6 @@ function openLightbox(imageUrl) {
   overlay.classList.add('active');
 }
 
-/**
- * Ouvre la modal QR Code
- */
-function openQRCode(url, domain) {
-  console.log('[QR Code] Initialisation...', { url, domain });
-  
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
-  console.log('[QR Code] URL générée:', qrCodeUrl);
-  
-  let modal = document.getElementById('qr-code-modal');
-  
-  if (!modal) {
-    console.log('[QR Code] Création de la modale...');
-    modal = document.createElement('div');
-    modal.id = 'qr-code-modal';
-    modal.className = 'gp-modal-overlay';
-    modal.setAttribute('role', 'dialog');
-    modal.setAttribute('aria-modal', 'true');
-    modal.setAttribute('aria-hidden', 'true');
-    modal.innerHTML = `
-      <div class="gp-modal">
-        <div class="gp-modal-header">
-          <div class="gp-modal-title">QR Code - ${domain}</div>
-          <button class="btn-secondary gp-modal-close" aria-label="Fermer">×</button>
-        </div>
-        <div class="gp-modal-body">
-          <div class="qr-code-container">
-            <img src="${qrCodeUrl}" alt="QR Code pour ${domain}" class="qr-code-image">
-            <p class="qr-code-description">Scannez ce QR code avec votre téléphone pour ouvrir le site</p>
-            <div class="qr-code-url">${url}</div>
-          </div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-    console.log('[QR Code] ✓ Modale créée et ajoutée au DOM');
-  } else {
-    console.log('[QR Code] Modale existante trouvée, mise à jour...');
-    modal.querySelector('.gp-modal-title').textContent = `QR Code - ${domain}`;
-    modal.querySelector('.qr-code-image').src = qrCodeUrl;
-    modal.querySelector('.qr-code-url').textContent = url;
-    console.log('[QR Code] ✓ Modale mise à jour');
-  }
-
-  console.log('[QR Code] Vérification ModalHelper...', { 
-    modalHelperExists: !!window.ModalHelper,
-    modalElement: modal,
-    modalId: modal.id
-  });
-
-  if (window.ModalHelper) {
-    console.log('[QR Code] Ouverture via ModalHelper avec ID:', modal.id);
-    try {
-      // ModalHelper.open() attend un ID (string), pas un élément DOM
-      window.ModalHelper.open('qr-code-modal');
-      console.log('[QR Code] ✓ Modale ouverte avec ModalHelper');
-    } catch (e) {
-      console.error('[QR Code] ❌ Erreur ModalHelper:', e);
-      modal.style.display = 'flex';
-      console.log('[QR Code] → Fallback: display flex appliqué');
-    }
-  } else {
-    console.warn('[QR Code] ⚠️ ModalHelper non disponible, fallback...');
-    modal.style.display = 'flex';
-    console.log('[QR Code] ✓ Modale affichée avec fallback');
-  }
-}
 
 /**
  * Ouvre la prévisualisation PDF
@@ -558,13 +484,15 @@ function generateFicheHTML(projectName, isEmbed) {
       </header>
       ` : ''}
       <div class="fiche-projet-main">
-        <div class="fiche-projet-map">
-          <div id="project-map"></div>
-        </div>
         <aside class="fiche-projet-sidebar" id="fiche-sidebar">
           <!-- GP-Cards seront injectées ici -->
         </aside>
         <article class="fiche-projet-article">
+          <div class="gp-card gp-card--media fiche-projet-map">
+            <div class="gp-card-body">
+              <div id="project-map"></div>
+            </div>
+          </div>
           <div id="project-markdown-content" class="markdown-body"></div>
         </article>
       </div>
@@ -611,45 +539,6 @@ function bindEvents() {
       e.preventDefault();
       const imageUrl = btn.dataset.lightboxImage;
       openLightbox(imageUrl);
-    }
-  });
-
-  // QR Code - Vérifier présence des boutons au chargement
-  setTimeout(() => {
-    const qrButtons = document.querySelectorAll('[data-qr-url]');
-    console.log(`[QR Code] ${qrButtons.length} bouton(s) QR Code trouvé(s) dans le DOM`);
-    if (qrButtons.length > 0) {
-      qrButtons.forEach((btn, index) => {
-        console.log(`[QR Code] Bouton ${index + 1}:`, {
-          element: btn,
-          url: btn.dataset.qrUrl,
-          domain: btn.dataset.qrDomain
-        });
-      });
-    }
-  }, 500);
-
-  // QR Code - Listener de clic
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-qr-url]');
-    if (btn) {
-      console.log('[QR Code] Clic détecté sur bouton QR Code');
-      console.log('[QR Code] Élément cliqué:', btn);
-      console.log('[QR Code] Datasets:', {
-        qrUrl: btn.dataset.qrUrl,
-        qrDomain: btn.dataset.qrDomain
-      });
-      
-      e.preventDefault();
-      const url = btn.dataset.qrUrl;
-      const domain = btn.dataset.qrDomain;
-      
-      if (!url) {
-        console.error('[QR Code] ❌ URL manquante dans data-qr-url');
-        return;
-      }
-      
-      openQRCode(url, domain);
     }
   });
 
@@ -710,7 +599,7 @@ async function initFicheProjet() {
       console.error('[FicheProjet] Erreur chargement données:', e);
     }
 
-    if (!projectData || !projectData.markdown_url) {
+    if (!projectData) {
       document.getElementById('project-article').innerHTML = `
         <div style="padding: 40px; text-align: center;">
           <h1>Projet introuvable</h1>
@@ -762,7 +651,11 @@ async function initFicheProjet() {
 
     // 9. Charger le markdown
     const markdownContainer = document.getElementById('project-markdown-content');
-    await renderMarkdown(projectData.markdown_url, markdownContainer);
+    if (projectData.markdown_url) {
+      await renderMarkdown(projectData.markdown_url, markdownContainer);
+    } else {
+      markdownContainer.innerHTML = '';
+    }
 
     // 10. Initialiser la carte
     await initProjectMap('project-map', projectName, category);

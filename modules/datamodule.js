@@ -145,7 +145,7 @@ window.DataModule = (function() {
 		const showCta = clickableLayers.includes(layerName);
 
 		return `
-        <div class=\"gp-card\">
+        <div class=\"card-tooltip\">
           ${imgHtml}
           <div class=\"gp-card-body\">
             ${titleHtml ? `<div class=\"gp-card-title\">${titleHtml}</div>` : ''}
@@ -600,6 +600,10 @@ window.DataModule = (function() {
 									null;
 								if (el) {
 									el.style.cursor = 'pointer';
+									// Assurer l'interactivité même si le CSS met pointer-events: none sur le tooltip
+									try { el.style.pointerEvents = 'auto'; } catch (_) {}
+
+									// 1) Clic sur tout le tooltip
 									el.addEventListener('click', (ev) => {
 										try {
 											ev.preventDefault();
@@ -615,6 +619,27 @@ window.DataModule = (function() {
 										} catch (_) {
 											/* noop */ }
 									});
+
+									// 2) Clic ciblé sur la carte de tooltip (nouvelle classe .card-tooltip)
+									try {
+										const card = el.querySelector('.card-tooltip');
+										if (card) {
+											card.style.pointerEvents = 'auto';
+											card.addEventListener('click', (ev) => {
+												try {
+													ev.preventDefault();
+													ev.stopPropagation();
+												} catch (_) {}
+												try {
+													if (layer && typeof layer.fire === 'function') {
+														layer.fire('click');
+													} else if (window.UIModule && typeof window.UIModule.showDetailPanel === 'function') {
+														window.UIModule.showDetailPanel(layerName, feature);
+													}
+												} catch (_) {}
+											});
+										}
+									} catch (_) {}
 								}
 							} catch (_) {
 								/* noop */ }

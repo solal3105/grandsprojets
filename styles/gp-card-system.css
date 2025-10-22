@@ -15,7 +15,7 @@
   background: var(--surface-elevated);
   border: 1px solid var(--border-light);
   border-radius: 16px;
-  margin: 16px 0;
+  margin: 10px 0;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-sizing: border-box;
   box-shadow: 0 2px 8px var(--black-alpha-04),
@@ -36,7 +36,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   border: none;
 }
 
@@ -167,7 +167,6 @@
 .gp-card--media {
   padding: 0;
   overflow: hidden;
-  margin-top: 40px;
   margin-bottom: 12px;
 }
 
@@ -262,6 +261,7 @@
   font-weight: 600;
   color: var(--text-primary);
   word-break: break-word;
+  width: 100%;
 }
 
 
@@ -277,13 +277,5 @@
     grid-template-columns: 1fr;
   }
   
-  .gp-card-footer {
-    flex-direction: column;
-  }
   
-  .gp-card .btn-primary,
-  .gp-card .btn-secondary {
-    width: 100%;
-    justify-content: center;
-  }
 }
