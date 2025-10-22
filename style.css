@@ -55,3 +55,6 @@
 
 /* 14 - Modal components - Composants avancés pour modales (breadcrumb, sections, footer) */
 @import url('./styles/14-modal-components.css');
+
+/* 15 - Travaux Editor - Interface de création/édition de chantiers */
+@import url('./styles/travaux-editor.css');

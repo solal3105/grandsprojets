@@ -52,44 +52,78 @@ const TravauxModule = (() => {
       </div>
       
       <!-- Zone de dessin (cachée par défaut) -->
-      <div id="travaux-drawing-panel" style="display:none; background: var(--surface-elevated); border-bottom: 1px solid var(--border-color); padding: 1em; margin: 0;">
-        <div style="display: flex; align-items: center; gap: 1em; margin-bottom: 1em;">
-          <i class="fa-solid fa-pen-to-square" style="color: var(--primary); font-size: 1.5em;"></i>
-          <div style="flex: 1;">
-            <strong style="display: block; margin-bottom: 0.25em;">Mode dessin activé</strong>
-            <p style="margin: 0; font-size: 0.9em; opacity: 0.8;">
-              Utilisez les outils ci-dessous pour dessiner la géométrie du chantier sur la carte
-            </p>
+      <div id="travaux-drawing-panel" class="travaux-drawing-panel">
+        <!-- Header avec statut -->
+        <div class="travaux-drawing-header">
+          <div class="travaux-drawing-status">
+            <div class="status-icon">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </div>
+            <div class="status-content">
+              <h3 class="status-title">Mode dessin activé</h3>
+              <p class="status-description">
+                Dessinez la zone du chantier sur la carte puis renseignez les informations
+              </p>
+            </div>
+          </div>
+          <div class="travaux-drawing-progress">
+            <span class="progress-step" id="drawing-step-1">
+              <i class="fa-solid fa-circle-dot"></i> Étape 1/2
+            </span>
           </div>
         </div>
         
-        <!-- Outils de dessin redesignés -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.5em; margin-bottom: 1em;">
-          <button id="draw-polyline" class="travaux-draw-tool" data-tool="polyline" title="Dessiner une ligne">
-            <i class="fa-solid fa-route"></i>
-            <span>Ligne</span>
-          </button>
-          <button id="draw-polygon" class="travaux-draw-tool" data-tool="polygon" title="Dessiner un polygone">
-            <i class="fa-solid fa-draw-polygon"></i>
-            <span>Polygone</span>
-          </button>
-          <button id="draw-marker" class="travaux-draw-tool" data-tool="marker" title="Placer un marqueur">
-            <i class="fa-solid fa-location-dot"></i>
-            <span>Marqueur</span>
-          </button>
-          <button id="draw-rectangle" class="travaux-draw-tool" data-tool="rectangle" title="Dessiner un rectangle">
-            <i class="fa-solid fa-square"></i>
-            <span>Rectangle</span>
-          </button>
+        <!-- Outils de dessin avec cards modernes -->
+        <div class="travaux-tools-section">
+          <h4 class="tools-section-title">
+            <i class="fa-solid fa-pencil"></i> Outils de dessin
+          </h4>
+          <div class="travaux-tools-grid">
+            <button id="draw-polyline" class="travaux-draw-tool" data-tool="polyline">
+              <div class="tool-icon">
+                <i class="fa-solid fa-route"></i>
+              </div>
+              <div class="tool-content">
+                <span class="tool-name">Ligne</span>
+                <span class="tool-hint">Tracé linéaire</span>
+              </div>
+            </button>
+            <button id="draw-polygon" class="travaux-draw-tool" data-tool="polygon">
+              <div class="tool-icon">
+                <i class="fa-solid fa-draw-polygon"></i>
+              </div>
+              <div class="tool-content">
+                <span class="tool-name">Polygone</span>
+                <span class="tool-hint">Zone fermée</span>
+              </div>
+            </button>
+            <button id="draw-marker" class="travaux-draw-tool" data-tool="marker">
+              <div class="tool-icon">
+                <i class="fa-solid fa-location-dot"></i>
+              </div>
+              <div class="tool-content">
+                <span class="tool-name">Point</span>
+                <span class="tool-hint">Localisation</span>
+              </div>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Aide contextuelle -->
+        <div class="travaux-drawing-help">
+          <i class="fa-solid fa-lightbulb"></i>
+          <span>Cliquez sur un outil puis dessinez sur la carte. Vous pouvez dessiner plusieurs formes.</span>
         </div>
         
         <!-- Actions -->
-        <div style="display: flex; gap: 0.5em; justify-content: flex-end;">
-          <button id="travaux-cancel-drawing" class="btn-secondary">
-            <i class="fa-solid fa-xmark"></i> Annuler
+        <div class="travaux-drawing-actions">
+          <button id="travaux-cancel-drawing" class="btn-secondary btn-large">
+            <i class="fa-solid fa-xmark"></i>
+            <span>Annuler</span>
           </button>
-          <button id="travaux-finish-drawing" class="btn-primary">
-            <i class="fa-solid fa-check"></i> Terminer
+          <button id="travaux-finish-drawing" class="btn-primary btn-large" disabled>
+            <i class="fa-solid fa-arrow-right"></i>
+            <span>Continuer</span>
           </button>
         </div>
       </div>

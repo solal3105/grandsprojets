@@ -131,12 +131,7 @@ const TravauxEditorModule = (() => {
           color: '#3388ff'
         }
       },
-      marker: {},
-      rectangle: {
-        shapeOptions: {
-          color: '#3388ff'
-        }
-      }
+      marker: {}
     };
     
     // Activer l'outil correspondant
@@ -150,9 +145,6 @@ const TravauxEditorModule = (() => {
       case 'marker':
         new L.Draw.Marker(map, drawOptions.marker).enable();
         break;
-      case 'rectangle':
-        new L.Draw.Rectangle(map, drawOptions.rectangle).enable();
-        break;
     }
   }
   
@@ -164,6 +156,9 @@ const TravauxEditorModule = (() => {
     drawnItems.addLayer(layer);
     currentFeatures.push(layer.toGeoJSON());
     console.log('[TravauxEditor] Feature dessinée:', currentFeatures.length);
+    
+    // Activer le bouton "Continuer" et mettre à jour le feedback
+    updateDrawingUI();
   }
   
   /**
@@ -175,6 +170,7 @@ const TravauxEditorModule = (() => {
       currentFeatures.push(layer.toGeoJSON());
     });
     console.log('[TravauxEditor] Features éditées:', currentFeatures.length);
+    updateDrawingUI();
   }
   
   /**
@@ -185,7 +181,30 @@ const TravauxEditorModule = (() => {
     drawnItems.eachLayer(layer => {
       currentFeatures.push(layer.toGeoJSON());
     });
-    console.log('[TravauxEditor] Features supprimées, reste:', currentFeatures.length);
+    console.log('[TravauxEditor] Features supprimées:', currentFeatures.length);
+    updateDrawingUI();
+  }
+  
+  /**
+   * Met à jour l'UI du panel de dessin selon l'état
+   */
+  function updateDrawingUI() {
+    const finishBtn = document.getElementById('travaux-finish-drawing');
+    const helpText = document.querySelector('.travaux-drawing-help span');
+    
+    if (!finishBtn) return;
+    
+    if (currentFeatures.length > 0) {
+      finishBtn.disabled = false;
+      if (helpText) {
+        helpText.innerHTML = `<strong>${currentFeatures.length}</strong> forme(s) dessinée(s). Cliquez sur "Continuer" pour renseigner les informations.`;
+      }
+    } else {
+      finishBtn.disabled = true;
+      if (helpText) {
+        helpText.textContent = 'Cliquez sur un outil puis dessinez sur la carte. Vous pouvez dessiner plusieurs formes.';
+      }
+    }
   }
   
   /**
@@ -286,61 +305,162 @@ const TravauxEditorModule = (() => {
       overlay.setAttribute('aria-labelledby', 'travaux-form-title');
       overlay.setAttribute('aria-hidden', 'true');
       overlay.innerHTML = `
-        <div class="gp-modal" role="document">
+        <div class="gp-modal gp-modal--large" role="document">
           <header class="gp-modal-header">
-            <h1 class="gp-modal-title" id="travaux-form-title">Informations du chantier</h1>
+            <div class="modal-header-content">
+              <div class="modal-icon">
+                <i class="fa-solid fa-helmet-safety"></i>
+              </div>
+              <div>
+                <h1 class="gp-modal-title" id="travaux-form-title">Informations du chantier</h1>
+                <p class="gp-modal-subtitle">Étape 2/2 • Complétez les détails du chantier</p>
+              </div>
+            </div>
             <button class="btn-secondary gp-modal-close" aria-label="Fermer">
               <i class="fa-solid fa-xmark"></i>
             </button>
           </header>
           <div class="gp-modal-body">
-            <form id="travaux-editor-form" style="display:flex; flex-direction:column; gap:1em;">
-              <div class="form-field">
-                <label for="travaux-name">Nom du chantier *</label>
-                <input type="text" id="travaux-name" name="name" required placeholder="Ex: Rénovation Rue de la République">
+            <form id="travaux-editor-form" class="travaux-form">
+              <!-- Informations principales -->
+              <div class="form-section">
+                <h3 class="form-section-title">
+                  <i class="fa-solid fa-circle-info"></i>
+                  Informations principales
+                </h3>
+                <div class="form-grid">
+                  <div class="form-field form-field--full">
+                    <label for="travaux-name" class="form-label">
+                      <span class="label-text">Nom du chantier</span>
+                      <span class="label-required">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      id="travaux-name" 
+                      name="name" 
+                      class="form-input" 
+                      required 
+                      placeholder="Ex: Rénovation Rue de la République"
+                      autocomplete="off"
+                    >
+                  </div>
+                  
+                  <div class="form-field">
+                    <label for="travaux-nature" class="form-label">
+                      <span class="label-text">Nature des travaux</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      id="travaux-nature" 
+                      name="nature" 
+                      class="form-input" 
+                      placeholder="Ex: Réfection de chaussée"
+                      list="nature-suggestions"
+                    >
+                    <datalist id="nature-suggestions">
+                      <option value="Réfection de chaussée">
+                      <option value="Travaux de voirie">
+                      <option value="Réseaux (eau, gaz, électricité)">
+                      <option value="Aménagement urbain">
+                      <option value="Construction">
+                    </datalist>
+                  </div>
+                  
+                  <div class="form-field">
+                    <label for="travaux-etat" class="form-label">
+                      <span class="label-text">État d'avancement</span>
+                    </label>
+                    <select id="travaux-etat" name="etat" class="form-select">
+                      <option value="">Non spécifié</option>
+                      <option value="Prochain">🟡 Prochain</option>
+                      <option value="Ouvert">🔴 En cours</option>
+                      <option value="Terminé">🟢 Terminé</option>
+                    </select>
+                  </div>
+                </div>
               </div>
               
-              <div class="form-field">
-                <label for="travaux-nature">Nature des travaux</label>
-                <input type="text" id="travaux-nature" name="nature" placeholder="Ex: Réfection de chaussée">
+              <!-- Période -->
+              <div class="form-section">
+                <h3 class="form-section-title">
+                  <i class="fa-solid fa-calendar-days"></i>
+                  Période des travaux
+                </h3>
+                <div class="form-grid form-grid--2">
+                  <div class="form-field">
+                    <label for="travaux-date-debut" class="form-label">
+                      <span class="label-text">Date de début</span>
+                    </label>
+                    <input 
+                      type="date" 
+                      id="travaux-date-debut" 
+                      name="date_debut" 
+                      class="form-input"
+                    >
+                  </div>
+                  
+                  <div class="form-field">
+                    <label for="travaux-date-fin" class="form-label">
+                      <span class="label-text">Date de fin (prévue)</span>
+                    </label>
+                    <input 
+                      type="date" 
+                      id="travaux-date-fin" 
+                      name="date_fin" 
+                      class="form-input"
+                    >
+                  </div>
+                </div>
               </div>
               
-              <div class="form-field">
-                <label for="travaux-etat">État</label>
-                <select id="travaux-etat" name="etat">
-                  <option value="">Non spécifié</option>
-                  <option value="Prochain">Prochain</option>
-                  <option value="Ouvert">Ouvert</option>
-                  <option value="Terminé">Terminé</option>
-                </select>
+              <!-- Localisation et description -->
+              <div class="form-section">
+                <h3 class="form-section-title">
+                  <i class="fa-solid fa-location-dot"></i>
+                  Localisation et détails
+                </h3>
+                <div class="form-grid">
+                  <div class="form-field form-field--full">
+                    <label for="travaux-localisation" class="form-label">
+                      <span class="label-text">Localisation</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      id="travaux-localisation" 
+                      name="localisation" 
+                      class="form-input" 
+                      placeholder="Ex: Lyon 6e, Rue Victor Hugo"
+                    >
+                  </div>
+                  
+                  <div class="form-field form-field--full">
+                    <label for="travaux-description" class="form-label">
+                      <span class="label-text">Description</span>
+                      <span class="label-hint">Détails supplémentaires sur les travaux</span>
+                    </label>
+                    <textarea 
+                      id="travaux-description" 
+                      name="description" 
+                      class="form-textarea" 
+                      rows="4" 
+                      placeholder="Décrivez les travaux, leur impact, les déviations éventuelles..."
+                    ></textarea>
+                  </div>
+                </div>
               </div>
               
-              <div class="form-field">
-                <label for="travaux-date-debut">Date début</label>
-                <input type="date" id="travaux-date-debut" name="date_debut">
-              </div>
+              <!-- Statut de sauvegarde -->
+              <div id="travaux-editor-status" class="form-status" style="display:none;"></div>
               
-              <div class="form-field">
-                <label for="travaux-date-fin">Date fin</label>
-                <input type="date" id="travaux-date-fin" name="date_fin">
-              </div>
-              
-              <div class="form-field">
-                <label for="travaux-localisation">Localisation</label>
-                <input type="text" id="travaux-localisation" name="localisation" placeholder="Ex: Lyon 6e, Rue Victor Hugo">
-              </div>
-              
-              <div class="form-field">
-                <label for="travaux-description">Description</label>
-                <textarea id="travaux-description" name="description" rows="3" placeholder="Détails supplémentaires..."></textarea>
-              </div>
-              
-              <div id="travaux-editor-status" style="display:none; padding:1em; border-radius:8px; margin-top:1em;"></div>
-              
-              <div class="form-actions" style="display:flex; gap:1em; justify-content:flex-end; margin-top:1em;">
-                <button type="button" class="btn-secondary" id="travaux-form-cancel">Annuler</button>
-                <button type="submit" class="btn-primary" id="travaux-save">
-                  <i class="fa-solid fa-check"></i> Enregistrer
+              <!-- Actions -->
+              <div class="form-actions">
+                <button type="button" class="btn-secondary btn-large" id="travaux-form-cancel">
+                  <i class="fa-solid fa-xmark"></i>
+                  <span>Annuler</span>
+                </button>
+                <button type="submit" class="btn-primary btn-large" id="travaux-save">
+                  <i class="fa-solid fa-floppy-disk"></i>
+                  <span>Enregistrer le chantier</span>
                 </button>
               </div>
             </form>
