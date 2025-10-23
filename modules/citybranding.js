@@ -189,18 +189,41 @@
    * Applique la configuration des toggles (masque/affiche les contrôles)
    * @param {Array<string>} enabledToggles - Liste des toggles activés
    */
-  applyTogglesConfig(enabledToggles) {
+  async applyTogglesConfig(enabledToggles) {
     if (!Array.isArray(enabledToggles)) return;
 
     console.log('[CityBranding] Applying toggles config:', enabledToggles);
 
+    // Vérifier si l'utilisateur est connecté
+    let isAuthenticated = false;
+    try {
+      if (win.AuthModule && typeof win.AuthModule.getSession === 'function') {
+        const { data: { session } } = await win.AuthModule.getSession();
+        isAuthenticated = !!(session && session.user);
+      }
+    } catch (err) {
+      console.warn('[CityBranding] Error checking auth status:', err);
+    }
+
     // Liste de tous les toggles possibles
-    const allToggles = ['filters', 'basemap', 'theme', 'search', 'location', 'info', 'login'];
+    const allToggles = ['filters', 'basemap', 'theme', 'search', 'location', 'info', 'contribute', 'login'];
 
     // Utiliser le ToggleManager si disponible pour une gestion cohérente
     if (win.toggleManager && typeof win.toggleManager.setVisible === 'function') {
       allToggles.forEach(toggleKey => {
-        const isEnabled = enabledToggles.includes(toggleKey);
+        let isEnabled = enabledToggles.includes(toggleKey);
+        
+        // Règles spéciales selon l'état d'authentification
+        if (toggleKey === 'login') {
+          // Masquer le toggle login si l'utilisateur est connecté
+          if (isAuthenticated) {
+            isEnabled = false;
+          }
+        } else if (toggleKey === 'contribute') {
+          // Afficher le toggle contribute uniquement si l'utilisateur est connecté
+          isEnabled = isAuthenticated;
+        }
+        
         win.toggleManager.setVisible(toggleKey, isEnabled);
       });
     } else {
@@ -208,7 +231,20 @@
       allToggles.forEach(toggleKey => {
         const toggleElement = document.getElementById(`${toggleKey}-toggle`);
         if (toggleElement) {
-          if (enabledToggles.includes(toggleKey)) {
+          let isEnabled = enabledToggles.includes(toggleKey);
+          
+          // Règles spéciales selon l'état d'authentification
+          if (toggleKey === 'login') {
+            // Masquer le toggle login si l'utilisateur est connecté
+            if (isAuthenticated) {
+              isEnabled = false;
+            }
+          } else if (toggleKey === 'contribute') {
+            // Afficher le toggle contribute uniquement si l'utilisateur est connecté
+            isEnabled = isAuthenticated;
+          }
+          
+          if (isEnabled) {
             toggleElement.style.display = '';
           } else {
             toggleElement.style.display = 'none';
@@ -238,10 +274,40 @@
       console.error('Error fetching all branding:', err);
       return [];
     }
+  },
+
+  /**
+   * Initialise les listeners pour mettre à jour le toggle login selon l'état d'authentification
+   */
+  init() {
+    // Écouter les changements d'état d'authentification
+    if (win.AuthModule && typeof win.AuthModule.onAuthStateChange === 'function') {
+      win.AuthModule.onAuthStateChange(async (event, session) => {
+        console.log('[CityBranding] Auth state changed:', event);
+        
+        // Récupérer la ville active
+        const activeCity = localStorage.getItem('activeCity');
+        
+        // Récupérer le branding pour réappliquer la config
+        const branding = await this.getBrandingForCity(activeCity);
+        if (branding && branding.enabled_toggles) {
+          await this.applyTogglesConfig(branding.enabled_toggles);
+        }
+      });
+    }
   }
 };
 
   // Exposer sur window
   win.CityBrandingModule = CityBrandingModule;
+  
+  // Initialiser automatiquement
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      CityBrandingModule.init();
+    });
+  } else {
+    CityBrandingModule.init();
+  }
 
 })(window);
