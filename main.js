@@ -12,6 +12,95 @@
 
   const supabaseService = win.supabaseService;
 
+  /**
+   * Initialise le submenu Travaux en dur (indépendant de category_icons)
+   * Affiche uniquement si :
+   * - Mode Global (activeCity = null)
+   * - Ville avec city_branding.travaux = true
+   */
+  async function initTravauxSubmenu(categoriesContainer, submenusContainer) {
+    console.log('[Main] 🚀 Début initTravauxSubmenu');
+    console.log('[Main] categoriesContainer:', categoriesContainer);
+    console.log('[Main] submenusContainer:', submenusContainer);
+    
+    try {
+      const activeCity = (typeof win.getActiveCity === 'function') ? win.getActiveCity() : (win.activeCity || null);
+      console.log('[Main] activeCity détectée:', activeCity);
+      
+      let shouldShow = false;
+      
+      // Mode Global → toujours afficher
+      if (!activeCity || activeCity === 'default') {
+        shouldShow = true;
+        console.log('[Main] ✅ Mode Global: submenu Travaux activé');
+      } else {
+        // Ville spécifique → vérifier city_branding.travaux
+        console.log(`[Main] 🔍 Récupération city_branding pour ville: ${activeCity}`);
+        const branding = await supabaseService.getCityBranding(activeCity);
+        console.log('[Main] city_branding reçu:', branding);
+        console.log('[Main] branding.travaux:', branding?.travaux);
+        
+        shouldShow = branding?.travaux === true;
+        console.log(`[Main] Ville ${activeCity}: travaux=${branding?.travaux}, shouldShow=${shouldShow}`);
+      }
+      
+      if (!shouldShow) {
+        console.log('[Main] ⚠️ Submenu Travaux désactivé pour cette ville');
+        return;
+      }
+      
+      console.log('[Main] ✅ Submenu Travaux doit être affiché, création en cours...');
+      
+      // Créer le bouton de navigation
+      const navButton = document.createElement('button');
+      navButton.className = 'nav-category';
+      navButton.id = 'nav-travaux';
+      navButton.dataset.category = 'travaux';
+      navButton.innerHTML = `
+        <i class="fa-solid fa-helmet-safety" aria-hidden="true"></i>
+        <span class="label">Travaux</span>
+      `;
+      categoriesContainer.appendChild(navButton);
+      console.log('[Main] ✅ Bouton Travaux ajouté au DOM');
+      
+      // Créer le submenu
+      const submenu = document.createElement('div');
+      submenu.className = 'submenu';
+      submenu.dataset.category = 'travaux';
+      submenu.style.display = 'none';
+      submenu.innerHTML = `<ul class="project-list"></ul>`;
+      submenusContainer.appendChild(submenu);
+      console.log('[Main] ✅ Submenu Travaux ajouté au DOM');
+      
+      // Bind navigation (géré manuellement car indépendant de categoryIcons)
+      navButton.addEventListener('click', () => {
+        console.log('[Main] 🖱️ Clic sur bouton Travaux');
+        
+        // Utiliser EventBindings.handleNavigation si disponible
+        if (win.EventBindings?.handleNavigation) {
+          win.EventBindings.handleNavigation('travaux', ['travaux']);
+        }
+        
+        // Afficher le submenu Travaux et masquer les autres
+        document.querySelectorAll('.submenu').forEach(s => {
+          s.style.display = 'none';
+        });
+        
+        const targetSubmenu = document.querySelector('.submenu[data-category="travaux"]');
+        if (targetSubmenu) {
+          targetSubmenu.style.display = 'block';
+          console.log('[Main] ✅ Submenu Travaux affiché');
+        } else {
+          console.warn('[Main] ⚠️ Submenu Travaux introuvable');
+        }
+      });
+      
+      console.log('[Main] ✅ Submenu Travaux créé en dur');
+    } catch (error) {
+      console.error('[Main] ❌ Erreur initialisation submenu Travaux:', error);
+    }
+  }
+
   async function initApp() {
     try {
       // PHASE 1 : Modules de base
@@ -159,28 +248,11 @@
 
       const categoriesWithData = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
       
-      // EXCEPTION: Toujours inclure "travaux" en mode Global (ville null/default)
-      if ((city === null || city === '' || city === 'default') && !categoriesWithData.includes('travaux')) {
-        console.log('[Main] ✅ Mode Global détecté, activation automatique du menu Travaux');
-        categoriesWithData.push('travaux');
-      }
+      // Note: "travaux" est géré séparément via initTravauxSubmenu() (submenu en dur)
+      // On le retire de categoriesWithData pour éviter un doublon
+      const categoriesFiltered = categoriesWithData.filter(cat => cat !== 'travaux');
       
-      // Vérifier city_branding.travaux pour activer le menu Travaux (ville spécifique)
-      if (city && city !== null && city !== '' && city !== 'default' && !categoriesWithData.includes('travaux')) {
-        try {
-          if (window.supabaseService?.getCityBranding) {
-            const branding = await window.supabaseService.getCityBranding(city);
-            if (branding && branding.travaux === true) {
-              console.log(`[Main] ✅ city_branding.travaux=true pour ${city}, activation menu Travaux`);
-              categoriesWithData.push('travaux');
-            }
-          }
-        } catch (err) {
-          console.warn('[Main] ⚠️ Erreur vérification city_branding.travaux:', err);
-        }
-      }
-      
-      console.log('[Main] 📊 Catégories:', categoriesWithData);
+      console.log('[Main] 📊 Catégories:', categoriesFiltered);
 
       let allCategoryIconsFromDB = [];
       try {
@@ -192,7 +264,7 @@
         console.warn('[Main] ⚠️ Erreur fetch category icons:', e);
       }
 
-      const activeCategoryIcons = categoriesWithData.map((category, index) => {
+      const activeCategoryIcons = categoriesFiltered.map((category, index) => {
         // Chercher l'icône pour cette catégorie
         // fetchCategoryIcons() a déjà filtré par ville (strict)
         let existingIcon = allCategoryIconsFromDB.find(icon => icon.category === category);
@@ -200,18 +272,11 @@
         if (existingIcon) {
           return existingIcon;
         } else {
-          let defaultIcon = 'fa-solid fa-layer-group';
-          let defaultOrder = 100 + index;
-          
-          if (category === 'travaux') {
-            defaultIcon = 'fa-solid fa-helmet-safety';
-            defaultOrder = 99;
-          }
-          
+          // Icône par défaut pour les catégories sans config DB
           return {
             category: category,
-            icon_class: defaultIcon,
-            display_order: defaultOrder
+            icon_class: 'fa-solid fa-layer-group',
+            display_order: 100 + index
           };
         }
       });
@@ -230,6 +295,10 @@
       const categoriesContainer = document.getElementById('dynamic-categories');
       const submenusContainer = document.getElementById('dynamic-submenus');
       
+      console.log('[Main] 📍 Containers DOM:', { categoriesContainer, submenusContainer });
+      console.log('[Main] 📊 activeCategoryIcons.length:', activeCategoryIcons.length);
+      
+      // Créer les menus dynamiques (catégories depuis contributions)
       if (categoriesContainer && submenusContainer && activeCategoryIcons.length > 0) {
         activeCategoryIcons.forEach(({ category, icon_class }) => {
           const navButton = document.createElement('button');
@@ -254,19 +323,27 @@
           submenusContainer.appendChild(submenu);
         });
         console.log('[Main] 🎨 Menus créés:', activeCategoryIcons.map(c => c.category).join(', '));
-        
-        // Initialiser les event listeners de navigation via EventBindings
-        if (window.EventBindings?.initCategoryNavigation) {
-          window.EventBindings.initCategoryNavigation();
-          console.log('[Main] 🔗 Navigation initialisée via EventBindings');
-        } else {
-          console.warn('[Main] EventBindings.initCategoryNavigation non disponible');
-        }
+      }
+      
+      // ===== SUBMENU TRAVAUX EN DUR (indépendant de category_icons) =====
+      // IMPORTANT : Toujours appeler, même si activeCategoryIcons est vide
+      if (categoriesContainer && submenusContainer) {
+        console.log('[Main] 🔧 Appel initTravauxSubmenu...');
+        await initTravauxSubmenu(categoriesContainer, submenusContainer);
+        console.log('[Main] 🔧 initTravauxSubmenu terminé');
+      }
+      
+      // Initialiser les event listeners de navigation via EventBindings
+      if (window.EventBindings?.initCategoryNavigation) {
+        window.EventBindings.initCategoryNavigation();
+        console.log('[Main] 🔗 Navigation initialisée via EventBindings');
+      } else {
+        console.warn('[Main] EventBindings.initCategoryNavigation non disponible');
       }
       const contributionsByCategory = {};
       allContributions.forEach(contrib => {
         const cat = contrib.category;
-        if (cat && categoriesWithData.includes(cat)) {
+        if (cat && categoriesFiltered.includes(cat)) {
           if (!contributionsByCategory[cat]) {
             contributionsByCategory[cat] = [];
           }

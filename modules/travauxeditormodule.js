@@ -86,6 +86,12 @@ const TravauxEditorModule = (() => {
       return;
     }
     
+    // Cacher les filtres pendant le mode dessin
+    const filtersUX = document.getElementById('travaux-filters-ux');
+    if (filtersUX) {
+      filtersUX.style.display = 'none';
+    }
+    
     // Afficher le panel
     panel.style.display = 'block';
     
@@ -118,6 +124,14 @@ const TravauxEditorModule = (() => {
     
     const map = window.MapModule.map;
     
+    // Créer un marker CSS personnalisé
+    const customMarkerIcon = L.divIcon({
+      className: 'travaux-marker',
+      iconSize: [32, 40],
+      iconAnchor: [16, 40],
+      popupAnchor: [0, -40]
+    });
+    
     // Options de dessin par défaut
     const drawOptions = {
       polyline: {
@@ -131,7 +145,9 @@ const TravauxEditorModule = (() => {
           color: '#3388ff'
         }
       },
-      marker: {}
+      marker: {
+        icon: customMarkerIcon
+      }
     };
     
     // Activer l'outil correspondant
@@ -153,6 +169,18 @@ const TravauxEditorModule = (() => {
    */
   function handleDrawCreated(e) {
     const layer = e.layer;
+    
+    // Si c'est un marker, appliquer l'icône personnalisée
+    if (layer instanceof L.Marker) {
+      const customMarkerIcon = L.divIcon({
+        className: 'travaux-marker',
+        iconSize: [32, 40],
+        iconAnchor: [16, 40],
+        popupAnchor: [0, -40]
+      });
+      layer.setIcon(customMarkerIcon);
+    }
+    
     drawnItems.addLayer(layer);
     currentFeatures.push(layer.toGeoJSON());
     console.log('[TravauxEditor] Feature dessinée:', currentFeatures.length);
@@ -256,6 +284,12 @@ const TravauxEditorModule = (() => {
       const tools = panel.querySelectorAll('.travaux-draw-tool');
       tools.forEach(t => t.classList.remove('active'));
     }
+    
+    // Réafficher les filtres
+    const filtersUX = document.getElementById('travaux-filters-ux');
+    if (filtersUX) {
+      filtersUX.style.display = '';
+    }
   }
   
   /**
@@ -313,7 +347,7 @@ const TravauxEditorModule = (() => {
               </div>
               <div>
                 <h1 class="gp-modal-title" id="travaux-form-title">Informations du chantier</h1>
-                <p class="gp-modal-subtitle">Étape 2/2 • Complétez les détails du chantier</p>
+                <p class="gp-modal-subtitle">Renseignez les informations du chantier</p>
               </div>
             </div>
             <button class="btn-secondary gp-modal-close" aria-label="Fermer">
@@ -471,7 +505,18 @@ const TravauxEditorModule = (() => {
       
       // Event listeners
       overlay.querySelector('#travaux-editor-form').addEventListener('submit', handleSave);
+      
+      // Bouton Annuler
       overlay.querySelector('#travaux-form-cancel').addEventListener('click', () => {
+        if (confirm('Annuler la création du chantier ? Les géométries dessinées seront perdues.')) {
+          closeFormModal();
+          drawnItems.clearLayers();
+          currentFeatures = [];
+        }
+      });
+      
+      // Croix de fermeture
+      overlay.querySelector('.gp-modal-close').addEventListener('click', () => {
         if (confirm('Annuler la création du chantier ? Les géométries dessinées seront perdues.')) {
           closeFormModal();
           drawnItems.clearLayers();
@@ -576,7 +621,7 @@ const TravauxEditorModule = (() => {
       
       showStatus('✅ Chantier créé avec succès !', 'success');
       
-      // Recharger la couche travaux et fermer
+      // Recharger la couche travaux/chantiers et fermer
       setTimeout(async () => {
         try {
           // Nettoyer les features dessinées
@@ -586,8 +631,18 @@ const TravauxEditorModule = (() => {
           // Fermer la modale
           closeFormModal();
           
-          // Recharger les données
-          await window.DataModule?.loadLayer('travaux');
+          // Déterminer le layer à recharger selon la ville
+          const layerToReload = (activeCity && activeCity !== 'default') ? 'chantiers' : 'travaux';
+          
+          // Vider le cache pour forcer le rechargement
+          if (window.DataModule?.clearLayerCache) {
+            window.DataModule.clearLayerCache(layerToReload);
+          }
+          
+          // Recharger les données du bon layer
+          if (window.DataModule?.loadLayer) {
+            await window.DataModule.loadLayer(layerToReload);
+          }
           
           // Recharger le submenu travaux si ouvert
           if (window.TravauxModule?.renderTravauxProjects) {
@@ -625,9 +680,323 @@ const TravauxEditorModule = (() => {
                            'var(--info)';
   }
   
+  /**
+   * Ouvre l'éditeur en mode modification pour un chantier existant
+   * @param {string} chantierId - ID du chantier à modifier
+   */
+  async function openEditorForEdit(chantierId) {
+    try {
+      // Récupérer les données du chantier
+      const chantier = await window.supabaseService.getCityTravauxById(chantierId);
+      
+      if (!chantier) {
+        alert('Chantier introuvable');
+        return;
+      }
+      
+      // Vérifier auth
+      const authOk = await checkAuth();
+      if (!authOk) {
+        alert('Vous devez être connecté et admin de la ville pour modifier un chantier.');
+        return;
+      }
+      
+      // Ouvrir directement le formulaire en mode édition (sans dessin)
+      openFormModalForEdit(chantier);
+      
+    } catch (err) {
+      console.error('[TravauxEditor] Erreur chargement chantier:', err);
+      alert('Erreur lors du chargement du chantier');
+    }
+  }
+  
+  /**
+   * Ouvre le formulaire en mode édition avec les données existantes
+   * @param {Object} chantier - Données du chantier à modifier
+   */
+  function openFormModalForEdit(chantier) {
+    // Vérifier si la modale existe déjà
+    let overlay = document.getElementById('travaux-form-overlay');
+    
+    if (!overlay) {
+      // Créer la modale (même structure que pour la création)
+      overlay = document.createElement('div');
+      overlay.id = 'travaux-form-overlay';
+      overlay.className = 'gp-modal-overlay';
+      overlay.innerHTML = `
+        <div class="gp-modal gp-modal--large">
+          <div class="gp-modal-header">
+            <div class="gp-modal-title">
+              <i class="fa-solid fa-pen-to-square"></i>
+              Modifier le chantier
+            </div>
+            <button class="btn-secondary gp-modal-close" aria-label="Fermer">×</button>
+          </div>
+          <div class="gp-modal-body">
+            <!-- Message d'information sur le tracé -->
+            <div class="form-alert form-alert--warning" style="margin-bottom: 24px;">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <div>
+                <strong>Modification du tracé impossible</strong>
+                <p>Pour modifier le tracé géographique du chantier, vous devez le supprimer puis en créer un nouveau. Vous pouvez uniquement modifier les informations ci-dessous.</p>
+              </div>
+            </div>
+            
+            <form id="travaux-editor-form" class="form-modern">
+              <!-- Informations générales -->
+              <div class="form-section">
+                <h3 class="form-section-title">
+                  <i class="fa-solid fa-circle-info"></i>
+                  Informations générales
+                </h3>
+                <div class="form-grid">
+                  <div class="form-field form-field--full">
+                    <label for="travaux-name" class="form-label">
+                      <span class="label-text">Nom du chantier</span>
+                      <span class="label-required">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      id="travaux-name" 
+                      name="name" 
+                      class="form-input" 
+                      placeholder="Ex: Réfection de la chaussée" 
+                      required
+                    >
+                  </div>
+                  
+                  <div class="form-field">
+                    <label for="travaux-nature" class="form-label">
+                      <span class="label-text">Nature des travaux</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      id="travaux-nature" 
+                      name="nature" 
+                      class="form-input" 
+                      list="nature-suggestions"
+                      placeholder="Ex: Voirie, Réseau..."
+                    >
+                    <datalist id="nature-suggestions">
+                      <option value="Voirie">
+                      <option value="Réseau">
+                      <option value="Assainissement">
+                      <option value="Éclairage public">
+                      <option value="Espaces verts">
+                      <option value="Bâtiment">
+                    </datalist>
+                  </div>
+                  
+                  <div class="form-field">
+                    <label for="travaux-etat" class="form-label">
+                      <span class="label-text">État d'avancement</span>
+                    </label>
+                    <select id="travaux-etat" name="etat" class="form-select">
+                      <option value="">Non spécifié</option>
+                      <option value="Prochain">🟡 Prochain</option>
+                      <option value="Ouvert">🔴 En cours</option>
+                      <option value="Terminé">🟢 Terminé</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Période -->
+              <div class="form-section">
+                <h3 class="form-section-title">
+                  <i class="fa-solid fa-calendar-days"></i>
+                  Période des travaux
+                </h3>
+                <div class="form-grid form-grid--2">
+                  <div class="form-field">
+                    <label for="travaux-date-debut" class="form-label">
+                      <span class="label-text">Date de début</span>
+                    </label>
+                    <input 
+                      type="date" 
+                      id="travaux-date-debut" 
+                      name="date_debut" 
+                      class="form-input"
+                    >
+                  </div>
+                  
+                  <div class="form-field">
+                    <label for="travaux-date-fin" class="form-label">
+                      <span class="label-text">Date de fin (prévue)</span>
+                    </label>
+                    <input 
+                      type="date" 
+                      id="travaux-date-fin" 
+                      name="date_fin" 
+                      class="form-input"
+                    >
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Localisation et description -->
+              <div class="form-section">
+                <h3 class="form-section-title">
+                  <i class="fa-solid fa-location-dot"></i>
+                  Localisation et détails
+                </h3>
+                <div class="form-grid">
+                  <div class="form-field form-field--full">
+                    <label for="travaux-localisation" class="form-label">
+                      <span class="label-text">Localisation</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      id="travaux-localisation" 
+                      name="localisation" 
+                      class="form-input" 
+                      placeholder="Ex: Lyon 6e, Rue Victor Hugo"
+                    >
+                  </div>
+                  
+                  <div class="form-field form-field--full">
+                    <label for="travaux-description" class="form-label">
+                      <span class="label-text">Description</span>
+                      <span class="label-hint">Détails supplémentaires sur les travaux</span>
+                    </label>
+                    <textarea 
+                      id="travaux-description" 
+                      name="description" 
+                      class="form-textarea" 
+                      rows="4" 
+                      placeholder="Décrivez les travaux, leur impact, les déviations éventuelles..."
+                    ></textarea>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Statut de sauvegarde -->
+              <div id="travaux-editor-status" class="form-status" style="display:none;"></div>
+              
+              <!-- Actions -->
+              <div class="form-actions">
+                <button type="button" class="btn-secondary btn-large" id="travaux-form-cancel">
+                  <i class="fa-solid fa-xmark"></i>
+                  <span>Annuler</span>
+                </button>
+                <button type="submit" class="btn-primary btn-large" id="travaux-save">
+                  <i class="fa-solid fa-floppy-disk"></i>
+                  <span>Enregistrer les modifications</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      
+      // Event listeners
+      overlay.querySelector('#travaux-editor-form').addEventListener('submit', (e) => handleUpdate(e, chantier.id));
+      
+      // Bouton Annuler
+      overlay.querySelector('#travaux-form-cancel').addEventListener('click', () => {
+        if (confirm('Annuler les modifications ?')) {
+          closeFormModal();
+        }
+      });
+      
+      // Croix de fermeture
+      overlay.querySelector('.gp-modal-close').addEventListener('click', () => {
+        if (confirm('Annuler les modifications ?')) {
+          closeFormModal();
+        }
+      });
+    }
+    
+    // Pré-remplir le formulaire avec les données existantes
+    const form = overlay.querySelector('#travaux-editor-form');
+    if (form) {
+      form.querySelector('#travaux-name').value = chantier.name || '';
+      form.querySelector('#travaux-nature').value = chantier.nature || '';
+      form.querySelector('#travaux-etat').value = chantier.etat || '';
+      form.querySelector('#travaux-date-debut').value = chantier.date_debut || '';
+      form.querySelector('#travaux-date-fin').value = chantier.date_fin || '';
+      form.querySelector('#travaux-localisation').value = chantier.localisation || '';
+      form.querySelector('#travaux-description').value = chantier.description || '';
+    }
+    
+    // Ouvrir avec ModalHelper
+    if (window.ModalHelper) {
+      window.ModalHelper.open('travaux-form-overlay', {
+        dismissible: false,
+        onClose: () => {
+          const form = document.getElementById('travaux-editor-form');
+          if (form) form.reset();
+        }
+      });
+    }
+  }
+  
+  /**
+   * Gère la mise à jour d'un chantier existant
+   */
+  async function handleUpdate(e, chantierId) {
+    e.preventDefault();
+    
+    const statusEl = document.getElementById('travaux-editor-status');
+    const saveBtn = document.getElementById('travaux-save');
+    
+    try {
+      // Récupérer les données du formulaire
+      const formData = new FormData(e.target);
+      const data = {
+        name: formData.get('name'),
+        nature: formData.get('nature') || '',
+        etat: formData.get('etat') || '',
+        date_debut: formData.get('date_debut') || null,
+        date_fin: formData.get('date_fin') || null,
+        localisation: formData.get('localisation') || '',
+        description: formData.get('description') || ''
+      };
+      
+      // Validation
+      if (!data.name || data.name.trim() === '') {
+        showStatus('Le nom du chantier est obligatoire.', 'error');
+        return;
+      }
+      
+      // Désactiver le bouton
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enregistrement...';
+      showStatus('Enregistrement en cours...', 'info');
+      
+      // Mettre à jour dans la base de données
+      await window.supabaseService.updateCityTravaux(chantierId, data);
+      
+      showStatus('✅ Chantier modifié avec succès !', 'success');
+      
+      // Recharger la couche et fermer
+      setTimeout(async () => {
+        try {
+          // Recharger la couche travaux
+          if (window.DataModule?.reloadLayer) {
+            await window.DataModule.reloadLayer('travaux');
+          }
+          
+          closeFormModal();
+        } catch (err) {
+          console.error('[TravauxEditor] Erreur rechargement:', err);
+          closeFormModal();
+        }
+      }, 1500);
+      
+    } catch (err) {
+      console.error('[TravauxEditor] Erreur mise à jour:', err);
+      showStatus('❌ Erreur lors de la mise à jour', 'error');
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> <span>Enregistrer les modifications</span>';
+    }
+  }
+  
   // API publique
   return {
-    openEditor
+    openEditor,
+    openEditorForEdit
   };
 })();
 

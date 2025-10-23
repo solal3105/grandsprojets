@@ -356,56 +356,127 @@ window.DataModule = (function() {
         `;
 
 			// Ouvrir un modal avec ModalHelper unifié
-			const openTravauxModal = (html) => {
+			const openTravauxModal = async (htmlContent, featureProps) => {
 				try {
-					// Injecter le contenu dans la modale statique
-					const contentEl = document.getElementById('travaux-modal-content');
-					if (!contentEl) {
-						console.error('[Travaux] Modal content container not found');
+					// Récupérer la modale existante
+					const modalContent = document.getElementById('travaux-modal-content');
+					if (!modalContent) {
+						console.error('[DataModule] travaux-modal-content not found');
 						return;
 					}
 					
-					contentEl.innerHTML = html;
-
-					// Utiliser ModalHelper pour ouvrir la modale
+					// Vérifier si l'utilisateur est admin et si le chantier est éditable
+					const activeCity = (typeof window.getActiveCity === 'function') ? window.getActiveCity() : window.activeCity;
+					const isEditableSource = activeCity && activeCity !== 'default';
+					
+					let isAdmin = false;
+					if (isEditableSource && window.supabaseService) {
+						try {
+							const session = await window.supabaseService.getClient()?.auth.getSession();
+							if (session?.data?.session?.user) {
+								const role = window.__CONTRIB_ROLE || '';
+								const userVilles = window.__CONTRIB_VILLES || [];
+								isAdmin = role === 'admin' && (userVilles.includes('global') || userVilles.includes(activeCity));
+							}
+						} catch (err) {
+							console.warn('[DataModule] Erreur vérification admin:', err);
+						}
+					}
+					
+					// Injecter le contenu
+					modalContent.innerHTML = htmlContent;
+					
+					// Ouvrir la modale avec ModalHelper
 					window.ModalHelper.open('travaux-overlay', {
-							dismissible: true,
-							lockScroll: true,
-							focusTrap: true,
-							onOpen: () => {
-								// Initialisations spécifiques Bento après ouverture
-								const modalEl = contentEl.querySelector('.gp-travaux');
-								if (modalEl) {
-									// Progress bar animation
-									const fill = modalEl.querySelector('.timeline .fill');
-									const target = Number(fill?.getAttribute('data-target') || 0);
-									if (fill && !isNaN(target)) {
-										requestAnimationFrame(() => {
-											fill.style.width = '0%';
-											setTimeout(() => {
-												fill.style.width = `${target}%`;
-											}, 40);
-										});
-									}
-
-									// Addresses toggle/copy
-									const ul = modalEl.querySelector('.addresses');
-									const toggleBtn = modalEl.querySelector('.toggle-addresses');
-									if (toggleBtn) {
-										toggleBtn.addEventListener('click', () => {
-											ul?.classList.toggle('collapsed');
-											if (toggleBtn.textContent.includes('plus')) {
-												toggleBtn.textContent = 'Voir moins';
-											} else {
-												toggleBtn.textContent = 'Voir plus';
-											}
-										});
-									}
+						dismissible: true,
+						lockScroll: true,
+						focusTrap: true,
+						onOpen: () => {
+							// Initialisations spécifiques Bento après ouverture
+							const modalEl = modalContent.querySelector('.gp-travaux');
+							if (modalEl) {
+								// Progress bar animation
+								const fill = modalEl.querySelector('.timeline .fill');
+								const target = Number(fill?.getAttribute('data-target') || 0);
+								if (fill && !isNaN(target)) {
+									requestAnimationFrame(() => {
+										fill.style.width = '0%';
+										setTimeout(() => {
+											fill.style.width = `${target}%`;
+										}, 40);
+									});
 								}
-							},
-							onClose: () => {
+
+								// Addresses toggle/copy
+								const ul = modalEl.querySelector('.addresses');
+								const toggleBtn = modalEl.querySelector('.toggle-addresses');
+								if (toggleBtn) {
+									toggleBtn.addEventListener('click', () => {
+										ul?.classList.toggle('collapsed');
+										if (toggleBtn.textContent.includes('plus')) {
+											toggleBtn.textContent = 'Voir moins';
+										} else {
+											toggleBtn.textContent = 'Voir plus';
+										}
+									});
+								}
+								
+								// Ajouter les boutons d'édition/suppression pour les admins
+								if (isAdmin && featureProps?.chantier_id) {
+									const actionsContainer = document.createElement('div');
+									actionsContainer.className = 'gp-modal-actions';
+									actionsContainer.style.cssText = 'display: flex; gap: 12px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-light);';
+									
+									const editBtn = document.createElement('button');
+									editBtn.className = 'btn-primary';
+									editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Modifier';
+									editBtn.onclick = () => {
+										window.ModalHelper.close('travaux-overlay');
+										if (window.TravauxEditorModule?.openEditorForEdit) {
+											window.TravauxEditorModule.openEditorForEdit(featureProps.chantier_id);
+										} else {
+											console.warn('[DataModule] TravauxEditorModule.openEditorForEdit non disponible');
+										}
+									};
+									
+									const deleteBtn = document.createElement('button');
+									deleteBtn.className = 'btn-danger';
+									deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Supprimer';
+									deleteBtn.onclick = async () => {
+										if (!confirm('Êtes-vous sûr de vouloir supprimer ce chantier ? Cette action est irréversible.')) {
+											return;
+										}
+										
+										deleteBtn.disabled = true;
+										deleteBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Suppression...';
+										
+										try {
+											await window.supabaseService.deleteCityTravaux(featureProps.chantier_id);
+											window.ModalHelper.close('travaux-overlay');
+											
+											// Recharger la couche
+											if (window.DataModule?.reloadLayer) {
+												await window.DataModule.reloadLayer('travaux');
+											}
+											
+											alert('Chantier supprimé avec succès');
+										} catch (err) {
+											console.error('[DataModule] Erreur suppression:', err);
+											alert('Erreur lors de la suppression du chantier');
+											deleteBtn.disabled = false;
+											deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Supprimer';
+										}
+									};
+									
+									actionsContainer.appendChild(editBtn);
+									actionsContainer.appendChild(deleteBtn);
+									modalEl.appendChild(actionsContainer);
+								}
+							}
+						},
+						onClose: () => {
 							// Nettoyer le contenu après fermeture
-							contentEl.innerHTML = '';
+							modalContent.innerHTML = '';
 						}
 					});
 				} catch (e) {
@@ -420,7 +491,7 @@ window.DataModule = (function() {
 						evt.originalEvent.__gpHandledTravaux = true;
 					}
 				} catch (_) {}
-				openTravauxModal(tooltipContent);
+				openTravauxModal(tooltipContent, props);
 			});
 		}
 
@@ -696,14 +767,20 @@ window.DataModule = (function() {
 
 
 
-		// Gestion du clic sur la feature (contributions uniquement)
-		if (!noInteractLayers.includes(layerName)) layer.on('click', () => {
-			const p = (feature && feature.properties) || {};
-			const projectName = p.project_name;
+		// Gestion du clic sur la feature (contributions de contribution_uploads uniquement)
+		if (!noInteractLayers.includes(layerName)) {
+			layer.on('click', () => {
+				const p = (feature && feature.properties) || {};
+				const projectName = p.project_name;
+				
+				// Vérifier si c'est une contribution de contribution_uploads
+				// Ces features ont project_name + category (et souvent markdown_url/cover_url)
+				const isContribution = !!(projectName && p.category);
 
-			if (!projectName) {
-				return;
-			}
+				// Ne traiter que les vraies contributions (pas les chantiers)
+				if (!isContribution) {
+					return;
+				}
 
 			// Nettoyer la carte: retirer toutes les autres couches
 			try {
@@ -753,7 +830,8 @@ window.DataModule = (function() {
 					}
 				}
 			} catch (_) {}
-		});
+			});
+		}
 	}
 
 
@@ -766,33 +844,65 @@ window.DataModule = (function() {
 
 		// Utilisation du cache
 		return simpleCache.get(cacheKey, async () => {
-			// ===== CITY_TRAVAUX: Charger dans layer "chantiers" pour ville spécifique =====
-			if (layerName === 'chantiers' && window.supabaseService?.loadCityTravauxGeoJSON) {
-				try {
-					// Récupérer la ville active
-					const activeCity = (typeof window.getActiveCity === 'function') 
-						? window.getActiveCity() 
-						: (window.activeCity || null);
-					
-					// Si ville spécifique (pas null), charger city_travaux
-					if (activeCity && activeCity !== 'default') {
-						console.log(`[DataModule] Chargement chantiers depuis city_travaux pour ville: ${activeCity}`);
+			// ===== TRAVAUX: Source dynamique selon contexte =====
+			if (layerName === 'travaux') {
+				console.log('[DataModule] 🚀 Chargement layer "travaux"');
+				
+				const activeCity = (typeof window.getActiveCity === 'function') 
+					? window.getActiveCity() 
+					: (window.activeCity || null);
+				console.log('[DataModule] activeCity:', activeCity);
+				console.log('[DataModule] urlMap[travaux]:', urlMap[layerName]);
+				
+				// Ville spécifique → essayer de charger depuis city_travaux
+				if (activeCity && activeCity !== 'default' && window.supabaseService?.loadCityTravauxGeoJSON) {
+					try {
+						console.log(`[DataModule] 🔍 Tentative chargement travaux depuis city_travaux pour ville: ${activeCity}`);
 						const cityTravauxData = await window.supabaseService.loadCityTravauxGeoJSON(activeCity);
+						console.log('[DataModule] cityTravauxData reçu:', cityTravauxData);
+						console.log('[DataModule] Nombre de features:', cityTravauxData?.features?.length);
 						
-						// Si des features existent, utiliser ces données
-						if (cityTravauxData && cityTravauxData.features && cityTravauxData.features.length > 0) {
-							console.log(`[DataModule] ✅ city_travaux: ${cityTravauxData.features.length} features chargées`);
+						if (cityTravauxData?.features?.length > 0) {
+							console.log(`[DataModule] ✅ city_travaux: ${cityTravauxData.features.length} chantiers chargés`);
 							return cityTravauxData;
-						} else {
-							console.log('[DataModule] ⚠️ city_travaux vide pour ${activeCity}');
-							return { type: 'FeatureCollection', features: [] };
 						}
+						
+						console.log(`[DataModule] ⚠️ city_travaux vide pour ${activeCity}, fallback vers URL layer`);
+						// Continuer vers le fallback URL ci-dessous
+					} catch (error) {
+						console.warn('[DataModule] ❌ Erreur chargement city_travaux:', error);
+						// Continuer vers le fallback URL ci-dessous
 					}
-				} catch (error) {
-					console.warn('[DataModule] Erreur chargement city_travaux:', error);
+				} else {
+					console.log('[DataModule] Mode Global ou loadCityTravauxGeoJSON non disponible, passage direct à URL');
 				}
+				
+				// Fallback : charger depuis l'URL définie dans layers (si disponible)
+				const url = urlMap[layerName];
+				if (url) {
+					console.log(`[DataModule] 🌐 Chargement travaux depuis URL: ${url}`);
+					try {
+						const response = await fetch(url);
+						console.log('[DataModule] Réponse fetch:', response.status, response.statusText);
+						
+						if (!response.ok) {
+							throw new Error(`HTTP ${response.status} sur ${layerName}`);
+						}
+						
+						const data = await response.json();
+						console.log(`[DataModule] ✅ Travaux chargés depuis URL: ${data.features?.length || 0} features`);
+						return data;
+					} catch (error) {
+						console.error('[DataModule] ❌ Erreur chargement travaux depuis URL:', error);
+						return { type: 'FeatureCollection', features: [] };
+					}
+				}
+				
+				// Aucune source disponible
+				console.warn('[DataModule] ⚠️ Aucune source disponible pour travaux (pas d\'URL dans urlMap)');
+				return { type: 'FeatureCollection', features: [] };
 			}
-			// ===== FIN CITY_TRAVAUX =====
+			// ===== FIN TRAVAUX =====
 			
 			// Vérifier si c'est une couche de contributions (stockée temporairement)
 			const contributionProjects = window[`contributions_${layerName}`];
@@ -940,7 +1050,7 @@ window.DataModule = (function() {
 			},
 			style: feature => getFeatureStyle(feature, layerName),
 			pointToLayer: (feature, latlng) => {
-				// Ne créer un marker que pour les points avec images (camera markers)
+				// Camera markers avec images
 				const hasImage = !!(feature?.properties?.imgUrl);
 				if (hasImage && window.CameraMarkers?.createCameraMarker) {
 					// Récupérer la couleur de la couche
@@ -953,6 +1063,18 @@ window.DataModule = (function() {
 						color
 					);
 				}
+				
+				// Markers pour les chantiers (travaux)
+				if (layerName === 'travaux') {
+					const customMarkerIcon = L.divIcon({
+						className: 'travaux-marker',
+						iconSize: [32, 40],
+						iconAnchor: [16, 40],
+						popupAnchor: [0, -40]
+					});
+					return L.marker(latlng, { icon: customMarkerIcon });
+				}
+				
 				// Pas de marker pour les autres points
 				return null;
 			},
@@ -1077,6 +1199,36 @@ window.DataModule = (function() {
 			});
 	}
 
+	// Recharge une couche (vide le cache et recharge)
+	async function reloadLayer(layerName) {
+		try {
+			// Vider le cache pour cette couche
+			clearLayerCache(layerName);
+			
+			// Retirer la couche de la carte si elle existe
+			if (MapModule?.removeLayer) {
+				MapModule.removeLayer(layerName);
+			}
+			
+			// Recharger la couche
+			await loadLayer(layerName);
+			
+			console.log(`[DataModule] Couche "${layerName}" rechargée`);
+		} catch (err) {
+			console.error(`[DataModule] Erreur rechargement couche "${layerName}":`, err);
+			throw err;
+		}
+	}
+
+	// Vide le cache d'un layer spécifique pour forcer son rechargement
+	function clearLayerCache(layerName) {
+		const cacheKey = `layer_${layerName}`;
+		if (simpleCache._cache[cacheKey]) {
+			delete simpleCache._cache[cacheKey];
+			console.log(`[DataModule] Cache vidé pour layer: ${layerName}`);
+		}
+	}
+
 	// getProjectDetails supprimée - remplacée par supabaseService.fetchProjectByCategoryAndName
 	// findFeatureByProjectName supprimée - remplacée par supabaseService.fetchProjectByCategoryAndName
 
@@ -1086,8 +1238,10 @@ window.DataModule = (function() {
 		layerData,
 		loadLayer,
 		preloadLayer,
+		reloadLayer,
 		createGeoJsonLayer,
-		getFeatureStyle
+		getFeatureStyle,
+		clearLayerCache
 		// Fonctions internes non exportées : bindFeatureEvents, generateTooltipContent
 		// Fonctions supprimées : getProjectDetails (use supabaseService.fetchProjectByCategoryAndName)
 		// Fonctions supprimées : openCoverLightbox (non utilisée)

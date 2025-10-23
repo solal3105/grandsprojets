@@ -986,21 +986,30 @@
      */
     getCityBranding: async function(ville) {
       try {
+        console.log('[supabaseService] 🔍 getCityBranding appelé pour ville:', ville);
         const v = String(ville || '').trim();
-        if (!v) return null;
+        if (!v) {
+          console.log('[supabaseService] ⚠️ Ville vide, retour null');
+          return null;
+        }
+
+        console.log('[supabaseService] 📡 Requête Supabase city_branding pour:', v);
         const { data, error } = await supabaseClient
           .from('city_branding')
-          .select('ville, brand_name, logo_url, dark_logo_url, favicon_url, center_lat, center_lng, zoom, travaux')
+          .select('*')
           .eq('ville', v)
           .limit(1)
           .maybeSingle();
+        
         if (error) {
-          console.warn('[supabaseService] getCityBranding error:', error);
+          console.warn('[supabaseService] ❌ getCityBranding error:', error);
           return null;
         }
+        
+        console.log('[supabaseService] ✅ city_branding reçu:', data);
         return data || null;
       } catch (e) {
-        console.warn('[supabaseService] getCityBranding exception:', e);
+        console.warn('[supabaseService] ❌ getCityBranding exception:', e);
         return null;
       }
     },
@@ -2423,9 +2432,9 @@
                 if (!feature.properties) feature.properties = {};
                 
                 // Injecter les propriétés du chantier
+                feature.properties.chantier_id = chantier.id; // ID pour édition/suppression
                 feature.properties.project_name = chantier.name;
                 feature.properties.nature_travaux = chantier.nature || '';
-                feature.properties.nature_chantier = chantier.nature || '';
                 feature.properties.etat = chantier.etat || '';
                 feature.properties.date_debut = chantier.date_debut || '';
                 feature.properties.date_fin = chantier.date_fin || '';
@@ -2552,6 +2561,31 @@
       } catch (e) {
         console.error('[supabaseService] updateCityTravaux exception:', e);
         throw e;
+      }
+    },
+
+    /**
+     * Récupère un chantier travaux par son ID
+     * @param {string} id - UUID du chantier
+     * @returns {Promise<Object|null>}
+     */
+    async getCityTravauxById(id) {
+      try {
+        const { data, error } = await supabaseClient
+          .from('city_travaux')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error) {
+          console.error('[supabaseService] getCityTravauxById error:', error);
+          return null;
+        }
+
+        return data;
+      } catch (e) {
+        console.error('[supabaseService] getCityTravauxById exception:', e);
+        return null;
       }
     },
 

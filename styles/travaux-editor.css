@@ -339,7 +339,6 @@
 .form-input,
 .form-select,
 .form-textarea {
-  width: 100%;
   padding: 0.75rem 1rem;
   background: var(--surface-elevated);
   border: 1px solid var(--border-medium);
@@ -457,5 +456,183 @@
   
   .modal-icon {
     display: none;
+  }
+}
+
+/* ============================================================================
+   MARKER CSS PERSONNALISÉ POUR CHANTIERS
+   ============================================================================ */
+
+.travaux-marker {
+  position: relative;
+  width: 16px;
+  height: 20px;
+  margin-left: -8px;
+  margin-top: -10px;
+}
+
+.travaux-marker::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 16px;
+  background: var(--primary);
+  border: 3px solid var(--white);
+  border-radius: 50% 50% 50% 0;
+  transform: translateX(-50%) rotate(-45deg);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.travaux-marker::after {
+  content: '\f3c5';
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--white);
+  font-size: 9px;
+  z-index: 1;
+}
+
+/* Animation au hover */
+.travaux-marker:hover::before {
+  transform: translateX(-50%) rotate(-45deg) scale(1.1);
+  transition: transform 0.2s ease;
+}
+
+/* ============================================================================
+   CARD "AJOUTER UN CHANTIER"
+   ============================================================================ */
+
+.travaux-add-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  margin: 0 0 1rem 0;
+  background: linear-gradient(135deg, var(--primary-alpha-08) 0%, var(--primary-alpha-05) 100%);
+  border: 2px solid var(--primary-alpha-20);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.travaux-add-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, var(--primary-alpha-08) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.travaux-add-card:hover {
+  border-color: var(--primary-alpha-35);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--primary-alpha-15);
+}
+
+.travaux-add-card:hover::before {
+  opacity: 1;
+}
+
+.add-card-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  color: white;
+  border-radius: 10px;
+  font-size: 1.5rem;
+  transition: transform 0.3s ease;
+}
+
+.travaux-add-card:hover .add-card-icon {
+  transform: scale(1.1) rotate(5deg);
+}
+
+.add-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.add-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem 0;
+}
+
+.add-card-description {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.add-card-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: 1.125rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.add-card-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px var(--primary-alpha-35);
+}
+
+.add-card-btn:active {
+  transform: scale(0.95);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .travaux-add-card {
+    padding: 0.875rem;
+    margin: 0 0 0.75rem 0;
+  }
+  
+  .add-card-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 1.25rem;
+  }
+  
+  .add-card-title {
+    font-size: 0.9375rem;
+  }
+  
+  .add-card-description {
+    font-size: 0.8125rem;
+  }
+  
+  .add-card-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
   }
 }

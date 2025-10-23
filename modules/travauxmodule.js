@@ -29,6 +29,12 @@ const TravauxModule = (() => {
    */
   async function renderTravauxProjects() {
     const submenu = document.querySelector('.submenu[data-category="travaux"]');
+    
+    if (!submenu) {
+      console.warn('[TravauxModule] Submenu travaux introuvable');
+      return;
+    }
+
     submenu.innerHTML = `
       <div class="detail-header-submenu">
         <div class="header-left">
@@ -38,10 +44,6 @@ const TravauxModule = (() => {
           </button>
         </div>
         <div class="header-center">
-          <button class="btn-primary travaux-add-btn" aria-label="Ajouter un chantier" style="display:none;">
-            <i class="fa-solid fa-plus" aria-hidden="true"></i>
-            <span>Ajouter un chantier</span>
-          </button>
         </div>
         <div class="header-right">
           <button class="btn-secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true">
@@ -65,11 +67,6 @@ const TravauxModule = (() => {
                 Dessinez la zone du chantier sur la carte puis renseignez les informations
               </p>
             </div>
-          </div>
-          <div class="travaux-drawing-progress">
-            <span class="progress-step" id="drawing-step-1">
-              <i class="fa-solid fa-circle-dot"></i> Étape 1/2
-            </span>
           </div>
         </div>
         
@@ -152,7 +149,8 @@ const TravauxModule = (() => {
       }
     } catch (_) { /* noop */ }
 
-    const listEl = submenu.querySelector('.project-list');
+    // Récupérer à nouveau la liste après reconstruction du DOM
+    const projectListEl = submenu.querySelector('.project-list');
 
     // Gestionnaire d'événement pour le bouton de réduction/extension
     const travauxToggleBtn = submenu.querySelector('.submenu-toggle-btn');
@@ -214,9 +212,9 @@ const TravauxModule = (() => {
     const oldFilterContainer = document.getElementById('travaux-filters-container');
     if (oldFilterContainer) oldFilterContainer.remove();
 
-    // Déterminer le layer à charger: 'chantiers' pour ville spécifique, 'travaux' pour Global
+    // Toujours charger le layer 'travaux' (source dynamique gérée dans datamodule.js)
     const activeCity = (typeof window.getActiveCity === 'function') ? window.getActiveCity() : (window.activeCity || null);
-    const layerToLoad = (activeCity && activeCity !== 'default') ? 'chantiers' : 'travaux';
+    const layerToLoad = 'travaux';
     
     // Charger la couche si nécessaire (avec loader minimal)
     try {
@@ -228,49 +226,6 @@ const TravauxModule = (() => {
         }
       }
     } catch (_) { /* noop */ }
-
-    // Gestionnaire pour le bouton "Ajouter un chantier" (AVANT le return early)
-    const addBtn = submenu.querySelector('.travaux-add-btn');
-    if (addBtn) {
-      // Event listener
-      addBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (window.TravauxEditorModule?.openEditor) {
-          window.TravauxEditorModule.openEditor();
-        } else {
-          console.warn('[TravauxModule] TravauxEditorModule non chargé');
-        }
-      });
-      
-      // Vérifier si l'utilisateur est authentifié et admin de la ville
-      try {
-        const session = await window.supabaseService?.getClient()?.auth.getSession();
-        if (session?.data?.session?.user) {
-          // Utiliser les variables globales définies par contrib.js (depuis table profiles)
-          const role = window.__CONTRIB_ROLE || '';
-          const userVilles = window.__CONTRIB_VILLES || [];
-          const activeCity = (typeof window.getActiveCity === 'function') ? window.getActiveCity() : window.activeCity;
-          
-          // Vérifier si admin
-          const isAdmin = role === 'admin';
-          if (!isAdmin) return;
-          
-          // Admin global: ville contient 'global'
-          const isGlobalAdmin = Array.isArray(userVilles) && userVilles.includes('global');
-          
-          // Admin de la ville spécifique
-          const isCityAdmin = Array.isArray(userVilles) && userVilles.includes(activeCity);
-          
-          // Afficher si admin global OU admin de cette ville
-          if (isGlobalAdmin || isCityAdmin) {
-            addBtn.style.display = '';
-            console.log('[TravauxModule] ✅ Bouton "Ajouter un chantier" affiché pour admin', { role, userVilles, activeCity, isGlobalAdmin, isCityAdmin });
-          }
-        }
-      } catch (err) {
-        console.warn('[TravauxModule] Erreur vérification auth:', err);
-      }
-    }
 
     const travauxData = DataModule.layerData && DataModule.layerData[layerToLoad];
     if (!travauxData || !travauxData.features || travauxData.features.length === 0) {
@@ -299,19 +254,7 @@ const TravauxModule = (() => {
         return a.localeCompare(b, 'fr');
       });
       
-    // Calcul du tri par nombre d'occurrences décroissant puis alphabétique pour nature_chantier
-    const natureChantierCounts = {};
-    features.forEach(f => {
-      const nc = f.properties.nature_chantier;
-      if (nc) natureChantierCounts[nc] = (natureChantierCounts[nc] || 0) + 1;
-    });
-    const natureChantiers = Object.keys(natureChantierCounts)
-      .sort((a, b) => {
-        if (natureChantierCounts[b] !== natureChantierCounts[a]) {
-          return natureChantierCounts[b] - natureChantierCounts[a];
-        }
-        return a.localeCompare(b, 'fr');
-      });
+    // Note: nature_chantier supprimé (doublon de nature_travaux)
       
     // Calcul du tri par nombre d'occurrences décroissant puis alphabétique pour commune
     const communeCounts = {};
@@ -339,6 +282,19 @@ const TravauxModule = (() => {
     filterUX.id = 'travaux-filters-ux';
     filterUX.className = 'travaux-filters-ux';
     filterUX.innerHTML = `
+      <!-- Card pour ajouter un chantier (cachée par défaut, visible si admin) -->
+      <div class="travaux-add-card" style="display:none;">
+        <div class="add-card-icon">
+          <i class="fa-solid fa-helmet-safety"></i>
+        </div>
+        <div class="add-card-content">
+          <h3 class="add-card-title">Ajouter un chantier</h3>
+        </div>
+        <button class="add-card-btn travaux-add-btn" aria-label="Ajouter un chantier">
+          <i class="fa-solid fa-plus"></i>
+        </button>
+      </div>
+      
       <div class="travaux-filters-header">
         <span class="travaux-filters-title"><i class="fa fa-filter"></i> Filtres</span>
         <span id="travaux-filters-count" class="travaux-filters-count"></span>
@@ -356,10 +312,7 @@ const TravauxModule = (() => {
           <label for="nature-travaux-select">Nature</label>
           <select id="nature-travaux-select"><option value="">Toutes</option>${natures.map(n => `<option value="${n}">${n} (${natureCounts[n]})</option>`).join('')}</select>
         </div>
-        <div class="travaux-field">
-          <label for="nature-chantier-select">Nature chantier</label>
-          <select id="nature-chantier-select"><option value="">Toutes</option>${natureChantiers.map(n => `<option value="${n}">${n} (${natureChantierCounts[n]})</option>`).join('')}</select>
-        </div>
+        <!-- nature_chantier supprimé (doublon de nature_travaux) -->
         <div class="travaux-field">
           <label for="commune-select">Commune</label>
           <select id="commune-select"><option value="">Toutes</option>${communes.map(c => `<option value="${c}">${c} (${communeCounts[c]})</option>`).join('')}</select>
@@ -386,11 +339,72 @@ const TravauxModule = (() => {
     // Supprimer tout ancien container de filtres (évite le doublon lint)
     { const old = document.getElementById('travaux-filters-container'); if (old) old.remove(); }
     // S'assurer que le panel n'est inséré qu'une seule fois
-    submenu.insertBefore(filterUX, listEl);
+    submenu.insertBefore(filterUX, projectListEl);
+
+    // Gestionnaire pour la card "Ajouter un chantier" (après insertion du filterUX dans le DOM)
+    const addCard = filterUX.querySelector('.travaux-add-card');
+    if (addCard) {
+      // Déterminer si les données proviennent de city_travaux (éditable) ou d'une URL (lecture seule)
+      let isEditableSource = false;
+      
+      // Mode Global → toujours lecture seule (URL)
+      if (!activeCity || activeCity === 'default') {
+        isEditableSource = false;
+        console.log('[TravauxModule] Mode Global: données depuis URL (lecture seule)');
+      } else {
+        // Ville spécifique → vérifier si city_travaux a des données
+        try {
+          const cityTravauxData = await window.supabaseService?.loadCityTravauxGeoJSON(activeCity);
+          isEditableSource = cityTravauxData?.features?.length > 0;
+          console.log(`[TravauxModule] Ville ${activeCity}: source ${isEditableSource ? 'city_travaux (éditable)' : 'URL (lecture seule)'}`);
+        } catch (err) {
+          console.warn('[TravauxModule] Erreur vérification city_travaux:', err);
+          isEditableSource = false;
+        }
+      }
+      
+      // Si source non éditable, retirer la card
+      if (!isEditableSource) {
+        addCard.remove();
+        console.log('[TravauxModule] ⚠️ Édition désactivée (source: URL statique)');
+      } else {
+        // Source éditable (city_travaux) : vérifier si admin pour afficher la card
+        addCard.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (window.TravauxEditorModule?.openEditor) {
+            window.TravauxEditorModule.openEditor();
+          } else {
+            console.warn('[TravauxModule] TravauxEditorModule non chargé');
+          }
+        });
+        
+        // Vérifier si l'utilisateur est authentifié et admin de la ville
+        try {
+          const session = await window.supabaseService?.getClient()?.auth.getSession();
+          if (session?.data?.session?.user) {
+            const role = window.__CONTRIB_ROLE || '';
+            const userVilles = window.__CONTRIB_VILLES || [];
+            
+            const isAdmin = role === 'admin';
+            if (isAdmin) {
+              const isGlobalAdmin = Array.isArray(userVilles) && userVilles.includes('global');
+              const isCityAdmin = Array.isArray(userVilles) && userVilles.includes(activeCity);
+              
+              // Afficher la card si admin global OU admin de cette ville
+              if (isGlobalAdmin || isCityAdmin) {
+                addCard.style.display = 'flex';
+                console.log('[TravauxModule] ✅ Card "Ajouter un chantier" affichée pour admin');
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('[TravauxModule] Erreur vérification auth:', err);
+        }
+      }
+    }
 
     // Récupérer les éléments pour la logique JS
     const selectNature = filterUX.querySelector('#nature-travaux-select');
-    const selectNatureChantier = filterUX.querySelector('#nature-chantier-select');
     const selectCommune = filterUX.querySelector('#commune-select');
     const selectEtat = filterUX.querySelector('#etat-select');
     const inputDebut = filterUX.querySelector('#date-debut-input');
@@ -447,9 +461,7 @@ const TravauxModule = (() => {
             case 'nature_travaux': 
               selectNature.value = ''; 
               break;
-            case 'nature_chantier': 
-              selectNatureChantier.value = ''; 
-              break;
+            // nature_chantier supprimé (doublon)
             case 'commune': 
               selectCommune.value = ''; 
               break;
@@ -488,7 +500,6 @@ const TravauxModule = (() => {
       // Construire dynamiquement les critères (ne garder que les champs renseignés)
       const criteria = {};
       if (selectNature.value) criteria.nature_travaux = selectNature.value;
-      if (selectNatureChantier.value) criteria.nature_chantier = selectNatureChantier.value;
       if (selectCommune.value) criteria.commune = selectCommune.value;
       if (selectEtat.value) criteria.etat = selectEtat.value;
       if (inputDebut.value) criteria.date_debut = inputDebut.value;
@@ -534,11 +545,11 @@ const TravauxModule = (() => {
       countEl.setAttribute('aria-live', 'polite');
 
       // Affichage conditionnelle du bouton Réinitialiser
-      const hasActiveFilter = !!(selectNature.value || selectNatureChantier.value || selectCommune.value || selectEtat.value || inputDebut.value || inputFin.value);
+      const hasActiveFilter = !!(selectNature.value || selectCommune.value || selectEtat.value || inputDebut.value || inputFin.value);
       resetBtn.style.display = hasActiveFilter ? '' : 'none';
 
       // Désormais, on ne remplit plus la liste : on n'affiche que les filtres
-      listEl.innerHTML = '';
+      projectListEl.innerHTML = '';
       // Aucun affichage de travaux, ni message "aucun travaux".
       // Le panel ne contient que les contrôles de filtre.
     }
@@ -549,23 +560,15 @@ const TravauxModule = (() => {
       selectNature.innerHTML = '<option value="">Toutes</option>' + 
         filterOptions(selectNature, natures, natureCounts);
       
-      selectNatureChantier.innerHTML = '<option value="">Toutes</option>' + 
-        filterOptions(selectNatureChantier, natureChantiers, natureChantierCounts);
-      
       // Conserver la sélection actuelle si elle existe toujours
       if (selectNature.value) {
         const option = selectNature.querySelector(`option[value="${selectNature.value}"]`);
         if (!option) selectNature.value = '';
       }
-      
-      if (selectNatureChantier.value) {
-        const option = selectNatureChantier.querySelector(`option[value="${selectNatureChantier.value}"]`);
-        if (!option) selectNatureChantier.value = '';
-      }
     }
     
     // Écouteurs d'événements pour les filtres
-    [selectNature, selectNatureChantier, selectCommune, selectEtat, inputDebut, inputFin].forEach(el => {
+    [selectNature, selectCommune, selectEtat, inputDebut, inputFin].forEach(el => {
       el.addEventListener('change', applyFiltersAndSync);
     });
     
@@ -577,7 +580,6 @@ const TravauxModule = (() => {
     
     resetBtn.addEventListener('click', () => {
       selectNature.value = '';
-      selectNatureChantier.value = '';
       selectCommune.value = '';
       selectEtat.value = '';
       inputDebut.value = '';

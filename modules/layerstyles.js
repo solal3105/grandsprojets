@@ -46,22 +46,14 @@
       };
     }
 
-    // Travaux et Chantiers - Gradient de couleur selon avancement
-    if (layerName === 'travaux' || layerName === 'chantiers') {
+    // Travaux - Gradient de couleur selon avancement
+    if (layerName === 'travaux') {
       const styledFeature = applyTravauxProgressColor(p, baseStyle);
       
       // Détecter le type de géométrie pour appliquer fill uniquement aux polygones
       const geomType = feature?.geometry?.type || '';
       const isPolygon = /Polygon$/i.test(geomType);
       
-      console.log('[LayerStyles] Travaux style appliqué:', {
-        project: p.project_name || p.name,
-        geomType: geomType,
-        date_debut: p.date_debut,
-        date_fin: p.date_fin,
-        baseColor: baseStyle.color,
-        finalColor: styledFeature.color
-      });
       
       return {
         ...styledFeature,
