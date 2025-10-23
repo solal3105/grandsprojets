@@ -643,15 +643,15 @@ const TravauxEditorModule = (() => {
           // Fermer la modale
           closeFormModal();
           
-          // Déterminer le layer à recharger selon la ville
-          const layerToReload = (activeCity && activeCity !== 'default') ? 'chantiers' : 'travaux';
+          // Recharger le layer city-travaux-chantiers
+          const layerToReload = 'city-travaux-chantiers';
           
           // Vider le cache pour forcer le rechargement
           if (window.DataModule?.clearLayerCache) {
             window.DataModule.clearLayerCache(layerToReload);
           }
           
-          // Recharger les données du bon layer
+          // Recharger les données du layer
           if (window.DataModule?.loadLayer) {
             await window.DataModule.loadLayer(layerToReload);
           }
@@ -985,9 +985,9 @@ const TravauxEditorModule = (() => {
       // Recharger la couche et fermer
       setTimeout(async () => {
         try {
-          // Recharger la couche travaux
+          // Recharger la couche city-travaux-chantiers
           if (window.DataModule?.reloadLayer) {
-            await window.DataModule.reloadLayer('travaux');
+            await window.DataModule.reloadLayer('city-travaux-chantiers');
           }
           
           closeFormModal();

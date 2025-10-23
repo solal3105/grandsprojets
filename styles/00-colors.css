@@ -13,6 +13,7 @@
   --black: #000000;
   
   --color-primary: #14AE5C;    /* Couleur principale */
+  --color-success: #10B981;    /* Vert (pour progression travaux) */
   --color-danger: #EF4444;     /* Rouge */
   --color-info: #2563EB;       /* Bleu */
   --color-warning: #F59E0B;    /* Orange */
@@ -94,10 +95,14 @@
   --warning-alpha-25: color-mix(in srgb, var(--color-warning) 25%, transparent);
   --warning-alpha-35: color-mix(in srgb, var(--color-warning) 35%, transparent);
   
-  /* Success (alias de primary) */
-  --success: var(--primary);
-  --success-hover: var(--primary-hover);
-  --success-light: var(--primary-light);
+  /* Success (vert indépendant) */
+  --success: var(--color-success);
+  --success-hover: color-mix(in srgb, var(--color-success) 85%, black);
+  --success-active: color-mix(in srgb, var(--color-success) 70%, black);
+  --success-light: color-mix(in srgb, var(--color-success) 25%, transparent);
+  --success-lighter: color-mix(in srgb, var(--color-success) 12%, transparent);
+  --success-alpha-25: color-mix(in srgb, var(--color-success) 25%, transparent);
+  --success-alpha-4: color-mix(in srgb, var(--color-success) 40%, transparent);
   
   /* ========================================
      GRIS (échelle simplifiée)
@@ -275,6 +280,7 @@ html[data-theme='dark'] {
      Palette raffinée et élégante pour un confort visuel optimal
      ======================================== */
   --color-primary: #ffdd0080;    /* Couleur principale (dark mode) */
+  --color-success: #34d399;    /* Vert émeraude doux (dark mode) */
   --color-danger: #f87171;     /* Rouge corail doux et chaleureux */
   --color-info: #60a5fa;       /* Bleu ciel doux et harmonieux */
   --color-warning: #fbbf24;    /* Ambre doux et chaleureux */
@@ -310,11 +316,11 @@ html[data-theme='dark'] {
   /* -light et -lighter utilisent la transparence définie dans :root et s'adaptent automatiquement */
   
   /* ========================================
-     SUCCESS (alias de primary)
+     SUCCESS (vert indépendant, recalculé pour dark mode)
      ======================================== */
-  --success: var(--primary);
-  --success-hover: var(--primary-hover);
-  --success-light: var(--primary-light);
+  --success: var(--color-success);
+  --success-hover: color-mix(in srgb, var(--color-success) 115%, white);
+  --success-active: color-mix(in srgb, var(--color-success) 130%, white);
   
   /* ========================================
      ALIAS SÉMANTIQUES (optimisés pour le fond bleu-sombre)

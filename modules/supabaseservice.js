@@ -2209,6 +2209,9 @@
           throw new Error('Not authenticated');
         }
 
+        // Récupérer le domaine actuel pour l'inclure dans l'email
+        const currentDomain = window.location.origin;
+
         const response = await fetch(`${supabaseClient.supabaseUrl}/functions/v1/invite-user`, {
           method: 'POST',
           headers: {
@@ -2216,7 +2219,7 @@
             'Content-Type': 'application/json',
             'apikey': supabaseClient.supabaseKey
           },
-          body: JSON.stringify({ email, villes, role })
+          body: JSON.stringify({ email, villes, role, redirectUrl: currentDomain })
         });
 
         const data = await response.json();

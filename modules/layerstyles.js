@@ -46,14 +46,13 @@
       };
     }
 
-    // Travaux - Gradient de couleur selon avancement
-    if (layerName === 'travaux') {
+    // Travaux-like layers (centralized via LayerRegistry) - Gradient de couleur selon avancement
+    if (win.LayerRegistry?.isTravauxLayer && win.LayerRegistry.isTravauxLayer(layerName)) {
       const styledFeature = applyTravauxProgressColor(p, baseStyle);
       
       // Détecter le type de géométrie pour appliquer fill uniquement aux polygones
       const geomType = feature?.geometry?.type || '';
       const isPolygon = /Polygon$/i.test(geomType);
-      
       
       return {
         ...styledFeature,
@@ -108,10 +107,10 @@
       const dateFin = safeDate(properties.date_fin);
       const now = new Date();
       
-      const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
+      // Gradient: 0% danger (rouge) -> 50% warning (orange) -> 100% success (vert)
       const progressScale = [
-        'var(--danger)', 'var(--danger-hover)', 'var(--danger-hover)', 'var(--warning)', 'var(--warning)',
-        'var(--warning)', 'var(--warning)', 'var(--primary-light)', 'var(--primary-light)', primaryColor
+        'var(--danger)', 'var(--danger)', 'var(--danger-hover)', 'var(--danger-hover)', 'var(--warning)',
+        'var(--warning)', 'var(--warning)', 'var(--success)', 'var(--success)', 'var(--success)'
       ];
       
       let color = baseStyle.color;

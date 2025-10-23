@@ -51,7 +51,7 @@ const EventBindings = (() => {
         }
       });
       
-      // Charger les couches désirées
+      // Charger/Afficher les couches désirées
       layersToDisplay.forEach(layerName => {
         if (!MapModule.layers[layerName]) {
           console.log('[EventBindings] Layer non présent sur la carte:', layerName);
@@ -68,6 +68,7 @@ const EventBindings = (() => {
           }
         } else {
           console.log('[EventBindings] Layer déjà présent sur la carte:', layerName);
+          // Le layer est déjà sur la carte, rien à faire ✅
         }
       });
     }

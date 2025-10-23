@@ -34,6 +34,9 @@ const TravauxModule = (() => {
       console.warn('[TravauxModule] Submenu travaux introuvable');
       return;
     }
+    
+    // Récupérer la liste avant reconstruction (pour nettoyage initial)
+    let projectListEl = submenu.querySelector('.project-list');
 
     submenu.innerHTML = `
       <div class="detail-header-submenu">
@@ -150,7 +153,7 @@ const TravauxModule = (() => {
     } catch (_) { /* noop */ }
 
     // Récupérer à nouveau la liste après reconstruction du DOM
-    const projectListEl = submenu.querySelector('.project-list');
+    projectListEl = submenu.querySelector('.project-list');
 
     // Gestionnaire d'événement pour le bouton de réduction/extension
     const travauxToggleBtn = submenu.querySelector('.submenu-toggle-btn');
@@ -199,28 +202,57 @@ const TravauxModule = (() => {
       if (travauxSubmenu) {
         travauxSubmenu.style.display = 'none';
       }
-      // Réinitialiser la vue sans spécifier de catégorie
-      if (window.NavigationModule?.resetToDefaultView) {
-        window.NavigationModule.resetToDefaultView(undefined, { preserveMapView: true });
+      
+      // Restaurer le border-radius de la nav (comportement identique aux autres submenus)
+      const leftNav = document.getElementById('left-nav');
+      if (leftNav) leftNav.style.borderRadius = '20px';
+      
+      // Réafficher les couches par défaut et les contributions (même logique que SubmenuModule)
+      window.FilterModule?.resetAll();
+      // Reset carte
+      if (window.MapModule?.layers) {
+        Object.keys(window.MapModule.layers).forEach(l => window.MapModule.removeLayer(l));
       }
+      // Affichage couches par défaut + contributions depuis le cache
+      const displayed = new Set();
+      if (window.allContributions?.length) {
+        const cats = [...new Set(window.allContributions.map(c => c.category))];
+        cats.forEach(cat => {
+          if (window.DataModule?.layerData?.[cat]) {
+            window.DataModule.createGeoJsonLayer(cat, window.DataModule.layerData[cat]);
+            displayed.add(cat);
+          }
+        });
+      }
+      window.defaultLayers?.forEach(layer => {
+        if (!displayed.has(layer) && window.DataModule?.layerData?.[layer]) {
+          window.DataModule.createGeoJsonLayer(layer, window.DataModule.layerData[layer]);
+        }
+      });
     });
 
     // Nettoyer les anciens filtres
-    listEl.innerHTML = '';
+    if (projectListEl) projectListEl.innerHTML = '';
     const oldFilterUX = document.getElementById('travaux-filters-ux');
     if (oldFilterUX) oldFilterUX.remove();
     const oldFilterContainer = document.getElementById('travaux-filters-container');
     if (oldFilterContainer) oldFilterContainer.remove();
 
-    // Toujours charger le layer 'travaux' (source dynamique gérée dans datamodule.js)
+    // Déterminer le layer à charger selon le contexte
     const activeCity = (typeof window.getActiveCity === 'function') ? window.getActiveCity() : (window.activeCity || null);
-    const layerToLoad = 'travaux';
+    
+    // Mode Global : layer externe "travaux" | Mode Ville : layer "city-travaux-chantiers"
+    const layerToLoad = (!activeCity || activeCity === 'default') 
+      ? 'travaux'                    // Global → layer externe (URL hardcodée)
+      : 'city-travaux-chantiers';    // Ville → city_travaux
+    
+    console.log('[TravauxModule] Layer à charger:', layerToLoad, 'pour ville:', activeCity);
     
     // Charger la couche si nécessaire (avec loader minimal)
     try {
       const hasData = !!(DataModule.layerData && DataModule.layerData[layerToLoad] && Array.isArray(DataModule.layerData[layerToLoad].features) && DataModule.layerData[layerToLoad].features.length);
       if (!hasData) {
-        listEl.innerHTML = '<div class="gp-loading" aria-live="polite">Chargement des chantiers…</div>';
+        if (projectListEl) projectListEl.innerHTML = '<div class="gp-loading" aria-live="polite">Chargement des chantiers…</div>';
         if (typeof DataModule.loadLayer === 'function') {
           await DataModule.loadLayer(layerToLoad);
         }
@@ -229,10 +261,12 @@ const TravauxModule = (() => {
 
     const travauxData = DataModule.layerData && DataModule.layerData[layerToLoad];
     if (!travauxData || !travauxData.features || travauxData.features.length === 0) {
-      listEl.innerHTML = '';
-      const li = document.createElement('li');
-      li.textContent = 'Aucun chantier travaux à afficher.';
-      listEl.appendChild(li);
+      if (projectListEl) {
+        projectListEl.innerHTML = '';
+        const li = document.createElement('li');
+        li.textContent = 'Aucun chantier travaux à afficher.';
+        projectListEl.appendChild(li);
+      }
       return;
     }
 
@@ -509,19 +543,23 @@ const TravauxModule = (() => {
       }
       
       if (window.UIModule?.applyFilter) {
-        window.UIModule.applyFilter('travaux', criteria);
+        const mapped = (window.categoryLayersMap && window.categoryLayersMap['travaux']) || [];
+        const travauxLayerName = mapped[0] || 'travaux';
+        window.UIModule.applyFilter(travauxLayerName, criteria);
       }
 
       // 3. Récupérer les features filtrées (après application du filtre)
       let filtered = [];
-      const travauxLayer = window.MapModule?.layers?.['travaux'];
+      const mapped = (window.categoryLayersMap && window.categoryLayersMap['travaux']) || [];
+      const travauxLayerName = mapped[0] || 'travaux';
+      const travauxLayer = window.MapModule?.layers?.[travauxLayerName];
       if (travauxLayer && typeof travauxLayer.eachLayer === 'function') {
         travauxLayer.eachLayer(layer => {
           if (layer.feature) filtered.push(layer.feature);
         });
       }
-      if (filtered.length === 0 && window.DataModule?.layerData?.['travaux']) {
-        filtered = window.DataModule.layerData['travaux'].features || [];
+      if (filtered.length === 0 && window.DataModule?.layerData?.[travauxLayerName]) {
+        filtered = window.DataModule.layerData[travauxLayerName].features || [];
       }
       
       // 4. Si le filtre des réseaux est actif, filtrer les résultats

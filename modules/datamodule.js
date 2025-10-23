@@ -75,6 +75,9 @@ const simpleCache = {
 // window.debugCache = simpleCache;
 
 window.DataModule = (function() {
+	// Nom du layer pour les chantiers depuis city_travaux (distinct du layer 'travaux' externe)
+	const CITY_TRAVAUX_LAYER_NAME = 'city-travaux-chantiers';
+	
 	// Variables internes pour stocker les configurations
 	let urlMap = {};
 	let styleMap = {};
@@ -258,8 +261,62 @@ window.DataModule = (function() {
 			return;
 		}
 
-		// Tooltip personnalisé pour la couche 'travaux'
-		if (layerName === 'travaux') {
+		// Tooltip hover compact pour les couches Travaux (centralisé via LayerRegistry)
+		if (window.LayerRegistry?.isTravauxLayer && window.LayerRegistry.isTravauxLayer(layerName)) {
+			const props = feature.properties || {};
+			const name = props.name || props.nature_travaux || 'Chantier';
+			
+			// Calcul avancement
+			const safeDate = (v) => {
+				const d = v ? new Date(v) : null;
+				return d && !isNaN(d.getTime()) ? d : null;
+			};
+			const debut = safeDate(props.date_debut);
+			const fin = safeDate(props.date_fin);
+			const now = new Date();
+			const progressPct = (() => {
+				if (!(debut && fin) || fin <= debut) return 0;
+				const total = fin - debut;
+				const elapsed = now - debut;
+				return Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
+			})();
+			
+			// Gradient correct: 0% danger -> 50% warning -> 100% success
+			let gradientBg;
+			if (progressPct <= 50) {
+				// 0-50%: danger vers warning
+				const pct = (progressPct / 50) * 100;
+				gradientBg = `linear-gradient(90deg, var(--danger) 0%, var(--danger) ${100-pct}%, var(--warning) 100%)`;
+			} else {
+				// 50-100%: warning vers success
+				const pct = ((progressPct - 50) / 50) * 100;
+				gradientBg = `linear-gradient(90deg, var(--warning) 0%, var(--warning) ${100-pct}%, var(--success) 100%)`;
+			}
+			
+			// Tooltip compact au survol
+			const tooltipHTML = `
+				<div class="travaux-tooltip-compact">
+					<div class="tooltip-name">${name}</div>
+					<div class="tooltip-progress">
+						<div class="progress-bar">
+							<div class="progress-fill" style="width: ${progressPct}%; background: ${gradientBg};"></div>
+						</div>
+						<span class="progress-text">${progressPct}%</span>
+					</div>
+				</div>
+			`;
+			
+			layer.bindTooltip(tooltipHTML, {
+				className: 'travaux-hover-tooltip',
+				direction: 'top',
+				offset: [0, -10],
+				opacity: 1,
+				sticky: true
+			});
+		}
+		
+		// Modal détaillée au clic pour les couches Travaux
+		if (window.LayerRegistry?.isTravauxLayer && window.LayerRegistry.isTravauxLayer(layerName)) {
 			const props = feature.properties || {};
 			const safeDate = (v) => {
 				const d = v ? new Date(v) : null;
@@ -280,10 +337,20 @@ window.DataModule = (function() {
 				const elapsed = now - debut;
 				return Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
 			})();
-			const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
-			const warningColor = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim();
-			const endColor = progressPct >= 100 ? primaryColor : warningColor;
-			const gradientBg = `linear-gradient(90deg, var(--danger) 0%, ${endColor} 100%)`;
+			// Gradient correct: 0% danger -> 50% warning -> 100% success
+			let gradientBg;
+			let todayColor;
+			if (progressPct <= 50) {
+				// 0-50%: danger vers warning
+				const pct = (progressPct / 50) * 100;
+				gradientBg = `linear-gradient(90deg, var(--danger) 0%, var(--danger) ${100-pct}%, var(--warning) 100%)`;
+				todayColor = pct < 50 ? 'var(--danger)' : 'var(--warning)';
+			} else {
+				// 50-100%: warning vers success
+				const pct = ((progressPct - 50) / 50) * 100;
+				gradientBg = `linear-gradient(90deg, var(--warning) 0%, var(--warning) ${100-pct}%, var(--success) 100%)`;
+				todayColor = pct < 50 ? 'var(--warning)' : 'var(--success)';
+			}
 			const todayPct = (() => {
 				if (!(debut && fin) || fin <= debut) return 0;
 				const total = fin - debut;
@@ -320,8 +387,8 @@ window.DataModule = (function() {
                 <h3>Avancement</h3>
                 <div class="timeline">
                   <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPct}" aria-label="Avancement des travaux">
-                    <div class="fill" data-target="${progressPct}" style="width:0%; background:${gradientBg}; box-shadow: 0 0 10px ${progressPct>=100 ? 'var(--primary-alpha-25)' : 'var(--warning-alpha-25)'}"></div>
-                    <div class="today" style="left:${todayPct}%; background:${endColor}; box-shadow: 0 0 0 3px ${progressPct>=100 ? 'var(--primary-alpha-25)' : 'var(--warning-alpha-25)'}, 0 0 10px ${progressPct>=100 ? 'var(--primary-alpha-4)' : 'var(--warning-alpha-4)'};"></div>
+                    <div class="fill" data-target="${progressPct}" style="width:0%; background:${gradientBg}; box-shadow: 0 0 10px ${progressPct>=100 ? 'var(--success-alpha-25)' : 'var(--warning-alpha-25)'}"></div>
+                    <div class="today" style="left:${todayPct}%; background:${todayColor}; box-shadow: 0 0 0 3px ${progressPct>=100 ? 'var(--success-alpha-25)' : 'var(--warning-alpha-25)'}, 0 0 10px ${progressPct>=100 ? 'var(--success-alpha-4)' : 'var(--warning-alpha-4)'};"></div>
                   </div>
                   <div class="dates">
                     <span>${debut ? dateFmt(debut) : '-'}</span>
@@ -454,9 +521,9 @@ window.DataModule = (function() {
 											await window.supabaseService.deleteCityTravaux(featureProps.chantier_id);
 											window.ModalHelper.close('travaux-overlay');
 											
-											// Recharger la couche
+											// Recharger la couche city-travaux-chantiers
 											if (window.DataModule?.reloadLayer) {
-												await window.DataModule.reloadLayer('travaux');
+												await window.DataModule.reloadLayer('city-travaux-chantiers');
 											}
 											
 											alert('Chantier supprimé avec succès');
@@ -504,7 +571,7 @@ window.DataModule = (function() {
 
 		// Tooltip générique (ou spécifique) pour les couches non cliquables (paths/polygones)
 		try {
-			if (layerName !== 'travaux' && typeof layer.bindTooltip === 'function') {
+			if (!(window.LayerRegistry?.isTravauxLayer && window.LayerRegistry.isTravauxLayer(layerName)) && typeof layer.bindTooltip === 'function') {
 				const p = (feature && feature.properties) || {};
 				const geomType = (feature && feature.geometry && feature.geometry.type) || '';
 				const isPathOrPoly = /LineString|Polygon/i.test(geomType);
@@ -844,63 +911,59 @@ window.DataModule = (function() {
 
 		// Utilisation du cache
 		return simpleCache.get(cacheKey, async () => {
-			// ===== TRAVAUX: Source dynamique selon contexte =====
-			if (layerName === 'travaux') {
-				console.log('[DataModule] 🚀 Chargement layer "travaux"');
+			// ===== CITY_TRAVAUX_CHANTIERS: Chantiers depuis la table city_travaux =====
+			if (layerName === CITY_TRAVAUX_LAYER_NAME) {
+				console.log(`[DataModule] 🚀 Chargement layer "${CITY_TRAVAUX_LAYER_NAME}" depuis city_travaux`);
 				
 				const activeCity = (typeof window.getActiveCity === 'function') 
 					? window.getActiveCity() 
 					: (window.activeCity || null);
-				console.log('[DataModule] activeCity:', activeCity);
-				console.log('[DataModule] urlMap[travaux]:', urlMap[layerName]);
 				
-				// Ville spécifique → essayer de charger depuis city_travaux
+				// Charger depuis city_travaux si ville spécifique
 				if (activeCity && activeCity !== 'default' && window.supabaseService?.loadCityTravauxGeoJSON) {
 					try {
-						console.log(`[DataModule] 🔍 Tentative chargement travaux depuis city_travaux pour ville: ${activeCity}`);
+						console.log(`[DataModule] 🔍 Chargement depuis city_travaux pour ville: ${activeCity}`);
 						const cityTravauxData = await window.supabaseService.loadCityTravauxGeoJSON(activeCity);
-						console.log('[DataModule] cityTravauxData reçu:', cityTravauxData);
-						console.log('[DataModule] Nombre de features:', cityTravauxData?.features?.length);
 						
 						if (cityTravauxData?.features?.length > 0) {
 							console.log(`[DataModule] ✅ city_travaux: ${cityTravauxData.features.length} chantiers chargés`);
 							return cityTravauxData;
 						}
 						
-						console.log(`[DataModule] ⚠️ city_travaux vide pour ${activeCity}, fallback vers URL layer`);
-						// Continuer vers le fallback URL ci-dessous
+						console.log(`[DataModule] ⚠️ city_travaux vide pour ${activeCity}`);
 					} catch (error) {
 						console.warn('[DataModule] ❌ Erreur chargement city_travaux:', error);
-						// Continuer vers le fallback URL ci-dessous
-					}
-				} else {
-					console.log('[DataModule] Mode Global ou loadCityTravauxGeoJSON non disponible, passage direct à URL');
-				}
-				
-				// Fallback : charger depuis l'URL définie dans layers (si disponible)
-				const url = urlMap[layerName];
-				if (url) {
-					console.log(`[DataModule] 🌐 Chargement travaux depuis URL: ${url}`);
-					try {
-						const response = await fetch(url);
-						console.log('[DataModule] Réponse fetch:', response.status, response.statusText);
-						
-						if (!response.ok) {
-							throw new Error(`HTTP ${response.status} sur ${layerName}`);
-						}
-						
-						const data = await response.json();
-						console.log(`[DataModule] ✅ Travaux chargés depuis URL: ${data.features?.length || 0} features`);
-						return data;
-					} catch (error) {
-						console.error('[DataModule] ❌ Erreur chargement travaux depuis URL:', error);
-						return { type: 'FeatureCollection', features: [] };
 					}
 				}
 				
-				// Aucune source disponible
-				console.warn('[DataModule] ⚠️ Aucune source disponible pour travaux (pas d\'URL dans urlMap)');
+				// Pas de données city_travaux disponibles
+				console.log(`[DataModule] ⚠️ Aucune donnée city_travaux disponible`);
 				return { type: 'FeatureCollection', features: [] };
+			}
+			// ===== FIN CITY_TRAVAUX_CHANTIERS =====
+			
+			// ===== TRAVAUX: Layer externe hardcodé (Mode Global uniquement) =====
+			if (layerName === 'travaux') {
+				console.log('[DataModule] 🚀 Chargement layer "travaux" depuis URL hardcodée');
+				
+				// URL hardcodée dans le code (pas de requête Supabase)
+				const url = 'https://data.grandlyon.com/geoserver/metropole-de-lyon/ows?SERVICE=WFS&VERSION=2.0.0&request=GetFeature&typename=metropole-de-lyon:lyv_lyvia.lyvchantier&outputFormat=application/json&SRSNAME=EPSG:4171&startIndex=0&sortBy=gid';
+				
+				console.log(`[DataModule] 🌐 Chargement travaux depuis URL hardcodée`);
+				try {
+					const response = await fetch(url);
+					
+					if (!response.ok) {
+						throw new Error(`HTTP ${response.status} sur ${layerName}`);
+					}
+					
+					const data = await response.json();
+					console.log(`[DataModule] ✅ Travaux chargés depuis URL hardcodée: ${data.features?.length || 0} features`);
+					return data;
+				} catch (error) {
+					console.error('[DataModule] ❌ Erreur chargement travaux depuis URL hardcodée:', error);
+					return { type: 'FeatureCollection', features: [] };
+				}
 			}
 			// ===== FIN TRAVAUX =====
 			
@@ -983,6 +1046,22 @@ window.DataModule = (function() {
 
 	// Crée la couche GeoJSON et l'ajoute à la carte
 	function createGeoJsonLayer(layerName, data) {
+		// Normaliser les données d'entrée pour éviter les erreurs Leaflet (addData(undefined))
+		let normalized = data;
+		try {
+			if (!normalized || typeof normalized !== 'object') {
+				normalized = { type: 'FeatureCollection', features: [] };
+			} else if (Array.isArray(normalized)) {
+				normalized = { type: 'FeatureCollection', features: normalized };
+			} else if (normalized.type === 'Feature') {
+				normalized = { type: 'FeatureCollection', features: [normalized] };
+			} else if (normalized.type === 'FeatureCollection' && !Array.isArray(normalized.features)) {
+				normalized.features = [];
+			}
+		} catch (_) {
+			normalized = { type: 'FeatureCollection', features: [] };
+		}
+		data = normalized;
 		const criteria = FilterModule.get(layerName);
 
 		// Définir les couches cliquables (catégories dynamiques)
@@ -1064,8 +1143,8 @@ window.DataModule = (function() {
 					);
 				}
 				
-				// Markers pour les chantiers (travaux)
-				if (layerName === 'travaux') {
+				// Markers pour les chantiers (centralisé via LayerRegistry)
+				if (window.LayerRegistry?.isTravauxLayer && window.LayerRegistry.isTravauxLayer(layerName)) {
 					const customMarkerIcon = L.divIcon({
 						className: 'travaux-marker',
 						iconSize: [32, 40],

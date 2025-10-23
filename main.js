@@ -76,9 +76,18 @@
       navButton.addEventListener('click', () => {
         console.log('[Main] 🖱️ Clic sur bouton Travaux');
         
-        // Utiliser EventBindings.handleNavigation si disponible
+        const currentCity = (typeof win.getActiveCity === 'function') ? win.getActiveCity() : (win.activeCity || null);
+        
+        // Mode Global : afficher le layer externe "travaux" (URL hardcodée)
+        // Mode Ville : afficher le layer "city-travaux-chantiers" (city_travaux)
+        const layersToDisplay = (!currentCity || currentCity === 'default') 
+          ? ['travaux']                    // Global → layer externe
+          : ['city-travaux-chantiers'];    // Ville → city_travaux
+        
+        console.log('[Main] Layers à afficher:', layersToDisplay, 'pour ville:', currentCity);
+        
         if (win.EventBindings?.handleNavigation) {
-          win.EventBindings.handleNavigation('travaux', ['travaux']);
+          win.EventBindings.handleNavigation('travaux', layersToDisplay);
         }
         
         // Afficher le submenu Travaux et masquer les autres
@@ -229,6 +238,7 @@
         });
       }
       
+      
       win.defaultLayers = defaultLayers;
       
       DataModule.initConfig({ city, urlMap, styleMap, defaultLayers });
@@ -287,6 +297,14 @@
       
       // Construire le mapping catégorie → layers depuis la DB
       win.categoryLayersMap = window.supabaseService.buildCategoryLayersMap(activeCategoryIcons);
+      
+      // Ajouter manuellement le mapping pour "travaux" (submenu en dur, pas dans category_icons)
+      // Mode Global : layer externe "travaux" | Mode Ville : layer "city-travaux-chantiers"
+      const currentCity = (typeof win.getActiveCity === 'function') ? win.getActiveCity() : (win.activeCity || null);
+      win.categoryLayersMap['travaux'] = (!currentCity || currentCity === 'default') 
+        ? ['travaux']                    // Global → layer externe
+        : ['city-travaux-chantiers'];    // Ville → city_travaux
+      
       console.log('[Main] ✅ categoryLayersMap construit depuis DB:', win.categoryLayersMap);
 
       win.getAllCategories = () => (win.categoryIcons || []).map(c => c.category);
