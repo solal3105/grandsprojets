@@ -80,7 +80,10 @@
    */
   function populateIconPicker(categoryIconGrid, categoryIconInput, categoryIconPicker) {
     try {
-      if (!categoryIconGrid) return;
+      if (!categoryIconGrid) {
+        console.error('[Icon Picker] ❌ Grid element not found');
+        return;
+      }
       
       const html = ICON_PRESETS.map(preset => `
         <button type="button" class="icon-preset-btn" data-icon="${preset.icon}" title="${preset.label}" 
@@ -92,31 +95,36 @@
       categoryIconGrid.innerHTML = html;
       
       // Bind click events
-      categoryIconGrid.querySelectorAll('.icon-preset-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
+      const buttons = categoryIconGrid.querySelectorAll('.icon-preset-btn');
+      buttons.forEach(btn => {
+        btn.onclick = function() {
           const iconClass = btn.dataset.icon;
           if (categoryIconInput) {
             categoryIconInput.value = iconClass;
             categoryIconInput.dispatchEvent(new Event('input'));
           }
           // Hide picker after selection
-          if (categoryIconPicker) categoryIconPicker.style.display = 'none';
-        });
+          if (categoryIconPicker) {
+            categoryIconPicker.style.display = 'none';
+          }
+        };
         
-        // Hover effect
-        btn.addEventListener('mouseenter', () => {
+        // Hover effects
+        btn.onmouseenter = function() {
           btn.style.borderColor = 'var(--info)';
           btn.style.background = 'var(--info-lighter)';
           btn.style.transform = 'scale(1.1)';
-        });
-        btn.addEventListener('mouseleave', () => {
+        };
+        btn.onmouseleave = function() {
           btn.style.borderColor = 'var(--gray-300)';
           btn.style.background = 'var(--white)';
           btn.style.transform = 'scale(1)';
-        });
+        };
       });
+      
+      console.log('[Icon Picker] ✅ Populated with', buttons.length, 'icons');
     } catch(e) {
-      console.error('[contrib-categories] populateIconPicker error:', e);
+      console.error('[Icon Picker] ❌ Error:', e);
     }
   }
 

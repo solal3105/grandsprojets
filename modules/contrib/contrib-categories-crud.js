@@ -170,11 +170,51 @@
       categoriesContent,
       categoryIconPreview,
       categoryVilleSelector,
-      selectedCity  // Ville pré-sélectionnée
+      selectedCity,  // Ville pré-sélectionnée
+      categoryIconGrid,
+      categoryIconPicker
     } = elements;
     
     try {
       if (!categoryFormContainer || !categoryForm) return;
+      
+      // Populate icon picker when form opens
+      const ContribCategories = win.ContribCategories || {};
+      if (ContribCategories.populateIconPicker && categoryIconGrid) {
+        ContribCategories.populateIconPicker(categoryIconGrid, categoryIconInput, categoryIconPicker);
+      }
+      
+      // Bind icon picker toggle button
+      const pickerBtn = document.getElementById('category-icon-picker-btn');
+      
+      if (pickerBtn && categoryIconPicker) {
+        // Store reference to avoid closure issues
+        const pickerElement = categoryIconPicker;
+        
+        // Remove all existing listeners by cloning
+        const newBtn = pickerBtn.cloneNode(true);
+        pickerBtn.parentNode.replaceChild(newBtn, pickerBtn);
+        
+        // Add new listener
+        newBtn.onclick = function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const currentDisplay = window.getComputedStyle(pickerElement).display;
+          const isHidden = currentDisplay === 'none';
+          
+          pickerElement.style.display = isHidden ? 'block' : 'none';
+          
+          console.log('[Icon Picker] Toggled - now:', pickerElement.style.display);
+        };
+        
+        console.log('[showCategoryForm] ✅ Icon picker button bound successfully');
+      } else {
+        console.error('[showCategoryForm] ❌ Missing elements:', {
+          button: !!pickerBtn,
+          picker: !!categoryIconPicker
+        });
+      }
       
       categoryEditModeInput.value = mode;
       
