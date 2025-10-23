@@ -72,8 +72,10 @@ class ToggleManager {
     // Initialiser l'état
     this.state.set(key, config.defaultState);
 
-    // Bind events
-    this.bindToggleEvents(key, element, config);
+    // Bind events (sauf si redirectUrl - géré manuellement dans main.js)
+    if (!config.redirectUrl) {
+      this.bindToggleEvents(key, element, config);
+    }
 
     // Restaurer l'état persistant
     if (config.persistent) {
@@ -362,7 +364,7 @@ class ToggleManager {
    * Recalcule le layout mobile (barre horizontale)
    */
   recalculateMobileLayout() {
-    const MOBILE_ORDER = ['info', 'location', 'search', 'theme', 'basemap', 'filters', 'contribute'];
+    const MOBILE_ORDER = ['info', 'location', 'search', 'theme', 'basemap', 'filters', 'contribute', 'login'];
     const visibleToggles = [];
 
     // Identifier les toggles visibles dans l'ordre mobile
@@ -401,7 +403,7 @@ class ToggleManager {
    * Recalcule le layout desktop (toggles espacés)
    */
   recalculateDesktopLayout() {
-    const DESKTOP_ORDER = ['contribute', 'filters', 'basemap', 'theme', 'search', 'location', 'info'];
+    const DESKTOP_ORDER = ['login', 'contribute', 'filters', 'basemap', 'theme', 'search', 'location', 'info'];
     const visibleToggles = [];
 
     // Identifier les toggles visibles dans l'ordre desktop

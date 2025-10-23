@@ -45,6 +45,11 @@
           icon: 'fa-info-circle',
           label: 'À propos',
           description: 'Informations'
+        },
+        login: {
+          icon: 'fa-user',
+          label: 'Connexion',
+          description: 'Page de connexion'
         }
       };
     },
@@ -166,7 +171,7 @@
       }
       
       const primaryColor = branding?.primary_color || '#21b929';
-      const enabledToggles = branding?.enabled_toggles || ['filters', 'basemap', 'theme', 'search', 'location', 'info'];
+      const enabledToggles = branding?.enabled_toggles || ['filters', 'basemap', 'theme', 'search', 'location', 'info', 'login'];
       
       // Fonction pour mettre à jour les previews
       const updatePreviews = (color) => {
@@ -331,7 +336,7 @@
         }
         
         // Mettre à jour la liste des toggles
-        let enabledToggles = branding.enabled_toggles || ['filters', 'basemap', 'theme', 'search', 'location', 'info'];
+        let enabledToggles = branding.enabled_toggles || ['filters', 'basemap', 'theme', 'search', 'location', 'info', 'login'];
         
         if (isEnabled) {
           if (!enabledToggles.includes(toggleKey)) {

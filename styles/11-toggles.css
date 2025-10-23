@@ -138,6 +138,11 @@
   background: var(--primary-active);
 }
 
+/* Login - Position 7 */
+#login-toggle {
+  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 7);
+}
+
 /* Hide location toggle on desktop (géolocalisation mobile-only) */
 @media (min-width: 641px) {
   #location-toggle {
@@ -255,29 +260,37 @@
      Ces valeurs seront surchargées dynamiquement par JS si un toggle est masqué
      ============================================================================ */
   
-  /* Info (gauche) → Location → Search → Theme → Basemap → Filters (droite) */
+  /* Info (gauche) → Location → Search → Theme → Basemap → Filters → Contribute → Login (droite) */
   
   #info-toggle {
-    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 5);
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 7);
   }
   
   #location-toggle {
-    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 4);
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 6);
   }
   
   #search-toggle {
-    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 3);
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 5);
   }
   
   #theme-toggle {
-    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 2);
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 4);
   }
   
   #basemap-toggle {
-    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 1);
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 3);
   }
   
   #filters-toggle {
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 2);
+  }
+  
+  #contribute-toggle {
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 1);
+  }
+  
+  #login-toggle {
     right: var(--toggle-offset-base);
   }
 }

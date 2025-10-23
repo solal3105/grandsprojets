@@ -80,6 +80,16 @@ export const TOGGLES_CONFIG = {
     ariaLabel: 'Proposer une contribution',
     position: 6,
     defaultState: false
+  },
+  
+  login: {
+    id: 'login-toggle',
+    icon: 'fa-user',
+    label: 'Connexion',
+    ariaLabel: 'Se connecter ou s\'inscrire',
+    position: 7,
+    redirectUrl: '/login',
+    defaultState: false
   }
 };
 
@@ -94,17 +104,20 @@ export const TOGGLE_ORDER = [
   'theme',
   'search',
   'location',
-  'info'
+  'info',
+  'login'
 ];
 
 /**
  * Ordre d'affichage mobile (de gauche à droite)
  */
 export const MOBILE_ORDER = [
-  'info',      // Position 0 (gauche, arrondi)
-  'location',  // Position 1
-  'search',    // Position 2
-  'theme',     // Position 3
-  'basemap',   // Position 4
-  'filters'    // Position 5 (droite, arrondi)
+  'info',       // Position 0 (gauche, arrondi)
+  'location',   // Position 1
+  'search',     // Position 2
+  'theme',      // Position 3
+  'basemap',    // Position 4
+  'filters',    // Position 5
+  'contribute', // Position 6
+  'login'       // Position 7 (droite, arrondi)
 ];

@@ -437,6 +437,16 @@
         });
       }
       
+      // Bouton de connexion (redirection vers /login)
+      const loginToggle = document.getElementById('login-toggle');
+      
+      if (loginToggle) {
+        loginToggle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.location.href = '/login';
+        });
+      }
+      
       if (themeToggle) {
         themeToggle.addEventListener('click', (e) => {
           e.stopPropagation();

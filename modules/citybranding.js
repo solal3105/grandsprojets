@@ -195,18 +195,27 @@
     console.log('[CityBranding] Applying toggles config:', enabledToggles);
 
     // Liste de tous les toggles possibles
-    const allToggles = ['filters', 'basemap', 'theme', 'search', 'location', 'info'];
+    const allToggles = ['filters', 'basemap', 'theme', 'search', 'location', 'info', 'login'];
 
-    allToggles.forEach(toggleKey => {
-      const toggleElement = document.getElementById(`${toggleKey}-toggle`);
-      if (toggleElement) {
-        if (enabledToggles.includes(toggleKey)) {
-          toggleElement.style.display = '';
-        } else {
-          toggleElement.style.display = 'none';
+    // Utiliser le ToggleManager si disponible pour une gestion cohérente
+    if (win.toggleManager && typeof win.toggleManager.setVisible === 'function') {
+      allToggles.forEach(toggleKey => {
+        const isEnabled = enabledToggles.includes(toggleKey);
+        win.toggleManager.setVisible(toggleKey, isEnabled);
+      });
+    } else {
+      // Fallback : manipulation directe du DOM
+      allToggles.forEach(toggleKey => {
+        const toggleElement = document.getElementById(`${toggleKey}-toggle`);
+        if (toggleElement) {
+          if (enabledToggles.includes(toggleKey)) {
+            toggleElement.style.display = '';
+          } else {
+            toggleElement.style.display = 'none';
+          }
         }
-      }
-    });
+      });
+    }
   },
 
   /**
