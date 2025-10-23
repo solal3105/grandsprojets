@@ -350,13 +350,11 @@ const TravauxModule = (() => {
       // Mode Global → toujours lecture seule (URL)
       if (!activeCity || activeCity === 'default') {
         isEditableSource = false;
-        console.log('[TravauxModule] Mode Global: données depuis URL (lecture seule)');
       } else {
         // Ville spécifique → vérifier si city_travaux a des données
         try {
           const cityTravauxData = await window.supabaseService?.loadCityTravauxGeoJSON(activeCity);
           isEditableSource = cityTravauxData?.features?.length > 0;
-          console.log(`[TravauxModule] Ville ${activeCity}: source ${isEditableSource ? 'city_travaux (éditable)' : 'URL (lecture seule)'}`);
         } catch (err) {
           console.warn('[TravauxModule] Erreur vérification city_travaux:', err);
           isEditableSource = false;
@@ -366,7 +364,6 @@ const TravauxModule = (() => {
       // Si source non éditable, retirer la card
       if (!isEditableSource) {
         addCard.remove();
-        console.log('[TravauxModule] ⚠️ Édition désactivée (source: URL statique)');
       } else {
         // Source éditable (city_travaux) : vérifier si admin pour afficher la card
         addCard.addEventListener('click', (e) => {
@@ -393,7 +390,6 @@ const TravauxModule = (() => {
               // Afficher la card si admin global OU admin de cette ville
               if (isGlobalAdmin || isCityAdmin) {
                 addCard.style.display = 'flex';
-                console.log('[TravauxModule] ✅ Card "Ajouter un chantier" affichée pour admin');
               }
             }
           }

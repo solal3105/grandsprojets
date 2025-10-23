@@ -1,6 +1,23 @@
 // modules/TravauxEditorModule.js
 // Module pour éditer/créer des chantiers travaux avec dessin sur carte
 const TravauxEditorModule = (() => {
+  // ===== CONSTANTES =====
+  const RELOAD_DELAY_MS = 1500;
+  const MESSAGES = {
+    AUTH_REQUIRED: 'Vous devez être connecté et admin de la ville pour ajouter un chantier.',
+    LEAFLET_DRAW_MISSING: 'Leaflet.Draw n\'est pas chargé. Impossible d\'ouvrir l\'éditeur.',
+    CHANTIER_NOT_FOUND: 'Chantier introuvable',
+    LOADING_ERROR: 'Erreur lors du chargement du chantier',
+    NAME_REQUIRED: 'Le nom du chantier est obligatoire.',
+    SAVE_SUCCESS: '✅ Chantier créé avec succès !',
+    UPDATE_SUCCESS: '✅ Chantier modifié avec succès !',
+    SAVE_ERROR: '❌ Erreur lors de la sauvegarde',
+    UPDATE_ERROR: '❌ Erreur lors de la mise à jour',
+    CANCEL_CONFIRM: 'Annuler la création du chantier ? Les géométries dessinées seront perdues.',
+    CANCEL_EDIT_CONFIRM: 'Annuler les modifications ?'
+  };
+  
+  // ===== ÉTAT DU MODULE =====
   let drawnItems = null;
   let currentFeatures = [];
   let isDrawingMode = false;
@@ -183,7 +200,6 @@ const TravauxEditorModule = (() => {
     
     drawnItems.addLayer(layer);
     currentFeatures.push(layer.toGeoJSON());
-    console.log('[TravauxEditor] Feature dessinée:', currentFeatures.length);
     
     // Activer le bouton "Continuer" et mettre à jour le feedback
     updateDrawingUI();
@@ -197,7 +213,6 @@ const TravauxEditorModule = (() => {
     drawnItems.eachLayer(layer => {
       currentFeatures.push(layer.toGeoJSON());
     });
-    console.log('[TravauxEditor] Features éditées:', currentFeatures.length);
     updateDrawingUI();
   }
   
@@ -209,7 +224,6 @@ const TravauxEditorModule = (() => {
     drawnItems.eachLayer(layer => {
       currentFeatures.push(layer.toGeoJSON());
     });
-    console.log('[TravauxEditor] Features supprimées:', currentFeatures.length);
     updateDrawingUI();
   }
   
@@ -314,8 +328,6 @@ const TravauxEditorModule = (() => {
       
       // Admin de la ville spécifique
       const isCityAdmin = Array.isArray(userVilles) && userVilles.includes(activeCity);
-      
-      console.log('[TravauxEditor] checkAuth:', { role, userVilles, activeCity, isGlobalAdmin, isCityAdmin });
       
       return isGlobalAdmin || isCityAdmin;
     } catch (err) {
@@ -619,7 +631,7 @@ const TravauxEditorModule = (() => {
       
       await window.supabaseService.createCityTravaux(chantierData);
       
-      showStatus('✅ Chantier créé avec succès !', 'success');
+      showStatus(MESSAGES.SAVE_SUCCESS, 'success');
       
       // Recharger la couche travaux/chantiers et fermer
       setTimeout(async () => {
@@ -651,11 +663,11 @@ const TravauxEditorModule = (() => {
         } catch (err) {
           console.error('[TravauxEditor] Erreur rechargement:', err);
         }
-      }, 1500);
+      }, RELOAD_DELAY_MS);
       
     } catch (err) {
       console.error('[TravauxEditor] Erreur sauvegarde:', err);
-      showStatus(`❌ Erreur: ${err.message}`, 'error');
+      showStatus(MESSAGES.SAVE_ERROR, 'error');
       saveBtn.disabled = false;
       saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Enregistrer';
     }
@@ -690,14 +702,14 @@ const TravauxEditorModule = (() => {
       const chantier = await window.supabaseService.getCityTravauxById(chantierId);
       
       if (!chantier) {
-        alert('Chantier introuvable');
+        alert(MESSAGES.CHANTIER_NOT_FOUND);
         return;
       }
       
       // Vérifier auth
       const authOk = await checkAuth();
       if (!authOk) {
-        alert('Vous devez être connecté et admin de la ville pour modifier un chantier.');
+        alert(MESSAGES.AUTH_REQUIRED);
         return;
       }
       
@@ -706,7 +718,7 @@ const TravauxEditorModule = (() => {
       
     } catch (err) {
       console.error('[TravauxEditor] Erreur chargement chantier:', err);
-      alert('Erreur lors du chargement du chantier');
+      alert(MESSAGES.LOADING_ERROR);
     }
   }
   
@@ -968,7 +980,7 @@ const TravauxEditorModule = (() => {
       // Mettre à jour dans la base de données
       await window.supabaseService.updateCityTravaux(chantierId, data);
       
-      showStatus('✅ Chantier modifié avec succès !', 'success');
+      showStatus(MESSAGES.UPDATE_SUCCESS, 'success');
       
       // Recharger la couche et fermer
       setTimeout(async () => {
@@ -983,11 +995,11 @@ const TravauxEditorModule = (() => {
           console.error('[TravauxEditor] Erreur rechargement:', err);
           closeFormModal();
         }
-      }, 1500);
+      }, RELOAD_DELAY_MS);
       
     } catch (err) {
       console.error('[TravauxEditor] Erreur mise à jour:', err);
-      showStatus('❌ Erreur lors de la mise à jour', 'error');
+      showStatus(MESSAGES.UPDATE_ERROR, 'error');
       saveBtn.disabled = false;
       saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> <span>Enregistrer les modifications</span>';
     }
