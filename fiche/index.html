@@ -4,7 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Fiche projet – Grands Projets de Lyon</title>
+  
+  <!-- Tailwind CSS via Play CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Configuration Tailwind inline -->
+  <script>
+    tailwind.config = {
+      darkMode: 'class', // Utiliser la classe 'dark' sur <html>
+      theme: {
+        extend: {
+          colors: {
+            primary: 'var(--primary)',
+          },
+          height: {
+            'map-mobile': '30vh',
+            'map-tablet': '40vh',
+            'map-desktop': '45vh',
+          }
+        }
+      }
+    }
+  </script>
+  
   <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/styles/fiche-markdown.css">
   <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
 </head>
