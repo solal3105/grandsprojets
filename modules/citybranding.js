@@ -56,8 +56,9 @@
   /**
    * Charge et applique le branding pour la ville active
    * @param {string} ville - Nom de la ville
+   * @param {boolean} skipToggles - Si true, ne pas appliquer la config des toggles (sera fait par onAuthStateChange)
    */
-  async loadAndApplyBranding(ville) {
+  async loadAndApplyBranding(ville, skipToggles = false) {
     if (!ville) {
       this.applyPrimaryColor('#21b929');
       return;
@@ -72,7 +73,10 @@
         this.applyPrimaryColor('#21b929');
       }
       
-      if (branding.enabled_toggles) {
+      // Appliquer les toggles seulement si demandé
+      // À la première connexion, on skip pour éviter la race condition
+      // Le listener onAuthStateChange s'en chargera
+      if (branding.enabled_toggles && !skipToggles) {
         this.applyTogglesConfig(branding.enabled_toggles);
       }
     } else {
@@ -277,9 +281,20 @@
   },
 
   /**
-   * Initialise les listeners pour mettre à jour le toggle login selon l'état d'authentification
+   * Initialise les listeners pour mettre à jour le toggle login/contribute selon l'état d'authentification
    */
-  init() {
+  async init() {
+    // Appliquer la configuration initiale des toggles basée sur la session actuelle
+    try {
+      const activeCity = localStorage.getItem('activeCity');
+      const branding = await this.getBrandingForCity(activeCity);
+      if (branding && branding.enabled_toggles) {
+        await this.applyTogglesConfig(branding.enabled_toggles);
+      }
+    } catch (err) {
+      console.warn('[CityBranding] Failed to apply initial toggles config:', err);
+    }
+    
     // Écouter les changements d'état d'authentification
     if (win.AuthModule && typeof win.AuthModule.onAuthStateChange === 'function') {
       win.AuthModule.onAuthStateChange(async (event, session) => {

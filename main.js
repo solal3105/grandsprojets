@@ -148,7 +148,9 @@
       // PHASE 2.5 : Charger le branding de la ville (ou couleur par défaut si pas de ville)
       if (win.CityBrandingModule) {
         try {
-          await win.CityBrandingModule.loadAndApplyBranding(city);
+          // skipToggles = true pour éviter la race condition avec l'authentification
+          // Les toggles seront configurés par onAuthStateChange une fois la session établie
+          await win.CityBrandingModule.loadAndApplyBranding(city, true);
         } catch (err) {
           console.warn('[Main] Failed to load city branding:', err);
         }

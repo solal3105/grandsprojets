@@ -437,6 +437,8 @@
     emailForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       
+      let rateLimitDelay = 2000; // Délai par défaut
+      
       try {
         const email = (emailInput?.value || '').trim();
         if (!isValidEmail(email)) {
@@ -471,13 +473,27 @@
         
         if (error) {
           console.error('Magic link error:', error);
-          if (error.message && (error.message.includes('User not found') || error.message.includes('not found') || error.message.includes('Signups not allowed'))) {
+          
+          // Détecter les différents types d'erreurs
+          const errorMsg = error.message || '';
+          
+          if (errorMsg.includes('User not found') || errorMsg.includes('not found') || errorMsg.includes('Signups not allowed')) {
             setStatus("❌ Cet email n'est pas enregistré. Contactez l'administrateur de votre organisation pour obtenir un accès.", 'error');
+          } else if (errorMsg.includes('can only request this after') || errorMsg.includes('seconds')) {
+            // Extraire le nombre de secondes si possible
+            const match = errorMsg.match(/after (\d+) seconds/);
+            const seconds = match ? parseInt(match[1], 10) : 60;
+            setStatus(`⏱️ Veuillez patienter ${seconds} secondes avant de demander un nouveau lien.`, 'error');
+            rateLimitDelay = (seconds + 1) * 1000; // Ajouter 1 seconde de marge
+          } else if (errorMsg.includes('rate limit') || errorMsg.includes('too many')) {
+            setStatus("⏱️ Trop de tentatives. Veuillez patienter quelques instants avant de réessayer.", 'error');
+            rateLimitDelay = 60000; // 60 secondes
           } else {
             setStatus("❌ Échec de l'envoi du lien. Réessayez plus tard.", 'error');
           }
         } else {
           setStatus('✅ Email envoyé ! Vérifiez votre boîte de réception.', 'success');
+          rateLimitDelay = 60000; // 60 secondes après un envoi réussi
         }
       } catch (e) {
         console.error(e);
@@ -486,7 +502,7 @@
         setTimeout(() => {
           magicBtn.disabled = false;
           githubBtn.disabled = false;
-        }, 2000);
+        }, rateLimitDelay);
       }
     });
 
