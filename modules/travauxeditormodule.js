@@ -22,21 +22,6 @@ const TravauxEditorModule = (() => {
   let currentFeatures = [];
   let isDrawingMode = false;
   
-  // ===== HELPER : TOAST NOTIFICATIONS =====
-  /**
-   * Affiche une notification toast
-   * @param {string} message - Message à afficher
-   * @param {string} type - Type de notification ('info', 'success', 'error')
-   */
-  function showToast(message, type = 'info') {
-    if (window.ContribUtils?.showToast) {
-      window.ContribUtils.showToast(message, type);
-    } else {
-      // Fallback simple si ContribUtils n'est pas disponible
-      console.log(`[TravauxEditor] ${type.toUpperCase()}: ${message}`);
-    }
-  }
-  
   /**
    * Initialise Leaflet.Draw et configure les icônes
    */
@@ -67,29 +52,24 @@ const TravauxEditorModule = (() => {
   
   /**
    * Démarre le mode dessin (ÉTAPE 1)
-   * @returns {Promise<void>}
    */
-  async function openEditor() {
-    try {
-      // Vérifier auth
-      const authOk = await checkAuth();
+  function openEditor() {
+    // Vérifier auth
+    checkAuth().then(authOk => {
       if (!authOk) {
-        showToast(MESSAGES.AUTH_REQUIRED, 'error');
+        alert('Vous devez être connecté et admin de la ville pour ajouter un chantier.');
         return;
       }
       
       // Vérifier Leaflet.Draw
       if (!initLeafletDraw()) {
-        showToast(MESSAGES.LEAFLET_DRAW_MISSING, 'error');
+        alert('Leaflet.Draw n\'est pas chargé. Impossible d\'ouvrir l\'éditeur.');
         return;
       }
       
       // Activer le mode dessin
       startDrawingMode();
-    } catch (err) {
-      console.error('[TravauxEditor] Erreur ouverture éditeur:', err);
-      showToast('Erreur lors de l\'ouverture de l\'éditeur', 'error');
-    }
+    });
   }
   
   /**
@@ -274,7 +254,7 @@ const TravauxEditorModule = (() => {
    */
   function finishDrawing() {
     if (currentFeatures.length === 0) {
-      showToast('Veuillez dessiner au moins une géométrie sur la carte.', 'error');
+      alert('Veuillez dessiner au moins une géométrie sur la carte.');
       return;
     }
     
@@ -722,14 +702,14 @@ const TravauxEditorModule = (() => {
       const chantier = await window.supabaseService.getCityTravauxById(chantierId);
       
       if (!chantier) {
-        showToast(MESSAGES.CHANTIER_NOT_FOUND, 'error');
+        alert(MESSAGES.CHANTIER_NOT_FOUND);
         return;
       }
       
       // Vérifier auth
       const authOk = await checkAuth();
       if (!authOk) {
-        showToast(MESSAGES.AUTH_REQUIRED, 'error');
+        alert(MESSAGES.AUTH_REQUIRED);
         return;
       }
       
@@ -738,7 +718,7 @@ const TravauxEditorModule = (() => {
       
     } catch (err) {
       console.error('[TravauxEditor] Erreur chargement chantier:', err);
-      showToast(MESSAGES.LOADING_ERROR, 'error');
+      alert(MESSAGES.LOADING_ERROR);
     }
   }
   
