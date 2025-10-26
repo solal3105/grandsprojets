@@ -28,6 +28,34 @@ html, body {
 }
 
 /* ---------------------------------------------------------------------------
+   Toggle Loading State
+--------------------------------------------------------------------------- */
+.toggle-loading {
+tout ça tu as pris le soin de comprendre au moins 
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: wait !important;
+}
+
+.toggle-loading::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--primary, #007bff);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: toggle-spin 0.8s linear infinite;
+  z-index: 10;
+}
+
+@keyframes toggle-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------------------------------------------------------------------------
    Classes utilitaires
 --------------------------------------------------------------------------- */
 .hidden {

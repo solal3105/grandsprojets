@@ -279,7 +279,7 @@ html[data-theme='dark'] {
      COULEURS DE BASE (harmonisées avec le fond soft blue)
      Palette raffinée et élégante pour un confort visuel optimal
      ======================================== */
-  --color-primary: #ffdd0080;    /* Couleur principale (dark mode) */
+  /* --color-primary: #ffdd0080; */    /* DÉSACTIVÉ : Primary reste identique en dark mode */
   --color-success: #34d399;    /* Vert émeraude doux (dark mode) */
   --color-danger: #f87171;     /* Rouge corail doux et chaleureux */
   --color-info: #60a5fa;       /* Bleu ciel doux et harmonieux */

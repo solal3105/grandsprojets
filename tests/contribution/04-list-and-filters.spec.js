@@ -18,6 +18,9 @@ test.describe('Contribution - Liste et filtres', () => {
     await page.waitForSelector('#map', { state: 'visible', timeout: 30000 });
     await login(page, TEST_USERS.invited);
     await openContributionModal(page);
+    // S'assurer que la modale est bien ouverte et prête
+    await expect(page.locator('#contrib-overlay')).toHaveAttribute('aria-hidden', 'false', { timeout: 10000 });
+    await expect(page.locator('#landing-city-select')).toBeVisible({ timeout: 10000 });
     await selectCity(page, 'lyon');
     await clickEditContributions(page);
   });

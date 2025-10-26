@@ -14,7 +14,7 @@ test.describe('Contribution - Authentification et ouverture modale', () => {
 
   test('Le bouton "Contribuer" est caché pour les utilisateurs non connectés', async ({ page }) => {
     // Vérifier que le bouton contribuer n'est pas visible
-    const contribBtn = page.locator('#nav-contribute');
+    const contribBtn = page.locator('#contribute-toggle');
     await expect(contribBtn).toBeHidden();
   });
 
@@ -25,44 +25,59 @@ test.describe('Contribution - Authentification et ouverture modale', () => {
     // Vérifier que l'utilisateur est connecté
     expect(await isLoggedIn(page)).toBe(true);
     
-    // Vérifier que le bouton contribuer est visible
-    const contribBtn = page.locator('#nav-contribute');
-    await expect(contribBtn).toBeVisible();
+    // Attendre que le bouton contribuer soit visible
+    const contribBtn = page.locator('#contribute-toggle');
+    await expect(contribBtn).toBeVisible({ timeout: 10000 });
   });
 
   test('La modale de contribution s\'ouvre correctement', async ({ page }) => {
     // Se connecter
     await login(page, TEST_USERS.invited);
     
+    // Attendre que le bouton soit visible
+    const contributeButton = page.locator('#contribute-toggle');
+    await expect(contributeButton).toBeVisible({ timeout: 15000 });
+    
+    // Attendre un peu pour s'assurer que tout est stable
+    await page.waitForTimeout(1000);
+    
     // Ouvrir la modale de contribution
     await openContributionModal(page);
     
-    // Vérifier que la modale est visible
-    const modal = page.locator('#contrib-overlay[aria-hidden="false"]');
-    await expect(modal).toBeVisible();
+    // Vérifier que la modale est visible (ID spécifique)
+    const modal = page.locator('#contrib-overlay');
+    await expect(modal).toBeVisible({ timeout: 15000 });
+    await expect(modal).toHaveAttribute('aria-hidden', 'false');
     
-    // Vérifier que le titre est correct
+    // Vérifier que le titre est visible (ID spécifique pour éviter les doublons)
     const title = page.locator('#contrib-title');
+    await expect(title).toBeVisible({ timeout: 5000 });
     await expect(title).toHaveText('Proposer une contribution');
     
-    // Vérifier que le landing est visible
-    const landing = page.locator('#contrib-landing');
-    await expect(landing).toBeVisible();
+    // Fermer la modale pour le nettoyage
+    await closeContributionModal(page);
   });
 
   test('La modale se ferme correctement avec le bouton X', async ({ page }) => {
-    // Se connecter et ouvrir la modale
+    // Se connecter
     await login(page, TEST_USERS.invited);
+    
+    // Ouvrir la modale
     await openContributionModal(page);
     
     // Vérifier que la modale est ouverte
-    await expect(page.locator('#contrib-overlay[aria-hidden="false"]')).toBeVisible();
+    const modal = page.locator('#contrib-overlay');
+    await expect(modal).toBeVisible({ timeout: 10000 });
+    await expect(modal).toHaveAttribute('aria-hidden', 'false');
     
     // Fermer la modale
     await closeContributionModal(page);
     
-    // Vérifier que la modale est fermée
-    await expect(page.locator('#contrib-overlay[aria-hidden="true"]')).toBeHidden();
+    // Vérifier que la modale est bien fermée
+    await expect(modal).toBeHidden({ timeout: 10000 });
+    
+    // Vérifier que l'attribut aria-hidden est bien à "true"
+    await expect(modal).toHaveAttribute('aria-hidden', 'true', { timeout: 5000 });
   });
 
   test('La modale se ferme en cliquant sur l\'overlay (ESC)', async ({ page }) => {

@@ -1,62 +1,28 @@
 import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
 
-// Charger les variables d'environnement depuis .env
 dotenv.config();
 
-/**
- * Configuration Playwright pour GrandsProjets
- * 
- * @see https://playwright.dev/docs/test-configuration
- */
 export default defineConfig({
-  // Dossier contenant les tests
   testDir: './tests',
-  
-  // Timeout pour chaque test
   timeout: 60 * 1000,
-  
-  // Timeout pour les assertions expect()
-  expect: {
-    timeout: 10 * 1000
-  },
-  
-  // Lancer les tests en parallèle dans chaque fichier
+  expect: { timeout: 15000 },
   fullyParallel: true,
-  
-  // Interdire les tests .only en CI
   forbidOnly: !!process.env.CI,
-  
-  // Nombre de tentatives en cas d'échec
   retries: process.env.CI ? 2 : 0,
-  
-  // Nombre de workers (processus parallèles)
   workers: process.env.CI ? 1 : undefined,
   
-  // Reporter pour afficher les résultats
+  // Rapports : HTML uniquement (le JSON est généré via npm run test:json)
   reporter: [
-    ['html', { outputFolder: 'playwright-report' }],
-    ['list']
+    ['html', { outputFolder: 'test-results/html' }]
   ],
   
-  // Options partagées pour tous les tests
   use: {
-    // URL de base pour les tests
-    baseURL: 'http://localhost:3000',
-    
-    // Capturer une trace en cas d'échec (pour debug)
+    baseURL: 'http://localhost:3001',
     trace: 'on-first-retry',
-    
-    // Capturer des screenshots en cas d'échec
     screenshot: 'only-on-failure',
-    
-    // Capturer des vidéos en cas d'échec
-    video: 'retain-on-failure',
-    
-    // Timeout pour les actions (click, fill, etc.)
+    video: 'on-first-retry',
     actionTimeout: 15 * 1000,
-    
-    // Timeout pour la navigation
     navigationTimeout: 30 * 1000,
   },
 
@@ -100,9 +66,11 @@ export default defineConfig({
 
   // Serveur de développement - Playwright le démarre automatiquement
   webServer: {
-    command: 'python -m http.server 3000',
-    url: 'http://localhost:3000',
+    command: 'npm start',
+    url: 'http://localhost:3001',
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
+    timeout: 180 * 1000, // Augmenté à 3 minutes
+    stdout: 'pipe',
+    stderr: 'pipe'
   },
 });

@@ -4,17 +4,11 @@
   "description": "Carte des grands projets d'urbanisme et de mobilité de la Métropole de Lyon",
   "type": "module",
   "scripts": {
-    "start": "python -m http.server 3000",
+    "start": "python -m http.server 3001",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
-    "test:debug": "playwright test --debug",
-    "test:headed": "playwright test --headed",
-    "test:contrib": "playwright test tests/contribution",
-    "test:contrib:ui": "playwright test tests/contribution --ui",
-    "test:report": "playwright show-report",
-    "test:codegen": "playwright codegen http://localhost:3000",
-    "dev:test": "start /B python -m http.server 3000 && timeout /t 2 /nobreak && playwright test tests/contribution --ui",
-    "dev:test:all": "start /B python -m http.server 3000 && timeout /t 2 /nobreak && playwright test --ui"
+    "test:report": "playwright show-report test-results/html",
+    "test:json": "node generate-test-report.js"
   },
   "keywords": [
     "lyon",

@@ -61,6 +61,12 @@ class ToggleManager {
 
     // Ajouter la classe commune
     element.classList.add('app-toggle');
+    
+    // DÉSACTIVER PHYSIQUEMENT le bouton pendant l'initialisation
+    element.classList.add('toggle-loading');
+    element.setAttribute('aria-busy', 'true');
+    element.disabled = true; // Désactiver le bouton HTML
+    element.setAttribute('data-loading', 'true'); // Flag pour vérification supplémentaire
 
     // Stocker la référence
     this.toggles.set(key, {
@@ -84,16 +90,67 @@ class ToggleManager {
 
     // Appliquer l'accessibilité
     this.setupAccessibility(element, config);
+    
+    // Attendre que tous les éléments associés soient chargés avant de retirer le loading
+    this.waitForToggleReady(key, element, config);
 
     console.log(`[ToggleManager] ✓ ${key} initialized`);
+  }
+
+  /**
+   * Attendre que le toggle soit complètement prêt avant de retirer le loading
+   */
+  async waitForToggleReady(key, element, config) {
+    // Fonction pour activer le toggle
+    const activateToggle = () => {
+      element.classList.remove('toggle-loading');
+      element.removeAttribute('aria-busy');
+      element.removeAttribute('data-loading');
+      element.disabled = false; // RÉACTIVER le bouton
+      console.log(`[ToggleManager] ${key} ready and enabled`);
+    };
+    
+    // Si le toggle n'a pas d'éléments associés (ex: theme), il est prêt immédiatement
+    if (!config.overlaySelector && !config.menuSelector && !config.modalSelector && !config.targetElement) {
+      activateToggle();
+      return;
+    }
+    
+    // Attendre que tous les éléments associés existent dans le DOM
+    const checkInterval = setInterval(() => {
+      if (this.validateToggleElements(key, config, true)) { // silent=true pendant polling
+        clearInterval(checkInterval);
+        activateToggle();
+      }
+    }, 100);
+    
+    // Timeout de sécurité après 10 secondes
+    setTimeout(() => {
+      clearInterval(checkInterval);
+      if (element.hasAttribute('data-loading')) {
+        console.warn(`[ToggleManager] ${key} timeout - forcing ready state`);
+        activateToggle();
+      }
+    }, 10000);
   }
 
   /**
    * Bind les événements d'un toggle
    */
   bindToggleEvents(key, element, config) {
-    // Click event
+    // Click event avec protection contre les clics pendant l'initialisation
     element.addEventListener('click', (e) => {
+      // TRIPLE VÉRIFICATION pour être absolument sûr
+      if (element.disabled || 
+          element.hasAttribute('data-loading') || 
+          element.classList.contains('toggle-loading')) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        console.warn('[ToggleManager] Toggle still loading, click blocked:', key);
+        return false;
+      }
+      
       e.preventDefault();
       e.stopPropagation();
       this.toggle(key);
@@ -102,6 +159,17 @@ class ToggleManager {
     // Keyboard accessibility
     element.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
+        // TRIPLE VÉRIFICATION pour être absolument sûr
+        if (element.disabled || 
+            element.hasAttribute('data-loading') || 
+            element.classList.contains('toggle-loading')) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          console.warn('[ToggleManager] Toggle still loading, keyboard blocked:', key);
+          return false;
+        }
+        
         e.preventDefault();
         this.toggle(key);
       }
@@ -120,6 +188,71 @@ class ToggleManager {
         }
       });
     }
+  }
+
+  /**
+   * Valide que tous les éléments associés au toggle existent
+   * Retourne true si aucun élément requis OU si tous les éléments requis existent
+   * @param {boolean} silent - Si true, ne log pas les warnings (pour vérifications pendant chargement)
+   */
+  validateToggleElements(key, config, silent = false) {
+    let hasRequiredElements = false;
+    let allRequiredElementsExist = true;
+    
+    // Vérifier overlay
+    if (config.overlaySelector) {
+      hasRequiredElements = true;
+      const overlay = document.querySelector(config.overlaySelector);
+      if (!overlay) {
+        if (!silent) {
+          console.warn(`[ToggleManager] Overlay not found for ${key}:`, config.overlaySelector);
+        }
+        allRequiredElementsExist = false;
+      }
+    }
+    
+    // Vérifier menu
+    if (config.menuSelector) {
+      hasRequiredElements = true;
+      const menu = document.querySelector(config.menuSelector);
+      if (!menu) {
+        if (!silent) {
+          console.warn(`[ToggleManager] Menu not found for ${key}:`, config.menuSelector);
+        }
+        allRequiredElementsExist = false;
+      }
+    }
+    
+    // Vérifier modal
+    if (config.modalSelector) {
+      hasRequiredElements = true;
+      const modal = document.querySelector(config.modalSelector);
+      if (!modal) {
+        if (!silent) {
+          console.warn(`[ToggleManager] Modal not found for ${key}:`, config.modalSelector);
+        }
+        allRequiredElementsExist = false;
+      }
+    }
+    
+    // Vérifier target element
+    if (config.targetElement) {
+      hasRequiredElements = true;
+      const target = document.getElementById(config.targetElement);
+      if (!target) {
+        if (!silent) {
+          console.warn(`[ToggleManager] Target element not found for ${key}:`, config.targetElement);
+        }
+        allRequiredElementsExist = false;
+      }
+    }
+    
+    // Si pas d'éléments requis (ex: theme toggle), toujours valide
+    if (!hasRequiredElements) {
+      return true;
+    }
+    
+    return allRequiredElementsExist;
   }
 
   /**
@@ -197,10 +330,42 @@ class ToggleManager {
     }
 
     if (toggle.config.modalSelector) {
-      const modal = document.querySelector(toggle.config.modalSelector);
-      if (modal) {
-        modal.style.display = state ? 'flex' : 'none';
-        modal.setAttribute('aria-hidden', (!state).toString());
+      const modalId = toggle.config.modalSelector.replace('#', '');
+      
+      if (state) {
+        // Ouvrir avec ModalHelper pour gestion complète
+        if (window.ModalHelper && typeof window.ModalHelper.open === 'function') {
+          window.ModalHelper.open(modalId, {
+            dismissible: true,
+            lockScroll: true,
+            focusTrap: true,
+            onClose: () => {
+              // Synchroniser l'état du toggle quand la modal se ferme
+              if (this.getState(key)) {
+                this.setState(key, false);
+              }
+            }
+          });
+        } else {
+          // Fallback si ModalHelper pas disponible
+          const modal = document.querySelector(toggle.config.modalSelector);
+          if (modal) {
+            modal.style.display = 'flex';
+            modal.setAttribute('aria-hidden', 'false');
+          }
+        }
+      } else {
+        // Fermer avec ModalHelper
+        if (window.ModalHelper && typeof window.ModalHelper.close === 'function') {
+          window.ModalHelper.close(modalId);
+        } else {
+          // Fallback
+          const modal = document.querySelector(toggle.config.modalSelector);
+          if (modal) {
+            modal.style.display = 'none';
+            modal.setAttribute('aria-hidden', 'true');
+          }
+        }
       }
     }
 

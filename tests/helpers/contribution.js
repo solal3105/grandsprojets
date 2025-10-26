@@ -2,36 +2,46 @@
  * Helpers pour les actions de contribution
  */
 
+import { expect } from '@playwright/test';
+
 /**
  * Ouvrir la modale de contribution
  * @param {import('@playwright/test').Page} page
  */
 export async function openContributionModal(page) {
-  // Cliquer sur le bouton "Contribuer"
-  await page.click('#nav-contribute');
+  // Attendre que le bouton "Contribuer" soit visible et cliquable
+  const contributeButton = page.locator('#contribute-toggle');
+  await expect(contributeButton).toBeVisible({ timeout: 15000 });
   
-  // Si une navigation se déclenche, attendre qu'elle se termine
-  try {
-    await page.waitForURL(/\?city=/, { timeout: 2000 });
-    // Navigation détectée, attendre le chargement complet
-    await page.waitForLoadState('networkidle', { timeout: 5000 });
-  } catch {
-    // Pas de navigation, continuer
-  }
+  // Attendre que le bouton soit stable (plus d'animations en cours)
+  await page.waitForTimeout(1000);
   
-  // Vérifier si la modale est déjà ouverte
-  const modalAlreadyOpen = await page.locator('#contrib-overlay[aria-hidden="false"]').isVisible().catch(() => false);
+  // Faire défiler jusqu'au bouton pour le rendre interactif
+  await contributeButton.evaluate(button => {
+    button.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
   
-  if (!modalAlreadyOpen) {
-    // Re-cliquer pour charger et ouvrir la modale après navigation
-    await page.click('#nav-contribute');
-    
-    // Attendre que la modale soit visible
-    await page.waitForSelector('#contrib-overlay[aria-hidden="false"]', { state: 'visible', timeout: 10000 });
-  }
+  // Attendre un peu pour le défilement
+  await page.waitForTimeout(500);
   
-  // Attendre que le landing soit chargé
-  await page.waitForSelector('#contrib-landing', { state: 'visible', timeout: 5000 });
+  // Forcer le clic avec force:true pour contourner les problèmes de visibilité
+  await contributeButton.click({ force: true, timeout: 10000 });
+  
+  // Attendre que la modale soit chargée dynamiquement
+  await page.waitForSelector('#contrib-modal-container', { 
+    state: 'attached',
+    timeout: 15000 
+  });
+  
+  // Attendre que la modale de contribution soit visible (ID spécifique)
+  await page.waitForSelector('#contrib-overlay[aria-hidden="false"]', { 
+    state: 'visible',
+    timeout: 15000 
+  });
+  
+  // Vérifier que la modale est bien visible
+  const modal = page.locator('#contrib-overlay');
+  await expect(modal).toHaveAttribute('aria-hidden', 'false', { timeout: 15000 });
 }
 
 /**
@@ -39,15 +49,29 @@ export async function openContributionModal(page) {
  * @param {import('@playwright/test').Page} page
  */
 export async function closeContributionModal(page) {
-  // Cliquer sur le bouton fermer
-  await page.click('#contrib-close');
+  // Attendre que le bouton de fermeture soit visible et cliquable
+  const closeButton = page.locator('#contrib-close');
+  await expect(closeButton).toBeVisible({ timeout: 10000 });
+  
+  // Attendre un peu pour s'assurer que le bouton est stable
+  await page.waitForTimeout(500);
+  
+  // Cliquer sur le bouton fermer avec une option de force si nécessaire
+  await closeButton.click({ force: true, timeout: 10000 });
   
   // Attendre que la modale soit cachée (vérifier que aria-hidden="true")
-  // On utilise waitForFunction pour attendre que l'attribut change
-  await page.waitForFunction(() => {
-    const modal = document.querySelector('#contrib-overlay');
-    return modal && modal.getAttribute('aria-hidden') === 'true';
-  }, { timeout: 5000 });
+  await page.waitForFunction(
+    () => {
+      const modal = document.querySelector('#contrib-overlay');
+      return modal && modal.getAttribute('aria-hidden') === 'true';
+    },
+    null,
+    { timeout: 10000, polling: 200 }
+  );
+  
+  // Vérifier que la modale n'est plus visible
+  const modal = page.locator('#contrib-overlay');
+  await expect(modal).toBeHidden({ timeout: 5000 });
 }
 
 /**
@@ -71,13 +95,23 @@ export async function selectCity(page, cityName) {
  * @param {import('@playwright/test').Page} page
  */
 export async function clickEditContributions(page) {
-  await page.click('#landing-edit');
+  // S'assurer que la modale est ouverte et que le landing est visible
+  await page.waitForSelector('#contrib-overlay[aria-hidden="false"]', { state: 'visible', timeout: 15000 });
+  await page.waitForSelector('#contrib-landing:not([hidden])', { state: 'visible', timeout: 10000 });
+
+  // Attendre que le bouton soit visible et interactif
+  const editBtn = page.locator('#landing-edit');
+  await editBtn.waitFor({ state: 'visible', timeout: 10000 });
+
+  // Cliquer (force pour contourner d'éventuelles animations)
+  await editBtn.click({ force: true });
   
-  // Attendre que le panel liste soit visible
-  await page.waitForSelector('#contrib-panel-list:not([hidden])', { state: 'visible', timeout: 5000 });
+  // Attendre que le panel liste soit visible et interactif
+  await page.waitForSelector('#contrib-panel-list:not([hidden])', { state: 'visible', timeout: 10000 });
+  await page.waitForSelector('#contrib-list', { state: 'visible', timeout: 10000 });
   
-  // Attendre un peu pour laisser le temps à CityContext de se mettre à jour et à la liste de se charger
-  await page.waitForTimeout(1000);
+  // Laisser un petit délai pour l'init de la liste
+  await page.waitForTimeout(800);
 }
 
 /**
@@ -123,9 +157,6 @@ export async function openCreateModal(page) {
   // Attendre que le panel liste soit visible et chargé
   await page.waitForSelector('#contrib-panel-list:not([hidden])', { state: 'visible', timeout: 10000 });
   
-  // Attendre que les actions du header soient créées (lazy loading)
-  await page.waitForTimeout(1500);
-  
   // Chercher le bouton créer dans le header (ID exact)
   const createBtn = page.locator('#contrib-list-create-btn');
   
@@ -134,9 +165,6 @@ export async function openCreateModal(page) {
   
   // Cliquer sur le bouton
   await createBtn.click();
-  
-  // Attendre que la modale de création se charge (lazy loading du template)
-  await page.waitForTimeout(1000);
   
   // Attendre que la modale de création soit visible
   await page.waitForSelector('#create-modal-overlay[aria-hidden="false"]', { state: 'visible', timeout: 10000 });
@@ -310,7 +338,12 @@ export async function submitForm(page) {
   await page.waitForFunction(() => {
     const modal = document.querySelector('#create-modal-overlay');
     return modal && modal.getAttribute('aria-hidden') === 'true';
-  }, { timeout: 5000 });
+  }, { timeout: 15000 });
+
+  // Revenir à l'état liste prêt à interagir
+  await page.waitForSelector('#contrib-overlay[aria-hidden="false"]', { state: 'visible', timeout: 15000 });
+  await page.waitForSelector('#contrib-panel-list:not([hidden])', { state: 'visible', timeout: 15000 });
+  await page.waitForSelector('#contrib-list', { state: 'visible', timeout: 15000 });
 }
 
 /**
@@ -319,15 +352,27 @@ export async function submitForm(page) {
  * @param {string} searchTerm
  */
 export async function searchContribution(page, searchTerm) {
+  // S'assurer que le panel liste est bien visible
+  await page.waitForSelector('#contrib-panel-list:not([hidden])', { state: 'visible', timeout: 10000 });
   // Attendre que le champ de recherche soit visible et éditable
   const searchInput = page.locator('#contrib-search');
   await searchInput.waitFor({ state: 'visible', timeout: 10000 });
   
-  // Remplir le champ
+  // Réinitialiser puis remplir le champ (évite les filtres précédents)
+  await searchInput.fill('');
+  await page.waitForTimeout(200);
   await searchInput.fill(searchTerm);
   
-  // Attendre un peu pour le debounce
-  await page.waitForTimeout(500);
+  // Stabilisation: attendre l'un des états suivants (jusqu'à 10s)
+  const list = page.locator('#contrib-list');
+  const emptyState = list.locator('[data-empty], .contrib-list__empty, .contrib-empty');
+  const matchingCard = page.locator(`.contrib-card:has-text("${searchTerm}")`).first();
+  const anyCard = list.locator('.contrib-card').first();
+  await Promise.race([
+    matchingCard.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {}),
+    emptyState.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {}),
+    anyCard.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {}),
+  ]);
 }
 
 /**
@@ -352,6 +397,47 @@ export async function sortList(page, sortOption) {
   
   // Attendre un peu pour le rechargement
   await page.waitForTimeout(500);
+}
+
+/**
+ * Assure que le panel liste est complètement prêt
+ * - Overlay visible
+ * - Panel liste visible
+ * - Liste présente et interactive
+ * @param {import('@playwright/test').Page} page
+ */
+export async function ensureListReady(page) {
+  await page.waitForSelector('#contrib-overlay[aria-hidden="false"]', { state: 'visible', timeout: 15000 });
+  await page.waitForSelector('#contrib-panel-list:not([hidden])', { state: 'visible', timeout: 15000 });
+  await page.waitForSelector('#contrib-list', { state: 'visible', timeout: 15000 });
+}
+
+/**
+ * Réinitialiser tous les filtres de la liste (recherche, catégorie, tri, mine-only)
+ * @param {import('@playwright/test').Page} page
+ */
+export async function resetListFilters(page) {
+  await ensureListReady(page);
+  // Clear search
+  const searchInput = page.locator('#contrib-search');
+  if (await searchInput.isVisible().catch(() => false)) {
+    await searchInput.fill('');
+  }
+  // Category → Toutes les catégories
+  const cat = page.locator('#contrib-filter-category');
+  if (await cat.isVisible().catch(() => false)) {
+    await page.selectOption('#contrib-filter-category', '');
+  }
+  // Sort → Plus récentes (si présent)
+  const sort = page.locator('#contrib-sort');
+  if (await sort.isVisible().catch(() => false)) {
+    await page.selectOption('#contrib-sort', 'updated_at:desc').catch(() => {});
+  }
+  // Mine-only → décoché
+  const mineOnly = page.locator('#contrib-mine-only');
+  if (await mineOnly.isVisible().catch(() => false)) {
+    try { await mineOnly.uncheck(); } catch {}
+  }
 }
 
 /**

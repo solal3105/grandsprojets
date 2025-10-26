@@ -18,6 +18,11 @@ test.describe('Contribution - Sélection de ville et navigation landing', () => 
     
     // Ouvrir la modale
     await openContributionModal(page);
+
+    // S'assurer que la modale est bien ouverte et prête
+    const overlay = page.locator('#contrib-overlay');
+    await expect(overlay).toHaveAttribute('aria-hidden', 'false', { timeout: 10000 });
+    await expect(page.locator('#landing-city-select')).toBeVisible({ timeout: 10000 });
   });
 
   test('Le sélecteur de ville est visible et fonctionnel', async ({ page }) => {
@@ -144,6 +149,10 @@ test.describe('Contribution - Sélection de ville et navigation landing', () => 
     await page.goto('/');
     await login(page, TEST_USERS.admin);
     await openContributionModal(page);
+    // Stabiliser: vérifier que la modale est bien ouverte
+    const overlay = page.locator('#contrib-overlay');
+    await expect(overlay).toHaveAttribute('aria-hidden', 'false', { timeout: 10000 });
+    await expect(page.locator('#landing-city-select')).toBeVisible({ timeout: 10000 });
     
     // Sélectionner une ville
     await page.selectOption('#landing-city-select', 'lyon');

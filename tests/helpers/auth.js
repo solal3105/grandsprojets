@@ -56,7 +56,7 @@ export async function loginViaAPI(page, credentials) {
   await page.waitForSelector('#map', { state: 'visible', timeout: 15000 });
   
   // 5. Vérifier que l'utilisateur est bien connecté
-  await page.waitForSelector('#nav-contribute', { state: 'visible', timeout: 10000 });
+  await page.waitForSelector('#contribute-toggle', { state: 'visible', timeout: 10000 });
 }
 
 /**
@@ -99,7 +99,7 @@ export async function logout(page) {
   await page.waitForURL('/', { timeout: 10000 });
   
   // Vérifier que le bouton contribuer n'est plus visible
-  await page.waitForSelector('#nav-contribute', { state: 'hidden', timeout: 5000 });
+  await page.waitForSelector('#contribute-toggle', { state: 'hidden', timeout: 5000 });
 }
 
 /**
@@ -109,7 +109,7 @@ export async function logout(page) {
  */
 export async function isLoggedIn(page) {
   try {
-    await page.waitForSelector('#nav-contribute', { state: 'visible', timeout: 2000 });
+    await page.waitForSelector('#contribute-toggle', { state: 'visible', timeout: 2000 });
     return true;
   } catch (e) {
     return false;

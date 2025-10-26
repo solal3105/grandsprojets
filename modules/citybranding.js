@@ -284,6 +284,31 @@
    * Initialise les listeners pour mettre à jour le toggle login/contribute selon l'état d'authentification
    */
   async init() {
+    // Attendre que toggleManager soit initialisé avant d'appliquer la config
+    const waitForToggleManager = () => {
+      return new Promise((resolve) => {
+        if (win.toggleManager && win.toggleManager.initialized) {
+          resolve();
+        } else {
+          const checkInterval = setInterval(() => {
+            if (win.toggleManager && win.toggleManager.initialized) {
+              clearInterval(checkInterval);
+              resolve();
+            }
+          }, 50);
+          
+          // Timeout après 5 secondes
+          setTimeout(() => {
+            clearInterval(checkInterval);
+            resolve();
+          }, 5000);
+        }
+      });
+    };
+    
+    // Attendre que toggleManager soit prêt
+    await waitForToggleManager();
+    
     // Appliquer la configuration initiale des toggles basée sur la session actuelle
     try {
       const activeCity = localStorage.getItem('activeCity');

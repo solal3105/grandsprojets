@@ -599,7 +599,12 @@ function generateFicheHTML(projectName, isEmbed) {
           <div class="max-w-3xl mx-auto px-3 py-4 pb-24 md:px-6 md:py-6 md:pb-6">
             
             <!-- Carte sticky qui se réduit au scroll -->
-            <div id="project-map-container" class="group relative sticky top-16 z-10 mb-20 md:mb-24 h-[300px] md:h-[400px] rounded-xl overflow-hidden shadow-lg ring-1 ring-black/5 dark:ring-white/5 transition-all duration-300">
+            <div id="project-map-container" class="group relative sticky top-16 z-10 mb-20 md:mb-24 h-[300px] md:h-[400px] rounded-xl overflow-hidden shadow-lg ring-1 ring-black/5 dark:ring-white/5 transition-all duration-300" style="box-shadow: 0px -50px 50px 100px white; --tw-shadow: 0px -50px 50px 100px white;">
+              <style>
+                .dark #project-map-container {
+                  box-shadow: 0px -50px 50px 100px #0f172a !important;
+                }
+              </style>
               <div id="project-map" class="w-full h-full"></div>
               
               <!-- Bouton Agrandir (visible au survol) -->

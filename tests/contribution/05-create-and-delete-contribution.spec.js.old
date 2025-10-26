@@ -7,7 +7,10 @@ import {
   openCreateModal,
   clickNext,
   searchContribution,
-  deleteContribution
+  deleteContribution,
+  submitForm,
+  ensureListReady,
+  resetListFilters
 } from '../helpers/contribution.js';
 
 /**
@@ -15,6 +18,8 @@ import {
  * Chaque contribution de test a un nom unique avec timestamp
  * Un système de tracking garantit qu'on ne supprime jamais d'autres contributions
  */
+
+test.describe.configure({ mode: 'serial' });
 
 test.describe('Contribution - Création et Suppression (Safe)', () => {
   
@@ -105,27 +110,7 @@ test.describe('Contribution - Création et Suppression (Safe)', () => {
     // Cliquer directement sur Enregistrer
     
     console.log('[Test] Soumission du formulaire...');
-    
-    // Soumettre
-    await page.click('#contrib-submit');
-    
-    // Attendre le toast de succès (utilise role="status" pour les succès)
-    await page.waitForSelector('#toast-container [role="status"]', { 
-      state: 'visible', 
-      timeout: 20000 
-    });
-    
-    console.log('[Test] Toast de succès détecté');
-    
-    // Attendre que la modale se ferme
-    await page.waitForFunction(() => {
-      const modal = document.querySelector('#create-modal-overlay');
-      return modal && modal.getAttribute('aria-hidden') === 'true';
-    }, { timeout: 10000 });
-    
-    // Attendre le rafraîchissement automatique de la liste
-    // (la liste est rafraîchie automatiquement après la création)
-    await page.waitForTimeout(2000);
+    await submitForm(page);
     
     console.log(`[Test] Contribution créée avec succès: "${testName}"`);
     
@@ -152,13 +137,21 @@ test.describe('Contribution - Création et Suppression (Safe)', () => {
     
     console.log(`[Test] Suppression sécurisée de: "${testName}"`);
     
-    // Chercher la contribution dans la liste
+    // Chercher la contribution dans la liste (avec stabilisation et retry contrôlé)
+    await ensureListReady(page);
     await searchContribution(page, testName);
-    await page.waitForTimeout(1000);
     
-    // Vérifier que la contribution existe
-    const card = page.locator(`.contrib-card:has-text("${testName}")`).first();
-    await card.waitFor({ state: 'visible', timeout: 5000 });
+    let card = page.locator(`.contrib-card:has-text("${testName}")`).first();
+    try {
+      await expect(card).toBeVisible({ timeout: 15000 });
+    } catch {
+      // Fallback unique: reset filtres et relancer la recherche
+      await resetListFilters(page);
+      await ensureListReady(page);
+      await searchContribution(page, testName);
+      card = page.locator(`.contrib-card:has-text("${testName}")`).first();
+      await expect(card).toBeVisible({ timeout: 15000 });
+    }
     
     // Trouver et cliquer sur le bouton supprimer
     const deleteBtn = card.locator('button[title*="Supprimer"], button[aria-label*="Supprimer"]').first();
@@ -250,6 +243,7 @@ test.describe('Contribution - Création et Suppression (Safe)', () => {
   });
 
   test('Invited peut créer et supprimer sa propre contribution sur Lyon', async ({ page }) => {
+    test.setTimeout(120000);
     // Se connecter en tant qu'invited
     await login(page, TEST_USERS.invited);
     
@@ -261,14 +255,14 @@ test.describe('Contribution - Création et Suppression (Safe)', () => {
     
     // Aller sur la liste des contributions
     await clickEditContributions(page);
-    await page.waitForSelector('#contrib-panel-list:not([hidden])', { state: 'visible', timeout: 5000 });
+    await ensureListReady(page);
+    await resetListFilters(page);
     
     // Créer une contribution de test
     const testName = await createSafeTestContribution(page, 'invited');
     
     // Vérifier que la contribution apparaît dans la liste
-    // Attendre un peu plus pour laisser le rafraîchissement se terminer
-    await page.waitForTimeout(2000);
+    await ensureListReady(page);
     await searchContribution(page, testName);
     await page.waitForTimeout(1500);
     
@@ -284,6 +278,7 @@ test.describe('Contribution - Création et Suppression (Safe)', () => {
   });
 
   test('Admin peut créer et supprimer sa propre contribution sur Lyon', async ({ page }) => {
+    test.setTimeout(120000);
     // Se connecter en tant qu'admin
     await login(page, TEST_USERS.admin);
     
@@ -295,16 +290,15 @@ test.describe('Contribution - Création et Suppression (Safe)', () => {
     
     // Aller sur la liste des contributions
     await clickEditContributions(page);
-    await page.waitForSelector('#contrib-panel-list:not([hidden])', { state: 'visible', timeout: 5000 });
+    await ensureListReady(page);
+    await resetListFilters(page);
     
     // Créer une contribution de test
     const testName = await createSafeTestContribution(page, 'admin');
     
     // Vérifier que la contribution apparaît dans la liste
-    // Attendre un peu plus pour laisser le rafraîchissement se terminer
-    await page.waitForTimeout(2000);
+    await ensureListReady(page);
     await searchContribution(page, testName);
-    await page.waitForTimeout(1500);
     
     const card = page.locator(`.contrib-card:has-text("${testName}")`).first();
     await expect(card).toBeVisible();
@@ -323,6 +317,7 @@ test.describe('Contribution - Création et Suppression (Safe)', () => {
     await openContributionModal(page);
     await selectCity(page, 'lyon');
     await clickEditContributions(page);
+    await ensureListReady(page);
     
     // Admin crée une contribution
     const adminContribName = await createSafeTestContribution(page, 'admin');
@@ -340,6 +335,8 @@ test.describe('Contribution - Création et Suppression (Safe)', () => {
     await openContributionModal(page);
     await selectCity(page, 'lyon');
     await clickEditContributions(page);
+    await ensureListReady(page);
+    await resetListFilters(page);
     
     // Chercher la contribution de l'admin
     await searchContribution(page, adminContribName);
