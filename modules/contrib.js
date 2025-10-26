@@ -2072,21 +2072,13 @@
         }, refreshCategoriesList);
       };
       
-      // Configurer le bouton de sélection d'icône
-      const categoryIconPickerBtn = document.getElementById('category-icon-picker-btn');
-      const categoryIconPicker = document.getElementById('category-icon-picker');
+      // Le bouton d'icon picker est maintenant géré par GPIconPicker (système unifié)
+      // Pas besoin de toggle manuel
+      
+      // Prévisualisation en direct de l'icône (conservée pour le feedback immédiat)
       const categoryIconInput = document.getElementById('category-icon');
       const categoryIconPreview = document.getElementById('category-icon-preview');
       
-      if (categoryIconPickerBtn && categoryIconPicker) {
-        categoryIconPickerBtn.onclick = (e) => {
-          e.stopPropagation();
-          const isVisible = categoryIconPicker.style.display !== 'none';
-          categoryIconPicker.style.display = isVisible ? 'none' : 'block';
-        };
-      }
-      
-      // Prévisualisation en direct de l'icône
       if (categoryIconInput && categoryIconPreview) {
         const updateIconPreview = () => {
           try {
