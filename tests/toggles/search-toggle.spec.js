@@ -15,7 +15,14 @@ import { waitForOverlayOpen, waitForOverlayClosed, expectToggleState, expectTogg
 
 test.describe('Toggle Search - Recherche d\'adresse', () => {
   
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, context }) => {
+    // Nettoyer auth et storage
+    await context.clearCookies();
+    await page.goto('/');
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
     await page.goto('/');
     await expect(page.locator('#map')).toBeVisible({ timeout: 30000 });
   });

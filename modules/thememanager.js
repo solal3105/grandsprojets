@@ -26,8 +26,13 @@
       // Désactiver toutes les transitions temporairement
       root.classList.add('theme-transitioning');
       
-      // Changer le thème
+      // Changer le thème (data-theme pour notre CSS + classe dark pour Tailwind)
       root.setAttribute('data-theme', theme);
+      if (theme === 'dark') {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
 
       // Mettre à jour l'icône du bouton toggle
       const iconEl = document.querySelector('#theme-toggle i');

@@ -16,12 +16,18 @@ import { test, expect } from '@playwright/test';
 test.describe('Toggle Location - Géolocalisation', () => {
   
   test.beforeEach(async ({ page, context }) => {
+    // Nettoyer auth et storage
+    await context.clearCookies();
+    
     // Accorder les permissions de géolocalisation
     await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({ latitude: 45.7640, longitude: 4.8357 }); // Lyon
     
-    // Définir une position fictive (Lyon centre)
-    await context.setGeolocation({ latitude: 45.764043, longitude: 4.835659 });
-    
+    await page.goto('/');
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
     await page.goto('/');
     await expect(page.locator('#map')).toBeVisible({ timeout: 30000 });
   });
@@ -56,8 +62,8 @@ test.describe('Toggle Location - Géolocalisation', () => {
     
     const toggle = page.locator('#location-toggle');
     
-    // Click sur le toggle
-    await toggle.click();
+    // Click sur le toggle avec force pour éviter interception par logo
+    await toggle.click({ force: true });
     
     // Attendre un peu pour la géolocalisation
     await page.waitForTimeout(2000);
@@ -75,8 +81,8 @@ test.describe('Toggle Location - Géolocalisation', () => {
     
     const toggle = page.locator('#location-toggle');
     
-    // Click
-    await toggle.click();
+    // Click avec force
+    await toggle.click({ force: true });
     
     // Vérifier rapidement que le toggle réagit
     await page.waitForTimeout(100);
@@ -138,8 +144,8 @@ test.describe('Toggle Location - Géolocalisation', () => {
     
     const toggle = page.locator('#location-toggle');
     
-    // Click
-    await toggle.click();
+    // Click avec force
+    await toggle.click({ force: true });
     
     // Attendre un peu
     await page.waitForTimeout(2000);

@@ -13,7 +13,14 @@ import { login, TEST_USERS } from '../helpers/auth.js';
 
 test.describe('Toggle Login - Connexion', () => {
   
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, context }) => {
+    // Nettoyer auth et storage
+    await context.clearCookies();
+    await page.goto('/');
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
     await page.goto('/');
     await expect(page.locator('#map')).toBeVisible({ timeout: 30000 });
   });
@@ -36,6 +43,9 @@ test.describe('Toggle Login - Connexion', () => {
     // Se connecter
     await login(page, TEST_USERS.invited);
     
+    // Attendre que l'auth state change soit propagé
+    await page.waitForTimeout(1000);
+    
     const toggle = page.locator('#login-toggle');
     
     // Le toggle devrait être caché
@@ -49,8 +59,8 @@ test.describe('Toggle Login - Connexion', () => {
     // Click sur le toggle
     await toggle.click();
     
-    // Attendre la redirection
-    await page.waitForURL('**/login/**', { timeout: 10000 });
+    // Attendre la redirection (sans slash final)
+    await page.waitForURL('**/login', { timeout: 10000 });
     
     // Vérifier qu'on est sur la page de login
     expect(page.url()).toContain('/login');
@@ -60,7 +70,7 @@ test.describe('Toggle Login - Connexion', () => {
     const toggle = page.locator('#login-toggle');
     await toggle.click();
     
-    await page.waitForURL('**/login/**', { timeout: 10000 });
+    await page.waitForURL('**/login', { timeout: 10000 });
     
     // Vérifier la présence d'un champ email
     const emailInput = page.locator('input[type="email"]');
@@ -77,7 +87,7 @@ test.describe('Toggle Login - Connexion', () => {
     await page.keyboard.press('Enter');
     
     // Attendre la redirection
-    await page.waitForURL('**/login/**', { timeout: 10000 });
+    await page.waitForURL('**/login', { timeout: 10000 });
     expect(page.url()).toContain('/login');
   });
 
@@ -91,7 +101,7 @@ test.describe('Toggle Login - Connexion', () => {
     await page.keyboard.press('Space');
     
     // Attendre la redirection
-    await page.waitForURL('**/login/**', { timeout: 10000 });
+    await page.waitForURL('**/login', { timeout: 10000 });
     expect(page.url()).toContain('/login');
   });
 
@@ -110,6 +120,9 @@ test.describe('Toggle Login - Connexion', () => {
   test('Le toggle réapparaît après déconnexion', async ({ page }) => {
     // Se connecter
     await login(page, TEST_USERS.invited);
+    
+    // Attendre propagation auth state
+    await page.waitForTimeout(1000);
     
     const toggle = page.locator('#login-toggle');
     await expect(toggle).toBeHidden({ timeout: 10000 });
@@ -146,7 +159,7 @@ test.describe('Toggle Login - Connexion', () => {
     const toggle = page.locator('#login-toggle');
     await toggle.click();
     
-    await page.waitForURL('**/login/**', { timeout: 10000 });
+    await page.waitForURL('**/login', { timeout: 10000 });
     
     // Retour arrière
     await page.goBack();
@@ -168,7 +181,7 @@ test.describe('Toggle Login - Connexion', () => {
     await page.waitForTimeout(100);
     
     // On devrait être redirigé vers /login une seule fois
-    await page.waitForURL('**/login/**', { timeout: 10000 });
+    await page.waitForURL('**/login', { timeout: 10000 });
     expect(page.url()).toContain('/login');
   });
 

@@ -238,15 +238,10 @@ const TravauxModule = (() => {
     const oldFilterContainer = document.getElementById('travaux-filters-container');
     if (oldFilterContainer) oldFilterContainer.remove();
 
-    // Déterminer le layer à charger selon le contexte
-    const activeCity = (typeof window.getActiveCity === 'function') ? window.getActiveCity() : (window.activeCity || null);
+    // Un seul layer "travaux", la source est déterminée par travaux_config
+    const layerToLoad = 'travaux';
     
-    // Mode Global : layer externe "travaux" | Mode Ville : layer "city-travaux-chantiers"
-    const layerToLoad = (!activeCity || activeCity === 'default') 
-      ? 'travaux'                    // Global → layer externe (URL hardcodée)
-      : 'city-travaux-chantiers';    // Ville → city_travaux
-    
-    console.log('[TravauxModule] Layer à charger:', layerToLoad, 'pour ville:', activeCity);
+    console.log('[TravauxModule] Layer à charger:', layerToLoad);
     
     // Charger la couche si nécessaire (avec loader minimal)
     try {
@@ -378,21 +373,15 @@ const TravauxModule = (() => {
     // Gestionnaire pour la card "Ajouter un chantier" (après insertion du filterUX dans le DOM)
     const addCard = filterUX.querySelector('.travaux-add-card');
     if (addCard) {
-      // Déterminer si les données proviennent de city_travaux (éditable) ou d'une URL (lecture seule)
+      // Déterminer si les données sont éditables via travaux_config
       let isEditableSource = false;
       
-      // Mode Global → toujours lecture seule (URL)
-      if (!activeCity || activeCity === 'default') {
+      try {
+        const config = await window.supabaseService?.getTravauxConfig(activeCity);
+        isEditableSource = config?.source_type === 'city_travaux';
+      } catch (err) {
+        console.warn('[TravauxModule] Erreur récupération config travaux:', err);
         isEditableSource = false;
-      } else {
-        // Ville spécifique → vérifier si city_travaux a des données
-        try {
-          const cityTravauxData = await window.supabaseService?.loadCityTravauxGeoJSON(activeCity);
-          isEditableSource = cityTravauxData?.features?.length > 0;
-        } catch (err) {
-          console.warn('[TravauxModule] Erreur vérification city_travaux:', err);
-          isEditableSource = false;
-        }
       }
       
       // Si source non éditable, retirer la card

@@ -27,27 +27,17 @@
       const activeCity = (typeof win.getActiveCity === 'function') ? win.getActiveCity() : (win.activeCity || null);
       console.log('[Main] activeCity détectée:', activeCity);
       
-      let shouldShow = false;
+      // Vérifier si une config travaux existe pour cette ville
+      console.log(`[Main] 🔍 Vérification config travaux pour ville: ${activeCity}`);
+      const travauxConfig = await supabaseService.getTravauxConfig(activeCity);
+      console.log('[Main] travaux_config reçu:', travauxConfig);
       
-      // Mode Global → toujours afficher
-      if (!activeCity || activeCity === 'default') {
-        shouldShow = true;
-        console.log('[Main] ✅ Mode Global: submenu Travaux activé');
-      } else {
-        // Ville spécifique → vérifier city_branding.travaux
-        console.log(`[Main] 🔍 Récupération city_branding pour ville: ${activeCity}`);
-        const branding = await supabaseService.getCityBranding(activeCity);
-        console.log('[Main] city_branding reçu:', branding);
-        console.log('[Main] branding.travaux:', branding?.travaux);
-        
-        shouldShow = branding?.travaux === true;
-        console.log(`[Main] Ville ${activeCity}: travaux=${branding?.travaux}, shouldShow=${shouldShow}`);
-      }
-      
-      if (!shouldShow) {
-        console.log('[Main] ⚠️ Submenu Travaux désactivé pour cette ville');
+      if (!travauxConfig) {
+        console.log('[Main] ⚠️ Pas de config travaux pour cette ville');
         return;
       }
+      
+      console.log('[Main] ✅ Config travaux trouvée, affichage du submenu');
       
       console.log('[Main] ✅ Submenu Travaux doit être affiché, création en cours...');
       
@@ -76,15 +66,10 @@
       navButton.addEventListener('click', () => {
         console.log('[Main] 🖱️ Clic sur bouton Travaux');
         
-        const currentCity = (typeof win.getActiveCity === 'function') ? win.getActiveCity() : (win.activeCity || null);
+        // Un seul layer "travaux", la source est déterminée par travaux_config
+        const layersToDisplay = ['travaux'];
         
-        // Mode Global : afficher le layer externe "travaux" (URL hardcodée)
-        // Mode Ville : afficher le layer "city-travaux-chantiers" (city_travaux)
-        const layersToDisplay = (!currentCity || currentCity === 'default') 
-          ? ['travaux']                    // Global → layer externe
-          : ['city-travaux-chantiers'];    // Ville → city_travaux
-        
-        console.log('[Main] Layers à afficher:', layersToDisplay, 'pour ville:', currentCity);
+        console.log('[Main] Layers à afficher:', layersToDisplay);
         
         if (win.EventBindings?.handleNavigation) {
           win.EventBindings.handleNavigation('travaux', layersToDisplay);
@@ -140,8 +125,17 @@
         } catch (_) { /* noop */ }
       })();
 
-      const city = win.CityManager?.initializeActiveCity();
-      // city peut être null (mode Global), une string (ville spécifique), ou '' (invalide)
+      let city = win.CityManager?.initializeActiveCity();
+      console.log('[Main] 🏙️ Ville après initializeActiveCity:', city);
+      
+      // Forcer metropole-lyon si city est vide ou null (plus de mode Global)
+      if (!city) {
+        console.warn('[Main] ⚠️ Ville vide ou null, forçage à metropole-lyon');
+        city = 'metropole-lyon';
+        win.activeCity = city;
+      }
+      
+      console.log('[Main] ✅ Ville finale utilisée:', city);
       await win.CityManager?.updateLogoForCity(city);
       await win.CityManager?.initCityToggleUI(city);
 
@@ -168,13 +162,8 @@
       window.dataConfig = window.dataConfig || {};
       window.dataConfig.metroColors = metroColors;
       
-      const basemapsForCity = (remoteBasemaps || []).filter(b => {
-        if (!b || !('ville' in b)) return true;
-        // Mode Global (city === null) : uniquement basemaps globaux (ville === null)
-        if (city === null) return b.ville === null;
-        // Ville spécifique : basemaps de cette ville OU globaux
-        return !b.ville || b.ville === city;
-      });
+      // Les basemaps ne sont PAS filtrées par ville (disponibles partout)
+      const basemapsForCity = remoteBasemaps || [];
 
       if (window.UIModule?.updateBasemaps) {
         window.UIModule.updateBasemaps(basemapsForCity);
@@ -194,17 +183,28 @@
       const styleMap      = {};
       const defaultLayers = [];
       
+      console.log('[Main] 🗺️ Filtrage des layers pour ville:', city);
+      console.log('[Main] 📦 Nombre total de layers reçus:', layersConfig.length);
+      
       layersConfig.forEach(({ name, url, style, is_default, ville }) => {
-        // Mode Global (city === null) : uniquement couches globales (ville === null)
-        if (city === null && ville !== null) return;
-        // Ville spécifique : uniquement couches de cette ville (pas de fallback global)
-        if (city !== null && ville !== city) return;
+        // Ignorer les layers sans ville (legacy avec ville = NULL ou vide)
+        if (!ville) {
+          console.log('[Main] ❌ Layer ignoré (ville NULL):', name);
+          return;
+        }
+        
+        // Uniquement les couches de la ville active (city est toujours défini maintenant)
+        if (ville !== city) return;
+        
+        console.log('[Main] ✅ Layer accepté:', name, '| URL:', url ? 'OUI' : 'NON', '| is_default:', is_default);
         
         if (url) urlMap[name] = url;
         if (style) styleMap[name] = style;
         
         if (is_default) defaultLayers.push(name);
       });
+      
+      console.log('[Main] 📋 defaultLayers après filtrage:', defaultLayers);
       
       // Fusionner les styles des catégories depuis category_icons
       // Les category_styles ont la priorité sur les styles de layers_config
@@ -301,11 +301,8 @@
       win.categoryLayersMap = window.supabaseService.buildCategoryLayersMap(activeCategoryIcons);
       
       // Ajouter manuellement le mapping pour "travaux" (submenu en dur, pas dans category_icons)
-      // Mode Global : layer externe "travaux" | Mode Ville : layer "city-travaux-chantiers"
-      const currentCity = (typeof win.getActiveCity === 'function') ? win.getActiveCity() : (win.activeCity || null);
-      win.categoryLayersMap['travaux'] = (!currentCity || currentCity === 'default') 
-        ? ['travaux']                    // Global → layer externe
-        : ['city-travaux-chantiers'];    // Ville → city_travaux
+      // Un seul layer, la source est déterminée par travaux_config
+      win.categoryLayersMap['travaux'] = ['travaux'];
       
       console.log('[Main] ✅ categoryLayersMap construit depuis DB:', win.categoryLayersMap);
 
@@ -387,6 +384,7 @@
       await win.FilterManager?.init();
 
       if (DataModule.preloadLayer) {
+        console.log('[Main] 🔄 Préchargement des layers depuis urlMap:', Object.keys(urlMap));
         Object.keys(urlMap).forEach(layer => DataModule.preloadLayer(layer));
       }
       

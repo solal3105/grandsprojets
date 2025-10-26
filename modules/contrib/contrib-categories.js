@@ -153,21 +153,16 @@
       // Filtrer selon les permissions
       const userVilles = window.__CONTRIB_VILLES;
       let filteredCities = [];
-      let showGlobalOption = false;
       const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
       
       if (hasGlobalAccess) {
         filteredCities = cities;
-        showGlobalOption = true;
       } else if (Array.isArray(userVilles) && userVilles.length > 0) {
         filteredCities = cities.filter(c => userVilles.includes(c));
       }
       
       // Clear and repopulate
       categoryVilleSelector.innerHTML = '<option value="">-- Choisir une structure --</option>';
-      if (showGlobalOption) {
-        categoryVilleSelector.insertAdjacentHTML('beforeend', '<option value="default">🌍 Catégories globales (default)</option>');
-      }
       const cityOptions = (Array.isArray(filteredCities) ? filteredCities : []).map(c => `<option value="${c}">${c}</option>`).join('');
       if (cityOptions) categoryVilleSelector.insertAdjacentHTML('beforeend', cityOptions);
       
@@ -204,21 +199,16 @@
       // Filtrer selon les permissions
       const userVilles = window.__CONTRIB_VILLES;
       let filteredCities = [];
-      let showGlobalOption = false;
       const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
       
       if (hasGlobalAccess) {
         filteredCities = cities;
-        showGlobalOption = true;
       } else if (Array.isArray(userVilles) && userVilles.length > 0) {
         filteredCities = cities.filter(c => userVilles.includes(c));
       }
       
       // Clear and repopulate
       categoryVilleSelect.innerHTML = '<option value="">Sélectionner une structure</option>';
-      if (showGlobalOption) {
-        categoryVilleSelect.insertAdjacentHTML('beforeend', '<option value="default">🌍 Catégories globales (default)</option>');
-      }
       const cityOptions = (Array.isArray(filteredCities) ? filteredCities : []).map(c => `<option value="${c}">${c}</option>`).join('');
       if (cityOptions) categoryVilleSelect.insertAdjacentHTML('beforeend', cityOptions);
     } catch(err) {
@@ -242,19 +232,17 @@
       categoryLayersCheckboxes.innerHTML = '';
       
       // Convertir "default" en null
-      if (ville === 'default') ville = null;
+      // Ignorer 'default', utiliser metropole-lyon par défaut
+      if (!ville || ville === 'default') {
+        ville = 'metropole-lyon';
+      }
       
-      // Récupérer les layers
+      // Récupérer les layers de la ville uniquement (jamais ville NULL)
       let query = win.supabaseService.getClient()
         .from('layers')
         .select('name')
+        .eq('ville', ville)
         .order('name');
-      
-      if (ville) {
-        query = query.eq('ville', ville);
-      } else {
-        query = query.is('ville', null);
-      }
       
       const { data, error } = await query;
       

@@ -14,11 +14,15 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Toggle Theme - Mode sombre', () => {
   
-  test.beforeEach(async ({ page }) => {
-    // Nettoyer localStorage avant chaque test
+  test.beforeEach(async ({ page, context }) => {
+    // Nettoyer auth et storage avant chaque test
+    await context.clearCookies();
     await page.goto('/');
-    await page.evaluate(() => localStorage.clear());
-    await page.reload();
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    await page.goto('/');
     await expect(page.locator('#map')).toBeVisible({ timeout: 30000 });
   });
 

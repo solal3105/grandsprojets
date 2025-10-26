@@ -75,9 +75,6 @@ const simpleCache = {
 // window.debugCache = simpleCache;
 
 window.DataModule = (function() {
-	// Nom du layer pour les chantiers depuis city_travaux (distinct du layer 'travaux' externe)
-	const CITY_TRAVAUX_LAYER_NAME = 'city-travaux-chantiers';
-	
 	// Variables internes pour stocker les configurations
 	let urlMap = {};
 	let styleMap = {};
@@ -911,59 +908,41 @@ window.DataModule = (function() {
 
 		// Utilisation du cache
 		return simpleCache.get(cacheKey, async () => {
-			// ===== CITY_TRAVAUX_CHANTIERS: Chantiers depuis la table city_travaux =====
-			if (layerName === CITY_TRAVAUX_LAYER_NAME) {
-				console.log(`[DataModule] 🚀 Chargement layer "${CITY_TRAVAUX_LAYER_NAME}" depuis city_travaux`);
+			// ===== TRAVAUX: Layer avec source dynamique (URL ou city_travaux) =====
+			if (layerName === 'travaux') {
+				console.log('[DataModule] 🚀 Chargement layer "travaux" avec config dynamique');
 				
 				const activeCity = (typeof window.getActiveCity === 'function') 
 					? window.getActiveCity() 
-					: (window.activeCity || null);
+					: (window.activeCity || 'metropole-lyon');
+				const config = await window.supabaseService.getTravauxConfig(activeCity);
 				
-				// Charger depuis city_travaux si ville spécifique
-				if (activeCity && activeCity !== 'default' && window.supabaseService?.loadCityTravauxGeoJSON) {
-					try {
-						console.log(`[DataModule] 🔍 Chargement depuis city_travaux pour ville: ${activeCity}`);
-						const cityTravauxData = await window.supabaseService.loadCityTravauxGeoJSON(activeCity);
-						
-						if (cityTravauxData?.features?.length > 0) {
-							console.log(`[DataModule] ✅ city_travaux: ${cityTravauxData.features.length} chantiers chargés`);
-							return cityTravauxData;
-						}
-						
-						console.log(`[DataModule] ⚠️ city_travaux vide pour ${activeCity}`);
-					} catch (error) {
-						console.warn('[DataModule] ❌ Erreur chargement city_travaux:', error);
-					}
-				}
-				
-				// Pas de données city_travaux disponibles
-				console.log(`[DataModule] ⚠️ Aucune donnée city_travaux disponible`);
-				return { type: 'FeatureCollection', features: [] };
-			}
-			// ===== FIN CITY_TRAVAUX_CHANTIERS =====
-			
-			// ===== TRAVAUX: Layer externe hardcodé (Mode Global uniquement) =====
-			if (layerName === 'travaux') {
-				console.log('[DataModule] 🚀 Chargement layer "travaux" depuis URL hardcodée');
-				
-				// URL hardcodée dans le code (pas de requête Supabase)
-				const url = 'https://data.grandlyon.com/geoserver/metropole-de-lyon/ows?SERVICE=WFS&VERSION=2.0.0&request=GetFeature&typename=metropole-de-lyon:lyv_lyvia.lyvchantier&outputFormat=application/json&SRSNAME=EPSG:4171&startIndex=0&sortBy=gid';
-				
-				console.log(`[DataModule] 🌐 Chargement travaux depuis URL hardcodée`);
-				try {
-					const response = await fetch(url);
-					
-					if (!response.ok) {
-						throw new Error(`HTTP ${response.status} sur ${layerName}`);
-					}
-					
-					const data = await response.json();
-					console.log(`[DataModule] ✅ Travaux chargés depuis URL hardcodée: ${data.features?.length || 0} features`);
-					return data;
-				} catch (error) {
-					console.error('[DataModule] ❌ Erreur chargement travaux depuis URL hardcodée:', error);
+				if (!config) {
+					console.warn('[DataModule] Pas de config travaux pour', activeCity);
 					return { type: 'FeatureCollection', features: [] };
 				}
+				
+				if (config.source_type === 'url' && config.url) {
+					// Charger depuis URL externe
+					console.log('[DataModule] 🌐 Chargement travaux depuis URL:', config.url);
+					try {
+						const response = await fetch(config.url);
+						if (!response.ok) throw new Error(`HTTP ${response.status}`);
+						const data = await response.json();
+						console.log(`[DataModule] ✅ Travaux URL: ${data.features?.length || 0} features`);
+						return data;
+					} catch (error) {
+						console.error('[DataModule] ❌ Erreur chargement travaux URL:', error);
+						return { type: 'FeatureCollection', features: [] };
+					}
+				} else if (config.source_type === 'city_travaux') {
+					// Charger depuis city_travaux
+					console.log('[DataModule] 🗄️ Chargement travaux depuis city_travaux');
+					const cityTravauxData = await window.supabaseService.loadCityTravauxGeoJSON(activeCity);
+					return cityTravauxData || { type: 'FeatureCollection', features: [] };
+				}
+				
+				return { type: 'FeatureCollection', features: [] };
 			}
 			// ===== FIN TRAVAUX =====
 			
@@ -1023,21 +1002,12 @@ window.DataModule = (function() {
 					type: 'FeatureCollection',
 					features: features
 				};
-			} else {
-				// Couches legacy (tramway, métro, etc.) - charger depuis les fichiers GeoJSON
-				const url = urlMap[layerName];
-				if (!url) {
-					throw new Error(`Aucune URL définie pour la couche legacy: ${layerName}`);
-				}
-
-				const response = await fetch(url);
-				if (!response.ok) {
-					throw new Error(`HTTP ${response.status} sur ${layerName}`);
-				}
-
-				const data = await response.json();
-				return data;
 			}
+			
+			// Si on arrive ici, le layer n'est ni travaux, ni contributions
+			// Il devrait avoir une URL définie, sinon c'est une erreur de configuration
+			console.warn(`[DataModule] ⚠️ Layer inconnu sans données: ${layerName}`);
+			return { type: 'FeatureCollection', features: [] };
 		});
 	}
 

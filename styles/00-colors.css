@@ -135,7 +135,7 @@
   --border-strong: var(--gray-400);
   
   /* Surfaces */
-  --surface-base: #FFFFFF;
+  --surface-base: var(--gray-50);
   --surface-raised: var(--gray-50);
   --surface-overlay: var(--gray-100);
   --surface-60: rgba(255, 255, 255, 0.6);

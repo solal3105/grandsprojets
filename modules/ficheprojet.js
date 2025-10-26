@@ -911,15 +911,10 @@ async function initFicheProjet() {
     // 6. Injecter le logo de la ville dans le header
     if (!isEmbed) {
       const logoContainer = document.getElementById('city-logo');
-      if (logoContainer) {
-        let logoUrl = '/img/logo.svg'; // Logo par défaut
-        let logoAlt = 'Grands Projets';
-        
-        if (branding && branding.logo_url) {
-          const theme = document.documentElement.getAttribute('data-theme') || 'light';
-          logoUrl = (theme === 'dark' && branding.dark_logo_url) ? branding.dark_logo_url : branding.logo_url;
-          logoAlt = branding.brand_name || city;
-        }
+      if (logoContainer && branding && branding.logo_url) {
+        const theme = document.documentElement.getAttribute('data-theme') || 'light';
+        const logoUrl = (theme === 'dark' && branding.dark_logo_url) ? branding.dark_logo_url : branding.logo_url;
+        const logoAlt = branding.brand_name || city;
         
         logoContainer.innerHTML = `<img src="${logoUrl}" alt="${logoAlt}" class="h-full w-auto object-contain" />`;
       }

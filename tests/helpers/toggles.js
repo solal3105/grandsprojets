@@ -13,13 +13,13 @@ import { expect } from '@playwright/test';
 export async function waitForOverlayOpen(page, selector, timeout = 5000) {
   const overlay = page.locator(selector);
   
-  // Attendre que l'overlay soit visible (display !== none)
-  // Utiliser waitForFunction car la classe active peut ne pas être appliquée immédiatement
+  // Attendre que l'overlay soit visible (display !== none + active + aria-hidden false)
   await page.waitForFunction((sel) => {
     const el = document.querySelector(sel);
     if (!el) return false;
     const style = window.getComputedStyle(el);
-    return style.display !== 'none' && el.classList.contains('active');
+    const ariaHidden = el.getAttribute('aria-hidden');
+    return style.display !== 'none' && el.classList.contains('active') && ariaHidden === 'false';
   }, selector, { timeout });
   
   // Vérifier que l'overlay est bien visible
@@ -35,12 +35,13 @@ export async function waitForOverlayOpen(page, selector, timeout = 5000) {
 export async function waitForOverlayClosed(page, selector, timeout = 5000) {
   const overlay = page.locator(selector);
   
-  // Attendre que l'overlay soit caché (display none)
+  // Attendre que l'overlay soit caché (display none + aria-hidden true)
   await page.waitForFunction((sel) => {
     const el = document.querySelector(sel);
     if (!el) return true; // Si l'élément n'existe pas, considérer comme fermé
     const style = window.getComputedStyle(el);
-    return style.display === 'none' || !el.classList.contains('active');
+    const ariaHidden = el.getAttribute('aria-hidden');
+    return style.display === 'none' || !el.classList.contains('active') || ariaHidden === 'true';
   }, selector, { timeout });
   
   // Vérifier que l'overlay est bien caché

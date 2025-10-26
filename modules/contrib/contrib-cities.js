@@ -56,16 +56,8 @@
       // Vider le select et garder uniquement l'option par défaut
       cityEl.innerHTML = '<option value="">Aucun</option>';
       
-      // Générer les options
-      let cityOptionsHTML = '';
-      
-      // Ajouter l'option "default" (catégories globales) uniquement pour les utilisateurs avec accès global
-      if (hasGlobalAccess) {
-        cityOptionsHTML += '<option value="default">🌍 Catégories globales (default)</option>';
-      }
-      
-      // Ajouter les villes filtrées
-      cityOptionsHTML += (Array.isArray(filteredCities) ? filteredCities : [])
+      // Générer les options pour les villes filtrées
+      const cityOptionsHTML = (Array.isArray(filteredCities) ? filteredCities : [])
         .map(c => `<option value="${c}">${c}</option>`)
         .join('');
       

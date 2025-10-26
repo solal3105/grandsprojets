@@ -321,6 +321,7 @@ class ToggleManager {
       if (overlay) {
         overlay.classList.toggle('active', state);
         overlay.style.display = state ? 'flex' : 'none';
+        overlay.setAttribute('aria-hidden', (!state).toString());
       }
     }
 

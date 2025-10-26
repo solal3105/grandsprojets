@@ -40,8 +40,6 @@
       try {
         const sp = new URLSearchParams(location.search);
         const raw = String(sp.get('city') || '').toLowerCase().trim();
-        // ?city=default force l'absence de ville
-        if (raw === 'default') return '';
         return this.isValidCity(raw) ? raw : '';
       } catch (_) {
         return '';
@@ -52,7 +50,6 @@
       try {
         const sp = new URLSearchParams(location.search);
         const raw = String(sp.get('city') || '').toLowerCase().trim();
-        if (raw === 'default') return '';
         return raw;
       } catch (_) { 
         return ''; 
@@ -95,8 +92,8 @@
     },
 
     getDefaultCity() {
-      // Mode Global par défaut si aucune ville
-      return null;
+      // Ville par défaut : metropole-lyon
+      return 'metropole-lyon';
     },
 
     resolveActiveCity() {
@@ -106,8 +103,8 @@
       if (queryCity) return queryCity;
       const saved = this.restoreCity();
       if (saved) return saved;
-      // Aucune ville trouvée : retourner null (mode Global)
-      return null;
+      // Aucune ville trouvée : retourner metropole-lyon par défaut
+      return 'metropole-lyon';
     },
 
     // ==================== Branding (logos, favicon) ====================
@@ -138,58 +135,35 @@
           document.querySelector('.mobile-fixed-logo img')
         ].filter(Boolean);
 
-        // Cache des valeurs par défaut
-        targets.forEach((img) => {
-          if (!img) return;
-          if (!img.dataset.defaultSrc) {
-            const attrSrc = img.getAttribute('src');
-            img.dataset.defaultSrc = attrSrc || img.src || 'img/logo.svg';
-          }
-          if (!img.dataset.defaultAlt) {
-            img.dataset.defaultAlt = img.getAttribute('alt') || 'Grands Projets';
-          }
-          if (!img.dataset.defaultClass) {
-            img.dataset.defaultClass = img.className || '';
-          }
-        });
-
-        // Fetch branding
+        // Fetch branding (toujours présent car ville par défaut = metropole-lyon)
         let branding = null;
         if (win.supabaseService && typeof win.supabaseService.getCityBranding === 'function' && city) {
           branding = await win.supabaseService.getCityBranding(city);
         }
         win._cityBranding = branding || null;
 
+        // Si pas de branding, ne rien faire (ne devrait jamais arriver)
+        if (!branding) {
+          console.warn('[CityManager] Pas de branding trouvé pour la ville:', city);
+          return;
+        }
+
         const theme = (document.documentElement.getAttribute('data-theme') || 'light').toLowerCase();
         const picked = this.selectLogoForTheme(branding, theme);
-        const altText = (branding && branding.brand_name) ? branding.brand_name : (city ? city.charAt(0).toUpperCase() + city.slice(1) : (targets[0]?.dataset?.defaultAlt || ''));
+        const altText = branding.brand_name || city.charAt(0).toUpperCase() + city.slice(1);
 
+        // Appliquer le logo du branding
         targets.forEach((img) => {
-          if (!img) return;
-          if (img.dataset.defaultClass) img.className = img.dataset.defaultClass;
-
-          if (picked) {
-            img.style.display = '';
-            img.onerror = function() {
-              try {
-                img.onerror = null;
-                img.src = img.dataset.defaultSrc;
-                img.alt = img.dataset.defaultAlt || '';
-                img.style.display = '';
-              } catch (_) {}
-            };
-            img.src = picked;
-            img.alt = altText;
-          } else {
-            img.onerror = null;
-            img.src = img.dataset.defaultSrc;
-            img.alt = img.dataset.defaultAlt || '';
-            img.style.display = '';
-          }
+          if (!img || !picked) return;
+          img.src = picked;
+          img.alt = altText;
+          img.style.display = '';
+          img.style.opacity = '1'; // Rendre visible
+          img.onerror = null; // Pas de fallback
         });
 
         // Favicon
-        if (branding && branding.favicon_url) this.applyFavicon(branding.favicon_url);
+        if (branding.favicon_url) this.applyFavicon(branding.favicon_url);
       } catch (_) { /* noop */ }
     },
 
@@ -459,54 +433,40 @@
 
     /**
      * Initialise et résout la ville active avec gestion de la persistance
-     * Redirige vers /?city=default si la ville est invalide ou inconnue
-     * @returns {string|null} Ville active résolue (null = mode Global)
+     * Utilise metropole-lyon par défaut si aucune ville valide
+     * @returns {string} Ville active résolue (toujours une ville, jamais null)
      */
     initializeActiveCity() {
       const rawQueryCity = this.getRawCityFromQueryParam();
       const rawPathCity = this.getRawCityFromPath();
       
-      // Cas spécial : ?city=default ou ?city= force le mode Global (ville NULL)
-      const sp = new URLSearchParams(location.search);
-      if (sp.has('city') && (!sp.get('city') || sp.get('city').toLowerCase() === 'default')) {
-        this.clearPersistedCity();
-        return win.activeCity = null;
-      }
-
-      // Si pas de villes valides chargées, on ne peut pas valider
-      // → rediriger vers default par sécurité
+      // Si pas de villes valides chargées, utiliser metropole-lyon par défaut
       if (!this.VALID_CITIES || this.VALID_CITIES.size === 0) {
-        console.warn('[CityManager] Aucune ville valide chargée → Redirection vers ?city=default');
-        this.clearPersistedCity();
-        this.redirectToDefaultCity();
-        return win.activeCity = null;
+        console.warn('[CityManager] Aucune ville valide chargée → Utilisation de metropole-lyon');
+        return win.activeCity = 'metropole-lyon';
       }
 
-      // REDIRECTION : Si ville invalide ou inconnue, rediriger vers ?city=default
+      // Si ville invalide dans l'URL, utiliser metropole-lyon
       if (rawQueryCity && !this.isValidCity(rawQueryCity)) {
-        console.warn('[CityManager] Ville invalide détectée:', rawQueryCity, '→ Redirection vers ?city=default');
+        console.warn('[CityManager] Ville invalide détectée:', rawQueryCity, '→ Utilisation de metropole-lyon');
         this.clearPersistedCity();
-        this.redirectToDefaultCity();
-        return win.activeCity = null; // Temporaire en attendant la redirection
+        return win.activeCity = 'metropole-lyon';
       }
       
       if (rawPathCity && !this.isValidCity(rawPathCity)) {
-        console.warn('[CityManager] Ville invalide dans le path:', rawPathCity, '→ Redirection vers ?city=default');
+        console.warn('[CityManager] Ville invalide dans le path:', rawPathCity, '→ Utilisation de metropole-lyon');
         this.clearPersistedCity();
-        this.redirectToDefaultCity();
-        return win.activeCity = null; // Temporaire en attendant la redirection
+        return win.activeCity = 'metropole-lyon';
       }
 
       // Résolution normale
       const city = this.resolveActiveCity();
       
-      // Si résolution échoue (ville vide) → OK, mode sans ville
-      // Si ville résolue mais invalide → rediriger
+      // Si ville résolue mais invalide, utiliser metropole-lyon
       if (city && !this.isValidCity(city)) {
-        console.warn('[CityManager] Ville résolue invalide:', city, '→ Redirection vers ?city=default');
+        console.warn('[CityManager] Ville résolue invalide:', city, '→ Utilisation de metropole-lyon');
         this.clearPersistedCity();
-        this.redirectToDefaultCity();
-        return win.activeCity = null; // Temporaire en attendant la redirection
+        return win.activeCity = 'metropole-lyon';
       }
       
       win.activeCity = city;
@@ -519,24 +479,6 @@
       }
       
       return city;
-    },
-
-    /**
-     * Redirige vers /?city=default (mode Global)
-     */
-    redirectToDefaultCity() {
-      try {
-        const url = new URL(location.href);
-        url.searchParams.set('city', 'default');
-        // Nettoyer les autres paramètres si nécessaire
-        const targetUrl = url.pathname + '?city=default' + url.hash;
-        console.log('[CityManager] Redirection vers:', targetUrl);
-        location.replace(targetUrl);
-      } catch (e) {
-        console.error('[CityManager] Erreur lors de la redirection:', e);
-        // Fallback
-        location.replace('/?city=default');
-      }
     },
 
     /**

@@ -31,7 +31,6 @@ html, body {
    Toggle Loading State
 --------------------------------------------------------------------------- */
 .toggle-loading {
-tout ça tu as pris le soin de comprendre au moins 
   opacity: 0.5;
   pointer-events: none;
   cursor: wait !important;

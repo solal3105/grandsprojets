@@ -14,7 +14,14 @@ import { waitForModalOpen, waitForModalClosed, expectToggleState, expectToggleEx
 
 test.describe('Toggle Info - À propos', () => {
   
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, context }) => {
+    // Nettoyer auth et storage
+    await context.clearCookies();
+    await page.goto('/');
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
     await page.goto('/');
     await expect(page.locator('#map')).toBeVisible({ timeout: 30000 });
   });
@@ -138,9 +145,9 @@ test.describe('Toggle Info - À propos', () => {
     
     await waitForModalOpen(page, '#about-overlay');
     
-    // Vérifier la présence de contenu clé
-    const modalBody = page.locator('#about-overlay .gp-modal-body, #about-overlay .gp-modal');
-    await expect(modalBody).toContainText(/grands projets/i);
+    // Vérifier la présence de contenu clé (sélecteur unique)
+    const modalBody = page.locator('#about-overlay .gp-modal-body');
+    await expect(modalBody).toContainText(/grandsprojets\.com/i);
   });
 
   test('Toggle visible sur mobile et desktop', async ({ page }) => {

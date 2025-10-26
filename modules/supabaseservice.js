@@ -42,20 +42,26 @@
     return /^[a-z-]+$/i.test(v) ? v : '';
   }
 
-  // Helper: get active city (peut retourner null pour "Global")
+  // Helper: get active city (toujours une ville, jamais null/vide)
   const getActiveCity = () => {
     try {
-      // 1. window.activeCity (peut être null)
-      if (win.activeCity !== undefined) {
-        return sanitizeCity(win.activeCity); // null si Global
+      // 1. window.activeCity (priorité absolue)
+      if (win.activeCity !== undefined && win.activeCity) {
+        return sanitizeCity(win.activeCity);
       }
       
-      // 2. URL param
-      const url = new URL(win.location.href);
-      const c = url.searchParams.get('city');
-      return sanitizeCity(c);
+      // 2. CityManager si disponible
+      if (win.CityManager?.getActiveCity) {
+        const city = win.CityManager.getActiveCity();
+        if (city) return sanitizeCity(city);
+      }
+      
+      // 3. Fallback: metropole-lyon (JAMAIS null ou vide)
+      console.warn('[supabaseService] getActiveCity: Aucune ville trouvée, fallback metropole-lyon');
+      return 'metropole-lyon';
     } catch (_) {
-      return '';
+      console.warn('[supabaseService] getActiveCity: Erreur, fallback metropole-lyon');
+      return 'metropole-lyon';
     }
   };
 
@@ -84,10 +90,8 @@
         .from('layers')
         .select('name, url, style, is_default, ville');
 
-      // Filtre ville : null = "Global" (NULL ou empty string pour legacy)
-      if (activeCity === null) {
-        q = q.or('ville.is.null,ville.eq.');
-      } else if (activeCity) {
+      // Filtre par ville active
+      if (activeCity) {
         q = q.eq('ville', activeCity);
       } else {
         // Pas de ville : retourner vide
@@ -143,30 +147,22 @@
           .in('name', names);
 
         if (activeCity) {
-          // Important: pour les STYLES, on accepte un fallback global (ville IS NULL ou '')
-          // afin d'éviter de perdre le style si aucune variante ville n'existe.
-          // On ne mélange pas les URL ici, uniquement les styles.
-          q = q.or(`ville.eq.${activeCity},ville.is.null,ville.eq.`);
+          // Filtrer uniquement par la ville active (plus de fallback global)
+          q = q.eq('ville', activeCity);
         } else {
-          // Mode Global : NULL ou empty string (legacy)
-          q = q.or('ville.is.null,ville.eq.');
+          // Pas de ville : retourner vide
+          return {};
         }
 
         const { data, error } = await q;
         if (error) {
           return {};
         }
-        // Si doublons (ville spécifique + global), privilégier la valeur spécifique à la ville
+        // Construire le mapping name → style
         const out = {};
         (data || []).forEach(row => {
-          if (!row || !row.name) return;
-          const hasAlready = Object.prototype.hasOwnProperty.call(out, row.name);
-          if (!hasAlready) {
-            // Première occurrence (peut être globale ou ville)
+          if (row && row.name) {
             out[row.name] = row.style;
-          } else {
-            // Si l'entrée existante provient du global (inconnu ici), remplacer par la version ville si dispo
-            if (row.ville === activeCity) out[row.name] = row.style;
           }
         });
         return out;
@@ -177,9 +173,7 @@
 
     /**
      * Récupère les catégories et leurs icônes depuis la table 'category_icons'
-     * Filtrage strict par ville :
-     * - Mode Global (city=null) : ville IS NULL OU ville = '' (legacy)
-     * - Ville spécifique : uniquement ville = 'xxx'
+     * Filtrage par ville active (metropole-lyon par défaut)
      * @returns {Promise<Array<{category:string, icon_class:string, display_order:number, layers_to_display:string[]}>>}
      */
     fetchCategoryIcons: async function() {
@@ -191,10 +185,7 @@
           .select('category, icon_class, display_order, layers_to_display, category_styles, ville')
           .order('display_order', { ascending: true });
 
-        if (activeCity === null) {
-          // Mode Global : ville IS NULL OU ville = '' (compatibilité legacy)
-          q = q.or('ville.is.null,ville.eq.');
-        } else if (activeCity) {
+        if (activeCity) {
           // Ville spécifique : uniquement les catégories de cette ville
           q = q.eq('ville', activeCity);
         } else {
@@ -217,15 +208,22 @@
     },
 
     /**
-     * Récupère TOUTES les catégories sans filtre de ville
-     * Utile pour récupérer les styles de n'importe quelle catégorie
+     * Récupère les catégories pour la ville active uniquement
      * @returns {Promise<Array>}
      */
     fetchAllCategoryIcons: async function() {
       try {
+        const activeCity = getActiveCity();
+        
+        if (!activeCity) {
+          console.warn('[supabaseService] fetchAllCategoryIcons: pas de ville active');
+          return [];
+        }
+        
         const { data, error } = await supabaseClient
           .from('category_icons')
           .select('category, icon_class, display_order, layers_to_display, category_styles, ville')
+          .eq('ville', activeCity)
           .order('display_order', { ascending: true });
 
         if (error) {
@@ -264,6 +262,7 @@
         
         // Ajouter les layers additionnels depuis layers_to_display (s'ils existent)
         if (Array.isArray(cat.layers_to_display) && cat.layers_to_display.length > 0) {
+          console.log('[supabaseService] 📋 Catégorie', cat.category, 'a layers_to_display:', cat.layers_to_display);
           cat.layers_to_display.forEach(layerName => {
             // Éviter les doublons (si layers_to_display contient déjà le nom de la catégorie)
             if (layerName !== cat.category && !layers.includes(layerName)) {
@@ -275,6 +274,7 @@
         map[cat.category] = layers;
       });
 
+      console.log('[supabaseService] ✅ categoryLayersMap final:', map);
       return map;
     },
 
@@ -384,14 +384,10 @@
 
         if (category) query = query.eq('category', category);
 
-        // Filtre ville : null = "Global" (NULL ou empty string pour legacy), sinon ville spécifique
+        // Filtre par ville active (metropole-lyon par défaut)
         const activeCity = city !== undefined ? sanitizeCity(city) : getActiveCity();
         
-        if (activeCity === null) {
-          // "Global" sélectionné : contributions avec ville = NULL ou '' (legacy)
-          query = query.or('ville.is.null,ville.eq.');
-          console.log('🏙️ [listContributions] Filtre: Global (ville IS NULL OR ville = "")');
-        } else if (activeCity) {
+        if (activeCity) {
           // Ville spécifique : contributions de cette ville uniquement
           query = query.eq('ville', activeCity);
           console.log('🏙️ [listContributions] Filtre: ville =', activeCity);
@@ -477,7 +473,7 @@
           const villes = [...new Set(data.map(item => item.ville))];
           console.log('📊 [listContributions] Résultats:', {
             count: data.length,
-            ville: activeCity === null ? 'Global' : activeCity,
+            ville: activeCity,
             villesDistinctes: villes
           });
         }
@@ -680,9 +676,16 @@
      */
     fetchAllProjects: async function() {
       const activeCity = getActiveCity();
+      
+      // Pas de ville : retourner vide
+      if (!activeCity) {
+        return [];
+      }
+      
       let q = supabaseClient
         .from('contribution_uploads')
         .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
+        .eq('ville', activeCity)
         .order('created_at', { ascending: false });
       try {
         const { data: userData } = await supabaseClient.auth.getUser();
@@ -695,12 +698,7 @@
       } catch(_) {
         q = q.eq('approved', true);
       }
-      // Filtre ville : null = "Global" (NULL ou empty string pour legacy)
-      if (activeCity === null) {
-        q = q.or('ville.is.null,ville.eq.');
-      } else if (activeCity) {
-        q = q.eq('ville', activeCity);
-      }
+      
       const { data, error } = await q;
       if (error) {
         return [];
@@ -715,10 +713,17 @@
      */
     fetchProjectsByCategory: async function(category) {
       const activeCity = getActiveCity();
+      
+      // Pas de ville : retourner vide
+      if (!activeCity) {
+        return [];
+      }
+      
       let q = supabaseClient
         .from('contribution_uploads')
         .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
         .eq('category', category)
+        .eq('ville', activeCity)
         .order('created_at', { ascending: false });
       try {
         const { data: userData } = await supabaseClient.auth.getUser();
@@ -731,12 +736,7 @@
       } catch(_) {
         q = q.eq('approved', true);
       }
-      // Filtre ville : null = "Global" (NULL ou empty string pour legacy)
-      if (activeCity === null) {
-        q = q.or('ville.is.null,ville.eq.');
-      } else if (activeCity) {
-        q = q.eq('ville', activeCity);
-      }
+      
       const { data, error } = await q;
       if (error) {
         console.error('fetchProjectsByCategory error:', error);
@@ -906,23 +906,18 @@
      */
     fetchFilterItems: async function() {
       const activeCity = getActiveCity();
+      console.log('[supabaseService] 🔍 fetchFilterItems pour ville:', activeCity);
       
-      if (!activeCity && activeCity !== null) {
-        // Pas de ville sélectionnée
+      if (!activeCity) {
+        console.warn('[supabaseService] fetchFilterItems: Pas de ville, retour vide');
         return [];
       }
       
-      // Récupérer les layers de la ville (ou globaux)
+      // Récupérer les layers de la ville active uniquement
       let layersQuery = supabaseClient
         .from('layers')
-        .select('name, ville');
-        
-      if (activeCity === null) {
-        // Mode Global : NULL ou empty string (legacy)
-        layersQuery = layersQuery.or('ville.is.null,ville.eq.');
-      } else {
-        layersQuery = layersQuery.eq('ville', activeCity);
-      }
+        .select('name, ville')
+        .eq('ville', activeCity);
       
       const { data: layerRows, error: layerErr } = await layersQuery;
       
@@ -932,6 +927,7 @@
       }
       
       const allowedLayers = new Set((layerRows || []).map(r => r.name).filter(Boolean));
+      console.log('[supabaseService] 📋 Layers autorisés pour', activeCity, ':', Array.from(allowedLayers));
       
       // Récupérer tous les filter_items et filtrer par layers autorisés
       const { data, error } = await supabaseClient
@@ -943,7 +939,10 @@
         return [];
       }
       
-      return (data || []).filter(item => allowedLayers.has(item.layer));
+      const filtered = (data || []).filter(item => allowedLayers.has(item.layer));
+      console.log('[supabaseService] ✅ Filter items retournés:', filtered.length, 'items');
+      
+      return filtered;
     },
     
     // fetchProjectFilterMapping: removed (legacy). Filtering relies on filter_categories/filter_items and GeoJSON properties.
@@ -2382,8 +2381,8 @@
       try {
         const sanitized = sanitizeCity(city);
         
-        // Si pas de ville spécifique, retourner vide (Global utilise layers)
-        if (!sanitized && sanitized !== null) {
+        // Si pas de ville spécifique, retourner vide (plus de mode Global)
+        if (!sanitized) {
           return [];
         }
 
@@ -2611,6 +2610,33 @@
       } catch (e) {
         console.error('[supabaseService] deleteCityTravaux exception:', e);
         throw e;
+      }
+    },
+
+    /**
+     * Récupère la configuration travaux pour une ville
+     * @param {string} ville - Code de la ville
+     * @returns {Promise<{source_type: 'url'|'city_travaux', url?: string}|null>}
+     */
+    getTravauxConfig: async function(ville) {
+      try {
+        if (!ville) return null;
+        
+        const { data, error } = await supabaseClient
+          .from('travaux_config')
+          .select('source_type, url')
+          .eq('ville', ville)
+          .single();
+        
+        if (error) {
+          console.warn('[supabaseService] Pas de config travaux pour', ville, ':', error);
+          return null;
+        }
+        
+        return data;
+      } catch (e) {
+        console.error('[supabaseService] Erreur getTravauxConfig:', e);
+        return null;
       }
     }
   };
