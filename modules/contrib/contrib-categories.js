@@ -5,124 +5,56 @@
   'use strict';
 
   // ============================================================================
-  // ICON PRESETS
-  // ============================================================================
-
-  const ICON_PRESETS = [
-    // Mobilité & Transport (15)
-    { icon: 'fa-solid fa-bus', label: 'Bus' },
-    { icon: 'fa-solid fa-train', label: 'Train' },
-    { icon: 'fa-solid fa-subway', label: 'Métro' },
-    { icon: 'fa-solid fa-train-tram', label: 'Tram' },
-    { icon: 'fa-solid fa-car', label: 'Voiture' },
-    { icon: 'fa-solid fa-taxi', label: 'Taxi' },
-    { icon: 'fa-solid fa-shuttle-van', label: 'Navette' },
-    { icon: 'fa-solid fa-truck', label: 'Camion' },
-    { icon: 'fa-solid fa-plane', label: 'Avion' },
-    { icon: 'fa-solid fa-ship', label: 'Bateau' },
-    { icon: 'fa-solid fa-ferry', label: 'Ferry' },
-    { icon: 'fa-solid fa-helicopter', label: 'Hélicoptère' },
-    { icon: 'fa-solid fa-road', label: 'Route' },
-    { icon: 'fa-solid fa-traffic-light', label: 'Feu' },
-    { icon: 'fa-solid fa-signs-post', label: 'Signalisation' },
-    
-    // Vélo & Mobilité douce (10)
-    { icon: 'fa-solid fa-bicycle', label: 'Vélo' },
-    { icon: 'fa-solid fa-person-biking', label: 'Cycliste' },
-    { icon: 'fa-solid fa-person-walking', label: 'Piéton' },
-    { icon: 'fa-solid fa-wheelchair', label: 'Accessibilité' },
-    { icon: 'fa-solid fa-motorcycle', label: 'Moto' },
-    { icon: 'fa-solid fa-charging-station', label: 'Borne' },
-    { icon: 'fa-solid fa-square-parking', label: 'Parking' },
-    { icon: 'fa-solid fa-p', label: 'P' },
-    { icon: 'fa-solid fa-bolt', label: 'Électrique' },
-    { icon: 'fa-solid fa-leaf', label: 'Écologie' },
-    
-    // Urbanisme & Construction (15)
-    { icon: 'fa-solid fa-building', label: 'Bâtiment' },
-    { icon: 'fa-solid fa-city', label: 'Ville' },
-    { icon: 'fa-solid fa-house', label: 'Maison' },
-    { icon: 'fa-solid fa-hotel', label: 'Hôtel' },
-    { icon: 'fa-solid fa-shop', label: 'Commerce' },
-    { icon: 'fa-solid fa-industry', label: 'Industrie' },
-    { icon: 'fa-solid fa-warehouse', label: 'Entrepôt' },
-    { icon: 'fa-solid fa-landmark', label: 'Monument' },
-    { icon: 'fa-solid fa-hospital', label: 'Hôpital' },
-    { icon: 'fa-solid fa-school', label: 'École' },
-    { icon: 'fa-solid fa-graduation-cap', label: 'Université' },
-    { icon: 'fa-solid fa-church', label: 'Église' },
-    { icon: 'fa-solid fa-mosque', label: 'Mosquée' },
-    { icon: 'fa-solid fa-synagogue', label: 'Synagogue' },
-    { icon: 'fa-solid fa-gopuram', label: 'Temple' },
-    
-    // Infrastructure & Services (10)
-    { icon: 'fa-solid fa-bridge', label: 'Pont' },
-    { icon: 'fa-solid fa-tower-observation', label: 'Tour' },
-    { icon: 'fa-solid fa-water', label: 'Eau' },
-    { icon: 'fa-solid fa-fire', label: 'Pompiers' },
-    { icon: 'fa-solid fa-shield-halved', label: 'Police' },
-    { icon: 'fa-solid fa-recycle', label: 'Recyclage' },
-    { icon: 'fa-solid fa-dumpster', label: 'Déchets' },
-    { icon: 'fa-solid fa-lightbulb', label: 'Éclairage' },
-    { icon: 'fa-solid fa-plug', label: 'Énergie' },
-    { icon: 'fa-solid fa-wifi', label: 'Wifi' }
-  ];
-
-  // ============================================================================
-  // ICON PICKER
+  // ICON PICKER (Utilise le nouveau système GPIconPicker unifié)
   // ============================================================================
 
   /**
-   * Remplit le grid d'icônes
-   * @param {HTMLElement} categoryIconGrid - Grid d'icônes
+   * Initialise le nouveau système d'icon picker unifié
    * @param {HTMLInputElement} categoryIconInput - Input de l'icône
-   * @param {HTMLElement} categoryIconPicker - Picker d'icônes
+   * @param {HTMLElement} categoryIconPreview - Preview de l'icône
+   * @param {HTMLButtonElement} openButton - Bouton pour ouvrir le picker (optionnel)
    */
-  function populateIconPicker(categoryIconGrid, categoryIconInput, categoryIconPicker) {
+  function initIconPicker(categoryIconInput, categoryIconPreview, openButton) {
     try {
-      if (!categoryIconGrid) {
-        console.error('[Icon Picker] ❌ Grid element not found');
+      if (!categoryIconInput) {
+        console.error('[Icon Picker] ❌ Input element not found');
         return;
       }
-      
-      const html = ICON_PRESETS.map(preset => `
-        <button type="button" class="icon-preset-btn" data-icon="${preset.icon}" title="${preset.label}" 
-                style="width:50px; height:50px; display:flex; align-items:center; justify-content:center; border:1px solid var(--gray-300); border-radius:6px; background:var(--white); cursor:pointer; transition:all 0.2s; font-size:20px;">
-          <i class="${preset.icon}" aria-hidden="true"></i>
-        </button>
-      `).join('');
-      
-      categoryIconGrid.innerHTML = html;
-      
-      // Bind click events
-      const buttons = categoryIconGrid.querySelectorAll('.icon-preset-btn');
-      buttons.forEach(btn => {
-        btn.onclick = function() {
-          const iconClass = btn.dataset.icon;
-          if (categoryIconInput) {
-            categoryIconInput.value = iconClass;
-            categoryIconInput.dispatchEvent(new Event('input'));
+
+      // Vérifier que GPIconPicker est chargé
+      if (!win.GPIconPicker) {
+        console.error('[Icon Picker] ❌ GPIconPicker not loaded');
+        return;
+      }
+
+      // Callback pour mettre à jour la preview
+      const updatePreview = () => {
+        if (categoryIconPreview) {
+          const iconClass = categoryIconInput.value.trim();
+          const iconElement = categoryIconPreview.querySelector('i');
+          if (iconElement) {
+            iconElement.className = iconClass || 'fa-solid fa-question';
           }
-          // Hide picker after selection
-          if (categoryIconPicker) {
-            categoryIconPicker.style.display = 'none';
-          }
-        };
-        
-        // Hover effects
-        btn.onmouseenter = function() {
-          btn.style.borderColor = 'var(--info)';
-          btn.style.background = 'var(--info-lighter)';
-          btn.style.transform = 'scale(1.1)';
-        };
-        btn.onmouseleave = function() {
-          btn.style.borderColor = 'var(--gray-300)';
-          btn.style.background = 'var(--white)';
-          btn.style.transform = 'scale(1)';
-        };
+        }
+      };
+
+      // Ouvrir le picker au clic sur le bouton
+      if (openButton) {
+        openButton.addEventListener('click', () => {
+          win.GPIconPicker.open(categoryIconInput, updatePreview);
+        });
+      }
+
+      // Permettre de cliquer sur l'input pour ouvrir le picker
+      categoryIconInput.addEventListener('click', () => {
+        win.GPIconPicker.open(categoryIconInput, updatePreview);
       });
-      
-      console.log('[Icon Picker] ✅ Populated with', buttons.length, 'icons');
+
+      // Update preview quand l'input change
+      categoryIconInput.addEventListener('input', updatePreview);
+      categoryIconInput.addEventListener('change', updatePreview);
+
+      console.log('[Icon Picker] ✅ Initialized with GPIconPicker');
     } catch(e) {
       console.error('[Icon Picker] ❌ Error:', e);
     }
@@ -349,10 +281,11 @@
         categoriesContent.style.display = '';
         
         // Charger les données nécessaires
-        await Promise.all([
-          populateCategoryFormVilleSelector(categoryVilleSelect),
-          Promise.resolve(populateIconPicker(categoryIconGrid, categoryIconInput, categoryIconPicker))
-        ]);
+        await populateCategoryFormVilleSelector(categoryVilleSelect);
+        
+        // Initialiser l'icon picker avec le nouveau système
+        const iconPickerBtn = document.getElementById('category-icon-picker-btn');
+        initIconPicker(categoryIconInput, categoryIconPreview, iconPickerBtn);
         
         // Pré-sélectionner la ville dans le formulaire
         if (categoryVilleSelect) {
@@ -378,9 +311,8 @@
   // ============================================================================
 
   win.ContribCategories = {
-    // Icon picker
-    populateIconPicker,
-    getIconPresets: () => ICON_PRESETS,
+    // Icon picker (nouveau système unifié)
+    initIconPicker,
     
     // Ville selectors
     populateCategoryVilleSelector,

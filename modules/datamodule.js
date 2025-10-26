@@ -523,10 +523,14 @@ window.DataModule = (function() {
 												await window.DataModule.reloadLayer('city-travaux-chantiers');
 											}
 											
-											alert('Chantier supprimé avec succès');
+											if (window.ContribUtils?.showToast) {
+												window.ContribUtils.showToast('Chantier supprimé avec succès', 'success');
+											}
 										} catch (err) {
 											console.error('[DataModule] Erreur suppression:', err);
-											alert('Erreur lors de la suppression du chantier');
+											if (window.ContribUtils?.showToast) {
+												window.ContribUtils.showToast('Erreur lors de la suppression du chantier', 'error');
+											}
 											deleteBtn.disabled = false;
 											deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Supprimer';
 										}
@@ -1004,9 +1008,26 @@ window.DataModule = (function() {
 				};
 			}
 			
-			// Si on arrive ici, le layer n'est ni travaux, ni contributions
-			// Il devrait avoir une URL définie, sinon c'est une erreur de configuration
-			console.warn(`[DataModule] ⚠️ Layer inconnu sans données: ${layerName}`);
+			// Charger depuis urlMap (layers configurés dans la base de données)
+			const url = urlMap[layerName];
+			if (url) {
+				console.log(`[DataModule] 🌐 Chargement layer "${layerName}" depuis URL:`, url);
+				try {
+					const response = await fetch(url);
+					if (!response.ok) {
+						throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+					}
+					const data = await response.json();
+					console.log(`[DataModule] ✅ Layer "${layerName}" chargé: ${data.features?.length || 0} features`);
+					return data;
+				} catch (error) {
+					console.error(`[DataModule] ❌ Erreur chargement layer "${layerName}":`, error);
+					return { type: 'FeatureCollection', features: [] };
+				}
+			}
+			
+			// Si on arrive ici, le layer n'a ni URL ni données
+			console.warn(`[DataModule] ⚠️ Layer inconnu sans URL ni données: ${layerName}`);
 			return { type: 'FeatureCollection', features: [] };
 		});
 	}

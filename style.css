@@ -18,13 +18,13 @@
 @import url('./styles/03-navigation.css');
 
 /* 03.5 - GP Card System - Système de cartes unifié */
-@import url('./styles/gp-card-system.css');
+/* @import url('./styles/gp-card-system.css'); */ /* Fichier manquant - désactivé */
 
 /* 03.6 - GP Button System - Système de boutons unifié */
 @import url('./styles/gp-button-system.css');
 
 /* 03.7 - GP Markdown Content - Styles pour contenu markdown */
-@import url('./styles/gp-markdown-content.css');
+/* @import url('./styles/gp-markdown-content.css'); */ /* Fichier manquant - désactivé */
 
 /* 04 - Components - Composants réutilisables (filtres, badges, covers, CTA) */
 @import url('./styles/04-components.css');
@@ -42,7 +42,7 @@
 @import url('./styles/08-responsive.css');
 
 /* 09 - Fiche projet - Page de détail des projets */
-@import url('./styles/09-ficheprojet.css');
+/* @import url('./styles/09-ficheprojet.css'); */ /* Fichier manquant - désactivé */
 
 /* 10 - About modal - Modale À propos */
 @import url('./styles/10-about-modal.css');

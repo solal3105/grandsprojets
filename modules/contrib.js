@@ -2178,7 +2178,7 @@
       }
       
       // Gérer la fermeture
-      const closeModal = () => {
+      const closeModal = async () => {
         const categoryModalInner = categoryModalOverlay.querySelector('.gp-modal');
         if (categoryModalInner) {
           categoryModalInner.classList.remove('is-open');
@@ -2187,6 +2187,14 @@
           categoryModalOverlay.setAttribute('aria-hidden', 'true');
           categoryModalOverlay.inert = true;
         }, 220);
+        
+        // Rafraîchir la liste des catégories après fermeture
+        console.log('[closeModal] Refreshing categories list after close');
+        await refreshCategoriesList();
+        if (categoriesContent) {
+          categoriesContent.style.display = '';
+          console.log('[closeModal] Categories content displayed');
+        }
       };
       
       // Bouton fermer

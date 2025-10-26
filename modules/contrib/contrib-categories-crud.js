@@ -48,10 +48,10 @@
       
       if (!categories || categories.length === 0) {
         categoriesList.innerHTML = '<p style="opacity:0.6; padding:12px; text-align:center;">Aucune catégorie pour cette ville.<br><small>Cliquez sur "Nouvelle catégorie" pour en créer une.</small></p>';
-        return;
-      }
-
-      const html = categories.map(cat => {
+        // NE PAS RETURN ICI - continuer pour charger la config Travaux
+      } else {
+        // Il y a des catégories, les afficher
+        const html = categories.map(cat => {
         // Escape HTML to prevent XSS
         const escapedCategory = String(cat.category || '').replace(/[<>"'&]/g, (c) => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
         const originalIconClass = String(cat.icon_class || '');
@@ -87,47 +87,90 @@
       `;
       }).join('');
 
-      categoriesList.innerHTML = html;
+        categoriesList.innerHTML = html;
 
-      // Bind edit/delete buttons
-      categoriesList.querySelectorAll('[data-action="edit"]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const ville = btn.dataset.ville;
-          const category = btn.dataset.category;
-          const icon = btn.dataset.icon;
-          const order = btn.dataset.order;
-          let layers_to_display = [];
-          let category_styles = {};
-          try {
-            layers_to_display = JSON.parse(btn.dataset.layers || '[]');
-          } catch (e) {
-            console.warn('[contrib-categories-crud] Erreur parsing layers_to_display:', e);
-          }
-          try {
-            category_styles = JSON.parse(btn.dataset.styles || '{}');
-          } catch (e) {
-            console.warn('[contrib-categories-crud] Erreur parsing category_styles:', e);
-          }
-          showCategoryForm('edit', { ville, category, icon_class: icon, display_order: order, layers_to_display, category_styles });
+        // Bind edit/delete buttons
+        categoriesList.querySelectorAll('[data-action="edit"]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const ville = btn.dataset.ville;
+            const category = btn.dataset.category;
+            const icon = btn.dataset.icon;
+            const order = btn.dataset.order;
+            let layers_to_display = [];
+            let category_styles = {};
+            try {
+              layers_to_display = JSON.parse(btn.dataset.layers || '[]');
+            } catch (e) {
+              console.warn('[contrib-categories-crud] Erreur parsing layers_to_display:', e);
+            }
+            try {
+              category_styles = JSON.parse(btn.dataset.styles || '{}');
+            } catch (e) {
+              console.warn('[contrib-categories-crud] Erreur parsing category_styles:', e);
+            }
+            showCategoryForm('edit', { ville, category, icon_class: icon, display_order: order, layers_to_display, category_styles });
+          });
         });
-      });
 
-      categoriesList.querySelectorAll('[data-action="delete"]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const ville = btn.dataset.ville;
-          const category = btn.dataset.category;
-          
-          // Message de confirmation avec avertissement
-          const confirmMessage = 
-            `⚠️ Supprimer la catégorie "${category}" ?\n\n` +
-            `Note : La suppression n'est possible que si aucune contribution n'est liée à cette catégorie.\n\n` +
-            `Voulez-vous continuer ?`;
-          
-          if (!confirm(confirmMessage)) return;
-          
-          await deleteCategory(ville, category);
+        categoriesList.querySelectorAll('[data-action="delete"]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const ville = btn.dataset.ville;
+            const category = btn.dataset.category;
+            
+            // Message de confirmation avec avertissement
+            const confirmMessage = 
+              `⚠️ Supprimer la catégorie "${category}" ?\n\n` +
+              `Note : La suppression n'est possible que si aucune contribution n'est liée à cette catégorie.\n\n` +
+              `Voulez-vous continuer ?`;
+            
+            if (!confirm(confirmMessage)) return;
+            
+            await deleteCategory(ville, category);
+          });
         });
-      });
+      } // Fin du else
+
+      // ============================================================================
+      // TRAVAUX CONFIG - Charger et initialiser la section Travaux
+      // ============================================================================
+      try {
+        console.log('[contrib-categories-crud] 🔧 Tentative chargement config Travaux pour ville:', ville);
+        const container = document.getElementById('travaux-config-container');
+        console.log('[contrib-categories-crud] Container trouvé:', !!container);
+        
+        if (container) {
+          // Charger le HTML si pas déjà chargé
+          if (!container.innerHTML) {
+            console.log('[contrib-categories-crud] Chargement HTML config Travaux...');
+            const response = await fetch('modules/contrib/contrib-travaux-config.html');
+            console.log('[contrib-categories-crud] Réponse fetch:', response.ok);
+            if (response.ok) {
+              const html = await response.text();
+              container.innerHTML = html;
+              console.log('[contrib-categories-crud] ✅ HTML config Travaux chargé, longueur:', html.length);
+            } else {
+              console.error('[contrib-categories-crud] ❌ Erreur fetch HTML:', response.status);
+            }
+          } else {
+            console.log('[contrib-categories-crud] HTML déjà chargé');
+          }
+          
+          // Initialiser le module TravauxConfig
+          if (win.TravauxConfigModule) {
+            console.log('[contrib-categories-crud] Initialisation TravauxConfigModule...');
+            await win.TravauxConfigModule.init(ville);
+            console.log('[contrib-categories-crud] ✅ TravauxConfig initialisé pour:', ville);
+          } else {
+            console.warn('[contrib-categories-crud] ⚠️ TravauxConfigModule non disponible');
+          }
+        } else {
+          console.error('[contrib-categories-crud] ❌ Container travaux-config-container introuvable dans le DOM');
+        }
+      } catch (travauxErr) {
+        console.error('[contrib-categories-crud] ❌ Erreur chargement config Travaux:', travauxErr);
+        // Ne pas bloquer l'affichage des catégories si Travaux échoue
+      }
+
     } catch(err) {
       console.error('[contrib-categories-crud] refreshCategoriesList error:', err);
       if (categoriesList) categoriesList.innerHTML = '<p style="color:red; padding:12px;">Erreur de chargement.</p>';
@@ -178,43 +221,14 @@
     try {
       if (!categoryFormContainer || !categoryForm) return;
       
-      // Populate icon picker when form opens
+      // Initialiser l'icon picker avec le nouveau système
       const ContribCategories = win.ContribCategories || {};
-      if (ContribCategories.populateIconPicker && categoryIconGrid) {
-        ContribCategories.populateIconPicker(categoryIconGrid, categoryIconInput, categoryIconPicker);
+      if (ContribCategories.initIconPicker && categoryIconInput) {
+        const iconPickerBtn = document.getElementById('category-icon-picker-btn');
+        ContribCategories.initIconPicker(categoryIconInput, categoryIconPreview, iconPickerBtn);
       }
-      
-      // Bind icon picker toggle button
-      const pickerBtn = document.getElementById('category-icon-picker-btn');
-      
-      if (pickerBtn && categoryIconPicker) {
-        // Store reference to avoid closure issues
-        const pickerElement = categoryIconPicker;
-        
-        // Remove all existing listeners by cloning
-        const newBtn = pickerBtn.cloneNode(true);
-        pickerBtn.parentNode.replaceChild(newBtn, pickerBtn);
-        
-        // Add new listener
-        newBtn.onclick = function(e) {
-          e.preventDefault();
-          e.stopPropagation();
-          
-          const currentDisplay = window.getComputedStyle(pickerElement).display;
-          const isHidden = currentDisplay === 'none';
-          
-          pickerElement.style.display = isHidden ? 'block' : 'none';
-          
-          console.log('[Icon Picker] Toggled - now:', pickerElement.style.display);
-        };
-        
-        console.log('[showCategoryForm] ✅ Icon picker button bound successfully');
-      } else {
-        console.error('[showCategoryForm] ❌ Missing elements:', {
-          button: !!pickerBtn,
-          picker: !!categoryIconPicker
-        });
-      }
+      // L'icon picker est maintenant géré par le système GPIconPicker unifié
+      // Plus besoin de toggle manuel
       
       categoryEditModeInput.value = mode;
       

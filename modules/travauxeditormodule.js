@@ -53,23 +53,33 @@ const TravauxEditorModule = (() => {
   /**
    * Démarre le mode dessin (ÉTAPE 1)
    */
-  function openEditor() {
-    // Vérifier auth
-    checkAuth().then(authOk => {
+  async function openEditor() {
+    try {
+      // Vérifier auth
+      const authOk = await checkAuth();
       if (!authOk) {
-        alert('Vous devez être connecté et admin de la ville pour ajouter un chantier.');
+        if (window.ContribUtils?.showToast) {
+          window.ContribUtils.showToast(MESSAGES.AUTH_REQUIRED, 'error');
+        }
         return;
       }
       
       // Vérifier Leaflet.Draw
       if (!initLeafletDraw()) {
-        alert('Leaflet.Draw n\'est pas chargé. Impossible d\'ouvrir l\'éditeur.');
+        if (window.ContribUtils?.showToast) {
+          window.ContribUtils.showToast(MESSAGES.LEAFLET_DRAW_MISSING, 'error');
+        }
         return;
       }
       
       // Activer le mode dessin
       startDrawingMode();
-    });
+    } catch (err) {
+      console.error('[TravauxEditor] Erreur ouverture éditeur:', err);
+      if (window.ContribUtils?.showToast) {
+        window.ContribUtils.showToast('Erreur lors de l\'ouverture de l\'éditeur', 'error');
+      }
+    }
   }
   
   /**
@@ -254,7 +264,9 @@ const TravauxEditorModule = (() => {
    */
   function finishDrawing() {
     if (currentFeatures.length === 0) {
-      alert('Veuillez dessiner au moins une géométrie sur la carte.');
+      if (window.ContribUtils?.showToast) {
+        window.ContribUtils.showToast('Veuillez dessiner au moins une géométrie sur la carte.', 'error');
+      }
       return;
     }
     
@@ -269,7 +281,7 @@ const TravauxEditorModule = (() => {
    * Annule le dessin
    */
   function cancelDrawing() {
-    if (confirm('Annuler la création du chantier ?')) {
+    if (confirm(MESSAGES.CANCEL_CONFIRM)) {
       stopDrawingMode();
       drawnItems.clearLayers();
       currentFeatures = [];
@@ -520,7 +532,7 @@ const TravauxEditorModule = (() => {
       
       // Bouton Annuler
       overlay.querySelector('#travaux-form-cancel').addEventListener('click', () => {
-        if (confirm('Annuler la création du chantier ? Les géométries dessinées seront perdues.')) {
+        if (confirm(MESSAGES.CANCEL_CONFIRM)) {
           closeFormModal();
           drawnItems.clearLayers();
           currentFeatures = [];
@@ -529,7 +541,7 @@ const TravauxEditorModule = (() => {
       
       // Croix de fermeture
       overlay.querySelector('.gp-modal-close').addEventListener('click', () => {
-        if (confirm('Annuler la création du chantier ? Les géométries dessinées seront perdues.')) {
+        if (confirm(MESSAGES.CANCEL_CONFIRM)) {
           closeFormModal();
           drawnItems.clearLayers();
           currentFeatures = [];
@@ -702,14 +714,18 @@ const TravauxEditorModule = (() => {
       const chantier = await window.supabaseService.getCityTravauxById(chantierId);
       
       if (!chantier) {
-        alert(MESSAGES.CHANTIER_NOT_FOUND);
+        if (window.ContribUtils?.showToast) {
+          window.ContribUtils.showToast(MESSAGES.CHANTIER_NOT_FOUND, 'error');
+        }
         return;
       }
       
       // Vérifier auth
       const authOk = await checkAuth();
       if (!authOk) {
-        alert(MESSAGES.AUTH_REQUIRED);
+        if (window.ContribUtils?.showToast) {
+          window.ContribUtils.showToast(MESSAGES.AUTH_REQUIRED, 'error');
+        }
         return;
       }
       
@@ -718,7 +734,9 @@ const TravauxEditorModule = (() => {
       
     } catch (err) {
       console.error('[TravauxEditor] Erreur chargement chantier:', err);
-      alert(MESSAGES.LOADING_ERROR);
+      if (window.ContribUtils?.showToast) {
+        window.ContribUtils.showToast(MESSAGES.LOADING_ERROR, 'error');
+      }
     }
   }
   
@@ -907,14 +925,14 @@ const TravauxEditorModule = (() => {
       
       // Bouton Annuler
       overlay.querySelector('#travaux-form-cancel').addEventListener('click', () => {
-        if (confirm('Annuler les modifications ?')) {
+        if (confirm(MESSAGES.CANCEL_EDIT_CONFIRM)) {
           closeFormModal();
         }
       });
       
       // Croix de fermeture
       overlay.querySelector('.gp-modal-close').addEventListener('click', () => {
-        if (confirm('Annuler les modifications ?')) {
+        if (confirm(MESSAGES.CANCEL_EDIT_CONFIRM)) {
           closeFormModal();
         }
       });

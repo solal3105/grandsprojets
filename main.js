@@ -32,8 +32,8 @@
       const travauxConfig = await supabaseService.getTravauxConfig(activeCity);
       console.log('[Main] travaux_config reçu:', travauxConfig);
       
-      if (!travauxConfig) {
-        console.log('[Main] ⚠️ Pas de config travaux pour cette ville');
+      if (!travauxConfig || !travauxConfig.enabled) {
+        console.log('[Main] ⚠️ Pas de config travaux ou travaux désactivés pour cette ville');
         return;
       }
       
@@ -41,15 +41,24 @@
       
       console.log('[Main] ✅ Submenu Travaux doit être affiché, création en cours...');
       
+      // Récupérer les layers à afficher depuis la config
+      const layersToDisplay = travauxConfig.layers_to_display || ['travaux'];
+      
       // Créer le bouton de navigation
       const navButton = document.createElement('button');
       navButton.className = 'nav-category';
       navButton.id = 'nav-travaux';
       navButton.dataset.category = 'travaux';
+      const iconClass = travauxConfig.icon_class || 'fa-solid fa-helmet-safety';
       navButton.innerHTML = `
-        <i class="fa-solid fa-helmet-safety" aria-hidden="true"></i>
+        <i class="${iconClass}" aria-hidden="true"></i>
         <span class="label">Travaux</span>
       `;
+      
+      // Appliquer l'ordre d'affichage si défini
+      if (travauxConfig.display_order !== undefined) {
+        navButton.style.order = travauxConfig.display_order;
+      }
       categoriesContainer.appendChild(navButton);
       console.log('[Main] ✅ Bouton Travaux ajouté au DOM');
       
@@ -65,10 +74,6 @@
       // Bind navigation (géré manuellement car indépendant de categoryIcons)
       navButton.addEventListener('click', () => {
         console.log('[Main] 🖱️ Clic sur bouton Travaux');
-        
-        // Un seul layer "travaux", la source est déterminée par travaux_config
-        const layersToDisplay = ['travaux'];
-        
         console.log('[Main] Layers à afficher:', layersToDisplay);
         
         if (win.EventBindings?.handleNavigation) {
@@ -244,7 +249,20 @@
       win.defaultLayers = defaultLayers;
       
       DataModule.initConfig({ city, urlMap, styleMap, defaultLayers });
-      defaultLayers.forEach(layer => DataModule.loadLayer(layer));
+      
+      // Charger tous les layers par défaut en attendant qu'ils soient tous chargés
+      console.log('[Main] 🔄 Chargement des layers par défaut:', defaultLayers);
+      try {
+        await Promise.all(defaultLayers.map(layer => 
+          DataModule.loadLayer(layer).catch(err => {
+            console.error(`[Main] ❌ Erreur chargement layer "${layer}":`, err);
+            return null; // Continuer même si un layer échoue
+          })
+        ));
+        console.log('[Main] ✅ Tous les layers par défaut sont chargés et affichés');
+      } catch (err) {
+        console.error('[Main] ❌ Erreur lors du chargement des layers par défaut:', err);
+      }
 
       // PHASE 5 : Menus dynamiques
       let allContributions = [];
@@ -301,8 +319,17 @@
       win.categoryLayersMap = window.supabaseService.buildCategoryLayersMap(activeCategoryIcons);
       
       // Ajouter manuellement le mapping pour "travaux" (submenu en dur, pas dans category_icons)
-      // Un seul layer, la source est déterminée par travaux_config
-      win.categoryLayersMap['travaux'] = ['travaux'];
+      // Charger les layers depuis travaux_config
+      try {
+        const travauxConfig = await supabaseService.getTravauxConfig(city);
+        if (travauxConfig && travauxConfig.enabled) {
+          win.categoryLayersMap['travaux'] = travauxConfig.layers_to_display || ['travaux'];
+          console.log('[Main] ✅ categoryLayersMap[travaux] configuré:', win.categoryLayersMap['travaux']);
+        }
+      } catch (err) {
+        console.warn('[Main] Erreur chargement config travaux pour mapping:', err);
+        win.categoryLayersMap['travaux'] = ['travaux']; // Fallback
+      }
       
       console.log('[Main] ✅ categoryLayersMap construit depuis DB:', win.categoryLayersMap);
 

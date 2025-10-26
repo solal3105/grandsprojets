@@ -2614,9 +2614,9 @@
     },
 
     /**
-     * Récupère la configuration travaux pour une ville
+     * Récupère la configuration Travaux pour une ville
      * @param {string} ville - Code de la ville
-     * @returns {Promise<{source_type: 'url'|'city_travaux', url?: string}|null>}
+     * @returns {Promise<Object|null>}
      */
     getTravauxConfig: async function(ville) {
       try {
@@ -2624,7 +2624,7 @@
         
         const { data, error } = await supabaseClient
           .from('travaux_config')
-          .select('source_type, url')
+          .select('*')
           .eq('ville', ville)
           .single();
         
@@ -2637,6 +2637,68 @@
       } catch (e) {
         console.error('[supabaseService] Erreur getTravauxConfig:', e);
         return null;
+      }
+    },
+
+    /**
+     * Met à jour ou crée la configuration Travaux pour une ville
+     * @param {string} ville - Code de la ville
+     * @param {Object} config - Configuration complète
+     * @returns {Promise<{data: Object|null, error: Error|null}>}
+     */
+    updateTravauxConfig: async function(ville, config) {
+      try {
+        if (!ville) {
+          return { data: null, error: new Error('Ville requise') };
+        }
+
+        const { data, error } = await supabaseClient
+          .from('travaux_config')
+          .upsert({
+            ville: ville,
+            enabled: config.enabled !== undefined ? config.enabled : false,
+            source_type: config.source_type || 'city_travaux',
+            url: config.url || null,
+            icon_class: config.icon_class || 'fa-solid fa-helmet-safety',
+            display_order: config.display_order !== undefined ? config.display_order : 5,
+            layers_to_display: config.layers_to_display || ['travaux']
+          }, {
+            onConflict: 'ville'
+          })
+          .select()
+          .single();
+
+        return { data, error };
+      } catch (e) {
+        console.error('[supabaseService] Erreur updateTravauxConfig:', e);
+        return { data: null, error: e };
+      }
+    },
+
+    /**
+     * Supprime la configuration Travaux pour une ville
+     * @param {string} ville - Code de la ville
+     * @returns {Promise<{success: boolean, error: Error|null}>}
+     */
+    deleteTravauxConfig: async function(ville) {
+      try {
+        if (!ville) {
+          return { success: false, error: new Error('Ville requise') };
+        }
+
+        const { error } = await supabaseClient
+          .from('travaux_config')
+          .delete()
+          .eq('ville', ville);
+
+        if (error) {
+          return { success: false, error };
+        }
+
+        return { success: true, error: null };
+      } catch (e) {
+        console.error('[supabaseService] Erreur deleteTravauxConfig:', e);
+        return { success: false, error: e };
       }
     }
   };
