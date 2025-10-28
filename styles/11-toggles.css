@@ -143,12 +143,7 @@
   right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 7);
 }
 
-/* Hide location toggle on desktop (géolocalisation mobile-only) */
-@media (min-width: 641px) {
-  #location-toggle {
-    display: none;
-  }
-}
+/* Location toggle - géré dynamiquement par JavaScript selon la configuration */
 
 /* ============================================================================
    SPECIFIC TOGGLE STYLES
@@ -223,10 +218,7 @@
     /* Position calculée dynamiquement via data-mobile-index */
   }
   
-  /* Afficher le toggle location en mobile */
-  #location-toggle {
-    display: flex;
-  }
+  /* Location toggle - géré dynamiquement par JavaScript selon la configuration */
   
   /* ============================================================================
      BORDER RADIUS DYNAMIQUES - S'adaptent au premier et dernier toggle visible

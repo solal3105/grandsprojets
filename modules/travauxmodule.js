@@ -304,61 +304,96 @@ const TravauxModule = (() => {
     const dateFins = features.map(f => f.properties.date_fin).filter(Boolean).sort();
     const majDates = features.map(f => f.properties.last_update).filter(Boolean).sort();
 
-    // --- Refonte UX premium des filtres ---
+    // --- Filtres ultra-clean ---
     const filterUX = document.createElement('section');
     filterUX.id = 'travaux-filters-ux';
-    filterUX.className = 'travaux-filters-ux';
     filterUX.innerHTML = `
-      <!-- Card pour ajouter un chantier (cachée par défaut, visible si admin) -->
+      <!-- Card Ajouter (cachée par défaut, visible si admin) -->
       <div class="travaux-add-card" style="display:none;">
-        <div class="add-card-icon">
-          <i class="fa-solid fa-helmet-safety"></i>
-        </div>
-        <div class="add-card-content">
-          <h3 class="add-card-title">Ajouter un chantier</h3>
-        </div>
-        <button class="add-card-btn travaux-add-btn" aria-label="Ajouter un chantier">
+        <span class="add-card-label">Ajouter un chantier</span>
+        <button class="add-card-btn travaux-add-btn btn-primary">
           <i class="fa-solid fa-plus"></i>
         </button>
       </div>
       
-      <div class="travaux-filters-header">
-        <span class="travaux-filters-title"><i class="fa fa-filter"></i> Filtres</span>
-        <span id="travaux-filters-count" class="travaux-filters-count"></span>
+      <!-- Header -->
+      <div class="filters-header">
+        <h3 class="filters-title">Filtres</h3>
+        <span id="filters-count" class="filters-count"></span>
       </div>
-      <div class="travaux-filters-badges" id="travaux-filters-badges"></div>
-      <form class="travaux-filters-grid" autocomplete="off" tabindex="0">
-        <div class="travaux-field">
-          <label class="travaux-checkbox-label">
-            <input type="checkbox" id="hide-reseaux" class="travaux-checkbox" checked>
-            <span class="travaux-checkbox-custom"></span>
-            Exclure les réseaux (gaz, eau, télécom, etc.)
+      
+      <!-- Tags actifs -->
+      <div id="filters-tags" class="filters-tags"></div>
+      
+      <!-- Formulaire -->
+      <form class="filters-form" autocomplete="off">
+        
+        <!-- Exclure réseaux (switch simple) -->
+        <label class="filter-switch">
+          <input type="checkbox" id="hide-reseaux" checked>
+          <span class="switch-slider"></span>
+          <span class="switch-label">Exclure les réseaux</span>
+        </label>
+        
+        <!-- Nature -->
+        <div class="filter-group">
+          <label for="nature-select">
+            <i class="fa-solid fa-hammer"></i>
+            <span>Nature</span>
           </label>
+          <select id="nature-select">
+            <option value="">Toutes</option>
+            ${natures.map(n => `<option value="${n}">${n} (${natureCounts[n]})</option>`).join('')}
+          </select>
         </div>
-        <div class="travaux-field">
-          <label for="nature-travaux-select">Nature</label>
-          <select id="nature-travaux-select"><option value="">Toutes</option>${natures.map(n => `<option value="${n}">${n} (${natureCounts[n]})</option>`).join('')}</select>
+        
+        <!-- Commune -->
+        <div class="filter-group">
+          <label for="commune-select">
+            <i class="fa-solid fa-location-dot"></i>
+            <span>Commune</span>
+          </label>
+          <select id="commune-select">
+            <option value="">Toutes</option>
+            ${communes.map(c => `<option value="${c}">${c} (${communeCounts[c]})</option>`).join('')}
+          </select>
         </div>
-        <!-- nature_chantier supprimé (doublon de nature_travaux) -->
-        <div class="travaux-field">
-          <label for="commune-select">Commune</label>
-          <select id="commune-select"><option value="">Toutes</option>${communes.map(c => `<option value="${c}">${c} (${communeCounts[c]})</option>`).join('')}</select>
+        
+        <!-- État -->
+        <div class="filter-group">
+          <label for="etat-select">
+            <i class="fa-solid fa-circle-info"></i>
+            <span>État</span>
+          </label>
+          <select id="etat-select">
+            <option value="">Tous</option>
+            ${etats.map(e => `<option value="${e}">${e}</option>`).join('')}
+          </select>
         </div>
-        <div class="travaux-field">
-          <label for="etat-select">Etat</label>
-          <select id="etat-select"><option value="">Tous</option>${etats.map(e => `<option value="${e}">${e}</option>`).join('')}</select>
+        
+        <!-- Date début -->
+        <div class="filter-group">
+          <label for="date-debut">
+            <i class="fa-solid fa-calendar-plus"></i>
+            <span>Début</span>
+          </label>
+          <input id="date-debut" type="date" />
         </div>
-        <div class="travaux-field">
-          <label for="date-debut-input">Début après</label>
-          <input id="date-debut-input" type="date" />
+        
+        <!-- Date fin -->
+        <div class="filter-group">
+          <label for="date-fin">
+            <i class="fa-solid fa-calendar-check"></i>
+            <span>Fin</span>
+          </label>
+          <input id="date-fin" type="date" />
         </div>
-        <div class="travaux-field">
-          <label for="date-fin-input">Fin avant</label>
-          <input id="date-fin-input" type="date" />
-        </div>
-        <div class="travaux-field travaux-reset">
-          <button type="button" id="reset-all-filters" class="travaux-reset-btn"><i class="fa-solid fa-circle-xmark"></i> Réinitialiser</button>
-        </div>
+        
+        <!-- Reset -->
+        <button type="button" id="reset-filters" class="btn-secondary btn-small">
+          Réinitialiser
+        </button>
+        
       </form>
     `;
     
@@ -421,11 +456,11 @@ const TravauxModule = (() => {
     }
 
     // Récupérer les éléments pour la logique JS
-    const selectNature = filterUX.querySelector('#nature-travaux-select');
+    const selectNature = filterUX.querySelector('#nature-select');
     const selectCommune = filterUX.querySelector('#commune-select');
     const selectEtat = filterUX.querySelector('#etat-select');
-    const inputDebut = filterUX.querySelector('#date-debut-input');
-    const inputFin = filterUX.querySelector('#date-fin-input');
+    const inputDebut = filterUX.querySelector('#date-debut');
+    const inputFin = filterUX.querySelector('#date-fin');
     const hideReseauxCheckbox = filterUX.querySelector('#hide-reseaux');
     
     // Fonction pour filtrer les options des sélecteurs
@@ -441,9 +476,9 @@ const TravauxModule = (() => {
         .join('');
     }
     
-    const resetBtn = filterUX.querySelector('#reset-all-filters');
-    const badgesContainer = filterUX.querySelector('#travaux-filters-badges');
-    const countEl = filterUX.querySelector('#travaux-filters-count');
+    const resetBtn = filterUX.querySelector('#reset-filters');
+    const badgesContainer = filterUX.querySelector('#filters-tags');
+    const countEl = filterUX.querySelector('#filters-count');
 
     // --- UX : badges de filtres actifs ---
     function renderActiveBadges(criteria) {

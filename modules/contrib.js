@@ -1160,6 +1160,7 @@
           const currentCity = getCurrentCity();
           if (!currentCity) return; // Toast déjà affiché par getCurrentCity
           
+          console.log('[contrib] Ouverture modale création pour ville:', currentCity);
           await openCreateModal('create', { ville: currentCity });
           break;
           
@@ -2219,8 +2220,11 @@
 
     // Ouvre la modale de création de contribution
     async function openCreateModal(mode = 'create', data = {}) {
+      console.log('[openCreateModal] Début mode:', mode, 'data:', data);
+      
       // Charger la modale si nécessaire
       const loaded = await loadCreateModalTemplate();
+      console.log('[openCreateModal] Template loaded:', loaded);
       if (!loaded) {
         console.error('[openCreateModal] Template not loaded');
         showToast('Erreur de chargement du formulaire', 'error');
@@ -2255,15 +2259,33 @@
       
       // Charger les catégories pour la ville dans le select de la modale
       try {
+        console.log('[openCreateModal] Chargement catégories pour ville:', selectedCity);
         const categories = await win.supabaseService.getCategoryIconsByCity(selectedCity);
+        console.log('[openCreateModal] Catégories trouvées:', categories?.length || 0);
         const categorySelect = document.querySelector('#create-modal-overlay #contrib-category');
         const categoryHelp = document.querySelector('#create-modal-overlay #contrib-category-help');
         
         if (categorySelect) {
           if (!categories || categories.length === 0) {
-            categorySelect.innerHTML = '<option value="">Aucune catégorie disponible</option>';
+            // Message adapté selon le rôle
+            const role = win.__CONTRIB_ROLE;
+            let messageOption = '';
+            let helpMessage = '';
+            
+            if (role === 'admin') {
+              messageOption = 'Aucune catégorie disponible';
+              helpMessage = '<i class="fa-solid fa-exclamation-triangle"></i> Aucune catégorie disponible. <a href="#" id="contrib-create-category-link" style="color:var(--info); text-decoration:underline;">Créer une catégorie</a>';
+            } else {
+              messageOption = 'Aucune catégorie disponible (contactez votre admin)';
+              helpMessage = '<i class="fa-solid fa-exclamation-triangle"></i> Aucune catégorie disponible. Contactez votre administrateur pour demander la création d\'une catégorie.';
+            }
+            
+            categorySelect.innerHTML = `<option value="">${messageOption}</option>`;
             categorySelect.disabled = true;
-            if (categoryHelp) categoryHelp.style.display = 'block';
+            if (categoryHelp) {
+              categoryHelp.innerHTML = helpMessage;
+              categoryHelp.style.display = 'block';
+            }
           } else {
             categorySelect.innerHTML = '<option value="">Sélectionnez une catégorie</option>';
             const sortedCategories = categories.sort((a, b) => a.category.localeCompare(b.category));
@@ -2281,9 +2303,10 @@
         console.error('[openCreateModal] Error loading categories:', error);
       }
       
-      // Bind le lien "Créer une catégorie"
+      // Bind le lien "Créer une catégorie" (uniquement pour les admins)
+      const role = win.__CONTRIB_ROLE;
       const createCategoryLink = document.querySelector('#create-modal-overlay #contrib-create-category-link');
-      if (createCategoryLink) {
+      if (createCategoryLink && role === 'admin') {
         createCategoryLink.onclick = async (e) => {
           e.preventDefault();
           await openCategoryModal('create');
@@ -2368,14 +2391,18 @@
       };
       
       // Ouvrir la modale
+      console.log('[openCreateModal] Ouverture de la modale...');
       overlay.setAttribute('aria-hidden', 'false');
       overlay.inert = false;
       
       const modalInner = overlay.querySelector('.gp-modal');
       if (modalInner) {
         requestAnimationFrame(() => {
+          console.log('[openCreateModal] Ajout classe is-open');
           modalInner.classList.add('is-open');
         });
+      } else {
+        console.error('[openCreateModal] Modal inner non trouvé');
       }
       
       // Focus sur le premier champ

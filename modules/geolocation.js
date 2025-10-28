@@ -36,7 +36,7 @@ window.GeolocationModule = (() => {
     }
     
     locationButton.onclick = handleLocationButtonClick;
-    locationButton.style.display = 'flex';
+    // Pas de forçage d'affichage - ToggleManager gère tout
   }
   
   // Vérifier si la géolocalisation est disponible

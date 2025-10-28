@@ -518,9 +518,9 @@ window.DataModule = (function() {
 											await window.supabaseService.deleteCityTravaux(featureProps.chantier_id);
 											window.ModalHelper.close('travaux-overlay');
 											
-											// Recharger la couche city-travaux-chantiers
+											// Recharger la couche travaux
 											if (window.DataModule?.reloadLayer) {
-												await window.DataModule.reloadLayer('city-travaux-chantiers');
+												await window.DataModule.reloadLayer('travaux');
 											}
 											
 											if (window.ContribUtils?.showToast) {

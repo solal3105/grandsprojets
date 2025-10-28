@@ -280,6 +280,10 @@ html[data-theme='dark'] {
      Palette raffinée et élégante pour un confort visuel optimal
      ======================================== */
   /* --color-primary: #ffdd0080; */    /* DÉSACTIVÉ : Primary reste identique en dark mode */
+  
+  /* Primary alpha plus visibles en dark mode pour progress bar */
+  --primary-alpha-50: color-mix(in srgb, var(--color-primary) 70%, var(--surface-base));
+  --primary-alpha-55: color-mix(in srgb, var(--color-primary) 75%, var(--surface-base));
   --color-success: #34d399;    /* Vert émeraude doux (dark mode) */
   --color-danger: #f87171;     /* Rouge corail doux et chaleureux */
   --color-info: #60a5fa;       /* Bleu ciel doux et harmonieux */

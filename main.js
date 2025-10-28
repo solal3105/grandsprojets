@@ -157,10 +157,6 @@
       win.ThemeManager?.syncBasemapToTheme(currentTheme);
       win.CityManager?.applyCityInitialView(city);
       
-      if (window.GeolocationModule) {
-        window.GeolocationModule.init(window.MapModule.map);
-      }
-      
       const { DataModule, MapModule, EventBindings } = win;
       const urlMap        = {};
       const styleMap      = {};
@@ -371,6 +367,10 @@
       
       if (window.UIModule?.init) {
         window.UIModule.init({ basemaps: basemapsForCity });
+      }
+      
+      if (window.GeolocationModule) {
+        window.GeolocationModule.init(window.MapModule.map);
       }
       
       if (window.SearchModule?.init) {

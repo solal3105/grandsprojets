@@ -56,7 +56,6 @@ export const TOGGLES_CONFIG = {
     label: 'Ma position',
     ariaLabel: 'Centrer la carte sur ma position',
     position: 4,
-    mobileOnly: true,
     states: ['default', 'active', 'loading', 'error'],
     defaultState: false
   },
@@ -67,7 +66,6 @@ export const TOGGLES_CONFIG = {
     label: 'À propos',
     ariaLabel: 'Afficher les informations à propos',
     position: 5,
-    mobileOnly: false, // Visible sur desktop ET mobile
     hasModal: true,
     modalSelector: '#about-overlay',
     defaultState: false
@@ -94,30 +92,21 @@ export const TOGGLES_CONFIG = {
 };
 
 /**
- * Ordre d'affichage des toggles (de droite à gauche en desktop)
- * Note: 'contribute' est dans TOGGLES_CONFIG mais PAS dans TOGGLE_ORDER
- * pour éviter qu'il soit géré dans une éventuelle modale de configuration
+ * Ordre d'affichage des toggles - SOURCE UNIQUE DE VÉRITÉ
+ * Desktop: de droite à gauche | Mobile: de gauche à droite
  */
 export const TOGGLE_ORDER = [
-  'filters',
-  'basemap',
-  'theme',
-  'search',
-  'location',
-  'info',
-  'login'
+  'filters',    // Desktop: droite, Mobile: position 5
+  'basemap',    // Desktop: , Mobile: position 4
+  'theme',      // Desktop: , Mobile: position 3
+  'search',     // Desktop: , Mobile: position 2
+  'location',   // Desktop: , Mobile: position 1
+  'info',       // Desktop: gauche, Mobile: position 0
+  'login',      // Desktop: extrême gauche, Mobile: position 6
+  'contribute'  // Desktop: extrême gauche, Mobile: position 7
 ];
 
 /**
- * Ordre d'affichage mobile (de gauche à droite)
+ * Ordre inversé pour desktop (droite → gauche)
  */
-export const MOBILE_ORDER = [
-  'info',       // Position 0 (gauche, arrondi)
-  'location',   // Position 1
-  'search',     // Position 2
-  'theme',      // Position 3
-  'basemap',    // Position 4
-  'filters',    // Position 5
-  'contribute', // Position 6
-  'login'       // Position 7 (droite, arrondi)
-];
+export const DESKTOP_ORDER = [...TOGGLE_ORDER].reverse();

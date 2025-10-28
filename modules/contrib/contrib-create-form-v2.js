@@ -235,7 +235,22 @@
         }
       }
       
-      // Validation custom étape 2 : géométrie
+      // Validation custom étape 2 : catégorie
+      if (target >= 2) {
+        const categorySelect = document.querySelector('#create-modal-overlay #contrib-category');
+        const selectedCategory = categorySelect?.value;
+        
+        if (!selectedCategory || selectedCategory.trim() === '') {
+          console.error('[contrib-create-form-v2] ❌ Category validation FAILED');
+          showToast('La catégorie est obligatoire.', 'error');
+          
+          try { categorySelect?.focus(); } catch(_) {}
+          
+          return false;
+        }
+      }
+      
+      // Validation custom étape 3 : géométrie
       if (target >= 3) {
         const mode = Array.from(elements.geomModeRadios || []).find(r => r.checked)?.value || 'file';
         const fileInput = elements.geojsonInput;

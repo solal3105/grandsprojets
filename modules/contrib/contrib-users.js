@@ -390,6 +390,12 @@
         try {
           await win.supabaseService.inviteUser(email, selectedCities, selectedRole);
 
+          // Réactiver le bouton AVANT de fermer la modale
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-envelope"></i> <span>Envoyer l\'invitation</span>';
+          }
+
           closeModal();
           const roleLabel = selectedRole === 'admin' ? 'Admin' : 'Invited';
           win.ContribUtils?.showToast(`Invitation envoyée à ${email} avec le rôle ${roleLabel} !`, 'success');

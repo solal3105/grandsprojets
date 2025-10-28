@@ -400,94 +400,216 @@
   background: var(--danger);
 }
 
+/* ============================================================================
+   FILTRES TRAVAUX - Design ultra-clean
+============================================================================ */
+
 #travaux-filters-ux {
-  margin: 20px;
+  padding: 20px;
 }
 
-#travaux-filters-ux .travaux-filters-header {
+/* Card Ajouter */
+.travaux-add-card {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  justify-content: space-between;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  background: var(--surface-base);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
 }
 
-#travaux-filters-ux .travaux-filters-title {
-  font-size: 1rem;
+.add-card-label {
+  font-size: 0.9375rem;
   font-weight: 500;
-  color: var(--gray-700);
+  color: var(--text-primary);
 }
 
-#travaux-filters-ux .travaux-filters-count {
-  font-size: 0.9rem;
-  color: var(--gray-600);
+.add-card-btn {
+  padding: 8px 12px;
 }
 
-#travaux-filters-ux .travaux-filters-badges {
+/* Header */
+.filters-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.filters-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.filters-count {
+  padding: 2px 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--surface-elevated);
+  border-radius: 10px;
+}
+
+/* Tags actifs */
+.filters-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  gap: 6px;
+  margin-bottom: 16px;
 }
 
-#travaux-filters-ux .travaux-filters-badges .badge {
-  background: var(--info-lighter);
-  color: var(--info);
-  padding: 0.2rem 0.5rem;
-  border-radius: 12px;
-  font-size: 0.85rem;
+.filters-tags:empty {
+  display: none;
 }
 
-#travaux-filters-ux .travaux-filters-grid {
-  gap: 1rem;
-  width: 100%;
-}
-
-#travaux-filters-ux .travaux-field {
-  display: flex;
-  flex-direction: column;
-}
-
-#travaux-filters-ux .travaux-field label {
-  margin-bottom: 0.25rem;
-  font-size: 0.9rem;
-  color: var(--gray-600);
-}
-
-#travaux-filters-ux .travaux-field select,
-#travaux-filters-ux .travaux-field input[type="date"] {
-  padding: 0.5rem;
-  border: 1px solid var(--border-medium);
-  border-radius: 4px;
-  font-size: 0.9rem;
-  background: var(--surface-base);
-  color: var(--text-primary);
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-#travaux-filters-ux .travaux-field select:focus,
-#travaux-filters-ux .travaux-field input[type="date"]:focus {
-  border-color: var(--info);
-}
-
-#travaux-filters-ux #reset-all-filters {
+.gpv2-filter-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.5rem 0.8rem;
-  border: 1px solid var(--danger);
-  background: var(--surface-base);
-  color: var(--danger);
-  border-radius: 4px;
-  font-size: 0.9rem;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 0.8125rem;
+  color: var(--primary);
+  background: var(--primary-alpha-12);
+  border-radius: 12px;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition: all 0.2s;
 }
 
-#travaux-filters-ux #reset-all-filters:hover {
-  background: var(--danger);
-  color: var(--white);
+.gpv2-filter-badge:hover {
+  background: var(--primary-alpha-20);
 }
+
+.gpv2-filter-badge i {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+/* Formulaire */
+.filters-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Switch (exclure réseaux) */
+.filter-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--surface-elevated);
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.filter-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.switch-slider {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: var(--border-medium);
+  border-radius: 11px;
+  transition: background 0.2s;
+}
+
+.switch-slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: var(--white);
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.filter-switch input:checked ~ .switch-slider {
+  background: var(--primary);
+}
+
+.filter-switch input:checked ~ .switch-slider::after {
+  transform: translateX(18px);
+}
+
+.switch-label {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* Groupes de champs */
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  align-items: normal !important;
+  gap: 6px;
+}
+
+.filter-group label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.filter-group label i {
+  font-size: 0.875rem;
+  color: var(--primary);
+}
+
+.filter-group select,
+.filter-group input[type="date"] {
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+  background: var(--surface-base);
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  transition: all 0.2s;
+  
+  width: auto;
+  padding: 12px;
+}
+
+
+.filter-group select:focus,
+.filter-group input[type="date"]:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-alpha-15);
+}
+
+.filter-group input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(0.5);
+}
+
+.filter-group input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  filter: invert(0.3);
+}
+
+
+
+/* Bouton reset */
+.filters-form button[type="button"] {
+  margin-top: 8px;
+}
+
 
 /* ---------------------------------------------------------------------------
    Badges, Chips & Pills
@@ -1220,7 +1342,7 @@
   /* Progress bar plus visible sur mobile */
   .basemap-progress {
     height: 5px;
-    bottom: -3px;
+    bottom: -5px;
     box-shadow: 
       0 0 30px var(--primary),
       0 0 50px var(--primary-alpha-55),

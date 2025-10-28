@@ -3,7 +3,7 @@
  * Gère l'état, les événements et l'accessibilité de tous les boutons de contrôle
  */
 
-import { TOGGLES_CONFIG, TOGGLE_ORDER } from './toggles-config.js';
+import { TOGGLES_CONFIG, TOGGLE_ORDER, DESKTOP_ORDER } from './toggles-config.js';
 
 class ToggleManager {
   constructor() {
@@ -26,9 +26,6 @@ class ToggleManager {
     TOGGLE_ORDER.forEach(key => {
       this.initToggle(key);
     });
-
-    // Initialiser contribute séparément (pas dans TOGGLE_ORDER mais géré normalement)
-    this.initToggle('contribute');
 
     this.initialized = true;
 
@@ -59,11 +56,8 @@ class ToggleManager {
     // Ajouter la classe commune
     element.classList.add('app-toggle');
     
-    // DÉSACTIVER PHYSIQUEMENT le bouton pendant l'initialisation
-    element.classList.add('toggle-loading');
-    element.setAttribute('aria-busy', 'true');
-    element.disabled = true; // Désactiver le bouton HTML
-    element.setAttribute('data-loading', 'true'); // Flag pour vérification supplémentaire
+    // Gérer la visibilité SIMPLE (uniquement login/contribute)
+    this.toggleSimpleVisibility(key, config);
 
     // Stocker la référence
     this.toggles.set(key, {
@@ -87,83 +81,21 @@ class ToggleManager {
 
     // Appliquer l'accessibilité
     this.setupAccessibility(element, config);
-    
-    // Attendre que tous les éléments associés soient chargés avant de retirer le loading
-    this.waitForToggleReady(key, element, config);
-  }
-
-  /**
-   * Attendre que le toggle soit complètement prêt avant de retirer le loading
-   */
-  async waitForToggleReady(key, element, config) {
-    // Fonction pour activer le toggle
-    const activateToggle = () => {
-      element.classList.remove('toggle-loading');
-      element.removeAttribute('aria-busy');
-      element.removeAttribute('data-loading');
-      element.disabled = false; // RÉACTIVER le bouton
-    };
-    
-    // Si le toggle n'a pas d'éléments associés (ex: theme), il est prêt immédiatement
-    if (!config.overlaySelector && !config.menuSelector && !config.modalSelector && !config.targetElement) {
-      activateToggle();
-      return;
-    }
-    
-    // Attendre que tous les éléments associés existent dans le DOM
-    const checkInterval = setInterval(() => {
-      if (this.validateToggleElements(key, config, true)) { // silent=true pendant polling
-        clearInterval(checkInterval);
-        activateToggle();
-      }
-    }, 100);
-    
-    // Timeout de sécurité après 10 secondes
-    setTimeout(() => {
-      clearInterval(checkInterval);
-      if (element.hasAttribute('data-loading')) {
-        console.warn(`[ToggleManager] ${key} timeout - forcing ready state`);
-        activateToggle();
-      }
-    }, 10000);
   }
 
   /**
    * Bind les événements d'un toggle
    */
   bindToggleEvents(key, element, config) {
-    // Click event avec protection contre les clics pendant l'initialisation
+    // Click event simple
     element.addEventListener('click', (e) => {
-      // TRIPLE VÉRIFICATION pour être absolument sûr
-      if (element.disabled || 
-          element.hasAttribute('data-loading') || 
-          element.classList.contains('toggle-loading')) {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        console.warn('[ToggleManager] Toggle still loading, click blocked:', key);
-        return false;
-      }
-      
       e.preventDefault();
-      e.stopPropagation();
       this.toggle(key);
     });
 
     // Keyboard accessibility
     element.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
-        // TRIPLE VÉRIFICATION pour être absolument sûr
-        if (element.disabled || 
-            element.hasAttribute('data-loading') || 
-            element.classList.contains('toggle-loading')) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-          console.warn('[ToggleManager] Toggle still loading, keyboard blocked:', key);
-          return false;
-        }
-        
         e.preventDefault();
         this.toggle(key);
       }
@@ -522,11 +454,10 @@ class ToggleManager {
    * Recalcule le layout mobile (barre horizontale)
    */
   recalculateMobileLayout() {
-    const MOBILE_ORDER = ['info', 'location', 'search', 'theme', 'basemap', 'filters', 'contribute', 'login'];
     const visibleToggles = [];
 
-    // Identifier les toggles visibles dans l'ordre mobile
-    MOBILE_ORDER.forEach(key => {
+    // Identifier les toggles visibles dans l'ordre mobile (gauche → droite)
+    TOGGLE_ORDER.forEach(key => {
       const toggle = this.toggles.get(key);
       if (toggle && this.isToggleVisible(toggle.element)) {
         visibleToggles.push({ key, element: toggle.element });
@@ -559,10 +490,9 @@ class ToggleManager {
    * Recalcule le layout desktop (toggles espacés)
    */
   recalculateDesktopLayout() {
-    const DESKTOP_ORDER = ['login', 'contribute', 'filters', 'basemap', 'theme', 'search', 'location', 'info'];
     const visibleToggles = [];
 
-    // Identifier les toggles visibles dans l'ordre desktop
+    // Identifier les toggles visibles dans l'ordre desktop (droite → gauche)
     DESKTOP_ORDER.forEach(key => {
       const toggle = this.toggles.get(key);
       if (toggle && this.isToggleVisible(toggle.element)) {
@@ -588,6 +518,39 @@ class ToggleManager {
     
     const style = window.getComputedStyle(element);
     return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+  }
+
+  /**
+   * Gère la visibilité SIMPLE des toggles
+   * - contribute : visible SEULEMENT si connecté
+   * - login : visible SEULEMENT si non connecté  
+   * - TOUS les autres : toujours visibles
+   */
+  toggleSimpleVisibility(key, config) {
+    const element = document.getElementById(config.id);
+    if (!element) return;
+
+    let isVisible = true;
+
+    // Seules les 2 exceptions simples
+    if (key === 'contribute') {
+      // Visible seulement si connecté
+      isVisible = this.isUserConnected();
+    } else if (key === 'login') {
+      // Visible seulement si non connecté
+      isVisible = !this.isUserConnected();
+    }
+
+    // Appliquer la visibilité (aucune complexité mobile/desktop)
+    element.style.display = isVisible ? 'flex' : 'none';
+  }
+
+  /**
+   * Vérifie si l'utilisateur est connecté
+   */
+  isUserConnected() {
+    // Simple vérification : utilisateur connecté si un token existe
+    return window.SupabaseAuth?.getSession?.() || localStorage.getItem('supabase.auth.token');
   }
 
   /**

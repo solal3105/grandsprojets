@@ -645,7 +645,7 @@ const TravauxEditorModule = (() => {
       
       showStatus(MESSAGES.SAVE_SUCCESS, 'success');
       
-      // Recharger la couche travaux/chantiers et fermer
+      // Recharger immédiatement la couche travaux comme pour la suppression
       setTimeout(async () => {
         try {
           // Nettoyer les features dessinées
@@ -655,27 +655,19 @@ const TravauxEditorModule = (() => {
           // Fermer la modale
           closeFormModal();
           
-          // Recharger le layer city-travaux-chantiers
-          const layerToReload = 'city-travaux-chantiers';
-          
-          // Vider le cache pour forcer le rechargement
-          if (window.DataModule?.clearLayerCache) {
-            window.DataModule.clearLayerCache(layerToReload);
+          // Recharger la couche travaux (méode simple comme suppression)
+          if (window.DataModule?.reloadLayer) {
+            await window.DataModule.reloadLayer('travaux');
           }
           
-          // Recharger les données du layer
-          if (window.DataModule?.loadLayer) {
-            await window.DataModule.loadLayer(layerToReload);
-          }
-          
-          // Recharger le submenu travaux si ouvert
-          if (window.TravauxModule?.renderTravauxProjects) {
-            await window.TravauxModule.renderTravauxProjects();
+          // Afficher un message de succès
+          if (window.ContribUtils?.showToast) {
+            window.ContribUtils.showToast('Chantier créé avec succès', 'success');
           }
         } catch (err) {
           console.error('[TravauxEditor] Erreur rechargement:', err);
         }
-      }, RELOAD_DELAY_MS);
+      }, 500); // Délai réduit pour mise à jour plus rapide
       
     } catch (err) {
       console.error('[TravauxEditor] Erreur sauvegarde:', err);
@@ -1000,20 +992,22 @@ const TravauxEditorModule = (() => {
       
       showStatus(MESSAGES.UPDATE_SUCCESS, 'success');
       
-      // Recharger la couche et fermer
-      setTimeout(async () => {
-        try {
-          // Recharger la couche city-travaux-chantiers
-          if (window.DataModule?.reloadLayer) {
-            await window.DataModule.reloadLayer('city-travaux-chantiers');
-          }
-          
-          closeFormModal();
-        } catch (err) {
-          console.error('[TravauxEditor] Erreur rechargement:', err);
-          closeFormModal();
+      // Recharger la couche et fermer (même logique que suppression)
+      try {
+        closeFormModal();
+        
+        // Recharger la couche travaux
+        if (window.DataModule?.reloadLayer) {
+          await window.DataModule.reloadLayer('travaux');
         }
-      }, RELOAD_DELAY_MS);
+        
+        // Afficher un message de succès
+        if (window.ContribUtils?.showToast) {
+          window.ContribUtils.showToast('Chantier modifié avec succès', 'success');
+        }
+      } catch (err) {
+        console.error('[TravauxEditor] Erreur rechargement:', err);
+      }
       
     } catch (err) {
       console.error('[TravauxEditor] Erreur mise à jour:', err);
