@@ -2050,9 +2050,40 @@
             categoryModalOverlay.inert = true;
             
             // Rafraîchir la liste et s'assurer qu'elle est visible
-            await refreshCategoriesList();
+            const currentCity = getCurrentCity();
+            await refreshCategoriesList(currentCity);
             if (categoriesContent) {
               categoriesContent.style.display = '';
+            }
+            
+            // Recharger les catégories dans le select de création de contribution (si la modale est ouverte)
+            const categorySelect = document.querySelector('#create-modal-overlay #contrib-category');
+            if (categorySelect) {
+              try {
+                const categories = await win.supabaseService.getCategoryIconsByCity(currentCity);
+                if (categories && categories.length > 0) {
+                  // Vider et recharger le select
+                  categorySelect.innerHTML = '<option value="">Sélectionnez une catégorie</option>';
+                  const sortedCategories = categories.sort((a, b) => a.category.localeCompare(b.category));
+                  sortedCategories.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat.category;
+                    option.textContent = cat.category.charAt(0).toUpperCase() + cat.category.slice(1);
+                    categorySelect.appendChild(option);
+                  });
+                  categorySelect.disabled = false;
+                  
+                  // Cacher le message d'aide
+                  const categoryHelp = document.querySelector('#create-modal-overlay #contrib-category-help');
+                  if (categoryHelp) {
+                    categoryHelp.style.display = 'none';
+                  }
+                  
+                  console.log('[contrib] Catégories rechargées dans le select après création');
+                }
+              } catch (err) {
+                console.error('[contrib] Erreur rechargement catégories select:', err);
+              }
             }
           }, 220);
           
