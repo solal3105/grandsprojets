@@ -2239,12 +2239,6 @@
         });
       }
       
-      // Bouton annuler
-      const cancelBtn = document.getElementById('category-form-cancel');
-      if (cancelBtn) {
-        cancelBtn.onclick = closeModal;
-      }
-      
       // Stocker la fonction de fermeture pour l'appeler après succès
       win.__closeCategoryModal = closeModal;
     }
