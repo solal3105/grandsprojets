@@ -50,6 +50,12 @@
       return;
     }
     
+    // Vérifier que le document est disponible
+    if (typeof document === 'undefined' || !document.documentElement) {
+      console.warn('[CityBranding] Document not available for styling');
+      return;
+    }
+    
     document.documentElement.style.setProperty('--color-primary', primaryColor);
   },
 
@@ -226,29 +232,32 @@
       });
     } else {
       // Fallback : manipulation directe du DOM
-      allToggles.forEach(toggleKey => {
-        const toggleElement = document.getElementById(`${toggleKey}-toggle`);
-        if (toggleElement) {
-          let isEnabled = enabledToggles.includes(toggleKey);
-          
-          // Règles spéciales selon l'état d'authentification
-          if (toggleKey === 'login') {
-            // Masquer le toggle login si l'utilisateur est connecté
-            if (isAuthenticated) {
-              isEnabled = false;
+      // Vérifier que le document est disponible
+      if (typeof document !== 'undefined' && document.getElementById) {
+        allToggles.forEach(toggleKey => {
+          const toggleElement = document.getElementById(`${toggleKey}-toggle`);
+          if (toggleElement) {
+            let isEnabled = enabledToggles.includes(toggleKey);
+            
+            // Règles spéciales selon l'état d'authentification
+            if (toggleKey === 'login') {
+              // Masquer le toggle login si l'utilisateur est connecté
+              if (isAuthenticated) {
+                isEnabled = false;
+              }
+            } else if (toggleKey === 'contribute') {
+              // Afficher le toggle contribute uniquement si l'utilisateur est connecté
+              isEnabled = isAuthenticated;
             }
-          } else if (toggleKey === 'contribute') {
-            // Afficher le toggle contribute uniquement si l'utilisateur est connecté
-            isEnabled = isAuthenticated;
+            
+            if (isEnabled) {
+              toggleElement.style.display = '';
+            } else {
+              toggleElement.style.display = 'none';
+            }
           }
-          
-          if (isEnabled) {
-            toggleElement.style.display = '';
-          } else {
-            toggleElement.style.display = 'none';
-          }
-        }
-      });
+        });
+      }
     }
   },
 
@@ -278,6 +287,12 @@
    * Initialise les listeners pour mettre à jour le toggle login/contribute selon l'état d'authentification
    */
   async init() {
+    // Vérifier que nous sommes dans un contexte avec les dépendances requises
+    if (!win.AuthModule && !win.supabaseService) {
+      console.warn('[CityBranding] No auth dependencies available - skipping initialization');
+      return;
+    }
+    
     // Attendre que toggleManager soit initialisé avant d'appliquer la config
     const waitForToggleManager = () => {
       return new Promise((resolve) => {

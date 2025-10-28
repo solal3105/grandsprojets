@@ -1106,7 +1106,7 @@
       });
     }
     
-    // Bouton "Gérer ma collectivité" : ouvre directement la modale d'édition de la ville sélectionnée
+    // Bouton "Gérer ma collectivité" : ouvre la modale d'édition de la ville sélectionnée
     if (landingEditCityBtn) {
       landingEditCityBtn.addEventListener('click', async () => {
         const landingCitySelect = document.getElementById('landing-city-select');
@@ -1118,7 +1118,6 @@
           return;
         }
         
-        // Récupérer les données de la ville
         try {
           const cityData = await win.supabaseService?.getCityBranding?.(selectedCityCode);
           

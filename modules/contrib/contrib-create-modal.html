@@ -17,71 +17,153 @@
         <button class="contrib-step" id="contrib-step-4-tab" role="tab" aria-selected="false" tabindex="-1">4. Liens</button>
       </div>
       
-      <!-- Assistant rédacteur (Carte verte animée, étape 3 uniquement) -->
-      <div id="assistant-writer-card" class="contrib-step-3" role="region" aria-label="Assistant rédacteur"
-           style="margin:12px 0 14px; border:1px solid var(--info); border-radius:14px; padding:14px; background:linear-gradient(180deg,var(--info-lighter),var(--info-lighter)); box-shadow:0 2px 8px var(--info-alpha-1); position:relative; overflow:hidden;">
-        <!-- overlay cliquable sur toute la carte -->
-        <a href="/assistant-ia/" target="_blank" rel="noopener" aria-label="Ouvrir l'assistant IA"
-           style="position:absolute; inset:0; z-index:1; opacity:0;">
-        </a>
-        <div style="display:flex; gap:12px; align-items:center; position:relative; z-index:2;">
-          <div class="sparkle" aria-hidden="true" style="font-size:28px; line-height:1;">✨</div>
-          <div style="flex:1 1 auto; min-width:0;">
-            <h3 class="title" style="margin:0; color:var(--info-active); font-size:18px;">
-              <span class="shimmer">Rédiger avec l'assistant</span>
-            </h3>
-            <div class="subtitle" style="margin:2px 0 8px; color:var(--info-active); font-size:14px;">Premier jet en 1 minute</div>
-            <div class="chips" aria-label="L'assistant vous aide pour">
-              <span>Markdown</span>
-              <span>Méta</span>
-              <span>Description</span>
-            </div>
+      <!-- Assistant IA - Outil d'aide à la rédaction -->
+      <div class="contrib-step-3">
+        <a href="/assistant-ia/" 
+           target="_blank" 
+           rel="noopener noreferrer"
+           class="ia-assistant-card"
+           aria-label="Ouvrir l'assistant IA pour vous aider à rédiger vos contenus">
+          
+          <div class="ia-card-header">
+            <div class="ia-icon">💡</div>
+            <div class="ia-badge">Outil d'aide</div>
           </div>
-          <a id="contrib-assistant-link" href="/assistant-ia/" target="_blank" rel="noopener"
-             style="display:inline-block; background:var(--info); color:var(--white); padding:10px 14px; border-radius:10px; text-decoration:none; font-weight:600; white-space:nowrap; position:relative; z-index:3;">
-            Ouvrir
-          </a>
-        </div>
+          
+          <div class="ia-card-body">
+            <h4 class="ia-title">Assistant de rédaction IA</h4>
+            <p class="ia-description">
+              Cet outil vous aide à générer un premier jet de vos contenus. 
+              Vous restez libre de modifier et d'adapter les résultats.
+            </p>
+            
+            <ul class="ia-features">
+              <li>Article Markdown</li>
+              <li>Méta-données</li>
+              <li>Description</li>
+            </ul>
+          </div>
+          
+          <div class="ia-card-footer">
+            <span class="ia-cta-text">Essayer l'assistant</span>
+            <span class="ia-cta-icon">→</span>
+          </div>
+        </a>
       </div>
-      
-      <!-- Styles spécifiques à la carte assistant (scopés) -->
+
       <style>
-        /* Pop-in à l'apparition en étape 3 */
-        #assistant-writer-card { animation: agp-pop 480ms cubic-bezier(.2,.8,.2,1) both; }
-        @keyframes agp-pop { from { transform: translateY(-6px) scale(.98); opacity:.0; } to { transform: translateY(0) scale(1); opacity:1; } }
-
-        /* Halo pulsant vert (accent non intrusif) */
-        #assistant-writer-card::after {
-          content:""; position:absolute; inset:-2px; border-radius:16px;
-          border:2px solid var(--info-alpha-35); pointer-events:none; filter:blur(.3px);
-          animation: agp-pulse 1600ms ease-out infinite;
+        /* Carte compacte et cohérente */
+        .ia-assistant-card {
+          display: block;
+          background: var(--info-lighter);
+          border: 1px solid var(--info-light);
+          border-radius: 12px;
+          padding: 14px;
+          margin: 12px 0;
+          text-decoration: none;
+          color: inherit;
+          transition: all 0.2s ease;
         }
-        @keyframes agp-pulse { 0% { opacity:.55; } 60% { opacity:.15; } 100% { opacity:.35; } }
 
-        /* L'emoji flotte légèrement */
-        #assistant-writer-card .sparkle { animation: agp-float 2800ms ease-in-out infinite; }
-        @keyframes agp-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
-
-        /* Titre scintillant discret */
-        #assistant-writer-card .shimmer {
-          background: linear-gradient(90deg, var(--info-active) 0%, var(--info-light) 50%, var(--info-active) 100%);
-          -webkit-background-clip: text; background-clip: text; 
-          color: var(--info-active); /* Fallback color */
-          -webkit-text-fill-color: transparent;
-          background-size: 200% 100%; animation: agp-shimmer 2200ms linear infinite;
+        .ia-assistant-card:hover {
+          background: var(--info-alpha-15);
+          border-color: var(--info);
+          box-shadow: 0 4px 12px var(--info-alpha-12);
         }
-        @keyframes agp-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-        /* Petites pastilles explicatives */
-        #assistant-writer-card .chips { display:flex; gap:6px; flex-wrap:wrap; }
-        #assistant-writer-card .chips span {
-          background:var(--info-lighter); color:var(--info-active); border:1px solid var(--info-lighter);
-          border-radius:999px; padding:4px 8px; font-size:12px; line-height:1;
-          animation: agp-chip-in 420ms cubic-bezier(.2,.8,.2,1) both;
+        .ia-assistant-card:focus-visible {
+          outline: 2px solid var(--info);
+          outline-offset: 2px;
         }
-        #assistant-writer-card .chips span:nth-child(2) { animation-delay: 60ms; }
-        #assistant-writer-card .chips span:nth-child(3) { animation-delay: 120ms; }
-        @keyframes agp-chip-in { from { transform: translateY(4px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+
+        /* Header compact */
+        .ia-card-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 10px;
+        }
+
+        .ia-icon {
+          font-size: 20px;
+          line-height: 1;
+        }
+
+        .ia-badge {
+          background: var(--info-alpha-20);
+          color: var(--info);
+          padding: 4px 10px;
+          border-radius: 12px;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+
+        /* Corps du texte */
+        .ia-card-body {
+          margin-bottom: 12px;
+        }
+
+        .ia-title {
+          font-size: 15px;
+          font-weight: 700;
+          margin: 0 0 6px 0;
+          color: var(--info);
+        }
+
+        .ia-description {
+          font-size: 13px;
+          line-height: 1.5;
+          color: var(--text-secondary);
+          margin: 0 0 10px 0;
+        }
+
+        /* Liste des fonctionnalités */
+        .ia-features {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin: 0;
+          padding: 0;
+          list-style: none;
+        }
+
+        .ia-features li {
+          background: var(--surface-elevated);
+          color: var(--info);
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          border: 1px solid var(--info-alpha-20);
+        }
+
+        /* Footer avec CTA */
+        .ia-card-footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: var(--info);
+          color: var(--text-on-primary);
+          padding: 10px 14px;
+          border-radius: 8px;
+          font-weight: 600;
+          font-size: 13px;
+          transition: all 0.2s ease;
+        }
+
+        .ia-assistant-card:hover .ia-card-footer {
+          background: var(--info-hover);
+        }
+
+        .ia-cta-icon {
+          transition: transform 0.2s ease;
+        }
+
+        .ia-assistant-card:hover .ia-cta-icon {
+          transform: translateX(3px);
+        }
       </style>
 
       <form id="contrib-form" class="contrib-form">

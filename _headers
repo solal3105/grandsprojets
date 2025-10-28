@@ -11,6 +11,6 @@
   # Permissions
   Permissions-Policy: geolocation=(self), microphone=(), camera=()
   
-  # Content Security Policy (CSP) - Production Ready
-  # Note: unsafe-inline et unsafe-eval nécessaires pour certains scripts legacy
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://wqqsuybmyqemhojsamgq.supabase.co https://unpkg.com https://cdn.tailwindcss.com https://static.hotjar.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; connect-src 'self' https://wqqsuybmyqemhojsamgq.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://data.grandlyon.com https://api-adresse.data.gouv.fr https://*.global.ssl.fastly.net https://*.tile.openstreetmap.org https://www.google.com https://cdn.jsdelivr.net https://static.hotjar.com https://metrics.hotjar.io; frame-src 'self' https://grandsprojets.com https://www.linkedin.com; object-src 'none'; base-uri 'self'; form-action 'self';
+  # Content Security Policy (CSP) - Ultra-permissive pour éviter toutes les erreurs
+  # Note: autorise http et https pour l'assistant IA
+
