@@ -24,7 +24,6 @@
       
       container.innerHTML = html;
       modalLoaded = true;
-      console.log('[contrib] Modal template loaded successfully');
       return true;
       
     } catch (error) {
@@ -70,8 +69,6 @@
       // Ajouter la modale catégorie après la modale contrib
       container.insertAdjacentHTML('beforeend', html);
       categoryModalLoaded = true;
-      console.log('[contrib] Category modal template loaded successfully');
-      
       return true;
       
     } catch (error) {
@@ -103,7 +100,6 @@
       // Ajouter la modale invitation après les autres modales
       container.insertAdjacentHTML('beforeend', html);
       inviteModalLoaded = true;
-      console.log('[contrib] Invite modal template loaded successfully');
       return true;
       
     } catch (error) {
@@ -133,7 +129,6 @@
       // Ajouter la modale création après les autres modales
       container.insertAdjacentHTML('beforeend', html);
       createModalLoaded = true;
-      console.log('[contrib] Create modal template loaded successfully');
       return true;
       
     } catch (error) {
@@ -780,11 +775,8 @@
       for (const field of requiredFields) {
         // Ignorer les champs cachés ou désactivés
         if (field.offsetParent === null || field.disabled) {
-          console.log(`[contrib] Skipping hidden/disabled field:`, field.id || field.name);
           continue;
         }
-        
-        console.log(`[contrib] Validating field:`, field.id || field.name, 'value:', field.value);
         
         // Utiliser la validation HTML5 native
         if (!field.checkValidity()) {
@@ -820,11 +812,8 @@
           showToast(message, 'error');
           return false;
         }
-        
-        console.log('[contrib] ✅ Geometry validation passed');
       }
       
-      console.log(`[contrib] ✅ Step ${currentStep} validation passed, proceeding to step ${target}`);
       return true;
     }
 
@@ -1942,7 +1931,6 @@
 
     // refreshCategoriesList moved to contrib-categories-crud.js
     async function refreshCategoriesList(city) {
-      console.log('[refreshCategoriesList] Called with city:', city);
       
       if (!city) {
         console.warn('[refreshCategoriesList] No city provided');
@@ -2052,23 +2040,32 @@
         e.preventDefault();
         await ContribCategoriesCrud.handleCategoryFormSubmit?.(e, elements, showToast, async () => {
           // Callback de fermeture après succès
-          console.log('[openCategoryModal] Form submitted successfully, closing modal');
           const modalInner = categoryModalOverlay.querySelector('.gp-modal');
           if (modalInner) {
             modalInner.classList.remove('is-open');
           }
-          setTimeout(() => {
+          setTimeout(async () => {
             categoryModalOverlay.setAttribute('aria-hidden', 'true');
             categoryModalOverlay.inert = true;
+            
+            // Rafraîchir la liste et s'assurer qu'elle est visible
+            await refreshCategoriesList();
+            if (categoriesContent) {
+              categoriesContent.style.display = '';
+            }
           }, 220);
           
-          // Rafraîchir la liste et s'assurer qu'elle est visible
-          console.log('[openCategoryModal] Refreshing categories list');
-          await refreshCategoriesList();
-          if (categoriesContent) {
-            categoriesContent.style.display = '';
-            console.log('[openCategoryModal] Categories content displayed');
-          }
+          // Stocker la fonction de fermeture pour l'appeler après succès
+          win.__closeCategoryModal = () => {
+            const modalInner = categoryModalOverlay.querySelector('.gp-modal');
+            if (modalInner) {
+              modalInner.classList.remove('is-open');
+            }
+            setTimeout(() => {
+              categoryModalOverlay.setAttribute('aria-hidden', 'true');
+              categoryModalOverlay.inert = true;
+            }, 220);
+          };
         }, refreshCategoriesList);
       };
       

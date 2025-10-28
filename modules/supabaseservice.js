@@ -1,9 +1,15 @@
 // modules/supabaseService.js
 ;(function(win){
   // 1️⃣ Initialise le client Supabase via le global `supabase` chargé par CDN
+  // Éviter de créer plusieurs instances (warning Multiple GoTrueClient)
   const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
-  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  
+  // Réutiliser le client existant s'il existe déjà
+  const supabaseClient = win.__supabaseClient || supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  if (!win.__supabaseClient) {
+    win.__supabaseClient = supabaseClient;
+  }
  
   // Helper: slugify (réutilisé pour les chemins Storage)
   const slugify = (str) => String(str || '')
@@ -262,7 +268,6 @@
         
         // Ajouter les layers additionnels depuis layers_to_display (s'ils existent)
         if (Array.isArray(cat.layers_to_display) && cat.layers_to_display.length > 0) {
-          console.log('[supabaseService] 📋 Catégorie', cat.category, 'a layers_to_display:', cat.layers_to_display);
           cat.layers_to_display.forEach(layerName => {
             // Éviter les doublons (si layers_to_display contient déjà le nom de la catégorie)
             if (layerName !== cat.category && !layers.includes(layerName)) {
@@ -274,7 +279,6 @@
         map[cat.category] = layers;
       });
 
-      console.log('[supabaseService] ✅ categoryLayersMap final:', map);
       return map;
     },
 
@@ -390,7 +394,6 @@
         if (activeCity) {
           // Ville spécifique : contributions de cette ville uniquement
           query = query.eq('ville', activeCity);
-          console.log('🏙️ [listContributions] Filtre: ville =', activeCity);
         } else {
           // Pas de ville sélectionnée : erreur (ne devrait pas arriver)
           throw new Error('No city selected');
@@ -418,8 +421,6 @@
               ? window.__CONTRIB_ROLE 
               : 'invited';
             
-            console.log('🔐 [listContributions] User role:', userRole, 'mineOnly:', mineOnly);
-            
             if (userRole === 'invited') {
               // Pour invited : voir ses contributions + celles approuvées de son équipe
               // IMPORTANT : Le filtre ville est déjà appliqué plus haut avec .eq('ville', activeCity)
@@ -427,23 +428,19 @@
               if (mineOnly) {
                 // Si mineOnly = true, on montre uniquement ses contributions (de cette ville)
                 query = query.eq('created_by', uid);
-                console.log('✅ [listContributions] Filtre invited mineOnly: created_by =', uid);
               } else {
                 // Si mineOnly = false, on montre ses contributions + celles approuvées (de cette ville)
                 // Le filtre ville reste actif car il a été appliqué AVANT
                 query = query.or(`created_by.eq.${uid},approved.eq.true`);
-                console.log('✅ [listContributions] Filtre invited: created_by =', uid, 'OR approved = true');
               }
             } else if (userRole === 'admin') {
               // Pour admin
               if (mineOnly) {
                 // Si mineOnly = true, on montre uniquement ses contributions
                 query = query.eq('created_by', uid);
-                console.log('✅ [listContributions] Filtre admin mineOnly: created_by =', uid);
               } else {
                 // Si mineOnly = false, on voit TOUT (de cette ville)
                 // Pas de filtre supplémentaire
-                console.log('✅ [listContributions] Admin voit TOUT (ville:', activeCity, ')');
               }
             }
           }
@@ -466,16 +463,6 @@
         if (error) {
           console.error('❌ [listContributions] Erreur Supabase:', error);
           return { items: [], count: 0 };
-        }
-        
-        // Vérifier les résultats (debug)
-        if (data && data.length > 0) {
-          const villes = [...new Set(data.map(item => item.ville))];
-          console.log('📊 [listContributions] Résultats:', {
-            count: data.length,
-            ville: activeCity,
-            villesDistinctes: villes
-          });
         }
         
         return { items: data || [], count: typeof count === 'number' ? count : (data ? data.length : 0) };
@@ -906,7 +893,6 @@
      */
     fetchFilterItems: async function() {
       const activeCity = getActiveCity();
-      console.log('[supabaseService] 🔍 fetchFilterItems pour ville:', activeCity);
       
       if (!activeCity) {
         console.warn('[supabaseService] fetchFilterItems: Pas de ville, retour vide');
@@ -927,7 +913,6 @@
       }
       
       const allowedLayers = new Set((layerRows || []).map(r => r.name).filter(Boolean));
-      console.log('[supabaseService] 📋 Layers autorisés pour', activeCity, ':', Array.from(allowedLayers));
       
       // Récupérer tous les filter_items et filtrer par layers autorisés
       const { data, error } = await supabaseClient
@@ -940,7 +925,6 @@
       }
       
       const filtered = (data || []).filter(item => allowedLayers.has(item.layer));
-      console.log('[supabaseService] ✅ Filter items retournés:', filtered.length, 'items');
       
       return filtered;
     },
@@ -985,14 +969,11 @@
      */
     getCityBranding: async function(ville) {
       try {
-        console.log('[supabaseService] 🔍 getCityBranding appelé pour ville:', ville);
         const v = String(ville || '').trim();
         if (!v) {
-          console.log('[supabaseService] ⚠️ Ville vide, retour null');
           return null;
         }
 
-        console.log('[supabaseService] 📡 Requête Supabase city_branding pour:', v);
         const { data, error } = await supabaseClient
           .from('city_branding')
           .select('*')
@@ -1005,7 +986,6 @@
           return null;
         }
         
-        console.log('[supabaseService] ✅ city_branding reçu:', data);
         return data || null;
       } catch (e) {
         console.warn('[supabaseService] ❌ getCityBranding exception:', e);
@@ -1359,9 +1339,6 @@
      */
     createContributionRow: async function(projectName, category, city, meta, description, officialUrl) {
       try {
-        console.log('🔍 [supabaseService] createContributionRow called');
-        console.log('🔍 [supabaseService] Received params:', { projectName, category, city, meta, description, officialUrl });
-        
         if (!projectName || !category) throw new Error('Paramètres manquants');
         
         let createdBy = null;
@@ -1370,9 +1347,7 @@
           if (userData && userData.user) createdBy = userData.user.id;
         } catch (_) {}
         
-        console.log('🔍 [supabaseService] city param before sanitize:', city);
         const sanitizedCity = sanitizeCity(city);
-        console.log('🔍 [supabaseService] city after sanitize:', sanitizedCity);
         
         const baseRow = {
           project_name: projectName,
@@ -1384,10 +1359,6 @@
         };
         
         if (createdBy) baseRow.created_by = createdBy;
-        
-        console.log('🔍 [supabaseService] Final baseRow to insert:', baseRow);
-        console.log('🔍 [supabaseService] baseRow.ville:', baseRow.ville);
-        console.log('🔍 [supabaseService] JSON.stringify(baseRow):', JSON.stringify(baseRow, null, 2));
         
         if (!baseRow.ville) {
           console.error('❌ [supabaseService] CRITIQUE: baseRow.ville est null!');
@@ -1403,10 +1374,6 @@
           console.error('❌ [supabaseService] Insert error:', error);
           throw error;
         }
-        
-        console.log('✅ [supabaseService] Row inserted with ID:', data?.id);
-        console.log('🔍 [supabaseService] VERIFICATION: Row returned from DB:', data);
-        console.log('🔍 [supabaseService] VERIFICATION: data.ville =', data?.ville);
         
         if (!data?.ville) {
           console.error('❌ [supabaseService] PROBLEME: La BDD a retourné ville = null/undefined!');
@@ -1689,7 +1656,6 @@
           }
 
           // ÉTAPE 1 : Mettre à jour les contributions qui utilisent cette catégorie
-          console.log('[supabaseService] Updating contributions with category:', { ville: normalizedVille, oldCategory: normalizedOriginal, newCategory });
           const { data: updatedContribs, error: updateContribsError } = await supabaseClient
             .from('contribution_uploads')
             .update({ category: newCategory })
@@ -1701,8 +1667,6 @@
             console.error('[supabaseService] updateCategoryIcon: error updating contributions:', updateContribsError);
             return { success: false, error: 'Erreur lors de la mise à jour des contributions: ' + updateContribsError.message };
           }
-
-          console.log('[supabaseService] Updated', updatedContribs?.length || 0, 'contributions');
 
           // ÉTAPE 2 : Supprimer l'ancienne catégorie
           const { error: deleteError } = await supabaseClient
@@ -1931,8 +1895,6 @@
         
         const isGlobalAdmin = Array.isArray(adminVilles) && adminVilles.includes('global');
         
-        console.log('[supabaseService] getVisibleUsers: admin villes:', adminVilles, 'isGlobal:', isGlobalAdmin);
-        
         // Récupérer tous les utilisateurs (sauf soi-même) avec leur email via la fonction
         const { data: allUsers, error: usersError } = await supabaseClient
           .rpc('get_profiles_with_email');
@@ -1972,29 +1934,20 @@
         
         if (!isGlobalAdmin) {
           // Admin ville : filtrer uniquement les utilisateurs avec au moins une ville commune
-          console.log('[supabaseService] getVisibleUsers: filtering by cities, admin has:', adminVilles);
           visibleUsers = filteredUsers.filter(u => {
             if (!u.ville) {
-              console.log('[supabaseService] User', u.id, 'has no ville');
               return false;
             }
             
             // ville doit être un array
             if (!Array.isArray(u.ville)) {
-              console.log('[supabaseService] User', u.id, 'ville is not an array:', typeof u.ville, u.ville);
               return false;
             }
             
-            console.log('[supabaseService] User', u.id, 'has villes:', u.ville);
-            
             // Vérifier s'il y a au moins une ville en commun
             const hasMatch = adminVilles.some(adminCity => u.ville.includes(adminCity));
-            console.log('[supabaseService] User', u.id, 'match:', hasMatch);
             return hasMatch;
           });
-          console.log('[supabaseService] getVisibleUsers: after filtering:', visibleUsers.length, 'users');
-        } else {
-          console.log('[supabaseService] getVisibleUsers: global admin, showing all users');
         }
         
         // Les emails sont déjà dans les données depuis la vue profiles_with_email
@@ -2005,8 +1958,6 @@
           ville: u.ville,
           created_at: u.created_at
         }));
-        
-        console.log('[supabaseService] getVisibleUsers: returning', result.length, 'users');
         
         return result;
       } catch (e) {
@@ -2222,8 +2173,6 @@
         });
 
         const data = await response.json();
-
-        console.log('[supabaseService] inviteUser response:', { status: response.status, data });
 
         if (!response.ok) {
           const errorMessage = data.error || data.details || `HTTP ${response.status}: ${response.statusText}`;

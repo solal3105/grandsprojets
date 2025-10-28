@@ -22,8 +22,6 @@ class ToggleManager {
       return;
     }
 
-    console.log('[ToggleManager] Initializing toggles...');
-
     // Initialiser tous les toggles de TOGGLE_ORDER
     TOGGLE_ORDER.forEach(key => {
       this.initToggle(key);
@@ -33,7 +31,6 @@ class ToggleManager {
     this.initToggle('contribute');
 
     this.initialized = true;
-    console.log('[ToggleManager] All toggles initialized:', this.toggles.size);
 
     // Observer les changements de visibilité
     this.observeVisibilityChanges();
@@ -93,8 +90,6 @@ class ToggleManager {
     
     // Attendre que tous les éléments associés soient chargés avant de retirer le loading
     this.waitForToggleReady(key, element, config);
-
-    console.log(`[ToggleManager] ✓ ${key} initialized`);
   }
 
   /**
@@ -107,7 +102,6 @@ class ToggleManager {
       element.removeAttribute('aria-busy');
       element.removeAttribute('data-loading');
       element.disabled = false; // RÉACTIVER le bouton
-      console.log(`[ToggleManager] ${key} ready and enabled`);
     };
     
     // Si le toggle n'a pas d'éléments associés (ex: theme), il est prêt immédiatement
@@ -404,7 +398,6 @@ class ToggleManager {
     if (saved !== null) {
       const restoredState = saved === 'true';
       this.setState(key, restoredState);
-      console.log(`[ToggleManager] ${key} state restored:`, restoredState);
     }
   }
 
@@ -495,7 +488,6 @@ class ToggleManager {
     }
 
     toggle.element.style.display = visible ? 'flex' : 'none';
-    console.log(`[ToggleManager] ${key} visibility set to:`, visible);
     
     // Le MutationObserver déclenchera automatiquement recalculatePositions()
   }
@@ -561,8 +553,6 @@ class ToggleManager {
         toggle.element.setAttribute('data-edge', 'last');
       }
     });
-
-    console.log(`[ToggleManager] Mobile layout recalculated: ${totalVisible} toggles visible`);
   }
 
   /**
@@ -588,8 +578,6 @@ class ToggleManager {
       // Pas de border-radius en desktop (cercles complets)
       toggle.element.removeAttribute('data-edge');
     });
-
-    console.log(`[ToggleManager] Desktop layout recalculated: ${visibleToggles.length} toggles visible`);
   }
 
   /**
@@ -656,7 +644,6 @@ class ToggleManager {
     this.state.clear();
     this.listeners.clear();
     this.initialized = false;
-    console.log('[ToggleManager] Destroyed');
   }
 }
 

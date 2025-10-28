@@ -9,8 +9,6 @@
    * @param {string} ville - Code de la ville
    */
   async function initTravauxConfig(ville) {
-    console.log('[TravauxConfig] Init pour ville:', ville);
-    
     const section = document.getElementById('travaux-config-section');
     if (!section) {
       console.warn('[TravauxConfig] Section non trouvée');
@@ -19,6 +17,12 @@
 
     // Afficher la section
     section.style.display = 'block';
+
+    // Initialiser le collapse header
+    initCollapseHeader();
+
+    // Initialiser le toggle knob
+    initToggleKnob();
 
     // Initialiser l'icon picker
     initIconPicker();
@@ -31,6 +35,64 @@
 
     // Bind des event listeners
     bindTravauxConfigEvents(ville);
+  }
+
+  /**
+   * Initialise le collapse/expand du header
+   */
+  function initCollapseHeader() {
+    const header = document.getElementById('travaux-config-header');
+    const content = document.getElementById('travaux-config-content');
+    
+    if (!header || !content) {
+      console.warn('[TravauxConfig] Header ou content non trouvé');
+      return;
+    }
+
+    // Par défaut, collapsed
+    header.classList.add('collapsed');
+    
+    header.addEventListener('click', () => {
+      const isCollapsed = header.classList.contains('collapsed');
+      
+      if (isCollapsed) {
+        // Expand
+        header.classList.remove('collapsed');
+        content.style.display = 'block';
+      } else {
+        // Collapse
+        header.classList.add('collapsed');
+        content.style.display = 'none';
+      }
+    });
+  }
+
+  /**
+   * Initialise le toggle knob et gère l'affichage du contenu étendu
+   */
+  function initToggleKnob() {
+    const toggle = document.getElementById('travaux-enabled-toggle');
+    const statusText = document.getElementById('travaux-status-text');
+    const extendedContent = document.getElementById('travaux-extended-content');
+    
+    if (!toggle || !statusText || !extendedContent) {
+      console.warn('[TravauxConfig] Éléments toggle non trouvés');
+      return;
+    }
+
+    toggle.addEventListener('change', () => {
+      if (toggle.checked) {
+        // Activé
+        statusText.textContent = 'Catégorie activée';
+        statusText.style.color = 'var(--success)';
+        extendedContent.style.display = 'block';
+      } else {
+        // Désactivé
+        statusText.textContent = 'Catégorie désactivée';
+        statusText.style.color = 'var(--text-tertiary)';
+        extendedContent.style.display = 'none';
+      }
+    });
   }
 
   /**
@@ -106,8 +168,6 @@
         checkboxes.forEach(cb => {
           cb.name = 'travaux-layer-checkbox';
         });
-        
-        console.log('[TravauxConfig] Checkboxes layers chargées:', checkboxes.length);
       } else {
         container.innerHTML = '<small style="color:var(--danger);">Erreur: Module ContribCategories non disponible</small>';
       }
@@ -125,9 +185,13 @@
       const config = await win.supabaseService.getTravauxConfig(ville);
       
       if (config) {
-        // Remplir le formulaire
-        document.getElementById('travaux-enabled-yes').checked = config.enabled === true;
-        document.getElementById('travaux-enabled-no').checked = config.enabled !== true;
+        // Remplir le formulaire avec le toggle
+        const toggle = document.getElementById('travaux-enabled-toggle');
+        if (toggle) {
+          toggle.checked = config.enabled === true;
+          // Trigger l'event pour afficher/masquer le contenu étendu
+          toggle.dispatchEvent(new Event('change'));
+        }
         
         const sourceUrl = document.getElementById('travaux-source-url');
         const sourceDb = document.getElementById('travaux-source-db');
@@ -218,7 +282,7 @@
       showStatus('Enregistrement en cours...', 'info');
 
       // Récupérer les valeurs du formulaire
-      const enabled = document.getElementById('travaux-enabled-yes').checked;
+      const enabled = document.getElementById('travaux-enabled-toggle').checked;
       const sourceType = document.getElementById('travaux-source-url').checked ? 'url' : 'city_travaux';
       const url = document.getElementById('travaux-url').value.trim();
       const iconClass = document.getElementById('travaux-icon').value.trim();
@@ -257,8 +321,6 @@
         layers_to_display: layersArray
       };
 
-      console.log('[TravauxConfig] Sauvegarde config:', config);
-
       // Enregistrer
       const { data, error } = await win.supabaseService.updateTravauxConfig(ville, config);
 
@@ -289,7 +351,11 @@
    * Réinitialise le formulaire aux valeurs par défaut
    */
   function resetTravauxForm() {
-    document.getElementById('travaux-enabled-no').checked = true;
+    const toggle = document.getElementById('travaux-enabled-toggle');
+    if (toggle) {
+      toggle.checked = false;
+      toggle.dispatchEvent(new Event('change'));
+    }
     document.getElementById('travaux-source-db').checked = true;
     document.getElementById('travaux-url').value = '';
     document.getElementById('travaux-icon').value = 'fa-solid fa-helmet-safety';

@@ -384,33 +384,26 @@ function openPDFPreview(pdfUrl, title) {
  */
 async function initProjectMap(containerId, projectName, category) {
   try {
-    console.log('[Carte] Initialisation...', { containerId, projectName, category });
-    
     if (!window.L) {
       console.error('[Carte] ❌ Leaflet non chargé');
       return;
     }
-    console.log('[Carte] ✓ Leaflet chargé');
 
     const container = document.getElementById(containerId);
     if (!container) {
       console.error('[Carte] ❌ Container non trouvé:', containerId);
       return;
     }
-    console.log('[Carte] ✓ Container trouvé:', container);
 
     // Créer la carte
-    console.log('[Carte] Création de la carte...');
     const map = window.L.map(containerId, {
       center: FP_CONFIG.MAP_DEFAULT_CENTER,
       zoom: FP_CONFIG.MAP_DEFAULT_ZOOM,
       zoomControl: true
     });
-    console.log('[Carte] ✓ Carte créée');
 
     // Ajouter le fond de carte selon le thème
     const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-    console.log('[Carte] Thème actuel:', currentTheme);
     
     // Utiliser OpenStreetMap par défaut en mode clair
     let basemap;
@@ -420,7 +413,6 @@ async function initProjectMap(containerId, projectName, category) {
         url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         attribution: '© OpenStreetMap contributors'
       };
-      console.log('[Carte] Mode clair : OpenStreetMap par défaut');
     } else {
       // Mode sombre : utiliser ThemeManager
       if (window.ThemeManager && window.ThemeManager.findBasemapForTheme) {
@@ -433,16 +425,13 @@ async function initProjectMap(containerId, projectName, category) {
           attribution: '© CartoDB'
         };
       }
-      console.log('[Carte] Mode sombre :', basemap.label);
     }
     
-    console.log('[Carte] Ajout du fond de carte:', basemap.label, basemap.url);
     const baseLayer = window.L.tileLayer(basemap.url, {
       attribution: basemap.attribution || '',
       maxZoom: 19
     }).addTo(map);
-    console.log('[Carte] ✓ Fond de carte ajouté');
-    
+
     // Stocker pour sync thème et référence globale
     window.ficheProjectMap = map;
     window.__fpMap = map;
@@ -453,13 +442,11 @@ async function initProjectMap(containerId, projectName, category) {
       mutations.forEach((mutation) => {
         if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
           const newTheme = document.documentElement.getAttribute('data-theme');
-            console.log('[Carte] Changement de thème détecté:', newTheme);
             
             // Changer le fond de carte
             if (window.ThemeManager && window.__fpMap && window.__fpBaseLayer) {
               const newBasemap = window.ThemeManager.findBasemapForTheme(newTheme);
               if (newBasemap) {
-                console.log('[Carte] Mise à jour du fond de carte:', newBasemap.label);
                 window.__fpMap.removeLayer(window.__fpBaseLayer);
                 window.__fpBaseLayer = window.L.tileLayer(newBasemap.url, {
                   attribution: newBasemap.attribution || '',
@@ -529,7 +516,6 @@ async function initProjectMap(containerId, projectName, category) {
         // Initialiser le contrôle du zoom pour les camera markers
         if (window.CameraMarkers) {
           window.CameraMarkers.initZoomControl(map);
-          console.log('[Carte] ✓ Contrôle zoom camera markers initialisé');
         }
       }
     } catch (e) {
@@ -744,8 +730,9 @@ async function renderMarkdown(markdownUrl, container) {
       // Post-traitement : Ajouter des classes aux éléments générés
       enhanceMarkdownElements(container);
     } else {
-      // Fallback si MarkdownUtils pas disponible
-      container.innerHTML = `<p>${markdown}</p>`;
+      // Fallback si MarkdownUtils pas disponible (sécurisé avec SecurityUtils)
+      const escapedText = window.SecurityUtils ? window.SecurityUtils.escapeHtml(markdown) : markdown;
+      container.innerHTML = `<p>${escapedText}</p>`;
     }
   } catch (e) {
     console.error('[Markdown] Erreur chargement:', e);
@@ -841,12 +828,9 @@ function bindEvents() {
 
 async function initFicheProjet() {
   try {
-    console.log('[FicheProjet] Initialisation...');
-
     // 1. Initialiser le thème (lecture localStorage + préférences système)
     if (window.ThemeManager) {
       window.ThemeManager.init();
-      console.log('[FicheProjet] ✓ Thème initialisé');
     }
 
     // 2. Charger MarkdownUtils si nécessaire
@@ -869,8 +853,7 @@ async function initFicheProjet() {
       return;
     }
 
-    console.log('[FicheProjet] Projet:', projectName, '| Catégorie:', category);
-
+    
     // 3. Charger les données depuis Supabase
     let projectData = null;
     try {
@@ -891,14 +874,19 @@ async function initFicheProjet() {
     }
 
     // 4. Appliquer le city branding
+    // Utiliser la ville du projet en priorité, sinon celle de l'URL
+    const projectCity = projectData?.ville || city;
     let branding = null;
     try {
       if (window.CityBrandingModule) {
-        await window.CityBrandingModule.loadAndApplyBranding(city);
+        await window.CityBrandingModule.loadAndApplyBranding(projectCity);
+        
         // Récupérer le branding pour le logo
         if (window.supabaseService?.getCityBranding) {
-          branding = await window.supabaseService.getCityBranding(city);
+          branding = await window.supabaseService.getCityBranding(projectCity);
         }
+      } else {
+        console.warn('[FicheProjet] CityBrandingModule not available');
       }
     } catch (e) {
       console.warn('[FicheProjet] Erreur city branding:', e);
@@ -916,7 +904,10 @@ async function initFicheProjet() {
         const logoUrl = (theme === 'dark' && branding.dark_logo_url) ? branding.dark_logo_url : branding.logo_url;
         const logoAlt = branding.brand_name || city;
         
-        logoContainer.innerHTML = `<img src="${logoUrl}" alt="${logoAlt}" class="h-full w-auto object-contain" />`;
+        // Sécurisé avec SecurityUtils
+        const safeUrl = window.SecurityUtils ? window.SecurityUtils.sanitizeUrl(logoUrl) : logoUrl;
+        const safeAlt = window.SecurityUtils ? window.SecurityUtils.escapeAttribute(logoAlt) : logoAlt;
+        logoContainer.innerHTML = `<img src="${safeUrl}" alt="${safeAlt}" class="h-full w-auto object-contain" />`;
       }
     }
 
@@ -933,22 +924,11 @@ async function initFicheProjet() {
     const linkCard = createOfficialLinkCard(projectData.official_url);
     const docsCard = await createDocumentsCards(projectName);
     
-    console.log('[FicheProjet] Cards générées:', {
-      cover: !!coverCard,
-      description: !!descriptionCard,
-      link: !!linkCard,
-      docs: !!docsCard
-    });
-    
     // Injecter dans la sidebar desktop (toutes les cards avec espacement)
     const sidebar = document.getElementById('fiche-sidebar');
     if (sidebar) {
       const allCards = [coverCard, descriptionCard, linkCard, docsCard].filter(Boolean);
       sidebar.innerHTML = allCards.join('');
-      console.log('[FicheProjet] Cards injectées dans sidebar:', allCards.length);
-      console.log('[FicheProjet] Sidebar HTML length:', sidebar.innerHTML.length);
-      console.log('[FicheProjet] Sidebar classes:', sidebar.className);
-      console.log('[FicheProjet] Sidebar display:', window.getComputedStyle(sidebar).display);
     } else {
       console.warn('[FicheProjet] Sidebar non trouvée');
     }
@@ -1018,8 +998,7 @@ async function initFicheProjet() {
       document.documentElement.classList.remove('dark');
     }
 
-    console.log('[FicheProjet] Initialisation terminée ✓');
-
+    
   } catch (e) {
     console.error('[FicheProjet] Erreur fatale:', e);
     document.getElementById('project-article').innerHTML = `
@@ -1246,7 +1225,7 @@ function updateMapBasemap() {
     };
   } else {
     // Carte sombre
-    basemapConfig = window.ThemeManager?.getBasemapForTheme('dark') || {
+    basemapConfig = window.ThemeManager?.findBasemapForTheme('dark') || {
       url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png',
       attribution: '© CartoDB'
     };

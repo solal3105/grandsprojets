@@ -241,8 +241,6 @@ const TravauxModule = (() => {
     // Un seul layer "travaux", la source est déterminée par travaux_config
     const layerToLoad = 'travaux';
     
-    console.log('[TravauxModule] Layer à charger:', layerToLoad);
-    
     // Charger la couche si nécessaire (avec loader minimal)
     try {
       const hasData = !!(DataModule.layerData && DataModule.layerData[layerToLoad] && Array.isArray(DataModule.layerData[layerToLoad].features) && DataModule.layerData[layerToLoad].features.length);

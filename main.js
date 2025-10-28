@@ -19,27 +19,15 @@
    * - Ville avec city_branding.travaux = true
    */
   async function initTravauxSubmenu(categoriesContainer, submenusContainer) {
-    console.log('[Main] 🚀 Début initTravauxSubmenu');
-    console.log('[Main] categoriesContainer:', categoriesContainer);
-    console.log('[Main] submenusContainer:', submenusContainer);
-    
     try {
       const activeCity = (typeof win.getActiveCity === 'function') ? win.getActiveCity() : (win.activeCity || null);
-      console.log('[Main] activeCity détectée:', activeCity);
       
       // Vérifier si une config travaux existe pour cette ville
-      console.log(`[Main] 🔍 Vérification config travaux pour ville: ${activeCity}`);
       const travauxConfig = await supabaseService.getTravauxConfig(activeCity);
-      console.log('[Main] travaux_config reçu:', travauxConfig);
       
       if (!travauxConfig || !travauxConfig.enabled) {
-        console.log('[Main] ⚠️ Pas de config travaux ou travaux désactivés pour cette ville');
         return;
       }
-      
-      console.log('[Main] ✅ Config travaux trouvée, affichage du submenu');
-      
-      console.log('[Main] ✅ Submenu Travaux doit être affiché, création en cours...');
       
       // Récupérer les layers à afficher depuis la config
       const layersToDisplay = travauxConfig.layers_to_display || ['travaux'];
@@ -60,7 +48,6 @@
         navButton.style.order = travauxConfig.display_order;
       }
       categoriesContainer.appendChild(navButton);
-      console.log('[Main] ✅ Bouton Travaux ajouté au DOM');
       
       // Créer le submenu
       const submenu = document.createElement('div');
@@ -69,13 +56,9 @@
       submenu.style.display = 'none';
       submenu.innerHTML = `<ul class="project-list"></ul>`;
       submenusContainer.appendChild(submenu);
-      console.log('[Main] ✅ Submenu Travaux ajouté au DOM');
       
       // Bind navigation (géré manuellement car indépendant de categoryIcons)
       navButton.addEventListener('click', () => {
-        console.log('[Main] 🖱️ Clic sur bouton Travaux');
-        console.log('[Main] Layers à afficher:', layersToDisplay);
-        
         if (win.EventBindings?.handleNavigation) {
           win.EventBindings.handleNavigation('travaux', layersToDisplay);
         }
@@ -88,13 +71,10 @@
         const targetSubmenu = document.querySelector('.submenu[data-category="travaux"]');
         if (targetSubmenu) {
           targetSubmenu.style.display = 'block';
-          console.log('[Main] ✅ Submenu Travaux affiché');
         } else {
           console.warn('[Main] ⚠️ Submenu Travaux introuvable');
         }
       });
-      
-      console.log('[Main] ✅ Submenu Travaux créé en dur');
     } catch (error) {
       console.error('[Main] ❌ Erreur initialisation submenu Travaux:', error);
     }
@@ -131,7 +111,6 @@
       })();
 
       let city = win.CityManager?.initializeActiveCity();
-      console.log('[Main] 🏙️ Ville après initializeActiveCity:', city);
       
       // Forcer metropole-lyon si city est vide ou null (plus de mode Global)
       if (!city) {
@@ -140,7 +119,6 @@
         win.activeCity = city;
       }
       
-      console.log('[Main] ✅ Ville finale utilisée:', city);
       await win.CityManager?.updateLogoForCity(city);
       await win.CityManager?.initCityToggleUI(city);
 
@@ -188,28 +166,20 @@
       const styleMap      = {};
       const defaultLayers = [];
       
-      console.log('[Main] 🗺️ Filtrage des layers pour ville:', city);
-      console.log('[Main] 📦 Nombre total de layers reçus:', layersConfig.length);
-      
       layersConfig.forEach(({ name, url, style, is_default, ville }) => {
         // Ignorer les layers sans ville (legacy avec ville = NULL ou vide)
         if (!ville) {
-          console.log('[Main] ❌ Layer ignoré (ville NULL):', name);
           return;
         }
         
         // Uniquement les couches de la ville active (city est toujours défini maintenant)
         if (ville !== city) return;
         
-        console.log('[Main] ✅ Layer accepté:', name, '| URL:', url ? 'OUI' : 'NON', '| is_default:', is_default);
-        
         if (url) urlMap[name] = url;
         if (style) styleMap[name] = style;
         
         if (is_default) defaultLayers.push(name);
       });
-      
-      console.log('[Main] 📋 defaultLayers après filtrage:', defaultLayers);
       
       // Fusionner les styles des catégories depuis category_icons
       // Les category_styles ont la priorité sur les styles de layers_config
@@ -251,7 +221,6 @@
       DataModule.initConfig({ city, urlMap, styleMap, defaultLayers });
       
       // Charger tous les layers par défaut en attendant qu'ils soient tous chargés
-      console.log('[Main] 🔄 Chargement des layers par défaut:', defaultLayers);
       try {
         await Promise.all(defaultLayers.map(layer => 
           DataModule.loadLayer(layer).catch(err => {
@@ -259,7 +228,6 @@
             return null; // Continuer même si un layer échoue
           })
         ));
-        console.log('[Main] ✅ Tous les layers par défaut sont chargés et affichés');
       } catch (err) {
         console.error('[Main] ❌ Erreur lors du chargement des layers par défaut:', err);
       }
@@ -269,7 +237,6 @@
       try {
         if (window.supabaseService?.fetchAllProjects) {
           allContributions = await window.supabaseService.fetchAllProjects();
-          console.log('[Main] 📦 Contributions chargées:', allContributions.length, 'projets');
           win.allContributions = allContributions;
         }
       } catch (err) {
@@ -281,8 +248,6 @@
       // Note: "travaux" est géré séparément via initTravauxSubmenu() (submenu en dur)
       // On le retire de categoriesWithData pour éviter un doublon
       const categoriesFiltered = categoriesWithData.filter(cat => cat !== 'travaux');
-      
-      console.log('[Main] 📊 Catégories:', categoriesFiltered);
 
       let allCategoryIconsFromDB = [];
       try {
@@ -312,7 +277,6 @@
       });
       
       activeCategoryIcons.sort((a, b) => a.display_order - b.display_order);
-      console.log('[Main] ✅ Catégories actives:', activeCategoryIcons.map(c => c.category));
       win.categoryIcons = activeCategoryIcons;
       
       // Construire le mapping catégorie → layers depuis la DB
@@ -324,23 +288,17 @@
         const travauxConfig = await supabaseService.getTravauxConfig(city);
         if (travauxConfig && travauxConfig.enabled) {
           win.categoryLayersMap['travaux'] = travauxConfig.layers_to_display || ['travaux'];
-          console.log('[Main] ✅ categoryLayersMap[travaux] configuré:', win.categoryLayersMap['travaux']);
         }
       } catch (err) {
         console.warn('[Main] Erreur chargement config travaux pour mapping:', err);
         win.categoryLayersMap['travaux'] = ['travaux']; // Fallback
       }
-      
-      console.log('[Main] ✅ categoryLayersMap construit depuis DB:', win.categoryLayersMap);
 
       win.getAllCategories = () => (win.categoryIcons || []).map(c => c.category);
       win.getCategoryLayers = (category) => win.categoryLayersMap?.[category] || [];
       win.isCategoryLayer = (layerName) => win.getAllCategories().includes(layerName);
       const categoriesContainer = document.getElementById('dynamic-categories');
       const submenusContainer = document.getElementById('dynamic-submenus');
-      
-      console.log('[Main] 📍 Containers DOM:', { categoriesContainer, submenusContainer });
-      console.log('[Main] 📊 activeCategoryIcons.length:', activeCategoryIcons.length);
       
       // Créer les menus dynamiques (catégories depuis contributions)
       if (categoriesContainer && submenusContainer && activeCategoryIcons.length > 0) {
@@ -366,21 +324,17 @@
           submenu.innerHTML = `<ul class="project-list"></ul>`;
           submenusContainer.appendChild(submenu);
         });
-        console.log('[Main] 🎨 Menus créés:', activeCategoryIcons.map(c => c.category).join(', '));
       }
       
       // ===== SUBMENU TRAVAUX EN DUR (indépendant de category_icons) =====
       // IMPORTANT : Toujours appeler, même si activeCategoryIcons est vide
       if (categoriesContainer && submenusContainer) {
-        console.log('[Main] 🔧 Appel initTravauxSubmenu...');
         await initTravauxSubmenu(categoriesContainer, submenusContainer);
-        console.log('[Main] 🔧 initTravauxSubmenu terminé');
       }
       
       // Initialiser les event listeners de navigation via EventBindings
       if (window.EventBindings?.initCategoryNavigation) {
         window.EventBindings.initCategoryNavigation();
-        console.log('[Main] 🔗 Navigation initialisée via EventBindings');
       } else {
         console.warn('[Main] EventBindings.initCategoryNavigation non disponible');
       }
@@ -400,7 +354,6 @@
           try {
             win[`contributions_${category}`] = contribs;
             await DataModule.loadLayer(category);
-            console.log(`[Main] 🗺️ Couche "${category}" chargée: ${contribs.length} contributions`);
           } catch (err) {
             console.error(`[Main] ❌ Erreur chargement ${category}:`, err);
           }
@@ -411,7 +364,6 @@
       await win.FilterManager?.init();
 
       if (DataModule.preloadLayer) {
-        console.log('[Main] 🔄 Préchargement des layers depuis urlMap:', Object.keys(urlMap));
         Object.keys(urlMap).forEach(layer => DataModule.preloadLayer(layer));
       }
       
@@ -537,7 +489,6 @@
             // Recharger les couches visibles pour appliquer les nouveaux styles
             if (MapModule?.layers) {
               const layersToReload = Object.keys(MapModule.layers);
-              console.log('[Main] 🔄 Rechargement des couches:', layersToReload);
               
               // Recharger chaque couche pour appliquer les nouveaux styles
               for (const layerName of layersToReload) {
@@ -548,8 +499,6 @@
                 }
               }
             }
-            
-            console.log('[Main] ✅ Styles rechargés et appliqués');
           }
         } catch (err) {
           console.error('[Main] ❌ Erreur rechargement styles:', err);

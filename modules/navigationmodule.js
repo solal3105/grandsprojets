@@ -157,6 +157,16 @@ const NavigationModule = (() => {
   panel.style.removeProperty('max-height');
   panel.style.removeProperty('overflow');
 
+  // Debug: vérifier la couleur primaire
+  const computedPrimary = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
+  if (!computedPrimary || computedPrimary === '') {
+    console.warn('[NavigationModule] --color-primary not set, applying city branding...');
+    const currentCity = new URLSearchParams(location.search).get('city');
+    if (currentCity && window.CityBrandingModule) {
+      await window.CityBrandingModule.loadAndApplyBranding(currentCity, true);
+    }
+  }
+
   try {
     let contributionProject = null;
     
@@ -172,9 +182,21 @@ const NavigationModule = (() => {
       try {
         contributionProject = await window.supabaseService.fetchProjectByCategoryAndName(effectiveCat, projectName);
       } catch (error) {
+        console.warn('[NavigationModule] Error fetching project:', error);
       }
     }
 
+    // Vérifier si contributionProject existe avant d'accéder à ses propriétés
+    if (!contributionProject) {
+      panel.innerHTML = `
+      <div style="padding: 2em; text-align: center; color: #666;">
+        <h3>Projet non trouvé</h3>
+        <p>Le projet "${projectName}" n'a pas été trouvé dans la base de données.</p>
+        <p>Seuls les projets de la table contribution_uploads sont disponibles.</p>
+      </div>
+      `;
+      return;
+    }
 
     projectName = contributionProject.project_name;
     category = contributionProject.category;
@@ -193,16 +215,8 @@ const NavigationModule = (() => {
           usedContribution = true;
         }
       } catch (error) {
+        console.warn('[NavigationModule] Error fetching markdown:', error);
       }
-    } else if (!projectName) {
-      panel.innerHTML = `
-      <div style="padding: 2em; text-align: center; color: #666;">
-        <h3>Projet non trouvé</h3>
-        <p>Le projet "${projectName}" n'a pas été trouvé dans la base de données.</p>
-        <p>Seuls les projets de la table contribution_uploads sont disponibles.</p>
-      </div>
-      `;
-      return;
     }
     
     async function ensureMarkdownUtils() {
@@ -292,7 +306,7 @@ const NavigationModule = (() => {
       </div>
       <div class="project-title-container">
         <i class="fa-solid ${icons[category]||'fa-map'}"></i>
-        <h3 class="project-title">${projectName}</h3>
+        <h3 class="project-title">${window.SecurityUtils ? window.SecurityUtils.escapeHtml(projectName) : projectName}</h3>
       </div>
       ${fullPageUrl ? `<a href="${fullPageUrl}" class="detail-fullpage-btn">
          <i class="fa-solid fa-up-right-from-square"></i>Voir la fiche complète
@@ -325,9 +339,12 @@ const NavigationModule = (() => {
       const openLightbox = () => {
         const overlay = document.createElement('div');
         overlay.className = 'cover-lightbox';
+        // Sécurisé avec SecurityUtils
+        const safeSrc = window.SecurityUtils ? window.SecurityUtils.sanitizeUrl(img.getAttribute('src')) : img.getAttribute('src');
+        const safeAlt = window.SecurityUtils ? window.SecurityUtils.escapeAttribute(img.getAttribute('alt') || '') : (img.getAttribute('alt') || '');
         overlay.innerHTML = `
           <div class="lightbox-content">
-            <img src="${img.getAttribute('src')}" alt="${img.getAttribute('alt') || ''}">
+            <img src="${safeSrc}" alt="${safeAlt}">
             <button class="btn-secondary lightbox-close" aria-label="Fermer">
               <i class="fa-solid fa-xmark" aria-hidden="true"></i>
             </button>
@@ -392,7 +409,9 @@ const NavigationModule = (() => {
       backButton.onclick = () => NavigationModule.resetToDefaultView(category, { preserveMapView: true, updateHistory: true });
     }
   }catch(e){
-    panel.innerHTML=`<h3>${projectName}</h3><p>Aucun détail disponible.</p>`;
+    console.error('[NavigationModule] Error in showProjectDetail:', e);
+    const safeProjectName = window.SecurityUtils ? window.SecurityUtils.escapeHtml(projectName) : projectName;
+    panel.innerHTML=`<h3>${safeProjectName}</h3><p>Aucun détail disponible.</p>`;
   }
 
   await resolveAndApplyLayerFiltering(projectName, category);

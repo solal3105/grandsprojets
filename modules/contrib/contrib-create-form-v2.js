@@ -16,7 +16,6 @@
   function initCreateForm(options) {
     // Si une instance existe déjà, la détruire proprement avant d'en créer une nouvelle
     if (currentInstance) {
-      console.log('[contrib-create-form-v2] Destroying existing instance');
       currentInstance.destroy();
     }
 
@@ -51,7 +50,7 @@
     let currentStep = 1;
     const cleanupCallbacks = []; // Liste des fonctions de nettoyage
     const ContribUtils = win.ContribUtils || {};
-    const showToast = ContribUtils.showToast || ((msg) => console.log('[Toast]', msg));
+    const showToast = ContribUtils.showToast || ((msg) => console.error(msg));
 
     // ============================================================================
     // ÉLÉMENTS DOM
@@ -204,11 +203,8 @@
     function canGoToStep(target) {
       // Retour en arrière toujours autorisé
       if (target <= currentStep) {
-        console.log(`[contrib-create-form-v2] ✅ Going back from step ${currentStep} to ${target} - allowed`);
         return true;
       }
-      
-      console.log(`[contrib-create-form-v2] 🔍 Attempting to go from step ${currentStep} to ${target}`);
       
       // Récupérer tous les champs required visibles de l'étape actuelle
       const currentStepElements = overlay.querySelectorAll(`.contrib-step-${currentStep}`);
@@ -218,17 +214,12 @@
         el.querySelectorAll('[required]').forEach(field => requiredFields.push(field));
       });
       
-      console.log(`[contrib-create-form-v2] Found ${requiredFields.length} required fields for step ${currentStep}`);
-      
       // Valider chaque champ
       for (const field of requiredFields) {
         // Ignorer les champs cachés ou désactivés
         if (field.offsetParent === null || field.disabled) {
-          console.log(`[contrib-create-form-v2] Skipping hidden/disabled:`, field.id);
           continue;
         }
-        
-        console.log(`[contrib-create-form-v2] Validating:`, field.id, 'value:', field.value);
         
         if (!field.checkValidity()) {
           console.error(`[contrib-create-form-v2] ❌ VALIDATION FAILED:`, field.id, field.validationMessage);
@@ -246,7 +237,6 @@
       
       // Validation custom étape 2 : géométrie
       if (target >= 3) {
-        console.log('[contrib-create-form-v2] Validating geometry...');
         const mode = Array.from(elements.geomModeRadios || []).find(r => r.checked)?.value || 'file';
         const fileInput = elements.geojsonInput;
         const hasGeom = win.ContribGeometry?.hasGeometry?.(mode, fileInput) || false;
@@ -261,7 +251,6 @@
         }
       }
       
-      console.log(`[contrib-create-form-v2] ✅ Validation passed, proceeding to step ${target}`);
       return true;
     }
 
@@ -270,12 +259,10 @@
       
       // Vérifier la validation avant de changer d'étape
       if (!force && !canGoToStep(n)) {
-        console.log(`[contrib-create-form-v2] ❌ Navigation BLOCKED by validation`);
         return;
       }
       
       currentStep = Math.min(4, Math.max(1, n));
-      console.log(`[contrib-create-form-v2] ➡️ Moving to step ${currentStep}`);
       
       // Afficher/masquer les éléments de chaque étape
       [1,2,3,4].forEach(i => {
@@ -306,7 +293,6 @@
       // Étape 2 : Initialiser la géométrie
       if (currentStep === 2) {
         const mode = Array.from(elements.geomModeRadios || []).find(r => r.checked)?.value || 'file';
-        console.log('[contrib-create-form-v2] Step 2 - Initializing geometry mode:', mode);
         
         // Initialiser le mode géométrie
         ContribGeometry.setGeomMode?.(mode, geomElements);
@@ -314,7 +300,6 @@
         // Charger le GeoJSON existant en mode édition
         const editGeojsonUrl = form.dataset.geojsonUrl;
         if (editGeojsonUrl) {
-          console.log('[contrib-create-form-v2] Loading existing GeoJSON:', editGeojsonUrl);
           setTimeout(() => {
             ContribGeometry.preloadGeometryOnMap?.(editGeojsonUrl, geomElements);
           }, 300);
@@ -350,20 +335,16 @@
     async function initDrawMap() {
       const existingMap = ContribMap.getDrawMap?.();
       if (existingMap) {
-        console.log('[contrib-create-form-v2] Draw map already initialized');
         return existingMap;
       }
-      console.log('[contrib-create-form-v2] Initializing draw map...');
       const map = await ContribMap.initDrawMap?.(drawMapContainerId, elements.drawPanelEl, elements.cityEl);
-      console.log('[contrib-create-form-v2] Draw map initialized:', map);
       return map;
     }
 
     function ensureManualToolbar() {
       if (!elements.drawPanelEl) return;
-      console.log('[contrib-create-form-v2] Initializing draw controls toolbar');
       ContribDrawControls.initToolbar?.(elements.drawPanelEl, () => {
-        console.log('[contrib-create-form-v2] Draw state changed');
+        // Callback quand l'état change
       });
     }
 
@@ -420,7 +401,6 @@
     }
 
     // Setup dropzone pour GeoJSON
-    console.log('[contrib-create-form-v2] Setting up GeoJSON dropzone');
     ContribGeometry.setupDropzone?.(geomElements);
 
     // ============================================================================
@@ -575,7 +555,6 @@
     // ============================================================================
 
     if (mode === 'edit' && data) {
-      console.log('[contrib-create-form-v2] Prefilling in edit mode:', data);
       
       setTimeout(() => {
         if (elements.projectNameEl && data.project_name) elements.projectNameEl.value = data.project_name;
@@ -623,7 +602,6 @@
         form.dataset.editId = data.id;
         if (win.ContribForm?.setCurrentEditId) {
           win.ContribForm.setCurrentEditId(data.id);
-          console.log('[contrib-create-form-v2] Edit ID set:', data.id);
         }
       }
 
@@ -632,7 +610,6 @@
         form.dataset.geojsonUrl = data.geojson_url;
         if (ContribGeometry.setEditGeojsonUrl) {
           ContribGeometry.setEditGeojsonUrl(data.geojson_url);
-          console.log('[contrib-create-form-v2] GeoJSON URL set:', data.geojson_url);
         }
       }
     }
@@ -652,7 +629,6 @@
       getCurrentStep: () => currentStep,
       
       destroy: () => {
-        console.log('[contrib-create-form-v2] Destroying instance, cleaning up', cleanupCallbacks.length, 'listeners');
         
         // Nettoyer tous les listeners
         cleanupCallbacks.forEach(cb => {

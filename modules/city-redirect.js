@@ -80,8 +80,8 @@
                 onerror="this.src='/img/logos/default.svg'"
               />
               <div style="flex:1;">
-                <div style="font-weight:600;font-size:16px;margin-bottom:4px;">${city.name}</div>
-                <div style="font-size:13px;opacity:0.7;font-family:monospace;">${city.code}</div>
+                <div style="font-weight:600;font-size:16px;margin-bottom:4px;">${win.SecurityUtils ? win.SecurityUtils.escapeHtml(city.name) : city.name}</div>
+                <div style="font-size:13px;opacity:0.7;font-family:monospace;">${win.SecurityUtils ? win.SecurityUtils.escapeHtml(city.code) : city.code}</div>
               </div>
               <i class="fa-solid fa-arrow-right" style="color:var(--info);font-size:18px;"></i>
             </button>
@@ -160,7 +160,6 @@
       
       // Si déjà sur une ville, ne rien faire
       if (currentCity) {
-        console.log('[city-redirect] Already on a city page:', currentCity);
         return;
       }
 
@@ -169,13 +168,11 @@
       
       // Si __CONTRIB_VILLES n'est pas encore défini, réessayer
       if (userVilles === undefined && retryCount > 0) {
-        console.log('[city-redirect] Waiting for __CONTRIB_VILLES to be defined, retrying in 200ms...');
         setTimeout(() => handleCityRedirect(session, retryCount - 1), 200);
         return;
       }
       
       if (!userVilles || !Array.isArray(userVilles)) {
-        console.log('[city-redirect] No cities assigned to user');
         return;
       }
 
@@ -183,25 +180,19 @@
       const actualCities = userVilles.filter(v => v !== 'global');
       
       if (actualCities.length === 0) {
-        console.log('[city-redirect] User has global access but no specific cities');
         return;
       }
-
-      console.log('[city-redirect] User cities:', actualCities);
 
       let targetCity = null;
 
       if (actualCities.length === 1) {
         // Une seule ville : redirection automatique
         targetCity = actualCities[0];
-        console.log('[city-redirect] Single city, auto-redirecting to:', targetCity);
       } else {
         // Plusieurs villes : afficher la popup de sélection
-        console.log('[city-redirect] Multiple cities, showing selection popup');
         targetCity = await showCitySelectionPopup(actualCities);
         
         if (!targetCity) {
-          console.log('[city-redirect] User cancelled city selection');
           return;
         }
       }
@@ -209,8 +200,6 @@
       // Rediriger vers la ville
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.set('city', targetCity);
-      
-      console.log('[city-redirect] Redirecting to:', newUrl.href);
       window.location.href = newUrl.href;
 
     } catch (error) {
@@ -222,7 +211,6 @@
    * Initialise le système de redirection automatique
    */
   function init() {
-    console.log('[city-redirect] Initializing city redirect system');
 
     // Écouter les changements d'état d'authentification
     if (win.AuthModule && typeof win.AuthModule.onAuthStateChange === 'function') {

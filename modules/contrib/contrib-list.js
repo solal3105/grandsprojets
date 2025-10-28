@@ -284,14 +284,6 @@
         const { data: userData } = await client.auth.getUser();
         const uid = userData?.user?.id;
         isOwner = (uid && item.created_by === uid);
-        console.log('[contrib-list] isOwner check:', { 
-          itemId: item.id, 
-          projectName: item.project_name,
-          userId: uid, 
-          createdBy: item.created_by, 
-          isOwner,
-          isAdmin: win.__CONTRIB_IS_ADMIN
-        });
       } else {
         console.warn('[contrib-list] supabaseService.getClient() not available');
       }
@@ -299,9 +291,9 @@
       console.warn('[contrib-list] Error checking ownership:', err);
     }
     
-    // Image de couverture
+    // Image de couverture (sécurisé)
     const coverHtml = item.cover_url
-      ? `<img src="${item.cover_url}" alt="${item.project_name || 'Projet'}" class="contrib-card__image" loading="lazy" />`
+      ? `<img src="${escapeHtml(item.cover_url)}" alt="${escapeHtml(item.project_name || 'Projet')}" class="contrib-card__image" loading="lazy" />`
       : `<div class="contrib-card__image contrib-card__image--placeholder">
            <i class="fa-solid fa-image"></i>
          </div>`;
@@ -386,7 +378,6 @@
     if (editBtn && onEdit) {
       editBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        console.log('[contrib-card] Clic bouton Modifier pour:', { id: item.id, name: item.project_name });
         onEdit(item);
       });
     }
@@ -550,7 +541,6 @@
     
     try {
       const { search, category, sortBy, sortDir, page, pageSize, mineOnly, filterCity } = listState;
-      console.log('[contrib-list] Loading contributions with params:', { search, category, sortBy, sortDir, page, pageSize, mineOnly, filterCity });
       
       if (!win.supabaseService || !win.supabaseService.listContributions) {
         console.error('[contrib-list] supabaseService.listContributions not available');
@@ -564,24 +554,19 @@
         search, category, page, pageSize, mineOnly, sortBy, sortDir, city: filterCity
       });
       
-      console.log('[contrib-list] Response:', res);
-      
       // La réponse peut avoir soit res.data soit res.items
       const items = (res && res.data) ? res.data : (res && res.items) ? res.items : [];
       const totalCount = res && res.count !== undefined ? res.count : items.length;
-      console.log('[contrib-list] Items count:', items.length, 'Total:', totalCount);
       
       // Clear skeletons
       try { if (listEl) listEl.querySelectorAll('.contrib-skel').forEach(n => n.remove()); } catch(_) {}
       
       if (!items.length) {
-        console.log('[contrib-list] No items found, showing empty state');
         if (page === 1) { 
           renderEmptyState(listEl, listSentinel, onCreateClick);
         }
         listState.done = true;
       } else {
-        console.log('[contrib-list] Rendering', items.length, 'items');
         clearEmptyState(listEl);
         listState.items.push(...items);
         // Rendre les items (async maintenant)

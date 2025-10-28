@@ -281,11 +281,17 @@
       targetInput.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
-    // Call callback if exists
+    // Call callback if exists (sécurisé - pas d'eval)
     const callbackStr = modal.dataset.onSelectCallback;
     if (callbackStr) {
       try {
-        const callback = eval(`(${callbackStr})`);
+        // Chercher la fonction dans window (ex: "myCallback" ou "MyModule.callback")
+        const parts = callbackStr.split('.');
+        let callback = window;
+        for (const part of parts) {
+          callback = callback?.[part];
+          if (!callback) break;
+        }
         if (typeof callback === 'function') {
           callback(iconClass);
         }

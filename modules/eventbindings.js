@@ -211,7 +211,8 @@ const bindFilterControls = () => {
           detailPanel.style.display = 'block';
           detailPanel.dataset.category = category;
           
-          detailContent.innerHTML = `# ${projectName}\n\nAucun détail disponible pour ce projet.`;
+          const safeProjectName = win.SecurityUtils ? win.SecurityUtils.escapeHtml(projectName) : projectName;
+          detailContent.innerHTML = `# ${safeProjectName}\n\nAucun détail disponible pour ce projet.`;
         }
       }
     } catch (e) {

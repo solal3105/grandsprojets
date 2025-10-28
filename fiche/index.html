@@ -15,7 +15,9 @@
       theme: {
         extend: {
           colors: {
-            primary: 'var(--primary)',
+            // Tailwind v3+ supporte les variables CSS nativement
+            // Il faut juste s'assurer que --color-primary est définie avant le rendu
+            primary: 'var(--color-primary)',
           },
           height: {
             'map-mobile': '30vh',

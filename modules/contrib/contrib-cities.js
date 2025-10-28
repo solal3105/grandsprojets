@@ -34,22 +34,16 @@
         }
       }
       
-      console.log('[DEBUG populateCities] Villes récupérées:', cities);
-      console.log('[DEBUG populateCities] window.__CONTRIB_VILLES:', window.__CONTRIB_VILLES);
-      
       // Filtrer selon les permissions de l'utilisateur
       const userVilles = window.__CONTRIB_VILLES;
       let filteredCities = cities;
       const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
       
       if (hasGlobalAccess) {
-        console.log('[DEBUG populateCities] Accès global détecté, toutes les villes disponibles');
         filteredCities = cities;
       } else if (Array.isArray(userVilles) && userVilles.length > 0) {
         filteredCities = cities.filter(c => userVilles.includes(c));
-        console.log('[DEBUG populateCities] Villes filtrées:', filteredCities);
       } else {
-        console.log('[DEBUG populateCities] Aucune ville autorisée (userVilles:', userVilles, ')');
         filteredCities = [];
       }
       

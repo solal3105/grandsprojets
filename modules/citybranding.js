@@ -124,8 +124,6 @@
       
       if (error) throw error;
       
-      console.log('City branding updated:', data);
-      
       // Appliquer immédiatement si c'est la ville active
       const activeCity = localStorage.getItem('activeCity');
       if (activeCity === ville.toLowerCase()) {
@@ -174,8 +172,6 @@
 
       if (error) throw error;
 
-      console.log('Toggles config updated:', data);
-
       // Appliquer immédiatement si c'est la ville active
       const activeCity = localStorage.getItem('activeCity');
       if (activeCity === ville.toLowerCase()) {
@@ -195,8 +191,6 @@
    */
   async applyTogglesConfig(enabledToggles) {
     if (!Array.isArray(enabledToggles)) return;
-
-    console.log('[CityBranding] Applying toggles config:', enabledToggles);
 
     // Vérifier si l'utilisateur est connecté
     let isAuthenticated = false;
@@ -323,7 +317,6 @@
     // Écouter les changements d'état d'authentification
     if (win.AuthModule && typeof win.AuthModule.onAuthStateChange === 'function') {
       win.AuthModule.onAuthStateChange(async (event, session) => {
-        console.log('[CityBranding] Auth state changed:', event);
         
         // Récupérer la ville active
         const activeCity = localStorage.getItem('activeCity');

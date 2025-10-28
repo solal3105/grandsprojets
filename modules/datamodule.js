@@ -914,8 +914,6 @@ window.DataModule = (function() {
 		return simpleCache.get(cacheKey, async () => {
 			// ===== TRAVAUX: Layer avec source dynamique (URL ou city_travaux) =====
 			if (layerName === 'travaux') {
-				console.log('[DataModule] 🚀 Chargement layer "travaux" avec config dynamique');
-				
 				const activeCity = (typeof window.getActiveCity === 'function') 
 					? window.getActiveCity() 
 					: (window.activeCity || 'metropole-lyon');
@@ -928,12 +926,10 @@ window.DataModule = (function() {
 				
 				if (config.source_type === 'url' && config.url) {
 					// Charger depuis URL externe
-					console.log('[DataModule] 🌐 Chargement travaux depuis URL:', config.url);
 					try {
 						const response = await fetch(config.url);
 						if (!response.ok) throw new Error(`HTTP ${response.status}`);
 						const data = await response.json();
-						console.log(`[DataModule] ✅ Travaux URL: ${data.features?.length || 0} features`);
 						return data;
 					} catch (error) {
 						console.error('[DataModule] ❌ Erreur chargement travaux URL:', error);
@@ -941,7 +937,6 @@ window.DataModule = (function() {
 					}
 				} else if (config.source_type === 'city_travaux') {
 					// Charger depuis city_travaux
-					console.log('[DataModule] 🗄️ Chargement travaux depuis city_travaux');
 					const cityTravauxData = await window.supabaseService.loadCityTravauxGeoJSON(activeCity);
 					return cityTravauxData || { type: 'FeatureCollection', features: [] };
 				}
@@ -954,8 +949,6 @@ window.DataModule = (function() {
 			const contributionProjects = window[`contributions_${layerName}`];
 
 			if (contributionProjects && Array.isArray(contributionProjects)) {
-				console.log(`[DataModule] Chargement contributions pour "${layerName}":`, contributionProjects.length, 'projets');
-
 				// Construire un FeatureCollection depuis contribution_uploads
 				const features = [];
 
@@ -1011,14 +1004,12 @@ window.DataModule = (function() {
 			// Charger depuis urlMap (layers configurés dans la base de données)
 			const url = urlMap[layerName];
 			if (url) {
-				console.log(`[DataModule] 🌐 Chargement layer "${layerName}" depuis URL:`, url);
 				try {
 					const response = await fetch(url);
 					if (!response.ok) {
 						throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 					}
 					const data = await response.json();
-					console.log(`[DataModule] ✅ Layer "${layerName}" chargé: ${data.features?.length || 0} features`);
 					return data;
 				} catch (error) {
 					console.error(`[DataModule] ❌ Erreur chargement layer "${layerName}":`, error);
@@ -1282,8 +1273,6 @@ window.DataModule = (function() {
 			
 			// Recharger la couche
 			await loadLayer(layerName);
-			
-			console.log(`[DataModule] Couche "${layerName}" rechargée`);
 		} catch (err) {
 			console.error(`[DataModule] Erreur rechargement couche "${layerName}":`, err);
 			throw err;
@@ -1295,7 +1284,6 @@ window.DataModule = (function() {
 		const cacheKey = `layer_${layerName}`;
 		if (simpleCache._cache[cacheKey]) {
 			delete simpleCache._cache[cacheKey];
-			console.log(`[DataModule] Cache vidé pour layer: ${layerName}`);
 		}
 	}
 
