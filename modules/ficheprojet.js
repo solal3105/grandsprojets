@@ -585,7 +585,7 @@ function generateFicheHTML(projectName, isEmbed) {
           <div class="max-w-3xl mx-auto px-3 py-4 pb-24 md:px-6 md:py-6 md:pb-6">
             
             <!-- Carte sticky qui se réduit au scroll -->
-            <div id="project-map-container" class="group relative sticky top-16 z-10 mb-20 md:mb-24 h-[300px] md:h-[400px] rounded-xl overflow-hidden shadow-lg ring-1 ring-black/5 dark:ring-white/5 transition-all duration-300" style="box-shadow: 0px -50px 50px 100px white; --tw-shadow: 0px -50px 50px 100px white;">
+            <div id="project-map-container" class="group relative sticky top-16 z-10 mb-20 md:mb-24 h-[25vh] rounded-xl overflow-hidden shadow-lg ring-1 ring-black/5 dark:ring-white/5 transition-all duration-300" style="box-shadow: 0px -50px 50px 100px white; --tw-shadow: 0px -50px 50px 100px white;">
               <style>
                 .dark #project-map-container {
                   box-shadow: 0px -50px 50px 100px #0f172a !important;
@@ -1078,6 +1078,7 @@ function bindBottomBarEvents() {
 
 /**
  * Réduit la hauteur de la carte au scroll (smooth, sans clignotement)
+ * Utilise des hauteurs en vh pour s'adapter aux écrans pas très haut
  */
 function initStickyMapBehavior() {
   const mapContainer = document.getElementById('project-map-container');
@@ -1089,16 +1090,18 @@ function initStickyMapBehavior() {
   let ticking = false;
   let isTransitioning = false; // Empêche les changements pendant la transition
   
-  article.addEventListener('scroll', () => {
+  // Optimisation performance : throttling avec requestAnimationFrame
+  const scrollHandler = () => {
     if (!ticking && !isTransitioning) {
+      ticking = true;
       window.requestAnimationFrame(() => {
         const scrollTop = article.scrollTop;
         
         // Scroll > 200px : réduire (seuil encore plus haut)
         if (scrollTop > 200 && !isReduced) {
           isTransitioning = true;
-          mapContainer.classList.remove('h-[300px]', 'md:h-[400px]');
-          mapContainer.classList.add('h-[200px]', 'md:h-[250px]');
+          mapContainer.classList.remove('h-[25vh]');
+          mapContainer.classList.add('h-[15vh]');
           isReduced = true;
           
           // Débloquer après la transition (300ms)
@@ -1107,8 +1110,8 @@ function initStickyMapBehavior() {
         // Scroll < 50px : restaurer (hystérésis large)
         else if (scrollTop < 50 && isReduced) {
           isTransitioning = true;
-          mapContainer.classList.remove('h-[200px]', 'md:h-[250px]');
-          mapContainer.classList.add('h-[300px]', 'md:h-[400px]');
+          mapContainer.classList.remove('h-[15vh]');
+          mapContainer.classList.add('h-[25vh]');
           isReduced = false;
           
           // Débloquer après la transition (300ms)
@@ -1117,9 +1120,22 @@ function initStickyMapBehavior() {
         
         ticking = false;
       });
-      ticking = true;
     }
-  });
+  };
+  
+  // Ajouter l'event listener
+  article.addEventListener('scroll', scrollHandler, { passive: true });
+  
+  // Cleanup pour éviter les memory leaks
+  const cleanup = () => {
+    article.removeEventListener('scroll', scrollHandler);
+  };
+  
+  // Nettoyer au changement de page ou déchargement
+  window.addEventListener('beforeunload', cleanup);
+  
+  // Exposer cleanup pour usage externe si nécessaire
+  window.__ficheProjetCleanup = cleanup;
 }
 
 /* ===========================================================================

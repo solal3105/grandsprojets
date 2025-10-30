@@ -317,8 +317,8 @@
 }
 
 .about-contact-icon--github {
-  background: var(--gray-alpha-10);
-  color: var(--gray-800);
+  background: var(--white-alpha-08);
+  color: var(--text-primary);
 }
 
 .about-contact-content {
@@ -410,14 +410,14 @@
 
 .form-intro p {
   font-size: 1.15rem;
-  color: var(--gray-200);
+  color: var(--text-primary);
   margin: 0;
   font-weight: 600;
 }
 
 .form-intro-subtitle {
   font-size: 0.9rem !important;
-  color: var(--gray-400) !important;
+  color: var(--text-secondary) !important;
   margin-top: 0.75rem !important;
   font-weight: 400 !important;
 }
@@ -461,20 +461,21 @@
 .form-group select,
 .form-group textarea {
   width: 100%;
-  padding: 0.875rem 1rem;
-  border: 1.5px solid var(--white-alpha-18);
-  border-radius: 10px;
-  font-size: 1rem;
-  font-family: inherit;
-  transition: all 0.2s ease;
-  background: var(--white-alpha-06);
-  color: var(--gray-400);
+  max-width: 100%;
   box-sizing: border-box;
+  padding: 10px 14px;
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  background: var(--surface-base);
+  color: var(--text-primary);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
 .form-group input::placeholder,
 .form-group textarea::placeholder {
-  color: var(--gray-500);
+  color: var(--text-tertiary);
   opacity: 1;
 }
 
@@ -482,9 +483,9 @@
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: var(--primary);
-  background: var(--white-alpha-08);
-  box-shadow: 0 0 0 3px var(--primary-alpha-10);
+  border-color: var(--info);
+  background: var(--surface-base);
+  box-shadow: 0 0 0 3px var(--info-alpha-15);
 }
 
 .form-group select {
@@ -638,14 +639,14 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: var(--white-alpha-10);
+  background: var(--border-light);
 }
 
 .form-divider span {
   position: relative;
-  background: var(--gray-800);
+  background: var(--surface-base);
   padding: 0 1.25rem;
-  color: var(--gray-500);
+  color: var(--text-tertiary);
   font-size: 0.85rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -665,7 +666,7 @@
 
 .email-reveal-text {
   font-size: 1.05rem;
-  color: var(--gray-300);
+  color: var(--text-secondary);
   margin: 0 0 1.25rem 0;
   font-weight: 500;
 }

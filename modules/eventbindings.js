@@ -161,21 +161,14 @@ const bindFilterControls = () => {
   };
 
   /**
-   * Gère le clic sur le logo pour réinitialiser la vue
+   * Gère le clic sur le logo pour refresh la page
    */
   const handleLogoClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
     
-    let activeCategory = null;
-    const activeTab = document.querySelector('.nav-category.active');
-    if (activeTab) {
-      activeCategory = activeTab.id.replace('nav-', '');
-    }
-    
-    if (window.NavigationModule?.resetToDefaultView) {
-      window.NavigationModule.resetToDefaultView(activeCategory);
-    }
+    // Simple refresh de la page
+    window.location.reload();
     
     return false;
   };
@@ -228,11 +221,6 @@ const bindFilterControls = () => {
     
     if (logoContainer) {
       logoContainer.addEventListener('click', handleLogoClick, false);
-      
-      const logoImg = logoContainer.querySelector('img');
-      if (logoImg) {
-        logoImg.style.pointerEvents = 'none';
-      }
     }
   };
 
