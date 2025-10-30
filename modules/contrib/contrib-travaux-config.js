@@ -302,14 +302,8 @@
       const checkboxes = document.querySelectorAll('input[name="travaux-layer-checkbox"]:checked');
       const layersArray = Array.from(checkboxes).map(cb => cb.value);
 
-      if (layersArray.length === 0) {
-        showStatus('⚠️ Veuillez sélectionner au moins un layer', 'error');
-        if (saveBtn) {
-          saveBtn.disabled = false;
-          saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Enregistrer';
-        }
-        return;
-      }
+      // Note: On autorise maintenant l'enregistrement sans layer sélectionné
+      // Les travaux peuvent fonctionner avec des données depuis city_travaux ou une URL externe
 
       // Construire l'objet config
       const config = {
