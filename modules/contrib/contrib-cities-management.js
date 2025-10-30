@@ -9,7 +9,7 @@
   // ============================================================================
 
   const STORAGE_BUCKET = 'uploads';
-  const BRANDING_PATH = 'branding/cities';
+  const BRANDING_PATH = 'img/cover'; // Chemin autorisé par les RLS (img/cover/%)
   const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
   const ALLOWED_TYPES = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/webp'];
 
@@ -932,7 +932,7 @@
       const filename = `${slugify(ville)}-${type}.${ext}`;
       const path = `${BRANDING_PATH}/${filename}`;
 
-      const { data, error } = await win.AuthModule.getClient()
+      const { data, error } = await win.supabaseService.getClient()
         .storage
         .from(STORAGE_BUCKET)
         .upload(path, file, {
@@ -942,7 +942,7 @@
 
       if (error) throw error;
 
-      const { data: urlData } = win.AuthModule.getClient()
+      const { data: urlData } = win.supabaseService.getClient()
         .storage
         .from(STORAGE_BUCKET)
         .getPublicUrl(path);
