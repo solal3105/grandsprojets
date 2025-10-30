@@ -1,9 +1,15 @@
 // modules/supabaseService.js
 ;(function(win){
   // 1️⃣ Initialise le client Supabase via le global `supabase` chargé par CDN
+  // Éviter de créer plusieurs instances (warning Multiple GoTrueClient)
   const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
-  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  
+  // Réutiliser le client existant s'il existe déjà
+  const supabaseClient = win.__supabaseClient || supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  if (!win.__supabaseClient) {
+    win.__supabaseClient = supabaseClient;
+  }
  
   // Helper: slugify (réutilisé pour les chemins Storage)
   const slugify = (str) => String(str || '')
@@ -22,49 +28,65 @@
     .toLowerCase();
 
   // Helper: sanitizeCity → retourne '' si la ville n'est pas valide ou vide
-  function sanitizeCity(raw) {
-    try {
-      const v = String(raw || '').toLowerCase().trim();
-      // Traiter explicitement 'default' comme absence de ville
-      if (v === 'default') return '';
-      if (!v) return '';
-      // Si un validateur global existe, l'utiliser
-      if (typeof win.isValidCity === 'function') {
-        return win.isValidCity(v) ? v : '';
-      }
-      // À défaut, accepter seulement [a-z-] pour éviter les valeurs numériques accidentelles
-      return (/^[a-z-]+$/i.test(v)) ? v : '';
-    } catch (_) { return ''; }
+  const sanitizeCity = (raw) => {
+    // null = "Global" (valide)
+    if (raw === null) return null;
+    
+    // Vide = invalide
+    if (!raw) return '';
+    
+    // Convertir en string et nettoyer
+    const v = String(raw).toLowerCase().trim();
+    
+    // 'default' = Global (contributions avec ville NULL)
+    if (v === 'default') return null;
+    
+    // Vide après trim = invalide
+    if (!v) return '';
+    
+    // Valider avec regex: lettres et tirets uniquement
+    return /^[a-z-]+$/i.test(v) ? v : '';
   }
 
-  // Helper: get active city with delegation to global resolver when available
+  // Helper: get active city (toujours une ville, jamais null/vide)
   const getActiveCity = () => {
     try {
-      if (typeof win.getActiveCity === 'function') {
-        const v = win.getActiveCity();
-        const s = sanitizeCity(v);
-        if (s) return s;
+      // 1. window.activeCity (priorité absolue)
+      if (win.activeCity !== undefined && win.activeCity) {
+        return sanitizeCity(win.activeCity);
       }
-      if (win.activeCity && String(win.activeCity).trim()) {
-        const s = sanitizeCity(win.activeCity);
-        if (s) return s;
+      
+      // 2. CityManager si disponible
+      if (win.CityManager?.getActiveCity) {
+        const city = win.CityManager.getActiveCity();
+        if (city) return sanitizeCity(city);
       }
-      const url = new URL(win.location.href);
-      const c = url.searchParams.get('city');
-      return sanitizeCity(c);
-    } catch (_) { return ''; }
+      
+      // 3. Fallback: metropole-lyon (JAMAIS null ou vide)
+      console.warn('[supabaseService] getActiveCity: Aucune ville trouvée, fallback metropole-lyon');
+      return 'metropole-lyon';
+    } catch (_) {
+      console.warn('[supabaseService] getActiveCity: Erreur, fallback metropole-lyon');
+      return 'metropole-lyon';
+    }
   };
 
   // 2️⃣ Expose supabaseService sur window
   win.supabaseService = {
     /**
+     * Retourne le client Supabase pour accès direct (auth, etc.)
+     * @returns {Object} Le client Supabase
+     */
+    getClient: function() {
+      return supabaseClient;
+    },
+    
+    /**
      * Récupère toutes les couches dans la table 'layers'
      * @returns {Promise<Array<{name:string, url:string, style:string, is_default:boolean}>>}
      */
     fetchLayersConfig: async function() {
-      // Exclure certaines couches du chargement depuis la table 'layers'.
-      // Ces couches restent visibles via d'autres sources (ex: contribution_uploads).
-      const EXCLUDED = new Set(['voielyonnaise', 'reseauProjeteSitePropre', 'urbanisme']);
+      // Plus d'exclusions - toutes les couches sont maintenant dans la table layers
 
       // Récupérer la ville active
       const activeCity = getActiveCity();
@@ -74,42 +96,43 @@
         .from('layers')
         .select('name, url, style, is_default, ville');
 
+      // Filtre par ville active
       if (activeCity) {
         q = q.eq('ville', activeCity);
       } else {
-        // Si aucune ville n'est sélectionnée, on n'affiche que les couches "globales"
-        q = q.is('ville', null);
+        // Pas de ville : retourner vide
+        return [];
       }
 
       const { data, error } = await q;
 
       if (error) {
-        console.error('fetchLayersConfig error:', error);
         return [];
       }
 
       // A ce stade, on a UNIQUEMENT les couches de la ville active (ou globales si aucune ville),
       // ce qui garantit que les URLs ne réintroduisent pas des couches globales quand une ville est active.
-      const rows = (data || []).filter(row => row && !EXCLUDED.has(row.name));
-
-      // Correction styles: si une ville est active, récupérer les styles avec fallback global
-      if (activeCity && rows.length > 0) {
-        try {
-          const names = Array.from(new Set(rows.map(r => r.name).filter(Boolean)));
-          if (names.length > 0 && typeof win.supabaseService?.fetchLayerStylesByNames === 'function') {
-            const styles = await win.supabaseService.fetchLayerStylesByNames(names);
-            rows.forEach(r => {
-              if (styles && Object.prototype.hasOwnProperty.call(styles, r.name)) {
-                r.style = styles[r.name];
-              }
-            });
+      return (data || [])
+        .filter(row => row && row.name)
+        .map(row => {
+          // Parser le style JSON si c'est une string
+          let parsedStyle = row.style;
+          if (typeof row.style === 'string') {
+            try {
+              parsedStyle = JSON.parse(row.style);
+            } catch (e) {
+              parsedStyle = {};
+            }
           }
-        } catch (e) {
-          console.warn('[supabaseService] fetchLayersConfig: fusion des styles (fallback) échouée:', e);
-        }
-      }
-
-      return rows;
+          
+          return {
+            name: row.name,
+            url: row.url || '',
+            style: parsedStyle,
+            is_default: row.is_default || false,
+            ville: row.ville
+          };
+        });
     },
 
     /**
@@ -130,37 +153,172 @@
           .in('name', names);
 
         if (activeCity) {
-          // Important: pour les STYLES, on accepte un fallback global (ville IS NULL)
-          // afin d'éviter de perdre le style si aucune variante ville n'existe.
-          // On ne mélange pas les URL ici, uniquement les styles.
-          q = q.or(`ville.eq.${activeCity},ville.is.null`);
+          // Filtrer uniquement par la ville active (plus de fallback global)
+          q = q.eq('ville', activeCity);
         } else {
-          q = q.is('ville', null);
+          // Pas de ville : retourner vide
+          return {};
         }
 
         const { data, error } = await q;
         if (error) {
-          console.error('[supabaseService] fetchLayerStylesByNames error:', error);
           return {};
         }
-        // Si doublons (ville spécifique + global), privilégier la valeur spécifique à la ville
+        // Construire le mapping name → style
         const out = {};
         (data || []).forEach(row => {
-          if (!row || !row.name) return;
-          const hasAlready = Object.prototype.hasOwnProperty.call(out, row.name);
-          if (!hasAlready) {
-            // Première occurrence (peut être globale ou ville)
+          if (row && row.name) {
             out[row.name] = row.style;
-          } else {
-            // Si l'entrée existante provient du global (inconnu ici), remplacer par la version ville si dispo
-            if (row.ville === activeCity) out[row.name] = row.style;
           }
         });
         return out;
       } catch (e) {
-        console.warn('[supabaseService] fetchLayerStylesByNames exception:', e);
         return {};
       }
+    },
+
+    /**
+     * Récupère les catégories et leurs icônes depuis la table 'category_icons'
+     * Filtrage par ville active (metropole-lyon par défaut)
+     * @returns {Promise<Array<{category:string, icon_class:string, display_order:number, layers_to_display:string[]}>>}
+     */
+    fetchCategoryIcons: async function() {
+      try {
+        const activeCity = getActiveCity();
+
+        let q = supabaseClient
+          .from('category_icons')
+          .select('category, icon_class, display_order, layers_to_display, category_styles, ville')
+          .order('display_order', { ascending: true });
+
+        if (activeCity) {
+          // Ville spécifique : uniquement les catégories de cette ville
+          q = q.eq('ville', activeCity);
+        } else {
+          // Pas de ville : retourner vide
+          return [];
+        }
+
+        const { data, error } = await q;
+
+        if (error) {
+          console.warn('[supabaseService] fetchCategoryIcons error:', error);
+          return [];
+        }
+
+        return (data || []).filter(row => row && row.category);
+      } catch (e) {
+        console.error('[supabaseService] fetchCategoryIcons exception:', e);
+        return [];
+      }
+    },
+
+    /**
+     * Récupère les catégories pour la ville active uniquement
+     * @returns {Promise<Array>}
+     */
+    fetchAllCategoryIcons: async function() {
+      try {
+        const activeCity = getActiveCity();
+        
+        if (!activeCity) {
+          console.warn('[supabaseService] fetchAllCategoryIcons: pas de ville active');
+          return [];
+        }
+        
+        const { data, error } = await supabaseClient
+          .from('category_icons')
+          .select('category, icon_class, display_order, layers_to_display, category_styles, ville')
+          .eq('ville', activeCity)
+          .order('display_order', { ascending: true });
+
+        if (error) {
+          console.warn('[supabaseService] fetchAllCategoryIcons error:', error);
+          return [];
+        }
+
+        return (data || []).filter(row => row && row.category);
+      } catch (e) {
+        console.error('[supabaseService] fetchAllCategoryIcons exception:', e);
+        return [];
+      }
+    },
+
+    /**
+     * Construit le mapping catégorie → layers depuis les données de category_icons
+     * Le layer de la catégorie elle-même est toujours inclus automatiquement
+     * @param {Array<{category:string, layers_to_display:string[]}>} categoryIcons - Données depuis fetchCategoryIcons
+     * @returns {Object<string, string[]>} - Ex: { 'mobilite': ['mobilite', 'metro', 'tram'], 'urbanisme': ['urbanisme'] }
+     */
+    buildCategoryLayersMap: function(categoryIcons) {
+      const map = {};
+      
+      if (!Array.isArray(categoryIcons)) {
+        console.warn('[supabaseService] buildCategoryLayersMap: categoryIcons n\'est pas un tableau');
+        return map;
+      }
+
+      categoryIcons.forEach(cat => {
+        if (!cat || !cat.category) return;
+        
+        const layers = [];
+        
+        // Toujours inclure le layer de la catégorie elle-même en premier
+        layers.push(cat.category);
+        
+        // Ajouter les layers additionnels depuis layers_to_display (s'ils existent)
+        if (Array.isArray(cat.layers_to_display) && cat.layers_to_display.length > 0) {
+          cat.layers_to_display.forEach(layerName => {
+            // Éviter les doublons (si layers_to_display contient déjà le nom de la catégorie)
+            if (layerName !== cat.category && !layers.includes(layerName)) {
+              layers.push(layerName);
+            }
+          });
+        }
+        
+        map[cat.category] = layers;
+      });
+
+      return map;
+    },
+
+    /**
+     * Construit le mapping catégorie → styles depuis les données de category_icons
+     * @param {Array<{category:string, category_styles:Object}>} categoryIcons - Données depuis fetchCategoryIcons
+     * @returns {Object<string, Object>} - Ex: { 'urbanisme': {fill: true, color: '#3F52F3', ...}, 'mobilite': {color: '#8C368C', ...} }
+     */
+    buildCategoryStylesMap: function(categoryIcons) {
+      const map = {};
+      
+      if (!Array.isArray(categoryIcons)) {
+        console.warn('[supabaseService] buildCategoryStylesMap: categoryIcons n\'est pas un tableau');
+        return map;
+      }
+
+      categoryIcons.forEach(cat => {
+        if (!cat || !cat.category) return;
+        
+        // Parser category_styles si c'est une string JSON
+        let styles = cat.category_styles;
+        if (typeof styles === 'string') {
+          try {
+            styles = JSON.parse(styles);
+          } catch (e) {
+            console.warn(`[supabaseService] Impossible de parser category_styles pour ${cat.category}:`, styles);
+            return;
+          }
+        }
+        
+        // Si category_styles existe et n'est pas vide, l'ajouter au mapping
+        if (styles && typeof styles === 'object' && Object.keys(styles).length > 0) {
+          // Si la catégorie existe déjà, ne pas écraser si le nouveau style est vide
+          if (!map[cat.category] || Object.keys(map[cat.category]).length === 0) {
+            map[cat.category] = styles;
+          }
+        }
+      });
+
+      return map;
     },
 
     /**
@@ -187,22 +345,11 @@
           .from(bucket)
           .upload(path, file, { upsert: false, contentType });
         if (upErr) {
-          console.error('[supabaseService] uploadConsultationPdfToStorage error:', upErr);
           throw upErr;
         }
         const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
-        // Optionally patch row
-        if (rowId && data && data.publicUrl) {
-          try {
-            await supabaseClient
-              .from('contribution_uploads')
-              .update({ updated_at: new Date().toISOString() })
-              .eq('id', rowId);
-          } catch(_) {}
-        }
         return data.publicUrl;
       } catch (e) {
-        console.error('[supabaseService] uploadConsultationPdfToStorage exception:', e);
         throw e;
       }
     },
@@ -226,7 +373,7 @@
           category,
           page = 1,
           pageSize = 10,
-          mineOnly = true,
+          mineOnly = false,
           sortBy = 'created_at',
           sortDir = 'desc',
           city
@@ -241,12 +388,15 @@
 
         if (category) query = query.eq('category', category);
 
-        const activeCity = sanitizeCity(city) || getActiveCity();
+        // Filtre par ville active (metropole-lyon par défaut)
+        const activeCity = city !== undefined ? sanitizeCity(city) : getActiveCity();
+        
         if (activeCity) {
+          // Ville spécifique : contributions de cette ville uniquement
           query = query.eq('ville', activeCity);
         } else {
-          // Si aucune ville active, ne montrer que les projets globaux (ville IS NULL)
-          query = query.is('ville', null);
+          // Pas de ville sélectionnée : erreur (ne devrait pas arriver)
+          throw new Error('No city selected');
         }
 
         if (search && search.trim()) {
@@ -260,12 +410,42 @@
           query = query.or(orExpr);
         }
 
-        if (mineOnly) {
-          try {
-            const { data: userData } = await supabaseClient.auth.getUser();
-            const uid = userData && userData.user ? userData.user.id : null;
-            if (uid) query = query.eq('created_by', uid);
-          } catch (_) {}
+        // Logique de filtrage selon le rôle
+        try {
+          const { data: userData } = await supabaseClient.auth.getUser();
+          const uid = userData && userData.user ? userData.user.id : null;
+          
+          if (uid) {
+            // Utiliser le rôle depuis le contexte global (plus fiable que la requête DB)
+            const userRole = (typeof window.__CONTRIB_ROLE === 'string' && window.__CONTRIB_ROLE) 
+              ? window.__CONTRIB_ROLE 
+              : 'invited';
+            
+            if (userRole === 'invited') {
+              // Pour invited : voir ses contributions + celles approuvées de son équipe
+              // IMPORTANT : Le filtre ville est déjà appliqué plus haut avec .eq('ville', activeCity)
+              // Le .or() ci-dessous s'applique DANS le contexte de cette ville
+              if (mineOnly) {
+                // Si mineOnly = true, on montre uniquement ses contributions (de cette ville)
+                query = query.eq('created_by', uid);
+              } else {
+                // Si mineOnly = false, on montre ses contributions + celles approuvées (de cette ville)
+                // Le filtre ville reste actif car il a été appliqué AVANT
+                query = query.or(`created_by.eq.${uid},approved.eq.true`);
+              }
+            } else if (userRole === 'admin') {
+              // Pour admin
+              if (mineOnly) {
+                // Si mineOnly = true, on montre uniquement ses contributions
+                query = query.eq('created_by', uid);
+              } else {
+                // Si mineOnly = false, on voit TOUT (de cette ville)
+                // Pas de filtre supplémentaire
+              }
+            }
+          }
+        } catch (err) {
+          console.error('❌ [listContributions] Error applying role filter:', err);
         }
 
         // Sorting (map 'updated_at' -> 'created_at' and guard allowed columns)
@@ -281,12 +461,13 @@
 
         const { data, error, count } = await query;
         if (error) {
-          console.warn('[supabaseService] listContributions error:', error);
+          console.error('❌ [listContributions] Erreur Supabase:', error);
           return { items: [], count: 0 };
         }
+        
         return { items: data || [], count: typeof count === 'number' ? count : (data ? data.length : 0) };
       } catch (e) {
-        console.warn('[supabaseService] listContributions exception:', e);
+        console.error('❌ [listContributions] Exception:', e);
         return { items: [], count: 0 };
       }
     },
@@ -305,12 +486,10 @@
           .eq('id', id)
           .single();
         if (error) {
-          console.warn('[supabaseService] getContributionById error:', error);
-          return null;
+            return null;
         }
         return data || null;
       } catch (e) {
-        console.warn('[supabaseService] getContributionById exception:', e);
         return null;
       }
     },
@@ -336,12 +515,10 @@
           .select('*')
           .single();
         if (error) {
-          console.warn('[supabaseService] updateContribution error:', error);
           return { error };
         }
         return { data };
       } catch (e) {
-        console.warn('[supabaseService] updateContribution exception:', e);
         return { error: e };
       }
     },
@@ -362,12 +539,10 @@
           .select('id, approved')
           .single();
         if (error) {
-          console.warn('[supabaseService] setContributionApproved error:', error);
           return { error };
         }
         return { data };
       } catch (e) {
-        console.warn('[supabaseService] setContributionApproved exception:', e);
         return { error: e };
       }
     },
@@ -415,9 +590,7 @@
               .storage
               .from(bucket)
               .remove(paths);
-            if (remErr) console.warn('[supabaseService] deleteContribution storage.remove warning:', remErr, remData);
           } catch (remEx) {
-            console.warn('[supabaseService] deleteContribution storage.remove exception:', remEx);
           }
         }
 
@@ -427,9 +600,7 @@
             .from('consultation_dossiers')
             .delete()
             .eq('project_name', row.project_name);
-          if (delDocErr) console.warn('[supabaseService] deleteContribution dossiers warning:', delDocErr);
         } catch (docEx) {
-          console.warn('[supabaseService] deleteContribution dossiers exception:', docEx);
         }
 
         // 4) Supprimer la ligne principale
@@ -438,13 +609,11 @@
           .delete()
           .eq('id', id);
         if (delErr) {
-          console.warn('[supabaseService] deleteContribution row error:', delErr);
           return { success: false, error: delErr };
         }
 
         return { success: true };
       } catch (e) {
-        console.warn('[supabaseService] deleteContribution exception:', e);
         return { success: false, error: e };
       }
     },
@@ -458,7 +627,6 @@
         .from('metro_colors')
         .select('ligne, color');
       if (error) {
-        console.error('fetchMetroColors error:', error);
         return {};
       }
       // Normaliser les clés en MAJUSCULE pour simplifier la résolution côté front
@@ -480,7 +648,6 @@
         .from('project_pages')
         .select('project_name, page_url');
       if (error) {
-        console.error('fetchProjectPages error:', error);
         return {};
       }
       return data.reduce((acc, { project_name, page_url }) => {
@@ -496,45 +663,16 @@
      */
     fetchAllProjects: async function() {
       const activeCity = getActiveCity();
-      let q = supabaseClient
-        .from('contribution_uploads')
-        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
-        .order('created_at', { ascending: false });
-      try {
-        const { data: userData } = await supabaseClient.auth.getUser();
-        const uid = userData && userData.user ? userData.user.id : null;
-        if (uid) {
-          q = q.or(`approved.eq.true,created_by.eq.${uid}`);
-        } else {
-          q = q.eq('approved', true);
-        }
-      } catch(_) {
-        q = q.eq('approved', true);
-      }
-      if (activeCity) {
-        q = q.eq('ville', activeCity);
-      } else {
-        // Pas de ville sélectionnée → projets globaux uniquement
-        q = q.is('ville', null);
-      }
-      const { data, error } = await q;
-      if (error) {
-        console.error('fetchAllProjects error:', error);
+      
+      // Pas de ville : retourner vide
+      if (!activeCity) {
         return [];
       }
-      return data; 
-    },
-
-    /**
-     * Récupère la liste des projets d'urbanisme depuis contribution_uploads
-     * @returns {Promise<Array<{project_name:string, category:string, geojson_url:string, cover_url:string, markdown_url:string, meta:string, description:string}>>}
-     */
-    fetchUrbanismeProjects: async function() {
-      const activeCity = getActiveCity();
+      
       let q = supabaseClient
         .from('contribution_uploads')
         .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
-        .eq('category', 'urbanisme')
+        .eq('ville', activeCity)
         .order('created_at', { ascending: false });
       try {
         const { data: userData } = await supabaseClient.auth.getUser();
@@ -547,84 +685,9 @@
       } catch(_) {
         q = q.eq('approved', true);
       }
-      if (activeCity) {
-        q = q.eq('ville', activeCity);
-      } else {
-        q = q.is('ville', null);
-      }
+      
       const { data, error } = await q;
       if (error) {
-        console.error('fetchUrbanismeProjects error:', error);
-        return [];
-      }
-      return data; 
-    },
-
-    /**
-     * Récupère la liste des projets de mobilité depuis contribution_uploads
-     * @returns {Promise<Array<{project_name:string, category:string, geojson_url:string, cover_url:string, markdown_url:string, meta:string, description:string}>>}
-     */
-    fetchMobiliteProjects: async function() {
-      const activeCity = getActiveCity();
-      let q = supabaseClient
-        .from('contribution_uploads')
-        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
-        .eq('category', 'mobilite')
-        .order('created_at', { ascending: false });
-      try {
-        const { data: userData } = await supabaseClient.auth.getUser();
-        const uid = userData && userData.user ? userData.user.id : null;
-        if (uid) {
-          q = q.or(`approved.eq.true,created_by.eq.${uid}`);
-        } else {
-          q = q.eq('approved', true);
-        }
-      } catch(_) {
-        q = q.eq('approved', true);
-      }
-      if (activeCity) {
-        q = q.eq('ville', activeCity);
-      } else {
-        q = q.is('ville', null);
-      }
-      const { data, error } = await q;
-      if (error) {
-        console.error('fetchMobiliteProjects error:', error);
-        return [];
-      }
-      return data; 
-    },
-
-    /**
-     * Récupère la liste des projets vélo depuis contribution_uploads
-     * @returns {Promise<Array<{project_name:string, category:string, geojson_url:string, cover_url:string, markdown_url:string, meta:string, description:string}>>}
-     */
-    fetchVoielyonnaiseProjects: async function() {
-      const activeCity = getActiveCity();
-      let q = supabaseClient
-        .from('contribution_uploads')
-        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
-        .eq('category', 'velo')
-        .order('created_at', { ascending: false });
-      try {
-        const { data: userData } = await supabaseClient.auth.getUser();
-        const uid = userData && userData.user ? userData.user.id : null;
-        if (uid) {
-          q = q.or(`approved.eq.true,created_by.eq.${uid}`);
-        } else {
-          q = q.eq('approved', true);
-        }
-      } catch(_) {
-        q = q.eq('approved', true);
-      }
-      if (activeCity) {
-        q = q.eq('ville', activeCity);
-      } else {
-        q = q.is('ville', null);
-      }
-      const { data, error } = await q;
-      if (error) {
-        console.error('fetchVoielyonnaiseProjects error:', error);
         return [];
       }
       return data; 
@@ -637,10 +700,17 @@
      */
     fetchProjectsByCategory: async function(category) {
       const activeCity = getActiveCity();
+      
+      // Pas de ville : retourner vide
+      if (!activeCity) {
+        return [];
+      }
+      
       let q = supabaseClient
         .from('contribution_uploads')
         .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
         .eq('category', category)
+        .eq('ville', activeCity)
         .order('created_at', { ascending: false });
       try {
         const { data: userData } = await supabaseClient.auth.getUser();
@@ -653,11 +723,7 @@
       } catch(_) {
         q = q.eq('approved', true);
       }
-      if (activeCity) {
-        q = q.eq('ville', activeCity);
-      } else {
-        q = q.is('ville', null);
-      }
+      
       const { data, error } = await q;
       if (error) {
         console.error('fetchProjectsByCategory error:', error);
@@ -677,7 +743,7 @@
         if (!category || !projectName) return null;
         let q = supabaseClient
           .from('contribution_uploads')
-          .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, official_url')
+          .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, official_url, ville')
           .eq('category', category)
           .eq('project_name', projectName)
           .limit(1);
@@ -821,60 +887,48 @@
       }
     },
 
-
-
     /**
-     * Récupère la configuration des filtres (catégories + items) depuis Supabase
-     * @returns {Promise<Array<{category:string, items:Array<{id:string, layer:string, icon:string, label:string}>}>>}
+     * Récupère les items de filtres depuis filter_items pour les labels et icônes
+     * @returns {Promise<Array>}
      */
-    fetchFiltersConfig: async function() {
-      // 1) Charger la config des filtres (toutes villes)
-      const { data, error } = await supabaseClient
-        .from('filter_categories')
-        .select(`
-          id,
-          category,
-          filter_items (
-            id,
-            layer,
-            icon,
-            label
-          )
-        `)
-        .order('id', { ascending: true })
-        .order('id', { foreignTable: 'filter_items', ascending: true });
-
-      if (error) {
-        console.error('fetchFiltersConfig error:', error);
+    fetchFilterItems: async function() {
+      const activeCity = getActiveCity();
+      
+      if (!activeCity) {
+        console.warn('[supabaseService] fetchFilterItems: Pas de ville, retour vide');
         return [];
       }
-
-      // 2) Récupérer les couches actives pour la ville courante
-      const activeCity = getActiveCity();
-      let q = supabaseClient
+      
+      // Récupérer les layers de la ville active uniquement
+      let layersQuery = supabaseClient
         .from('layers')
-        .select('name, ville');
-      if (activeCity) {
-        q = q.eq('ville', activeCity);
-      } else {
-        q = q.is('ville', null);
-      }
-      const { data: layerRows, error: layerErr } = await q;
+        .select('name, ville')
+        .eq('ville', activeCity);
+      
+      const { data: layerRows, error: layerErr } = await layersQuery;
+      
       if (layerErr) {
-        console.error('[supabaseService] fetchFiltersConfig layers error:', layerErr);
-        return (data || []).map(cat => ({ category: cat.category, items: cat.filter_items }));
+        console.error('[supabaseService] fetchFilterItems layers error:', layerErr);
+        return [];
       }
+      
       const allowedLayers = new Set((layerRows || []).map(r => r.name).filter(Boolean));
-
-      // 3) Filtrer les items par couches autorisées et supprimer les catégories vides
-      const filtered = (data || []).map(cat => {
-        const items = (cat.filter_items || []).filter(it => allowedLayers.has(it.layer));
-        return { category: cat.category, items };
-      }).filter(cat => (cat.items && cat.items.length > 0));
-
+      
+      // Récupérer tous les filter_items et filtrer par layers autorisés
+      const { data, error } = await supabaseClient
+        .from('filter_items')
+        .select('id, layer, icon, label');
+        
+      if (error) {
+        console.error('[supabaseService] fetchFilterItems error:', error);
+        return [];
+      }
+      
+      const filtered = (data || []).filter(item => allowedLayers.has(item.layer));
+      
       return filtered;
     },
-
+    
     // fetchProjectFilterMapping: removed (legacy). Filtering relies on filter_categories/filter_items and GeoJSON properties.
 
     // fetchProjectColors: removed (legacy). Project colors are not used by the UI anymore.
@@ -916,20 +970,25 @@
     getCityBranding: async function(ville) {
       try {
         const v = String(ville || '').trim();
-        if (!v) return null;
+        if (!v) {
+          return null;
+        }
+
         const { data, error } = await supabaseClient
           .from('city_branding')
-          .select('ville, brand_name, logo_url, dark_logo_url, favicon_url, center_lat, center_lng, zoom')
+          .select('*')
           .eq('ville', v)
           .limit(1)
           .maybeSingle();
+        
         if (error) {
-          console.warn('[supabaseService] getCityBranding error:', error);
+          console.warn('[supabaseService] ❌ getCityBranding error:', error);
           return null;
         }
+        
         return data || null;
       } catch (e) {
-        console.warn('[supabaseService] getCityBranding exception:', e);
+        console.warn('[supabaseService] ❌ getCityBranding exception:', e);
         return null;
       }
     },
@@ -1156,7 +1215,7 @@
      * Upload d'une image de cover dans le bucket Storage 'uploads' et retourne son URL publique.
      * Le chemin est dérivé de la catégorie et d'un slug du nom de projet.
      * @param {File|Blob} file
-     * @param {string} categoryLayer - mobilite | urbanisme | voielyonnaise
+     * @param {string} categoryLayer - mobilite | urbanisme | velo
      * @param {string} projectName
      * @returns {Promise<string>} publicUrl
      */
@@ -1212,7 +1271,38 @@
      */
 
     /**
-     * Insère des dossiers de concertation liés à un projet (facultatif).
+     * Récupère les documents de consultation pour un projet.
+     * @param {string} projectName
+     * @param {string|null} category - optionnel, pour filtrer par catégorie
+     * @returns {Promise<Array>}
+     */
+    fetchConsultationDossiers: async function(projectName, category = null) {
+      try {
+        if (!projectName) return [];
+        let query = supabaseClient
+          .from('consultation_dossiers')
+          .select('id, project_name, category, title, pdf_url')
+          .eq('project_name', projectName)
+          .order('id', { ascending: true });
+        
+        if (category) {
+          query = query.eq('category', category);
+        }
+        
+        const { data, error } = await query;
+        if (error) {
+          console.warn('[supabaseService] fetchConsultationDossiers error:', error);
+          return [];
+        }
+        return data || [];
+      } catch (e) {
+        console.warn('[supabaseService] fetchConsultationDossiers exception:', e);
+        return [];
+      }
+    },
+
+    /**
+     * Insère plusieurs lignes de consultation_dossiers (dossiers de concertation).
      * @param {string} projectName
      * @param {string} category
      * @param {Array<{title:string,pdf_url:string}>} docs
@@ -1250,35 +1340,50 @@
     createContributionRow: async function(projectName, category, city, meta, description, officialUrl) {
       try {
         if (!projectName || !category) throw new Error('Paramètres manquants');
+        
         let createdBy = null;
         try {
           const { data: userData } = await supabaseClient.auth.getUser();
           if (userData && userData.user) createdBy = userData.user.id;
         } catch (_) {}
+        
+        const sanitizedCity = sanitizeCity(city);
+        
         const baseRow = {
           project_name: projectName,
           category,
-          ville: (function(){
-            const s = sanitizeCity(city);
-            return s ? s : null;
-          })(),
+          ville: sanitizedCity ? sanitizedCity : null,
           meta: (meta && meta.trim()) ? meta.trim() : null,
           description: (description && description.trim()) ? description.trim() : null,
           official_url: (officialUrl && officialUrl.trim()) ? officialUrl.trim() : null
         };
+        
         if (createdBy) baseRow.created_by = createdBy;
+        
+        if (!baseRow.ville) {
+          console.error('❌ [supabaseService] CRITIQUE: baseRow.ville est null!');
+        }
+        
         const { data, error } = await supabaseClient
           .from('contribution_uploads')
           .insert(baseRow)
-          .select('id')
+          .select('*')  // ✅ Sélectionner TOUTES les colonnes pour voir ce qui est vraiment inséré
           .single();
+          
         if (error) {
-          console.warn('[supabaseService] createContributionRow insert error:', error);
+          console.error('❌ [supabaseService] Insert error:', error);
           throw error;
         }
+        
+        if (!data?.ville) {
+          console.error('❌ [supabaseService] PROBLEME: La BDD a retourné ville = null/undefined!');
+          console.error('❌ On a envoyé:', baseRow.ville);
+          console.error('❌ La BDD a enregistré:', data?.ville);
+        }
+        
         return data?.id;
       } catch (e) {
-        console.warn('[supabaseService] createContributionRow exception:', e);
+        console.error('❌ [supabaseService] Exception:', e);
         throw e;
       }
     },
@@ -1336,12 +1441,16 @@
               : null;
         if (!patch) return { error: null };
 
-        const { error } = await supabaseClient
+        const { data, error } = await supabaseClient
           .from('contribution_uploads')
           .update(patch)
-          .eq('id', rowId);
-        if (error) console.warn('[supabaseService] logContributionUpload update error:', error);
-        return { error: null };
+          .eq('id', rowId)
+          .select('id');
+        if (error) {
+          console.warn('[supabaseService] logContributionUpload update error:', error);
+          return { error };
+        }
+        return { data, error: null };
       } catch (e) {
         console.warn('[supabaseService] logContributionUpload exception:', e);
         return { error: e };
@@ -1445,8 +1554,6 @@
           case 'fetchLayersConfig': prop = 'layersConfig'; break;
           case 'fetchMetroColors':   prop = 'metroColors';   break;
           case 'fetchProjectPages':  prop = 'projectPages';  break;
-          case 'fetchFiltersConfig':   prop = 'filtersConfig';  break;
-          case 'fetchProjectFilterMapping':  prop = 'projectFilterMapping';  break;
           case 'fetchBasemaps':             prop = 'basemaps';             break;
           default:
             const name = key.replace(/^fetch/, '');
@@ -1456,6 +1563,1092 @@
         window[prop] = results[i];
       });
       return out;
+    },
+
+    /**
+     * Expose le client Supabase pour usage interne
+     * @returns {Object} Client Supabase
+     */
+    getClient() {
+      return supabaseClient;
+    },
+
+    // ==================== CRUD pour category_icons ====================
+
+    /**
+     * Crée une nouvelle catégorie dans category_icons
+     * @param {Object} categoryData - {category, icon_class, display_order, ville}
+     * @returns {Promise<{success:boolean, data?:Object, error?:string}>}
+     */
+    async createCategoryIcon(categoryData) {
+      try {
+        const { category, icon_class, display_order, ville, layers_to_display, category_styles } = categoryData;
+        if (!category || !icon_class || !ville) {
+          return { success: false, error: 'Champs requis manquants' };
+        }
+
+        const insertData = {
+          category: String(category).toLowerCase().trim(),
+          icon_class: String(icon_class).trim(),
+          display_order: parseInt(display_order) || 100,
+          ville: String(ville).toLowerCase().trim()
+        };
+
+        // Ajouter layers_to_display si fourni
+        if (Array.isArray(layers_to_display)) {
+          insertData.layers_to_display = layers_to_display;
+        }
+
+        // Ajouter category_styles si fourni
+        if (category_styles && typeof category_styles === 'object') {
+          insertData.category_styles = category_styles;
+        }
+
+        const { data, error } = await supabaseClient
+          .from('category_icons')
+          .insert([insertData])
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[supabaseService] createCategoryIcon error:', error);
+          return { success: false, error: error.message };
+        }
+
+        return { success: true, data };
+      } catch (e) {
+        console.error('[supabaseService] createCategoryIcon exception:', e);
+        return { success: false, error: e.message };
+      }
+    },
+
+    /**
+     * Met à jour une catégorie existante dans category_icons
+     * @param {string} ville - Ville de la catégorie
+     * @param {string} originalCategory - Nom original de la catégorie (clé primaire)
+     * @param {Object} updates - {category?, icon_class?, display_order?}
+     * @returns {Promise<{success:boolean, data?:Object, error?:string}>}
+     */
+    async updateCategoryIcon(ville, originalCategory, updates) {
+      try {
+        // Permettre ville = '' pour les catégories globales, mais ville doit être définie (pas null/undefined)
+        if (ville === null || ville === undefined || !originalCategory) {
+          return { success: false, error: 'Ville et catégorie requises' };
+        }
+
+        const normalizedVille = String(ville).toLowerCase().trim();
+        const normalizedOriginal = String(originalCategory).toLowerCase().trim();
+        const newCategory = updates.category !== undefined ? String(updates.category).toLowerCase().trim() : normalizedOriginal;
+        
+        // Si le nom de la catégorie change, on doit supprimer et recréer (clé primaire)
+        if (newCategory !== normalizedOriginal) {
+          // Récupérer les données actuelles
+          const { data: existing, error: fetchError } = await supabaseClient
+            .from('category_icons')
+            .select('*')
+            .eq('ville', normalizedVille)
+            .eq('category', normalizedOriginal)
+            .single();
+
+          if (fetchError || !existing) {
+            console.error('[supabaseService] updateCategoryIcon fetch error:', fetchError);
+            return { success: false, error: 'Catégorie introuvable' };
+          }
+
+          // ÉTAPE 1 : Mettre à jour les contributions qui utilisent cette catégorie
+          const { data: updatedContribs, error: updateContribsError } = await supabaseClient
+            .from('contribution_uploads')
+            .update({ category: newCategory })
+            .eq('ville', normalizedVille)
+            .eq('category', normalizedOriginal)
+            .select('id');
+
+          if (updateContribsError) {
+            console.error('[supabaseService] updateCategoryIcon: error updating contributions:', updateContribsError);
+            return { success: false, error: 'Erreur lors de la mise à jour des contributions: ' + updateContribsError.message };
+          }
+
+          // ÉTAPE 2 : Supprimer l'ancienne catégorie
+          const { error: deleteError } = await supabaseClient
+            .from('category_icons')
+            .delete()
+            .eq('ville', normalizedVille)
+            .eq('category', normalizedOriginal);
+
+          if (deleteError) {
+            console.error('[supabaseService] updateCategoryIcon delete error:', deleteError);
+            // Rollback : remettre l'ancien nom dans les contributions
+            await supabaseClient
+              .from('contribution_uploads')
+              .update({ category: normalizedOriginal })
+              .eq('ville', normalizedVille)
+              .eq('category', newCategory);
+            return { success: false, error: deleteError.message };
+          }
+
+          // ÉTAPE 3 : Créer la nouvelle catégorie avec le nouveau nom
+          const insertData = {
+            ville: normalizedVille,
+            category: newCategory,
+            icon_class: updates.icon_class !== undefined ? String(updates.icon_class).trim() : existing.icon_class,
+            display_order: updates.display_order !== undefined ? parseInt(updates.display_order) || 100 : existing.display_order
+          };
+          
+          // Ajouter layers_to_display si fourni, sinon garder l'existant
+          if (updates.layers_to_display !== undefined) {
+            insertData.layers_to_display = updates.layers_to_display;
+          } else if (existing.layers_to_display) {
+            insertData.layers_to_display = existing.layers_to_display;
+          }
+          
+          // Ajouter category_styles si fourni, sinon garder l'existant
+          if (updates.category_styles !== undefined) {
+            insertData.category_styles = updates.category_styles;
+          } else if (existing.category_styles) {
+            insertData.category_styles = existing.category_styles;
+          }
+          
+          const { data, error: insertError } = await supabaseClient
+            .from('category_icons')
+            .insert([insertData])
+            .select()
+            .single();
+
+          if (insertError) {
+            console.error('[supabaseService] updateCategoryIcon insert error:', insertError);
+            // Rollback : remettre l'ancien nom dans les contributions et recréer l'ancienne catégorie
+            await supabaseClient
+              .from('contribution_uploads')
+              .update({ category: normalizedOriginal })
+              .eq('ville', normalizedVille)
+              .eq('category', newCategory);
+            await supabaseClient
+              .from('category_icons')
+              .insert([existing]);
+            return { success: false, error: insertError.message };
+          }
+
+          return { success: true, data, updatedContributions: updatedContribs?.length || 0 };
+        } else {
+          // Mise à jour simple (pas de changement de nom)
+          // D'abord vérifier que la ligne existe
+          const { data: existing, error: checkError } = await supabaseClient
+            .from('category_icons')
+            .select('*')
+            .eq('ville', normalizedVille)
+            .eq('category', normalizedOriginal)
+            .maybeSingle();
+
+          if (checkError) {
+            console.error('[supabaseService] updateCategoryIcon check error:', checkError);
+            return { success: false, error: checkError.message };
+          }
+
+          if (!existing) {
+            console.error('[supabaseService] updateCategoryIcon: category not found', { ville: normalizedVille, category: normalizedOriginal });
+            return { success: false, error: `La catégorie "${normalizedOriginal}" n'existe pas pour la ville "${normalizedVille}"` };
+          }
+
+          const payload = {};
+          if (updates.icon_class !== undefined) payload.icon_class = String(updates.icon_class).trim();
+          if (updates.display_order !== undefined) payload.display_order = parseInt(updates.display_order) || 100;
+          if (updates.layers_to_display !== undefined) {
+            payload.layers_to_display = updates.layers_to_display;
+          }
+          if (updates.category_styles !== undefined) {
+            payload.category_styles = updates.category_styles;
+          }
+          payload.updated_at = new Date().toISOString();
+
+          const { data, error } = await supabaseClient
+            .from('category_icons')
+            .update(payload)
+            .eq('ville', normalizedVille)
+            .eq('category', normalizedOriginal)
+            .select();
+
+          if (error) {
+            console.error('[supabaseService] updateCategoryIcon error:', error);
+            return { success: false, error: error.message };
+          }
+
+          if (!data || data.length === 0) {
+            console.error('[supabaseService] updateCategoryIcon: UPDATE affected 0 rows');
+            return { success: false, error: 'Aucune ligne mise à jour. Vérifiez les permissions RLS.' };
+          }
+
+          return { success: true, data: data[0] };
+        }
+      } catch (e) {
+        console.error('[supabaseService] updateCategoryIcon exception:', e);
+        return { success: false, error: e.message };
+      }
+    },
+
+    /**
+     * Supprime une catégorie de category_icons
+     * @param {string} ville - Ville de la catégorie
+     * @param {string} category - Nom de la catégorie
+     * @returns {Promise<{success:boolean, error?:string}>}
+     */
+    async deleteCategoryIcon(ville, category) {
+      try {
+        if (!ville || !category) {
+          return { success: false, error: 'Ville et catégorie requises' };
+        }
+
+        const { error } = await supabaseClient
+          .from('category_icons')
+          .delete()
+          .eq('ville', String(ville).toLowerCase().trim())
+          .eq('category', String(category).toLowerCase().trim());
+
+        if (error) {
+          console.error('[supabaseService] deleteCategoryIcon error:', error);
+          return { success: false, error: error.message };
+        }
+
+        return { success: true };
+      } catch (e) {
+        console.error('[supabaseService] deleteCategoryIcon exception:', e);
+        return { success: false, error: e.message };
+      }
+    },
+
+    /**
+     * Récupère toutes les catégories pour une ville donnée
+     * @param {string} ville - Ville (optionnel, utilise activeCity si non fourni)
+     * @returns {Promise<Array>}
+     */
+    async getCategoryIconsByCity(ville) {
+      try {
+        // Utiliser ville si elle est définie (même si c'est ''), sinon getActiveCity()
+        const targetCity = ville !== undefined ? ville : getActiveCity();
+        if (targetCity === undefined || targetCity === null) {
+          console.warn('[supabaseService] getCategoryIconsByCity: pas de ville spécifiée');
+          return [];
+        }
+
+        const { data, error } = await supabaseClient
+          .from('category_icons')
+          .select('*')
+          .eq('ville', String(targetCity).toLowerCase().trim())
+          .order('display_order', { ascending: true });
+
+        if (error) {
+          console.error('[supabaseService] getCategoryIconsByCity error:', error);
+          return [];
+        }
+
+        return data || [];
+      } catch (e) {
+        console.error('[supabaseService] getCategoryIconsByCity exception:', e);
+        return [];
+      }
+    },
+
+    // ========================================================================
+    // USER MANAGEMENT (Admin only)
+    // ========================================================================
+
+    /**
+     * Récupère les utilisateurs visibles par l'admin connecté
+     * @returns {Promise<Array>} Liste des utilisateurs avec email, role, ville, created_at
+     */
+    async getVisibleUsers() {
+      try {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (!user) {
+          console.error('[supabaseService] getVisibleUsers: not authenticated');
+          return [];
+        }
+        
+        // Récupérer le profil de l'admin connecté
+        const { data: adminProfile, error: profileError } = await supabaseClient
+          .from('profiles')
+          .select('role, ville')
+          .eq('id', user.id)
+          .single();
+        
+        if (profileError || !adminProfile) {
+          console.error('[supabaseService] getVisibleUsers: failed to get admin profile', profileError);
+          return [];
+        }
+        
+        // Vérifier que l'utilisateur est admin
+        if (adminProfile.role !== 'admin') {
+          console.error('[supabaseService] getVisibleUsers: user is not admin');
+          return [];
+        }
+        
+        // Récupérer les villes de l'admin (déjà un array JavaScript natif depuis Supabase)
+        let adminVilles = [];
+        if (adminProfile.ville) {
+          if (Array.isArray(adminProfile.ville)) {
+            adminVilles = adminProfile.ville;
+          } else {
+            // Fallback si c'est une string ou autre
+            console.warn('[supabaseService] getVisibleUsers: ville is not an array, converting');
+            adminVilles = [adminProfile.ville];
+          }
+        }
+        
+        const isGlobalAdmin = Array.isArray(adminVilles) && adminVilles.includes('global');
+        
+        // Récupérer tous les utilisateurs (sauf soi-même) avec leur email via la fonction
+        const { data: allUsers, error: usersError } = await supabaseClient
+          .rpc('get_profiles_with_email');
+        
+        if (usersError) {
+          console.error('[supabaseService] getVisibleUsers: failed to get users', usersError);
+          return [];
+        }
+        
+        // Filtrer pour exclure l'utilisateur connecté et parser ville
+        const filteredUsers = (allUsers || [])
+          .filter(u => u.id !== user.id)
+          .map(u => {
+            // Parser ville - peut être soit JSON array soit PostgreSQL array format
+            let parsedVille = u.ville;
+            if (typeof u.ville === 'string' && u.ville) {
+              // Si c'est un PostgreSQL array format: {lyon,divonne}
+              if (u.ville.startsWith('{') && u.ville.endsWith('}')) {
+                const content = u.ville.slice(1, -1); // Enlever { et }
+                parsedVille = content ? content.split(',') : [];
+              } else {
+                // Sinon essayer de parser comme JSON
+                try {
+                  parsedVille = JSON.parse(u.ville);
+                } catch (e) {
+                  // Si le parsing échoue, garder la valeur originale
+                }
+              }
+            }
+            return { ...u, ville: parsedVille };
+          });
+        
+        console.log('[supabaseService] getVisibleUsers: fetched', filteredUsers.length, 'users from get_profiles_with_email');
+        
+        // Filtrer selon les permissions (la fonction a déjà filtré par admin, mais on filtre encore par ville si nécessaire)
+        let visibleUsers = filteredUsers;
+        
+        if (!isGlobalAdmin) {
+          // Admin ville : filtrer uniquement les utilisateurs avec au moins une ville commune
+          visibleUsers = filteredUsers.filter(u => {
+            if (!u.ville) {
+              return false;
+            }
+            
+            // ville doit être un array
+            if (!Array.isArray(u.ville)) {
+              return false;
+            }
+            
+            // Vérifier s'il y a au moins une ville en commun
+            const hasMatch = adminVilles.some(adminCity => u.ville.includes(adminCity));
+            return hasMatch;
+          });
+        }
+        
+        // Les emails sont déjà dans les données depuis la vue profiles_with_email
+        const result = visibleUsers.map(u => ({
+          id: u.id,
+          email: u.email || `User ${u.id.substring(0, 8)}...`,
+          role: u.role,
+          ville: u.ville,
+          created_at: u.created_at
+        }));
+        
+        return result;
+      } catch (e) {
+        console.error('[supabaseService] getVisibleUsers exception:', e);
+        return [];
+      }
+    },
+
+    /**
+     * Modifie le rôle d'un utilisateur (admin ↔ invited)
+     * @param {string} targetUserId - ID de l'utilisateur cible
+     * @param {string} newRole - Nouveau rôle ('admin' ou 'invited')
+     * @returns {Promise<boolean>} True si succès
+     */
+    async updateUserRole(targetUserId, newRole) {
+      try {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (!user) {
+          throw new Error('Not authenticated');
+        }
+        
+        if (!['admin', 'invited'].includes(newRole)) {
+          throw new Error('Invalid role: must be admin or invited');
+        }
+        
+        // Empêcher l'auto-modification
+        if (user.id === targetUserId) {
+          throw new Error('Cannot modify your own role');
+        }
+        
+        // Récupérer le profil de l'admin
+        const { data: adminProfile, error: adminError } = await supabaseClient
+          .from('profiles')
+          .select('role, ville')
+          .eq('id', user.id)
+          .single();
+        
+        if (adminError || !adminProfile || adminProfile.role !== 'admin') {
+          throw new Error('Unauthorized: caller is not admin');
+        }
+        
+        // Récupérer les villes de l'admin (déjà un array JavaScript natif depuis Supabase)
+        let adminVilles = [];
+        if (adminProfile.ville) {
+          if (Array.isArray(adminProfile.ville)) {
+            adminVilles = adminProfile.ville;
+          } else {
+            adminVilles = [adminProfile.ville];
+          }
+        }
+        
+        const isGlobalAdmin = Array.isArray(adminVilles) && adminVilles.includes('global');
+        
+        // Récupérer le profil de la cible
+        const { data: targetProfile, error: targetError } = await supabaseClient
+          .from('profiles')
+          .select('role, ville')
+          .eq('id', targetUserId)
+          .single();
+        
+        if (targetError || !targetProfile) {
+          throw new Error('Target user not found');
+        }
+        
+        // Si le rôle est déjà celui demandé, ne rien faire
+        if (targetProfile.role === newRole) {
+          return true;
+        }
+        
+        // Si admin global, autoriser directement
+        if (!isGlobalAdmin) {
+          // Admin ville : vérifier qu'il y a au moins une ville commune
+          if (!targetProfile.ville) {
+            throw new Error('Target user has no cities assigned');
+          }
+          
+          let targetVilles = [];
+          if (Array.isArray(targetProfile.ville)) {
+            targetVilles = targetProfile.ville;
+          } else if (targetProfile.ville) {
+            targetVilles = [targetProfile.ville];
+          }
+          
+          const hasSharedCity = adminVilles.some(adminCity => targetVilles.includes(adminCity));
+          
+          if (!hasSharedCity) {
+            throw new Error('Unauthorized: no shared cities with target user');
+          }
+        }
+        
+        // Mettre à jour le rôle
+        const { error: updateError } = await supabaseClient
+          .from('profiles')
+          .update({ role: newRole })
+          .eq('id', targetUserId);
+        
+        if (updateError) {
+          console.error('[supabaseService] updateUserRole error:', updateError);
+          throw new Error(updateError.message);
+        }
+        
+        return true;
+      } catch (e) {
+        console.error('[supabaseService] updateUserRole exception:', e);
+        throw e;
+      }
+    },
+
+    // ========================================================================
+    // USER INVITATION (Admin only)
+    // ========================================================================
+
+    /**
+     * Récupère les villes disponibles pour l'admin connecté
+     * @returns {Promise<Array<{value: string, label: string}>>} Liste des villes disponibles
+     */
+    async getAvailableCities() {
+      try {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (!user) {
+          console.error('[supabaseService] getAvailableCities: not authenticated');
+          return [];
+        }
+
+        // Récupérer le profil de l'admin
+        const { data: adminProfile, error: profileError } = await supabaseClient
+          .from('profiles')
+          .select('role, ville')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError || !adminProfile || adminProfile.role !== 'admin') {
+          console.error('[supabaseService] getAvailableCities: user is not admin');
+          return [];
+        }
+
+        // Parser les villes
+        let adminVilles = [];
+        if (adminProfile.ville) {
+          if (Array.isArray(adminProfile.ville)) {
+            adminVilles = adminProfile.ville;
+          } else {
+            adminVilles = [adminProfile.ville];
+          }
+        }
+
+        const isGlobalAdmin = adminVilles.includes('global');
+
+        // Si admin global, récupérer toutes les villes depuis city_branding
+        if (isGlobalAdmin) {
+          const { data: cities, error: citiesError } = await supabaseClient
+            .from('city_branding')
+            .select('ville, brand_name')
+            .order('ville', { ascending: true });
+
+          if (citiesError) {
+            console.error('[supabaseService] getAvailableCities: failed to fetch city_branding', citiesError);
+            return [];
+          }
+
+          if (!cities || cities.length === 0) {
+            console.warn('[supabaseService] getAvailableCities: no cities found in city_branding');
+            return [];
+          }
+
+          // Retourner les villes avec leur brand_name
+          return cities.map(city => ({
+            value: city.ville,
+            label: city.brand_name || (city.ville.charAt(0).toUpperCase() + city.ville.slice(1))
+          }));
+        }
+
+        // Si admin ville, retourner uniquement ses villes
+        return adminVilles
+          .filter(v => v !== 'global')
+          .map(v => ({
+            value: v,
+            label: v.charAt(0).toUpperCase() + v.slice(1) // Capitaliser
+          }));
+
+      } catch (e) {
+        console.error('[supabaseService] getAvailableCities exception:', e);
+        return [];
+      }
+    },
+
+    /**
+     * Invite un nouvel utilisateur
+     * @param {string} email - Email de l'utilisateur à inviter
+     * @param {Array<string>} villes - Liste des villes à assigner
+     * @param {string} role - Rôle de l'utilisateur ('admin' ou 'invited')
+     * @returns {Promise<Object>} Résultat de l'invitation
+     */
+    async inviteUser(email, villes, role = 'invited') {
+      try {
+        // Utiliser fetch directement pour avoir le détail complet des erreurs
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) {
+          throw new Error('Not authenticated');
+        }
+
+        // Récupérer le domaine actuel pour l'inclure dans l'email
+        const currentDomain = window.location.origin;
+
+        const response = await fetch(`${supabaseClient.supabaseUrl}/functions/v1/invite-user`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+            'apikey': supabaseClient.supabaseKey
+          },
+          body: JSON.stringify({ email, villes, role, redirectUrl: currentDomain })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          const errorMessage = data.error || data.details || `HTTP ${response.status}: ${response.statusText}`;
+          throw new Error(errorMessage);
+        }
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        return data;
+      } catch (e) {
+        console.error('[supabaseService] inviteUser exception:', e);
+        throw e;
+      }
+    },
+
+    // ============================================================================
+    // CITIES MANAGEMENT (Admin Global only)
+    // ============================================================================
+
+    /**
+     * Récupère toutes les villes pour la gestion (admin global)
+     * @returns {Promise<Array>}
+     */
+    async getAllCitiesForManagement() {
+      try {
+        const { data, error } = await supabaseClient
+          .from('city_branding')
+          .select('*')
+          .order('ville', { ascending: true });
+
+        if (error) {
+          console.error('[supabaseService] getAllCitiesForManagement error:', error);
+          throw error;
+        }
+
+        // Récupérer le nombre d'admins par ville
+        const { data: profiles, error: profilesError } = await supabaseClient
+          .from('profiles')
+          .select('ville, role');
+
+        if (!profilesError && profiles) {
+          // Compter les admins par ville
+          const adminCounts = {};
+          
+          profiles.forEach(profile => {
+            if (profile.role === 'admin' && profile.ville) {
+              const villes = Array.isArray(profile.ville) ? profile.ville : [profile.ville];
+              villes.forEach(ville => {
+                if (ville && ville !== 'global') {
+                  adminCounts[ville] = (adminCounts[ville] || 0) + 1;
+                }
+              });
+            }
+          });
+
+          // Ajouter le compteur à chaque ville
+          (data || []).forEach(city => {
+            city.admin_count = adminCounts[city.ville] || 0;
+          });
+        }
+
+        return data || [];
+      } catch (e) {
+        console.error('[supabaseService] getAllCitiesForManagement exception:', e);
+        throw e;
+      }
+    },
+
+    /**
+     * Crée une nouvelle ville
+     * @param {Object} cityData - Données de la ville
+     * @returns {Promise<Object>}
+     */
+    async createCity(cityData) {
+      try {
+        const { data, error } = await supabaseClient
+          .from('city_branding')
+          .insert([cityData])
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[supabaseService] createCity error:', error);
+          throw error;
+        }
+
+        return data;
+      } catch (e) {
+        console.error('[supabaseService] createCity exception:', e);
+        throw e;
+      }
+    },
+
+    /**
+     * Met à jour une ville existante
+     * @param {string} ville - Code ville
+     * @param {Object} cityData - Nouvelles données
+     * @returns {Promise<Object>}
+     */
+    async updateCity(ville, cityData) {
+      try {
+        const { data, error } = await supabaseClient
+          .from('city_branding')
+          .update(cityData)
+          .eq('ville', ville)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[supabaseService] updateCity error:', error);
+          throw error;
+        }
+
+        return data;
+      } catch (e) {
+        console.error('[supabaseService] updateCity exception:', e);
+        throw e;
+      }
+    },
+
+    /**
+     * Supprime une ville
+     * @param {string} ville - Code ville
+     * @returns {Promise<void>}
+     */
+    async deleteCity(ville) {
+      try {
+        const { error} = await supabaseClient
+          .from('city_branding')
+          .delete()
+          .eq('ville', ville);
+
+        if (error) {
+          console.error('[supabaseService] deleteCity error:', error);
+          throw error;
+        }
+      } catch (e) {
+        console.error('[supabaseService] deleteCity exception:', e);
+        throw e;
+      }
+    },
+
+    // ============================================================================
+    // CITY TRAVAUX (Module Travaux multi-villes)
+    // ============================================================================
+
+    /**
+     * Récupère les chantiers travaux pour une ville (approved=true uniquement en public)
+     * @param {string|null} city - Code ville ou null pour Global
+     * @returns {Promise<Array>} Liste des chantiers
+     */
+    async fetchCityTravaux(city) {
+      try {
+        const sanitized = sanitizeCity(city);
+        
+        // Si pas de ville spécifique, retourner vide (plus de mode Global)
+        if (!sanitized) {
+          return [];
+        }
+
+        const { data, error } = await supabaseClient
+          .from('city_travaux')
+          .select('*')
+          .eq('ville', sanitized)
+          .eq('approved', true)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('[supabaseService] fetchCityTravaux error:', error);
+          return [];
+        }
+
+        return data || [];
+      } catch (e) {
+        console.error('[supabaseService] fetchCityTravaux exception:', e);
+        return [];
+      }
+    },
+
+    /**
+     * Charge et agrège tous les GeoJSON des chantiers d'une ville
+     * @param {string} city - Code ville
+     * @returns {Promise<Object>} FeatureCollection agrégé
+     */
+    async loadCityTravauxGeoJSON(city) {
+      try {
+        const chantiers = await this.fetchCityTravaux(city);
+        
+        if (!chantiers.length) {
+          return { type: 'FeatureCollection', features: [] };
+        }
+
+        // Charger tous les GeoJSON en parallèle
+        const geojsonPromises = chantiers.map(async (chantier) => {
+          try {
+            const response = await fetch(chantier.geojson_url);
+            if (!response.ok) {
+              console.warn(`[supabaseService] Impossible de charger ${chantier.geojson_url}`);
+              return null;
+            }
+            const geojson = await response.json();
+            
+            // Normaliser les propriétés de chaque feature
+            if (geojson.features && Array.isArray(geojson.features)) {
+              geojson.features.forEach(feature => {
+                if (!feature.properties) feature.properties = {};
+                
+                // Injecter les propriétés du chantier
+                feature.properties.chantier_id = chantier.id; // ID pour édition/suppression
+                feature.properties.project_name = chantier.name;
+                feature.properties.nature_travaux = chantier.nature || '';
+                feature.properties.etat = chantier.etat || '';
+                feature.properties.date_debut = chantier.date_debut || '';
+                feature.properties.date_fin = chantier.date_fin || '';
+                feature.properties.last_update = chantier.last_update || '';
+                feature.properties.description = chantier.description || '';
+                
+                // Mapper localisation → commune/adresse (à affiner)
+                const loc = chantier.localisation || '';
+                feature.properties.commune = loc;
+                feature.properties.adresse = loc;
+                feature.properties.code_insee = '';
+              });
+            }
+            
+            return geojson;
+          } catch (err) {
+            console.warn(`[supabaseService] Erreur chargement ${chantier.name}:`, err);
+            return null;
+          }
+        });
+
+        const geojsons = (await Promise.all(geojsonPromises)).filter(Boolean);
+        
+        // Agréger toutes les features
+        const allFeatures = geojsons.reduce((acc, geojson) => {
+          if (geojson.features && Array.isArray(geojson.features)) {
+            return [...acc, ...geojson.features];
+          }
+          return acc;
+        }, []);
+
+        return {
+          type: 'FeatureCollection',
+          features: allFeatures
+        };
+      } catch (e) {
+        console.error('[supabaseService] loadCityTravauxGeoJSON exception:', e);
+        return { type: 'FeatureCollection', features: [] };
+      }
+    },
+
+    /**
+     * Upload d'un GeoJSON dans Storage
+     * @param {string} ville - Code ville
+     * @param {Object} geojson - FeatureCollection
+     * @returns {Promise<string>} URL publique du fichier
+     */
+    async uploadTravauxGeoJSON(ville, geojson) {
+      try {
+        const filename = `${crypto.randomUUID()}.geojson`;
+        const path = `${ville}/${filename}`;
+        const blob = new Blob([JSON.stringify(geojson)], { type: 'application/json' });
+
+        const { data, error } = await supabaseClient.storage
+          .from('travaux-geojson')
+          .upload(path, blob, {
+            contentType: 'application/json',
+            upsert: false
+          });
+
+        if (error) {
+          console.error('[supabaseService] uploadTravauxGeoJSON error:', error);
+          throw error;
+        }
+
+        // Construire l'URL publique
+        const { data: publicUrlData } = supabaseClient.storage
+          .from('travaux-geojson')
+          .getPublicUrl(path);
+
+        return publicUrlData.publicUrl;
+      } catch (e) {
+        console.error('[supabaseService] uploadTravauxGeoJSON exception:', e);
+        throw e;
+      }
+    },
+
+    /**
+     * Crée un nouveau chantier travaux
+     * @param {Object} chanterData - { ville, name, geojson_url, nature, etat, date_debut, date_fin, localisation, description, approved }
+     * @returns {Promise<Object>}
+     */
+    async createCityTravaux(chantierData) {
+      try {
+        const { data, error } = await supabaseClient
+          .from('city_travaux')
+          .insert([chantierData])
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[supabaseService] createCityTravaux error:', error);
+          throw error;
+        }
+
+        return data;
+      } catch (e) {
+        console.error('[supabaseService] createCityTravaux exception:', e);
+        throw e;
+      }
+    },
+
+    /**
+     * Met à jour un chantier travaux
+     * @param {string} id - UUID du chantier
+     * @param {Object} chantierData - Données à mettre à jour
+     * @returns {Promise<Object>}
+     */
+    async updateCityTravaux(id, chantierData) {
+      try {
+        const { data, error } = await supabaseClient
+          .from('city_travaux')
+          .update(chantierData)
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[supabaseService] updateCityTravaux error:', error);
+          throw error;
+        }
+
+        return data;
+      } catch (e) {
+        console.error('[supabaseService] updateCityTravaux exception:', e);
+        throw e;
+      }
+    },
+
+    /**
+     * Récupère un chantier travaux par son ID
+     * @param {string} id - UUID du chantier
+     * @returns {Promise<Object|null>}
+     */
+    async getCityTravauxById(id) {
+      try {
+        const { data, error } = await supabaseClient
+          .from('city_travaux')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error) {
+          console.error('[supabaseService] getCityTravauxById error:', error);
+          return null;
+        }
+
+        return data;
+      } catch (e) {
+        console.error('[supabaseService] getCityTravauxById exception:', e);
+        return null;
+      }
+    },
+
+    /**
+     * Supprime un chantier travaux
+     * @param {string} id - UUID du chantier
+     * @returns {Promise<void>}
+     */
+    async deleteCityTravaux(id) {
+      try {
+        const { error } = await supabaseClient
+          .from('city_travaux')
+          .delete()
+          .eq('id', id);
+
+        if (error) {
+          console.error('[supabaseService] deleteCityTravaux error:', error);
+          throw error;
+        }
+      } catch (e) {
+        console.error('[supabaseService] deleteCityTravaux exception:', e);
+        throw e;
+      }
+    },
+
+    /**
+     * Récupère la configuration Travaux pour une ville
+     * @param {string} ville - Code de la ville
+     * @returns {Promise<Object|null>}
+     */
+    getTravauxConfig: async function(ville) {
+      try {
+        if (!ville) return null;
+        
+        const { data, error } = await supabaseClient
+          .from('travaux_config')
+          .select('*')
+          .eq('ville', ville)
+          .single();
+        
+        if (error) {
+          console.warn('[supabaseService] Pas de config travaux pour', ville, ':', error);
+          return null;
+        }
+        
+        return data;
+      } catch (e) {
+        console.error('[supabaseService] Erreur getTravauxConfig:', e);
+        return null;
+      }
+    },
+
+    /**
+     * Met à jour ou crée la configuration Travaux pour une ville
+     * @param {string} ville - Code de la ville
+     * @param {Object} config - Configuration complète
+     * @returns {Promise<{data: Object|null, error: Error|null}>}
+     */
+    updateTravauxConfig: async function(ville, config) {
+      try {
+        if (!ville) {
+          return { data: null, error: new Error('Ville requise') };
+        }
+
+        const { data, error } = await supabaseClient
+          .from('travaux_config')
+          .upsert({
+            ville: ville,
+            enabled: config.enabled !== undefined ? config.enabled : false,
+            source_type: config.source_type || 'city_travaux',
+            url: config.url || null,
+            icon_class: config.icon_class || 'fa-solid fa-helmet-safety',
+            display_order: config.display_order !== undefined ? config.display_order : 5,
+            layers_to_display: config.layers_to_display || ['travaux']
+          }, {
+            onConflict: 'ville'
+          })
+          .select()
+          .single();
+
+        return { data, error };
+      } catch (e) {
+        console.error('[supabaseService] Erreur updateTravauxConfig:', e);
+        return { data: null, error: e };
+      }
+    },
+
+    /**
+     * Supprime la configuration Travaux pour une ville
+     * @param {string} ville - Code de la ville
+     * @returns {Promise<{success: boolean, error: Error|null}>}
+     */
+    deleteTravauxConfig: async function(ville) {
+      try {
+        if (!ville) {
+          return { success: false, error: new Error('Ville requise') };
+        }
+
+        const { error } = await supabaseClient
+          .from('travaux_config')
+          .delete()
+          .eq('ville', ville);
+
+        if (error) {
+          return { success: false, error };
+        }
+
+        return { success: true, error: null };
+      } catch (e) {
+        console.error('[supabaseService] Erreur deleteTravauxConfig:', e);
+        return { success: false, error: e };
+      }
     }
   };
 })(window);

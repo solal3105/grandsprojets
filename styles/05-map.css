@@ -1,0 +1,614 @@
+/* ===========================================================================
+   MAP - Carte Leaflet, tooltips, popups, markers
+   =========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   Tooltip Travaux - Dribbble Ready
+--------------------------------------------------------------------------- */
+.leaflet-tooltip.travaux-tooltip {
+  background: var(--surface-92);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px var(--black-alpha-18), 0 2px 8px var(--black-alpha-08);
+  backdrop-filter: blur(16px);
+  padding: 28px 28px 22px 28px;
+  min-width: 270px;
+  max-width: 440px;
+  z-index: 1200;
+  border: none;
+  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+}
+
+.travaux-tooltip-content .tt-row {
+  display: block;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--gray-50);
+  padding-bottom: 7px;
+}
+
+.travaux-tooltip-content .tt-row:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.travaux-tooltip-content .icon {
+  font-size: 1.18em;
+  opacity: 0.95;
+  margin-right: 9px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.travaux-tooltip-content .tt-label {
+  color: var(--primary);
+  font-size: 1.08em;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin-right: 8px;
+  flex-shrink: 0;
+  align-self: center;
+  min-width: 90px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px var(--white), 0 0.5px 0 var(--gray-200);
+}
+
+.travaux-tooltip-content .tt-value {
+  color: var(--gray-800);
+  font-size: 1.13em;
+  font-weight: 600;
+  word-break: break-word;
+  flex: 1 1 0;
+  align-self: center;
+  text-shadow: 0 1px 0 var(--white), 0 0.5px 0 var(--gray-200);
+  min-width: 0;
+  white-space: pre-line;
+}
+
+.travaux-tooltip-content .travaux-date-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.travaux-tooltip-content .travaux-date-slider .slider-current {
+  font-size: 0.9rem;
+  color: var(--primary);
+  font-weight: 600;
+  text-shadow: 0 1px 0 var(--white);
+}
+
+.travaux-tooltip-content .travaux-date-slider input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--gray-100);
+  outline: none;
+  cursor: pointer;
+}
+
+/* WebKit track & thumb */
+.travaux-tooltip-content .travaux-date-slider input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  background: var(--gray-100);
+  border-radius: 999px;
+}
+
+.travaux-tooltip-content .travaux-date-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2px solid var(--surface-base);
+  margin-top: -6px;
+  box-shadow: 0 2px 6px var(--black-alpha-15);
+  transition: transform 0.12s ease;
+}
+
+.travaux-tooltip-content .travaux-date-slider input[type="range"]:hover::-webkit-slider-thumb {
+  transform: scale(1.06);
+}
+
+.travaux-tooltip-content .travaux-date-slider input[type="range"]:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--primary-hover);
+  outline-offset: 2px;
+}
+
+/* Firefox track & thumb */
+.travaux-tooltip-content .travaux-date-slider input[type="range"]::-moz-range-track {
+  height: 6px;
+  background: var(--gray-100);
+  border-radius: 999px;
+}
+
+.travaux-tooltip-content .travaux-date-slider input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--surface-base);
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 2px 6px var(--black-alpha-15);
+  transition: transform 0.12s ease;
+}
+
+.travaux-tooltip-content .travaux-date-slider input[type="range"]:hover::-moz-range-thumb {
+  transform: scale(1.06);
+}
+
+/* MS Edge (legacy) */
+.travaux-tooltip-content .travaux-date-slider input[type="range"]::-ms-track {
+  height: 6px;
+  background: transparent;
+  border-color: transparent;
+  color: transparent;
+}
+
+.travaux-tooltip-content .travaux-date-slider input[type="range"]::-ms-fill-lower,
+.travaux-tooltip-content .travaux-date-slider input[type="range"]::-ms-fill-upper {
+  background: var(--gray-100);
+  border-radius: 999px;
+}
+
+.travaux-tooltip-content .travaux-date-slider input[type="range"]::-ms-thumb {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--surface-base);
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 2px 6px var(--black-alpha-15);
+}
+
+.travaux-tooltip-content .etat-ouvert,
+.travaux-tooltip-content .etat-ferme {
+  transition: box-shadow 0.2s, filter 0.2s;
+  border-radius: 999px;
+  padding: 4px 18px;
+  font-weight: 700;
+  font-size: 1.08em;
+  box-shadow: 0 1px 5px 0 var(--primary-lighter);
+  animation: fadeInScale 0.4s cubic-bezier(.5, 1.7, .7, 1.01);
+}
+
+.travaux-tooltip-content .etat-ouvert {
+  background: linear-gradient(90deg, var(--primary-lighter) 60%, var(--primary-lighter) 100%);
+  color: var(--primary);
+}
+
+.travaux-tooltip-content .etat-ferme {
+  background: linear-gradient(90deg, var(--danger-lighter) 60%, var(--danger-lighter) 100%);
+  color: var(--danger);
+}
+
+.travaux-tooltip-content .etat-ouvert:hover,
+.travaux-tooltip-content .etat-ferme:hover {
+  filter: brightness(1.08) drop-shadow(0 2px 8px var(--primary-lighter));
+}
+
+/* ---------------------------------------------------------------------------
+   Tooltip Projet (hover sur chemins/polygones)
+--------------------------------------------------------------------------- */
+.leaflet-tooltip.gp-project-tooltip {
+  pointer-events: none;
+  z-index: 10000 !important;
+  background: var(--white-alpha-72) !important;
+  border: none !important;
+  border-radius: 16px !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  box-shadow: 0 10px 30px var(--black-alpha-18), 0 2px 8px var(--black-alpha-08) !important;
+  padding: 10px 12px !important;
+}
+
+.leaflet-tooltip.gp-project-tooltip .leaflet-tooltip-content {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.gp-ct {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 360px;
+}
+
+.gp-thumb {
+  width: 100px;
+  height: 66px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--gray-100);
+  box-shadow: inset 0 0 0 1px var(--black-alpha-04);
+  flex-shrink: 0;
+}
+
+.gp-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gp-thumb--placeholder {
+  background: linear-gradient(135deg, var(--gray-100), var(--gray-50));
+}
+
+.gp-info {
+  min-width: 0;
+}
+
+.gp-title {
+  color: var(--gray-800);
+  font-weight: 800;
+  font-size: 1rem;
+  line-height: 1.2;
+  text-shadow: 0 1px 0 var(--white);
+  max-width: 230px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+   Popup variant to match tooltip style
+--------------------------------------------------------------------------- */
+.leaflet-popup.gp-project-tooltip {
+  pointer-events: auto;
+  z-index: 10000 !important;
+}
+
+.leaflet-popup.gp-project-tooltip .leaflet-popup-content-wrapper {
+  background: var(--white-alpha-72) !important;
+  border: none !important;
+  border-radius: 16px !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  box-shadow: 0 10px 30px var(--black-alpha-18), 0 2px 8px var(--black-alpha-08) !important;
+  padding: 10px 12px !important;
+}
+
+.leaflet-popup.gp-project-tooltip .leaflet-popup-content {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup.gp-project-tooltip .leaflet-popup-tip {
+  display: none !important;
+}
+
+/* Scoped cover sizing for popup variant */
+.leaflet-popup.gp-project-tooltip .project-cover {
+  width: 100%;
+  max-width: 280px;
+  height: auto !important;
+  max-height: 280px;
+  object-fit: contain !important;
+  display: block;
+}
+
+.leaflet-popup.gp-project-tooltip .project-cover-wrap--popup {
+  width: 100%;
+  max-width: 280px;
+}
+
+/* ---------------------------------------------------------------------------
+   Card layout used inside tooltips/popups
+--------------------------------------------------------------------------- */
+
+
+.gp-card-media {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--white-alpha-72);
+  box-shadow: inset 0 0 0 1px var(--black-alpha-04);
+}
+
+.gp-card-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gp-card-media--placeholder {
+  background: linear-gradient(135deg, var(--gray-100), var(--gray-50));
+}
+
+.gp-card-body {
+  padding-top: 8px;
+  min-width: 0;
+}
+
+.gp-card-title {
+  color: var(--gray-800);
+  font-weight: 800;
+  font-size: 1rem;
+  line-height: 1.25;
+  text-shadow: 0 1px 0 var(--white);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* CTA styles inside tooltip card */
+.gp-card-cta {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent, var(--primary));
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.1px;
+  opacity: 0.95;
+}
+
+.gp-card-cta i {
+  color: var(--accent, var(--primary));
+  font-size: 1rem;
+  filter: drop-shadow(0 1px 1px var(--black-alpha-15));
+}
+
+.gp-card-cta span {
+  color: inherit;
+  text-shadow: 0 1px 0 var(--white);
+}
+
+/* ---------------------------------------------------------------------------
+   Camera markers - Juste l'icône
+--------------------------------------------------------------------------- */
+.camera-marker {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  transition: transform 100ms ease;
+  pointer-events: auto !important;
+  cursor: pointer;
+}
+
+.camera-marker i {
+  font-size: 16px;
+  filter: drop-shadow(0 1px 2px var(--black-alpha-30));
+  pointer-events: none;
+}
+
+.camera-marker:hover {
+  transform: scale(1.15);
+}
+
+.camera-marker:hover i {
+  filter: drop-shadow(0 2px 4px var(--black-alpha-40));
+}
+
+/* Style minimal pour le popup d'image */
+.image-popup {
+  z-index: 10000 !important;
+}
+
+.image-popup .leaflet-popup-content-wrapper {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.image-popup .leaflet-popup-content img {
+  display: block;
+  max-width: 500px;
+  max-height: 500px;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px var(--black-alpha-30);
+}
+
+.image-popup .leaflet-popup-tip {
+  display: none !important;
+}
+
+/* ---------------------------------------------------------------------------
+   Tooltip d'images
+--------------------------------------------------------------------------- */
+.image-tooltip {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  pointer-events: none;
+  z-index: 10000 !important;
+}
+
+.image-tooltip .leaflet-popup-content-wrapper,
+.image-tooltip .leaflet-popup-tip {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.image-tooltip .leaflet-popup-content {
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 0;
+}
+
+.image-tooltip img {
+  max-width: 300px;
+  max-height: 200px;
+  border-radius: 6px;
+  display: block;
+  box-shadow: 0 4px 15px var(--black-alpha-15);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transform-origin: center bottom;
+  pointer-events: none;
+}
+
+/* Animation d'apparition du tooltip */
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Positionnement du popup */
+.leaflet-popup {
+  pointer-events: none;
+  z-index: 10000 !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: transparent !important;
+  box-shadow: none !important;
+  pointer-events: none;
+}
+
+.leaflet-popup-tip {
+  display: none !important;
+}
+
+/* Effet de survol sur l'image */
+.image-tooltip img:hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 25px var(--black-alpha-20);
+}
+
+/* Cache le texte du tooltip */
+.image-tooltip .rich-tooltip {
+  font-size: 0;
+  line-height: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Styles pour les popups des travaux
+--------------------------------------------------------------------------- */
+.travaux-popup .leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  padding: 0;
+  box-shadow: 0 3px 14px var(--black-alpha-20);
+}
+
+.travaux-popup .leaflet-popup-content {
+  margin: 0;
+  padding: 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.travaux-popup .popup-row {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.travaux-popup .popup-row:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.travaux-popup .popup-label {
+  font-weight: 600;
+  color: var(--primary);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.travaux-popup .popup-value {
+  color: var(--gray-700);
+  word-break: break-word;
+}
+
+/* Ajustement pour le bouton de fermeture */
+.travaux-popup .leaflet-popup-close-button {
+  padding: 8px;
+  font-size: 16px;
+  color: var(--gray-600);
+}
+
+.travaux-popup .leaflet-popup-close-button:hover {
+  color: var(--gray-900);
+}
+
+/* Animation d'apparition */
+.travaux-popup.leaflet-zoom-animated {
+  animation: fadeInScale 0.15s ease-out;
+}
+
+/* ---------------------------------------------------------------------------
+   Travaux tooltip alternative
+--------------------------------------------------------------------------- */
+.travaux-tooltip {
+  background: var(--white-alpha-90) !important;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  border-radius: 8px !important;
+  padding: 10px !important;
+  box-shadow: 0 2px 10px var(--black-alpha-20) !important;
+}
+
+.travaux-tooltip .leaflet-popup-content-wrapper {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.travaux-tooltip .leaflet-popup-content {
+  margin: 20px !important;
+  color: var(--gray-700);
+}
+
+.travaux-tooltip .leaflet-popup-tip {
+  background: var(--white-alpha-90) !important;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+/* ---------------------------------------------------------------------------
+   Non-clickable layers tooltip (paths/polygons)
+--------------------------------------------------------------------------- */
+.leaflet-tooltip.gp-path-tooltip {
+  background: var(--white-alpha-72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--gray-900);
+  border: 1px solid var(--white-alpha-60);
+  border-radius: 10px;
+  box-shadow: 0 10px 24px var(--black-alpha-12), 0 2px 6px var(--black-alpha-08);
+  padding: 10px 12px;
+  max-width: 320px;
+}
+
+.gp-path-tooltip .gp-tt-title {
+  font-weight: 800;
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+  letter-spacing: .2px;
+}
+
+.gp-path-tooltip .gp-tt-body {
+  font-size: 0.85rem;
+  line-height: 1.25rem;
+}
+
+.gp-path-tooltip em {
+  font-style: normal;
+  color: var(--gray-600);
+}

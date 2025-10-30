@@ -1,0 +1,257 @@
+/* ===========================================================================
+   ADMIN - Interfaces d'administration
+   =========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   User Info Card
+--------------------------------------------------------------------------- */
+.user-info-card {
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, var(--info-alpha-08) 0%, var(--info-alpha-03) 100%);
+  border: 1px solid var(--info-alpha-15);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px var(--info-alpha-08);
+}
+
+.user-info-card__avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--info) 0%, var(--info) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--white);
+  font-size: 22px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px var(--info-alpha-25);
+}
+
+.user-info-card__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-info-card__header {
+  margin-bottom: 8px;
+}
+
+.user-info-card__label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--black-alpha-50);
+  margin-bottom: 4px;
+}
+
+.user-info-card__email {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, var(--gray-900));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-info-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.user-info-card__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--info-alpha-12);
+  color: var(--info);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--info-alpha-2);
+}
+
+.user-info-card__cities {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--black-alpha-66);
+}
+
+.user-info-card__logout {
+  margin-left: auto;
+  padding: 10px 12px;
+  background: transparent;
+  border: 1px solid var(--danger-alpha-3);
+  border-radius: 8px;
+  color: var(--danger);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.user-info-card__logout:hover {
+  background: var(--danger-alpha-08);
+  border-color: var(--danger);
+  transform: translateY(-1px);
+}
+
+.user-info-card__logout:active {
+  transform: translateY(0);
+}
+
+/* Branding styles moved to contrib-branding-modal.html inline styles */
+
+/* ---------------------------------------------------------------------------
+   User Management Cards (Admin panel)
+--------------------------------------------------------------------------- */
+.user-card {
+  background: var(--surface-base);
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.user-card:hover {
+  box-shadow: 0 4px 12px var(--black-alpha-10);
+  transform: translateY(-2px);
+}
+
+.user-card__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.user-card__icon {
+  font-size: 24px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gray-100);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.user-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-card__email {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--gray-900);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-card__meta {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--gray-500);
+  flex-wrap: wrap;
+}
+
+.user-card__role {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.user-card__date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.user-card__body {
+  margin-bottom: 12px;
+}
+
+.user-card__cities {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--gray-600);
+  padding: 8px 12px;
+  background: var(--gray-100);
+  border-radius: 8px;
+}
+
+.user-card__cities i {
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.user-cities-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+
+.user-city-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  background: var(--info-alpha-12);
+  color: var(--info);
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: 1px solid var(--info-alpha-25);
+}
+
+.user-city-badge--empty {
+  background: var(--gray-200);
+  color: var(--gray-600);
+  border-color: var(--gray-300);
+}
+
+.user-card__warning {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--warning-lighter);
+  border-left: 4px solid var(--warning);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--warning);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.users-list {
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 8px;
+}

@@ -15,20 +15,28 @@ export async function handler(event) {
   try {
     const apiKey = process.env.OPENAI_API_KEY || '';
     if (!apiKey) {
+      console.error('OPENAI_API_KEY manquante dans les variables d environnement');
       return {
         statusCode: 500,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ error: 'Missing OPENAI_API_KEY' }),
+        body: JSON.stringify({ error: 'Configuration serveur incomplète (OPENAI_API_KEY manquante)' }),
       };
     }
 
-    const { text = '', mode = 'article' } = JSON.parse(event.body || '{}');
+    const { text = '', mode = 'article', context = {} } = JSON.parse(event.body || '{}');
+    
+    // Récupérer le contexte de ville et thème
+    const { city = 'global', theme = 'light' } = context || {};
+    console.log(`[OpenAI] Génération pour ville: ${city}, thème: ${theme}, mode: ${mode}`);
 
     // Safety limit selon le mode: meta/description n'ont pas besoin de tout le contexte
+    // OPTIMISATION TIMEOUT: Limite drastique pour éviter les timeouts Netlify (30s max)
     const RAW = text || '';
     const source = mode === 'article'
-      ? RAW.slice(0, 100000)
+      ? RAW.slice(0, 35000)  // Réduit de 100K à 35K (~8-9K tokens au lieu de 25K)
       : RAW.slice(0, 16000);
+    
+    console.log(`[OpenAI] Mode: ${mode}, Input size: ${source.length} chars (~${Math.ceil(source.length/4)} tokens)`);
 
     // Construire prompts et limites selon le mode
     let sys = '';
@@ -47,20 +55,23 @@ export async function handler(event) {
       temperature = 0.5;
       maxTokens = 800;
     } else {
-      // article
-      sys = "Tu es un journaliste francophone spécialisé en urbanisme. Style: clair, factuel, mesuré, analytique. N'invente rien. SORTIE STRICTE en JSON: {\\\"article\\\": string en Markdown (peut être TRÈS long)}. Interdiction absolue d'ajouter autre chose que l'objet JSON final.";
-      userPrompt = `Tu es un journaliste francophone spécialisé en urbanisme, transport, mobilité et grands projets.
-Ta mission: rédiger un article narratif d'environ 2000 mots (objectif: ~2000), en chapitres progressifs, sans dépasser inutilement.
+      // article - OPTIMISÉ POUR ÉVITER TIMEOUT AVEC CONTEXTE VILLE
+      const cityContext = city !== 'global' && city ? `
+\n**CONTEXTE LOCAL IMPORTANT**: Tu rédiges spécifiquement pour la ville de ${city.charAt(0).toUpperCase() + city.slice(1)}. Mentionne des références locales pertinentes quand possible.` : '';
+      
+      sys = `Tu es un journaliste francophone spécialisé en urbanisme. Style: clair, factuel, mesuré, analytique. N'invente rien. SORTIE STRICTE en JSON: {\\\"article\\\": string en Markdown}. Interdiction absolue d'ajouter autre chose que l'objet JSON final.`;
+      userPrompt = `Tu es un journaliste francophone spécialisé en urbanisme, mobilité et grands projets.
+Ta mission: rédiger un article narratif concis de 800-1200 mots, structuré en chapitres clairs.${cityContext}
 
 Contraintes:
-- Structure en chapitres cohérents, histoire continue.
-- Narration chronologique (indicative): genèse → débats → officialisation → tracé → procédures → impacts → perspectives.
-- Style immersif, factualité et précision; pas de lyrisme ni scènes romancées.
-- Développe chaque chapitre en profondeur, sans listes à puces.
-- Ne t'arrête pas tant que tous les chapitres ne sont pas pleinement développés.
-`;
+- Structure en 4-6 chapitres cohérents maximum.
+- Narration chronologique: genèse → débats → officialisation → tracé → procédures → impacts → perspectives.
+- Style clair et factuel, va à l'essentiel.
+- Chapitres développés mais concis (2-3 paragraphes par chapitre).
+- Privilégie la qualité à la longueur.
+- Sois pertinent pour le contexte local de ${city || 'la zone concernée'}.`;
       temperature = 0.5;
-      maxTokens = 4000;
+      maxTokens = 2000;  // Réduit de 4000 à 2000 pour accélérer la génération
     }
 
     const body = {

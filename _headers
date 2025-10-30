@@ -1,0 +1,16 @@
+# Headers de sécurité pour Netlify
+# https://docs.netlify.com/routing/headers/
+
+/*
+  # Sécurité basique
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+  
+  # Permissions
+  Permissions-Policy: geolocation=(self), microphone=(), camera=()
+  
+  # Content Security Policy (CSP) - Ultra-permissive pour éviter toutes les erreurs
+  # Note: autorise http et https pour l'assistant IA
+

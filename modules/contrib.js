@@ -1,65 +1,214 @@
 // modules/contrib.js
 ;(function (win) {
+  let modalLoaded = false;
+  let categoryModalLoaded = false;
+  let createModalLoaded = false;
+  
+  // Lazy load modal template
+  async function loadModalTemplate() {
+    if (modalLoaded) return true;
+    
+    try {
+      const response = await fetch('modules/contrib/contrib-modal.html');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const html = await response.text();
+      const container = document.getElementById('contrib-modal-container');
+      
+      if (!container) {
+        console.error('[contrib] Modal container not found in DOM');
+        return false;
+      }
+      
+      container.innerHTML = html;
+      modalLoaded = true;
+      return true;
+      
+    } catch (error) {
+      console.error('[contrib] Error loading modal template:', error);
+      // Show user-friendly error
+      const container = document.getElementById('contrib-modal-container');
+      if (container) {
+        container.innerHTML = `
+          <div style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); 
+                      padding:24px; background:var(--surface); border-radius:12px; box-shadow:0 4px 24px var(--black-alpha-15);
+                      max-width:400px; text-align:center; z-index:10000;">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size:48px; color:var(--warning); margin-bottom:16px;"></i>
+            <h3 style="margin:0 0 8px 0; color:var(--gray-900);">Erreur de chargement</h3>
+            <p style="margin:0 0 16px 0; color:var(--gray-500);">Impossible de charger le formulaire de contribution.</p>
+            <button onclick="location.reload()" class="btn-primary">
+              <i class="fa-solid fa-rotate-right"></i> Recharger la page
+            </button>
+          </div>
+        `;
+      }
+      return false;
+    }
+  }
+  
+  // Lazy load category modal template
+  async function loadCategoryModalTemplate() {
+    if (categoryModalLoaded) return true;
+    
+    try {
+      const response = await fetch('modules/contrib/contrib-category-modal.html');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const html = await response.text();
+      const container = document.getElementById('contrib-modal-container');
+      
+      if (!container) {
+        console.error('[contrib] Modal container not found in DOM');
+        return false;
+      }
+      
+      // Ajouter la modale catégorie après la modale contrib
+      container.insertAdjacentHTML('beforeend', html);
+      categoryModalLoaded = true;
+      return true;
+      
+    } catch (error) {
+      console.error('[contrib] Error loading category modal template:', error);
+      return false;
+    }
+  }
+  
+  let inviteModalLoaded = false;
+  
+  // Lazy load invite modal template
+  async function loadInviteModalTemplate() {
+    if (inviteModalLoaded) return true;
+    
+    try {
+      const response = await fetch('modules/contrib/contrib-invite-modal.html');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const html = await response.text();
+      const container = document.getElementById('contrib-modal-container');
+      
+      if (!container) {
+        console.error('[contrib] Modal container not found in DOM');
+        return false;
+      }
+      
+      // Ajouter la modale invitation après les autres modales
+      container.insertAdjacentHTML('beforeend', html);
+      inviteModalLoaded = true;
+      return true;
+      
+    } catch (error) {
+      console.error('[contrib] Error loading invite modal template:', error);
+      return false;
+    }
+  }
+  
+  // Lazy load create modal template
+  async function loadCreateModalTemplate() {
+    if (createModalLoaded) return true;
+    
+    try {
+      const response = await fetch('modules/contrib/contrib-create-modal.html');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const html = await response.text();
+      const container = document.getElementById('contrib-modal-container');
+      
+      if (!container) {
+        console.error('[contrib] Modal container not found in DOM');
+        return false;
+      }
+      
+      // Ajouter la modale création après les autres modales
+      container.insertAdjacentHTML('beforeend', html);
+      createModalLoaded = true;
+      return true;
+      
+    } catch (error) {
+      console.error('[contrib] Error loading create modal template:', error);
+      return false;
+    }
+  }
+
+  // ============================================================================
+  // CITY HELPER - POINT D'ENTRÉE UNIQUE POUR RÉCUPÉRER LA VILLE
+  // ============================================================================
+  
+  /**
+   * Point d'entrée unique pour récupérer la ville sélectionnée dans le panel contrib.
+   * Valide automatiquement et affiche un toast si la ville n'est pas définie.
+   * 
+   * @returns {string|null} - Code ville ou null si non définie
+   */
+  function getCurrentCity() {
+    const CityContext = win.ContribCityContext || {};
+    const city = CityContext.ensureCity?.(win.ContribUtils?.showToast);
+    
+    if (!city) {
+      console.warn('[contrib] ⚠️ Aucune ville sélectionnée');
+    }
+    
+    return city;
+  }
+
   function setupContrib() {
-    const contribToggle   = document.getElementById('nav-contribute');
-    const contribOverlay  = document.getElementById('contrib-overlay');
-    const contribCloseBtn = document.getElementById('contrib-close');
-    const contribModal    = contribOverlay ? contribOverlay.querySelector('.gp-modal') : null;
+    const contribToggle   = document.getElementById('contribute-toggle');
+    let contribOverlay  = document.getElementById('contrib-overlay');
+    let contribCloseBtn = document.getElementById('contrib-close');
+    let contribModal    = contribOverlay ? contribOverlay.querySelector('.gp-modal') : null;
 
-    let contribLastFocus  = null;
-    let contribCloseTimer = null;
-
-    // Drawing state for geometry input (modale contribution)
-    let drawMap = null;
-    let drawLayer = null;      // finalized geometry layer (L.Layer, e.g., L.Polyline or L.Polygon)
-    let drawLayerDirty = false; // whether current drawLayer was created/modified by user during this session
-    // Manual draw state (fallback when Geoman is not used)
-    let manualDraw = { active: false, type: null, points: [], tempLayer: null };
-    // Basemap + city branding state for draw map
-    let drawBaseLayer = null;
-    let basemapsCache = null;
+    // Drawing state moved to contrib-map.js
+    const ContribMap = win.ContribMap || {};
 
     const closeContrib = () => {
       if (!contribOverlay) return;
-      if (contribCloseTimer) { clearTimeout(contribCloseTimer); contribCloseTimer = null; }
-      if (contribModal) contribModal.classList.remove('is-open');
-      contribOverlay.setAttribute('aria-hidden', 'true');
-      document.removeEventListener('keydown', contribEscHandler);
-      document.body.style.overflow = '';
-      contribCloseTimer = setTimeout(() => {
-        contribOverlay.style.display = 'none';
-        if (contribLastFocus && typeof contribLastFocus.focus === 'function') {
-          try { contribLastFocus.focus(); } catch (_) {}
-        }
-      }, 180);
+      
+      // Retirer la classe active du bouton contribuer
+      if (contribToggle) {
+        contribToggle.classList.remove('active');
+      }
+      
+      // Utiliser ModalHelper pour une gestion unifiée
+      win.ModalHelper.close('contrib-overlay');
     };
 
-    const openContrib = () => {
+    const openContrib = async () => {
       if (!contribOverlay) return;
-      if (contribCloseTimer) { clearTimeout(contribCloseTimer); contribCloseTimer = null; }
-      contribLastFocus = document.activeElement;
-      contribOverlay.style.display = 'flex';
-      contribOverlay.setAttribute('aria-hidden', 'false');
-      document.body.style.overflow = 'hidden';
-      requestAnimationFrame(() => { if (contribModal) contribModal.classList.add('is-open'); });
-      // Focus sur le bouton fermer pour l’accessibilité
-      if (contribCloseBtn && typeof contribCloseBtn.focus === 'function') {
-        try { contribCloseBtn.focus(); } catch (_) {}
-      }
-      document.addEventListener('keydown', contribEscHandler);
-      // Assurer le bon rendu de la carte de dessin si visible
-      setTimeout(() => {
-        try { if (drawMap) drawMap.invalidateSize(); } catch (_) {}
-      }, 200);
-      // Toujours afficher l'écran d'accueil (choix Créer / Modifier)
-      try { showLanding(); } catch(_) {}
-    };
-
-    const contribEscHandler = (e) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        closeContrib();
-      }
+      
+      // Utiliser ModalHelper pour une gestion unifiée
+      win.ModalHelper.open('contrib-overlay', {
+        dismissible: true,
+        lockScroll: true,
+        focusTrap: true,
+        onOpen: async () => {
+          // Assurer le bon rendu de la carte de dessin si visible
+          setTimeout(() => {
+            try { if (drawMap) drawMap.invalidateSize(); } catch (_) {}
+          }, 200);
+          
+          // Afficher le landing pour sélectionner une ville
+          showLanding();
+          
+          // Attendre que l'utilisateur sélectionne une ville et clique sur une action
+          // OU ouvrir directement la création si une ville est déjà sélectionnée via l'URL
+          const urlParams = new URLSearchParams(window.location.search);
+          const autoCreateCity = urlParams.get('city');
+          
+          if (autoCreateCity) {
+            // Si ville dans l'URL, passer directement à la création
+            const CityContext = win.ContribCityContext || {};
+            CityContext.setSelectedCity?.(autoCreateCity);
+            await openCreateModal('create');
+          }
+        }
+      });
     };
 
     if (contribToggle) {
@@ -75,28 +224,135 @@
         } catch (_) { /* noop */ }
       };
 
-      // Détection du rôle via table public.profiles (source de vérité)
+      // Détection du rôle et des villes autorisées via table public.profiles (source de vérité)
       let __currentSession = null;
       let __isAdmin = false;
       let __userRole = '';
-      const getUserRoleFromProfiles = async (session) => {
+      let __userVilles = null; // null = toutes les villes, array = villes spécifiques
+      const getUserProfileFromProfiles = async (session) => {
         try {
           const userId = session && session.user ? session.user.id : null;
-          if (!userId) return '';
+          if (!userId) return { role: '', ville: null };
           const client = (win.AuthModule && typeof win.AuthModule.getClient === 'function') ? win.AuthModule.getClient() : null;
-          if (!client) return '';
-          const { data, error } = await client.from('profiles').select('role').eq('id', userId).single();
-          if (error) return '';
-          return (data && data.role ? String(data.role) : '').toLowerCase();
-        } catch (_) { return ''; }
+          if (!client) return { role: '', ville: null };
+          const { data, error } = await client.from('profiles').select('role, ville').eq('id', userId).single();
+          if (error) return { role: '', ville: null };
+          return {
+            role: (data && data.role ? String(data.role) : '').toLowerCase(),
+            ville: data && data.ville ? data.ville : null
+          };
+        } catch (_) { return { role: '', ville: null }; }
+      };
+      
+      const updateUserInfoCard = async (session, profile) => {
+        try {
+          const card = document.getElementById('user-info-card');
+          const emailEl = document.getElementById('user-info-email');
+          const roleBadge = document.getElementById('user-role-badge');
+          const citiesBadge = document.getElementById('user-cities-badge');
+          
+          if (!card || !emailEl || !roleBadge || !citiesBadge) return;
+          
+          if (!session || !session.user) {
+            card.style.display = 'none';
+            return;
+          }
+          
+          const email = session.user.email || 'Utilisateur';
+          const role = profile.role || '';
+          const villes = profile.ville;
+          
+          emailEl.textContent = email;
+          
+          // Badge de rôle avec icône
+          const roleLabel = role === 'admin' ? 'Admin' : role === 'invited' ? 'Invited' : 'User';
+          const roleIcon = role === 'admin' ? 'fa-shield-halved' : 'fa-user-check';
+          roleBadge.innerHTML = `<i class="fa-solid ${roleIcon}"></i> ${roleLabel}`;
+          
+          // Badge des villes
+          let citiesText = '';
+          if (Array.isArray(villes)) {
+            const filtered = villes.filter(v => v !== 'global');
+            if (villes.includes('global')) {
+              // Si global, récupérer toutes les villes de city_branding
+              try {
+                const client = (win.AuthModule && typeof win.AuthModule.getClient === 'function') ? win.AuthModule.getClient() : null;
+                if (client) {
+                  const { data: cities, error } = await client
+                    .from('city_branding')
+                    .select('ville, brand_name')
+                    .order('ville', { ascending: true });
+                  
+                  if (!error && cities && cities.length > 0) {
+                    const cityNames = cities.map(c => c.brand_name || c.ville).join(', ');
+                    citiesText = `<i class="fa-solid fa-globe"></i> ${cityNames}`;
+                  } else {
+                    console.error('[contrib] city_branding query error:', error);
+                    citiesText = '<i class="fa-solid fa-globe"></i> Toutes les structures';
+                  }
+                } else {
+                  citiesText = '<i class="fa-solid fa-globe"></i> Toutes les structures';
+                }
+              } catch (e) {
+                console.error('[contrib] Failed to fetch cities:', e);
+                citiesText = '<i class="fa-solid fa-globe"></i> Toutes les structures';
+              }
+            } else if (filtered.length > 0) {
+              citiesText = `<i class="fa-solid fa-location-dot"></i> ${filtered.join(', ')}`;
+            } else {
+              citiesText = '<i class="fa-solid fa-triangle-exclamation"></i> Aucune structure';
+            }
+          } else if (villes) {
+            citiesText = `<i class="fa-solid fa-location-dot"></i> ${villes}`;
+          } else {
+            citiesText = '<i class="fa-solid fa-triangle-exclamation"></i> Aucune structure';
+          }
+          citiesBadge.innerHTML = citiesText;
+          
+          card.style.display = 'flex';
+          
+          // Bind logout button
+          const logoutBtn = document.getElementById('user-logout-btn');
+          if (logoutBtn) {
+            // Remove previous listeners
+            const newLogoutBtn = logoutBtn.cloneNode(true);
+            logoutBtn.parentNode.replaceChild(newLogoutBtn, logoutBtn);
+            
+            // Add new listener
+            newLogoutBtn.addEventListener('click', () => {
+              window.location.href = '/logout';
+            });
+          }
+        } catch (e) {
+          console.error('[contrib] updateUserInfoCard error:', e);
+        }
       };
       const updateRoleState = async (session) => {
         __currentSession = session || null;
-        __userRole = await getUserRoleFromProfiles(__currentSession);
+        const profile = await getUserProfileFromProfiles(__currentSession);
+        __userRole = profile.role;
+        __userVilles = profile.ville;
         __isAdmin = (__userRole === 'admin');
         try { win.__CONTRIB_IS_ADMIN = __isAdmin; } catch(_) {}
         try { win.__CONTRIB_ROLE = __userRole; } catch(_) {}
-        applyRoleConstraints();
+        try { win.__CONTRIB_VILLES = __userVilles; } catch(_) {}
+        
+        // Initialiser la ville immédiatement
+        const CityContext = win.ContribCityContext || {};
+        if (typeof CityContext.autoInitializeCity === 'function') {
+          CityContext.autoInitializeCity();
+        }
+        
+        // Mettre à jour la user-info-card (async)
+        updateUserInfoCard(session, profile).catch(e => console.error('[contrib] updateUserInfoCard error:', e));
+        
+        // applyRoleConstraints will be called after form initialization
+        try {
+          if (typeof applyRoleConstraints === 'function') {
+            applyRoleConstraints();
+          }
+        } catch(_) {}
+        // La user-info-card est déjà mise à jour par updateUserInfoCard() ci-dessus
       };
 
       // État initial
@@ -115,27 +371,66 @@
 
       contribToggle.addEventListener('click', async (e) => {
         e.stopPropagation();
+        
         try {
           const session = await (win.AuthModule && win.AuthModule.requireAuthOrRedirect('/login/'));
-          if (session && session.user) {
-            openContrib();
+          if (!session || !session.user) return;
+          
+          // Load modal template if not already loaded
+          const loaded = await loadModalTemplate();
+          if (!loaded) {
+            console.error('[contrib] Failed to load modal template');
+            return;
           }
-        } catch (_) {
+          
+          // Re-query DOM elements after template load
+          contribOverlay = document.getElementById('contrib-overlay');
+          contribCloseBtn = document.getElementById('contrib-close');
+          contribModal = contribOverlay ? contribOverlay.querySelector('.gp-modal') : null;
+          
+          // Bind modal events (only once)
+          bindModalEvents();
+          
+          // Initialize Modal Navigation System
+          initializeModalNavigation();
+          
+          // Initialize form elements and bindings
+          initializeContribForm();
+          
+          // Mettre à jour le rôle avant d'ouvrir la modale
+          await updateRoleState(session);
+          
+          // Open the modal
+          openContrib();
+          
+          // Appliquer les contraintes de rôle après l'ouverture (pour garantir que les éléments existent)
+          setTimeout(async () => {
+            try { 
+              applyRoleConstraints();
+            } catch(e) { 
+              console.error('[DEBUG] Erreur applyRoleConstraints ou branding:', e);
+            }
+          }, 100);
+          
+        } catch (error) {
+          console.error('[contrib] Error opening modal:', error);
           // En cas d'erreur de session, on redirige vers la connexion
           win.location.href = '/login/';
         }
       });
     }
-
-    if (contribCloseBtn) {
+    
+    // Bind modal close events (called once after template load)
+    function bindModalEvents() {
+      if (!contribCloseBtn || !contribOverlay) return;
+      
+      // Close button
       contribCloseBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         closeContrib();
       });
-    }
-
-    if (contribOverlay) {
-      // Empêcher la fermeture lors d'un glisser-sélection depuis la modale vers l'extérieur
+      
+      // Click outside to close
       let overlayMouseDownOnSelf = false;
       contribOverlay.addEventListener('mousedown', (e) => {
         overlayMouseDownOnSelf = (e.target === contribOverlay);
@@ -148,15 +443,210 @@
       });
     }
 
-    // —— Minimal contribution form wiring ——
-    const form = document.getElementById('contrib-form');
-    const statusEl = document.getElementById('contrib-status');
-    const cityEl = document.getElementById('contrib-city');
-    const addDocBtn = document.getElementById('contrib-doc-add');
-    const docsFieldset = document.getElementById('contrib-docs');
-    const existingDocsEl = document.getElementById('contrib-existing-docs');
-    // Flag to ensure we load the city code list only at Step 1 and only once
-    let citiesPopulatedOnce = false;
+    // Close button and overlay bindings are now done dynamically after template load
+
+    // —— Modal Navigation System ——
+    function initializeModalNavigation() {
+      if (!window.ModalNavigation) {
+        console.warn('[contrib] ModalNavigation.js not loaded');
+        return;
+      }
+      
+      try {
+        window.ModalNavigation.init('contrib-overlay', {
+          panels: {
+            landing: {
+              label: '<i class="fa fa-home"></i> Accueil',
+              title: 'Proposer une contribution',
+              hasFooter: false,
+              headerActions: []
+            },
+            list: {
+              label: 'Mes contributions',
+              title: 'Modifier mes contributions',
+              hasFooter: false,
+              headerActions: [
+                {
+                  id: 'contrib-list-create-btn',
+                  icon: 'fa-solid fa-plus',
+                  label: 'Créer',
+                  variant: 'primary'
+                }
+              ]
+            },
+            categories: {
+              label: 'Catégories',
+              title: 'Gérer les catégories',
+              hasFooter: false,
+              headerActions: [
+                {
+                  id: 'category-add-btn',
+                  icon: 'fa-solid fa-plus',
+                  label: 'Nouvelle catégorie',
+                  variant: 'primary'
+                }
+              ]
+            },
+            users: {
+              label: 'Utilisateurs',
+              title: 'Gérer les utilisateurs',
+              hasFooter: false,
+              headerActions: [
+                {
+                  id: 'invite-user-btn',
+                  icon: 'fa-solid fa-user-plus',
+                  label: 'Inviter un utilisateur',
+                  variant: 'primary'
+                }
+              ]
+            }
+          }
+        });
+        
+        console.log('[contrib] ModalNavigation initialized');
+      } catch (error) {
+        console.error('[contrib] Error initializing ModalNavigation:', error);
+      }
+    }
+
+    // —— Helper functions (defined early for use in initializeContribForm) ——
+
+
+    // Helper function to show landing page
+    function showLanding() {
+      window.ModalNavigation?.navigateTo('landing');
+      
+      // Initialiser le sélecteur de ville
+      CityContext.initLandingCitySelector?.();
+      
+      // Réappliquer les contraintes de rôle
+      try {
+        applyRoleConstraints?.();
+      } catch(e) {
+        console.warn('[contrib] showLanding error:', e);
+      }
+    }
+
+    // Function to apply role-based constraints (defined early to be available everywhere)
+    function applyRoleConstraints() {
+      try {
+        const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : __userRole;
+        const isInvited = role === 'invited';
+        const isAdmin = role === 'admin';
+
+        // La ville est maintenant sélectionnée sur le landing - pas de gestion ici
+
+        // Afficher/masquer les boutons de gestion selon le rôle (admin uniquement)
+        try {
+          const landingCategoriesBtn = document.getElementById('landing-categories');
+          if (landingCategoriesBtn) {
+            landingCategoriesBtn.style.display = isAdmin ? '' : 'none';
+          }
+        } catch(_) {}
+
+        try {
+          const landingUsersBtn = document.getElementById('landing-users');
+          if (landingUsersBtn) {
+            landingUsersBtn.style.display = isAdmin ? '' : 'none';
+          }
+        } catch(_) {}
+        
+        try {
+          const landingBrandingBtn = document.getElementById('landing-branding');
+          if (landingBrandingBtn) {
+            landingBrandingBtn.style.display = isAdmin ? '' : 'none';
+          }
+        } catch(_) {}
+        
+        try {
+          const landingEditCityBtn = document.getElementById('landing-edit-city');
+          if (landingEditCityBtn) {
+            landingEditCityBtn.style.display = isAdmin ? '' : 'none';
+          }
+        } catch(_) {}
+        
+        try {
+          const inviteUserBtn = document.getElementById('invite-user-btn');
+          if (inviteUserBtn) {
+            inviteUserBtn.style.display = isAdmin ? '' : 'none';
+          }
+        } catch(_) {}
+
+        // Afficher/masquer le bouton "Gérer les villes" selon le rôle (admin global uniquement)
+        const userVilles = (typeof win.__CONTRIB_VILLES !== 'undefined') ? win.__CONTRIB_VILLES : __userVilles;
+        const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
+        const isGlobalAdmin = isAdmin && hasGlobalAccess;
+        
+        try {
+          const landingCitiesBtn = document.getElementById('landing-cities');
+          if (landingCitiesBtn) {
+            landingCitiesBtn.style.display = isGlobalAdmin ? '' : 'none';
+          }
+        } catch(_) {}
+        
+        try {
+          const addCityBtn = document.getElementById('add-city-btn');
+          if (addCityBtn) {
+            addCityBtn.style.display = isGlobalAdmin ? '' : 'none';
+          }
+        } catch(_) {}
+
+        // Pour tous : afficher la checkbox et le message informatif selon le rôle
+        try {
+          const toggleEl = document.getElementById('contrib-mine-only-toggle');
+          const noticeEl = document.getElementById('contrib-invited-notice');
+          
+          if (!isAdmin) {
+            // Invited : checkbox visible, message informatif visible
+            if (toggleEl) toggleEl.style.display = '';
+            if (noticeEl) noticeEl.style.display = 'block';
+            
+            // Par défaut : voir ses contributions + celles approuvées (mineOnly = false)
+            if (listMineOnlyEl) {
+              try {
+                listMineOnlyEl.checked = false;
+                listMineOnlyEl.disabled = false;
+              } catch(_) {}
+            }
+            try { ContribList.updateListState?.({ mineOnly: false }); } catch(_) {}
+          } else {
+            // Admin : checkbox visible, message masqué
+            if (toggleEl) toggleEl.style.display = '';
+            if (noticeEl) noticeEl.style.display = 'none';
+            
+            // Par défaut : voir toutes les contributions de la ville (mineOnly = false)
+            if (listMineOnlyEl) {
+              try {
+                listMineOnlyEl.checked = false;
+                listMineOnlyEl.disabled = false;
+              } catch(_) {}
+            }
+            try { ContribList.updateListState?.({ mineOnly: false }); } catch(_) {}
+          }
+          
+          // listResetAndLoad() est appelé dans activateTab('list') après définition de filterCity
+        } catch(_) {}
+      } catch(_) {}
+    }
+
+    // Gestion du contexte de ville via module dédié
+    const CityContext = win.ContribCityContext || {};
+
+    // Function to initialize all form elements and bindings after template load
+    function initializeContribForm() {
+      // Re-query all DOM elements
+      const form = document.getElementById('contrib-form');
+      const statusEl = document.getElementById('contrib-status');
+      const cityEl = document.getElementById('contrib-city');
+      const categoryEl = document.getElementById('contrib-category');
+      const categoryHelpEl = document.getElementById('contrib-category-help');
+      const createCategoryLink = document.getElementById('contrib-create-category-link');
+      const addDocBtn = document.getElementById('contrib-doc-add');
+      const docsFieldset = document.getElementById('contrib-docs');
+      const existingDocsEl = document.getElementById('contrib-existing-docs');
+      
+      // Landing city selector
+      const landingCitySelect = document.getElementById('landing-city-select');
 
     // Geometry input UI elements
     const geomModeFieldset = document.getElementById('contrib-geom-mode');
@@ -168,287 +658,29 @@
     const geomCardFile = document.getElementById('geom-card-file');
     const geomCardDraw = document.getElementById('geom-card-draw');
     const drawMapContainerId = 'contrib-draw-map';
-    // Geoman removed: manual drawing only
+    // Manual drawing functions moved to contrib-map.js
 
-    function onMapClick(e) {
-      if (!manualDraw.active || !drawMap) return;
-      try {
-        manualDraw.points.push(e.latlng);
-        updateTempShape();
-        updateManualButtons();
-      } catch(_) {}
-    }
-
-    function clearGuide() {
-      try {
-        if (manualDraw && manualDraw.guideLayer && drawMap) {
-          drawMap.removeLayer(manualDraw.guideLayer);
-        }
-      } catch(_) {}
-      if (manualDraw) manualDraw.guideLayer = null;
-    }
-
-    function onMapMouseMove(e) {
-      // Show a dashed guide only in line mode with at least one point
-      if (!drawMap || !manualDraw.active || manualDraw.type !== 'line' || manualDraw.points.length === 0) {
-        clearGuide();
-        return;
-      }
-      const last = manualDraw.points[manualDraw.points.length - 1];
-      if (!last) { clearGuide(); return; }
-      const coords = [last, e.latlng];
-      // Replace previous guide with a dashed preview segment
-      clearGuide();
-      try {
-        manualDraw.guideLayer = L.polyline(coords, {
-          color: '#1976d2',
-          weight: 2,
-          opacity: 0.7,
-          dashArray: '6,6'
-        }).addTo(drawMap);
-      } catch(_) {}
+    // Drawing toolbar and functions moved to contrib-draw-controls.js
+    const ContribDrawControls = win.ContribDrawControls || {};
+    
+    // Setup callback for state changes
+    if (ContribMap) {
+      ContribMap.onDrawStateChange = () => {
+        ContribDrawControls.updateButtonStates?.();
+      };
     }
 
     function ensureManualToolbar() {
       if (!drawPanelEl) return;
-      let toolbar = drawPanelEl.querySelector('#contrib-manual-draw-controls');
-      // If toolbar already exists, ensure it is visible again
-      if (toolbar) {
-        try { toolbar.style.display = ''; } catch(_) {}
-        updateManualButtons();
-        return;
-      }
-      toolbar = document.createElement('div');
-      toolbar.id = 'contrib-manual-draw-controls';
-      toolbar.className = 'draw-controls';
-      toolbar.style.cssText = 'display:flex;gap:8px;align-items:center;margin:6px 0 8px;flex-wrap:wrap;';
-      toolbar.innerHTML = `
-        <button type="button" class="gp-btn" id="btn-draw-line" title="Tracer une ligne"><i class="fa-solid fa-route" aria-hidden="true"></i> Ligne</button>
-        <button type="button" class="gp-btn" id="btn-draw-poly" title="Tracer un polygone"><i class="fa-solid fa-draw-polygon" aria-hidden="true"></i> Polygone</button>
-        <span style="width:1px;height:24px;background:rgba(0,0,0,0.08);"></span>
-        <button type="button" class="gp-btn" id="btn-undo-point" title="Annuler le dernier point"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Annuler point</button>
-        <button type="button" class="gp-btn" id="btn-finish" title="Terminer le tracé"><i class="fa-solid fa-check" aria-hidden="true"></i> Terminer</button>
-        <button type="button" class="gp-btn" id="btn-clear-geom" title="Effacer la géométrie"><i class="fa-solid fa-trash" aria-hidden="true"></i> Effacer</button>
-      `;
-      const helper = drawPanelEl.querySelector('.helper');
-      if (helper) helper.after(toolbar); else drawPanelEl.prepend(toolbar);
-      // Bind actions
-      toolbar.querySelector('#btn-draw-line')?.addEventListener('click', () => startManualDraw('line'));
-      toolbar.querySelector('#btn-draw-poly')?.addEventListener('click', () => startManualDraw('polygon'));
-      toolbar.querySelector('#btn-undo-point')?.addEventListener('click', () => undoManualPoint());
-      toolbar.querySelector('#btn-finish')?.addEventListener('click', () => finishManualDraw());
-      toolbar.querySelector('#btn-clear-geom')?.addEventListener('click', () => clearManualGeometry());
-      updateManualButtons();
+      console.log('[contrib] Initializing draw controls toolbar');
+      ContribDrawControls.initToolbar?.(drawPanelEl, () => {
+        // Callback appelé lors des changements d'état
+        console.log('[contrib] Draw state changed');
+      });
     }
 
     function updateManualButtons() {
-      const toolbar = drawPanelEl?.querySelector('#contrib-manual-draw-controls');
-      if (!toolbar) return;
-      const hasPoints = manualDraw.points.length > 0;
-      const active = manualDraw.active === true;
-      const btnLine = toolbar.querySelector('#btn-draw-line');
-      const btnPoly = toolbar.querySelector('#btn-draw-poly');
-      const btnUndo = toolbar.querySelector('#btn-undo-point');
-      const btnFinish = toolbar.querySelector('#btn-finish');
-      const btnClear = toolbar.querySelector('#btn-clear-geom');
-
-      // Logic of visibility
-      const hasFinal = !!drawLayer; // a finalized geometry exists
-      // State A: initial (no active draw, no points, no final) OR active but 0 point -> show line/polygon
-      const showChoice = (!active && !hasPoints && !hasFinal) || (active && !hasPoints);
-      if (btnLine) btnLine.style.display = showChoice ? '' : 'none';
-      if (btnPoly) btnPoly.style.display = showChoice ? '' : 'none';
-
-      // State B: editing (after first point) -> show undo/finish/clear
-      const showEdit = active && hasPoints;
-      if (btnUndo) btnUndo.style.display = showEdit ? '' : 'none';
-      if (btnFinish) btnFinish.style.display = showEdit ? '' : 'none';
-      if (btnClear) btnClear.style.display = showEdit ? '' : 'none';
-
-      // State C: finalized (not active, has final) -> show only clear
-      if (!active && hasFinal) {
-        if (btnLine) btnLine.style.display = 'none';
-        if (btnPoly) btnPoly.style.display = 'none';
-        if (btnUndo) btnUndo.style.display = 'none';
-        if (btnFinish) btnFinish.style.display = 'none';
-        if (btnClear) btnClear.style.display = '';
-      }
-
-      // Enabled state
-      if (btnUndo) btnUndo.disabled = !(active && hasPoints);
-      if (btnFinish) btnFinish.disabled = !(active && (manualDraw.type === 'line' ? manualDraw.points.length >= 2 : manualDraw.points.length >= 3));
-    }
-
-    function startManualDraw(type) {
-      try { if (!drawMap) initDrawMap(); } catch(_) {}
-      if (!drawMap) return;
-      // Reset current temp
-      clearManualTemp();
-      manualDraw.active = true;
-      manualDraw.type = type === 'polygon' ? 'polygon' : 'line';
-      manualDraw.points = [];
-      try { drawMap.doubleClickZoom.disable(); } catch(_) {}
-      // Removed informational status
-      updateManualButtons();
-    }
-
-    function updateTempShape() {
-      if (!drawMap) return;
-      // Remove previous temp layer
-      if (manualDraw.tempLayer) { try { drawMap.removeLayer(manualDraw.tempLayer); } catch(_) {}
-        manualDraw.tempLayer = null; }
-      if (!manualDraw.points.length) return;
-      const style = { color: '#1976d2', weight: 3, fillOpacity: 0.2 };
-      if (manualDraw.type === 'polygon') {
-        manualDraw.tempLayer = L.polygon(manualDraw.points, style).addTo(drawMap);
-      } else {
-        manualDraw.tempLayer = L.polyline(manualDraw.points, style).addTo(drawMap);
-      }
-    }
-
-    function undoManualPoint() {
-      if (!manualDraw.active || manualDraw.points.length === 0) return;
-      manualDraw.points.pop();
-      updateTempShape();
-      updateManualButtons();
-    }
-
-    function finishManualDraw() {
-      if (!manualDraw.active) return;
-      const minPts = manualDraw.type === 'line' ? 2 : 3;
-      if (manualDraw.points.length < minPts) {
-        showToast(`Ajoutez au moins ${minPts} points avant de terminer.`, 'error');
-        return;
-      }
-      // Remove existing finalized layer
-      if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
-      // Finalized style: change color to confirm state
-      const style = manualDraw.type === 'polygon'
-        ? { color: '#2e7d32', weight: 3, fillOpacity: 0.25, fillColor: '#2e7d32' }
-        : { color: '#2e7d32', weight: 3, opacity: 0.9 };
-      if (manualDraw.type === 'polygon') {
-        drawLayer = L.polygon(manualDraw.points, style).addTo(drawMap);
-      } else {
-        drawLayer = L.polyline(manualDraw.points, style).addTo(drawMap);
-      }
-      try { drawMap.fitBounds(drawLayer.getBounds(), { padding: [10, 10] }); } catch(_) {}
-      drawLayerDirty = true;
-      // Removed informational status after finalize
-      cancelManualDraw(true);
-      updateManualButtons();
-    }
-
-    function cancelManualDraw(keepStatus = false) {
-      manualDraw.active = false;
-      manualDraw.type = null;
-      manualDraw.points = [];
-      clearManualTemp();
-      clearGuide();
-      try { drawMap.doubleClickZoom.enable(); } catch(_) {}
-      // Removed informational status on cancel
-      updateManualButtons();
-    }
-
-    function clearManualTemp() {
-      if (manualDraw.tempLayer) { try { drawMap.removeLayer(manualDraw.tempLayer); } catch(_) {} manualDraw.tempLayer = null; }
-    }
-
-    function clearManualGeometry() {
-      // Clear both temp and finalized layers, and return to initial choice state
-      clearManualTemp();
-      if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
-      drawLayerDirty = false;
-      cancelManualDraw(true); // resets active/type/points
-      // Removed informational status on clear
-      updateManualButtons();
-    }
-    
-    // —— Basemap and city helpers for the draw map ——
-    function pickDefaultBasemap(list) {
-      if (!Array.isArray(list) || !list.length) return null;
-      return list.find(b => b && (b.default === true || b.is_default === true)) || list[0];
-    }
-    
-    async function ensureBasemaps() {
-      if (Array.isArray(basemapsCache) && basemapsCache.length) return basemapsCache;
-      let res = [];
-      try {
-        if (win.supabaseService && typeof win.supabaseService.fetchBasemaps === 'function') {
-          res = await win.supabaseService.fetchBasemaps();
-        }
-      } catch (e) {
-        console.warn('[contrib] ensureBasemaps fetchBasemaps error:', e);
-      }
-      if (!Array.isArray(res) || !res.length) {
-        res = Array.isArray(win.basemaps) ? win.basemaps : [];
-      }
-      basemapsCache = res;
-      return res;
-    }
-    
-    function setDrawBaseLayer(bm) {
-      if (!drawMap) return;
-      try { if (drawBaseLayer) drawMap.removeLayer(drawBaseLayer); } catch(_) {}
-      drawBaseLayer = null;
-      const url = bm && bm.url ? bm.url : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-      const attribution = (bm && bm.attribution) || '&copy; OpenStreetMap contributors';
-      try { drawBaseLayer = L.tileLayer(url, { attribution }).addTo(drawMap); } catch (e) { console.warn('[contrib] setDrawBaseLayer error:', e); }
-    }
-    
-    function buildContribBasemapMenu(basemaps, activeBm) {
-      try {
-        if (!drawPanelEl || !Array.isArray(basemaps) || !basemaps.length) return;
-        let menu = drawPanelEl.querySelector('#contrib-basemap-menu');
-        if (menu) { try { menu.remove(); } catch(_) {} }
-        menu = document.createElement('div');
-        menu.id = 'contrib-basemap-menu';
-        menu.setAttribute('role', 'group');
-        menu.setAttribute('aria-label', 'Fond de carte');
-        menu.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;';
-        basemaps.forEach((bm) => {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'gp-btn basemap-tile';
-          btn.textContent = bm.label || bm.name || 'Fond';
-          btn.style.cssText = 'padding:4px 8px;border-radius:8px;border:1px solid rgba(0,0,0,0.2);background:#fff;cursor:pointer;font-size:12px;';
-          const isActive = activeBm && ((activeBm.label && bm.label === activeBm.label) || (activeBm.url && bm.url === activeBm.url));
-          if (isActive) { btn.style.background = '#e3f2fd'; btn.setAttribute('aria-pressed', 'true'); }
-          btn.addEventListener('click', () => {
-            setDrawBaseLayer(bm);
-            try { menu.querySelectorAll('button').forEach(b => { b.style.background = '#fff'; b.removeAttribute('aria-pressed'); }); } catch(_) {}
-            btn.style.background = '#e3f2fd';
-            btn.setAttribute('aria-pressed', 'true');
-          });
-          menu.appendChild(btn);
-        });
-        const helper = drawPanelEl.querySelector('.helper');
-        if (helper) helper.after(menu); else drawPanelEl.prepend(menu);
-      } catch (e) {
-        console.warn('[contrib] buildContribBasemapMenu error:', e);
-      }
-    }
-    
-    async function applyCityBranding(ville) {
-      try {
-        if (!drawMap || !ville || !win.supabaseService || typeof win.supabaseService.getCityBranding !== 'function') return;
-        const branding = await win.supabaseService.getCityBranding(ville);
-        if (!branding) return;
-        // Accept multiple shapes: {center_lat, center_lng, zoom} OR {center:[lat,lng], zoom}
-        let lat = null, lng = null, zoom = 12;
-        if (typeof branding.zoom === 'number') zoom = branding.zoom;
-        if (Array.isArray(branding.center) && branding.center.length >= 2) {
-          lat = Number(branding.center[0]);
-          lng = Number(branding.center[1]);
-        } else if ('center_lat' in branding || 'lat' in branding) {
-          lat = Number(branding.center_lat ?? branding.lat);
-          lng = Number(branding.center_lng ?? branding.lng);
-        }
-        if (isFinite(lat) && isFinite(lng)) {
-          try { drawMap.setView([lat, lng], zoom || drawMap.getZoom()); } catch(_) {}
-        }
-      } catch (e) {
-        console.warn('[contrib] applyCityBranding error:', e);
-      }
+      ContribDrawControls.updateButtonStates?.();
     }
 
     // Stepper UI elements
@@ -457,9 +689,9 @@
     const stepTab2 = document.getElementById('contrib-step-2-tab');
     const stepTab3 = document.getElementById('contrib-step-3-tab');
     const stepTab4 = document.getElementById('contrib-step-4-tab');
-    const prevBtn  = document.getElementById('contrib-prev');
-    const nextBtn  = document.getElementById('contrib-next');
-    const submitBtn = document.getElementById('contrib-submit');
+    const prevBtn  = document.getElementById('contrib-prev-footer');
+    const nextBtn  = document.getElementById('contrib-next-footer');
+    const submitBtn = document.getElementById('contrib-submit-footer');
 
     let currentStep = 1; // 1..4
 
@@ -495,51 +727,94 @@
       });
     }
 
-    function validateStep1() {
-      const nameEl = document.getElementById('contrib-project-name');
-      const catEl  = document.getElementById('contrib-category');
-      const hasName = !!(nameEl && nameEl.value && nameEl.value.trim());
-      const hasCat  = !!(catEl && catEl.value);
-      const ok = hasName && hasCat;
-      if (!ok) {
-        showToast('Veuillez renseigner le nom et la catégorie.', 'error');
-      }
-      return ok;
-    }
-
-    function hasDrawGeometry() {
-      // Consider a geometry present if drawLayer exists or user created/loaded one
-      return !!(drawLayer) || !!drawLayerDirty;
-    }
-
-    function validateStep2() {
-      const mode = Array.from(geomModeRadios || []).find(r => r.checked)?.value || 'file';
-      if (mode === 'file') {
-        const fileInput = document.getElementById('contrib-geojson');
-        const ok = !!(fileInput && fileInput.files && fileInput.files.length > 0);
-        if (!ok) showToast('Veuillez sélectionner un fichier GeoJSON.', 'error');
-        return ok;
-      }
-      // draw mode
-      const ok = hasDrawGeometry();
-      if (!ok) showToast('Veuillez dessiner une géométrie puis terminer.', 'error');
-      return ok;
-    }
-
-    function validateStep3() {
-      const meta = document.getElementById('contrib-meta')?.value?.trim();
-      const desc = document.getElementById('contrib-description')?.value?.trim();
-      const ok = !!meta && !!desc;
-      if (!ok) showToast('Renseignez Meta et Description avant de continuer.', 'error');
-      return ok;
-    }
-
+    // ============================================================================
+    // VALIDATION UNIFIÉE DU STEPPER
+    // ============================================================================
+    
+    /**
+     * Vérifie si on peut aller à l'étape cible
+     * Utilise la validation HTML5 native + validations custom
+     * @param {number} target - Numéro de l'étape cible
+     * @returns {boolean} True si la navigation est autorisée
+     */
     function canGoToStep(target) {
-      if (target <= 1) return true;
-      if (target === 2) return validateStep1();
-      if (target === 3) return validateStep1() && validateStep2();
-      if (target === 4) return validateStep1() && validateStep2() && validateStep3();
-      return false;
+      // Retour en arrière toujours autorisé
+      if (target <= currentStep) {
+        console.log(`[contrib] Going back from step ${currentStep} to ${target} - allowed`);
+        return true;
+      }
+      
+      console.log(`[contrib] Attempting to go from step ${currentStep} to ${target}`);
+      
+      // Validation HTML5 des champs required visibles de l'étape actuelle
+      const form = document.getElementById('contrib-form');
+      if (!form) {
+        console.error('[contrib] Form #contrib-form not found');
+        return false;
+      }
+      
+      // Récupérer TOUS les éléments de l'étape actuelle (peut y en avoir plusieurs)
+      const currentStepElements = queryStepEls(currentStep);
+      if (!currentStepElements || currentStepElements.length === 0) {
+        console.warn(`[contrib] No step elements found for step ${currentStep}`);
+        return false;
+      }
+      
+      console.log(`[contrib] Found ${currentStepElements.length} elements for step ${currentStep}`);
+      
+      // Récupérer tous les champs required de l'étape actuelle (dans TOUS les éléments)
+      const requiredFields = [];
+      currentStepElements.forEach(el => {
+        const fields = Array.from(el.querySelectorAll('[required]'));
+        requiredFields.push(...fields);
+      });
+      
+      console.log(`[contrib] Found ${requiredFields.length} required fields for step ${currentStep}`);
+      
+      // Valider chaque champ required visible
+      for (const field of requiredFields) {
+        // Ignorer les champs cachés ou désactivés
+        if (field.offsetParent === null || field.disabled) {
+          continue;
+        }
+        
+        // Utiliser la validation HTML5 native
+        if (!field.checkValidity()) {
+          console.error(`[contrib] ❌ Field validation FAILED:`, field.id || field.name, field.validationMessage);
+          
+          // Afficher le message d'erreur natif
+          field.reportValidity();
+          
+          // Toast personnalisé
+          const fieldLabel = field.labels?.[0]?.textContent || field.name || field.id || 'Ce champ';
+          showToast(`${fieldLabel} est obligatoire.`, 'error');
+          
+          // Focus sur le champ invalide
+          try { field.focus(); } catch(_) {}
+          
+          return false;
+        }
+      }
+      
+      // Validations custom supplémentaires par étape
+      if (target >= 3) {
+        console.log('[contrib] Validating step 2 geometry...');
+        // Validation étape 2 : géométrie (file OU draw)
+        const mode = Array.from(geomModeRadios || []).find(r => r.checked)?.value || 'file';
+        const fileInput = document.getElementById('contrib-geojson');
+        const hasGeom = ContribGeometry?.hasGeometry?.(mode, fileInput) || false;
+        
+        if (!hasGeom) {
+          console.error('[contrib] ❌ Geometry validation FAILED');
+          const message = mode === 'file' 
+            ? 'Veuillez sélectionner un fichier GeoJSON.'
+            : 'Veuillez dessiner une géométrie puis terminer.';
+          showToast(message, 'error');
+          return false;
+        }
+      }
+      
+      return true;
     }
 
     function setStep(n, opts = {}) {
@@ -555,11 +830,6 @@
       // Met à jour uniquement l'état visuel du stepper (classes)
       // La barre de progression dédiée a été retirée pour privilégier le stepper existant
 
-      // Charger le code collectivité UNIQUEMENT à l'étape 1, et une seule fois
-      if (currentStep === 1 && !citiesPopulatedOnce) {
-        try { populateCities(); citiesPopulatedOnce = true; } catch(_) {}
-      }
-
       // Assurer l'initialisation de la carte et des contrôles de dessin dès l'entrée en étape 2
       if (currentStep === 2) {
         try {
@@ -571,7 +841,7 @@
             setTimeout(() => { try { if (drawMap) drawMap.invalidateSize(); } catch(_){} }, 50);
             // Manual drawing only
             ensureManualToolbar();
-            cancelManualDraw(true);
+            // cancelManualDraw removed - handled by ContribMap
             // Removed informational status when entering draw mode
           } else {
             // Mode fichier: masquer le panneau de dessin et afficher le champ fichier
@@ -582,15 +852,22 @@
         // En mode édition, précharger la géométrie à l'entrée en étape 2
         (async () => {
           try {
+            const currentEditId = ContribForm.getCurrentEditId?.();
             if (!currentEditId) return;
-            if (editGeojsonUrl) {
-              return preloadGeometryOnMap(editGeojsonUrl);
+            const editUrl = ContribGeometry.getEditGeojsonUrl?.();
+            if (editUrl) {
+              const elements = { drawPanelEl, cityEl, geomModeRadios, fileInput: document.getElementById('contrib-geojson') };
+              return ContribGeometry.preloadGeometryOnMap?.(editUrl, elements);
             }
             // Fallback: recharger la ligne pour obtenir la dernière geojson_url
             if (win.supabaseService && typeof win.supabaseService.getContributionById === 'function') {
               const row = await win.supabaseService.getContributionById(currentEditId);
               const url = row && row.geojson_url ? row.geojson_url : null;
-              if (url) { editGeojsonUrl = url; await preloadGeometryOnMap(url); }
+              if (url) { 
+                ContribGeometry.setEditGeojsonUrl?.(url);
+                const elements = { drawPanelEl, cityEl, geomModeRadios, fileInput: document.getElementById('contrib-geojson') };
+                await ContribGeometry.preloadGeometryOnMap?.(url, elements);
+              }
             }
           } catch (_) {}
         })();
@@ -614,654 +891,424 @@
       } catch(_){}
     }
 
+    /**
+     * Gestionnaire de clic sur un onglet du stepper
+     * La validation est gérée par canGoToStep() appelé dans setStep()
+     */
     function onClickStepTab(targetStep) {
       setStep(targetStep);
     }
 
+    // Event listeners pour les onglets du stepper
     if (stepTab1) stepTab1.addEventListener('click', () => onClickStepTab(1));
     if (stepTab2) stepTab2.addEventListener('click', () => onClickStepTab(2));
     if (stepTab3) stepTab3.addEventListener('click', () => onClickStepTab(3));
     if (stepTab4) stepTab4.addEventListener('click', () => onClickStepTab(4));
 
+    // Event listeners pour les boutons Précédent/Suivant
     if (prevBtn)  prevBtn.addEventListener('click', () => setStep(currentStep - 1));
     if (nextBtn)  nextBtn.addEventListener('click', () => setStep(currentStep + 1));
 
     // Panels & list state (tabs supprimés)
-    const panelCreate  = document.getElementById('contrib-panel-create');
     const panelList    = document.getElementById('contrib-panel-list');
+    const panelCategories = document.getElementById('contrib-panel-categories');
+    const panelUsers   = document.getElementById('contrib-panel-users');
     const backBtn      = document.getElementById('contrib-back');
     // Landing elements
     const landingEl = document.getElementById('contrib-landing');
-    const landingCreateBtn = document.getElementById('landing-create');
     const landingEditBtn = document.getElementById('landing-edit');
+    const landingCategoriesBtn = document.getElementById('landing-categories');
+    const landingUsersBtn = document.getElementById('landing-users');
+    const landingEditCityBtn = document.getElementById('landing-edit-city');
     const listEl       = document.getElementById('contrib-list');
-    const listStatusEl = document.getElementById('contrib-list-status');
     const listSearchEl = document.getElementById('contrib-search');
     const listCatEl    = document.getElementById('contrib-filter-category');
     const listSortEl   = document.getElementById('contrib-sort');
     const listSentinel = document.getElementById('contrib-list-sentinel');
     const listMineOnlyEl = document.getElementById('contrib-mine-only');
+    // Users panel elements
+    const usersListEl  = document.getElementById('users-list');
+    const usersSearchEl = document.getElementById('users-search');
+    const inviteUserBtn = document.getElementById('invite-user-btn');
 
-    let currentEditId = null; // when set, the form is in edit mode
-    let editGeojsonUrl = null; // holds existing geojson url during edit
-    let listState = {
-      search: '',
-      category: '',
-      sortBy: 'created_at',
-      sortDir: 'desc',
-      page: 1,
-      pageSize: 10,
-      mineOnly: false,
-      loading: false,
-      done: false,
-      items: []
-    };
+    // currentEditId moved to contrib-form.js
+    // editGeojsonUrl moved to contrib-geometry.js
+    const ContribGeometry = win.ContribGeometry || {};
+    const ContribUpload = win.ContribUpload || {};
+    const ContribList = win.ContribList || {};
+    const ContribForm = win.ContribForm || {};
+    const ContribCities = win.ContribCities || {};
+    const ContribCategories = win.ContribCategories || {};
+    const ContribCategoriesCrud = win.ContribCategoriesCrud || {};
+    const ContribUsers = win.ContribUsers || {};
+    const ContribCitiesManagement = win.ContribCitiesManagement || {};
+    const ContribBrandingSimple = win.ContribBrandingSimple || {};
+    // listState moved to contrib-list.js
 
     // —— Official project link (single field, all categories) ——
     const officialInput = document.getElementById('contrib-official-url');
 
-    function slugify(str) {
-      return (str || '')
-        .toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .slice(0, 64) || 'geom';
-    }
+    // Utilities moved to contrib-utils.js
+    const { slugify, setStatus, showToast: utilsShowToast } = window.ContribUtils || {};
+    
+    // Fallback si showToast n'est pas disponible
+    const showToast = utilsShowToast || ((msg, kind) => {
+      console.warn('[contrib] showToast not available from ContribUtils');
+      console.log('[Toast]', kind, ':', msg);
+    });
 
-    function setStatus(msg, kind = 'info') {
-      // Deprecated: we avoid using inline status area; only show errors as toasts
-      if (kind === 'error' && msg) {
-        try { showToast(msg, 'error'); } catch(_) {}
-      }
-      // Do not mutate #contrib-status anymore
-      if (statusEl) { try { statusEl.textContent = ''; } catch(_) {} }
-    }
-
-    // —— Accessible toast notifications ——
-    const toastContainer = document.getElementById('toast-container');
-    function showToast(message, kind = 'info') {
-      if (!toastContainer || !message) return;
-      const toast = document.createElement('div');
-      const isError = kind === 'error';
-      const isSuccess = kind === 'success';
-      toast.setAttribute('role', isError ? 'alert' : 'status');
-      toast.setAttribute('aria-live', isError ? 'assertive' : 'polite');
-      toast.style.cssText = 'min-width:200px;max-width:360px;padding:10px 12px;border-radius:8px;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,0.15);font-size:14px;';
-      toast.style.background = isError ? '#c62828' : (isSuccess ? '#2e7d32' : '#455a64');
-      toast.textContent = message;
-      toastContainer.appendChild(toast);
-      setTimeout(() => {
-        try { toast.style.opacity = '0'; toast.style.transition = 'opacity 200ms'; } catch(_){ }
-        setTimeout(() => { try { toast.remove(); } catch(_){} }, 220);
-      }, 4200);
-    }
-
+    // initDrawMap moved to contrib-map.js
     async function initDrawMap() {
-      if (drawMap || !drawPanelEl) return;
-      try {
-        const container = document.getElementById(drawMapContainerId);
-        if (!container) return;
-        // Load basemaps and pick "Mode couleur" when available
-        const bmList = await ensureBasemaps();
-        const colorBm = Array.isArray(bmList)
-          ? (bmList.find(b => ((b.label || b.name || '').toLowerCase().includes('mode couleur'))) || pickDefaultBasemap(bmList))
-          : null;
-        // Initialise Leaflet map with a safe temporary view (updated by city branding)
-        drawMap = L.map(drawMapContainerId, { center: [45.75, 4.85], zoom: 12 });
-        try { drawMap.whenReady(() => setTimeout(() => { try { drawMap.invalidateSize(); } catch(_) {} }, 60)); } catch(_) {}
-        setDrawBaseLayer(colorBm);
-        // Ensure no basemap menu is displayed in contribution modal
-        try { drawPanelEl.querySelector('#contrib-basemap-menu')?.remove(); } catch(_) {}
-        // Attach a single map click handler for manual drawing
-        drawMap.on('click', onMapClick);
-        drawMap.on('mousemove', onMapMouseMove);
-        drawMap.on('mouseout', () => clearGuide());
-        // Center by selected/active city when available
-        const selectedCity = (cityEl && cityEl.value) ? cityEl.value.trim() : (win.activeCity || '').trim();
-        if (selectedCity) { await applyCityBranding(selectedCity); }
-      } catch (e) {
-        console.warn('[contrib] initDrawMap error:', e);
+      const existingMap = ContribMap.getDrawMap?.();
+      if (existingMap) {
+        console.log('[contrib] Draw map already initialized, skipping');
+        return existingMap;
       }
+      console.log('[contrib] Initializing draw map...');
+      const map = await ContribMap.initDrawMap?.(drawMapContainerId, drawPanelEl, cityEl);
+      console.log('[contrib] Draw map initialized:', map);
+      return map;
     }
 
-    // —— Tabs logic (ARIA, keyboard) ——
-    function activateTab(which) {
-      const isCreate = which === 'create';
-      if (panelCreate) panelCreate.hidden = !isCreate;
-      if (panelList) panelList.hidden = isCreate;
-      // bouton retour visible quand on est hors landing
-      if (backBtn) backBtn.style.display = '';
-
-      if (!isCreate) {
-        // ensure list is initialized
+    // —— Tabs logic ——
+    async function activateTab(which) {
+      if (which === 'list') {
         try {
-          // Force mineOnly for any non-admin before first load
-          const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : '';
-          const isAdmin = role === 'admin';
-          if (!isAdmin) {
-            try { if (listMineOnlyEl) { listMineOnlyEl.checked = true; } } catch(_) {}
-            listState.mineOnly = true;
-          } else {
-            listState.mineOnly = !!(listMineOnlyEl && listMineOnlyEl.checked);
+          // Récupérer la ville avec validation centralisée
+          const filterCity = getCurrentCity();
+          if (!filterCity) {
+            console.warn('[activateTab list] No city selected, cannot load list');
+            return;
           }
-          if (listEl && !listState.items.length) listResetAndLoad();
-        } catch(_) {}
-        // focus first tabbable in list filters
-        try { listSearchEl && listSearchEl.focus(); } catch(_) {}
-      } else {
-        // focus close button for accessibility or project name
-        const nameEl = document.getElementById('contrib-project-name');
-        try { (nameEl && nameEl.focus && nameEl.focus()); } catch(_) {}
+          
+          // Peupler le dropdown de catégories
+          await populateCategoryFilter();
+          
+          // Appliquer les contraintes de rôle AVANT de configurer les filtres
+          applyRoleConstraints();
+          
+          const mineOnly = listMineOnlyEl?.checked || false;
+          
+          // Appliquer les filtres puis initialiser l'infinite scroll
+          ContribList.updateListState?.({ mineOnly, filterCity });
+          initInfiniteScroll();
+          
+          await listResetAndLoad();
+          
+          // Focus
+          listSearchEl?.focus();
+        } catch(e) {
+          console.error('[activateTab list] Error:', e);
+        }
+      } else if (which === 'categories') {
+        // Load categories panel
+        const city = getCurrentCity();
+        if (!city) {
+          console.warn('[activateTab categories] No city selected');
+          return;
+        }
+        
+        try { 
+          await refreshCategoriesList(city); 
+        } catch(e) { 
+          console.error('[contrib] refreshCategoriesList error:', e); 
+        }
+      } else if (which === 'users') {
+        // Load users panel
+        const city = getCurrentCity();
+        // Note: pour les users, pas de return si pas de ville car l'admin voit selon ses villes
+        
+        try { 
+          const elements = { usersListEl, selectedCity: city };
+          ContribUsers.loadUsersList?.(elements);
+        } catch(e) { console.error('[contrib] loadUsersList error:', e); }
       }
     }
 
     // —— Landing helpers ——
-    const tabsContainer = document.querySelector('#contrib-overlay .contrib-tabs');
-    function showLanding() {
-      try {
-        if (landingEl) landingEl.hidden = false;
-        if (tabsContainer) tabsContainer.style.display = 'none';
-        if (panelCreate) panelCreate.hidden = true;
-        if (panelList) panelList.hidden = true;
-        if (backBtn) backBtn.style.display = 'none';
-      } catch(_) {}
-    }
-    function hideLanding() {
-      try {
-        if (landingEl) landingEl.hidden = true;
-        if (tabsContainer) tabsContainer.style.display = '';
-        if (backBtn) backBtn.style.display = '';
-      } catch(_) {}
-    }
-    function chooseLanding(target) {
+    
+    async function chooseLanding(target) {
       try { sessionStorage.setItem('contribLandingSeen', '1'); } catch(_) {}
-      hideLanding();
-      if (target === 'list') {
-        activateTab('list');
-      } else {
-        activateTab('create');
-        try { setStep(1, { force: true }); } catch(_) {}
+      
+      // Valider qu'une ville est sélectionnée
+      const landingCitySelect = document.getElementById('landing-city-select');
+      const selectedCity = landingCitySelect?.value?.trim();
+      
+      if (!selectedCity) {
+        showToast('Veuillez d\'abord sélectionner une structure', 'error');
+        landingCitySelect?.focus();
+        return;
       }
+      
+      // Définir la ville sélectionnée
+      CityContext.setSelectedCity?.(selectedCity);
+      console.log('[chooseLanding] Selected city set to:', selectedCity);
+      
+      // Récupérer le nom d'affichage
+      const selectedOption = landingCitySelect.options[landingCitySelect.selectedIndex];
+      const cityDisplayName = selectedOption?.text || selectedCity;
+      
+      // Navigation
+      window.ModalNavigation?.navigateTo(target || 'create');
+      
+      // Activer le panel approprié
+      if (target === 'create') {
+        // IMPORTANT : Passer explicitement la ville à openCreateModal
+        await openCreateModal('create', { ville: selectedCity });
+      } else if (target === 'list') {
+        // Pour la liste, on doit charger les catégories et le branding
+        await handleContributionPanels(target, selectedCity, cityDisplayName);
+        await activateTab(target);
+      } else if (['categories', 'users'].includes(target)) {
+        await activateTab(target);
+      }
+    }
+    
+    // Gère les panels de contribution (create/list) - charge catégories et branding
+    async function handleContributionPanels(target, city, cityDisplayName) {
+      // Charger les catégories et le branding pour le panel liste
+      await Promise.all([
+        loadCategoriesForCity(city),
+        ContribCities.applyCityBrandingToDrawMap?.(city)
+      ]);
+    }
+    
+    // Affiche les badges pour les panels de gestion (fonction legacy vide)
+    function showManagementPanelBadges(target, cityDisplayName) {
+      // Badges retirés - fonction conservée pour compatibilité
     }
 
     // Bind landing buttons
-    if (landingCreateBtn) landingCreateBtn.addEventListener('click', () => chooseLanding('create'));
     if (landingEditBtn) landingEditBtn.addEventListener('click', () => chooseLanding('list'));
+    if (landingCategoriesBtn) landingCategoriesBtn.addEventListener('click', () => chooseLanding('categories'));
+    if (landingUsersBtn) landingUsersBtn.addEventListener('click', () => chooseLanding('users'));
+    
+    // Bouton "Gérer le branding" : ouvre la modale de branding pour la ville sélectionnée
+    const landingBrandingBtn = document.getElementById('landing-branding');
+    if (landingBrandingBtn) {
+      landingBrandingBtn.addEventListener('click', async () => {
+        const landingCitySelect = document.getElementById('landing-city-select');
+        const selectedCity = landingCitySelect?.value?.trim();
+        
+        if (!selectedCity) {
+          showToast('Veuillez d\'abord sélectionner une structure', 'error');
+          landingCitySelect?.focus();
+          return;
+        }
+        
+        // Ouvrir la modale de branding
+        if (ContribBrandingSimple?.openBrandingModal) {
+          await ContribBrandingSimple.openBrandingModal(selectedCity);
+        } else {
+          console.error('[contrib] ContribBrandingSimple.openBrandingModal not available');
+          showToast('Module de branding non disponible', 'error');
+        }
+      });
+    }
+    
+    // Bouton "Gérer ma collectivité" : ouvre la modale d'édition de la ville sélectionnée
+    if (landingEditCityBtn) {
+      landingEditCityBtn.addEventListener('click', async () => {
+        const landingCitySelect = document.getElementById('landing-city-select');
+        const selectedCityCode = landingCitySelect?.value?.trim();
+        
+        if (!selectedCityCode) {
+          showToast('Veuillez d\'abord sélectionner une structure', 'error');
+          landingCitySelect?.focus();
+          return;
+        }
+        
+        try {
+          const cityData = await win.supabaseService?.getCityBranding?.(selectedCityCode);
+          
+          if (!cityData) {
+            showToast('Impossible de récupérer les données de la ville', 'error');
+            return;
+          }
+          
+          // Ouvrir la modale d'édition
+          if (ContribCitiesManagement?.showCityModal) {
+            ContribCitiesManagement.showCityModal(cityData, { citiesListEl: null, citiesStatusEl: null });
+          } else {
+            console.error('[contrib] ContribCitiesManagement.showCityModal not available');
+          }
+        } catch (error) {
+          console.error('[contrib] Error opening city edit modal:', error);
+          showToast('Erreur lors de l\'ouverture de la modale', 'error');
+        }
+      });
+    }
+    
+    // —— Header Actions Handler (système unifié) ——
+    // Tous les boutons du header sont gérés ici via délégation d'événements
+    document.addEventListener('click', async (e) => {
+      const target = e.target.closest('[id$="-btn"]');
+      if (!target) return;
+      
+      // Vérifier si c'est un bouton d'action du header
+      const headerActions = document.querySelector('.gp-modal-header-actions');
+      if (!headerActions || !headerActions.contains(target)) return;
+      
+      const buttonId = target.id;
+      console.log('[contrib] Header action clicked:', buttonId);
+      
+      // Router les actions selon le bouton
+      switch (buttonId) {
+        case 'contrib-list-create-btn':
+          // Récupérer la ville avec validation centralisée
+          const currentCity = getCurrentCity();
+          if (!currentCity) return; // Toast déjà affiché par getCurrentCity
+          
+          console.log('[contrib] Ouverture modale création pour ville:', currentCity);
+          await openCreateModal('create', { ville: currentCity });
+          break;
+          
+        case 'category-add-btn':
+          await openCategoryModal('create');
+          break;
+          
+        case 'invite-user-btn':
+          const usersElements = { usersListEl };
+          ContribUsers.showInviteModal?.(usersElements);
+          break;
+          
+        default:
+          console.warn('[contrib] Unknown header action:', buttonId);
+      }
+    });
+    
     if (backBtn) backBtn.addEventListener('click', () => showLanding());
 
-    // —— List helpers ——
-    function applyRoleConstraints() {
+    // —— Category filter population ——
+    /**
+     * Peuple le dropdown de catégories en fonction de la ville sélectionnée
+     */
+    async function populateCategoryFilter() {
+      if (!listCatEl) return;
+      
       try {
-        const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : __userRole;
-        const isInvited = role === 'invited';
-        const isAdmin = role === 'admin';
-
-        // City field visibility/requirement by role (no forced default value here)
-        try {
-          const cityInput = document.getElementById('contrib-city');
-          const cityRow = cityInput ? cityInput.closest('.form-row') : null;
-          const cityLabel = cityRow ? cityRow.querySelector('label[for="contrib-city"]') : null;
-          if (cityRow && cityInput) {
-            if (isAdmin) {
-              cityRow.style.display = '';
-              try { cityInput.required = false; } catch(_) {}
-              if (cityLabel) cityLabel.textContent = 'Code collectivité';
-            } else {
-              // Hide for non-admins and remove requirement
-              cityRow.style.display = 'none';
-              try { cityInput.required = false; } catch(_) {}
-            }
-          }
-        } catch(_) {}
-
-        if (!isAdmin) {
-          // Forcer mineOnly côté état et UI pour tous les non-admin
-          if (listMineOnlyEl) {
-            listMineOnlyEl.checked = true;
-            try {
-              listMineOnlyEl.checked = true;
-              listMineOnlyEl.disabled = true;
-              listMineOnlyEl.title = 'Limité à mes contributions (imposé par votre rôle)';
-            } catch(_) {}
-          }
-          try { listState.mineOnly = true; } catch(_) {}
-          // If list panel is visible and already loaded, refresh with mineOnly
-          try { if (panelList && !panelList.hidden) { listResetAndLoad(); } } catch(_) {}
-        } else {
-          // Rétablir l'UI si l'utilisateur est admin
-          if (listMineOnlyEl) {
-            try { listMineOnlyEl.disabled = false; } catch(_) {}
-          }
-          try { listState.mineOnly = !!(listMineOnlyEl && listMineOnlyEl.checked); } catch(_) {}
+        // Récupérer la ville avec validation centralisée
+        const selectedCity = getCurrentCity();
+        
+        if (!selectedCity) {
+          listCatEl.innerHTML = '<option value="">Sélectionnez d\'abord une structure</option>';
+          return;
         }
-      } catch(_) {}
-    }
-    function setListStatus(msg) {
-      if (listStatusEl) listStatusEl.textContent = msg || '';
-    }
-
-    // Empty state helpers for contribution list
-    function clearEmptyState() {
-      try {
-        if (!listEl) return;
-        const empty = listEl.querySelector('.contrib-empty');
-        if (empty) empty.remove();
-      } catch(_) {}
-    }
-    function renderEmptyState() {
-      try {
-        if (!listEl) return;
-        clearEmptyState();
-        const wrap = document.createElement('div');
-        wrap.className = 'contrib-empty';
-        wrap.setAttribute('role', 'status');
-        wrap.setAttribute('aria-live', 'polite');
-        wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;color:#546e7a;text-align:center;gap:14px;min-height:220px;';
-        wrap.innerHTML = `
-          <div class="empty-illu" aria-hidden="true" style="font-size:42px;color:#90a4ae"><i class="fa-regular fa-folder-open"></i></div>
-          <div class="empty-title" style="font-size:18px;font-weight:600;color:#37474f">Aucune contribution pour le moment</div>
-          <div class="empty-sub" style="font-size:14px;opacity:0.8;max-width:520px">Créez votre première contribution pour proposer un projet et le visualiser sur la carte.</div>
-          <div><button type="button" id="btn-empty-create" class="gp-btn" style="padding:8px 14px;border-radius:10px;background:#1976d2;color:#fff;border:none;cursor:pointer;box-shadow:0 3px 10px rgba(25,118,210,0.3);">Créer une contribution</button></div>
-        `;
-        if (listSentinel && listSentinel.parentNode === listEl) {
-          listEl.insertBefore(wrap, listSentinel);
-        } else {
-          listEl.appendChild(wrap);
+        
+        // Récupérer les catégories de la ville sélectionnée uniquement
+        const categories = await win.supabaseService.getCategoryIconsByCity(selectedCity);
+        
+        if (!categories || categories.length === 0) {
+          console.warn('[contrib] No categories found for selected city:', selectedCity);
+          listCatEl.innerHTML = '<option value="">Aucune catégorie disponible</option>';
+          return;
         }
-        const btn = wrap.querySelector('#btn-empty-create');
-        if (btn) btn.addEventListener('click', () => { try { activateTab('create'); setStep(1, { force: true }); } catch(_) {} });
-      } catch(_) {}
-    }
-
-    // —— Custom delete confirmation modal ——
-    function toStorageRelPathFromPublicUrl(url) {
-      try {
-        if (!url) return null;
-        const marker = '/object/public/';
-        const i = url.indexOf(marker);
-        if (i === -1) {
-          // fallback to basename
-          try { return new URL(url, win.location.href).pathname.split('/').slice(-1)[0] || url; } catch (_) { return String(url); }
+        
+        // Sauvegarder la valeur actuelle
+        const currentValue = listCatEl.value;
+        
+        // Vider et repeupler
+        listCatEl.innerHTML = '<option value="">Toutes les catégories</option>';
+        
+        // Trier les catégories par ordre alphabétique
+        const sortedCategories = categories.sort((a, b) => 
+          a.category.localeCompare(b.category)
+        );
+        
+        sortedCategories.forEach(cat => {
+          const option = document.createElement('option');
+          option.value = cat.category;
+          option.textContent = cat.category.charAt(0).toUpperCase() + cat.category.slice(1);
+          listCatEl.appendChild(option);
+        });
+        
+        // Restaurer la valeur si elle existe toujours
+        if (currentValue && Array.from(listCatEl.options).some(opt => opt.value === currentValue)) {
+          listCatEl.value = currentValue;
         }
-        const after = url.slice(i + marker.length); // e.g., 'uploads/geojson/...'
-        const prefix = 'uploads/';
-        return after.startsWith(prefix) ? after.slice(prefix.length) : after;
-      } catch (_) {
-        return null;
+        
+      } catch (error) {
+        console.error('[contrib] Error populating category filter:', error);
+        listCatEl.innerHTML = '<option value="">Erreur de chargement</option>';
       }
     }
 
-    function openDeleteConfirmModal(details) {
-      const { id, projectName, filePaths = [], dossiersCount = 0 } = details || {};
-      return new Promise((resolve) => {
-        console.log('[contrib] openDeleteConfirmModal', { id, projectName, filePaths, dossiersCount });
-        const lastFocus = document.activeElement;
+    // —— List helpers ——
+    // applyRoleConstraints() is now defined earlier (after showLanding)
+    // List helpers moved to contrib-list.js
+    const clearEmptyState = () => ContribList.clearEmptyState?.(listEl);
+    const renderEmptyState = () => {
+      ContribList.renderEmptyState?.(listEl, listSentinel, sharedOnCreateClick);
+    };
 
-        const overlay = document.createElement('div');
-        overlay.setAttribute('role', 'presentation');
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:9999;';
-
-        const modal = document.createElement('div');
-        modal.setAttribute('role', 'dialog');
-        modal.setAttribute('aria-modal', 'true');
-        modal.setAttribute('aria-labelledby', 'delc-title');
-        modal.setAttribute('aria-describedby', 'delc-desc');
-        modal.style.cssText = 'max-width:560px;width:92%;background:#fff;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,0.25);padding:16px 18px;font-size:15px;color:#263238;';
-
-        const title = document.createElement('h2');
-        title.id = 'delc-title';
-        title.textContent = `Supprimer la contribution ${projectName ? `« ${projectName} »` : `#${id}`} ?`;
-        title.style.cssText = 'margin:0 0 8px 0;font-size:18px;';
-
-        const desc = document.createElement('div');
-        desc.id = 'delc-desc';
-        desc.innerHTML = `
-          <p>Cette action est définitive. Elle supprimera les éléments suivants :</p>
-          <ul style="margin:0 0 8px 18px;">
-            <li>La ligne <code>contribution_uploads</code> (id : <strong>#${id}</strong>)</li>
-            ${filePaths.length ? filePaths.map(p => `<li>Fichier de stockage : <code>${p}</code></li>`).join('') : '<li>Aucun fichier de stockage associé.</li>'}
-            <li>Dossiers de concertation liés : <strong>${dossiersCount}</strong></li>
-          </ul>
-          <p>Voulez-vous continuer ?</p>
-        `;
-
-        const actions = document.createElement('div');
-        actions.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;margin-top:12px;';
-        const cancelBtn = document.createElement('button');
-        cancelBtn.type = 'button';
-        cancelBtn.textContent = 'Annuler';
-        cancelBtn.style.cssText = 'padding:8px 12px;border-radius:8px;border:1px solid rgba(0,0,0,0.15);background:#fff;';
-        const confirmBtn = document.createElement('button');
-        confirmBtn.type = 'button';
-        confirmBtn.textContent = 'Supprimer';
-        confirmBtn.style.cssText = 'padding:8px 12px;border-radius:8px;border:0;background:#c62828;color:#fff;';
-
-        const close = (result) => {
-          try { document.removeEventListener('keydown', onKey); } catch(_){}
-          try { overlay.remove(); } catch(_){}
-          try { if (lastFocus && lastFocus.focus) lastFocus.focus(); } catch(_){}
-          resolve(!!result);
-        };
-
-        const onKey = (e) => {
-          if (e.key === 'Escape') { e.preventDefault(); close(false); }
-          if (e.key === 'Enter') { e.preventDefault(); confirmBtn.click(); }
-        };
-
-        cancelBtn.addEventListener('click', () => close(false));
-        confirmBtn.addEventListener('click', () => close(true));
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
-
-        actions.appendChild(cancelBtn);
-        actions.appendChild(confirmBtn);
-        modal.appendChild(title);
-        modal.appendChild(desc);
-        modal.appendChild(actions);
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
-        try { document.addEventListener('keydown', onKey); } catch(_){}
-        try { cancelBtn.focus(); } catch(_){}
-      });
-    }
-
-    // Shared delete flow for both list items and edit button
+    // Delete functions moved to contrib-list.js
     async function doDeleteContribution(id, projectName) {
-      try {
-        console.log('[contrib] doDeleteContribution called', { id, projectName });
-        if (!id) { console.log('[contrib] doDeleteContribution: missing id, abort'); return; }
-        // Fetch row details for richer confirmation content
-        let row = null;
-        try { row = await (win.supabaseService && win.supabaseService.getContributionById(id)); } catch(_) {}
-        const effectiveName = (row && row.project_name) || projectName || '';
-        const filePaths = [];
-        try {
-          if (row && row.geojson_url) { const p = toStorageRelPathFromPublicUrl(row.geojson_url); if (p) filePaths.push(p); }
-          if (row && row.cover_url)   { const p = toStorageRelPathFromPublicUrl(row.cover_url);   if (p) filePaths.push(p); }
-          if (row && row.markdown_url){ const p = toStorageRelPathFromPublicUrl(row.markdown_url);if (p) filePaths.push(p); }
-        } catch(_) {}
-        let dossiersCount = 0;
-        try {
-          if (effectiveName && win.supabaseService && typeof win.supabaseService.getConsultationDossiersByProject === 'function') {
-            const ds = await win.supabaseService.getConsultationDossiersByProject(effectiveName);
-            if (Array.isArray(ds)) dossiersCount = ds.length;
-          }
-        } catch(_) {}
-        console.log('[contrib] showing custom delete confirm modal');
-        const ok = await openDeleteConfirmModal({ id, projectName: effectiveName, filePaths, dossiersCount });
-        console.log('[contrib] confirm response', ok);
-        if (!ok) { console.log('[contrib] user canceled deletion'); return; }
-        setListStatus('Suppression en cours…');
-        console.log('[contrib] set aria-busy on list');
-        try { if (listEl) listEl.setAttribute('aria-busy', 'true'); } catch(_) {}
-        // Ensure authenticated session
-        console.log('[contrib] requesting session via AuthModule.requireAuthOrRedirect');
-        const session = await (win.AuthModule && win.AuthModule.requireAuthOrRedirect('/login/'));
-        console.log('[contrib] session result', { hasSession: !!session, hasUser: !!(session && session.user) });
-        if (!session || !session.user) { console.log('[contrib] no session/user, likely redirected to /login, aborting'); return; } // redirected
-        console.log('[contrib] calling supabaseService.deleteContribution', { id });
-        const result = await (win.supabaseService && win.supabaseService.deleteContribution(id));
-        console.log('[contrib] deleteContribution result', result);
-        setListStatus('');
-        if (!result || result.success !== true) {
-          console.log('[contrib] deletion failed branch');
-          showToast('Échec de la suppression.', 'error');
-          return;
-        }
-        // If we were editing this row, exit edit mode
-        if (currentEditId === id) {
-          console.log('[contrib] deleting currently edited item, exiting edit mode', { currentEditId });
+      const onExitEditMode = (deletedId) => {
+        const currentEditId = ContribForm.getCurrentEditId?.();
+        if (currentEditId === deletedId) {
           try { exitEditMode(); } catch(_) {}
           setStatus('Contribution supprimée.', 'success');
         }
-        showToast('Contribution supprimée.', 'success');
-        console.log('[contrib] deletion success toast shown');
-        // Refresh list if visible
-        if (panelList && !panelList.hidden) { console.log('[contrib] refreshing list after delete'); listResetAndLoad(); }
-      } catch (e) {
-        console.warn('[contrib] delete error:', e);
-        showToast('Erreur lors de la suppression.', 'error');
-      } finally {
-        try { if (listEl) { listEl.removeAttribute('aria-busy'); console.log('[contrib] cleaned aria-busy on list'); } } catch(_) {}
-      }
+      };
+      const onRefreshList = () => {
+        if (panelList && !panelList.hidden) listResetAndLoad();
+      };
+      const elements = { listEl, onExitEditMode, onRefreshList };
+      await ContribList.doDeleteContribution?.(id, projectName, elements);
     }
 
-    function renderItem(item) {
-      const el = document.createElement('div');
-      el.className = 'contrib-list-item';
-      el.setAttribute('role', 'listitem');
-      const cover = item.cover_url
-        ? `<div class="contrib-thumb"><img src="${item.cover_url}" alt="" /></div>`
-        : `<div class="contrib-thumb contrib-thumb--placeholder" aria-hidden="true"><i class="fa fa-file-image-o" aria-hidden="true"></i></div>`;
-      const when = item.created_at ? new Date(item.created_at).toLocaleString() : '';
-      el.innerHTML = `
-        ${cover}
-        <div class="contrib-item-right">
-          <div class="contrib-item-main" role="button" tabindex="0">
-            <div class="contrib-title-row">
-              <span class="contrib-title">${item.project_name || '(sans nom)'} <span class="contrib-category">· ${item.category || ''}</span></span>
-              ${item.approved === true
-                ? '<span class="badge-approved">Approuvé</span>'
-                : '<span class="badge-pending">En attente</span>'}
-            </div>
-            <div class="contrib-meta">Créé le: ${when}</div>
-            ${item.meta ? `<div class="contrib-extra">${item.meta}</div>` : ''}
-          </div>
-          <div class="contrib-item-actions">
-            <button type="button" class="contrib-item-delete" aria-label="Supprimer" title="Supprimer">
-              <i class="fa fa-trash" aria-hidden="true"></i>
-            </button>
-          </div>
-        </div>
-      `;
-      // Runtime enforcement: ensure two-column structure and no horizontal overflow
+    // Shared callbacks for list operations (defined once, reused everywhere)
+    const sharedOnEdit = async (item) => {
       try {
-        // Clamp parent list horizontal overflow
-        const parentList = document.getElementById('contrib-list');
-        if (parentList) { parentList.style.overflowX = 'hidden'; parentList.style.maxWidth = '100%'; }
-
-        // Ensure thumb exists as first column
-        let thumb = el.querySelector('.contrib-thumb');
-        if (!thumb) {
-          thumb = document.createElement('div');
-          thumb.className = 'contrib-thumb contrib-thumb--placeholder';
-          thumb.setAttribute('aria-hidden', 'true');
-          thumb.innerHTML = '<i class="fa fa-file-image-o" aria-hidden="true"></i>';
-          el.insertBefore(thumb, el.firstChild);
-        }
-
-        // Ensure right wrapper exists and contains main + actions
-        let right = el.querySelector('.contrib-item-right');
-        let main = el.querySelector('.contrib-item-main');
-        let actions = el.querySelector('.contrib-item-actions');
-        if (!right) {
-          right = document.createElement('div');
-          right.className = 'contrib-item-right';
-          el.appendChild(right);
-        }
-        if (main && main.parentElement !== right) right.appendChild(main);
-        if (actions && actions.parentElement !== right) right.appendChild(actions);
-
-        // Force grid as last resort to beat conflicting rules
-        el.style.display = 'grid';
-        el.style.gridTemplateColumns = '96px minmax(0, 1fr)';
-        el.style.alignItems = 'center';
-        el.style.width = '100%';
-        el.style.boxSizing = 'border-box';
-
-        // Right column overflow safeguards
-        right.style.display = 'flex';
-        right.style.flexDirection = 'column';
-        right.style.gap = '8px';
-        right.style.minWidth = '0';
-        right.style.maxWidth = '100%';
-
-        if (main) { main.style.minWidth = '0'; main.style.maxWidth = '100%'; }
-      } catch(_) {}
-      const main = el.querySelector('.contrib-item-main');
-      const delBtn = el.querySelector('.contrib-item-delete');
-
-      // — Admin-only: toggle approved —
-      try {
-        const isAdmin = !!win.__CONTRIB_IS_ADMIN;
-        if (isAdmin) {
-          const actions = el.querySelector('.contrib-item-actions');
-          if (actions) {
-            const wrap = document.createElement('label');
-            wrap.className = 'contrib-approve-toggle';
-            wrap.title = 'Basculer le statut approuvé';
-            wrap.innerHTML = `<input type="checkbox" class="contrib-item-approve" ${item.approved ? 'checked' : ''} aria-label="Approuvé"/> <span>Approuvé</span>`;
-            actions.prepend(wrap);
-            const checkbox = wrap.querySelector('.contrib-item-approve');
-            const badgeApproved = () => el.querySelector('.badge-approved');
-            const badgePending = () => el.querySelector('.badge-pending');
-            checkbox.addEventListener('change', async () => {
-              const newVal = !!checkbox.checked;
-              // disable during save
-              checkbox.disabled = true;
-              try {
-                const res = await (win.supabaseService && win.supabaseService.setContributionApproved(item.id, newVal));
-                if (res && !res.error) {
-                  item.approved = newVal;
-                  // Update badges
-                  try {
-                    const bA = badgeApproved(); const bP = badgePending();
-                    if (newVal) {
-                      if (!bA && bP) { bP.outerHTML = '<span class="badge-approved">Approuvé</span>'; }
-                    } else {
-                      if (!bP && bA) { bA.outerHTML = '<span class="badge-pending">En attente</span>'; }
-                    }
-                  } catch(_) {}
-                  showToast('Statut mis à jour.', 'success');
-                } else {
-                  // revert
-                  checkbox.checked = !newVal;
-                  showToast("Impossible de mettre à jour l'approbation.", 'error');
-                }
-              } catch (_) {
-                checkbox.checked = !newVal;
-                showToast("Erreur lors de la mise à jour de l'approbation.", 'error');
-              } finally {
-                checkbox.disabled = false;
-              }
-            });
-          }
-        }
-      } catch(_) {}
-      if (main) main.addEventListener('click', async () => {
-        try {
-          setListStatus('Chargement…');
-          const row = await (win.supabaseService && win.supabaseService.getContributionById(item.id));
-          setListStatus('');
-          if (row) {
-            enterEditMode(row);
-            activateTab('create');
-          }
-        } catch (e) {
-          setListStatus('Erreur de chargement.');
-          showToast('Erreur lors du chargement de la contribution.', 'error');
-        }
-      });
-      if (main) main.addEventListener('keydown', (evt) => {
-        if (evt.key === 'Enter' || evt.key === ' ') {
-          evt.preventDefault();
-          main.click();
-        }
-      });
-      if (delBtn) delBtn.addEventListener('click', (ev) => {
-        console.log('[contrib] click delete in listing', { id: item.id, project_name: item.project_name });
-        ev.stopPropagation();
-        doDeleteContribution(item.id, item.project_name);
-      });
-      return el;
-    }
-
-    async function listResetAndLoad() {
-      if (!listEl) return;
-      listEl.innerHTML = '';
-      // Keep sentinel at end
-      if (listSentinel) listEl.appendChild(listSentinel);
-      listState.page = 1; listState.done = false; listState.items = [];
-      clearEmptyState();
-      setListStatus('');
-      await listLoadMore();
-    }
-
-    async function listLoadMore() {
-      if (listState.loading || listState.done) return;
-      listState.loading = true;
-      setListStatus('Chargement…');
-      try { if (listEl) listEl.setAttribute('aria-busy', 'true'); } catch(_) {}
-      // Insert skeletons on first page for better perceived performance
-      try {
-        if (listEl && listState.page === 1) {
-          const skelCount = Math.min(6, listState.pageSize);
-          for (let i = 0; i < skelCount; i++) {
-            const s = document.createElement('div');
-            s.className = 'contrib-skel';
-            s.innerHTML = `
-              <div class="skel-thumb"></div>
-              <div>
-                <div class="skel-line skel-line--lg"></div>
-                <div class="skel-line skel-line--md"></div>
-                <div class="skel-line skel-line--sm"></div>
-              </div>
-            `;
-            if (listSentinel && listSentinel.parentNode === listEl) {
-              listEl.insertBefore(s, listSentinel);
-            } else {
-              listEl.appendChild(s);
-            }
-          }
-        }
-      } catch(_) {}
-      try {
-        const { search, category, sortBy, sortDir, page, pageSize, mineOnly } = listState;
-        const res = await (win.supabaseService && win.supabaseService.listContributions({
-          search, category, page, pageSize, mineOnly, sortBy, sortDir
-        }));
-        const items = (res && res.items) ? res.items : [];
-        // Clear skeletons once data arrives (or not)
-        try { if (listEl) listEl.querySelectorAll('.contrib-skel').forEach(n => n.remove()); } catch(_) {}
-        if (!items.length) {
-          if (page === 1) { setListStatus(''); renderEmptyState(); }
-          listState.done = true;
+        console.log('[sharedOnEdit] Ouverture édition pour:', item);
+        const row = await (win.supabaseService && win.supabaseService.getContributionById(item.id));
+        console.log('[sharedOnEdit] Données chargées:', row);
+        console.log('[sharedOnEdit] row.ville:', row?.ville);
+        if (row) {
+          console.log('[sharedOnEdit] Appel de openCreateModal...');
+          await openCreateModal('edit', row);
+          console.log('[sharedOnEdit] Modale ouverte avec succès');
         } else {
-          setListStatus('');
-          clearEmptyState();
-          listState.items.push(...items);
-          items.forEach(it => {
-            const node = renderItem(it);
-            if (listSentinel && listSentinel.parentNode === listEl) {
-              listEl.insertBefore(node, listSentinel);
-            } else {
-              listEl.appendChild(node);
-            }
-          });
-          listState.page += 1;
-          if (items.length < listState.pageSize) listState.done = true;
+          console.warn('[sharedOnEdit] Aucune donnée trouvée pour ID:', item.id);
+          showToast('Contribution introuvable.', 'error');
         }
       } catch (e) {
-        setListStatus('Erreur lors du chargement.');
-        showToast('Erreur lors du chargement des contributions.', 'error');
-      } finally {
-        // Ensure skeletons are cleared on error as well
-        try { if (listEl) listEl.querySelectorAll('.contrib-skel').forEach(n => n.remove()); } catch(_) {}
-        listState.loading = false;
-        try { if (listEl) listEl.removeAttribute('aria-busy'); } catch(_) {}
+        console.error('[sharedOnEdit] Erreur:', e);
+        console.error('[sharedOnEdit] Stack:', e.stack);
+        showToast('Erreur lors du chargement de la contribution.', 'error');
       }
+    };
+
+    const sharedOnDelete = (id, name) => doDeleteContribution(id, name);
+
+    const sharedOnCreateClick = async () => { 
+      try {
+        await openCreateModal('create');
+      } catch(e) {
+        console.error('[sharedOnCreateClick] Error:', e);
+      } 
+    };
+
+    // renderItem moved to contrib-list.js
+    function renderItem(item) {
+      return ContribList.renderItem?.(item, sharedOnEdit, sharedOnDelete) || document.createElement('div');
     }
 
-    let io = null;
+    // listResetAndLoad moved to contrib-list.js
+    async function listResetAndLoad() {
+      const elements = { listEl, listSentinel, onEdit: sharedOnEdit, onDelete: sharedOnDelete, onCreateClick: sharedOnCreateClick };
+      await ContribList.listResetAndLoad?.(elements);
+    }
+
+    // listLoadMore and initInfiniteScroll moved to contrib-list.js
+    async function listLoadMore() {
+      const elements = { listEl, listSentinel, onEdit: sharedOnEdit, onDelete: sharedOnDelete, onCreateClick: sharedOnCreateClick };
+      await ContribList.listLoadMore?.(elements);
+    }
+
     function initInfiniteScroll() {
-      if (!listEl || !listSentinel) return;
-      try { if (io) { io.disconnect(); io = null; } } catch(_) {}
-      io = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) listLoadMore();
-        });
-      }, { root: listEl, threshold: 0.1 });
-      io.observe(listSentinel);
+      const elements = { listEl, listSentinel, onEdit: sharedOnEdit, onDelete: sharedOnDelete, onCreateClick: sharedOnCreateClick };
+      ContribList.initInfiniteScroll?.(listEl, listSentinel, elements);
     }
 
     // Filters listeners with debounce
@@ -1270,38 +1317,54 @@
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => { listResetAndLoad(); }, 250);
     }
-    if (listSearchEl) listSearchEl.addEventListener('input', () => { listState.search = listSearchEl.value || ''; debouncedReset(); });
+    if (listSearchEl) listSearchEl.addEventListener('input', () => { 
+      ContribList.updateListState?.({ search: listSearchEl.value || '' }); 
+      debouncedReset(); 
+    });
     // Trigger immediate search on Enter
     if (listSearchEl) listSearchEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        listState.search = listSearchEl.value || '';
+        ContribList.updateListState?.({ search: listSearchEl.value || '' });
         listResetAndLoad();
       }
     });
-    if (listCatEl) listCatEl.addEventListener('change', () => { listState.category = listCatEl.value || ''; debouncedReset(); });
+    if (listCatEl) listCatEl.addEventListener('change', () => { 
+      ContribList.updateListState?.({ category: listCatEl.value || '' }); 
+      debouncedReset(); 
+    });
     if (listSortEl) listSortEl.addEventListener('change', () => {
       const v = listSortEl.value || 'created_at:desc';
       const [by, dir] = v.split(':');
       const mapped = (by === 'updated_at') ? 'created_at' : (by || 'created_at');
-      listState.sortBy = mapped;
-      listState.sortDir = (dir === 'asc') ? 'asc' : 'desc';
+      ContribList.updateListState?.({ 
+        sortBy: mapped, 
+        sortDir: (dir === 'asc') ? 'asc' : 'desc' 
+      });
       debouncedReset();
     });
     if (listMineOnlyEl) listMineOnlyEl.addEventListener('change', () => {
-      const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : __userRole;
-      if (role === 'invited') {
-        // Empêcher toute modification et forcer coché
-        listMineOnlyEl.checked = true;
-        listState.mineOnly = true;
-        return; // pas de reset inutile
-      }
-      listState.mineOnly = !!listMineOnlyEl.checked;
+      // Mettre à jour l'état (pour admin seulement, car checkbox masquée pour invited)
+      ContribList.updateListState?.({ mineOnly: !!listMineOnlyEl.checked });
       debouncedReset();
     });
 
-    // Initialize infinite scroll once
-    initInfiniteScroll();
+    // L'infinite scroll est initialisé dans activateTab('list')
+
+    // —— Users panel helpers ——
+    // Recherche en temps réel dans la liste des utilisateurs
+    if (usersSearchEl) {
+      usersSearchEl.addEventListener('input', () => {
+        const query = usersSearchEl.value.toLowerCase();
+        const cards = usersListEl?.querySelectorAll('.user-card') || [];
+        cards.forEach(card => {
+          const email = card.querySelector('.user-card__email')?.textContent.toLowerCase() || '';
+          card.style.display = email.includes(query) ? '' : 'none';
+        });
+      });
+    }
+
+    // Boutons d'invitation et d'ajout de ville gérés par le Header Actions Handler unifié ci-dessus
 
     // —— Edit mode helpers ——
     const cancelEditBtn = document.getElementById('contrib-cancel-edit');
@@ -1310,168 +1373,11 @@
     const deleteEditBtn = document.getElementById('contrib-delete');
     const coverPreview  = document.getElementById('contrib-cover-preview');
 
-    // —— Cover preview + dropzone + compression ——
-    let coverCompressedFile = null;
-    (function setupCoverDropzone(){
-      try {
-        const coverInput = document.getElementById('contrib-cover');
-        if (!coverInput || !coverPreview) return;
-
-        // Hide native input like step 2
-        try { coverInput.style.display = 'none'; } catch(_){}
-
-        // Build same structure as step 2 dropzone
-        coverPreview.classList.add('file-dropzone');
-        coverPreview.setAttribute('role', 'button');
-        coverPreview.setAttribute('tabindex', '0');
-        coverPreview.setAttribute('aria-label', 'Déposer une image de couverture ou cliquer pour choisir');
-        coverPreview.innerHTML = `
-          <div class="dz-text">
-            <div class="dz-title">Déposez votre image de couverture</div>
-            <div class="dz-sub">… ou cliquez pour choisir un fichier</div>
-          </div>
-          <div class="dz-selected">
-            <span class="dz-icon" aria-hidden="true"><i class="fa-regular fa-image"></i></span>
-            <span class="dz-filename" id="cover-dz-filename"></span>
-          </div>
-        `;
-        const coverDzFilenameEl = coverPreview.querySelector('#cover-dz-filename');
-        // Create simple meta text (compression info)
-        let dzMeta = coverPreview.querySelector('.dz-meta');
-        if (!dzMeta) {
-          dzMeta = document.createElement('div');
-          dzMeta.className = 'dz-meta';
-          dzMeta.style.marginTop = '8px';
-          dzMeta.style.fontSize = '12px';
-          dzMeta.innerHTML = `<div class="dz-info" aria-live="polite"></div>`;
-          coverPreview.appendChild(dzMeta);
-        }
-        const dzInfo = coverPreview.querySelector('.dz-info');
-
-        // Same interactions as step 2
-        const openPicker = () => { try { coverInput.click(); } catch(_){} };
-        coverPreview.addEventListener('click', openPicker);
-        coverPreview.addEventListener('keydown', (e)=>{
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
-        });
-
-        ['dragenter','dragover'].forEach(ev => coverPreview.addEventListener(ev, (e)=>{
-          e.preventDefault(); e.stopPropagation(); coverPreview.classList.add('is-dragover');
-        }));
-        ;['dragleave','dragend','drop'].forEach(ev => coverPreview.addEventListener(ev, (e)=>{
-          e.preventDefault(); e.stopPropagation(); coverPreview.classList.remove('is-dragover');
-        }));
-
-        coverPreview.addEventListener('drop', (e)=>{
-          const dt = e.dataTransfer; if (!dt) return;
-          const f = dt.files && dt.files[0]; if (!f) return;
-          processCoverFile(f);
-        });
-
-        coverInput.addEventListener('change', ()=>{
-          const f = coverInput.files && coverInput.files[0];
-          if (f) processCoverFile(f);
-        });
-
-        function processCoverFile(file){
-          try {
-            const type = (file.type||'').toLowerCase();
-            if (!/image\/(png|jpe?g|webp)/.test(type)) {
-              showToast('Image invalide (png, jpg, webp)', 'error');
-              return;
-            }
-            // Create preview first
-            const url = URL.createObjectURL(file);
-            renderPreview(url, ''); // no filename displayed
-            // Compress
-            compressImage(file).then((compressed)=>{
-              coverCompressedFile = compressed || file;
-              try {
-                const before = file.size / (1024*1024);
-                const after = (coverCompressedFile && coverCompressedFile.size ? coverCompressedFile.size : file.size) / (1024*1024);
-                if (dzInfo) dzInfo.textContent = `image compressée de ${before.toFixed(2)} Mo à ${after.toFixed(2)} Mo`;
-              } catch(_){}
-            }).catch(()=>{ coverCompressedFile = file; });
-          } catch (e) {
-            console.warn('[contrib] processCoverFile error', e);
-            showToast("Impossible de lire l'image.", 'error');
-          }
-        }
-
-        function renderPreview(objectUrl, filename){
-          try {
-            // Switch to selected state and show filename + thumbnail
-            if (coverDzFilenameEl) {
-              try { coverDzFilenameEl.textContent = ''; } catch(_){ }
-            }
-            coverPreview.classList.add('has-file');
-            // Thumbnail
-            let thumb = coverPreview.querySelector('img.dz-thumb');
-            if (!thumb) {
-              thumb = document.createElement('img');
-              thumb.className = 'dz-thumb';
-              thumb.alt = 'Aperçu de la cover';
-              thumb.style.maxHeight = '140px';
-              thumb.style.maxWidth = '100%';
-              thumb.style.borderRadius = '10px';
-              thumb.style.boxShadow = '0 6px 16px rgba(0,0,0,0.18)';
-              thumb.style.transform = 'rotate(-0.75deg)';
-              thumb.style.transition = 'transform 0.2s ease';
-              // place thumbnail inside dz-selected, replacing icon
-              const sel = coverPreview.querySelector('.dz-selected');
-              if (sel) {
-                const icon = sel.querySelector('.dz-icon');
-                if (icon) { try { icon.remove(); } catch(_){} }
-                sel.prepend(thumb);
-              } else {
-                coverPreview.appendChild(thumb);
-              }
-            }
-            thumb.src = objectUrl;
-          } catch(_){ }
-        }
-
-        // Expose for edit-mode prefill
-        try { win.__contribRenderCoverPreview = (u, n) => renderPreview(u, n); } catch(_){}
-
-        function compressImage(file){
-          return new Promise((resolve)=>{
-            try {
-              const img = new Image();
-              img.onload = () => {
-                try {
-                  const maxDim = 2000; // milder resize
-                  let { width, height } = img;
-                  const ratio = Math.min(1, maxDim / Math.max(width, height));
-                  const canvas = document.createElement('canvas');
-                  canvas.width = Math.round(width * ratio);
-                  canvas.height = Math.round(height * ratio);
-                  const ctx = canvas.getContext('2d');
-                  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                  const preferType = 'image/webp';
-                  const fallbackType = 'image/jpeg';
-                  const quality = 0.9; // milder compression
-                  const toBlobType = (canvas.toDataURL(preferType).indexOf('data:image/webp') === 0) ? preferType : fallbackType;
-                  canvas.toBlob((blob)=>{
-                    if (!blob) { resolve(file); return; }
-                    try {
-                      const ext = toBlobType === 'image/webp' ? 'webp' : 'jpg';
-                      const name = (file.name || 'cover').replace(/\.[^.]+$/, '') + '.' + ext;
-                      const compressed = new File([blob], name, { type: toBlobType, lastModified: Date.now() });
-                      resolve(compressed);
-                    } catch(_) { resolve(file); }
-                  }, toBlobType, quality);
-                } catch(_) { resolve(file); }
-              };
-              img.onerror = () => resolve(file);
-              img.src = URL.createObjectURL(file);
-            } catch(_) { resolve(file); }
-          });
-        }
-      } catch (e) {
-        console.warn('[contrib] setupCoverDropzone error:', e);
-      }
-    })();
+    // —— Cover preview + dropzone + compression moved to contrib-upload.js ——
+    const coverInput = document.getElementById('contrib-cover');
+    if (ContribUpload?.setupCoverDropzone) {
+      ContribUpload.setupCoverDropzone(coverPreview, coverInput);
+    }
 
     // —— Meta/Description char limits ——
     (function setupCharLimits(){
@@ -1506,15 +1412,15 @@
         progOuter.style.height = '2px';
         progOuter.style.width = '80px';
         progOuter.style.borderRadius = '999px';
-        progOuter.style.background = 'rgba(0,0,0,0.08)';
+        progOuter.style.background = 'var(--black-alpha-08)';
         progOuter.style.position = 'relative';
 
         const progInner = document.createElement('div');
-        progInner.className = 'char-prog-fill';
+        progInner.id = 'geojson-upload-progress-inner';
         progInner.style.height = '100%';
         progInner.style.width = '0%';
         progInner.style.borderRadius = '999px';
-        progInner.style.background = 'rgba(33,150,243,0.6)';
+        progInner.style.background = 'var(--info-alpha-6)';
         progInner.style.transition = 'width 0.1s linear';
         progOuter.appendChild(progInner);
 
@@ -1558,98 +1464,57 @@
       if (nameEl) nameEl.focus();
     }
 
+    // prefillForm, enterEditMode, exitEditMode moved to contrib-form.js
     function prefillForm(row) {
-      const nameEl = document.getElementById('contrib-project-name');
-      const catEl  = document.getElementById('contrib-category');
-      const citySel = document.getElementById('contrib-city');
-      const metaEl = document.getElementById('contrib-meta');
-      const descEl = document.getElementById('contrib-description');
-      const mdEl   = document.getElementById('contrib-markdown');
-      if (nameEl) nameEl.value = row.project_name || '';
-      if (catEl) catEl.value = row.category || '';
-      // Pré-remplir le lien officiel si présent
-      try {
-        if (officialInput) officialInput.value = row.official_url || '';
-      } catch(_) {}
-      if (citySel && row && row.ville) {
-        try {
-          const v = String(row.ville).trim();
-          // Si l'option n'existe pas encore (villes non chargées), l'ajouter de manière temporaire
-          if (!Array.from(citySel.options).some(opt => String(opt.value) === v)) {
-            const opt = document.createElement('option');
-            opt.value = v;
-            opt.textContent = v;
-            citySel.appendChild(opt);
-          }
-          citySel.value = v;
-        } catch(_) {}
-      }
-      if (metaEl) metaEl.value = row.meta || '';
-      if (descEl) descEl.value = row.description || '';
-      if (coverPreview) {
-        try {
-          if (row.cover_url && typeof win.__contribRenderCoverPreview === 'function') {
-            win.__contribRenderCoverPreview(row.cover_url, 'cover.jpg');
-          } else if (row.cover_url) {
-            // Fallback minimal preview if renderer not yet ready
-            coverPreview.innerHTML = `<img src="${row.cover_url}" alt="Aperçu cover" style="max-height:80px;border-radius:6px;"/>`;
-          } else {
-            coverPreview.classList.remove('has-file');
-            const fn = coverPreview.querySelector('#cover-dz-filename');
-            if (fn) fn.textContent = '';
-            const sel = coverPreview.querySelector('.dz-selected');
-            if (sel && !sel.querySelector('.dz-icon')) {
-              const icon = document.createElement('span');
-              icon.className = 'dz-icon';
-              icon.setAttribute('aria-hidden','true');
-              icon.innerHTML = '<i class="fa-regular fa-image"></i>';
-              sel.prepend(icon);
-            }
-            const thumb = coverPreview.querySelector('img.dz-thumb');
-            if (thumb) thumb.remove();
-          }
-        } catch(_){}
-      }
-      // Try fetching markdown content
-      if (mdEl) {
-        mdEl.value = '';
-        if (row.markdown_url) {
-          fetch(row.markdown_url).then(r => r.ok ? r.text() : '').then(txt => { if (typeof txt === 'string') mdEl.value = txt; }).catch(()=>{});
-        }
-      }
-      // Geometry inputs: reset file and drawings (loading from server handled separately)
-      const fileInput = document.getElementById('contrib-geojson');
-      if (fileInput) { try { fileInput.value = ''; } catch(_){} }
-      try { clearAllDrawings(); } catch(_) {}
+      const elements = {
+        nameEl: document.getElementById('contrib-project-name'),
+        catEl: document.getElementById('contrib-category'),
+        citySel: document.getElementById('contrib-city'),
+        metaEl: document.getElementById('contrib-meta'),
+        descEl: document.getElementById('contrib-description'),
+        mdEl: document.getElementById('contrib-markdown'),
+        officialInput,
+        coverPreview
+      };
+      ContribForm.prefillForm?.(row, elements);
     }
 
     function enterEditMode(row) {
-      currentEditId = row.id;
-      editGeojsonUrl = row && row.geojson_url ? row.geojson_url : null;
-      prefillForm(row);
-      setStatus('Mode édition. Modifiez et cliquez sur Enregistrer.');
-      setEditUI(true);
-      // En modification, démarrer explicitement au début du stepper (étape 1)
-      try { setStep(1, { force: true }); } catch(_) {}
-      // Les dossiers liés seront chargés dynamiquement à l'entrée en étape 4
+      const elements = {
+        nameEl: document.getElementById('contrib-project-name'),
+        catEl: document.getElementById('contrib-category'),
+        citySel: document.getElementById('contrib-city'),
+        metaEl: document.getElementById('contrib-meta'),
+        descEl: document.getElementById('contrib-description'),
+        mdEl: document.getElementById('contrib-markdown'),
+        officialInput,
+        coverPreview,
+        geomModeRadios,
+        fileRowEl,
+        drawPanelEl,
+        geomCardFile,
+        geomCardDraw
+      };
+      ContribForm.enterEditMode?.(row, elements, setEditUI, setStatus, setStep);
     }
 
     function exitEditMode() {
-      currentEditId = null;
-      editGeojsonUrl = null;
-      try { form.reset(); } catch(_) {}
-      if (coverPreview) coverPreview.innerHTML = '';
-      setEditUI(false);
-      setStatus('');
-      try { clearAllDrawings(); } catch(_) {}
-      try { setGeomMode('file'); } catch(_) {}
-      try { clearExistingDossiers(); } catch(_) {}
+      const elements = {
+        coverPreview,
+        geomModeRadios,
+        fileRowEl,
+        drawPanelEl,
+        geomCardFile,
+        geomCardDraw
+      };
+      ContribForm.exitEditMode?.(form, elements, setEditUI, setStatus, clearExistingDossiers);
     }
 
     // cancelEditBtn removed; Back button already exits edit mode
 
     if (deleteEditBtn) {
       deleteEditBtn.addEventListener('click', async () => {
+        const currentEditId = ContribForm.getCurrentEditId?.();
         console.log('[contrib] click delete in edit mode', { currentEditId });
         if (!currentEditId) { console.log('[contrib] deleteEditBtn: no currentEditId, abort'); return; }
         const projectName = document.getElementById('contrib-project-name')?.value?.trim();
@@ -1658,208 +1523,67 @@
       });
     }
 
-    function setGeomMode(mode) {
-      const fileInput = document.getElementById('contrib-geojson');
-      // Sync radios and cards visual state
-      try {
-        if (geomModeRadios && geomModeRadios.length) {
-          geomModeRadios.forEach(r => { r.checked = (r.value === mode); });
-        }
-        if (geomCardFile && geomCardDraw) {
-          const isDraw = mode === 'draw';
-          geomCardFile.classList.toggle('is-active', !isDraw);
-          geomCardDraw.classList.toggle('is-active', isDraw);
-          geomCardFile.setAttribute('aria-pressed', (!isDraw).toString());
-          geomCardDraw.setAttribute('aria-pressed', isDraw.toString());
-        }
-      } catch(_){}
-      if (mode === 'draw') {
-        if (fileRowEl) { fileRowEl.style.display = 'none'; fileRowEl.classList.remove('reveal'); }
-        if (fileInput) {
-          fileInput.required = false;
-          fileInput.disabled = true;
-          try { fileInput.value = ''; } catch(_) {}
-        }
-        if (drawPanelEl) { drawPanelEl.style.display = ''; drawPanelEl.classList.add('reveal'); }
-        initDrawMap();
-        setTimeout(() => { try { if (drawMap) drawMap.invalidateSize(); } catch(_){} }, 50);
-        // Manual drawing only
-        ensureManualToolbar();
-        cancelManualDraw(true);
-        setStatus('Mode dessin manuel actif. Choisissez Ligne ou Polygone puis cliquez sur la carte.');
-        // Nettoyer couche précédente
-        if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
-        drawLayerDirty = false;
-      } else {
-        if (fileRowEl) { fileRowEl.style.display = ''; fileRowEl.classList.add('reveal'); }
-        if (fileInput) { fileInput.required = true; fileInput.disabled = false; }
-        if (drawPanelEl) { drawPanelEl.style.display = 'none'; drawPanelEl.classList.remove('reveal'); }
-        // Revenir au mode fichier doit nettoyer tout dessin en cours
-        try { clearAllDrawings(); } catch(_) {}
-        try {
-          cancelManualDraw(true);
-          const manualTb = drawPanelEl && drawPanelEl.querySelector('#contrib-manual-draw-controls');
-          if (manualTb) manualTb.style.display = 'none';
-        } catch(_){ }
-      }
-      // Après un changement de mode, si on est en étape 2, re-valider l'étape
-      if (currentStep === 2) {
-        try { validateStep2(); } catch(_) {}
-      }
-    }
-
-    function clearAllDrawings() {
-      if (drawLayer) { try { drawMap.removeLayer(drawLayer); } catch(_) {} drawLayer = null; }
-      drawLayerDirty = false;
-      try {
-        cancelManualDraw(true);
-      } catch(_){ }
-    }
-
-    // Preload existing geometry into the draw map in edit mode
-    async function preloadGeometryOnMap(url) {
-      try {
-        setStatus('Chargement de la géométrie…');
-        // Switch UI to draw mode and ensure map exists
-        const drawRadio = Array.from(geomModeRadios || []).find(r => r.value === 'draw');
-        if (drawRadio) { drawRadio.checked = true; }
-        setGeomMode('draw');
-        // Important: wait for the map to be initialized before adding layers
-        try { await initDrawMap(); } catch(_) {}
-        // Nettoyer et afficher uniquement la géométrie existante
-        try { clearAllDrawings(); } catch(_) {}
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error('GeoJSON non accessible');
-        const gj = await resp.json();
-        const style = { color: '#1976d2', weight: 3, fillOpacity: 0.2 };
-        const pointToLayer = (feature, latlng) => L.circleMarker(latlng, { radius: 5, color: '#1976d2', weight: 2, fillOpacity: 0.7 });
-        drawLayer = L.geoJSON(gj, { style, pointToLayer }).addTo(drawMap);
-        try { drawMap.fitBounds(drawLayer.getBounds(), { padding: [10, 10] }); } catch(_){ }
-        drawLayerDirty = false; // Loaded from server; don't re-upload unless user redraws
-        setStatus('Géométrie chargée depuis la contribution.', 'success');
-      } catch (err) {
-        console.warn('[contrib] preloadGeometryOnMap error:', err);
-        setStatus('Impossible de charger la géométrie existante.', 'error');
-        showToast('Impossible de charger la géométrie existante.', 'error');
-      }
-    }
-    // Dessin manuel uniquement: pas d'intégration Leaflet-Geoman
-
+    // setGeomMode, clearAllDrawings, preloadGeometryOnMap moved to contrib-geometry.js
+    
     // Mode change listeners
+    const elements = { 
+      geomModeRadios, 
+      fileRowEl, 
+      drawPanelEl, 
+      geomCardFile, 
+      geomCardDraw,
+      fileInput: document.getElementById('contrib-geojson'),
+      dropzoneEl,
+      dzFilenameEl,
+      cityEl
+    };
+    
     if (geomModeRadios && geomModeRadios.length) {
       geomModeRadios.forEach(r => {
         r.addEventListener('change', () => {
           const checked = Array.from(geomModeRadios).find(x => x.checked)?.value || 'file';
-          setGeomMode(checked);
+          ContribGeometry.setGeomMode?.(checked, elements);
+          // Initialize draw map when switching to draw mode
+          if (checked === 'draw') {
+            setTimeout(() => {
+              initDrawMap();
+              ensureManualToolbar();
+            }, 100);
+          }
         });
       });
     }
     // Card click listeners
-    if (geomCardFile) geomCardFile.addEventListener('click', () => setGeomMode('file'));
-    if (geomCardDraw) geomCardDraw.addEventListener('click', () => setGeomMode('draw'));
-    // Initialize UI state
-    const initialMode = (Array.from(geomModeRadios || []).find(x => x.checked)?.value) || 'file';
-    setGeomMode(initialMode);
-
-    // Dropzone: clic + drag&drop léger pour GeoJSON
-    (function setupDropzone(){
-      const fileInput = document.getElementById('contrib-geojson');
-      if (!dropzoneEl || !fileInput) return;
-      const openPicker = () => { if (!fileInput.disabled) fileInput.click(); };
-      dropzoneEl.addEventListener('click', openPicker);
-      dropzoneEl.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
-      });
-      const updateName = () => {
-        const f = fileInput.files && fileInput.files[0];
-        if (dzFilenameEl) dzFilenameEl.textContent = f ? f.name : '';
-        if (dropzoneEl) dropzoneEl.classList.toggle('has-file', !!f);
-      };
-      fileInput.addEventListener('change', () => { updateName(); try { validateStep2(); } catch(_){} });
-      ['dragenter','dragover'].forEach(ev => dropzoneEl.addEventListener(ev, (e)=>{
-        e.preventDefault(); e.stopPropagation(); dropzoneEl.classList.add('is-dragover');
-      }));
-      ['dragleave','dragend','drop'].forEach(ev => dropzoneEl.addEventListener(ev, (e)=>{
-        e.preventDefault(); e.stopPropagation(); dropzoneEl.classList.remove('is-dragover');
-      }));
-      dropzoneEl.addEventListener('drop', (e)=>{
-        const dt = e.dataTransfer; if (!dt) return;
-        const files = dt.files; if (!files || !files.length) return;
-        if (!fileInput.disabled) { fileInput.files = files; fileInput.dispatchEvent(new Event('change', { bubbles:true })); }
-      });
-    })();
-
-    function createDocRow() {
-      const row = document.createElement('div');
-      row.className = 'doc-card is-idle';
-      row.innerHTML = `
-        <div class="doc-card__header">
-          <input type="text" class="doc-title" placeholder="Titre du document PDF" />
-        </div>
-        <div class="doc-card__body">
-          <input type="file" class="doc-file" accept="application/pdf" style="display:none" />
-          <div class="file-dropzone doc-dropzone" role="button" tabindex="0" aria-label="Déposer un fichier PDF ou cliquer pour choisir">
-            <div class="dz-text">
-              <div class="dz-title">Déposez votre PDF</div>
-              <div class="dz-sub">… ou cliquez pour choisir un fichier</div>
-            </div>
-            <div class="dz-selected">
-              <span class="dz-icon" aria-hidden="true"><i class="fa-regular fa-file-pdf"></i></span>
-              <span class="dz-filename doc-filename"></span>
-            </div>
-          </div>
-        </div>
-        <div class="doc-card__footer">
-          <span class="doc-status" aria-live="polite"></span>
-          <button type="button" class="doc-remove gp-btn gp-btn-ghost" aria-label="Supprimer cette pièce">Supprimer</button>
-        </div>
-      `;
-      const removeBtn = row.querySelector('.doc-remove');
-      const fileInput = row.querySelector('.doc-file');
-      const fileNameEl = row.querySelector('.doc-filename');
-      const dropzoneEl = row.querySelector('.doc-dropzone');
-      // Remove
-      if (removeBtn) removeBtn.addEventListener('click', () => row.remove());
-      // File selection via dialog
-      function onPicked() {
-        const f = fileInput.files && fileInput.files[0];
-        fileNameEl.textContent = f ? f.name : '';
-        row.classList.toggle('has-file', !!f);
-        dropzoneEl?.classList.toggle('has-file', !!f);
+    if (geomCardFile) geomCardFile.addEventListener('click', () => {
+      ContribGeometry.setGeomMode?.('file', elements);
+    });
+    if (geomCardDraw) geomCardDraw.addEventListener('click', () => {
+      ContribGeometry.setGeomMode?.('draw', elements);
+      // Initialize draw map when switching to draw mode
+      setTimeout(() => {
+        initDrawMap();
+        ensureManualToolbar();
+      }, 100);
+    });
+    
+    // Initialize UI state - IMPORTANT: Call this to show/hide correct panels
+    setTimeout(() => {
+      const initialMode = (Array.from(geomModeRadios || []).find(x => x.checked)?.value) || 'file';
+      ContribGeometry.setGeomMode?.(initialMode, elements);
+      
+      // Initialize draw map if needed
+      if (initialMode === 'draw') {
+        initDrawMap();
+        ensureManualToolbar();
       }
-      if (fileInput) fileInput.addEventListener('change', onPicked);
-      // Dropzone interactions
-      if (dropzoneEl) {
-        const openPicker = () => { fileInput?.click(); };
-        dropzoneEl.addEventListener('click', openPicker);
-        dropzoneEl.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
-        });
-        dropzoneEl.addEventListener('dragover', (e) => { e.preventDefault(); dropzoneEl.classList.add('is-dragover'); });
-        dropzoneEl.addEventListener('dragenter', (e) => { e.preventDefault(); dropzoneEl.classList.add('is-dragover'); });
-        dropzoneEl.addEventListener('dragleave', () => dropzoneEl.classList.remove('is-dragover'));
-        dropzoneEl.addEventListener('drop', (e) => {
-          e.preventDefault();
-          dropzoneEl.classList.remove('is-dragover');
-          const dt = e.dataTransfer; if (!dt) return;
-          const files = dt.files; if (!files || !files.length) return;
-          if (fileInput && !fileInput.disabled) { fileInput.files = files; fileInput.dispatchEvent(new Event('change', { bubbles:true })); }
-        });
-      }
-      return row;
-    }
+    }, 100);
 
-    function collectDocs() {
-      if (!docsFieldset) return [];
-      const rows = docsFieldset.querySelectorAll('.doc-card');
-      const out = [];
-      rows.forEach((row) => {
-        const title = row.querySelector('.doc-title')?.value?.trim();
-        const file = row.querySelector('.doc-file')?.files?.[0] || null;
-        if (title && file) out.push({ title, file });
-      });
-      return out;
-    }
+    // Dropzone setup moved to contrib-geometry.js
+    ContribGeometry.setupDropzone?.(elements);
+
+    // createDocRow and collectDocs moved to contrib-upload.js
+    const createDocRow = ContribUpload?.createDocRow || (() => null);
+    const collectDocs = () => ContribUpload?.collectDocs?.(docsFieldset) || [];
 
     // —— Existing consultation dossiers (display-only in edit mode) ——
     function clearExistingDossiers() {
@@ -1967,10 +1691,10 @@
               <div class="inline-edit-url__row">
                 <input type="url" class="edit-url-input" placeholder="https://…" value="${currentUrl.replace(/"/g, '&quot;')}">
               </div>
-              <button type="button" class="gp-btn gp-btn--secondary pick-pdf inline-edit-url__full">Choisir PDF…</button>
+              <button type="button" class="btn-secondary pick-pdf inline-edit-url__full">Choisir PDF…</button>
               <div class="inline-edit-url__actions">
-                <button type="button" class="gp-btn gp-btn-ghost cancel-edit">Annuler</button>
-                <button type="button" class="gp-btn gp-btn--primary save-url">Enregistrer</button>
+                <button type="button" class="btn-ghost cancel-edit">Annuler</button>
+                <button type="button" class="btn-primary save-url">Enregistrer</button>
               </div>
               <input type="file" class="hidden-pdf" accept="application/pdf" style="display:none" />
               <div class="inline-edit-url__status" aria-live="polite"></div>
@@ -2050,8 +1774,8 @@
             confirmBar.innerHTML = `
               <span class="inline-confirm__text">Supprimer ce document ?</span>
               <div class="inline-confirm__actions">
-                <button type="button" class="gp-btn gp-btn--danger confirm-delete">Supprimer</button>
-                <button type="button" class="gp-btn gp-btn--secondary cancel-delete">Annuler</button>
+                <button type="button" class="btn-danger confirm-delete">Supprimer</button>
+                <button type="button" class="btn-secondary cancel-delete">Annuler</button>
               </div>
             `;
             card.appendChild(confirmBar);
@@ -2158,244 +1882,611 @@
       });
     }
 
-    async function handleSubmit(e) {
-      e.preventDefault();
-      if (!form) return;
+    // handleSubmit is now handled by contrib-create-form-v2.js
+    // via openCreateModal() → initCreateForm()
+    // Legacy code removed - form submission handled by the new module
 
-      const submitBtn = document.getElementById('contrib-submit');
-      const projectName = document.getElementById('contrib-project-name')?.value?.trim();
-      const category = document.getElementById('contrib-category')?.value;
-      const fileInput = document.getElementById('contrib-geojson');
-      const coverInput = document.getElementById('contrib-cover');
-      const city = document.getElementById('contrib-city')?.value?.trim();
-      const officialUrl = document.getElementById('contrib-official-url')?.value?.trim();
-      const meta = document.getElementById('contrib-meta')?.value?.trim();
-      const description = document.getElementById('contrib-description')?.value?.trim();
-      const mdTextRaw = document.getElementById('contrib-markdown')?.value || '';
-      const geomMode = (function(){
-        const r = geomModeRadios && geomModeRadios.length ? Array.from(geomModeRadios).find(x => x.checked) : null;
-        return r ? r.value : 'file';
-      })();
-
-      const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : __userRole;
-      if (!projectName || !category) {
-        setStatus('Veuillez renseigner le nom et la catégorie.', 'error');
-        return;
-      }
-
-      // Build potential GeoJSON upload only when creating or when explicitly provided in edit
-      let fileForUpload = null;
-      if (!currentEditId || (currentEditId && (geomMode === 'file' ? (fileInput && fileInput.files && fileInput.files.length) : (!!drawLayer && drawLayerDirty)))) {
-        if (geomMode === 'file') {
-          if (!fileInput || !fileInput.files?.length) {
-            if (!currentEditId) { setStatus('Veuillez sélectionner un fichier GeoJSON.', 'error'); return; }
-          } else {
-            const file = fileInput.files[0];
-            const nameLower = (file.name || '').toLowerCase();
-            if (!nameLower.endsWith('.geojson') && !(file.type || '').includes('json')) {
-              setStatus('Le fichier doit être un GeoJSON (.geojson ou JSON valide).', 'error');
-              return;
-            }
-            fileForUpload = file;
-          }
-        } else if (geomMode === 'draw') {
-          if (!drawLayer) {
-            if (!currentEditId) { setStatus('Veuillez dessiner une géométrie (ligne ou polygone) avant de soumettre.', 'error'); return; }
-          } else {
-            try {
-              const feature = drawLayer.toGeoJSON();
-              const feat = feature.type === 'Feature' ? feature : { type: 'Feature', properties: {}, geometry: feature };
-              const fc = { type: 'FeatureCollection', features: Array.isArray(feature.features) ? feature.features : [feat] };
-              const blob = new Blob([JSON.stringify(fc)], { type: 'application/geo+json' });
-              try { fileForUpload = new File([blob], `${slugify(projectName)}.geojson`, { type: 'application/geo+json' }); }
-              catch (_) { fileForUpload = blob; }
-            } catch (gerr) {
-              setStatus('Impossible de convertir le dessin en GeoJSON.', 'error');
-              return;
-            }
-          }
-        } else {
-          setStatus('Mode de saisie inconnu.', 'error');
-          return;
-        }
-      }
-
-      // Prefer compressed cover produced by setupCoverDropzone
-      const coverFile = (typeof coverCompressedFile !== 'undefined' && coverCompressedFile)
-        ? coverCompressedFile
-        : (coverInput && coverInput.files && coverInput.files[0] ? coverInput.files[0] : null);
-
-      setStatus('Envoi en cours…');
-      if (submitBtn) submitBtn.disabled = true;
-      try { if (form) form.setAttribute('aria-busy', 'true'); } catch(_) {}
-
-      try {
-        // Ensure authenticated session
-        const session = await (win.AuthModule && win.AuthModule.requireAuthOrRedirect('/login/'));
-        if (!session || !session.user) return; // redirected
-
-        let rowId = currentEditId;
-        if (!currentEditId) {
-          // 0) Create row (create mode)
-          try {
-            if (win.supabaseService && typeof win.supabaseService.createContributionRow === 'function') {
-              const cityToCreate = (role === 'admin') ? (city || null) : null;
-              rowId = await win.supabaseService.createContributionRow(
-                projectName,
-                category,
-                cityToCreate,
-                meta,
-                description,
-                officialUrl
-              );
-            }
-          } catch (e) {
-            console.warn('[contrib] createContributionRow error:', e);
-          }
-          if (!rowId) {
-            setStatus("Impossible de créer l'entrée de contribution. Réessayez plus tard.", 'error');
-            showToast("Création impossible pour le moment.", 'error');
-            if (submitBtn) submitBtn.disabled = false;
-            return;
-          }
-        }
-
-        // 1) Upload GeoJSON (fichier importé ou dessiné) vers Supabase Storage
-        if (fileForUpload) {
-          await (win.supabaseService && win.supabaseService.uploadGeoJSONToStorage(fileForUpload, category, projectName, rowId));
-        }
-
-        // 1b) Optional cover upload (non-blocking)
-        if (coverFile) {
-          try {
-            await (win.supabaseService && win.supabaseService.uploadCoverToStorage(coverFile, category, projectName, rowId));
-          } catch (coverErr) {
-            console.warn('[contrib] cover upload error (non bloquant):', coverErr);
-          }
-        }
-
-        // 1c) Optional Markdown upload (non-blocking)
-        const mdText = (mdTextRaw || '').trim();
-        if (mdText) {
-          try {
-            const mdBlob = new Blob([mdText], { type: 'text/markdown' });
-            await (win.supabaseService && win.supabaseService.uploadMarkdownToStorage(mdBlob, category, projectName, rowId));
-          } catch (mdErr) {
-            console.warn('[contrib] markdown upload error (non bloquant):', mdErr);
-          }
-        }
-
-        // 2) Optional consultation dossiers (upload PDFs then insert URLs)
-        const docEntries = collectDocs();
-        if (docEntries.length) {
-          const uploaded = [];
-          for (const d of docEntries) {
-            try {
-              const url = await (win.supabaseService && win.supabaseService.uploadConsultationPdfToStorage(d.file, category, projectName, rowId));
-              if (url) uploaded.push({ title: d.title, pdf_url: url });
-            } catch (pdfErr) {
-              console.warn('[contrib] upload PDF error:', pdfErr);
-            }
-          }
-          if (uploaded.length) {
-            await win.supabaseService.insertConsultationDossiers(projectName, category, uploaded);
-          }
-        }
-
-        // 3) Patch core fields (edit or create) — inclut official_url
-        try {
-          await (win.supabaseService && win.supabaseService.updateContribution(rowId, {
-            project_name: projectName,
-            category: category,
-            ville: (role === 'invited' ? null : (role === 'admin' ? (city || null) : null)),
-            official_url: officialUrl || null,
-            meta: meta || null,
-            description: description || null
-          }));
-        } catch (patchErr) {
-          console.warn('[contrib] updateContribution warning:', patchErr);
-        }
-
-        if (currentEditId) {
-          setStatus('Modifications enregistrées.', 'success');
-          showToast('Modifications enregistrées.', 'success');
-          // Emit event for refresh
-          try { window.dispatchEvent(new CustomEvent('contribution:updated', { detail: { id: rowId, project_name: projectName, category } })); } catch(_) {}
-          // Keep modal open but exit edit mode
-          exitEditMode();
-          // Refresh list if visible
-          if (panelList && !panelList.hidden) listResetAndLoad();
-        } else {
-          setStatus('Contribution enregistrée. Merci !', 'success');
-          showToast('Contribution enregistrée. Merci !', 'success');
-          try { form.reset(); } catch(_) {}
-          // Nettoyer l'état de dessin et remettre l'UI en mode fichier par défaut
-          try { clearAllDrawings(); } catch(_) {}
-          try { setGeomMode('file'); } catch(_) {}
-          // Close after a short delay
-          setTimeout(() => { try { closeContrib(); } catch(_) {} }, 900);
-        }
-      } catch (err) {
-        console.error('[contrib] submit error:', err);
-        setStatus('Échec de l’envoi. Réessayez plus tard.', 'error');
-        showToast('Échec de l’envoi de la contribution.', 'error');
-      } finally {
-        if (submitBtn) submitBtn.disabled = false;
-        try { if (form) form.removeAttribute('aria-busy'); } catch(_) {}
-      }
+    // loadCategoriesForCity moved to contrib-cities.js
+    async function loadCategoriesForCity(ville) {
+      await ContribCities.loadCategoriesForCity?.(ville, categoryEl, categoryHelpEl);
     }
-
-    if (form) {
-      form.addEventListener('submit', handleSubmit);
-    }
-
-    // Populate city selector from DB and default to active city (called ONLY at Step 1)
-    async function populateCities() {
-      try {
-        if (!cityEl || !win.supabaseService) return;
-        let cities = [];
+    
+    // Lien pour créer une catégorie
+    if (createCategoryLink) {
+      createCategoryLink.addEventListener('click', async (e) => {
+        e.preventDefault();
         try {
-          if (typeof win.supabaseService.getValidCities === 'function') {
-            cities = await win.supabaseService.getValidCities();
+          // Sauvegarder la ville sélectionnée
+          const selectedVille = cityEl?.value || '';
+          
+          // Réinitialiser complètement le formulaire de contribution
+          if (form) form.reset();
+          const currentEditId = ContribForm.getCurrentEditId?.();
+          if (currentEditId) exitEditMode();
+          
+          // Naviguer vers catégories
+          await new Promise(resolve => setTimeout(resolve, 100));
+          chooseLanding('categories');
+          
+          // Pré-sélectionner la ville si elle était définie
+          if (selectedVille && categoryVilleSelector) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            categoryVilleSelector.value = selectedVille;
+            categoryVilleSelector.dispatchEvent(new Event('change'));
           }
-        } catch (e1) {
-          console.warn('[contrib] populateCities getValidCities error:', e1);
+        } catch(err) {
+          console.error('[contrib] createCategoryLink error:', err);
         }
-        if ((!Array.isArray(cities) || !cities.length) && typeof win.supabaseService.listCities === 'function') {
-          try { cities = await win.supabaseService.listCities(); } catch (e2) { console.warn('[contrib] populateCities listCities fallback error:', e2); }
-        }
-        // Append fetched cities; keep existing default from HTML ("Aucun")
-        const cityOptions = (Array.isArray(cities) ? cities : []).map(c => `<option value="${c}">${c}</option>`).join('');
-        if (cityOptions) cityEl.insertAdjacentHTML('beforeend', cityOptions);
-      } catch (err) {
-        console.warn('[contrib] populateCities error:', err);
-        if (cityEl && !cityEl.options.length) {
-          cityEl.innerHTML = '<option value="" selected>Aucun</option>';
-        }
-      }
-    }
-
-    // Recenter draw map on city change
-    if (cityEl) {
-      cityEl.addEventListener('change', async () => {
-        try {
-          const v = (cityEl.value || '').trim();
-          if (v) await applyCityBranding(v);
-        } catch (_) {}
       });
     }
 
-    // Ne pas charger les villes ici: cela sera fait uniquement à l'étape 1 via setStep()
+    // La ville est maintenant fixée depuis le landing - pas besoin de listener
 
-    // Ensure tab default is Create only if landing is not visible
-    // Ne pas écraser l'écran d'accueil (Créer / Modifier)
-    try {
-      const landingVisible = landingEl && landingEl.hidden === false;
-      if (!landingVisible) {
-        activateTab('create');
+    // ==================== Gestion des catégories ====================
+    
+    const categoriesList = document.getElementById('categories-list');
+    const categoriesContent = document.getElementById('categories-content');
+    
+    console.log('[contrib] Categories elements:', { categoriesList: !!categoriesList, categoriesContent: !!categoriesContent });
+
+    // refreshCategoriesList moved to contrib-categories-crud.js
+    async function refreshCategoriesList(city) {
+      
+      if (!city) {
+        console.warn('[refreshCategoriesList] No city provided');
+        return;
       }
-    } catch(_) {}
+      
+      const elements = { 
+        categoriesList, 
+        categoriesContent, 
+        categoryVilleSelector: null,
+        selectedCity: city
+      };
+      
+      await ContribCategoriesCrud.refreshCategoriesList?.(elements, openCategoryModal, deleteCategory);
+    }
+
+    // Ouvre la modale de catégorie
+    async function openCategoryModal(mode, data = {}) {
+      console.log('[openCategoryModal] Called with mode:', mode, 'data:', data);
+      
+      // Charger la modale catégorie si nécessaire
+      const loaded = await loadCategoryModalTemplate();
+      console.log('[openCategoryModal] Template loaded:', loaded);
+      
+      if (!loaded) {
+        showToast('Erreur lors du chargement du formulaire', 'error');
+        return;
+      }
+      
+      // Récupérer les éléments de la modale (après chargement)
+      const categoryModalOverlay = document.getElementById('category-modal-overlay');
+      const categoryModalClose = document.getElementById('category-modal-close');
+      const categoryModalTitle = document.getElementById('category-modal-title');
+      const categoryFormModal = document.getElementById('category-form');
+      
+      console.log('[openCategoryModal] Modal elements:', {
+        overlay: !!categoryModalOverlay,
+        close: !!categoryModalClose,
+        title: !!categoryModalTitle,
+        form: !!categoryFormModal
+      });
+      
+      if (!categoryModalOverlay || !categoryFormModal) {
+        console.error('[contrib] Category modal elements not found');
+        return;
+      }
+      
+      // Définir le titre selon le mode
+      if (categoryModalTitle) {
+        categoryModalTitle.textContent = mode === 'edit' ? 'Modifier la catégorie' : 'Nouvelle catégorie';
+      }
+      
+      // Récupérer la ville avec validation centralisée
+      const selectedCity = getCurrentCity();
+      console.log('[openCategoryModal] Selected city:', selectedCity);
+      
+      // Remplir le champ ville caché
+      const categoryVilleInput = document.getElementById('category-ville');
+      if (categoryVilleInput && selectedCity) {
+        categoryVilleInput.value = selectedCity;
+        console.log('[openCategoryModal] Set category-ville to:', selectedCity);
+      }
+      
+      // Récupérer tous les éléments du formulaire depuis la nouvelle modale
+      const iconGridEl = document.getElementById('category-icon-grid');
+      const iconPickerEl = document.getElementById('category-icon-picker');
+      
+      console.log('[openCategoryModal] Icon picker elements:', {
+        categoryIconGrid: !!iconGridEl,
+        categoryIconPicker: !!iconPickerEl
+      });
+      
+      const elements = {
+        categoryFormContainer: categoryModalOverlay,
+        categoryForm: categoryFormModal,
+        categoryEditModeInput: document.getElementById('category-edit-mode'),
+        categoryFormTitle: categoryModalTitle,
+        categoryOriginalNameInput: document.getElementById('category-original-name'),
+        categoryNameInput: document.getElementById('category-name'),
+        categoryIconInput: document.getElementById('category-icon'),
+        categoryIconGrid: iconGridEl,
+        categoryIconPicker: iconPickerEl,
+        categoryOrderInput: document.getElementById('category-order'),
+        categoryVilleSelect: categoryVilleInput,
+        categoryLayersCheckboxes: null, // Plus utilisé
+        categoryStyleColor: document.getElementById('category-style-color'),
+        categoryStyleWeight: document.getElementById('category-style-weight'),
+        categoryStyleDashArray: document.getElementById('category-style-dasharray'),
+        categoryStyleOpacity: document.getElementById('category-style-opacity'),
+        categoryStyleFill: document.getElementById('category-style-fill'),
+        categoryStyleFillOptions: document.getElementById('category-style-fill-options'),
+        categoryStyleFillColor: document.getElementById('category-style-fillcolor'),
+        categoryStyleFillOpacity: document.getElementById('category-style-fillopacity'),
+        categoryFormBack: null, // Pas de bouton retour dans la nouvelle modale
+        categoryVilleSelectorContainer: null, // Plus utilisé
+        categoriesContent: categoriesContent,
+        categoryIconPreview: document.getElementById('category-icon-preview'),
+        categoryVilleSelector: null, // Plus utilisé
+        selectedCity: selectedCity
+      };
+      
+      // Pré-remplir le formulaire
+      ContribCategoriesCrud.showCategoryForm?.(mode, data, elements, null);
+      
+      // Configurer la soumission du formulaire
+      categoryFormModal.onsubmit = async (e) => {
+        e.preventDefault();
+        await ContribCategoriesCrud.handleCategoryFormSubmit?.(e, elements, showToast, async () => {
+          // Callback de fermeture après succès
+          const modalInner = categoryModalOverlay.querySelector('.gp-modal');
+          if (modalInner) {
+            modalInner.classList.remove('is-open');
+          }
+          setTimeout(async () => {
+            categoryModalOverlay.setAttribute('aria-hidden', 'true');
+            categoryModalOverlay.inert = true;
+            
+            // Rafraîchir la liste et s'assurer qu'elle est visible
+            const currentCity = getCurrentCity();
+            await refreshCategoriesList(currentCity);
+            if (categoriesContent) {
+              categoriesContent.style.display = '';
+            }
+            
+            // Recharger les catégories dans le select de création de contribution (si la modale est ouverte)
+            const categorySelect = document.querySelector('#create-modal-overlay #contrib-category');
+            if (categorySelect) {
+              try {
+                const categories = await win.supabaseService.getCategoryIconsByCity(currentCity);
+                if (categories && categories.length > 0) {
+                  // Vider et recharger le select
+                  categorySelect.innerHTML = '<option value="">Sélectionnez une catégorie</option>';
+                  const sortedCategories = categories.sort((a, b) => a.category.localeCompare(b.category));
+                  sortedCategories.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat.category;
+                    option.textContent = cat.category.charAt(0).toUpperCase() + cat.category.slice(1);
+                    categorySelect.appendChild(option);
+                  });
+                  categorySelect.disabled = false;
+                  
+                  // Cacher le message d'aide
+                  const categoryHelp = document.querySelector('#create-modal-overlay #contrib-category-help');
+                  if (categoryHelp) {
+                    categoryHelp.style.display = 'none';
+                  }
+                  
+                  console.log('[contrib] Catégories rechargées dans le select après création');
+                }
+              } catch (err) {
+                console.error('[contrib] Erreur rechargement catégories select:', err);
+              }
+            }
+          }, 220);
+          
+          // Stocker la fonction de fermeture pour l'appeler après succès
+          win.__closeCategoryModal = () => {
+            const modalInner = categoryModalOverlay.querySelector('.gp-modal');
+            if (modalInner) {
+              modalInner.classList.remove('is-open');
+            }
+            setTimeout(() => {
+              categoryModalOverlay.setAttribute('aria-hidden', 'true');
+              categoryModalOverlay.inert = true;
+            }, 220);
+          };
+        }, refreshCategoriesList);
+      };
+      
+      // Le bouton d'icon picker est maintenant géré par GPIconPicker (système unifié)
+      // Pas besoin de toggle manuel
+      
+      // Prévisualisation en direct de l'icône (conservée pour le feedback immédiat)
+      const categoryIconInput = document.getElementById('category-icon');
+      const categoryIconPreview = document.getElementById('category-icon-preview');
+      
+      if (categoryIconInput && categoryIconPreview) {
+        const updateIconPreview = () => {
+          try {
+            let iconClass = categoryIconInput.value.trim();
+            const iconEl = categoryIconPreview.querySelector('i');
+            
+            if (iconEl && iconClass) {
+              // Auto-fix: ajouter fa-solid si nécessaire
+              if (iconClass.startsWith('fa-') && !iconClass.startsWith('fa-solid') && !iconClass.startsWith('fa-regular') && !iconClass.startsWith('fa-brands')) {
+                iconClass = 'fa-solid ' + iconClass;
+              }
+              iconEl.className = iconClass;
+            }
+          } catch (e) {
+            console.warn('[contrib] Error updating icon preview:', e);
+          }
+        };
+        
+        categoryIconInput.addEventListener('input', updateIconPreview);
+        // Mise à jour initiale
+        updateIconPreview();
+      }
+      
+      // Configurer la prévisualisation des styles
+      const stylePreviewLine = document.getElementById('style-preview-line');
+      const stylePreviewPolygon = document.getElementById('style-preview-polygon');
+      const styleColor = document.getElementById('category-style-color');
+      const styleWeight = document.getElementById('category-style-weight');
+      const styleDashArray = document.getElementById('category-style-dasharray');
+      const styleOpacity = document.getElementById('category-style-opacity');
+      const styleFill = document.getElementById('category-style-fill');
+      const styleFillColor = document.getElementById('category-style-fillcolor');
+      const styleFillOpacity = document.getElementById('category-style-fillopacity');
+      const styleFillOptions = document.getElementById('category-style-fill-options');
+      
+      const updateModalStylePreview = () => {
+        if (!stylePreviewLine || !stylePreviewPolygon) return;
+        
+        const color = styleColor?.value || '#000000';
+        const weight = styleWeight?.value || 3;
+        const dashArray = styleDashArray?.value || '';
+        const opacity = styleOpacity?.value || 1;
+        const fill = styleFill?.checked || false;
+        const fillColor = styleFillColor?.value || '#9CA3AF';
+        const fillOpacity = styleFillOpacity?.value || 0.3;
+        
+        // Appliquer à la ligne
+        stylePreviewLine.setAttribute('stroke', color);
+        stylePreviewLine.setAttribute('stroke-width', weight);
+        stylePreviewLine.setAttribute('stroke-opacity', opacity);
+        stylePreviewLine.setAttribute('stroke-dasharray', dashArray);
+        
+        // Appliquer au polygone
+        stylePreviewPolygon.setAttribute('stroke', color);
+        stylePreviewPolygon.setAttribute('stroke-width', weight);
+        stylePreviewPolygon.setAttribute('stroke-opacity', opacity);
+        stylePreviewPolygon.setAttribute('stroke-dasharray', dashArray);
+        stylePreviewPolygon.setAttribute('fill', fill ? fillColor : 'none');
+        stylePreviewPolygon.setAttribute('fill-opacity', fill ? fillOpacity : 0);
+      };
+      
+      // Event listeners pour la prévisualisation
+      [styleColor, styleWeight, styleDashArray, styleOpacity, styleFillColor, styleFillOpacity].forEach(input => {
+        if (input) {
+          input.addEventListener('input', updateModalStylePreview);
+          input.addEventListener('change', updateModalStylePreview);
+        }
+      });
+      
+      // Toggle fill options
+      if (styleFill && styleFillOptions) {
+        styleFill.addEventListener('change', () => {
+          styleFillOptions.style.display = styleFill.checked ? 'block' : 'none';
+          updateModalStylePreview();
+        });
+      }
+      
+      // Initialiser la prévisualisation
+      setTimeout(updateModalStylePreview, 50);
+      
+      // Ouvrir la modale
+      categoryModalOverlay.setAttribute('aria-hidden', 'false');
+      categoryModalOverlay.inert = false;
+      const categoryModalInner = categoryModalOverlay.querySelector('.gp-modal');
+      if (categoryModalInner) {
+        requestAnimationFrame(() => {
+          categoryModalInner.classList.add('is-open');
+        });
+      }
+      
+      // Gérer la fermeture
+      const closeModal = async () => {
+        const categoryModalInner = categoryModalOverlay.querySelector('.gp-modal');
+        if (categoryModalInner) {
+          categoryModalInner.classList.remove('is-open');
+        }
+        setTimeout(() => {
+          categoryModalOverlay.setAttribute('aria-hidden', 'true');
+          categoryModalOverlay.inert = true;
+        }, 220);
+        
+        // Rafraîchir la liste des catégories après fermeture
+        console.log('[closeModal] Refreshing categories list after close');
+        await refreshCategoriesList();
+        if (categoriesContent) {
+          categoriesContent.style.display = '';
+          console.log('[closeModal] Categories content displayed');
+        }
+      };
+      
+      // Bouton fermer
+      if (categoryModalClose) {
+        categoryModalClose.onclick = closeModal;
+      }
+      
+      // Clic sur overlay
+      categoryModalOverlay.onclick = (e) => {
+        if (e.target === categoryModalOverlay) closeModal();
+      };
+      
+      // Fermer le picker d'icône si clic en dehors
+      if (categoryIconPicker) {
+        document.addEventListener('click', (e) => {
+          if (categoryIconPicker.style.display !== 'none') {
+            if (!categoryIconPicker.contains(e.target) && e.target !== categoryIconPickerBtn && !categoryIconPickerBtn?.contains(e.target)) {
+              categoryIconPicker.style.display = 'none';
+            }
+          }
+        });
+      }
+      
+      // Stocker la fonction de fermeture pour l'appeler après succès
+      win.__closeCategoryModal = closeModal;
+    }
+
+    // Ouvre la modale de création de contribution
+    async function openCreateModal(mode = 'create', data = {}) {
+      console.log('[openCreateModal] Début mode:', mode, 'data:', data);
+      
+      // Charger la modale si nécessaire
+      const loaded = await loadCreateModalTemplate();
+      console.log('[openCreateModal] Template loaded:', loaded);
+      if (!loaded) {
+        console.error('[openCreateModal] Template not loaded');
+        showToast('Erreur de chargement du formulaire', 'error');
+        return;
+      }
+      
+      // Récupérer les éléments
+      const overlay = document.getElementById('create-modal-overlay');
+      const closeBtn = document.getElementById('create-modal-close');
+      const modalTitle = document.getElementById('create-modal-title');
+      const form = document.getElementById('contrib-form');
+      const prevBtn = document.getElementById('contrib-prev');
+      const nextBtn = document.getElementById('contrib-next');
+      const submitBtn = document.getElementById('contrib-submit');
+      
+      if (!overlay || !form) {
+        console.error('[openCreateModal] Elements not found');
+        return;
+      }
+      
+      // Adapter le titre selon le mode
+      if (modalTitle) {
+        if (mode === 'edit') {
+          modalTitle.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Modifier la contribution';
+        } else {
+          modalTitle.innerHTML = '<i class="fa-solid fa-plus-circle"></i> Créer une contribution';
+        }
+      }
+      
+      // Note: ville peut être null (= "Global")
+      const selectedCity = data.ville;
+      
+      // Charger les catégories pour la ville dans le select de la modale
+      try {
+        console.log('[openCreateModal] Chargement catégories pour ville:', selectedCity);
+        const categories = await win.supabaseService.getCategoryIconsByCity(selectedCity);
+        console.log('[openCreateModal] Catégories trouvées:', categories?.length || 0);
+        const categorySelect = document.querySelector('#create-modal-overlay #contrib-category');
+        const categoryHelp = document.querySelector('#create-modal-overlay #contrib-category-help');
+        
+        if (categorySelect) {
+          if (!categories || categories.length === 0) {
+            // Message adapté selon le rôle
+            const role = win.__CONTRIB_ROLE;
+            let messageOption = '';
+            let helpMessage = '';
+            
+            if (role === 'admin') {
+              messageOption = 'Aucune catégorie disponible';
+              helpMessage = '<i class="fa-solid fa-exclamation-triangle"></i> Aucune catégorie disponible. <a href="#" id="contrib-create-category-link" style="color:var(--info); text-decoration:underline;">Créer une catégorie</a>';
+            } else {
+              messageOption = 'Aucune catégorie disponible (contactez votre admin)';
+              helpMessage = '<i class="fa-solid fa-exclamation-triangle"></i> Aucune catégorie disponible. Contactez votre administrateur pour demander la création d\'une catégorie.';
+            }
+            
+            categorySelect.innerHTML = `<option value="">${messageOption}</option>`;
+            categorySelect.disabled = true;
+            if (categoryHelp) {
+              categoryHelp.innerHTML = helpMessage;
+              categoryHelp.style.display = 'block';
+            }
+          } else {
+            categorySelect.innerHTML = '<option value="">Sélectionnez une catégorie</option>';
+            const sortedCategories = categories.sort((a, b) => a.category.localeCompare(b.category));
+            sortedCategories.forEach(cat => {
+              const option = document.createElement('option');
+              option.value = cat.category;
+              option.textContent = cat.category.charAt(0).toUpperCase() + cat.category.slice(1);
+              categorySelect.appendChild(option);
+            });
+            categorySelect.disabled = false;
+            if (categoryHelp) categoryHelp.style.display = 'none';
+          }
+        }
+      } catch (error) {
+        console.error('[openCreateModal] Error loading categories:', error);
+      }
+      
+      // Bind le lien "Créer une catégorie" (uniquement pour les admins)
+      const role = win.__CONTRIB_ROLE;
+      const createCategoryLink = document.querySelector('#create-modal-overlay #contrib-create-category-link');
+      if (createCategoryLink && role === 'admin') {
+        createCategoryLink.onclick = async (e) => {
+          e.preventDefault();
+          await openCategoryModal('create');
+        };
+      }
+      
+      // Fonction de fermeture
+      const closeModal = () => {
+        const modalInner = overlay.querySelector('.gp-modal');
+        if (modalInner) {
+          modalInner.classList.remove('is-open');
+        }
+        setTimeout(() => {
+          overlay.setAttribute('aria-hidden', 'true');
+          overlay.inert = true;
+          
+          // Détruire proprement l'instance du formulaire
+          if (formInstance && typeof formInstance.destroy === 'function') {
+            formInstance.destroy();
+            formInstance = null;
+          } else {
+            // Fallback pour l'ancien système
+            form.reset();
+            if (ContribGeometry && ContribGeometry.clearEditGeojsonUrl) {
+              ContribGeometry.clearEditGeojsonUrl();
+            }
+          }
+        }, 220);
+      };
+      
+      // Fonction de succès
+      const onSuccess = async () => {
+        closeModal();
+        
+        // Rafraîchir la liste si on est dans contrib
+        if (ContribList && typeof ContribList.reloadList === 'function') {
+          ContribList.reloadList();
+        }
+        
+        const successMsg = mode === 'edit' ? 'Contribution modifiée avec succès' : 'Contribution créée avec succès';
+        showToast(successMsg, 'success');
+      };
+      
+      // Initialiser le formulaire avec ContribCreateForm
+      const ContribCreateForm = win.ContribCreateForm || {};
+      let formInstance = null;
+      
+      if (ContribCreateForm.initCreateForm) {
+        formInstance = ContribCreateForm.initCreateForm({
+          form,
+          overlay,
+          mode,
+          data,
+          onClose: closeModal,
+          onSuccess,
+          onRefreshList: async () => {
+            if (panelList && !panelList.hidden) {
+              await listResetAndLoad();
+            }
+          }
+        });
+        
+      } else {
+        console.error('[openCreateModal] ContribCreateForm module not found');
+      }
+      
+      // Remplir le champ ville APRÈS initCreateForm
+      const cityInput = document.querySelector('#create-modal-overlay #contrib-city');
+      if (!cityInput) {
+        console.error('[openCreateModal] City input not found');
+        showToast('Erreur: formulaire non chargé correctement', 'error');
+        return;
+      }
+      cityInput.value = selectedCity;
+      
+      // Bind close button
+      if (closeBtn) closeBtn.onclick = closeModal;
+      
+      // Clic sur overlay
+      overlay.onclick = (e) => {
+        if (e.target === overlay) closeModal();
+      };
+      
+      // Ouvrir la modale
+      console.log('[openCreateModal] Ouverture de la modale...');
+      overlay.setAttribute('aria-hidden', 'false');
+      overlay.inert = false;
+      
+      const modalInner = overlay.querySelector('.gp-modal');
+      if (modalInner) {
+        requestAnimationFrame(() => {
+          console.log('[openCreateModal] Ajout classe is-open');
+          modalInner.classList.add('is-open');
+        });
+      } else {
+        console.error('[openCreateModal] Modal inner non trouvé');
+      }
+      
+      // Focus sur le premier champ
+      setTimeout(() => {
+        const firstInput = form.querySelector('input[type="text"]');
+        if (firstInput) firstInput.focus();
+      }, 250);
+    }
+
+    // deleteCategory moved to contrib-categories-crud.js
+    async function deleteCategory(ville, category) {
+      await ContribCategoriesCrud.deleteCategory?.(ville, category, showToast, refreshCategoriesList);
+    }
+
+    // Bouton d'ajout de catégorie géré par le Header Actions Handler unifié ci-dessus
+    
+  } // End of initializeContribForm()
   }
+
+  // ============================================================================
+  // EXPORTS GLOBAUX
+  // ============================================================================
+
+  /**
+   * Fonction centralisée pour récupérer la ville active
+   * Exportée globalement pour utilisation dans tous les sous-modules
+   * @returns {string|null} - Ville sélectionnée ou null
+   */
+  win.getCurrentCity = getCurrentCity;
+
+  // Fonction helper exportée pour vérifier si l'utilisateur peut éditer une ville
+  win.canEditVille = function(villeCode) {
+    try {
+      const villes = win.__CONTRIB_VILLES;
+      const role = win.__CONTRIB_ROLE;
+      
+      // Si pas de rôle ou rôle non autorisé, refuser
+      if (!role || (role !== 'admin' && role !== 'invited')) {
+        return false;
+      }
+      
+      // Si l'utilisateur a l'accès global
+      if (Array.isArray(villes) && villes.includes('global')) {
+        return true;
+      }
+      
+      // Vérifier si la ville est dans la liste des villes autorisées
+      if (Array.isArray(villes) && villes.length > 0) {
+        return villes.includes(villeCode);
+      }
+      
+      // Si villes est null ou vide, aucune ville n'est autorisée
+      return false;
+    } catch (_) {
+      return false;
+    }
+  };
+
+  // Exposer les fonctions de chargement des modales
+  win.loadInviteModalTemplate = loadInviteModalTemplate;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', setupContrib);

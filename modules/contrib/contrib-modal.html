@@ -1,0 +1,202 @@
+<!-- Contribution modal template -->
+<div id="contrib-overlay" class="gp-modal-overlay gp-modal--glass" role="dialog" aria-modal="true" aria-labelledby="contrib-title" aria-hidden="true" style="display:none">
+  <div class="gp-modal" role="document">
+    <header class="gp-modal-header">
+      <button id="contrib-back" class="gp-modal-back" style="display:none;">
+        <i class="fa fa-arrow-left" aria-hidden="true"></i>
+        <span>Retour</span>
+      </button>
+      <h1 class="gp-modal-title" id="contrib-title">Proposer une contribution</h1>
+      <div class="gp-modal-header-actions" id="contrib-header-actions"></div>
+      <button class="btn-secondary gp-modal-close" id="contrib-close" aria-label="Fermer">&times;</button>
+    </header>
+    <div class="gp-modal-body">
+      <!-- Landing: choix initial (affiché au premier lancement) -->
+      <section id="contrib-landing" class="contrib-landing" role="region" aria-label="Choisir une action" hidden>
+        <!-- User Info Card -->
+        <div id="user-info-card" class="user-info-card" style="display:none;">
+          <div class="user-info-card__avatar">
+            <i class="fa-solid fa-user"></i>
+          </div>
+          <div class="user-info-card__content">
+            <div class="user-info-card__header">
+              <span class="user-info-card__label">Connecté en tant que</span>
+              <div id="user-info-email" class="user-info-card__email"></div>
+            </div>
+            <div class="user-info-card__meta">
+              <span id="user-role-badge" class="user-info-card__badge"></span>
+              <span id="user-cities-badge" class="user-info-card__cities"></span>
+            </div>
+          </div>
+          <button id="user-logout-btn" class="user-info-card__logout" title="Se déconnecter">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </button>
+        </div>
+        
+        <!-- Sélecteur de ville -->
+        <div class="landing-city-selector" id="landing-city-selector-container">
+          <label for="landing-city-select" class="landing-city-label">
+            <i class="fa-solid fa-location-dot"></i>
+            Sélectionnez votre structure
+          </label>
+          <div style="display:flex;gap:8px;align-items:flex-start;">
+            <select id="landing-city-select" class="landing-city-select" required style="flex:1;">
+              <option value="">-- Choisissez une structure --</option>
+              <!-- Options peuplées dynamiquement -->
+            </select>
+            <button 
+              id="landing-add-city-btn" 
+              class="btn-secondary" 
+              type="button"
+              title="Ajouter une nouvelle structure"
+              style="display:none;padding:10px 16px;white-space:nowrap;"
+            >
+              <i class="fa-solid fa-plus"></i>
+              <span>Ajouter une structure</span>
+            </button>
+          </div>
+        </div>
+        
+        <h3 class="landing-title" id="landing-actions-title" hidden>Que voulez-vous faire&nbsp;?</h3>
+        <div class="landing-cards" id="landing-cards" role="list" hidden>
+          <button class="choice-card" role="listitem" id="landing-edit" data-target="list" aria-describedby="landing-edit-desc">
+            <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-pen-to-square"></i></span>
+            <span class="card-title">Modifier mes contributions</span>
+            <span class="card-desc" id="landing-edit-desc">Consultez et mettez à jour vos contributions existantes.</span>
+          </button>
+          <button class="choice-card" role="listitem" id="landing-categories" data-target="categories" aria-describedby="landing-categories-desc">
+            <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-tags"></i></span>
+            <span class="card-title">Gérer les catégories</span>
+            <span class="card-desc" id="landing-categories-desc">Créez ou modifiez les catégories et leurs icônes.</span>
+          </button>
+          <button class="choice-card" role="listitem" id="landing-users" data-target="users" aria-describedby="landing-users-desc">
+            <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-users"></i></span>
+            <span class="card-title">Gérer les utilisateurs</span>
+            <span class="card-desc" id="landing-users-desc">Visualisez et modifiez les rôles des utilisateurs.</span>
+          </button>
+          <button class="choice-card" role="listitem" id="landing-edit-city" data-target="edit-city" aria-describedby="landing-edit-city-desc">
+            <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-city"></i></span>
+            <span class="card-title">Gérer ma structure</span>
+            <span class="card-desc" id="landing-edit-city-desc">Modifiez les informations de votre structure.</span>
+          </button>
+          <button class="choice-card" role="listitem" id="landing-branding" aria-describedby="landing-branding-desc" style="display:none;">
+            <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-palette"></i></span>
+            <span class="card-title">Gérer le branding</span>
+            <span class="card-desc" id="landing-branding-desc">Personnalisez la couleur et les contrôles pour cette ville.</span>
+          </button>
+        </div>
+      </section>
+      <!-- Bouton Retour vers la page d'accueil de la modale -->
+      <div class="contrib-toolbar" aria-hidden="false">
+      </div>
+
+      <section id="contrib-panel-list" role="tabpanel" aria-labelledby="contrib-tab-list" hidden>
+        <!-- Toolbar de filtres -->
+        <div class="list-toolbar">
+          <div class="list-toolbar__primary">
+            <!-- Recherche -->
+            <div class="search-input-wrapper">
+              <i class="fa-solid fa-search search-input-icon"></i>
+              <input 
+                type="text" 
+                id="contrib-search" 
+                class="search-input"
+                placeholder="Rechercher un projet..." 
+                autocomplete="off"
+              />
+            </div>
+
+            <!-- Filtres secondaires -->
+            <div class="list-toolbar__filters">
+              <div class="filter-group">
+                <select id="contrib-filter-category" class="filter-select" aria-label="Filtrer par catégorie">
+                  <option value="">Toutes les catégories</option>
+                </select>
+              </div>
+
+              <div class="filter-group">
+                <select id="contrib-sort" class="filter-select" aria-label="Trier par">
+                  <option value="updated_at:desc">Plus récentes</option>
+                  <option value="updated_at:asc">Plus anciennes</option>
+                  <option value="project_name:asc">Nom A→Z</option>
+                  <option value="project_name:desc">Nom Z→A</option>
+                </select>
+              </div>
+
+              <label class="filter-toggle" id="contrib-mine-only-toggle">
+                <input type="checkbox" id="contrib-mine-only" />
+                <span class="filter-toggle-label">
+                  <i class="fa-solid fa-user"></i>
+                  Mes contributions uniquement
+                </span>
+              </label>
+              
+              <!-- Message pour les invited -->
+              <div id="contrib-invited-notice" style="display:none;padding:8px 12px;background:var(--primary-50);border-radius:6px;font-size:13px;color:var(--primary-700);">
+                <i class="fa-solid fa-info-circle" style="margin-right:6px;"></i>
+                Vous voyez vos contributions et celles approuvées de votre équipe. Vous ne pouvez modifier que les vôtres.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Liste des contributions -->
+        <div class="list-container">
+          <div id="contrib-list" class="contrib-list" role="list">
+            <!-- Items injectés en JS -->
+            <div id="contrib-list-sentinel" style="height:1px;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Panel: Gestion des catégories -->
+      <section id="contrib-panel-categories" role="tabpanel" aria-label="Gérer les catégories" hidden>
+        <div id="categories-content" style="display:none; transition:opacity 0.2s ease-in;">
+          <div id="categories-list" class="categories-list"></div>
+          
+          <!-- Section Configuration Travaux -->
+          <div id="travaux-config-container"></div>
+        </div>
+        
+        <!-- Formulaire de catégorie déplacé dans contrib-category-modal.html -->
+      </section>
+
+      <!-- Panel: Gérer les utilisateurs -->
+      <section id="contrib-panel-users" class="contrib-panel" hidden>
+        <div class="panel-toolbar" style="margin:16px 0;">
+          <div class="search-box" style="position:relative;flex:1;">
+            <i class="fa-solid fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--gray-400);"></i>
+            <input 
+              type="search" 
+              id="users-search" 
+              placeholder="Rechercher par email..."
+              autocomplete="off"
+              style="width:100%;padding:10px 12px 10px 40px;border:1px solid var(--gray-300);border-radius:8px;font-size:14px;"
+            />
+          </div>
+        </div>
+        
+        <div id="users-list" class="users-list" style="max-height:500px;overflow-y:auto;padding-right:8px;"></div>
+      </section>
+
+    </div>
+    
+    <footer class="gp-modal-footer" id="contrib-footer">
+      <div class="gp-modal-footer-left">
+        <span class="footer-status" id="contrib-status"></span>
+      </div>
+      <div class="gp-modal-footer-right">
+        <button type="button" id="contrib-prev-footer" class="btn-secondary">
+          <span>Précédent</span>
+        </button>
+        <button type="button" id="contrib-next-footer" class="btn-primary">
+          <span>Suivant</span>
+        </button>
+        <button type="submit" id="contrib-submit-footer" class="btn-primary" style="display:none;">
+          <i class="fa fa-paper-plane" aria-hidden="true"></i>
+          <span>Envoyer</span>
+        </button>
+      </div>
+    </footer>
+  </div>
+</div>

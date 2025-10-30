@@ -41,8 +41,16 @@ window.SearchModule = (() => {
    * Set up event listeners for the search functionality
    */
   function setupEventListeners() {
-    // Toggle search overlay
-    searchToggle.addEventListener('click', toggleSearchOverlay);
+    // Listen to ToggleManager instead of direct click
+    if (window.toggleManager) {
+      window.toggleManager.on('search', (isOpen) => {
+        if (isOpen) {
+          openSearchOverlay();
+        } else {
+          closeSearchOverlay();
+        }
+      });
+    }
     
     // Handle search input
     searchInput.addEventListener('input', handleSearchInput);
@@ -53,7 +61,9 @@ window.SearchModule = (() => {
     // Close search when clicking outside
     searchOverlay.addEventListener('click', (e) => {
       if (e.target === searchOverlay) {
-        closeSearchOverlay();
+        if (window.toggleManager) {
+          window.toggleManager.setState('search', false);
+        }
       }
     });
     
@@ -66,43 +76,50 @@ window.SearchModule = (() => {
           firstResult.click();
         }
       } else if (e.key === 'Escape') {
-        closeSearchOverlay();
+        if (window.toggleManager) {
+          window.toggleManager.setState('search', false);
+        }
       }
     });
   }
 
   /**
-   * Toggle the search overlay visibility
+   * Open the search overlay
    */
-  function toggleSearchOverlay() {
-    searchOverlay.classList.toggle('visible');
+  function openSearchOverlay() {
+    if (!searchOverlay) return;
     
-    if (searchOverlay.classList.contains('visible')) {
-      // Close the project detail panel while searching (preserve map view)
-      try {
-        if (window.NavigationModule && typeof window.NavigationModule.resetToDefaultView === 'function') {
-          window.NavigationModule.resetToDefaultView(undefined, { preserveMapView: true });
-        }
-      } catch (_) {}
+    // Close the project detail panel while searching
+    try {
+      if (window.NavigationModule && typeof window.NavigationModule.resetToDefaultView === 'function') {
+        window.NavigationModule.resetToDefaultView(undefined, { preserveMapView: true });
+      }
+    } catch (_) {}
 
-      // Focus the input when overlay is shown
-      setTimeout(() => {
-        searchInput.focus();
-      }, 100);
-    } else {
-      // Clear results when closing
-      clearSearchResults();
-      searchInput.value = '';
-    }
+    // Utiliser ModalHelper pour une gestion unifiée
+    window.ModalHelper.open('search-overlay', {
+      dismissible: true,
+      lockScroll: true,
+      focusTrap: true,
+      onOpen: () => {
+        // Focus the input après l'animation
+        if (searchInput) searchInput.focus();
+      },
+      onClose: () => {
+        clearSearchResults();
+        if (searchInput) searchInput.value = '';
+      }
+    });
   }
 
   /**
    * Close the search overlay
    */
   function closeSearchOverlay() {
-    searchOverlay.classList.remove('visible');
-    clearSearchResults();
-    searchInput.value = '';
+    if (!searchOverlay) return;
+    
+    // Utiliser ModalHelper pour une gestion unifiée
+    window.ModalHelper.close('search-overlay');
   }
 
   /**
@@ -287,8 +304,9 @@ window.SearchModule = (() => {
     }
     
     // Create a custom icon
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
     const customIcon = L.divIcon({
-      html: '<i class="fas fa-map-marker-alt" style="color: #14AE5C; font-size: 32px;"></i>',
+      html: `<i class="fas fa-map-marker-alt" style="color: ${primaryColor}; font-size: 32px;"></i>`,
       className: 'custom-marker',
       iconSize: [32, 32],
       iconAnchor: [16, 32],
@@ -309,7 +327,7 @@ window.SearchModule = (() => {
     }
 
     const popupHtml = `
-      <div style="min-width:220px; background:rgba(255,255,255,0.85); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,0.18); padding:12px 14px;">
+      <div style="min-width:220px; background:var(--white-alpha-85); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border-radius:12px; box-shadow:0 8px 24px var(--black-alpha-18); padding:12px 14px;">
         <div style="font-weight:600; font-size:14px; margin-bottom:4px;">${title}</div>
         ${subtitle ? `<div style=\"color:#555; font-size:13px; margin-bottom:8px;\">${subtitle}</div>` : ''}
         <div style="font-family:monospace; font-size:12px; color:#666;">${lat.toFixed(6)}, ${lng.toFixed(6)}</div>
@@ -331,6 +349,8 @@ window.SearchModule = (() => {
 
   // Public API
   return {
-    init
+    init,
+    openSearchOverlay,
+    closeSearchOverlay
   };
 })();

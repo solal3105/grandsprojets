@@ -1,10 +1,19 @@
 // modules/EventBindings.js
 const EventBindings = (() => {
 
-  const handleNavigation = (menu, layersToDisplay) => {
-  // 0. Toggle “active” on the clicked nav button
+  const handleNavigation = async (menu, layersToDisplay) => {
+  // Validation du menu
+  if (!menu) {
+    console.error('[EventBindings] handleNavigation appelé avec menu invalide:', menu);
+    return;
+  }
+  
+  // 0. Toggle "active" on the clicked nav button
   document.querySelectorAll('.nav-category').forEach(tab => tab.classList.remove('active'));
-  document.getElementById(`nav-${menu}`).classList.add('active');
+  const navButton = document.getElementById(`nav-${menu}`);
+  if (navButton) {
+    navButton.classList.add('active');
+  }
     // Masquer complètement le panneau de détail du projet
     const projectDetailPanel = document.getElementById('project-detail');
     if (projectDetailPanel) {
@@ -32,100 +41,52 @@ const EventBindings = (() => {
 
     // Gestion des couches à afficher
     if (Array.isArray(layersToDisplay)) {
+      console.log('[EventBindings] handleNavigation - Layers à afficher:', layersToDisplay);
+      
       // Retirer les couches non désirées
       Object.keys(MapModule.layers).forEach(layerName => {
         if (!layersToDisplay.includes(layerName)) {
+          console.log('[EventBindings] Retrait du layer:', layerName);
           MapModule.removeLayer(layerName);
         }
       });
-      // Charger les couches désirées
+      
+      // Charger/Afficher les couches désirées
       layersToDisplay.forEach(layerName => {
         if (!MapModule.layers[layerName]) {
+          console.log('[EventBindings] Layer non présent sur la carte:', layerName);
+          
+          // Si les données sont déjà chargées, créer le layer
           if (DataModule.layerData && DataModule.layerData[layerName]) {
+            console.log('[EventBindings] Création du layer depuis layerData:', layerName);
             DataModule.createGeoJsonLayer(layerName, DataModule.layerData[layerName]);
-          } else {
+          } 
+          // Sinon, charger les données depuis la DB
+          else if (DataModule.loadLayer) {
+            console.log('[EventBindings] Chargement du layer depuis DB:', layerName);
             DataModule.loadLayer(layerName);
           }
+        } else {
+          console.log('[EventBindings] Layer déjà présent sur la carte:', layerName);
+          // Le layer est déjà sur la carte, rien à faire ✅
         }
       });
     }
 
-    // Lancer l’affichage des projets selon le menu sélectionné
-    if (menu === 'transport') {
-      NavigationModule.renderTransportProjects();
-    } else if (menu === 'velo') {
-      NavigationModule.renderVeloProjects();
-    } else if (menu === 'urbanisme') {
-      NavigationModule.renderUrbanismeProjects();
-    } else if (menu === 'travaux') {
-      NavigationModule.renderTravauxProjects();
-      // Assurer la présence de la légende de progression
-      ensureTravauxLegend();
+    // Rendu unifié via SubmenuManager (gère automatiquement Travaux vs Projets)
+    if (window.SubmenuManager?.renderSubmenu) {
+      await window.SubmenuManager.renderSubmenu(menu);
+    } else {
+      console.error(`[EventBindings] SubmenuManager non disponible pour ${menu}`);
     }
-  };
-
-  // Insère une card de légende dans le sous-menu Travaux (une seule fois)
-  const ensureTravauxLegend = () => {
-    try {
-      const container = document.getElementById('travaux-submenu');
-      if (!container) return;
-      if (container.querySelector('#travaux-legend-card')) return; // déjà présent
-
-      const list = container.querySelector('#travaux-project-list');
-      const card = document.createElement('div');
-      card.id = 'travaux-legend-card';
-      card.className = 'legend-card travaux-legend-card';
-      card.innerHTML = `
-        <div class="legend-header">
-          <i class="fa-solid fa-gauge-high" aria-hidden="true"></i>
-          <span class="legend-title">Avancement des travaux</span>
-        </div>
-        <div class="legend-gradient" aria-hidden="true"></div>
-        <div class="legend-scale" aria-hidden="true">
-          <span>0%</span>
-          <span>25%</span>
-          <span>50%</span>
-          <span>75%</span>
-          <span>100%</span>
-        </div>`;
-
-      // Insérer la card avant la liste
-      if (list && list.parentNode) {
-        list.parentNode.insertBefore(card, list);
-      } else {
-        container.prepend(card);
-      }
-    } catch (_) { /* silencieux */ }
   };
 
   // Gestion des contrôles de filtres
 const bindFilterControls = () => {
-  // 5. Clic en-dehors → fermer tous les sous-panneaux
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.filter-item') && !e.target.closest('.subfilters-container')) {
-      document.querySelectorAll('.subfilters-container').forEach(sub => sub.style.display = 'none');
-    }
-  });
-
-  // 1. Réinitialisation globale
-  const resetBtn = document.getElementById('reset-all-filters');
-  resetBtn.addEventListener('click', () => {
-    document.querySelectorAll('.filter-item').forEach(item => {
-      const layer = item.dataset.layer;
-      item.classList.remove('active-filter');
-      UIModule.resetLayerFilter(layer);
-      const sub = document.querySelector(`.subfilters-container[data-layer="${layer}"]`);
-      if (sub) sub.style.display = 'none';
-    });
-    FilterModule.resetAll();
-  });
-
-  // 2. Clic sur un filtre (pas le ⚙️) : active/désactive sans ouvrir le panneau
+  // Clic sur un filtre : active/désactive la couche
   document.querySelectorAll('.filter-item').forEach(item => {
     item.addEventListener('click', e => {
-      if (e.target.closest('.settings-btn')) return;
       const layer = item.dataset.layer;
-      const sub = document.querySelector(`.subfilters-container[data-layer="${layer}"]`);
 
       if (!item.classList.contains('active-filter')) {
         // Activation
@@ -140,98 +101,136 @@ const bindFilterControls = () => {
         item.classList.remove('active-filter');
         MapModule.removeLayer(layer);
         UIModule.resetLayerFilter(layer);
-        if (sub) sub.style.display = 'none';
-      }
-    });
-  });
-
-  // 3. Clic sur ⚙️ : active si besoin, puis bascule le panneau
-  document.querySelectorAll('.settings-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const layer = btn.dataset.layer;
-      const item  = document.querySelector(`.filter-item[data-layer="${layer}"]`);
-      const sub   = document.querySelector(`.subfilters-container[data-layer="${layer}"]`);
-
-      // Si déjà ouvert, fermer simplement
-      if (sub && !(sub.style.display === 'none' || getComputedStyle(sub).display === 'none')) {
-        sub.style.display = 'none';
-        return;
-      }
-
-      // Assurer l'activation de la couche si nécessaire
-      if (!item.classList.contains('active-filter')) {
-        if (DataModule.layerData?.[layer]) {
-          DataModule.createGeoJsonLayer(layer, DataModule.layerData[layer]);
-        } else {
-          DataModule.loadLayer(layer);
-        }
-        item.classList.add('active-filter');
-      }
-
-      // Construire et afficher les sous-filtres
-      if (window.UIModule?.buildSubFilters) {
-        window.UIModule.buildSubFilters(layer);
-      } else if (sub) {
-        sub.style.display = 'block';
       }
     });
   });
 };
 
-  // Récupération des boutons de navigation
-  const navTransport = document.getElementById('nav-transport');
-  const navVelo = document.getElementById('nav-velo');
-  const navUrbanisme = document.getElementById('nav-urbanisme');
-  const navTravaux = document.getElementById('nav-travaux');
+  // Gestion dynamique des boutons de navigation basée sur categoryIcons
+  function bindCategoryNavigation() {
+    const categoryIcons = window.categoryIcons || [];
+    const categoryLayersMap = window.categoryLayersMap || {};
+    
+    if (categoryIcons.length === 0) {
+      console.warn('[EventBindings] bindCategoryNavigation: aucune catégorie disponible');
+      return;
+    }
+    
+    categoryIcons.forEach(({ category }) => {
+      // Ignorer le bouton "Contribuer" qui a son propre gestionnaire dans contrib.js
+      if (category === 'contribute') {
+        console.log('[EventBindings] Ignore le bouton contribute (géré par contrib.js)');
+        return;
+      }
+      
+      const navButton = document.getElementById(`nav-${category}`);
+      if (!navButton) {
+        console.warn(`[EventBindings] Bouton de navigation introuvable pour: ${category}`);
+        return;
+      }
+      
+      navButton.addEventListener('click', () => {
+        // Récupérer les couches associées à cette catégorie depuis la DB
+        const categoryLayers = categoryLayersMap[category];
+        
+        if (!categoryLayers) {
+          console.error(`[EventBindings] Aucun layer défini pour la catégorie: ${category}`);
+          return;
+        }
+        
+        console.log(`[EventBindings] Navigation vers ${category}, layers:`, categoryLayers);
+        
+        EventBindings.handleNavigation(category, categoryLayers);
+        
+        // Afficher le sous-menu de cette catégorie et masquer les autres
+        document.querySelectorAll('.submenu').forEach(submenu => {
+          submenu.style.display = 'none';
+        });
+        
+        const targetSubmenu = document.querySelector(`.submenu[data-category="${category}"]`);
+        if (targetSubmenu) {
+          targetSubmenu.style.display = 'block';
+        }
+      });
+    });
+  }
+  
+  // Exposer la fonction pour permettre un appel explicite depuis main.js
+  const initCategoryNavigation = () => {
+    bindCategoryNavigation();
+  };
 
-  navTransport.addEventListener('click', () => {
-    // Appeler la navigation pour Transport
-    const transportLayers = (window.CATEGORY_DEFAULT_LAYERS && window.CATEGORY_DEFAULT_LAYERS.transport)
-      || ['metroFuniculaire', 'tramway', 'reseauProjeteSitePropre'];
-    EventBindings.handleNavigation('transport', transportLayers);
-    // Afficher le sous-menu transport et masquer les autres
-    document.getElementById('transport-submenu').style.display = 'block';
-    document.getElementById('velo-submenu').style.display = 'none';
-    document.getElementById('urbanisme-submenu').style.display = 'none';
-    document.getElementById('travaux-submenu').style.display = 'none';
-  });
+  /**
+   * Gère le clic sur le logo pour refresh la page
+   */
+  const handleLogoClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Simple refresh de la page
+    window.location.reload();
+    
+    return false;
+  };
 
-  navVelo.addEventListener('click', () => {
-    const veloLayers = (window.CATEGORY_DEFAULT_LAYERS && window.CATEGORY_DEFAULT_LAYERS.velo)
-      || ['planVelo', 'voielyonnaise'];
-    EventBindings.handleNavigation('velo', veloLayers);
-    document.getElementById('velo-submenu').style.display = 'block';
-    document.getElementById('transport-submenu').style.display = 'none';
-    document.getElementById('urbanisme-submenu').style.display = 'none';
-    document.getElementById('travaux-submenu').style.display = 'none';
-  });
+  /**
+   * Gère le clic sur une feature de la carte
+   */
+  const handleFeatureClick = (feature, layerName) => {
+    try {
+      const p = (feature && feature.properties) || {};
+      const projectName = p.project_name || p.name || p.Name || p.LIBELLE;
+      
+      if (!projectName) {
+        return;
+      }
 
-  navUrbanisme.addEventListener('click', () => {
-    const urbLayers = (window.CATEGORY_DEFAULT_LAYERS && window.CATEGORY_DEFAULT_LAYERS.urbanisme)
-      || ['urbanisme'];
-    EventBindings.handleNavigation('urbanisme', urbLayers);
-    document.getElementById('urbanisme-submenu').style.display = 'block';
-    document.getElementById('transport-submenu').style.display = 'none';
-    document.getElementById('velo-submenu').style.display = 'none';
-    document.getElementById('travaux-submenu').style.display = 'none';
-  });
+      const category = p.category || layerName;
+      
+      if (window.NavigationModule?.showSpecificContribution) {
+        window.NavigationModule.showSpecificContribution(projectName, category, p);
+      }
+      else if (window.UIModule?.showDetailPanel) {
+        window.UIModule.showDetailPanel(layerName, feature);
+      } 
+      else if (window.NavigationModule?.showProjectDetail) {
+        window.NavigationModule.showProjectDetail(projectName, category);
+      }
+      else {
+        const detailPanel = document.getElementById('project-detail');
+        const detailContent = document.getElementById('detail-content');
+        
+        if (detailPanel && detailContent) {
+          detailPanel.style.display = 'block';
+          detailPanel.dataset.category = category;
+          
+          const safeProjectName = win.SecurityUtils ? win.SecurityUtils.escapeHtml(projectName) : projectName;
+          detailContent.innerHTML = `# ${safeProjectName}\n\nAucun détail disponible pour ce projet.`;
+        }
+      }
+    } catch (e) {
+      console.warn('[EventBindings] handleFeatureClick error:', e);
+    }
+  };
 
-  navTravaux.addEventListener('click', () => {
-    const trvxLayers = (window.CATEGORY_DEFAULT_LAYERS && window.CATEGORY_DEFAULT_LAYERS.travaux)
-      || ['travaux'];
-    EventBindings.handleNavigation('travaux', trvxLayers);
-    document.getElementById('travaux-submenu').style.display = 'block';
-    document.getElementById('transport-submenu').style.display = 'none';
-    document.getElementById('velo-submenu').style.display = 'none';
-    document.getElementById('urbanisme-submenu').style.display = 'none';
-    // Sécurité: s'assurer que la légende est présente après clic direct
-    ensureTravauxLegend();
-  });
+  /**
+   * Initialise les event listeners du logo
+   */
+  const bindLogoClick = () => {
+    const logoContainer = document.querySelector('#left-nav .logo');
+    
+    if (logoContainer) {
+      logoContainer.addEventListener('click', handleLogoClick, false);
+    }
+  };
 
   return {
     bindFilterControls,
-    handleNavigation
+    handleNavigation,
+    handleLogoClick,
+    handleFeatureClick,
+    bindLogoClick,
+    initCategoryNavigation
   };
 })();
 

@@ -1,0 +1,313 @@
+/* ============================================================================
+   ICON PICKER - Système unifié et moderne
+   Utilise UNIQUEMENT les variables de 00-colors.css
+   ============================================================================ */
+
+.gp-icon-picker-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--black-alpha-50);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.gp-icon-picker-overlay.gp-icon-picker--active {
+  opacity: 1;
+}
+
+.gp-icon-picker {
+  background: var(--white);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px var(--black-alpha-30);
+  width: 90%;
+  max-width: 700px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  transform: scale(0.95);
+  transition: transform 0.2s ease;
+}
+
+.gp-icon-picker--active .gp-icon-picker {
+  transform: scale(1);
+}
+
+/* Header */
+.gp-icon-picker__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.gp-icon-picker__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gp-icon-picker__title i {
+  color: var(--primary);
+  font-size: 22px;
+}
+
+.gp-icon-picker__close {
+  background: var(--gray-100);
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 18px;
+  transition: all 0.2s ease;
+}
+
+.gp-icon-picker__close:hover {
+  background: var(--gray-200);
+  color: var(--text-primary);
+}
+
+/* Search */
+.gp-icon-picker__search {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--gray-50);
+}
+
+.gp-icon-picker__search i {
+  color: var(--text-tertiary);
+  font-size: 16px;
+}
+
+.gp-icon-picker__search input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.gp-icon-picker__search input::placeholder {
+  color: var(--text-disabled);
+}
+
+/* Categories */
+.gp-icon-picker__categories {
+  display: flex;
+  gap: 8px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-light);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gray-300) transparent;
+}
+
+.gp-icon-picker__categories::-webkit-scrollbar {
+  height: 6px;
+}
+
+.gp-icon-picker__categories::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.gp-icon-picker__categories::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: 3px;
+}
+
+.gp-icon-picker__category {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border-medium);
+  background: var(--white);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.gp-icon-picker__category i {
+  font-size: 14px;
+}
+
+.gp-icon-picker__category:hover {
+  border-color: var(--primary);
+  background: var(--primary-alpha-10);
+  color: var(--primary);
+}
+
+.gp-icon-picker__category--active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--white);
+}
+
+.gp-icon-picker__category--active:hover {
+  background: var(--primary-hover);
+}
+
+/* Content */
+.gp-icon-picker__content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gray-300) transparent;
+}
+
+.gp-icon-picker__content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.gp-icon-picker__content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.gp-icon-picker__content::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: 4px;
+}
+
+.gp-icon-picker__content::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-400);
+}
+
+/* Grid */
+.gp-icon-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  gap: 12px;
+}
+
+.gp-icon-picker__icon {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--white);
+  color: var(--text-primary);
+  font-size: 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.gp-icon-picker__icon:hover {
+  border-color: var(--primary);
+  background: var(--primary-alpha-10);
+  color: var(--primary);
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px var(--primary-alpha-20);
+}
+
+.gp-icon-picker__icon:active {
+  transform: scale(1.02);
+}
+
+/* Empty state */
+.gp-icon-picker__empty {
+  text-align: center;
+  padding: 60px 24px;
+  color: var(--text-tertiary);
+}
+
+.gp-icon-picker__empty i {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.gp-icon-picker__empty p {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* Footer */
+.gp-icon-picker__footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-light);
+  background: var(--gray-50);
+}
+
+.gp-icon-picker__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--info);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.gp-icon-picker__link:hover {
+  color: var(--info-hover);
+  text-decoration: underline;
+}
+
+.gp-icon-picker__link i {
+  font-size: 12px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .gp-icon-picker {
+    width: 95%;
+    max-height: 90vh;
+  }
+
+  .gp-icon-picker__header {
+    padding: 16px 20px;
+  }
+
+  .gp-icon-picker__title {
+    font-size: 18px;
+  }
+
+  .gp-icon-picker__search,
+  .gp-icon-picker__categories,
+  .gp-icon-picker__content,
+  .gp-icon-picker__footer {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .gp-icon-picker__grid {
+    grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+    gap: 8px;
+  }
+
+  .gp-icon-picker__icon {
+    font-size: 20px;
+  }
+}

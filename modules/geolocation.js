@@ -36,7 +36,7 @@ window.GeolocationModule = (() => {
     }
     
     locationButton.onclick = handleLocationButtonClick;
-    locationButton.style.display = 'flex';
+    // Pas de forçage d'affichage - ToggleManager gère tout
   }
   
   // Vérifier si la géolocalisation est disponible
@@ -147,9 +147,10 @@ window.GeolocationModule = (() => {
     clearLocationMarkers();
     
     // Créer un marqueur pour la position de l'utilisateur
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
     userLocationMarker = L.marker(userLocation, {
       icon: L.divIcon({
-        html: '<i class="fas fa-map-marker-alt" style="color: #14AE5C; font-size: 24px;"></i>',
+        html: `<i class="fas fa-map-marker-alt" style="color: ${primaryColor}; font-size: 24px;"></i>`,
         className: 'user-location-marker',
         iconSize: [24, 24],
         iconAnchor: [12, 24],
@@ -159,8 +160,8 @@ window.GeolocationModule = (() => {
     
     // Créer un cercle pour représenter la précision
     userLocationCircle = L.circle(userLocation, {
-      color: '#14AE5C',
-      fillColor: '#14AE5C',
+      color: primaryColor,
+      fillColor: primaryColor,
       fillOpacity: 0.2,
       radius: accuracy
     }).addTo(map);
@@ -306,7 +307,7 @@ window.GeolocationModule = (() => {
       Object.assign(contentEl.style, {
         background: '#fff',
         color: '#111',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+        boxShadow: '0 8px 24px var(--black-alpha-18)',
         borderRadius: '12px',
         padding: '12px 14px',
         fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif',

@@ -5,69 +5,377 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Connexion – Grands Projets</title>
   <link rel="icon" type="image/png" href="/img/logomin.png" sizes="32x32">
-  <link rel="stylesheet" href="/style.css" />
+  <!-- Colors System -->
+  <link rel="stylesheet" href="/styles/00-colors.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
-    /* Lightweight page styles to center content */
-    body, html { height: 100%; }
-    .login-wrapper { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; }
-    .login-card { width: 100%; max-width: 440px; background: var(--bg, #111); color: var(--fg, #eee); border-radius: 12px; padding: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
-    .login-header { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
-    .login-header img { height: 28px; }
-    .login-title { font-size: 1.25rem; margin: 0; }
-    .login-actions { margin-top: 16px; display: grid; gap: 12px; }
-    .gp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 14px; border-radius: 8px; border: 1px solid #2a2a2a; background: #181818; color: #fff; cursor: pointer; text-decoration: none; font-weight: 600; }
-    .gp-btn:hover { background: #202020; }
-    .gp-btn.github { border-color: #2b3137; background: #0d1117; }
-    .gp-btn.github:hover { background: #161b22; }
-    .status { font-size: 0.95rem; color: #bbb; margin-top: 8px; }
-    .note { font-size: .85rem; color:#999; margin-top:8px; }
-    .sep { height:1px; background:#2a2a2a; margin:16px 0; }
-    .muted { color:#888; font-size:.9rem; }
+    /* Reset & Base */
+    * { box-sizing: border-box; }
+    body, html { 
+      height: 100%; 
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    /* Page-specific Theme Variables (utilise colors.css) */
+    :root {
+      --bg-page: var(--gray-50);
+      --bg-card: var(--white);
+      --border: var(--gray-200);
+      --info-bg: var(--info-lighter);
+      --info-text: var(--info);
+      --input-bg: var(--gray-100);
+    }
+
+    [data-theme="dark"] {
+      --bg-page: var(--gray-50);
+      --bg-card: var(--gray-100);
+      --border: var(--gray-300);
+      --info-bg: var(--info-alpha-20);
+      --info-text: var(--info);
+      --input-bg: var(--gray-200);
+    }
+
+    body {
+      background: var(--bg-page);
+      color: var(--text-primary); /* Variable de colors.css */
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    /* Layout */
+    .login-wrapper {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      gap: 24px;
+    }
+
+    /* Logo Header */
+    .login-logo {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .login-logo img {
+      height: 40px;
+      margin-bottom: 8px;
+    }
+
+    .login-logo h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin: 0;
+      color: var(--text-primary);
+    }
+
+    /* Main Card */
+    .login-card {
+      width: 100%;
+      max-width: 480px;
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 32px;
+      border: 1px solid var(--border);
+      transition: all 0.2s ease;
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0 0 24px 0;
+      text-align: center;
+      color: var(--text-primary);
+    }
+
+    /* Form Elements */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: var(--text-secondary);
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 15px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--input-bg);
+      color: var(--text-primary);
+      transition: all 0.2s ease;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--info); /* colors.css */
+    }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 14px 20px;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--info); /* colors.css */
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--info-hover); /* colors.css */
+    }
+
+    .btn-github {
+      background: var(--gray-800); /* colors.css */
+      color: var(--white); /* colors.css */
+      border: 1px solid var(--gray-700);
+    }
+
+    .btn-github:hover:not(:disabled) {
+      background: var(--gray-700);
+    }
+
+    [data-theme="dark"] .btn-github {
+      background: var(--gray-200); /* Inversé en dark mode */
+      color: var(--gray-900); /* Inversé en dark mode */
+      border: 1px solid var(--gray-300);
+    }
+
+    [data-theme="dark"] .btn-github:hover:not(:disabled) {
+      background: var(--gray-300);
+    }
+
+    /* Separator */
+    .separator {
+      display: flex;
+      align-items: center;
+      text-align: center;
+      margin: 20px 0;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .separator::before,
+    .separator::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .separator span {
+      padding: 0 12px;
+    }
+
+    /* Info Box */
+    .info-box {
+      background: var(--info-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .info-box-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      margin: 0 0 8px 0;
+      color: var(--info-text);
+    }
+
+    .info-box-text {
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 0;
+      color: var(--text-secondary);
+    }
+
+    /* Status Message */
+    .status {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      text-align: center;
+      display: none;
+    }
+
+    .status.show {
+      display: block;
+    }
+
+    .status.success {
+      background: var(--primary-lighter); /* colors.css */
+      color: var(--primary); /* colors.css */
+      border: 1px solid var(--primary-light); /* colors.css */
+    }
+
+    .status.error {
+      background: var(--danger-lighter); /* colors.css */
+      color: var(--danger); /* colors.css */
+      border: 1px solid var(--danger-light); /* colors.css */
+    }
+
+    [data-theme="dark"] .status.success {
+      background: var(--primary-active); /* colors.css */
+      color: var(--primary-light); /* colors.css */
+      border: 1px solid var(--primary); /* colors.css */
+    }
+
+    [data-theme="dark"] .status.error {
+      background: var(--danger-hover); /* colors.css */
+      color: var(--danger-light); /* colors.css */
+      border: 1px solid var(--danger); /* colors.css */
+    }
+
+    /* Back Link */
+    .back-link {
+      text-align: center;
+    }
+
+    .back-link a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      transition: color 0.2s ease;
+    }
+
+    .back-link a:hover {
+      color: var(--info); /* colors.css */
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .login-card {
+        padding: 24px;
+      }
+
+      .login-logo h1 {
+        font-size: 24px;
+      }
+
+      .card-title {
+        font-size: 16px;
+      }
+    }
   </style>
   <script>
+    // Synchronise avec le toggle dark mode de l'app principale
     (function() {
       try {
-        var theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+        // 1. Lire depuis localStorage (même clé que ThemeManager)
+        var savedTheme = localStorage.getItem('theme');
+        
+        // 2. Sinon, détecter la préférence système
+        var systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        // 3. Appliquer le thème
+        var theme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
         document.documentElement.setAttribute('data-theme', theme);
-      } catch (e) {}
+        
+        console.log('[Login] Theme appliqué:', theme, '(source:', savedTheme ? 'localStorage' : 'system', ')');
+      } catch (e) {
+        console.error('[Login] Erreur initialisation theme:', e);
+      }
     })();
   </script>
 </head>
 <body>
   <div class="login-wrapper">
-    <div class="login-card" role="region" aria-labelledby="login-title">
-      <div class="login-header">
-        <a href="/" aria-label="Accueil">
-          <img src="/img/logo.svg" alt="Grands Projets" />
-        </a>
-        <h1 id="login-title" class="login-title">Se connecter</h1>
-      </div>
-      <p class="muted">Choisissez une méthode de connexion&nbsp;: GitHub ou lien magique par email.</p>
+    <!-- Logo -->
+    <div class="login-logo">
+      <a href="/" aria-label="Accueil">
+        <img src="/img/logo.svg" alt="Grands Projets" />
+      </a>
+      <h1>Grands Projets</h1>
+    </div>
 
-      <div id="auth-area" class="login-actions">
-        <button id="github-btn" class="gp-btn github" type="button">
+    <!-- Main Login Card -->
+    <div class="login-card" role="region" aria-labelledby="card-title">
+      <h2 id="card-title" class="card-title">Connectez-vous à votre compte</h2>
+
+      <div id="auth-area">
+        <!-- Email Login Form -->
+        <form id="email-form">
+          <div class="form-group">
+            <label for="email-input" class="form-label">📧 Adresse email</label>
+            <input 
+              id="email-input" 
+              type="email" 
+              inputmode="email" 
+              autocomplete="email" 
+              placeholder="votre.email@exemple.com" 
+              aria-label="Email"
+              class="form-input"
+              required
+            />
+          </div>
+
+          <button id="magic-btn" class="btn btn-primary" type="submit">
+            <i class="fa-regular fa-paper-plane"></i>
+            <span>Recevoir un lien de connexion par email</span>
+          </button>
+        </form>
+
+        <!-- Status Message -->
+        <div id="status" class="status" role="alert" aria-live="polite"></div>
+
+        <!-- Separator -->
+        <div class="separator" aria-hidden="true">
+          <span>ou</span>
+        </div>
+
+        <!-- GitHub Login -->
+        <button id="github-btn" class="btn btn-github" type="button">
           <i class="fab fa-github"></i>
           <span>Se connecter avec GitHub</span>
         </button>
-
-        <div class="sep" aria-hidden="true"></div>
-
-        <label for="email-input" class="muted">Connexion par lien magique</label>
-        <div style="display:grid; gap:8px; grid-template-columns: 1fr auto; align-items:center;">
-          <input id="email-input" type="email" inputmode="email" autocomplete="email" placeholder="votre.email@exemple.com" aria-label="Email" style="padding:12px 14px; border-radius:8px; border:1px solid #2a2a2a; background:#111; color:#fff;" />
-          <button id="magic-btn" class="gp-btn" type="button" aria-label="Envoyer un lien magique">
-            <i class="fa-regular fa-paper-plane"></i>
-            <span>Recevoir un lien magique</span>
-          </button>
-        </div>
-
-        <div id="status" class="status" aria-live="polite"></div>
       </div>
+    </div>
 
-      <div class="sep"></div>
-      <a class="gp-btn" href="/" aria-label="Retour à l’accueil">← Retour</a>
-      <p class="note">Après la connexion, vous serez redirigé vers l’accueil.</p>
+    <!-- Info Box -->
+    <div class="login-card info-box">
+      <h3 class="info-box-title">
+        <i class="fa-solid fa-circle-info"></i>
+        Pas encore de compte ?
+      </h3>
+      <p class="info-box-text">
+        Seuls les membres invités peuvent accéder à cette plateforme. 
+        Contactez l'administrateur de votre organisation pour obtenir une invitation.
+      </p>
+    </div>
+
+    <!-- Back Link -->
+    <div class="back-link">
+      <a href="/" aria-label="Retour à l'accueil">
+        <i class="fa-solid fa-arrow-left"></i> Retour à l'accueil
+      </a>
     </div>
   </div>
 
@@ -75,47 +383,50 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
   <script src="/modules/auth.js"></script>
   <script>
-    // Use shared AuthModule
     const auth = window.AuthModule;
-
     const statusEl = document.getElementById('status');
     const githubBtn = document.getElementById('github-btn');
     const emailInput = document.getElementById('email-input');
     const magicBtn = document.getElementById('magic-btn');
+    const emailForm = document.getElementById('email-form');
 
-    function setStatus(msg) { statusEl.textContent = msg || ''; }
+    function setStatus(msg, type = '') {
+      statusEl.textContent = msg || '';
+      statusEl.className = 'status';
+      if (msg) {
+        statusEl.classList.add('show');
+        if (type) statusEl.classList.add(type);
+      }
+    }
 
     async function initAuthUI() {
       try {
         const { data: { session } } = await auth.getSession();
         if (session?.user) {
-          setStatus(`Connecté en tant que ${session.user.user_metadata?.user_name || session.user.email || 'utilisateur'}.`);
+          setStatus(`✅ Connecté en tant que ${session.user.user_metadata?.user_name || session.user.email || 'utilisateur'}.`, 'success');
           githubBtn.style.display = 'none';
-          if (magicBtn) magicBtn.style.display = 'none';
-          if (emailInput) emailInput.style.display = 'none';
-        } else {
-          setStatus('');
-          githubBtn.style.display = 'inline-flex';
-          if (magicBtn) magicBtn.style.display = 'inline-flex';
-          if (emailInput) emailInput.style.display = 'block';
+          emailForm.style.display = 'none';
         }
       } catch (e) {
-        setStatus('');
+        console.error(e);
       }
     }
 
     githubBtn.addEventListener('click', async () => {
       try {
-        setStatus('Redirection vers GitHub…');
+        setStatus('🔄 Redirection vers GitHub…');
+        githubBtn.disabled = true;
         const redirectUrl = window.location.origin + '/';
         const { error } = await auth.signInWithGitHub(redirectUrl);
         if (error) {
           console.error('OAuth error:', error);
-          setStatus("Impossible de démarrer l'authentification GitHub.");
+          setStatus("❌ Impossible de démarrer l'authentification GitHub.", 'error');
+          githubBtn.disabled = false;
         }
       } catch (e) {
         console.error(e);
-        setStatus('Erreur inattendue.');
+        setStatus('❌ Erreur inattendue.', 'error');
+        githubBtn.disabled = false;
       }
     });
 
@@ -123,50 +434,80 @@
       return typeof v === 'string' && /.+@.+\..+/.test(v);
     }
 
-    magicBtn.addEventListener('click', async () => {
+    emailForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      let rateLimitDelay = 2000; // Délai par défaut
+      
       try {
         const email = (emailInput?.value || '').trim();
         if (!isValidEmail(email)) {
-          setStatus('Veuillez saisir un email valide.');
+          setStatus('⚠️ Veuillez saisir un email valide.', 'error');
           emailInput?.focus();
           return;
         }
-        setStatus('Envoi du lien magique…');
+        
+        setStatus('📤 Envoi du lien de connexion…');
         magicBtn.disabled = true;
         githubBtn.disabled = true;
+        
         const redirectUrl = window.location.origin + '/login/';
         let error = null;
+        
         if (typeof auth.signInWithMagicLink === 'function') {
           ({ error } = await auth.signInWithMagicLink(email, redirectUrl));
         } else {
-          // Fallback si l'ancienne version de auth.js est en cache
           const client = auth.getClient && auth.getClient();
           if (client && client.auth && typeof client.auth.signInWithOtp === 'function') {
-            ({ error } = await client.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectUrl } }));
+            ({ error } = await client.auth.signInWithOtp({ 
+              email, 
+              options: { 
+                emailRedirectTo: redirectUrl,
+                shouldCreateUser: false
+              } 
+            }));
           } else {
             error = new Error('Méthode de magic link indisponible.');
           }
         }
+        
         if (error) {
           console.error('Magic link error:', error);
-          setStatus("Échec de l'envoi du lien magique. Réessayez plus tard.");
+          
+          // Détecter les différents types d'erreurs
+          const errorMsg = error.message || '';
+          
+          if (errorMsg.includes('User not found') || errorMsg.includes('not found') || errorMsg.includes('Signups not allowed')) {
+            setStatus("❌ Cet email n'est pas enregistré. Contactez l'administrateur de votre organisation pour obtenir un accès.", 'error');
+          } else if (errorMsg.includes('can only request this after') || errorMsg.includes('seconds')) {
+            // Extraire le nombre de secondes si possible
+            const match = errorMsg.match(/after (\d+) seconds/);
+            const seconds = match ? parseInt(match[1], 10) : 60;
+            setStatus(`⏱️ Veuillez patienter ${seconds} secondes avant de demander un nouveau lien.`, 'error');
+            rateLimitDelay = (seconds + 1) * 1000; // Ajouter 1 seconde de marge
+          } else if (errorMsg.includes('rate limit') || errorMsg.includes('too many')) {
+            setStatus("⏱️ Trop de tentatives. Veuillez patienter quelques instants avant de réessayer.", 'error');
+            rateLimitDelay = 60000; // 60 secondes
+          } else {
+            setStatus("❌ Échec de l'envoi du lien. Réessayez plus tard.", 'error');
+          }
         } else {
-          setStatus('Email envoyé. Vérifiez votre boîte de réception.');
+          setStatus('✅ Email envoyé ! Vérifiez votre boîte de réception.', 'success');
+          rateLimitDelay = 60000; // 60 secondes après un envoi réussi
         }
       } catch (e) {
         console.error(e);
-        setStatus('Erreur inattendue.');
+        setStatus('❌ Erreur inattendue.', 'error');
       } finally {
         setTimeout(() => {
           magicBtn.disabled = false;
           githubBtn.disabled = false;
-        }, 2000);
+        }, rateLimitDelay);
       }
     });
 
     // Handle redirects back to /login with a hash (GitHub or Magic Link)
     auth.onAuthStateChange((_event, _session) => {
-      // If a session appears, go home.
       if (_session?.user) {
         window.location.replace('/');
       }
@@ -182,9 +523,9 @@
         const code = params.get('error_code');
         if (err) {
           if (code === 'otp_expired') {
-            setStatus("Le lien a expiré ou n'est plus valide. Veuillez redemander un nouveau lien magique.");
+            setStatus("⚠️ Le lien a expiré. Veuillez redemander un nouveau lien.", 'error');
           } else {
-            setStatus('Erreur de connexion: ' + (code || err));
+            setStatus('❌ Erreur de connexion: ' + (code || err), 'error');
           }
         }
       } catch(_) {}

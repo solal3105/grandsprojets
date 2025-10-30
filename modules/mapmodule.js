@@ -1,4 +1,3 @@
-// modules/MapModule.js
 window.MapModule = (() => {
   // Initialize the map view (sans basemap)
   const map = L.map('map').setView([45.75, 4.85], 12);
@@ -12,6 +11,11 @@ window.MapModule = (() => {
   // clickableLayers pane is set to 650 in DataModule
   hitPane.style.zIndex = 660;
   const hitRenderer = L.svg({ pane: hitPaneName });
+  
+  // Camera markers pane (au premier plan, au dessus de tout sauf popups)
+  const cameraPaneName = 'cameraPane';
+  const cameraPane = map.createPane(cameraPaneName);
+  cameraPane.style.zIndex = 680; // Au dessus de hitline (660) et tooltipPane (650)
   
   /**
    * Initialise le fond de carte après chargement de window.basemaps
@@ -41,6 +45,8 @@ window.MapModule = (() => {
   // Update marker visibility based on minZoom
   const updateMarkerVisibility = () => {
     const currentZoom = map.getZoom();
+    
+    // Gestion du zoom pour les couches configurées
     Object.entries(window.zoomConfig || {}).forEach(([layerName, { minZoom }]) => {
       const layer = layers[layerName];
       if (layer && typeof layer.eachLayer === 'function') {
@@ -51,6 +57,11 @@ window.MapModule = (() => {
         });
       }
     });
+    
+    // Gestion des camera markers (déléguée à CameraMarkers)
+    if (window.CameraMarkers?.updateCameraMarkersVisibility) {
+      window.CameraMarkers.updateCameraMarkersVisibility(map);
+    }
   };
 
   // Add a GeoJSON layer and update filter and marker visibility
@@ -89,6 +100,8 @@ window.MapModule = (() => {
     initBaseLayer,
     // Expose hitline resources for other modules
     hitRenderer,
-    hitPaneName
+    hitPaneName,
+    // Expose camera pane for camera markers
+    cameraPaneName
   };
 })();

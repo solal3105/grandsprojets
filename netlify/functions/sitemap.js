@@ -35,10 +35,10 @@ exports.handler = async (event, context) => {
 
     const mapCat = (c) => {
       const v = String(c || '').toLowerCase();
-      if (v === 'mobilite') return 'transport';
+      if (v === 'mobilite') return 'mobilite';
       if (v === 'vélo' || v === 'velo') return 'velo';
       if (v === 'urbanisme') return 'urbanisme';
-      return 'transport';
+      return 'mobilite';
     };
 
     const fmtDate = (d) => {

@@ -1,4 +1,31 @@
 User-agent: *
 Allow: /
+Crawl-delay: 1
 
+# Bloquer les ressources non essentielles
+Disallow: /node_modules/
+Disallow: /.git/
+Disallow: /tmp/
+Disallow: /*.json$
+Disallow: /admin/
+Disallow: /_headers
+
+# Autoriser les ressources importantes
+Allow: /styles/
+Allow: /scripts/
+Allow: /img/
+Allow: /vendor/
+
+# Optimisation pour les moteurs de recherche majeurs
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+# Sitemaps
+Sitemap: https://grandsprojets.com/sitemap.xml
 Sitemap: https://grandsprojets.com/sitemap.xml

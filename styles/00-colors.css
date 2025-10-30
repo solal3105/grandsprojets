@@ -1,0 +1,369 @@
+/* ============================================================================
+   SYSTÈME DE COULEURS SIMPLIFIÉ
+   Basé sur 5 couleurs de base + transparences
+   Configurable facilement
+   ============================================================================ */
+
+:root {
+  /* ========================================
+     COULEURS DE BASE (configurables)
+     ======================================== */
+  
+  --white: #FFFFFF;
+  --black: #000000;
+  
+  --color-primary: #14AE5C;    /* Couleur principale */
+  --color-success: #10B981;    /* Vert (pour progression travaux) */
+  --color-danger: #EF4444;     /* Rouge */
+  --color-info: #2563EB;       /* Bleu */
+  --color-warning: #F59E0B;    /* Orange */
+  --color-neutral: #64748B;    /* Gris */
+  
+  /* ========================================
+     VARIATIONS PAR TRANSPARENCE
+     ======================================== */
+  
+  /* Primary (vert) */
+  --primary: var(--color-primary);
+  --primary-hover: color-mix(in srgb, var(--color-primary) 85%, black);
+  --primary-active: color-mix(in srgb, var(--color-primary) 70%, black);
+  --primary-light: color-mix(in srgb, var(--color-primary) 25%, transparent);
+  --primary-lighter: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  --primary-alpha-1: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  --primary-alpha-2: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  --primary-alpha-3: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  --primary-alpha-4: color-mix(in srgb, var(--color-primary) 40%, transparent);
+  --primary-alpha-10: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  --primary-alpha-11: color-mix(in srgb, var(--color-primary) 11%, transparent);
+  --primary-alpha-12: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  --primary-alpha-18: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  --primary-alpha-20: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  --primary-alpha-22: color-mix(in srgb, var(--color-primary) 22%, transparent);
+  --primary-alpha-25: color-mix(in srgb, var(--color-primary) 25%, transparent);
+  --primary-alpha-28: color-mix(in srgb, var(--color-primary) 28%, transparent);
+  --primary-alpha-35: color-mix(in srgb, var(--color-primary) 35%, transparent);
+  --primary-alpha-42: color-mix(in srgb, var(--color-primary) 42%, transparent);
+  --primary-alpha-45: color-mix(in srgb, var(--color-primary) 45%, transparent);
+  --primary-alpha-5: color-mix(in srgb, var(--color-primary) 50%, transparent);
+  --primary-alpha-55: color-mix(in srgb, var(--color-primary) 55%, transparent);
+  --primary-alpha-06: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  --primary-alpha-15: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  --primary-alpha-16: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  
+  /* Danger (rouge) */
+  --danger: var(--color-danger);
+  --danger-hover: color-mix(in srgb, var(--color-danger) 85%, black);
+  --danger-active: color-mix(in srgb, var(--color-danger) 70%, black);
+  --danger-light: color-mix(in srgb, var(--color-danger) 25%, transparent);
+  --danger-lighter: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  --danger-300: color-mix(in srgb, var(--color-danger) 30%, transparent);
+  --danger-700: color-mix(in srgb, var(--color-danger) 70%, black);
+  --danger-alpha-10: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  --danger-alpha-20: color-mix(in srgb, var(--color-danger) 20%, transparent);
+  --danger-alpha-3: color-mix(in srgb, var(--color-danger) 30%, transparent);
+  --danger-alpha-08: color-mix(in srgb, var(--color-danger) 8%, transparent);
+  --danger-alpha-16: color-mix(in srgb, var(--color-danger) 16%, transparent);
+  --danger-alpha-45: color-mix(in srgb, var(--color-danger) 45%, transparent);
+  --danger-alpha-55: color-mix(in srgb, var(--color-danger) 55%, transparent);
+  
+  /* Info (bleu) */
+  --info: var(--color-info);
+  --info-hover: color-mix(in srgb, var(--color-info) 85%, black);
+  --info-light: color-mix(in srgb, var(--color-info) 25%, transparent);
+  --info-lighter: color-mix(in srgb, var(--color-info) 12%, transparent);
+  --info-alpha-20: color-mix(in srgb, var(--color-info) 20%, transparent);
+  --info-alpha-2: color-mix(in srgb, var(--color-info) 20%, transparent);
+  --info-alpha-3: color-mix(in srgb, var(--color-info) 30%, transparent);
+  --info-alpha-03: color-mix(in srgb, var(--color-info) 3%, transparent);
+  --info-alpha-05: color-mix(in srgb, var(--color-info) 5%, transparent);
+  --info-alpha-08: color-mix(in srgb, var(--color-info) 8%, transparent);
+  --info-alpha-10: color-mix(in srgb, var(--color-info) 10%, transparent);
+  --info-alpha-12: color-mix(in srgb, var(--color-info) 12%, transparent);
+  --info-alpha-15: color-mix(in srgb, var(--color-info) 15%, transparent);
+  --info-alpha-18: color-mix(in srgb, var(--color-info) 18%, transparent);
+  --info-alpha-22: color-mix(in srgb, var(--color-info) 22%, transparent);
+  --info-alpha-25: color-mix(in srgb, var(--color-info) 25%, transparent);
+  --info-alpha-6: color-mix(in srgb, var(--color-info) 60%, transparent);
+  
+  /* Warning (orange) */
+  --warning: var(--color-warning);
+  --warning-hover: color-mix(in srgb, var(--color-warning) 85%, black);
+  --warning-light: color-mix(in srgb, var(--color-warning) 25%, transparent);
+  --warning-lighter: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  --warning-alpha-14: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  --warning-alpha-22: color-mix(in srgb, var(--color-warning) 22%, transparent);
+  --warning-alpha-25: color-mix(in srgb, var(--color-warning) 25%, transparent);
+  --warning-alpha-35: color-mix(in srgb, var(--color-warning) 35%, transparent);
+  
+  /* Success (vert indépendant) */
+  --success: var(--color-success);
+  --success-hover: color-mix(in srgb, var(--color-success) 85%, black);
+  --success-active: color-mix(in srgb, var(--color-success) 70%, black);
+  --success-light: color-mix(in srgb, var(--color-success) 25%, transparent);
+  --success-lighter: color-mix(in srgb, var(--color-success) 12%, transparent);
+  --success-alpha-25: color-mix(in srgb, var(--color-success) 25%, transparent);
+  --success-alpha-4: color-mix(in srgb, var(--color-success) 40%, transparent);
+  
+  /* ========================================
+     GRIS (échelle simplifiée)
+     ======================================== */
+  
+  --gray-50: #F8FAFC;
+  --gray-100: #F1F5F9;
+  --gray-200: #E2E8F0;
+  --gray-300: #CBD5E1;
+  --gray-400: #94A3B8;
+  --gray-500: #64748B;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1E293B;
+  --gray-900: #0F172A;
+  
+  /* ========================================
+     ALIAS SÉMANTIQUES
+     ======================================== */
+  
+  /* Texte */
+  --text-primary: var(--gray-900);
+  --text-secondary: var(--gray-600);
+  --text-tertiary: var(--gray-500);
+  --text-disabled: var(--gray-400);
+  
+  /* Borders */
+  --border-light: var(--gray-200);
+  --border-medium: var(--gray-300);
+  --border-strong: var(--gray-400);
+  
+  /* Surfaces */
+  --surface-base: var(--gray-50);
+  --surface-raised: var(--gray-50);
+  --surface-overlay: var(--gray-100);
+  --surface-60: rgba(255, 255, 255, 0.6);
+  --surface-92: rgba(255, 255, 255, 0.92);
+  
+  /* Opacités blanc/noir */
+  --white-alpha-04: rgba(255, 255, 255, 0.04);
+  --white-alpha-05: rgba(255, 255, 255, 0.05);
+  --white-alpha-06: rgba(255, 255, 255, 0.06);
+  --white-alpha-08: rgba(255, 255, 255, 0.08);
+  --white-alpha-10: rgba(255, 255, 255, 0.1);
+  --white-alpha-12: rgba(255, 255, 255, 0.12);
+  --white-alpha-18: rgba(255, 255, 255, 0.18);
+  --white-alpha-20: rgba(255, 255, 255, 0.2);
+  --white-alpha-25: rgba(255, 255, 255, 0.25);
+  --white-alpha-28: rgba(255, 255, 255, 0.28);
+  --white-alpha-35: rgba(255, 255, 255, 0.35);
+  --white-alpha-40: rgba(255, 255, 255, 0.4);
+  --white-alpha-45: rgba(255, 255, 255, 0.45);
+  --white-alpha-50: rgba(255, 255, 255, 0.5);
+  --white-alpha-55: rgba(255, 255, 255, 0.55);
+  --white-alpha-60: rgba(255, 255, 255, 0.6);
+  --white-alpha-65: rgba(255, 255, 255, 0.65);
+  --white-alpha-72: rgba(255, 255, 255, 0.72);
+  --white-alpha-75: rgba(255, 255, 255, 0.75);
+  --white-alpha-80: rgba(255, 255, 255, 0.8);
+  --white-alpha-90: rgba(255, 255, 255, 0.9);
+  --white-alpha-95: rgba(255, 255, 255, 0.95);
+  
+  --black-alpha-04: rgba(0, 0, 0, 0.04);
+  --black-alpha-06: rgba(0, 0, 0, 0.06);
+  --black-alpha-08: rgba(0, 0, 0, 0.08);
+  --black-alpha-10: rgba(0, 0, 0, 0.1);
+  --black-alpha-12: rgba(0, 0, 0, 0.12);
+  --black-alpha-15: rgba(0, 0, 0, 0.15);
+  --black-alpha-16: rgba(0, 0, 0, 0.16);
+  --black-alpha-18: rgba(0, 0, 0, 0.18);
+  --black-alpha-20: rgba(0, 0, 0, 0.2);
+  --black-alpha-30: rgba(0, 0, 0, 0.3);
+  --black-alpha-35: rgba(0, 0, 0, 0.35);
+  --black-alpha-40: rgba(0, 0, 0, 0.4);
+  --black-alpha-45: rgba(0, 0, 0, 0.45);
+  --black-alpha-50: rgba(0, 0, 0, 0.5);
+  --black-alpha-55: rgba(0, 0, 0, 0.55);
+  --black-alpha-66: rgba(0, 0, 0, 0.66);
+  --black-alpha-95: rgba(0, 0, 0, 0.95);
+  
+  /* Couleurs spécifiques au design */
+  --dark-blue-alpha-45: rgba(2, 6, 23, 0.45);
+  --dark-blue-alpha-06: rgba(2, 6, 23, 0.06);
+  --dark-blue-alpha-08: rgba(2, 6, 23, 0.08);
+  --dark-blue-alpha-10: rgba(2, 6, 23, 0.10);
+  --dark-blue-alpha-12: rgba(2, 6, 23, 0.12);
+  --dark-blue-alpha-16: rgba(2, 6, 23, 0.16);
+  --dark-blue-alpha-18: rgba(2, 6, 23, 0.18);
+  
+  /* Tile background for thumbnails */
+  --tile-bg: var(--gray-100);
+}
+
+/* ============================================================================
+   DARK MODE
+   ============================================================================ */
+
+html[data-theme='dark'] {
+  /* ========================================
+     SOFT BLUE-GREY ÉLÉGANT (Inspired by Slate + Blue)
+     Palette douce bleutée et sophistiquée - moins de noir, plus de bleu
+     ======================================== */
+  --gray-50: #0f172a;      /* Slate profond avec forte nuance bleue */
+  --gray-100: #1e293b;     /* Bleu-ardoise sombre et élégant */
+  --gray-200: #334155;     /* Bleu-gris doux et équilibré */
+  --gray-300: #475569;     /* Bleu-gris moyen sophistiqué */
+  --gray-400: #64748b;     /* Bleu-gris moyen lumineux */
+  --gray-500: #94a3b8;     /* Bleu-gris clair apaisant */
+  --gray-600: #cbd5e1;     /* Bleu-gris très clair raffiné */
+  --gray-700: #e2e8f0;     /* Presque blanc bleuté délicat */
+  --gray-800: #f1f5f9;     /* Blanc cassé bleuté pur */
+  --gray-900: #f8fafc;     /* Blanc doux comme neige */
+  
+  /* ========================================
+     BLANC & NOIR SOFT BLUE (inversés en dark mode)
+     ======================================== */
+  --white: #0f172a;        /* Devient le fond sombre slate profond */
+  --black: #f8fafc;        /* Devient le texte clair bleuté */
+  
+  /* Opacités INVERSÉES en dark mode - sombre translucide (cohérence visuelle) */
+  --white-alpha-04: rgba(15, 23, 42, 0.04);
+  --white-alpha-05: rgba(15, 23, 42, 0.05);
+  --white-alpha-06: rgba(15, 23, 42, 0.06);
+  --white-alpha-08: rgba(15, 23, 42, 0.08);
+  --white-alpha-10: rgba(15, 23, 42, 0.1);
+  --white-alpha-12: rgba(15, 23, 42, 0.12);
+  --white-alpha-18: rgba(15, 23, 42, 0.18);
+  --white-alpha-20: rgba(15, 23, 42, 0.2);
+  --white-alpha-25: rgba(15, 23, 42, 0.25);
+  --white-alpha-28: rgba(15, 23, 42, 0.28);
+  --white-alpha-30: rgba(15, 23, 42, 0.30);
+  --white-alpha-35: rgba(15, 23, 42, 0.35);
+  --white-alpha-40: rgba(15, 23, 42, 0.4);
+  --white-alpha-45: rgba(15, 23, 42, 0.45);
+  --white-alpha-50: rgba(15, 23, 42, 0.5);
+  --white-alpha-55: rgba(15, 23, 42, 0.55);
+  --white-alpha-60: rgba(15, 23, 42, 0.6);
+  --white-alpha-65: rgba(15, 23, 42, 0.65);
+  --white-alpha-72: rgba(15, 23, 42, 0.72);
+  --white-alpha-75: rgba(15, 23, 42, 0.75);
+  --white-alpha-80: rgba(15, 23, 42, 0.8);
+  --white-alpha-90: rgba(15, 23, 42, 0.9);
+  --white-alpha-95: rgba(15, 23, 42, 0.95);
+  
+  /* Opacités INVERSÉES - clair translucide pour highlights */
+  --black-alpha-04: rgba(248, 250, 252, 0.04);
+  --black-alpha-06: rgba(248, 250, 252, 0.06);
+  --black-alpha-08: rgba(248, 250, 252, 0.08);
+  --black-alpha-10: rgba(248, 250, 252, 0.1);
+  --black-alpha-12: rgba(248, 250, 252, 0.12);
+  --black-alpha-15: rgba(248, 250, 252, 0.15);
+  --black-alpha-16: rgba(248, 250, 252, 0.16);
+  --black-alpha-18: rgba(248, 250, 252, 0.18);
+  --black-alpha-20: rgba(248, 250, 252, 0.2);
+  --black-alpha-30: rgba(248, 250, 252, 0.3);
+  --black-alpha-35: rgba(248, 250, 252, 0.35);
+  --black-alpha-40: rgba(248, 250, 252, 0.4);
+  --black-alpha-45: rgba(248, 250, 252, 0.45);
+  --black-alpha-50: rgba(248, 250, 252, 0.5);
+  --black-alpha-55: rgba(248, 250, 252, 0.55);
+  --black-alpha-66: rgba(248, 250, 252, 0.66);
+  --black-alpha-95: rgba(248, 250, 252, 0.95);
+  
+  /* Soft blue alpha (au lieu de dark-blue) */
+  --dark-blue-alpha-45: rgba(15, 23, 42, 0.45);
+  --dark-blue-alpha-06: rgba(15, 23, 42, 0.06);
+  --dark-blue-alpha-08: rgba(15, 23, 42, 0.08);
+  --dark-blue-alpha-10: rgba(15, 23, 42, 0.10);
+  --dark-blue-alpha-12: rgba(15, 23, 42, 0.12);
+  --dark-blue-alpha-16: rgba(15, 23, 42, 0.16);
+  --dark-blue-alpha-18: rgba(15, 23, 42, 0.18);
+  
+  /* ========================================
+     COULEURS DE BASE (harmonisées avec le fond soft blue)
+     Palette raffinée et élégante pour un confort visuel optimal
+     ======================================== */
+  /* --color-primary: #ffdd0080; */    /* DÉSACTIVÉ : Primary reste identique en dark mode */
+  
+  /* Primary alpha plus visibles en dark mode pour progress bar */
+  --primary-alpha-50: color-mix(in srgb, var(--color-primary) 70%, var(--surface-base));
+  --primary-alpha-55: color-mix(in srgb, var(--color-primary) 75%, var(--surface-base));
+  --color-success: #34d399;    /* Vert émeraude doux (dark mode) */
+  --color-danger: #f87171;     /* Rouge corail doux et chaleureux */
+  --color-info: #60a5fa;       /* Bleu ciel doux et harmonieux */
+  --color-warning: #fbbf24;    /* Ambre doux et chaleureux */
+  
+  /* ========================================
+     PRIMARY (recalculé avec la couleur plus douce)
+     ======================================== */
+  --primary: var(--color-primary);
+  --primary-hover: color-mix(in srgb, var(--color-primary) 115%, white);
+  --primary-active: color-mix(in srgb, var(--color-primary) 130%, white);
+  /* -light et -lighter utilisent la transparence définie dans :root et s'adaptent automatiquement */
+  
+  /* ========================================
+     DANGER (recalculé avec la couleur plus douce)
+     ======================================== */
+  --danger: var(--color-danger);
+  --danger-hover: color-mix(in srgb, var(--color-danger) 115%, white);
+  --danger-active: color-mix(in srgb, var(--color-danger) 130%, white);
+  /* -light et -lighter utilisent la transparence définie dans :root et s'adaptent automatiquement */
+  
+  /* ========================================
+     INFO (recalculé avec la couleur plus douce)
+     ======================================== */
+  --info: var(--color-info);
+  --info-hover: color-mix(in srgb, var(--color-info) 115%, white);
+  /* -light et -lighter utilisent la transparence définie dans :root et s'adaptent automatiquement */
+  
+  /* ========================================
+     WARNING (recalculé avec la couleur plus douce)
+     ======================================== */
+  --warning: var(--color-warning);
+  --warning-hover: color-mix(in srgb, var(--color-warning) 115%, white);
+  /* -light et -lighter utilisent la transparence définie dans :root et s'adaptent automatiquement */
+  
+  /* ========================================
+     SUCCESS (vert indépendant, recalculé pour dark mode)
+     ======================================== */
+  --success: var(--color-success);
+  --success-hover: color-mix(in srgb, var(--color-success) 115%, white);
+  --success-active: color-mix(in srgb, var(--color-success) 130%, white);
+  
+  /* ========================================
+     ALIAS SÉMANTIQUES (optimisés pour le fond bleu-sombre)
+     ======================================== */
+  
+  /* Texte - Contraste doux mais lisible */
+  --text-primary: #f8fafc;     /* Blanc doux pour texte principal */
+  --text-secondary: #cbd5e1;   /* Bleu-gris clair pour texte secondaire */
+  --text-tertiary: #94a3b8;    /* Bleu-gris moyen pour texte tertiaire */
+  --text-disabled: #64748b;    /* Bleu-gris sombre pour désactivé */
+  
+  /* Borders - Bordures subtiles bleutées et élégantes */
+  --border-light: #334155;     /* Bordure très subtile (gray-200) */
+  --border-medium: #475569;    /* Bordure moyenne douce (gray-300) */
+  --border-strong: #64748b;    /* Bordure visible (gray-400) */
+  
+  /* ========================================
+     SURFACES - Fond soft blue avec profondeur élégante
+     ======================================== */
+  --surface-base: #0f172a;     /* Fond principal slate profond (gray-50) */
+  --surface-raised: #1e293b;   /* Cartes et éléments surélevés (gray-100) */
+  --surface-overlay: #334155;  /* Overlays et modals (gray-200) */
+  
+}
+
+/* ============================================================================
+   CONFIGURATION UTILISATEUR (exemple)
+   ============================================================================ */
+
+/*
+Pour changer les couleurs, il suffit de modifier les 5 variables de base :
+
+:root {
+  --color-primary: #YOUR_COLOR;
+  --color-danger: #YOUR_COLOR;
+  --color-info: #YOUR_COLOR;
+  --color-warning: #YOUR_COLOR;
+  --color-neutral: #YOUR_COLOR;
+}
+
+Toutes les variations (hover, light, alpha) seront automatiquement calculées.
+*/

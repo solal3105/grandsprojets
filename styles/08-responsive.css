@@ -1,0 +1,218 @@
+/* ===========================================================================
+   RESPONSIVE - Media queries (Mobile-First)
+   =========================================================================== */
+
+/* ========================================
+   MOBILE - Ultra compact (≤ 400px)
+   ======================================== */
+@media (max-width: 400px) {
+  .mobile-fixed-logo {
+    display: none;
+  }
+
+  #dynamic-categories {
+    gap: 8px;
+    padding: 0 12px;
+  }
+
+  .nav-category {
+    padding: 10px 6px;
+    gap: 8px;
+  }
+
+  .nav-category .label {
+    font-size: 11px;
+  }
+}
+
+/* ========================================
+   MOBILE - Compact (≤ 520px)
+   ======================================== */
+@media (max-width: 520px) {
+  #contrib-overlay .contrib-list-item {
+    grid-template-columns: 72px 1fr;
+    gap: 12px;
+  }
+}
+
+/* ========================================
+   MOBILE - Small (≤ 640px)
+   ======================================== */
+@media (max-width: 640px) {
+  .project-cover {
+    height: 240px;
+  }
+
+  .city-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .image-tooltip img {
+    max-width: 200px;
+    max-height: 150px;
+  }
+}
+
+/* ========================================
+   MOBILE - Base (≤ 720px)
+   ======================================== */
+@media (max-width: 720px) {
+  
+  /* Navigation */
+  #left-nav {
+    position: fixed;
+    top: auto;
+    bottom: 20px;
+    left: 20px;
+    right: auto;
+    width: calc(100vw - 40px);
+    max-width: 500px;
+    height: 100px;
+    max-height: 100px;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    box-shadow: 0 -2px 8px var(--black-alpha-15);
+  }
+
+  #left-nav .logo,
+  .nav-scroll-wrapper .logo {
+    display: none;
+  }
+
+  .nav-scroll-wrapper {
+    display: flex;
+    gap: 12px;
+    padding: 0;
+    width: 100%;
+  }
+
+  #dynamic-categories {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    height: 100%;
+    min-height: 100%;
+    align-items: stretch;
+    justify-content: space-around;
+  }
+
+  .nav-category {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 100px;
+    height: 100%;
+    padding: 10px 8px;
+  }
+
+  .nav-category .label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  .nav-category i {
+    flex-shrink: 0;
+  }
+
+  /* Submenus & Project detail - Unified mobile panels */
+  .submenu,
+  #project-detail {
+    position: fixed;
+    inset: auto 20px 120px 20px;
+    width: calc(100vw - 40px);
+    max-width: 500px;
+    min-height: auto;
+    max-height: 40vh;
+    margin: 0;
+    border-radius: 20px 20px 0 0;
+    box-sizing: border-box;
+    opacity: 0;
+    transform: translateY(30px) scale(0.96);
+    transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Compensation pour submenu (enfant de #left-nav) */
+  .submenu {
+    bottom: 100px;
+    left: 0;
+    right: 0;
+  }
+  
+  .submenu[style*="display: block"],
+  .submenu.visible,
+  #project-detail[style*="display: block"],
+  #project-detail.visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  .detail-header-submenu .submenu-toggle-btn {
+    display: inline-flex;
+  }
+
+  /* UI Elements */
+  .mobile-fixed-logo {
+    display: inline-flex;
+  }
+
+  .city-menu {
+    position: fixed;
+    top: 56px;
+    left: 12px;
+    right: 12px;
+    max-height: calc(100vh - 72px);
+  }
+
+  .gp-bento {
+    grid-template-columns: 1fr;
+  }
+
+  .gp-travaux .donut {
+    width: 90px;
+    height: 90px;
+  }
+}
+
+/* ========================================
+   TABLET - Medium (≥ 768px)
+   ======================================== */
+@media (min-width: 768px) {
+  #detail-fullpage-btn {
+    width: auto;
+    min-width: 200px;
+  }
+}
+
+/* ========================================
+   DESKTOP - Large (≥ 1024px)
+   ======================================== */
+@media (min-width: 1024px) {
+  .detail-header-submenu .submenu-toggle-btn {
+    display: none;
+  }
+
+  #project-detail .detail-header-submenu .submenu-toggle-btn {
+    display: inline-flex;
+  }
+}
+
+/* ========================================
+   ACCESSIBILITY - Reduced motion
+   ======================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+  }
+
+  .detail-fullpage-btn,
+  .detail-fullpage-btn::after {
+    animation: none;
+  }
+}

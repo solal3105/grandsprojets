@@ -4,68 +4,66 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Fiche projet – Grands Projets de Lyon</title>
+  
+  <!-- Tailwind CSS via Play CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Configuration Tailwind inline -->
+  <script>
+    tailwind.config = {
+      darkMode: 'class', // Utiliser la classe 'dark' sur <html>
+      theme: {
+        extend: {
+          colors: {
+            // Tailwind v3+ supporte les variables CSS nativement
+            // Il faut juste s'assurer que --color-primary est définie avant le rendu
+            primary: 'var(--color-primary)',
+          },
+          height: {
+            'map-mobile': '30vh',
+            'map-tablet': '40vh',
+            'map-desktop': '45vh',
+          }
+        }
+      }
+    }
+  </script>
+  
   <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="/ficheprojet.css">
+  <link rel="stylesheet" href="/styles/fiche-markdown.css">
   <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
 </head>
 <body>
-  <article id="project-article"
-           data-project-name=""
-           data-layer-name=""
-           data-filter-key=""
-           data-filter-value="">
+  <article id="project-article">
     <!-- Le contenu sera injecté dynamiquement par ficheprojet.js -->
   </article>
 
+  <!-- PDF Preview Modal -->
+  <div id="pdf-preview-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-hidden="true" style="display:none">
+    <div class="gp-modal gp-modal--xlarge gp-modal--fixed-body" role="document">
+      <div class="gp-modal-header">
+        <div class="gp-modal-title" id="pdf-preview-title">Prévisualisation du document</div>
+        <button class="btn-secondary gp-modal-close" aria-label="Fermer">×</button>
+      </div>
+      <div class="gp-modal-body">
+        <iframe id="pdf-preview-frame" title="Prévisualisation PDF"></iframe>
+      </div>
+    </div>
+  </div>
+
   <script src="/vendor/leaflet/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
+  <script src="/modules/modal-helper.js"></script>
   <script src="/modules/supabaseservice.js"></script>
-  <script src="/data.js"></script>
+  <script src="/modules/thememanager.js"></script>
+  <script src="/modules/citybranding.js"></script>
+  <!-- Logiques métier pour les styles de couches -->
+  <script src="/modules/layerstyles.js"></script>
+  <!-- Gestion des camera markers (points avec images) -->
+  <script src="/modules/cameramarkers.js"></script>
   <!-- Styles et interactions des features (nécéssaire pour getFeatureStyle/bindFeatureEvents) -->
   <script src="/modules/datamodule.js"></script>
-  <script>
-    (function() {
-      try {
-        const params = new URLSearchParams(window.location.search || '');
-        const rawCat = (params.get('cat') || '').toLowerCase();
-        const projectParam = params.get('project') || '';
-        const projectName = projectParam; // URLSearchParams décode déjà
-        const article = document.getElementById('project-article');
-        if (!article) return;
-
-        // Déterminer layerName et éventuels filtres
-        let layerName = '';
-        let filterKey = '';
-        let filterValue = '';
-        const cat = (rawCat === 'transport') ? 'mobilite' : rawCat;
-        switch (cat) {
-          case 'velo':
-            layerName = 'voielyonnaise';
-            filterKey = 'line';
-            try {
-              const m = String(projectName).match(/(\d+)/);
-              if (m) filterValue = m[1];
-            } catch (_) {}
-            break;
-          case 'urbanisme':
-            layerName = 'urbanisme';
-            break;
-          case 'mobilite':
-          default:
-            layerName = 'reseauProjeteSitePropre';
-        }
-
-        // Appliquer sur l'article
-        if (projectName) article.dataset.projectName = projectName;
-        if (layerName) article.dataset.layerName = layerName;
-        if (filterKey) article.dataset.filterKey = filterKey;
-        if (filterValue) article.dataset.filterValue = filterValue;
-      } catch (e) {
-        console.warn('[fiche] init dataset from URL failed:', e);
-      }
-    })();
-  </script>
   <script src="/modules/markdownutils.js"></script>
   <script src="/modules/ficheprojet.js"></script>
 </body>

@@ -1,0 +1,314 @@
+/* ============================================================================
+   TOGGLES - Boutons de contrôle en haut à droite
+   Refactorisation centralisée - 2025-10-10
+   ============================================================================ */
+
+/* ============================================================================
+   VARIABLES CSS
+   ============================================================================ */
+
+:root {
+  /* Dimensions */
+  --toggle-size: 40px;
+  
+  /* Shadows */
+  --toggle-shadow: 0 2px 4px var(--black-alpha-10);
+  --toggle-shadow-hover: 0 8px 20px var(--black-alpha-15);
+  
+  /* Transitions */
+  --toggle-transition: all 0.2s ease;
+  
+  /* Spacing system - Basé sur un système de grille */
+  --toggle-gap: 50px;
+  --toggle-offset-base: 20px;
+}
+
+/* ============================================================================
+   BASE STYLES - Styles communs à tous les toggles
+   ============================================================================ */
+
+.app-toggle {
+  position: absolute;
+  top: 20px;
+  width: var(--toggle-size);
+  height: var(--toggle-size);
+  background: var(--white-alpha-80);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--black-alpha-10);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--toggle-transition);
+  box-shadow: var(--toggle-shadow);
+  z-index: 1000;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  font-size: 100%;
+  line-height: 1;
+  overflow: visible;
+  text-transform: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.app-toggle i {
+  color: var(--gray-800);
+  font-size: 1.1em;
+  transition: color 0.2s ease;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+/* Hover & Focus states */
+.app-toggle:hover,
+.app-toggle:focus-visible {
+  background: var(--white-alpha-90);
+  transform: scale(1.05);
+  box-shadow: var(--toggle-shadow-hover);
+  outline: none;
+}
+
+.app-toggle:active {
+  transform: scale(0.98);
+}
+
+.app-toggle:hover i,
+.app-toggle:focus-visible i {
+  color: var(--primary);
+  opacity: 1;
+}
+
+/* ============================================================================
+   DESKTOP POSITIONING (> 640px)
+   Système de positionnement basé sur des multiples de --toggle-gap
+   ============================================================================ */
+
+/* Filters - Position 0 (le plus à droite) */
+#filters-toggle {
+  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 0);
+}
+
+/* Basemap - Position 1 */
+#basemap-toggle {
+  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 1);
+}
+
+/* Theme - Position 2 */
+#theme-toggle {
+  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 2);
+}
+
+/* Search - Position 3 */
+#search-toggle {
+  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 3);
+}
+
+/* Location - Position 4 */
+#location-toggle {
+  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 4);
+}
+
+/* Info - Position 5 */
+#info-toggle {
+  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 5);
+}
+
+/* Contribute - Position 6 - Style primary comme dans la nav */
+#contribute-toggle {
+  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 6);
+  background: var(--primary);
+}
+
+#contribute-toggle i {
+  color: var(--white);
+  opacity: 1;
+}
+
+
+#contribute-toggle:hover i,
+#contribute-toggle:focus-visible i {
+  color: var(--white);
+}
+
+#contribute-toggle:active {
+  background: var(--primary-active);
+}
+
+/* Login - Position 7 */
+#login-toggle {
+  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 7);
+}
+
+/* Location toggle - géré dynamiquement par JavaScript selon la configuration */
+
+/* ============================================================================
+   SPECIFIC TOGGLE STYLES
+   ============================================================================ */
+
+/* Filters toggle - Badge counter */
+.filter-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: var(--primary);
+  color: var(--white);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+
+/* Location toggle - Special states */
+#location-toggle.active .fa-location-arrow {
+  color: var(--primary);
+  animation: pulse 2s infinite;
+}
+
+#location-toggle.loading .fa-location-arrow {
+  animation: spin 1s linear infinite;
+}
+
+#location-toggle.error {
+  color: var(--danger);
+  animation: shake 0.5s;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* ============================================================================
+   MOBILE LAYOUT (≤ 640px)
+   Transformation en barre horizontale unifiée avec positionnement automatique
+   ============================================================================ */
+
+@media (max-width: 640px) {
+  /* Container virtuel pour le groupe de toggles */
+  /* Les toggles sont toujours position: absolute, mais on utilise leur ordre visuel */
+  
+  /* Tous les toggles deviennent carrés et collés */
+  .app-toggle {
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--white-alpha-60);
+    border: 1px solid var(--black-alpha-10);
+    /* Position calculée dynamiquement via data-mobile-index */
+  }
+  
+  /* Location toggle - géré dynamiquement par JavaScript selon la configuration */
+  
+  /* ============================================================================
+     BORDER RADIUS DYNAMIQUES - S'adaptent au premier et dernier toggle visible
+     Utilisent des attributs data ajoutés par JS pour marquer les extrémités
+     ============================================================================ */
+  
+  /* Réinitialiser tous les border-radius */
+  .app-toggle {
+    border-radius: 0 !important;
+  }
+  
+  /* Premier toggle visible (gauche) - marqué par data-edge="first" */
+  .app-toggle[data-edge="first"],
+  .app-toggle[data-edge="both"] {
+    border-radius: 999px 0 0 999px !important;
+  }
+  
+  /* Dernier toggle visible (droite) - marqué par data-edge="last" */
+  .app-toggle[data-edge="last"],
+  .app-toggle[data-edge="both"] {
+    border-radius: 0 999px 999px 0 !important;
+  }
+  
+  /* Si un seul toggle visible - marqué par data-edge="both" */
+  .app-toggle[data-edge="both"] {
+    border-radius: 999px !important;
+  }
+  
+  /* ============================================================================
+     POSITIONNEMENT MOBILE - Ordre visuel de gauche à droite
+     Ces valeurs seront surchargées dynamiquement par JS si un toggle est masqué
+     ============================================================================ */
+  
+  /* Info (gauche) → Location → Search → Theme → Basemap → Filters → Contribute → Login (droite) */
+  
+  #info-toggle {
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 7);
+  }
+  
+  #location-toggle {
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 6);
+  }
+  
+  #search-toggle {
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 5);
+  }
+  
+  #theme-toggle {
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 4);
+  }
+  
+  #basemap-toggle {
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 3);
+  }
+  
+  #filters-toggle {
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 2);
+  }
+  
+  #contribute-toggle {
+    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 1);
+  }
+  
+  #login-toggle {
+    right: var(--toggle-offset-base);
+  }
+}
+
+/* ============================================================================
+   BASEMAP MENU
+   ============================================================================ */
+
+/* NOTE: All basemap menu styles have been moved to 04-components.css
+   for unified design with filters-container. See there for complete styling. */
+
+/* ============================================================================
+   ACCESSIBILITY
+   ============================================================================ */
+
+/* Focus visible pour keyboard navigation */
+.app-toggle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Reduce motion pour accessibilité */
+@media (prefers-reduced-motion: reduce) {
+  .app-toggle,
+  .app-toggle i {
+    transition: none;
+    animation: none;
+  }
+}

@@ -1,517 +1,361 @@
-# GrandProjetV2
+# Grands Projets – Plateforme de Cartographie Urbaine
 
-[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC) [![Leaflet](https://img.shields.io/badge/Leaflet-1.9.x-brightgreen)](#)
+[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC) [![Leaflet](https://img.shields.io/badge/Leaflet-1.9.x-brightgreen)](#) [![Tests](https://img.shields.io/badge/Tests-Playwright-45ba4b)](#)
 
-**Dernière mise à jour :** 2025-08-30
-
----
-
-## Sommaire
-- [1. Présentation générale](#1-pr%C3%A9sentation-g%C3%A9n%C3%A9rale)
-- [2. Arborescence du projet](#2-arborescence-du-projet)
-- [3. Flux d’initialisation et logique de chargement](#3-flux-dinitialisation-et-logique-de-chargement)
-- [4. Détail des modules](#4-d%C3%A9tail-des-modules)
-- [5. Pages statiques et Markdown](#5-pages-statiques-et-markdown)
-- [6. Styles CSS](#6-styles-css)
-- [7. Dépendances externes](#7-d%C3%A9pendances-externes)
-- [8. Lancement et configuration](#8-lancement-et-configuration)
-- [9. Scénarios d’interaction utilisateur](#9-sc%C3%A9narios-dinteraction-utilisateur)
-- [10. FAQ / Erreurs fréquentes](#10-faq--erreurs-fr%C3%A9quentes)
-- [11. Conseils pour la maintenance et l’évolution](#11-conseils-pour-la-maintenance-et-l%C3%A9volution)
-- [12. Modèle de données Supabase](#12-mod%C3%A8le-de-donn%C3%A9es-supabase)
-- [13. Déploiement](#13-d%C3%A9ploiement)
-- [14. Contribuer (CONTRIBUTING)](#14-contribuer-contributing)
-- [15. Changelog](#15-changelog)
+> **Visualisez et explorez les grands projets d'urbanisme et de mobilité en France**
 
 ---
 
-## 1. Présentation générale
+## 📖 Sommaire
 
-GrandProjetV2 est une application web **single-page** écrite en JavaScript ES6 (sans framework), destinée à explorer les projets urbains du Grand Lyon via une carte interactive Leaflet. Elle permet :
-- d’afficher des couches GeoJSON dynamiques (transport, vélo, urbanisme, travaux)
-- de filtrer ces couches selon des critères multi-niveaux
-- de consulter des fiches projets détaillées (Markdown rendu dynamiquement ou pages statiques)
-- de stocker la configuration (couches, filtres, pages) dans Supabase
-
-**Tout est modulaire et chaque module JS est exposé sur `window.*` pour faciliter le debug ou l’extension.**
+- [🌍 À propos de la plateforme](#-à-propos-de-la-plateforme)
+  - [Qu'est-ce que Grands Projets ?](#quest-ce-que-grands-projets-)
+  - [Pour qui ?](#pour-qui-)
+  - [Fonctionnalités principales](#fonctionnalités-principales)
+  - [Villes couvertes](#villes-couvertes)
+- [🏗️ Architecture technique](#️-architecture-technique)
+  - [Principes de conception](#principes-de-conception)
+  - [Stack technologique](#stack-technologique)
+  - [Architecture modulaire](#architecture-modulaire)
+  - [Système de design](#système-de-design)
+  - [Gestion des données](#gestion-des-données)
+- [🚀 Démarrage rapide](#-démarrage-rapide)
 
 ---
 
-## 2. Arborescence du projet
+## 🌍 À propos de la plateforme
+
+### Qu'est-ce que Grands Projets ?
+
+**Grands Projets** est une plateforme web interactive qui centralise et cartographie les projets d'aménagement urbain et de mobilité des grandes métropoles françaises. À travers une carte interactive intuitive, découvrez les lignes de tramway, les voies cyclables, les zones d'urbanisme, les travaux en cours, et bien plus encore.
+
+L'application permet de :
+- **Visualiser** tous les projets d'infrastructure sur une carte dynamique
+- **Filtrer** par type (transport, vélo, urbanisme, travaux)
+- **Explorer** les détails de chaque projet avec des fiches complètes
+- **Contribuer** en proposant de nouveaux projets ou mises à jour
+- **Suivre** l'évolution des travaux et des réalisations
+
+### Pour qui ?
+
+#### 🏘️ Citoyens et riverains
+- Suivez les travaux qui impactent votre quartier
+- Découvrez les futurs aménagements de votre ville
+- Consultez les plans d'urbanisme et les études de concertation
+- Participez en proposant vos propres contributions
+
+#### 🏢 Professionnels de l'urbanisme
+- Centralisez les informations sur les projets en cours
+- Accédez aux données géographiques (GeoJSON)
+- Visualisez les interconnexions entre projets
+- Exportez les données pour vos analyses
+
+#### 🎓 Étudiants et chercheurs
+- Analysez les dynamiques urbaines
+- Étudiez l'évolution des infrastructures
+- Consultez l'historique des projets
+- Utilisez les données pour vos recherches
+
+#### 📰 Journalistes et médias
+- Suivez les grands chantiers en direct
+- Accédez aux dossiers officiels et documents de concertation
+- Visualisez l'impact territorial des projets
+- Créez des visualisations pour vos articles
+
+### Fonctionnalités principales
+
+#### 🗺️ Carte interactive
+- **Navigation intuitive** : zoom, déplacement, recherche d'adresse
+- **Couches thématiques** : activez/désactivez les types de projets
+- **Géolocalisation** : centrez la carte sur votre position
+- **Fonds de carte variés** : OSM, satellite, historique (IGN années 50-80)
+- **Mode sombre** : adaptation automatique au thème du système
+
+#### 🔍 Filtres avancés
+- **Par type** : tramway, métro, bus, vélo, urbanisme, travaux
+- **Par statut** : en cours, planifié, terminé, en concertation
+- **Par ligne** : filtrez les lignes de transport spécifiques (T6, T9, etc.)
+- **Filtres combinables** : croisez plusieurs critères simultanément
+
+#### 📄 Fiches projet détaillées
+- **Informations complètes** : description, calendrier, budget, acteurs
+- **Visuels** : photos, plans, schémas, rendus 3D
+- **Documents officiels** : dossiers de concertation, études d'impact
+- **Liens externes** : sites officiels, articles de presse
+- **Géométrie interactive** : tracés exacts sur la carte
+
+#### 🤝 Système de contribution
+- **Proposez des projets** : ajoutez des informations manquantes
+- **Enrichissez les données** : photos, documents, géométrie
+- **Modération** : validation par l'équipe avant publication
+- **Multi-villes** : contribuez sur différentes agglomérations
+
+---
+
+## 🏗️ Architecture technique
+
+### Principes de conception
+
+La plateforme repose sur des principes d'architecture modernes et maintenables :
+
+#### **Vanilla First**
+Contrairement aux applications web modernes qui s'appuient sur des frameworks lourds (React, Vue, Angular), Grands Projets utilise **JavaScript natif ES6+** sans aucun framework. Cette approche offre :
+- **Performance optimale** : pas de bundle volumineux à charger
+- **Maintenance simplifiée** : pas de dépendances à mettre à jour constamment
+- **Code transparent** : chaque module est lisible et compréhensible
+- **Rapidité de développement** : pas de configuration complexe
+
+#### **Architecture modulaire**
+Le code est organisé en **modules JavaScript autonomes** exposés sur `window.*`, permettant :
+- **Séparation des responsabilités** : chaque module a un rôle précis
+- **Réutilisabilité** : les modules peuvent être utilisés indépendamment
+- **Testabilité** : chaque module peut être testé isolément
+- **Debugging facilité** : accès direct aux modules depuis la console
+
+#### **Mobile-first et responsive**
+Le design s'adapte à tous les écrans avec une approche mobile-first. Sur mobile (≤ 720px), la navigation se positionne en bas, les panneaux deviennent des overlays, et les interactions sont optimisées pour le touch. Sur desktop, une navigation latérale classique s'affiche avec des panneaux détaillés côte à côte.
+
+#### **Performance et cache**
+Un système de cache intelligent stocke les données GeoJSON en mémoire pour éviter les requêtes réseau répétées. Les couches se chargent à la demande (lazy loading), et les actions utilisateur sont optimisées via debouncing pour garantir une expérience fluide même sur des connexions lentes.
+
+### Stack technologique
+
+#### **Frontend**
+- **JavaScript ES6+** : syntaxe moderne (async/await, destructuring, modules)
+- **HTML5 sémantique** : structure accessible (ARIA, landmarks)
+- **CSS natif** : variables CSS, grid, flexbox (pas de préprocesseur)
+- **Leaflet 1.9.x** : cartographie interactive performante
+- **Marked.js** : conversion Markdown → HTML pour les fiches
+
+#### **Backend et données**
+- **Supabase** : backend-as-a-service basé sur PostgreSQL
+  - Base de données relationnelle avec RLS (Row Level Security)
+  - Authentification magic link (email sans mot de passe)
+  - Stockage de fichiers (images, GeoJSON)
+  - API REST automatique
+- **GeoJSON** : format standard ISO pour les données géographiques
+- **Markdown + YAML** : fiches projet en fichiers texte versionnables
+
+#### **Outils et APIs**
+- **Playwright** : tests end-to-end automatisés en JavaScript
+- **Python HTTP Server** : serveur de dev léger (pas de Node.js requis)
+- **API Adresse (data.gouv)** : géocodage d'adresses françaises
+- **Geolocation API** : localisation navigateur (HTML5)
+- **Google Analytics** : statistiques anonymisées
+
+### Architecture modulaire
+
+L'application est structurée en **28 modules JavaScript indépendants**, organisés en 5 couches :
+
+#### **Couche Core (orchestration)**
+
+**`main.js`** – Point d'entrée unique qui orchestre l'initialisation en 4 phases : chargement des modules de base (analytics, theme), résolution de la ville active, fetch des données Supabase, et initialisation de la carte avec les couches par défaut.
+
+**`supabaseservice.js`** (90 KB) – Couche d'accès aux données qui expose une API complète : `initAllData()` charge toutes les tables en parallèle, les fonctions `fetch*()` récupèrent les données filtrées par ville, et un cache mémoire évite les requêtes réseau répétées.
+
+**`datamodule.js`** (36 KB) – Gestionnaire de couches GeoJSON qui parse et valide les données, applique les styles aux features (couleurs de lignes, épaisseurs), gère les tooltips interactifs, et fusionne automatiquement les données contributives avec les couches officielles.
+
+**`mapmodule.js`** – Wrapper Leaflet minimaliste qui initialise la carte, gère l'ajout/suppression de couches, contrôle les fonds de carte (basemaps), et expose l'instance `map` globalement pour les autres modules.
+
+#### **Couche UI (interface utilisateur)**
+
+**`navigationmodule.js`** (21 KB) – Moteur de navigation qui rend les listes de projets par catégorie, affiche le panneau détail avec fetch/rendu des fichiers Markdown, extrait le front-matter YAML (couverture, itinéraire, trafic), et anime les transitions entre vues.
+
+**`uimodule.js`** (16 KB) – Gestionnaire d'interface qui contrôle les popups (filtres, basemap, about), toggle les panneaux latéraux, met à jour les compteurs et badges, et gère l'accessibilité (focus trap, ARIA).
+
+**`eventbindings.js`** – Coordinateur d'événements qui lie les clics aux actions (navigation, filtres, carte), reset les états lors des changements de vue, et synchronise les interactions entre modules.
+
+**`modalnavigation.js`** (11 KB) – Gestionnaire de modales avancé avec historique de navigation, fermeture au clic extérieur/ESC, gestion du focus piégé, et animations d'ouverture/fermeture fluides.
+
+#### **Couche Filtres**
+
+**`filtermodule.js`** – Store minimaliste qui stocke les critères actifs par couche dans un objet simple, expose une API CRUD (`set`, `get`, `reset`, `resetAll`), et persiste les sélections en mémoire.
+
+**`filtermanager.js`** (7 KB) – Logique de filtrage qui construit dynamiquement l'UI des filtres depuis Supabase, génère les sous-filtres contextuels selon les propriétés GeoJSON, applique les critères aux features pour masquer/afficher, et compte les résultats visibles.
+
+#### **Couche Contribution**
+
+**`contrib.js`** (100 KB) – Système complet de contribution organisé en stepper multi-étapes : 1) métadonnées (nom, catégorie, description), 2) géométrie (dessin sur carte ou upload GeoJSON), 3) validation et preview. Gère l'édition de contributions existantes, l'upload de fichiers vers Supabase Storage, et la soumission finale avec génération d'URLs publiques.
+
+**`contrib/` (24 fichiers)** – Sous-modules spécialisés : `contrib-list.js` (liste des contributions avec infinite scroll), `contrib-geometry.js` (outils de dessin Leaflet.draw), `contrib-city-context.js` (contexte ville unifié), plus des templates HTML pour les modales d'interface.
+
+#### **Couche Ville (multi-tenancy)**
+
+**`citymanager.js`** (20 KB) – Gestionnaire multi-villes qui charge les villes valides depuis Supabase, résout la ville active (ordre : URL `?city=`, localStorage, null pour mode global), initialise l'UI dropdown de sélection, et applique la vue initiale (zoom, centre GPS).
+
+**`citybranding.js`** (6 KB) – Système de branding personnalisé qui charge les couleurs depuis Supabase (`city_branding`), génère automatiquement les variations (alpha-08, alpha-20, hover, etc.), et injecte les variables CSS pour adapter toute l'interface à la charte de la ville.
+
+**`city-redirect.js`** (9 KB) – Gestionnaire de redirections qui détecte les URLs legacy (`/lyon`, `/besancon`) et redirige proprement vers `/?city=lyon`, gère les cas edge (404, ville invalide), et préserve les query params existants.
+
+#### **Modules utilitaires**
+
+**`searchmodule.js`** (12 KB) – Recherche d'adresse via API Adresse (data.gouv), affichage des résultats en liste, ajout d'un marqueur à la sélection, et recentrage automatique de la carte avec zoom adapté.
+
+**`geolocation.js`** (13 KB) – Géolocalisation HTML5 qui demande l'autorisation utilisateur, affiche la position avec un marqueur + cercle de précision, gère les erreurs (permission refusée, timeout), et recadre la carte.
+
+**`ficheprojet.js`** (26 KB) – Moteur de pages fiche complètes qui charge les `.html` statiques, parse le Markdown avec front-matter, affiche la couverture en hero, charge la géométrie sur la carte, et gère les galeries de médias.
+
+**`thememanager.js`** (6 KB) – Gestionnaire de thèmes qui détecte le thème système (clair/sombre), permet le toggle manuel, persiste le choix dans localStorage, et synchronise avec les basemaps (mode sombre = fond sombre).
+
+**`markdownutils.js`** – Convertisseur Markdown qui utilise Marked.js, prétraite les directives custom (::banner{type=info}), extrait le front-matter YAML avec validation, et sanitize le HTML produit.
+
+**`cameramarkers.js`** (7 KB) – Affichage des photos géolocalisées depuis `image_metadata`, markers cliquables avec popup image, clustering optionnel si trop de points, et chargement différé des images.
+
+**`travauxmodule.js`** (20 KB) – Module spécialisé travaux avec timeline des chantiers, graphiques donut de progression (SVG custom), filtres par statut (en cours, terminé, planifié), et alertes de perturbations.
+
+**`submenumodule.js`** (14 KB) – Gestion des sous-menus de navigation avec transitions CSS fluides, état réduit/étendu persistant, animations d'items en cascade (stagger), et gestion du focus clavier.
+
+### Système de design
+
+L'application utilise un **design system cohérent** basé sur 17 fichiers CSS organisés en cascade :
+
+#### **Architecture CSS en couches**
 
 ```
-grandprojetV2/
-├── index.html                  # Entrée unique, charge tous les modules JS dans l’ordre
-├── style.css                   # Styles globaux (layout, nav, popups)
-├── ficheprojet.css             # Styles dédiés aux pages statiques de fiche projet
-├── data.js                     # (Hérité) Placeholder; non requis (données chargées dynamiquement via Supabase)
-├── main.js                     # Orchestration, bootstrap général
-├── README.md                   # Documentation complète du projet
-├── modules/
-│   ├── supabaseservice.js      # Accès/fetch Supabase (toutes les tables)
-│   ├── datamodule.js           # Cache réseau, gestion GeoJSON, parsing
-│   ├── mapmodule.js            # Initialisation Leaflet, gestion des couches
-│   ├── filtermodule.js         # Stockage des critères de filtre actifs
-│   ├── uimodule.js             # UI filtres, popups, menu basemap, panneau détail
-│   ├── navigationmodule.js     # Navigation projets, rendu des listes, panneau détail
-│   ├── eventbindings.js        # Liaison boutons & filtres → logique métier
-│   ├── ficheprojet.js          # (si utilisé, logique fiche projet statique)
-│   └── contrib.js              # Flux de contribution (stepper, édition, carte)
-├── pages/
-│   ├── velo/
-│   │   ├── ligne-1.md
-│   │   ├── ligne-2.md
-│   │   ├── ...
-│   │   ├── voie-lyonnaise-1.html
-│   │   ├── voie-lyonnaise-2.html
-│   │   └── ...
-│   └── mobilite/
-│       ├── bhns.html
-│       ├── t8.html
-│       ├── ...
-├── img/
-│   ├── logo.svg
-│   ├── transport.svg
-│   ├── velo.svg
-│   ├── urbanisme.svg
-│   ├── travaux.svg
-│   ├── architecture.svg
-│   └── mobilite.svg
-└── vendor/
-    └── leaflet/
-        ├── leaflet.js
-        └── leaflet.css
+00-colors.css       → Variables de couleurs + dark mode
+01-base.css         → Reset CSS + typographie de base
+02-layout.css       → Grilles, containers, structure
+03-navigation.css   → Menus, onglets, navigation
+04-components.css   → Composants globaux + scrollbars
+gp-button-system.css→ Système de boutons unifié
+gp-card-system.css  → Système de cartes réutilisables
+gp-markdown-content.css→ Styles de rendu Markdown
+05-map.css          → Carte Leaflet, overlays, tooltips
+06-modals.css       → Modales, popups, overlays
+08-responsive.css   → Media queries mobile-first
 ```
 
-> **Remarque** :
-> - Le dossier `pages/` contient plusieurs sous-dossiers thématiques (`velo/`, `mobilite/`, etc.), chacun avec des fichiers `.md` (Markdown) et `.html` (pages statiques).
-> - Le dossier `img/` regroupe tous les logos/icônes utilisés dans l’UI.
-> - Le dossier `vendor/leaflet/` contient la librairie Leaflet locale (JS et CSS).
-> - L’ordre de chargement des scripts dans `index.html` est crucial (dépendances explicites, pas de bundler).
+#### **Système de couleurs adaptatif**
 
+Toutes les couleurs sont définies via **variables CSS natives** qui s'inversent automatiquement en dark mode. Les variables de base (`--color-primary`, `--gray-*`) génèrent des variations calculées (`--primary-alpha-08`, `--gray-300`). Les alias sémantiques (`--text-primary`, `--surface-base`, `--border-medium`) référencent ces variables, permettant un changement de thème instantané sans réécriture CSS.
 
----
+En mode sombre, les grays sont inversés (`--gray-50` devient `#0f172a`, `--gray-900` devient `#f8fafc`), les opacités blanc/noir sont échangées, et les couleurs d'accent sont adoucies pour réduire la fatigue oculaire. Le résultat : 360 lignes de variables génèrent automatiquement deux thèmes complets.
 
-## 3. Flux d’initialisation et logique de chargement
+#### **Composants unifiés**
 
-1. **Chargement initial** :
-   - `main.js` attend `DOMContentLoaded`, puis lance `initApp()`.
-   - `supabaseService.initAllData()` charge en parallèle toutes les tables nécessaires (couches, filtres, pages, etc.) depuis Supabase et expose les résultats sur `window`.
-   - Les menus basemap sont générés (`UIModule.updateBasemaps()`), la carte Leaflet est initialisée (`MapModule.initBaseLayer()`), et les couches par défaut sont chargées (`DataModule.loadLayer()`).
-   - Les filtres sont générés dynamiquement à partir de la config Supabase (`populateFilters()`, `updateFilterUI()`).
-   - Les événements UI sont attachés (`EventBindings.bindFilterControls()`, `UIModule.init()`).
+**Boutons** : deux classes de base (`.btn-primary` pour les actions principales, `.btn-secondary` pour les actions secondaires) avec variants (`.btn-danger`, `.btn-info`) et tailles (`.btn-small`, `.btn-large`). Cette unification a supprimé ~400 lignes de CSS redondant tout en garantissant une cohérence parfaite sur 100% des boutons de l'application.
 
-2. **Navigation dynamique** :
-   - L’utilisateur n’a jamais besoin de recharger la page ; tout changement de catégorie, filtre ou fond de carte se fait dynamiquement via les modules JS.
+**Cartes** : structure `.gp-card` avec header/body/footer, variants thématiques (`--media`, `--info`, `--link`, `--documents`), et système de grille `.gp-card-grid`. Design moderne avec border-radius 16px, ombres multicouches, et animations fluides au hover.
 
----
+**Scrollbars** : style Apple minimaliste (6px de largeur, transparentes par défaut, visibles au hover) qui s'adaptent automatiquement au thème via `var(--border-medium)`. Compatible Firefox (`scrollbar-width: thin`) et Webkit (`::-webkit-scrollbar`).
 
-## 4. Détail des modules
+#### **Responsive mobile-first**
 
-### 4.1. supabaseservice.js
- - **Rôle** : centralise tous les accès à Supabase (via CDN, pas de clé admin en prod !)
- - **Tables attendues** : `layers`, `metro_colors`, `contribution_uploads` (source unique des projets toutes catégories), `filter_categories`/`filter_items` (via `fetchFiltersConfig()`), `basemaps`.
- - **Fonctions principales** :
-   - `fetchLayersConfig()`, `fetchMetroColors()`, etc. → récupèrent chaque table (la table `layers` est exposée en `window.layersConfig` via `initAllData()`)
-   - `initAllData()` → lance tous les fetchers et expose les résultats sur `window`
-- **Exemple d’appel** :
-  ```js
-  const { layersConfig, basemaps } = await supabaseService.initAllData();
-  ```
+Les media queries partent du mobile et ajoutent des règles au fur et à mesure que l'écran grandit. Sur mobile (≤ 720px), la navigation est fixée en bas (position: fixed, bottom: 20px), les panneaux deviennent des overlays en fullscreen, et les submenus/détails utilisent `position: fixed` pour une référence viewport commune. Sur desktop (≥ 1024px), la navigation reprend sa position latérale classique, les panneaux s'affichent côte à côte, et les toggles mobiles sont masqués.
 
-### 4.2. data.js
-- Statut: fichier hérité. Il n’est plus utilisé pour stocker du contenu; les données sont chargées dynamiquement via Supabase (`supabaseService.initAllData()`).
-- Compatibilité: plusieurs fiches statiques incluent encore `<script src="../../data.js"></script>`. Cela est sans effet si le fichier reste vide. Vous pouvez supprimer ces balises des pages si vous souhaitez nettoyer le code.
-- Hook optionnel: vous pouvez définir `window.zoomConfig` pour contrôler la visibilité de certains marqueurs selon le zoom. `MapModule.updateMarkerVisibility()` lira cette config si présente.
+### Gestion des données
 
-### 4.3. datamodule.js
-- **Cache réseau** : `simpleCache` (objet clé/valeur) et `CacheManager` (limite la taille du cache)
-- **initConfig({urlMap, styleMap, defaultLayers})** : configure les URLs et styles de chaque couche
-- **fetchLayerData(layer)** : récupère (et met en cache) le GeoJSON d’une couche
-- **loadLayer(layer)** : charge une couche sur la carte (supprime l’ancienne si besoin)
-- **createGeoJsonLayer(layer, data)** : applique le style, les tooltips, les événements
-- **getProjectDetails(name, category)** : renvoie l’objet projet (description, propriétés)
+#### **Architecture Supabase**
 
-### 4.4. mapmodule.js
-- Initialise la carte Leaflet (`L.map`), gère les fonds et overlays
-- **initBaseLayer()**, **setBaseLayer(tileLayer)** : changent le fond de carte
-- **addLayer(name, layer)**, **removeLayer(name)** : ajout/suppression de couches
-- **updateMarkerVisibility()** : applique le zoomConfig
+La base PostgreSQL contient 11 tables principales organisées en 3 domaines :
 
-### 4.5. FilterModule.js
-- Stocke les critères actifs dans `filters`
-- API : `set(layer, criteria)`, `get(layer)`, `reset(layer)`, `resetAll()`
+**Configuration** : `layers` (couches cartographiques avec URLs GeoJSON et styles), `filter_categories` + `filter_items` (filtres dynamiques hiérarchiques), `basemaps` (fonds de carte avec attributions), `metro_colors` (couleurs des lignes de transport).
 
-### 4.6. UIModule.js
-- Gère l’ouverture/fermeture des popups filtres et basemap, la gestion des sous-filtres dynamiques (création d’inputs selon les propriétés des features), l’application des filtres, la mise à jour des tags actifs, l’initialisation du menu basemap, l’affichage du panneau détail (en déléguant à NavigationModule)
-- **Accessibilité** : gestion du focus et des événements clavier (à compléter si besoin)
+**Contenu** : `contribution_uploads` (table unifiée pour tous les projets contributifs avec métadonnées, URLs GeoJSON/images/Markdown, et champ `ville`), `consultation_dossiers` (documents officiels PDF), `image_metadata` (photos géolocalisées avec latitude/longitude).
 
-### 4.7. EventBindings.js
-- **handleNavigation(menu, layersToDisplay)** :
-  - masque le panneau détail, réinitialise tous les filtres, ajuste la navigation
-  - retire/charge les couches via MapModule/DataModule
-  - lance le rendu de la liste de projets via NavigationModule
-- **bindFilterControls()** :
-  - gère les clics sur `.filter-item` (ajout/suppression d’un **critère** de filtre, pas la couche elle-même)
-  - gère les clics sur `.settings-btn` (ouverture des sous-filtres)
+**Ville** : `cities` (villes valides avec nom, limites GPS, zoom par défaut), `city_branding` (couleurs primaires personnalisées par ville).
 
-### 4.8. navigationmodule.js
-- **showProjectDetail(name, category, event)** :
-  1. empêche la propagation, masque les sous-menus
-  2. récupère le contenu via **fetch()** d’un fichier Markdown sous `pages/<cat>/*.md` pour toutes les catégories (Vélo, Mobilité/Transport, Urbanisme)
-  3. extrait le front-matter YAML (couverture, itinéraire `from/to`, **line**, **trafic**, description) et **n'affiche plus** le corps Markdown, pour garder le panneau synthétique
-  4. cherche `window.projectPages[name]` (chargé via Supabase) pour afficher un bouton « Voir la fiche complète »; fallback: vérifie l’existence d’une page `.html` correspondante
-  5. applique des animations (zoom, surbrillance)
-- **renderTransportProjects()**, **renderVeloProjects()**, etc. : génèrent dynamiquement les listes de projets selon la catégorie
-- **zoomOutOnLoadedLayers()** : ajuste la vue pour englober toutes les couches visibles
+**Sécurité RLS** : lecture publique via rôle `anon` (pas de clé secrète exposée), écriture authentifiée pour les contributions (magic link email), et isolation par ville au niveau des requêtes (filtrage via colonne `ville`).
 
+#### **Format GeoJSON standard**
 
-### 4.9. MarkdownUtils & FicheProjet Pipeline
-- **MarkdownUtils.preprocessCustomMarkdown()** : normalise les retours à la ligne, corrige les titres et convertit les directives `::banner{type=*}` en balises HTML.
-- **ficheprojet.js** (pages complètes) : lit un fichier `.md`, extrait le front-matter YAML, affiche la couverture, les chips, la description **puis** le corps Markdown complet pour une fiche exhaustive.
-- **NavigationModule.showProjectDetail()** : ré-utilise le rendu Markdown mais **n’injecte que** la couverture, les chips et la description ; le corps Markdown est volontairement omis pour conserver une vue concise.
-- Les classes de bannière générées (`banner-info`, `banner-wip`, `banner-postponed`, `banner-modified`, `banner-unsecured`, etc.) sont stylées dans `ficheprojet.css` pour assurer une apparence homogène.
+Toutes les géométries respectent la spec RFC 7946 : FeatureCollection avec tableau de Features, chaque Feature ayant une geometry (Point/LineString/Polygon) en coordonnées WGS84 et un objet properties libre. Les properties sont exploitées pour le filtrage (`project_name`, `status`, `line`) et l'affichage (tooltips, styles conditionnels).
 
-### 4.10. searchmodule.js
-- **Rôle** : recherche d’adresses via l’API Adresse (data.gouv), overlay de résultats, ajout d’un marqueur et recentrage de la carte.
-- **API** : `SearchModule.init(map)`
+#### **Cache multi-niveaux**
 
-### 4.11. geolocation.js
-- **Rôle** : bouton « Centrer sur ma position », récupère la position via `navigator.geolocation`, affiche un marqueur/cercle de précision et recadre la carte.
-- **API** : `GeolocationModule.init(map)`, `handleLocationButtonClick()`
+**Cache mémoire** : objet `simpleCache` qui stocke les GeoJSON fetchés avec gestion de taille maximale (CacheManager). Les requêtes identiques ne déclenchent qu'un seul fetch réseau.
+
+**Cache navigateur** : les ressources statiques (CSS, JS, images) utilisent les en-têtes HTTP standards (Cache-Control, ETag). Les fonds de carte Leaflet sont automatiquement mis en cache par le navigateur.
+
+**Chargement différé** : les couches ne se chargent que lorsqu'elles sont activées (clic sur catégorie), les fiches Markdown se fetchent au clic sur un projet, et les images utilisent l'attribut `loading="lazy"` natif.
+
+#### **Fichiers Markdown avec métadonnées**
+
+Les fiches projet combinent front-matter YAML et contenu Markdown. Le front-matter est extrait via regex (`---\n...\n---`), parsé en objet JavaScript, puis utilisé pour générer l'UI (cover hero, chips itinéraire/trafic, description). Le corps Markdown est converti en HTML via Marked.js avec support des directives custom (::banner{type=info}).
+
+Avantage : les fichiers restent éditables dans un éditeur de texte simple, versionnables avec Git, et ne nécessitent aucune base de données pour être mis à jour. Un nouveau projet = un nouveau fichier `.md`.
 
 ---
 
-### 4.12. contrib.js (Flux de contribution)
-- **Rôle** : gère l’envoi et la modification des contributions (métadonnées + GeoJSON) via un stepper multi-étapes.
-- **Comportements clés** :
-  - Entrée en mode édition commence directement à l’étape 1 du stepper. Implémenté par `enterEditMode(row)` qui force `setStep(1, { force: true })`.
-  - La carte/GeoJSON ne se charge qu’à l’étape 2. Lors du passage à l’étape 2, si on est en édition et qu’une URL GeoJSON existe, `preloadGeometryOnMap(url)` est appelée pour afficher la géométrie.
-  - Le bouton « annuler la modification » a été retiré (visuellement et côté JS). Le bouton « Retour » du stepper sert d’annulation/retour.
-- **API principale** : `enterEditMode(row)`, `exitEditMode()`, `setStep(n, opts)`, `preloadGeometryOnMap(url)`.
-- **Notes permissions (Supabase)** :
-  - RLS: utilisateurs authentifiés peuvent `INSERT` et `UPDATE` `public.contribution_uploads` (pas de restriction propriétaire stricte).
-  - Stockage: `INSERT` authentifié sur `uploads/img/cover/%` et `uploads/geojson/projects/%` (pas d’`UPDATE` requis; noms de fichiers uniques et `upsert:false`).
+## 🚀 Démarrage rapide
 
+### Installation
 
-## 5. Fonctionnement des fiches projets (Project Sheets)
+```bash
+# 1. Cloner le repository
+git clone https://github.com/your-org/grandsprojets.git
+cd grandsprojets
 
-Les "fiches projets" sont les pages de détail qui présentent chaque projet urbain (transport, vélo, urbanisme...) de façon riche et interactive. Il existe deux types de fiches : **fiches dynamiques (Markdown)** et **fiches statiques (HTML)**.
+# 2. Installer les dépendances (tests uniquement)
+npm install
 
-### 5.1 Fiches dynamiques (Markdown)
-- **Stockage** : Les contenus sont stockés sous forme de fichiers `.md` dans `pages/velo/`, `pages/mobilite/` et `pages/urbanisme/`.
-- **Affichage** : Lorsqu’un utilisateur clique sur un projet, `NavigationModule.showProjectDetail()` :
-  1. calcule le chemin du fichier Markdown (`pages/<cat>/<slug>.md`)
-  2. lit le fichier avec `fetch()` puis passe par `MarkdownUtils.renderMarkdown()`
-  3. extrait le front‑matter (couverture, itinéraire, trafic, description) et insère ces éléments dans le panneau détail; le corps Markdown complet n’est pas affiché dans cette vue.
-- **Structure recommandée** du Markdown :
-  - Un titre (`# ...`)
-  - Une introduction
-  - Des sections avec titres (`## ...`)
-  - Listes, tableaux, images (liens relatifs possibles vers `/img/`)
-- **Avantages** : Facile à éditer, versionnable, rendu dynamique, supporte la mise à jour sans rechargement de page.
-
-### 5.2 Fiches statiques (HTML)
-- **Stockage** : Les pages HTML sont placées dans `pages/velo/`, `pages/mobilite/`, `pages/urbanisme/` (ex : `pages/velo/voie-lyonnaise-5.html`).
-- **Association (dérivation automatique)** : L’URL de fiche HTML est déduite du chemin Markdown : `pages/<cat>/<slug>.md` ⇒ `pages/<cat>/<slug>.html`. La table Supabase `project_pages` devient optionnelle (legacy) et peut être ignorée.
-- **Affichage** : Lors de l’ouverture du détail, le bouton « Voir la fiche complète » s’affiche si la page `.html` correspondante existe. Sinon, seule la synthèse (couverture + chips + description) est visible.
-- **Structure HTML** : Pages autonomes, stylées avec `ficheprojet.css`, peuvent inclure images, tableaux, liens externes, etc.
-- **Utilité** : Permet d’afficher des contenus très riches ou spécifiques, ou d’intégrer des fiches produites hors du système.
-
-### 5.3 Logique d’affichage et modules impliqués
-- **Affichage panneau détail** :
-  1. L’utilisateur clique sur un projet dans la liste (UI ou carte).
-  2. `NavigationModule.showProjectDetail(name, category, event)` est appelé.
-  3. Ce module :
-     - Lit le Markdown depuis `pages/<cat>/*.md` et en extrait les métadonnées et la description.
-     - Cherche directement une page `.html` dérivée du chemin Markdown; `window.projectPages` n’est plus requis (toujours supporté si présent).
-    - Affiche la couverture, les chips itinéraire/trafic ainsi que la description issue du front‑matter (le corps Markdown complet est masqué).
-    - Si une fiche HTML existe, affiche un bouton « Voir la fiche complète » (ouvre la page dans un nouvel onglet).
-- **Modules impliqués** : `modules/navigationmodule.js`, `modules/datamodule.js`, `modules/uimodule.js`, `modules/supabaseservice.js` (pour le mapping projectPages).
-
-### 5.4 Ajouter ou modifier une fiche projet
-- **Pour une fiche dynamique** :
-  - Créer/éditer un fichier `.md` dans `pages/velo/`, `pages/mobilite/` ou `pages/urbanisme/`.
-  - Respecter le slug attendu par `navigationmodule.js` (ex. vélo: `ligne-<num>.md` ou `pages/velo/<slug>.md`).
-  - Renseigner le front‑matter (couverture, itinéraire, trafic, description) en tête de fichier.
-- **Pour une fiche statique** :
-  - Créer un fichier `.html` dans le bon sous-dossier de `pages/`.
-  - Ajouter ou mettre à jour le mapping dans Supabase (`project_pages`), ou dans le mapping local si utilisé.
-  - Vérifier que le nom du projet correspond à la clé utilisée dans l’UI.
-
-### 5.5 Résumé visuel du flux
-
-```
-[UI] --clic--> NavigationModule.showProjectDetail
-         |
-         |-- fetch pages/<cat>/*.md ---------------------> MarkdownUtils.renderMarkdown --> attrs --> projectDetailPanel
-         |
-         |-- window.projectPages ? --> affiche bouton fiche HTML (nouvel onglet)
-         |
-         +--> projectDetailPanel visible (DOM injecté par NavigationModule)
+# 3. Lancer le serveur de développement
+npm run start
+# → Ouvre http://localhost:3000
 ```
 
-### 5.6 Bonnes pratiques
-- Garder les titres de projets cohérents entre Supabase et les noms/chemins des fichiers Markdown/HTML.
-- Préférer le Markdown pour les fiches simples ou fréquemment modifiées.
-- Utiliser les fiches HTML pour les contenus très riches ou nécessitant une mise en page avancée.
-- Toujours tester l’ouverture des fiches sur différents navigateurs pour vérifier le rendu.
+### Tests automatisés
+
+```bash
+# Lancer les tests en mode UI
+npm run test:contrib:ui
+
+# Lancer tous les tests
+npm test
+
+# Générer un rapport de tests
+npm run test:report
+```
+
+### Déploiement
+
+L'application est un **site statique** déployable sur :
+- **Netlify** (recommandé, CI/CD automatique)
+- **Vercel**
+- **GitHub Pages**
+- **Windsurf Deploy**
+
+Aucun build n'est requis, tous les fichiers sont prêts à être servis.
 
 ---
 
-## 6. Styles CSS
+## 📝 Documentation complète
 
-- `style.css` : mise en page générale, navigation, carte, popups, responsive (mobile/tablette)
-- `ficheprojet.css` : styles spécifiques aux fiches projet statiques
-- `vendor/leaflet/leaflet.css` : styles Leaflet natifs
-- Les classes CSS sont nommées de façon explicite pour faciliter la surcharge
-
----
-
-## 7. Dépendances externes
-
-- **Leaflet** (local dans `vendor/leaflet/`, version recommandée : 1.9.x)
-- **Supabase-js** (CDN, version 2.x)
-- **Marked** (CDN, version 4.x)
-- **Font Awesome** (CDN, version 5.x+)
-
-> Pour mettre à jour une dépendance, remplacer le lien CDN dans `index.html` ou mettre à jour le dossier `vendor/`.
+Pour une documentation technique détaillée :
+- Consulter les commentaires inline dans chaque module JavaScript
+- Voir la structure des tables Supabase dans les migrations
+- Lire les tests Playwright pour comprendre les flux utilisateur
 
 ---
 
-## 8. Lancement et configuration
+## 📄 Licence
 
-1. Lancer l’application en local (recommandé — live-server via npm) :
-
-   ```powershell
-   # 1) Installer les dépendances
-   npm install
-
-   # 2) Démarrer le serveur de dev (port 3000)
-   npm run start
-   ```
-   Puis ouvrir `http://127.0.0.1:3000` (ou l’URL affichée par live-server).
-
-   Étapes optionnelles (SEO/Build utilitaires) :
-   ```powershell
-   # Générer les métadonnées SEO statiques (si Python dispo)
-   npm run build:seo   # ou
-   npm run build:seo:py
-
-   # Build placeholder (aucun bundling requis)
-   npm run build
-   ```
-
-   Alternative Python (optionnelle) :
-   ```powershell
-   python -m http.server 8000
-   ```
-   Puis ouvrir `http://localhost:8000`.
-
-2. Supabase : `modules/supabaseservice.js` initialise le client à partir d’une URL et d’une clé publique (rôle `anon`). En production, préférez charger ces valeurs via variables d’environnement/injection de build et n’exposez jamais de clé admin.
-3. Profiter de l’application : navigation, filtres, fonds de carte, fiches projet.
+ISC License – Voir le fichier [Licence.md](./Licence.md)
 
 ---
 
-## 9. Scénarios d’interaction utilisateur
+## 🤝 Contribuer
 
-### 9.1 Chargement initial de la page
-- L’utilisateur arrive sur `index.html` :
-  1. `main.js` attend le DOM, puis lance tout le chargement via `supabaseService.initAllData()`
-  2. Les couches par défaut sont chargées, les filtres générés, la navigation initialisée
-  3. La catégorie “Transport” (ou autre par défaut) s’affiche avec la liste de projets
+Les contributions sont les bienvenues ! Pour contribuer :
 
-### 9.2 Navigation par catégorie
-- Clic sur un onglet de catégorie (ex : “Vélo”) :
-  1. `EventBindings.handleNavigation('velo', [...])` est appelé
-  2. Les filtres sont réinitialisés, les couches précédentes retirées, les nouvelles chargées
-  3. `NavigationModule.renderVeloProjects()` met à jour la liste de projets
-  4. La carte s’ajuste automatiquement pour englober les couches visibles
+1. Fork le projet
+2. Créer une branche (`git checkout -b feat/ma-feature`)
+3. Commiter les changements (`git commit -m 'Ajout de ma feature'`)
+4. Pusher (`git push origin feat/ma-feature`)
+5. Ouvrir une Pull Request
 
-### 9.3 Activation/désactivation d’un filtre
-- Clic sur une case à cocher `.filter-item` :
-  1. `FilterModule.set(layer, criteria)` ou `FilterModule.reset(layer)` est appelé
-  2. `DataModule.loadLayer(layer)` recharge la couche avec les critères actifs
-  3. `UIModule.updateFilterCount(layer)` met à jour le badge
-
-### 9.4 Sélection d’un fond de carte
-- Ouvrir le menu basemap, puis cliquer sur un fond :
-  1. `MapModule.setBaseLayer(tileUrl)` change la tuile active
-  2. Le menu se referme automatiquement
-  3. `window.currentBasemap` est mis à jour
-
-### 9.5 Affichage du détail d’un projet
-- Clic sur un projet dans la liste :
-  1. `NavigationModule.showProjectDetail(name, category, event)` est appelé
-  2. Le Markdown du fichier `pages/<cat>/<slug>.md` est lu, puis ses métadonnées (couverture, itinéraire, etc.) sont affichées dans le panneau
-  3. Si une fiche statique existe, le bouton “Voir la fiche complète” apparaît
-  4. La carte zoome sur le projet, affiche une surbrillance
-
-### 9.6 Affichage d’une fiche projet externe
-- Clic sur “Voir la fiche complète” :
-  1. Ouvre la page HTML statique correspondante dans un nouvel onglet
-  2. L’utilisateur peut revenir à la carte via l’onglet précédent
-
-### 9.7 Clic sur logo
-- Clic sur `#logo` :
-  1. Déclenche `location.reload()`
-  2. Réinitialise l’état de tous les modules
-
-### 9.8 Sous-filtres dynamiques
-- Clic sur le bouton “paramètres” d’un filtre :
-  1. Ouvre un sous-menu généré dynamiquement (`UIModule.toggleSubFilters()`)
-  2. Les critères sélectionnés sont appliqués via `FilterModule.set()`
-  3. La couche est rechargée instantanément
-
-### 9.9 Gestion des erreurs
-- Si une couche ne charge pas : un message d’erreur s’affiche dans la console
-- Si une clé Supabase est invalide : l’application reste partiellement fonctionnelle mais affiche des warnings
+**Style de code** :
+- JavaScript ES6+ sans bundler
+- Modules exposés sur `window.*`
+- CSS natif avec variables
+- Commits clairs et atomiques
 
 ---
 
-## 10. FAQ / Erreurs fréquentes
+## 📧 Contact
 
-**Q : Je ne vois aucune donnée sur la carte ?**
-- Vérifier la connexion internet (CDN, Supabase)
-- Vérifier la configuration des URLs dans Supabase et dans `modules/supabaseservice.js`
-
-**Q : Les filtres ne fonctionnent pas ?**
-- Vérifier la structure des tables `filter_categories` et `filter_items` dans Supabase
-- S’assurer que les propriétés des GeoJSON sont cohérentes
-
-**Q : Les fiches projet ne s’affichent pas ?**
-- Vérifier qu’un fichier Markdown existe au bon chemin (`pages/<cat>/<slug>.md`) et qu’une page `.html` correspondante existe si vous attendez une fiche complète.
+Pour toute question ou suggestion : contact@grandsprojets.com
 
 ---
 
-## 11. Conseils pour la maintenance et l’évolution
-
-- Pour ajouter une nouvelle catégorie ou couche :
-  - Configurer les tables Supabase concernées (`layers`, `filter_categories`/`filter_items`, etc.)
-  - Ajouter les styles dans `style.css` si besoin
-  - Générer les pages Markdown/HTML associées dans `pages/`
-- Pour modifier un module :
-  - Tous les modules sont autonomes, mais communiquent via le global `window.*`
-  - Utiliser la console pour appeler les fonctions et debugger
-- Pour internationaliser l’app :
-  - Prévoir un mapping des labels dans Supabase ou un module JS dédié
-- Pour renforcer la sécurité :
-  - Ne jamais exposer de clé Supabase admin en production
-  - Utiliser des règles RLS sur les tables publiques
-- Pour améliorer l’accessibilité :
-  - Ajouter des attributs ARIA, gérer le focus clavier, tester avec un lecteur d’écran
-
----
-
-## 12. Modèle de données Supabase
-
-Cette section documente la structure et un aperçu du contenu de la base Supabase utilisée par l’application.
-
-- __Projet__
-  - Nom: « solal’s Project »
-  - ID: `wqqsuybmyqemhojsamgq`
-  - Région: `eu-west-3`
-  - Postgres: 15
-
-- __Schémas principaux__
-  - `public` (tables fonctionnelles de l’app)
-  - `auth`, `storage`, `realtime`, `vault`, `pgsodium` (gérés par Supabase)
-
-- __Tables du schéma public (colonnes clés)__
-  - `basemaps` (PK: `name`)
-    - `name` text, `url` text, `attribution` text (nullable), `label` text
-  - `filter_categories` (PK: `id` int4)
-    - `id` seq, `category` text
-  - `filter_items` (PK: `id` text)
-    - `id` text, `category_id` int4 → FK `filter_categories.id`, `layer` text, `icon` text, `label` text
-  - `image_metadata` (PK: `id` bigint identity)
-    - `id`, `upload_timestamp` timestamptz default now(), `latitude` float8, `longitude` float8, `image_path` text
-  
-  - `layers` (PK: `id` int4)
-    - `id` seq, `name` text unique, `url` text, `style` jsonb, `is_default` bool default false
-  - `metro_colors` (PK: `ligne` text)
-    - `ligne` text, `color` text
-  - `mobility_data` (PK: `id` bigint identity always)
-    - `id`, `category` text, `name` text, `year` text?, `status` text?
-  
-  - `contribution_uploads` (PK: `id` bigint identity always)
-    - `id`, `project_name` text, `category` text (`mobilite` | `urbanisme` | `velo`), `geojson_url` text, `cover_url` text, `markdown_url` text, `meta` text, `description` text, `ville` text (nullable), `created_at` timestamptz, `updated_at` timestamptz
-  - `consultation_dossiers` (PK: `id` bigint identity always)
-    - `id`, `project_name` text, `title` text, `pdf_url` text
-  
-
-- __Relations utiles__
-  - `filter_items.category_id` → `filter_categories.id`
-
-- __Aperçus de contenu (extraits)__
-  - `basemaps` (6)
-    - CartoDB Positron, OpenStreetMap, Esri World Imagery, IGN 1950-1965/1965-1980, ÖPNVKarte
-  - `filter_categories` (3)
-    - Mobilité, Vélo, Urbanisme
-  - `filter_items` (ex.)
-    - bus-check → layer `bus`; metro-check → `metroFuniculaire`; tram-check → `tramway`; travaux-check → `travaux`; urbanisme → `urbanisme`
-  - `layers` (ex.)
-    - `tramway` (default), `metroFuniculaire` (default), `reseauProjeteSitePropre` (default), `voielyonnaise` (default), `urbanisme` (default), `travaux`, `planVelo`, `amenagementCyclable`, `emplacementReserve`, `bus`
-  - `mobility_data` (ex.)
-    - Tram: T6 nord, T10, T9, T8, TEOL; Bus: BHNS; Vélo: Voies Lyonnaises 1–4
-  
-  - Conventions de filtrage (contributeurs)
-    - Tramway/Mobilité (couche `reseauProjeteSitePropre`) : clé `Name` ≈ nom du projet
-    - Voie Lyonnaise (couche `voielyonnaise`) : clé `line` = numéro extrait du nom (fallback : `name/nom`)
-    - Urbanisme (couche `urbanisme`) : clé `Name` ≈ nom du projet
-  - `image_metadata` (≈113)
-    - Points géolocalisés avec `image_path` sous `uploads/` et horodatage
-
-Notes:
-- Les schémas `auth`, `storage`, `realtime`, `vault`, `pgsodium` contiennent des tables gérées par Supabase (potentiellement sensibles). Exporter ces contenus uniquement si nécessaire.
-- Les fiches Urbanisme en Markdown référencent une image de couverture via front‑matter; stocker les fichiers sous `/img/cover/urbanisme/` et utiliser un chemin relatif correct dans chaque `.md`.
-- **Tables retirées (legacy)** : `project_pages`, `urbanisme_projects`, `project_filter_mapping`, `project_colors`.
-
-### 13. Déploiement
-
-### 13.1 Windsurf (statique)
-- Le projet est un site statique. Le fichier `windsurf_deployment.yaml` indique :
-  - `framework: html`
-  - `publish_directory: "."`
-  - `build_command: ""` (aucun build requis par défaut)
-- Déployer via l’action de déploiement Windsurf. Assurez‑vous que `index.html` est à la racine et que les chemins relatifs pointent correctement vers `pages/`, `modules/`, `img/`, `vendor/`.
-
-### 13.2 Netlify (alternative)
-- Créer un nouveau site sur Netlify et pointer sur ce dossier (ou connecter le dépôt Git).
-- Paramètres de build :
-  - Build command : vide (ou `npm run build` si vous introduisez un process de build)
-  - Publish directory : `.`
-- Variables d’environnement (optionnel) :
-  - Si vous externalisez `SUPABASE_URL` et `SUPABASE_ANON_KEY`, injectez‑les et chargez‑les dans `modules/supabaseservice.js` (via injection au build ou un petit script qui lit `import.meta.env`/`window.__ENV__`). N’exposez jamais de clé admin.
-
-### 13.3 Autres hébergeurs
-- GitHub Pages, Vercel (static export), S3/CloudFront… fonctionnent tant que le site est servi tel quel.
-- Vérifier les chemins relatifs et l’accès aux fichiers Markdown sous `pages/`.
-
----
-
-## 14. Contribuer (CONTRIBUTING)
-
-- **Style de code**
-  - JavaScript ES6 sans bundler. Modules attachés à `window.*` (ex: `window.UIModule`).
-  - Respecter la casse des fichiers (`modules/supabaseservice.js`, pas `SupabaseService.js`).
-  - Imports/chargements au début des fichiers. Pas d’imports au milieu du code.
-  - Logs: limiter `console.log` au debug utile, éviter le bruit en production.
-- **Workflow Git**
-  - Créer une branche par fonctionnalité (`feat/…`, `fix/…`).
-  - Petits commits; messages clairs (Conventional Commits recommandé mais non obligatoire).
-  - Ouvrir une PR avec description courte, captures si UI, et étapes de test.
-- **Tests manuels**
-  - `npm run start` puis vérifier: chargement basemaps, filtres, couches, panneau détail Markdown + lien fiche HTML.
-  - Vérifier l’absence d’erreurs JS dans la console.
-- **Issues**
-  - Décrire le contexte, étapes de reproduction, résultat attendu, captures, logs.
-
-## 15. Changelog
-
-Suivi au format inspiré de « Keep a Changelog ».
-
-### [Unreleased]
-- Documentation: README refondu (modules, Supabase, Quickstart, Déploiement Windsurf/Netlify, FAQ, maintenance).
-
----
+**Dernière mise à jour** : Octobre 2025

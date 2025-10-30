@@ -1,0 +1,24 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Test Geometry",
+        "description": "Géométrie de test pour Playwright"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [4.8357, 45.7640],
+            [4.8357, 45.7660],
+            [4.8387, 45.7660],
+            [4.8387, 45.7640],
+            [4.8357, 45.7640]
+          ]
+        ]
+      }
+    }
+  ]
+}
