@@ -1,4 +1,4 @@
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   try {
     // Hardcoded credentials per user's request (note: consider env vars for security best practices)
     const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
