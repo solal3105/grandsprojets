@@ -362,34 +362,10 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Camera markers - Juste l'icône
+   Camera markers - Utilise maintenant le système unifié gp-custom-markers.css
 --------------------------------------------------------------------------- */
-.camera-marker {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  transition: transform 100ms ease;
-  pointer-events: auto !important;
-  cursor: pointer;
-}
-
-.camera-marker i {
-  font-size: 16px;
-  filter: drop-shadow(0 1px 2px var(--black-alpha-30));
-  pointer-events: none;
-}
-
-.camera-marker:hover {
-  transform: scale(1.15);
-}
-
-.camera-marker:hover i {
-  filter: drop-shadow(0 2px 4px var(--black-alpha-40));
-}
+/* Les camera markers utilisent le système gp-custom-marker avec l'icône fa-camera
+   et la couleur bleue (--color-info) par défaut */
 
 /* Style minimal pour le popup d'image */
 .image-popup {

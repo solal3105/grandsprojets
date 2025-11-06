@@ -1,0 +1,109 @@
+/* ============================================================================
+   GP CUSTOM MARKERS - Design sobre et visible pour tous les markers
+   ============================================================================ */
+
+.gp-marker-container {
+  background: transparent !important;
+  border: none !important;
+}
+
+.gp-custom-marker {
+  position: relative;
+  width: 32px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* Forme du pin (goutte inversée) - Fond blanc avec bordure colorée */
+.gp-custom-marker::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) rotate(-45deg);
+  width: 28px;
+  height: 28px;
+  background: var(--white);
+  border: 3px solid var(--marker-color, var(--primary));
+  border-radius: 50% 50% 50% 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transition: all 0.2s ease;
+  z-index: 1;
+}
+
+/* Icône Font Awesome au centre du pin */
+.gp-custom-marker i {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  color: var(--marker-color, var(--primary));
+  z-index: 2;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+  transition: all 0.2s ease;
+}
+
+/* Animation au survol */
+.gp-custom-marker:hover::before {
+  transform: translateX(-50%) rotate(-45deg) scale(1.15);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+.gp-custom-marker:hover i {
+  transform: translateX(-50%) scale(1.1);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+/* Variante pour les markers actifs/sélectionnés */
+.gp-custom-marker.active::before {
+  transform: translateX(-50%) rotate(-45deg) scale(1.2);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  border-width: 4px;
+}
+
+.gp-custom-marker.active i {
+  transform: translateX(-50%) scale(1.15);
+}
+
+/* Animation d'apparition */
+@keyframes markerAppear {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.5);
+  }
+  60% {
+    transform: translateY(5px) scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.gp-custom-marker {
+  animation: markerAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Responsive : markers plus petits sur mobile */
+@media (max-width: 768px) {
+  .gp-custom-marker {
+    width: 28px;
+    height: 36px;
+  }
+  
+  .gp-custom-marker::before {
+    width: 24px;
+    height: 24px;
+    border-width: 2.5px;
+  }
+  
+  .gp-custom-marker i {
+    font-size: 12px;
+    top: 5px;
+  }
+}

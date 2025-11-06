@@ -1026,6 +1026,67 @@ window.DataModule = (function() {
 
 	// --- Création et ajout des couches GeoJSON ---
 
+	/**
+	 * Récupère la couleur et l'icône d'une catégorie
+	 * @param {string} category - Nom de la catégorie
+	 * @returns {Object} { color, iconClass }
+	 */
+	function getCategoryStyle(category) {
+		const categoryIcon = window.categoryIcons?.find(c => c.category === category);
+		const iconClass = categoryIcon?.icon_class || 'fa-solid fa-map-marker';
+		
+		// Extraire la couleur de la catégorie depuis category_styles
+		let categoryColor = 'var(--primary)'; // Couleur par défaut
+		if (categoryIcon?.category_styles) {
+			try {
+				const styles = typeof categoryIcon.category_styles === 'string' 
+					? JSON.parse(categoryIcon.category_styles) 
+					: categoryIcon.category_styles;
+				categoryColor = styles.color || categoryColor;
+			} catch (e) {
+				console.warn('[DataModule] Parse error category_styles:', e);
+			}
+		}
+		
+		return { color: categoryColor, iconClass };
+	}
+
+	/**
+	 * Crée un marker personnalisé avec design sobre et visible
+	 * @param {string} category - Nom de la catégorie (optionnel)
+	 * @param {string} iconOverride - Icône à utiliser (optionnel)
+	 * @param {string} colorOverride - Couleur à utiliser (optionnel)
+	 * @returns {L.DivIcon} Icône personnalisée
+	 */
+	function createCustomMarkerIcon(category = null, iconOverride = null, colorOverride = null) {
+		// Récupérer les styles de la catégorie ou utiliser les overrides
+		const { color, iconClass } = category ? getCategoryStyle(category) : { color: 'var(--primary)', iconClass: 'fa-solid fa-map-marker' };
+		const finalColor = colorOverride || color;
+		const finalIcon = iconOverride || iconClass;
+		
+		// Créer le marker avec design sobre : pin blanc avec bordure colorée et icône
+		return L.divIcon({
+			html: `
+				<div class="gp-custom-marker" style="--marker-color: ${finalColor};">
+					<i class="${finalIcon}"></i>
+				</div>
+			`,
+			className: 'gp-marker-container',
+			iconSize: [32, 40],
+			iconAnchor: [16, 40],
+			popupAnchor: [0, -40]
+		});
+	}
+
+	/**
+	 * Crée un marker de contribution avec l'icône de sa catégorie
+	 * @param {string} category - Nom de la catégorie
+	 * @returns {L.DivIcon} Icône personnalisée avec l'icône de la catégorie
+	 */
+	function createContributionMarkerIcon(category) {
+		return createCustomMarkerIcon(category);
+	}
+
 	// Crée la couche GeoJSON et l'ajoute à la carte
 	function createGeoJsonLayer(layerName, data) {
 		// Normaliser les données d'entrée pour éviter les erreurs Leaflet (addData(undefined))
@@ -1073,26 +1134,33 @@ window.DataModule = (function() {
 			pane: isClickable ? 'clickableLayers' : 'overlayPane', // Utiliser le panneau personnalisé pour les couches cliquables
 			filter: feature => {
 				const props = (feature && feature.properties) || {};
-				// Détection de page: sur l'index on masque les Points SAUF ceux avec images (camera markers)
-				// sur les fiches (/fiche/) on conserve les Points de contribution.
-				try {
-					const path = (location && location.pathname) ? location.pathname : '';
-					const isFichePage = path.includes('/fiche/');
-					if (!isFichePage) {
-						// Index: masquer les Points SAUF ceux avec imgUrl (camera markers)
-						if (feature && feature.geometry && feature.geometry.type === 'Point') {
-							const hasImage = !!props.imgUrl;
-							return hasImage; // Garder uniquement les points avec images
-						}
-					} else {
-						// Fiche: ne masquer que les Points legacy (sans project_name)
-						if (feature && feature.geometry && feature.geometry.type === 'Point') {
-							const isContribution = !!props.project_name;
-							if (!isContribution) return false;
-						}
+				
+				// Masquer les features avec type: "danger"
+				if (props.type === 'danger') {
+					return false;
+				}
+				
+				// Détection de page: sur l'index on affiche les Points avec images (camera markers) ET les contributions
+			// sur les fiches (/fiche/) on conserve les Points de contribution.
+			try {
+				const path = (location && location.pathname) ? location.pathname : '';
+				const isFichePage = path.includes('/fiche/');
+				if (!isFichePage) {
+					// Index: afficher les Points avec imgUrl (camera markers) OU avec project_name (contributions)
+					if (feature && feature.geometry && feature.geometry.type === 'Point') {
+						const hasImage = !!props.imgUrl;
+						const isContribution = !!props.project_name;
+						return hasImage || isContribution; // Garder les camera markers ET les contributions
 					}
-				} catch (_) {
-					/* noop */ }
+				} else {
+					// Fiche: ne masquer que les Points legacy (sans project_name)
+					if (feature && feature.geometry && feature.geometry.type === 'Point') {
+						const isContribution = !!props.project_name;
+						if (!isContribution) return false;
+					}
+				}
+			} catch (_) {
+				/* noop */ }
 				// 1. Vérifier les critères de filtrage standards
 				const standardCriteriaMatch = Object.entries(criteria)
 					.filter(([key]) => !key.startsWith('_')) // Exclure les critères spéciaux (commençant par _)
@@ -1111,34 +1179,48 @@ window.DataModule = (function() {
 			},
 			style: feature => getFeatureStyle(feature, layerName),
 			pointToLayer: (feature, latlng) => {
-				// Camera markers avec images
-				const hasImage = !!(feature?.properties?.imgUrl);
-				if (hasImage && window.CameraMarkers?.createCameraMarker) {
-					// Récupérer la couleur de la couche
-					const featureStyle = getFeatureStyle(feature, layerName);
-					const color = featureStyle?.color || null;
-					
-					return window.CameraMarkers.createCameraMarker(
-						latlng, 
-						MapModule?.cameraPaneName || 'markerPane',
-						color
-					);
-				}
+			const props = feature?.properties || {};
+			
+			// ========================================
+			// 1. CAMERA MARKERS (points avec images)
+			// ========================================
+			const hasImage = !!props.imgUrl;
+			if (hasImage && window.CameraMarkers?.createCameraMarker) {
+				const featureStyle = getFeatureStyle(feature, layerName);
+				const color = featureStyle?.color || null;
 				
-				// Markers pour les chantiers (centralisé via LayerRegistry)
-				if (window.LayerRegistry?.isTravauxLayer && window.LayerRegistry.isTravauxLayer(layerName)) {
-					const customMarkerIcon = L.divIcon({
-						className: 'travaux-marker',
-						iconSize: [32, 40],
-						iconAnchor: [16, 40],
-						popupAnchor: [0, -40]
-					});
-					return L.marker(latlng, { icon: customMarkerIcon });
-				}
-				
-				// Pas de marker pour les autres points
-				return null;
-			},
+				return window.CameraMarkers.createCameraMarker(
+					latlng, 
+					MapModule?.cameraPaneName || 'markerPane',
+					color
+				);
+			}
+			
+			// ========================================
+			// 2. TRAVAUX MARKERS (chantiers)
+			// ========================================
+			const isTravauxLayer = window.LayerRegistry?.isTravauxLayer?.(layerName);
+			if (isTravauxLayer) {
+				// Utiliser l'icône chantier avec la couleur warning (orange)
+				const travauxIcon = createCustomMarkerIcon(null, 'fa-solid fa-helmet-safety', 'var(--color-warning)');
+				return L.marker(latlng, { icon: travauxIcon });
+			}
+			
+			// ========================================
+			// 3. CONTRIBUTION MARKERS (avec icône de catégorie)
+			// ========================================
+			const category = props.category;
+			if (category) {
+				const contributionIcon = createContributionMarkerIcon(category);
+				return L.marker(latlng, { icon: contributionIcon });
+			}
+			
+			// ========================================
+			// 4. FALLBACK : Marker par défaut avec couleur primary
+			// ========================================
+			const defaultIcon = createCustomMarkerIcon();
+			return L.marker(latlng, { icon: defaultIcon });
+		},
 			onEachFeature: (feature, layer) => {
 				bindFeatureEvents(layer, feature, geojsonLayer, layerName);
 				

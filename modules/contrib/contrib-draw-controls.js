@@ -49,6 +49,11 @@
           <i class="fa-solid fa-draw-polygon" aria-hidden="true"></i>
           <span>Polygone</span>
         </button>
+        <button type="button" class="draw-btn draw-btn--point" id="btn-draw-point" 
+                title="Placer un point" data-action="point">
+          <i class="fa-solid fa-map-pin" aria-hidden="true"></i>
+          <span>Point</span>
+        </button>
       </div>
       
       <div style="width: 1px; height: 28px; background: var(--gray-300);"></div>
@@ -151,6 +156,21 @@
         box-shadow: 0 2px 8px var(--primary-alpha-3);
       }
 
+      .draw-btn--point {
+        position: relative;
+      }
+
+      .draw-btn--point.is-active {
+        background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
+        color: var(--on-accent);
+        border-color: var(--primary);
+        box-shadow: 0 2px 8px var(--primary-alpha-3);
+      }
+
+      .draw-btn--point.is-active:hover {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+      }
+
       .draw-btn--clear:not(:disabled) {
         background: var(--danger-lighter);
         color: var(--danger);
@@ -166,12 +186,26 @@
         font-size: 16px;
       }
 
-      @media (max-width: 640px) {
+      @media (max-width: 768px) {
         .draw-btn span {
           display: none;
         }
         .draw-btn {
           padding: 8px 10px;
+        }
+        #draw-status {
+          font-size: 12px;
+        }
+      }
+      
+      @media (max-width: 480px) {
+        .draw-controls {
+          flex-direction: column;
+          gap: 6px;
+        }
+        #draw-status {
+          margin-left: 0;
+          text-align: center;
         }
       }
     `;
@@ -236,6 +270,7 @@
 
     const btnLine = toolbar.querySelector('#btn-draw-line');
     const btnPoly = toolbar.querySelector('#btn-draw-poly');
+    const btnPoint = toolbar.querySelector('#btn-draw-point');
     const btnUndo = toolbar.querySelector('#btn-undo-point');
     const btnFinish = toolbar.querySelector('#btn-finish');
     const btnClear = toolbar.querySelector('#btn-clear-geom');
@@ -246,6 +281,10 @@
 
     if (btnPoly) {
       btnPoly.addEventListener('click', () => handleAction('polygon'));
+    }
+
+    if (btnPoint) {
+      btnPoint.addEventListener('click', () => handleAction('point'));
     }
 
     if (btnUndo) {
@@ -279,19 +318,25 @@
     switch (action) {
       case 'line':
         ContribMap.startManualDraw?.('line');
-        updateStatus('👆 Cliquez sur la carte pour placer le premier point');
-        showMapHelper('Cliquez sur la carte pour placer vos points', 'line');
+        updateStatus('📏 Cliquez sur la carte pour placer les points de votre ligne');
+        showMapHelper('Tracez une ligne en cliquant sur la carte', 'line');
         break;
 
       case 'polygon':
         ContribMap.startManualDraw?.('polygon');
-        updateStatus('👆 Cliquez sur la carte pour placer le premier point');
-        showMapHelper('Cliquez sur la carte pour placer vos points', 'polygon');
+        updateStatus('⬡ Cliquez sur la carte pour définir les sommets du polygone');
+        showMapHelper('Tracez un polygone en cliquant sur la carte', 'polygon');
+        break;
+
+      case 'point':
+        ContribMap.startManualDraw?.('point');
+        updateStatus('📍 Cliquez sur la carte pour placer votre point');
+        showMapHelper('Placez un point sur la carte', 'point');
         break;
 
       case 'undo':
         ContribMap.undoManualPoint?.();
-        updateStatus('Dernier point annulé');
+        updateStatus('↩️ Dernier point annulé');
         break;
 
       case 'finish':
@@ -303,7 +348,7 @@
       case 'clear':
         if (confirm('Effacer la géométrie dessinée ?')) {
           ContribMap.clearManualGeometry?.();
-          updateStatus('Géométrie effacée');
+          updateStatus('🗑️ Géométrie effacée');
           hideMapHelper();
         }
         break;
@@ -316,7 +361,7 @@
   /**
    * Affiche un message d'aide sur la carte
    * @param {string} message - Message à afficher
-   * @param {string} type - Type de tracé (line/polygon)
+   * @param {string} type - Type de tracé (line/polygon/point)
    */
   function showMapHelper(message, type) {
     hideMapHelper(); // Supprimer l'ancien helper
@@ -345,11 +390,25 @@
       max-width: 300px;
     `;
 
-    const icon = type === 'line' ? '📏' : '⬡';
+    // Icônes selon le type
+    let icon = '📏';
+    let hint = 'Cliquez pour commencer';
+    
+    if (type === 'line') {
+      icon = '📏';
+      hint = 'Minimum 2 points';
+    } else if (type === 'polygon') {
+      icon = '⬡';
+      hint = 'Minimum 3 points';
+    } else if (type === 'point') {
+      icon = '📍';
+      hint = '1 clic suffit !';
+    }
+    
     helper.innerHTML = `
       <div style="font-size: 32px; margin-bottom: 8px;">${icon}</div>
       <div>${message}</div>
-      <div style="font-size: 13px; margin-top: 8px; opacity: 0.9;">Cliquez pour commencer</div>
+      <div style="font-size: 13px; margin-top: 8px; opacity: 0.9;">${hint}</div>
     `;
 
     mapContainer.appendChild(helper);
@@ -404,9 +463,10 @@
     const type = state.type;
     const hasGeometry = ContribMap.hasDrawGeometry?.() || false;
 
-    // Boutons Ligne/Polygone
+    // Boutons Ligne/Polygone/Point
     const btnLine = toolbar.querySelector('#btn-draw-line');
     const btnPoly = toolbar.querySelector('#btn-draw-poly');
+    const btnPoint = toolbar.querySelector('#btn-draw-point');
     
     if (btnLine) {
       btnLine.classList.toggle('is-active', active && type === 'line');
@@ -417,17 +477,28 @@
       btnPoly.classList.toggle('is-active', active && type === 'polygon');
       btnPoly.disabled = active && type !== 'polygon';
     }
+    
+    if (btnPoint) {
+      btnPoint.classList.toggle('is-active', active && type === 'point');
+      btnPoint.disabled = active && type !== 'point';
+    }
 
-    // Bouton Annuler
+    // Bouton Annuler (pas disponible en mode point car 1 seul point)
     const btnUndo = toolbar.querySelector('#btn-undo-point');
     if (btnUndo) {
-      btnUndo.disabled = !active || !hasPoints;
+      // En mode point, on peut annuler seulement si on a un point
+      // En mode ligne/polygone, on peut annuler si on a au moins 1 point
+      btnUndo.disabled = !active || !hasPoints || (type === 'point' && state.pointsCount > 0);
     }
 
     // Bouton Terminer
     const btnFinish = toolbar.querySelector('#btn-finish');
     if (btnFinish) {
-      const minPoints = type === 'line' ? 2 : 3;
+      let minPoints = 1;
+      if (type === 'line') minPoints = 2;
+      else if (type === 'polygon') minPoints = 3;
+      else if (type === 'point') minPoints = 1;
+      
       btnFinish.disabled = !active || state.pointsCount < minPoints;
     }
 
@@ -442,12 +513,16 @@
       const pointsText = state.pointsCount === 0 ? 'Aucun point' : 
                          state.pointsCount === 1 ? '1 point' : 
                          `${state.pointsCount} points`;
-      const typeText = type === 'line' ? '📏 Ligne' : '⬡ Polygone';
+      
+      let typeText = '📏 Ligne';
+      if (type === 'polygon') typeText = '⬡ Polygone';
+      else if (type === 'point') typeText = '📍 Point';
+      
       updateStatus(`${typeText} en cours : ${pointsText}`);
     } else if (hasGeometry) {
       updateStatus('✅ Tracé terminé - Vous pouvez continuer');
     } else {
-      updateStatus('👉 Choisissez un type de tracé pour commencer');
+      updateStatus('👉 Choisissez un type de tracé : Ligne, Polygone ou Point');
     }
 
     // Appeler le callback si défini

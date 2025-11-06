@@ -58,3 +58,9 @@
 
 /* 15 - Travaux Editor - Interface de création/édition de chantiers */
 @import url('./styles/travaux-editor.css');
+
+/* 16 - GP Custom Markers - Design unifié sobre et visible pour tous les markers */
+@import url('./styles/gp-custom-markers.css');
+
+/* 17 - Contribution Markers (legacy - peut être supprimé) */
+/* @import url('./styles/contribution-markers.css'); */

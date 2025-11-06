@@ -460,50 +460,11 @@
 }
 
 /* ============================================================================
-   MARKER CSS PERSONNALISÉ POUR CHANTIERS
+   MARKER CSS PERSONNALISÉ POUR CHANTIERS (LEGACY - utilise maintenant gp-custom-markers.css)
    ============================================================================ */
 
-.travaux-marker {
-  position: relative;
-  width: 16px;
-  height: 20px;
-  margin-left: -8px;
-  margin-top: -10px;
-}
-
-.travaux-marker::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 16px;
-  height: 16px;
-  background: var(--primary);
-  border: 3px solid var(--white);
-  border-radius: 50% 50% 50% 0;
-  transform: translateX(-50%) rotate(-45deg);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
-}
-
-.travaux-marker::after {
-  content: '\f3c5';
-  font-family: 'Font Awesome 6 Free';
-  font-weight: 900;
-  position: absolute;
-  top: 6px;
-  left: 50%;
-  transform: translateX(-50%);
-  color: var(--white);
-  font-size: 9px;
-  z-index: 1;
-}
-
-/* Animation au hover */
-.travaux-marker:hover::before {
-  transform: translateX(-50%) rotate(-45deg) scale(1.1);
-  transition: transform 0.2s ease;
-}
+/* Les markers de chantiers utilisent maintenant le système unifié gp-custom-markers.css
+   avec l'icône fa-helmet-safety et la couleur warning (orange) */
 
 /* ============================================================================
    CARD "AJOUTER UN CHANTIER"

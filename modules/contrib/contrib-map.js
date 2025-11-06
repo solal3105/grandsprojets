@@ -13,22 +13,163 @@
   let drawBaseLayer = null; // Couche de fond de carte
   let drawLayer = null; // Couche de géométrie finalisée
   let drawLayerDirty = false; // Indique si la géométrie a été modifiée
-  let drawMode = null; // 'line' | 'polygon' | null
-  let currentPolyline = null;
-  let currentPolygon = null;
-  let tempMarkers = [];
-  let guideLayer = null;
   let isInitializing = false; // Flag pour éviter les initialisations multiples
   let basemapsCache = null;
 
   // Manual draw state
   let manualDraw = { 
     active: false,
-    type: null, 
+    type: null, // 'line' | 'polygon' | 'point'
     points: [], 
     tempLayer: null,
-    guideLayer: null 
+    guideLayer: null,
+    markers: [] // Markers temporaires pour les points
   };
+
+  // Constants for marker styles (avoid duplication)
+  const MARKER_STYLES = {
+    temp: {
+      className: 'temp-point-marker',
+      html: null, // Will be set dynamically
+      iconSize: [22, 22],
+      iconAnchor: [11, 11]
+    },
+    final: {
+      className: 'final-point-marker',
+      html: null, // Will be set dynamically
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
+    },
+    contrib: {
+      className: 'contrib-point-marker',
+      html: null, // Will be set dynamically
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+      popupAnchor: [0, -28]
+    },
+    default: {
+      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    }
+  };
+
+  // ============================================================================
+  // UTILITIES
+  // ============================================================================
+
+  /**
+   * Récupère la couleur et l'icône d'une catégorie
+   * @param {string} category - Nom de la catégorie
+   * @returns {Object} { color, iconClass }
+   */
+  function getCategoryStyle(category) {
+    const categoryIcon = win.categoryIcons?.find(c => c.category === category);
+    const iconClass = categoryIcon?.icon_class || 'fa-solid fa-map-marker';
+    
+    // Extraire la couleur de la catégorie depuis category_styles
+    let categoryColor = 'var(--primary)'; // Couleur par défaut
+    if (categoryIcon?.category_styles) {
+      try {
+        const styles = typeof categoryIcon.category_styles === 'string' 
+          ? JSON.parse(categoryIcon.category_styles) 
+          : categoryIcon.category_styles;
+        categoryColor = styles.color || categoryColor;
+      } catch (e) {
+        console.warn('[contrib-map] Parse error category_styles:', e);
+      }
+    }
+    
+    return { color: categoryColor, iconClass };
+  }
+
+  /**
+   * Crée un marker de contribution avec l'icône de la catégorie sélectionnée
+   * @param {string} category - Nom de la catégorie (optionnel)
+   * @returns {L.DivIcon} Icône personnalisée avec l'icône de la catégorie
+   */
+  function createContributionMarkerIcon(category) {
+    // Récupérer les styles de la catégorie
+    const { color, iconClass } = category ? getCategoryStyle(category) : { color: 'var(--primary)', iconClass: 'fa-solid fa-map-marker' };
+    
+    // Créer le marker avec design sobre : pin blanc avec bordure colorée et icône
+    return L.divIcon({
+      html: `
+        <div class="gp-custom-marker" style="--marker-color: ${color};">
+          <i class="${iconClass}"></i>
+        </div>
+      `,
+      className: 'gp-marker-container',
+      iconSize: [32, 40],
+      iconAnchor: [16, 40],
+      popupAnchor: [0, -40]
+    });
+  }
+
+  /**
+   * Génère le HTML pour un marker selon le style et la couleur
+   * @param {string} color - Couleur du marker
+   * @param {boolean} isFinal - Si le marker est finalisé (avec animation)
+   * @returns {string} HTML du marker
+   */
+  function generateMarkerHTML(color, isFinal = false) {
+    const animation = isFinal ? 'animation: point-pulse 2s ease-in-out infinite;' : '';
+    return `<div style="background: ${color}; width: ${isFinal ? '20px' : '16px'}; height: ${isFinal ? '20px' : '16px'}; border-radius: 50%; border: ${isFinal ? '4px' : '3px'} solid white; box-shadow: ${isFinal ? '0 3px 8px rgba(0,0,0,0.4)' : '0 2px 6px rgba(0,0,0,0.3)'}; ${animation}"></div>`;
+  }
+
+  /**
+   * Crée une icône de marker selon le type demandé
+   * @param {string} type - 'temp' | 'final' | 'contrib' | 'default'
+   * @returns {L.DivIcon|L.Icon} Icône personnalisée
+   */
+  function createMarkerIcon(type = 'temp') {
+    const style = MARKER_STYLES[type];
+    if (!style) {
+      console.warn('[contrib-map] Marker style not found:', type);
+      return null;
+    }
+
+    // Pour le type 'default', utiliser L.icon (style Leaflet classique)
+    if (type === 'default') {
+      return L.icon(style);
+    }
+
+    // Pour les autres types, utiliser L.divIcon avec HTML personnalisé
+    const color = type === 'temp' 
+      ? getComputedStyle(document.documentElement).getPropertyValue('--info').trim()
+      : getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
+
+    const icon = L.divIcon({
+      className: style.className,
+      html: generateMarkerHTML(color, type === 'final'),
+      iconSize: style.iconSize,
+      iconAnchor: style.iconAnchor,
+      popupAnchor: style.popupAnchor
+    });
+
+    return icon;
+  }
+
+  /**
+   * Ajoute l'animation CSS pour les markers finaux si elle n'existe pas
+   */
+  function ensurePointAnimation() {
+    if (!document.getElementById('point-marker-animation')) {
+      const style = document.createElement('style');
+      style.id = 'point-marker-animation';
+      style.textContent = `
+        @keyframes point-pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.1); opacity: 0.9; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
 
   // ============================================================================
   // MAP INITIALIZATION
@@ -42,17 +183,30 @@
    * @returns {Promise<L.Map>} Instance de la carte
    */
   async function initDrawMap(containerId, drawPanelEl, cityEl) {
-    if (!drawPanelEl) return null;
-    
-    // Éviter les initialisations multiples simultanées
-    if (isInitializing) {
-      console.log('[contrib-map] Already initializing, waiting...');
-      // Attendre un peu et retourner la carte si elle existe
-      await new Promise(resolve => setTimeout(resolve, 100));
-      return drawMap;
+    if (!window.L) {
+      console.warn('[contrib-map] Leaflet not loaded');
+      return null;
     }
-    
+
+    // Fix Leaflet icon paths (comme pour city-map)
+    try {
+      delete L.Icon.Default.prototype._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+      });
+    } catch (e) {
+      console.warn('[contrib-map] Icon config error:', e);
+    }
+
+    // Flag d'initialisation pour éviter les problèmes de concurrence
+    if (isInitializing) {
+      console.warn('[contrib-map] Initialization already in progress');
+      return null;
+    }
     isInitializing = true;
+
     
     try {
       // Sauvegarder le GeoJSON existant avant de nettoyer la carte
@@ -324,8 +478,14 @@
    * Gère le mouvement de la souris pour afficher un guide
    */
   function onMapMouseMove(e) {
-    // Show a dashed guide only in line mode with at least one point
-    if (!drawMap || !manualDraw.active || manualDraw.type !== 'line' || manualDraw.points.length === 0) {
+    // Point mode : pas de guide nécessaire
+    if (manualDraw.type === 'point') {
+      clearGuide();
+      return;
+    }
+    
+    // Show a dashed guide only in line/polygon mode with at least one point
+    if (!drawMap || !manualDraw.active || manualDraw.points.length === 0) {
       clearGuide();
       return;
     }
@@ -348,18 +508,33 @@
 
   /**
    * Démarre le dessin manuel
-   * @param {string} type - Type de géométrie ('line' ou 'polygon')
+   * @param {string} type - Type de géométrie ('line', 'polygon' ou 'point')
    */
   function startManualDraw(type) {
     if (!drawMap) return;
     
+    // Validation du type
+    if (!['line', 'polygon', 'point'].includes(type)) {
+      console.warn('[contrib-map] Type de géométrie invalide:', type);
+      return;
+    }
+    
     // Reset current temp
     clearManualTemp();
     manualDraw.active = true;
-    manualDraw.type = type === 'polygon' ? 'polygon' : 'line';
+    manualDraw.type = type;
     manualDraw.points = [];
+    manualDraw.markers = [];
     
-    try { drawMap.doubleClickZoom.disable(); } catch(_) {}
+    // Désactiver le double-clic zoom sauf pour le mode point
+    if (type !== 'point') {
+      try { drawMap.doubleClickZoom.disable(); } catch(_) {}
+    }
+    
+    // Change le curseur en mode point
+    if (type === 'point' && drawMap._container) {
+      drawMap._container.style.cursor = 'crosshair';
+    }
     
     if (win.ContribMap?.onDrawStateChange) {
       win.ContribMap.onDrawStateChange();
@@ -380,6 +555,19 @@
     
     if (!manualDraw.points.length) return;
     
+    // Mode point : afficher un marker de contribution avec icône de catégorie
+    if (manualDraw.type === 'point') {
+      // Récupérer la catégorie sélectionnée dans le formulaire
+      const categorySelect = document.getElementById('contrib-category');
+      const selectedCategory = categorySelect?.value || null;
+      
+      // Créer le marker avec l'icône de la catégorie
+      const icon = createContributionMarkerIcon(selectedCategory);
+      manualDraw.tempLayer = L.marker(manualDraw.points[0], { icon }).addTo(drawMap);
+      return;
+    }
+    
+    // Ligne ou polygone
     const infoColor = getComputedStyle(document.documentElement).getPropertyValue('--info').trim();
     const style = { color: infoColor, weight: 3, fillOpacity: 0.2 };
     if (manualDraw.type === 'polygon') {
@@ -408,10 +596,28 @@
   function finishManualDraw() {
     if (!manualDraw.active) return;
     
-    const minPts = manualDraw.type === 'line' ? 2 : 3;
+    // Validation selon le type de géométrie
+    let minPts = 1;
+    let errorMsg = '';
+    
+    switch (manualDraw.type) {
+      case 'point':
+        minPts = 1;
+        errorMsg = 'Placez au moins 1 point sur la carte.';
+        break;
+      case 'line':
+        minPts = 2;
+        errorMsg = 'Placez au moins 2 points pour créer une ligne.';
+        break;
+      case 'polygon':
+        minPts = 3;
+        errorMsg = 'Placez au moins 3 points pour créer un polygone.';
+        break;
+    }
+    
     if (manualDraw.points.length < minPts) {
       if (win.ContribUtils?.showToast) {
-        win.ContribUtils.showToast(`Ajoutez au moins ${minPts} points avant de terminer.`, 'error');
+        win.ContribUtils.showToast(errorMsg, 'error');
       }
       return;
     }
@@ -422,18 +628,40 @@
       drawLayer = null; 
     }
     
-    // Finalized style
-    const style = manualDraw.type === 'polygon'
-      ? { color: 'var(--primary)', weight: 3, fillOpacity: 0.25, fillColor: 'var(--primary)' }
-      : { color: getComputedStyle(document.documentElement).getPropertyValue('--primary').trim(), weight: 3, opacity: 0.9 };
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
     
-    if (manualDraw.type === 'polygon') {
+    // Créer la géométrie finale selon le type
+    if (manualDraw.type === 'point') {
+      // Récupérer la catégorie sélectionnée dans le formulaire
+      const categorySelect = document.getElementById('contrib-category');
+      const selectedCategory = categorySelect?.value || null;
+      
+      // Créer le marker final avec l'icône de la catégorie
+      const icon = createContributionMarkerIcon(selectedCategory);
+      drawLayer = L.marker(manualDraw.points[0], { icon }).addTo(drawMap);
+      
+      // Centrer la vue sur le point
+      try { drawMap.setView(manualDraw.points[0], drawMap.getZoom()); } catch(_) {}
+      
+    } else if (manualDraw.type === 'polygon') {
+      const style = { 
+        color: primaryColor, 
+        weight: 3, 
+        fillOpacity: 0.25, 
+        fillColor: primaryColor 
+      };
       drawLayer = L.polygon(manualDraw.points, style).addTo(drawMap);
-    } else {
+      try { drawMap.fitBounds(drawLayer.getBounds(), { padding: [10, 10] }); } catch(_) {}
+      
+    } else { // line
+      const style = { 
+        color: primaryColor, 
+        weight: 3, 
+        opacity: 0.9 
+      };
       drawLayer = L.polyline(manualDraw.points, style).addTo(drawMap);
+      try { drawMap.fitBounds(drawLayer.getBounds(), { padding: [10, 10] }); } catch(_) {}
     }
-    
-    try { drawMap.fitBounds(drawLayer.getBounds(), { padding: [10, 10] }); } catch(_) {}
     
     drawLayerDirty = true;
     cancelManualDraw(true);
@@ -451,8 +679,14 @@
     manualDraw.active = false;
     manualDraw.type = null;
     manualDraw.points = [];
+    manualDraw.markers = [];
     clearManualTemp();
     clearGuide();
+    
+    // Restaurer le curseur normal
+    if (drawMap && drawMap._container) {
+      drawMap._container.style.cursor = '';
+    }
     
     try { drawMap.doubleClickZoom.enable(); } catch(_) {}
     
@@ -550,9 +784,18 @@
         drawLayer = null;
       }
       
-      // Add new geometry
+      // Add new geometry avec gestion des points
       drawLayer = L.geoJSON(geojson, {
-        style: { color: 'var(--primary)', weight: 3, fillOpacity: 0.25 }
+        style: { color: 'var(--primary)', weight: 3, fillOpacity: 0.25 },
+        pointToLayer: (feature, latlng) => {
+          // Récupérer la catégorie sélectionnée dans le formulaire
+          const categorySelect = document.getElementById('contrib-category');
+          const selectedCategory = categorySelect?.value || null;
+          
+          // Utiliser le marker de contribution avec icône de catégorie
+          const icon = createContributionMarkerIcon(selectedCategory);
+          return L.marker(latlng, { icon });
+        }
       }).addTo(drawMap);
       
       drawLayerDirty = true;
@@ -563,10 +806,7 @@
     }
   }
 
-  // ============================================================================
-  // EXPORTS
-  // ============================================================================
-
+  // Public API
   win.ContribMap = {
     // Initialization
     initDrawMap,

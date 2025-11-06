@@ -9,17 +9,22 @@
   // ============================================================================
 
   /**
-   * Crée l'icône caméra (juste l'icône, sans fond)
+   * Crée l'icône caméra avec le système unifié gp-custom-marker
    * @param {string} color - Couleur de l'icône (optionnel)
    * @returns {L.DivIcon} Icône Leaflet
    */
   function createCameraIcon(color) {
-    const iconColor = color || '#666';
+    const iconColor = color || 'var(--color-info)'; // Bleu par défaut pour les caméras
     return L.divIcon({
-      html: `<i class="fa fa-camera fa-fw" aria-hidden="true" style="color:${iconColor}"></i>`,
-      className: 'camera-marker',
-      iconSize: [18, 18],
-      iconAnchor: [9, 9]
+      html: `
+        <div class="gp-custom-marker" style="--marker-color: ${iconColor};">
+          <i class="fa-solid fa-camera"></i>
+        </div>
+      `,
+      className: 'gp-marker-container',
+      iconSize: [32, 40],
+      iconAnchor: [16, 40],
+      popupAnchor: [0, -40]
     });
   }
 
