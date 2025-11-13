@@ -24,6 +24,32 @@
 }
 
 /* ============================================================================
+   READY STATE - Masquer les toggles jusqu'à initialisation
+   ============================================================================ */
+
+/**
+ * Système de readiness pour les toggles
+ * - data-ready="false" : masqué (en cours d'initialisation)
+ * - data-ready="true"  : visible (prêt à être utilisé)
+ * 
+ * Cela évite d'afficher des toggles non-fonctionnels au démarrage
+ * 
+ * NOTE: La visibilité conditionnelle (login/contribute) est gérée via
+ * element.style.display en JavaScript et a la priorité sur data-ready
+ */
+
+.app-toggle[data-ready="false"]:not([style*="display"]) {
+  display: none !important;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.app-toggle[data-ready="true"] {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* ============================================================================
    BASE STYLES - Styles communs à tous les toggles
    ============================================================================ */
 

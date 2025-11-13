@@ -37,7 +37,7 @@
 /* Icône Font Awesome au centre du pin */
 .gp-custom-marker i {
   position: absolute;
-  top: 6px;
+  top: 8px; /* Position fixe pour centrer dans le cercle du pin */
   left: 50%;
   transform: translateX(-50%);
   font-size: 14px;
@@ -104,6 +104,6 @@
   
   .gp-custom-marker i {
     font-size: 12px;
-    top: 5px;
+    top: 6px; /* Ajustement pour les markers plus petits sur mobile */
   }
 }

@@ -75,6 +75,17 @@
               await win.ContribMap.initDrawMap(drawMapContainerId, drawPanelEl, cityEl);
             }
             
+            // IMPORTANT: Initialiser la toolbar de dessin
+            if (win.ContribDrawControls?.initToolbar) {
+              console.log('[contrib-geometry] Initializing draw controls toolbar');
+              win.ContribDrawControls.initToolbar(drawPanelEl, () => {
+                // Callback pour les changements d'état
+                if (win.ContribDrawControls?.updateButtonStates) {
+                  win.ContribDrawControls.updateButtonStates();
+                }
+              });
+            }
+            
             // Si on a un GeoJSON d'édition, le recharger APRÈS l'init de la carte
             if (editGeojsonUrl) {
               console.log('[contrib-geometry] Reloading edit GeoJSON on mode switch:', editGeojsonUrl);

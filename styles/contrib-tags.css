@@ -1,0 +1,259 @@
+/* ============================================================================
+   SYSTÈME DE TAGS POUR CONTRIBUTIONS
+   ============================================================================ */
+
+/* Conteneur principal */
+.tags-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  min-height: 60px;
+  transition: border-color 0.2s ease;
+}
+
+.tags-selector:hover {
+  border-color: var(--primary-alpha-30);
+}
+
+/* État vide */
+.tags-empty-state {
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+  font-style: italic;
+  margin: auto;
+  text-align: center;
+}
+
+/* Checkbox caché */
+.tag-checkbox {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Label du tag (aspect bouton) */
+.tag-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--surface-base);
+  border: 2px solid var(--border-medium);
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  color: var(--text-primary);
+}
+
+/* Icône du tag */
+.tag-label i {
+  font-size: 0.875rem;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+/* Icône de validation (masquée par défaut) */
+.tag-label .fa-check {
+  font-size: 0.75rem;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.2s ease;
+}
+
+/* Hover */
+.tag-label:hover {
+  border-color: var(--tag-color, var(--primary));
+  background: var(--tag-color-alpha-10, var(--primary-alpha-10));
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px var(--black-alpha-10);
+}
+
+/* État sélectionné */
+.tag-checkbox:checked + .tag-label {
+  background: var(--tag-color, var(--primary));
+  color: var(--white);
+  border-color: var(--tag-color, var(--primary));
+  box-shadow: 0 2px 8px var(--black-alpha-15);
+}
+
+.tag-checkbox:checked + .tag-label i {
+  opacity: 1;
+}
+
+.tag-checkbox:checked + .tag-label .fa-check {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Focus pour accessibilité */
+.tag-label:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Animation d'apparition */
+@keyframes tagAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.tag-label {
+  animation: tagAppear 0.2s ease backwards;
+}
+
+.tag-label:nth-child(2) { animation-delay: 0.05s; }
+.tag-label:nth-child(4) { animation-delay: 0.1s; }
+.tag-label:nth-child(6) { animation-delay: 0.15s; }
+.tag-label:nth-child(8) { animation-delay: 0.2s; }
+.tag-label:nth-child(10) { animation-delay: 0.25s; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .tags-selector {
+    gap: 6px;
+    padding: 10px;
+  }
+  
+  .tag-label {
+    padding: 6px 12px;
+    font-size: 0.8125rem;
+  }
+}
+
+/* Badge de tag (affichage dans les cartes) */
+.tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--tag-color-alpha-20, var(--primary-alpha-20));
+  color: var(--tag-color, var(--primary));
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 12px;
+  text-transform: capitalize;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.tag-badge i {
+  font-size: 0.65rem;
+  opacity: 0.8;
+}
+
+/* Conteneur de badges */
+.contrib-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* Tags dans le tooltip */
+.tooltip-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-light);
+}
+
+.tooltip-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--black-alpha-10);
+  color: var(--text-primary);
+  font-size: 0.7rem;
+  font-weight: 500;
+  border-radius: 8px;
+  text-transform: capitalize;
+}
+
+/* Filtres dans submenu */
+.submenu-filters {
+  padding: 12px;
+  background: var(--surface-elevated);
+  border-bottom: 1px solid var(--border-medium);
+  margin-bottom: 12px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.filter-group label i {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.filter-select {
+  padding: 8px 12px;
+  background: var(--surface-base);
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-select:hover {
+  border-color: var(--primary);
+  background: var(--surface-elevated);
+}
+
+.filter-select:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.filter-count {
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
+  text-align: center;
+  font-weight: 500;
+}
+
+/* Compteur de tags dans la liste */
+.project-tags-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: var(--primary-alpha-10);
+  color: var(--primary);
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: 8px;
+  margin-left: auto;
+}
+
+.project-tags-count i {
+  font-size: 0.65rem;
+}

@@ -76,7 +76,7 @@
             <div style="font-size:0.85em; opacity:0.7;"><code style="background:var(--gray-100); padding:2px 4px; border-radius:3px;">${escapedOriginalIconClass}</code> • Ordre: ${cat.display_order}</div>
           </div>
           <div style="display:flex; gap:6px;">
-            <button type="button" class="btn-secondary" data-action="edit" data-ville="${escapedVille}" data-category="${escapedCategory}" data-icon="${escapedOriginalIconClass}" data-order="${cat.display_order}" data-layers="${JSON.stringify(cat.layers_to_display || []).replace(/"/g, '&quot;')}" data-styles="${JSON.stringify(cat.category_styles || {}).replace(/"/g, '&quot;')}">
+            <button type="button" class="btn-secondary" data-action="edit" data-ville="${escapedVille}" data-category="${escapedCategory}" data-icon="${escapedOriginalIconClass}" data-order="${cat.display_order}" data-layers="${JSON.stringify(cat.layers_to_display || []).replace(/"/g, '&quot;')}" data-styles="${JSON.stringify(cat.category_styles || {}).replace(/"/g, '&quot;')}" data-tags="${JSON.stringify(cat.available_tags || []).replace(/"/g, '&quot;')}">
               <i class="fa-solid fa-pen"></i> Modifier
             </button>
             <button type="button" class="btn-danger" data-action="delete" data-ville="${escapedVille}" data-category="${escapedCategory}">
@@ -98,6 +98,7 @@
             const order = btn.dataset.order;
             let layers_to_display = [];
             let category_styles = {};
+            let available_tags = [];
             try {
               layers_to_display = JSON.parse(btn.dataset.layers || '[]');
             } catch (e) {
@@ -108,7 +109,33 @@
             } catch (e) {
               console.warn('[contrib-categories-crud] Erreur parsing category_styles:', e);
             }
-            showCategoryForm('edit', { ville, category, icon_class: icon, display_order: order, layers_to_display, category_styles });
+            try {
+              available_tags = JSON.parse(btn.dataset.tags || '[]');
+            } catch (e) {
+              console.warn('[contrib-categories-crud] Erreur parsing available_tags:', e);
+            }
+            // Créer une fonction de mise à jour de preview (stub si pas disponible)
+            const updatePreview = () => {
+              // Mettre à jour la prévisualisation SVG si nécessaire
+              const stylePreviewLine = document.getElementById('style-preview-line');
+              const stylePreviewPolygon = document.getElementById('style-preview-polygon');
+              const colorInput = document.getElementById('category-style-color');
+              const weightInput = document.getElementById('category-style-weight');
+              
+              if (stylePreviewLine && colorInput) {
+                stylePreviewLine.setAttribute('stroke', colorInput.value);
+              }
+              if (stylePreviewLine && weightInput) {
+                stylePreviewLine.setAttribute('stroke-width', weightInput.value || '3');
+              }
+              if (stylePreviewPolygon && colorInput) {
+                stylePreviewPolygon.setAttribute('stroke', colorInput.value);
+              }
+              if (stylePreviewPolygon && weightInput) {
+                stylePreviewPolygon.setAttribute('stroke-width', weightInput.value || '3');
+              }
+            };
+            showCategoryForm('edit', { ville, category, icon_class: icon, display_order: order, layers_to_display, category_styles, available_tags }, elements, updatePreview);
           });
         });
 
@@ -230,6 +257,11 @@
       // L'icon picker est maintenant géré par le système GPIconPicker unifié
       // Plus besoin de toggle manuel
       
+      // Initialiser le système de tags
+      if (win.ContribCategoryTags?.init) {
+        win.ContribCategoryTags.init();
+      }
+      
       categoryEditModeInput.value = mode;
       
       if (mode === 'edit') {
@@ -295,6 +327,12 @@
           }
         }, 150);
         
+        // Charger les tags existants
+        const availableTags = data.available_tags || [];
+        if (win.ContribCategoryTags?.loadTags) {
+          win.ContribCategoryTags.loadTags(availableTags);
+        }
+        
         // Show back button in edit mode
         if (categoryFormBack) categoryFormBack.style.display = '';
         
@@ -339,6 +377,11 @@
         }
         if (categoryStyleFillColor) categoryStyleFillColor.value = 'var(--gray-400)999';
         if (categoryStyleFillOpacity) categoryStyleFillOpacity.value = '';
+        
+        // Réinitialiser les tags
+        if (win.ContribCategoryTags?.reset) {
+          win.ContribCategoryTags.reset();
+        }
         
         // Hide back button in create mode
         if (categoryFormBack) categoryFormBack.style.display = 'none';
@@ -409,6 +452,11 @@
       if (categoryStyleFillColor) categoryStyleFillColor.value = 'var(--gray-400)999';
       if (categoryStyleFillOpacity) categoryStyleFillOpacity.value = '';
       if (categoryStyleFillOptions) categoryStyleFillOptions.style.display = 'none';
+      
+      // Réinitialiser les tags
+      if (win.ContribCategoryTags?.reset) {
+        win.ContribCategoryTags.reset();
+      }
       
       // Réafficher le sélecteur de ville
       if (categoryVilleSelectorContainer) {
@@ -559,6 +607,9 @@
         }
       }
       
+      // Récupérer les tags
+      const available_tags = win.ContribCategoryTags?.getTags() || [];
+      
       // Convertir "default" en EMPTY ('') pour la base de données
       if (ville === 'default') {
         ville = '';
@@ -581,7 +632,8 @@
           icon_class,
           display_order,
           layers_to_display: selectedLayers,
-          category_styles
+          category_styles,
+          available_tags
         });
       } else {
         result = await win.supabaseService.createCategoryIcon({
@@ -590,7 +642,8 @@
           display_order,
           ville,
           layers_to_display: selectedLayers,
-          category_styles
+          category_styles,
+          available_tags
         });
       }
 

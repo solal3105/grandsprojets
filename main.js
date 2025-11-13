@@ -157,6 +157,11 @@
       win.ThemeManager?.syncBasemapToTheme(currentTheme);
       win.CityManager?.applyCityInitialView(city);
       
+      // Initialiser SearchModule tôt (pas de dépendances avec les données)
+      if (window.SearchModule?.init) {
+        window.SearchModule.init(window.MapModule.map);
+      }
+      
       const { DataModule, MapModule, EventBindings } = win;
       const urlMap        = {};
       const styleMap      = {};
@@ -358,6 +363,7 @@
 
       // PHASE 6 : Modules UI
       await win.FilterManager?.init();
+      win.toggleManager?.markReady('filters');
 
       if (DataModule.preloadLayer) {
         Object.keys(urlMap).forEach(layer => DataModule.preloadLayer(layer));
@@ -367,15 +373,16 @@
       
       if (window.UIModule?.init) {
         window.UIModule.init({ basemaps: basemapsForCity });
+        win.toggleManager?.markReady('basemap');
+        win.toggleManager?.markReady('theme');
       }
       
       if (window.GeolocationModule) {
         window.GeolocationModule.init(window.MapModule.map);
+        // markReady('location') is called inside GeolocationModule.init()
       }
       
-      if (window.SearchModule?.init) {
-        window.SearchModule.init(window.MapModule.map);
-      }
+      // Note: SearchModule.init() est appelé tôt (ligne ~161) car il n'a pas de dépendances avec les données
       
       // PHASE 7 : Event listeners
       const filtersToggle = document.getElementById('filters-toggle');
@@ -407,6 +414,7 @@
           e.stopPropagation();
           win.ModalManager?.open('about-overlay');
         });
+        win.toggleManager?.markReady('info');
       }
       
       if (aboutClose) {
@@ -424,7 +432,11 @@
           e.stopPropagation();
           window.location.href = '/login';
         });
+        win.toggleManager?.markReady('login');
       }
+      
+      // Mark contribute toggle as ready
+      win.toggleManager?.markReady('contribute');
       
       if (themeToggle) {
         themeToggle.addEventListener('click', (e) => {

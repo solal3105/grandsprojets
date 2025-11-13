@@ -188,7 +188,7 @@
 
         let q = supabaseClient
           .from('category_icons')
-          .select('category, icon_class, display_order, layers_to_display, category_styles, ville')
+          .select('category, icon_class, display_order, layers_to_display, category_styles, ville, available_tags')
           .order('display_order', { ascending: true });
 
         if (activeCity) {
@@ -228,7 +228,7 @@
         
         const { data, error } = await supabaseClient
           .from('category_icons')
-          .select('category, icon_class, display_order, layers_to_display, category_styles, ville')
+          .select('category, icon_class, display_order, layers_to_display, category_styles, ville, available_tags')
           .eq('ville', activeCity)
           .order('display_order', { ascending: true });
 
@@ -504,7 +504,7 @@
       try {
         if (!id || !patch || typeof patch !== 'object') return { error: new Error('invalid args') };
         // Sanitize fields
-        const allowed = ['project_name', 'category', 'meta', 'description', 'geojson_url', 'cover_url', 'markdown_url', 'ville', 'official_url'];
+        const allowed = ['project_name', 'category', 'meta', 'description', 'geojson_url', 'cover_url', 'markdown_url', 'ville', 'official_url', 'tags'];
         const body = {};
         allowed.forEach(k => { if (patch[k] !== undefined) body[k] = patch[k]; });
         if (Object.keys(body).length === 0) return { data: null };
@@ -1337,7 +1337,7 @@
      * @param {string} [description]
      * @param {string} [officialUrl]
      */
-    createContributionRow: async function(projectName, category, city, meta, description, officialUrl) {
+    createContributionRow: async function(projectName, category, city, meta, description, officialUrl, tags) {
       try {
         if (!projectName || !category) throw new Error('Paramètres manquants');
         
@@ -1355,7 +1355,8 @@
           ville: sanitizedCity ? sanitizedCity : null,
           meta: (meta && meta.trim()) ? meta.trim() : null,
           description: (description && description.trim()) ? description.trim() : null,
-          official_url: (officialUrl && officialUrl.trim()) ? officialUrl.trim() : null
+          official_url: (officialUrl && officialUrl.trim()) ? officialUrl.trim() : null,
+          tags: Array.isArray(tags) ? tags : []
         };
         
         if (createdBy) baseRow.created_by = createdBy;
@@ -1604,6 +1605,11 @@
           insertData.category_styles = category_styles;
         }
 
+        // Ajouter available_tags si fourni
+        if (Array.isArray(categoryData.available_tags)) {
+          insertData.available_tags = categoryData.available_tags;
+        }
+
         const { data, error } = await supabaseClient
           .from('category_icons')
           .insert([insertData])
@@ -1757,6 +1763,9 @@
           }
           if (updates.category_styles !== undefined) {
             payload.category_styles = updates.category_styles;
+          }
+          if (updates.available_tags !== undefined) {
+            payload.available_tags = Array.isArray(updates.available_tags) ? updates.available_tags : [];
           }
           payload.updated_at = new Date().toISOString();
 

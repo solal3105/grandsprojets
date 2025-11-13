@@ -482,7 +482,8 @@
 }
 
 /* Empêcher tout débordement dans les form-rows */
-.contrib-form .form-row * {
+/* IMPORTANT: Exclure les éléments Leaflet (carte, markers, etc.) */
+.contrib-form .form-row *:not(.leaflet-container):not(.leaflet-container *):not(.gp-marker-container):not(.gp-custom-marker):not(.gp-custom-marker *) {
   max-width: 100%;
   box-sizing: border-box;
 }
@@ -1743,5 +1744,84 @@
   .branding-preview-icon,
   .branding-preview-link {
     justify-content: center;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Category Tags System - Gestion des tags pour les catégories
+--------------------------------------------------------------------------- */
+
+/* Tag item dans la liste */
+.category-tag-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  animation: slideInTag 0.2s ease;
+  transition: all 0.2s ease;
+}
+
+.category-tag-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.category-tag-item i {
+  font-size: 0.75rem;
+}
+
+/* Boutons d'action sur les tags */
+.category-tag-action {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 0 0 0 4px;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+}
+
+.category-tag-action:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.category-tag-action:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
+
+/* État vide de la liste des tags */
+#category-tags-list:empty::before {
+  content: "Aucun tag défini";
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+  font-style: italic;
+  display: block;
+  text-align: center;
+  padding: 8px;
+}
+
+/* Animation d'apparition des tags */
+@keyframes slideInTag {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }

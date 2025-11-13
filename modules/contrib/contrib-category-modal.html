@@ -137,6 +137,67 @@
             </div>
           </div>
         </div>
+
+        <!-- Section: Tags disponibles -->
+        <div style="margin-bottom:32px;">
+          <h4 style="margin:0 0 16px 0; font-size:16px; font-weight:600; color:var(--text-strong, var(--gray-900)); display:flex; align-items:center; gap:8px;">
+            <i class="fa-solid fa-tags" style="color:var(--accent, var(--info)); font-size:18px;"></i>
+            Tags disponibles
+          </h4>
+          
+          <div style="display:grid; gap:16px;">
+            
+            <!-- Liste des tags existants -->
+            <div style="background:var(--surface, var(--white)); padding:16px; border-radius:12px; border:1px solid var(--border, var(--gray-200));">
+              <div style="font-size:12px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">
+                <i class="fa-solid fa-list"></i> Tags existants
+              </div>
+              <div id="category-tags-list" style="display:flex; flex-wrap:wrap; gap:8px; min-height:40px;">
+                <!-- Tags injectés dynamiquement par JavaScript -->
+              </div>
+            </div>
+            
+            <!-- Formulaire d'ajout/modification -->
+            <div style="background:var(--surface, var(--white)); padding:16px; border-radius:12px; border:2px dashed var(--border, var(--gray-200)); transition:all 0.2s ease;">
+              <div style="font-size:12px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">
+                <i class="fa-solid fa-plus"></i> Ajouter un tag
+              </div>
+              
+              <!-- Message d'édition (masqué par défaut) -->
+              <div id="category-tag-edit-message" style="display:none; padding:8px 12px; background:var(--warning-alpha-10, rgba(251, 191, 36, 0.1)); border-left:3px solid var(--warning, #f59e0b); border-radius:6px; margin-bottom:12px; font-size:13px; color:var(--warning, #f59e0b);">
+                <i class="fa-solid fa-triangle-exclamation"></i> Vous modifiez un tag existant
+              </div>
+              
+              <div style="display:grid; gap:12px;">
+                <div>
+                  <label for="category-tag-name" style="display:block; font-size:11px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Nom du tag</label>
+                  <input type="text" id="category-tag-name" placeholder="Ex: Piste cyclable" style="width:100%; padding:10px; border:1px solid var(--border, var(--gray-200)); border-radius:8px; font-size:14px; background:var(--surface, var(--white)); box-sizing:border-box;">
+                </div>
+                
+                <div style="display:grid; grid-template-columns:1fr auto; gap:12px;">
+                  <div>
+                    <label for="category-tag-icon" style="display:block; font-size:11px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Icône FontAwesome</label>
+                    <input type="text" id="category-tag-icon" placeholder="fa-tag" value="fa-tag" style="width:100%; padding:10px; border:1px solid var(--border, var(--gray-200)); border-radius:8px; font-size:12px; font-family:monospace; background:var(--surface, var(--white)); box-sizing:border-box;">
+                  </div>
+                  <div>
+                    <label for="category-tag-color" style="display:block; font-size:11px; font-weight:600; color:var(--text-muted, var(--gray-500)); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Couleur</label>
+                    <input type="color" id="category-tag-color" value="#3B82F6" style="width:100%; height:40px; border:2px solid var(--border, var(--gray-200)); border-radius:8px; cursor:pointer;">
+                  </div>
+                </div>
+                
+                <div style="display:flex; gap:8px;">
+                  <button type="button" id="category-add-tag-btn" class="btn-primary" style="flex:1;">
+                    <i class="fa-solid fa-plus"></i> <span id="category-add-tag-btn-text">Ajouter le tag</span>
+                  </button>
+                  <button type="button" id="category-cancel-tag-btn" class="btn-secondary" style="display:none;">
+                    <i class="fa-solid fa-xmark"></i> Annuler
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+          </div>
+        </div>
       </form>
     </div>
     <footer class="gp-modal-footer">

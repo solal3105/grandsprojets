@@ -36,7 +36,11 @@ window.GeolocationModule = (() => {
     }
     
     locationButton.onclick = handleLocationButtonClick;
-    // Pas de forçage d'affichage - ToggleManager gère tout
+    
+    // Mark toggle as ready once module is initialized
+    if (window.toggleManager) {
+      window.toggleManager.markReady('location');
+    }
   }
   
   // Vérifier si la géolocalisation est disponible

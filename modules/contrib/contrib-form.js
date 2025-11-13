@@ -202,6 +202,9 @@
     const description = document.getElementById('contrib-description')?.value?.trim();
     const mdTextRaw = document.getElementById('contrib-markdown')?.value || '';
     
+    // Récupérer les tags sélectionnés
+    const selectedTags = window.ContribTags?.getSelectedTags() || [];
+    
     const geomMode = (function(){
       const { geomModeRadios } = elements || {};
       const r = geomModeRadios && geomModeRadios.length ? Array.from(geomModeRadios).find(x => x.checked) : null;
@@ -329,7 +332,8 @@
               cityToCreate,
               meta,
               description,
-              officialUrl
+              officialUrl,
+              selectedTags
             );
             console.log('[contrib-form] Row created with ID:', rowId);
           } else {
@@ -404,7 +408,8 @@
           category: category,
           official_url: officialUrl || null,
           meta: meta || null,
-          description: description || null
+          description: description || null,
+          tags: selectedTags // Ajouter les tags sélectionnés
         };
         
         // Si on édite une contribution qui a ville = null, la corriger

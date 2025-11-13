@@ -81,6 +81,10 @@ class ToggleManager {
 
     // Appliquer l'accessibilité
     this.setupAccessibility(element, config);
+    
+    // NOTE: markReady(key) doit être appelé par chaque module quand il est vraiment prêt
+    // Ne pas appeler automatiquement ici pour éviter que les toggles soient cliquables
+    // avant que leurs modules respectifs soient initialisés
   }
 
   /**
@@ -405,6 +409,36 @@ class ToggleManager {
     if (specialState && specialState !== 'default') {
       toggle.element.classList.add(specialState);
     }
+  }
+
+  /**
+   * Marque un toggle comme prêt à être utilisé (visible)
+   * Utilisé lors de l'initialisation d'un module dépendant
+   * @param {string} key - Clé du toggle
+   */
+  markReady(key) {
+    const toggle = this.toggles.get(key);
+    if (!toggle) {
+      console.warn(`[ToggleManager] Toggle not found for markReady: ${key}`);
+      return;
+    }
+    
+    toggle.element.setAttribute('data-ready', 'true');
+  }
+
+  /**
+   * Marque un toggle comme non-prêt (masqué)
+   * Utilisé pour désactiver temporairement un toggle
+   * @param {string} key - Clé du toggle
+   */
+  markNotReady(key) {
+    const toggle = this.toggles.get(key);
+    if (!toggle) {
+      console.warn(`[ToggleManager] Toggle not found for markNotReady: ${key}`);
+      return;
+    }
+    
+    toggle.element.setAttribute('data-ready', 'false');
   }
 
   /**

@@ -320,7 +320,8 @@
           }, 300);
         }
         
-        // Initialiser la carte si mode dessin
+        // Initialiser la carte et les contrôles si mode dessin
+        // OU si on est en mode édition (pour permettre le changement de mode)
         if (mode === 'draw') {
           initDrawMap();
           ensureManualToolbar();
@@ -408,6 +409,7 @@
     if (elements.geomCardDraw) {
       attachListener(elements.geomCardDraw, 'click', () => {
         ContribGeometry.setGeomMode?.('draw', geomElements);
+        // Toujours initialiser la carte et les contrôles quand on passe en mode dessin
         setTimeout(() => {
           initDrawMap();
           ensureManualToolbar();
@@ -588,6 +590,24 @@
         if (elements.metaEl && data.meta) elements.metaEl.value = data.meta;
         if (elements.descEl && data.description) elements.descEl.value = data.description;
         if (elements.officialInput && data.official_url) elements.officialInput.value = data.official_url;
+        
+        // Pré-remplir les tags après avoir défini la catégorie
+        if (data.tags && Array.isArray(data.tags) && data.tags.length > 0) {
+          // Attendre que la catégorie soit définie et que renderTagsSelector soit appelé
+          setTimeout(() => {
+            // Déclencher manuellement le rendu des tags pour la catégorie
+            const category = data.category_layer || data.category;
+            if (category && win.ContribTags?.renderTagsSelector) {
+              win.ContribTags.renderTagsSelector(category);
+              // Puis pré-sélectionner les tags après un court délai
+              setTimeout(() => {
+                if (win.ContribTags?.setSelectedTags) {
+                  win.ContribTags.setSelectedTags(data.tags);
+                }
+              }, 100);
+            }
+          }, 250);
+        }
       }, 100);
 
       // Charger le markdown depuis l'URL
@@ -634,6 +654,16 @@
     // ============================================================================
 
     setStep(1);
+    
+    // Initialiser le système de tags
+    if (win.ContribTags?.init) {
+      try {
+        win.ContribTags.init();
+        console.log('[contrib-create-form-v2] Système de tags initialisé');
+      } catch (err) {
+        console.warn('[contrib-create-form-v2] Erreur initialisation tags:', err);
+      }
+    }
 
     // ============================================================================
     // API PUBLIQUE

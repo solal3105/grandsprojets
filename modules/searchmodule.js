@@ -35,6 +35,11 @@ window.SearchModule = (() => {
 
     // Add event listeners
     setupEventListeners();
+    
+    // Mark toggle as ready once module is initialized
+    if (window.toggleManager) {
+      window.toggleManager.markReady('search');
+    }
   }
 
   /**
