@@ -817,19 +817,20 @@
     </div>
   </footer>
 
-  <!-- MODALE DE CONTACT -->
-  <div id="contact-modal" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="contact-title" aria-hidden="true">
+  <!-- MODALE DE CONTACT (utilise le système existant) -->
+  <div id="contact-form-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-hidden="true">
     <div class="gp-modal" role="document">
       <header class="gp-modal-header">
-        <h1 class="gp-modal-title" id="contact-title">Demander une démo</h1>
-        <button class="btn-secondary gp-modal-close" id="contact-close" aria-label="Fermer">&times;</button>
+        <h1 class="gp-modal-title">Demander une démo</h1>
+        <button class="btn-secondary gp-modal-close" id="contact-form-close" aria-label="Fermer">&times;</button>
       </header>
       <div class="gp-modal-body">
+        <!-- Formulaire -->
         <form id="contact-form">
           <div class="space-y-4">
             <div>
-              <label for="contact-name" class="block text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
-              <input type="text" id="contact-name" name="name" required 
+              <label for="contact-full-name" class="block text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
+              <input type="text" id="contact-full-name" name="full_name" required 
                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
             </div>
             <div>
@@ -838,41 +839,81 @@
                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
             </div>
             <div>
+              <label for="contact-phone" class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+              <input type="tel" id="contact-phone" name="phone" 
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+            <div>
               <label for="contact-organization" class="block text-sm font-medium text-gray-700 mb-1">Organisation</label>
               <input type="text" id="contact-organization" name="organization" 
                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
             </div>
             <div>
-              <label for="contact-message" class="block text-sm font-medium text-gray-700 mb-1">Message</label>
-              <textarea id="contact-message" name="message" rows="4" 
+              <label for="contact-message" class="block text-sm font-medium text-gray-700 mb-1">Message *</label>
+              <textarea id="contact-message" name="message" rows="4" required
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                         placeholder="Décrivez votre projet et vos besoins..."></textarea>
             </div>
+            <input type="hidden" name="referrer" value="landing-page">
           </div>
           <div class="mt-6 flex gap-3">
-            <button type="button" class="btn-secondary flex-1" id="contact-cancel">Annuler</button>
-            <button type="submit" class="btn-primary flex-1">Envoyer</button>
+            <button type="button" class="btn-secondary flex-1" id="contact-form-cancel">Annuler</button>
+            <button type="submit" class="btn-primary flex-1 form-submit-btn">Envoyer</button>
           </div>
         </form>
+
+        <!-- Message de succès -->
+        <div id="contact-success" style="display: none;" class="text-center">
+          <div class="text-5xl mb-4">✓</div>
+          <h2 class="text-2xl font-bold text-gray-900 mb-2">Merci !</h2>
+          <p class="text-gray-600">Votre demande a été reçue. Nous vous répondrons dans les 24h.</p>
+        </div>
+
+        <!-- Message d'erreur -->
+        <div id="contact-error" style="display: none;" class="text-center">
+          <div class="text-5xl mb-4">⚠️</div>
+          <h2 class="text-2xl font-bold text-gray-900 mb-2">Erreur</h2>
+          <p class="text-gray-600">Une erreur s'est produite. Veuillez réessayer ou nous contacter directement.</p>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Import JS modal system + Hook minimal -->
+  <!-- Import JS modal system + Supabase + Contact Form Module -->
   <script src="../modules/modal-helper.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../modules/contact-form.js"></script>
   <script>
+    // Initialiser Supabase pour la landing page
     document.addEventListener('DOMContentLoaded', function() {
+      // Credentials Supabase (identiques à l'app principale)
+      const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
+      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
+      
+      // Initialiser Supabase
+      if (typeof supabase !== 'undefined') {
+        window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        console.log('[LandingPage] Supabase initialized');
+      } else {
+        console.error('[LandingPage] Supabase library not loaded');
+      }
+
+      // Ouvrir la modale via les boutons
       const openers = document.querySelectorAll('.contact-modal-btn, #contact-cta-btn');
-      const form = document.getElementById('contact-form');
-
-      // Ouvrir via système unifié
-      openers.forEach(btn => btn.addEventListener('click', () => ModalHelper.open('contact-modal')));
-
-      // Soumission: pas d'envoi mailto, on garde la modale ouverte
-      form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        // Optionnel: ajouter un léger feedback visuel plus tard
+      openers.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          ModalHelper.open('contact-form-overlay');
+        });
       });
+
+      // Fermer la modale via le bouton Annuler
+      const cancelBtn = document.getElementById('contact-form-cancel');
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+          ModalHelper.close('contact-form-overlay');
+        });
+      }
     });
   </script>
 

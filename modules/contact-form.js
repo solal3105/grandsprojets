@@ -28,25 +28,55 @@
   const contactError = document.getElementById('contact-error');
   const closeBtn = document.getElementById('contact-form-close');
   const backBtn = document.getElementById('contact-form-back');
+  
+  console.log('[ContactForm] Éléments DOM trouvés:', {
+    contactForm: !!contactForm,
+    contactSuccess: !!contactSuccess,
+    contactError: !!contactError,
+    closeBtn: !!closeBtn,
+    backBtn: !!backBtn
+  });
   const ctaButton = document.querySelector('.about-cta-button');
   const revealEmailBtn = document.getElementById('reveal-email-btn');
   const emailRevealed = document.getElementById('email-revealed');
   const emailCopyBtn = document.getElementById('email-copy-btn');
 
+  // Fonction pour fermer la modale (compatible ModalManager et ModalHelper)
+  function closeModal() {
+    if (win.ModalManager) {
+      win.ModalManager.close('contact-form-overlay');
+    } else if (win.ModalHelper) {
+      win.ModalHelper.close('contact-form-overlay');
+    }
+  }
+
+  // Fonction pour ouvrir la modale (compatible ModalManager et ModalHelper)
+  function openModal() {
+    if (win.ModalManager) {
+      win.ModalManager.open('contact-form-overlay');
+    } else if (win.ModalHelper) {
+      win.ModalHelper.open('contact-form-overlay');
+    }
+  }
+
   // Ouvrir la modale depuis le CTA
   if (ctaButton) {
     ctaButton.addEventListener('click', (e) => {
       e.preventDefault();
-      win.ModalManager?.close('about-overlay');
-      win.ModalManager?.open('contact-form-overlay');
+      if (win.ModalManager) {
+        win.ModalManager?.close('about-overlay');
+      }
+      openModal();
     });
   }
 
   // Bouton retour
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      win.ModalManager?.close('contact-form-overlay');
-      win.ModalManager?.open('about-overlay');
+      closeModal();
+      if (win.ModalManager) {
+        win.ModalManager?.open('about-overlay');
+      }
       resetForm();
     });
   }
@@ -54,7 +84,7 @@
   // Fermer la modale
   if (closeBtn) {
     closeBtn.addEventListener('click', () => {
-      win.ModalManager?.close('contact-form-overlay');
+      closeModal();
       resetForm();
     });
   }
@@ -90,6 +120,7 @@
   if (contactForm) {
     contactForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      console.log('[ContactForm] Soumission du formulaire');
       
       const submitBtn = contactForm.querySelector('.form-submit-btn');
       const originalHTML = submitBtn.innerHTML;
@@ -101,6 +132,7 @@
       try {
         // Obtenir le client Supabase
         const supabaseClient = getSupabaseClient();
+        console.log('[ContactForm] Supabase client:', supabaseClient ? 'OK' : 'MANQUANT');
         if (!supabaseClient) {
           throw new Error('Supabase client not available');
         }
@@ -115,6 +147,7 @@
           message: formData.get('message'),
           referrer: formData.get('referrer') || null,
         };
+        console.log('[ContactForm] Données du formulaire:', data);
 
         // 1. Insérer dans la DB
         const { data: insertedData, error: dbError } = await supabaseClient
@@ -123,16 +156,23 @@
           .select()
           .single();
 
-        if (dbError) throw dbError;
+        if (dbError) {
+          console.error('[ContactForm] Erreur DB:', dbError);
+          throw dbError;
+        }
+        console.log('[ContactForm] Données insérées:', insertedData);
 
         // 2. Appeler l'Edge Function pour envoyer l'email
+        console.log('[ContactForm] Appel Edge Function "clever-endpoint"...');
         const { error: emailError } = await supabaseClient.functions.invoke('clever-endpoint', {
           body: insertedData
         });
 
         if (emailError) {
-          console.error('Email error:', emailError);
+          console.error('[ContactForm] Erreur Email:', emailError);
           // Continue quand même, la demande est en DB
+        } else {
+          console.log('[ContactForm] Email envoyé avec succès');
         }
 
         // Succès
@@ -141,19 +181,22 @@
         
         // Fermer après 3 secondes
         setTimeout(() => {
-          win.ModalManager?.close('contact-form-overlay');
+          closeModal();
           resetForm();
         }, 3000);
 
       } catch (error) {
-        console.error('Error:', error);
+        console.error('[ContactForm] Erreur complète:', error);
         contactForm.style.display = 'none';
         contactError.style.display = 'block';
       } finally {
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalHTML;
+        console.log('[ContactForm] Fin du traitement');
       }
     });
+  } else {
+    console.error('[ContactForm] Formulaire #contact-form non trouvé');
   }
 
   function resetForm() {
