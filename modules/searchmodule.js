@@ -151,7 +151,7 @@ window.SearchModule = (() => {
   }
 
   /**
-   * Search for an address using Addok API
+   * Search for an address using the French Adresse API
    * @param {string} query - The search query
    */
   async function searchAddress(query) {
@@ -160,67 +160,27 @@ window.SearchModule = (() => {
       searchResults.innerHTML = '<div class="search-result-item">Recherche en cours...</div>';
       searchResults.classList.add('visible');
       
-      // Utiliser le centre actuel de la carte comme biais local (fallback: Lyon)
-      const center = (map && map.getCenter) ? map.getCenter() : { lat: 45.764043, lng: 4.835659 };
-      const centerLat = center.lat;
-      const centerLng = center.lng;
-      
-      // Utilisation de l'API Adresse avec biais local via lat/lon
-      // On récupère un peu plus de résultats puis on re-ranke côté client
-      const response = await fetch(
-        `https://api-adresse.data.gouv.fr/search/?` +
-        `q=${encodeURIComponent(query)}` +
-        `&limit=15` + // On prend plus de résultats puis on trie côté client
-        `&autocomplete=1` +
-        `&lat=${centerLat}` +
-        `&lon=${centerLng}`
-      );
+      // Optionnel : utiliser le centre actuel de la carte comme biais local
+      const center = (map && map.getCenter) ? map.getCenter() : null;
+      const params = new URLSearchParams({
+        q: query,
+        limit: '6',
+        autocomplete: '1'
+      });
+
+      if (center) {
+        params.set('lat', String(center.lat));
+        params.set('lon', String(center.lng));
+      }
+
+      const response = await fetch(`https://api-adresse.data.gouv.fr/search/?${params.toString()}`);
       
       if (!response.ok) {
         throw new Error('Erreur de recherche');
       }
       
       const data = await response.json();
-      let results = data.features || [];
-
-      // Helpers pour le re-ranking
-      const bounds = (map && map.getBounds) ? map.getBounds() : null;
-      const toLatLng = (feat) => {
-        const [lon, lat] = feat.geometry.coordinates;
-        return { lat, lon };
-      };
-      const isInBounds = (feat) => {
-        if (!bounds) return false;
-        const { lat, lon } = toLatLng(feat);
-        return bounds.contains([lat, lon]);
-      };
-      const isRhone = (feat) => {
-        const p = feat.properties || {};
-        const pc = p.postcode || '';
-        const citycode = p.citycode || '';
-        return (pc.startsWith('69') || citycode.startsWith('69'));
-      };
-      const distance2 = (feat) => {
-        const { lat, lon } = toLatLng(feat);
-        // Distance approximative au centre (équirectangulaire, sans sqrt pour comparer)
-        const dLat = (lat - centerLat);
-        const dLon = (lon - centerLng) * Math.cos(centerLat * Math.PI / 180);
-        return dLat * dLat + dLon * dLon;
-      };
-      const apiScore = (feat) => (feat.properties && typeof feat.properties.score === 'number') ? feat.properties.score : 0;
-
-      // Tri composite: 1) dans la vue 2) Rhône 3) proximité 4) score API
-      results = results.sort((a, b) => {
-        const aIn = isInBounds(a), bIn = isInBounds(b);
-        if (aIn !== bIn) return aIn ? -1 : 1;
-        const aRh = isRhone(a), bRh = isRhone(b);
-        if (aRh !== bRh) return aRh ? -1 : 1;
-        const aD = distance2(a), bD = distance2(b);
-        if (aD !== bD) return aD - bD; // plus proche d'abord
-        const aS = apiScore(a), bS = apiScore(b);
-        if (aS !== bS) return bS - aS; // score API décroissant
-        return 0;
-      }).slice(0, 6); // Afficher les 6 meilleurs
+      const results = data.features || [];
       
       if (results.length === 0) {
         searchResults.innerHTML = '<div class="search-result-item">Aucune adresse trouvée. Essayez une autre requête.</div>';

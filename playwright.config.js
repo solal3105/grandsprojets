@@ -10,7 +10,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: process.env.CI ? 4 : 8, // Augmenté à 8 workers en local, 4 en CI
   
   // Rapports : HTML uniquement (le JSON est généré via npm run test:json)
   reporter: [

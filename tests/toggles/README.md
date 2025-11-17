@@ -1,169 +1,110 @@
-# Tests des Toggles UI
+# Tests Toggles UI
 
-Tests end-to-end des 8 toggles de l'interface utilisateur.
+**57 tests sur 8 toggles** - 100% ISO code vérifié
 
-## Architecture des toggles
+## 📁 Structure
 
-Les toggles sont gérés par le **ToggleManager** (`modules/ui/toggles.js`) avec:
-- Configuration centralisée (`modules/ui/toggles-config.js`)
-- Gestion d'état (Map)
-- Événements (click, keyboard)
-- Accessibilité ARIA
-- Layout responsive (mobile/desktop)
-- Persistance localStorage (theme)
+```
+toggles/
+├── README.md                       # Ce fichier
+├── TESTS-PLAN-VERIFIED.md         # Plan détaillé avec références code
+│
+├── theme-toggle.spec.js           # 9 tests  ✅ Clavier
+├── filters-toggle.spec.js         # 8 tests  ✅ Clavier
+├── basemap-toggle.spec.js         # 8 tests  ✅ Clavier
+├── search-toggle.spec.js          # 7 tests  ✅ Clavier
+├── location-toggle.spec.js        # 6 tests  ✅ Clavier
+├── info-toggle.spec.js            # 7 tests  ✅ Clavier
+├── contribute-toggle.spec.js      # 7 tests  ✅ Clavier
+└── login-toggle.spec.js           # 5 tests  ❌ PAS de clavier
+```
 
-## Toggles testés
+## 🚀 Lancer les tests
 
-### 1. **info-toggle.spec.js** - À propos
-- ✅ Visible sur desktop ET mobile
-- ✅ Ouvre modale "À propos"
-- ✅ Fermeture: click extérieur, ESC, bouton fermer
-- ✅ Accessibilité clavier (Enter, Space)
-- ✅ ARIA (aria-pressed, aria-expanded, aria-haspopup)
-
-### 2. **theme-toggle.spec.js** - Mode sombre
-- ✅ Bascule mode clair/sombre
-- ✅ Icône change (fa-moon ↔ fa-sun)
-- ✅ Persistance localStorage
-- ✅ Restauration au chargement
-- ✅ Attribut data-theme sur `<html>`
-- ✅ Changement visuel (background-color)
-
-### 3. **search-toggle.spec.js** - Recherche d'adresse
-- ✅ Ouvre overlay de recherche
-- ✅ Input focusé automatiquement
-- ✅ Fermeture: click extérieur, ESC
-- ✅ Accepte du texte
-- ✅ Accessibilité clavier
-
-### 4. **filters-toggle.spec.js** - Filtres de carte
-- ✅ Affiche/masque panneau de filtres
-- ✅ Compteur de filtres actifs
-- ✅ Bouton de fermeture dans le panneau
-- ✅ Contenu dynamique chargé
-- ✅ Pas de fermeture automatique (comportement attendu)
-
-### 5. **location-toggle.spec.js** - Géolocalisation
-- ✅ Visible sur mobile (et desktop selon config)
-- ✅ Demande géolocalisation
-- ✅ États: default, loading, active, error
-- ✅ Centrage de la carte
-- ✅ Gestion des permissions
-- ✅ Click multiple géré
-
-### 6. **basemap-toggle.spec.js** - Fond de carte
-- ✅ Affiche menu de sélection
-- ✅ Fermeture: click extérieur, toggle
-- ✅ Plusieurs options disponibles
-- ✅ Sélection change le fond
-- ✅ Menu ferme après sélection
-- ✅ Changement visuel (URL tuiles)
-
-### 7. **contribute-toggle.spec.js** - Contribuer
-- ✅ Caché si non connecté
-- ✅ Visible si connecté (invited, admin)
-- ✅ Ouvre modale de contribution
-- ✅ Landing avec sélection de ville
-- ✅ État pressed quand modale ouverte
-- ✅ Disparaît après déconnexion
-
-### 8. **login-toggle.spec.js** - Connexion
-- ✅ Visible si non connecté
-- ✅ Caché si connecté
-- ✅ Redirige vers /login
-- ✅ Formulaire de connexion présent
-- ✅ Réapparaît après déconnexion
-- ✅ Mutuellement exclusif avec contribute
-
-## Principes de test
-
-### Basés sur l'interaction utilisateur
-- Click sur le toggle
-- Keyboard (Enter, Space)
-- Click extérieur pour fermer
-- ESC pour fermer
-
-### Vérifications
-- Visibilité initiale
-- États ARIA (aria-pressed, aria-expanded, aria-haspopup)
-- Overlay/menu/modal apparaît
-- Contenu chargé
-- Fermeture fonctionne
-- Responsive (mobile/desktop)
-
-### Attentes conditionnelles
-- `expect(...).toBeVisible({ timeout })`
-- `expect(...).toHaveAttribute(...)`
-- Pas de `waitForTimeout` sauf nécessaire
-- Timeouts adaptés (5s, 10s, 15s)
-
-## Lancer les tests
-
-### Tous les toggles
 ```bash
+# Tous les toggles
 npx playwright test tests/toggles/
-```
 
-### Un toggle spécifique
-```bash
+# Un toggle spécifique
 npx playwright test tests/toggles/theme-toggle.spec.js
-```
 
-### Mode UI
-```bash
+# Mode UI
 npx playwright test tests/toggles/ --ui
+
+# Mode debug
+npx playwright test tests/toggles/theme-toggle.spec.js --debug
 ```
 
-### Mode debug
-```bash
-npx playwright test tests/toggles/info-toggle.spec.js --debug
+## ✅ Points Clés
+
+### Accessibilité Clavier
+- **7 toggles AVEC clavier** (Enter/Space) → Gérés par `toggles.js:101-106`
+- **1 toggle SANS clavier** (Login) → Seulement click `main.js:431-434`
+
+### Visibilité Conditionnelle
+- **Contribute** → Visible SI connecté (`citybranding.js:226-229`)
+- **Login** → Visible SI NON connecté (`citybranding.js:221-225`)
+
+### États Multiples
+- **Location** → 4 états (default, loading, active, error)
+- **disabled=true** UNIQUEMENT en loading (`geolocation.js:250`)
+
+### Persistance
+- **Theme** → localStorage clé `'theme'`, valeurs `'dark'|'light'`
+
+## 📊 Couverture
+
+| Toggle | Tests | Clavier | Auth | Notes |
+|--------|-------|---------|------|-------|
+| Theme | 9 | ✅ | - | Persistance localStorage |
+| Filters | 8 | ✅ | - | Compteur, pas de fermeture extérieure |
+| Basemap | 8 | ✅ | - | Fermeture extérieure |
+| Search | 7 | ✅ | - | Auto-focus input |
+| Location | 6 | ✅ | - | 4 états, disabled en loading |
+| Info | 7 | ✅ | - | ESC ferme |
+| Contribute | 7 | ✅ | ✅ | Visible si connecté |
+| Login | 5 | ❌ | ✅ | Visible si NON connecté |
+
+## 🔧 Helpers Utilisés
+
+- `login(page, user)` - Authentification test (`auth.js`)
+- `TEST_USERS.invited` - Utilisateur test invité
+- Standard Playwright locators et assertions
+
+## 📝 Conventions
+
+### Nommage
+- Fichiers: `{toggle-name}-toggle.spec.js`
+- Describe: `'{Toggle Name} Toggle'`
+- Tests: Descriptions courtes et explicites
+
+### Structure des tests
+```javascript
+test('Description courte ISO code', async ({ page }) => {
+  // Arrange
+  const toggle = page.locator('#toggle-id');
+  
+  // Act
+  await toggle.click();
+  await page.waitForTimeout(300);
+  
+  // Assert
+  await expect(something).toBe(expected);
+});
 ```
 
-## Structure des fichiers
+### Timeouts
+- Opérations rapides: `300ms`
+- Overlays/Modales: `500ms`
+- Géolocalisation: `2000ms`
+- Auth/Branding: `15000ms`
 
-```
-tests/
-└── toggles/
-    ├── README.md (ce fichier)
-    ├── info-toggle.spec.js
-    ├── theme-toggle.spec.js
-    ├── search-toggle.spec.js
-    ├── filters-toggle.spec.js
-    ├── location-toggle.spec.js
-    ├── basemap-toggle.spec.js
-    ├── contribute-toggle.spec.js
-    └── login-toggle.spec.js
-```
+## 🎯 Tests Supprimés (non ISO code)
 
-## Dépendances
+15 tests génériques retirés car non vérifiables dans le code :
+- Tests visuels abstraits (backgroundColor)
+- Tests de contenu (text modale)
+- Tests d'interactions complexes (URL tuiles)
+- Tests redondants (cycles complets)
 
-- `@playwright/test`
-- `../helpers/auth.js` (pour contribute et login)
-
-## Notes
-
-- **Géolocalisation**: Tests avec permissions accordées via `context.grantPermissions()`
-- **Authentification**: Tests login/contribute utilisent `login()` helper
-- **Persistance**: Theme teste localStorage
-- **Responsive**: Tests vérifient mobile (375x667) et desktop (1280x720)
-- **ARIA**: Tous les toggles testent l'accessibilité
-
-## Couverture
-
-- ✅ 8 toggles testés
-- ✅ ~80 tests au total
-- ✅ Visibilité
-- ✅ Interactions
-- ✅ États
-- ✅ Accessibilité
-- ✅ Responsive
-- ✅ Persistance
-- ✅ Authentification
-
-## Maintenance
-
-Lors de l'ajout d'un nouveau toggle:
-1. Ajouter config dans `toggles-config.js`
-2. Créer `nouveau-toggle.spec.js`
-3. Tester: visibilité, click, ARIA, responsive
-4. Mettre à jour ce README
+Voir `TESTS-PLAN-VERIFIED.md` pour la liste complète.

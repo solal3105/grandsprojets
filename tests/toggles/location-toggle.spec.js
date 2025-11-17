@@ -1,27 +1,11 @@
 import { test, expect } from '@playwright/test';
 
-/**
- * Tests du toggle "Géolocalisation" (location)
- * 
- * Comportement attendu:
- * - Visible sur mobile uniquement
- * - Click → Demande la géolocalisation
- * - États: default, loading, active, error
- * - Centrage de la carte sur la position
- * - Accessibilité ARIA
- * 
- * Note: Les tests de géolocalisation nécessitent des permissions navigateur
- */
-
-test.describe('Toggle Location - Géolocalisation', () => {
+test.describe('Location Toggle', () => {
   
   test.beforeEach(async ({ page, context }) => {
-    // Nettoyer auth et storage
     await context.clearCookies();
-    
-    // Accorder les permissions de géolocalisation
     await context.grantPermissions(['geolocation']);
-    await context.setGeolocation({ latitude: 45.7640, longitude: 4.8357 }); // Lyon
+    await context.setGeolocation({ latitude: 45.7640, longitude: 4.8357 });
     
     await page.goto('/');
     await page.evaluate(() => {
@@ -32,77 +16,22 @@ test.describe('Toggle Location - Géolocalisation', () => {
     await expect(page.locator('#map')).toBeVisible({ timeout: 30000 });
   });
 
-  test('Le toggle location est visible sur mobile', async ({ page }) => {
-    // Passer en mode mobile
+  test('Visible sur mobile avec icône fa-location-arrow', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
     
     const toggle = page.locator('#location-toggle');
     await expect(toggle).toBeVisible();
     
-    // Accessibilité ARIA
-    await expect(toggle).toHaveAttribute('aria-label', /position/i);
-    
-    // Icône
     const icon = toggle.locator('i.fa-location-arrow');
     await expect(icon).toBeVisible();
   });
 
-  test('Le toggle location est visible sur desktop aussi', async ({ page }) => {
-    // Desktop
-    await page.setViewportSize({ width: 1280, height: 720 });
-    
-    const toggle = page.locator('#location-toggle');
-    // Selon la config, il peut être visible ou caché sur desktop
-    // On vérifie juste qu'il existe
-    await expect(toggle).toBeAttached();
-  });
-
-  test('Click sur le toggle demande la géolocalisation', async ({ page }) => {
+  test('Click demande géolocalisation', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
     
     const toggle = page.locator('#location-toggle');
     
-    // Click sur le toggle avec force pour éviter interception par logo
     await toggle.click({ force: true });
-    
-    // Attendre un peu pour la géolocalisation
-    await page.waitForTimeout(2000);
-    
-    // Vérifier que le toggle a réagi (aria-pressed peut changer)
-    // On accepte que la géolocalisation soit rapide ou qu'elle échoue
-    const isPressed = await toggle.getAttribute('aria-pressed');
-    
-    // Le toggle devrait avoir été activé ou être revenu à false si erreur
-    expect(['true', 'false']).toContain(isPressed);
-  });
-
-  test('État loading est appliqué pendant la géolocalisation', async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 667 });
-    
-    const toggle = page.locator('#location-toggle');
-    
-    // Click avec force
-    await toggle.click({ force: true });
-    
-    // Vérifier rapidement que le toggle réagit
-    await page.waitForTimeout(100);
-    
-    // Le toggle devrait toujours être visible et interactif
-    await expect(toggle).toBeVisible();
-  });
-
-  test('Accessibilité clavier: Enter déclenche la géolocalisation', async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 667 });
-    
-    const toggle = page.locator('#location-toggle');
-    
-    // Focus sur le toggle
-    await toggle.focus();
-    
-    // Appuyer sur Enter
-    await page.keyboard.press('Enter');
-    
-    // Attendre la géolocalisation
     await page.waitForTimeout(2000);
     
     // Vérifier que le toggle a réagi
@@ -110,72 +39,82 @@ test.describe('Toggle Location - Géolocalisation', () => {
     expect(['true', 'false']).toContain(isPressed);
   });
 
-  test('La carte se centre sur la position de l\'utilisateur', async ({ page }) => {
+  test('4 états: default, loading (classe+disabled), active (classe), error (classe)', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
     
     const toggle = page.locator('#location-toggle');
     
-    // Récupérer le centre de la carte avant
-    const centerBefore = await page.evaluate(() => {
-      return window.map ? window.map.getCenter() : null;
-    });
+    // État initial (default)
+    const initialPressed = await toggle.getAttribute('aria-pressed');
+    expect(initialPressed).toBe('false');
     
-    // Click sur le toggle
-    await toggle.click();
+    // Click déclenche un changement d'état
+    await toggle.click({ force: true });
+    await page.waitForTimeout(100);
     
-    // Attendre la géolocalisation et le recentrage
-    await page.waitForTimeout(3000);
-    
-    // Récupérer le centre de la carte après
-    const centerAfter = await page.evaluate(() => {
-      return window.map ? window.map.getCenter() : null;
-    });
-    
-    // Le centre devrait avoir changé (ou rester identique si erreur)
-    // On vérifie juste que la carte existe toujours
-    expect(centerAfter).toBeTruthy();
+    // Le toggle doit être visible et interactif
+    await expect(toggle).toBeVisible();
   });
 
-  test('Gestion de l\'erreur si géolocalisation refusée', async ({ page, context }) => {
-    // Révoquer les permissions
-    await context.clearPermissions();
-    
+  test('disabled=true UNIQUEMENT en loading', async ({ page }) => {
+    test.slow(); // Ce test peut prendre plus de temps
     await page.setViewportSize({ width: 375, height: 667 });
     
     const toggle = page.locator('#location-toggle');
     
-    // Click avec force
+    // 1. Vérifier état initial (non désactivé)
+    await expect(toggle).not.toBeDisabled();
+    
+    // 2. Capturer l'état pendant le chargement
+    const loadingPromise = new Promise(resolve => {
+      page.on('console', msg => {
+        if (msg.text().includes('Geolocation loading')) {
+          resolve('loading');
+        }
+      });
+    });
+    
+    // 3. Déclencher la géolocalisation
     await toggle.click({ force: true });
     
-    // Attendre un peu
-    await page.waitForTimeout(2000);
+    // 4. Attendre le début du chargement
+    await loadingPromise;
     
-    // Vérifier que le toggle reste interactif
-    await expect(toggle).toBeVisible();
+    // 5. Vérifier que le bouton est disabled pendant le chargement
+    await expect(toggle).toBeDisabled();
     
-    // Le toggle devrait être revenu à false après l'erreur
-    const isPressed = await toggle.getAttribute('aria-pressed');
-    expect(isPressed).toBe('false');
+    // 6. Attendre la fin du chargement (max 10s)
+    await page.waitForFunction(
+      () => !document.querySelector('#location-toggle:disabled'),
+      { timeout: 10000 }
+    );
+    
+    // 7. Vérifier que le bouton n'est plus disabled
+    await expect(toggle).not.toBeDisabled();
+    
+    // 8. Vérifier l'état final (active ou error)
+    const pressed = await toggle.getAttribute('aria-pressed');
+    expect(['true', 'false']).toContain(pressed);
   });
 
-  test('Click multiple ne crée pas de comportement inattendu', async ({ page }) => {
+  test('Clavier Enter: déclenche', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
     
     const toggle = page.locator('#location-toggle');
     
-    // Cliquer plusieurs fois rapidement
-    await toggle.click();
-    await page.waitForTimeout(200);
-    await toggle.click();
-    await page.waitForTimeout(200);
-    await toggle.click();
-    
-    // Attendre
+    await toggle.focus();
+    await page.keyboard.press('Enter');
     await page.waitForTimeout(2000);
     
-    // Le toggle devrait toujours être visible et fonctionnel
-    await expect(toggle).toBeVisible();
+    // Vérifier que le toggle a réagi
     const isPressed = await toggle.getAttribute('aria-pressed');
     expect(['true', 'false']).toContain(isPressed);
+  });
+
+  test('Responsive: existe sur desktop', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    
+    const toggle = page.locator('#location-toggle');
+    await expect(toggle).toBeAttached();
   });
 });

@@ -75,6 +75,29 @@
       popupState.basemap.element.classList.remove('open');
     }
   };
+
+  /**
+   * Positionne un popup centré sous son toggle (filters ou basemap)
+   * @param {HTMLElement} toggleEl
+   * @param {HTMLElement} popupEl
+   */
+  const positionPopupBelowToggle = (toggleEl, popupEl) => {
+    if (!toggleEl || !popupEl) return;
+
+    const rect = toggleEl.getBoundingClientRect();
+    const container = document.getElementById('container') || document.body;
+    const containerRect = container.getBoundingClientRect();
+
+    const margin = 10;
+    const top = rect.bottom - containerRect.top + margin;
+    const centerX = (rect.left + rect.right) / 2 - containerRect.left;
+
+    popupEl.style.position = 'absolute';
+    popupEl.style.top = `${top}px`;
+    popupEl.style.left = `${centerX}px`;
+    popupEl.style.right = 'auto';
+    popupEl.style.transform = 'translateX(-50%)';
+  };
   /**
    * Récupère les critères de filtre actuellement sélectionnés.
    * @param {string} layerName
@@ -171,17 +194,18 @@
     // Fermer les autres popups
     closeOtherPopups(popupType);
 
-    // Mettre à jour l'affichage
+    // Mettre à jour l'affichage (système unifié : position dynamique centrée sous le toggle)
     if (popupType === 'filter') {
       if (target.isOpen) {
+        // Positionner d'abord, puis afficher pour éviter un saut visuel
+        positionPopupBelowToggle(filterToggle, target.element);
         target.element.style.display = 'block';
-        const rect = filterToggle.getBoundingClientRect();
-        target.element.style.top = `${rect.bottom + 10}px`;
-        target.element.style.right = `${window.innerWidth - rect.right}px`;
       } else {
         target.element.style.display = 'none';
       }
     } else { // basemap
+      // Pour le basemap, on conserve un comportement simple basé sur la classe .open
+      // afin d'éviter tout flicker de position. La position est gérée par le CSS.
       target.element.classList.toggle('open', target.isOpen);
     }
   };

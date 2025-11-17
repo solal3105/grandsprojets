@@ -212,8 +212,8 @@ test.describe('Contribution - Flux de création complet', () => {
     await expect(step3).toBeVisible();
     
     // Vérifier que l'assistant IA est visible
-    const assistantCard = page.locator('#assistant-writer-card');
-    await expect(assistantCard).toBeVisible();
+    const assistantCard = page.locator('.ia-assistant-card');
+    await expect(assistantCard).toBeVisible({ timeout: 10000 });
     
     // Remplir les champs
     await fillStep3(page, {

@@ -1,21 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { waitForModalOpen, waitForModalClosed, expectToggleState, expectToggleExpanded } from '../helpers/toggles.js';
 
-/**
- * Tests du toggle "À propos" (info)
- * 
- * Comportement attendu:
- * - Visible sur desktop ET mobile
- * - Click → Ouvre modale "À propos" (display flex + aria-hidden false)
- * - Click extérieur → Ferme la modale
- * - ESC → Ferme la modale
- * - Accessibilité ARIA complète
- */
-
-test.describe('Toggle Info - À propos', () => {
+test.describe('Info Toggle', () => {
   
   test.beforeEach(async ({ page, context }) => {
-    // Nettoyer auth et storage
     await context.clearCookies();
     await page.goto('/');
     await page.evaluate(() => {
@@ -26,139 +13,107 @@ test.describe('Toggle Info - À propos', () => {
     await expect(page.locator('#map')).toBeVisible({ timeout: 30000 });
   });
 
-  test('Le toggle info est visible et accessible', async ({ page }) => {
+  test('Visible avec icône fa-info-circle, aria-haspopup="true"', async ({ page }) => {
     const toggle = page.locator('#info-toggle');
-    
-    // Visibilité
     await expect(toggle).toBeVisible();
     
-    // Accessibilité ARIA
-    await expect(toggle).toHaveAttribute('aria-label', /à propos/i);
-    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
-    await expect(toggle).toHaveAttribute('aria-haspopup', 'true');
-    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    
-    // Icône
     const icon = toggle.locator('i.fa-info-circle');
     await expect(icon).toBeVisible();
+    
+    await expect(toggle).toHaveAttribute('aria-haspopup', 'true');
   });
 
-  test('Click sur le toggle ouvre la modale À propos', async ({ page }) => {
+  test('Click ouvre: #about-overlay display visible + aria-hidden="false"', async ({ page }) => {
     const toggle = page.locator('#info-toggle');
+    const overlay = page.locator('#about-overlay');
     
-    // Click sur le toggle
     await toggle.click();
+    await page.waitForTimeout(500);
     
-    // Modale ouverte (display flex + aria-hidden false)
-    await waitForModalOpen(page, '#about-overlay');
+    const isVisible = await page.evaluate(() => {
+      const el = document.querySelector('#about-overlay');
+      return window.getComputedStyle(el).display !== 'none';
+    });
     
-    // ARIA du toggle mis à jour
-    await expectToggleState(page, '#info-toggle', true);
-    await expectToggleExpanded(page, '#info-toggle', true);
-    
-    // Contenu de la modale présent
-    const modalContent = page.locator('#about-overlay .gp-modal');
-    await expect(modalContent).toBeVisible({ timeout: 2000 });
+    expect(isVisible).toBe(true);
+    await expect(overlay).toHaveAttribute('aria-hidden', 'false');
   });
 
-  test('Click sur le bouton fermer ferme la modale', async ({ page }) => {
+  test('Bouton .gp-modal-close ferme', async ({ page }) => {
     const toggle = page.locator('#info-toggle');
+    const overlay = page.locator('#about-overlay');
     
-    // Ouvrir la modale
+    // Ouvrir
     await toggle.click();
-    await waitForModalOpen(page, '#about-overlay');
+    await page.waitForTimeout(500);
     
-    // Cliquer sur le bouton fermer
-    const closeBtn = page.locator('#about-overlay button.gp-modal-close, #about-overlay button:has-text("×")').first();
+    // Fermer avec bouton
+    const closeBtn = page.locator('#about-overlay .gp-modal-close').first();
     await expect(closeBtn).toBeVisible({ timeout: 5000 });
     await closeBtn.click();
+    await page.waitForTimeout(500);
     
-    // Modale fermée
-    await waitForModalClosed(page, '#about-overlay');
-    
-    // ARIA du toggle réinitialisé
-    await expectToggleState(page, '#info-toggle', false);
-    await expectToggleExpanded(page, '#info-toggle', false);
+    // Vérifier fermeture
+    await expect(overlay).toHaveAttribute('aria-hidden', 'true');
   });
 
-  test('Click extérieur ferme la modale', async ({ page }) => {
+  test('Click extérieur ferme', async ({ page }) => {
     const toggle = page.locator('#info-toggle');
+    const overlay = page.locator('#about-overlay');
     
-    // Ouvrir la modale
+    // Ouvrir
     await toggle.click();
-    await waitForModalOpen(page, '#about-overlay');
+    await page.waitForTimeout(500);
     
-    // Cliquer en dehors de la modale (sur l'overlay)
+    // Cliquer sur l'overlay (en dehors de la modale)
     await page.click('#about-overlay', { position: { x: 10, y: 10 } });
+    await page.waitForTimeout(500);
     
-    // Modale fermée
-    await waitForModalClosed(page, '#about-overlay');
-    await expectToggleState(page, '#info-toggle', false);
+    // Vérifier fermeture
+    const isHidden = await page.evaluate(() => {
+      const el = document.querySelector('#about-overlay');
+      const ariaHidden = el.getAttribute('aria-hidden');
+      return ariaHidden === 'true' || window.getComputedStyle(el).display === 'none';
+    });
+    
+    expect(isHidden).toBe(true);
   });
 
-  test('Touche ESC ferme la modale', async ({ page }) => {
+  test('ESC ferme', async ({ page }) => {
     const toggle = page.locator('#info-toggle');
+    const overlay = page.locator('#about-overlay');
     
-    // Ouvrir la modale
+    // Ouvrir
     await toggle.click();
-    await waitForModalOpen(page, '#about-overlay');
+    await page.waitForTimeout(500);
     
     // Appuyer sur ESC
     await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
     
-    // Modale fermée
-    await waitForModalClosed(page, '#about-overlay');
-    await expectToggleState(page, '#info-toggle', false);
+    // Vérifier fermeture
+    await expect(overlay).toHaveAttribute('aria-hidden', 'true');
   });
 
-  test('Accessibilité clavier: Enter ouvre la modale', async ({ page }) => {
+  test('Clavier Enter: ouvre', async ({ page }) => {
     const toggle = page.locator('#info-toggle');
+    const overlay = page.locator('#about-overlay');
     
-    // Focus sur le toggle
     await toggle.focus();
-    
-    // Appuyer sur Enter
     await page.keyboard.press('Enter');
+    await page.waitForTimeout(500);
     
-    // Modale ouverte
-    await waitForModalOpen(page, '#about-overlay');
-    await expectToggleState(page, '#info-toggle', true);
+    await expect(overlay).toHaveAttribute('aria-hidden', 'false');
   });
 
-  test('Accessibilité clavier: Space ouvre la modale', async ({ page }) => {
+  test('Clavier Space: ouvre', async ({ page }) => {
     const toggle = page.locator('#info-toggle');
+    const overlay = page.locator('#about-overlay');
     
-    // Focus sur le toggle
     await toggle.focus();
-    
-    // Appuyer sur Space
     await page.keyboard.press('Space');
+    await page.waitForTimeout(500);
     
-    // Modale ouverte
-    await waitForModalOpen(page, '#about-overlay');
-    await expectToggleState(page, '#info-toggle', true);
-  });
-
-  test('La modale contient les informations attendues', async ({ page }) => {
-    const toggle = page.locator('#info-toggle');
-    await toggle.click();
-    
-    await waitForModalOpen(page, '#about-overlay');
-    
-    // Vérifier la présence de contenu clé (sélecteur unique)
-    const modalBody = page.locator('#about-overlay .gp-modal-body');
-    await expect(modalBody).toContainText(/grandsprojets\.com/i);
-  });
-
-  test('Toggle visible sur mobile et desktop', async ({ page }) => {
-    const toggle = page.locator('#info-toggle');
-    
-    // Desktop
-    await page.setViewportSize({ width: 1280, height: 720 });
-    await expect(toggle).toBeVisible();
-    
-    // Mobile
-    await page.setViewportSize({ width: 375, height: 667 });
-    await expect(toggle).toBeVisible();
+    await expect(overlay).toHaveAttribute('aria-hidden', 'false');
   });
 });

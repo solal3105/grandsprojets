@@ -40,9 +40,6 @@
 
 /* Main Container */
 #filters-container {
-  position: absolute;
-  top: 70px;
-  right: 20px;
   width: 360px;
   max-height: 70vh;
   background: linear-gradient(145deg, var(--white-alpha-95) 0%, var(--white-alpha-90) 100%);
@@ -57,18 +54,6 @@
   overflow-y: auto;
   overflow-x: hidden;
   z-index: 1500;
-  animation: filtersSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-@keyframes filtersSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-20px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
 }
 
 /* Filters Header Title */

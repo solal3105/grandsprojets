@@ -1086,7 +1086,8 @@
 .basemap-menu {
   position: absolute;
   top: 70px;
-  right: 80px;
+  right: 20px;
+  left: auto;
   width: 340px;
   max-height: 70vh;
   background: linear-gradient(145deg, var(--white-alpha-95) 0%, var(--white-alpha-90) 100%);
@@ -1329,8 +1330,8 @@
     width: calc(100vw - 40px);
     max-width: 340px;
     right: 20px;
-    left: 20px;
-    margin: 0 auto;
+    left: auto;
+    margin: 0;
   }
   
   .basemap-tile {

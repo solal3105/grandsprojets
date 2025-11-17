@@ -106,10 +106,8 @@ window.GeolocationModule = (() => {
       return;
     }
     
-    // Afficher l'indicateur de chargement
-    locationButton.disabled = true; // éviter les doubles clics pendant la recherche
-    locationButton.classList.add('loading');
-    locationButton.setAttribute('title', 'Recherche de votre position...');
+    // Mettre à jour l'état du bouton pour indiquer le chargement
+    updateButtonState('loading', 'Recherche de votre position...');
     
     // Démarrer la géolocalisation avec un timeout réduit
     const geolocationOptions = {
@@ -238,14 +236,36 @@ window.GeolocationModule = (() => {
     // Réinitialiser les classes d'état
     locationButton.classList.remove('loading', 'active', 'error');
     
-    // Appliquer la classe d'état appropriée
-    if (state !== 'idle') {
-      locationButton.classList.add(state);
+    // Mettre à jour l'état ARIA, la classe et l'état disabled
+    switch(state) {
+      case 'active':
+        locationButton.classList.add('active');
+        locationButton.setAttribute('aria-pressed', 'true');
+        locationButton.disabled = false;
+        break;
+        
+      case 'loading':
+        locationButton.classList.add('loading');
+        locationButton.setAttribute('aria-pressed', 'false');
+        locationButton.disabled = true; // Désactiver uniquement pendant le chargement
+        break;
+        
+      case 'error':
+        locationButton.classList.add('error');
+        locationButton.setAttribute('aria-pressed', 'false');
+        locationButton.disabled = false;
+        break;
+        
+      case 'idle':
+      default:
+        locationButton.setAttribute('aria-pressed', 'false');
+        locationButton.disabled = false;
     }
     
     // Mettre à jour le titre
     if (message) {
       locationButton.setAttribute('title', message);
+      locationButton.setAttribute('aria-label', message);
     }
   }
   

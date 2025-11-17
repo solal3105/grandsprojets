@@ -330,7 +330,7 @@ const TravauxModule = (() => {
         
         <!-- Exclure réseaux (switch simple) -->
         <label class="filter-switch">
-          <input type="checkbox" id="hide-reseaux" checked>
+          <input type="checkbox" id="hide-reseaux">
           <span class="switch-slider"></span>
           <span class="switch-label">Exclure les réseaux</span>
         </label>
@@ -640,6 +640,7 @@ const TravauxModule = (() => {
       selectEtat.value = '';
       inputDebut.value = '';
       inputFin.value = '';
+      hideReseauxCheckbox.checked = false;
       applyFiltersAndSync();
     });
 
