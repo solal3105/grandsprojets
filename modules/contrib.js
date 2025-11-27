@@ -1072,11 +1072,6 @@
         ContribCities.applyCityBrandingToDrawMap?.(city)
       ]);
     }
-    
-    // Affiche les badges pour les panels de gestion (fonction legacy vide)
-    function showManagementPanelBadges(target, cityDisplayName) {
-      // Badges retirés - fonction conservée pour compatibilité
-    }
 
     // Bind landing buttons
     if (landingEditBtn) landingEditBtn.addEventListener('click', () => chooseLanding('list'));
