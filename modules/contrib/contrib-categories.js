@@ -38,17 +38,15 @@
         }
       };
 
-      // Ouvrir le picker au clic sur le bouton
+      // Ouvrir le picker au clic sur le bouton "Choisir" uniquement
       if (openButton) {
         openButton.addEventListener('click', () => {
           win.GPIconPicker.open(categoryIconInput, updatePreview);
         });
       }
 
-      // Permettre de cliquer sur l'input pour ouvrir le picker
-      categoryIconInput.addEventListener('click', () => {
-        win.GPIconPicker.open(categoryIconInput, updatePreview);
-      });
+      // L'utilisateur peut saisir manuellement dans l'input sans ouvrir le picker
+      // Le picker s'ouvre uniquement via le bouton "Choisir"
 
       // Update preview quand l'input change
       categoryIconInput.addEventListener('input', updatePreview);

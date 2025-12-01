@@ -1,10 +1,18 @@
 /* ============================================================================
    GP CUSTOM MARKERS - Design sobre et visible pour tous les markers
+   ============================================================================
+   
+   ARCHITECTURE HOVER :
+   - Le conteneur Leaflet (.gp-marker-container) reçoit tous les événements
+   - Le contenu interne (.gp-custom-marker et enfants) a pointer-events: none
+   - Le hover est géré via une classe .is-hovered ajoutée par JavaScript
+   - Cela évite les re-déclenchements quand on passe de l'icône au pin
    ============================================================================ */
 
 .gp-marker-container {
   background: transparent !important;
   border: none !important;
+  /* Le conteneur Leaflet reçoit tous les événements */
 }
 
 .gp-custom-marker {
@@ -15,6 +23,8 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  /* IMPORTANT: Désactiver les événements sur ce div pour éviter les re-triggers */
+  pointer-events: none;
 }
 
 /* Forme du pin (goutte inversée) - Fond blanc avec bordure colorée */
@@ -43,18 +53,22 @@
   font-size: 14px;
   color: var(--marker-color, var(--primary));
   z-index: 2;
-  pointer-events: none;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
   transition: all 0.2s ease;
 }
 
-/* Animation au survol */
-.gp-custom-marker:hover::before {
+/* ============================================================================
+   HOVER STATE - Géré via classe .is-hovered (ajoutée par JavaScript)
+   On n'utilise PAS :hover car ça causerait des re-triggers
+   ============================================================================ */
+
+/* Animation au survol - via classe JavaScript */
+.gp-marker-container.is-hovered .gp-custom-marker::before {
   transform: translateX(-50%) rotate(-45deg) scale(1.15);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
 }
 
-.gp-custom-marker:hover i {
+.gp-marker-container.is-hovered .gp-custom-marker i {
   transform: translateX(-50%) scale(1.1);
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }

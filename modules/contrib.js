@@ -2404,10 +2404,8 @@
       // Bind close button
       if (closeBtn) closeBtn.onclick = closeModal;
       
-      // Clic sur overlay
-      overlay.onclick = (e) => {
-        if (e.target === overlay) closeModal();
-      };
+      // Note: Pas de fermeture au clic sur l'overlay pour éviter les pertes de données accidentelles
+      // La modale se ferme uniquement via la croix ou après soumission réussie
       
       // Ouvrir la modale
       console.log('[openCreateModal] Ouverture de la modale...');

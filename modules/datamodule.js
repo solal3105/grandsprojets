@@ -121,8 +121,8 @@ window.DataModule = (function() {
 
 		const titleHtml = esc(title);
 
-		// Si aucune donnée exploitable, ne rien afficher
-		if (!titleHtml && !imgUrl) return '';
+		// Si pas de titre, ne pas afficher le tooltip
+		if (!titleHtml) return '';
 
 		// Variante "cover" (utilisée pour les marqueurs caméra)
 		if (variant === 'cover' && imgUrl) {
@@ -683,7 +683,33 @@ window.DataModule = (function() {
 
 		// Ajoute un style de survol si la couche supporte les fiches détails
 		if (detailSupportedLayers.includes(layerName)) {
+			// ================================================================
+			// SYSTÈME DE HOVER - Simple et robuste
+			// On utilise un ID unique par layer pour éviter les re-triggers
+			// ================================================================
+			const layerId = L.stamp(layer); // ID unique Leaflet
+
 			layer.on('mouseover', function(e) {
+				// Si on hover déjà ce layer, ignorer
+				if (window.__gpCurrentHoverLayerId === layerId) return;
+				
+				// Annuler tout mouseout en attente
+				if (window.__gpHoverOutTimer) {
+					clearTimeout(window.__gpHoverOutTimer);
+					window.__gpHoverOutTimer = null;
+				}
+
+				// Marquer ce layer comme étant en hover
+				window.__gpCurrentHoverLayerId = layerId;
+
+				// Ajouter classe CSS pour l'animation
+				try {
+					if (layer instanceof L.Marker && typeof layer.getElement === 'function') {
+						const el = layer.getElement();
+						if (el) el.classList.add('is-hovered');
+					}
+				} catch (_) {}
+
 				const p = (feature && feature.properties) || {};
 				const isContribution = !!(p.project_name && p.category);
 
@@ -724,73 +750,12 @@ window.DataModule = (function() {
 									className: 'gp-project-tooltip',
 									direction: 'top',
 									permanent: false,
-									offset: [0, -12],
+									offset: [0, -45],
 									opacity: 1,
-									// Rendre cliquable pour ouvrir la fiche projet (mobile/desktop)
-									interactive: true
+									interactive: false
 								}).setLatLng(e.latlng)
 								.setContent(html)
 								.addTo(MapModule.map);
-
-							// Rendre le tooltip cliquable pour ouvrir la fiche détail
-							try {
-								const el = window.__gpHoverTooltip && typeof window.__gpHoverTooltip.getElement === 'function' ?
-									window.__gpHoverTooltip.getElement() :
-									null;
-								if (el) {
-									el.style.cursor = 'pointer';
-									// Assurer l'interactivité même si le CSS met pointer-events: none sur le tooltip
-									try { el.style.pointerEvents = 'auto'; } catch (_) {}
-
-									// 1) Clic sur tout le tooltip
-									el.addEventListener('click', (ev) => {
-										try {
-											ev.preventDefault();
-											ev.stopPropagation();
-										} catch (_) {}
-										try {
-											// Réutiliser la logique existante du clic sur la couche
-											if (layer && typeof layer.fire === 'function') {
-												layer.fire('click');
-											} else if (window.UIModule && typeof window.UIModule.showDetailPanel === 'function') {
-												window.UIModule.showDetailPanel(layerName, feature);
-											}
-										} catch (_) {
-											/* noop */ }
-									});
-
-									// 2) Clic ciblé sur la carte de tooltip (nouvelle classe .card-tooltip)
-									try {
-										const card = el.querySelector('.card-tooltip');
-										if (card) {
-											card.style.pointerEvents = 'auto';
-											card.addEventListener('click', (ev) => {
-												try {
-													ev.preventDefault();
-													ev.stopPropagation();
-												} catch (_) {}
-												try {
-													if (layer && typeof layer.fire === 'function') {
-														layer.fire('click');
-													} else if (window.UIModule && typeof window.UIModule.showDetailPanel === 'function') {
-														window.UIModule.showDetailPanel(layerName, feature);
-													}
-												} catch (_) {}
-											});
-										}
-									} catch (_) {}
-								}
-							} catch (_) {
-								/* noop */ }
-
-							// Suivre la souris tant que l'on reste sur la même feature
-							const moveHandler = (ev) => {
-								if (window.__gpHoverTooltip) {
-									window.__gpHoverTooltip.setLatLng(ev.latlng);
-								}
-							};
-							layer.__gpMoveHandler = moveHandler;
-							layer.on('mousemove', moveHandler);
 						}
 					}).catch(err => {
 						// silencieux en production
@@ -801,34 +766,45 @@ window.DataModule = (function() {
 			});
 
 			layer.on('mouseout', function(e) {
-				// Restaurer les styles originaux et stopper toutes les animations
-				geojsonLayer.eachLayer(otherLayer => {
-					stopDashAnimation(otherLayer);
-					const originalStyle = getFeatureStyle(otherLayer.feature, layerName);
-					if (typeof otherLayer.setStyle === 'function') {
-						// Restaurer le style original en forçant la suppression du dashArray pour les contributions
-						const op = (otherLayer?.feature?.properties) || {};
-						const isContrib = !!(op.project_name && op.category);
-						if (isContrib) {
-							// Pour les contributions, forcer la suppression du dashArray
-							otherLayer.setStyle({
-								...originalStyle,
-								dashArray: null,
-								dashOffset: 0
-							});
-						} else {
-							// Pour les autres, restaurer tel quel
-							otherLayer.setStyle(originalStyle);
-						}
+				// Debounce : attendre 80ms avant de valider le mouseout
+				window.__gpHoverOutTimer = setTimeout(() => {
+					window.__gpHoverOutTimer = null;
+					
+					// Reset l'ID seulement si c'est toujours ce layer
+					if (window.__gpCurrentHoverLayerId === layerId) {
+						window.__gpCurrentHoverLayerId = null;
 					}
-				});
 
-				// Fermer le tooltip et détacher le suivi
-				if (layer.__gpMoveHandler) {
-					layer.off('mousemove', layer.__gpMoveHandler);
-					delete layer.__gpMoveHandler;
-				}
-				closeHoverTooltip();
+					// Retirer classe CSS
+					try {
+						if (layer instanceof L.Marker && typeof layer.getElement === 'function') {
+							const el = layer.getElement();
+							if (el) el.classList.remove('is-hovered');
+						}
+					} catch (_) {}
+
+					// Restaurer les styles originaux
+					geojsonLayer.eachLayer(otherLayer => {
+						stopDashAnimation(otherLayer);
+						const originalStyle = getFeatureStyle(otherLayer.feature, layerName);
+						if (typeof otherLayer.setStyle === 'function') {
+							const op = (otherLayer?.feature?.properties) || {};
+							const isContrib = !!(op.project_name && op.category);
+							if (isContrib) {
+								otherLayer.setStyle({ ...originalStyle, dashArray: null, dashOffset: 0 });
+							} else {
+								otherLayer.setStyle(originalStyle);
+							}
+						}
+					});
+
+					// Fermer le tooltip
+					if (layer.__gpMoveHandler) {
+						layer.off('mousemove', layer.__gpMoveHandler);
+						delete layer.__gpMoveHandler;
+					}
+					closeHoverTooltip();
+				}, 80);
 			});
 		}
 
@@ -892,9 +868,7 @@ window.DataModule = (function() {
 				if (filteredLayer && typeof filteredLayer.getBounds === 'function') {
 					const bounds = filteredLayer.getBounds();
 					if (bounds && bounds.isValid()) {
-						MapModule.map.fitBounds(bounds, {
-							padding: [50, 50]
-						});
+						MapModule.map.fitBounds(bounds, { padding: [50, 50] });
 					}
 				}
 			} catch (_) {}
@@ -902,141 +876,100 @@ window.DataModule = (function() {
 		}
 	}
 
+	// Charge les contributions progressivement (au fil de l'eau)
+	async function loadContributionsProgressively(layerName, projects) {
+		const layer = MapModule.layers[layerName];
+		if (!layer) return;
 
+		const promises = projects.map(async (project) => {
+			if (!project.geojson_url) return;
+			try {
+				const response = await fetch(project.geojson_url);
+				if (!response.ok) return;
+				const geoData = await response.json();
 
+				const enrichFeature = (f) => {
+					if (!f.properties) f.properties = {};
+					f.properties.project_name = project.project_name;
+					f.properties.category = project.category;
+					f.properties.cover_url = project.cover_url;
+					f.properties.description = project.description;
+					f.properties.markdown_url = project.markdown_url;
+					return f;
+				};
+
+				if (geoData.type === 'FeatureCollection' && geoData.features) {
+					geoData.features.forEach(enrichFeature);
+					layer.addData(geoData);
+				} else if (geoData.type === 'Feature') {
+					enrichFeature(geoData);
+					layer.addData(geoData);
+				}
+			} catch (error) {
+				console.warn(`[DataModule] Erreur GeoJSON ${project.project_name}:`, error);
+			}
+		});
+
+		await Promise.all(promises);
+	}
 
 	// Récupère les données d'une couche avec cache
 	async function fetchLayerData(layerName) {
-		// Clé de cache simple
 		const cacheKey = `layer_${layerName}`;
 
-		// Utilisation du cache
 		return simpleCache.get(cacheKey, async () => {
-			// ===== TRAVAUX: Layer avec source dynamique (URL ou city_travaux) =====
+			// TRAVAUX
 			if (layerName === 'travaux') {
 				const activeCity = (typeof window.getActiveCity === 'function') 
-					? window.getActiveCity() 
-					: (window.activeCity || 'metropole-lyon');
+					? window.getActiveCity() : (window.activeCity || 'metropole-lyon');
 				const config = await window.supabaseService.getTravauxConfig(activeCity);
 				
-				if (!config) {
-					console.warn('[DataModule] Pas de config travaux pour', activeCity);
-					return { type: 'FeatureCollection', features: [] };
-				}
+				if (!config) return { type: 'FeatureCollection', features: [] };
 				
 				if (config.source_type === 'url' && config.url) {
-					// Charger depuis URL externe
 					try {
 						const response = await fetch(config.url);
 						if (!response.ok) throw new Error(`HTTP ${response.status}`);
-						const data = await response.json();
-						return data;
+						return await response.json();
 					} catch (error) {
-						console.error('[DataModule] ❌ Erreur chargement travaux URL:', error);
+						console.error('[DataModule] Erreur travaux URL:', error);
 						return { type: 'FeatureCollection', features: [] };
 					}
 				} else if (config.source_type === 'city_travaux') {
-					// Charger depuis city_travaux
-					const cityTravauxData = await window.supabaseService.loadCityTravauxGeoJSON(activeCity);
-					return cityTravauxData || { type: 'FeatureCollection', features: [] };
+					const data = await window.supabaseService.loadCityTravauxGeoJSON(activeCity);
+					return data || { type: 'FeatureCollection', features: [] };
 				}
-				
 				return { type: 'FeatureCollection', features: [] };
 			}
-			// ===== FIN TRAVAUX =====
-			
-			// Vérifier si c'est une couche de contributions (stockée temporairement)
+
+			// CONTRIBUTIONS (chargement progressif)
 			const contributionProjects = window[`contributions_${layerName}`];
-
 			if (contributionProjects && Array.isArray(contributionProjects)) {
-				// Construire un FeatureCollection depuis contribution_uploads
-				const features = [];
-
-				for (const project of contributionProjects) {
-					if (project.geojson_url) {
-						try {
-							const geoResponse = await fetch(project.geojson_url);
-							if (geoResponse.ok) {
-								const geoData = await geoResponse.json();
-
-								// Traiter selon le type de GeoJSON
-								if (geoData.type === 'FeatureCollection' && geoData.features) {
-									// Enrichir chaque feature avec les métadonnées du projet
-									geoData.features.forEach(feature => {
-										if (!feature.properties) feature.properties = {};
-										// Injecter les métadonnées directement dans les properties
-										feature.properties.project_name = project.project_name;
-										feature.properties.category = project.category;
-										feature.properties.cover_url = project.cover_url;
-										feature.properties.description = project.description;
-										feature.properties.markdown_url = project.markdown_url;
-										// NE PAS écraser imgUrl s'il existe déjà dans le GeoJSON
-										// (imgUrl est spécifique à chaque feature, cover_url est pour le projet)
-									});
-									features.push(...geoData.features);
-								} else if (geoData.type === 'Feature') {
-									// Feature unique
-									if (!geoData.properties) geoData.properties = {};
-									geoData.properties.project_name = project.project_name;
-									geoData.properties.category = project.category;
-									geoData.properties.cover_url = project.cover_url;
-									geoData.properties.description = project.description;
-									geoData.properties.markdown_url = project.markdown_url;
-									// NE PAS écraser imgUrl s'il existe déjà dans le GeoJSON
-									features.push(geoData);
-								}
-							}
-						} catch (error) {
-							console.warn(`[DataModule] Erreur chargement GeoJSON pour ${project.project_name}:`, error);
-						}
-					}
-				}
-
-				// NE PAS supprimer la variable pour permettre le rechargement
-				// La variable window[`contributions_${layerName}`] reste disponible
-
-				return {
-					type: 'FeatureCollection',
-					features: features
-				};
+				setTimeout(() => loadContributionsProgressively(layerName, contributionProjects), 0);
+				return { type: 'FeatureCollection', features: [] };
 			}
-			
-			// Charger depuis urlMap (layers configurés dans la base de données)
+
+			// LAYERS DEPUIS URL
 			const url = urlMap[layerName];
 			if (url) {
 				try {
 					const response = await fetch(url);
-					if (!response.ok) {
-						throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-					}
-					const data = await response.json();
-					return data;
+					if (!response.ok) throw new Error(`HTTP ${response.status}`);
+					return await response.json();
 				} catch (error) {
-					console.error(`[DataModule] ❌ Erreur chargement layer "${layerName}":`, error);
+					console.error(`[DataModule] Erreur layer "${layerName}":`, error);
 					return { type: 'FeatureCollection', features: [] };
 				}
 			}
-			
-			// Si on arrive ici, le layer n'a ni URL ni données
-			console.warn(`[DataModule] ⚠️ Layer inconnu sans URL ni données: ${layerName}`);
+
 			return { type: 'FeatureCollection', features: [] };
 		});
 	}
 
-
-	// --- Création et ajout des couches GeoJSON ---
-
-	/**
-	 * Récupère la couleur et l'icône d'une catégorie
-	 * @param {string} category - Nom de la catégorie
-	 * @returns {Object} { color, iconClass }
-	 */
 	function getCategoryStyle(category) {
 		const categoryIcon = window.categoryIcons?.find(c => c.category === category);
 		const iconClass = categoryIcon?.icon_class || 'fa-solid fa-map-marker';
-		
-		// Extraire la couleur de la catégorie depuis category_styles
-		let categoryColor = 'var(--primary)'; // Couleur par défaut
+		let categoryColor = 'var(--primary)';
 		if (categoryIcon?.category_styles) {
 			try {
 				const styles = typeof categoryIcon.category_styles === 'string' 
@@ -1047,7 +980,6 @@ window.DataModule = (function() {
 				console.warn('[DataModule] Parse error category_styles:', e);
 			}
 		}
-		
 		return { color: categoryColor, iconClass };
 	}
 

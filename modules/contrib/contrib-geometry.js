@@ -78,11 +78,11 @@
             // IMPORTANT: Initialiser la toolbar de dessin
             if (win.ContribDrawControls?.initToolbar) {
               console.log('[contrib-geometry] Initializing draw controls toolbar');
+              // Le callback est appelé APRÈS updateButtonStates() donc ne pas rappeler updateButtonStates
+              // sinon boucle infinie. Ce callback sert à faire des actions externes (ex: mettre à jour d'autres UI)
               win.ContribDrawControls.initToolbar(drawPanelEl, () => {
-                // Callback pour les changements d'état
-                if (win.ContribDrawControls?.updateButtonStates) {
-                  win.ContribDrawControls.updateButtonStates();
-                }
+                // Callback pour notifier les changements d'état (ne PAS appeler updateButtonStates ici)
+                console.log('[contrib-geometry] Draw state changed');
               });
             }
             

@@ -1584,7 +1584,8 @@
     async createCategoryIcon(categoryData) {
       try {
         const { category, icon_class, display_order, ville, layers_to_display, category_styles } = categoryData;
-        if (!category || !icon_class || !ville) {
+        // ville peut être une chaîne vide '' pour les catégories globales
+        if (!category || !icon_class || (ville === undefined || ville === null)) {
           return { success: false, error: 'Champs requis manquants' };
         }
 
