@@ -103,6 +103,68 @@
   animation: markerAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* ============================================================================
+   HIGHLIGHT STATE - Animation de mise en avant pour les markers sélectionnés
+   ============================================================================ */
+
+/* Conteneur du cercle pulsant - ajouté dynamiquement par JavaScript */
+.gp-marker-pulse-ring {
+  position: absolute;
+  bottom: -8px; /* Positionné à la pointe du marker */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--marker-color, var(--primary)) 0%, transparent 70%);
+  opacity: 0.5;
+  animation: pulseRing 1.5s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pulseRing {
+  0% {
+    transform: translateX(-50%) scale(0.6);
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateX(-50%) scale(2);
+    opacity: 0;
+  }
+}
+
+/* Animation de rebond vertical pour le marker */
+.gp-marker-container.is-highlighted {
+  animation: markerBounce 1s ease-in-out infinite;
+}
+
+@keyframes markerBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+/* Style amélioré pour le marker en surbrillance */
+.gp-marker-container.is-highlighted .gp-custom-marker::before {
+  transform: translateX(-50%) rotate(-45deg) scale(1.25);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border-width: 4px;
+}
+
+.gp-marker-container.is-highlighted .gp-custom-marker i {
+  transform: translateX(-50%) scale(1.2);
+}
+
+/* ============================================================================
+   RESPONSIVE
+   ============================================================================ */
+
 /* Responsive : markers plus petits sur mobile */
 @media (max-width: 768px) {
   .gp-custom-marker {

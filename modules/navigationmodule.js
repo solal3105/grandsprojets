@@ -70,6 +70,157 @@ const NavigationModule = (() => {
     }
   }
 
+  // ============================================================================
+  // SYSTÈME DE HIGHLIGHT - Animation des projets sur la carte
+  // ============================================================================
+  
+  // Variable pour stocker les éléments à nettoyer
+  let currentHighlight = {
+    layers: [],
+    intervals: [],
+    pulseElements: []
+  };
+
+  /**
+   * Nettoie tous les highlights précédents
+   */
+  function clearProjectHighlight() {
+    // Stopper les animations de dash
+    currentHighlight.intervals.forEach(interval => clearInterval(interval));
+    currentHighlight.intervals = [];
+    
+    // Retirer les classes is-highlighted et restaurer les styles
+    currentHighlight.layers.forEach(layer => {
+      try {
+        // Pour les markers
+        if (layer instanceof L.Marker && typeof layer.getElement === 'function') {
+          const el = layer.getElement();
+          if (el) {
+            el.classList.remove('is-highlighted');
+          }
+        }
+        // Pour les lignes/polygones - restaurer le style original
+        if (typeof layer.setStyle === 'function' && layer.feature) {
+          const layerName = layer.feature?.properties?.category || '';
+          const originalStyle = window.DataModule?.getFeatureStyle?.(layer.feature, layerName) || {};
+          layer.setStyle({
+            ...originalStyle,
+            dashArray: null,
+            dashOffset: 0
+          });
+        }
+      } catch (_) {}
+    });
+    currentHighlight.layers = [];
+    
+    // Retirer les cercles pulsants
+    currentHighlight.pulseElements.forEach(el => {
+      try { el.remove(); } catch (_) {}
+    });
+    currentHighlight.pulseElements = [];
+  }
+
+  /**
+   * Met en avant un projet sur la carte avec animation
+   * @param {string} projectName - Nom du projet
+   * @param {string} category - Catégorie du projet
+   */
+  function highlightProjectOnMap(projectName, category) {
+    // Nettoyer les highlights précédents
+    clearProjectHighlight();
+    
+    const layerName = normalizeCategoryName(category);
+    const mapLayer = window.MapModule?.layers?.[layerName];
+    
+    if (!mapLayer || typeof mapLayer.eachLayer !== 'function') {
+      console.warn(`[NavigationModule] Layer "${layerName}" non trouvé pour highlight`);
+      return;
+    }
+    
+    console.log(`[NavigationModule] 🔦 Highlight du projet "${projectName}" dans layer "${layerName}"`);
+    
+    // Récupérer le style de la catégorie pour la couleur
+    const categoryIcon = window.categoryIcons?.find(c => c.category === category);
+    let categoryColor = 'var(--primary)';
+    if (categoryIcon?.category_styles) {
+      try {
+        const styles = typeof categoryIcon.category_styles === 'string'
+          ? JSON.parse(categoryIcon.category_styles)
+          : categoryIcon.category_styles;
+        categoryColor = styles.color || categoryColor;
+      } catch (_) {}
+    }
+    
+    // Trouver et animer toutes les features du projet
+    mapLayer.eachLayer((featureLayer) => {
+      const props = featureLayer.feature?.properties || {};
+      if (props.project_name !== projectName) return;
+      
+      const geomType = featureLayer.feature?.geometry?.type || '';
+      const isPoint = geomType === 'Point' || geomType === 'MultiPoint';
+      const isLine = geomType === 'LineString' || geomType === 'MultiLineString';
+      const isPolygon = geomType === 'Polygon' || geomType === 'MultiPolygon';
+      
+      currentHighlight.layers.push(featureLayer);
+      
+      if (isPoint && featureLayer instanceof L.Marker) {
+        // ANIMATION MARKER : rebond + cercle pulsant
+        const el = featureLayer.getElement?.();
+        if (el) {
+          el.classList.add('is-highlighted');
+          
+          // Ajouter le cercle pulsant
+          const customMarker = el.querySelector('.gp-custom-marker');
+          if (customMarker) {
+            const pulseRing = document.createElement('div');
+            pulseRing.className = 'gp-marker-pulse-ring';
+            pulseRing.style.setProperty('--marker-color', categoryColor);
+            customMarker.appendChild(pulseRing);
+            currentHighlight.pulseElements.push(pulseRing);
+          }
+        }
+        
+        // Zoomer sur le marker
+        if (window.MapModule?.map) {
+          window.MapModule.map.setView(featureLayer.getLatLng(), 17, { animate: true });
+        }
+        
+      } else if (isLine || isPolygon) {
+        // ANIMATION LIGNE/POLYGONE : traits animés
+        if (typeof featureLayer.setStyle === 'function') {
+          // Appliquer le style animé
+          featureLayer.setStyle({
+            weight: 6,
+            dashArray: '12, 8',
+            opacity: 1
+          });
+          
+          // Animation des dash
+          let dashOffset = 0;
+          const interval = setInterval(() => {
+            dashOffset = (dashOffset + 2) % 20;
+            try {
+              featureLayer.setStyle({ dashOffset: -dashOffset });
+            } catch (_) {
+              clearInterval(interval);
+            }
+          }, 50);
+          currentHighlight.intervals.push(interval);
+        }
+        
+        // Zoomer sur les bounds
+        if (window.MapModule?.map && typeof featureLayer.getBounds === 'function') {
+          const bounds = featureLayer.getBounds();
+          if (bounds.isValid()) {
+            window.MapModule.map.fitBounds(bounds, { padding: [80, 80], maxZoom: 17 });
+          }
+        }
+      }
+    });
+    
+    console.log(`[NavigationModule] ✅ ${currentHighlight.layers.length} features mises en avant`);
+  }
+
   /**
    * Affiche tous les layers d'une catégorie sur la carte
    * @param {string} category - Nom de la catégorie
@@ -527,6 +678,10 @@ const NavigationModule = (() => {
     if (closeButton) {
       closeButton.onclick = () => NavigationModule.resetToDefaultView(null, { preserveMapView: false, updateHistory: true });
     }
+    
+    // ANIMATION: Mettre en avant le projet sur la carte
+    highlightProjectOnMap(projectName, category);
+    
   }catch(e){
     console.error('[NavigationModule] Error in showProjectDetail:', e);
     const safeProjectName = window.SecurityUtils ? window.SecurityUtils.escapeHtml(projectName) : projectName;
@@ -590,6 +745,10 @@ const NavigationModule = (() => {
     // 2. Restaurer l'opacité de tous les layers
     console.log(`[NavigationModule] Restauration opacité layers`);
     restoreAllLayerOpacity();
+    
+    // 3. Nettoyer les animations de highlight
+    console.log(`[NavigationModule] Nettoyage animations highlight`);
+    clearProjectHighlight();
     
     // ========================================
     // CAS 1 : Retour vers une catégorie spécifique (bouton "Retour")
@@ -727,7 +886,9 @@ const NavigationModule = (() => {
     showProjectDetail, 
     showSpecificContribution,
     zoomOutOnLoadedLayers, 
-    resetToDefaultView
+    resetToDefaultView,
+    highlightProjectOnMap,
+    clearProjectHighlight
   };
   
   window.NavigationModule = publicAPI;
