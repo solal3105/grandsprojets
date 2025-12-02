@@ -581,10 +581,11 @@ window.DataModule = (function() {
 				const p = (feature && feature.properties) || {};
 				const geomType = (feature && feature.geometry && feature.geometry.type) || '';
 				const isPathOrPoly = /LineString|Polygon/i.test(geomType);
+				const isPoint = /Point/i.test(geomType);
 				const projectNameGuess = p?.project_name || p?.name || p?.line || p?.Name || p?.LIBELLE;
 				const isDetailSupported = detailSupportedLayers.includes(layerName);
 				const isClickable = isDetailSupported && !!projectNameGuess;
-				if (!isClickable && isPathOrPoly) {
+				if (!isClickable && (isPathOrPoly || isPoint)) {
 					const esc = (s) => String(s || '')
 						.replace(/&/g, '&amp;')
 						.replace(/</g, '&lt;')
@@ -626,8 +627,10 @@ window.DataModule = (function() {
 						const label = map[key] || raw || '';
 						inner = `<div class="gp-tt-body">${esc(`Objectif : ${label}`)}</div>`;
 					} else {
-						// Fallback générique : afficher seulement le titre
-						inner = title ? `<div class="gp-tt-title">${esc(title)}</div>` : '';
+						// Fallback générique : titre ou nom du layer
+						inner = title 
+							? `<div class="gp-tt-title">${esc(title)}</div>` 
+							: `<div class="gp-tt-body">${esc(layerName)}</div>`;
 					}
 					// Désactiver la tooltip au survol pour certaines couches
 					if (layerName !== 'planVelo' && layerName !== 'amenagementCyclable') {
