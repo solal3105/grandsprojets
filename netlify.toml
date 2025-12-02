@@ -1,6 +1,27 @@
 [functions]
   directory = "netlify/functions"
 
+# ============================================
+# Redirections sous-domaines → ?city=
+# ============================================
+
+[[redirects]]
+  from = "https://lumieres.grandsprojets.com/*"
+  to = "https://grandsprojets.com/:splat?city=lumieres"
+  status = 301
+  force = true
+
+# Ajouter d'autres villes ici si besoin :
+# [[redirects]]
+#   from = "https://keolis.grandsprojets.com/*"
+#   to = "https://grandsprojets.com/:splat?city=keolis"
+#   status = 301
+#   force = true
+
+# ============================================
+# Fonctions Netlify
+# ============================================
+
 # Force the dynamic function over any static file with the same path
 [[redirects]]
   from = "/sitemap.xml"

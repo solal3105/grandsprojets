@@ -87,35 +87,6 @@
       win.ThemeManager?.init();
       await win.CityManager?.loadValidCities();
 
-      // PHASE 1.5 : Redirection sous-domaine vers ?city=
-      (function maybeRedirectSubdomainToCityQuery() {
-        try {
-          const hostname = location.hostname.toLowerCase();
-          
-          // Vérifier si on est sur un sous-domaine de grandsprojets.com
-          const match = hostname.match(/^([a-z0-9-]+)\.grandsprojets\.com$/);
-          if (!match) return;
-          
-          const subdomain = match[1];
-          
-          // Ignorer www et metropole-lyon (domaines principaux)
-          if (subdomain === 'www' || subdomain === 'metropole-lyon') return;
-          
-          // Vérifier que c'est une ville valide
-          if (!win.CityManager?.isValidCity(subdomain)) return;
-          
-          // Construire l'URL avec ?city=
-          const sp = new URLSearchParams(location.search);
-          sp.set('city', subdomain);
-          const targetUrl = `https://grandsprojets.com${location.pathname}?${sp.toString()}${location.hash}`;
-          
-          // Rediriger
-          location.replace(targetUrl);
-        } catch (err) {
-          console.warn('[Main] Erreur redirection sous-domaine:', err);
-        }
-      })();
-
       // PHASE 2 : Ville active
       (function maybeRedirectCityPathToQuery() {
         try {
