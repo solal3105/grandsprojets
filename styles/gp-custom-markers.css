@@ -136,17 +136,17 @@
   }
 }
 
-/* Animation de rebond vertical pour le marker */
-.gp-marker-container.is-highlighted {
+/* Animation de rebond vertical pour le marker - sur l'élément interne pour ne pas interférer avec Leaflet */
+.gp-marker-container.is-highlighted .gp-custom-marker {
   animation: markerBounce 1s ease-in-out infinite;
 }
 
 @keyframes markerBounce {
   0%, 100% {
-    transform: translateY(0);
+    margin-top: 0;
   }
   50% {
-    transform: translateY(-12px);
+    margin-top: -10px;
   }
 }
 
