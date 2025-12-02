@@ -714,7 +714,11 @@ window.DataModule = (function() {
 				const isContribution = !!(p.project_name && p.category);
 
 				// Réinitialiser tous les styles et stopper toutes les animations
+				// SAUF les features en mode "highlighted" (sélection via submenu)
 				geojsonLayer.eachLayer(otherLayer => {
+					// Ne pas toucher aux features highlighted
+					if (otherLayer.__gpHighlighted) return;
+					
 					stopDashAnimation(otherLayer);
 					const originalStyle = getFeatureStyle(otherLayer.feature, layerName);
 					if (typeof otherLayer.setStyle === 'function') {
@@ -723,9 +727,13 @@ window.DataModule = (function() {
 				});
 
 				// Animer tous les segments de cette contribution (même project_name)
+				// SAUF les features en mode "highlighted" (sélection via submenu)
 				if (isContribution) {
 					const contributionName = p.project_name;
 					geojsonLayer.eachLayer(otherLayer => {
+						// Ne pas toucher aux features highlighted
+						if (otherLayer.__gpHighlighted) return;
+						
 						const op = (otherLayer?.feature?.properties) || {};
 						if (op.project_name === contributionName && typeof otherLayer.setStyle === 'function') {
 							const originalStyle = getFeatureStyle(otherLayer.feature, layerName);
@@ -784,7 +792,11 @@ window.DataModule = (function() {
 					} catch (_) {}
 
 					// Restaurer les styles originaux
+					// SAUF les features en mode "highlighted" (sélection via submenu)
 					geojsonLayer.eachLayer(otherLayer => {
+						// Ne pas toucher aux features highlighted
+						if (otherLayer.__gpHighlighted) return;
+						
 						stopDashAnimation(otherLayer);
 						const originalStyle = getFeatureStyle(otherLayer.feature, layerName);
 						if (typeof otherLayer.setStyle === 'function') {

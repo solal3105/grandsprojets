@@ -85,16 +85,18 @@ const NavigationModule = (() => {
    * Nettoie tous les highlights précédents
    */
   function clearProjectHighlight() {
-    // Stopper les animations de dash
-    currentHighlight.intervals.forEach(interval => clearInterval(interval));
+    // Nettoyer les animations et styles
+    currentHighlight.intervals.forEach(id => clearInterval(id));
     currentHighlight.intervals = [];
     
-    // Retirer les classes is-highlighted et restaurer les styles
     currentHighlight.layers.forEach(layer => {
       try {
-        // Pour les markers
-        if (layer instanceof L.Marker && typeof layer.getElement === 'function') {
-          const el = layer.getElement();
+        // Retirer le marqueur de highlight
+        layer.__gpHighlighted = false;
+        
+        // Pour les markers - retirer les classes
+        if (layer instanceof L.Marker) {
+          const el = layer.getElement?.();
           if (el) {
             el.classList.remove('is-highlighted');
           }
@@ -151,6 +153,9 @@ const NavigationModule = (() => {
       } catch (_) {}
     }
     
+    // Collecter le centre pour un seul panTo à la fin
+    let centerLatLng = null;
+    
     // Trouver et animer toutes les features du projet
     mapLayer.eachLayer((featureLayer) => {
       const props = featureLayer.feature?.properties || {};
@@ -162,6 +167,9 @@ const NavigationModule = (() => {
       const isPolygon = geomType === 'Polygon' || geomType === 'MultiPolygon';
       
       currentHighlight.layers.push(featureLayer);
+      
+      // Marquer comme highlighted pour éviter le reset par le hover
+      featureLayer.__gpHighlighted = true;
       
       if (isPoint && featureLayer instanceof L.Marker) {
         // ANIMATION MARKER : rebond + cercle pulsant
@@ -180,9 +188,9 @@ const NavigationModule = (() => {
           }
         }
         
-        // Zoomer sur le marker
-        if (window.MapModule?.map) {
-          window.MapModule.map.setView(featureLayer.getLatLng(), 17, { animate: true });
+        // Stocker le centre (première feature uniquement)
+        if (!centerLatLng) {
+          centerLatLng = featureLayer.getLatLng();
         }
         
       } else if (isLine || isPolygon) {
@@ -208,15 +216,20 @@ const NavigationModule = (() => {
           currentHighlight.intervals.push(interval);
         }
         
-        // Zoomer sur les bounds
-        if (window.MapModule?.map && typeof featureLayer.getBounds === 'function') {
+        // Stocker le centre (première feature uniquement)
+        if (!centerLatLng && typeof featureLayer.getBounds === 'function') {
           const bounds = featureLayer.getBounds();
           if (bounds.isValid()) {
-            window.MapModule.map.fitBounds(bounds, { padding: [80, 80], maxZoom: 17 });
+            centerLatLng = bounds.getCenter();
           }
         }
       }
     });
+    
+    // Un seul centrage à la fin (sans changer le zoom)
+    if (centerLatLng && window.MapModule?.map) {
+      window.MapModule.map.panTo(centerLatLng, { animate: true });
+    }
     
     console.log(`[NavigationModule] ✅ ${currentHighlight.layers.length} features mises en avant`);
   }
@@ -319,37 +332,7 @@ const NavigationModule = (() => {
       console.warn('[NavigationModule] ⚠️ Layer non disponible:', e);
     }
     
-    // Zoomer sur la contribution si on a ses coordonnées
-    if (contributionData && window.MapModule?.map) {
-      const map = MapModule.map;
-      
-      // Chercher la feature correspondante dans le layer pour zoomer
-      const layer = MapModule.layers?.[layerName];
-      if (layer && typeof layer.eachLayer === 'function') {
-        let found = false;
-        layer.eachLayer((featureLayer) => {
-          const props = featureLayer.feature?.properties || {};
-          if (props.project_name === projectName || props.name === projectName) {
-            found = true;
-            console.log(`[NavigationModule] 🔍 Feature trouvée pour zoom:`, props.project_name);
-            // Zoomer sur cette feature
-            if (typeof featureLayer.getBounds === 'function') {
-              const bounds = featureLayer.getBounds();
-              if (bounds.isValid()) {
-                console.log(`[NavigationModule] 🗺️ Zoom sur bounds:`, bounds);
-                map.fitBounds(bounds, { padding: [100, 100], maxZoom: 16 });
-              }
-            } else if (typeof featureLayer.getLatLng === 'function') {
-              console.log(`[NavigationModule] 🗺️ Zoom sur point:`, featureLayer.getLatLng());
-              map.setView(featureLayer.getLatLng(), 16);
-            }
-          }
-        });
-        if (!found) {
-          console.warn(`[NavigationModule] ⚠️ Feature "${projectName}" non trouvée dans le layer`);
-        }
-      }
-    }
+    // Note: Le centrage est géré par highlightProjectOnMap() appelé dans showProjectDetail()
     
     // Log état APRÈS
     console.log(`[NavigationModule] Layers sur la carte APRÈS:`, Object.keys(window.MapModule?.layers || {}));
