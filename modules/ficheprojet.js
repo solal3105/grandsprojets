@@ -380,6 +380,45 @@ function openPDFPreview(pdfUrl, title) {
    =========================================================================== */
 
 /**
+ * Récupère le style d'une catégorie (couleur + icône)
+ */
+function getCategoryStyle(category) {
+  const categoryIcon = window.categoryIcons?.find(c => c.category === category);
+  const iconClass = categoryIcon?.icon_class || 'fa-solid fa-map-marker';
+  let categoryColor = 'var(--primary)';
+  if (categoryIcon?.category_styles) {
+    try {
+      const styles = typeof categoryIcon.category_styles === 'string' 
+        ? JSON.parse(categoryIcon.category_styles) 
+        : categoryIcon.category_styles;
+      categoryColor = styles.color || categoryColor;
+    } catch (e) {
+      console.warn('[FicheProjet] Parse error category_styles:', e);
+    }
+  }
+  return { color: categoryColor, iconClass };
+}
+
+/**
+ * Crée un marker personnalisé pour les contributions (identique à datamodule.js)
+ */
+function createContributionMarkerIcon(category) {
+  const { color, iconClass } = category ? getCategoryStyle(category) : { color: 'var(--primary)', iconClass: 'fa-solid fa-map-marker' };
+  
+  return window.L.divIcon({
+    html: `
+      <div class="gp-custom-marker" style="--marker-color: ${color};">
+        <i class="${iconClass}"></i>
+      </div>
+    `,
+    className: 'gp-marker-container',
+    iconSize: [32, 40],
+    iconAnchor: [16, 40],
+    popupAnchor: [0, -40]
+  });
+}
+
+/**
  * Initialise la carte Leaflet
  */
 async function initProjectMap(containerId, projectName, category) {
@@ -500,13 +539,25 @@ async function initProjectMap(containerId, projectName, category) {
             // Ne pas bind d'événements ni de tooltips sur les paths (lignes/polygones)
           },
           pointToLayer: (feature, latlng) => {
-            // Camera markers pour les points avec images
-            if (feature.properties?.imgUrl && window.CameraMarkers) {
-              const color = feature.properties.color || '#666';
+            const props = feature?.properties || {};
+            
+            // 1. Camera markers pour les points avec images
+            if (props.imgUrl && window.CameraMarkers) {
+              const color = props.color || '#666';
               return window.CameraMarkers.createCameraMarker(latlng, 'markerPane', color);
             }
-            // Ne pas créer de marker pour les points sans image
-            return null;
+            
+            // 2. Contribution markers avec icône de catégorie
+            // Utiliser la catégorie de la feature ou celle du projet
+            const featureCategory = props.category || category;
+            if (featureCategory) {
+              const icon = createContributionMarkerIcon(featureCategory);
+              return window.L.marker(latlng, { icon });
+            }
+            
+            // 3. Fallback : marker par défaut
+            const defaultIcon = createContributionMarkerIcon(null);
+            return window.L.marker(latlng, { icon: defaultIcon });
           }
         }).addTo(map);
 

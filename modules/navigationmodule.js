@@ -1,6 +1,7 @@
 // modules/NavigationModule.js
 const NavigationModule = (() => {
   const projectDetailPanel = document.getElementById('project-detail');
+  
   function normalizeString(str) {
     if (str === null || str === undefined) return "";
     return String(str)
@@ -17,6 +18,7 @@ const NavigationModule = (() => {
       .trim()
       .toLowerCase();
   }
+  
   // Fonction helper pour obtenir les catégories de contribution dynamiquement
   const getContributionLayers = () => {
     return (typeof window.getAllCategories === 'function') ? window.getAllCategories() : [];
@@ -26,25 +28,109 @@ const NavigationModule = (() => {
     return (category === 'transport') ? 'mobilite' : category;
   }
 
-  function hideAllLayersExcept(keepLayerName) {
-    try {
-      const layersObj = window.MapModule?.layers || {};
-      Object.keys(layersObj).forEach(name => {
-        if (name !== keepLayerName) {
-          try { window.MapModule.removeLayer(name); } catch(_) {}
-        }
-      });
-    } catch(_) {}
+  /**
+   * Récupère les layers associés à une catégorie depuis categoryLayersMap
+   * @param {string} category - Nom de la catégorie
+   * @returns {string[]} - Liste des layers à afficher
+   */
+  function getCategoryLayers(category) {
+    const normalized = normalizeCategoryName(category);
+    return window.categoryLayersMap?.[normalized] || [normalized];
   }
 
+  /**
+   * S'assure qu'un layer est chargé (données en mémoire)
+   * @param {string} layerName - Nom du layer
+   */
   async function ensureLayerLoaded(layerName) {
     if (!window.DataModule?.layerData?.[layerName]) {
       try {
         await window.DataModule.loadLayer(layerName);
       } catch (e) {
+        console.warn(`[NavigationModule] Erreur chargement layer ${layerName}:`, e);
         throw e;
       }
     }
+  }
+
+  /**
+   * S'assure que tous les layers d'une catégorie sont chargés
+   * @param {string} category - Nom de la catégorie
+   */
+  async function ensureCategoryLayersLoaded(category) {
+    const layers = getCategoryLayers(category);
+    console.log(`[NavigationModule] Chargement layers pour catégorie "${category}":`, layers);
+    
+    for (const layerName of layers) {
+      try {
+        await ensureLayerLoaded(layerName);
+      } catch (e) {
+        console.warn(`[NavigationModule] Impossible de charger ${layerName}`);
+      }
+    }
+  }
+
+  /**
+   * Affiche tous les layers d'une catégorie sur la carte
+   * @param {string} category - Nom de la catégorie
+   */
+  async function showCategoryLayers(category) {
+    console.log(`[NavigationModule] ========== showCategoryLayers START ==========`);
+    console.log(`[NavigationModule] Catégorie: "${category}"`);
+    
+    const layers = getCategoryLayers(category);
+    console.log(`[NavigationModule] Layers à afficher:`, layers);
+    
+    // Reset les filtres
+    if (window.FilterModule?.resetAll) {
+      console.log(`[NavigationModule] Reset des filtres`);
+      FilterModule.resetAll();
+    }
+    
+    // Pour chaque layer, vérifier s'il existe déjà avec des données
+    for (const layerName of layers) {
+      const existingLayer = window.MapModule?.layers?.[layerName];
+      
+      // Compter les features existantes sur la carte
+      let existingFeaturesCount = 0;
+      if (existingLayer && typeof existingLayer.getLayers === 'function') {
+        existingFeaturesCount = existingLayer.getLayers().length;
+      }
+      
+      console.log(`[NavigationModule] Layer "${layerName}": ${existingFeaturesCount} features sur la carte`);
+      
+      // Si le layer existe déjà avec des données, le garder
+      if (existingFeaturesCount > 0) {
+        console.log(`[NavigationModule] ✅ Layer "${layerName}" conservé (${existingFeaturesCount} features)`);
+        // S'assurer qu'il est visible
+        if (window.MapModule?.map && !MapModule.map.hasLayer(existingLayer)) {
+          MapModule.map.addLayer(existingLayer);
+        }
+        continue;
+      }
+      
+      // Sinon, essayer de charger les données
+      console.log(`[NavigationModule] Chargement du layer "${layerName}"...`);
+      try {
+        await ensureLayerLoaded(layerName);
+      } catch (e) {
+        console.warn(`[NavigationModule] ⚠️ Impossible de charger "${layerName}":`, e);
+      }
+    }
+    
+    // Log état final
+    const finalLayers = Object.keys(window.MapModule?.layers || {});
+    console.log(`[NavigationModule] Layers sur la carte après:`, finalLayers);
+    
+    // Compter les features visibles
+    finalLayers.forEach(ln => {
+      const layer = window.MapModule?.layers?.[ln];
+      if (layer && typeof layer.getLayers === 'function') {
+        console.log(`[NavigationModule] Layer "${ln}": ${layer.getLayers().length} features sur la carte`);
+      }
+    });
+    
+    console.log(`[NavigationModule] ========== showCategoryLayers END ==========`);
   }
 
   function loadOrCreateLayer(layerName) {
@@ -55,47 +141,73 @@ const NavigationModule = (() => {
     }
   }
 
-  async function applyContributionFilter(projectName, category) {
-    const layerName = normalizeCategoryName(category);
-
-    if (!layerName) {
-      return;
-    }
-
-    try {
-      await ensureLayerLoaded(layerName);
-    } catch (e) {
-      return;
-    }
-
-    hideAllLayersExcept(layerName);
-
-    if (window.UIModule?.applyFilter && projectName) {
-      window.UIModule.applyFilter(layerName, { project_name: projectName });
-      if (window.UIModule.updateActiveFilterTagsForLayer) {
-        window.UIModule.updateActiveFilterTagsForLayer(layerName);
-      }
-    }
-
-    const layer = window.MapModule?.layers?.[layerName];
-    if (layer && typeof layer.getBounds === 'function') {
-      const bounds = layer.getBounds();
-      if (bounds.isValid()) {
-        window.MapModule.map.fitBounds(bounds, { padding: [100, 100] });
-        setTimeout(() => { if (window.MapModule.map.getZoom() > 15) window.MapModule.map.setZoom(15); }, 300);
-      }
-    }
-
-    return layerName; // Retourner le nom de couche pour compatibilité
-  }
-
   /**
-   * Affiche une contribution spécifique (filtrage + panneau de détail)
+   * Affiche une contribution spécifique (panneau de détail + zoom)
    * Utilisé pour les clics directs sur la carte
+   * @param {string} projectName - Nom du projet
+   * @param {string} category - Catégorie de la contribution
+   * @param {Object} contributionData - Données de la contribution (optionnel)
    */
   async function showSpecificContribution(projectName, category, contributionData = null) {
-    await applyContributionFilter(projectName, category);
+    console.log(`[NavigationModule] ========== showSpecificContribution START ==========`);
+    console.log(`[NavigationModule] Projet: "${projectName}"`);
+    console.log(`[NavigationModule] Catégorie: "${category}"`);
+    console.log(`[NavigationModule] Données contribution:`, contributionData);
+    
+    const layerName = normalizeCategoryName(category);
+    console.log(`[NavigationModule] Layer normalisé: "${layerName}"`);
+    
+    // Log état AVANT
+    console.log(`[NavigationModule] Layers sur la carte AVANT:`, Object.keys(window.MapModule?.layers || {}));
+    
+    // S'assurer que le layer est chargé
+    try {
+      await ensureLayerLoaded(layerName);
+      console.log(`[NavigationModule] ✅ Layer "${layerName}" chargé`);
+    } catch (e) {
+      console.warn('[NavigationModule] ⚠️ Layer non disponible:', e);
+    }
+    
+    // Zoomer sur la contribution si on a ses coordonnées
+    if (contributionData && window.MapModule?.map) {
+      const map = MapModule.map;
+      
+      // Chercher la feature correspondante dans le layer pour zoomer
+      const layer = MapModule.layers?.[layerName];
+      if (layer && typeof layer.eachLayer === 'function') {
+        let found = false;
+        layer.eachLayer((featureLayer) => {
+          const props = featureLayer.feature?.properties || {};
+          if (props.project_name === projectName || props.name === projectName) {
+            found = true;
+            console.log(`[NavigationModule] 🔍 Feature trouvée pour zoom:`, props.project_name);
+            // Zoomer sur cette feature
+            if (typeof featureLayer.getBounds === 'function') {
+              const bounds = featureLayer.getBounds();
+              if (bounds.isValid()) {
+                console.log(`[NavigationModule] 🗺️ Zoom sur bounds:`, bounds);
+                map.fitBounds(bounds, { padding: [100, 100], maxZoom: 16 });
+              }
+            } else if (typeof featureLayer.getLatLng === 'function') {
+              console.log(`[NavigationModule] 🗺️ Zoom sur point:`, featureLayer.getLatLng());
+              map.setView(featureLayer.getLatLng(), 16);
+            }
+          }
+        });
+        if (!found) {
+          console.warn(`[NavigationModule] ⚠️ Feature "${projectName}" non trouvée dans le layer`);
+        }
+      }
+    }
+    
+    // Log état APRÈS
+    console.log(`[NavigationModule] Layers sur la carte APRÈS:`, Object.keys(window.MapModule?.layers || {}));
+    
+    // Afficher le panneau de détail
+    console.log(`[NavigationModule] Affichage panneau de détail...`);
     showProjectDetail(projectName, category, null, contributionData);
+    
+    console.log(`[NavigationModule] ========== showSpecificContribution END ==========`);
   }
 
   // Fonction utilitaire pour ajuster la vue de la carte
@@ -404,9 +516,16 @@ const NavigationModule = (() => {
       });
     }
 
+    // Bouton "Retour" : affiche toutes les contributions de la catégorie
     const backButton = document.getElementById('detail-back-btn');
     if (backButton) {
       backButton.onclick = () => NavigationModule.resetToDefaultView(category, { preserveMapView: true, updateHistory: true });
+    }
+    
+    // Bouton "Fermer" : ferme le panneau et affiche toutes les contributions de toutes les catégories
+    const closeButton = document.getElementById('detail-close-btn');
+    if (closeButton) {
+      closeButton.onclick = () => NavigationModule.resetToDefaultView(null, { preserveMapView: false, updateHistory: true });
     }
   }catch(e){
     console.error('[NavigationModule] Error in showProjectDetail:', e);
@@ -414,34 +533,12 @@ const NavigationModule = (() => {
     panel.innerHTML=`<h3>${safeProjectName}</h3><p>Aucun détail disponible.</p>`;
   }
 
-  await resolveAndApplyLayerFiltering(projectName, category);
+  // Stocker la catégorie pour le bouton retour
+  if (category) {
+    projectDetailPanel.dataset.filterLayer = normalizeCategoryName(category);
+  }
 
   function normLoose(s) { return normalizeString(s).replace(/\s+/g, ''); }
-  function restoreAllLayerOpacity() {
-    try {
-      const layersObj = window.MapModule?.layers || {};
-      Object.keys(layersObj).forEach(name => {
-        const layer = layersObj[name];
-        if (!layer) return;
-        window.DataModule?.safeSetStyle(layer, { opacity: 1, fillOpacity: 0.5 });
-        if (typeof layer.setOpacity === 'function') {
-          layer.setOpacity(1);
-        }
-      });
-    } catch (_) { /* noop */ }
-  }
-
-  async function resolveAndApplyLayerFiltering(projectName, category) {
-    // Déléguer à la fonction centralisée
-    const layerName = await applyContributionFilter(projectName, category);
-    
-    // Assigner pour consommation ultérieure (compatibilité)
-    if (layerName) {
-      projectDetailPanel.dataset.filterLayer = layerName;
-    }
-  }
-
-  // highlightProjectPaths supprimée - debug uniquement, non utilisée en production
 
 }
 
@@ -449,54 +546,83 @@ const NavigationModule = (() => {
   // Désormais géré par SubmenuManager → SubmenuModule/TravauxModule
 
   /**
+   * Restaure l'opacité normale de tous les layers
+   */
+  function restoreAllLayerOpacity() {
+    try {
+      const layersObj = window.MapModule?.layers || {};
+      Object.keys(layersObj).forEach(name => {
+        const layer = layersObj[name];
+        if (!layer) return;
+        window.DataModule?.safeSetStyle?.(layer, { opacity: 1, fillOpacity: 0.5 });
+        if (typeof layer.setOpacity === 'function') {
+          layer.setOpacity(1);
+        }
+      });
+    } catch (_) { /* noop */ }
+  }
+
+  /**
    * Réinitialise la vue à l'état par défaut de l'application
-   * - Si une catégorie est fournie, affiche uniquement le sous-menu correspondant
-   * - Sinon, affiche uniquement les couches par défaut
-   * - Masque tous les panneaux et sous-menus non concernés
-   * - Peut réinitialiser la vue de la carte (désactivable via options)
-   * - Peut mettre à jour l'URL/historique (désactivable via options)
+   * 
+   * COMPORTEMENTS :
+   * - Avec category : Affiche toutes les contributions de la catégorie (bouton "Retour")
+   * - Sans category : Affiche tous les layers par défaut + contributions (bouton "Fermer")
+   * 
    * @param {string} [category] - Catégorie à afficher (optionnel)
-   * @param {{ preserveMapView?: boolean, updateHistory?: boolean }} [options] - Options de réinitialisation
+   * @param {{ preserveMapView?: boolean, updateHistory?: boolean }} [options] - Options
    */
   const resetToDefaultView = async (category, options = {}) => {
     const { preserveMapView = false, updateHistory = false } = options;
     
-    // Masquer le panneau de détail
+    console.log(`[NavigationModule] ========== resetToDefaultView START ==========`);
+    console.log(`[NavigationModule] Catégorie: "${category || 'AUCUNE (fermeture totale)'}"`);
+    console.log(`[NavigationModule] Options:`, options);
+    console.log(`[NavigationModule] Layers sur la carte AVANT:`, Object.keys(window.MapModule?.layers || {}));
+    
+    // 1. Masquer le panneau de détail
     const projectDetail = document.getElementById('project-detail');
-    if (projectDetail) projectDetail.style.display = 'none';
+    if (projectDetail) {
+      console.log(`[NavigationModule] Masquage panneau de détail`);
+      projectDetail.style.display = 'none';
+    }
     
-    // Restaurer l'opacité
-    try { restoreAllLayerOpacity(); } catch(_) {}
+    // 2. Restaurer l'opacité de tous les layers
+    console.log(`[NavigationModule] Restauration opacité layers`);
+    restoreAllLayerOpacity();
     
-    // Si une catégorie est spécifiée
+    // ========================================
+    // CAS 1 : Retour vers une catégorie spécifique (bouton "Retour")
+    // ========================================
     if (category) {
+      console.log(`[NavigationModule] 🔙 CAS 1: Retour vers catégorie "${category}"`);
+      console.log(`[NavigationModule] categoryLayersMap:`, window.categoryLayersMap);
+      
       // Masquer tous les submenus puis afficher celui de la catégorie
       document.querySelectorAll('.submenu').forEach(menu => menu.style.display = 'none');
       const submenu = document.querySelector(`.submenu[data-category="${category}"]`);
       if (submenu) submenu.style.display = 'block';
       
-      // Activer l'onglet
+      // Activer l'onglet de navigation
       document.querySelectorAll('.nav-category').forEach(tab => {
         tab.classList.toggle('active', tab.id === `nav-${category}`);
       });
       
-      // Supprimer les filtres et recharger la couche
-      FilterModule.resetAll();
-      MapModule.removeLayer(category);
-      DataModule.loadLayer(category);
-      
-      try { restoreAllLayerOpacity(); } catch(_) {}
+      // Afficher TOUS les layers de cette catégorie (sans filtre)
+      console.log(`[NavigationModule] Appel showCategoryLayers("${category}")...`);
+      await showCategoryLayers(category);
       
       // Rafraîchir le submenu
       try {
+        console.log(`[NavigationModule] Rafraîchissement submenu "${category}"...`);
         if (window.SubmenuManager?.renderSubmenu) {
           await window.SubmenuManager.renderSubmenu(category);
         }
       } catch (e) {
-        console.error('[resetToDefaultView] Erreur:', e);
+        console.error('[resetToDefaultView] Erreur render submenu:', e);
       }
       
-      // Historique
+      // Mettre à jour l'historique
       if (updateHistory) {
         try {
           const params = new URLSearchParams();
@@ -505,60 +631,56 @@ const NavigationModule = (() => {
         } catch (_) {}
       }
       
+      // Log état final CAS 1
+      console.log(`[NavigationModule] Layers sur la carte APRÈS (CAS 1):`, Object.keys(window.MapModule?.layers || {}));
+      console.log(`[NavigationModule] ========== resetToDefaultView END (CAS 1) ==========`);
       return;
     }
     
-    // Pas de catégorie : masquer tout et afficher uniquement les couches par défaut
+    // ========================================
+    // CAS 2 : Fermeture totale (retour à l'état initial) - bouton "Fermer"
+    // ========================================
+    console.log(`[NavigationModule] ❌ CAS 2: Fermeture totale`);
+    console.log(`[NavigationModule] defaultLayers:`, window.defaultLayers);
+    console.log(`[NavigationModule] Toutes les catégories:`, getContributionLayers());
+    
+    // Masquer tous les submenus
     document.querySelectorAll('.submenu').forEach(menu => menu.style.display = 'none');
     document.querySelectorAll('.nav-category.active').forEach(tab => tab.classList.remove('active'));
     
+    // Reset les filtres
+    if (window.FilterModule?.resetAll) {
+      console.log(`[NavigationModule] Reset des filtres`);
+      FilterModule.resetAll();
+    }
+    
+    // Charger et afficher les layers par défaut
     if (window.defaultLayers && window.defaultLayers.length > 0) {
-      
-      window.defaultLayers.forEach(layerName => {
-        if (!window.MapModule.layers || !window.MapModule.layers[layerName]) {
-          DataModule.loadLayer(layerName);
+      console.log(`[NavigationModule] Chargement ${window.defaultLayers.length} layers par défaut...`);
+      for (const layerName of window.defaultLayers) {
+        try {
+          console.log(`[NavigationModule] Chargement layer par défaut: "${layerName}"`);
+          await ensureLayerLoaded(layerName);
+          const layer = window.MapModule?.layers?.[layerName];
+          if (layer && window.MapModule?.map && !window.MapModule.map.hasLayer(layer)) {
+            console.log(`[NavigationModule] Ajout layer "${layerName}" à la carte`);
+            window.MapModule.map.addLayer(layer);
+          }
+        } catch (e) {
+          console.warn(`[resetToDefaultView] Erreur chargement layer ${layerName}:`, e);
         }
-      });
-      
-      if (window.MapModule && window.MapModule.layers && window.MapModule.map) {
-        Object.keys(window.MapModule.layers).forEach(layerName => {
-          const layer = window.MapModule.layers[layerName];
-          if (layer) {
-            if (window.defaultLayers.includes(layerName)) {
-              if (!window.MapModule.map.hasLayer(layer)) {
-                window.MapModule.map.addLayer(layer);
-              }
-            } else {
-              if (window.MapModule.map.hasLayer(layer)) {
-                window.MapModule.map.removeLayer(layer);
-              }
-            }
-          }
-        });
       }
-      
-      // Afficher à nouveau toutes les contributions par défaut
+    }
+    
+    // Charger et afficher toutes les contributions (toutes catégories)
+    const contributionCategories = getContributionLayers();
+    console.log(`[NavigationModule] Chargement ${contributionCategories.length} catégories de contributions...`);
+    for (const cat of contributionCategories) {
       try {
-        const contributionLayers = CONTRIBUTION_LAYERS;
-        contributionLayers.forEach(layerName => {
-          // Réinitialiser l'état visuel du filtre et les tags si disponibles
-          try {
-            const filterItem = document.querySelector(`.filter-item[data-layer="${layerName}"]`);
-            if (filterItem) filterItem.classList.add('active-filter');
-            if (window.UIModule?.resetLayerFilterWithoutRemoving) {
-              window.UIModule.resetLayerFilterWithoutRemoving(layerName);
-            } else if (window.UIModule?.resetLayerFilter) {
-              window.UIModule.resetLayerFilter(layerName);
-            }
-          } catch (_) { /* noop */ }
-
-          loadOrCreateLayer(layerName);
-          const lyr = window.MapModule.layers && window.MapModule.layers[layerName];
-          if (lyr && window.MapModule.map && !window.MapModule.map.hasLayer(lyr)) {
-            window.MapModule.map.addLayer(lyr);
-          }
-        });
+        console.log(`[NavigationModule] Chargement catégorie: "${cat}"`);
+        await showCategoryLayers(cat);
       } catch (e) {
+        console.warn(`[resetToDefaultView] Erreur affichage catégorie ${cat}:`, e);
       }
     }
     
@@ -588,6 +710,17 @@ const NavigationModule = (() => {
         history.pushState(category ? { cat: category } : null, '', newUrl);
       }
     } catch (_) { /* noop */ }
+    
+    // Log état final CAS 2
+    console.log(`[NavigationModule] Layers sur la carte APRÈS (CAS 2):`, Object.keys(window.MapModule?.layers || {}));
+    // Compter les features
+    Object.keys(window.MapModule?.layers || {}).forEach(ln => {
+      const layer = window.MapModule?.layers?.[ln];
+      if (layer && typeof layer.getLayers === 'function') {
+        console.log(`[NavigationModule] Layer "${ln}": ${layer.getLayers().length} features`);
+      }
+    });
+    console.log(`[NavigationModule] ========== resetToDefaultView END (CAS 2) ==========`);
   }
 
   const publicAPI = { 

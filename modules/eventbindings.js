@@ -2,11 +2,17 @@
 const EventBindings = (() => {
 
   const handleNavigation = async (menu, layersToDisplay) => {
-  // Validation du menu
-  if (!menu) {
-    console.error('[EventBindings] handleNavigation appelé avec menu invalide:', menu);
-    return;
-  }
+    console.log(`[EventBindings] ========== handleNavigation START ==========`);
+    console.log(`[EventBindings] Menu: "${menu}"`);
+    console.log(`[EventBindings] Layers demandés:`, layersToDisplay);
+    console.log(`[EventBindings] MapModule.layers actuels:`, Object.keys(window.MapModule?.layers || {}));
+    console.log(`[EventBindings] DataModule.layerData disponibles:`, Object.keys(window.DataModule?.layerData || {}));
+    
+    // Validation du menu
+    if (!menu) {
+      console.error('[EventBindings] ❌ handleNavigation appelé avec menu invalide:', menu);
+      return;
+    }
   
   // 0. Toggle "active" on the clicked nav button
   document.querySelectorAll('.nav-category').forEach(tab => tab.classList.remove('active'));
@@ -43,34 +49,64 @@ const EventBindings = (() => {
     if (Array.isArray(layersToDisplay)) {
       console.log('[EventBindings] handleNavigation - Layers à afficher:', layersToDisplay);
       
-      // Retirer les couches non désirées
-      Object.keys(MapModule.layers).forEach(layerName => {
+      // IMPORTANT: Sauvegarder les layers à conserver AVANT de les retirer
+      // (pour les contributions chargées progressivement)
+      const layersToKeep = {};
+      layersToDisplay.forEach(name => {
+        const existing = MapModule.layers[name];
+        if (existing && typeof existing.getLayers === 'function') {
+          const featuresCount = existing.getLayers().length;
+          if (featuresCount > 0) {
+            console.log(`[EventBindings] 💾 Sauvegarde layer "${name}" avec ${featuresCount} features`);
+            layersToKeep[name] = existing;
+          }
+        }
+      });
+      
+      // Retirer les couches non désirées (sauf celles à conserver)
+      const currentLayers = Object.keys(MapModule.layers);
+      console.log('[EventBindings] Layers actuels:', currentLayers);
+      
+      currentLayers.forEach(layerName => {
         if (!layersToDisplay.includes(layerName)) {
           console.log('[EventBindings] Retrait du layer:', layerName);
           MapModule.removeLayer(layerName);
         }
       });
       
-      // Charger/Afficher les couches désirées
-      layersToDisplay.forEach(layerName => {
-        if (!MapModule.layers[layerName]) {
-          console.log('[EventBindings] Layer non présent sur la carte:', layerName);
-          
-          // Si les données sont déjà chargées, créer le layer
-          if (DataModule.layerData && DataModule.layerData[layerName]) {
-            console.log('[EventBindings] Création du layer depuis layerData:', layerName);
-            DataModule.createGeoJsonLayer(layerName, DataModule.layerData[layerName]);
-          } 
-          // Sinon, charger les données depuis la DB
-          else if (DataModule.loadLayer) {
-            console.log('[EventBindings] Chargement du layer depuis DB:', layerName);
-            DataModule.loadLayer(layerName);
+      // Afficher les couches désirées
+      for (const layerName of layersToDisplay) {
+        try {
+          // Si on a sauvegardé le layer avec ses données, le garder tel quel
+          if (layersToKeep[layerName]) {
+            console.log(`[EventBindings] ✅ Layer "${layerName}" conservé avec ses données`);
+            const layer = layersToKeep[layerName];
+            // S'assurer qu'il est visible sur la carte
+            if (MapModule.map && !MapModule.map.hasLayer(layer)) {
+              MapModule.map.addLayer(layer);
+            }
+            continue;
           }
-        } else {
-          console.log('[EventBindings] Layer déjà présent sur la carte:', layerName);
-          // Le layer est déjà sur la carte, rien à faire ✅
+          
+          // Vérifier si le layer est sur la carte
+          const layerOnMap = MapModule.layers[layerName];
+          
+          if (layerOnMap) {
+            console.log(`[EventBindings] Layer "${layerName}" déjà sur la carte`);
+            if (MapModule.map && !MapModule.map.hasLayer(layerOnMap)) {
+              MapModule.map.addLayer(layerOnMap);
+            }
+          } else {
+            // Layer pas sur la carte, le charger
+            console.log(`[EventBindings] Chargement du layer "${layerName}"...`);
+            if (DataModule.loadLayer) {
+              await DataModule.loadLayer(layerName);
+            }
+          }
+        } catch (e) {
+          console.error(`[EventBindings] Erreur chargement layer ${layerName}:`, e);
         }
-      });
+      }
     }
 
     // Rendu unifié via SubmenuManager (gère automatiquement Travaux vs Projets)
@@ -79,6 +115,10 @@ const EventBindings = (() => {
     } else {
       console.error(`[EventBindings] SubmenuManager non disponible pour ${menu}`);
     }
+    
+    console.log(`[EventBindings] ✅ handleNavigation TERMINÉ`);
+    console.log(`[EventBindings] MapModule.layers après:`, Object.keys(window.MapModule?.layers || {}));
+    console.log(`[EventBindings] ========== handleNavigation END ==========`);
   };
 
   // Gestion des contrôles de filtres
@@ -109,17 +149,17 @@ const bindFilterControls = () => {
   // Gestion dynamique des boutons de navigation basée sur categoryIcons
   function bindCategoryNavigation() {
     const categoryIcons = window.categoryIcons || [];
-    const categoryLayersMap = window.categoryLayersMap || {};
     
     if (categoryIcons.length === 0) {
       console.warn('[EventBindings] bindCategoryNavigation: aucune catégorie disponible');
       return;
     }
     
+    console.log('[EventBindings] bindCategoryNavigation - Catégories:', categoryIcons.map(c => c.category));
+    
     categoryIcons.forEach(({ category }) => {
       // Ignorer le bouton "Contribuer" qui a son propre gestionnaire dans contrib.js
       if (category === 'contribute') {
-        console.log('[EventBindings] Ignore le bouton contribute (géré par contrib.js)');
         return;
       }
       
@@ -130,17 +170,23 @@ const bindFilterControls = () => {
       }
       
       navButton.addEventListener('click', () => {
-        // Récupérer les couches associées à cette catégorie depuis la DB
-        const categoryLayers = categoryLayersMap[category];
+        // IMPORTANT: Toujours accéder à window.categoryLayersMap au moment du clic
+        // car il peut être mis à jour après le bind initial
+        const currentCategoryLayersMap = window.categoryLayersMap || {};
+        const categoryLayers = currentCategoryLayersMap[category];
         
-        if (!categoryLayers) {
-          console.error(`[EventBindings] Aucun layer défini pour la catégorie: ${category}`);
-          return;
+        console.log(`[EventBindings] 🔍 Clic sur catégorie "${category}"`);
+        console.log(`[EventBindings] 📊 categoryLayersMap:`, currentCategoryLayersMap);
+        console.log(`[EventBindings] 📋 Layers pour cette catégorie:`, categoryLayers);
+        
+        if (!categoryLayers || categoryLayers.length === 0) {
+          console.error(`[EventBindings] ❌ Aucun layer défini pour: ${category}`);
+          // Fallback: utiliser le nom de la catégorie comme layer
+          console.log(`[EventBindings] 🔄 Fallback: utilisation de ["${category}"] comme layer`);
+          EventBindings.handleNavigation(category, [category]);
+        } else {
+          EventBindings.handleNavigation(category, categoryLayers);
         }
-        
-        console.log(`[EventBindings] Navigation vers ${category}, layers:`, categoryLayers);
-        
-        EventBindings.handleNavigation(category, categoryLayers);
         
         // Afficher le sous-menu de cette catégorie et masquer les autres
         document.querySelectorAll('.submenu').forEach(submenu => {

@@ -826,33 +826,9 @@ window.DataModule = (function() {
 					return;
 				}
 
-			// Nettoyer la carte: retirer toutes les autres couches
-			try {
-				Object.keys(MapModule.layers || {}).forEach((lname) => {
-					if (lname !== layerName) {
-						try {
-							MapModule.removeLayer(lname);
-						} catch (_) {}
-					}
-				});
-			} catch (_) {}
-
-			// Filtrer visuellement: masquer les autres projets
-			try {
-				const currentLayer = MapModule.layers[layerName];
-				if (currentLayer) {
-					currentLayer.eachLayer(otherLayer => {
-						const op = (otherLayer?.feature?.properties) || {};
-						if (op.project_name !== projectName && typeof otherLayer.setStyle === 'function') {
-							otherLayer.setStyle({
-								opacity: 0,
-								fillOpacity: 0
-							});
-						}
-					});
-				}
-				FilterModule.set(layerName, { project_name: projectName });
-			} catch (_) {}
+				// NOTE: On ne masque plus les autres layers/contributions ici
+				// L'utilisateur veut voir toutes les contributions en permanence
+				// Seul le panneau de détail s'affiche, sans modifier la visibilité des features
 
 			// Actions post-clic
 			try {
@@ -916,6 +892,18 @@ window.DataModule = (function() {
 	// Récupère les données d'une couche avec cache
 	async function fetchLayerData(layerName) {
 		const cacheKey = `layer_${layerName}`;
+		
+		// IMPORTANT: Vérifier si des contributions sont disponibles
+		// Si oui et que le cache est vide, vider le cache pour forcer le rechargement
+		const contributionProjects = window[`contributions_${layerName}`];
+		if (contributionProjects && Array.isArray(contributionProjects) && contributionProjects.length > 0) {
+			const cachedData = simpleCache._cache?.[cacheKey]?.value;
+			const cachedFeaturesCount = cachedData?.features?.length || 0;
+			if (cachedFeaturesCount === 0) {
+				console.log(`[DataModule] 🔄 Cache vide pour "${layerName}" mais ${contributionProjects.length} contributions disponibles - invalidation cache`);
+				clearLayerCache(layerName);
+			}
+		}
 
 		return simpleCache.get(cacheKey, async () => {
 			// TRAVAUX
@@ -942,11 +930,42 @@ window.DataModule = (function() {
 				return { type: 'FeatureCollection', features: [] };
 			}
 
-			// CONTRIBUTIONS (chargement progressif)
-			const contributionProjects = window[`contributions_${layerName}`];
-			if (contributionProjects && Array.isArray(contributionProjects)) {
-				setTimeout(() => loadContributionsProgressively(layerName, contributionProjects), 0);
-				return { type: 'FeatureCollection', features: [] };
+			// CONTRIBUTIONS (chargement depuis Supabase)
+			if (contributionProjects && Array.isArray(contributionProjects) && contributionProjects.length > 0) {
+				console.log(`[DataModule] 📦 Chargement de ${contributionProjects.length} contributions pour "${layerName}"`);
+				
+				// Charger les GeoJSON de chaque contribution
+				const features = [];
+				for (const project of contributionProjects) {
+					if (!project.geojson_url) continue;
+					try {
+						const response = await fetch(project.geojson_url);
+						if (!response.ok) continue;
+						const geoData = await response.json();
+						
+						// Enrichir les features avec les métadonnées du projet
+						const enrichFeature = (f) => {
+							if (!f.properties) f.properties = {};
+							f.properties.project_name = project.project_name;
+							f.properties.category = project.category;
+							f.properties.cover_url = project.cover_url;
+							f.properties.description = project.description;
+							f.properties.markdown_url = project.markdown_url;
+							return f;
+						};
+						
+						if (geoData.type === 'FeatureCollection' && geoData.features) {
+							geoData.features.forEach(f => features.push(enrichFeature(f)));
+						} else if (geoData.type === 'Feature') {
+							features.push(enrichFeature(geoData));
+						}
+					} catch (error) {
+						console.warn(`[DataModule] Erreur GeoJSON ${project.project_name}:`, error);
+					}
+				}
+				
+				console.log(`[DataModule] ✅ ${features.length} features chargées pour "${layerName}"`);
+				return { type: 'FeatureCollection', features };
 			}
 
 			// LAYERS DEPUIS URL
@@ -1021,10 +1040,15 @@ window.DataModule = (function() {
 
 	// Crée la couche GeoJSON et l'ajoute à la carte
 	function createGeoJsonLayer(layerName, data) {
+		console.log(`[DataModule] ========== createGeoJsonLayer START ==========`);
+		console.log(`[DataModule] Layer: "${layerName}"`);
+		console.log(`[DataModule] Données reçues:`, data ? `${data.features?.length || 0} features` : 'AUCUNE');
+		
 		// Normaliser les données d'entrée pour éviter les erreurs Leaflet (addData(undefined))
 		let normalized = data;
 		try {
 			if (!normalized || typeof normalized !== 'object') {
+				console.warn(`[DataModule] ⚠️ Données invalides, utilisation collection vide`);
 				normalized = { type: 'FeatureCollection', features: [] };
 			} else if (Array.isArray(normalized)) {
 				normalized = { type: 'FeatureCollection', features: normalized };
@@ -1037,7 +1061,10 @@ window.DataModule = (function() {
 			normalized = { type: 'FeatureCollection', features: [] };
 		}
 		data = normalized;
+		console.log(`[DataModule] Features après normalisation: ${data.features?.length || 0}`);
+		
 		const criteria = FilterModule.get(layerName);
+		console.log(`[DataModule] Critères de filtre pour "${layerName}":`, criteria);
 
 		// Définir les couches cliquables (catégories dynamiques)
 		const clickableLayers = (typeof window.getAllCategories === 'function') ?
@@ -1228,6 +1255,11 @@ window.DataModule = (function() {
 		geojsonLayer.addData(data);
 		geojsonLayer.addTo(MapModule.map);
 		MapModule.addLayer(layerName, geojsonLayer);
+		
+		// Log du résultat
+		const featuresOnMap = geojsonLayer.getLayers().length;
+		console.log(`[DataModule] ✅ Layer "${layerName}" ajouté à la carte: ${featuresOnMap} features visibles`);
+		console.log(`[DataModule] ========== createGeoJsonLayer END ==========`);
 
 		// Surcharge du style après filtrage pour toutes les features visibles
 		if (criteria && Object.keys(criteria).length > 0) {
