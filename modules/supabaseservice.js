@@ -94,7 +94,7 @@
       // Construire la requête et filtrer par ville
       let q = supabaseClient
         .from('layers')
-        .select('name, url, style, is_default, ville');
+        .select('name, url, style, is_default, ville, icon, icon_color');
 
       // Filtre par ville active
       if (activeCity) {
@@ -130,7 +130,9 @@
             url: row.url || '',
             style: parsedStyle,
             is_default: row.is_default || false,
-            ville: row.ville
+            ville: row.ville,
+            icon: row.icon || null,
+            icon_color: row.icon_color || null
           };
         });
     },
@@ -1541,10 +1543,24 @@
         // Exclure les fetchers non nécessaires au démarrage
         .filter(([key]) => !['fetchUrbanismeProjects', 'fetchMobiliteProjects', 'fetchVoielyonnaiseProjects', 'fetchAllProjects', 'fetchProjectsByCategory', 'fetchProjectByCategoryAndName', 'fetchProjectPages'].includes(key));
 
-      // 2️⃣ appeler tous les fetchers en parallèle
-      const results = await Promise.all(
-        fetchers.map(([_, fn]) => fn.call(svc))
+      // 2️⃣ appeler tous les fetchers en parallèle avec Promise.allSettled
+      // pour éviter qu'une erreur bloque tout le chargement
+      const settledResults = await Promise.allSettled(
+        fetchers.map(([key, fn]) => fn.call(svc).catch(err => {
+          console.warn(`[supabaseService] initAllData: ${key} failed:`, err);
+          return null; // Valeur par défaut en cas d'erreur
+        }))
       );
+      
+      // Extraire les résultats (fulfilled ou valeur par défaut)
+      const results = settledResults.map((result, i) => {
+        if (result.status === 'fulfilled') {
+          return result.value;
+        } else {
+          console.warn(`[supabaseService] initAllData: ${fetchers[i][0]} rejected:`, result.reason);
+          return null;
+        }
+      });
 
       // 3️⃣ construire l'objet de retour et injecter sur window
       const out = {};
@@ -1560,8 +1576,9 @@
             const name = key.replace(/^fetch/, '');
             prop = name[0].toLowerCase() + name.slice(1);
         }
-        out[prop] = results[i];
-        window[prop] = results[i];
+        // Utiliser un tableau vide comme fallback si null
+        out[prop] = results[i] ?? [];
+        window[prop] = results[i] ?? [];
       });
       return out;
     },

@@ -78,19 +78,24 @@ window.DataModule = (function() {
 	// Variables internes pour stocker les configurations
 	let urlMap = {};
 	let styleMap = {};
+	let iconMap = {};
+	let iconColorMap = {};
 	let defaultLayers = [];
 	let layerData = {};
-
 
 	// Exposer une méthode d'initialisation
 	function initConfig({
 		urlMap: u,
 		styleMap: s,
+		iconMap: i,
+		iconColorMap: ic,
 		defaultLayers: d
 	}) {
 		// Initialisation silencieuse en production
 		urlMap = u || {};
 		styleMap = s || {};
+		iconMap = i || {};
+		iconColorMap = ic || {};
 		defaultLayers = d || [];
 
 		// Vérification silencieuse en production
@@ -1025,7 +1030,12 @@ window.DataModule = (function() {
 		// Récupérer les styles de la catégorie ou utiliser les overrides
 		const { color, iconClass } = category ? getCategoryStyle(category) : { color: 'var(--primary)', iconClass: 'fa-solid fa-map-marker' };
 		const finalColor = colorOverride || color;
-		const finalIcon = iconOverride || iconClass;
+		let finalIcon = iconOverride || iconClass;
+		
+		// Normaliser l'icône : ajouter fa-solid si pas de préfixe FA
+		if (finalIcon && !finalIcon.includes('fa-solid') && !finalIcon.includes('fa-regular') && !finalIcon.includes('fa-brands')) {
+			finalIcon = `fa-solid ${finalIcon}`;
+		}
 		
 		// Créer le marker avec design sobre : pin blanc avec bordure colorée et icône
 		return L.divIcon({
@@ -1048,6 +1058,34 @@ window.DataModule = (function() {
 	 */
 	function createContributionMarkerIcon(category) {
 		return createCustomMarkerIcon(category);
+	}
+
+	/**
+	 * Crée un marker simplifié (icône seule, sans le pin/pointeur)
+	 * Utilisé pour les layers avec icône définie dans la table layers
+	 * @param {string} iconClass - Classe Font Awesome de l'icône
+	 * @param {string} color - Couleur de l'icône (CSS)
+	 * @returns {L.DivIcon} Icône simple
+	 */
+	function createSimpleMarkerIcon(iconClass, color = 'var(--primary)') {
+		// Normaliser l'icône : ajouter fa-solid si pas de préfixe FA
+		let finalIcon = iconClass || 'fa-map-marker';
+		if (finalIcon && !finalIcon.includes('fa-solid') && !finalIcon.includes('fa-regular') && !finalIcon.includes('fa-brands')) {
+			finalIcon = `fa-solid ${finalIcon}`;
+		}
+		
+		// Créer le marker simple : juste l'icône avec couleur et ombre
+		return L.divIcon({
+			html: `
+				<div class="gp-simple-marker" style="--marker-color: ${color};">
+					<i class="${finalIcon}"></i>
+				</div>
+			`,
+			className: 'gp-simple-marker-container',
+			iconSize: [24, 24],
+			iconAnchor: [12, 12],
+			popupAnchor: [0, -12]
+		});
 	}
 
 	// Crée la couche GeoJSON et l'ajoute à la carte
@@ -1187,7 +1225,18 @@ window.DataModule = (function() {
 			}
 			
 			// ========================================
-			// 4. FALLBACK : Marker par défaut avec couleur primary
+			// 4. LAYER ICON : Utiliser l'icône définie dans la table layers
+			// (marker simplifié : icône seule, sans le pin/pointeur)
+			// ========================================
+			const layerIcon = iconMap[layerName];
+			if (layerIcon) {
+				const layerColor = iconColorMap[layerName] || 'var(--primary)';
+				const simpleIcon = createSimpleMarkerIcon(layerIcon, layerColor);
+				return L.marker(latlng, { icon: simpleIcon });
+			}
+			
+			// ========================================
+			// 5. FALLBACK : Marker par défaut avec couleur primary
 			// ========================================
 			const defaultIcon = createCustomMarkerIcon();
 			return L.marker(latlng, { icon: defaultIcon });

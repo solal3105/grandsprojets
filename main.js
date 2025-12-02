@@ -165,9 +165,11 @@
       const { DataModule, MapModule, EventBindings } = win;
       const urlMap        = {};
       const styleMap      = {};
+      const iconMap       = {};
+      const iconColorMap  = {};
       const defaultLayers = [];
       
-      layersConfig.forEach(({ name, url, style, is_default, ville }) => {
+      layersConfig.forEach(({ name, url, style, is_default, ville, icon, icon_color }) => {
         // Ignorer les layers sans ville (legacy avec ville = NULL ou vide)
         if (!ville) {
           return;
@@ -178,6 +180,8 @@
         
         if (url) urlMap[name] = url;
         if (style) styleMap[name] = style;
+        if (icon) iconMap[name] = icon;
+        if (icon_color) iconColorMap[name] = icon_color;
         
         if (is_default) defaultLayers.push(name);
       });
@@ -218,8 +222,10 @@
       
       
       win.defaultLayers = defaultLayers;
+      win.iconMap = iconMap;
+      win.iconColorMap = iconColorMap;
       
-      DataModule.initConfig({ city, urlMap, styleMap, defaultLayers });
+      DataModule.initConfig({ city, urlMap, styleMap, iconMap, iconColorMap, defaultLayers });
       
       // Charger tous les layers par défaut en attendant qu'ils soient tous chargés
       try {
@@ -615,6 +621,40 @@
       });
     } catch (err) {
       console.error('[Main] Erreur lors de l\'initialisation:', err);
+      
+      // Afficher un message d'erreur visible pour l'utilisateur
+      try {
+        const errorDiv = document.createElement('div');
+        errorDiv.id = 'init-error-message';
+        errorDiv.style.cssText = `
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: #ff4444;
+          color: white;
+          padding: 20px 30px;
+          border-radius: 10px;
+          z-index: 9999;
+          font-family: sans-serif;
+          text-align: center;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        `;
+        errorDiv.innerHTML = `
+          <h3 style="margin: 0 0 10px 0;">Erreur de chargement</h3>
+          <p style="margin: 0 0 15px 0;">L'application n'a pas pu se charger correctement.</p>
+          <button onclick="location.reload()" style="
+            background: white;
+            color: #ff4444;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+          ">Réessayer</button>
+        `;
+        document.body.appendChild(errorDiv);
+      } catch (_) {}
     }
   }
 

@@ -183,3 +183,61 @@
     top: 6px; /* Ajustement pour les markers plus petits sur mobile */
   }
 }
+
+/* ============================================================================
+   GP SIMPLE MARKERS - Icône seule, sans le pin/pointeur
+   Utilisé pour les layers avec icon définie dans la table layers
+   ============================================================================ */
+
+.gp-simple-marker-container {
+  background: transparent !important;
+  border: none !important;
+}
+
+.gp-simple-marker {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: none;
+}
+
+/* Icône seule avec ombre pour visibilité */
+.gp-simple-marker i {
+  font-size: 20px;
+  color: var(--marker-color, var(--primary));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  transition: all 0.2s ease;
+}
+
+/* Hover via classe JavaScript */
+.gp-simple-marker-container.is-hovered .gp-simple-marker i {
+  transform: scale(1.2);
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.5));
+}
+
+/* Animation d'apparition */
+.gp-simple-marker {
+  animation: simpleMarkerAppear 0.3s ease-out;
+}
+
+@keyframes simpleMarkerAppear {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Responsive : icônes un peu plus petites sur mobile */
+@media (max-width: 768px) {
+  .gp-simple-marker i {
+    font-size: 18px;
+  }
+}
