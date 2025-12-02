@@ -87,6 +87,47 @@
       win.ThemeManager?.init();
       await win.CityManager?.loadValidCities();
 
+      // PHASE 1.5 : Redirection ?city= vers sous-domaine
+      (function maybeRedirectCityQueryToSubdomain() {
+        try {
+          const hostname = location.hostname.toLowerCase();
+          // Vérifier si on est sur le domaine principal (pas de sous-domaine ville)
+          const isMainDomain = hostname === 'grandsprojets.com' || 
+                               hostname === 'www.grandsprojets.com' ||
+                               hostname === 'metropole-lyon.grandsprojets.com';
+          
+          if (!isMainDomain) return;
+          
+          // Vérifier s'il y a un paramètre ?city=
+          const sp = new URLSearchParams(location.search);
+          const cityParam = (sp.get('city') || '').toLowerCase().trim();
+          
+          if (!cityParam) return;
+          if (!win.CityManager?.isValidCity(cityParam)) return;
+          
+          // Ne pas rediriger si c'est metropole-lyon (domaine par défaut)
+          if (cityParam === 'metropole-lyon') {
+            // Juste retirer le paramètre city de l'URL
+            sp.delete('city');
+            const newUrl = location.pathname + (sp.toString() ? `?${sp.toString()}` : '') + location.hash;
+            if (newUrl !== location.pathname + location.search + location.hash) {
+              history.replaceState(null, '', newUrl);
+            }
+            return;
+          }
+          
+          // Construire l'URL du sous-domaine
+          sp.delete('city');
+          const queryString = sp.toString() ? `?${sp.toString()}` : '';
+          const targetUrl = `https://${cityParam}.grandsprojets.com${location.pathname}${queryString}${location.hash}`;
+          
+          // Rediriger
+          location.replace(targetUrl);
+        } catch (err) {
+          console.warn('[Main] Erreur redirection sous-domaine:', err);
+        }
+      })();
+
       // PHASE 2 : Ville active
       (function maybeRedirectCityPathToQuery() {
         try {

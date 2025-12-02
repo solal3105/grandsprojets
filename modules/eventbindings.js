@@ -126,7 +126,9 @@ const bindFilterControls = () => {
   // Clic sur un filtre : active/désactive la couche
   document.querySelectorAll('.filter-item').forEach(item => {
     item.addEventListener('click', e => {
-      const layer = item.dataset.layer;
+      // Sanitiser le nom du layer pour éviter les erreurs de sélecteur CSS
+      const layer = (item.dataset.layer || '').trim().replace(/[\n\r]/g, '');
+      if (!layer) return;
 
       if (!item.classList.contains('active-filter')) {
         // Activation

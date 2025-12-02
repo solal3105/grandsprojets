@@ -121,7 +121,11 @@
    * @param {string} layerName
    */
   const updateActiveFilterTagsForLayer = layerName => {
-    const tagsContainer = document.querySelector(`.active-filter-tags[data-layer=\"${layerName}\"]`);
+    // Sanitiser le layerName pour éviter les erreurs de sélecteur CSS
+    const sanitizedLayerName = layerName ? layerName.trim().replace(/[\n\r]/g, '') : '';
+    if (!sanitizedLayerName) return;
+    
+    const tagsContainer = document.querySelector(`.active-filter-tags[data-layer="${CSS.escape(sanitizedLayerName)}"]`);
     if (!tagsContainer) return;
     tagsContainer.innerHTML = '';
 
