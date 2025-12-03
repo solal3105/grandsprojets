@@ -950,39 +950,45 @@ window.DataModule = (function() {
 				return { type: 'FeatureCollection', features: [] };
 			}
 
-			// CONTRIBUTIONS (chargement depuis Supabase)
+			// CONTRIBUTIONS (chargement depuis Supabase) - PARALLÈLE
 			if (contributionProjects && Array.isArray(contributionProjects) && contributionProjects.length > 0) {
-				console.log(`[DataModule] 📦 Chargement de ${contributionProjects.length} contributions pour "${layerName}"`);
+				console.log(`[DataModule] 📦 Chargement parallèle de ${contributionProjects.length} contributions pour "${layerName}"`);
 				
-				// Charger les GeoJSON de chaque contribution
-				const features = [];
-				for (const project of contributionProjects) {
-					if (!project.geojson_url) continue;
-					try {
-						const response = await fetch(project.geojson_url);
-						if (!response.ok) continue;
-						const geoData = await response.json();
-						
-						// Enrichir les features avec les métadonnées du projet
-						const enrichFeature = (f) => {
-							if (!f.properties) f.properties = {};
-							f.properties.project_name = project.project_name;
-							f.properties.category = project.category;
-							f.properties.cover_url = project.cover_url;
-							f.properties.description = project.description;
-							f.properties.markdown_url = project.markdown_url;
-							return f;
-						};
-						
-						if (geoData.type === 'FeatureCollection' && geoData.features) {
-							geoData.features.forEach(f => features.push(enrichFeature(f)));
-						} else if (geoData.type === 'Feature') {
-							features.push(enrichFeature(geoData));
+				// Charger TOUS les GeoJSON en parallèle (pas séquentiellement)
+				const fetchPromises = contributionProjects
+					.filter(project => project.geojson_url)
+					.map(async (project) => {
+						try {
+							const response = await fetch(project.geojson_url);
+							if (!response.ok) return [];
+							const geoData = await response.json();
+							
+							// Enrichir les features avec les métadonnées du projet
+							const enrichFeature = (f) => {
+								if (!f.properties) f.properties = {};
+								f.properties.project_name = project.project_name;
+								f.properties.category = project.category;
+								f.properties.cover_url = project.cover_url;
+								f.properties.description = project.description;
+								f.properties.markdown_url = project.markdown_url;
+								return f;
+							};
+							
+							if (geoData.type === 'FeatureCollection' && geoData.features) {
+								return geoData.features.map(enrichFeature);
+							} else if (geoData.type === 'Feature') {
+								return [enrichFeature(geoData)];
+							}
+							return [];
+						} catch (error) {
+							console.warn(`[DataModule] Erreur GeoJSON ${project.project_name}:`, error);
+							return [];
 						}
-					} catch (error) {
-						console.warn(`[DataModule] Erreur GeoJSON ${project.project_name}:`, error);
-					}
-				}
+					});
+				
+				// Attendre TOUTES les requêtes en parallèle puis aplatir
+				const results = await Promise.all(fetchPromises);
+				const features = results.flat();
 				
 				console.log(`[DataModule] ✅ ${features.length} features chargées pour "${layerName}"`);
 				return { type: 'FeatureCollection', features };
