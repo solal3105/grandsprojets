@@ -120,8 +120,8 @@
      NAVIGATION OVERFLOW - Mobile
      ======================================== */
   
-  /* Masquer les catégories au-delà de 3 sur mobile (sauf le bouton overflow) */
-  #dynamic-categories .nav-category:nth-child(n+4):not(#nav-overflow) {
+  /* Masquer les catégories au-delà de 3 SEULEMENT si le bouton overflow existe */
+  #dynamic-categories:has(#nav-overflow) .nav-category:nth-child(n+4):not(#nav-overflow) {
     display: none !important;
   }
   

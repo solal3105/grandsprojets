@@ -92,8 +92,8 @@
     // Exclure le bouton overflow lui-même de la liste des catégories
     const allCategories = categoriesContainer.querySelectorAll('.nav-category:not(#nav-overflow)');
     
-    // Si 3 catégories ou moins, pas besoin de menu overflow
-    if (allCategories.length <= MAX_VISIBLE_MOBILE) {
+    // Si 4 catégories ou moins, pas besoin de menu overflow (on peut afficher les 4)
+    if (allCategories.length <= 4) {
       return;
     }
     
