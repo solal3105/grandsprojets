@@ -833,7 +833,8 @@ window.DataModule = (function() {
 
 		// Gestion du clic sur la feature (contributions de contribution_uploads uniquement)
 		if (!noInteractLayers.includes(layerName)) {
-			layer.on('click', () => {
+			// Fonction commune pour ouvrir la fiche détail
+			const openDetailForFeature = () => {
 				const p = (feature && feature.properties) || {};
 				const projectName = p.project_name;
 				
@@ -846,28 +847,41 @@ window.DataModule = (function() {
 					return;
 				}
 
-				// NOTE: On ne masque plus les autres layers/contributions ici
-				// L'utilisateur veut voir toutes les contributions en permanence
-				// Seul le panneau de détail s'affiche, sans modifier la visibilité des features
+				// Fermer le tooltip si présent
+				closeHoverTooltip();
 
-			// Actions post-clic
-			try {
-				UIModule.showDetailPanel(layerName, feature);
-			} catch (_) {}
-			try {
-				UIModule.updateActiveFilterTagsForLayer(layerName);
-			} catch (_) {}
+				// Actions post-clic
+				try {
+					UIModule.showDetailPanel(layerName, feature);
+				} catch (_) {}
+				try {
+					UIModule.updateActiveFilterTagsForLayer(layerName);
+				} catch (_) {}
 
-			// Zoomer sur l'étendue du projet filtré
-			try {
-				const filteredLayer = MapModule.layers[layerName];
-				if (filteredLayer && typeof filteredLayer.getBounds === 'function') {
-					const bounds = filteredLayer.getBounds();
-					if (bounds && bounds.isValid()) {
-						MapModule.map.fitBounds(bounds, { padding: [50, 50] });
+				// Zoomer sur l'étendue du projet filtré
+				try {
+					const filteredLayer = MapModule.layers[layerName];
+					if (filteredLayer && typeof filteredLayer.getBounds === 'function') {
+						const bounds = filteredLayer.getBounds();
+						if (bounds && bounds.isValid()) {
+							MapModule.map.fitBounds(bounds, { padding: [50, 50] });
+						}
 					}
+				} catch (_) {}
+			};
+
+			// Clic standard (desktop)
+			layer.on('click', openDetailForFeature);
+
+			// Sur mobile/tactile: ouvrir au premier tap sans attendre le hover
+			// On utilise touchend pour détecter le tap et ouvrir directement
+			layer.on('touchend', (e) => {
+				// Empêcher le comportement par défaut qui déclenche mouseover puis click
+				if (e.originalEvent) {
+					e.originalEvent.preventDefault();
 				}
-			} catch (_) {}
+				// Ouvrir directement la fiche
+				openDetailForFeature();
 			});
 		}
 	}

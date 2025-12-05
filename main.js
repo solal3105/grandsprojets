@@ -80,6 +80,169 @@
     }
   }
 
+  /**
+   * Initialise le menu overflow mobile pour les catégories
+   * Affiche un bouton "+" qui contient les catégories au-delà de 3 sur mobile
+   * @param {HTMLElement} categoriesContainer - Container #dynamic-categories
+   */
+  function initMobileOverflowMenu(categoriesContainer) {
+    if (!categoriesContainer) return;
+    
+    const MAX_VISIBLE_MOBILE = 3;
+    // Exclure le bouton overflow lui-même de la liste des catégories
+    const allCategories = categoriesContainer.querySelectorAll('.nav-category:not(#nav-overflow)');
+    
+    // Si 3 catégories ou moins, pas besoin de menu overflow
+    if (allCategories.length <= MAX_VISIBLE_MOBILE) {
+      return;
+    }
+    
+    // Récupérer les catégories qui seront dans le overflow (à partir de la 4ème)
+    const overflowCategories = Array.from(allCategories).slice(MAX_VISIBLE_MOBILE);
+    
+    // Créer le bouton overflow (même classe que les autres catégories)
+    const overflowBtn = document.createElement('button');
+    overflowBtn.className = 'nav-category';
+    overflowBtn.id = 'nav-overflow';
+    overflowBtn.setAttribute('aria-label', 'Plus de catégories');
+    overflowBtn.setAttribute('aria-expanded', 'false');
+    overflowBtn.innerHTML = `
+      <i class="fa-solid fa-ellipsis" aria-hidden="true"></i>
+      <span class="label">Plus</span>
+    `;
+    
+    // Créer le menu dropdown
+    const overflowMenu = document.createElement('div');
+    overflowMenu.className = 'nav-overflow-menu';
+    overflowMenu.id = 'nav-overflow-menu';
+    overflowMenu.setAttribute('role', 'menu');
+    
+    // Ajouter les items au menu
+    overflowCategories.forEach(catBtn => {
+      const category = catBtn.id.replace('nav-', '');
+      const iconEl = catBtn.querySelector('i');
+      const labelEl = catBtn.querySelector('.label');
+      const iconClass = iconEl ? iconEl.className : 'fa-solid fa-folder';
+      const labelText = labelEl ? labelEl.textContent : category;
+      
+      const menuItem = document.createElement('button');
+      menuItem.className = 'nav-overflow-item';
+      menuItem.dataset.category = category;
+      menuItem.setAttribute('role', 'menuitem');
+      menuItem.innerHTML = `
+        <i class="${iconClass}" aria-hidden="true"></i>
+        <span class="overflow-label">${labelText}</span>
+      `;
+      
+      // Clic sur un item du menu
+      menuItem.addEventListener('click', (e) => {
+        e.stopPropagation();
+        
+        // Déplacer la catégorie en position 1
+        categoriesContainer.insertBefore(catBtn, categoriesContainer.firstChild);
+        
+        // Déclencher le clic sur le bouton de catégorie original
+        catBtn.click();
+        
+        // Reconstruire le menu overflow avec les nouvelles catégories masquées
+        rebuildOverflowMenu();
+        
+        // Fermer le menu
+        closeOverflowMenu();
+      });
+      
+      overflowMenu.appendChild(menuItem);
+    });
+    
+    // Fonction pour fermer le menu
+    function closeOverflowMenu() {
+      overflowMenu.classList.remove('open');
+      overflowBtn.setAttribute('aria-expanded', 'false');
+    }
+    
+    // Fonction pour reconstruire le menu overflow
+    function rebuildOverflowMenu() {
+      // Vider le menu actuel
+      overflowMenu.innerHTML = '';
+      
+      // Récupérer les catégories actuelles (ordre peut avoir changé), exclure le bouton overflow
+      const currentCategories = categoriesContainer.querySelectorAll('.nav-category:not(#nav-overflow)');
+      const newOverflowCategories = Array.from(currentCategories).slice(MAX_VISIBLE_MOBILE);
+      
+      // Recréer les items
+      newOverflowCategories.forEach(catBtn => {
+        const category = catBtn.id.replace('nav-', '');
+        const iconEl = catBtn.querySelector('i');
+        const labelEl = catBtn.querySelector('.label');
+        const iconClass = iconEl ? iconEl.className : 'fa-solid fa-folder';
+        const labelText = labelEl ? labelEl.textContent : category;
+        
+        const menuItem = document.createElement('button');
+        menuItem.className = 'nav-overflow-item';
+        menuItem.dataset.category = category;
+        menuItem.setAttribute('role', 'menuitem');
+        menuItem.innerHTML = `
+          <i class="${iconClass}" aria-hidden="true"></i>
+          <span class="overflow-label">${labelText}</span>
+        `;
+        
+        menuItem.addEventListener('click', (e) => {
+          e.stopPropagation();
+          categoriesContainer.insertBefore(catBtn, categoriesContainer.firstChild);
+          catBtn.click();
+          rebuildOverflowMenu();
+          closeOverflowMenu();
+        });
+        
+        overflowMenu.appendChild(menuItem);
+      });
+    }
+    
+    // Fonction pour ouvrir/fermer le menu
+    function toggleOverflowMenu(e) {
+      e.stopPropagation();
+      const isOpen = overflowMenu.classList.contains('open');
+      
+      if (isOpen) {
+        closeOverflowMenu();
+      } else {
+        // Fermer proprement via NavigationModule (submenus + fiche projet)
+        if (win.NavigationModule?.resetToDefaultView) {
+          win.NavigationModule.resetToDefaultView(null, { preserveMapView: true, updateHistory: false });
+        }
+        
+        // Retirer l'état actif de toutes les catégories
+        categoriesContainer.querySelectorAll('.nav-category').forEach(btn => {
+          btn.classList.remove('active');
+        });
+        
+        overflowMenu.classList.add('open');
+        overflowBtn.setAttribute('aria-expanded', 'true');
+      }
+    }
+    
+    // Event listener sur le bouton
+    overflowBtn.addEventListener('click', toggleOverflowMenu);
+    
+    // Fermer le menu au clic en dehors
+    document.addEventListener('click', (e) => {
+      if (!overflowBtn.contains(e.target) && !overflowMenu.contains(e.target)) {
+        closeOverflowMenu();
+      }
+    });
+    
+    // Fermer le menu avec Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeOverflowMenu();
+      }
+    });
+    
+    // Assembler et ajouter au DOM
+    overflowBtn.appendChild(overflowMenu);
+    categoriesContainer.appendChild(overflowBtn);
+  }
+
   async function initApp() {
     try {
       // PHASE 1 : Modules de base
@@ -337,6 +500,12 @@
       // IMPORTANT : Toujours appeler, même si activeCategoryIcons est vide
       if (categoriesContainer && submenusContainer) {
         await initTravauxSubmenu(categoriesContainer, submenusContainer);
+      }
+      
+      // ===== MENU OVERFLOW MOBILE =====
+      // Créer le bouton "+" pour les catégories au-delà de 3 sur mobile
+      if (categoriesContainer) {
+        initMobileOverflowMenu(categoriesContainer);
       }
       
       // Initialiser les event listeners de navigation via EventBindings
