@@ -389,61 +389,59 @@
       win.iconColorMap = iconColorMap;
       
       DataModule.initConfig({ city, urlMap, styleMap, iconMap, iconColorMap, defaultLayers });
-      
-      // Charger tous les layers par défaut en attendant qu'ils soient tous chargés
-      try {
-        await Promise.all(defaultLayers.map(layer => 
-          DataModule.loadLayer(layer).catch(err => {
-            console.error(`[Main] ❌ Erreur chargement layer "${layer}":`, err);
-            return null; // Continuer même si un layer échoue
-          })
-        ));
-      } catch (err) {
-        console.error('[Main] ❌ Erreur lors du chargement des layers par défaut:', err);
-      }
 
-      // PHASE 5 : Menus dynamiques
-      let allContributions = [];
-      try {
-        if (window.supabaseService?.fetchAllProjects) {
-          allContributions = await window.supabaseService.fetchAllProjects();
-          win.allContributions = allContributions;
-        }
-      } catch (err) {
-        console.error('[Main] ❌ Erreur fetchAllProjects:', err);
-      }
+      // PHASE 5 : Menus dynamiques (AVANT les layers)
+      // Chargement en parallèle des données nécessaires
+      const [allContributions, allCategoryIconsFromDB, travauxConfig] = await Promise.all([
+        // Fetch contributions
+        (async () => {
+          try {
+            if (window.supabaseService?.fetchAllProjects) {
+              const data = await window.supabaseService.fetchAllProjects();
+              win.allContributions = data;
+              return data;
+            }
+            return [];
+          } catch (err) {
+            console.error('[Main] ❌ Erreur fetchAllProjects:', err);
+            return [];
+          }
+        })(),
+        // Fetch category icons
+        (async () => {
+          try {
+            if (window.supabaseService?.fetchCategoryIcons) {
+              return await window.supabaseService.fetchCategoryIcons();
+            }
+            return [];
+          } catch (e) {
+            console.warn('[Main] ⚠️ Erreur fetch category icons:', e);
+            return [];
+          }
+        })(),
+        // Fetch travaux config
+        (async () => {
+          try {
+            return await supabaseService.getTravauxConfig(city);
+          } catch (err) {
+            console.warn('[Main] Erreur chargement config travaux:', err);
+            return null;
+          }
+        })()
+      ]);
 
       const categoriesWithData = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
       
       // Note: "travaux" est géré séparément via initTravauxSubmenu() (submenu en dur)
-      // On le retire de categoriesWithData pour éviter un doublon
       const categoriesFiltered = categoriesWithData.filter(cat => cat !== 'travaux');
 
-      let allCategoryIconsFromDB = [];
-      try {
-        if (window.supabaseService?.fetchCategoryIcons) {
-          const cityIcons = await window.supabaseService.fetchCategoryIcons();
-          allCategoryIconsFromDB.push(...cityIcons);
-        }
-      } catch (e) {
-        console.warn('[Main] ⚠️ Erreur fetch category icons:', e);
-      }
-
       const activeCategoryIcons = categoriesFiltered.map((category, index) => {
-        // Chercher l'icône pour cette catégorie
-        // fetchCategoryIcons() a déjà filtré par ville (strict)
-        let existingIcon = allCategoryIconsFromDB.find(icon => icon.category === category);
-        
-        if (existingIcon) {
-          return existingIcon;
-        } else {
-          // Icône par défaut pour les catégories sans config DB
-          return {
-            category: category,
-            icon_class: 'fa-solid fa-layer-group',
-            display_order: 100 + index
-          };
-        }
+        const existingIcon = allCategoryIconsFromDB.find(icon => icon.category === category);
+        return existingIcon || {
+          category: category,
+          icon_class: 'fa-solid fa-layer-group',
+          display_order: 100 + index
+        };
       });
       
       activeCategoryIcons.sort((a, b) => a.display_order - b.display_order);
@@ -452,15 +450,10 @@
       // Construire le mapping catégorie → layers depuis la DB
       win.categoryLayersMap = window.supabaseService.buildCategoryLayersMap(activeCategoryIcons);
       
-      // Ajouter manuellement le mapping pour "travaux" (submenu en dur, pas dans category_icons)
-      // Charger les layers depuis travaux_config
-      try {
-        const travauxConfig = await supabaseService.getTravauxConfig(city);
-        if (travauxConfig && travauxConfig.enabled) {
-          win.categoryLayersMap['travaux'] = travauxConfig.layers_to_display || ['travaux'];
-        }
-      } catch (err) {
-        console.warn('[Main] Erreur chargement config travaux pour mapping:', err);
+      // Ajouter le mapping pour "travaux" (submenu en dur)
+      if (travauxConfig?.enabled) {
+        win.categoryLayersMap['travaux'] = travauxConfig.layers_to_display || ['travaux'];
+      } else {
         win.categoryLayersMap['travaux'] = ['travaux']; // Fallback
       }
 
@@ -514,6 +507,7 @@
       } else {
         console.warn('[Main] EventBindings.initCategoryNavigation non disponible');
       }
+      // Préparer les contributions par catégorie
       const contributionsByCategory = {};
       allContributions.forEach(contrib => {
         const cat = contrib.category;
@@ -525,15 +519,27 @@
         }
       });
       
-      for (const [category, contribs] of Object.entries(contributionsByCategory)) {
+      // Stocker les contributions par catégorie (nécessaire avant le chargement)
+      Object.entries(contributionsByCategory).forEach(([category, contribs]) => {
         if (contribs.length > 0) {
-          try {
-            win[`contributions_${category}`] = contribs;
-            await DataModule.loadLayer(category);
-          } catch (err) {
-            console.error(`[Main] ❌ Erreur chargement ${category}:`, err);
-          }
+          win[`contributions_${category}`] = contribs;
         }
+      });
+
+      // PHASE 5.5 : Charger TOUS les layers en parallèle
+      // (catégories + defaultLayers en même temps)
+      const categoryLayers = Object.keys(contributionsByCategory).filter(cat => contributionsByCategory[cat].length > 0);
+      const allLayersToLoad = [...new Set([...categoryLayers, ...defaultLayers])];
+      
+      try {
+        await Promise.all(allLayersToLoad.map(layer => 
+          DataModule.loadLayer(layer).catch(err => {
+            console.error(`[Main] ❌ Erreur chargement layer "${layer}":`, err);
+            return null; // Continuer même si un layer échoue
+          })
+        ));
+      } catch (err) {
+        console.error('[Main] ❌ Erreur lors du chargement des layers:', err);
       }
 
       // PHASE 6 : Modules UI

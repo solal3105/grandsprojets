@@ -658,3 +658,4 @@ if (document.readyState === 'loading') {
 
 // Export pour usage global
 window.toggleManager = toggleManager;
+window.TOGGLES_CONFIG = TOGGLES_CONFIG;

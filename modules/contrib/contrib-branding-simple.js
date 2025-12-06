@@ -5,17 +5,20 @@
 ;(function(win) {
   'use strict';
 
-  const TOGGLES_CONFIG = {
-    filters: { icon: 'fa-map', label: 'Filtres de carte' },
-    basemap: { icon: 'fa-globe', label: 'Fond de carte' },
-    theme: { icon: 'fa-moon', label: 'Mode sombre' },
-    search: { icon: 'fa-search', label: 'Rechercher' },
-    location: { icon: 'fa-location-arrow', label: 'Ma position' },
-    city: { icon: 'fa-bars', label: 'Changer d\'espace' },
-    info: { icon: 'fa-info-circle', label: 'À propos' },
-    login: { icon: 'fa-user', label: 'Connexion' },
-    contribute: { icon: 'fa-plus', label: 'Contribuer' }
-  };
+  /**
+   * Récupère la config des toggles depuis la source centralisée (toggles-config.js)
+   * Extrait seulement icon et label pour l'affichage dans la modale
+   */
+  function getTogglesConfig() {
+    const globalConfig = win.TOGGLES_CONFIG || {};
+    const config = {};
+    for (const [key, val] of Object.entries(globalConfig)) {
+      if (val && val.icon && val.label) {
+        config[key] = { icon: val.icon, label: val.label };
+      }
+    }
+    return config;
+  }
 
   let currentCity = null;
   let currentBranding = null;
@@ -191,7 +194,7 @@
       const enabledCities = currentBranding?.enabled_cities;
       const hasCities = Array.isArray(enabledCities) && enabledCities.length > 0;
 
-      const html = Object.entries(TOGGLES_CONFIG)
+      const html = Object.entries(getTogglesConfig())
         .map(([key, config]) => {
           const isEnabled = enabledSet.has(key);
           const isCityDisabled = key === 'city' && !hasCities;

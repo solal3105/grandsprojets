@@ -9,6 +9,7 @@
   const CityBrandingModule = {
   /**
    * Récupère la configuration de branding pour une ville
+   * Utilise supabaseService.getCityBranding comme source centralisée
    * @param {string} ville - Nom de la ville
    * @returns {Promise<Object|null>} Configuration de branding
    */
@@ -16,24 +17,13 @@
     if (!ville) return null;
     
     try {
-      const supabase = win.AuthModule?.getClient?.() || win.supabaseService?.getClient?.();
-      if (!supabase) {
-        console.warn('[CityBranding] No Supabase client available');
-        return null;
+      // Utiliser la source centralisée (supabaseService)
+      if (win.supabaseService?.getCityBranding) {
+        return await win.supabaseService.getCityBranding(ville.toLowerCase());
       }
       
-      const { data, error } = await supabase
-        .from('city_branding')
-        .select('*')
-        .eq('ville', ville.toLowerCase())
-        .single();
-      
-      if (error) {
-        console.warn(`[CityBranding] No branding found for city: ${ville}`);
-        return null;
-      }
-      
-      return data;
+      console.warn('[CityBranding] supabaseService not available');
+      return null;
     } catch (err) {
       console.error('[CityBranding] Error fetching city branding:', err);
       return null;
