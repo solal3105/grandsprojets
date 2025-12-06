@@ -773,11 +773,25 @@ window.DataModule = (function() {
 								.setContent(html)
 								.addTo(MapModule.map);
 							
-							// Rendre le tooltip cliquable pour ouvrir la fiche
+							// Rendre le tooltip cliquable pour ouvrir la fiche (desktop + mobile)
 							const tooltipEl = window.__gpHoverTooltip.getElement();
 							if (tooltipEl) {
 								tooltipEl.style.cursor = 'pointer';
-								tooltipEl.addEventListener('click', () => {
+								
+								// Handler commun avec debounce
+								let tooltipLastClick = 0;
+								const handleTooltipClick = (evt) => {
+									// Debounce 300ms pour éviter doubles déclenchements
+									const now = Date.now();
+									if (now - tooltipLastClick < 300) return;
+									tooltipLastClick = now;
+									
+									// Empêcher la propagation vers la carte
+									if (evt) {
+										evt.stopPropagation();
+										if (evt.preventDefault) evt.preventDefault();
+									}
+									
 									const p = (feature && feature.properties) || {};
 									const isContribution = !!(p.project_name && p.category);
 									if (isContribution) {
@@ -785,7 +799,11 @@ window.DataModule = (function() {
 										try { UIModule.showDetailPanel(layerName, feature); } catch (_) {}
 										try { UIModule.updateActiveFilterTagsForLayer(layerName); } catch (_) {}
 									}
-								});
+								};
+								
+								// Écouter click ET touchend pour mobile
+								tooltipEl.addEventListener('click', handleTooltipClick);
+								tooltipEl.addEventListener('touchend', handleTooltipClick, { passive: false });
 							}
 						}
 					}).catch(err => {
@@ -885,19 +903,19 @@ window.DataModule = (function() {
 				} catch (_) {}
 			};
 
-			// Clic standard (desktop)
-			layer.on('click', openDetailForFeature);
-
-			// Sur mobile/tactile: ouvrir au premier tap sans attendre le hover
-			// On utilise touchend pour détecter le tap et ouvrir directement
-			layer.on('touchend', (e) => {
-				// Empêcher le comportement par défaut qui déclenche mouseover puis click
-				if (e.originalEvent) {
-					e.originalEvent.preventDefault();
-				}
-				// Ouvrir directement la fiche
+			// Debounce pour éviter les doubles déclenchements sur mobile
+			let lastOpenTime = 0;
+			const DEBOUNCE_MS = 300;
+			
+			const safeOpenDetail = () => {
+				const now = Date.now();
+				if (now - lastOpenTime < DEBOUNCE_MS) return;
+				lastOpenTime = now;
 				openDetailForFeature();
-			});
+			};
+
+			// Clic standard (desktop et mobile via Leaflet tap handler)
+			layer.on('click', safeOpenDetail);
 		}
 	}
 

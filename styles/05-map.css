@@ -194,8 +194,9 @@
    Tooltip Projet (hover sur chemins/polygones)
 --------------------------------------------------------------------------- */
 .leaflet-tooltip.gp-project-tooltip {
-  pointer-events: none;
+  pointer-events: auto;
   z-index: 10000 !important;
+  cursor: pointer;
   background: var(--white-alpha-72) !important;
   border: none !important;
   border-radius: 16px !important;
