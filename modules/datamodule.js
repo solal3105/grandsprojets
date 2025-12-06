@@ -768,10 +768,25 @@ window.DataModule = (function() {
 									permanent: false,
 									offset: [0, -45],
 									opacity: 1,
-									interactive: false
+									interactive: true
 								}).setLatLng(e.latlng)
 								.setContent(html)
 								.addTo(MapModule.map);
+							
+							// Rendre le tooltip cliquable pour ouvrir la fiche
+							const tooltipEl = window.__gpHoverTooltip.getElement();
+							if (tooltipEl) {
+								tooltipEl.style.cursor = 'pointer';
+								tooltipEl.addEventListener('click', () => {
+									const p = (feature && feature.properties) || {};
+									const isContribution = !!(p.project_name && p.category);
+									if (isContribution) {
+										closeHoverTooltip();
+										try { UIModule.showDetailPanel(layerName, feature); } catch (_) {}
+										try { UIModule.updateActiveFilterTagsForLayer(layerName); } catch (_) {}
+									}
+								});
+							}
 						}
 					}).catch(err => {
 						// silencieux en production
