@@ -283,7 +283,7 @@
       }
       
       await win.CityManager?.updateLogoForCity(city);
-      await win.CityManager?.initCityToggleUI(city);
+      await win.CityManager?.initCityMenu(city);
 
       // PHASE 2.5 : Charger le branding de la ville (ou couleur par défaut si pas de ville)
       if (win.CityBrandingModule) {
@@ -757,7 +757,6 @@
             win.activeCity = nextCity;
             win.CityManager?.persistCity(nextCity);
             await win.CityManager?.updateLogoForCity(nextCity);
-            try { await win.CityManager?.renderCityMenu(nextCity); } catch (_) {}
             try {
               await win.FilterManager?.init();
               if (window.EventBindings?.bindFilterControls) {

@@ -201,6 +201,99 @@
   }
 
   // ============================================================================
+  // ENABLED CITIES GRID
+  // ============================================================================
+
+  /**
+   * Peuple la grille des villes activées dans la modale d'édition
+   * @param {HTMLElement} modal - Élément modale
+   * @param {Object} city - Données de la ville en cours d'édition
+   */
+  async function populateEnabledCitiesGrid(modal, city) {
+    const container = modal.querySelector('#city-enabled-cities-grid');
+    if (!container) return;
+
+    // Récupérer toutes les villes valides
+    let allCities = [];
+    try {
+      if (win.CityManager?.VALID_CITIES) {
+        allCities = Array.from(win.CityManager.VALID_CITIES.values()).sort();
+      } else if (win.supabaseService?.getValidCities) {
+        allCities = await win.supabaseService.getValidCities();
+      }
+    } catch (e) {
+      console.warn('[city-modal] Erreur récupération villes:', e);
+    }
+
+    if (!allCities.length) {
+      container.innerHTML = '<p style="color:var(--gray-500);font-style:italic;">Aucun espace disponible</p>';
+      return;
+    }
+
+    const enabledCities = city?.enabled_cities || [];
+    const enabledSet = new Set(enabledCities.map(c => String(c).toLowerCase()));
+
+    // Récupérer les brandings pour afficher les noms
+    const brandings = await Promise.all(
+      allCities.map(c => win.CityManager?.getCityBrandingSafe?.(c) || Promise.resolve(null))
+    );
+
+    const html = allCities.map((cityCode, idx) => {
+      const isEnabled = enabledSet.has(cityCode);
+      const branding = brandings[idx];
+      const displayName = branding?.brand_name || cityCode.charAt(0).toUpperCase() + cityCode.slice(1);
+      const logo = branding?.logo_url || '';
+      const logoHtml = logo 
+        ? `<img src="${escapeHtml(logo)}" alt="${escapeHtml(displayName)}" style="width:24px;height:24px;object-fit:contain;" />`
+        : `<i class="fas fa-city" style="font-size:16px;color:var(--gray-500);"></i>`;
+
+      return `
+        <label class="enabled-city-item" data-city="${escapeHtml(cityCode)}" style="
+          display:flex;align-items:center;gap:10px;padding:10px 12px;
+          background:${isEnabled ? 'var(--primary-alpha-08)' : 'var(--surface-base)'};
+          border:2px solid ${isEnabled ? 'var(--primary)' : 'var(--border-light)'};
+          border-radius:8px;cursor:pointer;transition:all 0.2s;
+        ">
+          <input type="checkbox" name="enabled_cities" value="${escapeHtml(cityCode)}" ${isEnabled ? 'checked' : ''} style="display:none;" />
+          <div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;">${logoHtml}</div>
+          <span style="font-size:13px;font-weight:500;color:var(--text-primary);">${escapeHtml(displayName)}</span>
+        </label>
+      `;
+    }).join('');
+
+    container.innerHTML = html;
+
+    // Bind events
+    container.querySelectorAll('.enabled-city-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        if (checkbox) {
+          checkbox.checked = !checkbox.checked;
+          // Update visual state
+          item.style.background = checkbox.checked ? 'var(--primary-alpha-08)' : 'var(--surface-base)';
+          item.style.borderColor = checkbox.checked ? 'var(--primary)' : 'var(--border-light)';
+        }
+      });
+    });
+  }
+
+  /**
+   * Récupère les villes cochées dans la grille
+   * @param {HTMLElement} modal - Élément modale
+   * @returns {string[]} Liste des codes de villes cochées
+   */
+  function getEnabledCitiesFromGrid(modal) {
+    const container = modal.querySelector('#city-enabled-cities-grid');
+    if (!container) return [];
+
+    const enabledCities = [];
+    container.querySelectorAll('input[name="enabled_cities"]:checked').forEach(input => {
+      enabledCities.push(input.value);
+    });
+    return enabledCities;
+  }
+
+  // ============================================================================
   // CITY MODAL (CREATE/EDIT)
   // ============================================================================
 
@@ -401,6 +494,21 @@
           </div>
         </div>
 
+        ${isEdit ? `
+        <!-- Espaces du menu (uniquement en édition) -->
+        <div class="form-group" style="margin-bottom:20px;">
+          <label style="display:block;margin-bottom:8px;font-weight:600;font-size:14px;">
+            🏢 Espaces du menu
+          </label>
+          <p style="margin:0 0 12px 0;font-size:13px;color:var(--gray-600);">
+            Sélectionnez les espaces visibles dans le menu « Changer votre espace ». Si aucun espace n'est coché, le toggle sera masqué.
+          </p>
+          <div id="city-enabled-cities-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+        ` : ''}
+
         <!-- Actions -->
       </form>
       </div>
@@ -452,6 +560,11 @@
 
     // Setup image uploads
     setupImageUploads(modal);
+
+    // Populate enabled cities grid (only in edit mode)
+    if (isEdit) {
+      await populateEnabledCitiesGrid(modal, city);
+    }
 
     // Close handlers
     const close = () => {
@@ -868,6 +981,13 @@
         center_lng: mapState.lng,
         zoom: mapState.zoom
       };
+
+      // En mode édition, récupérer les enabled_cities
+      if (existingCity) {
+        const enabledCities = getEnabledCitiesFromGrid(modal);
+        cityData.enabled_cities = enabledCities;
+        console.log('[city-form] Enabled cities:', enabledCities);
+      }
 
       console.log('[city-form] City data prepared:', cityData);
 

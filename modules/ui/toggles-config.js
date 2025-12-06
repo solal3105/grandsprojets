@@ -60,6 +60,17 @@ export const TOGGLES_CONFIG = {
     defaultState: false
   },
   
+  city: {
+    id: 'city-toggle',
+    icon: 'fa-bars',
+    label: 'Espace',
+    ariaLabel: 'Changer votre espace',
+    position: 5.5,
+    hasMenu: true,
+    menuSelector: '#city-menu',
+    defaultState: false
+  },
+  
   info: {
     id: 'info-toggle',
     icon: 'fa-info-circle',
@@ -101,6 +112,7 @@ export const TOGGLE_ORDER = [
   'theme',      // Desktop: , Mobile: position 3
   'search',     // Desktop: , Mobile: position 2
   'location',   // Desktop: , Mobile: position 1
+  'city',       // Desktop: , Mobile: juste après location
   'info',       // Desktop: gauche, Mobile: position 0
   'login',      // Desktop: extrême gauche, Mobile: position 6
   'contribute'  // Desktop: extrême gauche, Mobile: position 7

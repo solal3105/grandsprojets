@@ -1,379 +1,336 @@
 /**
- * Contrib Branding Simple Module
- * Interface simplifiée pour gérer le branding de la ville sélectionnée
+ * ContribBrandingSimple - Module de gestion du branding ville
+ * Gère la modale de configuration des couleurs, toggles et villes activées
  */
-
 ;(function(win) {
   'use strict';
 
-  let modalLoaded = false;
+  const TOGGLES_CONFIG = {
+    filters: { icon: 'fa-map', label: 'Filtres de carte' },
+    basemap: { icon: 'fa-globe', label: 'Fond de carte' },
+    theme: { icon: 'fa-moon', label: 'Mode sombre' },
+    search: { icon: 'fa-search', label: 'Rechercher' },
+    location: { icon: 'fa-location-arrow', label: 'Ma position' },
+    city: { icon: 'fa-bars', label: 'Changer d\'espace' },
+    info: { icon: 'fa-info-circle', label: 'À propos' },
+    login: { icon: 'fa-user', label: 'Connexion' },
+    contribute: { icon: 'fa-plus', label: 'Contribuer' }
+  };
+
   let currentCity = null;
-  let saveTimeout = null;
+  let currentBranding = null;
 
   const ContribBrandingSimple = {
     /**
-     * Configuration des toggles disponibles
+     * Ouvre la modale de branding pour une ville
+     * @param {string} city - Code de la ville
      */
-    getTogglesConfig() {
-      return {
-        filters: {
-          icon: 'fa-map',
-          label: 'Filtres',
-          description: 'Filtres de carte'
-        },
-        basemap: {
-          icon: 'fa-globe',
-          label: 'Fond de carte',
-          description: 'Choix du fond'
-        },
-        theme: {
-          icon: 'fa-moon',
-          label: 'Mode sombre',
-          description: 'Thème clair/sombre'
-        },
-        search: {
-          icon: 'fa-search',
-          label: 'Recherche',
-          description: 'Recherche d\'adresse'
-        },
-        location: {
-          icon: 'fa-location-arrow',
-          label: 'Position',
-          description: 'Ma géolocalisation'
-        },
-        info: {
-          icon: 'fa-info-circle',
-          label: 'À propos',
-          description: 'Informations'
-        },
-        login: {
-          icon: 'fa-user',
-          label: 'Connexion',
-          description: 'Page de connexion'
-        }
-      };
-    },
+    async openBrandingModal(city) {
+      if (!city) {
+        console.error('[ContribBrandingSimple] Ville requise');
+        return;
+      }
 
-    /**
-     * Charge le template HTML de la modale
-     */
-    async loadModalTemplate() {
-      if (modalLoaded) return true;
-      
+      currentCity = city;
+
+      // Charger le branding
       try {
-        const response = await fetch('modules/contrib/contrib-branding-modal.html');
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const html = await response.text();
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = html;
-        
-        const modalElement = tempDiv.firstElementChild;
-        if (modalElement) {
-          document.body.appendChild(modalElement);
-          modalLoaded = true;
-          console.log('[ContribBrandingSimple] Modal template loaded');
-          return true;
-        }
-        
-        return false;
-      } catch (error) {
-        console.error('[ContribBrandingSimple] Error loading modal template:', error);
-        return false;
+        currentBranding = await win.CityBrandingModule?.getBrandingForCity(city);
+      } catch (e) {
+        console.error('[ContribBrandingSimple] Erreur chargement branding:', e);
+        currentBranding = null;
       }
+
+      // Ouvrir la modale
+      if (win.ModalManager?.open) {
+        win.ModalManager.open('branding-modal-overlay');
+      } else {
+        const overlay = document.getElementById('branding-modal-overlay');
+        if (overlay) {
+          overlay.style.display = 'flex';
+          overlay.setAttribute('aria-hidden', 'false');
+        }
+      }
+
+      // Initialiser le contenu
+      this.initModalContent();
     },
 
     /**
-     * Ouvre la modale de branding pour la ville sélectionnée
+     * Ferme la modale de branding
      */
-    async openBrandingModal(ville) {
-      console.log('[ContribBrandingSimple] Opening branding modal for:', ville);
-      
-      if (!ville) {
-        console.warn('[ContribBrandingSimple] No city selected');
-        return;
+    closeBrandingModal() {
+      if (win.ModalManager?.close) {
+        win.ModalManager.close('branding-modal-overlay');
+      } else {
+        const overlay = document.getElementById('branding-modal-overlay');
+        if (overlay) {
+          overlay.style.display = 'none';
+          overlay.setAttribute('aria-hidden', 'true');
+        }
       }
-      
-      // Charger le template si nécessaire
-      const loaded = await this.loadModalTemplate();
-      if (!loaded) {
-        console.error('[ContribBrandingSimple] Failed to load modal template');
-        return;
+      currentCity = null;
+      currentBranding = null;
+    },
+
+    /**
+     * Initialise le contenu de la modale
+     */
+    initModalContent() {
+      // Titre avec nom de ville
+      const titleEl = document.getElementById('branding-modal-city-name');
+      if (titleEl) {
+        const displayName = currentBranding?.brand_name || currentCity;
+        titleEl.textContent = `Branding - ${displayName}`;
       }
-      
-      currentCity = ville;
-      
-      // Récupérer les éléments
-      const overlay = document.getElementById('branding-modal-overlay');
-      const closeBtn = document.getElementById('branding-modal-close');
-      const cancelBtn = document.getElementById('branding-modal-cancel');
-      const titleSpan = document.getElementById('branding-modal-city-name');
-      const cityLogo = document.getElementById('branding-city-logo');
+
+      // Logo de la ville
+      const logoEl = document.getElementById('branding-city-logo');
+      if (logoEl) {
+        const logoUrl = currentBranding?.logo_url;
+        if (logoUrl) {
+          logoEl.src = logoUrl;
+          logoEl.alt = currentBranding?.brand_name || currentCity;
+          logoEl.style.display = 'block';
+        } else {
+          logoEl.style.display = 'none';
+        }
+      }
+
+      // Couleur primaire
       const colorInput = document.getElementById('branding-color-input');
       const colorText = document.getElementById('branding-color-text');
-      const previewBtn = document.getElementById('branding-preview-btn');
-      const previewBadge = document.getElementById('branding-preview-badge');
-      const previewIcon = document.getElementById('branding-preview-icon');
-      const previewLink = document.getElementById('branding-preview-link');
-      const togglesGrid = document.getElementById('branding-toggles-grid');
-      const statusEl = document.getElementById('branding-status');
+      const primaryColor = currentBranding?.primary_color || '#21b929';
       
-      if (!overlay) {
-        console.error('[ContribBrandingSimple] Modal overlay not found');
-        return;
-      }
+      if (colorInput) colorInput.value = primaryColor;
+      if (colorText) colorText.value = primaryColor;
       
-      // Mettre à jour le titre
-      if (titleSpan) {
-        titleSpan.textContent = `Branding - ${ville.toUpperCase()}`;
-      }
-      
-      // Charger la config de branding pour la ville
-      let branding = null;
-      try {
-        // Convertir "default" en chaîne vide pour la base
-        const villeQuery = ville.toLowerCase() === 'default' ? '' : ville;
-        branding = await win.CityBrandingModule?.getBrandingForCity?.(villeQuery);
-      } catch (err) {
-        console.error('[ContribBrandingSimple] Error loading branding:', err);
-      }
-      
-      // Charger et afficher le logo de la ville depuis le branding
-      if (cityLogo && branding) {
-        try {
-          // Déterminer le thème actuel
-          const theme = document.documentElement.getAttribute('data-theme') || 'light';
-          const logoUrl = (theme === 'dark' && branding.dark_logo_url) 
-            ? branding.dark_logo_url 
-            : branding.logo_url;
-          
-          if (logoUrl) {
-            cityLogo.onload = () => {
-              cityLogo.style.display = '';
-            };
-            cityLogo.onerror = () => {
-              console.warn('[ContribBrandingSimple] Logo failed to load:', logoUrl);
-              cityLogo.style.display = 'none';
-            };
-            cityLogo.src = logoUrl;
-            cityLogo.alt = branding.brand_name || `Logo ${ville}`;
-          } else {
-            cityLogo.style.display = 'none';
-          }
-        } catch (err) {
-          console.warn('[ContribBrandingSimple] Error loading logo:', err);
-          cityLogo.style.display = 'none';
-        }
-      } else if (cityLogo) {
-        cityLogo.style.display = 'none';
-      }
-      
-      const primaryColor = branding?.primary_color || '#21b929';
-      const enabledToggles = branding?.enabled_toggles || ['filters', 'basemap', 'theme', 'search', 'location', 'info', 'login'];
-      
-      // Fonction pour mettre à jour les previews
-      const updatePreviews = (color) => {
-        if (previewBtn) previewBtn.style.backgroundColor = color;
-        if (previewBadge) previewBadge.style.backgroundColor = color;
-        if (previewIcon) previewIcon.style.backgroundColor = color;
-        if (previewLink) previewLink.style.color = color;
-      };
-      
-      // Initialiser le color picker
-      if (colorInput && colorText) {
-        colorInput.value = primaryColor;
-        colorText.value = primaryColor;
-        updatePreviews(primaryColor);
-        
-        // Sync color picker -> text
+      this.updateColorPreview(primaryColor);
+
+      // Bind events couleur
+      this.bindColorEvents();
+
+      // Render toggles
+      this.renderTogglesGrid();
+
+      // Bind close buttons
+      this.bindCloseEvents();
+    },
+
+    /**
+     * Bind les événements de couleur
+     */
+    bindColorEvents() {
+      const colorInput = document.getElementById('branding-color-input');
+      const colorText = document.getElementById('branding-color-text');
+
+      if (colorInput && !colorInput._bound) {
         colorInput.addEventListener('input', (e) => {
           const color = e.target.value;
-          colorText.value = color;
-          updatePreviews(color);
-          this.debounceSaveColor(ville, color, statusEl);
+          if (colorText) colorText.value = color;
+          this.updateColorPreview(color);
+          this.saveColor(color);
         });
-        
-        // Sync text -> color picker
+        colorInput._bound = true;
+      }
+
+      if (colorText && !colorText._bound) {
         colorText.addEventListener('input', (e) => {
           const color = e.target.value;
           if (color.match(/^#[0-9A-Fa-f]{6}$/)) {
-            colorInput.value = color;
-            updatePreviews(color);
-            this.debounceSaveColor(ville, color, statusEl);
+            if (colorInput) colorInput.value = color;
+            this.updateColorPreview(color);
+            this.saveColor(color);
           }
         });
-      }
-      
-      // Initialiser les toggles
-      if (togglesGrid) {
-        const config = this.getTogglesConfig();
-        togglesGrid.innerHTML = Object.entries(config).map(([key, toggle]) => {
-          const isEnabled = enabledToggles.includes(key);
-          return `
-            <label class="branding-toggle-card ${isEnabled ? 'is-active' : ''}" data-toggle="${key}">
-              <input 
-                type="checkbox" 
-                data-toggle-key="${key}"
-                ${isEnabled ? 'checked' : ''}
-              />
-              <div class="branding-toggle-icon">
-                <i class="fa ${toggle.icon}"></i>
-              </div>
-              <div class="branding-toggle-label">${toggle.label}</div>
-              <div class="branding-toggle-desc">${toggle.description}</div>
-            </label>
-          `;
-        }).join('');
-        
-        // Attacher les event listeners
-        togglesGrid.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-          checkbox.addEventListener('change', async (e) => {
-            const toggleKey = e.target.dataset.toggleKey;
-            const isEnabled = e.target.checked;
-            const card = e.target.closest('.branding-toggle-card');
-            
-            // Update UI
-            card.classList.toggle('is-active', isEnabled);
-            
-            // Save
-            await this.saveToggle(ville, toggleKey, isEnabled, statusEl);
-          });
-        });
-      }
-      
-      // Gérer la fermeture
-      const closeModal = () => {
-        const modalInner = overlay.querySelector('.gp-modal');
-        if (modalInner) {
-          modalInner.classList.remove('is-open');
-        }
-        setTimeout(() => {
-          overlay.setAttribute('aria-hidden', 'true');
-          // ✅ Bloquer les interactions
-          overlay.inert = true;
-        }, 220);
-      };
-      
-      if (closeBtn) closeBtn.onclick = closeModal;
-      if (cancelBtn) cancelBtn.onclick = closeModal;
-      
-      overlay.onclick = (e) => {
-        if (e.target === overlay) closeModal();
-      };
-      
-      // Ouvrir la modale
-      overlay.setAttribute('aria-hidden', 'false');
-      // ✅ Réactiver les interactions
-      overlay.inert = false;
-      const modalInner = overlay.querySelector('.gp-modal');
-      if (modalInner) {
-        requestAnimationFrame(() => {
-          modalInner.classList.add('is-open');
-        });
+        colorText._bound = true;
       }
     },
 
     /**
-     * Sauvegarde différée de la couleur (debounce 500ms)
+     * Met à jour l'aperçu de couleur
      */
-    debounceSaveColor(ville, color, statusEl) {
-      if (saveTimeout) clearTimeout(saveTimeout);
-      
-      // Feedback immédiat
-      if (statusEl) {
-        statusEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enregistrement...';
-        statusEl.className = 'footer-status';
-      }
-      
-      saveTimeout = setTimeout(async () => {
-        await this.saveColor(ville, color, statusEl);
-      }, 500);
+    updateColorPreview(color) {
+      const btn = document.getElementById('branding-preview-btn');
+      const badge = document.getElementById('branding-preview-badge');
+      const icon = document.getElementById('branding-preview-icon');
+      const link = document.getElementById('branding-preview-link');
+
+      if (btn) btn.style.backgroundColor = color;
+      if (badge) badge.style.backgroundColor = color;
+      if (icon) icon.style.color = color;
+      if (link) link.style.color = color;
     },
 
     /**
      * Sauvegarde la couleur
      */
-    async saveColor(ville, color, statusEl) {
+    async saveColor(color) {
+      if (!currentCity || !color.match(/^#[0-9A-Fa-f]{6}$/)) return;
+
       try {
-        // Convertir "default" en chaîne vide pour la base
-        const villeQuery = ville.toLowerCase() === 'default' ? '' : ville;
-        
-        if (!win.CityBrandingModule?.updateCityBranding) {
-          throw new Error('CityBrandingModule non disponible');
+        await win.CityBrandingModule?.updateCityBranding(currentCity, color);
+        this.showStatus('Couleur enregistrée', 'success');
+      } catch (e) {
+        console.error('[ContribBrandingSimple] Erreur sauvegarde couleur:', e);
+        this.showStatus('Erreur de sauvegarde', 'error');
+      }
+    },
+
+    /**
+     * Render la grille des toggles
+     */
+    renderTogglesGrid() {
+      const grid = document.getElementById('branding-toggles-grid');
+      if (!grid) return;
+
+      const enabledToggles = currentBranding?.enabled_toggles || [];
+      const enabledSet = new Set(enabledToggles);
+      
+      // Vérifier si des villes sont configurées (pour désactiver le toggle city si non)
+      const enabledCities = currentBranding?.enabled_cities;
+      const hasCities = Array.isArray(enabledCities) && enabledCities.length > 0;
+
+      const html = Object.entries(TOGGLES_CONFIG)
+        .map(([key, config]) => {
+          const isEnabled = enabledSet.has(key);
+          const isCityDisabled = key === 'city' && !hasCities;
+          
+          return `
+            <label 
+              class="branding-toggle-item${isEnabled && !isCityDisabled ? ' is-active' : ''}${isCityDisabled ? ' is-disabled' : ''}" 
+              data-toggle="${key}"
+              ${isCityDisabled ? 'title="Configurez les espaces dans « Modifier ma structure » pour activer cette fonctionnalité"' : ''}
+            >
+              <input type="checkbox" ${isEnabled && !isCityDisabled ? 'checked' : ''} ${isCityDisabled ? 'disabled' : ''} />
+              <div class="toggle-icon"><i class="fas ${config.icon}"></i></div>
+              <div class="toggle-label">${config.label}</div>
+            </label>
+          `;
+        }).join('');
+
+      grid.innerHTML = html;
+
+      // Bind events pour les toggles actifs
+      grid.querySelectorAll('.branding-toggle-item:not(.is-disabled)').forEach(item => {
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        if (checkbox && !checkbox._bound) {
+          checkbox.addEventListener('change', () => {
+            item.classList.toggle('is-active', checkbox.checked);
+            this.saveToggles();
+          });
+          checkbox._bound = true;
         }
-        
-        await win.CityBrandingModule.updateCityBranding(villeQuery, color);
-        
-        if (statusEl) {
-          statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Enregistré automatiquement';
-          statusEl.className = 'footer-status footer-status--success';
+      });
+      
+      // Bind click pour les toggles désactivés (city sans villes configurées)
+      grid.querySelectorAll('.branding-toggle-item.is-disabled').forEach(item => {
+        if (!item._bound) {
+          item.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // Ouvrir la modale de modification de ville pour configurer les villes
+            this.openCityConfigFromDisabledToggle();
+          });
+          item._bound = true;
         }
-        
-        console.log('[ContribBrandingSimple] Color saved:', color);
-      } catch (err) {
-        console.error('[ContribBrandingSimple] Error saving color:', err);
-        if (statusEl) {
-          statusEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Erreur d\'enregistrement';
-          statusEl.className = 'footer-status footer-status--error';
+      });
+    },
+    
+    /**
+     * Ouvre la modale de modification de ville depuis le toggle city désactivé
+     */
+    async openCityConfigFromDisabledToggle() {
+      if (!currentCity) return;
+      
+      // Ouvrir la modale de modification de ville par-dessus
+      if (win.ContribCitiesManagement?.editCity) {
+        // Récupérer les données de la ville
+        const cityData = await win.supabaseService?.getCityBranding?.(currentCity);
+        if (cityData) {
+          win.ContribCitiesManagement.editCity(cityData);
         }
       }
     },
 
     /**
-     * Sauvegarde un toggle
+     * Sauvegarde les toggles
      */
-    async saveToggle(ville, toggleKey, isEnabled, statusEl) {
+    async saveToggles() {
+      if (!currentCity) return;
+
+      const grid = document.getElementById('branding-toggles-grid');
+      if (!grid) return;
+
+      const enabledToggles = [];
+      grid.querySelectorAll('.branding-toggle-item').forEach(item => {
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        if (checkbox?.checked) {
+          enabledToggles.push(item.dataset.toggle);
+        }
+      });
+
       try {
-        // Convertir "default" en chaîne vide pour la base
-        const villeQuery = ville.toLowerCase() === 'default' ? '' : ville;
-        
-        // Récupérer la config actuelle
-        const branding = await win.CityBrandingModule?.getBrandingForCity?.(villeQuery);
-        if (!branding) {
-          throw new Error('Configuration de branding introuvable');
-        }
-        
-        // Mettre à jour la liste des toggles
-        let enabledToggles = branding.enabled_toggles || ['filters', 'basemap', 'theme', 'search', 'location', 'info', 'login'];
-        
-        if (isEnabled) {
-          if (!enabledToggles.includes(toggleKey)) {
-            enabledToggles.push(toggleKey);
-          }
-        } else {
-          enabledToggles = enabledToggles.filter(t => t !== toggleKey);
-        }
-        
-        // Sauvegarder
-        if (!win.CityBrandingModule?.updateTogglesConfig) {
-          throw new Error('CityBrandingModule non disponible');
-        }
-        
-        await win.CityBrandingModule.updateTogglesConfig(villeQuery, enabledToggles);
-        
-        if (statusEl) {
-          statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Enregistré automatiquement';
-          statusEl.className = 'footer-status footer-status--success';
-          
-          setTimeout(() => {
-            statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Modifications enregistrées automatiquement';
-          }, 2000);
-        }
-        
-        console.log('[ContribBrandingSimple] Toggle saved:', toggleKey, isEnabled);
-      } catch (err) {
-        console.error('[ContribBrandingSimple] Error saving toggle:', err);
-        if (statusEl) {
-          statusEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Erreur d\'enregistrement';
-          statusEl.className = 'footer-status footer-status--error';
-        }
+        await win.CityBrandingModule?.updateTogglesConfig(currentCity, enabledToggles);
+        this.showStatus('Contrôles enregistrés', 'success');
+      } catch (e) {
+        console.error('[ContribBrandingSimple] Erreur sauvegarde toggles:', e);
+        this.showStatus('Erreur de sauvegarde', 'error');
+      }
+    },
+
+    /**
+     * Affiche un message de statut
+     */
+    showStatus(message, type = 'success') {
+      const statusEl = document.getElementById('branding-status');
+      if (!statusEl) return;
+
+      statusEl.className = `footer-status footer-status--${type}`;
+      statusEl.innerHTML = `
+        <i class="fa-solid ${type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i>
+        ${message}
+      `;
+
+      // Reset après 3s
+      setTimeout(() => {
+        statusEl.className = 'footer-status footer-status--success';
+        statusEl.innerHTML = `
+          <i class="fa-solid fa-circle-check"></i>
+          Modifications enregistrées automatiquement
+        `;
+      }, 3000);
+    },
+
+    /**
+     * Bind les événements de fermeture
+     */
+    bindCloseEvents() {
+      const closeBtn = document.getElementById('branding-modal-close');
+      const cancelBtn = document.getElementById('branding-modal-cancel');
+
+      if (closeBtn && !closeBtn._bound) {
+        closeBtn.addEventListener('click', () => this.closeBrandingModal());
+        closeBtn._bound = true;
+      }
+
+      if (cancelBtn && !cancelBtn._bound) {
+        cancelBtn.addEventListener('click', () => this.closeBrandingModal());
+        cancelBtn._bound = true;
+      }
+
+      // Fermeture sur clic overlay
+      const overlay = document.getElementById('branding-modal-overlay');
+      if (overlay && !overlay._bound) {
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) this.closeBrandingModal();
+        });
+        overlay._bound = true;
       }
     }
   };
 
-  // Exposer sur window
+  // Exposer le module
   win.ContribBrandingSimple = ContribBrandingSimple;
 
 })(window);

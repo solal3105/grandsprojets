@@ -192,6 +192,48 @@
   },
 
   /**
+   * Met à jour la liste des villes activées pour le menu de sélection de ville
+   * @param {string} ville - Nom de la ville
+   * @param {Array<string>} enabledCities - Liste des codes de villes activées
+   * @returns {Promise<Object>} Configuration mise à jour
+   */
+  async updateEnabledCities(ville, enabledCities) {
+    if (!ville || !Array.isArray(enabledCities)) {
+      throw new Error('Ville et liste de villes requis');
+    }
+
+    try {
+      const supabase = win.AuthModule?.getClient?.();
+      if (!supabase) {
+        throw new Error('Client Supabase non disponible');
+      }
+
+      // Récupérer l'utilisateur actuel
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
+      const { data, error } = await supabase
+        .from('city_branding')
+        .update({
+          enabled_cities: enabledCities,
+          updated_by: user.id
+        })
+        .eq('ville', ville.toLowerCase())
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return data;
+    } catch (err) {
+      console.error('Error updating enabled cities:', err);
+      throw err;
+    }
+  },
+
+  /**
    * Applique la configuration des toggles (masque/affiche les contrôles)
    * @param {Array<string>} enabledToggles - Liste des toggles activés
    */
@@ -210,7 +252,7 @@
     }
 
     // Liste de tous les toggles possibles
-    const allToggles = ['filters', 'basemap', 'theme', 'search', 'location', 'info', 'contribute', 'login'];
+    const allToggles = ['filters', 'basemap', 'theme', 'search', 'location', 'city', 'info', 'contribute', 'login'];
 
     // Utiliser le ToggleManager si disponible pour une gestion cohérente
     if (win.toggleManager && typeof win.toggleManager.setVisible === 'function') {

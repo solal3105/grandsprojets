@@ -205,218 +205,162 @@
       }
     },
 
-    async renderCityMenu(activeCity) {
-      try {
-        const menu = document.getElementById('city-menu');
-        if (!menu) return;
-        const items = Array.from(this.VALID_CITIES.values()).sort();
-        if (!items.length) { menu.innerHTML = ''; return; }
-
-        // Fetch branding pour toutes les villes
-        const brandings = await Promise.all(items.map(c => this.getCityBrandingSafe(c)));
-        const btns = items.map((c, idx) => {
-          const isActive = String(c) === String(activeCity);
-          const b = brandings[idx] || {};
-          const displayName = (b.brand_name && b.brand_name.trim()) ? b.brand_name : (c.charAt(0).toUpperCase() + c.slice(1));
-          const logo = (document.documentElement.getAttribute('data-theme') === 'dark' && b.dark_logo_url) ? b.dark_logo_url : (b.logo_url || '');
-          const logoImg = logo ? `<img src="${logo}" alt="${displayName} logo" loading="lazy" />` : `<i class="fas fa-city" aria-hidden="true"></i>`;
-          
-          return (
-            `<button class="city-item${isActive ? ' active' : ''} is-disabled" data-city="${c}" role="menuitem" aria-label="${displayName}" aria-disabled="true" disabled tabindex="-1" style="pointer-events:none; cursor:not-allowed;">`+
-              `<div class="city-card">`+
-                `<div class="city-logo">${logoImg}</div>`+
-                `<div class="city-text">`+
-                  `<div class="city-name">${displayName}</div>`+
-                  `<div class="city-soon">Bientôt disponible</div>`+
-                `</div>`+
-              `</div>`+
-            `</button>`
-          );
-        }).join('');
-
-        const propose = `
-          <div id="propose-city-card" class="propose-city-card" role="button" tabindex="0" aria-label="Proposer ma structure">
-            <div class="city-logo"><i class="fas fa-plus" aria-hidden="true"></i></div>
-            <div class="city-text">
-              <div class="city-name">Proposer ma structure</div>
-              <div class="city-subline">Utilisez grandsprojets pour donner de la visibilité à vos actions locales.</div>
-            </div>
-          </div>`;
-
-        const grid = `<div class="city-grid" role="menu" aria-label="Villes disponibles (bientôt)">${btns}</div>`;
-        menu.innerHTML = propose + grid;
-
-        // Handler pour la carte "Proposer"
-        const proposeCard = document.getElementById('propose-city-card');
-        if (proposeCard && !proposeCard._bound) {
-          const open = (e) => { e.stopPropagation(); this.openProposeCityModal(); };
-          proposeCard.addEventListener('click', open);
-          proposeCard.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e); }
-          });
-          proposeCard._bound = true;
-        }
-      } catch (_) { /* noop */ }
-    },
-
-    openProposeCityModal() {
-      const overlay = document.getElementById('propose-city-overlay');
-      if (!overlay) return;
-      
-      if (win.ModalManager?.isOpen('city-overlay')) {
-        win.ModalManager.switch('city-overlay', 'propose-city-overlay');
-      } else {
-        win.ModalManager?.open('propose-city-overlay');
-      }
-      
-      const closeBtn = document.getElementById('propose-city-close');
-      if (closeBtn && !closeBtn._bound) { 
-        closeBtn.addEventListener('click', () => win.ModalManager?.close('propose-city-overlay')); 
-        closeBtn._bound = true; 
-      }
-    },
-
-    closeProposeCityModal() {
-      win.ModalManager?.close('propose-city-overlay');
-    },
-
-    ensureCityOverlayExists() {
-      let overlay = document.getElementById('city-overlay');
-      if (overlay) return overlay;
+    /**
+     * Récupère le branding complet d'une ville (avec enabled_cities, enabled_toggles, etc.)
+     * @param {string} ville - Code de la ville
+     * @returns {Promise<Object|null>} Branding complet ou null
+     */
+    async getFullBrandingSafe(ville) {
+      const key = String(ville || '').toLowerCase();
+      if (!key) return null;
       
       try {
-        overlay = document.createElement('div');
-        overlay.id = 'city-overlay';
-        overlay.className = 'gp-modal-overlay';
-        overlay.setAttribute('role', 'dialog');
-        overlay.setAttribute('aria-modal', 'true');
-        overlay.setAttribute('aria-labelledby', 'city-title');
-        overlay.setAttribute('aria-hidden', 'true');
-        overlay.style.display = 'none';
-        overlay.innerHTML = [
-          '<div class="gp-modal" role="document">',
-          '  <div class="gp-modal-header">',
-          '    <div class="gp-modal-title" id="city-title">Changer de ville<\/div>',
-          '    <button class="btn-secondary gp-modal-close" id="city-close" aria-label="Fermer">&times;<\/button>',
-          '  <\/div>',
-          '  <div class="gp-modal-body">',
-          '    <div id="city-menu" role="menu" aria-label="Villes disponibles"><\/div>',
-          '  <\/div>',
-          '<\/div>'
-        ].join('');
-        document.body.appendChild(overlay);
-        
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) this.closeCityMenu(); });
-        
-        const closeBtn = overlay.querySelector('#city-close');
-        if (closeBtn && !closeBtn._bound) { 
-          closeBtn.addEventListener('click', () => this.closeCityMenu()); 
-          closeBtn._bound = true; 
-        }
-        return overlay;
-      } catch (e) {
+        const data = await (win.supabaseService?.getCityBranding ? win.supabaseService.getCityBranding(key) : null);
+        return data || null;
+      } catch(e) {
         return null;
       }
     },
 
-    openCityMenu() {
-      let overlay = document.getElementById('city-overlay');
-      if (!overlay) {
-        overlay = this.ensureCityOverlayExists();
-      }
-      if (!overlay) return;
+    // ==================== Menu de sélection d'espace ====================
 
+    /**
+     * Positionne le menu juste sous le toggle city (aligné à droite)
+     */
+    positionCityMenu() {
+      const toggle = document.getElementById('city-toggle');
+      const menu = document.getElementById('city-menu');
+      if (!toggle || !menu) return;
+
+      const rect = toggle.getBoundingClientRect();
+      const menuWidth = 280; // Largeur du menu définie en CSS
+      
+      // Aligner le bord droit du menu avec le bord droit du toggle
+      let leftPos = rect.right - menuWidth;
+      
+      // S'assurer que le menu ne sort pas de l'écran à gauche
+      if (leftPos < 12) leftPos = 12;
+      
+      menu.style.top = `${rect.bottom + 8}px`;
+      menu.style.left = `${leftPos}px`;
+      menu.style.right = 'auto';
+    },
+
+    /**
+     * Peuple le menu de sélection d'espace avec les villes de enabled_cities
+     * @param {string} activeCity - Ville actuellement active
+     */
+    async renderCityMenu(activeCity) {
       try {
         const menu = document.getElementById('city-menu');
-        if (menu && !menu.hasChildNodes()) {
-          this.renderCityMenu(win.activeCity || '');
+        if (!menu) return;
+
+        // Récupérer le branding de la ville active pour avoir enabled_cities
+        const branding = await this.getFullBrandingSafe(activeCity);
+        const enabledCities = branding?.enabled_cities;
+
+        // Si pas d'espaces configurés, menu vide
+        if (!Array.isArray(enabledCities) || enabledCities.length === 0) {
+          menu.innerHTML = '<div class="city-menu-empty">Aucun espace configuré</div>';
+          return;
         }
-      } catch (_) {}
 
-      win.ModalManager?.open('city-overlay');
-      this._cityMenuOpen = true;
+        // Récupérer les brandings de toutes les villes
+        const brandings = await Promise.all(
+          enabledCities.map(c => this.getCityBrandingSafe(c))
+        );
 
-      const closeBtn = document.getElementById('city-close');
-      if (closeBtn && !closeBtn._bound) { 
-        closeBtn.addEventListener('click', () => this.closeCityMenu()); 
-        closeBtn._bound = true; 
+        const html = enabledCities.map((cityCode, idx) => {
+          const isActive = String(cityCode).toLowerCase() === String(activeCity).toLowerCase();
+          const b = brandings[idx] || {};
+          const displayName = b.brand_name?.trim() || cityCode.charAt(0).toUpperCase() + cityCode.slice(1);
+          const logo = (document.documentElement.getAttribute('data-theme') === 'dark' && b.dark_logo_url) 
+            ? b.dark_logo_url 
+            : (b.logo_url || '');
+          const logoHtml = logo 
+            ? `<img src="${logo}" alt="${displayName}" class="city-menu-logo" />`
+            : `<i class="fas fa-building"></i>`;
+
+          return `
+            <button class="city-menu-item${isActive ? ' is-active' : ''}" data-city="${cityCode}" role="menuitem">
+              <span class="city-menu-icon">${logoHtml}</span>
+              <span class="city-menu-name">${displayName}</span>
+              ${isActive ? '<i class="fas fa-check city-menu-check"></i>' : ''}
+            </button>
+          `;
+        }).join('');
+
+        menu.innerHTML = html;
+
+        // Bind click events
+        menu.querySelectorAll('.city-menu-item').forEach(item => {
+          item.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const city = item.dataset.city;
+            if (city) this.selectCity(city);
+          });
+        });
+
+        // Positionner le menu sous le toggle
+        this.positionCityMenu();
+      } catch (err) {
+        console.warn('[CityManager] Error rendering city menu:', err);
+      }
+    },
+
+    /**
+     * Sélectionne une ville et navigue vers elle
+     * @param {string} city - Code de la ville
+     */
+    selectCity(city) {
+      try {
+        const cityCode = String(city || '').toLowerCase();
+        if (!cityCode) return;
+
+        // Fermer le menu
+        if (win.toggleManager) {
+          win.toggleManager.setState('city', false);
+        }
+
+        // Si c'est déjà la ville active, ne rien faire
+        if (cityCode === String(win.activeCity).toLowerCase()) return;
+
+        // Persister et naviguer
+        this.persistCity(cityCode);
+        
+        // Construire l'URL avec le paramètre city
+        const sp = new URLSearchParams(location.search);
+        sp.set('city', cityCode);
+        const target = location.pathname + '?' + sp.toString();
+        location.href = target;
+      } catch (err) {
+        console.warn('[CityManager] Error selecting city:', err);
+      }
+    },
+
+    /**
+     * Initialise le menu d'espace
+     * @param {string} activeCity - Ville active
+     */
+    async initCityMenu(activeCity) {
+      await this.renderCityMenu(activeCity);
+      
+      // Repositionner le menu à chaque ouverture du toggle
+      const toggle = document.getElementById('city-toggle');
+      if (toggle && !toggle._cityMenuBound) {
+        toggle.addEventListener('click', () => {
+          // Repositionner après un court délai pour laisser le menu s'afficher
+          requestAnimationFrame(() => this.positionCityMenu());
+        });
+        toggle._cityMenuBound = true;
       }
 
-      const modal = overlay.querySelector('.gp-modal');
-      requestAnimationFrame(() => { if (modal) modal.classList.add('is-open'); });
-
-      try { document.getElementById('city-close')?.focus(); } catch (_) {}
-    },
-
-    closeCityMenu() {
-      const overlay = document.getElementById('city-overlay');
-      if (!overlay) return;
-      
-      const modal = overlay.querySelector('.gp-modal');
-      if (modal) modal.classList.remove('is-open');
-      
-      win.ModalManager?.close('city-overlay');
-      this._cityMenuOpen = false;
-    },
-
-    toggleCityMenu() { 
-      this._cityMenuOpen ? this.closeCityMenu() : this.openCityMenu(); 
-    },
-
-    selectCity(next) {
-      try {
-        const city = String(next || '').toLowerCase();
-        if (!this.isValidCity(city)) return;
-        
-        this.persistCity(city);
-        if (city === win.activeCity) { this.closeCityMenu(); return; }
-        
-        win.activeCity = city;
-        try { this.updateLogoForCity(city); } catch (_) {}
-        this.closeCityMenu();
-        
-        // Navigation
-        const path = String(location.pathname || '/');
-        const segments = path.split('/');
-        let lastIdx = -1;
-        for (let i = segments.length - 1; i >= 0; i--) { 
-          if (segments[i]) { lastIdx = i; break; } 
-        }
-        
-        let baseDir;
-        if (lastIdx >= 0 && this.isValidCity(String(segments[lastIdx]).toLowerCase())) {
-          baseDir = segments.slice(0, lastIdx).join('/') + '/';
-        } else {
-          baseDir = path.endsWith('/') ? path : (path + '/');
-        }
-        
-        const sp = new URLSearchParams(location.search);
-        sp.set('city', city);
-        const target = baseDir + (sp.toString() ? `?${sp.toString()}` : '');
-        location.href = target;
-      } catch (_) { /* noop */ }
-    },
-
-    async initCityToggleUI(activeCity) {
-      try {
-        const toggle = document.getElementById('city-toggle');
-        if (!toggle) return;
-        
-        toggle.addEventListener('click', (e) => { 
-          e.preventDefault(); 
-          e.stopPropagation(); 
-          this.openCityMenu(); 
-        });
-        
-        toggle.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') { 
-            e.preventDefault(); 
-            this.openCityMenu(); 
-          }
-        });
-        
-        await this.renderCityMenu(activeCity);
-      } catch (_) { /* noop */ }
+      // Repositionner aussi au resize
+      if (!win._cityMenuResizeBound) {
+        window.addEventListener('resize', () => this.positionCityMenu());
+        win._cityMenuResizeBound = true;
+      }
     },
 
     /**

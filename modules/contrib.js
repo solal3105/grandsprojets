@@ -137,6 +137,37 @@
     }
   }
 
+  let brandingModalLoaded = false;
+  
+  // Lazy load branding modal template
+  async function loadBrandingModalTemplate() {
+    if (brandingModalLoaded) return true;
+    
+    try {
+      const response = await fetch('modules/contrib/contrib-branding-modal.html');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const html = await response.text();
+      const container = document.getElementById('contrib-modal-container');
+      
+      if (!container) {
+        console.error('[contrib] Modal container not found in DOM');
+        return false;
+      }
+      
+      // Ajouter la modale branding après les autres modales
+      container.insertAdjacentHTML('beforeend', html);
+      brandingModalLoaded = true;
+      return true;
+      
+    } catch (error) {
+      console.error('[contrib] Error loading branding modal template:', error);
+      return false;
+    }
+  }
+
   // ============================================================================
   // CITY HELPER - POINT D'ENTRÉE UNIQUE POUR RÉCUPÉRER LA VILLE
   // ============================================================================
@@ -1090,6 +1121,9 @@
           landingCitySelect?.focus();
           return;
         }
+        
+        // Charger la modale branding si pas encore fait
+        await loadBrandingModalTemplate();
         
         // Ouvrir la modale de branding
         if (ContribBrandingSimple?.openBrandingModal) {

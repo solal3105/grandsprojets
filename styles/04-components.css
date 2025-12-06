@@ -1358,6 +1358,140 @@
 }
 
 /* ---------------------------------------------------------------------------
+   CITY MENU - Sélecteur d'espace
+   Même design que basemap-menu, positionné sous le toggle
+--------------------------------------------------------------------------- */
+
+.city-menu {
+  position: absolute;
+  /* Position dynamique via JS, fallback en haut à gauche */
+  top: 70px;
+  left: 20px;
+  right: auto;
+  width: 280px;
+  max-height: calc(100vh - 100px);
+  background: linear-gradient(145deg, var(--white-alpha-95) 0%, var(--white-alpha-90) 100%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--white-alpha-50);
+  border-radius: 20px;
+  padding: 16px;
+  box-shadow: 
+    0 20px 60px var(--black-alpha-15),
+    0 8px 16px var(--black-alpha-08),
+    inset 0 1px 0 var(--white-alpha-80);
+  z-index: 1000;
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  overflow-y: auto;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.city-menu.active {
+  display: flex;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  animation: cityMenuSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes cityMenuSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.city-menu-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.city-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface-base);
+  border: 2px solid var(--border-light);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.city-menu-item:hover {
+  background: var(--surface-hover);
+  border-color: var(--primary-alpha-30);
+  transform: translateX(4px);
+}
+
+.city-menu-item.is-active {
+  background: var(--primary-alpha-08);
+  border-color: var(--primary);
+}
+
+.city-menu-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.city-menu-icon img,
+.city-menu-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.city-menu-icon i {
+  font-size: 1.25rem;
+  color: var(--text-secondary);
+}
+
+.city-menu-name {
+  flex: 1;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.city-menu-check {
+  color: var(--primary);
+  font-size: 0.875rem;
+}
+
+/* Dark mode */
+[data-theme="dark"] .city-menu {
+  background: linear-gradient(145deg, var(--gray-800-alpha-95) 0%, var(--gray-900-alpha-90) 100%);
+  border-color: var(--white-alpha-10);
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .city-menu {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
    Project detail styles
 --------------------------------------------------------------------------- */
 .project-detail {
