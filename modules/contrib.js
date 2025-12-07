@@ -2246,9 +2246,13 @@
         }
       };
       
-      // Bouton fermer
+      // Bouton fermer (×) et Annuler
       if (categoryModalClose) {
         categoryModalClose.onclick = closeModal;
+      }
+      const categoryModalCancel = document.getElementById('category-modal-cancel');
+      if (categoryModalCancel) {
+        categoryModalCancel.onclick = closeModal;
       }
       
       // Clic sur overlay
