@@ -1363,11 +1363,11 @@
 --------------------------------------------------------------------------- */
 
 .city-menu {
-  position: absolute;
-  /* Position dynamique via JS, fallback en haut à gauche */
-  top: 70px;
-  left: 20px;
-  right: auto;
+  position: fixed;
+  /* Position : en haut à droite, sous les toggles */
+  top: 68px;
+  right: 12px;
+  left: auto;
   width: 280px;
   max-height: calc(100vh - 100px);
   background: linear-gradient(145deg, var(--white-alpha-95) 0%, var(--white-alpha-90) 100%);
@@ -1481,13 +1481,10 @@
   border-color: var(--white-alpha-10);
 }
 
-/* Mobile */
-@media (max-width: 640px) {
+/* Mobile - Juste ajuster la largeur max */
+@media (max-width: 720px) {
   .city-menu {
-    left: 12px;
-    right: 12px;
-    width: auto;
-    max-width: none;
+    max-width: calc(100vw - 24px);
   }
 }
 

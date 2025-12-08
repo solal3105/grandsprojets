@@ -264,13 +264,7 @@
     display: inline-flex;
   }
 
-  .city-menu {
-    position: fixed;
-    top: 56px;
-    left: 12px;
-    right: 12px;
-    max-height: calc(100vh - 72px);
-  }
+  /* city-menu: positionnement géré dans 04-components.css */
 
   .gp-bento {
     grid-template-columns: 1fr;

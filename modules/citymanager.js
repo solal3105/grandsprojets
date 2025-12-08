@@ -225,25 +225,16 @@
     // ==================== Menu de sélection d'espace ====================
 
     /**
-     * Positionne le menu juste sous le toggle city (aligné à droite)
+     * Positionne le menu à droite, sous les toggles
      */
     positionCityMenu() {
-      const toggle = document.getElementById('city-toggle');
       const menu = document.getElementById('city-menu');
-      if (!toggle || !menu) return;
+      if (!menu) return;
 
-      const rect = toggle.getBoundingClientRect();
-      const menuWidth = 280; // Largeur du menu définie en CSS
-      
-      // Aligner le bord droit du menu avec le bord droit du toggle
-      let leftPos = rect.right - menuWidth;
-      
-      // S'assurer que le menu ne sort pas de l'écran à gauche
-      if (leftPos < 12) leftPos = 12;
-      
-      menu.style.top = `${rect.bottom + 8}px`;
-      menu.style.left = `${leftPos}px`;
-      menu.style.right = 'auto';
+      // Toujours à droite, à 12px du bord
+      menu.style.top = '68px';
+      menu.style.right = '12px';
+      menu.style.left = 'auto';
     },
 
     /**

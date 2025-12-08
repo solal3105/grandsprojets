@@ -16,12 +16,44 @@
     win.__supabaseClient = client;
   }
 
+  // Cache pour la session (mis à jour par onAuthStateChange)
+  let cachedSession = null;
+  
+  // Initialiser le cache avec la session actuelle
+  client.auth.getSession().then(({ data }) => {
+    cachedSession = data?.session || null;
+  });
+  
+  // Écouter les changements pour maintenir le cache à jour
+  client.auth.onAuthStateChange((event, session) => {
+    cachedSession = session;
+  });
+
   const AuthModule = {
     getClient: function() { return client; },
 
+    /**
+     * Vérifie si l'utilisateur est connecté (synchrone - utilise le cache)
+     * @returns {boolean}
+     */
+    isAuthenticated: function() {
+      return !!(cachedSession?.user);
+    },
+    
+    /**
+     * Retourne la session en cache (synchrone)
+     * @returns {Object|null}
+     */
+    getCachedSession: function() {
+      return cachedSession;
+    },
+
     getSession: async function() {
       try {
-        return await client.auth.getSession();
+        const result = await client.auth.getSession();
+        // Mettre à jour le cache
+        cachedSession = result.data?.session || null;
+        return result;
       } catch (e) {
         console.warn('[AuthModule] getSession error:', e);
         return { data: { session: null }, error: e };

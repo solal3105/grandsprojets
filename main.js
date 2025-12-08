@@ -288,9 +288,23 @@
       // PHASE 2.5 : Charger le branding de la ville (ou couleur par défaut si pas de ville)
       if (win.CityBrandingModule) {
         try {
-          // skipToggles = true pour éviter la race condition avec l'authentification
-          // Les toggles seront configurés par onAuthStateChange une fois la session établie
-          await win.CityBrandingModule.loadAndApplyBranding(city, true);
+          // Attendre que toggleManager soit initialisé (c'est un module ES6, chargé en deferred)
+          await new Promise((resolve) => {
+            if (win.toggleManager && win.toggleManager.initialized) {
+              resolve();
+            } else {
+              const checkInterval = setInterval(() => {
+                if (win.toggleManager && win.toggleManager.initialized) {
+                  clearInterval(checkInterval);
+                  resolve();
+                }
+              }, 20);
+              setTimeout(() => { clearInterval(checkInterval); resolve(); }, 3000);
+            }
+          });
+          
+          // skipToggles = false pour appliquer immédiatement la config des toggles
+          await win.CityBrandingModule.loadAndApplyBranding(city, false);
         } catch (err) {
           console.warn('[Main] Failed to load city branding:', err);
         }

@@ -168,6 +168,15 @@
     <button id="login-toggle" aria-label="Se connecter ou s'inscrire" title="Connexion" data-ready="false">
       <i class="fas fa-user"></i>
     </button>
+    
+    <!-- Bouton overflow mobile (plus de 4 toggles) -->
+    <button id="overflow-toggle" aria-label="Plus d'options" title="Plus d'options" aria-haspopup="true" aria-expanded="false" data-ready="false" style="display:none">
+      <i class="fas fa-ellipsis-h"></i>
+    </button>
+    <!-- Menu overflow pour les toggles cachés sur mobile -->
+    <div id="overflow-menu" class="overflow-menu" aria-hidden="true">
+      <div class="overflow-menu-content"></div>
+    </div>
   </div>
 
   <!-- À propos modal - NOUVEAU DESIGN -->

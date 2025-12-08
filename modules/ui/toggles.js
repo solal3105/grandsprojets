@@ -11,6 +11,10 @@ class ToggleManager {
     this.state = new Map();
     this.listeners = new Map();
     this.initialized = false;
+    this.overflowToggles = []; // Toggles cachés dans le menu overflow
+    this.MAX_MOBILE_TOGGLES = 4; // Nombre max de toggles visibles sur mobile
+    this._blockRecalculate = false; // Flag pour bloquer les recalculs temporairement
+    this._recalculateScheduled = false; // Flag pour éviter les recalculs multiples
   }
 
   /**
@@ -26,6 +30,9 @@ class ToggleManager {
     TOGGLE_ORDER.forEach(key => {
       this.initToggle(key);
     });
+    
+    // Initialiser le toggle overflow (spécial - pas dans TOGGLE_ORDER)
+    this.initOverflowToggle();
 
     this.initialized = true;
 
@@ -56,8 +63,9 @@ class ToggleManager {
     // Ajouter la classe commune
     element.classList.add('app-toggle');
     
-    // Gérer la visibilité SIMPLE (uniquement login/contribute)
-    this.toggleSimpleVisibility(key, config);
+    // NOTE: Ne PAS appeler toggleSimpleVisibility ici !
+    // La visibilité de login/contribute sera gérée par CityBrandingModule.applyTogglesConfig()
+    // qui a accès au cache de session AuthModule
 
     // Stocker la référence
     this.toggles.set(key, {
@@ -453,9 +461,16 @@ class ToggleManager {
       return;
     }
 
-    toggle.element.style.display = visible ? 'flex' : 'none';
+    // Stocker l'état "activé par branding" pour le mode overflow
+    toggle.element.setAttribute('data-branding-enabled', visible ? 'true' : 'false');
     
-    // Le MutationObserver déclenchera automatiquement recalculatePositions()
+    // Ne pas changer le display si le toggle est en overflow (géré par recalculateMobileLayout)
+    if (toggle.element.getAttribute('data-in-overflow') !== 'true') {
+      toggle.element.style.display = visible ? 'flex' : 'none';
+    }
+    
+    // Déclencher un recalcul des positions
+    this.triggerRecalculate();
   }
 
   /**
@@ -475,6 +490,9 @@ class ToggleManager {
    * Appelé automatiquement quand un toggle est masqué/affiché
    */
   recalculatePositions() {
+    // Bloquer les recalculs si le flag est actif
+    if (this._blockRecalculate) return;
+    
     const isMobile = window.innerWidth <= 640;
     
     if (isMobile) {
@@ -486,44 +504,146 @@ class ToggleManager {
 
   /**
    * Recalcule le layout mobile (barre horizontale)
+   * Si plus de MAX_MOBILE_TOGGLES toggles, affiche les premiers + bouton overflow
    */
   recalculateMobileLayout() {
-    const visibleToggles = [];
+    const eligibleToggles = [];
+    const overflowToggle = this.toggles.get('overflow');
 
-    // Identifier les toggles visibles dans l'ordre mobile (gauche → droite)
+    // Identifier les toggles qui DEVRAIENT être visibles
+    // Utilise data-branding-enabled si défini, sinon les règles par défaut
     TOGGLE_ORDER.forEach(key => {
       const toggle = this.toggles.get(key);
-      if (toggle && this.isToggleVisible(toggle.element)) {
-        visibleToggles.push({ key, element: toggle.element });
+      if (!toggle) return;
+      
+      // Vérifier l'éligibilité : branding d'abord, sinon règles par défaut
+      const brandingEnabled = toggle.element.getAttribute('data-branding-enabled');
+      let isEligible;
+      
+      if (brandingEnabled !== null) {
+        // Configuration branding active
+        isEligible = brandingEnabled === 'true';
+      } else {
+        // Pas de branding, appliquer les règles par défaut
+        isEligible = true;
+        if (key === 'contribute') {
+          isEligible = this.isUserConnected();
+        } else if (key === 'login') {
+          isEligible = !this.isUserConnected();
+        }
+      }
+      
+      if (isEligible) {
+        eligibleToggles.push({ key, element: toggle.element, config: toggle.config });
       }
     });
+    
+    const visibleToggles = eligibleToggles;
 
     const totalVisible = visibleToggles.length;
-    if (totalVisible === 0) return;
-
-    // Recalculer les positions (de gauche à droite)
-    visibleToggles.forEach((toggle, index) => {
-      const positionFromRight = totalVisible - 1 - index;
-      const right = `calc(var(--toggle-offset-base) + var(--toggle-size) * ${positionFromRight})`;
-      toggle.element.style.right = right;
-
-      // Gérer les border-radius
-      toggle.element.removeAttribute('data-edge');
-      
-      if (totalVisible === 1) {
-        toggle.element.setAttribute('data-edge', 'both');
-      } else if (index === 0) {
-        toggle.element.setAttribute('data-edge', 'first');
-      } else if (index === totalVisible - 1) {
-        toggle.element.setAttribute('data-edge', 'last');
+    if (totalVisible === 0) {
+      // Masquer le toggle overflow s'il n'y a rien
+      if (overflowToggle) {
+        overflowToggle.element.style.display = 'none';
       }
-    });
+      return;
+    }
+
+    // Déterminer si on a besoin du mode overflow
+    const needsOverflow = totalVisible > this.MAX_MOBILE_TOGGLES;
+    
+    if (needsOverflow && overflowToggle) {
+      // Mode overflow : afficher les premiers toggles + bouton "..."
+      const displayedToggles = visibleToggles.slice(0, this.MAX_MOBILE_TOGGLES - 1);
+      this.overflowToggles = visibleToggles.slice(this.MAX_MOBILE_TOGGLES - 1);
+      
+      // Masquer les toggles en overflow
+      this.overflowToggles.forEach(t => {
+        t.element.style.display = 'none';
+        t.element.setAttribute('data-in-overflow', 'true');
+      });
+      
+      // Afficher et positionner le toggle overflow
+      overflowToggle.element.style.display = 'flex';
+      overflowToggle.element.classList.add('app-toggle');
+      
+      // Positionner les toggles affichés + overflow
+      const totalDisplayed = displayedToggles.length + 1; // +1 pour overflow
+      
+      displayedToggles.forEach((toggle, index) => {
+        toggle.element.style.display = 'flex';
+        toggle.element.removeAttribute('data-in-overflow');
+        
+        const positionFromRight = totalDisplayed - 1 - index;
+        toggle.element.style.right = `calc(var(--toggle-offset-base) + var(--toggle-size) * ${positionFromRight})`;
+        toggle.element.removeAttribute('data-edge');
+        
+        if (index === 0) {
+          toggle.element.setAttribute('data-edge', 'first');
+        }
+      });
+      
+      // Positionner le toggle overflow en dernier (à droite)
+      overflowToggle.element.style.right = 'var(--toggle-offset-base)';
+      overflowToggle.element.removeAttribute('data-edge');
+      overflowToggle.element.setAttribute('data-edge', 'last');
+      
+      // Mettre à jour le menu overflow
+      this.updateOverflowMenu();
+      
+    } else {
+      // Mode normal : tous les toggles sont visibles
+      this.overflowToggles = [];
+      
+      // Masquer le toggle overflow
+      if (overflowToggle) {
+        overflowToggle.element.style.display = 'none';
+        this.closeOverflowMenu();
+      }
+      
+      // Réafficher et positionner tous les toggles
+      visibleToggles.forEach((toggle, index) => {
+        toggle.element.style.display = 'flex';
+        toggle.element.removeAttribute('data-in-overflow');
+        
+        const positionFromRight = totalVisible - 1 - index;
+        toggle.element.style.right = `calc(var(--toggle-offset-base) + var(--toggle-size) * ${positionFromRight})`;
+        toggle.element.removeAttribute('data-edge');
+        
+        if (totalVisible === 1) {
+          toggle.element.setAttribute('data-edge', 'both');
+        } else if (index === 0) {
+          toggle.element.setAttribute('data-edge', 'first');
+        } else if (index === totalVisible - 1) {
+          toggle.element.setAttribute('data-edge', 'last');
+        }
+      });
+    }
   }
 
   /**
    * Recalcule le layout desktop (toggles espacés)
    */
   recalculateDesktopLayout() {
+    // Masquer le toggle overflow en desktop
+    const overflowToggle = this.toggles.get('overflow');
+    if (overflowToggle) {
+      overflowToggle.element.style.display = 'none';
+      this.closeOverflowMenu();
+    }
+    
+    // Réafficher les toggles qui étaient en overflow
+    // Respecter data-branding-enabled pour la visibilité
+    this.overflowToggles.forEach(({ key, element }) => {
+      element.removeAttribute('data-in-overflow');
+      // Réappliquer la visibilité selon data-branding-enabled (géré par CityBranding)
+      const brandingEnabled = element.getAttribute('data-branding-enabled');
+      if (brandingEnabled !== null) {
+        element.style.display = brandingEnabled === 'true' ? 'flex' : 'none';
+      }
+    });
+    this.overflowToggles = [];
+    
     const visibleToggles = [];
 
     // Identifier les toggles visibles dans l'ordre desktop (droite → gauche)
@@ -580,46 +700,285 @@ class ToggleManager {
   }
 
   /**
-   * Vérifie si l'utilisateur est connecté
+   * Vérifie si l'utilisateur est connecté (synchrone - utilise le cache)
+   * Note: Pour une vérification async précise, utiliser AuthModule.getSession()
    */
   isUserConnected() {
-    // Simple vérification : utilisateur connecté si un token existe
-    return window.SupabaseAuth?.getSession?.() || localStorage.getItem('supabase.auth.token');
+    // Méthode 1: Vérifier via AuthModule si disponible (cache interne)
+    if (window.AuthModule?.isAuthenticated) {
+      return window.AuthModule.isAuthenticated();
+    }
+    
+    // Méthode 2: Vérifier le localStorage Supabase (clé correcte)
+    // Supabase stocke la session avec un préfixe sb-<project-ref>-auth-token
+    const keys = Object.keys(localStorage);
+    const supabaseKey = keys.find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+    if (supabaseKey) {
+      try {
+        const data = JSON.parse(localStorage.getItem(supabaseKey));
+        return !!(data?.access_token || data?.user);
+      } catch {
+        return false;
+      }
+    }
+    
+    return false;
   }
 
   /**
    * Observe les changements de visibilité et recalcule
-   * Utilise MutationObserver pour détecter les changements de style
+   * NOTE: On n'utilise PAS MutationObserver car il crée des boucles infinies
+   * Les recalculs sont déclenchés explicitement par setVisible() et resize
    */
   observeVisibilityChanges() {
-    // Debounce pour éviter trop d'appels
-    let debounceTimer;
-    const debouncedRecalculate = () => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        this.recalculatePositions();
-      }, 50);
+    // Seulement observer les resize de window
+    let resizeTimer;
+    this.resizeHandler = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (!this._blockRecalculate) {
+          this.recalculatePositions();
+        }
+      }, 100);
     };
-
-    // Observer tous les toggles
-    this.toggles.forEach((toggle) => {
-      const observer = new MutationObserver(() => {
-        debouncedRecalculate();
-      });
-
-      observer.observe(toggle.element, {
-        attributes: true,
-        attributeFilter: ['style', 'class']
-      });
-
-      // Stocker l'observer pour cleanup
-      if (!this.observers) this.observers = [];
-      this.observers.push(observer);
-    });
-
-    // Observer les resize de window avec debounce
-    this.resizeHandler = () => debouncedRecalculate();
     window.addEventListener('resize', this.resizeHandler);
+  }
+  
+  /**
+   * Déclenche un recalcul des positions (à appeler après setVisible)
+   */
+  triggerRecalculate() {
+    if (this._blockRecalculate) return;
+    
+    // Utiliser requestAnimationFrame pour éviter les boucles
+    if (this._recalculateScheduled) return;
+    this._recalculateScheduled = true;
+    
+    requestAnimationFrame(() => {
+      this._recalculateScheduled = false;
+      if (!this._blockRecalculate) {
+        this.recalculatePositions();
+      }
+    });
+  }
+
+  /**
+   * Initialise le toggle overflow (bouton "...")
+   */
+  initOverflowToggle() {
+    const config = TOGGLES_CONFIG.overflow;
+    if (!config) return;
+    
+    const element = document.getElementById(config.id);
+    if (!element) return;
+    
+    // Ajouter la classe commune
+    element.classList.add('app-toggle');
+    
+    // Stocker la référence
+    this.toggles.set('overflow', {
+      element,
+      config,
+      state: false
+    });
+    
+    // Initialiser l'état
+    this.state.set('overflow', false);
+    
+    // Setup accessibilité
+    this.setupAccessibility(element, config);
+    
+    // Bind events pour ouvrir/fermer le menu
+    element.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.toggleOverflowMenu();
+    });
+    
+    // Fermer le menu au clic extérieur
+    document.addEventListener('click', (e) => {
+      const menu = document.getElementById('overflow-menu');
+      if (menu && !element.contains(e.target) && !menu.contains(e.target)) {
+        this.closeOverflowMenu();
+      }
+    });
+    
+    // Marquer comme prêt
+    element.setAttribute('data-ready', 'true');
+  }
+  
+  /**
+   * Toggle le menu overflow
+   */
+  toggleOverflowMenu() {
+    const isOpen = this.state.get('overflow');
+    if (isOpen) {
+      this.closeOverflowMenu();
+    } else {
+      this.openOverflowMenu();
+    }
+  }
+  
+  /**
+   * Ouvre le menu overflow
+   */
+  openOverflowMenu() {
+    const menu = document.getElementById('overflow-menu');
+    const toggle = this.toggles.get('overflow');
+    if (!menu || !toggle) return;
+    
+    // Fermer tous les autres menus ouverts (city-menu, basemap-menu, etc.)
+    this.closeAllMenus();
+    
+    // Utiliser display pour contrôler la visibilité
+    menu.style.display = 'block';
+    menu.setAttribute('aria-hidden', 'false');
+    toggle.element.setAttribute('aria-expanded', 'true');
+    this.state.set('overflow', true);
+  }
+  
+  /**
+   * Ferme tous les menus ouverts (city-menu, basemap-menu, etc.)
+   */
+  closeAllMenus() {
+    // Fermer le city-menu
+    const cityMenu = document.getElementById('city-menu');
+    if (cityMenu) {
+      cityMenu.classList.remove('active');
+    }
+    
+    // Fermer le basemap-menu
+    const basemapMenu = document.getElementById('basemap-menu');
+    if (basemapMenu) {
+      basemapMenu.classList.remove('active');
+    }
+    
+    // Réinitialiser l'état des toggles avec menu
+    this.toggles.forEach((toggle, key) => {
+      if (toggle.config.hasMenu && key !== 'overflow') {
+        this.state.set(key, false);
+        toggle.element.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+  
+  /**
+   * Ferme le menu overflow
+   */
+  closeOverflowMenu() {
+    const menu = document.getElementById('overflow-menu');
+    const toggle = this.toggles.get('overflow');
+    if (!menu) return;
+    
+    // Utiliser display pour contrôler la visibilité
+    menu.style.display = 'none';
+    menu.setAttribute('aria-hidden', 'true');
+    if (toggle) {
+      toggle.element.setAttribute('aria-expanded', 'false');
+    }
+    this.state.set('overflow', false);
+  }
+  
+  /**
+   * Met à jour le contenu du menu overflow avec les toggles cachés
+   */
+  updateOverflowMenu() {
+    const menu = document.getElementById('overflow-menu');
+    if (!menu) return;
+    
+    const content = menu.querySelector('.overflow-menu-content');
+    if (!content) return;
+    
+    // Vider le menu
+    content.innerHTML = '';
+    
+    // Ajouter chaque toggle en overflow
+    this.overflowToggles.forEach(({ key, config }) => {
+      const item = document.createElement('button');
+      item.className = 'overflow-menu-item';
+      item.setAttribute('data-toggle-key', key);
+      item.setAttribute('aria-label', config.ariaLabel || config.label);
+      
+      // Icône
+      const icon = document.createElement('i');
+      icon.className = `fas ${config.icon}`;
+      
+      // Label
+      const label = document.createElement('span');
+      label.className = 'overflow-menu-label';
+      label.textContent = config.label;
+      
+      item.appendChild(icon);
+      item.appendChild(label);
+      
+      // Event : déclencher l'action du toggle original
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.handleOverflowItemClick(key, config);
+      });
+      
+      content.appendChild(item);
+    });
+  }
+  
+  /**
+   * Gère le clic sur un item du menu overflow
+   */
+  handleOverflowItemClick(key, config) {
+    // Bloquer les recalculs pendant toute l'opération
+    this._blockRecalculate = true;
+    
+    // Fermer le menu overflow
+    this.closeOverflowMenu();
+    
+    // Exécuter l'action
+    if (config.redirectUrl) {
+      window.location.href = config.redirectUrl;
+      return; // Pas besoin de débloquer, on quitte la page
+    }
+    
+    if (config.hasModal) {
+      const modalId = config.modalSelector?.replace('#', '');
+      if (modalId) {
+        window.ModalHelper?.open?.(modalId) || window.ModalManager?.open?.(modalId);
+      }
+    } else if (config.hasMenu) {
+      const targetMenu = document.querySelector(config.menuSelector);
+      if (targetMenu) {
+        targetMenu.classList.add('active');
+      }
+    } else {
+      // Pour tous les autres cas (overlay, toggle simple), déclencher le clic
+      // sur l'élément original après l'avoir temporairement affiché
+      const toggle = this.toggles.get(key);
+      if (toggle?.element) {
+        // L'élément est masqué (data-in-overflow), on doit le rendre cliquable
+        const wasHidden = toggle.element.style.display === 'none';
+        if (wasHidden) {
+          toggle.element.style.display = 'flex';
+          toggle.element.style.opacity = '0';
+          toggle.element.style.pointerEvents = 'none';
+        }
+        
+        // Déclencher le clic
+        toggle.element.click();
+        
+        // Re-masquer après un court délai
+        if (wasHidden) {
+          setTimeout(() => {
+            toggle.element.style.display = 'none';
+            toggle.element.style.opacity = '';
+            toggle.element.style.pointerEvents = '';
+          }, 50);
+        }
+      }
+    }
+    
+    // Débloquer les recalculs après 200ms
+    setTimeout(() => {
+      this._blockRecalculate = false;
+    }, 200);
   }
 
   /**

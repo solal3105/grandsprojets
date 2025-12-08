@@ -226,19 +226,32 @@
   /**
    * Applique la configuration des toggles (masque/affiche les contrôles)
    * @param {Array<string>} enabledToggles - Liste des toggles activés
+   * @param {Object|null} sessionOverride - Session à utiliser (optionnel, sinon vérifie AuthModule)
    */
-  async applyTogglesConfig(enabledToggles) {
+  async applyTogglesConfig(enabledToggles, sessionOverride = null) {
     if (!Array.isArray(enabledToggles)) return;
 
-    // Vérifier si l'utilisateur est connecté
+    // Déterminer si l'utilisateur est connecté
     let isAuthenticated = false;
-    try {
-      if (win.AuthModule && typeof win.AuthModule.getSession === 'function') {
+    
+    // Priorité 1: Session passée en paramètre (ex: depuis onAuthStateChange)
+    // Note: session peut être null (déconnexion) ou un objet (connexion)
+    if (arguments.length > 1) {
+      // Si un 2e argument a été passé, l'utiliser (même si null = déconnexion)
+      isAuthenticated = !!(sessionOverride?.user);
+    }
+    // Priorité 2: Cache synchrone AuthModule
+    else if (win.AuthModule?.isAuthenticated) {
+      isAuthenticated = win.AuthModule.isAuthenticated();
+    }
+    // Priorité 3: Appel async getSession (fallback)
+    else if (win.AuthModule?.getSession) {
+      try {
         const { data: { session } } = await win.AuthModule.getSession();
-        isAuthenticated = !!(session && session.user);
+        isAuthenticated = !!(session?.user);
+      } catch (err) {
+        console.warn('[CityBranding] Error checking auth status:', err);
       }
-    } catch (err) {
-      console.warn('[CityBranding] Error checking auth status:', err);
     }
 
     // Liste de tous les toggles possibles
@@ -256,7 +269,7 @@
             isEnabled = false;
           }
         } else if (toggleKey === 'contribute') {
-          // Afficher le toggle contribute uniquement si l'utilisateur est connecté
+          // Contribute apparaît dès que l'utilisateur est connecté (indépendant de la config ville)
           isEnabled = isAuthenticated;
         }
         
@@ -278,7 +291,7 @@
                 isEnabled = false;
               }
             } else if (toggleKey === 'contribute') {
-              // Afficher le toggle contribute uniquement si l'utilisateur est connecté
+              // Contribute apparaît dès que l'utilisateur est connecté (indépendant de la config ville)
               isEnabled = isAuthenticated;
             }
             
@@ -364,6 +377,7 @@
     // Écouter les changements d'état d'authentification
     if (win.AuthModule && typeof win.AuthModule.onAuthStateChange === 'function') {
       win.AuthModule.onAuthStateChange(async (event, session) => {
+        console.log('[CityBranding] Auth state changed:', event, '- session:', !!session);
         
         // Récupérer la ville active
         const activeCity = localStorage.getItem('activeCity');
@@ -371,7 +385,8 @@
         // Récupérer le branding pour réappliquer la config
         const branding = await this.getBrandingForCity(activeCity);
         if (branding && branding.enabled_toggles) {
-          await this.applyTogglesConfig(branding.enabled_toggles);
+          // Passer la session directement pour éviter les race conditions
+          await this.applyTogglesConfig(branding.enabled_toggles, session);
         }
       });
     }

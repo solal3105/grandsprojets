@@ -65,7 +65,7 @@ export const TOGGLES_CONFIG = {
     icon: 'fa-bars',
     label: 'Espace',
     ariaLabel: 'Changer votre espace',
-    position: 5.5,
+    position: 6,
     hasMenu: true,
     menuSelector: '#city-menu',
     defaultState: false
@@ -87,7 +87,7 @@ export const TOGGLES_CONFIG = {
     icon: 'fa-plus',
     label: 'Contribuer',
     ariaLabel: 'Proposer une contribution',
-    position: 6,
+    position: 7,
     defaultState: false
   },
   
@@ -96,9 +96,21 @@ export const TOGGLES_CONFIG = {
     icon: 'fa-user',
     label: 'Connexion',
     ariaLabel: 'Se connecter ou s\'inscrire',
-    position: 7,
+    position: 8,
     redirectUrl: '/login',
     defaultState: false
+  },
+  
+  overflow: {
+    id: 'overflow-toggle',
+    icon: 'fa-ellipsis-h',
+    label: 'Plus',
+    ariaLabel: 'Plus d\'options',
+    position: 99, // Toujours en dernier
+    hasMenu: true,
+    menuSelector: '#overflow-menu',
+    defaultState: false,
+    mobileOnly: true // N'apparaît que sur mobile
   }
 };
 
