@@ -840,19 +840,23 @@
     display: flex;
   }
   
-  /* Par défaut tout est masqué */
-  .project-preview-map-wrap,
-  .project-cover-wrap--mobile-toggle {
-    display: none;
+  /* Par défaut tout est masqué sur mobile */
+  .project-preview-map-wrap {
+    display: none !important;
+  }
+  
+  /* Cover avec toggle : masquée par défaut sur mobile */
+  .project-cover-wrap.project-cover-wrap--mobile-toggle {
+    display: none !important;
   }
   
   /* Afficher uniquement l'élément actif */
   .project-preview-map-wrap.is-active {
-    display: block;
+    display: block !important;
   }
   
-  .project-cover-wrap--mobile-toggle.is-active {
-    display: block;
+  .project-cover-wrap.project-cover-wrap--mobile-toggle.is-active {
+    display: block !important;
   }
 }
 
