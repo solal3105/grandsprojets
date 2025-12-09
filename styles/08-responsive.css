@@ -222,7 +222,14 @@
     transition: color 0.15s ease;
   }
 
-  /* Submenus & Project detail - Unified mobile panels */
+  /* Submenus & Project detail - Unified mobile panels
+     Calcul max-height :
+     - 100vh (hauteur écran)
+     - - 64px (logo 48px + marge 16px)
+     - - 120px (nav 100px + marge 20px)
+     - - 8px (marge de confort)
+     = calc(100vh - 192px)
+  */
   .submenu,
   #project-detail {
     position: fixed;
@@ -230,7 +237,7 @@
     width: calc(100vw - 40px);
     max-width: 500px;
     min-height: auto;
-    max-height: 40vh;
+    max-height: calc(100vh - 222px);
     margin: 0;
     border-radius: 20px 20px 0 0;
     box-sizing: border-box;

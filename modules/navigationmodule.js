@@ -235,6 +235,175 @@ const NavigationModule = (() => {
   }
 
   /**
+   * Variable pour stocker la mini-carte de prévisualisation
+   */
+  let previewMap = null;
+
+  /**
+   * Initialise la mini-carte de prévisualisation dans le panneau de détail (mobile)
+   * Clone les features du projet depuis le layer principal et les affiche
+   * @param {string} projectName - Nom du projet
+   * @param {string} category - Catégorie du projet
+   */
+  function initPreviewMap(projectName, category) {
+    // Nettoyer la carte précédente et ses animations
+    if (previewMap) {
+      // Arrêter les animations
+      if (previewMap._gpAnimationIntervals) {
+        previewMap._gpAnimationIntervals.forEach(interval => clearInterval(interval));
+      }
+      try { previewMap.remove(); } catch (_) {}
+      previewMap = null;
+    }
+
+    const container = document.getElementById('project-preview-map');
+    if (!container || !window.L) return;
+
+    // Vérifier si on est sur mobile (breakpoint 720px)
+    if (window.innerWidth > 720) {
+      console.log('[NavigationModule] Mini-carte masquée (desktop), skip init');
+      return;
+    }
+
+    const layerName = normalizeCategoryName(category);
+    const mapLayer = window.MapModule?.layers?.[layerName];
+
+    if (!mapLayer || typeof mapLayer.eachLayer !== 'function') {
+      console.warn(`[NavigationModule] Layer "${layerName}" non trouvé pour preview map`);
+      return;
+    }
+
+    // Récupérer le style de la catégorie
+    const categoryIcon = window.categoryIcons?.find(c => c.category === category);
+    let categoryColor = 'var(--primary)';
+    let categoryStyles = {};
+    if (categoryIcon?.category_styles) {
+      try {
+        categoryStyles = typeof categoryIcon.category_styles === 'string'
+          ? JSON.parse(categoryIcon.category_styles)
+          : categoryIcon.category_styles;
+        categoryColor = categoryStyles.color || categoryColor;
+      } catch (_) {}
+    }
+
+    // Collecter les features du projet
+    const projectFeatures = [];
+    mapLayer.eachLayer((featureLayer) => {
+      const props = featureLayer.feature?.properties || {};
+      if (props.project_name === projectName && featureLayer.feature) {
+        projectFeatures.push(featureLayer.feature);
+      }
+    });
+
+    if (projectFeatures.length === 0) {
+      console.warn(`[NavigationModule] Aucune feature trouvée pour "${projectName}"`);
+      container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray-500);font-size:0.875rem;">Tracé non disponible</div>';
+      return;
+    }
+
+    // Créer le GeoJSON
+    const geojson = { type: 'FeatureCollection', features: projectFeatures };
+
+    // Déterminer le fond de carte selon le thème
+    const theme = document.documentElement.getAttribute('data-theme') || 'light';
+    const basemap = theme === 'light'
+      ? { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OSM' }
+      : { url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', attribution: '© CartoDB' };
+
+    // Créer la carte (zoom activé pour interaction)
+    previewMap = L.map(container, {
+      zoomControl: true,
+      attributionControl: false,
+      dragging: true,
+      touchZoom: true,
+      scrollWheelZoom: true,
+      doubleClickZoom: true,
+      boxZoom: false,
+      keyboard: false
+    });
+
+    L.tileLayer(basemap.url, { maxZoom: 19 }).addTo(previewMap);
+
+    // Stocker les intervalles d'animation pour cleanup
+    const animationIntervals = [];
+
+    // Ajouter le GeoJSON avec style animé (pointillés)
+    const geoLayer = L.geoJSON(geojson, {
+      style: (feature) => {
+        // Récupérer le style de base
+        let baseStyle = {};
+        if (window.getFeatureStyle) {
+          baseStyle = window.getFeatureStyle(feature, category);
+        } else {
+          baseStyle = {
+            color: categoryColor,
+            weight: 4,
+            opacity: 0.9,
+            fillOpacity: 0.3
+          };
+        }
+        // Ajouter les pointillés animés
+        return {
+          ...baseStyle,
+          weight: 5,
+          dashArray: '12, 8',
+          opacity: 1
+        };
+      },
+      pointToLayer: (feature, latlng) => {
+        const props = feature?.properties || {};
+        if (props.imgUrl && window.CameraMarkers) {
+          return window.CameraMarkers.createCameraMarker(latlng, 'markerPane', props.color || '#666');
+        }
+        // Utiliser le marker personnalisé
+        if (window.createContributionMarkerIcon) {
+          const icon = window.createContributionMarkerIcon(category);
+          return L.marker(latlng, { icon });
+        }
+        return L.circleMarker(latlng, {
+          radius: 8,
+          fillColor: categoryColor,
+          color: '#fff',
+          weight: 2,
+          fillOpacity: 0.9
+        });
+      },
+      onEachFeature: (feature, layer) => {
+        // Animer les pointillés pour les lignes/polygones
+        const geomType = feature?.geometry?.type || '';
+        const isLineOrPolygon = geomType.includes('Line') || geomType.includes('Polygon');
+        
+        if (isLineOrPolygon && typeof layer.setStyle === 'function') {
+          let dashOffset = 0;
+          const interval = setInterval(() => {
+            dashOffset = (dashOffset + 2) % 20;
+            try {
+              layer.setStyle({ dashOffset: -dashOffset });
+            } catch (_) {
+              clearInterval(interval);
+            }
+          }, 50);
+          animationIntervals.push(interval);
+        }
+      }
+    }).addTo(previewMap);
+
+    // Stocker les intervalles pour cleanup lors de la destruction
+    previewMap._gpAnimationIntervals = animationIntervals;
+
+    // Ajuster le zoom sur le tracé
+    setTimeout(() => {
+      previewMap.invalidateSize();
+      const bounds = geoLayer.getBounds();
+      if (bounds.isValid()) {
+        previewMap.fitBounds(bounds, { padding: [20, 20] });
+      }
+    }, 100);
+
+    console.log(`[NavigationModule] ✅ Mini-carte initialisée avec ${projectFeatures.length} features (zoom + animation)`);
+  }
+
+  /**
    * Affiche tous les layers d'une catégorie sur la carte
    * @param {string} category - Nom de la catégorie
    */
@@ -508,16 +677,36 @@ const NavigationModule = (() => {
     let body='';
     // Utiliser les données de contribution_uploads en priorité
     const coverCandidate = cover_url || attrs.cover || extractFirstImageSrc(html);
-    if (coverCandidate) {
-      const coverUrl = resolveAssetUrl(coverCandidate);
-      body+=`
-      <div class="project-cover-wrap">
-        <img class="project-cover" src="${coverUrl}" alt="${attrs.name||projectName||''}">
-        <button class="cover-extend-btn" aria-label="Agrandir l'image" title="Agrandir">
-          <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
-        </button>
+    
+    // Mini-carte de prévisualisation (mobile) + Cover (desktop)
+    const hasCover = !!coverCandidate;
+    body += `
+      <div class="project-media-container">
+        <!-- Toggle carte/cover (mobile) -->
+        ${hasCover ? `
+        <div class="project-media-toggle">
+          <button type="button" class="media-toggle-btn active" data-target="map" aria-label="Voir la carte" title="Carte">
+            <i class="fa-solid fa-map-location-dot"></i>
+          </button>
+          <button type="button" class="media-toggle-btn" data-target="cover" aria-label="Voir l'image" title="Image">
+            <i class="fa-solid fa-image"></i>
+          </button>
+        </div>
+        ` : ''}
+        <!-- Mini-carte sur mobile -->
+        <div class="project-preview-map-wrap${hasCover ? ' is-active' : ''}">
+          <div id="project-preview-map"></div>
+        </div>
+        <!-- Cover sur desktop / toggle sur mobile -->
+        ${hasCover ? `
+        <div class="project-cover-wrap project-cover-wrap--mobile-toggle">
+          <img class="project-cover" src="${resolveAssetUrl(coverCandidate)}" alt="${attrs.name||projectName||''}">
+          <button class="cover-extend-btn" aria-label="Agrandir l'image" title="Agrandir">
+            <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
+          </button>
+        </div>
+        ` : ''}
       </div>`;
-    }
     const chips=[];
     if(attrs.from||attrs.to) chips.push(`<span class="chip chip-route">${attrs.from||''}${attrs.to?` → ${attrs.to}`:''}</span>`);
     if(attrs.trafic) chips.push(`<span class="chip chip-trafic">${attrs.trafic}</span>`);
@@ -609,6 +798,41 @@ const NavigationModule = (() => {
       btn?.addEventListener('click', openLightbox);
     })();
 
+    // Wire up media toggle (carte/cover) pour mobile
+    (function(){
+      const container = panel.querySelector('.project-media-container');
+      if (!container) return;
+      
+      const toggleBtns = container.querySelectorAll('.media-toggle-btn');
+      const mapWrap = container.querySelector('.project-preview-map-wrap');
+      const coverWrap = container.querySelector('.project-cover-wrap--mobile-toggle');
+      
+      if (toggleBtns.length === 0 || !mapWrap) return;
+      
+      toggleBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const target = btn.dataset.target;
+          
+          // Mettre à jour les boutons
+          toggleBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          
+          // Switcher les vues
+          if (target === 'map') {
+            mapWrap.classList.add('is-active');
+            if (coverWrap) coverWrap.classList.remove('is-active');
+            // Rafraîchir la carte
+            if (previewMap) {
+              setTimeout(() => previewMap.invalidateSize(), 50);
+            }
+          } else if (target === 'cover') {
+            mapWrap.classList.remove('is-active');
+            if (coverWrap) coverWrap.classList.add('is-active');
+          }
+        });
+      });
+    })();
+
     // Wire up "Voir la fiche complète": navigation native vers la route dynamique (pas de modal)
     (function(){
       const cta = panel.querySelector('.detail-fullpage-btn');
@@ -664,6 +888,9 @@ const NavigationModule = (() => {
     
     // ANIMATION: Mettre en avant le projet sur la carte
     highlightProjectOnMap(projectName, category);
+    
+    // Initialiser la mini-carte de prévisualisation (mobile)
+    initPreviewMap(projectName, category);
     
   }catch(e){
     console.error('[NavigationModule] Error in showProjectDetail:', e);

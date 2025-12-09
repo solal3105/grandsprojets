@@ -561,8 +561,12 @@ async function initProjectMap(containerId, projectName, category) {
           }
         }).addTo(map);
 
-        // Zoom sur le GeoJSON
-        map.fitBounds(layer.getBounds(), { padding: [50, 50] });
+        // Zoom sur le GeoJSON et stocker les bounds + layer pour la modale fullscreen
+        const bounds = layer.getBounds();
+        map.fitBounds(bounds, { padding: [30, 30] });
+        window.__ficheProjectBounds = bounds;
+        window.__ficheProjectGeoJSON = geojsonData;
+        window.__ficheProjectCategory = category;
         
         // Initialiser le contrôle du zoom pour les camera markers
         if (window.CameraMarkers) {
@@ -586,7 +590,9 @@ async function initProjectMap(containerId, projectName, category) {
 /**
  * Génère la structure HTML de la fiche
  */
-function generateFicheHTML(projectName, isEmbed) {
+function generateFicheHTML(projectName, isEmbed, coverUrl) {
+  const absoluteCoverUrl = coverUrl ? toAbsoluteURL(coverUrl) : '';
+  
   return `
     <div class="min-h-screen bg-white dark:bg-gray-900">
       ${!isEmbed ? `
@@ -628,27 +634,33 @@ function generateFicheHTML(projectName, isEmbed) {
       </header>
       ` : ''}
       
-      <!-- Layout unique : tout en colonne sur mobile, 2 colonnes sur desktop -->
-      <div class="md:grid md:grid-cols-[1fr_360px] lg:grid-cols-[1fr_400px] md:h-[calc(100vh-48px)]">
+      <!-- Layout : colonne sur mobile, 2 colonnes sur desktop -->
+      <div class="md:grid md:grid-cols-[1fr_360px] lg:grid-cols-[1fr_400px] md:h-[calc(100vh-64px)]">
         
         <!-- Article principal -->
         <article class="overflow-y-auto">
           <div class="max-w-3xl mx-auto px-3 py-4 pb-24 md:px-6 md:py-6 md:pb-6">
             
-            <!-- Carte sticky qui se réduit au scroll -->
-            <div id="project-map-container" class="group relative sticky top-16 z-10 mb-20 md:mb-24 h-[25vh] rounded-xl overflow-hidden shadow-lg ring-1 ring-black/5 dark:ring-white/5 transition-all duration-300" style="box-shadow: 0px -50px 50px 100px white; --tw-shadow: 0px -50px 50px 100px white;">
-              <style>
-                .dark #project-map-container {
-                  box-shadow: 0px -50px 50px 100px #0f172a !important;
-                }
-              </style>
-              <div id="project-map" class="w-full h-full"></div>
+            <!-- Cover Hero (remplace la carte) -->
+            ${absoluteCoverUrl ? `
+            <figure class="group relative w-full overflow-hidden rounded-2xl bg-gradient-to-br from-[var(--primary-alpha-10)] to-white dark:to-gray-800 shadow-lg hover:shadow-xl transition-all duration-300 mb-6 md:mb-8">
+              <div class="aspect-[16/9] overflow-hidden">
+                <img src="${absoluteCoverUrl}" 
+                     alt="${escapeHTML(projectName)}" 
+                     loading="eager"
+                     class="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700">
+              </div>
               
-              <!-- Bouton Agrandir (visible au survol) -->
-              <button type="button" id="btn-expand-map" class="absolute top-3 right-3 z-[1000] w-10 h-10 flex items-center justify-center bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-xl opacity-0 group-hover:opacity-100 hover:scale-110 active:scale-95 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/50 transition-all duration-300" aria-label="Agrandir la carte" title="Agrandir la carte">
-                <i class="fa-solid fa-expand text-[var(--primary)] text-sm"></i>
+              <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              
+              <button type="button"
+                      class="absolute bottom-3 right-3 w-10 h-10 flex items-center justify-center bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-xl opacity-0 group-hover:opacity-100 hover:scale-110 active:scale-95 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/50 transition-all duration-300"
+                      data-lightbox-image="${absoluteCoverUrl}"
+                      aria-label="Agrandir l'image">
+                <i class="fa fa-expand text-[var(--primary)] text-sm" aria-hidden="true"></i>
               </button>
-            </div>
+            </figure>
+            ` : ''}
             
             <!-- Markdown content -->
             <div id="project-markdown-content"></div>
@@ -656,8 +668,23 @@ function generateFicheHTML(projectName, isEmbed) {
           </div>
         </article>
 
-        <!-- Sidebar desktop uniquement -->
-        <aside class="max-md:hidden overflow-y-auto p-4 border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 space-y-4" id="fiche-sidebar">
+        <!-- Sidebar desktop : Carte + Cards -->
+        <aside class="max-md:hidden overflow-y-auto border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex flex-col" id="fiche-sidebar">
+          <!-- Carte dans la sidebar desktop -->
+          <div class="p-4 pb-2">
+            <div class="group relative h-[35vh] rounded-xl overflow-hidden shadow-lg ring-1 ring-black/5 dark:ring-white/5">
+              <div id="project-map" class="w-full h-full"></div>
+              
+              <!-- Bouton Agrandir -->
+              <button type="button" id="btn-expand-map" class="absolute top-3 right-3 z-[1000] w-10 h-10 flex items-center justify-center bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-xl opacity-0 group-hover:opacity-100 hover:scale-110 active:scale-95 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/50 transition-all duration-300" aria-label="Agrandir la carte" title="Agrandir la carte">
+                <i class="fa-solid fa-expand text-[var(--primary)] text-sm"></i>
+              </button>
+            </div>
+          </div>
+          
+          <!-- Cards (description, lien, docs) -->
+          <div class="p-4 pt-2 space-y-4 flex-1 overflow-y-auto" id="fiche-sidebar-cards">
+          </div>
         </aside>
       </div>
       
@@ -665,13 +692,13 @@ function generateFicheHTML(projectName, isEmbed) {
       <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-t border-gray-200 dark:border-gray-700 shadow-2xl safe-area-bottom">
         <div class="flex items-center justify-around px-2 py-2">
           <button type="button" 
-                  id="btn-modal-cover"
+                  id="btn-modal-map"
                   class="flex flex-col items-center gap-1.5 px-4 py-2 rounded-xl transition-all duration-300 hover:bg-[var(--primary-alpha-10)] active:scale-95"
-                  aria-label="Voir l'image">
+                  aria-label="Voir la carte">
             <div class="w-11 h-11 flex items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--primary)] to-[var(--primary-hover)] shadow-lg shadow-[var(--primary-alpha-25)]">
-              <i class="fa-solid fa-image text-white text-lg"></i>
+              <i class="fa-solid fa-map-location-dot text-white text-lg"></i>
             </div>
-            <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">Image</span>
+            <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">Carte</span>
           </button>
           
           <button type="button" 
@@ -720,16 +747,6 @@ function generateFicheHTML(projectName, isEmbed) {
       </div>
       
       <!-- Modales pour les cards -->
-      <div id="modal-cover" class="gp-modal-overlay">
-        <div class="gp-modal max-w-2xl">
-          <div class="gp-modal-header">
-            <div class="gp-modal-title">Image du projet</div>
-            <button class="btn-secondary gp-modal-close">×</button>
-          </div>
-          <div class="gp-modal-body" id="modal-cover-content"></div>
-        </div>
-      </div>
-      
       <div id="modal-info" class="gp-modal-overlay">
         <div class="gp-modal">
           <div class="gp-modal-header">
@@ -943,9 +960,9 @@ async function initFicheProjet() {
       console.warn('[FicheProjet] Erreur city branding:', e);
     }
 
-    // 5. Générer la structure HTML
+    // 5. Générer la structure HTML (avec cover_url pour le hero)
     const article = document.getElementById('project-article');
-    article.innerHTML = generateFicheHTML(projectName, isEmbed);
+    article.innerHTML = generateFicheHTML(projectName, isEmbed, projectData.cover_url);
     
     // 6. Injecter le logo de la ville dans le header
     if (!isEmbed) {
@@ -969,39 +986,34 @@ async function initFicheProjet() {
       meta: projectData.meta || ''
     }, category);
 
-    // 7. Générer les GP-Cards individuellement
-    const coverCard = createCoverCard(projectData.cover_url, projectName);
+    // 7. Générer les GP-Cards (sans cover car affichée en hero)
     const descriptionCard = createDescriptionCard(projectData.description);
     const linkCard = createOfficialLinkCard(projectData.official_url);
     const docsCard = await createDocumentsCards(projectName);
     
-    // Injecter dans la sidebar desktop (toutes les cards avec espacement)
-    const sidebar = document.getElementById('fiche-sidebar');
-    if (sidebar) {
-      const allCards = [coverCard, descriptionCard, linkCard, docsCard].filter(Boolean);
-      sidebar.innerHTML = allCards.join('');
+    // Injecter dans la sidebar desktop (cards sous la carte)
+    const sidebarCards = document.getElementById('fiche-sidebar-cards');
+    if (sidebarCards) {
+      const allCards = [descriptionCard, linkCard, docsCard].filter(Boolean);
+      sidebarCards.innerHTML = allCards.join('');
     } else {
-      console.warn('[FicheProjet] Sidebar non trouvée');
+      console.warn('[FicheProjet] Sidebar cards container non trouvé');
     }
     
-    // Injecter dans les modales mobiles (une card par modale)
-    const modalCoverContent = document.getElementById('modal-cover-content');
+    // Injecter dans les modales mobiles
     const modalInfoContent = document.getElementById('modal-info-content');
     const modalLinkContent = document.getElementById('modal-link-content');
     const modalDocsContent = document.getElementById('modal-docs-content');
     
-    if (modalCoverContent) modalCoverContent.innerHTML = coverCard || '<p class="text-gray-500 text-center py-8">Aucune image disponible</p>';
     if (modalInfoContent) modalInfoContent.innerHTML = descriptionCard || '<p class="text-gray-500 text-center py-8">Aucune description disponible</p>';
     if (modalLinkContent) modalLinkContent.innerHTML = linkCard || '<p class="text-gray-500 text-center py-8">Aucun site officiel</p>';
     if (modalDocsContent) modalDocsContent.innerHTML = docsCard || '<p class="text-gray-500 text-center py-8">Aucun document disponible</p>';
     
     // Masquer les boutons de la bottom bar si pas de contenu
-    const btnCover = document.getElementById('btn-modal-cover');
     const btnInfo = document.getElementById('btn-modal-info');
     const btnLink = document.getElementById('btn-modal-link');
     const btnDocs = document.getElementById('btn-modal-docs');
     
-    if (btnCover && !coverCard) btnCover.style.display = 'none';
     if (btnInfo && !descriptionCard) btnInfo.style.display = 'none';
     if (btnLink && !linkCard) btnLink.style.display = 'none';
     if (btnDocs && !docsCard) btnDocs.style.display = 'none';
@@ -1032,16 +1044,13 @@ async function initFicheProjet() {
     // 12. Bind les événements de la bottom bar mobile
     bindBottomBarEvents();
     
-    // 13. Initialiser le comportement de la carte sticky
-    initStickyMapBehavior();
-    
-    // 14. Bind les événements du header (partage, dark mode)
+    // 13. Bind les événements du header (partage, dark mode)
     bindHeaderEvents();
     
-    // 15. Bind l'événement d'agrandissement de la carte
-    bindMapExpandEvent(projectName, category);
+    // 14. Bind l'événement d'agrandissement de la carte
+    bindMapExpandEvent();
     
-    // 16. Initialiser la classe dark pour Tailwind
+    // 15. Initialiser la classe dark pour Tailwind
     const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
     if (currentTheme === 'dark') {
       document.documentElement.classList.add('dark');
@@ -1070,17 +1079,10 @@ async function initFicheProjet() {
  * Bind les événements de la bottom bar mobile
  */
 function bindBottomBarEvents() {
-  // Bouton Image
-  const btnCover = document.getElementById('btn-modal-cover');
-  if (btnCover) {
-    btnCover.addEventListener('click', () => {
-      if (window.ModalHelper) {
-        window.ModalHelper.open('modal-cover', {
-          dismissible: true,
-          lockScroll: true
-        });
-      }
-    });
+  // Bouton Carte (ouvre la modale carte fullscreen)
+  const btnMap = document.getElementById('btn-modal-map');
+  if (btnMap) {
+    btnMap.addEventListener('click', openMapFullscreenModal);
   }
   
   // Bouton Infos
@@ -1121,72 +1123,6 @@ function bindBottomBarEvents() {
       }
     });
   }
-}
-
-/* ===========================================================================
-   STICKY MAP BEHAVIOR
-   =========================================================================== */
-
-/**
- * Réduit la hauteur de la carte au scroll (smooth, sans clignotement)
- * Utilise des hauteurs en vh pour s'adapter aux écrans pas très haut
- */
-function initStickyMapBehavior() {
-  const mapContainer = document.getElementById('project-map-container');
-  const article = mapContainer?.closest('article');
-  
-  if (!mapContainer || !article) return;
-  
-  let isReduced = false;
-  let ticking = false;
-  let isTransitioning = false; // Empêche les changements pendant la transition
-  
-  // Optimisation performance : throttling avec requestAnimationFrame
-  const scrollHandler = () => {
-    if (!ticking && !isTransitioning) {
-      ticking = true;
-      window.requestAnimationFrame(() => {
-        const scrollTop = article.scrollTop;
-        
-        // Scroll > 200px : réduire (seuil encore plus haut)
-        if (scrollTop > 200 && !isReduced) {
-          isTransitioning = true;
-          mapContainer.classList.remove('h-[25vh]');
-          mapContainer.classList.add('h-[15vh]');
-          isReduced = true;
-          
-          // Débloquer après la transition (300ms)
-          setTimeout(() => { isTransitioning = false; }, 350);
-        }
-        // Scroll < 50px : restaurer (hystérésis large)
-        else if (scrollTop < 50 && isReduced) {
-          isTransitioning = true;
-          mapContainer.classList.remove('h-[15vh]');
-          mapContainer.classList.add('h-[25vh]');
-          isReduced = false;
-          
-          // Débloquer après la transition (300ms)
-          setTimeout(() => { isTransitioning = false; }, 350);
-        }
-        
-        ticking = false;
-      });
-    }
-  };
-  
-  // Ajouter l'event listener
-  article.addEventListener('scroll', scrollHandler, { passive: true });
-  
-  // Cleanup pour éviter les memory leaks
-  const cleanup = () => {
-    article.removeEventListener('scroll', scrollHandler);
-  };
-  
-  // Nettoyer au changement de page ou déchargement
-  window.addEventListener('beforeunload', cleanup);
-  
-  // Exposer cleanup pour usage externe si nécessaire
-  window.__ficheProjetCleanup = cleanup;
 }
 
 /* ===========================================================================
@@ -1309,77 +1245,87 @@ function updateMapBasemap() {
    =========================================================================== */
 
 /**
- * Bind l'événement d'agrandissement de la carte
+ * Ouvre la modale carte fullscreen (utilisé par desktop et mobile)
  */
-function bindMapExpandEvent(projectName, category) {
-  const btnExpand = document.getElementById('btn-expand-map');
-  if (!btnExpand) return;
+function openMapFullscreenModal() {
+  if (!window.ModalHelper) return;
   
-  btnExpand.addEventListener('click', async () => {
-    if (!window.ModalHelper) return;
-    
-    // Ouvrir la modale
-    window.ModalHelper.open('modal-map-fullscreen', {
-      dismissible: true,
-      lockScroll: true,
-      onOpen: async () => {
-        // Créer une nouvelle carte dans la modale
-        const container = document.getElementById('project-map-fullscreen');
-        if (!container || !window.L) return;
-        
-        // Nettoyer si une carte existe déjà
-        container.innerHTML = '';
-        
-        // Créer la carte fullscreen
-        const theme = document.documentElement.getAttribute('data-theme') || 'light';
-        let basemap;
-        if (theme === 'light') {
-          basemap = {
-            url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-            attribution: '© OpenStreetMap contributors'
-          };
-        } else {
-          basemap = {
-            url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png',
-            attribution: '© CartoDB'
-          };
-        }
-        
-        const mapFullscreen = window.L.map('project-map-fullscreen', {
-          center: window.ficheProjectMap?.getCenter() || FP_CONFIG.MAP_DEFAULT_CENTER,
-          zoom: window.ficheProjectMap?.getZoom() || FP_CONFIG.MAP_DEFAULT_ZOOM,
-          zoomControl: true
-        });
-        
-        window.L.tileLayer(basemap.url, {
-          attribution: basemap.attribution,
-          maxZoom: 19
+  window.ModalHelper.open('modal-map-fullscreen', {
+    dismissible: true,
+    lockScroll: true,
+    onOpen: async () => {
+      const container = document.getElementById('project-map-fullscreen');
+      if (!container || !window.L) return;
+      
+      // Nettoyer si une carte existe déjà
+      container.innerHTML = '';
+      
+      // Créer la carte fullscreen
+      const theme = document.documentElement.getAttribute('data-theme') || 'light';
+      const basemap = theme === 'light' 
+        ? { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OpenStreetMap contributors' }
+        : { url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', attribution: '© CartoDB' };
+      
+      const mapFullscreen = window.L.map('project-map-fullscreen', {
+        center: FP_CONFIG.MAP_DEFAULT_CENTER,
+        zoom: FP_CONFIG.MAP_DEFAULT_ZOOM,
+        zoomControl: true
+      });
+      
+      window.L.tileLayer(basemap.url, {
+        attribution: basemap.attribution,
+        maxZoom: 19
+      }).addTo(mapFullscreen);
+      
+      // Recréer le layer GeoJSON pour la carte fullscreen
+      if (window.__ficheProjectGeoJSON) {
+        const category = window.__ficheProjectCategory;
+        const layer = window.L.geoJSON(window.__ficheProjectGeoJSON, {
+          style: (feature) => {
+            if (window.getFeatureStyle) {
+              return window.getFeatureStyle(feature, category);
+            }
+            return { color: 'var(--primary)', weight: 3, opacity: 0.8, fillOpacity: 0.3 };
+          },
+          pointToLayer: (feature, latlng) => {
+            const props = feature?.properties || {};
+            if (props.imgUrl && window.CameraMarkers) {
+              return window.CameraMarkers.createCameraMarker(latlng, 'markerPane', props.color || '#666');
+            }
+            const featureCategory = props.category || category;
+            const icon = createContributionMarkerIcon(featureCategory);
+            return window.L.marker(latlng, { icon });
+          }
         }).addTo(mapFullscreen);
         
-        // Copier les layers de la carte principale
-        if (window.ficheProjectMap) {
-          window.ficheProjectMap.eachLayer((layer) => {
-            if (layer instanceof window.L.GeoJSON || layer instanceof window.L.Marker) {
-              layer.addTo(mapFullscreen);
-            }
-          });
-        }
-        
-        // Invalider la taille après un court délai
+        // Zoom sur l'ensemble du tracé
+        setTimeout(() => {
+          mapFullscreen.invalidateSize();
+          mapFullscreen.fitBounds(layer.getBounds(), { padding: [50, 50] });
+        }, 150);
+      } else {
         setTimeout(() => mapFullscreen.invalidateSize(), 100);
-        
-        // Stocker pour nettoyage
-        window.__fullscreenMap = mapFullscreen;
-      },
-      onClose: () => {
-        // Nettoyer la carte fullscreen
-        if (window.__fullscreenMap) {
-          window.__fullscreenMap.remove();
-          window.__fullscreenMap = null;
-        }
       }
-    });
+      
+      window.__fullscreenMap = mapFullscreen;
+    },
+    onClose: () => {
+      if (window.__fullscreenMap) {
+        window.__fullscreenMap.remove();
+        window.__fullscreenMap = null;
+      }
+    }
   });
+}
+
+/**
+ * Bind l'événement d'agrandissement de la carte (bouton desktop)
+ */
+function bindMapExpandEvent() {
+  const btnExpand = document.getElementById('btn-expand-map');
+  if (btnExpand) {
+    btnExpand.addEventListener('click', openMapFullscreenModal);
+  }
 }
 
 /* ===========================================================================

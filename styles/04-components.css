@@ -765,7 +765,99 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Project Cover Wrap - Utilisé dans navigationmodule.js
+   Project Media Container - Cover (desktop) + Mini-carte (mobile)
+--------------------------------------------------------------------------- */
+.project-media-container {
+  position: relative;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+/* Toggle carte/cover (mobile uniquement) */
+.project-media-toggle {
+  display: none;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1000;
+  background: var(--white-alpha-90);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 10px;
+  padding: 4px;
+  gap: 4px;
+  box-shadow: 0 2px 8px var(--black-alpha-15);
+}
+
+.media-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gray-500);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.media-toggle-btn:hover {
+  background: var(--gray-100);
+  color: var(--gray-700);
+}
+
+.media-toggle-btn.active {
+  background: var(--primary);
+  color: var(--white);
+  box-shadow: 0 2px 6px var(--primary-alpha-25);
+}
+
+.media-toggle-btn i {
+  font-size: 0.875rem;
+}
+
+/* Mini-carte de prévisualisation (mobile uniquement) */
+.project-preview-map-wrap {
+  display: none;
+  width: 100%;
+  height: 180px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--gray-100);
+  box-shadow: inset 0 0 0 1px var(--black-alpha-08);
+}
+
+#project-preview-map {
+  width: 100%;
+  height: 100%;
+}
+
+/* Mobile : afficher le toggle et gérer les états */
+@media (max-width: 720px) {
+  .project-media-toggle {
+    display: flex;
+  }
+  
+  /* Par défaut tout est masqué */
+  .project-preview-map-wrap,
+  .project-cover-wrap--mobile-toggle {
+    display: none;
+  }
+  
+  /* Afficher uniquement l'élément actif */
+  .project-preview-map-wrap.is-active {
+    display: block;
+  }
+  
+  .project-cover-wrap--mobile-toggle.is-active {
+    display: block;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Project Cover Wrap - Utilisé dans navigationmodule.js (desktop)
 --------------------------------------------------------------------------- */
 .project-cover-wrap {
   position: relative;
