@@ -243,8 +243,162 @@
     categoriesContainer.appendChild(overflowBtn);
   }
 
+  /**
+   * Health check du localStorage au démarrage
+   * Détecte et corrige AUTOMATIQUEMENT les états corrompus
+   * @returns {Object} { healthy, issues, fixed, needsReload }
+   */
+  function performStorageHealthCheck() {
+    try {
+      const issues = [];
+      let fixed = 0;
+      let needsReload = false;
+      
+      // 1. Vérifier que localStorage est accessible
+      try {
+        localStorage.setItem('__healthcheck__', '1');
+        localStorage.removeItem('__healthcheck__');
+      } catch (e) {
+        console.error('[HealthCheck] localStorage inaccessible:', e);
+        return { healthy: false, issues: ['localStorage inaccessible'], fixed: 0, needsReload: false };
+      }
+      
+      // 2. Vérifier et nettoyer les tokens Supabase corrompus/expirés
+      const supabaseKeys = Object.keys(localStorage).filter(k => 
+        k.startsWith('sb-') && k.endsWith('-auth-token')
+      );
+      
+      for (const key of supabaseKeys) {
+        try {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            
+            // Token corrompu (champs manquants)
+            if (parsed && !parsed.access_token && !parsed.refresh_token) {
+              localStorage.removeItem(key);
+              issues.push('Token Supabase corrompu → supprimé');
+              fixed++;
+              needsReload = true;
+            }
+            // Token expiré ET pas de refresh_token valide
+            else if (parsed?.expires_at) {
+              const expiresAt = parsed.expires_at * 1000;
+              const now = Date.now();
+              // Expiré depuis plus de 7 jours = refresh token probablement expiré aussi
+              if (expiresAt < now - (7 * 24 * 60 * 60 * 1000)) {
+                localStorage.removeItem(key);
+                issues.push('Token Supabase expiré (>7j) → supprimé');
+                fixed++;
+                needsReload = true;
+              }
+            }
+          }
+        } catch (parseErr) {
+          // JSON invalide = token corrompu
+          localStorage.removeItem(key);
+          issues.push('Token Supabase JSON invalide → supprimé');
+          fixed++;
+          needsReload = true;
+        }
+      }
+      
+      // 3. Vérifier activeCity
+      const activeCity = localStorage.getItem('activeCity');
+      if (activeCity && !/^[a-z-]+$/i.test(activeCity)) {
+        localStorage.removeItem('activeCity');
+        issues.push(`activeCity invalide "${activeCity}" → supprimée`);
+        fixed++;
+      }
+      
+      // 4. Vérifier le thème
+      const theme = localStorage.getItem('theme');
+      if (theme && theme !== 'dark' && theme !== 'light') {
+        localStorage.removeItem('theme');
+        issues.push(`theme invalide → supprimé`);
+        fixed++;
+      }
+      
+      // 5. localStorage trop plein = nettoyage automatique des clés non essentielles
+      let totalSize = 0;
+      for (const key of Object.keys(localStorage)) {
+        totalSize += (localStorage.getItem(key) || '').length;
+      }
+      
+      if (totalSize > 4 * 1024 * 1024) { // > 4MB
+        // Nettoyer les clés non essentielles (garder: theme, activeCity, sb-*)
+        const essentialPrefixes = ['theme', 'activeCity', 'sb-'];
+        for (const key of Object.keys(localStorage)) {
+          if (!essentialPrefixes.some(p => key.startsWith(p))) {
+            localStorage.removeItem(key);
+            fixed++;
+          }
+        }
+        issues.push('localStorage trop plein → nettoyé');
+      }
+      
+      // 6. Détection de blocage précédent (app n'a pas fini de charger)
+      const lastLoadStart = localStorage.getItem('__gp_load_start__');
+      const lastLoadEnd = localStorage.getItem('__gp_load_end__');
+      
+      if (lastLoadStart && !lastLoadEnd) {
+        // L'app a démarré mais n'a jamais fini de charger = crash probable
+        const startTime = parseInt(lastLoadStart, 10);
+        const now = Date.now();
+        // Si ça fait plus de 30 secondes, considérer comme bloqué
+        if (now - startTime > 30000) {
+          // Nettoyage agressif : supprimer tous les tokens Supabase
+          Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('sb-')) {
+              localStorage.removeItem(key);
+              fixed++;
+            }
+          });
+          localStorage.removeItem('activeCity');
+          issues.push('Blocage détecté → nettoyage automatique effectué');
+          needsReload = true;
+          fixed++;
+        }
+      }
+      
+      // Marquer le début du chargement
+      localStorage.setItem('__gp_load_start__', Date.now().toString());
+      localStorage.removeItem('__gp_load_end__');
+      
+      if (issues.length > 0) {
+        console.warn('[HealthCheck] Corrections automatiques:', issues);
+      }
+      
+      return { healthy: issues.length === 0, issues, fixed, needsReload };
+    } catch (e) {
+      console.error('[HealthCheck] Erreur:', e);
+      return { healthy: false, issues: ['Erreur health check'], fixed: 0, needsReload: false };
+    }
+  }
+  
+  /**
+   * Marque la fin du chargement (appelé quand l'app est prête)
+   */
+  function markLoadComplete() {
+    try {
+      localStorage.setItem('__gp_load_end__', Date.now().toString());
+      localStorage.removeItem('__gp_load_start__');
+    } catch (_) {}
+  }
+
   async function initApp() {
     try {
+      // PHASE 0 : Health check automatique du localStorage
+      const healthCheck = performStorageHealthCheck();
+      if (healthCheck.needsReload) {
+        console.warn('[Main] Nettoyage effectué, rechargement automatique...');
+        location.reload();
+        return;
+      }
+      if (healthCheck.fixed > 0) {
+        console.warn('[Main] Health check:', healthCheck.fixed, 'problème(s) corrigé(s) automatiquement');
+      }
+      
       // PHASE 1 : Modules de base
       win.AnalyticsModule?.init();
       win.ThemeManager?.init();
@@ -807,6 +961,10 @@
           }
         } catch (_) { /* noop */ }
       });
+      
+      // Marquer le chargement comme terminé (pour la détection de blocage)
+      markLoadComplete();
+      
     } catch (err) {
       console.error('[Main] Erreur lors de l\'initialisation:', err);
       
@@ -851,6 +1009,126 @@
   // ============================================================================
   
   // City toggle removed - functionality handled by CityManager if needed
+
+  // ============================================================================
+  // UTILITAIRES DE DIAGNOSTIC ET RÉCUPÉRATION
+  // ============================================================================
+  
+  /**
+   * Fonction de diagnostic accessible depuis la console
+   * Usage: window.gpDiagnostic()
+   */
+  win.gpDiagnostic = function() {
+    console.group('🔍 GrandsProjets - Diagnostic');
+    
+    // 1. État localStorage
+    console.group('📦 localStorage');
+    const keys = Object.keys(localStorage);
+    let totalSize = 0;
+    keys.forEach(key => {
+      const val = localStorage.getItem(key);
+      const size = (val || '').length;
+      totalSize += size;
+      if (key.startsWith('sb-') || key === 'activeCity' || key === 'theme') {
+        console.log(`  ${key}: ${size} bytes`);
+      }
+    });
+    console.log(`  Total: ${(totalSize / 1024).toFixed(2)} KB (${keys.length} clés)`);
+    console.groupEnd();
+    
+    // 2. État Supabase
+    console.group('🔐 Supabase');
+    const supabaseKey = keys.find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+    if (supabaseKey) {
+      try {
+        const data = JSON.parse(localStorage.getItem(supabaseKey));
+        console.log('  Token présent:', !!data?.access_token);
+        console.log('  User:', data?.user?.email || 'Non connecté');
+        if (data?.expires_at) {
+          const expiresAt = new Date(data.expires_at * 1000);
+          const now = new Date();
+          console.log('  Expire:', expiresAt.toLocaleString());
+          console.log('  Expiré:', expiresAt < now ? '⚠️ OUI' : '✅ Non');
+        }
+      } catch (e) {
+        console.log('  ⚠️ Token corrompu (JSON invalide)');
+      }
+    } else {
+      console.log('  Pas de token Supabase');
+    }
+    console.groupEnd();
+    
+    // 3. État application
+    console.group('🏙️ Application');
+    console.log('  activeCity:', win.activeCity || localStorage.getItem('activeCity') || 'Non définie');
+    console.log('  theme:', localStorage.getItem('theme') || 'Auto');
+    console.log('  MapModule:', !!win.MapModule?.map ? '✅ OK' : '❌ Non initialisé');
+    console.log('  DataModule:', !!win.DataModule ? '✅ OK' : '❌ Non initialisé');
+    console.log('  supabaseService:', !!win.supabaseService ? '✅ OK' : '❌ Non initialisé');
+    console.groupEnd();
+    
+    console.groupEnd();
+    
+    console.log('');
+    console.log('💡 Pour nettoyer le localStorage: window.gpReset()');
+    console.log('💡 Pour nettoyer seulement la session: window.gpResetSession()');
+    
+    return { localStorage: { keys: keys.length, sizeKB: (totalSize / 1024).toFixed(2) } };
+  };
+  
+  /**
+   * Reset complet du localStorage (nécessite refresh)
+   * Usage: window.gpReset()
+   */
+  win.gpReset = function() {
+    if (!confirm('Cela va effacer toutes les données locales et recharger la page. Continuer ?')) {
+      return 'Annulé';
+    }
+    
+    try {
+      // Sauvegarder le thème (préférence utilisateur à conserver)
+      const theme = localStorage.getItem('theme');
+      
+      // Tout effacer
+      localStorage.clear();
+      
+      // Restaurer le thème
+      if (theme === 'dark' || theme === 'light') {
+        localStorage.setItem('theme', theme);
+      }
+      
+      console.log('✅ localStorage nettoyé');
+      location.reload();
+      return 'Rechargement...';
+    } catch (e) {
+      console.error('Erreur reset:', e);
+      return 'Erreur: ' + e.message;
+    }
+  };
+  
+  /**
+   * Reset seulement la session Supabase (déconnexion forcée)
+   * Usage: window.gpResetSession()
+   */
+  win.gpResetSession = function() {
+    try {
+      const keys = Object.keys(localStorage);
+      let removed = 0;
+      keys.forEach(key => {
+        if (key.startsWith('sb-')) {
+          localStorage.removeItem(key);
+          removed++;
+        }
+      });
+      
+      console.log(`✅ ${removed} clé(s) Supabase supprimée(s)`);
+      console.log('💡 Rechargez la page pour vous reconnecter');
+      return `${removed} clé(s) supprimée(s)`;
+    } catch (e) {
+      console.error('Erreur reset session:', e);
+      return 'Erreur: ' + e.message;
+    }
+  };
 
   // Initialiser le système de redirection automatique vers la ville
   try {

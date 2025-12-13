@@ -224,9 +224,27 @@
       
       try { if (listEl) listEl.setAttribute('aria-busy', 'true'); } catch(_) {}
       
-      // Ensure authenticated session
-      const session = await (win.AuthModule && win.AuthModule.requireAuthOrRedirect('/login/'));
-      if (!session || !session.user) return;
+      // Vérifier la session avec refresh automatique (silencieux)
+      let session = null;
+      try {
+        if (win.AuthModule && typeof win.AuthModule.getSessionWithRefresh === 'function') {
+          const result = await Promise.race([
+            win.AuthModule.getSessionWithRefresh(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
+          ]);
+          session = result?.session;
+        }
+      } catch (authErr) {
+        // Rediriger directement vers login
+        win.location.href = '/login/';
+        return;
+      }
+      
+      if (!session || !session.user) {
+        // Rediriger directement vers login
+        win.location.href = '/login/';
+        return;
+      }
       
       const result = await (win.supabaseService && win.supabaseService.deleteContribution(id));
       

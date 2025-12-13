@@ -299,11 +299,31 @@
     win.__DISABLE_CITY_REDIRECT = true;
 
     try {
-      // Ensure authenticated session
+      // Vérifier la session avec refresh automatique (silencieux)
       console.log('[contrib-form] Checking authentication...');
-      const session = await (win.AuthModule && win.AuthModule.requireAuthOrRedirect('/login/'));
+      
+      let session = null;
+      try {
+        if (win.AuthModule && typeof win.AuthModule.getSessionWithRefresh === 'function') {
+          const result = await Promise.race([
+            win.AuthModule.getSessionWithRefresh(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+          ]);
+          session = result?.session;
+        }
+      } catch (authError) {
+        console.error('[contrib-form] Auth check failed:', authError);
+        if (submitBtn) submitBtn.disabled = false;
+        // Rediriger directement vers login sans interrompre
+        win.location.href = '/login/';
+        return;
+      }
+      
       if (!session || !session.user) {
-        console.error('[contrib-form] No authenticated session');
+        console.error('[contrib-form] No authenticated session after refresh');
+        if (submitBtn) submitBtn.disabled = false;
+        // Rediriger directement vers login
+        win.location.href = '/login/';
         return;
       }
       console.log('[contrib-form] User authenticated:', session.user.id);

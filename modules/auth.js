@@ -60,6 +60,39 @@
       }
     },
 
+    /**
+     * Récupère la session avec refresh automatique si expirée
+     * Ne redirige JAMAIS - retourne simplement la session ou null
+     * @returns {Promise<{session: Object|null, refreshed: boolean}>}
+     */
+    getSessionWithRefresh: async function() {
+      try {
+        // 1. Essayer de récupérer la session actuelle
+        let result = await client.auth.getSession();
+        let session = result.data?.session;
+        
+        // 2. Si pas de session ou token expiré, tenter un refresh
+        if (!session) {
+          try {
+            const refreshResult = await client.auth.refreshSession();
+            if (refreshResult.data?.session) {
+              session = refreshResult.data.session;
+              cachedSession = session;
+              return { session, refreshed: true };
+            }
+          } catch (refreshErr) {
+            // Refresh échoué silencieusement
+          }
+        }
+        
+        cachedSession = session || null;
+        return { session: session || null, refreshed: false };
+      } catch (e) {
+        console.warn('[AuthModule] getSessionWithRefresh error:', e);
+        return { session: null, refreshed: false };
+      }
+    },
+
     onAuthStateChange: function(callback) {
       try {
         return client.auth.onAuthStateChange((event, session) => callback && callback(event, session));

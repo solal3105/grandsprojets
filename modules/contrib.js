@@ -404,8 +404,27 @@
         e.stopPropagation();
         
         try {
-          const session = await (win.AuthModule && win.AuthModule.requireAuthOrRedirect('/login/'));
-          if (!session || !session.user) return;
+          // Vérifier la session avec refresh automatique (silencieux, pas de redirection)
+          let session = null;
+          try {
+            if (win.AuthModule && typeof win.AuthModule.getSessionWithRefresh === 'function') {
+              const result = await Promise.race([
+                win.AuthModule.getSessionWithRefresh(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
+              ]);
+              session = result?.session;
+            }
+          } catch (authErr) {
+            // Timeout ou erreur : rediriger silencieusement vers login
+            win.location.href = '/login/';
+            return;
+          }
+          
+          if (!session || !session.user) {
+            // Session vraiment invalide après refresh : rediriger directement
+            win.location.href = '/login/';
+            return;
+          }
           
           // Load modal template if not already loaded
           const loaded = await loadModalTemplate();
@@ -445,8 +464,8 @@
           
         } catch (error) {
           console.error('[contrib] Error opening modal:', error);
-          // En cas d'erreur de session, on redirige vers la connexion
-          win.location.href = '/login/';
+          // Afficher un message d'erreur explicite plutôt que rediriger silencieusement
+          alert('Impossible d\'ouvrir la modale de contribution. Veuillez réessayer.');
         }
       });
     }

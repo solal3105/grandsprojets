@@ -779,7 +779,7 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  z-index: 1000;
+  z-index: 10; /* Sous le detail-header-submenu sticky (z-index: 20) */
   background: var(--white-alpha-90);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -827,11 +827,22 @@
   overflow: hidden;
   background: var(--gray-100);
   box-shadow: inset 0 0 0 1px var(--black-alpha-08);
+  position: relative;
+  z-index: 1; /* Sous le detail-header-submenu sticky */
 }
 
 #project-preview-map {
   width: 100%;
   height: 100%;
+}
+
+/* Forcer les z-index Leaflet à rester bas dans la mini-carte */
+.project-preview-map-wrap .leaflet-pane {
+  z-index: auto !important;
+}
+
+.project-preview-map-wrap .leaflet-control {
+  z-index: 10 !important;
 }
 
 /* Mobile : afficher le toggle et gérer les états */

@@ -63,7 +63,7 @@
   position: fixed;
   top: 20px;
   left: 20px;
-  z-index: 1300;
+  z-index: 900; /* Au-dessus de la carte, sous les toggles/submenus/project-detail */
   display: none;
   align-items: center;
   gap: 8px;

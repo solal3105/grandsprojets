@@ -349,7 +349,7 @@
     0 4px 24px var(--black-alpha-15),
     0 1px 3px var(--black-alpha-10);
   padding: 8px;
-  z-index: 1001;
+  z-index: 1400; /* Au-dessus de #project-detail (1050) et .submenu (1200) */
   display: none;
 }
 
