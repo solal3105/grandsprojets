@@ -37,20 +37,20 @@ button.btn-ghost {
 }
 
 /* ---------------------------------------------------------------------------
-   Primary Button - Fond primary 20% transparent
+   Primary Button - Fond info 20% transparent (bleu constant)
    --------------------------------------------------------------------------- */
 .btn-primary,
 a.btn-primary,
 button.btn-primary {
-  background: var(--primary-alpha-20);
-  color: var(--primary);
+  background: var(--info-alpha-20);
+  color: var(--info);
   box-shadow: 0 2px 4px var(--black-alpha-08);
 }
 
 .btn-primary:hover,
 a.btn-primary:hover,
 button.btn-primary:hover {
-  background: var(--primary-alpha-3);
+  background: var(--info-alpha-30);
   box-shadow: 0 4px 12px var(--black-alpha-12);
   transform: translateY(-2px);
 }
@@ -59,7 +59,7 @@ button.btn-primary:hover {
 a.btn-primary:active,
 button.btn-primary:active {
   transform: translateY(0);
-  background: var(--primary-alpha-25);
+  background: var(--info-alpha-25);
   box-shadow: 0 2px 4px var(--black-alpha-08);
 }
 

@@ -9,7 +9,7 @@
       <button class="btn-secondary gp-modal-close" id="invite-modal-close" aria-label="Fermer">&times;</button>
     </header>
     <div class="gp-modal-body">
-      <p style="margin:0 0 24px 0;color:var(--gray-500);font-size:14px;">L'utilisateur recevra un email pour se connecter.</p>
+      <p style="margin:0 0 24px 0;color:var(--text-secondary);font-size:14px;">L'utilisateur recevra un email pour se connecter.</p>
       
       <form id="invite-form">
         <div class="form-row">
@@ -19,34 +19,34 @@
             id="invite-email" 
             required 
             placeholder="user@example.com"
-            style="width:100%;padding:12px;border:1px solid var(--gray-300);border-radius:8px;font-size:14px;box-sizing:border-box;"
+            class="gp-form-input"
           />
         </div>
         
         <div class="form-row">
-          <label style="display:block;margin-bottom:8px;font-weight:600;font-size:14px;">
+          <label class="gp-form-label" style="font-size:14px;">
             Rôle <span style="color:var(--danger);">*</span>
           </label>
-          <div style="display:flex;gap:12px;">
-            <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:1px solid var(--gray-300);border-radius:8px;cursor:pointer;transition:all 0.2s;" class="role-option">
-              <input type="radio" name="role" value="invited" checked style="width:18px;height:18px;cursor:pointer;">
+          <div class="gp-flex gp-flex-gap-12">
+            <label class="gp-role-option">
+              <input type="radio" name="role" value="invited" checked>
               <div>
-                <div style="font-weight:600;font-size:14px;">Invited</div>
-                <div style="font-size:12px;color:var(--gray-500);">Accès limité à ses contributions</div>
+                <div class="gp-role-option-title">Invited</div>
+                <div class="gp-role-option-desc">Accès limité à ses contributions</div>
               </div>
             </label>
-            <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:1px solid var(--gray-300);border-radius:8px;cursor:pointer;transition:all 0.2s;" class="role-option">
-              <input type="radio" name="role" value="admin" style="width:18px;height:18px;cursor:pointer;">
+            <label class="gp-role-option">
+              <input type="radio" name="role" value="admin">
               <div>
-                <div style="font-weight:600;font-size:14px;">Admin</div>
-                <div style="font-size:12px;color:var(--gray-500);">Accès complet et gestion</div>
+                <div class="gp-role-option-title">Admin</div>
+                <div class="gp-role-option-desc">Accès complet et gestion</div>
               </div>
             </label>
           </div>
         </div>
         
         <div class="form-row">
-          <label style="display:block;margin-bottom:8px;font-weight:600;font-size:14px;">
+          <label class="gp-form-label" style="font-size:14px;">
             Ville autorisée
           </label>
           <div id="invite-cities-list">
@@ -71,13 +71,4 @@
   </div>
 </div>
 
-<style>
-.role-option:has(input:checked) {
-  background: var(--info-alpha-05);
-  border-color: var(--info);
-}
-
-.city-checkbox-label:hover {
-  background: var(--gray-50);
-}
-</style>
+<!-- Styles déplacés vers styles/06-modals.css (classes gp-role-option) -->

@@ -590,11 +590,6 @@ body.modal-open {
   z-index: 9999;
 }
 
-/* ---------------------------------------------------------------------------
-   Boutons - Redirige vers le système gp-button-system.css
-   Utiliser: .btn-primary, .btn-secondary, .btn-danger, .btn-info
---------------------------------------------------------------------------- */
-/* Les classes .gp-btn sont dépréciées - utiliser .btn-* à la place */
 
 /* ---------------------------------------------------------------------------
    CONTENT SECTIONS - Éléments de contenu typiques
