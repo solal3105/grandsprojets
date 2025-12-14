@@ -139,17 +139,37 @@
 
   <!-- HEADER -->
   <header class="fixed top-0 w-full bg-white/95 backdrop-blur-md shadow-sm z-50 border-b border-gray-100">
-    <nav class="container mx-auto px-6 py-5 flex items-center justify-between">
-      <a href="index.html" class="flex items-center space-x-3 group">
-        <img src="../img/logo.svg" alt="GrandsProjets" class="h-12 transition-all group-hover:scale-105">
+    <nav class="container mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+      <a href="index.html" class="flex items-center space-x-2 group">
+        <img src="../img/logo.svg" alt="GrandsProjets" class="h-10 sm:h-12 transition-all group-hover:scale-105">
       </a>
-      <div class="hidden md:flex items-center space-x-2">
-        <a href="index.html#fonctionnement" class="px-5 py-2.5 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-xl font-medium transition-all">Fonctionnement</a>
-        <a href="index.html#tarifs" class="px-5 py-2.5 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-xl font-medium transition-all">Tarifs</a>
-        <a href="press-kit.html" class="px-5 py-2.5 text-primary hover:text-green-600 hover:bg-gray-50 rounded-xl font-medium transition-all">Press kit</a>
+      
+      <!-- Desktop Navigation -->
+      <div class="hidden lg:flex items-center space-x-1">
+        <a href="index.html" class="px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg font-medium transition-all text-sm">Accueil</a>
+        <a href="alternative-google-my-maps.html" class="px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg font-medium transition-all text-sm">vs Google My Maps</a>
+        <a href="press-kit.html" class="px-4 py-2 text-primary hover:text-green-600 hover:bg-gray-50 rounded-lg font-medium transition-all text-sm">Press kit</a>
       </div>
-      <button class="contact-modal-btn bg-primary hover:bg-green-600 px-7 py-3 rounded-full font-bold text-white btn-hover shadow-lg hover:shadow-xl transition-all border-0 cursor-pointer">Demander une démo</button>
+      
+      <div class="flex items-center gap-3">
+        <button class="contact-modal-btn hidden sm:block bg-primary hover:bg-green-600 px-5 py-2.5 rounded-full font-bold text-white btn-hover shadow-lg hover:shadow-xl transition-all border-0 cursor-pointer text-sm">Demander une démo</button>
+        
+        <!-- Mobile Menu Button -->
+        <button id="mobile-menu-btn" class="lg:hidden p-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all" aria-label="Menu">
+          <i class="fas fa-bars text-xl"></i>
+        </button>
+      </div>
     </nav>
+    
+    <!-- Mobile Navigation -->
+    <div id="mobile-menu" class="lg:hidden hidden bg-white border-t border-gray-100 shadow-lg">
+      <div class="container mx-auto px-4 py-4 space-y-2">
+        <a href="index.html" class="block px-4 py-3 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg font-medium transition-all">Accueil</a>
+        <a href="alternative-google-my-maps.html" class="block px-4 py-3 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg font-medium transition-all">vs Google My Maps</a>
+        <a href="press-kit.html" class="block px-4 py-3 text-primary hover:text-green-600 hover:bg-gray-50 rounded-lg font-medium transition-all">Press kit</a>
+        <button class="contact-modal-btn w-full mt-2 bg-primary hover:bg-green-600 px-5 py-3 rounded-full font-bold text-white btn-hover shadow-lg transition-all border-0 cursor-pointer">Demander une démo</button>
+      </div>
+    </div>
   </header>
 
   <!-- HERO SECTION -->
@@ -620,8 +640,8 @@
 
   <!-- FOOTER -->
   <footer class="bg-gray-900 text-white py-12">
-    <div class="container mx-auto px-6">
-      <div class="grid md:grid-cols-3 gap-8 mb-8">
+    <div class="container mx-auto px-4 sm:px-6">
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
         <div>
           <div class="flex items-center space-x-2 mb-4">
             <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
@@ -629,27 +649,27 @@
             </div>
             <span class="text-xl font-bold">GrandsProjets</span>
           </div>
-          <p class="text-gray-400">Votre carte publique des projets urbains</p>
+          <p class="text-gray-400 text-sm">Votre carte publique des projets urbains</p>
         </div>
         <div>
           <h3 class="font-bold mb-4">Navigation</h3>
-          <ul class="space-y-2 text-gray-400">
-            <li><a href="index.html#fonctionnement" class="hover:text-white">Fonctionnement</a></li>
-            <li><a href="index.html#tarifs" class="hover:text-white">Tarifs</a></li>
-            <li><a href="https://grandsprojets.com" target="_blank" class="hover:text-white transition">Exemple en direct</a></li>
-            <li><a href="https://github.com/solal3105/grandsprojets/" target="_blank" class="hover:text-white">Code source</a></li>
+          <ul class="space-y-2 text-gray-400 text-sm">
+            <li><a href="index.html" class="hover:text-white transition">Accueil</a></li>
+            <li><a href="alternative-google-my-maps.html" class="hover:text-white transition">vs Google My Maps</a></li>
+            <li><a href="press-kit.html" class="hover:text-white transition">Press kit</a></li>
+            <li><a href="https://grandsprojets.com" target="_blank" class="hover:text-white transition">Voir la démo</a></li>
           </ul>
         </div>
         <div>
           <h3 class="font-bold mb-4">Contact</h3>
-          <ul class="space-y-2 text-gray-400">
-            <li><a href="#" class="hover:text-white contact-modal-btn">solal.gendrin@gmail.com</a></li>
-            <li><a href="https://github.com/solal3105/grandsprojets/" target="_blank" class="hover:text-white">Code source</a></li>
+          <ul class="space-y-2 text-gray-400 text-sm">
+            <li><a href="#" class="hover:text-white contact-modal-btn transition">solal.gendrin@gmail.com</a></li>
+            <li><a href="https://github.com/solal3105/grandsprojets/" target="_blank" class="hover:text-white transition">Code source GitHub</a></li>
           </ul>
         </div>
       </div>
       <div class="border-t border-gray-800 pt-8 text-center text-gray-400 text-sm">
-        <p class="mb-4"> 2025 GrandsProjets • Développé avec à Villeurbanne par Solal • Code open source sur GitHub</p>
+        <p>© 2025 GrandsProjets • Développé avec ❤️ à Villeurbanne • <a href="https://github.com/solal3105/grandsprojets/" target="_blank" class="hover:text-white">Open source</a></p>
       </div>
     </div>
   </footer>
@@ -731,10 +751,20 @@
 
     // Mobile menu toggle
     const mobileMenuBtn = document.getElementById('mobile-menu-btn');
-    if (mobileMenuBtn) {
-      mobileMenuBtn.addEventListener('click', function() {
-        // Mobile menu implementation would go here
-        alert('Menu mobile à implémenter');
+    const mobileMenu = document.getElementById('mobile-menu');
+    if (mobileMenuBtn && mobileMenu) {
+      mobileMenuBtn.addEventListener('click', () => {
+        const isOpen = !mobileMenu.classList.contains('hidden');
+        mobileMenu.classList.toggle('hidden');
+        mobileMenuBtn.innerHTML = isOpen 
+          ? '<i class="fas fa-bars text-xl"></i>' 
+          : '<i class="fas fa-times text-xl"></i>';
+      });
+      mobileMenu.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => {
+          mobileMenu.classList.add('hidden');
+          mobileMenuBtn.innerHTML = '<i class="fas fa-bars text-xl"></i>';
+        });
       });
     }
 

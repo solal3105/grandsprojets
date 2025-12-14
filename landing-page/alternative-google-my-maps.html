@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="fr" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alternative à Google My Maps pour Projets Urbains | GrandsProjets</title>
+  <meta name="description" content="GrandsProjets : l'alternative open source à Google My Maps spécialisée pour les projets urbains. Hébergement RGPD en Europe, filtres avancés, fiches projet détaillées.">
+  <link rel="canonical" href="https://grandsprojets.com/landing-page/alternative-google-my-maps.html">
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+
+  <!-- Open Graph -->
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Alternative à Google My Maps pour Projets Urbains | GrandsProjets">
+  <meta property="og:description" content="L'alternative open source à Google My Maps spécialisée pour les projets urbains. Hébergement RGPD, filtres avancés, fiches détaillées.">
+  <meta property="og:url" content="https://grandsprojets.com/landing-page/alternative-google-my-maps.html">
+  <meta property="og:site_name" content="GrandsProjets">
+  <meta property="og:image" content="https://grandsprojets.com/img/cover/meta.png">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Alternative à Google My Maps pour Projets Urbains | GrandsProjets">
+  <meta name="twitter:description" content="L'alternative open source à Google My Maps spécialisée pour les projets urbains.">
+  <meta name="twitter:image" content="https://grandsprojets.com/img/cover/meta.png">
+
+  <!-- Schema.org Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "GrandsProjets - Alternative Google My Maps",
+    "description": "Alternative open source à Google My Maps spécialisée pour les projets urbains",
+    "url": "https://grandsprojets.com/landing-page/alternative-google-my-maps.html",
+    "applicationCategory": "UrbanPlanningApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "EUR"
+    },
+    "author": {
+      "@type": "Organization",
+      "name": "GrandsProjets"
+    }
+  }
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="../styles/00-colors.css">
+  <link rel="stylesheet" href="../styles/gp-button-system.css">
+  <link rel="stylesheet" href="../styles/13-modal-system.css">
+  <link rel="stylesheet" href="../styles/14-modal-components.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#14AE5C',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    
+    * { 
+      -webkit-font-smoothing: antialiased; 
+      -moz-osx-font-smoothing: grayscale; 
+    }
+    
+    body { 
+      font-family: 'Inter', sans-serif;
+      line-height: 1.6;
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+    
+    p {
+      line-height: 1.75;
+    }
+    
+    .gradient-text {
+      background: linear-gradient(135deg, #14AE5C 0%, #10b981 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .card-hover {
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .card-hover:hover {
+      transform: translateY(-8px) scale(1.02);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+    
+    .btn-hover {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .btn-hover::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s;
+    }
+    
+    .btn-hover:hover::before {
+      left: 100%;
+    }
+    
+    .hero-background {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background-image: url('header.png');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      z-index: 0;
+    }
+    
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(17, 24, 39, 0.85) 0%, rgba(31, 41, 55, 0.92) 100%);
+      z-index: 1;
+    }
+
+    /* Tableau comparatif - responsive */
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .comparison-table th,
+    .comparison-table td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 0.875rem;
+    }
+    
+    .comparison-table th {
+      background: #f9fafb;
+      font-weight: 600;
+    }
+    
+    .comparison-table tr:hover {
+      background: #f9fafb;
+    }
+    
+    /* Mobile: cacher le tableau, afficher les cards */
+    @media (max-width: 768px) {
+      .comparison-table-wrapper { display: none; }
+      .comparison-cards { display: block; }
+      
+      .comparison-table th,
+      .comparison-table td {
+        padding: 0.5rem;
+        font-size: 0.75rem;
+      }
+    }
+    
+    @media (min-width: 769px) {
+      .comparison-cards { display: none; }
+    }
+  </style>
+</head>
+<body class="bg-white">
+
+  <!-- HEADER -->
+  <header class="fixed top-0 w-full bg-white/95 backdrop-blur-md shadow-sm z-50 border-b border-gray-100">
+    <nav class="container mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+      <a href="index.html" class="flex items-center space-x-2 group">
+        <img src="../img/logo.svg" alt="GrandsProjets" class="h-10 sm:h-12 transition-all group-hover:scale-105">
+      </a>
+      
+      <!-- Desktop Navigation -->
+      <div class="hidden lg:flex items-center space-x-1">
+        <a href="index.html" class="px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg font-medium transition-all text-sm">Accueil</a>
+        <a href="alternative-google-my-maps.html" class="px-4 py-2 text-primary hover:text-green-600 hover:bg-gray-50 rounded-lg font-medium transition-all text-sm">vs Google My Maps</a>
+        <a href="press-kit.html" class="px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg font-medium transition-all text-sm">Press kit</a>
+      </div>
+      
+      <div class="flex items-center gap-3">
+        <button class="contact-modal-btn hidden sm:block bg-primary hover:bg-green-600 px-5 py-2.5 rounded-full font-bold text-white btn-hover shadow-lg hover:shadow-xl transition-all border-0 cursor-pointer text-sm">Demander une démo</button>
+        
+        <!-- Mobile Menu Button -->
+        <button id="mobile-menu-btn" class="lg:hidden p-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all" aria-label="Menu">
+          <i class="fas fa-bars text-xl"></i>
+        </button>
+      </div>
+    </nav>
+    
+    <!-- Mobile Navigation -->
+    <div id="mobile-menu" class="lg:hidden hidden bg-white border-t border-gray-100 shadow-lg">
+      <div class="container mx-auto px-4 py-4 space-y-2">
+        <a href="index.html" class="block px-4 py-3 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg font-medium transition-all">Accueil</a>
+        <a href="alternative-google-my-maps.html" class="block px-4 py-3 text-primary hover:text-green-600 hover:bg-gray-50 rounded-lg font-medium transition-all">vs Google My Maps</a>
+        <a href="press-kit.html" class="block px-4 py-3 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg font-medium transition-all">Press kit</a>
+        <button class="contact-modal-btn w-full mt-2 bg-primary hover:bg-green-600 px-5 py-3 rounded-full font-bold text-white btn-hover shadow-lg transition-all border-0 cursor-pointer">Demander une démo</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="relative min-h-[80vh] lg:min-h-screen flex items-center text-white pt-24 pb-12 overflow-hidden">
+    <div class="hero-background"></div>
+    <div class="hero-overlay"></div>
+    
+    <div class="container mx-auto px-4 sm:px-6 text-center relative z-20">
+      <div class="mb-4 sm:mb-6">
+        <span class="inline-block bg-white/10 backdrop-blur-sm px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium border border-white/20">
+          <i class="fas fa-map-marked-alt mr-1 sm:mr-2"></i>Alternative à Google My Maps
+        </span>
+      </div>
+      <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold mb-4 sm:mb-6 leading-tight px-2">
+        La cartographie des projets urbains<br class="hidden sm:block"><span class="gradient-text">open source et souveraine</span>
+      </h1>
+      <p class="text-base sm:text-lg md:text-xl lg:text-2xl mb-8 sm:mb-12 font-light text-gray-100 max-w-3xl mx-auto px-4">
+        Spécialisée pour les collectivités. Hébergée en Europe. Sans dépendance à Google.
+      </p>
+      <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4">
+        <button class="contact-modal-btn bg-primary hover:bg-green-600 px-6 sm:px-10 py-4 sm:py-5 rounded-full font-bold text-base sm:text-xl text-white btn-hover shadow-2xl border-0 cursor-pointer">Demander une démo</button>
+        <a href="https://grandsprojets.com" target="_blank" class="bg-white/10 hover:bg-white/20 backdrop-blur-sm px-6 sm:px-10 py-4 sm:py-5 rounded-full font-semibold text-base sm:text-xl border border-white/20 btn-hover">Voir l'exemple <i class="fas fa-arrow-right ml-2"></i></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARATIF -->
+  <section class="py-12 sm:py-20 bg-white">
+    <div class="container mx-auto px-4 sm:px-6 max-w-6xl">
+      <div class="text-center mb-10 sm:mb-16">
+        <div class="text-4xl sm:text-5xl mb-3 sm:mb-4">⚖️</div>
+        <h2 class="text-2xl sm:text-3xl md:text-5xl font-extrabold mb-4 sm:mb-6">GrandsProjets vs Google My Maps</h2>
+        <p class="text-base sm:text-xl text-gray-600 leading-relaxed max-w-4xl mx-auto px-2">
+          Une solution pensée pour les projets urbains, pas un outil générique
+        </p>
+      </div>
+
+      <!-- Tableau comparatif - Desktop -->
+      <div class="comparison-table-wrapper bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-12 hidden md:block">
+        <div class="overflow-x-auto">
+          <table class="comparison-table">
+            <thead>
+              <tr>
+                <th class="text-gray-600">Fonctionnalité</th>
+                <th class="text-primary"><i class="fas fa-map-marked-alt mr-2"></i>GrandsProjets</th>
+                <th class="text-gray-500"><i class="fab fa-google mr-2"></i>Google My Maps</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="font-medium">Spécialisation</td>
+                <td><i class="fas fa-check-circle text-primary mr-2"></i>Projets urbains</td>
+                <td><i class="fas fa-minus-circle text-gray-400 mr-2"></i>Outil générique</td>
+              </tr>
+              <tr>
+                <td class="font-medium">Hébergement données</td>
+                <td><i class="fas fa-check-circle text-primary mr-2"></i>Europe (RGPD)</td>
+                <td><i class="fas fa-times-circle text-red-500 mr-2"></i>USA</td>
+              </tr>
+              <tr>
+                <td class="font-medium">Code source</td>
+                <td><i class="fas fa-check-circle text-primary mr-2"></i>Open source</td>
+                <td><i class="fas fa-times-circle text-red-500 mr-2"></i>Propriétaire</td>
+              </tr>
+              <tr>
+                <td class="font-medium">Import GeoJSON</td>
+                <td><i class="fas fa-check-circle text-primary mr-2"></i>Natif</td>
+                <td><i class="fas fa-times-circle text-red-500 mr-2"></i>KML uniquement</td>
+              </tr>
+              <tr>
+                <td class="font-medium">Filtres avancés</td>
+                <td><i class="fas fa-check-circle text-primary mr-2"></i>Catégorie, état, commune</td>
+                <td><i class="fas fa-times-circle text-red-500 mr-2"></i>Non</td>
+              </tr>
+              <tr>
+                <td class="font-medium">Fiches projet</td>
+                <td><i class="fas fa-check-circle text-primary mr-2"></i>Pages dédiées</td>
+                <td><i class="fas fa-minus-circle text-gray-400 mr-2"></i>Popup basique</td>
+              </tr>
+              <tr>
+                <td class="font-medium">Module travaux</td>
+                <td><i class="fas fa-check-circle text-primary mr-2"></i>Dates, état, nature</td>
+                <td><i class="fas fa-times-circle text-red-500 mr-2"></i>Non</td>
+              </tr>
+              <tr>
+                <td class="font-medium">Marque blanche</td>
+                <td><i class="fas fa-check-circle text-primary mr-2"></i>Sous-domaine personnalisé</td>
+                <td><i class="fas fa-times-circle text-red-500 mr-2"></i>Non</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Comparatif - Mobile Cards -->
+      <div class="comparison-cards md:hidden space-y-4 mb-12">
+        <div class="bg-white rounded-xl p-4 shadow-md border border-gray-100">
+          <div class="font-bold text-gray-900 mb-3 text-sm">Spécialisation</div>
+          <div class="flex justify-between text-sm">
+            <span class="text-primary"><i class="fas fa-check-circle mr-1"></i>Projets urbains</span>
+            <span class="text-gray-400"><i class="fas fa-minus-circle mr-1"></i>Générique</span>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-md border border-gray-100">
+          <div class="font-bold text-gray-900 mb-3 text-sm">Hébergement</div>
+          <div class="flex justify-between text-sm">
+            <span class="text-primary"><i class="fas fa-check-circle mr-1"></i>Europe (RGPD)</span>
+            <span class="text-red-500"><i class="fas fa-times-circle mr-1"></i>USA</span>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-md border border-gray-100">
+          <div class="font-bold text-gray-900 mb-3 text-sm">Code source</div>
+          <div class="flex justify-between text-sm">
+            <span class="text-primary"><i class="fas fa-check-circle mr-1"></i>Open source</span>
+            <span class="text-red-500"><i class="fas fa-times-circle mr-1"></i>Propriétaire</span>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-md border border-gray-100">
+          <div class="font-bold text-gray-900 mb-3 text-sm">Filtres avancés</div>
+          <div class="flex justify-between text-sm">
+            <span class="text-primary"><i class="fas fa-check-circle mr-1"></i>Oui</span>
+            <span class="text-red-500"><i class="fas fa-times-circle mr-1"></i>Non</span>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-md border border-gray-100">
+          <div class="font-bold text-gray-900 mb-3 text-sm">Marque blanche</div>
+          <div class="flex justify-between text-sm">
+            <span class="text-primary"><i class="fas fa-check-circle mr-1"></i>Oui</span>
+            <span class="text-red-500"><i class="fas fa-times-circle mr-1"></i>Non</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-center">
+        <button class="contact-modal-btn bg-primary hover:bg-green-600 px-8 py-4 rounded-full font-bold text-lg text-white btn-hover shadow-lg border-0 cursor-pointer">Demander une démo</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIMITES DE GOOGLE MY MAPS -->
+  <section class="py-20 bg-gradient-to-br from-gray-50 to-white">
+    <div class="container mx-auto px-6 max-w-6xl">
+      <div class="grid md:grid-cols-2 gap-12 items-center">
+        
+        <!-- Limites -->
+        <div>
+          <div class="flex items-center mb-6">
+            <div class="text-4xl mr-4">🚧</div>
+            <h2 class="text-3xl font-extrabold text-gray-900">Les limites de Google My Maps</h2>
+          </div>
+          <ul class="space-y-4">
+            <li class="flex items-start">
+              <i class="fas fa-times-circle text-red-500 mr-3 mt-1 flex-shrink-0"></i>
+              <div>
+                <span class="font-bold block">Pas conçu pour les projets urbains</span>
+                <span class="text-gray-600">Outil générique sans métadonnées spécifiques</span>
+              </div>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-times-circle text-red-500 mr-3 mt-1 flex-shrink-0"></i>
+              <div>
+                <span class="font-bold block">Données sur serveurs américains</span>
+                <span class="text-gray-600">Problématique RGPD pour les collectivités</span>
+              </div>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-times-circle text-red-500 mr-3 mt-1 flex-shrink-0"></i>
+              <div>
+                <span class="font-bold block">Pas de filtres avancés</span>
+                <span class="text-gray-600">Impossible de filtrer par état, catégorie ou commune</span>
+              </div>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-times-circle text-red-500 mr-3 mt-1 flex-shrink-0"></i>
+              <div>
+                <span class="font-bold block">Popups basiques</span>
+                <span class="text-gray-600">Pas de pages projet détaillées</span>
+              </div>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-times-circle text-red-500 mr-3 mt-1 flex-shrink-0"></i>
+              <div>
+                <span class="font-bold block">Import limité au KML</span>
+                <span class="text-gray-600">Incompatible avec les données GeoJSON open data</span>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Solution -->
+        <div class="bg-gradient-to-br from-primary/5 to-green-50/50 rounded-2xl p-8 border border-primary/20">
+          <div class="flex items-center mb-6">
+            <div class="text-4xl mr-4">✅</div>
+            <h3 class="text-2xl font-bold text-gray-900">Ce que GrandsProjets apporte</h3>
+          </div>
+          <ul class="space-y-4">
+            <li class="flex items-start">
+              <i class="fas fa-check-circle text-primary mr-3 mt-1 flex-shrink-0 text-lg"></i>
+              <div>
+                <span class="font-bold block">Fiches projet complètes</span>
+                <span class="text-gray-700">Pages dédiées avec images, PDF, liens officiels</span>
+              </div>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-check-circle text-primary mr-3 mt-1 flex-shrink-0 text-lg"></i>
+              <div>
+                <span class="font-bold block">Filtres par catégorie et état</span>
+                <span class="text-gray-700">Urbanisme, mobilité, vélo, travaux + en cours, terminé...</span>
+              </div>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-check-circle text-primary mr-3 mt-1 flex-shrink-0 text-lg"></i>
+              <div>
+                <span class="font-bold block">Import GeoJSON natif</span>
+                <span class="text-gray-700">Compatible avec les portails open data</span>
+              </div>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-check-circle text-primary mr-3 mt-1 flex-shrink-0 text-lg"></i>
+              <div>
+                <span class="font-bold block">Hébergement RGPD en Europe</span>
+                <span class="text-gray-700">Données sous votre contrôle</span>
+              </div>
+            </li>
+            <li class="flex items-start">
+              <i class="fas fa-check-circle text-primary mr-3 mt-1 flex-shrink-0 text-lg"></i>
+              <div>
+                <span class="font-bold block">Marque blanche</span>
+                <span class="text-gray-700">Sous-domaine personnalisé, intégrable sur votre site</span>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- FONCTIONNALITÉS CLÉS -->
+  <section class="py-20 bg-white">
+    <div class="container mx-auto px-6 max-w-6xl">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-5xl font-extrabold mb-6">Fonctionnalités spécialisées</h2>
+        <p class="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+          Des outils pensés pour les projets urbains
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        
+        <!-- Catégories -->
+        <div class="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-lg transition-all">
+          <div class="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
+            <i class="fas fa-layer-group text-primary text-2xl"></i>
+          </div>
+          <h3 class="text-lg font-bold mb-2 text-gray-900">Catégories de projets</h3>
+          <p class="text-sm text-gray-600">Urbanisme, mobilité, vélo, travaux... chaque type de projet a sa place</p>
+        </div>
+
+        <!-- Fiches -->
+        <div class="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-lg transition-all">
+          <div class="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
+            <i class="fas fa-file-alt text-primary text-2xl"></i>
+          </div>
+          <h3 class="text-lg font-bold mb-2 text-gray-900">Fiches projet</h3>
+          <p class="text-sm text-gray-600">Pages détaillées avec Markdown, images, PDF de concertation</p>
+        </div>
+
+        <!-- Filtres -->
+        <div class="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-lg transition-all">
+          <div class="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
+            <i class="fas fa-filter text-primary text-2xl"></i>
+          </div>
+          <h3 class="text-lg font-bold mb-2 text-gray-900">Filtres avancés</h3>
+          <p class="text-sm text-gray-600">Par catégorie, état d'avancement, commune, nature des travaux</p>
+        </div>
+
+        <!-- Travaux -->
+        <div class="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-lg transition-all">
+          <div class="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
+            <i class="fas fa-hard-hat text-primary text-2xl"></i>
+          </div>
+          <h3 class="text-lg font-bold mb-2 text-gray-900">Module travaux</h3>
+          <p class="text-sm text-gray-600">Dates de début/fin, état d'avancement, nature des chantiers</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- CARTE INTERACTIVE (réutilisation) -->
+  <section class="py-16 bg-gradient-to-br from-gray-900 to-gray-800">
+    <div class="container mx-auto px-6 max-w-6xl">
+      <div class="text-center mb-10">
+        <h2 class="text-3xl md:text-4xl font-extrabold mb-3 text-white">Voyez la différence</h2>
+        <p class="text-lg text-gray-300 max-w-2xl mx-auto">Exemple en production : la métropole de Lyon</p>
+      </div>
+      <div class="relative group">
+        <div class="absolute -inset-1 bg-gradient-to-r from-primary via-green-400 to-primary rounded-3xl blur opacity-25 group-hover:opacity-40 transition duration-1000"></div>
+        <div class="relative bg-white rounded-3xl p-3 shadow-2xl">
+          <div class="min-h-[500px] rounded-2xl overflow-hidden">
+            <iframe 
+              src="https://grandsprojets.com" 
+              class="w-full h-full border-0 min-h-[500px]"
+              title="Carte interactive GrandsProjets - Exemple Lyon"
+              loading="lazy">
+            </iframe>
+          </div>
+        </div>
+      </div>
+      <div class="text-center mt-8">
+        <a href="https://grandsprojets.com" target="_blank" class="inline-flex items-center text-primary hover:text-green-400 font-bold text-base bg-white/10 hover:bg-white/20 px-6 py-3 rounded-full transition-all backdrop-blur-sm">
+          Explorer la carte en plein écran <i class="fas fa-external-link-alt ml-3"></i>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- POUR QUI (réutilisation simplifiée) -->
+  <section class="py-20 bg-gradient-to-br from-gray-50 to-white">
+    <div class="container mx-auto px-6 max-w-6xl">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-5xl font-extrabold mb-6">Pour qui ?</h2>
+        <p class="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+          Un outil pensé pour tous les acteurs publics
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        
+        <!-- Collectivités -->
+        <div class="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm hover:shadow-lg transition-all text-center">
+          <div class="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+            <i class="fas fa-landmark text-primary text-3xl"></i>
+          </div>
+          <h3 class="text-2xl font-bold mb-3 text-gray-900">Collectivités</h3>
+          <p class="text-base text-gray-600">Communes, métropoles, intercommunalités</p>
+        </div>
+
+        <!-- Services techniques -->
+        <div class="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm hover:shadow-lg transition-all text-center">
+          <div class="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+            <i class="fas fa-hard-hat text-primary text-3xl"></i>
+          </div>
+          <h3 class="text-2xl font-bold mb-3 text-gray-900">Services techniques</h3>
+          <p class="text-base text-gray-600">Voirie, urbanisme, mobilités</p>
+        </div>
+
+        <!-- Associations -->
+        <div class="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm hover:shadow-lg transition-all text-center">
+          <div class="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+            <i class="fas fa-users text-primary text-3xl"></i>
+          </div>
+          <h3 class="text-2xl font-bold mb-3 text-gray-900">Associations</h3>
+          <p class="text-base text-gray-600">Conseils de quartier, citoyens</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA FINAL (réutilisation) -->
+  <section class="py-24 bg-gradient-to-br from-green-400 to-primary text-gray-900">
+    <div class="container mx-auto px-6 text-center">
+      <h2 class="text-3xl md:text-5xl font-extrabold mb-8 leading-tight">Prêt à quitter<br>Google My Maps ?</h2>
+      <button id="contact-cta-btn" class="inline-block bg-gray-900 hover:bg-gray-800 text-white px-12 py-5 rounded-full font-bold text-xl shadow-2xl hover:shadow-3xl btn-hover border-0 cursor-pointer">Demander une démo personnalisée</button>
+      <div class="mt-8 space-y-2">
+        <p class="flex items-center justify-center"><i class="fas fa-check-circle mr-2"></i>Migration assistée</p>
+        <p class="flex items-center justify-center"><i class="fas fa-check-circle mr-2"></i>Open source et souverain</p>
+        <p class="flex items-center justify-center"><i class="fas fa-check-circle mr-2"></i>Hébergement RGPD</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="bg-gray-900 text-white py-12">
+    <div class="container mx-auto px-4 sm:px-6">
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
+        <div>
+          <div class="flex items-center space-x-2 mb-4">
+            <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+              <i class="fas fa-map-marked-alt text-gray-900"></i>
+            </div>
+            <span class="text-xl font-bold">GrandsProjets</span>
+          </div>
+          <p class="text-gray-400 text-sm">Votre carte publique des projets urbains</p>
+        </div>
+        <div>
+          <h3 class="font-bold mb-4">Navigation</h3>
+          <ul class="space-y-2 text-gray-400 text-sm">
+            <li><a href="index.html" class="hover:text-white transition">Accueil</a></li>
+            <li><a href="alternative-google-my-maps.html" class="hover:text-white transition">vs Google My Maps</a></li>
+            <li><a href="press-kit.html" class="hover:text-white transition">Press kit</a></li>
+            <li><a href="https://grandsprojets.com" target="_blank" class="hover:text-white transition">Voir la démo</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="font-bold mb-4">Contact</h3>
+          <ul class="space-y-2 text-gray-400 text-sm">
+            <li><a href="#" class="hover:text-white contact-modal-btn transition">solal.gendrin@gmail.com</a></li>
+            <li><a href="https://github.com/solal3105/grandsprojets/" target="_blank" class="hover:text-white transition">Code source GitHub</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="border-t border-gray-800 pt-8 text-center text-gray-400 text-sm">
+        <p>© 2025 GrandsProjets • Développé avec ❤️ à Villeurbanne • <a href="https://github.com/solal3105/grandsprojets/" target="_blank" class="hover:text-white">Open source</a></p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- MODALE DE CONTACT (identique à index.html) -->
+  <div id="contact-form-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="gp-modal" role="document">
+      <header class="gp-modal-header">
+        <h1 class="gp-modal-title">Demander une démo</h1>
+        <button class="btn-secondary gp-modal-close" id="contact-form-close" aria-label="Fermer">&times;</button>
+      </header>
+      <div class="gp-modal-body">
+        <form id="contact-form">
+          <div class="space-y-4">
+            <div>
+              <label for="contact-full-name" class="block text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
+              <input type="text" id="contact-full-name" name="full_name" required 
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+            <div>
+              <label for="contact-email" class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+              <input type="email" id="contact-email" name="email" required 
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+            <div>
+              <label for="contact-phone" class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+              <input type="tel" id="contact-phone" name="phone" 
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+            <div>
+              <label for="contact-organization" class="block text-sm font-medium text-gray-700 mb-1">Organisation</label>
+              <input type="text" id="contact-organization" name="organization" 
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+            <div>
+              <label for="contact-message" class="block text-sm font-medium text-gray-700 mb-1">Message *</label>
+              <textarea id="contact-message" name="message" rows="4" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        placeholder="Décrivez votre projet et vos besoins..."></textarea>
+            </div>
+            <input type="hidden" name="referrer" value="alternative-google-my-maps">
+          </div>
+          <div class="mt-6 flex gap-3">
+            <button type="button" class="btn-secondary flex-1" id="contact-form-cancel">Annuler</button>
+            <button type="submit" class="btn-primary flex-1 form-submit-btn">Envoyer</button>
+          </div>
+        </form>
+
+        <div id="contact-success" style="display: none;" class="text-center">
+          <div class="text-5xl mb-4">✓</div>
+          <h2 class="text-2xl font-bold text-gray-900 mb-2">Merci !</h2>
+          <p class="text-gray-600">Votre demande a été reçue. Nous vous répondrons dans les 24h.</p>
+        </div>
+
+        <div id="contact-error" style="display: none;" class="text-center">
+          <div class="text-5xl mb-4">⚠️</div>
+          <h2 class="text-2xl font-bold text-gray-900 mb-2">Erreur</h2>
+          <p class="text-gray-600">Une erreur s'est produite. Veuillez réessayer ou nous contacter directement.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts (identiques à index.html) -->
+  <script src="../modules/modal-helper.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../modules/contact-form.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
+      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
+      
+      if (typeof supabase !== 'undefined') {
+        window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      }
+
+      const openers = document.querySelectorAll('.contact-modal-btn, #contact-cta-btn');
+      openers.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          ModalHelper.open('contact-form-overlay');
+        });
+      });
+
+      const cancelBtn = document.getElementById('contact-form-cancel');
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+          ModalHelper.close('contact-form-overlay');
+        });
+      }
+
+      // Mobile menu toggle
+      const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+      const mobileMenu = document.getElementById('mobile-menu');
+      if (mobileMenuBtn && mobileMenu) {
+        mobileMenuBtn.addEventListener('click', () => {
+          const isOpen = !mobileMenu.classList.contains('hidden');
+          mobileMenu.classList.toggle('hidden');
+          mobileMenuBtn.innerHTML = isOpen 
+            ? '<i class="fas fa-bars text-xl"></i>' 
+            : '<i class="fas fa-times text-xl"></i>';
+        });
+        mobileMenu.querySelectorAll('a').forEach(link => {
+          link.addEventListener('click', () => {
+            mobileMenu.classList.add('hidden');
+            mobileMenuBtn.innerHTML = '<i class="fas fa-bars text-xl"></i>';
+          });
+        });
+      }
+    });
+  </script>
+
+</body>
+</html>
