@@ -2043,14 +2043,6 @@
       }
       
       // Récupérer tous les éléments du formulaire depuis la nouvelle modale
-      const iconGridEl = document.getElementById('category-icon-grid');
-      const iconPickerEl = document.getElementById('category-icon-picker');
-      
-      console.log('[openCategoryModal] Icon picker elements:', {
-        categoryIconGrid: !!iconGridEl,
-        categoryIconPicker: !!iconPickerEl
-      });
-      
       const elements = {
         categoryFormContainer: categoryModalOverlay,
         categoryForm: categoryFormModal,
@@ -2059,8 +2051,6 @@
         categoryOriginalNameInput: document.getElementById('category-original-name'),
         categoryNameInput: document.getElementById('category-name'),
         categoryIconInput: document.getElementById('category-icon'),
-        categoryIconGrid: iconGridEl,
-        categoryIconPicker: iconPickerEl,
         categoryOrderInput: document.getElementById('category-order'),
         categoryVilleSelect: categoryVilleInput,
         categoryLayersCheckboxes: null, // Plus utilisé

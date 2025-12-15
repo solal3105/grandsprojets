@@ -370,12 +370,15 @@ window.DataModule = (function() {
 			})();
 			const adrs = (props.adresse || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
 
+			// Icône du chantier (depuis la base ou défaut)
+			const chantierIcon = props.icon || 'fa-solid fa-helmet-safety';
+			
 			// HTML bento structure
 			const tooltipContent = `
           <div class="gp-travaux glass">
             <div class="gp-hero">
               <div class="hero-left">
-                <span class="hero-icon">🚧</span>
+                <span class="hero-icon"><i class="${chantierIcon}"></i></span>
                 <div>
                   <div class="hero-title">${titre || 'Travaux'}</div>
                   <div class="hero-sub">${commune || ''}</div>
@@ -1266,8 +1269,9 @@ window.DataModule = (function() {
 			// ========================================
 			const isTravauxLayer = window.LayerRegistry?.isTravauxLayer?.(layerName);
 			if (isTravauxLayer) {
-				// Utiliser l'icône chantier avec la couleur warning (orange)
-				const travauxIcon = createCustomMarkerIcon(null, 'fa-solid fa-helmet-safety', 'var(--color-warning)');
+				// Utiliser l'icône du chantier (depuis les propriétés) ou casque par défaut
+				const chantierIcon = props.icon || 'fa-solid fa-helmet-safety';
+				const travauxIcon = createCustomMarkerIcon(null, chantierIcon, 'var(--color-warning)');
 				return L.marker(latlng, { icon: travauxIcon });
 			}
 			

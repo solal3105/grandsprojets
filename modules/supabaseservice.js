@@ -2426,6 +2426,7 @@
                 feature.properties.date_fin = chantier.date_fin || '';
                 feature.properties.last_update = chantier.last_update || '';
                 feature.properties.description = chantier.description || '';
+                feature.properties.icon = chantier.icon || 'fa-solid fa-helmet-safety';
                 
                 // Mapper localisation → commune/adresse (à affiner)
                 const loc = chantier.localisation || '';

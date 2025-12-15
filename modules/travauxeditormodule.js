@@ -925,15 +925,18 @@ const TravauxEditorModule = (() => {
    * @param {Object} chantier - Données du chantier à modifier
    */
   function openFormModalForEdit(chantier) {
-    // Vérifier si la modale existe déjà
+    // Supprimer l'overlay existant pour éviter les problèmes d'event listeners
+    // (le chantierId est capturé en closure lors de la création)
     let overlay = document.getElementById('travaux-form-overlay');
+    if (overlay) {
+      overlay.remove();
+    }
     
-    if (!overlay) {
-      // Créer la modale (même structure que pour la création)
-      overlay = document.createElement('div');
-      overlay.id = 'travaux-form-overlay';
-      overlay.className = 'gp-modal-overlay';
-      overlay.innerHTML = `
+    // Recréer la modale à chaque ouverture pour avoir le bon chantierId
+    overlay = document.createElement('div');
+    overlay.id = 'travaux-form-overlay';
+    overlay.className = 'gp-modal-overlay';
+    overlay.innerHTML = `
         <div class="gp-modal gp-modal--large">
           <div class="gp-modal-header">
             <div class="gp-modal-title">
@@ -1133,26 +1136,25 @@ const TravauxEditorModule = (() => {
             </form>
           </div>
         </div>
-      `;
-      document.body.appendChild(overlay);
-      
-      // Event listeners
-      overlay.querySelector('#travaux-editor-form').addEventListener('submit', (e) => handleUpdate(e, chantier.id));
-      
-      // Bouton Annuler
-      overlay.querySelector('#travaux-form-cancel').addEventListener('click', () => {
-        if (confirm(MESSAGES.CANCEL_EDIT_CONFIRM)) {
-          closeFormModal();
-        }
-      });
-      
-      // Croix de fermeture
-      overlay.querySelector('.gp-modal-close').addEventListener('click', () => {
-        if (confirm(MESSAGES.CANCEL_EDIT_CONFIRM)) {
-          closeFormModal();
-        }
-      });
-    }
+    `;
+    document.body.appendChild(overlay);
+    
+    // Event listeners
+    overlay.querySelector('#travaux-editor-form').addEventListener('submit', (e) => handleUpdate(e, chantier.id));
+    
+    // Bouton Annuler
+    overlay.querySelector('#travaux-form-cancel').addEventListener('click', () => {
+      if (confirm(MESSAGES.CANCEL_EDIT_CONFIRM)) {
+        closeFormModal();
+      }
+    });
+    
+    // Croix de fermeture
+    overlay.querySelector('.gp-modal-close').addEventListener('click', () => {
+      if (confirm(MESSAGES.CANCEL_EDIT_CONFIRM)) {
+        closeFormModal();
+      }
+    });
     
     // Pré-remplir le formulaire avec les données existantes
     const form = overlay.querySelector('#travaux-editor-form');

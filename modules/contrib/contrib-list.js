@@ -151,6 +151,10 @@
       // Gérer la fermeture
       const close = (result) => {
         window.ModalHelper?.close('delete-confirm-overlay');
+        // Supprimer l'overlay du DOM pour éviter les doublons d'ID
+        setTimeout(() => {
+          try { overlay.remove(); } catch(_) {}
+        }, 250);
         resolve(!!result);
       };
 
