@@ -2269,17 +2269,6 @@
         if (e.target === categoryModalOverlay) closeModal();
       };
       
-      // Fermer le picker d'icône si clic en dehors
-      if (categoryIconPicker) {
-        document.addEventListener('click', (e) => {
-          if (categoryIconPicker.style.display !== 'none') {
-            if (!categoryIconPicker.contains(e.target) && e.target !== categoryIconPickerBtn && !categoryIconPickerBtn?.contains(e.target)) {
-              categoryIconPicker.style.display = 'none';
-            }
-          }
-        });
-      }
-      
       // Stocker la fonction de fermeture pour l'appeler après succès
       win.__closeCategoryModal = closeModal;
     }

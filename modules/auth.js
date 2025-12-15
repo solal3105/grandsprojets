@@ -28,14 +28,49 @@
   let cachedSession = null;
   let sessionCheckInterval = null;
   
-  // Initialiser le cache avec la session actuelle
-  client.auth.getSession().then(({ data }) => {
-    cachedSession = data?.session || null;
-    // Démarrer la surveillance si une session existe
-    if (cachedSession) {
-      startSessionMonitoring();
+  // Initialiser le cache avec la session actuelle et tenter un refresh si nécessaire
+  (async function initSession() {
+    try {
+      const { data, error } = await client.auth.getSession();
+      
+      if (error) {
+        console.warn('[AuthModule] Erreur getSession au démarrage:', error.message);
+      }
+      
+      let session = data?.session || null;
+      
+      // Si pas de session mais des données dans localStorage, tenter un refresh
+      if (!session) {
+        const storageKey = 'grandsprojets-auth';
+        const storedData = localStorage.getItem(storageKey);
+        
+        if (storedData) {
+          console.log('[AuthModule] Tentative de refresh de la session au démarrage...');
+          try {
+            const refreshResult = await client.auth.refreshSession();
+            if (refreshResult.data?.session) {
+              session = refreshResult.data.session;
+              console.log('[AuthModule] Session rafraîchie avec succès au démarrage');
+            } else {
+              console.warn('[AuthModule] Refresh échoué au démarrage:', refreshResult.error?.message);
+            }
+          } catch (refreshErr) {
+            console.warn('[AuthModule] Erreur refresh au démarrage:', refreshErr.message);
+          }
+        }
+      }
+      
+      cachedSession = session;
+      
+      // Démarrer la surveillance si une session existe
+      if (cachedSession) {
+        startSessionMonitoring();
+      }
+    } catch (e) {
+      console.error('[AuthModule] Erreur initialisation session:', e);
+      cachedSession = null;
     }
-  });
+  })();
   
   /**
    * Surveillance proactive de la session
@@ -150,6 +185,36 @@
     
     // Gérer les différents événements
     switch (event) {
+      case 'INITIAL_SESSION':
+        // Session initiale au chargement de l'app
+        // Si session = null mais il y avait des données auth dans localStorage,
+        // cela signifie que le refresh token a expiré
+        if (!session) {
+          const storageKey = 'grandsprojets-auth';
+          const storedData = localStorage.getItem(storageKey);
+          
+          if (storedData) {
+            console.warn('[AuthModule] Session expirée détectée au démarrage - nettoyage du localStorage');
+            // Nettoyer les données de session corrompues
+            localStorage.removeItem(storageKey);
+            
+            // Recharger la page pour avoir un état propre
+            // Utiliser un flag pour éviter une boucle infinie
+            const reloadFlag = 'auth-session-cleaned';
+            if (!sessionStorage.getItem(reloadFlag)) {
+              sessionStorage.setItem(reloadFlag, 'true');
+              console.log('[AuthModule] Rechargement pour appliquer le nettoyage...');
+              setTimeout(() => location.reload(), 100);
+            } else {
+              // Flag déjà présent = on a déjà rechargé, ne pas boucler
+              sessionStorage.removeItem(reloadFlag);
+            }
+          }
+        } else {
+          // Session valide, démarrer la surveillance
+          startSessionMonitoring();
+        }
+        break;
       case 'SIGNED_IN':
       case 'TOKEN_REFRESHED':
         // Démarrer/continuer la surveillance

@@ -6,16 +6,16 @@ window.MapModule = (() => {
   // Global invisible hitline pane and SVG renderer (for wider clickable area on paths)
   const hitPaneName = 'hitlinePane';
   const hitPane = map.createPane(hitPaneName);
-  // Place above clickable layers to avoid hover jitter; still below popups
+  // Place above clickable layers to avoid hover jitter; still below markers
   // Leaflet defaults: tilePane=200, overlayPane=400, markerPane=600, tooltipPane=650, popupPane=700
-  // clickableLayers pane is set to 650 in DataModule
-  hitPane.style.zIndex = 660;
+  // clickableLayers pane is set to 450 in DataModule (below markers at 600)
+  hitPane.style.zIndex = 460;
   const hitRenderer = L.svg({ pane: hitPaneName });
   
   // Camera markers pane (au premier plan, au dessus de tout sauf popups)
   const cameraPaneName = 'cameraPane';
   const cameraPane = map.createPane(cameraPaneName);
-  cameraPane.style.zIndex = 680; // Au dessus de hitline (660) et tooltipPane (650)
+  cameraPane.style.zIndex = 680; // Au dessus de hitline (460) et tooltipPane (650)
   
   /**
    * Initialise le fond de carte après chargement de window.basemaps

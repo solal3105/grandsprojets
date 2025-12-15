@@ -1182,10 +1182,12 @@ window.DataModule = (function() {
 		const isClickable = clickableLayers.includes(layerName);
 
 		// Créer un panneau personnalisé pour les couches cliquables
+		// z-index Leaflet: tilePane=200, overlayPane=400, markerPane=600, tooltipPane=650, popupPane=700
+		// On met clickableLayers à 450 pour être au-dessus de l'overlayPane mais EN DESSOUS des markers
 		if (isClickable) {
 			if (!window.clickableLayersPane) {
 				window.clickableLayersPane = MapModule.map.createPane('clickableLayers');
-				window.clickableLayersPane.style.zIndex = 650; // Au-dessus des tuiles mais en dessous des popups
+				window.clickableLayersPane.style.zIndex = 450;
 			}
 		}
 

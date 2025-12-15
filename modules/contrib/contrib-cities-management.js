@@ -9,7 +9,7 @@
   // ============================================================================
 
   const STORAGE_BUCKET = 'uploads';
-  const BRANDING_PATH = 'img/cover'; // Chemin autorisé par les RLS (img/cover/%)
+  const BRANDING_PATH = 'img/cover/branding'; // Chemin avec sous-dossier pour compatibilité RLS (img/cover/%/%)
   const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
   const ALLOWED_TYPES = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/webp'];
 
@@ -949,22 +949,34 @@
 
       if (hasNewLogo) {
         console.log('[city-form] Uploading main logo...');
+        console.log('[city-form] logoZone.fileObject:', logoZone.fileObject);
+        
+        if (!logoZone.fileObject) {
+          throw new Error('Fichier logo non trouvé. Veuillez re-sélectionner le logo.');
+        }
+        
         submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Upload logo...';
         logoUrl = await uploadCityImage(logoZone.fileObject, code, 'logo');
         console.log('[city-form] Logo uploaded:', logoUrl);
       }
 
       const darkLogoZone = modal.querySelector('.image-upload-zone[data-type="logo-dark"]');
-      if (darkLogoZone.dataset.file === 'pending') {
+      if (darkLogoZone?.dataset.file === 'pending') {
         console.log('[city-form] Uploading dark logo...');
+        if (!darkLogoZone.fileObject) {
+          throw new Error('Fichier logo dark non trouvé. Veuillez re-sélectionner.');
+        }
         submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Upload logo dark...';
         darkLogoUrl = await uploadCityImage(darkLogoZone.fileObject, code, 'logo-dark');
         console.log('[city-form] Dark logo uploaded:', darkLogoUrl);
       }
 
       const faviconZone = modal.querySelector('.image-upload-zone[data-type="favicon"]');
-      if (faviconZone.dataset.file === 'pending') {
+      if (faviconZone?.dataset.file === 'pending') {
         console.log('[city-form] Uploading favicon...');
+        if (!faviconZone.fileObject) {
+          throw new Error('Fichier favicon non trouvé. Veuillez re-sélectionner.');
+        }
         submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Upload favicon...';
         faviconUrl = await uploadCityImage(faviconZone.fileObject, code, 'favicon');
         console.log('[city-form] Favicon uploaded:', faviconUrl);
@@ -1047,12 +1059,26 @@
    * Upload une image vers Supabase Storage
    */
   async function uploadCityImage(file, ville, type) {
+    console.log('[uploadCityImage] START - type:', type, 'file:', file?.name, 'size:', file?.size);
+    
     try {
+      if (!file) {
+        throw new Error('Fichier manquant');
+      }
+      
       const ext = file.name.split('.').pop();
       const filename = `${slugify(ville)}-${type}.${ext}`;
       const path = `${BRANDING_PATH}/${filename}`;
+      
+      console.log('[uploadCityImage] Uploading to path:', path);
 
-      const { data, error } = await win.supabaseService.getClient()
+      const client = win.supabaseService.getClient();
+      if (!client) {
+        throw new Error('Client Supabase non disponible');
+      }
+      
+      console.log('[uploadCityImage] Starting upload...');
+      const { data, error } = await client
         .storage
         .from(STORAGE_BUCKET)
         .upload(path, file, {
@@ -1060,16 +1086,19 @@
           contentType: file.type
         });
 
+      console.log('[uploadCityImage] Upload result - data:', data, 'error:', error);
+
       if (error) throw error;
 
-      const { data: urlData } = win.supabaseService.getClient()
+      const { data: urlData } = client
         .storage
         .from(STORAGE_BUCKET)
         .getPublicUrl(path);
 
+      console.log('[uploadCityImage] Public URL:', urlData?.publicUrl);
       return urlData.publicUrl;
     } catch (error) {
-      console.error('[contrib-cities-management] uploadCityImage error:', error);
+      console.error('[uploadCityImage] ERROR:', error);
       throw new Error(`Erreur lors de l'upload de l'image: ${error.message}`);
     }
   }
