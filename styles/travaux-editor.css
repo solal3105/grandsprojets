@@ -597,3 +597,106 @@
     font-size: 1rem;
   }
 }
+
+/* ============================================================================
+   SÉLECTEUR D'ICÔNE TRAVAUX
+   ============================================================================ */
+
+.travaux-icon-selector {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--surface-elevated);
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+}
+
+/* Preview du marker */
+.travaux-icon-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--surface);
+  border-radius: 8px;
+  border: 1px solid var(--border-medium);
+  min-width: 70px;
+}
+
+.travaux-icon-preview .gp-custom-marker {
+  transform: scale(1.2);
+}
+
+.travaux-icon-preview-label {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Grille des presets */
+.travaux-icon-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.travaux-icon-preset {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border: 2px solid var(--border-light);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-secondary);
+  font-size: 1.125rem;
+}
+
+.travaux-icon-preset:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px var(--primary-alpha-15);
+}
+
+.travaux-icon-preset--active {
+  background: var(--primary-alpha-12);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.travaux-icon-preset--active:hover {
+  background: var(--primary-alpha-20);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .travaux-icon-selector {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .travaux-icon-preview {
+    flex-direction: row;
+    justify-content: center;
+    gap: 1rem;
+  }
+  
+  .travaux-icon-presets {
+    justify-content: center;
+  }
+  
+  .travaux-icon-preset {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+  }
+}

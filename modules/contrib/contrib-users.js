@@ -13,19 +13,33 @@
     
     if (!usersListEl) return;
     
+    // Récupérer la ville en cours d'édition (depuis le landing-city-selector)
+    const selectedCity = win.getCurrentCity?.();
+    
+    if (!selectedCity) {
+      usersListEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--warning);"><i class="fa-solid fa-triangle-exclamation"></i> Veuillez sélectionner une structure.</div>';
+      return;
+    }
+    
     try {
       usersListEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> Chargement des utilisateurs...</div>';
       
       const users = await win.supabaseService.getVisibleUsers();
       
+      // Filtrer par la ville sélectionnée
+      const filteredUsers = users?.filter(user => {
+        const userVilles = parseVilles(user.ville);
+        return userVilles.includes(selectedCity);
+      }) || [];
+      
       usersListEl.innerHTML = '';
       
-      if (!users || users.length === 0) {
+      if (filteredUsers.length === 0) {
         renderEmptyState(usersListEl);
         return;
       }
       
-      users.forEach(user => {
+      filteredUsers.forEach(user => {
         const card = renderUserCard(user, elements);
         usersListEl.appendChild(card);
       });

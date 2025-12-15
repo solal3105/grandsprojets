@@ -194,7 +194,13 @@
       const enabledCities = currentBranding?.enabled_cities;
       const hasCities = Array.isArray(enabledCities) && enabledCities.length > 0;
 
+      // Exclure les toggles qui ne doivent pas être configurables :
+      // - 'overflow' : généré automatiquement sur mobile selon le nombre de toggles
+      // - 'contribute' : toujours présent une fois connecté
+      const excludedToggles = ['overflow', 'contribute'];
+      
       const html = Object.entries(getTogglesConfig())
+        .filter(([key]) => !excludedToggles.includes(key))
         .map(([key, config]) => {
           const isEnabled = enabledSet.has(key);
           const isCityDisabled = key === 'city' && !hasCities;

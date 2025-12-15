@@ -1,8 +1,11 @@
 // modules/contrib/contrib-travaux-config.js
-// Gestion de la configuration de la catégorie Travaux
+// Gestion de la configuration Travaux avec sauvegarde automatique
 
 ;(function(win) {
   'use strict';
+
+  let currentVille = null;
+  let saveDebounceTimer = null;
 
   /**
    * Initialise la section Travaux dans la modale de gestion
@@ -15,118 +18,137 @@
       return;
     }
 
+    currentVille = ville;
+
     // Afficher la section
     section.style.display = 'block';
 
-    // Initialiser le collapse header
-    initCollapseHeader();
-
-    // Initialiser le toggle knob
-    initToggleKnob();
-
-    // Initialiser l'icon picker
+    // Initialiser les interactions
+    initExpandCollapse();
+    initToggle();
+    initSourceOptions();
     initIconPicker();
 
-    // Charger les layers disponibles pour cette ville (checkboxes)
+    // Charger les layers disponibles
     await loadLayersCheckboxes(ville);
 
     // Charger la config existante
     await loadTravauxConfig(ville);
 
-    // Bind des event listeners
-    bindTravauxConfigEvents(ville);
+    // Bind auto-save sur tous les champs
+    bindAutoSave();
   }
 
   /**
-   * Initialise le collapse/expand du header
+   * Initialise le expand/collapse du contenu
    */
-  function initCollapseHeader() {
-    const header = document.getElementById('travaux-config-header');
+  function initExpandCollapse() {
+    const expandBtn = document.getElementById('travaux-expand-btn');
     const content = document.getElementById('travaux-config-content');
     
-    if (!header || !content) {
-      console.warn('[TravauxConfig] Header ou content non trouvé');
-      return;
-    }
+    if (!expandBtn || !content) return;
 
-    // Par défaut, collapsed
-    header.classList.add('collapsed');
-    
-    header.addEventListener('click', () => {
-      const isCollapsed = header.classList.contains('collapsed');
+    // Supprimer les anciens listeners
+    const newBtn = expandBtn.cloneNode(true);
+    expandBtn.parentNode.replaceChild(newBtn, expandBtn);
+
+    newBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Classe is-expanded sur le bouton lui-même
+      const isExpanded = content.style.display === 'block';
       
-      if (isCollapsed) {
-        // Expand
-        header.classList.remove('collapsed');
-        content.style.display = 'block';
-      } else {
-        // Collapse
-        header.classList.add('collapsed');
+      if (isExpanded) {
+        newBtn.classList.remove('is-expanded');
         content.style.display = 'none';
-      }
-    });
-  }
-
-  /**
-   * Initialise le toggle knob et gère l'affichage du contenu étendu
-   */
-  function initToggleKnob() {
-    const toggle = document.getElementById('travaux-enabled-toggle');
-    const statusText = document.getElementById('travaux-status-text');
-    const extendedContent = document.getElementById('travaux-extended-content');
-    
-    if (!toggle || !statusText || !extendedContent) {
-      console.warn('[TravauxConfig] Éléments toggle non trouvés');
-      return;
-    }
-
-    toggle.addEventListener('change', () => {
-      if (toggle.checked) {
-        // Activé
-        statusText.textContent = 'Catégorie activée';
-        statusText.style.color = 'var(--success)';
-        extendedContent.style.display = 'block';
       } else {
-        // Désactivé
-        statusText.textContent = 'Catégorie désactivée';
-        statusText.style.color = 'var(--text-tertiary)';
-        extendedContent.style.display = 'none';
+        newBtn.classList.add('is-expanded');
+        content.style.display = 'block';
       }
     });
   }
 
   /**
-   * Initialise l'icon picker avec le nouveau système unifié
+   * Initialise le toggle d'activation avec auto-save
+   */
+  function initToggle() {
+    const toggle = document.getElementById('travaux-enabled-toggle');
+    const statusBadge = document.getElementById('travaux-status-text');
+    
+    if (!toggle) return;
+
+    // Supprimer les anciens listeners
+    const newToggle = toggle.cloneNode(true);
+    toggle.parentNode.replaceChild(newToggle, toggle);
+
+    newToggle.addEventListener('change', () => {
+      updateStatusBadge(newToggle.checked);
+      // Auto-save immédiat pour le toggle principal
+      autoSave();
+    });
+  }
+
+  /**
+   * Met à jour le badge de statut
+   */
+  function updateStatusBadge(isEnabled) {
+    const statusBadge = document.getElementById('travaux-status-text');
+    if (!statusBadge) return;
+
+    if (isEnabled) {
+      statusBadge.textContent = 'Activé';
+      statusBadge.classList.add('is-active');
+    } else {
+      statusBadge.textContent = 'Désactivé';
+      statusBadge.classList.remove('is-active');
+    }
+  }
+
+  /**
+   * Initialise les options de source avec auto-save
+   */
+  function initSourceOptions() {
+    const sourceRadios = document.querySelectorAll('input[name="travaux-source"]');
+    const urlField = document.getElementById('travaux-url-field');
+    
+    sourceRadios.forEach(radio => {
+      radio.addEventListener('change', () => {
+        // Afficher/masquer le champ URL
+        if (urlField) {
+          urlField.classList.toggle('is-visible', radio.value === 'url' && radio.checked);
+        }
+        autoSave();
+      });
+    });
+  }
+
+  /**
+   * Initialise l'icon picker
    */
   function initIconPicker() {
     const iconInput = document.getElementById('travaux-icon');
     const iconPreview = document.getElementById('travaux-icon-preview');
     const iconPickerBtn = document.getElementById('travaux-icon-picker-btn');
 
-    if (!iconInput || !iconPreview || !iconPickerBtn) {
-      console.warn('[TravauxConfig] Éléments icon picker non trouvés');
-      return;
-    }
+    if (!iconInput || !iconPreview || !iconPickerBtn) return;
 
-    // Vérifier que GPIconPicker est chargé
-    if (!win.GPIconPicker) {
-      console.error('[TravauxConfig] GPIconPicker non chargé');
-      return;
-    }
+    // Supprimer les anciens listeners
+    const newBtn = iconPickerBtn.cloneNode(true);
+    iconPickerBtn.parentNode.replaceChild(newBtn, iconPickerBtn);
 
-    // Ouvrir le modal au clic sur le bouton
-    iconPickerBtn.addEventListener('click', () => {
-      win.GPIconPicker.open(iconInput, updateIconPreview);
-    });
+    const newInput = iconInput.cloneNode(true);
+    iconInput.parentNode.replaceChild(newInput, iconInput);
 
-    // Permettre de cliquer sur l'input pour ouvrir le picker
-    iconInput.addEventListener('click', () => {
-      win.GPIconPicker.open(iconInput, updateIconPreview);
-    });
+    const openPicker = () => {
+      if (win.GPIconPicker) {
+        win.GPIconPicker.open(newInput, () => {
+          updateIconPreview();
+          autoSave();
+        });
+      }
+    };
 
-    // Update preview quand l'input change
-    iconInput.addEventListener('input', updateIconPreview);
-    iconInput.addEventListener('change', updateIconPreview);
+    newBtn.addEventListener('click', openPicker);
+    newInput.addEventListener('click', openPicker);
   }
 
   /**
@@ -147,257 +169,199 @@
   }
 
   /**
-   * Charge les layers disponibles pour la ville (checkboxes)
-   * @param {string} ville - Code de la ville
+   * Charge les layers disponibles
    */
   async function loadLayersCheckboxes(ville) {
-    try {
-      const container = document.getElementById('travaux-layers-checkboxes');
-      if (!container) {
-        console.warn('[TravauxConfig] Container checkboxes non trouvé');
-        return;
-      }
+    const container = document.getElementById('travaux-layers-checkboxes');
+    if (!container) return;
 
-      // Utiliser la fonction existante de ContribCategories
-      if (win.ContribCategories && win.ContribCategories.populateCategoryLayersCheckboxes) {
-        // Passer le nom correct pour les checkboxes
+    try {
+      if (win.ContribCategories?.populateCategoryLayersCheckboxes) {
         await win.ContribCategories.populateCategoryLayersCheckboxes(ville, container);
         
-        // Renommer les checkboxes pour éviter les conflits avec la modale de catégorie
-        const checkboxes = container.querySelectorAll('input[name="category-layer-checkbox"]');
-        checkboxes.forEach(cb => {
+        // Renommer les checkboxes
+        container.querySelectorAll('input[name="category-layer-checkbox"]').forEach(cb => {
           cb.name = 'travaux-layer-checkbox';
+          cb.addEventListener('change', () => autoSave());
         });
       } else {
-        container.innerHTML = '<small style="color:var(--danger);">Erreur: Module ContribCategories non disponible</small>';
+        container.innerHTML = '<small style="color:var(--text-tertiary);">Aucun layer disponible</small>';
       }
     } catch (err) {
       console.error('[TravauxConfig] Erreur chargement layers:', err);
+      container.innerHTML = '<small style="color:var(--danger);">Erreur de chargement</small>';
     }
   }
 
   /**
    * Charge la configuration existante
-   * @param {string} ville - Code de la ville
    */
   async function loadTravauxConfig(ville) {
     try {
-      const config = await win.supabaseService.getTravauxConfig(ville);
+      const config = await win.supabaseService?.getTravauxConfig?.(ville);
       
+      const toggle = document.getElementById('travaux-enabled-toggle');
+      const sourceUrl = document.getElementById('travaux-source-url');
+      const sourceDb = document.getElementById('travaux-source-db');
+      const urlInput = document.getElementById('travaux-url');
+      const urlField = document.getElementById('travaux-url-field');
+      const iconInput = document.getElementById('travaux-icon');
+      const orderInput = document.getElementById('travaux-order');
+
       if (config) {
-        // Remplir le formulaire avec le toggle
-        const toggle = document.getElementById('travaux-enabled-toggle');
+        // Toggle
         if (toggle) {
           toggle.checked = config.enabled === true;
-          // Trigger l'event pour afficher/masquer le contenu étendu
-          toggle.dispatchEvent(new Event('change'));
+          updateStatusBadge(toggle.checked);
         }
-        
-        const sourceUrl = document.getElementById('travaux-source-url');
-        const sourceDb = document.getElementById('travaux-source-db');
+
+        // Source
         if (config.source_type === 'url') {
-          sourceUrl.checked = true;
-          sourceDb.checked = false;
+          if (sourceUrl) sourceUrl.checked = true;
+          if (sourceDb) sourceDb.checked = false;
+          if (urlField) urlField.classList.add('is-visible');
         } else {
-          sourceUrl.checked = false;
-          sourceDb.checked = true;
+          if (sourceUrl) sourceUrl.checked = false;
+          if (sourceDb) sourceDb.checked = true;
+          if (urlField) urlField.classList.remove('is-visible');
         }
-        
-        document.getElementById('travaux-url').value = config.url || '';
-        document.getElementById('travaux-icon').value = config.icon_class || 'fa-solid fa-helmet-safety';
-        document.getElementById('travaux-order').value = config.display_order || 5;
-        
-        // Layers to display - cocher les checkboxes correspondantes
-        const layersArray = config.layers_to_display || ['travaux'];
+
+        // URL
+        if (urlInput) urlInput.value = config.url || '';
+
+        // Icône
+        if (iconInput) iconInput.value = config.icon_class || 'fa-solid fa-helmet-safety';
+        updateIconPreview();
+
+        // Ordre
+        if (orderInput) orderInput.value = config.display_order || 5;
+
+        // Layers
+        const layersArray = config.layers_to_display || [];
         setTimeout(() => {
-          const checkboxes = document.querySelectorAll('input[name="travaux-layer-checkbox"]');
-          checkboxes.forEach(cb => {
+          document.querySelectorAll('input[name="travaux-layer-checkbox"]').forEach(cb => {
             cb.checked = layersArray.includes(cb.value);
-            // Trigger l'event pour le style
-            cb.dispatchEvent(new Event('change'));
           });
         }, 50);
-        
-        // Update preview icon
-        updateIconPreview();
-        
-        // Show/hide URL field
-        toggleUrlField();
       } else {
-        // Valeurs par défaut si pas de config
-        resetTravauxForm();
+        // Valeurs par défaut
+        if (toggle) toggle.checked = false;
+        updateStatusBadge(false);
+        if (sourceDb) sourceDb.checked = true;
+        if (urlField) urlField.classList.remove('is-visible');
+        if (iconInput) iconInput.value = 'fa-solid fa-helmet-safety';
+        if (orderInput) orderInput.value = '5';
+        updateIconPreview();
       }
     } catch (err) {
       console.error('[TravauxConfig] Erreur chargement config:', err);
-      showStatus('Erreur lors du chargement de la configuration', 'error');
     }
   }
 
   /**
-   * Bind les event listeners
-   * @param {string} ville - Code de la ville
+   * Bind auto-save sur les champs modifiables
    */
-  function bindTravauxConfigEvents(ville) {
-    // Toggle URL field
-    const sourceRadios = document.querySelectorAll('input[name="travaux-source"]');
-    sourceRadios.forEach(radio => {
-      radio.addEventListener('change', toggleUrlField);
-    });
+  function bindAutoSave() {
+    const urlInput = document.getElementById('travaux-url');
+    const orderInput = document.getElementById('travaux-order');
 
-    // Save button
-    const saveBtn = document.getElementById('travaux-config-save');
-    if (saveBtn) {
-      // Remove previous listeners
-      const newSaveBtn = saveBtn.cloneNode(true);
-      saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
-      
-      newSaveBtn.addEventListener('click', () => saveTravauxConfig(ville));
+    if (urlInput) {
+      urlInput.addEventListener('input', () => autoSaveDebounced());
+    }
+
+    if (orderInput) {
+      orderInput.addEventListener('input', () => autoSaveDebounced());
     }
   }
 
   /**
-   * Affiche/masque le champ URL selon la source
+   * Auto-save avec debounce (pour les inputs texte)
    */
-  function toggleUrlField() {
-    const sourceUrl = document.getElementById('travaux-source-url');
-    const urlField = document.getElementById('travaux-url-field');
+  function autoSaveDebounced() {
+    if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = setTimeout(() => autoSave(), 800);
+  }
+
+  /**
+   * Sauvegarde automatique de la configuration
+   */
+  async function autoSave() {
+    if (!currentVille) return;
+
+    const statusEl = document.getElementById('travaux-config-status');
     
-    if (sourceUrl && urlField) {
-      urlField.style.display = sourceUrl.checked ? 'block' : 'none';
-    }
-  }
-
-  /**
-   * Sauvegarde la configuration
-   * @param {string} ville - Code de la ville
-   */
-  async function saveTravauxConfig(ville) {
     try {
-      const saveBtn = document.getElementById('travaux-config-save');
-      if (saveBtn) {
-        saveBtn.disabled = true;
-        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enregistrement...';
-      }
+      // Afficher état "saving"
+      showSaveStatus('saving', 'Enregistrement...');
 
-      showStatus('Enregistrement en cours...', 'info');
+      // Récupérer les valeurs
+      const enabled = document.getElementById('travaux-enabled-toggle')?.checked || false;
+      const sourceType = document.getElementById('travaux-source-url')?.checked ? 'url' : 'city_travaux';
+      const url = document.getElementById('travaux-url')?.value?.trim() || '';
+      const iconClass = document.getElementById('travaux-icon')?.value?.trim() || 'fa-solid fa-helmet-safety';
+      const displayOrder = parseInt(document.getElementById('travaux-order')?.value, 10) || 5;
 
-      // Récupérer les valeurs du formulaire
-      const enabled = document.getElementById('travaux-enabled-toggle').checked;
-      const sourceType = document.getElementById('travaux-source-url').checked ? 'url' : 'city_travaux';
-      const url = document.getElementById('travaux-url').value.trim();
-      const iconClass = document.getElementById('travaux-icon').value.trim();
-      const displayOrder = parseInt(document.getElementById('travaux-order').value, 10);
-
-      // Validation
-      if (sourceType === 'url' && !url) {
-        showStatus('⚠️ Veuillez saisir une URL pour la source externe', 'error');
-        if (saveBtn) {
-          saveBtn.disabled = false;
-          saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Enregistrer';
-        }
-        return;
-      }
-
-      // Récupérer les layers sélectionnés depuis les checkboxes
+      // Layers sélectionnés
       const checkboxes = document.querySelectorAll('input[name="travaux-layer-checkbox"]:checked');
       const layersArray = Array.from(checkboxes).map(cb => cb.value);
 
-      // Note: On autorise maintenant l'enregistrement sans layer sélectionné
-      // Les travaux peuvent fonctionner avec des données depuis city_travaux ou une URL externe
-
-      // Construire l'objet config
       const config = {
         enabled,
         source_type: sourceType,
         url: sourceType === 'url' ? url : null,
-        icon_class: iconClass || 'fa-solid fa-helmet-safety',
-        display_order: isNaN(displayOrder) ? 5 : displayOrder,
+        icon_class: iconClass,
+        display_order: displayOrder,
         layers_to_display: layersArray
       };
 
-      // Enregistrer
-      const { data, error } = await win.supabaseService.updateTravauxConfig(ville, config);
+      // Sauvegarder
+      const result = await win.supabaseService?.updateTravauxConfig?.(currentVille, config);
 
-      if (error) {
-        throw error;
+      if (result?.error) {
+        throw result.error;
       }
 
-      showStatus('✅ Configuration enregistrée avec succès !', 'success');
-
-      // Message pour recharger l'app
-      setTimeout(() => {
-        showStatus('🔄 Rechargez la page pour voir les changements', 'info');
-      }, 2000);
+      // Succès
+      showSaveStatus('success', 'Enregistré');
 
     } catch (err) {
-      console.error('[TravauxConfig] Erreur sauvegarde:', err);
-      showStatus('❌ Erreur lors de l\'enregistrement : ' + (err.message || 'Erreur inconnue'), 'error');
-    } finally {
-      const saveBtn = document.getElementById('travaux-config-save');
-      if (saveBtn) {
-        saveBtn.disabled = false;
-        saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Enregistrer';
-      }
+      console.error('[TravauxConfig] Erreur auto-save:', err);
+      showSaveStatus('error', 'Erreur de sauvegarde');
     }
   }
 
   /**
-   * Réinitialise le formulaire aux valeurs par défaut
+   * Affiche le statut de sauvegarde
    */
-  function resetTravauxForm() {
-    const toggle = document.getElementById('travaux-enabled-toggle');
-    if (toggle) {
-      toggle.checked = false;
-      toggle.dispatchEvent(new Event('change'));
-    }
-    document.getElementById('travaux-source-db').checked = true;
-    document.getElementById('travaux-url').value = '';
-    document.getElementById('travaux-icon').value = 'fa-solid fa-helmet-safety';
-    document.getElementById('travaux-order').value = '5';
-    
-    // Décocher toutes les checkboxes
-    const checkboxes = document.querySelectorAll('input[name="travaux-layer-checkbox"]');
-    checkboxes.forEach(cb => {
-      cb.checked = false;
-      cb.dispatchEvent(new Event('change'));
-    });
-    
-    // L'icon picker gère déjà la preview via initIconPicker()
-    toggleUrlField();
-  }
-
-  /**
-   * Affiche un message de statut
-   * @param {string} message - Message à afficher
-   * @param {string} type - Type de message (info, success, error)
-   */
-  function showStatus(message, type = 'info') {
+  function showSaveStatus(type, message) {
     const statusEl = document.getElementById('travaux-config-status');
     if (!statusEl) return;
 
-    statusEl.textContent = message;
-    statusEl.style.display = 'block';
-    
-    // Styles selon le type
-    if (type === 'success') {
-      statusEl.style.background = 'var(--success-alpha-10, #d4edda)';
-      statusEl.style.color = 'var(--success, #28a745)';
-      statusEl.style.borderLeft = '4px solid var(--success, #28a745)';
+    const iconEl = statusEl.querySelector('i');
+    const textEl = statusEl.querySelector('span');
+
+    // Reset classes
+    statusEl.classList.remove('is-visible', 'is-saving', 'is-error');
+
+    // Appliquer le type
+    if (type === 'saving') {
+      statusEl.classList.add('is-visible', 'is-saving');
+      if (iconEl) iconEl.className = 'fa-solid fa-spinner fa-spin';
     } else if (type === 'error') {
-      statusEl.style.background = 'var(--danger-alpha-10, #f8d7da)';
-      statusEl.style.color = 'var(--danger, #dc3545)';
-      statusEl.style.borderLeft = '4px solid var(--danger, #dc3545)';
+      statusEl.classList.add('is-visible', 'is-error');
+      if (iconEl) iconEl.className = 'fa-solid fa-circle-exclamation';
     } else {
-      statusEl.style.background = 'var(--info-alpha-10, #d1ecf1)';
-      statusEl.style.color = 'var(--info, #0c5460)';
-      statusEl.style.borderLeft = '4px solid var(--info, #0c5460)';
+      statusEl.classList.add('is-visible');
+      if (iconEl) iconEl.className = 'fa-solid fa-circle-check';
     }
 
-    // Auto-hide après 5s pour success/info
-    if (type !== 'error') {
+    if (textEl) textEl.textContent = message;
+
+    // Auto-hide après 3s pour success
+    if (type === 'success') {
       setTimeout(() => {
-        statusEl.style.display = 'none';
-      }, 5000);
+        statusEl.classList.remove('is-visible');
+      }, 3000);
     }
   }
 
@@ -409,6 +373,7 @@
     if (section) {
       section.style.display = 'none';
     }
+    currentVille = null;
   }
 
   // Exposer les fonctions publiques

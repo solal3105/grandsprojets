@@ -1,0 +1,211 @@
+<!-- Create Contribution Modal -->
+<div id="create-modal-overlay" class="gp-modal-overlay gp-modal--glass" role="dialog" aria-modal="true" aria-labelledby="create-modal-title" aria-hidden="true">
+  <div class="gp-modal" role="document">
+    <header class="gp-modal-header">
+      <h1 class="gp-modal-title" id="create-modal-title">
+        <i class="fa-solid fa-plus-circle"></i>
+        Créer une contribution
+      </h1>
+      <button class="btn-secondary gp-modal-close" id="create-modal-close" aria-label="Fermer">&times;</button>
+    </header>
+    <div class="gp-modal-body">
+      <!-- Stepper navigation -->
+      <div class="contrib-stepper" id="contrib-stepper" role="tablist" aria-label="Étapes de contribution">
+        <button class="contrib-step" id="contrib-step-1-tab" role="tab" aria-selected="true" tabindex="0">1. Infos</button>
+        <button class="contrib-step" id="contrib-step-2-tab" role="tab" aria-selected="false" tabindex="-1">2. Tracé</button>
+        <button class="contrib-step" id="contrib-step-3-tab" role="tab" aria-selected="false" tabindex="-1">3. Options</button>
+        <button class="contrib-step" id="contrib-step-4-tab" role="tab" aria-selected="false" tabindex="-1">4. Liens</button>
+      </div>
+      
+      <!-- Assistant IA - Outil d'aide à la rédaction -->
+      <div class="contrib-step-3">
+        <a href="/assistant-ia/" 
+           target="_blank" 
+           rel="noopener noreferrer"
+           class="ia-assistant-card"
+           aria-label="Ouvrir l'assistant IA pour vous aider à rédiger vos contenus">
+          
+          <div class="ia-card-header">
+            <div class="ia-icon">💡</div>
+            <div class="ia-badge">Outil d'aide</div>
+          </div>
+          
+          <div class="ia-card-body">
+            <h4 class="ia-title">Assistant de rédaction IA</h4>
+            <p class="ia-description">
+              Cet outil vous aide à générer un premier jet de vos contenus. 
+              Vous restez libre de modifier et d'adapter les résultats.
+            </p>
+            
+            <ul class="ia-features">
+              <li>Article Markdown</li>
+              <li>Méta-données</li>
+              <li>Description</li>
+            </ul>
+          </div>
+          
+          <div class="ia-card-footer">
+            <span class="ia-cta-text">Essayer l'assistant</span>
+            <span class="ia-cta-icon">→</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- Styles déplacés vers styles/06-modals.css (section IA ASSISTANT CARD) -->
+
+      <form id="contrib-form" class="contrib-form">
+        <div class="form-row contrib-step-1">
+          <label for="contrib-project-name">Nom du projet</label>
+          <input type="text" id="contrib-project-name" name="project_name" required placeholder="Ex: Tram T10 – Phase 2" />
+        </div>
+
+        <!-- Champ ville caché - Pré-rempli depuis le landing -->
+        <input type="hidden" id="contrib-city" name="ville" />
+
+        <div class="form-row contrib-step-1">
+          <label for="contrib-category">Catégorie</label>
+          <select id="contrib-category" name="category_layer" required disabled>
+            <option value="">Sélectionnez d'abord une structure</option>
+          </select>
+          <small id="contrib-category-help" style="display:none; margin-top:4px; color:var(--warning);">
+            <i class="fa-solid fa-exclamation-triangle"></i> Aucune catégorie disponible. 
+            <a href="#" id="contrib-create-category-link" style="color:var(--info); text-decoration:underline;">Créer une catégorie</a>
+          </small>
+        </div>
+
+        <!-- Tags -->
+        <div class="form-row contrib-step-1" id="contrib-tags-group" style="display: none;">
+          <label for="contrib-tags">
+            <i class="fa-solid fa-tags"></i>
+            Tags (optionnel)
+          </label>
+          <div id="contrib-tags-container" class="tags-selector">
+            <!-- Les tags seront injectés dynamiquement selon la catégorie -->
+          </div>
+          <small>
+            <i class="fa-solid fa-circle-info"></i>
+            Sélectionnez un ou plusieurs tags pour mieux catégoriser votre contribution
+          </small>
+        </div>
+
+        <div class="contrib-step-2" id="contrib-geom-mode">
+          <!-- Radios cachés pour l'accessibilité et la soumission -->
+          <div class="visually-hidden" aria-hidden="true">
+            <input type="radio" id="geom-mode-file" name="contrib-geom-mode" value="file" checked>
+            <input type="radio" id="geom-mode-draw" name="contrib-geom-mode" value="draw">
+          </div>
+          <div class="geom-mode-cards" role="list">
+            <button type="button" class="geom-card is-active" id="geom-card-file" role="listitem" aria-pressed="true" aria-controls="contrib-file-row" data-mode="file">
+              <span class="geom-icon" aria-hidden="true"><i class="fa-solid fa-file-arrow-up"></i></span>
+              <span class="geom-title">Importer un fichier GeoJSON</span>
+              <span class="geom-desc">Déposez votre tracé au format GeoJSON (.geojson, .json)</span>
+            </button>
+            <button type="button" class="geom-card" id="geom-card-draw" role="listitem" aria-pressed="false" aria-controls="contrib-draw-panel" data-mode="draw">
+              <span class="geom-icon" aria-hidden="true"><i class="fa-solid fa-pen-ruler"></i></span>
+              <span class="geom-title">Dessiner sur la carte</span>
+              <span class="geom-desc">Tracez votre itinéraire ou zone directement sur la carte</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-row contrib-step-2" id="contrib-file-row">
+          <input type="file" id="contrib-geojson" name="geojson_file" accept=".geojson,application/geo+json,application/json" required style="display:none;" />
+          <div id="contrib-dropzone" class="file-dropzone" role="button" tabindex="0" aria-label="Déposer un fichier GeoJSON ou cliquer pour choisir">
+            <div class="dz-text">
+              <div class="dz-title">Déposez votre fichier GeoJSON</div>
+              <div class="dz-sub">… ou cliquez pour choisir un fichier</div>
+            </div>
+            <div class="dz-selected">
+              <span class="dz-icon" aria-hidden="true"><i class="fa-regular fa-file-lines"></i></span>
+              <span id="contrib-dz-filename" class="dz-filename"></span>
+            </div>
+          </div>
+          
+        </div>
+
+        <div class="form-row contrib-step-2" id="contrib-draw-panel" style="display:none;">
+          <div id="contrib-draw-map" style="height:320px; border-radius:8px; overflow:hidden;"></div>
+        </div>
+
+        <div class="form-row contrib-step-3">
+          <label for="contrib-cover">Cover (optionnelle)</label>
+          <input type="file" id="contrib-cover" name="cover_file" accept="image/png,image/jpeg,image/webp" style="display:none;" />
+          <div id="contrib-cover-dropzone" class="file-dropzone cover-dropzone" role="button" tabindex="0" aria-label="Déposer une image de couverture ou cliquer pour choisir">
+            <div class="dz-text">
+              <div class="dz-title">Déposez votre image de couverture</div>
+              <div class="dz-sub">… ou cliquez pour choisir un fichier</div>
+            </div>
+            <div class="dz-selected">
+              <span class="dz-icon"><i class="fa-regular fa-image"></i></span>
+              <span class="dz-filename" id="contrib-cover-filename"></span>
+            </div>
+          </div>
+          <small>Image .png, .jpg ou .webp. Elle sera stockée et son URL journalisée.</small>
+        </div>
+
+        <div class="form-row contrib-step-3">
+          <label for="contrib-meta">Meta</label>
+          <textarea id="contrib-meta" name="meta" rows="3" maxlength="200" placeholder="Méta information (ex: tag, note, source)" required></textarea>
+          <small>Texte utilisé pour le SEO (extrait dans les résultats Google). Visez une phrase claire et percutante (~160 caractères).</small>
+        </div>
+
+        <div class="form-row contrib-step-3">
+          <label for="contrib-description">Description</label>
+          <textarea id="contrib-description" name="description" rows="3" placeholder="Courte description du projet (ex: 1-3 phrases)" required></textarea>
+          <small>Donnez l'essentiel du projet en 2–3 phrases, de façon engageante pour donner envie d'en savoir plus.</small>
+        </div>
+
+        <div class="form-row contrib-step-3">
+          <label for="contrib-markdown">Contenu Markdown (optionnel)</label>
+          <textarea id="contrib-markdown" name="markdown" rows="8" placeholder="# Titre\n\nDécrivez le projet, ajoutez des liens, etc."></textarea>
+          <small>
+            Rédigez le contenu de l'article en <strong>Markdown</strong> (titres, images, liens, tableaux…).
+            Astuce&nbsp;: utilisez un éditeur dédié comme
+            <a href="https://dillinger.io/" target="_blank" rel="noopener">Dillinger</a>
+            ou <a href="https://stackedit.io/app" target="_blank" rel="noopener">StackEdit</a> pour vous aider.
+            Le contenu sera stocké en Markdown et lié à votre contribution.
+          </small>
+        </div>
+
+        <div class="form-row contrib-step-4 official-link-card">
+          <label for="contrib-official-url">🔗 Lien officiel du projet (optionnel)</label>
+          <input type="url" id="contrib-official-url" name="official_url" placeholder="https://..." />
+          <small>Un unique lien officiel vers la page du projet (quelle que soit la catégorie).</small>
+        </div>
+
+        <div class="contrib-step-4" id="contrib-docs">
+          <div class="contrib-docs-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div class="contrib-docs-title" style="font-size:1.1rem;font-weight:600;display:flex;align-items:center;gap:8px;">
+              <span>📄</span>
+              <span>Documents liés</span>
+            </div>
+            <button type="button" id="contrib-doc-add" class="btn-secondary btn-small">
+              <i class="fa-solid fa-plus"></i>
+              <span>Ajouter un document</span>
+            </button>
+          </div>
+          <div id="contrib-existing-docs" class="contrib-existing-docs" aria-live="polite"></div>
+          <fieldset id="contrib-docs-fieldset" style="border:none;padding:0;margin:0;"></fieldset>
+        </div>
+      </form>
+    </div>
+    <footer class="gp-modal-footer">
+      <div class="gp-modal-footer-left">
+        <button type="button" id="contrib-prev" class="btn-secondary">
+          <i class="fa-solid fa-arrow-left"></i>
+          <span>Précédent</span>
+        </button>
+      </div>
+      <div class="gp-modal-footer-right">
+        <button type="button" id="contrib-next" class="btn-primary">
+          <span>Suivant</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+        <button type="submit" form="contrib-form" id="contrib-submit" class="btn-primary" style="display:none;">
+          <i class="fa-solid fa-check"></i>
+          <span>Enregistrer</span>
+        </button>
+      </div>
+    </footer>
+  </div>
+</div>

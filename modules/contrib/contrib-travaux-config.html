@@ -1,173 +1,419 @@
-<!-- Travaux Configuration Section - Version simplifiée -->
-<div id="travaux-config-section" style="display:none; margin-top:32px; padding-top:32px; border-top:2px solid var(--border-light);">
+<!-- Travaux Configuration Section - Design avec couleur info (bleu) -->
+<div id="travaux-config-section" class="travaux-config-section">
   
-  <!-- Header avec collapse toggle -->
-  <div id="travaux-config-header" style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; background:var(--gray-50); border-radius:12px; border:1px solid var(--border-light); cursor:pointer; transition:all 0.2s; margin-bottom:16px;">
-    <div style="display:flex; align-items:center; gap:12px;">
-      <div style="width:40px; height:40px; display:flex; align-items:center; justify-content:center; background:var(--warning-alpha-15); border-radius:10px;">
-        <i class="fa-solid fa-helmet-safety" style="color:var(--warning); font-size:20px;"></i>
+  <!-- Header avec toggle intégré -->
+  <div id="travaux-config-header" class="travaux-config-header">
+    <div class="travaux-header-left">
+      <div class="travaux-icon-badge">
+        <i class="fa-solid fa-helmet-safety"></i>
       </div>
-      <div>
-        <h3 style="margin:0; font-size:16px; font-weight:700; color:var(--text-primary);">Travaux</h3>
-        <small style="font-size:12px; color:var(--text-secondary);">Configuration</small>
+      <div class="travaux-header-text">
+        <h3>Travaux & Chantiers</h3>
+        <span id="travaux-status-text" class="travaux-status-badge">Désactivé</span>
       </div>
     </div>
-    <i id="travaux-collapse-icon" class="fa-solid fa-chevron-down" style="color:var(--text-tertiary); font-size:16px; transition:transform 0.3s;"></i>
+    
+    <div class="travaux-header-right">
+      <!-- Toggle utilisant le composant existant filter-switch -->
+      <label class="filter-switch travaux-toggle" title="Activer/Désactiver les travaux">
+        <input type="checkbox" id="travaux-enabled-toggle">
+        <span class="switch-slider"></span>
+      </label>
+      
+      <!-- Chevron pour expand/collapse -->
+      <button type="button" id="travaux-expand-btn" class="btn-secondary btn-icon" aria-label="Développer les options">
+        <i id="travaux-collapse-icon" class="fa-solid fa-chevron-down"></i>
+      </button>
+    </div>
   </div>
 
   <!-- Contenu collapsible -->
-  <div id="travaux-config-content" style="display:none; background:var(--white); padding:24px; border-radius:12px; border:1px solid var(--border-light); box-shadow:0 2px 8px var(--black-alpha-05);">
+  <div id="travaux-config-content" class="travaux-config-content">
     
-    <!-- Activation avec Toggle Knob -->
-    <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; background:var(--gray-50); border-radius:10px; margin-bottom:24px;">
-      <div style="display:flex; align-items:center; gap:12px;">
-        <i class="fa-solid fa-power-off" style="color:var(--text-secondary); font-size:18px;"></i>
-        <div>
-          <div style="font-weight:600; color:var(--text-primary); font-size:14px;">Activation</div>
-          <small id="travaux-status-text" style="color:var(--text-tertiary); font-size:12px;">Catégorie désactivée</small>
-        </div>
-      </div>
-      
-      <!-- Toggle Knob -->
-      <label class="travaux-toggle-knob" style="position:relative; display:inline-block; width:52px; height:28px; cursor:pointer;">
-        <input type="checkbox" id="travaux-enabled-toggle" style="opacity:0; width:0; height:0;">
-        <span class="travaux-toggle-slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:var(--gray-300); border-radius:28px; transition:all 0.3s; box-shadow:inset 0 2px 4px var(--black-alpha-10);"></span>
-        <span class="travaux-toggle-knob-circle" style="position:absolute; content:''; height:22px; width:22px; left:3px; bottom:3px; background:var(--white); border-radius:50%; transition:all 0.3s; box-shadow:0 2px 4px var(--black-alpha-15);"></span>
-      </label>
-    </div>
-
-    <!-- Contenu étendu (affiché seulement si activé) -->
-    <div id="travaux-extended-content" style="display:none;">
-
     <!-- Source des données -->
-    <div style="margin-bottom:24px;">
-      <label style="display:block; font-size:13px; font-weight:600; color:var(--text-secondary); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">
-        Source des données
+    <div class="filter-group">
+      <label>
+        <i class="fa-solid fa-database"></i>
+        <span>Source des données</span>
       </label>
-      <div style="display:flex; flex-direction:column; gap:12px;">
-        <label style="display:flex; align-items:start; gap:12px; cursor:pointer; padding:16px; border:2px solid var(--border-light); border-radius:8px; background:var(--white); transition:all 0.2s;">
-          <input type="radio" name="travaux-source" value="url" id="travaux-source-url" style="width:18px; height:18px; cursor:pointer; margin-top:2px;" />
-          <div style="flex:1;">
-            <div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">URL externe (lecture seule)</div>
-            <small style="color:var(--text-secondary); font-size:12px;">Les données viennent d'une URL GeoJSON. Pas de bouton "Ajouter".</small>
+      <div class="travaux-source-options">
+        <label class="travaux-source-option" data-source="city_travaux">
+          <input type="radio" name="travaux-source" value="city_travaux" id="travaux-source-db" checked>
+          <div class="travaux-source-content">
+            <i class="fa-solid fa-pen-to-square"></i>
+            <div>
+              <strong>Base de données</strong>
+              <small>Création et modification des chantiers</small>
+            </div>
           </div>
         </label>
-        <label style="display:flex; align-items:start; gap:12px; cursor:pointer; padding:16px; border:2px solid var(--border-light); border-radius:8px; background:var(--white); transition:all 0.2s;">
-          <input type="radio" name="travaux-source" value="city_travaux" id="travaux-source-db" style="width:18px; height:18px; cursor:pointer; margin-top:2px;" checked />
-          <div style="flex:1;">
-            <div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">Base de données city_travaux (éditable)</div>
-            <small style="color:var(--text-secondary); font-size:12px;">Les admins peuvent créer et modifier les chantiers.</small>
+        <label class="travaux-source-option" data-source="url">
+          <input type="radio" name="travaux-source" value="url" id="travaux-source-url">
+          <div class="travaux-source-content">
+            <i class="fa-solid fa-link"></i>
+            <div>
+              <strong>URL externe</strong>
+              <small>Lecture seule depuis GeoJSON</small>
+            </div>
           </div>
         </label>
       </div>
     </div>
 
     <!-- URL (conditionnel) -->
-    <div id="travaux-url-field" style="display:none; margin-bottom:24px;">
-      <label for="travaux-url" style="display:block; font-size:13px; font-weight:600; color:var(--text-secondary); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
-        URL du GeoJSON
+    <div id="travaux-url-field" class="filter-group travaux-url-field">
+      <label for="travaux-url">
+        <i class="fa-solid fa-globe"></i>
+        <span>URL du GeoJSON</span>
       </label>
-      <div style="display:flex; gap:8px; align-items:center;">
-        <input type="url" id="travaux-url" placeholder="https://data.grandlyon.com/..." 
-               style="flex:1; padding:12px 16px; border:1px solid var(--border-light); border-radius:8px; font-size:14px; font-family:monospace; background:var(--white);" />
-        <i class="fa-solid fa-link" style="color:var(--text-tertiary); font-size:18px;"></i>
-      </div>
-      <small style="display:block; margin-top:6px; font-size:12px; color:var(--text-tertiary);">
-        <i class="fa-solid fa-circle-info"></i> Cette URL sera utilisée pour charger les données
-      </small>
+      <input type="url" id="travaux-url" placeholder="https://data.grandlyon.com/...">
     </div>
 
     <!-- Affichage -->
-    <div style="margin-bottom:24px; padding-top:24px; border-top:1px solid var(--border-light);">
-      <h4 style="margin:0 0 16px 0; font-size:14px; font-weight:600; color:var(--text-primary);">
-        <i class="fa-solid fa-palette"></i> Affichage
-      </h4>
-      
-      <div style="display:grid; grid-template-columns:1fr 120px; gap:16px;">
-        <!-- Icône -->
-        <div>
-          <label for="travaux-icon" style="display:block; font-size:12px; font-weight:600; color:var(--text-secondary); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
-            Icône
-          </label>
-          <div style="display:flex; gap:8px; align-items:stretch;">
-            <input type="text" id="travaux-icon" value="fa-solid fa-helmet-safety" readonly
-                   style="flex:1; padding:10px 12px; border:1px solid var(--border-light); border-radius:8px; font-size:13px; font-family:monospace; background:var(--gray-50); color:var(--text-secondary); cursor:pointer;" />
-            <div id="travaux-icon-preview" style="width:56px; height:48px; display:flex; align-items:center; justify-content:center; border:2px solid var(--border-light); border-radius:8px; background:var(--white); font-size:24px; transition:all 0.2s; box-shadow:0 2px 8px var(--black-alpha-08);">
-              <i class="fa-solid fa-helmet-safety" style="color:var(--text-primary);"></i>
-            </div>
-            <button type="button" id="travaux-icon-picker-btn" class="btn-secondary" 
-                    style="white-space:nowrap; padding:10px 20px; border-radius:8px; font-weight:600; display:flex; align-items:center; gap:8px;">
-              <i class="fa-solid fa-icons"></i> Choisir
-            </button>
+    <div class="travaux-field-row">
+      <div class="filter-group">
+        <label for="travaux-icon">
+          <i class="fa-solid fa-icons"></i>
+          <span>Icône</span>
+        </label>
+        <div class="travaux-icon-picker">
+          <div id="travaux-icon-preview" class="travaux-icon-preview">
+            <i class="fa-solid fa-helmet-safety"></i>
           </div>
+          <input type="text" id="travaux-icon" value="fa-solid fa-helmet-safety" readonly>
+          <button type="button" id="travaux-icon-picker-btn" class="btn-secondary btn-small">
+            <i class="fa-solid fa-palette"></i>
+          </button>
         </div>
+      </div>
 
-        <!-- Ordre -->
-        <div>
-          <label for="travaux-order" style="display:block; font-size:12px; font-weight:600; color:var(--text-secondary); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
-            Ordre
-          </label>
-          <input type="number" id="travaux-order" value="5" min="0" step="1" 
-                 style="width:100%; padding:10px 12px; border:1px solid var(--border-light); border-radius:8px; font-size:14px; text-align:center; background:var(--white);" />
-        </div>
+      <div class="filter-group">
+        <label for="travaux-order">
+          <i class="fa-solid fa-sort"></i>
+          <span>Ordre</span>
+        </label>
+        <input type="number" id="travaux-order" value="5" min="0" step="1" class="travaux-input-number">
       </div>
     </div>
 
     <!-- Layers associés -->
-    <div style="margin-bottom:24px; padding-top:24px; border-top:1px solid var(--border-light);">
-      <label style="display:block; font-size:13px; font-weight:600; color:var(--text-secondary); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">
-        <i class="fa-solid fa-layer-group"></i> Layers à afficher (optionnel)
+    <div class="filter-group">
+      <label>
+        <i class="fa-solid fa-layer-group"></i>
+        <span>Layers associés</span>
+        <span class="travaux-field-optional">(optionnel)</span>
       </label>
-      <div id="travaux-layers-checkboxes" style="display:flex; flex-wrap:wrap; gap:8px; padding:12px; border:1px solid var(--border-light); border-radius:8px; background:var(--gray-50); min-height:60px;">
+      <div id="travaux-layers-checkboxes" class="travaux-layers-grid">
         <!-- Checkboxes peuplées dynamiquement -->
       </div>
-      <small style="display:block; margin-top:8px; font-size:12px; color:var(--text-tertiary);">
-        <i class="fa-solid fa-circle-info"></i> Sélectionnez les layers qui s'afficheront sur la carte au clic sur le menu Travaux. (Optionnel - les travaux peuvent fonctionner sans layer externe)
-      </small>
     </div>
 
-    <!-- Actions -->
-    <div style="display:flex; justify-content:flex-end; gap:12px; padding-top:20px; border-top:1px solid var(--border-light);">
-      <button type="button" id="travaux-config-save" class="btn-primary" style="padding:12px 24px; font-weight:600;">
-        <i class="fa-solid fa-floppy-disk"></i> Enregistrer
-      </button>
+    <!-- Status de sauvegarde -->
+    <div id="travaux-config-status" class="travaux-save-status">
+      <i class="fa-solid fa-circle-check"></i>
+      <span>Modifications enregistrées automatiquement</span>
     </div>
-    
-    </div><!-- Fin travaux-extended-content -->
-  </div><!-- Fin travaux-config-content -->
-
-  <!-- Statut -->
-  <div id="travaux-config-status" style="display:none; margin-top:16px; padding:12px 16px; border-radius:8px; font-size:14px;"></div>
+  </div>
 </div>
 
-<!-- Styles pour le Toggle Knob -->
+<!-- Styles pour le module Travaux (couleur info = bleu) -->
 <style>
-#travaux-enabled-toggle:checked + .travaux-toggle-slider {
-  background: var(--primary);
+/* Section container */
+.travaux-config-section {
+  display: none;
+  margin-top: 24px;
 }
 
-#travaux-enabled-toggle:checked + .travaux-toggle-slider + .travaux-toggle-knob-circle {
-  transform: translateX(24px);
+/* Header avec toggle intégré */
+.travaux-config-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--info-alpha-05);
+  border-radius: 12px;
+  border: 1px solid var(--info-alpha-15);
+  transition: all 0.2s ease;
 }
 
-#travaux-enabled-toggle:focus + .travaux-toggle-slider {
-  box-shadow: 0 0 0 3px var(--primary-alpha-2);
+.travaux-config-header:hover {
+  border-color: var(--info-alpha-25);
 }
 
-.travaux-toggle-knob:hover .travaux-toggle-slider {
-  opacity: 0.9;
+.travaux-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
-#travaux-config-header:hover {
-  background: var(--gray-100);
-  border-color: var(--border);
+/* Badge icône avec couleur info (bleu) */
+.travaux-icon-badge {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--info);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px var(--info-alpha-25);
 }
 
-#travaux-config-header.collapsed #travaux-collapse-icon {
-  transform: rotate(0deg);
+.travaux-icon-badge i {
+  color: white;
+  font-size: 20px;
 }
 
-#travaux-config-header:not(.collapsed) #travaux-collapse-icon {
+.travaux-header-text h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.travaux-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: 20px;
+  background: var(--gray-200);
+  color: var(--text-tertiary);
+  transition: all 0.3s ease;
+}
+
+.travaux-status-badge.is-active {
+  background: var(--info-alpha-15);
+  color: var(--info);
+}
+
+.travaux-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Override toggle pour utiliser info au lieu de primary */
+.travaux-toggle.filter-switch {
+  padding: 0;
+  background: transparent;
+}
+
+.travaux-toggle input:checked ~ .switch-slider {
+  background: var(--info);
+}
+
+/* Bouton expand */
+.travaux-config-header .btn-icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.travaux-config-header .btn-icon i {
+  transition: transform 0.3s ease;
+}
+
+.travaux-config-header .btn-icon.is-expanded i {
   transform: rotate(180deg);
+}
+
+/* Contenu collapsible */
+.travaux-config-content {
+  display: none;
+  padding: 20px;
+  margin-top: 12px;
+  background: var(--white);
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+  animation: travaux-slideDown 0.3s ease;
+}
+
+@keyframes travaux-slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Override filter-group pour utiliser info */
+.travaux-config-content .filter-group label i {
+  color: var(--info);
+}
+
+.travaux-config-content .filter-group select:focus,
+.travaux-config-content .filter-group input:focus {
+  border-color: var(--info);
+  box-shadow: 0 0 0 3px var(--info-alpha-15);
+}
+
+.travaux-field-optional {
+  font-weight: 400;
+  text-transform: none;
+  color: var(--text-tertiary);
+}
+
+/* Source options avec couleur info */
+.travaux-source-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.travaux-source-option {
+  position: relative;
+  cursor: pointer;
+}
+
+.travaux-source-option input {
+  position: absolute;
+  opacity: 0;
+}
+
+.travaux-source-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 2px solid var(--border-light);
+  border-radius: 10px;
+  background: var(--white);
+  transition: all 0.2s ease;
+}
+
+.travaux-source-content i {
+  font-size: 20px;
+  color: var(--text-tertiary);
+  transition: color 0.2s ease;
+}
+
+.travaux-source-content strong {
+  display: block;
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.travaux-source-content small {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.travaux-source-option input:checked + .travaux-source-content {
+  border-color: var(--info);
+  background: var(--info-alpha-05);
+}
+
+.travaux-source-option input:checked + .travaux-source-content i {
+  color: var(--info);
+}
+
+.travaux-source-option:hover .travaux-source-content {
+  border-color: var(--border-medium);
+}
+
+/* URL field conditionnel */
+.travaux-url-field {
+  display: none;
+}
+
+.travaux-url-field.is-visible {
+  display: flex;
+}
+
+/* Field row */
+.travaux-field-row {
+  display: grid;
+  grid-template-columns: 1fr 100px;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* Icon picker */
+.travaux-icon-picker {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.travaux-icon-preview {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--info-alpha-10);
+  border: 2px solid var(--info-alpha-20);
+  border-radius: 10px;
+  font-size: 22px;
+  color: var(--info);
+  flex-shrink: 0;
+}
+
+.travaux-icon-picker input {
+  flex: 1;
+  font-family: monospace;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 12px;
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  background: var(--surface-base);
+}
+
+.travaux-input-number {
+  text-align: center;
+  font-weight: 600;
+  padding: 12px;
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  background: var(--surface-base);
+}
+
+/* Layers grid */
+.travaux-layers-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  background: var(--surface-base);
+  min-height: 50px;
+}
+
+/* Save status avec couleur info */
+.travaux-save-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--info);
+  background: var(--info-alpha-10);
+  border-radius: 8px;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: all 0.3s ease;
+}
+
+.travaux-save-status.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.travaux-save-status.is-error {
+  color: var(--danger);
+  background: var(--danger-alpha-10);
+}
+
+.travaux-save-status.is-saving {
+  color: var(--info);
+  background: var(--info-alpha-10);
 }
 </style>

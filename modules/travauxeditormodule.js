@@ -143,6 +143,50 @@ const TravauxEditorModule = (() => {
     if (cancelBtn) cancelBtn.addEventListener('click', cancelDrawing);
   }
   
+  // Icône par défaut pour les travaux
+  const DEFAULT_TRAVAUX_ICON = 'fa-solid fa-helmet-safety';
+  
+  // Preset d'icônes travaux pour le sélecteur rapide
+  const TRAVAUX_ICON_PRESETS = [
+    { icon: 'fa-solid fa-helmet-safety', label: 'Casque' },
+    { icon: 'fa-solid fa-road-barrier', label: 'Barrière' },
+    { icon: 'fa-solid fa-triangle-exclamation', label: 'Attention' },
+    { icon: 'fa-solid fa-hammer', label: 'Marteau' },
+    { icon: 'fa-solid fa-wrench', label: 'Clé' },
+    { icon: 'fa-solid fa-truck-pickup', label: 'Camion' },
+    { icon: 'fa-solid fa-trowel', label: 'Truelle' },
+    { icon: 'fa-solid fa-gears', label: 'Engrenages' },
+    { icon: 'fa-solid fa-plug', label: 'Électricité' },
+    { icon: 'fa-solid fa-droplet', label: 'Eau' },
+    { icon: 'fa-solid fa-fire-flame-simple', label: 'Gaz' },
+    { icon: 'fa-solid fa-tree', label: 'Espaces verts' }
+  ];
+  
+  /**
+   * Crée l'icône marker travaux avec le même design que les markers enregistrés
+   * Utilise le système unifié gp-custom-marker avec icône personnalisable et couleur warning
+   * @param {string} iconClass - Classe FontAwesome de l'icône (optionnel, défaut: casque)
+   */
+  function createTravauxMarkerIcon(iconClass = DEFAULT_TRAVAUX_ICON) {
+    // Normaliser l'icône
+    let finalIcon = iconClass || DEFAULT_TRAVAUX_ICON;
+    if (!finalIcon.includes('fa-solid') && !finalIcon.includes('fa-regular') && !finalIcon.includes('fa-brands')) {
+      finalIcon = `fa-solid ${finalIcon}`;
+    }
+    
+    return L.divIcon({
+      html: `
+        <div class="gp-custom-marker" style="--marker-color: var(--color-warning);">
+          <i class="${finalIcon}"></i>
+        </div>
+      `,
+      className: 'gp-marker-container',
+      iconSize: [32, 40],
+      iconAnchor: [16, 40],
+      popupAnchor: [0, -40]
+    });
+  }
+  
   /**
    * Active un outil de dessin spécifique
    */
@@ -151,13 +195,8 @@ const TravauxEditorModule = (() => {
     
     const map = window.MapModule.map;
     
-    // Créer un marker CSS personnalisé
-    const customMarkerIcon = L.divIcon({
-      className: 'travaux-marker',
-      iconSize: [32, 40],
-      iconAnchor: [16, 40],
-      popupAnchor: [0, -40]
-    });
+    // Utiliser le marker travaux avec le même design que les markers enregistrés
+    const customMarkerIcon = createTravauxMarkerIcon();
     
     // Options de dessin par défaut
     const drawOptions = {
@@ -197,15 +236,9 @@ const TravauxEditorModule = (() => {
   function handleDrawCreated(e) {
     const layer = e.layer;
     
-    // Si c'est un marker, appliquer l'icône personnalisée
+    // Si c'est un marker, appliquer l'icône travaux unifiée
     if (layer instanceof L.Marker) {
-      const customMarkerIcon = L.divIcon({
-        className: 'travaux-marker',
-        iconSize: [32, 40],
-        iconAnchor: [16, 40],
-        popupAnchor: [0, -40]
-      });
-      layer.setIcon(customMarkerIcon);
+      layer.setIcon(createTravauxMarkerIcon());
     }
     
     drawnItems.addLayer(layer);
@@ -349,6 +382,120 @@ const TravauxEditorModule = (() => {
   }
   
   /**
+   * Initialise le sélecteur d'icône avec presets et picker
+   * @param {HTMLElement} overlay - L'overlay du modal
+   */
+  function initIconSelector(overlay) {
+    const iconInput = overlay.querySelector('#travaux-icon');
+    const previewIcon = overlay.querySelector('#travaux-icon-preview-icon');
+    const presetsContainer = overlay.querySelector('#travaux-icon-presets-container');
+    const openPickerBtn = overlay.querySelector('#travaux-open-icon-picker');
+    
+    if (!iconInput || !previewIcon || !presetsContainer) return;
+    
+    // Fonction pour mettre à jour la preview
+    function updatePreview(iconClass) {
+      iconInput.value = iconClass;
+      previewIcon.className = iconClass;
+      
+      // Mettre à jour l'état actif des presets
+      presetsContainer.querySelectorAll('.travaux-icon-preset').forEach(btn => {
+        btn.classList.toggle('travaux-icon-preset--active', btn.dataset.icon === iconClass);
+      });
+    }
+    
+    // Générer les boutons presets
+    presetsContainer.innerHTML = TRAVAUX_ICON_PRESETS.map(preset => `
+      <button type="button" 
+        class="travaux-icon-preset ${preset.icon === DEFAULT_TRAVAUX_ICON ? 'travaux-icon-preset--active' : ''}" 
+        data-icon="${preset.icon}" 
+        title="${preset.label}">
+        <i class="${preset.icon}"></i>
+      </button>
+    `).join('');
+    
+    // Event listeners pour les presets
+    presetsContainer.querySelectorAll('.travaux-icon-preset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        updatePreview(btn.dataset.icon);
+      });
+    });
+    
+    // Bouton pour ouvrir le picker complet
+    if (openPickerBtn && window.GPIconPicker) {
+      openPickerBtn.addEventListener('click', () => {
+        window.GPIconPicker.open(iconInput, (selectedIcon) => {
+          updatePreview(selectedIcon);
+        });
+      });
+    }
+    
+    // Écouter les changements sur l'input (depuis le picker)
+    iconInput.addEventListener('change', () => {
+      updatePreview(iconInput.value);
+    });
+  }
+  
+  /**
+   * Initialise le sélecteur d'icône pour le mode édition
+   * @param {HTMLElement} overlay - L'overlay du modal
+   * @param {string} currentIcon - L'icône actuelle du chantier
+   */
+  function initIconSelectorEdit(overlay, currentIcon) {
+    const iconInput = overlay.querySelector('#travaux-icon-edit');
+    const previewIcon = overlay.querySelector('#travaux-icon-preview-icon-edit');
+    const presetsContainer = overlay.querySelector('#travaux-icon-presets-container-edit');
+    const openPickerBtn = overlay.querySelector('#travaux-open-icon-picker-edit');
+    
+    if (!iconInput || !previewIcon || !presetsContainer) return;
+    
+    // Fonction pour mettre à jour la preview
+    function updatePreview(iconClass) {
+      iconInput.value = iconClass;
+      previewIcon.className = iconClass;
+      
+      // Mettre à jour l'état actif des presets
+      presetsContainer.querySelectorAll('.travaux-icon-preset').forEach(btn => {
+        btn.classList.toggle('travaux-icon-preset--active', btn.dataset.icon === iconClass);
+      });
+    }
+    
+    // Générer les boutons presets
+    presetsContainer.innerHTML = TRAVAUX_ICON_PRESETS.map(preset => `
+      <button type="button" 
+        class="travaux-icon-preset ${preset.icon === currentIcon ? 'travaux-icon-preset--active' : ''}" 
+        data-icon="${preset.icon}" 
+        title="${preset.label}">
+        <i class="${preset.icon}"></i>
+      </button>
+    `).join('');
+    
+    // Pré-remplir avec l'icône actuelle
+    updatePreview(currentIcon);
+    
+    // Event listeners pour les presets
+    presetsContainer.querySelectorAll('.travaux-icon-preset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        updatePreview(btn.dataset.icon);
+      });
+    });
+    
+    // Bouton pour ouvrir le picker complet
+    if (openPickerBtn && window.GPIconPicker) {
+      openPickerBtn.addEventListener('click', () => {
+        window.GPIconPicker.open(iconInput, (selectedIcon) => {
+          updatePreview(selectedIcon);
+        });
+      });
+    }
+    
+    // Écouter les changements sur l'input (depuis le picker)
+    iconInput.addEventListener('change', () => {
+      updatePreview(iconInput.value);
+    });
+  }
+  
+  /**
    * Affiche la modale de formulaire (ÉTAPE 2)
    */
   function showFormModal() {
@@ -434,6 +581,42 @@ const TravauxEditorModule = (() => {
                       <option value="Ouvert">🔴 En cours</option>
                       <option value="Terminé">🟢 Terminé</option>
                     </select>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Icône du marqueur -->
+              <div class="form-section">
+                <h3 class="form-section-title">
+                  <i class="fa-solid fa-icons"></i>
+                  Icône du marqueur
+                </h3>
+                <div class="form-field">
+                  <label class="form-label">
+                    <span class="label-text">Choisissez une icône pour identifier ce chantier sur la carte</span>
+                  </label>
+                  
+                  <!-- Input caché pour stocker l'icône -->
+                  <input type="hidden" id="travaux-icon" name="icon" value="fa-solid fa-helmet-safety">
+                  
+                  <!-- Prévisualisation + Presets -->
+                  <div class="travaux-icon-selector">
+                    <!-- Preview du marker -->
+                    <div class="travaux-icon-preview">
+                      <div class="gp-custom-marker" style="--marker-color: var(--color-warning);">
+                        <i id="travaux-icon-preview-icon" class="fa-solid fa-helmet-safety"></i>
+                      </div>
+                      <span class="travaux-icon-preview-label">Aperçu</span>
+                    </div>
+                    
+                    <!-- Presets rapides -->
+                    <div class="travaux-icon-presets" id="travaux-icon-presets-container"></div>
+                    
+                    <!-- Bouton pour ouvrir le picker complet -->
+                    <button type="button" class="btn-secondary btn-small" id="travaux-open-icon-picker">
+                      <i class="fa-solid fa-ellipsis"></i>
+                      Plus d'icônes
+                    </button>
                   </div>
                 </div>
               </div>
@@ -547,6 +730,9 @@ const TravauxEditorModule = (() => {
           currentFeatures = [];
         }
       });
+      
+      // ===== SÉLECTEUR D'ICÔNE =====
+      initIconSelector(overlay);
     }
     
     // Ouvrir avec ModalHelper
@@ -596,7 +782,8 @@ const TravauxEditorModule = (() => {
         date_debut: formData.get('date_debut') || null,
         date_fin: formData.get('date_fin') || null,
         localisation: formData.get('localisation') || '',
-        description: formData.get('description') || ''
+        description: formData.get('description') || '',
+        icon: formData.get('icon') || DEFAULT_TRAVAUX_ICON
       };
       
       // Validation
@@ -638,6 +825,7 @@ const TravauxEditorModule = (() => {
         date_fin: data.date_fin,
         localisation: data.localisation,
         description: data.description,
+        icon: data.icon,
         approved: true // Admin peut publier directement
       };
       
@@ -823,6 +1011,42 @@ const TravauxEditorModule = (() => {
                 </div>
               </div>
               
+              <!-- Icône du marqueur -->
+              <div class="form-section">
+                <h3 class="form-section-title">
+                  <i class="fa-solid fa-icons"></i>
+                  Icône du marqueur
+                </h3>
+                <div class="form-field">
+                  <label class="form-label">
+                    <span class="label-text">Choisissez une icône pour identifier ce chantier sur la carte</span>
+                  </label>
+                  
+                  <!-- Input caché pour stocker l'icône -->
+                  <input type="hidden" id="travaux-icon-edit" name="icon" value="fa-solid fa-helmet-safety">
+                  
+                  <!-- Prévisualisation + Presets -->
+                  <div class="travaux-icon-selector">
+                    <!-- Preview du marker -->
+                    <div class="travaux-icon-preview">
+                      <div class="gp-custom-marker" style="--marker-color: var(--color-warning);">
+                        <i id="travaux-icon-preview-icon-edit" class="fa-solid fa-helmet-safety"></i>
+                      </div>
+                      <span class="travaux-icon-preview-label">Aperçu</span>
+                    </div>
+                    
+                    <!-- Presets rapides -->
+                    <div class="travaux-icon-presets" id="travaux-icon-presets-container-edit"></div>
+                    
+                    <!-- Bouton pour ouvrir le picker complet -->
+                    <button type="button" class="btn-secondary btn-small" id="travaux-open-icon-picker-edit">
+                      <i class="fa-solid fa-ellipsis"></i>
+                      Plus d'icônes
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
               <!-- Période -->
               <div class="form-section">
                 <h3 class="form-section-title">
@@ -942,6 +1166,9 @@ const TravauxEditorModule = (() => {
       form.querySelector('#travaux-description').value = chantier.description || '';
     }
     
+    // Initialiser le sélecteur d'icône pour le mode édition
+    initIconSelectorEdit(overlay, chantier.icon || DEFAULT_TRAVAUX_ICON);
+    
     // Ouvrir avec ModalHelper
     if (window.ModalHelper) {
       window.ModalHelper.open('travaux-form-overlay', {
@@ -973,7 +1200,8 @@ const TravauxEditorModule = (() => {
         date_debut: formData.get('date_debut') || null,
         date_fin: formData.get('date_fin') || null,
         localisation: formData.get('localisation') || '',
-        description: formData.get('description') || ''
+        description: formData.get('description') || '',
+        icon: formData.get('icon') || DEFAULT_TRAVAUX_ICON
       };
       
       // Validation

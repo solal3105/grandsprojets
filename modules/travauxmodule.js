@@ -253,56 +253,59 @@ const TravauxModule = (() => {
     } catch (_) { /* noop */ }
 
     const travauxData = DataModule.layerData && DataModule.layerData[layerToLoad];
-    if (!travauxData || !travauxData.features || travauxData.features.length === 0) {
+    const hasFeatures = travauxData && travauxData.features && travauxData.features.length > 0;
+    
+    if (!hasFeatures) {
       if (projectListEl) {
         projectListEl.innerHTML = '';
         const li = document.createElement('li');
         li.textContent = 'Aucun chantier travaux à afficher.';
         projectListEl.appendChild(li);
       }
-      return;
+      // NE PAS return ici - on doit quand même afficher le bouton "Ajouter"
+      // pour permettre la création du premier chantier
     }
 
-    // --- Génération des valeurs uniques pour chaque filtre ---
-    const features = travauxData.features;
-    const getUniques = key => [...new Set(features.map(f => f.properties[key]).filter(Boolean))].sort();
+    // --- Génération des valeurs uniques pour chaque filtre (seulement si données) ---
+    const features = hasFeatures ? travauxData.features : [];
     
-    // Calcul du tri par nombre d'occurrences décroissant puis alphabétique
-    const natureCounts = {};
-    features.forEach(f => {
-      const n = f.properties.nature_travaux;
-      if (n) natureCounts[n] = (natureCounts[n] || 0) + 1;
-    });
-    const natures = Object.keys(natureCounts)
-      .sort((a, b) => {
-        if (natureCounts[b] !== natureCounts[a]) {
-          return natureCounts[b] - natureCounts[a];
-        }
-        return a.localeCompare(b, 'fr');
-      });
-      
-    // Note: nature_chantier supprimé (doublon de nature_travaux)
-      
-    // Calcul du tri par nombre d'occurrences décroissant puis alphabétique pour commune
-    const communeCounts = {};
-    features.forEach(f => {
-      const c = f.properties.commune;
-      if (c) communeCounts[c] = (communeCounts[c] || 0) + 1;
-    });
-    const communes = Object.keys(communeCounts)
-      .sort((a, b) => {
-        if (communeCounts[b] !== communeCounts[a]) {
-          return communeCounts[b] - communeCounts[a];
-        }
-        return a.localeCompare(b, 'fr');
-      });
-      
-    const etats = getUniques('etat');
+    let natures = [];
+    let natureCounts = {};
+    let communes = [];
+    let communeCounts = {};
+    let etats = [];
     
-    // Dates
-    const dateDebuts = features.map(f => f.properties.date_debut).filter(Boolean).sort();
-    const dateFins = features.map(f => f.properties.date_fin).filter(Boolean).sort();
-    const majDates = features.map(f => f.properties.last_update).filter(Boolean).sort();
+    if (hasFeatures) {
+      const getUniques = key => [...new Set(features.map(f => f.properties[key]).filter(Boolean))].sort();
+      
+      // Calcul du tri par nombre d'occurrences décroissant puis alphabétique
+      features.forEach(f => {
+        const n = f.properties.nature_travaux;
+        if (n) natureCounts[n] = (natureCounts[n] || 0) + 1;
+      });
+      natures = Object.keys(natureCounts)
+        .sort((a, b) => {
+          if (natureCounts[b] !== natureCounts[a]) {
+            return natureCounts[b] - natureCounts[a];
+          }
+          return a.localeCompare(b, 'fr');
+        });
+        
+      // Calcul du tri par nombre d'occurrences décroissant puis alphabétique pour commune
+      features.forEach(f => {
+        const c = f.properties.commune;
+        if (c) communeCounts[c] = (communeCounts[c] || 0) + 1;
+      });
+      communes = Object.keys(communeCounts)
+        .sort((a, b) => {
+          if (communeCounts[b] !== communeCounts[a]) {
+            return communeCounts[b] - communeCounts[a];
+          }
+          return a.localeCompare(b, 'fr');
+        });
+        
+      etats = getUniques('etat');
+    }
 
     // --- Filtres ultra-clean ---
     const filterUX = document.createElement('section');
@@ -316,6 +319,7 @@ const TravauxModule = (() => {
         </button>
       </div>
       
+      ${hasFeatures ? `
       <!-- Header -->
       <div class="filters-header">
         <h3 class="filters-title">Filtres</h3>
@@ -395,6 +399,7 @@ const TravauxModule = (() => {
         </button>
         
       </form>
+      ` : ''}
     `;
     
     // Remplacer l'ancien container par le nouveau
@@ -406,18 +411,28 @@ const TravauxModule = (() => {
     // Gestionnaire pour la card "Ajouter un chantier" (après insertion du filterUX dans le DOM)
     const addCard = filterUX.querySelector('.travaux-add-card');
     if (addCard) {
+      // Récupérer la ville active
+      const activeCity = (typeof window.getActiveCity === 'function') 
+        ? window.getActiveCity() 
+        : (window.activeCity || null);
+      
       // Déterminer si les données sont éditables via travaux_config
-      let isEditableSource = false;
+      // Par défaut, si pas de config = éditable (city_travaux implicite)
+      // Non éditable SEULEMENT si source_type === 'url' explicitement
+      let isEditableSource = true;
       
       try {
         const config = await window.supabaseService?.getTravauxConfig(activeCity);
-        isEditableSource = config?.source_type === 'city_travaux';
+        // Seul cas non éditable : source explicitement définie comme URL externe
+        if (config && config.source_type === 'url') {
+          isEditableSource = false;
+        }
       } catch (err) {
         console.warn('[TravauxModule] Erreur récupération config travaux:', err);
-        isEditableSource = false;
+        // En cas d'erreur, on laisse éditable par défaut
       }
       
-      // Si source non éditable, retirer la card
+      // Si source non éditable (URL externe), retirer la card
       if (!isEditableSource) {
         addCard.remove();
       } else {
@@ -455,7 +470,12 @@ const TravauxModule = (() => {
       }
     }
 
-    // Récupérer les éléments pour la logique JS
+    // Récupérer les éléments pour la logique JS (seulement si filtres présents)
+    if (!hasFeatures) {
+      // Pas de données = pas de filtres, on s'arrête ici
+      return;
+    }
+    
     const selectNature = filterUX.querySelector('#nature-select');
     const selectCommune = filterUX.querySelector('#commune-select');
     const selectEtat = filterUX.querySelector('#etat-select');
