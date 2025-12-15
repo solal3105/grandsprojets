@@ -6,7 +6,15 @@
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
   
   // Réutiliser le client existant s'il existe déjà
-  const supabaseClient = win.__supabaseClient || supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  // Configuration avec autoRefreshToken et persistSession pour éviter les déconnexions
+  const supabaseClient = win.__supabaseClient || supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: {
+      autoRefreshToken: true,      // Refresh automatique du token avant expiration
+      persistSession: true,        // Persister la session dans localStorage
+      detectSessionInUrl: true,    // Détecter les tokens dans l'URL (magic links)
+      storageKey: 'grandsprojets-auth'  // Clé unique pour le storage
+    }
+  });
   if (!win.__supabaseClient) {
     win.__supabaseClient = supabaseClient;
   }

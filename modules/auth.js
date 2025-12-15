@@ -11,22 +11,155 @@
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
   
   // Réutiliser le client existant s'il existe déjà
-  const client = win.__supabaseClient || supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  // Configuration identique à supabaseservice.js pour cohérence
+  const client = win.__supabaseClient || supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      storageKey: 'grandsprojets-auth'
+    }
+  });
   if (!win.__supabaseClient) {
     win.__supabaseClient = client;
   }
 
   // Cache pour la session (mis à jour par onAuthStateChange)
   let cachedSession = null;
+  let sessionCheckInterval = null;
   
   // Initialiser le cache avec la session actuelle
   client.auth.getSession().then(({ data }) => {
     cachedSession = data?.session || null;
+    // Démarrer la surveillance si une session existe
+    if (cachedSession) {
+      startSessionMonitoring();
+    }
   });
+  
+  /**
+   * Surveillance proactive de la session
+   * Vérifie toutes les 5 minutes si la session est valide et la rafraîchit si nécessaire
+   */
+  function startSessionMonitoring() {
+    // Éviter les doublons
+    if (sessionCheckInterval) return;
+    
+    const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+    
+    sessionCheckInterval = setInterval(async () => {
+      try {
+        const { data, error } = await client.auth.getSession();
+        
+        if (error || !data?.session) {
+          // Session invalide, tenter un refresh
+          console.log('[AuthModule] Session expirée détectée, tentative de refresh...');
+          const refreshResult = await client.auth.refreshSession();
+          
+          if (refreshResult.error || !refreshResult.data?.session) {
+            console.warn('[AuthModule] Refresh échoué, session perdue');
+            stopSessionMonitoring();
+            cachedSession = null;
+          } else {
+            console.log('[AuthModule] Session rafraîchie avec succès');
+            cachedSession = refreshResult.data.session;
+          }
+        } else {
+          // Session valide, vérifier si proche de l'expiration
+          const session = data.session;
+          const expiresAt = session.expires_at * 1000; // Convertir en ms
+          const now = Date.now();
+          const timeUntilExpiry = expiresAt - now;
+          
+          // Si moins de 10 minutes avant expiration, rafraîchir proactivement
+          if (timeUntilExpiry < 10 * 60 * 1000) {
+            console.log('[AuthModule] Session proche de l\'expiration, refresh proactif...');
+            const refreshResult = await client.auth.refreshSession();
+            if (refreshResult.data?.session) {
+              cachedSession = refreshResult.data.session;
+              console.log('[AuthModule] Refresh proactif réussi');
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[AuthModule] Erreur lors de la vérification de session:', err);
+      }
+    }, CHECK_INTERVAL);
+  }
+  
+  function stopSessionMonitoring() {
+    if (sessionCheckInterval) {
+      clearInterval(sessionCheckInterval);
+      sessionCheckInterval = null;
+    }
+  }
+  
+  /**
+   * Gestion de la reconnexion réseau
+   * Tente de rafraîchir la session quand la connexion revient
+   */
+  function setupNetworkListeners() {
+    if (typeof win.addEventListener !== 'function') return;
+    
+    // Quand la connexion revient
+    win.addEventListener('online', async () => {
+      if (cachedSession) {
+        console.log('[AuthModule] Connexion rétablie, vérification de la session...');
+        try {
+          const { data, error } = await client.auth.getSession();
+          if (error || !data?.session) {
+            // Tenter un refresh
+            const refreshResult = await client.auth.refreshSession();
+            if (refreshResult.data?.session) {
+              cachedSession = refreshResult.data.session;
+              console.log('[AuthModule] Session restaurée après reconnexion');
+            }
+          }
+        } catch (err) {
+          console.warn('[AuthModule] Erreur lors de la restauration de session:', err);
+        }
+      }
+    });
+    
+    // Quand l'onglet redevient visible (l'utilisateur revient sur la page)
+    document.addEventListener('visibilitychange', async () => {
+      if (document.visibilityState === 'visible' && cachedSession) {
+        try {
+          const { data } = await client.auth.getSession();
+          if (!data?.session) {
+            // Session perdue pendant l'absence, tenter un refresh
+            console.log('[AuthModule] Onglet redevenu visible, refresh de session...');
+            const refreshResult = await client.auth.refreshSession();
+            if (refreshResult.data?.session) {
+              cachedSession = refreshResult.data.session;
+            }
+          }
+        } catch (err) {
+          // Ignorer silencieusement
+        }
+      }
+    });
+  }
+  
+  // Initialiser les listeners réseau
+  setupNetworkListeners();
   
   // Écouter les changements pour maintenir le cache à jour
   client.auth.onAuthStateChange((event, session) => {
     cachedSession = session;
+    
+    // Gérer les différents événements
+    switch (event) {
+      case 'SIGNED_IN':
+      case 'TOKEN_REFRESHED':
+        // Démarrer/continuer la surveillance
+        startSessionMonitoring();
+        break;
+      case 'SIGNED_OUT':
+        // Arrêter la surveillance
+        stopSessionMonitoring();
+        break;
+    }
   });
 
   const AuthModule = {
