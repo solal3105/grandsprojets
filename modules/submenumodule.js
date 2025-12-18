@@ -261,11 +261,19 @@ const SubmenuModule = (() => {
     li.addEventListener('mouseenter', () => { 
       scheduleProgress(li);
       scheduleShowCover(li, project.project_name, category);
+      // Highlight sur la carte sans centrage
+      window.NavigationModule?.highlightProjectOnMap(project.project_name, category, { panTo: false });
     });
     
     li.addEventListener('mouseleave', () => { 
       cancelProgress(li);
       cancelShowCover(li);
+      // Nettoyer le highlight seulement si le panel de détail n'est pas ouvert
+      const detailPanel = document.getElementById('project-detail');
+      const isPanelVisible = detailPanel && detailPanel.style.display === 'block';
+      if (!isPanelVisible) {
+        window.NavigationModule?.clearProjectHighlight();
+      }
     });
 
     return li;

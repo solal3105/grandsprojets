@@ -74,46 +74,78 @@ const NavigationModule = (() => {
   // SYSTÈME DE HIGHLIGHT - Animation des projets sur la carte
   // ============================================================================
   
-  // Variable pour stocker les éléments à nettoyer
+  // État du highlight actuel
   let currentHighlight = {
-    layers: [],
-    intervals: [],
-    pulseElements: []
+    highlightedLayers: [],  // Features mises en avant (le projet cible)
+    dimmedLayers: [],       // Features mises en transparence (tous les autres)
+    intervals: [],          // Animations en cours
+    pulseElements: []       // Éléments DOM pulsants à nettoyer
   };
+
+  /**
+   * Applique un style "dimmed" à une feature
+   * @param {L.Layer} featureLayer 
+   */
+  function applyDimmedStyle(featureLayer) {
+    const geomType = featureLayer.feature?.geometry?.type || '';
+    const isPoint = geomType === 'Point' || geomType === 'MultiPoint';
+    
+    if (isPoint && featureLayer instanceof L.Marker) {
+      const el = featureLayer.getElement?.();
+      if (el) el.classList.add('is-dimmed');
+    } else if (typeof featureLayer.setStyle === 'function') {
+      // Sauvegarder le style actuel (défini en base)
+      if (!featureLayer.__gpOriginalStyle) {
+        featureLayer.__gpOriginalStyle = { ...featureLayer.options };
+      }
+      featureLayer.setStyle({ opacity: 0.25, fillOpacity: 0.1 });
+    }
+  }
+
+  /**
+   * Restaure le style original d'une feature
+   * @param {L.Layer} featureLayer 
+   */
+  function restoreStyle(featureLayer) {
+    const geomType = featureLayer.feature?.geometry?.type || '';
+    const isPoint = geomType === 'Point' || geomType === 'MultiPoint';
+    
+    if (isPoint && featureLayer instanceof L.Marker) {
+      const el = featureLayer.getElement?.();
+      if (el) {
+        el.classList.remove('is-dimmed');
+        el.classList.remove('is-highlighted');
+      }
+    } else if (typeof featureLayer.setStyle === 'function' && featureLayer.__gpOriginalStyle) {
+      featureLayer.setStyle(featureLayer.__gpOriginalStyle);
+      delete featureLayer.__gpOriginalStyle;
+    }
+  }
 
   /**
    * Nettoie tous les highlights précédents
    */
   function clearProjectHighlight() {
-    // Nettoyer les animations et styles
+    // Arrêter les animations
     currentHighlight.intervals.forEach(id => clearInterval(id));
     currentHighlight.intervals = [];
     
-    currentHighlight.layers.forEach(layer => {
+    // Restaurer les features highlightées
+    currentHighlight.highlightedLayers.forEach(layer => {
       try {
-        // Retirer le marqueur de highlight
         layer.__gpHighlighted = false;
-        
-        // Pour les markers - retirer les classes
-        if (layer instanceof L.Marker) {
-          const el = layer.getElement?.();
-          if (el) {
-            el.classList.remove('is-highlighted');
-          }
-        }
-        // Pour les lignes/polygones - restaurer le style original
-        if (typeof layer.setStyle === 'function' && layer.feature) {
-          const layerName = layer.feature?.properties?.category || '';
-          const originalStyle = window.DataModule?.getFeatureStyle?.(layer.feature, layerName) || {};
-          layer.setStyle({
-            ...originalStyle,
-            dashArray: null,
-            dashOffset: 0
-          });
-        }
+        restoreStyle(layer);
       } catch (_) {}
     });
-    currentHighlight.layers = [];
+    currentHighlight.highlightedLayers = [];
+    
+    // Restaurer les features dimmed
+    currentHighlight.dimmedLayers.forEach(layer => {
+      try {
+        restoreStyle(layer);
+      } catch (_) {}
+    });
+    currentHighlight.dimmedLayers = [];
     
     // Retirer les cercles pulsants
     currentHighlight.pulseElements.forEach(el => {
@@ -126,22 +158,24 @@ const NavigationModule = (() => {
    * Met en avant un projet sur la carte avec animation
    * @param {string} projectName - Nom du projet
    * @param {string} category - Catégorie du projet
+   * @param {Object} options - Options de highlight
+   * @param {boolean} options.panTo - Si true, centre la carte sur le projet (défaut: true)
    */
-  function highlightProjectOnMap(projectName, category) {
+  function highlightProjectOnMap(projectName, category, options = {}) {
+    const { panTo = true } = options;
+    
     // Nettoyer les highlights précédents
     clearProjectHighlight();
     
-    const layerName = normalizeCategoryName(category);
-    const mapLayer = window.MapModule?.layers?.[layerName];
+    const targetLayerName = normalizeCategoryName(category);
+    const targetLayer = window.MapModule?.layers?.[targetLayerName];
     
-    if (!mapLayer || typeof mapLayer.eachLayer !== 'function') {
-      console.warn(`[NavigationModule] Layer "${layerName}" non trouvé pour highlight`);
+    if (!targetLayer || typeof targetLayer.eachLayer !== 'function') {
+      console.warn(`[NavigationModule] Layer "${targetLayerName}" non trouvé`);
       return;
     }
     
-    console.log(`[NavigationModule] 🔦 Highlight du projet "${projectName}" dans layer "${layerName}"`);
-    
-    // Récupérer le style de la catégorie pour la couleur
+    // Récupérer la couleur de la catégorie
     const categoryIcon = window.categoryIcons?.find(c => c.category === category);
     let categoryColor = 'var(--primary)';
     if (categoryIcon?.category_styles) {
@@ -153,85 +187,78 @@ const NavigationModule = (() => {
       } catch (_) {}
     }
     
-    // Collecter le centre pour un seul panTo à la fin
+    // Centre pour panTo
     let centerLatLng = null;
     
-    // Trouver et animer toutes les features du projet
-    mapLayer.eachLayer((featureLayer) => {
-      const props = featureLayer.feature?.properties || {};
-      if (props.project_name !== projectName) return;
+    // Parcourir TOUS les layers présents sur la carte
+    Object.entries(window.MapModule?.layers || {}).forEach(([layerName, mapLayer]) => {
+      if (typeof mapLayer.eachLayer !== 'function') return;
       
-      const geomType = featureLayer.feature?.geometry?.type || '';
-      const isPoint = geomType === 'Point' || geomType === 'MultiPoint';
-      const isLine = geomType === 'LineString' || geomType === 'MultiLineString';
-      const isPolygon = geomType === 'Polygon' || geomType === 'MultiPolygon';
+      const isTargetLayer = (layerName === targetLayerName);
       
-      currentHighlight.layers.push(featureLayer);
-      
-      // Marquer comme highlighted pour éviter le reset par le hover
-      featureLayer.__gpHighlighted = true;
-      
-      if (isPoint && featureLayer instanceof L.Marker) {
-        // ANIMATION MARKER : rebond + cercle pulsant
-        const el = featureLayer.getElement?.();
-        if (el) {
-          el.classList.add('is-highlighted');
-          
-          // Ajouter le cercle pulsant
-          const customMarker = el.querySelector('.gp-custom-marker');
-          if (customMarker) {
-            const pulseRing = document.createElement('div');
-            pulseRing.className = 'gp-marker-pulse-ring';
-            pulseRing.style.setProperty('--marker-color', categoryColor);
-            customMarker.appendChild(pulseRing);
-            currentHighlight.pulseElements.push(pulseRing);
-          }
-        }
+      mapLayer.eachLayer((featureLayer) => {
+        // Vérifier si c'est le projet cible (même layer + même project_name)
+        const props = featureLayer.feature?.properties || {};
+        const isTargetProject = isTargetLayer && props.project_name === projectName;
         
-        // Stocker le centre (première feature uniquement)
-        if (!centerLatLng) {
-          centerLatLng = featureLayer.getLatLng();
-        }
-        
-      } else if (isLine || isPolygon) {
-        // ANIMATION LIGNE/POLYGONE : traits animés
-        if (typeof featureLayer.setStyle === 'function') {
-          // Appliquer le style animé
-          featureLayer.setStyle({
-            weight: 6,
-            dashArray: '12, 8',
-            opacity: 1
-          });
+        if (isTargetProject) {
+          // === HIGHLIGHT : Projet cible ===
+          currentHighlight.highlightedLayers.push(featureLayer);
+          featureLayer.__gpHighlighted = true;
           
-          // Animation des dash
-          let dashOffset = 0;
-          const interval = setInterval(() => {
-            dashOffset = (dashOffset + 2) % 20;
-            try {
-              featureLayer.setStyle({ dashOffset: -dashOffset });
-            } catch (_) {
-              clearInterval(interval);
+          const geomType = featureLayer.feature?.geometry?.type || '';
+          const isPoint = geomType === 'Point' || geomType === 'MultiPoint';
+          const isLine = geomType === 'LineString' || geomType === 'MultiLineString';
+          const isPolygon = geomType === 'Polygon' || geomType === 'MultiPolygon';
+          
+          if (isPoint && featureLayer instanceof L.Marker) {
+            const el = featureLayer.getElement?.();
+            if (el) {
+              el.classList.add('is-highlighted');
+              const customMarker = el.querySelector('.gp-custom-marker');
+              if (customMarker) {
+                const pulseRing = document.createElement('div');
+                pulseRing.className = 'gp-marker-pulse-ring';
+                pulseRing.style.setProperty('--marker-color', categoryColor);
+                customMarker.appendChild(pulseRing);
+                currentHighlight.pulseElements.push(pulseRing);
+              }
             }
-          }, 50);
-          currentHighlight.intervals.push(interval);
-        }
-        
-        // Stocker le centre (première feature uniquement)
-        if (!centerLatLng && typeof featureLayer.getBounds === 'function') {
-          const bounds = featureLayer.getBounds();
-          if (bounds.isValid()) {
-            centerLatLng = bounds.getCenter();
+            if (!centerLatLng) centerLatLng = featureLayer.getLatLng();
+            
+          } else if (isLine || isPolygon) {
+            if (typeof featureLayer.setStyle === 'function') {
+              // Sauvegarder le style actuel (défini en base)
+              if (!featureLayer.__gpOriginalStyle) {
+                featureLayer.__gpOriginalStyle = { ...featureLayer.options };
+              }
+              featureLayer.setStyle({ weight: 6, dashArray: '12, 8', opacity: 1 });
+              let dashOffset = 0;
+              const interval = setInterval(() => {
+                dashOffset = (dashOffset + 2) % 20;
+                try {
+                  featureLayer.setStyle({ dashOffset: -dashOffset });
+                } catch (_) { clearInterval(interval); }
+              }, 50);
+              currentHighlight.intervals.push(interval);
+            }
+            if (!centerLatLng && typeof featureLayer.getBounds === 'function') {
+              const bounds = featureLayer.getBounds();
+              if (bounds.isValid()) centerLatLng = bounds.getCenter();
+            }
           }
+        } else {
+          // === DIMMED : Tous les autres layers et features ===
+          currentHighlight.dimmedLayers.push(featureLayer);
+          applyDimmedStyle(featureLayer);
         }
-      }
+      });
     });
     
-    // Un seul centrage à la fin (sans changer le zoom)
-    if (centerLatLng && window.MapModule?.map) {
+    // Centrer la carte si demandé
+    if (panTo && centerLatLng && window.MapModule?.map) {
       window.MapModule.map.panTo(centerLatLng, { animate: true });
     }
-    
-    console.log(`[NavigationModule] ✅ ${currentHighlight.layers.length} features mises en avant`);
   }
 
   /**

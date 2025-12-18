@@ -161,6 +161,12 @@
   transform: translateX(-50%) scale(1.2);
 }
 
+/* Style pour les markers en transparence (dimmed) */
+.gp-marker-container.is-dimmed {
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
+}
+
 /* ============================================================================
    RESPONSIVE
    ============================================================================ */
