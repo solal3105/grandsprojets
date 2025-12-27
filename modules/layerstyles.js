@@ -20,7 +20,7 @@
     if (!p) return baseStyle;
 
     // PLU / Emplacement Réservé
-    if (layerName === 'emplacementReserve' || /plu|emplacement|reserve/i.test(layerName)) {
+    if (win.LayerRegistry?.isPluLayer && win.LayerRegistry.isPluLayer(layerName)) {
       return {
         ...baseStyle,
         stroke: baseStyle.stroke !== false,
@@ -33,17 +33,8 @@
     }
 
     // Métro et Funiculaire - Couleurs par ligne
-    if (layerName === 'metroFuniculaire') {
+    if (win.LayerRegistry?.isMetroLayer && win.LayerRegistry.isMetroLayer(layerName)) {
       return applyMetroLineColor(p, baseStyle);
-    }
-
-    // Vélo / Voies Lyonnaises - DashArray selon statut
-    if (layerName === 'velo') {
-      return {
-        ...baseStyle,
-        fill: false,
-        dashArray: p.status === 'done' ? null : (baseStyle.dashArray || '5,5')
-      };
     }
 
     // Travaux-like layers (centralized via LayerRegistry) - Gradient de couleur selon avancement
