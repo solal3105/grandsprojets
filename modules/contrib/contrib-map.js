@@ -784,23 +784,64 @@
         drawLayer = null;
       }
       
-      // Add new geometry avec gestion des points
+      // Résoudre la couleur primaire depuis les CSS variables
+      const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#2563eb';
+      
+      // Compter les features pour le log
+      let featureCount = 0;
+      let pointCount = 0;
+      
+      // Add new geometry avec gestion des points multiples
       drawLayer = L.geoJSON(geojson, {
-        style: { color: 'var(--primary)', weight: 3, fillOpacity: 0.25 },
+        style: { 
+          color: primaryColor, 
+          weight: 3, 
+          fillOpacity: 0.25,
+          fillColor: primaryColor
+        },
         pointToLayer: (feature, latlng) => {
+          pointCount++;
+          
           // Récupérer la catégorie sélectionnée dans le formulaire
           const categorySelect = document.getElementById('contrib-category');
           const selectedCategory = categorySelect?.value || null;
           
           // Utiliser le marker de contribution avec icône de catégorie
           const icon = createContributionMarkerIcon(selectedCategory);
-          return L.marker(latlng, { icon });
-        }
+          const marker = L.marker(latlng, { icon });
+          
+          // Ajouter une animation d'apparition pour chaque point
+          marker.on('add', () => {
+            const el = marker.getElement?.();
+            if (el) {
+              el.style.opacity = '0';
+              el.style.transform = 'translateY(-10px) scale(0.8)';
+              el.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+              requestAnimationFrame(() => {
+                el.style.opacity = '1';
+                el.style.transform = 'translateY(0) scale(1)';
+              });
+            }
+          });
+          
+          return marker;
+        },
+        onEachFeature: () => { featureCount++; }
       }).addTo(drawMap);
       
       drawLayerDirty = true;
       
-      try { drawMap.fitBounds(drawLayer.getBounds(), { padding: [10, 10] }); } catch(_) {}
+      // Fit bounds avec gestion des erreurs et padding adapté
+      try { 
+        const bounds = drawLayer.getBounds();
+        if (bounds.isValid()) {
+          // Padding plus grand si plusieurs points
+          const padding = pointCount > 1 ? [30, 30] : [10, 10];
+          drawMap.fitBounds(bounds, { padding, maxZoom: 16 }); 
+        }
+      } catch(_) {}
+      
+      console.log(`[contrib-map] setDrawnGeometry: ${featureCount} features, ${pointCount} points`);
     } catch(e) {
       console.warn('[contrib-map] setDrawnGeometry error:', e);
     }

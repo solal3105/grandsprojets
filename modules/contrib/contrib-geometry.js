@@ -219,11 +219,23 @@
    * @returns {boolean} True si une géométrie est présente
    */
   function hasGeometry(mode, fileInput) {
+    console.log('[contrib-geometry] hasGeometry called:', { 
+      mode, 
+      fileInput: !!fileInput, 
+      hasFiles: !!(fileInput && fileInput.files),
+      filesLength: fileInput?.files?.length || 0
+    });
+    
     if (mode === 'file') {
-      return !!(fileInput && fileInput.files && fileInput.files.length > 0);
+      const hasFile = !!(fileInput && fileInput.files && fileInput.files.length > 0);
+      console.log('[contrib-geometry] Mode file - hasFile:', hasFile);
+      return hasFile;
     }
+    
     // draw mode
-    return win.ContribMap?.hasDrawGeometry?.() || false;
+    const hasDrawGeom = win.ContribMap?.hasDrawGeometry?.() || false;
+    console.log('[contrib-geometry] Mode draw - hasDrawGeometry:', hasDrawGeom);
+    return hasDrawGeom;
   }
 
   /**
@@ -251,6 +263,185 @@
   }
 
   // ============================================================================
+  // GEOJSON PARSING & PREVIEW
+  // ============================================================================
+
+  /**
+   * Parse un fichier GeoJSON et retourne l'objet
+   * @param {File} file - Fichier GeoJSON
+   * @returns {Promise<Object|null>} GeoJSON parsé ou null si invalide
+   */
+  function parseGeoJSONFile(file) {
+    return new Promise((resolve) => {
+      if (!file) { resolve(null); return; }
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const text = e.target.result;
+          const geojson = JSON.parse(text);
+          
+          // Valider le GeoJSON
+          if (!isValidGeoJSON(geojson)) {
+            console.warn('[contrib-geometry] GeoJSON invalide');
+            resolve(null);
+            return;
+          }
+          
+          // Normaliser en FeatureCollection
+          const normalized = normalizeToFeatureCollection(geojson);
+          resolve(normalized);
+        } catch (err) {
+          console.error('[contrib-geometry] Erreur parsing GeoJSON:', err);
+          resolve(null);
+        }
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsText(file);
+    });
+  }
+
+  /**
+   * Valide un objet GeoJSON
+   * @param {Object} geojson - Objet GeoJSON
+   * @returns {boolean} True si valide
+   */
+  function isValidGeoJSON(geojson) {
+    if (!geojson || typeof geojson !== 'object') return false;
+    if (!geojson.type) return false;
+    
+    const validTypes = ['Feature', 'FeatureCollection', 'Point', 'LineString', 'Polygon', 
+                        'MultiPoint', 'MultiLineString', 'MultiPolygon', 'GeometryCollection'];
+    
+    return validTypes.includes(geojson.type);
+  }
+
+  /**
+   * Normalise un GeoJSON en FeatureCollection
+   * Gère: Feature, FeatureCollection, géométries brutes, MultiPoint
+   * @param {Object} geojson - GeoJSON d'entrée
+   * @returns {Object} FeatureCollection normalisée
+   */
+  function normalizeToFeatureCollection(geojson) {
+    if (!geojson) return { type: 'FeatureCollection', features: [] };
+    
+    // Déjà une FeatureCollection
+    if (geojson.type === 'FeatureCollection') {
+      // S'assurer que chaque feature a des properties
+      const features = (geojson.features || []).map(f => ({
+        type: 'Feature',
+        properties: f.properties || {},
+        geometry: f.geometry
+      }));
+      return { type: 'FeatureCollection', features };
+    }
+    
+    // Une Feature simple
+    if (geojson.type === 'Feature') {
+      return {
+        type: 'FeatureCollection',
+        features: [{
+          type: 'Feature',
+          properties: geojson.properties || {},
+          geometry: geojson.geometry
+        }]
+      };
+    }
+    
+    // Géométrie brute (Point, LineString, Polygon, Multi*, GeometryCollection)
+    if (['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon', 'GeometryCollection'].includes(geojson.type)) {
+      // Cas spécial: MultiPoint -> convertir en plusieurs Features Point
+      if (geojson.type === 'MultiPoint' && Array.isArray(geojson.coordinates)) {
+        const features = geojson.coordinates.map(coords => ({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'Point', coordinates: coords }
+        }));
+        return { type: 'FeatureCollection', features };
+      }
+      
+      // Autres géométries: wrapper en Feature
+      return {
+        type: 'FeatureCollection',
+        features: [{
+          type: 'Feature',
+          properties: {},
+          geometry: geojson
+        }]
+      };
+    }
+    
+    return { type: 'FeatureCollection', features: [] };
+  }
+
+  /**
+   * Compte les features par type de géométrie
+   * @param {Object} geojson - FeatureCollection
+   * @returns {Object} Comptage { points, lines, polygons, total }
+   */
+  function countFeaturesByType(geojson) {
+    const counts = { points: 0, lines: 0, polygons: 0, total: 0 };
+    
+    if (!geojson || !geojson.features) return counts;
+    
+    geojson.features.forEach(f => {
+      if (!f.geometry) return;
+      const type = f.geometry.type;
+      counts.total++;
+      
+      if (type === 'Point' || type === 'MultiPoint') counts.points++;
+      else if (type === 'LineString' || type === 'MultiLineString') counts.lines++;
+      else if (type === 'Polygon' || type === 'MultiPolygon') counts.polygons++;
+    });
+    
+    return counts;
+  }
+
+  /**
+   * Affiche un feedback de validation du GeoJSON dans la dropzone
+   * @param {Object} geojson - GeoJSON validé
+   * @param {Object} elements - Éléments DOM
+   */
+  function showGeoJSONPreview(geojson, elements) {
+    if (!geojson) return;
+    
+    const { dropzoneEl } = elements || {};
+    
+    // Afficher les infos sur le contenu dans la dropzone (pas sur la carte)
+    const counts = countFeaturesByType(geojson);
+    const infoText = buildPreviewInfoText(counts);
+    
+    // Créer ou mettre à jour l'élément d'info dans la dropzone
+    let infoEl = dropzoneEl?.querySelector('.geojson-preview-info');
+    if (!infoEl && dropzoneEl) {
+      infoEl = document.createElement('div');
+      infoEl.className = 'geojson-preview-info';
+      infoEl.style.cssText = 'margin-top:8px;font-size:12px;color:var(--success);display:flex;align-items:center;gap:6px;';
+      dropzoneEl.appendChild(infoEl);
+    }
+    if (infoEl) {
+      infoEl.innerHTML = `<i class="fa-solid fa-check-circle"></i> ${infoText}`;
+    }
+    
+    console.log('[contrib-geometry] GeoJSON validé:', counts);
+  }
+
+  /**
+   * Construit le texte d'info de prévisualisation
+   * @param {Object} counts - Comptage des features
+   * @returns {string} Texte descriptif
+   */
+  function buildPreviewInfoText(counts) {
+    const parts = [];
+    if (counts.points > 0) parts.push(`${counts.points} point${counts.points > 1 ? 's' : ''}`);
+    if (counts.lines > 0) parts.push(`${counts.lines} ligne${counts.lines > 1 ? 's' : ''}`);
+    if (counts.polygons > 0) parts.push(`${counts.polygons} polygone${counts.polygons > 1 ? 's' : ''}`);
+    
+    if (parts.length === 0) return 'GeoJSON valide';
+    return `GeoJSON valide: ${parts.join(', ')}`;
+  }
+
+  // ============================================================================
   // DROPZONE SETUP
   // ============================================================================
 
@@ -259,9 +450,20 @@
    * @param {Object} elements - Éléments DOM nécessaires
    */
   function setupDropzone(elements) {
-    const { dropzoneEl, dzFilenameEl, fileInput } = elements || {};
+    const { dropzoneEl, dzFilenameEl, fileInput, drawPanelEl } = elements || {};
     
-    if (!dropzoneEl || !fileInput) return;
+    console.log('[contrib-geometry] setupDropzone called:', {
+      hasDropzoneEl: !!dropzoneEl,
+      hasDzFilenameEl: !!dzFilenameEl,
+      hasFileInput: !!fileInput,
+      fileInputId: fileInput?.id,
+      hasDrawPanelEl: !!drawPanelEl
+    });
+    
+    if (!dropzoneEl || !fileInput) {
+      console.error('[contrib-geometry] setupDropzone FAILED - missing elements');
+      return;
+    }
 
     const openPicker = () => { 
       if (!fileInput.disabled) fileInput.click(); 
@@ -281,12 +483,52 @@
       if (dropzoneEl) dropzoneEl.classList.toggle('has-file', !!f);
     };
 
-    fileInput.addEventListener('change', () => { 
-      updateName(); 
-      try { 
-        validateStep2(elements); 
-      } catch(_) {} 
-    });
+    // Handler pour le changement de fichier avec validation
+    async function onFileChange() {
+      console.log('[contrib-geometry] onFileChange triggered:', {
+        fileInputId: fileInput?.id,
+        filesLength: fileInput?.files?.length || 0,
+        fileName: fileInput?.files?.[0]?.name || 'none'
+      });
+      
+      updateName();
+      
+      const f = fileInput.files && fileInput.files[0];
+      if (!f) {
+        console.log('[contrib-geometry] No file selected');
+        // Nettoyer l'info de preview
+        const infoEl = dropzoneEl.querySelector('.geojson-preview-info');
+        if (infoEl) infoEl.remove();
+        return;
+      }
+      
+      console.log('[contrib-geometry] File selected:', f.name, f.size, 'bytes');
+      
+      // Parser et valider le GeoJSON
+      const geojson = await parseGeoJSONFile(f);
+      
+      if (!geojson || !geojson.features || geojson.features.length === 0) {
+        // Afficher une erreur inline
+        let infoEl = dropzoneEl.querySelector('.geojson-preview-info');
+        if (!infoEl) {
+          infoEl = document.createElement('div');
+          infoEl.className = 'geojson-preview-info';
+          dropzoneEl.appendChild(infoEl);
+        }
+        infoEl.style.cssText = 'margin-top:8px;font-size:12px;color:var(--danger);display:flex;align-items:center;gap:6px;';
+        infoEl.innerHTML = '<i class="fa-solid fa-exclamation-circle"></i> GeoJSON invalide ou vide';
+        
+        if (win.ContribUtils?.showToast) {
+          win.ContribUtils.showToast('Le fichier GeoJSON est invalide ou vide.', 'error');
+        }
+        return;
+      }
+      
+      // Afficher le feedback de validation (inline dans la dropzone)
+      showGeoJSONPreview(geojson, { dropzoneEl });
+    }
+
+    fileInput.addEventListener('change', onFileChange);
 
     // Drag & drop
     ['dragenter','dragover'].forEach(ev => dropzoneEl.addEventListener(ev, (e) => {
@@ -395,6 +637,11 @@
     // GeoJSON processing
     getGeometryForSubmit,
     resetGeometryInputs,
+    parseGeoJSONFile,
+    normalizeToFeatureCollection,
+    isValidGeoJSON,
+    countFeaturesByType,
+    showGeoJSONPreview,
     
     // Edit mode
     setEditGeojsonUrl,
