@@ -4,7 +4,7 @@
   "description": "Carte des grands projets d'urbanisme et de mobilité de la Métropole de Lyon",
   "type": "module",
   "scripts": {
-    "start": "python -m http.server 3001",
+    "start": "python3 -m http.server 3001",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:report": "playwright show-report test-results/html",
