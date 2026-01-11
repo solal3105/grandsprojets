@@ -493,6 +493,17 @@ async function initProjectMap(containerId, projectName, category) {
                 }).addTo(window.__fpMap);
               }
             }
+            
+            // Mettre à jour le logo selon le thème
+            const logoContainer = document.getElementById('city-logo');
+            const branding = window._cityBranding;
+            if (logoContainer && branding && branding.logo_url) {
+              const logoUrl = (newTheme === 'dark' && branding.dark_logo_url) ? branding.dark_logo_url : branding.logo_url;
+              const logoAlt = branding.brand_name || '';
+              const safeUrl = window.SecurityUtils ? window.SecurityUtils.sanitizeUrl(logoUrl) : logoUrl;
+              const safeAlt = window.SecurityUtils ? window.SecurityUtils.escapeAttribute(logoAlt) : logoAlt;
+              logoContainer.innerHTML = `<img src="${safeUrl}" alt="${safeAlt}" class="h-full w-auto object-contain" />`;
+            }
           }
         });
       });
