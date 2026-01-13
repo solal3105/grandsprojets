@@ -265,6 +265,25 @@
   }
 
   /**
+   * Met à jour le compteur d'éléments de navigation pour l'adaptation CSS desktop
+   * Compte tous les boutons de catégories (incluant travaux) et définit data-item-count
+   * Utilisé pour réduire la hauteur et activer le scroll à partir de 5 éléments
+   * @param {HTMLElement} categoriesContainer - Container #dynamic-categories
+   */
+  function updateNavigationItemCount(categoriesContainer) {
+    if (!categoriesContainer) return;
+    
+    // Compter tous les boutons de catégories (incluant travaux, excluant overflow)
+    const allCategories = categoriesContainer.querySelectorAll('.nav-category:not(#nav-overflow)');
+    const count = allCategories.length;
+    
+    // Définir l'attribut data-item-count pour le CSS
+    categoriesContainer.setAttribute('data-item-count', count);
+    
+    console.log(`[Navigation] ${count} éléments de navigation détectés`);
+  }
+
+  /**
    * Health check du localStorage au démarrage
    * Détecte et corrige AUTOMATIQUEMENT les états corrompus
    * @returns {Object} { healthy, issues, fixed, needsReload }
@@ -689,6 +708,12 @@
       // Créer le bouton "+" pour les catégories au-delà de 3 sur mobile
       if (categoriesContainer) {
         initMobileOverflowMenu(categoriesContainer);
+      }
+      
+      // ===== ADAPTATION DESKTOP : Compter les éléments de navigation =====
+      // Définir data-item-count pour l'adaptation CSS (hauteur réduite + scroll si 5+)
+      if (categoriesContainer) {
+        updateNavigationItemCount(categoriesContainer);
       }
       
       // Initialiser les event listeners de navigation via EventBindings

@@ -35,6 +35,12 @@
   display: flex;
   flex-direction: column;
   gap: 0;
+  max-height: 100%;
+}
+
+/* Logo - reste fixe (ne scroll pas) */
+#left-nav .logo {
+  flex-shrink: 0;
 }
 
 /* Container des catégories dynamiques */
@@ -45,11 +51,55 @@
   padding: 20px 0;
 }
 
-/* Boutons de catégories */
+/* Boutons de catégories - hauteur par défaut (≤4 éléments) */
 #dynamic-categories .nav-category {
   width: 100%;
   min-height: 80px;
   margin: 0;
+}
+
+/* Desktop uniquement : Adaptation selon le nombre d'éléments */
+@media (min-width: 721px) {
+  /* À partir de 5 éléments : réduire légèrement la hauteur et le padding */
+  #dynamic-categories[data-item-count="5"] .nav-category,
+  #dynamic-categories[data-item-count="6"] .nav-category,
+  #dynamic-categories[data-item-count="7"] .nav-category,
+  #dynamic-categories[data-item-count="8"] .nav-category,
+  #dynamic-categories[data-item-count="9"] .nav-category,
+  #dynamic-categories[data-item-count="10"] .nav-category {
+    min-height: 75px;
+    padding: 8px 10px;
+  }
+  
+  /* Si 5+ éléments : activer le scroll sur le container */
+  #dynamic-categories[data-item-count="5"],
+  #dynamic-categories[data-item-count="6"],
+  #dynamic-categories[data-item-count="7"],
+  #dynamic-categories[data-item-count="8"],
+  #dynamic-categories[data-item-count="9"],
+  #dynamic-categories[data-item-count="10"] {
+    max-height: calc(70vh - 140px); /* 70vh - logo - padding */
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  
+  /* Scrollbar styling */
+  #dynamic-categories::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  #dynamic-categories::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  #dynamic-categories::-webkit-scrollbar-thumb {
+    background: var(--gray-300);
+    border-radius: 3px;
+  }
+  
+  #dynamic-categories::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-400);
+  }
 }
 
 
