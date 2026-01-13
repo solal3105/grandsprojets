@@ -239,7 +239,7 @@
     min-height: auto;
     max-height: calc(100vh - 262px);
     margin: 0;
-    border-radius: 20px 20px 0 0;
+    border-radius: 0 0 20px 20px;
     box-sizing: border-box;
     opacity: 0;
     transform: translateY(30px) scale(0.96);

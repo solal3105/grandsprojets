@@ -197,11 +197,11 @@
 .submenu {
   display: none;
   position: absolute;
-  top: 0;
+  top: 0px;
   left: 100%;
   width: 320px;
-  min-height: 100%;
-  max-height: 600px;
+  min-height: calc(100% + 20px);
+  max-height: calc(70vh - 20px);
   background: var(--surface-base);
   box-shadow: 2px 0 12px var(--black-alpha-08);
   border-radius: 0 20px 20px 20px;
@@ -212,6 +212,8 @@
   transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1),
               transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
               box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Couleur de catégorie (définie via JS) pour les accents */
+  --cat-color: var(--primary);
 }
 
 /* État visible */
@@ -486,7 +488,7 @@
 .project-item:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px var(--black-alpha-08);
-  border-color: var(--primary-alpha-35);
+  border-color: var(--cat-color);
   background: var(--surface-raised);
 }
 
@@ -609,7 +611,7 @@
 }
 
 .project-item:hover .project-info .project-name {
-  color: var(--primary);
+  color: var(--cat-color);
 }
 
 .project-meta {
@@ -650,7 +652,7 @@
 }
 
 .project-item:hover .project-arrow {
-  background: var(--primary);
+  background: var(--cat-color);
   color: white;
   transform: scale(1.05);
 }
@@ -660,19 +662,19 @@
 }
 
 .project-item:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--cat-color);
   outline-offset: 2px;
 }
 
 .project-item.active,
 .project-item[aria-current='true'] {
-  background: var(--primary-alpha-08);
-  border-color: var(--primary);
+  background: color-mix(in srgb, var(--cat-color) 8%, transparent);
+  border-color: var(--cat-color);
 }
 
 .project-item.active .project-arrow,
 .project-item[aria-current='true'] .project-arrow {
-  background: var(--primary);
+  background: var(--cat-color);
   color: white;
 }
 
@@ -733,7 +735,7 @@
 .hover-progress__bar {
   height: 100%;
   width: 0%;
-  background: var(--primary);
+  background: var(--cat-color);
   transition: width 0.6s linear;
 }
 

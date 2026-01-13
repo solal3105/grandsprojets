@@ -59,6 +59,10 @@
       submenu.className = 'submenu';
       submenu.dataset.category = 'travaux';
       submenu.style.display = 'none';
+      // Appliquer la couleur de catégorie au submenu
+      if (travauxConfig.color) {
+        submenu.style.setProperty('--cat-color', travauxConfig.color);
+      }
       submenu.innerHTML = `<ul class="project-list"></ul>`;
       submenusContainer.appendChild(submenu);
       
@@ -671,6 +675,10 @@
           submenu.className = 'submenu';
           submenu.dataset.category = category;
           submenu.style.display = 'none';
+          // Appliquer la couleur de catégorie au submenu
+          if (catColor) {
+            submenu.style.setProperty('--cat-color', catColor);
+          }
           submenu.innerHTML = `<ul class="project-list"></ul>`;
           submenusContainer.appendChild(submenu);
         });
