@@ -26,6 +26,5 @@ Allow: /
 User-agent: Slurp
 Allow: /
 
-# Sitemaps
-Sitemap: https://grandsprojets.com/sitemap.xml
+# Sitemap
 Sitemap: https://grandsprojets.com/sitemap.xml

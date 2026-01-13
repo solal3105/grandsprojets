@@ -72,6 +72,16 @@ function applySEO(projectName, attrs, category) {
     // Title
     document.title = `${projectName} – Grands Projets`;
 
+    // Canonical URL
+    const canonicalUrl = `${FP_CONFIG.PROD_ORIGIN}/fiche/?cat=${category}&project=${encodeURIComponent(projectName)}`;
+    let canonical = document.querySelector('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement('link');
+      canonical.rel = 'canonical';
+      document.head.appendChild(canonical);
+    }
+    canonical.href = canonicalUrl;
+
     // Description
     if (attrs.description) {
       let metaDesc = document.querySelector('meta[name="description"]');
@@ -88,7 +98,8 @@ function applySEO(projectName, attrs, category) {
       { property: 'og:title', content: projectName },
       { property: 'og:description', content: attrs.description || '' },
       { property: 'og:image', content: toAbsoluteURL(attrs.cover) || `${FP_CONFIG.PROD_ORIGIN}/img/logomin.png` },
-      { property: 'og:type', content: 'article' }
+      { property: 'og:type', content: 'article' },
+      { property: 'og:url', content: canonicalUrl }
     ];
 
     ogTags.forEach(tag => {
@@ -100,9 +111,89 @@ function applySEO(projectName, attrs, category) {
       }
       meta.content = tag.content;
     });
+
+    // Breadcrumb Schema
+    addBreadcrumbSchema(projectName, category);
+
+    // Article Schema
+    addArticleSchema(projectName, attrs, category);
+
   } catch (e) {
     console.warn('[SEO] Erreur application SEO:', e);
   }
+}
+
+/**
+ * Ajoute le schema BreadcrumbList pour le SEO
+ */
+function addBreadcrumbSchema(projectName, category) {
+  const categoryLabels = {
+    'mobilite': 'Mobilité',
+    'urbanisme': 'Urbanisme',
+    'velo': 'Vélo'
+  };
+
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Accueil",
+        "item": `${FP_CONFIG.PROD_ORIGIN}/`
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": categoryLabels[category] || category,
+        "item": `${FP_CONFIG.PROD_ORIGIN}/?cat=${category}`
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": projectName
+      }
+    ]
+  };
+
+  const script = document.createElement('script');
+  script.type = 'application/ld+json';
+  script.id = 'breadcrumb-schema';
+  script.textContent = JSON.stringify(breadcrumb);
+  document.head.appendChild(script);
+}
+
+/**
+ * Ajoute le schema Article pour le SEO
+ */
+function addArticleSchema(projectName, attrs, category) {
+  const article = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": projectName,
+    "description": attrs.description || `Projet ${category} : ${projectName}`,
+    "image": toAbsoluteURL(attrs.cover) || `${FP_CONFIG.PROD_ORIGIN}/img/logomin.png`,
+    "datePublished": attrs.created_at || new Date().toISOString(),
+    "author": {
+      "@type": "Organization",
+      "name": "Grands Projets"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Grands Projets",
+      "logo": {
+        "@type": "ImageObject",
+        "url": `${FP_CONFIG.PROD_ORIGIN}/img/logomin.png`
+      }
+    }
+  };
+
+  const script = document.createElement('script');
+  script.type = 'application/ld+json';
+  script.id = 'article-schema';
+  script.textContent = JSON.stringify(article);
+  document.head.appendChild(script);
 }
 
 /* ===========================================================================
