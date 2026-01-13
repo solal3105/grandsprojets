@@ -43,6 +43,11 @@
         <span class="label">Travaux</span>
       `;
       
+      // Appliquer la couleur de catégorie si définie
+      if (travauxConfig.color) {
+        navButton.style.setProperty('--cat-color', travauxConfig.color);
+      }
+      
       // Appliquer l'ordre d'affichage si défini
       if (travauxConfig.display_order !== undefined) {
         navButton.style.order = travauxConfig.display_order;
@@ -633,13 +638,27 @@
       
       // Créer les menus dynamiques (catégories depuis contributions)
       if (categoriesContainer && submenusContainer && activeCategoryIcons.length > 0) {
-        activeCategoryIcons.forEach(({ category, icon_class }) => {
+        activeCategoryIcons.forEach(({ category, icon_class, category_styles }) => {
           const navButton = document.createElement('button');
           navButton.className = 'nav-category';
           navButton.id = `nav-${category}`;
           let fullIconClass = icon_class;
           if (icon_class && !icon_class.includes('fa-solid') && !icon_class.includes('fa-regular') && !icon_class.includes('fa-brands')) {
             fullIconClass = `fa-solid ${icon_class}`;
+          }
+          
+          // Extraire la couleur de category_styles et l'appliquer comme variable CSS
+          let catColor = null;
+          if (category_styles) {
+            try {
+              const styles = typeof category_styles === 'string' 
+                ? JSON.parse(category_styles) 
+                : category_styles;
+              catColor = styles.color;
+            } catch (_) {}
+          }
+          if (catColor) {
+            navButton.style.setProperty('--cat-color', catColor);
           }
           
           navButton.innerHTML = `
