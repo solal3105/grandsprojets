@@ -35,14 +35,10 @@ const EventBindings = (() => {
     });
     FilterModule.resetAll();
 
-    // Réinitialiser le style de la navigation gauche
+    // Ajouter la classe pour indiquer qu'un panneau est ouvert (gestion border-radius)
     const leftNav = document.getElementById('left-nav');
     if (leftNav) {
-      if (window.innerWidth < 1024) {
-    leftNav.style.borderRadius = '0 0 20px 20px';
-  } else {
-    leftNav.style.borderRadius = '20px 0 0 20px';
-  }
+      leftNav.classList.add('has-panel-open');
     }
 
     // Gestion des couches à afficher

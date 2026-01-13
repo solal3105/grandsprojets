@@ -252,7 +252,11 @@
   max-width: 230px;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
 }
 
 /* ---------------------------------------------------------------------------
@@ -335,7 +339,11 @@
   text-shadow: 0 1px 0 var(--white);
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
 }
 
 /* CTA styles inside tooltip card */

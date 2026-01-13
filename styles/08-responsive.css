@@ -73,6 +73,12 @@
     align-items: center;
     box-sizing: border-box;
     box-shadow: 0 -2px 8px var(--black-alpha-15);
+    transition: border-radius 0.3s ease;
+  }
+  
+  /* Quand un submenu ou detail est ouvert, arrondir seulement le bas de la nav */
+  #left-nav.has-panel-open {
+    border-radius: 0 0 20px 20px;
   }
 
   #left-nav .logo,
@@ -168,6 +174,7 @@
   
   /* Items du menu overflow */
   .nav-overflow-item {
+    --cat-color: var(--primary);
     display: flex;
     align-items: center;
     gap: 14px;
@@ -182,24 +189,24 @@
   }
   
   .nav-overflow-item:hover {
-    background: var(--primary-alpha-12);
+    background: color-mix(in srgb, var(--cat-color) 12%, transparent);
   }
   
   .nav-overflow-item:hover > i {
-    color: var(--primary);
+    color: var(--cat-color);
   }
   
   .nav-overflow-item:hover > .overflow-label {
-    color: var(--primary);
+    color: var(--cat-color);
   }
   
   .nav-overflow-item.active {
-    background: var(--primary-alpha-16);
+    background: color-mix(in srgb, var(--cat-color) 16%, transparent);
   }
   
   .nav-overflow-item.active > i,
   .nav-overflow-item.active > .overflow-label {
-    color: var(--primary);
+    color: var(--cat-color);
     font-weight: 600;
   }
   
@@ -239,7 +246,7 @@
     min-height: auto;
     max-height: calc(100vh - 262px);
     margin: 0;
-    border-radius: 0 0 20px 20px;
+    border-radius: 20px 20px 0 0;
     box-sizing: border-box;
     opacity: 0;
     transform: translateY(30px) scale(0.96);

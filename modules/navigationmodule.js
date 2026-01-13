@@ -1045,6 +1045,12 @@ const NavigationModule = (() => {
     document.querySelectorAll('.submenu').forEach(menu => menu.style.display = 'none');
     document.querySelectorAll('.nav-category.active').forEach(tab => tab.classList.remove('active'));
     
+    // Retirer la classe has-panel-open de la nav
+    const leftNav = document.getElementById('left-nav');
+    if (leftNav) {
+      leftNav.classList.remove('has-panel-open');
+    }
+    
     // Reset les filtres
     if (window.FilterModule?.resetAll) {
       console.log(`[NavigationModule] Reset des filtres`);
@@ -1093,10 +1099,7 @@ const NavigationModule = (() => {
       window.UIModule.updateLayerControls();
     }
     
-    const leftNav = document.getElementById('left-nav');
-    if (leftNav) {
-      leftNav.style.borderRadius = '20px';
-    }
+    // Retirer la classe has-panel-open (déjà fait plus haut, pas besoin de redéclarer leftNav)
 
     try {
       if (updateHistory && typeof history?.pushState === 'function') {

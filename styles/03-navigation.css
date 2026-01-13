@@ -15,8 +15,15 @@
   box-shadow: 0 2px 8px var(--black-alpha-15);
   z-index: 1000;
   padding: 20px;
-  transition: width 0.3s;
+  transition: width 0.3s, border-radius 0.3s ease;
   max-height: 70vh;
+}
+
+/* Desktop: Quand un panneau est ouvert, coin haut droit à 0 */
+@media (min-width: 721px) {
+  #left-nav.has-panel-open {
+    border-radius: 20px 0 20px 20px;
+  }
 }
 
 #left-nav.expanded {
@@ -197,11 +204,11 @@
 .submenu {
   display: none;
   position: absolute;
-  top: 0px;
+  top: 0px; /* 20px plus haut que la nav */
   left: 100%;
   width: 320px;
   min-height: calc(100% + 20px);
-  max-height: calc(70vh - 20px);
+  max-height: calc(70vh + 20px);
   background: var(--surface-base);
   box-shadow: 2px 0 12px var(--black-alpha-08);
   border-radius: 0 20px 20px 20px;
