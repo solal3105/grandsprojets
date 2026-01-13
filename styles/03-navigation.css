@@ -116,7 +116,7 @@
   --cat-color-alpha-25: color-mix(in srgb, var(--cat-color) 25%, transparent);
 }
 
-.nav-category::before {
+.nav-category:not(#nav-overflow)::before {
   content: '';
   position: absolute;
   top: 0;
@@ -129,7 +129,7 @@
   pointer-events: none;
 }
 
-.nav-category:hover::before {
+.nav-category:not(#nav-overflow):hover::before {
   transform: translateX(120%);
 }
 

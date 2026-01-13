@@ -1,0 +1,21 @@
+# Netlify Redirects Configuration
+# https://docs.netlify.com/routing/redirects/
+
+# Redirections custom (prioritaires)
+/bilan              /?city=rassemblees    200
+
+# Redirections auto vers villes (ajouter au fur et à mesure)
+/metropole-lyon     /?city=metropole-lyon 200
+/divonne            /?city=divonne        200
+/rassemblees        /?city=rassemblees    200
+
+# Routes exclues - ne pas rediriger (déjà gérées par le serveur)
+/fiche/*            /fiche/:splat         200
+/login/*            /login/:splat         200
+/logout/*           /logout/:splat        200
+/landing-page/*     /landing-page/:splat  200
+/assistant-ia/*     /assistant-ia/:splat  200
+
+# Fallback : toute autre route non définie redirige vers la racine
+# (sera géré par le JavaScript côté client si c'est une ville valide)
+/*                  /index.html           200

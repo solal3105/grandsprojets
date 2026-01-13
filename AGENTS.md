@@ -289,6 +289,7 @@ Tous les modules utilisent le pattern IIFE et s'exposent sur `window` :
 | `SecurityUtils` | `security-utils.js` | Prévention XSS (escapeHtml, sanitizeUrl) |
 | `CityManager` | `citymanager.js` | Détection ville, persistance, menu sélecteur |
 | `CityRedirect` | `city-redirect.js` | Redirection auto vers ville utilisateur |
+| `RouteConfig` | `route-config.js` | Configuration des redirections de routes vers villes |
 | `MarkdownUtils` | `markdownutils.js` | Rendu Markdown + front-matter + directives custom |
 | `ModalHelper` | `modal-helper.js` | Gestion unifiée des modales (open/close/trap focus) |
 | `ModalManager` | `modal-helper.js` | Wrapper de compatibilité (ancienne API) |
@@ -766,6 +767,114 @@ Si plusieurs villes :
 ```
 Connexion → __CONTRIB_VILLES = ['lyon', 'divonne'] → Popup de sélection
 ```
+
+---
+
+## RouteConfig
+
+### Système de redirections de routes
+
+Le module `RouteConfig` gère les redirections automatiques des chemins URL vers les villes correspondantes.
+
+### Configuration
+
+**Fichier** : `modules/route-config.js`
+
+```javascript
+const ROUTE_CONFIG = {
+  // Redirections custom (prioritaires)
+  custom: [
+    { path: 'bilan', city: 'rassemblees' }
+  ],
+
+  // Routes à exclure de la redirection automatique
+  excluded: [
+    'fiche', 'login', 'logout', 'landing-page',
+    'assistant-ia', 'modules', 'styles', 'img', 'vendor'
+  ]
+};
+```
+
+### Logique de redirection
+
+1. **Redirections custom** (prioritaires)
+   - `/bilan` → `/?city=rassemblees`
+   - Définies manuellement dans `ROUTE_CONFIG.custom`
+
+2. **Redirections auto** (par défaut)
+   - `/metropole-lyon` → `/?city=metropole-lyon`
+   - Tout chemin non exclu est considéré comme une ville
+
+3. **Routes exclues**
+   - `/fiche/`, `/login/`, etc. ne sont pas redirigées
+   - Définies dans `ROUTE_CONFIG.excluded`
+
+4. **Ville inexistante**
+   - Si la ville n'existe pas → redirection vers `/`
+
+### API publique
+
+| Méthode | Description |
+|---------|-------------|
+| `getRedirectConfig(pathname)` | Retourne la config de redirection pour un chemin |
+| `cityExists(cityCode)` | Vérifie si une ville existe |
+| `applyRedirect()` | Applique la redirection (appelé dans `main.js`) |
+| `addCustomRedirect(path, city)` | Ajoute une redirection custom dynamiquement |
+| `addExcludedRoute(path)` | Ajoute une route à exclure dynamiquement |
+
+### Exemples d'utilisation
+
+**Ajouter une redirection custom** :
+```javascript
+RouteConfig.addCustomRedirect('mon-chemin', 'ma-ville');
+// /mon-chemin → /?city=ma-ville
+```
+
+**Exclure une route** :
+```javascript
+RouteConfig.addExcludedRoute('admin');
+// /admin ne sera pas redirigé
+```
+
+### Flux d'exécution
+
+```
+main.js (PHASE 2)
+  ↓
+RouteConfig.applyRedirect()
+  ↓
+1. Vérifier redirections custom
+2. Vérifier routes exclues
+3. Sinon → redirection auto vers ville
+4. Si ville inexistante → redirection vers /
+```
+
+### Redirections serveur (Netlify)
+
+**Fichier** : `_redirects` (racine du projet)
+
+Pour éviter les erreurs 404, les redirections doivent aussi être configurées côté serveur :
+
+```
+# Redirections custom
+/bilan              /?city=rassemblees    200
+
+# Redirections auto vers villes
+/metropole-lyon     /?city=metropole-lyon 200
+/divonne            /?city=divonne        200
+
+# Routes exclues
+/fiche/*            /fiche/:splat         200
+/login/*            /login/:splat         200
+
+# Fallback
+/*                  /index.html           200
+```
+
+**Important** : 
+- Les redirections custom doivent être ajoutées manuellement dans `_redirects`
+- Le code `200` = rewrite (l'URL reste inchangée dans le navigateur)
+- Le code `301/302` = redirect (l'URL change dans le navigateur)
 
 ---
 

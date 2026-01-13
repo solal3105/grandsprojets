@@ -143,6 +143,12 @@
         <span class="overflow-label">${labelText}</span>
       `;
       
+      // Appliquer la couleur de catégorie
+      const catColor = catBtn.style.getPropertyValue('--cat-color');
+      if (catColor) {
+        menuItem.style.setProperty('--cat-color', catColor);
+      }
+      
       // Clic sur un item du menu
       menuItem.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -194,6 +200,12 @@
           <i class="${iconClass}" aria-hidden="true"></i>
           <span class="overflow-label">${labelText}</span>
         `;
+        
+        // Appliquer la couleur de catégorie
+        const catColor = catBtn.style.getPropertyValue('--cat-color');
+        if (catColor) {
+          menuItem.style.setProperty('--cat-color', catColor);
+        }
         
         menuItem.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -413,28 +425,11 @@
       win.ThemeManager?.init();
       await win.CityManager?.loadValidCities();
 
-      // PHASE 2 : Ville active
-      (function maybeRedirectCityPathToQuery() {
-        try {
-          const path = String(location.pathname || '/');
-          const segments = path.split('/');
-          let lastIdx = -1;
-          for (let i = segments.length - 1; i >= 0; i--) {
-            if (segments[i]) { lastIdx = i; break; }
-          }
-          if (lastIdx < 0) return;
-          const lastSeg = segments[lastIdx].toLowerCase();
-          if (!win.CityManager?.isValidCity(lastSeg)) return;
-          const sp = new URLSearchParams(location.search);
-          sp.set('city', lastSeg);
-          const baseDir = segments.slice(0, lastIdx).join('/') + '/';
-          const target = baseDir + (sp.toString() ? `?${sp.toString()}` : '');
-          const absolute = location.origin + target;
-          if (absolute !== location.href) {
-            location.replace(absolute);
-          }
-        } catch (_) { /* noop */ }
-      })();
+      // PHASE 2 : Ville active et redirections
+      // Appliquer les redirections de routes (route-config.js)
+      if (win.RouteConfig && typeof win.RouteConfig.applyRedirect === 'function') {
+        win.RouteConfig.applyRedirect();
+      }
 
       let city = win.CityManager?.initializeActiveCity();
       
