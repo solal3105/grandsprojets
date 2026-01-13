@@ -236,21 +236,53 @@ const SubmenuModule = (() => {
     li.classList.add('project-item');
     li.dataset.project = project.project_name;
     
+    // Vérifier si le projet a une cover_url
+    const hasCover = !!(project.cover_url);
+    
     // Styles inline
     const colorStyle = categoryColor ? `background: ${categoryColor}20; border-color: ${categoryColor};` : '';
     const iconColorStyle = categoryColor ? `color: ${categoryColor};` : '';
     
+    // Construction HTML avec support image
+    let visualHTML = '';
+    if (hasCover) {
+      // Afficher l'image de couverture
+      visualHTML = `
+        <div class="project-cover">
+          <img src="${project.cover_url}" alt="${project.project_name}" loading="lazy" />
+        </div>
+      `;
+    } else {
+      // Afficher l'icône de catégorie
+      visualHTML = `
+        <div class="project-color" style="${colorStyle}">
+          <i class="${iconClass}" style="${iconColorStyle}"></i>
+        </div>
+      `;
+    }
+    
+    // Métadonnées (année, statut)
+    let metaHTML = '';
+    if (project.year || project.status) {
+      metaHTML = '<div class="project-meta">';
+      if (project.year) {
+        metaHTML += `<div class="project-year">${project.year}</div>`;
+      }
+      if (project.status) {
+        metaHTML += `<div class="project-status">${project.status}</div>`;
+      }
+      metaHTML += '</div>';
+    }
+    
     li.innerHTML = `
-      <div class="project-color" style="${colorStyle}">
-        <i class="${iconClass}" style="${iconColorStyle}"></i>
-      </div>
+      ${visualHTML}
       <div class="project-info">
         <div class="project-name">${project.project_name || 'Projet sans nom'}</div>
-        ${project.year ? `<div class="project-year">${project.year}</div>` : ''}
+        ${metaHTML}
       </div>
-      <div class="project-thumb" role="presentation"></div>
       <div class="project-arrow"><i class="fas fa-chevron-right"></i></div>
       <div class="hover-progress" aria-hidden="true"><div class="hover-progress__bar"></div></div>
+      ${hasCover ? `<div class="project-thumb" role="presentation"><img class="project-thumb__img" src="${project.cover_url}" alt="" aria-hidden="true" /></div>` : ''}
     `;
 
     // Events
@@ -259,10 +291,17 @@ const SubmenuModule = (() => {
     });
     
     li.addEventListener('mouseenter', () => { 
+      // Toujours lancer la barre de progression (recentrement logique)
       scheduleProgress(li);
-      scheduleShowCover(li, project.project_name, category);
-      // Highlight sur la carte sans centrage
-      window.NavigationModule?.highlightProjectOnMap(project.project_name, category, { panTo: false });
+      // Ne lancer l'affichage de l'image que si cover_url existe
+      if (hasCover) {
+        scheduleShowCover(li, project.project_name, category);
+      } else {
+        // Pour les items sans image, juste le focus sur la feature
+        scheduleFocusOnly(li, project.project_name, category);
+      }
+      // Highlight sur la carte sans centrage + fade out des autres
+      window.NavigationModule?.highlightProjectOnMap(project.project_name, category, { panTo: false, fadeOthers: true });
     });
     
     li.addEventListener('mouseleave', () => { 
@@ -280,15 +319,96 @@ const SubmenuModule = (() => {
   }
 
   /**
-   * Planifie l'affichage de la couverture au survol
+   * Planifie l'affichage de la couverture au survol et focus sur la feature
    */
   function scheduleShowCover(li, projectName, category) {
     cancelShowCover(li);
     li._coverHoverTimer = setTimeout(() => {
-      if (category) attachCoverThumbnail(li, projectName, category);
       li.classList.add('show-thumb');
       requestAnimationFrame(() => updateThumbHeight(li));
+      
+      // Focus sur la feature associée avec offset adapté
+      focusOnProjectFeature(projectName, category);
     }, 1000);
+  }
+  
+  /**
+   * Planifie uniquement le focus (pour items sans image)
+   */
+  function scheduleFocusOnly(li, projectName, category) {
+    cancelShowCover(li);
+    li._coverHoverTimer = setTimeout(() => {
+      // Focus sur la feature associée avec offset adapté
+      focusOnProjectFeature(projectName, category);
+    }, 1000);
+  }
+  
+  /**
+   * Focus sur la feature d'un projet avec offset adapté selon la taille d'écran
+   */
+  function focusOnProjectFeature(projectName, category) {
+    if (!window.MapModule?.map) return;
+    
+    try {
+      // Récupérer la feature du projet
+      const layers = window.MapModule.map._layers;
+      let targetFeature = null;
+      
+      for (const layerId in layers) {
+        const layer = layers[layerId];
+        if (layer.feature && layer.feature.properties) {
+          const props = layer.feature.properties;
+          if (props.project_name === projectName || props.name === projectName) {
+            targetFeature = layer;
+            break;
+          }
+        }
+      }
+      
+      if (!targetFeature) return;
+      
+      // Calculer l'offset selon la taille d'écran
+      const isMobile = window.innerWidth <= 768;
+      let paddingOptions;
+      
+      if (isMobile) {
+        // Mobile : décalage vers le haut (barre de navigation en bas)
+        paddingOptions = {
+          paddingTopLeft: [0, 80],
+          paddingBottomRight: [0, 0]
+        };
+      } else {
+        // Desktop : décalage vers la droite (barre de navigation à gauche)
+        paddingOptions = {
+          paddingTopLeft: [200, 0],
+          paddingBottomRight: [0, 0]
+        };
+      }
+      
+      // Focus sur la feature
+      if (targetFeature.getBounds) {
+        // Pour les polygones et lignes
+        window.MapModule.map.fitBounds(targetFeature.getBounds(), {
+          ...paddingOptions,
+          maxZoom: 16,
+          animate: true,
+          duration: 0.5
+        });
+      } else if (targetFeature.getLatLng) {
+        // Pour les points
+        const latLng = targetFeature.getLatLng();
+        const zoom = window.MapModule.map.getZoom();
+        const targetZoom = Math.max(zoom, 15);
+        
+        window.MapModule.map.setView(latLng, targetZoom, {
+          animate: true,
+          duration: 0.5,
+          ...paddingOptions
+        });
+      }
+    } catch (error) {
+      console.warn('[SubmenuModule] Erreur focus feature:', error);
+    }
   }
 
   function cancelShowCover(li) {

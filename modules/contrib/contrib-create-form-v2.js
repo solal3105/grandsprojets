@@ -254,6 +254,15 @@
       if (target >= 3) {
         const mode = Array.from(elements.geomModeRadios || []).find(r => r.checked)?.value || 'file';
         const fileInput = elements.geojsonInput;
+        
+        console.log('[contrib-create-form-v2] Geometry validation:', {
+          mode,
+          fileInputExists: !!fileInput,
+          fileInputId: fileInput?.id,
+          filesCount: fileInput?.files?.length || 0,
+          radiosCount: elements.geomModeRadios?.length || 0
+        });
+        
         const hasGeom = win.ContribGeometry?.hasGeometry?.(mode, fileInput) || false;
         
         if (!hasGeom) {

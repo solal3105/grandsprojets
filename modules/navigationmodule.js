@@ -155,14 +155,15 @@ const NavigationModule = (() => {
   }
 
   /**
-   * Met en avant un projet sur la carte avec animation
+   * Highlight un projet sur la carte
    * @param {string} projectName - Nom du projet
    * @param {string} category - Catégorie du projet
    * @param {Object} options - Options de highlight
    * @param {boolean} options.panTo - Si true, centre la carte sur le projet (défaut: true)
+   * @param {boolean} options.fadeOthers - Si true, applique un fade out aux autres features (défaut: false)
    */
   function highlightProjectOnMap(projectName, category, options = {}) {
-    const { panTo = true } = options;
+    const { panTo = true, fadeOthers = false } = options;
     
     // Nettoyer les highlights précédents
     clearProjectHighlight();
@@ -247,8 +248,8 @@ const NavigationModule = (() => {
               if (bounds.isValid()) centerLatLng = bounds.getCenter();
             }
           }
-        } else {
-          // === DIMMED : Tous les autres layers et features ===
+        } else if (fadeOthers) {
+          // === DIMMED : Tous les autres layers et features (seulement si fadeOthers activé) ===
           currentHighlight.dimmedLayers.push(featureLayer);
           applyDimmedStyle(featureLayer);
         }

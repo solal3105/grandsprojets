@@ -457,57 +457,91 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Liste de projets
+   Liste de projets - Design moderne épuré
 --------------------------------------------------------------------------- */
 .project-list {
   list-style: none;
   padding: 0;
-  margin: 20px;
+  margin: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .project-item {
   position: relative;
   display: flex;
   align-items: center;
+  gap: 12px;
   background: var(--surface-base);
-  margin-bottom: 10px;
   border-radius: 12px;
-  padding: 10px;
+  padding: 12px;
   border: 1px solid var(--gray-200);
-  box-shadow: 0 1px 4px var(--black-alpha-06);
+  box-shadow: 0 1px 3px var(--black-alpha-04);
   cursor: pointer;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease, padding-bottom 360ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform, box-shadow, padding-bottom;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1), padding-bottom 0.3s cubic-bezier(0.22, 1, 0.36, 1);
   overflow: hidden;
 }
 
 .project-item:hover {
-  background: var(--surface-base);
   transform: translateY(-2px);
-  box-shadow: 0 10px 20px var(--black-alpha-08);
-  border-color: var(--gray-300);
-}
-
-.project-color {
-  width: 48px;
-  height: 48px;
-  border-radius: 10px;
-  margin-right: 12px;
-  display: grid;
-  place-items: center;
-  transition: transform 0.18s ease;
-  border: 2px solid transparent;
+  box-shadow: 0 4px 12px var(--black-alpha-08);
+  border-color: var(--primary-alpha-35);
   background: var(--surface-raised);
 }
 
+/* Image de couverture dans les listes (prioritaire) */
+.project-item .project-cover {
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--gray-100);
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px var(--black-alpha-06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  margin-bottom: 0;
+}
+
+.project-item .project-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.project-item:hover .project-cover {
+  transform: scale(1.05);
+  box-shadow: 0 3px 8px var(--black-alpha-10);
+}
+
+/* Icône de catégorie (fallback si pas d'image) */
+.project-color {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  background: var(--surface-raised);
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px var(--black-alpha-06);
+}
+
 .project-color i {
-  position: static;
-  font-size: 20px;
+  font-size: 22px;
   color: var(--text-secondary);
+  transition: transform 0.2s ease;
 }
 
 .project-item:hover .project-color {
   transform: scale(1.05);
+  box-shadow: 0 3px 8px var(--black-alpha-10);
+}
+
+.project-item:hover .project-color i {
+  transform: scale(1.1);
 }
 
 /* Category color application */
@@ -553,55 +587,107 @@
 
 .project-info {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .project-info .project-name {
-  font-weight: bold;
-  margin-bottom: 2px;
-  color: var(--gray-900);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  line-height: 1.3;
+  color: var(--text-primary);
+  margin: 0;
+  transition: color 0.2s ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.project-item:hover .project-info .project-name {
+  color: var(--primary);
+}
+
+.project-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
 }
 
 .project-info .project-year {
-  font-size: 0.85rem;
-  color: var(--gray-600);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
 }
 
 .project-info .project-status {
-  font-size: 0.85rem;
-  color: var(--gray-400);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
 }
 
 .project-arrow {
-  font-size: 1.2rem;
-  color: var(--gray-400);
-  margin-left: 8px;
-  transition: transform 0.18s ease, color 0.18s ease;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gray-100);
+  color: var(--gray-500);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.project-arrow i {
+  font-size: 0.875rem;
+  transition: transform 0.2s ease;
 }
 
 .project-item:hover .project-arrow {
-  color: var(--primary);
+  background: var(--primary);
+  color: white;
+  transform: scale(1.05);
+}
+
+.project-item:hover .project-arrow i {
   transform: translateX(2px);
 }
 
 .project-item:focus-visible {
-  outline: 3px solid var(--primary-alpha-35);
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
-  background: var(--surface-base);
 }
 
 .project-item.active,
 .project-item[aria-current='true'] {
-  background-color: var(--primary-alpha-06);
-  border-left: 4px solid var(--primary);
+  background: var(--primary-alpha-08);
+  border-color: var(--primary);
 }
 
-/* Full-width bottom cover image (revealed after 1s hover) */
+.project-item.active .project-arrow,
+.project-item[aria-current='true'] .project-arrow {
+  background: var(--primary);
+  color: white;
+}
+
+/* Badge image - masqué pour design épuré */
+.project-has-image-badge {
+  display: none;
+}
+
+/* Image en grand au survol prolongé */
 .project-thumb {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--tile-bg) center/cover no-repeat;
+  background: var(--surface-base) center/cover no-repeat;
   border-bottom-left-radius: 12px;
   border-bottom-right-radius: 12px;
   z-index: 1;
@@ -610,14 +696,14 @@
   max-height: 0;
   overflow: hidden;
   pointer-events: none;
-  transition: max-height 420ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease, visibility 0s linear 240ms;
+  transition: max-height 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease, visibility 0s linear 0.25s;
 }
 
 .project-item.show-thumb .project-thumb {
   opacity: 1;
   visibility: visible;
-  transition: max-height 420ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease, visibility 0s;
-  max-height: min(var(--thumb-height, 300px), 300px);
+  transition: max-height 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease, visibility 0s;
+  max-height: min(var(--thumb-height, 200px), 200px);
 }
 
 .project-thumb__img {
@@ -628,37 +714,31 @@
 }
 
 .project-item.show-thumb {
-  padding-bottom: calc(10px + min(var(--thumb-height, 300px), 300px));
+  padding-bottom: calc(12px + min(var(--thumb-height, 200px), 200px));
 }
 
-/* Hover progress bar */
+/* Hover progress bar - simplifié */
 .hover-progress {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   height: 2px;
-  background: var(--primary-alpha-15);
-  border-bottom-left-radius: 6px;
-  border-bottom-right-radius: 6px;
+  background: transparent;
   pointer-events: none;
   opacity: 0;
-  visibility: hidden;
-  transition: opacity 120ms ease, visibility 120ms ease;
-  z-index: 3;
+  transition: opacity 0.2s ease;
 }
 
 .hover-progress__bar {
   height: 100%;
   width: 0%;
   background: var(--primary);
-  border-bottom-left-radius: 6px;
-  border-bottom-right-radius: 6px;
+  transition: width 0.6s linear;
 }
 
 .project-item.progress-visible .hover-progress {
   opacity: 1;
-  visibility: visible;
 }
 
 /* Ensure main content stays above the cover image */

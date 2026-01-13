@@ -1020,6 +1020,23 @@
       // Reload list (si disponible)
       await loadCitiesList(elements);
 
+      // Rafraîchir immédiatement le logo si c'est la ville active
+      if (win.activeCity === code) {
+        console.log('[city-form] Refreshing logo for active city:', code);
+        
+        // Invalider le cache de branding
+        if (win.CityManager?.CITY_BRANDING_CACHE?.has(code)) {
+          win.CityManager.CITY_BRANDING_CACHE.delete(code);
+        }
+        win._cityBranding = null;
+        
+        // Rafraîchir l'affichage du logo
+        await win.CityManager?.updateLogoForCity(code);
+        
+        // Rafraîchir le menu de sélection de ville
+        await win.CityManager?.initCityMenu(code);
+      }
+
       // Recharger les villes valides et le select de la landing si on a créé une nouvelle ville
       if (!existingCity) {
         console.log('[city-form] New city created, refreshing city lists...');

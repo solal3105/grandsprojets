@@ -136,9 +136,9 @@
   }
 }
 
-/* Animation de rebond vertical pour le marker - sur l'élément interne pour ne pas interférer avec Leaflet */
+/* Animation de rebond vertical pour le marker - plus fluide */
 .gp-marker-container.is-highlighted .gp-custom-marker {
-  animation: markerBounce 1s ease-in-out infinite;
+  animation: markerBounce 1.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
 }
 
 @keyframes markerBounce {
@@ -146,7 +146,7 @@
     margin-top: 0;
   }
   50% {
-    margin-top: -10px;
+    margin-top: -8px;
   }
 }
 
@@ -163,8 +163,16 @@
 
 /* Style pour les markers en transparence (dimmed) */
 .gp-marker-container.is-dimmed {
-  opacity: 0.3;
-  transition: opacity 0.2s ease;
+  opacity: 0.25;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  filter: grayscale(0.3);
+}
+
+/* Animation fluide pour les markers highlighted */
+.gp-marker-container.is-highlighted {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: scale(1.15);
+  z-index: 1000 !important;
 }
 
 /* ============================================================================

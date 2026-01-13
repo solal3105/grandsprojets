@@ -165,6 +165,98 @@
   }
 
   // ============================================================================
+  // GEOJSON HELPERS
+  // ============================================================================
+
+  /**
+   * Parse et normalise un fichier GeoJSON
+   * @param {File} file - Fichier GeoJSON
+   * @returns {Promise<Object|null>} FeatureCollection normalisée ou null
+   */
+  function parseAndNormalizeGeoJSONFile(file) {
+    return new Promise((resolve, reject) => {
+      if (!file) { resolve(null); return; }
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const text = e.target.result;
+          const geojson = JSON.parse(text);
+          
+          // Utiliser ContribGeometry si disponible
+          if (win.ContribGeometry?.normalizeToFeatureCollection) {
+            resolve(win.ContribGeometry.normalizeToFeatureCollection(geojson));
+            return;
+          }
+          
+          // Fallback: normalisation locale
+          resolve(normalizeDrawLayerToFC(geojson));
+        } catch (err) {
+          reject(err);
+        }
+      };
+      reader.onerror = () => reject(new Error('Erreur lecture fichier'));
+      reader.readAsText(file);
+    });
+  }
+
+  /**
+   * Normalise un GeoJSON en FeatureCollection (fallback)
+   * @param {Object} geojson - GeoJSON d'entrée
+   * @returns {Object} FeatureCollection normalisée
+   */
+  function normalizeDrawLayerToFC(geojson) {
+    if (!geojson) return { type: 'FeatureCollection', features: [] };
+    
+    // Déjà une FeatureCollection
+    if (geojson.type === 'FeatureCollection') {
+      const features = (geojson.features || []).map(f => ({
+        type: 'Feature',
+        properties: f.properties || {},
+        geometry: f.geometry
+      }));
+      return { type: 'FeatureCollection', features };
+    }
+    
+    // Une Feature simple
+    if (geojson.type === 'Feature') {
+      return {
+        type: 'FeatureCollection',
+        features: [{
+          type: 'Feature',
+          properties: geojson.properties || {},
+          geometry: geojson.geometry
+        }]
+      };
+    }
+    
+    // Géométrie brute (Point, LineString, Polygon, Multi*, GeometryCollection)
+    const geomTypes = ['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon', 'GeometryCollection'];
+    if (geomTypes.includes(geojson.type)) {
+      // Cas spécial: MultiPoint -> convertir en plusieurs Features Point
+      if (geojson.type === 'MultiPoint' && Array.isArray(geojson.coordinates)) {
+        const features = geojson.coordinates.map(coords => ({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'Point', coordinates: coords }
+        }));
+        return { type: 'FeatureCollection', features };
+      }
+      
+      return {
+        type: 'FeatureCollection',
+        features: [{
+          type: 'Feature',
+          properties: {},
+          geometry: geojson
+        }]
+      };
+    }
+    
+    return { type: 'FeatureCollection', features: [] };
+  }
+
+  // ============================================================================
   // FORM SUBMISSION
   // ============================================================================
 
@@ -251,7 +343,31 @@
             if (onSetStatus) onSetStatus('Le fichier doit être un GeoJSON (.geojson ou JSON valide).', 'error');
             return;
           }
-          fileForUpload = file;
+          
+          // Parser et normaliser le GeoJSON avant upload
+          try {
+            const geojson = await parseAndNormalizeGeoJSONFile(file);
+            if (!geojson || !geojson.features || geojson.features.length === 0) {
+              if (onSetStatus) onSetStatus('Le fichier GeoJSON est invalide ou vide.', 'error');
+              return;
+            }
+            
+            // Créer un nouveau fichier avec le GeoJSON normalisé
+            const blob = new Blob([JSON.stringify(geojson)], { type: 'application/geo+json' });
+            if (win.ContribUtils?.slugify) {
+              try { 
+                fileForUpload = new File([blob], `${win.ContribUtils.slugify(projectName)}.geojson`, { type: 'application/geo+json' }); 
+              } catch (_) { 
+                fileForUpload = blob; 
+              }
+            } else {
+              fileForUpload = blob;
+            }
+          } catch (parseErr) {
+            console.error('[contrib-form] Erreur parsing GeoJSON:', parseErr);
+            if (onSetStatus) onSetStatus('Erreur lors du parsing du fichier GeoJSON.', 'error');
+            return;
+          }
         }
       } else if (geomMode === 'draw') {
         if (!drawLayer) {
@@ -261,10 +377,12 @@
           }
         } else {
           try {
-            const feature = drawLayer;
-            const feat = feature.type === 'Feature' ? feature : { type: 'Feature', properties: {}, geometry: feature };
-            const fc = { type: 'FeatureCollection', features: Array.isArray(feature.features) ? feature.features : [feat] };
-            const blob = new Blob([JSON.stringify(fc)], { type: 'application/geo+json' });
+            // Normaliser le GeoJSON du dessin
+            const normalized = win.ContribGeometry?.normalizeToFeatureCollection 
+              ? win.ContribGeometry.normalizeToFeatureCollection(drawLayer)
+              : normalizeDrawLayerToFC(drawLayer);
+            
+            const blob = new Blob([JSON.stringify(normalized)], { type: 'application/geo+json' });
             
             if (win.ContribUtils?.slugify) {
               try { 

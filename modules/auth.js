@@ -1,234 +1,340 @@
 // modules/auth.js
+// Gestion de l'authentification Supabase avec refresh proactif robuste
+// 
+// PROBLÈME RÉSOLU : Écran blanc après ~1h d'inactivité
+// CAUSE : Le token JWT Supabase expire après 1h. Le refresh automatique de Supabase
+//         ne fonctionne PAS quand l'onglet est en arrière-plan (par design, pour économiser les ressources).
+//         Quand l'utilisateur revient sur l'onglet avec un token expiré, l'app crashait.
+//
+// SOLUTION : 
+// 1. Refresh proactif toutes les 4 minutes (le timer peut être throttled en arrière-plan)
+// 2. Refresh IMMÉDIAT quand l'onglet redevient visible (visibilitychange)
+// 3. Gestion gracieuse de l'expiration : basculement en mode non-connecté sans crash
+
 ;(function(win){
+  'use strict';
+  
   if (!win.supabase) {
-    console.error('[AuthModule] Supabase CDN not loaded. Load @supabase/supabase-js before auth.js');
+    console.error('[AuthModule] Supabase CDN not loaded');
     return;
   }
 
-  // Réutiliser le client Supabase existant (créé par supabaseservice.js)
-  // Évite le warning "Multiple GoTrueClient instances"
+  // ============================================================================
+  // CONFIGURATION
+  // ============================================================================
+  
   const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
+  const STORAGE_KEY = 'grandsprojets-auth';
   
-  // Réutiliser le client existant s'il existe déjà
-  // Configuration identique à supabaseservice.js pour cohérence
+  // Timing du refresh proactif
+  const CHECK_INTERVAL_MS = 4 * 60 * 1000;      // Vérifier toutes les 4 min
+  const REFRESH_BEFORE_EXPIRY_MS = 10 * 60 * 1000; // Refresh 10 min avant expiration
+  const MAX_REFRESH_FAILURES = 3;               // Abandonner après 3 échecs consécutifs
+  
+  // ============================================================================
+  // CLIENT SUPABASE (singleton partagé avec supabaseservice.js)
+  // ============================================================================
+  
   const client = win.__supabaseClient || supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
-      storageKey: 'grandsprojets-auth'
+      autoRefreshToken: true,      // Supabase gère le refresh quand l'onglet est actif
+      persistSession: true,        // Stocker la session dans localStorage
+      detectSessionInUrl: true,    // Détecter les magic links
+      storageKey: STORAGE_KEY
     }
   });
+  
   if (!win.__supabaseClient) {
     win.__supabaseClient = client;
   }
 
-  // Cache pour la session (mis à jour par onAuthStateChange)
-  let cachedSession = null;
-  let sessionCheckInterval = null;
+  // ============================================================================
+  // ÉTAT INTERNE
+  // ============================================================================
   
-  // Initialiser le cache avec la session actuelle et tenter un refresh si nécessaire
-  (async function initSession() {
-    try {
-      const { data, error } = await client.auth.getSession();
-      
-      if (error) {
-        console.warn('[AuthModule] Erreur getSession au démarrage:', error.message);
-      }
-      
-      let session = data?.session || null;
-      
-      // Si pas de session mais des données dans localStorage, tenter un refresh
-      if (!session) {
-        const storageKey = 'grandsprojets-auth';
-        const storedData = localStorage.getItem(storageKey);
-        
-        if (storedData) {
-          console.log('[AuthModule] Tentative de refresh de la session au démarrage...');
-          try {
-            const refreshResult = await client.auth.refreshSession();
-            if (refreshResult.data?.session) {
-              session = refreshResult.data.session;
-              console.log('[AuthModule] Session rafraîchie avec succès au démarrage');
-            } else {
-              console.warn('[AuthModule] Refresh échoué au démarrage:', refreshResult.error?.message);
-            }
-          } catch (refreshErr) {
-            console.warn('[AuthModule] Erreur refresh au démarrage:', refreshErr.message);
-          }
-        }
-      }
-      
-      cachedSession = session;
-      
-      // Démarrer la surveillance si une session existe
-      if (cachedSession) {
-        startSessionMonitoring();
-      }
-    } catch (e) {
-      console.error('[AuthModule] Erreur initialisation session:', e);
-      cachedSession = null;
-    }
-  })();
+  let cachedSession = null;
+  let refreshInterval = null;
+  let refreshFailCount = 0;
+  let isRefreshing = false; // Éviter les refreshs concurrents
+
+  // ============================================================================
+  // FONCTIONS DE REFRESH
+  // ============================================================================
   
   /**
-   * Surveillance proactive de la session
-   * Vérifie toutes les 5 minutes si la session est valide et la rafraîchit si nécessaire
+   * Tente de rafraîchir la session
+   * @returns {Promise<boolean>} true si le refresh a réussi
    */
-  function startSessionMonitoring() {
-    // Éviter les doublons
-    if (sessionCheckInterval) return;
+  async function refreshSession() {
+    // Éviter les appels concurrents
+    if (isRefreshing) {
+      return cachedSession !== null;
+    }
     
-    const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+    isRefreshing = true;
     
-    sessionCheckInterval = setInterval(async () => {
-      try {
-        const { data, error } = await client.auth.getSession();
+    try {
+      const { data, error } = await client.auth.refreshSession();
+      
+      if (error || !data?.session) {
+        refreshFailCount++;
+        console.warn('[Auth] Refresh échoué (' + refreshFailCount + '/' + MAX_REFRESH_FAILURES + '):', error?.message || 'No session');
         
-        if (error || !data?.session) {
-          // Session invalide, tenter un refresh
-          console.log('[AuthModule] Session expirée détectée, tentative de refresh...');
-          const refreshResult = await client.auth.refreshSession();
-          
-          if (refreshResult.error || !refreshResult.data?.session) {
-            console.warn('[AuthModule] Refresh échoué, session perdue');
-            stopSessionMonitoring();
-            cachedSession = null;
-          } else {
-            console.log('[AuthModule] Session rafraîchie avec succès');
-            cachedSession = refreshResult.data.session;
-          }
-        } else {
-          // Session valide, vérifier si proche de l'expiration
-          const session = data.session;
-          const expiresAt = session.expires_at * 1000; // Convertir en ms
-          const now = Date.now();
-          const timeUntilExpiry = expiresAt - now;
-          
-          // Si moins de 10 minutes avant expiration, rafraîchir proactivement
-          if (timeUntilExpiry < 10 * 60 * 1000) {
-            console.log('[AuthModule] Session proche de l\'expiration, refresh proactif...');
-            const refreshResult = await client.auth.refreshSession();
-            if (refreshResult.data?.session) {
-              cachedSession = refreshResult.data.session;
-              console.log('[AuthModule] Refresh proactif réussi');
+        if (refreshFailCount >= MAX_REFRESH_FAILURES) {
+          console.error('[Auth] Trop d\'échecs de refresh, abandon');
+          cachedSession = null;
+          stopRefreshTimer();
+          handleSessionLost();
+          return false;
+        }
+        return false;
+      }
+      
+      // Succès
+      cachedSession = data.session;
+      refreshFailCount = 0;
+      console.log('[Auth] Session rafraîchie, expire à', new Date(data.session.expires_at * 1000).toLocaleTimeString());
+      return true;
+      
+    } catch (err) {
+      console.warn('[Auth] Erreur refresh:', err.message);
+      refreshFailCount++;
+      return false;
+    } finally {
+      isRefreshing = false;
+    }
+  }
+  
+  /**
+   * Vérifie si la session doit être rafraîchie et le fait si nécessaire
+   */
+  async function checkAndRefresh() {
+    if (!cachedSession) return;
+    
+    try {
+      // Récupérer la session actuelle
+      const { data } = await client.auth.getSession();
+      
+      if (!data?.session) {
+        // Pas de session, tenter un refresh
+        console.log('[Auth] Session perdue, tentative de récupération...');
+        await refreshSession();
+        return;
+      }
+      
+      // Vérifier le temps restant avant expiration
+      const expiresAt = data.session.expires_at * 1000;
+      const now = Date.now();
+      const timeLeft = expiresAt - now;
+      
+      if (timeLeft < REFRESH_BEFORE_EXPIRY_MS) {
+        console.log('[Auth] Session expire dans', Math.round(timeLeft / 60000), 'min, refresh proactif...');
+        await refreshSession();
+      } else {
+        // Mettre à jour le cache
+        cachedSession = data.session;
+      }
+      
+    } catch (err) {
+      console.warn('[Auth] Erreur vérification session:', err.message);
+    }
+  }
+  
+  // ============================================================================
+  // TIMER DE REFRESH PÉRIODIQUE
+  // ============================================================================
+  
+  function startRefreshTimer() {
+    if (refreshInterval) return;
+    
+    // Vérification immédiate
+    checkAndRefresh();
+    
+    // Puis toutes les CHECK_INTERVAL_MS
+    // Note: Ce timer peut être throttled par le navigateur en arrière-plan,
+    // c'est pourquoi on utilise aussi visibilitychange
+    refreshInterval = setInterval(checkAndRefresh, CHECK_INTERVAL_MS);
+    
+    console.log('[Auth] Timer de refresh démarré (toutes les', CHECK_INTERVAL_MS / 60000, 'min)');
+  }
+  
+  function stopRefreshTimer() {
+    if (refreshInterval) {
+      clearInterval(refreshInterval);
+      refreshInterval = null;
+      console.log('[Auth] Timer de refresh arrêté');
+    }
+  }
+
+  // ============================================================================
+  // GESTION DE LA PERTE DE SESSION
+  // ============================================================================
+  
+  /**
+   * Gère gracieusement la perte de session (expiration ou déconnexion)
+   * Évite l'écran blanc en basculant proprement en mode non-connecté
+   */
+  function handleSessionLost() {
+    console.log('[Auth] Basculement en mode non-connecté...');
+    
+    try {
+      // Réinitialiser les variables globales
+      win.__CONTRIB_ROLE = '';
+      win.__CONTRIB_IS_ADMIN = false;
+      win.__CONTRIB_VILLES = null;
+      
+      // Masquer le bouton de contribution
+      const contributeToggle = document.getElementById('contribute-toggle');
+      if (contributeToggle) {
+        contributeToggle.style.display = 'none';
+      }
+      
+      // Fermer les modales de contribution
+      const contribModal = document.getElementById('contrib-modal-container');
+      if (contribModal) {
+        contribModal.innerHTML = '';
+      }
+      
+      // Mettre à jour la visibilité des éléments
+      if (win.ContribModule?.applyContribVisibility) {
+        win.ContribModule.applyContribVisibility(null);
+      }
+      
+      // Rafraîchir les toggles
+      if (win.CityBrandingModule?.applyTogglesConfig && win._cityBranding?.enabled_toggles) {
+        win.CityBrandingModule.applyTogglesConfig(win._cityBranding.enabled_toggles, null);
+      }
+      
+    } catch (err) {
+      console.warn('[Auth] Erreur basculement mode non-connecté:', err);
+    }
+  }
+
+  // ============================================================================
+  // LISTENERS D'ÉVÉNEMENTS
+  // ============================================================================
+  
+  /**
+   * Gestionnaire pour le retour sur l'onglet (CRITIQUE pour éviter l'écran blanc)
+   */
+  function handleVisibilityChange() {
+    if (document.visibilityState !== 'visible') return;
+    
+    console.log('[Auth] Onglet redevenu visible, vérification session...');
+    
+    // Vérification immédiate avec refresh si nécessaire
+    (async () => {
+      try {
+        const { data } = await client.auth.getSession();
+        
+        if (!data?.session) {
+          // Pas de session valide
+          if (cachedSession) {
+            // On avait une session avant, tenter un refresh
+            console.log('[Auth] Session perdue pendant l\'absence, tentative de récupération...');
+            const refreshed = await refreshSession();
+            
+            if (!refreshed) {
+              // Refresh échoué, la session est vraiment perdue
+              handleSessionLost();
+            } else {
+              // Refresh réussi, redémarrer le timer
+              startRefreshTimer();
             }
           }
+          // Si on n'avait pas de session, rien à faire
+        } else {
+          // Session valide
+          cachedSession = data.session;
+          
+          // Vérifier si proche de l'expiration
+          const timeLeft = (data.session.expires_at * 1000) - Date.now();
+          if (timeLeft < REFRESH_BEFORE_EXPIRY_MS) {
+            console.log('[Auth] Session proche de l\'expiration, refresh...');
+            await refreshSession();
+          }
+          
+          // S'assurer que le timer tourne
+          startRefreshTimer();
         }
       } catch (err) {
-        console.warn('[AuthModule] Erreur lors de la vérification de session:', err);
+        console.warn('[Auth] Erreur vérification au retour:', err);
       }
-    }, CHECK_INTERVAL);
-  }
-  
-  function stopSessionMonitoring() {
-    if (sessionCheckInterval) {
-      clearInterval(sessionCheckInterval);
-      sessionCheckInterval = null;
-    }
+    })();
   }
   
   /**
-   * Gestion de la reconnexion réseau
-   * Tente de rafraîchir la session quand la connexion revient
+   * Gestionnaire pour le retour de connexion réseau
    */
-  function setupNetworkListeners() {
-    if (typeof win.addEventListener !== 'function') return;
+  function handleOnline() {
+    if (!cachedSession) return;
     
-    // Quand la connexion revient
-    win.addEventListener('online', async () => {
-      if (cachedSession) {
-        console.log('[AuthModule] Connexion rétablie, vérification de la session...');
-        try {
-          const { data, error } = await client.auth.getSession();
-          if (error || !data?.session) {
-            // Tenter un refresh
-            const refreshResult = await client.auth.refreshSession();
-            if (refreshResult.data?.session) {
-              cachedSession = refreshResult.data.session;
-              console.log('[AuthModule] Session restaurée après reconnexion');
-            }
-          }
-        } catch (err) {
-          console.warn('[AuthModule] Erreur lors de la restauration de session:', err);
-        }
-      }
-    });
-    
-    // Quand l'onglet redevient visible (l'utilisateur revient sur la page)
-    document.addEventListener('visibilitychange', async () => {
-      if (document.visibilityState === 'visible' && cachedSession) {
-        try {
-          const { data } = await client.auth.getSession();
-          if (!data?.session) {
-            // Session perdue pendant l'absence, tenter un refresh
-            console.log('[AuthModule] Onglet redevenu visible, refresh de session...');
-            const refreshResult = await client.auth.refreshSession();
-            if (refreshResult.data?.session) {
-              cachedSession = refreshResult.data.session;
-            }
-          }
-        } catch (err) {
-          // Ignorer silencieusement
-        }
-      }
-    });
+    console.log('[Auth] Connexion rétablie, vérification session...');
+    checkAndRefresh();
   }
   
-  // Initialiser les listeners réseau
-  setupNetworkListeners();
+  // Enregistrer les listeners
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  win.addEventListener('online', handleOnline);
+
+  // ============================================================================
+  // LISTENER SUPABASE AUTH STATE
+  // ============================================================================
   
-  // Écouter les changements pour maintenir le cache à jour
   client.auth.onAuthStateChange((event, session) => {
-    cachedSession = session;
+    console.log('[Auth] Event:', event, session ? '(session présente)' : '(pas de session)');
     
-    // Gérer les différents événements
     switch (event) {
       case 'INITIAL_SESSION':
-        // Session initiale au chargement de l'app
-        // Si session = null mais il y avait des données auth dans localStorage,
-        // cela signifie que le refresh token a expiré
-        if (!session) {
-          const storageKey = 'grandsprojets-auth';
-          const storedData = localStorage.getItem(storageKey);
-          
-          if (storedData) {
-            console.warn('[AuthModule] Session expirée détectée au démarrage - nettoyage du localStorage');
-            // Nettoyer les données de session corrompues
-            localStorage.removeItem(storageKey);
-            
-            // Recharger la page pour avoir un état propre
-            // Utiliser un flag pour éviter une boucle infinie
-            const reloadFlag = 'auth-session-cleaned';
-            if (!sessionStorage.getItem(reloadFlag)) {
-              sessionStorage.setItem(reloadFlag, 'true');
-              console.log('[AuthModule] Rechargement pour appliquer le nettoyage...');
-              setTimeout(() => location.reload(), 100);
-            } else {
-              // Flag déjà présent = on a déjà rechargé, ne pas boucler
-              sessionStorage.removeItem(reloadFlag);
-            }
-          }
+        cachedSession = session;
+        if (session) {
+          startRefreshTimer();
         } else {
-          // Session valide, démarrer la surveillance
-          startSessionMonitoring();
+          // Vérifier s'il y a des données corrompues dans le storage
+          const storedData = localStorage.getItem(STORAGE_KEY);
+          if (storedData) {
+            console.log('[Auth] Données auth présentes mais pas de session, tentative de refresh...');
+            refreshSession().then(success => {
+              if (success) {
+                startRefreshTimer();
+              } else {
+                // Nettoyer les données corrompues
+                localStorage.removeItem(STORAGE_KEY);
+              }
+            });
+          }
         }
         break;
+        
       case 'SIGNED_IN':
-      case 'TOKEN_REFRESHED':
-        // Démarrer/continuer la surveillance
-        startSessionMonitoring();
+        cachedSession = session;
+        refreshFailCount = 0;
+        startRefreshTimer();
         break;
+        
+      case 'TOKEN_REFRESHED':
+        cachedSession = session;
+        refreshFailCount = 0;
+        // Le timer continue de tourner
+        break;
+        
       case 'SIGNED_OUT':
-        // Arrêter la surveillance
-        stopSessionMonitoring();
+        cachedSession = null;
+        stopRefreshTimer();
+        handleSessionLost();
         break;
     }
   });
 
+  // ============================================================================
+  // API PUBLIQUE
+  // ============================================================================
+  
   const AuthModule = {
-    getClient: function() { return client; },
+    getClient: function() { 
+      return client; 
+    },
 
     /**
      * Vérifie si l'utilisateur est connecté (synchrone - utilise le cache)
@@ -246,60 +352,64 @@
       return cachedSession;
     },
 
+    /**
+     * Récupère la session depuis Supabase (async)
+     * @returns {Promise<{data: {session: Object|null}, error: Error|null}>}
+     */
     getSession: async function() {
       try {
         const result = await client.auth.getSession();
-        // Mettre à jour le cache
         cachedSession = result.data?.session || null;
         return result;
       } catch (e) {
-        console.warn('[AuthModule] getSession error:', e);
+        console.warn('[Auth] getSession error:', e);
         return { data: { session: null }, error: e };
       }
     },
 
     /**
-     * Récupère la session avec refresh automatique si expirée
+     * Récupère la session avec refresh automatique si nécessaire
      * Ne redirige JAMAIS - retourne simplement la session ou null
      * @returns {Promise<{session: Object|null, refreshed: boolean}>}
      */
     getSessionWithRefresh: async function() {
       try {
-        // 1. Essayer de récupérer la session actuelle
-        let result = await client.auth.getSession();
-        let session = result.data?.session;
+        const { data } = await client.auth.getSession();
         
-        // 2. Si pas de session ou token expiré, tenter un refresh
-        if (!session) {
-          try {
-            const refreshResult = await client.auth.refreshSession();
-            if (refreshResult.data?.session) {
-              session = refreshResult.data.session;
-              cachedSession = session;
-              return { session, refreshed: true };
-            }
-          } catch (refreshErr) {
-            // Refresh échoué silencieusement
-          }
+        if (data?.session) {
+          cachedSession = data.session;
+          return { session: data.session, refreshed: false };
         }
         
-        cachedSession = session || null;
-        return { session: session || null, refreshed: false };
+        // Pas de session, tenter un refresh
+        const refreshed = await refreshSession();
+        return { 
+          session: cachedSession, 
+          refreshed: refreshed 
+        };
       } catch (e) {
-        console.warn('[AuthModule] getSessionWithRefresh error:', e);
+        console.warn('[Auth] getSessionWithRefresh error:', e);
         return { session: null, refreshed: false };
       }
     },
 
+    /**
+     * S'abonner aux changements d'état d'authentification
+     */
     onAuthStateChange: function(callback) {
       try {
-        return client.auth.onAuthStateChange((event, session) => callback && callback(event, session));
+        return client.auth.onAuthStateChange((event, session) => {
+          if (callback) callback(event, session);
+        });
       } catch (e) {
-        console.warn('[AuthModule] onAuthStateChange error:', e);
+        console.warn('[Auth] onAuthStateChange error:', e);
         return { data: { subscription: null }, error: e };
       }
     },
 
+    /**
+     * Connexion via GitHub OAuth
+     */
     signInWithGitHub: async function(redirectTo) {
       try {
         return await client.auth.signInWithOAuth({
@@ -310,11 +420,14 @@
           }
         });
       } catch (e) {
-        console.warn('[AuthModule] signInWithGitHub error:', e);
+        console.warn('[Auth] signInWithGitHub error:', e);
         return { error: e };
       }
     },
 
+    /**
+     * Connexion via Magic Link (email)
+     */
     signInWithMagicLink: async function(email, redirectTo) {
       try {
         if (!email || typeof email !== 'string') {
@@ -328,24 +441,30 @@
           }
         });
       } catch (e) {
-        console.warn('[AuthModule] signInWithMagicLink error:', e);
+        console.warn('[Auth] signInWithMagicLink error:', e);
         return { error: e };
       }
     },
 
+    /**
+     * Déconnexion
+     */
     signOut: async function() {
       try {
         return await client.auth.signOut();
       } catch (e) {
-        console.warn('[AuthModule] signOut error:', e);
+        console.warn('[Auth] signOut error:', e);
         return { error: e };
       }
     },
 
+    /**
+     * Vérifie l'authentification et redirige vers login si non connecté
+     */
     requireAuthOrRedirect: async function(loginUrl) {
       try {
-        const { data: { session } } = await AuthModule.getSession();
-        if (!session || !session.user) {
+        const { data: { session } } = await this.getSession();
+        if (!session?.user) {
           win.location.href = loginUrl || '/login/';
           return null;
         }
@@ -354,8 +473,16 @@
         win.location.href = loginUrl || '/login/';
         return null;
       }
+    },
+    
+    /**
+     * Force un refresh de la session (utile pour les tests)
+     */
+    forceRefresh: async function() {
+      return await refreshSession();
     }
   };
 
   win.AuthModule = AuthModule;
+  
 })(window);

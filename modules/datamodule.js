@@ -111,10 +111,12 @@ window.DataModule = (function() {
 		let imgUrl = props.cover_url || props.imgUrl;
 		let title = props.project_name || props.name || props.Name || props.line || '';
 
-		// Ajustement du titre pour Voie Lyonnaise
-		if (layerName === 'velo' && props.project_name && !title.startsWith('Voie Lyonnaise')) {
-			title = `Voie Lyonnaise ${props.project_name}`;
-		}
+		// Ajustement du titre via LayerRegistry (centralisation des règles par famille)
+		try {
+			if (window.LayerRegistry?.formatTooltipTitle) {
+				title = window.LayerRegistry.formatTooltipTitle(layerName, props, title);
+			}
+		} catch (_) {}
 
 		// Simple échappement pour éviter l'injection HTML
 		const esc = (s) => String(s || '')
@@ -576,7 +578,13 @@ window.DataModule = (function() {
 		const detailSupportedLayers = (typeof window.getAllCategories === 'function') ? 
 			window.getAllCategories() : 
 			[];
-		const noInteractLayers = ['planVelo', 'amenagementCyclable'];
+		const isNoInteractLayer = (name) => {
+			try {
+				return !!(window.LayerRegistry?.isNoInteractLayer && window.LayerRegistry.isNoInteractLayer(name));
+			} catch (_) {
+				return false;
+			}
+		};
 
 		// Tooltip générique (ou spécifique) pour les couches non cliquables (paths/polygones)
 		try {
@@ -598,45 +606,29 @@ window.DataModule = (function() {
 					const title = projectNameGuess || p?.titre || p?.title || '';
 					let inner;
 
-					// Règles spécifiques par couche
-					if (layerName === 'bus') {
-						const val = p.bus || p.BUS || p.Bus || '';
-						inner = `<div class="gp-tt-body">${esc(`bus ${val}`)}</div>`;
-					} else if (layerName === 'metroFuniculaire') {
-						const ligne = p.ligne || p.LIGNE || p.Line || '';
-						const isFuni = String(ligne).toUpperCase() === 'F1' || String(ligne).toUpperCase() === 'F2';
-						const label = isFuni ? `Funiculaire ${ligne}` : `Métro ${ligne}`;
-						inner = `<div class="gp-tt-body">${esc(label)}</div>`;
-					} else if (layerName === 'tramway') {
-						const val = p.tramway || p.ligne || p.LIGNE || '';
-						inner = `<div class="gp-tt-body">${esc(`Tramway ${val}`)}</div>`;
-					} else if (layerName === 'emplacementReserve' || /plu|emplacement|reserve/i.test(layerName)) {
-						const raw = (p.type ?? p.TYPE ?? p.Type ?? p.libelle ?? p.LIBELLE ?? p.code ?? p.CODE ?? p.typologie ?? '').toString().trim();
-						const normalizeKey = (s) => s
-							.normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
-							.toUpperCase()
-							.replace(/[^A-Z]/g, ''); // remove spaces, dashes, underscores, etc.
-						const key = normalizeKey(raw);
-						const map = {
-							// Primary codes
-							'ELARVOIE': 'Élargissement de voirie',
-							'CREAVOIE': 'Création de voirie',
-							'CARREF': 'Aménagement de carrefour',
-							'EQUIPUBL': 'Équipements publics',
-							'MAILPLANTE': 'Mail planté / espace vert',
-							// Common variations/synonyms (defensive)
-							'ELARGVOIE': 'Élargissement de voirie',
-						};
-						const label = map[key] || raw || '';
-						inner = `<div class="gp-tt-body">${esc(`Objectif : ${label}`)}</div>`;
-					} else {
-						// Fallback générique : titre ou nom du layer
+					// Règles spécifiques centralisées via LayerRegistry
+					try {
+						if (window.LayerRegistry?.getPathTooltipHtml) {
+							inner = window.LayerRegistry.getPathTooltipHtml(layerName, p, esc, title, layerName);
+						} else {
+							inner = title 
+								? `<div class="gp-tt-title">${esc(title)}</div>` 
+								: `<div class="gp-tt-body">${esc(layerName)}</div>`;
+						}
+					} catch (_) {
 						inner = title 
 							? `<div class="gp-tt-title">${esc(title)}</div>` 
 							: `<div class="gp-tt-body">${esc(layerName)}</div>`;
 					}
-					// Désactiver la tooltip au survol pour certaines couches
-					if (layerName !== 'planVelo' && layerName !== 'amenagementCyclable') {
+					// Désactiver la tooltip au survol pour certaines couches (via LayerRegistry)
+					const allowPathTooltip = (() => {
+						try {
+							return !!(window.LayerRegistry?.supportsPathTooltip && window.LayerRegistry.supportsPathTooltip(layerName));
+						} catch (_) {
+							return true;
+						}
+					})();
+					if (allowPathTooltip) {
 						layer.bindTooltip(inner, {
 							className: 'gp-path-tooltip',
 							sticky: true,
@@ -661,7 +653,6 @@ window.DataModule = (function() {
 			// Nettoyer explicitement le dashArray et dashOffset
 			if (typeof layer.setStyle === 'function') {
 				try {
-					const currentOptions = layer.options || {};
 					layer.setStyle({
 						dashArray: null,
 						dashOffset: 0
@@ -723,42 +714,92 @@ window.DataModule = (function() {
 
 				const p = (feature && feature.properties) || {};
 				const isContribution = !!(p.project_name && p.category);
+				const contributionName = isContribution ? p.project_name : null;
+				const isCategoryLayer = detailSupportedLayers.includes(layerName);
 
-				// Réinitialiser tous les styles et stopper toutes les animations
-				// SAUF les features en mode "highlighted" (sélection via submenu)
-				geojsonLayer.eachLayer(otherLayer => {
-					// Ne pas toucher aux features highlighted
-					if (otherLayer.__gpHighlighted) return;
-					
-					stopDashAnimation(otherLayer);
-					const originalStyle = getFeatureStyle(otherLayer.feature, layerName);
-					if (typeof otherLayer.setStyle === 'function') {
-						otherLayer.setStyle(originalStyle);
-					}
-				});
-
-				// Animer tous les segments de cette contribution (même project_name)
-				// SAUF les features en mode "highlighted" (sélection via submenu)
-				if (isContribution) {
-					const contributionName = p.project_name;
-					geojsonLayer.eachLayer(otherLayer => {
-						// Ne pas toucher aux features highlighted
-						if (otherLayer.__gpHighlighted) return;
+				// Helper: applique le style de survol sur TOUTES les couches
+				const applyHoverStyles = () => {
+					const allLayers = MapModule.layers || {};
+					Object.entries(allLayers).forEach(([lyrName, lyr]) => {
+						if (!lyr || typeof lyr.eachLayer !== 'function') return;
 						
-						const op = (otherLayer?.feature?.properties) || {};
-						if (op.project_name === contributionName && typeof otherLayer.setStyle === 'function') {
-							const originalStyle = getFeatureStyle(otherLayer.feature, layerName);
-							otherLayer.setStyle({
-								color: darkenColor(originalStyle.color || 'var(--info)', 0.2),
-								weight: (originalStyle.weight || 3) + 2,
-								dashArray: '10, 10',
-								opacity: 1,
-								fillOpacity: originalStyle.fillOpacity || 0.2
-							});
-							startDashAnimation(otherLayer);
-						}
+						lyr.eachLayer(otherLayer => {
+							// Ne pas toucher aux features highlighted
+							if (otherLayer.__gpHighlighted) return;
+							
+							const op = (otherLayer?.feature?.properties) || {};
+							const isPartOfHoveredContribution = isContribution && op.project_name === contributionName;
+							const isMarker = otherLayer instanceof L.Marker;
+							
+							// TOUJOURS stopper les animations et restaurer le style original d'abord
+							stopDashAnimation(otherLayer);
+							const originalStyle = getFeatureStyle(otherLayer.feature, lyrName);
+							
+							// Gestion des MARQUEURS (Point, Icon)
+							if (isMarker) {
+								if (typeof otherLayer.setOpacity === 'function') {
+									if (isContribution) {
+										if (isPartOfHoveredContribution) {
+											// Mettre en évidence le marqueur survolé
+											otherLayer.setOpacity(1);
+											try {
+												const el = otherLayer.getElement();
+												if (el) {
+													el.style.transform = el.style.transform.replace(/scale\([^)]*\)/, '') + ' scale(1.2)';
+													el.style.filter = 'drop-shadow(0 0 4px rgba(0,0,0,0.5))';
+												}
+											} catch (_) {}
+										} else {
+											// Mettre en transparence les autres marqueurs
+											otherLayer.setOpacity(0.3);
+										}
+									} else {
+										// Restaurer l'opacité normale
+										otherLayer.setOpacity(1);
+									}
+								}
+							}
+							// Gestion des LIGNES et POLYGONES
+							else if (typeof otherLayer.setStyle === 'function') {
+								// Restaurer d'abord le style original avec opacity/fillOpacity par défaut
+								// (Leaflet ne réinitialise que les propriétés passées à setStyle)
+								otherLayer.setStyle({
+									opacity: 0.8,
+									fillOpacity: 0.2,
+									...originalStyle
+								});
+								
+								// Puis appliquer les styles de hover si c'est une contribution
+								if (isContribution) {
+									if (isPartOfHoveredContribution) {
+										// Mettre en évidence la contribution survolée
+										otherLayer.setStyle({
+											color: darkenColor(originalStyle.color || 'var(--info)', 0.2),
+											weight: (originalStyle.weight || 3) + 2,
+											opacity: 1,
+											fillOpacity: originalStyle.fillOpacity || 0.2
+										});
+										// Animation pointillée uniquement pour les couches catégorie
+										if (isCategoryLayer) {
+											otherLayer.setStyle({ dashArray: '10, 10' });
+											startDashAnimation(otherLayer);
+										}
+									} else {
+										// Mettre en transparence toutes les autres features
+										otherLayer.setStyle({
+											...originalStyle,
+											opacity: 0.15,
+											fillOpacity: (originalStyle.fillOpacity || 0.2) * 0.3
+										});
+									}
+								}
+							}
+						});
 					});
-				}
+				};
+
+				// Appliquer les styles de survol
+				applyHoverStyles();
 
 				// Afficher un tooltip riche (image + titre) pour le projet lié
 				try {
@@ -818,14 +859,24 @@ window.DataModule = (function() {
 			});
 
 			layer.on('mouseout', function(e) {
-				// Debounce : attendre 80ms avant de valider le mouseout
+				// Annuler tout timer précédent
+				if (window.__gpHoverOutTimer) {
+					clearTimeout(window.__gpHoverOutTimer);
+					window.__gpHoverOutTimer = null;
+				}
+
+				// Utiliser un court délai pour vérifier si on a commencé à survoler une autre feature
+				// Si oui, le mouseover de la nouvelle feature aura mis à jour __gpCurrentHoverLayerId
 				window.__gpHoverOutTimer = setTimeout(() => {
 					window.__gpHoverOutTimer = null;
 					
-					// Reset l'ID seulement si c'est toujours ce layer
-					if (window.__gpCurrentHoverLayerId === layerId) {
-						window.__gpCurrentHoverLayerId = null;
+					// Si on survole déjà une autre feature, ne pas restaurer les styles
+					if (window.__gpCurrentHoverLayerId && window.__gpCurrentHoverLayerId !== layerId) {
+						return;
 					}
+					
+					// Reset l'ID seulement si c'est toujours ce layer ou si on ne survole plus rien
+					window.__gpCurrentHoverLayerId = null;
 
 					// Retirer classe CSS
 					try {
@@ -835,23 +886,45 @@ window.DataModule = (function() {
 						}
 					} catch (_) {}
 
-					// Restaurer les styles originaux
+					// Restaurer les styles originaux pour TOUTES les couches (contributions + couches système)
 					// SAUF les features en mode "highlighted" (sélection via submenu)
-					geojsonLayer.eachLayer(otherLayer => {
-						// Ne pas toucher aux features highlighted
-						if (otherLayer.__gpHighlighted) return;
+					const allLayers = MapModule.layers || {};
+					Object.entries(allLayers).forEach(([lyrName, lyr]) => {
+						if (!lyr || typeof lyr.eachLayer !== 'function') return;
 						
-						stopDashAnimation(otherLayer);
-						const originalStyle = getFeatureStyle(otherLayer.feature, layerName);
-						if (typeof otherLayer.setStyle === 'function') {
-							const op = (otherLayer?.feature?.properties) || {};
-							const isContrib = !!(op.project_name && op.category);
-							if (isContrib) {
-								otherLayer.setStyle({ ...originalStyle, dashArray: null, dashOffset: 0 });
-							} else {
-								otherLayer.setStyle(originalStyle);
+						lyr.eachLayer(otherLayer => {
+							// Ne pas toucher aux features highlighted
+							if (otherLayer.__gpHighlighted) return;
+							
+							stopDashAnimation(otherLayer);
+							const originalStyle = getFeatureStyle(otherLayer.feature, lyrName);
+							const isMarker = otherLayer instanceof L.Marker;
+							
+							// Gestion des MARQUEURS (Point, Icon)
+							if (isMarker) {
+								if (typeof otherLayer.setOpacity === 'function') {
+									otherLayer.setOpacity(1);
+								}
+								// Restaurer le style visuel du marqueur (scale, filter)
+								try {
+									const el = otherLayer.getElement();
+									if (el) {
+										el.style.transform = el.style.transform.replace(/scale\([^)]*\)/, '');
+										el.style.filter = '';
+									}
+								} catch (_) {}
 							}
-						}
+							// Gestion des LIGNES et POLYGONES
+							else if (typeof otherLayer.setStyle === 'function') {
+								// S'assurer que opacity et fillOpacity sont toujours restaurées
+								// (Leaflet ne réinitialise que les propriétés passées à setStyle)
+								otherLayer.setStyle({
+									opacity: 0.8,
+									fillOpacity: 0.2,
+									...originalStyle
+								});
+							}
+						});
 					});
 
 					// Fermer le tooltip
@@ -860,7 +933,7 @@ window.DataModule = (function() {
 						delete layer.__gpMoveHandler;
 					}
 					closeHoverTooltip();
-				}, 80);
+				}, 50);
 			});
 		}
 
@@ -868,7 +941,7 @@ window.DataModule = (function() {
 
 
 		// Gestion du clic sur la feature (contributions de contribution_uploads uniquement)
-		if (!noInteractLayers.includes(layerName)) {
+		if (!isNoInteractLayer(layerName)) {
 			// Fonction commune pour ouvrir la fiche détail
 			const openDetailForFeature = () => {
 				const p = (feature && feature.properties) || {};
@@ -977,7 +1050,7 @@ window.DataModule = (function() {
 
 		return simpleCache.get(cacheKey, async () => {
 			// TRAVAUX
-			if (layerName === 'travaux') {
+			if (window.LayerRegistry?.isTravauxLayer && window.LayerRegistry.isTravauxLayer(layerName)) {
 				const activeCity = (typeof window.getActiveCity === 'function') 
 					? window.getActiveCity() : (window.activeCity || 'metropole-lyon');
 				const config = await window.supabaseService.getTravauxConfig(activeCity);
