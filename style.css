@@ -67,3 +67,6 @@
 
 /* 18 - Contribution Markers (legacy - peut être supprimé) */
 /* @import url('./styles/contribution-markers.css'); */
+
+/* 19 - Article View - Vue magazine des contributions */
+@import url('./styles/article-view.css');

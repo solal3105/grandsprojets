@@ -113,11 +113,107 @@
       // Bind events couleur
       this.bindColorEvents();
 
+      // Render basemap selector
+      this.renderBasemapSelector();
+
       // Render toggles
       this.renderTogglesGrid();
 
       // Bind close buttons
       this.bindCloseEvents();
+    },
+
+    /**
+     * Render le sélecteur de fond de carte
+     */
+    renderBasemapSelector() {
+      const select = document.getElementById('branding-basemap-select');
+      const preview = document.getElementById('branding-basemap-preview');
+      if (!select) return;
+
+      // Récupérer les basemaps disponibles
+      const basemaps = win.basemaps || [];
+      const currentBasemap = currentBranding?.default_basemap || '';
+
+      // Construire les options
+      let optionsHtml = '<option value="">Utiliser le défaut global</option>';
+      basemaps.forEach(bm => {
+        const selected = bm.name === currentBasemap ? 'selected' : '';
+        optionsHtml += `<option value="${bm.name}" ${selected}>${bm.label}</option>`;
+      });
+      select.innerHTML = optionsHtml;
+
+      // Mettre à jour l'aperçu
+      this.updateBasemapPreview(currentBasemap);
+
+      // Bind event
+      if (!select._bound) {
+        select.addEventListener('change', (e) => {
+          const basemapName = e.target.value || null;
+          this.updateBasemapPreview(basemapName);
+          this.saveBasemap(basemapName);
+        });
+        select._bound = true;
+      }
+    },
+
+    /**
+     * Met à jour l'aperçu du fond de carte
+     */
+    updateBasemapPreview(basemapName) {
+      const preview = document.getElementById('branding-basemap-preview');
+      if (!preview) return;
+
+      const basemaps = win.basemaps || [];
+      let selectedBm = null;
+
+      if (basemapName) {
+        selectedBm = basemaps.find(b => b.name === basemapName);
+      }
+      
+      if (!selectedBm) {
+        // Trouver le défaut global
+        selectedBm = basemaps.find(b => b.default) || basemaps[0];
+      }
+
+      if (selectedBm) {
+        // Afficher un aperçu avec une tuile statique
+        const tileUrl = selectedBm.url
+          .replace('{s}', 'a')
+          .replace('{z}', '12')
+          .replace('{x}', '2088')
+          .replace('{y}', '1420')
+          .replace('{r}', '');
+        
+        preview.innerHTML = `
+          <div class="basemap-preview-tile">
+            <img src="${tileUrl}" alt="${selectedBm.label}" onerror="this.style.display='none'" />
+            <span class="basemap-preview-label">${selectedBm.label}</span>
+          </div>
+        `;
+      } else {
+        preview.innerHTML = '<p class="text-muted">Aucun aperçu disponible</p>';
+      }
+    },
+
+    /**
+     * Sauvegarde le fond de carte par défaut
+     */
+    async saveBasemap(basemapName) {
+      if (!currentCity) return;
+
+      try {
+        await win.CityBrandingModule?.updateCityBasemap(currentCity, basemapName);
+        this.showStatus('Fond de carte enregistré', 'success');
+        
+        // Mettre à jour le branding local
+        if (currentBranding) {
+          currentBranding.default_basemap = basemapName;
+        }
+      } catch (e) {
+        console.error('[ContribBrandingSimple] Erreur sauvegarde basemap:', e);
+        this.showStatus('Erreur de sauvegarde', 'error');
+      }
     },
 
     /**

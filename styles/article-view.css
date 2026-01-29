@@ -1,0 +1,798 @@
+/* ============================================================================
+   ARTICLE VIEW - Vue magazine/news des contributions
+   Design WOW moderne et bluffant
+   ============================================================================ */
+
+/* ---------------------------------------------------------------------------
+   Container Principal
+--------------------------------------------------------------------------- */
+.article-view {
+  min-height: 100vh;
+  background: linear-gradient(180deg, var(--gray-50) 0%, var(--surface-base) 100%);
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* ---------------------------------------------------------------------------
+   Hero Header avec effet glassmorphism
+--------------------------------------------------------------------------- */
+.article-hero {
+  position: relative;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--info) 100%);
+  padding: 80px 24px 100px;
+  margin-bottom: -60px;
+  overflow: hidden;
+}
+
+.article-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(circle at 20% 80%, var(--white-alpha-20) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, var(--white-alpha-15) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, var(--black-alpha-10) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.article-hero::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: linear-gradient(to top, var(--gray-50) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.article-hero-content {
+  position: relative;
+  z-index: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.article-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--white-alpha-20);
+  backdrop-filter: blur(10px);
+  border-radius: 999px;
+  color: var(--white);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 20px;
+  border: 1px solid var(--white-alpha-25);
+}
+
+.article-hero-badge i {
+  font-size: 1rem;
+}
+
+.article-hero-title {
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  font-weight: 800;
+  color: var(--white);
+  margin: 0 0 16px;
+  text-shadow: 0 4px 20px var(--black-alpha-20);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.article-hero-subtitle {
+  font-size: clamp(1rem, 2.5vw, 1.25rem);
+  color: var(--white-alpha-90);
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.article-hero-stats {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  margin-top: 32px;
+}
+
+.article-hero-stat {
+  text-align: center;
+}
+
+.article-hero-stat-number {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--white);
+  text-shadow: 0 2px 10px var(--black-alpha-20);
+}
+
+.article-hero-stat-label {
+  font-size: 0.85rem;
+  color: var(--white-alpha-80);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ---------------------------------------------------------------------------
+   Barre de filtres sticky avec glassmorphism
+--------------------------------------------------------------------------- */
+.article-filters-wrapper {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 16px 24px;
+  background: var(--white-alpha-80);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--border-light);
+  transition: box-shadow 0.3s ease;
+}
+
+.article-filters-wrapper.scrolled {
+  box-shadow: 0 4px 30px var(--black-alpha-10);
+}
+
+.article-filters {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.article-filters-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 8px;
+}
+
+.article-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--surface-base);
+  border: 2px solid var(--border-light);
+  border-radius: 999px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.article-filter-btn i {
+  font-size: 1rem;
+  opacity: 0.7;
+  transition: all 0.25s ease;
+}
+
+.article-filter-btn:hover {
+  background: var(--primary-alpha-10);
+  border-color: var(--primary-alpha-25);
+  color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--primary-alpha-15);
+}
+
+.article-filter-btn:hover i {
+  opacity: 1;
+  color: var(--primary);
+}
+
+.article-filter-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--white);
+  box-shadow: 0 4px 16px var(--primary-alpha-35);
+}
+
+.article-filter-btn.active i {
+  opacity: 1;
+  color: var(--white);
+}
+
+.article-filter-btn.active:hover {
+  background: var(--primary-hover);
+  transform: translateY(-2px);
+}
+
+.article-filters-count {
+  margin-left: auto;
+  font-size: 0.9rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.article-filters-count strong {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------------------
+   Grille de cartes avec effet masonry
+--------------------------------------------------------------------------- */
+.article-grid-wrapper {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+
+.article-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 32px;
+  animation: article-grid-fade-in 0.6s ease-out;
+}
+
+@keyframes article-grid-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Carte Article - Design premium
+--------------------------------------------------------------------------- */
+.article-card {
+  position: relative;
+  background: var(--white);
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 
+    0 4px 6px var(--black-alpha-04),
+    0 10px 40px var(--black-alpha-08);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.article-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 
+    0 20px 40px var(--black-alpha-12),
+    0 8px 16px var(--black-alpha-08);
+}
+
+.article-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary), var(--info));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.article-card:hover::before {
+  opacity: 1;
+}
+
+/* Image de couverture avec overlay gradient */
+.article-card-media {
+  position: relative;
+  height: 220px;
+  overflow: hidden;
+  background: var(--gray-100);
+}
+
+.article-card-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.article-card:hover .article-card-cover {
+  transform: scale(1.08);
+}
+
+.article-card-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--gray-100) 0%, var(--gray-200) 100%);
+  color: var(--gray-400);
+}
+
+.article-card-cover-placeholder i {
+  font-size: 3rem;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.article-card-cover-placeholder span {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* Mini-carte intégrée */
+.article-card-map {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 100px;
+  height: 70px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px var(--black-alpha-20);
+  border: 2px solid var(--white);
+  z-index: 2;
+  transition: all 0.3s ease;
+  background: var(--gray-100);
+}
+
+.article-card:hover .article-card-map {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px var(--black-alpha-30);
+}
+
+.article-card-map .leaflet-container {
+  width: 100%;
+  height: 100%;
+}
+
+/* Badge catégorie flottant */
+.article-card-category {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--white-alpha-95);
+  backdrop-filter: blur(10px);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 10px var(--black-alpha-15);
+  z-index: 3;
+}
+
+.article-card-category i {
+  font-size: 0.9rem;
+}
+
+/* Contenu de la carte */
+.article-card-content {
+  padding: 24px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.article-card-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: color 0.3s ease;
+}
+
+.article-card:hover .article-card-title {
+  color: var(--primary);
+}
+
+.article-card-description {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0 0 16px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+}
+
+/* Tags */
+.article-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.article-card-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  background: var(--gray-100);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.article-card-tag:hover {
+  background: var(--primary-alpha-12);
+  color: var(--primary);
+}
+
+/* Footer de carte */
+.article-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
+  margin-top: auto;
+}
+
+.article-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+}
+
+.article-card-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.article-card-meta-item i {
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+.article-card-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--primary-alpha-12);
+  color: var(--primary);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.article-card-cta:hover {
+  background: var(--primary);
+  color: var(--white);
+  transform: translateX(4px);
+}
+
+.article-card-cta i {
+  font-size: 0.8rem;
+  transition: transform 0.3s ease;
+}
+
+.article-card-cta:hover i {
+  transform: translateX(4px);
+}
+
+/* ---------------------------------------------------------------------------
+   État vide
+--------------------------------------------------------------------------- */
+.article-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 80px 40px;
+  background: var(--white);
+  border-radius: 24px;
+  box-shadow: 0 4px 20px var(--black-alpha-06);
+}
+
+.article-empty-icon {
+  font-size: 4rem;
+  color: var(--gray-300);
+  margin-bottom: 20px;
+}
+
+.article-empty-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+}
+
+.article-empty-text {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+/* ---------------------------------------------------------------------------
+   Loader
+--------------------------------------------------------------------------- */
+.article-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 40px;
+  grid-column: 1 / -1;
+}
+
+.article-loader-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid var(--gray-200);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: article-spin 1s linear infinite;
+}
+
+@keyframes article-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.article-loader-text {
+  margin-top: 16px;
+  font-size: 1rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* ---------------------------------------------------------------------------
+   Bouton retour à la carte
+--------------------------------------------------------------------------- */
+.article-back-btn {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 28px;
+  background: var(--primary);
+  color: var(--white);
+  border: none;
+  border-radius: 999px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 
+    0 8px 30px var(--primary-alpha-35),
+    0 4px 10px var(--black-alpha-10);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1000;
+  text-decoration: none;
+}
+
+.article-back-btn:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 
+    0 12px 40px var(--primary-alpha-45),
+    0 6px 16px var(--black-alpha-15);
+}
+
+.article-back-btn i {
+  font-size: 1.1rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Dark Mode Adaptations
+--------------------------------------------------------------------------- */
+html[data-theme='dark'] .article-view {
+  background: linear-gradient(180deg, var(--gray-100) 0%, var(--surface-base) 100%);
+}
+
+html[data-theme='dark'] .article-card {
+  background: var(--gray-100);
+  box-shadow: 
+    0 4px 6px var(--black-alpha-20),
+    0 10px 40px var(--black-alpha-30);
+}
+
+html[data-theme='dark'] .article-card:hover {
+  box-shadow: 
+    0 20px 40px var(--black-alpha-40),
+    0 8px 16px var(--black-alpha-25);
+}
+
+html[data-theme='dark'] .article-filters-wrapper {
+  background: var(--gray-100);
+  border-bottom-color: var(--border-medium);
+}
+
+html[data-theme='dark'] .article-filter-btn {
+  background: var(--gray-200);
+  border-color: var(--border-medium);
+}
+
+html[data-theme='dark'] .article-card-category {
+  background: var(--gray-200);
+}
+
+html[data-theme='dark'] .article-empty {
+  background: var(--gray-100);
+}
+
+html[data-theme='dark'] .article-card-tag {
+  background: var(--gray-200);
+}
+
+/* ---------------------------------------------------------------------------
+   Responsive
+--------------------------------------------------------------------------- */
+@media (max-width: 1024px) {
+  .article-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+  }
+  
+  .article-hero {
+    padding: 60px 20px 80px;
+  }
+  
+  .article-hero-stats {
+    gap: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .article-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .article-grid-wrapper {
+    padding: 24px 16px 60px;
+  }
+  
+  .article-hero {
+    padding: 48px 16px 70px;
+    margin-bottom: -40px;
+  }
+  
+  .article-hero-stats {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .article-filters-wrapper {
+    padding: 12px 16px;
+  }
+  
+  .article-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+  
+  .article-filters::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .article-filters-label {
+    display: none;
+  }
+  
+  .article-filters-count {
+    display: none;
+  }
+  
+  .article-filter-btn {
+    flex-shrink: 0;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+  }
+  
+  .article-card-media {
+    height: 180px;
+  }
+  
+  .article-card-content {
+    padding: 20px;
+  }
+  
+  .article-card-title {
+    font-size: 1.1rem;
+  }
+  
+  .article-card-map {
+    width: 80px;
+    height: 55px;
+  }
+  
+  .article-back-btn {
+    bottom: 20px;
+    right: 20px;
+    padding: 14px 24px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .article-hero-title {
+    font-size: 2rem;
+  }
+  
+  .article-card-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .article-card-cta {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Animation d'entrée des cartes (staggered)
+--------------------------------------------------------------------------- */
+.article-card {
+  animation: article-card-enter 0.5s ease-out backwards;
+}
+
+.article-card:nth-child(1) { animation-delay: 0.05s; }
+.article-card:nth-child(2) { animation-delay: 0.1s; }
+.article-card:nth-child(3) { animation-delay: 0.15s; }
+.article-card:nth-child(4) { animation-delay: 0.2s; }
+.article-card:nth-child(5) { animation-delay: 0.25s; }
+.article-card:nth-child(6) { animation-delay: 0.3s; }
+.article-card:nth-child(7) { animation-delay: 0.35s; }
+.article-card:nth-child(8) { animation-delay: 0.4s; }
+.article-card:nth-child(9) { animation-delay: 0.45s; }
+
+@keyframes article-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Print styles
+--------------------------------------------------------------------------- */
+@media print {
+  .article-filters-wrapper,
+  .article-back-btn {
+    display: none !important;
+  }
+  
+  .article-card {
+    break-inside: avoid;
+    box-shadow: none;
+    border: 1px solid var(--gray-300);
+  }
+}

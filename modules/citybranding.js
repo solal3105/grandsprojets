@@ -182,6 +182,78 @@
   },
 
   /**
+   * Met à jour le fond de carte par défaut pour une ville (admin uniquement)
+   * @param {string} ville - Nom de la ville
+   * @param {string|null} basemapName - Nom du basemap (doit correspondre à basemaps.name), ou null pour utiliser le défaut global
+   * @returns {Promise<Object>} Configuration mise à jour
+   */
+  async updateCityBasemap(ville, basemapName) {
+    if (!ville) {
+      throw new Error('Ville requise');
+    }
+
+    // Valider que le basemap existe si un nom est fourni
+    if (basemapName) {
+      const availableBasemaps = win.basemaps || [];
+      const basemapExists = availableBasemaps.some(b => b.name === basemapName);
+      if (!basemapExists) {
+        throw new Error(`Basemap "${basemapName}" non trouvé. Basemaps disponibles: ${availableBasemaps.map(b => b.name).join(', ')}`);
+      }
+    }
+
+    try {
+      const supabase = win.AuthModule?.getClient?.();
+      if (!supabase) {
+        throw new Error('Client Supabase non disponible');
+      }
+
+      // Récupérer l'utilisateur actuel
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
+      const { data, error } = await supabase
+        .from('city_branding')
+        .update({
+          default_basemap: basemapName,
+          updated_by: user.id
+        })
+        .eq('ville', ville.toLowerCase())
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Appliquer immédiatement si c'est la ville active
+      const activeCity = localStorage.getItem('activeCity');
+      if (activeCity === ville.toLowerCase()) {
+        // Recharger le basemap
+        if (win.MapModule?.initBaseLayer) {
+          win.MapModule.initBaseLayer(basemapName);
+        }
+      }
+
+      return data;
+    } catch (err) {
+      console.error('Error updating city basemap:', err);
+      throw err;
+    }
+  },
+
+  /**
+   * Récupère la liste des basemaps disponibles
+   * @returns {Array<{name: string, label: string}>} Liste des basemaps
+   */
+  getAvailableBasemaps() {
+    const basemaps = win.basemaps || [];
+    return basemaps.map(b => ({
+      name: b.name,
+      label: b.label
+    }));
+  },
+
+  /**
    * Met à jour la liste des villes activées pour le menu de sélection de ville
    * @param {string} ville - Nom de la ville
    * @param {Array<string>} enabledCities - Liste des codes de villes activées

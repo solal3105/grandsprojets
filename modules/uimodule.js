@@ -249,7 +249,6 @@
       return false;
     }
     window.basemaps = basemaps;
-    initBasemapMenu(basemaps);
     return true;
   };
   
@@ -279,7 +278,18 @@
     });
     menu.appendChild(closeBtn);
     
-    const defaultBm = availableBasemaps.find(b => b.default) || availableBasemaps[0];
+    // Sélectionner le basemap par défaut:
+    // 1. window._cityPreferredBasemap (depuis city_branding.default_basemap)
+    // 2. Basemap avec default: true
+    // 3. Premier basemap de la liste
+    let defaultBm = null;
+    const cityPreferred = window._cityPreferredBasemap;
+    if (cityPreferred) {
+      defaultBm = availableBasemaps.find(b => b.name === cityPreferred);
+    }
+    if (!defaultBm) {
+      defaultBm = availableBasemaps.find(b => b.default) || availableBasemaps[0];
+    }
     
     let previewLayer = null;
     let currentActiveBasemap = defaultBm;

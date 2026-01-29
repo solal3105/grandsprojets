@@ -82,9 +82,16 @@
 
     /**
      * Applique le fond de carte correspondant au thème
+     * SAUF si la ville a un basemap configuré (window._cityPreferredBasemap)
      */
     syncBasemapToTheme(theme) {
       try {
+        // Si la ville a un basemap configuré, ne pas le changer automatiquement
+        // L'admin a choisi ce basemap, il prime sur le thème
+        if (window._cityPreferredBasemap) {
+          return;
+        }
+        
         const bm = this.findBasemapForTheme(theme);
         if (!bm) return;
 

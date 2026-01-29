@@ -19,23 +19,41 @@ window.MapModule = (() => {
   
   /**
    * Initialise le fond de carte après chargement de window.basemaps
+   * Utilise window._cityPreferredBasemap si défini (depuis city_branding.default_basemap)
    */
   function initBaseLayer() {
     const bmList = window.basemaps || [];
+    const cityPreferred = window._cityPreferredBasemap;
+    
     if (!bmList.length) {
       console.warn('MapModule.initBaseLayer : pas de basemaps dispo');
       return;
     }
-    // Find the default basemap (with default: true) or fall back to the first one
-    const defaultBm = bmList.find(b => b.default === true) || bmList[0];
+    
+    // Ordre de priorité pour la sélection du basemap:
+    // 1. window._cityPreferredBasemap (depuis city_branding.default_basemap)
+    // 2. Basemap avec default: true
+    // 3. Premier basemap de la liste
+    let selectedBm = null;
+    
+    if (cityPreferred) {
+      selectedBm = bmList.find(b => b.name === cityPreferred);
+      if (!selectedBm) {
+        console.warn(`MapModule.initBaseLayer : basemap "${cityPreferred}" non trouvé, utilisation du défaut`);
+      }
+    }
+    
+    if (!selectedBm) {
+      selectedBm = bmList.find(b => b.default === true) || bmList[0];
+    }
     
     if (baseLayer) map.removeLayer(baseLayer);
-    baseLayer = L.tileLayer(defaultBm.url, { attribution: defaultBm.attribution });
+    baseLayer = L.tileLayer(selectedBm.url, { attribution: selectedBm.attribution });
     baseLayer.addTo(map);
     
-    // Update the UI to reflect the active basemap
+    // Mettre à jour l'UI pour refléter le basemap actif
     if (window.UIModule?.setActiveBasemap) {
-      window.UIModule.setActiveBasemap(defaultBm.label);
+      window.UIModule.setActiveBasemap(selectedBm.label);
     }
   }
 

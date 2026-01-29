@@ -439,6 +439,23 @@
         console.warn('[Main] Health check:', healthCheck.fixed, 'problème(s) corrigé(s) automatiquement');
       }
       
+      // PHASE 0.5 : Vérifier le mode Article (?article=oui)
+      if (win.ArticleView?.isArticleMode?.()) {
+        console.log('[Main] Mode Article détecté - initialisation vue magazine');
+        win.ThemeManager?.init();
+        await win.CityManager?.loadValidCities();
+        win.CityManager?.initializeActiveCity();
+        
+        // Initialiser la vue article
+        const articleInitialized = await win.ArticleView.init();
+        if (articleInitialized) {
+          win.ArticleView.updateSEOMeta();
+          markLoadComplete();
+          console.log('[Main] ✅ Vue Article initialisée avec succès');
+          return;
+        }
+      }
+      
       // PHASE 1 : Modules de base
       win.AnalyticsModule?.init();
       win.ThemeManager?.init();
@@ -501,14 +518,26 @@
       
       // Les basemaps ne sont PAS filtrées par ville (disponibles partout)
       const basemapsForCity = remoteBasemaps || [];
+      
+      // Définir le basemap préféré de la ville (source unique de vérité)
+      // Cette variable est utilisée par MapModule, UIModule et ThemeManager
+      const cityBranding = win._cityBranding;
+      win._cityPreferredBasemap = cityBranding?.default_basemap || null;
 
       if (window.UIModule?.updateBasemaps) {
         window.UIModule.updateBasemaps(basemapsForCity);
       }
       
+      // Initialiser le basemap - MapModule utilise _cityPreferredBasemap
       window.MapModule.initBaseLayer();
-      const currentTheme = document.documentElement.getAttribute('data-theme') || win.ThemeManager?.getInitialTheme() || 'light';
-      win.ThemeManager?.syncBasemapToTheme(currentTheme);
+      
+      // Synchroniser avec le thème SEULEMENT si la ville n'a pas de basemap configuré
+      // (Si la ville a un basemap configuré, on le respecte et on ne le change pas)
+      if (!win._cityPreferredBasemap) {
+        const currentTheme = document.documentElement.getAttribute('data-theme') || win.ThemeManager?.getInitialTheme() || 'light';
+        win.ThemeManager?.syncBasemapToTheme(currentTheme);
+      }
+      
       win.CityManager?.applyCityInitialView(city);
       
       // Initialiser SearchModule tôt (pas de dépendances avec les données)
@@ -849,7 +878,10 @@
       }
 
       // Synchronisation automatique du thème avec l'OS
-      win.ThemeManager?.startOSThemeSync();
+      // (désactivé si la ville a un basemap configuré pour éviter les conflits)
+      if (!win._cityPreferredBasemap) {
+        win.ThemeManager?.startOSThemeSync();
+      }
       
       // Event listener du logo (retour à la vue par défaut)
       EventBindings.bindLogoClick();
