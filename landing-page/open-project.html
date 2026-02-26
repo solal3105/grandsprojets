@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="fr" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Open Projets by VAZY — La transparence publique pour toutes les collectivités</title>
+  <meta name="description" content="GrandsProjets rejoint VAZY et devient Open Projets. Découvrez ce que ce rapprochement signifie pour les collectivités et l'avenir de la plateforme.">
+  <link rel="canonical" href="https://grandsprojets.com/landing-page/open-project.html">
+  <meta name="robots" content="index, follow">
+
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Open Projets by VAZY — La transparence publique pour toutes les collectivités">
+  <meta property="og:description" content="GrandsProjets rejoint VAZY et devient Open Projets. Un nouveau chapitre pour la transparence publique.">
+  <meta property="og:url" content="https://grandsprojets.com/landing-page/open-project.html">
+  <meta property="og:site_name" content="Open Projets by VAZY">
+  <meta property="og:image" content="https://grandsprojets.com/img/cover/meta.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="../styles/00-colors.css">
+  <link rel="stylesheet" href="../styles/gp-button-system.css">
+  <link rel="stylesheet" href="../styles/13-modal-system.css">
+  <link rel="stylesheet" href="../styles/14-modal-components.css">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: '#111111',
+            coral: '#FF0037',
+            mint: '#03D69E',
+            flame: '#FF5827',
+            iris: '#6A3DE8',
+            lime: '#CCD445',
+            surface: '#F8F9FC',
+            primary: '#14AE5C',
+          },
+          fontFamily: {
+            heading: ['Space Grotesk', 'sans-serif'],
+            body: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body { font-family: 'Inter', sans-serif; }
+    h1, h2, h3, h4, h5, h6 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.03em; }
+
+    .highlight-text {
+      color: #14AE5C;
+    }
+
+    .gradient-border {
+      position: relative;
+    }
+    .gradient-border::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(135deg, #14AE5C, #03D69E, #6A3DE8);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    .hero-glow {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.15;
+      pointer-events: none;
+    }
+
+    .card-hover {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .card-hover:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+    }
+
+    .iframe-wrapper {
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 25px 80px rgba(0, 0, 0, 0.12);
+    }
+
+    .browser-chrome {
+      background: #1a1a1a;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .browser-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+    .browser-url {
+      flex: 1;
+      background: rgba(255,255,255,0.08);
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+      font-family: 'JetBrains Mono', monospace;
+      margin-left: 8px;
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(40px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .anim-up { animation: fadeInUp 0.7s ease-out forwards; }
+    .anim-up-d1 { animation: fadeInUp 0.7s ease-out 0.1s forwards; opacity: 0; }
+    .anim-up-d2 { animation: fadeInUp 0.7s ease-out 0.2s forwards; opacity: 0; }
+    .anim-up-d3 { animation: fadeInUp 0.7s ease-out 0.3s forwards; opacity: 0; }
+    .anim-fade { animation: fadeIn 1s ease-out 0.4s forwards; opacity: 0; }
+
+    .demo-tab {
+      background: white;
+      color: #666;
+      border: 1px solid #e5e7eb;
+    }
+    .demo-tab.active {
+      background: #14AE5C;
+      color: #fff;
+      border-color: #14AE5C;
+    }
+    .demo-tab:hover:not(.active) {
+      background: #f3f4f6;
+      color: #333;
+    }
+
+    .vision-card {
+      position: relative;
+      overflow: hidden;
+    }
+    .vision-card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent-from), var(--accent-to));
+    }
+
+  </style>
+</head>
+
+<body class="bg-white text-gray-900 font-body">
+
+  <!-- HEADER -->
+  <header class="fixed top-0 w-full bg-white/95 backdrop-blur-xl z-50 border-b border-gray-100">
+    <nav class="max-w-7xl mx-auto px-5 sm:px-8 py-4 flex items-center justify-between">
+      <a href="index.html" class="flex items-center gap-2 group">
+        <img src="../img/logo.svg" alt="GrandsProjets" class="h-9 sm:h-10 transition-transform group-hover:scale-[1.03]">
+      </a>
+
+      <div class="hidden lg:flex items-center gap-1">
+        <a href="index.html" class="px-4 py-2 text-gray-500 hover:text-gray-900 rounded-lg font-medium transition-colors text-sm">Accueil</a>
+        <a href="open-project.html" class="px-4 py-2 text-gray-900 font-semibold rounded-lg transition-colors text-sm">Open Projets</a>
+        <a href="alternative-google-my-maps.html" class="px-4 py-2 text-gray-500 hover:text-gray-900 rounded-lg font-medium transition-colors text-sm">vs Google My Maps</a>
+        <a href="press-kit.html" class="px-4 py-2 text-gray-500 hover:text-gray-900 rounded-lg font-medium transition-colors text-sm">Press kit</a>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button class="contact-modal-btn hidden sm:block bg-primary hover:bg-[#119b52] px-5 py-2.5 rounded-full font-semibold text-white text-sm transition-all cursor-pointer border-0 shadow-sm hover:shadow-md">Demander une démo</button>
+        <button id="mobile-menu-btn" class="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all" aria-label="Menu">
+          <i class="fas fa-bars text-xl"></i>
+        </button>
+      </div>
+    </nav>
+
+    <div id="mobile-menu" class="lg:hidden hidden bg-white border-t border-gray-100">
+      <div class="max-w-7xl mx-auto px-5 py-4 space-y-1">
+        <a href="index.html" class="block px-4 py-3 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg font-medium transition-all">Accueil</a>
+        <a href="open-project.html" class="block px-4 py-3 text-gray-900 bg-gray-50 rounded-lg font-semibold">Open Projets</a>
+        <a href="alternative-google-my-maps.html" class="block px-4 py-3 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg font-medium transition-all">vs Google My Maps</a>
+        <a href="press-kit.html" class="block px-4 py-3 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg font-medium transition-all">Press kit</a>
+        <button class="contact-modal-btn w-full mt-3 bg-primary hover:bg-[#119b52] px-5 py-3 rounded-full font-semibold text-white transition-all border-0 cursor-pointer">Demander une démo</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== HERO ==================== -->
+  <section class="relative pt-32 pb-20 md:pt-40 md:pb-28 overflow-hidden bg-white">
+    <div class="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/[0.04] rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+    <div class="absolute bottom-0 left-0 w-[400px] h-[400px] bg-primary/[0.03] rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none"></div>
+
+    <div class="relative z-10 max-w-4xl mx-auto px-6 text-center">
+      <div class="anim-up">
+        <div class="inline-flex items-center gap-3 bg-primary/[0.08] rounded-full px-4 py-2 mb-8">
+          <img src="../img/logo-vazy.png" alt="VAZY" class="h-5">
+          <span class="text-sm font-medium text-gray-600">Propulsé par <a href="https://vazy.app" target="_blank" class="text-primary font-semibold hover:underline">VAZY</a></span>
+        </div>
+      </div>
+
+      <h1 class="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-[1.05] mb-6 tracking-tight anim-up">
+        GrandsProjets<br>
+        <span class="text-gray-300">devient</span><br>
+        <span class="highlight-text">Open Projets</span>
+      </h1>
+
+      <p class="text-lg md:text-xl text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed anim-up-d1">
+        Un rapprochement stratégique avec <strong class="text-gray-800">VAZY</strong>, entreprise
+        villeurbannaise engagée auprès des collectivités, pour déployer la transparence publique
+        sur tout le territoire français.
+      </p>
+
+      <div class="flex flex-col sm:flex-row gap-3 justify-center mb-12 anim-up-d2">
+        <button class="contact-modal-btn bg-primary hover:bg-[#119b52] text-white px-7 py-3.5 rounded-full font-semibold text-base transition-all cursor-pointer border-0 shadow-md hover:shadow-lg">
+          Demander une démo
+        </button>
+        <a href="#plateforme" class="bg-gray-100 hover:bg-gray-200 text-gray-800 px-7 py-3.5 rounded-full font-semibold text-base transition-all cursor-pointer">
+          En savoir plus <i class="fas fa-arrow-down ml-2 text-xs"></i>
+        </a>
+      </div>
+
+      <!-- VAZY mini-card -->
+      <div class="inline-flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100 anim-up-d3">
+        <img src="../img/logo-vazy.png" alt="VAZY" class="h-10 flex-shrink-0">
+        <div class="text-left">
+          <p class="text-sm font-semibold text-gray-800">VAZY &mdash; Solutions numériques pour les territoires</p>
+          <p class="text-xs text-gray-400">Entreprise villeurbannaise &bull; <a href="https://vazy.app" target="_blank" class="text-primary hover:underline">vazy.app</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== PLATEFORME EN ACTION ==================== -->
+  <section id="plateforme" class="py-24 md:py-32 bg-surface">
+    <div class="max-w-5xl mx-auto px-6">
+      <div class="text-center mb-12">
+        <h2 class="text-3xl md:text-5xl font-bold mb-5">La plateforme en action</h2>
+        <p class="text-gray-500 text-lg max-w-2xl mx-auto">
+          Des collectivités utilisent déjà Open Projets au quotidien.
+        </p>
+      </div>
+
+      <div class="flex justify-center gap-2 mb-8">
+        <button class="demo-tab px-5 py-2.5 rounded-full text-sm font-semibold transition-all cursor-pointer" data-target="demo-besancon" data-url="grandsprojets.com/besancon" data-title="Besançon" data-subtitle="Projets urbains & mobilités">Besançon</button>
+        <button class="demo-tab active px-5 py-2.5 rounded-full text-sm font-semibold transition-all cursor-pointer" data-target="demo-villeurbanne" data-url="grandsprojets.com/bilan" data-title="Villeurbanne" data-subtitle="Bilan & réalisations">Villeurbanne</button>
+        <button class="demo-tab px-5 py-2.5 rounded-full text-sm font-semibold transition-all cursor-pointer" data-target="demo-lyon" data-url="grandsprojets.com/metropole-lyon" data-title="Métropole de Lyon" data-subtitle="Grands projets métropolitains">Métropole de Lyon</button>
+      </div>
+
+      <div class="iframe-wrapper">
+        <div class="browser-chrome">
+          <div class="browser-dot" style="background:#ff5f57"></div>
+          <div class="browser-dot" style="background:#febc2e"></div>
+          <div class="browser-dot" style="background:#28c840"></div>
+          <div class="browser-url" id="demo-url">grandsprojets.com/bilan</div>
+        </div>
+        <div id="demo-besancon" class="demo-panel hidden">
+          <iframe data-src="https://grandsprojets.com/besancon" class="w-full h-[480px] md:h-[560px] border-0 bg-gray-100" title="Open Projets - Besançon"></iframe>
+        </div>
+        <div id="demo-villeurbanne" class="demo-panel">
+          <iframe src="https://grandsprojets.com/bilan" class="w-full h-[480px] md:h-[560px] border-0 bg-gray-100" loading="lazy" title="Open Projets - Villeurbanne"></iframe>
+        </div>
+        <div id="demo-lyon" class="demo-panel hidden">
+          <iframe data-src="https://grandsprojets.com/metropole-lyon" class="w-full h-[480px] md:h-[560px] border-0 bg-gray-100" title="Open Projets - Metropole de Lyon"></iframe>
+        </div>
+        <div class="bg-white px-5 py-4 border-t border-gray-100">
+          <p class="font-heading font-semibold text-gray-900" id="demo-title">Villeurbanne</p>
+          <p class="text-sm text-gray-400" id="demo-subtitle">Bilan & réalisations</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== QU'EST-CE QU'OPEN PROJETS ==================== -->
+  <section class="py-24 md:py-32 bg-white">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-5xl font-bold mb-5">Qu'est-ce qu'Open Projets ?</h2>
+        <p class="text-gray-500 text-lg max-w-3xl mx-auto leading-relaxed">
+          Anciennement <strong class="text-navy">GrandsProjets</strong>, Open Projets transforme des données
+          techniques en un récit clair, accessible et valorisant pour les collectivités.
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="bg-white rounded-2xl p-8 border border-gray-100 card-hover">
+          <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-6">
+            <i class="fas fa-eye text-primary text-lg"></i>
+          </div>
+          <h3 class="text-xl font-bold mb-3 font-heading">Rendre visible</h3>
+          <p class="text-gray-500 leading-relaxed">
+            Une cartographie publique qui relie chaque chantier à une stratégie globale du territoire.
+          </p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-8 border border-gray-100 card-hover">
+          <div class="w-12 h-12 bg-iris/10 rounded-xl flex items-center justify-center mb-6">
+            <i class="fas fa-hand-pointer text-iris text-lg"></i>
+          </div>
+          <h3 class="text-xl font-bold mb-3 font-heading">Informer simplement</h3>
+          <p class="text-gray-500 leading-relaxed">
+            Une interface intuitive qui démocratise l'accès à l'information locale pour tous les citoyens.
+          </p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-8 border border-gray-100 card-hover">
+          <div class="w-12 h-12 bg-mint/10 rounded-xl flex items-center justify-center mb-6">
+            <i class="fas fa-chart-line text-mint text-lg"></i>
+          </div>
+          <h3 class="text-xl font-bold mb-3 font-heading">Valoriser l'action publique</h3>
+          <p class="text-gray-500 leading-relaxed">
+            Chaque chantier devient une étape visible d'un projet de territoire, réduisant tensions et sollicitations.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== IMPACT CONCRET ==================== -->
+  <section class="py-24 md:py-32 bg-white">
+    <div class="max-w-4xl mx-auto px-6">
+      <div class="text-center mb-12">
+        <h2 class="text-3xl md:text-5xl font-bold mb-5">L'impact concret</h2>
+        <p class="text-gray-500 text-lg max-w-2xl mx-auto">
+          Ce que change Open Projets au quotidien pour les collectivités.
+        </p>
+      </div>
+
+      <div class="overflow-x-auto rounded-2xl border border-gray-200">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-gray-50 border-b border-gray-200">
+              <th class="px-6 py-4 text-sm font-bold text-gray-900 font-heading">Domaine</th>
+              <th class="px-6 py-4 text-sm font-semibold text-gray-400 font-heading">Sans Open Projets</th>
+              <th class="px-6 py-4 text-sm font-semibold text-primary font-heading">Avec Open Projets</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr>
+              <td class="px-6 py-4 font-semibold text-sm text-gray-900">Données</td>
+              <td class="px-6 py-4 text-sm text-gray-400">Éparpillées en silos, opacité entre services</td>
+              <td class="px-6 py-4 text-sm text-gray-700 font-medium">Centralisation et pilotage unifié</td>
+            </tr>
+            <tr>
+              <td class="px-6 py-4 font-semibold text-sm text-gray-900">Citoyens</td>
+              <td class="px-6 py-4 text-sm text-gray-400">Réclamations, tensions, incompréhension</td>
+              <td class="px-6 py-4 text-sm text-gray-700 font-medium">Transparence en temps réel</td>
+            </tr>
+            <tr>
+              <td class="px-6 py-4 font-semibold text-sm text-gray-900">Élus</td>
+              <td class="px-6 py-4 text-sm text-gray-400">Projets invisibles, action mal comprise</td>
+              <td class="px-6 py-4 text-sm text-gray-700 font-medium">Valorisation continue du mandat</td>
+            </tr>
+            <tr>
+              <td class="px-6 py-4 font-semibold text-sm text-gray-900">Agents</td>
+              <td class="px-6 py-4 text-sm text-gray-400">Saturés de demandes répétitives</td>
+              <td class="px-6 py-4 text-sm text-gray-700 font-medium">Autonomie citoyenne, moins de sollicitations</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-8 bg-surface rounded-xl p-5 flex items-start gap-4">
+        <i class="fas fa-lightbulb text-primary mt-0.5"></i>
+        <p class="text-gray-500 text-sm leading-relaxed">
+          <strong class="text-gray-700">Exemple :</strong> un citoyen trouve en 10 secondes la réponse à
+          &laquo; qu'est-ce qu'ils font devant ma salle de sport ? &raquo; &mdash;
+          c'est un courriel de moins pour le cabinet du Maire et 20 min économisées pour un agent.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== POURQUOI VAZY ==================== -->
+  <section id="pourquoi" class="py-24 md:py-32 bg-surface">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-5xl font-bold mb-5">Pourquoi rejoindre VAZY ?</h2>
+        <p class="text-gray-500 text-lg max-w-3xl mx-auto leading-relaxed">
+          GrandsProjets est né d'une initiative citoyenne à Lyon. Pour passer de l'expérimentation
+          locale à un déploiement national, il fallait une structure solide.
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-8">
+        <div class="rounded-2xl p-8 md:p-10 border border-gray-100 bg-white">
+          <div class="flex items-center gap-4 mb-6">
+            <div class="w-11 h-11 bg-flame/10 rounded-xl flex items-center justify-center">
+              <i class="fas fa-lightbulb text-flame"></i>
+            </div>
+            <h3 class="text-xl font-bold font-heading">Le constat</h3>
+          </div>
+          <p class="text-gray-600 leading-relaxed mb-5">
+            Open Projets a prouvé sa valeur avec des retours enthousiastes d'élus, d'institutions et de citoyens. Mais pour répondre à la demande croissante, un cadre professionnel était nécessaire.
+          </p>
+          <ul class="space-y-3">
+            <li class="flex items-start gap-3">
+              <i class="fas fa-arrow-right text-flame/60 mt-1.5 text-xs"></i>
+              <span class="text-gray-600 text-sm">Une structure juridique et commerciale pour contractualiser avec les collectivités</span>
+            </li>
+            <li class="flex items-start gap-3">
+              <i class="fas fa-arrow-right text-flame/60 mt-1.5 text-xs"></i>
+              <span class="text-gray-600 text-sm">Des moyens pour accompagner le déploiement à l'échelle nationale</span>
+            </li>
+            <li class="flex items-start gap-3">
+              <i class="fas fa-arrow-right text-flame/60 mt-1.5 text-xs"></i>
+              <span class="text-gray-600 text-sm">Un écosystème complémentaire pour enrichir l'offre</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="rounded-2xl p-8 md:p-10 border-2 border-primary/20 bg-white">
+          <div class="flex items-center gap-4 mb-6">
+            <div class="w-11 h-11 bg-primary/10 rounded-xl flex items-center justify-center">
+              <i class="fas fa-rocket text-primary"></i>
+            </div>
+            <h3 class="text-xl font-bold font-heading">VAZY, l'accélérateur</h3>
+          </div>
+          <p class="text-gray-600 leading-relaxed mb-5">
+            <strong class="text-gray-900">VAZY est une entreprise villeurbannaise, engagée</strong>, qui travaille déjà au quotidien avec des collectivités territoriales. Ce rapprochement offre à Open Projets :
+          </p>
+          <ul class="space-y-4">
+            <li class="flex items-start gap-3">
+              <i class="fas fa-check-circle text-primary mt-0.5"></i>
+              <div>
+                <span class="font-semibold text-gray-900 block text-sm">Commercialisation nationale</span>
+                <span class="text-gray-500 text-sm">Accès à l'ensemble des collectivités via un réseau existant</span>
+              </div>
+            </li>
+            <li class="flex items-start gap-3">
+              <i class="fas fa-check-circle text-primary mt-0.5"></i>
+              <div>
+                <span class="font-semibold text-gray-900 block text-sm">Structure professionnelle</span>
+                <span class="text-gray-500 text-sm">Cadre juridique, support client, garanties pour les marchés publics</span>
+              </div>
+            </li>
+            <li class="flex items-start gap-3">
+              <i class="fas fa-check-circle text-primary mt-0.5"></i>
+              <div>
+                <span class="font-semibold text-gray-900 block text-sm">Moyens de développement</span>
+                <span class="text-gray-500 text-sm">Équipe renforcée pour accélérer les évolutions produit</span>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== ATOUTS DU RAPPROCHEMENT ==================== -->
+  <section class="py-24 md:py-32 bg-surface">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-5xl font-bold mb-5">Les atouts de ce rapprochement</h2>
+        <p class="text-gray-500 text-lg max-w-2xl mx-auto">
+          Un cercle vertueux qui bénéficie à tous : collectivités, citoyens et écosystème.
+        </p>
+      </div>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div class="bg-white rounded-2xl p-7 border border-gray-100 card-hover">
+          <div class="w-10 h-10 bg-coral/10 rounded-lg flex items-center justify-center mb-5">
+            <i class="fas fa-flag text-coral text-sm"></i>
+          </div>
+          <h3 class="text-base font-bold mb-2 font-heading">Déploiement national</h3>
+          <p class="text-gray-500 text-sm leading-relaxed">
+            Toutes les collectivités de France pourront accéder à Open Projets : communes, métropoles, intercommunalités.
+          </p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-7 border border-gray-100 card-hover">
+          <div class="w-10 h-10 bg-mint/10 rounded-lg flex items-center justify-center mb-5">
+            <i class="fas fa-shield-alt text-mint text-sm"></i>
+          </div>
+          <h3 class="text-base font-bold mb-2 font-heading">Pérennité garantie</h3>
+          <p class="text-gray-500 text-sm leading-relaxed">
+            Une structure solide assure la continuité du service, la maintenance et les évolutions à long terme.
+          </p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-7 border border-gray-100 card-hover">
+          <div class="w-10 h-10 bg-iris/10 rounded-lg flex items-center justify-center mb-5">
+            <i class="fas fa-users-cog text-iris text-sm"></i>
+          </div>
+          <h3 class="text-base font-bold mb-2 font-heading">Équipe renforcée</h3>
+          <p class="text-gray-500 text-sm leading-relaxed">
+            Plus de développeurs, de designers et de spécialistes pour faire évoluer la plateforme.
+          </p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-7 border border-gray-100 card-hover">
+          <div class="w-10 h-10 bg-flame/10 rounded-lg flex items-center justify-center mb-5">
+            <i class="fas fa-file-contract text-flame text-sm"></i>
+          </div>
+          <h3 class="text-base font-bold mb-2 font-heading">Marchés publics</h3>
+          <p class="text-gray-500 text-sm leading-relaxed">
+            Une structure adaptée aux procédures d'achat public, facilitant l'adoption par les collectivités.
+          </p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-7 border border-gray-100 card-hover">
+          <div class="w-10 h-10 bg-lime/10 rounded-lg flex items-center justify-center mb-5">
+            <i class="fas fa-headset text-lime text-sm"></i>
+          </div>
+          <h3 class="text-base font-bold mb-2 font-heading">Support professionnel</h3>
+          <p class="text-gray-500 text-sm leading-relaxed">
+            Accompagnement dédié, formation, support technique et garantie de niveau de service.
+          </p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-7 border border-gray-100 card-hover">
+          <div class="w-10 h-10 bg-navy/10 rounded-lg flex items-center justify-center mb-5">
+            <i class="fas fa-puzzle-piece text-navy text-sm"></i>
+          </div>
+          <h3 class="text-base font-bold mb-2 font-heading">Écosystème enrichi</h3>
+          <p class="text-gray-500 text-sm leading-relaxed">
+            Synergies avec les autres solutions VAZY pour une expérience complète.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== CE QUI CHANGE / RESTE ==================== -->
+  <section class="py-24 md:py-32 bg-white">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-5xl font-bold mb-5">Ce qui change, ce qui reste</h2>
+        <p class="text-gray-500 text-lg max-w-2xl mx-auto">
+          L'ADN du projet est préservé. Le rapprochement apporte une dimension supplémentaire.
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-8">
+        <!-- Ce qui change -->
+        <div class="rounded-2xl p-8 md:p-10 bg-surface border border-gray-100">
+          <div class="flex items-center gap-4 mb-8">
+            <div class="w-11 h-11 bg-coral/10 rounded-xl flex items-center justify-center">
+              <i class="fas fa-sync-alt text-coral text-sm"></i>
+            </div>
+            <h3 class="text-xl font-bold font-heading">Ce qui évolue</h3>
+          </div>
+          <ul class="space-y-5">
+            <li class="flex items-start gap-4">
+              <div class="w-6 h-6 rounded-full bg-coral/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <i class="fas fa-arrow-up text-coral text-[10px]"></i>
+              </div>
+              <div>
+                <span class="font-semibold text-navy block text-sm">Le nom</span>
+                <span class="text-gray-500 text-sm">GrandsProjets devient <strong class="text-navy">Open Projets by VAZY</strong></span>
+              </div>
+            </li>
+            <li class="flex items-start gap-4">
+              <div class="w-6 h-6 rounded-full bg-coral/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <i class="fas fa-arrow-up text-coral text-[10px]"></i>
+              </div>
+              <div>
+                <span class="font-semibold text-navy block text-sm">L'ambition</span>
+                <span class="text-gray-500 text-sm">D'une initiative lyonnaise à un déploiement sur tout le territoire</span>
+              </div>
+            </li>
+            <li class="flex items-start gap-4">
+              <div class="w-6 h-6 rounded-full bg-coral/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <i class="fas fa-arrow-up text-coral text-[10px]"></i>
+              </div>
+              <div>
+                <span class="font-semibold text-navy block text-sm">Le support</span>
+                <span class="text-gray-500 text-sm">Accompagnement professionnel, formations, SLA</span>
+              </div>
+            </li>
+            <li class="flex items-start gap-4">
+              <div class="w-6 h-6 rounded-full bg-coral/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <i class="fas fa-arrow-up text-coral text-[10px]"></i>
+              </div>
+              <div>
+                <span class="font-semibold text-navy block text-sm">Les moyens</span>
+                <span class="text-gray-500 text-sm">Une équipe élargie pour accélérer le développement et l'innovation</span>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Ce qui reste -->
+        <div class="rounded-2xl p-8 md:p-10 bg-surface border border-gray-100">
+          <div class="flex items-center gap-4 mb-8">
+            <div class="w-11 h-11 bg-mint/10 rounded-xl flex items-center justify-center">
+              <i class="fas fa-anchor text-mint text-sm"></i>
+            </div>
+            <h3 class="text-xl font-bold font-heading">Ce qui reste</h3>
+          </div>
+          <ul class="space-y-5">
+            <li class="flex items-start gap-4">
+              <div class="w-6 h-6 rounded-full bg-mint/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <i class="fas fa-check text-mint text-[10px]"></i>
+              </div>
+              <div>
+                <span class="font-semibold text-navy block text-sm">Souveraineté des données</span>
+                <span class="text-gray-500 text-sm">Hébergement européen, données 100% propriété de la collectivité</span>
+              </div>
+            </li>
+            <li class="flex items-start gap-4">
+              <div class="w-6 h-6 rounded-full bg-mint/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <i class="fas fa-check text-mint text-[10px]"></i>
+              </div>
+              <div>
+                <span class="font-semibold text-navy block text-sm">Simplicité d'utilisation</span>
+                <span class="text-gray-500 text-sm">Aucune compétence technique requise, interface intuitive</span>
+              </div>
+            </li>
+            <li class="flex items-start gap-4">
+              <div class="w-6 h-6 rounded-full bg-mint/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <i class="fas fa-check text-mint text-[10px]"></i>
+              </div>
+              <div>
+                <span class="font-semibold text-navy block text-sm">Approche citoyenne</span>
+                <span class="text-gray-500 text-sm">La transparence publique et l'accessibilité restent au cœur du projet</span>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== VISION D'AVENIR ==================== -->
+  <section class="py-24 md:py-32 bg-surface">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-5xl font-bold mb-5">Ce que l'avenir nous réserve</h2>
+        <p class="text-gray-500 text-lg max-w-2xl mx-auto">
+          Ce rapprochement ouvre la voie à de nouvelles thématiques pour les territoires.
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="vision-card bg-white rounded-2xl p-8 border border-gray-100 card-hover" style="--accent-from: #14AE5C; --accent-to: #03D69E;">
+          <div class="flex items-center gap-3 mb-5">
+            <span class="text-4xl font-bold font-heading text-primary/20">01</span>
+          </div>
+          <h3 class="text-lg font-bold mb-3 font-heading">Concertation citoyenne</h3>
+          <p class="text-gray-500 text-sm leading-relaxed">
+            Impliquer les habitants dans les décisions qui façonnent leur territoire. Créer un lien direct entre élus et citoyens.
+          </p>
+        </div>
+
+        <div class="vision-card bg-white rounded-2xl p-8 border border-gray-100 card-hover" style="--accent-from: #6A3DE8; --accent-to: #03D69E;">
+          <div class="flex items-center gap-3 mb-5">
+            <span class="text-4xl font-bold font-heading text-iris/20">02</span>
+          </div>
+          <h3 class="text-lg font-bold mb-3 font-heading">Sécurité routière</h3>
+          <p class="text-gray-500 text-sm leading-relaxed">
+            Cartographier les zones à risque, les aménagements en cours et les projets de mobilité douce pour des territoires plus sûrs.
+          </p>
+        </div>
+
+        <div class="vision-card bg-white rounded-2xl p-8 border border-gray-100 card-hover" style="--accent-from: #03D69E; --accent-to: #CCD445;">
+          <div class="flex items-center gap-3 mb-5">
+            <span class="text-4xl font-bold font-heading text-mint/20">03</span>
+          </div>
+          <h3 class="text-lg font-bold mb-3 font-heading">Transition écologique</h3>
+          <p class="text-gray-500 text-sm leading-relaxed">
+            Rendre visibles les engagements environnementaux des collectivités : végétalisation, pistes cyclables, rénovation énergétique…
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== CTA FINAL ==================== -->
+  <section class="relative py-24 md:py-32 bg-gray-900 overflow-hidden">
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(20,174,92,0.15),_transparent_60%)] pointer-events-none"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_rgba(20,174,92,0.08),_transparent_60%)] pointer-events-none"></div>
+
+    <div class="relative z-10 max-w-3xl mx-auto px-6 text-center">
+      <h2 class="text-3xl md:text-5xl font-bold text-white mb-6 leading-tight">
+        Prêt à découvrir<br><span class="highlight-text">Open Projets</span> ?
+      </h2>
+      <p class="text-white/50 text-lg mb-10 max-w-xl mx-auto">
+        Transformez la perception des travaux sur votre territoire.
+        Passez d'une communication subie à une transparence proactive.
+      </p>
+
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <button id="contact-cta-btn" class="bg-primary hover:bg-[#119b52] text-white px-10 py-4 rounded-full font-semibold text-base transition-all shadow-lg hover:shadow-xl cursor-pointer border-0">
+          Demander une démo
+        </button>
+        <a href="https://grandsprojets.com" target="_blank" class="bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-sm text-white px-10 py-4 rounded-full font-semibold text-base border border-white/[0.12] transition-all">
+          Voir la plateforme <i class="fas fa-arrow-right ml-2 text-sm"></i>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== FOOTER ==================== -->
+  <footer class="bg-[#0a0a0a] text-white py-14">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-10 mb-10">
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <img src="../img/logo.svg" alt="GrandsProjets" class="h-8 brightness-0 invert">
+            <span class="font-heading font-bold text-lg">Open Projets</span>
+          </div>
+          <p class="text-white/30 text-sm">La transparence publique pour toutes les collectivités de France.</p>
+        </div>
+        <div>
+          <h3 class="font-heading font-bold mb-4 text-sm uppercase tracking-wider text-white/50">Navigation</h3>
+          <ul class="space-y-2.5 text-white/40 text-sm">
+            <li><a href="index.html" class="hover:text-white transition">Accueil</a></li>
+            <li><a href="open-project.html" class="hover:text-white transition">Open Projets by VAZY</a></li>
+            <li><a href="alternative-google-my-maps.html" class="hover:text-white transition">vs Google My Maps</a></li>
+            <li><a href="press-kit.html" class="hover:text-white transition">Press kit</a></li>
+            <li><a href="https://grandsprojets.com" target="_blank" class="hover:text-white transition">Voir la démo</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="font-heading font-bold mb-4 text-sm uppercase tracking-wider text-white/50">Contact</h3>
+          <ul class="space-y-2.5 text-white/40 text-sm">
+            <li><a href="#" class="hover:text-white contact-modal-btn transition">solal.gendrin@gmail.com</a></li>
+            <li><a href="https://github.com/solal3105/grandsprojets/" target="_blank" class="hover:text-white transition">GitHub</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="border-t border-white/[0.06] pt-8 text-center text-white/20 text-sm">
+        <p>&copy; 2025 Open Projets by VAZY</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==================== MODALE DE CONTACT ==================== -->
+  <div id="contact-form-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="gp-modal" role="document">
+      <header class="gp-modal-header">
+        <h1 class="gp-modal-title">Demander une démo</h1>
+        <button class="btn-secondary gp-modal-close" id="contact-form-close" aria-label="Fermer">&times;</button>
+      </header>
+      <div class="gp-modal-body">
+        <form id="contact-form">
+          <div class="space-y-4">
+            <div>
+              <label for="contact-full-name" class="block text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
+              <input type="text" id="contact-full-name" name="full_name" required
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent">
+            </div>
+            <div>
+              <label for="contact-email" class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+              <input type="email" id="contact-email" name="email" required
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent">
+            </div>
+            <div>
+              <label for="contact-phone" class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+              <input type="tel" id="contact-phone" name="phone"
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent">
+            </div>
+            <div>
+              <label for="contact-organization" class="block text-sm font-medium text-gray-700 mb-1">Organisation</label>
+              <input type="text" id="contact-organization" name="organization"
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent">
+            </div>
+            <div>
+              <label for="contact-message" class="block text-sm font-medium text-gray-700 mb-1">Message *</label>
+              <textarea id="contact-message" name="message" rows="4" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent"
+                        placeholder="Décrivez votre projet et vos besoins..."></textarea>
+            </div>
+            <input type="hidden" name="referrer" value="open-project-page">
+          </div>
+          <div class="mt-6 flex gap-3">
+            <button type="button" class="btn-secondary flex-1" id="contact-form-cancel">Annuler</button>
+            <button type="submit" class="btn-primary flex-1 form-submit-btn">Envoyer</button>
+          </div>
+        </form>
+
+        <div id="contact-success" style="display: none;" class="text-center">
+          <div class="text-5xl mb-4">&check;</div>
+          <h2 class="text-2xl font-bold text-gray-900 mb-2">Merci !</h2>
+          <p class="text-gray-600">Votre demande a été reçue. Nous vous répondrons dans les 24h.</p>
+        </div>
+
+        <div id="contact-error" style="display: none;" class="text-center">
+          <div class="text-5xl mb-4">&warning;</div>
+          <h2 class="text-2xl font-bold text-gray-900 mb-2">Erreur</h2>
+          <p class="text-gray-600">Une erreur s'est produite. Veuillez réessayer ou nous contacter directement.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== JS ==================== -->
+  <script src="../modules/modal-helper.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../modules/contact-form.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
+      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
+
+      if (typeof supabase !== 'undefined') {
+        window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      }
+
+      const openers = document.querySelectorAll('.contact-modal-btn, #contact-cta-btn');
+      openers.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          ModalHelper.open('contact-form-overlay');
+        });
+      });
+
+      const cancelBtn = document.getElementById('contact-form-cancel');
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+          ModalHelper.close('contact-form-overlay');
+        });
+      }
+
+      // Demo tab switching
+      const demoTabs = document.querySelectorAll('.demo-tab');
+      const demoPanels = document.querySelectorAll('.demo-panel');
+      const demoUrl = document.getElementById('demo-url');
+      const demoTitle = document.getElementById('demo-title');
+      const demoSubtitle = document.getElementById('demo-subtitle');
+
+      demoTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          const target = tab.dataset.target;
+          demoTabs.forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          demoPanels.forEach(p => p.classList.add('hidden'));
+          document.getElementById(target).classList.remove('hidden');
+          // Lazy load iframe
+          const iframe = document.getElementById(target).querySelector('iframe');
+          if (iframe.dataset.src && !iframe.src) {
+            iframe.src = iframe.dataset.src;
+          }
+          demoUrl.textContent = tab.dataset.url;
+          demoTitle.textContent = tab.dataset.title;
+          demoSubtitle.textContent = tab.dataset.subtitle;
+        });
+      });
+
+      const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+      const mobileMenu = document.getElementById('mobile-menu');
+      if (mobileMenuBtn && mobileMenu) {
+        mobileMenuBtn.addEventListener('click', () => {
+          const isOpen = !mobileMenu.classList.contains('hidden');
+          mobileMenu.classList.toggle('hidden');
+          mobileMenuBtn.innerHTML = isOpen
+            ? '<i class="fas fa-bars text-xl"></i>'
+            : '<i class="fas fa-times text-xl"></i>';
+        });
+        mobileMenu.querySelectorAll('a').forEach(link => {
+          link.addEventListener('click', () => {
+            mobileMenu.classList.add('hidden');
+            mobileMenuBtn.innerHTML = '<i class="fas fa-bars text-xl"></i>';
+          });
+        });
+      }
+    });
+  </script>
+
+</body>
+</html>
