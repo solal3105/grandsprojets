@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(180deg, #FF0037 0%, #F2B327 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-purple {
+    background: linear-gradient(180deg, #4E2BFF 0%, #FF0037 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-green {
+    background: linear-gradient(180deg, #F2B327 0%, #5AAB7D 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-contact {
+    background: linear-gradient(180deg, #FF0037 0%, #4E2BFF 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .blob-red {
+    background: radial-gradient(
+      circle,
+      rgba(255, 0, 55, 0.125) 0%,
+      rgba(242, 179, 39, 0.063) 50%,
+      transparent 70%
+    );
+  }
+
+  .blob-purple {
+    background: radial-gradient(
+      circle,
+      rgba(78, 43, 255, 0.082) 0%,
+      rgba(90, 171, 125, 0.063) 50%,
+      transparent 70%
+    );
+  }
+
+  .blob-amber {
+    background: radial-gradient(
+      circle,
+      rgba(242, 179, 39, 0.125) 0%,
+      rgba(90, 171, 125, 0.063) 50%,
+      transparent 70%
+    );
+  }
+
+  .blob-green {
+    background: radial-gradient(
+      circle,
+      rgba(90, 171, 125, 0.082) 0%,
+      rgba(242, 179, 39, 0.063) 50%,
+      transparent 70%
+    );
+  }
+
+  .blob-contact-1 {
+    background: radial-gradient(
+      circle,
+      rgba(255, 0, 55, 0.125) 0%,
+      rgba(78, 43, 255, 0.063) 50%,
+      transparent 70%
+    );
+  }
+
+  .blob-contact-2 {
+    background: radial-gradient(
+      circle,
+      rgba(78, 43, 255, 0.082) 0%,
+      rgba(255, 0, 55, 0.063) 50%,
+      transparent 70%
+    );
+  }
+}
