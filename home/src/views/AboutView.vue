@@ -151,7 +151,7 @@
           <!-- Vazy card -->
           <div class="bg-gray-bg rounded-2xl border border-gray-border p-8 sm:p-10">
             <div class="flex items-center gap-5 mb-6">
-              <img src="/img/logo-vazy.png" alt="Vazy" class="h-14 w-auto" />
+              <img :src="`${base}img/logo-vazy.png`" alt="Vazy" class="h-14 w-auto" />
               <div>
                 <h3 class="font-heading font-bold text-xl text-dark">VAZY</h3>
                 <span class="inline-flex items-center gap-1.5 mt-1 text-xs font-medium text-green bg-green/10 px-2.5 py-1 rounded-full">
@@ -249,6 +249,8 @@ import {
   Code, BarChart3, Globe, Heart, Rocket, Eye,
   Building, MapPin as MapPinIcon, Users, Leaf, Handshake, Target,
 } from 'lucide-vue-next'
+
+const base = import.meta.env.BASE_URL
 
 const valueCards = [
   {

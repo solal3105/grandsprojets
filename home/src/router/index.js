@@ -3,13 +3,9 @@ import HomeView from '@/views/HomeView.vue'
 
 const routes = [
   {
-    path: '/home',
+    path: '/',
     name: 'home',
     component: HomeView,
-  },
-  {
-    path: '/',
-    redirect: '/home'
   },
   {
     path: '/fonctionnalites',
@@ -29,7 +25,7 @@ const routes = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory('/home/'),
   routes,
   scrollBehavior() {
     return { top: 0, behavior: 'smooth' }

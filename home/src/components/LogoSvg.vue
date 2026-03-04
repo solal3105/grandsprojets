@@ -17,12 +17,14 @@ const props = defineProps({
   variant: { type: String, default: 'full' },
 })
 
+const base = import.meta.env.BASE_URL
+
 const logoSrc = computed(() => {
   switch (props.variant) {
-    case 'white': return '/img/logos/square_white.png'
-    case 'min': return '/img/logos/square_color.png'
+    case 'white': return `${base}img/logos/square_white.png`
+    case 'min': return `${base}img/logos/square_color.png`
     case 'full':
-    default: return '/img/logos/classic_color.png'
+    default: return `${base}img/logos/classic_color.png`
   }
 })
 </script>
