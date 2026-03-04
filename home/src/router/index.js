@@ -3,9 +3,13 @@ import HomeView from '@/views/HomeView.vue'
 
 const routes = [
   {
-    path: '/',
+    path: '/home',
     name: 'home',
     component: HomeView,
+  },
+  {
+    path: '/',
+    redirect: '/home'
   },
   {
     path: '/fonctionnalites',
