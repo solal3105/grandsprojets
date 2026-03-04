@@ -1,15 +1,564 @@
 <!DOCTYPE html>
 <html lang="fr">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Open Projets — La carte interactive pour votre collectivité</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
-  </head>
-  <body class="font-body text-dark antialiased">
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="googlebot" content="index, follow">
+  <meta name="description" content="Carte des grands projets d'urbanisme et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
+  <link rel="icon" type="image/png" href="/img/logomin.png" sizes="32x32">
+  <title>Carte des projets urbains | Grands Projets</title>
+  <link rel="canonical" href="https://grandsprojets.com/">
+  <meta property="og:site_name" content="Grands Projets">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Grands Projets – Carte des projets urbains">
+  <meta property="og:description" content="Carte des projets urbains et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
+  <meta property="og:url" content="https://grandsprojets.com/">
+  <meta property="og:image" content="https://grandsprojets.com/img/cover/meta.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Grands Projets – Carte des projets urbains">
+  <meta name="twitter:description" content="Carte des projets urbains et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
+  <meta name="twitter:image" content="https://grandsprojets.com/img/cover/meta.png">
+  
+  <!-- Hreflang pour ciblage géographique -->
+  <link rel="alternate" hreflang="fr" href="https://grandsprojets.com/">
+  <link rel="alternate" hreflang="fr-FR" href="https://grandsprojets.com/">
+  <link rel="alternate" hreflang="x-default" href="https://grandsprojets.com/">
+  
+  <!-- Preconnect pour optimiser le chargement des CDN -->
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+  <link rel="preconnect" href="https://www.googletagmanager.com">
+  <link rel="dns-prefetch" href="https://www.googletagmanager.com">
+  
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Carte Projets Urbanisme Lyon 2025",
+    "description": "Carte interactive des projets d'urbanisme et de mobilité de la Métropole de Lyon avec tramway T10 T11",
+    "url": "https://grandsprojets.com",
+    "applicationCategory": "UrbanPlanningApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "EUR"
+    },
+    "author": {
+      "@type": "Organization",
+      "name": "Grands Projets"
+    }
+  }
+  </script>
+  <script type="application/ld+json" id="site-jsonld">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Grands Projets de Lyon",
+    "url": "https://grandsprojets.com/",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://grandsprojets.com/?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+  <script>
+    (function() {
+      try {
+        var theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="styles/travaux-tooltip.css" />
+  <link rel="stylesheet" href="styles/gp-icon-picker.css" />
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" 
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css"
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-8LGDVJXTPK"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);} 
+    gtag('js', new Date());
+
+    gtag('config', 'G-8LGDVJXTPK');
+  </script>
+</head>
+<body>
+  <!-- Standalone fixed logo for small screens (remplacé dynamiquement par citymanager.js) -->
+  <a class="mobile-fixed-logo" href="index.html" aria-label="Accueil">
+    <img src="" alt="" style="opacity: 0;" />
+  </a>
+  <div id="container">
+    <!-- Carte Leaflet -->
+    <div id="map"></div>
+
+    <!-- Barre de navigation -->
+    <div id="left-nav">
+      <div class="nav-scroll-wrapper">
+        <div class="logo">
+          <img src="" alt="" style="opacity: 0;" />
+        </div>
+        <div id="dynamic-categories"></div>
+      </div>
+      <div id="dynamic-submenus"></div>
+    </div>
+
+  <!-- Contribution modal (loaded dynamically) -->
+  <div id="contrib-modal-container"></div>
+      <div id="project-detail" class="project-detail">
+        <div class="project-detail-header project-header-container">
+          <button id="detail-back-btn" class="btn-secondary detail-back-btn">&larr; Retour</button>
+           <h3 id="project-title" class="project-title">Titre du Projet</h3>
+           <button id="detail-toggle-btn" style="display:none; color:grey;  border:none; cursor:pointer; margin:0 1rem;"><i class="fas fa-chevron-down"></i></button>
+           <button id="detail-close-btn" class="detail-close-btn">✖</button>
+        </div>
+        <div id="detail-content" class="project-detail-content"></div>
+      </div>
+    </div>
+
+    <!-- Toggles UI - Refactored (no container wrapper) -->
+    <!-- data-ready="false" : masqué jusqu'à initialisation -->
+    <button id="city-toggle" aria-label="Changer votre espace" title="Changer votre espace" data-ready="false">
+      <i class="fas fa-bars" aria-hidden="true"></i>
+    </button>
+    <div id="city-menu" class="city-menu"></div>
+    <button id="info-toggle" aria-label="À propos" title="À propos" data-ready="false">
+      <i class="fas fa-info-circle" aria-hidden="true"></i>
+    </button>
+    <button id="location-toggle" aria-label="Centrer sur ma position" title="Centrer sur ma position"
+            onclick="window.GeolocationModule && window.GeolocationModule.handleLocationButtonClick(event)" data-ready="false">
+      <i class="fas fa-location-arrow"></i>
+    </button>
+    <button id="search-toggle" aria-label="Rechercher une adresse" title="Rechercher une adresse" data-ready="false">
+      <i class="fas fa-search"></i>
+    </button>
+    <button id="contribute-toggle" aria-label="Proposer une contribution" title="Proposer une contribution" data-ready="false">
+      <i class="fas fa-plus"></i>
+    </button>
+    
+    <!-- Search modal -->
+    <div id="search-overlay" class="gp-modal-overlay gp-modal--centered" role="dialog" aria-modal="true" aria-hidden="true" style="display:none">
+      <div class="gp-modal gp-modal--compact gp-modal--no-padding">
+        <div class="gp-modal-body">
+          <input type="text" id="address-search" placeholder="Rechercher une adresse..." />
+          <div id="search-results" class="search-results"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bouton de sélection du thème -->
+    <button id="theme-toggle" aria-label="Mode sombre" aria-pressed="false" title="Mode sombre" data-ready="false">
+      <i class="fas fa-moon"></i>
+    </button>
+    
+    <!-- Bouton de sélection du fond de carte -->
+    <button id="basemap-toggle" aria-label="Fonds de carte" title="Changer le fond de carte" data-ready="false">
+      <i class="fas fa-globe"></i>
+    </button>
+    <!-- Menu des fonds de carte en mode tuile -->
+    <div id="basemap-menu" class="basemap-menu"></div>
+
+    <!-- Zone de filtres -->
+    <button id="filters-toggle" aria-label="Filtres de couches" title="Afficher/Masquer les filtres" data-ready="false">
+      <i class="fas fa-map"></i>
+      <span class="filter-count">0</span>
+    </button>
+    <!-- Contenu des filtres -->
+    <div id="filters-container" style="display: none">
+      <button class="btn-secondary filters-close-btn" id="filters-close-btn" aria-label="Fermer les filtres">
+        <i class="fas fa-times"></i>
+      </button>
+      <div id="dynamic-filters"></div>
+    </div>
+    
+    <!-- Bouton de connexion -->
+    <button id="login-toggle" aria-label="Se connecter ou s'inscrire" title="Connexion" data-ready="false">
+      <i class="fas fa-user"></i>
+    </button>
+    
+    <!-- Bouton overflow mobile (plus de 4 toggles) -->
+    <button id="overflow-toggle" aria-label="Plus d'options" title="Plus d'options" aria-haspopup="true" aria-expanded="false" data-ready="false" style="display:none">
+      <i class="fas fa-ellipsis-h"></i>
+    </button>
+    <!-- Menu overflow pour les toggles cachés sur mobile -->
+    <div id="overflow-menu" class="overflow-menu" aria-hidden="true">
+      <div class="overflow-menu-content"></div>
+    </div>
+  </div>
+
+  <!-- À propos modal - NOUVEAU DESIGN -->
+  <div id="about-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="about-title" aria-hidden="true" style="display:none">
+    <div class="gp-modal" role="document">
+      <div class="gp-modal-header">
+        <div class="gp-modal-title" id="about-title">À propos de GrandsProjets.com</div>
+        <button class="btn-secondary gp-modal-close" id="about-close" aria-label="Fermer">&times;</button>
+      </div>
+      <div class="gp-modal-body">
+        <!-- Hero Section -->
+        <section class="about-hero">
+          <div class="about-hero-emoji">👋</div>
+          <span class="about-hero-title">Salut, moi c'est Solal</span>
+          <p class="about-hero-subtitle">Je crée des outils open source pour rendre l’urbanisme et l’information travaux accessibles à tous.</p>
+          <div class="about-hero-meta">
+            <span class="about-hero-role">Product Manager × Passionné d’urbanisme</span>
+            <span class="about-hero-location">📍 Fait à Villeurbanne</span>
+          </div>
+        </section>
+
+        <!-- Stats Section -->
+        <section class="about-stats">
+          <div class="about-stat-card">
+            <div class="about-stat-number">100+</div>
+            <div class="about-stat-label">Projets cartographiés</div>
+          </div>
+          <div class="about-stat-card">
+            <div class="about-stat-number">10K+</div>
+            <div class="about-stat-label">Visiteurs / mois</div>
+          </div>
+        </section>
+
+        <!-- Problem Section -->
+        <section class="about-section">
+          <div class="about-section-icon">🚧</div>
+          <h2 class="about-section-title">Le constat</h2>
+          <p class="about-section-text">
+            Partout, les chantiers s’enchaînent : rues fermées, lignes de transport en travaux, programmes immobiliers…
+          </p>
+          <p class="about-section-text">
+            Pourtant, il reste difficile pour les usagers de savoir ce qui est en cours, ce qui arrive bientôt et combien de temps cela va durer.
+          </p>
+          <p class="about-section-text">
+            Informer clairement, c’est réduire la frustration et renforcer la confiance avec le public.
+          </p>
+        </section>
+
+        <!-- Solution Section -->
+        <section class="about-section">
+          <div class="about-section-icon">💡</div>
+          <h2 class="about-section-title">La solution : GrandsProjets.com</h2>
+          <p class="about-section-text">
+            Une carte interactive qui centralise vos projets et actions (travaux, aménagements, mobilités, équipements), présentés de façon simple et compréhensible pour le public.
+          </p>
+          <div class="about-features">
+            <div class="about-feature">✓ Mettez en avant vos données publiques</div>
+            <div class="about-feature">✓ Interface simple et claire</div>
+            <div class="about-feature">✓ 100% à votre image, en marque blanche</div>
+          </div>
+        </section>
+
+        <!-- CTA Section -->
+        <section class="about-cta">
+          <div class="about-cta-icon">🏛️</div>
+          <h2 class="about-cta-title">Votre structure mérite sa propre carte</h2>
+          <p class="about-cta-subtitle">Commune • Métropole • Association • Conseil de quartier • Mission locale • Établissement public</p>
+          <p class="about-cta-description">
+            Déployez GrandsProjets.com en <strong>marque blanche</strong> : une carte à votre nom, avec votre logo, intégrée sur votre site, pour informer vos usagers et valoriser l’avancement de vos projets.
+          </p>
+          <div class="about-cta-benefits">
+            <div class="about-cta-benefit">✓ Interface de gestion autonome</div>
+            <div class="about-cta-benefit">✓ Aucune compétence technique requise</div>
+            <div class="about-cta-benefit">✓ <strong>Gratuit</strong> pour les associations, conseils de quartier et missions locales</div>
+          </div>
+          <button class="btn-primary about-cta-button">
+            <span>Discutons ensemble de la solution</span>
+            <i class="fas fa-arrow-right" aria-hidden="true"></i>
+          </button>
+        </section>
+
+        <!-- Values Section -->
+        <section class="about-section">
+          <div class="about-section-icon">🌟</div>
+          <h2 class="about-section-title">Mes engagements</h2>
+          <div class="about-values">
+            <div class="about-value-card">
+              <div class="about-value-icon">🔓</div>
+              <h3 class="about-value-title">Open Source</h3>
+              <p class="about-value-text">Le code est public, dans un esprit de transparence et de commun numérique.</p>
+            </div>
+            <div class="about-value-card">
+              <div class="about-value-icon">🌍</div>
+              <h3 class="about-value-title">Citoyen</h3>
+              <p class="about-value-text">    Né d’une initiative indépendante, GrandsProjets.com met les données publiques à la portée de tous pour mieux comprendre les transformations du territoire. 
+                C’est un outil sans publicité, conçu par et pour les citoyens.
+            </p>
+            </div>
+            <div class="about-value-card">
+              <div class="about-value-icon">🤝</div>
+              <h3 class="about-value-title">Accessibilité</h3>
+              <p class="about-value-text">
+                Gratuit pour les structures locales à but non lucratif (associations, conseils de quartier...).
+                Tarification adaptée pour structures publiques.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Contact Section -->
+        <section class="about-section about-contact">
+          <div class="about-section-icon">✉️</div>
+          <h2 class="about-section-title">Envie d’en discuter ?</h2>
+          <div class="about-contact-cards">
+            <a class="about-contact-card" href="mailto:solal.gendrin@gmail.com">
+              <div class="about-contact-icon about-contact-icon--email">
+                <i class="fas fa-envelope" aria-hidden="true"></i>
+              </div>
+              <div class="about-contact-content">
+                <div class="about-contact-title">Email</div>
+                <div class="about-contact-subtitle">solal.gendrin@gmail.com</div>
+              </div>
+            </a>
+            <a class="about-contact-card" href="https://www.linkedin.com/in/solal-gendrin/" target="_blank" rel="noopener">
+              <div class="about-contact-icon about-contact-icon--linkedin">
+                <i class="fab fa-linkedin-in" aria-hidden="true"></i>
+              </div>
+              <div class="about-contact-content">
+                <div class="about-contact-title">LinkedIn</div>
+                <div class="about-contact-subtitle">Solal Gendrin</div>
+              </div>
+            </a>
+            <a class="about-contact-card" href="https://github.com/solal3105/grandsprojets" target="_blank" rel="noopener">
+              <div class="about-contact-icon about-contact-icon--github">
+                <i class="fab fa-github" aria-hidden="true"></i>
+              </div>
+              <div class="about-contact-content">
+                <div class="about-contact-title">GitHub</div>
+                <div class="about-contact-subtitle">Voir le code source</div>
+              </div>
+            </a>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contact Form Modal -->
+  <div id="contact-form-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" style="display:none">
+    <div class="gp-modal" role="document">
+      <div class="gp-modal-header">
+        <button class="gp-modal-back" id="contact-form-back" aria-label="Retour">
+          <i class="fas fa-arrow-left"></i>
+        </button>
+        <div class="gp-modal-title">Contactez-moi</div>
+        <button class="btn-secondary gp-modal-close" id="contact-form-close" aria-label="Fermer">&times;</button>
+      </div>
+      <div class="gp-modal-body">
+        <!-- Email reveal section (en premier) -->
+        <div class="form-email-reveal">
+          <p class="email-reveal-text">Préférez-vous m'écrire directement ?</p>
+          <button type="button" class="email-reveal-btn" id="reveal-email-btn">
+            <i class="fas fa-envelope"></i>
+            <span>Afficher mon adresse email</span>
+          </button>
+          <div class="email-revealed" id="email-revealed" style="display:none">
+            <div class="email-link-wrapper">
+              <a href="mailto:solal.gendrin@gmail.com" class="email-link">
+                <i class="fas fa-envelope"></i>
+                solal.gendrin@gmail.com
+              </a>
+              <button type="button" class="email-copy-btn" id="email-copy-btn">
+                <i class="fas fa-copy"></i>
+                <span>Copier</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-divider">
+          <span>ou</span>
+        </div>
+
+        <form id="contact-form" class="contact-form">
+          <div class="form-intro">
+            <p>💬 Remplissez le formulaire</p>
+            <p class="form-intro-subtitle">Les champs marqués d'un astérisque (*) sont obligatoires</p>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="contact-name">Nom et prénom *</label>
+              <input type="text" id="contact-name" name="full_name" required placeholder="Jean Dupont">
+            </div>
+
+            <div class="form-group">
+              <label for="contact-email">Email *</label>
+              <input type="email" id="contact-email" name="email" required placeholder="jean.dupont@example.com">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="contact-phone">
+                Téléphone 
+                <span class="field-optional">(facultatif)</span>
+              </label>
+              <input type="tel" id="contact-phone" name="phone" placeholder="06 12 34 56 78">
+            </div>
+
+            <div class="form-group">
+              <label for="contact-org">Structure / Organisation *</label>
+              <input type="text" id="contact-org" name="organization" required placeholder="Ville de Lyon">
+            </div>
+          </div>
+
+          <div class="form-group form-group-full">
+            <label for="contact-message">Message *</label>
+            <textarea id="contact-message" name="message" rows="5" required placeholder="Décrivez votre projet..."></textarea>
+          </div>
+
+          <div class="form-group form-group-full">
+            <label for="contact-referrer">
+              Comment avez-vous connu GrandsProjets.com ?
+              <span class="field-optional">(facultatif)</span>
+            </label>
+            <input type="text" id="contact-referrer" name="referrer" placeholder="LinkedIn, bouche à oreille...">
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="form-submit-btn">
+              <span>Envoyer le message</span>
+              <i class="fas fa-paper-plane"></i>
+            </button>
+          </div>
+        </form>
+
+        <!-- Success message -->
+        <div id="contact-success" class="contact-success" style="display:none">
+          <div class="success-icon">✓</div>
+          <h3>Message envoyé !</h3>
+          <p>Merci pour votre intérêt. Je vous recontacte très rapidement.</p>
+        </div>
+
+        <!-- Error message -->
+        <div id="contact-error" class="contact-error" style="display:none">
+          <div class="error-icon">✕</div>
+          <h3>Erreur</h3>
+          <p>Une erreur est survenue. Vous pouvez me contacter directement par email.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Travaux Modal -->
+  <div id="travaux-overlay" class="gp-modal-overlay gp-modal--glass" role="dialog" aria-modal="true" style="display:none">
+    <div class="gp-modal gp-modal--large gp-modal--no-padding" role="document">
+      <div class="gp-modal-header">
+        <div class="gp-modal-title">Détails du chantier</div>
+        <button class="btn-secondary gp-modal-close" aria-label="Fermer">×</button>
+      </div>
+      <div class="gp-modal-body" id="travaux-modal-content">
+        <!-- Le contenu sera injecté dynamiquement -->
+      </div>
+    </div>
+  </div>
+
+  <!-- PDF Preview Modal -->
+  <div id="pdf-preview-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-hidden="true" style="display:none">
+    <div class="gp-modal gp-modal--xlarge gp-modal--fixed-body" role="document">
+      <div class="gp-modal-header">
+        <div class="gp-modal-title" id="pdf-preview-title">Prévisualisation du document</div>
+        <button class="btn-secondary gp-modal-close" aria-label="Fermer">×</button>
+      </div>
+      <div class="gp-modal-body">
+        <iframe id="pdf-preview-frame" title="Prévisualisation PDF"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supabase client via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
+  <script src="modules/auth.js"></script>
+  <!-- Module de sécurité (prévention XSS) -->
+  <script src="modules/security-utils.js"></script>
+  <!-- Chargement de Leaflet JS depuis des fichiers locaux -->
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <!-- Leaflet.Draw pour édition géométrique -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js" 
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <!-- Geoman removed: manual drawing only -->
+  <!-- Chargement des scripts locaux -->
+  
+  <!-- Nouveaux modules réorganisés -->
+  <script src="modules/analytics.js"></script>
+  <script src="modules/modal-helper.js"></script>
+  <script src="modules/thememanager.js"></script>
+  <script src="modules/citymanager.js"></script>
+  <script src="modules/filtermanager.js"></script>
+  
+  <!-- Modules existants -->
+  <script src="modules/supabaseservice.js"></script>
+  <script src="modules/mapmodule.js"></script>
+  <script src="modules/filtermodule.js"></script>
+  <script src="modules/layerregistry.js"></script>
+  <script src="modules/layerstyles.js"></script>
+  <script src="modules/cameramarkers.js"></script>
+  <script src="modules/datamodule.js"></script>
+  <script src="modules/uimodule.js"></script>
+  <script src="modules/searchmodule.js"></script>
+  <script src="modules/geolocation.js"></script>
+  <script src="modules/submenumodule.js"></script>
+  <script src="modules/travauxmodule.js"></script>
+  <script src="modules/travauxeditormodule.js"></script>
+  <script src="modules/submenumanager.js"></script>
+  <script src="modules/navigationmodule.js"></script>
+  <script src="modules/eventbindings.js"></script>
+  <!-- City branding module -->
+  <script src="modules/citybranding.js"></script>
+  
+  <!-- Route configuration (redirections) -->
+  <script src="modules/route-config.js"></script>
+  
+  <!-- Contribution modules -->
+  <script src="modules/contrib/contrib-utils.js"></script>
+  <script src="modules/contrib/contrib-map.js"></script>
+  <script src="modules/contrib/contrib-draw-controls.js"></script>
+  <script src="modules/contrib/contrib-geometry.js"></script>
+  <script src="modules/contrib/contrib-upload-v2.js"></script>
+  <script src="modules/contrib/contrib-list.js"></script>
+  <script src="modules/contrib/contrib-form.js"></script>
+  <script src="modules/contrib/contrib-tags.js"></script>
+  <script src="modules/contrib/contrib-create-form-v2.js"></script>
+  <script src="modules/contrib/contrib-cities.js"></script>
+  
+  <!-- Icon Picker Unifié -->
+  <script src="modules/gp-icon-picker.js"></script>
+  
+  <script src="modules/contrib/contrib-categories.js"></script>
+  <script src="modules/contrib/contrib-categories-crud.js"></script>
+  <script src="modules/contrib/contrib-category-tags.js"></script>
+  <script src="modules/contrib/contrib-travaux-config.js"></script>
+  <script src="modules/contrib/contrib-users.js"></script>
+  <script src="modules/contrib/contrib-cities-management.js"></script>
+  <script src="modules/contrib/contrib-branding-simple.js"></script>
+  <script src="modules/contrib/contrib-city-context.js"></script>
+  
+  <!-- Modal Navigation System -->
+  <script src="modules/ModalNavigation.js"></script>
+  
+  <script src="modules/contrib.js"></script>
+  
+  <!-- City redirect -->
+  <script src="modules/city-redirect.js"></script>
+  
+  <!-- Article View - Vue magazine des contributions -->
+  <script src="modules/article-view.js"></script>
+  
+  <!-- Toggles Manager - Refactored -->
+  <script type="module" src="modules/ui/toggles.js"></script>
+  
+  <!-- Contact Form -->
+  <script src="modules/contact-form.js"></script>
+  
+  <!-- Main simplifié -->
+  <script src="main.js"></script>
+  <!-- Toast container for accessible notifications -->
+  <div id="toast-container" aria-live="polite" aria-atomic="false" role="region" aria-label="Notifications"
+       style="position:fixed;right:12px;bottom:12px;display:flex;flex-direction:column;gap:8px;z-index:9999;"></div>
+</body>
 </html>
