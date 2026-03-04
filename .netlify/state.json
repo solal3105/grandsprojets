@@ -1,0 +1,20 @@
+{
+	"geolocation": {
+		"data": {
+			"city": "Lyon",
+			"country": {
+				"code": "FR",
+				"name": "France"
+			},
+			"subdivision": {
+				"code": "ARA",
+				"name": "Rhône-Alpes"
+			},
+			"timezone": "Europe/Paris",
+			"latitude": 45.748,
+			"longitude": 4.85,
+			"postalCode": "69001"
+		},
+		"timestamp": 1772634748821
+	}
+}

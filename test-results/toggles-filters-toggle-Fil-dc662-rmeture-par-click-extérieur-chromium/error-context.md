@@ -1,0 +1,87 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - generic:
+        - generic:
+          - img
+        - generic:
+          - img
+        - generic:
+          - img
+      - generic [ref=e1079]:
+        - link "Leaflet" [ref=e1080] [cursor=pointer]:
+          - /url: https://leafletjs.com
+          - img [ref=e1081]
+          - text: Leaflet
+        - text: "| © OpenStreetMap contributors © CARTO"
+    - generic [ref=e1086]:
+      - img "Grandsprojets" [ref=e1088]
+      - generic [ref=e1089]:
+        - button "urbanisme" [ref=e1090] [cursor=pointer]:
+          - generic [ref=e1091]: 
+          - generic [ref=e1092]: urbanisme
+        - button "mobilite" [ref=e1093] [cursor=pointer]:
+          - generic [ref=e1094]: 
+          - generic [ref=e1095]: mobilite
+        - button "velo" [ref=e1096] [cursor=pointer]:
+          - generic [ref=e1097]: 
+          - generic [ref=e1098]: velo
+        - button "Travaux" [ref=e1099] [cursor=pointer]:
+          - generic [ref=e1100]: 
+          - generic [ref=e1101]: Travaux
+    - text: 
+  - button "Afficher les informations à propos" [ref=e1102] [cursor=pointer]:
+    - generic: 
+  - button "Centrer la carte sur ma position" [ref=e1103] [cursor=pointer]:
+    - generic: 
+  - button "Rechercher une adresse" [ref=e1104] [cursor=pointer]:
+    - generic: 
+  - text: +
+  - button "Mode sombre" [ref=e1105] [cursor=pointer]:
+    - generic: 
+  - button "Changer le fond de carte" [ref=e1106] [cursor=pointer]:
+    - generic: 
+  - button "Afficher ou masquer les filtres de carte" [active] [pressed] [ref=e1107] [cursor=pointer]:
+    - generic: 
+  - generic [ref=e1108]:
+    - text: Calques
+    - button "Fermer les filtres" [ref=e1109] [cursor=pointer]:
+      - generic [ref=e1110]: 
+    - generic [ref=e1111]:
+      - generic [ref=e1112] [cursor=pointer]:
+        - generic [ref=e1114]: 
+        - generic [ref=e1115]: urbanisme
+      - generic [ref=e1116] [cursor=pointer]:
+        - generic [ref=e1118]: 
+        - generic [ref=e1119]: mobilite
+      - generic [ref=e1120] [cursor=pointer]:
+        - generic [ref=e1122]: 
+        - generic [ref=e1123]: velo
+      - generic [ref=e1124] [cursor=pointer]:
+        - generic [ref=e1126]: 
+        - generic [ref=e1127]: Tramway
+      - generic [ref=e1128] [cursor=pointer]:
+        - generic [ref=e1130]: 
+        - generic [ref=e1131]: Métro / Funiculaire
+      - generic [ref=e1132] [cursor=pointer]:
+        - generic [ref=e1134]: 
+        - generic [ref=e1135]: Zones de travaux
+      - generic [ref=e1136] [cursor=pointer]:
+        - generic [ref=e1138]: 
+        - generic [ref=e1139]: Plan vélo
+      - generic [ref=e1140] [cursor=pointer]:
+        - generic [ref=e1142]: 
+        - generic [ref=e1143]: Aménagement cyclable
+      - generic [ref=e1144] [cursor=pointer]:
+        - generic [ref=e1146]: 
+        - generic [ref=e1147]: Emplacements réservés (PLU)
+      - generic [ref=e1148] [cursor=pointer]:
+        - generic [ref=e1150]: 
+        - generic [ref=e1151]: Lignes de bus
+  - button "Se connecter ou s'inscrire" [ref=e1152] [cursor=pointer]:
+    - generic: 
+  - region "Notifications"
+```

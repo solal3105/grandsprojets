@@ -1,0 +1,55 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - generic:
+        - generic:
+          - img
+        - generic:
+          - img
+        - generic:
+          - img
+      - generic [ref=e1079]:
+        - link "Leaflet" [ref=e1080] [cursor=pointer]:
+          - /url: https://leafletjs.com
+          - img [ref=e1081]
+          - text: Leaflet
+        - text: "| © OpenStreetMap contributors © CARTO"
+    - generic [ref=e1086]:
+      - img "Grandsprojets" [ref=e1088]
+      - generic [ref=e1089]:
+        - button "urbanisme" [ref=e1090] [cursor=pointer]:
+          - generic [ref=e1091]: 
+          - generic [ref=e1092]: urbanisme
+        - button "mobilite" [ref=e1093] [cursor=pointer]:
+          - generic [ref=e1094]: 
+          - generic [ref=e1095]: mobilite
+        - button "velo" [ref=e1096] [cursor=pointer]:
+          - generic [ref=e1097]: 
+          - generic [ref=e1098]: velo
+        - button "Travaux" [ref=e1099] [cursor=pointer]:
+          - generic [ref=e1100]: 
+          - generic [ref=e1101]: Travaux
+    - text: 
+  - button "Afficher les informations à propos" [ref=e1102] [cursor=pointer]:
+    - generic: 
+  - button "Centrer la carte sur ma position" [ref=e1103] [cursor=pointer]:
+    - generic: 
+  - button "Rechercher une adresse" [expanded] [pressed] [ref=e1104] [cursor=pointer]:
+    - generic: 
+  - text: +
+  - dialog [ref=e1105]:
+    - textbox "Rechercher une adresse..." [active] [ref=e1108]: Test recherche
+  - button "Mode sombre" [ref=e1109] [cursor=pointer]:
+    - generic: 
+  - button "Changer le fond de carte" [ref=e1110] [cursor=pointer]:
+    - generic: 
+  - button "Afficher ou masquer les filtres de carte" [ref=e1111] [cursor=pointer]:
+    - generic: 
+  - text: Calques           
+  - button "Se connecter ou s'inscrire" [ref=e1112] [cursor=pointer]:
+    - generic: 
+  - region "Notifications"
+```

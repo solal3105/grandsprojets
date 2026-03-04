@@ -1,0 +1,676 @@
+{
+  "config": {
+    "configFile": "C:\\Users\\Maline\\Documents\\grandsprojets\\playwright.config.js",
+    "rootDir": "C:/Users/Maline/Documents/grandsprojets/tests",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 8
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "C:/Users/Maline/Documents/grandsprojets/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 8
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "C:/Users/Maline/Documents/grandsprojets/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/Maline/Documents/grandsprojets/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 8
+        },
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "C:/Users/Maline/Documents/grandsprojets/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/Maline/Documents/grandsprojets/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 8
+        },
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "C:/Users/Maline/Documents/grandsprojets/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/Maline/Documents/grandsprojets/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 8
+        },
+        "id": "Mobile Chrome",
+        "name": "Mobile Chrome",
+        "testDir": "C:/Users/Maline/Documents/grandsprojets/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/Maline/Documents/grandsprojets/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 8
+        },
+        "id": "Mobile Safari",
+        "name": "Mobile Safari",
+        "testDir": "C:/Users/Maline/Documents/grandsprojets/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.56.0",
+    "workers": 8,
+    "webServer": {
+      "command": "npm start",
+      "url": "http://localhost:3001",
+      "reuseExistingServer": true,
+      "timeout": 180000,
+      "stdout": "pipe",
+      "stderr": "pipe"
+    }
+  },
+  "suites": [
+    {
+      "title": "toggles\\theme-toggle.spec.js",
+      "file": "toggles/theme-toggle.spec.js",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Theme Toggle",
+          "file": "toggles/theme-toggle.spec.js",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Le toggle est visible avec icône fa-moon",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 8596,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T00:13:48.922Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e5682c64c7f947944693-77d80ab7c0f015a71156",
+              "file": "toggles/theme-toggle.spec.js",
+              "line": 33,
+              "column": 3
+            },
+            {
+              "title": "Click active: data-theme=\"dark\" sur html, icône fa-sun",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 7453,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"dark\"\u001b[39m\nReceived: \u001b[31m\"light\"\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"dark\"\u001b[39m\nReceived: \u001b[31m\"light\"\u001b[39m\n    at C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js:48:19",
+                        "location": {
+                          "file": "C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js",
+                          "column": 19,
+                          "line": 48
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 46 |\u001b[39m     \n \u001b[90m 47 |\u001b[39m     \u001b[36mconst\u001b[39m theme \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mevaluate(() \u001b[33m=>\u001b[39m document\u001b[33m.\u001b[39mdocumentElement\u001b[33m.\u001b[39mgetAttribute(\u001b[32m'data-theme'\u001b[39m))\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 48 |\u001b[39m     expect(theme)\u001b[33m.\u001b[39mtoBe(\u001b[32m'dark'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                   \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 49 |\u001b[39m     \n \u001b[90m 50 |\u001b[39m     \u001b[36mconst\u001b[39m sunIcon \u001b[33m=\u001b[39m toggle\u001b[33m.\u001b[39mlocator(\u001b[32m'i.fa-sun'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 51 |\u001b[39m     \u001b[36mawait\u001b[39m expect(sunIcon)\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js",
+                            "column": 19,
+                            "line": 48
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"dark\"\u001b[39m\nReceived: \u001b[31m\"light\"\u001b[39m\n\n\u001b[0m \u001b[90m 46 |\u001b[39m     \n \u001b[90m 47 |\u001b[39m     \u001b[36mconst\u001b[39m theme \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mevaluate(() \u001b[33m=>\u001b[39m document\u001b[33m.\u001b[39mdocumentElement\u001b[33m.\u001b[39mgetAttribute(\u001b[32m'data-theme'\u001b[39m))\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 48 |\u001b[39m     expect(theme)\u001b[33m.\u001b[39mtoBe(\u001b[32m'dark'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                   \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 49 |\u001b[39m     \n \u001b[90m 50 |\u001b[39m     \u001b[36mconst\u001b[39m sunIcon \u001b[33m=\u001b[39m toggle\u001b[33m.\u001b[39mlocator(\u001b[32m'i.fa-sun'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 51 |\u001b[39m     \u001b[36mawait\u001b[39m expect(sunIcon)\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js:48:19\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T00:13:48.890Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Maline\\Documents\\grandsprojets\\test-results\\artifacts\\toggles-theme-toggle-Theme-96c72--dark-sur-html-icône-fa-sun-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Maline\\Documents\\grandsprojets\\test-results\\artifacts\\toggles-theme-toggle-Theme-96c72--dark-sur-html-icône-fa-sun-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js",
+                        "column": 19,
+                        "line": 48
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "e5682c64c7f947944693-3d956fd4e5e2c9161af3",
+              "file": "toggles/theme-toggle.spec.js",
+              "line": 41,
+              "column": 3
+            },
+            {
+              "title": "Classe dark ajoutée sur html en mode sombre",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 8132,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m\n    at C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js:61:26",
+                        "location": {
+                          "file": "C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js",
+                          "column": 26,
+                          "line": 61
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 59 |\u001b[39m     \n \u001b[90m 60 |\u001b[39m     \u001b[36mconst\u001b[39m hasDarkClass \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mevaluate(() \u001b[33m=>\u001b[39m document\u001b[33m.\u001b[39mdocumentElement\u001b[33m.\u001b[39mclassList\u001b[33m.\u001b[39mcontains(\u001b[32m'dark'\u001b[39m))\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 61 |\u001b[39m     expect(hasDarkClass)\u001b[33m.\u001b[39mtoBe(\u001b[36mtrue\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                          \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 62 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 63 |\u001b[39m\n \u001b[90m 64 |\u001b[39m   test(\u001b[32m'Click désactive: data-theme=\"light\", icône fa-moon, classe dark retirée'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js",
+                            "column": 26,
+                            "line": 61
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m\n\n\u001b[0m \u001b[90m 59 |\u001b[39m     \n \u001b[90m 60 |\u001b[39m     \u001b[36mconst\u001b[39m hasDarkClass \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mevaluate(() \u001b[33m=>\u001b[39m document\u001b[33m.\u001b[39mdocumentElement\u001b[33m.\u001b[39mclassList\u001b[33m.\u001b[39mcontains(\u001b[32m'dark'\u001b[39m))\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 61 |\u001b[39m     expect(hasDarkClass)\u001b[33m.\u001b[39mtoBe(\u001b[36mtrue\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                          \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 62 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 63 |\u001b[39m\n \u001b[90m 64 |\u001b[39m   test(\u001b[32m'Click désactive: data-theme=\"light\", icône fa-moon, classe dark retirée'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m\n\u001b[2m    at C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js:61:26\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T00:13:48.984Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Maline\\Documents\\grandsprojets\\test-results\\artifacts\\toggles-theme-toggle-Theme-fabef-tée-sur-html-en-mode-sombre-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Maline\\Documents\\grandsprojets\\test-results\\artifacts\\toggles-theme-toggle-Theme-fabef-tée-sur-html-en-mode-sombre-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js",
+                        "column": 26,
+                        "line": 61
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "e5682c64c7f947944693-d9a3733930aa3e24e993",
+              "file": "toggles/theme-toggle.spec.js",
+              "line": 54,
+              "column": 3
+            },
+            {
+              "title": "Click désactive: data-theme=\"light\", icône fa-moon, classe dark retirée",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 7780,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T00:13:49.112Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e5682c64c7f947944693-9e0c2d0ff2120f706686",
+              "file": "toggles/theme-toggle.spec.js",
+              "line": 64,
+              "column": 3
+            },
+            {
+              "title": "Persistance: localStorage.getItem(\"theme\") === \"dark\" puis \"light\"",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 8633,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"dark\"\u001b[39m\nReceived: \u001b[31mnull\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"dark\"\u001b[39m\nReceived: \u001b[31mnull\u001b[39m\n    at C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js:93:20",
+                        "location": {
+                          "file": "C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js",
+                          "column": 20,
+                          "line": 93
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 91 |\u001b[39m     \n \u001b[90m 92 |\u001b[39m     \u001b[36mlet\u001b[39m stored \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mevaluate(() \u001b[33m=>\u001b[39m localStorage\u001b[33m.\u001b[39mgetItem(\u001b[32m'theme'\u001b[39m))\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 93 |\u001b[39m     expect(stored)\u001b[33m.\u001b[39mtoBe(\u001b[32m'dark'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                    \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 94 |\u001b[39m     \n \u001b[90m 95 |\u001b[39m     \u001b[90m// Désactiver\u001b[39m\n \u001b[90m 96 |\u001b[39m     \u001b[36mawait\u001b[39m toggle\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js",
+                            "column": 20,
+                            "line": 93
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"dark\"\u001b[39m\nReceived: \u001b[31mnull\u001b[39m\n\n\u001b[0m \u001b[90m 91 |\u001b[39m     \n \u001b[90m 92 |\u001b[39m     \u001b[36mlet\u001b[39m stored \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mevaluate(() \u001b[33m=>\u001b[39m localStorage\u001b[33m.\u001b[39mgetItem(\u001b[32m'theme'\u001b[39m))\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 93 |\u001b[39m     expect(stored)\u001b[33m.\u001b[39mtoBe(\u001b[32m'dark'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                    \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 94 |\u001b[39m     \n \u001b[90m 95 |\u001b[39m     \u001b[90m// Désactiver\u001b[39m\n \u001b[90m 96 |\u001b[39m     \u001b[36mawait\u001b[39m toggle\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js:93:20\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T00:13:49.194Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Maline\\Documents\\grandsprojets\\test-results\\artifacts\\toggles-theme-toggle-Theme-ccbd0-Item-theme-dark-puis-light--chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Maline\\Documents\\grandsprojets\\test-results\\artifacts\\toggles-theme-toggle-Theme-ccbd0-Item-theme-dark-puis-light--chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js",
+                        "column": 20,
+                        "line": 93
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "e5682c64c7f947944693-957001fa2d691de7f86a",
+              "file": "toggles/theme-toggle.spec.js",
+              "line": 85,
+              "column": 3
+            },
+            {
+              "title": "Restauration au reload: thème persiste",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "failed",
+                      "duration": 7665,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"dark\"\u001b[39m\nReceived: \u001b[31mnull\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"dark\"\u001b[39m\nReceived: \u001b[31mnull\u001b[39m\n    at C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js:112:20",
+                        "location": {
+                          "file": "C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js",
+                          "column": 20,
+                          "line": 112
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 110 |\u001b[39m     \u001b[90m// Vérifier que localStorage est set à dark\u001b[39m\n \u001b[90m 111 |\u001b[39m     \u001b[36mlet\u001b[39m stored \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mevaluate(() \u001b[33m=>\u001b[39m localStorage\u001b[33m.\u001b[39mgetItem(\u001b[32m'theme'\u001b[39m))\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 112 |\u001b[39m     expect(stored)\u001b[33m.\u001b[39mtoBe(\u001b[32m'dark'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                    \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 113 |\u001b[39m     \n \u001b[90m 114 |\u001b[39m     \u001b[90m// Recharger la page\u001b[39m\n \u001b[90m 115 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mreload()\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js",
+                            "column": 20,
+                            "line": 112
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"dark\"\u001b[39m\nReceived: \u001b[31mnull\u001b[39m\n\n\u001b[0m \u001b[90m 110 |\u001b[39m     \u001b[90m// Vérifier que localStorage est set à dark\u001b[39m\n \u001b[90m 111 |\u001b[39m     \u001b[36mlet\u001b[39m stored \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mevaluate(() \u001b[33m=>\u001b[39m localStorage\u001b[33m.\u001b[39mgetItem(\u001b[32m'theme'\u001b[39m))\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 112 |\u001b[39m     expect(stored)\u001b[33m.\u001b[39mtoBe(\u001b[32m'dark'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                    \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 113 |\u001b[39m     \n \u001b[90m 114 |\u001b[39m     \u001b[90m// Recharger la page\u001b[39m\n \u001b[90m 115 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mreload()\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js:112:20\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T00:13:48.906Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Maline\\Documents\\grandsprojets\\test-results\\artifacts\\toggles-theme-toggle-Theme-fdc94-on-au-reload-thème-persiste-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Maline\\Documents\\grandsprojets\\test-results\\artifacts\\toggles-theme-toggle-Theme-fdc94-on-au-reload-thème-persiste-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js",
+                        "column": 20,
+                        "line": 112
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "e5682c64c7f947944693-8f88d0c83ddf3b7675db",
+              "file": "toggles/theme-toggle.spec.js",
+              "line": 103,
+              "column": 3
+            },
+            {
+              "title": "Clavier Enter: active le mode sombre",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 6,
+                      "status": "failed",
+                      "duration": 7978,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"dark\"\u001b[39m\nReceived: \u001b[31m\"light\"\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"dark\"\u001b[39m\nReceived: \u001b[31m\"light\"\u001b[39m\n    at C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js:143:19",
+                        "location": {
+                          "file": "C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js",
+                          "column": 19,
+                          "line": 143
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 141 |\u001b[39m     \n \u001b[90m 142 |\u001b[39m     \u001b[36mconst\u001b[39m theme \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mevaluate(() \u001b[33m=>\u001b[39m document\u001b[33m.\u001b[39mdocumentElement\u001b[33m.\u001b[39mgetAttribute(\u001b[32m'data-theme'\u001b[39m))\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 143 |\u001b[39m     expect(theme)\u001b[33m.\u001b[39mtoBe(\u001b[32m'dark'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                   \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 144 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 145 |\u001b[39m\n \u001b[90m 146 |\u001b[39m   test(\u001b[32m'Clavier Space: active le mode sombre'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js",
+                            "column": 19,
+                            "line": 143
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"dark\"\u001b[39m\nReceived: \u001b[31m\"light\"\u001b[39m\n\n\u001b[0m \u001b[90m 141 |\u001b[39m     \n \u001b[90m 142 |\u001b[39m     \u001b[36mconst\u001b[39m theme \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mevaluate(() \u001b[33m=>\u001b[39m document\u001b[33m.\u001b[39mdocumentElement\u001b[33m.\u001b[39mgetAttribute(\u001b[32m'data-theme'\u001b[39m))\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 143 |\u001b[39m     expect(theme)\u001b[33m.\u001b[39mtoBe(\u001b[32m'dark'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                   \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 144 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 145 |\u001b[39m\n \u001b[90m 146 |\u001b[39m   test(\u001b[32m'Clavier Space: active le mode sombre'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m\n\u001b[2m    at C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js:143:19\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T00:13:48.967Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Maline\\Documents\\grandsprojets\\test-results\\artifacts\\toggles-theme-toggle-Theme-06518-Enter-active-le-mode-sombre-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Maline\\Documents\\grandsprojets\\test-results\\artifacts\\toggles-theme-toggle-Theme-06518-Enter-active-le-mode-sombre-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js",
+                        "column": 19,
+                        "line": 143
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "e5682c64c7f947944693-bf2bd19c065a7338879c",
+              "file": "toggles/theme-toggle.spec.js",
+              "line": 135,
+              "column": 3
+            },
+            {
+              "title": "Clavier Space: active le mode sombre",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 7,
+                      "status": "failed",
+                      "duration": 7547,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"dark\"\u001b[39m\nReceived: \u001b[31m\"light\"\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"dark\"\u001b[39m\nReceived: \u001b[31m\"light\"\u001b[39m\n    at C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js:154:19",
+                        "location": {
+                          "file": "C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js",
+                          "column": 19,
+                          "line": 154
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 152 |\u001b[39m     \n \u001b[90m 153 |\u001b[39m     \u001b[36mconst\u001b[39m theme \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mevaluate(() \u001b[33m=>\u001b[39m document\u001b[33m.\u001b[39mdocumentElement\u001b[33m.\u001b[39mgetAttribute(\u001b[32m'data-theme'\u001b[39m))\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 154 |\u001b[39m     expect(theme)\u001b[33m.\u001b[39mtoBe(\u001b[32m'dark'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                   \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 155 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 156 |\u001b[39m\n \u001b[90m 157 |\u001b[39m   test(\u001b[32m'Responsive mobile et desktop: visible'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js",
+                            "column": 19,
+                            "line": 154
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"dark\"\u001b[39m\nReceived: \u001b[31m\"light\"\u001b[39m\n\n\u001b[0m \u001b[90m 152 |\u001b[39m     \n \u001b[90m 153 |\u001b[39m     \u001b[36mconst\u001b[39m theme \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mevaluate(() \u001b[33m=>\u001b[39m document\u001b[33m.\u001b[39mdocumentElement\u001b[33m.\u001b[39mgetAttribute(\u001b[32m'data-theme'\u001b[39m))\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 154 |\u001b[39m     expect(theme)\u001b[33m.\u001b[39mtoBe(\u001b[32m'dark'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                   \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 155 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 156 |\u001b[39m\n \u001b[90m 157 |\u001b[39m   test(\u001b[32m'Responsive mobile et desktop: visible'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m\n\u001b[2m    at C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js:154:19\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T00:13:48.976Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Maline\\Documents\\grandsprojets\\test-results\\artifacts\\toggles-theme-toggle-Theme-4a8e8-Space-active-le-mode-sombre-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Maline\\Documents\\grandsprojets\\test-results\\artifacts\\toggles-theme-toggle-Theme-4a8e8-Space-active-le-mode-sombre-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\Maline\\Documents\\grandsprojets\\tests\\toggles\\theme-toggle.spec.js",
+                        "column": 19,
+                        "line": 154
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "e5682c64c7f947944693-b6c2979d68cffe94243c",
+              "file": "toggles/theme-toggle.spec.js",
+              "line": 146,
+              "column": 3
+            },
+            {
+              "title": "Responsive mobile et desktop: visible",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 1650,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T00:13:57.423Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e5682c64c7f947944693-3ce98986fde770461829",
+              "file": "toggles/theme-toggle.spec.js",
+              "line": 157,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-12-07T00:13:45.342Z",
+    "duration": 14080.128999999999,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 6,
+    "flaky": 0
+  }
+}

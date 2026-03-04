@@ -1,30 +1,23 @@
 {
-  "name": "grandsprojets-lyon",
-  "version": "2.0.0",
-  "description": "Carte des grands projets d'urbanisme et de mobilité de la Métropole de Lyon",
+  "name": "openprojets-home",
+  "private": true,
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "python3 -m http.server 3001",
-    "test": "playwright test",
-    "test:ui": "playwright test --ui",
-    "test:report": "playwright show-report test-results/html",
-    "test:json": "node generate-test-report.js"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
-  "keywords": [
-    "lyon",
-    "urbanisme",
-    "mobilité",
-    "tram",
-    "vélo"
-  ],
-  "author": "",
-  "license": "ISC",
+  "dependencies": {
+    "vue": "^3.4.0",
+    "vue-router": "^4.3.0",
+    "lucide-vue-next": "^0.344.0"
+  },
   "devDependencies": {
-    "@playwright/test": "^1.48.0",
-    "autoprefixer": "^10.4.21",
-    "dotenv": "^17.2.3",
-    "netlify-cli": "^23.13.0",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.16"
+    "@vitejs/plugin-vue": "^5.0.0",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "vite": "^5.1.0"
   }
 }

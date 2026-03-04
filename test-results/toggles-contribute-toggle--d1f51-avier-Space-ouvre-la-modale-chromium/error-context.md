@@ -1,0 +1,69 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - generic:
+        - generic:
+          - button "" [ref=e4] [cursor=pointer]:
+            - generic [ref=e5]:
+              - generic: 
+          - button "" [ref=e6] [cursor=pointer]:
+            - generic [ref=e7]:
+              - generic: 
+          - button "" [ref=e8] [cursor=pointer]:
+            - generic [ref=e9]:
+              - generic: 
+          - button "" [ref=e10] [cursor=pointer]:
+            - generic [ref=e11]:
+              - generic: 
+          - button "" [ref=e12] [cursor=pointer]:
+            - generic [ref=e13]:
+              - generic: 
+          - button "" [ref=e14] [cursor=pointer]:
+            - generic [ref=e15]:
+              - generic: 
+        - generic:
+          - img
+        - generic:
+          - img
+      - generic [ref=e26]:
+        - link "Leaflet" [ref=e27] [cursor=pointer]:
+          - /url: https://leafletjs.com
+          - img [ref=e28]
+          - text: Leaflet
+        - text: "| © OpenStreetMap contributors © CARTO"
+    - generic [ref=e33]:
+      - img "Grand Lyon" [ref=e35]
+      - generic [ref=e36]:
+        - button "historique" [ref=e37] [cursor=pointer]:
+          - generic [ref=e38]: 
+          - generic [ref=e39]: historique
+        - button "balades" [ref=e40] [cursor=pointer]:
+          - generic [ref=e41]: 
+          - generic [ref=e42]: balades
+        - button "bus" [ref=e43] [cursor=pointer]:
+          - generic [ref=e44]: 
+          - generic [ref=e45]: bus
+        - button "Travaux" [ref=e46] [cursor=pointer]:
+          - generic [ref=e47]: 
+          - generic [ref=e48]: Travaux
+    - text: 
+  - button "Afficher les informations à propos" [ref=e49] [cursor=pointer]:
+    - generic: 
+  - button "Centrer la carte sur ma position" [ref=e50] [cursor=pointer]:
+    - generic: 
+  - button "Rechercher une adresse" [ref=e51] [cursor=pointer]:
+    - generic: 
+  - button "Proposer une contribution" [active] [pressed] [ref=e52] [cursor=pointer]:
+    - generic: +
+  - button "Mode sombre" [ref=e53] [cursor=pointer]:
+    - generic: 
+  - button "Changer le fond de carte" [ref=e54] [cursor=pointer]:
+    - generic: 
+  - button "Afficher ou masquer les filtres de carte" [ref=e55] [cursor=pointer]:
+    - generic: 
+  - text: Calques     
+  - region "Notifications"
+```
