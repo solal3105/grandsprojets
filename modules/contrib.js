@@ -970,6 +970,7 @@
     const landingCategoriesBtn = document.getElementById('landing-categories');
     const landingUsersBtn = document.getElementById('landing-users');
     const landingEditCityBtn = document.getElementById('landing-edit-city');
+    const landingHelpBtn = document.getElementById('landing-help');
     const listEl       = document.getElementById('contrib-list');
     const listSearchEl = document.getElementById('contrib-search');
     const listCatEl    = document.getElementById('contrib-filter-category');
@@ -1127,6 +1128,20 @@
     if (landingEditBtn) landingEditBtn.addEventListener('click', () => chooseLanding('list'));
     if (landingCategoriesBtn) landingCategoriesBtn.addEventListener('click', () => chooseLanding('categories'));
     if (landingUsersBtn) landingUsersBtn.addEventListener('click', () => chooseLanding('users'));
+    
+    // Bouton "Centre d'aide" : ouvre le guide dans une modale iframe
+    // Note: Toujours pointer vers la prod car le home app n'existe qu'en prod
+    if (landingHelpBtn) {
+      landingHelpBtn.addEventListener('click', () => {
+        const iframe = document.getElementById('help-iframe');
+        if (iframe) iframe.src = 'https://grandsprojets.com/home/aide?embed=true';
+        win.ModalHelper?.open('help-overlay', {
+          dismissible: true,
+          lockScroll: true,
+          onClose: () => { if (iframe) iframe.src = 'about:blank'; }
+        });
+      });
+    }
     
     // Bouton "Gérer le branding" : ouvre la modale de branding pour la ville sélectionnée
     const landingBrandingBtn = document.getElementById('landing-branding');

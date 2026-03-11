@@ -84,6 +84,11 @@
             <span class="card-title">Gérer le branding</span>
             <span class="card-desc" id="landing-branding-desc">Personnalisez la couleur et les contrôles pour cette ville.</span>
           </button>
+          <button class="choice-card choice-card--help" role="listitem" id="landing-help" aria-describedby="landing-help-desc">
+            <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-circle-question"></i></span>
+            <span class="card-title">Centre d'aide</span>
+            <span class="card-desc" id="landing-help-desc">Guides et tutoriels pour utiliser la plateforme.</span>
+          </button>
         </div>
       </section>
       <!-- Bouton Retour vers la page d'accueil de la modale -->
@@ -198,5 +203,18 @@
         </button>
       </div>
     </footer>
+  </div>
+</div>
+
+<!-- Help center iframe modal -->
+<div id="help-overlay" class="gp-modal-overlay gp-modal--glass" role="dialog" aria-modal="true" aria-label="Centre d'aide" aria-hidden="true" style="display:none">
+  <div class="gp-modal gp-modal--help">
+    <header class="gp-modal-header">
+      <h1 class="gp-modal-title"><i class="fa-solid fa-circle-question" style="margin-right:8px;opacity:.6;"></i>Centre d'aide</h1>
+      <button class="btn-secondary gp-modal-close" id="help-close" aria-label="Fermer">&times;</button>
+    </header>
+    <div class="gp-modal-body" style="padding:0;overflow:hidden;">
+      <iframe id="help-iframe" style="width:100%;height:100%;border:none;" loading="lazy"></iframe>
+    </div>
   </div>
 </div>

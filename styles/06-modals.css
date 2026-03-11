@@ -836,6 +836,36 @@
   line-height: 1.5;
 }
 
+/* Help card variant — subtle separator from action cards */
+.choice-card--help {
+  border-style: dashed;
+  opacity: 0.85;
+}
+.choice-card--help .card-icon {
+  background: var(--gray-100, #f3f4f6);
+  color: var(--text-secondary);
+}
+.choice-card--help:hover {
+  opacity: 1;
+  border-color: var(--info);
+}
+.choice-card--help:hover .card-icon {
+  background: var(--info-alpha-15);
+  color: var(--info);
+}
+
+/* Help iframe modal — wider + taller */
+.gp-modal--help {
+  width: min(960px, 95vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+.gp-modal--help .gp-modal-body {
+  flex: 1;
+  min-height: 0;
+}
+
 /* ---------------------------------------------------------------------------
    Stepper - Navigation par étapes du formulaire
 --------------------------------------------------------------------------- */

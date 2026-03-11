@@ -419,6 +419,7 @@
         setStatus('🔄 Redirection vers GitHub…');
         githubBtn.disabled = true;
         const redirectUrl = window.location.origin + '/';
+        console.log('[Login] GitHub OAuth redirect URL:', redirectUrl);
         const { error } = await auth.signInWithGitHub(redirectUrl);
         if (error) {
           console.error('OAuth error:', error);
@@ -454,6 +455,7 @@
         githubBtn.disabled = true;
         
         const redirectUrl = window.location.origin + '/login/';
+        console.log('[Login] Magic Link redirect URL:', redirectUrl);
         let error = null;
         
         if (typeof auth.signInWithMagicLink === 'function') {
