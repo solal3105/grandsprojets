@@ -42,4 +42,14 @@ const router = createRouter({
   },
 })
 
+// Préserver le paramètre embed=true lors de la navigation
+router.beforeEach((to, from) => {
+  if (from.query.embed === 'true' && !to.query.embed) {
+    return {
+      ...to,
+      query: { ...to.query, embed: 'true' }
+    }
+  }
+})
+
 export default router
