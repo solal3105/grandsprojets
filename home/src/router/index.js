@@ -22,6 +22,16 @@ const routes = [
     name: 'contact',
     component: () => import('@/views/ContactView.vue'),
   },
+  {
+    path: '/aide',
+    name: 'aide',
+    component: () => import('@/views/HelpView.vue'),
+  },
+  {
+    path: '/aide/guide-:role',
+    name: 'guide-print',
+    component: () => import('@/views/HelpPrintView.vue'),
+  },
 ]
 
 const router = createRouter({

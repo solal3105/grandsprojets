@@ -79,6 +79,7 @@ const navLinks = [
   { to: '/fonctionnalites', label: 'Fonctionnalités' },
   { to: '/a-propos', label: 'À propos' },
   { to: '/contact', label: 'Contact' },
+  { to: '/aide', label: 'Aide' },
 ]
 
 function isActive(to) {
