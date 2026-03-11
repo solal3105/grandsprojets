@@ -420,6 +420,8 @@
    * @param {{ updateHistory?: boolean }} [options]
    */
   const showDetailPanel = (layerName, feature, options = {}) => {
+    console.log('[UIModule] 📋 showDetailPanel called:', { layerName, featureName: feature?.properties?.project_name, options });
+    
     const { updateHistory = true } = options;
     // Utilitaire local de slugification (harmonisé avec les autres modules)
     const slugify = (str) => String(str || '')
@@ -447,27 +449,66 @@
         else category = 'autre';
       }
       
+      console.log('[UIModule] 📝 Extracted:', { projectName, category });
+      
       if (projectName) {
-        // Passer directement les données enrichies à showProjectDetail
-        window.NavigationModule.showProjectDetail(projectName, category, null, props);
-
-        // Mettre à jour l'URL pour refléter l'état courant (sauf si désactivé)
-        try {
-          if (updateHistory && typeof history?.pushState === 'function') {
+        // GUARD: Éviter la boucle infinie history.pushState → popstate → showDetailPanel
+        const currentParams = new URLSearchParams(location.search);
+        const currentProject = currentParams.get('project');
+        const projSlug = slugify(projectName);
+        
+        // Ne mettre à jour l'URL QUE si elle a changé
+        const shouldUpdateUrl = updateHistory && currentProject !== projSlug;
+        
+        console.log('[UIModule] 🔗 URL update check:', { 
+          currentProject, 
+          projSlug, 
+          shouldUpdateUrl,
+          updateHistory 
+        });
+        
+        if (shouldUpdateUrl) {
+          try {
+            // CRITICAL: Activer le flag pour bloquer popstate pendant la navigation manuelle
+            if (window._setManualNavigation) {
+              window._setManualNavigation(true);
+            }
+            
             const catForUrl = category || (layerName.includes('velo') ? 'velo'
               : (layerName.includes('urbanisme') ? 'urbanisme'
               : ((layerName.includes('mobilite') || layerName.includes('metro') || layerName.includes('tramway')) ? 'mobilite' : 'autre')));
-            const projSlug = slugify(projectName);
             const params = new URLSearchParams();
             params.set('cat', catForUrl);
             params.set('project', projSlug);
             const newUrl = `${location.pathname}?${params.toString()}`;
+            console.log('[UIModule] 🔗 Pushing URL:', newUrl);
             history.pushState({ cat: catForUrl, project: projSlug }, '', newUrl);
+            
+            // Désactiver le flag après un court délai (pour laisser popstate se déclencher si besoin)
+            setTimeout(() => {
+              if (window._setManualNavigation) {
+                window._setManualNavigation(false);
+              }
+            }, 100);
+          } catch(err) {
+            console.error('[UIModule] ❌ Error pushing URL:', err);
+            // Toujours désactiver le flag en cas d'erreur
+            if (window._setManualNavigation) {
+              window._setManualNavigation(false);
+            }
           }
-        } catch(_) { /* noop */ }
+        } else {
+          console.log('[UIModule] ⏭️ Skip URL update - already current');
+        }
+        
+        // Appeler showProjectDetail APRÈS la mise à jour de l'URL pour éviter la boucle
+        console.log('[UIModule] 📞 Calling NavigationModule.showProjectDetail');
+        window.NavigationModule.showProjectDetail(projectName, category, null, props);
       } else {
+        console.warn('[UIModule] ⚠️ No project name found');
       }
     } else {
+      console.warn('[UIModule] ⚠️ NavigationModule.showProjectDetail not available');
     }
   };
 

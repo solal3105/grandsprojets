@@ -279,14 +279,14 @@ window.SearchModule = (() => {
     });
     
     // Add the new marker
-    // Injecter une feuille de style minimale pour rendre la wrapper Leaflet transparente
+    // Injecter une feuille de style minimale pour rendre la wrapper MapLibre transparente
     if (!document.getElementById('gp-popup-style')) {
       const style = document.createElement('style');
       style.id = 'gp-popup-style';
       style.textContent = `
-        .gp-popup .leaflet-popup-content-wrapper{background:transparent; box-shadow:none; border:none;}
-        .gp-popup .leaflet-popup-tip{background:transparent; box-shadow:none; border:none;}
-        .gp-popup .leaflet-popup-close-button{display:none !important;}
+        .gp-popup .maplibregl-popup-content{background:transparent; box-shadow:none; border:none; padding:0;}
+        .gp-popup .maplibregl-popup-tip{background:transparent; box-shadow:none; border:none;}
+        .gp-popup .maplibregl-popup-close-button{display:none !important;}
       `;
       document.head.appendChild(style);
     }

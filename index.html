@@ -74,11 +74,9 @@
     })();
   </script>
   <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="styles/travaux-tooltip.css" />
+  <!-- Legacy travaux-tooltip.css removed — hover popups handled by hover-popup.css -->
   <link rel="stylesheet" href="styles/gp-icon-picker.css" />
-  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" 
-        crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css"
         crossorigin="anonymous" referrerpolicy="no-referrer" />
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-8LGDVJXTPK"></script>
@@ -96,7 +94,7 @@
     <img src="" alt="" style="opacity: 0;" />
   </a>
   <div id="container">
-    <!-- Carte Leaflet -->
+    <!-- Carte MapLibre GL -->
     <div id="map"></div>
 
     <!-- Barre de navigation -->
@@ -107,8 +105,8 @@
         </div>
         <div id="dynamic-categories"></div>
       </div>
-      <div id="dynamic-submenus"></div>
     </div>
+    <div id="dynamic-submenus"></div>
 
   <!-- Contribution modal (loaded dynamically) -->
   <div id="contrib-modal-container"></div>
@@ -476,12 +474,16 @@
   <script src="modules/auth.js"></script>
   <!-- Module de sécurité (prévention XSS) -->
   <script src="modules/security-utils.js"></script>
-  <!-- Chargement de Leaflet JS depuis des fichiers locaux -->
-  <script src="vendor/leaflet/leaflet.js"></script>
-  <!-- Leaflet.Draw pour édition géométrique -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js" 
-          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <!-- Geoman removed: manual drawing only -->
+  <!-- MapLibre GL JS -->
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <!-- Leaflet-compatible API backed by MapLibre GL JS (DEPRECATED - à supprimer progressivement) -->
+  <script src="modules/maplibre-compat.js"></script>
+  <!-- MapLibre GL Native Renderer (remplace L.geoJSON et L.marker) -->
+  <script src="modules/maplibre-renderer.js"></script>
+  <!-- Système unifié d'interactions features (hover + click) -->
+  <script src="modules/feature-interactions.js"></script>
+  <!-- Gestionnaire de tooltips unifié -->
+  <script src="modules/tooltip-manager.js"></script>
   <!-- Chargement des scripts locaux -->
   
   <!-- Nouveaux modules réorganisés -->

@@ -11,10 +11,8 @@
   visibility: hidden !important;
 }
 
-.travaux-hover-tooltip.leaflet-tooltip-top,
-.travaux-hover-tooltip.leaflet-tooltip-bottom,
-.travaux-hover-tooltip.leaflet-tooltip-left,
-.travaux-hover-tooltip.leaflet-tooltip-right {
+.travaux-hover-tooltip.maplibregl-popup,
+.travaux-hover-tooltip.maplibre-tooltip {
   visibility: visible !important;
 }
 

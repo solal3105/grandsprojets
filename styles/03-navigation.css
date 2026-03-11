@@ -43,12 +43,27 @@
   flex-shrink: 0;
 }
 
+/* Container des sous-menus (frère de #left-nav, hors backdrop-filter) */
+#dynamic-submenus {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1100;
+  pointer-events: none;
+  /* Taille identique à #left-nav pour que .submenu left:100% fonctionne */
+  width: 300px;
+  max-height: 70vh;
+}
+
+#dynamic-submenus .submenu {
+  pointer-events: auto;
+}
+
 /* Container des catégories dynamiques */
 #dynamic-categories {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 20px 0;
 }
 
 /* Boutons de catégories - hauteur par défaut (≤4 éléments) */

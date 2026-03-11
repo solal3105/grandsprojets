@@ -1,60 +1,46 @@
 window.MapModule = (() => {
-  // Initialize the map view (sans basemap)
+  // Initialize the map view using Leaflet compatibility layer (backed by MapLibre GL)
   const map = L.map('map').setView([45.75, 4.85], 12);
   let baseLayer;
   
-  // Global invisible hitline pane and SVG renderer (for wider clickable area on paths)
+  // DEPRECATED: Hitline pane - MapLibre GL gère les clics nativement
+  // Conservé temporairement pour compatibilité avec code legacy
   const hitPaneName = 'hitlinePane';
   const hitPane = map.createPane(hitPaneName);
-  // Place above clickable layers to avoid hover jitter; still below markers
-  // Leaflet defaults: tilePane=200, overlayPane=400, markerPane=600, tooltipPane=650, popupPane=700
-  // clickableLayers pane is set to 450 in DataModule (below markers at 600)
   hitPane.style.zIndex = 460;
   const hitRenderer = L.svg({ pane: hitPaneName });
   
-  // Camera markers pane (au premier plan, au dessus de tout sauf popups)
+  // Camera markers pane
   const cameraPaneName = 'cameraPane';
   const cameraPane = map.createPane(cameraPaneName);
-  cameraPane.style.zIndex = 680; // Au dessus de hitline (460) et tooltipPane (650)
+  cameraPane.style.zIndex = 680;
   
   /**
    * Initialise le fond de carte après chargement de window.basemaps
-   * Utilise window._cityPreferredBasemap si défini (depuis city_branding.default_basemap)
+   * OPTIMISÉ: Utilise L.tileLayer (via compat layer MapLibre GL)
    */
   function initBaseLayer() {
     const bmList = window.basemaps || [];
     const cityPreferred = window._cityPreferredBasemap;
     
     if (!bmList.length) {
-      console.warn('MapModule.initBaseLayer : pas de basemaps dispo');
+      console.warn('[MapModule] Pas de basemaps disponibles');
       return;
     }
     
-    // Ordre de priorité pour la sélection du basemap:
-    // 1. window._cityPreferredBasemap (depuis city_branding.default_basemap)
-    // 2. Basemap avec default: true
-    // 3. Premier basemap de la liste
-    let selectedBm = null;
-    
-    if (cityPreferred) {
-      selectedBm = bmList.find(b => b.name === cityPreferred);
-      if (!selectedBm) {
-        console.warn(`MapModule.initBaseLayer : basemap "${cityPreferred}" non trouvé, utilisation du défaut`);
-      }
-    }
-    
+    // Sélection du basemap (ordre de priorité)
+    let selectedBm = cityPreferred ? bmList.find(b => b.name === cityPreferred) : null;
     if (!selectedBm) {
-      selectedBm = bmList.find(b => b.default === true) || bmList[0];
+      selectedBm = bmList.find(b => b.default) || bmList[0];
     }
     
+    // Remplacer le basemap existant
     if (baseLayer) map.removeLayer(baseLayer);
     baseLayer = L.tileLayer(selectedBm.url, { attribution: selectedBm.attribution });
     baseLayer.addTo(map);
     
-    // Mettre à jour l'UI pour refléter le basemap actif
-    if (window.UIModule?.setActiveBasemap) {
-      window.UIModule.setActiveBasemap(selectedBm.label);
-    }
+    // Mettre à jour l'UI
+    window.UIModule?.setActiveBasemap?.(selectedBm.label);
   }
 
 

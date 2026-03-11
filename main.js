@@ -770,18 +770,21 @@
         }
       });
 
-      // PHASE 5.5 : Charger TOUS les layers en parallèle
-      // (catégories + defaultLayers en même temps)
+      // PHASE 5.5 : Charger les layers par défaut + toutes les contributions
       const categoryLayers = Object.keys(contributionsByCategory).filter(cat => contributionsByCategory[cat].length > 0);
-      const allLayersToLoad = [...new Set([...categoryLayers, ...defaultLayers])];
+      
+      // Charger defaultLayers (layers système) + categoryLayers (contributions)
+      const layersToLoad = [...new Set([...defaultLayers, ...categoryLayers])];
       
       try {
-        await Promise.all(allLayersToLoad.map(layer => 
+        await Promise.all(layersToLoad.map(layer => 
           DataModule.loadLayer(layer).catch(err => {
             console.error(`[Main] ❌ Erreur chargement layer "${layer}":`, err);
-            return null; // Continuer même si un layer échoue
+            return null;
           })
         ));
+        
+        console.log(`[Main] ✅ ${layersToLoad.length} layers chargés (${defaultLayers.length} système + ${categoryLayers.length} contributions)`);
       } catch (err) {
         console.error('[Main] ❌ Erreur lors du chargement des layers:', err);
       }
@@ -805,6 +808,16 @@
       if (window.GeolocationModule) {
         window.GeolocationModule.init(window.MapModule.map);
         // markReady('location') is called inside GeolocationModule.init()
+      }
+      
+      // Système unifié d'interactions (click contributions + travaux + sélection)
+      if (window.FeatureInteractions && window.MapModule?.map?._mlMap) {
+        window.FeatureInteractions.init(window.MapModule.map._mlMap);
+      }
+      
+      // Stub tooltip (les tooltips sont gérés par bindTooltip via compat layer)
+      if (window.TooltipManager) {
+        window.TooltipManager.init();
       }
       
       // Note: SearchModule.init() est appelé tôt (ligne ~161) car il n'a pas de dépendances avec les données
@@ -1002,8 +1015,23 @@
 
       /**
        * Gestion de la navigation (boutons précédent/suivant du navigateur)
+       * IMPORTANT: Ne pas réagir aux pushState programmatiques, seulement aux vrais back/forward
        */
+      let _isManualNavigation = false;
+      
       window.addEventListener('popstate', async (e) => {
+        console.log('[Main] 🔙 POPSTATE event:', { 
+          isManualNavigation: _isManualNavigation,
+          state: e.state,
+          url: location.href 
+        });
+        
+        // GUARD: Ignorer les popstate déclenchés par nos propres pushState
+        if (_isManualNavigation) {
+          console.log('[Main] ⏭️ SKIP popstate - manual navigation in progress');
+          return;
+        }
+        
         try {
           const nextCity = win.CityManager?.resolveActiveCity();
           if (nextCity && nextCity !== win.activeCity) {
@@ -1029,7 +1057,10 @@
             } catch (_) { /* noop */ }
           }
 
+          console.log('[Main] 📍 Popstate state:', state);
+
           if (state && state.cat && state.project) {
+            console.log('[Main] 📞 Calling showFromUrlState');
             await showFromUrlState({ cat: state.cat, project: state.project });
           } else if (state && state.cat && !state.project) {
             if (window.NavigationModule?.resetToDefaultView) {
@@ -1040,6 +1071,11 @@
           }
         } catch (_) { /* noop */ }
       });
+      
+      // Exposer le flag pour que uimodule.js puisse le contrôler
+      win._setManualNavigation = (value) => {
+        _isManualNavigation = value;
+      };
       
       // Marquer le chargement comme terminé (pour la détection de blocage)
       markLoadComplete();

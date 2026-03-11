@@ -62,17 +62,17 @@ html, body {
 }
 
 /* ---------------------------------------------------------------------------
-   Transitions globales et ajustements Leaflet
+   Transitions globales et ajustements MapLibre GL
 --------------------------------------------------------------------------- */
 * {
   transition: all 0.3s ease-in-out;
 }
 
-.leaflet-map-pane {
+.maplibregl-map {
   transition: none !important;
 }
 
-.leaflet-zoom-animated {
+.maplibregl-canvas-container {
   transition: none !important;
 }
 
@@ -88,8 +88,8 @@ html.theme-transitioning *::after {
   animation-delay: 0s !important;
 }
 
-.leaflet-container,
-.leaflet-container * {
+.maplibregl-map,
+.maplibregl-map * {
   transition: none !important;
 }
 

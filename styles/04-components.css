@@ -836,12 +836,12 @@
   height: 100%;
 }
 
-/* Forcer les z-index Leaflet à rester bas dans la mini-carte */
-.project-preview-map-wrap .leaflet-pane {
+/* Forcer les z-index MapLibre à rester bas dans la mini-carte */
+.project-preview-map-wrap .maplibregl-canvas-container {
   z-index: auto !important;
 }
 
-.project-preview-map-wrap .leaflet-control {
+.project-preview-map-wrap .maplibregl-ctrl {
   z-index: 10 !important;
 }
 

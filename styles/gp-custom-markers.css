@@ -3,7 +3,7 @@
    ============================================================================
    
    ARCHITECTURE HOVER :
-   - Le conteneur Leaflet (.gp-marker-container) reçoit tous les événements
+   - Le conteneur marker (.gp-marker-container) reçoit tous les événements
    - Le contenu interne (.gp-custom-marker et enfants) a pointer-events: none
    - Le hover est géré via une classe .is-hovered ajoutée par JavaScript
    - Cela évite les re-déclenchements quand on passe de l'icône au pin
@@ -12,7 +12,7 @@
 .gp-marker-container {
   background: transparent !important;
   border: none !important;
-  /* Le conteneur Leaflet reçoit tous les événements */
+  /* Le conteneur marker reçoit tous les événements */
 }
 
 .gp-custom-marker {

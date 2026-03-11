@@ -625,20 +625,22 @@
       return null;
     }
 
-    // Check if Leaflet is loaded
+    // Check if map library is loaded
     if (typeof L === 'undefined') {
-      console.error('[city-map] Leaflet not loaded');
-      showToast('Erreur : Leaflet non chargé', 'error');
+      console.error('[city-map] Map library not loaded');
+      showToast('Erreur : bibliothèque carte non chargée', 'error');
       return null;
     }
 
-    // Fix Leaflet icon paths
+    // Fix icon paths (compat layer)
     try {
-      delete L.Icon.Default.prototype._getIconUrl;
+      if (L.Icon && L.Icon.Default && L.Icon.Default.prototype._getIconUrl) {
+        delete L.Icon.Default.prototype._getIconUrl;
+      }
       L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+        iconRetinaUrl: '',
+        iconUrl: '',
+        shadowUrl: ''
       });
     } catch (e) {
       console.error('[city-map] Icon config error:', e);

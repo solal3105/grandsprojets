@@ -18,7 +18,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Carte Leaflet
+   Carte MapLibre GL
 --------------------------------------------------------------------------- */
 #map {
   width: 100%;
@@ -26,9 +26,9 @@
   background-color: var(--surface-base);
 }
 
-/* Ensure invisible hitline strokes in custom pane remain clickable */
-.leaflet-hitlinePane-pane path {
-  pointer-events: stroke;
+/* Ensure invisible hitline strokes remain clickable */
+.maplibregl-canvas {
+  cursor: grab;
 }
 
 /* ---------------------------------------------------------------------------
@@ -139,17 +139,8 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Ensure Leaflet panes layer above UI components
+   Ensure MapLibre popups layer above UI components
 --------------------------------------------------------------------------- */
-.leaflet-tooltip-pane {
+.maplibregl-popup {
   z-index: 2500 !important;
-}
-
-.leaflet-popup-pane {
-  z-index: 2400 !important;
-}
-
-/* Always hide Leaflet zoom controls */
-.leaflet-control-zoom {
-  display: none !important;
 }

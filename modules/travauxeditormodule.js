@@ -23,21 +23,21 @@ const TravauxEditorModule = (() => {
   let isDrawingMode = false;
   
   /**
-   * Initialise Leaflet.Draw et configure les icônes
+   * Initialise le système de dessin et configure les icônes
    */
   function initLeafletDraw() {
     if (!window.L || !window.L.Control || !window.L.Control.Draw) {
-      console.error('[TravauxEditor] Leaflet.Draw non chargé. Ajouter CDN dans index.html');
+      console.error('[TravauxEditor] Draw system non chargé');
       return false;
     }
     
-    // Configurer le chemin des icônes Leaflet
+    // Configurer le chemin des icônes (compat layer)
     if (window.L.Icon && window.L.Icon.Default) {
-      delete L.Icon.Default.prototype._getIconUrl;
+      try { delete L.Icon.Default.prototype._getIconUrl; } catch(e) {}
       L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'vendor/leaflet/images/marker-icon-2x.png',
-        iconUrl: 'vendor/leaflet/images/marker-icon.png',
-        shadowUrl: '' // Désactiver le shadow pour éviter 404
+        iconRetinaUrl: '',
+        iconUrl: '',
+        shadowUrl: ''
       });
     }
     

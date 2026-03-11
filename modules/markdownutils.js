@@ -34,11 +34,10 @@
   }
 
   async function loadDeps() {
-    // marked (robust loading with CDN fallbacks)
+    // marked (robust loading with CDN fallbacks - use specific versions to avoid CORS redirects)
     if (!window.marked) {
       const sources = [
-        'https://cdn.jsdelivr.net/npm/marked/marked.min.js',
-        'https://unpkg.com/marked@latest/marked.min.js',
+        'https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js',
         'https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js'
       ];
       for (const src of sources) {

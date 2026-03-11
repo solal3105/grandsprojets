@@ -482,8 +482,8 @@
 }
 
 /* Empêcher tout débordement dans les form-rows */
-/* IMPORTANT: Exclure les éléments Leaflet (carte, markers, etc.) */
-.contrib-form .form-row *:not(.leaflet-container):not(.leaflet-container *):not(.gp-marker-container):not(.gp-custom-marker):not(.gp-custom-marker *) {
+/* IMPORTANT: Exclure les éléments MapLibre (carte, markers, etc.) */
+.contrib-form .form-row *:not(.maplibregl-map):not(.maplibregl-map *):not(.gp-marker-container):not(.gp-custom-marker):not(.gp-custom-marker *) {
   max-width: 100%;
   box-sizing: border-box;
 }
@@ -1136,20 +1136,16 @@
   box-shadow: inset 0 1px 0 var(--white-alpha-25);
 }
 
-/* Abaisser le z-index des éléments Leaflet dans la carte de dessin */
-#contrib-overlay #contrib-draw-map .leaflet-control {
+/* Abaisser le z-index des éléments MapLibre dans la carte de dessin */
+#contrib-overlay #contrib-draw-map .maplibregl-ctrl {
   z-index: 150 !important;
 }
 
-#contrib-overlay #contrib-draw-map .leaflet-pane {
+#contrib-overlay #contrib-draw-map .maplibregl-canvas-container {
   z-index: 100 !important;
 }
 
-#contrib-overlay #contrib-draw-map .leaflet-popup-pane {
-  z-index: 110 !important;
-}
-
-#contrib-overlay #contrib-draw-map .leaflet-tooltip-pane {
+#contrib-overlay #contrib-draw-map .maplibregl-popup {
   z-index: 110 !important;
 }
 
@@ -1158,19 +1154,19 @@
   min-height: 36px;
 }
 
-/* S'assurer que les contrôles Leaflet sont visibles et interactifs */
-#contrib-overlay #contrib-draw-map .leaflet-control-container {
+/* S'assurer que les contrôles MapLibre sont visibles et interactifs */
+#contrib-overlay #contrib-draw-map .maplibregl-control-container {
   pointer-events: auto !important;
 }
 
-#contrib-overlay #contrib-draw-map .leaflet-control {
+#contrib-overlay #contrib-draw-map .maplibregl-ctrl {
   display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
   pointer-events: auto !important;
 }
 
-/* Positionnement et marges des contrôles Leaflet */
+/* Positionnement et marges des contrôles MapLibre */
 #contrib-overlay #contrib-draw-panel {
   position: relative;
 }
@@ -1179,32 +1175,32 @@
   position: relative;
 }
 
-#contrib-overlay #contrib-draw-map .leaflet-top.leaflet-left {
+#contrib-overlay #contrib-draw-map .maplibregl-ctrl-top-left {
   top: 8px;
   left: 8px;
 }
 
-#contrib-overlay #contrib-draw-map .leaflet-top.leaflet-right {
+#contrib-overlay #contrib-draw-map .maplibregl-ctrl-top-right {
   top: 8px;
   right: 8px;
 }
 
-#contrib-overlay #contrib-draw-map .leaflet-bottom.leaflet-left {
+#contrib-overlay #contrib-draw-map .maplibregl-ctrl-bottom-left {
   bottom: 8px;
   left: 8px;
 }
 
-#contrib-overlay #contrib-draw-map .leaflet-bottom.leaflet-right {
+#contrib-overlay #contrib-draw-map .maplibregl-ctrl-bottom-right {
   bottom: 8px;
   right: 8px;
 }
 
-#contrib-overlay #contrib-draw-map .leaflet-control {
+#contrib-overlay #contrib-draw-map .maplibregl-ctrl {
   margin: 4px;
 }
 
 /* Légère élévation visuelle des toolbars */
-#contrib-overlay #contrib-draw-map .leaflet-control-zoom {
+#contrib-overlay #contrib-draw-map .maplibregl-ctrl-group {
   box-shadow: 0 2px 8px var(--black-alpha-12);
   border-radius: 6px;
 }

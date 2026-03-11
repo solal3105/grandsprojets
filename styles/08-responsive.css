@@ -63,8 +63,10 @@
     position: fixed;
     top: auto;
     bottom: 20px;
-    left: 20px;
-    right: auto;
+    left: 0;
+    right: 0;
+    margin-left: auto;
+    margin-right: auto;
     width: calc(100vw - 40px);
     max-width: 500px;
     height: 100px;
@@ -76,6 +78,14 @@
     transition: border-radius 0.3s ease;
   }
   
+  /* Sous-menus wrapper : reset desktop positioning on mobile */
+  #dynamic-submenus {
+    position: static;
+    width: auto;
+    max-height: none;
+    pointer-events: auto;
+  }
+
   /* Quand un submenu ou detail est ouvert, arrondir seulement le bas de la nav */
   #left-nav.has-panel-open {
     border-radius: 0 0 20px 20px;
@@ -229,23 +239,24 @@
     transition: color 0.15s ease;
   }
 
-  /* Submenus & Project detail - Unified mobile panels
-     Calcul max-height :
-     - 100vh (hauteur écran)
-     - - 64px (logo 48px + marge 16px)
-     - - 120px (nav 100px + marge 20px)
-     - - 8px (marge de confort)
-     = calc(100vh - 192px)
+  /* Submenus & Project detail — Unified mobile panels
+     Panels sit directly above the bottom nav bar (bottom: 120px = nav 100px + gap 20px).
+     Max-height leaves space for the nav + some breathing room at top.
   */
   .submenu,
   #project-detail {
-    position: fixed;
-    inset: auto 20px 120px 20px;
-    width: calc(100vw - 40px);
+    position: fixed !important;
+    top: auto !important;          /* reset desktop top: 10px */
+    bottom: 120px;
+    left: 0 !important;
+    right: 0 !important;
+    margin-left: auto;
+    margin-right: auto;
+    width: calc(100vw - 40px) !important;
     max-width: 500px;
-    min-height: auto;
-    max-height: calc(100vh - 262px);
-    margin: 0;
+    min-height: auto !important;   /* reset desktop min-height: 520px */
+    max-height: calc(100vh - 160px);
+    overflow-y: auto !important;
     border-radius: 20px 20px 0 0;
     box-sizing: border-box;
     opacity: 0;
@@ -254,13 +265,6 @@
                 transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* Compensation pour submenu (enfant de #left-nav) */
-  .submenu {
-    bottom: 100px;
-    left: 0;
-    right: 0;
-  }
-  
   .submenu[style*="display: block"],
   .submenu.visible,
   #project-detail[style*="display: block"],

@@ -463,11 +463,11 @@
   }
 
   /**
-   * Initialise les mini-cartes Leaflet
+   * Initialise les mini-cartes MapLibre GL
    */
   function initMiniMaps() {
     if (typeof L === 'undefined') {
-      console.warn('[ArticleView] Leaflet non disponible');
+      console.warn('[ArticleView] Map library non disponible');
       return;
     }
     
@@ -509,13 +509,13 @@
             fillOpacity: 0.3
           },
           pointToLayer: (feature, latlng) => {
-            return L.circleMarker(latlng, {
-              radius: 6,
-              fillColor: '#14AE5C',
-              color: '#fff',
-              weight: 2,
-              opacity: 1,
-              fillOpacity: 0.8
+            return L.marker(latlng, {
+              icon: L.divIcon({
+                className: 'gp-preview-dot',
+                html: '<div style="width:12px;height:12px;border-radius:50%;background:#14AE5C;border:2px solid #fff;"></div>',
+                iconSize: [12, 12],
+                iconAnchor: [6, 6]
+              })
             });
           }
         }).addTo(map);

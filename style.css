@@ -29,7 +29,7 @@
 /* 04 - Components - Composants réutilisables (filtres, badges, covers, CTA) */
 @import url('./styles/04-components.css');
 
-/* 05 - Map - Leaflet, tooltips, popups, markers */
+/* 05 - Map - MapLibre GL, tooltips, popups, markers */
 @import url('./styles/05-map.css');
 
 /* 06 - Modals - Toutes les modales et overlays (contrib, travaux, city) */
@@ -70,3 +70,6 @@
 
 /* 19 - Article View - Vue magazine des contributions */
 @import url('./styles/article-view.css');
+
+/* 20 - Hover Popup - Premium hover popup for map features */
+@import url('./styles/hover-popup.css');

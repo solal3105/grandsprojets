@@ -241,757 +241,77 @@ window.DataModule = (function() {
 		}
 	}
 
-	// Ferme proprement le tooltip de survol projet s'il existe
-	function closeHoverTooltip() {
-		try {
-			if (window.__gpHoverTooltip && MapModule?.map) {
-				MapModule.map.removeLayer(window.__gpHoverTooltip);
-			}
-		} catch (e) {
-			/* noop */ }
-		window.__gpHoverTooltip = null;
+	// closeHoverTooltip SUPPRIMÉ - legacy Leaflet, non utilisé avec MapLibre GL
+
+	// --- Helpers DRY pour progression travaux ---
+	function _safeDate(v) {
+		const d = v ? new Date(v) : null;
+		return d && !isNaN(d.getTime()) ? d : null;
+	}
+	function _calcProgress(dateDebut, dateFin) {
+		const debut = _safeDate(dateDebut);
+		const fin = _safeDate(dateFin);
+		if (!(debut && fin) || fin <= debut) return 0;
+		return Math.max(0, Math.min(100, Math.round(((new Date() - debut) / (fin - debut)) * 100)));
+	}
+	function _calcGradient(pct) {
+		if (pct <= 50) {
+			const r = (pct / 50) * 100;
+			return `linear-gradient(90deg, var(--danger) 0%, var(--danger) ${100 - r}%, var(--warning) 100%)`;
+		}
+		const r = ((pct - 50) / 50) * 100;
+		return `linear-gradient(90deg, var(--warning) 0%, var(--warning) ${100 - r}%, var(--success) 100%)`;
+	}
+	function _esc(s) {
+		return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 	}
 
-
-	// Lie les événements (tooltip, mouseover, click, etc.) à une feature
+	// Lie les événements à une feature
+	// Lines/Polygons : gérés par FeatureInteractions (MapLibre GL natif via queryRenderedFeatures)
+	// Points (DOM markers) : events wired here (markers are invisible to queryRenderedFeatures)
 	function bindFeatureEvents(layer, feature, geojsonLayer, layerName) {
-		// Détecter si c'est un point avec image (camera marker)
 		const isPoint = /Point$/i.test(feature?.geometry?.type || '');
-		const hasImage = !!(feature?.properties?.imgUrl);
-		
-		// Si c'est un camera marker, déléguer à CameraMarkers
-		if (isPoint && hasImage && window.CameraMarkers?.bindCameraMarkerEvents) {
+		if (!isPoint) return;
+
+		const props = feature?.properties || {};
+		const hasImage = !!props.imgUrl;
+
+		// Camera markers
+		if (hasImage && window.CameraMarkers?.bindCameraMarkerEvents) {
 			window.CameraMarkers.bindCameraMarkerEvents(feature, layer);
 			return;
 		}
 
-		// Tooltip hover compact pour les couches Travaux (centralisé via LayerRegistry)
-		if (window.LayerRegistry?.isTravauxLayer && window.LayerRegistry.isTravauxLayer(layerName)) {
-			const props = feature.properties || {};
-			const name = props.name || props.nature_travaux || 'Chantier';
-			
-			// Calcul avancement
-			const safeDate = (v) => {
-				const d = v ? new Date(v) : null;
-				return d && !isNaN(d.getTime()) ? d : null;
-			};
-			const debut = safeDate(props.date_debut);
-			const fin = safeDate(props.date_fin);
-			const now = new Date();
-			const progressPct = (() => {
-				if (!(debut && fin) || fin <= debut) return 0;
-				const total = fin - debut;
-				const elapsed = now - debut;
-				return Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
-			})();
-			
-			// Gradient correct: 0% danger -> 50% warning -> 100% success
-			let gradientBg;
-			if (progressPct <= 50) {
-				// 0-50%: danger vers warning
-				const pct = (progressPct / 50) * 100;
-				gradientBg = `linear-gradient(90deg, var(--danger) 0%, var(--danger) ${100-pct}%, var(--warning) 100%)`;
-			} else {
-				// 50-100%: warning vers success
-				const pct = ((progressPct - 50) / 50) * 100;
-				gradientBg = `linear-gradient(90deg, var(--warning) 0%, var(--warning) ${100-pct}%, var(--success) 100%)`;
-			}
-			
-			// Tooltip compact au survol
-			const tooltipHTML = `
-				<div class="travaux-tooltip-compact">
-					<div class="tooltip-name">${name}</div>
-					<div class="tooltip-progress">
-						<div class="progress-bar">
-							<div class="progress-fill" style="width: ${progressPct}%; background: ${gradientBg};"></div>
-						</div>
-						<span class="progress-text">${progressPct}%</span>
-					</div>
-				</div>
-			`;
-			
-			layer.bindTooltip(tooltipHTML, {
-				className: 'travaux-hover-tooltip',
-				direction: 'top',
-				offset: [0, -10],
-				opacity: 1,
-				sticky: true
+		// Contribution point markers — wire DOM click/hover
+		const isContrib = !!(props.project_name && props.category);
+		const isTravaux = !!(props.nature_travaux || props.chantier_id);
+
+		if ((isContrib || isTravaux) && layer.on) {
+			// Hover → show popup (same visual as FI hover popup)
+			layer.on('mouseover', function() {
+				const FI = window.FeatureInteractions;
+				if (!FI || !FI._mlMap) return;
+				const latlng = layer.getLatLng?.();
+				if (!latlng) return;
+				FI._showPopup(props, { lng: latlng.lng, lat: latlng.lat });
+				const el = layer.getElement?.();
+				if (el) el.style.cursor = 'pointer';
 			});
-		}
-		
-		// Modal détaillée au clic pour les couches Travaux
-		if (window.LayerRegistry?.isTravauxLayer && window.LayerRegistry.isTravauxLayer(layerName)) {
-			const props = feature.properties || {};
-			const safeDate = (v) => {
-				const d = v ? new Date(v) : null;
-				return d && !isNaN(d.getTime()) ? d : null;
-			};
-			const debut = safeDate(props.date_debut);
-			const fin = safeDate(props.date_fin);
-			const now = new Date();
-			const dateFmt = (d) => d ? d.toLocaleDateString('fr-FR', {
-				day: 'numeric',
-				month: 'long',
-				year: 'numeric'
-			}) : '-';
-			const durationDays = (debut && fin && fin > debut) ? Math.max(1, Math.round((fin - debut) / 86400000)) : null;
-			const progressPct = (() => {
-				if (!(debut && fin) || fin <= debut) return 0;
-				const total = fin - debut;
-				const elapsed = now - debut;
-				return Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
-			})();
-			// Gradient correct: 0% danger -> 50% warning -> 100% success
-			let gradientBg;
-			let todayColor;
-			if (progressPct <= 50) {
-				// 0-50%: danger vers warning
-				const pct = (progressPct / 50) * 100;
-				gradientBg = `linear-gradient(90deg, var(--danger) 0%, var(--danger) ${100-pct}%, var(--warning) 100%)`;
-				todayColor = pct < 50 ? 'var(--danger)' : 'var(--warning)';
-			} else {
-				// 50-100%: warning vers success
-				const pct = ((progressPct - 50) / 50) * 100;
-				gradientBg = `linear-gradient(90deg, var(--warning) 0%, var(--warning) ${100-pct}%, var(--success) 100%)`;
-				todayColor = pct < 50 ? 'var(--warning)' : 'var(--success)';
-			}
-			const todayPct = (() => {
-				if (!(debut && fin) || fin <= debut) return 0;
-				const total = fin - debut;
-				return Math.max(0, Math.min(100, ((now - debut) / total) * 100));
-			})();
-			const commune = props.commune || props.ville || props.COMMUNE || '';
-			const titre = props.nature_travaux || 'Chantier';
-			const etat = props.etat || '—';
-			const etatClass = (() => {
-				const e = (etat || '').toLowerCase();
-				if (e.includes('ouver')) return 'etat--ouvert';
-				if (e.includes('prochain')) return 'etat--prochain';
-				if (e.includes('termin')) return 'etat--termine';
-				return 'etat--neutre';
-			})();
-			const adrs = (props.adresse || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
-
-			// Icône du chantier (depuis la base ou défaut)
-			const chantierIcon = props.icon || 'fa-solid fa-helmet-safety';
-			
-			// HTML bento structure
-			const tooltipContent = `
-          <div class="gp-travaux glass">
-            <div class="gp-hero">
-              <div class="hero-left">
-                <span class="hero-icon"><i class="${chantierIcon}"></i></span>
-                <div>
-                  <div class="hero-title">${titre || 'Travaux'}</div>
-                  <div class="hero-sub">${commune || ''}</div>
-                </div>
-              </div>
-              <span class="etat-pill ${etatClass}">${etat}</span>
-            </div>
-  
-            <div class="gp-bento">
-              <section class="tile tile--etat tile--timeline span-2">
-                <h3>Avancement</h3>
-                <div class="timeline">
-                  <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPct}" aria-label="Avancement des travaux">
-                    <div class="fill" data-target="${progressPct}" style="width:0%; background:${gradientBg}; box-shadow: 0 0 10px ${progressPct>=100 ? 'var(--success-alpha-25)' : 'var(--warning-alpha-25)'}"></div>
-                    <div class="today" style="left:${todayPct}%; background:${todayColor}; box-shadow: 0 0 0 3px ${progressPct>=100 ? 'var(--success-alpha-25)' : 'var(--warning-alpha-25)'}, 0 0 10px ${progressPct>=100 ? 'var(--success-alpha-4)' : 'var(--warning-alpha-4)'};"></div>
-                  </div>
-                  <div class="dates">
-                    <span>${debut ? dateFmt(debut) : '-'}</span>
-                    <span>${fin ? dateFmt(fin) : '-'}</span>
-                  </div>
-                  <div class="meta">
-                    <span>${durationDays ? `${durationDays} jours` : ''}</span>
-                    <span>${progressPct}%</span>
-                  </div>
-                </div>
-              </section>
-  
-              <section class="tile">
-                <h3>Natures</h3>
-                <div class="badges">
-                  ${props.nature_chantier ? `<span class="badge">${props.nature_chantier}</span>` : ''}
-                  ${props.nature_travaux ? `<span class="badge">${props.nature_travaux}</span>` : ''}
-                </div>
-              </section>
-  
-              <section class="tile">
-                <h3>Adresses</h3>
-                <ul class="addresses ${adrs.length > 5 ? 'collapsed' : ''}">
-                  ${adrs.map((a)=>`<li><span>${a}</span></li>`).join('')}
-                </ul>
-                <div class="tile-actions">
-                  ${adrs.length>5 ? '<button class="toggle-addresses">Voir plus</button>' : ''}
-                </div>
-              </section>
-            </div>
-          </div>
-        `;
-
-			// Ouvrir un modal avec ModalHelper unifié
-			const openTravauxModal = async (htmlContent, featureProps) => {
-				try {
-					// Récupérer la modale existante
-					const modalContent = document.getElementById('travaux-modal-content');
-					if (!modalContent) {
-						console.error('[DataModule] travaux-modal-content not found');
-						return;
-					}
-					
-					// Vérifier si l'utilisateur est admin et si le chantier est éditable
-					const activeCity = (typeof window.getActiveCity === 'function') ? window.getActiveCity() : window.activeCity;
-					const isEditableSource = activeCity && activeCity !== 'default';
-					
-					let isAdmin = false;
-					if (isEditableSource && window.supabaseService) {
-						try {
-							const session = await window.supabaseService.getClient()?.auth.getSession();
-							if (session?.data?.session?.user) {
-								const role = window.__CONTRIB_ROLE || '';
-								const userVilles = window.__CONTRIB_VILLES || [];
-								isAdmin = role === 'admin' && (userVilles.includes('global') || userVilles.includes(activeCity));
-							}
-						} catch (err) {
-							console.warn('[DataModule] Erreur vérification admin:', err);
-						}
-					}
-					
-					// Injecter le contenu
-					modalContent.innerHTML = htmlContent;
-					
-					// Ouvrir la modale avec ModalHelper
-					window.ModalHelper.open('travaux-overlay', {
-						dismissible: true,
-						lockScroll: true,
-						focusTrap: true,
-						onOpen: () => {
-							// Initialisations spécifiques Bento après ouverture
-							const modalEl = modalContent.querySelector('.gp-travaux');
-							if (modalEl) {
-								// Progress bar animation
-								const fill = modalEl.querySelector('.timeline .fill');
-								const target = Number(fill?.getAttribute('data-target') || 0);
-								if (fill && !isNaN(target)) {
-									requestAnimationFrame(() => {
-										fill.style.width = '0%';
-										setTimeout(() => {
-											fill.style.width = `${target}%`;
-										}, 40);
-									});
-								}
-
-								// Addresses toggle/copy
-								const ul = modalEl.querySelector('.addresses');
-								const toggleBtn = modalEl.querySelector('.toggle-addresses');
-								if (toggleBtn) {
-									toggleBtn.addEventListener('click', () => {
-										ul?.classList.toggle('collapsed');
-										if (toggleBtn.textContent.includes('plus')) {
-											toggleBtn.textContent = 'Voir moins';
-										} else {
-											toggleBtn.textContent = 'Voir plus';
-										}
-									});
-								}
-								
-								// Ajouter les boutons d'édition/suppression pour les admins
-								if (isAdmin && featureProps?.chantier_id) {
-									const actionsContainer = document.createElement('div');
-									actionsContainer.className = 'gp-modal-actions';
-									actionsContainer.style.cssText = 'display: flex; gap: 12px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-light);';
-									
-									const editBtn = document.createElement('button');
-									editBtn.className = 'btn-primary';
-									editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Modifier';
-									editBtn.onclick = () => {
-										window.ModalHelper.close('travaux-overlay');
-										if (window.TravauxEditorModule?.openEditorForEdit) {
-											window.TravauxEditorModule.openEditorForEdit(featureProps.chantier_id);
-										} else {
-											console.warn('[DataModule] TravauxEditorModule.openEditorForEdit non disponible');
-										}
-									};
-									
-									const deleteBtn = document.createElement('button');
-									deleteBtn.className = 'btn-danger';
-									deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Supprimer';
-									deleteBtn.onclick = async () => {
-										if (!confirm('Êtes-vous sûr de vouloir supprimer ce chantier ? Cette action est irréversible.')) {
-											return;
-										}
-										
-										deleteBtn.disabled = true;
-										deleteBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Suppression...';
-										
-										try {
-											await window.supabaseService.deleteCityTravaux(featureProps.chantier_id);
-											window.ModalHelper.close('travaux-overlay');
-											
-											// Recharger la couche travaux
-											if (window.DataModule?.reloadLayer) {
-												await window.DataModule.reloadLayer('travaux');
-											}
-											
-											if (window.ContribUtils?.showToast) {
-												window.ContribUtils.showToast('Chantier supprimé avec succès', 'success');
-											}
-										} catch (err) {
-											console.error('[DataModule] Erreur suppression:', err);
-											if (window.ContribUtils?.showToast) {
-												window.ContribUtils.showToast('Erreur lors de la suppression du chantier', 'error');
-											}
-											deleteBtn.disabled = false;
-											deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Supprimer';
-										}
-									};
-									
-									actionsContainer.appendChild(editBtn);
-									actionsContainer.appendChild(deleteBtn);
-									modalEl.appendChild(actionsContainer);
-								}
-							}
-						},
-						onClose: () => {
-							// Nettoyer le contenu après fermeture
-							modalContent.innerHTML = '';
-						}
-					});
-				} catch (e) {
-					console.error('[Travaux] Error opening modal:', e);
-				}
-			};
-
-			// Clic sur la feature: ouvrir le modal et marquer l'événement comme géré
-			layer.on('click', (evt) => {
-				try {
-					if (evt && evt.originalEvent) {
-						evt.originalEvent.__gpHandledTravaux = true;
-					}
-				} catch (_) {}
-				openTravauxModal(tooltipContent, props);
+			layer.on('mouseout', function() {
+				const FI = window.FeatureInteractions;
+				if (FI && FI._popup && FI._popup.isOpen()) FI._popup.remove();
 			});
-		}
-
-		const isFiltered = Object.keys(FilterModule.get(layerName)).length > 0;
-		// Récupérer dynamiquement toutes les catégories de contributions
-		const detailSupportedLayers = (typeof window.getAllCategories === 'function') ? 
-			window.getAllCategories() : 
-			[];
-		const isNoInteractLayer = (name) => {
-			try {
-				return !!(window.LayerRegistry?.isNoInteractLayer && window.LayerRegistry.isNoInteractLayer(name));
-			} catch (_) {
-				return false;
-			}
-		};
-
-		// Tooltip générique (ou spécifique) pour les couches non cliquables (paths/polygones)
-		try {
-			if (!(window.LayerRegistry?.isTravauxLayer && window.LayerRegistry.isTravauxLayer(layerName)) && typeof layer.bindTooltip === 'function') {
-				const p = (feature && feature.properties) || {};
-				const geomType = (feature && feature.geometry && feature.geometry.type) || '';
-				const isPathOrPoly = /LineString|Polygon/i.test(geomType);
-				const isPoint = /Point/i.test(geomType);
-				const projectNameGuess = p?.project_name || p?.name || p?.line || p?.Name || p?.LIBELLE;
-				const isDetailSupported = detailSupportedLayers.includes(layerName);
-				const isClickable = isDetailSupported && !!projectNameGuess;
-				if (!isClickable && (isPathOrPoly || isPoint)) {
-					const esc = (s) => String(s || '')
-						.replace(/&/g, '&amp;')
-						.replace(/</g, '&lt;')
-						.replace(/>/g, '&gt;')
-						.replace(/\"/g, '&quot;')
-						.replace(/'/g, '&#39;');
-					const title = projectNameGuess || p?.titre || p?.title || '';
-					let inner;
-
-					// Règles spécifiques centralisées via LayerRegistry
-					try {
-						if (window.LayerRegistry?.getPathTooltipHtml) {
-							inner = window.LayerRegistry.getPathTooltipHtml(layerName, p, esc, title, layerName);
-						} else {
-							inner = title 
-								? `<div class="gp-tt-title">${esc(title)}</div>` 
-								: `<div class="gp-tt-body">${esc(layerName)}</div>`;
-						}
-					} catch (_) {
-						inner = title 
-							? `<div class="gp-tt-title">${esc(title)}</div>` 
-							: `<div class="gp-tt-body">${esc(layerName)}</div>`;
+			// Click → open detail panel or travaux modal
+			layer.on('click', function() {
+				if (isContrib) {
+					if (window.UIModule?.showDetailPanel) {
+						window.UIModule.showDetailPanel(props.category, { properties: props, geometry: feature.geometry });
+						window.UIModule.updateActiveFilterTagsForLayer?.(props.category);
 					}
-					// Désactiver la tooltip au survol pour certaines couches (via LayerRegistry)
-					const allowPathTooltip = (() => {
-						try {
-							return !!(window.LayerRegistry?.supportsPathTooltip && window.LayerRegistry.supportsPathTooltip(layerName));
-						} catch (_) {
-							return true;
-						}
-					})();
-					if (allowPathTooltip) {
-						layer.bindTooltip(inner, {
-							className: 'gp-path-tooltip',
-							sticky: true,
-							direction: 'auto',
-							// Les lignes ayant une épaisseur fine, sticky améliore la UX
-							// offset est géré automatiquement par Leaflet
-						});
-					}
-				}
-			}
-		} catch (_) {
-			/* noop */ }
-
-		// (clic géré plus bas dans la fonction; ici rien à faire)
-
-		// Helper: stoppe proprement une animation de pointillés et nettoie le style
-		function stopDashAnimation(layer) {
-			if (layer.__dashInterval) {
-				clearInterval(layer.__dashInterval);
-				layer.__dashInterval = null;
-			}
-			// Nettoyer explicitement le dashArray et dashOffset
-			if (typeof layer.setStyle === 'function') {
-				try {
-					layer.setStyle({
-						dashArray: null,
-						dashOffset: 0
-					});
-				} catch (_) {}
-			}
-		}
-
-		// Helper: démarre une animation de pointillés
-		function startDashAnimation(layer) {
-			// Toujours stopper l'animation existante avant d'en démarrer une nouvelle
-			stopDashAnimation(layer);
-			
-			let dashOffset = 0;
-			layer.__dashInterval = setInterval(() => {
-				if (typeof layer.setStyle === 'function') {
-					try {
-						layer.setStyle({
-							dashArray: '10, 10',
-							dashOffset: dashOffset
-						});
-					} catch (_) {
-						// Si erreur, stopper l'animation
-						stopDashAnimation(layer);
-					}
-				}
-				dashOffset = (dashOffset + 1) % 20;
-			}, 100);
-		}
-
-		// Ajoute un style de survol si la couche supporte les fiches détails
-		if (detailSupportedLayers.includes(layerName)) {
-			// ================================================================
-			// SYSTÈME DE HOVER - Simple et robuste
-			// On utilise un ID unique par layer pour éviter les re-triggers
-			// ================================================================
-			const layerId = L.stamp(layer); // ID unique Leaflet
-
-			layer.on('mouseover', function(e) {
-				// Si on hover déjà ce layer, ignorer
-				if (window.__gpCurrentHoverLayerId === layerId) return;
-				
-				// Annuler tout mouseout en attente
-				if (window.__gpHoverOutTimer) {
-					clearTimeout(window.__gpHoverOutTimer);
-					window.__gpHoverOutTimer = null;
-				}
-
-				// Marquer ce layer comme étant en hover
-				window.__gpCurrentHoverLayerId = layerId;
-
-				// Ajouter classe CSS pour l'animation
-				try {
-					if (layer instanceof L.Marker && typeof layer.getElement === 'function') {
-						const el = layer.getElement();
-						if (el) el.classList.add('is-hovered');
-					}
-				} catch (_) {}
-
-				const p = (feature && feature.properties) || {};
-				const isContribution = !!(p.project_name && p.category);
-				const contributionName = isContribution ? p.project_name : null;
-				const isCategoryLayer = detailSupportedLayers.includes(layerName);
-
-				// Helper: applique le style de survol sur TOUTES les couches
-				const applyHoverStyles = () => {
-					const allLayers = MapModule.layers || {};
-					Object.entries(allLayers).forEach(([lyrName, lyr]) => {
-						if (!lyr || typeof lyr.eachLayer !== 'function') return;
-						
-						lyr.eachLayer(otherLayer => {
-							// Ne pas toucher aux features highlighted
-							if (otherLayer.__gpHighlighted) return;
-							
-							const op = (otherLayer?.feature?.properties) || {};
-							const isPartOfHoveredContribution = isContribution && op.project_name === contributionName;
-							const isMarker = otherLayer instanceof L.Marker;
-							
-							// TOUJOURS stopper les animations et restaurer le style original d'abord
-							stopDashAnimation(otherLayer);
-							const originalStyle = getFeatureStyle(otherLayer.feature, lyrName);
-							
-							// Gestion des MARQUEURS (Point, Icon)
-							if (isMarker) {
-								if (typeof otherLayer.setOpacity === 'function') {
-									if (isContribution) {
-										if (isPartOfHoveredContribution) {
-											// Mettre en évidence le marqueur survolé
-											otherLayer.setOpacity(1);
-											try {
-												const el = otherLayer.getElement();
-												if (el) {
-													el.style.transform = el.style.transform.replace(/scale\([^)]*\)/, '') + ' scale(1.2)';
-													el.style.filter = 'drop-shadow(0 0 4px rgba(0,0,0,0.5))';
-												}
-											} catch (_) {}
-										} else {
-											// Mettre en transparence les autres marqueurs
-											otherLayer.setOpacity(0.3);
-										}
-									} else {
-										// Restaurer l'opacité normale
-										otherLayer.setOpacity(1);
-									}
-								}
-							}
-							// Gestion des LIGNES et POLYGONES
-							else if (typeof otherLayer.setStyle === 'function') {
-								// Restaurer d'abord le style original avec opacity/fillOpacity par défaut
-								// (Leaflet ne réinitialise que les propriétés passées à setStyle)
-								otherLayer.setStyle({
-									opacity: 0.8,
-									fillOpacity: 0.2,
-									...originalStyle
-								});
-								
-								// Puis appliquer les styles de hover si c'est une contribution
-								if (isContribution) {
-									if (isPartOfHoveredContribution) {
-										// Mettre en évidence la contribution survolée
-										otherLayer.setStyle({
-											color: darkenColor(originalStyle.color || 'var(--info)', 0.2),
-											weight: (originalStyle.weight || 3) + 2,
-											opacity: 1,
-											fillOpacity: originalStyle.fillOpacity || 0.2
-										});
-										// Animation pointillée uniquement pour les couches catégorie
-										if (isCategoryLayer) {
-											otherLayer.setStyle({ dashArray: '10, 10' });
-											startDashAnimation(otherLayer);
-										}
-									} else {
-										// Mettre en transparence toutes les autres features
-										otherLayer.setStyle({
-											...originalStyle,
-											opacity: 0.15,
-											fillOpacity: (originalStyle.fillOpacity || 0.2) * 0.3
-										});
-									}
-								}
-							}
-						});
-					});
-				};
-
-				// Appliquer les styles de survol
-				applyHoverStyles();
-
-				// Afficher un tooltip riche (image + titre) pour le projet lié
-				try {
-					generateTooltipContent(feature, layerName).then(html => {
-						if (html) {
-							closeHoverTooltip();
-							window.__gpHoverTooltip = L.tooltip({
-									className: 'gp-project-tooltip',
-									direction: 'top',
-									permanent: false,
-									offset: [0, -45],
-									opacity: 1,
-									interactive: true
-								}).setLatLng(e.latlng)
-								.setContent(html)
-								.addTo(MapModule.map);
-							
-							// Rendre le tooltip cliquable pour ouvrir la fiche (desktop + mobile)
-							const tooltipEl = window.__gpHoverTooltip.getElement();
-							if (tooltipEl) {
-								tooltipEl.style.cursor = 'pointer';
-								
-								// Handler commun avec debounce
-								let tooltipLastClick = 0;
-								const handleTooltipClick = (evt) => {
-									// Debounce 300ms pour éviter doubles déclenchements
-									const now = Date.now();
-									if (now - tooltipLastClick < 300) return;
-									tooltipLastClick = now;
-									
-									// Empêcher la propagation vers la carte
-									if (evt) {
-										evt.stopPropagation();
-										if (evt.preventDefault) evt.preventDefault();
-									}
-									
-									const p = (feature && feature.properties) || {};
-									const isContribution = !!(p.project_name && p.category);
-									if (isContribution) {
-										closeHoverTooltip();
-										try { UIModule.showDetailPanel(layerName, feature); } catch (_) {}
-										try { UIModule.updateActiveFilterTagsForLayer(layerName); } catch (_) {}
-									}
-								};
-								
-								// Écouter click ET touchend pour mobile
-								tooltipEl.addEventListener('click', handleTooltipClick);
-								tooltipEl.addEventListener('touchend', handleTooltipClick, { passive: false });
-							}
-						}
-					}).catch(err => {
-						// silencieux en production
-					});
-				} catch (err) {
-					// silencieux en production
+				} else if (isTravaux) {
+					window.DataModule?.openTravauxModal?.(props);
 				}
 			});
-
-			layer.on('mouseout', function(e) {
-				// Annuler tout timer précédent
-				if (window.__gpHoverOutTimer) {
-					clearTimeout(window.__gpHoverOutTimer);
-					window.__gpHoverOutTimer = null;
-				}
-
-				// Utiliser un court délai pour vérifier si on a commencé à survoler une autre feature
-				// Si oui, le mouseover de la nouvelle feature aura mis à jour __gpCurrentHoverLayerId
-				window.__gpHoverOutTimer = setTimeout(() => {
-					window.__gpHoverOutTimer = null;
-					
-					// Si on survole déjà une autre feature, ne pas restaurer les styles
-					if (window.__gpCurrentHoverLayerId && window.__gpCurrentHoverLayerId !== layerId) {
-						return;
-					}
-					
-					// Reset l'ID seulement si c'est toujours ce layer ou si on ne survole plus rien
-					window.__gpCurrentHoverLayerId = null;
-
-					// Retirer classe CSS
-					try {
-						if (layer instanceof L.Marker && typeof layer.getElement === 'function') {
-							const el = layer.getElement();
-							if (el) el.classList.remove('is-hovered');
-						}
-					} catch (_) {}
-
-					// Restaurer les styles originaux pour TOUTES les couches (contributions + couches système)
-					// SAUF les features en mode "highlighted" (sélection via submenu)
-					const allLayers = MapModule.layers || {};
-					Object.entries(allLayers).forEach(([lyrName, lyr]) => {
-						if (!lyr || typeof lyr.eachLayer !== 'function') return;
-						
-						lyr.eachLayer(otherLayer => {
-							// Ne pas toucher aux features highlighted
-							if (otherLayer.__gpHighlighted) return;
-							
-							stopDashAnimation(otherLayer);
-							const originalStyle = getFeatureStyle(otherLayer.feature, lyrName);
-							const isMarker = otherLayer instanceof L.Marker;
-							
-							// Gestion des MARQUEURS (Point, Icon)
-							if (isMarker) {
-								if (typeof otherLayer.setOpacity === 'function') {
-									otherLayer.setOpacity(1);
-								}
-								// Restaurer le style visuel du marqueur (scale, filter)
-								try {
-									const el = otherLayer.getElement();
-									if (el) {
-										el.style.transform = el.style.transform.replace(/scale\([^)]*\)/, '');
-										el.style.filter = '';
-									}
-								} catch (_) {}
-							}
-							// Gestion des LIGNES et POLYGONES
-							else if (typeof otherLayer.setStyle === 'function') {
-								// S'assurer que opacity et fillOpacity sont toujours restaurées
-								// (Leaflet ne réinitialise que les propriétés passées à setStyle)
-								otherLayer.setStyle({
-									opacity: 0.8,
-									fillOpacity: 0.2,
-									...originalStyle
-								});
-							}
-						});
-					});
-
-					// Fermer le tooltip
-					if (layer.__gpMoveHandler) {
-						layer.off('mousemove', layer.__gpMoveHandler);
-						delete layer.__gpMoveHandler;
-					}
-					closeHoverTooltip();
-				}, 50);
-			});
-		}
-
-
-
-
-		// Gestion du clic sur la feature (contributions de contribution_uploads uniquement)
-		if (!isNoInteractLayer(layerName)) {
-			// Fonction commune pour ouvrir la fiche détail
-			const openDetailForFeature = () => {
-				const p = (feature && feature.properties) || {};
-				const projectName = p.project_name;
-				
-				// Vérifier si c'est une contribution de contribution_uploads
-				// Ces features ont project_name + category (et souvent markdown_url/cover_url)
-				const isContribution = !!(projectName && p.category);
-
-				// Ne traiter que les vraies contributions (pas les chantiers)
-				if (!isContribution) {
-					return;
-				}
-
-				// Fermer le tooltip si présent
-				closeHoverTooltip();
-
-				// Actions post-clic
-				try {
-					UIModule.showDetailPanel(layerName, feature);
-				} catch (_) {}
-				try {
-					UIModule.updateActiveFilterTagsForLayer(layerName);
-				} catch (_) {}
-
-				// Zoomer sur l'étendue du projet filtré
-				try {
-					const filteredLayer = MapModule.layers[layerName];
-					if (filteredLayer && typeof filteredLayer.getBounds === 'function') {
-						const bounds = filteredLayer.getBounds();
-						if (bounds && bounds.isValid()) {
-							MapModule.map.fitBounds(bounds, { padding: [50, 50] });
-						}
-					}
-				} catch (_) {}
-			};
-
-			// Debounce pour éviter les doubles déclenchements sur mobile
-			let lastOpenTime = 0;
-			const DEBOUNCE_MS = 300;
-			
-			const safeOpenDetail = () => {
-				const now = Date.now();
-				if (now - lastOpenTime < DEBOUNCE_MS) return;
-				lastOpenTime = now;
-				openDetailForFeature();
-			};
-
-			// Clic standard (desktop et mobile via Leaflet tap handler)
-			layer.on('click', safeOpenDetail);
 		}
 	}
 
@@ -1073,45 +393,51 @@ window.DataModule = (function() {
 				return { type: 'FeatureCollection', features: [] };
 			}
 
-			// CONTRIBUTIONS (chargement depuis Supabase) - PARALLÈLE
+			// CONTRIBUTIONS (chargement depuis Supabase) - PARALLÈLE LIMITÉ
 			if (contributionProjects && Array.isArray(contributionProjects) && contributionProjects.length > 0) {
-				console.log(`[DataModule] 📦 Chargement parallèle de ${contributionProjects.length} contributions pour "${layerName}"`);
+				console.log(`[DataModule] 📦 Chargement de ${contributionProjects.length} contributions pour "${layerName}"`);
 				
-				// Charger TOUS les GeoJSON en parallèle (pas séquentiellement)
-				const fetchPromises = contributionProjects
-					.filter(project => project.geojson_url)
-					.map(async (project) => {
-						try {
-							const response = await fetch(project.geojson_url);
-							if (!response.ok) return [];
-							const geoData = await response.json();
-							
-							// Enrichir les features avec les métadonnées du projet
-							const enrichFeature = (f) => {
-								if (!f.properties) f.properties = {};
-								f.properties.project_name = project.project_name;
-								f.properties.category = project.category;
-								f.properties.cover_url = project.cover_url;
-								f.properties.description = project.description;
-								f.properties.markdown_url = project.markdown_url;
-								return f;
-							};
-							
-							if (geoData.type === 'FeatureCollection' && geoData.features) {
-								return geoData.features.map(enrichFeature);
-							} else if (geoData.type === 'Feature') {
-								return [enrichFeature(geoData)];
+				// Limiter à 5 requêtes parallèles max pour éviter la surcharge réseau
+				const BATCH_SIZE = 5;
+				const projectsWithUrl = contributionProjects.filter(project => project.geojson_url);
+				const allFeatures = [];
+				
+				for (let i = 0; i < projectsWithUrl.length; i += BATCH_SIZE) {
+					const batch = projectsWithUrl.slice(i, i + BATCH_SIZE);
+					const batchResults = await Promise.all(
+						batch.map(async (project) => {
+							try {
+								const response = await fetch(project.geojson_url);
+								if (!response.ok) return [];
+								const geoData = await response.json();
+								
+								// Enrichir les features avec les métadonnées du projet
+								const enrichFeature = (f) => {
+									if (!f.properties) f.properties = {};
+									f.properties.project_name = project.project_name;
+									f.properties.category = project.category;
+									f.properties.cover_url = project.cover_url;
+									f.properties.description = project.description;
+									f.properties.markdown_url = project.markdown_url;
+									return f;
+								};
+								
+								if (geoData.type === 'FeatureCollection' && geoData.features) {
+									return geoData.features.map(enrichFeature);
+								} else if (geoData.type === 'Feature') {
+									return [enrichFeature(geoData)];
+								}
+								return [];
+							} catch (error) {
+								console.warn(`[DataModule] Erreur GeoJSON ${project.project_name}:`, error);
+								return [];
 							}
-							return [];
-						} catch (error) {
-							console.warn(`[DataModule] Erreur GeoJSON ${project.project_name}:`, error);
-							return [];
-						}
-					});
+						})
+					);
+					allFeatures.push(...batchResults.flat());
+				}
 				
-				// Attendre TOUTES les requêtes en parallèle puis aplatir
-				const results = await Promise.all(fetchPromises);
-				const features = results.flat();
+				const features = allFeatures;
 				
 				console.log(`[DataModule] ✅ ${features.length} features chargées pour "${layerName}"`);
 				return { type: 'FeatureCollection', features };
@@ -1264,187 +590,89 @@ window.DataModule = (function() {
 			}
 		}
 
-		// Fonction utilitaire pour vérifier si un texte contient des mots-clés de réseaux
+		// Fonction utilitaire pour vérifier les réseaux (déplacée côté serveur si possible)
 		const isReseau = (text) => {
 			if (!text) return false;
-			const reseauxKeywords = ['gaz', 'réseau', 'eau', 'branchement', 'télécom', 'telecom', 'électricité', 'electricite', 'assainissement'];
-			return reseauxKeywords.some(keyword =>
-				String(text).toLowerCase().includes(keyword.toLowerCase())
-			);
+			const t = String(text).toLowerCase();
+			return t.includes('gaz') || t.includes('réseau') || t.includes('eau') || t.includes('télécom') || t.includes('électricité') || t.includes('assainissement');
 		};
 
 		const geojsonLayer = L.geoJSON(null, {
 			pane: isClickable ? 'clickableLayers' : 'overlayPane', // Utiliser le panneau personnalisé pour les couches cliquables
 			filter: feature => {
-				const props = (feature && feature.properties) || {};
+				const props = feature?.properties || {};
 				
-				// Masquer les features avec type: "danger"
-				if (props.type === 'danger') {
-					return false;
+				// Filtre simple: masquer type "danger"
+				if (props.type === 'danger') return false;
+				
+				// Filtre Points: garder camera markers (imgUrl) et contributions (project_name)
+				if (feature?.geometry?.type === 'Point') {
+					const isFichePage = location.pathname.includes('/fiche/');
+					if (isFichePage) {
+						// Fiche: seulement contributions
+						return !!props.project_name;
+					}
+					// Index: camera markers OU contributions
+					return props.imgUrl || props.project_name;
 				}
 				
-				// Détection de page: sur l'index on affiche les Points avec images (camera markers) ET les contributions
-			// sur les fiches (/fiche/) on conserve les Points de contribution.
-			try {
-				const path = (location && location.pathname) ? location.pathname : '';
-				const isFichePage = path.includes('/fiche/');
-				if (!isFichePage) {
-					// Index: afficher les Points avec imgUrl (camera markers) OU avec project_name (contributions)
-					if (feature && feature.geometry && feature.geometry.type === 'Point') {
-						const hasImage = !!props.imgUrl;
-						const isContribution = !!props.project_name;
-						return hasImage || isContribution; // Garder les camera markers ET les contributions
-					}
-				} else {
-					// Fiche: ne masquer que les Points legacy (sans project_name)
-					if (feature && feature.geometry && feature.geometry.type === 'Point') {
-						const isContribution = !!props.project_name;
-						if (!isContribution) return false;
+				// Filtres standards (optimisé)
+				for (const [key, value] of Object.entries(criteria)) {
+					if (key.startsWith('_')) continue;
+					if (String(props[key] || '').toLowerCase() !== String(value).toLowerCase()) {
+						return false;
 					}
 				}
-			} catch (_) {
-				/* noop */ }
-				// 1. Vérifier les critères de filtrage standards
-				const standardCriteriaMatch = Object.entries(criteria)
-					.filter(([key]) => !key.startsWith('_')) // Exclure les critères spéciaux (commençant par _)
-					.every(([key, value]) =>
-						("" + (props[key] || "")).toLowerCase() === String(value).toLowerCase()
-					);
-
-				// 2. Vérifier le filtre des réseaux si activé
-				const hideReseaux = criteria._hideReseaux === true;
-				if (hideReseaux) {
-					const isFeatureReseau = isReseau(props.nature_travaux) || isReseau(props.nature_chantier);
-					return standardCriteriaMatch && !isFeatureReseau;
+				
+				// Filtre réseaux (si activé)
+				if (criteria._hideReseaux) {
+					if (isReseau(props.nature_travaux) || isReseau(props.nature_chantier)) {
+						return false;
+					}
 				}
-
-				return standardCriteriaMatch;
+				
+				return true;
 			},
 			style: feature => getFeatureStyle(feature, layerName),
 			pointToLayer: (feature, latlng) => {
-			const props = feature?.properties || {};
-			
-			// ========================================
-			// 1. CAMERA MARKERS (points avec images)
-			// ========================================
-			const hasImage = !!props.imgUrl;
-			if (hasImage && window.CameraMarkers?.createCameraMarker) {
-				const featureStyle = getFeatureStyle(feature, layerName);
-				const color = featureStyle?.color || null;
+				const props = feature?.properties || {};
 				
-				return window.CameraMarkers.createCameraMarker(
-					latlng, 
-					MapModule?.cameraPaneName || 'markerPane',
-					color
-				);
-			}
-			
-			// ========================================
-			// 2. TRAVAUX MARKERS (chantiers)
-			// ========================================
-			const isTravauxLayer = window.LayerRegistry?.isTravauxLayer?.(layerName);
-			if (isTravauxLayer) {
-				// Utiliser l'icône du chantier (depuis les propriétés) ou casque par défaut
-				const chantierIcon = props.icon || 'fa-solid fa-helmet-safety';
-				const travauxIcon = createCustomMarkerIcon(null, chantierIcon, 'var(--color-warning)');
-				return L.marker(latlng, { icon: travauxIcon });
-			}
-			
-			// ========================================
-			// 3. CONTRIBUTION MARKERS (avec icône de catégorie)
-			// ========================================
-			const category = props.category;
-			if (category) {
-				const contributionIcon = createContributionMarkerIcon(category);
-				return L.marker(latlng, { icon: contributionIcon });
-			}
-			
-			// ========================================
-			// 4. LAYER ICON : Utiliser l'icône définie dans la table layers
-			// (marker simplifié : icône seule, sans le pin/pointeur)
-			// ========================================
-			const layerIcon = iconMap[layerName];
-			if (layerIcon) {
-				const layerColor = iconColorMap[layerName] || 'var(--primary)';
-				const simpleIcon = createSimpleMarkerIcon(layerIcon, layerColor);
-				return L.marker(latlng, { icon: simpleIcon });
-			}
-			
-			// ========================================
-			// 5. FALLBACK : Marker par défaut avec couleur primary
-			// ========================================
-			const defaultIcon = createCustomMarkerIcon();
-			return L.marker(latlng, { icon: defaultIcon });
-		},
+				// 1. Camera markers (optimisé)
+				if (props.imgUrl && window.CameraMarkers?.createCameraMarker) {
+					const style = getFeatureStyle(feature, layerName);
+					return window.CameraMarkers.createCameraMarker(latlng, MapModule?.cameraPaneName || 'markerPane', style?.color);
+				}
+				
+				// 2. Travaux markers
+				if (window.LayerRegistry?.isTravauxLayer?.(layerName)) {
+					const icon = createCustomMarkerIcon(null, props.icon || 'fa-solid fa-helmet-safety', 'var(--color-warning)');
+					return L.marker(latlng, { icon });
+				}
+				
+				// 3. Contribution markers
+				if (props.category) {
+					return L.marker(latlng, { icon: createContributionMarkerIcon(props.category) });
+				}
+				
+				// 4. Layer icon
+				if (iconMap[layerName]) {
+					const icon = createSimpleMarkerIcon(iconMap[layerName], iconColorMap[layerName] || 'var(--primary)');
+					return L.marker(latlng, { icon });
+				}
+				
+				// 5. Fallback
+				return L.marker(latlng, { icon: createCustomMarkerIcon() });
+			},
 			onEachFeature: (feature, layer) => {
 				bindFeatureEvents(layer, feature, geojsonLayer, layerName);
 				
-				// Enregistrer les camera markers pour la gestion du zoom
-				const isPoint = /Point$/i.test(feature?.geometry?.type || '');
-				const hasImage = !!(feature?.properties?.imgUrl);
-				if (isPoint && hasImage && layer instanceof L.Marker && window.CameraMarkers?.registerCameraMarker) {
-					window.CameraMarkers.registerCameraMarker(layer, geojsonLayer);
+				// Enregistrer camera markers (optimisé)
+				if (feature?.geometry?.type?.endsWith('Point') && feature?.properties?.imgUrl && layer instanceof L.Marker) {
+					window.CameraMarkers?.registerCameraMarker?.(layer, geojsonLayer);
 				}
-
-				// Add an invisible wide "hitline" above the visible path for easier interactions on lines
-				try {
-					const g = feature && feature.geometry;
-					const t = g && g.type;
-					const isLine = t === 'LineString' || t === 'MultiLineString';
-					// Create hitline only for clickable layers (those that open a project sheet)
-					if (isLine && isClickable && MapModule?.hitRenderer && MapModule?.hitPaneName) {
-						const hit = L.geoJSON(feature, {
-							renderer: MapModule.hitRenderer,
-							pane: MapModule.hitPaneName,
-							interactive: true,
-							bubblingMouseEvents: false,
-							style: {
-								// Invisible mais interactif (large zone de clic)
-								color: 'var(--black)',
-								opacity: 0.001,
-								weight: 24,
-								lineCap: 'round',
-								lineJoin: 'round'
-							}
-						});
-						// Add directly to map to ensure it renders in its pane regardless of parent layer
-						hit.addTo(MapModule.map);
-
-						// Forward pointer events from each hit sublayer to the original visible layer
-						const forward = (eventName) => {
-							hit.eachLayer(h => {
-								h.on(eventName, (e) => {
-									try {
-										if (e && e.originalEvent) {
-											e.originalEvent.preventDefault?.();
-											e.originalEvent.stopPropagation?.();
-										}
-										layer.fire(eventName, {
-											latlng: e.latlng,
-											layerPoint: e.layerPoint,
-											containerPoint: e.containerPoint,
-											originalEvent: e.originalEvent,
-											target: layer,
-											propagatedFrom: 'hitline'
-										});
-									} catch (_) {
-										/* noop */ }
-								});
-							});
-						};
-						// Rétablit l'animation au survol en relayant aussi hover/move
-						['click', 'touchstart', 'mouseover', 'mouseout', 'mousemove'].forEach(forward);
-
-						// Keep lifecycle in sync: remove hitline when original layer is removed
-						layer.on('remove', () => {
-							try {
-								MapModule.map.removeLayer(hit);
-							} catch (_) {
-								/* noop */ }
-						});
-					}
-				} catch (_) {
-					/* noop */ }
+				
+				// HITLINES SUPPRIMÉES - MapLibre GL gère les clics nativement
+				// Les hitlines invisibles créaient des problèmes de performance
 			}
 		});
 
@@ -1529,8 +757,142 @@ window.DataModule = (function() {
 		}
 	}
 
-	// getProjectDetails supprimée - remplacée par supabaseService.fetchProjectByCategoryAndName
-	// findFeatureByProjectName supprimée - remplacée par supabaseService.fetchProjectByCategoryAndName
+	// --- Modale travaux (appelée par FeatureInteractions._onTravauxClick) ---
+	async function openTravauxModal(props) {
+		try {
+			const modalContent = document.getElementById('travaux-modal-content');
+			if (!modalContent) { console.error('[DataModule] travaux-modal-content introuvable'); return; }
+
+			const progressPct = _calcProgress(props.date_debut, props.date_fin);
+			const gradientBg = _calcGradient(progressPct);
+			const debut = _safeDate(props.date_debut);
+			const fin = _safeDate(props.date_fin);
+			const now = new Date();
+			const dateFmt = (d) => d ? d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
+			const durationDays = (debut && fin && fin > debut) ? Math.max(1, Math.round((fin - debut) / 86400000)) : null;
+			const todayPct = (debut && fin && fin > debut) ? Math.max(0, Math.min(100, ((now - debut) / (fin - debut)) * 100)) : 0;
+			const todayColor = progressPct <= 50
+				? ((progressPct / 50) * 100 < 50 ? 'var(--danger)' : 'var(--warning)')
+				: (((progressPct - 50) / 50) * 100 < 50 ? 'var(--warning)' : 'var(--success)');
+			const commune = props.commune || props.ville || props.COMMUNE || '';
+			const titre = props.nature_travaux || 'Chantier';
+			const etat = props.etat || '—';
+			const etatLow = (etat || '').toLowerCase();
+			const etatClass = etatLow.includes('ouver') ? 'etat--ouvert' : etatLow.includes('prochain') ? 'etat--prochain' : etatLow.includes('termin') ? 'etat--termine' : 'etat--neutre';
+			const adrs = (props.adresse || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
+			const chantierIcon = props.icon || 'fa-solid fa-helmet-safety';
+
+			const html = `
+			<div class="gp-travaux glass">
+				<div class="gp-hero">
+					<div class="hero-left">
+						<span class="hero-icon"><i class="${_esc(chantierIcon)}"></i></span>
+						<div>
+							<div class="hero-title">${_esc(titre)}</div>
+							<div class="hero-sub">${_esc(commune)}</div>
+						</div>
+					</div>
+					<span class="etat-pill ${etatClass}">${_esc(etat)}</span>
+				</div>
+				<div class="gp-bento">
+					<section class="tile tile--etat tile--timeline span-2">
+						<h3>Avancement</h3>
+						<div class="timeline">
+							<div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPct}" aria-label="Avancement des travaux">
+								<div class="fill" data-target="${progressPct}" style="width:0%; background:${gradientBg}; box-shadow: 0 0 10px ${progressPct >= 100 ? 'var(--success-alpha-25)' : 'var(--warning-alpha-25)'}"></div>
+								<div class="today" style="left:${todayPct}%; background:${todayColor}; box-shadow: 0 0 0 3px ${progressPct >= 100 ? 'var(--success-alpha-25)' : 'var(--warning-alpha-25)'}, 0 0 10px ${progressPct >= 100 ? 'var(--success-alpha-4)' : 'var(--warning-alpha-4)'};"></div>
+							</div>
+							<div class="dates"><span>${dateFmt(debut)}</span><span>${dateFmt(fin)}</span></div>
+							<div class="meta"><span>${durationDays ? `${durationDays} jours` : ''}</span><span>${progressPct}%</span></div>
+						</div>
+					</section>
+					<section class="tile">
+						<h3>Natures</h3>
+						<div class="badges">
+							${props.nature_chantier ? `<span class="badge">${_esc(props.nature_chantier)}</span>` : ''}
+							${props.nature_travaux ? `<span class="badge">${_esc(props.nature_travaux)}</span>` : ''}
+						</div>
+					</section>
+					<section class="tile">
+						<h3>Adresses</h3>
+						<ul class="addresses ${adrs.length > 5 ? 'collapsed' : ''}">${adrs.map(a => `<li><span>${_esc(a)}</span></li>`).join('')}</ul>
+						<div class="tile-actions">${adrs.length > 5 ? '<button class="toggle-addresses">Voir plus</button>' : ''}</div>
+					</section>
+				</div>
+			</div>`;
+
+			// Admin check
+			const activeCity = (typeof window.getActiveCity === 'function') ? window.getActiveCity() : window.activeCity;
+			let isAdmin = false;
+			if (activeCity && activeCity !== 'default' && window.supabaseService) {
+				try {
+					const session = await window.supabaseService.getClient()?.auth.getSession();
+					if (session?.data?.session?.user) {
+						const role = window.__CONTRIB_ROLE || '';
+						const villes = window.__CONTRIB_VILLES || [];
+						isAdmin = role === 'admin' && (villes.includes('global') || villes.includes(activeCity));
+					}
+				} catch (_) {}
+			}
+
+			modalContent.innerHTML = html;
+
+			window.ModalHelper.open('travaux-overlay', {
+				dismissible: true, lockScroll: true, focusTrap: true,
+				onOpen: () => {
+					const modalEl = modalContent.querySelector('.gp-travaux');
+					if (!modalEl) return;
+					// Progress bar animation
+					const fill = modalEl.querySelector('.timeline .fill');
+					const target = Number(fill?.getAttribute('data-target') || 0);
+					if (fill && !isNaN(target)) {
+						requestAnimationFrame(() => { fill.style.width = '0%'; setTimeout(() => { fill.style.width = `${target}%`; }, 40); });
+					}
+					// Addresses toggle
+					const toggleBtn = modalEl.querySelector('.toggle-addresses');
+					if (toggleBtn) {
+						const ul = modalEl.querySelector('.addresses');
+						toggleBtn.addEventListener('click', () => {
+							ul?.classList.toggle('collapsed');
+							toggleBtn.textContent = toggleBtn.textContent.includes('plus') ? 'Voir moins' : 'Voir plus';
+						});
+					}
+					// Admin actions
+					if (isAdmin && props.chantier_id) {
+						const actions = document.createElement('div');
+						actions.className = 'gp-modal-actions';
+						actions.style.cssText = 'display:flex;gap:12px;margin-top:20px;padding-top:20px;border-top:1px solid var(--border-light)';
+						const editBtn = document.createElement('button');
+						editBtn.className = 'btn-primary';
+						editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Modifier';
+						editBtn.onclick = () => { window.ModalHelper.close('travaux-overlay'); window.TravauxEditorModule?.openEditorForEdit?.(props.chantier_id); };
+						const delBtn = document.createElement('button');
+						delBtn.className = 'btn-danger';
+						delBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Supprimer';
+						delBtn.onclick = async () => {
+							if (!confirm('Supprimer ce chantier ? Action irréversible.')) return;
+							delBtn.disabled = true; delBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Suppression...';
+							try {
+								await window.supabaseService.deleteCityTravaux(props.chantier_id);
+								window.ModalHelper.close('travaux-overlay');
+								window.DataModule?.reloadLayer?.('travaux');
+								window.ContribUtils?.showToast?.('Chantier supprimé', 'success');
+							} catch (err) {
+								console.error('[DataModule] Erreur suppression:', err);
+								window.ContribUtils?.showToast?.('Erreur suppression', 'error');
+								delBtn.disabled = false; delBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Supprimer';
+							}
+						};
+						actions.appendChild(editBtn); actions.appendChild(delBtn);
+						modalEl.appendChild(actions);
+					}
+				},
+				onClose: () => { modalContent.innerHTML = ''; }
+			});
+		} catch (e) {
+			console.error('[DataModule] Erreur ouverture modale travaux:', e);
+		}
+	}
 
 	// Exposer les fonctions nécessaires
 	return {
@@ -1541,9 +903,7 @@ window.DataModule = (function() {
 		reloadLayer,
 		createGeoJsonLayer,
 		getFeatureStyle,
-		clearLayerCache
-		// Fonctions internes non exportées : bindFeatureEvents, generateTooltipContent
-		// Fonctions supprimées : getProjectDetails (use supabaseService.fetchProjectByCategoryAndName)
-		// Fonctions supprimées : openCoverLightbox (non utilisée)
+		clearLayerCache,
+		openTravauxModal
 	};
 })();

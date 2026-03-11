@@ -48,9 +48,9 @@
       popupAnchor: [0, -28]
     },
     default: {
-      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      iconUrl: '',
+      iconRetinaUrl: '',
+      shadowUrl: '',
       iconSize: [25, 41],
       iconAnchor: [12, 41],
       popupAnchor: [1, -34],
@@ -184,17 +184,19 @@
    */
   async function initDrawMap(containerId, drawPanelEl, cityEl) {
     if (!window.L) {
-      console.warn('[contrib-map] Leaflet not loaded');
+      console.warn('[contrib-map] Map library not loaded');
       return null;
     }
 
-    // Fix Leaflet icon paths (comme pour city-map)
+    // Fix icon paths (compat layer)
     try {
-      delete L.Icon.Default.prototype._getIconUrl;
+      if (L.Icon && L.Icon.Default && L.Icon.Default.prototype._getIconUrl) {
+        delete L.Icon.Default.prototype._getIconUrl;
+      }
       L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+        iconRetinaUrl: '',
+        iconUrl: '',
+        shadowUrl: ''
       });
     } catch (e) {
       console.warn('[contrib-map] Icon config error:', e);
@@ -243,7 +245,7 @@
       parent.replaceChild(newContainer, container);
       container = newContainer;
       
-      console.log('[contrib-map] Container recreated, _leaflet_id:', container._leaflet_id);
+      console.log('[contrib-map] Container recreated');
       
       // Load basemaps and pick only the one named "OpenStreetMap"
       const bmList = await ensureBasemaps();
@@ -251,8 +253,8 @@
         ? bmList.find(b => String(b?.name || b?.label || '').trim().toLowerCase() === 'openstreetmap')
         : null;
       
-      // Initialise Leaflet map with a safe temporary view
-      console.log('[contrib-map] Creating new Leaflet map on container:', containerId);
+      // Initialise map with a safe temporary view
+      console.log('[contrib-map] Creating new map on container:', containerId);
       drawMap = L.map(containerId, { center: [45.75, 4.85], zoom: 12 });
       
       try { 

@@ -27,6 +27,11 @@ const EventBindings = (() => {
       projectDetailPanel.style.display = 'none';
     }
     
+    // Réinitialiser le guard de showProjectDetail pour permettre réouverture
+    if (window.NavigationModule?._resetProjectGuard) {
+      window.NavigationModule._resetProjectGuard();
+    }
+    
     // Réinitialiser les filtres
     document.querySelectorAll('.filter-item').forEach(item => {
       item.classList.remove('active-filter');
@@ -73,31 +78,27 @@ const EventBindings = (() => {
       // Afficher les couches désirées
       for (const layerName of layersToDisplay) {
         try {
-          // Si on a sauvegardé le layer avec ses données, le garder tel quel
+          // Si layer déjà conservé avec données, s'assurer qu'il est visible
           if (layersToKeep[layerName]) {
-            console.log(`[EventBindings] ✅ Layer "${layerName}" conservé avec ses données`);
+            console.log(`[EventBindings] ✅ Layer "${layerName}" conservé`);
             const layer = layersToKeep[layerName];
-            // S'assurer qu'il est visible sur la carte
             if (MapModule.map && !MapModule.map.hasLayer(layer)) {
               MapModule.map.addLayer(layer);
             }
             continue;
           }
           
-          // Vérifier si le layer est sur la carte
+          // Vérifier si layer déjà sur la carte
           const layerOnMap = MapModule.layers[layerName];
-          
           if (layerOnMap) {
-            console.log(`[EventBindings] Layer "${layerName}" déjà sur la carte`);
+            console.log(`[EventBindings] Layer "${layerName}" déjà présent`);
             if (MapModule.map && !MapModule.map.hasLayer(layerOnMap)) {
               MapModule.map.addLayer(layerOnMap);
             }
           } else {
-            // Layer pas sur la carte, le charger
-            console.log(`[EventBindings] Chargement du layer "${layerName}"...`);
-            if (DataModule.loadLayer) {
-              await DataModule.loadLayer(layerName);
-            }
+            // Charger le layer
+            console.log(`[EventBindings] Chargement "${layerName}"...`);
+            await DataModule.loadLayer?.(layerName);
           }
         } catch (e) {
           console.error(`[EventBindings] Erreur chargement layer ${layerName}:`, e);

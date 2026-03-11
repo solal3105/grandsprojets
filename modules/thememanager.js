@@ -95,13 +95,10 @@
         const bm = this.findBasemapForTheme(theme);
         if (!bm) return;
 
+        // Utilise L.tileLayer via compat layer (backed by MapLibre GL)
         const layer = L.tileLayer(bm.url, { attribution: bm.attribution });
-        if (window.MapModule?.setBaseLayer) {
-          window.MapModule.setBaseLayer(layer);
-        }
-        if (window.UIModule?.setActiveBasemap) {
-          window.UIModule.setActiveBasemap(bm.label);
-        }
+        window.MapModule?.setBaseLayer?.(layer);
+        window.UIModule?.setActiveBasemap?.(bm.label);
       } catch (e) {
         console.warn('[ThemeManager] Erreur lors du changement de fond de carte', e);
       }

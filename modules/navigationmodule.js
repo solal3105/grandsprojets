@@ -76,49 +76,21 @@ const NavigationModule = (() => {
   
   // État du highlight actuel
   let currentHighlight = {
-    highlightedLayers: [],  // Features mises en avant (le projet cible)
-    dimmedLayers: [],       // Features mises en transparence (tous les autres)
-    intervals: [],          // Animations en cours
-    pulseElements: []       // Éléments DOM pulsants à nettoyer
+    highlightedLayers: [],  // Marker features with DOM-based highlight (pulse ring, class)
+    pulseElements: []       // Pulse ring DOM elements to clean up
   };
 
   /**
-   * Applique un style "dimmed" à une feature
-   * @param {L.Layer} featureLayer 
-   */
-  function applyDimmedStyle(featureLayer) {
-    const geomType = featureLayer.feature?.geometry?.type || '';
-    const isPoint = geomType === 'Point' || geomType === 'MultiPoint';
-    
-    if (isPoint && featureLayer instanceof L.Marker) {
-      const el = featureLayer.getElement?.();
-      if (el) el.classList.add('is-dimmed');
-    } else if (typeof featureLayer.setStyle === 'function') {
-      // Sauvegarder le style actuel (défini en base)
-      if (!featureLayer.__gpOriginalStyle) {
-        featureLayer.__gpOriginalStyle = { ...featureLayer.options };
-      }
-      featureLayer.setStyle({ opacity: 0.25, fillOpacity: 0.1 });
-    }
-  }
-
-  /**
-   * Restaure le style original d'une feature
+   * Restaure le style DOM d'un marker (classes CSS)
    * @param {L.Layer} featureLayer 
    */
   function restoreStyle(featureLayer) {
-    const geomType = featureLayer.feature?.geometry?.type || '';
-    const isPoint = geomType === 'Point' || geomType === 'MultiPoint';
-    
-    if (isPoint && featureLayer instanceof L.Marker) {
+    if (featureLayer instanceof L.Marker) {
       const el = featureLayer.getElement?.();
       if (el) {
         el.classList.remove('is-dimmed');
         el.classList.remove('is-highlighted');
       }
-    } else if (typeof featureLayer.setStyle === 'function' && featureLayer.__gpOriginalStyle) {
-      featureLayer.setStyle(featureLayer.__gpOriginalStyle);
-      delete featureLayer.__gpOriginalStyle;
     }
   }
 
@@ -126,11 +98,12 @@ const NavigationModule = (() => {
    * Nettoie tous les highlights précédents
    */
   function clearProjectHighlight() {
-    // Arrêter les animations
-    currentHighlight.intervals.forEach(id => clearInterval(id));
-    currentHighlight.intervals = [];
+    // Clear FeatureInteractions selection (line/polygon feature-state + layer dim)
+    if (window.FeatureInteractions) {
+      window.FeatureInteractions.clearSelection();
+    }
     
-    // Restaurer les features highlightées
+    // Restore DOM-based marker highlights
     currentHighlight.highlightedLayers.forEach(layer => {
       try {
         layer.__gpHighlighted = false;
@@ -139,15 +112,7 @@ const NavigationModule = (() => {
     });
     currentHighlight.highlightedLayers = [];
     
-    // Restaurer les features dimmed
-    currentHighlight.dimmedLayers.forEach(layer => {
-      try {
-        restoreStyle(layer);
-      } catch (_) {}
-    });
-    currentHighlight.dimmedLayers = [];
-    
-    // Retirer les cercles pulsants
+    // Remove pulse ring DOM elements
     currentHighlight.pulseElements.forEach(el => {
       try { el.remove(); } catch (_) {}
     });
@@ -168,98 +133,45 @@ const NavigationModule = (() => {
     // Nettoyer les highlights précédents
     clearProjectHighlight();
     
+    // Delegate line/polygon highlight + dim to FeatureInteractions (feature-state based, no pool destruction)
+    if (window.FeatureInteractions) {
+      window.FeatureInteractions.spotlightByName(projectName, {
+        panTo,
+        dimOthers: fadeOthers
+      });
+    }
+    
+    // DOM-based marker highlighting (pulse rings) — markers don't use the pool
     const targetLayerName = normalizeCategoryName(category);
     const targetLayer = window.MapModule?.layers?.[targetLayerName];
+    if (!targetLayer || typeof targetLayer.eachLayer !== 'function') return;
     
-    if (!targetLayer || typeof targetLayer.eachLayer !== 'function') {
-      console.warn(`[NavigationModule] Layer "${targetLayerName}" non trouvé`);
-      return;
-    }
+    const { color: categoryColor } = getCategoryStyle(category);
     
-    // Récupérer la couleur de la catégorie
-    const categoryIcon = window.categoryIcons?.find(c => c.category === category);
-    let categoryColor = 'var(--primary)';
-    if (categoryIcon?.category_styles) {
-      try {
-        const styles = typeof categoryIcon.category_styles === 'string'
-          ? JSON.parse(categoryIcon.category_styles)
-          : categoryIcon.category_styles;
-        categoryColor = styles.color || categoryColor;
-      } catch (_) {}
-    }
-    
-    // Centre pour panTo
-    let centerLatLng = null;
-    
-    // Parcourir TOUS les layers présents sur la carte
-    Object.entries(window.MapModule?.layers || {}).forEach(([layerName, mapLayer]) => {
-      if (typeof mapLayer.eachLayer !== 'function') return;
+    targetLayer.eachLayer((featureLayer) => {
+      const props = featureLayer.feature?.properties || {};
+      if (props.project_name !== projectName) return;
       
-      const isTargetLayer = (layerName === targetLayerName);
+      const geomType = featureLayer.feature?.geometry?.type || '';
+      const isPoint = geomType === 'Point' || geomType === 'MultiPoint';
       
-      mapLayer.eachLayer((featureLayer) => {
-        // Vérifier si c'est le projet cible (même layer + même project_name)
-        const props = featureLayer.feature?.properties || {};
-        const isTargetProject = isTargetLayer && props.project_name === projectName;
-        
-        if (isTargetProject) {
-          // === HIGHLIGHT : Projet cible ===
-          currentHighlight.highlightedLayers.push(featureLayer);
-          featureLayer.__gpHighlighted = true;
-          
-          const geomType = featureLayer.feature?.geometry?.type || '';
-          const isPoint = geomType === 'Point' || geomType === 'MultiPoint';
-          const isLine = geomType === 'LineString' || geomType === 'MultiLineString';
-          const isPolygon = geomType === 'Polygon' || geomType === 'MultiPolygon';
-          
-          if (isPoint && featureLayer instanceof L.Marker) {
-            const el = featureLayer.getElement?.();
-            if (el) {
-              el.classList.add('is-highlighted');
-              const customMarker = el.querySelector('.gp-custom-marker');
-              if (customMarker) {
-                const pulseRing = document.createElement('div');
-                pulseRing.className = 'gp-marker-pulse-ring';
-                pulseRing.style.setProperty('--marker-color', categoryColor);
-                customMarker.appendChild(pulseRing);
-                currentHighlight.pulseElements.push(pulseRing);
-              }
-            }
-            if (!centerLatLng) centerLatLng = featureLayer.getLatLng();
-            
-          } else if (isLine || isPolygon) {
-            if (typeof featureLayer.setStyle === 'function') {
-              // Sauvegarder le style actuel (défini en base)
-              if (!featureLayer.__gpOriginalStyle) {
-                featureLayer.__gpOriginalStyle = { ...featureLayer.options };
-              }
-              featureLayer.setStyle({ weight: 6, dashArray: '12, 8', opacity: 1 });
-              let dashOffset = 0;
-              const interval = setInterval(() => {
-                dashOffset = (dashOffset + 2) % 20;
-                try {
-                  featureLayer.setStyle({ dashOffset: -dashOffset });
-                } catch (_) { clearInterval(interval); }
-              }, 50);
-              currentHighlight.intervals.push(interval);
-            }
-            if (!centerLatLng && typeof featureLayer.getBounds === 'function') {
-              const bounds = featureLayer.getBounds();
-              if (bounds.isValid()) centerLatLng = bounds.getCenter();
-            }
+      if (isPoint && featureLayer instanceof L.Marker) {
+        currentHighlight.highlightedLayers.push(featureLayer);
+        featureLayer.__gpHighlighted = true;
+        const el = featureLayer.getElement?.();
+        if (el) {
+          el.classList.add('is-highlighted');
+          const customMarker = el.querySelector('.gp-custom-marker');
+          if (customMarker) {
+            const pulseRing = document.createElement('div');
+            pulseRing.className = 'gp-marker-pulse-ring';
+            pulseRing.style.setProperty('--marker-color', categoryColor);
+            customMarker.appendChild(pulseRing);
+            currentHighlight.pulseElements.push(pulseRing);
           }
-        } else if (fadeOthers) {
-          // === DIMMED : Tous les autres layers et features (seulement si fadeOthers activé) ===
-          currentHighlight.dimmedLayers.push(featureLayer);
-          applyDimmedStyle(featureLayer);
         }
-      });
+      }
     });
-    
-    // Centrer la carte si demandé
-    if (panTo && centerLatLng && window.MapModule?.map) {
-      window.MapModule.map.panTo(centerLatLng, { animate: true });
-    }
   }
 
   /**
@@ -268,43 +180,40 @@ const NavigationModule = (() => {
   let previewMap = null;
 
   /**
-   * Initialise la mini-carte de prévisualisation dans le panneau de détail (mobile)
-   * Clone les features du projet depuis le layer principal et les affiche
+   * Récupère les features d'un projet depuis le layer (FACTORISATION DRY)
    * @param {string} projectName - Nom du projet
    * @param {string} category - Catégorie du projet
+   * @returns {Array} Features du projet ou null
    */
-  function initPreviewMap(projectName, category) {
-    // Nettoyer la carte précédente et ses animations
-    if (previewMap) {
-      // Arrêter les animations
-      if (previewMap._gpAnimationIntervals) {
-        previewMap._gpAnimationIntervals.forEach(interval => clearInterval(interval));
-      }
-      try { previewMap.remove(); } catch (_) {}
-      previewMap = null;
-    }
-
-    const container = document.getElementById('project-preview-map');
-    if (!container || !window.L) return;
-
-    // Vérifier si on est sur mobile (breakpoint 720px)
-    if (window.innerWidth > 720) {
-      console.log('[NavigationModule] Mini-carte masquée (desktop), skip init');
-      return;
-    }
-
+  function getProjectFeatures(projectName, category) {
     const layerName = normalizeCategoryName(category);
     const mapLayer = window.MapModule?.layers?.[layerName];
 
     if (!mapLayer || typeof mapLayer.eachLayer !== 'function') {
-      console.warn(`[NavigationModule] Layer "${layerName}" non trouvé pour preview map`);
-      return;
+      return null;
     }
 
-    // Récupérer le style de la catégorie
+    const features = [];
+    mapLayer.eachLayer((featureLayer) => {
+      const props = featureLayer.feature?.properties || {};
+      if (props.project_name === projectName && featureLayer.feature) {
+        features.push(featureLayer.feature);
+      }
+    });
+
+    return features.length > 0 ? features : null;
+  }
+
+  /**
+   * Récupère le style d'une catégorie (FACTORISATION DRY)
+   * @param {string} category - Catégorie
+   * @returns {Object} { color, styles }
+   */
+  function getCategoryStyle(category) {
     const categoryIcon = window.categoryIcons?.find(c => c.category === category);
     let categoryColor = 'var(--primary)';
     let categoryStyles = {};
+    
     if (categoryIcon?.category_styles) {
       try {
         categoryStyles = typeof categoryIcon.category_styles === 'string'
@@ -314,17 +223,36 @@ const NavigationModule = (() => {
       } catch (_) {}
     }
 
-    // Collecter les features du projet
-    const projectFeatures = [];
-    mapLayer.eachLayer((featureLayer) => {
-      const props = featureLayer.feature?.properties || {};
-      if (props.project_name === projectName && featureLayer.feature) {
-        projectFeatures.push(featureLayer.feature);
-      }
-    });
+    return { color: categoryColor, styles: categoryStyles };
+  }
 
-    if (projectFeatures.length === 0) {
-      console.warn(`[NavigationModule] Aucune feature trouvée pour "${projectName}"`);
+  /**
+   * Initialise la mini-carte de prévisualisation dans le panneau de détail (mobile)
+   * Clone les features du projet depuis le layer principal et les affiche
+   * @param {string} projectName - Nom du projet
+   * @param {string} category - Catégorie du projet
+   */
+  function initPreviewMap(projectName, category) {
+    const { color: categoryColor } = getCategoryStyle(category);
+
+    // EARLY RETURNS - éviter tout traitement inutile
+    const container = document.getElementById('project-preview-map');
+    if (!container || !window.L || window.innerWidth > 720) {
+      return; // Pas de container, pas de Leaflet, ou desktop → skip
+    }
+
+    // Nettoyer la carte précédente UNE SEULE FOIS
+    if (previewMap) {
+      if (previewMap._gpAnimationIntervals) {
+        previewMap._gpAnimationIntervals.forEach(interval => clearInterval(interval));
+      }
+      try { previewMap.remove(); } catch (_) {}
+      previewMap = null;
+    }
+
+    // Récupérer les features du projet - FACTORISATION
+    const projectFeatures = getProjectFeatures(projectName, category);
+    if (!projectFeatures || projectFeatures.length === 0) {
       container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray-500);font-size:0.875rem;">Tracé non disponible</div>';
       return;
     }
@@ -388,12 +316,13 @@ const NavigationModule = (() => {
           const icon = window.createContributionMarkerIcon(category);
           return L.marker(latlng, { icon });
         }
-        return L.circleMarker(latlng, {
-          radius: 8,
-          fillColor: categoryColor,
-          color: '#fff',
-          weight: 2,
-          fillOpacity: 0.9
+        return L.marker(latlng, {
+          icon: L.divIcon({
+            className: 'gp-preview-dot',
+            html: `<div style="width:14px;height:14px;border-radius:50%;background:${categoryColor};border:2px solid #fff;"></div>`,
+            iconSize: [14, 14],
+            iconAnchor: [7, 7]
+          })
         });
       },
       onEachFeature: (feature, layer) => {
@@ -559,11 +488,43 @@ const NavigationModule = (() => {
     }
   }
 
+  // Guard pour éviter les appels redondants (CRITIQUE pour performances)
+  let _lastShownProject = null;
+  let _showProjectDebounceTimer = null;
+
   async function showProjectDetail(projectName, category, event, enrichedProps = null) {
+  console.log('[NavigationModule] 🎯 showProjectDetail called:', { projectName, category, hasEvent: !!event });
   
   if (event?.stopPropagation) {
     event.stopPropagation();
   }
+  
+  // GUARD: Éviter les appels redondants qui causent out of memory
+  const projectKey = `${projectName}::${category}`;
+  
+  console.log('[NavigationModule] 🔒 Guard check:', {
+    projectKey,
+    lastShownProject: _lastShownProject,
+    willSkip: _lastShownProject === projectKey
+  });
+  
+  if (_lastShownProject === projectKey) {
+    console.log('[NavigationModule] ⏭️ SKIP - already showing this project');
+    return; // Déjà affiché, skip
+  }
+  
+  // Debounce pour éviter les appels en rafale
+  if (_showProjectDebounceTimer) {
+    console.log('[NavigationModule] ⏱️ Clearing previous debounce timer');
+    clearTimeout(_showProjectDebounceTimer);
+  }
+  
+  _showProjectDebounceTimer = setTimeout(() => {
+    _showProjectDebounceTimer = null;
+  }, 100);
+  
+  _lastShownProject = projectKey;
+  console.log('[NavigationModule] ✅ Guard passed - proceeding with showProjectDetail');
   
   // Masquer tous les sous-menus
   document.querySelectorAll('.submenu').forEach(el => {
@@ -643,7 +604,7 @@ const NavigationModule = (() => {
 
     projectName = contributionProject.project_name;
     category = contributionProject.category;
-    cover_url = contributionProject.cover_url;
+    let cover_url = contributionProject.cover_url;
     let description = contributionProject.description;
     let markdown_url = contributionProject.markdown_url;
 
@@ -713,21 +674,21 @@ const NavigationModule = (() => {
         <!-- Toggle carte/cover (mobile) -->
         ${hasCover ? `
         <div class="project-media-toggle">
-          <button type="button" class="media-toggle-btn active" data-target="map" aria-label="Voir la carte" title="Carte">
+          <button type="button" class="media-toggle-btn" data-target="map" aria-label="Voir la carte" title="Carte">
             <i class="fa-solid fa-map-location-dot"></i>
           </button>
-          <button type="button" class="media-toggle-btn" data-target="cover" aria-label="Voir l'image" title="Image">
+          <button type="button" class="media-toggle-btn active" data-target="cover" aria-label="Voir l'image" title="Image">
             <i class="fa-solid fa-image"></i>
           </button>
         </div>
         ` : ''}
         <!-- Mini-carte sur mobile -->
-        <div class="project-preview-map-wrap${hasCover ? ' is-active' : ''}">
+        <div class="project-preview-map-wrap">
           <div id="project-preview-map"></div>
         </div>
         <!-- Cover sur desktop / toggle sur mobile -->
         ${hasCover ? `
-        <div class="project-cover-wrap project-cover-wrap--mobile-toggle">
+        <div class="project-cover-wrap project-cover-wrap--mobile-toggle is-active">
           <img class="project-cover" src="${resolveAssetUrl(coverCandidate)}" alt="${attrs.name||projectName||''}">
           <button class="cover-extend-btn" aria-label="Agrandir l'image" title="Agrandir">
             <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
@@ -918,7 +879,10 @@ const NavigationModule = (() => {
     highlightProjectOnMap(projectName, category);
     
     // Initialiser la mini-carte de prévisualisation (mobile)
-    initPreviewMap(projectName, category);
+    // Wrapped: ne doit jamais crasher le panneau
+    try { initPreviewMap(projectName, category); } catch (previewErr) {
+      console.warn('[NavigationModule] Preview map error (non-fatal):', previewErr);
+    }
     
   }catch(e){
     console.error('[NavigationModule] Error in showProjectDetail:', e);
@@ -980,9 +944,10 @@ const NavigationModule = (() => {
       projectDetail.style.display = 'none';
     }
     
-    // 2. Restaurer l'opacité de tous les layers
+    // 2. Restaurer l'opacité de tous les layers + clear feature selection
     console.log(`[NavigationModule] Restauration opacité layers`);
     restoreAllLayerOpacity();
+    window.FeatureInteractions?.clearSelection?.(true);
     
     // 3. Nettoyer les animations de highlight
     console.log(`[NavigationModule] Nettoyage animations highlight`);
@@ -1128,6 +1093,7 @@ const NavigationModule = (() => {
     showSpecificContribution,
     zoomOutOnLoadedLayers, 
     resetToDefaultView,
+    _resetProjectGuard: () => { _lastShownProject = null; },
     highlightProjectOnMap,
     clearProjectHighlight
   };

@@ -14,7 +14,7 @@ export default defineConfig({
   
   // Rapports : HTML uniquement (le JSON est généré via npm run test:json)
   reporter: [
-    ['html', { outputFolder: 'test-results/html' }]
+    ['html', { outputFolder: 'playwright-report' }]
   ],
   
   use: {
@@ -66,7 +66,7 @@ export default defineConfig({
 
   // Serveur de développement - Playwright le démarre automatiquement
   webServer: {
-    command: 'npm start',
+    command: 'python3 -m http.server 3001',
     url: 'http://localhost:3001',
     reuseExistingServer: !process.env.CI,
     timeout: 180 * 1000, // Augmenté à 3 minutes
