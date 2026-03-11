@@ -857,13 +857,14 @@
 /* Help iframe modal — wider + taller */
 .gp-modal--help {
   width: min(960px, 95vw);
+  height: 85vh;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
 }
 .gp-modal--help .gp-modal-body {
   flex: 1;
-  min-height: 0;
+  min-height: 600px;
 }
 
 /* ---------------------------------------------------------------------------
