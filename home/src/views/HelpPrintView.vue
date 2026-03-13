@@ -2,7 +2,7 @@
   <div class="print-guide">
     <!-- Print header -->
     <div class="print-header">
-      <img src="/home/img/logo-min-new.svg" alt="Open Projets" class="print-logo" />
+      <img src="/img/logo-min-new.svg" alt="Open Projets" class="print-logo" />
       <div>
         <h1>{{ title }}</h1>
         <p class="print-date">Généré le {{ today }}</p>
