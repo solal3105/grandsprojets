@@ -487,9 +487,7 @@
   margin-bottom: 20px;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+/* (Doublon supprimé : @keyframes spin — déjà défini dans 11-toggles.css) */
 
 .gp-loading-text {
   font-size: 0.9375rem;
@@ -545,10 +543,7 @@
    =========================================================================== */
 
 @media (max-width: 640px) {
-  .gp-modal-breadcrumb {
-    font-size: 0.8125rem;
-    padding: 10px 16px;
-  }
+  /* (Mort supprimé : .gp-modal-breadcrumb — jamais défini ni utilisé) */
   
   .gp-modal-section {
     margin-bottom: 24px;
@@ -595,7 +590,7 @@
    =========================================================================== */
 
 @media print {
-  .gp-modal-breadcrumb,
+  /* .gp-modal-breadcrumb supprimé — jamais défini ni utilisé */
   .gp-modal-footer {
     display: none;
   }

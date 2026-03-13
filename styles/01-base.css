@@ -145,16 +145,5 @@ svg path:focus {
   margin-bottom: 20px;
 }
 
-/* ---------------------------------------------------------------------------
-   Exemple de surbrillance
---------------------------------------------------------------------------- */
-.highlight {
-  stroke-width: 5 !important;
-  /* Vous pouvez ajouter d'autres propriétés, par exemple changer la couleur */
-  /* stroke: red !important; */
-}
-
-.highlight {
-  stroke-width: 8 !important;
-  stroke: red !important;
-}
+/* (Legacy supprimé : .highlight — ancien SVG stroke Leaflet,
+   remplacé par .is-highlighted / .gp-marker-pulse-ring dans gp-custom-markers.css) */

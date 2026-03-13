@@ -781,26 +781,4 @@
   color: var(--white);
 }
 
-/* Bouton retour */
-.gp-modal-back {
-  background: var(--white-alpha-08);
-  border: 1.5px solid var(--white-alpha-18);
-  color: var(--gray-200);
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 1.1rem;
-  flex-shrink: 0;
-}
-
-.gp-modal-back:hover {
-  background: var(--white-alpha-12);
-  border-color: var(--primary);
-  color: var(--primary);
-  transform: translateX(-2px);
-}
+/* (Doublon supprimé : .gp-modal-back — redéfini dans 13-modal-system.css) */

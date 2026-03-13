@@ -372,19 +372,7 @@
   gap: 1rem;
 }
 
-.gpv2-filter-badge {
-  background: var(--gray-100);
-  border-radius: 999px;
-  padding: 0.4rem 0.8rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.9rem;
-}
-
-.gpv2-filter-badge i {
-  color: var(--danger);
-}
+/* (Premier .gpv2-filter-badge supprimé : doublon, redéfini plus bas avec le style complet) */
 
 .travaux-reset-btn {
   background: var(--danger);
@@ -900,7 +888,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--white);
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -916,9 +904,6 @@
 
 .project-cover-wrap:hover .cover-extend-btn {
   opacity: 1;
-}
-.cover-extend-btn {
-  background: var(--white);
 }
 .cover-extend-btn:hover {
   box-shadow: 0 4px 12px var(--black-alpha-12);
@@ -1095,30 +1080,8 @@
   }
 }
 
-#detail-fullpage-btn {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: var(--primary);
-  color: var(--white);
-  border: none;
-  padding: 10px 20px;
-  border-radius: 20px;
-  cursor: pointer;
-  text-decoration: none;
-  font-size: 0.9rem;
-  white-space: nowrap;
-  box-shadow: 0 2px 10px var(--black-alpha-20);
-  z-index: 1001;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-#detail-fullpage-btn:hover {
-  background-color: var(--primary);
-}
+/* (Legacy supprimé : #detail-fullpage-btn — sélecteur ID mort,
+   seule la classe .detail-fullpage-btn est utilisée par JS) */
 
 /* ---------------------------------------------------------------------------
    Legend card for Travaux progress

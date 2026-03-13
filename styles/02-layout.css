@@ -107,40 +107,23 @@
 /* Détail du projet et sous-menus Urbanisme/Vélo/Mobilité */
 #project-detail {
   position: absolute;
-  top: 10px; /* 20px plus haut que la nav (qui est à top: 10px) */
-  left: 150px; /* marge gauche + largeur de left-nav + espace */
+  top: 10px;
+  left: 120px; /* marge gauche + largeur de left-nav compact */
   width: 350px;
-  min-height: calc(500px + 20px);
-  max-height: calc(70vh + 20px);
+  min-height: 500px;
+  max-height: 70vh;
   overflow-y: auto;
-  border-radius: 0 20px 20px 20px;
+  border-radius: 0 16px 16px 0;
   z-index: 1050;
 }
 
-#project-detail.visible {
-  transform: translateX(0);
-}
+/* (Legacy supprimé : #project-detail.visible — JS utilise display:block/none) */
 
 #project-detail h2 {
   margin-top: 0;
 }
 
-#close-details-btn {
-  background: none;
-  border: none;
-  font-size: 1.2rem;
-  cursor: pointer;
-  float: right;
-  color: var(--gray-400);
-}
+/* (Legacy supprimé : #close-details-btn — ancien bouton du HTML statique,
+   remplacé par .close-btn dans .detail-header-submenu) */
 
-#close-details-btn:hover {
-  color: var(--gray-700);
-}
-
-/* ---------------------------------------------------------------------------
-   Ensure MapLibre popups layer above UI components
---------------------------------------------------------------------------- */
-.maplibregl-popup {
-  z-index: 2500 !important;
-}
+/* (Doublon supprimé : .maplibregl-popup z-index — déjà défini dans 05-map.css) */

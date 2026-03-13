@@ -117,6 +117,27 @@
     constructor() {
       this._pools = new Map(); // key: styleHash, value: { sourceId, features: [], layers: [] }
       this._nextId = 0;
+      this._batching = false;
+      this._dirtyPools = new Set();
+    }
+
+    beginBatch() {
+      this._batching = true;
+      this._dirtyPools.clear();
+    }
+
+    endBatch(mlMap) {
+      this._batching = false;
+      for (const styleHash of this._dirtyPools) {
+        const pool = this._pools.get(styleHash);
+        if (pool) {
+          const source = mlMap.getSource(pool.sourceId);
+          if (source) {
+            source.setData({ type: 'FeatureCollection', features: pool.features });
+          }
+        }
+      }
+      this._dirtyPools.clear();
     }
 
     _getStyleHash(geomType, style) {
@@ -214,13 +235,17 @@
         pool.features.push(geojson);
         pool.layers.push(pathLayer);
 
-        // Update source
-        const source = mlMap.getSource(pool.sourceId);
-        if (source) {
-          source.setData({
-            type: 'FeatureCollection',
-            features: pool.features
-          });
+        // Update source (deferred if batching)
+        if (this._batching) {
+          this._dirtyPools.add(styleHash);
+        } else {
+          const source = mlMap.getSource(pool.sourceId);
+          if (source) {
+            source.setData({
+              type: 'FeatureCollection',
+              features: pool.features
+            });
+          }
         }
 
         // Events handled by FeatureInteractions at map level
@@ -1170,10 +1195,18 @@
       const features = data.type === 'FeatureCollection' ? data.features :
                        data.type === 'Feature' ? [data] :
                        data.features ? data.features : [data];
+      
+      // Batch SourcePool updates when layer is already on map
+      const shouldBatch = this._map && L._sourcePool && !L._sourcePool._batching;
+      const mlMap = this._map ? (this._map._mlMap || this._map) : null;
+      if (shouldBatch) L._sourcePool.beginBatch();
+      
       features.forEach(feature => {
         if (this.options.filter && !this.options.filter(feature)) return;
         this._addFeature(feature);
       });
+      
+      if (shouldBatch) L._sourcePool.endBatch(mlMap);
       
       // If using shared source and map is ready, update the source
       if (this._useSharedSource && this._map) {
@@ -1390,7 +1423,11 @@
       if (this._useSharedSource) {
         this._updateSharedSource();
       } else {
+        // Batch SourcePool updates to avoid N individual setData calls
+        const mlMap = map._mlMap || map;
+        if (L._sourcePool) L._sourcePool.beginBatch();
         this._layers.forEach(l => l.addTo(map));
+        if (L._sourcePool) L._sourcePool.endBatch(mlMap);
       }
       this.fire('add');
       return this;
@@ -1538,8 +1575,9 @@
         // Enable 3D buildings layer from OpenMapTiles
         this._enable3DBuildings();
         
-        // Setup automatic pitch adjustment based on zoom
-        this._setupAutoPitch();
+        // Auto-pitch removed: it fired easeTo() on every zoom event,
+        // creating cascading animations that broke mouse wheel zoom.
+        // Users can manually tilt with Ctrl+drag; 3D buildings still render at zoom 15+.
         
         this._queue.forEach(fn => fn());
         this._queue = [];
@@ -1627,27 +1665,7 @@
       }
     }
 
-    /**
-     * Configure l'inclinaison automatique selon le zoom
-     */
-    _setupAutoPitch() {
-      const mlMap = this._mlMap;
-      
-      mlMap.on('zoom', () => {
-        const zoom = mlMap.getZoom();
-        
-        // Inclinaison progressive à partir du zoom 15
-        if (zoom >= 15) {
-          const targetPitch = Math.min(60, (zoom - 15) * 12); // 0° à zoom 15, 60° à zoom 20
-          mlMap.easeTo({ pitch: targetPitch, duration: 300 });
-        } else if (zoom < 15) {
-          // Redresser la carte au dézoom
-          if (mlMap.getPitch() > 0) {
-            mlMap.easeTo({ pitch: 0, duration: 300 });
-          }
-        }
-      });
-    }
+    // _setupAutoPitch removed — see comment in constructor
 
     // View methods
     setView(center, zoom) {

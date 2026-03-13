@@ -548,9 +548,7 @@ window.DataModule = (function() {
 
 	// Crée la couche GeoJSON et l'ajoute à la carte
 	function createGeoJsonLayer(layerName, data) {
-		console.log(`[DataModule] ========== createGeoJsonLayer START ==========`);
-		console.log(`[DataModule] Layer: "${layerName}"`);
-		console.log(`[DataModule] Données reçues:`, data ? `${data.features?.length || 0} features` : 'AUCUNE');
+		const _t0 = performance.now();
 		
 		// Normaliser les données d'entrée pour éviter les erreurs Leaflet (addData(undefined))
 		let normalized = data;
@@ -569,10 +567,7 @@ window.DataModule = (function() {
 			normalized = { type: 'FeatureCollection', features: [] };
 		}
 		data = normalized;
-		console.log(`[DataModule] Features après normalisation: ${data.features?.length || 0}`);
-		
 		const criteria = FilterModule.get(layerName);
-		console.log(`[DataModule] Critères de filtre pour "${layerName}":`, criteria);
 
 		// Définir les couches cliquables (catégories dynamiques)
 		const clickableLayers = (typeof window.getAllCategories === 'function') ?
@@ -682,8 +677,7 @@ window.DataModule = (function() {
 		
 		// Log du résultat
 		const featuresOnMap = geojsonLayer.getLayers().length;
-		console.log(`[DataModule] ✅ Layer "${layerName}" ajouté à la carte: ${featuresOnMap} features visibles`);
-		console.log(`[DataModule] ========== createGeoJsonLayer END ==========`);
+		console.log(`[DataModule] ✅ "${layerName}": ${data.features?.length || 0} features → ${featuresOnMap} visibles (${(performance.now() - _t0).toFixed(1)}ms)`);
 
 		// Surcharge du style après filtrage pour toutes les features visibles
 		if (criteria && Object.keys(criteria).length > 0) {

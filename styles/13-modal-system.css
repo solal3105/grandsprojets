@@ -256,31 +256,8 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* ---------------------------------------------------------------------------
-   BASE - Footer (optionnel)
-   UNIFIÉ : Glassmorphism cohérent avec header
-   Background color défini pour tous les footers
---------------------------------------------------------------------------- */
-.gp-modal-footer {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 18px 20px;
-  /* Background color par défaut */
-  background-color: var(--surface-base);
-  /* Bordure subtile */
-  border-top: 1px solid var(--border-light);
-  /* Background glassmorphism unifié */
-  background-image: linear-gradient(0deg, var(--white-alpha-95), var(--white-alpha-88));
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  /* Légère ombre inversée pour le relief */
-  box-shadow: 0 -1px 0 var(--white-alpha-50) inset;
-  z-index: 10;
-}
+/* (Doublon supprimé : .gp-modal-footer
+   — redéfini dans 14-modal-components.css avec space-between layout) */
 
 /* ---------------------------------------------------------------------------
    VARIANTS - Tailles
@@ -595,28 +572,8 @@ body.modal-open {
    CONTENT SECTIONS - Éléments de contenu typiques
 --------------------------------------------------------------------------- */
 
-/* Section avec titre */
-.gp-modal-section {
-  margin-bottom: 24px;
-}
-
-.gp-modal-section:last-child {
-  margin-bottom: 0;
-}
-
-.gp-modal-section-title {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 12px 0;
-}
-
-.gp-modal-section-subtitle {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  margin: 0 0 16px 0;
-  line-height: 1.5;
-}
+/* (Doublons supprimés : .gp-modal-section, -title, -subtitle
+   — redéfinis avec styles enrichis dans 14-modal-components.css) */
 
 /* Form Elements */
 .gp-form-group {

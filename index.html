@@ -110,15 +110,8 @@
 
   <!-- Contribution modal (loaded dynamically) -->
   <div id="contrib-modal-container"></div>
-      <div id="project-detail" class="project-detail">
-        <div class="project-detail-header project-header-container">
-          <button id="detail-back-btn" class="btn-secondary detail-back-btn">&larr; Retour</button>
-           <h3 id="project-title" class="project-title">Titre du Projet</h3>
-           <button id="detail-toggle-btn" style="display:none; color:grey;  border:none; cursor:pointer; margin:0 1rem;"><i class="fas fa-chevron-down"></i></button>
-           <button id="detail-close-btn" class="detail-close-btn">✖</button>
-        </div>
-        <div id="detail-content" class="project-detail-content"></div>
-      </div>
+      <!-- Panneau de détail projet (contenu généré dynamiquement par NavigationModule.showProjectDetail) -->
+      <div id="project-detail" class="project-detail"></div>
     </div>
 
     <!-- Toggles UI - Refactored (no container wrapper) -->

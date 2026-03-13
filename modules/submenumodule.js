@@ -40,7 +40,7 @@ const SubmenuModule = (() => {
     }
 
     // Setup du conteneur
-    const projectList = setupSubmenuFallback({ category: cat });
+    const projectList = setupSubmenuContainer({ category: cat });
     if (!projectList) {
       console.warn(`[SubmenuModule] Container introuvable pour ${cat}`);
       return;
@@ -77,11 +77,12 @@ const SubmenuModule = (() => {
   }
 
   /**
-   * Configure le conteneur du sous-menu (création HTML si nécessaire)
+   * Configure le conteneur du sous-menu (création HTML si nécessaire).
+   * Délègue header/close/toggle à SubmenuManager.
    * @param {Object} config - Configuration avec category
    * @returns {HTMLElement|null} L'élément .project-list
    */
-  function setupSubmenuFallback(config) {
+  function setupSubmenuContainer(config) {
     const container = document.querySelector(`.submenu[data-category="${config.category}"]`);
     if (!container) return null;
     
@@ -90,117 +91,12 @@ const SubmenuModule = (() => {
     const alreadySetup = projectList && container.querySelector('.close-btn');
     
     if (!alreadySetup) {
-      // Création HTML initiale
-      container.innerHTML = `
-        <div class="detail-header-submenu">
-          <div class="header-left">
-            <button class="btn-secondary close-btn" aria-label="Fermer">
-              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-              <span>Fermer</span>
-            </button>
-          </div>
-          <div class="header-right">
-            <button class="btn-secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true">
-              <i class="fa-solid fa-compress" aria-hidden="true"></i>
-              <span>Réduire</span>
-            </button>
-          </div>
-        </div>
-        <ul class="project-list"></ul>
-      `;
-      
-      projectList = container.querySelector('.project-list');
-      
-      // Event: Fermeture du submenu
-      const closeBtn = container.querySelector('.close-btn');
-      closeBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        
-        container.style.display = 'none';
-        document.querySelectorAll('.nav-category.active').forEach(t => t.classList.remove('active'));
-        
-        const leftNav = document.getElementById('left-nav');
-        if (leftNav) leftNav.style.borderRadius = '20px';
-        
-        window.FilterModule?.resetAll();
-        
-        // Reset carte
-        if (window.MapModule?.layers) {
-          Object.keys(window.MapModule.layers).forEach(l => window.MapModule.removeLayer(l));
-        }
-        
-        // Affichage couches par défaut
-        const displayed = new Set();
-        
-        if (window.allContributions?.length) {
-          const cats = [...new Set(window.allContributions.map(c => c.category))];
-          cats.forEach(cat => {
-            if (window.DataModule?.layerData?.[cat]) {
-              window.DataModule.createGeoJsonLayer(cat, window.DataModule.layerData[cat]);
-              displayed.add(cat);
-            }
-          });
-        }
-        
-        window.defaultLayers?.forEach(layer => {
-          if (!displayed.has(layer) && window.DataModule?.layerData?.[layer]) {
-            window.DataModule.createGeoJsonLayer(layer, window.DataModule.layerData[layer]);
-          }
-        });
-      });
-      
-      // Event: Toggle réduire/étendre
-      const toggleBtn = container.querySelector('.submenu-toggle-btn');
-      toggleBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isCollapsed = toggleBtn.getAttribute('aria-expanded') === 'false';
-        const icon = toggleBtn.querySelector('i');
-        const label = toggleBtn.querySelector('span');
-        
-        if (isCollapsed) {
-          container.style.removeProperty('max-height');
-          container.style.removeProperty('overflow');
-          icon?.classList.replace('fa-expand', 'fa-compress');
-          if (label) label.textContent = 'Réduire';
-          toggleBtn.classList.remove('is-collapsed');
-          toggleBtn.setAttribute('aria-expanded', 'true');
-          toggleBtn.setAttribute('aria-label', 'Réduire');
-        } else {
-          container.style.setProperty('max-height', '10vh', 'important');
-          container.style.setProperty('overflow', 'hidden', 'important');
-          icon?.classList.replace('fa-compress', 'fa-expand');
-          if (label) label.textContent = 'Développer';
-          toggleBtn.classList.add('is-collapsed');
-          toggleBtn.setAttribute('aria-expanded', 'false');
-          toggleBtn.setAttribute('aria-label', 'Développer');
-        }
-      });
-      
-      resetSubmenuExpanded(container);
+      container.innerHTML = window.SubmenuManager.headerHTML() + '<ul class="project-list"></ul>';
+      window.SubmenuManager.wireHeaderEvents(container);
+      window.SubmenuManager.resetExpanded(container);
     }
     
-    // Toujours retourner une référence DOM fraîche
     return container.querySelector('.project-list');
-  }
-
-  /**
-   * Réinitialise un submenu en mode étendu
-   */
-  function resetSubmenuExpanded(panel) {
-    if (!panel) return;
-    
-    panel.style.removeProperty('max-height');
-    panel.style.removeProperty('overflow');
-    
-    const toggleBtn = panel.querySelector('.submenu-toggle-btn');
-    if (toggleBtn) {
-      const icon = toggleBtn.querySelector('i');
-      const label = toggleBtn.querySelector('span');
-      if (icon) icon.className = 'fa-solid fa-compress';
-      if (label) label.textContent = 'Réduire';
-      toggleBtn.setAttribute('aria-expanded', 'true');
-      toggleBtn.setAttribute('aria-label', 'Réduire');
-    }
   }
 
   /**

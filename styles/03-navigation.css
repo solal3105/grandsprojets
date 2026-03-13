@@ -11,18 +11,18 @@
   left: 10px;
   background: var(--white-alpha-80);
   backdrop-filter: blur(20px);
-  border-radius: 20px;
-  box-shadow: 0 2px 8px var(--black-alpha-15);
+  border-radius: 16px;
+  box-shadow: 0 4px 16px var(--black-alpha-10);
   z-index: 1000;
-  padding: 20px;
+  padding: 12px;
   transition: width 0.3s, border-radius 0.3s ease;
   max-height: 70vh;
 }
 
-/* Desktop: Quand un panneau est ouvert, coin haut droit à 0 */
+/* Desktop: Quand un panneau est ouvert, coin droit à 0 pour connexion flush */
 @media (min-width: 721px) {
   #left-nav.has-panel-open {
-    border-radius: 20px 0 20px 20px;
+    border-radius: 16px 0 0 16px;
   }
 }
 
@@ -44,14 +44,14 @@
 }
 
 /* Container des sous-menus (frère de #left-nav, hors backdrop-filter) */
+/* La largeur est synchronisée dynamiquement par SubmenuManager.syncSubmenuContainerWidth()
+   pour coller parfaitement à #left-nav quelle que soit sa taille. */
 #dynamic-submenus {
   position: absolute;
   top: 10px;
   left: 10px;
   z-index: 1100;
   pointer-events: none;
-  /* Taille identique à #left-nav pour que .submenu left:100% fonctionne */
-  width: 300px;
   max-height: 70vh;
 }
 
@@ -66,24 +66,24 @@
   gap: 0;
 }
 
-/* Boutons de catégories - hauteur par défaut (≤4 éléments) */
+/* Boutons de catégories */
 #dynamic-categories .nav-category {
   width: 100%;
-  min-height: 80px;
+  min-height: 64px;
   margin: 0;
 }
 
 /* Desktop uniquement : Adaptation selon le nombre d'éléments */
 @media (min-width: 721px) {
-  /* À partir de 5 éléments : réduire légèrement la hauteur et le padding */
+  /* À partir de 5 éléments : réduire la hauteur */
   #dynamic-categories[data-item-count="5"] .nav-category,
   #dynamic-categories[data-item-count="6"] .nav-category,
   #dynamic-categories[data-item-count="7"] .nav-category,
   #dynamic-categories[data-item-count="8"] .nav-category,
   #dynamic-categories[data-item-count="9"] .nav-category,
   #dynamic-categories[data-item-count="10"] .nav-category {
-    min-height: 75px;
-    padding: 8px 10px;
+    min-height: 58px;
+    padding: 6px 8px;
   }
   
   /* Si 5+ éléments : activer le scroll sur le container */
@@ -93,7 +93,7 @@
   #dynamic-categories[data-item-count="8"],
   #dynamic-categories[data-item-count="9"],
   #dynamic-categories[data-item-count="10"] {
-    max-height: calc(70vh - 140px); /* 70vh - logo - padding */
+    max-height: calc(70vh - 120px); /* 70vh - logo - padding */
     overflow-y: auto;
     overflow-x: hidden;
   }
@@ -126,7 +126,7 @@
 }
 
 #left-nav .logo img {
-  width: 100px;
+  width: 90px;
   height: auto;
 }
 
@@ -154,22 +154,20 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 6px;
   border: none;
   border-radius: 10px;
-  width: 80px;
-  padding: 10px 10px;
+  width: 76px;
+  padding: 8px 6px;
   cursor: pointer;
   font-size: 1rem;
-  background: var(--white-alpha-30);
+  background: transparent;
   text-align: center;
   margin: 0;
-  border: 0px white;
   position: relative;
   overflow: hidden;
   transform: translateZ(0);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
-  will-change: transform, box-shadow, background, color, border-color;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
 /* Variable CSS pour la couleur de catégorie (définie via JS) */
@@ -181,57 +179,19 @@
   --cat-color-alpha-25: color-mix(in srgb, var(--cat-color) 25%, transparent);
 }
 
-.nav-category:not(#nav-overflow)::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 120%;
-  height: 100%;
-  background: linear-gradient(45deg, transparent, var(--cat-color-alpha-12), transparent);
-  transform: translateX(-120%);
-  transition: transform 0.3s ease;
-  pointer-events: none;
-}
-
-.nav-category:not(#nav-overflow):hover::before {
-  transform: translateX(120%);
-}
-
 .nav-category:hover {
-  transform: scale(0.98) rotate(-1deg);
   background: var(--cat-color-alpha-16);
-  box-shadow: 0 8px 20px var(--cat-color-alpha-22);
-  animation: subtleBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .nav-category:hover i,
 .nav-category:hover .label {
   color: var(--cat-color);
-  animation: iconPulse 0.5s ease-in-out;
-}
-
-/* Animation de rebond subtil au survol */
-@keyframes subtleBounce {
-  0% { transform: scale(1) rotate(0deg); }
-  30% { transform: scale(0.96) rotate(-2deg); }
-  50% { transform: scale(1.02) rotate(1deg); }
-  70% { transform: scale(0.99) rotate(-0.5deg); }
-  100% { transform: scale(0.98) rotate(-1deg); }
-}
-
-/* Animation de pulsation pour l'icône */
-@keyframes iconPulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
 }
 
 .nav-category.active {
   background: var(--cat-color);
   color: var(--white);
-  border-bottom: 0;
-  transform: scale(1.03);
-  box-shadow: 0 5px 15px var(--cat-color-alpha-25);
+  box-shadow: 0 2px 8px var(--cat-color-alpha-25);
 }
 
 .nav-category.active i {
@@ -244,7 +204,7 @@
 
 .nav-category i {
   margin: 0;
-  font-size: 1.4rem;
+  font-size: 1.2rem;
   color: var(--gray-700);
 }
 
@@ -256,34 +216,34 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  line-height: 1.2;
-  color: var(--gray-700);
-  max-width: 70px;
+  line-height: 1.25;
+  color: var(--gray-600);
+  max-width: 68px;
   word-break: break-word;
   text-align: center;
+  letter-spacing: 0.01em;
 }
 
 /* Sous-menus */
 .submenu {
   display: none;
   position: absolute;
-  top: 0px; /* 20px plus haut que la nav */
+  top: 0;
   left: 100%;
   width: 320px;
-  min-height: calc(100% + 20px);
-  max-height: calc(70vh + 20px);
+  min-height: 100%;
+  max-height: calc(70vh);
   background: var(--surface-base);
-  box-shadow: 2px 0 12px var(--black-alpha-08);
-  border-radius: 0 20px 20px 20px;
+  box-shadow: 4px 0 16px var(--black-alpha-08);
+  border-radius: 0 16px 16px 0;
   z-index: 1200;
   overflow-y: auto;
   opacity: 0;
-  transform: translateX(-20px) scale(0.95);
-  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-              transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateX(-10px);
+  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   /* Couleur de catégorie (définie via JS) pour les accents */
   --cat-color: var(--primary);
 }
@@ -292,8 +252,7 @@
 .submenu[style*="display: block"],
 .submenu.visible {
   opacity: 1;
-  transform: translateX(0) scale(1);
-  box-shadow: 2px 0 20px var(--black-alpha-12);
+  transform: translateX(0);
 }
 
 /* Animation des items */
@@ -320,112 +279,9 @@
   }
 }
 
-/* Headers de sous-menus */
-.detail-header-project-list {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  justify-content: space-between;
-  padding: 20px 0;
-  background: var(--white-alpha-95);
-  backdrop-filter: blur(5px);
-  flex-direction: column;
-}
-
-/* Header détails projet */
-.project-header-container {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px 20px;
-  margin: -20px -20px 20px -20px;
-  background: var(--white-alpha-95);
-  backdrop-filter: blur(5px);
-  border-bottom: 1px solid var(--border-medium);
-}
-
-#detail-close-btn {
-  position: absolute;
-  right: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: var(--gray-500);
-  font-size: 1.1rem;
-  cursor: pointer;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  margin: 0;
-  margin-left: auto;
-}
-
-#detail-close-btn:hover {
-  background-color: var(--gray-100) !important;
-  color: var(--gray-700) !important;
-  border-radius: 50% !important;
-}
-
-#detail-toggle-btn {
-  position: absolute;
-  right: 2.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 32px;
-  height: 32px;
-}
-
-#detail-toggle-btn:hover {
-  background-color: var(--gray-100) !important;
-  color: var(--gray-700) !important;
-  border-radius: 50% !important;
-}
-
-/* Titres */
-.detail-header-project-list h2,
-.project-header-container .project-title {
-  font-weight: bold;
-  margin-bottom: 2px;
-}
-
-.detail-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 20px;
-}
-
-.detail-header h2 {
-  margin: 0;
-  font-size: 1.2rem;
-  color: var(--gray-700);
-  font-weight: 600;
-}
-
-/* .detail-header .close-btn utilise .btn-secondary */
-.detail-header .close-btn {
-  margin-left: auto;
-}
-
-.detail-header-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 20px;
-  margin: 0;
-}
+/* (Legacy supprimé : .detail-header-project-list, .project-header-container,
+   #detail-close-btn, #detail-toggle-btn, .detail-header, .detail-header-top
+   — anciens sélecteurs du HTML statique, remplacés par .detail-header-submenu) */
 
 /* #detail-back-btn utilise .btn-secondary du système gp-button-system.css */
 
@@ -497,13 +353,6 @@
   width: 100%;
 }
 
-/* Always show the reduce toggle for project detail header */
-#project-detail .detail-header-submenu .submenu-toggle-btn {
-  display: inline-flex !important;
-}
-
-/* Les boutons utilisent le système unifié */
-
 /* Normalize header buttons inside project detail header */
 #project-detail .detail-header-submenu button {
   margin: 0;
@@ -511,23 +360,21 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Boutons - Utilise le système gp-button-system.css (.btn-primary, .btn-secondary, etc.)
+   Bouton toggle Réduire/Développer
+   - Masqué par défaut
+   - Visible sur mobile dans les submenus (voir 08-responsive.css)
+   - Toujours visible dans #project-detail
 --------------------------------------------------------------------------- */
-/* Les boutons utilisent maintenant le système unifié gp-button-system.css */
-
-/* État réduit (pour le bouton toggle) */
-.submenu-toggle-btn.is-collapsed {
-  opacity: 0.95;
-}
-
-/* .submenu-toggle-btn utilise .btn-secondary */
 .submenu-toggle-btn {
   display: none;
 }
 
-/* Ensure project detail toggle remains visible on desktop as well */
-#project-detail .detail-header-submenu .submenu-toggle-btn {
+#project-detail .submenu-toggle-btn {
   display: inline-flex !important;
+}
+
+.submenu-toggle-btn.is-collapsed {
+  opacity: 0.95;
 }
 
 /* ---------------------------------------------------------------------------

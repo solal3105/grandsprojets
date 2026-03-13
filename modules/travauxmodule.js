@@ -2,29 +2,6 @@
 const TravauxModule = (() => {
 
   /**
-   * Fonction helper pour réinitialiser l'état étendu du sous-menu
-   */
-  function resetSubmenuExpanded(panelId) {
-    const panel = document.getElementById(panelId);
-    try {
-      if (panel) {
-        panel.style.removeProperty('max-height');
-        panel.style.removeProperty('overflow');
-        const toggleBtn = panel.querySelector('.submenu-toggle-btn');
-        if (toggleBtn) {
-          const iconEl = toggleBtn.querySelector('i');
-          const labelEl = toggleBtn.querySelector('span');
-          if (iconEl && iconEl.classList.contains('fa-expand')) iconEl.classList.replace('fa-expand', 'fa-compress');
-          if (labelEl) labelEl.textContent = 'Réduire';
-          toggleBtn.classList.remove('is-collapsed');
-          toggleBtn.setAttribute('aria-expanded', 'true');
-          toggleBtn.setAttribute('aria-label', 'Réduire');
-        }
-      }
-    } catch (_) { /* noop */ }
-  }
-
-  /**
    * Affichage des projets Travaux avec système de filtres avancé
    */
   async function renderTravauxProjects() {
@@ -39,22 +16,7 @@ const TravauxModule = (() => {
     let projectListEl = submenu.querySelector('.project-list');
 
     submenu.innerHTML = `
-      <div class="detail-header-submenu">
-        <div class="header-left">
-          <button class="btn-secondary close-btn" aria-label="Fermer">
-            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-            <span>Fermer</span>
-          </button>
-        </div>
-        <div class="header-center">
-        </div>
-        <div class="header-right">
-          <button class="btn-secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true">
-            <i class="fa-solid fa-compress" aria-hidden="true"></i>
-            <span>Réduire</span>
-          </button>
-        </div>
-      </div>
+      ${window.SubmenuManager.headerHTML({ extraHTML: '<div class="header-center"></div>' })}
       
       <!-- Zone de dessin (cachée par défaut) -->
       <div id="travaux-drawing-panel" class="travaux-drawing-panel">
@@ -131,18 +93,16 @@ const TravauxModule = (() => {
       <ul class="project-list"></ul>
     `;
     
-    // Always start expanded for Travaux when rendered
-    resetSubmenuExpanded(submenu);
+    // Démarrer en mode étendu + attacher close/toggle via SubmenuManager
+    window.SubmenuManager.resetExpanded(submenu);
+    window.SubmenuManager.wireHeaderEvents(submenu);
 
-    // Simple exclusivity safeguard: ensure only category-related layers remain visible
-    // This prevents timing issues when opening the menu without a full reset
+    // Exclusivité des layers : ne garder que ceux de la catégorie travaux
     try {
-      // Récupérer la catégorie depuis data-category
       const category = submenu.dataset.category;
-      
       if (category) {
         const layersToDisplay = window.categoryLayersMap?.[category] || [];
-        if (window.MapModule && window.MapModule.layers) {
+        if (window.MapModule?.layers) {
           Object.keys(window.MapModule.layers).forEach(layerName => {
             if (!layersToDisplay.includes(layerName)) {
               try { window.MapModule.removeLayer(layerName); } catch(_) {}
@@ -154,82 +114,6 @@ const TravauxModule = (() => {
 
     // Récupérer à nouveau la liste après reconstruction du DOM
     projectListEl = submenu.querySelector('.project-list');
-
-    // Gestionnaire d'événement pour le bouton de réduction/extension
-    const travauxToggleBtn = submenu.querySelector('.submenu-toggle-btn');
-    const travauxPanel = submenu;
-    if (travauxToggleBtn && travauxPanel) {
-      travauxToggleBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isCollapsed = travauxToggleBtn.getAttribute('aria-expanded') === 'false';
-        const iconEl = travauxToggleBtn.querySelector('i');
-        const labelEl = travauxToggleBtn.querySelector('span');
-        if (isCollapsed) {
-          // Expand
-          travauxPanel.style.removeProperty('max-height');
-          travauxPanel.style.removeProperty('overflow');
-          if (iconEl) {
-            if (iconEl.classList.contains('fa-expand')) iconEl.classList.replace('fa-expand', 'fa-compress');
-            else iconEl.classList.add('fa-compress');
-          }
-          if (labelEl) labelEl.textContent = 'Réduire';
-          travauxToggleBtn.classList.remove('is-collapsed');
-          travauxToggleBtn.setAttribute('aria-expanded', 'true');
-          travauxToggleBtn.setAttribute('aria-label', 'Réduire');
-        } else {
-          // Reduce/collapse
-          travauxPanel.style.setProperty('max-height', '10vh', 'important');
-          travauxPanel.style.setProperty('overflow', 'hidden', 'important');
-          if (iconEl && iconEl.classList.contains('fa-compress')) iconEl.classList.replace('fa-compress', 'fa-expand');
-          if (labelEl) labelEl.textContent = 'Développer';
-          travauxToggleBtn.classList.add('is-collapsed');
-          travauxToggleBtn.setAttribute('aria-expanded', 'false');
-          travauxToggleBtn.setAttribute('aria-label', 'Développer');
-        }
-      });
-    }
-
-    // Gestionnaire d'événement pour le bouton de fermeture
-    submenu.querySelector('.close-btn')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      // Désactiver l'onglet travaux actif
-      const activeTab = document.querySelector('.nav-category.active');
-      if (activeTab && activeTab.id === 'nav-travaux') {
-        activeTab.classList.remove('active');
-      }
-      // Masquer explicitement le sous-menu travaux
-      const travauxSubmenu = document.querySelector('.submenu[data-category="travaux"]');
-      if (travauxSubmenu) {
-        travauxSubmenu.style.display = 'none';
-      }
-      
-      // Restaurer le border-radius de la nav (comportement identique aux autres submenus)
-      const leftNav = document.getElementById('left-nav');
-      if (leftNav) leftNav.style.borderRadius = '20px';
-      
-      // Réafficher les couches par défaut et les contributions (même logique que SubmenuModule)
-      window.FilterModule?.resetAll();
-      // Reset carte
-      if (window.MapModule?.layers) {
-        Object.keys(window.MapModule.layers).forEach(l => window.MapModule.removeLayer(l));
-      }
-      // Affichage couches par défaut + contributions depuis le cache
-      const displayed = new Set();
-      if (window.allContributions?.length) {
-        const cats = [...new Set(window.allContributions.map(c => c.category))];
-        cats.forEach(cat => {
-          if (window.DataModule?.layerData?.[cat]) {
-            window.DataModule.createGeoJsonLayer(cat, window.DataModule.layerData[cat]);
-            displayed.add(cat);
-          }
-        });
-      }
-      window.defaultLayers?.forEach(layer => {
-        if (!displayed.has(layer) && window.DataModule?.layerData?.[layer]) {
-          window.DataModule.createGeoJsonLayer(layer, window.DataModule.layerData[layer]);
-        }
-      });
-    });
 
     // Nettoyer les anciens filtres
     if (projectListEl) projectListEl.innerHTML = '';
@@ -307,9 +191,10 @@ const TravauxModule = (() => {
       etats = getUniques('etat');
     }
 
-    // --- Filtres ultra-clean ---
+    // --- Panneau Travaux redesigné ---
     const filterUX = document.createElement('section');
     filterUX.id = 'travaux-filters-ux';
+    filterUX.className = 'travaux-panel';
     filterUX.innerHTML = `
       <!-- Card Ajouter (cachée par défaut, visible si admin) -->
       <div class="travaux-add-card" style="display:none;">
@@ -320,85 +205,49 @@ const TravauxModule = (() => {
       </div>
       
       ${hasFeatures ? `
-      <!-- Header -->
-      <div class="filters-header">
-        <h3 class="filters-title">Filtres</h3>
-        <span id="filters-count" class="filters-count"></span>
+      <!-- Timeline hero -->
+      <div class="travaux-timeline" id="travaux-timeline">
+        <div class="timeline-hero">
+          <span class="timeline-count" id="timeline-count">0</span>
+          <span class="timeline-count-label">chantier(s) ouvert(s) le</span>
+          <span class="timeline-date" id="timeline-date-label"></span>
+        </div>
+        <input type="range" id="travaux-date-slider" class="timeline-slider" />
+        <div class="timeline-range-labels">
+          <span id="timeline-min-label"></span>
+          <span id="timeline-max-label"></span>
+        </div>
       </div>
       
-      <!-- Tags actifs -->
-      <div id="filters-tags" class="filters-tags"></div>
+      <!-- Compact filters -->
+      <div class="travaux-filters-row">
+        <select id="nature-select" class="travaux-select" aria-label="Nature">
+          <option value="">Nature</option>
+          ${natures.map(n => `<option value="${n}">${n} (${natureCounts[n]})</option>`).join('')}
+        </select>
+        <select id="commune-select" class="travaux-select" aria-label="Commune">
+          <option value="">Commune</option>
+          ${communes.map(c => `<option value="${c}">${c} (${communeCounts[c]})</option>`).join('')}
+        </select>
+        <select id="etat-select" class="travaux-select" aria-label="État">
+          <option value="">État</option>
+          ${etats.map(e => `<option value="${e}">${e}</option>`).join('')}
+        </select>
+      </div>
       
-      <!-- Formulaire -->
-      <form class="filters-form" autocomplete="off">
-        
-        <!-- Exclure réseaux (switch simple) -->
-        <label class="filter-switch">
+      <!-- Options row -->
+      <div class="travaux-options-row">
+        <label class="travaux-switch-label">
           <input type="checkbox" id="hide-reseaux">
-          <span class="switch-slider"></span>
-          <span class="switch-label">Exclure les réseaux</span>
+          <span>Exclure réseaux</span>
         </label>
-        
-        <!-- Nature -->
-        <div class="filter-group">
-          <label for="nature-select">
-            <i class="fa-solid fa-hammer"></i>
-            <span>Nature</span>
-          </label>
-          <select id="nature-select">
-            <option value="">Toutes</option>
-            ${natures.map(n => `<option value="${n}">${n} (${natureCounts[n]})</option>`).join('')}
-          </select>
-        </div>
-        
-        <!-- Commune -->
-        <div class="filter-group">
-          <label for="commune-select">
-            <i class="fa-solid fa-location-dot"></i>
-            <span>Commune</span>
-          </label>
-          <select id="commune-select">
-            <option value="">Toutes</option>
-            ${communes.map(c => `<option value="${c}">${c} (${communeCounts[c]})</option>`).join('')}
-          </select>
-        </div>
-        
-        <!-- État -->
-        <div class="filter-group">
-          <label for="etat-select">
-            <i class="fa-solid fa-circle-info"></i>
-            <span>État</span>
-          </label>
-          <select id="etat-select">
-            <option value="">Tous</option>
-            ${etats.map(e => `<option value="${e}">${e}</option>`).join('')}
-          </select>
-        </div>
-        
-        <!-- Date début -->
-        <div class="filter-group">
-          <label for="date-debut">
-            <i class="fa-solid fa-calendar-plus"></i>
-            <span>Début</span>
-          </label>
-          <input id="date-debut" type="date" />
-        </div>
-        
-        <!-- Date fin -->
-        <div class="filter-group">
-          <label for="date-fin">
-            <i class="fa-solid fa-calendar-check"></i>
-            <span>Fin</span>
-          </label>
-          <input id="date-fin" type="date" />
-        </div>
-        
-        <!-- Reset -->
-        <button type="button" id="reset-filters" class="btn-secondary btn-small">
-          Réinitialiser
+        <button type="button" id="reset-filters" class="travaux-reset-btn" style="display:none;">
+          <i class="fa-solid fa-rotate-left"></i> Réinitialiser
         </button>
-        
-      </form>
+      </div>
+      
+      <!-- Active filter badges -->
+      <div id="filters-tags" class="travaux-tags"></div>
       ` : ''}
     `;
     
@@ -479,188 +328,207 @@ const TravauxModule = (() => {
     const selectNature = filterUX.querySelector('#nature-select');
     const selectCommune = filterUX.querySelector('#commune-select');
     const selectEtat = filterUX.querySelector('#etat-select');
-    const inputDebut = filterUX.querySelector('#date-debut');
-    const inputFin = filterUX.querySelector('#date-fin');
+    const timelineSlider = filterUX.querySelector('#travaux-date-slider');
+    const timelineDateLabel = filterUX.querySelector('#timeline-date-label');
+    const timelineCountEl = filterUX.querySelector('#timeline-count');
+    const timelineMinLabel = filterUX.querySelector('#timeline-min-label');
+    const timelineMaxLabel = filterUX.querySelector('#timeline-max-label');
     const hideReseauxCheckbox = filterUX.querySelector('#hide-reseaux');
-    
-    // Fonction pour filtrer les options des sélecteurs
-    function filterOptions(selectElement, options, counts) {
-      const hideReseaux = hideReseauxCheckbox.checked;
-      const reseauxKeywords = ['gaz', 'réseau', 'eau', 'branchement', 'télécom', 'telecom', 'électricité', 'assainissement', 'hydraulique', 'sondage'];
-      
-      return options
-        .filter(option => !hideReseaux || !reseauxKeywords.some(keyword => 
-          option.toLowerCase().includes(keyword)
-        ))
-        .map(option => `<option value="${option}">${option} (${counts[option]})</option>`)
-        .join('');
-    }
-    
     const resetBtn = filterUX.querySelector('#reset-filters');
     const badgesContainer = filterUX.querySelector('#filters-tags');
-    const countEl = filterUX.querySelector('#filters-count');
 
-    // --- UX : badges de filtres actifs ---
-    function renderActiveBadges(criteria) {
-      badgesContainer.innerHTML = '';
-      const labels = {
-        nature_travaux: 'Nature',
-        nature_chantier: 'Nature Chantier',
-        commune: 'Commune',
-        etat: 'État',
-        date_debut: 'Début >',
-        date_fin: 'Fin <',
-        _hideReseaux: 'Réseaux exclus'
-      };
-      
-      Object.entries(criteria).forEach(([key, val]) => {
-        if (val === undefined || val === '' || val === null) return;
-        const badge = document.createElement('span');
-        badge.className = 'gpv2-filter-badge';
-        badge.setAttribute('tabindex', '0');
-        badge.setAttribute('role', 'button');
-        
-        // Pour le filtre _hideReseaux, on affiche toujours 'Exclure les réseaux'
-        const displayText = key === '_hideReseaux' ? 'Exclure les réseaux' : (labels[key] || key);
-        badge.setAttribute('aria-label', `Retirer filtre ${displayText}`);
-        badge.innerHTML = `<i class='fa-solid fa-xmark'></i> <strong>${displayText}</strong>`;
-        badge.addEventListener('click', () => {
-          // Retirer le filtre correspondant
-          switch (key) {
-            case '_hideReseaux':
-              hideReseauxCheckbox.checked = false;
-              break;
-            case 'nature_travaux': 
-              selectNature.value = ''; 
-              break;
-            // nature_chantier supprimé (doublon)
-            case 'commune': 
-              selectCommune.value = ''; 
-              break;
-            case 'etat': 
-              selectEtat.value = ''; 
-              break;
-            case 'date_debut': 
-              inputDebut.value = ''; 
-              break;
-            case 'date_fin': 
-              inputFin.value = ''; 
-              break;
-          }
-          applyFiltersAndSync();
-        });
-        badge.addEventListener('keydown', e => {
-          if (e.key === 'Enter' || e.key === ' ') badge.click();
-        });
-        badgesContainer.appendChild(badge);
+    // --- Timeline slider setup ---
+    // Range = min(date_debut) → max(date_fin) so it covers only actual data
+    let timelineMinDate = null;
+    let timelineMaxDate = null;
+    let timelineEnabled = false;
+    {
+      const starts = [];
+      const ends = [];
+      features.forEach(f => {
+        const p = f.properties || {};
+        if (p.date_debut) { const d = new Date(p.date_debut); if (!isNaN(d)) starts.push(d); }
+        if (p.date_fin) { const d = new Date(p.date_fin); if (!isNaN(d)) ends.push(d); }
       });
-      badgesContainer.style.display = Object.keys(criteria).length > 0 ? 'flex' : 'none';
+      if (starts.length > 0) {
+        timelineMinDate = new Date(Math.min(...starts));
+        // Use max(date_fin) if available, otherwise max(date_debut) + 6 months
+        timelineMaxDate = ends.length > 0
+          ? new Date(Math.max(...ends))
+          : new Date(Math.max(...starts) + 180 * 86400000);
+        // Ensure at least 30 days range
+        if (timelineMaxDate - timelineMinDate < 30 * 86400000) {
+          timelineMaxDate = new Date(timelineMinDate.getTime() + 30 * 86400000);
+        }
+        timelineEnabled = true;
+      }
+    }
+
+    const fmtShort = (d) => d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+    const fmtFull = (d) => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    if (timelineEnabled && timelineSlider) {
+      const totalDays = Math.round((timelineMaxDate - timelineMinDate) / 86400000);
+      timelineSlider.min = 0;
+      timelineSlider.max = totalDays;
+      // Default to today (clamped to range)
+      const today = new Date();
+      const todayOffset = Math.round((today - timelineMinDate) / 86400000);
+      timelineSlider.value = Math.max(0, Math.min(totalDays, todayOffset));
+      timelineMinLabel.textContent = fmtShort(timelineMinDate);
+      timelineMaxLabel.textContent = fmtShort(timelineMaxDate);
+    } else if (timelineSlider) {
+      const tlEl = filterUX.querySelector('#travaux-timeline');
+      if (tlEl) tlEl.style.display = 'none';
+    }
+
+    function getSliderDate() {
+      if (!timelineEnabled || !timelineSlider) return new Date();
+      const offset = parseInt(timelineSlider.value, 10);
+      return new Date(timelineMinDate.getTime() + offset * 86400000);
     }
 
     // Fonction utilitaire pour vérifier si un texte contient des mots-clés de réseaux
     function isReseau(text) {
       if (!text) return false;
-      const reseauxKeywords = ['gaz', 'réseau', 'eau', 'branchement', 'télécom', 'telecom', 'électricité', 'electricite', 'assainissement'];
-      return reseauxKeywords.some(keyword => 
-        String(text).toLowerCase().includes(keyword.toLowerCase())
-      );
+      const kw = ['gaz', 'réseau', 'eau', 'branchement', 'télécom', 'telecom', 'électricité', 'electricite', 'assainissement'];
+      return kw.some(k => String(text).toLowerCase().includes(k));
+    }
+
+    // Fonction pour filtrer les options des sélecteurs
+    function filterOptions(opts, counts) {
+      const hideReseaux = hideReseauxCheckbox.checked;
+      const kw = ['gaz', 'réseau', 'eau', 'branchement', 'télécom', 'telecom', 'électricité', 'assainissement', 'hydraulique', 'sondage'];
+      return opts
+        .filter(o => !hideReseaux || !kw.some(k => o.toLowerCase().includes(k)))
+        .map(o => `<option value="${o}">${o} (${counts[o]})</option>`)
+        .join('');
+    }
+
+    // --- Badges de filtres actifs ---
+    function renderActiveBadges(criteria) {
+      badgesContainer.innerHTML = '';
+      const labels = { nature_travaux: 'Nature', commune: 'Commune', etat: 'État', _hideReseaux: 'Sans réseaux' };
+      Object.entries(criteria).forEach(([key, val]) => {
+        if (val === undefined || val === '' || val === null || key === '_timeline') return;
+        const badge = document.createElement('span');
+        badge.className = 'travaux-badge';
+        badge.setAttribute('tabindex', '0');
+        badge.setAttribute('role', 'button');
+        const text = key === '_hideReseaux' ? 'Sans réseaux' : `${labels[key] || key}: ${val}`;
+        badge.setAttribute('aria-label', `Retirer filtre ${text}`);
+        badge.innerHTML = `${text} <i class='fa-solid fa-xmark'></i>`;
+        badge.addEventListener('click', () => {
+          switch (key) {
+            case '_hideReseaux': hideReseauxCheckbox.checked = false; break;
+            case 'nature_travaux': selectNature.value = ''; break;
+            case 'commune': selectCommune.value = ''; break;
+            case 'etat': selectEtat.value = ''; break;
+          }
+          applyFiltersAndSync();
+        });
+        badge.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') badge.click(); });
+        badgesContainer.appendChild(badge);
+      });
+      badgesContainer.style.display = Object.keys(criteria).filter(k => k !== '_timeline').length > 0 ? 'flex' : 'none';
     }
 
     // --- Fonction de synchronisation filtre panel <-> carte ---
     function applyFiltersAndSync() {
-      // 1. Récupérer les critères depuis les inputs du panel
-      // Construire dynamiquement les critères (ne garder que les champs renseignés)
       const criteria = {};
       if (selectNature.value) criteria.nature_travaux = selectNature.value;
       if (selectCommune.value) criteria.commune = selectCommune.value;
       if (selectEtat.value) criteria.etat = selectEtat.value;
-      if (inputDebut.value) criteria.date_debut = inputDebut.value;
-      if (inputFin.value) criteria.date_fin = inputFin.value;
-      
-      // 2. Appliquer le filtre à la carte (Leaflet)
-      // On ajoute le filtre des réseaux aux critères si la case est cochée
       const hideReseaux = hideReseauxCheckbox.checked;
-      if (hideReseaux) {
-        criteria._hideReseaux = true; // Marqueur spécial pour le filtre personnalisé
-      }
-      
+      if (hideReseaux) criteria._hideReseaux = true;
+
       if (window.UIModule?.applyFilter) {
         const mapped = (window.categoryLayersMap && window.categoryLayersMap['travaux']) || [];
         const travauxLayerName = mapped[0] || 'travaux';
         window.UIModule.applyFilter(travauxLayerName, criteria);
       }
 
-      // 3. Récupérer les features filtrées (après application du filtre)
+      // Récupérer les features filtrées
       let filtered = [];
       const mapped = (window.categoryLayersMap && window.categoryLayersMap['travaux']) || [];
       const travauxLayerName = mapped[0] || 'travaux';
       const travauxLayer = window.MapModule?.layers?.[travauxLayerName];
       if (travauxLayer && typeof travauxLayer.eachLayer === 'function') {
-        travauxLayer.eachLayer(layer => {
-          if (layer.feature) filtered.push(layer.feature);
-        });
+        travauxLayer.eachLayer(layer => { if (layer.feature) filtered.push(layer.feature); });
       }
       if (filtered.length === 0 && window.DataModule?.layerData?.[travauxLayerName]) {
         filtered = window.DataModule.layerData[travauxLayerName].features || [];
       }
-      
-      // 4. Si le filtre des réseaux est actif, filtrer les résultats
+
       if (hideReseaux) {
-        filtered = filtered.filter(feature => {
-          const props = feature.properties || {};
-          return !isReseau(props.nature_travaux) && !isReseau(props.nature_chantier);
+        filtered = filtered.filter(f => {
+          const p = f.properties || {};
+          return !isReseau(p.nature_travaux) && !isReseau(p.nature_chantier);
         });
       }
 
-      // Affichage dynamique des badges de filtres actifs
-      renderActiveBadges(criteria);
-      // Compteur de résultats filtrés (features sur la carte)
-      countEl.textContent = `${filtered.length} résultat${filtered.length > 1 ? 's' : ''}`;
-      countEl.style.display = 'inline-block';
-      // Accessibilité : aria-live pour le compteur
-      countEl.setAttribute('aria-live', 'polite');
+      // Timeline date filter
+      if (timelineEnabled && timelineSlider) {
+        const selectedDate = getSliderDate();
+        const selTime = selectedDate.getTime();
+        filtered = filtered.filter(f => {
+          const p = f.properties || {};
+          const deb = p.date_debut ? new Date(p.date_debut) : null;
+          const fin = p.date_fin ? new Date(p.date_fin) : null;
+          if (!deb || isNaN(deb)) return true;
+          if (deb.getTime() > selTime) return false;
+          if (fin && !isNaN(fin) && fin.getTime() < selTime) return false;
+          return true;
+        });
+        criteria._timeline = fmtFull(selectedDate);
+      }
 
-      // Affichage conditionnelle du bouton Réinitialiser
-      const hasActiveFilter = !!(selectNature.value || selectCommune.value || selectEtat.value || inputDebut.value || inputFin.value);
+      // Update timeline hero
+      if (timelineDateLabel) timelineDateLabel.textContent = fmtFull(getSliderDate());
+      if (timelineCountEl) timelineCountEl.textContent = filtered.length;
+
+      renderActiveBadges(criteria);
+
+      const hasActiveFilter = !!(selectNature.value || selectCommune.value || selectEtat.value || hideReseaux);
       resetBtn.style.display = hasActiveFilter ? '' : 'none';
 
-      // Désormais, on ne remplit plus la liste : on n'affiche que les filtres
       projectListEl.innerHTML = '';
-      // Aucun affichage de travaux, ni message "aucun travaux".
-      // Le panel ne contient que les contrôles de filtre.
     }
 
     // Mise à jour des filtres et des options
     function updateFilterOptions() {
-      // Mise à jour des options des sélecteurs
-      selectNature.innerHTML = '<option value="">Toutes</option>' + 
-        filterOptions(selectNature, natures, natureCounts);
-      
-      // Conserver la sélection actuelle si elle existe toujours
-      if (selectNature.value) {
-        const option = selectNature.querySelector(`option[value="${selectNature.value}"]`);
-        if (!option) selectNature.value = '';
+      const savedNature = selectNature.value;
+      selectNature.innerHTML = '<option value="">Nature</option>' + filterOptions(natures, natureCounts);
+      if (savedNature) {
+        const opt = selectNature.querySelector(`option[value="${savedNature}"]`);
+        if (opt) selectNature.value = savedNature; else selectNature.value = '';
       }
     }
-    
-    // Écouteurs d'événements pour les filtres
-    [selectNature, selectCommune, selectEtat, inputDebut, inputFin].forEach(el => {
-      el.addEventListener('change', applyFiltersAndSync);
-    });
-    
-    // Écouteur pour la case à cocher "Exclure les réseaux"
+
+    // Écouteurs d'événements
+    [selectNature, selectCommune, selectEtat].forEach(el => el.addEventListener('change', applyFiltersAndSync));
+
+    if (timelineSlider && timelineEnabled) {
+      timelineSlider.addEventListener('input', applyFiltersAndSync);
+    }
+
     hideReseauxCheckbox.addEventListener('change', () => {
       updateFilterOptions();
       applyFiltersAndSync();
     });
-    
+
     resetBtn.addEventListener('click', () => {
       selectNature.value = '';
       selectCommune.value = '';
       selectEtat.value = '';
-      inputDebut.value = '';
-      inputFin.value = '';
       hideReseauxCheckbox.checked = false;
+      if (timelineSlider && timelineEnabled) {
+        const today = new Date();
+        const todayOffset = Math.round((today - timelineMinDate) / 86400000);
+        const totalDays = parseInt(timelineSlider.max, 10);
+        timelineSlider.value = Math.max(0, Math.min(totalDays, todayOffset));
+      }
+      updateFilterOptions();
       applyFiltersAndSync();
     });
 

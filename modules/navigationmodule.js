@@ -533,9 +533,7 @@ const NavigationModule = (() => {
   
   const leftNav = document.getElementById('left-nav');
   if (leftNav) {
-    leftNav.style.borderRadius = window.innerWidth < 1024 
-      ? '0 0 20px 20px' 
-      : '20px 0 0 20px';
+    leftNav.classList.add('has-panel-open');
   }
 
   const resolveAssetUrl = (u) => {
@@ -831,35 +829,11 @@ const NavigationModule = (() => {
 
     // (Bouton fermer supprimé)
 
-    // Toggle collapse control (all sizes)
+    // Toggle collapse control (all sizes) — délégué à SubmenuManager
     const toggleBtn = document.getElementById('detail-panel-toggle-btn');
     if (toggleBtn) {
       toggleBtn.addEventListener('click', () => {
-        const iconEl = toggleBtn.querySelector('i');
-        const labelEl = toggleBtn.querySelector('span');
-        const isCollapsed = toggleBtn.getAttribute('aria-expanded') === 'false';
-        if (isCollapsed) {
-          // Expand
-          panel.style.removeProperty('max-height');
-          panel.style.removeProperty('overflow');
-          if (iconEl) {
-            if (iconEl.classList.contains('fa-expand')) iconEl.classList.replace('fa-expand', 'fa-compress');
-            else iconEl.classList.add('fa-compress');
-          }
-          if (labelEl) labelEl.textContent = 'Réduire';
-          toggleBtn.classList.remove('is-collapsed');
-          toggleBtn.setAttribute('aria-expanded', 'true');
-          toggleBtn.setAttribute('aria-label', 'Réduire');
-        } else {
-          // Collapse
-          panel.style.setProperty('max-height', '10vh', 'important');
-          panel.style.setProperty('overflow', 'hidden', 'important');
-          if (iconEl && iconEl.classList.contains('fa-compress')) iconEl.classList.replace('fa-compress', 'fa-expand');
-          if (labelEl) labelEl.textContent = 'Développer';
-          toggleBtn.classList.add('is-collapsed');
-          toggleBtn.setAttribute('aria-expanded', 'false');
-          toggleBtn.setAttribute('aria-label', 'Développer');
-        }
+        window.SubmenuManager.togglePanel(toggleBtn, panel);
       });
     }
 
@@ -960,15 +934,10 @@ const NavigationModule = (() => {
       console.log(`[NavigationModule] 🔙 CAS 1: Retour vers catégorie "${category}"`);
       console.log(`[NavigationModule] categoryLayersMap:`, window.categoryLayersMap);
       
-      // Masquer tous les submenus puis afficher celui de la catégorie
-      document.querySelectorAll('.submenu').forEach(menu => menu.style.display = 'none');
-      const submenu = document.querySelector(`.submenu[data-category="${category}"]`);
-      if (submenu) submenu.style.display = 'block';
-      
-      // Activer l'onglet de navigation
-      document.querySelectorAll('.nav-category').forEach(tab => {
-        tab.classList.toggle('active', tab.id === `nav-${category}`);
-      });
+      // Réactiver le submenu de la catégorie via SubmenuManager
+      window.SubmenuManager.cleanupAll();
+      window.SubmenuManager.activateTab(category);
+      window.SubmenuManager.showSubmenu(category);
       
       // Afficher TOUS les layers de cette catégorie (sans filtre)
       console.log(`[NavigationModule] Appel showCategoryLayers("${category}")...`);
@@ -1006,21 +975,11 @@ const NavigationModule = (() => {
     console.log(`[NavigationModule] defaultLayers:`, window.defaultLayers);
     console.log(`[NavigationModule] Toutes les catégories:`, getContributionLayers());
     
-    // Masquer tous les submenus
-    document.querySelectorAll('.submenu').forEach(menu => menu.style.display = 'none');
-    document.querySelectorAll('.nav-category.active').forEach(tab => tab.classList.remove('active'));
-    
-    // Retirer la classe has-panel-open de la nav
+    // Cleanup UI commun (submenus, tabs, has-panel-open, filtres)
+    window.SubmenuManager.cleanupAll();
     const leftNav = document.getElementById('left-nav');
-    if (leftNav) {
-      leftNav.classList.remove('has-panel-open');
-    }
-    
-    // Reset les filtres
-    if (window.FilterModule?.resetAll) {
-      console.log(`[NavigationModule] Reset des filtres`);
-      FilterModule.resetAll();
-    }
+    if (leftNav) leftNav.classList.remove('has-panel-open');
+    window.FilterModule?.resetAll();
     
     // Charger et afficher les layers par défaut
     if (window.defaultLayers && window.defaultLayers.length > 0) {

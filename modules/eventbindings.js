@@ -175,27 +175,15 @@ const bindFilterControls = () => {
         const categoryLayers = currentCategoryLayersMap[category];
         
         console.log(`[EventBindings] 🔍 Clic sur catégorie "${category}"`);
-        console.log(`[EventBindings] 📊 categoryLayersMap:`, currentCategoryLayersMap);
-        console.log(`[EventBindings] 📋 Layers pour cette catégorie:`, categoryLayers);
+        console.log(`[EventBindings]  Layers pour cette catégorie:`, categoryLayers);
         
         if (!categoryLayers || categoryLayers.length === 0) {
-          console.error(`[EventBindings] ❌ Aucun layer défini pour: ${category}`);
-          // Fallback: utiliser le nom de la catégorie comme layer
           console.log(`[EventBindings] 🔄 Fallback: utilisation de ["${category}"] comme layer`);
           EventBindings.handleNavigation(category, [category]);
         } else {
           EventBindings.handleNavigation(category, categoryLayers);
         }
-        
-        // Afficher le sous-menu de cette catégorie et masquer les autres
-        document.querySelectorAll('.submenu').forEach(submenu => {
-          submenu.style.display = 'none';
-        });
-        
-        const targetSubmenu = document.querySelector(`.submenu[data-category="${category}"]`);
-        if (targetSubmenu) {
-          targetSubmenu.style.display = 'block';
-        }
+        // Le show/hide des submenus est géré par SubmenuManager.renderSubmenu() dans handleNavigation
       });
     });
   }
