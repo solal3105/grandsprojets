@@ -442,50 +442,30 @@ const TravauxModule = (() => {
       const hideReseaux = hideReseauxCheckbox.checked;
       if (hideReseaux) criteria._hideReseaux = true;
 
+      // Timeline date filter — include in criteria so the map also filters by date
+      if (timelineEnabled && timelineSlider) {
+        const selectedDate = getSliderDate();
+        criteria._timelineDate = selectedDate.getTime();
+        criteria._timeline = fmtFull(selectedDate);
+      }
+
+      const mapped = (window.categoryLayersMap && window.categoryLayersMap['travaux']) || [];
+      const travauxLayerName = mapped[0] || 'travaux';
+
       if (window.UIModule?.applyFilter) {
-        const mapped = (window.categoryLayersMap && window.categoryLayersMap['travaux']) || [];
-        const travauxLayerName = mapped[0] || 'travaux';
         window.UIModule.applyFilter(travauxLayerName, criteria);
       }
 
-      // Récupérer les features filtrées
-      let filtered = [];
-      const mapped = (window.categoryLayersMap && window.categoryLayersMap['travaux']) || [];
-      const travauxLayerName = mapped[0] || 'travaux';
+      // Count visible features on the map after filter
+      let visibleCount = 0;
       const travauxLayer = window.MapModule?.layers?.[travauxLayerName];
       if (travauxLayer && typeof travauxLayer.eachLayer === 'function') {
-        travauxLayer.eachLayer(layer => { if (layer.feature) filtered.push(layer.feature); });
-      }
-      if (filtered.length === 0 && window.DataModule?.layerData?.[travauxLayerName]) {
-        filtered = window.DataModule.layerData[travauxLayerName].features || [];
-      }
-
-      if (hideReseaux) {
-        filtered = filtered.filter(f => {
-          const p = f.properties || {};
-          return !isReseau(p.nature_travaux) && !isReseau(p.nature_chantier);
-        });
-      }
-
-      // Timeline date filter
-      if (timelineEnabled && timelineSlider) {
-        const selectedDate = getSliderDate();
-        const selTime = selectedDate.getTime();
-        filtered = filtered.filter(f => {
-          const p = f.properties || {};
-          const deb = p.date_debut ? new Date(p.date_debut) : null;
-          const fin = p.date_fin ? new Date(p.date_fin) : null;
-          if (!deb || isNaN(deb)) return true;
-          if (deb.getTime() > selTime) return false;
-          if (fin && !isNaN(fin) && fin.getTime() < selTime) return false;
-          return true;
-        });
-        criteria._timeline = fmtFull(selectedDate);
+        travauxLayer.eachLayer(() => { visibleCount++; });
       }
 
       // Update timeline hero
       if (timelineDateLabel) timelineDateLabel.textContent = fmtFull(getSliderDate());
-      if (timelineCountEl) timelineCountEl.textContent = filtered.length;
+      if (timelineCountEl) timelineCountEl.textContent = visibleCount;
 
       renderActiveBadges(criteria);
 

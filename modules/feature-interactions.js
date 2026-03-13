@@ -297,26 +297,51 @@
 
       this.clearSelection();
 
-      // Find which pool source contains this project
+      // Search through SourcePool's raw feature arrays (not querySourceFeatures
+      // which only returns features in the current viewport)
       const pools = this._getPools();
       let matchSource = null;
       let matchIds = new Set();
+      let matchFeatures = [];
 
       for (const pool of pools) {
         if (!this._sourceExists(pool.sourceId)) continue;
-        try {
-          const all = this._mlMap.querySourceFeatures(pool.sourceId);
-          for (const f of all) {
-            if (f.id === undefined) continue;
-            if (projectNameOf(f.properties) !== projectName) continue;
-            matchSource = pool.sourceId;
-            matchIds.add(f.id);
-          }
-        } catch (_) {}
+        if (!pool.features) continue;
+        for (const f of pool.features) {
+          if (f.id === undefined) continue;
+          if (projectNameOf(f.properties) !== projectName) continue;
+          matchSource = pool.sourceId;
+          matchIds.add(f.id);
+          matchFeatures.push(f);
+        }
         if (matchSource) break;
       }
 
       if (!matchSource || !matchIds.size) return;
+
+      // Pan to project bounds FIRST (before setting feature-state)
+      // so the features are rendered when we apply the highlight
+      if (panTo && matchFeatures.length > 0) {
+        try {
+          let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+          for (const f of matchFeatures) {
+            const coords = f.geometry?.coordinates;
+            if (!coords) continue;
+            const flat = this._flattenCoords(coords);
+            for (const [lng, lat] of flat) {
+              if (lng < minLng) minLng = lng;
+              if (lng > maxLng) maxLng = lng;
+              if (lat < minLat) minLat = lat;
+              if (lat > maxLat) maxLat = lat;
+            }
+          }
+          if (minLng !== Infinity) {
+            this._mlMap.fitBounds([[minLng, minLat], [maxLng, maxLat]], {
+              padding: 80, maxZoom: 16, duration: 600
+            });
+          }
+        } catch (_) {}
+      }
 
       // Set feature-state selected on matching features
       for (const id of matchIds) {
@@ -334,31 +359,6 @@
             this._dimLayer(pool.fillLayerId, 'fill-opacity', DIM_FILL_OPACITY);
           }
         }
-      }
-
-      // Pan to project bounds
-      if (panTo) {
-        try {
-          const all = this._mlMap.querySourceFeatures(matchSource);
-          let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
-          for (const f of all) {
-            if (projectNameOf(f.properties) !== projectName) continue;
-            const coords = f.geometry?.coordinates;
-            if (!coords) continue;
-            const flat = this._flattenCoords(coords);
-            for (const [lng, lat] of flat) {
-              if (lng < minLng) minLng = lng;
-              if (lng > maxLng) maxLng = lng;
-              if (lat < minLat) minLat = lat;
-              if (lat > maxLat) maxLat = lat;
-            }
-          }
-          if (minLng !== Infinity) {
-            this._mlMap.fitBounds([[minLng, minLat], [maxLng, maxLat]], {
-              padding: 80, maxZoom: 16, duration: 600
-            });
-          }
-        } catch (_) {}
       }
     },
 

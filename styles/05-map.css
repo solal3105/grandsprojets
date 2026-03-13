@@ -74,3 +74,18 @@
   box-shadow: 0 4px 15px var(--black-alpha-15);
   pointer-events: none;
 }
+
+/* ---------------------------------------------------------------------------
+   Zoom controls — bottom-left, hidden on mobile
+--------------------------------------------------------------------------- */
+.maplibregl-ctrl-bottom-left .maplibregl-ctrl-group {
+  margin: 0 0 16px 16px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px var(--black-alpha-10);
+}
+
+@media (max-width: 720px) {
+  .maplibregl-ctrl-bottom-left {
+    display: none;
+  }
+}

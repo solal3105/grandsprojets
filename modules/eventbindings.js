@@ -1,12 +1,12 @@
 // modules/EventBindings.js
 const EventBindings = (() => {
 
+  // Navigation generation counter — guards against stale async loads
+  let _navGeneration = 0;
+
   const handleNavigation = async (menu, layersToDisplay) => {
-    console.log(`[EventBindings] ========== handleNavigation START ==========`);
-    console.log(`[EventBindings] Menu: "${menu}"`);
-    console.log(`[EventBindings] Layers demandés:`, layersToDisplay);
-    console.log(`[EventBindings] MapModule.layers actuels:`, Object.keys(window.MapModule?.layers || {}));
-    console.log(`[EventBindings] DataModule.layerData disponibles:`, Object.keys(window.DataModule?.layerData || {}));
+    const thisGen = ++_navGeneration;
+    console.log(`[EventBindings] handleNavigation: "${menu}" gen=${thisGen}`);
     
     // Validation du menu
     if (!menu) {
@@ -48,57 +48,30 @@ const EventBindings = (() => {
 
     // Gestion des couches à afficher
     if (Array.isArray(layersToDisplay)) {
-      console.log('[EventBindings] handleNavigation - Layers à afficher:', layersToDisplay);
-      
-      // IMPORTANT: Sauvegarder les layers à conserver AVANT de les retirer
-      // (pour les contributions chargées progressivement)
-      const layersToKeep = {};
-      layersToDisplay.forEach(name => {
-        const existing = MapModule.layers[name];
-        if (existing && typeof existing.getLayers === 'function') {
-          const featuresCount = existing.getLayers().length;
-          if (featuresCount > 0) {
-            console.log(`[EventBindings] 💾 Sauvegarde layer "${name}" avec ${featuresCount} features`);
-            layersToKeep[name] = existing;
-          }
-        }
-      });
-      
-      // Retirer les couches non désirées (sauf celles à conserver)
+      // 1. Remove ALL layers unconditionally — guarantees clean state
       const currentLayers = Object.keys(MapModule.layers);
-      console.log('[EventBindings] Layers actuels:', currentLayers);
-      
       currentLayers.forEach(layerName => {
-        if (!layersToDisplay.includes(layerName)) {
-          console.log('[EventBindings] Retrait du layer:', layerName);
-          MapModule.removeLayer(layerName);
-        }
+        MapModule.removeLayer(layerName);
       });
       
-      // Afficher les couches désirées
+      // 2. Load desired layers (from cache when possible, otherwise fetch)
       for (const layerName of layersToDisplay) {
+        // Guard: abort if a newer navigation happened while we were loading
+        if (_navGeneration !== thisGen) {
+          console.log(`[EventBindings] ⏭️ Stale navigation gen=${thisGen}, current=${_navGeneration}`);
+          return;
+        }
         try {
-          // Si layer déjà conservé avec données, s'assurer qu'il est visible
-          if (layersToKeep[layerName]) {
-            console.log(`[EventBindings] ✅ Layer "${layerName}" conservé`);
-            const layer = layersToKeep[layerName];
-            if (MapModule.map && !MapModule.map.hasLayer(layer)) {
-              MapModule.map.addLayer(layer);
-            }
-            continue;
-          }
-          
-          // Vérifier si layer déjà sur la carte
-          const layerOnMap = MapModule.layers[layerName];
-          if (layerOnMap) {
-            console.log(`[EventBindings] Layer "${layerName}" déjà présent`);
-            if (MapModule.map && !MapModule.map.hasLayer(layerOnMap)) {
-              MapModule.map.addLayer(layerOnMap);
-            }
+          if (DataModule.layerData?.[layerName]) {
+            // Data already cached — recreate the layer from cache (fast, no fetch)
+            DataModule.createGeoJsonLayer(layerName, DataModule.layerData[layerName]);
           } else {
-            // Charger le layer
-            console.log(`[EventBindings] Chargement "${layerName}"...`);
             await DataModule.loadLayer?.(layerName);
+          }
+          // Guard again after async load
+          if (_navGeneration !== thisGen) {
+            console.log(`[EventBindings] ⏭️ Stale navigation after load gen=${thisGen}`);
+            return;
           }
         } catch (e) {
           console.error(`[EventBindings] Erreur chargement layer ${layerName}:`, e);

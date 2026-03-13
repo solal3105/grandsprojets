@@ -626,6 +626,16 @@ window.DataModule = (function() {
 					}
 				}
 				
+				// Filtre timeline (chantiers ouverts à une date donnée)
+				if (criteria._timelineDate) {
+					const selTime = criteria._timelineDate;
+					const deb = props.date_debut ? new Date(props.date_debut) : null;
+					const fin = props.date_fin ? new Date(props.date_fin) : null;
+					if (!deb || isNaN(deb)) { /* keep features without dates */ }
+					else if (deb.getTime() > selTime) return false;
+					else if (fin && !isNaN(fin) && fin.getTime() < selTime) return false;
+				}
+				
 				return true;
 			},
 			style: feature => getFeatureStyle(feature, layerName),
@@ -681,6 +691,8 @@ window.DataModule = (function() {
 
 		// Surcharge du style après filtrage pour toutes les features visibles
 		if (criteria && Object.keys(criteria).length > 0) {
+			const mlMap = MapModule.map?._mlMap || MapModule.map;
+			if (L._sourcePool) L._sourcePool.beginBatch();
 			geojsonLayer.eachLayer(f => {
 				if (typeof f.setStyle === 'function') {
 					f.setStyle({
@@ -688,6 +700,7 @@ window.DataModule = (function() {
 					});
 				}
 			});
+			if (L._sourcePool) L._sourcePool.endBatch(mlMap);
 		}
 	}
 

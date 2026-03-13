@@ -283,16 +283,18 @@
             }
             this._pools.delete(styleHash);
           } else {
-            // Update source with remaining features
-            const source = mlMap.getSource(pool.sourceId);
-            if (source) {
-              source.setData({
-                type: 'FeatureCollection',
-                features: pool.features
-              });
+            // Update source with remaining features (deferred if batching)
+            if (this._batching) {
+              this._dirtyPools.add(styleHash);
+            } else {
+              const source = mlMap.getSource(pool.sourceId);
+              if (source) {
+                source.setData({
+                  type: 'FeatureCollection',
+                  features: pool.features
+                });
+              }
             }
-            
-            // Events handled by FeatureInteractions at map level
           }
           break;
         }
@@ -872,6 +874,14 @@
         properties: { _leaflet_id: L.stamp(this) }
       };
     }
+    // Fast-path: accept original GeoJSON feature, skip coordinate conversions
+    static _fromGeoJSON(feature, style) {
+      const instance = new LPolyline([], style);
+      instance._latlngs = null; // Lazy — computed on demand
+      instance._geojson = feature;
+      instance.feature = feature;
+      return instance;
+    }
     setLatLngs(latlngs) {
       this._latlngs = latlngs.map(ll => toLatLng(ll));
       this._geojson.geometry.coordinates = this._latlngs.map(ll => [ll.lng, ll.lat]);
@@ -890,7 +900,12 @@
       }
       return this;
     }
-    getLatLngs() { return this._latlngs; }
+    getLatLngs() {
+      if (!this._latlngs) {
+        this._latlngs = (this._geojson.geometry.coordinates || []).map(c => L.latLng(c[1], c[0]));
+      }
+      return this._latlngs;
+    }
     _getAllCoords() { return this._geojson.geometry.coordinates; }
     _addToMap(mlMap) {
       // Skip if using shared source (GeoJSONLayer optimization)
@@ -961,6 +976,14 @@
         geometry: { type: 'Polygon', coordinates: [coords] },
         properties: {}
       };
+    }
+    // Fast-path: accept original GeoJSON feature, skip coordinate conversions
+    static _fromGeoJSON(feature, style) {
+      const instance = new LPolygon([], style);
+      instance._latlngs = null; // Lazy — computed on demand
+      instance._geojson = feature;
+      instance.feature = feature;
+      return instance;
     }
     _getAllCoords() { return this._geojson.geometry.coordinates[0] || []; }
     _addToMap(mlMap) {
@@ -1238,29 +1261,19 @@
         });
       } else if (geomType === 'LineString' || geomType === 'MultiLineString') {
         const style = this.options.style ? (typeof this.options.style === 'function' ? this.options.style(feature) : this.options.style) : {};
-        const latlngs = geomType === 'LineString'
-          ? feature.geometry.coordinates.map(c => L.latLng(c[1], c[0]))
-          : feature.geometry.coordinates[0].map(c => L.latLng(c[1], c[0]));
-        layer = L.polyline(latlngs, style);
-        layer.feature = feature;
-        layer._geojson = feature;
-        layer._skipMapLibreAdd = this._useSharedSource; // Flag to skip individual source creation
+        // Fast-path: skip coordinate conversions, pass GeoJSON directly
+        layer = LPolyline._fromGeoJSON(feature, style);
+        layer._skipMapLibreAdd = this._useSharedSource;
         if (this.options.onEachFeature) this.options.onEachFeature(feature, layer);
         this._layers.push(layer);
-        // Don't add to map yet if using shared source
         if (this._map && !this._useSharedSource) layer.addTo(this._map);
       } else if (geomType === 'Polygon' || geomType === 'MultiPolygon') {
         const style = this.options.style ? (typeof this.options.style === 'function' ? this.options.style(feature) : this.options.style) : {};
-        const coords = geomType === 'Polygon'
-          ? feature.geometry.coordinates[0].map(c => L.latLng(c[1], c[0]))
-          : feature.geometry.coordinates[0][0].map(c => L.latLng(c[1], c[0]));
-        layer = L.polygon(coords, style);
-        layer.feature = feature;
-        layer._geojson = feature;
-        layer._skipMapLibreAdd = this._useSharedSource; // Flag to skip individual source creation
+        // Fast-path: skip coordinate conversions, pass GeoJSON directly
+        layer = LPolygon._fromGeoJSON(feature, style);
+        layer._skipMapLibreAdd = this._useSharedSource;
         if (this.options.onEachFeature) this.options.onEachFeature(feature, layer);
         this._layers.push(layer);
-        // Don't add to map yet if using shared source
         if (this._map && !this._useSharedSource) layer.addTo(this._map);
       }
     }
@@ -1451,7 +1464,12 @@
         this._layerIds = [];
       }
       
+      // Batch pool removals to avoid N individual setData calls when clearing many features
+      const mlMap = this._map ? (this._map._mlMap || this._map) : null;
+      const shouldBatch = mlMap && L._sourcePool && !L._sourcePool._batching;
+      if (shouldBatch) L._sourcePool.beginBatch();
       this._layers.forEach(l => { if (l.remove) l.remove(); });
+      if (shouldBatch) L._sourcePool.endBatch(mlMap);
       this.fire('remove');
       return this;
     }
@@ -1510,7 +1528,11 @@
       };
     }
     clearLayers() {
+      const mlMap = this._map ? (this._map._mlMap || this._map) : null;
+      const shouldBatch = mlMap && L._sourcePool && !L._sourcePool._batching;
+      if (shouldBatch) L._sourcePool.beginBatch();
       this._layers.forEach(l => { if (l.remove) l.remove(); });
+      if (shouldBatch) L._sourcePool.endBatch(mlMap);
       this._layers = [];
       return this;
     }
@@ -1566,7 +1588,7 @@
         // Add zoom control after map is loaded
         if (addZoomControl) {
           try {
-            this._mlMap.addControl(new mlgl.NavigationControl({ showCompass: false }), 'top-right');
+            this._mlMap.addControl(new mlgl.NavigationControl({ showCompass: false }), 'bottom-left');
           } catch(e) {
             console.warn('[MapLibreCompat] Could not add navigation control:', e);
           }
@@ -1579,8 +1601,11 @@
         // creating cascading animations that broke mouse wheel zoom.
         // Users can manually tilt with Ctrl+drag; 3D buildings still render at zoom 15+.
         
+        // Batch all queued operations so SourcePool coalesces setData calls
+        if (L._sourcePool) L._sourcePool.beginBatch();
         this._queue.forEach(fn => fn());
         this._queue = [];
+        if (L._sourcePool) L._sourcePool.endBatch(this._mlMap);
       });
 
       // Proxy MapLibre events to Leaflet-style events
