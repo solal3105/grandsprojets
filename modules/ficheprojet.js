@@ -112,6 +112,36 @@ function applySEO(projectName, attrs, category) {
       meta.content = tag.content;
     });
 
+    // Twitter Cards
+    const twitterTags = [
+      { name: 'twitter:title', content: projectName },
+      { name: 'twitter:description', content: attrs.description || '' },
+      { name: 'twitter:image', content: toAbsoluteURL(attrs.cover) || `${FP_CONFIG.PROD_ORIGIN}/img/cover/meta.png` }
+    ];
+    twitterTags.forEach(tag => {
+      let meta = document.querySelector(`meta[name="${tag.name}"]`);
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.name = tag.name;
+        document.head.appendChild(meta);
+      }
+      meta.content = tag.content;
+    });
+
+    // Update static JSON-LD template with project data
+    const ficheJsonLd = document.getElementById('fiche-jsonld');
+    if (ficheJsonLd) {
+      try {
+        const data = JSON.parse(ficheJsonLd.textContent);
+        data.headline = projectName;
+        data.description = attrs.description || `Projet ${category} : ${projectName}`;
+        data.url = canonicalUrl;
+        if (attrs.cover) data.image = toAbsoluteURL(attrs.cover);
+        if (attrs.created_at) data.datePublished = attrs.created_at;
+        ficheJsonLd.textContent = JSON.stringify(data);
+      } catch (_) {}
+    }
+
     // Breadcrumb Schema
     addBreadcrumbSchema(projectName, category);
 

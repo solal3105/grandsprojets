@@ -16,12 +16,24 @@ export const TOGGLES_CONFIG = {
     targetElement: 'filters-container'
   },
   
+  terrain: {
+    id: 'terrain-toggle',
+    icon: 'fa-mountain',
+    iconActive: 'fa-mountain',
+    label: 'Relief 3D',
+    ariaLabel: 'Activer ou désactiver le relief 3D',
+    position: 1,
+    persistent: true,
+    defaultState: false,
+    storageKey: 'terrain-3d'
+  },
+
   basemap: {
     id: 'basemap-toggle',
     icon: 'fa-globe',
     label: 'Fond de carte',
     ariaLabel: 'Changer le fond de carte',
-    position: 1,
+    position: 2,
     hasMenu: true,
     menuSelector: '#basemap-menu',
     defaultState: false
@@ -120,6 +132,7 @@ export const TOGGLES_CONFIG = {
  */
 export const TOGGLE_ORDER = [
   'filters',    // Desktop: droite, Mobile: position 5
+  'terrain',    // Desktop: , Mobile: position 4.5
   'basemap',    // Desktop: , Mobile: position 4
   'theme',      // Desktop: , Mobile: position 3
   'search',     // Desktop: , Mobile: position 2

@@ -6,7 +6,11 @@
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
   <meta name="googlebot" content="index, follow">
   <meta name="description" content="Carte des grands projets d'urbanisme et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-title" content="Grands Projets">
+  <meta name="application-name" content="Grands Projets">
   <link rel="icon" type="image/png" href="/img/logomin.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/img/logomin.png">
   <title>Carte des projets urbains | Grands Projets</title>
   <link rel="canonical" href="https://grandsprojets.com/">
   <meta property="og:site_name" content="Grands Projets">
@@ -16,10 +20,14 @@
   <meta property="og:description" content="Carte des projets urbains et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
   <meta property="og:url" content="https://grandsprojets.com/">
   <meta property="og:image" content="https://grandsprojets.com/img/cover/meta.png">
+  <meta property="og:image:width" content="1024">
+  <meta property="og:image:height" content="773">
+  <meta property="og:image:alt" content="Carte interactive des grands projets urbains de Lyon">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Grands Projets – Carte des projets urbains">
   <meta name="twitter:description" content="Carte des projets urbains et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
   <meta name="twitter:image" content="https://grandsprojets.com/img/cover/meta.png">
+  <meta name="twitter:image:alt" content="Carte interactive des grands projets urbains de Lyon">
   
   <!-- Hreflang pour ciblage géographique -->
   <link rel="alternate" hreflang="fr" href="https://grandsprojets.com/">
@@ -27,20 +35,29 @@
   <link rel="alternate" hreflang="x-default" href="https://grandsprojets.com/">
   
   <!-- Preconnect pour optimiser le chargement des CDN -->
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin>
+  <link rel="preconnect" href="https://wqqsuybmyqemhojsamgq.supabase.co" crossorigin>
+  <link rel="dns-prefetch" href="https://unpkg.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
-  <link rel="preconnect" href="https://www.googletagmanager.com">
   <link rel="dns-prefetch" href="https://www.googletagmanager.com">
   
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "Carte Projets Urbanisme Lyon 2025",
-    "description": "Carte interactive des projets d'urbanisme et de mobilité de la Métropole de Lyon avec tramway T10 T11",
+    "name": "Grands Projets",
+    "alternateName": "Carte des projets urbains de Lyon",
+    "description": "Carte interactive des projets d'urbanisme et de mobilité de la Métropole de Lyon : tramway, voies lyonnaises, travaux, projets urbains.",
     "url": "https://grandsprojets.com",
-    "applicationCategory": "UrbanPlanningApplication",
+    "applicationCategory": "UtilitiesApplication",
     "operatingSystem": "Any",
+    "inLanguage": "fr",
+    "image": "https://grandsprojets.com/img/cover/meta.png",
+    "browserRequirements": "Requires JavaScript. Requires WebGL.",
     "offers": {
       "@type": "Offer",
       "price": "0",
@@ -48,7 +65,8 @@
     },
     "author": {
       "@type": "Organization",
-      "name": "Grands Projets"
+      "name": "Grands Projets",
+      "url": "https://grandsprojets.com"
     }
   }
   </script>
@@ -56,8 +74,20 @@
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "name": "Grands Projets de Lyon",
+    "name": "Grands Projets",
+    "alternateName": "Grands Projets de Lyon",
     "url": "https://grandsprojets.com/",
+    "inLanguage": "fr",
+    "description": "Carte interactive des grands projets d'urbanisme et de mobilité.",
+    "publisher": {
+      "@type": "Organization",
+      "name": "Grands Projets",
+      "url": "https://grandsprojets.com",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://grandsprojets.com/img/logo.svg"
+      }
+    },
     "potentialAction": {
       "@type": "SearchAction",
       "target": "https://grandsprojets.com/?q={search_term_string}",
@@ -68,13 +98,13 @@
   <script>
     (function() {
       try {
-        var theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+        var saved = localStorage.getItem('theme');
+        var theme = saved || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
         document.documentElement.setAttribute('data-theme', theme);
       } catch (e) {}
     })();
   </script>
   <link rel="stylesheet" href="style.css" />
-  <!-- Legacy travaux-tooltip.css removed — hover popups handled by hover-popup.css -->
   <link rel="stylesheet" href="styles/gp-icon-picker.css" />
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css"
@@ -89,13 +119,19 @@
   </script>
 </head>
 <body>
-  <!-- Standalone fixed logo for small screens (remplacé dynamiquement par citymanager.js) -->
-  <a class="mobile-fixed-logo" href="index.html" aria-label="Accueil">
-    <img src="" alt="" style="opacity: 0;" />
+  <a class="mobile-fixed-logo" href="/" aria-label="Accueil Grands Projets">
+    <img src="/img/logomin.png" alt="Grands Projets" width="32" height="32" />
   </a>
+  <noscript>
+    <div style="padding:2rem;text-align:center;font-family:sans-serif">
+      <h1>Grands Projets – Carte des projets urbains</h1>
+      <p>Cette application nécessite JavaScript pour fonctionner. Veuillez activer JavaScript dans votre navigateur.</p>
+      <p>Découvrez les grands projets d'urbanisme et de mobilité : tramway, voies lyonnaises, travaux, projets urbains.</p>
+    </div>
+  </noscript>
   <div id="container">
-    <!-- Carte MapLibre GL -->
-    <div id="map"></div>
+    <h1 class="visually-hidden">Carte interactive des projets urbains – Grands Projets</h1>
+    <div id="map" role="application" aria-label="Carte interactive des projets urbains"></div>
 
     <!-- Barre de navigation -->
     <div id="left-nav">
@@ -143,6 +179,11 @@
         </div>
       </div>
     </div>
+
+    <!-- Bouton relief 3D -->
+    <button id="terrain-toggle" aria-label="Relief 3D" aria-pressed="false" title="Relief 3D" data-ready="false">
+      <i class="fas fa-mountain"></i>
+    </button>
 
     <!-- Bouton de sélection du thème -->
     <button id="theme-toggle" aria-label="Mode sombre" aria-pressed="false" title="Mode sombre" data-ready="false">
@@ -469,9 +510,7 @@
   <script src="modules/security-utils.js"></script>
   <!-- MapLibre GL JS -->
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <!-- Leaflet-compatible API backed by MapLibre GL JS (DEPRECATED - à supprimer progressivement) -->
   <script src="modules/maplibre-compat.js"></script>
-  <!-- MapLibre GL Native Renderer (remplace L.geoJSON et L.marker) -->
   <script src="modules/maplibre-renderer.js"></script>
   <!-- Système unifié d'interactions features (hover + click) -->
   <script src="modules/feature-interactions.js"></script>

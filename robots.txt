@@ -1,30 +1,19 @@
 User-agent: *
 Allow: /
-Crawl-delay: 1
-
-# Bloquer les ressources non essentielles
-Disallow: /node_modules/
-Disallow: /.git/
-Disallow: /tmp/
-Disallow: /*.json$
-Disallow: /admin/
-Disallow: /_headers
-
-# Autoriser les ressources importantes
-Allow: /styles/
-Allow: /scripts/
+Allow: /fiche/
 Allow: /img/
-Allow: /vendor/
+Allow: /styles/
 
-# Optimisation pour les moteurs de recherche majeurs
-User-agent: Googlebot
-Allow: /
+Disallow: /node_modules/
+Disallow: /tmp/
+Disallow: /login/
+Disallow: /logout/
+Disallow: /admin/
+Disallow: /assistant-ia/
+Disallow: /landing-page-archive/
+Disallow: /test-results/
+Disallow: /playwright-report/
+Disallow: /_headers
+Disallow: /*.json
 
-User-agent: Bingbot
-Allow: /
-
-User-agent: Slurp
-Allow: /
-
-# Sitemap
 Sitemap: https://grandsprojets.com/sitemap.xml

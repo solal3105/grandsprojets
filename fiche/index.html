@@ -3,8 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
   <meta name="description" content="Découvrez les détails du projet d'urbanisme et de mobilité sur Grands Projets de Lyon : dossiers, concertations, tracés et informations officielles.">
+  <meta name="theme-color" content="#2563eb">
+  <link rel="icon" type="image/png" href="/img/logomin.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/img/logomin.png">
   <title>Fiche projet – Grands Projets de Lyon</title>
   
   <!-- Open Graph par défaut (sera mis à jour par JS) -->
@@ -15,16 +18,26 @@
   <meta property="og:description" content="Découvrez les détails du projet d'urbanisme et de mobilité sur Grands Projets de Lyon.">
   <meta property="og:image" content="https://grandsprojets.com/img/logomin.png">
   
-  <!-- Twitter Cards -->
+  <!-- Twitter Cards (défaut, mis à jour par JS) -->
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Fiche projet – Grands Projets de Lyon">
+  <meta name="twitter:description" content="Découvrez les détails du projet d'urbanisme et de mobilité sur Grands Projets de Lyon.">
+  <meta name="twitter:image" content="https://grandsprojets.com/img/cover/meta.png">
   
   <!-- Canonical dynamique (sera mis à jour par JS) -->
   <link rel="canonical" href="https://grandsprojets.com/fiche/">
+  <link rel="alternate" hreflang="fr" href="https://grandsprojets.com/fiche/">
+  <link rel="alternate" hreflang="x-default" href="https://grandsprojets.com/fiche/">
   
   <!-- Preconnect CDN -->
-  <link rel="preconnect" href="https://cdn.tailwindcss.com">
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://wqqsuybmyqemhojsamgq.supabase.co" crossorigin>
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+  <link rel="dns-prefetch" href="https://unpkg.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
   
   <!-- Tailwind CSS via Play CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -54,8 +67,45 @@
   <link rel="stylesheet" href="/styles/fiche-markdown.css">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-8LGDVJXTPK"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-8LGDVJXTPK');
+  </script>
+  <script type="application/ld+json" id="fiche-jsonld">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "Fiche projet",
+    "description": "Détails du projet d'urbanisme et de mobilité.",
+    "url": "https://grandsprojets.com/fiche/",
+    "inLanguage": "fr",
+    "publisher": {
+      "@type": "Organization",
+      "name": "Grands Projets",
+      "url": "https://grandsprojets.com",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://grandsprojets.com/img/logo.svg"
+      }
+    },
+    "isPartOf": {
+      "@type": "WebSite",
+      "name": "Grands Projets",
+      "url": "https://grandsprojets.com/"
+    }
+  }
+  </script>
 </head>
 <body>
+  <noscript>
+    <div style="padding:2rem;text-align:center;font-family:sans-serif">
+      <h1>Fiche projet – Grands Projets</h1>
+      <p>Cette page nécessite JavaScript. <a href="/">Retour à l'accueil</a></p>
+    </div>
+  </noscript>
   <article id="project-article">
     <!-- Le contenu sera injecté dynamiquement par ficheprojet.js -->
   </article>

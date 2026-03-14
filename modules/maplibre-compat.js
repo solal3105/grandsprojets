@@ -1737,7 +1737,84 @@
       }
     }
 
-    // _setupAutoPitch removed — see comment in constructor
+    // ── 3D Terrain ──
+    _terrainSourceId = 'gp-terrain-dem';
+    _hillshadeSourceId = 'gp-hillshade-dem';
+    _terrainEnabled = false;
+
+    setTerrain(enabled, exaggeration) {
+      const mlMap = this._mlMap;
+      const ex = exaggeration || 1.2;
+
+      if (enabled && !this._terrainEnabled) {
+        // Add raster-dem source (AWS Terrain Tiles, terrarium encoding)
+        if (!mlMap.getSource(this._terrainSourceId)) {
+          mlMap.addSource(this._terrainSourceId, {
+            type: 'raster-dem',
+            tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+            encoding: 'terrarium',
+            tileSize: 256,
+            maxzoom: 15
+          });
+        }
+        // Separate source for hillshade (avoids rendering artifacts)
+        if (!mlMap.getSource(this._hillshadeSourceId)) {
+          mlMap.addSource(this._hillshadeSourceId, {
+            type: 'raster-dem',
+            tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+            encoding: 'terrarium',
+            tileSize: 256,
+            maxzoom: 15
+          });
+        }
+        // Insert hillshade below data layers
+        if (!mlMap.getLayer('gp-hillshade')) {
+          const firstDataLayer = mlMap.getStyle().layers.find(l =>
+            l.type === 'line' || (l.type === 'fill' && !l.id.startsWith('gp-'))
+          );
+          mlMap.addLayer({
+            id: 'gp-hillshade',
+            type: 'hillshade',
+            source: this._hillshadeSourceId,
+            paint: {
+              'hillshade-shadow-color': '#473B24',
+              'hillshade-illumination-anchor': 'map',
+              'hillshade-exaggeration': 0.5
+            }
+          }, firstDataLayer?.id || '3d-buildings');
+        }
+        // Enable terrain mesh
+        mlMap.setTerrain({ source: this._terrainSourceId, exaggeration: ex });
+        // Atmospheric sky
+        mlMap.setSky({
+          'sky-color': '#89CFF0',
+          'sky-horizon-blend': 0.3,
+          'horizon-color': '#f0e8d8',
+          'horizon-fog-blend': 0.8,
+          'fog-color': '#dce6ef',
+          'fog-ground-blend': 0.9
+        });
+        // Smooth pitch to show 3D
+        if (mlMap.getPitch() < 40) {
+          mlMap.easeTo({ pitch: 55, duration: 1000 });
+        }
+        this._terrainEnabled = true;
+      } else if (!enabled && this._terrainEnabled) {
+        mlMap.setTerrain(null);
+        mlMap.setSky(null);
+        if (mlMap.getLayer('gp-hillshade')) {
+          mlMap.removeLayer('gp-hillshade');
+        }
+        // Reset pitch smoothly
+        if (mlMap.getPitch() > 10) {
+          mlMap.easeTo({ pitch: 0, duration: 800 });
+        }
+        this._terrainEnabled = false;
+      }
+      return this;
+    }
+
+    getTerrain() { return this._terrainEnabled; }
 
     // View methods
     setView(center, zoom) {

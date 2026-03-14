@@ -875,7 +875,35 @@
       
       // Mark contribute toggle as ready
       win.toggleManager?.markReady('contribute');
-      
+
+      // Terrain 3D toggle
+      const terrainToggle = document.getElementById('terrain-toggle');
+      if (terrainToggle) {
+        // Restore persisted state
+        const savedTerrain = localStorage.getItem('terrain-3d') === 'true';
+        if (savedTerrain && MapModule?.map) {
+          MapModule.map.setTerrain(true);
+          terrainToggle.classList.add('active');
+          terrainToggle.setAttribute('aria-pressed', 'true');
+        }
+        terrainToggle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!MapModule?.map) return;
+          const enabled = !MapModule.map.getTerrain();
+          MapModule.map.setTerrain(enabled);
+          terrainToggle.classList.toggle('active', enabled);
+          terrainToggle.setAttribute('aria-pressed', enabled.toString());
+          localStorage.setItem('terrain-3d', enabled.toString());
+        });
+        terrainToggle.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            terrainToggle.click();
+          }
+        });
+        win.toggleManager?.markReady('terrain');
+      }
+
       if (themeToggle) {
         themeToggle.addEventListener('click', (e) => {
           e.stopPropagation();
