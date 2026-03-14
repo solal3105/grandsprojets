@@ -47,6 +47,9 @@
         toggleEl.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
       }
       
+      // Invalider le cache de couleurs CSS résolues (MapLibre compat)
+      if (window.L?.clearColorCache) window.L.clearColorCache();
+
       // Forcer un reflow pour appliquer les changements
       void root.offsetHeight;
       

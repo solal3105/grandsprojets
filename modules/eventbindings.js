@@ -54,24 +54,25 @@ const EventBindings = (() => {
         MapModule.removeLayer(layerName);
       });
       
-      // 2. Load desired layers (from cache when possible, otherwise fetch)
+      // 2. Preload all uncached data in parallel (network IO)
+      const uncached = layersToDisplay.filter(n => !DataModule.layerData?.[n]);
+      if (uncached.length > 0) {
+        await Promise.all(uncached.map(async name => {
+          try { await DataModule.preloadLayer?.(name); } catch (_) {}
+        }));
+      }
+
+      // Guard: abort if a newer navigation happened during fetch
+      if (_navGeneration !== thisGen) {
+        console.log(`[EventBindings] ⏭️ Stale navigation gen=${thisGen}, current=${_navGeneration}`);
+        return;
+      }
+
+      // 3. Create layers synchronously from cache (fast, no network)
       for (const layerName of layersToDisplay) {
-        // Guard: abort if a newer navigation happened while we were loading
-        if (_navGeneration !== thisGen) {
-          console.log(`[EventBindings] ⏭️ Stale navigation gen=${thisGen}, current=${_navGeneration}`);
-          return;
-        }
         try {
           if (DataModule.layerData?.[layerName]) {
-            // Data already cached — recreate the layer from cache (fast, no fetch)
             DataModule.createGeoJsonLayer(layerName, DataModule.layerData[layerName]);
-          } else {
-            await DataModule.loadLayer?.(layerName);
-          }
-          // Guard again after async load
-          if (_navGeneration !== thisGen) {
-            console.log(`[EventBindings] ⏭️ Stale navigation after load gen=${thisGen}`);
-            return;
           }
         } catch (e) {
           console.error(`[EventBindings] Erreur chargement layer ${layerName}:`, e);
