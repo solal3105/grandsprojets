@@ -586,13 +586,21 @@ window.DataModule = (function() {
 		}
 
 		// Fonction utilitaire pour vérifier les réseaux (déplacée côté serveur si possible)
+		const RESEAU_KW = ['gaz', 'réseau', 'eau', 'branchement', 'télécom', 'telecom', 'électricité', 'electricite', 'assainissement'];
 		const isReseau = (text) => {
 			if (!text) return false;
 			const t = String(text).toLowerCase();
-			return t.includes('gaz') || t.includes('réseau') || t.includes('eau') || t.includes('télécom') || t.includes('électricité') || t.includes('assainissement');
+			return RESEAU_KW.some(k => t.includes(k));
 		};
 
+		// Layers with per-feature styling must use SourcePool path (PathLayer objects)
+		// All others use the direct path (raw GeoJSON → MapLibre source, zero overhead)
+		const needsPerFeatureStyle = window.LayerRegistry?.isTravauxLayer?.(layerName) ||
+			window.LayerRegistry?.isMetroLayer?.(layerName) ||
+			window.LayerRegistry?.isPluLayer?.(layerName);
+
 		const geojsonLayer = L.geoJSON(null, {
+			_directPath: !needsPerFeatureStyle,
 			pane: isClickable ? 'clickableLayers' : 'overlayPane', // Utiliser le panneau personnalisé pour les couches cliquables
 			filter: feature => {
 				const props = feature?.properties || {};
@@ -624,16 +632,6 @@ window.DataModule = (function() {
 					if (isReseau(props.nature_travaux) || isReseau(props.nature_chantier)) {
 						return false;
 					}
-				}
-				
-				// Filtre timeline (chantiers ouverts à une date donnée)
-				if (criteria._timelineDate) {
-					const selTime = criteria._timelineDate;
-					const deb = props.date_debut ? new Date(props.date_debut) : null;
-					const fin = props.date_fin ? new Date(props.date_fin) : null;
-					if (!deb || isNaN(deb)) { /* keep features without dates */ }
-					else if (deb.getTime() > selTime) return false;
-					else if (fin && !isNaN(fin) && fin.getTime() < selTime) return false;
 				}
 				
 				return true;
@@ -684,23 +682,16 @@ window.DataModule = (function() {
 		geojsonLayer.addData(data);
 		geojsonLayer.addTo(MapModule.map);
 		MapModule.addLayer(layerName, geojsonLayer);
-		
-		// Log du résultat
-		const featuresOnMap = geojsonLayer.getLayers().length;
-		console.log(`[DataModule] ✅ "${layerName}": ${data.features?.length || 0} features → ${featuresOnMap} visibles (${(performance.now() - _t0).toFixed(1)}ms)`);
 
-		// Surcharge du style après filtrage pour toutes les features visibles
+		const total = geojsonLayer.getFeatureCount?.() ?? geojsonLayer.getLayers().length;
+		const direct = geojsonLayer._pathFeatures?.length || 0;
+		const markers = geojsonLayer.getLayers().length;
+		console.log(`[DataModule] ✅ "${layerName}": ${data.features?.length || 0} → ${total} visibles (${(performance.now() - _t0).toFixed(1)}ms)${direct ? ` | direct=${direct} markers=${markers}` : ''}`);
+
+		// Surcharge du line-width quand des filtres sont actifs (O(pools) au lieu de O(N²))
 		if (criteria && Object.keys(criteria).length > 0) {
 			const mlMap = MapModule.map?._mlMap || MapModule.map;
-			if (L._sourcePool) L._sourcePool.beginBatch();
-			geojsonLayer.eachLayer(f => {
-				if (typeof f.setStyle === 'function') {
-					f.setStyle({
-						weight: 4
-					});
-				}
-			});
-			if (L._sourcePool) L._sourcePool.endBatch(mlMap);
+			if (L._sourcePool) L._sourcePool.setLineWidth(mlMap, 4);
 		}
 	}
 

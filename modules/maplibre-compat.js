@@ -28,6 +28,12 @@
     return id;
   };
 
+  // Walk nested GeoJSON coordinates, call fn(lng, lat) on each leaf
+  function _walkCoords(coords, fn) {
+    if (typeof coords[0] === 'number') { fn(coords[0], coords[1]); return; }
+    for (let i = 0; i < coords.length; i++) _walkCoords(coords[i], fn);
+  }
+
   function toLatLng(a, b) {
     if (a == null) return { lat: 0, lng: 0 };
     if (typeof a === 'number' && typeof b === 'number') return { lat: a, lng: b };
@@ -93,21 +99,25 @@
   // COLOR UTILITIES
   // ============================================================
 
-  // Convert CSS color (including var()) to hex for MapLibre GL
+  // Convert CSS color (including var()) to hex for MapLibre GL — cached
+  const _colorCache = new Map();
   function resolveColor(color) {
     if (!color || typeof color !== 'string') return color;
+    if (!color.startsWith('var(')) return color;
 
-    // If it's a CSS variable, resolve it
-    if (color.startsWith('var(')) {
-      const varName = color.match(/var\((--[^,)]+)/)?.[1];
-      if (varName) {
-        const resolved = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
-        if (resolved) return resolved;
-      }
+    const cached = _colorCache.get(color);
+    if (cached !== undefined) return cached;
+
+    const varName = color.match(/var\((--[^,)]+)/)?.[1];
+    if (varName) {
+      const resolved = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+      if (resolved) { _colorCache.set(color, resolved); return resolved; }
     }
-
+    _colorCache.set(color, color);
     return color;
   }
+  // Clear cache on theme change
+  function clearColorCache() { _colorCache.clear(); }
 
   // ============================================================
   // SOURCE POOL - Reduce MapLibre GL sources
@@ -116,6 +126,7 @@
   class SourcePool {
     constructor() {
       this._pools = new Map(); // key: styleHash, value: { sourceId, features: [], layers: [] }
+      this._stampToPool = new Map(); // stamp → styleHash for O(1) pool lookup in removeFeature
       this._nextId = 0;
       this._batching = false;
       this._dirtyPools = new Set();
@@ -223,6 +234,7 @@
           layers: [pathLayer],
           geomType
         });
+        this._stampToPool.set(L.stamp(pathLayer), styleHash);
 
         // Events (hover/click/cursor) handled by FeatureInteractions at map level
       } else {
@@ -234,6 +246,7 @@
 
         pool.features.push(geojson);
         pool.layers.push(pathLayer);
+        this._stampToPool.set(L.stamp(pathLayer), styleHash);
 
         // Update source (deferred if batching)
         if (this._batching) {
@@ -253,12 +266,50 @@
     }
 
 
+    // Set a MapLibre filter expression on all pool layers
+    setFilter(mlMap, filterExpr) {
+      for (const pool of this._pools.values()) {
+        try {
+          if (mlMap.getLayer(pool.layerId)) mlMap.setFilter(pool.layerId, filterExpr);
+          if (pool.fillLayerId && mlMap.getLayer(pool.fillLayerId)) mlMap.setFilter(pool.fillLayerId, filterExpr);
+        } catch (_) {}
+      }
+    }
+
+    // Clear filters on all pool layers
+    clearFilter(mlMap) {
+      this.setFilter(mlMap, null);
+    }
+
+    // Update line-width paint property on all pool layers (O(pools) instead of per-feature setStyle)
+    setLineWidth(mlMap, width) {
+      for (const pool of this._pools.values()) {
+        try {
+          if (mlMap.getLayer(pool.layerId)) {
+            mlMap.setPaintProperty(pool.layerId, 'line-width', [
+              'case',
+              ['boolean', ['feature-state', 'selected'], false], width + 4,
+              ['boolean', ['feature-state', 'hover'], false], width + 2,
+              width
+            ]);
+          }
+        } catch (_) {}
+      }
+    }
+
     removeFeature(mlMap, pathLayer) {
       const layerId = L.stamp(pathLayer);
 
-      for (const [styleHash, pool] of this._pools.entries()) {
-        const idx = pool.layers.findIndex(l => L.stamp(l) === layerId);
-        if (idx >= 0) {
+      // O(1) pool lookup via stamp map (instead of iterating all pools)
+      const styleHash = this._stampToPool.get(layerId);
+      if (styleHash === undefined) return;
+      this._stampToPool.delete(layerId);
+
+      const pool = this._pools.get(styleHash);
+      if (!pool) return;
+
+      const idx = pool.layers.findIndex(l => L.stamp(l) === layerId);
+      if (idx >= 0) {
           pool.layers.splice(idx, 1);
           pool.features.splice(idx, 1);
 
@@ -296,8 +347,6 @@
               }
             }
           }
-          break;
-        }
       }
     }
   }
@@ -1206,11 +1255,12 @@
     constructor(data, options) {
       super();
       this.options = options || {};
-      this._layers = [];
+      this._layers = [];            // Point markers + PathLayers (SourcePool path)
+      this._pathFeatures = [];      // Raw GeoJSON for non-Points (direct path)
+      this._directSourceIds = [];   // { sourceId, layerIds } for cleanup
       this._map = null;
       this._sourceId = 'geojson-' + L.stamp(this);
-      this._layerIds = [];
-      this._useSharedSource = false; // DÉSACTIVÉ temporairement - cause des bugs d'événements
+      this._featureCount = 0;
       if (data) this.addData(data);
     }
     addData(data) {
@@ -1218,34 +1268,36 @@
       const features = data.type === 'FeatureCollection' ? data.features :
                        data.type === 'Feature' ? [data] :
                        data.features ? data.features : [data];
-      
-      // Batch SourcePool updates when layer is already on map
-      const shouldBatch = this._map && L._sourcePool && !L._sourcePool._batching;
+
+      // Batch SourcePool updates when on map with non-direct-path PathLayers
+      const shouldBatch = !this.options._directPath && this._map && L._sourcePool && !L._sourcePool._batching;
       const mlMap = this._map ? (this._map._mlMap || this._map) : null;
       if (shouldBatch) L._sourcePool.beginBatch();
-      
-      features.forEach(feature => {
-        if (this.options.filter && !this.options.filter(feature)) return;
+
+      for (let i = 0; i < features.length; i++) {
+        const feature = features[i];
+        if (this.options.filter && !this.options.filter(feature)) continue;
+        this._featureCount++;
         this._addFeature(feature);
-      });
-      
+      }
+
       if (shouldBatch) L._sourcePool.endBatch(mlMap);
-      
-      // If using shared source and map is ready, update the source
-      if (this._useSharedSource && this._map) {
-        this._updateSharedSource();
+
+      // If direct-path features added while already on map, update sources
+      if (this.options._directPath && this._map && this._directSourceIds.length > 0) {
+        this._updateDirectSources();
       }
       return this;
     }
     _addFeature(feature) {
       if (!feature || !feature.geometry) return;
       const geomType = feature.geometry.type;
-      let layer;
 
       if (geomType === 'Point' || geomType === 'MultiPoint') {
         const coords = geomType === 'Point' ? [feature.geometry.coordinates] : feature.geometry.coordinates;
         coords.forEach(coord => {
           const latlng = L.latLng(coord[1], coord[0]);
+          let layer;
           if (this.options.pointToLayer) {
             layer = this.options.pointToLayer(feature, latlng);
           } else {
@@ -1255,228 +1307,203 @@
             layer.feature = feature;
             if (this.options.onEachFeature) this.options.onEachFeature(feature, layer);
             this._layers.push(layer);
-            // Don't add to map yet if using shared source
-            if (this._map && !this._useSharedSource) layer.addTo(this._map);
+            if (this._map) layer.addTo(this._map);
           }
         });
-      } else if (geomType === 'LineString' || geomType === 'MultiLineString') {
-        const style = this.options.style ? (typeof this.options.style === 'function' ? this.options.style(feature) : this.options.style) : {};
-        // Fast-path: skip coordinate conversions, pass GeoJSON directly
-        layer = LPolyline._fromGeoJSON(feature, style);
-        layer._skipMapLibreAdd = this._useSharedSource;
-        if (this.options.onEachFeature) this.options.onEachFeature(feature, layer);
-        this._layers.push(layer);
-        if (this._map && !this._useSharedSource) layer.addTo(this._map);
-      } else if (geomType === 'Polygon' || geomType === 'MultiPolygon') {
-        const style = this.options.style ? (typeof this.options.style === 'function' ? this.options.style(feature) : this.options.style) : {};
-        // Fast-path: skip coordinate conversions, pass GeoJSON directly
-        layer = LPolygon._fromGeoJSON(feature, style);
-        layer._skipMapLibreAdd = this._useSharedSource;
-        if (this.options.onEachFeature) this.options.onEachFeature(feature, layer);
-        this._layers.push(layer);
-        if (this._map && !this._useSharedSource) layer.addTo(this._map);
+      } else if (this.options._directPath) {
+        // DIRECT PATH: store raw GeoJSON, skip PathLayer creation entirely
+        this._pathFeatures.push(feature);
+      } else {
+        // SOURCEPOOL PATH: create PathLayer objects (needed for per-feature styling)
+        const style = this.options.style
+          ? (typeof this.options.style === 'function' ? this.options.style(feature) : this.options.style)
+          : {};
+        const layer = (geomType === 'LineString' || geomType === 'MultiLineString')
+          ? LPolyline._fromGeoJSON(feature, style)
+          : LPolygon._fromGeoJSON(feature, style);
+        if (layer) {
+          if (this.options.onEachFeature) this.options.onEachFeature(feature, layer);
+          this._layers.push(layer);
+          if (this._map) layer.addTo(this._map);
+        }
       }
     }
-    _updateSharedSource() {
-      if (!this._map || !this._useSharedSource) return;
-      
+
+    // ── Direct path: create MapLibre sources directly from raw GeoJSON ──
+    _addDirectPaths(map) {
+      const mlMap = map._mlMap || map;
+      const lines = [];
+      const polygons = [];
+      for (let i = 0; i < this._pathFeatures.length; i++) {
+        const t = this._pathFeatures[i].geometry.type;
+        if (t === 'LineString' || t === 'MultiLineString') lines.push(this._pathFeatures[i]);
+        else if (t === 'Polygon' || t === 'MultiPolygon') polygons.push(this._pathFeatures[i]);
+      }
+
+      const styleFn = this.options.style;
+      const sample = this._pathFeatures[0];
+      const s = typeof styleFn === 'function' ? styleFn(sample) : (styleFn || {});
+      const w = s.weight || 3;
+      const op = s.opacity !== undefined ? s.opacity : 0.8;
+      const color = resolveColor(s.color) || '#3388ff';
+
+      const doAdd = () => {
+        let nextId = 0;
+        if (lines.length > 0) this._createDirectSource(mlMap, lines, 'dlines', 'LineString', color, w, op, s, nextId);
+        nextId += lines.length;
+        if (polygons.length > 0) this._createDirectSource(mlMap, polygons, 'dpolygons', 'Polygon', color, w, op, s, nextId);
+      };
+
+      if (map._styleLoaded === false) { map._queue.push(doAdd); }
+      else { doAdd(); }
+    }
+    _createDirectSource(mlMap, features, suffix, geomType, color, w, op, style, startId) {
+      for (let i = 0; i < features.length; i++) features[i].id = startId + i;
+
+      const sourceId = this._sourceId + '-' + suffix;
+      const lineLayerId = sourceId + '-layer';
+      mlMap.addSource(sourceId, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features },
+        generateId: false
+      });
+
+      const linePaint = {
+        'line-color': color,
+        'line-width': ['case',
+          ['boolean', ['feature-state', 'selected'], false], w + 4,
+          ['boolean', ['feature-state', 'hover'], false], w + 2,
+          w
+        ],
+        'line-opacity': ['case',
+          ['boolean', ['feature-state', 'selected'], false], 1,
+          ['boolean', ['feature-state', 'hover'], false], 1,
+          op
+        ]
+      };
+      if (style.dashArray) {
+        linePaint['line-dasharray'] = typeof style.dashArray === 'string'
+          ? style.dashArray.split(/[, ]+/).map(Number) : style.dashArray;
+      }
+
+      const layerIds = [lineLayerId];
+      let fillLayerId = null;
+
+      if (geomType === 'Polygon') {
+        fillLayerId = sourceId + '-fill';
+        const fillColor = resolveColor(style.fillColor || style.color) || '#3388ff';
+        const fillOp = style.fillOpacity !== undefined ? style.fillOpacity : 0.2;
+        mlMap.addLayer({
+          id: fillLayerId, type: 'fill', source: sourceId,
+          paint: {
+            'fill-color': fillColor,
+            'fill-opacity': ['case',
+              ['boolean', ['feature-state', 'selected'], false], Math.min(fillOp * 2, 1),
+              fillOp
+            ]
+          }
+        });
+        layerIds.push(fillLayerId);
+      }
+
+      mlMap.addLayer({ id: lineLayerId, type: 'line', source: sourceId, paint: linePaint });
+      this._directSourceIds.push({ sourceId, layerIds });
+
+      // Register with SourcePool for FeatureInteractions compatibility
+      if (L._sourcePool) {
+        L._sourcePool._pools.set(sourceId, {
+          sourceId, layerId: lineLayerId, fillLayerId,
+          features, layers: [], geomType
+        });
+      }
+    }
+    _updateDirectSources() {
+      if (!this._map) return;
       const mlMap = this._map._mlMap || this._map;
-      
-      // Group features by geometry type and style
-      const lineFeatures = [];
-      const polygonFeatures = [];
-      const lineLayers = [];
-      const polygonLayers = [];
-      
-      this._layers.forEach(layer => {
-        if (layer._geojson && layer._skipMapLibreAdd) {
-          const geomType = layer._geojson.geometry.type;
-          if (geomType === 'LineString' || geomType === 'MultiLineString') {
-            // Add unique ID to feature for event mapping
-            layer._geojson.properties = layer._geojson.properties || {};
-            layer._geojson.properties._leaflet_id = L.stamp(layer);
-            lineFeatures.push(layer._geojson);
-            lineLayers.push(layer);
-          } else if (geomType === 'Polygon' || geomType === 'MultiPolygon') {
-            layer._geojson.properties = layer._geojson.properties || {};
-            layer._geojson.properties._leaflet_id = L.stamp(layer);
-            polygonFeatures.push(layer._geojson);
-            polygonLayers.push(layer);
-          }
-        }
-      });
-      
-      // Create/update shared source for lines
-      if (lineFeatures.length > 0) {
-        const lineSourceId = this._sourceId + '-lines';
-        const lineLayerId = lineSourceId + '-layer';
-        
-        const featureCollection = {
-          type: 'FeatureCollection',
-          features: lineFeatures
-        };
-        
-        if (mlMap.getSource(lineSourceId)) {
-          mlMap.getSource(lineSourceId).setData(featureCollection);
-        } else {
-          mlMap.addSource(lineSourceId, {
-            type: 'geojson',
-            data: featureCollection
-          });
-          
-          // Get style from first layer
-          const firstLayer = lineLayers[0];
-          const style = firstLayer ? firstLayer._style : {};
-          
-          mlMap.addLayer({
-            id: lineLayerId,
-            type: 'line',
-            source: lineSourceId,
-            paint: {
-              'line-color': resolveColor(style.color) || '#3388ff',
-              'line-width': style.weight || 3,
-              'line-opacity': style.opacity !== undefined ? style.opacity : 1
-            }
-          });
-          
-          this._layerIds.push(lineLayerId);
-          
-          // Bind events to shared layer
-          this._bindSharedLayerEvents(mlMap, lineLayerId, lineLayers);
-        }
-      }
-      
-      // Create/update shared source for polygons
-      if (polygonFeatures.length > 0) {
-        const polygonSourceId = this._sourceId + '-polygons';
-        const polygonFillLayerId = polygonSourceId + '-fill';
-        const polygonLineLayerId = polygonSourceId + '-line';
-        
-        const featureCollection = {
-          type: 'FeatureCollection',
-          features: polygonFeatures
-        };
-        
-        if (mlMap.getSource(polygonSourceId)) {
-          mlMap.getSource(polygonSourceId).setData(featureCollection);
-        } else {
-          mlMap.addSource(polygonSourceId, {
-            type: 'geojson',
-            data: featureCollection
-          });
-          
-          // Get style from first layer
-          const firstLayer = polygonLayers[0];
-          const style = firstLayer ? firstLayer._style : {};
-          
-          mlMap.addLayer({
-            id: polygonFillLayerId,
-            type: 'fill',
-            source: polygonSourceId,
-            paint: {
-              'fill-color': resolveColor(style.fillColor || style.color) || '#3388ff',
-              'fill-opacity': style.fillOpacity !== undefined ? style.fillOpacity : 0.2
-            }
-          });
-          
-          mlMap.addLayer({
-            id: polygonLineLayerId,
-            type: 'line',
-            source: polygonSourceId,
-            paint: {
-              'line-color': resolveColor(style.color) || '#3388ff',
-              'line-width': style.weight || 3,
-              'line-opacity': style.opacity !== undefined ? style.opacity : 1
-            }
-          });
-          
-          this._layerIds.push(polygonFillLayerId, polygonLineLayerId);
-          
-          // Bind events to shared layer (use fill layer for better hit detection)
-          this._bindSharedLayerEvents(mlMap, polygonFillLayerId, polygonLayers);
-        }
-      }
-      
-      // Add markers normally (they use DOM elements, not sources)
-      this._layers.forEach(layer => {
-        if (layer instanceof LMarker && !layer._map) {
-          layer.addTo(this._map);
-        }
-      });
-    }
-    _bindSharedLayerEvents(mlMap, layerId, layers) {
-      // Create a map of feature IDs to layers
-      const layerMap = new Map();
-      layers.forEach(layer => {
-        layerMap.set(L.stamp(layer), layer);
-      });
-      
-      // Bind events to the shared MapLibre layer
-      ['click', 'mouseenter', 'mouseleave'].forEach(mlEvent => {
-        mlMap.on(mlEvent, layerId, (e) => {
-          if (!e.features || !e.features[0]) return;
-          
-          const featureId = e.features[0].properties._leaflet_id;
-          const layer = layerMap.get(featureId);
-          
-          if (layer) {
-            const lEvent = mlEvent === 'mouseenter' ? 'mouseover' : mlEvent === 'mouseleave' ? 'mouseout' : mlEvent;
-            const latlng = e.lngLat ? { lat: e.lngLat.lat, lng: e.lngLat.lng } : null;
-            layer.fire(lEvent, { latlng, originalEvent: e.originalEvent, target: layer, containerPoint: e.point });
-          }
+      for (const { sourceId } of this._directSourceIds) {
+        const src = mlMap.getSource(sourceId);
+        if (!src) continue;
+        const isLines = sourceId.endsWith('-dlines');
+        const filtered = this._pathFeatures.filter(f => {
+          const t = f.geometry.type;
+          return isLines ? (t === 'LineString' || t === 'MultiLineString') : (t === 'Polygon' || t === 'MultiPolygon');
         });
-      });
-      
-      // Change cursor on hover
-      mlMap.on('mouseenter', layerId, () => { mlMap.getCanvas().style.cursor = 'pointer'; });
-      mlMap.on('mouseleave', layerId, () => { mlMap.getCanvas().style.cursor = ''; });
+        src.setData({ type: 'FeatureCollection', features: filtered });
+        if (L._sourcePool) {
+          const pool = L._sourcePool._pools.get(sourceId);
+          if (pool) pool.features = filtered;
+        }
+      }
     }
+    _removeDirectSources() {
+      if (!this._map || this._directSourceIds.length === 0) return;
+      const mlMap = this._map._mlMap || this._map;
+      for (const { sourceId, layerIds } of this._directSourceIds) {
+        for (const lid of layerIds) {
+          try { if (mlMap.getLayer(lid)) mlMap.removeLayer(lid); } catch(_) {}
+        }
+        try { if (mlMap.getSource(sourceId)) mlMap.removeSource(sourceId); } catch(_) {}
+        if (L._sourcePool) {
+          if (win.FeatureInteractions) win.FeatureInteractions.invalidateSource(sourceId);
+          L._sourcePool._pools.delete(sourceId);
+        }
+      }
+      this._directSourceIds = [];
+    }
+
+    // ── Lifecycle ──
     addTo(map) {
       this._map = map;
-      if (this._useSharedSource) {
-        this._updateSharedSource();
-      } else {
-        // Batch SourcePool updates to avoid N individual setData calls
-        const mlMap = map._mlMap || map;
+      const mlMap = map._mlMap || map;
+      // Add markers + PathLayers via SourcePool batch
+      if (this._layers.length > 0) {
         if (L._sourcePool) L._sourcePool.beginBatch();
         this._layers.forEach(l => l.addTo(map));
         if (L._sourcePool) L._sourcePool.endBatch(mlMap);
+      }
+      // Add direct-path features (zero PathLayer overhead)
+      if (this._pathFeatures.length > 0) {
+        this._addDirectPaths(map);
       }
       this.fire('add');
       return this;
     }
     remove() {
-      if (this._useSharedSource && this._map) {
-        const mlMap = this._map._mlMap || this._map;
-        // Remove shared layers and sources
-        this._layerIds.forEach(layerId => {
-          try {
-            if (mlMap.getLayer(layerId)) mlMap.removeLayer(layerId);
-          } catch(e) {}
-        });
-        
-        // Remove sources
-        try {
-          if (mlMap.getSource(this._sourceId + '-lines')) mlMap.removeSource(this._sourceId + '-lines');
-          if (mlMap.getSource(this._sourceId + '-polygons')) mlMap.removeSource(this._sourceId + '-polygons');
-        } catch(e) {}
-        
-        this._layerIds = [];
-      }
-      
-      // Batch pool removals to avoid N individual setData calls when clearing many features
+      this._removeDirectSources();
       const mlMap = this._map ? (this._map._mlMap || this._map) : null;
-      const shouldBatch = mlMap && L._sourcePool && !L._sourcePool._batching;
-      if (shouldBatch) L._sourcePool.beginBatch();
-      this._layers.forEach(l => { if (l.remove) l.remove(); });
-      if (shouldBatch) L._sourcePool.endBatch(mlMap);
+      if (this._layers.length > 0) {
+        const shouldBatch = mlMap && L._sourcePool && !L._sourcePool._batching;
+        if (shouldBatch) L._sourcePool.beginBatch();
+        this._layers.forEach(l => { if (l.remove) l.remove(); });
+        if (shouldBatch) L._sourcePool.endBatch(mlMap);
+      }
+      this._pathFeatures = [];
       this.fire('remove');
       return this;
     }
     removeFrom(map) { return this.remove(); }
+    clearLayers() {
+      this._removeDirectSources();
+      const mlMap = this._map ? (this._map._mlMap || this._map) : null;
+      if (this._layers.length > 0) {
+        const shouldBatch = mlMap && L._sourcePool && !L._sourcePool._batching;
+        if (shouldBatch) L._sourcePool.beginBatch();
+        this._layers.forEach(l => { if (l.remove) l.remove(); });
+        if (shouldBatch) L._sourcePool.endBatch(mlMap);
+      }
+      this._layers = [];
+      this._pathFeatures = [];
+      this._featureCount = 0;
+      return this;
+    }
+
+    // ── Query ──
     eachLayer(fn) { this._layers.forEach(fn); return this; }
     getLayers() { return this._layers.slice(); }
+    getFeatureCount() { return this._featureCount; }
     hasLayer(layer) { return this._layers.indexOf(layer) >= 0; }
+
+    // ── Mutation ──
     addLayer(layer) {
       this._layers.push(layer);
       if (this._map) layer.addTo(this._map);
@@ -1492,6 +1519,26 @@
     }
     setStyle(style) {
       this._layers.forEach(l => { if (l.setStyle) l.setStyle(typeof style === 'function' ? style(l.feature) : style); });
+      // Update direct source paint properties
+      if (this._directSourceIds.length > 0 && this._map) {
+        const mlMap = this._map._mlMap || this._map;
+        const s = typeof style === 'function' && this._pathFeatures.length > 0
+          ? style(this._pathFeatures[0]) : (typeof style === 'object' ? style : {});
+        for (const { layerIds } of this._directSourceIds) {
+          for (const lid of layerIds) {
+            try {
+              if (lid.endsWith('-fill')) {
+                if (s.fillColor || s.color) mlMap.setPaintProperty(lid, 'fill-color', resolveColor(s.fillColor || s.color));
+                if (s.fillOpacity !== undefined) mlMap.setPaintProperty(lid, 'fill-opacity', s.fillOpacity);
+              } else {
+                if (s.color) mlMap.setPaintProperty(lid, 'line-color', resolveColor(s.color));
+                if (s.weight !== undefined) mlMap.setPaintProperty(lid, 'line-width', s.weight);
+                if (s.opacity !== undefined) mlMap.setPaintProperty(lid, 'line-opacity', s.opacity);
+              }
+            } catch(_) {}
+          }
+        }
+      }
       return this;
     }
     resetStyle(layer) {
@@ -1518,23 +1565,23 @@
           }
         }
       });
+      // Include direct-path features in bounds
+      for (let i = 0; i < this._pathFeatures.length; i++) {
+        const coords = this._pathFeatures[i].geometry?.coordinates;
+        if (coords) _walkCoords(coords, (lng, lat) => {
+          if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat;
+          if (lng < minLng) minLng = lng; if (lng > maxLng) maxLng = lng;
+        });
+      }
       if (minLat === Infinity) return _invalidBounds;
       return L.latLngBounds([minLat, minLng], [maxLat, maxLng]);
     }
     toGeoJSON() {
+      const markerFeatures = this._layers.map(l => l.toGeoJSON ? l.toGeoJSON() : l.feature).filter(Boolean);
       return {
         type: 'FeatureCollection',
-        features: this._layers.map(l => l.toGeoJSON ? l.toGeoJSON() : l.feature).filter(Boolean)
+        features: markerFeatures.concat(this._pathFeatures)
       };
-    }
-    clearLayers() {
-      const mlMap = this._map ? (this._map._mlMap || this._map) : null;
-      const shouldBatch = mlMap && L._sourcePool && !L._sourcePool._batching;
-      if (shouldBatch) L._sourcePool.beginBatch();
-      this._layers.forEach(l => { if (l.remove) l.remove(); });
-      if (shouldBatch) L._sourcePool.endBatch(mlMap);
-      this._layers = [];
-      return this;
     }
   }
 
@@ -2044,6 +2091,9 @@
   // ============================================================
   // EXPOSE
   // ============================================================
+  // Expose color cache clear for theme changes
+  L.clearColorCache = clearColorCache;
+
   win.L = L;
 
   console.log('[MapLibreCompat] Leaflet compatibility layer loaded (backed by MapLibre GL JS)');

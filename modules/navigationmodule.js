@@ -383,8 +383,8 @@ const NavigationModule = (() => {
       
       // Compter les features existantes sur la carte
       let existingFeaturesCount = 0;
-      if (existingLayer && typeof existingLayer.getLayers === 'function') {
-        existingFeaturesCount = existingLayer.getLayers().length;
+      if (existingLayer) {
+        existingFeaturesCount = existingLayer.getFeatureCount?.() ?? (typeof existingLayer.getLayers === 'function' ? existingLayer.getLayers().length : 0);
       }
       
       console.log(`[NavigationModule] Layer "${layerName}": ${existingFeaturesCount} features sur la carte`);
@@ -415,8 +415,9 @@ const NavigationModule = (() => {
     // Compter les features visibles
     finalLayers.forEach(ln => {
       const layer = window.MapModule?.layers?.[ln];
-      if (layer && typeof layer.getLayers === 'function') {
-        console.log(`[NavigationModule] Layer "${ln}": ${layer.getLayers().length} features sur la carte`);
+      if (layer) {
+        const count = layer.getFeatureCount?.() ?? (typeof layer.getLayers === 'function' ? layer.getLayers().length : 0);
+        console.log(`[NavigationModule] Layer "${ln}": ${count} features sur la carte`);
       }
     });
     
@@ -1040,8 +1041,9 @@ const NavigationModule = (() => {
     // Compter les features
     Object.keys(window.MapModule?.layers || {}).forEach(ln => {
       const layer = window.MapModule?.layers?.[ln];
-      if (layer && typeof layer.getLayers === 'function') {
-        console.log(`[NavigationModule] Layer "${ln}": ${layer.getLayers().length} features`);
+      if (layer) {
+        const count = layer.getFeatureCount?.() ?? (typeof layer.getLayers === 'function' ? layer.getLayers().length : 0);
+        console.log(`[NavigationModule] Layer "${ln}": ${count} features`);
       }
     });
     console.log(`[NavigationModule] ========== resetToDefaultView END (CAS 2) ==========`);
