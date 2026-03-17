@@ -52,10 +52,22 @@ export const handler = async (event, context) => {
 
     const urlset = [];
 
-    // Home (optional but recommended)
+    // Derive home lastmod from most recent contribution
+    const latestDate = items.length > 0 ? fmtDate(items[0]?.created_at) : fmtDate(new Date().toISOString());
+
+    // Home page
     urlset.push({
       loc: `${BASE_ORIGIN}/`,
+      lastmod: latestDate,
       changefreq: 'daily',
+      priority: '1.0'
+    });
+
+    // Fiche index page
+    urlset.push({
+      loc: `${BASE_ORIGIN}/fiche/`,
+      lastmod: latestDate,
+      changefreq: 'weekly',
       priority: '0.8'
     });
 

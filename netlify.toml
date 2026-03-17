@@ -5,6 +5,14 @@
 [functions]
   directory = "netlify/functions"
 
+# Prerendering pour les crawlers (Google, Bing, etc.)
+# Netlify sert une version pré-rendue du SPA aux bots
+[build.processing]
+  skip_processing = false
+
+[build.processing.html]
+  pretty_urls = true
+
 # ============================================
 # Redirections sous-domaines → ?city=
 # ============================================
