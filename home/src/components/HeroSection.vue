@@ -52,12 +52,12 @@
               votre-collectivite.openprojets.com
             </div>
           </div>
-          <!-- Screenshot -->
+          <!-- Live iframe -->
           <div class="aspect-[894/380] bg-gray-100">
-            <img
-              src="https://www.figma.com/api/mcp/asset/87e83e28-8f92-4d8b-8592-b219c1c63faf"
-              alt="Aperçu carte Open Projets"
-              class="w-full h-full object-cover"
+            <iframe
+              src="https://grandsprojets.com"
+              title="Aperçu carte Open Projets"
+              class="w-full h-full border-0"
               loading="lazy"
             />
           </div>
