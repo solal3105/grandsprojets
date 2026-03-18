@@ -15,10 +15,41 @@
 
 # ============================================
 # Redirections domaines alternatifs → openprojets.com
+# IMPORTANT: Ces redirections ne fonctionnent QUE si les domaines
+# sont configurés dans Netlify (Domain Management)
 # ============================================
 
+# Redirection grandsprojets.com → openprojets.com (HTTP)
+[[redirects]]
+  from = "http://grandsprojets.com/*"
+  to = "https://openprojets.com/:splat"
+  status = 301
+  force = true
+
+# Redirection grandsprojets.com → openprojets.com (HTTPS)
 [[redirects]]
   from = "https://grandsprojets.com/*"
+  to = "https://openprojets.com/:splat"
+  status = 301
+  force = true
+
+# Redirection www.grandsprojets.com → openprojets.com (HTTP)
+[[redirects]]
+  from = "http://www.grandsprojets.com/*"
+  to = "https://openprojets.com/:splat"
+  status = 301
+  force = true
+
+# Redirection www.grandsprojets.com → openprojets.com (HTTPS)
+[[redirects]]
+  from = "https://www.grandsprojets.com/*"
+  to = "https://openprojets.com/:splat"
+  status = 301
+  force = true
+
+# Autres domaines alternatifs (si configurés dans Netlify)
+[[redirects]]
+  from = "http://openprojet.com/*"
   to = "https://openprojets.com/:splat"
   status = 301
   force = true
@@ -30,7 +61,19 @@
   force = true
 
 [[redirects]]
+  from = "http://openprojets.fr/*"
+  to = "https://openprojets.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "https://openprojets.fr/*"
+  to = "https://openprojets.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://openprojet.fr/*"
   to = "https://openprojets.com/:splat"
   status = 301
   force = true
