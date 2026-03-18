@@ -1,6 +1,33 @@
 # Netlify Redirects Configuration
 # https://docs.netlify.com/routing/redirects/
 
+# ============================================
+# REDIRECTIONS DOMAINES (PRIORITAIRES)
+# Les domaines doivent être configurés dans Netlify Domain Management
+# ============================================
+
+# Redirection grandsprojets.com → openprojets.com
+https://grandsprojets.com/*              https://openprojets.com/:splat              301!
+https://www.grandsprojets.com/*          https://openprojets.com/:splat              301!
+http://grandsprojets.com/*               https://openprojets.com/:splat              301!
+http://www.grandsprojets.com/*           https://openprojets.com/:splat              301!
+
+# Autres domaines alternatifs → openprojets.com
+https://openprojet.com/*                 https://openprojets.com/:splat              301!
+https://www.openprojet.com/*             https://openprojets.com/:splat              301!
+https://openprojets.fr/*                 https://openprojets.com/:splat              301!
+https://www.openprojets.fr/*             https://openprojets.com/:splat              301!
+https://openprojet.fr/*                  https://openprojets.com/:splat              301!
+https://www.openprojet.fr/*              https://openprojets.com/:splat              301!
+
+# Sous-domaines villes → ?city=
+https://lumieres.openprojets.com/*       https://openprojets.com/:splat?city=lumieres   301!
+https://lumieres.grandsprojets.com/*     https://openprojets.com/:splat?city=lumieres   301!
+
+# ============================================
+# REDIRECTIONS CUSTOM (CHEMINS)
+# ============================================
+
 # Redirections custom (prioritaires)
 /bilan              /?city=rassemblees    200
 
