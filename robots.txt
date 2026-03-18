@@ -16,4 +16,4 @@ Disallow: /playwright-report/
 Disallow: /_headers
 Disallow: /*.json
 
-Sitemap: https://grandsprojets.com/sitemap.xml
+Sitemap: https://openprojets.com/sitemap.xml

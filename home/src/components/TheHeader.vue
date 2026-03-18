@@ -19,7 +19,7 @@
         </router-link>
 
         <a
-          href="https://grandsprojets.com"
+          href="https://openprojets.com"
           target="_blank"
           class="ml-2 inline-flex items-center gap-2 bg-dark text-white text-[13px] font-normal px-5 py-2 rounded-full hover:bg-gray-800 transition-colors"
         >
@@ -54,7 +54,7 @@
             {{ link.label }}
           </router-link>
           <a
-            href="https://grandsprojets.com"
+            href="https://openprojets.com"
             target="_blank"
             class="inline-flex items-center justify-center gap-2 bg-dark text-white text-sm font-normal px-5 py-3 rounded-full mt-2"
           >

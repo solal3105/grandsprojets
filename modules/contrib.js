@@ -1135,7 +1135,7 @@
       landingHelpBtn.addEventListener('click', () => {
         const role = win.__CONTRIB_IS_ADMIN ? 'admin' : 'contrib';
         const iframe = document.getElementById('help-iframe');
-        if (iframe) iframe.src = 'https://grandsprojets.com/home/aide?embed=true#' + role;
+        if (iframe) iframe.src = 'https://openprojets.com/home/aide?embed=true#' + role;
         win.ModalHelper?.open('help-overlay', {
           dismissible: true,
           lockScroll: true,

@@ -14,12 +14,40 @@
   pretty_urls = true
 
 # ============================================
+# Redirections domaines alternatifs → openprojets.com
+# ============================================
+
+[[redirects]]
+  from = "https://grandsprojets.com/*"
+  to = "https://openprojets.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://openprojet.com/*"
+  to = "https://openprojets.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://openprojets.fr/*"
+  to = "https://openprojets.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://openprojet.fr/*"
+  to = "https://openprojets.com/:splat"
+  status = 301
+  force = true
+
+# ============================================
 # Redirections sous-domaines → ?city=
 # ============================================
 
 [[redirects]]
-  from = "https://lumieres.grandsprojets.com/*"
-  to = "https://grandsprojets.com/:splat?city=lumieres"
+  from = "https://lumieres.openprojets.com/*"
+  to = "https://openprojets.com/:splat?city=lumieres"
   status = 301
   force = true
 

@@ -153,7 +153,7 @@
             <ArrowRight class="w-4 h-4" />
           </router-link>
           <a
-            href="https://grandsprojets.com"
+            href="https://openprojets.com"
             target="_blank"
             class="inline-flex items-center gap-2.5 bg-white/10 text-white text-sm font-medium px-7 py-4 rounded-full border border-white/20 hover:bg-white/20 transition-colors"
           >

@@ -594,7 +594,7 @@
     // Mettre à jour la meta description
     let metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
-      metaDesc.content = `Découvrez les ${count} projets d'urbanisme et de mobilité à ${cityName} : tramway, aménagements, travaux et plus encore sur GrandsProjets.com`;
+      metaDesc.content = `Découvrez les ${count} projets d'urbanisme et de mobilité à ${cityName} : tramway, aménagements, travaux et plus encore sur OpenProjets.com`;
     }
     
     // Mettre à jour Open Graph
@@ -605,7 +605,7 @@
     
     const ogDesc = document.querySelector('meta[property="og:description"]');
     if (ogDesc) {
-      ogDesc.content = `Découvrez les ${count} projets d'urbanisme et de mobilité à ${cityName} sur GrandsProjets.com`;
+      ogDesc.content = `Découvrez les ${count} projets d'urbanisme et de mobilité à ${cityName} sur OpenProjets.com`;
     }
     
     // Ajouter JSON-LD pour la liste d'articles

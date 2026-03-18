@@ -27,7 +27,7 @@
           </router-link>
 
           <a
-            href="https://grandsprojets.com"
+            href="https://openprojets.com"
             target="_blank"
             class="inline-flex items-center gap-2.5 bg-white text-dark text-sm font-medium px-7 py-4 rounded-full border border-gray-border hover:border-gray-300 transition-colors"
           >
@@ -55,7 +55,7 @@
           <!-- Live iframe -->
           <div class="aspect-[894/380] bg-gray-100">
             <iframe
-              src="https://grandsprojets.com"
+              src="https://openprojets.com"
               title="Aperçu carte Open Projets"
               class="w-full h-full border-0"
               loading="lazy"
