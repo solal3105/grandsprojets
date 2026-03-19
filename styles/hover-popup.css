@@ -1,40 +1,16 @@
 /* ============================================================
-   HOVER POPUP — Premium design for feature hover
-   Used by feature-interactions.js via MapLibre GL Popup
+   HOVER CARDS — Unified card system for feature interactions
+   Used by feature-interactions.js (custom DOM overlay)
+   States: single | peek | picker
    ============================================================ */
 
-/* Container — override MapLibre GL popup defaults */
-.gp-hover-popup .maplibregl-popup-content {
-  padding: 0;
-  border-radius: 14px;
-  overflow: hidden;
-  background: var(--surface, #fff);
-  box-shadow:
-    0 4px 24px rgba(0,0,0,.12),
-    0 1px 4px rgba(0,0,0,.08);
-  border: 1px solid var(--border-light, rgba(0,0,0,.06));
-  animation: gp-hp-in .2s cubic-bezier(.22,1,.36,1);
-  pointer-events: none;
-}
-
-.gp-hover-popup .maplibregl-popup-tip {
-  border-top-color: var(--surface, #fff);
-}
-
-@keyframes gp-hp-in {
-  from { opacity: 0; transform: translateY(6px) scale(.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* Inner card */
+/* ── Inner card (.gp-hp) ── */
 .gp-hp {
   display: flex;
   flex-direction: column;
   width: 260px;
   max-width: 280px;
 }
-
-/* Image */
 .gp-hp-img {
   width: 100%;
   height: 120px;
@@ -48,16 +24,12 @@
   object-fit: cover;
   display: block;
 }
-
-/* Body */
 .gp-hp-body {
   padding: 10px 14px 12px;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-
-/* Category tag */
 .gp-hp-tag {
   display: inline-flex;
   align-items: center;
@@ -69,11 +41,8 @@
   color: var(--primary, #2e7d32);
   opacity: .8;
 }
-.gp-hp-tag--travaux {
-  color: var(--warning, #f59c00);
-}
+.gp-hp-tag--travaux { color: var(--warning, #f59c00); }
 
-/* Title */
 .gp-hp-title {
   font-size: 14px;
   font-weight: 700;
@@ -85,8 +54,6 @@
   line-clamp: 2;
   overflow: hidden;
 }
-
-/* CTA hint */
 .gp-hp-cta {
   display: flex;
   align-items: center;
@@ -95,27 +62,309 @@
   color: var(--text-secondary, #666);
   margin-top: 2px;
 }
-.gp-hp-cta i {
-  font-size: 10px;
-  opacity: .6;
+.gp-hp-cta i { font-size: 10px; opacity: .6; }
+
+/* ============================================================
+   OVERLAY — root container (position: fixed on body)
+   JS sets left/top to the map feature screen position
+   ============================================================ */
+.gp-fan-overlay {
+  position: fixed;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+/* ── Cards container (0×0 anchor point) ── */
+.gp-fan-cards {
+  position: relative;
+  width: 0;
+  height: 0;
+}
+
+/* ── Base card ── */
+.gp-fan-card {
+  position: absolute;
+  bottom: 16px;
+  left: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border-light, rgba(0,0,0,.06));
+  pointer-events: none;
+
+  /* Transition-driven positioning (key for fluid 1→2→3) */
+  transition:
+    transform .35s cubic-bezier(.22,1,.36,1),
+    opacity .25s ease,
+    box-shadow .25s ease,
+    filter .25s ease;
+}
+
+/* New card entering */
+.gp-fan-card.entering {
+  opacity: 0;
+  transform: translate(-50%, 8px) scale(.92) !important;
+}
+/* Card leaving */
+.gp-fan-card.leaving {
+  opacity: 0;
+  transform: translate(-50%, 8px) scale(.92) !important;
+  pointer-events: none;
 }
 
 /* ============================================================
-   DARK THEME overrides
+   SINGLE — 1 card + tip arrow, follows cursor
    ============================================================ */
-[data-theme="dark"] .gp-hover-popup .maplibregl-popup-content {
+.gp-fan-overlay.single .gp-fan-card {
+  width: 260px;
+  transform: translate(-50%, 0);
+  box-shadow:
+    0 4px 24px rgba(0,0,0,.12),
+    0 1px 4px rgba(0,0,0,.08);
+}
+.gp-fan-overlay.single .gp-fan-card .gp-hp { width: 260px; }
+.gp-fan-overlay.single .gp-fan-card .gp-hp-img { height: 120px; }
+
+/* Tip arrow */
+.gp-fan-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-50%, -1px);
+  width: 0; height: 0;
+  border: 8px solid transparent;
+  border-top-color: var(--surface, #fff);
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.06));
+  transition: opacity .2s ease;
+}
+
+/* ============================================================
+   PEEK — 2-3 cards stacked (offset Y + scale, no rotation)
+   Front card fully visible, others peek behind
+   ============================================================ */
+.gp-fan-overlay.peek .gp-fan-card {
+  width: 230px;
+  /* i=0 front (z highest), i=1,2 peek behind with clear offset */
+  z-index: calc(10 - var(--i));
+  transform:
+    translate(calc(-50% + var(--i) * 6px), calc(var(--i) * -12px))
+    scale(calc(1 - var(--i) * 0.04));
+  box-shadow:
+    0 calc(4px + var(--i) * 3px) calc(16px + var(--i) * 6px) rgba(0,0,0, calc(.10 + var(--i) * .03)),
+    0 1px 3px rgba(0,0,0,.06);
+}
+.gp-fan-overlay.peek .gp-fan-card .gp-hp { width: 230px; }
+.gp-fan-overlay.peek .gp-fan-card .gp-hp-img { height: 100px; }
+.gp-fan-overlay.peek .gp-fan-card .gp-hp-body { padding: 8px 12px 10px; }
+.gp-fan-overlay.peek .gp-fan-card .gp-hp-title {
+  font-size: 13px;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+
+/* ============================================================
+   PICKER — vertical list of ALL projects (on click)
+   ============================================================ */
+.gp-fan-overlay.picker {
+  pointer-events: auto;
+}
+
+/* Backdrop */
+.gp-fan-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.18);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  pointer-events: auto;
+  z-index: -1;
+  animation: gp-backdrop-in .3s ease;
+}
+@keyframes gp-backdrop-in { from { opacity: 0; } }
+
+/* Picker panel */
+.gp-pk {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 320px;
+  max-height: min(420px, 60vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--surface, #fff);
+  border-radius: 16px;
+  box-shadow:
+    0 12px 48px rgba(0,0,0,.18),
+    0 4px 12px rgba(0,0,0,.06);
+  border: 1px solid var(--border-light, rgba(0,0,0,.06));
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  animation: gp-pk-in .35s cubic-bezier(.22,1,.36,1);
+}
+@keyframes gp-pk-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px) scale(.95); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+/* Scrollbar */
+.gp-pk::-webkit-scrollbar { width: 4px; }
+.gp-pk::-webkit-scrollbar-track { background: transparent; }
+.gp-pk::-webkit-scrollbar-thumb {
+  background: var(--border-light, rgba(0,0,0,.12));
+  border-radius: 2px;
+}
+
+/* Header */
+.gp-pk-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--border-light, rgba(0,0,0,.06));
+  position: sticky;
+  top: 0;
+  background: var(--surface, #fff);
+  z-index: 2;
+  border-radius: 16px 16px 0 0;
+}
+.gp-pk-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #666);
+}
+.gp-pk-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-tertiary, #94a3b8);
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: background .15s ease, color .15s ease;
+  line-height: 1;
+}
+.gp-pk-close:hover {
+  background: var(--border-light, rgba(0,0,0,.06));
+  color: var(--text-primary, #1a1a1a);
+}
+
+/* Row */
+.gp-pk-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-light, rgba(0,0,0,.04));
+  transition: background .15s ease;
+  animation: gp-pk-row-in .3s cubic-bezier(.22,1,.36,1) backwards;
+  animation-delay: calc(var(--i) * 40ms);
+}
+.gp-pk-row:last-child { border-bottom: none; }
+.gp-pk-row:hover { background: var(--primary-alpha-06, rgba(0,0,0,.03)); }
+.gp-pk-row.selected {
+  background: var(--primary-alpha-10, rgba(46,125,50,.1));
+}
+
+@keyframes gp-pk-row-in {
+  from { opacity: 0; transform: translateX(-8px); }
+}
+
+/* Thumbnail */
+.gp-pk-thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--bg-secondary, #f0f0f0);
+}
+.gp-pk-thumb--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary, #94a3b8);
+  font-size: 16px;
+}
+
+/* Info */
+.gp-pk-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+.gp-pk-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-primary, #1a1a1a);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.gp-pk-arrow {
+  font-size: 10px;
+  color: var(--text-tertiary, #94a3b8);
+  flex-shrink: 0;
+  transition: transform .15s ease;
+}
+.gp-pk-row:hover .gp-pk-arrow { transform: translateX(2px); }
+
+/* ============================================================
+   CLOSING — shared fade-out
+   ============================================================ */
+.gp-fan-overlay.closing .gp-fan-card,
+.gp-fan-overlay.closing .gp-fan-tip,
+.gp-fan-overlay.closing .gp-fan-cta {
+  opacity: 0;
+  transform: translate(-50%, 6px) scale(.95) !important;
+  transition: all .15s cubic-bezier(.4,0,1,1);
+}
+.gp-fan-overlay.closing .gp-fan-backdrop {
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+.gp-fan-overlay.closing .gp-pk {
+  opacity: 0;
+  transform: translateX(-50%) translateY(8px) scale(.97);
+  transition: all .15s cubic-bezier(.4,0,1,1);
+}
+
+/* ============================================================
+   DARK THEME
+   ============================================================ */
+[data-theme="dark"] .gp-hp-title { color: var(--text-primary, #e0e0e0); }
+[data-theme="dark"] .gp-hp-cta { color: var(--text-secondary, #aaa); }
+
+[data-theme="dark"] .gp-fan-card {
   background: var(--surface, #1e1e1e);
   border-color: var(--border-light, rgba(255,255,255,.1));
-  box-shadow:
-    0 4px 24px rgba(0,0,0,.4),
-    0 1px 4px rgba(0,0,0,.3);
 }
-[data-theme="dark"] .gp-hover-popup .maplibregl-popup-tip {
+[data-theme="dark"] .gp-fan-tip {
   border-top-color: var(--surface, #1e1e1e);
 }
-[data-theme="dark"] .gp-hp-title {
-  color: var(--text-primary, #e0e0e0);
-}
-[data-theme="dark"] .gp-hp-cta {
+[data-theme="dark"] .gp-fan-cta {
+  background: var(--surface, #1e1e1e);
+  border-color: var(--border-light, rgba(255,255,255,.1));
   color: var(--text-secondary, #aaa);
 }
+[data-theme="dark"] .gp-fan-backdrop { background: rgba(0,0,0,.4); }
+[data-theme="dark"] .gp-pk {
+  background: var(--surface, #1e1e1e);
+  border-color: var(--border-light, rgba(255,255,255,.1));
+  box-shadow: 0 12px 48px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.2);
+}
+[data-theme="dark"] .gp-pk-header {
+  background: var(--surface, #1e1e1e);
+  border-color: var(--border-light, rgba(255,255,255,.08));
+}
+[data-theme="dark"] .gp-pk-title { color: var(--text-primary, #e0e0e0); }
+[data-theme="dark"] .gp-pk-row:hover { background: rgba(255,255,255,.05); }
+[data-theme="dark"] .gp-pk-row.selected { background: var(--primary-alpha-10, rgba(76,175,80,.15)); }

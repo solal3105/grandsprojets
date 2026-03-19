@@ -12,10 +12,10 @@
 @import url('./styles/01-base.css');
 
 /* 02 - Layout - Structure globale */
-@import url('./styles/02-layout.css');
+@import url('./styles/02-layout.css?v=4');
 
 /* 03 - Navigation - Left nav, sous-menus, listes projets */
-@import url('./styles/03-navigation.css');
+@import url('./styles/03-navigation.css?v=5');
 
 /* 03.5 - GP Card System - Système de cartes unifié */
 /* @import url('./styles/gp-card-system.css'); */ /* Fichier manquant - désactivé */
@@ -27,7 +27,7 @@
 /* @import url('./styles/gp-markdown-content.css'); */ /* Fichier manquant - désactivé */
 
 /* 04 - Components - Composants réutilisables (filtres, badges, covers, CTA) */
-@import url('./styles/04-components.css');
+@import url('./styles/04-components.css?v=4');
 
 /* 05 - Map - MapLibre GL, tooltips, popups, markers */
 @import url('./styles/05-map.css');
@@ -39,7 +39,7 @@
 @import url('./styles/07-admin.css');
 
 /* 08 - Responsive - Media queries */
-@import url('./styles/08-responsive.css');
+@import url('./styles/08-responsive.css?v=5');
 
 /* 09 - Fiche projet - Page de détail des projets */
 /* @import url('./styles/09-ficheprojet.css'); */ /* Fichier manquant - désactivé */
@@ -73,3 +73,4 @@
 
 /* 20 - Hover Popup - Premium hover popup for map features */
 @import url('./styles/hover-popup.css');
+

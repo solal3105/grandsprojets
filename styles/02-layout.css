@@ -94,36 +94,79 @@
 --------------------------------------------------------------------------- */
 
 /* ---------------------------------------------------------------------------
-   Panneau de détails (droite)
+   Panneau de détails — Right-side floating popup
 --------------------------------------------------------------------------- */
 #detail-content {
   flex: 1;
-  overflow: visible; /* let #project-detail be the scroll container for sticky header */
+  overflow: visible;
   padding: 20px;
   padding-top: 0;
-  background: var(--white);
+  background: transparent;
 }
 
-/* Détail du projet et sous-menus Urbanisme/Vélo/Mobilité */
 #project-detail {
-  position: absolute;
-  top: 10px;
-  left: 120px; /* marge gauche + largeur de left-nav compact */
-  width: 350px;
-  min-height: 500px;
-  max-height: 70vh;
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 400px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
   overflow-y: auto;
-  border-radius: 0 16px 16px 0;
-  z-index: 1050;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  background: var(--surface-base);
+  border-radius: 20px;
+  box-shadow:
+    0 24px 80px var(--black-alpha-20),
+    0 8px 24px var(--black-alpha-10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-light);
+  z-index: 1300;
+  opacity: 0;
+  transform: translateX(20px) scale(0.97);
+  transition:
+    opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* (Legacy supprimé : #project-detail.visible — JS utilise display:block/none) */
+#project-detail[style*="display: block"],
+#project-detail.visible {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
 
 #project-detail h2 {
   margin-top: 0;
 }
 
-/* (Legacy supprimé : #close-details-btn — ancien bouton du HTML statique,
-   remplacé par .close-btn dans .detail-header-submenu) */
+/* Dark mode shadows */
+[data-theme="dark"] #project-detail {
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.5),
+    0 8px 24px rgba(0, 0, 0, 0.35);
+  border-color: rgba(255, 255, 255, 0.08);
+}
 
-/* (Doublon supprimé : .maplibregl-popup z-index — déjà défini dans 05-map.css) */
+/* Mobile: project detail as compact bottom sheet */
+@media (max-width: 720px) {
+  #project-detail {
+    top: auto;
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    width: auto;
+    max-width: 100%;
+    max-height: 60vh;
+    border-radius: 20px 20px 16px 16px;
+    transform: translateY(24px) scale(0.98);
+  }
+  
+  #project-detail[style*="display: block"],
+  #project-detail.visible {
+    transform: translateY(0) scale(1);
+  }
+
+  .detail-hero {
+    height: 160px;
+  }
+}

@@ -1,164 +1,113 @@
 /* ===========================================================================
-   NAVIGATION - Barre de navigation et sous-menus
+   NAVIGATION — Premium bottom bar + submenu system
+   Bold, refined, with rich depth and micro-interactions
    =========================================================================== */
 
 /* ---------------------------------------------------------------------------
-   Barre de navigation à gauche (#left-nav)
+   Bottom Navigation Bar (#left-nav)
+   Premium frosted glass dock — generous proportions, layered depth
 --------------------------------------------------------------------------- */
 #left-nav {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  background: var(--white-alpha-80);
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
-  box-shadow: 0 4px 16px var(--black-alpha-10);
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--surface-base) 72%, transparent);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border-radius: 22px;
+  box-shadow:
+    0 8px 40px var(--black-alpha-15),
+    0 2px 8px var(--black-alpha-08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 1px var(--border-light);
   z-index: 1000;
-  padding: 12px;
-  transition: width 0.3s, border-radius 0.3s ease;
-  max-height: 70vh;
+  padding: 8px 12px;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: none;
 }
 
-/* Desktop: Quand un panneau est ouvert, coin droit à 0 pour connexion flush */
-@media (min-width: 721px) {
-  #left-nav.has-panel-open {
-    border-radius: 16px 0 0 16px;
-  }
-}
-
-#left-nav.expanded {
-  width: 300px;
-}
-
-/* Wrapper interne */
+/* Wrapper interne — horizontal row */
 .nav-scroll-wrapper {
   display: flex;
-  flex-direction: column;
-  gap: 0;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
   max-height: 100%;
 }
 
-/* Logo - reste fixe (ne scroll pas) */
-#left-nav .logo {
-  flex-shrink: 0;
-}
-
-/* Container des sous-menus (frère de #left-nav, hors backdrop-filter) */
-/* La largeur est synchronisée dynamiquement par SubmenuManager.syncSubmenuContainerWidth()
-   pour coller parfaitement à #left-nav quelle que soit sa taille. */
-#dynamic-submenus {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 1100;
-  pointer-events: none;
-  max-height: 70vh;
-}
-
-#dynamic-submenus .submenu {
-  pointer-events: auto;
-}
-
-/* Container des catégories dynamiques */
-#dynamic-categories {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-/* Boutons de catégories */
-#dynamic-categories .nav-category {
-  width: 100%;
-  min-height: 64px;
-  margin: 0;
-}
-
-/* Desktop uniquement : Adaptation selon le nombre d'éléments */
-@media (min-width: 721px) {
-  /* À partir de 5 éléments : réduire la hauteur */
-  #dynamic-categories[data-item-count="5"] .nav-category,
-  #dynamic-categories[data-item-count="6"] .nav-category,
-  #dynamic-categories[data-item-count="7"] .nav-category,
-  #dynamic-categories[data-item-count="8"] .nav-category,
-  #dynamic-categories[data-item-count="9"] .nav-category,
-  #dynamic-categories[data-item-count="10"] .nav-category {
-    min-height: 58px;
-    padding: 6px 8px;
-  }
-  
-  /* Si 5+ éléments : activer le scroll sur le container */
-  #dynamic-categories[data-item-count="5"],
-  #dynamic-categories[data-item-count="6"],
-  #dynamic-categories[data-item-count="7"],
-  #dynamic-categories[data-item-count="8"],
-  #dynamic-categories[data-item-count="9"],
-  #dynamic-categories[data-item-count="10"] {
-    max-height: calc(70vh - 120px); /* 70vh - logo - padding */
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
-  
-  /* Scrollbar styling */
-  #dynamic-categories::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  #dynamic-categories::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  
-  #dynamic-categories::-webkit-scrollbar-thumb {
-    background: var(--gray-300);
-    border-radius: 3px;
-  }
-  
-  #dynamic-categories::-webkit-scrollbar-thumb:hover {
-    background: var(--gray-400);
-  }
-}
-
-
-/* Logo */
-#left-nav .logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-#left-nav .logo img {
-  width: 90px;
-  height: auto;
-}
+/* Logo hidden in bottom nav */
+#left-nav .logo { display: none; }
+#left-nav .logo img { width: 90px; height: auto; }
 
 /* Standalone mobile fixed logo */
 .mobile-fixed-logo {
   position: fixed;
-  top: 20px;
-  left: 20px;
-  z-index: 900; /* Au-dessus de la carte, sous les toggles/submenus/project-detail */
-  display: none;
+  top: 16px;
+  left: 16px;
+  z-index: 900;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   text-decoration: none;
 }
 
 .mobile-fixed-logo img {
-  width: 120px;
+  width: 100px;
   height: auto;
   display: block;
 }
 
-/* Boutons de catégories */
+/* ---------------------------------------------------------------------------
+   Bottom Sheet Panel (#dynamic-submenus)
+--------------------------------------------------------------------------- */
+#dynamic-submenus {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999;
+  pointer-events: none;
+  width: calc(100vw - 32px);
+  max-width: 720px;
+  max-height: none;
+}
+
+#dynamic-submenus .submenu {
+  pointer-events: auto;
+}
+
+/* Container des catégories dynamiques — horizontal */
+#dynamic-categories {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  align-items: stretch;
+  justify-content: center;
+}
+
+#dynamic-categories .nav-category {
+  width: auto;
+  min-height: auto;
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Category buttons — Bold, tactile, with rich interaction states
+--------------------------------------------------------------------------- */
 .nav-category {
+  --cat-color: var(--primary);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   border: none;
-  border-radius: 10px;
-  width: 76px;
-  padding: 8px 6px;
+  border-radius: 16px;
+  width: auto;
+  min-width: 64px;
+  padding: 10px 14px;
   cursor: pointer;
   font-size: 1rem;
   background: transparent;
@@ -167,151 +116,120 @@
   position: relative;
   overflow: hidden;
   transform: translateZ(0);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, background 0.15s ease;
-}
-
-/* Variable CSS pour la couleur de catégorie (définie via JS) */
-.nav-category {
-  --cat-color: var(--primary);
-  --cat-color-alpha-12: color-mix(in srgb, var(--cat-color) 12%, transparent);
-  --cat-color-alpha-16: color-mix(in srgb, var(--cat-color) 16%, transparent);
-  --cat-color-alpha-22: color-mix(in srgb, var(--cat-color) 22%, transparent);
-  --cat-color-alpha-25: color-mix(in srgb, var(--cat-color) 25%, transparent);
-}
-
-.nav-category:hover {
-  background: var(--cat-color-alpha-16);
-}
-
-.nav-category:hover i,
-.nav-category:hover .label {
-  color: var(--cat-color);
-}
-
-.nav-category.active {
-  background: var(--cat-color);
-  color: var(--white);
-  box-shadow: 0 2px 8px var(--cat-color-alpha-25);
-}
-
-.nav-category.active i {
-  color: var(--white);
-}
-
-.nav-category.active .label {
-  color: var(--white);
+  transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .nav-category i {
   margin: 0;
-  font-size: 1.2rem;
-  color: var(--gray-700);
+  font-size: 1.35rem;
+  color: var(--text-secondary);
+  transition: color 0.25s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Label inside nav buttons */
 .nav-category .label {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 10px;
-  font-weight: 600;
-  line-height: 1.25;
-  color: var(--gray-600);
-  max-width: 68px;
-  word-break: break-word;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-tertiary);
+  max-width: 72px;
   text-align: center;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  transition: color 0.25s ease, opacity 0.25s ease;
 }
 
-/* Sous-menus */
+/* Hover — subtle lift with soft glow */
+.nav-category:hover {
+  background: color-mix(in srgb, var(--cat-color) 10%, transparent);
+  transform: translateZ(0) translateY(-1px);
+}
+
+.nav-category:hover i {
+  color: var(--cat-color);
+  transform: scale(1.12);
+}
+
+.nav-category:hover .label {
+  color: var(--text-primary);
+}
+
+/* Press state */
+.nav-category:active {
+  transform: translateZ(0) scale(0.95);
+  transition-duration: 0.1s;
+}
+
+/* Active state — bold accent pill with radial glow */
+.nav-category.active {
+  background: var(--cat-color);
+  box-shadow:
+    0 4px 20px color-mix(in srgb, var(--cat-color) 50%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--cat-color) 30%, transparent);
+  transform: translateZ(0) translateY(-1px);
+}
+
+.nav-category.active i {
+  color: #fff;
+  transform: scale(1.05);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+.nav-category.active .label {
+  color: #fff;
+  opacity: 0.95;
+}
+
+/* ---------------------------------------------------------------------------
+   Bottom Sheet Submenu — floating card column
+--------------------------------------------------------------------------- */
 .submenu {
   display: none;
-  position: absolute;
-  top: 0;
-  left: 100%;
-  width: 320px;
-  min-height: 100%;
-  max-height: calc(70vh);
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%) translateY(24px);
+  width: calc(100vw - 32px);
+  max-width: 540px;
+  max-height: 52vh;
+  min-height: auto;
   background: var(--surface-base);
-  box-shadow: 4px 0 16px var(--black-alpha-08);
-  border-radius: 0 16px 16px 0;
+  box-shadow:
+    0 32px 100px var(--black-alpha-20),
+    0 12px 40px var(--black-alpha-12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-light);
+  border-radius: 22px;
   z-index: 1200;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
   opacity: 0;
-  transform: translateX(-10px);
-  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  /* Couleur de catégorie (définie via JS) pour les accents */
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
   --cat-color: var(--primary);
 }
 
-/* État visible */
+.submenu::-webkit-scrollbar { width: 5px; }
+.submenu::-webkit-scrollbar-track { background: transparent; margin: 12px 0; }
+.submenu::-webkit-scrollbar-thumb { background: var(--black-alpha-10); border-radius: 10px; }
+.submenu::-webkit-scrollbar-thumb:hover { background: var(--black-alpha-20); }
+
 .submenu[style*="display: block"],
 .submenu.visible {
   opacity: 1;
-  transform: translateX(0);
+  transform: translateX(-50%) translateY(0);
 }
 
-/* Animation des items */
-.submenu .project-item {
-  opacity: 0;
-  transform: translateY(10px);
-  animation: slideInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-.submenu .project-item:nth-child(1) { animation-delay: 0.05s; }
-.submenu .project-item:nth-child(2) { animation-delay: 0.1s; }
-.submenu .project-item:nth-child(3) { animation-delay: 0.15s; }
-.submenu .project-item:nth-child(4) { animation-delay: 0.2s; }
-.submenu .project-item:nth-child(5) { animation-delay: 0.25s; }
-.submenu .project-item:nth-child(6) { animation-delay: 0.3s; }
-.submenu .project-item:nth-child(7) { animation-delay: 0.35s; }
-.submenu .project-item:nth-child(8) { animation-delay: 0.4s; }
-.submenu .project-item:nth-child(n+9) { animation-delay: 0.45s; }
-
-@keyframes slideInUp {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* (Legacy supprimé : .detail-header-project-list, .project-header-container,
-   #detail-close-btn, #detail-toggle-btn, .detail-header, .detail-header-top
-   — anciens sélecteurs du HTML statique, remplacés par .detail-header-submenu) */
-
-/* #detail-back-btn utilise .btn-secondary du système gp-button-system.css */
-
-.project-title-container {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 0 20px;
-}
-
-.project-title-container i {
-  font-size: 1.4rem;
-  color: var(--primary);
-  background: var(--primary-lighter);
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.project-title {
-  margin: 0;
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: var(--gray-800);
-}
-
-/* Detail header submenu styling */
+/* ---------------------------------------------------------------------------
+   Submenu Header — frosted glass sticky bar
+--------------------------------------------------------------------------- */
 .detail-header-submenu {
   position: sticky;
   top: 0;
@@ -319,9 +237,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--white-alpha-72);
-  backdrop-filter: blur(20px);
-  padding: 10px 20px;
+  background: color-mix(in srgb, var(--surface-base) 88%, transparent);
+  backdrop-filter: blur(28px) saturate(140%);
+  -webkit-backdrop-filter: blur(28px) saturate(140%);
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .detail-header-submenu .header-left {
@@ -337,14 +257,12 @@
 
 .detail-header-submenu h2 {
   margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--gray-700);
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
-/* .detail-header-submenu .close-btn utilise .btn-secondary */
-
-/* Project detail header actions */
 .detail-header-submenu .header-actions {
   display: flex !important;
   align-items: center;
@@ -353,319 +271,237 @@
   width: 100%;
 }
 
-/* Normalize header buttons inside project detail header */
-#project-detail .detail-header-submenu button {
-  margin: 0;
-  font-weight: 500;
+/* Close button */
+.submenu .detail-header-submenu .close-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--black-alpha-06);
+  color: var(--text-secondary);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.submenu .detail-header-submenu .close-btn i {
+  font-size: 0.6rem;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.submenu .detail-header-submenu .close-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.submenu .detail-header-submenu .close-btn:hover i {
+  transform: rotate(90deg);
+}
+
+.submenu .detail-header-submenu .close-btn:active {
+  transform: scale(0.96);
 }
 
 /* ---------------------------------------------------------------------------
-   Bouton toggle Réduire/Développer
-   - Masqué par défaut
-   - Visible sur mobile dans les submenus (voir 08-responsive.css)
-   - Toujours visible dans #project-detail
---------------------------------------------------------------------------- */
-.submenu-toggle-btn {
-  display: none;
-}
-
-#project-detail .submenu-toggle-btn {
-  display: inline-flex !important;
-}
-
-.submenu-toggle-btn.is-collapsed {
-  opacity: 0.95;
-}
-
-/* ---------------------------------------------------------------------------
-   Liste de projets - Design moderne épuré
+   Project List — grid of cards (2 cols desktop, 1 col mobile)
 --------------------------------------------------------------------------- */
 .project-list {
   list-style: none;
-  padding: 0;
-  margin: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  padding: 10px;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
 }
 
-.project-item {
+/* ---------------------------------------------------------------------------
+   Project Card — image-dominant vertical card
+--------------------------------------------------------------------------- */
+.project-card {
+  --card-accent: var(--cat-color, var(--primary));
   position: relative;
   display: flex;
-  align-items: center;
-  gap: 12px;
-  background: var(--surface-base);
-  border-radius: 12px;
-  padding: 12px;
-  border: 1px solid var(--gray-200);
-  box-shadow: 0 1px 3px var(--black-alpha-04);
+  flex-direction: column;
+  border-radius: 16px;
+  overflow: hidden;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1), padding-bottom 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  background: var(--surface-raised, #fff);
+  box-shadow:
+    0 2px 8px var(--black-alpha-06),
+    0 0 0 1px var(--border-light);
+  transition:
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.35s ease;
+
+  /* Stagger entrance */
+  opacity: 0;
+  transform: translateY(20px) scale(0.97);
+  animation: cardSlideUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.project-card:nth-child(1) { animation-delay: 0.04s; }
+.project-card:nth-child(2) { animation-delay: 0.08s; }
+.project-card:nth-child(3) { animation-delay: 0.12s; }
+.project-card:nth-child(4) { animation-delay: 0.16s; }
+.project-card:nth-child(5) { animation-delay: 0.20s; }
+.project-card:nth-child(n+6) { animation-delay: 0.22s; }
+
+@keyframes cardSlideUp {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Hover lift */
+.project-card:hover {
+  transform: translateY(-3px) scale(1.015);
+  box-shadow:
+    0 16px 48px var(--black-alpha-15),
+    0 6px 16px var(--black-alpha-08),
+    0 0 0 1px color-mix(in srgb, var(--card-accent) 30%, transparent);
+}
+
+.project-card:active {
+  transform: translateY(-1px) scale(0.995);
+  transition-duration: 0.1s;
+}
+
+.project-card:focus-visible {
+  outline: 2px solid var(--card-accent);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   Card Hero — large image area
+--------------------------------------------------------------------------- */
+.card-hero {
+  position: relative;
+  width: 100%;
+  height: 140px;
   overflow: hidden;
+  background: var(--gray-100, #f3f4f6);
 }
 
-.project-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px var(--black-alpha-08);
-  border-color: var(--cat-color);
-  background: var(--surface-raised);
-}
-
-/* Image de couverture dans les listes (prioritaire) */
-.project-item .project-cover {
-  width: 56px !important;
-  height: 56px !important;
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--gray-100);
-  flex-shrink: 0;
-  box-shadow: 0 2px 6px var(--black-alpha-06);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  margin-bottom: 0;
-}
-
-.project-item .project-cover img {
+.card-hero img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.project-item:hover .project-cover {
-  transform: scale(1.05);
-  box-shadow: 0 3px 8px var(--black-alpha-10);
+.project-card:hover .card-hero img {
+  transform: scale(1.06);
 }
 
-/* Icône de catégorie (fallback si pas d'image) */
-.project-color {
-  width: 56px;
-  height: 56px;
-  border-radius: 10px;
+/* Gradient overlay at bottom of image */
+.card-hero-grad {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.35) 0%,
+    rgba(0, 0, 0, 0.08) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.project-card:hover .card-hero-grad {
+  opacity: 0.7;
+}
+
+/* Icon fallback hero */
+.card-hero--icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
-  background: var(--surface-raised);
-  flex-shrink: 0;
-  box-shadow: 0 2px 6px var(--black-alpha-06);
+  height: 100px;
 }
 
-.project-color i {
-  font-size: 22px;
-  color: var(--text-secondary);
-  transition: transform 0.2s ease;
+.card-hero--icon i {
+  font-size: 2rem;
+  opacity: 0.6;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.project-item:hover .project-color {
-  transform: scale(1.05);
-  box-shadow: 0 3px 8px var(--black-alpha-10);
+.project-card:hover .card-hero--icon i {
+  transform: scale(1.2) rotate(-5deg);
+  opacity: 0.8;
 }
 
-.project-item:hover .project-color i {
-  transform: scale(1.1);
+/* ---------------------------------------------------------------------------
+   Card Body — title + arrow
+--------------------------------------------------------------------------- */
+.card-body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
 }
 
-/* Category color application */
-.project-color.pc-bus {
-  background: var(--info-alpha-22);
-}
-
-.project-color.pc-bus i {
-  color: var(--info-light);
-}
-
-.project-color.pc-default {
-  background: var(--warning-alpha-22);
-}
-
-.project-color.pc-default i {
-  color: var(--warning);
-}
-
-.project-color.pc-tram {
-  background: var(--info-alpha-22);
-}
-
-.project-color.pc-tram i {
-  color: var(--info);
-}
-
-.project-color.pc-urbanisme {
-  background: var(--info-alpha-22);
-}
-
-.project-color.pc-urbanisme i {
-  color: var(--info);
-}
-
-.project-color.pc-velo {
-  background: var(--primary-alpha-22);
-}
-
-.project-color.pc-velo i {
-  color: var(--primary);
-}
-
-.project-info {
+.card-title {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.project-info .project-name {
-  font-weight: 600;
-  font-size: 0.9375rem;
-  line-height: 1.3;
+  font-weight: 700;
+  font-size: 0.85rem;
+  line-height: 1.35;
   color: var(--text-primary);
-  margin: 0;
-  transition: color 0.2s ease;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
+  transition: color 0.2s ease;
 }
 
-.project-item:hover .project-info .project-name {
-  color: var(--cat-color);
+.project-card:hover .card-title {
+  color: var(--card-accent);
 }
 
-.project-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-}
-
-.project-info .project-year {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-}
-
-.project-info .project-status {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-}
-
-.project-arrow {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+/* Arrow icon */
+.card-arrow {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--gray-100);
-  color: var(--gray-500);
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-  margin-left: auto;
-}
-
-.project-arrow i {
-  font-size: 0.875rem;
-  transition: transform 0.2s ease;
-}
-
-.project-item:hover .project-arrow {
-  background: var(--cat-color);
-  color: white;
-  transform: scale(1.05);
-}
-
-.project-item:hover .project-arrow i {
-  transform: translateX(2px);
-}
-
-.project-item:focus-visible {
-  outline: 2px solid var(--cat-color);
-  outline-offset: 2px;
-}
-
-.project-item.active,
-.project-item[aria-current='true'] {
-  background: color-mix(in srgb, var(--cat-color) 8%, transparent);
-  border-color: var(--cat-color);
-}
-
-.project-item.active .project-arrow,
-.project-item[aria-current='true'] .project-arrow {
-  background: var(--cat-color);
-  color: white;
-}
-
-/* Badge image - masqué pour design épuré */
-.project-has-image-badge {
-  display: none;
-}
-
-/* Image en grand au survol prolongé */
-.project-thumb {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--surface-base) center/cover no-repeat;
-  border-bottom-left-radius: 12px;
-  border-bottom-right-radius: 12px;
-  z-index: 1;
+  background: color-mix(in srgb, var(--card-accent) 10%, transparent);
+  color: var(--card-accent);
+  font-size: 0.65rem;
   opacity: 0;
-  visibility: hidden;
-  max-height: 0;
-  overflow: hidden;
-  pointer-events: none;
-  transition: max-height 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease, visibility 0s linear 0.25s;
+  transform: translateX(-4px);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.project-item.show-thumb .project-thumb {
+.project-card:hover .card-arrow {
   opacity: 1;
-  visibility: visible;
-  transition: max-height 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease, visibility 0s;
-  max-height: min(var(--thumb-height, 200px), 200px);
+  transform: translateX(0);
+  background: var(--card-accent);
+  color: #fff;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--card-accent) 35%, transparent);
 }
 
-.project-thumb__img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.card-arrow i {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.project-item.show-thumb {
-  padding-bottom: calc(12px + min(var(--thumb-height, 200px), 200px));
+.project-card:hover .card-arrow i {
+  transform: translateX(1px);
 }
 
-/* Hover progress bar - simplifié */
-.hover-progress {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 2px;
-  background: transparent;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.hover-progress__bar {
-  height: 100%;
-  width: 0%;
-  background: var(--cat-color);
-  transition: width 0.6s linear;
-}
-
-.project-item.progress-visible .hover-progress {
-  opacity: 1;
-}
-
-/* Ensure main content stays above the cover image */
-.project-item .project-color,
-.project-item .project-info,
-.project-item .project-arrow {
-  position: relative;
-  z-index: 2;
+/* ---------------------------------------------------------------------------
+   Focusing state — simple green liseré when map is panning to this project
+   NO animation (animation would override cardSlideUp forwards → opacity: 0)
+--------------------------------------------------------------------------- */
+.project-card.focusing {
+  border-bottom: 3px solid var(--card-accent);
+  box-shadow:
+    0 2px 8px var(--black-alpha-06),
+    0 0 0 1px var(--card-accent);
 }

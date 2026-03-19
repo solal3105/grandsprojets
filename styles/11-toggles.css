@@ -150,14 +150,14 @@
 }
 
 #contribute-toggle i {
-  color: var(--white);
+  color: #fff;
   opacity: 1;
 }
 
 
 #contribute-toggle:hover i,
 #contribute-toggle:focus-visible i {
-  color: var(--white);
+  color: #fff;
 }
 
 #contribute-toggle:active {
@@ -186,7 +186,7 @@
   top: -5px;
   right: -5px;
   background: var(--primary);
-  color: var(--white);
+  color: #fff;
   border-radius: 50%;
   width: 20px;
   height: 20px;

@@ -4,24 +4,19 @@
    Typo moderne style Tailwind : Inter + System UI
    ============================================================================ */
 
-/* Import Google Font Inter */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-
 #project-markdown-content {
-  /* Base prose avec typo moderne */
   max-width: none;
   color: #374151;
-  font-size: 0.9375rem;
-  line-height: 1.75;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-size: 1rem;
+  line-height: 1.8;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Dark mode */
-.dark #project-markdown-content {
-  color: #d1d5db;
+[data-theme="dark"] #project-markdown-content {
+  color: #cbd5e1;
 }
 
 @media (min-width: 768px) {
@@ -47,13 +42,13 @@
   line-height: 1.2;
 }
 
-.dark #project-markdown-content h1,
-.dark #project-markdown-content h2,
-.dark #project-markdown-content h3,
-.dark #project-markdown-content h4,
-.dark #project-markdown-content h5,
-.dark #project-markdown-content h6 {
-  color: #f9fafb;
+[data-theme="dark"] #project-markdown-content h1,
+[data-theme="dark"] #project-markdown-content h2,
+[data-theme="dark"] #project-markdown-content h3,
+[data-theme="dark"] #project-markdown-content h4,
+[data-theme="dark"] #project-markdown-content h5,
+[data-theme="dark"] #project-markdown-content h6 {
+  color: #f1f5f9;
 }
 
 #project-markdown-content h1 {
@@ -151,8 +146,8 @@
   line-height: 1.75;
 }
 
-.dark #project-markdown-content p {
-  color: #d1d5db;
+[data-theme="dark"] #project-markdown-content p {
+  color: #cbd5e1;
 }
 
 /* ========================================
@@ -197,8 +192,8 @@
   line-height: 1.75;
 }
 
-.dark #project-markdown-content li {
-  color: #d1d5db;
+[data-theme="dark"] #project-markdown-content li {
+  color: #cbd5e1;
 }
 
 #project-markdown-content li > p {
@@ -215,8 +210,8 @@
   font-weight: 700;
 }
 
-.dark #project-markdown-content strong {
-  color: #f9fafb;
+[data-theme="dark"] #project-markdown-content strong {
+  color: #f1f5f9;
 }
 
 #project-markdown-content em {
@@ -224,8 +219,8 @@
   color: #374151;
 }
 
-.dark #project-markdown-content em {
-  color: #d1d5db;
+[data-theme="dark"] #project-markdown-content em {
+  color: #cbd5e1;
 }
 
 /* ========================================
@@ -253,9 +248,9 @@
   border: 1px solid #374151;
 }
 
-.dark #project-markdown-content pre {
-  background-color: #1f2937;
-  border-color: #4b5563;
+[data-theme="dark"] #project-markdown-content pre {
+  background-color: #1e293b;
+  border-color: #334155;
 }
 
 #project-markdown-content pre code {
@@ -281,9 +276,9 @@
   margin-bottom: 1.5rem;
 }
 
-.dark #project-markdown-content blockquote {
-  background-color: rgba(20, 174, 92, 0.15);
-  color: #d1d5db;
+[data-theme="dark"] #project-markdown-content blockquote {
+  background-color: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: #cbd5e1;
 }
 
 #project-markdown-content blockquote p {
@@ -305,8 +300,8 @@
   height: auto;
 }
 
-.dark #project-markdown-content img {
-  border-color: #4b5563;
+[data-theme="dark"] #project-markdown-content img {
+  border-color: #334155;
 }
 
 /* ========================================
@@ -320,8 +315,8 @@
   border-top: 2px solid #e5e7eb;
 }
 
-.dark #project-markdown-content hr {
-  border-top-color: #4b5563;
+[data-theme="dark"] #project-markdown-content hr {
+  border-top-color: #334155;
 }
 
 /* ========================================
@@ -339,8 +334,8 @@
   margin-bottom: 2rem;
 }
 
-.dark #project-markdown-content table {
-  border-color: #4b5563;
+[data-theme="dark"] #project-markdown-content table {
+  border-color: #334155;
 }
 
 #project-markdown-content thead {
@@ -359,8 +354,8 @@
   background-color: white;
 }
 
-.dark #project-markdown-content tbody {
-  background-color: #1f2937;
+[data-theme="dark"] #project-markdown-content tbody {
+  background-color: #1e293b;
 }
 
 #project-markdown-content td {
@@ -369,9 +364,9 @@
   color: #374151;
 }
 
-.dark #project-markdown-content td {
-  border-bottom-color: #4b5563;
-  color: #d1d5db;
+[data-theme="dark"] #project-markdown-content td {
+  border-bottom-color: #334155;
+  color: #cbd5e1;
 }
 
 #project-markdown-content tr:last-child td {
@@ -419,11 +414,11 @@
   background-color: rgba(255, 255, 255, 0.2);
 }
 
-.dark #project-markdown-content .copy-button {
+[data-theme="dark"] #project-markdown-content .copy-button {
   background-color: rgba(255, 255, 255, 0.15);
 }
 
-.dark #project-markdown-content .copy-button:hover {
+[data-theme="dark"] #project-markdown-content .copy-button:hover {
   background-color: rgba(255, 255, 255, 0.25);
 }
 

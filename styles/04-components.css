@@ -301,7 +301,7 @@
 #reset-all-filters:hover {
   box-shadow: 0 4px 6px var(--black-alpha-10), 0 1px 3px var(--black-alpha-08);
   border: 1px solid var(--danger);
-  color: var(--white);
+  color: #fff;
   background-color: var(--danger);
 }
 
@@ -346,7 +346,7 @@
 .travaux-checkbox:checked ~ .travaux-checkbox-custom::after {
   content: "✓";
   position: absolute;
-  color: var(--white);
+  color: #fff;
   font-size: 12px;
   left: 50%;
   top: 50%;
@@ -376,7 +376,7 @@
 
 .travaux-reset-btn {
   background: var(--danger);
-  color: var(--white);
+  color: #fff;
   border: none;
   border-radius: 4px;
   padding: 0.6rem 1rem;
@@ -753,165 +753,202 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Project Media Container - Cover (desktop) + Mini-carte (mobile)
+   Detail Hero — full-bleed cover with gradient overlay
 --------------------------------------------------------------------------- */
-.project-media-container {
+.detail-hero {
   position: relative;
   width: 100%;
-  margin-bottom: 16px;
+  height: 210px;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
-/* Toggle carte/cover (mobile uniquement) */
-.project-media-toggle {
-  display: none;
+.detail-hero__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.detail-hero:hover .detail-hero__img {
+  transform: scale(1.04);
+}
+
+.detail-hero__grad {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 10; /* Sous le detail-header-submenu sticky (z-index: 20) */
-  background: var(--white-alpha-90);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-radius: 10px;
-  padding: 4px;
-  gap: 4px;
-  box-shadow: 0 2px 8px var(--black-alpha-15);
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.50) 0%,
+    rgba(0, 0, 0, 0.15) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
 }
 
-.media-toggle-btn {
+/* Buttons inside hero — glassmorphism, theme-aware */
+.detail-hero__expand,
+.detail-back-floating {
+  position: absolute;
+  z-index: 4;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--gray-500);
+  background: var(--surface-base-alpha-80, rgba(255, 255, 255, 0.82));
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
   cursor: pointer;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+}
+
+.detail-hero__expand {
+  top: 12px;
+  right: 12px;
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+.detail-hero__expand i {
+  font-size: 0.72rem;
+}
+
+.detail-hero:hover .detail-hero__expand {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.detail-hero__expand:hover,
+.detail-back-floating:hover {
+  background: var(--surface-raised, #fff);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.20);
+  transform: scale(1.06);
+}
+
+.detail-back-floating {
+  top: 12px;
+  left: 12px;
+}
+
+/* Inline back button (when no cover image) */
+.detail-back-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
+  background: var(--surface-raised, #fff);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 12px;
   transition: all 0.2s ease;
 }
 
-.media-toggle-btn:hover {
+.detail-back-inline:hover {
   background: var(--gray-100);
-  color: var(--gray-700);
 }
 
-.media-toggle-btn.active {
-  background: var(--primary);
-  color: var(--white);
-  box-shadow: 0 2px 6px var(--primary-alpha-25);
+/* Dark mode overrides for hero buttons */
+[data-theme="dark"] .detail-hero__expand,
+[data-theme="dark"] .detail-back-floating {
+  background: rgba(30, 30, 30, 0.80);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
 }
 
-.media-toggle-btn i {
-  font-size: 0.875rem;
+[data-theme="dark"] .detail-hero__expand:hover,
+[data-theme="dark"] .detail-back-floating:hover {
+  background: rgba(50, 50, 50, 0.90);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
-/* Mini-carte de prévisualisation (mobile uniquement) */
-.project-preview-map-wrap {
-  display: none;
-  width: 100%;
-  height: 180px;
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--gray-100);
-  box-shadow: inset 0 0 0 1px var(--black-alpha-08);
-  position: relative;
-  z-index: 1; /* Sous le detail-header-submenu sticky */
-}
-
-#project-preview-map {
-  width: 100%;
-  height: 100%;
-}
-
-/* Forcer les z-index MapLibre à rester bas dans la mini-carte */
-.project-preview-map-wrap .maplibregl-canvas-container {
-  z-index: auto !important;
-}
-
-.project-preview-map-wrap .maplibregl-ctrl {
-  z-index: 10 !important;
-}
-
-/* Mobile : afficher le toggle et gérer les états */
-@media (max-width: 720px) {
-  .project-media-toggle {
-    display: flex;
-  }
-  
-  /* Par défaut tout est masqué sur mobile */
-  .project-preview-map-wrap {
-    display: none !important;
-  }
-  
-  /* Cover avec toggle : masquée par défaut sur mobile */
-  .project-cover-wrap.project-cover-wrap--mobile-toggle {
-    display: none !important;
-  }
-  
-  /* Afficher uniquement l'élément actif */
-  .project-preview-map-wrap.is-active {
-    display: block !important;
-  }
-  
-  .project-cover-wrap.project-cover-wrap--mobile-toggle.is-active {
-    display: block !important;
-  }
+[data-theme="dark"] .detail-back-inline {
+  background: var(--gray-800, #1f2937);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* ---------------------------------------------------------------------------
-   Project Cover Wrap - Utilisé dans navigationmodule.js (desktop)
+   Detail Content Wrap
 --------------------------------------------------------------------------- */
-.project-cover-wrap {
-  position: relative;
-  display: block;
-  width: 100%;
-  max-height: 420px;
-  overflow: visible;
+.detail-content-wrap {
+  padding: 20px 20px 24px;
 }
 
-.project-cover {
-  display: block;
-  width: 100%;
-  height: 360px;
-  max-height: 420px;
-  object-fit: cover;
-  border-radius: 12px;
+.detail-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
-.cover-extend-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
+.detail-cat-icon {
   width: 36px;
   height: 36px;
+  border-radius: 11px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--white);
-  border: none;
+  background: color-mix(in srgb, var(--color-primary, var(--primary)) 12%, transparent);
+  color: var(--color-primary, var(--primary));
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.detail-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--text-primary);
+  letter-spacing: -0.015em;
+}
+
+.detail-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.detail-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
   border-radius: 8px;
-  cursor: pointer;
-  opacity: 0;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 8px var(--black-alpha-10);
+  background: var(--gray-100);
+  color: var(--gray-600);
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
-.cover-extend-btn i {
-  color: var(--gray-700);
-  font-size: 0.875rem;
+[data-theme="dark"] .detail-chip {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
 }
 
-.project-cover-wrap:hover .cover-extend-btn {
-  opacity: 1;
-}
-.cover-extend-btn:hover {
-  box-shadow: 0 4px 12px var(--black-alpha-12);
-  transform: translateY(-1px);
+.detail-chip i {
+  font-size: 0.65rem;
+  opacity: 0.7;
 }
 
-.cover-extend-btn:active {
-  transform: translateY(0);
+.detail-description {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 0 0 16px;
 }
 
 /* Cover lightbox reste utilisé */
@@ -950,6 +987,13 @@
   right: -14px;
 }
 
+[data-theme="dark"] .cover-lightbox .lightbox-close {
+  background: rgba(40, 40, 40, 0.9);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+
 @keyframes lb-fade {
   from {
     opacity: 0;
@@ -964,27 +1008,27 @@
 --------------------------------------------------------------------------- */
 .detail-fullpage-btn {
   display: inline-flex;
-  width: calc(100% - 44px);
+  width: 100%;
   align-items: center;
   justify-content: center;
   gap: 10px;
   position: relative;
   background: var(--color-primary);
   background-size: 220% 220%;
-  color: var(--white);
-  border: 1px solid var(--white-alpha-28);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
   padding: 12px 22px;
-  border-radius: 999px;
-  font-size: 1rem;
+  border-radius: 14px;
+  font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
   text-decoration: none;
   transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, background-position 0.6s ease;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.15), 0 2px 6px var(--black-alpha-08), inset 0 1px 0 var(--white-alpha-35);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.35);
   text-align: center;
-  margin: 12px 20px;
+  margin: 8px 0 0;
   box-sizing: border-box;
-  text-shadow: 0 1px 0 var(--black-alpha-15);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
   animation: ctaIntro 520ms cubic-bezier(0.16, 1, 0.3, 1) 1 both, ctaGradient 7s ease-in-out infinite, ctaPulse 5s ease-in-out infinite;
   overflow: hidden;
   contain: paint;
@@ -997,7 +1041,7 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(120px 40px at -10% 50%, var(--white-alpha-35), transparent 60%), linear-gradient(to right, transparent, var(--white-alpha-25), transparent);
+  background: radial-gradient(120px 40px at -10% 50%, rgba(255, 255, 255, 0.35), transparent 60%), linear-gradient(to right, transparent, rgba(255, 255, 255, 0.25), transparent);
   transform: translateX(-130%);
   animation: ctaSheen 3.5s ease-in-out infinite;
   pointer-events: none;
@@ -1006,12 +1050,12 @@
 .detail-fullpage-btn:hover {
   transform: translateY(-2px) scale(1.02);
   background-position: 90% 10%;
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.2), 0 4px 10px var(--black-alpha-10), inset 0 1px 0 var(--white-alpha-40);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.2), 0 4px 10px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 .detail-fullpage-btn:active {
   transform: translateY(0) scale(0.99);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15), 0 2px 6px var(--black-alpha-08);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 .detail-fullpage-btn:focus-visible {
@@ -1559,58 +1603,26 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Project detail styles
+   Project detail base styles (class on #project-detail div)
 --------------------------------------------------------------------------- */
 .project-detail {
   display: none;
-  background-color: var(--white-alpha-80);
-  backdrop-filter: blur(10px);
-}
-
-/* Les boutons utilisent le système gp-button-system.css */
-
-.project-detail .pill {
-  background: var(--gray-100);
-  padding: 4px 8px;
-  border-radius: 8px;
-  margin-right: 8px;
-  font-size: 0.9rem;
-  font-weight: bold;
-  color: var(--gray-600);
-}
-
-.project-detail .pill.green {
-  background: var(--primary);
-  color: var(--white);
-}
-
-.project-detail .pill-outline {
-  background: none;
-  border: 2px solid var(--primary);
-  color: var(--primary);
-  border-radius: 8px;
-  padding: 2px 8px;
-  margin-left: auto;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-.project-detail h3 {
-  margin-top: 0;
 }
 
 .project-detail p {
-  margin-bottom: 1rem;
-  line-height: 1.4;
+  margin-bottom: 0.85rem;
+  line-height: 1.5;
+  font-size: 0.88rem;
 }
 
 .project-detail img {
   max-width: 100%;
-  border-radius: 5px;
-  margin: 1rem 0;
+  border-radius: 10px;
+  margin: 0.75rem 0;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .project-detail img:hover {
-  box-shadow: 0 2px 8px var(--black-alpha-15);
-  transform: scale(1.02);
+  box-shadow: 0 4px 16px var(--black-alpha-12);
+  transform: scale(1.01);
 }

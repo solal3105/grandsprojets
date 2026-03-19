@@ -40,12 +40,6 @@ const EventBindings = (() => {
     });
     FilterModule.resetAll();
 
-    // Ajouter la classe pour indiquer qu'un panneau est ouvert (gestion border-radius)
-    const leftNav = document.getElementById('left-nav');
-    if (leftNav) {
-      leftNav.classList.add('has-panel-open');
-    }
-
     // Gestion des couches à afficher
     if (Array.isArray(layersToDisplay)) {
       // 1. Remove ALL layers unconditionally — guarantees clean state

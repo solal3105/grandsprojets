@@ -287,30 +287,29 @@ window.DataModule = (function() {
 		const isTravaux = !!(props.nature_travaux || props.chantier_id);
 
 		if ((isContrib || isTravaux) && layer.on) {
-			// Hover → show popup (same visual as FI hover popup)
+			// Register DOM marker with FeatureInteractions for overlap detection
+			const FI = window.FeatureInteractions;
+			if (FI?.registerMarker) FI.registerMarker(layer, feature);
+
 			layer.on('mouseover', function() {
-				const FI = window.FeatureInteractions;
 				if (!FI || !FI._mlMap) return;
 				const latlng = layer.getLatLng?.();
 				if (!latlng) return;
-				FI._showPopup(props, { lng: latlng.lng, lat: latlng.lat });
+				FI._onDOMMarkerHover(layer, feature, { lng: latlng.lng, lat: latlng.lat });
 				const el = layer.getElement?.();
 				if (el) el.style.cursor = 'pointer';
 			});
+
 			layer.on('mouseout', function() {
-				const FI = window.FeatureInteractions;
-				if (FI && FI._popup && FI._popup.isOpen()) FI._popup.remove();
+				if (!FI) return;
+				FI._endHover();
 			});
-			// Click → open detail panel or travaux modal
+
 			layer.on('click', function() {
-				if (isContrib) {
-					if (window.UIModule?.showDetailPanel) {
-						window.UIModule.showDetailPanel(props.category, { properties: props, geometry: feature.geometry });
-						window.UIModule.updateActiveFilterTagsForLayer?.(props.category);
-					}
-				} else if (isTravaux) {
-					window.DataModule?.openTravauxModal?.(props);
-				}
+				if (!FI || !FI._mlMap) return;
+				const latlng = layer.getLatLng?.();
+				if (!latlng) return;
+				FI._onDOMMarkerClick(layer, feature, { lng: latlng.lng, lat: latlng.lat });
 			});
 		}
 	}

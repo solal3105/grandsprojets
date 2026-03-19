@@ -527,15 +527,31 @@ const NavigationModule = (() => {
   _lastShownProject = projectKey;
   console.log('[NavigationModule] ✅ Guard passed - proceeding with showProjectDetail');
   
-  // Masquer tous les sous-menus
+  // Hide submenus and bottom nav bar when showing project detail
   document.querySelectorAll('.submenu').forEach(el => {
     el.style.display = 'none';
   });
   
   const leftNav = document.getElementById('left-nav');
   if (leftNav) {
-    leftNav.classList.add('has-panel-open');
+    leftNav.style.opacity = '0';
+    leftNav.style.pointerEvents = 'none';
+    leftNav.style.transform = 'translateX(-50%) translateY(20px)';
   }
+
+  // Add map padding so the project stays visible (not hidden behind the detail panel)
+  // Desktop: right padding (panel is on the right)
+  // Mobile: bottom padding (panel is a bottom sheet at 60vh)
+  try {
+    const mlMap = window.MapModule?.map?._mlMap;
+    if (mlMap && typeof mlMap.easeTo === 'function') {
+      const isMobile = window.innerWidth <= 720;
+      const padding = isMobile
+        ? { top: 0, right: 0, bottom: Math.round(window.innerHeight * 0.55), left: 0 }
+        : { top: 0, right: 450, bottom: 0, left: 0 };
+      mlMap.easeTo({ padding, duration: 400 });
+    }
+  } catch (_) {}
 
   const resolveAssetUrl = (u) => {
     try {
@@ -551,8 +567,6 @@ const NavigationModule = (() => {
       return u;
     } catch(_) { return u; }
   };
-
-  const effectiveCat = (category === 'velo' ? 'velo' : category);
 
   const panel = document.getElementById('project-detail');
   panel.innerHTML = '<p style="padding:1em">Chargement…</p>';
@@ -583,7 +597,7 @@ const NavigationModule = (() => {
       };
     } else if (window.supabaseService?.fetchProjectByCategoryAndName) {
       try {
-        contributionProject = await window.supabaseService.fetchProjectByCategoryAndName(effectiveCat, projectName);
+        contributionProject = await window.supabaseService.fetchProjectByCategoryAndName(category, projectName);
       } catch (error) {
         console.warn('[NavigationModule] Error fetching project:', error);
       }
@@ -662,51 +676,20 @@ const NavigationModule = (() => {
       } catch(_) { return null; }
     };
 
-    let body='';
     // Utiliser les données de contribution_uploads en priorité
     const coverCandidate = cover_url || attrs.cover || extractFirstImageSrc(html);
-    
-    // Mini-carte de prévisualisation (mobile) + Cover (desktop)
-    const hasCover = !!coverCandidate;
-    body += `
-      <div class="project-media-container">
-        <!-- Toggle carte/cover (mobile) -->
-        ${hasCover ? `
-        <div class="project-media-toggle">
-          <button type="button" class="media-toggle-btn" data-target="map" aria-label="Voir la carte" title="Carte">
-            <i class="fa-solid fa-map-location-dot"></i>
-          </button>
-          <button type="button" class="media-toggle-btn active" data-target="cover" aria-label="Voir l'image" title="Image">
-            <i class="fa-solid fa-image"></i>
-          </button>
-        </div>
-        ` : ''}
-        <!-- Mini-carte sur mobile -->
-        <div class="project-preview-map-wrap">
-          <div id="project-preview-map"></div>
-        </div>
-        <!-- Cover sur desktop / toggle sur mobile -->
-        ${hasCover ? `
-        <div class="project-cover-wrap project-cover-wrap--mobile-toggle is-active">
-          <img class="project-cover" src="${resolveAssetUrl(coverCandidate)}" alt="${attrs.name||projectName||''}">
-          <button class="cover-extend-btn" aria-label="Agrandir l'image" title="Agrandir">
-            <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
-          </button>
-        </div>
-        ` : ''}
-      </div>`;
-    const chips=[];
-    if(attrs.from||attrs.to) chips.push(`<span class="chip chip-route">${attrs.from||''}${attrs.to?` → ${attrs.to}`:''}</span>`);
-    if(attrs.trafic) chips.push(`<span class="chip chip-trafic">${attrs.trafic}</span>`);
-    if(chips.length) body+=`<div class="project-chips">${chips.join('')}</div>`;
-    
-    // Utiliser description de contribution_uploads en priorité
+    const icons = { velo: 'fa-bicycle', mobilite: 'fa-train-tram', urbanisme: 'fa-building' };
+    const safeName = window.SecurityUtils ? window.SecurityUtils.escapeHtml(projectName) : projectName;
+
+    // Chips
+    const chips = [];
+    if (attrs.from || attrs.to) chips.push(`<span class="detail-chip"><i class="fa-solid fa-route"></i>${attrs.from || ''}${attrs.to ? ` → ${attrs.to}` : ''}</span>`);
+    if (attrs.trafic) chips.push(`<span class="detail-chip"><i class="fa-solid fa-car"></i>${attrs.trafic}</span>`);
+
+    // Description
     description = description || attrs.description;
-    if(description) body+=`<p class="project-description">${description}</p>`;
 
-    const icons={velo:'fa-bicycle',mobilite:'fa-train-tram',urbanisme:'fa-building'};
-
-    // Construire l'URL de la fiche complète
+    // Full page URL
     const params = new URLSearchParams();
     if (category) params.set('cat', category);
     if (projectName) params.set('project', projectName);
@@ -714,51 +697,42 @@ const NavigationModule = (() => {
     if (currentCity) params.set('city', currentCity);
     const fullPageUrl = `/fiche/?${params.toString()}`;
 
+    // Hero cover with back button inside (flush, no gap)
+    const heroHTML = coverCandidate ? `
+      <div class="detail-hero">
+        <img class="detail-hero__img" src="${resolveAssetUrl(coverCandidate)}" alt="${attrs.name || projectName || ''}" loading="eager">
+        <div class="detail-hero__grad"></div>
+        <button id="detail-back-btn" class="detail-back-floating" aria-label="Retour">
+          <i class="fa-solid fa-arrow-left"></i>
+        </button>
+        <button class="detail-hero__expand" aria-label="Agrandir l'image" title="Agrandir">
+          <i class="fa-solid fa-up-right-and-down-left-from-center"></i>
+        </button>
+      </div>` : '';
+
     panel.innerHTML = `
-      <div class="detail-header-submenu">
-        <div class="header-actions">
-          <button id="detail-back-btn" class="btn-secondary detail-back-btn" aria-label="Retour">
-            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
-            <span>Retour</span>
-          </button>
-          <button id="detail-panel-toggle-btn" class="btn-secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true" aria-controls="project-detail">
-            <i class="fa-solid fa-compress" aria-hidden="true"></i>
-            <span>Réduire</span>
-          </button>
+      ${heroHTML}
+      <div class="detail-content-wrap">
+        ${!coverCandidate ? `<button id="detail-back-btn" class="detail-back-inline" aria-label="Retour"><i class="fa-solid fa-arrow-left"></i> Retour</button>` : ''}
+        <div class="detail-title-row">
+          <span class="detail-cat-icon"><i class="fa-solid ${icons[category] || 'fa-map'}"></i></span>
+          <h3 class="detail-title">${safeName}</h3>
         </div>
-      </div>
-      <div class="project-title-container">
-        <i class="fa-solid ${icons[category]||'fa-map'}"></i>
-        <h3 class="project-title">${window.SecurityUtils ? window.SecurityUtils.escapeHtml(projectName) : projectName}</h3>
-      </div>
-      ${fullPageUrl ? `<a href="${fullPageUrl}" class="detail-fullpage-btn">
-         <i class="fa-solid fa-up-right-from-square"></i>Voir la fiche complète
+        ${chips.length ? `<div class="detail-chips">${chips.join('')}</div>` : ''}
+        ${description ? `<p class="detail-description">${description}</p>` : ''}
+        ${fullPageUrl ? `<a href="${fullPageUrl}" class="detail-fullpage-btn">
+          <i class="fa-solid fa-up-right-from-square"></i>Voir la fiche complète
         </a>` : ''}
-      <div id="detail-content" class="markdown-body">${body}</div>`;
+      </div>`;
     
-    // Ensure reduce button starts expanded state (compress icon + label)
-    try {
-      const _btn = document.getElementById('detail-panel-toggle-btn');
-      const _ic = _btn?.querySelector('i');
-      const _lbl = _btn?.querySelector('span');
-      if (_ic) { _ic.classList.remove('fa-expand'); _ic.classList.add('fa-compress'); }
-      if (_lbl) _lbl.textContent = 'Réduire';
-      _btn?.classList.remove('is-collapsed');
-      if (_btn) { _btn.setAttribute('aria-expanded', 'true'); _btn.setAttribute('aria-label', 'Réduire'); }
-    } catch(_) {}
-
-    // Le bouton de thème du panneau de détail a été supprimé; aucune synchronisation nécessaire ici.
-    let themeObserver = null;
-
-    // Styles déplacés dans style.css (cover overlay + lightbox)
 
     // Wire up Extend button in this panel
     (function(){
-      const content = panel.querySelector('#detail-content');
-      const coverWrap = content?.querySelector('.project-cover-wrap');
-      if (!coverWrap) return;
-      const btn = coverWrap.querySelector('.cover-extend-btn');
-      const img = coverWrap.querySelector('img.project-cover');
+      const heroEl = panel.querySelector('.detail-hero');
+      if (!heroEl) return;
+      const btn = heroEl.querySelector('.detail-hero__expand');
+      const img = heroEl.querySelector('.detail-hero__img');
+      if (!btn || !img) return;
       const openLightbox = () => {
         const overlay = document.createElement('div');
         overlay.className = 'cover-lightbox';
@@ -786,78 +760,15 @@ const NavigationModule = (() => {
       btn?.addEventListener('click', openLightbox);
     })();
 
-    // Wire up media toggle (carte/cover) pour mobile
-    (function(){
-      const container = panel.querySelector('.project-media-container');
-      if (!container) return;
-      
-      const toggleBtns = container.querySelectorAll('.media-toggle-btn');
-      const mapWrap = container.querySelector('.project-preview-map-wrap');
-      const coverWrap = container.querySelector('.project-cover-wrap--mobile-toggle');
-      
-      if (toggleBtns.length === 0 || !mapWrap) return;
-      
-      toggleBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-          const target = btn.dataset.target;
-          
-          // Mettre à jour les boutons
-          toggleBtns.forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          
-          // Switcher les vues
-          if (target === 'map') {
-            mapWrap.classList.add('is-active');
-            if (coverWrap) coverWrap.classList.remove('is-active');
-            // Rafraîchir la carte
-            if (previewMap) {
-              setTimeout(() => previewMap.invalidateSize(), 50);
-            }
-          } else if (target === 'cover') {
-            mapWrap.classList.remove('is-active');
-            if (coverWrap) coverWrap.classList.add('is-active');
-          }
-        });
-      });
-    })();
-
-    // Wire up "Voir la fiche complète": navigation native vers la route dynamique (pas de modal)
-    (function(){
-      const cta = panel.querySelector('.detail-fullpage-btn');
-      if (!cta) return;
-      // Ne pas intercepter le clic: laisser la navigation gérer l'historique/SEO
-    })();
-
-    // (Bouton fermer supprimé)
-
-    // Toggle collapse control (all sizes) — délégué à SubmenuManager
-    const toggleBtn = document.getElementById('detail-panel-toggle-btn');
-    if (toggleBtn) {
-      toggleBtn.addEventListener('click', () => {
-        window.SubmenuManager.togglePanel(toggleBtn, panel);
-      });
-    }
-
     // Bouton "Retour" : affiche toutes les contributions de la catégorie
     const backButton = document.getElementById('detail-back-btn');
     if (backButton) {
       backButton.onclick = () => NavigationModule.resetToDefaultView(category, { preserveMapView: true, updateHistory: true });
     }
     
-    // Bouton "Fermer" : ferme le panneau et affiche toutes les contributions de toutes les catégories
-    const closeButton = document.getElementById('detail-close-btn');
-    if (closeButton) {
-      closeButton.onclick = () => NavigationModule.resetToDefaultView(null, { preserveMapView: false, updateHistory: true });
-    }
     
     // ANIMATION: Mettre en avant le projet sur la carte
     highlightProjectOnMap(projectName, category);
-    
-    // Initialiser la mini-carte de prévisualisation (mobile)
-    // Wrapped: ne doit jamais crasher le panneau
-    try { initPreviewMap(projectName, category); } catch (previewErr) {
-      console.warn('[NavigationModule] Preview map error (non-fatal):', previewErr);
-    }
     
   }catch(e){
     console.error('[NavigationModule] Error in showProjectDetail:', e);
@@ -870,12 +781,8 @@ const NavigationModule = (() => {
     projectDetailPanel.dataset.filterLayer = normalizeCategoryName(category);
   }
 
-  function normLoose(s) { return normalizeString(s).replace(/\s+/g, ''); }
-
 }
 
-  // Legacy code supprimé - createProjectClickHandler, renderVeloProjects, renderUrbanismeProjects, renderTravauxProjects
-  // Désormais géré par SubmenuManager → SubmenuModule/TravauxModule
 
   /**
    * Restaure l'opacité normale de tous les layers
@@ -918,6 +825,22 @@ const NavigationModule = (() => {
       console.log(`[NavigationModule] Masquage panneau de détail`);
       projectDetail.style.display = 'none';
     }
+    
+    // 1b. Restore bottom nav bar visibility
+    const navBar = document.getElementById('left-nav');
+    if (navBar) {
+      navBar.style.removeProperty('opacity');
+      navBar.style.removeProperty('pointer-events');
+      navBar.style.removeProperty('transform');
+    }
+    
+    // 1c. Remove map right padding that was added for the detail panel
+    try {
+      const mlMap = window.MapModule?.map?._mlMap;
+      if (mlMap && typeof mlMap.easeTo === 'function') {
+        mlMap.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, duration: 300 });
+      }
+    } catch (_) {}
     
     // 2. Restaurer l'opacité de tous les layers + clear feature selection
     console.log(`[NavigationModule] Restauration opacité layers`);
@@ -976,10 +899,8 @@ const NavigationModule = (() => {
     console.log(`[NavigationModule] defaultLayers:`, window.defaultLayers);
     console.log(`[NavigationModule] Toutes les catégories:`, getContributionLayers());
     
-    // Cleanup UI commun (submenus, tabs, has-panel-open, filtres)
+    // Cleanup UI commun (submenus, tabs, filtres)
     window.SubmenuManager.cleanupAll();
-    const leftNav = document.getElementById('left-nav');
-    if (leftNav) leftNav.classList.remove('has-panel-open');
     window.FilterModule?.resetAll();
     
     // Charger et afficher les layers par défaut
@@ -1024,7 +945,6 @@ const NavigationModule = (() => {
       window.UIModule.updateLayerControls();
     }
     
-    // Retirer la classe has-panel-open (déjà fait plus haut, pas besoin de redéclarer leftNav)
 
     try {
       if (updateHistory && typeof history?.pushState === 'function') {

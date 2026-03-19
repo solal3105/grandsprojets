@@ -1,22 +1,9 @@
 // modules/SubmenuManager.js
 // Gestionnaire central unifié pour tous les sous-menus
-// Source de vérité unique pour : header HTML, toggle, close, restore layers
+// Source de vérité unique pour : header HTML, close, restore layers
 const SubmenuManager = (() => {
 
   // ─── Utilitaires DOM ───────────────────────────────────────────────
-
-  /**
-   * Synchronise la largeur de #dynamic-submenus avec #left-nav
-   * pour que .submenu { left: 100% } colle parfaitement à la nav.
-   */
-  function syncSubmenuContainerWidth() {
-    const nav = document.getElementById('left-nav');
-    const submenus = document.getElementById('dynamic-submenus');
-    if (!nav || !submenus) return;
-    // On mobile, #dynamic-submenus is position:static → no sync needed
-    if (window.innerWidth <= 720) return;
-    submenus.style.width = nav.offsetWidth + 'px';
-  }
 
   /**
    * Masque tous les sous-menus et désactive tous les onglets
@@ -40,87 +27,38 @@ const SubmenuManager = (() => {
   function showSubmenu(category) {
     const el = document.querySelector(`.submenu[data-category="${category}"]`);
     if (el) {
-      syncSubmenuContainerWidth();
       el.style.display = 'block';
-      // Signal nav to adjust border-radius
+      // Position submenu just above the nav bar
       const leftNav = document.getElementById('left-nav');
-      if (leftNav) leftNav.classList.add('has-panel-open');
-      // On mobile, position submenu flush above the nav
-      if (window.innerWidth <= 720 && leftNav) {
+      if (leftNav) {
         const navRect = leftNav.getBoundingClientRect();
-        const bottomFromViewport = window.innerHeight - navRect.top;
+        const bottomFromViewport = window.innerHeight - navRect.top + 8;
         el.style.bottom = bottomFromViewport + 'px';
       }
     }
   }
 
-  // ─── Toggle expand / collapse (source unique) ─────────────────────
-
   /**
-   * Bascule un panneau entre réduit (10vh) et développé.
-   * Fonctionne pour les submenus ET le panneau de détail.
-   * @param {HTMLElement} toggleBtn - Bouton déclencheur (.submenu-toggle-btn)
-   * @param {HTMLElement} panel     - Conteneur à réduire/développer
-   */
-  function togglePanel(toggleBtn, panel) {
-    if (!toggleBtn || !panel) return;
-    const isCollapsed = toggleBtn.getAttribute('aria-expanded') === 'false';
-    const icon  = toggleBtn.querySelector('i');
-    const label = toggleBtn.querySelector('span');
-
-    if (isCollapsed) {
-      // → Développer
-      panel.style.removeProperty('max-height');
-      panel.style.removeProperty('overflow');
-      if (icon) { icon.classList.remove('fa-expand'); icon.classList.add('fa-compress'); }
-      if (label) label.textContent = 'Réduire';
-      toggleBtn.classList.remove('is-collapsed');
-      toggleBtn.setAttribute('aria-expanded', 'true');
-      toggleBtn.setAttribute('aria-label', 'Réduire');
-    } else {
-      // → Réduire
-      panel.style.setProperty('max-height', '10vh', 'important');
-      panel.style.setProperty('overflow', 'hidden', 'important');
-      if (icon) { icon.classList.remove('fa-compress'); icon.classList.add('fa-expand'); }
-      if (label) label.textContent = 'Développer';
-      toggleBtn.classList.add('is-collapsed');
-      toggleBtn.setAttribute('aria-expanded', 'false');
-      toggleBtn.setAttribute('aria-label', 'Développer');
-    }
-  }
-
-  /**
-   * Réinitialise un panneau en mode développé
+   * Réinitialise un panneau en mode développé (supprime les contraintes inline)
    * @param {HTMLElement} panel - Conteneur (.submenu ou #project-detail)
    */
   function resetExpanded(panel) {
     if (!panel) return;
     panel.style.removeProperty('max-height');
     panel.style.removeProperty('overflow');
-    const btn = panel.querySelector('.submenu-toggle-btn');
-    if (btn) {
-      const icon  = btn.querySelector('i');
-      const label = btn.querySelector('span');
-      if (icon) { icon.classList.remove('fa-expand'); icon.classList.add('fa-compress'); }
-      if (label) label.textContent = 'Réduire';
-      btn.classList.remove('is-collapsed');
-      btn.setAttribute('aria-expanded', 'true');
-      btn.setAttribute('aria-label', 'Réduire');
-    }
   }
 
   // ─── Header partagé ───────────────────────────────────────────────
 
   /**
-   * Génère le HTML du header standard d'un sous-menu (close + toggle).
+   * Génère le HTML du header standard d'un sous-menu.
    * @param {Object} [opts]
-   * @param {boolean} [opts.showClose=true]  - Afficher le bouton Fermer
-   * @param {boolean} [opts.showToggle=true] - Afficher le bouton Réduire
-   * @param {string}  [opts.extraHTML='']    - HTML supplémentaire (ex: header-center)
+   * @param {boolean} [opts.showClose=true] - Afficher le bouton Fermer
+   * @param {string}  [opts.extraHTML='']   - HTML supplémentaire
    * @returns {string} HTML du header
    */
   function headerHTML(opts = {}) {
-    const { showClose = true, showToggle = true, extraHTML = '' } = opts;
+    const { showClose = true, extraHTML = '' } = opts;
     return `
       <div class="detail-header-submenu">
         <div class="header-left">
@@ -130,32 +68,16 @@ const SubmenuManager = (() => {
           </button>` : ''}
         </div>
         ${extraHTML}
-        <div class="header-right">
-          ${showToggle ? `<button class="btn-secondary submenu-toggle-btn" aria-label="Réduire" aria-expanded="true">
-            <i class="fa-solid fa-compress" aria-hidden="true"></i>
-            <span>Réduire</span>
-          </button>` : ''}
-        </div>
+        <div class="header-right"></div>
       </div>`;
   }
 
   /**
-   * Attache les événements close + toggle sur un conteneur de sous-menu.
-   * @param {HTMLElement} container - Le .submenu ou #project-detail
+   * Attache l'événement close sur un conteneur de sous-menu.
+   * @param {HTMLElement} container - Le .submenu
    */
   function wireHeaderEvents(container) {
     if (!container) return;
-
-    // Toggle
-    const toggleBtn = container.querySelector('.submenu-toggle-btn');
-    if (toggleBtn) {
-      toggleBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        togglePanel(toggleBtn, container);
-      });
-    }
-
-    // Close
     const closeBtn = container.querySelector('.close-btn');
     if (closeBtn) {
       closeBtn.addEventListener('click', (e) => {
@@ -175,11 +97,12 @@ const SubmenuManager = (() => {
     // 1. Masquer tous les submenus + désactiver onglets
     cleanupAll();
 
-    // 2. Retirer la classe panel-open de la nav
+    // 2. Restaurer la visibilité de la nav
     const leftNav = document.getElementById('left-nav');
     if (leftNav) {
-      leftNav.classList.remove('has-panel-open');
-      leftNav.style.removeProperty('border-radius');
+      leftNav.style.removeProperty('opacity');
+      leftNav.style.removeProperty('pointer-events');
+      leftNav.style.removeProperty('transform');
     }
 
     // 3. Reset des filtres
@@ -265,20 +188,14 @@ const SubmenuManager = (() => {
   // ─── API publique ─────────────────────────────────────────────────
 
   const publicAPI = {
-    // Rendu
     renderSubmenu,
-    // Header partagé
     headerHTML,
     wireHeaderEvents,
-    // Toggle partagé
-    togglePanel,
     resetExpanded,
-    // Fermeture
     cleanupAll,
     closeCurrentSubmenu,
     activateTab,
     showSubmenu,
-    // Queries
     isSubmenuOpen,
     getCurrentSubmenu
   };

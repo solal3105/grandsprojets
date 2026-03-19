@@ -719,7 +719,7 @@
   display: inline-block;
   padding: 4px 10px;
   background: var(--info);
-  color: var(--white);
+  color: #fff;
   border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 600;
@@ -874,7 +874,7 @@
 .contrib-step[aria-selected="true"],
 .contrib-step.is-current {
   background: var(--info);
-  color: var(--white);
+  color: #fff;
   border-color: var(--info);
   box-shadow: 0 2px 8px var(--info-alpha-25);
 }
@@ -966,7 +966,7 @@
 
 .geom-card.is-active .geom-icon {
   background: var(--info);
-  color: var(--white);
+  color: #fff;
 }
 
 .geom-title {
