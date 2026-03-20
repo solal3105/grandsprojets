@@ -7,7 +7,12 @@
    ======================================== */
 @media (max-width: 400px) {
   .mobile-fixed-logo {
-    display: none;
+    padding: 0 10px;
+  }
+
+  .mobile-fixed-logo img {
+    height: 26px;
+    max-width: 90px;
   }
 
   #left-nav {
@@ -225,7 +230,7 @@
 
   /* UI Elements */
   .mobile-fixed-logo {
-    display: inline-flex;
+    display: flex;
   }
 
   .gp-bento {

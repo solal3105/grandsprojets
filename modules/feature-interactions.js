@@ -234,12 +234,14 @@
 
       // Add or reposition cards
       const n = showKeys.length;
+      const mid = (n - 1) / 2;
       showKeys.forEach((k, i) => {
         let el = container.querySelector(`[data-key="${CSS.escape(k)}"]`);
         if (el) {
           // Card exists → just update CSS vars for new position
           el.style.setProperty('--i', i);
           el.style.setProperty('--n', n);
+          el.style.setProperty('--mid', mid);
           el.classList.remove('entering', 'leaving');
         } else {
           // New card → create and animate in
@@ -250,6 +252,7 @@
           el.dataset.key = k;
           el.style.setProperty('--i', i);
           el.style.setProperty('--n', n);
+          el.style.setProperty('--mid', mid);
           el.innerHTML = cardHTML(f.properties, { cta: nextState === 'single' });
           container.appendChild(el);
           // Trigger transition after paint
@@ -324,6 +327,7 @@
       this._tipEl = null;
       this._pickerEl = null;
       this._backdropEl = null;
+      this._closeBtn = null;
       this._state = null;
       this._features = [];
       this._displayKeys = [];
@@ -359,13 +363,9 @@
 
     _openPicker() {
       this._ensureOverlay();
-      this._state = 'picker';
-      this._el.className = 'gp-fan-overlay picker';
-
-      // Remove hover cards & chrome
-      if (this._cardsEl) this._cardsEl.innerHTML = '';
-      this._displayKeys = [];
-      if (this._tipEl)  { this._tipEl.remove();  this._tipEl = null; }
+      
+      // Remove tip arrow
+      if (this._tipEl) { this._tipEl.remove(); this._tipEl = null; }
 
       // Backdrop
       if (!this._backdropEl) {
@@ -375,33 +375,60 @@
         this._el.appendChild(this._backdropEl);
       }
 
-      // Picker list (ALL features)
-      if (!this._pickerEl) {
-        this._pickerEl = document.createElement('div');
-        this._pickerEl.className = 'gp-pk';
-        this._el.appendChild(this._pickerEl);
+      // Close button
+      if (!this._closeBtn) {
+        this._closeBtn = document.createElement('button');
+        this._closeBtn.className = 'gp-fan-close';
+        this._closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+        this._closeBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this._close(); });
+        this._el.appendChild(this._closeBtn);
       }
 
-      let html = '<div class="gp-pk-header">'
-        + `<span class="gp-pk-count">${this._features.length} projets</span>`
-        + '<button class="gp-pk-close"><i class="fa-solid fa-xmark"></i></button>'
-        + '</div>';
-      this._features.forEach((f, i) => { html += pickerRowHTML(f.properties, i); });
-      this._pickerEl.innerHTML = html;
-
-      // Bind events
-      this._pickerEl.querySelector('.gp-pk-close')?.addEventListener('click', (ev) => {
-        ev.stopPropagation(); this._close();
-      });
-      this._pickerEl.querySelectorAll('.gp-pk-row').forEach(row => {
-        row.addEventListener('click', (ev) => {
-          ev.stopPropagation();
-          const idx = parseInt(row.dataset.idx, 10);
-          this._selectPickerRow(row, idx);
+      const container = this._cardsEl;
+      const n = this._features.length;
+      const mid = (n - 1) / 2;
+      
+      // Check if cards already exist (from peek mode)
+      const existingCards = container.querySelectorAll('.gp-fan-card');
+      const hadCards = existingCards.length > 0;
+      
+      if (!hadCards) {
+        // Build cards if they don't exist
+        this._features.forEach((f, i) => {
+          const el = document.createElement('div');
+          el.className = 'gp-fan-card';
+          el.dataset.key = keyOf(f);
+          el.dataset.idx = i;
+          el.style.setProperty('--i', i);
+          el.style.setProperty('--n', n);
+          el.style.setProperty('--mid', mid);
+          el.innerHTML = cardHTML(f.properties, { cta: false });
+          container.appendChild(el);
         });
+      }
+
+      // Switch to picker mode
+      this._state = 'picker';
+      this._el.className = 'gp-fan-overlay picker';
+      
+      // Bind click events to all cards
+      container.querySelectorAll('.gp-fan-card').forEach((el, i) => {
+        const f = this._features[i];
+        if (!f) return;
+        el.style.cursor = 'pointer';
+        el.onclick = (ev) => {
+          ev.stopPropagation();
+          el.style.transform = 'scale(1.08)';
+          el.style.zIndex = '200';
+          el.style.boxShadow = '0 0 0 4px var(--primary, #2563eb)';
+          setTimeout(() => {
+            this._close();
+            this._openFeature(f);
+          }, 200);
+        };
       });
 
-      this._updatePosition();
+      this._displayKeys = this._features.map(f => keyOf(f));
     },
 
     _selectPickerRow(row, idx) {
@@ -418,19 +445,23 @@
     //  OPEN FEATURE
     // ═══════════════════════════════════════════════════════════
     _openFeature(feature) {
-      if (isContrib(feature)) {
-        const p = feature.properties;
+      const p = feature.properties;
+      
+      if (isTravaux(feature)) {
+        this._spotlight(feature);
+        win.DataModule?.openTravauxModal?.(p);
+        return;
+      }
+      
+      // Projets normaux et contributions
+      if (p.project_name && p.category) {
+        this._spotlight(feature);
         if (win.UIModule?.showDetailPanel) {
           win.UIModule.showDetailPanel(p.category, { properties: p, geometry: feature.geometry });
           win.UIModule.updateActiveFilterTagsForLayer?.(p.category);
-        } else {
-          this._spotlight(feature);
+        } else if (win.NavigationModule?.showProjectDetail) {
+          win.NavigationModule.showProjectDetail(p, p.category);
         }
-        return;
-      }
-      if (isTravaux(feature)) {
-        this._spotlight(feature);
-        win.DataModule?.openTravauxModal?.(feature.properties);
       }
     },
 

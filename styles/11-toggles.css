@@ -51,7 +51,8 @@
   --dock-sep: rgba(255, 255, 255, 0.07);
   --dock-icon: var(--gray-400);
   --dock-icon-hover: var(--gray-100);
-  --dock-tooltip-bg: var(--gray-700);
+  --dock-tooltip-bg: var(--gray-200);
+  --dock-tooltip-fg: var(--gray-900);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -407,18 +408,9 @@
   flex-shrink: 0;
 }
 
-/* Desktop: hide dock logo, show standalone .mobile-fixed-logo */
-@media (min-width: 641px) {
-  .toggle-dock__logo {
-    display: none;
-  }
-}
-
-/* Mobile: show dock logo, hide standalone .mobile-fixed-logo */
-@media (max-width: 640px) {
-  .mobile-fixed-logo {
-    display: none !important;
-  }
+/* Dock logo always hidden — desktop uses #left-nav, mobile uses .mobile-fixed-logo */
+.toggle-dock__logo {
+  display: none;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -898,8 +890,7 @@
   .toggle-dock {
     top: 10px;
     right: 10px;
-    left: 10px;
-    justify-content: center;
+    left: auto;
     gap: 0;
   }
 
@@ -914,12 +905,6 @@
 
   .toggle-dock__btn i {
     font-size: 0.82rem;
-  }
-
-  /* Separator after logo — smaller */
-  .toggle-dock__logo + .toggle-dock__group::before {
-    margin: 0 3px;
-    height: 14px;
   }
 
   /* Overflow menu positioning */
@@ -944,7 +929,7 @@
   .toggle-dock {
     top: 8px;
     right: 6px;
-    left: 6px;
+    left: auto;
     padding: 3px;
   }
 

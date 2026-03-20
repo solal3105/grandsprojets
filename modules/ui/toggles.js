@@ -42,7 +42,9 @@ class ToggleManager {
     this.toggles.set(key, { element, config, state: config.defaultState });
     this.state.set(key, config.defaultState);
 
-    if (!config.redirectUrl) {
+    if (config.redirectUrl) {
+      element.addEventListener('click', (e) => { e.preventDefault(); window.location.href = config.redirectUrl; });
+    } else {
       this._bindToggleEvents(key, element, config);
     }
 
@@ -254,13 +256,16 @@ class ToggleManager {
     const t = this.toggles.get(key);
     if (t) {
       t.element.setAttribute('data-ready', 'true');
-      this._updateGroupVisibility();
+      this.scheduleRecalculate();
     }
   }
 
   markNotReady(key) {
     const t = this.toggles.get(key);
-    if (t) t.element.setAttribute('data-ready', 'false');
+    if (t) {
+      t.element.setAttribute('data-ready', 'false');
+      this.scheduleRecalculate();
+    }
   }
 
   setVisible(key, visible) {
@@ -283,27 +288,26 @@ class ToggleManager {
      LAYOUT — Flexbox handles positioning; JS only manages overflow
      ═══════════════════════════════════════════════════════════════════════ */
 
-  _getMaxMobileToggles() {
-    const w = window.innerWidth;
-    if (w <= 360) return 4;
-    if (w <= 400) return 5;
-    if (w <= 480) return 6;
-    return 7;
+  /**
+   * Get the minimum left edge the dock is allowed to reach.
+   * On mobile the logo pill sits on the left; the dock must not overlap it.
+   */
+  _getMinDockLeft() {
+    const isMobile = window.innerWidth <= 640;
+    const logo = document.querySelector('.mobile-fixed-logo');
+    if (!logo || !isMobile) return 0;
+    const r = logo.getBoundingClientRect();
+    // If logo is rendered, use its right edge + 8px gap
+    if (r.width > 0) return r.right + 8;
+    // Fallback: logo not yet laid out — estimate from CSS
+    // left:10 + padding:~24 + img:~85 + gap:8 ≈ 127px
+    return 127;
   }
 
-  recalculate() {
-    const isMobile = window.innerWidth <= 640;
-    const overflowToggle = this.toggles.get('overflow');
-
-    if (!isMobile) {
-      if (overflowToggle) overflowToggle.element.style.display = 'none';
-      this._restoreOverflowToggles();
-      this.closeOverflowMenu();
-      this._updateGroupVisibility();
-      return;
-    }
-
-    const maxToggles = this._getMaxMobileToggles();
+  /**
+   * Collect all toggle buttons that should be visible (ready + enabled).
+   */
+  _getEligibleToggles() {
     const eligible = [];
     TOGGLE_ORDER.forEach(key => {
       const t = this.toggles.get(key);
@@ -316,33 +320,85 @@ class ToggleManager {
       else if (key === 'login') show = !this._isConnected();
       if (show) eligible.push({ key, element: t.element, config: t.config });
     });
+    return eligible;
+  }
 
-    const needsOverflow = eligible.length > maxToggles;
+  /** Debounced recalculate — batches rapid calls (markReady during init) */
+  scheduleRecalculate() {
+    if (this._recalcTimer) return;
+    this._recalcTimer = requestAnimationFrame(() => {
+      this._recalcTimer = null;
+      this._doRecalculate();
+    });
+  }
 
-    if (needsOverflow && overflowToggle) {
-      const displayed = eligible.slice(0, maxToggles - 1);
-      this.overflowToggles = eligible.slice(maxToggles - 1);
+  /** Immediate recalculate (used by resize handler & explicit calls) */
+  recalculate() {
+    if (this._recalcTimer) { cancelAnimationFrame(this._recalcTimer); this._recalcTimer = null; }
+    this._doRecalculate();
+  }
 
-      this.overflowToggles.forEach(({ element }) => {
-        element.style.display = 'none';
-        element.setAttribute('data-in-overflow', 'true');
-      });
+  _doRecalculate() {
+    const isMobile = window.innerWidth <= 640;
+    const overflowToggle = this.toggles.get('overflow');
 
-      displayed.forEach(({ element }) => {
-        element.style.display = 'flex';
-        element.removeAttribute('data-in-overflow');
-      });
+    if (!isMobile) {
+      if (overflowToggle) overflowToggle.element.style.display = 'none';
+      this._restoreOverflowToggles();
+      this.closeOverflowMenu();
+      this._updateGroupVisibility();
+      return;
+    }
 
+    const dock = document.getElementById('toggle-dock');
+    if (!dock) return;
+
+    const eligible = this._getEligibleToggles();
+
+    // Step 1: Show ALL eligible buttons, hide overflow
+    eligible.forEach(({ element }) => {
+      element.style.display = 'flex';
+      element.removeAttribute('data-in-overflow');
+    });
+    if (overflowToggle) overflowToggle.element.style.display = 'none';
+    this.overflowToggles = [];
+    this._updateGroupVisibility();
+
+    // Step 2: Measure — does the dock overlap the logo?
+    const minLeft = this._getMinDockLeft();
+
+    // Step 3: Trim one button at a time from the end until it fits
+    // (or until we're down to 3 visible buttons minimum)
+    const overflowed = [];
+    let safetyMax = eligible.length;
+    while (safetyMax-- > 0) {
+      const dockLeft = dock.getBoundingClientRect().left;
+      const remaining = eligible.length - overflowed.length;
+      if (dockLeft >= minLeft || remaining <= 3) break;
+
+      // Move last visible eligible button into overflow
+      const victim = eligible[eligible.length - 1 - overflowed.length];
+      if (!victim) break;
+      victim.element.style.display = 'none';
+      victim.element.setAttribute('data-in-overflow', 'true');
+      overflowed.push(victim);
+
+      // Show overflow button so we account for its width too
+      if (overflowToggle && overflowed.length === 1) {
+        overflowToggle.element.style.display = 'flex';
+      }
+      this._updateGroupVisibility();
+    }
+
+    // Step 4: Finalize
+    if (overflowed.length > 0 && overflowToggle) {
+      this.overflowToggles = overflowed;
       overflowToggle.element.style.display = 'flex';
       this._updateOverflowMenu();
     } else {
       this.overflowToggles = [];
       if (overflowToggle) overflowToggle.element.style.display = 'none';
       this.closeOverflowMenu();
-      eligible.forEach(({ element }) => {
-        element.style.display = 'flex';
-        element.removeAttribute('data-in-overflow');
-      });
     }
 
     this._updateGroupVisibility();
@@ -396,6 +452,9 @@ class ToggleManager {
       clearTimeout(timer);
       timer = setTimeout(() => this.recalculate(), 100);
     });
+    // Re-run after layout is fully painted so the logo pill is measurable
+    requestAnimationFrame(() => requestAnimationFrame(() => this.recalculate()));
+    window.addEventListener('load', () => this.recalculate(), { once: true });
   }
 
   _isConnected() {

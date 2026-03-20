@@ -276,10 +276,10 @@ window.SearchModule = (() => {
     }
 
     const popupHtml = `
-      <div style="min-width:220px; background:var(--white-alpha-85); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border-radius:12px; box-shadow:0 8px 24px var(--black-alpha-18); padding:12px 14px;">
-        <div style="font-weight:600; font-size:14px; margin-bottom:4px;">${title}</div>
-        ${subtitle ? `<div style=\"color:#555; font-size:13px; margin-bottom:8px;\">${subtitle}</div>` : ''}
-        <div style="font-family:monospace; font-size:12px; color:#666;">${lat.toFixed(6)}, ${lng.toFixed(6)}</div>
+      <div style="min-width:220px; background:var(--surface, #fff); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border-radius:12px; box-shadow:0 8px 24px var(--black-alpha-18); padding:12px 14px;">
+        <div style="font-weight:600; font-size:14px; margin-bottom:4px; color:var(--text-primary, #111);">${title}</div>
+        ${subtitle ? `<div style=\"color:var(--text-secondary, #555); font-size:13px; margin-bottom:8px;\">${subtitle}</div>` : ''}
+        <div style="font-family:monospace; font-size:12px; color:var(--text-tertiary, #666);">${lat.toFixed(6)}, ${lng.toFixed(6)}</div>
       </div>
     `;
     currentMarker = L.marker([lat, lng], { icon: customIcon })

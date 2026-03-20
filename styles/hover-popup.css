@@ -79,6 +79,7 @@
   position: relative;
   width: 0;
   height: 0;
+  transition: all .4s cubic-bezier(.34,1.56,.64,1);
 }
 
 /* ── Base card ── */
@@ -125,47 +126,52 @@
 .gp-fan-overlay.single .gp-fan-card .gp-hp { width: 260px; }
 .gp-fan-overlay.single .gp-fan-card .gp-hp-img { height: 120px; }
 
-/* Tip arrow */
+/* Tip arrow — hidden */
 .gp-fan-tip {
-  position: absolute;
-  top: 0;
-  left: 0;
-  transform: translate(-50%, -1px);
-  width: 0; height: 0;
-  border: 8px solid transparent;
-  border-top-color: var(--surface, #fff);
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,.06));
-  transition: opacity .2s ease;
+  display: none;
 }
 
 /* ============================================================
-   PEEK — 2-3 cards stacked (offset Y + scale, no rotation)
-   Front card fully visible, others peek behind
+   PEEK — cards in fan layout (rotation around bottom center)
    ============================================================ */
 .gp-fan-overlay.peek .gp-fan-card {
-  width: 230px;
-  /* i=0 front (z highest), i=1,2 peek behind with clear offset */
+  width: 260px;
   z-index: calc(10 - var(--i));
+  transform-origin: bottom center;
   transform:
-    translate(calc(-50% + var(--i) * 6px), calc(var(--i) * -12px))
-    scale(calc(1 - var(--i) * 0.04));
+    translateX(-50%)
+    rotate(calc((var(--i) - var(--mid)) * 8deg));
   box-shadow:
-    0 calc(4px + var(--i) * 3px) calc(16px + var(--i) * 6px) rgba(0,0,0, calc(.10 + var(--i) * .03)),
-    0 1px 3px rgba(0,0,0,.06);
+    0 4px 24px rgba(0,0,0,.12),
+    0 1px 4px rgba(0,0,0,.08);
+  /* Enable smooth transition to picker grid */
+  transition: 
+    transform .5s cubic-bezier(.34,1.56,.64,1),
+    width .4s ease,
+    box-shadow .3s ease,
+    position 0s;
 }
-.gp-fan-overlay.peek .gp-fan-card .gp-hp { width: 230px; }
-.gp-fan-overlay.peek .gp-fan-card .gp-hp-img { height: 100px; }
-.gp-fan-overlay.peek .gp-fan-card .gp-hp-body { padding: 8px 12px 10px; }
-.gp-fan-overlay.peek .gp-fan-card .gp-hp-title {
-  font-size: 13px;
-  -webkit-line-clamp: 1;
-  line-clamp: 1;
+.gp-fan-overlay.peek .gp-fan-card .gp-hp { 
+  width: 260px;
+  transition: width .4s ease;
+}
+.gp-fan-overlay.peek .gp-fan-card .gp-hp-img { 
+  height: 120px;
+  transition: height .4s ease;
 }
 
 /* ============================================================
-   PICKER — vertical list of ALL projects (on click)
+   PICKER — grid of visual cards (on click)
    ============================================================ */
 .gp-fan-overlay.picker {
+  /* Full screen centered */
+  left: 0 !important;
+  top: 0 !important;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   pointer-events: auto;
 }
 
@@ -173,39 +179,90 @@
 .gp-fan-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,.18);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  background: rgba(0,0,0,.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   pointer-events: auto;
   z-index: -1;
   animation: gp-backdrop-in .3s ease;
 }
 @keyframes gp-backdrop-in { from { opacity: 0; } }
 
-/* Picker panel */
-.gp-pk {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 320px;
-  max-height: min(420px, 60vh);
+/* Grid container for picker */
+.gp-fan-overlay.picker .gp-fan-cards {
+  position: relative;
+  width: auto;
+  height: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 280px));
+  gap: 20px;
+  max-width: min(90vw, 900px);
+  max-height: 80vh;
   overflow-y: auto;
-  overscroll-behavior: contain;
-  background: var(--surface, #fff);
-  border-radius: 16px;
-  box-shadow:
-    0 12px 48px rgba(0,0,0,.18),
-    0 4px 12px rgba(0,0,0,.06);
-  border: 1px solid var(--border-light, rgba(0,0,0,.06));
-  display: flex;
-  flex-direction: column;
-  pointer-events: auto;
-  animation: gp-pk-in .35s cubic-bezier(.22,1,.36,1);
+  padding: 20px;
+  justify-content: center;
 }
-@keyframes gp-pk-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(12px) scale(.95); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+
+.gp-fan-overlay.picker .gp-fan-card {
+  position: static;
+  width: 280px;
+  pointer-events: auto;
+  cursor: pointer;
+  transform: none;
+  transform-origin: center center;
+  box-shadow:
+    0 8px 32px rgba(0,0,0,.15),
+    0 2px 8px rgba(0,0,0,.08);
+  /* Smooth transition from fan to grid */
+  transition: 
+    transform .5s cubic-bezier(.34,1.56,.64,1),
+    box-shadow .3s ease,
+    opacity .3s ease;
+  transition-delay: calc(var(--i) * 30ms);
+}
+
+.gp-fan-overlay.picker .gp-fan-card:hover {
+  transform: translateY(-8px) scale(1.03);
+  box-shadow:
+    0 16px 48px rgba(0,0,0,.2),
+    0 4px 12px rgba(0,0,0,.12);
+  z-index: 10;
+  transition-delay: 0ms;
+}
+
+.gp-fan-overlay.picker .gp-fan-card .gp-hp { width: 280px; }
+.gp-fan-overlay.picker .gp-fan-card .gp-hp-img { height: 140px; }
+
+/* Close button for picker */
+.gp-fan-close {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border-light, rgba(0,0,0,.1));
+  color: var(--text-secondary, #666);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0,0,0,.15);
+  transition: transform .2s ease, background .2s ease;
+  z-index: 10;
+  animation: gp-close-in .3s cubic-bezier(.34,1.56,.64,1) .15s backwards;
+}
+
+.gp-fan-close:hover {
+  transform: scale(1.1);
+  background: var(--danger, #ef4444);
+  color: #fff;
+}
+
+@keyframes gp-close-in {
+  from { opacity: 0; transform: scale(.5) rotate(-90deg); }
 }
 
 /* Scrollbar */
@@ -325,11 +382,16 @@
 .gp-fan-overlay.closing .gp-fan-cta {
   opacity: 0;
   transform: translate(-50%, 6px) scale(.95) !important;
-  transition: all .15s cubic-bezier(.4,0,1,1);
+  transition: all .2s cubic-bezier(.4,0,1,1);
 }
 .gp-fan-overlay.closing .gp-fan-backdrop {
   opacity: 0;
-  transition: opacity .15s ease;
+  transition: opacity .2s ease;
+}
+.gp-fan-overlay.closing .gp-fan-close {
+  opacity: 0;
+  transform: scale(.5) rotate(90deg);
+  transition: all .15s ease;
 }
 .gp-fan-overlay.closing .gp-pk {
   opacity: 0;

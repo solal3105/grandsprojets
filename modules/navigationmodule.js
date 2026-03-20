@@ -611,7 +611,7 @@ const NavigationModule = (() => {
     // Vérifier si contributionProject existe avant d'accéder à ses propriétés
     if (!contributionProject) {
       panel.innerHTML = `
-      <div style="padding: 2em; text-align: center; color: #666;">
+      <div style="padding: 2em; text-align: center; color: var(--text-secondary, #666);">
         <h3>Projet non trouvé</h3>
         <p>Le projet "${projectName}" n'a pas été trouvé dans la base de données.</p>
         <p>Seuls les projets de la table contribution_uploads sont disponibles.</p>

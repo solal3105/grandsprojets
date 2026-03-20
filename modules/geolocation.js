@@ -329,8 +329,8 @@ window.GeolocationModule = (() => {
     const contentEl = notification.querySelector('.geolocation-notification-content');
     if (contentEl) {
       Object.assign(contentEl.style, {
-        background: '#fff',
-        color: '#111',
+        background: 'var(--surface, #fff)',
+        color: 'var(--text-primary, #111)',
         boxShadow: '0 8px 24px var(--black-alpha-18)',
         borderRadius: '12px',
         padding: '12px 14px',

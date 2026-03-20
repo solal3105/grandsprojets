@@ -1692,14 +1692,33 @@
       };
     }
 
-    /**
-     * Active la couche 3D des bâtiments
-     * Source : OpenFreeMap (OpenMapTiles schema, données OSM, gratuit, sans clé API)
-     * Propriétés : render_height, render_min_height, colour, hide_3d
-     */
-    _enable3DBuildings() {
-      const mlMap = this._mlMap;
+    // ── 3D Buildings ──
+    _buildings3DEnabled = true;
 
+    /**
+     * Active/désactive la couche 3D des bâtiments
+     * Source : OpenFreeMap (OpenMapTiles schema, données OSM, gratuit, sans clé API)
+     */
+    setBuildings3D(enabled) {
+      const mlMap = this._mlMap;
+      
+      if (enabled && !this._buildings3DEnabled) {
+        this._addBuildings3DLayer();
+        this._buildings3DEnabled = true;
+      } else if (!enabled && this._buildings3DEnabled) {
+        if (mlMap.getLayer('3d-buildings')) {
+          mlMap.removeLayer('3d-buildings');
+        }
+        this._buildings3DEnabled = false;
+      }
+      return this;
+    }
+
+    getBuildings3D() { return this._buildings3DEnabled; }
+
+    _addBuildings3DLayer() {
+      const mlMap = this._mlMap;
+      
       if (!mlMap.getSource('ofm-buildings')) {
         mlMap.addSource('ofm-buildings', {
           type: 'vector',
@@ -1712,6 +1731,10 @@
         const firstDataLayer = mlMap.getStyle().layers.find(l =>
           l.type === 'line' || (l.type === 'fill' && l.id !== '3d-buildings')
         );
+        
+        // Check if dark mode is active
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        
         mlMap.addLayer({
           id: '3d-buildings',
           source: 'ofm-buildings',
@@ -1720,8 +1743,15 @@
           minzoom: 15,
           filter: ['!=', ['get', 'hide_3d'], true],
           paint: {
-            // Height-based color gradient: light → warm grey → steel blue
-            'fill-extrusion-color': [
+            // Height-based color gradient - adapts to theme
+            'fill-extrusion-color': isDark ? [
+              'interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 10],
+              0, '#3a3a3a',
+              20, '#454545',
+              60, '#505050',
+              150, '#5a5a5a',
+              300, '#656565'
+            ] : [
               'interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 10],
               0, '#e8e4e0',
               20, '#d5d0cc',
@@ -1731,10 +1761,39 @@
             ],
             'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 10],
             'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-            'fill-extrusion-opacity': 0.8
+            'fill-extrusion-opacity': isDark ? 0.9 : 0.8
           }
         }, firstDataLayer?.id);
       }
+    }
+
+    updateBuildings3DTheme() {
+      const mlMap = this._mlMap;
+      if (!mlMap.getLayer('3d-buildings')) return;
+      
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      
+      mlMap.setPaintProperty('3d-buildings', 'fill-extrusion-color', isDark ? [
+        'interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 10],
+        0, '#3a3a3a',
+        20, '#454545',
+        60, '#505050',
+        150, '#5a5a5a',
+        300, '#656565'
+      ] : [
+        'interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 10],
+        0, '#e8e4e0',
+        20, '#d5d0cc',
+        60, '#bfc5cc',
+        150, '#a0b0c0',
+        300, '#8fa8bd'
+      ]);
+      
+      mlMap.setPaintProperty('3d-buildings', 'fill-extrusion-opacity', isDark ? 0.9 : 0.8);
+    }
+
+    _enable3DBuildings() {
+      this._addBuildings3DLayer();
     }
 
     // ── 3D Terrain ──

@@ -28,6 +28,18 @@ export const TOGGLES_CONFIG = {
     storageKey: 'terrain-3d'
   },
 
+  buildings: {
+    id: 'buildings-toggle',
+    icon: 'fa-building',
+    iconActive: 'fa-building',
+    label: 'Bâtiments 3D',
+    ariaLabel: 'Activer ou désactiver les bâtiments 3D',
+    position: 1.5,
+    persistent: true,
+    defaultState: true,
+    storageKey: 'buildings-3d'
+  },
+
   basemap: {
     id: 'basemap-toggle',
     icon: 'fa-globe',
@@ -86,8 +98,7 @@ export const TOGGLES_CONFIG = {
     label: 'À propos',
     ariaLabel: 'Afficher les informations à propos',
     position: 5,
-    hasModal: true,
-    modalSelector: '#about-overlay',
+    redirectUrl: '/home',
     defaultState: false
   },
   
@@ -130,6 +141,7 @@ export const TOGGLES_CONFIG = {
 export const TOGGLE_ORDER = [
   'filters',    // Desktop: droite, Mobile: position 5
   'terrain',    // Desktop: , Mobile: position 4.5
+  'buildings',  // Desktop: , Mobile: position 4.25
   'basemap',    // Desktop: , Mobile: position 4
   'theme',      // Desktop: , Mobile: position 3
   'search',     // Desktop: , Mobile: position 2

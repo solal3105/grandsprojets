@@ -163,6 +163,9 @@
         <button id="terrain-toggle" class="toggle-dock__btn" data-ready="false" title="Relief 3D" aria-label="Relief 3D" aria-pressed="false">
           <i class="fas fa-mountain" aria-hidden="true"></i>
         </button>
+        <button id="buildings-toggle" class="toggle-dock__btn active" data-ready="false" title="Bâtiments 3D" aria-label="Bâtiments 3D" aria-pressed="true">
+          <i class="fas fa-building" aria-hidden="true"></i>
+        </button>
         <button id="basemap-toggle" class="toggle-dock__btn" data-ready="false" title="Fond de carte" aria-label="Fond de carte">
           <i class="fas fa-globe" aria-hidden="true"></i>
         </button>
@@ -233,151 +236,6 @@
         <button class="dock-panel__close" id="filters-close-btn" aria-label="Fermer les filtres"><i class="fas fa-times"></i></button>
       </div>
       <div class="dock-panel__body" id="dynamic-filters"></div>
-    </div>
-  </div>
-
-  <!-- À propos modal - NOUVEAU DESIGN -->
-  <div id="about-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="about-title" aria-hidden="true" style="display:none">
-    <div class="gp-modal" role="document">
-      <div class="gp-modal-header">
-        <div class="gp-modal-title" id="about-title">À propos de GrandsProjets.com</div>
-        <button class="btn-secondary gp-modal-close" id="about-close" aria-label="Fermer">&times;</button>
-      </div>
-      <div class="gp-modal-body">
-        <!-- Hero Section -->
-        <section class="about-hero">
-          <div class="about-hero-emoji">👋</div>
-          <span class="about-hero-title">Salut, moi c'est Solal</span>
-          <p class="about-hero-subtitle">Je crée des outils open source pour rendre l’urbanisme et l’information travaux accessibles à tous.</p>
-          <div class="about-hero-meta">
-            <span class="about-hero-role">Product Manager × Passionné d’urbanisme</span>
-            <span class="about-hero-location">📍 Fait à Villeurbanne</span>
-          </div>
-        </section>
-
-        <!-- Stats Section -->
-        <section class="about-stats">
-          <div class="about-stat-card">
-            <div class="about-stat-number">100+</div>
-            <div class="about-stat-label">Projets cartographiés</div>
-          </div>
-          <div class="about-stat-card">
-            <div class="about-stat-number">10K+</div>
-            <div class="about-stat-label">Visiteurs / mois</div>
-          </div>
-        </section>
-
-        <!-- Problem Section -->
-        <section class="about-section">
-          <div class="about-section-icon">🚧</div>
-          <h2 class="about-section-title">Le constat</h2>
-          <p class="about-section-text">
-            Partout, les chantiers s’enchaînent : rues fermées, lignes de transport en travaux, programmes immobiliers…
-          </p>
-          <p class="about-section-text">
-            Pourtant, il reste difficile pour les usagers de savoir ce qui est en cours, ce qui arrive bientôt et combien de temps cela va durer.
-          </p>
-          <p class="about-section-text">
-            Informer clairement, c’est réduire la frustration et renforcer la confiance avec le public.
-          </p>
-        </section>
-
-        <!-- Solution Section -->
-        <section class="about-section">
-          <div class="about-section-icon">💡</div>
-          <h2 class="about-section-title">La solution : GrandsProjets.com</h2>
-          <p class="about-section-text">
-            Une carte interactive qui centralise vos projets et actions (travaux, aménagements, mobilités, équipements), présentés de façon simple et compréhensible pour le public.
-          </p>
-          <div class="about-features">
-            <div class="about-feature">✓ Mettez en avant vos données publiques</div>
-            <div class="about-feature">✓ Interface simple et claire</div>
-            <div class="about-feature">✓ 100% à votre image, en marque blanche</div>
-          </div>
-        </section>
-
-        <!-- CTA Section -->
-        <section class="about-cta">
-          <div class="about-cta-icon">🏛️</div>
-          <h2 class="about-cta-title">Votre structure mérite sa propre carte</h2>
-          <p class="about-cta-subtitle">Commune • Métropole • Association • Conseil de quartier • Mission locale • Établissement public</p>
-          <p class="about-cta-description">
-            Déployez GrandsProjets.com en <strong>marque blanche</strong> : une carte à votre nom, avec votre logo, intégrée sur votre site, pour informer vos usagers et valoriser l’avancement de vos projets.
-          </p>
-          <div class="about-cta-benefits">
-            <div class="about-cta-benefit">✓ Interface de gestion autonome</div>
-            <div class="about-cta-benefit">✓ Aucune compétence technique requise</div>
-            <div class="about-cta-benefit">✓ <strong>Gratuit</strong> pour les associations, conseils de quartier et missions locales</div>
-          </div>
-          <button class="btn-primary about-cta-button">
-            <span>Discutons ensemble de la solution</span>
-            <i class="fas fa-arrow-right" aria-hidden="true"></i>
-          </button>
-        </section>
-
-        <!-- Values Section -->
-        <section class="about-section">
-          <div class="about-section-icon">🌟</div>
-          <h2 class="about-section-title">Mes engagements</h2>
-          <div class="about-values">
-            <div class="about-value-card">
-              <div class="about-value-icon">🔓</div>
-              <h3 class="about-value-title">Open Source</h3>
-              <p class="about-value-text">Le code est public, dans un esprit de transparence et de commun numérique.</p>
-            </div>
-            <div class="about-value-card">
-              <div class="about-value-icon">🌍</div>
-              <h3 class="about-value-title">Citoyen</h3>
-              <p class="about-value-text">    Né d’une initiative indépendante, GrandsProjets.com met les données publiques à la portée de tous pour mieux comprendre les transformations du territoire. 
-                C’est un outil sans publicité, conçu par et pour les citoyens.
-            </p>
-            </div>
-            <div class="about-value-card">
-              <div class="about-value-icon">🤝</div>
-              <h3 class="about-value-title">Accessibilité</h3>
-              <p class="about-value-text">
-                Gratuit pour les structures locales à but non lucratif (associations, conseils de quartier...).
-                Tarification adaptée pour structures publiques.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <!-- Contact Section -->
-        <section class="about-section about-contact">
-          <div class="about-section-icon">✉️</div>
-          <h2 class="about-section-title">Envie d’en discuter ?</h2>
-          <div class="about-contact-cards">
-            <a class="about-contact-card" href="mailto:solal.gendrin@gmail.com">
-              <div class="about-contact-icon about-contact-icon--email">
-                <i class="fas fa-envelope" aria-hidden="true"></i>
-              </div>
-              <div class="about-contact-content">
-                <div class="about-contact-title">Email</div>
-                <div class="about-contact-subtitle">solal.gendrin@gmail.com</div>
-              </div>
-            </a>
-            <a class="about-contact-card" href="https://www.linkedin.com/in/solal-gendrin/" target="_blank" rel="noopener">
-              <div class="about-contact-icon about-contact-icon--linkedin">
-                <i class="fab fa-linkedin-in" aria-hidden="true"></i>
-              </div>
-              <div class="about-contact-content">
-                <div class="about-contact-title">LinkedIn</div>
-                <div class="about-contact-subtitle">Solal Gendrin</div>
-              </div>
-            </a>
-            <a class="about-contact-card" href="https://github.com/solal3105/grandsprojets" target="_blank" rel="noopener">
-              <div class="about-contact-icon about-contact-icon--github">
-                <i class="fab fa-github" aria-hidden="true"></i>
-              </div>
-              <div class="about-contact-content">
-                <div class="about-contact-title">GitHub</div>
-                <div class="about-contact-subtitle">Voir le code source</div>
-              </div>
-            </a>
-          </div>
-        </section>
-      </div>
     </div>
   </div>
 

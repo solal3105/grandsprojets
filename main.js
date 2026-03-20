@@ -478,6 +478,7 @@
       
       await win.CityManager?.updateLogoForCity(city);
       await win.CityManager?.initCityMenu(city);
+      win.toggleManager?.markReady('city');
 
       // PHASE 2.5 : Charger le branding de la ville (ou couleur par défaut si pas de ville)
       if (win.CityBrandingModule) {
@@ -859,9 +860,23 @@
       });
       win.toggleManager?.markReady('terrain');
 
-      // Theme — delegate to ThemeManager + dock shimmer
+      // Buildings 3D — apply saved state, listen for changes
+      const buildings3DState = win.toggleManager?.getState('buildings');
+      if (buildings3DState === false && MapModule?.map) {
+        MapModule.map.setBuildings3D(false);
+      }
+      win.toggleManager?.on('buildings', (active) => {
+        if (MapModule?.map) MapModule.map.setBuildings3D(active);
+      });
+      win.toggleManager?.markReady('buildings');
+
+      // Theme — delegate to ThemeManager + dock shimmer + update buildings colors
       win.toggleManager?.on('theme', () => {
         win.ThemeManager?.toggle();
+        // Update 3D buildings colors for new theme
+        if (MapModule?.map?.updateBuildings3DTheme) {
+          MapModule.map.updateBuildings3DTheme();
+        }
         const dock = document.getElementById('toggle-dock');
         if (dock) {
           dock.classList.remove('toggle-dock--shimmer');
