@@ -80,7 +80,7 @@
 
 .about-stat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 16px var(--black-alpha-08);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
   border-color: var(--primary);
 }
 
@@ -239,7 +239,7 @@
 
 .about-value-card:hover {
   border-color: var(--primary);
-  box-shadow: 0 8px 16px var(--black-alpha-08);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
   transform: translateY(-2px);
 }
 
@@ -291,7 +291,7 @@
 
 .about-contact-card:hover {
   border-color: var(--primary);
-  box-shadow: 0 8px 16px var(--black-alpha-08);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
   transform: translateY(-2px);
 }
 

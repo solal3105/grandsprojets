@@ -153,16 +153,23 @@
       return false;
     }
     
-    // Ajouter le bouton fermer
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'btn-secondary basemap-close-btn';
-    closeBtn.setAttribute('aria-label', 'Fermer le menu des fonds de carte');
-    closeBtn.innerHTML = '<i class="fas fa-times"></i>';
-    closeBtn.addEventListener('click', (e) => {
+    // Header
+    const header = document.createElement('div');
+    header.className = 'dock-panel__header';
+    header.innerHTML = `
+      <span class="dock-panel__title">Fond de carte</span>
+      <button class="dock-panel__close" aria-label="Fermer le menu des fonds de carte"><i class="fas fa-times"></i></button>
+    `;
+    header.querySelector('.dock-panel__close').addEventListener('click', (e) => {
       e.stopPropagation();
       window.toggleManager?.setState('basemap', false);
     });
-    menu.appendChild(closeBtn);
+    menu.appendChild(header);
+
+    // Body
+    const body = document.createElement('div');
+    body.className = 'dock-panel__body';
+    menu.appendChild(body);
     
     // Sélectionner le basemap par défaut:
     // 1. window._cityPreferredBasemap (depuis city_branding.default_basemap)
@@ -182,58 +189,34 @@
     
     // Fonction pour obtenir le basemap actuellement actif
     const getActiveBasemap = () => {
-      const activeTile = menu.querySelector('.basemap-tile.active-basemap');
+      const activeTile = body.querySelector('.dock-panel__item.is-active');
       if (!activeTile) return currentActiveBasemap;
       
-      const activeLabel = activeTile.textContent.trim();
+      const activeLabel = activeTile.querySelector('.dock-panel__item-label')?.textContent.trim();
       const activeMap = availableBasemaps.find(b => b.label === activeLabel);
       return activeMap || currentActiveBasemap;
     };
     
     availableBasemaps.forEach(bm => {
       const tile = document.createElement('div');
-      tile.className = 'basemap-tile';
-      tile.textContent = bm.label;
-      if (bm.label === defaultBm.label) tile.classList.add('active-basemap');
-
-      // Créer la barre de progression
-      const progressBar = document.createElement('div');
-      progressBar.className = 'basemap-progress';
-      tile.appendChild(progressBar);
+      tile.className = 'dock-panel__item';
+      tile.innerHTML = `
+        <span class="dock-panel__item-icon"><i class="fas fa-layer-group"></i></span>
+        <span class="dock-panel__item-label">${bm.label}</span>
+      `;
+      if (bm.label === defaultBm.label) tile.classList.add('is-active');
 
       let hoverTimer = null;
       let isPreviewActive = false;
 
-      // Survol : démarre le timer de 2s pour preview
+      // Survol : démarre le timer pour preview
       tile.addEventListener('mouseenter', () => {
-        // Ne rien faire si déjà actif
-        if (tile.classList.contains('active-basemap')) return;
+        if (tile.classList.contains('is-active')) return;
         
-        // Retirer d'abord la classe
-        tile.classList.remove('is-hovering');
-        
-        // Reset complet de la progress bar avec !important dans le style inline
-        progressBar.style.cssText = 'width: 0 !important; transition: none !important;';
-        
-        // Force reflow (IMPORTANT pour redémarrer l'animation)
-        void tile.offsetHeight;
-        void progressBar.offsetHeight;
-        
-        // Ajouter la classe dans le prochain frame
-        requestAnimationFrame(() => {
-          tile.classList.add('is-hovering');
-          // Forcer le démarrage de la transition
-          progressBar.style.cssText = '';
-        });
-        
-        // Timer de 1 seconde pour PREVIEW
         hoverTimer = setTimeout(() => {
-          // PREVIEW du fond de carte (pas définitif)
           previewLayer = L.tileLayer(bm.url, { attribution: bm.attribution });
           window.MapModule?.setBaseLayer(previewLayer);
           isPreviewActive = true;
-          
-          console.log(`Preview: ${bm.label}`);
         }, 1000);
       });
 
@@ -244,12 +227,6 @@
           hoverTimer = null;
         }
         
-        tile.classList.remove('is-hovering');
-        
-        // Reset la progress bar avec cssText
-        progressBar.style.cssText = '';
-        
-        // Si preview active, restaurer le basemap ACTUELLEMENT ACTIF
         if (isPreviewActive) {
           const activeBasemap = getActiveBasemap();
           const activeLayer = L.tileLayer(activeBasemap.url, { 
@@ -257,7 +234,6 @@
           });
           window.MapModule?.setBaseLayer(activeLayer);
           isPreviewActive = false;
-          console.log(`Restored: ${activeBasemap.label}`);
         }
       });
 
@@ -265,37 +241,24 @@
       tile.addEventListener('click', (e) => {
         e.stopPropagation();
         
-        // Annuler le timer si en cours
         if (hoverTimer) {
           clearTimeout(hoverTimer);
           hoverTimer = null;
         }
         
-        // Appliquer le fond de carte définitivement
         const layer = L.tileLayer(bm.url, { attribution: bm.attribution });
         window.MapModule?.setBaseLayer(layer);
         currentActiveBasemap = bm;
         
-        // Mise à jour de l'état visuel
-        document.querySelectorAll('.basemap-tile')
-          .forEach(t => {
-            t.classList.remove('active-basemap', 'is-hovering');
-            const pb = t.querySelector('.basemap-progress');
-            if (pb) {
-              pb.style.cssText = '';
-            }
-          });
-        tile.classList.add('active-basemap');
-        tile.classList.remove('is-hovering');
+        body.querySelectorAll('.dock-panel__item')
+          .forEach(t => t.classList.remove('is-active'));
+        tile.classList.add('is-active');
         isPreviewActive = false;
         
-        console.log(`Applied: ${bm.label}`);
-        
-        // Fermer le menu après application
         setTimeout(() => window.toggleManager?.setState('basemap', false), 300);
       });
 
-      menu.appendChild(tile);
+      body.appendChild(tile);
     });
   };
 
@@ -400,13 +363,11 @@
 
   // Met à jour le style du bouton de basemap actif
   const setActiveBasemap = (basemapLabel) => {
-    const tiles = document.querySelectorAll('.basemap-tile');
-    tiles.forEach(tile => {
-      if (tile.textContent === basemapLabel) {
-        tile.classList.add('active-basemap');
-      } else {
-        tile.classList.remove('active-basemap');
-      }
+    const menu = document.getElementById('basemap-menu');
+    if (!menu) return;
+    menu.querySelectorAll('.dock-panel__item').forEach(tile => {
+      const label = tile.querySelector('.dock-panel__item-label')?.textContent.trim();
+      tile.classList.toggle('is-active', label === basemapLabel);
     });
   };
 

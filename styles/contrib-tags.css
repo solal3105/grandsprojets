@@ -72,7 +72,7 @@
   border-color: var(--tag-color, var(--primary));
   background: var(--tag-color-alpha-10, var(--primary-alpha-10));
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px var(--black-alpha-10);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* État sélectionné */
@@ -80,7 +80,7 @@
   background: var(--tag-color, var(--primary));
   color: var(--white);
   border-color: var(--tag-color, var(--primary));
-  box-shadow: 0 2px 8px var(--black-alpha-15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .tag-checkbox:checked + .tag-label i {

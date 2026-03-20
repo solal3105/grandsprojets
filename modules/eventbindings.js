@@ -34,7 +34,7 @@ const EventBindings = (() => {
     
     // Réinitialiser les filtres
     document.querySelectorAll('.filter-item').forEach(item => {
-      item.classList.remove('active-filter');
+      item.classList.remove('is-active');
       const layer = item.dataset.layer;
       UIModule.resetLayerFilter(layer);
     });
@@ -95,17 +95,17 @@ const bindFilterControls = () => {
       const layer = (item.dataset.layer || '').trim().replace(/[\n\r]/g, '');
       if (!layer) return;
 
-      if (!item.classList.contains('active-filter')) {
+      if (!item.classList.contains('is-active')) {
         // Activation
         if (DataModule.layerData?.[layer]) {
           DataModule.createGeoJsonLayer(layer, DataModule.layerData[layer]);
         } else {
           DataModule.loadLayer(layer);
         }
-        item.classList.add('active-filter');
+        item.classList.add('is-active');
       } else {
         // Désactivation
-        item.classList.remove('active-filter');
+        item.classList.remove('is-active');
         MapModule.removeLayer(layer);
         UIModule.resetLayerFilter(layer);
       }

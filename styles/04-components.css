@@ -73,163 +73,7 @@
    - Mobile responsive
 --------------------------------------------------------------------------- */
 
-/* Grid Container */
-#dynamic-filters {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  padding: 4px 0;
-}
-
-/* Filter Card — Clean elevated card */
-.filter-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 16px 10px;
-  min-height: 90px;
-  border-radius: 14px;
-  background: var(--surface-raised);
-  border: 1px solid var(--border-light);
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  transition:
-    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.25s ease,
-    border-color 0.2s ease,
-    background 0.2s ease;
-  box-shadow: 0 1px 3px var(--black-alpha-04);
-}
-
-/* Left accent bar — slides in on hover & active */
-.filter-item::before {
-  content: '';
-  position: absolute;
-  top: 14px;
-  bottom: 14px;
-  left: 0;
-  width: 3px;
-  background: var(--primary);
-  border-radius: 0 3px 3px 0;
-  transform: scaleY(0);
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  pointer-events: none;
-}
-
-/* Icon */
-.filter-icon {
-  font-size: 1.75rem;
-  margin-bottom: 8px;
-  transition:
-    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-    color 0.2s ease;
-  position: relative;
-  z-index: 1;
-  color: var(--text-tertiary);
-}
-
-/* Label */
-.filter-label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-align: center;
-  transition: color 0.2s ease;
-  letter-spacing: 0.01em;
-  position: relative;
-  z-index: 1;
-}
-
-/* Hover — lift + accent bar */
-.filter-item:hover {
-  transform: translateY(-3px);
-  border-color: var(--border-medium);
-  box-shadow:
-    0 8px 24px var(--black-alpha-06),
-    0 2px 6px var(--black-alpha-04);
-}
-
-.filter-item:hover::before {
-  transform: scaleY(1);
-}
-
-.filter-item:hover .filter-icon {
-  transform: scale(1.12);
-  color: var(--primary);
-}
-
-.filter-item:hover .filter-label {
-  color: var(--text-primary);
-}
-
-/* Active press */
-.filter-item:active {
-  transform: translateY(-1px) scale(0.97);
-  transition-duration: 0.08s;
-}
-
-/* Active State — Selected filter */
-.filter-item.active-filter {
-  background: var(--primary-alpha-06);
-  border-color: var(--primary);
-  box-shadow:
-    0 0 0 3px var(--primary-alpha-10),
-    0 4px 12px var(--black-alpha-06);
-}
-
-.filter-item.active-filter::before {
-  transform: scaleY(1);
-  width: 4px;
-}
-
-.filter-item.active-filter .filter-icon {
-  color: var(--primary);
-  transform: scale(1.06);
-}
-
-.filter-item.active-filter .filter-label {
-  color: var(--primary);
-  font-weight: 700;
-}
-
-.filter-item.active-filter:hover {
-  transform: translateY(-3px);
-  box-shadow:
-    0 0 0 3px var(--primary-alpha-15),
-    0 8px 24px var(--black-alpha-08);
-}
-
-
-/* Mobile Optimizations */
-@media (max-width: 640px) {
-  #filters-container {
-    width: calc(100vw - 20px);
-    max-width: 360px;
-    right: 10px;
-    left: auto;
-    top: 64px;
-  }
-  
-  #dynamic-filters {
-    gap: 8px;
-  }
-  
-  .filter-item {
-    min-height: 85px;
-    padding: 12px 8px;
-  }
-  
-  .filter-icon {
-    font-size: 1.625rem;
-    margin-bottom: 5px;
-  }
-  
-  .filter-label {
-    font-size: 0.75rem;
-  }
-}
+/* Filter items — now use .dock-panel__item (see 11-toggles.css) */
 
 .filter-field {
   padding: 8px 0;
@@ -285,14 +129,14 @@
   border-radius: 4px;
   font-size: 0.85rem;
   font-weight: 600;
-  box-shadow: 0 2px 4px var(--black-alpha-10);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   margin-right: 8px;
   margin-bottom: 8px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .active-filter-tag:hover {
-  box-shadow: 0 4px 6px var(--black-alpha-15);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
 }
 
 /* .active-filter-tag .close-btn utilise .btn-secondary .btn-small */
@@ -308,7 +152,7 @@
 }
 
 #reset-all-filters:hover {
-  box-shadow: 0 4px 6px var(--black-alpha-10), 0 1px 3px var(--black-alpha-08);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
   border: 1px solid var(--danger);
   color: #fff;
   background-color: var(--danger);
@@ -621,7 +465,7 @@
   font-size: 0.9em;
   font-weight: 600;
   padding: 0.24em 0.8em 0.24em 0.7em;
-  box-shadow: 0 6px 12px var(--black-alpha-06);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.06);
   border: 1.2px solid var(--gray-200);
   transition: background 0.18s, box-shadow 0.18s;
   letter-spacing: 0.01em;
@@ -798,7 +642,8 @@
 
 /* Buttons inside hero — glassmorphism pill buttons */
 .detail-hero__expand,
-.detail-back-floating {
+.detail-back-floating,
+.detail-close-floating {
   position: absolute;
   z-index: 4;
   width: 36px;
@@ -818,12 +663,12 @@
     background 0.2s ease,
     transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
     box-shadow 0.25s ease;
-  box-shadow: 0 2px 12px var(--black-alpha-15);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
 }
 
 .detail-hero__expand {
   top: 12px;
-  right: 12px;
+  right: 56px;
   opacity: 0;
   transform: scale(0.85);
 }
@@ -840,13 +685,45 @@
 .detail-hero__expand:hover,
 .detail-back-floating:hover {
   background: var(--surface-raised);
-  box-shadow: 0 4px 20px var(--black-alpha-20);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
   transform: scale(1.08);
 }
 
 .detail-back-floating {
   top: 12px;
   left: 12px;
+  width: 38px;
+  height: 38px;
+  font-size: 0.9rem;
+}
+
+/* Close (X) button — uses category color */
+.detail-close-floating {
+  top: 12px;
+  right: 12px;
+  background: var(--cat-color, var(--primary));
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+.detail-close-floating:hover {
+  background: color-mix(in srgb, var(--cat-color, var(--primary)) 85%, black);
+  transform: scale(1.12) rotate(90deg);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.detail-close-floating:active {
+  transform: scale(0.9) rotate(90deg);
+  transition-duration: 0.08s;
+}
+
+/* When no hero image — position close button relative to panel */
+.detail-close-floating--no-hero {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 10;
 }
 
 /* Inline back button (when no cover image) */
@@ -903,18 +780,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--primary-alpha-12);
-  color: var(--primary);
+  background: color-mix(in srgb, var(--cat-color, var(--primary)) 12%, transparent);
+  color: var(--cat-color, var(--primary));
   font-size: 0.85rem;
   flex-shrink: 0;
   margin-top: 1px;
-  box-shadow: 0 2px 8px var(--primary-alpha-16);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--cat-color, var(--primary)) 16%, transparent);
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
 }
 
 .detail-title-row:hover .detail-cat-icon {
   transform: scale(1.08);
-  box-shadow: 0 4px 14px var(--primary-alpha-20);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--cat-color, var(--primary)) 20%, transparent);
 }
 
 .detail-title {
@@ -988,7 +865,7 @@
   width: auto;
   height: auto;
   border-radius: 12px;
-  box-shadow: 0 12px 40px var(--black-alpha-35);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
 }
 
 /* .lightbox-close utilise .btn-secondary */
@@ -1017,7 +894,7 @@
   justify-content: center;
   gap: 10px;
   position: relative;
-  background: var(--color-primary);
+  background: var(--cat-color, var(--primary));
   background-size: 220% 220%;
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.28);
@@ -1028,7 +905,7 @@
   cursor: pointer;
   text-decoration: none;
   transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, background-position 0.6s ease;
-  box-shadow: 0 8px 20px var(--black-alpha-12), 0 2px 6px var(--black-alpha-06), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.35);
   text-align: center;
   margin: 8px 0 0;
   box-sizing: border-box;
@@ -1054,16 +931,16 @@
 .detail-fullpage-btn:hover {
   transform: translateY(-2px) scale(1.02);
   background-position: 90% 10%;
-  box-shadow: 0 14px 30px var(--black-alpha-20), 0 4px 10px var(--black-alpha-10), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.2), 0 4px 10px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 .detail-fullpage-btn:active {
   transform: translateY(0) scale(0.99);
-  box-shadow: 0 6px 14px var(--black-alpha-15), 0 2px 6px var(--black-alpha-08);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 .detail-fullpage-btn:focus-visible {
-  outline: 3px solid var(--black-alpha-30);
+  outline: 3px solid rgba(0, 0, 0, 0.3);
   outline-offset: 3px;
 }
 
@@ -1103,11 +980,11 @@
   0%,
   100% {
     filter: brightness(1);
-    box-shadow: 0 10px 24px var(--primary-alpha-35), 0 2px 6px var(--black-alpha-08);
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--cat-color, var(--primary)) 35%, transparent), 0 2px 6px rgba(0, 0, 0, 0.08);
   }
   50% {
     filter: brightness(1.05);
-    box-shadow: 0 16px 34px var(--primary-alpha-45), 0 4px 12px var(--black-alpha-10);
+    box-shadow: 0 16px 34px color-mix(in srgb, var(--cat-color, var(--primary)) 45%, transparent), 0 4px 12px rgba(0, 0, 0, 0.1);
   }
 }
 
@@ -1141,7 +1018,7 @@
   border: 1px solid var(--border-medium);
   border-radius: 14px;
   padding: 12px 14px;
-  box-shadow: 0 4px 14px var(--black-alpha-06);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
 }
 
 .legend-card .legend-header {
@@ -1188,370 +1065,15 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Basemap Menu - Unified with Filters Container
-   
-   Design system:
-   - Same glassmorphism effect (blur + saturation)
-   - Same border-radius (20px)
-   - Same header with title
-   - Same close button style
-   - Same card/tile style with transparent active state
-   - Same animations and transitions
-   - Same dark mode compatibility
+   Basemap & City menus — now use .dock-panel (see 11-toggles.css)
+   Only city-logo sizing override below.
 --------------------------------------------------------------------------- */
 
-/* Container — unified glass panel */
-.basemap-menu {
-  position: fixed;
-  top: 70px;
-  right: 16px;
-  left: auto;
-  width: 340px;
-  max-height: 70vh;
-  padding: 52px 14px 14px 14px;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  overflow-y: auto;
-  display: none;
-}
-
-.basemap-menu.active,
-.basemap-menu.open {
-  display: grid;
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-  transform: translateY(0) scale(1);
-  filter: blur(0);
-}
-
-/* Header title */
-.basemap-menu::before {
-  content: 'Fonds de carte';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: 14px 20px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  text-align: center;
-  border-bottom: 1px solid var(--dock-sep, var(--border-light));
-  border-radius: 18px 18px 0 0;
-}
-
-/* .basemap-close-btn utilise .btn-secondary */
-.basemap-close-btn {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 10;
-}
-
-/* Basemap tile — Clean elevated card */
-.basemap-tile {
-  min-height: 80px;
-  padding: 14px 10px;
-  border: 1px solid var(--border-light);
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  background: var(--surface-raised);
-  font-weight: 600;
-  color: var(--text-primary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-size: 0.72rem;
-  line-height: 1.3;
-  text-align: center;
-  transition:
-    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.25s ease,
-    border-color 0.2s ease,
-    background 0.2s ease,
-    color 0.2s ease;
-  position: relative;
-  overflow: visible;
-  box-shadow: 0 1px 3px var(--black-alpha-04);
-}
-
-.basemap-tile:hover {
-  transform: translateY(-3px);
-  border-color: var(--border-medium);
-  box-shadow:
-    0 8px 24px var(--black-alpha-06),
-    0 2px 6px var(--black-alpha-04);
-  color: var(--primary);
-}
-
-.basemap-tile:active {
-  transform: translateY(-1px) scale(0.97);
-  transition-duration: 0.08s;
-}
-
-/* Progress Bar Container - Hidden by default */
-.basemap-tile::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: var(--border-medium);
-  border-radius: 0 0 10px 10px;
-  z-index: 10;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-/* Progress Bar Fill */
-.basemap-progress {
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  height: 4px;
-  background: linear-gradient(90deg, var(--primary) 0%, var(--primary-hover) 100%);
-  width: 0;
-  border-radius: 0 0 10px 10px;
-  box-shadow: 0 0 12px var(--primary-alpha-45);
-  z-index: 11;
-  pointer-events: none;
-  transition: none;
-  will-change: width;
-  opacity: 0;
-}
-
-/* Show progress on hover hold */
-.basemap-tile.is-hovering::after {
-  opacity: 1;
-}
-
-.basemap-tile.is-hovering .basemap-progress {
-  opacity: 1;
-  width: 100% !important;
-  transition: width 1s linear !important;
-}
-
-/* Hide for active tiles */
-.basemap-tile.active-basemap::after,
-.basemap-tile.active-basemap .basemap-progress {
-  opacity: 0 !important;
-  display: none;
-}
-
-/* Reset on mouseleave */
-.basemap-tile:not(.is-hovering) .basemap-progress {
-  width: 0 !important;
-  transition: width 0.15s ease-out !important;
-  opacity: 0;
-}
-
-.basemap-tile:not(.is-hovering)::after {
-  opacity: 0;
-}
-
-/* Hover-hold state — pulse border */
-.basemap-tile.is-hovering {
-  transform: translateY(-3px);
-  border-color: var(--primary);
-  color: var(--primary);
-  box-shadow:
-    0 0 0 2px var(--primary-alpha-15),
-    0 8px 24px var(--black-alpha-06);
-}
-
-/* Active basemap — Selected state */
-.basemap-tile.active-basemap {
-  background: var(--primary-alpha-06);
-  color: var(--primary);
-  border-color: var(--primary);
-  font-weight: 700;
-  box-shadow:
-    0 0 0 3px var(--primary-alpha-10),
-    0 4px 12px var(--black-alpha-06);
-}
-
-/* Mobile Optimizations for basemap menu */
-@media (max-width: 640px) {
-  .basemap-menu {
-    width: calc(100vw - 20px);
-    max-width: 340px;
-    right: 10px;
-    left: auto;
-    top: 58px;
-    margin: 0;
-  }
-  
-  .basemap-tile {
-    min-height: 75px;
-    padding: 12px 8px;
-    font-size: 0.65rem;
-  }
-  
-  /* Progress bar plus visible sur mobile */
-  .basemap-progress {
-    height: 5px;
-    bottom: -5px;
-    box-shadow: 
-      0 0 30px var(--primary),
-      0 0 50px var(--primary-alpha-55),
-      0 3px 15px var(--primary-alpha-50),
-      0 0 8px var(--primary);
-  }
-  
-  .basemap-tile::after {
-    height: 5px;
-    bottom: -3px;
-  }
-}
-
-/* ---------------------------------------------------------------------------
-   CITY MENU - Sélecteur d'espace
-   Même design que basemap-menu, positionné sous le toggle
---------------------------------------------------------------------------- */
-
-/* Container — unified glass panel (inherits .toggle-menu from 11-toggles.css) */
-.city-menu {
-  position: fixed;
-  top: 70px;
-  right: 16px;
-  left: auto;
-  width: 280px;
-  max-height: calc(100vh - 100px);
-  padding: 6px;
-  flex-direction: column;
-  gap: 2px;
-  overflow-y: auto;
-  display: none;
-}
-
-.city-menu.active {
-  display: flex;
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-  transform: translateY(0) scale(1);
-}
-
-.city-menu-empty {
-  padding: 20px;
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-}
-
-.city-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  background: transparent;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-  transition:
-    background 0.25s ease,
-    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.25s ease;
-  width: 100%;
-  text-align: left;
-}
-
-.city-menu-item:hover {
-  background: var(--dock-btn-hover);
-  transform: translateX(4px);
-}
-
-.city-menu-item:active {
-  transform: translateX(4px) scale(0.98);
-  transition-duration: 0.1s;
-}
-
-.city-menu-item.is-active {
-  background: linear-gradient(135deg, var(--primary-alpha-06), var(--primary-alpha-10));
-  box-shadow: inset 0 0 12px var(--primary-alpha-06);
-}
-
-.city-menu-icon {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  background: var(--dock-btn-hover);
-  border-radius: 10px;
-  transition: background 0.25s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.city-menu-item:hover .city-menu-icon {
-  background: var(--primary-alpha-10);
-  transform: scale(1.08);
-}
-
-.city-menu-item.is-active .city-menu-icon {
-  background: var(--primary-alpha-12);
-}
-
-.city-menu-icon img,
 .city-menu-logo {
-  width: 28px;
-  height: 28px;
+  width: 20px;
+  height: 20px;
   object-fit: contain;
-  border-radius: 6px;
-}
-
-.city-menu-icon i {
-  font-size: 1.1rem;
-  color: var(--text-secondary);
-  transition: color 0.25s ease;
-}
-
-.city-menu-item:hover .city-menu-icon i {
-  color: var(--primary);
-}
-
-.city-menu-name {
-  flex: 1;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.city-menu-item:hover .city-menu-name {
-  color: var(--primary);
-}
-
-.city-menu-item.is-active .city-menu-name {
-  font-weight: 600;
-  color: var(--primary);
-}
-
-.city-menu-check {
-  color: var(--primary);
-  font-size: 0.8rem;
-  filter: drop-shadow(0 0 6px var(--primary-alpha-3));
-  animation: checkIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes checkIn {
-  from { transform: scale(0) rotate(-90deg); opacity: 0; }
-  to { transform: scale(1) rotate(0deg); opacity: 1; }
-}
-
-/* Mobile — tighter positioning */
-@media (max-width: 640px) {
-  .city-menu {
-    top: 58px;
-    right: 10px;
-    max-width: calc(100vw - 20px);
-  }
+  border-radius: 4px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1570,11 +1092,10 @@
 .project-detail img {
   max-width: 100%;
   border-radius: 10px;
-  margin: 0.75rem 0;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .project-detail img:hover {
-  box-shadow: 0 4px 16px var(--black-alpha-12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   transform: scale(1.01);
 }

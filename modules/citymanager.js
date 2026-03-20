@@ -226,19 +226,6 @@
     // ==================== Menu de sélection d'espace ====================
 
     /**
-     * Positionne le menu à droite, sous les toggles
-     */
-    positionCityMenu() {
-      const menu = document.getElementById('city-menu');
-      if (!menu) return;
-
-      // Toujours à droite, à 12px du bord
-      menu.style.top = '68px';
-      menu.style.right = '12px';
-      menu.style.left = 'auto';
-    },
-
-    /**
      * Peuple le menu de sélection d'espace avec les villes de enabled_cities
      * @param {string} activeCity - Ville actuellement active
      */
@@ -253,7 +240,7 @@
 
         // Si pas d'espaces configurés, menu vide
         if (!Array.isArray(enabledCities) || enabledCities.length === 0) {
-          menu.innerHTML = '<div class="city-menu-empty">Aucun espace configuré</div>';
+          menu.innerHTML = '<div class="dock-panel__header"><span class="dock-panel__title">Espace</span></div><div class="dock-panel__body" style="padding:12px;color:var(--text-tertiary);font-size:0.78rem;">Aucun espace configuré</div>';
           return;
         }
 
@@ -262,7 +249,7 @@
           enabledCities.map(c => this.getCityBrandingSafe(c))
         );
 
-        const html = enabledCities.map((cityCode, idx) => {
+        const itemsHtml = enabledCities.map((cityCode, idx) => {
           const isActive = String(cityCode).toLowerCase() === String(activeCity).toLowerCase();
           const b = brandings[idx] || {};
           const displayName = b.brand_name?.trim() || cityCode.charAt(0).toUpperCase() + cityCode.slice(1);
@@ -270,19 +257,31 @@
             ? b.dark_logo_url 
             : (b.logo_url || '');
           const logoHtml = logo 
-            ? `<img src="${logo}" alt="${displayName}" class="city-menu-logo" />`
+            ? `<img src="${logo}" alt="${displayName}" class="city-menu-logo" style="width:20px;height:20px;object-fit:contain;" />`
             : `<i class="fas fa-building"></i>`;
 
           return `
-            <button class="city-menu-item${isActive ? ' is-active' : ''}" data-city="${cityCode}" role="menuitem">
-              <span class="city-menu-icon">${logoHtml}</span>
-              <span class="city-menu-name">${displayName}</span>
-              ${isActive ? '<i class="fas fa-check city-menu-check"></i>' : ''}
+            <button class="dock-panel__item city-menu-item${isActive ? ' is-active' : ''}" data-city="${cityCode}" role="menuitem">
+              <span class="dock-panel__item-icon">${logoHtml}</span>
+              <span class="dock-panel__item-label">${displayName}</span>
+              ${isActive ? '<i class="fas fa-check" style="font-size:0.65rem;color:var(--primary);margin-left:auto;"></i>' : ''}
             </button>
           `;
         }).join('');
 
-        menu.innerHTML = html;
+        menu.innerHTML = `
+          <div class="dock-panel__header">
+            <span class="dock-panel__title">Espace</span>
+            <button class="dock-panel__close" aria-label="Fermer le menu espace"><i class="fas fa-times"></i></button>
+          </div>
+          <div class="dock-panel__body">${itemsHtml}</div>
+        `;
+
+        // Bind close button
+        menu.querySelector('.dock-panel__close')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          win.toggleManager?.setState('city', false);
+        });
 
         // Bind click events
         menu.querySelectorAll('.city-menu-item').forEach(item => {
@@ -293,9 +292,6 @@
             if (city) this.selectCity(city);
           });
         });
-
-        // Positionner le menu sous le toggle
-        this.positionCityMenu();
       } catch (err) {
         console.warn('[CityManager] Error rendering city menu:', err);
       }
@@ -337,22 +333,6 @@
      */
     async initCityMenu(activeCity) {
       await this.renderCityMenu(activeCity);
-      
-      // Repositionner le menu à chaque ouverture du toggle
-      const toggle = document.getElementById('city-toggle');
-      if (toggle && !toggle._cityMenuBound) {
-        toggle.addEventListener('click', () => {
-          // Repositionner après un court délai pour laisser le menu s'afficher
-          requestAnimationFrame(() => this.positionCityMenu());
-        });
-        toggle._cityMenuBound = true;
-      }
-
-      // Repositionner aussi au resize
-      if (!win._cityMenuResizeBound) {
-        window.addEventListener('resize', () => this.positionCityMenu());
-        win._cityMenuResizeBound = true;
-      }
     },
 
     /**

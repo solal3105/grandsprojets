@@ -44,14 +44,14 @@ a.btn-primary,
 button.btn-primary {
   background: var(--info-alpha-20);
   color: var(--info);
-  box-shadow: 0 2px 4px var(--black-alpha-08);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .btn-primary:hover,
 a.btn-primary:hover,
 button.btn-primary:hover {
   background: var(--info-alpha-30);
-  box-shadow: 0 4px 12px var(--black-alpha-12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   transform: translateY(-2px);
 }
 
@@ -60,7 +60,7 @@ a.btn-primary:active,
 button.btn-primary:active {
   transform: translateY(0);
   background: var(--info-alpha-25);
-  box-shadow: 0 2px 4px var(--black-alpha-08);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .btn-primary:disabled,
@@ -78,7 +78,7 @@ a.btn-secondary,
 button.btn-secondary {
   background: var(--white-alpha-80);
   color: var(--text-primary);
-  box-shadow: 0 2px 4px var(--black-alpha-08);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   backdrop-filter: blur(8px);
 }
 
@@ -86,7 +86,7 @@ button.btn-secondary {
 a.btn-secondary:hover,
 button.btn-secondary:hover {
   background: var(--white-alpha-90);
-  box-shadow: 0 4px 12px var(--black-alpha-12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   transform: translateY(-1px);
 }
 
@@ -95,7 +95,7 @@ a.btn-secondary:active,
 button.btn-secondary:active {
   transform: translateY(0);
   background: var(--white-alpha-85);
-  box-shadow: 0 2px 4px var(--black-alpha-08);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .btn-secondary:disabled,
@@ -113,7 +113,7 @@ a.btn-danger,
 button.btn-danger {
   background: var(--danger-alpha-20);
   color: var(--danger);
-  box-shadow: 0 2px 4px var(--black-alpha-08);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .btn-danger:hover,
@@ -129,7 +129,7 @@ a.btn-danger:active,
 button.btn-danger:active {
   transform: translateY(0);
   background: var(--danger-alpha-25);
-  box-shadow: 0 2px 4px var(--black-alpha-08);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .btn-danger:disabled,
@@ -147,7 +147,7 @@ a.btn-info,
 button.btn-info {
   background: var(--info-alpha-20);
   color: var(--info);
-  box-shadow: 0 2px 4px var(--black-alpha-08);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .btn-info:hover,
@@ -163,7 +163,7 @@ a.btn-info:active,
 button.btn-info:active {
   transform: translateY(0);
   background: var(--info-alpha-25);
-  box-shadow: 0 2px 4px var(--black-alpha-08);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .btn-info:disabled,
@@ -189,7 +189,7 @@ a.btn-ghost:hover,
 button.btn-ghost:hover {
   background: var(--white-alpha-50);
   color: var(--text-primary);
-  box-shadow: 0 2px 4px var(--black-alpha-08);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   transform: translateY(-1px);
 }
 

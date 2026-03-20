@@ -32,88 +32,8 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Filters Container - Layout & Positioning
-   
-   Note: Filter items styles are in 04-components.css
-   This section contains only the container layout, positioning, and header
+   Filters Container — now uses .dock-panel (see 11-toggles.css)
 --------------------------------------------------------------------------- */
-
-/* Main Container — unified glass panel (same as basemap-menu, city-menu) */
-#filters-container {
-  position: fixed;
-  top: 70px;
-  right: 16px;
-  width: 360px;
-  max-height: 70vh;
-  background: var(--dock-bg);
-  backdrop-filter: blur(40px) saturate(1.8);
-  -webkit-backdrop-filter: blur(40px) saturate(1.8);
-  border-radius: 18px;
-  border: 1px solid var(--dock-border);
-  box-shadow:
-    0 4px 12px var(--black-alpha-04),
-    0 12px 40px var(--black-alpha-08),
-    0 24px 64px var(--black-alpha-04);
-  padding: 52px 14px 14px 14px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  z-index: 1500;
-  animation: panelSlideIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes panelSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-14px) scale(0.96);
-    filter: blur(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0);
-  }
-}
-
-/* Filters Header Title — unified header style */
-#filters-container::before {
-  content: 'Calques';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: 14px 20px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  text-align: center;
-  border-bottom: 1px solid var(--dock-sep, var(--border-light));
-  border-radius: 18px 18px 0 0;
-}
-
-/* .filters-close-btn utilise .btn-secondary */
-.filters-close-btn {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 10;
-}
-
-#filters-container h3 {
-  margin-top: 0;
-  margin-bottom: 1rem;
-}
-
-@media (max-width: 640px) {
-  #filters-container {
-    top: 58px;
-    right: 10px;
-    width: calc(100vw - 20px);
-    max-width: 360px;
-    border-radius: 16px;
-  }
-}
 
 /* ---------------------------------------------------------------------------
    FILTER MODALS - NOTE
@@ -137,11 +57,11 @@
 --------------------------------------------------------------------------- */
 #project-detail {
   position: fixed;
-  top: 16px;
+  top: calc(16px + var(--dock-h, 46px) + 2 * var(--dock-pad, 4px) + 2px + 10px);
   right: 16px;
   width: 420px;
   max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 32px);
+  max-height: calc(100vh - 16px - var(--dock-h, 46px) - 2 * var(--dock-pad, 4px) - 2px - 10px - 16px);
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
@@ -150,10 +70,18 @@
   -webkit-backdrop-filter: blur(40px) saturate(180%);
   border-radius: 24px;
   box-shadow:
-    0 32px 100px var(--black-alpha-20),
-    0 12px 40px var(--black-alpha-10),
+    0 32px 100px rgba(0, 0, 0, 0.2),
+    0 12px 40px rgba(0, 0, 0, 0.1),
     0 0 0 1px var(--border-light);
   z-index: 1300;
+  padding: 0;
+  font-size: 0;
+  line-height: 0;
+}
+
+#project-detail > * {
+  font-size: 1rem;
+  line-height: 1.5;
 }
 
 #project-detail[style*="display: block"],
@@ -173,7 +101,7 @@
   left: 12%;
   right: 12%;
   height: 2px;
-  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  background: linear-gradient(90deg, transparent, var(--cat-color, var(--primary)), transparent);
   border-radius: 0 0 2px 2px;
   opacity: 0.45;
   z-index: 10;

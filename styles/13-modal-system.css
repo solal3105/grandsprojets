@@ -159,7 +159,7 @@
 
 .gp-modal-header-action:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px var(--black-alpha-12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
 .gp-modal-header-action:active {
@@ -191,7 +191,7 @@
   border-color: var(--info);
   color: var(--info);
   transform: translateX(-2px);
-  box-shadow: 0 2px 8px var(--black-alpha-08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .gp-modal-back:active {
@@ -226,13 +226,13 @@
    color: var(--danger);
    background: var(--danger-alpha-08);
    transform: rotate(90deg) scale(1.05);
-   box-shadow: 0 6px 16px var(--danger-alpha-20), 0 2px 4px var(--black-alpha-08);
+   box-shadow: 0 6px 16px var(--danger-alpha-20), 0 2px 4px rgba(0, 0, 0, 0.08);
  }
  
  .gp-modal-close.btn-secondary:active {
    transform: rotate(90deg) scale(0.98);
    background: var(--danger-alpha-16);
-   box-shadow: 0 2px 6px var(--black-alpha-08);
+   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
  }
  
  .gp-modal-close.btn-secondary:focus-visible {
@@ -301,7 +301,7 @@
 /* Minimal : bordures et ombres légères */
 .gp-modal--minimal {
   border: 1px solid var(--border-light);
-  box-shadow: 0 8px 24px var(--black-alpha-12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 /* Centered : centrage strict vertical */
@@ -440,85 +440,7 @@
    UTILITÉS - Classes helper pour les modales
 --------------------------------------------------------------------------- */
 
-/* ---------------------------------------------------------------------------
-   SEARCH MODAL — Spotlight-style command palette
-   Clean, focused search experience with only CSS variables
-   --------------------------------------------------------------------------- */
-
-/* Search input */
-#search-overlay #address-search {
-  width: 100%;
-  padding: 16px 20px 16px 44px;
-  font-size: 1rem;
-  font-weight: 500;
-  border: none;
-  border-bottom: 1px solid var(--border-light);
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-primary);
-  outline: none;
-  transition: border-color 0.2s ease;
-  box-sizing: border-box;
-}
-
-#search-overlay #address-search:focus {
-  border-bottom-color: var(--primary);
-}
-
-#search-overlay #address-search::placeholder {
-  color: var(--text-tertiary);
-}
-
-/* Results list */
-#search-overlay .search-results {
-  max-height: 360px;
-  overflow-y: auto;
-  padding: 4px 0;
-}
-
-#search-overlay .search-results.visible {
-  display: block;
-}
-
-/* Result item */
-#search-overlay .search-result-item {
-  display: flex;
-  flex-direction: column;
-  padding: 12px 20px;
-  cursor: pointer;
-  transition: background 0.15s ease;
-  border-bottom: 1px solid var(--border-light);
-}
-
-#search-overlay .search-result-item:last-child {
-  border-bottom: none;
-}
-
-#search-overlay .search-result-item:hover {
-  background: var(--primary-alpha-06);
-}
-
-#search-overlay .search-result-item:active {
-  background: var(--primary-alpha-10);
-}
-
-#search-overlay .search-result-item h4 {
-  margin: 0 0 2px 0;
-  color: var(--text-primary);
-  font-size: 0.9rem;
-  font-weight: 600;
-  transition: color 0.15s ease;
-}
-
-#search-overlay .search-result-item:hover h4 {
-  color: var(--primary);
-}
-
-#search-overlay .search-result-item p {
-  margin: 0;
-  color: var(--text-tertiary);
-  font-size: 0.8rem;
-}
+/* Search overlay — now uses .dock-panel--search (see 11-toggles.css) */
 
 /* ---------------------------------------------------------------------------
    COMPORTEMENTS UNIFIÉS - Body scroll lock

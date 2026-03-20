@@ -34,7 +34,7 @@
   max-width: 500px;
   max-height: 500px;
   border-radius: 8px;
-  box-shadow: 0 5px 15px var(--black-alpha-30);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 
 .image-popup .maplibregl-popup-tip {
@@ -71,7 +71,7 @@
   max-height: 200px;
   border-radius: 6px;
   display: block;
-  box-shadow: 0 4px 15px var(--black-alpha-15);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
   pointer-events: none;
 }
 
@@ -81,7 +81,7 @@
 .maplibregl-ctrl-bottom-left .maplibregl-ctrl-group {
   margin: 0 0 16px 16px;
   border-radius: 10px;
-  box-shadow: 0 2px 8px var(--black-alpha-10);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 @media (max-width: 720px) {

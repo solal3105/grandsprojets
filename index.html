@@ -202,28 +202,37 @@
     </nav>
 
     <!-- Toggle drop-menus (outside dock, positioned fixed) -->
-    <div id="city-menu" class="toggle-menu city-menu"></div>
-    <div id="basemap-menu" class="toggle-menu basemap-menu"></div>
     <div id="overflow-menu" class="toggle-menu overflow-menu" aria-hidden="true">
       <div class="overflow-menu-content"></div>
     </div>
 
-    <!-- Search modal -->
-    <div id="search-overlay" class="gp-modal-overlay gp-modal--centered" role="dialog" aria-modal="true" aria-hidden="true" style="display:none">
-      <div class="gp-modal gp-modal--compact gp-modal--no-padding">
-        <div class="gp-modal-body">
-          <input type="text" id="address-search" placeholder="Rechercher une adresse..." />
-          <div id="search-results" class="search-results"></div>
-        </div>
+    <!-- ═══ Unified dock panels ═══ -->
+
+    <!-- City selector panel -->
+    <div id="city-menu" class="dock-panel" data-toggle="city"></div>
+
+    <!-- Basemap selector panel -->
+    <div id="basemap-menu" class="dock-panel" data-toggle="basemap"></div>
+
+    <!-- Search panel -->
+    <div id="search-overlay" class="dock-panel dock-panel--search" data-toggle="search">
+      <div class="dock-panel__header">
+        <span class="dock-panel__title">Rechercher</span>
+        <button class="dock-panel__close" aria-label="Fermer la recherche"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="dock-panel__body">
+        <input type="text" id="address-search" placeholder="Rechercher une adresse..." autocomplete="off" />
+        <div id="search-results" class="search-results"></div>
       </div>
     </div>
 
-    <!-- Filters panel -->
-    <div id="filters-container" style="display: none">
-      <button class="btn-secondary filters-close-btn" id="filters-close-btn" aria-label="Fermer les filtres">
-        <i class="fas fa-times"></i>
-      </button>
-      <div id="dynamic-filters"></div>
+    <!-- Filters / Calques panel -->
+    <div id="filters-container" class="dock-panel" data-toggle="filters">
+      <div class="dock-panel__header">
+        <span class="dock-panel__title">Calques</span>
+        <button class="dock-panel__close" id="filters-close-btn" aria-label="Fermer les filtres"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="dock-panel__body" id="dynamic-filters"></div>
     </div>
   </div>
 

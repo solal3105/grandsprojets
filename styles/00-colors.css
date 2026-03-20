@@ -247,7 +247,8 @@ html[data-theme='dark'] {
   --white-alpha-90: rgba(15, 23, 42, 0.9);
   --white-alpha-95: rgba(15, 23, 42, 0.95);
   
-  /* Opacités INVERSÉES - clair translucide pour highlights */
+  /* --black-alpha-* : Inverted for dark mode (light translucent for overlays).
+     For box-shadow, use hardcoded rgba(0,0,0,...) instead — shadows stay black. */
   --black-alpha-04: rgba(248, 250, 252, 0.04);
   --black-alpha-06: rgba(248, 250, 252, 0.06);
   --black-alpha-08: rgba(248, 250, 252, 0.08);

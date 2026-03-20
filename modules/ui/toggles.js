@@ -60,10 +60,16 @@ class ToggleManager {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.toggle(key); }
     });
 
-    if (config.hasOverlay || config.hasMenu || config.targetElement) {
+    if (config.hasOverlay || config.hasMenu || config.targetElement || config.hasDockPanel) {
       document.addEventListener('click', (e) => {
-        const sel = config.overlaySelector || config.menuSelector;
-        const panel = sel ? document.querySelector(sel) : (config.targetElement ? document.getElementById(config.targetElement) : null);
+        // Find the associated panel element
+        let panel = null;
+        if (config.hasDockPanel) {
+          panel = document.querySelector(`.dock-panel[data-toggle="${key}"]`);
+        } else {
+          const sel = config.overlaySelector || config.menuSelector;
+          panel = sel ? document.querySelector(sel) : (config.targetElement ? document.getElementById(config.targetElement) : null);
+        }
         const inside = (element.contains(e.target)) || (panel && panel.contains(e.target));
         if (!inside && this.getState(key)) this.setState(key, false);
       });
@@ -97,11 +103,19 @@ class ToggleManager {
     if (!t) return;
     if (this.state.get(key) === state) return;
 
-    // Mutual exclusion: close other open panels when opening one
-    if (state && (t.config.hasMenu || t.config.hasOverlay || t.config.hasModal || t.config.targetElement)) {
+    // When opening a panel, dismiss any open content overlays (submenus, detail panels)
+    const opensPanel = t.config.hasMenu || t.config.hasOverlay || t.config.hasModal || t.config.targetElement || t.config.hasDockPanel;
+    if (state && opensPanel) {
+      window.SubmenuManager?.closeCurrentSubmenu?.();
+      const detail = document.getElementById('project-detail');
+      if (detail) detail.style.display = 'none';
+    }
+
+    // Mutual exclusion: close other open toggles
+    if (state && opensPanel) {
       this.toggles.forEach((other, otherKey) => {
         if (otherKey !== key && otherKey !== 'overflow' && this.state.get(otherKey) &&
-            (other.config.hasMenu || other.config.hasOverlay || other.config.hasModal || other.config.targetElement)) {
+            (other.config.hasMenu || other.config.hasOverlay || other.config.hasModal || other.config.targetElement || other.config.hasDockPanel)) {
           this.setState(otherKey, false);
         }
       });
@@ -111,7 +125,7 @@ class ToggleManager {
 
     // ARIA
     t.element.setAttribute('aria-pressed', String(state));
-    if (t.config.hasMenu || t.config.hasOverlay || t.config.hasModal) {
+    if (t.config.hasMenu || t.config.hasOverlay || t.config.hasModal || t.config.hasDockPanel) {
       t.element.setAttribute('aria-expanded', String(state));
     }
 
@@ -121,23 +135,35 @@ class ToggleManager {
       if (icon) icon.className = state ? `fas ${t.config.iconActive}` : `fas ${t.config.icon}`;
     }
 
-    // Overlay
-    if (t.config.overlaySelector) {
+    // ── Unified dock-panel system ──
+    // Any element with .dock-panel[data-toggle="<key>"] is handled here.
+    const dockPanel = document.querySelector(`.dock-panel[data-toggle="${key}"]`);
+    if (dockPanel) {
+      if (state) this._positionPanelBelowDock(dockPanel, key);
+      dockPanel.classList.toggle('dock-panel--open', state);
+    }
+
+    // ── Legacy: Overlay (non dock-panel) ──
+    if (t.config.overlaySelector && !dockPanel) {
       const el = document.querySelector(t.config.overlaySelector);
       if (el) {
+        if (state) this._positionPanelBelowDock(el, key);
         el.classList.toggle('active', state);
         el.style.display = state ? 'flex' : 'none';
         el.setAttribute('aria-hidden', String(!state));
       }
     }
 
-    // Menu
-    if (t.config.menuSelector) {
+    // ── Legacy: Menu (non dock-panel) ──
+    if (t.config.menuSelector && !dockPanel) {
       const el = document.querySelector(t.config.menuSelector);
-      if (el) el.classList.toggle('active', state);
+      if (el) {
+        if (state) this._positionPanelBelowDock(el, key);
+        el.classList.toggle('active', state);
+      }
     }
 
-    // Modal
+    // Modal (about, etc. — not a dock-panel)
     if (t.config.modalSelector) {
       const modalId = t.config.modalSelector.replace('#', '');
       if (state) {
@@ -159,10 +185,13 @@ class ToggleManager {
       }
     }
 
-    // Target element
-    if (t.config.targetElement) {
+    // ── Legacy: Target element (non dock-panel) ──
+    if (t.config.targetElement && !dockPanel) {
       const el = document.getElementById(t.config.targetElement);
-      if (el) el.style.display = state ? 'block' : 'none';
+      if (el) {
+        if (state) this._positionPanelBelowDock(el, key);
+        el.style.display = state ? 'block' : 'none';
+      }
     }
 
     // Persist
@@ -328,6 +357,27 @@ class ToggleManager {
     this.overflowToggles = [];
   }
 
+  _positionPanelBelowDock(panel, toggleKey) {
+    const dock = document.getElementById('toggle-dock');
+    if (!dock || !panel) return;
+    const dockRect = dock.getBoundingClientRect();
+    const panelRight = Math.round(window.innerWidth - dockRect.right);
+
+    panel.style.top = `${Math.round(dockRect.bottom + 8)}px`;
+    panel.style.right = `${panelRight}px`;
+    panel.style.minWidth = `${Math.round(dockRect.width)}px`;
+
+    // Arrow: point to the center of the toggle button
+    const btn = toggleKey && this.toggles.get(toggleKey)?.element;
+    if (btn) {
+      const btnRect = btn.getBoundingClientRect();
+      const btnCenterX = btnRect.left + btnRect.width / 2;
+      // arrow-x is distance from right edge of panel to center of button
+      const arrowX = dockRect.right - btnCenterX - 6; // 6 = half arrow width
+      panel.style.setProperty('--arrow-x', `${Math.max(8, Math.round(arrowX))}px`);
+    }
+  }
+
   _updateGroupVisibility() {
     const dock = document.getElementById('toggle-dock');
     if (!dock) return;
@@ -388,6 +438,7 @@ class ToggleManager {
     const t = this.toggles.get('overflow');
     if (!menu || !t) return;
     this._closeAllMenus();
+    this._positionPanelBelowDock(menu);
     menu.classList.add('active');
     menu.style.display = 'block';
     menu.setAttribute('aria-hidden', 'false');
@@ -407,14 +458,15 @@ class ToggleManager {
   }
 
   _closeAllMenus() {
-    ['city-menu', 'basemap-menu'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.classList.remove('active');
+    // Close all dock panels
+    document.querySelectorAll('.dock-panel.dock-panel--open').forEach(el => {
+      el.classList.remove('dock-panel--open');
     });
     this.toggles.forEach((t, key) => {
-      if (t.config.hasMenu && key !== 'overflow') {
+      if ((t.config.hasMenu || t.config.hasDockPanel) && key !== 'overflow') {
         this.state.set(key, false);
         t.element.setAttribute('aria-expanded', 'false');
+        t.element.setAttribute('aria-pressed', 'false');
       }
     });
   }
@@ -441,9 +493,6 @@ class ToggleManager {
     if (config.hasModal) {
       const id = config.modalSelector?.replace('#', '');
       if (id) (window.ModalHelper?.open || window.ModalManager?.open)?.(id);
-    } else if (config.hasMenu) {
-      const m = document.querySelector(config.menuSelector);
-      if (m) m.classList.add('active');
     } else {
       this.toggle(key);
     }

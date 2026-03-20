@@ -13,7 +13,7 @@ export const TOGGLES_CONFIG = {
     hasCounter: true,
     counterSelector: '.filter-count',
     defaultState: false,
-    targetElement: 'filters-container'
+    hasDockPanel: true
   },
   
   terrain: {
@@ -34,9 +34,8 @@ export const TOGGLES_CONFIG = {
     label: 'Fond de carte',
     ariaLabel: 'Changer le fond de carte',
     position: 2,
-    hasMenu: true,
-    menuSelector: '#basemap-menu',
-    defaultState: false
+    defaultState: false,
+    hasDockPanel: true
   },
   
   theme: {
@@ -57,9 +56,8 @@ export const TOGGLES_CONFIG = {
     label: 'Rechercher',
     ariaLabel: 'Rechercher une adresse',
     position: 3,
-    hasOverlay: true,
-    overlaySelector: '#search-overlay',
-    defaultState: false
+    defaultState: false,
+    hasDockPanel: true
   },
   
   location: {
@@ -78,9 +76,8 @@ export const TOGGLES_CONFIG = {
     label: 'Espace',
     ariaLabel: 'Changer votre espace',
     position: 6,
-    hasMenu: true,
-    menuSelector: '#city-menu',
-    defaultState: false
+    defaultState: false,
+    hasDockPanel: true
   },
   
   info: {

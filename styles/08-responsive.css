@@ -131,7 +131,7 @@
     max-width: 260px;
     background: var(--surface-base);
     border-radius: 16px;
-    box-shadow: 0 8px 32px var(--black-alpha-20);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
     padding: 12px;
     display: flex;
     flex-direction: column;
@@ -202,6 +202,7 @@
   /* Submenu bottom sheet on mobile — single column, tighter */
   .submenu {
     width: calc(100vw - 16px) !important;
+    min-width: 0;
     max-width: 360px;
     max-height: 45vh;
     border-radius: 20px;

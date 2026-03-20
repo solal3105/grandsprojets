@@ -63,14 +63,17 @@ window.SearchModule = (() => {
     // Handle search result clicks
     searchResults.addEventListener('click', handleResultClick);
     
-    // Close search when clicking outside
-    searchOverlay.addEventListener('click', (e) => {
-      if (e.target === searchOverlay) {
-        if (window.toggleManager) {
-          window.toggleManager.setState('search', false);
-        }
-      }
-    });
+    // Close button in panel header
+    const closeBtn = searchOverlay.querySelector('.dock-panel__close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.toggleManager?.setState('search', false);
+      });
+    }
+    
+    // Stop propagation inside the panel so ToggleManager doesn't close it
+    searchOverlay.addEventListener('click', (e) => e.stopPropagation());
     
     // Handle Enter key press
     searchInput.addEventListener('keydown', (e) => {
@@ -93,27 +96,9 @@ window.SearchModule = (() => {
    */
   function openSearchOverlay() {
     if (!searchOverlay) return;
-    
-    // Close the project detail panel while searching
-    try {
-      if (window.NavigationModule && typeof window.NavigationModule.resetToDefaultView === 'function') {
-        window.NavigationModule.resetToDefaultView(undefined, { preserveMapView: true });
-      }
-    } catch (_) {}
-
-    // Utiliser ModalHelper pour une gestion unifiée
-    window.ModalHelper.open('search-overlay', {
-      dismissible: true,
-      lockScroll: true,
-      focusTrap: true,
-      onOpen: () => {
-        // Focus the input après l'animation
-        if (searchInput) searchInput.focus();
-      },
-      onClose: () => {
-        clearSearchResults();
-        if (searchInput) searchInput.value = '';
-      }
+    // Focus the input after a tick (panel becomes visible via dock-panel--open)
+    requestAnimationFrame(() => {
+      if (searchInput) searchInput.focus();
     });
   }
 
@@ -122,9 +107,8 @@ window.SearchModule = (() => {
    */
   function closeSearchOverlay() {
     if (!searchOverlay) return;
-    
-    // Utiliser ModalHelper pour une gestion unifiée
-    window.ModalHelper.close('search-overlay');
+    clearSearchResults();
+    if (searchInput) searchInput.value = '';
   }
 
   /**

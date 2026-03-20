@@ -391,11 +391,12 @@ const NavigationModule = (() => {
       
       // Si le layer existe déjà avec des données, le garder
       if (existingFeaturesCount > 0) {
-        console.log(`[NavigationModule] ✅ Layer "${layerName}" conservé (${existingFeaturesCount} features)`);
         // S'assurer qu'il est visible
-        if (window.MapModule?.map && !MapModule.map.hasLayer(existingLayer)) {
-          MapModule.map.addLayer(existingLayer);
-        }
+        try {
+          if (window.MapModule?.map && !MapModule.map.hasLayer(existingLayer)) {
+            MapModule.map.addLayer(existingLayer);
+          }
+        } catch (_) { /* source already exists in MapLibre — layer is already visible */ }
         continue;
       }
       
@@ -574,6 +575,10 @@ const NavigationModule = (() => {
   panel.style.removeProperty('max-height');
   panel.style.removeProperty('overflow');
 
+  // Apply category color to the detail panel
+  const { color: catColor } = getCategoryStyle(category);
+  panel.style.setProperty('--cat-color', catColor);
+
   // Debug: vérifier la couleur primaire
   const computedPrimary = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
   if (!computedPrimary || computedPrimary === '') {
@@ -698,32 +703,11 @@ const NavigationModule = (() => {
     const fullPageUrl = `/fiche/?${params.toString()}`;
 
     // Hero cover with back button inside (flush, no gap)
-    const heroHTML = coverCandidate ? `
-      <div class="detail-hero">
-        <img class="detail-hero__img" src="${resolveAssetUrl(coverCandidate)}" alt="${attrs.name || projectName || ''}" loading="eager">
-        <div class="detail-hero__grad"></div>
-        <button id="detail-back-btn" class="detail-back-floating" aria-label="Retour">
-          <i class="fa-solid fa-arrow-left"></i>
-        </button>
-        <button class="detail-hero__expand" aria-label="Agrandir l'image" title="Agrandir">
-          <i class="fa-solid fa-up-right-and-down-left-from-center"></i>
-        </button>
-      </div>` : '';
+    const heroHTML = coverCandidate
+      ? `<div class="detail-hero"><img class="detail-hero__img" src="${resolveAssetUrl(coverCandidate)}" alt="${attrs.name || projectName || ''}" loading="eager"><div class="detail-hero__grad"></div><button id="detail-back-btn" class="detail-back-floating" aria-label="Retour"><i class="fa-solid fa-arrow-left"></i></button><button id="detail-close-btn" class="detail-close-floating" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button><button class="detail-hero__expand" aria-label="Agrandir l'image" title="Agrandir"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button></div>`
+      : '';
 
-    panel.innerHTML = `
-      ${heroHTML}
-      <div class="detail-content-wrap">
-        ${!coverCandidate ? `<button id="detail-back-btn" class="detail-back-inline" aria-label="Retour"><i class="fa-solid fa-arrow-left"></i> Retour</button>` : ''}
-        <div class="detail-title-row">
-          <span class="detail-cat-icon"><i class="fa-solid ${icons[category] || 'fa-map'}"></i></span>
-          <h3 class="detail-title">${safeName}</h3>
-        </div>
-        ${chips.length ? `<div class="detail-chips">${chips.join('')}</div>` : ''}
-        ${description ? `<p class="detail-description">${description}</p>` : ''}
-        ${fullPageUrl ? `<a href="${fullPageUrl}" class="detail-fullpage-btn">
-          <i class="fa-solid fa-up-right-from-square"></i>Voir la fiche complète
-        </a>` : ''}
-      </div>`;
+    panel.innerHTML = `${heroHTML}${!coverCandidate ? `<button id="detail-close-btn" class="detail-close-floating detail-close-floating--no-hero" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>` : ''}<div class="detail-content-wrap">${!coverCandidate ? `<button id="detail-back-btn" class="detail-back-inline" aria-label="Retour"><i class="fa-solid fa-arrow-left"></i> Retour</button>` : ''}<div class="detail-title-row"><span class="detail-cat-icon"><i class="fa-solid ${icons[category] || 'fa-map'}"></i></span><h3 class="detail-title">${safeName}</h3></div>${chips.length ? `<div class="detail-chips">${chips.join('')}</div>` : ''}${description ? `<p class="detail-description">${description}</p>` : ''}${fullPageUrl ? `<a href="${fullPageUrl}" class="detail-fullpage-btn"><i class="fa-solid fa-up-right-from-square"></i>Voir la fiche complète</a>` : ''}</div>`;
     
 
     // Wire up Extend button in this panel
@@ -760,10 +744,16 @@ const NavigationModule = (() => {
       btn?.addEventListener('click', openLightbox);
     })();
 
-    // Bouton "Retour" : affiche toutes les contributions de la catégorie
+    // Bouton "Retour" : retour au submenu de la catégorie
     const backButton = document.getElementById('detail-back-btn');
     if (backButton) {
       backButton.onclick = () => NavigationModule.resetToDefaultView(category, { preserveMapView: true, updateHistory: true });
+    }
+
+    // Bouton "Fermer" (X) : retour à la vue par défaut (pas de submenu)
+    const closeButton = document.getElementById('detail-close-btn');
+    if (closeButton) {
+      closeButton.onclick = () => NavigationModule.resetToDefaultView(null, { preserveMapView: false, updateHistory: true });
     }
     
     
@@ -813,160 +803,70 @@ const NavigationModule = (() => {
    */
   const resetToDefaultView = async (category, options = {}) => {
     const { preserveMapView = false, updateHistory = false } = options;
-    
-    console.log(`[NavigationModule] ========== resetToDefaultView START ==========`);
-    console.log(`[NavigationModule] Catégorie: "${category || 'AUCUNE (fermeture totale)'}"`);
-    console.log(`[NavigationModule] Options:`, options);
-    console.log(`[NavigationModule] Layers sur la carte AVANT:`, Object.keys(window.MapModule?.layers || {}));
-    
-    // 1. Masquer le panneau de détail
+
+    _lastShownProject = null;
+
+    // ── Common: hide detail panel, restore nav bar, reset map padding ──
     const projectDetail = document.getElementById('project-detail');
-    if (projectDetail) {
-      console.log(`[NavigationModule] Masquage panneau de détail`);
-      projectDetail.style.display = 'none';
-    }
-    
-    // 1b. Restore bottom nav bar visibility
+    if (projectDetail) projectDetail.style.display = 'none';
+
     const navBar = document.getElementById('left-nav');
     if (navBar) {
       navBar.style.removeProperty('opacity');
       navBar.style.removeProperty('pointer-events');
       navBar.style.removeProperty('transform');
     }
-    
-    // 1c. Remove map right padding that was added for the detail panel
-    try {
-      const mlMap = window.MapModule?.map?._mlMap;
-      if (mlMap && typeof mlMap.easeTo === 'function') {
-        mlMap.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, duration: 300 });
-      }
-    } catch (_) {}
-    
-    // 2. Restaurer l'opacité de tous les layers + clear feature selection
-    console.log(`[NavigationModule] Restauration opacité layers`);
-    restoreAllLayerOpacity();
-    window.FeatureInteractions?.clearSelection?.(true);
-    
-    // 3. Nettoyer les animations de highlight
-    console.log(`[NavigationModule] Nettoyage animations highlight`);
-    clearProjectHighlight();
-    
-    // ========================================
-    // CAS 1 : Retour vers une catégorie spécifique (bouton "Retour")
-    // ========================================
-    if (category) {
-      console.log(`[NavigationModule] 🔙 CAS 1: Retour vers catégorie "${category}"`);
-      console.log(`[NavigationModule] categoryLayersMap:`, window.categoryLayersMap);
-      
-      // Réactiver le submenu de la catégorie via SubmenuManager
-      window.SubmenuManager.cleanupAll();
-      window.SubmenuManager.activateTab(category);
-      window.SubmenuManager.showSubmenu(category);
-      
-      // Afficher TOUS les layers de cette catégorie (sans filtre)
-      console.log(`[NavigationModule] Appel showCategoryLayers("${category}")...`);
-      await showCategoryLayers(category);
-      
-      // Rafraîchir le submenu
-      try {
-        console.log(`[NavigationModule] Rafraîchissement submenu "${category}"...`);
-        if (window.SubmenuManager?.renderSubmenu) {
-          await window.SubmenuManager.renderSubmenu(category);
-        }
-      } catch (e) {
-        console.error('[resetToDefaultView] Erreur render submenu:', e);
-      }
-      
-      // Mettre à jour l'historique
-      if (updateHistory) {
-        try {
-          const params = new URLSearchParams();
-          params.set('cat', category);
-          history.pushState({ cat: category }, '', `${location.pathname}?${params}`);
-        } catch (_) {}
-      }
-      
-      // Log état final CAS 1
-      console.log(`[NavigationModule] Layers sur la carte APRÈS (CAS 1):`, Object.keys(window.MapModule?.layers || {}));
-      console.log(`[NavigationModule] ========== resetToDefaultView END (CAS 1) ==========`);
-      return;
-    }
-    
-    // ========================================
-    // CAS 2 : Fermeture totale (retour à l'état initial) - bouton "Fermer"
-    // ========================================
-    console.log(`[NavigationModule] ❌ CAS 2: Fermeture totale`);
-    console.log(`[NavigationModule] defaultLayers:`, window.defaultLayers);
-    console.log(`[NavigationModule] Toutes les catégories:`, getContributionLayers());
-    
-    // Cleanup UI commun (submenus, tabs, filtres)
-    window.SubmenuManager.cleanupAll();
-    window.FilterModule?.resetAll();
-    
-    // Charger et afficher les layers par défaut
-    if (window.defaultLayers && window.defaultLayers.length > 0) {
-      console.log(`[NavigationModule] Chargement ${window.defaultLayers.length} layers par défaut...`);
-      for (const layerName of window.defaultLayers) {
-        try {
-          console.log(`[NavigationModule] Chargement layer par défaut: "${layerName}"`);
-          await ensureLayerLoaded(layerName);
-          const layer = window.MapModule?.layers?.[layerName];
-          if (layer && window.MapModule?.map && !window.MapModule.map.hasLayer(layer)) {
-            console.log(`[NavigationModule] Ajout layer "${layerName}" à la carte`);
-            window.MapModule.map.addLayer(layer);
-          }
-        } catch (e) {
-          console.warn(`[resetToDefaultView] Erreur chargement layer ${layerName}:`, e);
-        }
-      }
-    }
-    
-    // Charger et afficher toutes les contributions (toutes catégories)
-    const contributionCategories = getContributionLayers();
-    console.log(`[NavigationModule] Chargement ${contributionCategories.length} catégories de contributions...`);
-    for (const cat of contributionCategories) {
-      try {
-        console.log(`[NavigationModule] Chargement catégorie: "${cat}"`);
-        await showCategoryLayers(cat);
-      } catch (e) {
-        console.warn(`[resetToDefaultView] Erreur affichage catégorie ${cat}:`, e);
-      }
-    }
-    
-    if (!preserveMapView) {
-      if (window.NavigationModule && window.NavigationModule.zoomOutOnLoadedLayers) {
-        window.NavigationModule.zoomOutOnLoadedLayers();
-      }
-    }
-    
-    document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
-    
-    if (window.UIModule && window.UIModule.updateLayerControls) {
-      window.UIModule.updateLayerControls();
-    }
-    
 
     try {
-      if (updateHistory && typeof history?.pushState === 'function') {
-        const params = new URLSearchParams();
-        if (category) params.set('cat', category);
-        const newQuery = params.toString();
-        const newUrl = `${location.pathname}${newQuery ? `?${newQuery}` : ''}`;
-        history.pushState(category ? { cat: category } : null, '', newUrl);
+      const mlMap = window.MapModule?.map?._mlMap;
+      if (mlMap?.easeTo) mlMap.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, duration: 300 });
+    } catch (_) {}
+
+    restoreAllLayerOpacity();
+    window.FeatureInteractions?.clearSelection?.(true);
+    clearProjectHighlight();
+
+    // ── CAS 1: Back to a specific category (same path as tab click) ──
+    if (category) {
+      await showCategoryLayers(category);
+      await window.SubmenuManager.renderSubmenu(category);
+
+      if (updateHistory) {
+        try { history.pushState({ cat: category }, '', `${location.pathname}?cat=${encodeURIComponent(category)}`); } catch (_) {}
       }
-    } catch (_) { /* noop */ }
-    
-    // Log état final CAS 2
-    console.log(`[NavigationModule] Layers sur la carte APRÈS (CAS 2):`, Object.keys(window.MapModule?.layers || {}));
-    // Compter les features
-    Object.keys(window.MapModule?.layers || {}).forEach(ln => {
-      const layer = window.MapModule?.layers?.[ln];
-      if (layer) {
-        const count = layer.getFeatureCount?.() ?? (typeof layer.getLayers === 'function' ? layer.getLayers().length : 0);
-        console.log(`[NavigationModule] Layer "${ln}": ${count} features`);
+      return;
+    }
+
+    // ── CAS 2: Full close (back to initial state) ──
+    window.SubmenuManager.cleanupAll();
+    window.FilterModule?.resetAll();
+
+    // Restore default layers
+    if (window.defaultLayers?.length) {
+      for (const name of window.defaultLayers) {
+        try {
+          await ensureLayerLoaded(name);
+          const layer = window.MapModule?.layers?.[name];
+          if (layer && window.MapModule?.map && !window.MapModule.map.hasLayer(layer)) {
+            window.MapModule.map.addLayer(layer);
+          }
+        } catch (_) {}
       }
-    });
-    console.log(`[NavigationModule] ========== resetToDefaultView END (CAS 2) ==========`);
+    }
+
+    // Restore all contribution layers
+    for (const cat of getContributionLayers()) {
+      try { await showCategoryLayers(cat); } catch (_) {}
+    }
+
+    if (!preserveMapView) window.NavigationModule?.zoomOutOnLoadedLayers?.();
+
+    document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+    window.UIModule?.updateLayerControls?.();
+
+    if (updateHistory) {
+      try { history.pushState(null, '', location.pathname); } catch (_) {}
+    }
   }
 
   const publicAPI = { 

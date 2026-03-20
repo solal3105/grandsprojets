@@ -83,11 +83,11 @@
           const labelText = String(category || '');
           
           const filterItem = document.createElement('div');
-          filterItem.className = 'filter-item';
+          filterItem.className = 'dock-panel__item filter-item';
           filterItem.dataset.layer = category;
           filterItem.innerHTML = `
-            <span class="filter-icon"><i class="${iconClass}"></i></span>
-            <span class="filter-label">${labelText}</span>
+            <span class="dock-panel__item-icon"><i class="${iconClass}"></i></span>
+            <span class="dock-panel__item-label">${labelText}</span>
           `;
           container.appendChild(filterItem);
         });
@@ -135,11 +135,11 @@
         const label = (filterItemInfo && filterItemInfo.label) || layer.label || layer.name;
         
         const filterItem = document.createElement('div');
-        filterItem.className = 'filter-item';
+        filterItem.className = 'dock-panel__item filter-item';
         filterItem.dataset.layer = layer.name;
         filterItem.innerHTML = `
-          <span class="filter-icon"><i class="${iconClass}"></i></span>
-          <span class="filter-label">${label}</span>
+          <span class="dock-panel__item-icon"><i class="${iconClass}"></i></span>
+          <span class="dock-panel__item-label">${label}</span>
         `;
         container.appendChild(filterItem);
       });
@@ -152,7 +152,7 @@
       document.querySelectorAll('.filter-item').forEach(item => {
         const layerName = item.dataset.layer;
         const active = !!(window.MapModule?.layers?.[layerName]);
-        item.classList.toggle('active-filter', active);
+        item.classList.toggle('is-active', active);
       });
     },
 
@@ -162,7 +162,7 @@
     updateFilterCount() {
       const countEl = document.querySelector('.filter-count');
       if (countEl) {
-        const activeCount = document.querySelectorAll('.filter-item.active-filter').length;
+        const activeCount = document.querySelectorAll('.filter-item.is-active').length;
         countEl.textContent = activeCount;
       }
     },

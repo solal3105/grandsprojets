@@ -200,13 +200,13 @@
   border-radius: 14px;
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 4px var(--black-alpha-05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   height: 100%;
 }
 
 .contrib-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 10px 20px var(--black-alpha-10);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
   border-color: var(--info-alpha-35);
 }
 
@@ -255,7 +255,7 @@
   font-size: 0.75rem;
   font-weight: 600;
   backdrop-filter: blur(8px);
-  box-shadow: 0 2px 8px var(--black-alpha-12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .contrib-card__badge--approved {
@@ -548,13 +548,13 @@
   background: var(--surface-base);
   border: 1px solid var(--border-light);
   border-radius: 12px;
-  box-shadow: 0 2px 8px var(--black-alpha-04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   transition: all 0.2s ease;
 }
 
 .doc-card:hover,
 .existing-doc-card:hover {
-  box-shadow: 0 4px 12px var(--black-alpha-08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   transform: translateY(-2px);
 }
 
@@ -599,7 +599,7 @@
   background: linear-gradient(135deg, var(--info-alpha-05), var(--info-alpha-10));
   border: 2px solid var(--info-alpha-20);
   border-radius: 14px;
-  box-shadow: 0 2px 8px var(--black-alpha-04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .landing-city-label {
@@ -670,7 +670,7 @@
   border: 1px solid var(--info-alpha-20);
   border-radius: 14px;
   margin-bottom: 24px;
-  box-shadow: 0 2px 8px var(--black-alpha-04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .user-info-card__avatar {
@@ -790,7 +790,7 @@
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: left;
-  box-shadow: 0 2px 8px var(--black-alpha-04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .choice-card:hover {
@@ -943,7 +943,7 @@
 .geom-card:hover {
   transform: translateY(-2px);
   border-color: var(--info-alpha-40);
-  box-shadow: 0 6px 16px var(--black-alpha-08);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
 }
 
 .geom-card.is-active {
@@ -1016,7 +1016,7 @@
 .category-item:hover,
 .user-item:hover {
   background: var(--surface-elevated);
-  box-shadow: 0 2px 8px var(--black-alpha-06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   border-color: var(--info-alpha-30);
 }
 
@@ -1201,7 +1201,7 @@
 
 /* Légère élévation visuelle des toolbars */
 #contrib-overlay #contrib-draw-map .maplibregl-ctrl-group {
-  box-shadow: 0 2px 8px var(--black-alpha-12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   border-radius: 6px;
 }
 
@@ -1236,7 +1236,7 @@
 #create-modal-overlay .file-dropzone:focus {
   outline: none;
   border-color: var(--black-alpha-45);
-  box-shadow: 0 0 0 2px var(--black-alpha-12);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.12);
 }
 
 #contrib-overlay .file-dropzone .dz-title,
@@ -1264,7 +1264,7 @@
 #create-modal-overlay .file-dropzone.is-dragover {
   border-color: var(--black-alpha-45);
   background: var(--white-alpha-95);
-  box-shadow: inset 0 0 0 1px var(--black-alpha-08);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
 /* Selected filename row inside dropzone */
@@ -1314,7 +1314,7 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--white-alpha-45);
-  box-shadow: 0 8px 24px var(--black-alpha-12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .gp-travaux .hero-left {
@@ -1354,7 +1354,7 @@
   border: 1px solid var(--white-alpha-50);
   border-radius: 14px;
   padding: 14px;
-  box-shadow: 0 10px 28px var(--black-alpha-12);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
   transition: transform .15s ease;
 }
 
@@ -1586,12 +1586,12 @@
   gap: 8px;
   transition: all 0.2s ease;
   color: var(--white);
-  box-shadow: 0 2px 8px var(--black-alpha-10);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .branding-preview-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px var(--black-alpha-15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .branding-preview-badge {
@@ -1614,7 +1614,7 @@
   border-radius: 10px;
   font-size: 1.5rem;
   color: var(--white);
-  box-shadow: 0 2px 8px var(--black-alpha-10);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .branding-preview-link {
@@ -1719,7 +1719,7 @@
   border-color: var(--info-alpha-40);
   background: var(--surface-raised);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px var(--black-alpha-08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .branding-toggle-card.is-active {
@@ -1778,7 +1778,7 @@
   border-color: var(--info-alpha-40);
   background: var(--surface-raised);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px var(--black-alpha-08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .branding-toggle-item.is-active {
@@ -1851,7 +1851,7 @@
   border-color: var(--primary-alpha-40);
   background: var(--surface-raised);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px var(--black-alpha-08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .branding-city-item.is-active {
@@ -2217,7 +2217,7 @@
   background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
   font-size: 24px;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 8px var(--black-alpha-08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   color: var(--text-tertiary, var(--gray-500));
   flex-shrink: 0;
 }

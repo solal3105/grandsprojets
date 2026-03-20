@@ -26,7 +26,7 @@
 .gp-icon-picker {
   background: var(--white);
   border-radius: 16px;
-  box-shadow: 0 20px 60px var(--black-alpha-30);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   width: 90%;
   max-width: 700px;
   max-height: 85vh;

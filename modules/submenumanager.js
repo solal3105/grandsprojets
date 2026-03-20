@@ -27,14 +27,11 @@ const SubmenuManager = (() => {
   function showSubmenu(category) {
     const el = document.querySelector(`.submenu[data-category="${category}"]`);
     if (el) {
+      el.style.removeProperty('bottom');
+      // Match left-nav width so the submenu is at least as wide
+      const nav = document.getElementById('left-nav');
+      if (nav) el.style.setProperty('--nav-width', nav.offsetWidth + 'px');
       el.style.display = 'block';
-      // Position submenu just above the nav bar
-      const leftNav = document.getElementById('left-nav');
-      if (leftNav) {
-        const navRect = leftNav.getBoundingClientRect();
-        const bottomFromViewport = window.innerHeight - navRect.top + 8;
-        el.style.bottom = bottomFromViewport + 'px';
-      }
     }
   }
 
