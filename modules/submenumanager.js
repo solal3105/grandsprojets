@@ -51,24 +51,25 @@ const SubmenuManager = (() => {
   // ─── Header partagé ───────────────────────────────────────────────
 
   /**
-   * Génère le HTML du header standard d'un sous-menu.
+   * Génère le HTML du sous-menu : header avec titre + bouton close + wrapper scrollable.
+   * Le contenu (project-list, drawing panel, etc.) va dans .submenu__content.
    * @param {Object} [opts]
    * @param {boolean} [opts.showClose=true] - Afficher le bouton Fermer
-   * @param {string}  [opts.extraHTML='']   - HTML supplémentaire
-   * @returns {string} HTML du header
+   * @param {string}  [opts.title='']      - Titre affiché dans le header
+   * @param {string}  [opts.innerHTML='']  - HTML injecté dans .submenu__content
+   * @returns {string} HTML complet
    */
   function headerHTML(opts = {}) {
-    const { showClose = true, extraHTML = '' } = opts;
+    const { showClose = true, title = '', innerHTML = '' } = opts;
     return `
-      <div class="detail-header-submenu">
-        <div class="header-left">
-          ${showClose ? `<button class="btn-secondary close-btn" aria-label="Fermer">
-            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-            <span>Fermer</span>
-          </button>` : ''}
-        </div>
-        ${extraHTML}
-        <div class="header-right"></div>
+      <div class="submenu__header">
+        ${title ? `<h2 class="submenu__title">${title}</h2>` : ''}
+        ${showClose ? `<button class="submenu__close" aria-label="Fermer">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>` : ''}
+      </div>
+      <div class="submenu__content">
+        ${innerHTML}
       </div>`;
   }
 
@@ -78,7 +79,7 @@ const SubmenuManager = (() => {
    */
   function wireHeaderEvents(container) {
     if (!container) return;
-    const closeBtn = container.querySelector('.close-btn');
+    const closeBtn = container.querySelector('.submenu__close');
     if (closeBtn) {
       closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -94,8 +95,18 @@ const SubmenuManager = (() => {
    * (layers par défaut + contributions). Source unique de cette logique.
    */
   function closeCurrentSubmenu() {
-    // 1. Masquer tous les submenus + désactiver onglets
-    cleanupAll();
+    // 1. Animate out open submenus, then hide
+    const openMenus = document.querySelectorAll('.submenu[style*="display: block"]');
+    openMenus.forEach(m => {
+      m.classList.add('submenu--closing');
+      m.addEventListener('animationend', function handler() {
+        m.removeEventListener('animationend', handler);
+        m.classList.remove('submenu--closing');
+        m.style.display = 'none';
+      }, { once: true });
+    });
+    // Deactivate tabs immediately
+    document.querySelectorAll('.nav-category.active').forEach(t => t.classList.remove('active'));
 
     // 2. Restaurer la visibilité de la nav
     const leftNav = document.getElementById('left-nav');

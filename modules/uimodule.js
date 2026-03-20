@@ -1,31 +1,18 @@
 // modules/UIModule.js
-// Module de gestion de l'interface utilisateur : filtres et popups
+// Module de gestion de l'interface utilisateur : filtres et basemap rendering
+// Note: Popup open/close is handled by ToggleManager (unified toggle dock system)
 (function(window, document, DataModule, FilterModule, MapModule) {
-  // État global des popups
-  const popupState = {
-    filter: { isOpen: false, element: null },
-    basemap: { isOpen: false, element: null }
-  };
 
-  // Initialisation des éléments du DOM
-  let filterToggle, basemapToggle, filtersCloseBtn;
+  // DOM element references (set during init)
+  let basemapMenuEl = null;
 
   const initElements = () => {
-    popupState.filter.element = document.getElementById('filters-container');
-    popupState.basemap.element = document.getElementById('basemap-menu');
-    filterToggle = document.getElementById('filters-toggle');
-    basemapToggle = document.getElementById('basemap-toggle');
-
-    if (!popupState.filter.element || !popupState.basemap.element || !filterToggle || !basemapToggle) {
-      return false;
-    }
-    
-    return true;
+    basemapMenuEl = document.getElementById('basemap-menu');
+    return !!basemapMenuEl;
   };
-  
-  // Initialiser le bouton fermer
+
+  // Wire the filters close button to close through ToggleManager
   const initFiltersCloseBtn = () => {
-    // Utiliser le container parent qui est toujours dans le DOM
     const container = document.getElementById('filters-container');
     if (container) {
       container.addEventListener('click', (e) => {
@@ -33,70 +20,10 @@
         if (closeBtn) {
           e.preventDefault();
           e.stopPropagation();
-          console.log('[UIModule] Close button clicked');
-          // Simuler un clic sur le toggle pour fermer
-          const filtersToggle = document.getElementById('filters-toggle');
-          if (filtersToggle) {
-            filtersToggle.click();
-          }
+          window.toggleManager?.setState('filters', false);
         }
       });
     }
-  };
-
-  // Ferme tous les popups sauf celui spécifié
-  const closeOtherPopups = (currentPopup) => {
-    Object.entries(popupState).forEach(([key, popup]) => {
-      if (key !== currentPopup && popup.element) {
-        popup.isOpen = false;
-        if (key === 'filter') {
-          popup.element.style.display = 'none';
-        } else {
-          popup.element.classList.remove('open');
-        }
-      }
-    });
-  };
-
-  // Gestionnaire de clic en dehors des popups
-  const handleClickOutside = (event) => {
-    const isClickInsideFilter = popupState.filter.element?.contains(event.target);
-    const isClickOnFilterToggle = filterToggle?.contains(event.target);
-    const isClickInsideBasemap = popupState.basemap.element?.contains(event.target);
-    const isClickOnBasemapToggle = basemapToggle?.contains(event.target);
-
-    if (!isClickInsideFilter && !isClickOnFilterToggle) {
-      popupState.filter.isOpen = false;
-      popupState.filter.element.style.display = 'none';
-    }
-
-    if (!isClickInsideBasemap && !isClickOnBasemapToggle) {
-      popupState.basemap.isOpen = false;
-      popupState.basemap.element.classList.remove('open');
-    }
-  };
-
-  /**
-   * Positionne un popup centré sous son toggle (filters ou basemap)
-   * @param {HTMLElement} toggleEl
-   * @param {HTMLElement} popupEl
-   */
-  const positionPopupBelowToggle = (toggleEl, popupEl) => {
-    if (!toggleEl || !popupEl) return;
-
-    const rect = toggleEl.getBoundingClientRect();
-    const container = document.getElementById('container') || document.body;
-    const containerRect = container.getBoundingClientRect();
-
-    const margin = 10;
-    const top = rect.bottom - containerRect.top + margin;
-    const centerX = (rect.left + rect.right) / 2 - containerRect.left;
-
-    popupEl.style.position = 'absolute';
-    popupEl.style.top = `${top}px`;
-    popupEl.style.left = `${centerX}px`;
-    popupEl.style.right = 'auto';
-    popupEl.style.transform = 'translateX(-50%)';
   };
   /**
    * Récupère les critères de filtre actuellement sélectionnés.
@@ -182,64 +109,23 @@
     updateActiveFilterTagsForLayer(layerName);
   };
 
-  /**
-   * Affiche ou masque les popups (filtres ou basemap).
-   * @param {'filter'|'basemap'} popupType
-   */
-  const togglePopup = (popupType) => {
-    if (!popupState[popupType] || !popupState[popupType].element) {
-      return;
-    }
-
-    // Basculer l'état d'ouverture
-    popupState[popupType].isOpen = !popupState[popupType].isOpen;
-    const target = popupState[popupType];
-
-    // Fermer les autres popups
-    closeOtherPopups(popupType);
-
-    // Mettre à jour l'affichage (système unifié : position dynamique centrée sous le toggle)
-    if (popupType === 'filter') {
-      if (target.isOpen) {
-        // Positionner d'abord, puis afficher pour éviter un saut visuel
-        positionPopupBelowToggle(filterToggle, target.element);
-        target.element.style.display = 'block';
-      } else {
-        target.element.style.display = 'none';
-      }
-    } else { // basemap
-      // Pour le basemap, on conserve un comportement simple basé sur la classe .open
-      // afin d'éviter tout flicker de position. La position est gérée par le CSS.
-      target.element.classList.toggle('open', target.isOpen);
-    }
-  };
-
   // Initialisation du module
   const init = (options = {}) => {
-    // Toujours réinitialiser les éléments (au cas où le DOM a changé)
     if (!initElements()) {
       console.warn('[UIModule] Impossible d\'initialiser les éléments DOM');
       return false;
     }
-    
-    // Initialiser le bouton fermer
+
     initFiltersCloseBtn();
-    
-    // Initialisation du menu basemap si les fonds sont disponibles
+
     if (options.basemaps) {
       initBasemapMenu(options.basemaps);
     }
-    
-    // Ajout du gestionnaire de clic en dehors des popups (une seule fois)
-    if (!init._clickHandlerBound) {
-      document.addEventListener('click', handleClickOutside);
-      init._clickHandlerBound = true;
-    }
-    
-    // Empêcher la propagation des clics à l'intérieur des popups
-    popupState.filter.element?.addEventListener('click', (e) => e.stopPropagation());
-    popupState.basemap.element?.addEventListener('click', (e) => e.stopPropagation());
-    
+
+    // Stop propagation inside panels (so ToggleManager's outside-click doesn't close them)
+    document.getElementById('filters-container')?.addEventListener('click', (e) => e.stopPropagation());
+    basemapMenuEl?.addEventListener('click', (e) => e.stopPropagation());
+
     return true;
   };
   
@@ -254,7 +140,7 @@
   
   // Initialisation du menu des fonds de carte
   const initBasemapMenu = (basemaps = null) => {
-    const menu = popupState.basemap.element;
+    const menu = basemapMenuEl;
     if (!menu) return false;
     
     menu.innerHTML = '';
@@ -274,7 +160,7 @@
     closeBtn.innerHTML = '<i class="fas fa-times"></i>';
     closeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      togglePopup('basemap');
+      window.toggleManager?.setState('basemap', false);
     });
     menu.appendChild(closeBtn);
     
@@ -406,7 +292,7 @@
         console.log(`Applied: ${bm.label}`);
         
         // Fermer le menu après application
-        setTimeout(() => togglePopup('basemap'), 300);
+        setTimeout(() => window.toggleManager?.setState('basemap', false), 300);
       });
 
       menu.appendChild(tile);
@@ -532,10 +418,9 @@
     applyFilter,
     resetLayerFilter,
     resetLayerFilterWithoutRemoving,
-    togglePopup,
     init,
-    initBasemapMenu, // Exposer la fonction initBasemapMenu
-    updateBasemaps   // Exposer la fonction updateBasemaps
+    initBasemapMenu,
+    updateBasemaps
   };
 
   // L'initialisation est maintenant gérée par main.js après le chargement du DOM

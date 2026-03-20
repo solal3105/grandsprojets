@@ -132,7 +132,8 @@
       try {
         const targets = [
           document.querySelector('#left-nav .logo img'),
-          document.querySelector('.mobile-fixed-logo img')
+          document.querySelector('.mobile-fixed-logo img'),
+          document.querySelector('#dock-logo img')
         ].filter(Boolean);
 
         // Fetch branding (toujours présent car ville par défaut = metropole-lyon)

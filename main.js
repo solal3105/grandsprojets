@@ -822,101 +822,54 @@
       
       // Note: SearchModule.init() est appelé tôt (ligne ~161) car il n'a pas de dépendances avec les données
       
-      // PHASE 7 : Event listeners
-      const filtersToggle = document.getElementById('filters-toggle');
-      const basemapToggle = document.getElementById('basemap-toggle');
-      const themeToggle   = document.getElementById('theme-toggle');
-      
-      if (filtersToggle) {
-        filtersToggle.addEventListener('click', (e) => {
-          e.stopPropagation();
-          window.UIModule?.togglePopup('filter');
-        });
-      }
-      
-      if (basemapToggle) {
-        basemapToggle.addEventListener('click', (e) => {
-          e.stopPropagation();
-          window.UIModule?.togglePopup('basemap');
-        });
-      }
+      // PHASE 7 : Unified toggle actions (all through ToggleManager)
+      // ToggleManager handles: click → state → ARIA → visual feedback
+      // Business logic is registered via .on() listeners
 
-      // Note: Le bouton search-toggle est géré par SearchModule.init()
-      
-      // Modale "À propos" (utilise ModalManager)
-      const infoToggle = document.getElementById('info-toggle');
+      // Filters — ToggleManager shows/hides #filters-container via targetElement
+      // (no extra logic needed, UIModule.init already rendered filter items)
+
+      // Basemap — ToggleManager toggles .active on #basemap-menu via menuSelector
+      // (no extra logic needed, UIModule.init already rendered basemap tiles)
+
+      // Info — ToggleManager handles modal via modalSelector
+      win.toggleManager?.markReady('info');
+
+      // About close button → close through ToggleManager
       const aboutClose = document.getElementById('about-close');
-      
-      if (infoToggle) {
-        infoToggle.addEventListener('click', (e) => {
-          e.stopPropagation();
-          win.ModalManager?.open('about-overlay');
-        });
-        win.toggleManager?.markReady('info');
-      }
-      
       if (aboutClose) {
         aboutClose.addEventListener('click', (e) => {
           e.stopPropagation();
-          win.ModalManager?.close('about-overlay');
+          win.toggleManager?.setState('info', false);
         });
       }
-      
-      // Bouton de connexion (redirection vers /login)
-      const loginToggle = document.getElementById('login-toggle');
-      
-      if (loginToggle) {
-        loginToggle.addEventListener('click', (e) => {
-          e.stopPropagation();
-          window.location.href = '/login';
-        });
-        win.toggleManager?.markReady('login');
-      }
-      
-      // Mark contribute toggle as ready
+
+      // Login — ToggleManager redirects via redirectUrl config
+      win.toggleManager?.markReady('login');
+
+      // Contribute
       win.toggleManager?.markReady('contribute');
 
-      // Terrain 3D toggle
-      const terrainToggle = document.getElementById('terrain-toggle');
-      if (terrainToggle) {
-        // Restore persisted state
-        const savedTerrain = localStorage.getItem('terrain-3d') === 'true';
-        if (savedTerrain && MapModule?.map) {
-          MapModule.map.setTerrain(true);
-          terrainToggle.classList.add('active');
-          terrainToggle.setAttribute('aria-pressed', 'true');
+      // Terrain 3D — apply saved state now that map is ready, listen for changes
+      if (win.toggleManager?.getState('terrain') && MapModule?.map) {
+        MapModule.map.setTerrain(true);
+      }
+      win.toggleManager?.on('terrain', (active) => {
+        if (MapModule?.map) MapModule.map.setTerrain(active);
+      });
+      win.toggleManager?.markReady('terrain');
+
+      // Theme — delegate to ThemeManager + dock shimmer
+      win.toggleManager?.on('theme', () => {
+        win.ThemeManager?.toggle();
+        const dock = document.getElementById('toggle-dock');
+        if (dock) {
+          dock.classList.remove('toggle-dock--shimmer');
+          void dock.offsetWidth;
+          dock.classList.add('toggle-dock--shimmer');
+          dock.addEventListener('animationend', () => dock.classList.remove('toggle-dock--shimmer'), { once: true });
         }
-        terrainToggle.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (!MapModule?.map) return;
-          const enabled = !MapModule.map.getTerrain();
-          MapModule.map.setTerrain(enabled);
-          terrainToggle.classList.toggle('active', enabled);
-          terrainToggle.setAttribute('aria-pressed', enabled.toString());
-          localStorage.setItem('terrain-3d', enabled.toString());
-        });
-        terrainToggle.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            terrainToggle.click();
-          }
-        });
-        win.toggleManager?.markReady('terrain');
-      }
-
-      if (themeToggle) {
-        themeToggle.addEventListener('click', (e) => {
-          e.stopPropagation();
-          win.ThemeManager?.toggle();
-        });
-
-        themeToggle.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            themeToggle.click();
-          }
-        });
-      }
+      });
 
       // Synchronisation automatique du thème avec l'OS
       // (désactivé si la ville a un basemap configuré pour éviter les conflits)

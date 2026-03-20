@@ -441,41 +441,50 @@
 --------------------------------------------------------------------------- */
 
 /* ---------------------------------------------------------------------------
-   SEARCH MODAL - Styles spécifiques pour la recherche d'adresse
---------------------------------------------------------------------------- */
+   SEARCH MODAL — Spotlight-style command palette
+   Clean, focused search experience with only CSS variables
+   --------------------------------------------------------------------------- */
 
+/* Search input */
 #search-overlay #address-search {
   width: 100%;
-  padding: 16px 20px;
-  font-size: 1.05rem;
+  padding: 16px 20px 16px 44px;
+  font-size: 1rem;
+  font-weight: 500;
   border: none;
-  border-radius: 16px 16px 0 0;
-  background: var(--surface-base);
+  border-bottom: 1px solid var(--border-light);
+  border-radius: 0;
+  background: transparent;
   color: var(--text-primary);
   outline: none;
-  transition: box-shadow 0.2s ease;
+  transition: border-color 0.2s ease;
   box-sizing: border-box;
 }
 
 #search-overlay #address-search:focus {
-  box-shadow: 0 4px 12px var(--black-alpha-08);
+  border-bottom-color: var(--primary);
 }
 
-/* Search results dropdown */
+#search-overlay #address-search::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Results list */
 #search-overlay .search-results {
-  max-height: 400px;
+  max-height: 360px;
   overflow-y: auto;
-  background: var(--surface-base);
-  border-radius: 0 0 16px 16px;
+  padding: 4px 0;
 }
 
 #search-overlay .search-results.visible {
   display: block;
 }
 
-/* Individual search result item */
+/* Result item */
 #search-overlay .search-result-item {
-  padding: 14px 20px;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 20px;
   cursor: pointer;
   transition: background 0.15s ease;
   border-bottom: 1px solid var(--border-light);
@@ -486,20 +495,29 @@
 }
 
 #search-overlay .search-result-item:hover {
-  background: var(--gray-50);
+  background: var(--primary-alpha-06);
+}
+
+#search-overlay .search-result-item:active {
+  background: var(--primary-alpha-10);
 }
 
 #search-overlay .search-result-item h4 {
-  margin: 0 0 6px 0;
+  margin: 0 0 2px 0;
   color: var(--text-primary);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
+  transition: color 0.15s ease;
+}
+
+#search-overlay .search-result-item:hover h4 {
+  color: var(--primary);
 }
 
 #search-overlay .search-result-item p {
   margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.875rem;
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
 }
 
 /* ---------------------------------------------------------------------------

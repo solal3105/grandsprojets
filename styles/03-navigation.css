@@ -67,7 +67,7 @@
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 999;
+  z-index: 1100;
   pointer-events: none;
   width: calc(100vw - 32px);
   max-width: 720px;
@@ -187,75 +187,73 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Bottom Sheet Submenu — floating card column
+   Floating Submenu Panel — Glass sheet with depth and fluid animations
 --------------------------------------------------------------------------- */
 .submenu {
   display: none;
   position: fixed;
   bottom: 100px;
   left: 50%;
-  transform: translateX(-50%) translateY(24px);
+  transform: translateX(-50%);
   width: calc(100vw - 32px);
   max-width: 540px;
   max-height: 52vh;
   min-height: auto;
-  background: var(--surface-base);
+  background: color-mix(in srgb, var(--surface-base) 80%, transparent);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  box-shadow:
+    0 24px 80px var(--black-alpha-16),
+    0 8px 32px var(--black-alpha-08),
+    0 0 0 1px var(--border-light);
+  border-radius: 24px;
+  z-index: 1200;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  --cat-color: var(--primary);
+  transition: box-shadow 0.4s ease;
+}
+
+/* Category accent — gradient glow along top edge */
+.submenu::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16%;
+  right: 16%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cat-color), transparent);
+  border-radius: 0 0 2px 2px;
+  opacity: 0.5;
+  z-index: 10;
+  transition: opacity 0.4s ease, left 0.4s ease, right 0.4s ease;
+}
+
+.submenu:hover::before {
+  opacity: 0.85;
+  left: 10%;
+  right: 10%;
+}
+
+/* Deepen shadow on hover — floating lift feel */
+.submenu:hover {
   box-shadow:
     0 32px 100px var(--black-alpha-20),
     0 12px 40px var(--black-alpha-12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--border-light);
-  border-radius: 22px;
-  z-index: 1200;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  opacity: 0;
-  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-              transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
-  --cat-color: var(--primary);
+    0 0 0 1px var(--border-light);
 }
 
-.submenu::-webkit-scrollbar { width: 5px; }
-.submenu::-webkit-scrollbar-track { background: transparent; margin: 12px 0; }
-.submenu::-webkit-scrollbar-thumb { background: var(--black-alpha-10); border-radius: 10px; }
-.submenu::-webkit-scrollbar-thumb:hover { background: var(--black-alpha-20); }
-
-.submenu[style*="display: block"],
-.submenu.visible {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-
-/* ---------------------------------------------------------------------------
-   Submenu Header — frosted glass sticky bar
---------------------------------------------------------------------------- */
-.detail-header-submenu {
-  position: sticky;
-  top: 0;
-  z-index: 20;
+/* ─── Submenu Header — title + close button ──────────────────── */
+.submenu__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: color-mix(in srgb, var(--surface-base) 88%, transparent);
-  backdrop-filter: blur(28px) saturate(140%);
-  -webkit-backdrop-filter: blur(28px) saturate(140%);
   padding: 14px 16px;
   border-bottom: 1px solid var(--border-light);
+  flex-shrink: 0;
 }
 
-.detail-header-submenu .header-left {
-  display: inline-flex;
-  align-items: center;
-}
-
-.detail-header-submenu > div:last-child {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.detail-header-submenu h2 {
+.submenu__title {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 800;
@@ -263,46 +261,90 @@
   letter-spacing: -0.01em;
 }
 
-.detail-header-submenu .header-actions {
-  display: flex !important;
+/* ─── Close Button — red, always visible, prominent ──────────── */
+.submenu__close {
+  display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-}
-
-/* Close button */
-.submenu .detail-header-submenu .close-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  border-radius: 10px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  background: var(--black-alpha-06);
-  color: var(--text-secondary);
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
   border: none;
+  background: var(--danger);
+  color: #fff;
   cursor: pointer;
-  transition: all 0.2s ease;
+  font-size: 0.65rem;
+  flex-shrink: 0;
+  transition:
+    background 0.2s ease,
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.25s ease;
+  box-shadow: 0 2px 8px var(--danger-alpha-20);
 }
 
-.submenu .detail-header-submenu .close-btn i {
-  font-size: 0.6rem;
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+.submenu__close:hover {
+  background: var(--danger-hover);
+  transform: scale(1.12) rotate(90deg);
+  box-shadow: 0 4px 16px var(--danger-alpha-45);
 }
 
-.submenu .detail-header-submenu .close-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+.submenu__close:active {
+  transform: scale(0.9) rotate(90deg);
+  transition-duration: 0.08s;
 }
 
-.submenu .detail-header-submenu .close-btn:hover i {
-  transform: rotate(90deg);
+/* ─── Scrollable inner wrapper ────────────────────────────────── */
+.submenu__content {
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: calc(52vh - 54px);
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
 }
 
-.submenu .detail-header-submenu .close-btn:active {
-  transform: scale(0.96);
+.submenu__content::-webkit-scrollbar { width: 3px; }
+.submenu__content::-webkit-scrollbar-track { background: transparent; margin: 14px 0; }
+.submenu__content::-webkit-scrollbar-thumb {
+  background: var(--black-alpha-08);
+  border-radius: 10px;
+}
+.submenu__content::-webkit-scrollbar-thumb:hover { background: var(--black-alpha-18); }
+
+/* ─── Entrance / Exit animations ──────────────────────────────── */
+.submenu[style*="display: block"],
+.submenu.visible {
+  animation: submenuEnter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.submenu.submenu--closing {
+  animation: submenuExit 0.25s cubic-bezier(0.4, 0, 1, 1) forwards !important;
+  pointer-events: none;
+}
+
+@keyframes submenuEnter {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(32px) scale(0.93);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes submenuExit {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(24px) scale(0.95);
+    filter: blur(6px);
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -318,7 +360,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Project Card — image-dominant vertical card
+   Project Card — image-dominant vertical card with stagger entrance
 --------------------------------------------------------------------------- */
 .project-card {
   --card-accent: var(--cat-color, var(--primary));
@@ -328,43 +370,44 @@
   border-radius: 16px;
   overflow: hidden;
   cursor: pointer;
-  background: var(--surface-raised, #fff);
-  box-shadow:
-    0 2px 8px var(--black-alpha-06),
-    0 0 0 1px var(--border-light);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-light);
+  box-shadow: 0 2px 8px var(--black-alpha-04);
   transition:
-    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.35s ease;
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s ease,
+    border-color 0.25s ease;
 
   /* Stagger entrance */
   opacity: 0;
-  transform: translateY(20px) scale(0.97);
-  animation: cardSlideUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  transform: translateY(16px) scale(0.97);
+  animation: cardSlideUp 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
-.project-card:nth-child(1) { animation-delay: 0.04s; }
-.project-card:nth-child(2) { animation-delay: 0.08s; }
-.project-card:nth-child(3) { animation-delay: 0.12s; }
-.project-card:nth-child(4) { animation-delay: 0.16s; }
-.project-card:nth-child(5) { animation-delay: 0.20s; }
-.project-card:nth-child(n+6) { animation-delay: 0.22s; }
+.project-card:nth-child(1)  { animation-delay: 0.05s; }
+.project-card:nth-child(2)  { animation-delay: 0.10s; }
+.project-card:nth-child(3)  { animation-delay: 0.15s; }
+.project-card:nth-child(4)  { animation-delay: 0.20s; }
+.project-card:nth-child(5)  { animation-delay: 0.25s; }
+.project-card:nth-child(6)  { animation-delay: 0.28s; }
+.project-card:nth-child(n+7) { animation-delay: 0.30s; }
 
 @keyframes cardSlideUp {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* Hover lift */
+/* Hover — lift with accent border */
 .project-card:hover {
-  transform: translateY(-3px) scale(1.015);
+  transform: translateY(-4px) scale(1.01);
+  border-color: color-mix(in srgb, var(--card-accent) 30%, transparent);
   box-shadow:
-    0 16px 48px var(--black-alpha-15),
-    0 6px 16px var(--black-alpha-08),
-    0 0 0 1px color-mix(in srgb, var(--card-accent) 30%, transparent);
+    0 16px 48px var(--black-alpha-12),
+    0 6px 16px var(--black-alpha-06);
 }
 
 .project-card:active {
-  transform: translateY(-1px) scale(0.995);
-  transition-duration: 0.1s;
+  transform: translateY(-1px) scale(0.99);
+  transition-duration: 0.08s;
 }
 
 .project-card:focus-visible {
@@ -380,7 +423,7 @@
   width: 100%;
   height: 140px;
   overflow: hidden;
-  background: var(--gray-100, #f3f4f6);
+  background: var(--gray-100);
 }
 
 .card-hero img {
@@ -388,7 +431,7 @@
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .project-card:hover .card-hero img {
@@ -410,7 +453,7 @@
 }
 
 .project-card:hover .card-hero-grad {
-  opacity: 0.7;
+  opacity: 0.65;
 }
 
 /* Icon fallback hero */
@@ -423,8 +466,8 @@
 
 .card-hero--icon i {
   font-size: 2rem;
-  opacity: 0.6;
-  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  opacity: 0.55;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
 }
 
 .project-card:hover .card-hero--icon i {
@@ -475,7 +518,7 @@
   color: var(--card-accent);
   font-size: 0.65rem;
   opacity: 0;
-  transform: translateX(-4px);
+  transform: translateX(-6px);
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -492,16 +535,15 @@
 }
 
 .project-card:hover .card-arrow i {
-  transform: translateX(1px);
+  transform: translateX(2px);
 }
 
 /* ---------------------------------------------------------------------------
-   Focusing state — simple green liseré when map is panning to this project
-   NO animation (animation would override cardSlideUp forwards → opacity: 0)
+   Focusing state — accent border when map is panning to this project
 --------------------------------------------------------------------------- */
 .project-card.focusing {
-  border-bottom: 3px solid var(--card-accent);
+  border-color: var(--card-accent);
   box-shadow:
     0 2px 8px var(--black-alpha-06),
-    0 0 0 1px var(--card-accent);
+    0 0 0 2px color-mix(in srgb, var(--card-accent) 25%, transparent);
 }

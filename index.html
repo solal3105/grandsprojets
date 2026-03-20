@@ -150,26 +150,64 @@
       <div id="project-detail" class="project-detail"></div>
     </div>
 
-    <!-- Toggles UI - Refactored (no container wrapper) -->
-    <!-- data-ready="false" : masqué jusqu'à initialisation -->
-    <button id="city-toggle" aria-label="Changer votre espace" title="Changer votre espace" data-ready="false">
-      <i class="fas fa-bars" aria-hidden="true"></i>
-    </button>
-    <div id="city-menu" class="city-menu"></div>
-    <button id="info-toggle" aria-label="À propos" title="À propos" data-ready="false">
-      <i class="fas fa-info-circle" aria-hidden="true"></i>
-    </button>
-    <button id="location-toggle" aria-label="Centrer sur ma position" title="Centrer sur ma position"
-            onclick="window.GeolocationModule && window.GeolocationModule.handleLocationButtonClick(event)" data-ready="false">
-      <i class="fas fa-location-arrow"></i>
-    </button>
-    <button id="search-toggle" aria-label="Rechercher une adresse" title="Rechercher une adresse" data-ready="false">
-      <i class="fas fa-search"></i>
-    </button>
-    <button id="contribute-toggle" aria-label="Proposer une contribution" title="Proposer une contribution" data-ready="false">
-      <i class="fas fa-plus"></i>
-    </button>
-    
+    <!-- ═══ Toggle Dock — Floating glass toolbar ═══ -->
+    <nav class="toggle-dock" id="toggle-dock" aria-label="Contrôles de carte">
+      <a class="toggle-dock__logo" id="dock-logo" href="/" aria-label="Accueil">
+        <img src="/img/logomin.png" alt="Grands Projets" />
+      </a>
+      <div class="toggle-dock__group" data-group="map">
+        <button id="filters-toggle" class="toggle-dock__btn" data-ready="false" title="Filtres" aria-label="Filtres de carte">
+          <i class="fas fa-map" aria-hidden="true"></i>
+          <span class="toggle-dock__badge filter-count">0</span>
+        </button>
+        <button id="terrain-toggle" class="toggle-dock__btn" data-ready="false" title="Relief 3D" aria-label="Relief 3D" aria-pressed="false">
+          <i class="fas fa-mountain" aria-hidden="true"></i>
+        </button>
+        <button id="basemap-toggle" class="toggle-dock__btn" data-ready="false" title="Fond de carte" aria-label="Fond de carte">
+          <i class="fas fa-globe" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="toggle-dock__group" data-group="view">
+        <button id="theme-toggle" class="toggle-dock__btn" data-ready="false" title="Thème" aria-label="Mode sombre" aria-pressed="false">
+          <i class="fas fa-moon" aria-hidden="true"></i>
+        </button>
+        <button id="search-toggle" class="toggle-dock__btn" data-ready="false" title="Rechercher" aria-label="Rechercher une adresse">
+          <i class="fas fa-search" aria-hidden="true"></i>
+        </button>
+        <button id="location-toggle" class="toggle-dock__btn" data-ready="false" title="Ma position" aria-label="Ma position"
+                onclick="window.GeolocationModule && window.GeolocationModule.handleLocationButtonClick(event)">
+          <i class="fas fa-location-arrow" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="toggle-dock__group" data-group="nav">
+        <button id="city-toggle" class="toggle-dock__btn" data-ready="false" title="Espace" aria-label="Changer d'espace">
+          <i class="fas fa-bars" aria-hidden="true"></i>
+        </button>
+        <button id="info-toggle" class="toggle-dock__btn" data-ready="false" title="À propos" aria-label="À propos">
+          <i class="fas fa-info-circle" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="toggle-dock__group" data-group="user">
+        <button id="contribute-toggle" class="toggle-dock__btn toggle-dock__btn--accent" data-ready="false" title="Contribuer" aria-label="Contribuer">
+          <i class="fas fa-plus" aria-hidden="true"></i>
+        </button>
+        <button id="login-toggle" class="toggle-dock__btn" data-ready="false" title="Connexion" aria-label="Connexion">
+          <i class="fas fa-user" aria-hidden="true"></i>
+        </button>
+      </div>
+      <button id="overflow-toggle" class="toggle-dock__btn toggle-dock__btn--overflow" data-ready="false" style="display:none"
+              aria-label="Plus d'options" aria-haspopup="true" aria-expanded="false">
+        <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
+      </button>
+    </nav>
+
+    <!-- Toggle drop-menus (outside dock, positioned fixed) -->
+    <div id="city-menu" class="toggle-menu city-menu"></div>
+    <div id="basemap-menu" class="toggle-menu basemap-menu"></div>
+    <div id="overflow-menu" class="toggle-menu overflow-menu" aria-hidden="true">
+      <div class="overflow-menu-content"></div>
+    </div>
+
     <!-- Search modal -->
     <div id="search-overlay" class="gp-modal-overlay gp-modal--centered" role="dialog" aria-modal="true" aria-hidden="true" style="display:none">
       <div class="gp-modal gp-modal--compact gp-modal--no-padding">
@@ -180,48 +218,12 @@
       </div>
     </div>
 
-    <!-- Bouton relief 3D -->
-    <button id="terrain-toggle" aria-label="Relief 3D" aria-pressed="false" title="Relief 3D" data-ready="false">
-      <i class="fas fa-mountain"></i>
-    </button>
-
-    <!-- Bouton de sélection du thème -->
-    <button id="theme-toggle" aria-label="Mode sombre" aria-pressed="false" title="Mode sombre" data-ready="false">
-      <i class="fas fa-moon"></i>
-    </button>
-    
-    <!-- Bouton de sélection du fond de carte -->
-    <button id="basemap-toggle" aria-label="Fonds de carte" title="Changer le fond de carte" data-ready="false">
-      <i class="fas fa-globe"></i>
-    </button>
-    <!-- Menu des fonds de carte en mode tuile -->
-    <div id="basemap-menu" class="basemap-menu"></div>
-
-    <!-- Zone de filtres -->
-    <button id="filters-toggle" aria-label="Filtres de couches" title="Afficher/Masquer les filtres" data-ready="false">
-      <i class="fas fa-map"></i>
-      <span class="filter-count">0</span>
-    </button>
-    <!-- Contenu des filtres -->
+    <!-- Filters panel -->
     <div id="filters-container" style="display: none">
       <button class="btn-secondary filters-close-btn" id="filters-close-btn" aria-label="Fermer les filtres">
         <i class="fas fa-times"></i>
       </button>
       <div id="dynamic-filters"></div>
-    </div>
-    
-    <!-- Bouton de connexion -->
-    <button id="login-toggle" aria-label="Se connecter ou s'inscrire" title="Connexion" data-ready="false">
-      <i class="fas fa-user"></i>
-    </button>
-    
-    <!-- Bouton overflow mobile (plus de 4 toggles) -->
-    <button id="overflow-toggle" aria-label="Plus d'options" title="Plus d'options" aria-haspopup="true" aria-expanded="false" data-ready="false" style="display:none">
-      <i class="fas fa-ellipsis-h"></i>
-    </button>
-    <!-- Menu overflow pour les toggles cachés sur mobile -->
-    <div id="overflow-menu" class="overflow-menu" aria-hidden="true">
-      <div class="overflow-menu-content"></div>
     </div>
   </div>
 

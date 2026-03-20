@@ -199,12 +199,16 @@
     text-overflow: ellipsis;
   }
 
-  /* Submenu bottom sheet on mobile — single column */
+  /* Submenu bottom sheet on mobile — single column, tighter */
   .submenu {
     width: calc(100vw - 16px) !important;
     max-width: 360px;
     max-height: 45vh;
     border-radius: 20px;
+  }
+
+  .submenu__content {
+    max-height: calc(45vh - 54px);
   }
 
   .project-list {

@@ -1,404 +1,603 @@
 /* ============================================================================
-   TOGGLES - Boutons de contrôle en haut à droite
-   Refactorisation centralisée - 2025-10-10
+   TOGGLE DOCK — Floating glass toolbar
+   Unified control bar with glassmorphism, grouped toggles, tooltips,
+   active indicators, responsive layout, dark mode
    ============================================================================ */
 
-/* ============================================================================
-   VARIABLES CSS
-   ============================================================================ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   CSS VARIABLES
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Dimensions */
-  --toggle-size: 40px;
-  
-  /* Shadows */
-  --toggle-shadow: 0 2px 4px var(--black-alpha-10);
-  --toggle-shadow-hover: 0 8px 20px var(--black-alpha-15);
-  
-  /* Transitions */
-  --toggle-transition: all 0.2s ease;
-  
-  /* Spacing system - Basé sur un système de grille */
+  --dock-h: 46px;
+  --dock-btn: 38px;
+  --dock-gap: 2px;
+  --dock-pad: 4px;
+  --dock-radius: 16px;
+  --dock-bg: rgba(255, 255, 255, 0.72);
+  --dock-border: rgba(0, 0, 0, 0.06);
+  --dock-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.06),
+    0 12px 40px rgba(0, 0, 0, 0.04);
+  --dock-blur: 24px;
+
+  --dock-btn-radius: 12px;
+  --dock-btn-hover: rgba(0, 0, 0, 0.05);
+  --dock-btn-active-bg: var(--primary-alpha-10);
+  --dock-sep: rgba(0, 0, 0, 0.07);
+
+  --dock-icon: var(--gray-500);
+  --dock-icon-hover: var(--gray-800);
+  --dock-icon-active: var(--primary);
+
+  --dock-tooltip-bg: var(--gray-900);
+  --dock-tooltip-fg: #fff;
+
+  /* Legacy compat (used by ToggleManager JS) */
+  --toggle-size: 38px;
   --toggle-gap: 50px;
   --toggle-offset-base: 20px;
 }
 
-/* ============================================================================
-   READY STATE - Masquer les toggles jusqu'à initialisation
-   ============================================================================ */
-
-/**
- * Système de readiness pour les toggles
- * - data-ready="false" : masqué (en cours d'initialisation)
- * - data-ready="true"  : visible (prêt à être utilisé)
- * 
- * Cela évite d'afficher des toggles non-fonctionnels au démarrage
- * 
- * NOTE: La visibilité conditionnelle (login/contribute) est gérée via
- * element.style.display en JavaScript et a la priorité sur data-ready
- */
-
-.app-toggle[data-ready="false"]:not([style*="display"]) {
-  display: none !important;
-  visibility: hidden;
-  pointer-events: none;
+[data-theme="dark"] {
+  --dock-bg: rgba(30, 41, 59, 0.78);
+  --dock-border: rgba(255, 255, 255, 0.07);
+  --dock-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    0 4px 16px rgba(0, 0, 0, 0.18),
+    0 12px 40px rgba(0, 0, 0, 0.12);
+  --dock-btn-hover: rgba(255, 255, 255, 0.07);
+  --dock-sep: rgba(255, 255, 255, 0.07);
+  --dock-icon: var(--gray-400);
+  --dock-icon-hover: var(--gray-100);
+  --dock-tooltip-bg: var(--gray-700);
 }
 
-.app-toggle[data-ready="true"] {
-  visibility: visible;
-  pointer-events: auto;
+/* ═══════════════════════════════════════════════════════════════════════════
+   DOCK CONTAINER
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.toggle-dock {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  height: var(--dock-h);
+  padding: var(--dock-pad);
+  background: var(--dock-bg);
+  backdrop-filter: blur(var(--dock-blur)) saturate(1.6);
+  -webkit-backdrop-filter: blur(var(--dock-blur)) saturate(1.6);
+  border: 1px solid var(--dock-border);
+  border-radius: var(--dock-radius);
+  box-shadow: var(--dock-shadow);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease,
+    background 0.5s ease,
+    border-color 0.5s ease,
+    box-shadow 0.5s ease;
 }
 
-/* ============================================================================
-   BASE STYLES - Styles communs à tous les toggles
-   ============================================================================ */
+/* Theme shimmer — plays once when theme toggles */
+.toggle-dock--shimmer {
+  animation: dockShimmer 0.8s ease;
+}
 
-.app-toggle {
-  position: absolute;
-  top: 20px;
-  width: var(--toggle-size);
-  height: var(--toggle-size);
-  background: var(--white-alpha-80);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--black-alpha-10);
-  border-radius: 50%;
+@keyframes dockShimmer {
+  0% { box-shadow: var(--dock-shadow); }
+  30% {
+    box-shadow:
+      var(--dock-shadow),
+      0 0 24px var(--primary-alpha-20),
+      inset 0 0 16px var(--primary-alpha-06);
+  }
+  100% { box-shadow: var(--dock-shadow); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GROUPS — Logical grouping with separators
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.toggle-dock__group {
+  display: flex;
+  align-items: center;
+  gap: var(--dock-gap);
+}
+
+/* Separator between groups */
+.toggle-dock__group + .toggle-dock__group::before {
+  content: '';
+  display: block;
+  width: 1px;
+  height: 18px;
+  margin: 0 5px;
+  background: var(--dock-sep);
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BUTTONS — Individual toggle buttons inside the dock
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.toggle-dock__btn {
+  position: relative;
+  width: var(--dock-btn);
+  height: var(--dock-btn);
   display: flex;
   align-items: center;
   justify-content: center;
+  border: none;
+  border-radius: var(--dock-btn-radius);
+  background: transparent;
   cursor: pointer;
-  transition: var(--toggle-transition);
-  box-shadow: var(--toggle-shadow);
-  z-index: 1000;
   padding: 0;
   margin: 0;
   font-family: inherit;
   font-size: 100%;
   line-height: 1;
   overflow: visible;
-  text-transform: none;
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.2s ease;
 }
 
-.app-toggle i {
-  color: var(--gray-800);
-  font-size: 1.1em;
-  transition: color 0.2s ease;
+.toggle-dock__btn i {
+  font-size: 0.9rem;
+  color: var(--dock-icon);
+  transition: color 0.18s ease, transform 0.18s ease, filter 0.25s ease;
   pointer-events: none;
-  opacity: 0.85;
 }
 
-/* Hover & Focus states */
-.app-toggle:hover,
-.app-toggle:focus-visible {
-  background: var(--white-alpha-90);
-  transform: scale(1.05);
-  box-shadow: var(--toggle-shadow-hover);
-  outline: none;
+/* Hover */
+.toggle-dock__btn:hover {
+  background: var(--dock-btn-hover);
+  box-shadow: 0 0 0 1px var(--black-alpha-04), inset 0 1px 0 var(--white-alpha-50);
 }
 
-.app-toggle:active {
-  transform: scale(0.98);
+.toggle-dock__btn:hover i {
+  color: var(--dock-icon-hover);
+  transform: scale(1.15);
 }
 
-.app-toggle:hover i,
-.app-toggle:focus-visible i {
-  color: var(--primary);
-  opacity: 1;
+/* Active press */
+.toggle-dock__btn:active {
+  transform: scale(0.88);
+  transition-duration: 0.08s;
 }
 
-/* ============================================================================
-   DESKTOP POSITIONING (> 640px)
-   Système de positionnement basé sur des multiples de --toggle-gap
-   ============================================================================ */
-
-/* Filters - Position 0 (le plus à droite) */
-#filters-toggle {
-  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 0);
+/* Focus visible (keyboard) */
+.toggle-dock__btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
 }
 
-/* Basemap - Position 1 */
-#basemap-toggle {
-  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 1);
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACTIVE STATE — Toggle is ON
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.toggle-dock__btn[aria-pressed="true"],
+.toggle-dock__btn[aria-expanded="true"] {
+  background: var(--dock-btn-active-bg);
+  box-shadow:
+    0 0 0 1px var(--primary-alpha-10),
+    inset 0 1px 0 var(--white-alpha-25);
 }
 
-/* Theme - Position 2 */
-#theme-toggle {
-  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 2);
+.toggle-dock__btn[aria-pressed="true"] i,
+.toggle-dock__btn[aria-expanded="true"] i {
+  color: var(--dock-icon-active);
+  filter: drop-shadow(0 0 4px var(--primary-alpha-20));
 }
 
-/* Search - Position 3 */
-#search-toggle {
-  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 3);
-}
-
-/* Location - Position 4 */
-#location-toggle {
-  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 4);
-}
-
-/* Info - Position 5 */
-#info-toggle {
-  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 5);
-}
-
-/* Contribute - Position 6 - Style primary comme dans la nav */
-#contribute-toggle {
-  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 6);
+/* Active indicator dot */
+.toggle-dock__btn[aria-pressed="true"]::after,
+.toggle-dock__btn[aria-expanded="true"]::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
   background: var(--primary);
+  transform: translateX(-50%);
+  animation: dockDotIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-#contribute-toggle i {
-  color: #fff;
-  opacity: 1;
+@keyframes dockDotIn {
+  from { transform: translateX(-50%) scale(0); }
+  to { transform: translateX(-50%) scale(1); }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACCENT BUTTON — Primary CTA (contribute)
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-#contribute-toggle:hover i,
-#contribute-toggle:focus-visible i {
-  color: #fff;
+.toggle-dock__btn--accent {
+  background: var(--primary);
+  box-shadow: 0 0 0 0 transparent;
+  transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.3s ease;
 }
 
-#contribute-toggle:active {
+.toggle-dock__btn--accent i {
+  color: #fff !important;
+}
+
+.toggle-dock__btn--accent:hover {
+  background: var(--primary-hover);
+  box-shadow: 0 0 16px var(--primary-alpha-25);
+}
+
+.toggle-dock__btn--accent:active {
   background: var(--primary-active);
 }
 
-/* Login - Position 7 */
-#login-toggle {
-  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 7);
+.toggle-dock__btn--accent[aria-pressed="true"]::after,
+.toggle-dock__btn--accent[aria-expanded="true"]::after {
+  background: #fff;
 }
 
-/* City - Position 8 (le plus à gauche) */
-#city-toggle {
-  right: calc(var(--toggle-offset-base) + var(--toggle-gap) * 8);
-}
+/* ═══════════════════════════════════════════════════════════════════════════
+   BADGE — Filter counter
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Location toggle - géré dynamiquement par JavaScript selon la configuration */
-
-/* ============================================================================
-   SPECIFIC TOGGLE STYLES
-   ============================================================================ */
-
-/* Filters toggle - Badge counter */
-.filter-count {
+.toggle-dock__badge {
   position: absolute;
-  top: -5px;
-  right: -5px;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: none; /* shown by JS when count > 0 */
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
   background: var(--primary);
   color: #fff;
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  animation: dockBadgeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Legacy compat selector */
+.filter-count {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
   display: none;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-weight: 600;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
   pointer-events: none;
 }
 
+@keyframes dockBadgeIn {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
 
-/* Location toggle - Special states */
-#location-toggle.active .fa-location-arrow {
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOOLTIP — Hover label shown BELOW the button (never clips top of screen)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.toggle-dock__btn[title]::before {
+  content: attr(title);
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: var(--dock-tooltip-bg);
+  color: var(--dock-tooltip-fg);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+.toggle-dock__btn:hover::before {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Shift tooltip down a bit when active dot is present */
+.toggle-dock__btn[aria-pressed="true"]:hover::before,
+.toggle-dock__btn[aria-expanded="true"]:hover::before {
+  top: calc(100% + 12px);
+}
+
+/* Clamp: buttons near right edge — anchor tooltip to the right */
+.toggle-dock__group:last-child .toggle-dock__btn:last-child[title]::before,
+.toggle-dock__btn--overflow[title]::before {
+  left: auto;
+  right: 0;
+  transform: translateY(-4px);
+}
+.toggle-dock__group:last-child .toggle-dock__btn:last-child:hover::before,
+.toggle-dock__btn--overflow:hover::before {
+  transform: translateY(0);
+}
+
+/* Clamp: buttons near left edge — anchor tooltip to the left */
+.toggle-dock__group:first-child .toggle-dock__btn:first-child[title]::before {
+  left: 0;
+  right: auto;
+  transform: translateY(-4px);
+}
+.toggle-dock__group:first-child .toggle-dock__btn:first-child:hover::before {
+  transform: translateY(0);
+}
+
+/* Suppress tooltip on touch devices */
+@media (hover: none) {
+  .toggle-dock__btn::before {
+    display: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EMPTY GROUPS — Collapse groups where all toggles are hidden/unready
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* JS adds .toggle-dock__group--empty when all children are hidden */
+.toggle-dock__group--empty {
+  display: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DOCK LOGO — City branding logo integrated into the dock
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.toggle-dock__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--dock-btn);
+  padding: 0 4px;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.toggle-dock__logo img {
+  height: 28px;
+  width: auto;
+  max-width: 100px;
+  object-fit: contain;
+  display: block;
+  opacity: 0.92;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.toggle-dock__logo:hover img {
+  opacity: 1;
+  transform: scale(1.04);
+}
+
+/* Separator after logo */
+.toggle-dock__logo + .toggle-dock__group::before {
+  content: '';
+  display: block;
+  width: 1px;
+  height: 18px;
+  margin: 0 5px;
+  background: var(--dock-sep);
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+/* Desktop: hide dock logo, show standalone .mobile-fixed-logo */
+@media (min-width: 641px) {
+  .toggle-dock__logo {
+    display: none;
+  }
+}
+
+/* Mobile: show dock logo, hide standalone .mobile-fixed-logo */
+@media (max-width: 640px) {
+  .mobile-fixed-logo {
+    display: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   READY STATE — Collapse uninitialized toggles (zero space)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.toggle-dock__btn[data-ready="false"]:not([style*="display"]) {
+  display: none !important;
+}
+
+.toggle-dock__btn[data-ready="true"] {
+  display: flex;
+  animation: dockBtnReady 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes dockBtnReady {
+  from { opacity: 0; transform: scale(0.5); }
+  50% { opacity: 1; }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Legacy compat */
+.app-toggle[data-ready="false"]:not([style*="display"]) {
+  display: none !important;
+}
+.app-toggle[data-ready="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOCATION TOGGLE — Special states
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#location-toggle.active i {
   color: var(--primary);
-  animation: pulse 2s infinite;
+  animation: dockPulse 2s infinite;
 }
 
-#location-toggle.loading .fa-location-arrow {
-  animation: spin 1s linear infinite;
+#location-toggle.loading i {
+  animation: dockSpin 0.8s linear infinite;
 }
 
-#location-toggle.error {
+#location-toggle.error i {
   color: var(--danger);
-  animation: shake 0.5s;
+  animation: dockShake 0.4s;
 }
 
-/* Animations */
-@keyframes pulse {
+@keyframes dockPulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  50% { opacity: 0.35; }
 }
 
-@keyframes spin {
+@keyframes dockSpin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 
-@keyframes shake {
+@keyframes dockShake {
   0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  75% { transform: translateX(5px); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
 }
 
-/* ============================================================================
-   MOBILE LAYOUT (≤ 640px)
-   Transformation en barre horizontale unifiée avec positionnement automatique
-   ============================================================================ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   OVERFLOW TOGGLE — Hidden by default, shown by JS on mobile
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-@media (max-width: 640px) {
-  /* Container virtuel pour le groupe de toggles */
-  /* Les toggles sont toujours position: absolute, mais on utilise leur ordre visuel */
-  
-  /* Tous les toggles deviennent carrés et collés */
-  .app-toggle {
-    border-radius: 0;
-    box-shadow: none;
-    background: var(--white-alpha-60);
-    border: 1px solid var(--black-alpha-10);
-    /* Position calculée dynamiquement via data-mobile-index */
-  }
-  
-  /* Location toggle - géré dynamiquement par JavaScript selon la configuration */
-  
-  /* ============================================================================
-     BORDER RADIUS DYNAMIQUES - S'adaptent au premier et dernier toggle visible
-     Utilisent des attributs data ajoutés par JS pour marquer les extrémités
-     ============================================================================ */
-  
-  /* Réinitialiser tous les border-radius */
-  .app-toggle {
-    border-radius: 0 !important;
-  }
-  
-  /* Premier toggle visible (gauche) - marqué par data-edge="first" */
-  .app-toggle[data-edge="first"],
-  .app-toggle[data-edge="both"] {
-    border-radius: 999px 0 0 999px !important;
-  }
-  
-  /* Dernier toggle visible (droite) - marqué par data-edge="last" */
-  .app-toggle[data-edge="last"],
-  .app-toggle[data-edge="both"] {
-    border-radius: 0 999px 999px 0 !important;
-  }
-  
-  /* Si un seul toggle visible - marqué par data-edge="both" */
-  .app-toggle[data-edge="both"] {
-    border-radius: 999px !important;
-  }
-  
-  /* ============================================================================
-     POSITIONNEMENT MOBILE - Ordre visuel de gauche à droite
-     Ces valeurs seront surchargées dynamiquement par JS si un toggle est masqué
-     ============================================================================ */
-  
-  /* Même ordre que desktop, le toggle city sera dans l'overflow si nécessaire */
-  
-  #info-toggle {
-    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 7);
-  }
-  
-  #location-toggle {
-    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 6);
-  }
-  
-  #search-toggle {
-    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 5);
-  }
-  
-  #theme-toggle {
-    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 4);
-  }
-  
-  #basemap-toggle {
-    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 3);
-  }
-  
-  #filters-toggle {
-    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 2);
-  }
-  
-  #contribute-toggle {
-    right: calc(var(--toggle-offset-base) + var(--toggle-size) * 1);
-  }
-  
-  #login-toggle {
-    right: var(--toggle-offset-base);
-  }
-}
-
-/* ============================================================================
-   BASEMAP MENU
-   ============================================================================ */
-
-/* NOTE: All basemap menu styles have been moved to 04-components.css
-   for unified design with filters-container. See there for complete styling. */
-
-/* ============================================================================
-   OVERFLOW MENU - Menu déroulant pour les toggles cachés sur mobile
-   ============================================================================ */
-
-/* Le toggle overflow utilise le même style que les autres toggles */
 #overflow-toggle {
-  display: none; /* Masqué par défaut, affiché par JS si nécessaire */
-}
-
-/* Menu overflow */
-.overflow-menu {
-  position: absolute;
-  top: 70px;
-  right: var(--toggle-offset-base);
-  min-width: 180px;
-  background: linear-gradient(145deg, var(--white-alpha-95) 0%, var(--white-alpha-90) 100%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--black-alpha-10);
-  border-radius: 16px;
-  box-shadow: 
-    0 4px 24px var(--black-alpha-15),
-    0 1px 3px var(--black-alpha-10);
-  padding: 8px;
-  z-index: 1400; /* Au-dessus de #project-detail (1050) et .submenu (1200) */
   display: none;
 }
 
-.overflow-menu.active {
-  display: block;
+.toggle-dock__btn--overflow i {
+  font-size: 0.85rem;
 }
 
-/* Contenu du menu */
+/* ═══════════════════════════════════════════════════════════════════════════
+   UNIFIED TOGGLE MENU — Drop-down panels for basemap, city, overflow
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.toggle-menu {
+  position: fixed;
+  z-index: 1400;
+  background: var(--dock-bg);
+  backdrop-filter: blur(40px) saturate(1.8);
+  -webkit-backdrop-filter: blur(40px) saturate(1.8);
+  border: 1px solid var(--dock-border);
+  border-radius: 18px;
+  box-shadow:
+    0 4px 12px var(--black-alpha-04),
+    0 12px 40px var(--black-alpha-08),
+    0 24px 64px var(--black-alpha-04);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-14px) scale(0.96);
+  transform-origin: top right;
+  transition:
+    opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    filter 0.3s ease;
+  pointer-events: none;
+  filter: blur(4px);
+}
+
+.toggle-menu.active {
+  pointer-events: auto;
+}
+
+.toggle-menu.active,
+.toggle-menu[style*="display: block"] {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   OVERFLOW MENU — Content & items
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.overflow-menu {
+  top: 70px;
+  right: 16px;
+  min-width: 200px;
+  padding: 6px;
+}
+
 .overflow-menu-content {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
-/* Items du menu */
 .overflow-menu-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 10px;
+  padding: 10px 14px;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: 12px;
+  border: none;
+  border-radius: 10px;
   cursor: pointer;
   text-align: left;
   width: 100%;
   font-family: inherit;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
   color: var(--text-primary);
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .overflow-menu-item:hover {
-  background: var(--primary-alpha-08);
-  border-color: var(--primary-alpha-20);
+  background: var(--dock-btn-hover);
+  transform: translateX(4px);
 }
 
 .overflow-menu-item:active {
-  background: var(--primary-alpha-15);
+  background: var(--primary-alpha-10);
+  transform: translateX(4px) scale(0.98);
 }
 
 .overflow-menu-item i {
-  width: 20px;
-  text-align: center;
-  font-size: 1rem;
-  color: var(--gray-600);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  color: var(--dock-icon);
+  background: var(--dock-btn-hover);
+  border-radius: 8px;
+  transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
 }
 
 .overflow-menu-item:hover i {
   color: var(--primary);
+  background: var(--primary-alpha-10);
+  transform: scale(1.1);
 }
 
 .overflow-menu-label {
@@ -406,64 +605,112 @@
   font-weight: 500;
 }
 
-/* Dark mode */
-[data-theme="dark"] .overflow-menu {
-  background: linear-gradient(145deg, var(--gray-800-alpha-95) 0%, var(--gray-900-alpha-90) 100%);
-  border-color: var(--white-alpha-10);
-}
-
-[data-theme="dark"] .overflow-menu-item {
-  color: var(--text-primary);
-}
-
-[data-theme="dark"] .overflow-menu-item i {
-  color: var(--gray-400);
-}
-
-/* ============================================================================
-   MOBILE OVERFLOW SPECIFICS
-   ============================================================================ */
-
-@media (max-width: 640px) {
-  .overflow-menu {
-    top: 65px;
-    right: 12px;
-    left: auto;
-    min-width: 200px;
-    max-width: calc(100vw - 24px);
-  }
-  
-  .overflow-menu-item {
-    padding: 14px 16px;
-  }
-  
-  .overflow-menu-item i {
-    width: 24px;
-    font-size: 1.1rem;
-  }
-}
-
-/* ============================================================================
-   ACCESSIBILITY
-   ============================================================================ */
-
-/* Focus visible pour keyboard navigation */
-.app-toggle:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
 .overflow-menu-item:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: -2px;
-  background: var(--primary-alpha-08);
 }
 
-/* Reduce motion pour accessibilité */
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE — Tablet (≤ 900px)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 900px) {
+  :root {
+    --dock-btn: 36px;
+    --dock-h: 44px;
+  }
+
+  .toggle-dock__group + .toggle-dock__group::before {
+    margin: 0 3px;
+    height: 16px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE — Mobile (≤ 640px)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+  :root {
+    --dock-btn: 34px;
+    --dock-h: 42px;
+    --dock-radius: 14px;
+  }
+
+  .toggle-dock {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .toggle-dock__group {
+    gap: 1px;
+  }
+
+  .toggle-dock__group + .toggle-dock__group::before {
+    margin: 0 2px;
+    height: 14px;
+  }
+
+  .toggle-dock__btn i {
+    font-size: 0.82rem;
+  }
+
+  /* Separator after logo — smaller */
+  .toggle-dock__logo + .toggle-dock__group::before {
+    margin: 0 3px;
+    height: 14px;
+  }
+
+  /* Overflow menu positioning */
+  .overflow-menu {
+    top: 58px;
+    right: 10px;
+    min-width: 220px;
+    max-width: calc(100vw - 20px);
+  }
+
+  .overflow-menu-item {
+    padding: 12px 14px;
+  }
+}
+
+@media (max-width: 400px) {
+  :root {
+    --dock-btn: 32px;
+    --dock-h: 40px;
+  }
+
+  .toggle-dock {
+    top: 8px;
+    right: 6px;
+    left: 6px;
+    padding: 3px;
+  }
+
+  .toggle-dock__btn i {
+    font-size: 0.78rem;
+  }
+
+  .toggle-dock__logo img {
+    height: 24px;
+    max-width: 80px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACCESSIBILITY
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 @media (prefers-reduced-motion: reduce) {
-  .app-toggle,
-  .app-toggle i {
-    transition: none;
-    animation: none;
+  .toggle-dock,
+  .toggle-dock__btn,
+  .toggle-dock__btn i,
+  .toggle-menu,
+  .toggle-dock__badge {
+    transition: none !important;
+    animation: none !important;
   }
 }

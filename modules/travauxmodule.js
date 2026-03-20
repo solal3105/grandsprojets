@@ -286,11 +286,10 @@ const TravauxModule = (() => {
     if (!submenu) return;
 
     // ── Build submenu DOM ──
-    submenu.innerHTML = `
-      ${window.SubmenuManager.headerHTML({ extraHTML: '<div class="header-center"></div>' })}
-      ${drawingPanelHTML()}
-      <ul class="project-list"></ul>
-    `;
+    submenu.innerHTML = window.SubmenuManager.headerHTML({
+      title: 'Travaux',
+      innerHTML: `${drawingPanelHTML()}<ul class="project-list"></ul>`
+    });
     window.SubmenuManager.resetExpanded(submenu);
     window.SubmenuManager.wireHeaderEvents(submenu);
 
@@ -358,7 +357,8 @@ const TravauxModule = (() => {
 
     document.getElementById('travaux-filters-ux')?.remove();
     document.getElementById('travaux-filters-container')?.remove();
-    submenu.insertBefore(filterUX, projectListEl);
+    const contentWrap = submenu.querySelector('.submenu__content');
+    if (contentWrap) contentWrap.insertBefore(filterUX, projectListEl);
 
     await setupAddCard(filterUX);
     if (!allFeatures.length) return;

@@ -88,10 +88,13 @@ const SubmenuModule = (() => {
     
     // Vérifier si déjà initialisé
     let projectList = container.querySelector('.project-list');
-    const alreadySetup = projectList && container.querySelector('.close-btn');
+    const alreadySetup = projectList && container.querySelector('.submenu__close');
     
     if (!alreadySetup) {
-      container.innerHTML = window.SubmenuManager.headerHTML() + '<ul class="project-list"></ul>';
+      container.innerHTML = window.SubmenuManager.headerHTML({
+        title: getCategoryLabel(config.category),
+        innerHTML: '<ul class="project-list"></ul>'
+      });
       window.SubmenuManager.wireHeaderEvents(container);
       window.SubmenuManager.resetExpanded(container);
     }
