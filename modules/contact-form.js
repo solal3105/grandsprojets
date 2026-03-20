@@ -41,31 +41,19 @@
   const emailRevealed = document.getElementById('email-revealed');
   const emailCopyBtn = document.getElementById('email-copy-btn');
 
-  // Fonction pour fermer la modale (compatible ModalManager et ModalHelper)
   function closeModal() {
-    if (win.ModalManager) {
-      win.ModalManager.close('contact-form-overlay');
-    } else if (win.ModalHelper) {
-      win.ModalHelper.close('contact-form-overlay');
-    }
+    if (win.ModalHelper) win.ModalHelper.close('contact-form-overlay');
   }
 
-  // Fonction pour ouvrir la modale (compatible ModalManager et ModalHelper)
   function openModal() {
-    if (win.ModalManager) {
-      win.ModalManager.open('contact-form-overlay');
-    } else if (win.ModalHelper) {
-      win.ModalHelper.open('contact-form-overlay');
-    }
+    if (win.ModalHelper) win.ModalHelper.open('contact-form-overlay');
   }
 
   // Ouvrir la modale depuis le CTA
   if (ctaButton) {
     ctaButton.addEventListener('click', (e) => {
       e.preventDefault();
-      if (win.ModalManager) {
-        win.ModalManager?.close('about-overlay');
-      }
+      if (win.ModalHelper) win.ModalHelper.close('about-overlay');
       openModal();
     });
   }
@@ -74,9 +62,7 @@
   if (backBtn) {
     backBtn.addEventListener('click', () => {
       closeModal();
-      if (win.ModalManager) {
-        win.ModalManager?.open('about-overlay');
-      }
+      if (win.ModalHelper) win.ModalHelper.open('about-overlay');
       resetForm();
     });
   }

@@ -717,31 +717,9 @@ const NavigationModule = (() => {
       const btn = heroEl.querySelector('.detail-hero__expand');
       const img = heroEl.querySelector('.detail-hero__img');
       if (!btn || !img) return;
-      const openLightbox = () => {
-        const overlay = document.createElement('div');
-        overlay.className = 'cover-lightbox';
-        // Sécurisé avec SecurityUtils
-        const safeSrc = window.SecurityUtils ? window.SecurityUtils.sanitizeUrl(img.getAttribute('src')) : img.getAttribute('src');
-        const safeAlt = window.SecurityUtils ? window.SecurityUtils.escapeAttribute(img.getAttribute('alt') || '') : (img.getAttribute('alt') || '');
-        overlay.innerHTML = `
-          <div class="lightbox-content">
-            <img src="${safeSrc}" alt="${safeAlt}">
-            <button class="btn-secondary lightbox-close" aria-label="Fermer">
-              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-            </button>
-          </div>
-        `;
-        document.body.appendChild(overlay);
-        const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
-        const onKey = (e) => { if (e.key === 'Escape') close(); };
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-        overlay.querySelector('.lightbox-close').addEventListener('click', close);
-        document.addEventListener('keydown', onKey);
-        // Set initial focus for accessibility
-        const closeBtn = overlay.querySelector('.lightbox-close');
-        if (closeBtn && typeof closeBtn.focus === 'function') closeBtn.focus();
-      };
-      btn?.addEventListener('click', openLightbox);
+      btn?.addEventListener('click', () => {
+        if (window.Lightbox) window.Lightbox.open(img.getAttribute('src'), img.getAttribute('alt'));
+      });
     })();
 
     // Bouton "Retour" : retour au submenu de la catégorie

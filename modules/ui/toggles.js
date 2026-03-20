@@ -492,7 +492,7 @@ class ToggleManager {
     if (config.redirectUrl) { window.location.href = config.redirectUrl; return; }
     if (config.hasModal) {
       const id = config.modalSelector?.replace('#', '');
-      if (id) (window.ModalHelper?.open || window.ModalManager?.open)?.(id);
+      if (id && window.ModalHelper) window.ModalHelper.open(id);
     } else {
       this.toggle(key);
     }

@@ -280,68 +280,9 @@ window.ModalHelper = (() => {
 })();
 
 // ===========================================================================
-// MODALMANAGER - Wrapper de compatibilité (ancienne API)
-// ===========================================================================
-// Maintient l'API ModalManager pour compatibilité avec le code existant
-// Redirige tous les appels vers ModalHelper
-
-;(function(win) {
-  'use strict';
-
-  const ModalManager = (() => {
-    
-    function isOpen(id) {
-      return win.ModalHelper.isOpen(id);
-    }
-
-    function open(id) {
-      win.ModalHelper.open(id, {
-        dismissible: true,
-        lockScroll: true,
-        focusTrap: true
-      });
-      return true;
-    }
-
-    function close(id) {
-      win.ModalHelper.close(id);
-    }
-
-    function switchTo(fromId, toId) {
-      win.ModalHelper.close(fromId);
-      setTimeout(() => {
-        win.ModalHelper.open(toId, {
-          dismissible: true,
-          lockScroll: true,
-          focusTrap: true
-        });
-      }, 250); // Attendre que la première soit fermée
-    }
-
-    function top() {
-      // Fonction legacy, non utilisée avec ModalHelper
-      return null;
-    }
-
-    return { 
-      open, 
-      close, 
-      switch: switchTo, 
-      isOpen, 
-      top 
-    };
-  })();
-
-  // Exposer ModalManager globalement pour compatibilité
-  win.ModalManager = ModalManager;
-
-})(window);
-
-// ===========================================================================
 // EXEMPLES D'UTILISATION
 // ===========================================================================
 // 
-// // ModalHelper (API moderne recommandée)
 // ModalHelper.open('my-modal');
 // ModalHelper.open('my-modal', {
 //   dismissible: true,
@@ -352,9 +293,3 @@ window.ModalHelper = (() => {
 // ModalHelper.close('my-modal');
 // ModalHelper.animate('my-modal', 'shake');
 // ModalHelper.setLoading('my-modal', true);
-// 
-// // ModalManager (API legacy compatible)
-// ModalManager.open('my-modal');
-// ModalManager.close('my-modal');
-// ModalManager.switch('modal1', 'modal2');
-// ModalManager.isOpen('my-modal');

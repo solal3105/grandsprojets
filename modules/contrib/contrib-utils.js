@@ -86,44 +86,16 @@
 
   /**
    * Affiche une notification toast accessible
+   * Délègue au système unifié Toast (modules/toast.js)
    * @param {string} message - Message à afficher
    * @param {string} kind - Type de toast ('info', 'success', 'error')
    */
   function showToast(message, kind = 'info') {
-    // Récupérer le container à chaque appel (lazy)
-    const toastContainer = document.getElementById('toast-container');
-    
-    if (!toastContainer) {
-      console.warn('[showToast] Toast container not found in DOM');
-      console.log('[showToast]', kind, ':', message);
-      return;
+    if (win.Toast) {
+      win.Toast.show(message, kind);
+    } else {
+      console.warn('[showToast] Toast module not loaded');
     }
-    
-    if (!message) return;
-    
-    const toast = document.createElement('div');
-    const isError = kind === 'error';
-    const isSuccess = kind === 'success';
-    
-    toast.setAttribute('role', isError ? 'alert' : 'status');
-    toast.setAttribute('aria-live', isError ? 'assertive' : 'polite');
-    toast.style.cssText = 'min-width:200px;max-width:360px;padding:10px 12px;border-radius:8px;color:var(--white);box-shadow:0 6px 18px var(--black-alpha-15);font-size:14px;';
-    const dangerColor = getComputedStyle(document.documentElement).getPropertyValue('--danger').trim();
-    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
-    toast.style.background = isError ? dangerColor : (isSuccess ? primaryColor : 'var(--gray-700)');
-    toast.textContent = message;
-    
-    toastContainer.appendChild(toast);
-    
-    setTimeout(() => {
-      try { 
-        toast.style.opacity = '0'; 
-        toast.style.transition = 'opacity 200ms'; 
-      } catch(_) {}
-      setTimeout(() => { 
-        try { toast.remove(); } catch(_) {} 
-      }, 220);
-    }, 4200);
   }
 
 

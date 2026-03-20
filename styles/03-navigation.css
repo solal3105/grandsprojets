@@ -41,21 +41,36 @@
 #left-nav .logo { display: none; }
 #left-nav .logo img { width: 90px; height: auto; }
 
-/* Standalone mobile fixed logo */
+/* Standalone mobile fixed logo — glass pill matching the dock */
 .mobile-fixed-logo {
   position: fixed;
-  top: 16px;
-  left: 16px;
-  z-index: 900;
-  display: inline-flex;
+  top: 10px;
+  left: 10px;
+  z-index: 1600;
+  display: none; /* shown on mobile via 08-responsive */
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  height: var(--dock-h, 48px);
+  padding: 0 12px;
+  background: var(--dock-bg);
+  backdrop-filter: blur(var(--dock-blur, 24px)) saturate(1.6);
+  -webkit-backdrop-filter: blur(var(--dock-blur, 24px)) saturate(1.6);
+  border: 1px solid var(--dock-border);
+  border-radius: var(--dock-radius, 16px);
+  box-shadow: var(--dock-shadow);
   text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mobile-fixed-logo:active {
+  transform: scale(0.96);
 }
 
 .mobile-fixed-logo img {
-  width: 100px;
-  height: auto;
+  height: 30px;
+  width: auto;
+  max-width: 110px;
+  object-fit: contain;
   display: block;
 }
 

@@ -703,66 +703,11 @@
   border-color: color-mix(in srgb, var(--cat-color) 30%, transparent);
 }
 
-/* ========================================
-   LIGHTBOX — Fullscreen image viewer
-   ======================================== */
-.fiche-lightbox {
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  cursor: zoom-out;
-  animation: ficheOverlayIn 0.2s ease-out;
-}
-
-.fiche-lightbox img {
-  max-width: 92vw;
-  max-height: 92vh;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  border-radius: 12px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
-}
-
-.fiche-lightbox__close {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  border: none;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  color: #fff;
-  font-size: 1.25rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.fiche-lightbox__close:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.1);
-}
+/* (Lightbox styles moved to unified gp-lightbox.css) */
 
 /* ========================================
    ANIMATIONS
    ======================================== */
-@keyframes ficheOverlayIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
 @keyframes ficheFadeUp {
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -785,36 +730,7 @@
 .fiche-section:nth-child(2) { animation-delay: 0.4s; }
 .fiche-section:nth-child(3) { animation-delay: 0.5s; }
 
-/* ========================================
-   TOAST NOTIFICATION
-   ======================================== */
-.fiche-toast {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%) translateY(0);
-  z-index: 10001;
-  padding: 12px 24px;
-  border-radius: 12px;
-  background: var(--fiche-text);
-  color: var(--fiche-bg);
-  font-family: var(--fiche-font);
-  font-size: 0.875rem;
-  font-weight: 600;
-  box-shadow: var(--fiche-shadow-xl);
-  animation: ficheToastIn 0.3s ease-out, ficheToastOut 0.3s ease-in 2.2s forwards;
-  pointer-events: none;
-}
-
-@keyframes ficheToastIn {
-  from { opacity: 0; transform: translateX(-50%) translateY(16px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
-
-@keyframes ficheToastOut {
-  from { opacity: 1; transform: translateX(-50%) translateY(0); }
-  to { opacity: 0; transform: translateX(-50%) translateY(-8px); }
-}
+/* (Toast styles moved to unified gp-toast.css) */
 
 /* ========================================
    RESPONSIVE — Tablet

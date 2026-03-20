@@ -205,22 +205,9 @@ async function buildDocumentsSection(projectName) {
    =========================================================================== */
 
 function openLightbox(imageUrl) {
-  let overlay = document.querySelector('.fiche-lightbox');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.className = 'fiche-lightbox';
-    overlay.innerHTML = `
-      <img src="" alt="Image agrandie">
-      <button type="button" class="fiche-lightbox__close" aria-label="Fermer">
-        <i class="fa-solid fa-xmark"></i>
-      </button>`;
-    document.body.appendChild(overlay);
-
-    const close = () => overlay.remove();
-    overlay.addEventListener('click', e => { if (e.target === overlay || e.target.closest('.fiche-lightbox__close')) close(); });
-    document.addEventListener('keydown', function onKey(e) { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); } });
+  if (window.Lightbox) {
+    window.Lightbox.open(imageUrl, 'Image agrandie');
   }
-  overlay.querySelector('img').src = imageUrl;
 }
 
 function openPDFPreview(pdfUrl, title) {
@@ -558,13 +545,9 @@ function bindHeaderEvents() {
 }
 
 function showFicheToast(msg) {
-  const existing = document.querySelector('.fiche-toast');
-  if (existing) existing.remove();
-  const toast = document.createElement('div');
-  toast.className = 'fiche-toast';
-  toast.textContent = msg;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2600);
+  if (window.Toast) {
+    window.Toast.show(msg, 'success', 2600);
+  }
 }
 
 /* ===========================================================================

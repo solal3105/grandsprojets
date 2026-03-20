@@ -839,50 +839,7 @@
   margin: 0 0 16px;
 }
 
-/* Cover lightbox reste utilisé */
-.cover-lightbox {
-  position: fixed;
-  inset: 0;
-  z-index: 3000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--black-alpha-40);
-  backdrop-filter: blur(10px) saturate(120%);
-  -webkit-backdrop-filter: blur(10px) saturate(120%);
-  animation: lb-fade .15s ease-out;
-}
-
-.cover-lightbox .lightbox-content {
-  position: relative;
-  max-width: 92vw;
-  max-height: 92vh;
-}
-
-.cover-lightbox img {
-  max-width: 92vw;
-  max-height: 92vh;
-  width: auto;
-  height: auto;
-  border-radius: 12px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-}
-
-/* .lightbox-close utilise .btn-secondary */
-.cover-lightbox .lightbox-close {
-  position: absolute;
-  top: -14px;
-  right: -14px;
-}
-
-@keyframes lb-fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
+/* (Cover lightbox styles moved to unified gp-lightbox.css) */
 
 /* ---------------------------------------------------------------------------
    Boutons CTA "Voir la fiche complète"

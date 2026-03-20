@@ -99,70 +99,15 @@
   function setupClickLightbox(layer, imgUrl, title) {
     layer.on('click', () => {
       try {
-        ensureLightboxExists(title);
-        win.__fpLightboxImg.src = imgUrl;
-        document.body.appendChild(win.__fpLightbox);
+        if (win.Lightbox) {
+          win.Lightbox.open(imgUrl, title || 'image');
+        } else {
+          win.open(imgUrl, '_blank');
+        }
       } catch (e) {
         try { win.open(imgUrl, '_blank'); } catch(_) {}
       }
     });
-  }
-
-  /**
-   * Crée la lightbox si elle n'existe pas déjà
-   */
-  function ensureLightboxExists(title) {
-    if (win.__fpLightbox) return;
-
-    const overlay = document.createElement('div');
-    overlay.id = 'fp-img-lightbox';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
-    overlay.style.cssText = [
-      'position:fixed', 'inset:0', 'z-index:9999',
-      'display:flex', 'align-items:center', 'justify-content:center',
-      'background:var(--black-alpha-55)', 'backdrop-filter:blur(6px)',
-      '-webkit-backdrop-filter:blur(6px)', 'padding:24px'
-    ].join(';');
-
-    const box = document.createElement('div');
-    box.style.cssText = [
-      'position:relative', 'max-width:90vw', 'max-height:90vh',
-      'box-shadow:0 8px 24px var(--black-alpha-45)', 'border-radius:10px',
-      'overflow:hidden', 'background:#000'
-    ].join(';');
-
-    const img = document.createElement('img');
-    img.alt = title || 'image';
-    img.style.cssText = 'display:block;max-width:90vw;max-height:85vh;object-fit:contain;box-shadow:0 24px 72px var(--black-alpha-60)';
-
-    const close = document.createElement('button');
-    close.type = 'button';
-    close.setAttribute('aria-label', 'Fermer');
-    close.innerHTML = '&times;';
-    close.style.cssText = [
-      'position:absolute', 'top:8px', 'right:10px',
-      'width:36px', 'height:36px', 'border:none', 'border-radius:18px',
-      'background:var(--black-alpha-55)', 'color:#fff',
-      'font-size:26px', 'line-height:36px', 'cursor:pointer'
-    ].join(';');
-
-    const closeHandler = () => {
-      overlay.remove();
-      document.removeEventListener('keydown', keyHandler);
-    };
-    const keyHandler = (e) => { if (e.key === 'Escape') closeHandler(); };
-
-    close.addEventListener('click', closeHandler);
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeHandler(); });
-    document.addEventListener('keydown', keyHandler);
-
-    box.appendChild(img);
-    box.appendChild(close);
-    overlay.appendChild(box);
-    
-    win.__fpLightbox = overlay;
-    win.__fpLightboxImg = img;
   }
 
   // ============================================================================

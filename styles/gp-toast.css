@@ -1,0 +1,69 @@
+/* ============================================================================
+   GP TOAST — Unified toast notification system
+   Replaces: ContribUtils.showToast() inline styles, .fiche-toast (fiche.css)
+   ============================================================================ */
+
+.gp-toast-container {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.gp-toast {
+  min-width: 200px;
+  max-width: 360px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  pointer-events: auto;
+  /* Enter animation */
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.gp-toast--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.gp-toast--exit {
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+/* Kind variants */
+.gp-toast--info {
+  background: var(--gray-700);
+}
+
+.gp-toast--success {
+  background: var(--primary);
+}
+
+.gp-toast--error {
+  background: var(--danger);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .gp-toast-container {
+    right: 8px;
+    left: 8px;
+    bottom: 8px;
+  }
+
+  .gp-toast {
+    max-width: 100%;
+  }
+}

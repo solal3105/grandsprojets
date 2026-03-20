@@ -45,14 +45,8 @@
       }
 
       // Ouvrir la modale
-      if (win.ModalManager?.open) {
-        win.ModalManager.open('branding-modal-overlay');
-      } else {
-        const overlay = document.getElementById('branding-modal-overlay');
-        if (overlay) {
-          overlay.style.display = 'flex';
-          overlay.setAttribute('aria-hidden', 'false');
-        }
+      if (win.ModalHelper) {
+        win.ModalHelper.open('branding-modal-overlay');
       }
 
       // Initialiser le contenu
@@ -63,14 +57,8 @@
      * Ferme la modale de branding
      */
     closeBrandingModal() {
-      if (win.ModalManager?.close) {
-        win.ModalManager.close('branding-modal-overlay');
-      } else {
-        const overlay = document.getElementById('branding-modal-overlay');
-        if (overlay) {
-          overlay.style.display = 'none';
-          overlay.setAttribute('aria-hidden', 'true');
-        }
+      if (win.ModalHelper) {
+        win.ModalHelper.close('branding-modal-overlay');
       }
       currentCity = null;
       currentBranding = null;

@@ -77,3 +77,9 @@
 /* 21 - Fiche Modal - Fullscreen iframe modal for project fiches */
 @import url('./styles/fiche-modal.css');
 
+/* 22 - GP Lightbox - Unified fullscreen image viewer */
+@import url('./styles/gp-lightbox.css');
+
+/* 23 - GP Toast - Unified toast notification system */
+@import url('./styles/gp-toast.css');
+

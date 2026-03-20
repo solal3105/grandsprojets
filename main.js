@@ -1059,35 +1059,33 @@
       };
       
       // --------------------------------------------------------------------------
-      // PHASE 9 : Fiche Modal (iframe-based fullscreen)
+      // PHASE 9 : Fiche Modal (iframe-based fullscreen, via ModalHelper)
       // --------------------------------------------------------------------------
       (function initFicheModal() {
-        const overlay = document.getElementById('fiche-modal-overlay');
-        if (!overlay) return;
-
         const iframe   = document.getElementById('fiche-modal-iframe');
         const loader   = document.getElementById('fiche-modal-loader');
         const titleEl  = document.getElementById('fiche-modal-title');
         const newtabEl = document.getElementById('fiche-modal-newtab');
-        const closeBtn = document.getElementById('fiche-modal-close');
+        if (!iframe) return;
 
         function openFicheModal(ficheUrl, projectName) {
           const embedUrl = ficheUrl + (ficheUrl.includes('?') ? '&' : '?') + 'embed=1';
-          titleEl.textContent = projectName || '';
-          newtabEl.href = ficheUrl;
-          loader.classList.remove('hidden');
+          if (titleEl) titleEl.textContent = projectName || '';
+          if (newtabEl) newtabEl.href = ficheUrl;
+          if (loader) loader.classList.remove('hidden');
           iframe.src = embedUrl;
-          iframe.onload = () => { loader.classList.add('hidden'); };
-          overlay.style.display = 'flex';
-          overlay.setAttribute('aria-hidden', 'false');
-          document.body.style.overflow = 'hidden';
+          iframe.onload = () => { if (loader) loader.classList.add('hidden'); };
+
+          win.ModalHelper.open('fiche-modal-overlay', {
+            dismissible: true,
+            lockScroll: true,
+            focusTrap: true,
+            onClose: () => { iframe.src = 'about:blank'; }
+          });
         }
 
         function closeFicheModal() {
-          overlay.style.display = 'none';
-          overlay.setAttribute('aria-hidden', 'true');
-          iframe.src = 'about:blank';
-          document.body.style.overflow = '';
+          win.ModalHelper.close('fiche-modal-overlay');
         }
 
         // Delegated click: any button with data-fiche-url
@@ -1097,21 +1095,6 @@
           e.preventDefault();
           e.stopPropagation();
           openFicheModal(btn.dataset.ficheUrl, btn.dataset.ficheName || '');
-        });
-
-        // Close button
-        if (closeBtn) closeBtn.addEventListener('click', closeFicheModal);
-
-        // Click on overlay backdrop
-        overlay.addEventListener('click', (e) => {
-          if (e.target === overlay) closeFicheModal();
-        });
-
-        // Escape key
-        document.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape' && overlay.style.display !== 'none') {
-            closeFicheModal();
-          }
         });
 
         // Expose globally for potential programmatic use

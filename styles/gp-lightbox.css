@@ -1,0 +1,73 @@
+/* ============================================================================
+   GP LIGHTBOX — Unified fullscreen image viewer
+   Replaces: .cover-lightbox (04-components), .fiche-lightbox (fiche.css),
+             #fp-img-lightbox (cameramarkers inline styles)
+   ============================================================================ */
+
+.gp-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 24px;
+  cursor: zoom-out;
+  animation: gpLightboxIn 0.2s ease-out;
+}
+
+@keyframes gpLightboxIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.gp-lightbox__box {
+  position: relative;
+  max-width: 92vw;
+  max-height: 92vh;
+  cursor: default;
+}
+
+.gp-lightbox__img {
+  display: block;
+  max-width: 92vw;
+  max-height: 88vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+}
+
+.gp-lightbox__close {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.gp-lightbox__close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+.gp-lightbox__close:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
