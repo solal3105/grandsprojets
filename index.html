@@ -514,6 +514,27 @@
     </div>
   </div>
 
+  <!-- Fiche Projet Modal (iframe-based fullscreen) -->
+  <div id="fiche-modal-overlay" class="fiche-modal-overlay" role="dialog" aria-modal="true" aria-hidden="true" style="display:none">
+    <div class="fiche-modal">
+      <div class="fiche-modal__header">
+        <button class="fiche-modal__close" id="fiche-modal-close" aria-label="Fermer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+        <span class="fiche-modal__title" id="fiche-modal-title"></span>
+        <a class="fiche-modal__newtab" id="fiche-modal-newtab" href="#" target="_blank" rel="noopener" aria-label="Ouvrir dans un nouvel onglet">
+          <i class="fa-solid fa-up-right-from-square"></i>
+        </a>
+      </div>
+      <div class="fiche-modal__body">
+        <div class="fiche-modal__loader" id="fiche-modal-loader">
+          <div class="fiche-modal__spinner"></div>
+        </div>
+        <iframe id="fiche-modal-iframe" class="fiche-modal__iframe" title="Fiche projet" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>
+      </div>
+    </div>
+  </div>
+
   <!-- Supabase client via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
   <script src="modules/auth.js"></script>

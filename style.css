@@ -74,3 +74,6 @@
 /* 20 - Hover Popup - Premium hover popup for map features */
 @import url('./styles/hover-popup.css');
 
+/* 21 - Fiche Modal - Fullscreen iframe modal for project fiches */
+@import url('./styles/fiche-modal.css');
+

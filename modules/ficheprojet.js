@@ -145,44 +145,25 @@ function addArticleSchema(projectName, attrs, category) {
 }
 
 /* ===========================================================================
-   CARD BUILDERS — Clean BEM HTML, no Tailwind
+   SIDEBAR SECTION BUILDERS — Lightweight sections, not heavy cards
    =========================================================================== */
 
-function buildDescriptionCard(description) {
-  if (!description) return '';
-  return `
-    <div class="fiche-card fiche-card--desc">
-      <div class="fiche-card__header">
-        <i class="fa-solid fa-info-circle"></i>
-        <span>Description</span>
-      </div>
-      <div class="fiche-card__body">
-        <p class="fiche-card__text">${escapeHTML(description)}</p>
-      </div>
-    </div>`;
-}
-
-function buildLinkCard(url) {
+function buildLinkSection(url) {
   if (!url) return '';
   const domain = extractDomain(url);
   const favicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
   return `
-    <div class="fiche-card fiche-card--link">
-      <div class="fiche-card__header">
-        <i class="fa-solid fa-bookmark"></i>
-        <span>Site officiel</span>
-      </div>
-      <div class="fiche-card__body">
-        <a href="${url}" target="_blank" rel="noopener noreferrer" class="fiche-link" aria-label="Ouvrir le site">
-          <img src="${favicon}" alt="" class="fiche-link__favicon" onerror="this.style.display='none'">
-          <span class="fiche-link__domain">${escapeHTML(domain)}</span>
-          <span class="fiche-link__arrow"><i class="fa-solid fa-arrow-up-right-from-square"></i></span>
-        </a>
-      </div>
+    <div class="fiche-section">
+      <div class="fiche-section__label">Site officiel</div>
+      <a href="${url}" target="_blank" rel="noopener noreferrer" class="fiche-link" aria-label="Ouvrir le site">
+        <img src="${favicon}" alt="" class="fiche-link__favicon" onerror="this.style.display='none'">
+        <span class="fiche-link__domain">${escapeHTML(domain)}</span>
+        <span class="fiche-link__arrow"><i class="fa-solid fa-arrow-up-right-from-square"></i></span>
+      </a>
     </div>`;
 }
 
-async function buildDocumentsCard(projectName) {
+async function buildDocumentsSection(projectName) {
   try {
     if (!window.supabaseService?.getConsultationDossiersByProject) return '';
     const dossiers = await window.supabaseService.getConsultationDossiersByProject(projectName);
@@ -212,12 +193,9 @@ async function buildDocumentsCard(projectName) {
     }).join('');
 
     return `
-      <div class="fiche-card fiche-card--docs">
-        <div class="fiche-card__header">
-          <i class="fa-solid fa-file-pdf"></i>
-          <span>Documents</span>
-        </div>
-        <div class="fiche-card__body">${items}</div>
+      <div class="fiche-section">
+        <div class="fiche-section__label">Documents</div>
+        <div class="fiche-section__docs">${items}</div>
       </div>`;
   } catch (e) { console.warn('[Documents] Error:', e); return ''; }
 }
@@ -368,29 +346,30 @@ function generateFicheHTML(projectName, category, isEmbed, coverUrl, description
   const safeName = escapeHTML(projectName);
   const catLabel = FP_CONFIG.CATEGORY_LABELS[category] || category;
   const catIcon = FP_CONFIG.CATEGORY_ICONS[category] || 'fa-map';
+  const { color: catColor } = getCategoryStyle(category);
 
   const heroSection = cover ? `
-    <section class="fiche-hero">
+    <section class="fiche-hero" style="--cat-color: ${catColor}">
       <img class="fiche-hero__img" src="${cover}" alt="${safeName}" loading="eager">
-      <div class="fiche-hero__overlay">
+      <div class="fiche-hero__scrim"></div>
+      <div class="fiche-hero__content">
         <span class="fiche-hero__badge"><i class="fa-solid ${catIcon}"></i> ${escapeHTML(catLabel)}</span>
         <h1 class="fiche-hero__title">${safeName}</h1>
-        ${description ? `<p class="fiche-hero__desc">${escapeHTML(description)}</p>` : ''}
       </div>
       <button class="fiche-hero__expand" data-lightbox-image="${cover}" aria-label="Agrandir l'image">
         <i class="fa-solid fa-expand"></i>
       </button>
     </section>` : `
-    <section class="fiche-hero fiche-hero--empty">
-      <div class="fiche-hero__overlay">
+    <section class="fiche-hero fiche-hero--empty" style="--cat-color: ${catColor}">
+      <div class="fiche-hero__content">
         <span class="fiche-hero__badge"><i class="fa-solid ${catIcon}"></i> ${escapeHTML(catLabel)}</span>
         <h1 class="fiche-hero__title">${safeName}</h1>
-        ${description ? `<p class="fiche-hero__desc">${escapeHTML(description)}</p>` : ''}
       </div>
     </section>`;
 
   const header = isEmbed ? '' : `
     <header class="fiche-header" id="fiche-header">
+      <div class="fiche-header__accent"></div>
       <div class="fiche-header__inner">
         <a href="/" class="fiche-header__back" aria-label="Retour à l'accueil">
           <i class="fa-solid fa-arrow-left"></i>
@@ -410,12 +389,13 @@ function generateFicheHTML(projectName, category, isEmbed, coverUrl, description
     </header>`;
 
   return `
-    <div class="fiche">
+    <div class="fiche${isEmbed ? ' fiche--embed' : ''}" style="--cat-color: ${catColor}">
       ${header}
       ${heroSection}
 
       <div class="fiche-body">
         <main class="fiche-main">
+          <div id="fiche-lead"></div>
           <div id="project-markdown-content"></div>
         </main>
 
@@ -524,19 +504,22 @@ function bindGlobalEvents() {
     if (btn) { e.preventDefault(); openPDFPreview(btn.dataset.pdfPreview, btn.dataset.pdfTitle); }
   });
 
-  // Header: scroll shadow
+  // Header: floating → solid transition on scroll
   const header = document.getElementById('fiche-header');
   if (header) {
     let ticking = false;
+    const threshold = 80;
     window.addEventListener('scroll', () => {
       if (!ticking) {
         requestAnimationFrame(() => {
-          header.classList.toggle('scrolled', window.scrollY > 10);
+          header.classList.toggle('scrolled', window.scrollY > threshold);
           ticking = false;
         });
         ticking = true;
       }
     }, { passive: true });
+    // Initial check (page may already be scrolled on load)
+    header.classList.toggle('scrolled', window.scrollY > threshold);
   }
 }
 
@@ -670,34 +653,38 @@ async function initFicheProjet() {
     // 8. SEO
     applySEO(projectName, { description: projectData.description || '', cover: projectData.cover_url || '', created_at: projectData.created_at }, category);
 
-    // 9. Build sidebar cards (map + info cards)
+    // 9. Build sidebar sections (map + links + docs)
     const sidebar = document.getElementById('fiche-sidebar');
     if (sidebar) {
-      const mapCard = `
-        <div class="fiche-card fiche-card--map">
-          <div class="fiche-card__header">
-            <i class="fa-solid fa-map-location-dot"></i>
-            <span>Carte du projet</span>
-          </div>
+      const mapSection = `
+        <div class="fiche-section fiche-section--map">
+          <div class="fiche-section__label">Carte du projet</div>
           <div class="fiche-map"><div id="project-map"></div></div>
           <button type="button" class="fiche-map__expand" id="btn-expand-map">
             <i class="fa-solid fa-expand"></i> Agrandir la carte
           </button>
         </div>`;
 
-      const descCard = buildDescriptionCard(projectData.description);
-      const linkCard = buildLinkCard(projectData.official_url);
-      const docsCard = await buildDocumentsCard(projectName);
+      const linkSection = buildLinkSection(projectData.official_url);
+      const docsSection = await buildDocumentsSection(projectName);
 
-      sidebar.innerHTML = [mapCard, descCard, linkCard, docsCard].filter(Boolean).join('');
+      sidebar.innerHTML = [mapSection, linkSection, docsSection].filter(Boolean).join('');
     }
 
-    // 10. Markdown
+    // 10. Markdown + smart description
     const mdContainer = document.getElementById('project-markdown-content');
-    if (projectData.markdown_url) {
+    const leadContainer = document.getElementById('fiche-lead');
+    const hasMarkdown = !!projectData.markdown_url;
+
+    if (hasMarkdown) {
       await renderMarkdown(projectData.markdown_url, mdContainer);
     } else {
       mdContainer.innerHTML = '';
+    }
+
+    // Show description as lead paragraph only when there's no article content
+    if (leadContainer && projectData.description && !hasMarkdown) {
+      leadContainer.innerHTML = `<p class="fiche-lead__text">${escapeHTML(projectData.description)}</p>`;
     }
 
     // 11. Map
