@@ -22,7 +22,7 @@
   const PEEK_MAX = 3;
 
   /* ── helpers ── */
-  function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  const esc = window.SecurityUtils.escapeHtml;
   function projectNameOf(p) { return p.project_name || p.name || p.nature_travaux || ''; }
   function isInteractive(f) { const p = f.properties||{}; return !!(p.project_name && p.category) || !!(p.nature_travaux || p.chantier_id); }
   function isContrib(f) { const p = f.properties||{}; return !!(p.project_name && p.category); }
@@ -32,7 +32,7 @@
   function cardHTML(props, opts) {
     const title = esc(projectNameOf(props));
     if (!title) return '';
-    const img = props.cover_url || props.imgUrl || '';
+    const img = props.cover_url || '';
     const cat = props.category || '';
     const tw = !!(props.nature_travaux || props.chantier_id);
     const imgH = img ? `<div class="gp-hp-img"><img src="${esc(img)}" alt="" loading="lazy"/></div>` : '';
@@ -40,20 +40,6 @@
       : tw ? '<span class="gp-hp-tag gp-hp-tag--travaux"><i class="fa-solid fa-helmet-safety"></i> Travaux</span>' : '';
     const ctaH = opts?.cta ? '<span class="gp-hp-cta"><i class="fa-solid fa-hand-pointer"></i> Cliquez pour en savoir plus</span>' : '';
     return `<div class="gp-hp">${imgH}<div class="gp-hp-body">${tagH}<div class="gp-hp-title">${title}</div>${ctaH}</div></div>`;
-  }
-
-  function pickerRowHTML(props, idx) {
-    const title = esc(projectNameOf(props));
-    if (!title) return '';
-    const img = props.cover_url || props.imgUrl || '';
-    const cat = props.category || '';
-    const tw = !!(props.nature_travaux || props.chantier_id);
-    const thumbH = img
-      ? `<img class="gp-pk-thumb" src="${esc(img)}" alt="" loading="lazy"/>`
-      : `<div class="gp-pk-thumb gp-pk-thumb--empty"><i class="fa-solid fa-map-location-dot"></i></div>`;
-    const tagH = cat ? `<span class="gp-hp-tag">${esc(cat)}</span>`
-      : tw ? '<span class="gp-hp-tag gp-hp-tag--travaux"><i class="fa-solid fa-helmet-safety"></i> Travaux</span>' : '';
-    return `<div class="gp-pk-row" data-idx="${idx}" style="--i:${idx}">${thumbH}<div class="gp-pk-info">${tagH}<div class="gp-pk-title">${title}</div></div><i class="fa-solid fa-chevron-right gp-pk-arrow"></i></div>`;
   }
 
   // ─────────────────────────────────────────────────────────────

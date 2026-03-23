@@ -133,11 +133,7 @@
   function getCategoryIcon(category) {
     const found = categoryIcons.find(c => c.category === category);
     if (found?.icon_class) {
-      let iconClass = found.icon_class;
-      if (!iconClass.includes('fa-solid') && !iconClass.includes('fa-regular') && !iconClass.includes('fa-brands')) {
-        iconClass = 'fa-solid ' + iconClass;
-      }
-      return iconClass;
+      return window.normalizeIconClass(found.icon_class);
     }
     return 'fa-solid fa-folder';
   }
@@ -568,18 +564,7 @@
     });
   }
 
-  /**
-   * Échappe le HTML
-   */
-  function escapeHtml(str) {
-    if (!str) return '';
-    if (win.SecurityUtils?.escapeHtml) {
-      return win.SecurityUtils.escapeHtml(str);
-    }
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
+  const escapeHtml = win.SecurityUtils.escapeHtml;
 
   /**
    * Met à jour les meta SEO pour la vue article

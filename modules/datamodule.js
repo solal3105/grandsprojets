@@ -101,72 +101,6 @@ window.DataModule = (function() {
 		// Vérification silencieuse en production
 	}
 
-	// --- Génération de contenu pour le tooltip ---
-
-	// Génère le contenu du popup (carte ou cover)
-	async function generateTooltipContent(feature, layerName, variant = 'card') {
-		const props = feature?.properties || {};
-
-		// Les données sont maintenant directement dans les properties depuis fetchLayerData
-		let imgUrl = props.cover_url || props.imgUrl;
-		let title = props.project_name || props.name || props.Name || props.line || '';
-
-		// Ajustement du titre via LayerRegistry (centralisation des règles par famille)
-		try {
-			if (window.LayerRegistry?.formatTooltipTitle) {
-				title = window.LayerRegistry.formatTooltipTitle(layerName, props, title);
-			}
-		} catch (_) {}
-
-		// Simple échappement pour éviter l'injection HTML
-		const esc = (s) => String(s || '')
-			.replace(/&/g, '&amp;')
-			.replace(/</g, '&lt;')
-			.replace(/>/g, '&gt;')
-			.replace(/\"/g, '&quot;')
-			.replace(/'/g, '&#39;');
-
-		const titleHtml = esc(title);
-
-		// Si pas de titre, ne pas afficher le tooltip
-		if (!titleHtml) return '';
-
-		// Variante "cover" (utilisée pour les marqueurs caméra)
-		if (variant === 'cover' && imgUrl) {
-			return `
-          <div class="project-cover-wrap project-cover-wrap--popup">
-            <img class="project-cover" src="${esc(imgUrl)}" alt="${titleHtml || 'Illustration'}">
-            ${titleHtml ? `<div class="gp-card-title" style="margin-top:8px">${titleHtml}</div>` : ''}
-          </div>
-        `;
-		}
-
-		const imgHtml = imgUrl ?
-			`<div class=\"gp-card-media\"><img src=\"${esc(imgUrl)}\" alt=\"${titleHtml || 'Illustration'}\"/></div>` :
-			`<div class=\"gp-card-media gp-card-media--placeholder\"></div>`;
-
-		// Afficher un petit CTA uniquement pour les couches cliquables (catégories dynamiques)
-		const clickableLayers = (typeof window.getAllCategories === 'function') ?
-			window.getAllCategories() :
-			[];
-		const showCta = clickableLayers.includes(layerName);
-
-		return `
-        <div class=\"card-tooltip\">
-          ${imgHtml}
-          <div class=\"gp-card-body\">
-            ${titleHtml ? `<div class=\"gp-card-title\">${titleHtml}</div>` : ''}
-            ${showCta ? `
-              <div class=\"gp-card-cta\" role=\"note\" aria-hidden=\"true\">
-                <i class=\"fa-solid fa-hand-pointer\" aria-hidden=\"true\"></i>
-                <span>Cliquez pour en savoir plus</span>
-              </div>
-            ` : ''}
-          </div>
-        </div>
-      `;
-	}
-
 	// --- Gestion du style et des événements ---
 
 	// Renvoie le style d'une feature selon la couche et ses propriétés
@@ -186,47 +120,6 @@ window.DataModule = (function() {
 
 		// Fallback si le module n'est pas chargé
 		return baseStyle;
-	}
-
-	// Applique un style de manière sécurisée à une couche
-	// Fonction utilitaire: parse une couleur CSS en objet RGB
-	function parseColorToRgb(color) {
-		if (!color) return null;
-		const c = String(color).trim();
-		// Hex court ou long
-		const hexMatch = c.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
-		if (hexMatch) {
-			let hex = hexMatch[1];
-			if (hex.length === 3) {
-				hex = hex.split('').map(ch => ch + ch).join('');
-			}
-			return {
-				r: parseInt(hex.substring(0, 2), 16),
-				g: parseInt(hex.substring(2, 4), 16),
-				b: parseInt(hex.substring(4, 6), 16)
-			};
-		}
-		// rgb/rgba
-		const rgbMatch = c.match(/^rgba?\((\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*(\d*\.?\d+))?\)$/i);
-		if (rgbMatch) {
-			const clamp = (n) => Math.max(0, Math.min(255, parseInt(n, 10)));
-			return {
-				r: clamp(rgbMatch[1]),
-				g: clamp(rgbMatch[2]),
-				b: clamp(rgbMatch[3])
-			};
-		}
-		return null; // Format non géré (nom CSS), on abandonne proprement
-	}
-
-	// Fonction utilitaire pour assombrir une couleur (hex ou rgb/rgba). Retourne la couleur d'origine si non gérable.
-	function darkenColor(color, factor = 0.5) {
-		const rgb = parseColorToRgb(color);
-		if (!rgb) return color;
-		const darkerR = Math.max(0, Math.round(rgb.r * (1 - factor)));
-		const darkerG = Math.max(0, Math.round(rgb.g * (1 - factor)));
-		const darkerB = Math.max(0, Math.round(rgb.b * (1 - factor)));
-		return `#${darkerR.toString(16).padStart(2, '0')}${darkerG.toString(16).padStart(2, '0')}${darkerB.toString(16).padStart(2, '0')}`;
 	}
 
 	function safeSetStyle(layer, style) {
@@ -262,9 +155,7 @@ window.DataModule = (function() {
 		const r = ((pct - 50) / 50) * 100;
 		return `linear-gradient(90deg, var(--warning) 0%, var(--warning) ${100 - r}%, var(--success) 100%)`;
 	}
-	function _esc(s) {
-		return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-	}
+	const _esc = window.SecurityUtils.escapeHtml;
 
 	// Lie les événements à une feature
 	// Lines/Polygons : gérés par FeatureInteractions (MapLibre GL natif via queryRenderedFeatures)
@@ -274,14 +165,6 @@ window.DataModule = (function() {
 		if (!isPoint) return;
 
 		const props = feature?.properties || {};
-		const hasImage = !!props.imgUrl;
-
-		// Camera markers
-		if (hasImage && window.CameraMarkers?.bindCameraMarkerEvents) {
-			window.CameraMarkers.bindCameraMarkerEvents(feature, layer);
-			return;
-		}
-
 		// Contribution point markers — wire DOM click/hover
 		const isContrib = !!(props.project_name && props.category);
 		const isTravaux = !!(props.nature_travaux || props.chantier_id);
@@ -314,43 +197,6 @@ window.DataModule = (function() {
 		}
 	}
 
-	// Charge les contributions progressivement (au fil de l'eau)
-	async function loadContributionsProgressively(layerName, projects) {
-		const layer = MapModule.layers[layerName];
-		if (!layer) return;
-
-		const promises = projects.map(async (project) => {
-			if (!project.geojson_url) return;
-			try {
-				const response = await fetch(project.geojson_url);
-				if (!response.ok) return;
-				const geoData = await response.json();
-
-				const enrichFeature = (f) => {
-					if (!f.properties) f.properties = {};
-					f.properties.project_name = project.project_name;
-					f.properties.category = project.category;
-					f.properties.cover_url = project.cover_url;
-					f.properties.description = project.description;
-					f.properties.markdown_url = project.markdown_url;
-					return f;
-				};
-
-				if (geoData.type === 'FeatureCollection' && geoData.features) {
-					geoData.features.forEach(enrichFeature);
-					layer.addData(geoData);
-				} else if (geoData.type === 'Feature') {
-					enrichFeature(geoData);
-					layer.addData(geoData);
-				}
-			} catch (error) {
-				console.warn(`[DataModule] Erreur GeoJSON ${project.project_name}:`, error);
-			}
-		});
-
-		await Promise.all(promises);
-	}
-
 	// Récupère les données d'une couche avec cache
 	async function fetchLayerData(layerName) {
 		const cacheKey = `layer_${layerName}`;
@@ -362,7 +208,6 @@ window.DataModule = (function() {
 			const cachedData = simpleCache._cache?.[cacheKey]?.value;
 			const cachedFeaturesCount = cachedData?.features?.length || 0;
 			if (cachedFeaturesCount === 0) {
-				console.log(`[DataModule] 🔄 Cache vide pour "${layerName}" mais ${contributionProjects.length} contributions disponibles - invalidation cache`);
 				clearLayerCache(layerName);
 			}
 		}
@@ -394,8 +239,6 @@ window.DataModule = (function() {
 
 			// CONTRIBUTIONS (chargement depuis Supabase) - PARALLÈLE LIMITÉ
 			if (contributionProjects && Array.isArray(contributionProjects) && contributionProjects.length > 0) {
-				console.log(`[DataModule] 📦 Chargement de ${contributionProjects.length} contributions pour "${layerName}"`);
-				
 				// Limiter à 5 requêtes parallèles max pour éviter la surcharge réseau
 				const BATCH_SIZE = 5;
 				const projectsWithUrl = contributionProjects.filter(project => project.geojson_url);
@@ -436,10 +279,7 @@ window.DataModule = (function() {
 					allFeatures.push(...batchResults.flat());
 				}
 				
-				const features = allFeatures;
-				
-				console.log(`[DataModule] ✅ ${features.length} features chargées pour "${layerName}"`);
-				return { type: 'FeatureCollection', features };
+				return { type: 'FeatureCollection', features: allFeatures };
 			}
 
 			// LAYERS DEPUIS URL
@@ -487,12 +327,7 @@ window.DataModule = (function() {
 		// Récupérer les styles de la catégorie ou utiliser les overrides
 		const { color, iconClass } = category ? getCategoryStyle(category) : { color: 'var(--primary)', iconClass: 'fa-solid fa-map-marker' };
 		const finalColor = colorOverride || color;
-		let finalIcon = iconOverride || iconClass;
-		
-		// Normaliser l'icône : ajouter fa-solid si pas de préfixe FA
-		if (finalIcon && !finalIcon.includes('fa-solid') && !finalIcon.includes('fa-regular') && !finalIcon.includes('fa-brands')) {
-			finalIcon = `fa-solid ${finalIcon}`;
-		}
+		const finalIcon = window.normalizeIconClass(iconOverride || iconClass);
 		
 		// Créer le marker avec design sobre : pin blanc avec bordure colorée et icône
 		return L.divIcon({
@@ -525,11 +360,7 @@ window.DataModule = (function() {
 	 * @returns {L.DivIcon} Icône simple
 	 */
 	function createSimpleMarkerIcon(iconClass, color = 'var(--primary)') {
-		// Normaliser l'icône : ajouter fa-solid si pas de préfixe FA
-		let finalIcon = iconClass || 'fa-map-marker';
-		if (finalIcon && !finalIcon.includes('fa-solid') && !finalIcon.includes('fa-regular') && !finalIcon.includes('fa-brands')) {
-			finalIcon = `fa-solid ${finalIcon}`;
-		}
+		const finalIcon = window.normalizeIconClass(iconClass, 'fa-map-marker');
 		
 		// Créer le marker simple : juste l'icône avec couleur et ombre
 		return L.divIcon({
@@ -607,15 +438,9 @@ window.DataModule = (function() {
 				// Filtre simple: masquer type "danger"
 				if (props.type === 'danger') return false;
 				
-				// Filtre Points: garder camera markers (imgUrl) et contributions (project_name)
+				// Filtre Points: garder uniquement les contributions (project_name)
 				if (feature?.geometry?.type === 'Point') {
-					const isFichePage = location.pathname.includes('/fiche/');
-					if (isFichePage) {
-						// Fiche: seulement contributions
-						return !!props.project_name;
-					}
-					// Index: camera markers OU contributions
-					return props.imgUrl || props.project_name;
+					return !!props.project_name;
 				}
 				
 				// Filtres standards (optimisé)
@@ -639,39 +464,28 @@ window.DataModule = (function() {
 			pointToLayer: (feature, latlng) => {
 				const props = feature?.properties || {};
 				
-				// 1. Camera markers (optimisé)
-				if (props.imgUrl && window.CameraMarkers?.createCameraMarker) {
-					const style = getFeatureStyle(feature, layerName);
-					return window.CameraMarkers.createCameraMarker(latlng, MapModule?.cameraPaneName || 'markerPane', style?.color);
-				}
-				
-				// 2. Travaux markers
+				// 1. Travaux markers
 				if (window.LayerRegistry?.isTravauxLayer?.(layerName)) {
 					const icon = createCustomMarkerIcon(null, props.icon || 'fa-solid fa-helmet-safety', 'var(--color-warning)');
 					return L.marker(latlng, { icon });
 				}
 				
-				// 3. Contribution markers
+				// 2. Contribution markers
 				if (props.category) {
 					return L.marker(latlng, { icon: createContributionMarkerIcon(props.category) });
 				}
 				
-				// 4. Layer icon
+				// 3. Layer icon
 				if (iconMap[layerName]) {
 					const icon = createSimpleMarkerIcon(iconMap[layerName], iconColorMap[layerName] || 'var(--primary)');
 					return L.marker(latlng, { icon });
 				}
 				
-				// 5. Fallback
+				// 4. Fallback
 				return L.marker(latlng, { icon: createCustomMarkerIcon() });
 			},
 			onEachFeature: (feature, layer) => {
 				bindFeatureEvents(layer, feature, geojsonLayer, layerName);
-				
-				// Enregistrer camera markers (optimisé)
-				if (feature?.geometry?.type?.endsWith('Point') && feature?.properties?.imgUrl && layer instanceof L.Marker) {
-					window.CameraMarkers?.registerCameraMarker?.(layer, geojsonLayer);
-				}
 				
 				// HITLINES SUPPRIMÉES - MapLibre GL gère les clics nativement
 				// Les hitlines invisibles créaient des problèmes de performance
@@ -681,11 +495,6 @@ window.DataModule = (function() {
 		geojsonLayer.addData(data);
 		geojsonLayer.addTo(MapModule.map);
 		MapModule.addLayer(layerName, geojsonLayer);
-
-		const total = geojsonLayer.getFeatureCount?.() ?? geojsonLayer.getLayers().length;
-		const direct = geojsonLayer._pathFeatures?.length || 0;
-		const markers = geojsonLayer.getLayers().length;
-		console.log(`[DataModule] ✅ "${layerName}": ${data.features?.length || 0} → ${total} visibles (${(performance.now() - _t0).toFixed(1)}ms)${direct ? ` | direct=${direct} markers=${markers}` : ''}`);
 
 		// Surcharge du line-width quand des filtres sont actifs (O(pools) au lieu de O(N²))
 		if (criteria && Object.keys(criteria).length > 0) {
@@ -890,6 +699,11 @@ window.DataModule = (function() {
 			console.error('[DataModule] Erreur ouverture modale travaux:', e);
 		}
 	}
+
+	// Exposer les utilitaires partagés sur window (utilisés par ficheprojet, navigationmodule, contrib-map, travauxeditor)
+	window.getCategoryStyle = getCategoryStyle;
+	window.createCustomMarkerIcon = createCustomMarkerIcon;
+	window.createContributionMarkerIcon = createContributionMarkerIcon;
 
 	// Exposer les fonctions nécessaires
 	return {

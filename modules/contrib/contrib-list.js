@@ -494,15 +494,7 @@
     return icons[category?.toLowerCase()] || 'fa-folder';
   }
   
-  /**
-   * Échappe les caractères HTML pour éviter les XSS
-   */
-  function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
+  const escapeHtml = window.SecurityUtils.escapeHtml;
 
   // ============================================================================
   // LIST LOADING

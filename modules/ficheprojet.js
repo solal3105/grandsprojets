@@ -48,12 +48,7 @@ function toAbsoluteURL(url) {
   return url;
 }
 
-function escapeHTML(str) {
-  if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
+const escapeHTML = window.SecurityUtils.escapeHtml;
 
 function extractDomain(url) {
   try { return new URL(url).hostname.replace('www.', ''); }
@@ -225,26 +220,9 @@ function openPDFPreview(pdfUrl, title) {
    MAP
    =========================================================================== */
 
-function getCategoryStyle(category) {
-  const categoryIcon = window.categoryIcons?.find(c => c.category === category);
-  const iconClass = categoryIcon?.icon_class || 'fa-solid fa-map-marker';
-  let categoryColor = 'var(--primary)';
-  if (categoryIcon?.category_styles) {
-    try {
-      const styles = typeof categoryIcon.category_styles === 'string' ? JSON.parse(categoryIcon.category_styles) : categoryIcon.category_styles;
-      categoryColor = styles.color || categoryColor;
-    } catch (_) {}
-  }
-  return { color: categoryColor, iconClass };
-}
+const getCategoryStyle = window.getCategoryStyle;
 
-function createContributionMarkerIcon(category) {
-  const { color, iconClass } = category ? getCategoryStyle(category) : { color: 'var(--primary)', iconClass: 'fa-solid fa-map-marker' };
-  return window.L.divIcon({
-    html: `<div class="gp-custom-marker" style="--marker-color: ${color};"><i class="${iconClass}"></i></div>`,
-    className: 'gp-marker-container', iconSize: [32, 40], iconAnchor: [16, 40], popupAnchor: [0, -40]
-  });
-}
+const createContributionMarkerIcon = window.createContributionMarkerIcon;
 
 function getBasemapConfig(theme) {
   if (theme === 'dark') {
@@ -257,10 +235,8 @@ function getBasemapConfig(theme) {
 function createGeoJSONLayer(map, geojsonData, category) {
   return window.L.geoJSON(geojsonData, {
     style: feature => window.getFeatureStyle ? window.getFeatureStyle(feature, category) : { color: 'var(--primary)', weight: 3, opacity: 0.8, fillOpacity: 0.3 },
-    onEachFeature: (feature, layer) => { if (feature.properties?.imgUrl && window.CameraMarkers) window.CameraMarkers.bindCameraMarkerEvents(feature, layer); },
     pointToLayer: (feature, latlng) => {
       const props = feature?.properties || {};
-      if (props.imgUrl && window.CameraMarkers) return window.CameraMarkers.createCameraMarker(latlng, 'markerPane', props.color || '#666');
       return window.L.marker(latlng, { icon: createContributionMarkerIcon(props.category || category) });
     }
   }).addTo(map);
@@ -307,7 +283,6 @@ async function initProjectMap(containerId, projectName, category) {
         window.__ficheProjectBounds = layer.getBounds();
         window.__ficheProjectGeoJSON = data;
         window.__ficheProjectCategory = category;
-        if (window.CameraMarkers) window.CameraMarkers.initZoomControl(map);
       }
     } catch (e) { console.warn('[Map] GeoJSON error:', e); }
     return map;
@@ -594,7 +569,7 @@ async function initFicheProjet() {
     if (window.ThemeManager) window.ThemeManager.init();
 
     // 2. MarkdownUtils
-    if (window.MarkdownUtils) await window.MarkdownUtils.loadDeps();
+    if (window.MarkdownUtils) await window.MarkdownUtils.ensure();
 
     // 3. URL params
     const { projectName, category, city, isEmbed } = getURLParams();

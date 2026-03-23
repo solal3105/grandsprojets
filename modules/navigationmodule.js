@@ -2,23 +2,6 @@
 const NavigationModule = (() => {
   const projectDetailPanel = document.getElementById('project-detail');
   
-  function normalizeString(str) {
-    if (str === null || str === undefined) return "";
-    return String(str)
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[\u2018\u2019\u2032]/g, "'")
-      .replace(/[\u201C\u201D\u2033]/g, '"')
-      .replace(/[\u2013\u2014]/g, '-')
-      .replace(/['"\`´]/g, "'")
-      .replace(/\u00A0/g, ' ')
-      .replace(/[^a-zA-Z0-9\s-]/g, '')
-      .replace(/[-_]+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .toLowerCase();
-  }
-  
   // Fonction helper pour obtenir les catégories de contribution dynamiquement
   const getContributionLayers = () => {
     return (typeof window.getAllCategories === 'function') ? window.getAllCategories() : [];
@@ -49,23 +32,6 @@ const NavigationModule = (() => {
       } catch (e) {
         console.warn(`[NavigationModule] Erreur chargement layer ${layerName}:`, e);
         throw e;
-      }
-    }
-  }
-
-  /**
-   * S'assure que tous les layers d'une catégorie sont chargés
-   * @param {string} category - Nom de la catégorie
-   */
-  async function ensureCategoryLayersLoaded(category) {
-    const layers = getCategoryLayers(category);
-    console.log(`[NavigationModule] Chargement layers pour catégorie "${category}":`, layers);
-    
-    for (const layerName of layers) {
-      try {
-        await ensureLayerLoaded(layerName);
-      } catch (e) {
-        console.warn(`[NavigationModule] Impossible de charger ${layerName}`);
       }
     }
   }
@@ -204,176 +170,17 @@ const NavigationModule = (() => {
     return features.length > 0 ? features : null;
   }
 
-  /**
-   * Récupère le style d'une catégorie (FACTORISATION DRY)
-   * @param {string} category - Catégorie
-   * @returns {Object} { color, styles }
-   */
-  function getCategoryStyle(category) {
-    const categoryIcon = window.categoryIcons?.find(c => c.category === category);
-    let categoryColor = 'var(--primary)';
-    let categoryStyles = {};
-    
-    if (categoryIcon?.category_styles) {
-      try {
-        categoryStyles = typeof categoryIcon.category_styles === 'string'
-          ? JSON.parse(categoryIcon.category_styles)
-          : categoryIcon.category_styles;
-        categoryColor = categoryStyles.color || categoryColor;
-      } catch (_) {}
-    }
-
-    return { color: categoryColor, styles: categoryStyles };
-  }
-
-  /**
-   * Initialise la mini-carte de prévisualisation dans le panneau de détail (mobile)
-   * Clone les features du projet depuis le layer principal et les affiche
-   * @param {string} projectName - Nom du projet
-   * @param {string} category - Catégorie du projet
-   */
-  function initPreviewMap(projectName, category) {
-    const { color: categoryColor } = getCategoryStyle(category);
-
-    // EARLY RETURNS - éviter tout traitement inutile
-    const container = document.getElementById('project-preview-map');
-    if (!container || !window.L || window.innerWidth > 720) {
-      return; // Pas de container, pas de Leaflet, ou desktop → skip
-    }
-
-    // Nettoyer la carte précédente UNE SEULE FOIS
-    if (previewMap) {
-      if (previewMap._gpAnimationIntervals) {
-        previewMap._gpAnimationIntervals.forEach(interval => clearInterval(interval));
-      }
-      try { previewMap.remove(); } catch (_) {}
-      previewMap = null;
-    }
-
-    // Récupérer les features du projet - FACTORISATION
-    const projectFeatures = getProjectFeatures(projectName, category);
-    if (!projectFeatures || projectFeatures.length === 0) {
-      container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray-500);font-size:0.875rem;">Tracé non disponible</div>';
-      return;
-    }
-
-    // Créer le GeoJSON
-    const geojson = { type: 'FeatureCollection', features: projectFeatures };
-
-    // Déterminer le fond de carte selon le thème
-    const theme = document.documentElement.getAttribute('data-theme') || 'light';
-    const basemap = theme === 'light'
-      ? { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OSM' }
-      : { url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', attribution: '© CartoDB' };
-
-    // Créer la carte (zoom activé pour interaction)
-    previewMap = L.map(container, {
-      zoomControl: true,
-      attributionControl: false,
-      dragging: true,
-      touchZoom: true,
-      scrollWheelZoom: true,
-      doubleClickZoom: true,
-      boxZoom: false,
-      keyboard: false
-    });
-
-    L.tileLayer(basemap.url, { maxZoom: 19 }).addTo(previewMap);
-
-    // Stocker les intervalles d'animation pour cleanup
-    const animationIntervals = [];
-
-    // Ajouter le GeoJSON avec style animé (pointillés)
-    const geoLayer = L.geoJSON(geojson, {
-      style: (feature) => {
-        // Récupérer le style de base
-        let baseStyle = {};
-        if (window.getFeatureStyle) {
-          baseStyle = window.getFeatureStyle(feature, category);
-        } else {
-          baseStyle = {
-            color: categoryColor,
-            weight: 4,
-            opacity: 0.9,
-            fillOpacity: 0.3
-          };
-        }
-        // Ajouter les pointillés animés
-        return {
-          ...baseStyle,
-          weight: 5,
-          dashArray: '12, 8',
-          opacity: 1
-        };
-      },
-      pointToLayer: (feature, latlng) => {
-        const props = feature?.properties || {};
-        if (props.imgUrl && window.CameraMarkers) {
-          return window.CameraMarkers.createCameraMarker(latlng, 'markerPane', props.color || '#666');
-        }
-        // Utiliser le marker personnalisé
-        if (window.createContributionMarkerIcon) {
-          const icon = window.createContributionMarkerIcon(category);
-          return L.marker(latlng, { icon });
-        }
-        return L.marker(latlng, {
-          icon: L.divIcon({
-            className: 'gp-preview-dot',
-            html: `<div style="width:14px;height:14px;border-radius:50%;background:${categoryColor};border:2px solid #fff;"></div>`,
-            iconSize: [14, 14],
-            iconAnchor: [7, 7]
-          })
-        });
-      },
-      onEachFeature: (feature, layer) => {
-        // Animer les pointillés pour les lignes/polygones
-        const geomType = feature?.geometry?.type || '';
-        const isLineOrPolygon = geomType.includes('Line') || geomType.includes('Polygon');
-        
-        if (isLineOrPolygon && typeof layer.setStyle === 'function') {
-          let dashOffset = 0;
-          const interval = setInterval(() => {
-            dashOffset = (dashOffset + 2) % 20;
-            try {
-              layer.setStyle({ dashOffset: -dashOffset });
-            } catch (_) {
-              clearInterval(interval);
-            }
-          }, 50);
-          animationIntervals.push(interval);
-        }
-      }
-    }).addTo(previewMap);
-
-    // Stocker les intervalles pour cleanup lors de la destruction
-    previewMap._gpAnimationIntervals = animationIntervals;
-
-    // Ajuster le zoom sur le tracé
-    setTimeout(() => {
-      previewMap.invalidateSize();
-      const bounds = geoLayer.getBounds();
-      if (bounds.isValid()) {
-        previewMap.fitBounds(bounds, { padding: [20, 20] });
-      }
-    }, 100);
-
-    console.log(`[NavigationModule] ✅ Mini-carte initialisée avec ${projectFeatures.length} features (zoom + animation)`);
-  }
+  const getCategoryStyle = window.getCategoryStyle;
 
   /**
    * Affiche tous les layers d'une catégorie sur la carte
    * @param {string} category - Nom de la catégorie
    */
   async function showCategoryLayers(category) {
-    console.log(`[NavigationModule] ========== showCategoryLayers START ==========`);
-    console.log(`[NavigationModule] Catégorie: "${category}"`);
-    
     const layers = getCategoryLayers(category);
-    console.log(`[NavigationModule] Layers à afficher:`, layers);
     
     // Reset les filtres
     if (window.FilterModule?.resetAll) {
-      console.log(`[NavigationModule] Reset des filtres`);
       FilterModule.resetAll();
     }
     
@@ -387,8 +194,6 @@ const NavigationModule = (() => {
         existingFeaturesCount = existingLayer.getFeatureCount?.() ?? (typeof existingLayer.getLayers === 'function' ? existingLayer.getLayers().length : 0);
       }
       
-      console.log(`[NavigationModule] Layer "${layerName}": ${existingFeaturesCount} features sur la carte`);
-      
       // Si le layer existe déjà avec des données, le garder
       if (existingFeaturesCount > 0) {
         // S'assurer qu'il est visible
@@ -401,7 +206,6 @@ const NavigationModule = (() => {
       }
       
       // Sinon, essayer de charger les données
-      console.log(`[NavigationModule] Chargement du layer "${layerName}"...`);
       try {
         await ensureLayerLoaded(layerName);
       } catch (e) {
@@ -409,28 +213,6 @@ const NavigationModule = (() => {
       }
     }
     
-    // Log état final
-    const finalLayers = Object.keys(window.MapModule?.layers || {});
-    console.log(`[NavigationModule] Layers sur la carte après:`, finalLayers);
-    
-    // Compter les features visibles
-    finalLayers.forEach(ln => {
-      const layer = window.MapModule?.layers?.[ln];
-      if (layer) {
-        const count = layer.getFeatureCount?.() ?? (typeof layer.getLayers === 'function' ? layer.getLayers().length : 0);
-        console.log(`[NavigationModule] Layer "${ln}": ${count} features sur la carte`);
-      }
-    });
-    
-    console.log(`[NavigationModule] ========== showCategoryLayers END ==========`);
-  }
-
-  function loadOrCreateLayer(layerName) {
-    if (DataModule.layerData && DataModule.layerData[layerName]) {
-      DataModule.createGeoJsonLayer(layerName, DataModule.layerData[layerName]);
-    } else {
-      DataModule.loadLayer(layerName);
-    }
   }
 
   /**
@@ -441,35 +223,17 @@ const NavigationModule = (() => {
    * @param {Object} contributionData - Données de la contribution (optionnel)
    */
   async function showSpecificContribution(projectName, category, contributionData = null) {
-    console.log(`[NavigationModule] ========== showSpecificContribution START ==========`);
-    console.log(`[NavigationModule] Projet: "${projectName}"`);
-    console.log(`[NavigationModule] Catégorie: "${category}"`);
-    console.log(`[NavigationModule] Données contribution:`, contributionData);
-    
     const layerName = normalizeCategoryName(category);
-    console.log(`[NavigationModule] Layer normalisé: "${layerName}"`);
-    
-    // Log état AVANT
-    console.log(`[NavigationModule] Layers sur la carte AVANT:`, Object.keys(window.MapModule?.layers || {}));
     
     // S'assurer que le layer est chargé
     try {
       await ensureLayerLoaded(layerName);
-      console.log(`[NavigationModule] ✅ Layer "${layerName}" chargé`);
     } catch (e) {
-      console.warn('[NavigationModule] ⚠️ Layer non disponible:', e);
+      console.warn('[NavigationModule] Layer non disponible:', e);
     }
     
-    // Note: Le centrage est géré par highlightProjectOnMap() appelé dans showProjectDetail()
-    
-    // Log état APRÈS
-    console.log(`[NavigationModule] Layers sur la carte APRÈS:`, Object.keys(window.MapModule?.layers || {}));
-    
-    // Afficher le panneau de détail
-    console.log(`[NavigationModule] Affichage panneau de détail...`);
+    // Afficher le panneau de détail (le centrage est géré par highlightProjectOnMap)
     showProjectDetail(projectName, category, null, contributionData);
-    
-    console.log(`[NavigationModule] ========== showSpecificContribution END ==========`);
   }
 
   // Fonction utilitaire pour ajuster la vue de la carte
@@ -495,8 +259,6 @@ const NavigationModule = (() => {
   let _showProjectDebounceTimer = null;
 
   async function showProjectDetail(projectName, category, event, enrichedProps = null) {
-  console.log('[NavigationModule] 🎯 showProjectDetail called:', { projectName, category, hasEvent: !!event });
-  
   if (event?.stopPropagation) {
     event.stopPropagation();
   }
@@ -504,20 +266,12 @@ const NavigationModule = (() => {
   // GUARD: Éviter les appels redondants qui causent out of memory
   const projectKey = `${projectName}::${category}`;
   
-  console.log('[NavigationModule] 🔒 Guard check:', {
-    projectKey,
-    lastShownProject: _lastShownProject,
-    willSkip: _lastShownProject === projectKey
-  });
-  
   if (_lastShownProject === projectKey) {
-    console.log('[NavigationModule] ⏭️ SKIP - already showing this project');
     return; // Déjà affiché, skip
   }
   
   // Debounce pour éviter les appels en rafale
   if (_showProjectDebounceTimer) {
-    console.log('[NavigationModule] ⏱️ Clearing previous debounce timer');
     clearTimeout(_showProjectDebounceTimer);
   }
   
@@ -526,7 +280,6 @@ const NavigationModule = (() => {
   }, 100);
   
   _lastShownProject = projectKey;
-  console.log('[NavigationModule] ✅ Guard passed - proceeding with showProjectDetail');
   
   // Hide submenus and bottom nav bar when showing project detail
   document.querySelectorAll('.submenu').forEach(el => {
@@ -641,32 +394,20 @@ const NavigationModule = (() => {
       }
     }
     
-    async function ensureMarkdownUtils() {
-      
+    let attrs = {};
+    let html = '';
+    if (markdown) {
+      // Charger MarkdownUtils si nécessaire, puis ses dépendances
       if (!window.MarkdownUtils) {
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
           script.src = '/modules/MarkdownUtils.js';
-          script.onload = () => {
-            resolve();
-          };
-          script.onerror = () => {
-            const error = new Error('Échec du chargement de MarkdownUtils');
-            reject(error);
-          };
+          script.onload = resolve;
+          script.onerror = () => reject(new Error('Échec du chargement de MarkdownUtils'));
           document.head.appendChild(script);
         });
       }
-      
-      if (window.MarkdownUtils?.loadDeps) {
-        await window.MarkdownUtils.loadDeps();
-      }
-    }
-
-    let attrs = {};
-    let html = '';
-    if (markdown) {
-      await ensureMarkdownUtils();
+      await window.MarkdownUtils.ensure();
       ({ attrs, html } = window.MarkdownUtils.renderMarkdown(markdown));
     }
     

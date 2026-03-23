@@ -70,7 +70,20 @@
     }
   };
 
+  /**
+   * Normalise une classe d'icône FontAwesome en ajoutant 'fa-solid' si aucun préfixe FA n'est présent
+   * @param {string} iconClass - Classe d'icône (ex: 'fa-bus' ou 'fa-solid fa-bus')
+   * @param {string} fallback - Classe par défaut si iconClass est vide
+   * @returns {string} Classe normalisée (ex: 'fa-solid fa-bus')
+   */
+  function normalizeIconClass(iconClass, fallback) {
+    const cls = iconClass || fallback || 'fa-solid fa-map-marker';
+    if (cls.includes('fa-solid') || cls.includes('fa-regular') || cls.includes('fa-brands')) return cls;
+    return `fa-solid ${cls}`;
+  }
+
   // Exposer globalement
   win.SecurityUtils = SecurityUtils;
+  win.normalizeIconClass = normalizeIconClass;
 
 })(window);

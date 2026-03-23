@@ -280,16 +280,7 @@
     }
   }
 
-  /**
-   * Échappe les caractères HTML
-   * @param {string} str - Chaîne à échapper
-   * @returns {string} Chaîne échappée
-   */
-  function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
+  const escapeHtml = window.SecurityUtils.escapeHtml;
 
   /**
    * Affiche la modale d'invitation d'un nouvel utilisateur

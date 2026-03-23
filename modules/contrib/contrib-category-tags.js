@@ -37,17 +37,7 @@
   // UTILITIES
   // ============================================================================
 
-  /**
-   * Échappe les caractères HTML pour prévenir les XSS
-   * @param {string} str - Chaîne à échapper
-   * @returns {string} Chaîne échappée
-   */
-  function escapeHtml(str) {
-    if (!str) return '';
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
+  const escapeHtml = window.SecurityUtils.escapeHtml;
 
   /**
    * Valide une icône FontAwesome

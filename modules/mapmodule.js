@@ -3,17 +3,6 @@ window.MapModule = (() => {
   const map = L.map('map').setView([45.75, 4.85], 12);
   let baseLayer;
   
-  // DEPRECATED: Hitline pane - MapLibre GL gère les clics nativement
-  // Conservé temporairement pour compatibilité avec code legacy
-  const hitPaneName = 'hitlinePane';
-  const hitPane = map.createPane(hitPaneName);
-  hitPane.style.zIndex = 460;
-  const hitRenderer = L.svg({ pane: hitPaneName });
-  
-  // Camera markers pane
-  const cameraPaneName = 'cameraPane';
-  const cameraPane = map.createPane(cameraPaneName);
-  cameraPane.style.zIndex = 680;
   
   /**
    * Initialise le fond de carte après chargement de window.basemaps
@@ -62,10 +51,6 @@ window.MapModule = (() => {
       }
     });
     
-    // Gestion des camera markers (déléguée à CameraMarkers)
-    if (window.CameraMarkers?.updateCameraMarkersVisibility) {
-      window.CameraMarkers.updateCameraMarkersVisibility(map);
-    }
   };
 
   // Add a GeoJSON layer and update filter and marker visibility
@@ -102,10 +87,5 @@ window.MapModule = (() => {
     removeLayer, 
     setBaseLayer, 
     initBaseLayer,
-    // Expose hitline resources for other modules
-    hitRenderer,
-    hitPaneName,
-    // Expose camera pane for camera markers
-    cameraPaneName
   };
 })();

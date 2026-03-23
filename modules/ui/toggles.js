@@ -435,15 +435,7 @@ class ToggleManager {
   }
 
   _updateGroupVisibility() {
-    const dock = document.getElementById('toggle-dock');
-    if (!dock) return;
-    dock.querySelectorAll('.toggle-dock__group').forEach(group => {
-      const hasVisible = Array.from(group.querySelectorAll('.toggle-dock__btn')).some(btn => {
-        const s = window.getComputedStyle(btn);
-        return s.display !== 'none';
-      });
-      group.classList.toggle('toggle-dock__group--empty', !hasVisible);
-    });
+    // No-op: groups removed, all buttons are direct children of dock
   }
 
   _bindResize() {

@@ -42,8 +42,8 @@
 
       const toggleEl = document.getElementById('theme-toggle');
       if (toggleEl) {
-        toggleEl.title = theme === 'dark' ? 'Mode clair' : 'Mode sombre';
-        toggleEl.setAttribute('aria-label', toggleEl.title);
+        toggleEl.setAttribute('data-title', theme === 'dark' ? 'Mode clair' : 'Mode sombre');
+        toggleEl.setAttribute('aria-label', toggleEl.getAttribute('data-title'));
         toggleEl.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
       }
       

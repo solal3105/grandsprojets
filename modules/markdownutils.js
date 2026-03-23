@@ -140,6 +140,11 @@
     return { attrs, html: safeHtml };
   }
 
+  // Méthode ensure() : charge le module et ses dépendances si nécessaire
+  async function ensure() {
+    await loadDeps();
+  }
+
   // Exposition globale
-  window.MarkdownUtils = { loadDeps, renderMarkdown, preprocessCustomMarkdown };
+  window.MarkdownUtils = { loadDeps, renderMarkdown, preprocessCustomMarkdown, ensure };
 })();

@@ -17,11 +17,7 @@
   // UTILITIES
   // ============================================================================
 
-  function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
+  const escapeHtml = window.SecurityUtils.escapeHtml;
 
   function slugify(str) {
     return String(str || '')

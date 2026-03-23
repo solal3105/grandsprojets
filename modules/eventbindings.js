@@ -6,7 +6,6 @@ const EventBindings = (() => {
 
   const handleNavigation = async (menu, layersToDisplay) => {
     const thisGen = ++_navGeneration;
-    console.log(`[EventBindings] handleNavigation: "${menu}" gen=${thisGen}`);
     
     // Validation du menu
     if (!menu) {
@@ -58,7 +57,6 @@ const EventBindings = (() => {
 
       // Guard: abort if a newer navigation happened during fetch
       if (_navGeneration !== thisGen) {
-        console.log(`[EventBindings] ⏭️ Stale navigation gen=${thisGen}, current=${_navGeneration}`);
         return;
       }
 
@@ -80,10 +78,6 @@ const EventBindings = (() => {
     } else {
       console.error(`[EventBindings] SubmenuManager non disponible pour ${menu}`);
     }
-    
-    console.log(`[EventBindings] ✅ handleNavigation TERMINÉ`);
-    console.log(`[EventBindings] MapModule.layers après:`, Object.keys(window.MapModule?.layers || {}));
-    console.log(`[EventBindings] ========== handleNavigation END ==========`);
   };
 
   // Gestion des contrôles de filtres
@@ -118,11 +112,8 @@ const bindFilterControls = () => {
     const categoryIcons = window.categoryIcons || [];
     
     if (categoryIcons.length === 0) {
-      console.warn('[EventBindings] bindCategoryNavigation: aucune catégorie disponible');
       return;
     }
-    
-    console.log('[EventBindings] bindCategoryNavigation - Catégories:', categoryIcons.map(c => c.category));
     
     categoryIcons.forEach(({ category }) => {
       // Ignorer le bouton "Contribuer" qui a son propre gestionnaire dans contrib.js
@@ -142,11 +133,7 @@ const bindFilterControls = () => {
         const currentCategoryLayersMap = window.categoryLayersMap || {};
         const categoryLayers = currentCategoryLayersMap[category];
         
-        console.log(`[EventBindings] 🔍 Clic sur catégorie "${category}"`);
-        console.log(`[EventBindings]  Layers pour cette catégorie:`, categoryLayers);
-        
         if (!categoryLayers || categoryLayers.length === 0) {
-          console.log(`[EventBindings] 🔄 Fallback: utilisation de ["${category}"] comme layer`);
           EventBindings.handleNavigation(category, [category]);
         } else {
           EventBindings.handleNavigation(category, categoryLayers);
@@ -205,7 +192,7 @@ const bindFilterControls = () => {
           detailPanel.style.display = 'block';
           detailPanel.dataset.category = category;
           
-          const safeProjectName = win.SecurityUtils ? win.SecurityUtils.escapeHtml(projectName) : projectName;
+          const safeProjectName = window.SecurityUtils ? window.SecurityUtils.escapeHtml(projectName) : projectName;
           detailContent.innerHTML = `# ${safeProjectName}\n\nAucun détail disponible pour ce projet.`;
         }
       }

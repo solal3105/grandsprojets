@@ -2,7 +2,6 @@
 // Unified fullscreen image lightbox — replaces 3 separate implementations:
 //   - navigationmodule.js .cover-lightbox
 //   - ficheprojet.js .fiche-lightbox
-//   - cameramarkers.js #fp-img-lightbox (inline styles)
 
 ;(function(win) {
   'use strict';

@@ -62,53 +62,9 @@
   // UTILITIES
   // ============================================================================
 
-  /**
-   * Récupère la couleur et l'icône d'une catégorie
-   * @param {string} category - Nom de la catégorie
-   * @returns {Object} { color, iconClass }
-   */
-  function getCategoryStyle(category) {
-    const categoryIcon = win.categoryIcons?.find(c => c.category === category);
-    const iconClass = categoryIcon?.icon_class || 'fa-solid fa-map-marker';
-    
-    // Extraire la couleur de la catégorie depuis category_styles
-    let categoryColor = 'var(--primary)'; // Couleur par défaut
-    if (categoryIcon?.category_styles) {
-      try {
-        const styles = typeof categoryIcon.category_styles === 'string' 
-          ? JSON.parse(categoryIcon.category_styles) 
-          : categoryIcon.category_styles;
-        categoryColor = styles.color || categoryColor;
-      } catch (e) {
-        console.warn('[contrib-map] Parse error category_styles:', e);
-      }
-    }
-    
-    return { color: categoryColor, iconClass };
-  }
+  const getCategoryStyle = win.getCategoryStyle;
 
-  /**
-   * Crée un marker de contribution avec l'icône de la catégorie sélectionnée
-   * @param {string} category - Nom de la catégorie (optionnel)
-   * @returns {L.DivIcon} Icône personnalisée avec l'icône de la catégorie
-   */
-  function createContributionMarkerIcon(category) {
-    // Récupérer les styles de la catégorie
-    const { color, iconClass } = category ? getCategoryStyle(category) : { color: 'var(--primary)', iconClass: 'fa-solid fa-map-marker' };
-    
-    // Créer le marker avec design sobre : pin blanc avec bordure colorée et icône
-    return L.divIcon({
-      html: `
-        <div class="gp-custom-marker" style="--marker-color: ${color};">
-          <i class="${iconClass}"></i>
-        </div>
-      `,
-      className: 'gp-marker-container',
-      iconSize: [32, 40],
-      iconAnchor: [16, 40],
-      popupAnchor: [0, -40]
-    });
-  }
+  const createContributionMarkerIcon = win.createContributionMarkerIcon;
 
   /**
    * Génère le HTML pour un marker selon le style et la couleur

@@ -50,7 +50,7 @@
   --dock-btn-hover: rgba(255, 255, 255, 0.07);
   --dock-sep: rgba(255, 255, 255, 0.07);
   --dock-icon: var(--gray-400);
-  --dock-icon-hover: var(--gray-100);
+  --dock-icon-hover: var(--gray-600);
   --dock-tooltip-bg: var(--gray-200);
   --dock-tooltip-fg: var(--gray-900);
 }
@@ -96,28 +96,6 @@
       inset 0 0 16px var(--primary-alpha-06);
   }
   100% { box-shadow: var(--dock-shadow); }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   GROUPS — Logical grouping with separators
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.toggle-dock__group {
-  display: flex;
-  align-items: center;
-  gap: var(--dock-gap);
-}
-
-/* Separator between groups */
-.toggle-dock__group + .toggle-dock__group::before {
-  content: '';
-  display: block;
-  width: 1px;
-  height: 18px;
-  margin: 0 5px;
-  background: var(--dock-sep);
-  border-radius: 1px;
-  flex-shrink: 0;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -297,8 +275,8 @@
    TOOLTIP — Hover label shown BELOW the button (never clips top of screen)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-.toggle-dock__btn[title]::before {
-  content: attr(title);
+.toggle-dock__btn[data-title]::before {
+  content: attr(data-title);
   position: absolute;
   top: calc(100% + 8px);
   left: 50%;
@@ -329,42 +307,11 @@
   top: calc(100% + 12px);
 }
 
-/* Clamp: buttons near right edge — anchor tooltip to the right */
-.toggle-dock__group:last-child .toggle-dock__btn:last-child[title]::before,
-.toggle-dock__btn--overflow[title]::before {
-  left: auto;
-  right: 0;
-  transform: translateY(-4px);
-}
-.toggle-dock__group:last-child .toggle-dock__btn:last-child:hover::before,
-.toggle-dock__btn--overflow:hover::before {
-  transform: translateY(0);
-}
-
-/* Clamp: buttons near left edge — anchor tooltip to the left */
-.toggle-dock__group:first-child .toggle-dock__btn:first-child[title]::before {
-  left: 0;
-  right: auto;
-  transform: translateY(-4px);
-}
-.toggle-dock__group:first-child .toggle-dock__btn:first-child:hover::before {
-  transform: translateY(0);
-}
-
 /* Suppress tooltip on touch devices */
 @media (hover: none) {
   .toggle-dock__btn::before {
     display: none !important;
   }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   EMPTY GROUPS — Collapse groups where all toggles are hidden/unready
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-/* JS adds .toggle-dock__group--empty when all children are hidden */
-.toggle-dock__group--empty {
-  display: none !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -394,18 +341,6 @@
 .toggle-dock__logo:hover img {
   opacity: 1;
   transform: scale(1.04);
-}
-
-/* Separator after logo */
-.toggle-dock__logo + .toggle-dock__group::before {
-  content: '';
-  display: block;
-  width: 1px;
-  height: 18px;
-  margin: 0 5px;
-  background: var(--dock-sep);
-  border-radius: 1px;
-  flex-shrink: 0;
 }
 
 /* Dock logo always hidden — desktop uses #left-nav, mobile uses .mobile-fixed-logo */
@@ -892,15 +827,6 @@
     right: 10px;
     left: auto;
     gap: 0;
-  }
-
-  .toggle-dock__group {
-    gap: 1px;
-  }
-
-  .toggle-dock__group + .toggle-dock__group::before {
-    margin: 0 2px;
-    height: 14px;
   }
 
   .toggle-dock__btn i {

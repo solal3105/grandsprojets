@@ -162,29 +162,8 @@ const TravauxEditorModule = (() => {
     { icon: 'fa-solid fa-tree', label: 'Espaces verts' }
   ];
   
-  /**
-   * Crée l'icône marker travaux avec le même design que les markers enregistrés
-   * Utilise le système unifié gp-custom-marker avec icône personnalisable et couleur warning
-   * @param {string} iconClass - Classe FontAwesome de l'icône (optionnel, défaut: casque)
-   */
   function createTravauxMarkerIcon(iconClass = DEFAULT_TRAVAUX_ICON) {
-    // Normaliser l'icône
-    let finalIcon = iconClass || DEFAULT_TRAVAUX_ICON;
-    if (!finalIcon.includes('fa-solid') && !finalIcon.includes('fa-regular') && !finalIcon.includes('fa-brands')) {
-      finalIcon = `fa-solid ${finalIcon}`;
-    }
-    
-    return L.divIcon({
-      html: `
-        <div class="gp-custom-marker" style="--marker-color: var(--color-warning);">
-          <i class="${finalIcon}"></i>
-        </div>
-      `,
-      className: 'gp-marker-container',
-      iconSize: [32, 40],
-      iconAnchor: [16, 40],
-      popupAnchor: [0, -40]
-    });
+    return window.createCustomMarkerIcon(null, iconClass, 'var(--color-warning)');
   }
   
   /**

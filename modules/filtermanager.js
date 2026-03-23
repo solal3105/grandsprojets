@@ -73,12 +73,7 @@
       if (contributionCategories.length > 0) {
         contributionCategories.forEach(category => {
           const cfg = (window.categoryConfig && window.categoryConfig[category]) || {};
-          let iconClass = cfg.icon || '';
-          
-          // Ajouter fa-solid si manquant
-          if (iconClass && !iconClass.includes('fa-solid') && !iconClass.includes('fa-regular') && !iconClass.includes('fa-brands')) {
-            iconClass = `fa-solid ${iconClass}`;
-          }
+          let iconClass = cfg.icon ? window.normalizeIconClass(cfg.icon) : '';
           
           const labelText = String(category || '');
           
@@ -126,10 +121,7 @@
           iconClass = 'fa-layer-group';
         }
         
-        // Ajouter fa-solid si manquant
-        if (iconClass && !iconClass.includes('fa-solid') && !iconClass.includes('fa-regular') && !iconClass.includes('fa-brands')) {
-          iconClass = `fa-solid ${iconClass}`;
-        }
+        if (iconClass) iconClass = window.normalizeIconClass(iconClass);
         
         // Déterminer le label : priorité à filter_items
         const label = (filterItemInfo && filterItemInfo.label) || layer.label || layer.name;

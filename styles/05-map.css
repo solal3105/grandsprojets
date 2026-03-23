@@ -14,32 +14,6 @@
   display: none !important;
 }
 
-/* ---------------------------------------------------------------------------
-   Camera markers — image popup / tooltip
---------------------------------------------------------------------------- */
-.image-popup {
-  z-index: 10000 !important;
-}
-
-.image-popup .maplibregl-popup-content {
-  background: none !important;
-  border: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  box-shadow: none !important;
-}
-
-.image-popup .maplibregl-popup-content img {
-  display: block;
-  max-width: 500px;
-  max-height: 500px;
-  border-radius: 8px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-}
-
-.image-popup .maplibregl-popup-tip {
-  display: none !important;
-}
 
 .image-tooltip {
   background: none !important;
