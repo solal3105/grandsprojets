@@ -816,12 +816,7 @@
         window.FeatureInteractions.init(window.MapModule.map._mlMap);
       }
       
-      // Stub tooltip (les tooltips sont gérés par bindTooltip via compat layer)
-      if (window.TooltipManager) {
-        window.TooltipManager.init();
-      }
-      
-      // Note: SearchModule.init() est appelé tôt (ligne ~161) car il n'a pas de dépendances avec les données
+// Note: SearchModule.init() est appelé tôt (ligne ~161) car il n'a pas de dépendances avec les données
       
       // PHASE 7 : Unified toggle actions (all through ToggleManager)
       // ToggleManager handles: click → state → ARIA → visual feedback
