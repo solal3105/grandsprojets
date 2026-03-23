@@ -11,7 +11,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: resolve(__dirname, '../_home'),
+    outDir: resolve(__dirname, '../home'),
     emptyOutDir: true,
   },
   server: {

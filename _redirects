@@ -15,11 +15,9 @@
 /logout/*           /logout/:splat        200
 /assistant-ia/*     /assistant-ia/:splat  200
 
-# Home (Vue SPA) — assets servis depuis _home/, SPA fallback pour le routing
-/home/assets/*      /_home/assets/:splat  200!
-/home/img/*         /_home/img/:splat     200!
-/home               /_home/index.html     200!
-/home/*             /_home/index.html     200!
+# Home (Vue SPA) — SPA fallback pour le routing
+/home               /home/index.html      200!
+/home/*             /home/index.html      200!
 
 # Ancienne landing-page redirigée vers /home
 /landing-page       /home/                    301
