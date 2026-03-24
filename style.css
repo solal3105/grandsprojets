@@ -1,85 +1,41 @@
 /* ===========================================================================
    GRANDSPROJETS - Style Principal Modulaire
-   
-   Architecture CSS modulaire pour une maintenance facilitée
-   Tous les CSS sont désormais dans le dossier /styles/
+   Architecture CSS modulaire - Tous les CSS dans /styles/
    =========================================================================== */
 
-/* 00 - Variables de couleurs */
+/* ═══ FONDATIONS ═══ */
 @import url('./styles/00-colors.css');
-
-/* 01 - Base - Fondations et reset */
 @import url('./styles/01-base.css');
+@import url('./styles/02-layout.css');
 
-/* 02 - Layout - Structure globale */
-@import url('./styles/02-layout.css?v=4');
-
-/* 03 - Navigation - Left nav, sous-menus, listes projets */
-@import url('./styles/03-navigation.css?v=5');
-
-/* 03.5 - GP Card System - Système de cartes unifié */
-/* @import url('./styles/gp-card-system.css'); */ /* Fichier manquant - désactivé */
-
-/* 03.6 - GP Button System - Système de boutons unifié */
+/* ═══ NAVIGATION & COMPOSANTS ═══ */
+@import url('./styles/03-navigation.css');
+@import url('./styles/04-components.css');
 @import url('./styles/gp-button-system.css');
 
-/* 03.7 - GP Markdown Content - Styles pour contenu markdown */
-/* @import url('./styles/gp-markdown-content.css'); */ /* Fichier manquant - désactivé */
-
-/* 04 - Components - Composants réutilisables (filtres, badges, covers, CTA) */
-@import url('./styles/04-components.css?v=4');
-
-/* 05 - Map - MapLibre GL, tooltips, popups, markers */
+/* ═══ CARTE ═══ */
 @import url('./styles/05-map.css');
-
-/* 06 - Modals - Toutes les modales et overlays (contrib, travaux, city) */
-@import url('./styles/06-modals.css');
-
-/* 07 - Admin - Interfaces d'administration */
-@import url('./styles/07-admin.css');
-
-/* 08 - Responsive - Media queries */
-@import url('./styles/08-responsive.css?v=5');
-
-/* 09 - Fiche projet - Page de détail des projets */
-/* @import url('./styles/09-ficheprojet.css'); */ /* Fichier manquant - désactivé */
-
-/* 10 - About modal - Modale À propos */
-@import url('./styles/10-about-modal.css');
-
-/* 11 - Toggles - Boutons de basculement */
-@import url('./styles/11-toggles.css');
-
-/* 13 - Modal system - Système unifié pour toutes les modales */
-@import url('./styles/13-modal-system.css');
-
-/* 14 - Modal components - Composants avancés pour modales (breadcrumb, sections, footer) */
-@import url('./styles/14-modal-components.css');
-
-/* 15 - Travaux Editor - Interface de création/édition de chantiers */
-@import url('./styles/travaux-editor.css');
-
-/* 16 - GP Custom Markers - Design unifié sobre et visible pour tous les markers */
 @import url('./styles/gp-custom-markers.css');
-
-/* 17 - Système de tags pour les contributions */
-@import url('./styles/contrib-tags.css');
-
-/* 18 - Contribution Markers (legacy - peut être supprimé) */
-/* @import url('./styles/contribution-markers.css'); */
-
-/* 19 - Article View - Vue magazine des contributions */
-@import url('./styles/article-view.css');
-
-/* 20 - Hover Popup - Premium hover popup for map features */
 @import url('./styles/hover-popup.css');
 
-/* 21 - Fiche Modal - Fullscreen iframe modal for project fiches */
+/* ═══ MODALES ═══ */
+@import url('./styles/06-modals.css');
+@import url('./styles/10-about-modal.css');
+@import url('./styles/13-modal-system.css');
+@import url('./styles/14-modal-components.css');
 @import url('./styles/fiche-modal.css');
 
-/* 22 - GP Lightbox - Unified fullscreen image viewer */
+/* ═══ FONCTIONNALITÉS ═══ */
+@import url('./styles/07-admin.css');
+@import url('./styles/11-toggles.css');
+@import url('./styles/travaux-editor.css');
+@import url('./styles/contrib-tags.css');
+@import url('./styles/article-view.css');
+
+/* ═══ UTILITAIRES ═══ */
 @import url('./styles/gp-lightbox.css');
-
-/* 23 - GP Toast - Unified toast notification system */
 @import url('./styles/gp-toast.css');
+@import url('./styles/gp-icon-picker.css');
 
+/* ═══ RESPONSIVE (toujours en dernier) ═══ */
+@import url('./styles/08-responsive.css');
