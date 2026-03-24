@@ -450,6 +450,9 @@
       try {
         const projects = await win.supabaseService?.fetchProjectsByCategory(category);
 
+        // Guard: abort if user switched modules during the async fetch
+        if (this._currentModule !== 'carte') return;
+
         if (!projects?.length) {
           this._level3.innerHTML = '<div class="nav-panel__empty"><i class="fas fa-folder-open"></i><span>Aucun projet disponible</span></div>';
           return;
@@ -481,6 +484,9 @@
       // Load travaux layers
       await this._loadTravauxLayers();
 
+      // Guard: abort if user switched modules during the async load
+      if (this._currentModule !== 'travaux') return;
+
       // Load data
       const TM = win.TravauxModule;
       if (!TM) {
@@ -493,6 +499,8 @@
       if (!hasData) {
         // Skeleton is already showing from openLevel3 — just silently wait for data
         try { await win.DataModule?.loadLayer(LAYER); } catch (_) {}
+        // Re-guard after second async
+        if (this._currentModule !== 'travaux') return;
       }
 
       const allFeatures = win.DataModule?.layerData?.[LAYER]?.features || [];
@@ -837,7 +845,10 @@
       this._travauxLoadPromise = doLoad();
       try {
         await this._travauxLoadPromise;
-        this._travauxLayersLoaded = true;
+        // Only flag as loaded if we are still in travaux — avoids poisoning goBack/restore logic
+        if (this._currentModule === 'travaux') {
+          this._travauxLayersLoaded = true;
+        }
       } finally {
         this._travauxLoadPromise = null;
       }
@@ -892,7 +903,7 @@
     _clearAllMapLayers() {
       this._removeLayersExcept();
       this._travauxLayersLoaded = false;
-      this._travauxLoadPromise = null;
+      // Don't null _travauxLoadPromise — let it finish naturally (guard prevents layer creation)
     },
 
     /**
@@ -907,7 +918,9 @@
 
       if (!keepTravaux) {
         this._travauxLayersLoaded = false;
-        this._travauxLoadPromise = null;
+        // Don't null _travauxLoadPromise here — let the running promise finish naturally
+        // and its guard will prevent layer creation. Nulling causes _travauxLayersLoaded
+        // desync when the abandoned promise's finally block runs after the flag is reset.
       }
 
       // Réafficher les contributions depuis le cache
