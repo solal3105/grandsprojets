@@ -608,7 +608,10 @@
               padding: mob
                 ? { top: 60, right: 40, bottom: bottomPad, left: 40 }
                 : { top: 80, right: 80, bottom: bottomPad, left: 80 },
-              maxZoom: 16, duration: 600
+              maxZoom: 16, duration: 600,
+              // Reset pitch so perspective tilt doesn't push the feature
+              // outside the visible (unobscured) portion of the viewport
+              pitch: 0
             });
           }
         } catch(_) {}

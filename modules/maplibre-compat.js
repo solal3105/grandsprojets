@@ -1948,7 +1948,12 @@
         if (options.padding) fitOpts.padding = typeof options.padding === 'number' ? options.padding : options.padding;
         if (options.maxZoom) fitOpts.maxZoom = options.maxZoom;
         if (options.animate === false) fitOpts.duration = 0;
+        if (options.duration !== undefined) fitOpts.duration = options.duration;
+        if (options.bearing !== undefined) fitOpts.bearing = options.bearing;
       }
+      // Always reset pitch: with tilt > 0 the perspective projection pushes features
+      // outside the visually unobstructed viewport even when bbox maths says they fit.
+      fitOpts.pitch = options?.pitch ?? 0;
       this._mlMap.fitBounds(mlBounds, fitOpts);
       return this;
     }
@@ -1957,9 +1962,16 @@
       this._mlMap.panTo([ll.lng, ll.lat], options);
       return this;
     }
-    flyTo(latlng, zoom) {
+    flyTo(latlng, zoom, options) {
       const ll = toLatLng(latlng);
-      this._mlMap.flyTo({ center: [ll.lng, ll.lat], zoom: zoom || this.getZoom() });
+      // Reset pitch for the same reason as fitBounds: perspective tilt displaces features
+      this._mlMap.flyTo({
+        center: [ll.lng, ll.lat],
+        zoom: zoom || this.getZoom(),
+        pitch: options?.pitch ?? 0,
+        ...(options?.bearing !== undefined ? { bearing: options.bearing } : {}),
+        ...(options?.duration !== undefined ? { duration: options.duration } : {})
+      });
       return this;
     }
 

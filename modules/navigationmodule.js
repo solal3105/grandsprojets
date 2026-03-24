@@ -248,7 +248,7 @@ const NavigationModule = (() => {
       }
     });
     if (combinedBounds) {
-      MapModule.map.fitBounds(combinedBounds, { padding: [100, 100] });
+      MapModule.map.fitBounds(combinedBounds, { padding: [100, 100], pitch: 0 });
     } else {
       MapModule.map.setView([45.75, 4.85], 12);
     }
