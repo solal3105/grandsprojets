@@ -21,6 +21,9 @@
     _currentModule: null,   // 'carte' | 'travaux'
     _currentCategory: null, // category slug at level 3
     _level: 0,              // 0 = closed, 2 = level 2, 3 = level 3
+    _collapsed: false,      // true = panel hidden but state preserved
+    _travauxLayersLoaded: false,
+    _travauxLoadPromise: null,
 
     /* ──────────────────────────────────────────────────────────────────── */
     /*  INIT                                                               */
@@ -34,6 +37,7 @@
       this._headerTitle = this._panel.querySelector('.nav-panel__title');
       this._backBtn = this._panel.querySelector('.nav-panel__back');
       this._closeBtn = this._panel.querySelector('.nav-panel__close');
+      this._collapseBtn = this._panel.querySelector('.nav-panel__collapse');
       this._breadcrumb = this._panel.querySelector('.nav-panel__breadcrumb');
       this._level2 = this._panel.querySelector('.nav-panel__level2');
       this._level3 = this._panel.querySelector('.nav-panel__level3');
@@ -45,18 +49,21 @@
       if (this._closeBtn) {
         this._closeBtn.addEventListener('click', () => this.close());
       }
+      if (this._collapseBtn) {
+        this._collapseBtn.addEventListener('click', () => this.collapse());
+      }
       if (this._backBtn) {
         this._backBtn.addEventListener('click', () => this.goBack());
       }
       if (this._scrim) {
-        this._scrim.addEventListener('click', () => this.close());
+        this._scrim.addEventListener('click', () => this.collapse());
       }
 
-      // Escape to close
+      // Escape: L3 → back, L2 → collapse (not full close)
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && this._level > 0) {
+        if (e.key === 'Escape' && this._level > 0 && !this._collapsed) {
           if (this._level === 3) this.goBack();
-          else this.close();
+          else this.collapse();
         }
       });
     },
@@ -72,11 +79,8 @@
     openModule(mod) {
       if (!this._panel) return;
 
-      // If same module and already open at level 2, close instead (toggle)
-      if (this._currentModule === mod && this._level === 2) {
-        this.close();
-        return;
-      }
+      this._collapsed = false;
+      this._panel.classList.remove('collapsed');
 
       this._currentModule = mod;
       this._currentCategory = null;
@@ -156,10 +160,11 @@
     close() {
       if (!this._panel) return;
 
-      this._panel.classList.remove('open');
+      this._panel.classList.remove('open', 'collapsed');
       if (this._scrim) this._scrim.classList.remove('visible');
 
       this._level = 0;
+      this._collapsed = false;
       this._currentModule = null;
       this._currentCategory = null;
 
@@ -179,6 +184,35 @@
      */
     isOpen() {
       return this._level > 0;
+    },
+
+    /**
+     * Collapse — hide panel but preserve all state
+     */
+    collapse() {
+      if (!this._panel || !this.isOpen() || this._collapsed) return;
+      this._collapsed = true;
+      this._panel.classList.add('collapsed');
+      if (this._scrim) this._scrim.classList.remove('visible');
+      this._updateMapPadding(false);
+    },
+
+    /**
+     * Expand — restore collapsed panel
+     */
+    expand() {
+      if (!this._panel || !this._collapsed) return;
+      this._collapsed = false;
+      this._panel.classList.remove('collapsed');
+      if (this._scrim) this._scrim.classList.add('visible');
+      this._updateMapPadding(true);
+    },
+
+    /**
+     * Check if panel is collapsed
+     */
+    isCollapsed() {
+      return this._collapsed === true;
     },
 
     /**
@@ -656,8 +690,26 @@
       const layersMap = win.categoryLayersMap || {};
       const travauxLayers = layersMap['travaux'] || ['travaux'];
 
+      // Fast path: if already loaded and still present on map, skip expensive full navigation reload.
+      if (this._travauxLayersLoaded && !this._travauxLoadPromise) {
+        const hasLayerOnMap = travauxLayers.some(name => !!win.MapModule?.layers?.[name]);
+        if (hasLayerOnMap) return;
+      }
+
+      // De-duplicate concurrent calls (open module + open section, back/forward transitions, etc.).
+      if (this._travauxLoadPromise) {
+        await this._travauxLoadPromise;
+        return;
+      }
+
       if (win.EventBindings?.handleNavigation) {
-        await win.EventBindings.handleNavigation('travaux', travauxLayers);
+        this._travauxLoadPromise = win.EventBindings.handleNavigation('travaux', travauxLayers);
+        try {
+          await this._travauxLoadPromise;
+          this._travauxLayersLoaded = true;
+        } finally {
+          this._travauxLoadPromise = null;
+        }
       }
     },
 
@@ -689,6 +741,10 @@
           win.DataModule.createGeoJsonLayer(layer, win.DataModule.layerData[layer]);
         }
       });
+
+      // Travaux layers are no longer guaranteed on map after a full restore.
+      this._travauxLayersLoaded = false;
+      this._travauxLoadPromise = null;
     },
 
     /* ──────────────────────────────────────────────────────────────────── */

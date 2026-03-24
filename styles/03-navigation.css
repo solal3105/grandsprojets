@@ -4,17 +4,17 @@
    =========================================================================== */
 
 
-/* Standalone fixed logo — transparent, no background */
+/* Standalone fixed logo — visible only on mobile */
 .mobile-fixed-logo {
   position: fixed;
   top: 16px;
   left: 16px;
   z-index: 1600;
-  display: flex; /* visible on all screens */
+  display: none;
   align-items: center;
   justify-content: center;
   text-decoration: none;
-  transition: transform 0.2s ease;
+  transition: transform 0.15s ease;
 }
 
 .mobile-fixed-logo:active {
@@ -22,7 +22,7 @@
 }
 
 .mobile-fixed-logo img {
-  height: 48px;
+  height: 44px;
   width: auto;
   object-fit: contain;
   display: block;

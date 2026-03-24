@@ -63,9 +63,13 @@
     },
 
     _activateModule(mod) {
-      // Toggle behavior: clicking same module closes the panel
-      if (this._activeModule === mod && win.NavPanel?.isOpen()) {
-        win.NavPanel.close();
+      // Same module: toggle collapse/expand
+      if (this._activeModule === mod) {
+        if (win.NavPanel?.isCollapsed()) {
+          win.NavPanel.expand();
+        } else if (win.NavPanel?.isOpen()) {
+          win.NavPanel.collapse();
+        }
         return;
       }
 

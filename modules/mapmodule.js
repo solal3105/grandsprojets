@@ -1,6 +1,6 @@
 window.MapModule = (() => {
   // Initialize the map view using Leaflet compatibility layer (backed by MapLibre GL)
-  const map = L.map('map').setView([45.75, 4.85], 12);
+  const map = L.map('map', { attributionControl: false }).setView([45.75, 4.85], 12);
   let baseLayer;
   
   

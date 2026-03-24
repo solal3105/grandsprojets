@@ -1,25 +1,15 @@
 /* ===========================================================================
-   RESPONSIVE - Media queries for bottom-bar navigation
+   RESPONSIVE — Mobile breakpoints
    =========================================================================== */
 
-/* ========================================
-   MOBILE - Ultra compact (≤ 400px)
-   ======================================== */
+/* ── Ultra compact (≤ 400px) ── */
 @media (max-width: 400px) {
-  .mobile-fixed-logo {
-    padding: 0 10px;
-  }
-
   .mobile-fixed-logo img {
-    height: 26px;
-    max-width: 90px;
+    height: 28px;
   }
-
 }
 
-/* ========================================
-   MOBILE - Compact (≤ 520px)
-   ======================================== */
+/* ── Compact (≤ 520px) ── */
 @media (max-width: 520px) {
   #contrib-overlay .contrib-list-item {
     grid-template-columns: 72px 1fr;
@@ -27,9 +17,7 @@
   }
 }
 
-/* ========================================
-   MOBILE - Small (≤ 640px)
-   ======================================== */
+/* ── Small (≤ 640px) ── */
 @media (max-width: 640px) {
   .detail-hero {
     height: 140px;
@@ -45,13 +33,8 @@
   }
 }
 
-/* ========================================
-   MOBILE - Base (≤ 720px)
-   ======================================== */
+/* ── Base mobile (≤ 720px) ── */
 @media (max-width: 720px) {
-
-
-  /* UI Elements */
   .mobile-fixed-logo {
     display: flex;
   }
@@ -66,10 +49,7 @@
   }
 }
 
-
-/* ========================================
-   ACCESSIBILITY - Reduced motion
-   ======================================== */
+/* ── Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

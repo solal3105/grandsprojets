@@ -1,7 +1,6 @@
 /* ===========================================================================
-   SIDEBAR — Premium Edge-Anchored Navigation
-   Non-floating, full-height, spacious, world-class design
-   Inspired by Linear, Figma, Notion — clean, minimal, functional
+   SIDEBAR — Floating Glass Capsule Navigation
+   Apple-inspired glassmorphism — hovering off the edge
    =========================================================================== */
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -9,102 +8,114 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --sidebar-w: 80px;
-  --sidebar-bg: var(--surface-base);
-  --sidebar-border: var(--border-light);
-  --sidebar-btn-size: 56px;
-  --sidebar-btn-radius: 16px;
-  --sidebar-gap: 8px;
-  --sidebar-section-gap: 24px;
-  --sidebar-padding: 20px;
+  --sidebar-w: 78px;
+  --sidebar-inset: 14px;
+  --sidebar-bg: rgba(255, 255, 255, 0.62);
+  --sidebar-border: rgba(255, 255, 255, 0.55);
+  --sidebar-btn-size: 54px;
+  --sidebar-btn-radius: 14px;
+  --sidebar-gap: 4px;
+  --sidebar-padding: 12px;
 }
 
 [data-theme="dark"] {
-  --sidebar-bg: color-mix(in srgb, var(--surface-base) 98%, black);
+  --sidebar-bg: rgba(22, 26, 38, 0.72);
+  --sidebar-border: rgba(255, 255, 255, 0.1);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SIDEBAR CONTAINER — Edge-anchored, full height
+   SIDEBAR CONTAINER — Floating glass capsule, vertically centered
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .gp-sidebar {
   position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
+  top: var(--sidebar-inset);
+  bottom: var(--sidebar-inset);
+  left: var(--sidebar-inset);
   width: var(--sidebar-w);
   z-index: 1000;
-  
+
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--sidebar-padding) 0;
-  
+  padding: var(--sidebar-padding) 6px;
+  gap: var(--sidebar-gap);
+
   background: var(--sidebar-bg);
-  border-right: 1px solid var(--sidebar-border);
-  
-  /* Subtle inner glow for depth */
-  box-shadow: 
-    inset -1px 0 0 rgba(255, 255, 255, 0.03),
-    1px 0 24px rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(40px) saturate(1.8);
+  -webkit-backdrop-filter: blur(40px) saturate(1.8);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 22px;
+  transition: border-radius 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+
+  box-shadow:
+    0 8px 40px rgba(0, 0, 0, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 [data-theme="dark"] .gp-sidebar {
-  box-shadow: 
-    inset -1px 0 0 rgba(255, 255, 255, 0.02),
-    1px 0 32px rgba(0, 0, 0, 0.15);
+  box-shadow:
+    0 8px 48px rgba(0, 0, 0, 0.35),
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Quand le panel s'ouvre : les coins droits de la sidebar (côté panel) passent à 0 */
+@media (min-width: 721px) {
+  body:has(.nav-panel.open:not(.collapsed)) .gp-sidebar {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   LOGO — Generous spacing, subtle hover
+   LOGO
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .gp-sidebar__logo {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
-  margin-bottom: var(--sidebar-section-gap);
+  width: 100%;
+  padding: var(--sidebar-gap) var(--sidebar-padding);
   flex-shrink: 0;
   text-decoration: none;
-  border-radius: 14px;
+  border-radius: 12px;
   transition: 
     transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
     background 0.2s ease;
 }
 
 .gp-sidebar__logo:hover {
-  transform: scale(1.05);
-  background: var(--surface-elevated);
+  transform: scale(1.06);
 }
 
 .gp-sidebar__logo:active {
-  transform: scale(0.96);
+  transform: scale(0.95);
 }
 
 .gp-sidebar__logo img {
-  width: 32px;
-  height: 32px;
+  width: 100%;
+  height: auto;
   object-fit: contain;
   display: block;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   DIVIDERS — Subtle, airy
+   DIVIDERS
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .gp-sidebar__divider {
-  width: 36px;
+  width: 32px;
   height: 1px;
-  background: var(--border-light);
-  margin: var(--sidebar-section-gap) 0;
+  background: linear-gradient(90deg, transparent, var(--border-light), transparent);
+  margin: 4px 0;
   flex-shrink: 0;
-  opacity: 0.5;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   MODULES SECTION — Main navigation area
+   MODULES SECTION
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .gp-sidebar__modules {
@@ -113,11 +124,10 @@
   align-items: center;
   gap: var(--sidebar-gap);
   width: 100%;
-  padding: 0 12px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SIDEBAR BUTTON — Clean, spacious, refined
+   SIDEBAR BUTTON — Base
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .gp-sidebar__btn {
@@ -127,7 +137,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   width: var(--sidebar-btn-size);
   height: var(--sidebar-btn-size);
   border: none;
@@ -141,40 +151,44 @@
   -webkit-tap-highlight-color: transparent;
   overflow: visible;
   transition:
-    background 0.15s ease,
-    color 0.15s ease,
-    transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.15s ease;
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.2s ease;
 }
 
 .gp-sidebar__btn i {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   color: var(--text-tertiary);
-  transition: color 0.15s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: color 0.2s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   pointer-events: none;
 }
 
 .gp-sidebar__label {
-  font-size: 9px;
-  font-weight: 600;
+  font-size: 0.56rem;
+  font-weight: 650;
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--text-tertiary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 54px;
+  max-width: calc(var(--sidebar-w) - 20px);
   text-align: center;
   line-height: 1;
-  opacity: 0.8;
-  transition: color 0.15s ease, opacity 0.15s ease;
+  opacity: 0.7;
+  transition: color 0.2s ease, opacity 0.2s ease;
   pointer-events: none;
 }
 
-/* Hover — subtle lift */
+/* Hover */
 .gp-sidebar__btn:hover {
-  background: var(--surface-elevated);
-  transform: translateY(-2px);
+  background: rgba(0, 0, 0, 0.04);
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .gp-sidebar__btn:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .gp-sidebar__btn:hover i {
@@ -188,7 +202,7 @@
 
 /* Press */
 .gp-sidebar__btn:active {
-  transform: translateY(0) scale(0.96);
+  transform: scale(0.94);
   transition-duration: 0.08s;
 }
 
@@ -205,50 +219,89 @@
 .gp-sidebar__btn--module {
   --btn-accent: var(--cat-color, var(--primary));
   width: 100%;
-  max-width: 60px;
-  height: 60px;
-  border-radius: 18px;
-  gap: 5px;
+  height: 58px;
+  border-radius: 14px;
+  gap: 4px;
 }
 
 .gp-sidebar__btn--module i {
-  font-size: 1.35rem;
+  font-size: 1.2rem;
 }
 
 .gp-sidebar__btn--module .gp-sidebar__label {
-  font-size: 9px;
-  max-width: 56px;
+  font-size: 0.56rem;
+  max-width: calc(100% - 8px);
+  white-space: normal;
+  line-height: 1.2;
 }
 
-/* Active module — filled accent */
+/* Hover — module */
+.gp-sidebar__btn--module:hover {
+  background: color-mix(in srgb, var(--cat-color, var(--primary)) 8%, transparent);
+}
+
+.gp-sidebar__btn--module:hover i {
+  color: var(--cat-color, var(--primary));
+  transform: scale(1.1);
+}
+
+.gp-sidebar__btn--module:hover .gp-sidebar__label {
+  color: var(--cat-color, var(--primary));
+  opacity: 1;
+}
+
+/* Active module — gradient pill */
 .gp-sidebar__btn--module.active {
-  background: var(--cat-color, var(--primary));
+  background: linear-gradient(
+    155deg,
+    var(--cat-color, var(--primary)),
+    color-mix(in srgb, var(--cat-color, var(--primary)) 75%, black)
+  );
   box-shadow:
-    0 4px 20px color-mix(in srgb, var(--cat-color, var(--primary)) 35%, transparent),
-    0 1px 3px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
+    0 4px 18px color-mix(in srgb, var(--cat-color, var(--primary)) 35%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transform: scale(1.02);
 }
 
 .gp-sidebar__btn--module.active i {
   color: #fff;
-  transform: scale(1.05);
+  transform: scale(1.06);
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.2));
 }
 
 .gp-sidebar__btn--module.active .gp-sidebar__label {
   color: rgba(255, 255, 255, 0.95);
   opacity: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 
 .gp-sidebar__btn--module.active:hover {
-  background: color-mix(in srgb, var(--cat-color, var(--primary)) 92%, black);
-  transform: translateY(-3px);
+  transform: scale(1.04);
   box-shadow:
     0 6px 24px color-mix(in srgb, var(--cat-color, var(--primary)) 40%, transparent),
-    0 2px 4px rgba(0, 0, 0, 0.12);
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+/* Active + panel collapsed: outlined instead of filled — click to re-expand */
+body:has(.nav-panel.open.collapsed) .gp-sidebar__btn--module.active {
+  background: transparent;
+  border: 1.5px solid var(--cat-color, var(--primary));
+  box-shadow: none;
+  transform: scale(1);
+}
+
+body:has(.nav-panel.open.collapsed) .gp-sidebar__btn--module.active i {
+  color: var(--cat-color, var(--primary));
+  filter: none;
+}
+
+body:has(.nav-panel.open.collapsed) .gp-sidebar__btn--module.active .gp-sidebar__label {
+  color: var(--cat-color, var(--primary));
+  text-shadow: none;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   ACTIONS SECTION — Bottom anchored, spacious
+   ACTIONS SECTION — Bottom of capsule, subtle secondary controls
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .gp-sidebar__actions {
@@ -256,10 +309,34 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--sidebar-gap);
+  gap: 2px;
   width: 100%;
-  padding: 0 12px;
-  padding-top: var(--sidebar-section-gap);
+  padding-top: 4px;
+}
+
+/* Action buttons: smaller + more muted than module buttons */
+.gp-sidebar__actions .gp-sidebar__btn {
+  width: 42px;
+  height: 42px;
+  opacity: 0.72;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.2s ease;
+}
+
+.gp-sidebar__actions .gp-sidebar__btn i {
+  font-size: 0.95rem;
+}
+
+.gp-sidebar__actions .gp-sidebar__btn .gp-sidebar__label {
+  font-size: 0.5rem;
+  opacity: 0.55;
+}
+
+.gp-sidebar__actions .gp-sidebar__btn:hover {
+  opacity: 1;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -291,31 +368,26 @@
   --btn-accent: var(--primary);
 }
 
-/* Contribute CTA — accent filled */
+/* Contribute CTA — subtle tint, no bold fill */
 .gp-sidebar__btn--contribute {
   --btn-accent: var(--primary);
-  background: color-mix(in srgb, var(--primary) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
 }
 
 .gp-sidebar__btn--contribute i {
-  color: var(--primary);
+  color: color-mix(in srgb, var(--primary) 70%, var(--text-tertiary));
 }
 
 .gp-sidebar__btn--contribute .gp-sidebar__label {
-  color: var(--primary);
-  opacity: 1;
+  color: color-mix(in srgb, var(--primary) 70%, var(--text-tertiary));
 }
 
 .gp-sidebar__btn--contribute:hover {
-  background: var(--primary);
-  border-color: var(--primary);
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 30%, transparent);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
 .gp-sidebar__btn--contribute:hover i,
 .gp-sidebar__btn--contribute:hover .gp-sidebar__label {
-  color: #fff;
+  color: var(--primary);
 }
 
 /* Logout button */
@@ -350,9 +422,9 @@
   position: absolute;
   left: calc(100% + 14px);
   top: 50%;
-  transform: translateY(-50%) translateX(-6px);
-  padding: 8px 14px;
-  border-radius: 10px;
+  transform: translateY(-50%) translateX(-8px);
+  padding: 8px 16px;
+  border-radius: 12px;
   background: var(--gray-900);
   color: #fff;
   font-size: 0.75rem;
@@ -362,17 +434,19 @@
   pointer-events: none;
   opacity: 0;
   z-index: 10;
-  box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.16),
-    0 0 0 1px rgba(0, 0, 0, 0.04);
-  transition: opacity 0.12s ease, transform 0.12s ease;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+  transition: opacity 0.18s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 [data-theme="dark"] .gp-sidebar__btn[data-tooltip]::before {
   background: var(--gray-100);
   color: var(--gray-900);
-  box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.3),
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.35),
     0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
@@ -389,59 +463,36 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   ENTRANCE ANIMATION — Subtle, professional
+   ENTRANCE ANIMATION — Floating capsule fade-in
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .gp-sidebar {
-  animation: sidebarEnter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: sidebarEnter 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes sidebarEnter {
   from {
     opacity: 0;
-    transform: translateX(-12px);
+    transform: translateX(-10px) scale(0.97);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* Module buttons stagger entrance */
-.gp-sidebar__btn--module {
-  opacity: 0;
-  animation: sidebarBtnIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.gp-sidebar__btn--module:nth-child(1) { animation-delay: 0.15s; }
-.gp-sidebar__btn--module:nth-child(2) { animation-delay: 0.2s; }
-.gp-sidebar__btn--module:nth-child(3) { animation-delay: 0.25s; }
-.gp-sidebar__btn--module:nth-child(4) { animation-delay: 0.3s; }
-.gp-sidebar__btn--module:nth-child(n+5) { animation-delay: 0.35s; }
-
-@keyframes sidebarBtnIn {
-  from {
-    opacity: 0;
-    transform: scale(0.8) translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: translateX(0) scale(1);
   }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   LAYOUT OFFSET — Push content to the right
+   LAYOUT OFFSET — Floating sidebar: no content push
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Main container offset */
+/* Floating sidebar doesn't push content — no margin offset */
 .gp-sidebar ~ #container {
-  margin-left: var(--sidebar-w);
+  margin-left: 0;
 }
 
-/* Toggle dock offset */
+/* Toggle dock: clear of the floating capsule */
 .gp-sidebar ~ #container .toggle-dock {
-  left: calc(var(--sidebar-w) + 16px);
+  left: calc(var(--sidebar-inset) + var(--sidebar-w) + 16px);
 }
 
 /* Hide mobile logo when sidebar present (desktop only) */
@@ -458,12 +509,15 @@
 /* Sidebar panel — positioned by JS */
 #city-menu.dock-panel--open {
   min-width: 260px;
-  max-width: 320px;
+  max-width: 340px;
   max-height: calc(100vh - 80px);
-  border-radius: 16px;
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.12),
-    0 2px 8px rgba(0, 0, 0, 0.06);
+  border-radius: 18px;
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.14),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 #city-menu.dock-panel--open::before {
@@ -471,14 +525,15 @@
 }
 
 [data-theme="dark"] #city-menu.dock-panel--open {
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.3),
-    0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    RESPONSIVE — Mobile (≤ 720px)
-   Sidebar becomes bottom navigation
+   Sidebar → floating bottom pill bar
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 720px) {
@@ -486,234 +541,219 @@
     --sidebar-w: 0px;
   }
 
-  /* Navigation flottante ultra-moderne - Fluent Design */
+  /* ── Bottom dock: compact glass capsule ── */
   .gp-sidebar {
     position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    right: auto;
     top: auto;
-    width: auto;
+    left: 50%;
+    right: auto;
+    bottom: 12px;
+    bottom: max(12px, calc(env(safe-area-inset-bottom) + 8px));
+    transform: translateX(-50%);
+    width: fit-content;
+    max-width: calc(100vw - 20px);
     height: auto;
     flex-direction: row;
-    padding: 6px;
+    align-items: center;
+    padding: 7px;
     gap: 8px;
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(40px) saturate(1.8);
-    -webkit-backdrop-filter: blur(40px) saturate(1.8);
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    border-radius: 24px;
-    box-shadow: 
-      0 8px 32px rgba(0, 0, 0, 0.12),
-      0 2px 8px rgba(0, 0, 0, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.6);
-    animation: navFloat 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.42);
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(245, 248, 255, 0.64));
+    backdrop-filter: blur(22px) saturate(1.25);
+    -webkit-backdrop-filter: blur(22px) saturate(1.25);
+    box-shadow:
+      0 10px 34px rgba(15, 23, 42, 0.16),
+      inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    overflow: hidden;
+    animation: navSlideUp 0.46s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .gp-sidebar::before {
+    content: '';
+    position: absolute;
+    inset: -40% -15%;
+    background: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.12), transparent 60%);
+    pointer-events: none;
   }
 
   [data-theme="dark"] .gp-sidebar {
-    background: rgba(20, 20, 30, 0.75);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 
-      0 8px 40px rgba(0, 0, 0, 0.4),
-      0 2px 12px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.12);
+    background:
+      linear-gradient(145deg, rgba(18, 22, 33, 0.9), rgba(29, 35, 49, 0.76));
+    box-shadow:
+      0 10px 36px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
-  @keyframes navFloat {
-    from {
-      opacity: 0;
-      transform: translateX(-50%) translateY(40px) scale(0.9);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0) scale(1);
-    }
+  [data-theme="dark"] .gp-sidebar::before {
+    background: radial-gradient(circle at 50% 0%, rgba(34, 197, 94, 0.12), transparent 62%);
   }
 
-  /* Reset container offset */
-  .gp-sidebar ~ #container {
-    margin-left: 0;
+  @keyframes navSlideUp {
+    from { opacity: 0; transform: translateX(-50%) translateY(24px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
   }
 
-  .gp-sidebar ~ #container .toggle-dock {
-    left: 16px;
-  }
+  /* ── Layout resets ── */
+  .gp-sidebar ~ #container { margin-left: 0; }
+  .gp-sidebar ~ #container .toggle-dock { left: 16px; }
+  .gp-sidebar__logo,
+  .gp-sidebar__divider,
+  .gp-sidebar__actions { display: none; }
 
-  /* City panel — above bottom nav on mobile */
+  /* ── City panel positioning ── */
   #city-menu.dock-panel--open {
     top: auto !important;
     left: 12px !important;
     right: 12px !important;
-    bottom: 72px !important;
+    bottom: 90px !important;
     min-width: 0;
     max-width: none;
   }
 
-  /* Logo — hidden on mobile (using mobile-fixed-logo instead) */
-  .gp-sidebar__logo {
-    display: none;
-  }
-
-  /* Hide dividers on mobile */
-  .gp-sidebar__divider {
-    display: none;
-  }
-
-  /* Modules — Pills flottantes individuelles avec Fluent Design */
+  /* ── Module track ── */
   .gp-sidebar__modules {
     display: flex;
     flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    width: auto;
     gap: 8px;
     padding: 0;
+    position: relative;
+    z-index: 1;
   }
 
+  /* ── Module tabs ── */
   .gp-sidebar__btn--module {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
-    height: 48px;
-    padding: 0 20px;
-    background: rgba(255, 255, 255, 0.5);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 24px;
-    cursor: pointer;
-    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     position: relative;
-    overflow: hidden;
-    box-shadow: 
-      0 4px 16px rgba(0, 0, 0, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    isolation: isolate;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: clamp(106px, 34vw, 136px);
+    min-width: 106px;
+    max-width: 136px;
+    height: 58px;
+    padding: 8px 10px 6px;
+    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.34);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    opacity: 1;
+    animation: none;
+    transition:
+      transform 0.2s ease,
+      background 0.22s ease,
+      color 0.2s ease,
+      border-color 0.22s ease,
+      box-shadow 0.22s ease;
   }
 
   [data-theme="dark"] .gp-sidebar__btn--module {
-    background: rgba(40, 40, 50, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    box-shadow: 
-      0 4px 16px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
-  /* Gradient animé au hover */
   .gp-sidebar__btn--module::before {
     content: '';
     position: absolute;
-    inset: -50%;
-    background: conic-gradient(
-      from 0deg at 50% 50%,
-      transparent 0deg,
-      color-mix(in srgb, var(--cat-color, var(--primary)) 15%, transparent) 90deg,
-      transparent 180deg
-    );
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.32), transparent 60%);
     opacity: 0;
-    transition: opacity 0.6s ease, transform 0.6s ease;
-    animation: gradientRotate 3s linear infinite paused;
+    transition: opacity 0.22s ease;
+    pointer-events: none;
+    z-index: -1;
   }
 
-  .gp-sidebar__btn--module:hover::before {
-    opacity: 1;
-    animation-play-state: running;
-  }
-
-  @keyframes gradientRotate {
-    to { transform: rotate(360deg); }
-  }
-
-  /* État actif - Pill remplie avec glow */
-  .gp-sidebar__btn--module.active {
-    background: linear-gradient(135deg, 
-      var(--cat-color, var(--primary)),
-      color-mix(in srgb, var(--cat-color, var(--primary)) 85%, black));
-    border-color: color-mix(in srgb, var(--cat-color, var(--primary)) 80%, white);
-    box-shadow: 
-      0 8px 32px color-mix(in srgb, var(--cat-color, var(--primary)) 40%, transparent),
-      0 4px 16px color-mix(in srgb, var(--cat-color, var(--primary)) 25%, transparent),
-      inset 0 1px 0 rgba(255, 255, 255, 0.3),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.1);
-    transform: translateY(-2px) scale(1.05);
-  }
-
-  .gp-sidebar__btn--module.active::before {
-    display: none;
-  }
-
-  /* Icône avec effet de rebond */
   .gp-sidebar__btn--module i {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
     color: var(--text-secondary);
-    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: color 0.2s ease, transform 0.2s ease;
   }
 
-  .gp-sidebar__btn--module:hover i {
-    color: var(--text-primary);
-    transform: scale(1.15) rotate(-5deg);
+  .gp-sidebar__btn--module .gp-sidebar__label {
+    display: block;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-tertiary);
+    opacity: 1;
+    line-height: 1;
+    transition: color 0.2s ease;
+  }
+
+  .gp-sidebar__btn--module:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.52);
+    border-color: rgba(255, 255, 255, 0.38);
+  }
+
+  [data-theme="dark"] .gp-sidebar__btn--module:hover {
+    background: rgba(255, 255, 255, 0.11);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .gp-sidebar__btn--module:hover::before { opacity: 1; }
+  .gp-sidebar__btn--module:hover i { color: var(--text-primary); transform: translateY(-1px); }
+  .gp-sidebar__btn--module:hover .gp-sidebar__label { color: var(--text-primary); }
+
+  .gp-sidebar__btn--module.active {
+    background: linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--cat-color, var(--primary)) 96%, white),
+      color-mix(in srgb, var(--cat-color, var(--primary)) 78%, black)
+    );
+    border-color: color-mix(in srgb, var(--cat-color, var(--primary)) 78%, white);
+    box-shadow:
+      0 8px 24px color-mix(in srgb, var(--cat-color, var(--primary)) 32%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    transform: translateY(-2px);
   }
 
   .gp-sidebar__btn--module.active i {
     color: #fff;
-    transform: scale(1.2);
-    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3));
-  }
-
-  /* Label avec typographie premium - bien visible sur mobile */
-  .gp-sidebar__btn--module .gp-sidebar__label {
-    display: block;
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-    color: var(--text-primary);
-    transition: all 0.3s ease;
-    white-space: nowrap;
+    transform: scale(1.06);
+    filter: drop-shadow(0 1px 5px rgba(0, 0, 0, 0.24));
   }
 
   .gp-sidebar__btn--module.active .gp-sidebar__label {
     color: #fff;
-    font-weight: 700;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   }
 
-  /* Animation d'entrée échelonnée */
-  .gp-sidebar__btn--module {
-    animation: pillFloat 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  .gp-sidebar__btn--module.active:hover {
+    transform: translateY(-3px);
+    box-shadow:
+      0 10px 28px color-mix(in srgb, var(--cat-color, var(--primary)) 36%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4);
   }
 
-  .gp-sidebar__btn--module:nth-child(1) { animation-delay: 0.1s; }
-  .gp-sidebar__btn--module:nth-child(2) { animation-delay: 0.2s; }
-
-  @keyframes pillFloat {
-    from {
-      opacity: 0;
-      transform: translateY(30px) scale(0.8);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
+  .gp-sidebar__btn--module:active {
+    transform: translateY(0) scale(0.98);
   }
 
-  /* Actions — hidden on mobile (using mobile-actions-btn instead) */
-  .gp-sidebar__actions {
-    display: none;
-  }
-
-  .gp-sidebar__btn {
+  /* ── Generic button overrides ── */
+  .gp-sidebar__btn:not(.gp-sidebar__btn--module) {
     width: 40px;
     height: 40px;
     border-radius: 12px;
   }
 
-  .gp-sidebar__btn .gp-sidebar__label {
-    display: none;
-  }
+  .gp-sidebar__btn:not(.gp-sidebar__btn--module) .gp-sidebar__label { display: none; }
+  .gp-sidebar__btn:not(.gp-sidebar__btn--module) i { font-size: 1rem; }
 
-  .gp-sidebar__btn i {
-    font-size: 1rem;
-  }
-
-  /* Tooltips above on mobile */
+  /* Tooltips → above on mobile */
   .gp-sidebar__btn[data-tooltip]::before {
     left: 50%;
     top: auto;
@@ -726,46 +766,32 @@
   }
 }
 
+/* ── Small phones (≤ 480px) ── */
 @media (max-width: 480px) {
   .gp-sidebar {
-    padding: 6px 8px;
-    padding-bottom: max(6px, env(safe-area-inset-bottom));
-  }
-
-  .gp-sidebar__logo {
-    width: 36px;
-    height: 36px;
-    margin-right: 6px;
-  }
-
-  .gp-sidebar__logo img {
-    width: 24px;
-    height: 24px;
-  }
-
-  .gp-sidebar__btn--module {
-    min-width: 56px;
-    height: 40px;
-    padding: 5px 10px;
+    max-width: calc(100vw - 16px);
+    padding: 5px;
     gap: 6px;
   }
 
-  .gp-sidebar__btn--module i {
-    font-size: 1rem;
+  .gp-sidebar__btn--module {
+    width: clamp(96px, 42vw, 118px);
+    min-width: 96px;
+    max-width: 118px;
+    height: 54px;
+    padding: 7px 8px 5px;
+    gap: 3px;
   }
 
-  .gp-sidebar__btn--module .gp-sidebar__label {
-    font-size: 10px;
-  }
+  .gp-sidebar__btn--module i { font-size: 1.02rem; }
+  .gp-sidebar__btn--module .gp-sidebar__label { font-size: 0.58rem; }
 
-  .gp-sidebar__btn {
+  .gp-sidebar__btn:not(.gp-sidebar__btn--module) {
     width: 36px;
     height: 36px;
   }
 
-  .gp-sidebar__btn i {
-    font-size: 0.9rem;
-  }
+  .gp-sidebar__btn i { font-size: 0.9rem; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
