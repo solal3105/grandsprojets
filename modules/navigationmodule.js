@@ -167,7 +167,8 @@ const NavigationModule = (() => {
             left = 20;
             right = 20;
             const detailPanel = document.getElementById('project-detail');
-            const detailVisible = detailPanel && detailPanel.style.display !== 'none';
+            const detailVisible = detailPanel && detailPanel.style.display !== 'none'
+              && detailPanel.offsetHeight > 0;
             bottom = detailVisible
               ? Math.round(window.innerHeight * 0.62)
               : 70;
@@ -178,7 +179,8 @@ const NavigationModule = (() => {
             const navOpen = document.querySelector('.nav-panel.open:not(.collapsed)');
             left = navOpen ? sidebarW + 14 + 340 + 20 : sidebarW + 20;
             const detailPanel = document.getElementById('project-detail');
-            const detailVisible = detailPanel && detailPanel.style.display !== 'none';
+            const detailVisible = detailPanel && detailPanel.style.display !== 'none'
+              && detailPanel.offsetHeight > 0;
             right = detailVisible ? 456 : 40;
           }
           mlMap.fitBounds([[minLng, minLat], [maxLng, maxLat]], {
@@ -335,19 +337,15 @@ const NavigationModule = (() => {
   
   // Hide NavPanel if open — preserve state so it can be restored on back
   window.NavPanel?.collapse();
-  // Add map padding so the project stays visible behind the detail panel.
-  // This shifts the map's "logical center" so that interactive zoom/pan
-  // keeps the feature in the unobstructed zone.
-  // Desktop: detail panel = 420px + 16px right, sidebar = 106px left
-  // Mobile:  detail panel = bottom sheet ~60vh
+  // Reset any persistent map padding BEFORE fitBounds runs.
+  // In MapLibre GL v4, fitBounds ADDS its padding to the map's internal
+  // padding (set by easeTo). If we don't reset first, the two stack and
+  // the total can exceed the viewport — especially on mobile where
+  // bottom padding alone would be 2 × 62 vh ≈ 124 % of screen height.
   try {
     const mlMap = window.MapModule?.map?._mlMap;
-    if (mlMap && typeof mlMap.easeTo === 'function') {
-      const isMobile = window.innerWidth <= 720;
-      const padding = isMobile
-        ? { top: 80, right: 0, bottom: Math.round(window.innerHeight * 0.62), left: 0 }
-        : { top: 0, right: 450, bottom: 0, left: 106 };
-      mlMap.easeTo({ padding, duration: 400 });
+    if (mlMap && typeof mlMap.jumpTo === 'function') {
+      mlMap.jumpTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 } });
     }
   } catch (_) {}
 
@@ -522,7 +520,7 @@ const NavigationModule = (() => {
     
     // ANIMATION: Mettre en avant le projet sur la carte
     highlightProjectOnMap(projectName, category);
-    
+
   }catch(e){
     console.error('[NavigationModule] Error in showProjectDetail:', e);
     const safeProjectName = window.SecurityUtils ? window.SecurityUtils.escapeHtml(projectName) : projectName;
