@@ -187,8 +187,14 @@
       this._headerTitle.textContent = label;
       this._updateBreadcrumb(label);
 
-      // Clear level 3
-      this._level3.innerHTML = '<div class="nav-panel__loading"><i class="fas fa-circle-notch"></i> Chargement…</div>';
+      // Show a contextual skeleton immediately (appropriate shape per module)
+      if (this._currentModule === 'carte') {
+        this._level3.innerHTML = this._skeletonL3Cards(5);
+      } else {
+        this._level3.innerHTML =
+          `<div class="nav-panel__progress"><div class="nav-panel__progress-bar"></div></div>` +
+          this._skeletonL2Items(2);
+      }
 
       if (this._currentModule === 'carte') {
         await this._renderCarteLevel3(category, opts);
@@ -372,8 +378,16 @@
       const travauxConfig = win._travauxConfig || {};
       const color = travauxConfig.color || 'var(--color-warning)';
 
-      // Load travaux layers immediately when opening the module
+      // Show skeleton immediately so the user sees activity right away
+      this._level2.innerHTML =
+        `<div class="nav-panel__progress"><div class="nav-panel__progress-bar"></div></div>` +
+        this._skeletonL2Items(2);
+
+      // Load travaux layers (may be near-instant if already preloaded/cached)
       await this._loadTravauxLayers();
+
+      // Guard: user may have switched modules during the await
+      if (this._currentModule !== 'travaux') return;
 
       let html = '<div class="nav-panel__section-label">Sections</div>';
 
@@ -425,11 +439,13 @@
     /* ──────────────────────────────────────────────────────────────────── */
 
     async _renderCarteLevel3(category, opts) {
-      // Create submenu-like container for project rendering
-      this._level3.innerHTML = '<ul class="project-list"></ul>';
-
-      const projectList = this._level3.querySelector('.project-list');
-      if (!projectList) return;
+      // Reuse the skeleton project-list already rendered by openLevel3 if possible
+      let projectList = this._level3.querySelector('.project-list');
+      if (!projectList) {
+        this._level3.innerHTML = '<ul class="project-list"></ul>';
+        projectList = this._level3.querySelector('.project-list');
+        if (!projectList) return;
+      }
 
       try {
         const projects = await win.supabaseService?.fetchProjectsByCategory(category);
@@ -439,6 +455,7 @@
           return;
         }
 
+        // Wipe skeleton bones and populate with real cards (navItemIn gives entrance anim)
         projectList.innerHTML = '';
 
         // Sort alphabetically
@@ -474,7 +491,7 @@
       const LAYER = TM.LAYER_NAME || 'travaux';
       const hasData = win.DataModule?.layerData?.[LAYER]?.features?.length > 0;
       if (!hasData) {
-        this._level3.innerHTML = '<div class="nav-panel__loading"><i class="fas fa-circle-notch"></i> Chargement…</div>';
+        // Skeleton is already showing from openLevel3 — just silently wait for data
         try { await win.DataModule?.loadLayer(LAYER); } catch (_) {}
       }
 
@@ -772,6 +789,9 @@
         await Promise.all(uncached.map(n => win.DataModule?.preloadLayer?.(n)?.catch(() => {})));
       }
 
+      // Guard: abort if the user has switched away from carte during the async fetch
+      if (this._currentModule !== 'carte') return;
+
       // Create layers from cache
       for (const name of layersToDisplay) {
         if (win.DataModule?.layerData?.[name]) {
@@ -803,6 +823,9 @@
           await Promise.all(uncached.map(n => win.DataModule?.preloadLayer?.(n)?.catch(() => {})));
         }
 
+        // Guard: abort if the user has switched away from travaux during the async fetch
+        if (this._currentModule !== 'travaux') return;
+
         // Add travaux layers on top of existing map content (additive)
         for (const name of travauxLayers) {
           if (win.DataModule?.layerData?.[name]) {
@@ -818,6 +841,36 @@
       } finally {
         this._travauxLoadPromise = null;
       }
+    },
+
+    /* ── Skeleton / loading helpers ─────────────────────────────────── */
+
+    /** HTML for n skeleton rows (mimics .nav-panel__item) */
+    _skeletonL2Items(count = 3) {
+      const label = '<div class="nav-panel__skel-label"></div>';
+      const items = Array.from({ length: count }, (_, i) => `
+        <div class="nav-panel__skel-item" style="animation-delay:${(0.04 + i * 0.06).toFixed(2)}s">
+          <div class="nav-panel__skel-icon"></div>
+          <div class="nav-panel__skel-text">
+            <div class="nav-panel__skel-line nav-panel__skel-line--wide"></div>
+            <div class="nav-panel__skel-line nav-panel__skel-line--short"></div>
+          </div>
+          <div class="nav-panel__skel-arrow"></div>
+        </div>`).join('');
+      return label + items;
+    },
+
+    /** HTML for n skeleton project cards (mimics L3 .project-card) */
+    _skeletonL3Cards(count = 5) {
+      return `<ul class="project-list">` +
+        Array.from({ length: count }, (_, i) => `
+          <li class="nav-panel__skel-card" style="animation-delay:${(0.04 + i * 0.07).toFixed(2)}s">
+            <div class="nav-panel__skel-card-hero"></div>
+            <div class="nav-panel__skel-card-body">
+              <div class="nav-panel__skel-card-title nav-panel__skel-card-title--short"></div>
+            </div>
+          </li>`).join('') +
+        `</ul>`;
     },
 
     /**

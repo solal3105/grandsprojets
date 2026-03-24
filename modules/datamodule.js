@@ -505,6 +505,11 @@ window.DataModule = (function() {
 			}
 		});
 
+		// Remove any existing layer with the same name before adding the new one,
+		// to prevent orphaned layers when createGeoJsonLayer is called without
+		// an explicit prior removeLayer.
+		MapModule.removeLayer(layerName);
+
 		geojsonLayer.addData(data);
 		geojsonLayer.addTo(MapModule.map);
 		MapModule.addLayer(layerName, geojsonLayer);

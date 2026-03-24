@@ -1024,6 +1024,148 @@
   to { transform: rotate(360deg); }
 }
 
+/* ─── Skeleton screens ─────────────────────────────────────────────── */
+
+@keyframes shimmer {
+  from { background-position: -700px 0; }
+  to   { background-position:  700px 0; }
+}
+
+/* Shared shimmer gradient, applied to each bone individually */
+.nav-panel__skel-icon,
+.nav-panel__skel-line,
+.nav-panel__skel-arrow,
+.nav-panel__skel-label,
+.nav-panel__skel-card-hero,
+.nav-panel__skel-card-title {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.04) 20%,
+      rgba(255, 255, 255, 0.13) 50%,
+      rgba(255, 255, 255, 0.04) 80%
+    );
+  background-size: 700px 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+/* Skeleton section label (mimics .nav-panel__section-label) */
+.nav-panel__skel-label {
+  width: 68px;
+  height: 8px;
+  border-radius: 4px;
+  margin: 20px 20px 14px;
+  animation-delay: 0.1s;
+}
+
+/* Skeleton row (mimics .nav-panel__item) */
+.nav-panel__skel-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 18px;
+  margin: 3px 10px;
+  opacity: 0;
+  animation: navItemIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.nav-panel__skel-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  animation-delay: 0s;
+}
+
+.nav-panel__skel-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.nav-panel__skel-line {
+  height: 10px;
+  border-radius: 6px;
+}
+
+.nav-panel__skel-line--wide  { width: 80%; animation-delay: 0.05s; }
+.nav-panel__skel-line--short { width: 52%; animation-delay: 0.2s;  }
+
+.nav-panel__skel-arrow {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  animation-delay: 0.1s;
+}
+
+/* ─── Progress strip (travaux / async loading) ───────────────────── */
+
+.nav-panel__progress {
+  height: 2px;
+  background: rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  position: relative;
+  margin-bottom: 8px;
+}
+
+@keyframes progressRun {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(340%); }
+}
+
+.nav-panel__progress-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 40%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--primary),
+    color-mix(in srgb, var(--primary) 60%, var(--color-warning, #f59e0b)),
+    var(--primary),
+    transparent
+  );
+  animation: progressRun 1.4s cubic-bezier(0.65, 0.05, 0.36, 1) infinite;
+}
+
+/* ─── L3 Skeleton project cards ──────────────────────────────────── */
+
+.nav-panel__skel-card {
+  list-style: none;
+  border-radius: 16px;
+  overflow: hidden;
+  opacity: 0;
+  animation: navItemIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.nav-panel__skel-card-hero {
+  height: 130px;
+}
+
+.nav-panel__skel-card-body {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-panel__skel-card-title {
+  flex: 1;
+  height: 11px;
+  border-radius: 6px;
+  animation-delay: 0.15s;
+}
+
+.nav-panel__skel-card-title--short {
+  max-width: 65%;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    LAYOUT OFFSET — Push map when panel is open
    ═══════════════════════════════════════════════════════════════════════════ */

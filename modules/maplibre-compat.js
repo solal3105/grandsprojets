@@ -99,22 +99,56 @@
   // COLOR UTILITIES
   // ============================================================
 
-  // Convert CSS color (including var()) to hex for MapLibre GL — cached
+  // Convert CSS color (including var(), color-mix(), etc.) to a value MapLibre GL accepts — cached
   const _colorCache = new Map();
+  // Reusable hidden element for forcing browser color resolution
+  let _colorProbe = null;
+  function _getColorProbe() {
+    if (!_colorProbe) {
+      _colorProbe = document.createElement('div');
+      _colorProbe.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden;pointer-events:none';
+      document.body.appendChild(_colorProbe);
+    }
+    return _colorProbe;
+  }
   function resolveColor(color) {
     if (!color || typeof color !== 'string') return color;
-    if (!color.startsWith('var(')) return color;
+    // Plain hex/rgb/named color — MapLibre handles these natively
+    if (!color.startsWith('var(') && !color.startsWith('color-mix(')) return color;
 
     const cached = _colorCache.get(color);
     if (cached !== undefined) return cached;
 
-    const varName = color.match(/var\((--[^,)]+)/)?.[1];
-    if (varName) {
-      const resolved = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
-      if (resolved) { _colorCache.set(color, resolved); return resolved; }
+    // Step 1: resolve var() → get the raw CSS value (may itself be color-mix or another function)
+    let raw = color;
+    if (color.startsWith('var(')) {
+      const varName = color.match(/var\((--[^,)]+)/)?.[1];
+      if (varName) {
+        raw = getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || color;
+      }
     }
-    _colorCache.set(color, color);
-    return color;
+
+    // Step 2: if still a CSS function (color-mix, etc.), resolve via a probe element
+    if (raw.startsWith('color-mix(') || raw.startsWith('oklch(') || raw.startsWith('hsl(') || raw.startsWith('rgb(')) {
+      try {
+        const probe = _getColorProbe();
+        probe.style.color = raw;
+        const computed = getComputedStyle(probe).color; // browser returns rgb(r, g, b)
+        probe.style.color = '';
+        if (computed && computed !== raw) {
+          // Convert rgb(r, g, b) → #rrggbb for MapLibre GL
+          const m = computed.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+          const result = m
+            ? '#' + [m[1], m[2], m[3]].map(n => parseInt(n).toString(16).padStart(2, '0')).join('')
+            : computed;
+          _colorCache.set(color, result);
+          return result;
+        }
+      } catch (_) {}
+    }
+
+    _colorCache.set(color, raw);
+    return raw;
   }
   // Clear cache on theme change
   function clearColorCache() { _colorCache.clear(); }
