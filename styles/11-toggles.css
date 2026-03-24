@@ -911,9 +911,9 @@ body[data-auth-state="disconnected"] .action-item[data-auth="disconnected"] {
 
 @media (max-width: 640px) {
   :root {
-    --dock-btn: 34px;
-    --dock-h: 42px;
-    --dock-radius: 14px;
+    --dock-btn: 48px;
+    --dock-h: 58px;
+    --dock-radius: 16px;
   }
 
   .toggle-dock {
@@ -924,12 +924,12 @@ body[data-auth-state="disconnected"] .action-item[data-auth="disconnected"] {
   }
 
   .toggle-dock__btn i {
-    font-size: 0.82rem;
+    font-size: 1.05rem;
   }
 
-  /* Overflow menu positioning */
+  /* Overflow menu positioning — adjusted for larger dock */
   .overflow-menu {
-    top: 58px;
+    top: 76px;
     right: 10px;
     min-width: 220px;
     max-width: calc(100vw - 20px);
@@ -942,8 +942,8 @@ body[data-auth-state="disconnected"] .action-item[data-auth="disconnected"] {
 
 @media (max-width: 400px) {
   :root {
-    --dock-btn: 32px;
-    --dock-h: 40px;
+    --dock-btn: 44px;
+    --dock-h: 54px;
   }
 
   .toggle-dock {
@@ -954,7 +954,7 @@ body[data-auth-state="disconnected"] .action-item[data-auth="disconnected"] {
   }
 
   .toggle-dock__btn i {
-    font-size: 0.78rem;
+    font-size: 1rem;
   }
 
   .toggle-dock__logo img {
