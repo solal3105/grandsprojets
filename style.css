@@ -10,6 +10,8 @@
 
 /* ═══ NAVIGATION & COMPOSANTS ═══ */
 @import url('./styles/03-navigation.css');
+@import url('./styles/09-sidebar.css');
+@import url('./styles/09-nav-panel.css');
 @import url('./styles/04-components.css');
 @import url('./styles/gp-button-system.css');
 

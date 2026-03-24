@@ -108,7 +108,6 @@ class ToggleManager {
     // When opening a panel, dismiss any open content overlays (submenus, detail panels)
     const opensPanel = t.config.hasMenu || t.config.hasOverlay || t.config.hasModal || t.config.targetElement || t.config.hasDockPanel;
     if (state && opensPanel) {
-      window.SubmenuManager?.closeCurrentSubmenu?.();
       const detail = document.getElementById('project-detail');
       if (detail) detail.style.display = 'none';
     }

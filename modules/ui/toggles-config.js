@@ -16,28 +16,16 @@ export const TOGGLES_CONFIG = {
     hasDockPanel: true
   },
   
-  terrain: {
-    id: 'terrain-toggle',
-    icon: 'fa-mountain',
-    iconActive: 'fa-mountain',
-    label: 'Relief 3D',
-    ariaLabel: 'Activer ou désactiver le relief 3D',
+  mode3d: {
+    id: 'mode3d-toggle',
+    icon: 'fa-cube',
+    iconActive: 'fa-cube',
+    label: 'Mode 3D',
+    ariaLabel: 'Activer ou désactiver le mode 3D (relief et bâtiments)',
     position: 1,
     persistent: true,
-    defaultState: false,
-    storageKey: 'terrain-3d'
-  },
-
-  buildings: {
-    id: 'buildings-toggle',
-    icon: 'fa-building',
-    iconActive: 'fa-building',
-    label: 'Bâtiments 3D',
-    ariaLabel: 'Activer ou désactiver les bâtiments 3D',
-    position: 1.5,
-    persistent: true,
     defaultState: true,
-    storageKey: 'buildings-3d'
+    storageKey: 'mode-3d'
   },
 
   basemap: {
@@ -48,18 +36,6 @@ export const TOGGLES_CONFIG = {
     position: 2,
     defaultState: false,
     hasDockPanel: true
-  },
-  
-  theme: {
-    id: 'theme-toggle',
-    icon: 'fa-moon',
-    iconActive: 'fa-sun',
-    label: 'Mode sombre',
-    ariaLabel: 'Basculer entre mode clair et mode sombre',
-    position: 2,
-    persistent: true, // Sauvegarde dans localStorage
-    defaultState: false,
-    storageKey: 'theme-dark-mode'
   },
   
   search: {
@@ -82,43 +58,15 @@ export const TOGGLES_CONFIG = {
     defaultState: false
   },
   
-  city: {
-    id: 'city-toggle',
-    icon: 'fa-bars',
-    label: 'Espace',
-    ariaLabel: 'Changer votre espace',
-    position: 6,
-    defaultState: false,
-    hasDockPanel: true
-  },
-  
-  info: {
-    id: 'info-toggle',
-    icon: 'fa-info-circle',
-    label: 'À propos',
-    ariaLabel: 'Afficher les informations à propos',
+  actions: {
+    id: 'actions-toggle',
+    icon: 'fa-ellipsis-v',
+    label: 'Menu',
+    ariaLabel: 'Menu des actions',
     position: 5,
-    redirectUrl: '/home',
-    defaultState: false
-  },
-  
-  contribute: {
-    id: 'contribute-toggle',
-    icon: 'fa-plus',
-    label: 'Contribuer',
-    ariaLabel: 'Proposer une contribution',
-    position: 7,
-    defaultState: false
-  },
-  
-  login: {
-    id: 'login-toggle',
-    icon: 'fa-user',
-    label: 'Connexion',
-    ariaLabel: 'Se connecter ou s\'inscrire',
-    position: 8,
-    redirectUrl: '/login',
-    defaultState: false
+    defaultState: false,
+    hasDockPanel: true,
+    mobileOnly: true
   },
   
   overflow: {
@@ -126,11 +74,11 @@ export const TOGGLES_CONFIG = {
     icon: 'fa-ellipsis-h',
     label: 'Plus',
     ariaLabel: 'Plus d\'options',
-    position: 99, // Toujours en dernier
+    position: 99,
     hasMenu: true,
     menuSelector: '#overflow-menu',
     defaultState: false,
-    mobileOnly: true // N'apparaît que sur mobile
+    mobileOnly: true
   }
 };
 
@@ -139,17 +87,12 @@ export const TOGGLES_CONFIG = {
  * Desktop: de droite à gauche | Mobile: de gauche à droite
  */
 export const TOGGLE_ORDER = [
-  'filters',    // Desktop: droite, Mobile: position 5
-  'terrain',    // Desktop: , Mobile: position 4.5
-  'buildings',  // Desktop: , Mobile: position 4.25
-  'basemap',    // Desktop: , Mobile: position 4
-  'theme',      // Desktop: , Mobile: position 3
-  'search',     // Desktop: , Mobile: position 2
-  'location',   // Desktop: , Mobile: position 1
-  'city',       // Desktop: , Mobile: juste après location
-  'info',       // Desktop: gauche, Mobile: position 0
-  'login',      // Desktop: extrême gauche, Mobile: position 6
-  'contribute'  // Desktop: extrême gauche, Mobile: position 7
+  'filters',    // Filtres de carte
+  'mode3d',     // Mode 3D (relief + bâtiments)
+  'basemap',    // Fond de carte
+  'search',     // Recherche
+  'location',   // Ma position
+  'actions'     // Menu actions (mobile only)
 ];
 
 /**

@@ -34,17 +34,12 @@
         root.classList.remove('dark');
       }
 
-      // Mettre à jour l'icône du bouton toggle
-      const iconEl = document.querySelector('#theme-toggle i');
-      if (iconEl) {
-        iconEl.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-      }
-
-      const toggleEl = document.getElementById('theme-toggle');
-      if (toggleEl) {
-        toggleEl.setAttribute('data-title', theme === 'dark' ? 'Mode clair' : 'Mode sombre');
-        toggleEl.setAttribute('aria-label', toggleEl.getAttribute('data-title'));
-        toggleEl.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
+      // Mettre à jour l'icône du bouton theme dans la sidebar
+      const sidebarThemeBtn = document.querySelector('.gp-sidebar [data-action="theme"]');
+      if (sidebarThemeBtn) {
+        const icon = sidebarThemeBtn.querySelector('i');
+        if (icon) icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        sidebarThemeBtn.setAttribute('data-tooltip', theme === 'dark' ? 'Mode clair' : 'Mode sombre');
       }
       
       // Invalider le cache de couleurs CSS résolues (MapLibre compat)

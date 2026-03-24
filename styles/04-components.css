@@ -120,26 +120,6 @@
   background: var(--primary-lighter);
 }
 
-.active-filter-tag {
-  background: var(--surface-base);
-  display: inline-flex;
-  align-items: center;
-  color: var(--gray-700);
-  padding: 0.4em 0.8em;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-right: 8px;
-  margin-bottom: 8px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.active-filter-tag:hover {
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
-}
-
-/* .active-filter-tag .close-btn utilise .btn-secondary .btn-small */
 
 #reset-all-filters {
   padding: 8px;

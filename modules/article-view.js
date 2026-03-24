@@ -55,23 +55,19 @@
   function hideMapInterface() {
     const elementsToHide = [
       '#map',
-      '#left-nav',
+      '#nav-panel',
       '#project-detail',
-      '#city-toggle',
       '#city-menu',
-      '#info-toggle',
       '#location-toggle',
       '#search-toggle',
-      '#contribute-toggle',
-      '#theme-toggle',
       '#basemap-toggle',
       '#basemap-menu',
       '#filters-toggle',
       '#filters-container',
-      '#login-toggle',
       '#overflow-toggle',
       '#overflow-menu',
-      '.mobile-fixed-logo'
+      '.mobile-fixed-logo',
+      '#gp-sidebar'
     ];
     
     elementsToHide.forEach(selector => {

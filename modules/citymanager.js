@@ -131,9 +131,10 @@
     async updateLogoForCity(city) {
       try {
         const targets = [
-          document.querySelector('#left-nav .logo img'),
+          document.querySelector('#nav-panel .logo img'),
           document.querySelector('.mobile-fixed-logo img'),
-          document.querySelector('#dock-logo img')
+          document.querySelector('#dock-logo img'),
+          document.querySelector('.gp-sidebar__logo img')
         ].filter(Boolean);
 
         // Fetch branding (toujours présent car ville par défaut = metropole-lyon)

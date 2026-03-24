@@ -201,59 +201,20 @@
   }
 
   /**
-   * Normalise un GeoJSON en FeatureCollection (fallback)
+   * Normalise un GeoJSON en FeatureCollection (délègue à ContribUtils)
    * @param {Object} geojson - GeoJSON d'entrée
    * @returns {Object} FeatureCollection normalisée
    */
   function normalizeDrawLayerToFC(geojson) {
+    // Déléguer à la fonction centralisée dans ContribUtils
+    if (win.ContribUtils?.normalizeToFeatureCollection) {
+      return win.ContribUtils.normalizeToFeatureCollection(geojson);
+    }
+    // Fallback minimal si ContribUtils n'est pas chargé
     if (!geojson) return { type: 'FeatureCollection', features: [] };
-    
-    // Déjà une FeatureCollection
-    if (geojson.type === 'FeatureCollection') {
-      const features = (geojson.features || []).map(f => ({
-        type: 'Feature',
-        properties: f.properties || {},
-        geometry: f.geometry
-      }));
-      return { type: 'FeatureCollection', features };
-    }
-    
-    // Une Feature simple
-    if (geojson.type === 'Feature') {
-      return {
-        type: 'FeatureCollection',
-        features: [{
-          type: 'Feature',
-          properties: geojson.properties || {},
-          geometry: geojson.geometry
-        }]
-      };
-    }
-    
-    // Géométrie brute (Point, LineString, Polygon, Multi*, GeometryCollection)
-    const geomTypes = ['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon', 'GeometryCollection'];
-    if (geomTypes.includes(geojson.type)) {
-      // Cas spécial: MultiPoint -> convertir en plusieurs Features Point
-      if (geojson.type === 'MultiPoint' && Array.isArray(geojson.coordinates)) {
-        const features = geojson.coordinates.map(coords => ({
-          type: 'Feature',
-          properties: {},
-          geometry: { type: 'Point', coordinates: coords }
-        }));
-        return { type: 'FeatureCollection', features };
-      }
-      
-      return {
-        type: 'FeatureCollection',
-        features: [{
-          type: 'Feature',
-          properties: {},
-          geometry: geojson
-        }]
-      };
-    }
-    
-    return { type: 'FeatureCollection', features: [] };
+    if (geojson.type === 'FeatureCollection') return geojson;
+    if (geojson.type === 'Feature') return { type: 'FeatureCollection', features: [geojson] };
+    return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: geojson }] };
   }
 
   // ============================================================================

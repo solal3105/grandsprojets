@@ -190,7 +190,6 @@
   }
 
   function setupContrib() {
-    const contribToggle   = document.getElementById('contribute-toggle');
     let contribOverlay  = document.getElementById('contrib-overlay');
     let contribCloseBtn = document.getElementById('contrib-close');
     let contribModal    = contribOverlay ? contribOverlay.querySelector('.gp-modal') : null;
@@ -200,11 +199,6 @@
 
     const closeContrib = () => {
       if (!contribOverlay) return;
-      
-      // Retirer la classe active du bouton contribuer
-      if (contribToggle) {
-        contribToggle.classList.remove('active');
-      }
       
       // Utiliser ModalHelper pour une gestion unifiée
       win.ModalHelper.close('contrib-overlay');
@@ -242,18 +236,18 @@
       });
     };
 
-    if (contribToggle) {
-      // Masquer/afficher le bouton "Contribuer" selon l'état d'authentification
-      const applyContribVisibility = (session) => {
-        try {
-          const isAuthed = !!(session && session.user);
-          if (contribToggle) contribToggle.style.display = isAuthed ? '' : 'none';
-          // Si l'utilisateur se déconnecte pendant que la modale est ouverte, la fermer
-          if (!isAuthed && contribOverlay && contribOverlay.getAttribute('aria-hidden') === 'false') {
-            closeContrib();
-          }
-        } catch (_) { /* noop */ }
-      };
+    // Auth visibility: close modal if user logs out while it's open
+    const applyContribVisibility = (session) => {
+      try {
+        const isAuthed = !!(session && session.user);
+        // Si l'utilisateur se déconnecte pendant que la modale est ouverte, la fermer
+        if (!isAuthed && contribOverlay && contribOverlay.getAttribute('aria-hidden') === 'false') {
+          closeContrib();
+        }
+      } catch (_) { /* noop */ }
+    };
+
+    {
 
       // Détection du rôle et des villes autorisées via table public.profiles (source de vérité)
       let __currentSession = null;
@@ -400,9 +394,8 @@
         }
       } catch (_) { /* noop */ }
 
-      contribToggle.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        
+      // Public function to open contrib modal (called by sidebar)
+      const openContribModal = async () => {
         try {
           // Vérifier la session avec refresh automatique (silencieux, pas de redirection)
           let session = null;
@@ -464,10 +457,14 @@
           
         } catch (error) {
           console.error('[contrib] Error opening modal:', error);
-          // Afficher un message d'erreur explicite plutôt que rediriger silencieusement
           alert('Impossible d\'ouvrir la modale de contribution. Veuillez réessayer.');
         }
-      });
+      };
+      
+      // Expose public API
+      win.ContribModule = win.ContribModule || {};
+      win.ContribModule.open = openContribModal;
+      win.ContribModule.applyContribVisibility = applyContribVisibility;
     }
     
     // Bind modal close events (called once after template load)

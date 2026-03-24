@@ -444,7 +444,6 @@
         this._spotlight(feature);
         if (win.UIModule?.showDetailPanel) {
           win.UIModule.showDetailPanel(p.category, { properties: p, geometry: feature.geometry });
-          win.UIModule.updateActiveFilterTagsForLayer?.(p.category);
         } else if (win.NavigationModule?.showProjectDetail) {
           win.NavigationModule.showProjectDetail(p, p.category);
         }
@@ -603,13 +602,8 @@
           }
           if (minLng !== Infinity) {
             const mob = window.innerWidth <= 720;
-            // Measure the actual submenu height to offset the map pan
-            const submenuEl = document.querySelector('.submenu[style*="display: block"]');
-            const submenuH = submenuEl ? submenuEl.getBoundingClientRect().height : 0;
-            // Bottom padding = submenu height + its bottom offset (~100px desktop) + breathing room
-            const bottomPad = mob
-              ? Math.round(Math.max(submenuH + 20, window.innerHeight * 0.50))
-              : Math.round(Math.max(submenuH + 140, window.innerHeight * 0.45));
+            // NavPanel is fixed on left, doesn't need bottom padding offset
+            const bottomPad = mob ? window.innerHeight * 0.50 : window.innerHeight * 0.45;
             this._mlMap.fitBounds([[minLng,minLat],[maxLng,maxLat]], {
               padding: mob
                 ? { top: 60, right: 40, bottom: bottomPad, left: 40 }

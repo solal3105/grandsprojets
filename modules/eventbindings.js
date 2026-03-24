@@ -13,12 +13,6 @@ const EventBindings = (() => {
       return;
     }
   
-  // 0. Toggle "active" on the clicked nav button
-  document.querySelectorAll('.nav-category').forEach(tab => tab.classList.remove('active'));
-  const navButton = document.getElementById(`nav-${menu}`);
-  if (navButton) {
-    navButton.classList.add('active');
-  }
     // Masquer complètement le panneau de détail du projet
     const projectDetailPanel = document.getElementById('project-detail');
     if (projectDetailPanel) {
@@ -32,11 +26,6 @@ const EventBindings = (() => {
     }
     
     // Réinitialiser les filtres
-    document.querySelectorAll('.filter-item').forEach(item => {
-      item.classList.remove('is-active');
-      const layer = item.dataset.layer;
-      UIModule.resetLayerFilter(layer);
-    });
     FilterModule.resetAll();
 
     // Gestion des couches à afficher
@@ -72,80 +61,6 @@ const EventBindings = (() => {
       }
     }
 
-    // Rendu unifié via SubmenuManager (gère automatiquement Travaux vs Projets)
-    if (window.SubmenuManager?.renderSubmenu) {
-      await window.SubmenuManager.renderSubmenu(menu);
-    } else {
-      console.error(`[EventBindings] SubmenuManager non disponible pour ${menu}`);
-    }
-  };
-
-  // Gestion des contrôles de filtres
-const bindFilterControls = () => {
-  // Clic sur un filtre : active/désactive la couche
-  document.querySelectorAll('.filter-item').forEach(item => {
-    item.addEventListener('click', e => {
-      // Sanitiser le nom du layer pour éviter les erreurs de sélecteur CSS
-      const layer = (item.dataset.layer || '').trim().replace(/[\n\r]/g, '');
-      if (!layer) return;
-
-      if (!item.classList.contains('is-active')) {
-        // Activation
-        if (DataModule.layerData?.[layer]) {
-          DataModule.createGeoJsonLayer(layer, DataModule.layerData[layer]);
-        } else {
-          DataModule.loadLayer(layer);
-        }
-        item.classList.add('is-active');
-      } else {
-        // Désactivation
-        item.classList.remove('is-active');
-        MapModule.removeLayer(layer);
-        UIModule.resetLayerFilter(layer);
-      }
-    });
-  });
-};
-
-  // Gestion dynamique des boutons de navigation basée sur categoryIcons
-  function bindCategoryNavigation() {
-    const categoryIcons = window.categoryIcons || [];
-    
-    if (categoryIcons.length === 0) {
-      return;
-    }
-    
-    categoryIcons.forEach(({ category }) => {
-      // Ignorer le bouton "Contribuer" qui a son propre gestionnaire dans contrib.js
-      if (category === 'contribute') {
-        return;
-      }
-      
-      const navButton = document.getElementById(`nav-${category}`);
-      if (!navButton) {
-        console.warn(`[EventBindings] Bouton de navigation introuvable pour: ${category}`);
-        return;
-      }
-      
-      navButton.addEventListener('click', () => {
-        // IMPORTANT: Toujours accéder à window.categoryLayersMap au moment du clic
-        // car il peut être mis à jour après le bind initial
-        const currentCategoryLayersMap = window.categoryLayersMap || {};
-        const categoryLayers = currentCategoryLayersMap[category];
-        
-        if (!categoryLayers || categoryLayers.length === 0) {
-          EventBindings.handleNavigation(category, [category]);
-        } else {
-          EventBindings.handleNavigation(category, categoryLayers);
-        }
-        // Le show/hide des submenus est géré par SubmenuManager.renderSubmenu() dans handleNavigation
-      });
-    });
-  }
-  
-  // Exposer la fonction pour permettre un appel explicite depuis main.js
-  const initCategoryNavigation = () => {
-    bindCategoryNavigation();
   };
 
   /**
@@ -201,24 +116,10 @@ const bindFilterControls = () => {
     }
   };
 
-  /**
-   * Initialise les event listeners du logo
-   */
-  const bindLogoClick = () => {
-    const logoContainer = document.querySelector('#left-nav .logo');
-    
-    if (logoContainer) {
-      logoContainer.addEventListener('click', handleLogoClick, false);
-    }
-  };
-
   return {
-    bindFilterControls,
     handleNavigation,
     handleLogoClick,
-    handleFeatureClick,
-    bindLogoClick,
-    initCategoryNavigation
+    handleFeatureClick
   };
 })();
 

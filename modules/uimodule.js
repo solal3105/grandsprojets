@@ -25,89 +25,6 @@
       });
     }
   };
-  /**
-   * Récupère les critères de filtre actuellement sélectionnés.
-   * @param {string} layerName
-   * @returns {Object} Critères de filtrage
-   */
-  const getCurrentCriteria = layerName => {
-    const container = document.querySelector(`.filter-criteria[data-layer=\"${layerName}\"]`);
-    const criteria = {};
-    if (!container) return criteria;
-    container.querySelectorAll('[data-field]').forEach(el => {
-      const val = el.value;
-      if (val !== '' && val != null) {
-        criteria[el.dataset.field] = el.value;
-      }
-    });
-    return criteria;
-  };
-
-  /**
-   * Met à jour l'affichage des tags de filtres actifs pour une couche.
-   * @param {string} layerName
-   */
-  const updateActiveFilterTagsForLayer = layerName => {
-    // Sanitiser le layerName pour éviter les erreurs de sélecteur CSS
-    const sanitizedLayerName = layerName ? layerName.trim().replace(/[\n\r]/g, '') : '';
-    if (!sanitizedLayerName) return;
-    
-    const tagsContainer = document.querySelector(`.active-filter-tags[data-layer="${CSS.escape(sanitizedLayerName)}"]`);
-    if (!tagsContainer) return;
-    tagsContainer.innerHTML = '';
-
-    const criteria = FilterModule.get(layerName);
-    Object.entries(criteria).forEach(([key, value]) => {
-      const tag = document.createElement('span');
-      tag.className = 'active-filter-tag';
-      
-      // Afficher 'Exclure les réseaux' pour le filtre _hideReseaux
-      const displayText = key === '_hideReseaux' ? 'Exclure les réseaux' : value;
-      tag.textContent = `${displayText} `;
-
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.innerHTML = '&times;';
-      btn.style.cssText = 'margin-left:4px;border:none;background:none;cursor:pointer;';
-      btn.addEventListener('click', () => {
-        delete criteria[key];
-        FilterModule.set(layerName, criteria);
-        DataModule.loadLayer(layerName).then(() => {
-          updateActiveFilterTagsForLayer(layerName);
-        });
-      });
-
-      tag.appendChild(btn);
-      tagsContainer.appendChild(tag);
-    });
-  };
-
-  /**
-   * Applique les critères de filtre et recharge la couche.
-   */
-  const applyFilter = (layerName, criteria) => {
-    FilterModule.set(layerName, criteria);
-    MapModule.removeLayer(layerName);
-    DataModule.createGeoJsonLayer(layerName, DataModule.layerData[layerName]);
-    updateActiveFilterTagsForLayer(layerName);
-  };
-
-  /**
-   * Réinitialise le filtre d'une couche et recharge la carte.
-   */
-  const resetLayerFilter = layerName => {
-    FilterModule.reset(layerName);
-    MapModule.removeLayer(layerName);
-    updateActiveFilterTagsForLayer(layerName);
-  };
-
-  /**
-   * Réinitialise le filtre sans retirer la couche de la carte.
-   */
-  const resetLayerFilterWithoutRemoving = layerName => {
-    FilterModule.reset(layerName);
-    updateActiveFilterTagsForLayer(layerName);
-  };
 
   // Initialisation du module
   const init = (options = {}) => {
@@ -373,12 +290,8 @@
 
   // Exposition de l'API
   const UIModule = {
-    updateActiveFilterTagsForLayer,
     setActiveBasemap,
     showDetailPanel,
-    applyFilter,
-    resetLayerFilter,
-    resetLayerFilterWithoutRemoving,
     init,
     initBasemapMenu,
     updateBasemaps

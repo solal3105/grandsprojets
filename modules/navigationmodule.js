@@ -281,18 +281,13 @@ const NavigationModule = (() => {
   
   _lastShownProject = projectKey;
   
-  // Hide submenus and bottom nav bar when showing project detail
-  document.querySelectorAll('.submenu').forEach(el => {
-    el.style.display = 'none';
-  });
-  
-  const leftNav = document.getElementById('left-nav');
-  if (leftNav) {
-    leftNav.style.opacity = '0';
-    leftNav.style.pointerEvents = 'none';
-    leftNav.style.transform = 'translateX(-50%) translateY(20px)';
+  // Hide NavPanel if open
+  const navPanel = document.getElementById('nav-panel');
+  if (navPanel) {
+    navPanel.classList.remove('open');
   }
-
+  const navScrim = document.getElementById('nav-panel-scrim');
+  if (navScrim) navScrim.classList.remove('visible');
   // Add map padding so the project stays visible (not hidden behind the detail panel)
   // Desktop: right padding (panel is on the right)
   // Mobile: bottom padding (panel is a bottom sheet at 60vh)
@@ -529,17 +524,21 @@ const NavigationModule = (() => {
     const projectDetail = document.getElementById('project-detail');
     if (projectDetail) projectDetail.style.display = 'none';
 
-    const navBar = document.getElementById('left-nav');
-    if (navBar) {
-      navBar.style.removeProperty('opacity');
-      navBar.style.removeProperty('pointer-events');
-      navBar.style.removeProperty('transform');
+    // Restore NavPanel if it was open for a category
+    const navPanelActive = window.NavPanel?.getState?.()?.level > 0;
+    if (navPanelActive) {
+      const navPanelEl = document.getElementById('nav-panel');
+      if (navPanelEl) navPanelEl.classList.add('open');
+      const navScrim = document.getElementById('nav-panel-scrim');
+      if (navScrim) navScrim.classList.add('visible');
+      // Restore map padding for nav panel
+      window.NavPanel._updateMapPadding(true);
+    } else {
+      try {
+        const mlMap = window.MapModule?.map?._mlMap;
+        if (mlMap?.easeTo) mlMap.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, duration: 300 });
+      } catch (_) {}
     }
-
-    try {
-      const mlMap = window.MapModule?.map?._mlMap;
-      if (mlMap?.easeTo) mlMap.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, duration: 300 });
-    } catch (_) {}
 
     restoreAllLayerOpacity();
     window.FeatureInteractions?.clearSelection?.(true);
@@ -548,7 +547,6 @@ const NavigationModule = (() => {
     // ── CAS 1: Back to a specific category (same path as tab click) ──
     if (category) {
       await showCategoryLayers(category);
-      await window.SubmenuManager.renderSubmenu(category);
 
       if (updateHistory) {
         try { history.pushState({ cat: category }, '', `${location.pathname}?cat=${encodeURIComponent(category)}`); } catch (_) {}
@@ -557,8 +555,7 @@ const NavigationModule = (() => {
     }
 
     // ── CAS 2: Full close (back to initial state) ──
-    window.SubmenuManager.cleanupAll();
-    window.FilterModule?.resetAll();
+    FilterModule.resetAll();
 
     // Restore default layers
     if (window.defaultLayers?.length) {

@@ -80,16 +80,10 @@
         console.warn('[contrib-categories] populateCategoryVilleSelector error:', e);
       }
       
-      // Filtrer selon les permissions
-      const userVilles = window.__CONTRIB_VILLES;
-      let filteredCities = [];
-      const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
-      
-      if (hasGlobalAccess) {
-        filteredCities = cities;
-      } else if (Array.isArray(userVilles) && userVilles.length > 0) {
-        filteredCities = cities.filter(c => userVilles.includes(c));
-      }
+      // Filtrer selon les permissions (utilise la fonction centralisée)
+      const filteredCities = win.ContribUtils?.filterCitiesByPermissions
+        ? win.ContribUtils.filterCitiesByPermissions(cities)
+        : cities;
       
       // Clear and repopulate
       categoryVilleSelector.innerHTML = '<option value="">-- Choisir une structure --</option>';
@@ -126,16 +120,10 @@
         console.warn('[contrib-categories] populateCategoryFormVilleSelector error:', e);
       }
       
-      // Filtrer selon les permissions
-      const userVilles = window.__CONTRIB_VILLES;
-      let filteredCities = [];
-      const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
-      
-      if (hasGlobalAccess) {
-        filteredCities = cities;
-      } else if (Array.isArray(userVilles) && userVilles.length > 0) {
-        filteredCities = cities.filter(c => userVilles.includes(c));
-      }
+      // Filtrer selon les permissions (utilise la fonction centralisée)
+      const filteredCities = win.ContribUtils?.filterCitiesByPermissions
+        ? win.ContribUtils.filterCitiesByPermissions(cities)
+        : cities;
       
       // Clear and repopulate
       categoryVilleSelect.innerHTML = '<option value="">Sélectionner une structure</option>';

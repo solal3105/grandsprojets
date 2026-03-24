@@ -34,18 +34,10 @@
         }
       }
       
-      // Filtrer selon les permissions de l'utilisateur
-      const userVilles = window.__CONTRIB_VILLES;
-      let filteredCities = cities;
-      const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
-      
-      if (hasGlobalAccess) {
-        filteredCities = cities;
-      } else if (Array.isArray(userVilles) && userVilles.length > 0) {
-        filteredCities = cities.filter(c => userVilles.includes(c));
-      } else {
-        filteredCities = [];
-      }
+      // Filtrer selon les permissions (utilise la fonction centralisée)
+      const filteredCities = win.ContribUtils?.filterCitiesByPermissions
+        ? win.ContribUtils.filterCitiesByPermissions(cities)
+        : cities;
       
       // Vider le select et garder uniquement l'option par défaut
       cityEl.innerHTML = '<option value="">Aucun</option>';

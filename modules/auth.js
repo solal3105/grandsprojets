@@ -184,11 +184,6 @@
       win.__CONTRIB_IS_ADMIN = false;
       win.__CONTRIB_VILLES = null;
       
-      // Masquer le bouton de contribution
-      const contributeToggle = document.getElementById('contribute-toggle');
-      if (contributeToggle) {
-        contributeToggle.style.display = 'none';
-      }
       
       // Fermer les modales de contribution
       const contribModal = document.getElementById('contrib-modal-container');

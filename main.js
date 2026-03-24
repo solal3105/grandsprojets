@@ -12,276 +12,7 @@
 
   const supabaseService = win.supabaseService;
 
-  /**
-   * Initialise le submenu Travaux en dur (indépendant de category_icons)
-   * Affiche uniquement si :
-   * - Mode Global (activeCity = null)
-   * - Ville avec city_branding.travaux = true
-   */
-  async function initTravauxSubmenu(categoriesContainer, submenusContainer) {
-    try {
-      const activeCity = (typeof win.getActiveCity === 'function') ? win.getActiveCity() : (win.activeCity || null);
-      
-      // Vérifier si une config travaux existe pour cette ville
-      const travauxConfig = await supabaseService.getTravauxConfig(activeCity);
-      
-      if (!travauxConfig || !travauxConfig.enabled) {
-        return;
-      }
-      
-      // Récupérer les layers à afficher depuis la config
-      const layersToDisplay = travauxConfig.layers_to_display || ['travaux'];
-      
-      // Créer le bouton de navigation
-      const navButton = document.createElement('button');
-      navButton.className = 'nav-category';
-      navButton.id = 'nav-travaux';
-      navButton.dataset.category = 'travaux';
-      const iconClass = travauxConfig.icon_class || 'fa-solid fa-helmet-safety';
-      navButton.innerHTML = `
-        <i class="${iconClass}" aria-hidden="true"></i>
-        <span class="label">Travaux</span>
-      `;
-      
-      // Appliquer la couleur de catégorie si définie
-      if (travauxConfig.color) {
-        navButton.style.setProperty('--cat-color', travauxConfig.color);
-      }
-      
-      // Appliquer l'ordre d'affichage si défini
-      if (travauxConfig.display_order !== undefined) {
-        navButton.style.order = travauxConfig.display_order;
-      }
-      categoriesContainer.appendChild(navButton);
-      
-      // Créer le submenu
-      const submenu = document.createElement('div');
-      submenu.className = 'submenu';
-      submenu.dataset.category = 'travaux';
-      submenu.style.display = 'none';
-      // Appliquer la couleur de catégorie au submenu
-      if (travauxConfig.color) {
-        submenu.style.setProperty('--cat-color', travauxConfig.color);
-      }
-      submenu.innerHTML = `<ul class="project-list"></ul>`;
-      submenusContainer.appendChild(submenu);
-      
-      // Bind navigation (géré manuellement car indépendant de categoryIcons)
-      navButton.addEventListener('click', () => {
-        if (win.EventBindings?.handleNavigation) {
-          win.EventBindings.handleNavigation('travaux', layersToDisplay);
-        }
-        
-        // Afficher le submenu Travaux et masquer les autres
-        document.querySelectorAll('.submenu').forEach(s => {
-          s.style.display = 'none';
-        });
-        
-        const targetSubmenu = document.querySelector('.submenu[data-category="travaux"]');
-        if (targetSubmenu) {
-          targetSubmenu.style.display = 'block';
-        } else {
-          console.warn('[Main] ⚠️ Submenu Travaux introuvable');
-        }
-      });
-    } catch (error) {
-      console.error('[Main] ❌ Erreur initialisation submenu Travaux:', error);
-    }
-  }
 
-  /**
-   * Initialise le menu overflow mobile pour les catégories
-   * Affiche un bouton "+" qui contient les catégories au-delà de 3 sur mobile
-   * @param {HTMLElement} categoriesContainer - Container #dynamic-categories
-   */
-  function initMobileOverflowMenu(categoriesContainer) {
-    if (!categoriesContainer) return;
-    
-    const MAX_VISIBLE_MOBILE = 3;
-    // Exclure le bouton overflow lui-même de la liste des catégories
-    const allCategories = categoriesContainer.querySelectorAll('.nav-category:not(#nav-overflow)');
-    
-    // Si 4 catégories ou moins, pas besoin de menu overflow (on peut afficher les 4)
-    if (allCategories.length <= 4) {
-      return;
-    }
-    
-    // Récupérer les catégories qui seront dans le overflow (à partir de la 4ème)
-    const overflowCategories = Array.from(allCategories).slice(MAX_VISIBLE_MOBILE);
-    
-    // Créer le bouton overflow (même classe que les autres catégories)
-    const overflowBtn = document.createElement('button');
-    overflowBtn.className = 'nav-category';
-    overflowBtn.id = 'nav-overflow';
-    overflowBtn.setAttribute('aria-label', 'Plus de catégories');
-    overflowBtn.setAttribute('aria-expanded', 'false');
-    overflowBtn.innerHTML = `
-      <i class="fa-solid fa-ellipsis" aria-hidden="true"></i>
-      <span class="label">Plus</span>
-    `;
-    
-    // Créer le menu dropdown
-    const overflowMenu = document.createElement('div');
-    overflowMenu.className = 'nav-overflow-menu';
-    overflowMenu.id = 'nav-overflow-menu';
-    overflowMenu.setAttribute('role', 'menu');
-    
-    // Ajouter les items au menu
-    overflowCategories.forEach(catBtn => {
-      const category = catBtn.id.replace('nav-', '');
-      const iconEl = catBtn.querySelector('i');
-      const labelEl = catBtn.querySelector('.label');
-      const iconClass = iconEl ? iconEl.className : 'fa-solid fa-folder';
-      const labelText = labelEl ? labelEl.textContent : category;
-      
-      const menuItem = document.createElement('button');
-      menuItem.className = 'nav-overflow-item';
-      menuItem.dataset.category = category;
-      menuItem.setAttribute('role', 'menuitem');
-      menuItem.innerHTML = `
-        <i class="${iconClass}" aria-hidden="true"></i>
-        <span class="overflow-label">${labelText}</span>
-      `;
-      
-      // Appliquer la couleur de catégorie
-      const catColor = catBtn.style.getPropertyValue('--cat-color');
-      if (catColor) {
-        menuItem.style.setProperty('--cat-color', catColor);
-      }
-      
-      // Clic sur un item du menu
-      menuItem.addEventListener('click', (e) => {
-        e.stopPropagation();
-        
-        // Déplacer la catégorie en position 1
-        categoriesContainer.insertBefore(catBtn, categoriesContainer.firstChild);
-        
-        // Déclencher le clic sur le bouton de catégorie original
-        catBtn.click();
-        
-        // Reconstruire le menu overflow avec les nouvelles catégories masquées
-        rebuildOverflowMenu();
-        
-        // Fermer le menu
-        closeOverflowMenu();
-      });
-      
-      overflowMenu.appendChild(menuItem);
-    });
-    
-    // Fonction pour fermer le menu
-    function closeOverflowMenu() {
-      overflowMenu.classList.remove('open');
-      overflowBtn.setAttribute('aria-expanded', 'false');
-    }
-    
-    // Fonction pour reconstruire le menu overflow
-    function rebuildOverflowMenu() {
-      // Vider le menu actuel
-      overflowMenu.innerHTML = '';
-      
-      // Récupérer les catégories actuelles (ordre peut avoir changé), exclure le bouton overflow
-      const currentCategories = categoriesContainer.querySelectorAll('.nav-category:not(#nav-overflow)');
-      const newOverflowCategories = Array.from(currentCategories).slice(MAX_VISIBLE_MOBILE);
-      
-      // Recréer les items
-      newOverflowCategories.forEach(catBtn => {
-        const category = catBtn.id.replace('nav-', '');
-        const iconEl = catBtn.querySelector('i');
-        const labelEl = catBtn.querySelector('.label');
-        const iconClass = iconEl ? iconEl.className : 'fa-solid fa-folder';
-        const labelText = labelEl ? labelEl.textContent : category;
-        
-        const menuItem = document.createElement('button');
-        menuItem.className = 'nav-overflow-item';
-        menuItem.dataset.category = category;
-        menuItem.setAttribute('role', 'menuitem');
-        menuItem.innerHTML = `
-          <i class="${iconClass}" aria-hidden="true"></i>
-          <span class="overflow-label">${labelText}</span>
-        `;
-        
-        // Appliquer la couleur de catégorie
-        const catColor = catBtn.style.getPropertyValue('--cat-color');
-        if (catColor) {
-          menuItem.style.setProperty('--cat-color', catColor);
-        }
-        
-        menuItem.addEventListener('click', (e) => {
-          e.stopPropagation();
-          categoriesContainer.insertBefore(catBtn, categoriesContainer.firstChild);
-          catBtn.click();
-          rebuildOverflowMenu();
-          closeOverflowMenu();
-        });
-        
-        overflowMenu.appendChild(menuItem);
-      });
-    }
-    
-    // Fonction pour ouvrir/fermer le menu
-    function toggleOverflowMenu(e) {
-      e.stopPropagation();
-      const isOpen = overflowMenu.classList.contains('open');
-      
-      if (isOpen) {
-        closeOverflowMenu();
-      } else {
-        // Fermer proprement via NavigationModule (submenus + fiche projet)
-        if (win.NavigationModule?.resetToDefaultView) {
-          win.NavigationModule.resetToDefaultView(null, { preserveMapView: true, updateHistory: false });
-        }
-        
-        // Retirer l'état actif de toutes les catégories
-        categoriesContainer.querySelectorAll('.nav-category').forEach(btn => {
-          btn.classList.remove('active');
-        });
-        
-        overflowMenu.classList.add('open');
-        overflowBtn.setAttribute('aria-expanded', 'true');
-      }
-    }
-    
-    // Event listener sur le bouton
-    overflowBtn.addEventListener('click', toggleOverflowMenu);
-    
-    // Fermer le menu au clic en dehors
-    document.addEventListener('click', (e) => {
-      if (!overflowBtn.contains(e.target) && !overflowMenu.contains(e.target)) {
-        closeOverflowMenu();
-      }
-    });
-    
-    // Fermer le menu avec Escape
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        closeOverflowMenu();
-      }
-    });
-    
-    // Assembler et ajouter au DOM
-    overflowBtn.appendChild(overflowMenu);
-    categoriesContainer.appendChild(overflowBtn);
-  }
-
-  /**
-   * Met à jour le compteur d'éléments de navigation pour l'adaptation CSS desktop
-   * Compte tous les boutons de catégories (incluant travaux) et définit data-item-count
-   * Utilisé pour réduire la hauteur et activer le scroll à partir de 5 éléments
-   * @param {HTMLElement} categoriesContainer - Container #dynamic-categories
-   */
-  function updateNavigationItemCount(categoriesContainer) {
-    if (!categoriesContainer) return;
-    
-    // Compter tous les boutons de catégories (incluant travaux, excluant overflow)
-    const allCategories = categoriesContainer.querySelectorAll('.nav-category:not(#nav-overflow)');
-    const count = allCategories.length;
-    
-    // Définir l'attribut data-item-count pour le CSS
-    categoriesContainer.setAttribute('data-item-count', count);
-    
-    console.log(`[Navigation] ${count} éléments de navigation détectés`);
-  }
 
   /**
    * Health check du localStorage au démarrage
@@ -681,76 +412,16 @@
       win.getAllCategories = () => (win.categoryIcons || []).map(c => c.category);
       win.getCategoryLayers = (category) => win.categoryLayersMap?.[category] || [];
       win.isCategoryLayer = (layerName) => win.getAllCategories().includes(layerName);
-      const categoriesContainer = document.getElementById('dynamic-categories');
-      const submenusContainer = document.getElementById('dynamic-submenus');
       
-      // Créer les menus dynamiques (catégories depuis contributions)
-      if (categoriesContainer && submenusContainer && activeCategoryIcons.length > 0) {
-        activeCategoryIcons.forEach(({ category, icon_class, category_styles }) => {
-          const navButton = document.createElement('button');
-          navButton.className = 'nav-category';
-          navButton.id = `nav-${category}`;
-          let fullIconClass = icon_class;
-          if (icon_class && !icon_class.includes('fa-solid') && !icon_class.includes('fa-regular') && !icon_class.includes('fa-brands')) {
-            fullIconClass = `fa-solid ${icon_class}`;
-          }
-          
-          // Extraire la couleur de category_styles et l'appliquer comme variable CSS
-          let catColor = null;
-          if (category_styles) {
-            try {
-              const styles = typeof category_styles === 'string' 
-                ? JSON.parse(category_styles) 
-                : category_styles;
-              catColor = styles.color;
-            } catch (_) {}
-          }
-          if (catColor) {
-            navButton.style.setProperty('--cat-color', catColor);
-          }
-          
-          navButton.innerHTML = `
-            <i class="${fullIconClass}" aria-hidden="true"></i>
-            <span class="label">${category}</span>
-          `;
-          categoriesContainer.appendChild(navButton);
-          
-          const submenu = document.createElement('div');
-          submenu.className = 'submenu';
-          submenu.dataset.category = category;
-          submenu.style.display = 'none';
-          // Appliquer la couleur de catégorie au submenu
-          if (catColor) {
-            submenu.style.setProperty('--cat-color', catColor);
-          }
-          submenu.innerHTML = `<ul class="project-list"></ul>`;
-          submenusContainer.appendChild(submenu);
-        });
+      // Store travaux config globally for NavPanel (BEFORE sidebar init)
+      win._travauxConfig = travauxConfig || {};
+      
+      // Initialize sidebar + nav panel
+      if (win.SidebarModule) {
+        win.SidebarModule.init();
       }
-      
-      // ===== SUBMENU TRAVAUX EN DUR (indépendant de category_icons) =====
-      // IMPORTANT : Toujours appeler, même si activeCategoryIcons est vide
-      if (categoriesContainer && submenusContainer) {
-        await initTravauxSubmenu(categoriesContainer, submenusContainer);
-      }
-      
-      // ===== MENU OVERFLOW MOBILE =====
-      // Créer le bouton "+" pour les catégories au-delà de 3 sur mobile
-      if (categoriesContainer) {
-        initMobileOverflowMenu(categoriesContainer);
-      }
-      
-      // ===== ADAPTATION DESKTOP : Compter les éléments de navigation =====
-      // Définir data-item-count pour l'adaptation CSS (hauteur réduite + scroll si 5+)
-      if (categoriesContainer) {
-        updateNavigationItemCount(categoriesContainer);
-      }
-      
-      // Initialiser les event listeners de navigation via EventBindings
-      if (window.EventBindings?.initCategoryNavigation) {
-        window.EventBindings.initCategoryNavigation();
-      } else {
-        console.warn('[Main] EventBindings.initCategoryNavigation non disponible');
+      if (win.NavPanel) {
+        win.NavPanel.init();
       }
       // Préparer les contributions par catégorie
       const contributionsByCategory = {};
@@ -798,7 +469,6 @@
         Object.keys(urlMap).forEach(layer => DataModule.preloadLayer(layer));
       }
       
-      EventBindings.bindFilterControls();
       
       if (window.UIModule?.init) {
         window.UIModule.init({ basemaps: basemapsForCity });
@@ -846,24 +516,58 @@
       // Contribute
       win.toggleManager?.markReady('contribute');
 
-      // Terrain 3D — apply saved state now that map is ready, listen for changes
-      if (win.toggleManager?.getState('terrain') && MapModule?.map) {
-        MapModule.map.setTerrain(true);
+      // Actions panel (mobile only) — populate with sidebar actions
+      const actionsPanel = document.getElementById('actions-panel-body');
+      const sidebarActions = document.querySelector('.gp-sidebar__actions');
+      if (actionsPanel && sidebarActions) {
+        const actions = sidebarActions.querySelectorAll('.gp-sidebar__btn');
+        actions.forEach(btn => {
+          const action = btn.dataset.action;
+          const label = btn.dataset.tooltip || btn.getAttribute('aria-label');
+          const icon = btn.querySelector('i')?.className || 'fas fa-circle';
+          const auth = btn.dataset.auth;
+          
+          const item = document.createElement('button');
+          item.className = 'action-item';
+          item.dataset.action = action;
+          if (auth) item.dataset.auth = auth;
+          if (action === 'logout') item.classList.add('action-item--logout');
+          
+          item.innerHTML = `
+            <div class="action-item__icon">
+              <i class="${icon}" aria-hidden="true"></i>
+            </div>
+            <span class="action-item__label">${label}</span>
+          `;
+          
+          item.addEventListener('click', () => {
+            win.toggleManager?.setState('actions', false);
+            btn.click();
+          });
+          
+          actionsPanel.appendChild(item);
+        });
+        
+        // Update auth state
+        const isConnected = win.AuthModule?.isAuthenticated?.() || false;
+        document.body.setAttribute('data-auth-state', isConnected ? 'connected' : 'disconnected');
       }
-      win.toggleManager?.on('terrain', (active) => {
-        if (MapModule?.map) MapModule.map.setTerrain(active);
-      });
-      win.toggleManager?.markReady('terrain');
+      win.toggleManager?.markReady('actions');
 
-      // Buildings 3D — apply saved state, listen for changes
-      const buildings3DState = win.toggleManager?.getState('buildings');
-      if (buildings3DState === false && MapModule?.map) {
-        MapModule.map.setBuildings3D(false);
+      // Mode 3D — apply saved state now that map is ready, listen for changes
+      // Active à la fois le relief et les bâtiments 3D
+      const mode3DState = win.toggleManager?.getState('mode3d');
+      if (MapModule?.map) {
+        MapModule.map.setTerrain(mode3DState);
+        MapModule.map.setBuildings3D(mode3DState);
       }
-      win.toggleManager?.on('buildings', (active) => {
-        if (MapModule?.map) MapModule.map.setBuildings3D(active);
+      win.toggleManager?.on('mode3d', (active) => {
+        if (MapModule?.map) {
+          MapModule.map.setTerrain(active);
+          MapModule.map.setBuildings3D(active);
+        }
       });
-      win.toggleManager?.markReady('buildings');
+      win.toggleManager?.markReady('mode3d');
 
       // Theme — delegate to ThemeManager + dock shimmer + update buildings colors
       win.toggleManager?.on('theme', () => {
@@ -887,8 +591,6 @@
         win.ThemeManager?.startOSThemeSync();
       }
       
-      // Event listener du logo (retour à la vue par défaut)
-      EventBindings.bindLogoClick();
       
       // Exposer l'API globale
       window.getActiveCity = () => win.CityManager?.getActiveCity() || '';
@@ -1031,9 +733,6 @@
             await win.CityManager?.updateLogoForCity(nextCity);
             try {
               await win.FilterManager?.init();
-              if (window.EventBindings?.bindFilterControls) {
-                window.EventBindings.bindFilterControls();
-              }
             } catch (_) { /* noop */ }
           }
           let state = e && e.state ? e.state : null;

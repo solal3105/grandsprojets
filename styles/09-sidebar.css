@@ -1,0 +1,788 @@
+/* ===========================================================================
+   SIDEBAR — Premium Edge-Anchored Navigation
+   Non-floating, full-height, spacious, world-class design
+   Inspired by Linear, Figma, Notion — clean, minimal, functional
+   =========================================================================== */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CSS VARIABLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --sidebar-w: 80px;
+  --sidebar-bg: var(--surface-base);
+  --sidebar-border: var(--border-light);
+  --sidebar-btn-size: 56px;
+  --sidebar-btn-radius: 16px;
+  --sidebar-gap: 8px;
+  --sidebar-section-gap: 24px;
+  --sidebar-padding: 20px;
+}
+
+[data-theme="dark"] {
+  --sidebar-bg: color-mix(in srgb, var(--surface-base) 98%, black);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SIDEBAR CONTAINER — Edge-anchored, full height
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.gp-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-w);
+  z-index: 1000;
+  
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--sidebar-padding) 0;
+  
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  
+  /* Subtle inner glow for depth */
+  box-shadow: 
+    inset -1px 0 0 rgba(255, 255, 255, 0.03),
+    1px 0 24px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="dark"] .gp-sidebar {
+  box-shadow: 
+    inset -1px 0 0 rgba(255, 255, 255, 0.02),
+    1px 0 32px rgba(0, 0, 0, 0.15);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOGO — Generous spacing, subtle hover
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.gp-sidebar__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: var(--sidebar-section-gap);
+  flex-shrink: 0;
+  text-decoration: none;
+  border-radius: 14px;
+  transition: 
+    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+    background 0.2s ease;
+}
+
+.gp-sidebar__logo:hover {
+  transform: scale(1.05);
+  background: var(--surface-elevated);
+}
+
+.gp-sidebar__logo:active {
+  transform: scale(0.96);
+}
+
+.gp-sidebar__logo img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  display: block;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DIVIDERS — Subtle, airy
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.gp-sidebar__divider {
+  width: 36px;
+  height: 1px;
+  background: var(--border-light);
+  margin: var(--sidebar-section-gap) 0;
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MODULES SECTION — Main navigation area
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.gp-sidebar__modules {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sidebar-gap);
+  width: 100%;
+  padding: 0 12px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SIDEBAR BUTTON — Clean, spacious, refined
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.gp-sidebar__btn {
+  --btn-accent: var(--text-secondary);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: var(--sidebar-btn-size);
+  height: var(--sidebar-btn-size);
+  border: none;
+  border-radius: var(--sidebar-btn-radius);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  overflow: visible;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.15s ease;
+}
+
+.gp-sidebar__btn i {
+  font-size: 1.25rem;
+  color: var(--text-tertiary);
+  transition: color 0.15s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+
+.gp-sidebar__label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 54px;
+  text-align: center;
+  line-height: 1;
+  opacity: 0.8;
+  transition: color 0.15s ease, opacity 0.15s ease;
+  pointer-events: none;
+}
+
+/* Hover — subtle lift */
+.gp-sidebar__btn:hover {
+  background: var(--surface-elevated);
+  transform: translateY(-2px);
+}
+
+.gp-sidebar__btn:hover i {
+  color: var(--btn-accent, var(--text-primary));
+}
+
+.gp-sidebar__btn:hover .gp-sidebar__label {
+  color: var(--text-secondary);
+  opacity: 1;
+}
+
+/* Press */
+.gp-sidebar__btn:active {
+  transform: translateY(0) scale(0.96);
+  transition-duration: 0.08s;
+}
+
+/* Focus visible */
+.gp-sidebar__btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MODULE BUTTON — Primary navigation (Carte, Travaux)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.gp-sidebar__btn--module {
+  --btn-accent: var(--cat-color, var(--primary));
+  width: 100%;
+  max-width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  gap: 5px;
+}
+
+.gp-sidebar__btn--module i {
+  font-size: 1.35rem;
+}
+
+.gp-sidebar__btn--module .gp-sidebar__label {
+  font-size: 9px;
+  max-width: 56px;
+}
+
+/* Active module — filled accent */
+.gp-sidebar__btn--module.active {
+  background: var(--cat-color, var(--primary));
+  box-shadow:
+    0 4px 20px color-mix(in srgb, var(--cat-color, var(--primary)) 35%, transparent),
+    0 1px 3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.gp-sidebar__btn--module.active i {
+  color: #fff;
+  transform: scale(1.05);
+}
+
+.gp-sidebar__btn--module.active .gp-sidebar__label {
+  color: rgba(255, 255, 255, 0.95);
+  opacity: 1;
+}
+
+.gp-sidebar__btn--module.active:hover {
+  background: color-mix(in srgb, var(--cat-color, var(--primary)) 92%, black);
+  transform: translateY(-3px);
+  box-shadow:
+    0 6px 24px color-mix(in srgb, var(--cat-color, var(--primary)) 40%, transparent),
+    0 2px 4px rgba(0, 0, 0, 0.12);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACTIONS SECTION — Bottom anchored, spacious
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.gp-sidebar__actions {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sidebar-gap);
+  width: 100%;
+  padding: 0 12px;
+  padding-top: var(--sidebar-section-gap);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACTION BUTTON VARIANTS — Semantic colors
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* City selector */
+.gp-sidebar__btn--city {
+  --btn-accent: var(--text-primary);
+}
+
+/* Theme toggle */
+.gp-sidebar__btn--theme {
+  --btn-accent: var(--color-warning);
+}
+
+/* Info button */
+.gp-sidebar__btn--info {
+  --btn-accent: var(--color-info);
+}
+
+/* Help button */
+.gp-sidebar__btn--help {
+  --btn-accent: var(--color-warning);
+}
+
+/* Login button */
+.gp-sidebar__btn--login {
+  --btn-accent: var(--primary);
+}
+
+/* Contribute CTA — accent filled */
+.gp-sidebar__btn--contribute {
+  --btn-accent: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.gp-sidebar__btn--contribute i {
+  color: var(--primary);
+}
+
+.gp-sidebar__btn--contribute .gp-sidebar__label {
+  color: var(--primary);
+  opacity: 1;
+}
+
+.gp-sidebar__btn--contribute:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+.gp-sidebar__btn--contribute:hover i,
+.gp-sidebar__btn--contribute:hover .gp-sidebar__label {
+  color: #fff;
+}
+
+/* Logout button */
+.gp-sidebar__btn--logout {
+  --btn-accent: var(--color-danger);
+}
+
+.gp-sidebar__btn--logout:hover {
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+}
+
+.gp-sidebar__btn--logout:hover i {
+  color: var(--color-danger);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AUTH VISIBILITY
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.gp-sidebar__btn[data-auth="connected"] { display: none; }
+.gp-sidebar__btn[data-auth="disconnected"] { display: flex; }
+
+.gp-sidebar[data-connected="true"] .gp-sidebar__btn[data-auth="connected"] { display: flex; }
+.gp-sidebar[data-connected="true"] .gp-sidebar__btn[data-auth="disconnected"] { display: none; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOOLTIP — Elegant, right-aligned
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.gp-sidebar__btn[data-tooltip]::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 14px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-6px);
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--gray-900);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 10;
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.16),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+[data-theme="dark"] .gp-sidebar__btn[data-tooltip]::before {
+  background: var(--gray-100);
+  color: var(--gray-900);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.gp-sidebar__btn:hover::before {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* Suppress tooltip on touch devices */
+@media (hover: none) {
+  .gp-sidebar__btn::before {
+    display: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ENTRANCE ANIMATION — Subtle, professional
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.gp-sidebar {
+  animation: sidebarEnter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes sidebarEnter {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Module buttons stagger entrance */
+.gp-sidebar__btn--module {
+  opacity: 0;
+  animation: sidebarBtnIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.gp-sidebar__btn--module:nth-child(1) { animation-delay: 0.15s; }
+.gp-sidebar__btn--module:nth-child(2) { animation-delay: 0.2s; }
+.gp-sidebar__btn--module:nth-child(3) { animation-delay: 0.25s; }
+.gp-sidebar__btn--module:nth-child(4) { animation-delay: 0.3s; }
+.gp-sidebar__btn--module:nth-child(n+5) { animation-delay: 0.35s; }
+
+@keyframes sidebarBtnIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LAYOUT OFFSET — Push content to the right
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Main container offset */
+.gp-sidebar ~ #container {
+  margin-left: var(--sidebar-w);
+}
+
+/* Toggle dock offset */
+.gp-sidebar ~ #container .toggle-dock {
+  left: calc(var(--sidebar-w) + 16px);
+}
+
+/* Hide mobile logo when sidebar present (desktop only) */
+@media (min-width: 721px) {
+  .gp-sidebar ~ .mobile-fixed-logo {
+    display: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SIDEBAR PANELS — Panels triggered from sidebar (city, etc.)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Sidebar panel — positioned by JS */
+#city-menu.dock-panel--open {
+  min-width: 260px;
+  max-width: 320px;
+  max-height: calc(100vh - 80px);
+  border-radius: 16px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+#city-menu.dock-panel--open::before {
+  display: none;
+}
+
+[data-theme="dark"] #city-menu.dock-panel--open {
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE — Mobile (≤ 720px)
+   Sidebar becomes bottom navigation
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 720px) {
+  :root {
+    --sidebar-w: 0px;
+  }
+
+  /* Navigation flottante ultra-moderne - Fluent Design */
+  .gp-sidebar {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    right: auto;
+    top: auto;
+    width: auto;
+    height: auto;
+    flex-direction: row;
+    padding: 6px;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(40px) saturate(1.8);
+    -webkit-backdrop-filter: blur(40px) saturate(1.8);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 24px;
+    box-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.12),
+      0 2px 8px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    animation: navFloat 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  [data-theme="dark"] .gp-sidebar {
+    background: rgba(20, 20, 30, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 
+      0 8px 40px rgba(0, 0, 0, 0.4),
+      0 2px 12px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  @keyframes navFloat {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(40px) scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0) scale(1);
+    }
+  }
+
+  /* Reset container offset */
+  .gp-sidebar ~ #container {
+    margin-left: 0;
+  }
+
+  .gp-sidebar ~ #container .toggle-dock {
+    left: 16px;
+  }
+
+  /* City panel — above bottom nav on mobile */
+  #city-menu.dock-panel--open {
+    top: auto !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 72px !important;
+    min-width: 0;
+    max-width: none;
+  }
+
+  /* Logo — hidden on mobile (using mobile-fixed-logo instead) */
+  .gp-sidebar__logo {
+    display: none;
+  }
+
+  /* Hide dividers on mobile */
+  .gp-sidebar__divider {
+    display: none;
+  }
+
+  /* Modules — Pills flottantes individuelles avec Fluent Design */
+  .gp-sidebar__modules {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    padding: 0;
+  }
+
+  .gp-sidebar__btn--module {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    height: 48px;
+    padding: 0 20px;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 24px;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 
+      0 4px 16px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+
+  [data-theme="dark"] .gp-sidebar__btn--module {
+    background: rgba(40, 40, 50, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 
+      0 4px 16px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  /* Gradient animé au hover */
+  .gp-sidebar__btn--module::before {
+    content: '';
+    position: absolute;
+    inset: -50%;
+    background: conic-gradient(
+      from 0deg at 50% 50%,
+      transparent 0deg,
+      color-mix(in srgb, var(--cat-color, var(--primary)) 15%, transparent) 90deg,
+      transparent 180deg
+    );
+    opacity: 0;
+    transition: opacity 0.6s ease, transform 0.6s ease;
+    animation: gradientRotate 3s linear infinite paused;
+  }
+
+  .gp-sidebar__btn--module:hover::before {
+    opacity: 1;
+    animation-play-state: running;
+  }
+
+  @keyframes gradientRotate {
+    to { transform: rotate(360deg); }
+  }
+
+  /* État actif - Pill remplie avec glow */
+  .gp-sidebar__btn--module.active {
+    background: linear-gradient(135deg, 
+      var(--cat-color, var(--primary)),
+      color-mix(in srgb, var(--cat-color, var(--primary)) 85%, black));
+    border-color: color-mix(in srgb, var(--cat-color, var(--primary)) 80%, white);
+    box-shadow: 
+      0 8px 32px color-mix(in srgb, var(--cat-color, var(--primary)) 40%, transparent),
+      0 4px 16px color-mix(in srgb, var(--cat-color, var(--primary)) 25%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px) scale(1.05);
+  }
+
+  .gp-sidebar__btn--module.active::before {
+    display: none;
+  }
+
+  /* Icône avec effet de rebond */
+  .gp-sidebar__btn--module i {
+    font-size: 1.15rem;
+    color: var(--text-secondary);
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .gp-sidebar__btn--module:hover i {
+    color: var(--text-primary);
+    transform: scale(1.15) rotate(-5deg);
+  }
+
+  .gp-sidebar__btn--module.active i {
+    color: #fff;
+    transform: scale(1.2);
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3));
+  }
+
+  /* Label avec typographie premium - bien visible sur mobile */
+  .gp-sidebar__btn--module .gp-sidebar__label {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+    white-space: nowrap;
+  }
+
+  .gp-sidebar__btn--module.active .gp-sidebar__label {
+    color: #fff;
+    font-weight: 700;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Animation d'entrée échelonnée */
+  .gp-sidebar__btn--module {
+    animation: pillFloat 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  .gp-sidebar__btn--module:nth-child(1) { animation-delay: 0.1s; }
+  .gp-sidebar__btn--module:nth-child(2) { animation-delay: 0.2s; }
+
+  @keyframes pillFloat {
+    from {
+      opacity: 0;
+      transform: translateY(30px) scale(0.8);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  /* Actions — hidden on mobile (using mobile-actions-btn instead) */
+  .gp-sidebar__actions {
+    display: none;
+  }
+
+  .gp-sidebar__btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+
+  .gp-sidebar__btn .gp-sidebar__label {
+    display: none;
+  }
+
+  .gp-sidebar__btn i {
+    font-size: 1rem;
+  }
+
+  /* Tooltips above on mobile */
+  .gp-sidebar__btn[data-tooltip]::before {
+    left: 50%;
+    top: auto;
+    bottom: calc(100% + 10px);
+    transform: translateX(-50%) translateY(4px);
+  }
+
+  .gp-sidebar__btn:hover::before {
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@media (max-width: 480px) {
+  .gp-sidebar {
+    padding: 6px 8px;
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+  }
+
+  .gp-sidebar__logo {
+    width: 36px;
+    height: 36px;
+    margin-right: 6px;
+  }
+
+  .gp-sidebar__logo img {
+    width: 24px;
+    height: 24px;
+  }
+
+  .gp-sidebar__btn--module {
+    min-width: 56px;
+    height: 40px;
+    padding: 5px 10px;
+    gap: 6px;
+  }
+
+  .gp-sidebar__btn--module i {
+    font-size: 1rem;
+  }
+
+  .gp-sidebar__btn--module .gp-sidebar__label {
+    font-size: 10px;
+  }
+
+  .gp-sidebar__btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .gp-sidebar__btn i {
+    font-size: 0.9rem;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACCESSIBILITY
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  .gp-sidebar,
+  .gp-sidebar__btn,
+  .gp-sidebar__btn i,
+  .gp-sidebar__logo {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .gp-sidebar__btn--module {
+    opacity: 1;
+    animation: none !important;
+  }
+}

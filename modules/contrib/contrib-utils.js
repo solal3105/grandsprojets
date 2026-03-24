@@ -123,6 +123,87 @@
     return validTypes.includes(geojson.type);
   }
 
+  /**
+   * Normalise un GeoJSON en FeatureCollection
+   * Gère: Feature, FeatureCollection, géométries brutes, MultiPoint
+   * @param {Object} geojson - GeoJSON d'entrée
+   * @returns {Object} FeatureCollection normalisée
+   */
+  function normalizeToFeatureCollection(geojson) {
+    if (!geojson) return { type: 'FeatureCollection', features: [] };
+    
+    // Déjà une FeatureCollection
+    if (geojson.type === 'FeatureCollection') {
+      const features = (geojson.features || []).map(f => ({
+        type: 'Feature',
+        properties: f.properties || {},
+        geometry: f.geometry
+      }));
+      return { type: 'FeatureCollection', features };
+    }
+    
+    // Une Feature simple
+    if (geojson.type === 'Feature') {
+      return {
+        type: 'FeatureCollection',
+        features: [{
+          type: 'Feature',
+          properties: geojson.properties || {},
+          geometry: geojson.geometry
+        }]
+      };
+    }
+    
+    // Géométrie brute (Point, LineString, Polygon, Multi*, GeometryCollection)
+    const geomTypes = ['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon', 'GeometryCollection'];
+    if (geomTypes.includes(geojson.type)) {
+      // Cas spécial: MultiPoint -> convertir en plusieurs Features Point
+      if (geojson.type === 'MultiPoint' && Array.isArray(geojson.coordinates)) {
+        const features = geojson.coordinates.map(coords => ({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'Point', coordinates: coords }
+        }));
+        return { type: 'FeatureCollection', features };
+      }
+      
+      return {
+        type: 'FeatureCollection',
+        features: [{
+          type: 'Feature',
+          properties: {},
+          geometry: geojson
+        }]
+      };
+    }
+    
+    return { type: 'FeatureCollection', features: [] };
+  }
+
+  // ============================================================================
+  // PERMISSIONS UTILITIES
+  // ============================================================================
+
+  /**
+   * Filtre les villes selon les permissions de l'utilisateur
+   * @param {Array<string>} cities - Liste des villes disponibles
+   * @returns {Array<string>} Villes filtrées selon les permissions
+   */
+  function filterCitiesByPermissions(cities) {
+    const userVilles = win.__CONTRIB_VILLES;
+    const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
+    
+    if (hasGlobalAccess) {
+      return cities;
+    }
+    
+    if (Array.isArray(userVilles) && userVilles.length > 0) {
+      return cities.filter(c => userVilles.includes(c));
+    }
+    
+    return [];
+  }
+
   // ============================================================================
   // EXPORTS
   // ============================================================================
@@ -143,7 +224,13 @@
     
     // Validation
     isValidUrl,
-    isValidGeoJSON
+    isValidGeoJSON,
+    
+    // GeoJSON processing
+    normalizeToFeatureCollection,
+    
+    // Permissions
+    filterCitiesByPermissions
   };
 
 })(window);
