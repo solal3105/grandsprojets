@@ -283,16 +283,18 @@ const NavigationModule = (() => {
   
   // Hide NavPanel if open — preserve state so it can be restored on back
   window.NavPanel?.collapse();
-  // Add map padding so the project stays visible (not hidden behind the detail panel)
-  // Desktop: right padding (panel is on the right)
-  // Mobile: bottom padding (panel is a bottom sheet at 60vh)
+  // Add map padding so the project stays visible behind the detail panel.
+  // This shifts the map's "logical center" so that interactive zoom/pan
+  // keeps the feature in the unobstructed zone.
+  // Desktop: detail panel = 420px + 16px right, sidebar = 106px left
+  // Mobile:  detail panel = bottom sheet ~60vh
   try {
     const mlMap = window.MapModule?.map?._mlMap;
     if (mlMap && typeof mlMap.easeTo === 'function') {
       const isMobile = window.innerWidth <= 720;
       const padding = isMobile
-        ? { top: 0, right: 0, bottom: Math.round(window.innerHeight * 0.55), left: 0 }
-        : { top: 0, right: 450, bottom: 0, left: 0 };
+        ? { top: 80, right: 0, bottom: Math.round(window.innerHeight * 0.62), left: 0 }
+        : { top: 0, right: 450, bottom: 0, left: 106 };
       mlMap.easeTo({ padding, duration: 400 });
     }
   } catch (_) {}

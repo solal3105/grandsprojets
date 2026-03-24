@@ -602,15 +602,61 @@
           }
           if (minLng !== Infinity) {
             const mob = window.innerWidth <= 720;
-            // NavPanel is fixed on left, doesn't need bottom padding offset
-            const bottomPad = mob ? window.innerHeight * 0.50 : window.innerHeight * 0.45;
+
+            // Compute padding based on actual UI obstructions:
+            //
+            // MOBILE (≤720px)
+            //  top    : logo (44px+16px) + toggle-dock (46px+16px) ≈ 80px
+            //  bottom : project-detail bottom-sheet occupies 60vh when visible,
+            //           nav-panel bottom-sheet 58vh, sidebar dock ~56px — use
+            //           whichever panel is currently on screen
+            //  left/right: free
+            //
+            // DESKTOP (>720px)
+            //  left   : sidebar (78px) + gap (14px) + 14px = 106px.
+            //           If nav-panel is still visible (collapsed = still takes space), add panel width.
+            //  right  : project-detail panel = 420px + 16px margin = 436px (if visible)
+            //  top    : toggle-dock ≈ 82px
+            //  bottom : free
+
+            let top, right, bottom, left;
+
+            if (mob) {
+              top = 80; // logo + dock
+              left = 20;
+              right = 20;
+              // Check if project-detail is visible (bottom sheet, 60vh)
+              const detailPanel = document.getElementById('project-detail');
+              const detailVisible = detailPanel && detailPanel.style.display !== 'none'
+                && detailPanel.offsetHeight > 0;
+              if (detailVisible) {
+                // The bottom sheet is ≈60vh — the feature must sit in the top 40%
+                bottom = Math.round(window.innerHeight * 0.62);
+              } else {
+                // Nav-panel bottom sheet when open is 58vh max,
+                // sidebar dock at absolute bottom ≈ 56px
+                const navPanel = document.querySelector('.nav-panel.open');
+                bottom = navPanel
+                  ? Math.round(window.innerHeight * 0.55)
+                  : 70; // just sidebar dock + safe area
+              }
+            } else {
+              top = 90; // toggle-dock
+              bottom = 40;
+              // Left: sidebar always present, nav-panel if open
+              const sidebarW = 78 + 14; // sidebar width + inset
+              const navOpen = document.querySelector('.nav-panel.open:not(.collapsed)');
+              left = navOpen ? sidebarW + 14 + 340 + 20 : sidebarW + 20;
+              // Right: project-detail if visible
+              const detailPanel = document.getElementById('project-detail');
+              const detailVisible = detailPanel && detailPanel.style.display !== 'none'
+                && detailPanel.offsetHeight > 0;
+              right = detailVisible ? 436 + 20 : 40;
+            }
+
             this._mlMap.fitBounds([[minLng,minLat],[maxLng,maxLat]], {
-              padding: mob
-                ? { top: 60, right: 40, bottom: bottomPad, left: 40 }
-                : { top: 80, right: 80, bottom: bottomPad, left: 80 },
+              padding: { top, right, bottom, left },
               maxZoom: 16, duration: 600,
-              // Reset pitch so perspective tilt doesn't push the feature
-              // outside the visible (unobscured) portion of the viewport
               pitch: 0
             });
           }
