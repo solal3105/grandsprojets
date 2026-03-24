@@ -207,9 +207,6 @@
   }
 
   /* Hide at level 2 for 'carte' only — no filter applied yet */
-  .nav-panel[data-level="2"][data-module="carte"] .nav-panel__footer {
-    display: none;
-  }
 }
 
 .nav-panel__title {
