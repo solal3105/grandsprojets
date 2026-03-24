@@ -231,6 +231,19 @@ window.DataModule = (function() {
 						return { type: 'FeatureCollection', features: [] };
 					}
 				} else if (config.source_type === 'city_travaux') {
+					// Agrégation serveur via Netlify Function (1 requête au lieu de N+1)
+					try {
+						const fnUrl = `/.netlify/functions/travaux-geojson?ville=${encodeURIComponent(activeCity)}`;
+						const resp = await fetch(fnUrl);
+						if (resp.ok) {
+							const data = await resp.json();
+							if (data?.features?.length >= 0) return data;
+						}
+						console.warn('[DataModule] Netlify function indisponible, fallback client-side');
+					} catch (_) {
+						console.warn('[DataModule] Netlify function erreur, fallback client-side');
+					}
+					// Fallback : agrégation client-side (N+1 fetches)
 					const data = await window.supabaseService.loadCityTravauxGeoJSON(activeCity);
 					return data || { type: 'FeatureCollection', features: [] };
 				}

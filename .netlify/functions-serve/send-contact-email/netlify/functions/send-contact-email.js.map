@@ -1,8 +1,0 @@
-{
-  "version": 3,
-  "sources": ["../../../../Documents/grandsprojets/netlify/functions/send-contact-email.js"],
-  "sourceRoot": "C:/Users/Maline/AppData/Local/Temp/tmp-8200-CNqRNaUjHb6o",
-  "sourcesContent": ["/**\n * Netlify Function: send-contact-email\n * \n * \u26A0\uFE0F DEPRECATED - Utiliser le syst\u00E8me Supabase \u00E0 la place\n * \n * La landing page utilise maintenant le m\u00EAme syst\u00E8me que l'app principale:\n * - Formulaire: modules/contact-form.js\n * - Stockage: Table Supabase \"contact_requests\"\n * - Email: Supabase Edge Function \"clever-endpoint\"\n * \n * Cette fonction n'est plus utilis\u00E9e.\n */\n\nexport async function handler(event) {\n  return {\n    statusCode: 410,\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({\n      error: 'Cette fonction est d\u00E9pr\u00E9ci\u00E9e. Utiliser le syst\u00E8me Supabase \u00E0 la place.',\n    }),\n  };\n}\n"],
-  "mappings": ";;;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAaA,eAAsB,QAAQ,OAAO;AACnC,SAAO;AAAA,IACL,YAAY;AAAA,IACZ,SAAS,EAAE,gBAAgB,mBAAmB;AAAA,IAC9C,MAAM,KAAK,UAAU;AAAA,MACnB,OAAO;AAAA,IACT,CAAC;AAAA,EACH;AACF;",
-  "names": []
-}
