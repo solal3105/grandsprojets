@@ -575,7 +575,7 @@
     },
 
     spotlightByName(projectName, opts) {
-      if (!this._mlMap || !projectName) return;
+      if (!this._mlMap || !projectName) return false;
       const { panTo = true, dimOthers = true } = opts || {};
       this.clearSelection();
       const pools = this._getPools();
@@ -590,7 +590,7 @@
         }
         if (matchSrc) break;
       }
-      if (!matchSrc || !matchIds.size) return;
+      if (!matchSrc || !matchIds.size) return false;
       if (panTo && matchFeatures.length) {
         try {
           let minLng=Infinity, maxLng=-Infinity, minLat=Infinity, maxLat=-Infinity;
@@ -677,6 +677,7 @@
           if (pool.fillLayerId) this._dimLayer(pool.fillLayerId, 'fill-opacity', DIM_FILL_OPACITY);
         }
       }
+      return true;
     },
 
     _flatCoords(c) {

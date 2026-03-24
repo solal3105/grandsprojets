@@ -100,8 +100,9 @@ const NavigationModule = (() => {
     clearProjectHighlight();
     
     // Delegate line/polygon highlight + dim to FeatureInteractions (feature-state based, no pool destruction)
+    let poolHandled = false;
     if (window.FeatureInteractions) {
-      window.FeatureInteractions.spotlightByName(projectName, {
+      poolHandled = !!window.FeatureInteractions.spotlightByName(projectName, {
         panTo,
         dimOthers: fadeOthers
       });
@@ -113,6 +114,9 @@ const NavigationModule = (() => {
     if (!targetLayer || typeof targetLayer.eachLayer !== 'function') return;
     
     const { color: categoryColor } = getCategoryStyle(category);
+    
+    // Collect marker positions for panTo fallback (point-only projects)
+    const markerCoords = [];
     
     targetLayer.eachLayer((featureLayer) => {
       const props = featureLayer.feature?.properties || {};
@@ -136,8 +140,56 @@ const NavigationModule = (() => {
             currentHighlight.pulseElements.push(pulseRing);
           }
         }
+        // Collect coordinates for panTo fallback
+        if (panTo && !poolHandled) {
+          const ll = featureLayer.getLatLng?.();
+          if (ll) markerCoords.push(ll);
+        }
       }
     });
+    
+    // Fallback panTo for point-only projects (not handled by spotlightByName)
+    if (panTo && !poolHandled && markerCoords.length > 0) {
+      try {
+        const mlMap = window.MapModule?.map?._mlMap;
+        if (mlMap) {
+          let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+          for (const ll of markerCoords) {
+            if (ll.lng < minLng) minLng = ll.lng;
+            if (ll.lng > maxLng) maxLng = ll.lng;
+            if (ll.lat < minLat) minLat = ll.lat;
+            if (ll.lat > maxLat) maxLat = ll.lat;
+          }
+          const mob = window.innerWidth <= 720;
+          let top, right, bottom, left;
+          if (mob) {
+            top = 80;
+            left = 20;
+            right = 20;
+            const detailPanel = document.getElementById('project-detail');
+            const detailVisible = detailPanel && detailPanel.style.display !== 'none';
+            bottom = detailVisible
+              ? Math.round(window.innerHeight * 0.62)
+              : 70;
+          } else {
+            top = 90;
+            bottom = 40;
+            const sidebarW = 78 + 14;
+            const navOpen = document.querySelector('.nav-panel.open:not(.collapsed)');
+            left = navOpen ? sidebarW + 14 + 340 + 20 : sidebarW + 20;
+            const detailPanel = document.getElementById('project-detail');
+            const detailVisible = detailPanel && detailPanel.style.display !== 'none';
+            right = detailVisible ? 456 : 40;
+          }
+          mlMap.fitBounds([[minLng, minLat], [maxLng, maxLat]], {
+            padding: { top, right, bottom, left },
+            maxZoom: 16,
+            duration: 600,
+            pitch: 0
+          });
+        }
+      } catch (_) {}
+    }
   }
 
   /**
