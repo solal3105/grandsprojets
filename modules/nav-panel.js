@@ -43,11 +43,12 @@
       this._level3 = this._panel.querySelector('.nav-panel__level3');
 
       this._bindEvents();
+      this._initDragHandle();
     },
 
     _bindEvents() {
       if (this._closeBtn) {
-        this._closeBtn.addEventListener('click', () => this.close());
+        this._closeBtn.addEventListener('click', () => this.collapse());
       }
       if (this._collapseBtn) {
         this._collapseBtn.addEventListener('click', () => this.collapse());
@@ -68,6 +69,69 @@
       });
     },
 
+    /**
+     * Drag-to-collapse on mobile: tracks pointer on the handle pill
+     */
+    _initDragHandle() {
+      const handle = this._panel?.querySelector('.nav-panel__handle');
+      if (!handle) return;
+
+      let startY = 0;
+      let startTime = 0;
+      let currentY = 0;
+      let dragging = false;
+
+      handle.addEventListener('pointerdown', (e) => {
+        if (window.innerWidth > 720) return;
+        if (!this.isOpen() || this._collapsed) return;
+
+        dragging = true;
+        startY = e.clientY;
+        startTime = Date.now();
+        currentY = 0;
+
+        handle.setPointerCapture(e.pointerId);
+        this._panel.style.transition = 'none';
+        this._panel.classList.add('dragging');
+      });
+
+      handle.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        currentY = Math.max(0, e.clientY - startY);
+        this._panel.style.transform = `translateY(${currentY}px)`;
+      });
+
+      const onRelease = () => {
+        if (!dragging) return;
+        dragging = false;
+        this._panel.classList.remove('dragging');
+
+        const deltaY = currentY;
+        const elapsed = Math.max(Date.now() - startTime, 1);
+        const velocity = deltaY / elapsed; // px/ms
+
+        if (deltaY > 80 || velocity > 0.45) {
+          // fast enough or far enough — collapse
+          this._panel.style.removeProperty('transform');
+          this._panel.style.removeProperty('transition');
+          this.collapse();
+        } else {
+          // snap back with spring
+          this._panel.style.transition = 'transform 0.45s cubic-bezier(0.22, 1, 0.36, 1)';
+          this._panel.style.transform = 'translateY(0)';
+          const cleanup = () => {
+            this._panel.style.removeProperty('transform');
+            this._panel.style.removeProperty('transition');
+            this._panel.removeEventListener('transitionend', cleanup);
+          };
+          this._panel.addEventListener('transitionend', cleanup);
+        }
+      };
+
+      handle.addEventListener('pointerup', onRelease);
+      handle.addEventListener('pointercancel', onRelease);
+    },
+
     /* ──────────────────────────────────────────────────────────────────── */
     /*  PUBLIC API                                                         */
     /* ──────────────────────────────────────────────────────────────────── */
@@ -82,9 +146,16 @@
       this._collapsed = false;
       this._panel.classList.remove('collapsed');
 
+      const prevModule = this._currentModule;
       this._currentModule = mod;
       this._currentCategory = null;
+      this._panel.setAttribute('data-module', mod);
       this._setLevel(2);
+
+      // On module change, clear the map before loading the new module's layers
+      if (prevModule && prevModule !== mod) {
+        mod === 'carte' ? this._restoreDefaultLayers() : this._clearAllMapLayers();
+      }
 
       if (mod === 'carte') {
         this._headerTitle.textContent = 'Carte';
@@ -141,8 +212,8 @@
       // Re-render level 2 (items already built, just show)
       if (this._currentModule === 'carte') {
         this._renderCarteLevel2();
-        // Restore default layers when going back
-        this._restoreDefaultLayers();
+        // Restore default layers — preserve travaux if they were already on the map
+        this._restoreDefaultLayers(this._travauxLayersLoaded);
       } else {
         this._renderTravauxLevel2();
         // Reset travaux filters and timeline when going back to L2
@@ -679,10 +750,33 @@
     async _loadCategoryLayers(category) {
       const layersMap = win.categoryLayersMap || {};
       const layersToDisplay = layersMap[category] || [category];
+      const travauxLayerSet = new Set(layersMap['travaux'] || ['travaux']);
 
-      // handleNavigation skips submenu rendering when NavPanel.isOpen()
-      if (win.EventBindings?.handleNavigation) {
-        await win.EventBindings.handleNavigation(category, layersToDisplay);
+      // Close project detail if open
+      const detailPanel = document.getElementById('project-detail');
+      if (detailPanel) detailPanel.style.display = 'none';
+      win.NavigationModule?._resetProjectGuard?.();
+
+      win.FilterModule?.resetAll?.();
+
+      // Remove contribution layers only — travaux layers stay on the map
+      Object.keys(win.MapModule?.layers || {}).forEach(name => {
+        if (!travauxLayerSet.has(name)) {
+          try { win.MapModule.removeLayer(name); } catch (_) {}
+        }
+      });
+
+      // Preload uncached data in parallel
+      const uncached = layersToDisplay.filter(n => !win.DataModule?.layerData?.[n]);
+      if (uncached.length > 0) {
+        await Promise.all(uncached.map(n => win.DataModule?.preloadLayer?.(n)?.catch(() => {})));
+      }
+
+      // Create layers from cache
+      for (const name of layersToDisplay) {
+        if (win.DataModule?.layerData?.[name]) {
+          try { win.DataModule.createGeoJsonLayer(name, win.DataModule.layerData[name]); } catch (_) {}
+        }
       }
     },
 
@@ -702,26 +796,66 @@
         return;
       }
 
-      if (win.EventBindings?.handleNavigation) {
-        this._travauxLoadPromise = win.EventBindings.handleNavigation('travaux', travauxLayers);
-        try {
-          await this._travauxLoadPromise;
-          this._travauxLayersLoaded = true;
-        } finally {
-          this._travauxLoadPromise = null;
+      const doLoad = async () => {
+        // Preload uncached data in parallel — contribution layers are preserved
+        const uncached = travauxLayers.filter(n => !win.DataModule?.layerData?.[n]);
+        if (uncached.length > 0) {
+          await Promise.all(uncached.map(n => win.DataModule?.preloadLayer?.(n)?.catch(() => {})));
         }
+
+        // Add travaux layers on top of existing map content (additive)
+        for (const name of travauxLayers) {
+          if (win.DataModule?.layerData?.[name]) {
+            try { win.DataModule.createGeoJsonLayer(name, win.DataModule.layerData[name]); } catch (_) {}
+          }
+        }
+      };
+
+      this._travauxLoadPromise = doLoad();
+      try {
+        await this._travauxLoadPromise;
+        this._travauxLayersLoaded = true;
+      } finally {
+        this._travauxLoadPromise = null;
       }
     },
 
-    _restoreDefaultLayers() {
-      // Vider la carte
+    /**
+     * Remove map layers (except an optional exclusion set) and reset filters.
+     * @param {Set<string>} [exclude] — layer names to keep on the map
+     */
+    _removeLayersExcept(exclude = new Set()) {
       if (win.MapModule?.layers) {
         Object.keys(win.MapModule.layers).forEach(l => {
-          try { win.MapModule.removeLayer(l); } catch (_) {}
+          if (!exclude.has(l)) {
+            try { win.MapModule.removeLayer(l); } catch (_) {}
+          }
         });
       }
-
       FilterModule.resetAll();
+    },
+
+    /** Remove all map layers, reset filters and travaux state. */
+    _clearAllMapLayers() {
+      this._removeLayersExcept();
+      this._travauxLayersLoaded = false;
+      this._travauxLoadPromise = null;
+    },
+
+    /**
+     * Clear the map and restore contributions + default layers.
+     * @param {boolean} [keepTravaux=false] — preserve travaux layers on the map (goBack use-case)
+     */
+    _restoreDefaultLayers(keepTravaux = false) {
+      const layersMap = win.categoryLayersMap || {};
+      const preserve = keepTravaux ? new Set(layersMap['travaux'] || ['travaux']) : new Set();
+
+      this._removeLayersExcept(preserve);
+
+      if (!keepTravaux) {
+        this._travauxLayersLoaded = false;
+        this._travauxLoadPromise = null;
+      }
 
       // Réafficher les contributions depuis le cache
       const displayed = new Set();
@@ -741,10 +875,6 @@
           win.DataModule.createGeoJsonLayer(layer, win.DataModule.layerData[layer]);
         }
       });
-
-      // Travaux layers are no longer guaranteed on map after a full restore.
-      this._travauxLayersLoaded = false;
-      this._travauxLoadPromise = null;
     },
 
     /* ──────────────────────────────────────────────────────────────────── */

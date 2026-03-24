@@ -281,13 +281,8 @@ const NavigationModule = (() => {
   
   _lastShownProject = projectKey;
   
-  // Hide NavPanel if open
-  const navPanel = document.getElementById('nav-panel');
-  if (navPanel) {
-    navPanel.classList.remove('open');
-  }
-  const navScrim = document.getElementById('nav-panel-scrim');
-  if (navScrim) navScrim.classList.remove('visible');
+  // Hide NavPanel if open — preserve state so it can be restored on back
+  window.NavPanel?.collapse();
   // Add map padding so the project stays visible (not hidden behind the detail panel)
   // Desktop: right padding (panel is on the right)
   // Mobile: bottom padding (panel is a bottom sheet at 60vh)
@@ -524,15 +519,9 @@ const NavigationModule = (() => {
     const projectDetail = document.getElementById('project-detail');
     if (projectDetail) projectDetail.style.display = 'none';
 
-    // Restore NavPanel if it was open for a category
-    const navPanelActive = window.NavPanel?.getState?.()?.level > 0;
-    if (navPanelActive) {
-      const navPanelEl = document.getElementById('nav-panel');
-      if (navPanelEl) navPanelEl.classList.add('open');
-      const navScrim = document.getElementById('nav-panel-scrim');
-      if (navScrim) navScrim.classList.add('visible');
-      // Restore map padding for nav panel
-      window.NavPanel._updateMapPadding(true);
+    // Restore NavPanel if it was collapsed when showing project detail
+    if (window.NavPanel?.getState?.()?.level > 0) {
+      window.NavPanel.expand();
     } else {
       try {
         const mlMap = window.MapModule?.map?._mlMap;

@@ -169,12 +169,10 @@
 
   <!-- ═══ 3-Level Navigation Panel ═══ -->
   <div class="nav-panel" id="nav-panel" data-level="0" aria-label="Panneau de navigation">
+    <div class="nav-panel__handle" role="button" aria-label="Glisser pour réduire"></div>
     <div class="nav-panel__header">
       <button class="nav-panel__back" aria-label="Retour">
         <i class="fas fa-arrow-left" aria-hidden="true"></i>
-      </button>
-      <button class="nav-panel__collapse" aria-label="Réduire le panel">
-        <i class="fas fa-chevron-down" aria-hidden="true"></i>
       </button>
       <span class="nav-panel__title">Navigation</span>
       <button class="nav-panel__close" aria-label="Fermer">
@@ -185,6 +183,12 @@
     <div class="nav-panel__body">
       <div class="nav-panel__level2"></div>
       <div class="nav-panel__level3"></div>
+    </div>
+    <div class="nav-panel__footer">
+      <button class="nav-panel__collapse" aria-label="Voir la carte">
+        <i class="fas fa-map" aria-hidden="true"></i>
+        Voir la carte
+      </button>
     </div>
   </div>
   <div class="nav-panel__scrim" id="nav-panel-scrim"></div>
