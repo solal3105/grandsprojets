@@ -24,6 +24,8 @@
     _collapsed: false,      // true = panel hidden but state preserved
     _travauxLayersLoaded: false,
     _travauxLoadPromise: null,
+    _sidebar: null,
+    _resizeObserver: null,
 
     /* ──────────────────────────────────────────────────────────────────── */
     /*  INIT                                                               */
@@ -41,9 +43,11 @@
       this._breadcrumb = this._panel.querySelector('.nav-panel__breadcrumb');
       this._level2 = this._panel.querySelector('.nav-panel__level2');
       this._level3 = this._panel.querySelector('.nav-panel__level3');
+      this._sidebar = document.querySelector('.gp-sidebar');
 
       this._bindEvents();
       this._initDragHandle();
+      this._initSyncTaller();
     },
 
     _bindEvents() {
@@ -333,6 +337,34 @@
         module: this._currentModule,
         category: this._currentCategory
       };
+    },
+
+    /**
+     * Set up ResizeObserver to keep .taller class in sync
+     */
+    _initSyncTaller() {
+      if (!this._sidebar || !this._panel) return;
+      const sync = () => this._syncTaller();
+      this._resizeObserver = new ResizeObserver(sync);
+      this._resizeObserver.observe(this._sidebar);
+      this._resizeObserver.observe(this._panel);
+      window.addEventListener('resize', sync, { passive: true });
+    },
+
+    /**
+     * Toggle .taller class: panel exceeds sidebar height ↔ border-bottom-left-radius
+     */
+    _syncTaller() {
+      if (!this._panel || !this._sidebar) return;
+      if (window.innerWidth <= 720) {
+        this._panel.classList.remove('taller');
+        document.documentElement.style.removeProperty('--sidebar-h');
+        return;
+      }
+      const sidebarH = this._sidebar.offsetHeight;
+      // Always add 20px so the panel is always taller → border-bottom-left-radius always visible
+      document.documentElement.style.setProperty('--sidebar-h', (sidebarH + 20) + 'px');
+      this._panel.classList.add('taller');
     },
 
     /* ──────────────────────────────────────────────────────────────────── */

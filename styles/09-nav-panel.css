@@ -11,7 +11,7 @@
   --nav-panel-w: 340px;
   --nav-panel-bg: rgba(255, 255, 255, 0.88);
   --nav-panel-border: rgba(255, 255, 255, 0.5);
-  --nav-panel-spring: 0.44s cubic-bezier(0.22, 1, 0.36, 1);
+  --nav-panel-spring: 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 [data-theme="dark"] {
@@ -27,8 +27,10 @@
   position: fixed;
   top: var(--sidebar-inset, 0px);
   left: calc(var(--sidebar-inset, 0px) * 2 + var(--sidebar-w, 0px));
-  bottom: var(--sidebar-inset, 0px);
   width: var(--nav-panel-w);
+  height: auto;
+  max-height: min(calc(var(--sidebar-h, 0px) + 200px), calc(100vh - var(--sidebar-inset, 0px) * 2));
+  min-height: var(--sidebar-h, 0px);
   z-index: 999;
   border-radius: 18px;
   display: flex;
@@ -48,11 +50,13 @@
   pointer-events: none;
   visibility: hidden;
   overflow: hidden;
+  will-change: transform, opacity;
   transition:
     transform var(--nav-panel-spring),
-    opacity 0.3s ease,
-    visibility 0s linear 0.44s,
-    border-radius 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    visibility 0s linear 0.5s,
+    border-radius 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 [data-theme="dark"] .nav-panel {
@@ -69,9 +73,10 @@
   visibility: visible;
   transition:
     transform var(--nav-panel-spring),
-    opacity 0.2s ease,
+    opacity 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94),
     visibility 0s linear 0s,
-    border-radius 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    border-radius 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 /* Desktop only: flatten the left edge to connect with sidebar */
@@ -79,6 +84,11 @@
   .nav-panel.open {
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
+  }
+
+  /* Panel taller than sidebar → restore bottom-left radius */
+  .nav-panel.open.taller {
+    border-bottom-left-radius: 18px;
   }
 }
 
@@ -134,10 +144,11 @@
   cursor: pointer;
   font-size: 0.85rem;
   flex-shrink: 0;
+  will-change: transform;
   transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    background 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    color 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .nav-panel__back:hover {
@@ -148,7 +159,8 @@
 
 .nav-panel__back:active {
   transform: scale(0.88);
-  transition-duration: 0.08s;
+  transition-duration: 0.1s;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Hidden when at Level 2 (no parent to go back to within panel) */
@@ -180,10 +192,12 @@
   font-weight: 600;
   letter-spacing: 0.01em;
   font-family: inherit;
+  will-change: transform;
   transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    background 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    color 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .nav-panel__collapse i {
@@ -198,7 +212,8 @@
 
 .nav-panel__collapse:active {
   transform: scale(0.97);
-  transition-duration: 0.08s;
+  transition-duration: 0.1s;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* City-colored state — active when a category is selected (level 3) */
@@ -249,11 +264,12 @@
   cursor: pointer;
   font-size: 0.8rem;
   flex-shrink: 0;
+  will-change: transform;
   transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.2s ease;
+    background 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    color 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .nav-panel__close:hover {
@@ -265,7 +281,8 @@
 
 .nav-panel__close:active {
   transform: scale(0.85) rotate(90deg);
-  transition-duration: 0.08s;
+  transition-duration: 0.1s;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -291,12 +308,13 @@
   border-radius: 6px;
   cursor: pointer;
   white-space: nowrap;
-  transition: color 0.2s ease, background 0.2s ease;
+  transition: color 0.25s ease, background 0.25s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .nav-panel__breadcrumb-item:hover {
   color: var(--text-primary);
   background: var(--surface-overlay);
+  transform: translateY(-1px);
 }
 
 .nav-panel__breadcrumb-sep {
@@ -322,6 +340,7 @@
 
 .nav-panel__body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
@@ -382,27 +401,34 @@
 
   /* Stagger entrance */
   opacity: 0;
-  animation: navItemIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: navItemIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 
+  will-change: transform;
   transition:
-    background 0.22s ease,
-    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.22s ease;
+    background 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.nav-panel__item:nth-child(1)  { animation-delay: 0.04s; }
-.nav-panel__item:nth-child(2)  { animation-delay: 0.08s; }
-.nav-panel__item:nth-child(3)  { animation-delay: 0.12s; }
-.nav-panel__item:nth-child(4)  { animation-delay: 0.16s; }
-.nav-panel__item:nth-child(5)  { animation-delay: 0.20s; }
-.nav-panel__item:nth-child(n+6) { animation-delay: 0.23s; }
+.nav-panel__item:nth-child(1)  { animation-delay: 0.03s; }
+.nav-panel__item:nth-child(2)  { animation-delay: 0.07s; }
+.nav-panel__item:nth-child(3)  { animation-delay: 0.11s; }
+.nav-panel__item:nth-child(4)  { animation-delay: 0.15s; }
+.nav-panel__item:nth-child(5)  { animation-delay: 0.19s; }
+.nav-panel__item:nth-child(6)  { animation-delay: 0.22s; }
+.nav-panel__item:nth-child(7)  { animation-delay: 0.25s; }
+.nav-panel__item:nth-child(n+8) { animation-delay: 0.28s; }
 
 @keyframes navItemIn {
-  from {
+  0% {
     opacity: 0;
-    transform: translateY(8px) scale(0.97);
+    transform: translateY(12px) scale(0.96);
   }
-  to {
+  70% {
+    opacity: 1;
+    transform: translateY(-1px) scale(1.005);
+  }
+  100% {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
@@ -423,10 +449,11 @@
   color: var(--item-color);
   font-size: 1.05rem;
   flex-shrink: 0;
+  will-change: transform;
   transition:
-    background 0.25s ease,
-    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.25s ease;
+    background 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .nav-panel__item-text {
@@ -441,7 +468,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: color 0.2s ease;
+  transition: color 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .nav-panel__item-desc {
@@ -458,11 +485,11 @@
   color: var(--text-disabled);
   font-size: 0.7rem;
   opacity: 0;
-  transform: translateX(-6px);
+  transform: translateX(-8px);
   transition:
-    opacity 0.25s ease,
-    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-    color 0.2s ease;
+    opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+    color 0.25s ease;
 }
 
 /* Hover — glass lift */
@@ -528,7 +555,8 @@
 /* Press — springy */
 .nav-panel__item:active {
   transform: scale(0.97);
-  transition-duration: 0.08s;
+  transition-duration: 0.1s;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -547,9 +575,10 @@
 
 .nav-panel__level3 .project-card {
   border-radius: 16px;
+  will-change: transform;
   transition:
-    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.25s ease;
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .nav-panel__level3 .project-card:hover {
@@ -740,10 +769,11 @@
   border-radius: 20px;
   cursor: pointer;
   font-family: inherit;
+  will-change: transform;
   transition:
-    background 0.2s ease,
-    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.2s ease;
+    background 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .np-chrono-today:hover {
@@ -799,9 +829,9 @@
   background-repeat: no-repeat;
   background-position: right 12px center;
   transition:
-    border-color 0.2s ease,
-    box-shadow 0.3s ease,
-    transform 0.2s ease;
+    border-color 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    box-shadow 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .np-filter-select:focus {
@@ -861,10 +891,11 @@
   border-radius: 10px;
   cursor: pointer;
   font-family: inherit;
+  will-change: transform;
   transition:
-    background 0.2s ease,
-    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.2s ease;
+    background 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .np-filter-reset:hover {
@@ -897,9 +928,9 @@
   cursor: pointer;
   border: 1px solid color-mix(in srgb, var(--primary) 10%, transparent);
   transition:
-    background 0.2s ease,
-    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.2s ease;
+    background 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .np-filters-badges .travaux-badge:hover {
@@ -954,7 +985,7 @@
 
 .nav-panel__level2,
 .nav-panel__level3 {
-  animation-duration: 0.35s;
+  animation-duration: 0.45s;
   animation-fill-mode: both;
   animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -968,22 +999,30 @@
 }
 
 @keyframes levelSlideIn {
-  from {
+  0% {
     opacity: 0;
-    transform: translateX(20px) scale(0.98);
+    transform: translateX(24px) scale(0.97);
   }
-  to {
+  70% {
+    opacity: 1;
+    transform: translateX(-2px) scale(1.003);
+  }
+  100% {
     opacity: 1;
     transform: translateX(0) scale(1);
   }
 }
 
 @keyframes levelFadeIn {
-  from {
+  0% {
     opacity: 0;
-    transform: translateX(-12px) scale(0.98);
+    transform: translateX(-16px) scale(0.97);
   }
-  to {
+  70% {
+    opacity: 1;
+    transform: translateX(1px) scale(1.003);
+  }
+  100% {
     opacity: 1;
     transform: translateX(0) scale(1);
   }

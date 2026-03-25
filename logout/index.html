@@ -5,44 +5,256 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow">
   <meta name="googlebot" content="noindex, nofollow">
-  <title>Déconnexion – Grands Projets</title>
+  <title>D&eacute;connexion – Grands Projets</title>
   <link rel="icon" type="image/png" href="/img/logomin.png" sizes="32x32">
-  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/styles/00-colors.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
-    body, html { height: 100%; }
-    .logout-wrapper { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; }
-    .logout-card { width: 100%; max-width: 420px; background: var(--bg, #111); color: var(--fg, #eee); border-radius: 12px; padding: 24px; box-shadow: 0 8px 24px var(--black-alpha-18); text-align:center; }
-    .muted { color:var(--gray-400); margin-top: 8px; }
-    /* Boutons utilisent le système gp-button-system.css */
-    .btn-secondary { display: inline-flex; margin-top: 16px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body, html { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 25%, #0f172a 50%, #14532d 75%, #0f172a 100%);
+      background-size: 400% 400%;
+      animation: gradientShift 20s ease infinite;
+      color: #f8fafc;
+      overflow-x: hidden;
+    }
+
+    @keyframes gradientShift {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .bg-orbs { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+    .bg-orbs .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.3;
+      animation: orbFloat 18s ease-in-out infinite;
+    }
+    .bg-orbs .orb:nth-child(1) { width: 400px; height: 400px; background: #14AE5C; top: -10%; left: -5%; animation-delay: 0s; }
+    .bg-orbs .orb:nth-child(2) { width: 350px; height: 350px; background: #2563EB; top: 60%; right: -8%; animation-delay: -6s; animation-duration: 22s; }
+    .bg-orbs .orb:nth-child(3) { width: 250px; height: 250px; background: #F59E0B; bottom: -5%; left: 30%; animation-delay: -12s; animation-duration: 25s; }
+
+    @keyframes orbFloat {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33%      { transform: translate(40px, -30px) scale(1.05); }
+      66%      { transform: translate(-20px, 20px) scale(0.95); }
+    }
+
+    .logout-wrapper {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      gap: 20px;
+      perspective: 1200px;
+    }
+
+    .logout-logo {
+      text-align: center;
+      animation: fadeSlideIn 0.6s ease-out both;
+    }
+    .logout-logo a { display: inline-block; text-decoration: none; transition: transform 0.3s ease; }
+    .logout-logo a:hover { transform: scale(1.05); }
+    .logout-logo img {
+      width: 56px;
+      height: 56px;
+      margin-bottom: 12px;
+      filter: drop-shadow(0 4px 20px rgba(20, 174, 92, 0.4));
+    }
+    .logout-logo h1 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #f8fafc, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .glass-card {
+      width: 100%;
+      max-width: 420px;
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(24px) saturate(1.4);
+      -webkit-backdrop-filter: blur(24px) saturate(1.4);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 40px 32px;
+      box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        0 1px 0 rgba(255, 255, 255, 0.08) inset;
+      text-align: center;
+      transform: rotateX(2deg);
+      transform-style: preserve-3d;
+      transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.5s ease;
+      animation: cardAppear 0.8s ease-out both;
+      animation-delay: 0.15s;
+    }
+    .glass-card:hover {
+      transform: rotateX(0deg) translateY(-4px);
+      box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.35),
+        0 1px 0 rgba(255, 255, 255, 0.1) inset;
+    }
+
+    @keyframes cardAppear {
+      from { opacity: 0; transform: rotateX(8deg) translateY(30px) scale(0.96); }
+      to   { opacity: 1; transform: rotateX(2deg) translateY(0) scale(1); }
+    }
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .logout-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      font-size: 28px;
+      color: rgba(248, 250, 252, 0.6);
+      animation: spinOnce 0.8s ease-out 0.4s both;
+    }
+
+    @keyframes spinOnce {
+      from { transform: rotate(0deg) scale(0.8); opacity: 0; }
+      to   { transform: rotate(360deg) scale(1); opacity: 1; }
+    }
+
+    .logout-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #f8fafc;
+    }
+
+    #status {
+      font-size: 15px;
+      color: rgba(248, 250, 252, 0.5);
+      line-height: 1.6;
+      transition: color 0.3s ease;
+    }
+    #status.done { color: #34d399; }
+    #status.fail { color: #f87171; }
+
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      border-top-color: #60a5fa;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .btn-back {
+      display: none;
+      margin-top: 20px;
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #f8fafc;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      text-decoration: none;
+      transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .btn-back:hover {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.25);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    }
+    .btn-back.show { display: inline-flex; align-items: center; gap: 8px; }
+
+    @media (max-width: 640px) {
+      .glass-card { padding: 32px 20px; border-radius: 16px; }
+      .logout-logo h1 { font-size: 22px; }
+      .logout-title { font-size: 19px; }
+      .bg-orbs .orb { opacity: 0.2; }
+    }
   </style>
+  <script>
+    (function() {
+      try {
+        var savedTheme = localStorage.getItem('theme');
+        var systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
+  <div class="bg-orbs" aria-hidden="true">
+    <div class="orb"></div>
+    <div class="orb"></div>
+    <div class="orb"></div>
+  </div>
+
   <div class="logout-wrapper">
-    <div class="logout-card" role="status" aria-live="polite">
-      <h1>Déconnexion…</h1>
-      <p class="muted" id="status">Merci de patienter, vous allez être redirigé.</p>
-      <a class="btn-secondary" href="/" id="fallback-link" style="display:none">↩ Retour à l'accueil</a>
+    <div class="logout-logo">
+      <a href="/" aria-label="Accueil">
+        <img src="/img/logo.svg" alt="Grands Projets" />
+      </a>
+      <h1>Grands Projets</h1>
+    </div>
+
+    <div class="glass-card" role="status" aria-live="polite">
+      <div class="logout-icon">
+        <i class="fa-solid fa-right-from-bracket"></i>
+      </div>
+      <h2 class="logout-title">D&eacute;connexion&#8230;</h2>
+      <p id="status"><span class="spinner"></span>Merci de patienter, vous allez &ecirc;tre redirig&eacute;.</p>
+      <a class="btn-back" href="/" id="fallback-link">
+        <i class="fa-solid fa-arrow-left"></i> Retour &agrave; l&#39;accueil
+      </a>
     </div>
   </div>
 
-  <!-- Supabase client via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
   <script src="/modules/auth.js"></script>
   <script>
     (async function(){
       const statusEl = document.getElementById('status');
       const fallback = document.getElementById('fallback-link');
+      const titleEl = document.querySelector('.logout-title');
+      const iconEl = document.querySelector('.logout-icon i');
       try {
         if (!window.AuthModule) throw new Error('AuthModule indisponible');
         await window.AuthModule.signOut();
-        statusEl.textContent = 'Déconnecté. Redirection…';
-        // Petite pause pour l’UX puis redirection
-        setTimeout(() => { window.location.replace('/'); }, 300);
+        statusEl.className = 'done';
+        statusEl.innerHTML = '\u2705 D\u00e9connect\u00e9 avec succ\u00e8s. Redirection\u2026';
+        titleEl.textContent = '\u00c0 bient\u00f4t !';
+        iconEl.className = 'fa-solid fa-check';
+        setTimeout(() => { window.location.replace('/'); }, 600);
       } catch (e) {
-        console.warn('Erreur de déconnexion:', e);
-        statusEl.textContent = "Impossible de vous déconnecter automatiquement. Utilisez le bouton ci-dessous.";
-        fallback.style.display = 'inline-flex';
+        console.warn('Erreur de d\u00e9connexion:', e);
+        statusEl.className = 'fail';
+        statusEl.innerHTML = "Impossible de vous d\u00e9connecter automatiquement.";
+        titleEl.textContent = 'Oups\u2026';
+        iconEl.className = 'fa-solid fa-triangle-exclamation';
+        fallback.classList.add('show');
       }
     })();
   </script>

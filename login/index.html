@@ -7,121 +7,161 @@
   <meta name="googlebot" content="noindex, nofollow">
   <title>Connexion – Grands Projets</title>
   <link rel="icon" type="image/png" href="/img/logomin.png" sizes="32x32">
-  <!-- Colors System -->
   <link rel="stylesheet" href="/styles/00-colors.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
-    /* Reset & Base */
-    * { box-sizing: border-box; }
-    body, html { 
-      height: 100%; 
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body, html { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
 
-    /* Page-specific Theme Variables (utilise colors.css) */
-    :root {
-      --bg-page: var(--gray-50);
-      --bg-card: var(--white);
-      --border: var(--gray-200);
-      --info-bg: var(--info-lighter);
-      --info-text: var(--info);
-      --input-bg: var(--gray-100);
-    }
-
-    [data-theme="dark"] {
-      --bg-page: var(--gray-50);
-      --bg-card: var(--gray-100);
-      --border: var(--gray-300);
-      --info-bg: var(--info-alpha-20);
-      --info-text: var(--info);
-      --input-bg: var(--gray-200);
-    }
-
+    /* ── Animated background ── */
     body {
-      background: var(--bg-page);
-      color: var(--text-primary); /* Variable de colors.css */
-      transition: background 0.3s ease, color 0.3s ease;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 25%, #0f172a 50%, #14532d 75%, #0f172a 100%);
+      background-size: 400% 400%;
+      animation: gradientShift 20s ease infinite;
+      color: #f8fafc;
+      overflow-x: hidden;
     }
 
-    /* Layout */
+    @keyframes gradientShift {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    /* ── Floating orbs ── */
+    .bg-orbs { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+    .bg-orbs .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.3;
+      animation: orbFloat 18s ease-in-out infinite;
+    }
+    .bg-orbs .orb:nth-child(1) { width: 400px; height: 400px; background: #14AE5C; top: -10%; left: -5%; animation-delay: 0s; }
+    .bg-orbs .orb:nth-child(2) { width: 350px; height: 350px; background: #2563EB; top: 60%; right: -8%; animation-delay: -6s; animation-duration: 22s; }
+    .bg-orbs .orb:nth-child(3) { width: 250px; height: 250px; background: #F59E0B; bottom: -5%; left: 30%; animation-delay: -12s; animation-duration: 25s; }
+
+    @keyframes orbFloat {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33%      { transform: translate(40px, -30px) scale(1.05); }
+      66%      { transform: translate(-20px, 20px) scale(0.95); }
+    }
+
+    /* ── Layout ── */
     .login-wrapper {
+      position: relative;
+      z-index: 1;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       padding: 24px;
-      gap: 24px;
+      gap: 20px;
+      perspective: 1200px;
     }
 
-    /* Logo Header */
+    /* ── Logo ── */
     .login-logo {
       text-align: center;
-      margin-bottom: 16px;
+      animation: fadeSlideIn 0.6s ease-out both;
     }
-
+    .login-logo a { display: inline-block; text-decoration: none; transition: transform 0.3s ease; }
+    .login-logo a:hover { transform: scale(1.05); }
     .login-logo img {
-      height: 40px;
-      margin-bottom: 8px;
+      width: 64px;
+      height: 64px;
+      margin-bottom: 12px;
+      filter: drop-shadow(0 4px 20px rgba(20, 174, 92, 0.4));
     }
-
     .login-logo h1 {
-      font-size: 28px;
-      font-weight: 700;
-      margin: 0;
-      color: var(--text-primary);
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #f8fafc, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
-    /* Main Card */
-    .login-card {
+    /* ── Glass Card ── */
+    .glass-card {
       width: 100%;
-      max-width: 480px;
-      background: var(--bg-card);
-      border-radius: 12px;
-      padding: 32px;
-      border: 1px solid var(--border);
-      transition: all 0.2s ease;
+      max-width: 460px;
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(24px) saturate(1.4);
+      -webkit-backdrop-filter: blur(24px) saturate(1.4);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 36px 32px;
+      box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        0 1px 0 rgba(255, 255, 255, 0.08) inset;
+      transform: rotateX(2deg) rotateY(0deg);
+      transform-style: preserve-3d;
+      transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.5s ease;
+      animation: cardAppear 0.8s ease-out both;
+      animation-delay: 0.15s;
+    }
+    .glass-card:hover {
+      transform: rotateX(0deg) rotateY(0deg) translateY(-4px);
+      box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.35),
+        0 1px 0 rgba(255, 255, 255, 0.1) inset;
     }
 
+    @keyframes cardAppear {
+      from { opacity: 0; transform: rotateX(8deg) translateY(30px) scale(0.96); }
+      to   { opacity: 1; transform: rotateX(2deg) translateY(0) scale(1); }
+    }
+
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Card Title ── */
     .card-title {
-      font-size: 18px;
-      font-weight: 600;
-      margin: 0 0 24px 0;
+      font-size: 20px;
+      font-weight: 700;
       text-align: center;
-      color: var(--text-primary);
+      margin-bottom: 28px;
+      color: #f8fafc;
+      letter-spacing: -0.3px;
     }
 
-    /* Form Elements */
-    .form-group {
-      margin-bottom: 16px;
-    }
-
+    /* ── Form ── */
+    .form-group { margin-bottom: 20px; }
     .form-label {
       display: block;
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 600;
       margin-bottom: 8px;
-      color: var(--text-secondary);
+      color: rgba(248, 250, 252, 0.7);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
-
     .form-input {
       width: 100%;
-      padding: 12px 16px;
+      padding: 14px 16px;
       font-size: 15px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--input-bg);
-      color: var(--text-primary);
-      transition: all 0.2s ease;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #f8fafc;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
     }
-
+    .form-input::placeholder { color: rgba(255, 255, 255, 0.35); }
     .form-input:focus {
       outline: none;
-      border-color: var(--info); /* colors.css */
+      border-color: #60a5fa;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25), 0 0 20px rgba(37, 99, 235, 0.1);
+      background: rgba(255, 255, 255, 0.1);
     }
 
-    /* Buttons */
+    /* ── Buttons ── */
     .btn {
       width: 100%;
       display: flex;
@@ -132,207 +172,186 @@
       font-size: 15px;
       font-weight: 600;
       border: none;
-      border-radius: 8px;
+      border-radius: 12px;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
       text-decoration: none;
+      position: relative;
+      overflow: hidden;
     }
-
-    .btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
     }
+    .btn:hover::before { opacity: 1; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn:disabled::before { display: none; }
 
     .btn-primary {
-      background: var(--info); /* colors.css */
-      color: white;
+      background: linear-gradient(135deg, #2563EB, #1d4ed8);
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
     }
-
     .btn-primary:hover:not(:disabled) {
-      background: var(--info-hover); /* colors.css */
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(37, 99, 235, 0.45);
+    }
+    .btn-primary:active:not(:disabled) {
+      transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
     }
 
     .btn-github {
-      background: var(--gray-800); /* colors.css */
-      color: var(--white); /* colors.css */
-      border: 1px solid var(--gray-700);
+      background: rgba(255, 255, 255, 0.08);
+      color: #f8fafc;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
     }
-
     .btn-github:hover:not(:disabled) {
-      background: var(--gray-700);
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.25);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
     }
 
-    [data-theme="dark"] .btn-github {
-      background: var(--gray-200); /* Inversé en dark mode */
-      color: var(--gray-900); /* Inversé en dark mode */
-      border: 1px solid var(--gray-300);
-    }
-
-    [data-theme="dark"] .btn-github:hover:not(:disabled) {
-      background: var(--gray-300);
-    }
-
-    /* Separator */
+    /* ── Separator ── */
     .separator {
       display: flex;
       align-items: center;
-      text-align: center;
-      margin: 20px 0;
-      color: var(--text-muted);
-      font-size: 13px;
+      margin: 22px 0;
+      color: rgba(248, 250, 252, 0.4);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
-
-    .separator::before,
-    .separator::after {
+    .separator::before, .separator::after {
       content: '';
       flex: 1;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
+    .separator span { padding: 0 14px; }
 
-    .separator span {
-      padding: 0 12px;
-    }
-
-    /* Info Box */
+    /* ── Info Box ── */
     .info-box {
-      background: var(--info-bg);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
+      padding: 24px;
+      background: rgba(37, 99, 235, 0.08);
+      border-color: rgba(37, 99, 235, 0.2);
+      animation-delay: 0.3s;
     }
-
     .info-box-title {
       display: flex;
       align-items: center;
       gap: 8px;
       font-size: 15px;
-      font-weight: 600;
-      margin: 0 0 8px 0;
-      color: var(--info-text);
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #60a5fa;
     }
-
     .info-box-text {
       font-size: 14px;
-      line-height: 1.6;
-      margin: 0;
-      color: var(--text-secondary);
+      line-height: 1.7;
+      color: rgba(248, 250, 252, 0.6);
     }
 
-    /* Status Message */
+    /* ── Status ── */
     .status {
-      margin-top: 12px;
-      padding: 12px;
-      border-radius: 8px;
+      margin-top: 14px;
+      padding: 12px 16px;
+      border-radius: 12px;
       font-size: 14px;
       text-align: center;
       display: none;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      animation: statusPop 0.3s ease-out;
     }
-
-    .status.show {
-      display: block;
-    }
-
+    .status.show { display: block; }
     .status.success {
-      background: var(--primary-lighter); /* colors.css */
-      color: var(--primary); /* colors.css */
-      border: 1px solid var(--primary-light); /* colors.css */
+      background: rgba(20, 174, 92, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(20, 174, 92, 0.25);
     }
-
     .status.error {
-      background: var(--danger-lighter); /* colors.css */
-      color: var(--danger); /* colors.css */
-      border: 1px solid var(--danger-light); /* colors.css */
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.25);
     }
 
-    [data-theme="dark"] .status.success {
-      background: var(--primary-active); /* colors.css */
-      color: var(--primary-light); /* colors.css */
-      border: 1px solid var(--primary); /* colors.css */
+    @keyframes statusPop {
+      from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
     }
 
-    [data-theme="dark"] .status.error {
-      background: var(--danger-hover); /* colors.css */
-      color: var(--danger-light); /* colors.css */
-      border: 1px solid var(--danger); /* colors.css */
-    }
-
-    /* Back Link */
-    .back-link {
-      text-align: center;
-    }
-
+    /* ── Back Link ── */
+    .back-link { text-align: center; animation: fadeSlideIn 0.6s ease-out both; animation-delay: 0.4s; }
     .back-link a {
-      color: var(--text-secondary);
+      color: rgba(248, 250, 252, 0.5);
       text-decoration: none;
       font-size: 14px;
-      transition: color 0.2s ease;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 10px;
     }
-
     .back-link a:hover {
-      color: var(--info); /* colors.css */
+      color: #f8fafc;
+      background: rgba(255, 255, 255, 0.06);
     }
 
-    /* Responsive */
+    /* ── Responsive ── */
     @media (max-width: 640px) {
-      .login-card {
-        padding: 24px;
-      }
-
-      .login-logo h1 {
-        font-size: 24px;
-      }
-
-      .card-title {
-        font-size: 16px;
-      }
+      .glass-card { padding: 28px 20px; border-radius: 16px; }
+      .login-logo h1 { font-size: 24px; }
+      .card-title { font-size: 17px; }
+      .bg-orbs .orb { opacity: 0.2; }
     }
   </style>
   <script>
-    // Synchronise avec le toggle dark mode de l'app principale
     (function() {
       try {
-        // 1. Lire depuis localStorage (même clé que ThemeManager)
         var savedTheme = localStorage.getItem('theme');
-        
-        // 2. Sinon, détecter la préférence système
         var systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        
-        // 3. Appliquer le thème
         var theme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
         document.documentElement.setAttribute('data-theme', theme);
-        
-        console.log('[Login] Theme appliqué:', theme, '(source:', savedTheme ? 'localStorage' : 'system', ')');
-      } catch (e) {
-        console.error('[Login] Erreur initialisation theme:', e);
-      }
+      } catch (e) {}
     })();
   </script>
 </head>
 <body>
-  <div class="login-wrapper">
-    <!-- Logo -->
-    <div class="login-logo">
-      <a href="/" aria-label="Accueil">
-        <img src="/img/logo.svg" alt="Grands Projets" />
-      </a>
-      <h1>Grands Projets</h1>
-    </div>
+  <!-- Animated background orbs -->
+  <div class="bg-orbs" aria-hidden="true">
+    <div class="orb"></div>
+    <div class="orb"></div>
+    <div class="orb"></div>
+  </div>
 
+  <div class="login-wrapper">
     <!-- Main Login Card -->
-    <div class="login-card" role="region" aria-labelledby="card-title">
+    <div class="glass-card" role="region" aria-labelledby="card-title">
       <h2 id="card-title" class="card-title">Connectez-vous à votre compte</h2>
 
       <div id="auth-area">
         <!-- Email Login Form -->
         <form id="email-form">
           <div class="form-group">
-            <label for="email-input" class="form-label">📧 Adresse email</label>
-            <input 
-              id="email-input" 
-              type="email" 
-              inputmode="email" 
-              autocomplete="email" 
-              placeholder="votre.email@exemple.com" 
+            <label for="email-input" class="form-label">
+              <i class="fa-regular fa-envelope" style="margin-right:4px"></i> Adresse email
+            </label>
+            <input
+              id="email-input"
+              type="email"
+              inputmode="email"
+              autocomplete="email"
+              placeholder="votre.email@exemple.com"
               aria-label="Email"
               class="form-input"
               required
@@ -341,7 +360,7 @@
 
           <button id="magic-btn" class="btn btn-primary" type="submit">
             <i class="fa-regular fa-paper-plane"></i>
-            <span>Recevoir un lien de connexion par email</span>
+            <span>Recevoir un lien de connexion</span>
           </button>
         </form>
 
@@ -362,13 +381,13 @@
     </div>
 
     <!-- Info Box -->
-    <div class="login-card info-box">
+    <div class="glass-card info-box">
       <h3 class="info-box-title">
         <i class="fa-solid fa-circle-info"></i>
         Pas encore de compte ?
       </h3>
       <p class="info-box-text">
-        Seuls les membres invités peuvent accéder à cette plateforme. 
+        Seuls les membres invités peuvent accéder à cette plateforme.
         Contactez l'administrateur de votre organisation pour obtenir une invitation.
       </p>
     </div>
@@ -405,7 +424,7 @@
       try {
         const { data: { session } } = await auth.getSession();
         if (session?.user) {
-          setStatus(`✅ Connecté en tant que ${session.user.user_metadata?.user_name || session.user.email || 'utilisateur'}.`, 'success');
+          setStatus(`\u2705 Connect\u00e9 en tant que ${session.user.user_metadata?.user_name || session.user.email || 'utilisateur'}.`, 'success');
           githubBtn.style.display = 'none';
           emailForm.style.display = 'none';
         }
@@ -416,18 +435,18 @@
 
     githubBtn.addEventListener('click', async () => {
       try {
-        setStatus('🔄 Redirection vers GitHub…');
+        setStatus('\ud83d\udd04 Redirection vers GitHub\u2026');
         githubBtn.disabled = true;
         const redirectUrl = window.location.origin + '/';
         const { error } = await auth.signInWithGitHub(redirectUrl);
         if (error) {
           console.error('OAuth error:', error);
-          setStatus("❌ Impossible de démarrer l'authentification GitHub.", 'error');
+          setStatus("\u274c Impossible de d\u00e9marrer l'authentification GitHub.", 'error');
           githubBtn.disabled = false;
         }
       } catch (e) {
         console.error(e);
-        setStatus('❌ Erreur inattendue.', 'error');
+        setStatus('\u274c Erreur inattendue.', 'error');
         githubBtn.disabled = false;
       }
     });
@@ -438,68 +457,66 @@
 
     emailForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      
-      let rateLimitDelay = 2000; // Délai par défaut
-      
+
+      let rateLimitDelay = 2000;
+
       try {
         const email = (emailInput?.value || '').trim();
         if (!isValidEmail(email)) {
-          setStatus('⚠️ Veuillez saisir un email valide.', 'error');
+          setStatus('\u26a0\ufe0f Veuillez saisir un email valide.', 'error');
           emailInput?.focus();
           return;
         }
-        
-        setStatus('📤 Envoi du lien de connexion…');
+
+        setStatus('\ud83d\udce4 Envoi du lien de connexion\u2026');
         magicBtn.disabled = true;
         githubBtn.disabled = true;
-        
+
         const redirectUrl = window.location.origin + '/login/';
         let error = null;
-        
+
         if (typeof auth.signInWithMagicLink === 'function') {
           ({ error } = await auth.signInWithMagicLink(email, redirectUrl));
         } else {
           const client = auth.getClient && auth.getClient();
           if (client && client.auth && typeof client.auth.signInWithOtp === 'function') {
-            ({ error } = await client.auth.signInWithOtp({ 
-              email, 
-              options: { 
+            ({ error } = await client.auth.signInWithOtp({
+              email,
+              options: {
                 emailRedirectTo: redirectUrl,
                 shouldCreateUser: false
-              } 
+              }
             }));
           } else {
-            error = new Error('Méthode de magic link indisponible.');
+            error = new Error('M\u00e9thode de magic link indisponible.');
           }
         }
-        
+
         if (error) {
           console.error('Magic link error:', error);
-          
-          // Détecter les différents types d'erreurs
+
           const errorMsg = error.message || '';
-          
+
           if (errorMsg.includes('User not found') || errorMsg.includes('not found') || errorMsg.includes('Signups not allowed')) {
-            setStatus("❌ Cet email n'est pas enregistré. Contactez l'administrateur de votre organisation pour obtenir un accès.", 'error');
+            setStatus("\u274c Cet email n'est pas enregistr\u00e9. Contactez l'administrateur de votre organisation pour obtenir un acc\u00e8s.", 'error');
           } else if (errorMsg.includes('can only request this after') || errorMsg.includes('seconds')) {
-            // Extraire le nombre de secondes si possible
             const match = errorMsg.match(/after (\d+) seconds/);
             const seconds = match ? parseInt(match[1], 10) : 60;
-            setStatus(`⏱️ Veuillez patienter ${seconds} secondes avant de demander un nouveau lien.`, 'error');
-            rateLimitDelay = (seconds + 1) * 1000; // Ajouter 1 seconde de marge
+            setStatus(`\u23f1\ufe0f Veuillez patienter ${seconds} secondes avant de demander un nouveau lien.`, 'error');
+            rateLimitDelay = (seconds + 1) * 1000;
           } else if (errorMsg.includes('rate limit') || errorMsg.includes('too many')) {
-            setStatus("⏱️ Trop de tentatives. Veuillez patienter quelques instants avant de réessayer.", 'error');
-            rateLimitDelay = 60000; // 60 secondes
+            setStatus("\u23f1\ufe0f Trop de tentatives. Veuillez patienter quelques instants avant de r\u00e9essayer.", 'error');
+            rateLimitDelay = 60000;
           } else {
-            setStatus("❌ Échec de l'envoi du lien. Réessayez plus tard.", 'error');
+            setStatus("\u274c \u00c9chec de l'envoi du lien. R\u00e9essayez plus tard.", 'error');
           }
         } else {
-          setStatus('✅ Email envoyé ! Vérifiez votre boîte de réception.', 'success');
-          rateLimitDelay = 60000; // 60 secondes après un envoi réussi
+          setStatus('\u2705 Email envoy\u00e9 ! V\u00e9rifiez votre bo\u00eete de r\u00e9ception.', 'success');
+          rateLimitDelay = 60000;
         }
       } catch (e) {
         console.error(e);
-        setStatus('❌ Erreur inattendue.', 'error');
+        setStatus('\u274c Erreur inattendue.', 'error');
       } finally {
         setTimeout(() => {
           magicBtn.disabled = false;
@@ -508,14 +525,12 @@
       }
     });
 
-    // Handle redirects back to /login with a hash (GitHub or Magic Link)
     auth.onAuthStateChange((_event, _session) => {
       if (_session?.user) {
         window.location.replace('/');
       }
     });
 
-    // Display human-friendly error if Supabase returns an error hash
     (function handleHashError(){
       try {
         const h = window.location.hash || '';
@@ -525,9 +540,9 @@
         const code = params.get('error_code');
         if (err) {
           if (code === 'otp_expired') {
-            setStatus("⚠️ Le lien a expiré. Veuillez redemander un nouveau lien.", 'error');
+            setStatus("\u26a0\ufe0f Le lien a expir\u00e9. Veuillez redemander un nouveau lien.", 'error');
           } else {
-            setStatus('❌ Erreur de connexion: ' + (code || err), 'error');
+            setStatus('\u274c Erreur de connexion: ' + (code || err), 'error');
           }
         }
       } catch(_) {}

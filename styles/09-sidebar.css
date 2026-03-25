@@ -7,8 +7,8 @@
 :root {
   --sb-w:             78px;
   --sb-inset:         14px;
-  --sb-pad:           10px;
-  --sb-gap:           3px;
+  --sb-pad:           14px;
+  --sb-gap:           8px;
   --sb-radius:        22px;
   --sb-btn-size:      52px;
   --sb-btn-radius:    14px;
@@ -84,11 +84,12 @@
   border-radius: var(--sb-radius);
   box-shadow: var(--sb-shadow);
 
+  will-change: border-radius;
   transition:
-    background    0.4s ease,
-    border-color  0.4s ease,
-    box-shadow    0.4s ease,
-    border-radius 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    background    0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    border-color  0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    box-shadow    0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    border-radius 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Inner gradient shimmer — the signature 3D depth layer */
@@ -151,9 +152,10 @@
   flex-shrink: 0;
   text-decoration: none;
   border-radius: 12px;
+  will-change: transform;
   transition:
-    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
-    filter    0.18s ease;
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    filter    0.3s ease;
 }
 
 .gp-sidebar__logo:hover {
@@ -179,12 +181,13 @@
   width: 34px;
   height: 1px;
   background: var(--sb-sep);
-  margin: 5px 0;
+  margin: 10px 0;
   flex-shrink: 0;
   position: relative;
   z-index: 1;
   border-radius: 0.5px;
   box-shadow: 0 0.5px 0 rgba(255, 255, 255, 0.5);
+  transition: opacity 0.4s ease, width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 [data-theme="dark"] .gp-sidebar__divider {
@@ -234,19 +237,21 @@
   -moz-appearance: none;
   appearance: none;
   -webkit-tap-highlight-color: transparent;
+  will-change: transform;
   transition:
-    background 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.22s ease,
-    transform  0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
-    filter     0.18s ease;
+    background 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    box-shadow 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform  0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
+    filter     0.25s ease;
 }
 
 .gp-sidebar__btn i {
   font-size: 1.05rem;
   color: var(--sb-icon);
+  will-change: transform, color;
   transition:
-    color     0.18s ease,
-    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+    color     0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
   pointer-events: none;
 }
 
@@ -263,14 +268,14 @@
   text-align: center;
   line-height: 1;
   opacity: 0.6;
-  transition: color 0.18s ease, opacity 0.18s ease;
+  transition: color 0.3s ease, opacity 0.3s ease;
   pointer-events: none;
 }
 
 /* Hover — scale pop + frosted bg */
 .gp-sidebar__btn:hover {
   background: var(--sb-btn-hover);
-  transform: scale(1.10);
+  transform: scale(1.08);
 }
 
 .gp-sidebar__btn:hover i { color: var(--sb-icon-hover); }
@@ -282,8 +287,9 @@
 
 /* Press — spring squish */
 .gp-sidebar__btn:active {
-  transform: scale(0.88);
-  transition-duration: 0.06s;
+  transform: scale(0.90);
+  transition-duration: 0.1s;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Focus visible */
@@ -321,7 +327,7 @@
 
 .gp-sidebar__btn--module:hover i {
   color: var(--cat-color, var(--primary));
-  transform: scale(1.12);
+  transform: scale(1.10);
 }
 
 .gp-sidebar__btn--module:hover .gp-sidebar__label {
@@ -356,8 +362,9 @@
 }
 
 .gp-sidebar__btn--module.active:active {
-  transform: scale(0.92);
-  filter: brightness(0.93);
+  transform: scale(0.93);
+  filter: brightness(0.95);
+  transition-duration: 0.1s;
 }
 
 
@@ -397,16 +404,17 @@
   height: 36px;
   border-radius: 10px;
   opacity: 0.52;
+  will-change: transform, opacity;
   transition:
-    background 0.24s ease,
-    box-shadow 0.24s ease,
-    transform  0.24s cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity    0.2s ease;
+    background 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    box-shadow 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform  0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity    0.3s ease;
 }
 
 .gp-sidebar__actions .gp-sidebar__btn i {
   font-size: 0.82rem;
-  transition: color 0.2s ease, transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: color 0.25s ease, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .gp-sidebar__actions .gp-sidebar__btn .gp-sidebar__label {
@@ -513,8 +521,8 @@
     inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.08);
   transition:
-    opacity   0.18s ease,
-    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+    opacity   0.2s ease 0.05s,
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) 0.05s;
 }
 
 [data-theme="dark"] .gp-sidebar__btn[data-tooltip]::before {
@@ -536,16 +544,23 @@
 /* ── Entrance animation ────────────────────────────────────────────────── */
 
 .gp-sidebar {
-  animation: sbEnter 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: sbEnter 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes sbEnter {
-  from {
+  0% {
     opacity: 0;
-    transform: translateX(-12px) scale(0.96);
-    filter: blur(4px);
+    transform: translateX(-16px) scale(0.94);
+    filter: blur(6px);
   }
-  to {
+  60% {
+    opacity: 1;
+    filter: blur(0);
+  }
+  80% {
+    transform: translateX(2px) scale(1.01);
+  }
+  100% {
     opacity: 1;
     transform: translateX(0) scale(1);
     filter: blur(0);
