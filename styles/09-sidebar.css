@@ -34,8 +34,8 @@
   --sb-btn-active-bg: var(--primary, #14AE5C);
   --sb-sep:           rgba(0, 0, 0, 0.055);
 
-  --sb-icon:          rgba(18, 18, 28, 0.46);
-  --sb-icon-hover:    rgba(8, 8, 18, 0.88);
+  --sb-icon:          rgba(18, 18, 28, 0.62);
+  --sb-icon-hover:    rgba(8, 8, 18, 0.92);
   --sb-icon-active:   #ffffff;
 
   --sb-tooltip-bg:    rgba(10, 11, 18, 0.88);
@@ -55,8 +55,8 @@
   --sb-btn-hover:   rgba(255, 255, 255, 0.065);
   --sb-sep:         rgba(255, 255, 255, 0.06);
 
-  --sb-icon:        rgba(255, 255, 255, 0.44);
-  --sb-icon-hover:  rgba(255, 255, 255, 0.92);
+  --sb-icon:        rgba(255, 255, 255, 0.62);
+  --sb-icon-hover:  rgba(255, 255, 255, 0.95);
 
   --sb-tooltip-bg:  rgba(232, 234, 244, 0.92);
   --sb-tooltip-fg:  rgba(10, 11, 18, 0.92);
@@ -267,7 +267,7 @@
   max-width: calc(var(--sb-w) - 20px);
   text-align: center;
   line-height: 1;
-  opacity: 0.6;
+  opacity: 0.72;
   transition: color 0.3s ease, opacity 0.3s ease;
   pointer-events: none;
 }
@@ -403,7 +403,7 @@
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  opacity: 0.52;
+  opacity: 0.65;
   will-change: transform, opacity;
   transition:
     background 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
@@ -474,7 +474,7 @@
 /* Logout — danger, dimmer baseline */
 .gp-sidebar__btn--logout {
   --_accent: var(--color-danger);
-  opacity: 0.40;
+  opacity: 0.52;
 }
 
 .gp-sidebar__btn--logout:hover {
