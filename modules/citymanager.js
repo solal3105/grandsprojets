@@ -157,11 +157,17 @@
         // Appliquer le logo du branding
         targets.forEach((img) => {
           if (!img || !picked) return;
+          img.style.opacity = '0'; // ensure hidden before src swap
           img.src = picked;
           img.alt = altText;
           img.style.display = '';
-          img.style.opacity = '1'; // Rendre visible
           img.onerror = null; // Pas de fallback
+          img.onload = () => { img.style.transition = 'opacity 0.2s ease'; img.style.opacity = '1'; };
+          // Fallback if already cached (onload won't fire)
+          if (img.complete && img.naturalWidth > 0) {
+            img.style.transition = 'opacity 0.2s ease';
+            img.style.opacity = '1';
+          }
         });
 
         // Favicon
@@ -258,14 +264,13 @@
             ? b.dark_logo_url 
             : (b.logo_url || '');
           const logoHtml = logo 
-            ? `<img src="${logo}" alt="${displayName}" class="city-menu-logo" style="width:20px;height:20px;object-fit:contain;" />`
+            ? `<img src="${logo}" alt="${displayName}" class="city-menu-logo" />`
             : `<i class="fas fa-building"></i>`;
 
           return `
             <button class="dock-panel__item city-menu-item${isActive ? ' is-active' : ''}" data-city="${cityCode}" role="menuitem">
               <span class="dock-panel__item-icon">${logoHtml}</span>
               <span class="dock-panel__item-label">${displayName}</span>
-              ${isActive ? '<i class="fas fa-check" style="font-size:0.65rem;color:var(--primary);margin-left:auto;"></i>' : ''}
             </button>
           `;
         }).join('');

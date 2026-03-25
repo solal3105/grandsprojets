@@ -201,6 +201,21 @@
   transition-duration: 0.08s;
 }
 
+/* City-colored state — active when a category is selected (level 3) */
+.nav-panel__collapse--city {
+  background: var(--primary);
+  color: #fff;
+}
+
+.nav-panel__collapse--city i {
+  opacity: 1;
+}
+
+.nav-panel__collapse--city:hover {
+  background: var(--primary-hover, var(--primary));
+  color: #fff;
+}
+
 @media (max-width: 720px) {
   .nav-panel__footer {
     display: block;

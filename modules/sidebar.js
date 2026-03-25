@@ -154,6 +154,10 @@
         } else if (win.toggleManager) {
           win.toggleManager.toggle('theme');
         }
+        // Update 3D buildings colors + sky for new theme
+        const map = win.MapModule?.map;
+        if (map?.updateBuildings3DTheme) map.updateBuildings3DTheme();
+        if (map?.updateSkyTheme) map.updateSkyTheme();
       });
 
       // Info → /home

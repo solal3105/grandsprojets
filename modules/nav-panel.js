@@ -186,6 +186,7 @@
       const label = opts.label || category;
       this._headerTitle.textContent = label;
       this._updateBreadcrumb(label);
+      this._updateCollapseButton(label, true);
 
       // Show a contextual skeleton immediately (appropriate shape per module)
       if (this._currentModule === 'carte') {
@@ -211,6 +212,7 @@
 
       this._currentCategory = null;
       this._setLevel(2);
+      this._updateCollapseButton(null, false);
 
       const modLabel = this._currentModule === 'carte' ? 'Carte' : 'Travaux';
       this._headerTitle.textContent = modLabel;
@@ -244,6 +246,7 @@
       this._collapsed = false;
       this._currentModule = null;
       this._currentCategory = null;
+      this._updateCollapseButton(null, false);
 
       this._updateMapPadding(false);
 
@@ -261,6 +264,35 @@
      */
     isOpen() {
       return this._level > 0;
+    },
+
+    /**
+     * Update the collapse button text and style.
+     * @param {string|null} categoryLabel - category label to append, or null to reset
+     * @param {boolean} colored - whether to apply city primary color
+     */
+    _updateCollapseButton(categoryLabel, colored) {
+      if (!this._collapseBtn) return;
+      const span = this._collapseBtn.querySelector('.nav-panel__collapse-text') ||
+                   (() => {
+                     // Wrap existing text in a span if not already done
+                     const s = document.createElement('span');
+                     s.className = 'nav-panel__collapse-text';
+                     this._collapseBtn.appendChild(s);
+                     return s;
+                   })();
+
+      if (categoryLabel) {
+        span.textContent = `Voir la carte (${categoryLabel})`;
+      } else {
+        span.textContent = 'Voir la carte';
+      }
+
+      if (colored) {
+        this._collapseBtn.classList.add('nav-panel__collapse--city');
+      } else {
+        this._collapseBtn.classList.remove('nav-panel__collapse--city');
+      }
     },
 
     /**

@@ -56,8 +56,8 @@ window.MapModule = (() => {
   // Add a GeoJSON layer and update filter and marker visibility
   const addLayer = (name, layer) => {
     layers[name] = layer;
-    if (window.updateFilterUI) window.updateFilterUI();
-    updateMarkerVisibility();  // ensure markers hidden if needed
+    window.FilterManager?.syncUI?.();
+    updateMarkerVisibility();
   };
 
   // Remove a layer and update filter and marker visibility
@@ -65,7 +65,7 @@ window.MapModule = (() => {
     if (layers[name]) {
       map.removeLayer(layers[name]);
       delete layers[name];
-      if (window.updateFilterUI) window.updateFilterUI();
+      window.FilterManager?.syncUI?.();
       updateMarkerVisibility();
     }
   };

@@ -111,6 +111,19 @@
     }
     return _colorProbe;
   }
+  // Convert a browser-serialized color string (rgb(...) or color(srgb ...)) to #rrggbb.
+  // Returns null if the format is not recognised.
+  function _parseBrowserColor(str) {
+    // rgb(r, g, b) — standard serialization on all browsers
+    const rgbM = str.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+    if (rgbM) return '#' + [rgbM[1], rgbM[2], rgbM[3]].map(n => parseInt(n).toString(16).padStart(2, '0')).join('');
+    // color(srgb r g b) — CSS Color Level 4 format returned by modern browsers (Safari ≥15, Chrome ≥111)
+    //   values are floats in [0, 1], multiply × 255 to get 8-bit channels
+    const srgbM = str.match(/^color\(\s*srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*[\d.]+)?\s*\)$/);
+    if (srgbM) return '#' + [srgbM[1], srgbM[2], srgbM[3]].map(n => Math.round(Math.min(1, Math.max(0, parseFloat(n))) * 255).toString(16).padStart(2, '0')).join('');
+    return null;
+  }
+
   function resolveColor(color) {
     if (!color || typeof color !== 'string') return color;
     // Plain hex/rgb/named color — MapLibre handles these natively
@@ -128,23 +141,25 @@
       }
     }
 
-    // Step 2: if still a CSS function (color-mix, etc.), resolve via a probe element
-    if (raw.startsWith('color-mix(') || raw.startsWith('oklch(') || raw.startsWith('hsl(') || raw.startsWith('rgb(')) {
+    // Step 2: if still a CSS function (color-mix, color(srgb…), oklch, etc.), resolve via a probe element
+    if (raw.startsWith('color-mix(') || raw.startsWith('oklch(') || raw.startsWith('hsl(') || raw.startsWith('rgb(') || raw.startsWith('color(')) {
       try {
         const probe = _getColorProbe();
         probe.style.color = raw;
-        const computed = getComputedStyle(probe).color; // browser returns rgb(r, g, b)
+        const computed = getComputedStyle(probe).color; // usually rgb(r, g, b); may be color(srgb ...) on P3 displays
         probe.style.color = '';
         if (computed && computed !== raw) {
-          // Convert rgb(r, g, b) → #rrggbb for MapLibre GL
-          const m = computed.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
-          const result = m
-            ? '#' + [m[1], m[2], m[3]].map(n => parseInt(n).toString(16).padStart(2, '0')).join('')
-            : computed;
+          const result = _parseBrowserColor(computed) ?? computed;
           _colorCache.set(color, result);
           return result;
         }
       } catch (_) {}
+      // Fallback: probe returned same string (P3 display) — parse color(srgb …) directly
+      const direct = _parseBrowserColor(raw);
+      if (direct) {
+        _colorCache.set(color, direct);
+        return direct;
+      }
     }
 
     _colorCache.set(color, raw);
@@ -1737,18 +1752,120 @@
       const mlMap = this._mlMap;
       
       if (enabled && !this._buildings3DEnabled) {
+        this._addForest3DLayers();   // forests first — lower z-order than buildings
         this._addBuildings3DLayer();
         this._buildings3DEnabled = true;
       } else if (!enabled && this._buildings3DEnabled) {
-        if (mlMap.getLayer('3d-buildings')) {
-          mlMap.removeLayer('3d-buildings');
-        }
+        ['forest-fill', '3d-buildings'].forEach(id => {
+          if (mlMap.getLayer(id)) mlMap.removeLayer(id);
+        });
         this._buildings3DEnabled = false;
       }
       return this;
     }
 
     getBuildings3D() { return this._buildings3DEnabled; }
+
+    // ── Building paint factory ──
+    _BUILDING_COLORS = {
+      light: [0, '#e8e4e0', 20, '#d5d0cc', 60, '#bfc5cc', 150, '#a0b0c0', 300, '#8fa8bd'],
+      dark:  [0, '#3a3a3a', 20, '#454545', 60, '#505050', 150, '#5a5a5a', 300, '#656565'],
+    };
+
+    _getBuildingColorExpr(isDark) {
+      const stops = isDark ? this._BUILDING_COLORS.dark : this._BUILDING_COLORS.light;
+      return ['interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 10], ...stops];
+    }
+
+    // Full paint used for addLayer (static + theme-sensitive properties)
+    _getBuildingPaint(isDark) {
+      return {
+        'fill-extrusion-color':   this._getBuildingColorExpr(isDark),
+        'fill-extrusion-height':  ['coalesce', ['get', 'render_height'], 10],
+        'fill-extrusion-base':    ['coalesce', ['get', 'render_min_height'], 0],
+        'fill-extrusion-opacity': isDark ? 0.72 : 0.55,
+      };
+    }
+
+    // ─── Forest 3D — two-pass stratified canopy ────────────────────────────────
+    _FOREST_COLORS = {
+      light: {
+        understory: '#071a0e',   // forest floor — near-black green
+        wood:       '#1c5e36',   // mature forest canopy
+        park:       '#3d8c4a',   // managed park trees
+        scrub:      '#6b7c32',   // dry scrub / heath
+        grass:      '#558c3c',   // meadow / grassland
+      },
+      dark: {
+        understory: '#020708',   // moonlit floor — almost black
+        wood:       '#0b2418',   // deep moonlit forest
+        park:       '#112e1c',   // dark teal park
+        scrub:      '#1c2610',   // very dark olive
+        grass:      '#0e2012',   // night meadow
+      },
+    };
+
+    _getForestColorExpr(type, isDark) {
+      const c = isDark ? this._FOREST_COLORS.dark : this._FOREST_COLORS.light;
+      if (type === 'understory') return c.understory;
+      return ['match', ['get', 'subclass'],
+        ['forest', 'wood'],                                             c.wood,
+        ['park', 'garden', 'village_green', 'recreation_ground'],      c.park,
+        ['scrub', 'heath', 'fell', 'shrubbery'],                       c.scrub,
+        ['grassland', 'meadow', 'grass', 'flowerbed', 'wet_meadow'],   c.grass,
+        c.wood,
+      ];
+    }
+
+    _getForestHeightExpr() {
+      return ['match', ['get', 'subclass'],
+        ['forest', 'wood'],                                           22,
+        ['park', 'garden', 'village_green', 'recreation_ground'],    14,
+        ['scrub', 'heath', 'fell', 'shrubbery'],                     9,
+        ['grassland', 'meadow', 'grass', 'flowerbed', 'wet_meadow'], 3,
+        18,
+      ];
+    }
+
+    // Height of understory = base of canopy
+    _getForestBaseExpr() {
+      return ['match', ['get', 'subclass'],
+        ['forest', 'wood'],                                           7,
+        ['park', 'garden', 'village_green', 'recreation_ground'],    5,
+        ['scrub', 'heath', 'fell', 'shrubbery'],                     3,
+        ['grassland', 'meadow', 'grass', 'flowerbed', 'wet_meadow'], 1,
+        6,
+      ];
+    }
+
+    _addForest3DLayers() {
+      const mlMap = this._mlMap;
+      // Source is shared with buildings — ensure it exists
+      if (!mlMap.getSource('ofm-buildings')) {
+        mlMap.addSource('ofm-buildings', { type: 'vector', url: 'https://tiles.openfreemap.org/planet' });
+      }
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      // Insert before the first basemap fill/line so forests sit below data overlays
+      const anchor = mlMap.getStyle().layers.find(l => l.type === 'fill' || l.type === 'line')?.id;
+      const filter = ['match', ['get', 'class'], ['wood', 'grass'], true, false];
+
+      if (!mlMap.getLayer('forest-fill')) {
+        mlMap.addLayer({
+          id: 'forest-fill',
+          source: 'ofm-buildings',
+          'source-layer': 'landcover',
+          type: 'fill',
+          minzoom: 12,
+          filter,
+          paint: {
+            'fill-color':   this._getForestColorExpr('canopy', isDark),
+            // Fades in smoothly between zoom 12 and 15
+            'fill-opacity': ['interpolate', ['linear'], ['zoom'], 12, 0, 15, 0.18],
+          },
+        }, anchor);
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────────
 
     _addBuildings3DLayer() {
       const mlMap = this._mlMap;
@@ -1776,132 +1893,99 @@
           type: 'fill-extrusion',
           minzoom: 15,
           filter: ['!=', ['get', 'hide_3d'], true],
-          paint: {
-            // Height-based color gradient - adapts to theme
-            'fill-extrusion-color': isDark ? [
-              'interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 10],
-              0, '#3a3a3a',
-              20, '#454545',
-              60, '#505050',
-              150, '#5a5a5a',
-              300, '#656565'
-            ] : [
-              'interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 10],
-              0, '#e8e4e0',
-              20, '#d5d0cc',
-              60, '#bfc5cc',
-              150, '#a0b0c0',
-              300, '#8fa8bd'
-            ],
-            'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 10],
-            'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-            'fill-extrusion-opacity': isDark ? 0.9 : 0.8
-          }
+          paint: this._getBuildingPaint(isDark),
         }, firstDataLayer?.id);
       }
     }
 
     updateBuildings3DTheme() {
       const mlMap = this._mlMap;
-      if (!mlMap.getLayer('3d-buildings')) return;
-      
       const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      
-      mlMap.setPaintProperty('3d-buildings', 'fill-extrusion-color', isDark ? [
-        'interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 10],
-        0, '#3a3a3a',
-        20, '#454545',
-        60, '#505050',
-        150, '#5a5a5a',
-        300, '#656565'
-      ] : [
-        'interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 10],
-        0, '#e8e4e0',
-        20, '#d5d0cc',
-        60, '#bfc5cc',
-        150, '#a0b0c0',
-        300, '#8fa8bd'
-      ]);
-      
-      mlMap.setPaintProperty('3d-buildings', 'fill-extrusion-opacity', isDark ? 0.9 : 0.8);
+      const apply = () => {
+        try {
+          if (mlMap.getLayer('3d-buildings')) {
+            mlMap.setPaintProperty('3d-buildings', 'fill-extrusion-color', this._getBuildingColorExpr(isDark));
+            mlMap.setPaintProperty('3d-buildings', 'fill-extrusion-opacity', isDark ? 0.72 : 0.55);
+          }
+          if (mlMap.getLayer('forest-fill')) {
+            mlMap.setPaintProperty('forest-fill', 'fill-color', this._getForestColorExpr('canopy', isDark));
+          }
+        } catch (e) {
+          console.warn('[MapLibreCompat] updateBuildings3DTheme failed:', e);
+        }
+      };
+      apply();
+      // Fallback: retry after style settles (basemap swap may delay readiness)
+      setTimeout(apply, 80);
+    }
+
+    updateSkyTheme() {
+      if (!this._terrainEnabled) return;
+      const preset = this._getSkyPreset();
+      const apply = () => {
+        try {
+          this._mlMap.setSky(preset);
+        } catch (e) {
+          console.warn('[MapLibreCompat] updateSkyTheme failed:', e);
+        }
+      };
+      apply();
+      setTimeout(apply, 80);
     }
 
     _enable3DBuildings() {
+      this._addForest3DLayers();   // forests below buildings at init
       this._addBuildings3DLayer();
     }
 
     // ── 3D Terrain ──
-    _terrainSourceId = 'gp-terrain-dem';
+    _terrainSourceId   = 'gp-terrain-dem';
     _hillshadeSourceId = 'gp-hillshade-dem';
-    _terrainEnabled = false;
+    _terrainEnabled    = false;
+    _DEM_TILES_URL     = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
+    // Sky presets (MapLibre requires valid SkySpecification — never null)
+    // Light: soft blue midday sky
+    _SKY_DAY     = { 'sky-color': '#89CFF0', 'sky-horizon-blend': 0.3, 'horizon-color': '#f0e8d8', 'horizon-fog-blend': 0.8, 'fog-color': '#dce6ef', 'fog-ground-blend': 0.9 };
+    // Dark: warm amber-violet sunset
+    _SKY_SUNSET  = { 'sky-color': '#1a0a2e', 'sky-horizon-blend': 0.5, 'horizon-color': '#c45c1a', 'horizon-fog-blend': 0.6, 'fog-color': '#7a2a0a', 'fog-ground-blend': 0.85 };
+    _SKY_RESET   = { 'sky-color': 'transparent', 'horizon-color': 'transparent', 'fog-color': 'transparent', 'fog-ground-blend': 1, 'atmosphere-blend': 0 };
+
+    _getSkyPreset() {
+      return document.documentElement.getAttribute('data-theme') === 'dark' ? this._SKY_SUNSET : this._SKY_DAY;
+    }
+
+    _ensureDemSource(id) {
+      if (!this._mlMap.getSource(id)) {
+        this._mlMap.addSource(id, { type: 'raster-dem', tiles: [this._DEM_TILES_URL], encoding: 'terrarium', tileSize: 256, maxzoom: 15 });
+      }
+    }
 
     setTerrain(enabled, exaggeration) {
       const mlMap = this._mlMap;
-      const ex = exaggeration || 1.2;
+      const ex    = exaggeration || 1.2;
 
       if (enabled && !this._terrainEnabled) {
-        // Add raster-dem source (AWS Terrain Tiles, terrarium encoding)
-        if (!mlMap.getSource(this._terrainSourceId)) {
-          mlMap.addSource(this._terrainSourceId, {
-            type: 'raster-dem',
-            tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
-            encoding: 'terrarium',
-            tileSize: 256,
-            maxzoom: 15
-          });
-        }
-        // Separate source for hillshade (avoids rendering artifacts)
-        if (!mlMap.getSource(this._hillshadeSourceId)) {
-          mlMap.addSource(this._hillshadeSourceId, {
-            type: 'raster-dem',
-            tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
-            encoding: 'terrarium',
-            tileSize: 256,
-            maxzoom: 15
-          });
-        }
-        // Insert hillshade below data layers
+        this._ensureDemSource(this._terrainSourceId);
+        this._ensureDemSource(this._hillshadeSourceId);
         if (!mlMap.getLayer('gp-hillshade')) {
-          const firstDataLayer = mlMap.getStyle().layers.find(l =>
+          const anchorLayer = mlMap.getStyle().layers.find(l =>
             l.type === 'line' || (l.type === 'fill' && !l.id.startsWith('gp-'))
           );
           mlMap.addLayer({
-            id: 'gp-hillshade',
-            type: 'hillshade',
-            source: this._hillshadeSourceId,
-            paint: {
-              'hillshade-shadow-color': '#473B24',
-              'hillshade-illumination-anchor': 'map',
-              'hillshade-exaggeration': 0.5
-            }
-          }, firstDataLayer?.id || '3d-buildings');
+            id: 'gp-hillshade', type: 'hillshade', source: this._hillshadeSourceId,
+            paint: { 'hillshade-shadow-color': '#473B24', 'hillshade-illumination-anchor': 'map', 'hillshade-exaggeration': 0.5 }
+          }, anchorLayer?.id || '3d-buildings');
         }
-        // Enable terrain mesh
         mlMap.setTerrain({ source: this._terrainSourceId, exaggeration: ex });
-        // Atmospheric sky
-        mlMap.setSky({
-          'sky-color': '#89CFF0',
-          'sky-horizon-blend': 0.3,
-          'horizon-color': '#f0e8d8',
-          'horizon-fog-blend': 0.8,
-          'fog-color': '#dce6ef',
-          'fog-ground-blend': 0.9
-        });
-        // Smooth pitch to show 3D
-        if (mlMap.getPitch() < 40) {
-          mlMap.easeTo({ pitch: 55, duration: 1000 });
-        }
+        mlMap.setSky(this._getSkyPreset());
+        if (mlMap.getPitch() < 10) mlMap.easeTo({ pitch: 18, duration: 1000 });
         this._terrainEnabled = true;
+
       } else if (!enabled && this._terrainEnabled) {
         mlMap.setTerrain(null);
-        mlMap.setSky(null);
-        if (mlMap.getLayer('gp-hillshade')) {
-          mlMap.removeLayer('gp-hillshade');
-        }
-        // Reset pitch smoothly
-        if (mlMap.getPitch() > 10) {
-          mlMap.easeTo({ pitch: 0, duration: 800 });
-        }
+        mlMap.setSky(this._SKY_RESET);
+        if (mlMap.getLayer('gp-hillshade')) mlMap.removeLayer('gp-hillshade');
+        if (mlMap.getPitch() > 10) mlMap.easeTo({ pitch: 0, duration: 800 });
         this._terrainEnabled = false;
       }
       return this;

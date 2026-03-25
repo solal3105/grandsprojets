@@ -1,192 +1,102 @@
 // modules/filtermanager.js
-// Gestion dynamique des filtres basés sur contribution_uploads
-
 ;(function(win) {
   'use strict';
 
+  // Legacy layer names excluded from the filter panel
+  const EXCLUDED_LAYERS = new Set(['voielyonnaise', 'reseauProjeteSitePropre', 'urbanisme']);
+
   const FilterManager = {
-    /**
-     * Génère dynamiquement le DOM des filtres basé sur contribution_uploads
-     */
+
+    _createItem(layerName, iconClass, label) {
+      const el = document.createElement('div');
+      el.className = 'dock-panel__item filter-item';
+      el.dataset.layer = layerName;
+
+      // Inject per-category color as CSS custom property
+      const catData = (win.categoryIcons || []).find(c => c.category === layerName);
+      if (catData?.category_styles) {
+        try {
+          const styles = typeof catData.category_styles === 'string'
+            ? JSON.parse(catData.category_styles)
+            : catData.category_styles;
+          if (styles.color) el.style.setProperty('--item-color', styles.color);
+        } catch (_) {}
+      }
+
+      const icon = iconClass ? (win.normalizeIconClass?.(iconClass) || iconClass) : '';
+      el.innerHTML = `
+        <span class="dock-panel__item-icon"><i class="${icon}"></i></span>
+        <span class="dock-panel__item-label">${label || layerName}</span>
+      `;
+      return el;
+    },
+
     async populateFilters() {
       const container = document.getElementById('dynamic-filters');
       if (!container) return;
       container.innerHTML = '';
 
-      // Récupérer les catégories dynamiquement depuis contribution_uploads
-      let contributionCategories = [];
-      try {
-        if (window.supabaseService?.fetchAllProjects) {
-          const allContributions = await window.supabaseService.fetchAllProjects();
-          contributionCategories = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
-        }
-      } catch (error) {
-        contributionCategories = [];
-      }
+      // 1. Contribution categories — data already loaded by main.js Phase 5
+      const addedLayers = new Set();
+      (win.categoryIcons || []).forEach(({ category, icon_class, label }) => {
+        if (!category) return;
+        container.appendChild(this._createItem(category, icon_class, label || category));
+        addedLayers.add(category);
+      });
 
-      // Config catégories: alimentée uniquement par la base (icônes)
-      const categoryConfig = {};
-      window.categoryConfig = categoryConfig;
-
-      // Hydrater les icônes de catégories depuis la base
-      try {
-        if (typeof win.supabaseService?.fetchCategoryIcons === 'function') {
-          const rows = await win.supabaseService.fetchCategoryIcons();
-          if (Array.isArray(rows)) {
-            rows.forEach(r => {
-              if (!r || !r.category) return;
-              const cat = String(r.category).trim();
-              if (!cat) return;
-              const iconClass = String(r.icon_class || '').trim();
-              const label = String(r.label || r.category || '').trim();
-              if (!window.categoryConfig[cat]) window.categoryConfig[cat] = {};
-              window.categoryConfig[cat].icon = iconClass;
-              window.categoryConfig[cat].label = label;
-            });
-          }
-        }
-      } catch (_) { /* no-op */ }
-
-      // Récupérer les infos de filter_items pour les labels et icônes
-      const filterItemsMap = {};
-      try {
-        // Essayer d'abord depuis window (déjà chargé au démarrage)
-        let filterItems = win.filterItems;
-        
-        // Si pas disponible, charger depuis Supabase
-        if (!filterItems && typeof win.supabaseService?.fetchFilterItems === 'function') {
-          filterItems = await win.supabaseService.fetchFilterItems();
-        }
-        
-        if (Array.isArray(filterItems)) {
-          filterItems.forEach(item => {
-            if (!item || !item.layer) return;
-            filterItemsMap[item.layer] = {
-              label: item.label,
-              icon: item.icon
-            };
-          });
-        }
-      } catch (_) { /* no-op */ }
-
-      // Ajouter les catégories dynamiques directement (sans groupe)
-      if (contributionCategories.length > 0) {
-        contributionCategories.forEach(category => {
-          const cfg = (window.categoryConfig && window.categoryConfig[category]) || {};
-          let iconClass = cfg.icon ? window.normalizeIconClass(cfg.icon) : '';
-          
-          const labelText = String(category || '');
-          
-          const filterItem = document.createElement('div');
-          filterItem.className = 'dock-panel__item filter-item';
-          filterItem.dataset.layer = category;
-          filterItem.innerHTML = `
-            <span class="dock-panel__item-icon"><i class="${iconClass}"></i></span>
-            <span class="dock-panel__item-label">${labelText}</span>
-          `;
-          container.appendChild(filterItem);
-        });
-      }
-
-      // Ajouter les autres layers depuis layersConfig
+      // 2. Extra system layers from layersConfig not covered by contributions
       const city = String(win.activeCity || '').toLowerCase();
-      const layers = Array.isArray(win.layersConfig) ? win.layersConfig : [];
-      
-      // Exclure les 3 anciens noms de projets et les catégories déjà ajoutées
-      const excludedLayers = ['voielyonnaise', 'reseauProjeteSitePropre', 'urbanisme'];
-      const alreadyAdded = new Set(contributionCategories);
-      
-      layers.forEach(layer => {
-        if (!layer || !layer.name) return;
-        if (excludedLayers.includes(layer.name)) return;
-        if (alreadyAdded.has(layer.name)) return;
-        
-        // Filtrer par ville si applicable
+      const filterItemsMap = Object.fromEntries(
+        (Array.isArray(win.filterItems) ? win.filterItems : [])
+          .filter(item => item?.layer)
+          .map(item => [item.layer, item])
+      );
+
+      (Array.isArray(win.layersConfig) ? win.layersConfig : []).forEach(layer => {
+        if (!layer?.name) return;
+        if (EXCLUDED_LAYERS.has(layer.name)) return;
+        if (addedLayers.has(layer.name)) return;
         const layerCity = layer.ville ? String(layer.ville).toLowerCase() : null;
         if (layerCity && layerCity !== city) return;
-        
-        // Récupérer les infos depuis filter_items en priorité
-        const filterItemInfo = filterItemsMap[layer.name];
-        
-        // Déterminer l'icône : priorité à filter_items, puis layer config
-        let iconClass = '';
-        if (filterItemInfo && filterItemInfo.icon) {
-          iconClass = filterItemInfo.icon;
-        } else {
-          iconClass = layer.icon_class || layer.icon || '';
-        }
-        
-        // Si pas d'icône trouvée, utiliser une icône par défaut
-        if (!iconClass) {
-          iconClass = 'fa-layer-group';
-        }
-        
-        if (iconClass) iconClass = window.normalizeIconClass(iconClass);
-        
-        // Déterminer le label : priorité à filter_items
-        const label = (filterItemInfo && filterItemInfo.label) || layer.label || layer.name;
-        
-        const filterItem = document.createElement('div');
-        filterItem.className = 'dock-panel__item filter-item';
-        filterItem.dataset.layer = layer.name;
-        filterItem.innerHTML = `
-          <span class="dock-panel__item-icon"><i class="${iconClass}"></i></span>
-          <span class="dock-panel__item-label">${label}</span>
-        `;
-        container.appendChild(filterItem);
+
+        const info = filterItemsMap[layer.name];
+        const iconClass = info?.icon || layer.icon_class || layer.icon || 'fa-layer-group';
+        const label = info?.label || layer.label || layer.name;
+        container.appendChild(this._createItem(layer.name, iconClass, label));
       });
     },
 
-    /**
-     * Met à jour l'UI des filtres selon l'état des layers
-     */
-    updateFilterUI() {
+    syncUI() {
       document.querySelectorAll('.filter-item').forEach(item => {
-        const layerName = item.dataset.layer;
-        const active = !!(window.MapModule?.layers?.[layerName]);
-        item.classList.toggle('is-active', active);
+        item.classList.toggle('is-active', !!(win.MapModule?.layers?.[item.dataset.layer]));
       });
-    },
-
-    /**
-     * Met à jour le comptage des filtres actifs
-     */
-    updateFilterCount() {
       const countEl = document.querySelector('.filter-count');
-      if (countEl) {
-        const activeCount = document.querySelectorAll('.filter-item.is-active').length;
-        countEl.textContent = activeCount;
-      }
+      if (countEl) countEl.textContent = document.querySelectorAll('.filter-item.is-active').length;
     },
 
-    /**
-     * Initialise le système de filtres
-     */
     async init() {
       await this.populateFilters();
-      this.updateFilterUI();
-      this.updateFilterCount();
+      this.syncUI();
 
-      // Exposer les fonctions globalement pour compatibilité
-      window.updateFilterUI = () => this.updateFilterUI();
-      window.updateFilterCount = () => this.updateFilterCount();
-
-      // Observer les changements dans le container de filtres
       const filterContainer = document.getElementById('dynamic-filters');
-      if (filterContainer) {
-        new MutationObserver(() => {
-          this.updateFilterUI();
-          this.updateFilterCount();
-        }).observe(filterContainer, {
-          attributes: true,
-          subtree: true,
-          attributeFilter: ['class']
-        });
-      }
+      if (!filterContainer) return;
+
+      filterContainer.addEventListener('click', async (e) => {
+        const item = e.target.closest('.filter-item');
+        if (!item) return;
+        const layerName = item.dataset.layer;
+        if (!layerName) return;
+
+        if (win.MapModule?.layers?.[layerName]) {
+          win.MapModule.removeLayer(layerName);
+        } else {
+          await win.DataModule?.loadLayer?.(layerName);
+        }
+        this.syncUI();
+      });
     }
   };
 
-  // Exposer le module globalement
   win.FilterManager = FilterManager;
 
 })(window);

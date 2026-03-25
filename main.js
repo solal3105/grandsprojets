@@ -576,9 +576,12 @@
       // Theme — delegate to ThemeManager + dock shimmer + update buildings colors
       win.toggleManager?.on('theme', () => {
         win.ThemeManager?.toggle();
-        // Update 3D buildings colors for new theme
+        // Update 3D buildings colors + sky for new theme
         if (MapModule?.map?.updateBuildings3DTheme) {
           MapModule.map.updateBuildings3DTheme();
+        }
+        if (MapModule?.map?.updateSkyTheme) {
+          MapModule.map.updateSkyTheme();
         }
         const dock = document.getElementById('toggle-dock');
         if (dock) {
@@ -586,6 +589,13 @@
           void dock.offsetWidth;
           dock.classList.add('toggle-dock--shimmer');
           dock.addEventListener('animationend', () => dock.classList.remove('toggle-dock--shimmer'), { once: true });
+        }
+        const sb = document.getElementById('gp-sidebar');
+        if (sb) {
+          sb.classList.remove('gp-sidebar--shimmer');
+          void sb.offsetWidth;
+          sb.classList.add('gp-sidebar--shimmer');
+          sb.addEventListener('animationend', () => sb.classList.remove('gp-sidebar--shimmer'), { once: true });
         }
       });
 

@@ -1,67 +1,137 @@
-/* ===========================================================================
-   SIDEBAR — Floating Glass Capsule Navigation
-   Apple-inspired glassmorphism — hovering off the edge
-   =========================================================================== */
+/* ============================================================================
+   SIDEBAR — 3D Glassmorphism Capsule Navigation
+   Matching the toggle-dock visual language: depth, shimmer, spring physics
+   ============================================================================ */
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   CSS VARIABLES
-   ═══════════════════════════════════════════════════════════════════════════ */
-
+/* ── Variables ─────────────────────────────────────────────────────────── */
 :root {
-  --sidebar-w: 78px;
-  --sidebar-inset: 14px;
-  --sidebar-bg: rgba(255, 255, 255, 0.62);
-  --sidebar-border: rgba(255, 255, 255, 0.55);
-  --sidebar-btn-size: 54px;
-  --sidebar-btn-radius: 14px;
-  --sidebar-gap: 4px;
-  --sidebar-padding: 12px;
+  --sb-w:             78px;
+  --sb-inset:         14px;
+  --sb-pad:           10px;
+  --sb-gap:           3px;
+  --sb-radius:        22px;
+  --sb-btn-size:      52px;
+  --sb-btn-radius:    14px;
+  --sb-module-h:      60px;
+
+  /* Legacy aliases — consumed by nav-panel.css + sidebar.js */
+  --sidebar-w:        var(--sb-w);
+  --sidebar-inset:    var(--sb-inset);
+
+  --sb-bg:            rgba(250, 251, 255, 0.78);
+  --sb-border:        rgba(255, 255, 255, 0.88);
+  --sb-blur:          44px;
+  --sb-saturate:      180%;
+  --sb-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.045),
+    0 1px 4px rgba(0, 0, 0, 0.04),
+    0 6px 24px rgba(0, 0, 0, 0.08),
+    0 24px 56px rgba(0, 0, 0, 0.06),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.025);
+
+  --sb-btn-hover:     rgba(0, 0, 0, 0.05);
+  --sb-btn-active-bg: var(--primary, #14AE5C);
+  --sb-sep:           rgba(0, 0, 0, 0.055);
+
+  --sb-icon:          rgba(18, 18, 28, 0.46);
+  --sb-icon-hover:    rgba(8, 8, 18, 0.88);
+  --sb-icon-active:   #ffffff;
+
+  --sb-tooltip-bg:    rgba(10, 11, 18, 0.88);
+  --sb-tooltip-fg:    rgba(255, 255, 255, 0.94);
 }
 
 [data-theme="dark"] {
-  --sidebar-bg: rgba(22, 26, 38, 0.72);
-  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sb-bg:          rgba(14, 16, 26, 0.82);
+  --sb-border:      rgba(255, 255, 255, 0.09);
+  --sb-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.035),
+    0 1px 4px rgba(0, 0, 0, 0.35),
+    0 6px 24px rgba(0, 0, 0, 0.28),
+    0 24px 56px rgba(0, 0, 0, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.065);
+
+  --sb-btn-hover:   rgba(255, 255, 255, 0.065);
+  --sb-sep:         rgba(255, 255, 255, 0.06);
+
+  --sb-icon:        rgba(255, 255, 255, 0.44);
+  --sb-icon-hover:  rgba(255, 255, 255, 0.92);
+
+  --sb-tooltip-bg:  rgba(232, 234, 244, 0.92);
+  --sb-tooltip-fg:  rgba(10, 11, 18, 0.92);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   SIDEBAR CONTAINER — Floating glass capsule, vertically centered
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Sidebar container ─────────────────────────────────────────────────── */
 
 .gp-sidebar {
   position: fixed;
-  top: var(--sidebar-inset);
-  bottom: var(--sidebar-inset);
-  left: var(--sidebar-inset);
-  width: var(--sidebar-w);
+  top: var(--sb-inset);
+  bottom: var(--sb-inset);
+  left: var(--sb-inset);
+  width: var(--sb-w);
   z-index: 1000;
 
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--sidebar-padding) 6px;
-  gap: var(--sidebar-gap);
+  padding: var(--sb-pad) 6px;
+  gap: var(--sb-gap);
 
-  background: var(--sidebar-bg);
-  backdrop-filter: blur(40px) saturate(1.8);
-  -webkit-backdrop-filter: blur(40px) saturate(1.8);
-  border: 1px solid var(--sidebar-border);
-  border-radius: 22px;
-  transition: border-radius 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  background: var(--sb-bg);
+  backdrop-filter: blur(var(--sb-blur)) saturate(var(--sb-saturate));
+  -webkit-backdrop-filter: blur(var(--sb-blur)) saturate(var(--sb-saturate));
+  border: 1px solid var(--sb-border);
+  border-radius: var(--sb-radius);
+  box-shadow: var(--sb-shadow);
 
-  box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.08),
-    0 1px 3px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transition:
+    background    0.4s ease,
+    border-color  0.4s ease,
+    box-shadow    0.4s ease,
+    border-radius 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-[data-theme="dark"] .gp-sidebar {
-  box-shadow:
-    0 8px 48px rgba(0, 0, 0, 0.35),
-    0 1px 3px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+/* Inner gradient shimmer — the signature 3D depth layer */
+.gp-sidebar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    170deg,
+    rgba(255, 255, 255, 0.28) 0%,
+    rgba(255, 255, 255, 0.06) 30%,
+    rgba(255, 255, 255, 0) 55%
+  );
+  pointer-events: none;
+  z-index: 0;
 }
 
-/* Quand le panel s'ouvre : les coins droits de la sidebar (côté panel) passent à 0 */
+[data-theme="dark"] .gp-sidebar::after {
+  background: linear-gradient(
+    170deg,
+    rgba(255, 255, 255, 0.07) 0%,
+    rgba(255, 255, 255, 0.015) 30%,
+    rgba(255, 255, 255, 0) 55%
+  );
+}
+
+/* Theme-switch shimmer (mirrors dock) */
+.gp-sidebar--shimmer { animation: sbShimmer 0.7s ease; }
+
+@keyframes sbShimmer {
+  0%   { box-shadow: var(--sb-shadow); }
+  40%  {
+    box-shadow:
+      var(--sb-shadow),
+      0 0 36px color-mix(in srgb, var(--primary, #14AE5C) 22%, transparent),
+      inset 0 0 28px rgba(255, 255, 255, 0.05);
+  }
+  100% { box-shadow: var(--sb-shadow); }
+}
+
+/* Panel open → flush right edge */
 @media (min-width: 721px) {
   body:has(.nav-panel.open:not(.collapsed)) .gp-sidebar {
     border-top-right-radius: 0;
@@ -69,180 +139,190 @@
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   LOGO
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Logo ──────────────────────────────────────────────────────────────── */
 
 .gp-sidebar__logo {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
-  padding: var(--sidebar-gap) var(--sidebar-padding);
+  padding: 6px 10px;
   flex-shrink: 0;
   text-decoration: none;
   border-radius: 12px;
-  transition: 
-    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
-    background 0.2s ease;
+  transition:
+    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+    filter    0.18s ease;
 }
 
 .gp-sidebar__logo:hover {
-  transform: scale(1.06);
+  transform: scale(1.08);
+  filter: brightness(1.05);
 }
 
 .gp-sidebar__logo:active {
-  transform: scale(0.95);
+  transform: scale(0.93);
+  transition-duration: 0.06s;
 }
 
 .gp-sidebar__logo img {
-  width: 72%;
+  width: 70%;
   height: auto;
   object-fit: contain;
   display: block;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   DIVIDERS
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Dividers (luminous hairline) ──────────────────────────────────────── */
 
 .gp-sidebar__divider {
-  width: 32px;
+  width: 34px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--border-light), transparent);
-  margin: 4px 0;
+  background: var(--sb-sep);
+  margin: 5px 0;
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  border-radius: 0.5px;
+  box-shadow: 0 0.5px 0 rgba(255, 255, 255, 0.5);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   MODULES SECTION
-   ═══════════════════════════════════════════════════════════════════════════ */
+[data-theme="dark"] .gp-sidebar__divider {
+  box-shadow: 0 0.5px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Hide the divider right before actions — the recessed zone self-separates */
+.gp-sidebar__divider + .gp-sidebar__actions { margin-top: auto; }
+.gp-sidebar__divider:has(+ .gp-sidebar__actions) { display: none; }
+
+/* ── Modules section ───────────────────────────────────────────────────── */
 
 .gp-sidebar__modules {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--sidebar-gap);
+  gap: var(--sb-gap);
   width: 100%;
+  position: relative;
+  z-index: 1;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   SIDEBAR BUTTON — Base
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Button — Base ─────────────────────────────────────────────────────── */
 
 .gp-sidebar__btn {
-  --btn-accent: var(--text-secondary);
+  --_accent: var(--sb-icon);
   position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  width: var(--sidebar-btn-size);
-  height: var(--sidebar-btn-size);
+  gap: 3px;
+  width: var(--sb-btn-size);
+  height: var(--sb-btn-size);
   border: none;
-  border-radius: var(--sidebar-btn-radius);
+  border-radius: var(--sb-btn-radius);
   background: transparent;
   cursor: pointer;
   padding: 0;
   margin: 0;
-  color: var(--text-secondary);
+  color: var(--sb-icon);
   font-family: inherit;
-  -webkit-tap-highlight-color: transparent;
+  line-height: 1;
   overflow: visible;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
   transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.2s ease;
+    background 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.22s ease,
+    transform  0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+    filter     0.18s ease;
 }
 
 .gp-sidebar__btn i {
-  font-size: 1.15rem;
-  color: var(--text-tertiary);
-  transition: color 0.2s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  font-size: 1.05rem;
+  color: var(--sb-icon);
+  transition:
+    color     0.18s ease,
+    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
   pointer-events: none;
 }
 
 .gp-sidebar__label {
-  font-size: 0.56rem;
-  font-weight: 650;
-  letter-spacing: 0.02em;
+  font-size: 0.54rem;
+  font-weight: 680;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: var(--text-tertiary);
+  color: var(--sb-icon);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: calc(var(--sidebar-w) - 20px);
+  max-width: calc(var(--sb-w) - 20px);
   text-align: center;
   line-height: 1;
-  opacity: 0.7;
-  transition: color 0.2s ease, opacity 0.2s ease;
+  opacity: 0.6;
+  transition: color 0.18s ease, opacity 0.18s ease;
   pointer-events: none;
 }
 
-/* Hover */
+/* Hover — scale pop + frosted bg */
 .gp-sidebar__btn:hover {
-  background: rgba(0, 0, 0, 0.04);
-  transform: translateY(-1px);
+  background: var(--sb-btn-hover);
+  transform: scale(1.10);
 }
 
-[data-theme="dark"] .gp-sidebar__btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.gp-sidebar__btn:hover i {
-  color: var(--btn-accent, var(--text-primary));
-}
+.gp-sidebar__btn:hover i { color: var(--sb-icon-hover); }
 
 .gp-sidebar__btn:hover .gp-sidebar__label {
-  color: var(--text-secondary);
+  color: var(--sb-icon-hover);
   opacity: 1;
 }
 
-/* Press */
+/* Press — spring squish */
 .gp-sidebar__btn:active {
-  transform: scale(0.94);
-  transition-duration: 0.08s;
+  transform: scale(0.88);
+  transition-duration: 0.06s;
 }
 
 /* Focus visible */
 .gp-sidebar__btn:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--primary, #14AE5C);
   outline-offset: 2px;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   MODULE BUTTON — Primary navigation (Carte, Travaux)
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Module button (Carte, Travaux) — Primary nav ──────────────────────── */
 
 .gp-sidebar__btn--module {
-  --btn-accent: var(--cat-color, var(--primary));
   width: 100%;
-  height: 58px;
-  border-radius: 14px;
+  height: var(--sb-module-h);
+  border-radius: var(--sb-btn-radius);
   gap: 4px;
 }
 
 .gp-sidebar__btn--module i {
-  font-size: 1.2rem;
+  font-size: 1.15rem;
 }
 
 .gp-sidebar__btn--module .gp-sidebar__label {
-  font-size: 0.56rem;
+  font-size: 0.55rem;
   max-width: calc(100% - 8px);
   white-space: normal;
   line-height: 1.2;
 }
 
-/* Hover — module */
+/* Hover — module: tinted glow */
 .gp-sidebar__btn--module:hover {
-  background: color-mix(in srgb, var(--cat-color, var(--primary)) 8%, transparent);
+  background: color-mix(in srgb, var(--cat-color, var(--primary)) 10%, transparent);
+  transform: scale(1.06);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cat-color, var(--primary)) 12%, transparent);
 }
 
 .gp-sidebar__btn--module:hover i {
   color: var(--cat-color, var(--primary));
-  transform: scale(1.1);
+  transform: scale(1.12);
 }
 
 .gp-sidebar__btn--module:hover .gp-sidebar__label {
@@ -250,42 +330,40 @@
   opacity: 1;
 }
 
-/* Active module — clean tinted pill */
+/* Active — solid fill + glow (matching dock [aria-pressed="true"]) */
 .gp-sidebar__btn--module.active {
-  background: color-mix(in srgb, var(--cat-color, var(--primary)) 12%, transparent);
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--cat-color, var(--primary)) 30%, transparent);
+  background: var(--cat-color, var(--sb-btn-active-bg));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.08),
+    0 4px 16px color-mix(in srgb, var(--cat-color, var(--primary)) 38%, transparent),
+    0 1px 4px  color-mix(in srgb, var(--cat-color, var(--primary)) 26%, transparent);
+  transform: scale(1);
 }
 
 .gp-sidebar__btn--module.active i {
-  color: var(--cat-color, var(--primary));
+  color: var(--sb-icon-active);
+  transform: scale(1.06);
 }
 
 .gp-sidebar__btn--module.active .gp-sidebar__label {
-  color: var(--cat-color, var(--primary));
+  color: var(--sb-icon-active);
   opacity: 1;
 }
 
 .gp-sidebar__btn--module.active:hover {
-  background: color-mix(in srgb, var(--cat-color, var(--primary)) 18%, transparent);
+  filter: brightness(1.10);
+  transform: scale(1.04);
 }
 
-/* Active + panel collapsed: dimmed to signal it's collapsible */
-body:has(.nav-panel.open.collapsed) .gp-sidebar__btn--module.active {
-  background: color-mix(in srgb, var(--cat-color, var(--primary)) 6%, transparent);
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--cat-color, var(--primary)) 20%, transparent);
+.gp-sidebar__btn--module.active:active {
+  transform: scale(0.92);
+  filter: brightness(0.93);
 }
 
-body:has(.nav-panel.open.collapsed) .gp-sidebar__btn--module.active i {
-  color: color-mix(in srgb, var(--cat-color, var(--primary)) 60%, var(--text-tertiary));
-}
 
-body:has(.nav-panel.open.collapsed) .gp-sidebar__btn--module.active .gp-sidebar__label {
-  color: color-mix(in srgb, var(--cat-color, var(--primary)) 60%, var(--text-tertiary));
-}
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   ACTIONS SECTION — Bottom of capsule, subtle secondary controls
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Actions section (bottom) ── Recessed utility zone ─────────────────── */
 
 .gp-sidebar__actions {
   margin-top: auto;
@@ -293,144 +371,158 @@ body:has(.nav-panel.open.collapsed) .gp-sidebar__btn--module.active .gp-sidebar_
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  width: 100%;
-  padding-top: 4px;
+  width: calc(100% - 10px);
+  margin-inline: 5px;
+  padding: 6px 0 4px;
+  position: relative;
+  z-index: 1;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--gray-900, #1a1a2e) 5%, transparent);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.04),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.03),
+    0 -0.5px 0 rgba(255, 255, 255, 0.35);
 }
 
-/* Action buttons: smaller + more muted than module buttons */
+[data-theme="dark"] .gp-sidebar__actions {
+  background: rgba(0, 0, 0, 0.12);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.03),
+    0 -0.5px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Action buttons: compact, muted, softer interactions */
 .gp-sidebar__actions .gp-sidebar__btn {
-  width: 42px;
-  height: 42px;
-  opacity: 0.72;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  opacity: 0.52;
   transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity 0.2s ease;
+    background 0.24s ease,
+    box-shadow 0.24s ease,
+    transform  0.24s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity    0.2s ease;
 }
 
 .gp-sidebar__actions .gp-sidebar__btn i {
-  font-size: 0.95rem;
+  font-size: 0.82rem;
+  transition: color 0.2s ease, transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .gp-sidebar__actions .gp-sidebar__btn .gp-sidebar__label {
-  font-size: 0.5rem;
-  opacity: 0.55;
+  display: none;
 }
 
+/* Hover — fade in + gentle lift */
 .gp-sidebar__actions .gp-sidebar__btn:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--_accent, var(--sb-icon-hover)) 8%, transparent);
+  transform: scale(1.08);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--_accent, var(--sb-icon-hover)) 12%, transparent);
+}
+
+.gp-sidebar__actions .gp-sidebar__btn:hover i {
+  color: var(--_accent, var(--sb-icon-hover));
+  transform: scale(1.06);
+}
+
+/* Press — subtle spring */
+.gp-sidebar__actions .gp-sidebar__btn:active {
+  transform: scale(0.90);
+  transition-duration: 0.06s;
   opacity: 1;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   ACTION BUTTON VARIANTS — Semantic colors
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Action variants — Semantic accent colors ──────────────────────────── */
 
-/* City selector */
-.gp-sidebar__btn--city {
-  --btn-accent: var(--text-primary);
-}
+.gp-sidebar__btn--city  { --_accent: var(--sb-icon-hover); }
+.gp-sidebar__btn--theme { --_accent: var(--color-warning); }
+.gp-sidebar__btn--info  { --_accent: var(--color-info); }
+.gp-sidebar__btn--help  { --_accent: var(--color-warning); }
+.gp-sidebar__btn--login { --_accent: var(--primary); }
 
-/* Theme toggle */
-.gp-sidebar__btn--theme {
-  --btn-accent: var(--color-warning);
-}
-
-/* Info button */
-.gp-sidebar__btn--info {
-  --btn-accent: var(--color-info);
-}
-
-/* Help button */
-.gp-sidebar__btn--help {
-  --btn-accent: var(--color-warning);
-}
-
-/* Login button */
-.gp-sidebar__btn--login {
-  --btn-accent: var(--primary);
-}
-
-/* Contribute CTA — subtle tint, no bold fill */
+/* Contribute — always subtly tinted, the one "warm" action */
 .gp-sidebar__btn--contribute {
-  --btn-accent: var(--primary);
+  --_accent: var(--primary);
+  opacity: 0.72;
 }
 
 .gp-sidebar__btn--contribute i {
-  color: color-mix(in srgb, var(--primary) 70%, var(--text-tertiary));
-}
-
-.gp-sidebar__btn--contribute .gp-sidebar__label {
-  color: color-mix(in srgb, var(--primary) 70%, var(--text-tertiary));
+  color: color-mix(in srgb, var(--primary) 55%, var(--sb-icon));
 }
 
 .gp-sidebar__btn--contribute:hover {
-  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  opacity: 1;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  box-shadow:
+    0 2px 10px color-mix(in srgb, var(--primary) 16%, transparent),
+    inset 0 0 0 0.5px color-mix(in srgb, var(--primary) 15%, transparent);
 }
 
-.gp-sidebar__btn--contribute:hover i,
-.gp-sidebar__btn--contribute:hover .gp-sidebar__label {
+.gp-sidebar__btn--contribute:hover i {
   color: var(--primary);
 }
 
-/* Logout button */
+/* Logout — danger, dimmer baseline */
 .gp-sidebar__btn--logout {
-  --btn-accent: var(--color-danger);
+  --_accent: var(--color-danger);
+  opacity: 0.40;
 }
 
 .gp-sidebar__btn--logout:hover {
+  opacity: 1;
   background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-danger) 12%, transparent);
 }
 
 .gp-sidebar__btn--logout:hover i {
   color: var(--color-danger);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   AUTH VISIBILITY
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Auth visibility ───────────────────────────────────────────────────── */
 
-.gp-sidebar__btn[data-auth="connected"] { display: none; }
+.gp-sidebar__btn[data-auth="connected"]    { display: none; }
 .gp-sidebar__btn[data-auth="disconnected"] { display: flex; }
 
-.gp-sidebar[data-connected="true"] .gp-sidebar__btn[data-auth="connected"] { display: flex; }
+.gp-sidebar[data-connected="true"] .gp-sidebar__btn[data-auth="connected"]    { display: flex; }
 .gp-sidebar[data-connected="true"] .gp-sidebar__btn[data-auth="disconnected"] { display: none; }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   TOOLTIP — Elegant, right-aligned
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Tooltip (frosted glass pill — matching dock) ──────────────────────── */
 
 .gp-sidebar__btn[data-tooltip]::before {
   content: attr(data-tooltip);
   position: absolute;
-  left: calc(100% + 14px);
+  left: calc(100% + 12px);
   top: 50%;
-  transform: translateY(-50%) translateX(-8px);
-  padding: 8px 16px;
-  border-radius: 12px;
-  background: var(--gray-900);
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 500;
+  transform: translateY(-50%) translateX(-6px);
+  padding: 5px 12px;
+  border-radius: 9px;
+  background: var(--sb-tooltip-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: var(--sb-tooltip-fg);
+  font-size: 0.67rem;
+  font-weight: 600;
   white-space: nowrap;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.025em;
   pointer-events: none;
   opacity: 0;
   z-index: 10;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   box-shadow:
-    0 6px 20px rgba(0, 0, 0, 0.18),
-    0 0 0 1px rgba(0, 0, 0, 0.05);
-  transition: opacity 0.18s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    0 4px 16px rgba(0, 0, 0, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition:
+    opacity   0.18s ease,
+    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 [data-theme="dark"] .gp-sidebar__btn[data-tooltip]::before {
-  background: var(--gray-100);
-  color: var(--gray-900);
+  background: var(--sb-tooltip-bg);
   box-shadow:
-    0 6px 20px rgba(0, 0, 0, 0.35),
-    0 0 0 1px rgba(255, 255, 255, 0.06);
+    0 4px 16px rgba(0, 0, 0, 0.40),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .gp-sidebar__btn:hover::before {
@@ -438,99 +530,67 @@ body:has(.nav-panel.open.collapsed) .gp-sidebar__btn--module.active .gp-sidebar_
   transform: translateY(-50%) translateX(0);
 }
 
-/* Suppress tooltip on touch devices */
 @media (hover: none) {
-  .gp-sidebar__btn::before {
-    display: none !important;
-  }
+  .gp-sidebar__btn::before { display: none !important; }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   ENTRANCE ANIMATION — Floating capsule fade-in
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Entrance animation ────────────────────────────────────────────────── */
 
 .gp-sidebar {
-  animation: sidebarEnter 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: sbEnter 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-@keyframes sidebarEnter {
+@keyframes sbEnter {
   from {
     opacity: 0;
-    transform: translateX(-10px) scale(0.97);
+    transform: translateX(-12px) scale(0.96);
+    filter: blur(4px);
   }
   to {
     opacity: 1;
     transform: translateX(0) scale(1);
+    filter: blur(0);
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   LAYOUT OFFSET — Floating sidebar: no content push
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Layout offset ─────────────────────────────────────────────────────── */
 
-/* Floating sidebar doesn't push content — no margin offset */
-.gp-sidebar ~ #container {
-  margin-left: 0;
-}
+.gp-sidebar ~ #container { margin-left: 0; }
 
-/* Toggle dock: clear of the floating capsule */
 .gp-sidebar ~ #container .toggle-dock {
-  left: calc(var(--sidebar-inset) + var(--sidebar-w) + 16px);
+  left: calc(var(--sb-inset) + var(--sb-w) + 16px);
 }
 
-/* Hide mobile logo when sidebar present (desktop only) */
 @media (min-width: 721px) {
-  .gp-sidebar ~ .mobile-fixed-logo {
-    display: none !important;
-  }
+  .gp-sidebar ~ .mobile-fixed-logo { display: none !important; }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   SIDEBAR PANELS — Panels triggered from sidebar (city, etc.)
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Sidebar panels (city menu etc.) ───────────────────────────────────── */
 
-/* Sidebar panel — positioned by JS */
 #city-menu.dock-panel--open {
   min-width: 260px;
-  max-width: 340px;
+  max-width: 320px;
   max-height: calc(100vh - 80px);
-  border-radius: 18px;
-  backdrop-filter: blur(20px) saturate(1.3);
-  -webkit-backdrop-filter: blur(20px) saturate(1.3);
-  box-shadow:
-    0 10px 40px rgba(0, 0, 0, 0.14),
-    0 2px 8px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  backdrop-filter: blur(var(--sb-blur)) saturate(var(--sb-saturate));
+  -webkit-backdrop-filter: blur(var(--sb-blur)) saturate(var(--sb-saturate));
+  box-shadow: var(--sb-shadow);
 }
 
-#city-menu.dock-panel--open::before {
-  display: none;
-}
+#city-menu.dock-panel--open::before { display: none; }
 
-[data-theme="dark"] #city-menu.dock-panel--open {
-  box-shadow:
-    0 10px 40px rgba(0, 0, 0, 0.4),
-    0 2px 8px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   RESPONSIVE — Mobile (≤ 720px)
-   Sidebar → floating bottom pill bar
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE — Mobile (≤ 720px)  ·  Bottom-docked glass capsule
+   ══════════════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 720px) {
-  :root {
-    --sidebar-w: 0px;
-  }
+  :root { --sb-w: 0px; --sidebar-w: 0px; }
 
-  /* ── Bottom dock: compact glass capsule ── */
   .gp-sidebar {
     position: fixed;
     top: auto;
     left: 50%;
     right: auto;
-    bottom: 12px;
     bottom: max(12px, calc(env(safe-area-inset-bottom) + 8px));
     transform: translateX(-50%);
     width: fit-content;
@@ -538,55 +598,48 @@ body:has(.nav-panel.open.collapsed) .gp-sidebar__btn--module.active .gp-sidebar_
     height: auto;
     flex-direction: row;
     align-items: center;
-    padding: 7px;
-    gap: 8px;
-    border-radius: 22px;
-    border: 1px solid rgba(255, 255, 255, 0.42);
-    background:
-      linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(245, 248, 255, 0.64));
-    backdrop-filter: blur(22px) saturate(1.25);
-    -webkit-backdrop-filter: blur(22px) saturate(1.25);
-    box-shadow:
-      0 10px 34px rgba(15, 23, 42, 0.16),
-      inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    padding: 6px;
+    gap: 6px;
+    border-radius: 20px;
+    border: 1px solid var(--sb-border);
+    background: var(--sb-bg);
+    backdrop-filter: blur(var(--sb-blur)) saturate(var(--sb-saturate));
+    -webkit-backdrop-filter: blur(var(--sb-blur)) saturate(var(--sb-saturate));
+    box-shadow: var(--sb-shadow);
     overflow: hidden;
-    animation: navSlideUp 0.46s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: sbSlideUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
-  .gp-sidebar::before {
-    content: '';
-    position: absolute;
-    inset: -40% -15%;
-    background: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.12), transparent 60%);
-    pointer-events: none;
+  /* Shimmer overlay on mobile too */
+  .gp-sidebar::after {
+    background: linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.22) 0%,
+      rgba(255, 255, 255, 0) 50%
+    );
   }
 
-  [data-theme="dark"] .gp-sidebar {
-    border-color: rgba(255, 255, 255, 0.12);
-    background:
-      linear-gradient(145deg, rgba(18, 22, 33, 0.9), rgba(29, 35, 49, 0.76));
-    box-shadow:
-      0 10px 36px rgba(0, 0, 0, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  [data-theme="dark"] .gp-sidebar::after {
+    background: linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.06) 0%,
+      rgba(255, 255, 255, 0) 50%
+    );
   }
 
-  [data-theme="dark"] .gp-sidebar::before {
-    background: radial-gradient(circle at 50% 0%, rgba(34, 197, 94, 0.12), transparent 62%);
+  @keyframes sbSlideUp {
+    from { opacity: 0; transform: translateX(-50%) translateY(24px) scale(0.95); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
   }
 
-  @keyframes navSlideUp {
-    from { opacity: 0; transform: translateX(-50%) translateY(24px); }
-    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
-  }
-
-  /* ── Layout resets ── */
+  /* Layout resets */
   .gp-sidebar ~ #container { margin-left: 0; }
   .gp-sidebar ~ #container .toggle-dock { left: 16px; }
   .gp-sidebar__logo,
   .gp-sidebar__divider,
   .gp-sidebar__actions { display: none; }
 
-  /* ── City panel positioning ── */
+  /* City panel */
   #city-menu.dock-panel--open {
     top: auto !important;
     left: 12px !important;
@@ -596,20 +649,20 @@ body:has(.nav-panel.open.collapsed) .gp-sidebar__btn--module.active .gp-sidebar_
     max-width: none;
   }
 
-  /* ── Module track ── */
+  /* Module track */
   .gp-sidebar__modules {
     display: flex;
     flex-direction: row;
     align-items: center;
     justify-content: center;
     width: auto;
-    gap: 8px;
+    gap: 6px;
     padding: 0;
     position: relative;
     z-index: 1;
   }
 
-  /* ── Module tabs ── */
+  /* Module tabs — 3D mini-cards */
   .gp-sidebar__btn--module {
     position: relative;
     isolation: isolate;
@@ -620,113 +673,142 @@ body:has(.nav-panel.open.collapsed) .gp-sidebar__btn--module.active .gp-sidebar_
     width: clamp(106px, 34vw, 136px);
     min-width: 106px;
     max-width: 136px;
-    height: 58px;
+    height: 56px;
     padding: 8px 10px 6px;
-    border-radius: 15px;
-    background: rgba(255, 255, 255, 0.34);
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.38);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.60),
+      inset 0 -0.5px 0 rgba(0, 0, 0, 0.03),
+      0 2px 8px rgba(0, 0, 0, 0.04);
     opacity: 1;
     animation: none;
     transition:
-      transform 0.2s ease,
-      background 0.22s ease,
-      color 0.2s ease,
+      transform    0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+      background   0.22s ease,
       border-color 0.22s ease,
-      box-shadow 0.22s ease;
+      box-shadow   0.22s ease,
+      filter       0.18s ease;
   }
 
   [data-theme="dark"] .gp-sidebar__btn--module {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.1);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.065);
+    border-color: rgba(255, 255, 255, 0.10);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 2px 8px rgba(0, 0, 0, 0.12);
   }
 
+  /* Card shimmer */
   .gp-sidebar__btn--module::before {
     content: '';
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.32), transparent 60%);
-    opacity: 0;
+    background: linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.35) 0%,
+      rgba(255, 255, 255, 0) 50%
+    );
+    opacity: 0.6;
     transition: opacity 0.22s ease;
     pointer-events: none;
     z-index: -1;
   }
 
+  [data-theme="dark"] .gp-sidebar__btn--module::before {
+    background: linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.08) 0%,
+      rgba(255, 255, 255, 0) 50%
+    );
+  }
+
   .gp-sidebar__btn--module i {
     font-size: 1.1rem;
-    color: var(--text-secondary);
-    transition: color 0.2s ease, transform 0.2s ease;
+    color: var(--sb-icon);
+    transition: color 0.18s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   .gp-sidebar__btn--module .gp-sidebar__label {
     display: block;
-    font-size: 0.62rem;
+    font-size: 0.60rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--text-tertiary);
-    opacity: 1;
+    color: var(--sb-icon);
+    opacity: 0.7;
     line-height: 1;
-    transition: color 0.2s ease;
+    transition: color 0.18s ease, opacity 0.18s ease;
   }
 
   .gp-sidebar__btn--module:hover {
-    transform: translateY(-1px);
+    transform: translateY(-2px) scale(1.02);
     background: rgba(255, 255, 255, 0.52);
-    border-color: rgba(255, 255, 255, 0.38);
+    border-color: rgba(255, 255, 255, 0.50);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.70),
+      0 4px 14px rgba(0, 0, 0, 0.06);
   }
 
   [data-theme="dark"] .gp-sidebar__btn--module:hover {
     background: rgba(255, 255, 255, 0.11);
-    border-color: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.18);
   }
 
   .gp-sidebar__btn--module:hover::before { opacity: 1; }
-  .gp-sidebar__btn--module:hover i { color: var(--text-primary); transform: translateY(-1px); }
-  .gp-sidebar__btn--module:hover .gp-sidebar__label { color: var(--text-primary); }
+  .gp-sidebar__btn--module:hover i { color: var(--sb-icon-hover); transform: translateY(-1px); }
+  .gp-sidebar__btn--module:hover .gp-sidebar__label { color: var(--sb-icon-hover); opacity: 1; }
 
+  /* Active — solid fill + glow, consistent with desktop */
   .gp-sidebar__btn--module.active {
-    background: linear-gradient(
-      160deg,
-      color-mix(in srgb, var(--cat-color, var(--primary)) 96%, white),
-      color-mix(in srgb, var(--cat-color, var(--primary)) 78%, black)
-    );
+    background: var(--cat-color, var(--sb-btn-active-bg));
     border-color: color-mix(in srgb, var(--cat-color, var(--primary)) 78%, white);
     box-shadow:
-      0 8px 24px color-mix(in srgb, var(--cat-color, var(--primary)) 32%, transparent),
-      inset 0 1px 0 rgba(255, 255, 255, 0.35);
+      inset 0 1px 0 rgba(255, 255, 255, 0.30),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.08),
+      0 6px 22px color-mix(in srgb, var(--cat-color, var(--primary)) 35%, transparent),
+      0 2px 6px  color-mix(in srgb, var(--cat-color, var(--primary)) 22%, transparent);
     transform: translateY(-2px);
+  }
+
+  .gp-sidebar__btn--module.active::before {
+    background: linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.25) 0%,
+      rgba(255, 255, 255, 0) 45%
+    );
+    opacity: 1;
   }
 
   .gp-sidebar__btn--module.active i {
     color: #fff;
     transform: scale(1.06);
-    filter: drop-shadow(0 1px 5px rgba(0, 0, 0, 0.24));
+    filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.20));
   }
 
   .gp-sidebar__btn--module.active .gp-sidebar__label {
     color: #fff;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    opacity: 1;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
   }
 
   .gp-sidebar__btn--module.active:hover {
-    transform: translateY(-3px);
-    box-shadow:
-      0 10px 28px color-mix(in srgb, var(--cat-color, var(--primary)) 36%, transparent),
-      inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    transform: translateY(-3px) scale(1.02);
+    filter: brightness(1.08);
   }
 
   .gp-sidebar__btn--module:active {
-    transform: translateY(0) scale(0.98);
+    transform: translateY(0) scale(0.96);
+    transition-duration: 0.06s;
   }
 
-  /* ── Generic button overrides ── */
+  /* Generic button overrides */
   .gp-sidebar__btn:not(.gp-sidebar__btn--module) {
     width: 40px;
     height: 40px;
@@ -749,25 +831,25 @@ body:has(.nav-panel.open.collapsed) .gp-sidebar__btn--module.active .gp-sidebar_
   }
 }
 
-/* ── Small phones (≤ 480px) ── */
+/* ── Small phones (≤ 480px) ────────────────────────────────────────────── */
 @media (max-width: 480px) {
   .gp-sidebar {
     max-width: calc(100vw - 16px);
     padding: 5px;
-    gap: 6px;
+    gap: 5px;
   }
 
   .gp-sidebar__btn--module {
     width: clamp(96px, 42vw, 118px);
     min-width: 96px;
     max-width: 118px;
-    height: 54px;
+    height: 52px;
     padding: 7px 8px 5px;
     gap: 3px;
   }
 
   .gp-sidebar__btn--module i { font-size: 1.02rem; }
-  .gp-sidebar__btn--module .gp-sidebar__label { font-size: 0.58rem; }
+  .gp-sidebar__btn--module .gp-sidebar__label { font-size: 0.57rem; }
 
   .gp-sidebar__btn:not(.gp-sidebar__btn--module) {
     width: 36px;
@@ -777,9 +859,7 @@ body:has(.nav-panel.open.collapsed) .gp-sidebar__btn--module.active .gp-sidebar_
   .gp-sidebar__btn i { font-size: 0.9rem; }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   ACCESSIBILITY
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Accessibility ─────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
   .gp-sidebar,

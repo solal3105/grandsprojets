@@ -1,63 +1,66 @@
 /* ============================================================================
-   TOGGLE DOCK — Floating glass toolbar
-   Unified control bar with glassmorphism, grouped toggles, tooltips,
-   active indicators, responsive layout, dark mode
+   TOGGLE DOCK — Glassmorphism floating toolbar  ·  Full redesign
    ============================================================================ */
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   CSS VARIABLES
-   ═══════════════════════════════════════════════════════════════════════════ */
-
+/* ── Variables ─────────────────────────────────────────────────────────── */
 :root {
-  --dock-h: 46px;
-  --dock-btn: 38px;
-  --dock-gap: 2px;
-  --dock-pad: 4px;
-  --dock-radius: 16px;
-  --dock-bg: rgba(255, 255, 255, 0.72);
-  --dock-border: rgba(0, 0, 0, 0.06);
+  --dock-h:           54px;
+  --dock-btn:         44px;
+  --dock-gap:         2px;
+  --dock-pad:         5px;
+  --dock-radius:      18px;
+  --dock-btn-radius:  13px;
+
+  --dock-bg:          rgba(250, 251, 255, 0.82);
+  --dock-border:      rgba(255, 255, 255, 0.88);
+  --dock-blur:        44px;
+  --dock-saturate:    180%;
   --dock-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.04),
-    0 4px 16px rgba(0, 0, 0, 0.06),
-    0 12px 40px rgba(0, 0, 0, 0.04);
-  --dock-blur: 24px;
+    0 0 0 1px rgba(0, 0, 0, 0.055),
+    0 1px 4px rgba(0, 0, 0, 0.05),
+    0 6px 22px rgba(0, 0, 0, 0.10),
+    0 22px 52px rgba(0, 0, 0, 0.07),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.03);
 
-  --dock-btn-radius: 12px;
-  --dock-btn-hover: rgba(0, 0, 0, 0.05);
-  --dock-btn-active-bg: var(--primary-alpha-10);
-  --dock-sep: rgba(0, 0, 0, 0.07);
+  --dock-btn-hover:     rgba(0, 0, 0, 0.055);
+  --dock-btn-active-bg: var(--primary, #14AE5C);
+  --dock-sep:           rgba(0, 0, 0, 0.06);
 
-  --dock-icon: var(--gray-500);
-  --dock-icon-hover: var(--gray-800);
-  --dock-icon-active: var(--primary);
+  --dock-icon:          rgba(18, 18, 28, 0.50);
+  --dock-icon-hover:    rgba(8, 8, 18, 0.88);
+  --dock-icon-active:   #ffffff;
 
-  --dock-tooltip-bg: var(--gray-900);
-  --dock-tooltip-fg: #fff;
+  --dock-tooltip-bg:    rgba(10, 11, 18, 0.88);
+  --dock-tooltip-fg:    rgba(255, 255, 255, 0.94);
 
-  /* Legacy compat (used by ToggleManager JS) */
-  --toggle-size: 38px;
-  --toggle-gap: 50px;
+  /* Legacy compat — used by ToggleManager JS */
+  --toggle-size:        44px;
+  --toggle-gap:         54px;
   --toggle-offset-base: 20px;
 }
 
 [data-theme="dark"] {
-  --dock-bg: rgba(30, 41, 59, 0.78);
-  --dock-border: rgba(255, 255, 255, 0.07);
+  --dock-bg:          rgba(14, 16, 26, 0.86);
+  --dock-border:      rgba(255, 255, 255, 0.09);
   --dock-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.2),
-    0 4px 16px rgba(0, 0, 0, 0.18),
-    0 12px 40px rgba(0, 0, 0, 0.12);
-  --dock-btn-hover: rgba(255, 255, 255, 0.07);
-  --dock-sep: rgba(255, 255, 255, 0.07);
-  --dock-icon: var(--gray-400);
-  --dock-icon-hover: var(--gray-600);
-  --dock-tooltip-bg: var(--gray-200);
-  --dock-tooltip-fg: var(--gray-900);
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 1px 4px rgba(0, 0, 0, 0.40),
+    0 6px 22px rgba(0, 0, 0, 0.30),
+    0 22px 52px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+
+  --dock-btn-hover:  rgba(255, 255, 255, 0.07);
+  --dock-sep:        rgba(255, 255, 255, 0.07);
+
+  --dock-icon:       rgba(255, 255, 255, 0.48);
+  --dock-icon-hover: rgba(255, 255, 255, 0.92);
+
+  --dock-tooltip-bg: rgba(232, 234, 244, 0.92);
+  --dock-tooltip-fg: rgba(10, 11, 18, 0.92);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   DOCK CONTAINER
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Dock container ────────────────────────────────────────────────────── */
 
 .toggle-dock {
   position: fixed;
@@ -68,47 +71,67 @@
   align-items: center;
   height: var(--dock-h);
   padding: var(--dock-pad);
+  gap: var(--dock-gap);
   background: var(--dock-bg);
-  backdrop-filter: blur(var(--dock-blur)) saturate(1.6);
-  -webkit-backdrop-filter: blur(var(--dock-blur)) saturate(1.6);
+  backdrop-filter: blur(var(--dock-blur)) saturate(var(--dock-saturate));
+  -webkit-backdrop-filter: blur(var(--dock-blur)) saturate(var(--dock-saturate));
   border: 1px solid var(--dock-border);
   border-radius: var(--dock-radius);
   box-shadow: var(--dock-shadow);
   transition:
-    opacity 0.3s ease,
-    transform 0.3s ease,
-    background 0.5s ease,
-    border-color 0.5s ease,
-    box-shadow 0.5s ease;
+    background 0.4s ease,
+    border-color 0.4s ease,
+    box-shadow 0.4s ease;
 }
 
-/* Theme shimmer — plays once when theme toggles */
-.toggle-dock--shimmer {
-  animation: dockShimmer 0.8s ease;
+/* Inner gradient shimmer for depth */
+.toggle-dock::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.22) 0%,
+    rgba(255, 255, 255, 0) 55%
+  );
+  pointer-events: none;
+  z-index: 0;
 }
+
+[data-theme="dark"] .toggle-dock::after {
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0) 55%
+  );
+}
+
+/* Theme-switch shimmer */
+.toggle-dock--shimmer { animation: dockShimmer 0.7s ease; }
 
 @keyframes dockShimmer {
-  0% { box-shadow: var(--dock-shadow); }
-  30% {
+  0%   { box-shadow: var(--dock-shadow); }
+  40%  {
     box-shadow:
       var(--dock-shadow),
-      0 0 24px var(--primary-alpha-20),
-      inset 0 0 16px var(--primary-alpha-06);
+      0 0 32px color-mix(in srgb, var(--primary, #14AE5C) 25%, transparent),
+      inset 0 0 24px rgba(255, 255, 255, 0.06);
   }
   100% { box-shadow: var(--dock-shadow); }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   BUTTONS — Individual toggle buttons inside the dock
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Buttons ────────────────────────────────────────────────────────────── */
 
 .toggle-dock__btn {
   position: relative;
+  z-index: 1;
   width: var(--dock-btn);
   height: var(--dock-btn);
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   border: none;
   border-radius: var(--dock-btn-radius);
   background: transparent;
@@ -116,184 +139,158 @@
   padding: 0;
   margin: 0;
   font-family: inherit;
-  font-size: 100%;
   line-height: 1;
   overflow: visible;
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  transition:
+    background  0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow  0.22s ease,
+    transform   0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+    filter      0.18s ease;
 }
 
 .toggle-dock__btn i {
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   color: var(--dock-icon);
-  transition: color 0.18s ease, transform 0.18s ease, filter 0.25s ease;
+  transition:
+    color     0.18s ease,
+    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
   pointer-events: none;
 }
 
-/* Hover */
 .toggle-dock__btn:hover {
   background: var(--dock-btn-hover);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04), inset 0 1px 0 var(--white-alpha-50);
+  transform: scale(1.1);
 }
 
-.toggle-dock__btn:hover i {
-  color: var(--dock-icon-hover);
-  transform: scale(1.15);
-}
+.toggle-dock__btn:hover i { color: var(--dock-icon-hover); }
 
-/* Active press */
 .toggle-dock__btn:active {
-  transform: scale(0.88);
-  transition-duration: 0.08s;
+  transform: scale(0.90);
+  transition-duration: 0.06s;
 }
 
-/* Focus visible (keyboard) */
 .toggle-dock__btn:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: -2px;
+  outline: 2px solid var(--primary, #14AE5C);
+  outline-offset: 2px;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   ACTIVE STATE — Toggle is ON
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Active state (solid fill + glow) ─────────────────────────────────── */
 
 .toggle-dock__btn[aria-pressed="true"],
 .toggle-dock__btn[aria-expanded="true"] {
   background: var(--dock-btn-active-bg);
   box-shadow:
-    0 0 0 1px var(--primary-alpha-10),
-    inset 0 1px 0 var(--white-alpha-25);
+    inset 0 1px 0 rgba(255, 255, 255, 0.30),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.10),
+    0 3px 14px color-mix(in srgb, var(--primary, #14AE5C) 42%, transparent),
+    0 1px 4px  color-mix(in srgb, var(--primary, #14AE5C) 30%, transparent);
+  transform: scale(1);
 }
 
 .toggle-dock__btn[aria-pressed="true"] i,
 .toggle-dock__btn[aria-expanded="true"] i {
   color: var(--dock-icon-active);
-  filter: drop-shadow(0 0 4px var(--primary-alpha-20));
+  transform: scale(1.06);
 }
 
-/* Active indicator dot */
+.toggle-dock__btn[aria-pressed="true"]:hover,
+.toggle-dock__btn[aria-expanded="true"]:hover {
+  filter: brightness(1.10);
+  transform: scale(1.06);
+}
+
+.toggle-dock__btn[aria-pressed="true"]:active,
+.toggle-dock__btn[aria-expanded="true"]:active {
+  transform: scale(0.92);
+  filter: brightness(0.93);
+}
+
+/* No dot — filled button is clear enough */
 .toggle-dock__btn[aria-pressed="true"]::after,
-.toggle-dock__btn[aria-expanded="true"]::after {
-  content: '';
-  position: absolute;
-  bottom: 3px;
-  left: 50%;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--primary);
-  transform: translateX(-50%);
-  animation: dockDotIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
+.toggle-dock__btn[aria-expanded="true"]::after { display: none; }
 
-@keyframes dockDotIn {
-  from { transform: translateX(-50%) scale(0); }
-  to { transform: translateX(-50%) scale(1); }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   ACCENT BUTTON — Primary CTA (contribute)
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Accent button ─────────────────────────────────────────────────────── */
 
 .toggle-dock__btn--accent {
-  background: var(--primary);
-  box-shadow: 0 0 0 0 transparent;
-  transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.3s ease;
+  background: var(--primary, #14AE5C);
+  box-shadow: 0 3px 14px color-mix(in srgb, var(--primary, #14AE5C) 42%, transparent);
 }
 
-.toggle-dock__btn--accent i {
-  color: #fff !important;
-}
+.toggle-dock__btn--accent i { color: #fff !important; }
 
 .toggle-dock__btn--accent:hover {
-  background: var(--primary-hover);
-  box-shadow: 0 0 16px var(--primary-alpha-25);
+  filter: brightness(1.08);
+  box-shadow: 0 5px 20px color-mix(in srgb, var(--primary, #14AE5C) 52%, transparent);
 }
 
-.toggle-dock__btn--accent:active {
-  background: var(--primary-active);
-}
+.toggle-dock__btn--accent:active { filter: brightness(0.93); }
 
 .toggle-dock__btn--accent[aria-pressed="true"]::after,
-.toggle-dock__btn--accent[aria-expanded="true"]::after {
-  background: #fff;
-}
+.toggle-dock__btn--accent[aria-expanded="true"]::after { display: none; }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   BADGE — Filter counter
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Badge ─────────────────────────────────────────────────────────────── */
 
-.toggle-dock__badge {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  display: none; /* shown by JS when count > 0 */
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: var(--primary);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-  pointer-events: none;
-  animation: dockBadgeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-/* Legacy compat selector */
+.toggle-dock__badge,
 .filter-count {
   position: absolute;
-  top: 2px;
-  right: 2px;
-  min-width: 16px;
-  height: 16px;
+  top: 1px;
+  right: 1px;
+  min-width: 17px;
+  height: 17px;
   padding: 0 4px;
   display: none;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  background: var(--primary);
+  border-radius: 9px;
+  background: var(--primary, #14AE5C);
   color: #fff;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 9.5px;
+  font-weight: 800;
   line-height: 1;
+  letter-spacing: -0.01em;
   pointer-events: none;
+  box-shadow: 0 0 0 2px var(--dock-bg);
+  z-index: 2;
+  animation: dockBadgeIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes dockBadgeIn {
-  from { transform: scale(0); }
-  to { transform: scale(1); }
+  from { transform: scale(0) rotate(-12deg); }
+  to   { transform: scale(1) rotate(0deg); }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   TOOLTIP — Hover label shown BELOW the button (never clips top of screen)
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Tooltip (frosted glass pill) ──────────────────────────────────────── */
 
 .toggle-dock__btn[data-title]::before {
   content: attr(data-title);
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 11px);
   left: 50%;
-  transform: translateX(-50%) translateY(-4px);
-  padding: 5px 10px;
-  border-radius: 8px;
+  transform: translateX(-50%) translateY(-6px);
+  padding: 5px 11px;
+  border-radius: 9px;
   background: var(--dock-tooltip-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   color: var(--dock-tooltip-fg);
-  font-size: 0.6875rem;
+  font-size: 0.67rem;
   font-weight: 600;
   white-space: nowrap;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.025em;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  z-index: 10;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  transition:
+    opacity   0.18s ease,
+    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 9999;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .toggle-dock__btn:hover::before {
@@ -301,56 +298,11 @@
   transform: translateX(-50%) translateY(0);
 }
 
-/* Shift tooltip down a bit when active dot is present */
-.toggle-dock__btn[aria-pressed="true"]:hover::before,
-.toggle-dock__btn[aria-expanded="true"]:hover::before {
-  top: calc(100% + 12px);
-}
-
-/* Suppress tooltip on touch devices */
 @media (hover: none) {
-  .toggle-dock__btn::before {
-    display: none !important;
-  }
+  .toggle-dock__btn::before { display: none !important; }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   DOCK LOGO — City branding logo integrated into the dock
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.toggle-dock__logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--dock-btn);
-  padding: 0 4px;
-  flex-shrink: 0;
-  text-decoration: none;
-}
-
-.toggle-dock__logo img {
-  height: 28px;
-  width: auto;
-  max-width: 100px;
-  object-fit: contain;
-  display: block;
-  opacity: 0.92;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.toggle-dock__logo:hover img {
-  opacity: 1;
-  transform: scale(1.04);
-}
-
-/* Dock logo always hidden — sidebar has its own logo */
-.toggle-dock__logo {
-  display: none;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   READY STATE — Collapse uninitialized toggles (zero space)
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Ready state ───────────────────────────────────────────────────────── */
 
 .toggle-dock__btn[data-ready="false"]:not([style*="display"]) {
   display: none !important;
@@ -358,45 +310,679 @@
 
 .toggle-dock__btn[data-ready="true"] {
   display: flex;
-  animation: dockBtnReady 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: dockBtnReady 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
 }
 
 @keyframes dockBtnReady {
-  from { opacity: 0; transform: scale(0.5); }
-  50% { opacity: 1; }
-  to { opacity: 1; transform: scale(1); }
+  from { opacity: 0; transform: scale(0.4); }
+  60%  { opacity: 1; }
+  to   { opacity: 1; transform: scale(1); }
 }
 
-/* Legacy compat */
-.app-toggle[data-ready="false"]:not([style*="display"]) {
-  display: none !important;
-}
-.app-toggle[data-ready="true"] {
-  opacity: 1;
-  pointer-events: auto;
+.app-toggle[data-ready="false"]:not([style*="display"]) { display: none !important; }
+.app-toggle[data-ready="true"] { opacity: 1; pointer-events: auto; }
+
+/* ── Logo ──────────────────────────────────────────────────────────────── */
+
+.toggle-dock__logo {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  height: var(--dock-btn);
+  padding: 0 6px;
+  flex-shrink: 0;
+  text-decoration: none;
+  position: relative;
+  z-index: 1;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   ACTIONS TOGGLE — Mobile only
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-#actions-toggle {
-  display: none !important;
+.toggle-dock__logo img {
+  height: 28px;
+  max-width: 100px;
+  object-fit: contain;
+  opacity: 0.88;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
+.toggle-dock__logo:hover img { opacity: 1; transform: scale(1.04); }
+
+/* ── Mobile-only toggles ────────────────────────────────────────────────── */
+
+#actions-toggle { display: none !important; }
 @media (max-width: 720px) {
-  #actions-toggle {
-    display: flex !important;
+  #actions-toggle { display: flex !important; }
+}
+
+#overflow-toggle { display: none; }
+.toggle-dock__btn--overflow i { font-size: 0.88rem; }
+
+/* ── Location states ────────────────────────────────────────────────────── */
+
+#location-toggle.active i  { color: var(--primary); animation: dockLocPulse 2s infinite; }
+#location-toggle.loading i { animation: dockSpin 0.8s linear infinite; }
+#location-toggle.error i   { color: var(--danger, #EF4444); animation: dockShake 0.4s; }
+
+@keyframes dockLocPulse { 0%,100%{ opacity:1; } 50%{ opacity:0.30; } }
+@keyframes dockSpin     { to { transform: rotate(360deg); } }
+@keyframes dockShake    {
+  0%,100% { transform: translateX(0); }
+  25%     { transform: translateX(-3px); }
+  75%     { transform: translateX(3px); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DOCK PANELS
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Panel container ────────────────────────────────────────────────────── */
+
+.dock-panel {
+  position: fixed;
+  z-index: 1500;
+  top: 80px;
+  right: 16px;
+  display: none;
+  flex-direction: column;
+  min-width: 252px;
+  max-height: 72vh;
+  padding: 6px;
+  background: var(--dock-bg);
+  backdrop-filter: blur(var(--dock-blur)) saturate(var(--dock-saturate));
+  -webkit-backdrop-filter: blur(var(--dock-blur)) saturate(var(--dock-saturate));
+  border: 1px solid var(--dock-border);
+  border-radius: 20px;
+  box-shadow: var(--dock-shadow);
+  overflow-y: auto;
+  overflow-x: hidden;
+  isolation: isolate;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128, 128, 128, 0.18) transparent;
+}
+
+/* Diagonal shimmer = 3D depth */
+.dock-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(255, 255, 255, 0) 48%
+  );
+  pointer-events: none;
+  z-index: -1;
+}
+
+[data-theme="dark"] .dock-panel::after {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0) 48%
+  );
+}
+
+.dock-panel.dock-panel--open {
+  display: flex;
+  animation: dockPanelIn 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes dockPanelIn {
+  from { opacity: 0; transform: translateY(-12px) scale(0.93); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+/* Arrow caret */
+.dock-panel::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: var(--arrow-x, 20px);
+  width: 12px;
+  height: 12px;
+  background: var(--dock-bg);
+  border-top: 1px solid var(--dock-border);
+  border-left: 1px solid var(--dock-border);
+  transform: rotate(45deg);
+  border-radius: 2px 0 0 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+
+.dock-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px 8px;
+  margin-bottom: 5px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--dock-sep);
+  box-shadow: 0 0.5px 0 rgba(255, 255, 255, 0.45);
+}
+
+[data-theme="dark"] .dock-panel__header {
+  box-shadow: 0 0.5px 0 rgba(255, 255, 255, 0.045);
+}
+
+.dock-panel__title {
+  font-size: 0.60rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.dock-panel__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 0.65rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background 0.18s ease,
+    color      0.18s ease,
+    transform  0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.dock-panel__close:hover {
+  background: var(--dock-btn-hover);
+  color: var(--text-primary);
+  transform: scale(1.12);
+}
+
+.dock-panel__close:active {
+  transform: scale(0.88);
+  transition-duration: 0.06s;
+}
+
+/* ── Body — list layout (default) ───────────────────────────────────────── */
+
+.dock-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 0;
+}
+
+/* ── Body — grid layout for basemap + filters ───────────────────────────── */
+
+#city-menu    .dock-panel__body,
+#basemap-menu .dock-panel__body,
+#dynamic-filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px 2px 2px;
+}
+
+/* ── List item (city menu, actions panel) ───────────────────────────────── */
+
+.dock-panel__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.80rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-align: left;
+  width: 100%;
+  transition:
+    background 0.20s ease,
+    box-shadow 0.20s ease,
+    transform  0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+    color      0.18s ease;
+}
+
+.dock-panel__item:hover {
+  background: var(--dock-btn-hover);
+  transform: translateX(2px);
+}
+
+.dock-panel__item:active {
+  opacity: 0.72;
+  transform: scale(0.97);
+  transition-duration: 0.05s;
+}
+
+.dock-panel__item.is-active {
+  background: color-mix(in srgb, var(--primary, #14AE5C) 10%, transparent);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.dock-panel__item.is-active:hover {
+  background: color-mix(in srgb, var(--primary, #14AE5C) 16%, transparent);
+}
+
+/* ── Grid card items (basemap + filters) ────────────────────────────────── */
+
+#city-menu    .dock-panel__body .dock-panel__item,
+#basemap-menu .dock-panel__body .dock-panel__item,
+#dynamic-filters .dock-panel__item {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 13px 8px 11px;
+  border-radius: 14px;
+  min-height: 80px;
+  width: auto;
+  text-align: center;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-primary);
+
+  /* Glass card */
+  background: rgba(255, 255, 255, 0.44);
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.03),
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.03);
+  position: relative;
+  overflow: hidden;
+  transition:
+    background    0.22s ease,
+    border-color  0.22s ease,
+    box-shadow    0.24s ease,
+    transform     0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+    color         0.18s ease;
+}
+
+/* Card shimmer */
+#city-menu    .dock-panel__body .dock-panel__item::after,
+#basemap-menu .dock-panel__body .dock-panel__item::after,
+#dynamic-filters .dock-panel__item::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    148deg,
+    rgba(255, 255, 255, 0.30) 0%,
+    rgba(255, 255, 255, 0) 52%
+  );
+  pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+
+/* Dark mode cards */
+[data-theme="dark"] #city-menu    .dock-panel__body .dock-panel__item,
+[data-theme="dark"] #basemap-menu .dock-panel__body .dock-panel__item,
+[data-theme="dark"] #dynamic-filters .dock-panel__item {
+  background: rgba(255, 255, 255, 0.062);
+  border-color: rgba(255, 255, 255, 0.095);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.16);
+}
+
+[data-theme="dark"] #city-menu    .dock-panel__body .dock-panel__item::after,
+[data-theme="dark"] #basemap-menu .dock-panel__body .dock-panel__item::after,
+[data-theme="dark"] #dynamic-filters .dock-panel__item::after {
+  background: linear-gradient(
+    148deg,
+    rgba(255, 255, 255, 0.07) 0%,
+    rgba(255, 255, 255, 0) 52%
+  );
+}
+
+/* Card hover */
+#city-menu    .dock-panel__body .dock-panel__item:hover,
+#basemap-menu .dock-panel__body .dock-panel__item:hover,
+#dynamic-filters .dock-panel__item:hover {
+  background: rgba(255, 255, 255, 0.65);
+  border-color: rgba(255, 255, 255, 0.68);
+  transform: scale(1.04) translateX(0) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 4px 14px rgba(0, 0, 0, 0.07);
+}
+
+[data-theme="dark"] #city-menu    .dock-panel__body .dock-panel__item:hover,
+[data-theme="dark"] #basemap-menu .dock-panel__body .dock-panel__item:hover,
+[data-theme="dark"] #dynamic-filters .dock-panel__item:hover {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 4px 14px rgba(0, 0, 0, 0.24);
+}
+
+/* Card press */
+#city-menu    .dock-panel__body .dock-panel__item:active,
+#basemap-menu .dock-panel__body .dock-panel__item:active,
+#dynamic-filters .dock-panel__item:active {
+  transform: scale(0.94) !important;
+  opacity: 1;
+}
+
+/* Card active state — solid fill + colored glow */
+#city-menu    .dock-panel__body .dock-panel__item.is-active,
+#basemap-menu .dock-panel__body .dock-panel__item.is-active,
+#dynamic-filters .dock-panel__item.is-active {
+  background: var(--item-color, var(--primary, #14AE5C));
+  border-color: color-mix(in srgb, var(--item-color, var(--primary, #14AE5C)) 75%, white);
+  color: #fff;
+  font-weight: 700;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.30),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.08),
+    0 4px 18px color-mix(in srgb, var(--item-color, var(--primary, #14AE5C)) 48%, transparent),
+    0 1px 4px  color-mix(in srgb, var(--item-color, var(--primary, #14AE5C)) 28%, transparent);
+  transform: scale(1.0) !important;
+}
+
+#city-menu    .dock-panel__body .dock-panel__item.is-active::after,
+#basemap-menu .dock-panel__body .dock-panel__item.is-active::after,
+#dynamic-filters .dock-panel__item.is-active::after {
+  opacity: 0.5;
+}
+
+#city-menu    .dock-panel__body .dock-panel__item.is-active:hover,
+#basemap-menu .dock-panel__body .dock-panel__item.is-active:hover,
+#dynamic-filters .dock-panel__item.is-active:hover {
+  filter: brightness(1.08);
+  transform: scale(1.04) !important;
+}
+
+/* ── Item icon ───────────────────────────────────────────────────────────── */
+
+.dock-panel__item-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--dock-btn-hover);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  transition:
+    background 0.18s ease,
+    color      0.18s ease;
+}
+
+.dock-panel__item.is-active .dock-panel__item-icon,
+.dock-panel__item:hover     .dock-panel__item-icon {
+  background: color-mix(in srgb, var(--primary, #14AE5C) 12%, transparent);
+  color: var(--primary);
+}
+
+/* Grid card icon — larger, pill background */
+#city-menu    .dock-panel__body .dock-panel__item-icon,
+#basemap-menu .dock-panel__body .dock-panel__item-icon,
+#dynamic-filters .dock-panel__item-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  font-size: 1.0rem;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 1px 3px rgba(0, 0, 0, 0.06);
+  transition:
+    background 0.20s ease,
+    color      0.20s ease,
+    transform  0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.20s ease;
+}
+
+[data-theme="dark"] #city-menu    .dock-panel__body .dock-panel__item-icon,
+[data-theme="dark"] #basemap-menu .dock-panel__body .dock-panel__item-icon,
+[data-theme="dark"] #dynamic-filters .dock-panel__item-icon {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Icon in active card = white + subtle inset */
+#city-menu    .dock-panel__body .dock-panel__item.is-active .dock-panel__item-icon,
+#basemap-menu .dock-panel__body .dock-panel__item.is-active .dock-panel__item-icon,
+#dynamic-filters .dock-panel__item.is-active .dock-panel__item-icon {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+/* Icon springy pop on card hover */
+#city-menu    .dock-panel__body .dock-panel__item:hover .dock-panel__item-icon,
+#basemap-menu .dock-panel__body .dock-panel__item:hover .dock-panel__item-icon,
+#dynamic-filters .dock-panel__item:hover .dock-panel__item-icon {
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--item-color, var(--primary, #14AE5C));
+  transform: scale(1.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.90),
+    0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] #city-menu    .dock-panel__body .dock-panel__item:hover .dock-panel__item-icon,
+[data-theme="dark"] #basemap-menu .dock-panel__body .dock-panel__item:hover .dock-panel__item-icon,
+[data-theme="dark"] #dynamic-filters .dock-panel__item:hover .dock-panel__item-icon {
+  background: rgba(255, 255, 255, 0.13);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+
+/* ── Item label ──────────────────────────────────────────────────────────── */
+
+.dock-panel__item-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Grid card label — wraps, centered */
+#city-menu    .dock-panel__body .dock-panel__item-label,
+#basemap-menu .dock-panel__body .dock-panel__item-label,
+#dynamic-filters .dock-panel__item-label {
+  flex: 0;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  line-height: 1.25;
+  color: inherit;
+}
+
+/* ── Search panel ────────────────────────────────────────────────────────── */
+
+.dock-panel--search .dock-panel__body { padding: 0; gap: 0; }
+
+.dock-panel--search #address-search {
+  width: 100%;
+  padding: 11px 14px;
+  font-size: 0.83rem;
+  font-weight: 500;
+  border: none;
+  border-bottom: 1px solid var(--dock-sep);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease;
+}
+
+.dock-panel--search #address-search:focus       { border-bottom-color: var(--primary); }
+.dock-panel--search #address-search::placeholder { color: var(--text-tertiary); }
+.dock-panel--search .search-results { max-height: 320px; overflow-y: auto; padding: 4px 0; }
+
+.dock-panel--search .search-result-item {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--dock-sep);
+  transition:
+    background 0.18s ease,
+    transform  0.18s ease;
+}
+
+.dock-panel--search .search-result-item:last-child { border-bottom: none; }
+.dock-panel--search .search-result-item:hover  {
+  background: var(--dock-btn-hover);
+  transform: translateX(2px);
+}
+.dock-panel--search .search-result-item:active {
+  background: color-mix(in srgb, var(--primary, #14AE5C) 6%, transparent);
+  transform: scale(0.98);
+}
+
+.dock-panel--search .search-result-item h4 {
+  margin: 0 0 2px;
+  font-size: 0.80rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: color 0.15s ease;
+}
+
+.dock-panel--search .search-result-item:hover h4 { color: var(--primary); }
+.dock-panel--search .search-result-item p { margin: 0; font-size: 0.72rem; color: var(--text-tertiary); }
+
+/* City menu logo img — fills icon pill */
+#city-menu .dock-panel__item-icon img.city-menu-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+@media (max-width: 640px) {
+  .dock-panel { right: 10px; left: 10px; min-width: 0; max-height: 52vh; }
+  .dock-panel::before { display: none; }
+
+  /* On mobile, grid panels keep 2 cols */
+  #city-menu    .dock-panel__body,
+  #basemap-menu .dock-panel__body,
+  #dynamic-filters {
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
   }
 }
 
-/* Actions panel styling — ultra-minimaliste */
-#actions-panel {
-  max-width: 280px;
+/* ══════════════════════════════════════════════════════════════════════════
+   TOGGLE MENU — Legacy / overflow
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.toggle-menu {
+  position: fixed;
+  z-index: 1400;
+  background: var(--dock-bg);
+  backdrop-filter: blur(var(--dock-blur)) saturate(var(--dock-saturate));
+  -webkit-backdrop-filter: blur(var(--dock-blur)) saturate(var(--dock-saturate));
+  border: 1px solid var(--dock-border);
+  border-radius: 18px;
+  box-shadow: var(--dock-shadow);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px) scale(0.96);
+  transform-origin: top right;
+  transition:
+    opacity    0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    transform  0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
 }
 
-#actions-panel .dock-panel__body {
+.toggle-menu.active,
+.toggle-menu[style*="display: block"] {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   OVERFLOW MENU
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.overflow-menu {
+  top: 78px;
+  right: 16px;
+  min-width: 210px;
+  padding: 6px;
+}
+
+.overflow-menu-content {
   display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.overflow-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 11px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  transition: background 0.15s ease;
+}
+
+.overflow-menu-item:hover  { background: var(--dock-btn-hover); }
+.overflow-menu-item:active { opacity: 0.75; transition-duration: 0.05s; }
+
+.overflow-menu-item i {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  background: var(--dock-btn-hover);
+  border-radius: 8px;
+  flex-shrink: 0;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.overflow-menu-item:hover i {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary, #14AE5C) 10%, transparent);
+}
+
+.overflow-menu-label { flex: 1; }
+
+.overflow-menu-item:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ACTIONS PANEL (mobile menu)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+#actions-panel { max-width: 280px; }
+
+#actions-panel .dock-panel__body {
   flex-direction: column;
   gap: 0;
   padding: 8px 0;
@@ -416,13 +1002,8 @@
   color: inherit;
 }
 
-.action-item:hover {
-  background: var(--surface-elevated);
-}
-
-.action-item:active {
-  background: var(--surface-raised);
-}
+.action-item:hover  { background: var(--dock-btn-hover); }
+.action-item:active { background: color-mix(in srgb, var(--primary, #14AE5C) 6%, transparent); }
 
 .action-item__icon {
   display: flex;
@@ -438,542 +1019,62 @@
   transition: color 0.15s ease;
 }
 
-.action-item:hover .action-item__icon i {
-  color: var(--text-primary);
-}
+.action-item:hover .action-item__icon i { color: var(--text-primary); }
 
 .action-item__label {
   flex: 1;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 400;
   color: var(--text-primary);
 }
 
-.action-item--logout .action-item__icon i {
-  color: var(--color-danger);
-}
-
-.action-item--logout:hover {
-  background: color-mix(in srgb, var(--color-danger) 5%, transparent);
-}
+.action-item--logout .action-item__icon i { color: var(--color-danger, #EF4444); }
+.action-item--logout:hover { background: color-mix(in srgb, var(--color-danger, #EF4444) 6%, transparent); }
 
 .action-item[data-auth="connected"],
-.action-item[data-auth="disconnected"] {
-  display: none;
-}
+.action-item[data-auth="disconnected"] { display: none; }
+body[data-auth-state="connected"]    .action-item[data-auth="connected"]    { display: flex; }
+body[data-auth-state="disconnected"] .action-item[data-auth="disconnected"] { display: flex; }
 
-body[data-auth-state="connected"] .action-item[data-auth="connected"] {
-  display: flex;
-}
-
-body[data-auth-state="disconnected"] .action-item[data-auth="disconnected"] {
-  display: flex;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   LOCATION TOGGLE — Special states
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-#location-toggle.active i {
-  color: var(--primary);
-  animation: dockPulse 2s infinite;
-}
-
-#location-toggle.loading i {
-  animation: dockSpin 0.8s linear infinite;
-}
-
-#location-toggle.error i {
-  color: var(--danger);
-  animation: dockShake 0.4s;
-}
-
-@keyframes dockPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-
-@keyframes dockSpin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes dockShake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-3px); }
-  75% { transform: translateX(3px); }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   OVERFLOW TOGGLE — Hidden by default, shown by JS on mobile
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-#overflow-toggle {
-  display: none;
-}
-
-.toggle-dock__btn--overflow i {
-  font-size: 0.85rem;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   UNIFIED TOGGLE MENU — Drop-down panels for basemap, city, overflow
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.toggle-menu {
-  position: fixed;
-  z-index: 1400;
-  background: var(--dock-bg);
-  backdrop-filter: blur(40px) saturate(1.8);
-  -webkit-backdrop-filter: blur(40px) saturate(1.8);
-  border: 1px solid var(--dock-border);
-  border-radius: 18px;
-  box-shadow:
-    0 4px 12px var(--black-alpha-04),
-    0 12px 40px var(--black-alpha-08),
-    0 24px 64px var(--black-alpha-04);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-14px) scale(0.96);
-  transform-origin: top right;
-  transition:
-    opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-    visibility 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
-    filter 0.3s ease;
-  pointer-events: none;
-  filter: blur(4px);
-}
-
-.toggle-menu.active {
-  pointer-events: auto;
-}
-
-.toggle-menu.active,
-.toggle-menu[style*="display: block"] {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0) scale(1);
-  filter: blur(0);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   DOCK PANEL — Unified dropdown panel system
-   All panels (filters, basemap, city, search) share this base.
-   JS sets: top, right, min-width (=dock width), --arrow-x (arrow offset).
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.dock-panel {
-  position: fixed;
-  z-index: 1500;
-  top: 80px; /* fallback, JS overrides */
-  right: 16px;
-  display: none;
-  flex-direction: column;
-  min-width: 220px;
-  max-height: 70vh;
-  padding: 6px;
-  background: var(--dock-bg);
-  backdrop-filter: blur(var(--dock-blur, 24px)) saturate(1.6);
-  -webkit-backdrop-filter: blur(var(--dock-blur, 24px)) saturate(1.6);
-  border: 1px solid var(--dock-border);
-  border-radius: var(--dock-radius, 16px);
-  box-shadow: var(--dock-shadow);
-  overflow-y: auto;
-  overflow-x: hidden;
-  /* entry animation */
-  opacity: 0;
-  transform: translateY(-8px) scale(0.97);
-  transform-origin: top right;
-  transition:
-    opacity 0.2s ease,
-    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.dock-panel.dock-panel--open {
-  display: flex;
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-/* Arrow pointing up toward the toggle that opened the panel */
-.dock-panel::before {
-  content: '';
-  position: absolute;
-  top: -6px;
-  right: var(--arrow-x, 20px);
-  width: 12px;
-  height: 12px;
-  background: var(--dock-bg);
-  border-top: 1px solid var(--dock-border);
-  border-left: 1px solid var(--dock-border);
-  transform: rotate(45deg);
-  border-radius: 2px 0 0 0;
-  z-index: 1;
-  pointer-events: none;
-}
-
-/* Panel header row */
-.dock-panel__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 8px 6px;
-  border-bottom: 1px solid var(--dock-sep, var(--border-light));
-  margin-bottom: 4px;
-}
-
-.dock-panel__title {
-  font-size: 0.65rem;
-  font-weight: 700;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.dock-panel__close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-tertiary);
-  font-size: 0.7rem;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-  flex-shrink: 0;
-}
-
-.dock-panel__close:hover {
-  background: var(--dock-btn-hover);
-  color: var(--text-primary);
-}
-
-/* Panel body — scrollable content area */
-.dock-panel__body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-/* Generic panel row item — reused by filters, basemap, city items */
-.dock-panel__item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border: none;
-  border-radius: var(--dock-btn-radius, 12px);
-  background: transparent;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  text-align: left;
-  width: 100%;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.dock-panel__item:hover {
-  background: var(--dock-btn-hover, rgba(0, 0, 0, 0.05));
-}
-
-.dock-panel__item:active {
-  opacity: 0.8;
-  transition-duration: 0.05s;
-}
-
-.dock-panel__item.is-active {
-  background: var(--primary-alpha-06);
-  color: var(--primary);
-  font-weight: 700;
-}
-
-.dock-panel__item.is-active:hover {
-  background: var(--primary-alpha-10);
-}
-
-.dock-panel__item-icon {
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: var(--dock-btn-hover, rgba(0, 0, 0, 0.05));
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.dock-panel__item:hover .dock-panel__item-icon,
-.dock-panel__item.is-active .dock-panel__item-icon {
-  background: var(--primary-alpha-10);
-  color: var(--primary);
-}
-
-.dock-panel__item-label {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ── Search-specific panel styles ───────────────────────────────────────── */
-
-.dock-panel--search .dock-panel__body {
-  padding: 0;
-  gap: 0;
-}
-
-.dock-panel--search #address-search {
-  width: 100%;
-  padding: 10px 14px;
-  font-size: 0.82rem;
-  font-weight: 500;
-  border: none;
-  border-bottom: 1px solid var(--dock-sep, var(--border-light));
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-primary);
-  outline: none;
-  transition: border-color 0.2s ease;
-  box-sizing: border-box;
-}
-
-.dock-panel--search #address-search:focus {
-  border-bottom-color: var(--primary);
-}
-
-.dock-panel--search #address-search::placeholder {
-  color: var(--text-tertiary);
-}
-
-.dock-panel--search .search-results {
-  max-height: 320px;
-  overflow-y: auto;
-  padding: 4px 0;
-}
-
-.dock-panel--search .search-result-item {
-  display: flex;
-  flex-direction: column;
-  padding: 10px 14px;
-  cursor: pointer;
-  transition: background 0.15s ease;
-  border-bottom: 1px solid var(--dock-sep, var(--border-light));
-}
-
-.dock-panel--search .search-result-item:last-child {
-  border-bottom: none;
-}
-
-.dock-panel--search .search-result-item:hover {
-  background: var(--dock-btn-hover);
-}
-
-.dock-panel--search .search-result-item:active {
-  background: var(--primary-alpha-06);
-}
-
-.dock-panel--search .search-result-item h4 {
-  margin: 0 0 2px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  transition: color 0.15s ease;
-}
-
-.dock-panel--search .search-result-item:hover h4 {
-  color: var(--primary);
-}
-
-.dock-panel--search .search-result-item p {
-  margin: 0;
-  font-size: 0.72rem;
-  color: var(--text-tertiary);
-}
-
-/* ── Mobile ─────────────────────────────────────────────────────────────── */
-
-@media (max-width: 640px) {
-  .dock-panel {
-    right: 10px;
-    left: 10px;
-    min-width: 0;
-    max-height: 50vh;
-  }
-
-  .dock-panel::before {
-    display: none;
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   OVERFLOW MENU — Content & items
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.overflow-menu {
-  top: 70px;
-  right: 16px;
-  min-width: 200px;
-  padding: 6px;
-}
-
-.overflow-menu-content {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.overflow-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: transparent;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  font-family: inherit;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-primary);
-  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.overflow-menu-item:hover {
-  background: var(--dock-btn-hover);
-  transform: translateX(4px);
-}
-
-.overflow-menu-item:active {
-  background: var(--primary-alpha-10);
-  transform: translateX(4px) scale(0.98);
-}
-
-.overflow-menu-item i {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.82rem;
-  color: var(--dock-icon);
-  background: var(--dock-btn-hover);
-  border-radius: 8px;
-  transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
-}
-
-.overflow-menu-item:hover i {
-  color: var(--primary);
-  background: var(--primary-alpha-10);
-  transform: scale(1.1);
-}
-
-.overflow-menu-label {
-  flex: 1;
-  font-weight: 500;
-}
-
-.overflow-menu-item:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: -2px;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   RESPONSIVE — Tablet (≤ 900px)
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 900px) {
-  :root {
-    --dock-btn: 36px;
-    --dock-h: 44px;
-  }
-
-  .toggle-dock__group + .toggle-dock__group::before {
-    margin: 0 3px;
-    height: 16px;
-  }
+  :root { --dock-btn: 40px; --dock-h: 50px; }
+  .toggle-dock__group + .toggle-dock__group::before { margin: 0 3px; height: 16px; }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   RESPONSIVE — Mobile (≤ 640px)
-   ═══════════════════════════════════════════════════════════════════════════ */
-
 @media (max-width: 640px) {
-  :root {
-    --dock-btn: 48px;
-    --dock-h: 58px;
-    --dock-radius: 16px;
-  }
-
-  .toggle-dock {
-    top: 10px;
-    right: 10px;
-    left: auto;
-    gap: 0;
-  }
-
-  .toggle-dock__btn i {
-    font-size: 1.05rem;
-  }
-
-  /* Overflow menu positioning — adjusted for larger dock */
-  .overflow-menu {
-    top: 76px;
-    right: 10px;
-    min-width: 220px;
-    max-width: calc(100vw - 20px);
-  }
-
-  .overflow-menu-item {
-    padding: 12px 14px;
-  }
+  :root { --dock-btn: 48px; --dock-h: 58px; --dock-radius: 18px; }
+  .toggle-dock { top: 10px; right: 10px; left: auto; gap: 0; }
+  .toggle-dock__btn i { font-size: 1.05rem; }
+  .overflow-menu { top: 80px; right: 10px; min-width: 220px; max-width: calc(100vw - 20px); }
+  .overflow-menu-item { padding: 12px 14px; }
 }
 
 @media (max-width: 400px) {
-  :root {
-    --dock-btn: 44px;
-    --dock-h: 54px;
-  }
-
-  .toggle-dock {
-    top: 8px;
-    right: 6px;
-    left: auto;
-    padding: 3px;
-  }
-
-  .toggle-dock__btn i {
-    font-size: 1rem;
-  }
-
-  .toggle-dock__logo img {
-    height: 24px;
-    max-width: 80px;
-  }
+  :root { --dock-btn: 44px; --dock-h: 54px; }
+  .toggle-dock { top: 8px; right: 6px; padding: 3px; }
+  .toggle-dock__btn i { font-size: 1rem; }
+  .toggle-dock__logo img { height: 24px; max-width: 80px; }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════════════════════════
    ACCESSIBILITY
-   ═══════════════════════════════════════════════════════════════════════════ */
+   ══════════════════════════════════════════════════════════════════════════ */
 
 @media (prefers-reduced-motion: reduce) {
   .toggle-dock,
+  .toggle-dock::after,
   .toggle-dock__btn,
   .toggle-dock__btn i,
   .toggle-menu,
-  .toggle-dock__badge {
+  .toggle-dock__badge,
+  .filter-count,
+  .dock-panel {
     transition: none !important;
     animation: none !important;
   }
+  .dock-panel.dock-panel--open { opacity: 1; transform: none; }
 }
