@@ -98,7 +98,7 @@
       defaultBm = availableBasemaps.find(b => b.name === cityPreferred);
     }
     if (!defaultBm) {
-      defaultBm = availableBasemaps.find(b => b.default) || availableBasemaps[0];
+      defaultBm = availableBasemaps.find(b => b.is_default) || availableBasemaps[0];
     }
     
     let previewLayer = null;
@@ -131,7 +131,7 @@
         if (tile.classList.contains('is-active')) return;
         
         hoverTimer = setTimeout(() => {
-          previewLayer = L.tileLayer(bm.url, { attribution: bm.attribution });
+          previewLayer = L.createBasemapLayer(bm);
           window.MapModule?.setBaseLayer(previewLayer);
           isPreviewActive = true;
         }, 1000);
@@ -146,9 +146,7 @@
         
         if (isPreviewActive) {
           const activeBasemap = getActiveBasemap();
-          const activeLayer = L.tileLayer(activeBasemap.url, { 
-            attribution: activeBasemap.attribution 
-          });
+          const activeLayer = L.createBasemapLayer(activeBasemap);
           window.MapModule?.setBaseLayer(activeLayer);
           isPreviewActive = false;
         }
@@ -163,7 +161,7 @@
           hoverTimer = null;
         }
         
-        const layer = L.tileLayer(bm.url, { attribution: bm.attribution });
+        const layer = L.createBasemapLayer(bm);
         window.MapModule?.setBaseLayer(layer);
         currentActiveBasemap = bm;
         

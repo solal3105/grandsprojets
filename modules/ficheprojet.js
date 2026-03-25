@@ -23,8 +23,8 @@ const FP_CONFIG = {
 };
 
 window.basemaps = window.basemaps || [
-  { label: 'Positron', url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', attribution: '© CartoDB' },
-  { label: 'Dark Matter', theme: 'dark', url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', attribution: '© CartoDB' }
+  { label: 'Positron', kind: 'raster', url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', attribution: '© CartoDB', theme: 'light' },
+  { label: 'Dark Matter', kind: 'raster', url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', attribution: '© CartoDB', theme: 'dark' }
 ];
 
 /* ===========================================================================
@@ -225,11 +225,13 @@ const getCategoryStyle = window.getCategoryStyle;
 const createContributionMarkerIcon = window.createContributionMarkerIcon;
 
 function getBasemapConfig(theme) {
+  const tm = window.ThemeManager?.findBasemapForTheme?.(theme);
+  if (tm) return tm;
+  // Fallback raster basemaps
   if (theme === 'dark') {
-    const tm = window.ThemeManager?.findBasemapForTheme?.('dark');
-    return tm || { url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', attribution: '© CartoDB' };
+    return { kind: 'raster', url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', attribution: '© CartoDB' };
   }
-  return { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OpenStreetMap contributors' };
+  return { kind: 'raster', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OpenStreetMap contributors' };
 }
 
 function createGeoJSONLayer(map, geojsonData, category) {
@@ -250,7 +252,7 @@ async function initProjectMap(containerId, projectName, category) {
 
     const map = window.L.map(containerId, { center: FP_CONFIG.MAP_DEFAULT_CENTER, zoom: FP_CONFIG.MAP_DEFAULT_ZOOM, zoomControl: true });
     const basemap = getBasemapConfig(currentTheme());
-    const baseLayer = window.L.tileLayer(basemap.url, { attribution: basemap.attribution, maxZoom: 19 }).addTo(map);
+    const baseLayer = window.L.createBasemapLayer(basemap).addTo(map);
 
     window.ficheProjectMap = map;
     window.__fpMap = map;
@@ -264,7 +266,7 @@ async function initProjectMap(containerId, projectName, category) {
         if (window.__fpMap && window.__fpBaseLayer) {
           const nb = getBasemapConfig(t);
           window.__fpMap.removeLayer(window.__fpBaseLayer);
-          window.__fpBaseLayer = window.L.tileLayer(nb.url, { attribution: nb.attribution, maxZoom: 19 }).addTo(window.__fpMap);
+          window.__fpBaseLayer = window.L.createBasemapLayer(nb).addTo(window.__fpMap);
         }
         updateCityLogo(t);
       });
@@ -540,7 +542,7 @@ function openMapFullscreenModal() {
 
       const basemap = getBasemapConfig(currentTheme());
       const fsMap = window.L.map('project-map-fullscreen', { center: FP_CONFIG.MAP_DEFAULT_CENTER, zoom: FP_CONFIG.MAP_DEFAULT_ZOOM, zoomControl: true });
-      window.L.tileLayer(basemap.url, { attribution: basemap.attribution, maxZoom: 19 }).addTo(fsMap);
+      window.L.createBasemapLayer(basemap).addTo(fsMap);
 
       if (window.__ficheProjectGeoJSON) {
         const layer = createGeoJSONLayer(fsMap, window.__ficheProjectGeoJSON, window.__ficheProjectCategory);

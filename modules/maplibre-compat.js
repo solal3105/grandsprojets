@@ -817,6 +817,152 @@
   L.tileLayer = function(url, options) { return new TileLayer(url, options); };
 
   // ============================================================
+  // VECTOR BASEMAP (MapLibre GL style — no setStyle(), no data loss)
+  // ============================================================
+  //
+  // Strategy: never call mlMap.setStyle() — it wipes all user data layers.
+  // Instead, fetch the style JSON and inject its sources/layers directly using
+  // prefixed IDs (__vbm__<id>), inserted before user data layers.
+  // _cleanupOwned() scans the live style by prefix — never misses anything.
+
+  class VectorBasemap extends EventEmitter {
+    constructor(styleUrl, options) {
+      super();
+      this._styleUrl = styleUrl;
+      this.options = Object.assign({ attribution: '' }, options);
+      this._map = null;
+    }
+
+    addTo(map) {
+      this._map = map;
+      const mlMap = map._mlMap || map;
+      // Remove any __vbm__ layers/sources from a previous apply before re-injecting
+      this._cleanupOwned(mlMap);
+      this._applyStyle(mlMap);
+      return this;
+    }
+
+    async _applyStyle(mlMap) {
+      try {
+        const resp = await fetch(this._styleUrl);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const styleJson = await resp.json();
+
+        // Update glyphs so road labels render with correct fonts.
+        // setGlyphs() only updates the glyph URL — does NOT touch sources or layers.
+        if (styleJson.glyphs && typeof mlMap.setGlyphs === 'function') {
+          try { mlMap.setGlyphs(styleJson.glyphs); } catch (_) {}
+        }
+
+        // Update sprite so icon images render correctly.
+        // Pass the raw sprite spec (string or [{id,url}] array) directly —
+        // do NOT wrap with a named id like 'default', that makes MapLibre look
+        // for /default.json on the local server.
+        if (styleJson.sprite && typeof mlMap.setSprite === 'function') {
+          try { mlMap.setSprite(styleJson.sprite); } catch (_) {}
+        }
+
+        // Insertion anchor: first app-data layer — vbm layers go BELOW it
+        const anchor = this._findAnchorLayer(mlMap);
+
+        // Map original source IDs → prefixed IDs to avoid collisions
+        const sourceIdMap = {};
+        for (const [origId, srcDef] of Object.entries(styleJson.sources || {})) {
+          const prefixed = `__vbm__${origId}`;
+          sourceIdMap[origId] = prefixed;
+          if (mlMap.getSource(prefixed)) continue;
+          try {
+            mlMap.addSource(prefixed, srcDef);
+          } catch (e) {
+            console.warn('[VectorBasemap] addSource failed:', prefixed, e.message);
+          }
+        }
+
+        // Add layers in style order, each prefixed and wired to the prefixed source
+        for (const layer of (styleJson.layers || [])) {
+          if (layer.source && !sourceIdMap[layer.source]) continue;
+          const ml = JSON.parse(JSON.stringify(layer));
+          ml.id = `__vbm__${layer.id}`;
+          if (ml.source) ml.source = sourceIdMap[ml.source];
+          if (mlMap.getLayer(ml.id)) continue;
+          try {
+            mlMap.addLayer(ml, anchor);
+          } catch (e) {
+            console.warn('[VectorBasemap] addLayer failed:', ml.id, e.message);
+          }
+        }
+
+        this.fire('add');
+      } catch (e) {
+        console.error('[VectorBasemap] Failed to load/apply style:', this._styleUrl, e);
+      }
+    }
+
+    /**
+     * First layer that belongs to user/app data (projects, 3D buildings…).
+     * All vbm layers are inserted BEFORE this so they render underneath.
+     */
+    _findAnchorLayer(mlMap) {
+      const style = mlMap.getStyle();
+      if (!style) return undefined;
+      return (style.layers || []).find(l =>
+        !l.id.startsWith('__vbm__') &&
+        !l.id.startsWith('basemap-') &&
+        l.type !== 'background' &&
+        l.type !== 'sky'
+      )?.id;
+    }
+
+    /**
+     * Remove ALL __vbm__ layers then ALL __vbm__ sources by scanning the live
+     * style — no tracking list needed, never misses layers added by a prior run.
+     * Layers MUST be removed before their sources (MapLibre requirement).
+     */
+    _cleanupOwned(mlMap) {
+      const style = mlMap.getStyle();
+      if (!style) return;
+      // 1) Layers first
+      for (const layer of [...(style.layers || [])]) {
+        if (!layer.id.startsWith('__vbm__')) continue;
+        try { mlMap.removeLayer(layer.id); } catch (_) {}
+      }
+      // 2) Sources after all layers referencing them are gone
+      for (const id of Object.keys(style.sources || {})) {
+        if (!id.startsWith('__vbm__')) continue;
+        try { mlMap.removeSource(id); } catch (_) {}
+      }
+    }
+
+    remove() {
+      if (this._map) {
+        const mlMap = this._map._mlMap || this._map;
+        this._cleanupOwned(mlMap);
+      }
+      this.fire('remove');
+      return this;
+    }
+
+    getAttribution() { return this.options.attribution; }
+  }
+
+  L.VectorBasemap = VectorBasemap;
+  L.vectorBasemap = function(styleUrl, options) { return new VectorBasemap(styleUrl, options); };
+
+  /**
+   * Factory: create the right layer type for a basemap record.
+   * kind === 'vector' → VectorBasemap (fetches MapLibre style JSON, no setStyle)
+   * kind === 'raster' → TileLayer (classic raster tiles)
+   * @param {Object} bm - Basemap record from basemaps_v2
+   * @returns {TileLayer|VectorBasemap}
+   */
+  L.createBasemapLayer = function(bm) {
+    if (bm.kind === 'vector' && bm.style_url) {
+      return new VectorBasemap(bm.style_url, { attribution: bm.attribution });
+    }
+    return new TileLayer(bm.url, { attribution: bm.attribution });
+  };
+
+  // ============================================================
   // SHAPES: Polyline, Polygon, Circle
   // ============================================================
 
@@ -1783,7 +1929,7 @@
         'fill-extrusion-color':   this._getBuildingColorExpr(isDark),
         'fill-extrusion-height':  ['coalesce', ['get', 'render_height'], 10],
         'fill-extrusion-base':    ['coalesce', ['get', 'render_min_height'], 0],
-        'fill-extrusion-opacity': isDark ? 0.72 : 0.55,
+        'fill-extrusion-opacity': 1,
       };
     }
 
@@ -1905,7 +2051,7 @@
         try {
           if (mlMap.getLayer('3d-buildings')) {
             mlMap.setPaintProperty('3d-buildings', 'fill-extrusion-color', this._getBuildingColorExpr(isDark));
-            mlMap.setPaintProperty('3d-buildings', 'fill-extrusion-opacity', isDark ? 0.72 : 0.55);
+            mlMap.setPaintProperty('3d-buildings', 'fill-extrusion-opacity', 1);
           }
           if (mlMap.getLayer('forest-fill')) {
             mlMap.setPaintProperty('forest-fill', 'fill-color', this._getForestColorExpr('canopy', isDark));

@@ -306,11 +306,15 @@
     } catch(_) {}
     
     drawBaseLayer = null;
-    const url = bm && bm.url ? bm.url : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-    const attribution = (bm && bm.attribution) || '&copy; OpenStreetMap contributors';
     
-    try { 
-      drawBaseLayer = L.tileLayer(url, { attribution }).addTo(drawMap); 
+    try {
+      if (bm && (bm.kind === 'vector' ? bm.style_url : bm.url)) {
+        drawBaseLayer = L.createBasemapLayer(bm).addTo(drawMap);
+      } else {
+        const url = bm && bm.url ? bm.url : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+        const attribution = (bm && bm.attribution) || '&copy; OpenStreetMap contributors';
+        drawBaseLayer = L.tileLayer(url, { attribution }).addTo(drawMap);
+      }
     } catch (e) { 
       console.warn('[contrib-map] setDrawBaseLayer error:', e); 
     }

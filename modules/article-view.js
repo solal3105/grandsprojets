@@ -480,10 +480,15 @@
           touchZoom: false
         });
         
-        // Ajouter un fond de carte simple
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-          maxZoom: 19
-        }).addTo(map);
+        // Ajouter un fond de carte (utilise le premier basemap light disponible ou fallback raster)
+        const lightBm = (window.basemaps || []).find(b => b.theme === 'light' && b.active !== false);
+        if (lightBm) {
+          L.createBasemapLayer(lightBm).addTo(map);
+        } else {
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19
+          }).addTo(map);
+        }
         
         // Charger le GeoJSON
         const response = await fetch(geojsonUrl);

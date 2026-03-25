@@ -957,13 +957,16 @@
     // (Auth helpers migrated to modules/auth.js)
 
     /**
-     * Récupère la liste des fonds de carte depuis Supabase.
-     * @returns {Promise<Array<{name:string,url:string,attribution:string,label:string}>>}
+     * Récupère la liste des fonds de carte depuis Supabase (table basemaps_v2).
+     * Supporte raster (url) et vectoriel (style_url).
+     * @returns {Promise<Array<{name:string, label:string, kind:string, url:string, style_url?:string, attribution:string, theme?:string, is_default:boolean}>>}
      */
     fetchBasemaps: async function() {
       const { data, error } = await supabaseClient
-        .from('basemaps')
-        .select('*');
+        .from('basemaps_v2')
+        .select('*')
+        .eq('active', true)
+        .order('sort_order', { ascending: true });
       if (error) {
         console.error('[supabaseService] ❌ fetchBasemaps error:', error);
         return [];

@@ -6,7 +6,7 @@ window.MapModule = (() => {
   
   /**
    * Initialise le fond de carte après chargement de window.basemaps
-   * OPTIMISÉ: Utilise L.tileLayer (via compat layer MapLibre GL)
+   * Supporte raster (L.tileLayer) et vectoriel (L.vectorBasemap) via L.createBasemapLayer
    */
   function initBaseLayer() {
     const bmList = window.basemaps || [];
@@ -20,12 +20,12 @@ window.MapModule = (() => {
     // Sélection du basemap (ordre de priorité)
     let selectedBm = cityPreferred ? bmList.find(b => b.name === cityPreferred) : null;
     if (!selectedBm) {
-      selectedBm = bmList.find(b => b.default) || bmList[0];
+      selectedBm = bmList.find(b => b.is_default) || bmList[0];
     }
     
     // Remplacer le basemap existant
     if (baseLayer) map.removeLayer(baseLayer);
-    baseLayer = L.tileLayer(selectedBm.url, { attribution: selectedBm.attribution });
+    baseLayer = L.createBasemapLayer(selectedBm);
     baseLayer.addTo(map);
     
     // Mettre à jour l'UI

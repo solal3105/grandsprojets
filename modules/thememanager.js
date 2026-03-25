@@ -93,8 +93,8 @@
         const bm = this.findBasemapForTheme(theme);
         if (!bm) return;
 
-        // Utilise L.tileLayer via compat layer (backed by MapLibre GL)
-        const layer = L.tileLayer(bm.url, { attribution: bm.attribution });
+        // Utilise L.createBasemapLayer (raster ou vectoriel selon bm.kind)
+        const layer = L.createBasemapLayer(bm);
         window.MapModule?.setBaseLayer?.(layer);
         window.UIModule?.setActiveBasemap?.(bm.label);
       } catch (e) {
