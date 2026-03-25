@@ -1,6 +1,6 @@
 <template>
   <header class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-border">
-    <div class="max-w-container mx-auto flex items-center justify-between py-3 px-6">
+    <div class="max-w-container mx-auto flex items-center justify-between h-16 px-6">
       <!-- Logo -->
       <router-link to="/" class="flex items-center gap-2">
         <LogoSvg :width="119" :height="46" />

@@ -645,62 +645,49 @@
   );
 }
 
-/* Card hover */
+/* Card hover — levée 3D vers l'utilisateur */
 #city-menu    .dock-panel__body .dock-panel__item:hover,
 #basemap-menu .dock-panel__body .dock-panel__item:hover,
 #dynamic-filters .dock-panel__item:hover {
-  background: rgba(255, 255, 255, 0.65);
-  border-color: rgba(255, 255, 255, 0.68);
-  transform: scale(1.04) translateX(0) !important;
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(255, 255, 255, 0.80);
+  transform: perspective(600px) translateY(-6px) rotateX(5deg) scale(1.01) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.82),
-    0 4px 14px rgba(0, 0, 0, 0.07);
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 12px 28px rgba(0, 0, 0, 0.14),
+    0 3px 8px  rgba(0, 0, 0, 0.08);
 }
 
-[data-theme="dark"] #city-menu    .dock-panel__body .dock-panel__item:hover,
-[data-theme="dark"] #basemap-menu .dock-panel__body .dock-panel__item:hover,
-[data-theme="dark"] #dynamic-filters .dock-panel__item:hover {
-  background: rgba(255, 255, 255, 0.10);
-  border-color: rgba(255, 255, 255, 0.14);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.10),
-    0 4px 14px rgba(0, 0, 0, 0.24);
+/* Shimmer plus visible sur face inclinée */
+#city-menu    .dock-panel__body .dock-panel__item:hover::after,
+#basemap-menu .dock-panel__body .dock-panel__item:hover::after,
+#dynamic-filters .dock-panel__item:hover::after {
+  opacity: 1.4;
 }
 
-/* Card press */
+/* Card press — enfoncée */
 #city-menu    .dock-panel__body .dock-panel__item:active,
 #basemap-menu .dock-panel__body .dock-panel__item:active,
 #dynamic-filters .dock-panel__item:active {
-  transform: scale(0.94) !important;
+  transform: perspective(600px) translateY(-1px) rotateX(1deg) scale(0.96) !important;
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.10),
+    0 2px 6px rgba(0, 0, 0, 0.06);
   opacity: 1;
 }
 
-/* Card active state — solid fill + colored glow */
+/* Card active state — carte neutre, icône fond plein couleur */
 #city-menu    .dock-panel__body .dock-panel__item.is-active,
 #basemap-menu .dock-panel__body .dock-panel__item.is-active,
 #dynamic-filters .dock-panel__item.is-active {
-  background: var(--item-color, var(--primary, #14AE5C));
-  border-color: color-mix(in srgb, var(--item-color, var(--primary, #14AE5C)) 75%, white);
-  color: #fff;
+  border-color: color-mix(in srgb, var(--item-color, var(--primary, #14AE5C)) 50%, transparent);
   font-weight: 700;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.30),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.08),
-    0 4px 18px color-mix(in srgb, var(--item-color, var(--primary, #14AE5C)) 48%, transparent),
-    0 1px 4px  color-mix(in srgb, var(--item-color, var(--primary, #14AE5C)) 28%, transparent);
   transform: scale(1.0) !important;
-}
-
-#city-menu    .dock-panel__body .dock-panel__item.is-active::after,
-#basemap-menu .dock-panel__body .dock-panel__item.is-active::after,
-#dynamic-filters .dock-panel__item.is-active::after {
-  opacity: 0.5;
 }
 
 #city-menu    .dock-panel__body .dock-panel__item.is-active:hover,
 #basemap-menu .dock-panel__body .dock-panel__item.is-active:hover,
 #dynamic-filters .dock-panel__item.is-active:hover {
-  filter: brightness(1.08);
   transform: scale(1.04) !important;
 }
 
@@ -722,10 +709,13 @@
     color      0.18s ease;
 }
 
-.dock-panel__item.is-active .dock-panel__item-icon,
-.dock-panel__item:hover     .dock-panel__item-icon {
-  background: color-mix(in srgb, var(--primary, #14AE5C) 12%, transparent);
+.dock-panel__item:hover .dock-panel__item-icon {
+  background: color-mix(in srgb, var(--primary, #14AE5C) 14%, transparent);
   color: var(--primary);
+}
+.dock-panel__item.is-active .dock-panel__item-icon {
+  background: var(--item-color, var(--primary, #14AE5C));
+  color: #fff;
 }
 
 /* Grid card icon — larger, pill background */
@@ -755,32 +745,27 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-/* Icon in active card = white + subtle inset */
+/* Icon in active card — fond plein couleur + icône blanche */
 #city-menu    .dock-panel__body .dock-panel__item.is-active .dock-panel__item-icon,
 #basemap-menu .dock-panel__body .dock-panel__item.is-active .dock-panel__item-icon,
 #dynamic-filters .dock-panel__item.is-active .dock-panel__item-icon {
-  background: rgba(255, 255, 255, 0.22);
+  background: var(--item-color, var(--primary, #14AE5C));
   color: #fff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 2px 8px color-mix(in srgb, var(--item-color, var(--primary, #14AE5C)) 35%, transparent);
 }
 
 /* Icon springy pop on card hover */
 #city-menu    .dock-panel__body .dock-panel__item:hover .dock-panel__item-icon,
 #basemap-menu .dock-panel__body .dock-panel__item:hover .dock-panel__item-icon,
 #dynamic-filters .dock-panel__item:hover .dock-panel__item-icon {
-  background: rgba(255, 255, 255, 0.72);
-  color: var(--item-color, var(--primary, #14AE5C));
-  transform: scale(1.08);
+  background: var(--item-color, var(--primary, #14AE5C));
+  color: #fff;
+  transform: scale(1.18) translateY(-2px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.90),
-    0 2px 6px rgba(0, 0, 0, 0.08);
-}
-
-[data-theme="dark"] #city-menu    .dock-panel__body .dock-panel__item:hover .dock-panel__item-icon,
-[data-theme="dark"] #basemap-menu .dock-panel__body .dock-panel__item:hover .dock-panel__item-icon,
-[data-theme="dark"] #dynamic-filters .dock-panel__item:hover .dock-panel__item-icon {
-  background: rgba(255, 255, 255, 0.13);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+    0 4px 12px color-mix(in srgb, var(--item-color, var(--primary, #14AE5C)) 40%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.30);
 }
 
 /* ── Item label ──────────────────────────────────────────────────────────── */

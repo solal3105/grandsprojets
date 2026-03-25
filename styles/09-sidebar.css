@@ -67,7 +67,6 @@
 .gp-sidebar {
   position: fixed;
   top: var(--sb-inset);
-  bottom: var(--sb-inset);
   left: var(--sb-inset);
   width: var(--sb-w);
   z-index: 1000;
@@ -193,7 +192,7 @@
 }
 
 /* Hide the divider right before actions — the recessed zone self-separates */
-.gp-sidebar__divider + .gp-sidebar__actions { margin-top: auto; }
+.gp-sidebar__divider + .gp-sidebar__actions { }
 .gp-sidebar__divider:has(+ .gp-sidebar__actions) { display: none; }
 
 /* ── Modules section ───────────────────────────────────────────────────── */
