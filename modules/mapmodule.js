@@ -70,6 +70,17 @@ window.MapModule = (() => {
     }
   };
 
+  /**
+   * Remove all layers from the map, except those in the provided Set.
+   * @param {Set<string>} [except] — layer names to keep
+   */
+  const removeAllLayers = (except = new Set()) => {
+    const names = Object.keys(layers);
+    for (const name of names) {
+      if (!except.has(name)) removeLayer(name);
+    }
+  };
+
   // Swap out the base layer
   const setBaseLayer = (tileLayer) => {
     if (baseLayer) map.removeLayer(baseLayer);
@@ -84,7 +95,8 @@ window.MapModule = (() => {
     map, 
     layers, 
     addLayer, 
-    removeLayer, 
+    removeLayer,
+    removeAllLayers,
     setBaseLayer, 
     initBaseLayer,
   };

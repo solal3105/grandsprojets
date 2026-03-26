@@ -196,42 +196,45 @@ const NavigationModule = (() => {
    * @param {string} category - Nom de la catégorie
    */
   async function showCategoryLayers(category) {
-      MapModule.map.fitBounds(combinedBounds, { padding: [100, 100], pitch: 0 });
-    
-    // Reset les filtres
+    const layers = getCategoryLayers(category);
+
+    // Remove all non-target layers from the map
+    const keep = new Set(layers);
+    window.MapModule?.removeAllLayers?.(keep);
+
+    // Reset filters
     if (window.FilterModule?.resetAll) {
       FilterModule.resetAll();
     }
-    
-    // Pour chaque layer, vérifier s'il existe déjà avec des données
+
+    // Load and display each target layer
     for (const layerName of layers) {
-      const existingLayer = window.MapModule?.layers?.[layerName];
-      
-      // Compter les features existantes sur la carte
-      let existingFeaturesCount = 0;
-      if (existingLayer) {
-        existingFeaturesCount = existingLayer.getFeatureCount?.() ?? (typeof existingLayer.getLayers === 'function' ? existingLayer.getLayers().length : 0);
-      }
-      
-      // Si le layer existe déjà avec des données, le garder
-      if (existingFeaturesCount > 0) {
-        // S'assurer qu'il est visible
-        try {
-          if (window.MapModule?.map && !MapModule.map.hasLayer(existingLayer)) {
-            MapModule.map.addLayer(existingLayer);
-          }
-        } catch (_) { /* source already exists in MapLibre — layer is already visible */ }
-        continue;
-      }
-      
-      // Sinon, essayer de charger les données
       try {
         await ensureLayerLoaded(layerName);
+        // ensureLayerLoaded only fetches data; if the layer was just removed above,
+        // we need to recreate it on the map from cached data.
+        if (!window.MapModule?.layers?.[layerName] && window.DataModule?.layerData?.[layerName]) {
+          window.DataModule.createGeoJsonLayer(layerName, window.DataModule.layerData[layerName]);
+        }
       } catch (e) {
         console.warn(`[NavigationModule] ⚠️ Impossible de charger "${layerName}":`, e);
       }
     }
-    
+
+    // Fit to combined bounds
+    let combinedBounds = null;
+    for (const layerName of layers) {
+      const layer = window.MapModule?.layers?.[layerName];
+      if (layer && typeof layer.getBounds === 'function') {
+        const bounds = layer.getBounds();
+        if (bounds?.isValid?.()) {
+          combinedBounds = combinedBounds ? combinedBounds.extend(bounds) : bounds;
+        }
+      }
+    }
+    if (combinedBounds) {
+      MapModule.map.fitBounds(combinedBounds, { padding: [100, 100], pitch: 0 });
+    }
   }
 
   /**
@@ -573,22 +576,24 @@ const NavigationModule = (() => {
     // ── CAS 2: Full close (back to initial state) ──
     FilterModule.resetAll();
 
-    // Restore default layers
-    if (window.defaultLayers?.length) {
-      for (const name of window.defaultLayers) {
-        try {
-          await ensureLayerLoaded(name);
-          const layer = window.MapModule?.layers?.[name];
-          if (layer && window.MapModule?.map && !window.MapModule.map.hasLayer(layer)) {
-            window.MapModule.map.addLayer(layer);
-          }
-        } catch (_) {}
-      }
+    // Remove all layers first — clean slate
+    window.MapModule?.removeAllLayers?.();
+
+    // Build a set of all layers to restore (defaults + contributions)
+    const toRestore = new Set(window.defaultLayers || []);
+    for (const cat of getContributionLayers()) {
+      const catLayers = getCategoryLayers(cat);
+      catLayers.forEach(l => toRestore.add(l));
     }
 
-    // Restore all contribution layers
-    for (const cat of getContributionLayers()) {
-      try { await showCategoryLayers(cat); } catch (_) {}
+    // Load and create each layer
+    for (const name of toRestore) {
+      try {
+        await ensureLayerLoaded(name);
+        if (window.DataModule?.layerData?.[name]) {
+          window.DataModule.createGeoJsonLayer(name, window.DataModule.layerData[name]);
+        }
+      } catch (_) {}
     }
 
     if (!preserveMapView) window.NavigationModule?.zoomOutOnLoadedLayers?.();

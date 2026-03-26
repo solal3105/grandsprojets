@@ -840,7 +840,10 @@
     /*  LAYER MANAGEMENT                                                   */
     /* ──────────────────────────────────────────────────────────────────── */
 
+    _loadCategoryGeneration: 0,
+
     async _loadCategoryLayers(category) {
+      const generation = ++this._loadCategoryGeneration;
       const layersMap = win.categoryLayersMap || {};
       const layersToDisplay = layersMap[category] || [category];
       const travauxLayerSet = new Set(layersMap['travaux'] || ['travaux']);
@@ -852,12 +855,9 @@
 
       win.FilterModule?.resetAll?.();
 
-      // Remove contribution layers only — travaux layers stay on the map
-      Object.keys(win.MapModule?.layers || {}).forEach(name => {
-        if (!travauxLayerSet.has(name)) {
-          try { win.MapModule.removeLayer(name); } catch (_) {}
-        }
-      });
+      // Remove all layers except travaux + target layers
+      const keep = new Set([...travauxLayerSet, ...layersToDisplay]);
+      win.MapModule?.removeAllLayers?.(keep);
 
       // Preload uncached data in parallel
       const uncached = layersToDisplay.filter(n => !win.DataModule?.layerData?.[n]);
@@ -865,8 +865,8 @@
         await Promise.all(uncached.map(n => win.DataModule?.preloadLayer?.(n)?.catch(() => {})));
       }
 
-      // Guard: abort if the user has switched away from carte during the async fetch
-      if (this._currentModule !== 'carte') return;
+      // Guard: abort if the user switched module OR category during async fetch
+      if (this._currentModule !== 'carte' || generation !== this._loadCategoryGeneration) return;
 
       // Create layers from cache
       for (const name of layersToDisplay) {
@@ -880,29 +880,31 @@
       const layersMap = win.categoryLayersMap || {};
       const travauxLayers = layersMap['travaux'] || ['travaux'];
 
-      // Fast path: if already loaded and still present on map, skip expensive full navigation reload.
+      // Fast path: already loaded and still visible on map
       if (this._travauxLayersLoaded && !this._travauxLoadPromise) {
         const hasLayerOnMap = travauxLayers.some(name => !!win.MapModule?.layers?.[name]);
         if (hasLayerOnMap) return;
+        // Layers were removed (e.g. goBack cleaned them) — need to recreate
+        this._travauxLayersLoaded = false;
       }
 
-      // De-duplicate concurrent calls (open module + open section, back/forward transitions, etc.).
+      // De-duplicate concurrent calls
       if (this._travauxLoadPromise) {
         await this._travauxLoadPromise;
-        return;
+        // After awaiting, verify layers actually got created (first call may have been aborted)
+        const hasLayerOnMap = travauxLayers.some(name => !!win.MapModule?.layers?.[name]);
+        if (hasLayerOnMap) return;
+        // Fall through to create layers again
       }
 
       const doLoad = async () => {
-        // Preload uncached data in parallel — contribution layers are preserved
         const uncached = travauxLayers.filter(n => !win.DataModule?.layerData?.[n]);
         if (uncached.length > 0) {
           await Promise.all(uncached.map(n => win.DataModule?.preloadLayer?.(n)?.catch(() => {})));
         }
 
-        // Guard: abort if the user has switched away from travaux during the async fetch
         if (this._currentModule !== 'travaux') return;
 
-        // Add travaux layers on top of existing map content (additive)
         for (const name of travauxLayers) {
           if (win.DataModule?.layerData?.[name]) {
             try { win.DataModule.createGeoJsonLayer(name, win.DataModule.layerData[name]); } catch (_) {}
@@ -913,7 +915,6 @@
       this._travauxLoadPromise = doLoad();
       try {
         await this._travauxLoadPromise;
-        // Only flag as loaded if we are still in travaux — avoids poisoning goBack/restore logic
         if (this._currentModule === 'travaux') {
           this._travauxLayersLoaded = true;
         }
@@ -957,13 +958,7 @@
      * @param {Set<string>} [exclude] — layer names to keep on the map
      */
     _removeLayersExcept(exclude = new Set()) {
-      if (win.MapModule?.layers) {
-        Object.keys(win.MapModule.layers).forEach(l => {
-          if (!exclude.has(l)) {
-            try { win.MapModule.removeLayer(l); } catch (_) {}
-          }
-        });
-      }
+      win.MapModule?.removeAllLayers?.(exclude);
       FilterModule.resetAll();
     },
 
@@ -971,7 +966,6 @@
     _clearAllMapLayers() {
       this._removeLayersExcept();
       this._travauxLayersLoaded = false;
-      // Don't null _travauxLoadPromise — let it finish naturally (guard prevents layer creation)
     },
 
     /**
