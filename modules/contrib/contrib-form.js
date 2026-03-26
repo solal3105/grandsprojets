@@ -19,7 +19,7 @@
    * @param {Object} row - Données de la contribution
    * @param {Object} elements - Éléments DOM du formulaire
    */
-  function prefillForm(row, elements) {
+  async function prefillForm(row, elements) {
     const {
       nameEl, catEl, citySel, metaEl, descEl, mdEl,
       officialInput
@@ -53,10 +53,13 @@
     if (mdEl) {
       mdEl.value = '';
       if (row.markdown_url) {
-        fetch(row.markdown_url)
-          .then(r => r.ok ? r.text() : '')
-          .then(txt => { if (typeof txt === 'string') mdEl.value = txt; })
-          .catch(() => {});
+        try {
+          const r = await fetch(row.markdown_url);
+          if (r.ok) {
+            const txt = await r.text();
+            if (typeof txt === 'string') mdEl.value = txt;
+          }
+        } catch (_) { /* non-bloquant */ }
       }
     }
 
@@ -79,14 +82,14 @@
    * @param {Function} onSetStatus - Callback pour le statut
    * @param {Function} onSetStep - Callback pour changer d'étape
    */
-  function enterEditMode(row, elements, onSetEditUI, onSetStatus, onSetStep) {
+  async function enterEditMode(row, elements, onSetEditUI, onSetStatus, onSetStep) {
     currentEditId = row.id;
     
     if (win.ContribGeometry?.setEditGeojsonUrl) {
       win.ContribGeometry.setEditGeojsonUrl(row && row.geojson_url ? row.geojson_url : null);
     }
     
-    prefillForm(row, elements);
+    await prefillForm(row, elements);
     
     if (onSetStatus) {
       onSetStatus('Mode édition. Modifiez et cliquez sur Enregistrer.');
@@ -202,19 +205,9 @@
 
   /**
    * Normalise un GeoJSON en FeatureCollection (délègue à ContribUtils)
-   * @param {Object} geojson - GeoJSON d'entrée
-   * @returns {Object} FeatureCollection normalisée
    */
   function normalizeDrawLayerToFC(geojson) {
-    // Déléguer à la fonction centralisée dans ContribUtils
-    if (win.ContribUtils?.normalizeToFeatureCollection) {
-      return win.ContribUtils.normalizeToFeatureCollection(geojson);
-    }
-    // Fallback minimal si ContribUtils n'est pas chargé
-    if (!geojson) return { type: 'FeatureCollection', features: [] };
-    if (geojson.type === 'FeatureCollection') return geojson;
-    if (geojson.type === 'Feature') return { type: 'FeatureCollection', features: [geojson] };
-    return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: geojson }] };
+    return win.ContribUtils.normalizeToFeatureCollection(geojson);
   }
 
   // ============================================================================
@@ -381,28 +374,9 @@
       // Vérifier la session avec refresh automatique (silencieux)
       console.log('[contrib-form] Checking authentication...');
       
-      let session = null;
-      try {
-        if (win.AuthModule && typeof win.AuthModule.getSessionWithRefresh === 'function') {
-          const result = await Promise.race([
-            win.AuthModule.getSessionWithRefresh(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
-          ]);
-          session = result?.session;
-        }
-      } catch (authError) {
-        console.error('[contrib-form] Auth check failed:', authError);
+      const session = await (win.ContribUtils?.getSessionOrRedirect || (() => null))(10000);
+      if (!session) {
         if (submitBtn) submitBtn.disabled = false;
-        // Rediriger directement vers login sans interrompre
-        win.location.href = '/login/';
-        return;
-      }
-      
-      if (!session || !session.user) {
-        console.error('[contrib-form] No authenticated session after refresh');
-        if (submitBtn) submitBtn.disabled = false;
-        // Rediriger directement vers login
-        win.location.href = '/login/';
         return;
       }
       console.log('[contrib-form] User authenticated:', session.user.id);

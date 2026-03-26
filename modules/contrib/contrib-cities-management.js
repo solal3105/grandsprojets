@@ -14,27 +14,12 @@
   const ALLOWED_TYPES = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/webp'];
 
   // ============================================================================
-  // UTILITIES
+  // UTILITIES (delegate to ContribUtils)
   // ============================================================================
 
   const escapeHtml = window.SecurityUtils.escapeHtml;
-
-  function slugify(str) {
-    return String(str || '')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-  }
-
-  function showToast(message, type = 'info') {
-    if (win.ContribUtils && typeof win.ContribUtils.showToast === 'function') {
-      win.ContribUtils.showToast(message, type);
-    } else {
-      console.log(`[Toast ${type}]`, message);
-    }
-  }
+  const slugify   = (str) => win.ContribUtils.slugify(str);
+  const showToast = (msg, type) => win.ContribUtils.showToast(msg, type);
 
   // ============================================================================
   // LOAD CITIES LIST

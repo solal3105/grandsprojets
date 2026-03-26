@@ -9,11 +9,11 @@
       <button class="btn-secondary gp-modal-close" id="invite-modal-close" aria-label="Fermer">&times;</button>
     </header>
     <div class="gp-modal-body">
-      <p style="margin:0 0 24px 0;color:var(--text-secondary);font-size:14px;">L'utilisateur recevra un email pour se connecter.</p>
+      <p class="gp-modal-intro">L'utilisateur recevra un email pour se connecter.</p>
       
       <form id="invite-form">
         <div class="form-row">
-          <label for="invite-email">Email de l'utilisateur <span style="color:var(--danger);">*</span></label>
+          <label for="invite-email">Email de l'utilisateur <span class="gp-required">*</span></label>
           <input 
             type="email" 
             id="invite-email" 
@@ -24,8 +24,8 @@
         </div>
         
         <div class="form-row">
-          <label class="gp-form-label" style="font-size:14px;">
-            Rôle <span style="color:var(--danger);">*</span>
+          <label class="gp-form-label">
+            Rôle <span class="gp-required">*</span>
           </label>
           <div class="gp-flex gp-flex-gap-12">
             <label class="gp-role-option">
@@ -46,7 +46,7 @@
         </div>
         
         <div class="form-row">
-          <label class="gp-form-label" style="font-size:14px;">
+          <label class="gp-form-label">
             Ville autorisée
           </label>
           <div id="invite-cities-list">
@@ -57,7 +57,7 @@
     </div>
     <footer class="gp-modal-footer">
       <div class="gp-modal-footer-left">
-        <button type="button" id="invite-cancel" class="btn-secondary">
+        <button type="button" id="invite-cancel" class="btn-secondary gp-modal-close">
           Annuler
         </button>
       </div>

@@ -9,57 +9,12 @@
   // ============================================================================
 
   /**
-   * Remplit le sélecteur de villes avec les villes autorisées
+   * Remplit le sélecteur de villes avec les villes autorisées.
+   * Délègue à ContribUtils.populateCitySelect.
    * @param {HTMLSelectElement} cityEl - Élément select des villes
    */
   async function populateCities(cityEl) {
-    try {
-      if (!cityEl || !win.supabaseService) return;
-      
-      // Récupérer toutes les villes disponibles
-      let cities = [];
-      try {
-        if (typeof win.supabaseService.getValidCities === 'function') {
-          cities = await win.supabaseService.getValidCities();
-        }
-      } catch (e1) {
-        console.warn('[contrib-cities] populateCities getValidCities error:', e1);
-      }
-      
-      if ((!Array.isArray(cities) || !cities.length) && typeof win.supabaseService.listCities === 'function') {
-        try { 
-          cities = await win.supabaseService.listCities(); 
-        } catch (e2) { 
-          console.warn('[contrib-cities] populateCities listCities fallback error:', e2); 
-        }
-      }
-      
-      // Filtrer selon les permissions (utilise la fonction centralisée)
-      const filteredCities = win.ContribUtils?.filterCitiesByPermissions
-        ? win.ContribUtils.filterCitiesByPermissions(cities)
-        : cities;
-      
-      // Vider le select et garder uniquement l'option par défaut
-      cityEl.innerHTML = '<option value="">Aucun</option>';
-      
-      // Générer les options pour les villes filtrées
-      const cityOptionsHTML = (Array.isArray(filteredCities) ? filteredCities : [])
-        .map(c => `<option value="${c}">${c}</option>`)
-        .join('');
-      
-      console.log('[DEBUG populateCities] Options HTML générées:', cityOptionsHTML ? 'OUI' : 'NON');
-      
-      if (cityOptionsHTML) {
-        cityEl.insertAdjacentHTML('beforeend', cityOptionsHTML);
-      } else {
-        cityEl.innerHTML = '<option value="" selected>Aucune structure autorisée</option>';
-      }
-    } catch (err) {
-      console.warn('[contrib-cities] populateCities error:', err);
-      if (cityEl && !cityEl.options.length) {
-        cityEl.innerHTML = '<option value="" selected>Aucun</option>';
-      }
-    }
+    return win.ContribUtils?.populateCitySelect(cityEl, { placeholder: 'Aucun' });
   }
 
   // ============================================================================

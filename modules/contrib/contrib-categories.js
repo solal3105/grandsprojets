@@ -63,75 +63,26 @@
   // ============================================================================
 
   /**
-   * Remplit le sélecteur de ville du panneau catégories
-   * @param {HTMLSelectElement} categoryVilleSelector - Select de ville
-   * @param {Function} onRefreshCategories - Callback pour rafraîchir les catégories
+   * Remplit le sélecteur de ville du panneau catégories.
+   * Délègue à ContribUtils.populateCitySelect.
    */
   async function populateCategoryVilleSelector(categoryVilleSelector, onRefreshCategories) {
-    try {
-      if (!categoryVilleSelector || !win.supabaseService) return;
-      
-      let cities = [];
-      try {
-        if (typeof win.supabaseService.getValidCities === 'function') {
-          cities = await win.supabaseService.getValidCities();
-        }
-      } catch (e) {
-        console.warn('[contrib-categories] populateCategoryVilleSelector error:', e);
-      }
-      
-      // Filtrer selon les permissions (utilise la fonction centralisée)
-      const filteredCities = win.ContribUtils?.filterCitiesByPermissions
-        ? win.ContribUtils.filterCitiesByPermissions(cities)
-        : cities;
-      
-      // Clear and repopulate
-      categoryVilleSelector.innerHTML = '<option value="">-- Choisir une structure --</option>';
-      const cityOptions = (Array.isArray(filteredCities) ? filteredCities : []).map(c => `<option value="${c}">${c}</option>`).join('');
-      if (cityOptions) categoryVilleSelector.insertAdjacentHTML('beforeend', cityOptions);
-      
-      // Default to active city if available
-      const activeCity = win.activeCity || '';
-      if (activeCity && filteredCities.includes(activeCity)) {
-        categoryVilleSelector.value = activeCity;
-        if (onRefreshCategories) {
-          onRefreshCategories().catch(e => console.warn('[contrib-categories] Auto-load categories error:', e));
-        }
-      }
-    } catch(err) {
-      console.warn('[contrib-categories] populateCategoryVilleSelector error:', err);
-    }
+    const activeCity = win.activeCity || '';
+    return win.ContribUtils?.populateCitySelect(categoryVilleSelector, {
+      placeholder: '-- Choisir une structure --',
+      preselectCity: activeCity,
+      onChange: onRefreshCategories ? () => onRefreshCategories().catch(e => console.warn('[contrib-categories] Auto-load categories error:', e)) : undefined
+    });
   }
 
   /**
-   * Remplit le sélecteur de ville du formulaire de catégorie
-   * @param {HTMLSelectElement} categoryVilleSelect - Select de ville du formulaire
+   * Remplit le sélecteur de ville du formulaire de catégorie.
+   * Délègue à ContribUtils.populateCitySelect.
    */
   async function populateCategoryFormVilleSelector(categoryVilleSelect) {
-    try {
-      if (!categoryVilleSelect || !win.supabaseService) return;
-      
-      let cities = [];
-      try {
-        if (typeof win.supabaseService.getValidCities === 'function') {
-          cities = await win.supabaseService.getValidCities();
-        }
-      } catch (e) {
-        console.warn('[contrib-categories] populateCategoryFormVilleSelector error:', e);
-      }
-      
-      // Filtrer selon les permissions (utilise la fonction centralisée)
-      const filteredCities = win.ContribUtils?.filterCitiesByPermissions
-        ? win.ContribUtils.filterCitiesByPermissions(cities)
-        : cities;
-      
-      // Clear and repopulate
-      categoryVilleSelect.innerHTML = '<option value="">Sélectionner une structure</option>';
-      const cityOptions = (Array.isArray(filteredCities) ? filteredCities : []).map(c => `<option value="${c}">${c}</option>`).join('');
-      if (cityOptions) categoryVilleSelect.insertAdjacentHTML('beforeend', cityOptions);
-    } catch(err) {
-      console.warn('[contrib-categories] populateCategoryFormVilleSelector error:', err);
-    }
+    return win.ContribUtils?.populateCitySelect(categoryVilleSelect, {
+      placeholder: 'Sélectionner une structure'
+    });
   }
 
   // ============================================================================

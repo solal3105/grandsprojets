@@ -1,172 +1,54 @@
 // modules/contrib.js
 ;(function (win) {
-  let modalLoaded = false;
-  let categoryModalLoaded = false;
-  let createModalLoaded = false;
-  
-  // Lazy load modal template
-  async function loadModalTemplate() {
-    if (modalLoaded) return true;
-    
+
+  // ============================================================================
+  // TEMPLATE LOADER — factory unique pour toutes les modales lazy-loaded
+  // ============================================================================
+
+  const _templateCache = {};
+
+  /**
+   * Charge un template HTML dans #contrib-modal-container (lazy, une seule fois).
+   * Le premier template utilise innerHTML, les suivants insertAdjacentHTML.
+   * @param {string} name  - Clé de cache (ex: 'modal', 'category', 'invite'…)
+   * @param {string} path  - Chemin relatif du fichier HTML
+   * @returns {Promise<boolean>}
+   */
+  async function loadTemplate(name, path) {
+    if (_templateCache[name]) return true;
+
     try {
-      const response = await fetch('modules/contrib/contrib-modal.html');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
+      const response = await fetch(path);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
       const html = await response.text();
       const container = document.getElementById('contrib-modal-container');
-      
       if (!container) {
         console.error('[contrib] Modal container not found in DOM');
         return false;
       }
-      
-      container.innerHTML = html;
-      modalLoaded = true;
+
+      // Premier template → innerHTML, suivants → append
+      if (Object.keys(_templateCache).length === 0) {
+        container.innerHTML = html;
+      } else {
+        container.insertAdjacentHTML('beforeend', html);
+      }
+
+      _templateCache[name] = true;
       return true;
-      
     } catch (error) {
-      console.error('[contrib] Error loading modal template:', error);
-      // Show user-friendly error
-      const container = document.getElementById('contrib-modal-container');
-      if (container) {
-        container.innerHTML = `
-          <div style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); 
-                      padding:24px; background:var(--surface); border-radius:12px; box-shadow:0 4px 24px var(--black-alpha-15);
-                      max-width:400px; text-align:center; z-index:10000;">
-            <i class="fa-solid fa-triangle-exclamation" style="font-size:48px; color:var(--warning); margin-bottom:16px;"></i>
-            <h3 style="margin:0 0 8px 0; color:var(--gray-900);">Erreur de chargement</h3>
-            <p style="margin:0 0 16px 0; color:var(--gray-500);">Impossible de charger le formulaire de contribution.</p>
-            <button onclick="location.reload()" class="btn-primary">
-              <i class="fa-solid fa-rotate-right"></i> Recharger la page
-            </button>
-          </div>
-        `;
-      }
-      return false;
-    }
-  }
-  
-  // Lazy load category modal template
-  async function loadCategoryModalTemplate() {
-    if (categoryModalLoaded) return true;
-    
-    try {
-      const response = await fetch('modules/contrib/contrib-category-modal.html');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const html = await response.text();
-      const container = document.getElementById('contrib-modal-container');
-      
-      if (!container) {
-        console.error('[contrib] Modal container not found in DOM');
-        return false;
-      }
-      
-      // Ajouter la modale catégorie après la modale contrib
-      container.insertAdjacentHTML('beforeend', html);
-      categoryModalLoaded = true;
-      return true;
-      
-    } catch (error) {
-      console.error('[contrib] Error loading category modal template:', error);
-      return false;
-    }
-  }
-  
-  let inviteModalLoaded = false;
-  
-  // Lazy load invite modal template
-  async function loadInviteModalTemplate() {
-    if (inviteModalLoaded) return true;
-    
-    try {
-      const response = await fetch('modules/contrib/contrib-invite-modal.html');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const html = await response.text();
-      const container = document.getElementById('contrib-modal-container');
-      
-      if (!container) {
-        console.error('[contrib] Modal container not found in DOM');
-        return false;
-      }
-      
-      // Ajouter la modale invitation après les autres modales
-      container.insertAdjacentHTML('beforeend', html);
-      inviteModalLoaded = true;
-      return true;
-      
-    } catch (error) {
-      console.error('[contrib] Error loading invite modal template:', error);
-      return false;
-    }
-  }
-  
-  // Lazy load create modal template
-  async function loadCreateModalTemplate() {
-    if (createModalLoaded) return true;
-    
-    try {
-      const response = await fetch('modules/contrib/contrib-create-modal.html');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const html = await response.text();
-      const container = document.getElementById('contrib-modal-container');
-      
-      if (!container) {
-        console.error('[contrib] Modal container not found in DOM');
-        return false;
-      }
-      
-      // Ajouter la modale création après les autres modales
-      container.insertAdjacentHTML('beforeend', html);
-      createModalLoaded = true;
-      return true;
-      
-    } catch (error) {
-      console.error('[contrib] Error loading create modal template:', error);
+      console.error(`[contrib] Error loading template "${name}" (${path}):`, error);
       return false;
     }
   }
 
-  let brandingModalLoaded = false;
-  
-  // Lazy load branding modal template
-  async function loadBrandingModalTemplate() {
-    if (brandingModalLoaded) return true;
-    
-    try {
-      const response = await fetch('modules/contrib/contrib-branding-modal.html');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const html = await response.text();
-      const container = document.getElementById('contrib-modal-container');
-      
-      if (!container) {
-        console.error('[contrib] Modal container not found in DOM');
-        return false;
-      }
-      
-      // Ajouter la modale branding après les autres modales
-      container.insertAdjacentHTML('beforeend', html);
-      brandingModalLoaded = true;
-      return true;
-      
-    } catch (error) {
-      console.error('[contrib] Error loading branding modal template:', error);
-      return false;
-    }
-  }
+  // Raccourcis nommés (gardent la même API pour les appelants existants)
+  const loadModalTemplate    = () => loadTemplate('modal',    'modules/contrib/contrib-modal.html');
+  const loadCategoryModalTemplate = () => loadTemplate('category', 'modules/contrib/contrib-category-modal.html');
+  const loadInviteModalTemplate   = () => loadTemplate('invite',   'modules/contrib/contrib-invite-modal.html');
+  const loadCreateModalTemplate   = () => loadTemplate('create',   'modules/contrib/contrib-create-modal.html');
+  const loadBrandingModalTemplate = () => loadTemplate('branding', 'modules/contrib/contrib-branding-modal.html');
 
   // ============================================================================
   // CITY HELPER - POINT D'ENTRÉE UNIQUE POUR RÉCUPÉRER LA VILLE
@@ -251,9 +133,6 @@
 
       // Détection du rôle et des villes autorisées via table public.profiles (source de vérité)
       let __currentSession = null;
-      let __isAdmin = false;
-      let __userRole = '';
-      let __userVilles = null; // null = toutes les villes, array = villes spécifiques
       const getUserProfileFromProfiles = async (session) => {
         try {
           const userId = session && session.user ? session.user.id : null;
@@ -355,12 +234,9 @@
       const updateRoleState = async (session) => {
         __currentSession = session || null;
         const profile = await getUserProfileFromProfiles(__currentSession);
-        __userRole = profile.role;
-        __userVilles = profile.ville;
-        __isAdmin = (__userRole === 'admin');
-        try { win.__CONTRIB_IS_ADMIN = __isAdmin; } catch(_) {}
-        try { win.__CONTRIB_ROLE = __userRole; } catch(_) {}
-        try { win.__CONTRIB_VILLES = __userVilles; } catch(_) {}
+        win.__CONTRIB_ROLE   = profile.role;
+        win.__CONTRIB_VILLES = profile.ville;
+        win.__CONTRIB_IS_ADMIN = (profile.role === 'admin');
         
         // Initialiser la ville immédiatement
         const CityContext = win.ContribCityContext || {};
@@ -398,26 +274,8 @@
       const openContribModal = async () => {
         try {
           // Vérifier la session avec refresh automatique (silencieux, pas de redirection)
-          let session = null;
-          try {
-            if (win.AuthModule && typeof win.AuthModule.getSessionWithRefresh === 'function') {
-              const result = await Promise.race([
-                win.AuthModule.getSessionWithRefresh(),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
-              ]);
-              session = result?.session;
-            }
-          } catch (authErr) {
-            // Timeout ou erreur : rediriger silencieusement vers login
-            win.location.href = '/login/';
-            return;
-          }
-          
-          if (!session || !session.user) {
-            // Session vraiment invalide après refresh : rediriger directement
-            win.location.href = '/login/';
-            return;
-          }
+          const session = await (win.ContribUtils?.getSessionOrRedirect || (() => null))(8000);
+          if (!session) return;
           
           // Load modal template if not already loaded
           const loaded = await loadModalTemplate();
@@ -468,8 +326,10 @@
     }
     
     // Bind modal close events (called once after template load)
+    let _modalEventsBound = false;
     function bindModalEvents() {
-      if (!contribCloseBtn || !contribOverlay) return;
+      if (_modalEventsBound || !contribCloseBtn || !contribOverlay) return;
+      _modalEventsBound = true;
       
       // Close button
       contribCloseBtn.addEventListener('click', (e) => {
@@ -493,11 +353,14 @@
     // Close button and overlay bindings are now done dynamically after template load
 
     // —— Modal Navigation System ——
+    let _navInitialized = false;
     function initializeModalNavigation() {
+      if (_navInitialized) return;
       if (!window.ModalNavigation) {
         console.warn('[contrib] ModalNavigation.js not loaded');
         return;
       }
+      _navInitialized = true;
       
       try {
         window.ModalNavigation.init('contrib-overlay', {
@@ -577,7 +440,7 @@
     // Function to apply role-based constraints (defined early to be available everywhere)
     function applyRoleConstraints() {
       try {
-        const role = (typeof win.__CONTRIB_ROLE === 'string') ? win.__CONTRIB_ROLE : __userRole;
+        const role = win.__CONTRIB_ROLE || '';
         const isInvited = role === 'invited';
         const isAdmin = role === 'admin';
 
@@ -620,7 +483,7 @@
         } catch(_) {}
 
         // Afficher/masquer le bouton "Gérer les villes" selon le rôle (admin global uniquement)
-        const userVilles = (typeof win.__CONTRIB_VILLES !== 'undefined') ? win.__CONTRIB_VILLES : __userVilles;
+        const userVilles = win.__CONTRIB_VILLES;
         const hasGlobalAccess = Array.isArray(userVilles) && userVilles.includes('global');
         const isGlobalAdmin = isAdmin && hasGlobalAccess;
         
@@ -680,7 +543,10 @@
     const CityContext = win.ContribCityContext || {};
 
     // Function to initialize all form elements and bindings after template load
+    let _formInitialized = false;
     function initializeContribForm() {
+      if (_formInitialized) return;
+      _formInitialized = true;
       // Re-query all DOM elements
       const form = document.getElementById('contrib-form');
       const statusEl = document.getElementById('contrib-status');
@@ -2007,13 +1873,11 @@
       
       // Récupérer les éléments de la modale (après chargement)
       const categoryModalOverlay = document.getElementById('category-modal-overlay');
-      const categoryModalClose = document.getElementById('category-modal-close');
       const categoryModalTitle = document.getElementById('category-modal-title');
       const categoryFormModal = document.getElementById('category-form');
       
       console.log('[openCategoryModal] Modal elements:', {
         overlay: !!categoryModalOverlay,
-        close: !!categoryModalClose,
         title: !!categoryModalTitle,
         form: !!categoryFormModal
       });
@@ -2222,27 +2086,8 @@
       // Initialiser la prévisualisation
       setTimeout(updateModalStylePreview, 50);
       
-      // Ouvrir la modale
-      categoryModalOverlay.setAttribute('aria-hidden', 'false');
-      categoryModalOverlay.inert = false;
-      const categoryModalInner = categoryModalOverlay.querySelector('.gp-modal');
-      if (categoryModalInner) {
-        requestAnimationFrame(() => {
-          categoryModalInner.classList.add('is-open');
-        });
-      }
-      
-      // Gérer la fermeture
-      const closeModal = async () => {
-        const categoryModalInner = categoryModalOverlay.querySelector('.gp-modal');
-        if (categoryModalInner) {
-          categoryModalInner.classList.remove('is-open');
-        }
-        setTimeout(() => {
-          categoryModalOverlay.setAttribute('aria-hidden', 'true');
-          categoryModalOverlay.inert = true;
-        }, 220);
-        
+      // Ouvrir la modale via ModalHelper
+      const _onCategoryClose = async () => {
         // Rafraîchir la liste des catégories après fermeture
         console.log('[closeModal] Refreshing categories list after close');
         await refreshCategoriesList();
@@ -2251,23 +2096,16 @@
           console.log('[closeModal] Categories content displayed');
         }
       };
-      
-      // Bouton fermer (×) et Annuler
-      if (categoryModalClose) {
-        categoryModalClose.onclick = closeModal;
-      }
-      const categoryModalCancel = document.getElementById('category-modal-cancel');
-      if (categoryModalCancel) {
-        categoryModalCancel.onclick = closeModal;
-      }
-      
-      // Clic sur overlay
-      categoryModalOverlay.onclick = (e) => {
-        if (e.target === categoryModalOverlay) closeModal();
-      };
+
+      win.ModalHelper.open('category-modal-overlay', {
+        dismissible: true,
+        lockScroll: true,
+        focusTrap: true,
+        onClose: _onCategoryClose
+      });
       
       // Stocker la fonction de fermeture pour l'appeler après succès
-      win.__closeCategoryModal = closeModal;
+      win.__closeCategoryModal = () => win.ModalHelper.close('category-modal-overlay');
     }
 
     // Ouvre la modale de création de contribution
@@ -2367,26 +2205,20 @@
       
       // Fonction de fermeture
       const closeModal = () => {
-        const modalInner = overlay.querySelector('.gp-modal');
-        if (modalInner) {
-          modalInner.classList.remove('is-open');
-        }
-        setTimeout(() => {
-          overlay.setAttribute('aria-hidden', 'true');
-          overlay.inert = true;
-          
-          // Détruire proprement l'instance du formulaire
-          if (formInstance && typeof formInstance.destroy === 'function') {
-            formInstance.destroy();
-            formInstance = null;
-          } else {
-            // Fallback pour l'ancien système
-            form.reset();
-            if (ContribGeometry && ContribGeometry.clearEditGeojsonUrl) {
-              ContribGeometry.clearEditGeojsonUrl();
-            }
+        win.ModalHelper.close('create-modal-overlay');
+      };
+
+      // Cleanup lors de la fermeture (appelé par ModalHelper.onClose)
+      const _onCloseCleanup = () => {
+        if (formInstance && typeof formInstance.destroy === 'function') {
+          formInstance.destroy();
+          formInstance = null;
+        } else {
+          form.reset();
+          if (ContribGeometry && ContribGeometry.clearEditGeojsonUrl) {
+            ContribGeometry.clearEditGeojsonUrl();
           }
-        }, 220);
+        }
       };
       
       // Fonction de succès
@@ -2437,29 +2269,14 @@
       // Bind close button
       if (closeBtn) closeBtn.onclick = closeModal;
       
-      // Note: Pas de fermeture au clic sur l'overlay pour éviter les pertes de données accidentelles
-      // La modale se ferme uniquement via la croix ou après soumission réussie
-      
-      // Ouvrir la modale
+      // Ouvrir la modale via ModalHelper (dismissible: false pour éviter perte de données)
       console.log('[openCreateModal] Ouverture de la modale...');
-      overlay.setAttribute('aria-hidden', 'false');
-      overlay.inert = false;
-      
-      const modalInner = overlay.querySelector('.gp-modal');
-      if (modalInner) {
-        requestAnimationFrame(() => {
-          console.log('[openCreateModal] Ajout classe is-open');
-          modalInner.classList.add('is-open');
-        });
-      } else {
-        console.error('[openCreateModal] Modal inner non trouvé');
-      }
-      
-      // Focus sur le premier champ
-      setTimeout(() => {
-        const firstInput = form.querySelector('input[type="text"]');
-        if (firstInput) firstInput.focus();
-      }, 250);
+      win.ModalHelper.open('create-modal-overlay', {
+        dismissible: false,
+        lockScroll: true,
+        focusTrap: true,
+        onClose: _onCloseCleanup
+      });
     }
 
     // deleteCategory moved to contrib-categories-crud.js

@@ -205,6 +205,192 @@
   }
 
   // ============================================================================
+  // AUTH UTILITIES
+  // ============================================================================
+
+  /**
+   * Vérifie la session avec refresh + timeout.
+   * Redirige vers /login/ si la session est invalide.
+   * @param {number} [timeoutMs=8000] - Délai max en ms
+   * @returns {Promise<Object|null>} session ou null (redirigé)
+   */
+  async function getSessionOrRedirect(timeoutMs = 8000) {
+    try {
+      if (!win.AuthModule || typeof win.AuthModule.getSessionWithRefresh !== 'function') {
+        win.location.href = '/login/';
+        return null;
+      }
+      const result = await Promise.race([
+        win.AuthModule.getSessionWithRefresh(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeoutMs))
+      ]);
+      const session = result?.session;
+      if (!session || !session.user) {
+        win.location.href = '/login/';
+        return null;
+      }
+      return session;
+    } catch (_) {
+      win.location.href = '/login/';
+      return null;
+    }
+  }
+
+  // ============================================================================
+  // CITY SELECT UTILITIES
+  // ============================================================================
+
+  /**
+   * Remplit un <select> avec les villes autorisées pour l'utilisateur.
+   * @param {HTMLSelectElement} selectEl  - L'élément <select> à peupler
+   * @param {Object} [opts]
+   * @param {string} [opts.placeholder='Aucun'] - Texte de l'option vide
+   * @param {string} [opts.preselectCity]        - Pré-sélectionner cette ville
+   * @param {Function} [opts.onChange]           - Callback appelé après pré-sélection
+   */
+  async function populateCitySelect(selectEl, opts) {
+    const { placeholder = 'Aucun', preselectCity, onChange } = opts || {};
+    try {
+      if (!selectEl || !win.supabaseService) return;
+
+      let cities = [];
+      try {
+        if (typeof win.supabaseService.getValidCities === 'function') {
+          cities = await win.supabaseService.getValidCities();
+        }
+      } catch (_) { /* ignore */ }
+
+      if ((!Array.isArray(cities) || !cities.length) && typeof win.supabaseService.listCities === 'function') {
+        try { cities = await win.supabaseService.listCities(); } catch (_) { /* ignore */ }
+      }
+
+      const filtered = filterCitiesByPermissions(cities);
+
+      selectEl.innerHTML = `<option value="">${placeholder}</option>`;
+      const html = (Array.isArray(filtered) ? filtered : [])
+        .map(c => `<option value="${c}">${c}</option>`)
+        .join('');
+
+      if (html) {
+        selectEl.insertAdjacentHTML('beforeend', html);
+      } else {
+        selectEl.innerHTML = `<option value="" selected>Aucune structure autorisée</option>`;
+      }
+
+      if (preselectCity && filtered.includes(preselectCity)) {
+        selectEl.value = preselectCity;
+        if (onChange) onChange();
+      }
+    } catch (err) {
+      console.warn('[contrib-utils] populateCitySelect error:', err);
+      if (selectEl && !selectEl.options.length) {
+        selectEl.innerHTML = `<option value="" selected>${placeholder}</option>`;
+      }
+    }
+  }
+
+  // ============================================================================
+  // CONFIRM MODAL UTILITY
+  // ============================================================================
+
+  /**
+   * Crée et ouvre une modale de confirmation générique.
+   * Retourne une Promise<boolean> (true = confirmé).
+   *
+   * @param {Object} opts
+   * @param {string} opts.id          - ID de l'overlay (doit être unique)
+   * @param {string} opts.title       - Titre de la modale (peut contenir du HTML)
+   * @param {string} opts.bodyHTML    - Contenu HTML du body
+   * @param {string} [opts.confirmLabel='Confirmer']
+   * @param {string} [opts.confirmClass='btn-primary']
+   * @param {string} [opts.cancelLabel='Annuler']
+   * @returns {Promise<boolean>}
+   */
+  function buildConfirmModal(opts) {
+    const {
+      id, title, bodyHTML,
+      confirmLabel = 'Confirmer',
+      confirmClass = 'btn-primary',
+      cancelLabel = 'Annuler'
+    } = opts;
+
+    return new Promise((resolve) => {
+      let resolved = false;
+      const close = (result) => {
+        if (resolved) return;
+        resolved = true;
+        win.ModalHelper?.close(id);
+        setTimeout(() => { try { overlay.remove(); } catch (_) {} }, 250);
+        resolve(!!result);
+      };
+
+      // Overlay
+      const overlay = document.createElement('div');
+      overlay.id = id;
+      overlay.className = 'gp-modal-overlay';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.setAttribute('aria-labelledby', id + '-title');
+
+      // Modal
+      const modal = document.createElement('div');
+      modal.className = 'gp-modal gp-modal--compact';
+      modal.setAttribute('role', 'document');
+
+      // Header
+      const header = document.createElement('div');
+      header.className = 'gp-modal-header';
+      const h2 = document.createElement('h2');
+      h2.id = id + '-title';
+      h2.className = 'gp-modal-title';
+      h2.innerHTML = title;
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'gp-modal-close';
+      closeBtn.setAttribute('aria-label', 'Fermer');
+      closeBtn.innerHTML = '&times;';
+      header.append(h2, closeBtn);
+
+      // Body
+      const body = document.createElement('div');
+      body.className = 'gp-modal-body';
+      body.innerHTML = bodyHTML;
+
+      // Footer
+      const footer = document.createElement('div');
+      footer.className = 'gp-modal-footer';
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'btn-secondary';
+      cancelBtn.textContent = cancelLabel;
+      const confirmBtn = document.createElement('button');
+      confirmBtn.type = 'button';
+      confirmBtn.className = confirmClass;
+      confirmBtn.textContent = confirmLabel;
+      footer.append(cancelBtn, confirmBtn);
+
+      // Assemble
+      modal.append(header, body, footer);
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+
+      // Listeners
+      closeBtn.addEventListener('click', () => close(false));
+      cancelBtn.addEventListener('click', () => close(false));
+      confirmBtn.addEventListener('click', () => close(true));
+
+      // Open with ModalHelper
+      win.ModalHelper?.open(id, {
+        focusTrap: true,
+        dismissible: true,
+        onClose: () => close(false)
+      });
+
+      setTimeout(() => { try { cancelBtn.focus(); } catch (_) {} }, 100);
+    });
+  }
+
+  // ============================================================================
   // EXPORTS
   // ============================================================================
 
@@ -230,7 +416,16 @@
     normalizeToFeatureCollection,
     
     // Permissions
-    filterCitiesByPermissions
+    filterCitiesByPermissions,
+
+    // Auth
+    getSessionOrRedirect,
+
+    // City select
+    populateCitySelect,
+
+    // Confirm modal
+    buildConfirmModal
   };
 
 })(window);

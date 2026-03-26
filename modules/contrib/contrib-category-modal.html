@@ -19,15 +19,15 @@
           
           <div class="gp-form-card">
             <!-- Nom + Ordre sur la même ligne -->
-            <div class="gp-flex gp-flex-gap-12" style="align-items:start;">
+            <div class="gp-flex gp-flex-gap-12 gp-flex-start">
               <div class="gp-flex-1">
                 <label for="category-name" class="gp-form-label">Nom de la catégorie</label>
                 <input type="text" id="category-name" name="category" required placeholder="Ex: mobilite" class="gp-form-input" />
                 <small class="gp-form-hint">
-                  <i class="fa-solid fa-lightbulb" style="color:var(--warning);"></i> Identifiant technique
+                  <i class="fa-solid fa-lightbulb gp-text-warning"></i> Identifiant technique
                 </small>
               </div>
-              <div style="min-width:120px;">
+              <div class="gp-field-order">
                 <label for="category-order" class="gp-form-label">Ordre</label>
                 <input type="number" id="category-order" name="display_order" value="100" min="0" step="1" class="gp-form-input" />
               </div>
@@ -42,7 +42,7 @@
               <div id="category-icon-preview" class="gp-icon-preview">
                 <i class="fa-solid fa-question" aria-hidden="true"></i>
               </div>
-              <button type="button" id="category-icon-picker-btn" class="btn-secondary" style="white-space:nowrap;">
+              <button type="button" id="category-icon-picker-btn" class="btn-secondary gp-nowrap">
                 <i class="fa-solid fa-icons"></i> Choisir
               </button>
             </div>
@@ -66,7 +66,7 @@
           
           <!-- Prévisualisation -->
           <div class="gp-form-card gp-style-preview">
-            <div class="gp-form-label" style="margin-bottom:16px;">Aperçu</div>
+            <div class="gp-form-label gp-mb-2">Aperçu</div>
             <svg width="200" height="120">
               <line id="style-preview-line" x1="20" y1="30" x2="180" y2="30" stroke="var(--black)" stroke-width="3" />
               <polygon id="style-preview-polygon" points="20,60 100,90 180,60 180,100 20,100" stroke="var(--black)" stroke-width="3" fill="var(--gray-400)" fill-opacity="0.3" />
@@ -86,7 +86,7 @@
               </div>
             </div>
             
-            <div class="gp-grid-2" style="margin-top:16px;">
+            <div class="gp-grid-2 gp-mt-2">
               <div>
                 <label for="category-style-dasharray" class="gp-form-label">Pointillés</label>
                 <input type="text" id="category-style-dasharray" placeholder="Ex: 5,10" class="gp-form-input">
@@ -98,7 +98,7 @@
             </div>
             
             <!-- Remplissage -->
-            <div style="margin-top:24px; padding-top:24px; border-top:1px solid var(--border-light, var(--gray-200));">
+            <div class="gp-section-divider">
               <label class="gp-checkbox-label">
                 <input type="checkbox" id="category-style-fill">
                 <span>Activer le remplissage pour les polygones</span>
@@ -129,17 +129,17 @@
           
           <!-- Liste des tags existants -->
           <div class="gp-form-card">
-            <div class="gp-form-label" style="margin-bottom:12px;">
+            <div class="gp-form-label gp-mb-1">
               <i class="fa-solid fa-list"></i> Tags existants
             </div>
-            <div id="category-tags-list" style="display:flex; flex-wrap:wrap; gap:8px; min-height:40px;">
+            <div id="category-tags-list" class="gp-tags-list">
               <!-- Tags injectés dynamiquement par JavaScript -->
             </div>
           </div>
           
           <!-- Formulaire d'ajout/modification -->
           <div class="gp-dashed-card">
-            <div class="gp-form-label" style="margin-bottom:12px;">
+            <div class="gp-form-label gp-mb-1">
               <i class="fa-solid fa-plus"></i> Ajouter un tag
             </div>
             
@@ -153,18 +153,18 @@
               <input type="text" id="category-tag-name" placeholder="Ex: Piste cyclable" class="gp-form-input">
             </div>
             
-            <div class="gp-flex gp-flex-gap-12" style="margin-top:12px;">
+            <div class="gp-flex gp-flex-gap-12 gp-mt-1">
               <div class="gp-flex-1">
                 <label for="category-tag-icon" class="gp-form-label">Icône FontAwesome</label>
                 <input type="text" id="category-tag-icon" placeholder="fa-tag" value="fa-tag" class="gp-form-input gp-form-input-mono">
               </div>
               <div>
                 <label for="category-tag-color" class="gp-form-label">Couleur</label>
-                <input type="color" id="category-tag-color" value="#3B82F6" class="gp-form-color" style="height:40px;">
+                <input type="color" id="category-tag-color" value="#3B82F6" class="gp-form-color gp-color-lg">
               </div>
             </div>
             
-            <div class="gp-flex gp-flex-gap-8" style="margin-top:12px;">
+            <div class="gp-flex gp-flex-gap-8 gp-mt-1">
               <button type="button" id="category-add-tag-btn" class="btn-primary gp-flex-1">
                 <i class="fa-solid fa-plus"></i> <span id="category-add-tag-btn-text">Ajouter le tag</span>
               </button>
@@ -178,7 +178,7 @@
     </div>
     <footer class="gp-modal-footer">
       <div class="gp-modal-footer-left">
-        <button type="button" id="category-modal-cancel" class="btn-secondary">
+        <button type="button" id="category-modal-cancel" class="btn-secondary gp-modal-close">
           Annuler
         </button>
       </div>

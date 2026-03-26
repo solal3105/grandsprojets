@@ -78,102 +78,23 @@
    */
   function openDeleteConfirmModal(details) {
     const { id, projectName, filePaths = [], dossiersCount = 0 } = details || {};
-    return new Promise((resolve) => {
-      // Créer l'overlay avec le système unifié
-      const overlay = document.createElement('div');
-      overlay.id = 'delete-confirm-overlay';
-      overlay.className = 'gp-modal-overlay';
-      overlay.setAttribute('role', 'dialog');
-      overlay.setAttribute('aria-modal', 'true');
-      overlay.setAttribute('aria-labelledby', 'delete-confirm-title');
-      overlay.setAttribute('aria-describedby', 'delete-confirm-desc');
+    const escapeHtml = window.SecurityUtils.escapeHtml;
 
-      // Créer la modale avec structure unifiée
-      const modal = document.createElement('div');
-      modal.className = 'gp-modal gp-modal--compact';
-      modal.setAttribute('role', 'document');
-
-      // Header
-      const header = document.createElement('div');
-      header.className = 'gp-modal-header';
-      const title = document.createElement('h2');
-      title.id = 'delete-confirm-title';
-      title.className = 'gp-modal-title';
-      title.textContent = `Supprimer la contribution ${projectName ? `« ${projectName} »` : `#${id}`} ?`;
-      
-      const closeBtn = document.createElement('button');
-      closeBtn.type = 'button';
-      closeBtn.className = 'gp-modal-close';
-      closeBtn.setAttribute('aria-label', 'Fermer');
-      closeBtn.innerHTML = '&times;';
-      
-      header.appendChild(title);
-      header.appendChild(closeBtn);
-
-      // Body
-      const body = document.createElement('div');
-      body.className = 'gp-modal-body';
-      body.id = 'delete-confirm-desc';
-      body.innerHTML = `
+    return win.ContribUtils.buildConfirmModal({
+      id: 'delete-confirm-overlay',
+      title: `Supprimer la contribution ${projectName ? `« ${escapeHtml(projectName)} »` : `#${id}`} ?`,
+      bodyHTML: `
         <p>Cette action est définitive. Elle supprimera les éléments suivants :</p>
         <ul style="margin:0 0 12px 18px;padding-left:0;">
           <li>La ligne <code>contribution_uploads</code> (id : <strong>#${id}</strong>)</li>
-          ${filePaths.length ? filePaths.map(p => `<li>Fichier de stockage : <code>${p}</code></li>`).join('') : '<li>Aucun fichier de stockage associé.</li>'}
+          ${filePaths.length ? filePaths.map(p => `<li>Fichier de stockage : <code>${escapeHtml(p)}</code></li>`).join('') : '<li>Aucun fichier de stockage associé.</li>'}
           <li>Dossiers de concertation liés : <strong>${dossiersCount}</strong></li>
         </ul>
         <p style="margin-bottom:0;">Voulez-vous continuer ?</p>
-      `;
-
-      // Footer avec boutons
-      const footer = document.createElement('div');
-      footer.className = 'gp-modal-footer';
-      
-      const cancelBtn = document.createElement('button');
-      cancelBtn.type = 'button';
-      cancelBtn.className = 'btn-secondary';
-      cancelBtn.textContent = 'Annuler';
-      
-      const confirmBtn = document.createElement('button');
-      confirmBtn.type = 'button';
-      confirmBtn.className = 'btn-danger';
-      confirmBtn.textContent = 'Supprimer';
-
-      footer.appendChild(cancelBtn);
-      footer.appendChild(confirmBtn);
-
-      // Assembler la modale
-      modal.appendChild(header);
-      modal.appendChild(body);
-      modal.appendChild(footer);
-      overlay.appendChild(modal);
-      document.body.appendChild(overlay);
-
-      // Gérer la fermeture
-      const close = (result) => {
-        window.ModalHelper?.close('delete-confirm-overlay');
-        // Supprimer l'overlay du DOM pour éviter les doublons d'ID
-        setTimeout(() => {
-          try { overlay.remove(); } catch(_) {}
-        }, 250);
-        resolve(!!result);
-      };
-
-      // Listeners
-      closeBtn.addEventListener('click', () => close(false));
-      cancelBtn.addEventListener('click', () => close(false));
-      confirmBtn.addEventListener('click', () => close(true));
-
-      // Ouvrir avec ModalHelper
-      window.ModalHelper?.open('delete-confirm-overlay', {
-        focusTrap: true,
-        dismissible: true,
-        onClose: () => resolve(false)
-      });
-
-      // Focus sur le bouton Annuler
-      setTimeout(() => {
-        try { cancelBtn.focus(); } catch(_) {}
-      }, 100);
+      `,
+      confirmLabel: 'Supprimer',
+      confirmClass: 'btn-danger',
+      cancelLabel: 'Annuler'
     });
   }
 

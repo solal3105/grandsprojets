@@ -126,129 +126,48 @@
   }
 
   /**
-   * Affiche la modale de confirmation
+   * Affiche la modale de confirmation de changement de rôle
    * @param {Object} user - Utilisateur cible
    * @param {string} newRole - Nouveau rôle
    * @param {Object} elements - Éléments DOM
    */
-  function showConfirmModal(user, newRole, elements) {
-    // Créer l'overlay avec le système unifié
-    const overlay = document.createElement('div');
-    overlay.id = 'user-role-confirm-overlay';
-    overlay.className = 'gp-modal-overlay';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
-    overlay.setAttribute('aria-labelledby', 'user-role-title');
-    
-    // Créer la modale
-    const modal = document.createElement('div');
-    modal.className = 'gp-modal gp-modal--compact';
-    modal.setAttribute('role', 'document');
-    
-    // Données
+  async function showConfirmModal(user, newRole, elements) {
     const currentRoleLabel = user.role === 'admin' ? 'Admin' : 'Invited';
     const newRoleLabel = newRole === 'admin' ? 'Admin' : 'Invited';
     const actionLabel = newRole === 'admin' ? 'Promouvoir' : 'Rétrograder';
     const villes = parseVilles(user.ville);
     const villesText = villes.length > 0 ? villes.join(', ') : 'Aucune';
-    
-    // Header
-    const header = document.createElement('div');
-    header.className = 'gp-modal-header';
-    
-    const title = document.createElement('h2');
-    title.id = 'user-role-title';
-    title.className = 'gp-modal-title';
-    title.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--warning);margin-right:8px;"></i>Confirmer le changement de rôle';
-    
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'gp-modal-close';
-    closeBtn.setAttribute('aria-label', 'Fermer');
-    closeBtn.innerHTML = '&times;';
-    
-    header.appendChild(title);
-    header.appendChild(closeBtn);
-    
-    // Body
-    const body = document.createElement('div');
-    body.className = 'gp-modal-body';
-    body.innerHTML = `
-      <div style="margin-bottom:16px;padding:12px;background:var(--gray-100);border-radius:8px;">
-        <div style="margin-bottom:8px;"><strong>Utilisateur :</strong> ${escapeHtml(user.email)}</div>
-        <div style="margin-bottom:8px;"><strong>Structures :</strong> ${villesText}</div>
-        <div style="margin-bottom:8px;"><strong>Rôle actuel :</strong> ${currentRoleLabel}</div>
-        <div><strong>Nouveau rôle :</strong> ${newRoleLabel}</div>
-      </div>
-      <div style="padding:12px;background:var(--warning-lighter);border-left:4px solid var(--warning);border-radius:4px;">
-        <i class="fa-solid fa-info-circle" style="color:var(--warning);margin-right:8px;"></i>
-        Cette action est immédiate et modifiera les permissions de l'utilisateur.
-      </div>
-    `;
-    
-    // Footer
-    const footer = document.createElement('div');
-    footer.className = 'gp-modal-footer';
-    
-    const cancelBtn = document.createElement('button');
-    cancelBtn.type = 'button';
-    cancelBtn.className = 'btn-secondary';
-    cancelBtn.textContent = 'Annuler';
-    
-    const confirmBtn = document.createElement('button');
-    confirmBtn.type = 'button';
-    confirmBtn.className = 'btn-primary';
-    confirmBtn.textContent = actionLabel;
-    
-    footer.appendChild(cancelBtn);
-    footer.appendChild(confirmBtn);
-    
-    // Assembler
-    modal.appendChild(header);
-    modal.appendChild(body);
-    modal.appendChild(footer);
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-    
-    // Handlers
-    const close = () => {
-      window.ModalHelper?.close('user-role-confirm-overlay');
-    };
-    
-    closeBtn.addEventListener('click', close);
-    cancelBtn.addEventListener('click', close);
-    confirmBtn.addEventListener('click', async () => {
-      try {
-        confirmBtn.disabled = true;
-        confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Traitement...';
-        
-        await win.supabaseService.updateUserRole(user.id, newRole);
-        
-        close();
-        if (win.ContribUtils?.showToast) {
-          win.ContribUtils.showToast(`Utilisateur ${actionLabel.toLowerCase()} avec succès.`, 'success');
-        }
-        
-        // Recharger la liste
-        await loadUsersList(elements);
-        
-      } catch (error) {
-        console.error('[contrib-users] updateUserRole error:', error);
-        if (win.ContribUtils?.showToast) {
-          win.ContribUtils.showToast('Erreur lors de la modification du rôle.', 'error');
-        }
-        close();
-      }
+
+    const confirmed = await win.ContribUtils.buildConfirmModal({
+      id: 'user-role-confirm-overlay',
+      title: '<i class="fa-solid fa-triangle-exclamation" style="color:var(--warning);margin-right:8px;"></i>Confirmer le changement de rôle',
+      bodyHTML: `
+        <div style="margin-bottom:16px;padding:12px;background:var(--gray-100);border-radius:8px;">
+          <div style="margin-bottom:8px;"><strong>Utilisateur :</strong> ${escapeHtml(user.email)}</div>
+          <div style="margin-bottom:8px;"><strong>Structures :</strong> ${villesText}</div>
+          <div style="margin-bottom:8px;"><strong>Rôle actuel :</strong> ${currentRoleLabel}</div>
+          <div><strong>Nouveau rôle :</strong> ${newRoleLabel}</div>
+        </div>
+        <div style="padding:12px;background:var(--warning-lighter);border-left:4px solid var(--warning);border-radius:4px;">
+          <i class="fa-solid fa-info-circle" style="color:var(--warning);margin-right:8px;"></i>
+          Cette action est immédiate et modifiera les permissions de l'utilisateur.
+        </div>
+      `,
+      confirmLabel: actionLabel,
+      confirmClass: 'btn-primary',
+      cancelLabel: 'Annuler'
     });
-    
-    // Ouvrir avec ModalHelper
-    window.ModalHelper?.open('user-role-confirm-overlay', {
-      focusTrap: true,
-      dismissible: true,
-      onClose: close
-    });
-    
-    setTimeout(() => cancelBtn.focus(), 100);
+
+    if (!confirmed) return;
+
+    try {
+      await win.supabaseService.updateUserRole(user.id, newRole);
+      win.ContribUtils?.showToast(`Utilisateur ${actionLabel.toLowerCase()} avec succès.`, 'success');
+      await loadUsersList(elements);
+    } catch (error) {
+      console.error('[contrib-users] updateUserRole error:', error);
+      win.ContribUtils?.showToast('Erreur lors de la modification du rôle.', 'error');
+    }
   }
 
   /**
@@ -312,8 +231,6 @@
 
       // Récupérer les éléments de la modale
       const overlay = document.getElementById('invite-modal-overlay');
-      const closeBtn = document.getElementById('invite-modal-close');
-      const cancelBtn = document.getElementById('invite-cancel');
       const inviteForm = document.getElementById('invite-form');
       const citiesListEl = document.getElementById('invite-cities-list');
       
@@ -324,49 +241,23 @@
 
       // Afficher uniquement la ville sélectionnée (pré-cochée et disabled)
       const citiesHTML = `
-        <div style="padding:12px; background:var(--gray-50); border-radius:8px; border:1px solid var(--gray-200);">
-          <label style="display:flex;align-items:center;gap:8px;">
-            <input type="checkbox" name="ville" value="${escapeHtml(selectedCity)}" checked disabled style="width:18px;height:18px;">
-            <span style="font-size:14px; font-weight:500;">${escapeHtml(cityLabel)}</span>
+        <div class="gp-city-preview">
+          <label>
+            <input type="checkbox" name="ville" value="${escapeHtml(selectedCity)}" checked disabled>
+            <span>${escapeHtml(cityLabel)}</span>
           </label>
         </div>
       `;
       
       citiesListEl.innerHTML = citiesHTML;
 
-      // Ouvrir la modale
-      overlay.setAttribute('aria-hidden', 'false');
-      // ✅ Réactiver les interactions
-      overlay.inert = false;
-      const inviteModalInner = overlay.querySelector('.gp-modal');
-      if (inviteModalInner) {
-        requestAnimationFrame(() => {
-          inviteModalInner.classList.add('is-open');
-        });
-      }
-      
-      // Fonction de fermeture
-      const closeModal = () => {
-        const inviteModalInner = overlay.querySelector('.gp-modal');
-        if (inviteModalInner) {
-          inviteModalInner.classList.remove('is-open');
-        }
-        setTimeout(() => {
-          overlay.setAttribute('aria-hidden', 'true');
-          // ✅ Bloquer les interactions
-          overlay.inert = true;
-          inviteForm.reset();
-        }, 220);
-      };
-      
-      // Boutons de fermeture
-      if (closeBtn) closeBtn.onclick = closeModal;
-      if (cancelBtn) cancelBtn.onclick = closeModal;
-      
-      // Clic sur overlay
-      overlay.onclick = (e) => {
-        if (e.target === overlay) closeModal();
-      };
+      // Ouvrir la modale via ModalHelper
+      win.ModalHelper.open('invite-modal-overlay', {
+        dismissible: true,
+        lockScroll: true,
+        focusTrap: true,
+        onClose: () => inviteForm.reset()
+      });
 
       // Bind form submit
       const emailInput = document.getElementById('invite-email');
@@ -401,7 +292,7 @@
             submitBtn.innerHTML = '<i class="fa-solid fa-envelope"></i> <span>Envoyer l\'invitation</span>';
           }
 
-          closeModal();
+          win.ModalHelper.close('invite-modal-overlay');
           const roleLabel = selectedRole === 'admin' ? 'Admin' : 'Invited';
           win.ContribUtils?.showToast(`Invitation envoyée à ${email} avec le rôle ${roleLabel} !`, 'success');
 
