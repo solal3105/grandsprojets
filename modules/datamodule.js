@@ -136,25 +136,6 @@ window.DataModule = (function() {
 
 	// closeHoverTooltip SUPPRIMÉ - legacy Leaflet, non utilisé avec MapLibre GL
 
-	// --- Helpers DRY pour progression travaux ---
-	function _safeDate(v) {
-		const d = v ? new Date(v) : null;
-		return d && !isNaN(d.getTime()) ? d : null;
-	}
-	function _calcProgress(dateDebut, dateFin) {
-		const debut = _safeDate(dateDebut);
-		const fin = _safeDate(dateFin);
-		if (!(debut && fin) || fin <= debut) return 0;
-		return Math.max(0, Math.min(100, Math.round(((new Date() - debut) / (fin - debut)) * 100)));
-	}
-	function _calcGradient(pct) {
-		if (pct <= 50) {
-			const r = (pct / 50) * 100;
-			return `linear-gradient(90deg, var(--danger) 0%, var(--danger) ${100 - r}%, var(--warning) 100%)`;
-		}
-		const r = ((pct - 50) / 50) * 100;
-		return `linear-gradient(90deg, var(--warning) 0%, var(--warning) ${100 - r}%, var(--success) 100%)`;
-	}
 	const _esc = window.SecurityUtils.escapeHtml;
 
 	// Lie les événements à une feature
@@ -215,6 +196,9 @@ window.DataModule = (function() {
 		return simpleCache.get(cacheKey, async () => {
 			// TRAVAUX
 			if (window.LayerRegistry?.isTravauxLayer && window.LayerRegistry.isTravauxLayer(layerName)) {
+				const normalizeTravaux = (data, sourceTag) =>
+					window.TravauxModule?.normalizeGeoJSON?.(data, sourceTag)
+						|| { type: 'FeatureCollection', features: Array.isArray(data?.features) ? data.features : [] };
 				const activeCity = (typeof window.getActiveCity === 'function') 
 					? window.getActiveCity() : (window.activeCity || 'metropole-lyon');
 				const config = await window.supabaseService.getTravauxConfig(activeCity);
@@ -225,7 +209,7 @@ window.DataModule = (function() {
 					try {
 						const response = await fetch(config.url);
 						if (!response.ok) throw new Error(`HTTP ${response.status}`);
-						return await response.json();
+						return normalizeTravaux(await response.json(), `travaux-url:${activeCity}`);
 					} catch (error) {
 						console.error('[DataModule] Erreur travaux URL:', error);
 						return { type: 'FeatureCollection', features: [] };
@@ -237,7 +221,7 @@ window.DataModule = (function() {
 						const resp = await fetch(fnUrl);
 						if (resp.ok) {
 							const data = await resp.json();
-							if (data?.features?.length >= 0) return data;
+							if (data?.features?.length >= 0) return normalizeTravaux(data, `city-travaux:${activeCity}`);
 						}
 						console.warn('[DataModule] Netlify function indisponible, fallback client-side');
 					} catch (_) {
@@ -245,7 +229,7 @@ window.DataModule = (function() {
 					}
 					// Fallback : agrégation client-side (N+1 fetches)
 					const data = await window.supabaseService.loadCityTravauxGeoJSON(activeCity);
-					return data || { type: 'FeatureCollection', features: [] };
+					return normalizeTravaux(data, `city-travaux:${activeCity}`);
 				}
 				return { type: 'FeatureCollection', features: [] };
 			}
@@ -451,8 +435,12 @@ window.DataModule = (function() {
 				// Filtre simple: masquer type "danger"
 				if (props.type === 'danger') return false;
 				
-				// Filtre Points: garder uniquement les contributions (project_name)
+				// Points: keep contribution markers and travaux markers.
+				// Some legacy/url-based travaux sources don't expose project_name.
 				if (feature?.geometry?.type === 'Point') {
+					if (window.LayerRegistry?.isTravauxLayer?.(layerName)) {
+						return !!(props.project_name || props.name || props.nature_travaux || props.nature || props.nature_chantier || props.chantier_id != null);
+					}
 					return !!props.project_name;
 				}
 				
@@ -587,10 +575,10 @@ window.DataModule = (function() {
 			const modalContent = document.getElementById('travaux-modal-content');
 			if (!modalContent) { console.error('[DataModule] travaux-modal-content introuvable'); return; }
 
-			const progressPct = _calcProgress(props.date_debut, props.date_fin);
-			const gradientBg = _calcGradient(progressPct);
-			const debut = _safeDate(props.date_debut);
-			const fin = _safeDate(props.date_fin);
+			const progressPct = TravauxModule.calcProgress(props.date_debut, props.date_fin);
+			const gradientBg = TravauxModule.calcGradient(progressPct);
+			const debut = TravauxModule.safeDate(props.date_debut);
+			const fin   = TravauxModule.safeDate(props.date_fin);
 			const now = new Date();
 			const dateFmt = (d) => d ? d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
 			const durationDays = (debut && fin && fin > debut) ? Math.max(1, Math.round((fin - debut) / 86400000)) : null;
@@ -599,7 +587,7 @@ window.DataModule = (function() {
 				? ((progressPct / 50) * 100 < 50 ? 'var(--danger)' : 'var(--warning)')
 				: (((progressPct - 50) / 50) * 100 < 50 ? 'var(--warning)' : 'var(--success)');
 			const commune = props.commune || props.ville || props.COMMUNE || '';
-			const titre = props.nature_travaux || 'Chantier';
+			const titre = props.project_name || props.name || props.nature_travaux || props.nature || props.nature_chantier || 'Chantier';
 			const etat = props.etat || '—';
 			const etatLow = (etat || '').toLowerCase();
 			const etatClass = etatLow.includes('ouver') ? 'etat--ouvert' : etatLow.includes('prochain') ? 'etat--prochain' : etatLow.includes('termin') ? 'etat--termine' : 'etat--neutre';

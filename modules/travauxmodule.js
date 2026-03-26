@@ -25,6 +25,67 @@ const TravauxModule = (() => {
     return RESEAU_KW.some(k => t.includes(k));
   };
 
+  function getChantierDisplayName(props) {
+    const p = props || {};
+    return p.project_name || p.name || p.nature_travaux || p.nature || p.nature_chantier || '';
+  }
+
+  function inferChantierIdentity(props, feature) {
+    const p = props || {};
+    if (p.chantier_key != null && p.chantier_key !== '') return String(p.chantier_key);
+    if (p.chantier_id != null && p.chantier_id !== '') return `chantier:${p.chantier_id}`;
+
+    const candidates = [
+      p.id,
+      p.ID,
+      p.objectid,
+      p.OBJECTID,
+      p.objectId,
+      p.gid,
+      p.GID,
+      p.fid,
+      p.FID,
+      p.globalid,
+      p.GLOBALID,
+      feature?.id,
+    ];
+
+    for (const value of candidates) {
+      if (value != null && value !== '') return `feature:${value}`;
+    }
+    return null;
+  }
+
+  function ensureFeatureKeys(features, sourceTag = 'travaux') {
+    const list = Array.isArray(features) ? features : [];
+    list.forEach((feature, index) => {
+      if (!feature || typeof feature !== 'object') return;
+      if (!feature.properties || typeof feature.properties !== 'object') feature.properties = {};
+      const props = feature.properties;
+      const identity = inferChantierIdentity(props, feature);
+      props.chantier_key = identity ? `${sourceTag}:${identity}` : `${sourceTag}:auto:${index}`;
+    });
+    return list;
+  }
+
+  function normalizeGeoJSON(data, sourceTag = 'travaux') {
+    if (!data || typeof data !== 'object') {
+      return { type: 'FeatureCollection', features: [] };
+    }
+    if (Array.isArray(data)) {
+      return { type: 'FeatureCollection', features: ensureFeatureKeys(data, sourceTag) };
+    }
+    if (data.type === 'Feature') {
+      return { type: 'FeatureCollection', features: ensureFeatureKeys([data], sourceTag) };
+    }
+    if (data.type === 'FeatureCollection') {
+      const features = Array.isArray(data.features) ? data.features : [];
+      data.features = ensureFeatureKeys(features, sourceTag);
+      return data;
+    }
+    return { type: 'FeatureCollection', features: [] };
+  }
+
   // Add _ts_debut / _ts_fin to feature properties (idempotent)
   function enrichTimestamps(features) {
     for (const f of features) {
@@ -152,6 +213,28 @@ const TravauxModule = (() => {
   }
 
 
+  // ─── Progress helpers (shared with DataModule) ─────────────────────────
+  function safeDate(v) {
+    const d = v ? new Date(v) : null;
+    return d && !isNaN(d.getTime()) ? d : null;
+  }
+
+  function calcProgress(dateDebut, dateFin) {
+    const debut = safeDate(dateDebut);
+    const fin   = safeDate(dateFin);
+    if (!(debut && fin) || fin <= debut) return 0;
+    return Math.max(0, Math.min(100, Math.round(((new Date() - debut) / (fin - debut)) * 100)));
+  }
+
+  function calcGradient(pct) {
+    if (pct <= 50) {
+      const r = (pct / 50) * 100;
+      return `linear-gradient(90deg, var(--danger) 0%, var(--danger) ${100 - r}%, var(--warning) 100%)`;
+    }
+    const r = ((pct - 50) / 50) * 100;
+    return `linear-gradient(90deg, var(--warning) 0%, var(--warning) ${100 - r}%, var(--success) 100%)`;
+  }
+
   // API publique — utilities for NavPanel custom renderers
   window.TravauxModule = {
     LAYER_NAME,
@@ -169,6 +252,12 @@ const TravauxModule = (() => {
     fmtFull,
     isReseau,
     buildTimelineExpr,
+    safeDate,
+    calcProgress,
+    calcGradient,
+    getChantierDisplayName,
+    ensureFeatureKeys,
+    normalizeGeoJSON,
   };
   return window.TravauxModule;
 })();

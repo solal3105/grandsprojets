@@ -854,13 +854,9 @@
           try { mlMap.setGlyphs(styleJson.glyphs); } catch (_) {}
         }
 
-        // Update sprite so icon images render correctly.
-        // Pass the raw sprite spec (string or [{id,url}] array) directly —
-        // do NOT wrap with a named id like 'default', that makes MapLibre look
-        // for /default.json on the local server.
-        if (styleJson.sprite && typeof mlMap.setSprite === 'function') {
-          try { mlMap.setSprite(styleJson.sprite); } catch (_) {}
-        }
+        // Do NOT call setSprite() — the basemap sprite references images (e.g. fill-pattern
+        // textures) that may not exist in every environment. We inject individual layers
+        // so the sprite is unnecessary; pattern layers are stripped below.
 
         // Insertion anchor: first app-data layer — vbm layers go BELOW it
         const anchor = this._findAnchorLayer(mlMap);
@@ -878,9 +874,12 @@
           }
         }
 
-        // Add layers in style order, each prefixed and wired to the prefixed source
+        // Add layers in style order, each prefixed and wired to the prefixed source.
+        // Skip layers that use fill-pattern or icon-image — they depend on the external
+        // sprite and would produce "image could not be loaded" warnings.
         for (const layer of (styleJson.layers || [])) {
           if (layer.source && !sourceIdMap[layer.source]) continue;
+          if (layer.paint?.['fill-pattern'] || layer.layout?.['icon-image']) continue;
           const ml = JSON.parse(JSON.stringify(layer));
           ml.id = `__vbm__${layer.id}`;
           if (ml.source) ml.source = sourceIdMap[ml.source];
@@ -1823,7 +1822,7 @@
       this._styleLoaded = false;
       this._queue = [];
       const addZoomControl = opts.zoomControl !== false;
-      
+
       this._mlMap.on('load', () => {
         this._styleLoaded = true;
         
@@ -2088,7 +2087,9 @@
     _terrainSourceId   = 'gp-terrain-dem';
     _hillshadeSourceId = 'gp-hillshade-dem';
     _terrainEnabled    = false;
+    _terrainPrevMaxZoom = null;
     _DEM_TILES_URL     = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
+    _DEM_MAX_ZOOM      = 15;
     // Sky presets (MapLibre requires valid SkySpecification — never null)
     // Light: soft blue midday sky
     _SKY_DAY     = { 'sky-color': '#89CFF0', 'sky-horizon-blend': 0.3, 'horizon-color': '#f0e8d8', 'horizon-fog-blend': 0.8, 'fog-color': '#dce6ef', 'fog-ground-blend': 0.9 };
@@ -2102,7 +2103,13 @@
 
     _ensureDemSource(id) {
       if (!this._mlMap.getSource(id)) {
-        this._mlMap.addSource(id, { type: 'raster-dem', tiles: [this._DEM_TILES_URL], encoding: 'terrarium', tileSize: 256, maxzoom: 15 });
+        this._mlMap.addSource(id, {
+          type: 'raster-dem',
+          tiles: [this._DEM_TILES_URL],
+          encoding: 'terrarium',
+          tileSize: 256,
+          maxzoom: this._DEM_MAX_ZOOM
+        });
       }
     }
 
@@ -2111,6 +2118,16 @@
       const ex    = exaggeration || 1.2;
 
       if (enabled && !this._terrainEnabled) {
+        if (this._terrainPrevMaxZoom == null) {
+          this._terrainPrevMaxZoom = mlMap.getMaxZoom();
+        }
+        if (mlMap.getMaxZoom() > this._DEM_MAX_ZOOM) {
+          mlMap.setMaxZoom(this._DEM_MAX_ZOOM);
+        }
+        if (mlMap.getZoom() > this._DEM_MAX_ZOOM) {
+          mlMap.jumpTo({ zoom: this._DEM_MAX_ZOOM });
+        }
+
         this._ensureDemSource(this._terrainSourceId);
         this._ensureDemSource(this._hillshadeSourceId);
         if (!mlMap.getLayer('gp-hillshade')) {
@@ -2131,6 +2148,10 @@
         mlMap.setTerrain(null);
         mlMap.setSky(this._SKY_RESET);
         if (mlMap.getLayer('gp-hillshade')) mlMap.removeLayer('gp-hillshade');
+        if (this._terrainPrevMaxZoom != null) {
+          mlMap.setMaxZoom(this._terrainPrevMaxZoom);
+          this._terrainPrevMaxZoom = null;
+        }
         if (mlMap.getPitch() > 10) mlMap.easeTo({ pitch: 0, duration: 800 });
         this._terrainEnabled = false;
       }

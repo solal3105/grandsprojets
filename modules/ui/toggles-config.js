@@ -4,6 +4,16 @@
  */
 
 export const TOGGLES_CONFIG = {
+  city: {
+    id: 'city-toggle',
+    icon: 'fa-city',
+    label: 'Espace',
+    ariaLabel: 'Changer d\'espace',
+    position: 0,
+    defaultState: false,
+    hasDockPanel: true
+  },
+
   filters: {
     id: 'filters-toggle',
     icon: 'fa-map',
@@ -87,6 +97,7 @@ export const TOGGLES_CONFIG = {
  * Desktop: de droite à gauche | Mobile: de gauche à droite
  */
 export const TOGGLE_ORDER = [
+  'city',       // Sélecteur d'espace
   'filters',    // Filtres de carte
   'mode3d',     // Mode 3D (relief + bâtiments)
   'basemap',    // Fond de carte

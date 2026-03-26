@@ -143,9 +143,6 @@
 
     <!-- Bottom actions -->
     <div class="gp-sidebar__actions">
-      <button class="gp-sidebar__btn gp-sidebar__btn--city" data-action="city" data-tooltip="Espace" aria-label="Changer d'espace">
-        <i class="fas fa-bars" aria-hidden="true"></i>
-      </button>
       <button class="gp-sidebar__btn gp-sidebar__btn--theme" data-action="theme" data-tooltip="Mode sombre" aria-label="Mode sombre">
         <i class="fas fa-moon" aria-hidden="true"></i>
       </button>
@@ -216,6 +213,9 @@
 
     <!-- ═══ Toggle Dock — Floating glass toolbar ═══ -->
     <nav class="toggle-dock" id="toggle-dock" aria-label="Contrôles de carte">
+      <button id="city-toggle" class="toggle-dock__btn" data-ready="false" data-title="Espace" aria-label="Changer d'espace">
+        <i class="fas fa-city" aria-hidden="true"></i>
+      </button>
       <button id="filters-toggle" class="toggle-dock__btn" data-ready="false" data-title="Filtres" aria-label="Filtres de carte">
         <i class="fas fa-map" aria-hidden="true"></i>
         <span class="toggle-dock__badge filter-count">0</span>

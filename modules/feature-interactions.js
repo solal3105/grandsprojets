@@ -23,11 +23,29 @@
 
   /* ── helpers ── */
   const esc = window.SecurityUtils.escapeHtml;
-  function projectNameOf(p) { return p.project_name || p.name || p.nature_travaux || ''; }
-  function isInteractive(f) { const p = f.properties||{}; return !!(p.project_name && p.category) || !!(p.nature_travaux || p.chantier_id); }
+  function travauxTitleOf(p) {
+    return window.TravauxModule?.getChantierDisplayName?.(p)
+      || p.project_name || p.name || p.nature_travaux || p.nature || p.nature_chantier || '';
+  }
+  function isTravauxProps(p) {
+    return !!(p.chantier_key || p.chantier_id != null || p.nature_travaux || p.nature || p.nature_chantier);
+  }
+  // Display title (human-readable, used in cards/popups)
+  function projectNameOf(p) { return p.project_name || p.name || p.nature_travaux || p.nature || p.nature_chantier || ''; }
+  // Selection key: unique per item.
+  //   travaux → always chantier_id (PK, always present and unique)
+  //              fallback to a stable human label for legacy/url-based travaux sources
+  //   contrib → project_name (groups multi-feature projects)
+  function keyOf(f) {
+    const p = f.properties || {};
+    if (p.chantier_key != null && p.chantier_key !== '') return String(p.chantier_key);
+    if (p.chantier_id != null) return String(p.chantier_id);
+    if (isTravauxProps(p)) return travauxTitleOf(p);
+    return p.project_name || p.name || '';
+  }
+  function isInteractive(f) { const p = f.properties||{}; return !!(p.project_name && p.category) || isTravauxProps(p); }
   function isContrib(f) { const p = f.properties||{}; return !!(p.project_name && p.category); }
-  function isTravaux(f) { const p = f.properties||{}; return !!(p.nature_travaux || p.chantier_id); }
-  function keyOf(f) { return projectNameOf(f.properties); }
+  function isTravaux(f) { const p = f.properties||{}; return isTravauxProps(p); }
 
   function cardHTML(props, opts) {
     const title = esc(projectNameOf(props));
@@ -510,7 +528,7 @@
       }
       const matchPool = pools.find(p => p.sourceId === src);
       if (matchPool) {
-        const matchFeatures = (matchPool.features || []).filter(f => projectNameOf(f.properties) === name);
+        const matchFeatures = (matchPool.features || []).filter(f => keyOf(f) === name);
         this._startGlow(src, matchPool, matchFeatures);
       }
     },
@@ -558,7 +576,7 @@
       if (!name || !this._sourceExists(source)) return ids;
       try {
         for (const f of this._mlMap.querySourceFeatures(source)) {
-          if (f.id === undefined || projectNameOf(f.properties) !== name) continue;
+          if (f.id === undefined || keyOf(f) !== name) continue;
           ids.add(f.id);
           this._mlMap.setFeatureState({ source, id: f.id }, state);
         }
@@ -574,16 +592,41 @@
       } catch(_) {}
     },
 
+    /**
+     * Returns the geographic bounding box of a project from pool features.
+     * Pure read — no visual or camera side effects.
+     * @param {string} projectName
+     * @returns {{ minLng, maxLng, minLat, maxLat } | null}
+     */
+    getProjectBounds(projectName) {
+      if (!projectName) return null;
+      const pools = this._getPools();
+      let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+      let found = false;
+      for (const pool of pools) {
+        if (!this._sourceExists(pool.sourceId) || !pool.features) continue;
+        for (const f of pool.features) {
+          if (f.id === undefined || keyOf(f) !== projectName) continue;
+          for (const [lng, lat] of this._flatCoords(f.geometry?.coordinates || [])) {
+            if (lng < minLng) minLng = lng; if (lng > maxLng) maxLng = lng;
+            if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat;
+            found = true;
+          }
+        }
+      }
+      return found ? { minLng, maxLng, minLat, maxLat } : null;
+    },
+
     spotlightByName(projectName, opts) {
       if (!this._mlMap || !projectName) return false;
-      const { panTo = true, dimOthers = true } = opts || {};
+      const { dimOthers = true } = opts || {};
       this.clearSelection();
       const pools = this._getPools();
       let matchSrc = null, matchIds = new Set(), matchFeatures = [];
       for (const pool of pools) {
         if (!this._sourceExists(pool.sourceId) || !pool.features) continue;
         for (const f of pool.features) {
-          if (f.id === undefined || projectNameOf(f.properties) !== projectName) continue;
+          if (f.id === undefined || keyOf(f) !== projectName) continue;
           matchSrc = pool.sourceId;
           matchIds.add(f.id);
           matchFeatures.push(f);
@@ -591,77 +634,6 @@
         if (matchSrc) break;
       }
       if (!matchSrc || !matchIds.size) return false;
-      if (panTo && matchFeatures.length) {
-        try {
-          let minLng=Infinity, maxLng=-Infinity, minLat=Infinity, maxLat=-Infinity;
-          for (const f of matchFeatures) {
-            for (const [lng, lat] of this._flatCoords(f.geometry?.coordinates || [])) {
-              if (lng < minLng) minLng = lng; if (lng > maxLng) maxLng = lng;
-              if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat;
-            }
-          }
-          if (minLng !== Infinity) {
-            const mob = window.innerWidth <= 720;
-
-            // Compute padding based on actual UI obstructions:
-            //
-            // MOBILE (≤720px)
-            //  top    : logo (44px+16px) + toggle-dock (46px+16px) ≈ 80px
-            //  bottom : project-detail bottom-sheet occupies 60vh when visible,
-            //           nav-panel bottom-sheet 58vh, sidebar dock ~56px — use
-            //           whichever panel is currently on screen
-            //  left/right: free
-            //
-            // DESKTOP (>720px)
-            //  left   : sidebar (78px) + gap (14px) + 14px = 106px.
-            //           If nav-panel is still visible (collapsed = still takes space), add panel width.
-            //  right  : project-detail panel = 420px + 16px margin = 436px (if visible)
-            //  top    : toggle-dock ≈ 82px
-            //  bottom : free
-
-            let top, right, bottom, left;
-
-            if (mob) {
-              top = 80; // logo + dock
-              left = 20;
-              right = 20;
-              // Check if project-detail is visible (bottom sheet, 60vh)
-              const detailPanel = document.getElementById('project-detail');
-              const detailVisible = detailPanel && detailPanel.style.display !== 'none'
-                && detailPanel.offsetHeight > 0;
-              if (detailVisible) {
-                // The bottom sheet is ≈60vh — the feature must sit in the top 40%
-                bottom = Math.round(window.innerHeight * 0.62);
-              } else {
-                // Nav-panel bottom sheet when open is 58vh max,
-                // sidebar dock at absolute bottom ≈ 56px
-                const navPanel = document.querySelector('.nav-panel.open');
-                bottom = navPanel
-                  ? Math.round(window.innerHeight * 0.55)
-                  : 70; // just sidebar dock + safe area
-              }
-            } else {
-              top = 90; // toggle-dock
-              bottom = 40;
-              // Left: sidebar always present, nav-panel if open
-              const sidebarW = 78 + 14; // sidebar width + inset
-              const navOpen = document.querySelector('.nav-panel.open:not(.collapsed)');
-              left = navOpen ? sidebarW + 14 + 340 + 20 : sidebarW + 20;
-              // Right: project-detail if visible
-              const detailPanel = document.getElementById('project-detail');
-              const detailVisible = detailPanel && detailPanel.style.display !== 'none'
-                && detailPanel.offsetHeight > 0;
-              right = detailVisible ? 436 + 20 : 40;
-            }
-
-            this._mlMap.fitBounds([[minLng,minLat],[maxLng,maxLat]], {
-              padding: { top, right, bottom, left },
-              maxZoom: 16, duration: 600,
-              pitch: 0
-            });
-          }
-        } catch(_) {}
-      }
       for (const id of matchIds) this._fs(matchSrc, id, 'selected', true);
       this._selected = { name: projectName, source: matchSrc, ids: matchIds };
 

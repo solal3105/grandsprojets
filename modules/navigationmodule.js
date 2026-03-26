@@ -61,71 +61,76 @@ const NavigationModule = (() => {
   }
 
   /**
-   * Nettoie tous les highlights précédents
+   * Nettoie tous les highlights précédents (visuels + DOM markers)
    */
   function clearProjectHighlight() {
-    // Clear FeatureInteractions selection (line/polygon feature-state + layer dim)
-    if (window.FeatureInteractions) {
-      window.FeatureInteractions.clearSelection();
-    }
-    
-    // Restore DOM-based marker highlights
+    window.FeatureInteractions?.clearSelection();
     currentHighlight.highlightedLayers.forEach(layer => {
-      try {
-        layer.__gpHighlighted = false;
-        restoreStyle(layer);
-      } catch (_) {}
+      try { layer.__gpHighlighted = false; restoreStyle(layer); } catch (_) {}
     });
     currentHighlight.highlightedLayers = [];
-    
-    // Remove pulse ring DOM elements
-    currentHighlight.pulseElements.forEach(el => {
-      try { el.remove(); } catch (_) {}
-    });
+    currentHighlight.pulseElements.forEach(el => { try { el.remove(); } catch (_) {} });
     currentHighlight.pulseElements = [];
   }
 
   /**
-   * Highlight un projet sur la carte
-   * @param {string} projectName - Nom du projet
-   * @param {string} category - Catégorie du projet
-   * @param {Object} options - Options de highlight
-   * @param {boolean} options.panTo - Si true, centre la carte sur le projet (défaut: true)
-   * @param {boolean} options.fadeOthers - Si true, applique un fade out aux autres features (défaut: false)
+   * Calcule le padding carte selon les panneaux UI actuellement visibles.
+   * Source unique de vérité — utilisée par panToProject et showProjectDetail.
+   * @returns {{ top, right, bottom, left }}
+   */
+  function _computeMapPadding() {
+    if (window.innerWidth <= 720) {
+      const detailPanel = document.getElementById('project-detail');
+      const detailOpen = detailPanel?.offsetHeight > 0 && detailPanel.style.display !== 'none';
+      const navPanel   = document.querySelector('.nav-panel.open');
+      return {
+        top:    80,
+        left:   20,
+        right:  20,
+        bottom: detailOpen
+          ? Math.round(window.innerHeight * 0.62)
+          : navPanel ? Math.round(window.innerHeight * 0.55) : 70
+      };
+    }
+    // Desktop
+    const sidebarW   = 78 + 14; // sidebar + inset gap
+    const navPanel   = document.querySelector('.nav-panel.open:not(.collapsed)');
+    const navW       = navPanel ? navPanel.offsetWidth + 14 : 0; // actual width, not hardcoded
+    const detailPanel = document.getElementById('project-detail');
+    const detailOpen = detailPanel?.offsetWidth > 0 && detailPanel.style.display !== 'none';
+    const detailW    = detailOpen ? detailPanel.offsetWidth + 20 : 0;
+    return {
+      top:    90,
+      bottom: 40,
+      left:   sidebarW + navW + 20,
+      right:  detailW || 40
+    };
+  }
+
+  /**
+   * Applique le highlight visuel d'un projet sur la carte (feature-state + pulse rings).
+   * Ne déplace PAS la caméra — appeler panToProject() séparément pour ça.
+   * @param {string} projectName
+   * @param {string} category
+   * @param {{ fadeOthers?: boolean }} options
    */
   function highlightProjectOnMap(projectName, category, options = {}) {
-    const { panTo = true, fadeOthers = false } = options;
-    
-    // Nettoyer les highlights précédents
+    const { fadeOthers = false } = options;
     clearProjectHighlight();
-    
-    // Delegate line/polygon highlight + dim to FeatureInteractions (feature-state based, no pool destruction)
-    let poolHandled = false;
-    if (window.FeatureInteractions) {
-      poolHandled = !!window.FeatureInteractions.spotlightByName(projectName, {
-        panTo,
-        dimOthers: fadeOthers
-      });
-    }
-    
-    // DOM-based marker highlighting (pulse rings) — markers don't use the pool
-    const targetLayerName = normalizeCategoryName(category);
-    const targetLayer = window.MapModule?.layers?.[targetLayerName];
+
+    // Lines/polygons : feature-state via FeatureInteractions pool
+    window.FeatureInteractions?.spotlightByName(projectName, { dimOthers: fadeOthers });
+
+    // DOM markers : pulse ring (markers don't use the pool)
+    const targetLayer = window.MapModule?.layers?.[normalizeCategoryName(category)];
     if (!targetLayer || typeof targetLayer.eachLayer !== 'function') return;
-    
     const { color: categoryColor } = getCategoryStyle(category);
-    
-    // Collect marker positions for panTo fallback (point-only projects)
-    const markerCoords = [];
-    
+
     targetLayer.eachLayer((featureLayer) => {
       const props = featureLayer.feature?.properties || {};
       if (props.project_name !== projectName) return;
-      
       const geomType = featureLayer.feature?.geometry?.type || '';
-      const isPoint = geomType === 'Point' || geomType === 'MultiPoint';
-      
-      if (isPoint && featureLayer instanceof L.Marker) {
+      if ((geomType === 'Point' || geomType === 'MultiPoint') && featureLayer instanceof L.Marker) {
         currentHighlight.highlightedLayers.push(featureLayer);
         featureLayer.__gpHighlighted = true;
         const el = featureLayer.getElement?.();
@@ -140,88 +145,48 @@ const NavigationModule = (() => {
             currentHighlight.pulseElements.push(pulseRing);
           }
         }
-        // Collect coordinates for panTo fallback
-        if (panTo && !poolHandled) {
-          const ll = featureLayer.getLatLng?.();
-          if (ll) markerCoords.push(ll);
-        }
       }
     });
-    
-    // Fallback panTo for point-only projects (not handled by spotlightByName)
-    if (panTo && !poolHandled && markerCoords.length > 0) {
-      try {
-        const mlMap = window.MapModule?.map?._mlMap;
-        if (mlMap) {
-          let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
-          for (const ll of markerCoords) {
-            if (ll.lng < minLng) minLng = ll.lng;
-            if (ll.lng > maxLng) maxLng = ll.lng;
-            if (ll.lat < minLat) minLat = ll.lat;
-            if (ll.lat > maxLat) maxLat = ll.lat;
-          }
-          const mob = window.innerWidth <= 720;
-          let top, right, bottom, left;
-          if (mob) {
-            top = 80;
-            left = 20;
-            right = 20;
-            const detailPanel = document.getElementById('project-detail');
-            const detailVisible = detailPanel && detailPanel.style.display !== 'none'
-              && detailPanel.offsetHeight > 0;
-            bottom = detailVisible
-              ? Math.round(window.innerHeight * 0.62)
-              : 70;
-          } else {
-            top = 90;
-            bottom = 40;
-            const sidebarW = 78 + 14;
-            const navOpen = document.querySelector('.nav-panel.open:not(.collapsed)');
-            left = navOpen ? sidebarW + 14 + 340 + 20 : sidebarW + 20;
-            const detailPanel = document.getElementById('project-detail');
-            const detailVisible = detailPanel && detailPanel.style.display !== 'none'
-              && detailPanel.offsetHeight > 0;
-            right = detailVisible ? 456 : 40;
-          }
-          mlMap.fitBounds([[minLng, minLat], [maxLng, maxLat]], {
-            padding: { top, right, bottom, left },
-            maxZoom: 16,
-            duration: 600,
-            pitch: 0
-          });
-        }
-      } catch (_) {}
-    }
   }
 
   /**
-   * Variable pour stocker la mini-carte de prévisualisation
+   * Déplace la caméra vers un projet sans modifier le highlight visuel.
+   * Cherche les bornes dans les pools (lignes/polygones), puis fallback markers.
+   * @param {string} projectName
+   * @param {string} category
    */
-  let previewMap = null;
+  function panToProject(projectName, category) {
+    const mlMap = window.MapModule?.map?._mlMap;
+    if (!mlMap || !projectName) return;
 
-  /**
-   * Récupère les features d'un projet depuis le layer (FACTORISATION DRY)
-   * @param {string} projectName - Nom du projet
-   * @param {string} category - Catégorie du projet
-   * @returns {Array} Features du projet ou null
-   */
-  function getProjectFeatures(projectName, category) {
-    const layerName = normalizeCategoryName(category);
-    const mapLayer = window.MapModule?.layers?.[layerName];
+    // 1. Pool features (lines / polygons)
+    let bounds = window.FeatureInteractions?.getProjectBounds?.(projectName);
 
-    if (!mapLayer || typeof mapLayer.eachLayer !== 'function') {
-      return null;
+    // 2. Fallback: DOM markers
+    if (!bounds) {
+      const targetLayer = window.MapModule?.layers?.[normalizeCategoryName(category)];
+      if (targetLayer && typeof targetLayer.eachLayer === 'function') {
+        let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+        let found = false;
+        targetLayer.eachLayer((fl) => {
+          if (fl.feature?.properties?.project_name !== projectName) return;
+          const ll = fl.getLatLng?.();
+          if (!ll) return;
+          if (ll.lng < minLng) minLng = ll.lng; if (ll.lng > maxLng) maxLng = ll.lng;
+          if (ll.lat < minLat) minLat = ll.lat; if (ll.lat > maxLat) maxLat = ll.lat;
+          found = true;
+        });
+        if (found) bounds = { minLng, maxLng, minLat, maxLat };
+      }
     }
 
-    const features = [];
-    mapLayer.eachLayer((featureLayer) => {
-      const props = featureLayer.feature?.properties || {};
-      if (props.project_name === projectName && featureLayer.feature) {
-        features.push(featureLayer.feature);
-      }
-    });
-
-    return features.length > 0 ? features : null;
+    if (!bounds) return;
+    try {
+      mlMap.fitBounds(
+        [[bounds.minLng, bounds.minLat], [bounds.maxLng, bounds.maxLat]],
+        { padding: _computeMapPadding(), minZoom: 11, maxZoom: 16, duration: 500, pitch: 0 }
+      );
+    } catch (_) {}
   }
 
   const getCategoryStyle = window.getCategoryStyle;
@@ -302,7 +267,7 @@ const NavigationModule = (() => {
       }
     });
     if (combinedBounds) {
-      MapModule.map.fitBounds(combinedBounds, { padding: [100, 100], pitch: 0 });
+      MapModule.map.fitBounds(combinedBounds, { padding: [100, 100], pitch: 0, minZoom: 11 });
     } else {
       MapModule.map.setView([45.75, 4.85], 12);
     }
@@ -335,6 +300,14 @@ const NavigationModule = (() => {
   
   _lastShownProject = projectKey;
   
+  // Stop any in-flight map animation (e.g. hover-triggered fitBounds) before
+  // starting our own sequence — otherwise the collapse easeTo will cancel it
+  // mid-flight, producing a visible zoom-out glitch.
+  try {
+    const mlMap = window.MapModule?.map?._mlMap;
+    if (mlMap?.stop) mlMap.stop();
+  } catch (_) {}
+
   // Hide NavPanel if open — preserve state so it can be restored on back
   window.NavPanel?.collapse();
   // Reset any persistent map padding BEFORE fitBounds runs.
@@ -405,6 +378,7 @@ const NavigationModule = (() => {
 
     // Vérifier si contributionProject existe avant d'accéder à ses propriétés
     if (!contributionProject) {
+      _lastShownProject = null; // allow re-click after dismissal
       panel.innerHTML = `
       <div style="padding: 2em; text-align: center; color: var(--text-secondary, #666);">
         <h3>Projet non trouvé</h3>
@@ -518,8 +492,9 @@ const NavigationModule = (() => {
     }
     
     
-    // ANIMATION: Mettre en avant le projet sur la carte
+    // Highlight visuel + centrage caméra (deux responsabilités séparées)
     highlightProjectOnMap(projectName, category);
+    panToProject(projectName, category);
 
   }catch(e){
     console.error('[NavigationModule] Error in showProjectDetail:', e);
@@ -626,13 +601,14 @@ const NavigationModule = (() => {
     }
   }
 
-  const publicAPI = { 
-    showProjectDetail, 
+  const publicAPI = {
+    showProjectDetail,
     showSpecificContribution,
-    zoomOutOnLoadedLayers, 
+    zoomOutOnLoadedLayers,
     resetToDefaultView,
     _resetProjectGuard: () => { _lastShownProject = null; },
     highlightProjectOnMap,
+    panToProject,
     clearProjectHighlight
   };
   

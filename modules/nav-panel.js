@@ -156,9 +156,13 @@
       this._panel.setAttribute('data-module', mod);
       this._setLevel(2);
 
-      // On module change, clear the map before loading the new module's layers
-      if (prevModule && prevModule !== mod) {
-        mod === 'carte' ? this._restoreDefaultLayers() : this._clearAllMapLayers();
+      // Keep map content deterministic on every module entry.
+      // First travaux open previously skipped cleanup because prevModule was null,
+      // leaving default layers visible underneath the travaux module.
+      if (mod === 'travaux') {
+        this._clearAllMapLayers();
+      } else if (prevModule && prevModule !== mod) {
+        this._restoreDefaultLayers();
       }
 
       if (mod === 'carte') {
@@ -766,7 +770,7 @@
     /* ──────────────────────────────────────────────────────────────────── */
 
     _createProjectCard(project, category, color) {
-      const FOCUS_DELAY = 800;
+      const HOVER_PAN_DELAY = 400; // ms d'intention avant de déplacer la caméra
 
       const categoryIcon = win.categoryIcons?.find(c => c.category === category);
       let iconClass = categoryIcon?.icon_class || 'fa-layer-group';
@@ -806,23 +810,23 @@
       `;
 
       // Click → open detail
+      let focusTimer = null;
       li.addEventListener('click', () => {
+        // Cancel any pending hover-triggered pan to avoid racing with showProjectDetail's own fitBounds
+        if (focusTimer) { clearTimeout(focusTimer); focusTimer = null; }
         win.NavigationModule?.showProjectDetail(project.project_name, category);
       });
 
-      // Hover → highlight on map
-      let focusTimer = null;
+      // Hover → highlight visuel immédiat, caméra après délai d'intention
       li.addEventListener('mouseenter', () => {
-        win.NavigationModule?.highlightProjectOnMap(project.project_name, category, { panTo: false, fadeOthers: true });
+        win.NavigationModule?.highlightProjectOnMap(project.project_name, category, { fadeOthers: true });
         focusTimer = setTimeout(() => {
-          li.classList.add('focusing');
-          win.NavigationModule?.highlightProjectOnMap(project.project_name, category, { panTo: true, fadeOthers: true });
-        }, FOCUS_DELAY);
+          win.NavigationModule?.panToProject(project.project_name, category);
+        }, HOVER_PAN_DELAY);
       });
 
       li.addEventListener('mouseleave', () => {
         if (focusTimer) { clearTimeout(focusTimer); focusTimer = null; }
-        li.classList.remove('focusing');
         const detailPanel = document.getElementById('project-detail');
         if (!detailPanel || detailPanel.style.display !== 'block') {
           win.NavigationModule?.clearProjectHighlight();
