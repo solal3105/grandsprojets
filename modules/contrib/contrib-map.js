@@ -799,7 +799,7 @@
         if (bounds.isValid()) {
           // Padding plus grand si plusieurs points
           const padding = pointCount > 1 ? [30, 30] : [10, 10];
-          drawMap.fitBounds(bounds, { padding, maxZoom: 16 }); 
+          drawMap.fitBounds(bounds, { padding }); 
         }
       } catch(_) {}
       

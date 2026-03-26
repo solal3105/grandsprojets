@@ -743,7 +743,7 @@
   class TileLayer extends EventEmitter {
     constructor(urlTemplate, options) {
       super();
-      this.options = Object.assign({ attribution: '', maxZoom: 19, tileSize: 256 }, options);
+      this.options = Object.assign({ attribution: '', tileSize: 256 }, options);
       this._urlTemplate = urlTemplate;
       this._map = null;
       this._sourceId = 'basemap-' + (++_stampCounter);
@@ -1813,8 +1813,6 @@
         pitch: opts.pitch || 0,
         bearing: opts.bearing || 0,
         attributionControl: opts.attributionControl !== false,
-        maxZoom: opts.maxZoom || 22,
-        minZoom: opts.minZoom || 0,
         maxPitch: 85
       });
 
@@ -2087,7 +2085,6 @@
     _terrainSourceId   = 'gp-terrain-dem';
     _hillshadeSourceId = 'gp-hillshade-dem';
     _terrainEnabled    = false;
-    _terrainPrevMaxZoom = null;
     _DEM_TILES_URL     = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
     _DEM_MAX_ZOOM      = 15;
     // Sky presets (MapLibre requires valid SkySpecification — never null)
@@ -2118,16 +2115,6 @@
       const ex    = exaggeration || 1.2;
 
       if (enabled && !this._terrainEnabled) {
-        if (this._terrainPrevMaxZoom == null) {
-          this._terrainPrevMaxZoom = mlMap.getMaxZoom();
-        }
-        if (mlMap.getMaxZoom() > this._DEM_MAX_ZOOM) {
-          mlMap.setMaxZoom(this._DEM_MAX_ZOOM);
-        }
-        if (mlMap.getZoom() > this._DEM_MAX_ZOOM) {
-          mlMap.jumpTo({ zoom: this._DEM_MAX_ZOOM });
-        }
-
         this._ensureDemSource(this._terrainSourceId);
         this._ensureDemSource(this._hillshadeSourceId);
         if (!mlMap.getLayer('gp-hillshade')) {
@@ -2148,10 +2135,6 @@
         mlMap.setTerrain(null);
         mlMap.setSky(this._SKY_RESET);
         if (mlMap.getLayer('gp-hillshade')) mlMap.removeLayer('gp-hillshade');
-        if (this._terrainPrevMaxZoom != null) {
-          mlMap.setMaxZoom(this._terrainPrevMaxZoom);
-          this._terrainPrevMaxZoom = null;
-        }
         if (mlMap.getPitch() > 10) mlMap.easeTo({ pitch: 0, duration: 800 });
         this._terrainEnabled = false;
       }
@@ -2197,7 +2180,6 @@
       const fitOpts = {};
       if (options) {
         if (options.padding) fitOpts.padding = typeof options.padding === 'number' ? options.padding : options.padding;
-        if (options.maxZoom) fitOpts.maxZoom = options.maxZoom;
         if (options.animate === false) fitOpts.duration = 0;
         if (options.duration !== undefined) fitOpts.duration = options.duration;
         if (options.bearing !== undefined) fitOpts.bearing = options.bearing;
@@ -2215,13 +2197,17 @@
     }
     flyTo(latlng, zoom, options) {
       const ll = toLatLng(latlng);
+      const duration = options?.duration;
+      const durationMs = typeof duration === 'number' && duration > 0 && duration <= 10
+        ? duration * 1000
+        : duration;
       // Reset pitch for the same reason as fitBounds: perspective tilt displaces features
       this._mlMap.flyTo({
         center: [ll.lng, ll.lat],
         zoom: zoom || this.getZoom(),
         pitch: options?.pitch ?? 0,
         ...(options?.bearing !== undefined ? { bearing: options.bearing } : {}),
-        ...(options?.duration !== undefined ? { duration: options.duration } : {})
+        ...(durationMs !== undefined ? { duration: durationMs } : {})
       });
       return this;
     }

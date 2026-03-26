@@ -485,9 +485,7 @@
         if (lightBm) {
           L.createBasemapLayer(lightBm).addTo(map);
         } else {
-          L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19
-          }).addTo(map);
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
         }
         
         // Charger le GeoJSON

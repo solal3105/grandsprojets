@@ -1,305 +1,277 @@
 // modules/searchmodule.js
 window.SearchModule = (() => {
-  // Reference to the map instance
-  let map;
-  // Reference to the current marker
-  let currentMarker = null;
-  // Reference to the search input
-  let searchInput;
-  // Reference to the search results container
-  let searchResults;
-  // Reference to the search overlay
-  let searchOverlay;
-  // Reference to the search toggle button
-  let searchToggle;
-  // Timeout for debouncing search
-  let searchTimeout;
+  'use strict';
 
-  /**
-   * Initialize the search module
-   * @param {Object} mapInstance - The Leaflet map instance
-   */
+  const API = 'https://api-adresse.data.gouv.fr/search/';
+  const DEBOUNCE = 260;           // ms before firing a request
+  const RESULT_LIMIT = 6;
+  const FLY_DURATION = 1.6;       // seconds (Leaflet-style, converted in compat layer)
+  const TYPE_ICONS = {
+    housenumber: 'fa-location-dot',
+    street:      'fa-road',
+    locality:    'fa-map-pin',
+    municipality:'fa-city',
+    default:     'fa-location-dot'
+  };
+
+  let _map     = null;
+  let _panel   = null;  // #search-overlay
+  let _input   = null;  // #address-search
+  let _clear   = null;  // .search__clear
+  let _list    = null;  // #search-results
+  let _marker  = null;
+  let _timer   = 0;
+  let _focusIdx = -1;   // keyboard-highlighted index (–1 = none)
+  let _abortCtrl = null;
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+
   function init(mapInstance) {
-    map = mapInstance;
-    
-    // Get DOM elements
-    searchToggle = document.getElementById('search-toggle');
-    searchInput = document.getElementById('address-search');
-    searchResults = document.getElementById('search-results');
-    searchOverlay = document.getElementById('search-overlay');
+    if (!mapInstance) return;
+    _map   = mapInstance;
+    _panel = document.getElementById('search-overlay');
+    _input = document.getElementById('address-search');
+    _clear = _panel?.querySelector('.search__clear');
+    _list  = document.getElementById('search-results');
+    if (!_panel || !_input || !_list) return;
 
-    if (!searchToggle || !searchInput || !searchResults || !searchOverlay) {
-      console.error('Search elements not found');
-      return;
-    }
+    _input.addEventListener('input', _onInput);
+    _input.addEventListener('keydown', _onKeydown);
+    _list.addEventListener('click', _onResultClick);
+    _clear?.addEventListener('click', _resetInput);
 
-    // Add event listeners
-    setupEventListeners();
-    
-    // Mark toggle as ready once module is initialized
-    if (window.toggleManager) {
-      window.toggleManager.markReady('search');
-    }
-  }
-
-  /**
-   * Set up event listeners for the search functionality
-   */
-  function setupEventListeners() {
-    // Listen to ToggleManager instead of direct click
-    if (window.toggleManager) {
-      window.toggleManager.on('search', (isOpen) => {
-        if (isOpen) {
-          openSearchOverlay();
-        } else {
-          closeSearchOverlay();
-        }
-      });
-    }
-    
-    // Handle search input
-    searchInput.addEventListener('input', handleSearchInput);
-    
-    // Handle search result clicks
-    searchResults.addEventListener('click', handleResultClick);
-    
-    // Close button in panel header
-    const closeBtn = searchOverlay.querySelector('.dock-panel__close');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        window.toggleManager?.setState('search', false);
-      });
-    }
-    
-    // Stop propagation inside the panel so ToggleManager doesn't close it
-    searchOverlay.addEventListener('click', (e) => e.stopPropagation());
-    
-    // Handle Enter key press
-    searchInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const firstResult = searchResults.querySelector('.search-result-item');
-        if (firstResult) {
-          firstResult.click();
-        }
-      } else if (e.key === 'Escape') {
-        if (window.toggleManager) {
-          window.toggleManager.setState('search', false);
-        }
-      }
+    const closeBtn = _panel.querySelector('.dock-panel__close');
+    closeBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.toggleManager?.setState('search', false);
     });
+    _panel.addEventListener('click', (e) => e.stopPropagation());
+
+    window.toggleManager?.on('search', (open) => open ? _open() : _close());
+    window.toggleManager?.markReady('search');
   }
 
-  /**
-   * Open the search overlay
-   */
-  function openSearchOverlay() {
-    if (!searchOverlay) return;
-    // Focus the input after a tick (panel becomes visible via dock-panel--open)
-    requestAnimationFrame(() => {
-      if (searchInput) searchInput.focus();
+  // ── Open / Close ──────────────────────────────────────────────────────────
+
+  function _open() {
+    requestAnimationFrame(() => _input?.focus());
+  }
+
+  function _close() {
+    _resetInput();
+  }
+
+  // ── Input handling ────────────────────────────────────────────────────────
+
+  function _onInput() {
+    const q = _input.value.trim();
+    _toggleClear(q.length > 0);
+    clearTimeout(_timer);
+    if (!q) { _clearResults(); return; }
+    _timer = setTimeout(() => _search(q), DEBOUNCE);
+  }
+
+  function _resetInput() {
+    if (_input) _input.value = '';
+    _toggleClear(false);
+    _clearResults();
+    _input?.focus();
+  }
+
+  function _toggleClear(show) {
+    _clear?.classList.toggle('visible', show);
+  }
+
+  // ── Keyboard navigation ───────────────────────────────────────────────────
+
+  function _onKeydown(e) {
+    const items = _list.querySelectorAll('.search-result-item');
+    const count = items.length;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      _focusIdx = Math.min(_focusIdx + 1, count - 1);
+      _highlightItem(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      _focusIdx = Math.max(_focusIdx - 1, 0);
+      _highlightItem(items);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const target = _focusIdx >= 0 ? items[_focusIdx] : items[0];
+      target?.click();
+    } else if (e.key === 'Escape') {
+      window.toggleManager?.setState('search', false);
+    }
+  }
+
+  function _highlightItem(items) {
+    items.forEach((el, i) => el.classList.toggle('is-focused', i === _focusIdx));
+    items[_focusIdx]?.scrollIntoView({ block: 'nearest' });
+  }
+
+  // ── API call ──────────────────────────────────────────────────────────────
+
+  async function _search(query) {
+    _abortCtrl?.abort();
+    _abortCtrl = new AbortController();
+
+    _setStatus('loading');
+
+    const params = new URLSearchParams({
+      q: query, limit: String(RESULT_LIMIT), autocomplete: '1'
     });
-  }
-
-  /**
-   * Close the search overlay
-   */
-  function closeSearchOverlay() {
-    if (!searchOverlay) return;
-    clearSearchResults();
-    if (searchInput) searchInput.value = '';
-  }
-
-  /**
-   * Handle search input with debouncing
-   */
-  function handleSearchInput() {
-    const query = searchInput.value.trim();
-    
-    // Clear previous timeout
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
+    const center = _map?.getCenter?.();
+    if (center) {
+      params.set('lat', String(center.lat));
+      params.set('lon', String(center.lng));
     }
-    
-    // Clear results if query is empty
-    if (query.length === 0) {
-      clearSearchResults();
-      return;
-    }
-    
-    // Set a new timeout (debounce)
-    searchTimeout = setTimeout(() => {
-      searchAddress(query);
-    }, 300);
-  }
 
-  /**
-   * Search for an address using the French Adresse API
-   * @param {string} query - The search query
-   */
-  async function searchAddress(query) {
     try {
-      // Show loading state
-      searchResults.innerHTML = '<div class="search-result-item">Recherche en cours...</div>';
-      searchResults.classList.add('visible');
-      
-      // Optionnel : utiliser le centre actuel de la carte comme biais local
-      const center = (map && map.getCenter) ? map.getCenter() : null;
-      const params = new URLSearchParams({
-        q: query,
-        limit: '6',
-        autocomplete: '1'
-      });
-
-      if (center) {
-        params.set('lat', String(center.lat));
-        params.set('lon', String(center.lng));
-      }
-
-      const response = await fetch(`https://api-adresse.data.gouv.fr/search/?${params.toString()}`);
-      
-      if (!response.ok) {
-        throw new Error('Erreur de recherche');
-      }
-      
-      const data = await response.json();
-      const results = data.features || [];
-      
-      if (results.length === 0) {
-        searchResults.innerHTML = '<div class="search-result-item">Aucune adresse trouvée. Essayez une autre requête.</div>';
-        return;
-      }
-      
-      // Display results
-      displaySearchResults(results);
-      
-    } catch (error) {
-      console.error('Erreur lors de la recherche d\'adresse:', error);
-      searchResults.innerHTML = '<div class="search-result-item error">Erreur lors de la recherche. Veuillez réessayer.</div>';
+      const res = await fetch(`${API}?${params}`, { signal: _abortCtrl.signal });
+      if (!res.ok) throw new Error(res.statusText);
+      const data = await res.json();
+      const features = data.features || [];
+      features.length ? _renderResults(features) : _setStatus('empty');
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      _setStatus('error');
     }
   }
 
-  /**
-   * Display search results in the UI
-   * @param {Array} results - Array of search results from Addok
-   */
-  function displaySearchResults(results) {
-    searchResults.innerHTML = '';
-    
-    results.forEach(result => {
-      const { properties, geometry } = result;
-      const [lon, lat] = geometry.coordinates;
-      
-      const resultItem = document.createElement('div');
-      resultItem.className = 'search-result-item';
-      resultItem.dataset.lat = lat;
-      resultItem.dataset.lon = lon;
-      resultItem.dataset.displayName = properties.label;
-      // Conserver des détails pour enrichir la popup
-      resultItem.dataset.city = properties.city || '';
-      resultItem.dataset.postcode = properties.postcode || '';
-      resultItem.dataset.street = (properties.name || '').toString();
-      
-      // Format address components
-      const { name, city, postcode, context } = properties;
-      const street = name || '';
-      const cityInfo = [postcode, city].filter(Boolean).join(' ');
-      
-      resultItem.innerHTML = `
-        <h4>${street}</h4>
-        <p>${cityInfo}</p>
-      `;
-      
-      searchResults.appendChild(resultItem);
+  // ── Render results ────────────────────────────────────────────────────────
+
+  function _renderResults(features) {
+    _list.innerHTML = '';
+    _focusIdx = -1;
+
+    features.forEach(({ properties: p, geometry: g }) => {
+      const [lon, lat] = g.coordinates;
+      const icon = TYPE_ICONS[p.type] || TYPE_ICONS.default;
+      const street = p.name || '';
+      const city = [p.postcode, p.city].filter(Boolean).join(' ');
+
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'search-result-item';
+      el.dataset.lat = lat;
+      el.dataset.lon = lon;
+      el.dataset.label = p.label || street;
+      el.dataset.city = city;
+      el.innerHTML =
+        `<span class="search-result-item__icon"><i class="fas ${icon}" aria-hidden="true"></i></span>` +
+        `<span class="search-result-item__text">` +
+          `<span class="search-result-item__title">${_esc(street)}</span>` +
+          (city ? `<span class="search-result-item__sub">${_esc(city)}</span>` : '') +
+        `</span>`;
+      _list.appendChild(el);
     });
-    
-    searchResults.classList.add('visible');
+
+    _list.classList.add('visible');
   }
 
-  /**
-   * Handle click on a search result
-   * @param {Event} e - The click event
-   */
-  function handleResultClick(e) {
-    const resultItem = e.target.closest('.search-result-item');
-    if (!resultItem) return;
-    
-    const lat = parseFloat(resultItem.dataset.lat);
-    const lon = parseFloat(resultItem.dataset.lon);
-    const displayName = resultItem.dataset.displayName;
-    const subtitle = [resultItem.dataset.postcode, resultItem.dataset.city].filter(Boolean).join(' ');
-    
-    // Center the map on the selected location
-    map.setView([lat, lon], 16);
-    
-    // Add or update the marker
-    addMarker(lat, lon, displayName, subtitle);
-    
-    // Close the search overlay
-    closeSearchOverlay();
+  function _setStatus(type) {
+    _focusIdx = -1;
+    const icons  = { loading: 'fa-spinner fa-spin', empty: 'fa-magnifying-glass', error: 'fa-triangle-exclamation' };
+    const labels = {
+      loading: 'Recherche…',
+      empty:   'Aucun résultat',
+      error:   'Erreur de recherche'
+    };
+    _list.innerHTML =
+      `<div class="search-status search-status--${type}">` +
+        `<i class="fas ${icons[type]}" aria-hidden="true"></i>` +
+        `<span>${labels[type]}</span>` +
+      `</div>`;
+    _list.classList.add('visible');
   }
 
-  /**
-   * Add a marker to the map at the specified coordinates
-   * @param {number} lat - Latitude
-   * @param {number} lng - Longitude
-   * @param {string} title - Marker title/tooltip
-   */
-  function addMarker(lat, lng, title, subtitle = '') {
-    // Remove existing marker if it exists
-    if (currentMarker) {
-      map.removeLayer(currentMarker);
-    }
-    
-    // Create a custom icon
-    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
-    const customIcon = L.divIcon({
-      html: `<i class="fas fa-map-marker-alt" style="color: ${primaryColor}; font-size: 32px;"></i>`,
-      className: 'custom-marker',
-      iconSize: [32, 32],
-      iconAnchor: [16, 32],
-      popupAnchor: [0, -32]
+  // ── Result click ──────────────────────────────────────────────────────────
+
+  function _onResultClick(e) {
+    const item = e.target.closest('.search-result-item');
+    if (!item) return;
+
+    const lat   = parseFloat(item.dataset.lat);
+    const lon   = parseFloat(item.dataset.lon);
+    const label = item.dataset.label;
+    const city  = item.dataset.city;
+    const currentZoom = typeof _map.getZoom === 'function' ? _map.getZoom() : 0;
+    const targetZoom = Math.max(currentZoom, 17);
+
+    _placeMarker(lat, lon, label, city);
+    _map.flyTo([lat, lon], targetZoom, { duration: FLY_DURATION });
+    window.toggleManager?.setState('search', false);
+  }
+
+  // ── Map marker ────────────────────────────────────────────────────────────
+
+  function _placeMarker(lat, lng, title, subtitle) {
+    _removeMarker();
+
+    _marker = L.marker([lat, lng], {
+      icon: L.divIcon({
+        html:
+          '<div class="gp-custom-marker" style="--marker-color: var(--primary, #14AE5C);">' +
+            '<i class="fas fa-magnifying-glass" aria-hidden="true"></i>' +
+          '</div>',
+        className: 'gp-marker-container gp-search-marker-wrap',
+        iconSize:   [32, 40],
+        iconAnchor: [16, 40],
+        popupAnchor: [0, -40]
+      }),
+      zIndexOffset: 900
+    }).addTo(_map);
+
+    const popupContent =
+      `<div class="gp-search-card">` +
+        `<div class="gp-search-card__body">` +
+          `<div class="gp-search-card__icon"><i class="fas fa-location-dot"></i></div>` +
+          `<div class="gp-search-card__text">` +
+            `<div class="gp-search-card__title">${_esc(title)}</div>` +
+            (subtitle ? `<div class="gp-search-card__sub">${_esc(subtitle)}</div>` : '') +
+          `</div>` +
+        `</div>` +
+        `<div class="gp-search-card__footer">` +
+          `<span class="gp-search-card__coords">${lat.toFixed(5)}, ${lng.toFixed(5)}</span>` +
+          `<button type="button" class="gp-search-card__close" aria-label="Fermer"><i class="fas fa-xmark"></i></button>` +
+        `</div>` +
+      `</div>`;
+
+    _marker.bindPopup(popupContent, { maxWidth: 300, className: 'gp-search-popup-wrap', closeButton: false });
+
+    // Open popup after flyTo settles, wire close button
+    _map._mlMap?.once('moveend', () => {
+      _marker?.openPopup();
+      // Delegate close to marker removal
+      document.querySelector('.gp-search-card__close')?.addEventListener('click', () => _removeMarker());
     });
-    
-    // Add the new marker
-    // Injecter une feuille de style minimale pour rendre la wrapper MapLibre transparente
-    if (!document.getElementById('gp-popup-style')) {
-      const style = document.createElement('style');
-      style.id = 'gp-popup-style';
-      style.textContent = `
-        .gp-popup .maplibregl-popup-content{background:transparent; box-shadow:none; border:none; padding:0;}
-        .gp-popup .maplibregl-popup-tip{background:transparent; box-shadow:none; border:none;}
-        .gp-popup .maplibregl-popup-close-button{display:none !important;}
-      `;
-      document.head.appendChild(style);
-    }
-
-    const popupHtml = `
-      <div style="min-width:220px; background:var(--surface, #fff); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border-radius:12px; box-shadow:0 8px 24px var(--black-alpha-18); padding:12px 14px;">
-        <div style="font-weight:600; font-size:14px; margin-bottom:4px; color:var(--text-primary, #111);">${title}</div>
-        ${subtitle ? `<div style=\"color:var(--text-secondary, #555); font-size:13px; margin-bottom:8px;\">${subtitle}</div>` : ''}
-        <div style="font-family:monospace; font-size:12px; color:var(--text-tertiary, #666);">${lat.toFixed(6)}, ${lng.toFixed(6)}</div>
-      </div>
-    `;
-    currentMarker = L.marker([lat, lng], { icon: customIcon })
-      .addTo(map)
-      .bindPopup(popupHtml, { maxWidth: 280, className: 'gp-popup' })
-      .openPopup();
   }
 
-  /**
-   * Clear the search results
-   */
-  function clearSearchResults() {
-    searchResults.innerHTML = '';
-    searchResults.classList.remove('visible');
+  function _removeMarker() {
+    if (_marker && _map) { _map.removeLayer(_marker); _marker = null; }
   }
 
-  // Public API
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  function _clearResults() {
+    _list.innerHTML = '';
+    _list.classList.remove('visible');
+    _focusIdx = -1;
+  }
+
+  function _esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  // ── Public API ────────────────────────────────────────────────────────────
+
   return {
     init,
-    openSearchOverlay,
-    closeSearchOverlay
+    removeMarker: _removeMarker,
+    openSearchOverlay:  _open,
+    closeSearchOverlay: _close
   };
 })();

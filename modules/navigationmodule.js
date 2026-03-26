@@ -184,7 +184,7 @@ const NavigationModule = (() => {
     try {
       mlMap.fitBounds(
         [[bounds.minLng, bounds.minLat], [bounds.maxLng, bounds.maxLat]],
-        { padding: _computeMapPadding(), minZoom: 11, maxZoom: 16, duration: 500, pitch: 0 }
+        { padding: _computeMapPadding(), duration: 500, pitch: 0 }
       );
     } catch (_) {}
   }
@@ -196,7 +196,7 @@ const NavigationModule = (() => {
    * @param {string} category - Nom de la catégorie
    */
   async function showCategoryLayers(category) {
-    const layers = getCategoryLayers(category);
+      MapModule.map.fitBounds(combinedBounds, { padding: [100, 100], pitch: 0 });
     
     // Reset les filtres
     if (window.FilterModule?.resetAll) {
@@ -267,7 +267,7 @@ const NavigationModule = (() => {
       }
     });
     if (combinedBounds) {
-      MapModule.map.fitBounds(combinedBounds, { padding: [100, 100], pitch: 0, minZoom: 11 });
+      MapModule.map.fitBounds(combinedBounds, { padding: [100, 100], pitch: 0 });
     } else {
       MapModule.map.setView([45.75, 4.85], 12);
     }

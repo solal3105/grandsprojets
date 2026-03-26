@@ -229,8 +229,7 @@
       <button id="search-toggle" class="toggle-dock__btn" data-ready="false" data-title="Rechercher" aria-label="Rechercher une adresse">
         <i class="fas fa-search" aria-hidden="true"></i>
       </button>
-      <button id="location-toggle" class="toggle-dock__btn" data-ready="false" data-title="Ma position" aria-label="Ma position"
-              onclick="window.GeolocationModule && window.GeolocationModule.handleLocationButtonClick(event)">
+      <button id="location-toggle" class="toggle-dock__btn" data-ready="false" data-title="Ma position" aria-label="Ma position">
         <i class="fas fa-location-arrow" aria-hidden="true"></i>
       </button>
       <button id="actions-toggle" class="toggle-dock__btn" data-ready="false" data-title="Menu" aria-label="Menu des actions">
@@ -262,8 +261,12 @@
         <button class="dock-panel__close" aria-label="Fermer la recherche"><i class="fas fa-times"></i></button>
       </div>
       <div class="dock-panel__body">
-        <input type="text" id="address-search" placeholder="Rechercher une adresse..." autocomplete="off" />
-        <div id="search-results" class="search-results"></div>
+        <div class="search__input-wrap">
+          <i class="fas fa-search search__input-icon" aria-hidden="true"></i>
+          <input type="text" id="address-search" placeholder="Adresse, rue, commune…" autocomplete="off" spellcheck="false" />
+          <button type="button" class="search__clear" aria-label="Effacer"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div id="search-results" class="search-results" role="listbox"></div>
       </div>
     </div>
 

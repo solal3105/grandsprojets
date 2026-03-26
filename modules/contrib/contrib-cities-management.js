@@ -637,8 +637,7 @@
 
     // Add tile layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 19
+      attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
     // State
