@@ -520,13 +520,20 @@
       const ids = this._setStateOnProject(src, name, { selected: true });
       this._selected = { name, source: src, ids };
       this._savedPaint = new Map();
-      const pools = this._getPools();
-      for (const pool of pools) {
-        if (pool.sourceId === src) continue;
-        this._dimLayer(pool.layerId, 'line-opacity', DIM_LINE_OPACITY);
-        if (pool.fillLayerId) this._dimLayer(pool.fillLayerId, 'fill-opacity', DIM_FILL_OPACITY);
+      this._dimmedIds = new Map();
+      // Travaux features are never dimmed — only highlight the selected one
+      if (!isTravaux(feature)) {
+        const pools = this._getPools();
+        for (const pool of pools) {
+          if (pool.sourceId === src) {
+            this._dimPoolExcept(pool, ids);
+            continue;
+          }
+          this._dimLayer(pool.layerId, 'line-opacity', DIM_LINE_OPACITY);
+          if (pool.fillLayerId) this._dimLayer(pool.fillLayerId, 'fill-opacity', DIM_FILL_OPACITY);
+        }
       }
-      const matchPool = pools.find(p => p.sourceId === src);
+      const matchPool = this._getPools().find(p => p.sourceId === src);
       if (matchPool) {
         const matchFeatures = (matchPool.features || []).filter(f => keyOf(f) === name);
         this._startGlow(src, matchPool, matchFeatures);
@@ -543,10 +550,29 @@
       } catch(_) {}
     },
 
+    _dimPoolExcept(pool, excludeIds) {
+      if (!pool.features || !this._sourceExists(pool.sourceId)) return;
+      const dimmed = new Set();
+      for (const f of pool.features) {
+        if (f.id === undefined || excludeIds.has(f.id)) continue;
+        try { this._mlMap.setFeatureState({ source: pool.sourceId, id: f.id }, { dimmed: true }); } catch(_) {}
+        dimmed.add(f.id);
+      }
+      if (dimmed.size) this._dimmedIds.set(pool.sourceId, dimmed);
+    },
+
     clearSelection(skipMapOps) {
       this._stopGlow();
-      if (!this._selected && !this._savedPaint) return;
+      if (!this._selected && !this._savedPaint && !this._dimmedIds) return;
       if (!skipMapOps && this._mlMap) {
+        if (this._dimmedIds) {
+          for (const [source, ids] of this._dimmedIds) {
+            if (!this._sourceExists(source)) continue;
+            for (const id of ids) {
+              try { this._mlMap.removeFeatureState({ source, id }, 'dimmed'); } catch(_) {}
+            }
+          }
+        }
         if (this._savedPaint) {
           for (const [lid, props] of this._savedPaint) {
             if (!this._mlMap.getLayer(lid)) continue;
@@ -561,6 +587,7 @@
       }
       this._savedPaint = null;
       this._selected = null;
+      this._dimmedIds = null;
     },
 
     // ═══════════════════════════════════════════════════════════
@@ -642,11 +669,19 @@
       if (matchPool) this._startGlow(matchSrc, matchPool, matchFeatures);
 
       if (dimOthers) {
-        this._savedPaint = new Map();
-        for (const pool of pools) {
-          if (pool.sourceId === matchSrc) continue;
-          this._dimLayer(pool.layerId, 'line-opacity', DIM_LINE_OPACITY);
-          if (pool.fillLayerId) this._dimLayer(pool.fillLayerId, 'fill-opacity', DIM_FILL_OPACITY);
+        // Detect if the spotlit project is a travaux project — never dim travaux
+        const isTrav = matchFeatures.length > 0 && isTravaux(matchFeatures[0]);
+        if (!isTrav) {
+          this._savedPaint = new Map();
+          this._dimmedIds = new Map();
+          for (const pool of pools) {
+            if (pool.sourceId === matchSrc) {
+              this._dimPoolExcept(pool, matchIds);
+              continue;
+            }
+            this._dimLayer(pool.layerId, 'line-opacity', DIM_LINE_OPACITY);
+            if (pool.fillLayerId) this._dimLayer(pool.fillLayerId, 'fill-opacity', DIM_FILL_OPACITY);
+          }
         }
       }
       return true;
@@ -673,12 +708,18 @@
       const glowLayerId = '__glow_layer__';
 
       try {
-        // Get the line color from the existing layer
+        // Get the line color: prefer per-feature _color (travaux direct path),
+        // then fall back to the layer's paint property (SourcePool path)
         let color = '#3388ff';
-        try {
-          const raw = this._mlMap.getPaintProperty(pool.layerId, 'line-color');
-          if (typeof raw === 'string') color = raw;
-        } catch(_) {}
+        const featureColor = matchFeatures?.[0]?.properties?._color;
+        if (featureColor) {
+          color = featureColor;
+        } else {
+          try {
+            const raw = this._mlMap.getPaintProperty(pool.layerId, 'line-color');
+            if (typeof raw === 'string') color = raw;
+          } catch(_) {}
+        }
 
         // Collect features for the glow source
         const features = (matchFeatures || []).map(f => ({

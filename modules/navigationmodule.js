@@ -48,7 +48,7 @@ const NavigationModule = (() => {
 
   /**
    * Restaure le style DOM d'un marker (classes CSS)
-   * @param {L.Layer} featureLayer 
+   * @param {Object} featureLayer 
    */
   function restoreStyle(featureLayer) {
     if (featureLayer instanceof L.Marker) {

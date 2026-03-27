@@ -588,7 +588,7 @@
   // ============================================================================
 
   /**
-   * Initialise la carte Leaflet interactive
+   * Initialise la carte interactive
    */
   function initializeCityMap(modal, city) {
     const mapEl = modal.querySelector('#city-map');
@@ -613,19 +613,7 @@
       return null;
     }
 
-    // Fix icon paths (compat layer)
-    try {
-      if (L.Icon && L.Icon.Default && L.Icon.Default.prototype._getIconUrl) {
-        delete L.Icon.Default.prototype._getIconUrl;
-      }
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: '',
-        iconUrl: '',
-        shadowUrl: ''
-      });
-    } catch (e) {
-      console.error('[city-map] Icon config error:', e);
-    }
+
 
     // Initial position
     const initialLat = city?.center_lat || 45.7578;
@@ -635,10 +623,15 @@
     // Create map
     const map = L.map(mapEl).setView([initialLat, initialLng], initialZoom);
 
-    // Add tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+    // Add base layer (use centralized basemap system)
+    const lightBm = (window.basemaps || []).find(b => b.theme === 'light' && b.active !== false) || (window.basemaps || [])[0];
+    if (lightBm) {
+      L.createBasemapLayer(lightBm).addTo(map);
+    } else {
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+    }
 
     // State
     const state = {

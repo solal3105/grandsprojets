@@ -156,6 +156,9 @@
       this._panel.setAttribute('data-module', mod);
       this._setLevel(2);
 
+      // Clear any active selection/glow before switching module context
+      win.FeatureInteractions?.clearSelection?.();
+
       // Keep map content deterministic on every module entry.
       // First travaux open previously skipped cleanup because prevModule was null,
       // leaving default layers visible underneath the travaux module.
@@ -231,6 +234,15 @@
         // Restore default layers — preserve travaux if they were already on the map
         this._restoreDefaultLayers(this._travauxLayersLoaded);
       } else {
+        // Stop active drawing session if any
+        if (win.TravauxEditorModule?.isDrawing?.()) {
+          win.TravauxEditorModule.stopDrawing();
+        }
+        // Clean up admin save listener
+        if (this._onTravauxSaved) {
+          win.removeEventListener('travaux:saved', this._onTravauxSaved);
+          this._onTravauxSaved = null;
+        }
         this._renderTravauxLevel2();
         // Reset travaux filters and timeline when going back to L2
         FilterModule.resetAll();
@@ -246,6 +258,16 @@
      */
     close() {
       if (!this._panel) return;
+
+      // Stop active drawing session if any
+      if (win.TravauxEditorModule?.isDrawing?.()) {
+        win.TravauxEditorModule.stopDrawing();
+      }
+      // Clean up admin save listener
+      if (this._onTravauxSaved) {
+        win.removeEventListener('travaux:saved', this._onTravauxSaved);
+        this._onTravauxSaved = null;
+      }
 
       this._panel.classList.remove('open', 'collapsed');
       if (this._scrim) this._scrim.classList.remove('visible');
@@ -474,6 +496,29 @@
         }
       ];
 
+      // Section admin : admins uniquement
+      if (win.__CONTRIB_IS_ADMIN && travauxConfig.source_type === 'city_travaux') {
+        sections.push({
+          id: 'travaux-admin',
+          icon: 'fa-solid fa-screwdriver-wrench',
+          label: 'Administrer',
+          desc: 'Ajouter, modifier, supprimer'
+        });
+      }
+
+      // Section contributeur : tout utilisateur connecté avec accès à la ville
+      const city = win.getActiveCity?.() ?? win.activeCity;
+      const villes = win.__CONTRIB_VILLES || [];
+      const hasAccess = villes.includes('global') || villes.includes(city);
+      if (!win.__CONTRIB_IS_ADMIN && win.__CONTRIB_ROLE && hasAccess && travauxConfig.source_type === 'city_travaux') {
+        sections.push({
+          id: 'travaux-propose',
+          icon: 'fa-solid fa-paper-plane',
+          label: 'Mes propositions',
+          desc: 'Proposer et suivre mes chantiers'
+        });
+      }
+
       sections.forEach(s => {
         html += `
           <button class="nav-panel__item" data-section="${s.id}" style="--item-color: ${color}">
@@ -500,6 +545,103 @@
           this.openLevel3(section, { label, color });
         });
       });
+
+      // Inject async pending badge on admin button (non-blocking)
+      if (win.__CONTRIB_IS_ADMIN && travauxConfig.source_type === 'city_travaux') {
+        this._injectPendingBadge(city);
+      }
+    },
+
+    /**
+     * Injects a pending-proposals count badge on the "Administrer" L2 button.
+     * Runs async so it doesn't block initial rendering.
+     */
+    async _injectPendingBadge(city) {
+      try {
+        const all = await win.supabaseService?.fetchCityTravaux(city, { adminMode: true }) || [];
+        const pending = all.filter(c => !c.approved);
+        if (!pending.length) return;
+        const btn = this._level2.querySelector('[data-section="travaux-admin"]');
+        if (!btn) return;
+        const arrow = btn.querySelector('.nav-panel__item-arrow');
+        if (arrow && !btn.querySelector('.np-l2-badge')) {
+          arrow.insertAdjacentHTML('beforebegin', `<span class="np-l2-badge">${pending.length}</span>`);
+        }
+      } catch (_) {}
+    },
+
+    /* ──────────────────────────────────────────────────────────────────── */
+    /*  SHARED HELPERS                                                     */
+    /* ──────────────────────────────────────────────────────────────────── */
+
+    /** HTML du panneau de dessin — réutilisé par admin et contributeur */
+    _drawPanelHTML() {
+      return `
+        <div id="travaux-drawing-panel" class="np-admin-draw" style="display:none">
+          <div class="np-admin-draw-header">
+            <div class="np-admin-draw-icon"><i class="fa-solid fa-draw-polygon"></i></div>
+            <div>
+              <div class="np-admin-draw-title">Mode dessin</div>
+              <div class="np-admin-draw-hint">Sélectionnez un outil puis dessinez sur la carte</div>
+            </div>
+          </div>
+          <div class="np-admin-draw-tools">
+            <button type="button" class="travaux-draw-tool" data-tool="polyline">
+              <div class="tool-icon"><i class="fa-solid fa-route"></i></div>
+              <div class="tool-content"><span class="tool-name">Ligne</span></div>
+            </button>
+            <button type="button" class="travaux-draw-tool" data-tool="polygon">
+              <div class="tool-icon"><i class="fa-solid fa-draw-polygon"></i></div>
+              <div class="tool-content"><span class="tool-name">Zone</span></div>
+            </button>
+            <button type="button" class="travaux-draw-tool" data-tool="marker">
+              <div class="tool-icon"><i class="fa-solid fa-map-pin"></i></div>
+              <div class="tool-content"><span class="tool-name">Point</span></div>
+            </button>
+          </div>
+          <div class="travaux-drawing-help"><i class="fa-solid fa-circle-info"></i> <span>Dessinez sur la carte puis cliquez sur « Continuer ».</span></div>
+          <div class="np-admin-draw-actions">
+            <button type="button" class="np-admin-btn-cancel" id="travaux-cancel-drawing"><i class="fa-solid fa-xmark"></i> Annuler</button>
+            <button type="button" class="np-admin-btn-confirm" id="travaux-finish-drawing" disabled><i class="fa-solid fa-check"></i> Continuer</button>
+          </div>
+        </div>`;
+    },
+
+    /** Bind edit + delete actions on a chantier list. Shared by admin & contributor. */
+    _bindTravauxListActions(container, { onDelete, onRefresh }) {
+      container.querySelectorAll('.np-admin-action--edit').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          win.TravauxEditorModule?.openEditorForEdit(btn.dataset.id);
+        });
+      });
+      container.querySelectorAll('.np-admin-action--delete').forEach(btn => {
+        btn.addEventListener('click', async e => {
+          e.stopPropagation();
+          const msg = onDelete?.confirmMsg || 'Supprimer ce chantier ? Cette action est irréversible.';
+          if (!confirm(msg)) return;
+          btn.disabled = true;
+          try {
+            await win.supabaseService?.deleteCityTravaux(btn.dataset.id);
+            await win.DataModule?.reloadLayer?.('travaux');
+            win.Toast?.show(onDelete?.successMsg || 'Chantier supprimé', 'success', 2600);
+            onRefresh?.();
+          } catch (err) {
+            console.error('[NavPanel] Delete error:', err);
+            win.Toast?.show('Erreur lors de la suppression', 'error');
+            btn.disabled = false;
+          }
+        });
+      });
+    },
+
+    /** Auto-refresh binding for travaux:saved event */
+    _bindTravauxSaved(expectedCategory, refreshFn) {
+      if (this._onTravauxSaved) win.removeEventListener('travaux:saved', this._onTravauxSaved);
+      this._onTravauxSaved = () => {
+        if (this._currentCategory === expectedCategory) refreshFn();
+      };
+      win.addEventListener('travaux:saved', this._onTravauxSaved);
     },
 
     /* ──────────────────────────────────────────────────────────────────── */
@@ -583,6 +725,10 @@
         this._buildTimelineUI(allFeatures, TM);
       } else if (section === 'travaux-filters') {
         this._buildFiltersUI(allFeatures, TM);
+      } else if (section === 'travaux-admin') {
+        this._buildAdminUI();
+      } else if (section === 'travaux-propose') {
+        this._buildContributorUI();
       }
     },
 
@@ -763,6 +909,289 @@
       });
 
       applyFilters();
+    },
+
+    /* ── Administration ──────────────────────────────────────────────── */
+
+    async _buildAdminUI() {
+      this._level3.innerHTML =
+        `<div class="nav-panel__progress"><div class="nav-panel__progress-bar"></div></div>`;
+
+      const city = win.getActiveCity?.() ?? win.activeCity;
+      if (!city) {
+        this._level3.innerHTML = '<div class="nav-panel__empty"><i class="fas fa-exclamation-triangle"></i><span>Ville non définie</span></div>';
+        return;
+      }
+
+      let chantiers = [];
+      try {
+        chantiers = await win.supabaseService?.fetchCityTravaux(city, { adminMode: true }) || [];
+      } catch (_) {}
+
+      if (this._currentModule !== 'travaux' || this._currentCategory !== 'travaux-admin') return;
+
+      const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const ETAT_DOT = { Prochain: 'np-dot--upcoming', Ouvert: 'np-dot--active', Terminé: 'np-dot--done' };
+      const pending  = chantiers.filter(c => !c.approved);
+
+      let html = '<div class="np-admin">';
+
+      // ── Hero ──
+      html += `
+        <div class="np-admin-hero">
+          <div class="np-admin-hero-count">${chantiers.length}</div>
+          <div class="np-admin-hero-label">chantier${chantiers.length !== 1 ? 's' : ''} enregistré${chantiers.length !== 1 ? 's' : ''}</div>
+          <button type="button" class="np-admin-add" id="np-admin-add">
+            <i class="fa-solid fa-plus"></i> Ajouter un chantier
+          </button>
+        </div>`;
+
+      // ── Draw panel (shared) ──
+      html += this._drawPanelHTML();
+
+      // ── Tabs ──
+      if (chantiers.length) {
+        html += `
+          <div class="np-tabs" role="tablist">
+            <button class="np-tab np-tab--active" data-tab="all" role="tab">
+              Tous <span class="np-tab-count">${chantiers.length}</span>
+            </button>
+            <button class="np-tab" data-tab="pending" role="tab">
+              En attente <span class="np-tab-count${pending.length ? ' np-tab-count--warn' : ''}">${pending.length}</span>
+            </button>
+          </div>`;
+      }
+
+      // ── List ──
+      if (chantiers.length) {
+        html += '<div class="np-admin-list" id="np-admin-list">';
+        for (const c of chantiers) {
+          const dotCls = !c.approved ? 'np-dot--pending' : (ETAT_DOT[c.etat] || '');
+          const etatLabel = c.etat || 'Non défini';
+          const dates = [c.date_debut, c.date_fin].filter(Boolean).map(d => String(d).slice(0, 10)).join(' → ');
+          html += `
+            <div class="np-admin-item${!c.approved ? ' np-admin-item--pending' : ''}" data-id="${esc(c.id)}" data-approved="${!!c.approved}">
+              <div class="np-admin-item-info">
+                <div class="np-admin-item-row">
+                  <span class="np-dot ${dotCls}"></span>
+                  <span class="np-admin-item-name">${esc(c.name)}</span>
+                  ${!c.approved ? '<span class="np-pending-badge"><i class="fa-solid fa-clock"></i> En attente</span>' : ''}
+                </div>
+                <div class="np-admin-item-meta">
+                  <span class="np-admin-item-etat">${esc(etatLabel)}</span>
+                  ${dates ? `<span class="np-admin-item-sep">·</span><span>${dates}</span>` : ''}
+                </div>
+              </div>
+              <div class="np-admin-item-actions">
+                ${!c.approved ? `<button class="np-admin-action np-admin-action--approve" data-id="${esc(c.id)}" title="Valider"><i class="fa-solid fa-check"></i></button>` : ''}
+                <button class="np-admin-action np-admin-action--edit" data-id="${esc(c.id)}" title="Modifier"><i class="fa-solid fa-pen"></i></button>
+                <button class="np-admin-action np-admin-action--delete" data-id="${esc(c.id)}" title="Supprimer"><i class="fa-solid fa-trash-can"></i></button>
+              </div>
+            </div>`;
+        }
+        html += '</div>';
+      }
+
+      html += '</div>';
+      this._level3.innerHTML = html;
+
+      // ── Bind: Add ──
+      this._level3.querySelector('#np-admin-add')?.addEventListener('click', () => {
+        win.TravauxEditorModule?.openEditor();
+      });
+
+      // ── Bind: Tabs ──
+      const tabs  = this._level3.querySelectorAll('.np-tab');
+      const items = this._level3.querySelectorAll('.np-admin-item');
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          tabs.forEach(t => t.classList.toggle('np-tab--active', t === tab));
+          const filter = tab.dataset.tab;
+          items.forEach(item => {
+            item.style.display = (filter === 'all' || item.dataset.approved === 'false') ? '' : 'none';
+          });
+        });
+      });
+
+      // ── Bind: Quick approve (inline) ──
+      this._level3.querySelectorAll('.np-admin-action--approve').forEach(btn => {
+        btn.addEventListener('click', async e => {
+          e.stopPropagation();
+          if (!confirm('Valider et publier ce chantier ?')) return;
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+          try {
+            await win.supabaseService?.updateCityTravaux(btn.dataset.id, { approved: true });
+            await win.DataModule?.reloadLayer?.('travaux');
+            win.Toast?.show('Chantier validé et publié', 'success', 2600);
+            this._buildAdminUI();
+          } catch (err) {
+            console.error('[NavPanel] Approve error:', err);
+            win.Toast?.show('Erreur lors de la validation', 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+          }
+        });
+      });
+
+      // ── Bind: Edit + Delete (shared) ──
+      this._bindTravauxListActions(this._level3, {
+        onDelete: { confirmMsg: 'Supprimer ce chantier ? Cette action est irréversible.', successMsg: 'Chantier supprimé' },
+        onRefresh: () => this._buildAdminUI(),
+      });
+
+      // ── Auto-refresh ──
+      this._bindTravauxSaved('travaux-admin', () => this._buildAdminUI());
+    },
+
+    /* ── Vue contributeur : mes propositions ─────────────────────────── */
+
+    async _buildContributorUI() {
+      this._level3.innerHTML =
+        `<div class="nav-panel__progress"><div class="nav-panel__progress-bar"></div></div>`;
+
+      const city = win.getActiveCity?.() ?? win.activeCity;
+      if (!city) {
+        this._level3.innerHTML = '<div class="nav-panel__empty"><i class="fas fa-exclamation-triangle"></i><span>Ville non définie</span></div>';
+        return;
+      }
+
+      let allProposals = [];
+      try {
+        allProposals = await win.supabaseService?.fetchMyTravaux(city) || [];
+      } catch (_) {}
+
+      if (this._currentModule !== 'travaux' || this._currentCategory !== 'travaux-propose') return;
+
+      const esc     = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const pending  = allProposals.filter(c => !c.approved);
+      const approved = allProposals.filter(c => c.approved);
+
+      let html = '<div class="np-admin">';
+
+      // ── Onboarding (first visit, 0 proposals) ──
+      if (!allProposals.length) {
+        html += this._drawPanelHTML();
+        html += `
+          <div class="np-onboarding">
+            <div class="np-onboarding-icon"><i class="fa-solid fa-paper-plane"></i></div>
+            <h3 class="np-onboarding-title">Proposez un chantier</h3>
+            <p class="np-onboarding-desc">Partagez les travaux que vous observez dans votre ville</p>
+            <ol class="np-onboarding-steps">
+              <li class="np-step">
+                <div class="np-step-num">1</div>
+                <div class="np-step-text"><strong>Dessinez</strong> — tracez la zone sur la carte</div>
+              </li>
+              <li class="np-step">
+                <div class="np-step-num">2</div>
+                <div class="np-step-text"><strong>Décrivez</strong> — remplissez les informations</div>
+              </li>
+              <li class="np-step">
+                <div class="np-step-num">3</div>
+                <div class="np-step-text"><strong>Soumis !</strong> — un admin valide et publie</div>
+              </li>
+            </ol>
+            <button type="button" class="np-admin-add" id="np-contrib-add">
+              <i class="fa-solid fa-plus"></i> Proposer mon premier chantier
+            </button>
+          </div>`;
+        html += '</div>';
+        this._level3.innerHTML = html;
+        this._level3.querySelector('#np-contrib-add')?.addEventListener('click', () => {
+          win.TravauxEditorModule?.openEditor();
+        });
+        this._bindTravauxSaved('travaux-propose', () => this._buildContributorUI());
+        return;
+      }
+
+      // ── Hero ──
+      html += `
+        <div class="np-admin-hero">
+          <div class="np-admin-hero-count">${allProposals.length}</div>
+          <div class="np-admin-hero-label">proposition${allProposals.length !== 1 ? 's' : ''}</div>
+          <button type="button" class="np-admin-add" id="np-contrib-add">
+            <i class="fa-solid fa-plus"></i> Proposer un chantier
+          </button>
+        </div>`;
+
+      // ── Draw panel (shared) ──
+      html += this._drawPanelHTML();
+
+      // ── Tabs ──
+      html += `
+        <div class="np-tabs" role="tablist">
+          <button class="np-tab np-tab--active" data-tab="pending" role="tab">
+            En attente <span class="np-tab-count${pending.length ? ' np-tab-count--warn' : ''}">${pending.length}</span>
+          </button>
+          <button class="np-tab" data-tab="approved" role="tab">
+            Publiées <span class="np-tab-count${approved.length ? ' np-tab-count--ok' : ''}">${approved.length}</span>
+          </button>
+        </div>`;
+
+      // ── List ──
+      if (allProposals.length) {
+        html += '<div class="np-admin-list" id="np-contrib-list">';
+        for (const c of allProposals) {
+          const isPending = !c.approved;
+          const dates = [c.date_debut, c.date_fin].filter(Boolean).map(d => String(d).slice(0, 10)).join(' → ');
+          html += `
+            <div class="np-admin-item${isPending ? ' np-admin-item--pending' : ''}" data-id="${esc(c.id)}" data-approved="${!!c.approved}">
+              <div class="np-admin-item-info">
+                <div class="np-admin-item-row">
+                  <span class="np-dot ${isPending ? 'np-dot--pending' : 'np-dot--done'}"></span>
+                  <span class="np-admin-item-name">${esc(c.name)}</span>
+                </div>
+                <div class="np-admin-item-meta">
+                  ${isPending
+                    ? '<span class="np-pending-badge"><i class="fa-solid fa-clock"></i> En attente</span>'
+                    : '<span class="np-approved-badge"><i class="fa-solid fa-check"></i> Publié</span>'}
+                  ${dates ? `<span class="np-admin-item-sep">·</span><span>${dates}</span>` : ''}
+                </div>
+              </div>
+              ${isPending ? `
+              <div class="np-admin-item-actions">
+                <button class="np-admin-action np-admin-action--edit" data-id="${esc(c.id)}" title="Modifier"><i class="fa-solid fa-pen"></i></button>
+                <button class="np-admin-action np-admin-action--delete" data-id="${esc(c.id)}" title="Retirer"><i class="fa-solid fa-trash-can"></i></button>
+              </div>` : ''}
+            </div>`;
+        }
+        html += '</div>';
+      }
+
+      html += '</div>';
+      this._level3.innerHTML = html;
+
+      // ── Bind: Add ──
+      this._level3.querySelector('#np-contrib-add')?.addEventListener('click', () => {
+        win.TravauxEditorModule?.openEditor();
+      });
+
+      // ── Bind: Tabs ──
+      const tabs  = this._level3.querySelectorAll('.np-tab');
+      const items = this._level3.querySelectorAll('.np-admin-item');
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          tabs.forEach(t => t.classList.toggle('np-tab--active', t === tab));
+          const filter = tab.dataset.tab;
+          items.forEach(item => {
+            const isApproved = item.dataset.approved === 'true';
+            item.style.display = (filter === 'pending' ? !isApproved : isApproved) ? '' : 'none';
+          });
+        });
+      });
+      // Default: show pending only
+      items.forEach(item => {
+        if (item.dataset.approved === 'true') item.style.display = 'none';
+      });
+
+      // ── Bind: Edit + Delete (shared) ──
+      this._bindTravauxListActions(this._level3, {
+        onDelete: { confirmMsg: 'Retirer cette proposition ? Elle sera définitivement supprimée.', successMsg: 'Proposition retirée' },
+        onRefresh: () => this._buildContributorUI(),
+      });
+
+      // ── Auto-refresh ──
+      this._bindTravauxSaved('travaux-propose', () => this._buildContributorUI());
     },
 
     /* ──────────────────────────────────────────────────────────────────── */

@@ -480,7 +480,7 @@
           touchZoom: false
         });
         
-        // Ajouter un fond de carte (utilise le premier basemap light disponible ou fallback raster)
+        // Ajouter un fond de carte (utilise le basemap système ou fallback OSM)
         const lightBm = (window.basemaps || []).find(b => b.theme === 'light' && b.active !== false);
         if (lightBm) {
           L.createBasemapLayer(lightBm).addTo(map);

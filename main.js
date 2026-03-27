@@ -467,9 +467,9 @@
 
       if (DataModule.preloadLayer) {
         Object.keys(urlMap).forEach(layer => DataModule.preloadLayer(layer));
-        // Preload travaux en arrière-plan pour que le clic soit instantané
+        // Preload travaux immediately for instant toggle
         if (win._travauxConfig?.enabled) {
-          setTimeout(() => DataModule.preloadLayer('travaux'), 2000);
+          DataModule.preloadLayer('travaux');
         }
       }
       

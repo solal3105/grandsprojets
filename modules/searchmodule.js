@@ -5,7 +5,7 @@ window.SearchModule = (() => {
   const API = 'https://api-adresse.data.gouv.fr/search/';
   const DEBOUNCE = 260;           // ms before firing a request
   const RESULT_LIMIT = 6;
-  const FLY_DURATION = 1.6;       // seconds (Leaflet-style, converted in compat layer)
+  const FLY_DURATION = 1.6;       // seconds (converted in compat layer)
   const TYPE_ICONS = {
     housenumber: 'fa-location-dot',
     street:      'fa-road',

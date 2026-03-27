@@ -1036,3 +1036,191 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   transform: scale(1.01);
 }
+
+/* ---------------------------------------------------------------------------
+   Detail Hero — variante travaux (icône + gradient, sans image)
+--------------------------------------------------------------------------- */
+.detail-hero--travaux {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--travaux-color, var(--color-warning)) 18%, var(--surface-elevated)) 0%,
+    var(--surface-elevated) 100%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.detail-hero--travaux .detail-hero__grad {
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--travaux-color, var(--color-warning)) 12%, transparent) 0%,
+    transparent 60%
+  );
+}
+
+.detail-hero__travaux-icon {
+  font-size: 3.5rem;
+  color: var(--travaux-color, var(--color-warning));
+  opacity: 0.82;
+  filter: drop-shadow(0 4px 20px color-mix(in srgb, var(--travaux-color, var(--color-warning)) 38%, transparent));
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+
+.detail-hero--travaux:hover .detail-hero__travaux-icon {
+  transform: scale(1.08);
+}
+
+/* ---------------------------------------------------------------------------
+   Travaux detail — timeline barre de progression
+--------------------------------------------------------------------------- */
+.tw-detail-timeline {
+  margin: 16px 0 8px;
+  padding: 14px 16px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.tw-detail-timeline__bar {
+  position: relative;
+  height: 10px;
+  background: rgba(0,0,0,0.08);
+  border-radius: 999px;
+  /* pas de overflow:hidden pour laisser dépasser le marqueur aujourd'hui */
+  margin-bottom: 20px;
+}
+
+.tw-detail-timeline__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  transition: width 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+}
+
+.tw-detail-timeline__today {
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 2.5px solid #fff;
+  box-shadow: 0 0 0 3px currentColor, 0 2px 8px rgba(0,0,0,0.22);
+  transition: left 0.4s ease;
+  z-index: 1;
+}
+
+.tw-detail-timeline__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  gap: 6px;
+}
+
+.tw-detail-timeline__pct {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: var(--surface-base);
+  border: 1px solid var(--border-light);
+  border-radius: 999px;
+  padding: 1px 10px;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+   Travaux detail — adresses
+--------------------------------------------------------------------------- */
+.tw-detail-addresses {
+  margin-top: 14px;
+}
+
+.tw-detail-addresses__label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.tw-detail-addresses__label i {
+  color: var(--color-warning);
+}
+
+.tw-detail-addresses__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.tw-detail-addresses__list.collapsed li:nth-child(n+6) {
+  display: none;
+}
+
+/* ── CTA validation prominent (admin detail, pending items) ────────────── */
+.tw-detail-approve-cta {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
+}
+
+.tw-detail-approve-cta .btn-primary {
+  --_bg: var(--success);
+  --_edge: color-mix(in srgb, var(--success) 55%, black);
+  --_glow: color-mix(in srgb, var(--success) 20%, transparent);
+}
+
+/* ---------------------------------------------------------------------------
+   Travaux detail — boutons admin
+--------------------------------------------------------------------------- */
+.tw-detail-admin {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
+}
+
+.tw-detail-approve-cta + .tw-detail-admin {
+  padding-top: 0;
+  border-top: none;
+}
+
+.tw-detail-admin .btn-primary,
+.tw-detail-admin .btn-secondary,
+.tw-detail-admin .btn-danger {
+  flex: 1;
+  justify-content: center;
+}
+
+/* ── Bandeau "en attente de validation" dans la fiche chantier ─────────── */
+.tw-detail-pending-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  background: color-mix(in srgb, var(--color-info) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-info) 22%, transparent);
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--color-info);
+}
+.tw-detail-pending-banner i { flex-shrink: 0; }

@@ -13,7 +13,7 @@
    * @param {Object} feature - Feature GeoJSON
    * @param {string} layerName - Nom de la couche
    * @param {Object} baseStyle - Style de base depuis la configuration
-   * @returns {Object} Style Leaflet à appliquer
+   * @returns {Object} Style à appliquer
    */
   function applyCustomLayerStyle(feature, layerName, baseStyle) {
     const p = feature?.properties || null;

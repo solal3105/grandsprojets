@@ -2360,25 +2360,30 @@
     // ============================================================================
 
     /**
-     * Récupère les chantiers travaux pour une ville (approved=true uniquement en public)
-     * @param {string|null} city - Code ville ou null pour Global
-     * @returns {Promise<Array>} Liste des chantiers
+     * Récupère les chantiers travaux pour une ville.
+     * - Admins : tous les chantiers (approuvés ou non)
+     * - Public : approved=true uniquement (RLS l'applique aussi)
+     * @param {string|null} city - Code ville
+     * @param {Object} opts - { adminMode: bool } force la vue admin
+     * @returns {Promise<Array>}
      */
-    async fetchCityTravaux(city) {
+    async fetchCityTravaux(city, { adminMode = false } = {}) {
       try {
         const sanitized = sanitizeCity(city);
-        
-        // Si pas de ville spécifique, retourner vide (plus de mode Global)
-        if (!sanitized) {
-          return [];
-        }
+        if (!sanitized) return [];
 
-        const { data, error } = await supabaseClient
+        let query = supabaseClient
           .from('city_travaux')
           .select('*')
           .eq('ville', sanitized)
-          .eq('approved', true)
           .order('created_at', { ascending: false });
+
+        // En mode non-admin, filtrer côté client aussi (la RLS le fait déjà mais évite la pollution)
+        if (!adminMode) {
+          query = query.eq('approved', true);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
           console.error('[supabaseService] fetchCityTravaux error:', error);
@@ -2388,6 +2393,71 @@
         return data || [];
       } catch (e) {
         console.error('[supabaseService] fetchCityTravaux exception:', e);
+        return [];
+      }
+    },
+
+    /**
+     * Récupère les propositions en attente de validation du contributeur connecté.
+     * @param {string} city - Code ville
+     * @returns {Promise<Array>}
+     */
+    async fetchMyTravauxProposals(city) {
+      try {
+        const sanitized = sanitizeCity(city);
+        if (!sanitized) return [];
+
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session?.user) return [];
+
+        const { data, error } = await supabaseClient
+          .from('city_travaux')
+          .select('*')
+          .eq('ville', sanitized)
+          .eq('created_by', session.user.id)
+          .eq('approved', false)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('[supabaseService] fetchMyTravauxProposals error:', error);
+          return [];
+        }
+
+        return data || [];
+      } catch (e) {
+        console.error('[supabaseService] fetchMyTravauxProposals exception:', e);
+        return [];
+      }
+    },
+
+    /**
+     * Récupère toutes les propositions du contributeur connecté (en attente + validées).
+     * @param {string} city - Code ville
+     * @returns {Promise<Array>}
+     */
+    async fetchMyTravaux(city) {
+      try {
+        const sanitized = sanitizeCity(city);
+        if (!sanitized) return [];
+
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session?.user) return [];
+
+        const { data, error } = await supabaseClient
+          .from('city_travaux')
+          .select('*')
+          .eq('ville', sanitized)
+          .eq('created_by', session.user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('[supabaseService] fetchMyTravaux error:', error);
+          return [];
+        }
+
+        return data || [];
+      } catch (e) {
+        console.error('[supabaseService] fetchMyTravaux exception:', e);
         return [];
       }
     },
@@ -2405,56 +2475,61 @@
           return { type: 'FeatureCollection', features: [] };
         }
 
-        // Charger tous les GeoJSON en parallèle
-        const geojsonPromises = chantiers.map(async (chantier) => {
-          try {
-            const response = await fetch(chantier.geojson_url);
-            if (!response.ok) {
-              console.warn(`[supabaseService] Impossible de charger ${chantier.geojson_url}`);
+        // Charger les GeoJSON par lots de 5 pour éviter la saturation réseau
+        const BATCH_SIZE = 5;
+        const allFeatures = [];
+
+        for (let i = 0; i < chantiers.length; i += BATCH_SIZE) {
+          const batch = chantiers.slice(i, i + BATCH_SIZE);
+          const results = await Promise.all(batch.map(async (chantier) => {
+            try {
+              const response = await fetch(chantier.geojson_url);
+              if (!response.ok) {
+                console.warn(`[supabaseService] Impossible de charger ${chantier.geojson_url}`);
+                return null;
+              }
+              const geojson = await response.json();
+            
+              // Normaliser les propriétés de chaque feature
+              if (geojson.features && Array.isArray(geojson.features)) {
+                geojson.features.forEach(feature => {
+                  if (!feature.properties) feature.properties = {};
+                
+                  // Injecter les propriétés du chantier
+                  feature.properties.chantier_id = chantier.id;
+                  feature.properties.project_name = chantier.name;
+                  feature.properties.nature_travaux = chantier.nature || '';
+                  feature.properties.etat = chantier.etat || '';
+                  feature.properties.date_debut = chantier.date_debut || '';
+                  feature.properties.date_fin = chantier.date_fin || '';
+                  feature.properties.last_update = chantier.last_update || '';
+                  feature.properties.description = chantier.description || '';
+                  feature.properties.icon = chantier.icon || 'fa-solid fa-helmet-safety';
+                  feature.properties.approved = chantier.approved;
+                  feature.properties.created_by = chantier.created_by;
+                
+                  const loc = chantier.localisation || '';
+                  feature.properties.commune = loc;
+                  feature.properties.adresse = loc;
+                  feature.properties.code_insee = '';
+                });
+              }
+            
+              return geojson;
+            } catch (err) {
+              console.warn(`[supabaseService] Erreur chargement ${chantier.name}:`, err);
               return null;
             }
-            const geojson = await response.json();
-            
-            // Normaliser les propriétés de chaque feature
-            if (geojson.features && Array.isArray(geojson.features)) {
-              geojson.features.forEach(feature => {
-                if (!feature.properties) feature.properties = {};
-                
-                // Injecter les propriétés du chantier
-                feature.properties.chantier_id = chantier.id; // ID pour édition/suppression
-                feature.properties.project_name = chantier.name;
-                feature.properties.nature_travaux = chantier.nature || '';
-                feature.properties.etat = chantier.etat || '';
-                feature.properties.date_debut = chantier.date_debut || '';
-                feature.properties.date_fin = chantier.date_fin || '';
-                feature.properties.last_update = chantier.last_update || '';
-                feature.properties.description = chantier.description || '';
-                feature.properties.icon = chantier.icon || 'fa-solid fa-helmet-safety';
-                
-                // Mapper localisation → commune/adresse (à affiner)
-                const loc = chantier.localisation || '';
-                feature.properties.commune = loc;
-                feature.properties.adresse = loc;
-                feature.properties.code_insee = '';
-              });
-            }
-            
-            return geojson;
-          } catch (err) {
-            console.warn(`[supabaseService] Erreur chargement ${chantier.name}:`, err);
-            return null;
-          }
-        });
+          }));
 
-        const geojsons = (await Promise.all(geojsonPromises)).filter(Boolean);
-        
-        // Agréger toutes les features
-        const allFeatures = geojsons.reduce((acc, geojson) => {
-          if (geojson.features && Array.isArray(geojson.features)) {
-            return [...acc, ...geojson.features];
+          for (const geojson of results) {
+            if (geojson?.features) {
+              for (let j = 0; j < geojson.features.length; j++) {
+                allFeatures.push(geojson.features[j]);
+              }
+            }
           }
-          return acc;
-        }, []);
+        }
 
         return {
           type: 'FeatureCollection',

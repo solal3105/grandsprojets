@@ -1,12 +1,12 @@
 window.MapModule = (() => {
-  // Initialize the map view using Leaflet compatibility layer (backed by MapLibre GL)
+  // Initialize the map view (MapLibre GL via compat layer)
   const map = L.map('map', { attributionControl: false }).setView([45.75, 4.85], 12);
   let baseLayer;
   
   
   /**
    * Initialise le fond de carte après chargement de window.basemaps
-   * Supporte raster (L.tileLayer) et vectoriel (L.vectorBasemap) via L.createBasemapLayer
+   * Supporte raster (L.tileLayer) et vectoriel via L.createBasemapLayer
    */
   function initBaseLayer() {
     const bmList = window.basemaps || [];

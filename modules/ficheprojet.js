@@ -227,11 +227,9 @@ const createContributionMarkerIcon = window.createContributionMarkerIcon;
 function getBasemapConfig(theme) {
   const tm = window.ThemeManager?.findBasemapForTheme?.(theme);
   if (tm) return tm;
-  // Fallback raster basemaps
-  if (theme === 'dark') {
-    return { kind: 'raster', url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', attribution: '© CartoDB' };
-  }
-  return { kind: 'raster', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OpenStreetMap contributors' };
+  // Fallback: first available basemap matching theme, then any basemap
+  const bmList = window.basemaps || [];
+  return bmList.find(b => b.theme === theme && b.active !== false) || bmList[0] || { kind: 'raster', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OpenStreetMap contributors' };
 }
 
 function createGeoJSONLayer(map, geojsonData, category) {

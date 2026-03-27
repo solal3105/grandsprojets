@@ -8,7 +8,7 @@ const TravauxEditorModule = (() => {
 
   const MSG = {
     AUTH_REQUIRED: "Vous devez être connecté et admin de la ville.",
-    DRAW_MISSING:  "Leaflet.Draw n'est pas chargé.",
+    DRAW_MISSING:  "Le module de dessin n'est pas chargé.",
     NOT_FOUND:     'Chantier introuvable',
     LOAD_ERROR:    'Erreur lors du chargement du chantier',
     NAME_REQUIRED: 'Le nom du chantier est obligatoire.',
@@ -40,7 +40,16 @@ const TravauxEditorModule = (() => {
   let currentFeatures = [];
   let isDrawingMode = false;
 
+  // Geometry edit state
+  let _editChantier = null;       // chantier being edited (full DB row)
+  let _geometryModified = false;  // true if geometry was changed during edit
+  let _pendingFormData = null;    // form field values saved before geo edit
+  let _geoEditorActive = false;   // floating geo-editor panel is open
+  let _deleteMode = false;        // click-to-delete is active
+
   // ── Auth ───────────────────────────────────────────────────────────────────
+
+  // Retourne 'admin' | 'contributor' | false
   async function _checkAuth() {
     try {
       const { data: { session } } = await window.supabaseService?.getClient()?.auth.getSession();
@@ -48,7 +57,9 @@ const TravauxEditorModule = (() => {
       const role   = window.__CONTRIB_ROLE   || '';
       const villes = window.__CONTRIB_VILLES || [];
       const city   = window.getActiveCity?.() ?? window.activeCity;
-      return role === 'admin' && (villes.includes('global') || villes.includes(city));
+      const hasCity = villes.includes('global') || villes.includes(city);
+      if (!hasCity) return false;
+      return role === 'admin' ? 'admin' : 'contributor';
     } catch {
       return false;
     }
@@ -57,8 +68,6 @@ const TravauxEditorModule = (() => {
   // ── Drawing helpers ────────────────────────────────────────────────────────
   function _initDraw() {
     if (!window.L?.Control?.Draw) return false;
-    try { delete L.Icon.Default.prototype._getIconUrl; } catch {}
-    L.Icon.Default.mergeOptions({ iconRetinaUrl: '', iconUrl: '', shadowUrl: '' });
     if (!drawnItems) {
       drawnItems = new L.FeatureGroup();
       window.MapModule?.map.addLayer(drawnItems);
@@ -136,13 +145,21 @@ const TravauxEditorModule = (() => {
   function _syncDrawUI() {
     const btn  = document.getElementById('travaux-finish-drawing');
     const help = document.querySelector('.travaux-drawing-help span');
-    if (!btn) return;
-    btn.disabled = currentFeatures.length === 0;
-    if (help) {
-      help.innerHTML = currentFeatures.length > 0
-        ? `<strong>${currentFeatures.length}</strong> forme(s). Cliquez sur "Continuer".`
-        : 'Dessinez sur la carte puis cliquez sur "Continuer".';
+    if (btn) {
+      btn.disabled = currentFeatures.length === 0;
+      if (help) {
+        help.innerHTML = currentFeatures.length > 0
+          ? `<strong>${currentFeatures.length}</strong> forme(s). Cliquez sur "Continuer".`
+          : 'Dessinez sur la carte puis cliquez sur "Continuer".';
+      }
     }
+    // Also update floating geo editor
+    const geoCount = document.getElementById('tw-geo-count');
+    if (geoCount) {
+      geoCount.innerHTML = `<strong>${currentFeatures.length}</strong> forme(s) sur la carte`;
+    }
+    const geoSave = document.getElementById('tw-geo-save');
+    if (geoSave) geoSave.disabled = currentFeatures.length === 0;
   }
 
   function _showDrawPanel() {
@@ -226,13 +243,30 @@ const TravauxEditorModule = (() => {
     const sel  = (val) => chantier?.etat === val ? 'selected' : '';
     const iconVal = v('icon') || DEFAULT_ICON;
 
-    const editAlert = edit
-      ? `<div class="form-alert form-alert--warning">
-          <i class="fa-solid fa-triangle-exclamation"></i>
-          <div><strong>Modification du tracé impossible</strong>
-            <p>Pour modifier le tracé, supprimez ce chantier et recréez-en un.</p></div>
-        </div>`
-      : '';
+    // ── Geometry status section ──
+    let geoSection = '';
+    if (edit) {
+      const geoModLabel = _geometryModified
+        ? '<i class="fa-solid fa-check-circle"></i> Tracé modifié'
+        : '<i class="fa-solid fa-map-location-dot"></i> Tracé existant';
+      const geoModClass = _geometryModified ? ' form-geo-preview--modified' : '';
+      geoSection = `
+        <div class="form-section form-section--geo">
+          <h3 class="form-section-title"><i class="fa-solid fa-map"></i> Tracé du chantier</h3>
+          <div class="form-geo-preview${geoModClass}" id="tw-geo-preview">${geoModLabel}</div>
+          <button type="button" class="btn-secondary" id="tw-edit-geo">
+            <i class="fa-solid fa-pen-ruler"></i> ${_geometryModified ? 'Modifier à nouveau' : 'Modifier le tracé'}
+          </button>
+        </div>`;
+    } else if (currentFeatures.length) {
+      geoSection = `
+        <div class="form-section form-section--geo">
+          <h3 class="form-section-title"><i class="fa-solid fa-map"></i> Tracé du chantier</h3>
+          <div class="form-geo-preview form-geo-preview--new">
+            <i class="fa-solid fa-check-circle"></i> ${currentFeatures.length} forme(s) dessinée(s)
+          </div>
+        </div>`;
+    }
 
     return `
       <div class="gp-modal gp-modal--large" role="document">
@@ -246,7 +280,7 @@ const TravauxEditorModule = (() => {
           <button class="btn-secondary gp-modal-close" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
         </header>
         <div class="gp-modal-body">
-          ${editAlert}
+          ${geoSection}
           <form id="tw-form" class="travaux-form">
 
             <div class="form-section">
@@ -385,12 +419,44 @@ const TravauxEditorModule = (() => {
     overlay.querySelector('.gp-modal-close').addEventListener('click', dismiss);
     overlay.querySelector('#tw-form').addEventListener('submit', e => _handleSubmit(e, chantier?.id ?? null));
 
+    // ── Bind: "Modifier le tracé" ──
+    const editGeoBtn = overlay.querySelector('#tw-edit-geo');
+    if (editGeoBtn) {
+      editGeoBtn.addEventListener('click', () => _enterGeoEditMode());
+    }
+
+    // ── Adapt UX for contributors (non-admin) ──
+    if (!window.__CONTRIB_IS_ADMIN && !edit) {
+      const title = overlay.querySelector('.gp-modal-title');
+      if (title) title.textContent = 'Proposer un chantier';
+      const icon = overlay.querySelector('.modal-icon i');
+      if (icon) icon.className = 'fa-solid fa-paper-plane';
+      const saveSpan = overlay.querySelector('#tw-save span');
+      if (saveSpan) saveSpan.textContent = 'Soumettre la proposition';
+      const actions = overlay.querySelector('.form-actions');
+      if (actions) {
+        actions.insertAdjacentHTML('beforebegin',
+          `<div class="np-contrib-info" style="margin-top:0">
+            <i class="fa-solid fa-circle-info"></i>
+            <span>Votre proposition sera examinée par un administrateur avant publication.</span>
+          </div>`);
+      }
+    }
+
     _initIconSelector(overlay, chantier?.icon ?? DEFAULT_ICON);
 
     window.ModalHelper?.open('travaux-form-overlay', {
       dismissible: false,
       onClose: () => overlay.querySelector('#tw-form')?.reset(),
     });
+
+    // ── Restore form data if returning from geo editor ──
+    if (_pendingFormData) {
+      requestAnimationFrame(() => {
+        _restoreFormData(_pendingFormData);
+        _pendingFormData = null;
+      });
+    }
   }
 
   function _closeFormModal() {
@@ -439,6 +505,16 @@ const TravauxEditorModule = (() => {
       _showStatus('Enregistrement en cours…', 'info');
 
       if (isEdit) {
+        // Upload new geometry if modified
+        if (_geometryModified && currentFeatures.length) {
+          const city = window.getActiveCity?.() ?? window.activeCity;
+          if (city) {
+            const geojsonUrl = await window.supabaseService.uploadTravauxGeoJSON(city, {
+              type: 'FeatureCollection', features: currentFeatures,
+            });
+            data.geojson_url = geojsonUrl;
+          }
+        }
         await window.supabaseService.updateCityTravaux(chantierId, data);
       } else {
         const city = window.getActiveCity?.() ?? window.activeCity;
@@ -446,16 +522,23 @@ const TravauxEditorModule = (() => {
         const geojsonUrl = await window.supabaseService.uploadTravauxGeoJSON(city, {
           type: 'FeatureCollection', features: currentFeatures,
         });
+        const isAdmin = window.__CONTRIB_IS_ADMIN;
         await window.supabaseService.createCityTravaux({
-          ville: city, geojson_url: geojsonUrl, approved: true, ...data,
+          ville: city, geojson_url: geojsonUrl, approved: isAdmin, ...data,
         });
-        drawnItems.clearLayers();
+        drawnItems?.clearLayers();
         currentFeatures = [];
       }
 
       _closeFormModal();
+      _resetGeoState();
       await window.DataModule?.reloadLayer?.('travaux');
-      window.ContribUtils?.showToast(isEdit ? MSG.UPDATE_OK : MSG.SAVE_OK, 'success');
+      const isAdmin = window.__CONTRIB_IS_ADMIN;
+      const okMsg = isEdit
+        ? (_geometryModified ? 'Chantier et tracé modifiés avec succès' : MSG.UPDATE_OK)
+        : (isAdmin ? MSG.SAVE_OK : 'Proposition envoyée — en attente de validation');
+      window.ContribUtils?.showToast(okMsg, 'success');
+      window.dispatchEvent(new CustomEvent('travaux:saved'));
 
     } catch (err) {
       console.error('[TravauxEditor]', err);
@@ -465,12 +548,288 @@ const TravauxEditorModule = (() => {
     }
   }
 
+  // ── Geometry edit state helpers ──────────────────────────────────────────
+
+  function _resetGeoState() {
+    _editChantier = null;
+    _geometryModified = false;
+    _pendingFormData = null;
+    _geoEditorActive = false;
+    _deleteMode = false;
+  }
+
+  /** Serialize form fields before geo edit switch */
+  function _captureFormData() {
+    const form = document.getElementById('tw-form');
+    if (!form) return null;
+    const data = {};
+    ['tw-name', 'tw-nature', 'tw-etat', 'tw-debut', 'tw-fin', 'tw-loc', 'tw-desc', 'tw-icon'].forEach(id => {
+      const el = form.querySelector(`#${id}`);
+      if (el) data[id] = el.value;
+    });
+    return data;
+  }
+
+  /** Restore form fields after returning from geo edit */
+  function _restoreFormData(data) {
+    if (!data) return;
+    const form = document.getElementById('tw-form');
+    if (!form) return;
+    Object.entries(data).forEach(([id, val]) => {
+      const el = form.querySelector(`#${id}`);
+      if (el) el.value = val;
+    });
+    // Re-sync icon preview
+    const iconInput = form.querySelector('#tw-icon');
+    if (iconInput) iconInput.dispatchEvent(new Event('change'));
+  }
+
+  /** Enter geometry edit mode: load existing GeoJSON, show floating panel */
+  async function _enterGeoEditMode() {
+    if (!_editChantier?.geojson_url) return;
+    _pendingFormData = _captureFormData();
+    _closeFormModal();
+
+    if (!_initDraw()) {
+      window.ContribUtils?.showToast(MSG.DRAW_MISSING, 'error');
+      _openFormModal(_editChantier);
+      return;
+    }
+
+    // Clear previous
+    drawnItems.clearLayers();
+    currentFeatures = [];
+
+    try {
+      const resp = await fetch(_editChantier.geojson_url);
+      if (!resp.ok) throw new Error(resp.statusText);
+      const geojson = await resp.json();
+
+      const map = window.MapModule?.map;
+      const features = geojson.type === 'FeatureCollection' ? geojson.features
+        : geojson.type === 'Feature' ? [geojson] : [];
+
+      features.forEach(f => {
+        if (!f?.geometry) return;
+        const type = f.geometry.type;
+
+        if (type === 'Point') {
+          const [lng, lat] = f.geometry.coordinates;
+          const icon = window.createCustomMarkerIcon(null, DEFAULT_ICON, 'var(--color-warning)');
+          const marker = L.marker([lat, lng], { icon, draggable: true });
+          marker.feature = f;
+          drawnItems.addLayer(marker);
+
+          // Wire drag event to update currentFeatures
+          if (marker._mlMarker) {
+            marker._mlMarker.on('dragend', () => {
+              const ll = marker._mlMarker.getLngLat();
+              marker._latlng = { lat: ll.lat, lng: ll.lng };
+              _onDrawEdited();
+            });
+          }
+        } else if (type === 'LineString' || type === 'MultiLineString') {
+          const coords = type === 'LineString' ? f.geometry.coordinates
+            : f.geometry.coordinates[0]; // flatten multi → first ring
+          const latlngs = coords.map(c => L.latLng(c[1], c[0]));
+          const line = L.polyline(latlngs, { color: '#3388ff', weight: 4 });
+          line.feature = f;
+          drawnItems.addLayer(line);
+        } else if (type === 'Polygon' || type === 'MultiPolygon') {
+          const ring = type === 'Polygon' ? f.geometry.coordinates[0]
+            : f.geometry.coordinates[0][0];
+          const latlngs = ring.map(c => L.latLng(c[1], c[0]));
+          const poly = L.polygon(latlngs, { color: '#3388ff' });
+          poly.feature = f;
+          drawnItems.addLayer(poly);
+        }
+      });
+
+      _onDrawEdited(); // sync currentFeatures from loaded layers
+
+      // Fit map to loaded features
+      if (map && drawnItems._layers.length) {
+        const bounds = drawnItems.getBounds();
+        if (bounds && bounds._southWest) map.fitBounds(bounds, { padding: [60, 60] });
+      }
+    } catch (err) {
+      console.error('[TravauxEditor] Failed to load GeoJSON for editing:', err);
+      window.ContribUtils?.showToast('Erreur chargement du tracé', 'error');
+      _openFormModal(_editChantier);
+      return;
+    }
+
+    isDrawingMode = true;
+    _attachDrawEvents();
+    _geoEditorActive = true;
+    _showGeoEditor();
+  }
+
+  /** Create and show floating geo editor panel */
+  function _showGeoEditor() {
+    document.getElementById('tw-geo-editor')?.remove();
+
+    const panel = document.createElement('div');
+    panel.id = 'tw-geo-editor';
+    panel.className = 'tw-geo-editor';
+    panel.innerHTML = `
+      <div class="tw-geo-editor__header">
+        <i class="fa-solid fa-pen-ruler"></i>
+        <span>Modifier le tracé</span>
+      </div>
+
+      <div class="tw-geo-editor__section">
+        <div class="tw-geo-editor__label">Modifier l'existant</div>
+        <div class="tw-geo-editor__tools">
+          <button type="button" class="tw-geo-tool" data-action="delete" title="Supprimer une forme">
+            <i class="fa-solid fa-eraser"></i> Supprimer
+          </button>
+        </div>
+        <p class="tw-geo-editor__hint">
+          <i class="fa-solid fa-circle-info"></i>
+          Les marqueurs sont déplaçables. Les lignes/zones ne peuvent qu'être supprimées puis redessinées.
+        </p>
+      </div>
+
+      <div class="tw-geo-editor__section">
+        <div class="tw-geo-editor__label">Ajouter des formes</div>
+        <div class="tw-geo-editor__tools">
+          <button type="button" class="tw-geo-tool" data-action="polyline" title="Tracer une ligne">
+            <i class="fa-solid fa-route"></i> Ligne
+          </button>
+          <button type="button" class="tw-geo-tool" data-action="polygon" title="Dessiner une zone">
+            <i class="fa-solid fa-draw-polygon"></i> Zone
+          </button>
+          <button type="button" class="tw-geo-tool" data-action="marker" title="Placer un point">
+            <i class="fa-solid fa-map-pin"></i> Point
+          </button>
+        </div>
+      </div>
+
+      <div class="tw-geo-editor__count" id="tw-geo-count">
+        <strong>${currentFeatures.length}</strong> forme(s) sur la carte
+      </div>
+
+      <div class="tw-geo-editor__actions">
+        <button type="button" class="btn-secondary" id="tw-geo-cancel">
+          <i class="fa-solid fa-xmark"></i> Annuler
+        </button>
+        <button type="button" class="btn-primary" id="tw-geo-save" ${currentFeatures.length === 0 ? 'disabled' : ''}>
+          <i class="fa-solid fa-check"></i> Valider le tracé
+        </button>
+      </div>
+    `;
+
+    document.body.appendChild(panel);
+    requestAnimationFrame(() => panel.classList.add('tw-geo-editor--visible'));
+
+    // Bind draw tools
+    panel.querySelectorAll('.tw-geo-tool[data-action]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.action;
+        // Deactivate delete mode when switching to draw
+        if (_deleteMode && action !== 'delete') _disableDeleteMode();
+
+        panel.querySelectorAll('.tw-geo-tool').forEach(b => b.classList.remove('tw-geo-tool--active'));
+
+        if (action === 'delete') {
+          if (_deleteMode) {
+            _disableDeleteMode();
+          } else {
+            btn.classList.add('tw-geo-tool--active');
+            _enableDeleteMode();
+          }
+        } else {
+          _activateTool(action);
+          btn.classList.add('tw-geo-tool--active');
+        }
+      });
+    });
+
+    // Bind cancel / save
+    panel.querySelector('#tw-geo-cancel').addEventListener('click', () => _exitGeoEditMode(false));
+    panel.querySelector('#tw-geo-save').addEventListener('click', () => _exitGeoEditMode(true));
+  }
+
+  /** Exit geo edit mode: collect/discard features, re-open form */
+  function _exitGeoEditMode(save) {
+    if (_deleteMode) _disableDeleteMode();
+
+    if (save) {
+      // Collect final features from drawnItems
+      currentFeatures = [];
+      drawnItems.eachLayer(l => currentFeatures.push(l.toGeoJSON()));
+      _geometryModified = true;
+    } else {
+      // Discard changes — reset to original state
+      currentFeatures = [];
+    }
+
+    // Cleanup drawing mode
+    isDrawingMode = false;
+    _detachDrawEvents();
+    drawnItems?.clearLayers();
+
+    // Remove floating panel
+    const panel = document.getElementById('tw-geo-editor');
+    if (panel) {
+      panel.classList.remove('tw-geo-editor--visible');
+      setTimeout(() => panel.remove(), 200);
+    }
+
+    _geoEditorActive = false;
+
+    // Re-open form (will restore _pendingFormData)
+    _openFormModal(_editChantier);
+  }
+
+  /** Enable click-to-delete mode on drawn layers */
+  function _enableDeleteMode() {
+    _deleteMode = true;
+    document.body.classList.add('tw-geo-delete-cursor');
+
+    drawnItems.eachLayer(layer => {
+      const handler = () => {
+        drawnItems.removeLayer(layer);
+        _onDrawEdited();
+      };
+      layer._deleteHandler = handler;
+
+      if (layer instanceof L.Marker) {
+        // Marker: click on DOM element
+        const el = layer.getElement?.();
+        if (el) el.addEventListener('click', handler, { once: true });
+      } else {
+        // PathLayer: use click event
+        layer.on('click', handler);
+      }
+    });
+  }
+
+  /** Disable click-to-delete mode */
+  function _disableDeleteMode() {
+    _deleteMode = false;
+    document.body.classList.remove('tw-geo-delete-cursor');
+
+    drawnItems.eachLayer(layer => {
+      if (!layer._deleteHandler) return;
+      if (layer instanceof L.Marker) {
+        const el = layer.getElement?.();
+        if (el) el.removeEventListener('click', layer._deleteHandler);
+      } else {
+        layer.off('click', layer._deleteHandler);
+      }
+      delete layer._deleteHandler;
+    });
+  }
+
   // ── Public API ─────────────────────────────────────────────────────────────
   /**
    * Ouvre l'éditeur en mode création (avec dessin sur carte).
    */
   async function openEditor() {
-    if (!await _checkAuth()) {
+    const auth = await _checkAuth();
+    if (!auth) {
       window.ContribUtils?.showToast(MSG.AUTH_REQUIRED, 'error');
       return;
     }
@@ -490,12 +849,14 @@ const TravauxEditorModule = (() => {
       const chantier = await window.supabaseService.getCityTravauxById(chantierId);
       if (!chantier) { window.ContribUtils?.showToast(MSG.NOT_FOUND, 'error'); return; }
       if (!await _checkAuth()) { window.ContribUtils?.showToast(MSG.AUTH_REQUIRED, 'error'); return; }
+      _editChantier = chantier;
+      _geometryModified = false;
       _openFormModal(chantier);
     } catch {
       window.ContribUtils?.showToast(MSG.LOAD_ERROR, 'error');
     }
   }
 
-  window.TravauxEditorModule = { openEditor, openEditorForEdit };
+  window.TravauxEditorModule = { openEditor, openEditorForEdit, stopDrawing: _stopDrawing, isDrawing: () => isDrawingMode };
   return window.TravauxEditorModule;
 })();

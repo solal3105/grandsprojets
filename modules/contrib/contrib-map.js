@@ -26,106 +26,9 @@
     markers: [] // Markers temporaires pour les points
   };
 
-  // Constants for marker styles (avoid duplication)
-  const MARKER_STYLES = {
-    temp: {
-      className: 'temp-point-marker',
-      html: null, // Will be set dynamically
-      iconSize: [22, 22],
-      iconAnchor: [11, 11]
-    },
-    final: {
-      className: 'final-point-marker',
-      html: null, // Will be set dynamically
-      iconSize: [28, 28],
-      iconAnchor: [14, 14]
-    },
-    contrib: {
-      className: 'contrib-point-marker',
-      html: null, // Will be set dynamically
-      iconSize: [28, 28],
-      iconAnchor: [14, 14],
-      popupAnchor: [0, -28]
-    },
-    default: {
-      iconUrl: '',
-      iconRetinaUrl: '',
-      shadowUrl: '',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41]
-    }
-  };
-
-  // ============================================================================
-  // UTILITIES
-  // ============================================================================
-
+  // Shared marker/style helpers (defined in datamodule.js, exposed on window)
   const getCategoryStyle = win.getCategoryStyle;
-
   const createContributionMarkerIcon = win.createContributionMarkerIcon;
-
-  /**
-   * Génère le HTML pour un marker selon le style et la couleur
-   * @param {string} color - Couleur du marker
-   * @param {boolean} isFinal - Si le marker est finalisé (avec animation)
-   * @returns {string} HTML du marker
-   */
-  function generateMarkerHTML(color, isFinal = false) {
-    const animation = isFinal ? 'animation: point-pulse 2s ease-in-out infinite;' : '';
-    return `<div style="background: ${color}; width: ${isFinal ? '20px' : '16px'}; height: ${isFinal ? '20px' : '16px'}; border-radius: 50%; border: ${isFinal ? '4px' : '3px'} solid white; box-shadow: ${isFinal ? '0 3px 8px rgba(0,0,0,0.4)' : '0 2px 6px rgba(0,0,0,0.3)'}; ${animation}"></div>`;
-  }
-
-  /**
-   * Crée une icône de marker selon le type demandé
-   * @param {string} type - 'temp' | 'final' | 'contrib' | 'default'
-   * @returns {L.DivIcon|L.Icon} Icône personnalisée
-   */
-  function createMarkerIcon(type = 'temp') {
-    const style = MARKER_STYLES[type];
-    if (!style) {
-      console.warn('[contrib-map] Marker style not found:', type);
-      return null;
-    }
-
-    // Pour le type 'default', utiliser L.icon (style Leaflet classique)
-    if (type === 'default') {
-      return L.icon(style);
-    }
-
-    // Pour les autres types, utiliser L.divIcon avec HTML personnalisé
-    const color = type === 'temp' 
-      ? getComputedStyle(document.documentElement).getPropertyValue('--info').trim()
-      : getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
-
-    const icon = L.divIcon({
-      className: style.className,
-      html: generateMarkerHTML(color, type === 'final'),
-      iconSize: style.iconSize,
-      iconAnchor: style.iconAnchor,
-      popupAnchor: style.popupAnchor
-    });
-
-    return icon;
-  }
-
-  /**
-   * Ajoute l'animation CSS pour les markers finaux si elle n'existe pas
-   */
-  function ensurePointAnimation() {
-    if (!document.getElementById('point-marker-animation')) {
-      const style = document.createElement('style');
-      style.id = 'point-marker-animation';
-      style.textContent = `
-        @keyframes point-pulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.1); opacity: 0.9; }
-        }
-      `;
-      document.head.appendChild(style);
-    }
-  }
 
   // ============================================================================
   // MAP INITIALIZATION
@@ -136,7 +39,7 @@
    * @param {string} containerId - ID du conteneur de la carte
    * @param {HTMLElement} drawPanelEl - Élément du panneau de dessin
    * @param {HTMLElement} cityEl - Élément select de la ville
-   * @returns {Promise<L.Map>} Instance de la carte
+   * @returns {Promise<Object>} Instance de la carte
    */
   async function initDrawMap(containerId, drawPanelEl, cityEl) {
     if (!window.L) {
@@ -144,19 +47,7 @@
       return null;
     }
 
-    // Fix icon paths (compat layer)
-    try {
-      if (L.Icon && L.Icon.Default && L.Icon.Default.prototype._getIconUrl) {
-        delete L.Icon.Default.prototype._getIconUrl;
-      }
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: '',
-        iconUrl: '',
-        shadowUrl: ''
-      });
-    } catch (e) {
-      console.warn('[contrib-map] Icon config error:', e);
-    }
+
 
     // Flag d'initialisation pour éviter les problèmes de concurrence
     if (isInitializing) {
@@ -190,7 +81,7 @@
         return null;
       }
       
-      // Nettoyage complet : recréer le container pour éviter les problèmes Leaflet
+      // Nettoyage complet : recréer le container pour éviter les problèmes de réinitialisation
       const parent = container.parentNode;
       const newContainer = document.createElement('div');
       newContainer.id = containerId;
@@ -308,12 +199,13 @@
     drawBaseLayer = null;
     
     try {
-      if (bm && (bm.kind === 'vector' ? bm.style_url : bm.url)) {
+      if (bm) {
         drawBaseLayer = L.createBasemapLayer(bm).addTo(drawMap);
       } else {
-        const url = bm && bm.url ? bm.url : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-        const attribution = (bm && bm.attribution) || '&copy; OpenStreetMap contributors';
-        drawBaseLayer = L.tileLayer(url, { attribution }).addTo(drawMap);
+        // Dernier recours si aucun basemap configuré
+        drawBaseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(drawMap);
       }
     } catch (e) { 
       console.warn('[contrib-map] setDrawBaseLayer error:', e); 
@@ -726,7 +618,7 @@
 
   /**
    * Récupère l'instance de la carte
-   * @returns {L.Map|null} Instance de la carte
+   * @returns {Object|null} Instance de la carte
    */
   function getDrawMap() {
     return drawMap;

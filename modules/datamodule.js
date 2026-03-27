@@ -6,15 +6,17 @@ const simpleCache = {
 	_hits: 0,
 	_misses: 0,
 	_ttl: 600000, // Durée de vie des entrées : 10 minutes
+	_ttlOverrides: { layer_travaux: 3600000 }, // Travaux: 1 heure (données rarement modifiées)
 
 	// Récupère ou met en cache le résultat d'une fonction asynchrone
 	async get(key, fetchFn) {
 		// Tentative de récupération depuis le cache
 		if (key in this._cache) {
 			const entry = this._cache[key];
+			const ttl = this._ttlOverrides[key] || this._ttl;
 
-			// Gestion d’expiration (TTL)
-			if (entry && Date.now() - entry.timestamp < this._ttl) {
+			// Gestion d'expiration (TTL)
+			if (entry && Date.now() - entry.timestamp < ttl) {
 				this._hits++;
 				return entry.value ?? entry.promise; // value si déjà résolu, sinon promesse en cours
 			}
@@ -134,7 +136,7 @@ window.DataModule = (function() {
 		}
 	}
 
-	// closeHoverTooltip SUPPRIMÉ - legacy Leaflet, non utilisé avec MapLibre GL
+	// closeHoverTooltip SUPPRIMÉ - non utilisé avec MapLibre GL
 
 	const _esc = window.SecurityUtils.escapeHtml;
 
@@ -201,7 +203,8 @@ window.DataModule = (function() {
 						|| { type: 'FeatureCollection', features: Array.isArray(data?.features) ? data.features : [] };
 				const activeCity = (typeof window.getActiveCity === 'function') 
 					? window.getActiveCity() : (window.activeCity || 'metropole-lyon');
-				const config = await window.supabaseService.getTravauxConfig(activeCity);
+				// Use cached config from main.js init to avoid redundant Supabase query
+				const config = window._travauxConfig || await window.supabaseService.getTravauxConfig(activeCity);
 				
 				if (!config) return { type: 'FeatureCollection', features: [] };
 				
@@ -318,7 +321,7 @@ window.DataModule = (function() {
 	 * @param {string} category - Nom de la catégorie (optionnel)
 	 * @param {string} iconOverride - Icône à utiliser (optionnel)
 	 * @param {string} colorOverride - Couleur à utiliser (optionnel)
-	 * @returns {L.DivIcon} Icône personnalisée
+	 * @returns {Object} Icône personnalisée
 	 */
 	function createCustomMarkerIcon(category = null, iconOverride = null, colorOverride = null) {
 		// Récupérer les styles de la catégorie ou utiliser les overrides
@@ -343,7 +346,7 @@ window.DataModule = (function() {
 	/**
 	 * Crée un marker de contribution avec l'icône de sa catégorie
 	 * @param {string} category - Nom de la catégorie
-	 * @returns {L.DivIcon} Icône personnalisée avec l'icône de la catégorie
+	 * @returns {Object} Icône personnalisée avec l'icône de la catégorie
 	 */
 	function createContributionMarkerIcon(category) {
 		return createCustomMarkerIcon(category);
@@ -354,7 +357,7 @@ window.DataModule = (function() {
 	 * Utilisé pour les layers avec icône définie dans la table layers
 	 * @param {string} iconClass - Classe Font Awesome de l'icône
 	 * @param {string} color - Couleur de l'icône (CSS)
-	 * @returns {L.DivIcon} Icône simple
+	 * @returns {Object} Icône simple
 	 */
 	function createSimpleMarkerIcon(iconClass, color = 'var(--primary)') {
 		const finalIcon = window.normalizeIconClass(iconClass, 'fa-map-marker');
@@ -377,7 +380,7 @@ window.DataModule = (function() {
 	function createGeoJsonLayer(layerName, data) {
 		const _t0 = performance.now();
 		
-		// Normaliser les données d'entrée pour éviter les erreurs Leaflet (addData(undefined))
+		// Normaliser les données d'entrée pour éviter les erreurs addData(undefined)
 		let normalized = data;
 		try {
 			if (!normalized || typeof normalized !== 'object') {
@@ -394,6 +397,40 @@ window.DataModule = (function() {
 			normalized = { type: 'FeatureCollection', features: [] };
 		}
 		data = normalized;
+
+		// Pre-compute progress colors for travaux features (avoids per-feature style + SourcePool overhead)
+		if (window.LayerRegistry?.isTravauxLayer?.(layerName) && data.features?.length) {
+			const rc = L._resolveColor || (c => c);
+			const scale = [
+				rc('var(--danger)'), rc('var(--danger)'), rc('var(--danger-hover)'), rc('var(--danger-hover)'), rc('var(--warning)'),
+				rc('var(--warning)'), rc('var(--warning)'), rc('var(--success)'), rc('var(--success)'), rc('var(--success)')
+			];
+			const now = Date.now();
+			for (let i = 0; i < data.features.length; i++) {
+				const p = data.features[i].properties;
+				if (!p) continue;
+				const d = p.date_debut ? new Date(p.date_debut).getTime() : NaN;
+				const e = p.date_fin   ? new Date(p.date_fin).getTime()   : NaN;
+				const tsDebut = !isNaN(d) ? d : 0;
+				const tsFin   = !isNaN(e) ? e : 9999999999999;
+				if (!p._ts_debut) { p._ts_debut = tsDebut; p._ts_fin = tsFin; }
+				const total = tsFin - tsDebut;
+				let idx;
+				if (total > 0) {
+					const pct = Math.max(0, Math.min(100, Math.round(((now - tsDebut) / total) * 100)));
+					idx = Math.round((pct / 100) * 9);
+				} else if (!isNaN(d) || !isNaN(e)) {
+					// Dates exist but equal / reversed — position relative to now
+					idx = tsDebut > now ? 0 : 9;
+				}
+				if (idx !== undefined) {
+					const resolved = scale[idx];
+					// Only store if CSS vars were resolved (otherwise leave unset for next render pass)
+					if (resolved && !resolved.startsWith('var(')) p._color = resolved;
+				}
+			}
+		}
+
 		const criteria = FilterModule.get(layerName);
 
 		// Définir les couches cliquables (catégories dynamiques)
@@ -403,7 +440,7 @@ window.DataModule = (function() {
 		const isClickable = clickableLayers.includes(layerName);
 
 		// Créer un panneau personnalisé pour les couches cliquables
-		// z-index Leaflet: tilePane=200, overlayPane=400, markerPane=600, tooltipPane=650, popupPane=700
+		// z-index: tilePane=200, overlayPane=400, markerPane=600, tooltipPane=650, popupPane=700
 		// On met clickableLayers à 450 pour être au-dessus de l'overlayPane mais EN DESSOUS des markers
 		if (isClickable) {
 			if (!window.clickableLayersPane) {
@@ -421,13 +458,14 @@ window.DataModule = (function() {
 		};
 
 		// Layers with per-feature styling must use SourcePool path (PathLayer objects)
+		// Travaux uses direct path with pre-computed _color (data-driven MapLibre expression)
 		// All others use the direct path (raw GeoJSON → MapLibre source, zero overhead)
-		const needsPerFeatureStyle = window.LayerRegistry?.isTravauxLayer?.(layerName) ||
-			window.LayerRegistry?.isMetroLayer?.(layerName) ||
+		const needsPerFeatureStyle = window.LayerRegistry?.isMetroLayer?.(layerName) ||
 			window.LayerRegistry?.isPluLayer?.(layerName);
 
 		const geojsonLayer = L.geoJSON(null, {
 			_directPath: !needsPerFeatureStyle,
+			_layerName: layerName,
 			pane: isClickable ? 'clickableLayers' : 'overlayPane', // Utiliser le panneau personnalisé pour les couches cliquables
 			filter: feature => {
 				const props = feature?.properties || {};
@@ -569,140 +607,201 @@ window.DataModule = (function() {
 		}
 	}
 
-	// --- Modale travaux (appelée par FeatureInteractions._onTravauxClick) ---
+	// --- Détail chantier (rendu dans #project-detail, même panneau que les projets carte) ---
 	async function openTravauxModal(props) {
 		try {
-			const modalContent = document.getElementById('travaux-modal-content');
-			if (!modalContent) { console.error('[DataModule] travaux-modal-content introuvable'); return; }
+			const panel = document.getElementById('project-detail');
+			if (!panel) return;
 
-			const progressPct = TravauxModule.calcProgress(props.date_debut, props.date_fin);
-			const gradientBg = TravauxModule.calcGradient(progressPct);
-			const debut = TravauxModule.safeDate(props.date_debut);
-			const fin   = TravauxModule.safeDate(props.date_fin);
-			const now = new Date();
-			const dateFmt = (d) => d ? d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
-			const durationDays = (debut && fin && fin > debut) ? Math.max(1, Math.round((fin - debut) / 86400000)) : null;
-			const todayPct = (debut && fin && fin > debut) ? Math.max(0, Math.min(100, ((now - debut) / (fin - debut)) * 100)) : 0;
-			const todayColor = progressPct <= 50
-				? ((progressPct / 50) * 100 < 50 ? 'var(--danger)' : 'var(--warning)')
-				: (((progressPct - 50) / 50) * 100 < 50 ? 'var(--warning)' : 'var(--success)');
-			const commune = props.commune || props.ville || props.COMMUNE || '';
-			const titre = props.project_name || props.name || props.nature_travaux || props.nature || props.nature_chantier || 'Chantier';
-			const etat = props.etat || '—';
-			const etatLow = (etat || '').toLowerCase();
-			const etatClass = etatLow.includes('ouver') ? 'etat--ouvert' : etatLow.includes('prochain') ? 'etat--prochain' : etatLow.includes('termin') ? 'etat--termine' : 'etat--neutre';
-			const adrs = (props.adresse || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
+			// ── Données ──────────────────────────────────────────────────────
+			const titre       = props.project_name || props.name || props.nature_travaux || props.nature || props.nature_chantier || 'Chantier';
+			const etat        = props.etat || '—';
+			const etatLow     = etat.toLowerCase();
+			const etatClass   = etatLow.includes('ouver') ? 'etat--ouvert'
+			                  : etatLow.includes('prochain') ? 'etat--prochain'
+			                  : etatLow.includes('termin') ? 'etat--termine' : 'etat--neutre';
+			const commune     = props.commune || props.ville || props.COMMUNE || '';
 			const chantierIcon = props.icon || 'fa-solid fa-helmet-safety';
+			const description = props.description || '';
+			const adrs        = (props.adresse || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
 
-			const html = `
-			<div class="gp-travaux glass">
-				<div class="gp-hero">
-					<div class="hero-left">
-						<span class="hero-icon"><i class="${_esc(chantierIcon)}"></i></span>
-						<div>
-							<div class="hero-title">${_esc(titre)}</div>
-							<div class="hero-sub">${_esc(commune)}</div>
+			const progressPct  = TravauxModule.calcProgress(props.date_debut, props.date_fin);
+			const gradientBg   = TravauxModule.calcGradient(progressPct);
+			const debut        = TravauxModule.safeDate(props.date_debut);
+			const fin          = TravauxModule.safeDate(props.date_fin);
+			const now          = new Date();
+			const dateFmt      = (d) => d ? d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
+			const durationDays = (debut && fin && fin > debut) ? Math.max(1, Math.round((fin - debut) / 86400000)) : null;
+			const todayPct     = (debut && fin && fin > debut) ? Math.max(0, Math.min(100, ((now - debut) / (fin - debut)) * 100)) : 0;
+			const todayColor   = progressPct <= 50
+			                   ? (progressPct < 25 ? 'var(--danger)' : 'var(--warning)')
+			                   : (progressPct < 75 ? 'var(--warning)' : 'var(--success)');
+
+			// ── Admin check ───────────────────────────────────────────────────
+			const activeCity = (typeof window.getActiveCity === 'function') ? window.getActiveCity() : window.activeCity;
+			const isAdmin = window.__CONTRIB_IS_ADMIN &&
+			                (window.__CONTRIB_VILLES?.includes('global') || window.__CONTRIB_VILLES?.includes(activeCity));
+
+			const isPending = props.approved === false;
+
+			// ── HTML — même structure que showProjectDetail ───────────────────
+			const natures = [props.nature_chantier, props.nature_travaux].filter(Boolean);
+
+			panel.innerHTML = `
+				<div class="detail-hero detail-hero--travaux" style="--travaux-color: var(--color-warning)">
+					<div class="detail-hero__grad"></div>
+					<button id="detail-back-btn" class="detail-back-floating" aria-label="Retour"><i class="fa-solid fa-arrow-left"></i></button>
+					<button id="detail-close-btn" class="detail-close-floating" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+					<div class="detail-hero__travaux-icon"><i class="${_esc(chantierIcon)}"></i></div>
+				</div>
+				<div class="detail-content-wrap">
+					${isPending ? `
+					<div class="tw-detail-pending-banner">
+						<i class="fa-solid fa-clock"></i>
+						<span>En attente de validation par un administrateur</span>
+					</div>` : ''}
+					<div class="detail-title-row">
+						<span class="detail-cat-icon" style="--cat-color: var(--color-warning)"><i class="${_esc(chantierIcon)}"></i></span>
+						<div style="flex:1;min-width:0">
+							<h3 class="detail-title">${_esc(titre)}</h3>
+							${commune ? `<div class="detail-description" style="margin:4px 0 0">${_esc(commune)}</div>` : ''}
+						</div>
+						<span class="etat-pill ${etatClass}" style="flex-shrink:0">${_esc(etat)}</span>
+					</div>
+
+					${natures.length ? `<div class="detail-chips">${natures.map(n => `<span class="detail-chip"><i class="fa-solid fa-hammer"></i>${_esc(n)}</span>`).join('')}</div>` : ''}
+
+					<div class="tw-detail-timeline">
+						<div class="tw-detail-timeline__bar" role="progressbar"
+							aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPct}">
+							<div class="tw-detail-timeline__fill" data-target="${progressPct}"
+								style="width:0%;background:${gradientBg}"></div>
+							<div class="tw-detail-timeline__today" style="left:${todayPct}%;background:${todayColor}"></div>
+						</div>
+						<div class="tw-detail-timeline__meta">
+							<span>${dateFmt(debut)}</span>
+							<span class="tw-detail-timeline__pct">${progressPct}%${durationDays ? ` · ${durationDays} j` : ''}</span>
+							<span>${dateFmt(fin)}</span>
 						</div>
 					</div>
-					<span class="etat-pill ${etatClass}">${_esc(etat)}</span>
-				</div>
-				<div class="gp-bento">
-					<section class="tile tile--etat tile--timeline span-2">
-						<h3>Avancement</h3>
-						<div class="timeline">
-							<div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPct}" aria-label="Avancement des travaux">
-								<div class="fill" data-target="${progressPct}" style="width:0%; background:${gradientBg}; box-shadow: 0 0 10px ${progressPct >= 100 ? 'var(--success-alpha-25)' : 'var(--warning-alpha-25)'}"></div>
-								<div class="today" style="left:${todayPct}%; background:${todayColor}; box-shadow: 0 0 0 3px ${progressPct >= 100 ? 'var(--success-alpha-25)' : 'var(--warning-alpha-25)'}, 0 0 10px ${progressPct >= 100 ? 'var(--success-alpha-4)' : 'var(--warning-alpha-4)'};"></div>
-							</div>
-							<div class="dates"><span>${dateFmt(debut)}</span><span>${dateFmt(fin)}</span></div>
-							<div class="meta"><span>${durationDays ? `${durationDays} jours` : ''}</span><span>${progressPct}%</span></div>
-						</div>
-					</section>
-					<section class="tile">
-						<h3>Natures</h3>
-						<div class="badges">
-							${props.nature_chantier ? `<span class="badge">${_esc(props.nature_chantier)}</span>` : ''}
-							${props.nature_travaux ? `<span class="badge">${_esc(props.nature_travaux)}</span>` : ''}
-						</div>
-					</section>
-					<section class="tile">
-						<h3>Adresses</h3>
-						<ul class="addresses ${adrs.length > 5 ? 'collapsed' : ''}">${adrs.map(a => `<li><span>${_esc(a)}</span></li>`).join('')}</ul>
-						<div class="tile-actions">${adrs.length > 5 ? '<button class="toggle-addresses">Voir plus</button>' : ''}</div>
-					</section>
-				</div>
-			</div>`;
 
-			// Admin check
-			const activeCity = (typeof window.getActiveCity === 'function') ? window.getActiveCity() : window.activeCity;
-			let isAdmin = false;
-			if (activeCity && activeCity !== 'default' && window.supabaseService) {
-				try {
-					const session = await window.supabaseService.getClient()?.auth.getSession();
-					if (session?.data?.session?.user) {
-						const role = window.__CONTRIB_ROLE || '';
-						const villes = window.__CONTRIB_VILLES || [];
-						isAdmin = role === 'admin' && (villes.includes('global') || villes.includes(activeCity));
-					}
-				} catch (_) {}
+					${description ? `<p class="detail-description" style="margin-top:14px">${_esc(description)}</p>` : ''}
+
+					${adrs.length ? `
+					<div class="tw-detail-addresses">
+						<div class="tw-detail-addresses__label"><i class="fa-solid fa-location-dot"></i> Localisation</div>
+						<ul class="tw-detail-addresses__list addresses ${adrs.length > 5 ? 'collapsed' : ''}">
+							${adrs.map(a => `<li>${_esc(a)}</li>`).join('')}
+						</ul>
+						${adrs.length > 5 ? `<button class="toggle-addresses" style="margin-top:6px;font-size:.8rem;background:none;border:none;color:var(--primary);cursor:pointer;padding:2px 0">Voir plus</button>` : ''}
+					</div>` : ''}
+
+					${isAdmin && props.chantier_id ? `
+					${isPending ? `
+					<div class="tw-detail-approve-cta">
+						<button class="btn-primary btn-large" id="tw-detail-approve" style="width:100%">
+							<i class="fa-solid fa-check-circle"></i> Valider et publier
+						</button>
+					</div>` : ''}
+					<div class="tw-detail-admin">
+						<button class="btn-secondary" id="tw-detail-edit"><i class="fa-solid fa-pen-to-square"></i> Modifier</button>
+						<button class="btn-danger"  id="tw-detail-del"><i class="fa-solid fa-trash"></i> Supprimer</button>
+					</div>` : ''}
+				</div>`;
+
+			// ── Panneau ──────────────────────────────────────────────────────
+			panel.style.setProperty('--cat-color', 'var(--color-warning)');
+			panel.style.display = 'block';
+
+			// Collapse NavPanel + reset map padding (identique à showProjectDetail)
+			window.NavPanel?.collapse();
+			try {
+				const mlMap = window.MapModule?.map?._mlMap;
+				if (mlMap?.jumpTo) mlMap.jumpTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 } });
+			} catch (_) {}
+
+			// ── Dismiss helper ────────────────────────────────────────────────
+			const dismiss = () => {
+				panel.style.display = 'none';
+				panel.innerHTML = '';
+				window.FeatureInteractions?.clearSelection?.();
+				if (window.NavPanel?.getState?.()?.level > 0) {
+					window.NavPanel.expand();
+				} else {
+					try {
+						const mlMap = window.MapModule?.map?._mlMap;
+						mlMap?.easeTo?.({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, duration: 300 });
+					} catch (_) {}
+				}
+			};
+
+			panel.querySelector('#detail-back-btn')?.addEventListener('click', dismiss);
+			panel.querySelector('#detail-close-btn')?.addEventListener('click', dismiss);
+
+			// ── Progress animation ────────────────────────────────────────────
+			const fill = panel.querySelector('.tw-detail-timeline__fill');
+			const target = Number(fill?.getAttribute('data-target') || 0);
+			if (fill) requestAnimationFrame(() => { fill.style.width = '0%'; setTimeout(() => { fill.style.width = `${target}%`; }, 40); });
+
+			// ── Addresse toggle ───────────────────────────────────────────────
+			const toggleBtn = panel.querySelector('.toggle-addresses');
+			if (toggleBtn) {
+				const ul = panel.querySelector('.tw-detail-addresses__list');
+				toggleBtn.addEventListener('click', () => {
+					ul?.classList.toggle('collapsed');
+					toggleBtn.textContent = ul?.classList.contains('collapsed') ? 'Voir plus' : 'Voir moins';
+				});
 			}
 
-			modalContent.innerHTML = html;
-
-			window.ModalHelper.open('travaux-overlay', {
-				dismissible: true, lockScroll: true, focusTrap: true,
-				onOpen: () => {
-					const modalEl = modalContent.querySelector('.gp-travaux');
-					if (!modalEl) return;
-					// Progress bar animation
-					const fill = modalEl.querySelector('.timeline .fill');
-					const target = Number(fill?.getAttribute('data-target') || 0);
-					if (fill && !isNaN(target)) {
-						requestAnimationFrame(() => { fill.style.width = '0%'; setTimeout(() => { fill.style.width = `${target}%`; }, 40); });
-					}
-					// Addresses toggle
-					const toggleBtn = modalEl.querySelector('.toggle-addresses');
-					if (toggleBtn) {
-						const ul = modalEl.querySelector('.addresses');
-						toggleBtn.addEventListener('click', () => {
-							ul?.classList.toggle('collapsed');
-							toggleBtn.textContent = toggleBtn.textContent.includes('plus') ? 'Voir moins' : 'Voir plus';
-						});
-					}
-					// Admin actions
-					if (isAdmin && props.chantier_id) {
-						const actions = document.createElement('div');
-						actions.className = 'gp-modal-actions';
-						actions.style.cssText = 'display:flex;gap:12px;margin-top:20px;padding-top:20px;border-top:1px solid var(--border-light)';
-						const editBtn = document.createElement('button');
-						editBtn.className = 'btn-primary';
-						editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Modifier';
-						editBtn.onclick = () => { window.ModalHelper.close('travaux-overlay'); window.TravauxEditorModule?.openEditorForEdit?.(props.chantier_id); };
-						const delBtn = document.createElement('button');
-						delBtn.className = 'btn-danger';
-						delBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Supprimer';
-						delBtn.onclick = async () => {
-							if (!confirm('Supprimer ce chantier ? Action irréversible.')) return;
-							delBtn.disabled = true; delBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Suppression...';
-							try {
-								await window.supabaseService.deleteCityTravaux(props.chantier_id);
-								window.ModalHelper.close('travaux-overlay');
-								window.DataModule?.reloadLayer?.('travaux');
-								window.ContribUtils?.showToast?.('Chantier supprimé', 'success');
-							} catch (err) {
-								console.error('[DataModule] Erreur suppression:', err);
-								window.ContribUtils?.showToast?.('Erreur suppression', 'error');
-								delBtn.disabled = false; delBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Supprimer';
-							}
-						};
-						actions.appendChild(editBtn); actions.appendChild(delBtn);
-						modalEl.appendChild(actions);
-					}
-				},
-				onClose: () => { modalContent.innerHTML = ''; }
+			// ── Admin actions ─────────────────────────────────────────────────
+			panel.querySelector('#tw-detail-edit')?.addEventListener('click', () => {
+				dismiss();
+				window.TravauxEditorModule?.openEditorForEdit?.(props.chantier_id);
 			});
+
+			// ── Admin : valider une proposition ──────────────────────────────
+			const approveBtn = panel.querySelector('#tw-detail-approve');
+			if (approveBtn) {
+				approveBtn.addEventListener('click', async () => {
+					if (!confirm('Valider et publier ce chantier ?')) return;
+					approveBtn.disabled = true;
+					approveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+					try {
+						await window.supabaseService.updateCityTravaux(props.chantier_id, { approved: true });
+						dismiss();
+						window.DataModule?.reloadLayer?.('travaux');
+						window.Toast?.show('Chantier validé et publié', 'success', 3000);
+					} catch (err) {
+						console.error('[DataModule] Erreur validation:', err);
+						window.Toast?.show('Erreur lors de la validation', 'error');
+						approveBtn.disabled = false;
+						approveBtn.innerHTML = '<i class="fa-solid fa-check-circle"></i> Valider';
+					}
+				});
+			}
+
+			const delBtn = panel.querySelector('#tw-detail-del');
+			if (delBtn) {
+				delBtn.addEventListener('click', async () => {
+					if (!confirm('Supprimer ce chantier ? Action irréversible.')) return;
+					delBtn.disabled = true;
+					delBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Suppression…';
+					try {
+						await window.supabaseService.deleteCityTravaux(props.chantier_id);
+						dismiss();
+						window.DataModule?.reloadLayer?.('travaux');
+						window.Toast?.show('Chantier supprimé', 'success', 2600);
+					} catch (err) {
+						console.error('[DataModule] Erreur suppression:', err);
+						window.Toast?.show('Erreur lors de la suppression', 'error');
+						delBtn.disabled = false;
+						delBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Supprimer';
+					}
+				});
+			}
+
 		} catch (e) {
-			console.error('[DataModule] Erreur ouverture modale travaux:', e);
+			console.error('[DataModule] Erreur ouverture détail chantier:', e);
 		}
 	}
 

@@ -980,8 +980,581 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   LEVEL TRANSITION — Smooth slide between L2 and L3
+   TRAVAUX — ADMINISTRATION (admin panel in L3)
    ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── L2 pending badge (on "Administrer" button) ────────────────────────── */
+.np-l2-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: middle;
+  animation: np-badge-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes np-badge-pop {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ── Tabs ──────────────────────────────────────────────────────────────── */
+.np-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+}
+
+.np-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.25s ease;
+}
+
+.np-tab:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+
+.np-tab--active {
+  background: var(--surface-base);
+  color: var(--text-primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06), 0 0 0 1px var(--border-light);
+}
+
+.np-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-tertiary) 12%, transparent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.np-tab--active .np-tab-count {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary);
+}
+
+.np-tab-count--warn {
+  background: color-mix(in srgb, var(--color-danger) 14%, transparent) !important;
+  color: var(--color-danger) !important;
+}
+
+.np-tab-count--ok {
+  background: color-mix(in srgb, var(--success) 14%, transparent) !important;
+  color: var(--success) !important;
+}
+
+/* ── Onboarding (first-time contributor) ───────────────────────────────── */
+.np-onboarding {
+  text-align: center;
+  padding: 32px 20px 28px;
+  background:
+    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 70%),
+    var(--surface-overlay);
+  border: 1px solid var(--border-light);
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.np-onboarding-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 75%, black));
+  color: #fff;
+  font-size: 1.2rem;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+.np-onboarding-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+
+.np-onboarding-desc {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  margin: 0 0 20px;
+}
+
+.np-onboarding-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.np-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--surface-base);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+}
+
+.np-step-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 75%, black));
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.np-step-text {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+.np-step-text strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ── Pending item accent ───────────────────────────────────────────────── */
+.np-admin-item--pending {
+  border-left: 3px solid color-mix(in srgb, var(--color-info) 50%, transparent);
+}
+
+.np-admin {
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── Hero + Add CTA ────────────────────────────────────────────────────── */
+
+.np-admin-hero {
+  text-align: center;
+  padding: 28px 20px 24px;
+  background:
+    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 70%),
+    linear-gradient(135deg, var(--primary-alpha-06) 0%, var(--primary-alpha-12) 100%);
+  border-radius: 20px;
+  border: 1px solid var(--primary-alpha-10);
+  position: relative;
+  overflow: hidden;
+}
+
+.np-admin-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.08) 50%, transparent 60%);
+  pointer-events: none;
+}
+
+.np-admin-hero-count {
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  position: relative;
+}
+
+.np-admin-hero-label {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-top: 6px;
+  font-weight: 500;
+  position: relative;
+}
+
+.np-admin-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 10px 22px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 80%, black));
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  position: relative;
+  will-change: transform;
+  transition:
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow:
+    0 4px 16px color-mix(in srgb, var(--primary) 28%, transparent),
+    0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.np-admin-add:hover {
+  transform: scale(1.04);
+  box-shadow:
+    0 6px 24px color-mix(in srgb, var(--primary) 35%, transparent),
+    0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.np-admin-add:active {
+  transform: scale(0.97);
+}
+
+/* ── Draw panel (inline) ───────────────────────────────────────────────── */
+
+.np-admin-draw {
+  background:
+    linear-gradient(135deg, var(--primary-alpha-06) 0%, transparent 100%);
+  border: 1px solid var(--border-light);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.np-admin-draw-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.np-admin-draw-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 80%, black));
+  color: white;
+  border-radius: 10px;
+  font-size: 1rem;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.np-admin-draw-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.np-admin-draw-hint {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+}
+
+.np-admin-draw-tools {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 14px 16px;
+}
+
+.np-admin-draw .travaux-drawing-help {
+  margin: 0 16px;
+}
+
+.np-admin-draw-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 16px;
+  background: var(--surface-overlay);
+  border-top: 1px solid var(--border-light);
+}
+
+.np-admin-btn-cancel,
+.np-admin-btn-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  will-change: transform;
+  transition:
+    background 0.25s ease,
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s ease;
+}
+
+.np-admin-btn-cancel {
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  color: var(--color-danger);
+}
+
+.np-admin-btn-cancel:hover {
+  background: color-mix(in srgb, var(--color-danger) 18%, transparent);
+  transform: scale(1.02);
+}
+
+.np-admin-btn-confirm {
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 80%, black));
+  color: white;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.np-admin-btn-confirm:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+.np-admin-btn-confirm:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* ── Chantier list ─────────────────────────────────────────────────────── */
+
+.np-admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.np-admin-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  will-change: transform;
+  transition:
+    border-color 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.np-admin-item:hover {
+  border-color: var(--border-medium);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.np-admin-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.np-admin-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Status dot (matches etat colors) */
+.np-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--text-disabled);
+}
+
+.np-dot--upcoming { background: #eab308; }
+.np-dot--active   { background: #ef4444; }
+.np-dot--done     { background: #22c55e; }
+.np-dot--pending  { background: var(--color-info); opacity: 0.7; }
+
+/* ── Badge "En attente de validation" ──────────────────────────────────── */
+.np-pending-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-info);
+  background: color-mix(in srgb, var(--color-info) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-info) 22%, transparent);
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+
+/* ── Badge "Publié" ────────────────────────────────────────────────────── */
+.np-approved-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success) 22%, transparent);
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+
+/* ── Bandeau info contributeur ─────────────────────────────────────────── */
+.np-contrib-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--color-info) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-info) 18%, transparent);
+  border-radius: 10px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+.np-contrib-info i {
+  color: var(--color-info);
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.np-admin-item-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.np-admin-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.np-admin-item-etat {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.np-admin-item-sep {
+  color: var(--text-disabled);
+}
+
+.np-admin-item-actions {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.np-admin-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border-light);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  will-change: transform;
+  transition:
+    background 0.25s ease,
+    color 0.25s ease,
+    border-color 0.25s ease,
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s ease;
+}
+
+.np-admin-action:hover {
+  transform: translateY(-1px) scale(1.06);
+}
+
+.np-admin-action--edit:hover {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+.np-admin-action--delete:hover {
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 30%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 8%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-danger) 12%, transparent);
+}
+
+.np-admin-action--approve {
+  border-color: color-mix(in srgb, var(--success) 25%, transparent);
+  color: var(--success);
+}
+
+.np-admin-action--approve:hover {
+  color: #fff;
+  background: var(--success);
+  border-color: var(--success);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--success) 25%, transparent);
+}
+
+.np-admin-action:active {
+  transform: scale(0.94);
+}
+
+.np-admin-action:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
 
 .nav-panel__level2,
 .nav-panel__level3 {

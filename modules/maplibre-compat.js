@@ -162,7 +162,8 @@
       }
     }
 
-    _colorCache.set(color, raw);
+    // Don't cache failed resolutions: CSS vars may not be loaded yet
+    if (!raw.startsWith('var(')) _colorCache.set(color, raw);
     return raw;
   }
   // Clear cache on theme change
@@ -179,6 +180,8 @@
       this._nextId = 0;
       this._batching = false;
       this._dirtyPools = new Set();
+      this._activeFilter = null; // persisted filter expression
+      this._activeMlMap = null;  // map reference for deferred filter application
     }
 
     beginBatch() {
@@ -275,15 +278,17 @@
           mlMap.addLayer({ id: layerId, type: 'line', source: sourceId, paint: linePaint });
         }
 
-        this._pools.set(styleHash, {
+        const newPool = {
           sourceId,
           layerId,
           fillLayerId: geomType === 'Polygon' || geomType === 'MultiPolygon' ? `${sourceId}-fill` : null,
           features: [geojson],
           layers: [pathLayer],
           geomType
-        });
+        };
+        this._pools.set(styleHash, newPool);
         this._stampToPool.set(L.stamp(pathLayer), styleHash);
+        this._applyFilterToPool(newPool);
 
         // Events (hover/click/cursor) handled by FeatureInteractions at map level
       } else {
@@ -315,14 +320,26 @@
     }
 
 
-    // Set a MapLibre filter expression on all pool layers
+    // Set a MapLibre filter expression on all pool layers (and persist for future pools)
     setFilter(mlMap, filterExpr) {
+      this._activeFilter = filterExpr;
+      this._activeMlMap = mlMap;
       for (const pool of this._pools.values()) {
         try {
           if (mlMap.getLayer(pool.layerId)) mlMap.setFilter(pool.layerId, filterExpr);
           if (pool.fillLayerId && mlMap.getLayer(pool.fillLayerId)) mlMap.setFilter(pool.fillLayerId, filterExpr);
         } catch (_) {}
       }
+    }
+
+    // Apply the stored filter to a single newly-registered pool (called from _createDirectSource)
+    _applyFilterToPool(pool) {
+      if (!this._activeFilter || !this._activeMlMap) return;
+      const mlMap = this._activeMlMap;
+      try {
+        if (mlMap.getLayer(pool.layerId)) mlMap.setFilter(pool.layerId, this._activeFilter);
+        if (pool.fillLayerId && mlMap.getLayer(pool.fillLayerId)) mlMap.setFilter(pool.fillLayerId, this._activeFilter);
+      } catch (_) {}
     }
 
     // Clear filters on all pool layers
@@ -1541,11 +1558,16 @@
       const op = s.opacity !== undefined ? s.opacity : 0.8;
       const color = resolveColor(s.color) || '#3388ff';
 
+      // For polygon style, use a polygon sample if available (avoids wrong fillOpacity=0 from line sample)
+      const polyStyle = polygons.length > 0 && styleFn
+        ? (() => { const ps = typeof styleFn === 'function' ? styleFn(polygons[0]) : s; return { ...s, fillOpacity: ps.fillOpacity ?? s.fillOpacity }; })()
+        : s;
+
       const doAdd = () => {
         let nextId = 0;
         if (lines.length > 0) this._createDirectSource(mlMap, lines, 'dlines', 'LineString', color, w, op, s, nextId);
         nextId += lines.length;
-        if (polygons.length > 0) this._createDirectSource(mlMap, polygons, 'dpolygons', 'Polygon', color, w, op, s, nextId);
+        if (polygons.length > 0) this._createDirectSource(mlMap, polygons, 'dpolygons', 'Polygon', color, w, op, polyStyle, nextId);
       };
 
       if (map._styleLoaded === false) { map._queue.push(doAdd); }
@@ -1562,8 +1584,15 @@
         generateId: false
       });
 
+      // Data-driven color: use per-feature _color property when available
+      // Check several features: first feature may have no dates (total<=0) and thus no _color
+      const hasPerFeatureColor = features.some(f => { const c = f.properties?._color; return c && !c.startsWith('var('); });
+      const lineColorExpr = hasPerFeatureColor
+        ? ['coalesce', ['get', '_color'], color]
+        : color;
+
       const linePaint = {
-        'line-color': color,
+        'line-color': lineColorExpr,
         'line-width': ['case',
           ['boolean', ['feature-state', 'selected'], false], w + 4,
           ['boolean', ['feature-state', 'hover'], false], w + 2,
@@ -1572,6 +1601,7 @@
         'line-opacity': ['case',
           ['boolean', ['feature-state', 'selected'], false], 1,
           ['boolean', ['feature-state', 'hover'], false], 1,
+          ['boolean', ['feature-state', 'dimmed'], false], 0.15,
           op
         ]
       };
@@ -1585,14 +1615,19 @@
 
       if (geomType === 'Polygon') {
         fillLayerId = sourceId + '-fill';
-        const fillColor = resolveColor(style.fillColor || style.color) || '#3388ff';
+        const baseFillColor = resolveColor(style.fillColor || style.color) || '#3388ff';
+        const fillColorExpr = hasPerFeatureColor
+          ? ['coalesce', ['get', '_color'], baseFillColor]
+          : baseFillColor;
         const fillOp = style.fillOpacity !== undefined ? style.fillOpacity : 0.2;
         mlMap.addLayer({
           id: fillLayerId, type: 'fill', source: sourceId,
           paint: {
-            'fill-color': fillColor,
+            'fill-color': fillColorExpr,
             'fill-opacity': ['case',
-              ['boolean', ['feature-state', 'selected'], false], Math.min(fillOp * 2, 1),
+              ['boolean', ['feature-state', 'selected'], false], Math.min(fillOp + 0.35, 0.7),
+              ['boolean', ['feature-state', 'hover'], false], Math.min(fillOp + 0.2, 0.6),
+              ['boolean', ['feature-state', 'dimmed'], false], 0.05,
               fillOp
             ]
           }
@@ -1605,10 +1640,13 @@
 
       // Register with SourcePool for FeatureInteractions compatibility
       if (L._sourcePool) {
-        L._sourcePool._pools.set(sourceId, {
+        const pool = {
           sourceId, layerId: lineLayerId, fillLayerId,
-          features, layers: [], geomType
-        });
+          features, layers: [], geomType,
+          layerName: this.options._layerName || null
+        };
+        L._sourcePool._pools.set(sourceId, pool);
+        L._sourcePool._applyFilterToPool(pool);
       }
     }
     _updateDirectSources() {
@@ -2512,6 +2550,7 @@
   // ============================================================
   // Expose color cache clear for theme changes
   L.clearColorCache = clearColorCache;
+  L._resolveColor = resolveColor;
 
   win.L = L;
 
