@@ -200,8 +200,9 @@
     },
 
     _showHover(features, lngLat, key) {
-      const nextState = features.length === 1 ? 'single' : 'peek';
-      this._features = features;
+      const unique = this._dedup(features);
+      const nextState = unique.length === 1 ? 'single' : 'peek';
+      this._features = unique;
       this._lngLat = lngLat;
       this._currentKey = key;
 
@@ -347,13 +348,21 @@
     _onClick(e) {
       if (this._state === 'picker') return;
 
-      // Peek → open picker with ALL features
+      // Peek → open picker with ALL features (deduplicated by key first)
       if (this._state === 'peek') {
+        // Guard: if all peek features share the same key, open directly
+        const unique = this._dedup(this._features);
+        if (unique.length === 1) {
+          this._endHover();
+          this._openFeature(unique[0]);
+          return;
+        }
+        this._features = unique;
         this._openPicker();
         return;
       }
 
-      const hits = this._hitTestAll(e.point);
+      const hits = this._dedup(this._hitTestAll(e.point));
       if (hits.length === 0) { this.clearSelection(); return; }
       if (hits.length === 1) { this._endHover(); this._openFeature(hits[0]); return; }
 
@@ -497,9 +506,15 @@
 
     _onDOMMarkerClick(marker, feature, lngLat) {
       if (this._state === 'picker') return;
-      if (this._state === 'peek') { this._openPicker(); return; }
+      if (this._state === 'peek') { 
+        const unique = this._dedup(this._features);
+        if (unique.length === 1) { this._endHover(); this._openFeature(unique[0]); return; }
+        this._features = unique;
+        this._openPicker();
+        return;
+      }
       const point = this._mlMap.project([lngLat.lng, lngLat.lat]);
-      const hits = this._hitTestAll(point);
+      const hits = this._dedup(this._hitTestAll(point));
       const name = keyOf(feature);
       if (!hits.some(f => keyOf(f) === name)) hits.push(feature);
       if (hits.length <= 1) { this._endHover(); this._openFeature(feature); return; }
