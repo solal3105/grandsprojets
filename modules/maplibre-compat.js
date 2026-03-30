@@ -1978,11 +1978,12 @@
         grass:      '#558c3c',   // meadow / grassland
       },
       dark: {
-        understory: '#020708',   // moonlit floor — almost black
-        wood:       '#0b2418',   // deep moonlit forest
-        park:       '#112e1c',   // dark teal park
-        scrub:      '#1c2610',   // very dark olive
-        grass:      '#0e2012',   // night meadow
+        // Mid-tone luminous greens — visible against CartoDB Dark (#141822 background)
+        understory: '#0f3320',   // forest floor — deep but discernible
+        wood:       '#1a5c35',   // forest canopy — visible dark green
+        park:       '#2d7a4d',   // managed park — clear green against dark basemap
+        scrub:      '#4a6e2c',   // dry scrub — olive-green, readable
+        grass:      '#3a7a44',   // meadow — brighter than wood, distinct
       },
     };
 
@@ -1996,6 +1997,12 @@
         ['grassland', 'meadow', 'grass', 'flowerbed', 'wet_meadow'],   c.grass,
         c.wood,
       ];
+    }
+
+    // Higher opacity in dark mode so lighter colors stay distinct against the dark basemap
+    _getForestOpacityExpr(isDark) {
+      const maxOpacity = isDark ? 0.35 : 0.18;
+      return ['interpolate', ['linear'], ['zoom'], 12, 0, 15, maxOpacity];
     }
 
     _getForestHeightExpr() {
@@ -2040,8 +2047,7 @@
           filter,
           paint: {
             'fill-color':   this._getForestColorExpr('canopy', isDark),
-            // Fades in smoothly between zoom 12 and 15
-            'fill-opacity': ['interpolate', ['linear'], ['zoom'], 12, 0, 15, 0.18],
+            'fill-opacity': this._getForestOpacityExpr(isDark),
           },
         }, anchor);
       }
@@ -2090,6 +2096,7 @@
           }
           if (mlMap.getLayer('forest-fill')) {
             mlMap.setPaintProperty('forest-fill', 'fill-color', this._getForestColorExpr('canopy', isDark));
+            mlMap.setPaintProperty('forest-fill', 'fill-opacity', this._getForestOpacityExpr(isDark));
           }
         } catch (e) {
           console.warn('[MapLibreCompat] updateBuildings3DTheme failed:', e);
