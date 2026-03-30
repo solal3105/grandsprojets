@@ -200,9 +200,12 @@
     },
 
     _showHover(features, lngLat, key) {
-      const unique = this._dedup(features);
+      // Dedup by key: one chantier can have multiple geom features (polygon + line)
+      const seen = new Set(); const unique = [];
+      for (const f of features) { const k = keyOf(f); if (k && !seen.has(k)) { seen.add(k); unique.push(f); } }
       const nextState = unique.length === 1 ? 'single' : 'peek';
       this._features = unique;
+      features = unique;
       this._lngLat = lngLat;
       this._currentKey = key;
 
@@ -351,18 +354,17 @@
       // Peek → open picker with ALL features (deduplicated by key first)
       if (this._state === 'peek') {
         // Guard: if all peek features share the same key, open directly
-        const unique = this._dedup(this._features);
-        if (unique.length === 1) {
+        if (this._features.length === 1) {
           this._endHover();
-          this._openFeature(unique[0]);
+          this._openFeature(this._features[0]);
           return;
         }
-        this._features = unique;
         this._openPicker();
         return;
       }
 
-      const hits = this._dedup(this._hitTestAll(e.point));
+      // _hitTestAll already deduplicates by key
+      const hits = this._hitTestAll(e.point);
       if (hits.length === 0) { this.clearSelection(); return; }
       if (hits.length === 1) { this._endHover(); this._openFeature(hits[0]); return; }
 
@@ -506,15 +508,14 @@
 
     _onDOMMarkerClick(marker, feature, lngLat) {
       if (this._state === 'picker') return;
-      if (this._state === 'peek') { 
-        const unique = this._dedup(this._features);
-        if (unique.length === 1) { this._endHover(); this._openFeature(unique[0]); return; }
-        this._features = unique;
+      if (this._state === 'peek') {
+        if (this._features.length === 1) { this._endHover(); this._openFeature(this._features[0]); return; }
         this._openPicker();
         return;
       }
       const point = this._mlMap.project([lngLat.lng, lngLat.lat]);
-      const hits = this._dedup(this._hitTestAll(point));
+      // _hitTestAll already deduplicates by key
+      const hits = this._hitTestAll(point);
       const name = keyOf(feature);
       if (!hits.some(f => keyOf(f) === name)) hits.push(feature);
       if (hits.length <= 1) { this._endHover(); this._openFeature(feature); return; }
