@@ -852,6 +852,7 @@
 
     addTo(map) {
       this._map = map;
+      this._removed = false; // track lifecycle to abort in-flight _applyStyle after remove()
       const mlMap = map._mlMap || map;
       // Remove any __vbm__ layers/sources from a previous apply before re-injecting
       this._cleanupOwned(mlMap);
@@ -864,6 +865,11 @@
         const resp = await fetch(this._styleUrl);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const styleJson = await resp.json();
+
+        // Guard: if remove() was called while the fetch was in-flight (race condition between
+        // initBaseLayer() and syncBasemapToTheme()), bail out — do NOT inject layers into the
+        // map, which would overlay the newly set dark basemap with the light style's white fills.
+        if (this._removed) return;
 
         // Update glyphs so road labels render with correct fonts.
         // setGlyphs() only updates the glyph URL — does NOT touch sources or layers.
@@ -950,6 +956,7 @@
     }
 
     remove() {
+      this._removed = true; // signal to any in-flight _applyStyle() to abort
       if (this._map) {
         const mlMap = this._map._mlMap || this._map;
         this._cleanupOwned(mlMap);
