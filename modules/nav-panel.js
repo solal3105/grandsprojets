@@ -57,9 +57,15 @@
       }
       if (this._collapseBtn) {
         this._collapseBtn.addEventListener('click', () => {
-          // At level 3 carte: zoom to fit all category layers, then collapse.
+          // At level 3 carte: collapse first (clears panel padding), then fit
+          // bounds — order matters because collapse() resets the map's internal
+          // padding via _updateMapPadding(false), which would cancel any
+          // fitBounds animation launched before it.
           if (this._level === 3 && this._currentModule === 'carte' && this._currentCategory) {
-            win.NavigationModule?.fitCategoryBounds?.(this._currentCategory);
+            const cat = this._currentCategory;
+            this.collapse();
+            win.NavigationModule?.fitCategoryBounds?.(cat);
+            return;
           }
           this.collapse();
         });
@@ -163,6 +169,8 @@
       this._currentCategory = null;
       this._panel.setAttribute('data-module', mod);
       this._setLevel(2);
+      // Reset immediately so no stale category label/color bleeds into the new module
+      this._updateCollapseButton(null, false);
 
       // Clear any active selection/glow before switching module context
       win.FeatureInteractions?.clearSelection?.();
@@ -208,7 +216,14 @@
       const label = opts.label || category;
       this._headerTitle.textContent = label;
       this._updateBreadcrumb(label);
-      this._updateCollapseButton(label, true, opts.color || null);
+      // For travaux the collapse button always says "Travaux", not the sub-section name.
+      // For carte it reflects the category (label + category color).
+      if (this._currentModule === 'travaux') {
+        const travauxColor = win._travauxConfig?.color || 'var(--color-warning)';
+        this._updateCollapseButton('Travaux', true, travauxColor);
+      } else {
+        this._updateCollapseButton(label, true, opts.color || null);
+      }
 
       // Show a contextual skeleton immediately (appropriate shape per module)
       if (this._currentModule === 'carte') {
@@ -329,10 +344,13 @@
 
       if (colored) {
         this._collapseBtn.classList.add('nav-panel__collapse--city');
-        // Apply the category's own color directly, fallback to --primary via CSS
+        // Propagate category color to the panel root so .nav-panel__back
+        // at level 3 can inherit it via CSS var(--cat-color).
+        this._panel?.style.setProperty('--cat-color', color || '');
         this._collapseBtn.style.setProperty('--cat-color', color || '');
       } else {
         this._collapseBtn.classList.remove('nav-panel__collapse--city');
+        this._panel?.style.removeProperty('--cat-color');
         this._collapseBtn.style.removeProperty('--cat-color');
       }
     },
@@ -490,6 +508,10 @@
 
       // Guard: user may have switched modules during the await
       if (this._currentModule !== 'travaux') return;
+
+      // Now that the color is resolved and we're confirmed in travaux, set the
+      // collapse button to "Voir la carte · Travaux" (resets any stale state).
+      this._updateCollapseButton('Travaux', true, color);
 
       let html = '<div class="nav-panel__section-label">Sections</div>';
 

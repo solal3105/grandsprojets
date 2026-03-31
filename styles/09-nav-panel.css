@@ -134,15 +134,17 @@
 .nav-panel__back {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 34px;
+  gap: 6px;
+  padding: 0 12px 0 8px;
   height: 34px;
+  min-width: 34px;
   border: none;
   border-radius: 11px;
-  background: transparent;
+  background: var(--surface-overlay, rgba(0,0,0,0.06));
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 500;
   flex-shrink: 0;
   will-change: transform;
   transition:
@@ -151,9 +153,30 @@
     transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+.nav-panel__back-label {
+  display: none;
+}
+
+/* At level 3: show label + category color */
+.nav-panel[data-level="3"] .nav-panel__back {
+  background: var(--cat-color, var(--primary));
+  color: #fff;
+  padding: 0 14px 0 10px;
+}
+
+.nav-panel[data-level="3"] .nav-panel__back-label {
+  display: inline;
+}
+
 .nav-panel__back:hover {
   background: var(--surface-overlay);
   color: var(--text-primary);
+  transform: translateX(-3px);
+}
+
+.nav-panel[data-level="3"] .nav-panel__back:hover {
+  background: color-mix(in srgb, var(--cat-color, var(--primary)) 85%, #000);
+  color: #fff;
   transform: translateX(-3px);
 }
 
