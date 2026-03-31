@@ -353,6 +353,7 @@ class ToggleManager {
       this._restoreOverflowToggles();
       this._updateActionsOverflow();
       this._updateGroupVisibility();
+      this._repositionOpenPanels();
       return;
     }
 
@@ -395,6 +396,9 @@ class ToggleManager {
     this.overflowToggles = overflowed;
     this._updateActionsOverflow();
     this._updateGroupVisibility();
+
+    // Step 5: Keep any currently-open panel in sync with the (possibly changed) dock
+    this._repositionOpenPanels();
   }
 
   _restoreOverflowToggles() {
@@ -412,19 +416,45 @@ class ToggleManager {
     const dockRect = dock.getBoundingClientRect();
     const panelRight = Math.round(window.innerWidth - dockRect.right);
 
-    panel.style.top = `${Math.round(dockRect.bottom + 8)}px`;
-    panel.style.right = `${panelRight}px`;
+    // JS is the single source of truth for all panel geometry.
+    // Setting left:'auto' here cancels any CSS-set left (e.g. the ≤640px media
+    // query) so the panel is always right-anchored to the dock, at every viewport.
+    panel.style.top      = `${Math.round(dockRect.bottom + 8)}px`;
+    panel.style.right    = `${panelRight}px`;
+    panel.style.left     = 'auto';
     panel.style.minWidth = `${Math.round(dockRect.width)}px`;
 
-    // Arrow: point to the center of the toggle button
+    // Arrow caret: point to the centre of the toggle button
     const btn = toggleKey && this.toggles.get(toggleKey)?.element;
     if (btn) {
-      const btnRect = btn.getBoundingClientRect();
+      const btnRect   = btn.getBoundingClientRect();
       const btnCenterX = btnRect.left + btnRect.width / 2;
-      // arrow-x is distance from right edge of panel to center of button
-      const arrowX = dockRect.right - btnCenterX - 6; // 6 = half arrow width
+      const arrowX    = dockRect.right - btnCenterX - 6; // 6 = half-arrow width
       panel.style.setProperty('--arrow-x', `${Math.max(8, Math.round(arrowX))}px`);
     }
+  }
+
+  /**
+   * Re-run positioning for every currently-open dock panel.
+   * Called at the end of every _doRecalculate() so resize / orientation change /
+   * button-ready state changes always keep open panels in sync with the dock.
+   */
+  _repositionOpenPanels() {
+    this.toggles.forEach((t, key) => {
+      if (!this.state.get(key)) return;
+
+      let panel = null;
+      if (t.config.hasDockPanel) {
+        panel = document.querySelector(`.dock-panel[data-toggle="${key}"]`);
+      } else {
+        const sel = t.config.overlaySelector || t.config.menuSelector;
+        panel = sel
+          ? document.querySelector(sel)
+          : (t.config.targetElement ? document.getElementById(t.config.targetElement) : null);
+      }
+
+      if (panel) this._positionPanelBelowDock(panel, key);
+    });
   }
 
   _updateGroupVisibility() {
@@ -479,8 +509,12 @@ class ToggleManager {
         <div class="action-item__icon"><i class="fas ${config.icon}" aria-hidden="true"></i></div>
         <span class="action-item__label">${config.label}</span>
       `;
-      item.addEventListener('click', () => {
-        this.setState('actions', false); // close the panel first
+      item.addEventListener('click', (e) => {
+        // Stop propagation so the document-level "outside-click" listeners
+        // registered by _bindToggleEvents don't see this event and immediately
+        // close the panel we're about to open.
+        e.stopPropagation();
+        this.setState('actions', false);
         this._handleOverflowItem(key, config);
       });
       container.appendChild(item);
@@ -493,7 +527,13 @@ class ToggleManager {
       const id = config.modalSelector?.replace('#', '');
       if (id && window.ModalHelper) window.ModalHelper.open(id);
     } else {
-      this.toggle(key);
+      // For toggles whose action is owned by an external module that bound its
+      // own click listener directly on the DOM button (e.g. GeolocationModule on
+      // #location-toggle), calling this.toggle() only flips ARIA state without
+      // triggering the real action. Clicking the button programmatically is the
+      // correct way to fire all registered listeners, including the module's own.
+      const t = this.toggles.get(key);
+      if (t) t.element.click();
     }
   }
 

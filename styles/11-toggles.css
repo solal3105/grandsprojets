@@ -991,7 +991,10 @@
 }
 
 @media (max-width: 640px) {
-  .dock-panel { right: 10px; left: 10px; min-width: 0; max-height: 52vh; }
+  /* JS owns top/right/left/minWidth for all dock panels via _positionPanelBelowDock.
+     CSS only constrains max-height and hides the arrow caret on small screens. */
+  .dock-panel { max-height: 52vh; }
+  #actions-panel { max-height: 72vh; } /* actions panel can be taller */
   .dock-panel::before { display: none; }
 
   /* On mobile, grid panels keep 2 cols */
