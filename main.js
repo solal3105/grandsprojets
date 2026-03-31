@@ -449,14 +449,27 @@
       const layersToLoad = [...new Set([...defaultLayers, ...categoryLayers])];
       
       try {
-        await Promise.all(layersToLoad.map(layer => 
-          DataModule.loadLayer(layer).catch(err => {
+        // Précharger uniquement (pas d'ajout à la carte) pour éviter la race condition :
+        // si l'utilisateur ouvre un module pendant le fetch, les couches en vol ne se
+        // réafficheraient pas par-dessus le module actif une fois le fetch terminé.
+        await Promise.all(layersToLoad.map(layer =>
+          DataModule.preloadLayer(layer).catch(err => {
             console.error(`[Main] ❌ Erreur chargement layer "${layer}":`, err);
             return null;
           })
         ));
-        
+
         console.log(`[Main] ✅ ${layersToLoad.length} layers chargés (${defaultLayers.length} système + ${categoryLayers.length} contributions)`);
+
+        // Afficher les couches seulement si l'utilisateur n'a pas encore ouvert un module.
+        // Si NavPanel est déjà actif, le module se charge de l'affichage de ses propres couches.
+        if (!win.NavPanel?.isOpen()) {
+          for (const layer of layersToLoad) {
+            if (DataModule.layerData[layer]) {
+              try { DataModule.createGeoJsonLayer(layer, DataModule.layerData[layer]); } catch (_) {}
+            }
+          }
+        }
       } catch (err) {
         console.error('[Main] ❌ Erreur lors du chargement des layers:', err);
       }

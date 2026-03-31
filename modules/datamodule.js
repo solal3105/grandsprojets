@@ -449,14 +449,6 @@ window.DataModule = (function() {
 			}
 		}
 
-		// Fonction utilitaire pour vérifier les réseaux (déplacée côté serveur si possible)
-		const RESEAU_KW = ['gaz', 'réseau', 'eau', 'branchement', 'télécom', 'telecom', 'électricité', 'electricite', 'assainissement'];
-		const isReseau = (text) => {
-			if (!text) return false;
-			const t = String(text).toLowerCase();
-			return RESEAU_KW.some(k => t.includes(k));
-		};
-
 		// Layers with per-feature styling must use SourcePool path (PathLayer objects)
 		// Travaux uses direct path with pre-computed _color (data-driven MapLibre expression)
 		// All others use the direct path (raw GeoJSON → MapLibre source, zero overhead)
@@ -486,13 +478,6 @@ window.DataModule = (function() {
 				for (const [key, value] of Object.entries(criteria)) {
 					if (key.startsWith('_')) continue;
 					if (String(props[key] || '').toLowerCase() !== String(value).toLowerCase()) {
-						return false;
-					}
-				}
-				
-				// Filtre réseaux (si activé)
-				if (criteria._hideReseaux) {
-					if (isReseau(props.nature_travaux) || isReseau(props.nature_chantier)) {
 						return false;
 					}
 				}

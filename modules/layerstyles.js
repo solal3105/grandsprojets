@@ -85,36 +85,28 @@
   }
 
   /**
-   * Applique un gradient de couleur selon l'avancement des travaux
+   * Applique une couleur de carte selon l'avancement des travaux.
+   * Délègue le calcul à TravauxModule (safeDate + calcProgress) pour éviter la duplication.
+   * progressScale : palette de couleurs discrètes pour les features cartographiques
+   * (distinct de calcGradient qui produit des gradients CSS pour les barres UI).
    */
+  const TRAVAUX_PROGRESS_SCALE = [
+    'var(--danger)', 'var(--danger)', 'var(--danger-hover)', 'var(--danger-hover)', 'var(--warning)',
+    'var(--warning)', 'var(--warning)', 'var(--success)', 'var(--success)', 'var(--success)'
+  ];
+
   function applyTravauxProgressColor(properties, baseStyle) {
     try {
-      const safeDate = (v) => {
-        const d = v ? new Date(v) : null;
-        return d && !isNaN(d.getTime()) ? d : null;
-      };
-      
-      const dateDebut = safeDate(properties.date_debut);
-      const dateFin = safeDate(properties.date_fin);
-      const now = new Date();
-      
-      // Gradient: 0% danger (rouge) -> 50% warning (orange) -> 100% success (vert)
-      const progressScale = [
-        'var(--danger)', 'var(--danger)', 'var(--danger-hover)', 'var(--danger-hover)', 'var(--warning)',
-        'var(--warning)', 'var(--warning)', 'var(--success)', 'var(--success)', 'var(--success)'
-      ];
-      
-      let color = baseStyle.color;
-      
-      if (dateDebut && dateFin && dateFin.getTime() > dateDebut.getTime()) {
-        const total = dateFin.getTime() - dateDebut.getTime();
-        const elapsed = now.getTime() - dateDebut.getTime();
-        const pct = Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
-        const idx = Math.round((pct / 100) * (progressScale.length - 1));
-        color = progressScale[idx];
-      }
-      
-      return { ...baseStyle, color };
+      const TM = window.TravauxModule;
+      if (!TM) return baseStyle;
+
+      const debut = TM.safeDate(properties.date_debut);
+      const fin   = TM.safeDate(properties.date_fin);
+      if (!debut || !fin || fin <= debut) return { ...baseStyle };
+
+      const pct = TM.calcProgress(properties.date_debut, properties.date_fin);
+      const idx = Math.round((pct / 100) * (TRAVAUX_PROGRESS_SCALE.length - 1));
+      return { ...baseStyle, color: TRAVAUX_PROGRESS_SCALE[idx] };
     } catch (_) {
       return baseStyle;
     }

@@ -28,7 +28,7 @@ const NavigationModule = (() => {
   async function ensureLayerLoaded(layerName) {
     if (!window.DataModule?.layerData?.[layerName]) {
       try {
-        await window.DataModule.loadLayer(layerName);
+        await window.DataModule.preloadLayer(layerName);
       } catch (e) {
         console.warn(`[NavigationModule] Erreur chargement layer ${layerName}:`, e);
         throw e;
@@ -78,32 +78,43 @@ const NavigationModule = (() => {
    * Source unique de vérité — utilisée par panToProject et showProjectDetail.
    * @returns {{ top, right, bottom, left }}
    */
+  /**
+   * Returns the padding (px) that fitBounds/flyTo should apply so the target
+   * is centred in the area NOT covered by any UI panel.
+   *
+   * Design rule: always read live offsetWidth / offsetHeight from the DOM
+   * so we never need to keep hardcoded panel-size constants in sync.
+   *
+   * This is the single source of truth for all camera moves.  callers MUST
+   * reset MapLibre's persistent internal padding to {0,0,0,0} (jumpTo) before
+   * calling fitBounds/flyTo with these values, otherwise MapLibre v4 stacks them.
+   */
   function _computeMapPadding() {
-    if (window.innerWidth <= 720) {
-      const detailPanel = document.getElementById('project-detail');
-      const detailOpen = detailPanel?.offsetHeight > 0 && detailPanel.style.display !== 'none';
-      const navPanel   = document.querySelector('.nav-panel.open');
-      return {
-        top:    80,
-        left:   20,
-        right:  20,
-        bottom: detailOpen
-          ? Math.round(window.innerHeight * 0.62)
-          : navPanel ? Math.round(window.innerHeight * 0.55) : 70
-      };
-    }
-    // Desktop
-    const sidebarW   = 78 + 14; // sidebar + inset gap
-    const navPanel   = document.querySelector('.nav-panel.open:not(.collapsed)');
-    const navW       = navPanel ? navPanel.offsetWidth + 14 : 0; // actual width, not hardcoded
     const detailPanel = document.getElementById('project-detail');
-    const detailOpen = detailPanel?.offsetWidth > 0 && detailPanel.style.display !== 'none';
-    const detailW    = detailOpen ? detailPanel.offsetWidth + 20 : 0;
+    const detailOpen  = detailPanel?.offsetHeight > 0 && detailPanel.style.display !== 'none';
+
+    if (window.innerWidth <= 720) {
+      // Mobile: UI panels stack at the bottom as drawers.
+      // Priority: detail panel (higher) > nav panel > bare map.
+      const navPanelEl = document.querySelector('.nav-panel.open');
+      const bottomH = detailOpen
+        ? (detailPanel.offsetHeight  || 0) + 20
+        : navPanelEl
+          ? (navPanelEl.offsetHeight || 0) + 20
+          : 70;
+      return { top: 80, left: 20, right: 20, bottom: Math.max(70, bottomH) };
+    }
+
+    // Desktop: nav panel on the left, detail panel on the right.
+    const sidebarW  = 78 + 14; // sidebar icon strip + inset gap — fixed in CSS
+    const navPanel  = document.querySelector('.nav-panel.open:not(.collapsed)');
+    const navW      = navPanel ? navPanel.offsetWidth + 14 : 0;
+    const detailW   = detailOpen ? detailPanel.offsetWidth + 20 : 0;
     return {
       top:    90,
       bottom: 40,
       left:   sidebarW + navW + 20,
-      right:  detailW || 40
+      right:  detailW || 40,
     };
   }
 
@@ -182,58 +193,81 @@ const NavigationModule = (() => {
 
     if (!bounds) return;
     try {
+      // Reset any persistent internal padding (set by _updateMapPadding) before
+      // fitBounds so values don't stack — same pattern as showProjectDetail.
+      // _computeMapPadding() is then the sole source of truth for all UI offsets.
+      mlMap.jumpTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 } });
       mlMap.fitBounds(
         [[bounds.minLng, bounds.minLat], [bounds.maxLng, bounds.maxLat]],
-        { padding: _computeMapPadding(), duration: 500, pitch: 0 }
+        { padding: _computeMapPadding(), duration: 500, pitch: 0, maxZoom: 16 }
       );
     } catch (_) {}
   }
 
   const getCategoryStyle = window.getCategoryStyle;
 
+  // Race-guard generation counter for showCategoryLayers
+  let _showCategoryGen = 0;
+
   /**
-   * Affiche tous les layers d'une catégorie sur la carte
-   * @param {string} category - Nom de la catégorie
+   * Affiche tous les layers d'une catégorie sur la carte.
+   * Source unique de vérité — appelée par NavPanel et resetToDefaultView.
+   * @param {string} category
+   * @param {{ skipFitBounds?: boolean, preserveTravaux?: boolean }} [opts]
    */
-  async function showCategoryLayers(category) {
+  async function showCategoryLayers(category, opts = {}) {
+    const generation = ++_showCategoryGen;
     const layers = getCategoryLayers(category);
+    const layersMap = window.categoryLayersMap || {};
+    const travauxSet = opts.preserveTravaux
+      ? new Set(layersMap['travaux'] || ['travaux'])
+      : new Set();
 
-    // Remove all non-target layers from the map
-    const keep = new Set(layers);
+    // Close project detail if open
+    if (projectDetailPanel) projectDetailPanel.style.display = 'none';
+    _lastShownProject = null;
+
+    // Remove all layers except targets (+ optionally travaux)
+    const keep = new Set([...layers, ...travauxSet]);
     window.MapModule?.removeAllLayers?.(keep);
+    window.FilterModule?.resetAll?.();
+    // Clear persisted MapLibre filter so it doesn't leak into new layers
+    const mlMap = window.MapModule?.map?._mlMap || window.MapModule?.map;
+    if (mlMap && window.L?._sourcePool) window.L._sourcePool.clearFilter(mlMap);
 
-    // Reset filters
-    if (window.FilterModule?.resetAll) {
-      FilterModule.resetAll();
+    // Preload uncached data in parallel
+    const uncached = layers.filter(n => !window.DataModule?.layerData?.[n]);
+    if (uncached.length > 0) {
+      await Promise.all(uncached.map(n =>
+        window.DataModule?.preloadLayer?.(n)?.catch(() => {})
+      ));
     }
 
-    // Load and display each target layer
-    for (const layerName of layers) {
-      try {
-        await ensureLayerLoaded(layerName);
-        // ensureLayerLoaded only fetches data; if the layer was just removed above,
-        // we need to recreate it on the map from cached data.
-        if (!window.MapModule?.layers?.[layerName] && window.DataModule?.layerData?.[layerName]) {
-          window.DataModule.createGeoJsonLayer(layerName, window.DataModule.layerData[layerName]);
-        }
-      } catch (e) {
-        console.warn(`[NavigationModule] ⚠️ Impossible de charger "${layerName}":`, e);
+    // Guard: abort if a newer call happened during async fetch
+    if (generation !== _showCategoryGen) return;
+
+    // Create layers from cache
+    for (const name of layers) {
+      if (window.DataModule?.layerData?.[name]) {
+        try { window.DataModule.createGeoJsonLayer(name, window.DataModule.layerData[name]); } catch (_) {}
       }
     }
 
-    // Fit to combined bounds
-    let combinedBounds = null;
-    for (const layerName of layers) {
-      const layer = window.MapModule?.layers?.[layerName];
-      if (layer && typeof layer.getBounds === 'function') {
-        const bounds = layer.getBounds();
-        if (bounds?.isValid?.()) {
-          combinedBounds = combinedBounds ? combinedBounds.extend(bounds) : bounds;
+    // Fit to combined bounds (unless caller opted out)
+    if (!opts.skipFitBounds) {
+      let combinedBounds = null;
+      for (const layerName of layers) {
+        const layer = window.MapModule?.layers?.[layerName];
+        if (layer && typeof layer.getBounds === 'function') {
+          const bounds = layer.getBounds();
+          if (bounds?.isValid?.()) {
+            combinedBounds = combinedBounds ? combinedBounds.extend(bounds) : bounds;
+          }
         }
       }
-    }
-    if (combinedBounds) {
-      MapModule.map.fitBounds(combinedBounds, { padding: [100, 100], pitch: 0 });
+      if (combinedBounds) {
+        MapModule.map.fitBounds(combinedBounds, { padding: [100, 100], pitch: 0 });
+      }
     }
   }
 
@@ -609,6 +643,7 @@ const NavigationModule = (() => {
   const publicAPI = {
     showProjectDetail,
     showSpecificContribution,
+    showCategoryLayers,
     zoomOutOnLoadedLayers,
     resetToDefaultView,
     _resetProjectGuard: () => { _lastShownProject = null; },

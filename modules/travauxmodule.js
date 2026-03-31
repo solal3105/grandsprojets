@@ -6,11 +6,6 @@ const TravauxModule = (() => {
   const TS_MIN = 0;              // sentinel: started in the distant past
   const TS_MAX = 9999999999999;  // sentinel: never ends
   const HISTOGRAM_BUCKETS = 60;
-  const RESEAU_KW = [
-    'gaz', 'réseau', 'eau', 'branchement',
-    'télécom', 'telecom', 'électricité', 'electricite', 'assainissement'
-  ];
-
   // ─── Utilities ────────────────────────────────────────────────
   const parseTs = v => {
     if (!v) return null;
@@ -19,11 +14,6 @@ const TravauxModule = (() => {
   };
   const fmtShort = d => d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
   const fmtFull  = d => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  const isReseau = text => {
-    if (!text) return false;
-    const t = String(text).toLowerCase();
-    return RESEAU_KW.some(k => t.includes(k));
-  };
 
   function getChantierDisplayName(props) {
     const p = props || {};
@@ -131,7 +121,6 @@ const TravauxModule = (() => {
         if (k.startsWith('_')) continue;
         if (String(p[k] || '').toLowerCase() !== String(v).toLowerCase()) return false;
       }
-      if (criteria._hideReseaux && (isReseau(p.nature_travaux) || isReseau(p.nature_chantier))) return false;
       return true;
     });
   }
@@ -176,9 +165,8 @@ const TravauxModule = (() => {
     return { values, counts };
   }
 
-  function optionsHTML(values, counts, hideReseaux) {
+  function optionsHTML(values, counts) {
     return values
-      .filter(v => !hideReseaux || !isReseau(v))
       .map(v => `<option value="${v}">${v} (${counts[v]})</option>`)
       .join('');
   }
@@ -187,19 +175,18 @@ const TravauxModule = (() => {
   // ─── Badges ───────────────────────────────────────────────────
   function renderBadges(container, criteria, els, onChange) {
     container.innerHTML = '';
-    const labels = { nature_travaux: 'Nature', commune: 'Commune', etat: 'État', _hideReseaux: 'Sans réseaux' };
+    const labels = { nature_travaux: 'Nature', commune: 'Commune', etat: 'État' };
     for (const [key, val] of Object.entries(criteria)) {
-      if (!val || key.startsWith('_') && key !== '_hideReseaux') continue;
+      if (!val || key.startsWith('_')) continue;
       const badge = document.createElement('span');
       badge.className = 'travaux-badge';
       badge.tabIndex = 0;
       badge.role = 'button';
-      const text = key === '_hideReseaux' ? 'Sans réseaux' : `${labels[key] || key}: ${val}`;
+      const text = `${labels[key] || key}: ${val}`;
       badge.setAttribute('aria-label', `Retirer filtre ${text}`);
       badge.innerHTML = `${text} <i class='fa-solid fa-xmark'></i>`;
       const remove = () => {
-        if (key === '_hideReseaux') els.hideRes.checked = false;
-        else if (key === 'nature_travaux') els.nature.value = '';
+        if (key === 'nature_travaux') els.nature.value = '';
         else if (key === 'commune') els.commune.value = '';
         else if (key === 'etat') els.etat.value = '';
         onChange();
@@ -208,7 +195,7 @@ const TravauxModule = (() => {
       badge.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') remove(); });
       container.appendChild(badge);
     }
-    const visible = Object.entries(criteria).some(([k, v]) => v && (!k.startsWith('_') || k === '_hideReseaux'));
+    const visible = Object.entries(criteria).some(([k, v]) => v && !k.startsWith('_'));
     container.style.display = visible ? 'flex' : 'none';
   }
 
@@ -250,7 +237,6 @@ const TravauxModule = (() => {
     parseTs,
     fmtShort,
     fmtFull,
-    isReseau,
     buildTimelineExpr,
     safeDate,
     calcProgress,
