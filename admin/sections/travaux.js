@@ -16,10 +16,22 @@ const ETAT_LABELS = {
 
 const DEFAULT_ICON = 'fa-solid fa-helmet-safety';
 
+let _twState = {
+  search: '',
+  status: '',   // '' | 'pending' | 'approved'
+  sortBy: 'created_at',
+  sortDir: 'desc',
+};
+
 export async function renderTravaux(container, params) {
   if (params.id === 'nouveau') return _renderCreateForm(container);
   if (params.id && params.id !== 'config') return _openChantierDetail(container, parseInt(params.id, 10));
   if (params.id === 'config') return _renderConfig(container);
+
+  // Parse URL params
+  const urlParams = new URLSearchParams(window.location.search);
+  _twState.status = urlParams.get('status') || '';
+
   _renderListPage(container);
   await _loadList(container);
 }
@@ -43,18 +55,33 @@ function _renderListPage(container) {
       </div>
     </div>
 
-    <!-- Quick stats -->
-    <div class="tw-stats" id="travaux-stats"></div>
-
-    <!-- Tabs -->
+    <!-- Tabs: status filter -->
     <div class="adm-tabs" id="travaux-tabs">
-      <button class="adm-tab active" data-filter="">Tous</button>
-      <button class="adm-tab" data-filter="en_cours"><i class="fa-solid fa-hammer"></i> En cours</button>
-      <button class="adm-tab" data-filter="prevu"><i class="fa-solid fa-calendar"></i> Prévus</button>
-      <button class="adm-tab" data-filter="termine"><i class="fa-solid fa-check"></i> Terminés</button>
-      <button class="adm-tab" data-filter="pending"><i class="fa-solid fa-clock"></i> En attente</button>
+      <button class="adm-tab ${_twState.status === '' ? 'active' : ''}" data-status="">Tous</button>
+      <button class="adm-tab ${_twState.status === 'pending' ? 'active' : ''}" data-status="pending">
+        <i class="fa-solid fa-clock"></i> En attente
+      </button>
+      <button class="adm-tab ${_twState.status === 'approved' ? 'active' : ''}" data-status="approved">
+        <i class="fa-solid fa-check"></i> Approuvés
+      </button>
     </div>
 
+    <!-- Toolbar -->
+    <div class="adm-toolbar">
+      <div class="adm-toolbar__search">
+        <input type="text" class="adm-input adm-input--search" id="travaux-search"
+          placeholder="Rechercher un chantier…" value="${esc(_twState.search)}">
+      </div>
+      <div class="adm-toolbar__filters">
+        <select class="adm-select" id="travaux-sort" style="min-width:140px;">
+          <option value="created_at:desc" ${_twState.sortBy === 'created_at' && _twState.sortDir === 'desc' ? 'selected' : ''}>Plus récent</option>
+          <option value="created_at:asc"  ${_twState.sortBy === 'created_at' && _twState.sortDir === 'asc'  ? 'selected' : ''}>Plus ancien</option>
+          <option value="name:asc"        ${_twState.sortBy === 'name' ? 'selected' : ''}>Nom A-Z</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- List -->
     <div class="adm-card">
       <div id="travaux-list-body" style="padding:0;">
         ${skeletonTable(5)}
@@ -62,14 +89,37 @@ function _renderListPage(container) {
     </div>
   `;
 
-  let activeFilter = '';
+  _bindTwToolbar(container);
+}
+
+function _bindTwToolbar(container) {
+  // Tabs
   container.querySelectorAll('#travaux-tabs .adm-tab').forEach(tab => {
     tab.addEventListener('click', () => {
-      activeFilter = tab.dataset.filter;
+      _twState.status = tab.dataset.status;
       container.querySelectorAll('#travaux-tabs .adm-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      _filterAndRender(container, activeFilter);
+      _filterAndRender(container);
     });
+  });
+
+  // Search (debounced)
+  const searchInput = container.querySelector('#travaux-search');
+  let searchTimer;
+  searchInput?.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      _twState.search = searchInput.value.trim();
+      _filterAndRender(container);
+    }, 350);
+  });
+
+  // Sort
+  container.querySelector('#travaux-sort')?.addEventListener('change', (e) => {
+    const [sortBy, sortDir] = e.target.value.split(':');
+    _twState.sortBy = sortBy;
+    _twState.sortDir = sortDir || 'asc';
+    _filterAndRender(container);
   });
 }
 
@@ -81,43 +131,40 @@ async function _loadList(container) {
 
   try {
     _allTravaux = await api.getTravaux({ adminMode: true });
-    _renderStats(container);
-    _filterAndRender(container, '');
+    _filterAndRender(container);
   } catch (e) {
     console.error('[admin/travaux]', e);
     listBody.innerHTML = `<div style="padding:20px;color:var(--danger);">Erreur : ${esc(e.message)}</div>`;
   }
 }
 
-function _renderStats(container) {
-  const stats = container.querySelector('#travaux-stats');
-  if (!stats) return;
-  const counts = { en_cours: 0, prevu: 0, termine: 0, pending: 0 };
-  _allTravaux.forEach(i => {
-    if (!i.approved) counts.pending++;
-    else if (counts[i.etat] !== undefined) counts[i.etat]++;
-  });
-  stats.innerHTML = [
-    { key: 'en_cours', icon: 'fa-hammer',   color: 'success', label: 'En cours' },
-    { key: 'prevu',    icon: 'fa-calendar', color: 'info',    label: 'Prévus' },
-    { key: 'termine',  icon: 'fa-check',    color: 'neutral', label: 'Terminés' },
-    { key: 'pending',  icon: 'fa-clock',    color: 'warning', label: 'En attente' },
-  ].map(s => `
-    <div class="tw-stat tw-stat--${s.color}">
-      <i class="fa-solid ${s.icon}"></i>
-      <span class="tw-stat__count">${counts[s.key]}</span>
-      <span class="tw-stat__label">${s.label}</span>
-    </div>
-  `).join('');
-}
-
-function _filterAndRender(container, filter) {
+function _filterAndRender(container) {
   const listBody = container.querySelector('#travaux-list-body');
   if (!listBody) return;
 
   let items = _allTravaux;
-  if (filter === 'pending') items = items.filter(i => !i.approved);
-  else if (filter) items = items.filter(i => i.etat === filter && i.approved);
+
+  // Status filter
+  if (_twState.status === 'pending') items = items.filter(i => !i.approved);
+  else if (_twState.status === 'approved') items = items.filter(i => i.approved);
+
+  // Search filter
+  if (_twState.search) {
+    const q = _twState.search.toLowerCase();
+    items = items.filter(i =>
+      (i.name && i.name.toLowerCase().includes(q)) ||
+      (i.nature && i.nature.toLowerCase().includes(q)) ||
+      (i.localisation && i.localisation.toLowerCase().includes(q))
+    );
+  }
+
+  // Sort
+  items = [...items].sort((a, b) => {
+    const dir = _twState.sortDir === 'asc' ? 1 : -1;
+    const va = a[_twState.sortBy] || '';
+    const vb = b[_twState.sortBy] || '';
+    return va < vb ? -dir : va > vb ? dir : 0;
+  });
 
   if (items.length === 0) {
     listBody.innerHTML = '';
@@ -212,163 +259,226 @@ function _bindTravauxActions(container, listBody) {
 
 /* ── Create / Edit form ── */
 
+let _tw = { _map: null, _drawFeatures: [], _drawMode: null, _drawPoints: [], drawnGeoJSON: null, geojsonFile: null, branding: null, locationMode: 'draw' };
+
+function _resetTwForm() {
+  if (_tw._map) { try { _tw._map.remove(); } catch (_) {} }
+  _tw = { _map: null, _drawFeatures: [], _drawMode: null, _drawPoints: [], drawnGeoJSON: null, geojsonFile: null, branding: null, locationMode: 'draw' };
+}
+
 async function _renderCreateForm(container, chantier = null) {
+  _resetTwForm();
   const isEdit = chantier != null;
-  const title = isEdit ? `Modifier : ${esc(chantier.name || 'Chantier')}` : 'Nouveau chantier';
+  const hasExistingGeo = isEdit && !!chantier?.geojson_url;
+
+  // Load branding for map center
+  _tw.branding = await api.getBranding().catch(() => null);
 
   container.innerHTML = `
-    <div class="adm-page-header">
-      <div>
-        <h1 class="adm-page-title">
-          <a href="/admin/travaux/" class="adm-btn adm-btn--ghost adm-btn--icon" data-section="travaux" style="margin-right:4px;">
-            <i class="fa-solid fa-arrow-left"></i>
-          </a>
-          ${title}
-        </h1>
-        <p class="adm-page-subtitle">${isEdit ? 'Modifier les informations de ce chantier' : 'Renseignez les informations du nouveau chantier'}</p>
+    <!-- ── HEADER ── -->
+    <div class="cw-header">
+      <div class="cw-header__top">
+        <a href="/admin/travaux/" class="cw-back-link" data-section="travaux">
+          <i class="fa-solid fa-arrow-left"></i><span>Travaux</span>
+        </a>
+      </div>
+      <div class="cw-header__main">
+        <div class="cw-header__text">
+          <h1 class="cw-header__title">${isEdit ? 'Modifier le chantier' : 'Nouveau chantier'}</h1>
+          <p class="cw-header__subtitle">${isEdit ? esc(chantier.name) : 'Renseignez les informations du chantier — seul le <strong>nom</strong> est obligatoire.'}</p>
+        </div>
       </div>
     </div>
 
-    <form id="travaux-form">
-      <div class="tw-form-grid">
+    <!-- ── SECTIONS ── -->
+    <div class="cw-sections">
 
-        <!-- LEFT COLUMN -->
-        <div class="tw-form-col">
-
-          <!-- Section : Identité -->
-          <div class="adm-card">
-            <div class="adm-card__header">
-              <h3 class="adm-card__title"><i class="fa-solid fa-tag"></i> Identité du chantier</h3>
-            </div>
-            <div class="adm-card__body">
-              <div class="adm-form-group">
-                <label class="adm-label" for="tw-name">Nom du chantier <span class="adm-required">*</span></label>
-                <input type="text" class="adm-input" id="tw-name" required
-                  value="${esc(chantier?.name || '')}" placeholder="Ex : Réfection de la chaussée">
-              </div>
-              <div class="adm-form-group">
-                <label class="adm-label" for="tw-nature">Nature des travaux</label>
-                <input type="text" class="adm-input" id="tw-nature"
-                  value="${esc(chantier?.nature || '')}" placeholder="Ex : Voirie, Réseaux, Bâtiment…">
-              </div>
-              <div class="adm-form-group">
-                <label class="adm-label" for="tw-localisation">Localisation</label>
-                <input type="text" class="adm-input" id="tw-localisation"
-                  value="${esc(chantier?.localisation || '')}" placeholder="Ex : Avenue Jean Jaurès">
-              </div>
-            </div>
+      <!-- 1 · IDENTITÉ -->
+      <section class="cw-section" id="tw-sect-identity">
+        <div class="cw-section__header">
+          <div class="cw-section__icon"><i class="fa-solid fa-tag"></i></div>
+          <div class="cw-section__titles">
+            <h2 class="cw-section__title">Identité du chantier</h2>
+            <p class="cw-section__desc">Nom, nature et adresse des travaux</p>
           </div>
-
-          <!-- Section : Description -->
-          <div class="adm-card" style="margin-top:16px;">
-            <div class="adm-card__header">
-              <h3 class="adm-card__title"><i class="fa-solid fa-align-left"></i> Description</h3>
-            </div>
-            <div class="adm-card__body">
-              <div class="adm-form-group" style="margin:0;">
-                <textarea class="adm-textarea" id="tw-description" rows="5"
-                  placeholder="Décrivez les travaux, leur impact sur la circulation, les mesures prises…">${esc(chantier?.description || '')}</textarea>
-              </div>
-            </div>
-          </div>
-
         </div>
-
-        <!-- RIGHT COLUMN -->
-        <div class="tw-form-col">
-
-          <!-- Section : État & planning -->
-          <div class="adm-card">
-            <div class="adm-card__header">
-              <h3 class="adm-card__title"><i class="fa-solid fa-calendar-days"></i> État & planning</h3>
-            </div>
-            <div class="adm-card__body">
-              <!-- État selector -->
-              <div class="adm-form-group">
-                <label class="adm-label">État du chantier</label>
-                <div class="tw-etat-picker" id="tw-etat-picker">
-                  ${Object.entries(ETAT_LABELS).map(([val, e]) => `
-                    <label class="tw-etat-option tw-etat-option--${e.badge} ${(chantier?.etat || 'en_cours') === val ? 'selected' : ''}" data-val="${val}">
-                      <input type="radio" name="tw-etat" value="${val}" ${(chantier?.etat || 'en_cours') === val ? 'checked' : ''} hidden>
-                      <i class="fa-solid ${e.icon}"></i>
-                      <span>${e.label}</span>
-                    </label>
-                  `).join('')}
-                </div>
-                <input type="hidden" id="tw-etat" value="${chantier?.etat || 'en_cours'}">
-              </div>
-              <div class="adm-form-row">
-                <div class="adm-form-group">
-                  <label class="adm-label" for="tw-date-debut">Date de début</label>
-                  <input type="date" class="adm-input" id="tw-date-debut" value="${esc((chantier?.date_debut || '').slice(0, 10))}">
-                </div>
-                <div class="adm-form-group">
-                  <label class="adm-label" for="tw-date-fin">Date de fin</label>
-                  <input type="date" class="adm-input" id="tw-date-fin" value="${esc((chantier?.date_fin || '').slice(0, 10))}">
-                </div>
-              </div>
-            </div>
+        <div class="cw-section__body">
+          <div class="cw-field">
+            <label class="cw-field__label" for="tw-name">Nom du chantier <span class="cw-required">*</span></label>
+            <input type="text" class="cw-field__input cw-field__input--hero" id="tw-name" autocomplete="off"
+              value="${esc(chantier?.name || '')}" placeholder="Ex : Réfection de la chaussée" maxlength="120">
           </div>
-
-          <!-- Section : Affichage -->
-          <div class="adm-card" style="margin-top:16px;">
-            <div class="adm-card__header">
-              <h3 class="adm-card__title"><i class="fa-solid fa-palette"></i> Affichage</h3>
-            </div>
-            <div class="adm-card__body">
-              <div class="adm-form-group">
-                <label class="adm-label" for="tw-icon">Icône <span style="font-weight:400;color:var(--text-muted);font-size:12px;">(classe Font Awesome)</span></label>
-                <div style="display:flex;gap:8px;align-items:center;">
-                  <div class="tw-icon-preview" id="tw-icon-preview">
-                    <i class="${esc(chantier?.icon || DEFAULT_ICON)}"></i>
-                  </div>
-                  <input type="text" class="adm-input" id="tw-icon"
-                    value="${esc(chantier?.icon || DEFAULT_ICON)}" placeholder="fa-solid fa-helmet-safety">
-                </div>
-              </div>
-            </div>
+          <div class="cw-field">
+            <label class="cw-field__label" for="tw-nature">Nature des travaux <span class="cw-optional">facultatif</span></label>
+            <input type="text" class="cw-field__input" id="tw-nature"
+              value="${esc(chantier?.nature || '')}" placeholder="Ex : Voirie, Réseaux, Bâtiment…">
           </div>
-
-          <!-- Section : Tracé GeoJSON -->
-          <div class="adm-card" style="margin-top:16px;">
-            <div class="adm-card__header">
-              <h3 class="adm-card__title"><i class="fa-solid fa-map-location-dot"></i> Tracé GeoJSON</h3>
-            </div>
-            <div class="adm-card__body">
-              ${chantier?.geojson_url ? `
-                <div style="margin-bottom:12px;">
-                  <a href="${esc(chantier.geojson_url)}" target="_blank" class="adm-btn adm-btn--secondary adm-btn--sm">
-                    <i class="fa-solid fa-map"></i> Voir le GeoJSON actuel
-                  </a>
-                </div>` : ''}
-              <div class="adm-dropzone" id="tw-geojson-drop">
-                <i class="fa-solid fa-cloud-arrow-up"></i>
-                <div class="adm-dropzone__text">Déposez un fichier GeoJSON ou cliquez</div>
-                <div class="adm-dropzone__hint">.geojson · .json</div>
-              </div>
-              <input type="file" id="tw-geojson-file" accept=".geojson,.json" hidden>
-              <div id="tw-geojson-name" style="margin-top:8px;font-size:13px;color:var(--primary);display:flex;align-items:center;gap:6px;" hidden>
-                <i class="fa-solid fa-file-code"></i> <span id="tw-geojson-name-text"></span>
-              </div>
-            </div>
+          <div class="cw-field">
+            <label class="cw-field__label" for="tw-localisation"><i class="fa-solid fa-location-dot"></i> Adresse / Localisation <span class="cw-optional">facultatif</span></label>
+            <input type="text" class="cw-field__input" id="tw-localisation"
+              value="${esc(chantier?.localisation || '')}" placeholder="Ex : Avenue Jean Jaurès">
           </div>
-
+          <div class="cw-field">
+            <label class="cw-field__label" for="tw-description">Description <span class="cw-optional">facultatif</span></label>
+            <textarea class="cw-field__textarea" id="tw-description" rows="4"
+              placeholder="Décrivez les travaux, leur impact sur la circulation…">${esc(chantier?.description || '')}</textarea>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <!-- Actions -->
-      <div class="tw-form-actions">
-        <a href="/admin/travaux/" class="adm-btn adm-btn--secondary" data-section="travaux">
-          <i class="fa-solid fa-xmark"></i> Annuler
-        </a>
-        <button type="submit" class="adm-btn adm-btn--primary" id="tw-submit">
-          <i class="fa-solid fa-check"></i> ${isEdit ? 'Enregistrer les modifications' : 'Créer le chantier'}
-        </button>
-      </div>
-    </form>
+      <!-- 2 · ÉTAT & PLANNING -->
+      <section class="cw-section" id="tw-sect-planning">
+        <div class="cw-section__header">
+          <div class="cw-section__icon"><i class="fa-solid fa-calendar-days"></i></div>
+          <div class="cw-section__titles">
+            <h2 class="cw-section__title">État & planning</h2>
+            <p class="cw-section__desc">Avancement et dates prévisionnelles</p>
+          </div>
+        </div>
+        <div class="cw-section__body">
+          <div class="cw-field">
+            <label class="cw-field__label">État du chantier</label>
+            <div class="tw-etat-picker" id="tw-etat-picker">
+              ${Object.entries(ETAT_LABELS).map(([val, e]) => `
+                <label class="tw-etat-option tw-etat-option--${e.badge} ${(chantier?.etat || 'en_cours') === val ? 'selected' : ''}" data-val="${val}">
+                  <input type="radio" name="tw-etat" value="${val}" ${(chantier?.etat || 'en_cours') === val ? 'checked' : ''} hidden>
+                  <i class="fa-solid ${e.icon}"></i>
+                  <span>${e.label}</span>
+                </label>`).join('')}
+            </div>
+            <input type="hidden" id="tw-etat" value="${chantier?.etat || 'en_cours'}">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div class="cw-field">
+              <label class="cw-field__label" for="tw-date-debut">Date de début</label>
+              <input type="date" class="cw-field__input" id="tw-date-debut" value="${esc((chantier?.date_debut || '').slice(0, 10))}">
+            </div>
+            <div class="cw-field">
+              <label class="cw-field__label" for="tw-date-fin">Date de fin</label>
+              <input type="date" class="cw-field__input" id="tw-date-fin" value="${esc((chantier?.date_fin || '').slice(0, 10))}">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3 · LOCALISATION -->
+      <section class="cw-section" id="tw-sect-location">
+        <div class="cw-section__header">
+          <div class="cw-section__icon"><i class="fa-solid fa-map-location-dot"></i></div>
+          <div class="cw-section__titles">
+            <h2 class="cw-section__title">Localisation sur la carte</h2>
+            <p class="cw-section__desc">Dessinez l'emprise ou importez un fichier GeoJSON</p>
+          </div>
+          <span class="cw-optional-badge">Facultatif</span>
+        </div>
+        <div class="cw-section__body">
+          ${hasExistingGeo ? `
+            <div class="cw-notice cw-notice--success">
+              <i class="fa-solid fa-check-circle"></i>
+              <div><strong>GeoJSON existant</strong>
+              <span>— <a href="${esc(chantier.geojson_url)}" target="_blank" rel="noopener">voir le tracé actuel</a>. Dessinez ou importez pour le remplacer.</span></div>
+            </div>` : ''}
+
+          <div class="cw-loc-toggle">
+            <button type="button" class="cw-loc-toggle__btn active" data-mode="draw">
+              <i class="fa-solid fa-pencil"></i> Dessiner sur la carte
+            </button>
+            <button type="button" class="cw-loc-toggle__btn" data-mode="file">
+              <i class="fa-solid fa-file-import"></i> Importer un fichier
+            </button>
+          </div>
+
+          <!-- Draw mode -->
+          <div id="tw-loc-draw">
+            <div class="cw-map-wrap">
+              <div id="tw-map"></div>
+              <div class="cw-map-instructions" id="tw-map-instructions">
+                <i class="fa-solid fa-hand-pointer"></i>
+                <span>Sélectionnez un outil ci-dessous, puis cliquez sur la carte</span>
+              </div>
+            </div>
+            <div id="tw-draw-toolbar"></div>
+          </div>
+
+          <!-- File mode -->
+          <div id="tw-loc-file" hidden>
+            <div class="cw-drop-area" id="tw-geojson-drop">
+              <div class="cw-drop-area__illustration"><i class="fa-solid fa-file-arrow-up"></i></div>
+              <div class="cw-drop-area__text">
+                <span class="cw-drop-area__title">Déposez votre fichier GeoJSON</span>
+                <span class="cw-drop-area__hint">ou <u>cliquez pour parcourir</u> — .geojson, .json</span>
+              </div>
+            </div>
+            <input type="file" id="tw-geojson-file" accept=".geojson,.json" hidden>
+            <div class="cw-file-result" id="tw-geojson-result" hidden>
+              <div class="cw-file-result__info">
+                <div class="cw-file-result__icon"><i class="fa-solid fa-file-code"></i></div>
+                <div>
+                  <div class="cw-file-result__name" id="tw-geojson-name"></div>
+                  <div class="cw-file-result__meta" id="tw-geojson-meta"></div>
+                </div>
+              </div>
+              <button type="button" class="cw-file-result__remove" id="tw-geojson-remove" title="Supprimer">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4 · AFFICHAGE -->
+      <section class="cw-section" id="tw-sect-display">
+        <div class="cw-section__header">
+          <div class="cw-section__icon"><i class="fa-solid fa-palette"></i></div>
+          <div class="cw-section__titles">
+            <h2 class="cw-section__title">Affichage</h2>
+            <p class="cw-section__desc">Personnalisez l'icône du chantier sur la carte</p>
+          </div>
+          <span class="cw-optional-badge">Facultatif</span>
+        </div>
+        <div class="cw-section__body">
+          <div class="cw-field">
+            <label class="cw-field__label" for="tw-icon"><i class="fa-solid fa-icons"></i> Icône (classe Font Awesome)</label>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <div class="tw-icon-preview" id="tw-icon-preview">
+                <i class="${esc(chantier?.icon || DEFAULT_ICON)}"></i>
+              </div>
+              <input type="text" class="cw-field__input" id="tw-icon" style="flex:1;"
+                value="${esc(chantier?.icon || DEFAULT_ICON)}" placeholder="fa-solid fa-helmet-safety">
+            </div>
+            <p class="cw-field__tip"><i class="fa-solid fa-lightbulb"></i> Entrez une classe Font Awesome — l'aperçu se met à jour en temps réel.</p>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /cw-sections -->
+
+    <!-- ── FOOTER ── -->
+    <div class="cw-footer">
+      <a href="/admin/travaux/" class="cw-footer__cancel" data-section="travaux">
+        <i class="fa-solid fa-arrow-left"></i> Retour
+      </a>
+      <button type="button" class="cw-footer__submit" id="tw-submit">
+        <span>${isEdit ? 'Enregistrer les modifications' : 'Créer le chantier'}</span>
+        <i class="fa-solid fa-arrow-right"></i>
+      </button>
+    </div>
   `;
 
-  // État picker interaction
+  _bindTwForm(container, chantier);
+  setTimeout(() => _initTwMap(container), 200);
+}
+
+/* ── Form bindings ── */
+function _bindTwForm(container, existingChantier) {
+  // Name validation
+  const nameInput = container.querySelector('#tw-name');
+  nameInput?.addEventListener('input', () => {
+    nameInput.classList.toggle('cw-field__input--valid', nameInput.value.trim().length > 0);
+  });
+  if (nameInput?.value.trim()) nameInput.classList.add('cw-field__input--valid');
+
+  // État picker
   container.querySelectorAll('.tw-etat-option').forEach(opt => {
     opt.addEventListener('click', () => {
       container.querySelectorAll('.tw-etat-option').forEach(o => o.classList.remove('selected'));
@@ -377,15 +487,337 @@ async function _renderCreateForm(container, chantier = null) {
     });
   });
 
-  // Icon preview live update
+  // Icon preview
   container.querySelector('#tw-icon')?.addEventListener('input', (e) => {
     const preview = container.querySelector('#tw-icon-preview i');
     if (preview) preview.className = e.target.value.trim() || DEFAULT_ICON;
   });
 
-  _bindGeoJSONUpload(container);
-  _bindFormSubmit(container, chantier);
+  // Location mode toggle
+  container.querySelectorAll('.cw-loc-toggle__btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.mode;
+      _tw.locationMode = mode;
+      container.querySelectorAll('.cw-loc-toggle__btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+      container.querySelector('#tw-loc-draw').hidden = (mode !== 'draw');
+      container.querySelector('#tw-loc-file').hidden = (mode !== 'file');
+      if (mode === 'draw' && !_tw._map) setTimeout(() => _initTwMap(container), 50);
+    });
+  });
+
+  _bindTwFileUpload(container);
+
+  // Submit
+  container.querySelector('#tw-submit')?.addEventListener('click', () => _submitTwForm(container, existingChantier));
 }
+
+/* ── GeoJSON file upload ── */
+function _bindTwFileUpload(container) {
+  const dropzone = container.querySelector('#tw-geojson-drop');
+  const fileInput = container.querySelector('#tw-geojson-file');
+
+  dropzone?.addEventListener('click', () => fileInput?.click());
+  dropzone?.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+  dropzone?.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  dropzone?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    if (e.dataTransfer?.files?.[0]) _handleTwGeojsonFile(container, e.dataTransfer.files[0]);
+  });
+  fileInput?.addEventListener('change', () => {
+    if (fileInput.files?.[0]) _handleTwGeojsonFile(container, fileInput.files[0]);
+  });
+
+  container.querySelector('#tw-geojson-remove')?.addEventListener('click', () => {
+    _tw.geojsonFile = null;
+    const result = container.querySelector('#tw-geojson-result');
+    if (result) result.hidden = true;
+    if (dropzone) dropzone.hidden = false;
+  });
+}
+
+function _handleTwGeojsonFile(container, file) {
+  const name = file.name.toLowerCase();
+  if (!name.endsWith('.geojson') && !name.endsWith('.json')) {
+    toast('Le fichier doit être un GeoJSON (.geojson ou .json)', 'error');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      let count = 0;
+      if (parsed.type === 'FeatureCollection' && Array.isArray(parsed.features)) count = parsed.features.length;
+      else if (parsed.type === 'Feature') count = 1;
+
+      _tw.geojsonFile = file;
+      const dropzone = container.querySelector('#tw-geojson-drop');
+      const result = container.querySelector('#tw-geojson-result');
+      if (dropzone) dropzone.hidden = true;
+      if (result) {
+        result.hidden = false;
+        const nameEl = result.querySelector('#tw-geojson-name');
+        const metaEl = result.querySelector('#tw-geojson-meta');
+        if (nameEl) nameEl.textContent = file.name;
+        if (metaEl) metaEl.textContent = count > 0 ? `${count} feature${count > 1 ? 's' : ''} détectée${count > 1 ? 's' : ''}` : '';
+      }
+    } catch (_) { toast('Fichier GeoJSON invalide', 'error'); }
+  };
+  reader.readAsText(file);
+}
+
+/* ── Form submit ── */
+async function _submitTwForm(container, existingChantier) {
+  const name = container.querySelector('#tw-name')?.value?.trim();
+  if (!name) {
+    toast('Le nom du chantier est obligatoire', 'error');
+    container.querySelector('#tw-name')?.focus();
+    container.querySelector('#tw-sect-identity')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    container.querySelector('#tw-name')?.classList.add('cw-field__input--error');
+    return;
+  }
+
+  const submitBtn = container.querySelector('#tw-submit');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enregistrement…'; }
+
+  const data = {
+    name,
+    nature: container.querySelector('#tw-nature')?.value?.trim() || '',
+    etat: container.querySelector('#tw-etat')?.value || 'en_cours',
+    icon: container.querySelector('#tw-icon')?.value?.trim() || DEFAULT_ICON,
+    date_debut: container.querySelector('#tw-date-debut')?.value || null,
+    date_fin: container.querySelector('#tw-date-fin')?.value || null,
+    localisation: container.querySelector('#tw-localisation')?.value?.trim() || '',
+    description: container.querySelector('#tw-description')?.value?.trim() || '',
+  };
+
+  try {
+    // Upload drawn GeoJSON or file
+    if (_tw.drawnGeoJSON) {
+      const url = await api.uploadTravauxGeoJSON(_tw.drawnGeoJSON);
+      data.geojson_url = url;
+    } else if (_tw.geojsonFile) {
+      const text = await _tw.geojsonFile.text();
+      const geojson = JSON.parse(text);
+      const url = await api.uploadTravauxGeoJSON(geojson);
+      data.geojson_url = url;
+    }
+
+    if (existingChantier) {
+      await api.updateTravaux(existingChantier.id, data);
+      toast('Chantier mis à jour', 'success');
+    } else {
+      data.approved = store.isAdmin;
+      await api.createTravaux(data);
+      toast(store.isAdmin ? 'Chantier créé' : 'Proposition envoyée — en attente de validation', 'success');
+    }
+    router.navigate('/admin/travaux/');
+  } catch (err) {
+    toast(err.message, 'error');
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = `<span>${existingChantier ? 'Enregistrer les modifications' : 'Créer le chantier'}</span> <i class="fa-solid fa-arrow-right"></i>`; }
+  }
+}
+
+/* ── Map drawing ── */
+
+function _initTwMap(body) {
+  const el = body.querySelector('#tw-map');
+  if (!el || _tw._map) return;
+  if (typeof maplibregl === 'undefined') { toast('MapLibre non chargé', 'error'); return; }
+
+  const b = _tw.branding || {};
+  const center = [parseFloat(b.center_lng) || 4.835, parseFloat(b.center_lat) || 45.764];
+  const zoom = parseFloat(b.zoom) || 12;
+
+  const map = new maplibregl.Map({
+    container: el,
+    style: {
+      version: 8,
+      sources: { 'osm-raster': { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, attribution: '© OpenStreetMap contributors' } },
+      layers: [{ id: 'osm-raster-layer', type: 'raster', source: 'osm-raster' }],
+      glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+    },
+    center, zoom, attributionControl: false, scrollZoom: false,
+  });
+
+  // Ctrl+wheel zoom
+  const mapEl = map.getContainer();
+  let _hintTimeout;
+  mapEl.addEventListener('wheel', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      map.easeTo({ zoom: map.getZoom() + (e.deltaY < 0 ? 0.5 : -0.5), duration: 100 });
+    } else {
+      const hint = mapEl.querySelector('.cw-map-scroll-hint');
+      if (hint) { hint.classList.add('visible'); clearTimeout(_hintTimeout); _hintTimeout = setTimeout(() => hint.classList.remove('visible'), 1800); }
+    }
+  }, { passive: false });
+
+  const hint = document.createElement('div');
+  hint.className = 'cw-map-scroll-hint';
+  hint.innerHTML = '<i class="fa-solid fa-hand-pointer"></i> Ctrl + molette pour zoomer';
+  mapEl.appendChild(hint);
+
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
+  map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
+  _tw._map = map;
+
+  map.on('load', () => {
+    map.addSource('draw-features', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map.addLayer({ id: 'draw-fills', type: 'fill', source: 'draw-features', filter: ['==', '$type', 'Polygon'], paint: { 'fill-color': '#4E2BFF', 'fill-opacity': 0.15 } });
+    map.addLayer({ id: 'draw-lines', type: 'line', source: 'draw-features', filter: ['in', '$type', 'LineString', 'Polygon'], paint: { 'line-color': '#4E2BFF', 'line-width': 3 } });
+    map.addLayer({ id: 'draw-points', type: 'circle', source: 'draw-features', filter: ['==', '$type', 'Point'], paint: { 'circle-radius': 7, 'circle-color': '#4E2BFF', 'circle-stroke-color': '#fff', 'circle-stroke-width': 2 } });
+    map.addSource('draw-active', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map.addLayer({ id: 'draw-active-line', type: 'line', source: 'draw-active', paint: { 'line-color': '#FF6B35', 'line-width': 2, 'line-dasharray': [3, 2] } });
+    map.addLayer({ id: 'draw-active-pts', type: 'circle', source: 'draw-active', filter: ['==', '$type', 'Point'], paint: { 'circle-radius': 5, 'circle-color': '#FF6B35', 'circle-stroke-color': '#fff', 'circle-stroke-width': 2 } });
+    if (_tw._drawFeatures.length > 0) _updateTwDrawSource();
+    _renderTwDrawPanel(body);
+  });
+
+  map.on('click', (e) => _handleTwMapClick(body, e));
+  map.on('dblclick', (e) => {
+    if (_tw._drawMode === 'line' || _tw._drawMode === 'polygon') { e.preventDefault(); _finishTwDrawing(body); }
+  });
+}
+
+function _handleTwMapClick(body, e) {
+  if (!_tw._drawMode) return;
+  const { lng, lat } = e.lngLat;
+  if (_tw._drawMode === 'marker') {
+    _tw._drawFeatures.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [lng, lat] }, properties: {} });
+    _tw._drawMode = null;
+    _setTwMapCursor('');
+    _updateTwDrawSource();
+    _renderTwDrawPanel(body);
+    return;
+  }
+  _tw._drawPoints.push([lng, lat]);
+  _updateTwActiveDrawLine();
+  _renderTwDrawPanel(body);
+}
+
+function _updateTwActiveDrawLine() {
+  const map = _tw._map;
+  if (!map?.getSource('draw-active')) return;
+  const pts = _tw._drawPoints;
+  const features = pts.map(p => ({ type: 'Feature', geometry: { type: 'Point', coordinates: p }, properties: {} }));
+  if (pts.length >= 2) features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: pts }, properties: {} });
+  map.getSource('draw-active').setData({ type: 'FeatureCollection', features });
+}
+
+function _finishTwDrawing(body) {
+  const pts = _tw._drawPoints, mode = _tw._drawMode;
+  if (mode === 'line' && pts.length >= 2) {
+    _tw._drawFeatures.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: [...pts] }, properties: {} });
+  } else if (mode === 'polygon' && pts.length >= 3) {
+    _tw._drawFeatures.push({ type: 'Feature', geometry: { type: 'Polygon', coordinates: [[...pts, pts[0]]] }, properties: {} });
+  }
+  _tw._drawPoints = [];
+  if (_tw._map?.getSource('draw-active')) _tw._map.getSource('draw-active').setData({ type: 'FeatureCollection', features: [] });
+  _tw._drawMode = null;
+  _setTwMapCursor('');
+  _updateTwDrawSource();
+  _renderTwDrawPanel(body);
+}
+
+function _updateTwDrawSource() {
+  const map = _tw._map;
+  if (!map?.getSource('draw-features')) return;
+  const fc = { type: 'FeatureCollection', features: _tw._drawFeatures };
+  map.getSource('draw-features').setData(fc);
+  _tw.drawnGeoJSON = _tw._drawFeatures.length > 0 ? fc : null;
+}
+
+function _setTwMapCursor(cursor) {
+  if (_tw._map) _tw._map.getCanvas().style.cursor = cursor;
+}
+
+const TW_DRAW_TOOLS = {
+  marker:  { icon: 'fa-solid fa-map-pin',     label: 'Point',  color: '#6366f1' },
+  line:    { icon: 'fa-solid fa-route',        label: 'Ligne',  color: '#0ea5e9' },
+  polygon: { icon: 'fa-solid fa-draw-polygon', label: 'Zone',   color: '#10b981' },
+};
+
+function _renderTwDrawPanel(body, opts) {
+  const panel = body.querySelector('#tw-draw-toolbar');
+  if (!panel) return;
+  const mode = _tw._drawMode, pts = _tw._drawPoints.length, feats = _tw._drawFeatures.length, fp = opts?.forcePicker;
+
+  if (!mode || fp) {
+    if (feats === 0 || fp) {
+      panel.innerHTML = `<div class="cw-dtb cw-dtb--picker">
+        <span class="cw-dtb__label">Outil de dessin</span>
+        <div class="cw-dtb__tools">${Object.entries(TW_DRAW_TOOLS).map(([k, t]) =>
+          `<button class="cw-dtb__tool" data-tool="${k}" style="--tc:${t.color};"><i class="${t.icon}"></i><span>${t.label}</span></button>`).join('')}
+        </div>${fp && feats > 0 ? `<span class="cw-dtb__aside">${feats} élément${feats > 1 ? 's' : ''} existant${feats > 1 ? 's' : ''}</span>` : ''}
+      </div>`;
+    } else {
+      const nPts = _tw._drawFeatures.filter(f => f.geometry.type === 'Point').length;
+      const nLns = _tw._drawFeatures.filter(f => f.geometry.type === 'LineString').length;
+      const nPoly = _tw._drawFeatures.filter(f => f.geometry.type === 'Polygon').length;
+      const badges = [];
+      if (nPts)  badges.push(`<span class="cw-feat-badge"><i class="fa-solid fa-map-pin"></i> ${nPts} point${nPts > 1 ? 's' : ''}</span>`);
+      if (nLns)  badges.push(`<span class="cw-feat-badge"><i class="fa-solid fa-route"></i> ${nLns} ligne${nLns > 1 ? 's' : ''}</span>`);
+      if (nPoly) badges.push(`<span class="cw-feat-badge"><i class="fa-solid fa-draw-polygon"></i> ${nPoly} zone${nPoly > 1 ? 's' : ''}</span>`);
+      panel.innerHTML = `<div class="cw-dtb cw-dtb--done">
+        <i class="fa-solid fa-circle-check cw-dtb__done-ico"></i>
+        <span class="cw-dtb__done-label">Tracé enregistré</span>
+        <div class="cw-dtb__badges">${badges.join('')}</div>
+        <div class="cw-dtb__actions">
+          <button class="cw-dtb__btn" id="tw-draw-add-more"><i class="fa-solid fa-plus"></i> Ajouter</button>
+          <button class="cw-dtb__icon-btn" id="tw-draw-undo-feat" title="Annuler le dernier"><i class="fa-solid fa-rotate-left"></i></button>
+          <button class="cw-dtb__icon-btn cw-dtb__icon-btn--danger" id="tw-draw-clear-all" title="Tout effacer"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>`;
+    }
+  } else {
+    const t = TW_DRAW_TOOLS[mode], minPts = mode === 'polygon' ? 3 : 2, canFinish = mode !== 'marker' && pts >= minPts;
+    const statusMsg = mode === 'marker' ? 'Cliquez sur la carte pour poser le point'
+      : pts === 0 ? 'Cliquez sur la carte pour commencer'
+      : canFinish ? `<strong>${pts}</strong> points — double-clic ou cliquez Terminer`
+      : `<strong>${pts}\u202f/\u202f${minPts}</strong> points minimum`;
+    panel.innerHTML = `<div class="cw-dtb cw-dtb--active">
+      <button class="cw-dtb__back" id="tw-draw-cancel-tool" title="Changer d'outil"><i class="fa-solid fa-arrow-left"></i></button>
+      <div class="cw-dtb__active-tool" style="--tc:${t.color};"><i class="${t.icon}"></i><strong>${t.label}</strong></div>
+      <div class="cw-dtb__sep"></div>
+      <div class="cw-dtb__status"><span class="cw-dtb__pulse"></span><span>${statusMsg}</span></div>
+      <div class="cw-dtb__actions">
+        ${pts > 0 && mode !== 'marker' ? `<button class="cw-dtb__btn cw-dtb__btn--ghost" id="tw-draw-undo-pt"><i class="fa-solid fa-rotate-left"></i> Annuler</button>` : ''}
+        ${canFinish ? `<button class="cw-dtb__btn cw-dtb__btn--primary" id="tw-draw-finish-btn"><i class="fa-solid fa-check"></i> Terminer</button>` : ''}
+      </div>
+    </div>`;
+  }
+
+  // Bind draw panel interactions
+  panel.querySelectorAll('.cw-dtb__tool[data-tool]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (_tw._drawPoints.length > 0) _finishTwDrawing(body);
+      _tw._drawMode = btn.dataset.tool;
+      _setTwMapCursor('crosshair');
+      _renderTwDrawPanel(body);
+    });
+  });
+  panel.querySelector('#tw-draw-add-more')?.addEventListener('click', () => _renderTwDrawPanel(body, { forcePicker: true }));
+  panel.querySelector('#tw-draw-undo-feat')?.addEventListener('click', () => {
+    if (_tw._drawFeatures.length > 0) { _tw._drawFeatures.pop(); _updateTwDrawSource(); _renderTwDrawPanel(body); }
+  });
+  panel.querySelector('#tw-draw-clear-all')?.addEventListener('click', () => {
+    _tw._drawFeatures = []; _tw._drawPoints = [];
+    if (_tw._map?.getSource('draw-active')) _tw._map.getSource('draw-active').setData({ type: 'FeatureCollection', features: [] });
+    _updateTwDrawSource(); _renderTwDrawPanel(body);
+  });
+  panel.querySelector('#tw-draw-cancel-tool')?.addEventListener('click', () => {
+    _tw._drawMode = null; _tw._drawPoints = [];
+    if (_tw._map?.getSource('draw-active')) _tw._map.getSource('draw-active').setData({ type: 'FeatureCollection', features: [] });
+    _setTwMapCursor(''); _renderTwDrawPanel(body);
+  });
+  panel.querySelector('#tw-draw-undo-pt')?.addEventListener('click', () => {
+    if (_tw._drawPoints.length > 0) { _tw._drawPoints.pop(); _updateTwActiveDrawLine(); _renderTwDrawPanel(body); }
+  });
+  panel.querySelector('#tw-draw-finish-btn')?.addEventListener('click', () => _finishTwDrawing(body));
+}
+
+/* ── Detail (edit) loader ── */
 
 async function _openChantierDetail(container, id) {
   container.innerHTML = skeletonTable(3);
@@ -397,88 +829,6 @@ async function _openChantierDetail(container, id) {
     toast('Erreur de chargement', 'error');
     router.navigate('/admin/travaux/');
   }
-}
-
-let _pendingGeojsonFile = null;
-
-function _bindGeoJSONUpload(container) {
-  const dropzone = container.querySelector('#tw-geojson-drop');
-  const fileInput = container.querySelector('#tw-geojson-file');
-  const nameDisplay = container.querySelector('#tw-geojson-name');
-  _pendingGeojsonFile = null;
-
-  if (!dropzone || !fileInput) return;
-
-  dropzone.addEventListener('click', () => fileInput.click());
-  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
-  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
-  dropzone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropzone.classList.remove('dragover');
-    const file = e.dataTransfer?.files?.[0];
-    if (file) _setGeojsonFile(file, nameDisplay);
-  });
-  fileInput.addEventListener('change', () => {
-    if (fileInput.files?.[0]) _setGeojsonFile(fileInput.files[0], nameDisplay);
-  });
-}
-
-function _setGeojsonFile(file, display) {
-  _pendingGeojsonFile = file;
-  if (display) {
-    const nameEl = display.querySelector('#tw-geojson-name-text');
-    if (nameEl) nameEl.textContent = file.name;
-    display.hidden = false;
-  }
-}
-
-function _bindFormSubmit(container, existingChantier) {
-  const form = container.querySelector('#travaux-form');
-  form?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const submitBtn = container.querySelector('#tw-submit');
-    submitBtn.disabled = true;
-
-    const data = {
-      name: container.querySelector('#tw-name').value.trim(),
-      nature: container.querySelector('#tw-nature').value.trim(),
-      etat: container.querySelector('#tw-etat').value,
-      icon: container.querySelector('#tw-icon').value.trim() || DEFAULT_ICON,
-      date_debut: container.querySelector('#tw-date-debut').value || null,
-      date_fin: container.querySelector('#tw-date-fin').value || null,
-      localisation: container.querySelector('#tw-localisation').value.trim(),
-      description: container.querySelector('#tw-description').value.trim(),
-    };
-
-    if (!data.name) {
-      toast('Le nom du chantier est obligatoire', 'error');
-      submitBtn.disabled = false;
-      return;
-    }
-
-    try {
-      // Upload GeoJSON if new file
-      if (_pendingGeojsonFile) {
-        const text = await _pendingGeojsonFile.text();
-        const geojson = JSON.parse(text);
-        const url = await api.uploadTravauxGeoJSON(geojson);
-        data.geojson_url = url;
-      }
-
-      if (existingChantier) {
-        await api.updateTravaux(existingChantier.id, data);
-        toast('Chantier mis à jour', 'success');
-      } else {
-        data.approved = store.isAdmin;
-        await api.createTravaux(data);
-        toast(store.isAdmin ? 'Chantier créé' : 'Proposition envoyée — en attente de validation', 'success');
-      }
-      router.navigate('/admin/travaux/');
-    } catch (err) {
-      toast(err.message, 'error');
-      submitBtn.disabled = false;
-    }
-  });
 }
 
 /* ── Travaux config ── */

@@ -16,8 +16,9 @@
 /assistant-ia/*     /assistant-ia/:splat  200
 
 # Admin SPA — fallback pour routing côté client
-/admin              /admin/index.html     200!
-/admin/*            /admin/index.html     200!
+# Sans !, Netlify sert les fichiers statiques (css, js…) en priorité
+/admin              /admin/index.html     200
+/admin/*            /admin/index.html     200
 
 # Home (Vue SPA) — SPA fallback pour le routing
 /home               /home/index.html      200!
