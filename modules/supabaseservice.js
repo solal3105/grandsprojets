@@ -1512,6 +1512,44 @@
     },
 
     /**
+     * Upload une image intégrée à un article markdown vers le storage.
+     * @param {File|Blob} file
+     * @param {string} categoryLayer
+     * @param {string} projectName
+     * @returns {Promise<string>} URL publique
+     */
+    uploadArticleImageToStorage: async function(file, categoryLayer, projectName) {
+      try {
+        if (!file || !categoryLayer || !projectName) throw new Error('Paramètres manquants');
+        const safeCat = slugify(categoryLayer);
+        const safeName = slugify(projectName);
+        const lower = (file.name || '').toLowerCase();
+        const ext = lower.endsWith('.jpg') || lower.endsWith('.jpeg') ? '.jpg'
+          : lower.endsWith('.webp') ? '.webp'
+          : lower.endsWith('.gif') ? '.gif'
+          : '.png';
+        const contentType = file.type && file.type.startsWith('image/') ? file.type : 'image/png';
+        const ts = Date.now();
+        const rand = Math.random().toString(36).slice(2, 8);
+        const path = `img/articles/${safeCat}/${safeName}-${ts}-${rand}${ext}`;
+        const bucket = 'uploads';
+        const { error: upErr } = await supabaseClient
+          .storage
+          .from(bucket)
+          .upload(path, file, { upsert: false, contentType });
+        if (upErr) {
+          console.error('[supabaseService] uploadArticleImageToStorage error:', upErr);
+          throw upErr;
+        }
+        const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
+        return data.publicUrl;
+      } catch (e) {
+        console.error('[supabaseService] uploadArticleImageToStorage exception:', e);
+        throw e;
+      }
+    },
+
+    /**
      * Met à jour les champs meta et description sur la ligne de contribution.
      * Les champs vides/indéfinis ne sont pas patchés.
      * @param {number} rowId

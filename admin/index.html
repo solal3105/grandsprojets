@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Administration – Grands Projets</title>
+  <link rel="icon" type="image/png" href="/img/logomin.png" sizes="32x32">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/00-colors.css">
+  <link rel="stylesheet" href="/admin/admin.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="https://uicdn.toast.com/editor/3.2.2/toastui-editor.min.css">
+</head>
+<body>
+
+  <!-- ── Sidebar ── -->
+  <aside class="adm-sidebar" id="adm-sidebar">
+    <div class="adm-sidebar__top">
+      <a href="/" class="adm-sidebar__logo" aria-label="Retour au site">
+        <img src="/img/logos/classic_color-1.png" alt="Grands Projets" class="adm-sidebar__logo-img" id="adm-sidebar-logo">
+      </a>
+
+      <!-- City selector -->
+      <div class="adm-sidebar__city" id="adm-city-selector">
+        <label class="adm-sidebar__city-label" for="adm-city-select">
+          <i class="fa-solid fa-building"></i> Structure
+        </label>
+        <select id="adm-city-select" class="adm-sidebar__city-select"></select>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="adm-sidebar__sep" role="separator"></div>
+    <nav class="adm-sidebar__nav" id="adm-nav" role="navigation" aria-label="Navigation admin">
+      <a href="/admin/contributions/" class="adm-nav-item" data-section="contributions">
+        <i class="fa-solid fa-pen-to-square"></i><span>Contributions</span>
+        <span class="adm-nav-badge" id="adm-badge-pending" hidden></span>
+      </a>
+      <a href="/admin/travaux/" class="adm-nav-item" data-section="travaux" data-role="admin">
+        <i class="fa-solid fa-helmet-safety"></i><span>Travaux</span>
+      </a>
+      <a href="/admin/categories/" class="adm-nav-item" data-section="categories" data-role="admin">
+        <i class="fa-solid fa-tags"></i><span>Catégories</span>
+      </a>
+      <a href="/admin/utilisateurs/" class="adm-nav-item" data-section="utilisateurs" data-role="admin">
+        <i class="fa-solid fa-users"></i><span>Utilisateurs</span>
+      </a>
+      <div class="adm-sidebar__sep" role="separator" style="margin: 6px 0; width: 100%;"></div>
+      <a href="/admin/structure/" class="adm-nav-item" data-section="structure" data-role="admin">
+        <i class="fa-solid fa-palette"></i><span>Structure</span>
+      </a>
+      <a href="/admin/villes/" class="adm-nav-item" data-section="villes" data-role="global">
+        <i class="fa-solid fa-city"></i><span>Villes</span>
+      </a>
+    </nav>
+
+    <!-- User info (bottom) -->
+    <div class="adm-sidebar__user" id="adm-user-info">
+      <div class="adm-sidebar__user-avatar" id="adm-user-avatar">
+        <i class="fa-solid fa-user"></i>
+      </div>
+      <div class="adm-sidebar__user-meta">
+        <span class="adm-sidebar__user-email" id="adm-user-email"></span>
+        <span class="adm-sidebar__user-role" id="adm-user-role"></span>
+      </div>
+      <button class="adm-sidebar__logout" id="adm-logout" aria-label="Déconnexion" title="Déconnexion">
+        <i class="fa-solid fa-right-from-bracket"></i>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── Mobile header ── -->
+  <header class="adm-mobile-header" id="adm-mobile-header">
+    <button class="adm-mobile-header__toggle" id="adm-menu-toggle" aria-label="Menu">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+    <span class="adm-mobile-header__title">Administration <span id="adm-mobile-city" class="adm-mobile-city-chip"></span></span>
+    <a href="/" class="adm-mobile-header__home" aria-label="Retour au site">
+      <i class="fa-solid fa-map"></i>
+    </a>
+  </header>
+
+  <!-- ── Main content ── -->
+  <main class="adm-main" id="adm-main">
+    <!-- Splash / loader -->
+    <div id="adm-splash" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:16px;transition:opacity .3s;">
+      <i class="fa-solid fa-spinner fa-spin" style="font-size:32px;color:var(--primary);"></i>
+      <span style="color:var(--adm-text-secondary);font-size:14px;">Chargement…</span>
+    </div>
+    <div class="adm-main__inner" id="adm-content">
+      <!-- Sections rendered here by router -->
+    </div>
+  </main>
+
+  <!-- ── Slide panel (detail views) ── -->
+  <div class="adm-slide-panel" id="adm-slide-panel" aria-hidden="true">
+    <div class="adm-slide-panel__backdrop" id="adm-slide-backdrop"></div>
+    <div class="adm-slide-panel__content" id="adm-slide-content"></div>
+  </div>
+
+  <!-- ── Confirm dialog ── -->
+  <dialog class="adm-dialog" id="adm-dialog">
+    <div class="adm-dialog__body" id="adm-dialog-body"></div>
+    <div class="adm-dialog__actions">
+      <button class="adm-btn adm-btn--secondary" id="adm-dialog-cancel">Annuler</button>
+      <button class="adm-btn adm-btn--danger" id="adm-dialog-confirm">Confirmer</button>
+    </div>
+  </dialog>
+
+  <!-- ── Toast container ── -->
+  <div class="adm-toast-container" id="adm-toast-container"></div>
+
+  <!-- ── Overlay (sidebar mobile) ── -->
+  <div class="adm-overlay" id="adm-overlay" hidden></div>
+
+  <!-- ── Scripts ── -->
+  <!-- Shared dependencies (same as main site) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://uicdn.toast.com/editor/3.2.2/toastui-editor-all.min.js"></script>
+  <script src="/modules/auth.js"></script>
+  <script src="/modules/supabaseservice.js"></script>
+
+  <!-- Admin app (ES modules) -->
+  <script type="module" src="/admin/app.js"></script>
+</body>
+</html>
