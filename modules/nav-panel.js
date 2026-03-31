@@ -56,7 +56,13 @@
         this._closeBtn.addEventListener('click', () => this.collapse());
       }
       if (this._collapseBtn) {
-        this._collapseBtn.addEventListener('click', () => this.collapse());
+        this._collapseBtn.addEventListener('click', () => {
+          // At level 3 carte: zoom to fit all category layers, then collapse.
+          if (this._level === 3 && this._currentModule === 'carte' && this._currentCategory) {
+            win.NavigationModule?.fitCategoryBounds?.(this._currentCategory);
+          }
+          this.collapse();
+        });
       }
       if (this._backBtn) {
         this._backBtn.addEventListener('click', () => this.goBack());
@@ -202,7 +208,7 @@
       const label = opts.label || category;
       this._headerTitle.textContent = label;
       this._updateBreadcrumb(label);
-      this._updateCollapseButton(label, true);
+      this._updateCollapseButton(label, true, opts.color || null);
 
       // Show a contextual skeleton immediately (appropriate shape per module)
       if (this._currentModule === 'carte') {
@@ -305,30 +311,29 @@
 
     /**
      * Update the collapse button text and style.
-     * @param {string|null} categoryLabel - category label to append, or null to reset
-     * @param {boolean} colored - whether to apply city primary color
+     * @param {string|null} categoryLabel - category label to show, or null to reset
+     * @param {boolean} colored - whether to apply category color
+     * @param {string|null} [color] - explicit CSS color for the button background
      */
-    _updateCollapseButton(categoryLabel, colored) {
+    _updateCollapseButton(categoryLabel, colored, color = null) {
       if (!this._collapseBtn) return;
       const span = this._collapseBtn.querySelector('.nav-panel__collapse-text') ||
                    (() => {
-                     // Wrap existing text in a span if not already done
                      const s = document.createElement('span');
                      s.className = 'nav-panel__collapse-text';
                      this._collapseBtn.appendChild(s);
                      return s;
                    })();
 
-      if (categoryLabel) {
-        span.textContent = `Voir la carte (${categoryLabel})`;
-      } else {
-        span.textContent = 'Voir la carte';
-      }
+      span.textContent = categoryLabel ? `Voir la carte · ${categoryLabel}` : 'Voir la carte';
 
       if (colored) {
         this._collapseBtn.classList.add('nav-panel__collapse--city');
+        // Apply the category's own color directly, fallback to --primary via CSS
+        this._collapseBtn.style.setProperty('--cat-color', color || '');
       } else {
         this._collapseBtn.classList.remove('nav-panel__collapse--city');
+        this._collapseBtn.style.removeProperty('--cat-color');
       }
     },
 

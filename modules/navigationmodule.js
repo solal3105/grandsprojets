@@ -254,21 +254,52 @@ const NavigationModule = (() => {
     }
 
     // Fit to combined bounds (unless caller opted out)
-    if (!opts.skipFitBounds) {
-      let combinedBounds = null;
-      for (const layerName of layers) {
-        const layer = window.MapModule?.layers?.[layerName];
-        if (layer && typeof layer.getBounds === 'function') {
-          const bounds = layer.getBounds();
-          if (bounds?.isValid?.()) {
-            combinedBounds = combinedBounds ? combinedBounds.extend(bounds) : bounds;
-          }
-        }
-      }
-      if (combinedBounds) {
-        MapModule.map.fitBounds(combinedBounds, { padding: [100, 100], pitch: 0 });
-      }
+    if (!opts.skipFitBounds) _fitBoundsForLayers(layers);
+  }
+
+  /**
+   * Compute combined Leaflet bounds for a list of loaded map layers.
+   * Returns null if no valid bounds found.
+   * @param {string[]} layerNames
+   * @returns {{ isValid, toBBoxArray }|null}
+   */
+  function _combinedBoundsForLayers(layerNames) {
+    let combined = null;
+    for (const name of layerNames) {
+      const layer = window.MapModule?.layers?.[name];
+      if (!layer || typeof layer.getBounds !== 'function') continue;
+      const b = layer.getBounds();
+      if (!b?.isValid?.()) continue;
+      combined = combined ? combined.extend(b.getSouthWest()).extend(b.getNorthEast()) : b;
     }
+    return combined;
+  }
+
+  /**
+   * Fit the MapLibre camera to show all layers in `layerNames`.
+   * Resets persistent internal padding first (MapLibre v4 stacks it otherwise),
+   * then applies _computeMapPadding() so the target is clear of all UI panels.
+   * @param {string[]} layerNames
+   */
+  function _fitBoundsForLayers(layerNames) {
+    const combined = _combinedBoundsForLayers(layerNames);
+    if (!combined) return;
+    const mlMap = window.MapModule?.map?._mlMap;
+    if (!mlMap) return;
+    // toBBoxArray() → [west, south, east, north] — compat-bounds convention
+    const [west, south, east, north] = combined.toBBoxArray();
+    mlMap.jumpTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 } });
+    mlMap.fitBounds([[west, south], [east, north]],
+      { padding: _computeMapPadding(), duration: 500, pitch: 0 });
+  }
+
+  /**
+   * Fit the map to show all loaded layers for a given category.
+   * Public — called by NavPanel's collapse button.
+   * @param {string} category
+   */
+  function fitCategoryBounds(category) {
+    _fitBoundsForLayers(getCategoryLayers(category));
   }
 
   /**
@@ -644,12 +675,14 @@ const NavigationModule = (() => {
     showProjectDetail,
     showSpecificContribution,
     showCategoryLayers,
+    fitCategoryBounds,
     zoomOutOnLoadedLayers,
     resetToDefaultView,
     _resetProjectGuard: () => { _lastShownProject = null; },
     highlightProjectOnMap,
     panToProject,
-    clearProjectHighlight
+    clearProjectHighlight,
+    computeMapPadding: _computeMapPadding,
   };
   
   window.NavigationModule = publicAPI;

@@ -216,9 +216,9 @@
   transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* City-colored state — active when a category is selected (level 3) */
+/* Category-colored state — active when a category is selected (level 3) */
 .nav-panel__collapse--city {
-  background: var(--primary);
+  background: var(--cat-color, var(--primary));
   color: #fff;
 }
 
@@ -227,7 +227,7 @@
 }
 
 .nav-panel__collapse--city:hover {
-  background: var(--primary-hover, var(--primary));
+  background: color-mix(in srgb, var(--cat-color, var(--primary)) 85%, #000);
   color: #fff;
 }
 
