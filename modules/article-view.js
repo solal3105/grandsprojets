@@ -64,8 +64,6 @@
       '#basemap-menu',
       '#filters-toggle',
       '#filters-container',
-      '#overflow-toggle',
-      '#overflow-menu',
       '.mobile-fixed-logo',
       '#gp-sidebar'
     ];

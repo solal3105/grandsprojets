@@ -23,7 +23,6 @@ class ToggleManager {
     if (this.initialized) return;
 
     TOGGLE_ORDER.forEach(key => this.initToggle(key));
-    this.initOverflowToggle();
 
     this.initialized = true;
     this._bindResize();
@@ -115,7 +114,7 @@ class ToggleManager {
     // Mutual exclusion: close other open toggles
     if (state && opensPanel) {
       this.toggles.forEach((other, otherKey) => {
-        if (otherKey !== key && otherKey !== 'overflow' && this.state.get(otherKey) &&
+        if (otherKey !== key && this.state.get(otherKey) &&
             (other.config.hasMenu || other.config.hasOverlay || other.config.hasModal || other.config.targetElement || other.config.hasDockPanel)) {
           this.setState(otherKey, false);
         }
@@ -307,6 +306,7 @@ class ToggleManager {
    * Collect all toggle buttons that should be visible (ready + enabled).
    */
   _getEligibleToggles() {
+    // (see _getTrimCandidates for the filtered subset used by the overflow algo)
     const eligible = [];
     TOGGLE_ORDER.forEach(key => {
       const t = this.toggles.get(key);
@@ -320,6 +320,14 @@ class ToggleManager {
       if (show) eligible.push({ key, element: t.element, config: t.config });
     });
     return eligible;
+  }
+
+  /**
+   * Subset of eligible buttons that may be moved into the overflow section.
+   * Buttons with overflowExempt:true (i.e. actions-toggle) are always kept in the dock.
+   */
+  _getTrimCandidates(eligible) {
+    return eligible.filter(({ config }) => !config.overflowExempt);
   }
 
   /** Debounced recalculate — batches rapid calls (markReady during init) */
@@ -339,12 +347,11 @@ class ToggleManager {
 
   _doRecalculate() {
     const isMobile = window.innerWidth <= 640;
-    const overflowToggle = this.toggles.get('overflow');
 
     if (!isMobile) {
-      if (overflowToggle) overflowToggle.element.style.display = 'none';
+      // Desktop: all buttons fit, no overflow section needed
       this._restoreOverflowToggles();
-      this.closeOverflowMenu();
+      this._updateActionsOverflow();
       this._updateGroupVisibility();
       return;
     }
@@ -352,54 +359,41 @@ class ToggleManager {
     const dock = document.getElementById('toggle-dock');
     if (!dock) return;
 
-    const eligible = this._getEligibleToggles();
+    const eligible   = this._getEligibleToggles();
+    const candidates = this._getTrimCandidates(eligible); // excludes overflowExempt
 
-    // Step 1: Show ALL eligible buttons, hide overflow
+    // Step 1: Show ALL eligible buttons
     eligible.forEach(({ element }) => {
       element.style.display = 'flex';
       element.removeAttribute('data-in-overflow');
     });
-    if (overflowToggle) overflowToggle.element.style.display = 'none';
     this.overflowToggles = [];
     this._updateGroupVisibility();
 
-    // Step 2: Measure — does the dock overlap the logo?
+    // Step 2: Does the dock overlap the logo pill?
     const minLeft = this._getMinDockLeft();
 
-    // Step 3: Trim one button at a time from the end until it fits
-    // (or until we're down to 3 visible buttons minimum)
+    // Step 3: Trim candidates from the END, one at a time, until the dock fits.
+    // actions-toggle (overflowExempt) is never a victim — it IS the overflow entry point.
+    // Minimum 3 visible buttons regardless.
     const overflowed = [];
-    let safetyMax = eligible.length;
+    let safetyMax = candidates.length;
     while (safetyMax-- > 0) {
       const dockLeft = dock.getBoundingClientRect().left;
       const remaining = eligible.length - overflowed.length;
       if (dockLeft >= minLeft || remaining <= 3) break;
 
-      // Move last visible eligible button into overflow
-      const victim = eligible[eligible.length - 1 - overflowed.length];
+      const victim = candidates[candidates.length - 1 - overflowed.length];
       if (!victim) break;
       victim.element.style.display = 'none';
       victim.element.setAttribute('data-in-overflow', 'true');
       overflowed.push(victim);
-
-      // Show overflow button so we account for its width too
-      if (overflowToggle && overflowed.length === 1) {
-        overflowToggle.element.style.display = 'flex';
-      }
       this._updateGroupVisibility();
     }
 
-    // Step 4: Finalize
-    if (overflowed.length > 0 && overflowToggle) {
-      this.overflowToggles = overflowed;
-      overflowToggle.element.style.display = 'flex';
-      this._updateOverflowMenu();
-    } else {
-      this.overflowToggles = [];
-      if (overflowToggle) overflowToggle.element.style.display = 'none';
-      this.closeOverflowMenu();
-    }
-
+    // Step 4: Surface overflowed buttons inside the unified actions panel
+    this.overflowToggles = overflowed;
+    this._updateActionsOverflow();
     this._updateGroupVisibility();
   }
 
@@ -457,88 +451,43 @@ class ToggleManager {
   }
 
   /* ═══════════════════════════════════════════════════════════════════════
-     OVERFLOW MENU
+     UNIFIED ACTIONS PANEL — overflow section
      ═══════════════════════════════════════════════════════════════════════ */
 
-  initOverflowToggle() {
-    const config = TOGGLES_CONFIG.overflow;
-    if (!config) return;
-    const element = document.getElementById(config.id);
-    if (!element) return;
+  /**
+   * Sync the "Carte" overflow section inside #actions-panel with the current
+   * set of overflowed dock buttons. Called after every layout recalculate.
+   */
+  _updateActionsOverflow() {
+    const section   = document.getElementById('actions-overflow-section');
+    const container = document.getElementById('actions-overflow-items');
+    if (!section || !container) return;
 
-    element.classList.add('app-toggle');
-    this.toggles.set('overflow', { element, config, state: false });
-    this.state.set('overflow', false);
-    this._setupAria(element, config);
+    container.innerHTML = '';
 
-    element.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); this._toggleOverflow(); });
-    document.addEventListener('click', (e) => {
-      const menu = document.getElementById('overflow-menu');
-      if (menu && !element.contains(e.target) && !menu.contains(e.target)) this.closeOverflowMenu();
-    });
-    element.setAttribute('data-ready', 'true');
-  }
+    if (this.overflowToggles.length === 0) {
+      section.hidden = true;
+      return;
+    }
 
-  _toggleOverflow() {
-    this.state.get('overflow') ? this.closeOverflowMenu() : this._openOverflowMenu();
-  }
-
-  _openOverflowMenu() {
-    const menu = document.getElementById('overflow-menu');
-    const t = this.toggles.get('overflow');
-    if (!menu || !t) return;
-    this._closeAllMenus();
-    this._positionPanelBelowDock(menu);
-    menu.classList.add('active');
-    menu.style.display = 'block';
-    menu.setAttribute('aria-hidden', 'false');
-    t.element.setAttribute('aria-expanded', 'true');
-    this.state.set('overflow', true);
-  }
-
-  closeOverflowMenu() {
-    const menu = document.getElementById('overflow-menu');
-    const t = this.toggles.get('overflow');
-    if (!menu) return;
-    menu.classList.remove('active');
-    menu.style.display = '';
-    menu.setAttribute('aria-hidden', 'true');
-    if (t) t.element.setAttribute('aria-expanded', 'false');
-    this.state.set('overflow', false);
-  }
-
-  _closeAllMenus() {
-    // Close all dock panels
-    document.querySelectorAll('.dock-panel.dock-panel--open').forEach(el => {
-      el.classList.remove('dock-panel--open');
-    });
-    this.toggles.forEach((t, key) => {
-      if ((t.config.hasMenu || t.config.hasDockPanel) && key !== 'overflow') {
-        this.state.set(key, false);
-        t.element.setAttribute('aria-expanded', 'false');
-        t.element.setAttribute('aria-pressed', 'false');
-      }
-    });
-  }
-
-  _updateOverflowMenu() {
-    const content = document.querySelector('#overflow-menu .overflow-menu-content');
-    if (!content) return;
-    content.innerHTML = '';
-
+    section.hidden = false;
     this.overflowToggles.forEach(({ key, config }) => {
       const item = document.createElement('button');
-      item.className = 'overflow-menu-item';
+      item.className = 'action-item';
       item.setAttribute('data-toggle-key', key);
-      item.innerHTML = `<i class="fas ${config.icon}"></i><span class="overflow-menu-label">${config.label}</span>`;
-      item.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); this._handleOverflowClick(key, config); });
-      content.appendChild(item);
+      item.innerHTML = `
+        <div class="action-item__icon"><i class="fas ${config.icon}" aria-hidden="true"></i></div>
+        <span class="action-item__label">${config.label}</span>
+      `;
+      item.addEventListener('click', () => {
+        this.setState('actions', false); // close the panel first
+        this._handleOverflowItem(key, config);
+      });
+      container.appendChild(item);
     });
   }
 
-  _handleOverflowClick(key, config) {
-    this.closeOverflowMenu();
-
+  _handleOverflowItem(key, config) {
     if (config.redirectUrl) { window.location.href = config.redirectUrl; return; }
     if (config.hasModal) {
       const id = config.modalSelector?.replace('#', '');
@@ -546,6 +495,19 @@ class ToggleManager {
     } else {
       this.toggle(key);
     }
+  }
+
+  _closeAllMenus() {
+    document.querySelectorAll('.dock-panel.dock-panel--open').forEach(el => {
+      el.classList.remove('dock-panel--open');
+    });
+    this.toggles.forEach((t, key) => {
+      if (t.config.hasMenu || t.config.hasDockPanel) {
+        this.state.set(key, false);
+        t.element.setAttribute('aria-expanded', 'false');
+        t.element.setAttribute('aria-pressed', 'false');
+      }
+    });
   }
 
   /* ═══════════════════════════════════════════════════════════════════════

@@ -236,16 +236,7 @@
       <button id="actions-toggle" class="toggle-dock__btn" data-ready="false" data-title="Menu" aria-label="Menu des actions">
         <i class="fas fa-ellipsis-v" aria-hidden="true"></i>
       </button>
-      <button id="overflow-toggle" class="toggle-dock__btn toggle-dock__btn--overflow" data-ready="false" style="display:none"
-              aria-label="Plus d'options" aria-haspopup="true" aria-expanded="false">
-        <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
-      </button>
     </nav>
-
-    <!-- Toggle drop-menus (outside dock, positioned fixed) -->
-    <div id="overflow-menu" class="toggle-menu overflow-menu" aria-hidden="true">
-      <div class="overflow-menu-content"></div>
-    </div>
 
     <!-- ═══ Unified dock panels ═══ -->
 
@@ -280,14 +271,21 @@
       <div class="dock-panel__body" id="dynamic-filters"></div>
     </div>
 
-    <!-- Actions panel (mobile only) -->
+    <!-- Actions panel (mobile only) — unified: overflow dock buttons + sidebar actions -->
     <div id="actions-panel" class="dock-panel" data-toggle="actions">
       <div class="dock-panel__header">
         <span class="dock-panel__title">Menu</span>
         <button class="dock-panel__close" aria-label="Fermer le menu"><i class="fas fa-times"></i></button>
       </div>
-      <div class="dock-panel__body" id="actions-panel-body">
-        <!-- Actions populated by JS -->
+      <div class="dock-panel__body">
+        <!-- Overflow section: dock buttons that don't fit (populated by JS, hidden when empty) -->
+        <div id="actions-overflow-section" class="actions-overflow-section" hidden>
+          <div class="actions-overflow-section__label">Carte</div>
+          <div id="actions-overflow-items"></div>
+          <div class="actions-overflow-section__divider"></div>
+        </div>
+        <!-- Sidebar action clones (populated by main.js) -->
+        <div id="actions-panel-body"></div>
       </div>
     </div>
   </div>

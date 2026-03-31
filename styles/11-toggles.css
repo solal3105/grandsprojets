@@ -353,9 +353,6 @@
   #actions-toggle { display: flex !important; }
 }
 
-#overflow-toggle { display: none; }
-.toggle-dock__btn--overflow i { font-size: 0.88rem; }
-
 /* ── Location states ────────────────────────────────────────────────────── */
 
 #location-toggle {
@@ -1039,70 +1036,6 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   OVERFLOW MENU
-   ══════════════════════════════════════════════════════════════════════════ */
-
-.overflow-menu {
-  top: 78px;
-  right: 16px;
-  min-width: 210px;
-  padding: 6px;
-}
-
-.overflow-menu-content {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.overflow-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  background: transparent;
-  border: none;
-  border-radius: 11px;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  font-family: inherit;
-  font-size: 0.84rem;
-  font-weight: 500;
-  color: var(--text-primary);
-  transition: background 0.15s ease;
-}
-
-.overflow-menu-item:hover  { background: var(--dock-btn-hover); }
-.overflow-menu-item:active { opacity: 0.75; transition-duration: 0.05s; }
-
-.overflow-menu-item i {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  background: var(--dock-btn-hover);
-  border-radius: 8px;
-  flex-shrink: 0;
-  transition: color 0.15s ease, background 0.15s ease;
-}
-
-.overflow-menu-item:hover i {
-  color: var(--primary);
-  background: color-mix(in srgb, var(--primary, #14AE5C) 10%, transparent);
-}
-
-.overflow-menu-label { flex: 1; }
-
-.overflow-menu-item:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: -2px;
-}
-
-/* ══════════════════════════════════════════════════════════════════════════
    ACTIONS PANEL (mobile menu)
    ══════════════════════════════════════════════════════════════════════════ */
 
@@ -1111,6 +1044,33 @@
 #actions-panel .dock-panel__body {
   flex-direction: column;
   gap: 0;
+  padding: 0;
+}
+
+/* ── Overflow section (dock buttons that didn't fit) ────────────────────── */
+
+.actions-overflow-section {
+  padding: 8px 0 0;
+}
+
+.actions-overflow-section__label {
+  padding: 0 16px 4px;
+  font-size: 0.60rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-tertiary);
+}
+
+.actions-overflow-section__divider {
+  height: 1px;
+  margin: 8px 12px;
+  background: var(--dock-sep);
+}
+
+/* ── Fixed sidebar actions ───────────────────────────────────────────────── */
+
+#actions-panel-body {
   padding: 8px 0;
 }
 
@@ -1175,8 +1135,6 @@ body[data-auth-state="disconnected"] .action-item[data-auth="disconnected"] { di
   :root { --dock-btn: 48px; --dock-h: 58px; --dock-radius: 18px; }
   .toggle-dock { top: 10px; right: 10px; left: auto; gap: 0; }
   .toggle-dock__btn i { font-size: 1.05rem; }
-  .overflow-menu { top: 80px; right: 10px; min-width: 220px; max-width: calc(100vw - 20px); }
-  .overflow-menu-item { padding: 12px 14px; }
 }
 
 @media (max-width: 400px) {

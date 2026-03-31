@@ -76,19 +76,9 @@ export const TOGGLES_CONFIG = {
     position: 5,
     defaultState: false,
     hasDockPanel: true,
-    mobileOnly: true
-  },
-  
-  overflow: {
-    id: 'overflow-toggle',
-    icon: 'fa-ellipsis-h',
-    label: 'Plus',
-    ariaLabel: 'Plus d\'options',
-    position: 99,
-    hasMenu: true,
-    menuSelector: '#overflow-menu',
-    defaultState: false,
-    mobileOnly: true
+    mobileOnly: true,
+    // Never trimmed by the overflow algorithm — it IS the overflow entry point
+    overflowExempt: true
   }
 };
 
