@@ -6,7 +6,7 @@ window.MapModule = (() => {
   
   /**
    * Initialise le fond de carte après chargement de window.basemaps
-   * Supporte raster (L.tileLayer) et vectoriel via L.createBasemapLayer
+   * Supporte raster et vectoriel via L.createBasemapLayer (compat shim)
    */
   function initBaseLayer() {
     const bmList = window.basemaps || [];

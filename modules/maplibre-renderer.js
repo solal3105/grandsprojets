@@ -1,7 +1,6 @@
 /**
  * MapLibre GL Native Renderer
- * Remplace complètement L.geoJSON() et L.marker() par des sources/layers MapLibre GL natifs
- * BEAUCOUP plus performant que la couche de compatibilité Leaflet
+ * Gère les sources/layers MapLibre GL natifs pour les features GeoJSON et markers.
  */
 
 ;(function(win) {

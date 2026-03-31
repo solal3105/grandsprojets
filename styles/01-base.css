@@ -145,5 +145,4 @@ svg path:focus {
   margin-bottom: 20px;
 }
 
-/* (Legacy supprimé : .highlight — ancien SVG stroke Leaflet,
-   remplacé par .is-highlighted / .gp-marker-pulse-ring dans gp-custom-markers.css) */
+/* Legacy : .highlight remplacé par .is-highlighted / .gp-marker-pulse-ring (gp-custom-markers.css) */

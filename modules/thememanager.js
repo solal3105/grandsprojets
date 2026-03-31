@@ -93,7 +93,7 @@
         const bm = this.findBasemapForTheme(theme);
         if (!bm) return;
 
-        // Utilise L.createBasemapLayer (raster ou vectoriel selon bm.kind)
+        // Change le fond de carte via le compat shim (raster ou vectoriel selon bm.kind)
         const layer = L.createBasemapLayer(bm);
         window.MapModule?.setBaseLayer?.(layer);
         window.UIModule?.setActiveBasemap?.(bm.label);

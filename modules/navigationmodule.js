@@ -258,7 +258,7 @@ const NavigationModule = (() => {
   }
 
   /**
-   * Compute combined Leaflet bounds for a list of loaded map layers.
+   * Compute combined bounds for a list of loaded map layers.
    * Returns null if no valid bounds found.
    * @param {string[]} layerNames
    * @returns {{ isValid, toBBoxArray }|null}
