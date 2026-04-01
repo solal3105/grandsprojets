@@ -10,6 +10,9 @@ import { updatePendingBadge } from '../components/sidebar.js';
 
 const PAGE_SIZE = 20;
 
+// AbortController for list click listener — ensures only one listener exists at a time
+let _listBodyAbort = null;
+
 let _state = {
   search: '',
   category: '',
@@ -268,6 +271,10 @@ function _renderItem(item) {
 }
 
 function _bindListActions(container, listBody) {
+  // Remove any previously attached listener to avoid accumulation across _loadList calls
+  if (_listBodyAbort) _listBodyAbort.abort();
+  _listBodyAbort = new AbortController();
+
   listBody.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-action]');
     if (!btn) {
@@ -321,10 +328,86 @@ function _bindListActions(container, listBody) {
         _refreshPendingBadge();
       } catch (err) { toast(err.message, 'error'); }
     }
-  });
+  }, { signal: _listBodyAbort.signal });
 }
 
-/* ── Detail slide panel ── */
+/* ── Detail preview modal ── */
+
+function _injectDetailStyles() {
+  if (document.getElementById('contrib-detail-styles')) return;
+  const s = document.createElement('style');
+  s.id = 'contrib-detail-styles';
+  s.textContent = `
+    .sp-cover {
+      width: calc(100% + 48px); margin: -24px -24px 20px;
+      height: 200px; object-fit: cover; display: block;
+      background: var(--adm-bg-tertiary);
+    }
+    .sp-cover--placeholder {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 48px; opacity: .15;
+      background: radial-gradient(circle at 30% 60%, var(--primary-alpha-24, rgba(33,185,41,.24)) 0%, transparent 60%);
+    }
+    .sp-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+    .sp-meta {
+      display: flex; flex-direction: column; gap: 7px;
+      margin-bottom: 20px; padding-bottom: 18px;
+      border-bottom: 1px solid var(--adm-glass-border, rgba(0,0,0,.06));
+    }
+    .sp-meta-item {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--gray-500);
+    }
+    .sp-meta-item i { color: var(--primary); width: 14px; text-align: center; flex-shrink: 0; }
+    .sp-meta-item a { color: var(--primary); text-decoration: none; word-break: break-all; }
+    .sp-meta-item a:hover { text-decoration: underline; }
+    .sp-section { margin-bottom: 22px; }
+    .sp-section-title {
+      font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+      color: var(--gray-400); margin-bottom: 10px;
+    }
+    .sp-description {
+      font-size: 14px; color: var(--gray-700); line-height: 1.65;
+      background: var(--adm-glass-inner); border-radius: 10px; padding: 14px 16px;
+    }
+    .sp-map {
+      width: 100%; height: 220px; border-radius: 10px; overflow: hidden;
+      border: 1px solid var(--adm-glass-border);
+    }
+    .sp-article {
+      font-size: 14px; line-height: 1.7; color: var(--gray-700);
+      background: var(--adm-glass-inner); border-radius: 10px; padding: 16px 18px;
+    }
+    .sp-article h1, .sp-article h2, .sp-article h3 { font-weight: 700; margin: 1em 0 .4em; color: var(--gray-800); }
+    .sp-article h1 { font-size: 1.3em; }
+    .sp-article h2 { font-size: 1.12em; }
+    .sp-article h3 { font-size: 1em; }
+    .sp-article p { margin: .5em 0; }
+    .sp-article a { color: var(--primary); }
+    .sp-article img { max-width: 100%; border-radius: 8px; margin: .4em 0; }
+    .sp-article ul, .sp-article ol { padding-left: 1.4em; margin: .4em 0; }
+    .sp-article blockquote {
+      border-left: 3px solid var(--primary); margin: .6em 0;
+      padding: .35em .9em; color: var(--gray-500);
+      background: var(--primary-alpha-6, rgba(33,185,41,.06)); border-radius: 0 8px 8px 0;
+    }
+    .sp-article code { background: var(--adm-bg-tertiary); padding: 2px 5px; border-radius: 4px; font-size: .88em; }
+    .sp-article pre { background: var(--adm-bg-tertiary); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+    .sp-docs { display: flex; flex-direction: column; gap: 7px; }
+    .sp-doc-link {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 13px;
+      background: var(--adm-glass-inner); border: 1px solid var(--adm-glass-border);
+      border-radius: 9px; text-decoration: none; color: var(--gray-700);
+      font-size: 13px; font-weight: 500;
+      transition: background .15s, border-color .15s;
+    }
+    .sp-doc-link:hover { background: var(--adm-glass); border-color: var(--primary); color: var(--primary); }
+    .sp-doc-link i.fa-file-pdf { color: var(--danger); font-size: 15px; }
+    .sp-doc-link .sp-doc-ext { margin-left: auto; font-size: 10px; opacity: .45; }
+  `;
+  document.head.appendChild(s);
+}
 
 async function _openDetail(id) {
   try {
@@ -334,119 +417,170 @@ async function _openDetail(id) {
     let dossiers = [];
     try { dossiers = await api.getConsultationDossiers(item.project_name) || []; } catch (_) {}
 
-    const markdownContent = item.markdown_url
-      ? await fetch(item.markdown_url).then(r => r.ok ? r.text() : '').catch(() => '')
-      : '';
+    let markdownContent = '';
+    if (item.markdown_url) {
+      try { markdownContent = await fetch(item.markdown_url).then(r => r.ok ? r.text() : ''); } catch (_) {}
+    }
+
+    _injectDetailStyles();
 
     const statusBadge = item.approved
       ? '<span class="adm-badge adm-badge--success"><i class="fa-solid fa-check"></i> Approuvée</span>'
       : '<span class="adm-badge adm-badge--warning"><i class="fa-solid fa-clock"></i> En attente</span>';
 
-    const body = `
-      <!-- Cover -->
-      ${item.cover_url ? `<img src="${esc(item.cover_url)}" alt="" style="width:100%;border-radius:10px;margin-bottom:20px;max-height:240px;object-fit:cover;">` : ''}
+    const approveBtn = store.isAdmin
+      ? (item.approved
+        ? `<button class="adm-btn adm-btn--secondary" id="sp-toggle-approve"><i class="fa-solid fa-rotate-left"></i> Retirer l'approbation</button>`
+        : `<button class="adm-btn adm-btn--primary" id="sp-toggle-approve"><i class="fa-solid fa-check"></i> Approuver</button>`)
+      : '';
 
-      <!-- Status + Category -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+    const body = `
+      <!-- Cover image — full width, no text overlay -->
+      ${item.cover_url
+        ? `<img class="sp-cover" src="${esc(item.cover_url)}" alt="">`
+        : `<div class="sp-cover sp-cover--placeholder"><i class="fa-solid fa-map-location-dot"></i></div>`}
+
+      <!-- Badges (status + category + tags) -->
+      <div class="sp-badges">
         ${statusBadge}
         <span class="adm-badge adm-badge--info">${esc(item.category)}</span>
         ${item.tags ? `<span class="adm-badge adm-badge--neutral">${esc(item.tags)}</span>` : ''}
       </div>
 
       <!-- Meta -->
-      <div style="margin-bottom:20px;">
-        <div style="font-size:13px;color:var(--gray-500);display:flex;flex-direction:column;gap:6px;">
-          <span><i class="fa-solid fa-calendar" style="width:18px;"></i> Créée le ${formatDate(item.created_at)}</span>
-          <span><i class="fa-solid fa-building" style="width:18px;"></i> ${esc(item.ville)}</span>
-          ${item.official_url ? `<a href="${esc(item.official_url)}" target="_blank" rel="noopener" style="color:var(--info);text-decoration:none;"><i class="fa-solid fa-link" style="width:18px;"></i> ${esc(item.official_url)}</a>` : ''}
-        </div>
+      <div class="sp-meta">
+        <div class="sp-meta-item"><i class="fa-solid fa-calendar"></i> ${formatDate(item.created_at)}</div>
+        <div class="sp-meta-item"><i class="fa-solid fa-building"></i> ${esc(item.ville)}</div>
+        ${item.official_url ? `<div class="sp-meta-item"><i class="fa-solid fa-link"></i> <a href="${esc(item.official_url)}" target="_blank" rel="noopener">${esc(item.official_url)}</a></div>` : ''}
       </div>
 
       <!-- Description -->
       ${item.description ? `
-      <div style="margin-bottom:20px;">
-        <h3 style="font-size:14px;font-weight:600;margin-bottom:8px;color:var(--gray-700);">Description</h3>
-        <p style="font-size:14px;color:var(--gray-600);line-height:1.6;">${esc(item.description)}</p>
+      <div class="sp-section">
+        <div class="sp-section-title">Description</div>
+        <div class="sp-description">${esc(item.description)}</div>
       </div>` : ''}
 
-      <!-- Markdown content -->
-      ${markdownContent ? `
-      <div style="margin-bottom:20px;">
-        <h3 style="font-size:14px;font-weight:600;margin-bottom:8px;color:var(--gray-700);">Article</h3>
-        <div style="font-size:14px;color:var(--gray-600);line-height:1.6;max-height:300px;overflow-y:auto;padding:12px;background:var(--gray-50);border-radius:8px;white-space:pre-wrap;">${esc(markdownContent)}</div>
-      </div>` : ''}
-
-      <!-- GeoJSON link -->
+      <!-- Map -->
       ${item.geojson_url ? `
-      <div style="margin-bottom:20px;">
-        <h3 style="font-size:14px;font-weight:600;margin-bottom:8px;color:var(--gray-700);">Données GeoJSON</h3>
-        <a href="${esc(item.geojson_url)}" target="_blank" rel="noopener" class="adm-btn adm-btn--secondary adm-btn--sm">
-          <i class="fa-solid fa-download"></i> Télécharger le GeoJSON
-        </a>
+      <div class="sp-section">
+        <div class="sp-section-title">Localisation</div>
+        <div class="sp-map" id="sp-contrib-map"></div>
       </div>` : ''}
 
-      <!-- Dossiers -->
+      <!-- Article (markdown rendered async) -->
+      ${markdownContent ? `
+      <div class="sp-section">
+        <div class="sp-section-title">Article</div>
+        <div class="sp-article" id="sp-contrib-article"></div>
+      </div>` : ''}
+
+      <!-- Documents -->
       ${dossiers.length > 0 ? `
-      <div>
-        <h3 style="font-size:14px;font-weight:600;margin-bottom:8px;color:var(--gray-700);">Documents de consultation (${dossiers.length})</h3>
-        <div style="display:flex;flex-direction:column;gap:6px;">
+      <div class="sp-section">
+        <div class="sp-section-title">Documents (${dossiers.length})</div>
+        <div class="sp-docs">
           ${dossiers.map(d => `
-            <a href="${esc(d.pdf_url)}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--gray-50);border-radius:8px;text-decoration:none;color:var(--gray-700);font-size:13px;">
-              <i class="fa-solid fa-file-pdf" style="color:var(--danger);"></i>
-              ${esc(d.title || 'Document')}
+            <a href="${esc(d.pdf_url)}" target="_blank" rel="noopener" class="sp-doc-link">
+              <i class="fa-solid fa-file-pdf"></i>
+              <span>${esc(d.title || 'Document')}</span>
+              <i class="fa-solid fa-arrow-up-right-from-square sp-doc-ext"></i>
             </a>
           `).join('')}
         </div>
       </div>` : ''}
     `;
 
-    const approveBtn = store.isAdmin
-      ? (item.approved
-        ? `<button class="adm-btn adm-btn--secondary" id="slide-toggle-approve"><i class="fa-solid fa-rotate-left"></i> Retirer l'approbation</button>`
-        : `<button class="adm-btn adm-btn--primary" id="slide-toggle-approve"><i class="fa-solid fa-check"></i> Approuver</button>`)
-      : '';
+    const footer = `
+      <button class="adm-btn adm-btn--ghost adm-btn--sm" id="sp-delete" style="color:var(--danger);margin-right:auto;">
+        <i class="fa-solid fa-trash"></i> Supprimer
+      </button>
+      <a href="/admin/contributions/modifier/${id}/" class="adm-btn adm-btn--secondary" data-section="contributions" id="sp-edit">
+        <i class="fa-solid fa-pen"></i> Modifier
+      </a>
+      ${approveBtn}
+    `;
 
     const handle = slidePanel.open({
       title: item.project_name || 'Contribution',
       body,
-      footer: `
-        <button class="adm-btn adm-btn--danger adm-btn--sm" id="slide-delete"><i class="fa-solid fa-trash"></i> Supprimer</button>
-        <div style="flex:1;"></div>
-        <a href="/admin/contributions/modifier/${id}/" class="adm-btn adm-btn--secondary" data-section="contributions" id="slide-edit">
-          <i class="fa-solid fa-pen"></i> Modifier
-        </a>
-        ${approveBtn}
-      `,
+      footer,
       onClose() {
-        // Update URL without re-rendering
         if (location.pathname.includes(`/contributions/${id}`)) {
           router.navigate('/admin/contributions/', { replace: true, skipRender: true });
         }
-      }
+      },
     });
 
-    // Bind footer actions
-    const approveToggle = handle.content.querySelector('#slide-toggle-approve');
-    if (approveToggle) {
-      approveToggle.addEventListener('click', async () => {
-        approveToggle.disabled = true;
-        try {
-          await api.approveContribution(id, !item.approved);
-          toast(item.approved ? 'Approbation retirée' : 'Contribution approuvée', 'success');
-          handle.close();
-          _refreshPendingBadge();
-          // Re-render list if we're on the contributions page
-          const listBody = document.querySelector('#contrib-list-body');
-          if (listBody) _loadList(listBody.closest('.adm-main__inner') || document.getElementById('adm-content'));
-        } catch (err) { toast(err.message, 'error'); approveToggle.disabled = false; }
-      });
+    // Render markdown asynchronously into the already-open panel
+    if (markdownContent) {
+      const articleEl = handle.content.querySelector('#sp-contrib-article');
+      if (articleEl) {
+        if (window.MarkdownUtils) {
+          await window.MarkdownUtils.loadDeps();
+          articleEl.innerHTML = window.MarkdownUtils.renderMarkdown(markdownContent);
+        } else {
+          articleEl.textContent = markdownContent;
+        }
+      }
     }
 
-    handle.content.querySelector('#slide-edit')?.addEventListener('click', () => {
-      handle.close();
-    });
+    // Init mini-map with GeoJSON trace
+    if (item.geojson_url) {
+      const mapEl = handle.content.querySelector('#sp-contrib-map');
+      if (mapEl && typeof maplibregl !== 'undefined') {
+        const branding = await api.getBranding().catch(() => null);
+        const center = [parseFloat(branding?.center_lng) || 4.835, parseFloat(branding?.center_lat) || 45.764];
+        const previewMap = new maplibregl.Map({
+          container: mapEl,
+          style: {
+            version: 8,
+            sources: { osm: { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, attribution: '© OpenStreetMap' } },
+            layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+          },
+          center, zoom: 12,
+          attributionControl: false,
+          interactive: true,
+        });
+        previewMap.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
+        previewMap.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
+        previewMap.on('load', async () => {
+          try {
+            const geo = await fetch(item.geojson_url).then(r => r.json());
+            previewMap.addSource('contrib', { type: 'geojson', data: geo });
+            previewMap.addLayer({ id: 'contrib-fill', type: 'fill', source: 'contrib', filter: ['==', '$type', 'Polygon'], paint: { 'fill-color': '#21b929', 'fill-opacity': 0.18 } });
+            previewMap.addLayer({ id: 'contrib-line', type: 'line', source: 'contrib', filter: ['in', '$type', 'LineString', 'Polygon'], paint: { 'line-color': '#21b929', 'line-width': 2.5 } });
+            previewMap.addLayer({ id: 'contrib-point', type: 'circle', source: 'contrib', filter: ['==', '$type', 'Point'], paint: { 'circle-radius': 7, 'circle-color': '#21b929', 'circle-stroke-color': '#fff', 'circle-stroke-width': 2 } });
 
-    handle.content.querySelector('#slide-delete')?.addEventListener('click', async () => {
+            // Fit bounds to GeoJSON extent
+            const coords = [];
+            const collect = (g) => {
+              if (!g) return;
+              if (g.type === 'Point') { coords.push(g.coordinates); return; }
+              if (g.type === 'LineString') { coords.push(...g.coordinates); return; }
+              if (g.type === 'Polygon') { g.coordinates.forEach(r => coords.push(...r)); return; }
+              if (g.type === 'MultiPolygon') { g.coordinates.forEach(p => p.forEach(r => coords.push(...r))); return; }
+              if (g.type === 'MultiLineString') { g.coordinates.forEach(l => coords.push(...l)); return; }
+              if (g.type === 'FeatureCollection') { g.features.forEach(f => collect(f.geometry)); return; }
+              if (g.type === 'Feature') { collect(g.geometry); }
+            };
+            collect(geo);
+            if (coords.length > 0) {
+              previewMap.fitBounds(
+                [[Math.min(...coords.map(c => c[0])), Math.min(...coords.map(c => c[1]))],
+                 [Math.max(...coords.map(c => c[0])), Math.max(...coords.map(c => c[1]))]],
+                { padding: 40, maxZoom: 16, duration: 600 }
+              );
+            }
+          } catch (_) {}
+        });
+      }
+    }
+
+    // Footer action bindings
+    handle.content.querySelector('#sp-edit')?.addEventListener('click', () => handle.close());
+
+    handle.content.querySelector('#sp-delete')?.addEventListener('click', async () => {
       const yes = await confirm({
         title: 'Supprimer cette contribution ?',
         message: `"${item.project_name}" sera supprimée définitivement.`,
@@ -463,6 +597,20 @@ async function _openDetail(id) {
         if (listBody) _loadList(listBody.closest('.adm-main__inner') || document.getElementById('adm-content'));
       } catch (err) { toast(err.message, 'error'); }
     });
+
+    handle.content.querySelector('#sp-toggle-approve')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try {
+        await api.approveContribution(id, !item.approved);
+        toast(item.approved ? 'Approbation retirée' : 'Contribution approuvée', 'success');
+        handle.close();
+        _refreshPendingBadge();
+        const listBody = document.querySelector('#contrib-list-body');
+        if (listBody) _loadList(listBody.closest('.adm-main__inner') || document.getElementById('adm-content'));
+      } catch (err) { toast(err.message, 'error'); btn.disabled = false; }
+    });
+
   } catch (e) {
     console.error('[admin/contributions] detail:', e);
     toast('Erreur lors du chargement', 'error');

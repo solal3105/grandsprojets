@@ -546,6 +546,9 @@ async function _doSave(container) {
     if (window.CityBrandingModule?.applyPrimaryColor) {
       window.CityBrandingModule.applyPrimaryColor(color);
     }
+    if (window.CityBrandingModule?.applyFavicon) {
+      window.CityBrandingModule.applyFavicon(faviconUrl);
+    }
 
     toast('Structure mise à jour', 'success');
   } catch (err) {

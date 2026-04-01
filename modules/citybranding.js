@@ -50,6 +50,36 @@
   },
 
   /**
+   * Applique le favicon dynamiquement.
+   * @param {string|null} faviconUrl
+   */
+  applyFavicon(faviconUrl) {
+    if (typeof document === 'undefined') return;
+    const DEFAULT = '/img/logomin.png';
+    const href = faviconUrl || DEFAULT;
+
+    let icon = document.querySelector('link[rel="icon"]');
+    if (icon) {
+      icon.href = href;
+    } else {
+      icon = document.createElement('link');
+      icon.rel = 'icon';
+      icon.href = href;
+      document.head.appendChild(icon);
+    }
+
+    let apple = document.querySelector('link[rel="apple-touch-icon"]');
+    if (apple) {
+      apple.href = href;
+    } else {
+      apple = document.createElement('link');
+      apple.rel = 'apple-touch-icon';
+      apple.href = href;
+      document.head.appendChild(apple);
+    }
+  },
+
+  /**
    * Charge et applique le branding pour la ville active
    * @param {string} ville - Nom de la ville
    * @param {boolean} skipToggles - Si true, ne pas appliquer la config des toggles (sera fait par onAuthStateChange)
@@ -57,6 +87,7 @@
   async loadAndApplyBranding(ville, skipToggles = false) {
     if (!ville) {
       this.applyPrimaryColor('#21b929');
+      this.applyFavicon(null);
       return;
     }
     
@@ -68,6 +99,8 @@
       } else {
         this.applyPrimaryColor('#21b929');
       }
+
+      this.applyFavicon(branding.favicon_url);
       
       // Appliquer les toggles seulement si demandé
       // À la première connexion, on skip pour éviter la race condition
@@ -77,6 +110,7 @@
       }
     } else {
       this.applyPrimaryColor('#21b929');
+      this.applyFavicon(null);
     }
   },
 

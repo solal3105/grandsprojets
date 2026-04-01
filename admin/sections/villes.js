@@ -27,6 +27,12 @@ function _showList(container) {
       </button>
     </div>
 
+    <div class="adm-toolbar">
+      <div class="adm-toolbar__search">
+        <input type="text" class="adm-input adm-input--search" id="villes-search" placeholder="Rechercher une ville…">
+      </div>
+    </div>
+
     <div class="adm-card">
       <div id="villes-list-body" style="padding:0;">
         ${skeletonTable(5)}
@@ -35,6 +41,12 @@ function _showList(container) {
   `;
 
   container.querySelector('#ville-create-btn')?.addEventListener('click', () => _showCityForm(container, null));
+
+  let timer;
+  container.querySelector('#villes-search')?.addEventListener('input', (e) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => _filterCities(container, e.target.value.trim()), 250);
+  });
 }
 
 let _allCities = [];
@@ -52,8 +64,21 @@ async function _loadCities(container) {
   }
 }
 
-function _renderCityList(body) {
-  if (_allCities.length === 0) {
+function _filterCities(container, query) {
+  const body = container.querySelector('#villes-list-body');
+  if (!body) return;
+  const q = query.toLowerCase();
+  const filtered = q
+    ? _allCities.filter(c =>
+        (c.ville || '').toLowerCase().includes(q) ||
+        (c.brand_name || '').toLowerCase().includes(q))
+    : _allCities;
+  _renderCityList(body, filtered);
+}
+
+function _renderCityList(body, cities) {
+  const list = cities || _allCities;
+  if (list.length === 0) {
     body.innerHTML = '';
     body.appendChild(emptyState({ icon: 'fa-solid fa-city', title: 'Aucune ville configurée' }));
     return;
@@ -62,7 +87,7 @@ function _renderCityList(body) {
   // Remove old listener before rendering
   body.removeEventListener('click', _handleActions);
 
-  body.innerHTML = _allCities.map(city => {
+  body.innerHTML = list.map(city => {
     const logo = city.logo_url
       ? `<img src="${esc(city.logo_url)}" alt="" style="width:40px;height:40px;object-fit:contain;border-radius:8px;background:var(--adm-bg-tertiary);padding:2px;">`
       : `<div style="width:40px;height:40px;border-radius:8px;background:var(--primary-alpha-12);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--primary);"><i class="fa-solid fa-city"></i></div>`;

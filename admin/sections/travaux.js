@@ -58,7 +58,7 @@ export async function renderTravaux(container, params) {
   _twState.readOnly = false;
   _twState.scenario = 'normal';
   if (params.id === 'nouveau') return _renderCreateForm(container);
-  if (params.id) return _openChantierDetail(container, parseInt(params.id, 10));
+  if (params.id) return _openChantierDetail(container, params.id);
 
   const urlParams = new URLSearchParams(window.location.search);
   _twState.status = urlParams.get('status') || '';
@@ -314,7 +314,7 @@ function _bindTravauxActions(container, listBody) {
     if (!btn) return;
     e.stopPropagation();
 
-    const id = parseInt(btn.dataset.id, 10);
+    const id = btn.dataset.id;
     const action = btn.dataset.action;
 
     if (action === 'approve') {
@@ -354,7 +354,7 @@ let _tw = { _map: null, _drawFeatures: [], _drawMode: null, _drawPoints: [], dra
 
 function _resetTwForm() {
   if (_tw._map) { try { _tw._map.remove(); } catch (_) {} }
-  _tw = { _map: null, _drawFeatures: [], _drawMode: null, _drawPoints: [], drawnGeoJSON: null, geojsonFile: null, branding: null, locationMode: 'draw' };
+  _tw = { _map: null, _drawFeatures: [], _drawMode: null, _drawPoints: [], drawnGeoJSON: null, geojsonFile: null, branding: null, locationMode: 'draw', _existingGeojsonUrl: null };
 }
 
 async function _renderCreateForm(container, chantier = null) {
@@ -364,6 +364,7 @@ async function _renderCreateForm(container, chantier = null) {
 
   // Load branding for map center
   _tw.branding = await api.getBranding().catch(() => null);
+  _tw._existingGeojsonUrl = hasExistingGeo ? chantier.geojson_url : null;
 
   container.innerHTML = `
     <!-- ── HEADER ── -->
@@ -463,13 +464,6 @@ async function _renderCreateForm(container, chantier = null) {
           <span class="cw-optional-badge">Facultatif</span>
         </div>
         <div class="cw-section__body">
-          ${hasExistingGeo ? `
-            <div class="cw-notice cw-notice--success">
-              <i class="fa-solid fa-check-circle"></i>
-              <div><strong>GeoJSON existant</strong>
-              <span>— <a href="${esc(chantier.geojson_url)}" target="_blank" rel="noopener">voir le tracé actuel</a>. Dessinez ou importez pour le remplacer.</span></div>
-            </div>` : ''}
-
           <div class="cw-loc-toggle">
             <button type="button" class="cw-loc-toggle__btn active" data-mode="draw">
               <i class="fa-solid fa-pencil"></i> Dessiner sur la carte
@@ -741,7 +735,43 @@ function _initTwMap(body) {
     map.addSource('draw-active', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
     map.addLayer({ id: 'draw-active-line', type: 'line', source: 'draw-active', paint: { 'line-color': '#FF6B35', 'line-width': 2, 'line-dasharray': [3, 2] } });
     map.addLayer({ id: 'draw-active-pts', type: 'circle', source: 'draw-active', filter: ['==', '$type', 'Point'], paint: { 'circle-radius': 5, 'circle-color': '#FF6B35', 'circle-stroke-color': '#fff', 'circle-stroke-width': 2 } });
-    if (_tw._drawFeatures.length > 0) _updateTwDrawSource();
+    if (_tw._drawFeatures.length > 0) {
+      _updateTwDrawSource();
+    } else if (_tw._existingGeojsonUrl) {
+      // Load existing GeoJSON onto the map
+      fetch(_tw._existingGeojsonUrl)
+        .then(r => r.json())
+        .then(fc => {
+          const features = fc.type === 'FeatureCollection' ? fc.features : [fc];
+          _tw._drawFeatures = features;
+          _tw.drawnGeoJSON = { type: 'FeatureCollection', features };
+          _updateTwDrawSource();
+          _renderTwDrawPanel(body);
+          // Fit map to the loaded features
+          const coords = [];
+          features.forEach(f => {
+            const g = f.geometry;
+            if (!g) return;
+            const flat = (arr) => {
+              if (Array.isArray(arr[0])) arr.forEach(flat); else coords.push(arr);
+            };
+            if (g.type === 'Point') coords.push(g.coordinates);
+            else if (g.type === 'LineString') g.coordinates.forEach(c => coords.push(c));
+            else if (g.type === 'Polygon') g.coordinates.forEach(ring => ring.forEach(c => coords.push(c)));
+            else if (g.type === 'MultiPolygon') g.coordinates.forEach(p => p.forEach(ring => ring.forEach(c => coords.push(c))));
+            else if (g.type === 'MultiLineString') g.coordinates.forEach(line => line.forEach(c => coords.push(c)));
+          });
+          if (coords.length > 0) {
+            const lngs = coords.map(c => c[0]);
+            const lats = coords.map(c => c[1]);
+            map.fitBounds(
+              [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+              { padding: 60, maxZoom: 17, duration: 600 }
+            );
+          }
+        })
+        .catch(err => console.warn('[travaux] Failed to load existing GeoJSON:', err));
+    }
     _renderTwDrawPanel(body);
   });
 

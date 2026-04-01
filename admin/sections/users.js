@@ -73,17 +73,16 @@ export async function renderUsers(container) {
       </form>
     </div>
 
-    <!-- Toolbar: search + role filter -->
+    <!-- Toolbar: role filter + search -->
+    <div class="adm-tabs" id="users-role-filter" style="margin-bottom:16px;">
+      <button class="adm-tab active" data-role="all">Tous</button>
+      <button class="adm-tab" data-role="admin"><i class="fa-solid fa-shield-halved"></i> Admins</button>
+      <button class="adm-tab" data-role="invited"><i class="fa-solid fa-user"></i> Contributeurs</button>
+    </div>
+
     <div class="adm-toolbar">
       <div class="adm-toolbar__search">
         <input type="text" class="adm-input adm-input--search" id="users-search" placeholder="Rechercher par email…">
-      </div>
-      <div class="adm-toolbar__filters">
-        <div class="adm-tabs" id="users-role-filter">
-          <button class="adm-tab active" data-role="all">Tous</button>
-          <button class="adm-tab" data-role="admin"><i class="fa-solid fa-shield-halved"></i> Admins</button>
-          <button class="adm-tab" data-role="invited"><i class="fa-solid fa-user"></i> Contributeurs</button>
-        </div>
       </div>
     </div>
 
@@ -137,11 +136,18 @@ function _bindEvents(container) {
     submitBtn.disabled = true;
 
     const email = container.querySelector('#invite-email').value.trim();
-    const role = container.querySelector('#invite-role-value').value || 'invited';
+    const activeTab = inviteCard.querySelector('[data-invite-role].active');
+    const role = activeTab?.dataset.inviteRole || container.querySelector('#invite-role-value').value || 'invited';
 
     try {
-      await api.inviteUser(email, role);
-      toast(`Invitation envoyée à ${email}`, 'success');
+      const result = await api.inviteUser(email, role);
+      if (result?.alreadyMember) {
+        toast(`${email} a déjà accès à cette structure`, 'info');
+      } else if (result?.addedToCity) {
+        toast(`${email} ajouté à la structure ${esc(store.city)}`, 'success');
+      } else {
+        toast(`Invitation envoyée à ${email}`, 'success');
+      }
       inviteCard.hidden = true;
       inviteForm.reset();
       inviteCard.querySelectorAll('[data-invite-role]').forEach(t => t.classList.remove('active'));

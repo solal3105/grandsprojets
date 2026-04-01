@@ -2272,6 +2272,13 @@
 
         if (!response.ok) {
           const errorMessage = data.error || data.details || `HTTP ${response.status}: ${response.statusText}`;
+
+          // Si l'utilisateur existe déjà → ajouter la ville à son profil
+          const isAlreadyExists = /already.*(exist|registered)|duplicate/i.test(errorMessage);
+          if (isAlreadyExists && villes && villes.length > 0) {
+            return await this._addVilleToExistingUser(email, villes);
+          }
+
           throw new Error(errorMessage);
         }
 
@@ -2284,6 +2291,58 @@
         console.error('[supabaseService] inviteUser exception:', e);
         throw e;
       }
+    },
+
+    /**
+     * Ajoute une/des ville(s) au profil d'un utilisateur existant (trouvé par email).
+     * @param {string} email
+     * @param {Array<string>} newVilles
+     * @returns {Promise<Object>}
+     */
+    async _addVilleToExistingUser(email, newVilles) {
+      // Trouver l'utilisateur via la RPC qui remonte les emails
+      const { data: allProfiles, error: rpcErr } = await supabaseClient
+        .rpc('get_profiles_with_email');
+      if (rpcErr) throw new Error('Impossible de rechercher l\'utilisateur existant');
+
+      const normalised = email.trim().toLowerCase();
+      const existing = (allProfiles || []).find(
+        p => (p.email || '').toLowerCase() === normalised
+      );
+      if (!existing) throw new Error('Utilisateur introuvable dans les profils');
+
+      // Parser les villes actuelles
+      let currentVilles = existing.ville || [];
+      if (typeof currentVilles === 'string') {
+        if (currentVilles.startsWith('{') && currentVilles.endsWith('}')) {
+          const inner = currentVilles.slice(1, -1);
+          currentVilles = inner ? inner.split(',') : [];
+        } else {
+          try { currentVilles = JSON.parse(currentVilles); } catch (_) { currentVilles = []; }
+        }
+      }
+      if (!Array.isArray(currentVilles)) currentVilles = [];
+
+      // Fusionner sans doublons
+      const merged = [...new Set([...currentVilles, ...newVilles])];
+
+      // Vérifier s'il y a vraiment quelque chose à ajouter
+      if (merged.length === currentVilles.length) {
+        return { message: 'Cet utilisateur a déjà accès à cette structure', alreadyMember: true };
+      }
+
+      // Mettre à jour le profil
+      const { error: updateErr } = await supabaseClient
+        .from('profiles')
+        .update({ ville: merged })
+        .eq('id', existing.id);
+
+      if (updateErr) {
+        console.error('[supabaseService] _addVilleToExistingUser update error:', updateErr);
+        throw new Error('Erreur lors de l\'ajout de la structure à l\'utilisateur');
+      }
+
+      return { message: 'Utilisateur existant ajouté à cette structure', addedToCity: true };
     },
 
     // ============================================================================
