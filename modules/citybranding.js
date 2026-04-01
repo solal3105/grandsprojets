@@ -326,55 +326,52 @@
       }
     }
 
-    // Liste de tous les toggles possibles
-    const allToggles = ['filters', 'basemap', 'theme', 'search', 'location', 'city', 'info', 'contribute', 'login'];
+    // Liste de tous les toggles possibles (dock + sidebar)
+    const allToggles = ['filters', 'basemap', 'theme', 'search', 'location', 'city', 'info', 'contribute', 'login', 'mode3d'];
 
-    // Utiliser le ToggleManager si disponible pour une gestion cohérente
+    // Sidebar-only toggles: these live in .gp-sidebar as [data-action="*"] buttons,
+    // NOT as #*-toggle elements in the dock. ToggleManager doesn't know about them.
+    const sidebarOnlyKeys = new Set(['theme', 'info', 'login', 'contribute']);
+
+    // Compute effective visibility for each toggle
+    const visibility = {};
+    allToggles.forEach(toggleKey => {
+      let isEnabled = enabledToggles.includes(toggleKey);
+
+      // Règles spéciales selon l'état d'authentification
+      if (toggleKey === 'login') {
+        if (isAuthenticated) isEnabled = false;
+      } else if (toggleKey === 'contribute') {
+        isEnabled = isAuthenticated;
+      }
+
+      visibility[toggleKey] = isEnabled;
+    });
+
+    // 1) Dock toggles via ToggleManager (filters, basemap, search, location, city, mode3d, actions)
     if (win.toggleManager && typeof win.toggleManager.setVisible === 'function') {
       allToggles.forEach(toggleKey => {
-        let isEnabled = enabledToggles.includes(toggleKey);
-        
-        // Règles spéciales selon l'état d'authentification
-        if (toggleKey === 'login') {
-          // Masquer le toggle login si l'utilisateur est connecté
-          if (isAuthenticated) {
-            isEnabled = false;
-          }
-        } else if (toggleKey === 'contribute') {
-          // Contribute apparaît dès que l'utilisateur est connecté (indépendant de la config ville)
-          isEnabled = isAuthenticated;
-        }
-        
-        win.toggleManager.setVisible(toggleKey, isEnabled);
+        if (sidebarOnlyKeys.has(toggleKey)) return; // handled separately below
+        win.toggleManager.setVisible(toggleKey, visibility[toggleKey]);
       });
-    } else {
-      // Fallback : manipulation directe du DOM
-      // Vérifier que le document est disponible
-      if (typeof document !== 'undefined' && document.getElementById) {
-        allToggles.forEach(toggleKey => {
-          const toggleElement = document.getElementById(`${toggleKey}-toggle`);
-          if (toggleElement) {
-            let isEnabled = enabledToggles.includes(toggleKey);
-            
-            // Règles spéciales selon l'état d'authentification
-            if (toggleKey === 'login') {
-              // Masquer le toggle login si l'utilisateur est connecté
-              if (isAuthenticated) {
-                isEnabled = false;
-              }
-            } else if (toggleKey === 'contribute') {
-              // Contribute apparaît dès que l'utilisateur est connecté (indépendant de la config ville)
-              isEnabled = isAuthenticated;
-            }
-            
-            if (isEnabled) {
-              toggleElement.style.display = '';
-            } else {
-              toggleElement.style.display = 'none';
-            }
-          }
-        });
-      }
+    } else if (typeof document !== 'undefined' && document.getElementById) {
+      // Fallback : manipulation directe du DOM pour les dock toggles
+      allToggles.forEach(toggleKey => {
+        if (sidebarOnlyKeys.has(toggleKey)) return;
+        const el = document.getElementById(`${toggleKey}-toggle`);
+        if (el) el.style.display = visibility[toggleKey] ? '' : 'none';
+      });
+    }
+
+    // 2) Sidebar action buttons (theme, info, login, contribute)
+    if (typeof document !== 'undefined') {
+      sidebarOnlyKeys.forEach(key => {
+        const btn = document.querySelector(`.gp-sidebar__btn[data-action="${key}"]`);
+        if (btn) btn.style.display = visibility[key] ? '' : 'none';
+        // Also handle cloned buttons in the mobile actions panel
+        const clone = document.querySelector(`#actions-panel-body [data-action="${key}"]`);
+        if (clone) clone.style.display = visibility[key] ? '' : 'none';
+      });
     }
   },
 

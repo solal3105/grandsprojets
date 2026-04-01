@@ -1,0 +1,18 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Serve site locally",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"serve",
+				".",
+				"-p",
+				"3001"
+			],
+			"isBackground": true,
+			"group": "build"
+		}
+	]
+}

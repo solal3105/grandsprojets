@@ -1,0 +1,420 @@
+/* ============================================================================
+   STRUCTURE SECTION — Branding, toggles, basemap, enabled cities
+   ============================================================================ */
+
+import { store } from '../store.js';
+import * as api from '../api.js';
+import { toast, esc, skeletonTable } from '../components/ui.js';
+
+const DEFAULT_COLOR = '#21b929';
+
+export async function renderStructure(container) {
+  container.innerHTML = `
+    <div class="adm-page-header">
+      <div>
+        <h1 class="adm-page-title"><i class="fa-solid fa-palette"></i> Ma structure</h1>
+        <p class="adm-page-subtitle">Branding & paramètres de ${esc(store.city)}</p>
+      </div>
+      <button class="adm-btn adm-btn--primary" id="st-save-header" disabled style="opacity:.45;">
+        <i class="fa-solid fa-check"></i> Enregistrer
+      </button>
+    </div>
+
+    <div id="structure-body">${skeletonTable(4)}</div>
+  `;
+
+  try {
+    const [branding, basemaps] = await Promise.all([
+      api.getBranding(),
+      _fetchBasemaps(),
+    ]);
+
+    _renderContent(container, container.querySelector('#structure-body'), branding || {}, basemaps);
+  } catch (e) {
+    console.error('[admin/structure]', e);
+    container.querySelector('#structure-body').innerHTML = `<div style="padding:20px;color:var(--danger);">Erreur : ${esc(e.message)}</div>`;
+  }
+}
+
+/* ── Fetch basemaps from global (loaded via supabaseService) ── */
+
+async function _fetchBasemaps() {
+  try {
+    if (window.basemaps && window.basemaps.length) return window.basemaps;
+    if (window.supabaseService?.fetchBasemaps) {
+      const bm = await window.supabaseService.fetchBasemaps();
+      window.basemaps = bm;
+      return bm || [];
+    }
+    return [];
+  } catch { return []; }
+}
+
+/* ── Main content ── */
+
+function _renderContent(container, body, branding, basemaps) {
+  const color = branding.primary_color || DEFAULT_COLOR;
+  const colorHex = color.replace('#', '');
+  const enabledToggles = new Set(branding.enabled_toggles || []);
+  const enabledCities = branding.enabled_cities || [];
+  const togglesConfig = window.TOGGLES_CONFIG || {};
+  const excludedToggles = ['overflow', 'contribute'];
+
+  body.innerHTML = `
+    <!-- Identity -->
+    <div class="adm-card" style="margin-bottom:20px;">
+      <div class="adm-card__header"><h2 class="adm-card__title"><i class="fa-solid fa-id-card"></i> Identité</h2></div>
+      <div class="adm-card__body">
+        <div class="adm-form-row">
+          <div class="adm-form-group">
+            <label class="adm-label">Nom affiché</label>
+            <input type="text" class="adm-input" id="st-brand-name" value="${esc(branding.brand_name || '')}">
+          </div>
+          <div class="adm-form-group">
+            <label class="adm-label">Code ville</label>
+            <input type="text" class="adm-input" value="${esc(branding.ville || store.city)}" disabled style="opacity:.6;">
+          </div>
+        </div>
+
+        <!-- Live logo preview -->
+        <div id="st-logos-preview" style="margin-bottom:16px;${(branding.logo_url || branding.dark_logo_url) ? '' : 'display:none;'}">
+          <label class="adm-label" style="margin-bottom:8px;display:block;">Aperçu des logos</label>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <div style="background:var(--adm-glass-inner);border:1px solid var(--adm-glass-border);border-radius:10px;padding:10px 16px;min-width:110px;display:flex;flex-direction:column;align-items:center;gap:6px;">
+              <span style="font-size:10px;color:var(--gray-400);font-weight:700;text-transform:uppercase;letter-spacing:.6px;">Clair</span>
+              <img id="st-logo-preview-img" src="${esc(branding.logo_url || '')}" alt="Logo" style="max-height:44px;max-width:140px;object-fit:contain;${branding.logo_url ? '' : 'display:none;'}">
+              <span id="st-logo-preview-empty" style="font-size:12px;color:var(--gray-400);${branding.logo_url ? 'display:none;' : ''}">Aucun</span>
+            </div>
+            <div style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 16px;min-width:110px;display:flex;flex-direction:column;align-items:center;gap:6px;">
+              <span style="font-size:10px;color:rgba(255,255,255,.4);font-weight:700;text-transform:uppercase;letter-spacing:.6px;">Sombre</span>
+              <img id="st-dark-logo-preview-img" src="${esc(branding.dark_logo_url || '')}" alt="Logo sombre" style="max-height:44px;max-width:140px;object-fit:contain;${branding.dark_logo_url ? '' : 'display:none;'}">
+              <span id="st-dark-logo-preview-empty" style="font-size:12px;color:rgba(255,255,255,.3);${branding.dark_logo_url ? 'display:none;' : ''}">Aucun</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="adm-form-row">
+          <div class="adm-form-group">
+            <label class="adm-label">URL du logo (thème clair)</label>
+            <input type="url" class="adm-input" id="st-logo-url" value="${esc(branding.logo_url || '')}" placeholder="https://…">
+          </div>
+          <div class="adm-form-group">
+            <label class="adm-label">URL du logo (thème sombre)</label>
+            <input type="url" class="adm-input" id="st-dark-logo-url" value="${esc(branding.dark_logo_url || '')}" placeholder="https://…">
+          </div>
+        </div>
+
+        <div class="adm-form-group">
+          <label class="adm-label">URL du favicon</label>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <input type="url" class="adm-input" id="st-favicon-url" value="${esc(branding.favicon_url || '')}" placeholder="https://…" style="flex:1;">
+            <img id="st-favicon-preview-img" src="${esc(branding.favicon_url || '')}" alt="" style="width:28px;height:28px;object-fit:contain;border-radius:6px;border:1px solid var(--adm-glass-border);background:var(--adm-glass-inner);padding:2px;flex-shrink:0;${branding.favicon_url ? '' : 'display:none;'}">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Couleur primaire -->
+    <div class="adm-card" style="margin-bottom:20px;">
+      <div class="adm-card__header"><h2 class="adm-card__title"><i class="fa-solid fa-droplet"></i> Couleur primaire</h2></div>
+      <div class="adm-card__body">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <input type="color" id="st-color-picker" value="${color}" style="width:48px;height:40px;border:none;padding:0;cursor:pointer;background:transparent;flex-shrink:0;border-radius:8px;">
+          <div style="position:relative;flex-shrink:0;">
+            <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-family:monospace;color:var(--gray-500);font-size:14px;pointer-events:none;user-select:none;">#</span>
+            <input type="text" class="adm-input" id="st-color-text" value="${colorHex}" style="max-width:106px;font-family:monospace;padding-left:24px;text-transform:uppercase;" maxlength="6" placeholder="RRGGBB">
+          </div>
+          <div id="st-color-preview" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <span class="adm-badge" style="background:${color};color:#fff;">Aperçu badge</span>
+            <button class="adm-btn adm-btn--sm" style="background:${color};color:#fff;border:none;pointer-events:none;" tabindex="-1">Bouton</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fond de carte -->
+    <div class="adm-card" style="margin-bottom:20px;">
+      <div class="adm-card__header"><h2 class="adm-card__title"><i class="fa-solid fa-map"></i> Fond de carte par défaut</h2></div>
+      <div class="adm-card__body">
+        <p style="font-size:13px;color:var(--gray-500);margin-bottom:12px;">Carte de base affichée au premier chargement de l'application publique.</p>
+        <select class="adm-select" id="st-basemap">
+          <option value="">Défaut global</option>
+          ${basemaps.map(b => `<option value="${esc(b.name)}" ${b.name === branding.default_basemap ? 'selected' : ''}>${esc(b.label || b.name)}</option>`).join('')}
+        </select>
+        ${basemaps.length === 0 ? `<p style="margin-top:8px;font-size:12px;color:var(--gray-400);"><i class="fa-solid fa-circle-info" style="margin-right:4px;"></i>Aucun fond de carte trouvé — le défaut global sera utilisé.</p>` : ''}
+      </div>
+    </div>
+
+    <!-- Toggles -->
+    <div class="adm-card" style="margin-bottom:20px;">
+      <div class="adm-card__header"><h2 class="adm-card__title"><i class="fa-solid fa-toggle-on"></i> Contrôles activés</h2></div>
+      <div class="adm-card__body">
+        <p style="font-size:13px;color:var(--gray-500);margin-bottom:16px;">Boutons de contrôle visibles sur la carte publique. Cliquez pour activer ou désactiver.</p>
+        <div class="adm-toggle-grid" id="st-toggles-grid">
+          ${Object.entries(togglesConfig)
+            .filter(([key]) => !excludedToggles.includes(key))
+            .map(([key, cfg]) => {
+              const hasCities = enabledCities.length > 0;
+              const isCityDisabled = key === 'city' && !hasCities;
+              const active = enabledToggles.has(key) && !isCityDisabled;
+              return `
+                <div class="adm-toggle-item ${active ? 'active' : ''} ${isCityDisabled ? 'disabled' : ''}" data-toggle="${esc(key)}" ${isCityDisabled ? 'title="Ajoutez au moins un espace pour activer ce contrôle"' : ''}>
+                  <i class="fas ${esc(cfg.icon || 'fa-circle')}"></i>
+                  <span style="flex:1;">${esc(cfg.label || key)}</span>
+                  <span class="adm-toggle-state">${active ? '<i class="fa-solid fa-check-circle" style="color:var(--primary);font-size:13px;"></i>' : '<i class="fa-regular fa-circle" style="color:var(--gray-300);font-size:13px;"></i>'}</span>
+                </div>`;
+            }).join('')}
+        </div>
+        ${Object.keys(togglesConfig).length === 0 ? '<p style="color:var(--gray-400);font-size:13px;">Aucun toggle configuré (TOGGLES_CONFIG absent).</p>' : ''}
+      </div>
+    </div>
+
+    <!-- Villes activées (espaces) -->
+    <div class="adm-card" style="margin-bottom:20px;">
+      <div class="adm-card__header"><h2 class="adm-card__title"><i class="fa-solid fa-city"></i> Espaces activés</h2></div>
+      <div class="adm-card__body">
+        <p style="font-size:13px;color:var(--gray-500);margin-bottom:12px;">Codes des espaces affichés dans le sélecteur public <em>(contrôle "Ville")</em>. Identifiants en minuscules, ex : <code style="font-size:12px;background:var(--adm-glass-inner);padding:1px 6px;border-radius:4px;border:1px solid var(--adm-glass-border);">bordeaux</code></p>
+        <div id="st-enabled-cities" style="display:flex;flex-wrap:wrap;gap:6px;min-height:34px;align-items:center;margin-bottom:12px;">
+          ${enabledCities.length > 0
+            ? enabledCities.map(c => _cityBadgeHTML(c)).join('')
+            : '<span style="color:var(--gray-400);font-size:13px;">Aucun espace configuré.</span>'}
+        </div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" class="adm-input" id="st-add-city-input" placeholder="Code espace (ex : lyon)" style="max-width:240px;">
+          <button class="adm-btn adm-btn--secondary adm-btn--sm" id="st-add-city-btn"><i class="fa-solid fa-plus"></i> Ajouter</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Save -->
+    <div style="display:flex;justify-content:flex-end;gap:8px;padding-bottom:24px;">
+      <button class="adm-btn adm-btn--primary adm-btn--lg" id="st-save-all">
+        <i class="fa-solid fa-check"></i> Enregistrer tout
+      </button>
+    </div>
+  `;
+
+  _bindColorSync(container, body);
+  _bindToggles(container, body);
+  _bindLogoPreview(container, body);
+  _bindCitiesList(container, body, enabledCities);
+  _bindSaveAll(container, body);
+  _bindDirtyTracking(container, body);
+}
+
+/* ── City badge HTML helper ── */
+function _cityBadgeHTML(c) {
+  return `<span class="adm-badge adm-badge--info" style="gap:6px;padding:5px 10px 5px 12px;">
+    ${esc(c)}
+    <button class="adm-btn-remove-city" data-city="${esc(c)}" aria-label="Retirer ${esc(c)}" style="background:none;border:none;cursor:pointer;padding:0;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-size:13px;line-height:1;opacity:.65;transition:opacity .15s,background .15s;" onmouseover="this.style.opacity=1;this.style.background='rgba(0,0,0,.12)'" onmouseout="this.style.opacity=.65;this.style.background='transparent'">×</button>
+  </span>`;
+}
+
+/* ── Color picker sync ── */
+
+function _bindColorSync(container, body) {
+  const picker = body.querySelector('#st-color-picker');
+  const text = body.querySelector('#st-color-text');
+  const preview = body.querySelector('#st-color-preview');
+
+  function applyColor(hex6) {
+    // hex6 = 6 hex chars without #
+    if (!hex6.match(/^[0-9A-Fa-f]{6}$/)) return;
+    const full = '#' + hex6.toUpperCase();
+    picker.value = full;
+    text.value = hex6.toUpperCase();
+    const badge = preview?.querySelector('.adm-badge');
+    const btn = preview?.querySelector('.adm-btn');
+    if (badge) badge.style.background = full;
+    if (btn) btn.style.background = full;
+  }
+
+  picker?.addEventListener('input', (e) => applyColor(e.target.value.replace('#', '')));
+  text?.addEventListener('input', (e) => {
+    // Strip any accidental leading #
+    const val = e.target.value.replace(/^#/, '');
+    e.target.value = val;
+    applyColor(val);
+  });
+}
+
+/* ── Toggle items — explicit ON/OFF state icon ── */
+
+function _bindToggles(container, body) {
+  body.querySelectorAll('#st-toggles-grid .adm-toggle-item:not(.disabled)').forEach(item => {
+    item.addEventListener('click', () => {
+      const active = item.classList.toggle('active');
+      const stateEl = item.querySelector('.adm-toggle-state');
+      if (stateEl) {
+        stateEl.innerHTML = active
+          ? '<i class="fa-solid fa-check-circle" style="color:var(--primary);font-size:13px;"></i>'
+          : '<i class="fa-regular fa-circle" style="color:var(--gray-300);font-size:13px;"></i>';
+      }
+      _markDirty(container);
+    });
+  });
+}
+
+/* ── Live logo / favicon preview ── */
+
+function _bindLogoPreview(container, body) {
+  const _setupLogoField = (inputId, imgId, emptyId) => {
+    const input = body.querySelector(`#${inputId}`);
+    const img = body.querySelector(`#${imgId}`);
+    const empty = body.querySelector(`#${emptyId}`);
+    const previewSection = body.querySelector('#st-logos-preview');
+    if (!input || !img) return;
+
+    const refresh = () => {
+      const url = input.value.trim();
+      if (url) {
+        img.src = url;
+        img.style.display = '';
+        if (empty) empty.style.display = 'none';
+        if (previewSection) previewSection.style.display = '';
+      } else {
+        img.style.display = 'none';
+        if (empty) empty.style.display = '';
+      }
+    };
+    input.addEventListener('change', refresh);
+    input.addEventListener('input', () => { if (input.value.startsWith('http')) refresh(); });
+  };
+
+  _setupLogoField('st-logo-url',      'st-logo-preview-img',      'st-logo-preview-empty');
+  _setupLogoField('st-dark-logo-url', 'st-dark-logo-preview-img', 'st-dark-logo-preview-empty');
+
+  // Favicon — inline preview
+  const faviconInput = body.querySelector('#st-favicon-url');
+  const faviconImg   = body.querySelector('#st-favicon-preview-img');
+  if (faviconInput && faviconImg) {
+    const refresh = () => {
+      const url = faviconInput.value.trim();
+      faviconImg.src = url;
+      faviconImg.style.display = url ? '' : 'none';
+    };
+    faviconInput.addEventListener('change', refresh);
+    faviconInput.addEventListener('input', () => { if (faviconInput.value.startsWith('http')) refresh(); });
+  }
+}
+
+/* ── Enabled cities list ── */
+
+let _currentCities = [];
+
+function _bindCitiesList(container, body, initial) {
+  _currentCities = [...initial];
+
+  // Delegate initial badge remove clicks
+  body.querySelector('#st-enabled-cities')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.adm-btn-remove-city');
+    if (!btn) return;
+    e.preventDefault();
+    _currentCities = _currentCities.filter(c => c !== btn.dataset.city);
+    _rerenderCitiesBadges(body);
+    _markDirty(container);
+  });
+
+  const addInput = body.querySelector('#st-add-city-input');
+  const addBtn   = body.querySelector('#st-add-city-btn');
+
+  const doAdd = () => {
+    const raw = (addInput?.value || '').trim();
+    const code = raw.toLowerCase().replace(/\s+/g, '-');
+    if (!code) return;
+    if (_currentCities.includes(code)) { toast('Espace déjà ajouté', 'warning'); return; }
+    _currentCities.push(code);
+    if (addInput) addInput.value = '';
+    _rerenderCitiesBadges(body);
+    _markDirty(container);
+  };
+
+  addBtn?.addEventListener('click', doAdd);
+  addInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doAdd(); } });
+}
+
+function _rerenderCitiesBadges(body) {
+  const el = body.querySelector('#st-enabled-cities');
+  if (!el) return;
+  if (_currentCities.length === 0) {
+    el.innerHTML = '<span style="color:var(--gray-400);font-size:13px;">Aucun espace configuré.</span>';
+    return;
+  }
+  el.innerHTML = _currentCities.map(c => _cityBadgeHTML(c)).join('');
+  // Clicks are delegated on the parent — no need to rebind
+}
+
+/* ── Dirty tracking ── */
+
+function _markDirty(container) {
+  const btn = container.querySelector('#st-save-header');
+  if (!btn) return;
+  btn.disabled = false;
+  btn.style.opacity = '';
+  btn.innerHTML = '<i class="fa-solid fa-circle" style="font-size:7px;vertical-align:middle;margin-right:4px;opacity:.75;"></i> Enregistrer';
+}
+
+function _bindDirtyTracking(container, body) {
+  body.querySelectorAll('input:not([disabled]), select, textarea').forEach(el => {
+    el.addEventListener('input',  () => _markDirty(container));
+    el.addEventListener('change', () => _markDirty(container));
+  });
+}
+
+/* ── Save ── */
+
+async function _doSave(container, body) {
+  const bottomBtn = body.querySelector('#st-save-all');
+  const headerBtn = container.querySelector('#st-save-header');
+
+  const origBottom = bottomBtn?.innerHTML || '';
+  if (bottomBtn) { bottomBtn.disabled = true; bottomBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enregistrement…'; }
+  if (headerBtn) { headerBtn.disabled = true; headerBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
+
+  // Gather color — input stores hex without #
+  const colorHex = (body.querySelector('#st-color-text')?.value || '').trim().replace(/^#/, '');
+  const color = '#' + colorHex.toUpperCase();
+  if (!color.match(/^#[0-9A-Fa-f]{6}$/)) {
+    toast('Couleur invalide — saisissez 6 caractères hexadécimaux (ex : 21B929)', 'error');
+    if (bottomBtn) { bottomBtn.disabled = false; bottomBtn.innerHTML = origBottom; }
+    if (headerBtn) { headerBtn.disabled = false; headerBtn.innerHTML = '<i class="fa-solid fa-check"></i> Enregistrer'; }
+    return;
+  }
+
+  const enabledToggles = [];
+  body.querySelectorAll('#st-toggles-grid .adm-toggle-item.active').forEach(el => enabledToggles.push(el.dataset.toggle));
+
+  const data = {
+    brand_name:      body.querySelector('#st-brand-name')?.value?.trim()   || null,
+    logo_url:        body.querySelector('#st-logo-url')?.value?.trim()     || null,
+    dark_logo_url:   body.querySelector('#st-dark-logo-url')?.value?.trim()|| null,
+    favicon_url:     body.querySelector('#st-favicon-url')?.value?.trim()  || null,
+    primary_color:   color,
+    default_basemap: body.querySelector('#st-basemap')?.value              || null,
+    enabled_toggles: enabledToggles,
+    enabled_cities:  _currentCities.length > 0 ? _currentCities : null,
+  };
+
+  try {
+    await api.updateBranding(data);
+
+    if (window.CityBrandingModule?.applyPrimaryColor) {
+      window.CityBrandingModule.applyPrimaryColor(color);
+    }
+
+    toast('Structure mise à jour', 'success');
+
+    // Reset dirty state
+    if (headerBtn) { headerBtn.disabled = true; headerBtn.style.opacity = '.45'; headerBtn.innerHTML = '<i class="fa-solid fa-check"></i> Enregistrer'; }
+    if (bottomBtn) { bottomBtn.disabled = false; bottomBtn.innerHTML = '<i class="fa-solid fa-check"></i> Enregistrer tout'; }
+  } catch (err) {
+    toast(err.message, 'error');
+    if (bottomBtn) { bottomBtn.disabled = false; bottomBtn.innerHTML = origBottom; }
+    if (headerBtn) { headerBtn.disabled = false; headerBtn.innerHTML = '<i class="fa-solid fa-check"></i> Enregistrer'; }
+  }
+}
+
+function _bindSaveAll(container, body) {
+  body.querySelector('#st-save-all')?.addEventListener('click', () => _doSave(container, body));
+  container.querySelector('#st-save-header')?.addEventListener('click', () => _doSave(container, body));
+}

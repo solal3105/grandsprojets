@@ -92,8 +92,7 @@ export async function deleteCategory(categoryName) {
 export async function getUsers() {
   const allUsers = await svc().getVisibleUsers();
   const city = requireCity();
-  // Filter to users with access to current city (or show all for global admin)
-  if (store.isGlobalAdmin) return allUsers;
+  // Always filter by selected city — global admins see users of that city + global-access users
   return allUsers.filter(u => {
     const uVilles = Array.isArray(u.ville) ? u.ville : [];
     return uVilles.includes(city) || uVilles.includes('global');
@@ -151,6 +150,10 @@ export async function getBranding() {
 
 export async function updateBranding(data) {
   return svc().updateCity(requireCity(), data);
+}
+
+export async function uploadBrandingAsset(file, type) {
+  return svc().uploadBrandingAsset(file, requireCity(), type);
 }
 
 export async function getAvailableCities() {

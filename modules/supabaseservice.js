@@ -1276,12 +1276,32 @@
     },
 
     /**
-     * (legacy retiré) Ancien upsert de lien GrandLyon supprimé.
+     * Upload a branding asset (logo, dark logo, favicon) and return its public URL.
+     * @param {File|Blob} file
+     * @param {string} ville - city code
+     * @param {string} type - 'logo' | 'dark_logo' | 'favicon'
+     * @returns {Promise<string>} publicUrl
      */
-
-    /**
-     * (legacy retiré) Ancien upsert de lien Sytral supprimé.
-     */
+    uploadBrandingAsset: async function(file, ville, type) {
+      try {
+        if (!file || !ville || !type) throw new Error('Paramètres manquants');
+        const ext = (file.name || '').split('.').pop()?.toLowerCase() || 'png';
+        const safeName = slugify(ville);
+        const ts = Date.now();
+        const path = `branding/${safeName}/${type}-${ts}.${ext}`;
+        const bucket = 'uploads';
+        const { error: upErr } = await supabaseClient
+          .storage
+          .from(bucket)
+          .upload(path, file, { upsert: false, contentType: file.type || 'image/png' });
+        if (upErr) { console.error('[supabaseService] uploadBrandingAsset error:', upErr); throw upErr; }
+        const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
+        return data.publicUrl;
+      } catch (e) {
+        console.error('[supabaseService] uploadBrandingAsset exception:', e);
+        throw e;
+      }
+    },
 
     /**
      * Récupère les documents de consultation pour un projet.

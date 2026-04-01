@@ -6,6 +6,9 @@ import { store } from '../store.js';
 import * as api from '../api.js';
 import { toast, confirm, esc, formatDate, skeletonTable, emptyState } from '../components/ui.js';
 
+let _allUsers = [];
+let _roleFilter = 'all'; // 'all' | 'admin' | 'invited'
+
 export async function renderUsers(container) {
   container.innerHTML = `
     <div class="adm-page-header">
@@ -19,49 +22,68 @@ export async function renderUsers(container) {
     </div>
 
     <!-- Invite form (inline, hidden by default) -->
-    <div class="adm-card" id="users-invite-card" hidden style="margin-bottom:24px;">
-      <div class="adm-card__header">
-        <span class="adm-card__title"><i class="fa-solid fa-envelope"></i> Inviter un utilisateur</span>
-        <button class="adm-btn adm-btn--ghost adm-btn--sm" id="invite-cancel">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-      <div class="adm-card__body">
-        <form id="invite-form">
-          <div class="adm-form-row">
-            <div class="adm-form-group">
-              <label class="adm-label">Email <span class="adm-required">*</span></label>
-              <input type="email" class="adm-input" id="invite-email" required placeholder="user@example.com">
+    <div id="users-invite-card" hidden style="margin-bottom:24px;">
+      <form id="invite-form" class="cat-form">
+        <div class="cat-form__header">
+          <h2 class="cat-form__title"><i class="fa-solid fa-envelope"></i> Inviter un utilisateur</h2>
+          <button type="button" class="adm-btn adm-btn--ghost adm-btn--sm" id="invite-cancel">
+            <i class="fa-solid fa-xmark"></i> Annuler
+          </button>
+        </div>
+        <div class="cat-form__sections">
+          <div class="cw-section">
+            <div class="cw-section__header">
+              <div class="cw-section__icon"><i class="fa-solid fa-at"></i></div>
+              <div class="cw-section__titles">
+                <div class="cw-section__title">Coordonnées</div>
+                <div class="cw-section__desc">L'utilisateur recevra un email pour se connecter à "${esc(store.city)}"</div>
+              </div>
             </div>
-            <div class="adm-form-group">
-              <label class="adm-label">Rôle</label>
-              <div style="display:flex; gap:12px; margin-top:8px;">
-                <label class="adm-radio-label">
-                  <input type="radio" name="invite-role" value="invited" checked> Contributeur
+            <div class="cw-section__body">
+              <div class="cw-field">
+                <label class="cw-field__label" for="invite-email">
+                  Adresse email <span class="cw-required">*</span>
                 </label>
-                <label class="adm-radio-label">
-                  <input type="radio" name="invite-role" value="admin"> Admin
-                </label>
+                <input type="email" class="cw-field__input cw-field__input--hero" id="invite-email" required
+                  placeholder="utilisateur@example.com" autocomplete="off">
+                <p class="cw-field__tip"><i class="fa-solid fa-lightbulb"></i> L'utilisateur recevra un lien de connexion à cette adresse.</p>
+              </div>
+              <div class="cw-field">
+                <label class="cw-field__label">Rôle</label>
+                <div class="adm-tabs" style="margin-bottom:0;">
+                  <button type="button" class="adm-tab active" data-invite-role="invited">
+                    <i class="fa-solid fa-user"></i> Contributeur
+                  </button>
+                  <button type="button" class="adm-tab" data-invite-role="admin">
+                    <i class="fa-solid fa-shield-halved"></i> Admin
+                  </button>
+                </div>
+                <input type="hidden" id="invite-role-value" value="invited">
+                <p class="cw-field__tip"><i class="fa-solid fa-lightbulb"></i> Les contributeurs peuvent ajouter du contenu. Les admins peuvent aussi gérer les utilisateurs et la structure.</p>
               </div>
             </div>
           </div>
-          <p class="adm-form-hint" style="margin-bottom:12px;">
-            L'utilisateur recevra un email pour se connecter. Il aura accès à la structure "${esc(store.city)}".
-          </p>
-          <div style="display:flex;justify-content:flex-end;gap:8px;">
-            <button type="button" class="adm-btn adm-btn--secondary" id="invite-cancel-2">Annuler</button>
-            <button type="submit" class="adm-btn adm-btn--primary" id="invite-submit">
-              <i class="fa-solid fa-paper-plane"></i> Envoyer l'invitation
-            </button>
-          </div>
-        </form>
-      </div>
+        </div>
+        <div class="cw-footer cat-form__footer">
+          <button type="button" class="cw-footer__cancel" id="invite-cancel-2">Annuler</button>
+          <button type="submit" class="cw-footer__submit" id="invite-submit">
+            <i class="fa-solid fa-paper-plane"></i> Envoyer l'invitation
+          </button>
+        </div>
+      </form>
     </div>
 
-    <!-- Search -->
+    <!-- Toolbar: search + role filter -->
     <div class="adm-toolbar">
       <div class="adm-toolbar__search">
         <input type="text" class="adm-input adm-input--search" id="users-search" placeholder="Rechercher par email…">
+      </div>
+      <div class="adm-toolbar__filters">
+        <div class="adm-tabs" id="users-role-filter">
+          <button class="adm-tab active" data-role="all">Tous</button>
+          <button class="adm-tab" data-role="admin"><i class="fa-solid fa-shield-halved"></i> Admins</button>
+          <button class="adm-tab" data-role="invited"><i class="fa-solid fa-user"></i> Contributeurs</button>
+        </div>
       </div>
     </div>
 
@@ -73,6 +95,7 @@ export async function renderUsers(container) {
     </div>
   `;
 
+  _roleFilter = 'all';
   _bindEvents(container);
   await _loadUsers(container);
 }
@@ -84,6 +107,15 @@ function _bindEvents(container) {
   const inviteForm = container.querySelector('#invite-form');
   const searchInput = container.querySelector('#users-search');
 
+  // Role tab toggle inside invite form
+  inviteCard.querySelectorAll('[data-invite-role]').forEach(tab => {
+    tab.addEventListener('click', () => {
+      inviteCard.querySelectorAll('[data-invite-role]').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      container.querySelector('#invite-role-value').value = tab.dataset.inviteRole;
+    });
+  });
+
   inviteBtn?.addEventListener('click', () => {
     inviteCard.hidden = false;
     inviteCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -93,6 +125,10 @@ function _bindEvents(container) {
   cancelBtns.forEach(btn => btn.addEventListener('click', () => {
     inviteCard.hidden = true;
     inviteForm.reset();
+    // Reset role tabs
+    inviteCard.querySelectorAll('[data-invite-role]').forEach(t => t.classList.remove('active'));
+    inviteCard.querySelector('[data-invite-role="invited"]')?.classList.add('active');
+    container.querySelector('#invite-role-value').value = 'invited';
   }));
 
   inviteForm?.addEventListener('submit', async (e) => {
@@ -101,13 +137,16 @@ function _bindEvents(container) {
     submitBtn.disabled = true;
 
     const email = container.querySelector('#invite-email').value.trim();
-    const role = container.querySelector('input[name="invite-role"]:checked')?.value || 'invited';
+    const role = container.querySelector('#invite-role-value').value || 'invited';
 
     try {
       await api.inviteUser(email, role);
       toast(`Invitation envoyée à ${email}`, 'success');
       inviteCard.hidden = true;
       inviteForm.reset();
+      inviteCard.querySelectorAll('[data-invite-role]').forEach(t => t.classList.remove('active'));
+      inviteCard.querySelector('[data-invite-role="invited"]')?.classList.add('active');
+      container.querySelector('#invite-role-value').value = 'invited';
       await _loadUsers(container);
     } catch (err) {
       toast(err.message, 'error');
@@ -120,11 +159,19 @@ function _bindEvents(container) {
   let timer;
   searchInput?.addEventListener('input', () => {
     clearTimeout(timer);
-    timer = setTimeout(() => _filterList(container, searchInput.value.trim()), 250);
+    timer = setTimeout(() => _applyFilters(container), 250);
+  });
+
+  // Role filter tabs
+  container.querySelectorAll('#users-role-filter .adm-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      container.querySelectorAll('#users-role-filter .adm-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      _roleFilter = tab.dataset.role;
+      _applyFilters(container);
+    });
   });
 }
-
-let _allUsers = [];
 
 async function _loadUsers(container) {
   const listBody = container.querySelector('#users-list-body');
@@ -132,17 +179,24 @@ async function _loadUsers(container) {
 
   try {
     _allUsers = await api.getUsers();
-    _renderUsers(container, _allUsers);
+    _applyFilters(container);
   } catch (e) {
     console.error('[admin/users]', e);
     listBody.innerHTML = `<div style="padding:20px;color:var(--danger);">Erreur : ${esc(e.message)}</div>`;
   }
 }
 
-function _filterList(container, query) {
-  const filtered = query
-    ? _allUsers.filter(u => (u.email || '').toLowerCase().includes(query.toLowerCase()))
-    : _allUsers;
+function _applyFilters(container) {
+  const query = (container.querySelector('#users-search')?.value || '').trim().toLowerCase();
+  let filtered = _allUsers;
+
+  if (_roleFilter !== 'all') {
+    filtered = filtered.filter(u => u.role === _roleFilter);
+  }
+  if (query) {
+    filtered = filtered.filter(u => (u.email || '').toLowerCase().includes(query));
+  }
+
   _renderUsers(container, filtered);
 }
 

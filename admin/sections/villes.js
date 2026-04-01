@@ -4,9 +4,18 @@
 
 import { store } from '../store.js';
 import * as api from '../api.js';
-import { toast, confirm, slidePanel, esc, formatDate, skeletonTable, emptyState } from '../components/ui.js';
+import { toast, confirm, esc, formatDate, skeletonTable, emptyState } from '../components/ui.js';
+
+const DEFAULT_COLOR = '#21b929';
+
+/* ── Render ── */
 
 export async function renderVilles(container) {
+  _showList(container);
+  await _loadCities(container);
+}
+
+function _showList(container) {
   container.innerHTML = `
     <div class="adm-page-header">
       <div>
@@ -25,8 +34,7 @@ export async function renderVilles(container) {
     </div>
   `;
 
-  container.querySelector('#ville-create-btn')?.addEventListener('click', () => _openCityForm(null));
-  await _loadCities(container);
+  container.querySelector('#ville-create-btn')?.addEventListener('click', () => _showCityForm(container, null));
 }
 
 let _allCities = [];
@@ -110,7 +118,7 @@ async function _handleActions(e) {
 
   if (action === 'edit') {
     const city = _allCities.find(c => c.ville === ville);
-    if (city) _openCityForm(city);
+    if (city && container) _showCityForm(container, city);
   }
 
   if (action === 'select') {
@@ -135,87 +143,170 @@ async function _handleActions(e) {
   }
 }
 
-/* ── City create / edit slide panel ── */
+/* ── City create / edit — full cw-* form ── */
 
-function _openCityForm(existing) {
+function _showCityForm(container, existing) {
   const isEdit = existing != null;
-  const title = isEdit ? `Modifier : ${existing.brand_name || existing.ville}` : 'Nouvelle ville';
 
-  const html = `
-    <form id="city-form">
-      <div class="adm-form-group">
-        <label class="adm-label">Code ville <span class="adm-required">*</span></label>
-        <input type="text" class="adm-input" id="cf-ville" value="${esc(existing?.ville || '')}" ${isEdit ? 'disabled style="opacity:.6;"' : ''} required placeholder="ex: lyon">
-        ${!isEdit ? '<p style="font-size:12px;color:var(--adm-text-tertiary);margin-top:2px;">Identifiant unique, en minuscules, sans espaces.</p>' : ''}
+  container.innerHTML = `
+    <!-- ── HEADER ── -->
+    <div class="cw-header">
+      <div class="cw-header__top">
+        <a href="#" class="cw-back-link" id="cf-back">
+          <i class="fa-solid fa-arrow-left"></i>
+          <span>Villes</span>
+        </a>
       </div>
-
-      <div class="adm-form-group">
-        <label class="adm-label">Nom affiché</label>
-        <input type="text" class="adm-input" id="cf-brand-name" value="${esc(existing?.brand_name || '')}">
-      </div>
-
-      <div class="adm-form-row">
-        <div class="adm-form-group">
-          <label class="adm-label">URL du logo</label>
-          <input type="url" class="adm-input" id="cf-logo-url" value="${esc(existing?.logo_url || '')}">
-        </div>
-        <div class="adm-form-group">
-          <label class="adm-label">URL du logo sombre</label>
-          <input type="url" class="adm-input" id="cf-dark-logo-url" value="${esc(existing?.dark_logo_url || '')}">
+      <div class="cw-header__main">
+        <div class="cw-header__text">
+          <h1 class="cw-header__title">${isEdit ? `Modifier : ${esc(existing.brand_name || existing.ville)}` : 'Nouvelle ville'}</h1>
+          <p class="cw-header__subtitle">${isEdit ? 'Modifiez les informations de la structure.' : 'Complétez le formulaire ci-dessous pour créer une nouvelle structure.'}</p>
         </div>
       </div>
+    </div>
 
-      <div class="adm-form-group">
-        <label class="adm-label">URL du favicon</label>
-        <input type="url" class="adm-input" id="cf-favicon-url" value="${esc(existing?.favicon_url || '')}">
-      </div>
+    <!-- ── FORM SECTIONS ── -->
+    <div class="cw-sections">
 
-      <div class="adm-form-row">
-        <div class="adm-form-group">
-          <label class="adm-label">Couleur primaire</label>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <input type="color" id="cf-color-picker" value="${existing?.primary_color || DEFAULT_COLOR}" style="width:40px;height:36px;border:none;padding:0;cursor:pointer;background:transparent;">
-            <input type="text" class="adm-input" id="cf-color-text" value="${existing?.primary_color || DEFAULT_COLOR}" style="max-width:120px;font-family:monospace;" maxlength="7">
+      <!-- 1 · Identifiant -->
+      <section class="cw-section">
+        <div class="cw-section__header">
+          <div class="cw-section__icon"><i class="fa-solid fa-fingerprint"></i></div>
+          <div class="cw-section__titles">
+            <h2 class="cw-section__title">Identifiant</h2>
+            <p class="cw-section__desc">L'identifiant unique de cette structure</p>
           </div>
         </div>
-        <div class="adm-form-group">
-          <label class="adm-label">Fond de carte</label>
-          <input type="text" class="adm-input" id="cf-basemap" value="${esc(existing?.default_basemap || '')}" placeholder="Nom du basemap ou vide">
+        <div class="cw-section__body">
+          <div class="cw-field">
+            <label class="cw-field__label" for="cf-ville">
+              Code ville <span class="cw-required">*</span>
+            </label>
+            <input type="text" class="cw-field__input cw-field__input--hero" id="cf-ville"
+              value="${esc(existing?.ville || '')}" ${isEdit ? 'disabled style="opacity:.6;"' : ''}
+              required placeholder="ex : lyon" autocomplete="off">
+            ${!isEdit ? '<p class="cw-field__tip"><i class="fa-solid fa-lightbulb"></i> Identifiant unique, en minuscules, sans espaces. Il ne pourra plus être modifié.</p>' : ''}
+          </div>
+          <div class="cw-field">
+            <label class="cw-field__label" for="cf-brand-name">
+              Nom affiché <span class="cw-optional">facultatif</span>
+            </label>
+            <input type="text" class="cw-field__input" id="cf-brand-name"
+              value="${esc(existing?.brand_name || '')}" placeholder="Ex : Métropole de Lyon">
+            <p class="cw-field__tip"><i class="fa-solid fa-lightbulb"></i> Le nom public de cette structure, affiché dans l'interface.</p>
+          </div>
         </div>
-      </div>
-    </form>
+      </section>
+
+      <!-- 2 · Apparence -->
+      <section class="cw-section">
+        <div class="cw-section__header">
+          <div class="cw-section__icon"><i class="fa-solid fa-palette"></i></div>
+          <div class="cw-section__titles">
+            <h2 class="cw-section__title">Apparence</h2>
+            <p class="cw-section__desc">Logos, favicon et couleur primaire</p>
+          </div>
+          <span class="cw-optional-badge">Facultatif</span>
+        </div>
+        <div class="cw-section__body">
+          <div class="cw-field">
+            <label class="cw-field__label" for="cf-logo-url">URL du logo</label>
+            <input type="url" class="cw-field__input" id="cf-logo-url"
+              value="${esc(existing?.logo_url || '')}" placeholder="https://…/logo.png">
+          </div>
+          <div class="cw-field">
+            <label class="cw-field__label" for="cf-dark-logo-url">URL du logo sombre</label>
+            <input type="url" class="cw-field__input" id="cf-dark-logo-url"
+              value="${esc(existing?.dark_logo_url || '')}" placeholder="https://…/logo-dark.png">
+          </div>
+          <div class="cw-field">
+            <label class="cw-field__label" for="cf-favicon-url">URL du favicon</label>
+            <input type="url" class="cw-field__input" id="cf-favicon-url"
+              value="${esc(existing?.favicon_url || '')}" placeholder="https://…/favicon.ico">
+          </div>
+          <div class="cw-field">
+            <label class="cw-field__label">Couleur primaire</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="color" id="cf-color-picker" value="${existing?.primary_color || DEFAULT_COLOR}"
+                style="width:40px;height:36px;border:none;padding:0;cursor:pointer;background:transparent;">
+              <input type="text" class="cw-field__input" id="cf-color-text"
+                value="${existing?.primary_color || DEFAULT_COLOR}" style="max-width:120px;font-family:monospace;" maxlength="7">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3 · Carte -->
+      <section class="cw-section">
+        <div class="cw-section__header">
+          <div class="cw-section__icon"><i class="fa-solid fa-map"></i></div>
+          <div class="cw-section__titles">
+            <h2 class="cw-section__title">Carte</h2>
+            <p class="cw-section__desc">Configuration du fond de carte par défaut</p>
+          </div>
+          <span class="cw-optional-badge">Facultatif</span>
+        </div>
+        <div class="cw-section__body">
+          <div class="cw-field">
+            <label class="cw-field__label" for="cf-basemap">Fond de carte</label>
+            <input type="text" class="cw-field__input" id="cf-basemap"
+              value="${esc(existing?.default_basemap || '')}" placeholder="Nom du basemap ou vide">
+            <p class="cw-field__tip"><i class="fa-solid fa-lightbulb"></i> Laissez vide pour utiliser le fond de carte par défaut.</p>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /cw-sections -->
+
+    <!-- ── FOOTER ── -->
+    <div class="cw-footer">
+      <a href="#" class="cw-footer__cancel" id="cf-cancel">
+        <i class="fa-solid fa-arrow-left"></i> Retour
+      </a>
+      <button type="button" class="cw-footer__submit" id="cf-submit">
+        <span class="cw-footer__submit-text">${isEdit ? 'Enregistrer' : 'Créer la ville'}</span>
+        <i class="fa-solid fa-check"></i>
+      </button>
+    </div>
   `;
 
-  const footer = `
-    <button class="adm-btn adm-btn--primary" id="cf-submit">
-      <i class="fa-solid fa-check"></i> ${isEdit ? 'Enregistrer' : 'Créer'}
-    </button>
-  `;
+  _bindCityForm(container, existing);
+}
 
-  const panel = slidePanel.open({ title, body: html, footer });
+function _bindCityForm(container, existing) {
+  const isEdit = existing != null;
 
-  // Sync color
-  const picker = panel.content.querySelector('#cf-color-picker');
-  const text = panel.content.querySelector('#cf-color-text');
+  // Back / cancel → return to list
+  const goBack = (e) => {
+    e.preventDefault();
+    _showList(container);
+    _loadCities(container);
+  };
+  container.querySelector('#cf-back')?.addEventListener('click', goBack);
+  container.querySelector('#cf-cancel')?.addEventListener('click', goBack);
+
+  // Sync color picker ↔ text
+  const picker = container.querySelector('#cf-color-picker');
+  const text = container.querySelector('#cf-color-text');
   picker?.addEventListener('input', (e) => { text.value = e.target.value; });
   text?.addEventListener('input', (e) => { if (e.target.value.match(/^#[0-9A-Fa-f]{6}$/)) picker.value = e.target.value; });
 
   // Submit
-  panel.content.querySelector('#cf-submit')?.addEventListener('click', async () => {
-    const btn = panel.content.querySelector('#cf-submit');
+  container.querySelector('#cf-submit')?.addEventListener('click', async () => {
+    const btn = container.querySelector('#cf-submit');
     btn.disabled = true;
 
-    const ville = panel.content.querySelector('#cf-ville')?.value?.trim()?.toLowerCase();
+    const ville = container.querySelector('#cf-ville')?.value?.trim()?.toLowerCase();
     if (!ville) { toast('Code ville obligatoire', 'error'); btn.disabled = false; return; }
     if (!/^[a-z0-9_-]+$/.test(ville)) { toast('Code ville : lettres minuscules, chiffres, tirets uniquement', 'error'); btn.disabled = false; return; }
 
     const data = {
-      brand_name: panel.content.querySelector('#cf-brand-name')?.value?.trim() || null,
-      logo_url: panel.content.querySelector('#cf-logo-url')?.value?.trim() || null,
-      dark_logo_url: panel.content.querySelector('#cf-dark-logo-url')?.value?.trim() || null,
-      favicon_url: panel.content.querySelector('#cf-favicon-url')?.value?.trim() || null,
-      primary_color: panel.content.querySelector('#cf-color-text')?.value?.trim() || DEFAULT_COLOR,
-      default_basemap: panel.content.querySelector('#cf-basemap')?.value?.trim() || null,
+      brand_name: container.querySelector('#cf-brand-name')?.value?.trim() || null,
+      logo_url: container.querySelector('#cf-logo-url')?.value?.trim() || null,
+      dark_logo_url: container.querySelector('#cf-dark-logo-url')?.value?.trim() || null,
+      favicon_url: container.querySelector('#cf-favicon-url')?.value?.trim() || null,
+      primary_color: container.querySelector('#cf-color-text')?.value?.trim() || DEFAULT_COLOR,
+      default_basemap: container.querySelector('#cf-basemap')?.value?.trim() || null,
     };
 
     try {
@@ -226,10 +317,8 @@ function _openCityForm(existing) {
         await api.createCity({ ville, ...data });
         toast('Ville créée', 'success');
       }
-      panel.close();
-      // Reload list
-      const listContainer = document.querySelector('#adm-main');
-      if (listContainer) await _loadCities(listContainer);
+      _showList(container);
+      await _loadCities(container);
     } catch (err) {
       toast(err.message, 'error');
       btn.disabled = false;
