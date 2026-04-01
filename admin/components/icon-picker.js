@@ -1,22 +1,4 @@
-/* ============================================================================
-   ADMIN ICON PICKER — Module ES partagé pour toute l'interface admin
-   
-   Usage:
-     import { renderIconField, bindIconField } from '../components/icon-picker.js';
-   
-   Dans le HTML template:
-     ${renderIconField('my-icon', currentValue, defaultValue)}
-   
-   Dans le bind:
-     bindIconField(container, 'my-icon', { category: 'travaux', onSelect: (cls) => ... });
-   
-   Lire la valeur:
-     container.querySelector('#my-icon').value  →  "fa-solid fa-hammer"
-   ============================================================================ */
-
-/* ── Catalogue d'icônes avec mots-clés français ── */
 const CATALOG = [
-  /* ── Travaux & chantier ── */
   { cls: 'fa-solid fa-helmet-safety',        cat: 'travaux',   label: 'Casque chantier',     kw: ['casque','chantier','travaux','sécurité','ouvrier'] },
   { cls: 'fa-solid fa-hammer',               cat: 'travaux',   label: 'Marteau',             kw: ['marteau','outil','frapper'] },
   { cls: 'fa-solid fa-wrench',               cat: 'travaux',   label: 'Clé à molette',       kw: ['clé','molette','réparation','plomberie'] },
@@ -38,7 +20,6 @@ const CATALOG = [
   { cls: 'fa-solid fa-person-digging',       cat: 'travaux',   label: 'Ouvrier',             kw: ['ouvrier','terrassement','pelle','travaux'] },
   { cls: 'fa-solid fa-hard-hat',             cat: 'travaux',   label: 'Chapeau dur',         kw: ['casque','ouvrier','chantier'] },
 
-  /* ── Transport ── */
   { cls: 'fa-solid fa-bus',                  cat: 'transport', label: 'Bus',                 kw: ['bus','autobus','ligne','arrêt'] },
   { cls: 'fa-solid fa-train',                cat: 'transport', label: 'Train',               kw: ['train','gare','sncf','rail'] },
   { cls: 'fa-solid fa-train-subway',         cat: 'transport', label: 'Métro',               kw: ['métro','rer','souterrain'] },
@@ -54,7 +35,6 @@ const CATALOG = [
   { cls: 'fa-solid fa-signs-post',           cat: 'transport', label: 'Panneaux',            kw: ['panneau','signalisation','direction'] },
   { cls: 'fa-solid fa-gas-pump',             cat: 'transport', label: 'Station service',     kw: ['essence','carburant','station'] },
 
-  /* ── Mobilité douce ── */
   { cls: 'fa-solid fa-bicycle',              cat: 'mobilite',  label: 'Vélo',                kw: ['vélo','bicyclette','piste','cyclable','vélos'] },
   { cls: 'fa-solid fa-person-biking',        cat: 'mobilite',  label: 'Cycliste',            kw: ['cycliste','vélo','piste','cyclable'] },
   { cls: 'fa-solid fa-person-walking',       cat: 'mobilite',  label: 'Piéton',              kw: ['piéton','marcheur','trottoir','accessibilité'] },
@@ -66,7 +46,6 @@ const CATALOG = [
   { cls: 'fa-solid fa-bolt',                 cat: 'mobilite',  label: 'Électrique',          kw: ['électrique','énergie','rapide','chargeur'] },
   { cls: 'fa-solid fa-person-running',       cat: 'mobilite',  label: 'Course à pied',       kw: ['course','jogging','sport','running'] },
 
-  /* ── Bâtiments & urbanisme ── */
   { cls: 'fa-solid fa-building',             cat: 'batiments', label: 'Immeuble',            kw: ['immeuble','bâtiment','bureau','résidence'] },
   { cls: 'fa-solid fa-building-columns',     cat: 'batiments', label: 'Institution',         kw: ['mairie','préfecture','institution','palais','monument'] },
   { cls: 'fa-solid fa-city',                 cat: 'batiments', label: 'Ville',               kw: ['ville','cité','urbain','skyline'] },
@@ -85,7 +64,6 @@ const CATALOG = [
   { cls: 'fa-solid fa-tent',                 cat: 'batiments', label: 'Tente / Événement',   kw: ['tente','événement','marché','fête','festival'] },
   { cls: 'fa-solid fa-building-user',        cat: 'batiments', label: 'Accueil public',      kw: ['accueil','service public','mairie','guichet'] },
 
-  /* ── Infrastructure & réseaux ── */
   { cls: 'fa-solid fa-bridge',               cat: 'infra',     label: 'Pont',                kw: ['pont','viaduc','ouvrage','passerelle'] },
   { cls: 'fa-solid fa-water',                cat: 'infra',     label: 'Eau / Réseau',        kw: ['eau','réseau','hydraulique','rivière','canal'] },
   { cls: 'fa-solid fa-fire',                 cat: 'infra',     label: 'Incendie',            kw: ['incendie','feu','pompier','urgence'] },
@@ -100,7 +78,6 @@ const CATALOG = [
   { cls: 'fa-solid fa-wind',                 cat: 'infra',     label: 'Éolien',              kw: ['éolien','énergie','vent','renouvelable'] },
   { cls: 'fa-solid fa-tower-observation',    cat: 'infra',     label: 'Tour de surveillance',kw: ['surveillance','tour','observation','sécurité'] },
 
-  /* ── Nature & espace public ── */
   { cls: 'fa-solid fa-tree',                 cat: 'nature',    label: 'Arbre',               kw: ['arbre','végétation','plantation','forêt','rue'] },
   { cls: 'fa-solid fa-leaf',                 cat: 'nature',    label: 'Nature / Vert',       kw: ['nature','végétation','vert','écologie','plan'] },
   { cls: 'fa-solid fa-seedling',             cat: 'nature',    label: 'Plantation',          kw: ['plantation','plante','végétalisation','jardin'] },
@@ -111,7 +88,6 @@ const CATALOG = [
   { cls: 'fa-solid fa-person-hiking',        cat: 'nature',    label: 'Randonée',            kw: ['randonnée','sentier','nature','sport','ballade'] },
   { cls: 'fa-solid fa-mound',                cat: 'nature',    label: 'Tertre / Butte',      kw: ['butte','tertre','terrassement','relief'] },
 
-  /* ── Services & vie quotidienne ── */
   { cls: 'fa-solid fa-map-pin',              cat: 'general',   label: 'Épingle carte',       kw: ['épingle','point','lieu','localisation','carte'] },
   { cls: 'fa-solid fa-location-dot',         cat: 'general',   label: 'Localisation',        kw: ['localisation','adresse','lieu','géolocalisation'] },
   { cls: 'fa-solid fa-star',                 cat: 'general',   label: 'Favori / Intérêt',    kw: ['étoile','favoris','intérêt','important','notable'] },
@@ -156,24 +132,18 @@ const CATEGORIES = [
 const RECENT_KEY = 'adm-icon-recent';
 const RECENT_MAX = 8;
 
-/* ── Recents storage ── */
 function _getRecents() {
-  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { return []; }
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch (e) { console.debug('[icon-picker] getRecents', e); return []; }
 }
 function _pushRecent(cls) {
   const list = _getRecents().filter(c => c !== cls);
   list.unshift(cls);
-  try { localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, RECENT_MAX))); } catch { /* noop */ }
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, RECENT_MAX))); } catch (e) { console.debug('[icon-picker] pushRecent', e); }
 }
 
-/* ── State ── */
 let _popover = null;
 let _state = { category: 'general', search: '', onSelect: null, inputEl: null, triggerEl: null };
 
-/* ─────────────────────────────────────────────────────────────────
-   PUBLIC — setIconField(container, id, cls)
-   Programmatically update a rendered icon field (e.g. on edit load).
-   ───────────────────────────────────────────────────────────────── */
 export function setIconField(container, id, cls) {
   const input = container.querySelector(`#${id}`);
   const previewI = container.querySelector(`#${id}-btn .adm-ip-trigger__preview i`);
@@ -181,11 +151,6 @@ export function setIconField(container, id, cls) {
   if (previewI) previewI.className = cls;
 }
 
-/* ─────────────────────────────────────────────────────────────────
-   PUBLIC — renderIconField(id, value, defaultIcon)
-   Returns an HTML string to embed directly in a template literal.
-   The hidden input carries the value; only the preview is visible.
-   ───────────────────────────────────────────────────────────────── */
 export function renderIconField(id, value, defaultIcon = 'fa-solid fa-tag') {
   const cls = value || defaultIcon;
   return `<div class="adm-ip-field" data-ip-for="${id}">
@@ -200,12 +165,6 @@ export function renderIconField(id, value, defaultIcon = 'fa-solid fa-tag') {
   </div>`;
 }
 
-/* ─────────────────────────────────────────────────────────────────
-   PUBLIC — bindIconField(container, id, opts?)
-   Wires the trigger button inside `container` to open the picker.
-   opts.category  — open this category tab by default
-   opts.onSelect  — (cls: string) => void, called after selection
-   ───────────────────────────────────────────────────────────────── */
 export function bindIconField(container, id, opts = {}) {
   const btn = container.querySelector(`#${id}-btn`);
   const input = container.querySelector(`#${id}`);
@@ -221,8 +180,6 @@ export function bindIconField(container, id, opts = {}) {
     });
   });
 }
-
-/* ── Internals ── */
 
 function _open({ triggerEl, inputEl, category, onSelect }) {
   _state = { category, search: '', onSelect, inputEl, triggerEl };

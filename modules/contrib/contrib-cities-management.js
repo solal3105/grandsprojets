@@ -4,26 +4,20 @@
 ;(function(win) {
   'use strict';
 
-  // ============================================================================
   // CONSTANTS
-  // ============================================================================
 
   const STORAGE_BUCKET = 'uploads';
   const BRANDING_PATH = 'img/cover/branding'; // Chemin avec sous-dossier pour compatibilité RLS (img/cover/%/%)
   const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
   const ALLOWED_TYPES = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/webp'];
 
-  // ============================================================================
   // UTILITIES (delegate to ContribUtils)
-  // ============================================================================
 
   const escapeHtml = window.SecurityUtils.escapeHtml;
   const slugify   = (str) => win.ContribUtils.slugify(str);
   const showToast = (msg, type) => win.ContribUtils.showToast(msg, type);
 
-  // ============================================================================
   // LOAD CITIES LIST
-  // ============================================================================
 
   /**
    * Charge et affiche la liste des villes
@@ -181,9 +175,7 @@
     `;
   }
 
-  // ============================================================================
   // ENABLED CITIES GRID
-  // ============================================================================
 
   /**
    * Peuple la grille des villes activées dans la modale d'édition
@@ -274,9 +266,7 @@
     return enabledCities;
   }
 
-  // ============================================================================
   // CITY MODAL (CREATE/EDIT)
-  // ============================================================================
 
   /**
    * Affiche la modale de création/édition d'une ville
@@ -583,9 +573,7 @@
     });
   }
 
-  // ============================================================================
   // MAP INITIALIZATION
-  // ============================================================================
 
   /**
    * Initialise la carte interactive
@@ -753,9 +741,7 @@
     return state;
   }
 
-  // ============================================================================
   // IMAGE UPLOADS
-  // ============================================================================
 
   /**
    * Configure les zones d'upload d'images
@@ -814,7 +800,7 @@
   /**
    * Gère un fichier image sélectionné
    */
-  function handleImageFile(file, zone, type) {
+  function handleImageFile(file, zone, _type) {
     // Validation
     if (!ALLOWED_TYPES.includes(file.type)) {
       showToast('Type de fichier non autorisé. Utilisez SVG, PNG, JPG ou WEBP.', 'error');
@@ -842,9 +828,7 @@
     reader.readAsDataURL(file);
   }
 
-  // ============================================================================
   // FORM SUBMIT
-  // ============================================================================
 
   /**
    * Gère la soumission du formulaire
@@ -1095,9 +1079,7 @@
     }
   }
 
-  // ============================================================================
   // DELETE CITY
-  // ============================================================================
 
   /**
    * Confirme et supprime une ville
@@ -1121,9 +1103,7 @@
     }
   }
 
-  // ============================================================================
   // EXPORTS
-  // ============================================================================
 
   win.ContribCitiesManagement = {
     loadCitiesList,

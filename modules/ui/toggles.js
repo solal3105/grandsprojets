@@ -4,7 +4,7 @@
  * Layout is handled entirely by CSS flexbox (no JS positioning)
  */
 
-import { TOGGLES_CONFIG, TOGGLE_ORDER, DESKTOP_ORDER } from './toggles-config.js';
+import { TOGGLES_CONFIG, TOGGLE_ORDER } from './toggles-config.js';
 
 class ToggleManager {
   constructor() {
@@ -14,10 +14,6 @@ class ToggleManager {
     this.initialized = false;
     this.overflowToggles = [];
   }
-
-  /* ═══════════════════════════════════════════════════════════════════════
-     INIT
-     ═══════════════════════════════════════════════════════════════════════ */
 
   init() {
     if (this.initialized) return;
@@ -50,10 +46,6 @@ class ToggleManager {
     if (config.persistent) this._restoreState(key);
     this._setupAria(element, config);
   }
-
-  /* ═══════════════════════════════════════════════════════════════════════
-     EVENT BINDING
-     ═══════════════════════════════════════════════════════════════════════ */
 
   _bindToggleEvents(key, element, config) {
     element.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); this.toggle(key); });
@@ -88,10 +80,6 @@ class ToggleManager {
       element.setAttribute('aria-expanded', 'false');
     }
   }
-
-  /* ═══════════════════════════════════════════════════════════════════════
-     STATE
-     ═══════════════════════════════════════════════════════════════════════ */
 
   toggle(key) {
     const t = this.toggles.get(key);
@@ -211,10 +199,6 @@ class ToggleManager {
     if (saved !== null) this.setState(key, saved === 'true');
   }
 
-  /* ═══════════════════════════════════════════════════════════════════════
-     LISTENERS
-     ═══════════════════════════════════════════════════════════════════════ */
-
   on(key, callback) {
     if (!this.listeners.has(key)) this.listeners.set(key, []);
     this.listeners.get(key).push(callback);
@@ -231,10 +215,6 @@ class ToggleManager {
     const list = this.listeners.get(key);
     if (list) list.forEach(cb => { try { cb(state); } catch (e) { console.error(`[ToggleManager] ${key}:`, e); } });
   }
-
-  /* ═══════════════════════════════════════════════════════════════════════
-     COUNTER / SPECIAL STATE / READY / VISIBLE
-     ═══════════════════════════════════════════════════════════════════════ */
 
   updateCounter(key, count) {
     const t = this.toggles.get(key);
@@ -281,10 +261,6 @@ class ToggleManager {
     const s = window.getComputedStyle(t.element);
     return s.display !== 'none' && s.visibility !== 'hidden';
   }
-
-  /* ═══════════════════════════════════════════════════════════════════════
-     LAYOUT — Flexbox handles positioning; JS only manages overflow
-     ═══════════════════════════════════════════════════════════════════════ */
 
   /**
    * Get the minimum left edge the dock is allowed to reach.
@@ -476,13 +452,9 @@ class ToggleManager {
     if (window.AuthModule?.isAuthenticated) return window.AuthModule.isAuthenticated();
     const keys = Object.keys(localStorage);
     const sbKey = keys.find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
-    if (sbKey) { try { const d = JSON.parse(localStorage.getItem(sbKey)); return !!(d?.access_token || d?.user); } catch { return false; } }
+    if (sbKey) { try { const d = JSON.parse(localStorage.getItem(sbKey)); return !!(d?.access_token || d?.user); } catch (e) { console.debug('[toggles] auth token parse error:', e); return false; } }
     return false;
   }
-
-  /* ═══════════════════════════════════════════════════════════════════════
-     UNIFIED ACTIONS PANEL — overflow section
-     ═══════════════════════════════════════════════════════════════════════ */
 
   /**
    * Sync the "Carte" overflow section inside #actions-panel with the current
@@ -550,18 +522,10 @@ class ToggleManager {
     });
   }
 
-  /* ═══════════════════════════════════════════════════════════════════════
-     LEGACY COMPAT
-     ═══════════════════════════════════════════════════════════════════════ */
-
-  toggleSimpleVisibility(key, config) { this.setVisible(key, true); }
+  toggleSimpleVisibility(key, _config) { this.setVisible(key, true); }
   recalculatePositions() { this.recalculate(); }
   triggerRecalculate() { requestAnimationFrame(() => this.recalculate()); }
   validateToggleElements() { return true; }
-
-  /* ═══════════════════════════════════════════════════════════════════════
-     DESTROY
-     ═══════════════════════════════════════════════════════════════════════ */
 
   destroy() {
     this.toggles.clear();

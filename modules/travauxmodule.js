@@ -1,5 +1,5 @@
 // modules/TravauxModule.js
-const TravauxModule = (() => {
+void (() => {
 
   // ─── Constants ────────────────────────────────────────────────
   const LAYER_NAME = 'travaux';
@@ -88,9 +88,9 @@ const TravauxModule = (() => {
 
   // ─── Histogram ────────────────────────────────────────────────
   function computeHistogram(features, minTs, maxTs) {
-    if (maxTs <= minTs) return new Array(HISTOGRAM_BUCKETS).fill(0);
+    if (maxTs <= minTs) return Array.from({length: HISTOGRAM_BUCKETS}, () => 0);
     const step = (maxTs - minTs) / HISTOGRAM_BUCKETS;
-    const counts = new Array(HISTOGRAM_BUCKETS).fill(0);
+    const counts = Array.from({length: HISTOGRAM_BUCKETS}, () => 0);
     for (const f of features) {
       const d = f.properties._ts_debut;
       const e = f.properties._ts_fin;

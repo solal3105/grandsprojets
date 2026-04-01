@@ -4,9 +4,7 @@
 ;(function(win) {
   'use strict';
 
-  // ============================================================================
   // STATE
-  // ============================================================================
 
   // State
   let drawMap = null;
@@ -27,12 +25,9 @@
   };
 
   // Shared marker/style helpers (defined in datamodule.js, exposed on window)
-  const getCategoryStyle = win.getCategoryStyle;
   const createContributionMarkerIcon = win.createContributionMarkerIcon;
 
-  // ============================================================================
   // MAP INITIALIZATION
-  // ============================================================================
 
   /**
    * Initialise la carte de dessin
@@ -71,7 +66,7 @@
         try { 
           drawMap.off(); // Remove all event listeners
           drawMap.remove(); 
-        } catch(_) {}
+        } catch (e) { console.debug('[contrib-map] layer cleanup:', e); }
         drawMap = null;
       }
       
@@ -106,14 +101,14 @@
       
       try { 
         drawMap.whenReady(() => setTimeout(() => { 
-          try { drawMap.invalidateSize(); } catch(_) {} 
+          try { drawMap.invalidateSize(); } catch (e) { console.debug('[contrib-map] map resize:', e); } 
         }, 60)); 
-      } catch(_) {}
+      } catch (e) { console.debug('[contrib-map] map resize:', e); }
       
       setDrawBaseLayer(osmBm);
       
       // Ensure no basemap menu is displayed in contribution modal
-      try { drawPanelEl.querySelector('#contrib-basemap-menu')?.remove(); } catch(_) {}
+      try { drawPanelEl.querySelector('#contrib-basemap-menu')?.remove(); } catch (e) { console.warn('[contrib-map] map resize:', e); }
       
       // Attach map event handlers
       drawMap.on('click', onMapClick);
@@ -147,9 +142,7 @@
     }
   }
 
-  // ============================================================================
   // BASEMAP MANAGEMENT
-  // ============================================================================
 
   /**
    * Sélectionne le basemap par défaut
@@ -194,7 +187,7 @@
     
     try { 
       if (drawBaseLayer) drawMap.removeLayer(drawBaseLayer); 
-    } catch(_) {}
+    } catch (e) { console.debug('[contrib-map] layer cleanup:', e); }
     
     drawBaseLayer = null;
     
@@ -223,7 +216,7 @@
       if (!drawPanelEl || !Array.isArray(basemaps) || !basemaps.length) return;
       
       let menu = drawPanelEl.querySelector('#contrib-basemap-menu');
-      if (menu) { try { menu.remove(); } catch(_) {} }
+      if (menu) { try { menu.remove(); } catch (e) { console.warn('[contrib-map] DOM cleanup:', e); } }
       
       menu = document.createElement('div');
       menu.id = 'contrib-basemap-menu';
@@ -251,7 +244,7 @@
               b.style.background = 'var(--white)'; 
               b.removeAttribute('aria-pressed'); 
             }); 
-          } catch(_) {}
+          } catch (e) { console.debug('[contrib-map] UI update:', e); }
           btn.style.background = 'var(--info-lighter)';
           btn.setAttribute('aria-pressed', 'true');
         });
@@ -290,16 +283,14 @@
       }
       
       if (isFinite(lat) && isFinite(lng)) {
-        try { drawMap.setView([lat, lng], zoom || drawMap.getZoom()); } catch(_) {}
+        try { drawMap.setView([lat, lng], zoom || drawMap.getZoom()); } catch (e) { console.warn('[contrib-map] map view update:', e); }
       }
     } catch (e) {
       console.warn('[contrib-map] applyCityBranding error:', e);
     }
   }
 
-  // ============================================================================
   // MANUAL DRAWING
-  // ============================================================================
 
   /**
    * Gère le clic sur la carte pour le dessin manuel
@@ -313,7 +304,7 @@
       if (win.ContribMap?.onDrawStateChange) {
         win.ContribMap.onDrawStateChange();
       }
-    } catch(_) {}
+    } catch (e) { console.debug('[contrib-map] click handler:', e); }
   }
 
   /**
@@ -324,7 +315,7 @@
       if (manualDraw && manualDraw.guideLayer && drawMap) {
         drawMap.removeLayer(manualDraw.guideLayer);
       }
-    } catch(_) {}
+    } catch (e) { console.debug('[contrib-map] layer cleanup:', e); }
     if (manualDraw) manualDraw.guideLayer = null;
   }
 
@@ -357,7 +348,7 @@
         opacity: 0.7,
         dashArray: '6,6'
       }).addTo(drawMap);
-    } catch(_) {}
+    } catch (e) { console.debug('[contrib-map] guide line:', e); }
   }
 
   /**
@@ -382,7 +373,7 @@
     
     // Désactiver le double-clic zoom sauf pour le mode point
     if (type !== 'point') {
-      try { drawMap.doubleClickZoom.disable(); } catch(_) {}
+      try { drawMap.doubleClickZoom.disable(); } catch (e) { console.debug('[contrib-map] zoom control toggle:', e); }
     }
     
     // Change le curseur en mode point
@@ -403,7 +394,7 @@
     
     // Remove previous temp layer
     if (manualDraw.tempLayer) { 
-      try { drawMap.removeLayer(manualDraw.tempLayer); } catch(_) {}
+      try { drawMap.removeLayer(manualDraw.tempLayer); } catch (e) { console.warn('[contrib-map] layer cleanup:', e); }
       manualDraw.tempLayer = null; 
     }
     
@@ -478,7 +469,7 @@
     
     // Remove existing finalized layer
     if (drawLayer) { 
-      try { drawMap.removeLayer(drawLayer); } catch(_) {} 
+      try { drawMap.removeLayer(drawLayer); } catch (e) { console.debug('[contrib-map] layer cleanup:', e); } 
       drawLayer = null; 
     }
     
@@ -495,7 +486,7 @@
       drawLayer = L.marker(manualDraw.points[0], { icon }).addTo(drawMap);
       
       // Centrer la vue sur le point
-      try { drawMap.setView(manualDraw.points[0], drawMap.getZoom()); } catch(_) {}
+      try { drawMap.setView(manualDraw.points[0], drawMap.getZoom()); } catch (e) { console.warn('[contrib-map] map view update:', e); }
       
     } else if (manualDraw.type === 'polygon') {
       const style = { 
@@ -505,7 +496,7 @@
         fillColor: primaryColor 
       };
       drawLayer = L.polygon(manualDraw.points, style).addTo(drawMap);
-      try { drawMap.fitBounds(drawLayer.getBounds(), { padding: [10, 10] }); } catch(_) {}
+      try { drawMap.fitBounds(drawLayer.getBounds(), { padding: [10, 10] }); } catch (e) { console.debug('[contrib-map] map view update:', e); }
       
     } else { // line
       const style = { 
@@ -514,7 +505,7 @@
         opacity: 0.9 
       };
       drawLayer = L.polyline(manualDraw.points, style).addTo(drawMap);
-      try { drawMap.fitBounds(drawLayer.getBounds(), { padding: [10, 10] }); } catch(_) {}
+      try { drawMap.fitBounds(drawLayer.getBounds(), { padding: [10, 10] }); } catch (e) { console.debug('[contrib-map] map view update:', e); }
     }
     
     drawLayerDirty = true;
@@ -529,7 +520,7 @@
    * Annule le dessin en cours
    * @param {boolean} keepStatus - Conserver le statut
    */
-  function cancelManualDraw(keepStatus = false) {
+  function cancelManualDraw(_keepStatus = false) {
     manualDraw.active = false;
     manualDraw.type = null;
     manualDraw.points = [];
@@ -542,7 +533,7 @@
       drawMap._container.style.cursor = '';
     }
     
-    try { drawMap.doubleClickZoom.enable(); } catch(_) {}
+    try { drawMap.doubleClickZoom.enable(); } catch (e) { console.debug('[contrib-map] zoom control toggle:', e); }
     
     if (win.ContribMap?.onDrawStateChange) {
       win.ContribMap.onDrawStateChange();
@@ -554,7 +545,7 @@
    */
   function clearManualTemp() {
     if (manualDraw.tempLayer) { 
-      try { drawMap.removeLayer(manualDraw.tempLayer); } catch(_) {} 
+      try { drawMap.removeLayer(manualDraw.tempLayer); } catch (e) { console.debug('[contrib-map] layer cleanup:', e); } 
       manualDraw.tempLayer = null; 
     }
   }
@@ -565,7 +556,7 @@
   function clearManualGeometry() {
     clearManualTemp();
     if (drawLayer) { 
-      try { drawMap.removeLayer(drawLayer); } catch(_) {} 
+      try { drawMap.removeLayer(drawLayer); } catch (e) { console.debug('[contrib-map] layer cleanup:', e); } 
       drawLayer = null; 
     }
     drawLayerDirty = false;
@@ -576,9 +567,7 @@
     }
   }
 
-  // ============================================================================
   // GETTERS
-  // ============================================================================
 
   /**
    * Récupère l'état du dessin manuel
@@ -693,7 +682,7 @@
           const padding = pointCount > 1 ? [30, 30] : [10, 10];
           drawMap.fitBounds(bounds, { padding }); 
         }
-      } catch(_) {}
+      } catch (e) { console.debug('[contrib-map] map view update:', e); }
       
       console.log(`[contrib-map] setDrawnGeometry: ${featureCount} features, ${pointCount} points`);
     } catch(e) {

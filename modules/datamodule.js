@@ -1,5 +1,3 @@
-// Module de gestion des données et de l'interface utilisateur
-
 // Cache ultra-simple en mémoire
 const simpleCache = {
 	_cache: {},
@@ -73,16 +71,12 @@ const simpleCache = {
 	}
 };
 
-// Exposer pour le débogage
-// window.debugCache = simpleCache;
-
 window.DataModule = (function() {
 	// Variables internes pour stocker les configurations
 	let urlMap = {};
 	let styleMap = {};
 	let iconMap = {};
 	let iconColorMap = {};
-	let defaultLayers = [];
 	let layerData = {};
 
 	// Exposer une méthode d'initialisation
@@ -91,21 +85,17 @@ window.DataModule = (function() {
 		styleMap: s,
 		iconMap: i,
 		iconColorMap: ic,
-		defaultLayers: d
+		defaultLayers: _d
 	}) {
 		// Initialisation silencieuse en production
 		urlMap = u || {};
 		styleMap = s || {};
 		iconMap = i || {};
 		iconColorMap = ic || {};
-		defaultLayers = d || [];
 
 		// Vérification silencieuse en production
 	}
 
-	// --- Gestion du style et des événements ---
-
-	// Renvoie le style d'une feature selon la couche et ses propriétés
 	function getFeatureStyle(feature, layerName) {
 		// Récupérer le style depuis styleMap ou utiliser un fallback
 		const baseStyle = styleMap[layerName] || {
@@ -124,7 +114,7 @@ window.DataModule = (function() {
 		return baseStyle;
 	}
 
-	function safeSetStyle(layer, style) {
+	function _safeSetStyle(layer, style) {
 		if (layer && typeof layer.setStyle === 'function') {
 			layer.setStyle(style);
 		} else if (layer && typeof layer.eachLayer === 'function') {
@@ -136,14 +126,12 @@ window.DataModule = (function() {
 		}
 	}
 
-	// closeHoverTooltip SUPPRIMÉ - non utilisé avec MapLibre GL
-
 	const _esc = window.SecurityUtils.escapeHtml;
 
 	// Lie les événements à une feature
 	// Lines/Polygons : gérés par FeatureInteractions (MapLibre GL natif via queryRenderedFeatures)
 	// Points (DOM markers) : events wired here (markers are invisible to queryRenderedFeatures)
-	function bindFeatureEvents(layer, feature, geojsonLayer, layerName) {
+	function bindFeatureEvents(layer, feature, _geojsonLayer, _layerName) {
 		const isPoint = /Point$/i.test(feature?.geometry?.type || '');
 		if (!isPoint) return;
 
@@ -227,8 +215,8 @@ window.DataModule = (function() {
 							if (data?.features?.length >= 0) return normalizeTravaux(data, `city-travaux:${activeCity}`);
 						}
 						console.warn('[DataModule] Netlify function indisponible, fallback client-side');
-					} catch (_) {
-						console.warn('[DataModule] Netlify function erreur, fallback client-side');
+					} catch (e) {
+						console.warn('[DataModule] Netlify function erreur, fallback client-side:', e);
 					}
 					// Fallback : agrégation client-side (N+1 fetches)
 					const data = await window.supabaseService.loadCityTravauxGeoJSON(activeCity);
@@ -393,7 +381,8 @@ window.DataModule = (function() {
 			} else if (normalized.type === 'FeatureCollection' && !Array.isArray(normalized.features)) {
 				normalized.features = [];
 			}
-		} catch (_) {
+		} catch (e) {
+			console.debug('[data] GeoJSON normalization fallback:', e);
 			normalized = { type: 'FeatureCollection', features: [] };
 		}
 		data = normalized;
@@ -532,9 +521,6 @@ window.DataModule = (function() {
 		}
 	}
 
-	// --- Fonctions publiques de chargement et préchargement des couches ---
-
-	// Charge une couche (depuis le cache ou le réseau) et l'ajoute à la carte
 	function loadLayer(layerName) {
 		return fetchLayerData(layerName)
 			.then(finalData => {
@@ -592,7 +578,6 @@ window.DataModule = (function() {
 		}
 	}
 
-	// --- Détail chantier (rendu dans #project-detail, même panneau que les projets carte) ---
 	async function openTravauxModal(props) {
 		try {
 			const panel = document.getElementById('project-detail');
@@ -703,7 +688,7 @@ window.DataModule = (function() {
 			try {
 				const mlMap = window.MapModule?.map?._mlMap;
 				if (mlMap?.jumpTo) mlMap.jumpTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 } });
-			} catch (_) {}
+			} catch (e) { console.debug('[data] map padding reset failed:', e); }
 
 			// ── Dismiss helper ────────────────────────────────────────────────
 			const dismiss = () => {
@@ -716,7 +701,7 @@ window.DataModule = (function() {
 					try {
 						const mlMap = window.MapModule?.map?._mlMap;
 						mlMap?.easeTo?.({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, duration: 300 });
-					} catch (_) {}
+					} catch (e) { console.debug('[data] map padding restore failed:', e); }
 				}
 			};
 

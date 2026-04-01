@@ -72,7 +72,6 @@
    */
   function initToggle() {
     const toggle = document.getElementById('travaux-enabled-toggle');
-    const statusBadge = document.getElementById('travaux-status-text');
     
     if (!toggle) return;
 
@@ -288,8 +287,6 @@
   async function autoSave() {
     if (!currentVille) return;
 
-    const statusEl = document.getElementById('travaux-config-status');
-    
     try {
       // Afficher état "saving"
       showSaveStatus('saving', 'Enregistrement...');

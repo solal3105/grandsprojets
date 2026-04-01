@@ -1,7 +1,3 @@
-// ============================================================================
-// main.js - Point d'entrée de l'application
-// ============================================================================
-
 ;(function(win) {
   'use strict';
 
@@ -65,7 +61,7 @@
               }
             }
           }
-        } catch (parseErr) {
+        } catch {
           // JSON invalide = token corrompu
           localStorage.removeItem(key);
           issues.push('Token Supabase JSON invalide → supprimé');
@@ -154,7 +150,7 @@
     try {
       localStorage.setItem('__gp_load_end__', Date.now().toString());
       localStorage.removeItem('__gp_load_start__');
-    } catch (_) {}
+    } catch (e) { console.warn('[main] Failed to persist load-complete marker:', e); }
   }
 
   async function initApp() {
@@ -240,7 +236,7 @@
       const {
         layersConfig,
         metroColors,
-        filtersConfig,
+        filtersConfig: _filtersConfig,
         basemaps: remoteBasemaps
       } = await supabaseService.initAllData(city);
 
@@ -277,7 +273,7 @@
         window.SearchModule.init(window.MapModule.map);
       }
       
-      const { DataModule, MapModule, EventBindings } = win;
+      const { DataModule, MapModule, EventBindings: _EventBindings } = win;
       const urlMap        = {};
       const styleMap      = {};
       const iconMap       = {};
@@ -313,7 +309,7 @@
           if (categoryStyle && Object.keys(categoryStyle).length > 0) {
             // Fusionner avec le style existant (si présent) ou créer un nouveau
             styleMap[category] = {
-              ...(styleMap[category] || {}),
+              ...styleMap[category],
               ...categoryStyle
             };
             
@@ -326,7 +322,7 @@
                 if (layerName !== category) {
                   styleMap[layerName] = {
                     ...categoryStyle,
-                    ...(styleMap[layerName] || {})
+                    ...styleMap[layerName]
                   };
                 }
               });
@@ -416,14 +412,12 @@
       // Store travaux config globally for NavPanel (BEFORE sidebar init)
       win._travauxConfig = travauxConfig || {};
       
-      // Initialize sidebar + nav panel
       if (win.SidebarModule) {
         win.SidebarModule.init();
       }
       if (win.NavPanel) {
         win.NavPanel.init();
       }
-      // Préparer les contributions par catégorie
       const contributionsByCategory = {};
       allContributions.forEach(contrib => {
         const cat = contrib.category;
@@ -445,7 +439,6 @@
       // PHASE 5.5 : Charger les layers par défaut + toutes les contributions
       const categoryLayers = Object.keys(contributionsByCategory).filter(cat => contributionsByCategory[cat].length > 0);
       
-      // Charger defaultLayers (layers système) + categoryLayers (contributions)
       const layersToLoad = [...new Set([...defaultLayers, ...categoryLayers])];
       
       try {
@@ -466,7 +459,7 @@
         if (!win.NavPanel?.isOpen()) {
           for (const layer of layersToLoad) {
             if (DataModule.layerData[layer]) {
-              try { DataModule.createGeoJsonLayer(layer, DataModule.layerData[layer]); } catch (_) {}
+              try { DataModule.createGeoJsonLayer(layer, DataModule.layerData[layer]); } catch (e) { console.warn(`[main] Failed to create GeoJSON layer "${layer}":`, e); }
             }
           }
         }
@@ -529,8 +522,6 @@
 
       // Login — ToggleManager redirects via redirectUrl config
       win.toggleManager?.markReady('login');
-
-      // Contribute
       win.toggleManager?.markReady('contribute');
 
       // Actions panel (mobile only) — populate with sidebar actions
@@ -565,7 +556,6 @@
           actionsPanel.appendChild(item);
         });
         
-        // Update auth state
         const isConnected = win.AuthModule?.isAuthenticated?.() || false;
         document.body.setAttribute('data-auth-state', isConnected ? 'connected' : 'disconnected');
       }
@@ -618,12 +608,10 @@
         win.ThemeManager?.startOSThemeSync();
       }
       
-      
-      // Exposer l'API globale
       window.getActiveCity = () => win.CityManager?.getActiveCity() || '';
 
       // Listener pour recharger les styles quand les catégories sont modifiées
-      window.addEventListener('categories:updated', async (e) => {
+      window.addEventListener('categories:updated', async () => {
         try {
           console.log('[Main] 🔄 Rechargement des styles suite à modification de catégorie');
           
@@ -632,23 +620,21 @@
             const categoryIconsData = await window.supabaseService.fetchCategoryIcons();
             const categoryStylesFromDB = window.supabaseService.buildCategoryStylesMap(categoryIconsData);
             
-            // Mettre à jour le styleMap
             Object.keys(categoryStylesFromDB).forEach(category => {
               const categoryStyle = categoryStylesFromDB[category];
               if (categoryStyle && Object.keys(categoryStyle).length > 0) {
                 styleMap[category] = {
-                  ...(styleMap[category] || {}),
+                  ...styleMap[category],
                   ...categoryStyle
                 };
                 
-                // Appliquer aussi aux couches associées
                 const categoryIcon = categoryIconsData.find(icon => icon.category === category);
                 if (categoryIcon && Array.isArray(categoryIcon.layers_to_display)) {
                   categoryIcon.layers_to_display.forEach(layerName => {
                     if (layerName !== category) {
                       styleMap[layerName] = {
                         ...categoryStyle,
-                        ...(styleMap[layerName] || {})
+                        ...styleMap[layerName]
                       };
                     }
                   });
@@ -656,14 +642,11 @@
               }
             });
             
-            // Réinitialiser la config du DataModule avec les nouveaux styles
             DataModule.initConfig({ city, urlMap, styleMap, defaultLayers });
             
-            // Recharger les couches visibles pour appliquer les nouveaux styles
             if (MapModule?.layers) {
               const layersToReload = Object.keys(MapModule.layers);
               
-              // Recharger chaque couche pour appliquer les nouveaux styles
               for (const layerName of layersToReload) {
                 try {
                   await DataModule.loadLayer(layerName);
@@ -678,9 +661,7 @@
         }
       });
 
-      // --------------------------------------------------------------------------
       // PHASE 8 : Gestion du routing et de l'historique
-      // --------------------------------------------------------------------------
 
       /**
        * Parse l'état de l'URL (?cat=...&project=...)
@@ -691,7 +672,8 @@
           const cat = String(sp.get('cat') || '').toLowerCase().trim();
           const project = String(sp.get('project') || '').trim();
           return (cat && project) ? { cat, project } : null;
-        } catch (_) {
+        } catch (e) {
+          console.warn('[main] Failed to parse URL state:', e);
           return null;
         }
       }
@@ -760,7 +742,7 @@
             await win.CityManager?.updateLogoForCity(nextCity);
             try {
               await win.FilterManager?.init();
-            } catch (_) { /* noop */ }
+            } catch (e) { console.warn('[main] Failed to reinit FilterManager on city change:', e); }
           }
           let state = e && e.state ? e.state : null;
           if (!state) {
@@ -771,7 +753,7 @@
               if (cat) {
                 state = { cat, project: project || null };
               }
-            } catch (_) { /* noop */ }
+            } catch (e) { console.warn('[main] Failed to parse URL params on popstate:', e); }
           }
 
           console.log('[Main] 📍 Popstate state:', state);
@@ -786,7 +768,7 @@
           } else if (window.NavigationModule?.resetToDefaultView) {
             window.NavigationModule.resetToDefaultView(undefined, { preserveMapView: true, updateHistory: false });
           }
-        } catch (_) { /* noop */ }
+        } catch (e) { console.warn('[main] Failed to handle popstate navigation:', e); }
       });
       
       // Exposer le flag pour que uimodule.js puisse le contrôler
@@ -794,9 +776,7 @@
         _isManualNavigation = value;
       };
       
-      // --------------------------------------------------------------------------
       // PHASE 9 : Fiche Modal (iframe-based fullscreen, via ModalHelper)
-      // --------------------------------------------------------------------------
       (function initFicheModal() {
         const iframe   = document.getElementById('fiche-modal-iframe');
         const loader   = document.getElementById('fiche-modal-loader');
@@ -875,19 +855,13 @@
           ">Réessayer</button>
         `;
         document.body.appendChild(errorDiv);
-      } catch (_) {}
+      } catch (e) { console.warn('[main] Failed to display init error message:', e); }
     }
   }
 
-  // ============================================================================
   // FALLBACKS ET BOOTSTRAP
-  // ============================================================================
-  
-  // City toggle removed - functionality handled by CityManager if needed
 
-  // ============================================================================
   // UTILITAIRES DE DIAGNOSTIC ET RÉCUPÉRATION
-  // ============================================================================
   
   /**
    * Fonction de diagnostic accessible depuis la console
@@ -925,7 +899,7 @@
           console.log('  Expire:', expiresAt.toLocaleString());
           console.log('  Expiré:', expiresAt < now ? '⚠️ OUI' : '✅ Non');
         }
-      } catch (e) {
+      } catch {
         console.log('  ⚠️ Token corrompu (JSON invalide)');
       }
     } else {
@@ -937,9 +911,9 @@
     console.group('🏙️ Application');
     console.log('  activeCity:', win.activeCity || localStorage.getItem('activeCity') || 'Non définie');
     console.log('  theme:', localStorage.getItem('theme') || 'Auto');
-    console.log('  MapModule:', !!win.MapModule?.map ? '✅ OK' : '❌ Non initialisé');
-    console.log('  DataModule:', !!win.DataModule ? '✅ OK' : '❌ Non initialisé');
-    console.log('  supabaseService:', !!win.supabaseService ? '✅ OK' : '❌ Non initialisé');
+    console.log('  MapModule:', win.MapModule?.map ? '✅ OK' : '❌ Non initialisé');
+    console.log('  DataModule:', win.DataModule ? '✅ OK' : '❌ Non initialisé');
+    console.log('  supabaseService:', win.supabaseService ? '✅ OK' : '❌ Non initialisé');
     console.groupEnd();
     
     console.groupEnd();
@@ -1010,7 +984,7 @@
     if (win.CityRedirect && typeof win.CityRedirect.init === 'function') {
       win.CityRedirect.init();
     }
-  } catch (_) {}
+  } catch (e) { console.warn('[main] Failed to init CityRedirect:', e); }
 
   // Bootstrap de l'application
   if (document.readyState === 'loading') {

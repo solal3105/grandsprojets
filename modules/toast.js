@@ -53,7 +53,7 @@
       toast.classList.remove('gp-toast--visible');
       toast.classList.add('gp-toast--exit');
       setTimeout(function() {
-        try { toast.remove(); } catch(_) {}
+        try { toast.remove(); } catch (e) { console.debug('[toast] toast removal failed:', e); }
       }, 300);
     }, duration);
   }

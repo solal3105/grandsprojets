@@ -1,8 +1,3 @@
-/* ============================================================================
-   ADMIN APP — Entry point
-   Initialises store → sidebar → router → section renders
-   ============================================================================ */
-
 import { store } from './store.js';
 import { router } from './router.js';
 import * as api from './api.js';
@@ -82,8 +77,6 @@ async function boot() {
 
 boot();
 
-/* ── Branding color ── */
-
 function _applyBrandColor(hex) {
   if (!hex) return;
   const m = /^#?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/.exec(hex.trim());
@@ -103,5 +96,5 @@ async function _loadAndApplyBrandColor() {
       img.src = branding?.logo_url || '/img/logos/classic_color-1.png';
       img.alt = branding?.brand_name || 'Grands Projets';
     }
-  } catch (_) {}
+  } catch (e) { console.warn('[admin-app] loadAndApplyBrandColor', e); }
 }

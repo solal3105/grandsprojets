@@ -1,4 +1,4 @@
-export const handler = async (event, context) => {
+export const handler = async (_event, _context) => {
   try {
     // Hardcoded credentials per user's request (note: consider env vars for security best practices)
     const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
@@ -47,7 +47,7 @@ export const handler = async (event, context) => {
         const dt = new Date(d);
         if (isNaN(dt.getTime())) return null;
         return dt.toISOString().slice(0, 10); // YYYY-MM-DD
-      } catch { return null; }
+      } catch (e) { console.debug('[netlify] fmtDate', e); return null; }
     };
 
     const urlset = [];

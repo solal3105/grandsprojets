@@ -1,9 +1,4 @@
-/* ============================================================================
-   ADMIN SIDEBAR — Initialization, city selector, nav visibility, mobile toggle
-   ============================================================================ */
-
 import { store } from '../store.js';
-import { router } from '../router.js';
 import * as api from '../api.js';
 import { esc } from './ui.js';
 
@@ -21,8 +16,6 @@ export async function initSidebar() {
     _renderUserInfo();
   });
 }
-
-/* ── City selector ── */
 
 async function _populateCitySelector() {
   const select = document.getElementById('adm-city-select');
@@ -79,8 +72,6 @@ function _updateCityContext(code) {
   if (mobile) mobile.textContent = code;
 }
 
-/* ── Role-based nav visibility ── */
-
 function _applyRoleVisibility() {
   document.querySelectorAll('.adm-nav-item[data-role]').forEach(el => {
     const required = el.dataset.role;
@@ -92,8 +83,6 @@ function _applyRoleVisibility() {
   });
 }
 
-/* ── User info ── */
-
 function _renderUserInfo() {
   const emailEl = document.getElementById('adm-user-email');
   const roleEl = document.getElementById('adm-user-role');
@@ -103,8 +92,6 @@ function _renderUserInfo() {
   }
 }
 
-/* ── Logout ── */
-
 function _bindLogout() {
   const btn = document.getElementById('adm-logout');
   if (!btn) return;
@@ -112,12 +99,10 @@ function _bindLogout() {
     try {
       const client = window.AuthModule?.getClient();
       if (client) await client.auth.signOut();
-    } catch (_) {}
+    } catch (e) { console.warn('[admin-sidebar] signOut', e); }
     window.location.href = '/login/';
   });
 }
-
-/* ── Mobile toggle ── */
 
 function _bindMobileToggle() {
   const toggleBtn = document.getElementById('adm-menu-toggle');
@@ -142,8 +127,6 @@ function _bindMobileToggle() {
     link.addEventListener('click', close);
   });
 }
-
-/* ── Update pending badge ── */
 
 export function updatePendingBadge(count) {
   const badge = document.getElementById('adm-badge-pending');

@@ -1,9 +1,7 @@
 // modules/ficheprojet.js
 // Fiche projet — Magazine-quality reading experience
 
-/* ===========================================================================
-   CONFIGURATION
-   =========================================================================== */
+// CONFIGURATION
 
 const FP_CONFIG = {
   PROD_ORIGIN: 'https://grandsprojets.netlify.app',
@@ -27,9 +25,7 @@ window.basemaps = window.basemaps || [
   { label: 'Dark Matter', kind: 'raster', url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', attribution: '© CartoDB', theme: 'dark' }
 ];
 
-/* ===========================================================================
-   UTILITIES
-   =========================================================================== */
+// UTILITIES
 
 function getURLParams() {
   const params = new URLSearchParams(window.location.search);
@@ -52,16 +48,14 @@ const escapeHTML = window.SecurityUtils.escapeHtml;
 
 function extractDomain(url) {
   try { return new URL(url).hostname.replace('www.', ''); }
-  catch (_) { return url; }
+  catch (e) { console.debug('[fiche] extractDomain failed:', e); return url; }
 }
 
 function currentTheme() {
   return document.documentElement.getAttribute('data-theme') || 'light';
 }
 
-/* ===========================================================================
-   SEO
-   =========================================================================== */
+// SEO
 
 function applySEO(projectName, attrs, category) {
   try {
@@ -100,7 +94,7 @@ function applySEO(projectName, attrs, category) {
         if (attrs.cover) data.image = toAbsoluteURL(attrs.cover);
         if (attrs.created_at) data.datePublished = attrs.created_at;
         ficheJsonLd.textContent = JSON.stringify(data);
-      } catch (_) {}
+      } catch (e) { console.warn('[fiche] JSON-LD update failed:', e); }
     }
 
     addBreadcrumbSchema(projectName, category);
@@ -139,9 +133,7 @@ function addArticleSchema(projectName, attrs, category) {
   document.head.appendChild(script);
 }
 
-/* ===========================================================================
-   SIDEBAR SECTION BUILDERS — Lightweight sections, not heavy cards
-   =========================================================================== */
+// SIDEBAR SECTION BUILDERS
 
 function buildLinkSection(url) {
   if (!url) return '';
@@ -195,9 +187,7 @@ async function buildDocumentsSection(projectName) {
   } catch (e) { console.warn('[Documents] Error:', e); return ''; }
 }
 
-/* ===========================================================================
-   LIGHTBOX & PDF PREVIEW
-   =========================================================================== */
+// LIGHTBOX & PDF PREVIEW
 
 function openLightbox(imageUrl) {
   if (window.Lightbox) {
@@ -216,9 +206,7 @@ function openPDFPreview(pdfUrl, title) {
   else overlay.style.display = 'flex';
 }
 
-/* ===========================================================================
-   MAP
-   =========================================================================== */
+// MAP
 
 const getCategoryStyle = window.getCategoryStyle;
 
@@ -299,11 +287,9 @@ function updateCityLogo(theme) {
   logo.innerHTML = `<img src="${safe}" alt="${alt}">`;
 }
 
-/* ===========================================================================
-   HTML TEMPLATE — Magazine layout with BEM classes
-   =========================================================================== */
+// HTML TEMPLATE
 
-function generateFicheHTML(projectName, category, isEmbed, coverUrl, description) {
+function generateFicheHTML(projectName, category, isEmbed, coverUrl, _description) {
   const cover = coverUrl ? toAbsoluteURL(coverUrl) : '';
   const safeName = escapeHTML(projectName);
   const catLabel = FP_CONFIG.CATEGORY_LABELS[category] || category;
@@ -379,9 +365,7 @@ function generateFicheHTML(projectName, category, isEmbed, coverUrl, description
     </div>`;
 }
 
-/* ===========================================================================
-   MARKDOWN RENDERING
-   =========================================================================== */
+// MARKDOWN RENDERING
 
 async function renderMarkdown(markdownUrl, container) {
   try {
@@ -449,9 +433,7 @@ function enhanceMarkdownElements(container) {
   });
 }
 
-/* ===========================================================================
-   EVENT BINDING
-   =========================================================================== */
+// EVENT BINDING
 
 function bindGlobalEvents() {
   // Delegated: lightbox images
@@ -497,7 +479,7 @@ function bindHeaderEvents() {
         btnShare.classList.add('fiche-header__btn--success');
         setTimeout(() => { btnShare.innerHTML = orig; btnShare.classList.remove('fiche-header__btn--success'); }, 2000);
         showFicheToast('Lien copié !');
-      } catch (_) { showFicheToast('Erreur lors de la copie'); }
+      } catch (e) { console.warn('[fiche] clipboard copy failed:', e); showFicheToast('Erreur lors de la copie'); }
     });
   }
 
@@ -525,9 +507,7 @@ function showFicheToast(msg) {
   }
 }
 
-/* ===========================================================================
-   MAP EXPAND (Fullscreen modal)
-   =========================================================================== */
+// MAP EXPAND
 
 function openMapFullscreenModal() {
   if (!window.ModalHelper) return;
@@ -559,9 +539,7 @@ function bindMapExpandEvent() {
   if (btn) btn.addEventListener('click', openMapFullscreenModal);
 }
 
-/* ===========================================================================
-   MAIN INIT
-   =========================================================================== */
+// MAIN INIT
 
 async function initFicheProjet() {
   try {
@@ -659,8 +637,6 @@ async function initFicheProjet() {
   }
 }
 
-/* ===========================================================================
-   BOOT
-   =========================================================================== */
+// BOOT
 
 document.addEventListener('DOMContentLoaded', initFicheProjet);

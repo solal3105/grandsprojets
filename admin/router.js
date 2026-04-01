@@ -1,8 +1,3 @@
-/* ============================================================================
-   ADMIN ROUTER — Minimal hash-free client-side router
-   Maps /admin/<section>/ to section render functions
-   ============================================================================ */
-
 const _routes = new Map();
 let _currentSection = null;
 let _container = null;

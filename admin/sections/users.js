@@ -1,7 +1,3 @@
-/* ============================================================================
-   USERS SECTION — List, invite, change role
-   ============================================================================ */
-
 import { store } from '../store.js';
 import * as api from '../api.js';
 import { toast, confirm, esc, formatDate, skeletonTable, emptyState } from '../components/ui.js';

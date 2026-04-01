@@ -1,18 +1,14 @@
-// modules/supabaseService.js
 ;(function(win){
-  // 1️⃣ Initialise le client Supabase via le global `supabase` chargé par CDN
   // Éviter de créer plusieurs instances (warning Multiple GoTrueClient)
   const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
   
-  // Réutiliser le client existant s'il existe déjà
-  // Configuration avec autoRefreshToken et persistSession pour éviter les déconnexions
   const supabaseClient = win.__supabaseClient || supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: {
-      autoRefreshToken: true,      // Refresh automatique du token avant expiration
-      persistSession: true,        // Persister la session dans localStorage
-      detectSessionInUrl: true,    // Détecter les tokens dans l'URL (magic links)
-      storageKey: 'grandsprojets-auth'  // Clé unique pour le storage
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      storageKey: 'grandsprojets-auth'
     }
   });
   if (!win.__supabaseClient) {
@@ -28,7 +24,7 @@
     .replace(/[\u2013\u2014]/g, '-')
     .replace(/["'`´]/g, '')
     .replace(/&/g, ' et ')
-    .replace(/[^a-zA-Z0-9\s-\/]/g, '')
+    .replace(/[^a-zA-Z0-9\s-/]/g, '')
     .replace(/\s*\/\s*/g, '-')
     .replace(/[-_]+/g, '-')
     .replace(/\s+/g, '-')
@@ -73,18 +69,13 @@
       // 3. Fallback: metropole-lyon (JAMAIS null ou vide)
       console.warn('[supabaseService] getActiveCity: Aucune ville trouvée, fallback metropole-lyon');
       return 'metropole-lyon';
-    } catch (_) {
+    } catch {
       console.warn('[supabaseService] getActiveCity: Erreur, fallback metropole-lyon');
       return 'metropole-lyon';
     }
   };
 
-  // 2️⃣ Expose supabaseService sur window
   win.supabaseService = {
-    /**
-     * Retourne le client Supabase pour accès direct (auth, etc.)
-     * @returns {Object} Le client Supabase
-     */
     getClient: function() {
       return supabaseClient;
     },
@@ -94,21 +85,15 @@
      * @returns {Promise<Array<{name:string, url:string, style:string, is_default:boolean}>>}
      */
     fetchLayersConfig: async function() {
-      // Plus d'exclusions - toutes les couches sont maintenant dans la table layers
-
-      // Récupérer la ville active
       const activeCity = getActiveCity();
 
-      // Construire la requête et filtrer par ville
       let q = supabaseClient
         .from('layers')
         .select('name, url, style, is_default, ville, icon, icon_color');
 
-      // Filtre par ville active
       if (activeCity) {
         q = q.eq('ville', activeCity);
       } else {
-        // Pas de ville : retourner vide
         return [];
       }
 
@@ -123,12 +108,12 @@
       return (data || [])
         .filter(row => row && row.name)
         .map(row => {
-          // Parser le style JSON si c'est une string
           let parsedStyle = row.style;
           if (typeof row.style === 'string') {
             try {
               parsedStyle = JSON.parse(row.style);
             } catch (e) {
+              console.warn('[supabase] failed to parse layer style JSON for', row.name, ':', e);
               parsedStyle = {};
             }
           }
@@ -183,6 +168,7 @@
         });
         return out;
       } catch (e) {
+        console.warn('[supabase] fetchLayerStylesByNames failed:', e);
         return {};
       }
     },
@@ -313,7 +299,7 @@
         if (typeof styles === 'string') {
           try {
             styles = JSON.parse(styles);
-          } catch (e) {
+          } catch {
             console.warn(`[supabaseService] Impossible de parser category_styles pour ${cat.category}:`, styles);
             return;
           }
@@ -341,27 +327,23 @@
      * @param {number} rowId
      * @returns {Promise<string>} publicUrl
      */
-    uploadConsultationPdfToStorage: async function(file, categoryLayer, projectName, rowId) {
-      try {
-        if (!file || !categoryLayer || !projectName) throw new Error('Paramètres manquants');
-        const safeCat = slugify(categoryLayer);
-        const safeName = slugify(projectName);
-        const ts = Date.now();
-        const path = `pdfs/projects/${safeCat}/${safeName}-${ts}.pdf`;
-        const bucket = 'uploads';
-        const contentType = 'application/pdf';
-        const { error: upErr } = await supabaseClient
-          .storage
-          .from(bucket)
-          .upload(path, file, { upsert: false, contentType });
-        if (upErr) {
-          throw upErr;
-        }
-        const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
-        return data.publicUrl;
-      } catch (e) {
-        throw e;
+    uploadConsultationPdfToStorage: async function(file, categoryLayer, projectName, _rowId) {
+      if (!file || !categoryLayer || !projectName) throw new Error('Paramètres manquants');
+      const safeCat = slugify(categoryLayer);
+      const safeName = slugify(projectName);
+      const ts = Date.now();
+      const path = `pdfs/projects/${safeCat}/${safeName}-${ts}.pdf`;
+      const bucket = 'uploads';
+      const contentType = 'application/pdf';
+      const { error: upErr } = await supabaseClient
+        .storage
+        .from(bucket)
+        .upload(path, file, { upsert: false, contentType });
+      if (upErr) {
+        throw upErr;
       }
+      const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
+      return data.publicUrl;
     },
 
     /**
@@ -482,11 +464,6 @@
       }
     },
 
-    /**
-     * Retourne une contribution par son id.
-     * @param {number} id
-     * @returns {Promise<object|null>}
-     */
     getContributionById: async function(id) {
       try {
         if (!id) return null;
@@ -500,6 +477,7 @@
         }
         return data || null;
       } catch (e) {
+        console.warn('[supabase] getContributionById failed:', e);
         return null;
       }
     },
@@ -587,7 +565,8 @@
             const after = url.slice(i + marker.length); // e.g. 'uploads/geojson/projects/...'
             const prefix = 'uploads/';
             return after.startsWith(prefix) ? after.slice(prefix.length) : null; // path relative to bucket
-          } catch (_) {
+          } catch (e) {
+            console.debug('[supabase] toStoragePath URL parsing failed:', e);
             return null;
           }
         };
@@ -596,21 +575,23 @@
         const paths = urls.map(toStoragePath).filter(Boolean);
         if (paths.length) {
           try {
-            const { data: remData, error: remErr } = await supabaseClient
+            const { data: _remData, error: _remErr } = await supabaseClient
               .storage
               .from(bucket)
               .remove(paths);
-          } catch (remEx) {
+          } catch (e) {
+            console.debug('[supabase] storage file removal during cleanup failed:', e);
           }
         }
 
         // 3) Supprimer les dossiers de concertation liés (par nom exact)
         try {
-          const { error: delDocErr } = await supabaseClient
+          const { error: _delDocErr } = await supabaseClient
             .from('consultation_dossiers')
             .delete()
             .eq('project_name', row.project_name);
-        } catch (docEx) {
+        } catch (e) {
+          console.debug('[supabase] consultation_dossiers cleanup failed:', e);
         }
 
         // 4) Supprimer la ligne principale
@@ -692,7 +673,8 @@
         } else {
           q = q.eq('approved', true);
         }
-      } catch(_) {
+      } catch (e) {
+        console.warn('[supabase] fetchAllProjects auth check failed:', e);
         q = q.eq('approved', true);
       }
       
@@ -730,7 +712,8 @@
         } else {
           q = q.eq('approved', true);
         }
-      } catch(_) {
+      } catch (e) {
+        console.warn('[supabase] fetchProjectsByCategory auth check failed:', e);
         q = q.eq('approved', true);
       }
       
@@ -765,7 +748,8 @@
           } else {
             q = q.eq('approved', true);
           }
-        } catch(_) {
+        } catch (e) {
+          console.warn('[supabase] fetchProjectByCategoryAndName auth check failed:', e);
           q = q.eq('approved', true);
         }
         const { data, error } = await q.maybeSingle();
@@ -866,7 +850,7 @@
             return candidate === targetProj;
           });
           if (before !== filtered.length) {
-            try { console.debug(`[supabaseService] projectName filter applied: ${filtered.length}/${before}`); } catch(_) {}
+            console.debug(`[supabaseService] projectName filter applied: ${filtered.length}/${before}`);
           }
         }
 
@@ -939,21 +923,6 @@
       return filtered;
     },
     
-    // fetchProjectFilterMapping: removed (legacy). Filtering relies on filter_categories/filter_items and GeoJSON properties.
-
-    // fetchProjectColors: removed (legacy). Project colors are not used by the UI anymore.
-
-
-    // (legacy retiré) fetchLayerInfoConfig supprimée: l'UI et les tooltips utilisent désormais uniquement les propriétés du GeoJSON
-
-    /**
-     * (legacy retiré) Ancienne résolution d'URL GrandLyon supprimée.
-     */
-
-    /**
-     * (legacy retiré) Ancienne résolution d'URL Sytral supprimée.
-     */
-
     // (Auth helpers migrated to modules/auth.js)
 
     /**
@@ -1378,7 +1347,9 @@
         try {
           const { data: userData } = await supabaseClient.auth.getUser();
           if (userData && userData.user) createdBy = userData.user.id;
-        } catch (_) {}
+        } catch (e) {
+          console.warn('[supabase] createContributionRow: unable to get current user:', e);
+        }
         
         const sanitizedCity = sanitizeCity(city);
         
@@ -1652,15 +1623,7 @@
       return out;
     },
 
-    /**
-     * Expose le client Supabase pour usage interne
-     * @returns {Object} Client Supabase
-     */
-    getClient() {
-      return supabaseClient;
-    },
-
-    // ==================== CRUD pour category_icons ====================
+    // CRUD pour category_icons
 
     /**
      * Crée une nouvelle catégorie dans category_icons
@@ -1943,9 +1906,7 @@
       }
     },
 
-    // ========================================================================
     // USER MANAGEMENT (Admin only)
-    // ========================================================================
 
     /**
      * Récupère les utilisateurs visibles par l'admin connecté
@@ -2016,7 +1977,7 @@
                 try {
                   parsedVille = JSON.parse(u.ville);
                 } catch (e) {
-                  // Si le parsing échoue, garder la valeur originale
+                  console.debug('[supabase] getVisibleUsers: ville JSON parse failed, keeping original:', e);
                 }
               }
             }
@@ -2162,9 +2123,7 @@
       }
     },
 
-    // ========================================================================
     // USER INVITATION (Admin only)
-    // ========================================================================
 
     /**
      * Récupère les villes disponibles pour l'admin connecté
@@ -2318,7 +2277,7 @@
           const inner = currentVilles.slice(1, -1);
           currentVilles = inner ? inner.split(',') : [];
         } else {
-          try { currentVilles = JSON.parse(currentVilles); } catch (_) { currentVilles = []; }
+          try { currentVilles = JSON.parse(currentVilles); } catch (e) { console.debug('[supabase] _addVilleToExistingUser: ville JSON parse failed:', e); currentVilles = []; }
         }
       }
       if (!Array.isArray(currentVilles)) currentVilles = [];
@@ -2345,9 +2304,7 @@
       return { message: 'Utilisateur existant ajouté à cette structure', addedToCity: true };
     },
 
-    // ============================================================================
     // CITIES MANAGEMENT (Admin Global only)
-    // ============================================================================
 
     /**
      * Récupère toutes les villes pour la gestion (admin global)
@@ -2472,9 +2429,7 @@
       }
     },
 
-    // ============================================================================
     // CITY TRAVAUX (Module Travaux multi-villes)
-    // ============================================================================
 
     /**
      * Récupère les chantiers travaux pour une ville.
@@ -2670,7 +2625,7 @@
         const path = `${ville}/${filename}`;
         const blob = new Blob([JSON.stringify(geojson)], { type: 'application/json' });
 
-        const { data, error } = await supabaseClient.storage
+        const { error } = await supabaseClient.storage
           .from('travaux-geojson')
           .upload(path, blob, {
             contentType: 'application/json',

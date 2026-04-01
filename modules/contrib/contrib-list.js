@@ -4,9 +4,7 @@
 ;(function(win) {
   'use strict';
 
-  // ============================================================================
   // STATE
-  // ============================================================================
 
   let listState = {
     search: '',
@@ -24,9 +22,7 @@
 
   let io = null; // IntersectionObserver for infinite scroll
 
-  // ============================================================================
   // EMPTY STATE
-  // ============================================================================
 
   /**
    * Efface l'état vide
@@ -37,7 +33,7 @@
       if (!listEl) return;
       const empty = listEl.querySelector('.contrib-empty');
       if (empty) empty.remove();
-    } catch(_) {}
+    } catch (e) { console.debug('[contrib-list] DOM cleanup:', e); }
   }
 
   /**
@@ -46,7 +42,7 @@
    * @param {HTMLElement} listSentinel - Sentinelle pour infinite scroll
    * @param {Function} onCreateClick - Callback au clic sur "Créer"
    */
-  function renderEmptyState(listEl, listSentinel, onCreateClick) {
+  function renderEmptyState(listEl, listSentinel) {
     try {
       if (!listEl) return;
       clearEmptyState(listEl);
@@ -64,12 +60,10 @@
       } else {
         listEl.appendChild(wrap);
       }
-    } catch(_) {}
+    } catch (e) { console.debug('[contrib-list] item insert:', e); }
   }
 
-  // ============================================================================
   // DELETE CONFIRMATION
-  // ============================================================================
 
   /**
    * Ouvre la modale de confirmation de suppression
@@ -114,7 +108,7 @@
       let row = null;
       try { 
         row = await (win.supabaseService && win.supabaseService.getContributionById(id)); 
-      } catch(_) {}
+      } catch (e) { console.warn('[contrib-list] effectiveName error:', e); }
       
       const effectiveName = (row && row.project_name) || projectName || '';
       const filePaths = [];
@@ -133,7 +127,7 @@
             const p = win.ContribUtils.toStorageRelPathFromPublicUrl(row.markdown_url); 
             if (p) filePaths.push(p); 
           }
-        } catch(_) {}
+        } catch (e) { console.warn('[contrib-list] file path resolve:', e); }
       }
       
       let dossiersCount = 0;
@@ -142,12 +136,12 @@
           const ds = await win.supabaseService.getConsultationDossiersByProject(effectiveName);
           if (Array.isArray(ds)) dossiersCount = ds.length;
         }
-      } catch(_) {}
+      } catch (e) { console.warn('[contrib-list] dossier count fetch:', e); }
       
       const ok = await openDeleteConfirmModal({ id, projectName: effectiveName, filePaths, dossiersCount });
       if (!ok) return;
       
-      try { if (listEl) listEl.setAttribute('aria-busy', 'true'); } catch(_) {}
+      try { if (listEl) listEl.setAttribute('aria-busy', 'true'); } catch (e) { console.debug('[contrib-list] ARIA update:', e); }
       
       // Vérifier la session avec refresh automatique (silencieux)
       let session = null;
@@ -159,7 +153,7 @@
           ]);
           session = result?.session;
         }
-      } catch (authErr) {
+      } catch {
         // Rediriger directement vers login
         win.location.href = '/login/';
         return;
@@ -199,13 +193,11 @@
         win.ContribUtils.showToast('Erreur lors de la suppression.', 'error');
       }
     } finally {
-      try { if (listEl) listEl.removeAttribute('aria-busy'); } catch(_) {}
+      try { if (listEl) listEl.removeAttribute('aria-busy'); } catch (e) { console.debug('[contrib-list] ARIA update:', e); }
     }
   }
 
-  // ============================================================================
   // RENDER ITEM
-  // ============================================================================
 
   /**
    * Rend un item de contribution moderne
@@ -316,7 +308,6 @@
     // Événements
     const editBtn = card.querySelector('.contrib-card__action--edit');
     const deleteBtn = card.querySelector('.contrib-card__action--delete');
-    const content = card.querySelector('.contrib-card__content');
     
     if (editBtn && onEdit) {
       editBtn.addEventListener('click', (e) => {
@@ -377,7 +368,7 @@
             } else {
               win.ContribUtils?.showToast('Erreur lors de la mise à jour', 'error');
             }
-          } catch (err) {
+          } catch {
             win.ContribUtils?.showToast('Erreur réseau', 'error');
           } finally {
             approveBtn.disabled = false;
@@ -417,16 +408,14 @@
   
   const escapeHtml = window.SecurityUtils.escapeHtml;
 
-  // ============================================================================
   // LIST LOADING
-  // ============================================================================
 
   /**
    * Réinitialise et charge la liste
    * @param {Object} elements - Éléments DOM
    */
   async function listResetAndLoad(elements) {
-    const { listEl, listSentinel, onEdit, onDelete, onCreateClick } = elements || {};
+    const { listEl, listSentinel } = elements || {};
     
     if (!listEl) return;
     listEl.innerHTML = '';
@@ -447,7 +436,7 @@
     
     if (listState.loading || listState.done) return;
     listState.loading = true;
-    try { if (listEl) listEl.setAttribute('aria-busy', 'true'); } catch(_) {}
+    try { if (listEl) listEl.setAttribute('aria-busy', 'true'); } catch (e) { console.debug('[contrib-list] aria-busy update:', e); }
     
     // Insert skeletons on first page
     try {
@@ -472,7 +461,7 @@
           document.head.appendChild(style);
         }
       }
-    } catch(_) {}
+    } catch (e) { console.debug('[contrib-list] skeleton insert:', e); }
     
     try {
       const { search, category, sortBy, sortDir, page, pageSize, mineOnly, filterCity } = listState;
@@ -491,10 +480,9 @@
       
       // La réponse peut avoir soit res.data soit res.items
       const items = (res && res.data) ? res.data : (res && res.items) ? res.items : [];
-      const totalCount = res && res.count !== undefined ? res.count : items.length;
       
       // Clear skeletons
-      try { if (listEl) listEl.querySelectorAll('.contrib-skel').forEach(n => n.remove()); } catch(_) {}
+      try { if (listEl) listEl.querySelectorAll('.contrib-skel').forEach(n => n.remove()); } catch (e) { console.warn('[contrib-list] DOM cleanup:', e); }
       
       if (!items.length) {
         if (page === 1) { 
@@ -523,15 +511,13 @@
       console.error('[contrib-list] load error:', e);
       listState.done = true; // Arrêter les tentatives de rechargement
     } finally {
-      try { if (listEl) listEl.querySelectorAll('.contrib-skel').forEach(n => n.remove()); } catch(_) {}
+      try { if (listEl) listEl.querySelectorAll('.contrib-skel').forEach(n => n.remove()); } catch (e) { console.debug('[contrib-list] DOM cleanup:', e); }
       listState.loading = false;
-      try { if (listEl) listEl.removeAttribute('aria-busy'); } catch(_) {}
+      try { if (listEl) listEl.removeAttribute('aria-busy'); } catch (e) { console.debug('[contrib-list] DOM cleanup:', e); }
     }
   }
 
-  // ============================================================================
   // INFINITE SCROLL
-  // ============================================================================
 
   /**
    * Initialise l'infinite scroll
@@ -541,7 +527,7 @@
    */
   function initInfiniteScroll(listEl, listSentinel, elements) {
     if (!listEl || !listSentinel) return;
-    try { if (io) { io.disconnect(); io = null; } } catch(_) {}
+    try { if (io) { io.disconnect(); io = null; } } catch (e) { console.debug('[contrib-list] observer cleanup:', e); }
     io = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting && !listState.loading && !listState.done) {
@@ -552,9 +538,7 @@
     io.observe(listSentinel);
   }
 
-  // ============================================================================
   // STATE MANAGEMENT
-  // ============================================================================
 
   /**
    * Met à jour l'état de la liste
@@ -572,9 +556,7 @@
     return { ...listState };
   }
 
-  // ============================================================================
   // EXPORTS
-  // ============================================================================
 
   win.ContribList = {
     // Empty state

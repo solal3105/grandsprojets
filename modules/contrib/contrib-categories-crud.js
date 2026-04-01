@@ -4,9 +4,7 @@
 ;(function(win) {
   'use strict';
 
-  // ============================================================================
   // REFRESH CATEGORIES LIST
-  // ============================================================================
 
   /**
    * Rafraîchit la liste des catégories pour une ville
@@ -157,9 +155,7 @@
         });
       } // Fin du else
 
-      // ============================================================================
       // TRAVAUX CONFIG - Charger et initialiser la section Travaux
-      // ============================================================================
       try {
         console.log('[contrib-categories-crud] 🔧 Tentative chargement config Travaux pour ville:', ville);
         const container = document.getElementById('travaux-config-container');
@@ -204,9 +200,7 @@
     }
   }
 
-  // ============================================================================
   // SHOW/HIDE CATEGORY FORM
-  // ============================================================================
 
   /**
    * Affiche le formulaire de catégorie (création ou édition)
@@ -241,8 +235,8 @@
       categoryIconPreview,
       categoryVilleSelector,
       selectedCity,  // Ville pré-sélectionnée
-      categoryIconGrid,
-      categoryIconPicker
+      _categoryIconGrid,
+      _categoryIconPicker
     } = elements;
     
     try {
@@ -477,9 +471,7 @@
     }
   }
 
-  // ============================================================================
   // DELETE CATEGORY
-  // ============================================================================
 
   /**
    * Supprime une catégorie
@@ -539,9 +531,7 @@
     }
   }
 
-  // ============================================================================
   // HANDLE CATEGORY FORM SUBMIT
-  // ============================================================================
 
   /**
    * Gère la soumission du formulaire de catégorie
@@ -667,7 +657,7 @@
         // Emit event to refresh dynamic categories in nav
         try { 
           window.dispatchEvent(new CustomEvent('categories:updated', { detail: { ville } })); 
-        } catch(_) {}
+        } catch (e) { console.warn('[contrib-categories] event dispatch:', e); }
       } else {
         showToast('Erreur: ' + (result.error || 'Échec'), 'error');
       }
@@ -677,9 +667,7 @@
     }
   }
 
-  // ============================================================================
   // EXPORTS
-  // ============================================================================
 
   win.ContribCategoriesCrud = {
     refreshCategoriesList,

@@ -4,9 +4,7 @@
 ;(function(win) {
   'use strict';
 
-  // ============================================================================
   // SINGLETON - Une seule instance à la fois
-  // ============================================================================
 
   let currentInstance = null;
 
@@ -43,18 +41,14 @@
       return null;
     }
 
-    // ============================================================================
     // STATE LOCAL À L'INSTANCE
-    // ============================================================================
 
     let currentStep = 1;
     const cleanupCallbacks = []; // Liste des fonctions de nettoyage
     const ContribUtils = win.ContribUtils || {};
     const showToast = ContribUtils.showToast || ((msg) => console.error(msg));
 
-    // ============================================================================
     // ÉLÉMENTS DOM
-    // ============================================================================
 
     const elements = {
       // Stepper
@@ -99,11 +93,8 @@
     const ContribGeometry = win.ContribGeometry || {};
     const ContribMap = win.ContribMap || {};
     const ContribDrawControls = win.ContribDrawControls || {};
-    const ContribForm = win.ContribForm || {};
 
-    // ============================================================================
     // HELPERS
-    // ============================================================================
 
     function attachListener(element, event, handler, options = {}) {
       if (!element) return;
@@ -155,9 +146,7 @@
       }
     }
 
-    // ============================================================================
     // DÉLÉGATION D'ÉVÉNEMENTS - Documents
-    // ============================================================================
 
     // Un seul listener sur le parent pour tous les boutons dynamiques
     if (elements.docsFieldset) {
@@ -182,9 +171,7 @@
       attachListener(elements.addDocBtn, 'click', handleAddDoc);
     }
 
-    // ============================================================================
     // COVER - Initialisé une seule fois
-    // ============================================================================
 
     if (elements.coverInput) {
       const ContribUpload = win.ContribUpload || {};
@@ -193,9 +180,7 @@
       }
     }
 
-    // ============================================================================
     // STEPPER
-    // ============================================================================
 
     /**
      * Validation des champs required de l'étape actuelle
@@ -229,7 +214,7 @@
           const fieldLabel = field.labels?.[0]?.textContent || field.name || field.id || 'Ce champ';
           showToast(`${fieldLabel} est obligatoire.`, 'error');
           
-          try { field.focus(); } catch(_) {}
+          try { field.focus(); } catch (e) { console.warn('[contrib-create] focus management:', e); }
           
           return false;
         }
@@ -244,7 +229,7 @@
           console.error('[contrib-create-form-v2] ❌ Category validation FAILED');
           showToast('La catégorie est obligatoire.', 'error');
           
-          try { categorySelect?.focus(); } catch(_) {}
+          try { categorySelect?.focus(); } catch (e) { console.warn('[contrib-create] focus management:', e); }
           
           return false;
         }
@@ -351,9 +336,7 @@
     if (elements.prevBtn) attachListener(elements.prevBtn, 'click', () => setStep(currentStep - 1));
     if (elements.nextBtn) attachListener(elements.nextBtn, 'click', () => setStep(currentStep + 1));
 
-    // ============================================================================
     // GÉOMÉTRIE & CARTE
-    // ============================================================================
 
     const drawMapContainerId = 'contrib-draw-map';
 
@@ -429,9 +412,7 @@
     // Setup dropzone pour GeoJSON
     ContribGeometry.setupDropzone?.(geomElements);
 
-    // ============================================================================
     // DOCUMENTS EXISTANTS
-    // ============================================================================
 
     async function loadExistingDocs() {
       if (!elements.existingDocsEl) return;
@@ -543,9 +524,7 @@
       }
     }
 
-    // ============================================================================
     // SOUMISSION
-    // ============================================================================
 
     const handleSubmit = async (e) => {
       e.preventDefault();
@@ -576,9 +555,7 @@
 
     attachListener(form, 'submit', handleSubmit);
 
-    // ============================================================================
     // PRÉ-REMPLISSAGE EN MODE ÉDITION
-    // ============================================================================
 
     if (mode === 'edit' && data) {
       
@@ -658,9 +635,7 @@
       }
     }
 
-    // ============================================================================
     // INITIALISATION
-    // ============================================================================
 
     setStep(1);
     
@@ -674,9 +649,7 @@
       }
     }
 
-    // ============================================================================
     // API PUBLIQUE
-    // ============================================================================
 
     return {
       setStep,
@@ -707,7 +680,7 @@
           ContribGeometry.clearEditGeojsonUrl();
         }
         if (ContribGeometry.clearAllDrawings) {
-          try { ContribGeometry.clearAllDrawings(); } catch(_) {}
+          try { ContribGeometry.clearAllDrawings(); } catch (e) { console.debug('[contrib-create] drawing cleanup:', e); }
         }
         
         // Réinitialiser la cover
@@ -734,9 +707,7 @@
     };
   }
 
-  // ============================================================================
   // EXPORTS
-  // ============================================================================
 
   win.ContribCreateForm = {
     initCreateForm

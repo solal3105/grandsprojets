@@ -11,7 +11,7 @@
  * Cette fonction n'est plus utilisée.
  */
 
-export async function handler(event) {
+export async function handler(_event) {
   return {
     statusCode: 410,
     headers: { 'Content-Type': 'application/json' },

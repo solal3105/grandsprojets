@@ -1,9 +1,8 @@
 // modules/TravauxEditorModule.js
 // Création et modification de chantiers (mode dessin + formulaire unifié)
-const TravauxEditorModule = (() => {
+void (() => {
   'use strict';
 
-  // ── Constants ──────────────────────────────────────────────────────────────
   const DEFAULT_ICON = 'fa-solid fa-helmet-safety';
 
   const MSG = {
@@ -35,7 +34,6 @@ const TravauxEditorModule = (() => {
     { icon: 'fa-solid fa-tree',                  label: 'Espaces verts' },
   ];
 
-  // ── Module state ───────────────────────────────────────────────────────────
   let drawnItems = null;
   let currentFeatures = [];
   let isDrawingMode = false;
@@ -47,12 +45,11 @@ const TravauxEditorModule = (() => {
   let _geoEditorActive = false;   // floating geo-editor panel is open
   let _deleteMode = false;        // click-to-delete is active
 
-  // ── Auth ───────────────────────────────────────────────────────────────────
-
   // Retourne 'admin' | 'contributor' | false
   async function _checkAuth() {
     try {
-      const { data: { session } } = await window.supabaseService?.getClient()?.auth.getSession();
+      const client = window.supabaseService?.getClient();
+      const { data: { session } = {} } = await client?.auth.getSession() ?? {};
       if (!session?.user) return false;
       const role   = window.__CONTRIB_ROLE   || '';
       const villes = window.__CONTRIB_VILLES || [];
@@ -60,12 +57,12 @@ const TravauxEditorModule = (() => {
       const hasCity = villes.includes('global') || villes.includes(city);
       if (!hasCity) return false;
       return role === 'admin' ? 'admin' : 'contributor';
-    } catch {
+    } catch (e) {
+      console.warn('[travaux-editor] checkAuth', e);
       return false;
     }
   }
 
-  // ── Drawing helpers ────────────────────────────────────────────────────────
   function _initDraw() {
     if (!window.L?.Control?.Draw) return false;
     if (!drawnItems) {
@@ -195,7 +192,6 @@ const TravauxEditorModule = (() => {
     _openFormModal(null);
   }
 
-  // ── Icon selector (shared by create and edit modes) ────────────────────────
   function _initIconSelector(overlay, currentIcon) {
     const icon    = currentIcon || DEFAULT_ICON;
     const input   = overlay.querySelector('#tw-icon');
@@ -229,7 +225,6 @@ const TravauxEditorModule = (() => {
     set(icon);
   }
 
-  // ── Form modal (create + edit unified) ────────────────────────────────────
   function _buildFormHTML(chantier) {
     const edit = chantier != null;
     // Normalize: date fields may arrive as ISO timestamp "2024-01-15T00:00:00"
@@ -243,7 +238,6 @@ const TravauxEditorModule = (() => {
     const sel  = (val) => chantier?.etat === val ? 'selected' : '';
     const iconVal = v('icon') || DEFAULT_ICON;
 
-    // ── Geometry status section ──
     let geoSection = '';
     if (edit) {
       const geoModLabel = _geometryModified
@@ -419,13 +413,11 @@ const TravauxEditorModule = (() => {
     overlay.querySelector('.gp-modal-close').addEventListener('click', dismiss);
     overlay.querySelector('#tw-form').addEventListener('submit', e => _handleSubmit(e, chantier?.id ?? null));
 
-    // ── Bind: "Modifier le tracé" ──
     const editGeoBtn = overlay.querySelector('#tw-edit-geo');
     if (editGeoBtn) {
       editGeoBtn.addEventListener('click', () => _enterGeoEditMode());
     }
 
-    // ── Adapt UX for contributors (non-admin) ──
     if (!window.__CONTRIB_IS_ADMIN && !edit) {
       const title = overlay.querySelector('.gp-modal-title');
       if (title) title.textContent = 'Proposer un chantier';
@@ -450,7 +442,6 @@ const TravauxEditorModule = (() => {
       onClose: () => overlay.querySelector('#tw-form')?.reset(),
     });
 
-    // ── Restore form data if returning from geo editor ──
     if (_pendingFormData) {
       requestAnimationFrame(() => {
         _restoreFormData(_pendingFormData);
@@ -463,7 +454,6 @@ const TravauxEditorModule = (() => {
     window.ModalHelper?.close('travaux-form-overlay');
   }
 
-  // ── Status feedback ────────────────────────────────────────────────────────
   function _showStatus(message, type) {
     const el = document.getElementById('tw-status');
     if (!el) return;
@@ -472,7 +462,6 @@ const TravauxEditorModule = (() => {
     el.style.display = 'block';
   }
 
-  // ── Submit handler (create + edit unified) ─────────────────────────────────
   async function _handleSubmit(e, chantierId) {
     e.preventDefault();
     const isEdit  = chantierId != null;
@@ -547,8 +536,6 @@ const TravauxEditorModule = (() => {
       saveBtn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> <span>${saveLbl}</span>`;
     }
   }
-
-  // ── Geometry edit state helpers ──────────────────────────────────────────
 
   function _resetGeoState() {
     _editChantier = null;
@@ -823,7 +810,6 @@ const TravauxEditorModule = (() => {
     });
   }
 
-  // ── Public API ─────────────────────────────────────────────────────────────
   /**
    * Ouvre l'éditeur en mode création (avec dessin sur carte).
    */
@@ -852,7 +838,8 @@ const TravauxEditorModule = (() => {
       _editChantier = chantier;
       _geometryModified = false;
       _openFormModal(chantier);
-    } catch {
+    } catch (e) {
+      console.warn('[travaux-editor] openEditMode', e);
       window.ContribUtils?.showToast(MSG.LOAD_ERROR, 'error');
     }
   }

@@ -1,14 +1,8 @@
-/* ============================================================================
-   VILLES SECTION — Global admin city management
-   ============================================================================ */
-
 import { store } from '../store.js';
 import * as api from '../api.js';
-import { toast, confirm, esc, formatDate, skeletonTable, emptyState } from '../components/ui.js';
+import { toast, confirm, esc, skeletonTable, emptyState } from '../components/ui.js';
 
 const DEFAULT_COLOR = '#21b929';
-
-/* ── Render ── */
 
 export async function renderVilles(container) {
   _showList(container);
@@ -167,8 +161,6 @@ async function _handleActions(e) {
     } catch (err) { toast(err.message, 'error'); }
   }
 }
-
-/* ── City create / edit — full cw-* form ── */
 
 function _showCityForm(container, existing) {
   const isEdit = existing != null;

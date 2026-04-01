@@ -852,7 +852,6 @@
 
     addTo(map) {
       this._map = map;
-      this._removed = false; // track lifecycle to abort in-flight _applyStyle after remove()
       const mlMap = map._mlMap || map;
       // Remove any __vbm__ layers/sources from a previous apply before re-injecting
       this._cleanupOwned(mlMap);
@@ -865,11 +864,6 @@
         const resp = await fetch(this._styleUrl);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const styleJson = await resp.json();
-
-        // Guard: if remove() was called while the fetch was in-flight (race condition between
-        // initBaseLayer() and syncBasemapToTheme()), bail out — do NOT inject layers into the
-        // map, which would overlay the newly set dark basemap with the light style's white fills.
-        if (this._removed) return;
 
         // Update glyphs so road labels render with correct fonts.
         // setGlyphs() only updates the glyph URL — does NOT touch sources or layers.
@@ -956,7 +950,6 @@
     }
 
     remove() {
-      this._removed = true; // signal to any in-flight _applyStyle() to abort
       if (this._map) {
         const mlMap = this._map._mlMap || this._map;
         this._cleanupOwned(mlMap);
@@ -1985,12 +1978,11 @@
         grass:      '#558c3c',   // meadow / grassland
       },
       dark: {
-        // Mid-tone luminous greens — visible against CartoDB Dark (#141822 background)
-        understory: '#0f3320',   // forest floor — deep but discernible
-        wood:       '#1a5c35',   // forest canopy — visible dark green
-        park:       '#2d7a4d',   // managed park — clear green against dark basemap
-        scrub:      '#4a6e2c',   // dry scrub — olive-green, readable
-        grass:      '#3a7a44',   // meadow — brighter than wood, distinct
+        understory: '#020708',   // moonlit floor — almost black
+        wood:       '#0b2418',   // deep moonlit forest
+        park:       '#112e1c',   // dark teal park
+        scrub:      '#1c2610',   // very dark olive
+        grass:      '#0e2012',   // night meadow
       },
     };
 
@@ -2004,12 +1996,6 @@
         ['grassland', 'meadow', 'grass', 'flowerbed', 'wet_meadow'],   c.grass,
         c.wood,
       ];
-    }
-
-    // Higher opacity in dark mode so lighter colors stay distinct against the dark basemap
-    _getForestOpacityExpr(isDark) {
-      const maxOpacity = isDark ? 0.35 : 0.18;
-      return ['interpolate', ['linear'], ['zoom'], 12, 0, 15, maxOpacity];
     }
 
     _getForestHeightExpr() {
@@ -2054,7 +2040,8 @@
           filter,
           paint: {
             'fill-color':   this._getForestColorExpr('canopy', isDark),
-            'fill-opacity': this._getForestOpacityExpr(isDark),
+            // Fades in smoothly between zoom 12 and 15
+            'fill-opacity': ['interpolate', ['linear'], ['zoom'], 12, 0, 15, 0.18],
           },
         }, anchor);
       }
@@ -2103,7 +2090,6 @@
           }
           if (mlMap.getLayer('forest-fill')) {
             mlMap.setPaintProperty('forest-fill', 'fill-color', this._getForestColorExpr('canopy', isDark));
-            mlMap.setPaintProperty('forest-fill', 'fill-opacity', this._getForestOpacityExpr(isDark));
           }
         } catch (e) {
           console.warn('[MapLibreCompat] updateBuildings3DTheme failed:', e);

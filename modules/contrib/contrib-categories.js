@@ -4,9 +4,7 @@
 ;(function(win) {
   'use strict';
 
-  // ============================================================================
   // ICON PICKER (Utilise le nouveau système GPIconPicker unifié)
-  // ============================================================================
 
   /**
    * Initialise le nouveau système d'icon picker unifié
@@ -58,9 +56,7 @@
     }
   }
 
-  // ============================================================================
   // VILLE SELECTORS
-  // ============================================================================
 
   /**
    * Remplit le sélecteur de ville du panneau catégories.
@@ -85,9 +81,7 @@
     });
   }
 
-  // ============================================================================
   // LAYERS CHECKBOXES
-  // ============================================================================
 
   /**
    * Remplit les checkboxes de layers pour une ville
@@ -180,9 +174,7 @@
     }
   }
 
-  // ============================================================================
   // LOAD CATEGORIES PANEL
-  // ============================================================================
 
   /**
    * Charge le panneau des catégories
@@ -194,12 +186,12 @@
       categoryFormContainer,
       categoryIconPicker,
       categoryVilleSelectorContainer,
-      categoryVilleSelector,
+      _categoryVilleSelector,
       categoriesContent,
-      categoryIconGrid,
+      _categoryIconGrid,
       categoryIconInput,
       categoryVilleSelect,
-      categoryLayersCheckboxes,
+      _categoryLayersCheckboxes,
       selectedCity  // Ville pré-sélectionnée depuis le landing
     } = elements || {};
     
@@ -243,9 +235,7 @@
     }
   }
 
-  // ============================================================================
   // EXPORTS
-  // ============================================================================
 
   win.ContribCategories = {
     // Icon picker (nouveau système unifié)

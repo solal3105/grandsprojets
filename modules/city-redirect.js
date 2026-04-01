@@ -4,26 +4,24 @@
 ;(function(win) {
   'use strict';
 
-  const escapeHtml = (s) => win.SecurityUtils ? win.SecurityUtils.escapeHtml(s) : s;
-
   /**
    * Affiche une popup de sélection de structure
    * @param {Array<string>} cities - Liste des codes structures accessibles
    * @returns {Promise<string|null>} - Code structure sélectionné ou null si annulé
    */
-  function showCitySelectionPopup(cities) {
-    return new Promise(async (resolve) => {
-      // Récupérer les infos des villes avec l'async pour avoir les logos depuis le cache ou Supabase
-      const cityInfos = await Promise.all(cities.map(async (code) => {
-        const info = await win.CityManager?.getCityInfoAsync?.(code) 
-                  || win.CityManager?.getCityInfo?.(code);
-        return {
-          code,
-          name: info?.brand_name || code,
-          logo: info?.logo_url || null
-        };
-      }));
+  async function showCitySelectionPopup(cities) {
+    // Récupérer les infos des villes avec l'async pour avoir les logos depuis le cache ou Supabase
+    const cityInfos = await Promise.all(cities.map(async (code) => {
+      const info = await win.CityManager?.getCityInfoAsync?.(code) 
+                || win.CityManager?.getCityInfo?.(code);
+      return {
+        code,
+        name: info?.brand_name || code,
+        logo: info?.logo_url || null
+      };
+    }));
 
+    return new Promise((resolve) => {
       // Créer l'overlay
       const overlay = document.createElement('div');
       overlay.id = 'city-selection-overlay';
@@ -157,10 +155,9 @@
 
   /**
    * Redirige automatiquement vers la structure de l'utilisateur
-   * @param {Object} session - Session Supabase
    * @param {number} retryCount - Nombre de tentatives restantes
    */
-  async function handleCityRedirect(session, retryCount = 5) {
+  async function handleCityRedirect(retryCount = 5) {
     try {
       // Vérifier si la redirection est désactivée (pour debug)
       if (win.__DISABLE_CITY_REDIRECT === true) {
@@ -182,7 +179,7 @@
       
       // Si __CONTRIB_VILLES n'est pas encore défini, réessayer
       if (userVilles === undefined && retryCount > 0) {
-        setTimeout(() => handleCityRedirect(session, retryCount - 1), 200);
+        setTimeout(() => handleCityRedirect(retryCount - 1), 200);
         return;
       }
       
@@ -231,7 +228,7 @@
       win.AuthModule.onAuthStateChange(async (_event, session) => {
         if (session?.user) {
           // handleCityRedirect va attendre que __CONTRIB_VILLES soit défini
-          handleCityRedirect(session);
+          handleCityRedirect();
         }
       });
     }
@@ -240,7 +237,7 @@
     if (win.AuthModule && typeof win.AuthModule.getSession === 'function') {
       win.AuthModule.getSession().then(({ data }) => {
         if (data?.session?.user) {
-          handleCityRedirect(data.session);
+          handleCityRedirect();
         }
       }).catch(err => {
         console.error('[city-redirect] Error getting session:', err);

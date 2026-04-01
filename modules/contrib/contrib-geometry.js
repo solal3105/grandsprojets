@@ -4,16 +4,12 @@
 ;(function(win) {
   'use strict';
 
-  // ============================================================================
   // STATE
-  // ============================================================================
 
   let currentGeomMode = 'file'; // 'file' ou 'draw'
   let editGeojsonUrl = null; // URL du GeoJSON en mode édition
 
-  // ============================================================================
   // GEOMETRY MODE MANAGEMENT
-  // ============================================================================
 
   /**
    * Définit le mode de saisie de géométrie
@@ -40,7 +36,7 @@
           r.checked = (r.value === mode);
         });
       }
-    } catch(_) {}
+    } catch (e) { console.debug('[contrib-geo] field reset:', e); }
 
     // Sync cards visual state
     try {
@@ -105,7 +101,7 @@
                 }
               }, 500); // Augmenté le délai pour laisser la carte se stabiliser
             }
-          } catch(_) {}
+          } catch (e) { console.debug('[contrib-geo] GeoJSON reload:', e); }
         }, 50);
       }
     } else {
@@ -135,7 +131,7 @@
       if (!editGeojsonUrl) {
         try { 
           clearAllDrawings(); 
-        } catch(_) {}
+        } catch (e) { console.debug('[contrib-geo] drawing cleanup:', e); }
       }
       try {
         if (win.ContribMap?.cancelManualDraw) {
@@ -143,7 +139,7 @@
         }
         const manualTb = drawPanelEl && drawPanelEl.querySelector('#contrib-manual-draw-controls');
         if (manualTb) manualTb.style.display = 'none';
-      } catch(_) {}
+      } catch (e) { console.debug('[contrib-geo] drawing cleanup:', e); }
     }
   }
 
@@ -155,9 +151,7 @@
     return currentGeomMode;
   }
 
-  // ============================================================================
   // DRAWING MANAGEMENT
-  // ============================================================================
 
   /**
    * Efface tous les dessins sur la carte
@@ -190,7 +184,7 @@
       }
 
       // Nettoyer et afficher uniquement la géométrie existante
-      try { clearAllDrawings(); } catch(_) {}
+      try { clearAllDrawings(); } catch (e) { console.warn('[contrib-geo] drawing cleanup:', e); }
 
       const resp = await fetch(url);
       if (!resp.ok) throw new Error('GeoJSON non accessible');
@@ -208,9 +202,7 @@
     }
   }
 
-  // ============================================================================
   // VALIDATION
-  // ============================================================================
 
   /**
    * Vérifie si une géométrie a été fournie
@@ -262,9 +254,7 @@
     return ok;
   }
 
-  // ============================================================================
   // GEOJSON PARSING & PREVIEW
-  // ============================================================================
 
   /**
    * Parse un fichier GeoJSON et retourne l'objet
@@ -400,9 +390,7 @@
     return `GeoJSON valide: ${parts.join(', ')}`;
   }
 
-  // ============================================================================
   // DROPZONE SETUP
-  // ============================================================================
 
   /**
    * Configure la dropzone pour l'upload de GeoJSON
@@ -514,9 +502,7 @@
     });
   }
 
-  // ============================================================================
   // GEOJSON PROCESSING
-  // ============================================================================
 
   /**
    * Récupère la géométrie à soumettre (fichier ou dessin)
@@ -541,14 +527,12 @@
    */
   function resetGeometryInputs(fileInput) {
     if (fileInput) { 
-      try { fileInput.value = ''; } catch(_) {} 
+      try { fileInput.value = ''; } catch (e) { console.debug('[contrib-geo] file input reset:', e); } 
     }
-    try { clearAllDrawings(); } catch(_) {}
+    try { clearAllDrawings(); } catch (e) { console.debug('[contrib-geo] file input reset:', e); }
   }
 
-  // ============================================================================
   // EDIT MODE
-  // ============================================================================
 
   /**
    * Définit l'URL du GeoJSON en mode édition
@@ -573,9 +557,7 @@
     editGeojsonUrl = null;
   }
 
-  // ============================================================================
   // EXPORTS
-  // ============================================================================
 
   win.ContribGeometry = {
     // Mode management

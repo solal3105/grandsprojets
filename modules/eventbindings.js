@@ -40,7 +40,7 @@ const EventBindings = (() => {
       const uncached = layersToDisplay.filter(n => !DataModule.layerData?.[n]);
       if (uncached.length > 0) {
         await Promise.all(uncached.map(async name => {
-          try { await DataModule.preloadLayer?.(name); } catch (_) {}
+          try { await DataModule.preloadLayer?.(name); } catch (e) { console.debug('[events] preload layer failed:', e); }
         }));
       }
 

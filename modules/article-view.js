@@ -1,7 +1,4 @@
-// ============================================================================
-// article-view.js - Vue magazine/news des contributions
-// Affichage en tuiles avec filtres par catégorie
-// ============================================================================
+// article-view.js — Vue magazine/news des contributions
 
 ;(function(win) {
   'use strict';
@@ -406,7 +403,6 @@
           destroyMiniMaps();
           
           // Mettre à jour l'affichage
-          const categories = getCategories();
           const filteredContribs = getFilteredContributions();
           
           // Mettre à jour les boutons actifs
@@ -536,7 +532,7 @@
     miniMaps.forEach(map => {
       try {
         map.remove();
-      } catch (e) {}
+      } catch (e) { console.debug('[article-view] mini-map cleanup failed:', e); }
     });
     miniMaps = [];
   }

@@ -121,7 +121,10 @@
         try {
           const d = JSON.parse(localStorage.getItem(sbKey));
           return !!(d?.access_token || d?.user);
-        } catch { return false; }
+        } catch (e) {
+          console.debug('[sidebar] auth token parse error:', e);
+          return false;
+        }
       }
       return false;
     },

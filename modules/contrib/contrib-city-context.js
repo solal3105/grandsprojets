@@ -4,16 +4,12 @@
 ;(function(win) {
   'use strict';
 
-  // ============================================================================
   // STATE
-  // ============================================================================
 
   let selectedCity = null;
   let landingCityListenerAdded = false;
 
-  // ============================================================================
   // INITIALIZATION
-  // ============================================================================
 
   /**
    * Initialise automatiquement la ville au chargement du module
@@ -47,9 +43,7 @@
   // Ne PAS initialiser automatiquement ici car __CONTRIB_VILLES n'est pas encore défini
   // L'initialisation doit être appelée explicitement depuis contrib.js APRÈS fetchAndApplyRole
 
-  // ============================================================================
   // GETTERS / SETTERS
-  // ============================================================================
 
   /**
    * Définit la ville sélectionnée (pour les contributions uniquement)
@@ -89,7 +83,7 @@
     selectedCity = null;
     try {
       sessionStorage.removeItem('contrib_selectedCity');
-    } catch(e) {}
+    } catch (e) { console.warn('[contrib-city] sessionStorage access:', e); }
   }
 
   /**
@@ -109,9 +103,7 @@
     return selectedCity;
   }
 
-  // ============================================================================
   // UI HELPERS
-  // ============================================================================
 
   /**
    * Affiche le badge de ville dans un panel
@@ -227,9 +219,7 @@
     return true;
   }
 
-  // ============================================================================
   // EXPORTS
-  // ============================================================================
 
   win.ContribCityContext = {
     // Init

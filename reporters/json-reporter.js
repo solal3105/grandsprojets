@@ -60,7 +60,7 @@ class JsonReporter {
     this.results.push(this.currentTest);
   }
 
-  onEnd(result) {
+  onEnd() {
     const fs = require('fs');
     const path = require('path');
     

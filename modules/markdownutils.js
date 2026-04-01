@@ -20,7 +20,7 @@
     });
   }
 
-  function loadStyleOnce(href) {
+  function _loadStyleOnce(href) {
     return new Promise((resolve) => {
       if (document.querySelector(`link[rel="stylesheet"][href="${href}"]`)) return resolve();
       const l = document.createElement('link');
@@ -42,7 +42,7 @@
       ];
       for (const src of sources) {
         if (window.marked) break;
-        try { await loadScriptOnce(src); } catch(_) {}
+        try { await loadScriptOnce(src); } catch (e) { console.debug('[markdown] CDN fallback:', e); }
       }
     }
     // Configuration simple et robuste de marked
@@ -56,7 +56,7 @@
           smartypants: true
         });
       }
-    } catch (_) {}
+    } catch (e) { console.debug('[markdown] marked config failed:', e); }
 
     // DOMPurify pour la sanitisation
     if (!window.DOMPurify) {
@@ -129,7 +129,7 @@
     if (window.marked && typeof window.marked.parse === 'function') {
       html = window.marked.parse(body);
     } else if (typeof window.marked === 'function') {
-      try { html = window.marked(body); } catch(_) { html = body; }
+      try { html = window.marked(body); } catch (e) { console.debug('[markdown] marked parse fallback:', e); html = body; }
     } else {
       html = body;
     }

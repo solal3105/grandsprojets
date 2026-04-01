@@ -3,6 +3,8 @@ dist
 _home
 .DS_Store
 *.local
+.env
+.env.*
 
 # Local Netlify folder
 .netlify

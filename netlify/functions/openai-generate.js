@@ -59,7 +59,7 @@ export async function handler(event) {
       const cityContext = city !== 'global' && city ? `
 \n**CONTEXTE LOCAL IMPORTANT**: Tu rédiges spécifiquement pour la ville de ${city.charAt(0).toUpperCase() + city.slice(1)}. Mentionne des références locales pertinentes quand possible.` : '';
       
-      sys = `Tu es un journaliste francophone spécialisé en urbanisme. Style: clair, factuel, mesuré, analytique. N'invente rien. SORTIE STRICTE en JSON: {\\\"article\\\": string en Markdown}. Interdiction absolue d'ajouter autre chose que l'objet JSON final.`;
+      sys = `Tu es un journaliste francophone spécialisé en urbanisme. Style: clair, factuel, mesuré, analytique. N'invente rien. SORTIE STRICTE en JSON: {"article": string en Markdown}. Interdiction absolue d'ajouter autre chose que l'objet JSON final.`;
       userPrompt = `Tu es un journaliste francophone spécialisé en urbanisme, mobilité et grands projets.
 Ta mission: rédiger un article narratif concis de 800-1200 mots, structuré en chapitres clairs.${cityContext}
 
@@ -144,7 +144,7 @@ Contraintes:
         if (!article && typeof json.article_markdown === 'string') article = json.article_markdown;
         if (!article && typeof json.markdown === 'string') article = json.markdown;
       }
-    } catch (_) {}
+    } catch (e) { console.warn('[netlify] parse openai response', e); }
 
     // Usage tokens et métriques
     const usage = {

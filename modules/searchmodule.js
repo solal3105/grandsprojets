@@ -24,7 +24,7 @@ window.SearchModule = (() => {
   let _focusIdx = -1;   // keyboard-highlighted index (–1 = none)
   let _abortCtrl = null;
 
-  // ── Init ──────────────────────────────────────────────────────────────────
+  // Init
 
   function init(mapInstance) {
     if (!mapInstance) return;
@@ -51,7 +51,7 @@ window.SearchModule = (() => {
     window.toggleManager?.markReady('search');
   }
 
-  // ── Open / Close ──────────────────────────────────────────────────────────
+  // Open / Close
 
   function _open() {
     requestAnimationFrame(() => _input?.focus());
@@ -61,7 +61,7 @@ window.SearchModule = (() => {
     _resetInput();
   }
 
-  // ── Input handling ────────────────────────────────────────────────────────
+  // Input handling
 
   function _onInput() {
     const q = _input.value.trim();
@@ -82,7 +82,7 @@ window.SearchModule = (() => {
     _clear?.classList.toggle('visible', show);
   }
 
-  // ── Keyboard navigation ───────────────────────────────────────────────────
+  // Keyboard navigation
 
   function _onKeydown(e) {
     const items = _list.querySelectorAll('.search-result-item');
@@ -110,7 +110,7 @@ window.SearchModule = (() => {
     items[_focusIdx]?.scrollIntoView({ block: 'nearest' });
   }
 
-  // ── API call ──────────────────────────────────────────────────────────────
+  // API call
 
   async function _search(query) {
     _abortCtrl?.abort();
@@ -139,7 +139,7 @@ window.SearchModule = (() => {
     }
   }
 
-  // ── Render results ────────────────────────────────────────────────────────
+  // Render results
 
   function _renderResults(features) {
     _list.innerHTML = '';
@@ -186,7 +186,7 @@ window.SearchModule = (() => {
     _list.classList.add('visible');
   }
 
-  // ── Result click ──────────────────────────────────────────────────────────
+  // Result click
 
   function _onResultClick(e) {
     const item = e.target.closest('.search-result-item');
@@ -204,7 +204,7 @@ window.SearchModule = (() => {
     window.toggleManager?.setState('search', false);
   }
 
-  // ── Map marker ────────────────────────────────────────────────────────────
+  // Map marker
 
   function _placeMarker(lat, lng, title, subtitle) {
     _removeMarker();
@@ -252,7 +252,7 @@ window.SearchModule = (() => {
     if (_marker && _map) { _map.removeLayer(_marker); _marker = null; }
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // Helpers
 
   function _clearResults() {
     _list.innerHTML = '';
@@ -266,7 +266,7 @@ window.SearchModule = (() => {
     return d.innerHTML;
   }
 
-  // ── Public API ────────────────────────────────────────────────────────────
+  // Public API
 
   return {
     init,

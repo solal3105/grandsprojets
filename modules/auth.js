@@ -19,10 +19,6 @@
     return;
   }
 
-  // ============================================================================
-  // CONFIGURATION
-  // ============================================================================
-  
   const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
   const STORAGE_KEY = 'grandsprojets-auth';
@@ -31,10 +27,6 @@
   const CHECK_INTERVAL_MS = 4 * 60 * 1000;      // Vérifier toutes les 4 min
   const REFRESH_BEFORE_EXPIRY_MS = 10 * 60 * 1000; // Refresh 10 min avant expiration
   const MAX_REFRESH_FAILURES = 3;               // Abandonner après 3 échecs consécutifs
-  
-  // ============================================================================
-  // CLIENT SUPABASE (singleton partagé avec supabaseservice.js)
-  // ============================================================================
   
   const client = win.__supabaseClient || supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: {
@@ -49,19 +41,11 @@
     win.__supabaseClient = client;
   }
 
-  // ============================================================================
-  // ÉTAT INTERNE
-  // ============================================================================
-  
   let cachedSession = null;
   let refreshInterval = null;
   let refreshFailCount = 0;
   let isRefreshing = false; // Éviter les refreshs concurrents
 
-  // ============================================================================
-  // FONCTIONS DE REFRESH
-  // ============================================================================
-  
   /**
    * Tente de rafraîchir la session
    * @returns {Promise<boolean>} true si le refresh a réussi
@@ -141,10 +125,6 @@
     }
   }
   
-  // ============================================================================
-  // TIMER DE REFRESH PÉRIODIQUE
-  // ============================================================================
-  
   function startRefreshTimer() {
     if (refreshInterval) return;
     
@@ -167,10 +147,6 @@
     }
   }
 
-  // ============================================================================
-  // GESTION DE LA PERTE DE SESSION
-  // ============================================================================
-  
   /**
    * Gère gracieusement la perte de session (expiration ou déconnexion)
    * Évite l'écran blanc en basculant proprement en mode non-connecté
@@ -206,10 +182,6 @@
     }
   }
 
-  // ============================================================================
-  // LISTENERS D'ÉVÉNEMENTS
-  // ============================================================================
-  
   /**
    * Gestionnaire pour le retour sur l'onglet (CRITIQUE pour éviter l'écran blanc)
    */
@@ -273,10 +245,6 @@
   document.addEventListener('visibilitychange', handleVisibilityChange);
   win.addEventListener('online', handleOnline);
 
-  // ============================================================================
-  // LISTENER SUPABASE AUTH STATE
-  // ============================================================================
-  
   client.auth.onAuthStateChange((event, session) => {
     console.log('[Auth] Event:', event, session ? '(session présente)' : '(pas de session)');
     
@@ -322,10 +290,6 @@
     }
   });
 
-  // ============================================================================
-  // API PUBLIQUE
-  // ============================================================================
-  
   const AuthModule = {
     getClient: function() { 
       return client; 
@@ -464,7 +428,8 @@
           return null;
         }
         return session;
-      } catch (_) {
+      } catch (e) {
+        console.debug('[auth] auth check failed, redirecting:', e);
         win.location.href = loginUrl || '/login/';
         return null;
       }

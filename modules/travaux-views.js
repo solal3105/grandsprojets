@@ -5,8 +5,6 @@
 ;(function(win) {
   'use strict';
 
-  /* ── Shared helpers ────────────────────────────────────────────────── */
-
   function drawPanelHTML() {
     return `
       <div id="travaux-drawing-panel" class="np-admin-draw" style="display:none">
@@ -67,8 +65,6 @@
   }
 
   const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-  /* ── Timeline ──────────────────────────────────────────────────────── */
 
   function buildTimeline(container, allFeatures, TM) {
     let tlMin = null, tlMax = null;
@@ -132,8 +128,6 @@
 
     update();
   }
-
-  /* ── Filters ───────────────────────────────────────────────────────── */
 
   function buildFilters(container, allFeatures, TM) {
     const { values: natures, counts: natureCounts } = TM.uniqueSorted(allFeatures, 'nature_travaux');
@@ -224,8 +218,6 @@
     applyFilters();
   }
 
-  /* ── Admin ─────────────────────────────────────────────────────────── */
-
   /**
    * @param {HTMLElement} container
    * @param {Object} ctx - { isStale, onSaved }
@@ -245,7 +237,7 @@
     let chantiers = [];
     try {
       chantiers = await win.supabaseService?.fetchCityTravaux(city, { adminMode: true }) || [];
-    } catch (_) {}
+    } catch (e) { console.warn('[travaux-views] fetchCityTravaux', e); }
 
     if (ctx.isStale()) return;
 
@@ -358,8 +350,6 @@
     ctx.onSaved(refresh);
   }
 
-  /* ── Contributor ───────────────────────────────────────────────────── */
-
   /**
    * @param {HTMLElement} container
    * @param {Object} ctx - { isStale, onSaved }
@@ -377,7 +367,7 @@
     let allProposals = [];
     try {
       allProposals = await win.supabaseService?.fetchMyTravaux(city) || [];
-    } catch (_) {}
+    } catch (e) { console.warn('[travaux-views] fetchMyTravaux', e); }
 
     if (ctx.isStale()) return;
 
@@ -509,8 +499,6 @@
 
     ctx.onSaved(refresh);
   }
-
-  /* ── Public API ────────────────────────────────────────────────────── */
 
   win.TravauxViews = { buildTimeline, buildFilters, buildAdmin, buildContributor };
 

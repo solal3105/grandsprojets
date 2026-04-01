@@ -1,11 +1,7 @@
-/* ============================================================================
-   TRAVAUX SECTION — List chantiers, approve, create/edit inline, config
-   ============================================================================ */
-
 import { store } from '../store.js';
 import { router } from '../router.js';
 import * as api from '../api.js';
-import { toast, confirm, slidePanel, esc, formatDate, skeletonTable, emptyState } from '../components/ui.js';
+import { toast, confirm, esc, formatDate, skeletonTable, emptyState } from '../components/ui.js';
 import { renderIconField, bindIconField } from '../components/icon-picker.js';
 
 const ETAT_LABELS = {
@@ -66,8 +62,6 @@ export async function renderTravaux(container, params) {
   await _loadList(container);
 }
 
-/* ── Scenario helpers ── */
-
 function _getTwScenario(config) {
   if (!config) return 'unconfigured';
   if (!config.enabled) return 'disabled';
@@ -107,8 +101,6 @@ function _renderModuleEmpty(container, scenario) {
     </div>
   `;
 }
-
-/* ── List page ── */
 
 function _renderListPage(container) {
   const isReadOnly = _twState.readOnly;
@@ -348,12 +340,10 @@ function _bindTravauxActions(container, listBody) {
   });
 }
 
-/* ── Create / Edit form ── */
-
 let _tw = { _map: null, _drawFeatures: [], _drawMode: null, _drawPoints: [], drawnGeoJSON: null, geojsonFile: null, branding: null, locationMode: 'draw' };
 
 function _resetTwForm() {
-  if (_tw._map) { try { _tw._map.remove(); } catch (_) {} }
+  if (_tw._map) { try { _tw._map.remove(); } catch (e) { console.debug('[admin-travaux] map.remove', e); } }
   _tw = { _map: null, _drawFeatures: [], _drawMode: null, _drawPoints: [], drawnGeoJSON: null, geojsonFile: null, branding: null, locationMode: 'draw', _existingGeojsonUrl: null };
 }
 
@@ -547,7 +537,6 @@ async function _renderCreateForm(container, chantier = null) {
   setTimeout(() => _initTwMap(container), 200);
 }
 
-/* ── Form bindings ── */
 function _bindTwForm(container, existingChantier) {
   // Name validation
   const nameInput = container.querySelector('#tw-name');
@@ -586,7 +575,6 @@ function _bindTwForm(container, existingChantier) {
   container.querySelector('#tw-submit')?.addEventListener('click', () => _submitTwForm(container, existingChantier));
 }
 
-/* ── GeoJSON file upload ── */
 function _bindTwFileUpload(container) {
   const dropzone = container.querySelector('#tw-geojson-drop');
   const fileInput = container.querySelector('#tw-geojson-file');
@@ -636,12 +624,11 @@ function _handleTwGeojsonFile(container, file) {
         if (nameEl) nameEl.textContent = file.name;
         if (metaEl) metaEl.textContent = count > 0 ? `${count} feature${count > 1 ? 's' : ''} détectée${count > 1 ? 's' : ''}` : '';
       }
-    } catch (_) { toast('Fichier GeoJSON invalide', 'error'); }
+    } catch (e) { console.warn('[admin-travaux] parse GeoJSON file', e); toast('Fichier GeoJSON invalide', 'error'); }
   };
   reader.readAsText(file);
 }
 
-/* ── Form submit ── */
 async function _submitTwForm(container, existingChantier) {
   const name = container.querySelector('#tw-name')?.value?.trim();
   if (!name) {
@@ -692,8 +679,6 @@ async function _submitTwForm(container, existingChantier) {
     if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = `<span>${existingChantier ? 'Enregistrer les modifications' : 'Créer le chantier'}</span> <i class="fa-solid fa-arrow-right"></i>`; }
   }
 }
-
-/* ── Map drawing ── */
 
 function _initTwMap(body) {
   const el = body.querySelector('#tw-map');
@@ -752,9 +737,6 @@ function _initTwMap(body) {
           features.forEach(f => {
             const g = f.geometry;
             if (!g) return;
-            const flat = (arr) => {
-              if (Array.isArray(arr[0])) arr.forEach(flat); else coords.push(arr);
-            };
             if (g.type === 'Point') coords.push(g.coordinates);
             else if (g.type === 'LineString') g.coordinates.forEach(c => coords.push(c));
             else if (g.type === 'Polygon') g.coordinates.forEach(ring => ring.forEach(c => coords.push(c)));
@@ -918,8 +900,6 @@ function _renderTwDrawPanel(body, opts) {
   panel.querySelector('#tw-draw-finish-btn')?.addEventListener('click', () => _finishTwDrawing(body));
 }
 
-/* ── Detail (edit) loader ── */
-
 async function _openChantierDetail(container, id) {
   container.innerHTML = skeletonTable(3);
   try {
@@ -927,12 +907,11 @@ async function _openChantierDetail(container, id) {
     if (!chantier) { toast('Chantier introuvable', 'error'); router.navigate('/admin/travaux/'); return; }
     _renderCreateForm(container, chantier);
   } catch (e) {
+    console.warn('[admin-travaux] openChantierDetail', e);
     toast('Erreur de chargement', 'error');
     router.navigate('/admin/travaux/');
   }
 }
-
-/* ── Travaux config ── */
 
 async function _renderConfig(container) {
   container.innerHTML = `

@@ -109,7 +109,8 @@
       try {
         const v = localStorage.getItem('theme');
         return v === 'dark' || v === 'light';
-      } catch (_) { 
+      } catch (e) { 
+        console.debug('[theme] localStorage read failed:', e);
         return false; 
       }
     },
@@ -131,17 +132,15 @@
           const next = this.osThemeMediaQuery.matches ? 'dark' : 'light';
           this.applyTheme(next);
           
-          // Aligner le fond de carte
           try { 
             this.syncBasemapToTheme(next); 
-          } catch (_) {}
+          } catch (e) { console.debug('[theme] basemap sync failed:', e); }
           
-          // Mettre à jour le logo selon le thème
           try { 
             if (win.CityManager?.updateLogoForCity) {
               win.CityManager.updateLogoForCity(win.activeCity); 
             }
-          } catch (_) {}
+          } catch (e) { console.debug('[theme] logo update failed:', e); }
         };
 
         // Appliquer immédiatement
@@ -154,7 +153,7 @@
         } else if (typeof this.osThemeMediaQuery.addListener === 'function') {
           this.osThemeMediaQuery.addListener(this.osThemeHandler);
         }
-      } catch (_) {}
+      } catch (e) { console.warn('[theme] OS theme sync setup failed:', e); }
     },
 
     /**
@@ -174,7 +173,7 @@
         
         this.osThemeMediaQuery = null;
         this.osThemeHandler = null;
-      } catch (_) {}
+      } catch (e) { console.debug('[theme] OS theme sync cleanup failed:', e); }
     },
 
     /**
@@ -187,7 +186,7 @@
           this.applyTheme(stored);
           return;
         }
-      } catch (_) {}
+      } catch (e) { console.debug('[theme] localStorage read failed:', e); }
 
       // Sinon, utiliser la préférence système
       const initial = this.getInitialTheme();
@@ -211,11 +210,11 @@
       
       try { 
         localStorage.setItem('theme', next); 
-      } catch(_) {}
+      } catch (e) { console.debug('[theme] localStorage write failed:', e); }
       
       try { 
         this.stopOSThemeSync(); 
-      } catch(_) {}
+      } catch (e) { console.debug('[theme] OS sync stop failed:', e); }
     }
   };
 

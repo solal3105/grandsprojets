@@ -1,9 +1,7 @@
 // modules/contrib.js
 ;(function (win) {
 
-  // ============================================================================
   // TEMPLATE LOADER — factory unique pour toutes les modales lazy-loaded
-  // ============================================================================
 
   const _templateCache = {};
 
@@ -50,9 +48,7 @@
   const loadCreateModalTemplate   = () => loadTemplate('create',   'modules/contrib/contrib-create-modal.html');
   const loadBrandingModalTemplate = () => loadTemplate('branding', 'modules/contrib/contrib-branding-modal.html');
 
-  // ============================================================================
   // CITY HELPER - POINT D'ENTRÉE UNIQUE POUR RÉCUPÉRER LA VILLE
-  // ============================================================================
   
   /**
    * Point d'entrée unique pour récupérer la ville sélectionnée dans le panel contrib.
@@ -74,7 +70,6 @@
   function setupContrib() {
     let contribOverlay  = document.getElementById('contrib-overlay');
     let contribCloseBtn = document.getElementById('contrib-close');
-    let contribModal    = contribOverlay ? contribOverlay.querySelector('.gp-modal') : null;
 
     // Drawing state moved to contrib-map.js
     const ContribMap = win.ContribMap || {};
@@ -97,7 +92,7 @@
         onOpen: async () => {
           // Assurer le bon rendu de la carte de dessin si visible
           setTimeout(() => {
-            try { if (drawMap) drawMap.invalidateSize(); } catch (_) {}
+            try { if (drawMap) drawMap.invalidateSize(); } catch (e) { console.debug('[contrib] map resize:', e); }
           }, 200);
           
           // Afficher le landing pour sélectionner une ville
@@ -126,7 +121,7 @@
         if (!isAuthed && contribOverlay && contribOverlay.getAttribute('aria-hidden') === 'false') {
           closeContrib();
         }
-      } catch (_) { /* noop */ }
+      } catch (e) { console.debug('[contrib] ARIA check:', e); }
     };
 
     {
@@ -145,7 +140,7 @@
             role: (data && data.role ? String(data.role) : '').toLowerCase(),
             ville: data && data.ville ? data.ville : null
           };
-        } catch (_) { return { role: '', ville: null }; }
+        } catch { return { role: '', ville: null }; }
       };
       
       const updateUserInfoCard = async (session, profile) => {
@@ -252,7 +247,7 @@
           if (typeof applyRoleConstraints === 'function') {
             applyRoleConstraints();
           }
-        } catch(_) {}
+        } catch (e) { console.warn('[contrib] role constraints:', e); }
         // La user-info-card est déjà mise à jour par updateUserInfoCard() ci-dessus
       };
 
@@ -261,14 +256,14 @@
         if (win.AuthModule && typeof win.AuthModule.getSession === 'function') {
           win.AuthModule.getSession().then(({ data }) => { applyContribVisibility(data?.session); return updateRoleState(data?.session); }).catch(() => { applyContribVisibility(null); return updateRoleState(null); });
         }
-      } catch (_) { /* noop */ }
+      } catch (e) { console.warn('[contrib] auth check:', e); }
 
       // Mises à jour dynamiques
       try {
         if (win.AuthModule && typeof win.AuthModule.onAuthStateChange === 'function') {
           win.AuthModule.onAuthStateChange((_event, session) => { applyContribVisibility(session); updateRoleState(session); });
         }
-      } catch (_) { /* noop */ }
+      } catch (e) { console.warn('[contrib] auth check:', e); }
 
       // Public function to open contrib modal (called by sidebar)
       const openContribModal = async () => {
@@ -287,7 +282,6 @@
           // Re-query DOM elements after template load
           contribOverlay = document.getElementById('contrib-overlay');
           contribCloseBtn = document.getElementById('contrib-close');
-          contribModal = contribOverlay ? contribOverlay.querySelector('.gp-modal') : null;
           
           // Bind modal events (only once)
           bindModalEvents();
@@ -441,7 +435,6 @@
     function applyRoleConstraints() {
       try {
         const role = win.__CONTRIB_ROLE || '';
-        const isInvited = role === 'invited';
         const isAdmin = role === 'admin';
 
         // La ville est maintenant sélectionnée sur le landing - pas de gestion ici
@@ -452,35 +445,35 @@
           if (landingCategoriesBtn) {
             landingCategoriesBtn.style.display = isAdmin ? '' : 'none';
           }
-        } catch(_) {}
+        } catch (e) { console.warn('[contrib] UI update:', e); }
 
         try {
           const landingUsersBtn = document.getElementById('landing-users');
           if (landingUsersBtn) {
             landingUsersBtn.style.display = isAdmin ? '' : 'none';
           }
-        } catch(_) {}
+        } catch (e) { console.warn('[contrib] UI update:', e); }
         
         try {
           const landingBrandingBtn = document.getElementById('landing-branding');
           if (landingBrandingBtn) {
             landingBrandingBtn.style.display = isAdmin ? '' : 'none';
           }
-        } catch(_) {}
+        } catch (e) { console.warn('[contrib] UI update:', e); }
         
         try {
           const landingEditCityBtn = document.getElementById('landing-edit-city');
           if (landingEditCityBtn) {
             landingEditCityBtn.style.display = isAdmin ? '' : 'none';
           }
-        } catch(_) {}
+        } catch (e) { console.warn('[contrib] UI update:', e); }
         
         try {
           const inviteUserBtn = document.getElementById('invite-user-btn');
           if (inviteUserBtn) {
             inviteUserBtn.style.display = isAdmin ? '' : 'none';
           }
-        } catch(_) {}
+        } catch (e) { console.warn('[contrib] UI update:', e); }
 
         // Afficher/masquer le bouton "Gérer les villes" selon le rôle (admin global uniquement)
         const userVilles = win.__CONTRIB_VILLES;
@@ -492,14 +485,14 @@
           if (landingCitiesBtn) {
             landingCitiesBtn.style.display = isGlobalAdmin ? '' : 'none';
           }
-        } catch(_) {}
+        } catch (e) { console.warn('[contrib] UI update:', e); }
         
         try {
           const addCityBtn = document.getElementById('add-city-btn');
           if (addCityBtn) {
             addCityBtn.style.display = isGlobalAdmin ? '' : 'none';
           }
-        } catch(_) {}
+        } catch (e) { console.debug('[contrib] UI update:', e); }
 
         // Pour tous : afficher la checkbox et le message informatif selon le rôle
         try {
@@ -516,9 +509,9 @@
               try {
                 listMineOnlyEl.checked = false;
                 listMineOnlyEl.disabled = false;
-              } catch(_) {}
+              } catch (e) { console.debug('[contrib] checkbox reset:', e); }
             }
-            try { ContribList.updateListState?.({ mineOnly: false }); } catch(_) {}
+            try { ContribList.updateListState?.({ mineOnly: false }); } catch (e) { console.debug('[contrib] list state update:', e); }
           } else {
             // Admin : checkbox visible, message masqué
             if (toggleEl) toggleEl.style.display = '';
@@ -529,14 +522,14 @@
               try {
                 listMineOnlyEl.checked = false;
                 listMineOnlyEl.disabled = false;
-              } catch(_) {}
+              } catch (e) { console.debug('[contrib] checkbox reset:', e); }
             }
-            try { ContribList.updateListState?.({ mineOnly: false }); } catch(_) {}
+            try { ContribList.updateListState?.({ mineOnly: false }); } catch (e) { console.debug('[contrib] list state update:', e); }
           }
           
           // listResetAndLoad() est appelé dans activateTab('list') après définition de filterCity
-        } catch(_) {}
-      } catch(_) {}
+        } catch (e) { console.debug('[contrib] role constraints UI:', e); }
+      } catch (e) { console.debug('[contrib] applyRoleConstraints:', e); }
     }
 
     // Gestion du contexte de ville via module dédié
@@ -549,7 +542,6 @@
       _formInitialized = true;
       // Re-query all DOM elements
       const form = document.getElementById('contrib-form');
-      const statusEl = document.getElementById('contrib-status');
       const cityEl = document.getElementById('contrib-city');
       const categoryEl = document.getElementById('contrib-category');
       const categoryHelpEl = document.getElementById('contrib-category-help');
@@ -557,9 +549,6 @@
       const addDocBtn = document.getElementById('contrib-doc-add');
       const docsFieldset = document.getElementById('contrib-docs');
       const existingDocsEl = document.getElementById('contrib-existing-docs');
-      
-      // Landing city selector
-      const landingCitySelect = document.getElementById('landing-city-select');
 
     // Geometry input UI elements
     const geomModeFieldset = document.getElementById('contrib-geom-mode');
@@ -592,12 +581,11 @@
       });
     }
 
-    function updateManualButtons() {
+    function _updateManualButtons() {
       ContribDrawControls.updateButtonStates?.();
     }
 
     // Stepper UI elements
-    const stepperEl = document.getElementById('contrib-stepper');
     const stepTab1 = document.getElementById('contrib-step-1-tab');
     const stepTab2 = document.getElementById('contrib-step-2-tab');
     const stepTab3 = document.getElementById('contrib-step-3-tab');
@@ -624,7 +612,7 @@
         try {
           t.classList.toggle('is-current', isActive);
           t.classList.toggle('is-complete', isComplete);
-        } catch(_) {}
+        } catch (e) { console.debug('[contrib] class toggle:', e); }
       });
     }
 
@@ -640,9 +628,7 @@
       });
     }
 
-    // ============================================================================
     // VALIDATION UNIFIÉE DU STEPPER
-    // ============================================================================
     
     /**
      * Vérifie si on peut aller à l'étape cible
@@ -703,7 +689,7 @@
           showToast(`${fieldLabel} est obligatoire.`, 'error');
           
           // Focus sur le champ invalide
-          try { field.focus(); } catch(_) {}
+          try { field.focus(); } catch (e) { console.debug('[contrib] focus management:', e); }
           
           return false;
         }
@@ -736,7 +722,7 @@
       currentStep = Math.min(4, Math.max(1, n));
       showOnlyStep(currentStep);
       // Re-apply role constraints because showOnlyStep() resets display on step elements
-      try { applyRoleConstraints(); } catch(_) {}
+      try { applyRoleConstraints(); } catch (e) { console.warn('[contrib] role constraints:', e); }
       setStepHeaderActive(currentStep);
       updateStepButtons(currentStep);
 
@@ -751,7 +737,7 @@
             if (drawPanelEl) drawPanelEl.style.display = '';
             if (fileRowEl) fileRowEl.style.display = 'none';
             initDrawMap();
-            setTimeout(() => { try { if (drawMap) drawMap.invalidateSize(); } catch(_){} }, 50);
+            setTimeout(() => { try { if (drawMap) drawMap.invalidateSize(); } catch (e) { console.debug('[contrib] map resize:', e); } }, 50);
             // Manual drawing only
             ensureManualToolbar();
             // cancelManualDraw removed - handled by ContribMap
@@ -761,7 +747,7 @@
             if (drawPanelEl) drawPanelEl.style.display = 'none';
             if (fileRowEl) fileRowEl.style.display = '';
           }
-        } catch(_) {}
+        } catch (e) { console.debug('[contrib] UI update:', e); }
         // En mode édition, précharger la géométrie à l'entrée en étape 2
         (async () => {
           try {
@@ -782,7 +768,7 @@
                 await ContribGeometry.preloadGeometryOnMap?.(url, elements);
               }
             }
-          } catch (_) {}
+          } catch (e) { console.debug('[contrib] geometry preload:', e); }
         })();
       }
 
@@ -793,7 +779,7 @@
           const pname = nameEl && nameEl.value ? nameEl.value.trim() : '';
           clearExistingDossiers();
           if (pname) { renderExistingDossiers(pname); }
-        } catch (_) {}
+        } catch (e) { console.warn('[contrib] field reset:', e); }
       }
 
       // Focus first focusable in the step
@@ -801,7 +787,7 @@
         const stepEls = queryStepEls(currentStep);
         const firstInput = stepEls.map(el => el.querySelector('input, select, textarea, button')).find(Boolean);
         if (firstInput && firstInput.focus) firstInput.focus();
-      } catch(_){}
+      } catch (e) { console.debug('[contrib] focus management:', e); }
     }
 
     /**
@@ -824,11 +810,8 @@
 
     // Panels & list state (tabs supprimés)
     const panelList    = document.getElementById('contrib-panel-list');
-    const panelCategories = document.getElementById('contrib-panel-categories');
-    const panelUsers   = document.getElementById('contrib-panel-users');
     const backBtn      = document.getElementById('contrib-back');
     // Landing elements
-    const landingEl = document.getElementById('contrib-landing');
     const landingEditBtn = document.getElementById('landing-edit');
     const landingCategoriesBtn = document.getElementById('landing-categories');
     const landingUsersBtn = document.getElementById('landing-users');
@@ -842,7 +825,6 @@
     // Users panel elements
     const usersListEl  = document.getElementById('users-list');
     const usersSearchEl = document.getElementById('users-search');
-    const inviteUserBtn = document.getElementById('invite-user-btn');
 
     // currentEditId moved to contrib-form.js
     // editGeojsonUrl moved to contrib-geometry.js
@@ -851,7 +833,6 @@
     const ContribList = win.ContribList || {};
     const ContribForm = win.ContribForm || {};
     const ContribCities = win.ContribCities || {};
-    const ContribCategories = win.ContribCategories || {};
     const ContribCategoriesCrud = win.ContribCategoriesCrud || {};
     const ContribUsers = win.ContribUsers || {};
     const ContribCitiesManagement = win.ContribCitiesManagement || {};
@@ -862,7 +843,7 @@
     const officialInput = document.getElementById('contrib-official-url');
 
     // Utilities moved to contrib-utils.js
-    const { slugify, setStatus, showToast: utilsShowToast } = window.ContribUtils || {};
+    const { slugify: _slugify, setStatus, showToast: utilsShowToast } = window.ContribUtils || {};
     
     // Fallback si showToast n'est pas disponible
     const showToast = utilsShowToast || ((msg, kind) => {
@@ -941,7 +922,7 @@
     // —— Landing helpers ——
     
     async function chooseLanding(target) {
-      try { sessionStorage.setItem('contribLandingSeen', '1'); } catch(_) {}
+      try { sessionStorage.setItem('contribLandingSeen', '1'); } catch (e) { console.warn('[contrib] sessionStorage access:', e); }
       
       // Valider qu'une ville est sélectionnée
       const landingCitySelect = document.getElementById('landing-city-select');
@@ -978,7 +959,7 @@
     }
     
     // Gère les panels de contribution (create/list) - charge catégories et branding
-    async function handleContributionPanels(target, city, cityDisplayName) {
+    async function handleContributionPanels(target, city) {
       // Charger les catégories et le branding pour le panel liste
       await Promise.all([
         loadCategoriesForCity(city),
@@ -1147,17 +1128,12 @@
     // —— List helpers ——
     // applyRoleConstraints() is now defined earlier (after showLanding)
     // List helpers moved to contrib-list.js
-    const clearEmptyState = () => ContribList.clearEmptyState?.(listEl);
-    const renderEmptyState = () => {
-      ContribList.renderEmptyState?.(listEl, listSentinel, sharedOnCreateClick);
-    };
-
     // Delete functions moved to contrib-list.js
     async function doDeleteContribution(id, projectName) {
       const onExitEditMode = (deletedId) => {
         const currentEditId = ContribForm.getCurrentEditId?.();
         if (currentEditId === deletedId) {
-          try { exitEditMode(); } catch(_) {}
+          try { exitEditMode(); } catch (e) { console.warn('[contrib] doDeleteContribution error:', e); }
           setStatus('Contribution supprimée.', 'success');
         }
       };
@@ -1201,7 +1177,7 @@
     };
 
     // renderItem moved to contrib-list.js
-    function renderItem(item) {
+    function _renderItem(item) {
       return ContribList.renderItem?.(item, sharedOnEdit, sharedOnDelete) || document.createElement('div');
     }
 
@@ -1212,7 +1188,7 @@
     }
 
     // listLoadMore and initInfiniteScroll moved to contrib-list.js
-    async function listLoadMore() {
+    async function _listLoadMore() {
       const elements = { listEl, listSentinel, onEdit: sharedOnEdit, onDelete: sharedOnDelete, onCreateClick: sharedOnCreateClick };
       await ContribList.listLoadMore?.(elements);
     }
@@ -1344,7 +1320,7 @@
         wrap.appendChild(progOuter);
         wrap.appendChild(counter);
         if (row) { row.appendChild(wrap); } else { el.insertAdjacentElement('afterend', wrap); }
-        try { el.setAttribute('aria-describedby', counter.id); } catch(_){}
+        try { el.setAttribute('aria-describedby', counter.id); } catch (e) { console.debug('[contrib] ARIA update:', e); }
 
         const clamp = () => {
           let v = el.value || '';
@@ -1376,7 +1352,7 @@
     }
 
     // prefillForm, enterEditMode, exitEditMode moved to contrib-form.js
-    function prefillForm(row) {
+    function _prefillForm(row) {
       const elements = {
         nameEl: document.getElementById('contrib-project-name'),
         catEl: document.getElementById('contrib-category'),
@@ -1390,7 +1366,7 @@
       ContribForm.prefillForm?.(row, elements);
     }
 
-    function enterEditMode(row) {
+    function _enterEditMode(row) {
       const elements = {
         nameEl: document.getElementById('contrib-project-name'),
         catEl: document.getElementById('contrib-category'),
@@ -1494,7 +1470,6 @@
 
     // createDocRow and collectDocs moved to contrib-upload.js
     const createDocRow = ContribUpload?.createDocRow || (() => null);
-    const collectDocs = () => ContribUpload?.collectDocs?.(docsFieldset) || [];
 
     // —— Existing consultation dossiers (display-only in edit mode) ——
     function clearExistingDossiers() {
@@ -1516,7 +1491,7 @@
         grid.appendChild(load);
         if (!win.supabaseService || typeof win.supabaseService.getConsultationDossiersByProject !== 'function') return;
         const dossiers = await win.supabaseService.getConsultationDossiersByProject(projectName);
-        try { load.remove(); } catch(_) {}
+        try { load.remove(); } catch (e) { console.warn('[contrib] DOM cleanup:', e); }
         if (!Array.isArray(dossiers) || dossiers.length === 0) {
           const empty = document.createElement('div');
           empty.className = 'card-empty-state';
@@ -1642,7 +1617,7 @@
                 } else {
                   setStatus('Échec de la mise à jour.');
                 }
-              } catch (_) {
+              } catch {
                 setLoading(false); setStatus('Erreur lors de la mise à jour.');
               }
             });
@@ -1669,7 +1644,7 @@
                 } else {
                   setStatus('Échec de la mise à jour.');
                 }
-              } catch (_) {
+              } catch {
                 setLoading(false); setStatus('Erreur pendant le téléversement.');
               }
             });
@@ -1705,7 +1680,7 @@
                   confirmBar.classList.remove('is-loading');
                   confirmBar.querySelector('.inline-confirm__text').textContent = 'Échec de la suppression.';
                 }
-              } catch (_) {
+              } catch {
                 confirmBar.classList.remove('is-loading');
                 confirmBar.querySelector('.inline-confirm__text').textContent = 'Erreur lors de la suppression.';
               }
@@ -1727,7 +1702,7 @@
             err.textContent = 'Impossible de charger les dossiers liés pour le moment.';
             existingDocsEl.appendChild(err);
           }
-        } catch(_) {}
+        } catch (e) { console.warn('[contrib] DOM update:', e); }
       }
     }
 
@@ -2126,9 +2101,6 @@
       const closeBtn = document.getElementById('create-modal-close');
       const modalTitle = document.getElementById('create-modal-title');
       const form = document.getElementById('contrib-form');
-      const prevBtn = document.getElementById('contrib-prev');
-      const nextBtn = document.getElementById('contrib-next');
-      const submitBtn = document.getElementById('contrib-submit');
       
       if (!overlay || !form) {
         console.error('[openCreateModal] Elements not found');
@@ -2289,9 +2261,7 @@
   } // End of initializeContribForm()
   }
 
-  // ============================================================================
   // EXPORTS GLOBAUX
-  // ============================================================================
 
   /**
    * Fonction centralisée pour récupérer la ville active
@@ -2323,7 +2293,7 @@
       
       // Si villes est null ou vide, aucune ville n'est autorisée
       return false;
-    } catch (_) {
+    } catch {
       return false;
     }
   };

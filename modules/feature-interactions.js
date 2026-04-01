@@ -21,7 +21,7 @@
   const HIT_TOLERANCE = 5;
   const PEEK_MAX = 3;
 
-  /* ── helpers ── */
+  // helpers
   const esc = window.SecurityUtils.escapeHtml;
   function travauxTitleOf(p) {
     return window.TravauxModule?.getChantierDisplayName?.(p)
@@ -44,7 +44,7 @@
     return p.project_name || p.name || '';
   }
   function isInteractive(f) { const p = f.properties||{}; return !!(p.project_name && p.category) || isTravauxProps(p); }
-  function isContrib(f) { const p = f.properties||{}; return !!(p.project_name && p.category); }
+  function _isContrib(f) { const p = f.properties||{}; return !!(p.project_name && p.category); }
   function isTravaux(f) { const p = f.properties||{}; return isTravauxProps(p); }
 
   function cardHTML(props, opts) {
@@ -60,7 +60,6 @@
     return `<div class="gp-hp">${imgH}<div class="gp-hp-body">${tagH}<div class="gp-hp-title">${title}</div>${ctaH}</div></div>`;
   }
 
-  // ─────────────────────────────────────────────────────────────
   const FI = {
     _mlMap: null,
     _hovered: null,     // { key, source, ids:Set }
@@ -87,9 +86,9 @@
     _currentKey: null,   // dedup key
     _boundUpdatePos: null,
 
-    // ═══════════════════════════════════════════════════════════
+
     //  INIT
-    // ═══════════════════════════════════════════════════════════
+
     init(mlMap) {
       if (!mlMap) return;
       this._mlMap = mlMap;
@@ -100,20 +99,20 @@
       console.log('[FI] ✅ init (unified cards)');
     },
 
-    // ═══════════════════════════════════════════════════════════
+
     //  DOM MARKER REGISTRY
-    // ═══════════════════════════════════════════════════════════
+
     registerMarker(marker, feature) {
       if (!marker || !feature?.properties) return;
       this._domMarkers.push({ marker, feature, latlng: marker.getLatLng() });
     },
 
-    // ═══════════════════════════════════════════════════════════
+
     //  SOURCE GUARD
-    // ═══════════════════════════════════════════════════════════
+
     _sourceExists(src) {
       if (!src || src === '__multi__') return false;
-      try { return !!this._mlMap.getSource(src); } catch(_) { return false; }
+      try { return !!this._mlMap.getSource(src); } catch (e) { console.debug('[features] getSource check failed:', e); return false; }
     },
 
     invalidateSource(sourceId) {
@@ -121,15 +120,15 @@
       if (this._selected?.source === sourceId) this._selected = null;
       if (this._savedPaint) {
         for (const lid of this._savedPaint.keys()) {
-          try { if (!this._mlMap.getLayer(lid)) this._savedPaint.delete(lid); } catch(_) {}
+          try { if (!this._mlMap.getLayer(lid)) this._savedPaint.delete(lid); } catch (e) { console.debug('[features] getLayer check failed:', e); }
         }
       }
       if (this._state) this._close();
     },
 
-    // ═══════════════════════════════════════════════════════════
+
     //  HIT TEST
-    // ═══════════════════════════════════════════════════════════
+
     _hitTestAll(point) {
       const bbox = [[point.x - HIT_TOLERANCE, point.y - HIT_TOLERANCE],
                      [point.x + HIT_TOLERANCE, point.y + HIT_TOLERANCE]];
@@ -152,9 +151,9 @@
       return r;
     },
 
-    // ═══════════════════════════════════════════════════════════
+
     //  HOVER
-    // ═══════════════════════════════════════════════════════════
+
     _onMove(e) {
       // Always update position for single card (no throttle, keeps it glued to cursor)
       if (this._state === 'single') {
@@ -223,7 +222,7 @@
       this._updatePosition();
     },
 
-    // ── Smart card syncing (no full innerHTML nuke) ──
+    // Smart card syncing (no full innerHTML nuke)
     _syncCards(allFeatures, showKeys, nextState) {
       const container = this._cardsEl;
       const oldKeys = this._displayKeys;
@@ -303,9 +302,9 @@
       if (this._state === 'single' || this._state === 'peek') this._close();
     },
 
-    // ═══════════════════════════════════════════════════════════
+
     //  OVERLAY LIFECYCLE
-    // ═══════════════════════════════════════════════════════════
+
     _ensureOverlay() {
       if (this._el) return;
       this._el = document.createElement('div');
@@ -345,9 +344,9 @@
       setTimeout(() => el.remove(), 200);
     },
 
-    // ═══════════════════════════════════════════════════════════
+
     //  CLICK → PICKER
-    // ═══════════════════════════════════════════════════════════
+
     _onClick(e) {
       if (this._state === 'picker') return;
 
@@ -456,9 +455,9 @@
       }, 250);
     },
 
-    // ═══════════════════════════════════════════════════════════
+
     //  OPEN FEATURE
-    // ═══════════════════════════════════════════════════════════
+
     _openFeature(feature) {
       const p = feature.properties;
       
@@ -479,9 +478,9 @@
       }
     },
 
-    // ═══════════════════════════════════════════════════════════
+
     //  DOM MARKER HANDLERS (called by datamodule.js)
-    // ═══════════════════════════════════════════════════════════
+
     _onDOMMarkerHover(marker, feature, lngLat) {
       if (this._state === 'picker') return;
       const point = this._mlMap.project([lngLat.lng, lngLat.lat]);
@@ -526,9 +525,9 @@
       this._openPicker();
     },
 
-    // ═══════════════════════════════════════════════════════════
+
     //  SPOTLIGHT + DIM
-    // ═══════════════════════════════════════════════════════════
+
     _spotlight(feature) {
       this.clearSelection();
       const name = keyOf(feature);
@@ -563,7 +562,7 @@
         if (!this._savedPaint.has(layerId)) this._savedPaint.set(layerId, []);
         this._savedPaint.get(layerId).push({ prop, value: cur });
         this._mlMap.setPaintProperty(layerId, prop, val);
-      } catch(_) {}
+      } catch (e) { console.debug('[features] setPaintProperty failed:', e); }
     },
 
     _dimPoolExcept(pool, excludeIds) {
@@ -571,7 +570,7 @@
       const dimmed = new Set();
       for (const f of pool.features) {
         if (f.id === undefined || excludeIds.has(f.id)) continue;
-        try { this._mlMap.setFeatureState({ source: pool.sourceId, id: f.id }, { dimmed: true }); } catch(_) {}
+        try { this._mlMap.setFeatureState({ source: pool.sourceId, id: f.id }, { dimmed: true }); } catch (e) { console.debug('[features] setFeatureState dimmed failed:', e); }
         dimmed.add(f.id);
       }
       if (dimmed.size) this._dimmedIds.set(pool.sourceId, dimmed);
@@ -585,7 +584,7 @@
           for (const [source, ids] of this._dimmedIds) {
             if (!this._sourceExists(source)) continue;
             for (const id of ids) {
-              try { this._mlMap.removeFeatureState({ source, id }, 'dimmed'); } catch(_) {}
+              try { this._mlMap.removeFeatureState({ source, id }, 'dimmed'); } catch (e) { console.debug('[features] removeFeatureState dimmed failed:', e); }
             }
           }
         }
@@ -593,7 +592,7 @@
           for (const [lid, props] of this._savedPaint) {
             if (!this._mlMap.getLayer(lid)) continue;
             for (const { prop, value } of props) {
-              try { this._mlMap.setPaintProperty(lid, prop, value); } catch(_) {}
+              try { this._mlMap.setPaintProperty(lid, prop, value); } catch (e) { console.debug('[features] restorePaint failed:', e); }
             }
           }
         }
@@ -606,9 +605,9 @@
       this._dimmedIds = null;
     },
 
-    // ═══════════════════════════════════════════════════════════
+
     //  HELPERS
-    // ═══════════════════════════════════════════════════════════
+
     _getPools() {
       const sp = win.L?._sourcePool;
       return sp ? Array.from(sp._pools.values()) : [];
@@ -623,7 +622,7 @@
           ids.add(f.id);
           this._mlMap.setFeatureState({ source, id: f.id }, state);
         }
-      } catch(_) {}
+      } catch (e) { console.debug('[features] setStateOnProject failed:', e); }
       return ids;
     },
 
@@ -632,7 +631,7 @@
       try {
         if (value) this._mlMap.setFeatureState({ source, id }, { [key]: true });
         else this._mlMap.removeFeatureState({ source, id }, key);
-      } catch(_) {}
+      } catch (e) { console.debug('[features] setFeatureState failed:', e); }
     },
 
     /**
@@ -709,9 +708,9 @@
       return r;
     },
 
-    // ═══════════════════════════════════════════════════════════
+
     //  GLOW PULSE — dedicated source + animated wide blurred line
-    // ═══════════════════════════════════════════════════════════
+
     _glowSourceId: null,
 
     _startGlow(sourceId, pool, matchFeatures) {
@@ -734,7 +733,7 @@
           try {
             const raw = this._mlMap.getPaintProperty(pool.layerId, 'line-color');
             if (typeof raw === 'string') color = raw;
-          } catch(_) {}
+          } catch (e) { console.debug('[features] getPaintProperty failed:', e); }
         }
 
         // Collect features for the glow source
@@ -778,7 +777,7 @@
               this._mlMap.setPaintProperty(glowLayerId, 'line-opacity', op);
               this._mlMap.setPaintProperty(glowLayerId, 'line-width', w);
             }
-          } catch(_) {}
+          } catch (e) { console.debug('[features] glow animate failed:', e); }
           this._glowRaf = requestAnimationFrame(animate);
         };
         this._glowRaf = requestAnimationFrame(animate);
@@ -798,12 +797,12 @@
           if (this._glowLayerId && this._mlMap.getLayer(this._glowLayerId)) {
             this._mlMap.removeLayer(this._glowLayerId);
           }
-        } catch(_) {}
+        } catch (e) { console.debug('[features] removeLayer glow failed:', e); }
         try {
           if (this._glowSourceId && this._mlMap.getSource(this._glowSourceId)) {
             this._mlMap.removeSource(this._glowSourceId);
           }
-        } catch(_) {}
+        } catch (e) { console.debug('[features] removeSource glow failed:', e); }
       }
       this._glowLayerId = null;
       this._glowSourceId = null;

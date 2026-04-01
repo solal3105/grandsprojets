@@ -1,7 +1,3 @@
-/* ============================================================================
-   CONTRIBUTIONS SECTION — List, filter, approve, detail slide-panel
-   ============================================================================ */
-
 import { store } from '../store.js';
 import { router } from '../router.js';
 import * as api from '../api.js';
@@ -168,7 +164,7 @@ async function _loadCategories(container) {
       opt.textContent = cat.category;
       select.appendChild(opt);
     }
-  } catch (_) {}
+  } catch (e) { console.warn('[admin-contrib] loadCategories', e); }
 }
 
 async function _loadList(container) {
@@ -331,8 +327,6 @@ function _bindListActions(container, listBody) {
   }, { signal: _listBodyAbort.signal });
 }
 
-/* ── Detail preview modal ── */
-
 function _injectDetailStyles() {
   if (document.getElementById('contrib-detail-styles')) return;
   const s = document.createElement('style');
@@ -415,11 +409,11 @@ async function _openDetail(id) {
     if (!item) { toast('Contribution introuvable', 'error'); return; }
 
     let dossiers = [];
-    try { dossiers = await api.getConsultationDossiers(item.project_name) || []; } catch (_) {}
+    try { dossiers = await api.getConsultationDossiers(item.project_name) || []; } catch (e) { console.warn('[admin-contrib] getConsultationDossiers', e); }
 
     let markdownContent = '';
     if (item.markdown_url) {
-      try { markdownContent = await fetch(item.markdown_url).then(r => r.ok ? r.text() : ''); } catch (_) {}
+      try { markdownContent = await fetch(item.markdown_url).then(r => r.ok ? r.text() : ''); } catch (e) { console.warn('[admin-contrib] fetch markdown', e); }
     }
 
     _injectDetailStyles();
@@ -572,7 +566,7 @@ async function _openDetail(id) {
                 { padding: 40, maxZoom: 16, duration: 600 }
               );
             }
-          } catch (_) {}
+          } catch (e) { console.debug('[admin-contrib] map fitBounds', e); }
         });
       }
     }
@@ -621,13 +615,8 @@ async function _refreshPendingBadge() {
   try {
     const pending = await api.getPendingCount();
     updatePendingBadge(pending);
-  } catch (_) {}
+  } catch (e) { console.warn('[admin-contrib] refreshPendingBadge', e); }
 }
-
-/* ============================================================================
-   CREATE / EDIT CONTRIBUTION — 3-step wizard
-   ============================================================================ */
-
 
 let _wiz = {
   categories: [],
@@ -656,8 +645,8 @@ let _wiz = {
 };
 
 function _resetWizard() {
-  if (_wiz._map) { try { _wiz._map.remove(); } catch (_) {} }
-  if (_wiz._mdEditor) { try { _wiz._mdEditor.destroy(); } catch (_) {} }
+  if (_wiz._map) { try { _wiz._map.remove(); } catch (e) { console.debug('[admin-contrib] map.remove', e); } }
+  if (_wiz._mdEditor) { try { _wiz._mdEditor.destroy(); } catch (e) { console.debug('[admin-contrib] mdEditor.destroy', e); } }
   _wiz = {
     categories: [], branding: null,
     project_name: '', category: '', description: '', official_url: '',
@@ -691,9 +680,10 @@ async function _renderCreateWizard(container, editId = null) {
       _wiz.description = item.description || '';
       _wiz.official_url = item.official_url || '';
       if (item.markdown_url) {
-        try { _wiz.markdownText = await fetch(item.markdown_url).then(r => r.ok ? r.text() : ''); } catch (_) {}
+        try { _wiz.markdownText = await fetch(item.markdown_url).then(r => r.ok ? r.text() : ''); } catch (e) { console.warn('[admin-contrib] fetch markdown for edit', e); }
       }
     } catch (e) {
+      console.warn('[admin-contrib] load contribution for edit', e);
       toast('Erreur de chargement', 'error');
       router.navigate('/admin/contributions/');
       return;
@@ -702,13 +692,6 @@ async function _renderCreateWizard(container, editId = null) {
 
   _renderOnePage(container);
 }
-
-
-
-
-
-
-/* ── Map Drawing Engine ── */
 
 function _initDrawMap(body) {
   const container = body.querySelector('#cw-map');
@@ -872,7 +855,7 @@ function _updateDrawSource() {
   _wiz.drawnGeoJSON = _wiz._drawFeatures.length > 0 ? fc : null;
 }
 
-function _updateDrawStatus(body) { /* absorbed into _renderDrawPanel */ }
+function _updateDrawStatus() { /* absorbed into _renderDrawPanel */ }
 
 function _bindDrawToolbar(body) {
   // Double-click to finish line/polygon (map event, bound once)
@@ -979,7 +962,6 @@ function _renderDrawPanel(body, opts) {
     `;
   }
 
-  // ── Bind interactions ────────────────────────────────────────
   panel.querySelectorAll('.cw-dtb__tool[data-tool]').forEach(btn => {
     btn.addEventListener('click', () => {
       if (_wiz._drawPoints.length > 0) _finishDrawing(body);
@@ -1031,8 +1013,6 @@ function _setMapCursor(cursor) {
   if (_wiz._map) _wiz._map.getCanvas().style.cursor = cursor;
 }
 
-/* ── File Upload Logic ── */
-
 function _bindFileUpload(body) {
   const dropzone = body.querySelector('#cw-geojson-drop');
   const fileInput = body.querySelector('#cw-geojson-file');
@@ -1078,7 +1058,8 @@ function _handleGeojsonFile(body, file) {
       }
       _wiz.geojsonFile = file;
       _showGeojsonResult(body, file.name, count > 0 ? `${count} feature${count > 1 ? 's' : ''} détectée${count > 1 ? 's' : ''}` : null);
-    } catch (err) {
+    } catch (e) {
+      console.warn('[admin-contrib] parse GeoJSON file', e);
       toast('Fichier GeoJSON invalide', 'error');
     }
   };
@@ -1095,9 +1076,6 @@ function _showGeojsonResult(body, name, metaText) {
   if (nameEl) nameEl.textContent = name;
   if (metaEl) metaEl.textContent = metaText || '';
 }
-
-
-/* ── Toast UI Markdown Editor ── */
 
 function _initMarkdownEditor(body) {
   const el = body.querySelector('#cw-editor');
@@ -1150,8 +1128,6 @@ function _initMarkdownEditor(body) {
 function _bindCoverUpload(body) {
   const dropzone = body.querySelector('#cw-cover-drop');
   const fileInput = body.querySelector('#cw-cover-file');
-  const preview = body.querySelector('#cw-cover-preview');
-  const img = body.querySelector('#cw-cover-img');
 
   dropzone?.addEventListener('click', () => fileInput?.click());
   dropzone?.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
@@ -1266,7 +1242,6 @@ function _renderRecap(body) {
   `).join('');
 }
 
-
 function _slugify(str) {
   return (str || 'projet')
     .toLowerCase()
@@ -1276,10 +1251,6 @@ function _slugify(str) {
     .replace(/^-|-$/g, '')
     .slice(0, 60);
 }
-
-/* ============================================================================
-   ONE-PAGE CREATION FORM — Guided UX
-   ============================================================================ */
 
 function _renderOnePage(container) {
   const isEdit = !!_wiz.editItem;
@@ -1586,7 +1557,6 @@ function _renderOnePage(container) {
   _renderDocsList(container);
 }
 
-/* ── Event bindings ── */
 function _bindOnePage(container) {
   // Name input — live validation
   const nameInput = container.querySelector('#cw-name');

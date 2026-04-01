@@ -4,16 +4,12 @@
 ;(function(win) {
   'use strict';
 
-  // ============================================================================
   // STATE
-  // ============================================================================
 
   let coverCompressedFile = null;
   let coverDropzoneInstance = null; // Instance unique de la dropzone cover
 
-  // ============================================================================
   // IMAGE COMPRESSION
-  // ============================================================================
 
   /**
    * Compresse une image
@@ -43,19 +39,17 @@
                 const name = (file.name || 'cover').replace(/\.[^.]+$/, '') + '.' + ext;
                 const compressed = new File([blob], name, { type: toBlobType, lastModified: Date.now() });
                 resolve(compressed);
-              } catch(_) { resolve(file); }
+              } catch { resolve(file); }
             }, toBlobType, quality);
-          } catch(_) { resolve(file); }
+          } catch { resolve(file); }
         };
         img.onerror = () => resolve(file);
         img.src = URL.createObjectURL(file);
-      } catch(_) { resolve(file); }
+      } catch { resolve(file); }
     });
   }
 
-  // ============================================================================
   // COVER UPLOAD - Pattern propre avec instance unique
-  // ============================================================================
 
   /**
    * Crée une instance de dropzone cover (appelée une seule fois)
@@ -103,7 +97,7 @@
             const before = file.size / (1024*1024);
             const after = coverCompressedFile.size / (1024*1024);
             if (dzInfo) dzInfo.textContent = `Image compressée de ${before.toFixed(2)} Mo à ${after.toFixed(2)} Mo`;
-          } catch(_) {}
+          } catch (e) { console.warn('[contrib-upload] DOM update:', e); }
         }).catch(() => { coverCompressedFile = file; });
       } catch (e) {
         console.warn('[contrib-upload-v2] processCoverFile error', e);
@@ -154,7 +148,7 @@
     }
 
     // Interactions - attachées une seule fois
-    const openPicker = () => { try { coverInput.click(); } catch(_) {} };
+    const openPicker = () => { try { coverInput.click(); } catch (e) { console.warn('[contrib-upload] click handler:', e); } };
     
     attachListener(coverDropzone, 'click', openPicker);
     attachListener(coverDropzone, 'keydown', (e) => {
@@ -210,7 +204,7 @@
       destroy() {
         console.log('[contrib-upload-v2] Destroying cover dropzone instance');
         cleanupCallbacks.forEach(cb => {
-          try { cb(); } catch(_) {}
+          try { cb(); } catch (e) { console.debug('[contrib-upload] listener cleanup:', e); }
         });
         cleanupCallbacks.length = 0;
         this.reset();
@@ -257,9 +251,7 @@
     }
   }
 
-  // ============================================================================
   // DOCUMENT ROWS (PDF) - Pattern propre avec délégation
-  // ============================================================================
 
   /**
    * Crée une ligne de document PDF
@@ -368,9 +360,7 @@
     return out;
   }
 
-  // ============================================================================
   // EXPORTS
-  // ============================================================================
 
   win.ContribUpload = {
     // Image compression

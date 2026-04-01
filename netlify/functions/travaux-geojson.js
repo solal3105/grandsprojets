@@ -82,7 +82,8 @@ export const handler = async (event) => {
               feature.properties.code_insee = '';
             }
             return geojson.features;
-          } catch {
+          } catch (e) {
+            console.warn('[netlify] fetch chantier geojson', e);
             return [];
           }
         })

@@ -142,7 +142,7 @@
         throw new Error('Utilisateur non authentifié');
       }
       
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('city_branding')
         .update({
           primary_color: primaryColor,

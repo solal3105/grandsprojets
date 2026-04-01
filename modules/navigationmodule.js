@@ -36,9 +36,7 @@ const NavigationModule = (() => {
     }
   }
 
-  // ============================================================================
-  // SYSTÈME DE HIGHLIGHT - Animation des projets sur la carte
-  // ============================================================================
+  // SYSTÈME DE HIGHLIGHT
   
   // État du highlight actuel
   let currentHighlight = {
@@ -66,10 +64,10 @@ const NavigationModule = (() => {
   function clearProjectHighlight() {
     window.FeatureInteractions?.clearSelection();
     currentHighlight.highlightedLayers.forEach(layer => {
-      try { layer.__gpHighlighted = false; restoreStyle(layer); } catch (_) {}
+      try { layer.__gpHighlighted = false; restoreStyle(layer); } catch (e) { console.debug('[nav] restoreStyle failed:', e); }
     });
     currentHighlight.highlightedLayers = [];
-    currentHighlight.pulseElements.forEach(el => { try { el.remove(); } catch (_) {} });
+    currentHighlight.pulseElements.forEach(el => { try { el.remove(); } catch (e) { console.debug('[nav] pulse remove failed:', e); } });
     currentHighlight.pulseElements = [];
   }
 
@@ -201,7 +199,7 @@ const NavigationModule = (() => {
         [[bounds.minLng, bounds.minLat], [bounds.maxLng, bounds.maxLat]],
         { padding: _computeMapPadding(), duration: 500, pitch: 0, maxZoom: 16 }
       );
-    } catch (_) {}
+    } catch (e) { console.debug('[nav] panToProject fitBounds failed:', e); }
   }
 
   const getCategoryStyle = window.getCategoryStyle;
@@ -249,7 +247,7 @@ const NavigationModule = (() => {
     // Create layers from cache
     for (const name of layers) {
       if (window.DataModule?.layerData?.[name]) {
-        try { window.DataModule.createGeoJsonLayer(name, window.DataModule.layerData[name]); } catch (_) {}
+        try { window.DataModule.createGeoJsonLayer(name, window.DataModule.layerData[name]); } catch (e) { console.warn('[nav] createGeoJsonLayer failed:', e); }
       }
     }
 
@@ -374,7 +372,7 @@ const NavigationModule = (() => {
   try {
     const mlMap = window.MapModule?.map?._mlMap;
     if (mlMap?.stop) mlMap.stop();
-  } catch (_) {}
+  } catch (e) { console.debug('[nav] stop map animation failed:', e); }
 
   // Hide NavPanel if open — preserve state so it can be restored on back
   window.NavPanel?.collapse();
@@ -388,7 +386,7 @@ const NavigationModule = (() => {
     if (mlMap && typeof mlMap.jumpTo === 'function') {
       mlMap.jumpTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 } });
     }
-  } catch (_) {}
+  } catch (e) { console.debug('[nav] reset map padding failed:', e); }
 
   const resolveAssetUrl = (u) => {
     try {
@@ -398,11 +396,11 @@ const NavigationModule = (() => {
         return '.' + u;
       }
       if (u.startsWith('/')) {
-        const baseDir = location.pathname.replace(/[^\/]*$/, '');
+        const baseDir = location.pathname.replace(/[^/]*$/, '');
         return (baseDir.endsWith('/') ? baseDir.slice(0, -1) : baseDir) + u;
       }
       return u;
-    } catch(_) { return u; }
+    } catch (e) { console.debug('[nav] resolveAssetUrl failed:', e); return u; }
   };
 
   const panel = document.getElementById('project-detail');
@@ -464,14 +462,12 @@ const NavigationModule = (() => {
     let markdown_url = contributionProject.markdown_url;
 
     let markdown = null;
-    let usedContribution = false;
 
     if (markdown_url) {
       try {
         const response = await fetch(markdown_url);
         if (response.ok) {
           markdown = await response.text();
-          usedContribution = true;
         }
       } catch (error) {
         console.warn('[NavigationModule] Error fetching markdown:', error);
@@ -503,7 +499,7 @@ const NavigationModule = (() => {
         const img = doc.querySelector('img');
         const src = img?.getAttribute('src') || img?.getAttribute('data-src');
         return src || null;
-      } catch(_) { return null; }
+      } catch (e) { console.debug('[nav] extractFirstImageSrc failed:', e); return null; }
     };
 
     // Utiliser les données de contribution_uploads en priorité
@@ -592,7 +588,7 @@ const NavigationModule = (() => {
           layer.setOpacity(1);
         }
       });
-    } catch (_) { /* noop */ }
+    } catch (e) { console.warn('[nav] restoreAllLayerOpacity failed:', e); }
   }
 
   /**
@@ -621,7 +617,7 @@ const NavigationModule = (() => {
       try {
         const mlMap = window.MapModule?.map?._mlMap;
         if (mlMap?.easeTo) mlMap.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, duration: 300 });
-      } catch (_) {}
+      } catch (e) { console.debug('[nav] reset padding failed:', e); }
     }
 
     restoreAllLayerOpacity();
@@ -633,7 +629,7 @@ const NavigationModule = (() => {
       await showCategoryLayers(category);
 
       if (updateHistory) {
-        try { history.pushState({ cat: category }, '', `${location.pathname}?cat=${encodeURIComponent(category)}`); } catch (_) {}
+        try { history.pushState({ cat: category }, '', `${location.pathname}?cat=${encodeURIComponent(category)}`); } catch (e) { console.debug('[nav] pushState failed:', e); }
       }
       return;
     }
@@ -658,7 +654,7 @@ const NavigationModule = (() => {
         if (window.DataModule?.layerData?.[name]) {
           window.DataModule.createGeoJsonLayer(name, window.DataModule.layerData[name]);
         }
-      } catch (_) {}
+      } catch (e) { console.warn('[nav] restore layer failed:', e); }
     }
 
     if (!preserveMapView) window.NavigationModule?.zoomOutOnLoadedLayers?.();
@@ -667,7 +663,7 @@ const NavigationModule = (() => {
     window.UIModule?.updateLayerControls?.();
 
     if (updateHistory) {
-      try { history.pushState(null, '', location.pathname); } catch (_) {}
+      try { history.pushState(null, '', location.pathname); } catch (e) { console.debug('[nav] pushState failed:', e); }
     }
   }
 

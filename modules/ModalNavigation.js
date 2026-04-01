@@ -1,14 +1,3 @@
-// ===========================================================================
-// MODAL NAVIGATION - Système de navigation unifié pour modales
-//
-// Gère la navigation entre panels avec :
-// - Breadcrumb dynamique
-// - Historique de navigation
-// - Bouton retour
-// - Transitions entre panels
-// - État persistent
-// ===========================================================================
-
 (function(window) {
   'use strict';
 

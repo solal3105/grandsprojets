@@ -4,9 +4,7 @@
 ;(function(win) {
   'use strict';
 
-  // ============================================================================
   // STRING UTILITIES
-  // ============================================================================
 
   /**
    * Convertit une chaîne en slug (URL-friendly)
@@ -24,9 +22,7 @@
 
   const escapeHtml = window.SecurityUtils.escapeHtml;
 
-  // ============================================================================
   // URL & PATH UTILITIES
-  // ============================================================================
 
   /**
    * Extrait le chemin relatif de stockage depuis une URL publique Supabase
@@ -42,21 +38,19 @@
         // fallback to basename
         try { 
           return new URL(url, win.location.href).pathname.split('/').slice(-1)[0] || url; 
-        } catch (_) { 
+        } catch { 
           return String(url); 
         }
       }
       const after = url.slice(i + marker.length); // e.g., 'uploads/geojson/...'
       const prefix = 'uploads/';
       return after.startsWith(prefix) ? after.slice(prefix.length) : after;
-    } catch (_) {
+    } catch {
       return null;
     }
   }
 
-  // ============================================================================
   // FILE UTILITIES
-  // ============================================================================
 
   /**
    * Formate une taille de fichier en octets en format lisible
@@ -71,9 +65,7 @@
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   }
 
-  // ============================================================================
   // TOAST NOTIFICATIONS
-  // ============================================================================
 
   /**
    * Affiche une notification toast accessible
@@ -90,9 +82,7 @@
   }
 
 
-  // ============================================================================
   // VALIDATION UTILITIES
-  // ============================================================================
 
   /**
    * Valide une URL
@@ -103,7 +93,7 @@
     try {
       new URL(str);
       return true;
-    } catch (_) {
+    } catch {
       return false;
     }
   }
@@ -180,9 +170,7 @@
     return { type: 'FeatureCollection', features: [] };
   }
 
-  // ============================================================================
   // PERMISSIONS UTILITIES
-  // ============================================================================
 
   /**
    * Filtre les villes selon les permissions de l'utilisateur
@@ -204,9 +192,7 @@
     return [];
   }
 
-  // ============================================================================
   // AUTH UTILITIES
-  // ============================================================================
 
   /**
    * Vérifie la session avec refresh + timeout.
@@ -230,15 +216,13 @@
         return null;
       }
       return session;
-    } catch (_) {
+    } catch {
       win.location.href = '/login/';
       return null;
     }
   }
 
-  // ============================================================================
   // CITY SELECT UTILITIES
-  // ============================================================================
 
   /**
    * Remplit un <select> avec les villes autorisées pour l'utilisateur.
@@ -258,10 +242,10 @@
         if (typeof win.supabaseService.getValidCities === 'function') {
           cities = await win.supabaseService.getValidCities();
         }
-      } catch (_) { /* ignore */ }
+      } catch (e) { console.warn('[contrib-utils] getValidCities:', e); }
 
       if ((!Array.isArray(cities) || !cities.length) && typeof win.supabaseService.listCities === 'function') {
-        try { cities = await win.supabaseService.listCities(); } catch (_) { /* ignore */ }
+        try { cities = await win.supabaseService.listCities(); } catch (e) { console.warn('[contrib-utils] listCities:', e); }
       }
 
       const filtered = filterCitiesByPermissions(cities);
@@ -289,9 +273,7 @@
     }
   }
 
-  // ============================================================================
   // CONFIRM MODAL UTILITY
-  // ============================================================================
 
   /**
    * Crée et ouvre une modale de confirmation générique.
@@ -320,7 +302,7 @@
         if (resolved) return;
         resolved = true;
         win.ModalHelper?.close(id);
-        setTimeout(() => { try { overlay.remove(); } catch (_) {} }, 250);
+        setTimeout(() => { try { overlay.remove(); } catch (e) { console.debug('[contrib-utils] DOM cleanup:', e); } }, 250);
         resolve(!!result);
       };
 
@@ -386,13 +368,11 @@
         onClose: () => close(false)
       });
 
-      setTimeout(() => { try { cancelBtn.focus(); } catch (_) {} }, 100);
+      setTimeout(() => { try { cancelBtn.focus(); } catch (e) { console.debug('[contrib-utils] focus management:', e); } }, 100);
     });
   }
 
-  // ============================================================================
   // EXPORTS
-  // ============================================================================
 
   win.ContribUtils = {
     // String utilities

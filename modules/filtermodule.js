@@ -1,4 +1,5 @@
 // modules/FilterModule.js
+// eslint-disable-next-line no-unused-vars
 const FilterModule = (() => {
   const filters = {};
 

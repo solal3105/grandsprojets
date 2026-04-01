@@ -117,7 +117,7 @@ window.ModalHelper = (() => {
         try {
           previousFocus.focus();
         } catch (e) {
-          // Ignore si l'élément n'est plus focusable
+          console.debug('[modal] focus restore failed:', e);
         }
       }
       
@@ -278,18 +278,3 @@ window.ModalHelper = (() => {
     setLoading
   };
 })();
-
-// ===========================================================================
-// EXEMPLES D'UTILISATION
-// ===========================================================================
-// 
-// ModalHelper.open('my-modal');
-// ModalHelper.open('my-modal', {
-//   dismissible: true,
-//   lockScroll: true,
-//   onOpen: () => console.log('Modale ouverte'),
-//   onClose: () => console.log('Modale fermée')
-// });
-// ModalHelper.close('my-modal');
-// ModalHelper.animate('my-modal', 'shake');
-// ModalHelper.setLoading('my-modal', true);

@@ -4,15 +4,11 @@
 ;(function(win) {
   'use strict';
 
-  // ============================================================================
   // STATE
-  // ============================================================================
 
   let currentEditId = null;
 
-  // ============================================================================
   // FORM PREFILL
-  // ============================================================================
 
   /**
    * Remplit le formulaire avec les données d'une contribution
@@ -35,7 +31,7 @@
         if (descEl) descEl.value = '';
         if (mdEl) mdEl.value = '';
         if (officialInput) officialInput.value = '';
-      } catch(_) {}
+      } catch (e) { console.debug('[contrib-form] field reset:', e); }
       return;
     }
 
@@ -47,7 +43,7 @@
       if (metaEl && row.meta) metaEl.value = row.meta;
       if (descEl && row.description) descEl.value = row.description;
       if (officialInput && row.official_url) officialInput.value = row.official_url;
-    } catch(_) {}
+    } catch (e) { console.warn('[contrib-form] field reset:', e); }
 
     // Try fetching markdown content
     if (mdEl) {
@@ -59,7 +55,7 @@
             const txt = await r.text();
             if (typeof txt === 'string') mdEl.value = txt;
           }
-        } catch (_) { /* non-bloquant */ }
+        } catch (e) { console.warn('[contrib-form] fetch:', e); }
       }
     }
 
@@ -70,9 +66,7 @@
     }
   }
 
-  // ============================================================================
   // EDIT MODE
-  // ============================================================================
 
   /**
    * Entre en mode édition
@@ -101,7 +95,7 @@
     
     // Start at step 1
     if (onSetStep) {
-      try { onSetStep(1, { force: true }); } catch(_) {}
+      try { onSetStep(1, { force: true }); } catch (e) { console.debug('[contrib-form] step navigation:', e); }
     }
   }
 
@@ -120,7 +114,7 @@
       win.ContribGeometry.clearEditGeojsonUrl();
     }
     
-    try { form.reset(); } catch(_) {}
+    try { form.reset(); } catch (e) { console.warn('[contrib-form] form reset:', e); }
     
     if (onSetEditUI) {
       onSetEditUI(false);
@@ -131,7 +125,7 @@
     }
     
     if (win.ContribGeometry?.clearAllDrawings) {
-      try { win.ContribGeometry.clearAllDrawings(); } catch(_) {}
+      try { win.ContribGeometry.clearAllDrawings(); } catch (e) { console.debug('[contrib-form] drawing cleanup:', e); }
     }
     
     if (win.ContribGeometry?.setGeomMode) {
@@ -143,11 +137,11 @@
         geomCardDraw: elements.geomCardDraw,
         fileInput: document.getElementById('contrib-geojson')
       };
-      try { win.ContribGeometry.setGeomMode('file', geomElements); } catch(_) {}
+      try { win.ContribGeometry.setGeomMode('file', geomElements); } catch (e) { console.warn('[contrib-form] geom mode change:', e); }
     }
     
     if (onClearExistingDossiers) {
-      try { onClearExistingDossiers(); } catch(_) {}
+      try { onClearExistingDossiers(); } catch (e) { console.warn('[contrib-form] geom mode change:', e); }
     }
   }
 
@@ -167,9 +161,7 @@
     currentEditId = id;
   }
 
-  // ============================================================================
   // GEOJSON HELPERS
-  // ============================================================================
 
   /**
    * Parse et normalise un fichier GeoJSON
@@ -210,9 +202,7 @@
     return win.ContribUtils.normalizeToFeatureCollection(geojson);
   }
 
-  // ============================================================================
   // FORM SUBMISSION
-  // ============================================================================
 
   /**
    * Gère la soumission du formulaire
@@ -311,7 +301,7 @@
             if (win.ContribUtils?.slugify) {
               try { 
                 fileForUpload = new File([blob], `${win.ContribUtils.slugify(projectName)}.geojson`, { type: 'application/geo+json' }); 
-              } catch (_) { 
+              } catch { 
                 fileForUpload = blob; 
               }
             } else {
@@ -341,13 +331,13 @@
             if (win.ContribUtils?.slugify) {
               try { 
                 fileForUpload = new File([blob], `${win.ContribUtils.slugify(projectName)}.geojson`, { type: 'application/geo+json' }); 
-              } catch (_) { 
+              } catch { 
                 fileForUpload = blob; 
               }
             } else {
               fileForUpload = blob;
             }
-          } catch (gerr) {
+          } catch {
             if (onSetStatus) onSetStatus('Impossible de convertir le dessin en GeoJSON.', 'error');
             return;
           }
@@ -364,7 +354,7 @@
 
     if (onSetStatus) onSetStatus('Envoi en cours…');
     if (submitBtn) submitBtn.disabled = true;
-    try { if (form) form.setAttribute('aria-busy', 'true'); } catch(_) {}
+    try { if (form) form.setAttribute('aria-busy', 'true'); } catch (e) { console.warn('[contrib-form] form reset:', e); }
 
     // Désactiver la redirection automatique pendant l'upload
     const previousRedirectState = win.__DISABLE_CITY_REDIRECT;
@@ -509,7 +499,7 @@
           window.dispatchEvent(new CustomEvent('contribution:updated', { 
             detail: { id: rowId, project_name: projectName, category } 
           })); 
-        } catch(_) {}
+        } catch (e) { console.warn('[contrib-form] event dispatch:', e); }
         
         // Exit edit mode - réinitialiser currentEditId
         currentEditId = null;
@@ -526,13 +516,13 @@
           window.dispatchEvent(new CustomEvent('contribution:created', { 
             detail: { id: rowId, project_name: projectName, category } 
           })); 
-        } catch(_) {}
+        } catch (e) { console.warn('[contrib-form] event dispatch:', e); }
         
-        try { form.reset(); } catch(_) {}
+        try { form.reset(); } catch (e) { console.warn('[contrib-form] event dispatch:', e); }
         
         // Clean drawing state
         if (win.ContribGeometry?.clearAllDrawings) {
-          try { win.ContribGeometry.clearAllDrawings(); } catch(_) {}
+          try { win.ContribGeometry.clearAllDrawings(); } catch (e) { console.warn('[contrib-form] form reset:', e); }
         }
         if (win.ContribGeometry?.setGeomMode) {
           const geomElements = {
@@ -543,7 +533,7 @@
             geomCardDraw: elements.geomCardDraw,
             fileInput: document.getElementById('contrib-geojson')
           };
-          try { win.ContribGeometry.setGeomMode('file', geomElements); } catch(_) {}
+          try { win.ContribGeometry.setGeomMode('file', geomElements); } catch (e) { console.debug('[contrib-form] geom mode change:', e); }
         }
         
         // Vérifier si on est dans le panel liste (contrib-panel-list existe et est visible)
@@ -573,7 +563,7 @@
         } else {
           // Si on n'est pas dans le panel liste, fermer la modale principale
           if (onCloseContrib) {
-            setTimeout(() => { try { onCloseContrib(); } catch(_) {} }, 900);
+            setTimeout(() => { try { onCloseContrib(); } catch (e) { console.debug('[contrib-form] modal close:', e); } }, 900);
           }
         }
       }
@@ -586,13 +576,11 @@
       win.__DISABLE_CITY_REDIRECT = previousRedirectState;
       
       if (submitBtn) submitBtn.disabled = false;
-      try { if (form) form.removeAttribute('aria-busy'); } catch(_) {}
+      try { if (form) form.removeAttribute('aria-busy'); } catch (e) { console.warn('[contrib-form] form reset:', e); }
     }
   }
 
-  // ============================================================================
   // EXPORTS
-  // ============================================================================
 
   win.ContribForm = {
     // Form prefill

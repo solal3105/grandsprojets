@@ -4,10 +4,6 @@
 ;(function(win) {
   'use strict';
 
-  // ============================================================================
-  // SECTION 1 : STYLES PERSONNALISÉS PAR COUCHE
-  // ============================================================================
-
   /**
    * Applique des styles personnalisés selon le type de couche et les propriétés de la feature
    * @param {Object} feature - Feature GeoJSON
@@ -107,16 +103,12 @@
       const pct = TM.calcProgress(properties.date_debut, properties.date_fin);
       const idx = Math.round((pct / 100) * (TRAVAUX_PROGRESS_SCALE.length - 1));
       return { ...baseStyle, color: TRAVAUX_PROGRESS_SCALE[idx] };
-    } catch (_) {
+    } catch (e) {
+      console.debug('[layerstyles] travaux progress color fallback:', e);
       return baseStyle;
     }
   }
 
-  // ============================================================================
-  // EXPORTS
-  // ============================================================================
-
-  // Exposer les fonctions publiques
   win.LayerStyles = {
     applyCustomLayerStyle
   };

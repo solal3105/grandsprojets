@@ -1,8 +1,3 @@
-/* ============================================================================
-   ADMIN API — Thin async wrappers around window.supabaseService
-   All methods require store.city to be set
-   ============================================================================ */
-
 import { store } from './store.js';
 
 function svc() {
@@ -20,8 +15,6 @@ function requireCity() {
   if (!city) throw new Error('Aucune structure sélectionnée');
   return city;
 }
-
-/* ── Contributions ── */
 
 export async function listContributions({ search, category, page = 1, pageSize = 20, mineOnly = false, sortBy = 'created_at', sortDir = 'desc' } = {}) {
   return svc().listContributions({ search, category, page, pageSize, mineOnly, sortBy, sortDir, city: requireCity() });
@@ -47,8 +40,6 @@ export async function createContributionRow(projectName, category, meta, descrip
   return svc().createContributionRow(projectName, category, requireCity(), meta, description, officialUrl, tags);
 }
 
-/* ── Upload ── */
-
 export async function uploadGeoJSON(file, category, projectName, rowId) {
   return svc().uploadGeoJSONToStorage(file, category, projectName, rowId);
 }
@@ -69,8 +60,6 @@ export async function uploadArticleImage(file, category, projectName) {
   return svc().uploadArticleImageToStorage(file, category, projectName);
 }
 
-/* ── Categories ── */
-
 export async function getCategories() {
   return svc().getCategoryIconsByCity(requireCity());
 }
@@ -86,8 +75,6 @@ export async function updateCategory(originalName, updates) {
 export async function deleteCategory(categoryName) {
   return svc().deleteCategoryIcon(requireCity(), categoryName);
 }
-
-/* ── Users ── */
 
 export async function getUsers() {
   const allUsers = await svc().getVisibleUsers();
@@ -107,8 +94,6 @@ export async function inviteUser(email, role) {
   const villes = [requireCity()];
   return svc().inviteUser(email, villes, role);
 }
-
-/* ── Travaux ── */
 
 export async function getTravaux({ adminMode = true } = {}) {
   return svc().fetchCityTravaux(requireCity(), { adminMode });
@@ -142,8 +127,6 @@ export async function updateTravauxConfig(config) {
   return svc().updateTravauxConfig(requireCity(), config);
 }
 
-/* ── Branding / Structure ── */
-
 export async function getBranding() {
   return svc().getCityBranding(requireCity());
 }
@@ -159,8 +142,6 @@ export async function uploadBrandingAsset(file, type) {
 export async function getAvailableCities() {
   return svc().getAvailableCities();
 }
-
-/* ── Villes (global admin) ── */
 
 export async function getAllCities() {
   return svc().getAllCitiesForManagement();
@@ -178,8 +159,6 @@ export async function deleteCity(ville) {
   return svc().deleteCity(ville);
 }
 
-/* ── Layers (for categories panel) ── */
-
 export async function getLayers() {
   const c = client();
   if (!c) return [];
@@ -193,8 +172,6 @@ export async function getLayers() {
   return data || [];
 }
 
-/* ── Pending count (for nav badge) ── */
-
 export async function getPendingCount() {
   const city = requireCity();
   const c = client();
@@ -206,8 +183,6 @@ export async function getPendingCount() {
     .eq('approved', false);
   return count ?? 0;
 }
-
-/* ── Consultation dossiers ── */
 
 export async function getConsultationDossiers(projectName) {
   return svc().getConsultationDossiersByProject(projectName);

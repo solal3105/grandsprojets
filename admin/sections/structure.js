@@ -1,8 +1,3 @@
-/* ============================================================================
-   STRUCTURE SECTION — Branding, toggles, basemap, enabled cities
-   Redesigned to use the cw-* design system (shared with contributions/travaux)
-   ============================================================================ */
-
 import { store } from '../store.js';
 import * as api from '../api.js';
 import { toast, esc, skeletonTable } from '../components/ui.js';
@@ -26,7 +21,6 @@ const ALL_TOGGLES = [
   { key: 'mode3d',   icon: 'fa-cube',           label: 'Mode 3D',           desc: 'Active le relief et les bâtiments 3D sur la carte' },
 ];
 
-/* ── State ── */
 let _currentCities = [];
 let _logoFile = null;       // File objects for drag-drop
 let _darkLogoFile = null;
@@ -47,7 +41,6 @@ export async function renderStructure(container) {
   }
 }
 
-/* ── Fetch basemaps ── */
 async function _fetchBasemaps() {
   try {
     if (window.basemaps && window.basemaps.length) return window.basemaps;
@@ -57,12 +50,8 @@ async function _fetchBasemaps() {
       return bm || [];
     }
     return [];
-  } catch { return []; }
+  } catch (e) { console.warn('[admin-structure] fetchBasemaps', e); return []; }
 }
-
-/* ============================================================================
-   RENDER
-   ============================================================================ */
 
 function _renderContent(container, branding, basemaps) {
   const color = branding.primary_color || DEFAULT_COLOR;
@@ -276,10 +265,6 @@ function _renderContent(container, branding, basemaps) {
   _bindSave(container);
 }
 
-/* ============================================================================
-   LOGO DROP ZONES — reusable HTML helper
-   ============================================================================ */
-
 function _logoDropzoneHTML(prefix, existingUrl, label, small = false) {
   const hasUrl = !!existingUrl;
   const isDark = label.toLowerCase().includes('sombre');
@@ -309,10 +294,6 @@ function _logoDropzoneHTML(prefix, existingUrl, label, small = false) {
     </div>`;
 }
 
-/* ============================================================================
-   CITY CHIP HTML
-   ============================================================================ */
-
 function _cityChipHTML(c) {
   return `<span class="st-city-chip">
     <span>${esc(c)}</span>
@@ -322,11 +303,6 @@ function _cityChipHTML(c) {
   </span>`;
 }
 
-/* ============================================================================
-   BINDINGS
-   ============================================================================ */
-
-/* ── Color ── */
 function _bindColorSync(container) {
   const picker = container.querySelector('#st-color-picker');
   const text = container.querySelector('#st-color-text');
@@ -351,7 +327,6 @@ function _bindColorSync(container) {
   });
 }
 
-/* ── Toggle rows ── */
 function _bindToggleRows(container) {
   container.querySelectorAll('.st-toggle-row:not(.st-toggle-row--disabled)').forEach(row => {
     const cb = row.querySelector('input[type="checkbox"]');
@@ -363,7 +338,6 @@ function _bindToggleRows(container) {
   });
 }
 
-/* ── Logo drop zones ── */
 function _bindLogoDropzones(container) {
   const bindings = [
     { prefix: 'st-logo',      fileRef: () => _logoFile,      setRef: f => { _logoFile = f; } },
@@ -427,7 +401,6 @@ function _setLogoFile(file, prefix, setRef, dropArea, previewEl, imgEl, hiddenUr
   if (dropArea) dropArea.hidden = true;
 }
 
-/* ── Cities ── */
 function _bindCitiesList(container) {
   const citiesEl = container.querySelector('#st-enabled-cities');
   const addInput = container.querySelector('#st-add-city-input');
@@ -463,10 +436,6 @@ function _rerenderCities(container) {
     ? _currentCities.map(c => _cityChipHTML(c)).join('')
     : '<span class="st-cities-empty">Aucun espace configuré</span>';
 }
-
-/* ============================================================================
-   SAVE
-   ============================================================================ */
 
 function _bindSave(container) {
   container.querySelector('#st-save-all')?.addEventListener('click', () => _doSave(container));

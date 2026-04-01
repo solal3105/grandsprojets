@@ -116,7 +116,6 @@
      */
     renderBasemapSelector() {
       const select = document.getElementById('branding-basemap-select');
-      const preview = document.getElementById('branding-basemap-preview');
       if (!select) return;
 
       // Récupérer les basemaps disponibles

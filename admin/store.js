@@ -1,8 +1,3 @@
-/* ============================================================================
-   ADMIN STORE — Central state for auth, roles, and city context
-   Single source of truth (replaces window.__CONTRIB_* globals)
-   ============================================================================ */
-
 let _session = null;
 let _profile = null;
 let _city = null;
@@ -15,15 +10,14 @@ function _notify() {
 }
 
 function _persistCity(code) {
-  try { localStorage.setItem('adm-selected-city', code); } catch (_) {}
+  try { localStorage.setItem('adm-selected-city', code); } catch (e) { console.debug('[admin-store] persistCity', e); }
 }
 
 function _loadCity() {
-  try { return localStorage.getItem('adm-selected-city') || null; } catch (_) { return null; }
+  try { return localStorage.getItem('adm-selected-city') || null; } catch (e) { console.debug('[admin-store] loadCity', e); return null; }
 }
 
 export const store = {
-  /* ── Getters ── */
   get session()      { return _session; },
   get user()         { return _session?.user ?? null; },
   get profile()      { return _profile; },
@@ -36,7 +30,6 @@ export const store = {
 
   get authenticated(){ return !!_session?.user; },
 
-  /* ── City management ── */
   setCity(code) {
     if (!code || _city === code) return;
     _city = code;
@@ -44,7 +37,6 @@ export const store = {
     _notify();
   },
 
-  /* ── Init: load session + profile from Supabase ── */
   async init() {
     const AuthModule = window.AuthModule;
     if (!AuthModule) throw new Error('AuthModule not loaded');
@@ -98,7 +90,6 @@ export const store = {
     return true;
   },
 
-  /* ── Subscribe to state changes ── */
   subscribe(fn) {
     _listeners.push(fn);
     return () => { _listeners = _listeners.filter(f => f !== fn); };

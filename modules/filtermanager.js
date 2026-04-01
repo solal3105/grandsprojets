@@ -20,7 +20,7 @@
             ? JSON.parse(catData.category_styles)
             : catData.category_styles;
           if (styles.color) el.style.setProperty('--item-color', styles.color);
-        } catch (_) {}
+        } catch (e) { console.debug('[filter] category_styles parse error:', e); }
       }
 
       const icon = iconClass ? (win.normalizeIconClass?.(iconClass) || iconClass) : '';

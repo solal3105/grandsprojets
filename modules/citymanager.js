@@ -10,23 +10,25 @@
     _cityMenuOpen: false,
     _cityMenuDocHandler: null,
 
-    // ==================== Helpers de validation ====================
+    // Helpers de validation
 
     isValidCity(city) {
       try { 
         return this.VALID_CITIES.has(String(city || '').toLowerCase()); 
-      } catch (_) { 
+      } catch (e) { 
+        console.debug('[citymanager] isValidCity failed:', e);
         return false; 
       }
     },
 
-    // ==================== Détection de ville ====================
+    // Détection de ville
 
     getRawCityFromPath(pathname) {
       try {
         const path = String(pathname || location.pathname || '').toLowerCase();
         return path.split('?')[0].split('#')[0].split('/').filter(Boolean)[0] || '';
-      } catch (_) { 
+      } catch (e) { 
+        console.debug('[citymanager] getRawCityFromPath failed:', e);
         return ''; 
       }
     },
@@ -36,12 +38,13 @@
       return this.isValidCity(raw) ? raw : '';
     },
 
-    getCityFromQuery(defaultCity = '') {
+    getCityFromQuery(_defaultCity = '') {
       try {
         const sp = new URLSearchParams(location.search);
         const raw = String(sp.get('city') || '').toLowerCase().trim();
         return this.isValidCity(raw) ? raw : '';
-      } catch (_) {
+      } catch (e) {
+        console.debug('[citymanager] getCityFromQuery failed:', e);
         return '';
       }
     },
@@ -51,24 +54,26 @@
         const sp = new URLSearchParams(location.search);
         const raw = String(sp.get('city') || '').toLowerCase().trim();
         return raw;
-      } catch (_) { 
+      } catch (e) { 
+        console.debug('[citymanager] getRawCityFromQueryParam failed:', e);
         return ''; 
       }
     },
 
-    // ==================== Persistance ====================
+    // Persistance
 
     persistCity(city) {
       try { 
         if (this.isValidCity(city)) localStorage.setItem('activeCity', city); 
-      } catch (_) {}
+      } catch (e) { console.debug('[citymanager] persistCity failed:', e); }
     },
 
     restoreCity() {
       try {
         const v = localStorage.getItem('activeCity');
         return this.isValidCity(v) ? v : '';
-      } catch (_) { 
+      } catch (e) { 
+        console.debug('[citymanager] restoreCity failed:', e);
         return ''; 
       }
     },
@@ -76,10 +81,10 @@
     clearPersistedCity() {
       try { 
         localStorage.removeItem('activeCity'); 
-      } catch (_) {}
+      } catch (e) { console.debug('[citymanager] clearPersistedCity failed:', e); }
     },
 
-    // ==================== Chargement des villes valides ====================
+    // Chargement des villes valides
 
     async loadValidCities() {
       try {
@@ -88,7 +93,7 @@
         if (Array.isArray(list) && list.length) {
           this.VALID_CITIES = new Set(list.map(v => String(v || '').toLowerCase().trim()).filter(Boolean));
         }
-      } catch (_) { /* keep fallback */ }
+      } catch (e) { console.debug('[citymanager] loadValidCities failed:', e); }
     },
 
     getDefaultCity() {
@@ -107,7 +112,7 @@
       return 'metropole-lyon';
     },
 
-    // ==================== Branding (logos, favicon) ====================
+    // Branding (logos, favicon)
 
     selectLogoForTheme(branding, theme) {
       if (!branding) return null;
@@ -125,7 +130,7 @@
           document.head.appendChild(link);
         }
         link.href = href;
-      } catch (_) {}
+      } catch (e) { console.debug('[citymanager] applyFavicon failed:', e); }
     },
 
     async updateLogoForCity(city) {
@@ -172,10 +177,10 @@
 
         // Favicon
         if (branding.favicon_url) this.applyFavicon(branding.favicon_url);
-      } catch (_) { /* noop */ }
+      } catch (e) { console.warn('[citymanager] updateLogoForCity failed:', e); }
     },
 
-    applyCityInitialView(city) {
+    applyCityInitialView(_city) {
       try {
         const branding = win._cityBranding || null;
         const hasCoords = branding && typeof branding.center_lat === 'number' && typeof branding.center_lng === 'number';
@@ -187,10 +192,10 @@
         if (window.MapModule?.map?.setView) {
           window.MapModule.map.setView(center, zoom);
         }
-      } catch (_) { /* noop */ }
+      } catch (e) { console.debug('[citymanager] applyCityInitialView failed:', e); }
     },
 
-    // ==================== UI du sélecteur de ville ====================
+    // UI du sélecteur de ville
 
     async getCityBrandingSafe(ville) {
       const key = String(ville || '').toLowerCase();
@@ -207,7 +212,8 @@
         } : null;
         this.CITY_BRANDING_CACHE.set(key, minimal);
         return minimal;
-      } catch(e) {
+      } catch (e) {
+        console.debug('[citymanager] getCityBrandingSafe failed:', e);
         this.CITY_BRANDING_CACHE.set(key, null);
         return null;
       }
@@ -225,12 +231,13 @@
       try {
         const data = await (win.supabaseService?.getCityBranding ? win.supabaseService.getCityBranding(key) : null);
         return data || null;
-      } catch(e) {
+      } catch (e) {
+        console.debug('[citymanager] getFullBrandingSafe failed:', e);
         return null;
       }
     },
 
-    // ==================== Menu de sélection d'espace ====================
+    // Menu de sélection d'espace
 
     /**
      * Peuple le menu de sélection d'espace avec les villes de enabled_cities

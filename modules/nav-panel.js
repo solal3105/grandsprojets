@@ -28,9 +28,7 @@
     _sidebar: null,
     _resizeObserver: null,
 
-    /* ──────────────────────────────────────────────────────────────────── */
-    /*  INIT                                                               */
-    /* ──────────────────────────────────────────────────────────────────── */
+    // INIT
 
     init() {
       this._panel = document.getElementById('nav-panel');
@@ -149,9 +147,7 @@
       handle.addEventListener('pointercancel', onRelease);
     },
 
-    /* ──────────────────────────────────────────────────────────────────── */
-    /*  PUBLIC API                                                         */
-    /* ──────────────────────────────────────────────────────────────────── */
+    // PUBLIC API
 
     /**
      * Open panel at Level 2 for a module
@@ -423,9 +419,7 @@
       this._panel.classList.add('taller');
     },
 
-    /* ──────────────────────────────────────────────────────────────────── */
-    /*  LEVEL 2 RENDERERS                                                  */
-    /* ──────────────────────────────────────────────────────────────────── */
+    // LEVEL 2 RENDERERS
 
     _renderCarteLevel2() {
       const categoryIcons = win.categoryIcons || [];
@@ -450,7 +444,7 @@
             const styles = typeof category_styles === 'string'
               ? JSON.parse(category_styles) : category_styles;
             color = styles.color;
-          } catch (_) {}
+          } catch (e) { console.debug('[nav-panel] parse category_styles failed:', e); }
         }
         const colorStyle = color ? `style="--item-color: ${color}"` : '';
         const displayLabel = label || category;
@@ -601,12 +595,10 @@
         if (arrow && !btn.querySelector('.np-l2-badge')) {
           arrow.insertAdjacentHTML('beforebegin', `<span class="np-l2-badge">${pending.length}</span>`);
         }
-      } catch (_) {}
+      } catch (e) { console.warn('[nav-panel] injectPendingBadge failed:', e); }
     },
 
-    /* ──────────────────────────────────────────────────────────────────── */
-    /*  LEVEL 3 RENDERERS                                                  */
-    /* ──────────────────────────────────────────────────────────────────── */
+    // LEVEL 3 RENDERERS
 
     async _renderCarteLevel3(category, opts, navToken) {
       // Reuse the skeleton project-list already rendered by openLevel3 if possible
@@ -668,7 +660,7 @@
       const hasData = win.DataModule?.layerData?.[LAYER]?.features?.length > 0;
       if (!hasData) {
         // Skeleton is already showing from openLevel3 — just silently wait for data
-        try { await win.DataModule?.loadLayer(LAYER); } catch (_) {}
+        try { await win.DataModule?.loadLayer(LAYER); } catch (e) { console.warn('[nav-panel] loadLayer failed:', e); }
         // Re-guard after second async
         if (navToken !== this._navToken) return;
       }
@@ -702,9 +694,7 @@
       }
     },
 
-    /* ──────────────────────────────────────────────────────────────────── */
-    /*  PROJECT CARD BUILDER                                                */
-    /* ──────────────────────────────────────────────────────────────────── */
+    // PROJECT CARD BUILDER
 
     _createProjectCard(project, category, color) {
       const HOVER_PAN_DELAY = 400; // ms d'intention avant de déplacer la caméra
@@ -721,7 +711,7 @@
           const styles = typeof categoryIcon.category_styles === 'string'
             ? JSON.parse(categoryIcon.category_styles) : categoryIcon.category_styles;
           categoryColor = styles.color || styles.fillColor;
-        } catch (_) {}
+        } catch (e) { console.debug('[nav-panel] parse category_styles failed:', e); }
       }
 
       const li = document.createElement('li');
@@ -773,9 +763,7 @@
       return li;
     },
 
-    /* ──────────────────────────────────────────────────────────────────── */
-    /*  LAYER MANAGEMENT                                                   */
-    /* ──────────────────────────────────────────────────────────────────── */
+    // LAYER MANAGEMENT
 
     async _loadTravauxLayers() {
       const layersMap = win.categoryLayersMap || {};
@@ -808,7 +796,7 @@
 
         for (const name of travauxLayers) {
           if (win.DataModule?.layerData?.[name]) {
-            try { win.DataModule.createGeoJsonLayer(name, win.DataModule.layerData[name]); } catch (_) {}
+            try { win.DataModule.createGeoJsonLayer(name, win.DataModule.layerData[name]); } catch (e) { console.warn('[nav-panel] createGeoJsonLayer failed:', e); }
           }
         }
       };
@@ -824,7 +812,7 @@
       }
     },
 
-    /* ── Skeleton / loading helpers ─────────────────────────────────── */
+    // Skeleton / loading helpers
 
     /** HTML for n skeleton rows (mimics .nav-panel__item) */
     _skeletonL2Items(count = 3) {
@@ -910,9 +898,7 @@
       });
     },
 
-    /* ──────────────────────────────────────────────────────────────────── */
-    /*  UI HELPERS                                                         */
-    /* ──────────────────────────────────────────────────────────────────── */
+    // UI HELPERS
 
     _setLevel(level) {
       this._level = level;
@@ -953,7 +939,7 @@
           const panelW   = open ? (this._panel?.offsetWidth || 0) : 0;
           mlMap.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: sidebarW + panelW }, duration: 300 });
         }
-      } catch (_) {}
+      } catch (e) { console.debug('[nav-panel] updateMapPadding failed:', e); }
     }
   };
 

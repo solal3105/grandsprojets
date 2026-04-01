@@ -1,7 +1,7 @@
 // modules/UIModule.js
 // Module de gestion de l'interface utilisateur : filtres et basemap rendering
 // Note: Popup open/close is handled by ToggleManager (unified toggle dock system)
-(function(window, document, DataModule, FilterModule, MapModule) {
+(function(window, document) {
 
   // DOM element references (set during init)
   let basemapMenuEl = null;
@@ -300,4 +300,4 @@
 
   // Publication globale
   window.UIModule = UIModule;
-})(window, document, DataModule, FilterModule, MapModule);
+})(window, document);

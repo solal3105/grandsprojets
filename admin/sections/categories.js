@@ -1,7 +1,3 @@
-/* ============================================================================
-   CATEGORIES SECTION — List, create, edit, reorder, delete
-   ============================================================================ */
-
 import { store } from '../store.js';
 import * as api from '../api.js';
 import { toast, confirm, esc, skeletonTable } from '../components/ui.js';
@@ -20,7 +16,7 @@ function _getCatColor(cat) {
       ? JSON.parse(cat.category_styles)
       : cat.category_styles;
     return styles?.color || null;
-  } catch (_) { return null; }
+  } catch (e) { console.debug('[admin-categories] getCatColor', e); return null; }
 }
 
 export async function renderCategories(container) {
@@ -618,7 +614,7 @@ function _startEdit(container, categoryName) {
       return typeof cat.category_styles === 'string'
         ? JSON.parse(cat.category_styles)
         : cat.category_styles;
-    } catch (_) { return {}; }
+    } catch (e) { console.debug('[admin-categories] parseStyles', e); return {}; }
   })();
 
   // Restore color
