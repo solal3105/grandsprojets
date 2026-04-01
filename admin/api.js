@@ -172,18 +172,6 @@ export async function getLayers() {
   return data || [];
 }
 
-export async function getPendingCount() {
-  const city = requireCity();
-  const c = client();
-  if (!c) return 0;
-  const { count } = await c
-    .from('contribution_uploads')
-    .select('id', { count: 'exact', head: true })
-    .eq('ville', city)
-    .eq('approved', false);
-  return count ?? 0;
-}
-
 export async function getConsultationDossiers(projectName) {
   return svc().getConsultationDossiersByProject(projectName);
 }

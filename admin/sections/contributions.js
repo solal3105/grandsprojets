@@ -2,7 +2,6 @@ import { store } from '../store.js';
 import { router } from '../router.js';
 import * as api from '../api.js';
 import { toast, confirm, slidePanel, esc, formatDate, formatRelativeDate, renderPagination, emptyState, skeletonTable } from '../components/ui.js';
-import { updatePendingBadge } from '../components/sidebar.js';
 
 const PAGE_SIZE = 20;
 
@@ -290,7 +289,6 @@ function _bindListActions(container, listBody) {
         await api.approveContribution(id, true);
         toast('Contribution approuvée', 'success');
         _loadList(container);
-        _refreshPendingBadge();
       } catch (err) { toast(err.message, 'error'); }
     }
 
@@ -300,7 +298,6 @@ function _bindListActions(container, listBody) {
         await api.approveContribution(id, false);
         toast('Approbation retirée', 'warning');
         _loadList(container);
-        _refreshPendingBadge();
       } catch (err) { toast(err.message, 'error'); }
     }
 
@@ -321,7 +318,6 @@ function _bindListActions(container, listBody) {
         await api.deleteContribution(id);
         toast('Contribution supprimée', 'success');
         _loadList(container);
-        _refreshPendingBadge();
       } catch (err) { toast(err.message, 'error'); }
     }
   }, { signal: _listBodyAbort.signal });
@@ -586,7 +582,6 @@ async function _openDetail(id) {
         await api.deleteContribution(id);
         toast('Contribution supprimée', 'success');
         handle.close();
-        _refreshPendingBadge();
         const listBody = document.querySelector('#contrib-list-body');
         if (listBody) _loadList(listBody.closest('.adm-main__inner') || document.getElementById('adm-content'));
       } catch (err) { toast(err.message, 'error'); }
@@ -599,7 +594,6 @@ async function _openDetail(id) {
         await api.approveContribution(id, !item.approved);
         toast(item.approved ? 'Approbation retirée' : 'Contribution approuvée', 'success');
         handle.close();
-        _refreshPendingBadge();
         const listBody = document.querySelector('#contrib-list-body');
         if (listBody) _loadList(listBody.closest('.adm-main__inner') || document.getElementById('adm-content'));
       } catch (err) { toast(err.message, 'error'); btn.disabled = false; }
@@ -611,12 +605,7 @@ async function _openDetail(id) {
   }
 }
 
-async function _refreshPendingBadge() {
-  try {
-    const pending = await api.getPendingCount();
-    updatePendingBadge(pending);
-  } catch (e) { console.warn('[admin-contrib] refreshPendingBadge', e); }
-}
+
 
 let _wiz = {
   categories: [],
@@ -1748,7 +1737,6 @@ async function _submitOnePage(container) {
     if (!isEdit && publishNow) await api.approveContribution(rowId, true);
 
     toast(isEdit ? 'Contribution mise à jour' : 'Contribution créée', 'success');
-    _refreshPendingBadge();
     router.navigate('/admin/contributions/');
   } catch (err) {
     console.error('[admin/contributions] submit:', err);

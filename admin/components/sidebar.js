@@ -128,13 +128,4 @@ function _bindMobileToggle() {
   });
 }
 
-export function updatePendingBadge(count) {
-  const badge = document.getElementById('adm-badge-pending');
-  if (!badge) return;
-  if (count > 0) {
-    badge.textContent = count > 99 ? '99+' : String(count);
-    badge.hidden = false;
-  } else {
-    badge.hidden = true;
-  }
-}
+
