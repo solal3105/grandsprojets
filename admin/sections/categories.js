@@ -5,6 +5,7 @@
 import { store } from '../store.js';
 import * as api from '../api.js';
 import { toast, confirm, esc, skeletonTable } from '../components/ui.js';
+import { renderIconField, bindIconField, setIconField } from '../components/icon-picker.js';
 
 let _categories = [];
 let _layers = [];
@@ -38,8 +39,8 @@ export async function renderCategories(container) {
               <input type="text" class="adm-input" id="cat-name" required placeholder="Ex: Transport">
             </div>
             <div class="adm-form-group">
-              <label class="adm-label">Icône FontAwesome</label>
-              <input type="text" class="adm-input" id="cat-icon" placeholder="fa-solid fa-bus" value="fa-solid fa-folder">
+              <label class="adm-label">Icône</label>
+              ${renderIconField('cat-icon', 'fa-solid fa-folder', 'fa-solid fa-folder')}
             </div>
           </div>
           <div class="adm-form-group">
@@ -71,6 +72,7 @@ export async function renderCategories(container) {
   `;
 
   _bindForm(container);
+  bindIconField(container, 'cat-icon', { category: 'general' });
   await _loadData(container);
 }
 
@@ -146,7 +148,7 @@ function _collectFormData(container) {
 
 function _resetForm(container) {
   container.querySelector('#cat-name').value = '';
-  container.querySelector('#cat-icon').value = 'fa-solid fa-folder';
+  setIconField(container, 'cat-icon', 'fa-solid fa-folder');
   container.querySelector('#cat-order').value = '0';
   container.querySelector('#cat-tags').value = '';
   container.querySelectorAll('#cat-layers .adm-toggle-item').forEach(el => el.classList.remove('active'));
@@ -250,7 +252,7 @@ function _startEdit(container, categoryName) {
   container.querySelector('#cat-form-title').textContent = `Modifier : ${categoryName}`;
   container.querySelector('#cat-form-submit').textContent = 'Mettre à jour';
   container.querySelector('#cat-name').value = cat.category || '';
-  container.querySelector('#cat-icon').value = cat.icon_class || '';
+  setIconField(container, 'cat-icon', cat.icon_class || 'fa-solid fa-folder');
   container.querySelector('#cat-order').value = cat.display_order ?? 0;
 
   // Tags

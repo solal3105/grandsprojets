@@ -605,29 +605,13 @@ function _initDrawMap(body) {
       scrollZoom: false,
     });
 
-    // Ctrl+scroll to zoom; plain scroll scrolls the page and shows a hint overlay
+    // Click-to-unlock scroll zoom
     const mapEl = map.getContainer();
-    let _hintTimeout;
-    mapEl.addEventListener('wheel', (e) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const delta = e.deltaY < 0 ? 1 : -1;
-        map.easeTo({ zoom: map.getZoom() + delta * 0.5, duration: 100 });
-      } else {
-        const hint = mapEl.querySelector('.cw-map-scroll-hint');
-        if (hint) {
-          hint.classList.add('visible');
-          clearTimeout(_hintTimeout);
-          _hintTimeout = setTimeout(() => hint.classList.remove('visible'), 1800);
-        }
-      }
-    }, { passive: false });
-
-    // Inject hint overlay into map container
-    const hint = document.createElement('div');
-    hint.className = 'cw-map-scroll-hint';
-    hint.innerHTML = '<i class="fa-solid fa-hand-pointer"></i> Ctrl + molette pour zoomer';
-    mapEl.appendChild(hint);
+    const lock = document.createElement('div');
+    lock.className = 'cw-map-lock';
+    lock.innerHTML = '<button class="cw-map-lock__btn" type="button"><i class="fa-solid fa-hand-pointer"></i> Cliquer pour activer le zoom</button>';
+    mapEl.appendChild(lock);
+    lock.addEventListener('click', () => { map.scrollZoom.enable(); lock.remove(); }, { once: true });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');

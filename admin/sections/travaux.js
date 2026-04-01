@@ -6,6 +6,7 @@ import { store } from '../store.js';
 import { router } from '../router.js';
 import * as api from '../api.js';
 import { toast, confirm, slidePanel, esc, formatDate, skeletonTable, emptyState } from '../components/ui.js';
+import { renderIconField, bindIconField } from '../components/icon-picker.js';
 
 const ETAT_LABELS = {
   en_cours: { label: 'En cours', badge: 'success', icon: 'fa-hammer' },
@@ -21,24 +22,109 @@ let _twState = {
   status: '',   // '' | 'pending' | 'approved'
   sortBy: 'created_at',
   sortDir: 'desc',
+  readOnly: false,   // true in open-data scenarios
+  scenario: 'normal', // 'normal' | 'opendata' | 'opendata_nourl'
 };
 
 export async function renderTravaux(container, params) {
-  if (params.id === 'nouveau') return _renderCreateForm(container);
-  if (params.id && params.id !== 'config') return _openChantierDetail(container, parseInt(params.id, 10));
+  // Config page always accessible regardless of module state
   if (params.id === 'config') return _renderConfig(container);
 
-  // Parse URL params
+  // Load config fresh on each navigation to always reflect current state
+  const config = await api.getTravauxConfig().catch(() => null);
+  const scenario = _getTwScenario(config);
+
+  // Scenarios A (unconfigured) & B (disabled) → empty state
+  if (scenario === 'unconfigured' || scenario === 'disabled') {
+    return _renderModuleEmpty(container, scenario);
+  }
+
+  // Scenarios D & E (open data) → no manual entry routes
+  if (scenario === 'opendata' || scenario === 'opendata_nourl') {
+    if (params.id === 'nouveau' || (params.id && params.id !== 'config')) {
+      router.navigate('/admin/travaux/');
+      return;
+    }
+    _twState.readOnly = true;
+    _twState.scenario = scenario;
+    const urlParams = new URLSearchParams(window.location.search);
+    _twState.status = urlParams.get('status') || '';
+    _renderListPage(container);
+    await _loadList(container);
+    return;
+  }
+
+  // Scenario C (normal) → full access
+  _twState.readOnly = false;
+  _twState.scenario = 'normal';
+  if (params.id === 'nouveau') return _renderCreateForm(container);
+  if (params.id) return _openChantierDetail(container, parseInt(params.id, 10));
+
   const urlParams = new URLSearchParams(window.location.search);
   _twState.status = urlParams.get('status') || '';
-
   _renderListPage(container);
   await _loadList(container);
+}
+
+/* ── Scenario helpers ── */
+
+function _getTwScenario(config) {
+  if (!config) return 'unconfigured';
+  if (!config.enabled) return 'disabled';
+  if (config.source_type === 'url') return config.url ? 'opendata' : 'opendata_nourl';
+  return 'normal';
+}
+
+function _renderModuleEmpty(container, scenario) {
+  const isDisabled = scenario === 'disabled';
+  container.innerHTML = `
+    <div class="adm-page-header">
+      <div>
+        <h1 class="adm-page-title"><i class="fa-solid fa-helmet-safety"></i> Travaux</h1>
+        <p class="adm-page-subtitle">Module non actif pour ${esc(store.city)}</p>
+      </div>
+      <a href="/admin/travaux/config/" class="adm-btn adm-btn--secondary" data-section="travaux">
+        <i class="fa-solid fa-gear"></i> Configuration
+      </a>
+    </div>
+    <div class="adm-module-empty">
+      <div class="adm-module-empty__icon${isDisabled ? ' adm-module-empty__icon--muted' : ''}">
+        <i class="fa-solid fa-helmet-safety"></i>
+      </div>
+      <h2 class="adm-module-empty__title">
+        ${isDisabled ? 'Module Travaux désactivé' : 'Module Travaux non configuré'}
+      </h2>
+      <p class="adm-module-empty__desc">
+        ${isDisabled
+          ? 'Le module est configuré mais actuellement désactivé. Les chantiers ne sont pas visibles sur la carte publique.'
+          : 'Ce module n\'est pas encore activé pour cette structure. Configurez-le pour afficher des chantiers sur la carte publique.'
+        }
+      </p>
+      <a href="/admin/travaux/config/" class="adm-btn adm-btn--primary" data-section="travaux">
+        <i class="fa-solid fa-${isDisabled ? 'power-off' : 'gear'}"></i>
+        ${isDisabled ? 'Activer le module' : 'Configurer le module'}
+      </a>
+    </div>
+  `;
 }
 
 /* ── List page ── */
 
 function _renderListPage(container) {
+  const isReadOnly = _twState.readOnly;
+  const scenario = _twState.scenario;
+
+  const banner = isReadOnly ? `
+    <div class="adm-opendata-banner adm-opendata-banner--${scenario === 'opendata_nourl' ? 'warning' : 'info'}">
+      <i class="fa-solid fa-${scenario === 'opendata_nourl' ? 'triangle-exclamation' : 'link'}"></i>
+      <div>
+        ${scenario === 'opendata_nourl'
+          ? `<strong>URL du flux non définie</strong><span>Le module est en mode open data mais aucune URL source n'est configurée. <a href="/admin/travaux/config/" data-section="travaux" style="font-weight:600;text-decoration:underline;">Configurer →</a></span>`
+          : `<strong>Source open data active</strong><span>Les chantiers sont importés via un flux externe. Les entrées ci-dessous ont été créées manuellement et ne sont plus affichées sur la carte publique.</span>`
+        }
+      </div>
+    </div>` : '';
+
   container.innerHTML = `
     <div class="adm-page-header">
       <div>
@@ -49,12 +135,15 @@ function _renderListPage(container) {
         <a href="/admin/travaux/config/" class="adm-btn adm-btn--secondary" data-section="travaux">
           <i class="fa-solid fa-gear"></i> Configuration
         </a>
-        <a href="/admin/travaux/nouveau/" class="adm-btn adm-btn--primary" data-section="travaux">
+        ${!isReadOnly ? `<a href="/admin/travaux/nouveau/" class="adm-btn adm-btn--primary" data-section="travaux">
           <i class="fa-solid fa-plus"></i> Nouveau chantier
-        </a>
+        </a>` : ''}
       </div>
     </div>
 
+    ${banner}
+
+    ${!isReadOnly ? `
     <!-- Tabs: status filter -->
     <div class="adm-tabs" id="travaux-tabs">
       <button class="adm-tab ${_twState.status === '' ? 'active' : ''}" data-status="">Tous</button>
@@ -64,7 +153,7 @@ function _renderListPage(container) {
       <button class="adm-tab ${_twState.status === 'approved' ? 'active' : ''}" data-status="approved">
         <i class="fa-solid fa-check"></i> Approuvés
       </button>
-    </div>
+    </div>` : ''}
 
     <!-- Toolbar -->
     <div class="adm-toolbar">
@@ -202,16 +291,18 @@ function _renderTravauxRow(item) {
         </div>
       </div>
       <div class="adm-list-item__actions">
-        ${isPending ? `
+        ${!_twState.readOnly ? `
+          ${isPending ? `
           <button class="adm-btn adm-btn--primary adm-btn--sm" data-action="approve" data-id="${item.id}" title="Approuver">
             <i class="fa-solid fa-check"></i> Approuver
           </button>` : ''}
-        <button class="adm-btn adm-btn--ghost adm-btn--sm" data-action="edit" data-id="${item.id}" title="Modifier">
-          <i class="fa-solid fa-pen"></i>
-        </button>
-        <button class="adm-btn adm-btn--ghost adm-btn--sm" data-action="delete" data-id="${item.id}" title="Supprimer" style="color:var(--danger);">
-          <i class="fa-solid fa-trash"></i>
-        </button>
+          <button class="adm-btn adm-btn--ghost adm-btn--sm" data-action="edit" data-id="${item.id}" title="Modifier">
+            <i class="fa-solid fa-pen"></i>
+          </button>
+          <button class="adm-btn adm-btn--ghost adm-btn--sm" data-action="delete" data-id="${item.id}" title="Supprimer" style="color:var(--danger);">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        ` : `<span class="adm-badge adm-badge--neutral" style="font-size:11px;"><i class="fa-solid fa-box-archive"></i> Legacy</span>`}
       </div>
     </div>
   `;
@@ -438,15 +529,8 @@ async function _renderCreateForm(container, chantier = null) {
         </div>
         <div class="cw-section__body">
           <div class="cw-field">
-            <label class="cw-field__label" for="tw-icon"><i class="fa-solid fa-icons"></i> Icône (classe Font Awesome)</label>
-            <div style="display:flex;gap:10px;align-items:center;">
-              <div class="tw-icon-preview" id="tw-icon-preview">
-                <i class="${esc(chantier?.icon || DEFAULT_ICON)}"></i>
-              </div>
-              <input type="text" class="cw-field__input" id="tw-icon" style="flex:1;"
-                value="${esc(chantier?.icon || DEFAULT_ICON)}" placeholder="fa-solid fa-helmet-safety">
-            </div>
-            <p class="cw-field__tip"><i class="fa-solid fa-lightbulb"></i> Entrez une classe Font Awesome — l'aperçu se met à jour en temps réel.</p>
+            <label class="cw-field__label">Icône du chantier sur la carte</label>
+            ${renderIconField('tw-icon', chantier?.icon || DEFAULT_ICON, DEFAULT_ICON)}
           </div>
         </div>
       </section>
@@ -487,11 +571,8 @@ function _bindTwForm(container, existingChantier) {
     });
   });
 
-  // Icon preview
-  container.querySelector('#tw-icon')?.addEventListener('input', (e) => {
-    const preview = container.querySelector('#tw-icon-preview i');
-    if (preview) preview.className = e.target.value.trim() || DEFAULT_ICON;
-  });
+  // Icon picker
+  bindIconField(container, 'tw-icon', { category: 'travaux' });
 
   // Location mode toggle
   container.querySelectorAll('.cw-loc-toggle__btn').forEach(btn => {
@@ -640,23 +721,13 @@ function _initTwMap(body) {
     center, zoom, attributionControl: false, scrollZoom: false,
   });
 
-  // Ctrl+wheel zoom
+  // Click-to-unlock scroll zoom
   const mapEl = map.getContainer();
-  let _hintTimeout;
-  mapEl.addEventListener('wheel', (e) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      map.easeTo({ zoom: map.getZoom() + (e.deltaY < 0 ? 0.5 : -0.5), duration: 100 });
-    } else {
-      const hint = mapEl.querySelector('.cw-map-scroll-hint');
-      if (hint) { hint.classList.add('visible'); clearTimeout(_hintTimeout); _hintTimeout = setTimeout(() => hint.classList.remove('visible'), 1800); }
-    }
-  }, { passive: false });
-
-  const hint = document.createElement('div');
-  hint.className = 'cw-map-scroll-hint';
-  hint.innerHTML = '<i class="fa-solid fa-hand-pointer"></i> Ctrl + molette pour zoomer';
-  mapEl.appendChild(hint);
+  const lock = document.createElement('div');
+  lock.className = 'cw-map-lock';
+  lock.innerHTML = '<button class="cw-map-lock__btn" type="button"><i class="fa-solid fa-hand-pointer"></i> Cliquer pour activer le zoom</button>';
+  mapEl.appendChild(lock);
+  lock.addEventListener('click', () => { map.scrollZoom.enable(); lock.remove(); }, { once: true });
 
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
   map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
@@ -835,112 +906,133 @@ async function _openChantierDetail(container, id) {
 
 async function _renderConfig(container) {
   container.innerHTML = `
-    <div class="adm-page-header">
-      <div>
-        <h1 class="adm-page-title">
-          <a href="/admin/travaux/" class="adm-btn adm-btn--ghost adm-btn--icon" data-section="travaux" style="margin-right:4px;">
-            <i class="fa-solid fa-arrow-left"></i>
-          </a>
-          Configuration Travaux
-        </h1>
-        <p class="adm-page-subtitle">Paramètres du module travaux pour ${esc(store.city)}</p>
+    <div class="cw-header">
+      <div class="cw-header__top">
+        <a href="/admin/travaux/" class="cw-back-link" data-section="travaux">
+          <i class="fa-solid fa-arrow-left"></i><span>Travaux</span>
+        </a>
+      </div>
+      <div class="cw-header__main">
+        <div class="cw-header__text">
+          <h1 class="cw-header__title">Configuration du module</h1>
+          <p class="cw-header__subtitle">Module travaux · <strong>${esc(store.city)}</strong></p>
+        </div>
       </div>
     </div>
-    <div id="tw-config-body">${skeletonTable(3)}</div>
+    <div id="tw-config-body">
+      <div class="cw-sections">${skeletonTable(3)}</div>
+    </div>
   `;
 
   try {
     const [config, layers] = await Promise.all([api.getTravauxConfig(), api.getLayers()]);
     const cfg = config || {};
+    const isUrl = cfg.source_type === 'url';
 
     const configBody = container.querySelector('#tw-config-body');
     configBody.innerHTML = `
       <form id="tw-config-form">
-        <div class="tw-config-grid">
+        <div class="cw-sections">
 
-          <!-- Activation -->
-          <div class="adm-card">
-            <div class="adm-card__header">
-              <h3 class="adm-card__title"><i class="fa-solid fa-power-off"></i> Activation</h3>
+          <!-- § 1 — ACTIVATION -->
+          <section class="cw-section">
+            <div class="cw-section__header">
+              <div class="cw-section__icon"><i class="fa-solid fa-power-off"></i></div>
+              <div class="cw-section__titles">
+                <h2 class="cw-section__title">Activation</h2>
+                <p class="cw-section__desc">Rend le filtre Travaux visible sur la carte publique de ${esc(store.city)}.</p>
+              </div>
             </div>
-            <div class="adm-card__body">
-              <label class="adm-toggle-row">
-                <div>
-                  <div class="adm-toggle-row__title">Module travaux activé</div>
-                  <div class="adm-toggle-row__desc">Affiche la section travaux sur la carte publique</div>
+            <div class="cw-section__body">
+              <div class="twc-toggle-row">
+                <div class="twc-toggle-row__text">
+                  <div class="twc-toggle-row__title">Module travaux</div>
+                  <div class="twc-toggle-row__status ${cfg.enabled ? 'twc-toggle-row__status--on' : 'twc-toggle-row__status--off'}">
+                    <i class="fa-solid fa-circle-dot"></i>
+                    ${cfg.enabled ? 'Visible sur la carte publique' : 'Masqué sur la carte publique'}
+                  </div>
                 </div>
-                <label class="adm-switch">
+                <label class="adm-switch adm-switch--lg">
                   <input type="checkbox" id="twc-enabled" ${cfg.enabled ? 'checked' : ''}>
                   <span class="adm-switch__track"></span>
                 </label>
-              </label>
-            </div>
-          </div>
-
-          <!-- Source de données -->
-          <div class="adm-card">
-            <div class="adm-card__header">
-              <h3 class="adm-card__title"><i class="fa-solid fa-database"></i> Source de données</h3>
-            </div>
-            <div class="adm-card__body">
-              <div class="adm-form-group">
-                <label class="adm-label">Type de source</label>
-                <div class="tw-source-picker" id="twc-source-picker">
-                  <label class="tw-source-option ${cfg.source_type !== 'url' ? 'selected' : ''}" data-val="city_travaux">
-                    <input type="radio" name="twc-source" value="city_travaux" ${cfg.source_type !== 'url' ? 'checked' : ''} hidden>
-                    <i class="fa-solid fa-database"></i>
-                    <div>
-                      <div class="tw-source-option__title">Base interne</div>
-                      <div class="tw-source-option__desc">Chantiers gérés dans cet admin</div>
-                    </div>
-                  </label>
-                  <label class="tw-source-option ${cfg.source_type === 'url' ? 'selected' : ''}" data-val="url">
-                    <input type="radio" name="twc-source" value="url" ${cfg.source_type === 'url' ? 'checked' : ''} hidden>
-                    <i class="fa-solid fa-link"></i>
-                    <div>
-                      <div class="tw-source-option__title">URL externe</div>
-                      <div class="tw-source-option__desc">Flux GeoJSON tiers</div>
-                    </div>
-                  </label>
-                </div>
-                <input type="hidden" id="twc-source-type" value="${cfg.source_type !== 'url' ? 'city_travaux' : 'url'}">
-              </div>
-              <div id="twc-url-group" ${cfg.source_type !== 'url' ? 'hidden' : ''}>
-                <div class="adm-form-group" style="margin:0;">
-                  <label class="adm-label" for="twc-url">URL du flux GeoJSON</label>
-                  <input type="url" class="adm-input" id="twc-url" value="${esc(cfg.url || '')}" placeholder="https://…/travaux.geojson">
-                </div>
               </div>
             </div>
-          </div>
+          </section>
 
-          <!-- Personnalisation -->
-          <div class="adm-card">
-            <div class="adm-card__header">
-              <h3 class="adm-card__title"><i class="fa-solid fa-palette"></i> Personnalisation</h3>
+          <!-- § 2 — SOURCE -->
+          <section class="cw-section">
+            <div class="cw-section__header">
+              <div class="cw-section__icon"><i class="fa-solid fa-database"></i></div>
+              <div class="cw-section__titles">
+                <h2 class="cw-section__title">Source des données</h2>
+                <p class="cw-section__desc">D'où viennent les chantiers — saisis manuellement ici, ou importés depuis un flux GeoJSON externe.</p>
+              </div>
             </div>
-            <div class="adm-card__body">
-              <div class="adm-form-group" style="margin:0;">
-                <label class="adm-label" for="twc-icon">Icône par défaut <span style="font-weight:400;color:var(--text-muted);font-size:12px;">(Font Awesome)</span></label>
-                <div style="display:flex;gap:8px;align-items:center;">
-                  <div class="tw-icon-preview" id="twc-icon-preview">
-                    <i class="${esc(cfg.icon_class || DEFAULT_ICON)}"></i>
+            <div class="cw-section__body">
+              <div class="tw-source-picker" id="twc-source-picker">
+                <label class="tw-source-option ${!isUrl ? 'selected' : ''}" data-val="city_travaux">
+                  <input type="radio" name="twc-source" value="city_travaux" ${!isUrl ? 'checked' : ''} hidden>
+                  <i class="fa-solid fa-database"></i>
+                  <div>
+                    <div class="tw-source-option__title">Base interne</div>
+                    <div class="tw-source-option__desc">Créez et gérez vos chantiers ici</div>
                   </div>
-                  <input type="text" class="adm-input" id="twc-icon" value="${esc(cfg.icon_class || DEFAULT_ICON)}" placeholder="fa-solid fa-helmet-safety">
+                </label>
+                <label class="tw-source-option ${isUrl ? 'selected' : ''}" data-val="url">
+                  <input type="radio" name="twc-source" value="url" ${isUrl ? 'checked' : ''} hidden>
+                  <i class="fa-solid fa-link"></i>
+                  <div>
+                    <div class="tw-source-option__title">Flux externe (open data)</div>
+                    <div class="tw-source-option__desc">Import via une URL GeoJSON</div>
+                  </div>
+                </label>
+              </div>
+              <input type="hidden" id="twc-source-type" value="${isUrl ? 'url' : 'city_travaux'}">
+
+              <div id="twc-url-group" ${!isUrl ? 'hidden' : ''}>
+                <div class="cw-field" style="margin-top:16px;">
+                  <label class="cw-field__label" for="twc-url">URL du flux GeoJSON</label>
+                  <input type="url" class="cw-field__input" id="twc-url"
+                    value="${esc(cfg.url || '')}" placeholder="https://data.example.fr/travaux.geojson">
+                </div>
+                <div class="twc-url-notice">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                  <span>La création manuelle de chantiers sera désactivée. Les entrées existantes restent conservées.</span>
                 </div>
               </div>
             </div>
-          </div>
+          </section>
 
-          <!-- Couches associées -->
-          <div class="adm-card">
-            <div class="adm-card__header">
-              <h3 class="adm-card__title"><i class="fa-solid fa-layer-group"></i> Couches associées</h3>
-              <p class="adm-card__subtitle">Ces couches seront affichées automatiquement quand le filtre travaux est actif</p>
+          <!-- § 3 — APPARENCE -->
+          <section class="cw-section">
+            <div class="cw-section__header">
+              <div class="cw-section__icon"><i class="fa-solid fa-palette"></i></div>
+              <div class="cw-section__titles">
+                <h2 class="cw-section__title">Apparence</h2>
+                <p class="cw-section__desc">Icône par défaut pour les chantiers sans icône personnalisée.</p>
+              </div>
             </div>
-            <div class="adm-card__body">
+            <div class="cw-section__body">
+              <div class="cw-field">
+                <label class="cw-field__label">Icône par défaut des chantiers</label>
+                ${renderIconField('twc-icon', cfg.icon_class || DEFAULT_ICON, DEFAULT_ICON)}
+              </div>
+            </div>
+          </section>
+
+          <!-- § 4 — COUCHES ASSOCIÉES -->
+          <section class="cw-section">
+            <div class="cw-section__header">
+              <div class="cw-section__icon"><i class="fa-solid fa-layer-group"></i></div>
+              <div class="cw-section__titles">
+                <h2 class="cw-section__title">Couches associées</h2>
+                <p class="cw-section__desc">Affichées automatiquement quand le filtre Travaux est actif — utile pour contextualiser les déviations ou périmètres de chantier.</p>
+              </div>
+            </div>
+            <div class="cw-section__body">
               ${layers.length === 0
-                ? `<p style="color:var(--text-muted);font-size:13px;margin:0;">Aucune couche disponible</p>`
+                ? `<p class="twc-empty-layers"><i class="fa-solid fa-layer-group"></i> Aucune couche disponible — créez-en dans la section <strong>Couches</strong> de l'admin.</p>`
                 : `<div id="twc-layers" class="adm-toggle-grid">
                   ${layers.map(l => {
                     const active = Array.isArray(cfg.layers_to_display) && cfg.layers_to_display.includes(l.name);
@@ -952,24 +1044,29 @@ async function _renderConfig(container) {
                 </div>`
               }
             </div>
-          </div>
+          </section>
 
         </div>
 
-        <div class="tw-form-actions">
-          <a href="/admin/travaux/" class="adm-btn adm-btn--secondary" data-section="travaux">
-            <i class="fa-solid fa-xmark"></i> Retour
+        <div class="cw-footer">
+          <a href="/admin/travaux/" class="cw-footer__cancel" data-section="travaux">
+            <i class="fa-solid fa-arrow-left"></i> Retour
           </a>
-          <button type="submit" class="adm-btn adm-btn--primary">
-            <i class="fa-solid fa-check"></i> Sauvegarder la configuration
+          <button type="submit" class="cw-footer__submit">
+            <span>Sauvegarder la configuration</span>
+            <i class="fa-solid fa-arrow-right"></i>
           </button>
         </div>
       </form>
     `;
 
-    // Couches toggle
-    configBody.querySelectorAll('#twc-layers .adm-toggle-item').forEach(item => {
-      item.addEventListener('click', () => item.classList.toggle('active'));
+    // Toggle status label live
+    const enabledCb = configBody.querySelector('#twc-enabled');
+    const statusEl = configBody.querySelector('.twc-toggle-row__status');
+    enabledCb?.addEventListener('change', () => {
+      const on = enabledCb.checked;
+      statusEl.className = `twc-toggle-row__status ${on ? 'twc-toggle-row__status--on' : 'twc-toggle-row__status--off'}`;
+      statusEl.innerHTML = `<i class="fa-solid fa-circle-dot"></i> ${on ? 'Visible sur la carte publique' : 'Masqué sur la carte publique'}`;
     });
 
     // Source picker
@@ -983,11 +1080,13 @@ async function _renderConfig(container) {
       });
     });
 
-    // Icon preview
-    configBody.querySelector('#twc-icon')?.addEventListener('input', (e) => {
-      const preview = configBody.querySelector('#twc-icon-preview i');
-      if (preview) preview.className = e.target.value.trim() || DEFAULT_ICON;
+    // Couches toggle
+    configBody.querySelectorAll('#twc-layers .adm-toggle-item').forEach(item => {
+      item.addEventListener('click', () => item.classList.toggle('active'));
     });
+
+    // Icon picker
+    bindIconField(configBody, 'twc-icon', { category: 'travaux' });
 
     // Submit
     configBody.querySelector('#tw-config-form')?.addEventListener('submit', async (e) => {
@@ -1002,7 +1101,7 @@ async function _renderConfig(container) {
         await api.updateTravauxConfig({
           enabled: configBody.querySelector('#twc-enabled').checked,
           source_type: configBody.querySelector('#twc-source-type').value,
-          url: configBody.querySelector('#twc-url').value.trim() || null,
+          url: configBody.querySelector('#twc-url')?.value.trim() || null,
           icon_class: configBody.querySelector('#twc-icon').value.trim() || DEFAULT_ICON,
           layers_to_display: selectedLayers.length > 0 ? selectedLayers : null,
         });
