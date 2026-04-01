@@ -109,9 +109,6 @@ function _renderCityList(body, cities) {
           </div>
         </div>
         <div class="adm-list-item__actions">
-          <button class="adm-btn adm-btn--ghost adm-btn--sm" data-action="edit" data-ville="${esc(city.ville)}" title="Modifier">
-            <i class="fa-solid fa-pen"></i>
-          </button>
           <button class="adm-btn adm-btn--ghost adm-btn--sm" data-action="select" data-ville="${esc(city.ville)}" title="Administrer cette ville">
             <i class="fa-solid fa-arrow-right-to-bracket"></i>
           </button>
@@ -134,11 +131,6 @@ async function _handleActions(e) {
   const ville = btn.dataset.ville;
   const action = btn.dataset.action;
   const container = btn.closest('.adm-card')?.parentElement;
-
-  if (action === 'edit') {
-    const city = _allCities.find(c => c.ville === ville);
-    if (city && container) _showCityForm(container, city);
-  }
 
   if (action === 'select') {
     store.setCity(ville);
