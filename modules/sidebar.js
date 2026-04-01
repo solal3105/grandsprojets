@@ -169,11 +169,9 @@
       // Login → /login
       this._bindAction('login', () => { win.location.href = '/login'; });
 
-      // Contribute → open contrib modal
+      // Contribute → admin panel
       this._bindAction('contribute', () => {
-        if (win.ContribModule?.open) {
-          win.ContribModule.open();
-        }
+        win.location.href = '/admin/';
       });
 
       // Logout

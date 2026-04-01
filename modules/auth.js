@@ -161,17 +161,6 @@
       win.__CONTRIB_VILLES = null;
       
       
-      // Fermer les modales de contribution
-      const contribModal = document.getElementById('contrib-modal-container');
-      if (contribModal) {
-        contribModal.innerHTML = '';
-      }
-      
-      // Mettre à jour la visibilité des éléments
-      if (win.ContribModule?.applyContribVisibility) {
-        win.ContribModule.applyContribVisibility(null);
-      }
-      
       // Rafraîchir les toggles
       if (win.CityBrandingModule?.applyTogglesConfig && win._cityBranding?.enabled_toggles) {
         win.CityBrandingModule.applyTogglesConfig(win._cityBranding.enabled_toggles, null);
@@ -245,6 +234,17 @@
   document.addEventListener('visibilitychange', handleVisibilityChange);
   win.addEventListener('online', handleOnline);
 
+  async function initializeUserRole(session) {
+    if (!session?.user) return;
+    try {
+      const { data, error } = await client.from('profiles').select('role, ville').eq('id', session.user.id).single();
+      if (error || !data) return;
+      win.__CONTRIB_ROLE       = (data.role || '').toLowerCase();
+      win.__CONTRIB_VILLES     = data.ville;
+      win.__CONTRIB_IS_ADMIN   = (win.__CONTRIB_ROLE === 'admin');
+    } catch {}
+  }
+
   client.auth.onAuthStateChange((event, session) => {
     console.log('[Auth] Event:', event, session ? '(session présente)' : '(pas de session)');
     
@@ -252,6 +252,7 @@
       case 'INITIAL_SESSION':
         cachedSession = session;
         if (session) {
+          initializeUserRole(session);
           startRefreshTimer();
         } else {
           // Vérifier s'il y a des données corrompues dans le storage
@@ -273,6 +274,7 @@
       case 'SIGNED_IN':
         cachedSession = session;
         refreshFailCount = 0;
+        initializeUserRole(session);
         startRefreshTimer();
         break;
         

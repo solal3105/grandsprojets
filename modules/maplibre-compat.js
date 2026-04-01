@@ -153,7 +153,7 @@
           _colorCache.set(color, result);
           return result;
         }
-      } catch (_) {}
+      } catch {}
       // Fallback: probe returned same string (P3 display) — parse color(srgb …) directly
       const direct = _parseBrowserColor(raw);
       if (direct) {
@@ -328,7 +328,7 @@
         try {
           if (mlMap.getLayer(pool.layerId)) mlMap.setFilter(pool.layerId, filterExpr);
           if (pool.fillLayerId && mlMap.getLayer(pool.fillLayerId)) mlMap.setFilter(pool.fillLayerId, filterExpr);
-        } catch (_) {}
+        } catch {}
       }
     }
 
@@ -339,7 +339,7 @@
       try {
         if (mlMap.getLayer(pool.layerId)) mlMap.setFilter(pool.layerId, this._activeFilter);
         if (pool.fillLayerId && mlMap.getLayer(pool.fillLayerId)) mlMap.setFilter(pool.fillLayerId, this._activeFilter);
-      } catch (_) {}
+      } catch {}
     }
 
     // Clear filters on all pool layers
@@ -359,7 +359,7 @@
               width
             ]);
           }
-        } catch (_) {}
+        } catch {}
       }
     }
 
@@ -395,7 +395,7 @@
               if (mlMap.getSource(pool.sourceId)) {
                 mlMap.removeSource(pool.sourceId);
               }
-            } catch(e) {
+            } catch {
               console.warn('[SourcePool] Error removing empty pool:', e);
             }
             this._pools.delete(styleHash);
@@ -444,7 +444,7 @@
     fire(type, data) {
       if (!this._events[type]) return this;
       const evt = Object.assign({ type, target: this }, data || {});
-      this._events[type].slice().forEach(fn => { try { fn(evt); } catch(e) { console.warn(e); } });
+      this._events[type].slice().forEach(fn => { try { fn(evt); } catch { console.warn(e); } });
       return this;
     }
     listens(type) { return !!(this._events[type] && this._events[type].length); }
@@ -783,7 +783,7 @@
         try {
           if (mlMap.getLayer(this._layerId)) mlMap.removeLayer(this._layerId);
           if (mlMap.getSource(this._sourceId)) mlMap.removeSource(this._sourceId);
-        } catch(e) {}
+        } catch {}
 
         mlMap.addSource(this._sourceId, {
           type: 'raster',
@@ -817,7 +817,7 @@
         try {
           if (mlMap.getLayer(this._layerId)) mlMap.removeLayer(this._layerId);
           if (mlMap.getSource(this._sourceId)) mlMap.removeSource(this._sourceId);
-        } catch(e) {}
+        } catch {}
       }
       this.fire('remove');
       return this;
@@ -868,7 +868,7 @@
         // Update glyphs so road labels render with correct fonts.
         // setGlyphs() only updates the glyph URL — does NOT touch sources or layers.
         if (styleJson.glyphs && typeof mlMap.setGlyphs === 'function') {
-          try { mlMap.setGlyphs(styleJson.glyphs); } catch (_) {}
+          try { mlMap.setGlyphs(styleJson.glyphs); } catch {}
         }
 
         // Do NOT call setSprite() — the basemap sprite references images (e.g. fill-pattern
@@ -886,7 +886,7 @@
           if (mlMap.getSource(prefixed)) continue;
           try {
             mlMap.addSource(prefixed, srcDef);
-          } catch (e) {
+          } catch {
             console.warn('[VectorBasemap] addSource failed:', prefixed, e.message);
           }
         }
@@ -903,13 +903,13 @@
           if (mlMap.getLayer(ml.id)) continue;
           try {
             mlMap.addLayer(ml, anchor);
-          } catch (e) {
+          } catch {
             console.warn('[VectorBasemap] addLayer failed:', ml.id, e.message);
           }
         }
 
         this.fire('add');
-      } catch (e) {
+      } catch {
         console.error('[VectorBasemap] Failed to load/apply style:', this._styleUrl, e);
       }
     }
@@ -938,14 +938,14 @@
       const style = mlMap.getStyle();
       if (!style) return;
       // 1) Layers first
-      for (const layer of [...(style.layers || [])]) {
+      for (const layer of (style.layers || [])) {
         if (!layer.id.startsWith('__vbm__')) continue;
-        try { mlMap.removeLayer(layer.id); } catch (_) {}
+        try { mlMap.removeLayer(layer.id); } catch {}
       }
       // 2) Sources after all layers referencing them are gone
       for (const id of Object.keys(style.sources || {})) {
         if (!id.startsWith('__vbm__')) continue;
-        try { mlMap.removeSource(id); } catch (_) {}
+        try { mlMap.removeSource(id); } catch {}
       }
     }
 
@@ -1039,7 +1039,7 @@
             if (mlMap.getLayer(this._layerId)) mlMap.removeLayer(this._layerId);
             if (mlMap.getLayer(this._fillLayerId)) mlMap.removeLayer(this._fillLayerId);
             if (mlMap.getSource(this._sourceId)) mlMap.removeSource(this._sourceId);
-          } catch(e) {}
+          } catch {}
         }
       }
       this.fire('remove');
@@ -1056,7 +1056,7 @@
           this.fire(lEvent, { latlng, originalEvent: e.originalEvent, target: this, containerPoint: e.point });
         };
         this._mlEventHandlers[mlEvent] = handler;
-        try { mlMap.on(mlEvent, targetLayerId, handler); } catch(err) {}
+        try { mlMap.on(mlEvent, targetLayerId, handler); } catch {}
       });
       // Change cursor on hover
       this._cursorEnter = () => { mlMap.getCanvas().style.cursor = 'pointer'; };
@@ -1064,18 +1064,18 @@
       try {
         mlMap.on('mouseenter', targetLayerId, this._cursorEnter);
         mlMap.on('mouseleave', targetLayerId, this._cursorLeave);
-      } catch(err) {}
+      } catch {}
     }
     _unbindMapEvents(mlMap) {
       if (!this._mlEventHandlers) return;
       const targetLayerId = mlMap.getLayer(this._fillLayerId) ? this._fillLayerId : this._layerId;
       Object.entries(this._mlEventHandlers).forEach(([ev, handler]) => {
-        try { mlMap.off(ev, targetLayerId, handler); } catch(e) {}
+        try { mlMap.off(ev, targetLayerId, handler); } catch {}
       });
       try {
         if (this._cursorEnter) mlMap.off('mouseenter', targetLayerId, this._cursorEnter);
         if (this._cursorLeave) mlMap.off('mouseleave', targetLayerId, this._cursorLeave);
-      } catch(e) {}
+      } catch {}
     }
     getBounds() {
       const coords = this._getAllCoords();
@@ -1119,7 +1119,7 @@
     openPopup() { return this; }
     closePopup() { return this; }
     _getAllCoords() { return []; }
-    _addToMap(mlMap) {}
+    _addToMap(_mlMap) {}
     _applyStyle() {}
   }
 
@@ -1377,7 +1377,7 @@
         if (this._style.fillColor) mlMap.setPaintProperty(this._fillLayerId, 'fill-color', resolveColor(this._style.fillColor));
         if (this._style.fillOpacity !== undefined) mlMap.setPaintProperty(this._fillLayerId, 'fill-opacity', this._style.fillOpacity);
         if (this._style.color) mlMap.setPaintProperty(this._layerId, 'line-color', resolveColor(this._style.color));
-      } catch(e) {}
+      } catch {}
     }
   }
 
@@ -1672,9 +1672,9 @@
       const mlMap = this._map._mlMap || this._map;
       for (const { sourceId, layerIds } of this._directSourceIds) {
         for (const lid of layerIds) {
-          try { if (mlMap.getLayer(lid)) mlMap.removeLayer(lid); } catch(_) {}
+          try { if (mlMap.getLayer(lid)) mlMap.removeLayer(lid); } catch {}
         }
-        try { if (mlMap.getSource(sourceId)) mlMap.removeSource(sourceId); } catch(_) {}
+        try { if (mlMap.getSource(sourceId)) mlMap.removeSource(sourceId); } catch {}
         if (L._sourcePool) {
           if (win.FeatureInteractions) win.FeatureInteractions.invalidateSource(sourceId);
           L._sourcePool._pools.delete(sourceId);
@@ -1713,7 +1713,7 @@
       this.fire('remove');
       return this;
     }
-    removeFrom(map) { return this.remove(); }
+    removeFrom(_map) { return this.remove(); }
     clearLayers() {
       this._removeDirectSources();
       const mlMap = this._map ? (this._map._mlMap || this._map) : null;
@@ -1767,7 +1767,7 @@
                 if (s.weight !== undefined) mlMap.setPaintProperty(lid, 'line-width', s.weight);
                 if (s.opacity !== undefined) mlMap.setPaintProperty(lid, 'line-opacity', s.opacity);
               }
-            } catch(_) {}
+            } catch {}
           }
         }
       }
@@ -1828,7 +1828,7 @@
     constructor(containerId, options) {
       super();
       const opts = options || {};
-      const container = typeof containerId === 'string' ? containerId : containerId;
+      const _container = typeof containerId === 'string' ? containerId : containerId;
       const center = opts.center || [0, 0];
       const centerLL = toLatLng(center);
       const zoom = opts.zoom || 10;
@@ -1866,7 +1866,7 @@
         if (addZoomControl) {
           try {
             this._mlMap.addControl(new mlgl.NavigationControl({ showCompass: false }), 'bottom-left');
-          } catch(e) {
+          } catch {
             console.warn('[MapLibreCompat] Could not add navigation control:', e);
           }
         }
@@ -2091,7 +2091,7 @@
           if (mlMap.getLayer('forest-fill')) {
             mlMap.setPaintProperty('forest-fill', 'fill-color', this._getForestColorExpr('canopy', isDark));
           }
-        } catch (e) {
+        } catch {
           console.warn('[MapLibreCompat] updateBuildings3DTheme failed:', e);
         }
       };
@@ -2106,7 +2106,7 @@
       const apply = () => {
         try {
           this._mlMap.setSky(preset);
-        } catch (e) {
+        } catch {
           console.warn('[MapLibreCompat] updateSkyTheme failed:', e);
         }
       };
@@ -2397,15 +2397,15 @@
       try {
         const src = mlMap.getSource(srcId);
         if (src) { src.setData(data); return; }
-      } catch(e) {}
+      } catch {}
       try {
         mlMap.addSource(srcId, { type: 'geojson', data: data });
         mlMap.addLayer({ id: layId, type: 'line', source: srcId, paint: { 'line-color': '#3388ff', 'line-width': 3, 'line-dasharray': [3, 3] }});
-      } catch(e) {}
+      } catch {}
     }
     _removePreview(mlMap) {
-      try { if (mlMap.getLayer('_draw_preview_layer')) mlMap.removeLayer('_draw_preview_layer'); } catch(e) {}
-      try { if (mlMap.getSource('_draw_preview_src')) mlMap.removeSource('_draw_preview_src'); } catch(e) {}
+      try { if (mlMap.getLayer('_draw_preview_layer')) mlMap.removeLayer('_draw_preview_layer'); } catch {}
+      try { if (mlMap.getSource('_draw_preview_src')) mlMap.removeSource('_draw_preview_src'); } catch {}
     }
     _finish() {
       const latlngs = this._points.map(c => L.latLng(c[1], c[0]));
@@ -2478,19 +2478,19 @@
       try {
         const src = mlMap.getSource(srcId);
         if (src) { src.setData(data); return; }
-      } catch(e) {}
+      } catch {}
       try {
         mlMap.addSource(srcId, { type: 'geojson', data: data });
         if (geomType === 'Polygon') {
           mlMap.addLayer({ id: fillId, type: 'fill', source: srcId, paint: { 'fill-color': '#3388ff', 'fill-opacity': 0.15 }});
         }
         mlMap.addLayer({ id: layId, type: 'line', source: srcId, paint: { 'line-color': '#3388ff', 'line-width': 3, 'line-dasharray': [3, 3] }});
-      } catch(e) {}
+      } catch {}
     }
     _removePreview(mlMap) {
-      try { if (mlMap.getLayer('_draw_preview_layer')) mlMap.removeLayer('_draw_preview_layer'); } catch(e) {}
-      try { if (mlMap.getLayer('_draw_preview_fill')) mlMap.removeLayer('_draw_preview_fill'); } catch(e) {}
-      try { if (mlMap.getSource('_draw_preview_src')) mlMap.removeSource('_draw_preview_src'); } catch(e) {}
+      try { if (mlMap.getLayer('_draw_preview_layer')) mlMap.removeLayer('_draw_preview_layer'); } catch {}
+      try { if (mlMap.getLayer('_draw_preview_fill')) mlMap.removeLayer('_draw_preview_fill'); } catch {}
+      try { if (mlMap.getSource('_draw_preview_src')) mlMap.removeSource('_draw_preview_src'); } catch {}
     }
     _finish() {
       const closed = [...this._points, this._points[0]];
