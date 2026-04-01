@@ -97,5 +97,11 @@ async function _loadAndApplyBrandColor() {
     if (img) { img.src = logoSrc; img.alt = logoAlt; }
     const mobileImg = document.getElementById('adm-mobile-logo');
     if (mobileImg) { mobileImg.src = logoSrc; mobileImg.alt = logoAlt; }
+    const mapCard = document.getElementById('adm-map-card');
+    if (mapCard && store.city) {
+      mapCard.href = `/?city=${encodeURIComponent(store.city)}`;
+    }
+    const mapCardCity = document.getElementById('adm-map-card-city');
+    if (mapCardCity) mapCardCity.textContent = branding?.brand_name || store.city || '';
   } catch (e) { console.warn('[admin-app] loadAndApplyBrandColor', e); }
 }
