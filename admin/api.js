@@ -139,6 +139,10 @@ export async function uploadBrandingAsset(file, type) {
   return svc().uploadBrandingAsset(file, requireCity(), type);
 }
 
+export async function uploadBrandingAssetForCity(file, ville, type) {
+  return svc().uploadBrandingAsset(file, ville, type);
+}
+
 export async function getAvailableCities() {
   return svc().getAvailableCities();
 }
