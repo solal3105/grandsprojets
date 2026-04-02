@@ -2,6 +2,7 @@ import { store } from '../store.js';
 import { router } from '../router.js';
 import * as api from '../api.js';
 import { toast, confirm, slidePanel, esc, formatDate, formatRelativeDate, renderPagination, emptyState, skeletonTable } from '../components/ui.js';
+import { Copilot } from '../components/copilot.js';
 
 const PAGE_SIZE = 20;
 
@@ -634,6 +635,7 @@ let _wiz = {
 };
 
 function _resetWizard() {
+  if (_wiz._copilot) { try { _wiz._copilot.destroy(); } catch (e) { console.debug('[admin-contrib] copilot.destroy', e); } }
   if (_wiz._map) { try { _wiz._map.remove(); } catch (e) { console.debug('[admin-contrib] map.remove', e); } }
   if (_wiz._mdEditor) { try { _wiz._mdEditor.destroy(); } catch (e) { console.debug('[admin-contrib] mdEditor.destroy', e); } }
   _wiz = {
@@ -643,6 +645,7 @@ function _resetWizard() {
     coverFile: null, markdownText: '', docs: [],
     _map: null, _drawFeatures: [], _drawMode: null, _drawPoints: [],
     _mdEditor: null,
+    _copilot: null,
     editItem: null,
   };
 }
@@ -1544,6 +1547,60 @@ function _renderOnePage(container) {
   setTimeout(() => _initDrawMap(container), 200);
   if (_wiz.markdownText) setTimeout(() => _initMarkdownEditor(container), 60);
   _renderDocsList(container);
+
+  // Copilot IA — bouton intégré dans la barre footer
+  const _footerEl = container.querySelector('.cw-footer');
+  _wiz._copilot = new Copilot(container, {
+    anchor: _footerEl || container,
+    mode: _footerEl ? 'footer' : 'fab',
+    city: store.city,
+    getWizState: () => _wiz,
+    onInsert: (target, text) => _handleCopilotInsert(container, target, text),
+  });
+}
+
+function _handleCopilotInsert(container, target, text) {
+  if (target === 'description') {
+    const el = container.querySelector('#cw-description');
+    if (el) {
+      el.value = text;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('cw-field__input--valid');
+      toast('Description insérée', 'success');
+    }
+  } else if (target === 'article') {
+    _wiz.markdownText = text;
+    const toggle = container.querySelector('#cw-md-toggle');
+    const body = container.querySelector('#cw-md-body');
+    // Enable the markdown section if not already
+    if (toggle && !toggle.checked) {
+      toggle.checked = true;
+      if (body) body.hidden = false;
+    }
+    // Set editor content (or init it with the text)
+    if (_wiz._mdEditor) {
+      _wiz._mdEditor.setMarkdown(text);
+    } else {
+      _initMarkdownEditor(container);
+      // Wait for editor to be ready (poll up to 2s)
+      let tries = 0;
+      const waitEditor = setInterval(() => {
+        tries++;
+        if (_wiz._mdEditor) {
+          clearInterval(waitEditor);
+          _wiz._mdEditor.setMarkdown(text);
+        } else if (tries > 20) {
+          clearInterval(waitEditor);
+          // Fallback: plain textarea
+          const ta = container.querySelector('#cw-markdown');
+          if (ta) ta.value = text;
+        }
+      }, 100);
+    }
+    container.querySelector('#cw-sect-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    toast('Article inséré', 'success');
+  }
 }
 
 function _bindOnePage(container) {
