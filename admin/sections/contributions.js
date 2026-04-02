@@ -1548,11 +1548,10 @@ function _renderOnePage(container) {
   if (_wiz.markdownText) setTimeout(() => _initMarkdownEditor(container), 60);
   _renderDocsList(container);
 
-  // Copilot IA — bouton intégré dans la barre footer
+  // Assistant de rédaction IA — bouton intégré dans la barre footer
   const _footerEl = container.querySelector('.cw-footer');
   _wiz._copilot = new Copilot(container, {
-    anchor: _footerEl || container,
-    mode: _footerEl ? 'footer' : 'fab',
+    footer: _footerEl,
     city: store.city,
     getWizState: () => _wiz,
     onInsert: (target, text) => _handleCopilotInsert(container, target, text),

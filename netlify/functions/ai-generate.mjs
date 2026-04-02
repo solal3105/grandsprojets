@@ -163,30 +163,34 @@ export default async function handler(req) {
                 await writer.write(enc(`data: ${JSON.stringify({ content: ev.delta })}\n\n`));
               }
 
-              // Sources (annotations url_citation à la fin du texte)
+              // Sources
               if (ev.type === 'response.output_text.done' && ev.annotations?.length) {
                 const seen = new Set();
                 const sources = ev.annotations
                   .filter(a => a.type === 'url_citation' && a.url?.startsWith('http'))
                   .map(a => ({ url: a.url, title: a.title || null }))
-                  .filter(s => {
-                    if (seen.has(s.url)) return false;
-                    seen.add(s.url);
-                    return true;
-                  })
+                  .filter(s => { if (seen.has(s.url)) return false; seen.add(s.url); return true; })
                   .slice(0, 5);
-                if (sources.length) {
-                  await writer.write(enc(`data: ${JSON.stringify({ sources })}\n\n`));
-                }
+                if (sources.length) await writer.write(enc(`data: ${JSON.stringify({ sources })}\n\n`));
+              }
+
+              // Erreur API OpenAI (ex: quota dépassé)
+              if (ev.type === 'error') {
+                const msg = ev.error?.message || ev.error?.code || 'OpenAI error';
+                await writer.write(enc(`data: ${JSON.stringify({ error: msg })}\n\n`));
+                if (!doneSent) { await writer.write(enc('data: [DONE]\n\n')); doneSent = true; }
+                return;
               }
 
               // Fin
-              if (ev.type === 'response.completed' && !doneSent) {
+              if ((ev.type === 'response.completed' || ev.type === 'response.failed') && !doneSent) {
                 await writer.write(enc('data: [DONE]\n\n'));
                 doneSent = true;
               }
 
-            } catch { /* skip malformed */ }
+            } catch (parseErr) {
+              console.warn('[ai-generate] Erreur parse event:', parseErr.message, '| data:', data.slice(0, 200));
+            }
           }
         }
       } catch (err) {
