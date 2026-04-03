@@ -607,11 +607,6 @@ window.DataModule = (function() {
 			                   ? (progressPct < 25 ? 'var(--danger)' : 'var(--warning)')
 			                   : (progressPct < 75 ? 'var(--warning)' : 'var(--success)');
 
-			// ── Admin check ───────────────────────────────────────────────────
-			const activeCity = (typeof window.getActiveCity === 'function') ? window.getActiveCity() : window.activeCity;
-			const isAdmin = window.__CONTRIB_IS_ADMIN &&
-			                (window.__CONTRIB_VILLES?.includes('global') || window.__CONTRIB_VILLES?.includes(activeCity));
-
 			const isPending = props.approved === false;
 
 			// ── HTML — même structure que showProjectDetail ───────────────────
@@ -666,17 +661,7 @@ window.DataModule = (function() {
 						${adrs.length > 5 ? `<button class="toggle-addresses" style="margin-top:6px;font-size:.8rem;background:none;border:none;color:var(--primary);cursor:pointer;padding:2px 0">Voir plus</button>` : ''}
 					</div>` : ''}
 
-					${isAdmin && props.chantier_id ? `
-					${isPending ? `
-					<div class="tw-detail-approve-cta">
-						<button class="btn-primary btn-large" id="tw-detail-approve" style="width:100%">
-							<i class="fa-solid fa-check-circle"></i> Valider et publier
-						</button>
-					</div>` : ''}
-					<div class="tw-detail-admin">
-						<button class="btn-secondary" id="tw-detail-edit"><i class="fa-solid fa-pen-to-square"></i> Modifier</button>
-						<button class="btn-danger"  id="tw-detail-del"><i class="fa-solid fa-trash"></i> Supprimer</button>
-					</div>` : ''}
+
 				</div>`;
 
 			// ── Panneau ──────────────────────────────────────────────────────
@@ -720,53 +705,6 @@ window.DataModule = (function() {
 				toggleBtn.addEventListener('click', () => {
 					ul?.classList.toggle('collapsed');
 					toggleBtn.textContent = ul?.classList.contains('collapsed') ? 'Voir plus' : 'Voir moins';
-				});
-			}
-
-			// ── Admin actions ─────────────────────────────────────────────────
-			panel.querySelector('#tw-detail-edit')?.addEventListener('click', () => {
-				dismiss();
-				window.TravauxEditorModule?.openEditorForEdit?.(props.chantier_id);
-			});
-
-			// ── Admin : valider une proposition ──────────────────────────────
-			const approveBtn = panel.querySelector('#tw-detail-approve');
-			if (approveBtn) {
-				approveBtn.addEventListener('click', async () => {
-					if (!confirm('Valider et publier ce chantier ?')) return;
-					approveBtn.disabled = true;
-					approveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-					try {
-						await window.supabaseService.updateCityTravaux(props.chantier_id, { approved: true });
-						dismiss();
-						window.DataModule?.reloadLayer?.('travaux');
-						window.Toast?.show('Chantier validé et publié', 'success', 3000);
-					} catch (err) {
-						console.error('[DataModule] Erreur validation:', err);
-						window.Toast?.show('Erreur lors de la validation', 'error');
-						approveBtn.disabled = false;
-						approveBtn.innerHTML = '<i class="fa-solid fa-check-circle"></i> Valider';
-					}
-				});
-			}
-
-			const delBtn = panel.querySelector('#tw-detail-del');
-			if (delBtn) {
-				delBtn.addEventListener('click', async () => {
-					if (!confirm('Supprimer ce chantier ? Action irréversible.')) return;
-					delBtn.disabled = true;
-					delBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Suppression…';
-					try {
-						await window.supabaseService.deleteCityTravaux(props.chantier_id);
-						dismiss();
-						window.DataModule?.reloadLayer?.('travaux');
-						window.Toast?.show('Chantier supprimé', 'success', 2600);
-					} catch (err) {
-						console.error('[DataModule] Erreur suppression:', err);
-						window.Toast?.show('Erreur lors de la suppression', 'error');
-						delBtn.disabled = false;
-						delBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Supprimer';
-					}
 				});
 			}
 

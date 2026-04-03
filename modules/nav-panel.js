@@ -257,10 +257,6 @@
         // Restore default layers — preserve travaux if they were already on the map
         this._restoreDefaultLayers(this._travauxLayersLoaded);
       } else {
-        // Stop active drawing session if any
-        if (win.TravauxEditorModule?.isDrawing?.()) {
-          win.TravauxEditorModule.stopDrawing();
-        }
         // Clean up admin save listener
         if (this._onTravauxSaved) {
           win.removeEventListener('travaux:saved', this._onTravauxSaved);
@@ -283,10 +279,6 @@
       if (!this._panel) return;
 
       this._navToken++;   // cancel any in-flight level 3 render
-      // Stop active drawing session if any
-      if (win.TravauxEditorModule?.isDrawing?.()) {
-        win.TravauxEditorModule.stopDrawing();
-      }
       // Clean up admin save listener
       if (this._onTravauxSaved) {
         win.removeEventListener('travaux:saved', this._onTravauxSaved);
@@ -524,29 +516,6 @@
         }
       ];
 
-      // Section admin : admins uniquement
-      if (win.__CONTRIB_IS_ADMIN && travauxConfig.source_type === 'city_travaux') {
-        sections.push({
-          id: 'travaux-admin',
-          icon: 'fa-solid fa-screwdriver-wrench',
-          label: 'Administrer',
-          desc: 'Ajouter, modifier, supprimer'
-        });
-      }
-
-      // Section contributeur : tout utilisateur connecté avec accès à la ville
-      const city = win.getActiveCity?.() ?? win.activeCity;
-      const villes = win.__CONTRIB_VILLES || [];
-      const hasAccess = villes.includes('global') || villes.includes(city);
-      if (!win.__CONTRIB_IS_ADMIN && win.__CONTRIB_ROLE && hasAccess && travauxConfig.source_type === 'city_travaux') {
-        sections.push({
-          id: 'travaux-propose',
-          icon: 'fa-solid fa-paper-plane',
-          label: 'Mes propositions',
-          desc: 'Proposer et suivre mes chantiers'
-        });
-      }
-
       sections.forEach(s => {
         html += `
           <button class="nav-panel__item" data-section="${s.id}" style="--item-color: ${color}">
@@ -574,28 +543,6 @@
         });
       });
 
-      // Inject async pending badge on admin button (non-blocking)
-      if (win.__CONTRIB_IS_ADMIN && travauxConfig.source_type === 'city_travaux') {
-        this._injectPendingBadge(city);
-      }
-    },
-
-    /**
-     * Injects a pending-proposals count badge on the "Administrer" L2 button.
-     * Runs async so it doesn't block initial rendering.
-     */
-    async _injectPendingBadge(city) {
-      try {
-        const all = await win.supabaseService?.fetchCityTravaux(city, { adminMode: true }) || [];
-        const pending = all.filter(c => !c.approved);
-        if (!pending.length) return;
-        const btn = this._level2.querySelector('[data-section="travaux-admin"]');
-        if (!btn) return;
-        const arrow = btn.querySelector('.nav-panel__item-arrow');
-        if (arrow && !btn.querySelector('.np-l2-badge')) {
-          arrow.insertAdjacentHTML('beforebegin', `<span class="np-l2-badge">${pending.length}</span>`);
-        }
-      } catch (e) { console.warn('[nav-panel] injectPendingBadge failed:', e); }
     },
 
     // LEVEL 3 RENDERERS
@@ -687,10 +634,6 @@
         win.TravauxViews.buildTimeline(container, allFeatures, TM);
       } else if (section === 'travaux-filters') {
         win.TravauxViews.buildFilters(container, allFeatures, TM);
-      } else if (section === 'travaux-admin') {
-        win.TravauxViews.buildAdmin(container, ctx);
-      } else if (section === 'travaux-propose') {
-        win.TravauxViews.buildContributor(container, ctx);
       }
     },
 

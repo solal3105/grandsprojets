@@ -35,7 +35,7 @@
 /* ═══ UTILITAIRES ═══ */
 @import url('./styles/gp-lightbox.css');
 @import url('./styles/gp-toast.css');
-@import url('./styles/gp-icon-picker.css');
+
 
 /* ═══ RESPONSIVE (toujours en dernier) ═══ */
 @import url('./styles/08-responsive.css');
