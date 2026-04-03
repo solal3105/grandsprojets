@@ -229,11 +229,6 @@
    VARIANTS - Tailles
 --------------------------------------------------------------------------- */
 
-/* Compact : petites modales (confirmations, alertes) */
-.gp-modal--compact {
-  width: min(420px, 92vw);
-}
-
 /* Extra-large : pour tableaux et contenus complexes */
 .gp-modal--xlarge {
   width: min(1200px, 96vw);
@@ -243,13 +238,6 @@
 /* ---------------------------------------------------------------------------
    VARIANTS - Styles visuels
 --------------------------------------------------------------------------- */
-
-/* Glassmorphism : effet verre sur l'overlay uniquement */
-.gp-modal-overlay.gp-modal--glass {
-  background: radial-gradient(1200px 800px at 80% 90%, var(--black-alpha-80), var(--black-alpha-90));
-}
-
-
 
 /* ---------------------------------------------------------------------------
    VARIANTS - Comportements
@@ -293,11 +281,6 @@
     max-width: 480px;
     max-height: calc(100vh - 48px);
     border-radius: 16px;
-  }
-  
-  .gp-modal--compact {
-    width: 100%;
-    max-width: 420px;
   }
   
   .gp-modal-header {
@@ -382,27 +365,6 @@ body.modal-open {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.02); }
 }
-
-/* Loading state pour modale */
-.gp-modal.is-loading {
-  pointer-events: none;
-  opacity: 0.6;
-}
-
-.gp-modal.is-loading::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--white-alpha-50);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: inherit;
-  z-index: 9999;
-}
-
 
 /* ---------------------------------------------------------------------------
    FOCUS TRAP - Améliorer l'accessibilité

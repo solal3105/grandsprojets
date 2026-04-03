@@ -13,7 +13,6 @@
 @import url('./styles/09-sidebar.css');
 @import url('./styles/09-nav-panel.css');
 @import url('./styles/04-components.css');
-@import url('./styles/gp-button-system.css');
 
 /* ═══ CARTE ═══ */
 @import url('./styles/05-map.css');
@@ -22,7 +21,6 @@
 
 /* ═══ MODALES ═══ */
 @import url('./styles/06-modals.css');
-@import url('./styles/13-modal-system.css');
 @import url('./styles/14-modal-components.css');
 
 /* ═══ FONCTIONNALITÉS ═══ */

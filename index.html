@@ -287,125 +287,6 @@
     </div>
   </div>
 
-  <!-- Contact Form Modal -->
-  <div id="contact-form-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" style="display:none">
-    <div class="gp-modal" role="document">
-      <div class="gp-modal-header">
-        <button class="gp-modal-back" id="contact-form-back" aria-label="Retour">
-          <i class="fas fa-arrow-left"></i>
-        </button>
-        <div class="gp-modal-title">Contactez-moi</div>
-        <button class="btn-secondary gp-modal-close" id="contact-form-close" aria-label="Fermer">&times;</button>
-      </div>
-      <div class="gp-modal-body">
-        <!-- Email reveal section (en premier) -->
-        <div class="form-email-reveal">
-          <p class="email-reveal-text">Préférez-vous m'écrire directement ?</p>
-          <button type="button" class="email-reveal-btn" id="reveal-email-btn">
-            <i class="fas fa-envelope"></i>
-            <span>Afficher mon adresse email</span>
-          </button>
-          <div class="email-revealed" id="email-revealed" style="display:none">
-            <div class="email-link-wrapper">
-              <a href="mailto:solal.gendrin@gmail.com" class="email-link">
-                <i class="fas fa-envelope"></i>
-                solal.gendrin@gmail.com
-              </a>
-              <button type="button" class="email-copy-btn" id="email-copy-btn">
-                <i class="fas fa-copy"></i>
-                <span>Copier</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="form-divider">
-          <span>ou</span>
-        </div>
-
-        <form id="contact-form" class="contact-form">
-          <div class="form-intro">
-            <p>💬 Remplissez le formulaire</p>
-            <p class="form-intro-subtitle">Les champs marqués d'un astérisque (*) sont obligatoires</p>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="contact-name">Nom et prénom *</label>
-              <input type="text" id="contact-name" name="full_name" required placeholder="Jean Dupont">
-            </div>
-
-            <div class="form-group">
-              <label for="contact-email">Email *</label>
-              <input type="email" id="contact-email" name="email" required placeholder="jean.dupont@example.com">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="contact-phone">
-                Téléphone 
-                <span class="field-optional">(facultatif)</span>
-              </label>
-              <input type="tel" id="contact-phone" name="phone" placeholder="06 12 34 56 78">
-            </div>
-
-            <div class="form-group">
-              <label for="contact-org">Structure / Organisation *</label>
-              <input type="text" id="contact-org" name="organization" required placeholder="Ville de Lyon">
-            </div>
-          </div>
-
-          <div class="form-group form-group-full">
-            <label for="contact-message">Message *</label>
-            <textarea id="contact-message" name="message" rows="5" required placeholder="Décrivez votre projet..."></textarea>
-          </div>
-
-          <div class="form-group form-group-full">
-            <label for="contact-referrer">
-              Comment avez-vous connu GrandsProjets.com ?
-              <span class="field-optional">(facultatif)</span>
-            </label>
-            <input type="text" id="contact-referrer" name="referrer" placeholder="LinkedIn, bouche à oreille...">
-          </div>
-
-          <div class="form-actions">
-            <button type="submit" class="form-submit-btn">
-              <span>Envoyer le message</span>
-              <i class="fas fa-paper-plane"></i>
-            </button>
-          </div>
-        </form>
-
-        <!-- Success message -->
-        <div id="contact-success" class="contact-success" style="display:none">
-          <div class="success-icon">✓</div>
-          <h3>Message envoyé !</h3>
-          <p>Merci pour votre intérêt. Je vous recontacte très rapidement.</p>
-        </div>
-
-        <!-- Error message -->
-        <div id="contact-error" class="contact-error" style="display:none">
-          <div class="error-icon">✕</div>
-          <h3>Erreur</h3>
-          <p>Une erreur est survenue. Vous pouvez me contacter directement par email.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- PDF Preview Modal -->
-  <div id="pdf-preview-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-hidden="true" style="display:none">
-    <div class="gp-modal gp-modal--xlarge gp-modal--fixed-body" role="document">
-      <div class="gp-modal-header">
-        <div class="gp-modal-title" id="pdf-preview-title">Prévisualisation du document</div>
-        <button class="btn-secondary gp-modal-close" aria-label="Fermer">×</button>
-      </div>
-      <div class="gp-modal-body">
-        <iframe id="pdf-preview-frame" title="Prévisualisation PDF"></iframe>
-      </div>
-    </div>
-  </div>
 
 
   <!-- Supabase client via CDN -->
@@ -426,7 +307,6 @@
   
   <!-- Nouveaux modules réorganisés -->
   <script src="modules/analytics.js"></script>
-  <script src="modules/modal-helper.js"></script>
   <script src="modules/lightbox.js"></script>
   <script src="modules/toast.js"></script>
   <script src="modules/thememanager.js"></script>
@@ -462,8 +342,6 @@
   <!-- Toggles Manager - Refactored -->
   <script type="module" src="modules/ui/toggles.js"></script>
   
-  <!-- Contact Form -->
-  <script src="modules/contact-form.js"></script>
   
   <!-- Main simplifié -->
   <script src="main.js"></script>
