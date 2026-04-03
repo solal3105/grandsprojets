@@ -36,7 +36,6 @@
     closeBtn: !!closeBtn,
     backBtn: !!backBtn
   });
-  const ctaButton = document.querySelector('.about-cta-button');
   const revealEmailBtn = document.getElementById('reveal-email-btn');
   const emailRevealed = document.getElementById('email-revealed');
   const emailCopyBtn = document.getElementById('email-copy-btn');
@@ -47,14 +46,6 @@
 
   function openModal() {
     if (win.ModalHelper) win.ModalHelper.open('contact-form-overlay');
-  }
-
-  // Ouvrir la modale depuis le CTA
-  if (ctaButton) {
-    ctaButton.addEventListener('click', (e) => {
-      e.preventDefault();
-      openModal();
-    });
   }
 
   // Bouton retour

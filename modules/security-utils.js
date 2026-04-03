@@ -53,20 +53,6 @@
       }
       
       return url;
-    },
-
-    /**
-     * Crée un élément texte sécurisé (alternative à innerHTML)
-     * @param {string} tag - Tag HTML (ex: 'div', 'p', 'span')
-     * @param {string} text - Contenu texte
-     * @param {string} className - Classes CSS optionnelles
-     * @returns {HTMLElement} - Élément DOM sécurisé
-     */
-    createSafeElement: function(tag, text, className = '') {
-      const el = document.createElement(tag);
-      el.textContent = text; // textContent échappe automatiquement
-      if (className) el.className = className;
-      return el;
     }
   };
 

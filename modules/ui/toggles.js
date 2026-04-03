@@ -151,28 +151,6 @@ class ToggleManager {
       }
     }
 
-    // Modal (about, etc. — not a dock-panel)
-    if (t.config.modalSelector) {
-      const modalId = t.config.modalSelector.replace('#', '');
-      if (state) {
-        if (window.ModalHelper?.open) {
-          window.ModalHelper.open(modalId, {
-            dismissible: true, lockScroll: true, focusTrap: true,
-            onClose: () => { if (this.getState(key)) this.setState(key, false); }
-          });
-        } else {
-          const m = document.querySelector(t.config.modalSelector);
-          if (m) { m.style.display = 'flex'; m.setAttribute('aria-hidden', 'false'); }
-        }
-      } else {
-        if (window.ModalHelper?.close) window.ModalHelper.close(modalId);
-        else {
-          const m = document.querySelector(t.config.modalSelector);
-          if (m) { m.style.display = 'none'; m.setAttribute('aria-hidden', 'true'); }
-        }
-      }
-    }
-
     // ── Legacy: Target element (non dock-panel) ──
     if (t.config.targetElement && !dockPanel) {
       const el = document.getElementById(t.config.targetElement);
@@ -495,18 +473,11 @@ class ToggleManager {
 
   _handleOverflowItem(key, config) {
     if (config.redirectUrl) { window.location.href = config.redirectUrl; return; }
-    if (config.hasModal) {
-      const id = config.modalSelector?.replace('#', '');
-      if (id && window.ModalHelper) window.ModalHelper.open(id);
-    } else {
-      // For toggles whose action is owned by an external module that bound its
-      // own click listener directly on the DOM button (e.g. GeolocationModule on
-      // #location-toggle), calling this.toggle() only flips ARIA state without
-      // triggering the real action. Clicking the button programmatically is the
-      // correct way to fire all registered listeners, including the module's own.
-      const t = this.toggles.get(key);
-      if (t) t.element.click();
-    }
+    // For toggles whose action is owned by an external module that bound its
+    // own click listener directly on the DOM button (e.g. GeolocationModule on
+    // #location-toggle), clicking the button programmatically fires all listeners.
+    const t = this.toggles.get(key);
+    if (t) t.element.click();
   }
 
   _closeAllMenus() {

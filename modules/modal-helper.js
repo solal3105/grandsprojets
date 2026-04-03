@@ -221,60 +221,9 @@ window.ModalHelper = (() => {
     }
   }
   
-  /**
-   * Ferme toutes les modales ouvertes
-   */
-  function closeAll() {
-    [...openModals].reverse().forEach(modal => {
-      close(modal.id);
-    });
-  }
-  
-  /**
-   * Vérifie si une modale est ouverte
-   */
-  function isOpen(modalId) {
-    return openModals.some(m => m.id === modalId);
-  }
-  
-  /**
-   * Ajoute une classe d'animation à la modale
-   */
-  function animate(modalId, animationClass) {
-    const modalState = openModals.find(m => m.id === modalId);
-    if (!modalState) return;
-    
-    const { modal } = modalState;
-    modal.classList.add(animationClass);
-    
-    // Retirer la classe après l'animation
-    setTimeout(() => {
-      modal.classList.remove(animationClass);
-    }, 600);
-  }
-  
-  /**
-   * Met la modale en état loading
-   */
-  function setLoading(modalId, isLoading) {
-    const modalState = openModals.find(m => m.id === modalId);
-    if (!modalState) return;
-    
-    const { modal } = modalState;
-    if (isLoading) {
-      modal.classList.add('is-loading');
-    } else {
-      modal.classList.remove('is-loading');
-    }
-  }
-  
   // API publique
   return {
     open,
-    close,
-    closeAll,
-    isOpen,
-    animate,
-    setLoading
+    close
   };
 })();

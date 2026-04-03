@@ -847,8 +847,6 @@ function _updateDrawSource() {
   _wiz.drawnGeoJSON = _wiz._drawFeatures.length > 0 ? fc : null;
 }
 
-function _updateDrawStatus() { /* absorbed into _renderDrawPanel */ }
-
 function _bindDrawToolbar(body) {
   // Double-click to finish line/polygon (map event, bound once)
   if (_wiz._map) {

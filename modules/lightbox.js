@@ -69,10 +69,6 @@
     }
   }
 
-  function isOpen() {
-    return _overlay && _overlay.parentNode;
-  }
-
-  win.Lightbox = { open, close, isOpen };
+  win.Lightbox = { open, close };
 
 })(window);

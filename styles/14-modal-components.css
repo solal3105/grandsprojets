@@ -1,151 +1,264 @@
 /* ===========================================================================
-   MODAL COMPONENTS - Composants avancés pour modales
-   
-   Système unifié de composants réutilisables pour toutes les modales :
-   - Sections structurées (header + content)
-   - Footer unifié (actions + status)
-   - Navigation unifiée
-   - Hiérarchie de titres
-   
-   Ce fichier complète 13-modal-system.css avec des composants de haut niveau.
+   CITY SELECTOR — cs-* namespace
+   Auto-triggered after login when user has access to multiple structures.
+   Self-contained: no ModalHelper dependency.
    =========================================================================== */
 
+/* ── Overlay backdrop ───────────────────────────────────────────────────── */
 
-/* Texte centré */
-.gp-text-center {
-  text-align: center !important;
+.cs-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0);
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  transition: background 360ms ease, backdrop-filter 360ms ease;
 }
 
-/* Modal intro/description text */
-.gp-modal-intro {
-  margin: 0 0 24px 0;
-  color: var(--text-secondary);
-  font-size: 14px;
+.cs-overlay.cs-visible {
+  background: rgba(0, 0, 0, 0.48);
+  backdrop-filter: blur(10px) saturate(160%);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
 }
 
-/* ===========================================================================
-   STRUCTURE SELECTION CARDS (city-redirect modal)
-   Glassmorphism 3D cards for structure/city selection
-   =========================================================================== */
+/* ── Panel ──────────────────────────────────────────────────────────────── */
 
-.gp-structure-list {
+.cs-panel {
+  width: 100%;
+  max-width: 460px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 24px 60px rgba(0, 0, 0, 0.18),
+    0 6px 18px rgba(0, 0, 0, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  padding: 40px 32px 32px;
+  opacity: 0;
+  transform: translateY(20px) scale(0.97);
+  transition: opacity 360ms ease, transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cs-overlay.cs-visible .cs-panel {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+
+.cs-header {
+  margin-bottom: 28px;
+}
+
+.cs-eyebrow {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--info, #1d70b8);
+  margin-bottom: 10px;
+}
+
+.cs-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--text-primary, #111);
+  margin: 0 0 8px;
+}
+
+.cs-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #666);
+  margin: 0;
+}
+
+/* ── Cards list ─────────────────────────────────────────────────────────── */
+
+.cs-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
-.gp-structure-card {
+/* ── Card ───────────────────────────────────────────────────────────────── */
+
+.cs-card {
   display: flex;
   align-items: center;
   gap: 16px;
   width: 100%;
-  padding: 16px 20px;
-  border: 1px solid var(--white-alpha-50);
+  padding: 14px 18px;
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
   border-radius: 16px;
-  background: linear-gradient(135deg, var(--white-alpha-80) 0%, var(--white-alpha-60) 100%);
-  backdrop-filter: blur(12px) saturate(150%);
-  -webkit-backdrop-filter: blur(12px) saturate(150%);
-  box-shadow:
-    0 4px 16px var(--black-alpha-06),
-    0 1px 3px var(--black-alpha-04),
-    inset 0 1px 0 var(--white-alpha-80);
+  background: #fff;
   cursor: pointer;
   text-align: left;
-  color: var(--text-primary);
+  color: inherit;
   font-family: inherit;
   font-size: inherit;
-  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 200ms ease,
-              border-color 200ms ease;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: cs-card-in 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition:
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 220ms ease,
+    border-color 220ms ease,
+    background 220ms ease;
 }
 
-.gp-structure-card:hover {
-  transform: translateY(-2px) scale(1.01);
-  border-color: var(--info-alpha-25);
-  box-shadow:
-    0 8px 32px var(--info-alpha-12),
-    0 4px 12px var(--black-alpha-06),
-    inset 0 1px 0 var(--white-alpha-90);
+@keyframes cs-card-in {
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.gp-structure-card:active {
-  transform: translateY(0) scale(0.99);
+.cs-card:hover {
+  border-color: var(--info, #1d70b8);
+  background: linear-gradient(135deg, rgba(29, 112, 184, 0.04) 0%, transparent 100%);
+  box-shadow: 0 4px 20px rgba(29, 112, 184, 0.12), 0 1px 4px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+.cs-card:active {
+  transform: translateY(0) scale(0.988);
   transition-duration: 80ms;
 }
 
-.gp-structure-card:focus-visible {
-  outline: 2px solid var(--info);
+.cs-card:focus-visible {
+  outline: 2px solid var(--info, #1d70b8);
   outline-offset: 2px;
 }
 
-/* Logo / Initial */
-.gp-structure-card-visual {
-  width: 52px;
-  height: 52px;
+/* ── Card logo ──────────────────────────────────────────────────────────── */
+
+.cs-card-logo {
+  width: 48px;
+  height: 48px;
   flex-shrink: 0;
+  border-radius: 12px;
+  background: var(--gray-50, #f5f5f5);
+  border: 1px solid rgba(0, 0, 0, 0.07);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
-  background: linear-gradient(145deg, var(--white-alpha-95), var(--gray-50));
-  border: 1px solid var(--border-light);
-  box-shadow: 0 2px 6px var(--black-alpha-04);
   overflow: hidden;
 }
 
-.gp-structure-card-visual img {
+.cs-card-logo img {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  padding: 4px;
+  padding: 5px;
 }
 
-.gp-structure-card-initial {
-  font-size: 1.5rem;
+.cs-initial {
+  font-size: 1.375rem;
   font-weight: 800;
-  color: var(--info);
-  letter-spacing: -0.02em;
+  color: var(--info, #1d70b8);
+  letter-spacing: -0.03em;
 }
 
-/* Text info */
-.gp-structure-card-info {
+/* ── Card body ──────────────────────────────────────────────────────────── */
+
+.cs-card-body {
   flex: 1;
   min-width: 0;
 }
 
-.gp-structure-card-name {
+.cs-card-name {
   font-weight: 650;
-  font-size: 1rem;
-  color: var(--text-primary);
-  margin-bottom: 2px;
-  letter-spacing: -0.01em;
+  font-size: 0.9375rem;
+  color: var(--text-primary, #111);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.gp-structure-card-code {
-  font-size: 0.8125rem;
-  color: var(--text-tertiary);
+.cs-card-code {
+  font-size: 0.75rem;
+  color: var(--text-tertiary, #999);
   font-family: var(--font-mono, 'SF Mono', 'Fira Code', monospace);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
 }
 
-/* Arrow indicator */
-.gp-structure-card-arrow {
+/* ── Card arrow ─────────────────────────────────────────────────────────── */
+
+.cs-card-arrow {
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: var(--info-alpha-08);
-  color: var(--info);
-  font-size: 0.875rem;
-  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
-              background-color 200ms ease;
+  background: rgba(29, 112, 184, 0.08);
+  color: var(--info, #1d70b8);
+  font-size: 0.8rem;
+  transition:
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    background 220ms ease;
 }
 
-.gp-structure-card:hover .gp-structure-card-arrow {
-  transform: translateX(3px);
-  background: var(--info-alpha-15);
+.cs-card:hover .cs-card-arrow {
+  transform: translateX(4px);
+  background: rgba(29, 112, 184, 0.16);
 }
+
+/* ── Dark mode ──────────────────────────────────────────────────────────── */
+
+[data-theme="dark"] .cs-panel {
+  background: rgba(26, 26, 30, 0.97);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    0 6px 18px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .cs-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .cs-card:hover {
+  background: linear-gradient(135deg, rgba(29, 112, 184, 0.1) 0%, transparent 100%);
+  border-color: var(--info, #1d70b8);
+  box-shadow: 0 4px 20px rgba(29, 112, 184, 0.2);
+}
+
+[data-theme="dark"] .cs-card-logo {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Mobile ─────────────────────────────────────────────────────────────── */
+
+@media (max-width: 520px) {
+  .cs-overlay { padding: 16px; align-items: flex-end; }
+
+  .cs-panel {
+    max-width: 100%;
+    max-height: 85vh;
+    padding: 28px 20px 24px;
+    border-radius: 20px 20px 16px 16px;
+    transform: translateY(40px) scale(1);
+  }
+
+  .cs-overlay.cs-visible .cs-panel {
+    transform: translateY(0) scale(1);
+  }
+
+  .cs-title { font-size: 1.5rem; }
+}
+
+
 

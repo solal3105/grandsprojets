@@ -167,10 +167,5 @@ window.GeolocationModule = (() => {
 
   // ── Public API ────────────────────────────────────────────────────────────
 
-  return {
-    init,
-    handleLocationButtonClick: _handleClick, // legacy compat (onclick in HTML)
-    clearLocationMarkers:      _clear,
-    isGeolocationAvailable:    () => 'geolocation' in navigator
-  };
+  return { init };
 })();

@@ -10,9 +10,8 @@
    * @returns {Promise<string|null>} - Code structure sélectionné ou null si annulé
    */
   async function showCitySelectionPopup(cities) {
-    // Récupérer les infos des villes avec l'async pour avoir les logos depuis le cache ou Supabase
     const cityInfos = await Promise.all(cities.map(async (code) => {
-      const info = await win.CityManager?.getCityInfoAsync?.(code) 
+      const info = await win.CityManager?.getCityInfoAsync?.(code)
                 || win.CityManager?.getCityInfo?.(code);
       return {
         code,
@@ -22,134 +21,96 @@
     }));
 
     return new Promise((resolve) => {
-      // Créer l'overlay
-      const overlay = document.createElement('div');
-      overlay.id = 'city-selection-overlay';
-      overlay.className = 'gp-modal-overlay gp-modal--glass';
-      overlay.setAttribute('role', 'dialog');
-      overlay.setAttribute('aria-modal', 'true');
-      overlay.setAttribute('aria-labelledby', 'city-selection-title');
-
-      // Créer la modale
-      const modal = document.createElement('div');
-      modal.className = 'gp-modal gp-modal--compact';
-      modal.setAttribute('role', 'document');
-
-      // Header
-      const header = document.createElement('div');
-      header.className = 'gp-modal-header';
-      header.innerHTML = `
-        <h2 id="city-selection-title" class="gp-modal-title">
-          <i class="fa-solid fa-building"></i>
-          Sélectionnez votre structure
-        </h2>
-        <button type="button" class="gp-modal-close" aria-label="Fermer">&times;</button>
-      `;
-
-      // Body
-      const body = document.createElement('div');
-      body.className = 'gp-modal-body';
-      
-      const subtitle = document.createElement('p');
-      subtitle.className = 'gp-modal-intro gp-text-center';
-      subtitle.textContent = `Vous avez accès à ${cities.length} structure${cities.length > 1 ? 's' : ''}`;
-      body.appendChild(subtitle);
-
-      const list = document.createElement('div');
-      list.className = 'gp-structure-list';
-
-      cityInfos.forEach(city => {
-        const card = document.createElement('button');
-        card.className = 'gp-structure-card';
-        card.dataset.city = city.code;
-        card.setAttribute('type', 'button');
-
-        // Logo ou initiale
-        const visual = document.createElement('div');
-        visual.className = 'gp-structure-card-visual';
-
-        if (city.logo) {
-          const img = document.createElement('img');
-          img.src = city.logo;
-          img.alt = city.name;
-          img.loading = 'eager';
-          img.addEventListener('error', () => {
-            img.remove();
-            const fallback = document.createElement('span');
-            fallback.className = 'gp-structure-card-initial';
-            fallback.textContent = city.name.charAt(0).toUpperCase();
-            visual.appendChild(fallback);
-          });
-          visual.appendChild(img);
-        } else {
-          const initial = document.createElement('span');
-          initial.className = 'gp-structure-card-initial';
-          initial.textContent = city.name.charAt(0).toUpperCase();
-          visual.appendChild(initial);
-        }
-
-        // Infos texte
-        const info = document.createElement('div');
-        info.className = 'gp-structure-card-info';
-        
-        const name = document.createElement('div');
-        name.className = 'gp-structure-card-name';
-        name.textContent = city.name;
-        
-        const code = document.createElement('div');
-        code.className = 'gp-structure-card-code';
-        code.textContent = city.code;
-        
-        info.appendChild(name);
-        info.appendChild(code);
-
-        // Flèche
-        const arrow = document.createElement('div');
-        arrow.className = 'gp-structure-card-arrow';
-        arrow.innerHTML = '<i class="fa-solid fa-arrow-right"></i>';
-
-        card.appendChild(visual);
-        card.appendChild(info);
-        card.appendChild(arrow);
-        list.appendChild(card);
-      });
-
-      body.appendChild(list);
-
-      // Assembler
-      modal.appendChild(header);
-      modal.appendChild(body);
-      overlay.appendChild(modal);
-      document.body.appendChild(overlay);
-
-      // Handlers
       let resolved = false;
-      const close = (city = null) => {
+
+      const dismiss = (city = null) => {
         if (resolved) return;
         resolved = true;
-        win.ModalHelper?.close('city-selection-overlay');
-        // Nettoyer le DOM (modale dynamique)
-        setTimeout(() => overlay.remove(), 300);
+        document.removeEventListener('keydown', onKey);
+        overlay.classList.remove('cs-visible');
+        overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
         resolve(city);
       };
 
-      // Clic sur les cartes
-      list.querySelectorAll('.gp-structure-card').forEach(card => {
-        card.addEventListener('click', () => close(card.dataset.city));
+      // Overlay backdrop
+      const overlay = document.createElement('div');
+      overlay.className = 'cs-overlay';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.setAttribute('aria-labelledby', 'cs-title');
+
+      // Panel
+      const panel = document.createElement('div');
+      panel.className = 'cs-panel';
+
+      // Header
+      const header = document.createElement('div');
+      header.className = 'cs-header';
+      header.innerHTML = `
+        <span class="cs-eyebrow">Bienvenue</span>
+        <h2 id="cs-title" class="cs-title">Choisissez votre espace</h2>
+        <p class="cs-subtitle">${cities.length} espace${cities.length > 1 ? 's' : ''} disponible${cities.length > 1 ? 's' : ''}</p>
+      `;
+
+      // Cards list
+      const list = document.createElement('div');
+      list.className = 'cs-list';
+      list.setAttribute('role', 'list');
+
+      cityInfos.forEach((city, i) => {
+        const card = document.createElement('button');
+        card.className = 'cs-card';
+        card.dataset.city = city.code;
+        card.setAttribute('type', 'button');
+        card.setAttribute('role', 'listitem');
+        card.style.animationDelay = `${120 + i * 60}ms`;
+
+        const safeName = win.SecurityUtils?.escapeHtml(city.name) || city.name;
+        const initial = city.name.charAt(0).toUpperCase();
+        const safeLogoUrl = city.logo ? (win.SecurityUtils?.sanitizeUrl(city.logo) || city.logo) : null;
+
+        card.innerHTML = `
+          <div class="cs-card-logo">
+            ${safeLogoUrl
+              ? `<img src="${safeLogoUrl}" alt="${safeName}" loading="eager">`
+              : `<span class="cs-initial">${initial}</span>`}
+          </div>
+          <div class="cs-card-body">
+            <div class="cs-card-name">${safeName}</div>
+            <div class="cs-card-code">${city.code}</div>
+          </div>
+          <div class="cs-card-arrow"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></div>
+        `;
+
+        // Fallback logo → initiale
+        const img = card.querySelector('img');
+        if (img) {
+          img.addEventListener('error', () => {
+            img.parentElement.innerHTML = `<span class="cs-initial">${initial}</span>`;
+          });
+        }
+
+        card.addEventListener('click', () => dismiss(city.code));
+        list.appendChild(card);
       });
 
-      // Ouvrir avec ModalHelper
-      win.ModalHelper?.open('city-selection-overlay', {
-        focusTrap: true,
-        dismissible: true,
-        onClose: () => close(null)
-      });
+      panel.appendChild(header);
+      panel.appendChild(list);
+      overlay.appendChild(panel);
+      document.body.appendChild(overlay);
 
-      // Focus sur la première carte
-      setTimeout(() => {
-        const first = list.querySelector('.gp-structure-card');
-        if (first) first.focus();
-      }, 100);
+      // Dismiss on backdrop click
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) dismiss(null); });
+
+      // Dismiss on ESC
+      const onKey = (e) => { if (e.key === 'Escape') dismiss(null); };
+      document.addEventListener('keydown', onKey);
+
+      // Animate in (double rAF ensures transition fires)
+      requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add('cs-visible')));
+
+      // Focus first card
+      setTimeout(() => list.querySelector('.cs-card')?.focus(), 250);
     });
   }
 
