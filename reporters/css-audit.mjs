@@ -4,7 +4,7 @@
 // Usage: node reporters/css-audit.js [--verbose]
 
 import { readFileSync, readdirSync, statSync } from 'fs';
-import { join, relative, extname } from 'path';
+import { join, extname } from 'path';
 
 const ROOT   = new URL('..', import.meta.url).pathname;
 const VERBOSE = process.argv.includes('--verbose');

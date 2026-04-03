@@ -220,9 +220,7 @@
 
   /* ═══════════════ MAP ═══════════════ */
   let primaryMap = null;
-  let primaryLayer = null;
   let primaryBasemap = null;
-  let cachedGeoJSON = null;
 
   // Rotation cinématique
   let rotationRafId = null;
@@ -272,7 +270,6 @@
       const resp = await fetch(geojsonUrl);
       if (!resp.ok) throw new Error(resp.status);
       const data = await resp.json();
-      cachedGeoJSON = data;
 
       if (data?.features?.length) {
         const layer = createGeoJSONLayer(map, data, category);
@@ -638,7 +635,6 @@
   function renderHero(project, category) {
     const name = project.project_name;
     const cover = project.cover_url;
-    const catStyle = window.getCategoryStyle?.(category) || {};
     const catLabel = CFG.CAT_LABELS[category] || category;
     const catIcon = CFG.CAT_ICONS[category] || 'fa-map';
 
@@ -814,7 +810,7 @@
         window.supabaseService?.fetchProjectByCategoryAndName?.(category, project),
         window.supabaseService?.getConsultationDossiersByProject?.(project),
       ]);
-    } catch (e) {
+    } catch {
       showError('Erreur de chargement', 'Impossible de récupérer les données du projet.');
       return;
     }
@@ -835,7 +831,7 @@
     console.log('[fv2:init] ville résolu:', ville, '| data.ville (DB):', data.ville, '| city (URL):', city);
 
     // City branding + DataModule styles init in parallel
-    const [brandingDone] = await Promise.all([
+    await Promise.all([
       loadBranding(ville),
       initDataModuleStyles(ville),
     ]);
@@ -858,7 +854,6 @@
       if (mapResult) {
         primaryMap = mapResult.map;
         primaryBasemap = mapResult.base;
-        primaryLayer = mapResult.layer;
 
         // Démarrer la rotation cinématique après fitBounds
         if (primaryMap?._mlMap) {

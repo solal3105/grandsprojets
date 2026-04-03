@@ -621,14 +621,6 @@
       TM.enrichTimestamps(allFeatures);
 
       const container = this._level3;
-      const ctx = {
-        isStale: () => this._currentModule !== 'travaux' || this._currentCategory !== section,
-        onSaved: (refreshFn) => {
-          if (this._onTravauxSaved) win.removeEventListener('travaux:saved', this._onTravauxSaved);
-          this._onTravauxSaved = () => { if (this._currentCategory === section) refreshFn(); };
-          win.addEventListener('travaux:saved', this._onTravauxSaved);
-        },
-      };
 
       if (section === 'travaux-timeline') {
         win.TravauxViews.buildTimeline(container, allFeatures, TM);

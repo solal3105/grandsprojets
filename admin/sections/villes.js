@@ -602,13 +602,12 @@ function _bindMapSearch(container, map) {
   if (!input || !resultsEl) return;
 
   let debounce = null;
-  let abortCtrl = null;
 
   input.addEventListener('input', () => {
     clearTimeout(debounce);
     const q = input.value.trim();
     if (q.length < 3) { resultsEl.hidden = true; return; }
-    debounce = setTimeout(() => _doGeoSearch(q, resultsEl, map, input), 350);
+    debounce = setTimeout(() => _doGeoSearch(q, resultsEl), 350);
   });
 
   input.addEventListener('keydown', (e) => {
@@ -643,7 +642,7 @@ function _bindMapSearch(container, map) {
   });
 }
 
-async function _doGeoSearch(query, resultsEl, map, input) {
+async function _doGeoSearch(query, resultsEl) {
   try {
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&accept-language=fr`;
     const res = await fetch(url);

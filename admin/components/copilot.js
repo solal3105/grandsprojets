@@ -438,7 +438,7 @@ export class Copilot {
               const rw = panel.querySelector('#cp-result-' + resultIdx)?.closest('.cp-msg--result');
               if (rw) this._renderSources(rw, parsed.sources);
             }
-          } catch (_) { /* skip */ }
+          } catch { /* skip */ }
         }
       }
 
