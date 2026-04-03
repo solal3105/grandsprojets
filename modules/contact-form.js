@@ -53,7 +53,6 @@
   if (ctaButton) {
     ctaButton.addEventListener('click', (e) => {
       e.preventDefault();
-      if (win.ModalHelper) win.ModalHelper.close('about-overlay');
       openModal();
     });
   }
@@ -62,7 +61,6 @@
   if (backBtn) {
     backBtn.addEventListener('click', () => {
       closeModal();
-      if (win.ModalHelper) win.ModalHelper.open('about-overlay');
       resetForm();
     });
   }
