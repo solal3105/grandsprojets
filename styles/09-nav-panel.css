@@ -1006,30 +1006,6 @@
    TRAVAUX — ADMINISTRATION (admin panel in L3)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── L2 pending badge (on "Administrer" button) ────────────────────────── */
-.np-l2-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  margin-left: 6px;
-  border-radius: 999px;
-  background: var(--color-danger);
-  color: #fff;
-  font-size: 0.68rem;
-  font-weight: 700;
-  line-height: 1;
-  vertical-align: middle;
-  animation: np-badge-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-@keyframes np-badge-pop {
-  0%   { transform: scale(0); opacity: 0; }
-  60%  { transform: scale(1.15); }
-  100% { transform: scale(1); opacity: 1; }
-}
-
 /* ── Tabs ──────────────────────────────────────────────────────────────── */
 .np-tabs {
   display: flex;
@@ -1187,115 +1163,6 @@
   transform: scale(0.97);
 }
 
-/* ── Draw panel (inline) ───────────────────────────────────────────────── */
-
-.np-admin-draw {
-  background:
-    linear-gradient(135deg, var(--primary-alpha-06) 0%, transparent 100%);
-  border: 1px solid var(--border-light);
-  border-radius: 16px;
-  overflow: hidden;
-}
-
-.np-admin-draw-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.np-admin-draw-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 80%, black));
-  color: white;
-  border-radius: 10px;
-  font-size: 1rem;
-  flex-shrink: 0;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 22%, transparent);
-}
-
-.np-admin-draw-title {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.np-admin-draw-hint {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  margin-top: 1px;
-}
-
-.np-admin-draw-tools {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  padding: 14px 16px;
-}
-
-.np-admin-draw .travaux-drawing-help {
-  margin: 0 16px;
-}
-
-.np-admin-draw-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  padding: 12px 16px;
-  background: var(--surface-overlay);
-  border-top: 1px solid var(--border-light);
-}
-
-.np-admin-btn-cancel,
-.np-admin-btn-confirm {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 18px;
-  border: none;
-  border-radius: 10px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  will-change: transform;
-  transition:
-    background 0.25s ease,
-    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.3s ease;
-}
-
-.np-admin-btn-cancel {
-  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
-  color: var(--color-danger);
-}
-
-.np-admin-btn-cancel:hover {
-  background: color-mix(in srgb, var(--color-danger) 18%, transparent);
-  transform: scale(1.02);
-}
-
-.np-admin-btn-confirm {
-  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 80%, black));
-  color: white;
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--primary) 20%, transparent);
-}
-
-.np-admin-btn-confirm:hover {
-  transform: scale(1.02);
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 30%, transparent);
-}
-
-.np-admin-btn-confirm:disabled {
-  opacity: 0.45;
-  pointer-events: none;
-}
-
 /* ── Chantier list ─────────────────────────────────────────────────────── */
 
 .np-admin-list {
@@ -1360,21 +1227,6 @@
   color: var(--color-info);
   background: color-mix(in srgb, var(--color-info) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-info) 22%, transparent);
-  border-radius: 999px;
-  padding: 1px 8px;
-  white-space: nowrap;
-}
-
-/* ── Badge "Publié" ────────────────────────────────────────────────────── */
-.np-approved-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--success);
-  background: color-mix(in srgb, var(--success) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--success) 22%, transparent);
   border-radius: 999px;
   padding: 1px 8px;
   white-space: nowrap;
