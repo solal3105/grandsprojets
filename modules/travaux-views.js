@@ -5,45 +5,7 @@
 ;(function(win) {
   'use strict';
 
-  function drawPanelHTML() {
-    return `
-      <div id="travaux-drawing-panel" class="np-admin-draw" style="display:none">
-        <div class="np-admin-draw-header">
-          <div class="np-admin-draw-icon"><i class="fa-solid fa-draw-polygon"></i></div>
-          <div>
-            <div class="np-admin-draw-title">Mode dessin</div>
-            <div class="np-admin-draw-hint">Sélectionnez un outil puis dessinez sur la carte</div>
-          </div>
-        </div>
-        <div class="np-admin-draw-tools">
-          <button type="button" class="travaux-draw-tool" data-tool="polyline">
-            <div class="tool-icon"><i class="fa-solid fa-route"></i></div>
-            <div class="tool-content"><span class="tool-name">Ligne</span></div>
-          </button>
-          <button type="button" class="travaux-draw-tool" data-tool="polygon">
-            <div class="tool-icon"><i class="fa-solid fa-draw-polygon"></i></div>
-            <div class="tool-content"><span class="tool-name">Zone</span></div>
-          </button>
-          <button type="button" class="travaux-draw-tool" data-tool="marker">
-            <div class="tool-icon"><i class="fa-solid fa-map-pin"></i></div>
-            <div class="tool-content"><span class="tool-name">Point</span></div>
-          </button>
-        </div>
-        <div class="travaux-drawing-help"><i class="fa-solid fa-circle-info"></i> <span>Dessinez sur la carte puis cliquez sur « Continuer ».</span></div>
-        <div class="np-admin-draw-actions">
-          <button type="button" class="np-admin-btn-cancel" id="travaux-cancel-drawing"><i class="fa-solid fa-xmark"></i> Annuler</button>
-          <button type="button" class="np-admin-btn-confirm" id="travaux-finish-drawing" disabled><i class="fa-solid fa-check"></i> Continuer</button>
-        </div>
-      </div>`;
-  }
-
   function bindListActions(container, { onDelete, onRefresh }) {
-    container.querySelectorAll('.np-admin-action--edit').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        win.TravauxEditorModule?.openEditorForEdit(btn.dataset.id);
-      });
-    });
     container.querySelectorAll('.np-admin-action--delete').forEach(btn => {
       btn.addEventListener('click', async e => {
         e.stopPropagation();
@@ -255,8 +217,6 @@
         </button>
       </div>`;
 
-    html += drawPanelHTML();
-
     if (chantiers.length) {
       html += `
         <div class="np-tabs" role="tablist">
@@ -303,7 +263,7 @@
 
     // Bind: Add
     container.querySelector('#np-admin-add')?.addEventListener('click', () => {
-      win.TravauxEditorModule?.openEditor();
+      win.Toast?.show('Utilisez le panneau d\'administration pour ajouter des chantiers', 'info', 3000);
     });
 
     // Bind: Tabs

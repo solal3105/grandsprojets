@@ -1173,42 +1173,6 @@
   display: none;
 }
 
-/* ── CTA validation prominent (admin detail, pending items) ────────────── */
-.tw-detail-approve-cta {
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-light);
-}
-
-.tw-detail-approve-cta .btn-primary {
-  --_bg: var(--success);
-  --_edge: color-mix(in srgb, var(--success) 55%, black);
-  --_glow: color-mix(in srgb, var(--success) 20%, transparent);
-}
-
-/* ---------------------------------------------------------------------------
-   Travaux detail — boutons admin
---------------------------------------------------------------------------- */
-.tw-detail-admin {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-light);
-}
-
-.tw-detail-approve-cta + .tw-detail-admin {
-  padding-top: 0;
-  border-top: none;
-}
-
-.tw-detail-admin .btn-primary,
-.tw-detail-admin .btn-secondary,
-.tw-detail-admin .btn-danger {
-  flex: 1;
-  justify-content: center;
-}
-
 /* ── Bandeau "en attente de validation" dans la fiche chantier ─────────── */
 .tw-detail-pending-banner {
   display: flex;

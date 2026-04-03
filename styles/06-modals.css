@@ -2282,51 +2282,6 @@
   border-color: var(--info-alpha-40);
 }
 
-/* Edit message alert */
-.gp-edit-alert {
-  display: none;
-  padding: 8px 12px;
-  background: var(--warning-alpha-10, rgba(251, 191, 36, 0.1));
-  border-left: 3px solid var(--warning, #f59e0b);
-  border-radius: 6px;
-  margin-bottom: 12px;
-  font-size: 13px;
-  color: var(--warning, #f59e0b);
-}
-
-.gp-edit-alert.is-visible {
-  display: block;
-}
-
-/* Icon picker grid */
-.gp-icon-picker {
-  display: none;
-  margin-top: 16px;
-  padding: 16px;
-  border: 1px solid var(--border-light, var(--gray-200));
-  border-radius: 12px;
-  background: var(--surface-raised, var(--gray-50));
-  max-height: 320px;
-  overflow-y: auto;
-}
-
-.gp-icon-picker.is-visible {
-  display: block;
-}
-
-.gp-icon-picker-title {
-  margin-bottom: 12px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-strong, var(--gray-700));
-}
-
-.gp-icon-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
-  gap: 8px;
-}
-
 /* ===========================================================================
    IA ASSISTANT CARD - Carte pour l'assistant de rédaction IA
    =========================================================================== */
