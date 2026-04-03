@@ -220,12 +220,3 @@
   transform: translateX(2px);
 }
 
-/* ---------------------------------------------------------------------------
-   Focusing state — accent border when map is panning to this project
---------------------------------------------------------------------------- */
-.project-card.focusing {
-  border-color: var(--card-accent);
-  box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.06),
-    0 0 0 2px color-mix(in srgb, var(--card-accent) 25%, transparent);
-}

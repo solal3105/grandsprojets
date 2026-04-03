@@ -9,27 +9,10 @@
   }
 }
 
-/* ── Compact (≤ 520px) ── */
-@media (max-width: 520px) {
-  #contrib-overlay .contrib-list-item {
-    grid-template-columns: 72px 1fr;
-    gap: 12px;
-  }
-}
-
 /* ── Small (≤ 640px) ── */
 @media (max-width: 640px) {
   .detail-hero {
     height: 140px;
-  }
-
-  .city-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .image-tooltip img {
-    max-width: 200px;
-    max-height: 150px;
   }
 }
 
@@ -39,14 +22,6 @@
     display: flex;
   }
 
-  .gp-bento {
-    grid-template-columns: 1fr;
-  }
-
-  .gp-travaux .donut {
-    width: 90px;
-    height: 90px;
-  }
 }
 
 /* ── Reduced motion ── */

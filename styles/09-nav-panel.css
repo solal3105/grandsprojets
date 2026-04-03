@@ -875,31 +875,6 @@
   border-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Options row */
-.np-filters-options {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.np-filter-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  cursor: pointer;
-  user-select: none;
-}
-
-.np-filter-toggle input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--primary);
-  cursor: pointer;
-  border-radius: 4px;
-}
-
 /* Reset button */
 .np-filter-reset {
   display: inline-flex;
@@ -1072,10 +1047,6 @@
   color: var(--color-danger) !important;
 }
 
-.np-tab-count--ok {
-  background: color-mix(in srgb, var(--success) 14%, transparent) !important;
-  color: var(--success) !important;
-}
 
 /* ── Pending item accent ───────────────────────────────────────────────── */
 .np-admin-item--pending {
@@ -1396,27 +1367,6 @@
   line-height: 1.5;
 }
 
-.nav-panel__loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
-  color: var(--text-tertiary);
-  font-size: 0.82rem;
-  gap: 14px;
-}
-
-/* Premium gradient spinner */
-.nav-panel__loading i {
-  font-size: 1.4rem;
-  color: var(--primary);
-  animation: panelSpin 0.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-@keyframes panelSpin {
-  to { transform: rotate(360deg); }
-}
 
 /* ─── Skeleton screens ─────────────────────────────────────────────── */
 

@@ -4,8 +4,8 @@
    ============================================================================ */
 
 /* ── Layout & apparence de base (aucune couleur ici) ──────────────────── */
-.btn-primary, .btn-secondary, .btn-danger, .btn-info, .btn-ghost,
-a.btn-primary, a.btn-secondary, a.btn-danger, a.btn-info, a.btn-ghost {
+.btn-secondary,
+a.btn-secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -36,9 +36,9 @@ a.btn-primary, a.btn-secondary, a.btn-danger, a.btn-info, a.btn-ghost {
     filter     0.15s ease;
 }
 
-/* ── Hover : soulèvement + glow renforcé ──────────────────────────────── */
-.btn-primary:hover, .btn-secondary:hover, .btn-danger:hover, .btn-info:hover,
-a.btn-primary:hover, a.btn-secondary:hover, a.btn-danger:hover, a.btn-info:hover {
+/* ── Hover ──────────────────────────────────────────────────────────────── */
+.btn-secondary:hover,
+a.btn-secondary:hover {
   transform: translateY(-2px);
   filter: brightness(1.06);
   box-shadow:
@@ -48,9 +48,9 @@ a.btn-primary:hover, a.btn-secondary:hover, a.btn-danger:hover, a.btn-info:hover
     0 8px 24px var(--_glow);
 }
 
-/* ── Active : pression physique — bord efface, inset s'enfonce ─────────── */
-.btn-primary:active, .btn-secondary:active, .btn-danger:active, .btn-info:active,
-a.btn-primary:active, a.btn-secondary:active, a.btn-danger:active, a.btn-info:active {
+/* ── Active ─────────────────────────────────────────────────────────────── */
+.btn-secondary:active,
+a.btn-secondary:active {
   transform: translateY(1px) scale(0.97);
   filter: brightness(0.94);
   transition-duration: 0.06s;
@@ -61,34 +61,21 @@ a.btn-primary:active, a.btn-secondary:active, a.btn-danger:active, a.btn-info:ac
 }
 
 /* ── Disabled ─────────────────────────────────────────────────────────── */
-.btn-primary:disabled, .btn-secondary:disabled,
-.btn-danger:disabled, .btn-info:disabled {
+.btn-secondary:disabled {
   opacity: 0.42;
   cursor: not-allowed;
   pointer-events: none;
 }
 
 /* ── Icons ────────────────────────────────────────────────────────────── */
-.btn-primary i, .btn-secondary i, .btn-danger i, .btn-info i, .btn-ghost i {
+.btn-secondary i {
   font-size: 0.88em;
   line-height: 1;
 }
 
-/* ── Tailles ──────────────────────────────────────────────────────────── */
-.btn-small { padding: 6px 12px;  font-size: 0.8rem;  border-radius: 8px; }
-.btn-large { padding: 14px 28px; font-size: 1.0rem;  border-radius: 14px; }
-
 /* ==========================================================================
    Variants — seules les 4 custom properties changent
    ========================================================================== */
-
-/* Primary (bleu info) */
-.btn-primary, a.btn-primary {
-  --_bg:   var(--info);
-  --_fg:   #fff;
-  --_edge: color-mix(in srgb, var(--info) 55%, black);
-  --_glow: color-mix(in srgb, var(--info) 30%, transparent);
-}
 
 /* Secondary (neutre) */
 .btn-secondary, a.btn-secondary {
@@ -98,43 +85,6 @@ a.btn-primary:active, a.btn-secondary:active, a.btn-danger:active, a.btn-info:ac
   --_glow: rgba(0, 0, 0, 0.06);
 }
 
-/* Danger (rouge) */
-.btn-danger, a.btn-danger {
-  --_bg:   var(--danger);
-  --_fg:   #fff;
-  --_edge: color-mix(in srgb, var(--danger) 55%, black);
-  --_glow: color-mix(in srgb, var(--danger) 28%, transparent);
-}
-
-/* Info — alias de primary */
-.btn-info, a.btn-info {
-  --_bg:   var(--info);
-  --_fg:   #fff;
-  --_edge: color-mix(in srgb, var(--info) 55%, black);
-  --_glow: color-mix(in srgb, var(--info) 30%, transparent);
-}
-
-/* Ghost — transparent, texte seul, pas de 3D */
-.btn-ghost, a.btn-ghost {
-  background: transparent;
-  color: var(--text-secondary);
-  box-shadow: none;
-  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
-}
-.btn-ghost:hover, a.btn-ghost:hover {
-  background: rgba(0, 0, 0, 0.055);
-  color: var(--text-primary);
-  transform: translateY(-1px);
-  box-shadow: none;
-  filter: none;
-}
-.btn-ghost:active, a.btn-ghost:active {
-  transform: scale(0.96);
-  background: rgba(0, 0, 0, 0.08);
-  box-shadow: none;
-  filter: none;
-}
-
 /* ── Dark mode overrides ──────────────────────────────────────────────── */
 [data-theme="dark"] .btn-secondary,
 [data-theme="dark"] a.btn-secondary {
@@ -142,12 +92,3 @@ a.btn-primary:active, a.btn-secondary:active, a.btn-danger:active, a.btn-info:ac
   --_edge: rgba(0, 0, 0, 0.32);
 }
 
-[data-theme="dark"] .btn-ghost,
-[data-theme="dark"] a.btn-ghost {
-  color: rgba(255, 255, 255, 0.52);
-}
-[data-theme="dark"] .btn-ghost:hover,
-[data-theme="dark"] a.btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.07);
-  color: rgba(255, 255, 255, 0.88);
-}

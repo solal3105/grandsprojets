@@ -213,25 +213,6 @@
 .toggle-dock__btn[aria-pressed="true"]::after,
 .toggle-dock__btn[aria-expanded="true"]::after { display: none; }
 
-/* ── Accent button ─────────────────────────────────────────────────────── */
-
-.toggle-dock__btn--accent {
-  background: var(--primary, #14AE5C);
-  box-shadow: 0 3px 14px color-mix(in srgb, var(--primary, #14AE5C) 42%, transparent);
-}
-
-.toggle-dock__btn--accent i { color: #fff !important; }
-
-.toggle-dock__btn--accent:hover {
-  filter: brightness(1.08);
-  box-shadow: 0 5px 20px color-mix(in srgb, var(--primary, #14AE5C) 52%, transparent);
-}
-
-.toggle-dock__btn--accent:active { filter: brightness(0.93); }
-
-.toggle-dock__btn--accent[aria-pressed="true"]::after,
-.toggle-dock__btn--accent[aria-expanded="true"]::after { display: none; }
-
 /* ── Badge ─────────────────────────────────────────────────────────────── */
 
 .toggle-dock__badge,
@@ -321,30 +302,6 @@
 
 .app-toggle[data-ready="false"]:not([style*="display"]) { display: none !important; }
 .app-toggle[data-ready="true"] { opacity: 1; pointer-events: auto; }
-
-/* ── Logo ──────────────────────────────────────────────────────────────── */
-
-.toggle-dock__logo {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  height: var(--dock-btn);
-  padding: 0 6px;
-  flex-shrink: 0;
-  text-decoration: none;
-  position: relative;
-  z-index: 1;
-}
-
-.toggle-dock__logo img {
-  height: 28px;
-  max-width: 100px;
-  object-fit: contain;
-  opacity: 0.88;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.toggle-dock__logo:hover img { opacity: 1; transform: scale(1.04); }
 
 /* ── Mobile-only toggles ────────────────────────────────────────────────── */
 
@@ -979,7 +936,6 @@
   color: var(--text-tertiary);
 }
 
-.search-status--error { color: var(--danger, #EF4444); }
 .search-status i { font-size: 0.82rem; }
 
 /* City menu logo img — fills icon pill */
@@ -1004,38 +960,6 @@
     grid-template-columns: 1fr 1fr;
     gap: 5px;
   }
-}
-
-/* ══════════════════════════════════════════════════════════════════════════
-   TOGGLE MENU — Legacy / overflow
-   ══════════════════════════════════════════════════════════════════════════ */
-
-.toggle-menu {
-  position: fixed;
-  z-index: 1400;
-  background: var(--dock-bg);
-  backdrop-filter: blur(var(--dock-blur)) saturate(var(--dock-saturate));
-  -webkit-backdrop-filter: blur(var(--dock-blur)) saturate(var(--dock-saturate));
-  border: 1px solid var(--dock-border);
-  border-radius: 18px;
-  box-shadow: var(--dock-shadow);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-10px) scale(0.96);
-  transform-origin: top right;
-  transition:
-    opacity    0.22s cubic-bezier(0.4, 0, 0.2, 1),
-    visibility 0.22s cubic-bezier(0.4, 0, 0.2, 1),
-    transform  0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
-  pointer-events: none;
-}
-
-.toggle-menu.active,
-.toggle-menu[style*="display: block"] {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0) scale(1);
-  pointer-events: auto;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -1131,7 +1055,6 @@ body[data-auth-state="disconnected"] .action-item[data-auth="disconnected"] { di
 
 @media (max-width: 900px) {
   :root { --dock-btn: 40px; --dock-h: 50px; }
-  .toggle-dock__group + .toggle-dock__group::before { margin: 0 3px; height: 16px; }
 }
 
 @media (max-width: 640px) {
@@ -1144,7 +1067,6 @@ body[data-auth-state="disconnected"] .action-item[data-auth="disconnected"] { di
   :root { --dock-btn: 44px; --dock-h: 54px; }
   .toggle-dock { top: 8px; right: 6px; padding: 3px; }
   .toggle-dock__btn i { font-size: 1rem; }
-  .toggle-dock__logo img { height: 24px; max-width: 80px; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -1156,7 +1078,6 @@ body[data-auth-state="disconnected"] .action-item[data-auth="disconnected"] { di
   .toggle-dock::after,
   .toggle-dock__btn,
   .toggle-dock__btn i,
-  .toggle-menu,
   .toggle-dock__badge,
   .filter-count,
   .dock-panel {

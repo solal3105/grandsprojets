@@ -57,21 +57,6 @@
   transition: all 0.2s ease;
 }
 
-/* ============================================================================
-   HOVER STATE - Géré via classe .is-hovered (ajoutée par JavaScript)
-   On n'utilise PAS :hover car ça causerait des re-triggers
-   ============================================================================ */
-
-/* Animation au survol - via classe JavaScript */
-.gp-marker-container.is-hovered .gp-custom-marker::before {
-  transform: translateX(-50%) rotate(-45deg) scale(1.15);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
-}
-
-.gp-marker-container.is-hovered .gp-custom-marker i {
-  transform: translateX(-50%) scale(1.1);
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
-}
 
 /* Variante pour les markers actifs/sélectionnés */
 .gp-custom-marker.active::before {
@@ -227,11 +212,6 @@
   transition: all 0.2s ease;
 }
 
-/* Hover via classe JavaScript */
-.gp-simple-marker-container.is-hovered .gp-simple-marker i {
-  transform: scale(1.2);
-  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.5));
-}
 
 /* Animation d'apparition */
 .gp-simple-marker {

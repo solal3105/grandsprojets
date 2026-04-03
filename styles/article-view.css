@@ -533,37 +533,6 @@
 /* ---------------------------------------------------------------------------
    Loader
 --------------------------------------------------------------------------- */
-.article-loader {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 40px;
-  grid-column: 1 / -1;
-}
-
-.article-loader-spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid var(--gray-200);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: article-spin 1s linear infinite;
-}
-
-@keyframes article-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.article-loader-text {
-  margin-top: 16px;
-  font-size: 1rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
 /* ---------------------------------------------------------------------------
    Bouton retour à la carte
 --------------------------------------------------------------------------- */

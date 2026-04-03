@@ -15,39 +15,6 @@
 }
 
 
-.image-tooltip {
-  background: none !important;
-  border: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  pointer-events: none;
-  z-index: 10000 !important;
-}
-
-.image-tooltip .maplibregl-popup-content,
-.image-tooltip .maplibregl-popup-tip {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-}
-
-.image-tooltip .maplibregl-popup-content > div {
-  margin: 0 !important;
-  padding: 0 !important;
-  line-height: 0;
-}
-
-.image-tooltip img {
-  max-width: 300px;
-  max-height: 200px;
-  border-radius: 6px;
-  display: block;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-  pointer-events: none;
-}
 
 /* ---------------------------------------------------------------------------
    Zoom controls — bottom-left, hidden on mobile

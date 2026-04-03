@@ -443,7 +443,6 @@
 
 /* ── Action variants — Semantic accent colors ──────────────────────────── */
 
-.gp-sidebar__btn--city  { --_accent: var(--sb-icon-hover); }
 .gp-sidebar__btn--theme { --_accent: var(--color-warning); }
 .gp-sidebar__btn--info  { --_accent: var(--color-info); }
 .gp-sidebar__btn--help  { --_accent: var(--color-warning); }
