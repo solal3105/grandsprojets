@@ -776,46 +776,14 @@
         _isManualNavigation = value;
       };
       
-      // PHASE 9 : Fiche Modal (iframe-based fullscreen, via ModalHelper)
-      (function initFicheModal() {
-        const iframe   = document.getElementById('fiche-modal-iframe');
-        const loader   = document.getElementById('fiche-modal-loader');
-        const titleEl  = document.getElementById('fiche-modal-title');
-        const newtabEl = document.getElementById('fiche-modal-newtab');
-        if (!iframe) return;
-
-        function openFicheModal(ficheUrl, projectName) {
-          const embedUrl = ficheUrl + (ficheUrl.includes('?') ? '&' : '?') + 'embed=1';
-          if (titleEl) titleEl.textContent = projectName || '';
-          if (newtabEl) newtabEl.href = ficheUrl;
-          if (loader) loader.classList.remove('hidden');
-          iframe.src = embedUrl;
-          iframe.onload = () => { if (loader) loader.classList.add('hidden'); };
-
-          win.ModalHelper.open('fiche-modal-overlay', {
-            dismissible: true,
-            lockScroll: true,
-            focusTrap: true,
-            onClose: () => { iframe.src = 'about:blank'; }
-          });
-        }
-
-        function closeFicheModal() {
-          win.ModalHelper.close('fiche-modal-overlay');
-        }
-
-        // Delegated click: any button with data-fiche-url
-        document.addEventListener('click', (e) => {
-          const btn = e.target.closest('[data-fiche-url]');
-          if (!btn) return;
-          e.preventDefault();
-          e.stopPropagation();
-          openFicheModal(btn.dataset.ficheUrl, btn.dataset.ficheName || '');
-        });
-
-        // Expose globally for potential programmatic use
-        win.FicheModal = { open: openFicheModal, close: closeFicheModal };
-      })();
+      // PHASE 9 : Fiche → ouvrir dans un nouvel onglet
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-fiche-url]');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        window.open(btn.dataset.ficheUrl, '_blank', 'noopener');
+      });
 
       // Marquer le chargement comme terminé (pour la détection de blocage)
       markLoadComplete();

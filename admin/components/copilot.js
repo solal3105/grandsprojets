@@ -97,16 +97,8 @@ export class Copilot {
     this._btn = btn;
 
     const submitBtn = this._footer?.querySelector('#cw-submit');
-    if (submitBtn) {
-      // Wrap trigger + submit together so they sit side-by-side on the right
-      const wrapper = document.createElement('div');
-      wrapper.className = 'cw-footer__actions';
-      this._footer.insertBefore(wrapper, submitBtn);
-      wrapper.appendChild(btn);
-      wrapper.appendChild(submitBtn);
-    } else {
-      this._footer?.appendChild(btn);
-    }
+    if (submitBtn) this._footer.insertBefore(btn, submitBtn);
+    else this._footer?.appendChild(btn);
 
     const panel = document.createElement('div');
     panel.className = 'cp-panel';
@@ -124,8 +116,8 @@ export class Copilot {
       '<div class="cp-panel__body" id="cp-body"></div>',
     ].join('\n');
     this._panelEl = panel;
-    if (this._footer) {
-      this._footer.appendChild(panel);
+    if (this._footer?.parentNode) {
+      this._footer.parentNode.insertBefore(panel, this._footer);
     }
 
     btn.addEventListener('click', () => this._toggle());
@@ -263,7 +255,7 @@ export class Copilot {
         '<div class="cp-completion-card__header"><span class="cp-completion-card__title">Complétion du dossier</span><span class="cp-completion-card__pct">' + pct + '%</span></div>' +
         '<div class="cp-completion-card__track"><div class="cp-completion-card__fill" style="width:' + pct + '%"></div></div>' +
         '<div class="cp-completion-card__signals">' + SIGNALS.map(s =>
-          '<div class="cp-signal ' + (ctx[s.key] ? 'cp-signal--on' : 'cp-signal--off') + '" title="' + s.label + ' — ' + (ctx[s.key] ? 'renseigné' : 'manquant') + '">' +
+          '<div class="cp-signal ' + (ctx[s.key] ? 'cp-signal--on' : 'cp-signal--off') + '">' +
           '<i class="fa-solid ' + (ctx[s.key] ? 'fa-circle-check' : 'fa-circle-xmark') + '"></i>' +
           '<span>' + s.label + '</span></div>'
         ).join('') + '</div>' +

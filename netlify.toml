@@ -34,6 +34,16 @@
 # Fonctions Netlify
 # ============================================
 
+# ============================================
+# Fonctions exposées sous /api/
+# ============================================
+
+[[redirects]]
+  from = "/api/ai-generate"
+  to = "/.netlify/functions/ai-generate"
+  status = 200
+  force = true
+
 # Force the dynamic function over any static file with the same path
 [[redirects]]
   from = "/sitemap.xml"

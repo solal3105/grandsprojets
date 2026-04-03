@@ -4,116 +4,217 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
-  <meta name="description" content="Découvrez les détails du projet d'urbanisme et de mobilité sur Grands Projets de Lyon : dossiers, concertations, tracés et informations officielles.">
-  <meta name="theme-color" content="#2563eb">
+  <meta name="description" content="Découvrez les détails du projet sur Grands Projets.">
+  <meta name="theme-color" content="#14AE5C">
   <link rel="icon" type="image/png" href="/img/logomin.png" sizes="32x32">
   <link rel="apple-touch-icon" href="/img/logomin.png">
-  <title>Fiche projet – Grands Projets de Lyon</title>
-  
-  <!-- Open Graph par défaut (sera mis à jour par JS) -->
+  <title>Fiche projet – Grands Projets</title>
+
   <meta property="og:site_name" content="Grands Projets">
   <meta property="og:type" content="article">
   <meta property="og:locale" content="fr_FR">
-  <meta property="og:title" content="Fiche projet – Grands Projets de Lyon">
-  <meta property="og:description" content="Découvrez les détails du projet d'urbanisme et de mobilité sur Grands Projets de Lyon.">
-  <meta property="og:image" content="https://grandsprojets.com/img/logomin.png">
-  
-  <!-- Twitter Cards (défaut, mis à jour par JS) -->
+  <meta property="og:title" content="Fiche projet – Grands Projets">
+  <meta property="og:description" content="Découvrez les détails du projet sur Grands Projets.">
+  <meta property="og:image" content="https://grandsprojets.com/img/cover/meta.png">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Fiche projet – Grands Projets de Lyon">
-  <meta name="twitter:description" content="Découvrez les détails du projet d'urbanisme et de mobilité sur Grands Projets de Lyon.">
+  <meta name="twitter:title" content="Fiche projet – Grands Projets">
+  <meta name="twitter:description" content="Découvrez les détails du projet sur Grands Projets.">
   <meta name="twitter:image" content="https://grandsprojets.com/img/cover/meta.png">
-  
-  <!-- Canonical dynamique (sera mis à jour par JS) -->
+
   <link rel="canonical" href="https://grandsprojets.com/fiche/">
   <link rel="alternate" hreflang="fr" href="https://grandsprojets.com/fiche/">
-  <link rel="alternate" hreflang="x-default" href="https://grandsprojets.com/fiche/">
-  
-  <!-- Preconnect CDN -->
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+
+  <!-- Preconnect -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://unpkg.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="preconnect" href="https://wqqsuybmyqemhojsamgq.supabase.co" crossorigin>
-  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
-  <link rel="dns-prefetch" href="https://unpkg.com">
-  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
-  
-  <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="/styles/fiche.css">
-  <link rel="stylesheet" href="/styles/fiche-markdown.css">
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
+
+  <!-- Fonts: Space Grotesk (headings) + Inter (body) — same as /home/ -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Design system tokens (colors, dark mode, semantic aliases) -->
+  <link rel="stylesheet" href="/styles/00-colors.css">
+
+  <!-- MapLibre GL -->
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer">
+
+  <!-- Marker styles (for map contributions) -->
+  <link rel="stylesheet" href="/styles/gp-custom-markers.css">
+
+  <!-- Page styles -->
+  <link rel="stylesheet" href="/fiche/fiche-v2.css">
+
+  <!-- Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-8LGDVJXTPK"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-8LGDVJXTPK');
-  </script>
-  <script type="application/ld+json" id="fiche-jsonld">
-  {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    "headline": "Fiche projet",
-    "description": "Détails du projet d'urbanisme et de mobilité.",
-    "url": "https://grandsprojets.com/fiche/",
-    "inLanguage": "fr",
-    "publisher": {
-      "@type": "Organization",
-      "name": "Grands Projets",
-      "url": "https://grandsprojets.com",
-      "logo": {
-        "@type": "ImageObject",
-        "url": "https://grandsprojets.com/img/logo.svg"
-      }
-    },
-    "isPartOf": {
-      "@type": "WebSite",
-      "name": "Grands Projets",
-      "url": "https://grandsprojets.com/"
-    }
-  }
-  </script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-8LGDVJXTPK');</script>
+
+  <!-- JSON-LD -->
+  <script type="application/ld+json" id="fiche-jsonld">{"@context":"https://schema.org","@type":"Article","headline":"Fiche projet","description":"Détails du projet.","url":"https://grandsprojets.com/fiche/","inLanguage":"fr","publisher":{"@type":"Organization","name":"Grands Projets","url":"https://grandsprojets.com","logo":{"@type":"ImageObject","url":"https://grandsprojets.com/img/logo.svg"}}}</script>
 </head>
 <body>
+
   <noscript>
-    <div style="padding:2rem;text-align:center;font-family:sans-serif">
-      <h1>Fiche projet – Grands Projets</h1>
-      <p>Cette page nécessite JavaScript. <a href="/">Retour à l'accueil</a></p>
+    <div style="padding:3rem;text-align:center;font-family:sans-serif">
+      <h1>Fiche projet</h1>
+      <p>JavaScript requis. <a href="/">Retour à l'accueil</a></p>
     </div>
   </noscript>
-  <article id="project-article">
-    <!-- Le contenu sera injecté dynamiquement par ficheprojet.js -->
-  </article>
 
-  <!-- PDF Preview Modal -->
-  <div id="pdf-preview-overlay" class="gp-modal-overlay" role="dialog" aria-modal="true" aria-hidden="true" style="display:none">
-    <div class="gp-modal gp-modal--xlarge gp-modal--fixed-body" role="document">
-      <div class="gp-modal-header">
-        <div class="gp-modal-title" id="pdf-preview-title">Prévisualisation du document</div>
-        <button class="btn-secondary gp-modal-close" aria-label="Fermer">×</button>
+  <!-- ═══════════════════ APP SHELL ═══════════════════ -->
+  <div id="fv2" class="fv2">
+
+    <!-- ─── Topbar (floating → glass on scroll) ─── -->
+    <nav class="fv2-topbar" id="fv2-topbar">
+      <a href="/" class="fv2-topbar__back" aria-label="Retour à la carte">
+        <i class="fa-solid fa-chevron-left"></i>
+      </a>
+      <span class="fv2-topbar__title" id="fv2-topbar-title"></span>
+      <div class="fv2-topbar__actions">
+        <!-- City logo in topbar (shown on scroll) -->
+        <div class="fv2-topbar__logo" id="fv2-topbar-logo" hidden>
+          <img id="fv2-topbar-logo-img" src="" alt="">
+        </div>
+        <button type="button" class="fv2-topbar__btn fv2-topbar__btn--lock" id="fv2-btn-map-lock" aria-label="Activer l'interaction carte" hidden>
+          <i class="fa-solid fa-lock"></i>
+        </button>
+        <button type="button" class="fv2-topbar__btn" id="fv2-btn-theme" aria-label="Changer le thème">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+        <button type="button" class="fv2-topbar__btn" id="fv2-btn-share" aria-label="Copier le lien">
+          <i class="fa-solid fa-link"></i>
+        </button>
       </div>
-      <div class="gp-modal-body">
-        <iframe id="pdf-preview-frame" title="Prévisualisation PDF"></iframe>
+    </nav>
+
+    <!-- ─── Hero : carte en fond ─── -->
+    <header class="fv2-hero" id="fv2-hero">
+      <!-- Carte en fond du héro -->
+      <div id="fv2-map" class="fv2-hero__map"></div>
+      <!-- Scrim : dégradé pour lisibilité du texte -->
+      <div class="fv2-hero__scrim"></div>
+      <div class="fv2-hero__inner" id="fv2-hero-inner">
+        <!-- Skeleton placeholders -->
+        <div class="fv2-hero__meta">
+          <span class="fv2-skel fv2-skel--pill"></span>
+        </div>
+        <div class="fv2-skel fv2-skel--h1"></div>
+        <div class="fv2-skel fv2-skel--h1 fv2-skel--short"></div>
       </div>
+    </header>
+
+    <!-- ─── Body: Main + Sidebar ─── -->
+    <div class="fv2-body" id="fv2-body">
+
+      <!-- Main column -->
+      <main class="fv2-main" id="fv2-main">
+
+        <!-- Description -->
+        <section class="fv2-block" id="fv2-desc-block">
+          <div class="fv2-skel fv2-skel--line"></div>
+          <div class="fv2-skel fv2-skel--line fv2-skel--w70"></div>
+        </section>
+
+        <!-- Photo de couverture -->
+        <section class="fv2-block fv2-block--bleed" id="fv2-cover-block" hidden>
+          <div class="fv2-cover">
+            <img class="fv2-cover__img" id="fv2-cover-img" src="" alt="" loading="eager">
+            <button type="button" class="fv2-hero__expand" id="fv2-btn-cover-expand" aria-label="Agrandir la photo">
+              <i class="fa-solid fa-expand"></i>
+            </button>
+          </div>
+        </section>
+
+        <!-- Prose / Markdown -->
+        <section class="fv2-block" id="fv2-prose-block" hidden>
+          <article class="fv2-prose" id="fv2-prose"></article>
+        </section>
+
+        <!-- Related projects -->
+        <section class="fv2-block" id="fv2-related-block" hidden>
+          <h2 class="fv2-section-title"><i class="fa-solid fa-compass"></i> Découvrir aussi</h2>
+          <div class="fv2-related" id="fv2-related"></div>
+        </section>
+
+      </main>
+
+      <!-- Sidebar (desktop sticky) -->
+      <aside class="fv2-aside" id="fv2-aside">
+
+        <!-- City branding card — glass -->
+        <div class="fv2-glass-card fv2-glass-card--brand" id="fv2-brand-card" hidden>
+          <img class="fv2-glass-card__city-logo" id="fv2-city-logo" src="" alt="">
+          <span class="fv2-glass-card__city-name" id="fv2-city-name"></span>
+        </div>
+
+        <!-- Official link — glass -->
+        <a class="fv2-glass-card fv2-glass-card--link" id="fv2-link-card" href="#" target="_blank" rel="noopener noreferrer" hidden>
+          <img class="fv2-glass-card__favicon" id="fv2-link-favicon" src="" alt="">
+          <div class="fv2-glass-card__link-text">
+            <span class="fv2-glass-card__link-label">Site officiel</span>
+            <span class="fv2-glass-card__link-domain" id="fv2-link-domain"></span>
+          </div>
+          <i class="fa-solid fa-arrow-up-right-from-square fv2-glass-card__link-arrow"></i>
+        </a>
+
+        <!-- Documents — glass -->
+        <div class="fv2-glass-card" id="fv2-docs-card" hidden>
+          <h3 class="fv2-glass-card__heading"><i class="fa-solid fa-folder-open"></i> Documents</h3>
+          <div class="fv2-docs" id="fv2-docs"></div>
+        </div>
+
+      </aside>
+
+    </div><!-- .fv2-body -->
+
+    <!-- ─── Error state ─── -->
+    <div class="fv2-error" id="fv2-error" hidden>
+      <div class="fv2-error__icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <h1 class="fv2-error__title" id="fv2-error-title"></h1>
+      <p class="fv2-error__msg" id="fv2-error-msg"></p>
+      <a href="/" class="fv2-btn-3d fv2-btn-3d--primary">Retour à la carte</a>
+    </div>
+
+  </div><!-- #fv2 -->
+
+  <!-- ═══════════════════ OVERLAYS ═══════════════════ -->
+
+  <!-- PDF preview -->
+  <div class="fv2-overlay" id="fv2-ov-pdf" aria-hidden="true">
+    <div class="fv2-overlay__bar">
+      <span class="fv2-overlay__title" id="fv2-pdf-title">Document</span>
+      <button type="button" class="fv2-overlay__close" data-close aria-label="Fermer">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="fv2-overlay__body">
+      <iframe id="fv2-pdf-frame" title="PDF" style="width:100%;height:100%;border:none"></iframe>
     </div>
   </div>
 
+  <!-- Lightbox -->
+  <div class="fv2-lightbox" id="fv2-lightbox" aria-hidden="true">
+    <img id="fv2-lb-img" src="" alt="">
+    <button type="button" class="fv2-lightbox__close" data-close aria-label="Fermer">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </div>
+
+  <!-- ═══════════════════ SCRIPTS ═══════════════════ -->
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="/modules/maplibre-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
-  <script src="/modules/modal-helper.js"></script>
   <script src="/modules/supabaseservice.js"></script>
   <script src="/modules/thememanager.js"></script>
   <script src="/modules/citybranding.js"></script>
-  <!-- Logiques métier pour les styles de couches -->
   <script src="/modules/layerstyles.js"></script>
-  <!-- Styles et interactions des features (nécéssaire pour getFeatureStyle/bindFeatureEvents) -->
   <script src="/modules/security-utils.js"></script>
   <script src="/modules/datamodule.js"></script>
-  <script src="/modules/lightbox.js"></script>
-  <script src="/modules/toast.js"></script>
   <script src="/modules/markdownutils.js"></script>
-  <script src="/modules/ficheprojet.js"></script>
+  <script src="/fiche/fiche-v2.js"></script>
 </body>
 </html>
