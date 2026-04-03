@@ -116,7 +116,9 @@ export class Copilot {
       '<div class="cp-panel__body" id="cp-body"></div>',
     ].join('\n');
     this._panelEl = panel;
-    if (this._footer?.parentNode) {
+    if (this._footer) {
+      this._footer.appendChild(panel);
+    } else if (this._footer?.parentNode) {
       this._footer.parentNode.insertBefore(panel, this._footer);
     }
 
