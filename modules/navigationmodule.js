@@ -553,10 +553,19 @@ const NavigationModule = (() => {
       backButton.onclick = () => NavigationModule.resetToDefaultView(category, { preserveMapView: true, updateHistory: true });
     }
 
-    // Bouton "Fermer" (X) : retour à la vue par défaut (pas de submenu)
+    // Bouton "Fermer" (X) : ferme le détail + collapse nav + rezoom sur les projets visibles
     const closeButton = document.getElementById('detail-close-btn');
     if (closeButton) {
-      closeButton.onclick = () => NavigationModule.resetToDefaultView(null, { preserveMapView: false, updateHistory: true });
+      closeButton.onclick = () => {
+        const projectDetail = document.getElementById('project-detail');
+        if (projectDetail) projectDetail.style.display = 'none';
+        restoreAllLayerOpacity();
+        window.FeatureInteractions?.clearSelection?.(true);
+        clearProjectHighlight();
+        window.NavPanel?.collapse?.();
+        requestAnimationFrame(() => fitVisibleLayers());
+        try { history.pushState({}, '', location.pathname + location.search); } catch (e) {}
+      };
     }
     
     
