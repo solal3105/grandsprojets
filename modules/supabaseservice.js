@@ -571,25 +571,52 @@
           }
         };
 
-        // 2) Supprimer les fichiers Storage s'ils existent
+        // 2) Supprimer les fichiers Storage principaux (geojson, cover, markdown)
         const paths = urls.map(toStoragePath).filter(Boolean);
         if (paths.length) {
           try {
-            const { data: _remData, error: _remErr } = await supabaseClient
-              .storage
-              .from(bucket)
-              .remove(paths);
+            await supabaseClient.storage.from(bucket).remove(paths);
           } catch (e) {
             console.debug('[supabase] storage file removal during cleanup failed:', e);
           }
         }
 
-        // 3) Supprimer les dossiers de concertation liés (par nom exact)
+        // 3) Supprimer les dossiers de concertation + leurs PDFs Storage
+        // Guard anti-contamination croisée : ne supprimer que si aucune autre contribution
+        // ne partage le même project_name (tant qu'il n'y a pas de contribution_id FK).
         try {
-          const { error: _delDocErr } = await supabaseClient
-            .from('consultation_dossiers')
-            .delete()
-            .eq('project_name', row.project_name);
+          const { data: siblings } = await supabaseClient
+            .from('contribution_uploads')
+            .select('id')
+            .eq('project_name', row.project_name)
+            .neq('id', id);
+
+          const hasSiblings = Array.isArray(siblings) && siblings.length > 0;
+
+          if (!hasSiblings) {
+            // Aucune autre contribution avec ce nom : récupérer les dossiers pour supprimer
+            // leurs fichiers PDF du Storage avant de supprimer les enregistrements.
+            const { data: dossiers } = await supabaseClient
+              .from('consultation_dossiers')
+              .select('id, pdf_url')
+              .eq('project_name', row.project_name);
+
+            if (Array.isArray(dossiers) && dossiers.length > 0) {
+              const pdfPaths = dossiers.map(d => toStoragePath(d.pdf_url)).filter(Boolean);
+              if (pdfPaths.length) {
+                try {
+                  await supabaseClient.storage.from(bucket).remove(pdfPaths);
+                } catch (e) {
+                  console.debug('[supabase] PDF storage removal failed:', e);
+                }
+              }
+              await supabaseClient
+                .from('consultation_dossiers')
+                .delete()
+                .eq('project_name', row.project_name);
+            }
+          }
+          // Si hasSiblings : ne pas toucher aux dossiers partagés pour éviter la contamination.
         } catch (e) {
           console.debug('[supabase] consultation_dossiers cleanup failed:', e);
         }
@@ -1124,35 +1151,6 @@
     },
 
     /**
-     * Upload d'un PDF de concertation dans Storage et retourne son URL publique.
-     * @param {File|Blob} file - PDF
-     * @param {string} projectName
-     * @returns {Promise<string>} publicUrl
-     */
-    uploadConsultationPdf: async function(file, projectName) {
-      try {
-        if (!file || !projectName) throw new Error('Paramètres manquants');
-        const lower = (file.name || '').toLowerCase();
-        const ext = lower.endsWith('.pdf') ? '.pdf' : '.pdf';
-        const contentType = 'application/pdf';
-        const safeName = slugify(projectName || 'projet');
-        const ts = Date.now();
-        const path = `docs/consultation/${safeName}-${ts}${ext}`;
-        const bucket = 'uploads';
-        const { error: upErr } = await supabaseClient
-          .storage
-          .from(bucket)
-          .upload(path, file, { upsert: false, contentType });
-        if (upErr) { console.error('[supabaseService] uploadConsultationPdf error:', upErr); throw upErr; }
-        const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
-        return data.publicUrl;
-      } catch (e) {
-        console.error('[supabaseService] uploadConsultationPdf exception:', e);
-        throw e;
-      }
-    },
-
-    /**
      * Upload d'un fichier GeoJSON dans le bucket Storage 'uploads' et retourne son URL publique.
      * Le chemin est dérivé de la catégorie et d'un slug du nom de projet.
      * @param {File|Blob} file
@@ -1308,13 +1306,20 @@
      * @param {string} projectName
      * @param {string} category
      * @param {Array<{title:string,pdf_url:string}>} docs
+     * @param {number|null} [rowId] - id de la contribution propriétaire (contribution_uploads.id)
      */
-    insertConsultationDossiers: async function(projectName, category, docs) {
+    insertConsultationDossiers: async function(projectName, category, docs, rowId) {
       try {
         if (!projectName || !category || !Array.isArray(docs) || !docs.length) return { error: null };
         const rows = docs
           .filter(d => d && d.title && d.pdf_url)
-          .map(d => ({ project_name: projectName, category, title: d.title, pdf_url: d.pdf_url }));
+          .map(d => ({
+            project_name: projectName,
+            category,
+            title: d.title,
+            pdf_url: d.pdf_url,
+            ...(rowId ? { contribution_id: rowId } : {}),
+          }));
         if (!rows.length) return { error: null };
         const { error } = await supabaseClient
           .from('consultation_dossiers')

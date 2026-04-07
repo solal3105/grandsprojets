@@ -1785,7 +1785,7 @@ async function _submitOnePage(container) {
           if (url) uploaded.push({ title: d.title || 'Document', pdf_url: url });
         } catch (err) { console.warn('[contrib] PDF upload error:', err); }
       }
-      if (uploaded.length > 0) await api.insertConsultationDossiers(_wiz.project_name, _wiz.category, uploaded);
+      if (uploaded.length > 0) await api.insertConsultationDossiers(_wiz.project_name, _wiz.category, uploaded, rowId);
     }
 
     if (!isEdit && publishNow) await api.approveContribution(rowId, true);

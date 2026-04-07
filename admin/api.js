@@ -180,8 +180,8 @@ export async function getConsultationDossiers(projectName) {
   return svc().getConsultationDossiersByProject(projectName);
 }
 
-export async function insertConsultationDossiers(projectName, category, docs) {
-  return svc().insertConsultationDossiers(projectName, category, docs);
+export async function insertConsultationDossiers(projectName, category, docs, rowId) {
+  return svc().insertConsultationDossiers(projectName, category, docs, rowId);
 }
 
 export async function deleteConsultationDossier(id) {
