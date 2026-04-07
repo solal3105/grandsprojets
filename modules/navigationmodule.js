@@ -94,7 +94,7 @@ const NavigationModule = (() => {
     if (window.innerWidth <= 720) {
       // Mobile: UI panels stack at the bottom as drawers.
       // Priority: detail panel (higher) > nav panel > bare map.
-      const navPanelEl = document.querySelector('.nav-panel.open');
+      const navPanelEl = document.querySelector('.nav-panel.open:not(.collapsed)');
       const bottomH = detailOpen
         ? (detailPanel.offsetHeight  || 0) + 20
         : navPanelEl
@@ -667,11 +667,23 @@ const NavigationModule = (() => {
     }
   }
 
+  /**
+   * Fit the map to show all layers currently loaded in MapModule.layers.
+   * Uses proper padding so no layer is hidden behind UI panels.
+   * Called by NavPanel's "Voir la carte" button at any level.
+   */
+  function fitVisibleLayers() {
+    const layerNames = Object.keys(window.MapModule?.layers || {});
+    if (!layerNames.length) return;
+    _fitBoundsForLayers(layerNames);
+  }
+
   const publicAPI = {
     showProjectDetail,
     showSpecificContribution,
     showCategoryLayers,
     fitCategoryBounds,
+    fitVisibleLayers,
     zoomOutOnLoadedLayers,
     resetToDefaultView,
     _resetProjectGuard: () => { _lastShownProject = null; },

@@ -55,17 +55,10 @@
       }
       if (this._collapseBtn) {
         this._collapseBtn.addEventListener('click', () => {
-          // At level 3 carte: collapse first (clears panel padding), then fit
-          // bounds — order matters because collapse() resets the map's internal
-          // padding via _updateMapPadding(false), which would cancel any
-          // fitBounds animation launched before it.
-          if (this._level === 3 && this._currentModule === 'carte' && this._currentCategory) {
-            const cat = this._currentCategory;
-            this.collapse();
-            win.NavigationModule?.fitCategoryBounds?.(cat);
-            return;
-          }
           this.collapse();
+          // Defer one frame so the panel slide-out has started and
+          // _computeMapPadding() reads the collapsed DOM state correctly.
+          requestAnimationFrame(() => win.NavigationModule?.fitVisibleLayers?.());
         });
       }
       if (this._backBtn) {

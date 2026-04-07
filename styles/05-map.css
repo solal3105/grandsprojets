@@ -17,18 +17,109 @@
 
 
 /* ---------------------------------------------------------------------------
-   Zoom controls — bottom-left, hidden on mobile
+   Navigation Control — zoom + compass, glass capsule, bottom-right
 --------------------------------------------------------------------------- */
-.maplibregl-ctrl-bottom-left .maplibregl-ctrl-group {
-  margin: 0 0 16px 16px;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+/* Suppress legacy bottom-left slot */
+.maplibregl-ctrl-bottom-left { display: none !important; }
+
+/* Positioning */
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl {
+  margin: 0 16px 20px 0 !important;
 }
 
+/* Glass capsule */
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
+  background: rgba(250, 251, 255, 0.82) !important;
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.88) !important;
+  border-radius: 18px !important;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.045),
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 12px 32px rgba(0, 0, 0, 0.07),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.9) !important;
+  padding: 5px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Remove MapLibre's default button separator */
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-group > button + button {
+  border-top: none !important;
+}
+
+/* Buttons */
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-group button {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer;
+  transition: background 0.14s ease, transform 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-group button:not(:disabled):hover {
+  background: rgba(0, 0, 0, 0.055) !important;
+}
+
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-group button:not(:disabled):active {
+  background: color-mix(in srgb, var(--primary, #14AE5C) 14%, transparent) !important;
+  transform: scale(0.93);
+}
+
+/* Icon sizing */
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-group .maplibregl-ctrl-icon {
+  width: 100% !important;
+  height: 100% !important;
+  background-size: 20px 20px;
+}
+
+/* Thin separator line between zoom buttons and compass */
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-group .maplibregl-ctrl-zoom-out {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+  padding-bottom: 2px;
+  margin-bottom: 2px;
+}
+
+/* Mobile: hide navigation controls */
 @media (max-width: 720px) {
+  .maplibregl-ctrl-bottom-right,
   .maplibregl-ctrl-bottom-left {
-    display: none;
+    display: none !important;
   }
+}
+
+/* Dark theme */
+[data-theme="dark"] .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
+  background: rgba(14, 16, 26, 0.85) !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.035),
+    0 2px 8px rgba(0, 0, 0, 0.35),
+    0 12px 32px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+[data-theme="dark"] .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group button:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group .maplibregl-ctrl-zoom-out {
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Dark mode: invert +/- icons to white, leave compass arrow as-is */
+[data-theme="dark"] .maplibregl-ctrl-bottom-right .maplibregl-ctrl-zoom-in .maplibregl-ctrl-icon,
+[data-theme="dark"] .maplibregl-ctrl-bottom-right .maplibregl-ctrl-zoom-out .maplibregl-ctrl-icon {
+  filter: brightness(0) invert(1) opacity(0.75);
 }
 
 /* ── User location marker ────────────────────────────────────────────────── */

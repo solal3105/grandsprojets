@@ -2,13 +2,6 @@
    RESPONSIVE — Mobile breakpoints
    =========================================================================== */
 
-/* ── Ultra compact (≤ 400px) ── */
-@media (max-width: 400px) {
-  .mobile-fixed-logo img {
-    height: 28px;
-  }
-}
-
 /* ── Small (≤ 640px) ── */
 @media (max-width: 640px) {
   .detail-hero {

@@ -96,27 +96,43 @@
     const { values: communes, counts: communeCounts } = TM.uniqueSorted(allFeatures, 'commune');
     const { values: etats } = TM.uniqueSorted(allFeatures, 'etat');
 
+    function searchableListHTML(id, allLabel, items, counts) {
+      const opts = items.map(v =>
+        `<button type="button" class="np-filter-option" data-value="${esc(v)}">
+          <span class="np-filter-option-label">${esc(v)}</span>
+          <span class="np-filter-option-count">${counts[v]}</span>
+        </button>`
+      ).join('');
+      return `<div class="np-filter-searchable" id="${id}-wrap">
+          <div class="np-filter-search-row">
+            <i class="fa-solid fa-magnifying-glass np-filter-search-icon"></i>
+            <input type="text" class="np-filter-search-input" id="${id}-search"
+              placeholder="Rechercher…" autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="np-filter-option-list" id="${id}-list" role="listbox">
+            <button type="button" class="np-filter-option np-filter-option--all active" data-value="" role="option" aria-selected="true">
+              <span class="np-filter-option-label">${esc(allLabel)}</span>
+            </button>
+            ${opts}
+          </div>
+        </div>`;
+    }
+
     container.innerHTML = `
       <div class="np-travaux-filters">
         <div class="np-filters-group">
           <label class="np-filter-label">Nature des travaux</label>
-          <select id="np-f-nature" class="np-filter-select">
-            <option value="">Toutes les natures</option>
-            ${TM.optionsHTML(natures, natureCounts, false)}
-          </select>
+          ${searchableListHTML('np-f-nature', 'Toutes les natures', natures, natureCounts)}
         </div>
         <div class="np-filters-group">
           <label class="np-filter-label">Commune</label>
-          <select id="np-f-commune" class="np-filter-select">
-            <option value="">Toutes les communes</option>
-            ${communes.map(c => `<option value="${c}">${c} (${communeCounts[c]})</option>`).join('')}
-          </select>
+          ${searchableListHTML('np-f-commune', 'Toutes les communes', communes, communeCounts)}
         </div>
         <div class="np-filters-group">
           <label class="np-filter-label">État</label>
           <select id="np-f-etat" class="np-filter-select">
             <option value="">Tous les états</option>
-            ${etats.map(e => `<option value="${e}">${e}</option>`).join('')}
+            ${etats.map(e => `<option value="${esc(e)}">${esc(e)}</option>`).join('')}
           </select>
         </div>
         <div class="np-filters-actions">
@@ -131,49 +147,83 @@
         </div>
       </div>`;
 
+    // ── Searchable list controller ──────────────────────────────
+    function bindSearchable(id, onChange) {
+      const searchInput = container.querySelector(`#${id}-search`);
+      const listEl      = container.querySelector(`#${id}-list`);
+      let selectedValue = '';
+
+      searchInput.addEventListener('input', () => {
+        const q = searchInput.value.toLowerCase().trim();
+        listEl.querySelectorAll('.np-filter-option:not(.np-filter-option--all)').forEach(btn => {
+          const match = !q || btn.querySelector('.np-filter-option-label').textContent.toLowerCase().includes(q);
+          btn.style.display = match ? '' : 'none';
+        });
+      });
+
+      listEl.addEventListener('click', e => {
+        const btn = e.target.closest('.np-filter-option');
+        if (!btn) return;
+        selectedValue = btn.dataset.value;
+        listEl.querySelectorAll('.np-filter-option').forEach(b => {
+          b.classList.toggle('active', b.dataset.value === selectedValue);
+          b.setAttribute('aria-selected', b.dataset.value === selectedValue ? 'true' : 'false');
+        });
+        onChange();
+      });
+
+      return {
+        getValue: () => selectedValue,
+        setValue: v => {
+          selectedValue = v;
+          listEl.querySelectorAll('.np-filter-option').forEach(b => {
+            b.classList.toggle('active', b.dataset.value === v);
+            b.setAttribute('aria-selected', b.dataset.value === v ? 'true' : 'false');
+          });
+          searchInput.value = '';
+          listEl.querySelectorAll('.np-filter-option:not(.np-filter-option--all)').forEach(b => { b.style.display = ''; });
+        },
+      };
+    }
+
+    const LAYER = TM.LAYER_NAME || 'travaux';
+
+    function applyFilters() {
+      const c = {};
+      if (natureCtrl.getValue())  c.nature_travaux = natureCtrl.getValue();
+      if (communeCtrl.getValue()) c.commune = communeCtrl.getValue();
+      if (els.etat.value)         c.etat = els.etat.value;
+      const filtered = TM.applyStructuralFilter(allFeatures, c);
+
+      FilterModule.set(LAYER, c);
+      win.MapModule?.removeLayer(LAYER);
+      win.DataModule?.createGeoJsonLayer(LAYER, win.DataModule.layerData[LAYER]);
+
+      els.countEl.textContent = filtered.length;
+      TM.renderBadges(els.badges, c, els, applyFilters);
+
+      const hasActive = !!(natureCtrl.getValue() || communeCtrl.getValue() || els.etat.value);
+      els.resetBtn.style.display = hasActive ? '' : 'none';
+    }
+
+    const natureCtrl  = bindSearchable('np-f-nature', applyFilters);
+    const communeCtrl = bindSearchable('np-f-commune', applyFilters);
+
     const els = {
-      nature:   container.querySelector('#np-f-nature'),
-      commune:  container.querySelector('#np-f-commune'),
+      natureCtrl,
+      communeCtrl,
       etat:     container.querySelector('#np-f-etat'),
       resetBtn: container.querySelector('#np-f-reset'),
       badges:   container.querySelector('#np-f-badges'),
       countEl:  container.querySelector('#np-f-count'),
     };
 
-    const LAYER = TM.LAYER_NAME || 'travaux';
-
-    const getCriteria = () => {
-      const c = {};
-      if (els.nature.value)  c.nature_travaux = els.nature.value;
-      if (els.commune.value) c.commune = els.commune.value;
-      if (els.etat.value)    c.etat = els.etat.value;
-      return c;
-    };
-
-    const applyFilters = () => {
-      const criteria = getCriteria();
-      const filtered = TM.applyStructuralFilter(allFeatures, criteria);
-
-      FilterModule.set(LAYER, criteria);
-      win.MapModule?.removeLayer(LAYER);
-      win.DataModule?.createGeoJsonLayer(LAYER, win.DataModule.layerData[LAYER]);
-
-      els.countEl.textContent = filtered.length;
-      TM.renderBadges(els.badges, criteria, els, applyFilters);
-
-      const hasActive = !!(els.nature.value || els.commune.value || els.etat.value);
-      els.resetBtn.style.display = hasActive ? '' : 'none';
-    };
-
-    [els.nature, els.commune, els.etat].forEach(el =>
-      el.addEventListener('change', applyFilters)
-    );
+    els.etat.addEventListener('change', applyFilters);
 
     els.resetBtn.addEventListener('click', () => {
-      els.nature.value  = '';
-      els.commune.value = '';
-      els.etat.value    = '';
-      els.nature.innerHTML = '<option value="">Toutes les natures</option>' + TM.optionsHTML(natures, natureCounts);
+      natureCtrl.setValue('');
+      communeCtrl.setValue('');
+      els.etat.value = '';
       applyFilters();
     });
 

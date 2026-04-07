@@ -335,8 +335,10 @@ class ToggleManager {
     let safetyMax = candidates.length;
     while (safetyMax-- > 0) {
       const dockLeft = dock.getBoundingClientRect().left;
+      const dockW    = dock.offsetWidth;
+      const maxW     = window.innerWidth * 0.5;
       const remaining = eligible.length - overflowed.length;
-      if (dockLeft >= minLeft || remaining <= 3) break;
+      if ((dockLeft >= minLeft && dockW <= maxW) || remaining <= 3) break;
 
       const victim = candidates[candidates.length - 1 - overflowed.length];
       if (!victim) break;

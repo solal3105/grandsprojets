@@ -1862,11 +1862,14 @@
       this._mlMap.on('load', () => {
         this._styleLoaded = true;
         
-        // Add zoom control after map is loaded
+        // Add unified navigation control (zoom + compass) after map is loaded
         if (addZoomControl) {
           try {
-            this._mlMap.addControl(new mlgl.NavigationControl({ showCompass: false }), 'bottom-left');
-          } catch {
+            this._mlMap.addControl(
+              new mlgl.NavigationControl({ showCompass: true, showZoom: true, visualizePitch: true }),
+              'bottom-right'
+            );
+          } catch (e) {
             console.warn('[MapLibreCompat] Could not add navigation control:', e);
           }
         }
@@ -2159,10 +2162,14 @@
           const anchorLayer = mlMap.getStyle().layers.find(l =>
             l.type === 'line' || (l.type === 'fill' && !l.id.startsWith('gp-'))
           );
-          mlMap.addLayer({
-            id: 'gp-hillshade', type: 'hillshade', source: this._hillshadeSourceId,
-            paint: { 'hillshade-shadow-color': '#473B24', 'hillshade-illumination-anchor': 'map', 'hillshade-exaggeration': 0.5 }
-          }, anchorLayer?.id || '3d-buildings');
+          try {
+            mlMap.addLayer({
+              id: 'gp-hillshade', type: 'hillshade', source: this._hillshadeSourceId,
+              paint: { 'hillshade-shadow-color': '#473B24', 'hillshade-illumination-anchor': 'map', 'hillshade-exaggeration': 0.5 }
+            }, anchorLayer?.id || '3d-buildings');
+          } catch (e) {
+            console.warn('[MapLibreCompat] Could not add hillshade layer:', e);
+          }
         }
         mlMap.setTerrain({ source: this._terrainSourceId, exaggeration: ex });
         mlMap.setSky(this._getSkyPreset());

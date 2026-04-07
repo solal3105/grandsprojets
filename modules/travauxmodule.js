@@ -186,9 +186,15 @@ void (() => {
       badge.setAttribute('aria-label', `Retirer filtre ${text}`);
       badge.innerHTML = `${text} <i class='fa-solid fa-xmark'></i>`;
       const remove = () => {
-        if (key === 'nature_travaux') els.nature.value = '';
-        else if (key === 'commune') els.commune.value = '';
-        else if (key === 'etat') els.etat.value = '';
+        if (key === 'nature_travaux') {
+          if (els.natureCtrl) els.natureCtrl.setValue('');
+          else if (els.nature) els.nature.value = '';
+        } else if (key === 'commune') {
+          if (els.communeCtrl) els.communeCtrl.setValue('');
+          else if (els.commune) els.commune.value = '';
+        } else if (key === 'etat') {
+          els.etat.value = '';
+        }
         onChange();
       };
       badge.addEventListener('click', remove);

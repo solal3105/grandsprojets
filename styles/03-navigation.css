@@ -22,8 +22,10 @@
 }
 
 .mobile-fixed-logo img {
-  height: 44px;
   width: auto;
+  height: auto;
+  max-width: 40vw;
+  max-height: 10vh;
   object-fit: contain;
   display: block;
 }
