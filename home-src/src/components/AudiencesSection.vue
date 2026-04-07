@@ -36,7 +36,7 @@
 
             <!-- Icon -->
             <div
-              class="w-12 h-12 rounded-xl flex items-center justify-center mb-6 transition-all duration-300 group-hover:scale-110 group-hover:rotate-6 relative z-20"
+              class="w-12 h-12 rounded-xl flex items-center justify-center mb-6 transition-all duration-300 group-hover:scale-110 relative z-20"
               :class="card.bgClass"
             >
               <component :is="card.icon" class="w-6 h-6" :class="card.iconClass" />

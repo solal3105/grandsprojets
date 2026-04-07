@@ -27,7 +27,7 @@
         </router-link>
 
         <a
-          href="https://openprojets.com"
+          href="https://openprojets.com/default"
           target="_blank" v-tilt-btn
           class="inline-flex items-center gap-2.5 bg-white/10 text-white text-sm font-medium px-7 py-4 rounded-full border border-white/20 hover:bg-white/20 transition-all duration-200"
         >

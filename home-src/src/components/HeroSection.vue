@@ -43,7 +43,7 @@
 
       <!-- Browser mockup -->
       <div class="mt-12 max-w-[896px] mx-auto">
-        <div class="rounded-xl border border-gray-border bg-white shadow-2xl shadow-black/5 overflow-hidden animate-float">
+        <div class="rounded-xl border border-gray-border bg-white shadow-2xl shadow-black/5 overflow-hidden">
 
           <!-- Browser chrome bar -->
           <div class="flex items-center px-4 h-[46px] border-b border-gray-100 bg-gray-50 gap-3">
@@ -168,9 +168,9 @@ const spaces = [
     name: 'Métropole de Lyon',
     shortName: 'Lyon',
     type: 'Métropole — Espace démonstration',
-    src: 'https://openprojets.com/',
-    href: 'https://openprojets.com/',
-    urlDisplay: 'openprojets.com',
+    src: 'https://openprojets.com/default',
+    href: 'https://openprojets.com/default',
+    urlDisplay: 'openprojets.com/default',
     color: '#5AAB7D',
   },
   {

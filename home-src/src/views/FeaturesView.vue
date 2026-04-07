@@ -24,7 +24,7 @@
               Demander une démo
               <ArrowRight class="w-4 h-4" />
             </router-link>
-            <a href="https://openprojets.com" target="_blank" v-tilt-btn
+            <a href="https://openprojets.com/default" target="_blank" v-tilt-btn
               class="inline-flex items-center gap-2.5 bg-white text-dark text-sm font-medium px-7 py-4 rounded-full border border-gray-border hover:border-gray-300 transition-colors">
               Voir un exemple en direct
               <ArrowUpRight class="w-3.5 h-3.5 text-gray-400" />
@@ -342,7 +342,7 @@
             Demander une démo
             <ArrowRight class="w-4 h-4" />
           </router-link>
-          <a href="https://openprojets.com" target="_blank" v-tilt-btn
+          <a href="https://openprojets.com/default" target="_blank" v-tilt-btn
             class="inline-flex items-center gap-2.5 text-white text-sm font-medium px-7 py-4 rounded-full border border-white/15 bg-white/[0.08] hover:bg-white/[0.15] transition-colors">
             <MapIcon class="w-4 h-4" />
             Voir l'exemple Lyon

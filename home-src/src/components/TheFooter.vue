@@ -47,8 +47,8 @@
           © 2026 Open Projets by VAZY. Tous droits réservés.
         </p>
         <div class="flex items-center gap-6">
-          <a href="#" class="text-xs text-white/70 hover:text-white transition-colors">LinkedIn</a>
-          <a href="#" class="text-xs text-white/70 hover:text-white transition-colors">GitHub</a>
+          <a href="https://www.linkedin.com/company/vazyapp/posts/?feedView=all" target="_blank" class="text-xs text-white/70 hover:text-white transition-colors">LinkedIn</a>
+          <a href="https://github.com/solal3105/grandsprojets" target="_blank" class="text-xs text-white/70 hover:text-white transition-colors">GitHub</a>
         </div>
       </div>
     </div>
