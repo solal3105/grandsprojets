@@ -1873,7 +1873,16 @@
             console.warn('[MapLibreCompat] Could not add navigation control:', e);
           }
         }
-        
+
+        // Compass: show only when bearing ≠ 0° or pitch > 0
+        const _updateCompassVis = () => {
+          const compass = this._mlMap.getContainer().querySelector('.maplibregl-ctrl-compass');
+          if (!compass) return;
+          const active = Math.abs(this._mlMap.getBearing()) > 0.5 || this._mlMap.getPitch() > 0.5;
+          compass.classList.toggle('compass--active', active);
+        };
+        _updateCompassVis();
+        ['rotate', 'rotateend', 'pitch', 'pitchend'].forEach(evt => this._mlMap.on(evt, _updateCompassVis));
         // Enable 3D buildings layer from OpenMapTiles
         this._enable3DBuildings();
         

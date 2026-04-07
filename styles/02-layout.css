@@ -56,9 +56,9 @@
   width: 420px;
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 16px - var(--dock-h, 46px) - 2 * var(--dock-pad, 4px) - 2px - 10px - 16px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background: color-mix(in srgb, var(--surface-base) 85%, transparent);
   backdrop-filter: blur(40px) saturate(180%);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
@@ -73,12 +73,29 @@
   line-height: 0;
 }
 
+/* Scrollable body inside the panel */
+.detail-scroll-body {
+  flex: 1 1 auto;
+  min-height: 0;       /* allows shrinking below intrinsic height when panel hits max-height */
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+.detail-scroll-body::-webkit-scrollbar { width: 3px; }
+.detail-scroll-body::-webkit-scrollbar-track { background: transparent; margin: 16px 0; }
+.detail-scroll-body::-webkit-scrollbar-thumb {
+  background: var(--black-alpha-08);
+  border-radius: 10px;
+}
+.detail-scroll-body::-webkit-scrollbar-thumb:hover { background: var(--black-alpha-18); }
+
 #project-detail > * {
   font-size: 1rem;
   line-height: 1.5;
 }
 
-#project-detail[style*="display: block"],
+#project-detail[style*="display: flex"],
 #project-detail.visible {
   animation: detailEnter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
@@ -109,15 +126,6 @@
   right: 8%;
 }
 
-/* Smooth scrollbar */
-#project-detail::-webkit-scrollbar { width: 3px; }
-#project-detail::-webkit-scrollbar-track { background: transparent; margin: 16px 0; }
-#project-detail::-webkit-scrollbar-thumb {
-  background: var(--black-alpha-08);
-  border-radius: 10px;
-}
-#project-detail::-webkit-scrollbar-thumb:hover { background: var(--black-alpha-18); }
-
 @keyframes detailEnter {
   from {
     opacity: 0;
@@ -144,7 +152,7 @@
     border-radius: 22px 22px 16px 16px;
   }
 
-  #project-detail[style*="display: block"],
+  #project-detail[style*="display: flex"],
   #project-detail.visible {
     animation: detailEnterMobile 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
   }

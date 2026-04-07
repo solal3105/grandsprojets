@@ -405,7 +405,7 @@ const NavigationModule = (() => {
 
   const panel = document.getElementById('project-detail');
   panel.innerHTML = '<p style="padding:1em">Chargement…</p>';
-  panel.style.display = 'block';
+  panel.style.display = 'flex';
   panel.style.removeProperty('max-height');
   panel.style.removeProperty('overflow');
 
@@ -523,12 +523,16 @@ const NavigationModule = (() => {
     if (currentCity) params.set('city', currentCity);
     const fullPageUrl = `/fiche/?${params.toString()}`;
 
-    // Hero cover with back button inside (flush, no gap)
+    // Hero cover (expand btn only — back/close live in the permanent overlay bar)
     const heroHTML = coverCandidate
-      ? `<div class="detail-hero"><img class="detail-hero__img" src="${resolveAssetUrl(coverCandidate)}" alt="${attrs.name || projectName || ''}" loading="eager"><div class="detail-hero__grad"></div><button id="detail-back-btn" class="detail-back-floating" aria-label="Retour"><i class="fa-solid fa-arrow-left"></i></button><button id="detail-close-btn" class="detail-close-floating" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button><button class="detail-hero__expand" aria-label="Agrandir l'image" title="Agrandir"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button></div>`
+      ? `<div class="detail-hero"><img class="detail-hero__img" src="${resolveAssetUrl(coverCandidate)}" alt="${attrs.name || projectName || ''}" loading="eager"><div class="detail-hero__grad"></div><button class="detail-hero__expand" aria-label="Agrandir l'image" title="Agrandir"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button></div>`
       : '';
 
-    panel.innerHTML = `${heroHTML}${!coverCandidate ? `<button id="detail-close-btn" class="detail-close-floating detail-close-floating--no-hero" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>` : ''}<div class="detail-content-wrap">${!coverCandidate ? `<button id="detail-back-btn" class="detail-back-inline" aria-label="Retour"><i class="fa-solid fa-arrow-left"></i> Retour</button>` : ''}<div class="detail-title-row"><span class="detail-cat-icon"><i class="fa-solid ${icons[category] || 'fa-map'}"></i></span><h3 class="detail-title">${safeName}</h3></div>${chips.length ? `<div class="detail-chips">${chips.join('')}</div>` : ''}${description ? `<p class="detail-description">${description}</p>` : ''}${fullPageUrl ? `<button type="button" class="detail-fullpage-btn" data-fiche-url="${fullPageUrl}" data-fiche-name="${safeName}"><i class="fa-solid fa-newspaper"></i>Voir la fiche complète</button>` : ''}</div>`;
+    const footerHTML = fullPageUrl
+      ? `<div class="detail-footer"><button type="button" class="detail-fullpage-btn" data-fiche-url="${fullPageUrl}" data-fiche-name="${safeName}"><i class="fa-solid fa-newspaper"></i>Voir la fiche complète</button></div>`
+      : '';
+
+    panel.innerHTML = `<div class="detail-overlay-btns"><button id="detail-back-btn" class="detail-back-floating" aria-label="Retour"><i class="fa-solid fa-arrow-left"></i></button><button id="detail-close-btn" class="detail-close-floating" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button></div><div class="detail-scroll-body${coverCandidate ? '' : ' detail-scroll-body--no-hero'}">${heroHTML}<div class="detail-content-wrap"><div class="detail-title-row"><span class="detail-cat-icon"><i class="fa-solid ${icons[category] || 'fa-map'}"></i></span><h3 class="detail-title">${safeName}</h3></div>${chips.length ? `<div class="detail-chips">${chips.join('')}</div>` : ''}${description ? `<p class="detail-description">${description}</p>` : ''}</div></div>${footerHTML}`;
     
 
     // Wire up Extend button in this panel

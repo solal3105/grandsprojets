@@ -613,10 +613,13 @@ window.DataModule = (function() {
 			const natures = [props.nature_chantier, props.nature_travaux].filter(Boolean);
 
 			panel.innerHTML = `
-				<div class="detail-hero detail-hero--travaux" style="--travaux-color: var(--color-warning)">
-					<div class="detail-hero__grad"></div>
+				<div class="detail-overlay-btns">
 					<button id="detail-back-btn" class="detail-back-floating" aria-label="Retour"><i class="fa-solid fa-arrow-left"></i></button>
 					<button id="detail-close-btn" class="detail-close-floating" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+				</div>
+				<div class="detail-scroll-body">
+				<div class="detail-hero detail-hero--travaux" style="--travaux-color: var(--color-warning)">
+					<div class="detail-hero__grad"></div>
 					<div class="detail-hero__travaux-icon"><i class="${_esc(chantierIcon)}"></i></div>
 				</div>
 				<div class="detail-content-wrap">
@@ -662,11 +665,12 @@ window.DataModule = (function() {
 					</div>` : ''}
 
 
+				</div>
 				</div>`;
 
 			// ── Panneau ──────────────────────────────────────────────────────
 			panel.style.setProperty('--cat-color', 'var(--color-warning)');
-			panel.style.display = 'block';
+			panel.style.display = 'flex';
 
 			// Collapse NavPanel + reset map padding (identique à showProjectDetail)
 			window.NavPanel?.collapse();

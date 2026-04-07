@@ -82,11 +82,127 @@
   background-size: 20px 20px;
 }
 
-/* Thin separator line between zoom buttons and compass */
+/* Thin separator: only when compass is active */
 .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group .maplibregl-ctrl-zoom-out {
+  border-bottom: none !important;
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-group:has(.maplibregl-ctrl-compass.compass--active) .maplibregl-ctrl-zoom-out {
   border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
-  padding-bottom: 2px;
-  margin-bottom: 2px;
+  padding-bottom: 2px !important;
+}
+
+/* ── Compass: hidden until bearing/pitch is non-zero ── */
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-group .maplibregl-ctrl-compass {
+  /* Explicit height: 0 beats flex-item size calculation */
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  /* position:relative needed so ::before/::after stay inside and are clipped */
+  position: relative !important;
+  overflow: hidden !important;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: 50% !important;
+  transition:
+    height 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.3s ease;
+}
+
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-group .maplibregl-ctrl-compass.compass--active {
+  height: 40px !important;
+  max-height: 40px !important;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Compass face disc (static, doesn't rotate with bearing) */
+.maplibregl-ctrl-compass::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  z-index: 1;
+  background:
+    radial-gradient(circle at 37% 32%,
+      rgba(255, 255, 255, 0.97) 0%,
+      rgba(238, 244, 255, 0.90) 42%,
+      rgba(220, 228, 248, 0.80) 100%
+    );
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    inset 0 2px 5px rgba(255, 255, 255, 0.95),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.05),
+    0 1px 5px rgba(0, 0, 0, 0.12),
+    0 0 0 0.5px rgba(0, 0, 0, 0.06);
+}
+
+/* Center metallic pin */
+.maplibregl-ctrl-compass::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 4;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 33%,
+    rgba(255, 255, 255, 0.75),
+    rgba(55, 58, 80, 0.90)
+  );
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.35),
+    0 0 0 1.5px rgba(255, 255, 255, 0.42);
+}
+
+/* Arrow span: remove default MapLibre SVG, use pseudos for needles */
+.maplibregl-ctrl-compass .maplibregl-ctrl-icon {
+  background-image: none !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 2;
+}
+
+/* North needle — city primary color */
+.maplibregl-ctrl-compass .maplibregl-ctrl-icon::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 50%;
+  margin-left: -4px;
+  width: 8px;
+  height: 44%;
+  transform-origin: bottom center;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--primary) 85%, white) 0%,
+    var(--primary) 55%,
+    color-mix(in srgb, var(--primary) 70%, black) 100%
+  );
+  clip-path: polygon(50% 0%, 100% 100%, 50% 76%, 0% 100%);
+  filter: drop-shadow(0 1px 3px color-mix(in srgb, var(--primary) 55%, black));
+}
+
+/* South needle — pearl white/gray */
+.maplibregl-ctrl-compass .maplibregl-ctrl-icon::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin-left: -3px;
+  width: 6px;
+  height: 37%;
+  transform-origin: top center;
+  background: linear-gradient(
+    0deg,
+    rgba(175, 180, 200, 0.95) 0%,
+    rgba(235, 238, 248, 0.80) 100%
+  );
+  clip-path: polygon(50% 100%, 100% 0%, 50% 26%, 0% 0%);
 }
 
 /* Mobile: hide navigation controls */
@@ -112,8 +228,37 @@
   background: rgba(255, 255, 255, 0.08) !important;
 }
 
-[data-theme="dark"] .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group .maplibregl-ctrl-zoom-out {
+[data-theme="dark"] .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group:has(.maplibregl-ctrl-compass.compass--active) .maplibregl-ctrl-zoom-out {
   border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Dark mode compass face */
+[data-theme="dark"] .maplibregl-ctrl-compass::before {
+  background:
+    radial-gradient(circle at 37% 32%,
+      rgba(62, 68, 96, 0.98) 0%,
+      rgba(30, 34, 54, 0.96) 100%
+    );
+  border-color: rgba(255, 255, 255, 0.10);
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.07),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.45),
+    0 1px 5px rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="dark"] .maplibregl-ctrl-compass::after {
+  background: radial-gradient(circle at 38% 33%,
+    rgba(255, 255, 255, 0.35),
+    rgba(140, 145, 168, 0.92)
+  );
+}
+
+[data-theme="dark"] .maplibregl-ctrl-compass .maplibregl-ctrl-icon::after {
+  background: linear-gradient(
+    0deg,
+    rgba(120, 124, 145, 0.90) 0%,
+    rgba(195, 198, 215, 0.65) 100%
+  );
 }
 
 /* Dark mode: invert +/- icons to white, leave compass arrow as-is */

@@ -127,12 +127,31 @@
   pointer-events: none;
 }
 
-/* Buttons inside hero — glassmorphism pill buttons */
+/* ---------------------------------------------------------------------------
+   Always-visible overlay bar (back + close) — floats above scroll content
+--------------------------------------------------------------------------- */
+.detail-overlay-btns {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px;
+  pointer-events: none;
+}
+
+.detail-overlay-btns > button {
+  pointer-events: auto;
+  flex-shrink: 0;
+}
+
+/* Shared glassmorphic style for all floating buttons */
 .detail-hero__expand,
 .detail-back-floating,
 .detail-close-floating {
-  position: absolute;
-  z-index: 4;
   width: 36px;
   height: 36px;
   display: flex;
@@ -153,9 +172,12 @@
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
 }
 
+/* Expand button stays inside the hero */
 .detail-hero__expand {
+  position: absolute;
+  z-index: 4;
   top: 12px;
-  right: 56px;
+  right: 12px;
   opacity: 0;
   transform: scale(0.85);
 }
@@ -177,8 +199,6 @@
 }
 
 .detail-back-floating {
-  top: 12px;
-  left: 12px;
   width: 38px;
   height: 38px;
   font-size: 0.9rem;
@@ -186,8 +206,6 @@
 
 /* Close (X) button — uses category color */
 .detail-close-floating {
-  top: 12px;
-  right: 12px;
   background: var(--cat-color, var(--primary));
   color: #fff;
   border-color: transparent;
@@ -205,33 +223,20 @@
   transition-duration: 0.08s;
 }
 
-/* When no hero image — position close button relative to panel */
-.detail-close-floating--no-hero {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  z-index: 10;
+/* No-hero: content-wrap needs top padding so it doesn't hide under the overlay bar */
+.detail-scroll-body--no-hero > .detail-content-wrap {
+  padding-top: 68px;
 }
 
-/* Inline back button (when no cover image) */
-.detail-back-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 10px;
-  border: 1px solid var(--border-light);
-  background: var(--surface-raised);
-  color: var(--text-primary);
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  margin-bottom: 12px;
-  transition: all 0.2s ease;
+/* Sticky footer — "Voir la fiche complète" CTA always visible at the bottom */
+.detail-footer {
+  flex-shrink: 0;
+  padding: 10px 16px 16px;
+  border-top: 1px solid var(--border-light);
 }
 
-.detail-back-inline:hover {
-  background: var(--gray-100);
+.detail-footer .detail-fullpage-btn {
+  margin: 0;
 }
 
 /* ---------------------------------------------------------------------------
