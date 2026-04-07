@@ -9,6 +9,10 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
           <!-- Left: Text + Trust -->
           <div>
+            <span class="inline-flex items-center gap-2 text-[11px] font-semibold text-gray-text/40 uppercase tracking-[0.18em] mb-8">
+              <span class="w-5 h-px bg-gray-border" />
+              Contact
+            </span>
             <h1 class="font-heading font-bold text-4xl sm:text-5xl lg:text-[64px] leading-[1.05] tracking-tight-hero text-dark">
               Demander
               <br />
@@ -124,7 +128,7 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { Send, ArrowRight, ShieldCheck, Github, UserCircle } from 'lucide-vue-next'
+import { Send, ArrowRight, ShieldCheck, Github, UserCircle, Wallet } from 'lucide-vue-next'
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0'
@@ -143,10 +147,16 @@ const trustItems = [
     iconClass: 'text-purple',
   },
   {
-    icon: UserCircle,
-    label: 'Démo personnalisée sous 48h',
+    icon: Wallet,
+    label: 'Tarif transparent, aucun frais caché',
     bgClass: 'bg-green/[0.03]',
     iconClass: 'text-green',
+  },
+  {
+    icon: UserCircle,
+    label: 'Démo personnalisée sous 48h',
+    bgClass: 'bg-amber/[0.03]',
+    iconClass: 'text-amber',
   },
 ]
 

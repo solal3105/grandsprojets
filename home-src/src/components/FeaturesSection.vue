@@ -7,47 +7,52 @@
         <br />
         <span class="font-bold">vos habitants consultent</span>
       </h2>
+      <p class="mt-5 text-gray-text text-base sm:text-lg leading-relaxed max-w-[540px]">
+        Une interface pensée pour les équipes non techniques — vos agents sont opérationnels en quelques minutes, sans formation.
+      </p>
 
       <!-- 3 Cards -->
       <div class="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6">
         <div
           v-for="(card, i) in cards"
           :key="i"
-          class="group relative bg-gray-bg rounded-2xl border border-gray-border overflow-hidden hover:shadow-lg transition-shadow"
+          :ref="(el) => { cardEls[i] = el }"
+          class="card-tilt"
+          @mousemove="(e) => onMouseMove(e, i)"
+          @mouseleave="onMouseLeave(i)"
         >
-          <!-- Illustration area -->
-          <div class="h-40 bg-gray-100 relative overflow-hidden p-6">
-            <!-- Mini UI mockup illustration -->
-            <div class="space-y-2">
-              <div
-                v-for="j in card.lines"
-                :key="j"
-                class="flex items-center gap-3"
-              >
-                <span class="w-2 h-2 rounded-full" :class="j === 1 ? 'bg-primary' : 'bg-gray-300'" />
-                <span class="h-1.5 rounded-full bg-gray-200" :style="{ width: `${60 + Math.random() * 80}px` }" />
-                <span v-if="card.hasCheck" class="ml-auto w-1.5 h-1.5 rounded-full bg-gray-300" />
+          <div class="group relative bg-gray-bg rounded-2xl border border-gray-border overflow-hidden h-full">
+            <!-- Mouse-follow glare -->
+            <div class="absolute inset-0 pointer-events-none z-10 rounded-2xl" :style="shineStyles[i]" />
+
+            <!-- Illustration area -->
+            <div class="h-52 bg-gray-100 relative overflow-hidden">
+              <img
+                :src="card.image"
+                :alt="card.imageAlt"
+                class="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
+                loading="lazy"
+              />
+              <!-- Shimmer sweep -->
+              <div class="absolute inset-0 overflow-hidden pointer-events-none">
+                <div class="-translate-x-full group-hover:translate-x-[280%] -skew-x-12 w-1/3 h-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 ease-in-out" />
               </div>
-              <div v-if="card.hasAdd" class="flex items-center gap-2 mt-2">
-                <Plus class="w-4 h-4 text-gray-400" />
-                <span class="h-1.5 rounded-full bg-gray-200 w-12" />
-              </div>
+              <div class="absolute inset-0 bg-gradient-to-t from-white/18 via-transparent to-white/45" />
+              <!-- Number badge -->
+              <span class="absolute top-4 right-4 font-heading font-bold text-4xl text-white/80 drop-shadow-sm transition-all duration-300 group-hover:scale-110 group-hover:text-white">
+                {{ String(i + 1).padStart(2, '0') }}
+              </span>
             </div>
 
-            <!-- Number badge -->
-            <span class="absolute top-4 right-4 font-heading font-bold text-4xl text-gray-200/80">
-              {{ String(i + 1).padStart(2, '0') }}
-            </span>
-          </div>
-
-          <!-- Text -->
-          <div class="p-6">
-            <h3 class="font-heading font-semibold text-lg text-dark mb-2">
-              {{ card.title }}
-            </h3>
-            <p class="text-sm text-gray-text leading-relaxed">
-              {{ card.description }}
-            </p>
+            <!-- Text -->
+            <div class="p-6 relative z-20">
+              <h3 class="font-heading font-semibold text-lg text-dark mb-2">
+                {{ card.title }}
+              </h3>
+              <p class="text-sm text-gray-text leading-relaxed">
+                {{ card.description }}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -56,29 +61,57 @@
 </template>
 
 <script setup>
-import { Plus } from 'lucide-vue-next'
+import { ref, reactive } from 'vue'
+
+const cardEls = ref([])
+const shineStyles = reactive([{}, {}, {}])
+
+function onMouseMove(e, i) {
+  const el = cardEls.value[i]
+  if (!el) return
+  const rect = el.getBoundingClientRect()
+  const x = (e.clientX - rect.left) / rect.width - 0.5
+  const y = (e.clientY - rect.top) / rect.height - 0.5
+  el.style.transition = 'transform 0.08s ease'
+  el.style.transform = `perspective(700px) rotateX(${-y * 7}deg) rotateY(${x * 7}deg) translateZ(10px)`
+  shineStyles[i] = {
+    background: `radial-gradient(circle at ${(x + 0.5) * 100}% ${(y + 0.5) * 100}%, rgba(255,255,255,0.2) 0%, transparent 60%)`,
+  }
+}
+
+function onMouseLeave(i) {
+  const el = cardEls.value[i]
+  if (!el) return
+  el.style.transition = 'transform 0.6s cubic-bezier(0.23, 1, 0.32, 1)'
+  el.style.transform = ''
+  shineStyles[i] = {}
+}
 
 const cards = [
   {
     title: 'Vos équipes ajoutent les projets',
-    description: 'Back-office no-code. Localisation, description, état d\'avancement : tout se gère sans compétences techniques.',
-    lines: 5,
-    hasAdd: true,
-    hasCheck: true,
+    description: "Interface intuitive, zéro formation requise. Géolocalisez le projet sur la carte, rédigez la fiche, ajoutez une photo : tout se gère en quelques clics.",
+    image: '/home/img/features/feature-projects.jpeg',
+    imageAlt: 'Interface de gestion de projets sur fond de carte',
   },
   {
-    title: 'La carte s\'adapte à votre identité',
-    description: 'Branding, couleurs et typographie : votre carte reprend automatiquement l\'identité de votre collectivité.',
-    lines: 4,
-    hasAdd: false,
-    hasCheck: false,
+    title: 'La carte adopte votre identité visuelle',
+    description: "Couleurs, logotype et fond de carte : votre espace reprend automatiquement la charte graphique de votre collectivité.",
+    image: '/home/img/features/feature-branding.jpeg',
+    imageAlt: 'Personnalisation visuelle de la carte avec palette et composants',
   },
   {
-    title: 'Vos habitants s\'informent',
-    description: 'Carte publique, sans inscription. Recherche, filtres, notifications : tout est pensé pour l\'usage citoyen.',
-    lines: 4,
-    hasAdd: false,
-    hasCheck: false,
+    title: 'Vos habitants consultent sans inscription',
+    description: "Carte publique, sans compte, sans téléchargement. Recherche, filtres, fiches détaillées : tout est pensé pour que l'information atteigne vraiment vos administrés.",
+    image: '/home/img/features/feature-consultation.jpeg',
+    imageAlt: 'Vue cartographique orientée consultation citoyenne',
   },
 ]
 </script>
+
+<style scoped>
+.card-tilt {
+  will-change: transform;
+  transform-style: preserve-3d;
+}
+</style>

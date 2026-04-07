@@ -1,7 +1,7 @@
 <template>
   <section class="relative py-32 bg-dark overflow-hidden">
     <!-- Subtle gradient overlay -->
-    <div class="absolute inset-0 opacity-20">
+    <div class="absolute inset-0 cta-glow">
       <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] blob-red blur-[160px] rounded-full" />
     </div>
 
@@ -13,23 +13,23 @@
       </h2>
 
       <p class="mt-6 text-white/60 text-base sm:text-lg max-w-md mx-auto leading-relaxed">
-        Demandez une démo personnalisée et découvrez Open Projets en quelques minutes.
+        Tarif transparent, zéro frais caché. Découvrez Open Projets en démo personnalisée — on configure votre espace ensemble.
       </p>
 
       <!-- CTAs -->
       <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
         <router-link
-          to="/contact"
-          class="inline-flex items-center gap-2.5 bg-primary text-white text-sm font-medium px-7 py-4 rounded-full hover:bg-red-700 transition-colors shadow-lg shadow-primary/30"
+          to="/contact" v-tilt-btn
+          class="group inline-flex items-center gap-2.5 bg-primary text-white text-sm font-medium px-7 py-4 rounded-full hover:bg-red-700 transition-all duration-200 shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40"
         >
           Demander une démo
-          <ArrowRight class="w-4 h-4" />
+          <ArrowRight class="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
         </router-link>
 
         <a
-          href="https://grandsprojets.com"
-          target="_blank"
-          class="inline-flex items-center gap-2.5 bg-white/10 text-white text-sm font-medium px-7 py-4 rounded-full border border-white/20 hover:bg-white/20 transition-colors"
+          href="https://openprojets.com"
+          target="_blank" v-tilt-btn
+          class="inline-flex items-center gap-2.5 bg-white/10 text-white text-sm font-medium px-7 py-4 rounded-full border border-white/20 hover:bg-white/20 transition-all duration-200"
         >
           <MapIcon class="w-4 h-4" />
           Voir l'exemple Lyon
@@ -43,3 +43,13 @@
 <script setup>
 import { ArrowRight, ArrowUpRight, MapIcon } from 'lucide-vue-next'
 </script>
+
+<style scoped>
+@keyframes cta-pulse {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.28; }
+}
+.cta-glow {
+  animation: cta-pulse 7s ease-in-out infinite;
+}
+</style>

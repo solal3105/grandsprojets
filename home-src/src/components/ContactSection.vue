@@ -106,6 +106,7 @@
             <button
               type="submit"
               :disabled="submitting"
+              v-tilt-btn
               class="w-full inline-flex items-center justify-center gap-2.5 bg-primary text-white text-sm font-medium px-7 py-4 rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send class="w-4 h-4" />

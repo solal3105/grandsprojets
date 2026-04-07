@@ -1,5 +1,5 @@
 <template>
-  <header class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-border">
+  <header v-if="!isEmbedded" class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-border">
     <div class="max-w-container mx-auto flex items-center justify-between h-16 px-6">
       <!-- Logo -->
       <router-link to="/" class="flex items-center gap-2">
@@ -19,8 +19,8 @@
         </router-link>
 
         <a
-          href="https://grandsprojets.com"
-          target="_blank"
+          href="https://openprojets.com"
+          target="_blank" v-tilt-btn
           class="ml-2 inline-flex items-center gap-2 bg-dark text-white text-[13px] font-normal px-5 py-2 rounded-full hover:bg-gray-800 transition-colors"
         >
           Explorer la carte
@@ -54,7 +54,7 @@
             {{ link.label }}
           </router-link>
           <a
-            href="https://grandsprojets.com"
+            href="https://openprojets.com"
             target="_blank"
             class="inline-flex items-center justify-center gap-2 bg-dark text-white text-sm font-normal px-5 py-3 rounded-full mt-2"
           >
@@ -67,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import LogoSvg from './LogoSvg.vue'
 
@@ -79,8 +79,12 @@ const navLinks = [
   { to: '/fonctionnalites', label: 'Fonctionnalités' },
   { to: '/a-propos', label: 'À propos' },
   { to: '/contact', label: 'Contact' },
-  { to: '/aide', label: 'Aide' },
 ]
+
+// Détecte si on est en mode embed (iframe)
+const isEmbedded = computed(() => {
+  return route.query.embed === 'true'
+})
 
 function isActive(to) {
   return route.path === to

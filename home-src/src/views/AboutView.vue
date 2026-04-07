@@ -1,155 +1,76 @@
 <template>
   <div>
     <!-- Hero -->
-    <section class="relative bg-[#f8f8f8] pt-36 pb-24 overflow-hidden">
+    <section class="relative bg-gray-bg pt-36 pb-20 overflow-hidden">
       <div class="absolute top-[-70px] right-[-60px] w-[700px] h-[700px] blob-amber opacity-40 blur-[120px] rounded-full pointer-events-none" />
       <div class="absolute bottom-0 left-[-156px] w-[600px] h-[600px] blob-green opacity-30 blur-[120px] rounded-full pointer-events-none" />
 
       <div class="relative max-w-container mx-auto px-6">
         <div class="max-w-[768px]">
+          <span class="inline-flex items-center gap-2 text-[11px] font-semibold text-gray-text/40 uppercase tracking-[0.18em] mb-8">
+            <span class="w-5 h-px bg-gray-border" />
+            À propos
+          </span>
           <h1 class="font-heading font-bold text-4xl sm:text-5xl lg:text-[64px] leading-[1.05] tracking-tight-hero text-dark">
-            Rendre l'action publique
-            <span class="text-gradient-green"> lisible par tous</span>
+            Un outil français,
+            <span class="text-gradient-green"> pour l'intérêt public</span>
           </h1>
-          <p class="mt-8 text-gray-text text-base sm:text-lg leading-relaxed max-w-[522px]">
-            Open Projets est né d'un constat simple : l'information sur les projets urbains est éparpillée, technique, inaccessible aux habitants. Nous construisons l'outil qui change ça — ouvert, souverain, pensé pour les collectivités françaises.
+          <p class="mt-8 text-gray-text text-base sm:text-lg leading-relaxed max-w-[540px]">
+            Développé à Lyon, hébergé en Europe, code public. Open Projets est conçu par une Société à Mission française — sans traceurs, sans ambiguïté sur vos données.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- 3 Cards: Outil, Open source, Droits -->
+    <!-- 3 piliers : Français, Souverain, Ouvert -->
     <section class="py-24 bg-white">
       <div class="max-w-container mx-auto px-6">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 reveal" :ref="(el) => { revealEls[0] = el }">
           <div
-            v-for="(card, i) in valueCards"
+            v-for="(pillar, i) in pillars"
             :key="i"
-            class="bg-gray-bg rounded-2xl border border-gray-border overflow-hidden hover:shadow-lg transition-shadow"
+            :ref="(el) => { cardEls[i] = el }"
+            class="card-tilt"
+            @mousemove="(e) => onMouseMove(e, i)"
+            @mouseleave="onMouseLeave(i)"
           >
-            <div class="h-36 border-b border-gray-border p-5 overflow-hidden" :style="card.gradientBg">
-              <!-- Mini UI illustration -->
-              <div class="space-y-2">
-                <div v-for="j in 4" :key="j" class="flex items-center gap-2">
-                  <span class="w-1 h-1 rounded-full" :class="card.dotClass" />
-                  <span class="h-1.5 rounded-full bg-black/[0.06]" :style="{ width: `${50 + j * 20}px` }" />
-                  <span class="h-1.5 rounded-full bg-black/[0.04]" :style="{ width: `${30 + j * 10}px` }" />
+            <div class="group relative rounded-2xl border border-gray-border p-8 h-full overflow-hidden transition-shadow duration-300 hover:shadow-xl">
+              <!-- Glare -->
+              <div class="absolute inset-0 pointer-events-none z-10 rounded-2xl" :style="shineStyles[i]" />
+              <!-- Top accent line -->
+              <div
+                class="absolute top-0 left-0 right-0 h-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-t-2xl"
+                :style="{ background: pillar.accentGradient }"
+              />
+              <div class="relative z-20">
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-6 transition-all duration-300 group-hover:scale-110" :class="pillar.bgClass">
+                  <component :is="pillar.icon" class="w-6 h-6" :class="pillar.iconClass" />
+                </div>
+                <h3 class="font-heading font-bold text-xl text-dark mb-3">{{ pillar.title }}</h3>
+                <p class="text-sm text-gray-text leading-relaxed mb-5">{{ pillar.desc }}</p>
+                <div class="flex flex-wrap gap-2">
+                  <span v-for="tag in pillar.tags" :key="tag" class="text-xs text-gray-text bg-gray-bg border border-gray-border px-2.5 py-1 rounded-full transition-all duration-200 hover:-translate-y-px hover:shadow-sm cursor-default">{{ tag }}</span>
                 </div>
               </div>
             </div>
-            <div class="p-6">
-              <h3 class="font-heading font-bold text-[15px] text-dark mb-2">{{ card.title }}</h3>
-              <p class="text-[13px] text-[#666] leading-relaxed">{{ card.desc }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Une technologie saine, transparente, auditable -->
-    <section class="py-24 bg-gray-bg">
-      <div class="max-w-container mx-auto px-6">
-        <h2 class="font-heading font-bold text-3xl sm:text-4xl lg:text-[48px] leading-tight tracking-tight text-dark max-w-[768px]">
-          Une technologie saine,
-          <br />
-          transparente, auditable
-        </h2>
-        <p class="mt-6 text-gray-text text-base leading-relaxed max-w-[550px]">
-          Pas de trackers, pas de revente de données, pas de dépendance à un GAFAM. Open Projets repose sur des choix technologiques responsables.
-        </p>
-
-        <div class="mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div
-            v-for="(item, i) in techItems"
-            :key="i"
-            class="bg-white rounded-2xl border border-gray-border p-6 hover:shadow-lg transition-shadow"
-          >
-            <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-4" :class="item.bgClass">
-              <component :is="item.icon" class="w-5 h-5" :class="item.iconClass" />
-            </div>
-            <h3 class="font-heading font-semibold text-base text-dark mb-2">{{ item.title }}</h3>
-            <p class="text-xs text-gray-text leading-relaxed">{{ item.desc }}</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Timeline: D'une initiative citoyenne... -->
-    <section class="py-24 bg-white">
-      <div class="max-w-container mx-auto px-6">
-        <h2 class="font-heading font-bold text-3xl sm:text-4xl lg:text-[48px] leading-tight tracking-tight text-dark max-w-[768px]">
-          D'une initiative citoyenne à Lyon à un outil
-          <span class="text-gradient-green"> pour toutes les collectivités</span>
-        </h2>
-
-        <div class="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div
-            v-for="(step, i) in timeline"
-            :key="i"
-            class="relative bg-gray-bg rounded-2xl border border-gray-border p-8"
-          >
-            <div class="flex items-center gap-3 mb-4">
-              <div class="w-8 h-8 rounded-full flex items-center justify-center" :class="step.dotClass">
-                <component :is="step.icon" class="w-4 h-4" :class="step.iconColor" />
-              </div>
-              <h3 class="font-heading font-semibold text-base text-dark">{{ step.title }}</h3>
-            </div>
-            <p class="text-sm text-gray-text leading-relaxed">{{ step.desc }}</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Lisibilité, transparence, ouverture -->
-    <section class="py-24 bg-gray-bg">
-      <div class="max-w-container mx-auto px-6">
-        <h2 class="font-heading font-bold text-3xl sm:text-4xl lg:text-[48px] leading-tight tracking-tight text-dark max-w-[768px]">
-          Lisibilité, transparence, ouverture
-        </h2>
-
-        <div class="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div
-            v-for="(val, i) in valeurs"
-            :key="i"
-            class="rounded-2xl border p-8 hover:shadow-lg transition-shadow"
-            :class="val.cardClass"
-          >
-            <div class="flex items-center gap-3 mb-4">
-              <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="val.iconBg">
-                <component :is="val.icon" class="w-4 h-4" :class="val.iconColor" />
-              </div>
-              <h3 class="font-heading font-semibold text-lg" :class="val.titleColor">{{ val.title }}</h3>
-            </div>
-            <p class="text-sm leading-relaxed mb-6" :class="val.textColor">{{ val.desc }}</p>
-            <ul class="space-y-3">
-              <li
-                v-for="(feat, j) in val.features"
-                :key="j"
-                class="flex items-start gap-3 text-sm"
-                :class="val.textColor"
-              >
-                <Check class="w-4 h-4 shrink-0 mt-0.5" :class="val.checkColor" />
-                <span>{{ feat }}</span>
-              </li>
-            </ul>
           </div>
         </div>
       </div>
     </section>
 
     <!-- Qui sommes-nous ? -->
-    <section class="py-24 bg-white">
+    <section class="py-24 bg-gray-bg">
       <div class="max-w-container mx-auto px-6">
         <h2 class="font-heading font-bold text-3xl sm:text-4xl lg:text-[48px] leading-tight tracking-tight text-dark max-w-[768px]">
           Qui sommes-nous ?
         </h2>
         <p class="mt-6 text-gray-text text-base leading-relaxed max-w-[600px]">
-          Open Projets est développé et commercialisé par <strong class="text-dark">VAZY</strong>, une entreprise lyonnaise engagée dans la transition des mobilités et de la ville.
+          Open Projets est développé par <strong class="text-dark">VAZY</strong>, une entreprise lyonnaise, Société à Mission inscrite au RCS de Lyon.
         </p>
 
-        <div class="mt-16 grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+        <div class="mt-16 grid grid-cols-1 lg:grid-cols-2 gap-12 items-start reveal" :ref="(el) => { revealEls[1] = el }">
           <!-- Vazy card -->
-          <div class="bg-gray-bg rounded-2xl border border-gray-border p-8 sm:p-10">
+          <div class="bg-white rounded-2xl border border-gray-border p-8 sm:p-10 transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
             <div class="flex items-center gap-5 mb-6">
               <img :src="`${base}img/logo-vazy.png`" alt="Vazy" class="h-14 w-auto" />
               <div>
@@ -162,11 +83,11 @@
             </div>
 
             <p class="text-sm text-gray-text leading-relaxed mb-4">
-              Fondée à Lyon, VAZY est une <strong class="text-dark">Société à Mission</strong> qui inscrit dans ses statuts des objectifs sociaux et environnementaux. Son application mobile récompense l'utilisation des mobilités douces — marche, vélo, trottinette — par des réductions chez plus de 540 commerçants de proximité partenaires, auprès de 31 000 utilisateurs.
+              Fondée à Lyon, VAZY est une <strong class="text-dark">Société à Mission</strong> au sens de la loi PACTE, avec des engagements sociaux et environnementaux inscrits dans ses statuts — vérifiables publiquement au RCS de Lyon.
             </p>
 
             <p class="text-sm text-gray-text leading-relaxed mb-4">
-              Avec Open Projets, VAZY élargit sa mission à la <strong class="text-dark">transparence de l'action publique</strong>. Le même engagement — rendre la ville plus lisible, plus ouverte, plus proche des citoyens — appliqué à l'information sur les projets urbains.
+              Open Projets est le produit phare de VAZY — conçu pour rendre l’action des collectivités <strong class="text-dark">lisible, accessible et vérifiable</strong> par chaque habitant.
             </p>
 
             <div class="flex flex-wrap gap-3 mt-6">
@@ -190,14 +111,14 @@
             <div
               v-for="(item, i) in whyVazy"
               :key="i"
-              class="flex items-start gap-4"
+              class="flex items-start gap-4 group/why cursor-default"
             >
-              <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" :class="item.bgClass">
+              <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 group-hover/why:scale-110" :class="item.bgClass">
                 <component :is="item.icon" class="w-[18px] h-[18px]" :class="item.iconClass" />
               </div>
               <div>
                 <h4 class="font-heading font-semibold text-sm text-dark mb-1">{{ item.title }}</h4>
-                <p class="text-sm text-gray-text leading-relaxed">{{ item.desc }}</p>
+                <p class="text-sm text-gray-text leading-relaxed transition-transform duration-200 group-hover/why:translate-x-0.5">{{ item.desc }}</p>
               </div>
             </div>
           </div>
@@ -221,15 +142,15 @@
         </p>
         <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <router-link
-            to="/contact"
+            to="/contact" v-tilt-btn
             class="inline-flex items-center gap-2.5 bg-primary text-white text-sm font-medium px-7 py-4 rounded-full hover:bg-red-700 transition-colors shadow-lg shadow-primary/30"
           >
             Demander une démo
             <ArrowRight class="w-4 h-4" />
           </router-link>
           <a
-            href="https://grandsprojets.com"
-            target="_blank"
+            href="https://openprojets.com"
+            target="_blank" v-tilt-btn
             class="inline-flex items-center gap-2.5 bg-white/10 text-white text-sm font-medium px-7 py-4 rounded-full border border-white/20 hover:bg-white/20 transition-colors"
           >
             <MapIcon class="w-4 h-4" />
@@ -243,170 +164,134 @@
 </template>
 
 <script setup>
+import { ref, reactive, onMounted } from 'vue'
 import {
-  MapPin, GitBranch, ShieldCheck, Github, Server, Lock,
-  Check, ArrowRight, ArrowUpRight, MapIcon,
-  Code, BarChart3, Globe, Heart, Rocket, Eye,
-  Building, MapPin as MapPinIcon, Users, Leaf, Handshake, Target,
+  MapPin, GitBranch, ShieldCheck,
+  ArrowRight, ArrowUpRight, MapIcon,
+  Code, Heart,
+  Building, MapPin as MapPinIcon, Users, Leaf,
 } from 'lucide-vue-next'
 
 const base = import.meta.env.BASE_URL
 
-const valueCards = [
-  {
-    title: 'Un outil au service des collectivités',
-    desc: 'Communes, intercommunalités, métropoles : Open Projets s\'adapte à chaque échelle pour permettre aux habitants de comprendre ce qui se construit et pourquoi.',
-    gradientBg: 'background: linear-gradient(157deg, rgba(90,171,125,0.04) 0%, rgba(242,179,39,0.04) 100%)',
-    dotClass: 'bg-primary',
-  },
-  {
-    title: 'Open source, par conviction',
-    desc: 'Le code est public, consultable, auditable. Pas de boîte noire, pas de dépendance propriétaire. Les collectivités gardent le contrôle de leur outil et de leurs données.',
-    gradientBg: 'background: linear-gradient(157deg, rgba(78,43,255,0.04) 0%, rgba(90,171,125,0.04) 100%)',
-    dotClass: 'bg-purple',
-  },
-  {
-    title: 'Droits en France, hébergé en Europe',
-    desc: 'Entreprise française, réglementation européenne. Infrastructure hébergée en UE. Conforme RGPD, sans transfert de données hors zone.',
-    gradientBg: 'background: linear-gradient(157deg, rgba(255,0,55,0.04) 0%, rgba(78,43,255,0.04) 100%)',
-    dotClass: 'bg-amber',
-  },
-]
+// ── Pillar cards tilt + glare ───────────────────────────────────────────────────
+const cardEls = ref([])
+const shineStyles = reactive([{}, {}, {}])
 
-const techItems = [
-  {
-    icon: Code,
-    title: 'Code ouvert',
-    desc: 'Code source public, licence ouverte et vérifiable. Tout le code est auditable.',
-    bgClass: 'bg-purple/10',
-    iconClass: 'text-purple',
-  },
-  {
-    icon: BarChart3,
-    title: 'Smart tracking',
-    desc: 'Aucun tracker tiers, pas de cookies de suivi, pas de collecte abusive.',
-    bgClass: 'bg-primary/10',
-    iconClass: 'text-primary',
-  },
-  {
-    icon: Server,
-    title: 'Hébergement UE',
-    desc: 'Infrastructure dédiée en Europe, données souveraines et protégées.',
-    bgClass: 'bg-green/10',
-    iconClass: 'text-green',
-  },
-  {
-    icon: Lock,
-    title: 'Données souveraines',
-    desc: 'Les collectivités restent propriétaires de leurs données. Export possible à tout moment.',
-    bgClass: 'bg-amber/10',
-    iconClass: 'text-amber',
-  },
-]
+function onMouseMove(e, i) {
+  const el = cardEls.value[i]
+  if (!el) return
+  const rect = el.getBoundingClientRect()
+  const x = (e.clientX - rect.left) / rect.width - 0.5
+  const y = (e.clientY - rect.top) / rect.height - 0.5
+  el.style.transition = 'transform 0.08s ease'
+  el.style.transform = `perspective(700px) rotateX(${-y * 6}deg) rotateY(${x * 6}deg) translateZ(10px)`
+  shineStyles[i] = {
+    background: `radial-gradient(circle at ${(x + 0.5) * 100}% ${(y + 0.5) * 100}%, rgba(255,255,255,0.18) 0%, transparent 60%)`,
+  }
+}
 
-const timeline = [
+function onMouseLeave(i) {
+  const el = cardEls.value[i]
+  if (!el) return
+  el.style.transition = 'transform 0.6s cubic-bezier(0.23, 1, 0.32, 1)'
+  el.style.transform = ''
+  shineStyles[i] = {}
+}
+
+// ── Scroll reveal ──────────────────────────────────────────────────────────────
+const revealEls = ref([])
+
+onMounted(() => {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible')
+          observer.unobserve(entry.target)
+        }
+      })
+    },
+    { threshold: 0.1, rootMargin: '0px 0px -60px 0px' }
+  )
+  revealEls.value.forEach((el) => { if (el) observer.observe(el) })
+})
+
+const pillars = [
   {
     icon: MapPin,
-    title: 'Le point de départ',
-    desc: 'Open Projets a été créé par un citoyen lyonnais, frustré de ne pas comprendre les chantiers de son quartier — ni les raisons, ni les délais. L\'information était éclatée, et Lyon restait la seule collectivité à proposer un outil de ce type.',
-    dotClass: 'bg-primary/10',
-    iconColor: 'text-primary',
-  },
-  {
-    icon: Rocket,
-    title: 'Aujourd\'hui',
-    desc: 'La plateforme est utilisée par plusieurs collectivités en France. Marque blanche, back-office no-code, module travaux, import open data : chaque ville déploie sa propre carte en quelques jours.',
-    dotClass: 'bg-green/10',
-    iconColor: 'text-green',
-  },
-  {
-    icon: Globe,
-    title: 'Objectif',
-    desc: 'Devenir l\'outil de référence pour la transparence des projets urbains en France, en facilitant l\'accès à l\'information publique pour chaque citoyen.',
-    dotClass: 'bg-purple/10',
-    iconColor: 'text-purple',
-  },
-]
-
-const valeurs = [
-  {
-    icon: Eye,
-    title: 'Lisibilité',
-    desc: 'L\'information publique doit être compréhensible, facile d\'accès et visuellement exploitable.',
-    cardClass: 'bg-primary/[0.03] border-primary/20',
-    iconBg: 'bg-primary/10',
-    iconColor: 'text-primary',
-    titleColor: 'text-dark',
-    textColor: 'text-gray-text',
-    checkColor: 'text-primary',
-    features: [
-      'Carte publique, sans inscription',
-      'Formats adaptés à chaque support',
-      'Information structurée et accessible',
-    ],
+    title: 'Entreprise française',
+    desc: 'Créée à Lyon, inscrite au RCS, équipe basée en France. La prise de décision est locale, la réactivité est réelle. Aucun capital étranger, aucune dépendance à un acteur américain.',
+    bgClass: 'bg-primary/10',
+    iconClass: 'text-primary',
+    accentGradient: 'linear-gradient(to right, #FF0037, #F2B327)',
+    tags: ['Lyon / Villeurbanne', 'SASU — RCS Lyon', 'Équipe locale'],
   },
   {
     icon: ShieldCheck,
-    title: 'Transparence',
-    desc: 'Le code, les données et les décisions doivent pouvoir être vérifiés et questionnés.',
-    cardClass: 'bg-white border-gray-border',
-    iconBg: 'bg-purple/10',
-    iconColor: 'text-purple',
-    titleColor: 'text-dark',
-    textColor: 'text-gray-text',
-    checkColor: 'text-purple',
-    features: [
-      'Code en open source',
-      'Pas de cookies tiers',
-      'Données auditables',
-    ],
+    title: 'Données souveraines',
+    desc: 'Hébergement en Europe, zéro traceur, zéro publicité. Vos données appartiennent à votre collectivité — exportables et auditables à tout moment. Conformité RGPD native.',
+    bgClass: 'bg-green/10',
+    iconClass: 'text-green',
+    accentGradient: 'linear-gradient(to right, #5AAB7D, #2563EB)',
+    tags: ['Hébergement UE', 'Zéro traceur', 'RGPD natif'],
   },
   {
-    icon: Heart,
-    title: 'Ouverture',
-    desc: 'Un outil pensé pour les collectivités, construit pour servir l\'intérêt général.',
-    cardClass: 'bg-white border-gray-border',
-    iconBg: 'bg-green/10',
-    iconColor: 'text-green',
-    titleColor: 'text-dark',
-    textColor: 'text-gray-text',
-    checkColor: 'text-green',
-    features: [
-      'Open data natif',
-      'API REST ouverte',
-      'Interopérable et extensible',
-    ],
+    icon: GitBranch,
+    title: 'Open source par conviction',
+    desc: 'Code source public sous licence ouverte. Toute modification est vérifiable. Aucune boîte noire, aucun enfermement propriétaire. Vous n\' êtes jamais captif.',
+    bgClass: 'bg-purple/10',
+    iconClass: 'text-purple',
+    accentGradient: 'linear-gradient(to right, #4E2BFF, #7C3AED)',
+    tags: ['GitHub public', 'Licence permissive', 'Auditable'],
   },
 ]
 
 const whyVazy = [
   {
     icon: Leaf,
-    title: 'Société à Mission',
-    desc: 'VAZY inscrit dans ses statuts des objectifs sociaux et environnementaux. Cette exigence guide chaque décision produit, y compris Open Projets.',
+    title: 'Engagement statué',
+    desc: 'VAZY est une Société à Mission au sens de la loi PACTE. Ses obligations sociales et environnementales sont inscrites dans ses statuts — vérifiables publiquement au RCS de Lyon.',
     bgClass: 'bg-green/10',
     iconClass: 'text-green',
   },
   {
     icon: Users,
-    title: 'Expertise mobilité & ville',
-    desc: 'Avec son app de mobilités douces déployée à Lyon et en France, VAZY comprend les enjeux des collectivités et de leurs habitants au quotidien.',
+    title: 'Un seul interlocuteur',
+    desc: 'Configuration initiale, personnalisation, formation des équipes, support technique : une seule équipe gère l\'ensemble du déploiement. Pas de prestataire intermédiaire.',
     bgClass: 'bg-primary/10',
     iconClass: 'text-primary',
   },
   {
-    icon: Handshake,
-    title: 'Accompagnement dédié',
-    desc: 'VAZY commercialise et accompagne le déploiement d\'Open Projets : configuration, personnalisation, formation des équipes, support continu.',
+    icon: Code,
+    title: 'Indépendance garantie',
+    desc: 'Le code est ouvert, la licence permissive. Vous pouvez auditer, modifier ou reprendre le projet indépendamment. Aucun enfermement propriétaire possible.',
     bgClass: 'bg-purple/10',
     iconClass: 'text-purple',
   },
   {
-    icon: Target,
-    title: 'Vision long terme',
-    desc: 'Construire l\'outil de référence pour la transparence des projets urbains en France, en s\'appuyant sur l\'open source et la souveraineté numérique.',
+    icon: ShieldCheck,
+    title: 'Données sous votre contrôle',
+    desc: 'Hébergement en Europe, conformité RGPD, export complet à tout moment. Vos données restent vôtres — même si vous résiliez demain.',
     bgClass: 'bg-amber/10',
     iconClass: 'text-amber',
   },
 ]
 </script>
+
+<style scoped>
+.card-tilt {
+  will-change: transform;
+  transform-style: preserve-3d;
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(32px);
+  transition: opacity 0.65s ease, transform 0.65s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+</style>
