@@ -263,3 +263,15 @@ Appliquer ce pattern pour tout badge ou tag de statut.
 - Les fichiers `/home/**` sont générés — éditer `/home-src/**` à la place
 - `activeCity` peut venir de 3 sources (window.activeCity, CityManager, localStorage) — toujours passer par `supabaseService.getActiveCity()`
 - Le `*` transition global peut causer des animations inattendues sur les éléments MapLibre — ajouter des exemptions si nécessaire
+
+## Règle absolue — Ne jamais hardcoder de données métier dans le code
+
+**Toutes les données configurables (labels, icônes, couleurs, URLs, ordres d'affichage, etc.) doivent vivre en base Supabase**, pas dans le code JS ou CSS.
+
+Exemples de ce qui DOIT être en base :
+- Icônes des basemaps → colonne `icon` dans `basemaps_v2`
+- Labels affichés → colonne `label` dans la table concernée
+- Ordre d'affichage → colonne `sort_order`
+- Activation/désactivation → colonne `active`
+
+**Si tu n'es pas sûr** : demander avant de coder. Ne jamais créer un dictionnaire/mapping en JS pour des données qui appartiennent à la base.

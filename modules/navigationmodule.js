@@ -557,18 +557,11 @@ const NavigationModule = (() => {
       backButton.onclick = () => NavigationModule.resetToDefaultView(category, { preserveMapView: true, updateHistory: true });
     }
 
-    // Bouton "Fermer" (X) : ferme le détail + collapse nav + rezoom sur les projets visibles
+    // Bouton "Fermer" (X) : retour à l'état initial (toutes les couches) via resetToDefaultView
     const closeButton = document.getElementById('detail-close-btn');
     if (closeButton) {
       closeButton.onclick = () => {
-        const projectDetail = document.getElementById('project-detail');
-        if (projectDetail) projectDetail.style.display = 'none';
-        restoreAllLayerOpacity();
-        window.FeatureInteractions?.clearSelection?.(true);
-        clearProjectHighlight();
-        window.NavPanel?.collapse?.();
-        requestAnimationFrame(() => fitVisibleLayers());
-        try { history.pushState({}, '', location.pathname + location.search); } catch (e) {}
+        NavigationModule.resetToDefaultView(null, { updateHistory: true });
       };
     }
     

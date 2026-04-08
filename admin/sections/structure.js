@@ -5,21 +5,17 @@ import { toast, esc, skeletonTable } from '../components/ui.js';
 const DEFAULT_COLOR = '#21b929';
 
 /**
- * Authoritative list of all configurable toggles.
- * Must match the keys used in CityBrandingModule.applyTogglesConfig.
+ * Catalogue des contrôles UI — chargé depuis Supabase (table ui_toggles).
  * Keys NOT in this list are either auto-managed (contribute) or internal (overflow, actions).
  */
-const ALL_TOGGLES = [
-  { key: 'filters',  icon: 'fa-map',            label: 'Filtres de carte',   desc: 'Bouton d\u2019affichage des filtres de couches' },
-  { key: 'basemap',  icon: 'fa-globe',          label: 'Fond de carte',      desc: 'Sélecteur de fond de carte (satellite, plan, etc.)' },
-  { key: 'theme',    icon: 'fa-moon',           label: 'Thème clair/sombre', desc: 'Bascule entre le mode clair et le mode sombre' },
-  { key: 'search',   icon: 'fa-search',         label: 'Recherche',          desc: 'Barre de recherche d\u2019adresses et de lieux' },
-  { key: 'location', icon: 'fa-location-arrow', label: 'Ma position',        desc: 'Géolocalisation \u2014 centre la carte sur l\u2019utilisateur' },
-  { key: 'city',     icon: 'fa-city',           label: 'Sélecteur d\u2019espace', desc: 'Permet de basculer entre les espaces configurés' },
-  { key: 'info',     icon: 'fa-circle-info',    label: 'Informations',       desc: 'Bouton \u00ab\u00a0À propos\u00a0\u00bb de la plateforme' },
-  { key: 'login',    icon: 'fa-right-to-bracket',label: 'Connexion',         desc: 'Bouton de connexion (masqué si déjà connecté)' },
-  { key: 'mode3d',   icon: 'fa-cube',           label: 'Mode 3D',           desc: 'Active le relief et les bâtiments 3D sur la carte' },
-];
+async function _fetchUIToggles() {
+  try {
+    if (window.supabaseService?.fetchUIToggles) {
+      return await window.supabaseService.fetchUIToggles();
+    }
+    return [];
+  } catch (e) { console.warn('[admin-structure] fetchUIToggles', e); return []; }
+}
 
 let _currentCities = [];
 let _logoFile = null;       // File objects for drag-drop
@@ -30,11 +26,12 @@ export async function renderStructure(container) {
   container.innerHTML = `<div id="structure-body" style="max-width:780px;margin:0 auto;">${skeletonTable(4)}</div>`;
 
   try {
-    const [branding, basemaps] = await Promise.all([
+    const [branding, basemaps, allToggles] = await Promise.all([
       api.getBranding(),
       _fetchBasemaps(),
+      _fetchUIToggles(),
     ]);
-    _renderContent(container, branding || {}, basemaps);
+    _renderContent(container, branding || {}, basemaps, allToggles);
   } catch (e) {
     console.error('[admin/structure]', e);
     container.querySelector('#structure-body').innerHTML = `<div style="padding:20px;color:var(--danger);">Erreur : ${esc(e.message)}</div>`;
@@ -53,7 +50,7 @@ async function _fetchBasemaps() {
   } catch (e) { console.warn('[admin-structure] fetchBasemaps', e); return []; }
 }
 
-function _renderContent(container, branding, basemaps) {
+function _renderContent(container, branding, basemaps, allToggles) {
   const color = branding.primary_color || DEFAULT_COLOR;
   const colorHex = color.replace('#', '');
   const enabledToggles = new Set(branding.enabled_toggles || []);
@@ -196,7 +193,7 @@ function _renderContent(container, branding, basemaps) {
         </div>
         <div class="cw-section__body">
           <div class="st-toggles" id="st-toggles-list">
-            ${ALL_TOGGLES.map(t => {
+            ${allToggles.map(t => {
               const hasCities = enabledCities.length > 0;
               const isCityDisabled = t.key === 'city' && !hasCities;
               const active = enabledToggles.has(t.key) && !isCityDisabled;
@@ -206,7 +203,7 @@ function _renderContent(container, branding, basemaps) {
                     <div class="st-toggle-row__icon"><i class="fas ${esc(t.icon)}"></i></div>
                     <div>
                       <div class="st-toggle-row__name">${esc(t.label)}</div>
-                      <div class="st-toggle-row__hint">${esc(t.desc)}${isCityDisabled ? ' · <em>Nécessite au moins un espace activé</em>' : ''}</div>
+                      <div class="st-toggle-row__hint">${esc(t.description)}${isCityDisabled ? ' · <em>Nécessite au moins un espace activé</em>' : ''}</div>
                     </div>
                   </div>
                   <label class="adm-switch">

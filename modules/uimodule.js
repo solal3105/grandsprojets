@@ -117,8 +117,9 @@
     availableBasemaps.forEach(bm => {
       const tile = document.createElement('div');
       tile.className = 'dock-panel__item';
+      const iconClass = bm.icon || 'fa-layer-group';
       tile.innerHTML = `
-        <span class="dock-panel__item-icon"><i class="fas fa-layer-group"></i></span>
+        <span class="dock-panel__item-icon"><i class="fas ${iconClass}"></i></span>
         <span class="dock-panel__item-label">${bm.label}</span>
       `;
       if (bm.label === defaultBm.label) tile.classList.add('is-active');

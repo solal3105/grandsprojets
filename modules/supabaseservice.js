@@ -971,6 +971,22 @@
     },
 
     /**
+     * Récupère le catalogue des contrôles UI (table ui_toggles).
+     * @returns {Promise<Array<{key:string, icon:string, label:string, description:string, sort_order:number}>>}
+     */
+    fetchUIToggles: async function() {
+      const { data, error } = await supabaseClient
+        .from('ui_toggles')
+        .select('*')
+        .order('sort_order', { ascending: true });
+      if (error) {
+        console.error('[supabaseService] ❌ fetchUIToggles error:', error);
+        return [];
+      }
+      return data;
+    },
+
+    /**
      * Récupère les infos de branding pour une ville donnée.
      * Table: public.city_branding(ville, brand_name, logo_url, dark_logo_url, favicon_url)
      * @param {string} ville
