@@ -44,7 +44,8 @@
 
 /* Kind variants */
 .gp-toast--info {
-  background: var(--gray-700);
+  /* Slate profond hardcodé — lisible en tout thème (white text sur fond sombre) */
+  background: rgba(15, 23, 42, 0.92);
 }
 
 .gp-toast--success {

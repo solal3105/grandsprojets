@@ -69,7 +69,6 @@
     pdfFrame:     $('fv2-pdf-frame'),
     lightbox:     $('fv2-lightbox'),
     lbImg:        $('fv2-lb-img'),
-    btnMapLock:   $('fv2-btn-map-lock'),
   };
 
   /* ═══════════════ HELPERS ═══════════════ */
@@ -332,25 +331,6 @@
     mlMap.easeTo({ pitch: 45, duration: 1000, essential: true });
     // Démarrer la rotation après la fin de l'animation de pitch
     setTimeout(startMapRotation, 1000);
-    if (el.btnMapLock) {
-      el.btnMapLock.classList.add('is-locked');
-      el.btnMapLock.setAttribute('aria-label', "Activer l'interaction carte");
-      el.btnMapLock.querySelector('i').className = 'fa-solid fa-lock';
-    }
-  }
-
-  function unlockMapInteraction() {
-    stopMapRotation();
-    const mlMap = primaryMap?._mlMap;
-    if (!mlMap) return;
-    MAP_HANDLERS.forEach(h => mlMap[h]?.enable());
-    mapInteractionLocked = false;
-    mlMap.easeTo({ pitch: 0, duration: 700 });
-    if (el.btnMapLock) {
-      el.btnMapLock.classList.remove('is-locked');
-      el.btnMapLock.setAttribute('aria-label', 'Désactiver l\'interaction carte');
-      el.btnMapLock.querySelector('i').className = 'fa-solid fa-lock-open';
-    }
   }
 
   /* Theme observer for maps */
@@ -492,30 +472,27 @@
       const item = document.createElement('div');
       item.className = 'fv2-doc';
 
-      // Top strip: icon + full title
-      const strip = document.createElement('div');
-      strip.className = 'fv2-doc__strip';
-
+      // Icone
       const icon = document.createElement('div');
       icon.className = 'fv2-doc__icon';
       icon.innerHTML = '<i class="fa-solid fa-file-pdf"></i>';
 
-      const meta = document.createElement('div');
-      meta.className = 'fv2-doc__meta';
-      meta.innerHTML =
+      // Info
+      const info = document.createElement('div');
+      info.className = 'fv2-doc__info';
+      info.innerHTML =
         `<span class="fv2-doc__title">${sanitizeText(title)}</span>` +
-        `<span class="fv2-doc__type">PDF</span>`;
+        `<span class="fv2-doc__badge">PDF</span>`;
 
-      strip.append(icon, meta);
-
-      // Action row
-      const actions = document.createElement('div');
-      actions.className = 'fv2-doc__actions';
+      // Boutons
+      const btns = document.createElement('div');
+      btns.className = 'fv2-doc__btns';
 
       const viewBtn = document.createElement('button');
       viewBtn.type = 'button';
-      viewBtn.className = 'fv2-doc__btn fv2-doc__btn--primary';
-      viewBtn.innerHTML = '<i class="fa-solid fa-eye"></i> Ouvrir le document';
+      viewBtn.className = 'fv2-doc__btn';
+      viewBtn.setAttribute('aria-label', 'Ouvrir');
+      viewBtn.innerHTML = '<i class="fa-solid fa-eye"></i>';
       viewBtn.addEventListener('click', () => {
         el.pdfTitle.textContent = title;
         el.pdfFrame.src = doc.pdf_url;
@@ -523,15 +500,15 @@
       });
 
       const dlBtn = document.createElement('a');
-      dlBtn.className = 'fv2-doc__btn fv2-doc__btn--dl';
+      dlBtn.className = 'fv2-doc__btn';
       dlBtn.href = doc.pdf_url;
       dlBtn.target = '_blank';
       dlBtn.rel = 'noopener noreferrer';
       dlBtn.setAttribute('aria-label', 'Télécharger');
       dlBtn.innerHTML = '<i class="fa-solid fa-download"></i>';
 
-      actions.append(viewBtn, dlBtn);
-      item.append(strip, actions);
+      btns.append(viewBtn, dlBtn);
+      item.append(icon, info, btns);
       el.docs.appendChild(item);
     });
   }
@@ -771,12 +748,6 @@
     bindShare();
     initTopbarScroll();
 
-    // Map lock toggle
-    el.btnMapLock?.addEventListener('click', () => {
-      if (mapInteractionLocked) unlockMapInteraction();
-      else lockMapInteraction();
-    });
-
     // Overlays
     bindOverlayClose(el.ovPdf);
 
@@ -837,7 +808,9 @@
     ]);
 
     // Description — masquée si un article markdown est présent
-    if (!data.markdown_url) {
+    if (data.markdown_url) {
+      if (el.descBlock) el.descBlock.hidden = true;
+    } else {
       renderDescription(data.description);
     }
 
@@ -859,7 +832,6 @@
 
         // Démarrer la rotation cinématique après fitBounds
         if (primaryMap?._mlMap) {
-          if (el.btnMapLock) el.btnMapLock.hidden = false;
           primaryMap._mlMap.once('moveend', lockMapInteraction);
         }
       }

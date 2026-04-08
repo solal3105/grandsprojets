@@ -621,7 +621,8 @@ const NavigationModule = (() => {
     if (projectDetail) projectDetail.style.display = 'none';
 
     // Restore NavPanel if it was collapsed when showing project detail
-    if (window.NavPanel?.getState?.()?.level > 0) {
+    const navState = window.NavPanel?.getState?.();
+    if (navState?.level > 0) {
       window.NavPanel.expand();
     } else {
       try {
@@ -637,6 +638,28 @@ const NavigationModule = (() => {
     // ── CAS 1: Back to a specific category (same path as tab click) ──
     if (category) {
       await showCategoryLayers(category);
+
+      // Rouvrir le NavPanel au niveau 3 de la catégorie concernée
+      if (window.NavPanel) {
+        // Si le panel était fermé ou dans un autre module, ouvrir le module carte
+        if (!navState || navState.level === 0 || navState.module !== 'carte') {
+          window.NavPanel.openModule('carte');
+        }
+        // Naviguer vers le level 3 de la catégorie si on n'y est pas déjà
+        if (!navState || navState.module !== 'carte' || navState.level !== 3 || navState.category !== category) {
+          const catEntry = (window.categoryIcons || []).find(c => c.category === category);
+          const label = catEntry?.label || category;
+          let color = null;
+          if (catEntry?.category_styles) {
+            try {
+              const styles = typeof catEntry.category_styles === 'string'
+                ? JSON.parse(catEntry.category_styles) : catEntry.category_styles;
+              color = styles.color;
+            } catch (e) { /* styles non-parsables */ }
+          }
+          await window.NavPanel.openLevel3(category, { label, ...(color ? { color } : {}) });
+        }
+      }
 
       if (updateHistory) {
         try { history.pushState({ cat: category }, '', `${location.pathname}?cat=${encodeURIComponent(category)}`); } catch (e) { console.debug('[nav] pushState failed:', e); }

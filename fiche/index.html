@@ -68,27 +68,36 @@
   <!-- ═══════════════════ APP SHELL ═══════════════════ -->
   <div id="fv2" class="fv2">
 
-    <!-- ─── Topbar (floating → glass on scroll) ─── -->
+    <!-- ─── Topbar ─── -->
     <nav class="fv2-topbar" id="fv2-topbar">
-      <a href="/" class="fv2-topbar__back" aria-label="Retour à la carte">
-        <i class="fa-solid fa-chevron-left"></i>
+
+      <!-- Bouton retour -->
+      <a href="/" class="fv2-topbar__back fv2-chip" aria-label="Retour à la carte">
+        <i class="fa-solid fa-arrow-left"></i>
+        <span>Retour</span>
       </a>
+
+      <!-- Titre projet (visible uniquement sur scroll) -->
       <span class="fv2-topbar__title" id="fv2-topbar-title"></span>
-      <div class="fv2-topbar__actions">
-        <!-- City logo in topbar (shown on scroll) -->
-        <div class="fv2-topbar__logo" id="fv2-topbar-logo" hidden>
+
+      <!-- Groupe droite -->
+      <div class="fv2-topbar__end">
+        <!-- Logo ville (affiché si branding chargé) -->
+        <div class="fv2-topbar__logo fv2-chip" id="fv2-topbar-logo" hidden>
           <img id="fv2-topbar-logo-img" src="" alt="">
         </div>
-        <button type="button" class="fv2-topbar__btn fv2-topbar__btn--lock" id="fv2-btn-map-lock" aria-label="Activer l'interaction carte" hidden>
-          <i class="fa-solid fa-lock"></i>
-        </button>
-        <button type="button" class="fv2-topbar__btn" id="fv2-btn-theme" aria-label="Changer le thème">
-          <i class="fa-solid fa-moon"></i>
-        </button>
-        <button type="button" class="fv2-topbar__btn" id="fv2-btn-share" aria-label="Copier le lien">
-          <i class="fa-solid fa-link"></i>
-        </button>
+        <!-- Boutons actions -->
+        <div class="fv2-chip fv2-topbar__btns">
+          <button type="button" class="fv2-topbar__btn" id="fv2-btn-theme" aria-label="Changer le thème">
+            <i class="fa-solid fa-moon"></i>
+          </button>
+          <span class="fv2-topbar__sep" aria-hidden="true"></span>
+          <button type="button" class="fv2-topbar__btn" id="fv2-btn-share" aria-label="Copier le lien">
+            <i class="fa-solid fa-link"></i>
+          </button>
+        </div>
       </div>
+
     </nav>
 
     <!-- ─── Hero : carte en fond ─── -->

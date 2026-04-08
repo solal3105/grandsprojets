@@ -544,7 +544,7 @@
 .tw-detail-timeline__bar {
   position: relative;
   height: 10px;
-  background: rgba(0,0,0,0.08);
+  background: var(--black-alpha-08); /* auto-invert dark mode: rgba(248,250,252,0.08) */
   border-radius: 999px;
   /* pas de overflow:hidden pour laisser dépasser le marqueur aujourd'hui */
   margin-bottom: 20px;

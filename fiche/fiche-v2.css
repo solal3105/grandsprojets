@@ -74,98 +74,138 @@ body { margin: 0; }
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   TOPBAR — Floating over hero → glassmorphism on scroll
-   Same visual DNA as toggle-dock
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════════════════
+   TOPBAR — Chip system
+   ─────────────────────────────────────────────────────────────────────────
+   Principe : un seul motif `.fv2-chip` pour tous les éléments flottants.
+   · Floating  : chaque chip est une pilule glass individuelle sur le hero.
+   · is-scrolled : la barre devient le conteneur glass, les chips s'intègrent
+     naturellement (fond transparent, pas d'effet propre).
+
+   Tokens exclusivement issus de 00-colors.css :
+   · --white-alpha-90 / --black-alpha-08  → fond/bordure chip (auto dark)
+   · --text-primary / --text-secondary    → couleurs texte
+   · --border-light / --border-medium     → séparateur
+   · --primary-alpha-12 / --primary-alpha-35 → hover primaire
+   · box-shadow : rgba(0,0,0,...) hardcodé — règle projet (ombres noires fixes)
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Conteneur ── */
 .fv2-topbar {
   position: fixed;
-  inset: 0 0 auto 0;
+  inset: 0 0 auto;
   z-index: 900;
   height: var(--fv2-topbar-h);
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 20px;
+  padding: 0 14px;
   background: transparent;
-  transition: background .4s ease, box-shadow .4s ease, border-color .4s ease;
+  transition: background .3s var(--fv2-ease), box-shadow .3s var(--fv2-ease);
 }
 
-/* Accent line at top */
-.fv2-topbar::before {
+/* Trait inférieur — apparaît uniquement scrolled */
+.fv2-topbar::after {
   content: '';
   position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: var(--primary);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform .5s var(--fv2-ease);
+  bottom: 0; left: 0; right: 0; height: 1px;
+  background: var(--border-light);
+  opacity: 0;
+  transition: opacity .3s var(--fv2-ease);
+  pointer-events: none;
 }
 
+/* ── Mode scrolled : barre glass complète ── */
 .fv2-topbar.is-scrolled {
   background: var(--fv2-glass-bg);
-  backdrop-filter: blur(var(--fv2-glass-blur)) saturate(var(--fv2-glass-saturate));
   -webkit-backdrop-filter: blur(var(--fv2-glass-blur)) saturate(var(--fv2-glass-saturate));
-  border-bottom: 1px solid var(--fv2-glass-border);
-  box-shadow: var(--fv2-glass-shadow);
+  backdrop-filter: blur(var(--fv2-glass-blur)) saturate(var(--fv2-glass-saturate));
+  box-shadow:
+    0 1px 0 rgba(0,0,0,0.04),
+    0 4px 20px rgba(0,0,0,0.06);
 }
 
-.fv2-topbar.is-scrolled::before {
-  transform: scaleX(1);
+.fv2-topbar.is-scrolled::after { opacity: 1; }
+
+/* ── Chip : motif glass partagé par tous les éléments flottants ── */
+.fv2-chip {
+  background: var(--white-alpha-90);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid var(--black-alpha-08);
+  border-radius: 100px;
+  box-shadow:
+    0 2px 10px rgba(0,0,0,0.10),
+    0 1px 3px rgba(0,0,0,0.06),
+    inset 0 1px 0 rgba(255,255,255,0.85);
+  transition:
+    background .25s var(--fv2-ease),
+    border-color .25s var(--fv2-ease),
+    box-shadow .25s var(--fv2-ease),
+    border-radius .25s var(--fv2-ease);
 }
 
-/* Back button */
-.fv2-topbar__back {
-  width: 38px;
-  height: 38px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: #fff;
-  font-size: .78rem;
-  flex-shrink: 0;
-  transition: all .25s ease;
-}
-
-.fv2-topbar__back:hover {
-  background: rgba(255, 255, 255, 0.22);
-  transform: translateX(-2px);
-}
-
-.fv2-topbar.is-scrolled .fv2-topbar__back {
-  background: var(--surface-raised);
+/* Scrolled : les chips s'intègrent dans la barre (fond invisible, glass coupé) */
+.fv2-topbar.is-scrolled .fv2-chip {
+  background: transparent;
+  -webkit-backdrop-filter: none;
   backdrop-filter: none;
-  border: 1px solid var(--border-light);
-  color: var(--text-secondary);
+  border-color: transparent;
+  box-shadow: none;
   border-radius: var(--fv2-radius-xs);
 }
 
-.fv2-topbar.is-scrolled .fv2-topbar__back:hover {
-  color: var(--primary);
-  border-color: var(--primary-alpha-3);
+/* ── Bouton retour ── */
+.fv2-topbar__back {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 13px 0 10px;
+  color: var(--text-primary);
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
+  transition: color .2s ease, background .2s ease, border-color .2s ease, transform .2s ease;
 }
 
-/* Title — hidden floating, visible on scroll */
+.fv2-topbar__back i {
+  font-size: .66rem;
+  opacity: .6;
+  transition: opacity .2s, transform .2s;
+}
+
+.fv2-topbar__back:hover {
+  color: var(--primary);
+  transform: translateX(-1px);
+}
+
+.fv2-topbar__back:hover i { opacity: 1; transform: translateX(-2px); }
+
+/* Scrolled hover : tint primaire */
+.fv2-topbar.is-scrolled .fv2-topbar__back:hover {
+  background: var(--primary-alpha-12);
+  border-color: var(--primary-alpha-35) !important;
+}
+
+/* ── Titre projet (flex-1, glisse en scrolled) ── */
 .fv2-topbar__title {
   flex: 1;
   min-width: 0;
   font-family: var(--fv2-heading);
-  font-size: .84rem;
+  font-size: .87rem;
   font-weight: 700;
   letter-spacing: -.02em;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--text-primary);
   opacity: 0;
-  transform: translateY(-6px);
-  transition: opacity .3s ease, transform .3s ease;
+  transform: translateY(-5px);
+  transition: opacity .3s var(--fv2-ease), transform .3s var(--fv2-ease);
   pointer-events: none;
 }
 
@@ -174,108 +214,77 @@ body { margin: 0; }
   transform: translateY(0);
 }
 
-/* Actions */
-.fv2-topbar__actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-/* City logo in topbar — always visible once src is set */
-.fv2-topbar__logo {
-  height: 28px;
+/* ── Groupe droite ── */
+.fv2-topbar__end {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 10px 4px 4px;
-  border-radius: 100px;
-  background: rgba(0, 0, 0, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  opacity: 0;
-  transform: scale(.9);
-  transition: opacity .4s var(--fv2-ease), transform .4s var(--fv2-ease);
-  pointer-events: none;
+  flex-shrink: 0;
 }
 
-.fv2-topbar__logo.has-logo {
-  opacity: 1;
-  transform: scale(1);
-  pointer-events: auto;
-}
-
-.fv2-topbar.is-scrolled .fv2-topbar__logo {
-  background: var(--surface-raised);
-  border-color: var(--border-light);
-  backdrop-filter: none;
+/* ── Logo ville ── */
+.fv2-topbar__logo {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding: 4px 10px 4px 8px;
 }
 
 .fv2-topbar__logo img {
-  height: 22px;
+  height: 20px;
   width: auto;
-  max-width: 52px;
+  max-width: 54px;
   object-fit: contain;
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
-/* Topbar buttons — glass sur la carte, adaptatif selon le thème */
+/* ── Groupe boutons (theme + share dans la même chip) ── */
+.fv2-topbar__btns {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 3px;
+  gap: 0;
+}
+
 .fv2-topbar__btn {
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  border: 1px solid var(--border-light);
-  background: var(--surface-raised);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  color: var(--text-primary);
-  font-size: .78rem;
-  transition: all .22s var(--fv2-spring);
+  background: none;
+  border: none;
+  border-radius: 100px;
+  color: var(--text-secondary);
+  font-size: .75rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color .18s ease, background .18s ease, border-radius .25s var(--fv2-ease);
 }
 
-.fv2-topbar__btn:hover {
-  color: var(--primary);
-  border-color: var(--primary-alpha-3);
-  background: var(--primary-alpha-1);
-  transform: scale(1.08);
-}
+.fv2-topbar__btn:hover { color: var(--primary); background: var(--primary-alpha-12); }
+.fv2-topbar__btn:active { transform: scale(.88); transition-duration: .06s; }
 
-.fv2-topbar__btn:active {
-  transform: scale(.92);
-  transition-duration: .06s;
-}
-
+/* Scrolled : boutons s'alignent avec le radius de la barre */
 .fv2-topbar.is-scrolled .fv2-topbar__btn {
-  background: var(--surface-raised);
-  border: 1px solid var(--border-light);
-  backdrop-filter: none;
-  color: var(--text-tertiary);
   border-radius: var(--fv2-radius-xs);
-  width: 36px;
-  height: 36px;
 }
 
-.fv2-topbar.is-scrolled .fv2-topbar__btn:hover {
-  color: var(--primary);
-  border-color: var(--primary-alpha-3);
-  background: var(--primary-alpha-1);
+/* Séparateur entre les deux boutons */
+.fv2-topbar__sep {
+  display: block;
+  width: 1px;
+  height: 14px;
+  background: var(--border-medium);
+  flex-shrink: 0;
+  opacity: .6;
 }
 
+/* État "copié" sur le bouton share */
 .fv2-topbar__btn.is-copied {
   color: var(--primary) !important;
-  background: var(--primary-alpha-1) !important;
-  border-color: var(--primary-alpha-3) !important;
-}
-
-/* Lock button — allumé quand la rotation est active */
-.fv2-topbar__btn--lock.is-locked {
-  color: var(--primary) !important;
-  background: var(--primary-alpha-1) !important;
-  border-color: var(--primary-alpha-3) !important;
+  background: var(--primary-alpha-12) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -321,6 +330,7 @@ body { margin: 0; }
   inset: 0;
   z-index: 1;
   background:
+    linear-gradient(to bottom, rgba(0,0,0,.52) 0%, rgba(0,0,0,.10) 22%, transparent 45%),
     radial-gradient(ellipse at 50% 0%, transparent 50%, rgba(0,0,0,.30) 100%),
     linear-gradient(to top,
       rgba(0,0,0,.82) 0%,
@@ -488,6 +498,7 @@ body { margin: 0; }
   100% { background-position: 200% 0; }
 }
 
+/* Skeleton de base : fond sombre (hero avec scrim carte) — shimmer blanc */
 .fv2-skel {
   display: block;
   border-radius: 6px;
@@ -497,6 +508,16 @@ body { margin: 0; }
     rgba(255,255,255,.08) 75%);
   background-size: 200% 100%;
   animation: fv2-shimmer 1.8s ease infinite;
+}
+
+/* Skeletons dans le body (sur --surface-base) : shimmer gris adaptatif au thème */
+.fv2-main .fv2-skel,
+.fv2-aside .fv2-skel {
+  background: linear-gradient(90deg,
+    var(--surface-overlay) 25%,
+    var(--border-medium) 50%,
+    var(--surface-overlay) 75%);
+  background-size: 200% 100%;
 }
 
 .fv2-skel--pill  { width: 90px;  height: 26px; border-radius: 100px; }
@@ -935,128 +956,101 @@ body { margin: 0; }
 
 /* ═══════════════ DOCUMENTS ═══════════════ */
 .fv2-docs {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-}
-
-/* Card layout: PDF icon strip + title + actions */
-.fv2-doc {
   display: flex;
   flex-direction: column;
-  border-radius: var(--fv2-radius-sm);
-  border: 1px solid var(--border-light);
-  background: var(--surface-raised);
-  overflow: hidden;
-  transition: transform .25s var(--fv2-ease), box-shadow .25s, border-color .25s;
+}
+
+/* Chaque doc = une ligne dans la glass card */
+.fv2-doc {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 6px;
+  border-bottom: 1px solid var(--border-light);
+  border-radius: 10px;
+  margin: 0 -6px;
+  transition: background .18s ease;
+}
+
+.fv2-doc:last-child {
+  border-bottom: none;
 }
 
 .fv2-doc:hover {
-  border-color: var(--primary-alpha-3);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 24px rgba(0,0,0,.08);
-}
-
-[data-theme="dark"] .fv2-doc:hover {
-  box-shadow: 0 6px 24px rgba(0,0,0,.28);
-}
-
-/* Top strip: coloured icon band */
-.fv2-doc__strip {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 16px 10px;
+  background: var(--primary-alpha-12);
 }
 
 .fv2-doc__icon {
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border-radius: 9px;
+  background: var(--primary-alpha-12);
+  border: 1px solid var(--primary-alpha-35);
   color: var(--primary);
-  font-size: .9rem;
+  font-size: .8rem;
   flex-shrink: 0;
-  transition: background .2s;
 }
 
-.fv2-doc:hover .fv2-doc__icon {
-  background: color-mix(in srgb, var(--primary) 20%, transparent);
-}
-
-.fv2-doc__meta {
+.fv2-doc__info {
   flex: 1;
   min-width: 0;
 }
 
-/* Full title — wraps instead of truncating */
 .fv2-doc__title {
   display: block;
   font-size: .82rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-primary);
-  line-height: 1.35;
-  word-break: break-word;
+  line-height: 1.3;
 }
 
-.fv2-doc__type {
-  display: block;
-  font-size: .68rem;
-  font-weight: 500;
+.fv2-doc__badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: .62rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .06em;
+  letter-spacing: .07em;
   color: var(--primary);
-  margin-top: 2px;
-  opacity: .8;
+  background: var(--primary-alpha-12);
+  border: 1px solid var(--primary-alpha-35);
+  padding: 1px 7px;
+  border-radius: 100px;
+  margin-top: 3px;
 }
 
-/* Action row at the bottom */
-.fv2-doc__actions {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0;
-  border-top: 1px solid var(--border-light);
-  margin-top: 2px;
+.fv2-doc__btns {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .fv2-doc__btn {
-  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 10px 14px;
-  font-size: .76rem;
-  font-weight: 600;
-  font-family: var(--fv2-sans);
-  color: var(--text-secondary);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: color .2s, background .2s;
-  text-decoration: none;
-}
-
-.fv2-doc__btn--primary {
-  color: var(--primary);
-  justify-content: flex-start;
-}
-
-.fv2-doc__btn--dl {
-  border-left: 1px solid var(--border-light);
-  width: 46px;
-  padding: 10px 0;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background: var(--surface-raised);
   color: var(--text-tertiary);
+  font-size: .72rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .18s var(--fv2-spring);
 }
 
 .fv2-doc__btn:hover {
-  background: var(--primary-alpha-1);
+  background: var(--primary-alpha-12);
+  border-color: var(--primary-alpha-35);
   color: var(--primary);
+  transform: scale(1.1);
 }
-
-.fv2-doc__btn i { font-size: .72rem; }
 
 /* ═══════════════ RELATED PROJECTS ═══════════════ */
 .fv2-related {
@@ -1390,7 +1384,10 @@ body { margin: 0; }
   font-weight: 600;
 }
 
-@media (max-width: 1320px) { .fv2-toc { display: none; } }
+/* TOC affiché uniquement si l'espace à gauche du contenu centré (max-width: 1140px + padding 28px)
+   est suffisant pour loger la largeur du TOC (190px) + sa position (left: 24px) + marge (16px).
+   Calcul : (viewport − 1140) / 2 + 28 ≥ 230  →  viewport ≥ 1544px  →  seuil conservateur 1560px */
+@media (max-width: 1560px) { .fv2-toc { display: none; } }
 
 /* ═══════════════ MOBILE LAYOUT ═══════════════ */
 @media (max-width: 959px) {
