@@ -132,7 +132,12 @@
     _hitTestAll(point) {
       const bbox = [[point.x - HIT_TOLERANCE, point.y - HIT_TOLERANCE],
                      [point.x + HIT_TOLERANCE, point.y + HIT_TOLERANCE]];
-      const gl = (this._mlMap.queryRenderedFeatures(bbox) || []).filter(isInteractive);
+      // Exclude fill-extrusion layers (3D buildings, forests) so clicks pass through them
+      const nonExtrusionLayers = (this._mlMap.getStyle()?.layers || [])
+        .filter(l => l.type !== 'fill-extrusion')
+        .map(l => l.id);
+      const queryOpts = nonExtrusionLayers.length ? { layers: nonExtrusionLayers } : undefined;
+      const gl = (this._mlMap.queryRenderedFeatures(bbox, queryOpts) || []).filter(isInteractive);
       const dom = this._findNearbyDOMMarkers(point);
       const seen = new Set(); const out = [];
       for (const f of [...gl, ...dom]) {

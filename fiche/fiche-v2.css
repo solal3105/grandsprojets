@@ -534,14 +534,13 @@ body { margin: 0; }
 
 /* Block — scroll-reveal container */
 .fv2-block {
-  opacity: 0;
-  transform: translateY(20px);
-  transition: opacity .6s var(--fv2-ease), transform .6s var(--fv2-ease);
+  opacity: 1;
+  transform: none;
 }
 
 .fv2-block.is-visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
 }
 
 /* Bleed — full width on mobile */

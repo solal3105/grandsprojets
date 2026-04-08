@@ -836,8 +836,10 @@
       initDataModuleStyles(ville),
     ]);
 
-    // Description
-    renderDescription(data.description);
+    // Description — masquée si un article markdown est présent
+    if (!data.markdown_url) {
+      renderDescription(data.description);
+    }
 
     // External link
     renderLink(data.official_url);
