@@ -462,17 +462,20 @@ const NavigationModule = (() => {
     let markdown_url = contributionProject.markdown_url;
 
     let markdown = null;
+    let hasDossiers = false;
 
-    if (markdown_url) {
-      try {
-        const response = await fetch(markdown_url);
-        if (response.ok) {
-          markdown = await response.text();
-        }
-      } catch (error) {
-        console.warn('[NavigationModule] Error fetching markdown:', error);
-      }
-    }
+    // Fetch markdown + check dossiers concurrently
+    await Promise.all([
+      markdown_url
+        ? fetch(markdown_url)
+            .then(r => r.ok ? r.text() : null)
+            .then(text => { markdown = text; })
+            .catch(e => console.warn('[NavigationModule] Error fetching markdown:', e))
+        : Promise.resolve(),
+      window.supabaseService?.getConsultationDossiersByProject?.(projectName)
+        .then(d => { hasDossiers = Array.isArray(d) && d.length > 0; })
+        .catch(() => {})
+    ]);
     
     let attrs = {};
     let html = '';
@@ -528,7 +531,8 @@ const NavigationModule = (() => {
       ? `<div class="detail-hero"><img class="detail-hero__img" src="${resolveAssetUrl(coverCandidate)}" alt="${attrs.name || projectName || ''}" loading="eager"><div class="detail-hero__grad"></div><button class="detail-hero__expand" aria-label="Agrandir l'image" title="Agrandir"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button></div>`
       : '';
 
-    const footerHTML = fullPageUrl
+    const hasRichContent = !!(contributionProject.markdown_url || contributionProject.official_url || hasDossiers);
+    const footerHTML = hasRichContent
       ? `<div class="detail-footer"><button type="button" class="detail-fullpage-btn" data-fiche-url="${fullPageUrl}" data-fiche-name="${safeName}"><i class="fa-solid fa-newspaper"></i>Voir la fiche complète</button></div>`
       : '';
 
