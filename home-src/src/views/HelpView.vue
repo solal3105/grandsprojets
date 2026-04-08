@@ -115,7 +115,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { h } from 'vue'
 import {
   ShieldCheck, PenLine, LogIn, Compass, PenSquare,
-  Tags, Users, Building2, ChevronRight, FolderOpen, Scale, Home, Download
+  Tags, Users, Building2, ChevronRight, FolderOpen, Scale, Home, Download,
+  HardHat, MapPin
 } from 'lucide-vue-next'
 import * as Details from '@/components/help/details.js'
 
@@ -148,11 +149,13 @@ const CategoryCard = {
 const roleLabels = { admin: 'Administrateur', contrib: 'Contributeur' }
 
 const adminCategories = [
-  { id: 'general',       icon: markRaw(Compass),    color: 'primary', title: 'Général',                  desc: 'Connexion, accès aux outils, navigation' },
+  { id: 'general',       icon: markRaw(Compass),    color: 'primary', title: 'Général',                  desc: 'Connexion, navigation et rôles' },
   { id: 'contributions', icon: markRaw(PenSquare),   color: 'green',   title: 'Gérer les contributions',  desc: 'Créer, modifier, approuver, supprimer, filtrer' },
-  { id: 'categories',    icon: markRaw(Tags),        color: 'amber',   title: 'Gérer les catégories',     desc: 'Catégories, tags, icônes et travaux' },
+  { id: 'travaux',       icon: markRaw(HardHat),     color: 'amber',   title: 'Travaux',                  desc: 'Chantiers, configuration et source de données' },
+  { id: 'categories',    icon: markRaw(Tags),        color: 'amber',   title: 'Gérer les catégories',     desc: 'Couleurs, styles de tracés et couches associées' },
   { id: 'users',         icon: markRaw(Users),       color: 'purple',  title: 'Gérer les utilisateurs',   desc: 'Inviter, promouvoir, rétrograder' },
-  { id: 'structure',     icon: markRaw(Building2),   color: 'dark',    title: 'Gérer ma structure',       desc: 'Logos, carte, villes activées' },
+  { id: 'structure',     icon: markRaw(Building2),   color: 'dark',    title: 'Gérer ma structure',       desc: 'Branding, logos, couleur et contrôles de la carte' },
+  { id: 'villes',        icon: markRaw(MapPin),      color: 'primary', title: 'Gestion des villes',       desc: 'Créer et gérer les structures (admin global)' },
 ]
 
 const contribCategories = [
@@ -163,17 +166,21 @@ const contribCategories = [
 const categoryLabels = {
   'general': 'Général',
   'contributions': 'Gérer les contributions',
+  'travaux': 'Travaux',
   'categories': 'Gérer les catégories',
   'users': 'Gérer les utilisateurs',
   'structure': 'Gérer ma structure',
+  'villes': 'Gestion des villes',
 }
 
 const detailMap = {
   'admin-general':       markRaw(Details.AdminGeneral),
   'admin-contributions': markRaw(Details.AdminContributions),
+  'admin-travaux':       markRaw(Details.AdminTravaux),
   'admin-categories':    markRaw(Details.AdminCategories),
   'admin-users':         markRaw(Details.AdminUsers),
   'admin-structure':     markRaw(Details.AdminStructure),
+  'admin-villes':        markRaw(Details.AdminVilles),
   'contrib-general':       markRaw(Details.ContribGeneral),
   'contrib-contributions': markRaw(Details.ContribContributions),
 }
