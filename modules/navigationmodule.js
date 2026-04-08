@@ -288,7 +288,7 @@ const NavigationModule = (() => {
     const [west, south, east, north] = combined.toBBoxArray();
     mlMap.jumpTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 } });
     mlMap.fitBounds([[west, south], [east, north]],
-      { padding: _computeMapPadding(), duration: 500, pitch: 0 });
+      { padding: _computeMapPadding(), duration: 500, pitch: 0, maxZoom: 16 });
   }
 
   /**
@@ -333,7 +333,7 @@ const NavigationModule = (() => {
       }
     });
     if (combinedBounds) {
-      MapModule.map.fitBounds(combinedBounds, { padding: [100, 100], pitch: 0 });
+      MapModule.map.fitBounds(combinedBounds, { padding: [100, 100], pitch: 0, maxZoom: 16 });
     } else {
       MapModule.map.setView([45.75, 4.85], 12);
     }

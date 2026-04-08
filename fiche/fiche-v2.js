@@ -273,7 +273,7 @@
 
       if (data?.features?.length) {
         const layer = createGeoJSONLayer(map, data, category);
-        map.fitBounds(layer.getBounds(), { padding: [30, 30] });
+        map.fitBounds(layer.getBounds(), { padding: [30, 30], maxZoom: 16 });
         return { map, base, layer };
       }
     } catch (e) {
