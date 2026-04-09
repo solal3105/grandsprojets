@@ -48,8 +48,8 @@
     // Vide après trim = invalide
     if (!v) return '';
     
-    // Valider avec regex: lettres et tirets uniquement
-    return /^[a-z-]+$/i.test(v) ? v : '';
+    // Valider avec regex: lettres, chiffres et tirets uniquement
+    return /^[a-z0-9-]+$/i.test(v) ? v : '';
   }
 
   // Helper: get active city (toujours une ville, jamais null/vide)

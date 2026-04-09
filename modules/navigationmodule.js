@@ -655,7 +655,7 @@ const NavigationModule = (() => {
               const styles = typeof catEntry.category_styles === 'string'
                 ? JSON.parse(catEntry.category_styles) : catEntry.category_styles;
               color = styles.color;
-            } catch (e) { /* styles non-parsables */ }
+            } catch { /* styles non-parsables */ }
           }
           await window.NavPanel.openLevel3(category, { label, ...(color ? { color } : {}) });
         }

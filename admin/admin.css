@@ -1750,7 +1750,13 @@ html[data-theme='dark'] .adm-user-row {
 
 /* Switch toggle */
 .adm-switch { position: relative; display: inline-flex; }
-.adm-switch input { display: none; }
+.adm-switch input {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
 .adm-switch__track {
   width: 44px; height: 24px;
   background: var(--gray-300);
@@ -3122,6 +3128,7 @@ html[data-theme='dark'] .adm-user-row {
   pointer-events: none;
   overflow: hidden;
 }
+.adm-ip-popover[hidden] { display: none; }
 
 .adm-ip-popover--open {
   opacity: 1;
@@ -4144,6 +4151,7 @@ html[data-theme='dark'] .adm-user-row {
   border: 2px solid #fff;
   box-shadow: 0 2px 6px rgba(0,0,0,.18);
 }
+.cp-trigger__badge[hidden] { display: none; }
 .cp-pulse { animation: cp-pulse-anim .5s ease; }
 @keyframes cp-pulse-anim {
   0%   { transform: scale(1); }

@@ -452,10 +452,10 @@ async function _doSave(container) {
     return;
   }
 
-  // Upload pending logo files
-  let logoUrl = container.querySelector('#st-logo-url')?.value || null;
-  let darkLogoUrl = container.querySelector('#st-dark-logo-url')?.value || null;
-  let faviconUrl = container.querySelector('#st-favicon-url')?.value || null;
+  // Upload pending logo files (use '' not null — city_branding columns are NOT NULL)
+  let logoUrl = container.querySelector('#st-logo-url')?.value || '';
+  let darkLogoUrl = container.querySelector('#st-dark-logo-url')?.value || '';
+  let faviconUrl = container.querySelector('#st-favicon-url')?.value || '';
 
   try {
     if (_logoFile) {
@@ -477,9 +477,9 @@ async function _doSave(container) {
   }
 
   // Clean up __pending_upload__ marker
-  if (logoUrl === '__pending_upload__') logoUrl = null;
-  if (darkLogoUrl === '__pending_upload__') darkLogoUrl = null;
-  if (faviconUrl === '__pending_upload__') faviconUrl = null;
+  if (logoUrl === '__pending_upload__') logoUrl = '';
+  if (darkLogoUrl === '__pending_upload__') darkLogoUrl = '';
+  if (faviconUrl === '__pending_upload__') faviconUrl = '';
 
   // Toggles
   const enabledToggles = [];
@@ -490,9 +490,9 @@ async function _doSave(container) {
 
   const data = {
     brand_name:      container.querySelector('#st-brand-name')?.value?.trim() || null,
-    logo_url:        logoUrl || null,
-    dark_logo_url:   darkLogoUrl || null,
-    favicon_url:     faviconUrl || null,
+    logo_url:        logoUrl,
+    dark_logo_url:   darkLogoUrl,
+    favicon_url:     faviconUrl,
     primary_color:   color,
     default_basemap: container.querySelector('#st-basemap')?.value || null,
     enabled_toggles: enabledToggles,

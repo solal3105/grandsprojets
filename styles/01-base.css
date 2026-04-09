@@ -64,7 +64,21 @@ html, body {
 /* ---------------------------------------------------------------------------
    Transitions globales et ajustements MapLibre GL
 --------------------------------------------------------------------------- */
-* {
+a,
+button,
+input,
+select,
+textarea,
+img,
+[class*="btn"],
+[class*="badge"],
+[class*="pill"],
+[class*="chip"],
+[class*="tab"],
+[class*="card"],
+[class*="toggle"],
+[class*="nav-item"],
+[class*="sidebar"] {
   transition: all 0.3s ease-in-out;
 }
 

@@ -1,0 +1,74 @@
+// @ts-check
+import { defineConfig, devices } from '@playwright/test';
+import dotenv from 'dotenv';
+
+dotenv.config({ path: '.env.test' });
+
+export default defineConfig({
+  testDir: './tests',
+  fullyParallel: false,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: 1,
+  reporter: [['html', { open: 'never' }], ['list']],
+
+  use: {
+    baseURL: 'http://localhost:3001',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'on-first-retry',
+    locale: 'fr-FR',
+  },
+
+  projects: [
+    // --- Auth setup (runs first, produces storageState files) ---
+    {
+      name: 'setup',
+      testMatch: /auth\.setup\.js/,
+    },
+
+    // --- Admin tests ---
+    {
+      name: 'admin',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/.auth/admin.json',
+      },
+      dependencies: ['setup'],
+      testMatch: /admin\..*\.spec\.js/,
+    },
+
+    // --- Invited tests ---
+    {
+      name: 'invited',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/.auth/invited.json',
+      },
+      dependencies: ['setup'],
+      testMatch: /invited\..*\.spec\.js/,
+    },
+
+    // --- Unauthenticated tests ---
+    {
+      name: 'unauth',
+      timeout: 60000,
+      retries: 1,
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          args: ['--enable-webgl', '--use-gl=swiftshader', '--enable-unsafe-swiftshader'],
+        },
+      },
+      testMatch: /unauth\..*\.spec\.js/,
+    },
+  ],
+
+  // Démarre le serveur netlify dev automatiquement si pas déjà lancé
+  webServer: {
+    command: 'netlify dev --port 3001',
+    url: 'http://localhost:3001',
+    reuseExistingServer: true,
+    timeout: 60000,
+  },
+});

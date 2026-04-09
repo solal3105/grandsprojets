@@ -226,7 +226,6 @@
   let orbitCenter = null;   // LngLat natif — centre géographique de l'objet
   let rotationStartTs = null; // timestamp de départ pour drift-free bearing
   let rotationStartBearing = 0;
-  let mapInteractionLocked = false;
   const MAP_HANDLERS = ['dragPan', 'scrollZoom', 'doubleClickZoom', 'dragRotate', 'touchZoomRotate', 'keyboard', 'boxZoom'];
 
   function createGeoJSONLayer(map, data, category) {
@@ -310,14 +309,6 @@
     rotationRafId = requestAnimationFrame(frame);
   }
 
-  function stopMapRotation() {
-    if (rotationRafId) {
-      cancelAnimationFrame(rotationRafId);
-      rotationRafId = null;
-    }
-    rotationStartTs = null;
-  }
-
   function lockMapInteraction() {
     const mlMap = primaryMap?._mlMap;
     if (!mlMap) return;
@@ -327,7 +318,6 @@
     orbitCenter = mlMap.getCenter();
 
     MAP_HANDLERS.forEach(h => mlMap[h]?.disable());
-    mapInteractionLocked = true;
     mlMap.easeTo({ pitch: 45, duration: 1000, essential: true });
     // Démarrer la rotation après la fin de l'animation de pitch
     setTimeout(startMapRotation, 1000);

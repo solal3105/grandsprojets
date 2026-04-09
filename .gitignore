@@ -5,6 +5,12 @@ _home
 *.local
 .env
 .env.*
+!.env.test.example
 
 # Local Netlify folder
 .netlify
+
+# Playwright
+tests/.auth/
+test-results/
+playwright-report/

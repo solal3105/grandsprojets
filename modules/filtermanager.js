@@ -70,8 +70,14 @@
       document.querySelectorAll('.filter-item').forEach(item => {
         item.classList.toggle('is-active', !!(win.MapModule?.layers?.[item.dataset.layer]));
       });
-      const countEl = document.querySelector('.filter-count');
-      if (countEl) countEl.textContent = document.querySelectorAll('.filter-item.is-active').length;
+      const count = document.querySelectorAll('.filter-item.is-active').length;
+      // Mettre à jour le badge via le toggleManager (gère display + textContent)
+      if (win.toggleManager?.updateCounter) {
+        win.toggleManager.updateCounter('filters', count);
+      } else {
+        const countEl = document.querySelector('.filter-count');
+        if (countEl) countEl.textContent = count;
+      }
     },
 
     async init() {

@@ -251,10 +251,43 @@ Appliquer ce pattern pour tout badge ou tag de statut.
 
 - Code en **anglais** (variables, fonctions), commentaires et logs en **français**
 - Pas de TypeScript — tout est en JS vanilla
-- Pas de framework de test encore en place (Playwright configuré mais pas de tests écrits)
+- **Tests E2E Playwright** : `tests/*.spec.js` organisés par section admin
 - Icônes : Font Awesome 6.2 (classes `fas fa-*`)
 - Pas de `.env.example` — seule variable serveur : `OPENAI_API_KEY` (Netlify)
 - Env variable côté client : aucune (Supabase anon key hardcodée)
+
+## Tests — Règle obligatoire
+
+**Toute implémentation de feature doit s'accompagner de tests Playwright.**
+
+### Workflow
+
+1. Implémenter la feature
+2. Écrire les tests E2E correspondants dans `tests/admin.*.spec.js` (ou `tests/invited.*.spec.js` si rôle contributeur)
+3. Lancer `npm test` — tous les tests doivent passer (0 failed) avant de déployer
+4. Lancer `npm run lint` — 0 warning, 0 error
+
+### Structure des tests
+
+- **1 fichier par section** : `admin.contributions.spec.js`, `admin.categories.spec.js`, etc.
+- **Numérotation cohérente** des describe/test : `2.7.1`, `2.7.2`, etc.
+- **Helpers partagés** : `waitForBoot(page, path?)`, `goToSection(page)`, `clearToasts(page)`
+- **Projets Playwright** : `setup` (auth), `admin`, `invited`, `unauth`
+- **Assertions Playwright natives** : utiliser `toBeVisible()`, `toBeHidden()`, `toContainText()` — ne jamais contourner un bug CSS par `toHaveAttribute('hidden')` ; fixer le CSS à la place
+
+### CSS et `[hidden]`
+
+Si un composant utilise `element.hidden = true` pour se masquer, son sélecteur CSS ne doit **pas** overrider `display` sans respecter `[hidden]`. Toujours ajouter :
+```css
+.mon-composant[hidden] { display: none; }
+```
+
+### Ce qui n'est PAS testable en E2E actuellement
+
+- **Villes** : nécessite un compte global-admin (non configuré)
+- **Draw tools** : WebGL requis (MapLibre en headless)
+- **Copilot génération** : nécessite `/api/ai-generate` + OPENAI_API_KEY
+- **Drag-drop reorder** : interactions Playwright DnD complexes
 
 ## Pièges courants
 

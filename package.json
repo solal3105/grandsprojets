@@ -11,6 +11,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
+    "@supabase/supabase-js": "^2.102.1",
     "dotenv": "^17.3.1",
     "oxlint": "^1.16.0"
   }
