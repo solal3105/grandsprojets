@@ -32,6 +32,12 @@ const routes = [
     name: 'guide-print',
     component: () => import('@/views/HelpPrintView.vue'),
   },
+  {
+    path: '/helios',
+    name: 'helios',
+    component: () => import('@/views/HeliosView.vue'),
+    meta: { standalone: true },
+  },
 ]
 
 const router = createRouter({

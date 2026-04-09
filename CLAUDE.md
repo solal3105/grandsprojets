@@ -12,6 +12,24 @@ npm test             # Playwright (npm run test:ui pour le mode interactif)
 
 Build Netlify : `cd home-src && npm ci && npm run build` (output dans `/home/`).
 
+## Serveurs locaux
+
+Le site principal et la home sont deux serveurs distincts :
+
+### Site principal (carte, admin, fiche)
+```bash
+npm run dev          # Netlify Dev → http://localhost:3001
+```
+Cela lance le site statique + les fonctions serverless Netlify. Les pages `/index.html`, `/admin/`, `/fiche/` sont servies directement.
+
+### Home (Vue SPA — `/home/`)
+```bash
+cd home-src && npx vite   # Vite Dev → http://localhost:5173/home/
+```
+Le base URL est `/home/`, donc toutes les routes (ex: `/home/helios`) sont accessibles via `http://localhost:5173/home/helios`. Le SPA fallback est géré nativement par Vite.
+
+**Attention** : `npx serve . -p 3001` ne gère PAS le fallback SPA — les sous-routes comme `/home/helios` retourneront 404. Utiliser Vite en dev ou Netlify en production.
+
 ## Architecture
 
 Le projet est un **site statique multi-pages** (pas un SPA unique) déployé sur Netlify :

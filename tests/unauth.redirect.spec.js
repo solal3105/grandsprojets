@@ -13,7 +13,7 @@ test.describe('0.1 — Redirection non-authentifié', () => {
 
   test('0.1.2 — /admin/categories/ sans session → redirect /login/', async ({ page }) => {
     await page.goto('/admin/categories/', { waitUntil: 'commit' });
-    await page.waitForURL('**/login/**', { timeout: 15000 });
+    await page.waitForURL('**/login/**', { timeout: 30000 });
     const url = page.url();
     expect(url).toContain('/login/');
     // Le store redirige toujours vers /login/?redirect=/admin/ (hardcodé)

@@ -1,10 +1,10 @@
 <template>
   <div class="min-h-screen">
-    <TheHeader />
+    <TheHeader v-if="!isStandalone" />
     <main>
       <RouterView />
     </main>
-    <TheFooter v-if="!isEmbedded" />
+    <TheFooter v-if="!isEmbedded && !isStandalone" />
   </div>
 </template>
 
@@ -19,5 +19,10 @@ const route = useRoute()
 // Détecte si on est en mode embed (iframe)
 const isEmbedded = computed(() => {
   return route.query.embed === 'true'
+})
+
+// Détecte les pages standalone (sans nav/footer) comme /helios
+const isStandalone = computed(() => {
+  return route.meta.standalone === true
 })
 </script>

@@ -7,7 +7,8 @@
     "dev": "netlify dev --port 3001",
     "lint": "oxlint .",
     "test": "playwright test",
-    "test:ui": "playwright test --ui"
+    "test:ui": "playwright test --ui",
+    "deploy": "git push"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

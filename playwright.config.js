@@ -9,7 +9,7 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: 1,
+  workers: process.env.CI ? 1 : 3,
   reporter: [['html', { open: 'never' }], ['list']],
 
   use: {
@@ -54,6 +54,7 @@ export default defineConfig({
       name: 'unauth',
       timeout: 60000,
       retries: 1,
+      dependencies: ['setup'],
       use: {
         ...devices['Desktop Chrome'],
         launchOptions: {

@@ -1,21 +1,21 @@
 {
 	"geolocation": {
 		"data": {
-			"city": "Paris",
+			"city": "Châtillon",
 			"country": {
 				"code": "FR",
 				"name": "France"
 			},
 			"subdivision": {
-				"code": "IDF",
-				"name": "Île-de-France"
+				"code": "ARA",
+				"name": "Rhône-Alpes"
 			},
 			"timezone": "Europe/Paris",
-			"latitude": 48.8558,
-			"longitude": 2.3494,
-			"postalCode": "75001"
+			"latitude": 45.8754,
+			"longitude": 4.6403,
+			"postalCode": "69380"
 		},
-		"timestamp": 1775639140687
+		"timestamp": 1775728923651
 	},
 	"siteId": "7f8e52f8-24d4-4d8e-86ee-011df3fd2ece"
 }
