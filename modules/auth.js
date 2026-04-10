@@ -162,8 +162,9 @@
       
       
       // Rafraîchir les toggles
-      if (win.CityBrandingModule?.applyTogglesConfig && win._cityBranding?.enabled_toggles) {
-        win.CityBrandingModule.applyTogglesConfig(win._cityBranding.enabled_toggles, null);
+      const branding = win.CityManager?.getBranding();
+      if (win.CityBrandingModule?.applyTogglesConfig && branding?.enabled_toggles) {
+        win.CityBrandingModule.applyTogglesConfig(branding.enabled_toggles, null);
       }
       
     } catch (err) {

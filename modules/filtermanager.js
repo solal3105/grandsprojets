@@ -45,7 +45,7 @@
       });
 
       // 2. Extra system layers from layersConfig not covered by contributions
-      const city = String(win.activeCity || '').toLowerCase();
+      const city = String(win.CityManager?.getActiveCity() || '').toLowerCase();
       const filterItemsMap = Object.fromEntries(
         (Array.isArray(win.filterItems) ? win.filterItems : [])
           .filter(item => item?.layer)

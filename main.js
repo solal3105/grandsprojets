@@ -196,25 +196,24 @@
 
       let city = win.CityManager?.initializeActiveCity();
       
-      // Forcer metropole-lyon si city est vide ou null (plus de mode Global)
+      // Forcer metropole-lyon si city est vide ou null
       if (!city) {
         console.warn('[Main] ⚠️ Ville vide ou null, forçage à metropole-lyon');
         city = 'metropole-lyon';
-        win.activeCity = city;
+        if (win.CityManager) win.CityManager._activeCity = city;
       }
       
+      // Phase 2 : un seul fetch branding (stocké dans CityManager._branding)
       await win.CityManager?.updateLogoForCity(city);
       await win.CityManager?.initCityMenu(city);
       win.toggleManager?.markReady('city');
 
-      // PHASE 2.5 : Charger le branding de la ville (ou couleur par défaut si pas de ville)
+      // PHASE 2.5 : Appliquer le branding (couleur, favicon, toggles) sans re-fetcher
       if (win.CityBrandingModule) {
         try {
-          // Attendre que toggleManager soit initialisé (c'est un module ES6, chargé en deferred)
-          await new Promise((resolve) => {
-            if (win.toggleManager && win.toggleManager.initialized) {
-              resolve();
-            } else {
+          // Attendre que toggleManager soit initialisé
+          if (!(win.toggleManager && win.toggleManager.initialized)) {
+            await new Promise((resolve) => {
               const checkInterval = setInterval(() => {
                 if (win.toggleManager && win.toggleManager.initialized) {
                   clearInterval(checkInterval);
@@ -222,13 +221,23 @@
                 }
               }, 20);
               setTimeout(() => { clearInterval(checkInterval); resolve(); }, 3000);
-            }
-          });
+            });
+          }
           
-          // skipToggles = false pour appliquer immédiatement la config des toggles
-          await win.CityBrandingModule.loadAndApplyBranding(city, false);
+          // Appliquer le branding déjà chargé (pas de fetch supplémentaire)
+          const branding = win.CityManager?.getBranding();
+          if (branding) {
+            win.CityBrandingModule.applyBranding(branding, false);
+          } else {
+            // Fallback si branding absent (ne devrait pas arriver)
+            win.CityBrandingModule.applyPrimaryColor('#21b929');
+            win.CityBrandingModule.applyFavicon(null);
+          }
+          
+          // Initialiser le listener auth (une seule fois)
+          win.CityBrandingModule.init();
         } catch (err) {
-          console.warn('[Main] Failed to load city branding:', err);
+          console.warn('[Main] Failed to apply city branding:', err);
         }
       }
 
@@ -249,7 +258,7 @@
       
       // Définir le basemap préféré de la ville (source unique de vérité)
       // Cette variable est utilisée par MapModule, UIModule et ThemeManager
-      const cityBranding = win._cityBranding;
+      const cityBranding = win.CityManager?.getBranding();
       win._cityPreferredBasemap = cityBranding?.default_basemap || null;
 
       if (window.UIModule?.updateBasemaps) {
@@ -607,8 +616,6 @@
       if (!win._cityPreferredBasemap) {
         win.ThemeManager?.startOSThemeSync();
       }
-      
-      window.getActiveCity = () => win.CityManager?.getActiveCity() || '';
 
       // Listener pour recharger les styles quand les catégories sont modifiées
       window.addEventListener('categories:updated', async () => {
@@ -736,8 +743,9 @@
         
         try {
           const nextCity = win.CityManager?.resolveActiveCity();
-          if (nextCity && nextCity !== win.activeCity) {
-            win.activeCity = nextCity;
+          const currentCity = win.CityManager?.getActiveCity();
+          if (nextCity && nextCity !== currentCity) {
+            if (win.CityManager) win.CityManager._activeCity = nextCity;
             win.CityManager?.persistCity(nextCity);
             await win.CityManager?.updateLogoForCity(nextCity);
             try {
@@ -877,7 +885,7 @@
     
     // 3. État application
     console.group('🏙️ Application');
-    console.log('  activeCity:', win.activeCity || localStorage.getItem('activeCity') || 'Non définie');
+    console.log('  activeCity:', win.CityManager?.getActiveCity() || 'Non définie');
     console.log('  theme:', localStorage.getItem('theme') || 'Auto');
     console.log('  MapModule:', win.MapModule?.map ? '✅ OK' : '❌ Non initialisé');
     console.log('  DataModule:', win.DataModule ? '✅ OK' : '❌ Non initialisé');

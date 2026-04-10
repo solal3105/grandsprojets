@@ -192,9 +192,14 @@ function _open({ triggerEl, inputEl, category, onSelect }) {
 }
 
 function _close() {
-  if (!_popover) return;
+  if (!_popover || _popover.hidden) return;
   _popover.classList.remove('adm-ip-popover--open');
-  _popover.addEventListener('transitionend', () => { if (_popover) _popover.hidden = true; }, { once: true });
+  // Fallback : si transitionend ne se déclenche pas (ex. environnement headless),
+  // on masque l'élément après la durée de la transition (0.18s + marge).
+  let done = false;
+  const hide = () => { if (!done && _popover) { done = true; _popover.hidden = true; } };
+  _popover.addEventListener('transitionend', hide, { once: true });
+  setTimeout(hide, 250);
 }
 
 function _select(cls) {

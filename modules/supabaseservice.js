@@ -55,19 +55,19 @@
   // Helper: get active city (toujours une ville, jamais null/vide)
   const getActiveCity = () => {
     try {
-      // 1. window.activeCity (priorité absolue)
-      if (win.activeCity !== undefined && win.activeCity) {
-        return sanitizeCity(win.activeCity);
-      }
-      
-      // 2. CityManager si disponible
+      // Source unique : CityManager
       if (win.CityManager?.getActiveCity) {
         const city = win.CityManager.getActiveCity();
         if (city) return sanitizeCity(city);
       }
       
-      // 3. Fallback: metropole-lyon (JAMAIS null ou vide)
-      console.warn('[supabaseService] getActiveCity: Aucune ville trouvée, fallback metropole-lyon');
+      // Fallback pour les pages sans CityManager (ex: /fiche/)
+      if (win.activeCity) {
+        return sanitizeCity(win.activeCity);
+      }
+      
+      // Dernier fallback
+      console.warn('[supabaseService] getActiveCity: aucune source disponible, fallback metropole-lyon');
       return 'metropole-lyon';
     } catch {
       console.warn('[supabaseService] getActiveCity: Erreur, fallback metropole-lyon');

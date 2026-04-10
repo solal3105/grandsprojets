@@ -92,7 +92,16 @@
     }
     
     const branding = await this.getBrandingForCity(ville);
-    
+    this.applyBranding(branding, skipToggles);
+  },
+
+  /**
+   * Applique un objet branding déjà chargé (pas de fetch)
+   * Utilisé par main.js Phase 2.5 pour éviter les fetches redondants
+   * @param {Object|null} branding - Objet branding déjà récupéré
+   * @param {boolean} skipToggles
+   */
+  applyBranding(branding, skipToggles = false) {
     if (branding) {
       if (branding.primary_color) {
         this.applyPrimaryColor(branding.primary_color);
@@ -155,7 +164,7 @@
       if (error) throw error;
       
       // Appliquer immédiatement si c'est la ville active
-      const activeCity = localStorage.getItem('activeCity');
+      const activeCity = win.CityManager?.getActiveCity();
       if (activeCity === ville.toLowerCase()) {
         this.applyPrimaryColor(primaryColor);
       }
@@ -203,7 +212,7 @@
       if (error) throw error;
 
       // Appliquer immédiatement si c'est la ville active
-      const activeCity = localStorage.getItem('activeCity');
+      const activeCity = win.CityManager?.getActiveCity();
       if (activeCity === ville.toLowerCase()) {
         this.applyTogglesConfig(enabledToggles);
       }
@@ -260,7 +269,7 @@
       if (error) throw error;
 
       // Appliquer immédiatement si c'est la ville active
-      const activeCity = localStorage.getItem('activeCity');
+      const activeCity = win.CityManager?.getActiveCity();
       if (activeCity === ville.toLowerCase()) {
         // Recharger le basemap
         if (win.MapModule?.initBaseLayer) {
@@ -432,64 +441,28 @@
   },
 
   /**
-   * Initialise les listeners pour mettre à jour le toggle login/contribute selon l'état d'authentification
+   * Initialise les listeners d'auth pour mettre à jour les toggles login/contribute.
+   * Appelé une seule fois par main.js après que toggleManager est prêt.
    */
-  async init() {
-    // Vérifier que nous sommes dans un contexte avec les dépendances requises
-    if (!win.AuthModule && !win.supabaseService) {
-      console.warn('[CityBranding] No auth dependencies available - skipping initialization');
-      return;
-    }
-    
-    // Attendre que toggleManager soit initialisé avant d'appliquer la config
-    const waitForToggleManager = () => {
-      return new Promise((resolve) => {
-        if (win.toggleManager && win.toggleManager.initialized) {
-          resolve();
-        } else {
-          const checkInterval = setInterval(() => {
-            if (win.toggleManager && win.toggleManager.initialized) {
-              clearInterval(checkInterval);
-              resolve();
-            }
-          }, 50);
-          
-          // Timeout après 5 secondes
-          setTimeout(() => {
-            clearInterval(checkInterval);
-            resolve();
-          }, 5000);
-        }
-      });
-    };
-    
-    // Attendre que toggleManager soit prêt
-    await waitForToggleManager();
-    
-    // Appliquer la configuration initiale des toggles basée sur la session actuelle
-    try {
-      const activeCity = localStorage.getItem('activeCity');
-      const branding = await this.getBrandingForCity(activeCity);
-      if (branding && branding.enabled_toggles) {
-        await this.applyTogglesConfig(branding.enabled_toggles);
-      }
-    } catch (err) {
-      console.warn('[CityBranding] Failed to apply initial toggles config:', err);
-    }
-    
+  init() {
     // Écouter les changements d'état d'authentification
     if (win.AuthModule && typeof win.AuthModule.onAuthStateChange === 'function') {
       win.AuthModule.onAuthStateChange(async (event, session) => {
         console.log('[CityBranding] Auth state changed:', event, '- session:', !!session);
         
-        // Récupérer la ville active
-        const activeCity = localStorage.getItem('activeCity');
+        // Récupérer la ville active via CityManager (source unique)
+        const activeCity = win.CityManager?.getActiveCity();
         
         // Récupérer le branding pour réappliquer la config
-        const branding = await this.getBrandingForCity(activeCity);
+        const branding = win.CityManager?.getBranding();
         if (branding && branding.enabled_toggles) {
-          // Passer la session directement pour éviter les race conditions
           await this.applyTogglesConfig(branding.enabled_toggles, session);
+        } else if (activeCity) {
+          // Fallback : fetch si le branding n'est pas en cache
+          const fetched = await this.getBrandingForCity(activeCity);
+          if (fetched?.enabled_toggles) {
+            await this.applyTogglesConfig(fetched.enabled_toggles, session);
+          }
         }
       });
     }
@@ -498,14 +471,5 @@
 
   // Exposer sur window
   win.CityBrandingModule = CityBrandingModule;
-  
-  // Initialiser automatiquement
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      CityBrandingModule.init();
-    });
-  } else {
-    CityBrandingModule.init();
-  }
 
 })(window);

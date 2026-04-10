@@ -189,8 +189,7 @@ window.DataModule = (function() {
 				const normalizeTravaux = (data, sourceTag) =>
 					window.TravauxModule?.normalizeGeoJSON?.(data, sourceTag)
 						|| { type: 'FeatureCollection', features: Array.isArray(data?.features) ? data.features : [] };
-				const activeCity = (typeof window.getActiveCity === 'function') 
-					? window.getActiveCity() : (window.activeCity || 'metropole-lyon');
+				const activeCity = window.CityManager?.getActiveCity() || 'metropole-lyon';
 				// Use cached config from main.js init to avoid redundant Supabase query
 				const config = window._travauxConfig || await window.supabaseService.getTravauxConfig(activeCity);
 				

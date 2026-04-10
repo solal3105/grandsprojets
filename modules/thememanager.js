@@ -138,7 +138,7 @@
           
           try { 
             if (win.CityManager?.updateLogoForCity) {
-              win.CityManager.updateLogoForCity(win.activeCity); 
+              win.CityManager.updateLogoForCity(win.CityManager.getActiveCity()); 
             }
           } catch (e) { console.debug('[theme] logo update failed:', e); }
         };
@@ -205,7 +205,7 @@
       
       // Mettre à jour le logo
       if (win.CityManager?.updateLogoForCity) {
-        win.CityManager.updateLogoForCity(win.activeCity);
+        win.CityManager.updateLogoForCity(win.CityManager.getActiveCity());
       }
       
       try { 

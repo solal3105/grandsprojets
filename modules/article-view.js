@@ -192,7 +192,7 @@
    * Obtient le nom d'affichage de la ville
    */
   function getCityDisplayName() {
-    const city = (typeof win.getActiveCity === 'function') ? win.getActiveCity() : null;
+    const city = win.CityManager?.getActiveCity() || null;
     if (!city) return 'Tous les projets';
     
     // Capitaliser et formater

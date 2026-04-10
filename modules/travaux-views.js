@@ -240,7 +240,7 @@
     container.innerHTML =
       `<div class="nav-panel__progress"><div class="nav-panel__progress-bar"></div></div>`;
 
-    const city = win.getActiveCity?.() ?? win.activeCity;
+    const city = win.CityManager?.getActiveCity();
     if (!city) {
       container.innerHTML = '<div class="nav-panel__empty"><i class="fas fa-exclamation-triangle"></i><span>Ville non définie</span></div>';
       return;

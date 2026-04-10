@@ -93,9 +93,9 @@
    */
   function cityExists(cityCode) {
     try {
-      // Vérifier dans window.cityBranding si disponible
-      if (win.cityBranding && Array.isArray(win.cityBranding)) {
-        return win.cityBranding.some(c => c.code === cityCode);
+      // Vérifier via CityManager (source unique de vérité)
+      if (win.CityManager?.isValidCity) {
+        return win.CityManager.isValidCity(cityCode);
       }
       return false;
     } catch (error) {

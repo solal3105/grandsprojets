@@ -7,6 +7,8 @@
   const CityManager = {
     VALID_CITIES: new Set(),
     CITY_BRANDING_CACHE: new Map(),
+    _branding: null,
+    _activeCity: '',
     _cityMenuOpen: false,
     _cityMenuDocHandler: null,
 
@@ -114,25 +116,33 @@
 
     // Branding (logos, favicon)
 
+    /**
+     * Retourne le branding complet stocké (chargé en Phase 2)
+     * @returns {Object|null}
+     */
+    getBranding() {
+      return this._branding;
+    },
+
+    /**
+     * Stocke le branding (appelé par main.js Phase 2)
+     * @param {Object|null} branding
+     */
+    setBranding(branding) {
+      this._branding = branding || null;
+    },
+
     selectLogoForTheme(branding, theme) {
       if (!branding) return null;
       if (theme === 'dark' && branding.dark_logo_url) return branding.dark_logo_url;
       return branding.logo_url || null;
     },
 
-    applyFavicon(href) {
-      try {
-        if (!href) return;
-        let link = document.querySelector('link[rel="icon"]');
-        if (!link) {
-          link = document.createElement('link');
-          link.rel = 'icon';
-          document.head.appendChild(link);
-        }
-        link.href = href;
-      } catch (e) { console.debug('[citymanager] applyFavicon failed:', e); }
-    },
-
+    /**
+     * Charge le branding depuis Supabase et met à jour les logos dans le DOM.
+     * Le favicon est délégué à CityBrandingModule.
+     * @param {string} city - Code de la ville
+     */
     async updateLogoForCity(city) {
       try {
         const targets = [
@@ -142,14 +152,13 @@
           document.querySelector('.gp-sidebar__logo img')
         ].filter(Boolean);
 
-        // Fetch branding (toujours présent car ville par défaut = metropole-lyon)
+        // Fetch branding une seule fois (stocké pour toute l'app)
         let branding = null;
         if (win.supabaseService && typeof win.supabaseService.getCityBranding === 'function' && city) {
           branding = await win.supabaseService.getCityBranding(city);
         }
-        win._cityBranding = branding || null;
+        this._branding = branding || null;
 
-        // Si pas de branding, ne rien faire (ne devrait jamais arriver)
         if (!branding) {
           console.warn('[CityManager] Pas de branding trouvé pour la ville:', city);
           return;
@@ -162,27 +171,23 @@
         // Appliquer le logo du branding
         targets.forEach((img) => {
           if (!img || !picked) return;
-          img.style.opacity = '0'; // ensure hidden before src swap
+          img.style.opacity = '0';
           img.src = picked;
           img.alt = altText;
           img.style.display = '';
-          img.onerror = null; // Pas de fallback
+          img.onerror = null;
           img.onload = () => { img.style.transition = 'opacity 0.2s ease'; img.style.opacity = '1'; };
-          // Fallback if already cached (onload won't fire)
           if (img.complete && img.naturalWidth > 0) {
             img.style.transition = 'opacity 0.2s ease';
             img.style.opacity = '1';
           }
         });
-
-        // Favicon
-        if (branding.favicon_url) this.applyFavicon(branding.favicon_url);
       } catch (e) { console.warn('[citymanager] updateLogoForCity failed:', e); }
     },
 
     applyCityInitialView(_city) {
       try {
-        const branding = win._cityBranding || null;
+        const branding = this._branding || null;
         const hasCoords = branding && typeof branding.center_lat === 'number' && typeof branding.center_lng === 'number';
         const hasZoom   = branding && typeof branding.zoom === 'number';
         if (!hasCoords || !hasZoom) return;
@@ -325,7 +330,7 @@
         }
 
         // Si c'est déjà la ville active, ne rien faire
-        if (cityCode === String(win.activeCity).toLowerCase()) return;
+        if (cityCode === String(this._activeCity).toLowerCase()) return;
 
         // Persister et naviguer
         this.persistCity(cityCode);
@@ -356,7 +361,7 @@
       return this.parseCityFromPath(location.pathname) || 
              this.getCityFromQuery('') || 
              this.restoreCity() || 
-             win.activeCity || 
+             this._activeCity || 
              this.getDefaultCity();
     },
 
@@ -372,20 +377,23 @@
       // Si pas de villes valides chargées, utiliser metropole-lyon par défaut
       if (!this.VALID_CITIES || this.VALID_CITIES.size === 0) {
         console.warn('[CityManager] Aucune ville valide chargée → Utilisation de metropole-lyon');
-        return win.activeCity = 'metropole-lyon';
+        this._activeCity = 'metropole-lyon';
+        return this._activeCity;
       }
 
       // Si ville invalide dans l'URL, utiliser metropole-lyon
       if (rawQueryCity && !this.isValidCity(rawQueryCity)) {
         console.warn('[CityManager] Ville invalide détectée:', rawQueryCity, '→ Utilisation de metropole-lyon');
         this.clearPersistedCity();
-        return win.activeCity = 'metropole-lyon';
+        this._activeCity = 'metropole-lyon';
+        return this._activeCity;
       }
       
       if (rawPathCity && !this.isValidCity(rawPathCity)) {
         console.warn('[CityManager] Ville invalide dans le path:', rawPathCity, '→ Utilisation de metropole-lyon');
         this.clearPersistedCity();
-        return win.activeCity = 'metropole-lyon';
+        this._activeCity = 'metropole-lyon';
+        return this._activeCity;
       }
 
       // Résolution normale
@@ -395,10 +403,11 @@
       if (city && !this.isValidCity(city)) {
         console.warn('[CityManager] Ville résolue invalide:', city, '→ Utilisation de metropole-lyon');
         this.clearPersistedCity();
-        return win.activeCity = 'metropole-lyon';
+        this._activeCity = 'metropole-lyon';
+        return this._activeCity;
       }
       
-      win.activeCity = city;
+      this._activeCity = city;
       
       // Gérer la persistance
       if (city && this.isValidCity(city)) {

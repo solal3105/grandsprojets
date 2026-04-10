@@ -1,7 +1,7 @@
 {
 	"geolocation": {
 		"data": {
-			"city": "Châtillon",
+			"city": "Villeurbanne",
 			"country": {
 				"code": "FR",
 				"name": "France"
@@ -11,11 +11,11 @@
 				"name": "Rhône-Alpes"
 			},
 			"timezone": "Europe/Paris",
-			"latitude": 45.8754,
-			"longitude": 4.6403,
-			"postalCode": "69380"
+			"latitude": 45.7663,
+			"longitude": 4.8883,
+			"postalCode": "69100"
 		},
-		"timestamp": 1775728923651
+		"timestamp": 1775815463513
 	},
 	"siteId": "7f8e52f8-24d4-4d8e-86ee-011df3fd2ece"
 }
