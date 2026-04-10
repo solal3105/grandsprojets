@@ -121,7 +121,7 @@
 
       // Pour les redirections auto, vérifier que la ville existe
       if (type === 'auto' && !cityExists(city)) {
-        console.warn(`[route-config] City "${city}" not found, redirecting to root`);
+        console.debug(`[route-config] City "${city}" not found, redirecting to root`);
         // Rediriger vers la racine si la ville n'existe pas
         if (location.pathname !== '/') {
           location.href = '/';
@@ -132,7 +132,7 @@
       // Pour les redirections custom, toujours appliquer
       // (on suppose que la ville existe)
       if (type === 'custom' && !cityExists(city)) {
-        console.warn(`[route-config] Custom redirect to "${city}" but city not found`);
+        console.debug(`[route-config] Custom redirect to "${city}" but city not found`);
       }
 
       // Construire l'URL de redirection
@@ -140,8 +140,6 @@
       params.set('city', city);
       const targetUrl = '/?' + params.toString();
 
-      // Appliquer la redirection
-      console.log(`[route-config] Redirecting ${location.pathname} -> ${targetUrl} (${type})`);
       location.href = targetUrl;
 
     } catch (error) {
@@ -159,12 +157,11 @@
       // Vérifier si la redirection existe déjà
       const exists = ROUTE_CONFIG.custom.some(r => r.path === path);
       if (exists) {
-        console.warn(`[route-config] Custom redirect for "${path}" already exists`);
+        console.debug(`[route-config] Custom redirect for "${path}" already exists`);
         return false;
       }
 
       ROUTE_CONFIG.custom.push({ path, city });
-      console.log(`[route-config] Added custom redirect: ${path} -> ${city}`);
       return true;
     } catch (error) {
       console.error('[route-config] Error adding custom redirect:', error);
@@ -179,12 +176,11 @@
   function addExcludedRoute(path) {
     try {
       if (ROUTE_CONFIG.excluded.includes(path)) {
-        console.warn(`[route-config] Route "${path}" already excluded`);
+        console.debug(`[route-config] Route "${path}" already excluded`);
         return false;
       }
 
       ROUTE_CONFIG.excluded.push(path);
-      console.log(`[route-config] Added excluded route: ${path}`);
       return true;
     } catch (error) {
       console.error('[route-config] Error adding excluded route:', error);

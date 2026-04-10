@@ -67,10 +67,10 @@
       }
       
       // Dernier fallback
-      console.warn('[supabaseService] getActiveCity: aucune source disponible, fallback metropole-lyon');
+      console.debug('[supabaseService] getActiveCity: aucune source disponible, fallback metropole-lyon');
       return 'metropole-lyon';
     } catch {
-      console.warn('[supabaseService] getActiveCity: Erreur, fallback metropole-lyon');
+      console.debug('[supabaseService] getActiveCity: Erreur, fallback metropole-lyon');
       return 'metropole-lyon';
     }
   };
@@ -113,7 +113,7 @@
             try {
               parsedStyle = JSON.parse(row.style);
             } catch (e) {
-              console.warn('[supabase] failed to parse layer style JSON for', row.name, ':', e);
+              console.debug('[supabase] failed to parse layer style JSON for', row.name, ':', e);
               parsedStyle = {};
             }
           }
@@ -168,7 +168,7 @@
         });
         return out;
       } catch (e) {
-        console.warn('[supabase] fetchLayerStylesByNames failed:', e);
+        console.debug('[supabase] fetchLayerStylesByNames failed:', e);
         return {};
       }
     },
@@ -198,13 +198,13 @@
         const { data, error } = await q;
 
         if (error) {
-          console.warn('[supabaseService] fetchCategoryIcons error:', error);
+          console.debug('[supabaseService] fetchCategoryIcons error:', error);
           return [];
         }
 
         return (data || []).filter(row => row && row.category);
       } catch (e) {
-        console.error('[supabaseService] fetchCategoryIcons exception:', e);
+        console.debug('[supabaseService] fetchCategoryIcons exception:', e);
         return [];
       }
     },
@@ -218,7 +218,7 @@
         const activeCity = getActiveCity();
         
         if (!activeCity) {
-          console.warn('[supabaseService] fetchAllCategoryIcons: pas de ville active');
+          console.debug('[supabaseService] fetchAllCategoryIcons: pas de ville active');
           return [];
         }
         
@@ -229,13 +229,13 @@
           .order('display_order', { ascending: true });
 
         if (error) {
-          console.warn('[supabaseService] fetchAllCategoryIcons error:', error);
+          console.debug('[supabaseService] fetchAllCategoryIcons error:', error);
           return [];
         }
 
         return (data || []).filter(row => row && row.category);
       } catch (e) {
-        console.error('[supabaseService] fetchAllCategoryIcons exception:', e);
+        console.debug('[supabaseService] fetchAllCategoryIcons exception:', e);
         return [];
       }
     },
@@ -250,7 +250,7 @@
       const map = {};
       
       if (!Array.isArray(categoryIcons)) {
-        console.warn('[supabaseService] buildCategoryLayersMap: categoryIcons n\'est pas un tableau');
+        console.debug('[supabaseService] buildCategoryLayersMap: categoryIcons n\'est pas un tableau');
         return map;
       }
 
@@ -287,7 +287,7 @@
       const map = {};
       
       if (!Array.isArray(categoryIcons)) {
-        console.warn('[supabaseService] buildCategoryStylesMap: categoryIcons n\'est pas un tableau');
+        console.debug('[supabaseService] buildCategoryStylesMap: categoryIcons n\'est pas un tableau');
         return map;
       }
 
@@ -300,7 +300,7 @@
           try {
             styles = JSON.parse(styles);
           } catch {
-            console.warn(`[supabaseService] Impossible de parser category_styles pour ${cat.category}:`, styles);
+            console.debug(`[supabaseService] Impossible de parser category_styles pour ${cat.category}:`, styles);
             return;
           }
         }
@@ -437,7 +437,7 @@
             }
           }
         } catch (err) {
-          console.error('❌ [listContributions] Error applying role filter:', err);
+          console.error('[listContributions] Error applying role filter:', err);
         }
 
         // Sorting (map 'updated_at' -> 'created_at' and guard allowed columns)
@@ -453,13 +453,13 @@
 
         const { data, error, count } = await query;
         if (error) {
-          console.error('❌ [listContributions] Erreur Supabase:', error);
+          console.error('[listContributions] Erreur Supabase:', error);
           return { items: [], count: 0 };
         }
         
         return { items: data || [], count: typeof count === 'number' ? count : (data ? data.length : 0) };
       } catch (e) {
-        console.error('❌ [listContributions] Exception:', e);
+        console.error('[listContributions] Exception:', e);
         return { items: [], count: 0 };
       }
     },
@@ -477,7 +477,7 @@
         }
         return data || null;
       } catch (e) {
-        console.warn('[supabase] getContributionById failed:', e);
+        console.debug('[supabase] getContributionById failed:', e);
         return null;
       }
     },
@@ -701,7 +701,7 @@
           q = q.eq('approved', true);
         }
       } catch (e) {
-        console.warn('[supabase] fetchAllProjects auth check failed:', e);
+        console.debug('[supabase] fetchAllProjects auth check failed:', e);
         q = q.eq('approved', true);
       }
       
@@ -740,13 +740,13 @@
           q = q.eq('approved', true);
         }
       } catch (e) {
-        console.warn('[supabase] fetchProjectsByCategory auth check failed:', e);
+        console.debug('[supabase] fetchProjectsByCategory auth check failed:', e);
         q = q.eq('approved', true);
       }
       
       const { data, error } = await q;
       if (error) {
-        console.error('fetchProjectsByCategory error:', error);
+        console.debug('fetchProjectsByCategory error:', error);
         return [];
       }
       return data; 
@@ -776,17 +776,17 @@
             q = q.eq('approved', true);
           }
         } catch (e) {
-          console.warn('[supabase] fetchProjectByCategoryAndName auth check failed:', e);
+          console.debug('[supabase] fetchProjectByCategoryAndName auth check failed:', e);
           q = q.eq('approved', true);
         }
         const { data, error } = await q.maybeSingle();
         if (error) {
-          console.warn('[supabaseService] fetchProjectByCategoryAndName error:', error);
+          console.debug('[supabaseService] fetchProjectByCategoryAndName error:', error);
           return null;
         }
         return data || null;
       } catch (e) {
-        console.warn('[supabaseService] fetchProjectByCategoryAndName exception:', e);
+        console.debug('[supabaseService] fetchProjectByCategoryAndName exception:', e);
         return null;
       }
     },
@@ -826,7 +826,7 @@
             try {
               const response = await fetch(project.geojson_url);
               if (!response.ok) {
-                console.warn(`Impossible de charger le GeoJSON pour ${project.project_name}:`, response.status);
+                console.debug(`Impossible de charger le GeoJSON pour ${project.project_name}:`, response.status);
                 return null;
               }
               const geojson = await response.json();
@@ -855,7 +855,7 @@
               }
               return null;
             } catch (error) {
-              console.error(`Erreur lors du chargement du GeoJSON pour ${project.project_name}:`, error);
+              console.debug(`Erreur lors du chargement du GeoJSON pour ${project.project_name}:`, error);
               return null;
             }
           });
@@ -900,7 +900,7 @@
           features: filtered
         };
       } catch (error) {
-        console.error('loadContributionGeoJSON error:', error);
+        console.debug('loadContributionGeoJSON error:', error);
         return {
           type: 'FeatureCollection',
           features: []
@@ -916,7 +916,7 @@
       const activeCity = getActiveCity();
       
       if (!activeCity) {
-        console.warn('[supabaseService] fetchFilterItems: Pas de ville, retour vide');
+        console.debug('[supabaseService] fetchFilterItems: Pas de ville, retour vide');
         return [];
       }
       
@@ -929,7 +929,7 @@
       const { data: layerRows, error: layerErr } = await layersQuery;
       
       if (layerErr) {
-        console.error('[supabaseService] fetchFilterItems layers error:', layerErr);
+        console.debug('[supabaseService] fetchFilterItems layers error:', layerErr);
         return [];
       }
       
@@ -941,7 +941,7 @@
         .select('id, layer, icon, label');
         
       if (error) {
-        console.error('[supabaseService] fetchFilterItems error:', error);
+        console.debug('[supabaseService] fetchFilterItems error:', error);
         return [];
       }
       
@@ -964,7 +964,7 @@
         .eq('active', true)
         .order('sort_order', { ascending: true });
       if (error) {
-        console.error('[supabaseService] ❌ fetchBasemaps error:', error);
+        console.debug('[supabaseService] fetchBasemaps error:', error);
         return [];
       }
       return data;
@@ -980,7 +980,7 @@
         .select('*')
         .order('sort_order', { ascending: true });
       if (error) {
-        console.error('[supabaseService] ❌ fetchUIToggles error:', error);
+        console.debug('[supabaseService] fetchUIToggles error:', error);
         return [];
       }
       return data;
@@ -1007,13 +1007,13 @@
           .maybeSingle();
         
         if (error) {
-          console.warn('[supabaseService] ❌ getCityBranding error:', error);
+          console.debug('[supabaseService] getCityBranding error:', error);
           return null;
         }
         
         return data || null;
       } catch (e) {
-        console.warn('[supabaseService] ❌ getCityBranding exception:', e);
+        console.debug('[supabaseService] getCityBranding exception:', e);
         return null;
       }
     },
@@ -1037,10 +1037,10 @@
           if (!error && Array.isArray(data)) {
             data.forEach(r => { const v = norm(r && r.ville); if (v) set.add(v); });
           } else if (error) {
-            console.warn('[supabaseService] getValidCities city_branding error:', error);
+            console.debug('[supabaseService] getValidCities city_branding error:', error);
           }
         } catch (e1) {
-          console.warn('[supabaseService] getValidCities city_branding exception:', e1);
+          console.debug('[supabaseService] getValidCities city_branding exception:', e1);
         }
 
         // 2) Fallback: layers.ville
@@ -1051,10 +1051,10 @@
           if (!error && Array.isArray(data)) {
             data.forEach(r => { const v = norm(r && r.ville); if (v) set.add(v); });
           } else if (error) {
-            console.warn('[supabaseService] getValidCities layers error:', error);
+            console.debug('[supabaseService] getValidCities layers error:', error);
           }
         } catch (e2) {
-          console.warn('[supabaseService] getValidCities layers exception:', e2);
+          console.debug('[supabaseService] getValidCities layers exception:', e2);
         }
 
         // 3) Fallback: contribution_uploads.ville
@@ -1065,15 +1065,15 @@
           if (!error && Array.isArray(data)) {
             data.forEach(r => { const v = norm(r && r.ville); if (v) set.add(v); });
           } else if (error) {
-            console.warn('[supabaseService] getValidCities contribution_uploads error:', error);
+            console.debug('[supabaseService] getValidCities contribution_uploads error:', error);
           }
         } catch (e3) {
-          console.warn('[supabaseService] getValidCities contribution_uploads exception:', e3);
+          console.debug('[supabaseService] getValidCities contribution_uploads exception:', e3);
         }
 
         return Array.from(set);
       } catch (e) {
-        console.warn('[supabaseService] getValidCities exception (global):', e);
+        console.debug('[supabaseService] getValidCities exception (global):', e);
         return [];
       }
     },
@@ -1094,12 +1094,12 @@
           .eq('project_name', projectName)
           .order('title', { ascending: true });
         if (q.error) {
-          console.error('[supabaseService] ❌ getConsultationDossiersByProject exact error:', q.error);
+          console.error('[supabaseService] getConsultationDossiersByProject exact error:', q.error);
           return [];
         }
         return Array.isArray(q.data) ? q.data : [];
       } catch (e) {
-        console.error('[supabaseService] ❌ getConsultationDossiersByProject exception:', e);
+        console.error('[supabaseService] getConsultationDossiersByProject exception:', e);
         return [];
       }
     },
@@ -1198,7 +1198,7 @@
             await win.supabaseService.logContributionUpload(projectName, categoryLayer, data.publicUrl, 'geojson', rowId);
           }
         } catch (logErr) {
-          console.warn('[supabaseService] logContributionUpload (geojson) warning:', logErr);
+          console.debug('[supabaseService] logContributionUpload (geojson) warning:', logErr);
         }
         return data.publicUrl;
       } catch (e) {
@@ -1249,7 +1249,7 @@
             await win.supabaseService.logContributionUpload(projectName, categoryLayer, data.publicUrl, 'cover', rowId);
           }
         } catch (logErr) {
-          console.warn('[supabaseService] logContributionUpload (cover) warning:', logErr);
+          console.debug('[supabaseService] logContributionUpload (cover) warning:', logErr);
         }
         return data.publicUrl;
       } catch (e) {
@@ -1307,12 +1307,12 @@
         
         const { data, error } = await query;
         if (error) {
-          console.warn('[supabaseService] fetchConsultationDossiers error:', error);
+          console.debug('[supabaseService] fetchConsultationDossiers error:', error);
           return [];
         }
         return data || [];
       } catch (e) {
-        console.warn('[supabaseService] fetchConsultationDossiers exception:', e);
+        console.debug('[supabaseService] fetchConsultationDossiers exception:', e);
         return [];
       }
     },
@@ -1341,11 +1341,11 @@
           .from('consultation_dossiers')
           .insert(rows);
         if (error) {
-          console.warn('[supabaseService] insertConsultationDossiers insert error:', error);
+          console.debug('[supabaseService] insertConsultationDossiers insert error:', error);
         }
         return { error: null };
       } catch (e) {
-        console.warn('[supabaseService] insertConsultationDossiers exception:', e);
+        console.debug('[supabaseService] insertConsultationDossiers exception:', e);
         return { error: e };
       }
     },
@@ -1369,7 +1369,7 @@
           const { data: userData } = await supabaseClient.auth.getUser();
           if (userData && userData.user) createdBy = userData.user.id;
         } catch (e) {
-          console.warn('[supabase] createContributionRow: unable to get current user:', e);
+          console.debug('[supabase] createContributionRow: unable to get current user:', e);
         }
         
         const sanitizedCity = sanitizeCity(city);
@@ -1387,29 +1387,27 @@
         if (createdBy) baseRow.created_by = createdBy;
         
         if (!baseRow.ville) {
-          console.error('❌ [supabaseService] CRITIQUE: baseRow.ville est null!');
+          console.error('[supabaseService] createContributionRow: baseRow.ville est null');
         }
         
         const { data, error } = await supabaseClient
           .from('contribution_uploads')
           .insert(baseRow)
-          .select('*')  // ✅ Sélectionner TOUTES les colonnes pour voir ce qui est vraiment inséré
+          .select('*')
           .single();
           
         if (error) {
-          console.error('❌ [supabaseService] Insert error:', error);
+          console.error('[supabaseService] createContributionRow insert error:', error);
           throw error;
         }
         
         if (!data?.ville) {
-          console.error('❌ [supabaseService] PROBLEME: La BDD a retourné ville = null/undefined!');
-          console.error('❌ On a envoyé:', baseRow.ville);
-          console.error('❌ La BDD a enregistré:', data?.ville);
+          console.error('[supabaseService] createContributionRow: BDD a retourné ville =', data?.ville, '(envoyé:', baseRow.ville, ')');
         }
         
         return data?.id;
       } catch (e) {
-        console.error('❌ [supabaseService] Exception:', e);
+        console.error('[supabaseService] createContributionRow exception:', e);
         throw e;
       }
     },
@@ -1425,7 +1423,7 @@
           .from('contribution_uploads')
           .select('ville');
         if (error) {
-          console.warn('[supabaseService] listCities error:', error);
+          console.debug('[supabaseService] listCities error:', error);
           return [];
         }
         const vals = Array.isArray(data) ? data.map(r => (r && r.ville ? String(r.ville).trim() : '')) : [];
@@ -1434,7 +1432,7 @@
         uniq.sort((a,b) => a.localeCompare(b));
         return uniq;
       } catch (e) {
-        console.warn('[supabaseService] listCities exception:', e);
+        console.debug('[supabaseService] listCities exception:', e);
         return [];
       }
     },
@@ -1453,7 +1451,7 @@
       try {
         if (!rowId) {
           const err = new Error('rowId required');
-          console.warn('[supabaseService] logContributionUpload:', err.message);
+          console.debug('[supabaseService] logContributionUpload:', err.message);
           return { error: err };
         }
         if (!url || !kind) return { error: null };
@@ -1473,12 +1471,12 @@
           .eq('id', rowId)
           .select('id');
         if (error) {
-          console.warn('[supabaseService] logContributionUpload update error:', error);
+          console.debug('[supabaseService] logContributionUpload update error:', error);
           return { error };
         }
         return { data, error: null };
       } catch (e) {
-        console.warn('[supabaseService] logContributionUpload exception:', e);
+        console.debug('[supabaseService] logContributionUpload exception:', e);
         return { error: e };
       }
     },
@@ -1514,7 +1512,7 @@
             await win.supabaseService.logContributionUpload(projectName, categoryLayer, data.publicUrl, 'markdown', rowId);
           }
         } catch (logErr) {
-          console.warn('[supabaseService] logContributionUpload (markdown) warning:', logErr);
+          console.debug('[supabaseService] logContributionUpload (markdown) warning:', logErr);
         }
         return data.publicUrl;
       } catch (e) {
@@ -1580,10 +1578,10 @@
           .from('contribution_uploads')
           .update(patch)
           .eq('id', rowId);
-        if (error) console.warn('[supabaseService] updateContributionMeta update error:', error);
+        if (error) console.debug('[supabaseService] updateContributionMeta update error:', error);
         return { error: null };
       } catch (e) {
-        console.warn('[supabaseService] updateContributionMeta exception:', e);
+        console.debug('[supabaseService] updateContributionMeta exception:', e);
         return { error: e };
       }
     },
@@ -1608,7 +1606,7 @@
       // pour éviter qu'une erreur bloque tout le chargement
       const settledResults = await Promise.allSettled(
         fetchers.map(([key, fn]) => fn.call(svc).catch(err => {
-          console.warn(`[supabaseService] initAllData: ${key} failed:`, err);
+          console.debug(`[supabaseService] initAllData: ${key} failed:`, err);
           return null; // Valeur par défaut en cas d'erreur
         }))
       );
@@ -1618,7 +1616,7 @@
         if (result.status === 'fulfilled') {
           return result.value;
         } else {
-          console.warn(`[supabaseService] initAllData: ${fetchers[i][0]} rejected:`, result.reason);
+          console.debug(`[supabaseService] initAllData: ${fetchers[i][0]} rejected:`, result.reason);
           return null;
         }
       });
@@ -1905,7 +1903,7 @@
         // Utiliser ville si elle est définie (même si c'est ''), sinon getActiveCity()
         const targetCity = ville !== undefined ? ville : getActiveCity();
         if (targetCity === undefined || targetCity === null) {
-          console.warn('[supabaseService] getCategoryIconsByCity: pas de ville spécifiée');
+          console.debug('[supabaseService] getCategoryIconsByCity: pas de ville spécifiée');
           return [];
         }
 
@@ -1966,7 +1964,7 @@
             adminVilles = adminProfile.ville;
           } else {
             // Fallback si c'est une string ou autre
-            console.warn('[supabaseService] getVisibleUsers: ville is not an array, converting');
+            console.debug('[supabaseService] getVisibleUsers: ville is not an array, converting');
             adminVilles = [adminProfile.ville];
           }
         }
@@ -2004,8 +2002,6 @@
             }
             return { ...u, ville: parsedVille };
           });
-        
-        console.log('[supabaseService] getVisibleUsers: fetched', filteredUsers.length, 'users from get_profiles_with_email');
         
         // Filtrer selon les permissions (la fonction a déjà filtré par admin, mais on filtre encore par ville si nécessaire)
         let visibleUsers = filteredUsers;
@@ -2195,7 +2191,7 @@
           }
 
           if (!cities || cities.length === 0) {
-            console.warn('[supabaseService] getAvailableCities: no cities found in city_branding');
+            console.debug('[supabaseService] getAvailableCities: no cities found in city_branding');
             return [];
           }
 
@@ -2513,7 +2509,7 @@
             try {
               const response = await fetch(chantier.geojson_url);
               if (!response.ok) {
-                console.warn(`[supabaseService] Impossible de charger ${chantier.geojson_url}`);
+                console.debug(`[supabaseService] Impossible de charger ${chantier.geojson_url}`);
                 return null;
               }
               const geojson = await response.json();
@@ -2545,7 +2541,7 @@
             
               return geojson;
             } catch (err) {
-              console.warn(`[supabaseService] Erreur chargement ${chantier.name}:`, err);
+              console.debug(`[supabaseService] Erreur chargement ${chantier.name}:`, err);
               return null;
             }
           }));
@@ -2720,7 +2716,7 @@
           .single();
         
         if (error) {
-          console.warn('[supabaseService] Pas de config travaux pour', ville, ':', error);
+          console.debug('[supabaseService] Pas de config travaux pour', ville, ':', error);
           return null;
         }
         

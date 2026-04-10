@@ -275,7 +275,7 @@
         return { map, base, layer };
       }
     } catch (e) {
-      console.warn('[fv2] GeoJSON fetch failed', e);
+      console.debug('[fv2] GeoJSON fetch failed', e);
     }
 
     return { map, base, layer: null };
@@ -342,35 +342,17 @@
 
   /* ═══════════════ CITY BRANDING ═══════════════ */
   async function loadBranding(ville) {
-    console.group('[fv2:branding] loadBranding()');
-    console.log('  ville:', ville);
-
-    if (!ville) {
-      console.warn('  ⚠️ ville null — pas de branding à charger pour cette contribution');
-      console.groupEnd();
-      return;
-    }
+    if (!ville) return;
     const v = String(ville).toLowerCase().trim();
-
-    console.log('  window.supabaseService disponible :', !!window.supabaseService);
 
     let data;
     try {
       data = await window.supabaseService?.getCityBranding?.(v);
     } catch (err) {
-      console.error('  ❌ getCityBranding exception:', err);
-    }
-    console.log('  data city_branding:', data);
-
-    if (!data) {
-      console.warn('  ⚠️ Aucune entrée city_branding pour la ville « ' + v + ' »');
-      console.groupEnd();
-      return;
+      console.error('[fv2] getCityBranding exception:', err);
     }
 
-    console.log('  primary_color:', data.primary_color ?? '(absent)');
-    console.log('  logo_url     :', data.logo_url ?? '(absent)');
-    console.log('  brand_name   :', data.brand_name ?? '(absent)');
+    if (!data) return;
 
     // Couleur primaire
     if (data.primary_color && window.CityBrandingModule?.applyPrimaryColor) {
@@ -390,7 +372,6 @@
 
     function applyLogo() {
       const url = isDark() ? logoDark : logoLight;
-      console.log('[fv2:branding] applyLogo() url:', url);
       if (!url) return;
 
       // Sidebar brand card
@@ -404,7 +385,6 @@
     }
 
     applyLogo();
-    console.groupEnd();
 
     new MutationObserver(applyLogo)
       .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
@@ -544,7 +524,7 @@
         el.related.appendChild(link);
       });
     } catch (e) {
-      console.warn('[fv2] Related projects failed', e);
+      console.debug('[fv2] Related projects failed', e);
     }
   }
 
@@ -667,7 +647,7 @@
         buildTOC();
       }
     } catch (e) {
-      console.warn('[fv2] Markdown render failed', e);
+      console.debug('[fv2] Markdown render failed', e);
     }
   }
 
@@ -789,7 +769,6 @@
 
     // La ville est celle de la contribution en DB (contribution_uploads.ville → city_branding)
     const ville = data.ville || city || null;
-    console.log('[fv2:init] ville résolu:', ville, '| data.ville (DB):', data.ville, '| city (URL):', city);
 
     // City branding + DataModule styles init in parallel
     await Promise.all([

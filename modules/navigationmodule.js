@@ -30,7 +30,7 @@ const NavigationModule = (() => {
       try {
         await window.DataModule.preloadLayer(layerName);
       } catch (e) {
-        console.warn(`[NavigationModule] Erreur chargement layer ${layerName}:`, e);
+        console.debug(`[NavigationModule] Erreur chargement layer ${layerName}:`, e);
         throw e;
       }
     }
@@ -247,7 +247,7 @@ const NavigationModule = (() => {
     // Create layers from cache
     for (const name of layers) {
       if (window.DataModule?.layerData?.[name]) {
-        try { window.DataModule.createGeoJsonLayer(name, window.DataModule.layerData[name]); } catch (e) { console.warn('[nav] createGeoJsonLayer failed:', e); }
+        try { window.DataModule.createGeoJsonLayer(name, window.DataModule.layerData[name]); } catch (e) { console.debug('[nav] createGeoJsonLayer failed:', e); }
       }
     }
 
@@ -314,7 +314,7 @@ const NavigationModule = (() => {
     try {
       await ensureLayerLoaded(layerName);
     } catch (e) {
-      console.warn('[NavigationModule] Layer non disponible:', e);
+      console.debug('[NavigationModule] Layer non disponible:', e);
     }
     
     // Afficher le panneau de détail (le centrage est géré par highlightProjectOnMap)
@@ -416,7 +416,7 @@ const NavigationModule = (() => {
   // Debug: vérifier la couleur primaire
   const computedPrimary = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
   if (!computedPrimary || computedPrimary === '') {
-    console.warn('[NavigationModule] --color-primary not set, applying city branding...');
+    console.debug('[NavigationModule] --color-primary not set, applying city branding...');
     const currentCity = new URLSearchParams(location.search).get('city');
     if (currentCity && window.CityBrandingModule) {
       await window.CityBrandingModule.loadAndApplyBranding(currentCity, true);
@@ -438,7 +438,7 @@ const NavigationModule = (() => {
       try {
         contributionProject = await window.supabaseService.fetchProjectByCategoryAndName(category, projectName);
       } catch (error) {
-        console.warn('[NavigationModule] Error fetching project:', error);
+        console.debug('[NavigationModule] Error fetching project:', error);
       }
     }
 
@@ -470,7 +470,7 @@ const NavigationModule = (() => {
         ? fetch(markdown_url)
             .then(r => r.ok ? r.text() : null)
             .then(text => { markdown = text; })
-            .catch(e => console.warn('[NavigationModule] Error fetching markdown:', e))
+            .catch(e => console.debug('[NavigationModule] Error fetching markdown:', e))
         : Promise.resolve(),
       window.supabaseService?.getConsultationDossiersByProject?.(projectName)
         .then(d => { hasDossiers = Array.isArray(d) && d.length > 0; })
@@ -598,7 +598,7 @@ const NavigationModule = (() => {
           layer.setOpacity(1);
         }
       });
-    } catch (e) { console.warn('[nav] restoreAllLayerOpacity failed:', e); }
+    } catch (e) { console.debug('[nav] restoreAllLayerOpacity failed:', e); }
   }
 
   /**
@@ -687,7 +687,7 @@ const NavigationModule = (() => {
         if (window.DataModule?.layerData?.[name]) {
           window.DataModule.createGeoJsonLayer(name, window.DataModule.layerData[name]);
         }
-      } catch (e) { console.warn('[nav] restore layer failed:', e); }
+      } catch (e) { console.debug('[nav] restore layer failed:', e); }
     }
 
     if (!preserveMapView) window.NavigationModule?.zoomOutOnLoadedLayers?.();

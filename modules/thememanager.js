@@ -98,7 +98,7 @@
         window.MapModule?.setBaseLayer?.(layer);
         window.UIModule?.setActiveBasemap?.(bm.label);
       } catch (e) {
-        console.warn('[ThemeManager] Erreur lors du changement de fond de carte', e);
+        console.debug('[ThemeManager] Erreur lors du changement de fond de carte', e);
       }
     },
 
@@ -153,7 +153,7 @@
         } else if (typeof this.osThemeMediaQuery.addListener === 'function') {
           this.osThemeMediaQuery.addListener(this.osThemeHandler);
         }
-      } catch (e) { console.warn('[theme] OS theme sync setup failed:', e); }
+      } catch (e) { console.debug('[theme] OS theme sync setup failed:', e); }
     },
 
     /**

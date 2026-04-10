@@ -28,7 +28,7 @@
           a.appendChild(r);
         })(win, document, 'https://static.hotjar.com/c/hotjar-', '.js?sv=');
       } catch (e) {
-        console.warn('[Analytics] Hotjar injection failed', e);
+        console.debug('[Analytics] Hotjar injection failed', e);
       }
     },
 
@@ -40,7 +40,7 @@
         // Hotjar ID pour ce projet
         this.initHotjar(6496613);
       } catch (e) {
-        console.warn('[Analytics] Initialization failed', e);
+        console.debug('[Analytics] Initialization failed', e);
       }
     }
   };

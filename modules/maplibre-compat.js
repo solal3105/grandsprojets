@@ -396,7 +396,7 @@
                 mlMap.removeSource(pool.sourceId);
               }
             } catch {
-              console.warn('[SourcePool] Error removing empty pool:', e);
+              console.debug('[SourcePool] Error removing empty pool:', e);
             }
             this._pools.delete(styleHash);
           } else {
@@ -444,7 +444,7 @@
     fire(type, data) {
       if (!this._events[type]) return this;
       const evt = Object.assign({ type, target: this }, data || {});
-      this._events[type].slice().forEach(fn => { try { fn(evt); } catch { console.warn(e); } });
+      this._events[type].slice().forEach(fn => { try { fn(evt); } catch { console.debug(e); } });
       return this;
     }
     listens(type) { return !!(this._events[type] && this._events[type].length); }
@@ -887,7 +887,7 @@
           try {
             mlMap.addSource(prefixed, srcDef);
           } catch {
-            console.warn('[VectorBasemap] addSource failed:', prefixed, e.message);
+            console.debug('[VectorBasemap] addSource failed:', prefixed, e.message);
           }
         }
 
@@ -904,7 +904,7 @@
           try {
             mlMap.addLayer(ml, anchor);
           } catch {
-            console.warn('[VectorBasemap] addLayer failed:', ml.id, e.message);
+            console.debug('[VectorBasemap] addLayer failed:', ml.id, e.message);
           }
         }
 
@@ -1870,7 +1870,7 @@
               'bottom-right'
             );
           } catch (e) {
-            console.warn('[MapLibreCompat] Could not add navigation control:', e);
+            console.debug('[MapLibreCompat] Could not add navigation control:', e);
           }
         }
 
@@ -2104,7 +2104,7 @@
             mlMap.setPaintProperty('forest-fill', 'fill-color', this._getForestColorExpr('canopy', isDark));
           }
         } catch {
-          console.warn('[MapLibreCompat] updateBuildings3DTheme failed:', e);
+          console.debug('[MapLibreCompat] updateBuildings3DTheme failed:', e);
         }
       };
       apply();
@@ -2119,7 +2119,7 @@
         try {
           this._mlMap.setSky(preset);
         } catch {
-          console.warn('[MapLibreCompat] updateSkyTheme failed:', e);
+          console.debug('[MapLibreCompat] updateSkyTheme failed:', e);
         }
       };
       apply();
@@ -2177,7 +2177,7 @@
               paint: { 'hillshade-shadow-color': '#473B24', 'hillshade-illumination-anchor': 'map', 'hillshade-exaggeration': 0.5 }
             }, anchorLayer?.id || '3d-buildings');
           } catch (e) {
-            console.warn('[MapLibreCompat] Could not add hillshade layer:', e);
+            console.debug('[MapLibreCompat] Could not add hillshade layer:', e);
           }
         }
         mlMap.setTerrain({ source: this._terrainSourceId, exaggeration: ex });
@@ -2569,7 +2569,5 @@
   L._resolveColor = resolveColor;
 
   win.L = L;
-
-  console.log('[MapLibreCompat] Leaflet compatibility layer loaded (backed by MapLibre GL JS)');
 
 })(window);

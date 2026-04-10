@@ -249,7 +249,7 @@
     let chantiers = [];
     try {
       chantiers = await win.supabaseService?.fetchCityTravaux(city, { adminMode: true }) || [];
-    } catch (e) { console.warn('[travaux-views] fetchCityTravaux', e); }
+    } catch (e) { console.debug('[travaux-views] fetchCityTravaux', e); }
 
     if (ctx.isStale()) return;
 

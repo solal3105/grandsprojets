@@ -63,7 +63,7 @@
       
       if (error || !data?.session) {
         refreshFailCount++;
-        console.warn('[Auth] Refresh échoué (' + refreshFailCount + '/' + MAX_REFRESH_FAILURES + '):', error?.message || 'No session');
+        console.debug('[Auth] Refresh échoué (' + refreshFailCount + '/' + MAX_REFRESH_FAILURES + '):', error?.message || 'No session');
         
         if (refreshFailCount >= MAX_REFRESH_FAILURES) {
           console.error('[Auth] Trop d\'échecs de refresh, abandon');
@@ -78,11 +78,10 @@
       // Succès
       cachedSession = data.session;
       refreshFailCount = 0;
-      console.log('[Auth] Session rafraîchie, expire à', new Date(data.session.expires_at * 1000).toLocaleTimeString());
       return true;
       
     } catch (err) {
-      console.warn('[Auth] Erreur refresh:', err.message);
+      console.debug('[Auth] Erreur refresh:', err.message);
       refreshFailCount++;
       return false;
     } finally {
@@ -101,8 +100,6 @@
       const { data } = await client.auth.getSession();
       
       if (!data?.session) {
-        // Pas de session, tenter un refresh
-        console.log('[Auth] Session perdue, tentative de récupération...');
         await refreshSession();
         return;
       }
@@ -113,7 +110,6 @@
       const timeLeft = expiresAt - now;
       
       if (timeLeft < REFRESH_BEFORE_EXPIRY_MS) {
-        console.log('[Auth] Session expire dans', Math.round(timeLeft / 60000), 'min, refresh proactif...');
         await refreshSession();
       } else {
         // Mettre à jour le cache
@@ -121,7 +117,7 @@
       }
       
     } catch (err) {
-      console.warn('[Auth] Erreur vérification session:', err.message);
+      console.debug('[Auth] Erreur vérification session:', err.message);
     }
   }
   
@@ -135,15 +131,12 @@
     // Note: Ce timer peut être throttled par le navigateur en arrière-plan,
     // c'est pourquoi on utilise aussi visibilitychange
     refreshInterval = setInterval(checkAndRefresh, CHECK_INTERVAL_MS);
-    
-    console.log('[Auth] Timer de refresh démarré (toutes les', CHECK_INTERVAL_MS / 60000, 'min)');
   }
   
   function stopRefreshTimer() {
     if (refreshInterval) {
       clearInterval(refreshInterval);
       refreshInterval = null;
-      console.log('[Auth] Timer de refresh arrêté');
     }
   }
 
@@ -152,8 +145,6 @@
    * Évite l'écran blanc en basculant proprement en mode non-connecté
    */
   function handleSessionLost() {
-    console.log('[Auth] Basculement en mode non-connecté...');
-    
     try {
       // Réinitialiser les variables globales
       win.__CONTRIB_ROLE = '';
@@ -168,7 +159,7 @@
       }
       
     } catch (err) {
-      console.warn('[Auth] Erreur basculement mode non-connecté:', err);
+      console.debug('[Auth] Erreur basculement mode non-connecté:', err);
     }
   }
 
@@ -178,8 +169,6 @@
   function handleVisibilityChange() {
     if (document.visibilityState !== 'visible') return;
     
-    console.log('[Auth] Onglet redevenu visible, vérification session...');
-    
     // Vérification immédiate avec refresh si nécessaire
     (async () => {
       try {
@@ -188,8 +177,6 @@
         if (!data?.session) {
           // Pas de session valide
           if (cachedSession) {
-            // On avait une session avant, tenter un refresh
-            console.log('[Auth] Session perdue pendant l\'absence, tentative de récupération...');
             const refreshed = await refreshSession();
             
             if (!refreshed) {
@@ -208,7 +195,6 @@
           // Vérifier si proche de l'expiration
           const timeLeft = (data.session.expires_at * 1000) - Date.now();
           if (timeLeft < REFRESH_BEFORE_EXPIRY_MS) {
-            console.log('[Auth] Session proche de l\'expiration, refresh...');
             await refreshSession();
           }
           
@@ -216,7 +202,7 @@
           startRefreshTimer();
         }
       } catch (err) {
-        console.warn('[Auth] Erreur vérification au retour:', err);
+        console.debug('[Auth] Erreur vérification au retour:', err);
       }
     })();
   }
@@ -226,8 +212,6 @@
    */
   function handleOnline() {
     if (!cachedSession) return;
-    
-    console.log('[Auth] Connexion rétablie, vérification session...');
     checkAndRefresh();
   }
   
@@ -247,8 +231,6 @@
   }
 
   client.auth.onAuthStateChange((event, session) => {
-    console.log('[Auth] Event:', event, session ? '(session présente)' : '(pas de session)');
-    
     switch (event) {
       case 'INITIAL_SESSION':
         cachedSession = session;
@@ -259,7 +241,6 @@
           // Vérifier s'il y a des données corrompues dans le storage
           const storedData = localStorage.getItem(STORAGE_KEY);
           if (storedData) {
-            console.log('[Auth] Données auth présentes mais pas de session, tentative de refresh...');
             refreshSession().then(success => {
               if (success) {
                 startRefreshTimer();
@@ -324,7 +305,7 @@
         cachedSession = result.data?.session || null;
         return result;
       } catch (e) {
-        console.warn('[Auth] getSession error:', e);
+        console.debug('[Auth] getSession error:', e);
         return { data: { session: null }, error: e };
       }
     },
@@ -350,7 +331,7 @@
           refreshed: refreshed 
         };
       } catch (e) {
-        console.warn('[Auth] getSessionWithRefresh error:', e);
+        console.debug('[Auth] getSessionWithRefresh error:', e);
         return { session: null, refreshed: false };
       }
     },
@@ -364,7 +345,7 @@
           if (callback) callback(event, session);
         });
       } catch (e) {
-        console.warn('[Auth] onAuthStateChange error:', e);
+        console.debug('[Auth] onAuthStateChange error:', e);
         return { data: { subscription: null }, error: e };
       }
     },
@@ -382,7 +363,7 @@
           }
         });
       } catch (e) {
-        console.warn('[Auth] signInWithGitHub error:', e);
+        console.debug('[Auth] signInWithGitHub error:', e);
         return { error: e };
       }
     },
@@ -403,7 +384,7 @@
           }
         });
       } catch (e) {
-        console.warn('[Auth] signInWithMagicLink error:', e);
+        console.debug('[Auth] signInWithMagicLink error:', e);
         return { error: e };
       }
     },
@@ -415,7 +396,7 @@
       try {
         return await client.auth.signOut();
       } catch (e) {
-        console.warn('[Auth] signOut error:', e);
+        console.debug('[Auth] signOut error:', e);
         return { error: e };
       }
     },

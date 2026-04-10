@@ -160,7 +160,7 @@
         this._branding = branding || null;
 
         if (!branding) {
-          console.warn('[CityManager] Pas de branding trouvé pour la ville:', city);
+          console.debug('[CityManager] Pas de branding trouvé pour la ville:', city);
           return;
         }
 
@@ -182,7 +182,7 @@
             img.style.opacity = '1';
           }
         });
-      } catch (e) { console.warn('[citymanager] updateLogoForCity failed:', e); }
+      } catch (e) { console.debug('[citymanager] updateLogoForCity failed:', e); }
     },
 
     applyCityInitialView(_city) {
@@ -311,7 +311,7 @@
           });
         });
       } catch (err) {
-        console.warn('[CityManager] Error rendering city menu:', err);
+        console.debug('[CityManager] Error rendering city menu:', err);
       }
     },
 
@@ -341,7 +341,7 @@
         const target = location.pathname + '?' + sp.toString();
         location.href = target;
       } catch (err) {
-        console.warn('[CityManager] Error selecting city:', err);
+        console.debug('[CityManager] Error selecting city:', err);
       }
     },
 
@@ -376,21 +376,21 @@
       
       // Si pas de villes valides chargées, utiliser metropole-lyon par défaut
       if (!this.VALID_CITIES || this.VALID_CITIES.size === 0) {
-        console.warn('[CityManager] Aucune ville valide chargée → Utilisation de metropole-lyon');
+        console.debug('[CityManager] Aucune ville valide chargée → Utilisation de metropole-lyon');
         this._activeCity = 'metropole-lyon';
         return this._activeCity;
       }
 
       // Si ville invalide dans l'URL, utiliser metropole-lyon
       if (rawQueryCity && !this.isValidCity(rawQueryCity)) {
-        console.warn('[CityManager] Ville invalide détectée:', rawQueryCity, '→ Utilisation de metropole-lyon');
+        console.debug('[CityManager] Ville invalide détectée:', rawQueryCity, '→ Utilisation de metropole-lyon');
         this.clearPersistedCity();
         this._activeCity = 'metropole-lyon';
         return this._activeCity;
       }
       
       if (rawPathCity && !this.isValidCity(rawPathCity)) {
-        console.warn('[CityManager] Ville invalide dans le path:', rawPathCity, '→ Utilisation de metropole-lyon');
+        console.debug('[CityManager] Ville invalide dans le path:', rawPathCity, '→ Utilisation de metropole-lyon');
         this.clearPersistedCity();
         this._activeCity = 'metropole-lyon';
         return this._activeCity;
@@ -401,7 +401,7 @@
       
       // Si ville résolue mais invalide, utiliser metropole-lyon
       if (city && !this.isValidCity(city)) {
-        console.warn('[CityManager] Ville résolue invalide:', city, '→ Utilisation de metropole-lyon');
+        console.debug('[CityManager] Ville résolue invalide:', city, '→ Utilisation de metropole-lyon');
         this.clearPersistedCity();
         this._activeCity = 'metropole-lyon';
         return this._activeCity;

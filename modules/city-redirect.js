@@ -122,7 +122,6 @@
     try {
       // Vérifier si la redirection est désactivée (pour debug)
       if (win.__DISABLE_CITY_REDIRECT === true) {
-        console.log('[city-redirect] Redirect disabled by __DISABLE_CITY_REDIRECT flag');
         return;
       }
 
@@ -212,7 +211,6 @@
    */
   function disableRedirect() {
     win.__DISABLE_CITY_REDIRECT = true;
-    console.log('[city-redirect] Auto-redirect disabled. Use CityRedirect.enableRedirect() to re-enable.');
   }
 
   /**
@@ -220,7 +218,6 @@
    */
   function enableRedirect() {
     win.__DISABLE_CITY_REDIRECT = false;
-    console.log('[city-redirect] Auto-redirect enabled.');
   }
 
   // Export

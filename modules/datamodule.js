@@ -3,40 +3,33 @@ const simpleCache = {
 	_cache: {},
 	_hits: 0,
 	_misses: 0,
-	_ttl: 600000, // Durée de vie des entrées : 10 minutes
-	_ttlOverrides: { layer_travaux: 3600000 }, // Travaux: 1 heure (données rarement modifiées)
+	_ttl: 600000,
+	_ttlOverrides: { layer_travaux: 3600000 },
 
-	// Récupère ou met en cache le résultat d'une fonction asynchrone
 	async get(key, fetchFn) {
-		// Tentative de récupération depuis le cache
 		if (key in this._cache) {
 			const entry = this._cache[key];
 			const ttl = this._ttlOverrides[key] || this._ttl;
 
-			// Gestion d'expiration (TTL)
 			if (entry && Date.now() - entry.timestamp < ttl) {
 				this._hits++;
-				return entry.value ?? entry.promise; // value si déjà résolu, sinon promesse en cours
+				return entry.value ?? entry.promise;
 			}
-			// Entrée expirée ➜ suppression
 			delete this._cache[key];
 		}
 
-		// Pas en cache ou expiré ➜ appel réseau (miss)
 		this._misses++;
 
-		// Lancer immédiatement l’appel réseau et stocker la promesse pour mutualiser les requêtes concurrentes
 		const fetchPromise = (async () => {
 			try {
 				const data = await fetchFn();
-				// Remplacer la promesse par la valeur finale + horodatage
 				this._cache[key] = {
 					value: data,
 					timestamp: Date.now()
 				};
 				return data;
 			} catch (error) {
-				// Nettoyer l’entrée pour éviter de bloquer sur une erreur
+
 				delete this._cache[key];
 				throw error;
 			}
@@ -50,7 +43,6 @@ const simpleCache = {
 		return fetchPromise;
 	},
 
-	// Pour vider tout le cache
 	clear() {
 		const count = Object.keys(this._cache).length;
 		this._cache = {};
@@ -59,9 +51,7 @@ const simpleCache = {
 		return count;
 	},
 
-	// Méthode de débogage désactivée en production
 	debug() {
-		// Fonctionnalité de débogage désactivée
 		return {
 			size: Object.keys(this._cache).length,
 			hits: this._hits,
@@ -72,14 +62,12 @@ const simpleCache = {
 };
 
 window.DataModule = (function() {
-	// Variables internes pour stocker les configurations
 	let urlMap = {};
 	let styleMap = {};
 	let iconMap = {};
 	let iconColorMap = {};
 	let layerData = {};
 
-	// Exposer une méthode d'initialisation
 	function initConfig({
 		urlMap: u,
 		styleMap: s,
@@ -213,9 +201,9 @@ window.DataModule = (function() {
 							const data = await resp.json();
 							if (data?.features?.length >= 0) return normalizeTravaux(data, `city-travaux:${activeCity}`);
 						}
-						console.warn('[DataModule] Netlify function indisponible, fallback client-side');
+						console.debug('[DataModule] Netlify function indisponible, fallback client-side');
 					} catch (e) {
-						console.warn('[DataModule] Netlify function erreur, fallback client-side:', e);
+						console.debug('[DataModule] Netlify function erreur, fallback client-side:', e);
 					}
 					// Fallback : agrégation client-side (N+1 fetches)
 					const data = await window.supabaseService.loadCityTravauxGeoJSON(activeCity);
@@ -258,7 +246,7 @@ window.DataModule = (function() {
 								}
 								return [];
 							} catch (error) {
-								console.warn(`[DataModule] Erreur GeoJSON ${project.project_name}:`, error);
+								console.debug(`[DataModule] Erreur GeoJSON ${project.project_name}:`, error);
 								return [];
 							}
 						})
@@ -297,7 +285,7 @@ window.DataModule = (function() {
 					: categoryIcon.category_styles;
 				categoryColor = styles.color || categoryColor;
 			} catch (e) {
-				console.warn('[DataModule] Parse error category_styles:', e);
+				console.debug('[DataModule] Parse error category_styles:', e);
 			}
 		}
 		return { color: categoryColor, iconClass };
@@ -371,7 +359,7 @@ window.DataModule = (function() {
 		let normalized = data;
 		try {
 			if (!normalized || typeof normalized !== 'object') {
-				console.warn(`[DataModule] ⚠️ Données invalides, utilisation collection vide`);
+				console.debug('[DataModule] Données invalides, utilisation collection vide');
 				normalized = { type: 'FeatureCollection', features: [] };
 			} else if (Array.isArray(normalized)) {
 				normalized = { type: 'FeatureCollection', features: normalized };

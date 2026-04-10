@@ -600,7 +600,7 @@
       const hasData = win.DataModule?.layerData?.[LAYER]?.features?.length > 0;
       if (!hasData) {
         // Skeleton is already showing from openLevel3 — just silently wait for data
-        try { await win.DataModule?.loadLayer(LAYER); } catch (e) { console.warn('[nav-panel] loadLayer failed:', e); }
+        try { await win.DataModule?.loadLayer(LAYER); } catch (e) { console.debug('[nav-panel] loadLayer failed:', e); }
         // Re-guard after second async
         if (navToken !== this._navToken) return;
       }
@@ -724,7 +724,7 @@
 
         for (const name of travauxLayers) {
           if (win.DataModule?.layerData?.[name]) {
-            try { win.DataModule.createGeoJsonLayer(name, win.DataModule.layerData[name]); } catch (e) { console.warn('[nav-panel] createGeoJsonLayer failed:', e); }
+            try { win.DataModule.createGeoJsonLayer(name, win.DataModule.layerData[name]); } catch (e) { console.debug('[nav-panel] createGeoJsonLayer failed:', e); }
           }
         }
       };

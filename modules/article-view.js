@@ -26,9 +26,6 @@
   async function init() {
     if (!isArticleMode()) return false;
 
-    console.log('[ArticleView] Mode article détecté');
-    
-    // Masquer l'interface carte normale
     hideMapInterface();
     
     // Créer le conteneur article
@@ -108,11 +105,6 @@
       if (win.supabaseService?.fetchCategoryIcons) {
         categoryIcons = await win.supabaseService.fetchCategoryIcons() || [];
       }
-      
-      console.log('[ArticleView] Données chargées:', {
-        contributions: allContributions.length,
-        categories: categoryIcons.length
-      });
     } catch (err) {
       console.error('[ArticleView] Erreur chargement données:', err);
     }
@@ -453,7 +445,7 @@
    */
   function initMiniMaps() {
     if (typeof L === 'undefined') {
-      console.warn('[ArticleView] Map library non disponible');
+      console.debug('[ArticleView] Map library non disponible');
       return;
     }
     
@@ -519,7 +511,7 @@
         miniMaps.push(map);
         
       } catch (err) {
-        console.warn('[ArticleView] Erreur mini-carte:', err);
+        console.debug('[ArticleView] Erreur mini-carte:', err);
         mapEl.style.display = 'none';
       }
     });

@@ -96,7 +96,6 @@
       mlMap.on('mousemove', (e) => this._onMove(e));
       mlMap.on('mouseout',  ()  => this._endHover());
       mlMap.on('click',     (e) => this._onClick(e));
-      console.log('[FI] ✅ init (unified cards)');
     },
 
 
@@ -787,7 +786,7 @@
         };
         this._glowRaf = requestAnimationFrame(animate);
       } catch(e) {
-        console.warn('[FI] Glow layer failed:', e);
+        console.debug('[FI] Glow layer failed:', e);
         this._stopGlow(); // Clean up on failure
       }
     },

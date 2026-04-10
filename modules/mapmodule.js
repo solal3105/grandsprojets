@@ -13,7 +13,7 @@ window.MapModule = (() => {
     const cityPreferred = window._cityPreferredBasemap;
     
     if (!bmList.length) {
-      console.warn('[MapModule] Pas de basemaps disponibles');
+      console.debug('[MapModule] Pas de basemaps disponibles');
       return;
     }
     

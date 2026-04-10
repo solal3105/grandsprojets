@@ -1,6 +1,5 @@
 // modules/UIModule.js
 // Module de gestion de l'interface utilisateur : filtres et basemap rendering
-// Note: Popup open/close is handled by ToggleManager (unified toggle dock system)
 (function(window, document) {
 
   // DOM element references (set during init)
@@ -29,7 +28,7 @@
   // Initialisation du module
   const init = (options = {}) => {
     if (!initElements()) {
-      console.warn('[UIModule] Impossible d\'initialiser les éléments DOM');
+      console.debug('[UIModule] Impossible d\'initialiser les éléments DOM');
       return false;
     }
 
@@ -185,8 +184,6 @@
    * @param {{ updateHistory?: boolean }} [options]
    */
   const showDetailPanel = (layerName, feature, options = {}) => {
-    console.log('[UIModule] 📋 showDetailPanel called:', { layerName, featureName: feature?.properties?.project_name, options });
-    
     const { updateHistory = true } = options;
     // Utilitaire local de slugification (harmonisé avec les autres modules)
     const slugify = (str) => String(str || '')
@@ -214,8 +211,6 @@
         else category = 'autre';
       }
       
-      console.log('[UIModule] 📝 Extracted:', { projectName, category });
-      
       if (projectName) {
         // GUARD: Éviter la boucle infinie history.pushState → popstate → showDetailPanel
         const currentParams = new URLSearchParams(location.search);
@@ -224,13 +219,6 @@
         
         // Ne mettre à jour l'URL QUE si elle a changé
         const shouldUpdateUrl = updateHistory && currentProject !== projSlug;
-        
-        console.log('[UIModule] 🔗 URL update check:', { 
-          currentProject, 
-          projSlug, 
-          shouldUpdateUrl,
-          updateHistory 
-        });
         
         if (shouldUpdateUrl) {
           try {
@@ -246,7 +234,6 @@
             params.set('cat', catForUrl);
             params.set('project', projSlug);
             const newUrl = `${location.pathname}?${params.toString()}`;
-            console.log('[UIModule] 🔗 Pushing URL:', newUrl);
             history.pushState({ cat: catForUrl, project: projSlug }, '', newUrl);
             
             // Désactiver le flag après un court délai (pour laisser popstate se déclencher si besoin)
@@ -256,24 +243,20 @@
               }
             }, 100);
           } catch(err) {
-            console.error('[UIModule] ❌ Error pushing URL:', err);
+            console.error('[UIModule] Error pushing URL:', err);
             // Toujours désactiver le flag en cas d'erreur
             if (window._setManualNavigation) {
               window._setManualNavigation(false);
             }
           }
-        } else {
-          console.log('[UIModule] ⏭️ Skip URL update - already current');
         }
-        
-        // Appeler showProjectDetail APRÈS la mise à jour de l'URL pour éviter la boucle
-        console.log('[UIModule] 📞 Calling NavigationModule.showProjectDetail');
+
         window.NavigationModule.showProjectDetail(projectName, category, null, props);
       } else {
-        console.warn('[UIModule] ⚠️ No project name found');
+        console.debug('[UIModule] No project name found');
       }
     } else {
-      console.warn('[UIModule] ⚠️ NavigationModule.showProjectDetail not available');
+      console.debug('[UIModule] NavigationModule.showProjectDetail not available');
     }
   };
 

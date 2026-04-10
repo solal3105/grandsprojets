@@ -22,7 +22,7 @@
         return await win.supabaseService.getCityBranding(ville.toLowerCase());
       }
       
-      console.warn('[CityBranding] supabaseService not available');
+      console.debug('[CityBranding] supabaseService not available');
       return null;
     } catch (err) {
       console.error('[CityBranding] Error fetching city branding:', err);
@@ -36,13 +36,13 @@
    */
   applyPrimaryColor(primaryColor) {
     if (!primaryColor || !primaryColor.match(/^#[0-9A-Fa-f]{6}$/)) {
-      console.warn('[CityBranding] Invalid primary color format:', primaryColor);
+      console.debug('[CityBranding] Invalid primary color format:', primaryColor);
       return;
     }
     
     // Vérifier que le document est disponible
     if (typeof document === 'undefined' || !document.documentElement) {
-      console.warn('[CityBranding] Document not available for styling');
+      console.debug('[CityBranding] Document not available for styling');
       return;
     }
     
@@ -365,7 +365,7 @@
         const { data: { session } } = await win.AuthModule.getSession();
         isAuthenticated = !!(session?.user);
       } catch (err) {
-        console.warn('[CityBranding] Error checking auth status:', err);
+        console.debug('[CityBranding] Error checking auth status:', err);
       }
     }
 
@@ -448,8 +448,6 @@
     // Écouter les changements d'état d'authentification
     if (win.AuthModule && typeof win.AuthModule.onAuthStateChange === 'function') {
       win.AuthModule.onAuthStateChange(async (event, session) => {
-        console.log('[CityBranding] Auth state changed:', event, '- session:', !!session);
-        
         // Récupérer la ville active via CityManager (source unique)
         const activeCity = win.CityManager?.getActiveCity();
         

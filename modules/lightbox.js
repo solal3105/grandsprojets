@@ -1,7 +1,4 @@
-// modules/lightbox.js
-// Unified fullscreen image lightbox — replaces 3 separate implementations:
-//   - navigationmodule.js .cover-lightbox
-//   - ficheprojet.js .fiche-lightbox
+// modules/lightbox.js — Fullscreen image lightbox
 
 ;(function(win) {
   'use strict';
@@ -13,11 +10,9 @@
   function open(imageUrl, alt) {
     if (!imageUrl) return;
 
-    // Sanitize inputs
     const safeSrc = win.SecurityUtils ? win.SecurityUtils.sanitizeUrl(imageUrl) : imageUrl;
     const safeAlt = win.SecurityUtils ? win.SecurityUtils.escapeAttribute(alt || '') : (alt || '');
 
-    // Reuse or create overlay
     if (!_overlay) {
       _overlay = document.createElement('div');
       _overlay.className = 'gp-lightbox';
@@ -34,23 +29,18 @@
 
       _img = _overlay.querySelector('.gp-lightbox__img');
 
-      // Close on backdrop click
       _overlay.addEventListener('click', function(e) {
         if (e.target === _overlay) close();
       });
 
-      // Close button
       _overlay.querySelector('.gp-lightbox__close').addEventListener('click', close);
     }
 
-    // Set image
     _img.src = safeSrc;
     _img.alt = safeAlt;
 
-    // Insert into DOM
     document.body.appendChild(_overlay);
 
-    // ESC key
     _keyHandler = function(e) { if (e.key === 'Escape') close(); };
     document.addEventListener('keydown', _keyHandler);
 

@@ -9,7 +9,7 @@ const EventBindings = (() => {
     
     // Validation du menu
     if (!menu) {
-      console.error('[EventBindings] ❌ handleNavigation appelé avec menu invalide:', menu);
+      console.error('[EventBindings] handleNavigation appelé avec menu invalide:', menu);
       return;
     }
   
@@ -112,7 +112,7 @@ const EventBindings = (() => {
         }
       }
     } catch (e) {
-      console.warn('[EventBindings] handleFeatureClick error:', e);
+      console.debug('[EventBindings] handleFeatureClick error:', e);
     }
   };
 
