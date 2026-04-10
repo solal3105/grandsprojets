@@ -114,8 +114,8 @@
             Le constat
           </span>
           <h2 class="font-heading font-bold text-3xl sm:text-4xl lg:text-[48px] leading-[1.08] tracking-tight text-dark">
-            Des milliards investis dans l'espace public.
-            <span class="text-gradient-green"> Des habitants dans le flou.</span>
+            Des millions d'euros investis dans l'espace public,
+            <span class="text-gradient-green"> des administrés qui ne prennent pas la mesure des investissements.</span>
           </h2>
           <p class="mt-6 text-gray-text text-base leading-relaxed max-w-[560px] mx-auto">
             Marquage au sol, aménagements cyclables, requalification de voirie — les projets se concrétisent sur le terrain, mais l'information reste dans des comptes rendus. Les citoyens découvrent les travaux au dernier moment.

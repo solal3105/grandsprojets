@@ -393,7 +393,7 @@ test.describe('10.6 — Génération IA (description)', () => {
     await expect(descField).not.toHaveValue('', { timeout: 3000 });
 
     // Toast de confirmation
-    const toastEl = page.locator('.gp-toast');
+    const toastEl = page.locator('.adm-toast--success');
     await expect(toastEl).toContainText('Description insérée', { timeout: 5000 });
   });
 

@@ -34,7 +34,7 @@ export const TOGGLES_CONFIG = {
     ariaLabel: 'Activer ou désactiver le mode 3D (relief et bâtiments)',
     position: 1,
     persistent: true,
-    defaultState: true,
+    defaultState: false,
     storageKey: 'mode-3d'
   },
 

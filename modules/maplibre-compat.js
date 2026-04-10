@@ -1935,7 +1935,7 @@
     }
 
     // ── 3D Buildings ──
-    _buildings3DEnabled = true;
+    _buildings3DEnabled = false;
 
     /**
      * Active/désactive la couche 3D des bâtiments

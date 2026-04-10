@@ -27,7 +27,7 @@ export default defineConfig({
       testMatch: /auth\.setup\.js/,
     },
 
-    // --- Admin tests ---
+    // --- Admin tests (excl. z-logout qui révoque le token) ---
     {
       name: 'admin',
       use: {
@@ -35,7 +35,19 @@ export default defineConfig({
         storageState: 'tests/.auth/admin.json',
       },
       dependencies: ['setup'],
-      testMatch: /admin\..*\.spec\.js/,
+      testMatch: /admin\.(?!z-logout).*\.spec\.js/,
+    },
+
+    // --- Admin logout (DOIT tourner après tous les tests admin/invited)
+    // signOut() côté serveur révoque le token — ce projet en dépend ---
+    {
+      name: 'admin-logout',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/.auth/admin.json',
+      },
+      dependencies: ['admin', 'invited'],
+      testMatch: /admin\.z-logout\.spec\.js/,
     },
 
     // --- Invited tests ---

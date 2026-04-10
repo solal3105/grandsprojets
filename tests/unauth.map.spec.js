@@ -121,14 +121,14 @@ test.describe('0.4 — Toggle Dock', () => {
     // aria-label est toujours présent (défini dans _setupAria)
     await expect(filtersToggle).toHaveAttribute('aria-label');
     // aria-pressed et aria-expanded sont définis après la première interaction (setState)
-    // Vérifier que le mode 3D (defaultState: true → setState appelé) a bien aria-pressed
-    await expect(page.locator('#mode3d-toggle')).toHaveAttribute('aria-pressed', 'true');
+    // Vérifier que le mode 3D (defaultState: false → setState appelé) a bien aria-pressed
+    await expect(page.locator('#mode3d-toggle')).toHaveAttribute('aria-pressed', 'false');
   });
 
-  test('0.4.3 — Mode 3D est actif par défaut', async ({ page }) => {
+  test('0.4.3 — Mode 3D est inactif par défaut', async ({ page }) => {
     await waitForMapBoot(page);
     const mode3d = page.locator('#mode3d-toggle');
-    await expect(mode3d).toHaveAttribute('aria-pressed', 'true');
+    await expect(mode3d).toHaveAttribute('aria-pressed', 'false');
   });
 
   test('0.4.4 — Clic toggle filters → panneau filtres s\'ouvre', async ({ page }) => {
