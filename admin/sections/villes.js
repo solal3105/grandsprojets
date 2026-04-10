@@ -453,13 +453,13 @@ function _bindCityForm(container, existing) {
 
     const data = {
       brand_name: brandName,
-      logo_url: logoUrl || null,
-      dark_logo_url: darkLogoUrl || null,
-      favicon_url: faviconUrl || null,
+      logo_url: logoUrl || '',
+      dark_logo_url: darkLogoUrl || '',
+      favicon_url: faviconUrl || '',
       primary_color: colorVal || DEFAULT_COLOR,
       center_lat: mapCenter ? parseFloat(mapCenter.lat.toFixed(6)) : null,
       center_lng: mapCenter ? parseFloat(mapCenter.lng.toFixed(6)) : null,
-      zoom: mapZoom != null ? parseFloat(mapZoom.toFixed(2)) : null,
+      zoom: mapZoom != null ? Math.round(mapZoom) : null,
     };
 
     try {
