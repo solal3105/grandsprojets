@@ -341,7 +341,7 @@
 
       // PHASE 5 : Menus dynamiques (AVANT les layers)
       // Chargement en parallèle des données nécessaires
-      const [allContributions, allCategoryIconsFromDB, travauxConfig] = await Promise.all([
+      const [allContributions, allCategoryIconsFromDB, cityModules] = await Promise.all([
         // Fetch contributions
         (async () => {
           try {
@@ -368,20 +368,22 @@
             return [];
           }
         })(),
-        // Fetch travaux config
+        // Fetch city modules (remplace travaux_config)
         (async () => {
           try {
-            return await supabaseService.getTravauxConfig(city);
+            return await supabaseService.fetchCityModules(city);
           } catch (err) {
-            console.debug('[Main] Erreur chargement config travaux:', err);
-            return null;
+            console.debug('[Main] Erreur chargement city_modules:', err);
+            return [];
           }
         })()
       ]);
 
+      // Stocker les modules de la ville
+      win._cityModules = cityModules || [];
+
       const categoriesWithData = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
       
-      // Note: "travaux" est géré séparément via initTravauxSubmenu() (submenu en dur)
       const categoriesFiltered = categoriesWithData.filter(cat => cat !== 'travaux');
 
       const activeCategoryIcons = categoriesFiltered.map((category, index) => {
@@ -399,25 +401,29 @@
       // Construire le mapping catégorie → layers depuis la DB
       win.categoryLayersMap = window.supabaseService.buildCategoryLayersMap(activeCategoryIcons);
       
-      // Ajouter le mapping pour "travaux" (submenu en dur)
-      if (travauxConfig?.enabled) {
-        win.categoryLayersMap['travaux'] = travauxConfig.layers_to_display || ['travaux'];
-      } else {
-        win.categoryLayersMap['travaux'] = ['travaux']; // Fallback
+      // Ajouter le mapping pour les modules qui ont des layers_to_display
+      cityModules.forEach(mod => {
+        if (mod.config?.layers_to_display?.length) {
+          win.categoryLayersMap[mod.module_key] = mod.config.layers_to_display;
+        }
+      });
+      // Fallback : toujours un mapping 'travaux'
+      if (!win.categoryLayersMap['travaux']) {
+        win.categoryLayersMap['travaux'] = ['travaux'];
       }
 
       win.getAllCategories = () => (win.categoryIcons || []).map(c => c.category);
       win.getCategoryLayers = (category) => win.categoryLayersMap?.[category] || [];
       win.isCategoryLayer = (layerName) => win.getAllCategories().includes(layerName);
       
-      // Store travaux config globally for NavPanel (BEFORE sidebar init)
-      win._travauxConfig = travauxConfig || {};
       
       if (win.SidebarModule) {
         win.SidebarModule.init();
       }
       if (win.NavPanel) {
         win.NavPanel.init();
+        win.CarteNav?.register();
+        win.TravauxNav?.register();
       }
       const contributionsByCategory = {};
       allContributions.forEach(contrib => {
@@ -473,7 +479,7 @@
       if (DataModule.preloadLayer) {
         Object.keys(urlMap).forEach(layer => DataModule.preloadLayer(layer));
         // Preload travaux immediately for instant toggle
-        if (win._travauxConfig?.enabled) {
+        if ((win._cityModules || []).some(m => m.module_key === 'travaux' && m.enabled)) {
           DataModule.preloadLayer('travaux');
         }
       }

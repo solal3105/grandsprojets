@@ -118,8 +118,8 @@ test.describe('8.2 — Formulaire de création', () => {
   test('8.2.4 — Couleur primaire : valeur par défaut + sync picker↔texte', async ({ page }) => {
     await goToVilles(page);
     await page.click('#ville-create-btn');
-    await expect(page.locator('#cf-color-picker')).toHaveValue('#21b929');
-    await expect(page.locator('#cf-color-text')).toHaveValue('#21b929');
+    await expect(page.locator('#cf-color-picker')).toHaveValue('#14ae5c');
+    await expect(page.locator('#cf-color-text')).toHaveValue('#14AE5C');
     // Change text → picker should sync
     await page.fill('#cf-color-text', '#ff0000');
     await page.locator('#cf-color-text').dispatchEvent('input');

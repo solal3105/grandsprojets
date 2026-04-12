@@ -20,11 +20,9 @@
 
       this._updateAuthState();
       this._bindAuthListener();
+      this._renderModuleButtons();
       this._bindModules();
       this._bindActions();
-      this._updateTravauxVisibility();
-
-      // No default module active — panel starts closed, map visible
     },
 
     refreshAuth() {
@@ -32,18 +30,30 @@
     },
 
     /**
-     * Update travaux button visibility based on city config
+     * Génère dynamiquement les boutons modules depuis win._cityModules
      */
-    _updateTravauxVisibility() {
-      const travauxBtn = this._sidebar?.querySelector('[data-module="travaux"]');
-      if (!travauxBtn) return;
+    _renderModuleButtons() {
+      const container = this._sidebar?.querySelector('.gp-sidebar__modules');
+      if (!container) return;
 
-      const travauxConfig = win._travauxConfig || {};
-      if (travauxConfig.enabled === true) {
-        travauxBtn.style.display = '';
-      } else {
-        travauxBtn.style.display = 'none';
-      }
+      const modules = (win._cityModules || []).filter(m => m.enabled);
+      if (!modules.length) return;
+
+      container.innerHTML = '';
+      modules.forEach(mod => {
+        const btn = document.createElement('button');
+        btn.className = 'gp-sidebar__btn gp-sidebar__btn--module';
+        btn.dataset.module = mod.module_key;
+        btn.dataset.tooltip = mod.label;
+        btn.setAttribute('aria-label', mod.label);
+
+        const icon = mod.icon_class || 'fas fa-layer-group';
+        btn.innerHTML = `
+          <i class="${icon}" aria-hidden="true"></i>
+          <span class="gp-sidebar__label">${mod.label}</span>
+        `;
+        container.appendChild(btn);
+      });
     },
 
     /* ──────────────────────────────────────────────────────────────────── */
@@ -51,15 +61,10 @@
     /* ──────────────────────────────────────────────────────────────────── */
 
     _bindModules() {
-      const carteBtn = this._sidebar.querySelector('[data-module="carte"]');
-      const travauxBtn = this._sidebar.querySelector('[data-module="travaux"]');
-
-      if (carteBtn) {
-        carteBtn.addEventListener('click', () => this._activateModule('carte'));
-      }
-      if (travauxBtn) {
-        travauxBtn.addEventListener('click', () => this._activateModule('travaux'));
-      }
+      if (!this._sidebar) return;
+      this._sidebar.querySelectorAll('.gp-sidebar__btn--module').forEach(btn => {
+        btn.addEventListener('click', () => this._activateModule(btn.dataset.module));
+      });
     },
 
     _activateModule(mod) {

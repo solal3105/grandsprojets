@@ -38,6 +38,27 @@ Build home : `cd home-src && npm ci && npm run build` → output dans `/home/`.
 - ES modules — seul sous-projet à les utiliser côté navigateur
 - Accède à `window.supabaseService` et `window.AuthModule` (chargés par le HTML parent)
 - État : `admin/store.js` (pub/sub simple) — Routeur : `admin/router.js`
+- Section Modules (`admin/sections/modules.js`) : gestion des modules par ville (global-admin uniquement)
+
+### Modules carte — architecture découplée
+
+La carte publique utilise un **système de modules enregistrables** piloté par la table Supabase `city_modules`. Chaque ville définit ses modules actifs (carte, travaux, etc.) sans code spécifique dans le tronc commun.
+
+| Couche | Rôle |
+|---|---|
+| **`city_modules`** (Supabase) | Source de vérité : `(ville, module_key, label, icon_class, sort_order, enabled, config)` |
+| **`sidebar.js`** | Génère les boutons modules depuis `win._cityModules` |
+| **`nav-panel.js`** | Contrôleur 3 niveaux (L1→L3) + registre `registerModule(key, renderer)` |
+| **`modules/carte/carte-nav.js`** | Renderer carte : L2 = catégories, L3 = contenu catégorie |
+| **`modules/travaux/travaux-nav.js`** | Renderer travaux : L2 = sections (timeline/admin/contrib), L3 = vue |
+| **`modules/travaux/travaux-views.js`** | Builders partagés : `buildTimeline`, `buildFilters`, `buildAdmin`, `buildContributor`, `drawPanelHTML`, `bindListActions` |
+
+**Ajouter un module :**
+1. Créer `modules/<key>/<key>-nav.js` — IIFE exposant `win.<Key>Nav` avec `register()` qui appelle `NavPanel.registerModule(key, { renderL2, renderL3, clearLayers, onBack, onClose })`
+2. Ajouter le `<script>` dans `index.html` après `nav-panel.js`
+3. Appeler `win.<Key>Nav?.register()` dans `main.js` Phase 5
+4. Insérer une ligne dans `city_modules` pour chaque ville qui active ce module
+5. Ajouter le template dans `MODULE_TEMPLATES` de `admin/sections/modules.js`
 
 ### Home (`home-src/`)
 - Vue 3 Composition API (`<script setup>`), Tailwind 3.4, primary `#FF0037`, icônes `lucide-vue-next`

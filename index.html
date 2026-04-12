@@ -126,16 +126,8 @@
     </a>
     <div class="gp-sidebar__divider"></div>
 
-    <!-- Modules -->
+    <!-- Modules — generated dynamically by SidebarModule from city_modules -->
     <div class="gp-sidebar__modules">
-      <button class="gp-sidebar__btn gp-sidebar__btn--module" data-module="carte" data-tooltip="Menu" aria-label="Menu">
-        <i class="fas fa-map" aria-hidden="true"></i>
-        <span class="gp-sidebar__label">Menu</span>
-      </button>
-      <button class="gp-sidebar__btn gp-sidebar__btn--module" data-module="travaux" data-tooltip="Travaux" aria-label="Travaux">
-        <i class="fas fa-helmet-safety" aria-hidden="true"></i>
-        <span class="gp-sidebar__label">Travaux</span>
-      </button>
     </div>
 
     <div class="gp-sidebar__divider"></div>
@@ -294,7 +286,7 @@
   <script src="modules/auth.js"></script>
   <script src="modules/sidebar.js"></script>
   <script src="modules/nav-panel.js"></script>
-  <script src="modules/travaux-views.js"></script>
+  <script src="modules/travaux/travaux-views.js"></script>
   <!-- Module de sécurité (prévention XSS) -->
   <script src="modules/security-utils.js"></script>
   <!-- MapLibre GL JS -->
@@ -324,7 +316,7 @@
   <script src="modules/uimodule.js"></script>
   <script src="modules/searchmodule.js"></script>
   <script src="modules/geolocation.js"></script>
-  <script src="modules/travauxmodule.js"></script>
+  <script src="modules/travaux/travauxmodule.js"></script>
   <script src="modules/navigationmodule.js"></script>
   <script src="modules/eventbindings.js"></script>
   <!-- City branding module -->
@@ -343,6 +335,10 @@
   <script type="module" src="modules/ui/toggles.js"></script>
   
   
+  <!-- Module renderers (nav-panel registration) -->
+  <script src="modules/carte/carte-nav.js"></script>
+  <script src="modules/travaux/travaux-nav.js"></script>
+
   <!-- Main simplifié -->
   <script src="main.js"></script>
 </body>

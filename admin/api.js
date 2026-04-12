@@ -187,3 +187,17 @@ export async function insertConsultationDossiers(projectName, category, docs, ro
 export async function deleteConsultationDossier(id) {
   return svc().deleteConsultationDossier(id);
 }
+
+// ── City modules ──────────────────────────────────────────────────
+
+export async function getCityModules() {
+  return svc().fetchCityModules(requireCity());
+}
+
+export async function upsertCityModule(moduleKey, fields) {
+  return svc().upsertCityModule(requireCity(), moduleKey, fields);
+}
+
+export async function deleteCityModule(moduleKey) {
+  return svc().deleteCityModule(requireCity(), moduleKey);
+}

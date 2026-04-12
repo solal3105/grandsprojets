@@ -8,6 +8,7 @@ import { renderUsers } from './sections/users.js';
 import { renderTravaux } from './sections/travaux.js';
 import { renderStructure } from './sections/structure.js';
 import { renderVilles } from './sections/villes.js';
+import { renderModules } from './sections/modules.js';
 import { toast } from './components/ui.js';
 
 async function boot() {
@@ -34,6 +35,7 @@ async function boot() {
     router.define('travaux',        (c, p) => renderTravaux(c, p));
     router.define('structure',      (c, p) => renderStructure(c, p));
     router.define('villes',         (c, p) => renderVilles(c, p));
+    router.define('modules',        (c, p) => renderModules(c, p));
 
     // Re-render current section when city changes
     store.subscribe(() => {
@@ -46,6 +48,7 @@ async function boot() {
         travaux: renderTravaux,
         structure: renderStructure,
         villes: renderVilles,
+        modules: renderModules,
       }[section];
       if (handler && main) {
         main.innerHTML = '';

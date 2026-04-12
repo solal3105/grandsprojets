@@ -2700,27 +2700,114 @@
       }
     },
 
+    /* ────────────────────────────────────────────────────────────────
+     *  city_modules — table unique pour les modules par ville
+     * ──────────────────────────────────────────────────────────────── */
+
     /**
-     * Récupère la configuration Travaux pour une ville
-     * @param {string} ville - Code de la ville
-     * @returns {Promise<Object|null>}
+     * Récupère tous les modules activés pour une ville, triés par sort_order
+     * @param {string} ville
+     * @returns {Promise<Array>}
+     */
+    fetchCityModules: async function(ville) {
+      try {
+        if (!ville) return [];
+        const { data, error } = await supabaseClient
+          .from('city_modules')
+          .select('*')
+          .eq('ville', ville)
+          .order('sort_order', { ascending: true });
+        if (error) {
+          console.debug('[supabaseService] Erreur fetchCityModules:', error);
+          return [];
+        }
+        return data || [];
+      } catch (e) {
+        console.error('[supabaseService] fetchCityModules exception:', e);
+        return [];
+      }
+    },
+
+    /**
+     * Crée ou met à jour un module ville
+     * @param {string} ville
+     * @param {string} moduleKey
+     * @param {Object} fields - { label, icon_class, sort_order, enabled, config }
+     * @returns {Promise<{data: Object|null, error: Error|null}>}
+     */
+    upsertCityModule: async function(ville, moduleKey, fields) {
+      try {
+        if (!ville || !moduleKey) return { data: null, error: new Error('ville et module_key requis') };
+        const row = {
+          ville,
+          module_key: moduleKey,
+          label: fields.label || moduleKey,
+          icon_class: fields.icon_class || 'fa-solid fa-layer-group',
+          sort_order: fields.sort_order ?? 0,
+          enabled: fields.enabled !== undefined ? fields.enabled : true,
+          config: fields.config || {},
+          updated_at: new Date().toISOString(),
+        };
+        const { data, error } = await supabaseClient
+          .from('city_modules')
+          .upsert(row, { onConflict: 'ville,module_key' })
+          .select()
+          .single();
+        return { data, error };
+      } catch (e) {
+        console.error('[supabaseService] upsertCityModule exception:', e);
+        return { data: null, error: e };
+      }
+    },
+
+    /**
+     * Supprime un module ville
+     * @param {string} ville
+     * @param {string} moduleKey
+     * @returns {Promise<{success: boolean, error: Error|null}>}
+     */
+    deleteCityModule: async function(ville, moduleKey) {
+      try {
+        if (!ville || !moduleKey) return { success: false, error: new Error('ville et module_key requis') };
+        const { error } = await supabaseClient
+          .from('city_modules')
+          .delete()
+          .eq('ville', ville)
+          .eq('module_key', moduleKey);
+        return { success: !error, error: error || null };
+      } catch (e) {
+        console.error('[supabaseService] deleteCityModule exception:', e);
+        return { success: false, error: e };
+      }
+    },
+
+    /**
+     * Compatibilité — récupère la config travaux depuis city_modules
+     * @param {string} ville
+     * @returns {Promise<Object|null>} Format compatible avec l'ancien travaux_config
      */
     getTravauxConfig: async function(ville) {
       try {
         if (!ville) return null;
-        
         const { data, error } = await supabaseClient
-          .from('travaux_config')
+          .from('city_modules')
           .select('*')
           .eq('ville', ville)
+          .eq('module_key', 'travaux')
           .single();
-        
-        if (error) {
-          console.debug('[supabaseService] Pas de config travaux pour', ville, ':', error);
-          return null;
-        }
-        
-        return data;
+        if (error || !data) return null;
+        // Aplatir config jsonb pour compatibilité
+        const cfg = data.config || {};
+        return {
+          ville: data.ville,
+          enabled: data.enabled,
+          icon_class: data.icon_class,
+          display_order: data.sort_order,
+          source_type: cfg.source_type || 'city_travaux',
+          url: cfg.url || null,
+          color: cfg.color || '#FF6B35',
+          layers_to_display: cfg.layers_to_display || ['travaux'],
+        };
       } catch (e) {
         console.error('[supabaseService] Erreur getTravauxConfig:', e);
         return null;
@@ -2728,65 +2815,33 @@
     },
 
     /**
-     * Met à jour ou crée la configuration Travaux pour une ville
-     * @param {string} ville - Code de la ville
-     * @param {Object} config - Configuration complète
+     * Compatibilité — met à jour la config travaux via city_modules
+     * @param {string} ville
+     * @param {Object} config
      * @returns {Promise<{data: Object|null, error: Error|null}>}
      */
     updateTravauxConfig: async function(ville, config) {
-      try {
-        if (!ville) {
-          return { data: null, error: new Error('Ville requise') };
-        }
-
-        const { data, error } = await supabaseClient
-          .from('travaux_config')
-          .upsert({
-            ville: ville,
-            enabled: config.enabled !== undefined ? config.enabled : false,
-            source_type: config.source_type || 'city_travaux',
-            url: config.url || null,
-            icon_class: config.icon_class || 'fa-solid fa-helmet-safety',
-            display_order: config.display_order !== undefined ? config.display_order : 5,
-            layers_to_display: config.layers_to_display || ['travaux']
-          }, {
-            onConflict: 'ville'
-          })
-          .select()
-          .single();
-
-        return { data, error };
-      } catch (e) {
-        console.error('[supabaseService] Erreur updateTravauxConfig:', e);
-        return { data: null, error: e };
-      }
+      return this.upsertCityModule(ville, 'travaux', {
+        label: 'Travaux',
+        icon_class: config.icon_class || 'fa-solid fa-helmet-safety',
+        sort_order: config.display_order ?? 5,
+        enabled: config.enabled !== undefined ? config.enabled : false,
+        config: {
+          source_type: config.source_type || 'city_travaux',
+          url: config.url || null,
+          color: config.color || '#FF6B35',
+          layers_to_display: config.layers_to_display || ['travaux'],
+        },
+      });
     },
 
     /**
-     * Supprime la configuration Travaux pour une ville
-     * @param {string} ville - Code de la ville
+     * Compatibilité — supprime la config travaux via city_modules
+     * @param {string} ville
      * @returns {Promise<{success: boolean, error: Error|null}>}
      */
     deleteTravauxConfig: async function(ville) {
-      try {
-        if (!ville) {
-          return { success: false, error: new Error('Ville requise') };
-        }
-
-        const { error } = await supabaseClient
-          .from('travaux_config')
-          .delete()
-          .eq('ville', ville);
-
-        if (error) {
-          return { success: false, error };
-        }
-
-        return { success: true, error: null };
-      } catch (e) {
-        console.error('[supabaseService] Erreur deleteTravauxConfig:', e);
-        return { success: false, error: e };
-      }
+      return this.deleteCityModule(ville, 'travaux');
     }
   };
 })(window);

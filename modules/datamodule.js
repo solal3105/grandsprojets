@@ -178,8 +178,11 @@ window.DataModule = (function() {
 					window.TravauxModule?.normalizeGeoJSON?.(data, sourceTag)
 						|| { type: 'FeatureCollection', features: Array.isArray(data?.features) ? data.features : [] };
 				const activeCity = window.CityManager?.getActiveCity() || 'metropole-lyon';
-				// Use cached config from main.js init to avoid redundant Supabase query
-				const config = window._travauxConfig || await window.supabaseService.getTravauxConfig(activeCity);
+				// Use cached config from _cityModules, fallback to Supabase query
+				const mod = (window._cityModules || []).find(m => m.module_key === 'travaux');
+				const config = mod
+					? { enabled: mod.enabled, ...mod.config }
+					: await window.supabaseService.getTravauxConfig(activeCity);
 				
 				if (!config) return { type: 'FeatureCollection', features: [] };
 				

@@ -13,7 +13,7 @@ async function cleanupTravauxData() {
     password: process.env.TEST_ADMIN_PASSWORD,
   });
   await sb.from('city_travaux').delete().eq('ville', 'test-e2e').like('name', 'E2E-%');
-  await sb.from('travaux_config').delete().eq('ville', 'test-e2e');
+  await sb.from('city_modules').delete().eq('ville', 'test-e2e').eq('module_key', 'travaux');
 }
 
 test.beforeAll(async () => { await cleanupTravauxData(); });
@@ -342,6 +342,7 @@ test.describe('5.x — CRUD complet travaux', () => {
     await expect(page.locator('#tw-name')).toHaveValue(TEST_NAME);
 
     // 5.5.6 — Change name and save
+    await page.locator('#tw-name').clear();
     await page.locator('#tw-name').fill(UPDATED_NAME);
     // Verify the field has the new value before submitting
     await expect(page.locator('#tw-name')).toHaveValue(UPDATED_NAME);
