@@ -144,7 +144,7 @@ window.DataModule = (function() {
 
 			layer.on('mouseout', function() {
 				if (!FI) return;
-				FI._endHover();
+				FI.endHover();
 			});
 
 			layer.on('click', function() {

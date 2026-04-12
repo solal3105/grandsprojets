@@ -20,6 +20,7 @@
   const DIM_FILL_OPACITY = 0.04;
   const HIT_TOLERANCE = 5;
   const PEEK_MAX = 3;
+  const _isTouch = matchMedia?.('(pointer: coarse)').matches;
 
   // helpers
   const esc = window.SecurityUtils.escapeHtml;
@@ -56,8 +57,15 @@
     const imgH = img ? `<div class="gp-hp-img"><img src="${esc(img)}" alt="" loading="lazy"/></div>` : '';
     const tagH = cat ? `<span class="gp-hp-tag">${esc(cat)}</span>`
       : tw ? '<span class="gp-hp-tag gp-hp-tag--travaux"><i class="fa-solid fa-helmet-safety"></i> Travaux</span>' : '';
-    const ctaH = opts?.cta ? '<span class="gp-hp-cta"><i class="fa-solid fa-hand-pointer"></i> Cliquez pour en savoir plus</span>' : '';
+    const ctaH = opts?.cta
+      ? `<span class="gp-hp-cta"><i class="fa-solid fa-hand-pointer"></i> ${_isTouch ? 'Appuyez pour en savoir plus' : 'Cliquez pour en savoir plus'}</span>`
+      : '';
     return `<div class="gp-hp">${imgH}<div class="gp-hp-body">${tagH}<div class="gp-hp-title">${title}</div>${ctaH}</div></div>`;
+  }
+
+  // Compute a dedup key from a list of features (sorted for stability)
+  function computeKey(features) {
+    return features.map(f => keyOf(f)).sort().join('|');
   }
 
   const FI = {
@@ -77,7 +85,6 @@
     _el: null,           // root fixed div on body
     _cardsEl: null,      // .gp-fan-cards container
     _tipEl: null,        // .gp-fan-tip arrow
-    _pickerEl: null,     // .gp-pk (picker list)
     _backdropEl: null,   // .gp-fan-backdrop
     _state: null,        // 'single' | 'peek' | 'picker' | null
     _features: [],       // all overlapping features (full list)
@@ -94,7 +101,7 @@
       this._mlMap = mlMap;
       this._boundUpdatePos = () => this._updatePosition();
       mlMap.on('mousemove', (e) => this._onMove(e));
-      mlMap.on('mouseout',  ()  => this._endHover());
+      mlMap.on('mouseout',  ()  => { if (!_isTouch) this._endHover(); });
       mlMap.on('click',     (e) => this._onClick(e));
     },
 
@@ -159,6 +166,7 @@
     //  HOVER
 
     _onMove(e) {
+      if (_isTouch) return;
       // Always update position for single card (no throttle, keeps it glued to cursor)
       if (this._state === 'single') {
         this._lngLat = e.lngLat;
@@ -179,7 +187,7 @@
       }
 
       this._mlMap.getCanvas().style.cursor = 'pointer';
-      const key = hits.map(f => keyOf(f)).sort().join('|');
+      const key = computeKey(hits);
 
       // Same content → nothing to update (position already handled above)
       if (key === this._currentKey && this._state) return;
@@ -203,12 +211,9 @@
     },
 
     _showHover(features, lngLat, key) {
-      // Dedup by key: one chantier can have multiple geom features (polygon + line)
-      const seen = new Set(); const unique = [];
-      for (const f of features) { const k = keyOf(f); if (k && !seen.has(k)) { seen.add(k); unique.push(f); } }
-      const nextState = unique.length === 1 ? 'single' : 'peek';
-      this._features = unique;
-      features = unique;
+      // features are already deduplicated by _hitTestAll / DOM marker handlers
+      const nextState = features.length === 1 ? 'single' : 'peek';
+      this._features = features;
       this._lngLat = lngLat;
       this._currentKey = key;
 
@@ -224,6 +229,19 @@
       this._state = nextState;
       this._el.className = 'gp-fan-overlay ' + nextState;
       this._updatePosition();
+    },
+
+    // Create a single card DOM element
+    _createCardEl(feature, i, n, opts) {
+      const el = document.createElement('div');
+      const mid = (n - 1) / 2;
+      el.className = 'gp-fan-card' + (opts?.entering ? ' entering' : '');
+      el.dataset.key = keyOf(feature);
+      el.style.setProperty('--i', i);
+      el.style.setProperty('--n', n);
+      el.style.setProperty('--mid', mid);
+      el.innerHTML = cardHTML(feature.properties, { cta: !!opts?.cta });
+      return el;
     },
 
     // Smart card syncing (no full innerHTML nuke)
@@ -245,28 +263,20 @@
 
       // Add or reposition cards
       const n = showKeys.length;
-      const mid = (n - 1) / 2;
       showKeys.forEach((k, i) => {
         let el = container.querySelector(`[data-key="${CSS.escape(k)}"]`);
         if (el) {
           // Card exists → just update CSS vars for new position
           el.style.setProperty('--i', i);
           el.style.setProperty('--n', n);
-          el.style.setProperty('--mid', mid);
+          el.style.setProperty('--mid', (n - 1) / 2);
           el.classList.remove('entering', 'leaving');
         } else {
           // New card → create and animate in
           const f = featureMap.get(k);
           if (!f) return;
-          el = document.createElement('div');
-          el.className = 'gp-fan-card entering';
-          el.dataset.key = k;
-          el.style.setProperty('--i', i);
-          el.style.setProperty('--n', n);
-          el.style.setProperty('--mid', mid);
-          el.innerHTML = cardHTML(f.properties, { cta: nextState === 'single' });
+          el = this._createCardEl(f, i, n, { entering: true, cta: nextState === 'single' });
           container.appendChild(el);
-          // Trigger transition after paint
           requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('entering')));
         }
       });
@@ -289,7 +299,6 @@
 
       // Remove picker elements if switching back to hover
       if (nextState !== 'picker') {
-        if (this._pickerEl) { this._pickerEl.remove(); this._pickerEl = null; }
         if (this._backdropEl) { this._backdropEl.remove(); this._backdropEl = null; }
       }
     },
@@ -306,6 +315,12 @@
       if (this._state === 'single' || this._state === 'peek') this._close();
     },
 
+    // Public: dismiss hover from external mouse events (no-op on touch)
+    endHover() {
+      if (_isTouch) return;
+      this._endHover();
+    },
+
 
     //  OVERLAY LIFECYCLE
 
@@ -319,14 +334,32 @@
       document.body.appendChild(this._el);
       this._mlMap.on('move', this._boundUpdatePos);
       this._displayKeys = [];
+
+      // Touch: tap on card opens the project (single/peek only, picker has own binding)
+      if (_isTouch) {
+        this._cardsEl.addEventListener('click', (ev) => {
+          if (this._state === 'picker') return;
+          const card = ev.target.closest('.gp-fan-card');
+          if (!card) return;
+          ev.stopPropagation();
+          const feature = this._features.find(f => keyOf(f) === card.dataset.key);
+          if (feature) { this._endHover(); this._openFeature(feature); }
+        });
+      }
     },
 
     _updatePosition() {
       if (!this._el || !this._lngLat || !this._mlMap) return;
+      if (this._state === 'picker') return;
       const pt = this._mlMap.project(this._lngLat);
       const r = this._mlMap.getContainer().getBoundingClientRect();
-      this._el.style.left = (r.left + pt.x) + 'px';
-      this._el.style.top  = (r.top  + pt.y) + 'px';
+      let x = r.left + pt.x;
+      const y = r.top + pt.y;
+      // Clamp horizontal: keep card within viewport
+      const halfCard = 130;
+      x = Math.max(halfCard + 8, Math.min(window.innerWidth - halfCard - 8, x));
+      this._el.style.left = x + 'px';
+      this._el.style.top  = y + 'px';
     },
 
     _close() {
@@ -336,7 +369,6 @@
       this._el = null;
       this._cardsEl = null;
       this._tipEl = null;
-      this._pickerEl = null;
       this._backdropEl = null;
       this._closeBtn = null;
       this._state = null;
@@ -368,14 +400,27 @@
 
       // _hitTestAll already deduplicates by key
       const hits = this._hitTestAll(e.point);
-      if (hits.length === 0) { this.clearSelection(); return; }
-      if (hits.length === 1) { this._endHover(); this._openFeature(hits[0]); return; }
+      if (hits.length === 0) { this._endHover(); this.clearSelection(); return; }
+      if (hits.length === 1) {
+        if (_isTouch) {
+          const key = computeKey(hits);
+          // Second tap on same feature → open it
+          if (this._state === 'single' && this._currentKey === key) {
+            this._endHover(); this._openFeature(hits[0]); return;
+          }
+          // First tap → show preview card
+          this._clearHoverState();
+          this._showHover(hits, e.lngLat, key);
+          return;
+        }
+        this._endHover(); this._openFeature(hits[0]); return;
+      }
 
       // Multiple features, no hover → open picker directly
       this._clearHoverState();
       this._features = hits;
       this._lngLat = e.lngLat;
-      this._currentKey = hits.map(f => keyOf(f)).sort().join('|');
+      this._currentKey = computeKey(hits);
       this._openPicker();
     },
 
@@ -403,35 +448,22 @@
       }
 
       const container = this._cardsEl;
-      const n = this._features.length;
-      const mid = (n - 1) / 2;
-      
-      // Check if cards already exist (from peek mode)
-      const existingCards = container.querySelectorAll('.gp-fan-card');
-      const hadCards = existingCards.length > 0;
-      
-      if (!hadCards) {
-        // Build cards if they don't exist
-        this._features.forEach((f, i) => {
-          const el = document.createElement('div');
-          el.className = 'gp-fan-card';
-          el.dataset.key = keyOf(f);
-          el.dataset.idx = i;
-          el.style.setProperty('--i', i);
-          el.style.setProperty('--n', n);
-          el.style.setProperty('--mid', mid);
-          el.innerHTML = cardHTML(f.properties, { cta: false });
-          container.appendChild(el);
-        });
-      }
+
+      // Reuse _syncCards to generate all feature cards (reuses existing from peek)
+      const allKeys = this._features.map(f => keyOf(f));
+      this._syncCards(this._features, allKeys, 'picker');
 
       // Switch to picker mode
       this._state = 'picker';
       this._el.className = 'gp-fan-overlay picker';
       
-      // Bind click events to all cards
-      container.querySelectorAll('.gp-fan-card').forEach((el, i) => {
-        const f = this._features[i];
+      // Build feature lookup by key for click binding
+      const featureByKey = new Map();
+      for (const f of this._features) featureByKey.set(keyOf(f), f);
+
+      // Bind click events to all cards (by data-key, not index)
+      container.querySelectorAll('.gp-fan-card').forEach(el => {
+        const f = featureByKey.get(el.dataset.key);
         if (!f) return;
         el.style.cursor = 'pointer';
         el.onclick = (ev) => {
@@ -447,16 +479,6 @@
       });
 
       this._displayKeys = this._features.map(f => keyOf(f));
-    },
-
-    _selectPickerRow(row, idx) {
-      const feature = this._features[idx];
-      if (!feature) return;
-      row.classList.add('selected');
-      setTimeout(() => {
-        this._close();
-        this._openFeature(feature);
-      }, 250);
     },
 
 
@@ -486,13 +508,14 @@
     //  DOM MARKER HANDLERS (called by datamodule.js)
 
     _onDOMMarkerHover(marker, feature, lngLat) {
+      if (_isTouch) return;
       if (this._state === 'picker') return;
       const point = this._mlMap.project([lngLat.lng, lngLat.lat]);
       const hits = this._hitTestAll(point);
       const name = keyOf(feature);
       if (!hits.some(f => keyOf(f) === name)) hits.push(feature);
 
-      const key = hits.length === 1 ? name : hits.map(f => keyOf(f)).sort().join('|');
+      const key = hits.length === 1 ? name : computeKey(hits);
       this._mlMap.getCanvas().style.cursor = 'pointer';
 
       if (key === this._currentKey && this._state) {
@@ -521,42 +544,61 @@
       const hits = this._hitTestAll(point);
       const name = keyOf(feature);
       if (!hits.some(f => keyOf(f) === name)) hits.push(feature);
-      if (hits.length <= 1) { this._endHover(); this._openFeature(feature); return; }
+      if (hits.length <= 1) {
+        if (_isTouch) {
+          if (this._state === 'single' && this._currentKey === name) {
+            this._endHover(); this._openFeature(feature); return;
+          }
+          this._clearHoverState();
+          this._showHover(hits, lngLat, name);
+          return;
+        }
+        this._endHover(); this._openFeature(feature); return;
+      }
       this._clearHoverState();
       this._features = hits;
       this._lngLat = lngLat;
-      this._currentKey = hits.map(f => keyOf(f)).sort().join('|');
+      this._currentKey = computeKey(hits);
       this._openPicker();
     },
 
 
     //  SPOTLIGHT + DIM
 
+    // Shared core: highlight a project, dim others, start glow
+    _highlightProject(name, source, ids, matchFeatures, dimOthers) {
+      for (const id of ids) this._fs(source, id, 'selected', true);
+      this._selected = { name, source, ids };
+
+      const pools = this._getPools();
+      const matchPool = pools.find(p => p.sourceId === source);
+      if (matchPool) this._startGlow(source, matchPool, matchFeatures);
+
+      if (dimOthers) {
+        const isTrav = matchFeatures.length > 0 && isTravaux(matchFeatures[0]);
+        if (!isTrav) {
+          this._savedPaint = new Map();
+          this._dimmedIds = new Map();
+          for (const pool of pools) {
+            if (pool.sourceId === source) {
+              this._dimPoolExcept(pool, ids);
+              continue;
+            }
+            this._dimLayer(pool.layerId, 'line-opacity', DIM_LINE_OPACITY);
+            if (pool.fillLayerId) this._dimLayer(pool.fillLayerId, 'fill-opacity', DIM_FILL_OPACITY);
+          }
+        }
+      }
+    },
+
     _spotlight(feature) {
       this.clearSelection();
       const name = keyOf(feature);
       const src = feature.source;
       const ids = this._setStateOnProject(src, name, { selected: true });
-      this._selected = { name, source: src, ids };
-      this._savedPaint = new Map();
-      this._dimmedIds = new Map();
-      // Travaux features are never dimmed — only highlight the selected one
-      if (!isTravaux(feature)) {
-        const pools = this._getPools();
-        for (const pool of pools) {
-          if (pool.sourceId === src) {
-            this._dimPoolExcept(pool, ids);
-            continue;
-          }
-          this._dimLayer(pool.layerId, 'line-opacity', DIM_LINE_OPACITY);
-          if (pool.fillLayerId) this._dimLayer(pool.fillLayerId, 'fill-opacity', DIM_FILL_OPACITY);
-        }
-      }
       const matchPool = this._getPools().find(p => p.sourceId === src);
-      if (matchPool) {
-        const matchFeatures = (matchPool.features || []).filter(f => keyOf(f) === name);
-        this._startGlow(src, matchPool, matchFeatures);
-      }
+      const matchFeatures = matchPool ? (matchPool.features || []).filter(f => keyOf(f) === name) : [];
+      this._highlightProject(name, src, ids, matchFeatures, true);
     },
 
     _dimLayer(layerId, prop, val) {
@@ -680,29 +722,7 @@
         if (matchSrc) break;
       }
       if (!matchSrc || !matchIds.size) return false;
-      for (const id of matchIds) this._fs(matchSrc, id, 'selected', true);
-      this._selected = { name: projectName, source: matchSrc, ids: matchIds };
-
-      // Pulsing glow overlay on the highlighted trace
-      const matchPool = pools.find(p => p.sourceId === matchSrc);
-      if (matchPool) this._startGlow(matchSrc, matchPool, matchFeatures);
-
-      if (dimOthers) {
-        // Detect if the spotlit project is a travaux project — never dim travaux
-        const isTrav = matchFeatures.length > 0 && isTravaux(matchFeatures[0]);
-        if (!isTrav) {
-          this._savedPaint = new Map();
-          this._dimmedIds = new Map();
-          for (const pool of pools) {
-            if (pool.sourceId === matchSrc) {
-              this._dimPoolExcept(pool, matchIds);
-              continue;
-            }
-            this._dimLayer(pool.layerId, 'line-opacity', DIM_LINE_OPACITY);
-            if (pool.fillLayerId) this._dimLayer(pool.fillLayerId, 'fill-opacity', DIM_FILL_OPACITY);
-          }
-        }
-      }
+      this._highlightProject(projectName, matchSrc, matchIds, matchFeatures, dimOthers);
       return true;
     },
 
