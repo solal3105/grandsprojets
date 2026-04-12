@@ -45,9 +45,9 @@
       // Invalider le cache de couleurs CSS résolues (MapLibre compat)
       if (window.L?.clearColorCache) window.L.clearColorCache();
 
-      // Repeindre les couches de données avec les nouvelles couleurs CSS
-      if (window.MapModule?.map?.repaintDataColors) {
-        window.MapModule.map.repaintDataColors();
+      // Repeindre toutes les couches MapLibre (données, bâtiments 3D, ciel)
+      if (window.MapModule?.map?.onThemeChanged) {
+        window.MapModule.map.onThemeChanged();
       }
 
       // Forcer un reflow pour appliquer les changements

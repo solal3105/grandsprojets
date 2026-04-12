@@ -575,16 +575,9 @@
       });
       win.toggleManager?.markReady('mode3d');
 
-      // Theme — delegate to ThemeManager + dock shimmer + update buildings colors
+      // Theme — delegate to ThemeManager (applyTheme → onThemeChanged handles all MapLibre updates)
       win.toggleManager?.on('theme', () => {
         win.ThemeManager?.toggle();
-        // Update 3D buildings colors + sky for new theme
-        if (MapModule?.map?.updateBuildings3DTheme) {
-          MapModule.map.updateBuildings3DTheme();
-        }
-        if (MapModule?.map?.updateSkyTheme) {
-          MapModule.map.updateSkyTheme();
-        }
         const dock = document.getElementById('toggle-dock');
         if (dock) {
           dock.classList.remove('toggle-dock--shimmer');

@@ -419,26 +419,43 @@
     // Re-resolve CSS var colors and update paint properties on all pools (called on theme change)
     repaintColors(mlMap) {
       for (const pool of this._pools.values()) {
-        if (!pool.layers.length) continue;
-        const style = pool.layers[0]._style;
-        if (!style) continue;
+        let colorStr, fillStr, needsRepaint;
 
-        const colorStr = style.color || '';
-        const fillStr = style.fillColor || style.color || '';
-        const needsRepaint = colorStr.startsWith('var(') || colorStr.startsWith('color-mix(')
+        if (pool.layers.length > 0) {
+          // SourcePool-managed path (shared pool with PathLayer references)
+          const style = pool.layers[0]._style;
+          if (!style) continue;
+          colorStr = style.color || '';
+          fillStr = style.fillColor || style.color || '';
+        } else if (pool._rawColor) {
+          // Direct-path pool (GeoJSONLayer bulk render, no PathLayer references)
+          colorStr = pool._rawColor;
+          fillStr = pool._rawFillColor || pool._rawColor;
+        } else {
+          continue;
+        }
+
+        needsRepaint = colorStr.startsWith('var(') || colorStr.startsWith('color-mix(')
           || fillStr.startsWith('var(') || fillStr.startsWith('color-mix(');
         if (!needsRepaint) continue;
 
+        const newColor = resolveColor(colorStr) || '#3388ff';
+        const newFill = resolveColor(fillStr) || '#3388ff';
+
+        // For direct-path pools with per-feature _color, use data-driven expression
+        const lineExpr = pool._hasPerFeatureColor ? ['coalesce', ['get', '_color'], newColor] : newColor;
+        const fillExpr = pool._hasPerFeatureColor ? ['coalesce', ['get', '_color'], newFill] : newFill;
+
         try {
           if (mlMap.getLayer(pool.layerId)) {
-            mlMap.setPaintProperty(pool.layerId, 'line-color', resolveColor(colorStr) || '#3388ff');
+            mlMap.setPaintProperty(pool.layerId, 'line-color', lineExpr);
           }
         } catch {}
 
         if (pool.fillLayerId) {
           try {
             if (mlMap.getLayer(pool.fillLayerId)) {
-              mlMap.setPaintProperty(pool.fillLayerId, 'fill-color', resolveColor(fillStr) || '#3388ff');
+              mlMap.setPaintProperty(pool.fillLayerId, 'fill-color', fillExpr);
             }
           } catch {}
         }
@@ -1672,7 +1689,10 @@
         const pool = {
           sourceId, layerId: lineLayerId, fillLayerId,
           features, layers: [], geomType,
-          layerName: this.options._layerName || null
+          layerName: this.options._layerName || null,
+          _rawColor: style.color || null,
+          _rawFillColor: style.fillColor || style.color || null,
+          _hasPerFeatureColor: features.some(f => { const c = f.properties?._color; return c && !c.startsWith('var('); })
         };
         L._sourcePool._pools.set(sourceId, pool);
         L._sourcePool._applyFilterToPool(pool);
@@ -2146,6 +2166,16 @@
       if (L._sourcePool) {
         L._sourcePool.repaintColors(this._mlMap);
       }
+    }
+
+    /**
+     * Centralise tous les effets visuels MapLibre lors d'un changement de thème.
+     * Appelé depuis ThemeManager.applyTheme() — couvre toggle manuel ET sync OS.
+     */
+    onThemeChanged() {
+      this.repaintDataColors();
+      this.updateBuildings3DTheme();
+      this.updateSkyTheme();
     }
 
     updateSkyTheme() {
