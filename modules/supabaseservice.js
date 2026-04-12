@@ -2825,7 +2825,7 @@
         label: 'Travaux',
         icon_class: config.icon_class || 'fa-solid fa-helmet-safety',
         sort_order: config.display_order ?? 5,
-        enabled: config.enabled !== undefined ? config.enabled : false,
+        enabled: config.enabled !== undefined ? config.enabled : true,
         config: {
           source_type: config.source_type || 'city_travaux',
           url: config.url || null,
