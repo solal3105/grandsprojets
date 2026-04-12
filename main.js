@@ -263,15 +263,9 @@
         window.UIModule.updateBasemaps(basemapsForCity);
       }
       
-      // Initialiser le basemap - MapModule utilise _cityPreferredBasemap
+      // Initialiser le basemap - MapModule sélectionne par priorité :
+      // ville préférée → thème courant → is_default → premier
       window.MapModule.initBaseLayer();
-      
-      // Synchroniser avec le thème SEULEMENT si la ville n'a pas de basemap configuré
-      // (Si la ville a un basemap configuré, on le respecte et on ne le change pas)
-      if (!win._cityPreferredBasemap) {
-        const currentTheme = document.documentElement.getAttribute('data-theme') || win.ThemeManager?.getInitialTheme() || 'light';
-        win.ThemeManager?.syncBasemapToTheme(currentTheme);
-      }
       
       win.CityManager?.applyCityInitialView(city);
       

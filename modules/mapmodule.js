@@ -17,8 +17,17 @@ window.MapModule = (() => {
       return;
     }
     
-    // Sélection du basemap (ordre de priorité)
+    // Sélection du basemap (ordre de priorité) :
+    // 1. Préférence de la ville (admin)
+    // 2. Basemap correspondant au thème courant (évite le double-chargement)
+    // 3. Basemap par défaut ou premier disponible
     let selectedBm = cityPreferred ? bmList.find(b => b.name === cityPreferred) : null;
+    
+    if (!selectedBm) {
+      const theme = document.documentElement.getAttribute('data-theme') || 'light';
+      selectedBm = window.ThemeManager?.findBasemapForTheme?.(theme);
+    }
+    
     if (!selectedBm) {
       selectedBm = bmList.find(b => b.is_default) || bmList[0];
     }

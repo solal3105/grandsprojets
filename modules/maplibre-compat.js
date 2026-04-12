@@ -415,6 +415,35 @@
           }
       }
     }
+
+    // Re-resolve CSS var colors and update paint properties on all pools (called on theme change)
+    repaintColors(mlMap) {
+      for (const pool of this._pools.values()) {
+        if (!pool.layers.length) continue;
+        const style = pool.layers[0]._style;
+        if (!style) continue;
+
+        const colorStr = style.color || '';
+        const fillStr = style.fillColor || style.color || '';
+        const needsRepaint = colorStr.startsWith('var(') || colorStr.startsWith('color-mix(')
+          || fillStr.startsWith('var(') || fillStr.startsWith('color-mix(');
+        if (!needsRepaint) continue;
+
+        try {
+          if (mlMap.getLayer(pool.layerId)) {
+            mlMap.setPaintProperty(pool.layerId, 'line-color', resolveColor(colorStr) || '#3388ff');
+          }
+        } catch {}
+
+        if (pool.fillLayerId) {
+          try {
+            if (mlMap.getLayer(pool.fillLayerId)) {
+              mlMap.setPaintProperty(pool.fillLayerId, 'fill-color', resolveColor(fillStr) || '#3388ff');
+            }
+          } catch {}
+        }
+      }
+    }
   }
 
   // Global source pool
@@ -2110,6 +2139,13 @@
       apply();
       // Fallback: retry after style settles (basemap swap may delay readiness)
       setTimeout(apply, 80);
+    }
+
+    // Re-resolve CSS var colors on all data layers (SourcePool) after theme change
+    repaintDataColors() {
+      if (L._sourcePool) {
+        L._sourcePool.repaintColors(this._mlMap);
+      }
     }
 
     updateSkyTheme() {

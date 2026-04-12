@@ -45,6 +45,11 @@
       // Invalider le cache de couleurs CSS résolues (MapLibre compat)
       if (window.L?.clearColorCache) window.L.clearColorCache();
 
+      // Repeindre les couches de données avec les nouvelles couleurs CSS
+      if (window.MapModule?.map?.repaintDataColors) {
+        window.MapModule.map.repaintDataColors();
+      }
+
       // Forcer un reflow pour appliquer les changements
       void root.offsetHeight;
       
