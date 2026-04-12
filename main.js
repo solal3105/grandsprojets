@@ -228,7 +228,7 @@
             win.CityBrandingModule.applyBranding(branding, false);
           } else {
             // Fallback si branding absent (ne devrait pas arriver)
-            win.CityBrandingModule.applyPrimaryColor('#21b929');
+            win.CityBrandingModule.applyPrimaryColor('#14AE5C');
             win.CityBrandingModule.applyFavicon(null);
           }
           

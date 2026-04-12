@@ -6,6 +6,10 @@
 ;(function(win) {
   'use strict';
 
+  // Couleur par défaut : résoud var(--color-primary) en hex à chaque appel
+  const _defaultColor = () =>
+    win.L?._resolveColor?.('var(--color-primary)') || '#14AE5C';
+
   const MapLibreRenderer = {
     /**
      * Ajoute une source GeoJSON à MapLibre GL
@@ -33,12 +37,13 @@
     addGeoJSONLayers(mlMap, sourceId, layerName, style = {}) {
       if (!mlMap || !sourceId || !layerName) return;
 
+      const dc = _defaultColor();
       const {
-        lineColor = '#3388ff',
+        lineColor = dc,
         lineWidth = 3,
-        fillColor = '#3388ff',
+        fillColor = dc,
         fillOpacity = 0.2,
-        circleColor = '#3388ff',
+        circleColor = dc,
         circleRadius = 8
       } = style;
 

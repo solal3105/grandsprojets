@@ -227,7 +227,7 @@
       win.__CONTRIB_ROLE       = (data.role || '').toLowerCase();
       win.__CONTRIB_VILLES     = data.ville;
       win.__CONTRIB_IS_ADMIN   = (win.__CONTRIB_ROLE === 'admin');
-    } catch {}
+    } catch (e) { console.debug('[Auth] initializeUserRole failed:', e); }
   }
 
   client.auth.onAuthStateChange((event, session) => {
@@ -394,6 +394,7 @@
      */
     signOut: async function() {
       try {
+        stopRefreshTimer();
         return await client.auth.signOut();
       } catch (e) {
         console.debug('[Auth] signOut error:', e);

@@ -10,6 +10,7 @@
   let currentFilter = 'all';
   let allContributions = [];
   let categoryIcons = [];
+  let _scrollHandler = null;
 
   /**
    * Vérifie si on est en mode article
@@ -483,17 +484,17 @@
         // Ajouter le GeoJSON avec style
         const layer = L.geoJSON(geojson, {
           style: {
-            color: '#14AE5C',
+            color: 'var(--color-primary)',
             weight: 3,
             opacity: 0.9,
-            fillColor: '#14AE5C',
+            fillColor: 'var(--color-primary)',
             fillOpacity: 0.3
           },
           pointToLayer: (feature, latlng) => {
             return L.marker(latlng, {
               icon: L.divIcon({
                 className: 'gp-preview-dot',
-                html: '<div style="width:12px;height:12px;border-radius:50%;background:#14AE5C;border:2px solid #fff;"></div>',
+                html: '<div style="width:12px;height:12px;border-radius:50%;background:var(--color-primary);border:2px solid #fff;"></div>',
                 iconSize: [12, 12],
                 iconAnchor: [6, 6]
               })
@@ -536,9 +537,14 @@
     const wrapper = document.querySelector('.article-filters-wrapper');
     if (!wrapper) return;
     
+    // Retirer le listener précédent s'il existe
+    if (_scrollHandler) {
+      window.removeEventListener('scroll', _scrollHandler);
+    }
+    
     let ticking = false;
     
-    window.addEventListener('scroll', () => {
+    _scrollHandler = () => {
       if (!ticking) {
         window.requestAnimationFrame(() => {
           wrapper.classList.toggle('scrolled', window.scrollY > 100);
@@ -546,7 +552,8 @@
         });
         ticking = true;
       }
-    });
+    };
+    window.addEventListener('scroll', _scrollHandler);
   }
 
   const escapeHtml = win.SecurityUtils.escapeHtml;

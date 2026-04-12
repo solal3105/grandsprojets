@@ -537,11 +537,11 @@ async function _openDetail(id) {
         previewMap.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
         previewMap.on('load', async () => {
           try {
-            const geo = await fetch(item.geojson_url).then(r => r.json());
+            const geo = await fetch(item.geojson_url).then(r => { if (!r.ok) throw new Error('GeoJSON fetch failed'); return r.json(); });
             previewMap.addSource('contrib', { type: 'geojson', data: geo });
-            previewMap.addLayer({ id: 'contrib-fill', type: 'fill', source: 'contrib', filter: ['==', '$type', 'Polygon'], paint: { 'fill-color': '#21b929', 'fill-opacity': 0.18 } });
-            previewMap.addLayer({ id: 'contrib-line', type: 'line', source: 'contrib', filter: ['in', '$type', 'LineString', 'Polygon'], paint: { 'line-color': '#21b929', 'line-width': 2.5 } });
-            previewMap.addLayer({ id: 'contrib-point', type: 'circle', source: 'contrib', filter: ['==', '$type', 'Point'], paint: { 'circle-radius': 7, 'circle-color': '#21b929', 'circle-stroke-color': '#fff', 'circle-stroke-width': 2 } });
+            previewMap.addLayer({ id: 'contrib-fill', type: 'fill', source: 'contrib', filter: ['==', '$type', 'Polygon'], paint: { 'fill-color': '#14AE5C', 'fill-opacity': 0.18 } });
+            previewMap.addLayer({ id: 'contrib-line', type: 'line', source: 'contrib', filter: ['in', '$type', 'LineString', 'Polygon'], paint: { 'line-color': '#14AE5C', 'line-width': 2.5 } });
+            previewMap.addLayer({ id: 'contrib-point', type: 'circle', source: 'contrib', filter: ['==', '$type', 'Point'], paint: { 'circle-radius': 7, 'circle-color': '#14AE5C', 'circle-stroke-color': '#fff', 'circle-stroke-width': 2 } });
 
             // Fit bounds to GeoJSON extent
             const coords = [];
@@ -635,9 +635,9 @@ let _wiz = {
 };
 
 function _resetWizard() {
-  if (_wiz._copilot) { try { _wiz._copilot.destroy(); } catch (e) { console.debug('[admin-contrib] copilot.destroy', e); } }
-  if (_wiz._map) { try { _wiz._map.remove(); } catch (e) { console.debug('[admin-contrib] map.remove', e); } }
-  if (_wiz._mdEditor) { try { _wiz._mdEditor.destroy(); } catch (e) { console.debug('[admin-contrib] mdEditor.destroy', e); } }
+  _wiz._copilot?.destroy();
+  _wiz._map?.remove();
+  _wiz._mdEditor?.destroy();
   _wiz = {
     categories: [], branding: null,
     project_name: '', category: '', description: '', official_url: '',
@@ -1143,6 +1143,8 @@ function _setCoverFile(body, file) {
   const dropzone = body.querySelector('#cw-cover-drop');
 
   if (img) {
+    // Révoquer l'ancienne ObjectURL pour éviter les fuites mémoire
+    if (img.src && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
     const url = URL.createObjectURL(file);
     img.src = url;
   }

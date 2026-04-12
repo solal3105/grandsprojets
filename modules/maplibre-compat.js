@@ -99,6 +99,10 @@
   // COLOR UTILITIES
   // ============================================================
 
+  // Default layer color — replaces Leaflet legacy #3388ff.
+  // Uses the CSS primary token so it reacts to city branding + theme.
+  const _defaultColor = 'var(--color-primary)';
+
   // Convert CSS color (including var(), color-mix(), etc.) to a value MapLibre GL accepts — cached
   const _colorCache = new Map();
   // Reusable hidden element for forcing browser color resolution
@@ -243,7 +247,7 @@
         const w = style.weight || 3;
         const baseOp = style.opacity !== undefined ? style.opacity : 0.8;
         const baseFillOp = style.fillOpacity !== undefined ? style.fillOpacity : 0.2;
-        const lineColor = resolveColor(style.color) || '#3388ff';
+        const lineColor = resolveColor(style.color) || resolveColor(_defaultColor);
         const linePaint = {
           'line-color': lineColor,
           'line-width': ['case',
@@ -266,7 +270,7 @@
           mlMap.addLayer({
             id: fillLayerId, type: 'fill', source: sourceId,
             paint: {
-              'fill-color': resolveColor(style.fillColor || style.color) || '#3388ff',
+              'fill-color': resolveColor(style.fillColor || style.color) || resolveColor(_defaultColor),
               'fill-opacity': ['case',
                 ['boolean', ['feature-state', 'selected'], false], Math.min(baseFillOp + 0.35, 0.7),
                 ['boolean', ['feature-state', 'hover'], false], Math.min(baseFillOp + 0.2, 0.6),
@@ -395,7 +399,7 @@
               if (mlMap.getSource(pool.sourceId)) {
                 mlMap.removeSource(pool.sourceId);
               }
-            } catch {
+            } catch (e) {
               console.debug('[SourcePool] Error removing empty pool:', e);
             }
             this._pools.delete(styleHash);
@@ -439,8 +443,8 @@
           || fillStr.startsWith('var(') || fillStr.startsWith('color-mix(');
         if (!needsRepaint) continue;
 
-        const newColor = resolveColor(colorStr) || '#3388ff';
-        const newFill = resolveColor(fillStr) || '#3388ff';
+        const newColor = resolveColor(colorStr) || resolveColor(_defaultColor);
+        const newFill = resolveColor(fillStr) || resolveColor(_defaultColor);
 
         // For direct-path pools with per-feature _color, use data-driven expression
         const lineExpr = pool._hasPerFeatureColor ? ['coalesce', ['get', '_color'], newColor] : newColor;
@@ -490,7 +494,7 @@
     fire(type, data) {
       if (!this._events[type]) return this;
       const evt = Object.assign({ type, target: this }, data || {});
-      this._events[type].slice().forEach(fn => { try { fn(evt); } catch { console.debug(e); } });
+      this._events[type].slice().forEach(fn => { try { fn(evt); } catch (err) { console.debug('[Evented] handler error:', err); } });
       return this;
     }
     listens(type) { return !!(this._events[type] && this._events[type].length); }
@@ -782,7 +786,7 @@
       if (icon && typeof icon.createIcon === 'function') return icon.createIcon();
       const el = document.createElement('div');
       el.className = 'maplibre-default-marker';
-      el.innerHTML = '<svg width="25" height="41" viewBox="0 0 25 41"><path d="M12.5 0C5.6 0 0 5.6 0 12.5c0 2.5.7 4.8 2 6.8L12.5 41l10.5-21.7c1.3-2 2-4.3 2-6.8C25 5.6 19.4 0 12.5 0z" fill="#3388ff"/><circle cx="12.5" cy="12.5" r="5" fill="white"/></svg>';
+      el.innerHTML = `<svg width="25" height="41" viewBox="0 0 25 41"><path d="M12.5 0C5.6 0 0 5.6 0 12.5c0 2.5.7 4.8 2 6.8L12.5 41l10.5-21.7c1.3-2 2-4.3 2-6.8C25 5.6 19.4 0 12.5 0z" fill="${resolveColor(_defaultColor)}"/><circle cx="12.5" cy="12.5" r="5" fill="white"/></svg>`;
       return el;
     }
     _getAnchor() {
@@ -932,7 +936,7 @@
           if (mlMap.getSource(prefixed)) continue;
           try {
             mlMap.addSource(prefixed, srcDef);
-          } catch {
+          } catch (e) {
             console.debug('[VectorBasemap] addSource failed:', prefixed, e.message);
           }
         }
@@ -949,13 +953,13 @@
           if (mlMap.getLayer(ml.id)) continue;
           try {
             mlMap.addLayer(ml, anchor);
-          } catch {
+          } catch (e) {
             console.debug('[VectorBasemap] addLayer failed:', ml.id, e.message);
           }
         }
 
         this.fire('add');
-      } catch {
+      } catch (e) {
         console.error('[VectorBasemap] Failed to load/apply style:', this._styleUrl, e);
       }
     }
@@ -1173,7 +1177,7 @@
     constructor(latlngs, style) {
       super();
       this._latlngs = (latlngs || []).map(ll => toLatLng(ll));
-      this._style = Object.assign({ color: '#3388ff', weight: 3, opacity: 1, dashArray: null }, style);
+      this._style = Object.assign({ color: _defaultColor, weight: 3, opacity: 1, dashArray: null }, style);
       this._geojson = {
         type: 'Feature',
         geometry: { type: 'LineString', coordinates: this._latlngs.map(ll => [ll.lng, ll.lat]) },
@@ -1227,7 +1231,7 @@
       // Fallback to individual source for dashArray or if pool not available
       mlMap.addSource(this._sourceId, { type: 'geojson', data: this._geojson });
       const paint = {
-        'line-color': resolveColor(this._style.color) || '#3388ff',
+        'line-color': resolveColor(this._style.color) || resolveColor(_defaultColor),
         'line-width': this._style.weight || 3,
         'line-opacity': this._style.opacity !== undefined ? this._style.opacity : 1
       };
@@ -1270,7 +1274,7 @@
       super();
       this._latlngs = (latlngs || []).map(ll => toLatLng(ll));
       const s = style || {};
-      this._style = Object.assign({ color: '#3388ff', weight: 3, opacity: 1, fillOpacity: 0.2 }, s);
+      this._style = Object.assign({ color: _defaultColor, weight: 3, opacity: 1, fillOpacity: 0.2 }, s);
       // Derive fillColor from color when not explicitly provided
       if (!s.fillColor) this._style.fillColor = this._style.color;
       const coords = this._latlngs.map(ll => [ll.lng, ll.lat]);
@@ -1308,14 +1312,14 @@
       mlMap.addLayer({
         id: this._fillLayerId, type: 'fill', source: this._sourceId,
         paint: {
-          'fill-color': resolveColor(this._style.fillColor || this._style.color) || '#3388ff',
+          'fill-color': resolveColor(this._style.fillColor || this._style.color) || resolveColor(_defaultColor),
           'fill-opacity': this._style.fillOpacity !== undefined ? this._style.fillOpacity : 0.2
         }
       });
       mlMap.addLayer({
         id: this._layerId, type: 'line', source: this._sourceId,
         paint: {
-          'line-color': resolveColor(this._style.color) || '#3388ff',
+          'line-color': resolveColor(this._style.color) || resolveColor(_defaultColor),
           'line-width': this._style.weight || 3,
           'line-opacity': this._style.opacity !== undefined ? this._style.opacity : 1
         }
@@ -1359,7 +1363,7 @@
       this._center = toLatLng(latlng);
       const opts = typeof options === 'number' ? { radius: options } : (options || {});
       this._radius = opts.radius || 10;
-      this._style = Object.assign({ color: '#3388ff', fillColor: '#3388ff', fillOpacity: 0.2, opacity: 1 }, opts);
+      this._style = Object.assign({ color: _defaultColor, fillColor: _defaultColor, fillOpacity: 0.2, opacity: 1 }, opts);
       this._geojson = this._createCircleGeoJSON();
     }
     setRadius(r) {
@@ -1404,14 +1408,14 @@
       mlMap.addLayer({
         id: this._fillLayerId, type: 'fill', source: this._sourceId,
         paint: {
-          'fill-color': resolveColor(this._style.fillColor || this._style.color) || '#3388ff',
+          'fill-color': resolveColor(this._style.fillColor || this._style.color) || resolveColor(_defaultColor),
           'fill-opacity': this._style.fillOpacity !== undefined ? this._style.fillOpacity : 0.2
         }
       });
       mlMap.addLayer({
         id: this._layerId, type: 'line', source: this._sourceId,
         paint: {
-          'line-color': resolveColor(this._style.color) || '#3388ff',
+          'line-color': resolveColor(this._style.color) || resolveColor(_defaultColor),
           'line-width': 2,
           'line-opacity': this._style.opacity !== undefined ? this._style.opacity : 1
         }
@@ -1602,7 +1606,7 @@
       const s = typeof styleFn === 'function' ? styleFn(sample) : (styleFn || {});
       const w = s.weight || 3;
       const op = s.opacity !== undefined ? s.opacity : 0.8;
-      const color = resolveColor(s.color) || '#3388ff';
+      const color = resolveColor(s.color) || resolveColor(_defaultColor);
 
       // For polygon style, use a polygon sample if available (avoids wrong fillOpacity=0 from line sample)
       const polyStyle = polygons.length > 0 && styleFn
@@ -1661,7 +1665,7 @@
 
       if (geomType === 'Polygon') {
         fillLayerId = sourceId + '-fill';
-        const baseFillColor = resolveColor(style.fillColor || style.color) || '#3388ff';
+        const baseFillColor = resolveColor(style.fillColor || style.color) || resolveColor(_defaultColor);
         const fillColorExpr = hasPerFeatureColor
           ? ['coalesce', ['get', '_color'], baseFillColor]
           : baseFillColor;
@@ -2152,7 +2156,7 @@
           if (mlMap.getLayer('forest-fill')) {
             mlMap.setPaintProperty('forest-fill', 'fill-color', this._getForestColorExpr('canopy', isDark));
           }
-        } catch {
+        } catch (e) {
           console.debug('[MapLibreCompat] updateBuildings3DTheme failed:', e);
         }
       };
@@ -2184,7 +2188,7 @@
       const apply = () => {
         try {
           this._mlMap.setSky(preset);
-        } catch {
+        } catch (e) {
           console.debug('[MapLibreCompat] updateSkyTheme failed:', e);
         }
       };
@@ -2482,7 +2486,7 @@
       } catch {}
       try {
         mlMap.addSource(srcId, { type: 'geojson', data: data });
-        mlMap.addLayer({ id: layId, type: 'line', source: srcId, paint: { 'line-color': '#3388ff', 'line-width': 3, 'line-dasharray': [3, 3] }});
+        mlMap.addLayer({ id: layId, type: 'line', source: srcId, paint: { 'line-color': resolveColor(_defaultColor), 'line-width': 3, 'line-dasharray': [3, 3] }});
       } catch {}
     }
     _removePreview(mlMap) {
@@ -2564,9 +2568,9 @@
       try {
         mlMap.addSource(srcId, { type: 'geojson', data: data });
         if (geomType === 'Polygon') {
-          mlMap.addLayer({ id: fillId, type: 'fill', source: srcId, paint: { 'fill-color': '#3388ff', 'fill-opacity': 0.15 }});
+          mlMap.addLayer({ id: fillId, type: 'fill', source: srcId, paint: { 'fill-color': resolveColor(_defaultColor), 'fill-opacity': 0.15 }});
         }
-        mlMap.addLayer({ id: layId, type: 'line', source: srcId, paint: { 'line-color': '#3388ff', 'line-width': 3, 'line-dasharray': [3, 3] }});
+        mlMap.addLayer({ id: layId, type: 'line', source: srcId, paint: { 'line-color': resolveColor(_defaultColor), 'line-width': 3, 'line-dasharray': [3, 3] }});
       } catch {}
     }
     _removePreview(mlMap) {

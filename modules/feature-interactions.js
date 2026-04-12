@@ -749,7 +749,7 @@
       try {
         // Get the line color: prefer per-feature _color (travaux direct path),
         // then fall back to the layer's paint property (SourcePool path)
-        let color = '#3388ff';
+        let color = window.L?._resolveColor?.('var(--color-primary)') || '#14AE5C';
         const featureColor = matchFeatures?.[0]?.properties?._color;
         if (featureColor) {
           color = featureColor;
@@ -836,6 +836,7 @@
       this.clearSelection();
       this._endHover();
       this._close();
+      if (this._timer) { clearTimeout(this._timer); this._timer = null; }
       this._domMarkers = [];
       this._mlMap = null;
     }

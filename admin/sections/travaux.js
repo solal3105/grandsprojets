@@ -725,7 +725,7 @@ function _initTwMap(body) {
     } else if (_tw._existingGeojsonUrl) {
       // Load existing GeoJSON onto the map
       fetch(_tw._existingGeojsonUrl)
-        .then(r => r.json())
+        .then(r => { if (!r.ok) throw new Error('GeoJSON fetch failed'); return r.json(); })
         .then(fc => {
           const features = fc.type === 'FeatureCollection' ? fc.features : [fc];
           _tw._drawFeatures = features;

@@ -2,7 +2,7 @@ import { store } from '../store.js';
 import * as api from '../api.js';
 import { toast, confirm, esc, skeletonTable, emptyState } from '../components/ui.js';
 
-const DEFAULT_COLOR = '#21b929';
+const DEFAULT_COLOR = '#14AE5C';
 const DEFAULT_CENTER = [2.35, 46.85]; // France center
 const DEFAULT_ZOOM = 6;
 
@@ -535,7 +535,10 @@ function _setLogoFile(file, prefix, setRef, dropArea, previewEl, imgEl, hiddenUr
   }
   setRef(file);
   if (hiddenUrl) hiddenUrl.value = '__pending_upload__';
-  if (imgEl) imgEl.src = URL.createObjectURL(file);
+  if (imgEl) {
+    if (imgEl.src && imgEl.src.startsWith('blob:')) URL.revokeObjectURL(imgEl.src);
+    imgEl.src = URL.createObjectURL(file);
+  }
   if (previewEl) previewEl.hidden = false;
   if (dropArea) dropArea.hidden = true;
 }

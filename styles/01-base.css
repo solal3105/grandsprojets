@@ -43,7 +43,7 @@ html, body {
   right: 2px;
   width: 8px;
   height: 8px;
-  border: 2px solid var(--primary, #007bff);
+  border: 2px solid var(--primary, #14AE5C);
   border-top-color: transparent;
   border-radius: 50%;
   animation: toggle-spin 0.8s linear infinite;

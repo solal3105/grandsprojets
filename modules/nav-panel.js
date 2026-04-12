@@ -370,11 +370,15 @@
      */
     _initSyncTaller() {
       if (!this._sidebar || !this._panel) return;
-      const sync = () => this._syncTaller();
-      this._resizeObserver = new ResizeObserver(sync);
+      // Retirer le précédent listener s'il existe
+      if (this._resizeSyncHandler) {
+        window.removeEventListener('resize', this._resizeSyncHandler);
+      }
+      this._resizeSyncHandler = () => this._syncTaller();
+      this._resizeObserver = new ResizeObserver(this._resizeSyncHandler);
       this._resizeObserver.observe(this._sidebar);
       this._resizeObserver.observe(this._panel);
-      window.addEventListener('resize', sync, { passive: true });
+      window.addEventListener('resize', this._resizeSyncHandler, { passive: true });
     },
 
     /**

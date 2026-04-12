@@ -86,7 +86,7 @@
    */
   async loadAndApplyBranding(ville, skipToggles = false) {
     if (!ville) {
-      this.applyPrimaryColor('#21b929');
+      this.applyPrimaryColor('#14AE5C');
       this.applyFavicon(null);
       return;
     }
@@ -106,7 +106,7 @@
       if (branding.primary_color) {
         this.applyPrimaryColor(branding.primary_color);
       } else {
-        this.applyPrimaryColor('#21b929');
+        this.applyPrimaryColor('#14AE5C');
       }
 
       this.applyFavicon(branding.favicon_url);
@@ -118,7 +118,7 @@
         this.applyTogglesConfig(branding.enabled_toggles);
       }
     } else {
-      this.applyPrimaryColor('#21b929');
+      this.applyPrimaryColor('#14AE5C');
       this.applyFavicon(null);
     }
   },
