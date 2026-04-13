@@ -160,9 +160,19 @@ function buildArticleJsonLd(project, category, catLabel, canonical, cityBrand, s
     headline: name,
     description: desc,
     url: canonical,
-    image: cover,
+    image: {
+      '@type': 'ImageObject',
+      url: cover,
+      width: 1200,
+      height: 630,
+    },
     inLanguage: 'fr',
     articleSection: catLabel,
+    author: {
+      '@type': 'Organization',
+      name: publisherName,
+      url: BASE_ORIGIN,
+    },
     publisher: {
       '@type': 'Organization',
       name: publisherName,
@@ -170,6 +180,8 @@ function buildArticleJsonLd(project, category, catLabel, canonical, cityBrand, s
       logo: {
         '@type': 'ImageObject',
         url: publisherLogo,
+        width: 200,
+        height: 60,
       },
     },
     mainEntityOfPage: {
