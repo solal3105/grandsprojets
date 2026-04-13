@@ -11,6 +11,10 @@
 # ============================================
 
 [[edge_functions]]
+  path = "/*"
+  function = "domain-redirect"
+
+[[edge_functions]]
   path = "/fiche/"
   function = "fiche-ssr"
 
