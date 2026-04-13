@@ -1,12 +1,9 @@
-export const handler = async (_event, _context) => {
-  try {
-    const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
-    const BASE_ORIGIN = 'https://grandsprojets.com';
+const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
+const BASE_ORIGIN = 'https://grandsprojets.com';
 
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      return { statusCode: 500, body: 'Missing SUPABASE_URL or SUPABASE_ANON_KEY' };
-    }
+export default async (_request, _context) => {
+  try {
 
     // Récupérer les projets avec les infos de ville
     const url = new URL('/rest/v1/contribution_uploads', SUPABASE_URL);
@@ -24,7 +21,7 @@ export const handler = async (_event, _context) => {
 
     if (!resp.ok) {
       const txt = await resp.text().catch(() => '');
-      return { statusCode: 500, body: `Supabase error ${resp.status}: ${txt}` };
+      return new Response(`Supabase error ${resp.status}: ${txt}`, { status: 500 });
     }
 
     const rows = await resp.json();
@@ -69,7 +66,7 @@ export const handler = async (_event, _context) => {
       const ville = it?.ville || '';
       if (!name || !cat) continue;
       const encoded = encodeURIComponent(name);
-      const loc = `${BASE_ORIGIN}/fiche/?cat=${cat}&project=${encoded}${ville ? `&city=${encodeURIComponent(ville)}` : ''}`;
+      const loc = `${BASE_ORIGIN}/fiche/?cat=${encodeURIComponent(cat)}&project=${encoded}${ville ? `&city=${encodeURIComponent(ville)}` : ''}`;
       const lastmod = fmtDate(it?.created_at) || undefined;
       const priority = it?.markdown_url ? '0.8' : '0.6';
 
@@ -115,15 +112,18 @@ export const handler = async (_event, _context) => {
       '</urlset>'
     ].join('\n');
 
-    return {
-      statusCode: 200,
+    return new Response(xml, {
+      status: 200,
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
         'Cache-Control': 'public, max-age=3600, s-maxage=3600'
-      },
-      body: xml
-    };
+      }
+    });
   } catch (e) {
-    return { statusCode: 500, body: `Sitemap generation failed: ${e?.message || e}` };
+    return new Response(`Sitemap generation failed: ${e?.message || e}`, { status: 500 });
   }
+};
+
+export const config = {
+  path: '/sitemap.xml',
 };
