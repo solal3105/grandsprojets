@@ -1,21 +1,22 @@
 {
 	"geolocation": {
 		"data": {
-			"city": "Villeurbanne",
+			"city": "Paris",
 			"country": {
 				"code": "FR",
 				"name": "France"
 			},
 			"subdivision": {
-				"code": "ARA",
-				"name": "Rhône-Alpes"
+				"code": "IDF",
+				"name": "Île-de-France"
 			},
 			"timezone": "Europe/Paris",
-			"latitude": 45.7663,
-			"longitude": 4.8883,
-			"postalCode": "69100"
+			"latitude": 48.8558,
+			"longitude": 2.3494,
+			"postalCode": "75001"
 		},
-		"timestamp": 1775992793838
+		"timestamp": 1776082091924
 	},
-	"siteId": "7f8e52f8-24d4-4d8e-86ee-011df3fd2ece"
+	"siteId": "7f8e52f8-24d4-4d8e-86ee-011df3fd2ece",
+	"promptVSCodeSettings": true
 }
