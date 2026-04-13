@@ -98,6 +98,24 @@
     };
   }
 
+  function buildBackUrl({ project, category, city }) {
+    const params = new URLSearchParams();
+    if (city) params.set('city', city);
+    if (category && category !== CFG.DEFAULT_CAT) params.set('cat', category);
+    if (project) params.set('project', project.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''));
+    const qs = params.toString();
+    return qs ? `/?${qs}` : (city ? `/${city}` : '/');
+  }
+
+  function initBackButton() {
+    const params = urlParams();
+    const href = buildBackUrl(params);
+    const btn = document.getElementById('fv2-btn-back');
+    const btnErr = document.getElementById('fv2-btn-back-error');
+    if (btn) btn.href = href;
+    if (btnErr) btnErr.href = href;
+  }
+
   function humanizeCategory(slug) {
     if (!slug) return '';
     return slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -731,6 +749,9 @@
     // (si le fetch échoue — ex: sandbox Google Rich Results — le SSR reste visible)
     const ssrBlock = document.getElementById('fv2-ssr-content');
     const ssrHasContent = ssrBlock && !!ssrBlock.querySelector('h1');
+
+    // Bouton retour — construit le href contextuel immédiatement (avant tout fetch)
+    initBackButton();
 
     // Theme
     window.ThemeManager?.init?.();
