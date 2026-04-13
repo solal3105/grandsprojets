@@ -1,9 +1,18 @@
 [build]
   command = "cd home-src && npm ci && npm run build"
   publish = "."
+  edge_functions = "netlify/edge-functions"
 
 [functions]
   directory = "netlify/functions"
+
+# ============================================
+# Edge Functions — pré-rendu SEO
+# ============================================
+
+[[edge_functions]]
+  path = "/fiche/"
+  function = "fiche-ssr"
 
 # Prerendering pour les crawlers (Google, Bing, etc.)
 # Netlify sert une version pré-rendue du SPA aux bots

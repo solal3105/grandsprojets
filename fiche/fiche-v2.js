@@ -11,7 +11,7 @@
 
   /* ═══════════════ CONFIG ═══════════════ */
   const CFG = {
-    PROD: 'https://grandsprojets.netlify.app',
+    PROD: 'https://grandsprojets.com',
     DEFAULT_CENTER: [45.764043, 4.835659],
     DEFAULT_ZOOM: 13,
     DEFAULT_CAT: 'velo',
@@ -96,6 +96,11 @@
       category: p.get('cat') || CFG.DEFAULT_CAT,
       city:     p.get('city') || '',
     };
+  }
+
+  function humanizeCategory(slug) {
+    if (!slug) return '';
+    return slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   }
 
   function domainOf(url) {
@@ -402,9 +407,12 @@
     const name = project.project_name;
     const desc = project.description || '';
     const cover = project.cover_url || '';
-    const canonical = `${CFG.PROD}/fiche/?cat=${encodeURIComponent(category)}&project=${encodeURIComponent(name)}`;
+    const ville = project.ville || urlParams().city || '';
+    const canonical = `${CFG.PROD}/fiche/?cat=${encodeURIComponent(category)}&project=${encodeURIComponent(name)}${ville ? `&city=${encodeURIComponent(ville)}` : ''}`;
 
-    document.title = `${name} – Grands Projets`;
+    // Titre dynamique — utilise le branding ville si disponible (sera mis à jour par loadBranding)
+    const catLabel = CFG.CAT_LABELS[category] || humanizeCategory(category);
+    document.title = `${name} – ${catLabel}`;
 
     const setMeta = (attr, key, val) => {
       let tag = document.querySelector(`meta[${attr}="${key}"]`);
@@ -491,7 +499,7 @@
   }
 
   /* ═══════════════ RELATED PROJECTS ═══════════════ */
-  async function loadRelated(category, currentName) {
+  async function loadRelated(category, currentName, ville) {
     try {
       const projects = await window.supabaseService?.fetchProjectsByCategory?.(category);
       if (!projects?.length) return;
@@ -505,7 +513,7 @@
       others.forEach(p => {
         const link = document.createElement('a');
         link.className = 'fv2-related-card';
-        link.href = `/fiche/?cat=${encodeURIComponent(category)}&project=${encodeURIComponent(p.project_name)}`;
+        link.href = `/fiche/?cat=${encodeURIComponent(category)}&project=${encodeURIComponent(p.project_name)}${ville ? `&city=${encodeURIComponent(ville)}` : ''}`;
 
         if (p.cover_url) {
           const img = document.createElement('img');
@@ -719,6 +727,10 @@
 
   /* ═══════════════ MAIN INIT ═══════════════ */
   async function init() {
+    // Masquer le contenu SSR pré-rendu (le JS interactif prend le relais)
+    const ssrBlock = document.getElementById('fv2-ssr-content');
+    if (ssrBlock) ssrBlock.classList.add('is-hydrated');
+
     // Theme
     window.ThemeManager?.init?.();
     bindTheme();
@@ -819,7 +831,7 @@
     await renderMarkdown(data.markdown_url);
 
     // Related projects
-    loadRelated(category, data.project_name);
+    loadRelated(category, data.project_name, ville);
   }
 
   /* ═══════════════ BOOT ═══════════════ */

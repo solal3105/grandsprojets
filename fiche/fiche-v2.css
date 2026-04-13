@@ -19,6 +19,48 @@ body { margin: 0; }
 .fv2 img { display: block; max-width: 100%; }
 .fv2 [hidden] { display: none !important; }
 
+/* ═══════════════ SSR CONTENT (pré-rendu pour le SEO) ═══════════════ */
+/* Visible tant que le JS n'a pas pris le relais — les crawlers sans JS voient ceci */
+.fv2-ssr {
+  font-family: var(--fv2-sans, 'Inter', sans-serif);
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  color: var(--text-primary, #1a1a2e);
+  line-height: 1.6;
+}
+.fv2-ssr h1 {
+  font-family: var(--fv2-heading, 'Space Grotesk', sans-serif);
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0.5rem 0 1rem;
+  color: var(--text-primary, #1a1a2e);
+}
+.fv2-ssr h2 {
+  font-family: var(--fv2-heading, 'Space Grotesk', sans-serif);
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 2rem 0 0.75rem;
+}
+.fv2-ssr__breadcrumb {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #6b7280);
+  margin-bottom: 0.5rem;
+}
+.fv2-ssr__breadcrumb a { color: var(--color-primary, #14AE5C); text-decoration: underline; }
+.fv2-ssr__meta {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #6b7280);
+  margin-bottom: 1.5rem;
+}
+.fv2-ssr figure { margin: 1.5rem 0; }
+.fv2-ssr figure img { border-radius: 12px; width: 100%; height: auto; }
+.fv2-ssr ul { padding-left: 1.5rem; }
+.fv2-ssr li { margin-bottom: 0.5rem; }
+.fv2-ssr li a { color: var(--color-primary, #14AE5C); text-decoration: underline; }
+/* Masqué dès que le JS interactif démarre */
+.fv2-ssr.is-hydrated { display: none; }
+
 /* ═══════════════ PAGE VARIABLES ═══════════════ */
 :root {
   --fv2-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;

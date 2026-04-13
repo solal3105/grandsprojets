@@ -1,6 +1,7 @@
 User-agent: *
 Allow: /
 Allow: /fiche/
+Allow: /home/
 Allow: /img/
 Allow: /styles/
 
@@ -15,5 +16,7 @@ Disallow: /test-results/
 Disallow: /playwright-report/
 Disallow: /_headers
 Disallow: /*.json
+Disallow: /modules/
+Disallow: /netlify/
 
 Sitemap: https://grandsprojets.com/sitemap.xml
