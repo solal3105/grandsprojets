@@ -27,15 +27,15 @@
 # ============================================
 
 [[redirects]]
-  from = "https://lumieres.grandsprojets.com/*"
-  to = "https://grandsprojets.com/:splat?city=lumieres"
+  from = "https://lumieres.openprojets.com/*"
+  to = "https://openprojets.com/:splat?city=lumieres"
   status = 301
   force = true
 
 # Ajouter d'autres villes ici si besoin :
 # [[redirects]]
-#   from = "https://keolis.grandsprojets.com/*"
-#   to = "https://grandsprojets.com/:splat?city=keolis"
+#   from = "https://keolis.openprojets.com/*"
+#   to = "https://openprojets.com/:splat?city=keolis"
 #   status = 301
 #   force = true
 
