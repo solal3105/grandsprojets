@@ -19,4 +19,4 @@ Disallow: /*.json
 Disallow: /modules/
 Disallow: /netlify/
 
-Sitemap: https://grandsprojets.com/sitemap.xml
+Sitemap: https://openprojets.com/sitemap.xml

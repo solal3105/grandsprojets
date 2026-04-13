@@ -11,7 +11,7 @@
 
   /* ═══════════════ CONFIG ═══════════════ */
   const CFG = {
-    PROD: 'https://grandsprojets.com',
+    PROD: 'https://openprojets.com',
     DEFAULT_CENTER: [45.764043, 4.835659],
     DEFAULT_ZOOM: 13,
     DEFAULT_CAT: 'velo',
