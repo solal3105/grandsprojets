@@ -79,6 +79,8 @@
     getClient: function() {
       return supabaseClient;
     },
+
+    getActiveCity: getActiveCity,
     
     /**
      * Récupère toutes les couches dans la table 'layers'
