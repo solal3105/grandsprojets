@@ -432,7 +432,8 @@ const NavigationModule = (() => {
         category: enrichedProps.category,
         cover_url: enrichedProps.cover_url,
         description: enrichedProps.description,
-        markdown_url: enrichedProps.markdown_url
+        markdown_url: enrichedProps.markdown_url,
+        ville: enrichedProps.ville || ''
       };
     } else if (window.supabaseService?.fetchProjectByCategoryAndName) {
       try {
@@ -522,7 +523,7 @@ const NavigationModule = (() => {
     const params = new URLSearchParams();
     if (category) params.set('cat', category);
     if (projectName) params.set('project', projectName);
-    const currentCity = new URLSearchParams(location.search).get('city');
+    const currentCity = new URLSearchParams(location.search).get('city') || contributionProject?.ville || window.supabaseService?.getActiveCity?.() || '';
     if (currentCity) params.set('city', currentCity);
     const fullPageUrl = `/fiche/?${params.toString()}`;
 

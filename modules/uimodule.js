@@ -233,8 +233,10 @@
             const params = new URLSearchParams();
             params.set('cat', catForUrl);
             params.set('project', projSlug);
+            const cityForUrl = props.ville || new URLSearchParams(location.search).get('city') || window.supabaseService?.getActiveCity?.() || '';
+            if (cityForUrl) params.set('city', cityForUrl);
             const newUrl = `${location.pathname}?${params.toString()}`;
-            history.pushState({ cat: catForUrl, project: projSlug }, '', newUrl);
+            history.pushState({ cat: catForUrl, project: projSlug, city: cityForUrl }, '', newUrl);
             
             // Désactiver le flag après un court délai (pour laisser popstate se déclencher si besoin)
             setTimeout(() => {

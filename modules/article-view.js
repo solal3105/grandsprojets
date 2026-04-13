@@ -435,7 +435,12 @@
         const category = card.dataset.category;
         
         // Construire l'URL de la fiche projet
-        const url = `/fiche/?category=${encodeURIComponent(category)}&project=${encodeURIComponent(projectName)}`;
+        const ficheParams = new URLSearchParams();
+        ficheParams.set('cat', category);
+        ficheParams.set('project', projectName);
+        const ficheCity = new URLSearchParams(location.search).get('city') || window.supabaseService?.getActiveCity?.() || '';
+        if (ficheCity) ficheParams.set('city', ficheCity);
+        const url = `/fiche/?${ficheParams.toString()}`;
         window.location.href = url;
       });
     });
@@ -606,7 +611,7 @@
         '@type': 'Article',
         'name': contrib.project_name || 'Projet',
         'description': contrib.description || contrib.meta || '',
-        'url': `${window.location.origin}/fiche/?category=${encodeURIComponent(contrib.category || '')}&project=${encodeURIComponent(contrib.project_name || '')}`,
+        'url': `${window.location.origin}/fiche/?cat=${encodeURIComponent(contrib.category || '')}&project=${encodeURIComponent(contrib.project_name || '')}${contrib.ville ? '&city=' + encodeURIComponent(contrib.ville) : ''}`,
         'image': contrib.cover_url || ''
       }
     }));

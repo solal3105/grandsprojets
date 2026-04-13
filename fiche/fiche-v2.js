@@ -727,9 +727,10 @@
 
   /* ═══════════════ MAIN INIT ═══════════════ */
   async function init() {
-    // Masquer le contenu SSR pré-rendu (le JS interactif prend le relais)
+    // Le bloc SSR sera masqué uniquement après un fetch réussi.
+    // (si le fetch échoue — ex: sandbox Google Rich Results — le SSR reste visible)
     const ssrBlock = document.getElementById('fv2-ssr-content');
-    if (ssrBlock) ssrBlock.classList.add('is-hydrated');
+    const ssrHasContent = ssrBlock && !!ssrBlock.querySelector('h1');
 
     // Theme
     window.ThemeManager?.init?.();
@@ -756,6 +757,7 @@
     const { project, category, city } = urlParams();
 
     if (!project) {
+      if (ssrBlock) ssrBlock.classList.add('is-hydrated');
       showError('Projet introuvable', "Aucun nom de projet n'a été fourni dans l'URL.");
       return;
     }
@@ -771,14 +773,25 @@
         window.supabaseService?.getConsultationDossiersByProject?.(project),
       ]);
     } catch {
-      showError('Erreur de chargement', 'Impossible de récupérer les données du projet.');
+      // Réseau indisponible (ex: sandbox Google Rich Results) → garder le SSR visible
+      if (!ssrHasContent) {
+        if (ssrBlock) ssrBlock.classList.add('is-hydrated');
+        showError('Erreur de chargement', 'Impossible de récupérer les données du projet.');
+      }
       return;
     }
 
     if (!data) {
-      showError('Projet introuvable', `Le projet « ${sanitizeText(project)} » n'existe pas ou n'est pas encore approuvé.`);
+      // Projet réellement absent de la BDD → afficher l'erreur uniquement si pas de SSR
+      if (!ssrHasContent) {
+        if (ssrBlock) ssrBlock.classList.add('is-hydrated');
+        showError('Projet introuvable', `Le projet « ${sanitizeText(project)} » n'existe pas ou n'est pas encore approuvé.`);
+      }
       return;
     }
+
+    // Fetch réussi → masquer le SSR, rendre l'UI interactive
+    if (ssrBlock) ssrBlock.classList.add('is-hydrated');
 
     // Render hero
     renderHero(data, category);
