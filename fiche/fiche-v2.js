@@ -271,7 +271,14 @@
 
       if (data?.features?.length) {
         const layer = createGeoJSONLayer(map, data, category);
-        map.fitBounds(layer.getBounds(), { padding: [30, 30], maxZoom: 16 });
+        const bounds = layer.getBounds();
+        const isPoint = bounds.getNorthEast().lat === bounds.getSouthWest().lat &&
+                        bounds.getNorthEast().lng === bounds.getSouthWest().lng;
+        if (isPoint) {
+          map.setView(bounds.getCenter(), CFG.DEFAULT_ZOOM);
+        } else {
+          map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+        }
         return { map, base, layer };
       }
     } catch (e) {
