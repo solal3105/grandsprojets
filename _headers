@@ -37,6 +37,4 @@
 /
   Cache-Control: public, max-age=0, must-revalidate
 
-/fiche/*
-  Cache-Control: public, max-age=0, must-revalidate
 

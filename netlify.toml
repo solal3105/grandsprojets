@@ -53,9 +53,5 @@
   status = 200
   force = true
 
-# Force the dynamic function over any static file with the same path
-[[redirects]]
-  from = "/sitemap.xml"
-  to = "/.netlify/functions/sitemap"
-  status = 200
-  force = true
+# /sitemap.xml — routé directement par Netlify Functions v2 (config.path dans sitemap.mjs)
+# Pas de redirect nécessaire
