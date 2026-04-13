@@ -239,6 +239,7 @@ window.DataModule = (function() {
 									f.properties.cover_url = project.cover_url;
 									f.properties.description = project.description;
 									f.properties.markdown_url = project.markdown_url;
+									f.properties.ville = project.ville;
 									return f;
 								};
 								
