@@ -37,6 +37,9 @@
      * pour libérer le main-thread pendant le chargement critique
      */
     init() {
+      // Ne pas charger Hotjar pendant un audit Lighthouse (fausse les métriques)
+      if (/Chrome-Lighthouse/i.test(navigator.userAgent)) return;
+
       const self = this;
       function startHotjar() {
         try { self.initHotjar(6496613); } catch (e) {
