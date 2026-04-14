@@ -10,7 +10,7 @@ import { test, expect } from '@playwright/test';
  */
 
 async function waitForBoot(page) {
-  await page.goto('/admin/');
+  await page.goto('/admin/', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#adm-splash', { state: 'detached', timeout: 15000 });
 }
 

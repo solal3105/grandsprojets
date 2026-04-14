@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test';
  * Navigate to the contribution wizard and wait for it to load.
  */
 async function goToWizard(page) {
-  await page.goto('/admin/contributions/nouveau/');
+  await page.goto('/admin/contributions/nouveau/', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#adm-splash', { state: 'detached', timeout: 15000 });
   await page.waitForSelector('#cw-name', { state: 'visible', timeout: 15000 });
 }

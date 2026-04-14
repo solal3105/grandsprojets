@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test';
  * Wait for the map page to fully boot (Phase 6+ — toggles ready).
  */
 async function waitForMapBoot(page) {
-  await page.goto('/');
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
   // Attendre que le sidebar soit rendu
   await page.waitForSelector('#gp-sidebar', { state: 'visible', timeout: 15000 });
   // Attendre que le toggle dock soit rendu et au moins filters soit prêt (Phase 6)
@@ -676,7 +676,7 @@ test.describe('0.14 — URLs et routing', () => {
   });
 
   test('0.14.2 — La page d\'accueil charge sans paramètre', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#gp-sidebar', { state: 'visible', timeout: 15000 });
     expect(page.url()).not.toContain('?cat=');
     expect(page.url()).not.toContain('?project=');
