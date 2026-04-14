@@ -960,6 +960,14 @@
      * @returns {Promise<Array<{name:string, label:string, kind:string, url:string, style_url?:string, attribution:string, theme?:string, is_default:boolean}>>}
      */
     fetchBasemaps: async function() {
+      // Consommer le prefetch si disponible (early-fetch.js)
+      if (win.__earlyFetches?.basemaps) {
+        try {
+          const early = await win.__earlyFetches.basemaps;
+          delete win.__earlyFetches.basemaps;
+          if (Array.isArray(early)) return early;
+        } catch { /* fallback requête normale */ }
+      }
       const { data, error } = await supabaseClient
         .from('basemaps_v2')
         .select('*')
@@ -999,6 +1007,15 @@
         const v = String(ville || '').trim();
         if (!v) {
           return null;
+        }
+
+        // Consommer le prefetch si la ville correspond (early-fetch.js)
+        if (win.__earlyFetches?.branding && win.__earlyCity === v) {
+          try {
+            const early = await win.__earlyFetches.branding;
+            delete win.__earlyFetches.branding;
+            if (early != null) return Array.isArray(early) ? early[0] || null : early;
+          } catch { /* fallback requête normale */ }
         }
 
         const { data, error } = await supabaseClient
@@ -2714,6 +2731,16 @@
     fetchCityModules: async function(ville) {
       try {
         if (!ville) return [];
+
+        // Consommer le prefetch si la ville correspond (early-fetch.js)
+        if (win.__earlyFetches?.cityModules && win.__earlyCity === ville) {
+          try {
+            const early = await win.__earlyFetches.cityModules;
+            delete win.__earlyFetches.cityModules;
+            if (Array.isArray(early)) return early;
+          } catch { /* fallback requête normale */ }
+        }
+
         const { data, error } = await supabaseClient
           .from('city_modules')
           .select('*')

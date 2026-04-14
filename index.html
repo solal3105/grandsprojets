@@ -34,16 +34,23 @@
   <link rel="alternate" hreflang="fr-FR" href="https://openprojets.com/">
   <link rel="alternate" hreflang="x-default" href="https://openprojets.com/">
   
-  <!-- Preconnect pour optimiser le chargement des CDN -->
+  <!-- Preconnect pour optimiser le chargement des CDN (max 4) -->
   <link rel="preconnect" href="https://unpkg.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin>
   <link rel="preconnect" href="https://wqqsuybmyqemhojsamgq.supabase.co" crossorigin>
-  <link rel="dns-prefetch" href="https://unpkg.com">
-  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  <!-- Second preconnect sans crossorigin pour les images Supabase Storage (non-CORS) -->
+  <link rel="preconnect" href="https://wqqsuybmyqemhojsamgq.supabase.co">
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
   <link rel="dns-prefetch" href="https://www.googletagmanager.com">
+
+  <!-- Preload resources critiques pour le LCP -->
+  <!-- Pas de crossorigin sur les preloads CSS/JS sans integrity : le mode credentials doit correspondre à l'élément réel -->
+  <link rel="preload" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" as="style">
+  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/fontawesome.min.css" as="style" crossorigin="anonymous">
+  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/solid.min.css" as="style" crossorigin="anonymous">
+  <link rel="preload" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" as="script" crossorigin="anonymous">
+  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin="anonymous">
   
   <script type="application/ld+json">
   {
@@ -95,34 +102,33 @@
     }
   }
   </script>
-  <script>
-    (function() {
-      try {
-        var saved = localStorage.getItem('theme');
-        var theme = saved || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
-        document.documentElement.setAttribute('data-theme', theme);
-      } catch (e) {}
-    })();
-  </script>
-  <link rel="stylesheet" href="style.css?v=5" />
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css"
-        crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-8LGDVJXTPK"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);} 
-    gtag('js', new Date());
-
-    gtag('config', 'G-8LGDVJXTPK');
-  </script>
+  <script src="modules/theme-init.js"></script>
+  <script src="modules/early-fetch.js"></script>
+  <!-- CSS — parallel link tags (avoids @import waterfall in style.css) -->
+  <link rel="stylesheet" href="styles/00-colors.css" />
+  <link rel="stylesheet" href="styles/01-base.css" />
+  <link rel="stylesheet" href="styles/02-layout.css" />
+  <link rel="stylesheet" href="styles/03-navigation.css" />
+  <link rel="stylesheet" href="styles/09-sidebar.css" />
+  <link rel="stylesheet" href="styles/09-nav-panel.css" />
+  <link rel="stylesheet" href="styles/04-components.css" />
+  <link rel="stylesheet" href="styles/05-map.css" />
+  <link rel="stylesheet" href="styles/gp-custom-markers.css" />
+  <link rel="stylesheet" href="styles/hover-popup.css" />
+  <link rel="stylesheet" href="styles/06-modals.css" />
+  <link rel="stylesheet" href="styles/14-modal-components.css" />
+  <link rel="stylesheet" href="styles/07-admin.css" />
+  <link rel="stylesheet" href="styles/11-toggles.css" />
+  <link rel="stylesheet" href="styles/gp-lightbox.css" />
+  <link rel="stylesheet" href="styles/gp-toast.css" />
+  <link rel="stylesheet" href="styles/08-responsive.css" />
 </head>
 <body>
   <!-- ═══ Sidebar Navigation ═══ -->
   <nav class="gp-sidebar" id="gp-sidebar" aria-label="Navigation principale">
     <!-- Logo -->
     <a class="gp-sidebar__logo" href="/" aria-label="Accueil Grands Projets">
-      <img src="" alt="Grands Projets" style="opacity:0" />
+      <img src="" alt="Grands Projets" width="28" height="28" style="opacity:0" />
     </a>
     <div class="gp-sidebar__divider"></div>
 
@@ -281,65 +287,55 @@
 
 
 
+  <!-- CDN CSS (async load — preloaded in head, non-render-blocking) -->
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" id="css-maplibre" media="print" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/fontawesome.min.css"
+        crossorigin="anonymous" referrerpolicy="no-referrer" id="css-fa-base" media="print" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/solid.min.css"
+        crossorigin="anonymous" referrerpolicy="no-referrer" id="css-fa-solid" media="print" />
+  <script src="modules/css-loader.js"></script>
+  <noscript>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/fontawesome.min.css"
+          crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/solid.min.css"
+          crossorigin="anonymous" referrerpolicy="no-referrer" />
+  </noscript>
+
   <!-- Supabase client via CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
-  <script src="modules/auth.js"></script>
-  <script src="modules/sidebar.js"></script>
-  <script src="modules/nav-panel.js"></script>
-  <script src="modules/travaux/travaux-views.js"></script>
-  <!-- Module de sécurité (prévention XSS) -->
-  <script src="modules/security-utils.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.103.0/dist/umd/supabase.min.js"></script>
+  <script defer src="modules/auth.js"></script>
+  <script defer src="modules/sidebar.js"></script>
+  <script defer src="modules/nav-panel.js"></script>
+  <script defer src="modules/travaux/travaux-views.js"></script>
+  <script defer src="modules/security-utils.js"></script>
   <!-- MapLibre GL JS -->
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="modules/maplibre-compat.js"></script>
-  <script src="modules/maplibre-renderer.js"></script>
-  <!-- Système unifié d'interactions features (hover + click) -->
-  <script src="modules/feature-interactions.js"></script>
-  <!-- Chargement des scripts locaux -->
-  
-  <!-- Nouveaux modules réorganisés -->
-  <script src="modules/analytics.js"></script>
-  <script src="modules/lightbox.js"></script>
-  <script src="modules/toast.js"></script>
-  <script src="modules/thememanager.js"></script>
-  <script src="modules/citymanager.js"></script>
-  <script src="modules/filtermanager.js"></script>
-  
-  <!-- Modules existants -->
-  <script src="modules/supabaseservice.js"></script>
-  <script src="modules/mapmodule.js"></script>
-  <script src="modules/filtermodule.js"></script>
-  <script src="modules/layerregistry.js"></script>
-  <script src="modules/layerstyles.js"></script>
-
-  <script src="modules/datamodule.js"></script>
-  <script src="modules/uimodule.js"></script>
-  <script src="modules/searchmodule.js"></script>
-  <script src="modules/geolocation.js"></script>
-  <script src="modules/travaux/travauxmodule.js"></script>
-  <script src="modules/navigationmodule.js"></script>
-  <script src="modules/eventbindings.js"></script>
-  <!-- City branding module -->
-  <script src="modules/citybranding.js"></script>
-  
-  <!-- Route configuration (redirections) -->
-  <script src="modules/route-config.js"></script>
-  
-  <!-- City redirect -->
-  <script src="modules/city-redirect.js"></script>
-  
-  <!-- Article View - Vue magazine des contributions -->
-  <script src="modules/article-view.js"></script>
-  
-  <!-- Toggles Manager - Refactored -->
+  <script defer src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin="anonymous"></script>
+  <script defer src="modules/maplibre-compat.js"></script>
+  <script defer src="modules/maplibre-renderer.js"></script>
+  <!-- Modules -->
+  <script defer src="modules/analytics.js"></script>
+  <script defer src="modules/lightbox.js"></script>
+  <script defer src="modules/toast.js"></script>
+  <script defer src="modules/thememanager.js"></script>
+  <script defer src="modules/citymanager.js"></script>
+  <script defer src="modules/filtermanager.js"></script>
+  <script defer src="modules/supabaseservice.js"></script>
+  <script defer src="modules/mapmodule.js"></script>
+  <script defer src="modules/filtermodule.js"></script>
+  <script defer src="modules/layerregistry.js"></script>
+  <script defer src="modules/layerstyles.js"></script>
+  <script defer src="modules/datamodule.js"></script>
+  <script defer src="modules/uimodule.js"></script>
+  <script defer src="modules/travaux/travauxmodule.js"></script>
+  <script defer src="modules/citybranding.js"></script>
+  <script defer src="modules/route-config.js"></script>
+  <script defer src="modules/city-redirect.js"></script>
   <script type="module" src="modules/ui/toggles.js"></script>
-  
-  
-  <!-- Module renderers (nav-panel registration) -->
-  <script src="modules/carte/carte-nav.js"></script>
-  <script src="modules/travaux/travaux-nav.js"></script>
-
-  <!-- Main simplifié -->
-  <script src="main.js"></script>
+  <script defer src="modules/carte/carte-nav.js"></script>
+  <script defer src="modules/travaux/travaux-nav.js"></script>
+  <script defer src="main.js"></script>
+  <!-- Analytics — chargé en différé (requestIdleCallback) pour ne pas impacter FCP/LCP -->
+  <script defer src="modules/ga-init.js"></script>
 </body>
 </html>

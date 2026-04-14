@@ -5,6 +5,16 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(self), microphone=(), camera=()
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://unpkg.com https://cdn.jsdelivr.net https://www.googletagmanager.com https://static.hotjar.com https://script.hotjar.com; style-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com data:; img-src 'self' data: https: blob:; connect-src 'self' https: wss:; worker-src 'self' blob:; child-src blob:; frame-src 'self' https://vars.hotjar.com; frame-ancestors 'self'; object-src 'none'; base-uri 'self'
+
+# Carte publique : autoriser uniquement le même origin (prevents clickjacking)
+/
+  X-Frame-Options: SAMEORIGIN
+
+/index.html
+  X-Frame-Options: SAMEORIGIN
 
 # Pages sensibles : protégées contre le clickjacking
 /admin/*
@@ -25,6 +35,10 @@
 
 /img/cover/*
   Cache-Control: public, max-age=2592000
+
+# Cache immutable pour les assets Vite (hash dans le nom)
+/home/assets/*
+  Cache-Control: public, max-age=31536000, immutable
 
 # Cache moyen pour CSS/JS (fichiers modifiés à chaque déploiement)
 /styles/*

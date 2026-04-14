@@ -8,6 +8,21 @@
 
   const supabaseService = win.supabaseService;
 
+  // Helpers — main-thread yielding et lazy-loading de scripts post-rendu
+  const yieldToMain = globalThis.scheduler?.yield
+    ? () => scheduler.yield()
+    : () => new Promise(r => setTimeout(r, 0));
+
+  function loadScript(src) {
+    return new Promise(resolve => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = () => { console.debug('[Main] Lazy script non chargé:', src); resolve(); };
+      document.head.appendChild(s);
+    });
+  }
+
 
 
   /**
@@ -166,21 +181,6 @@
         console.debug('[Main] Health check:', healthCheck.fixed, 'problème(s) corrigé(s) automatiquement');
       }
       
-      // PHASE 0.5 : Vérifier le mode Article (?article=oui)
-      if (win.ArticleView?.isArticleMode?.()) {
-        win.ThemeManager?.init();
-        await win.CityManager?.loadValidCities();
-        win.CityManager?.initializeActiveCity();
-        
-        // Initialiser la vue article
-        const articleInitialized = await win.ArticleView.init();
-        if (articleInitialized) {
-          win.ArticleView.updateSEOMeta();
-          markLoadComplete();
-          return;
-        }
-      }
-      
       // PHASE 1 : Modules de base
       win.AnalyticsModule?.init();
       win.ThemeManager?.init();
@@ -239,6 +239,8 @@
         }
       }
 
+      await yieldToMain();
+
       // PHASE 3 : Données Supabase
       const {
         layersConfig,
@@ -269,12 +271,7 @@
       
       win.CityManager?.applyCityInitialView(city);
       
-      // Initialiser SearchModule tôt (pas de dépendances avec les données)
-      if (window.SearchModule?.init) {
-        window.SearchModule.init(window.MapModule.map);
-      }
-      
-      const { DataModule, MapModule, EventBindings: _EventBindings } = win;
+      const { DataModule, MapModule } = win;
       const urlMap        = {};
       const styleMap      = {};
       const iconMap       = {};
@@ -338,6 +335,8 @@
       win.iconColorMap = iconColorMap;
       
       DataModule.initConfig({ city, urlMap, styleMap, iconMap, iconColorMap, defaultLayers });
+
+      await yieldToMain();
 
       // PHASE 5 : Menus dynamiques (AVANT les layers)
       // Chargement en parallèle des données nécessaires
@@ -472,6 +471,22 @@
         console.error('[Main] Erreur lors du chargement des layers:', err);
       }
 
+      await yieldToMain();
+
+      // Charger les modules post-rendu en parallèle (évaluation différée du critical path)
+      await Promise.all([
+        loadScript('modules/searchmodule.js'),
+        loadScript('modules/geolocation.js'),
+        loadScript('modules/feature-interactions.js'),
+        loadScript('modules/navigationmodule.js'),
+        loadScript('modules/eventbindings.js')
+      ]);
+
+      // Initialiser SearchModule maintenant qu'il est chargé
+      if (window.SearchModule?.init) {
+        window.SearchModule.init(window.MapModule.map);
+      }
+
       // PHASE 6 : Modules UI
       await win.FilterManager?.init();
       win.toggleManager?.markReady('filters');
@@ -501,8 +516,8 @@
         window.FeatureInteractions.init(window.MapModule.map._mlMap);
       }
       
-// Note: SearchModule.init() est appelé tôt (ligne ~161) car il n'a pas de dépendances avec les données
-      
+      await yieldToMain();
+
       // PHASE 7 : Unified toggle actions (all through ToggleManager)
       // ToggleManager handles: click → state → ARIA → visual feedback
       // Business logic is registered via .on() listeners

@@ -33,14 +33,20 @@
     },
 
     /**
-     * Initialise tous les outils d'analytics
+     * Initialise tous les outils d'analytics — différé via requestIdleCallback
+     * pour libérer le main-thread pendant le chargement critique
      */
     init() {
-      try {
-        // Hotjar ID pour ce projet
-        this.initHotjar(6496613);
-      } catch (e) {
-        console.debug('[Analytics] Initialization failed', e);
+      const self = this;
+      function startHotjar() {
+        try { self.initHotjar(6496613); } catch (e) {
+          console.debug('[Analytics] Initialization failed', e);
+        }
+      }
+      if ('requestIdleCallback' in win) {
+        requestIdleCallback(startHotjar, { timeout: 5000 });
+      } else {
+        setTimeout(startHotjar, 3000);
       }
     }
   };

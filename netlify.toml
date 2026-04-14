@@ -26,6 +26,17 @@
 [build.processing.html]
   pretty_urls = true
 
+[build.processing.css]
+  bundle = false
+  minify = true
+
+[build.processing.js]
+  bundle = false
+  minify = true
+
+[build.processing.images]
+  compress = true
+
 # ============================================
 # Redirections sous-domaines → ?city=
 # ============================================
