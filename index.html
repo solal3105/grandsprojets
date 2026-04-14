@@ -49,7 +49,7 @@
   <link rel="preload" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" as="style">
   <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/fontawesome.min.css" as="style" crossorigin="anonymous">
   <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/solid.min.css" as="style" crossorigin="anonymous">
-  <link rel="preload" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" as="script" crossorigin="anonymous">
+  <link rel="preload" fetchpriority="high" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" as="script" crossorigin="anonymous">
   <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin="anonymous">
   
   <script type="application/ld+json">
@@ -102,26 +102,43 @@
     }
   }
   </script>
-  <script src="modules/theme-init.js"></script>
-  <script src="modules/early-fetch.js"></script>
-  <!-- CSS — parallel link tags (avoids @import waterfall in style.css) -->
+  <script>(function(){try{var s=localStorage.getItem('theme');var t=s||((window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');document.documentElement.setAttribute('data-theme',t)}catch(e){}})()</script>
+  <script>;(function(){var SB='https://wqqsuybmyqemhojsamgq.supabase.co/rest/v1';var KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';var hdrs={apikey:KEY,Authorization:'Bearer '+KEY};var sp=new URLSearchParams(location.search);var city=sp.get('city');if(!city||city==='default'){try{city=localStorage.getItem('activeCity')}catch(e){}}city=city||'metropole-lyon';function get(url){return fetch(url,{headers:hdrs}).then(function(r){return r.ok?r.json():null}).catch(function(){return null})}window.__earlyFetches={basemaps:get(SB+'/basemaps_v2?select=*&active=eq.true&order=sort_order.asc'),branding:get(SB+'/city_branding?select=*&ville=eq.'+encodeURIComponent(city)+'&limit=1'),cityModules:get(SB+'/city_modules?select=*&ville=eq.'+encodeURIComponent(city)+'&order=sort_order.asc')};window.__earlyCity=city})()</script>
+  <!-- Inline critical CSS — safe deferral of non-visible component CSS -->
+  <style>.nav-panel{visibility:hidden;pointer-events:none}.nav-panel__scrim{display:none}.toggle-dock{position:fixed;top:16px;right:16px;z-index:1600}.toggle-dock__btn[data-ready="false"]:not([style*="display"]){display:none!important}.dock-panel{display:none}.mobile-fixed-logo{display:none}#project-detail{display:none}</style>
+  <!-- Render-blocking CSS — above-the-fold critical -->
   <link rel="stylesheet" href="styles/00-colors.css" />
   <link rel="stylesheet" href="styles/01-base.css" />
   <link rel="stylesheet" href="styles/02-layout.css" />
-  <link rel="stylesheet" href="styles/03-navigation.css" />
   <link rel="stylesheet" href="styles/09-sidebar.css" />
-  <link rel="stylesheet" href="styles/09-nav-panel.css" />
-  <link rel="stylesheet" href="styles/04-components.css" />
-  <link rel="stylesheet" href="styles/05-map.css" />
-  <link rel="stylesheet" href="styles/gp-custom-markers.css" />
-  <link rel="stylesheet" href="styles/hover-popup.css" />
-  <link rel="stylesheet" href="styles/06-modals.css" />
-  <link rel="stylesheet" href="styles/14-modal-components.css" />
-  <link rel="stylesheet" href="styles/07-admin.css" />
-  <link rel="stylesheet" href="styles/11-toggles.css" />
-  <link rel="stylesheet" href="styles/gp-lightbox.css" />
-  <link rel="stylesheet" href="styles/gp-toast.css" />
   <link rel="stylesheet" href="styles/08-responsive.css" />
+  <!-- Deferred CSS — non-LCP-critical, loaded async (media="print" → onload → "all") -->
+  <link rel="stylesheet" href="styles/03-navigation.css" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="styles/09-nav-panel.css" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="styles/04-components.css" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="styles/05-map.css" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="styles/11-toggles.css" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="styles/06-modals.css" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="styles/14-modal-components.css" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="styles/07-admin.css" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="styles/gp-custom-markers.css" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="styles/hover-popup.css" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="styles/gp-lightbox.css" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="styles/gp-toast.css" media="print" onload="this.media='all'" />
+  <noscript>
+    <link rel="stylesheet" href="styles/03-navigation.css" />
+    <link rel="stylesheet" href="styles/09-nav-panel.css" />
+    <link rel="stylesheet" href="styles/04-components.css" />
+    <link rel="stylesheet" href="styles/05-map.css" />
+    <link rel="stylesheet" href="styles/11-toggles.css" />
+    <link rel="stylesheet" href="styles/06-modals.css" />
+    <link rel="stylesheet" href="styles/14-modal-components.css" />
+    <link rel="stylesheet" href="styles/07-admin.css" />
+    <link rel="stylesheet" href="styles/gp-custom-markers.css" />
+    <link rel="stylesheet" href="styles/hover-popup.css" />
+    <link rel="stylesheet" href="styles/gp-lightbox.css" />
+    <link rel="stylesheet" href="styles/gp-toast.css" />
+  </noscript>
 </head>
 <body>
   <!-- ═══ Sidebar Navigation ═══ -->
@@ -293,7 +310,7 @@
         crossorigin="anonymous" referrerpolicy="no-referrer" id="css-fa-base" media="print" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/solid.min.css"
         crossorigin="anonymous" referrerpolicy="no-referrer" id="css-fa-solid" media="print" />
-  <script src="modules/css-loader.js"></script>
+  <script>['css-maplibre','css-fa-base','css-fa-solid'].forEach(function(id){var l=document.getElementById(id);if(l){if(l.sheet){l.media='all'}else{l.onload=function(){l.media='all'}}}})</script>
   <noscript>
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/fontawesome.min.css"
