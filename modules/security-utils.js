@@ -42,17 +42,26 @@
      */
     sanitizeUrl: function(url) {
       if (!url) return '';
-      const urlStr = String(url).trim().toLowerCase();
+      const urlStr = String(url).trim();
       
-      // Bloquer les schemes dangereux
-      if (urlStr.startsWith('javascript:') || 
-          urlStr.startsWith('data:text/html') ||
-          urlStr.startsWith('vbscript:')) {
-        console.warn('[SecurityUtils] URL dangereuse bloquée:', url);
-        return '';
+      // Approche allowlist : seuls les schémas sûrs sont autorisés
+      // Les URL relatives (/, #, ?) sont acceptées
+      if (urlStr.startsWith('/') || urlStr.startsWith('#') || urlStr.startsWith('?')) {
+        return urlStr;
       }
       
-      return url;
+      try {
+        const parsed = new URL(urlStr);
+        if (['http:', 'https:', 'mailto:', 'tel:'].includes(parsed.protocol)) {
+          return urlStr;
+        }
+      } catch {
+        // URL relative sans / initial (ex: "page.html") — accepter si pas de scheme dangereux
+        if (!/^[a-z][a-z0-9+.-]*:/i.test(urlStr)) return urlStr;
+      }
+      
+      console.warn('[SecurityUtils] URL dangereuse bloquée:', url);
+      return '';
     }
   };
 

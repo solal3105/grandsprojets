@@ -512,9 +512,10 @@ const NavigationModule = (() => {
     const safeName = window.SecurityUtils ? window.SecurityUtils.escapeHtml(projectName) : projectName;
 
     // Chips
+    const _esc = window.SecurityUtils ? window.SecurityUtils.escapeHtml : (s => String(s || ''));
     const chips = [];
-    if (attrs.from || attrs.to) chips.push(`<span class="detail-chip"><i class="fa-solid fa-route"></i>${attrs.from || ''}${attrs.to ? ` → ${attrs.to}` : ''}</span>`);
-    if (attrs.trafic) chips.push(`<span class="detail-chip"><i class="fa-solid fa-car"></i>${attrs.trafic}</span>`);
+    if (attrs.from || attrs.to) chips.push(`<span class="detail-chip"><i class="fa-solid fa-route"></i>${_esc(attrs.from || '')}${attrs.to ? ` → ${_esc(attrs.to)}` : ''}</span>`);
+    if (attrs.trafic) chips.push(`<span class="detail-chip"><i class="fa-solid fa-car"></i>${_esc(attrs.trafic)}</span>`);
 
     // Description
     description = description || attrs.description;
@@ -529,7 +530,7 @@ const NavigationModule = (() => {
 
     // Hero cover (expand btn only — back/close live in the permanent overlay bar)
     const heroHTML = coverCandidate
-      ? `<div class="detail-hero"><img class="detail-hero__img" src="${resolveAssetUrl(coverCandidate)}" alt="${attrs.name || projectName || ''}" loading="eager"><div class="detail-hero__grad"></div><button class="detail-hero__expand" aria-label="Agrandir l'image" title="Agrandir"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button></div>`
+      ? `<div class="detail-hero"><img class="detail-hero__img" src="${_esc(resolveAssetUrl(coverCandidate))}" alt="${_esc(attrs.name || projectName || '')}" loading="eager"><div class="detail-hero__grad"></div><button class="detail-hero__expand" aria-label="Agrandir l'image" title="Agrandir"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button></div>`
       : '';
 
     const hasRichContent = !!(contributionProject.markdown_url || contributionProject.official_url || hasDossiers);
@@ -537,7 +538,7 @@ const NavigationModule = (() => {
       ? `<div class="detail-footer"><button type="button" class="detail-fullpage-btn" data-fiche-url="${fullPageUrl}" data-fiche-name="${safeName}"><i class="fa-solid fa-newspaper"></i>Voir la fiche complète</button></div>`
       : '';
 
-    panel.innerHTML = `<div class="detail-overlay-btns"><button id="detail-back-btn" class="detail-back-floating" aria-label="Retour"><i class="fa-solid fa-arrow-left"></i></button><button id="detail-close-btn" class="detail-close-floating" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button></div><div class="detail-scroll-body${coverCandidate ? '' : ' detail-scroll-body--no-hero'}">${heroHTML}<div class="detail-content-wrap"><div class="detail-title-row"><span class="detail-cat-icon"><i class="fa-solid ${icons[category] || 'fa-map'}"></i></span><h3 class="detail-title">${safeName}</h3></div>${chips.length ? `<div class="detail-chips">${chips.join('')}</div>` : ''}${description ? `<p class="detail-description">${description}</p>` : ''}</div></div>${footerHTML}`;
+    panel.innerHTML = `<div class="detail-overlay-btns"><button id="detail-back-btn" class="detail-back-floating" aria-label="Retour"><i class="fa-solid fa-arrow-left"></i></button><button id="detail-close-btn" class="detail-close-floating" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button></div><div class="detail-scroll-body${coverCandidate ? '' : ' detail-scroll-body--no-hero'}">${heroHTML}<div class="detail-content-wrap"><div class="detail-title-row"><span class="detail-cat-icon"><i class="fa-solid ${icons[category] || 'fa-map'}"></i></span><h3 class="detail-title">${safeName}</h3></div>${chips.length ? `<div class="detail-chips">${chips.join('')}</div>` : ''}${description ? `<p class="detail-description">${_esc(description)}</p>` : ''}</div></div>${footerHTML}`;
     
 
     // Wire up Extend button in this panel

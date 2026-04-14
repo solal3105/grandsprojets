@@ -53,12 +53,23 @@ function errResp(status, error, corsHeaders) {
   });
 }
 
-export default async function handler(req) {
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
+const ALLOWED_ORIGINS = [
+  'https://openprojets.com',
+  'http://localhost:3001',
+  'http://localhost:8888',
+];
+
+function getCorsHeaders(req) {
+  const origin = req.headers.get('origin') || '';
+  return {
+    'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   };
+}
+
+export default async function handler(req) {
+  const corsHeaders = getCorsHeaders(req);
 
   if (req.method === 'OPTIONS') return new Response('', { status: 204, headers: corsHeaders });
   if (req.method !== 'POST') return errResp(405, 'Method not allowed', corsHeaders);

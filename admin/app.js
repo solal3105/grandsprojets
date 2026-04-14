@@ -73,7 +73,8 @@ async function boot() {
 
   } catch (err) {
     console.error('[admin/app] Boot failed:', err);
-    if (splash) splash.innerHTML = `<div style="color:#ef4444;text-align:center;padding:40px;"><p style="font-size:18px;font-weight:600;">Erreur de chargement</p><p style="margin-top:8px;">${err.message}</p><a href="/admin/" style="color:var(--primary);margin-top:16px;display:inline-block;">Réessayer</a></div>`;
+    const _esc = window.SecurityUtils ? window.SecurityUtils.escapeHtml : (s => String(s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+    if (splash) splash.innerHTML = `<div style="color:#ef4444;text-align:center;padding:40px;"><p style="font-size:18px;font-weight:600;">Erreur de chargement</p><p style="margin-top:8px;">${_esc(err.message)}</p><a href="/admin/" style="color:var(--primary);margin-top:16px;display:inline-block;">Réessayer</a></div>`;
     toast('Erreur de démarrage — vérifiez votre connexion', 'error');
   }
 }

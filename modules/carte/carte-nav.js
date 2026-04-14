@@ -144,11 +144,12 @@
     const hasCover = !!(project.cover_url);
     const colorBg = categoryColor || 'var(--primary)';
 
+    const _esc = win.SecurityUtils ? win.SecurityUtils.escapeHtml : (s => String(s || ''));
     const heroHTML = hasCover
-      ? `<div class="card-hero"><img src="${project.cover_url}" alt="" loading="lazy"/><div class="card-hero-grad"></div></div>`
+      ? `<div class="card-hero"><img src="${_esc(project.cover_url)}" alt="" loading="lazy"/><div class="card-hero-grad"></div></div>`
       : `<div class="card-hero card-hero--icon" style="background:linear-gradient(135deg, ${colorBg}22 0%, ${colorBg}08 100%)"><i class="${iconClass}" style="color:${colorBg}"></i><div class="card-hero-grad"></div></div>`;
 
-    const name = project.project_name || 'Projet sans nom';
+    const name = _esc(project.project_name || 'Projet sans nom');
 
     li.innerHTML = `
       ${heroHTML}

@@ -268,19 +268,20 @@
           enabledCities.map(c => this.getCityBrandingSafe(c))
         );
 
+        const _esc = win.SecurityUtils ? win.SecurityUtils.escapeHtml : (s => String(s || ''));
         const itemsHtml = enabledCities.map((cityCode, idx) => {
           const isActive = String(cityCode).toLowerCase() === String(activeCity).toLowerCase();
           const b = brandings[idx] || {};
-          const displayName = b.brand_name?.trim() || cityCode.charAt(0).toUpperCase() + cityCode.slice(1);
+          const displayName = _esc(b.brand_name?.trim() || cityCode.charAt(0).toUpperCase() + cityCode.slice(1));
           const logo = (document.documentElement.getAttribute('data-theme') === 'dark' && b.dark_logo_url) 
             ? b.dark_logo_url 
             : (b.logo_url || '');
           const logoHtml = logo 
-            ? `<img src="${logo}" alt="${displayName}" class="city-menu-logo" />`
+            ? `<img src="${_esc(logo)}" alt="${displayName}" class="city-menu-logo" />`
             : `<i class="fas fa-building"></i>`;
 
           return `
-            <button class="dock-panel__item city-menu-item${isActive ? ' is-active' : ''}" data-city="${cityCode}" role="menuitem">
+            <button class="dock-panel__item city-menu-item${isActive ? ' is-active' : ''}" data-city="${_esc(cityCode)}" role="menuitem">
               <span class="dock-panel__item-icon">${logoHtml}</span>
               <span class="dock-panel__item-label">${displayName}</span>
             </button>

@@ -20,7 +20,8 @@
 /landing-page       /home/                    301
 /landing-page/*     /home/                    301
 
-# /sitemap.xml — routé directement par Netlify Functions v2 (config.path)
+# /sitemap.xml — routage explicite vers la fonction Netlify
+/sitemap.xml        /.netlify/functions/sitemap  200
 
 # Fallback : toute autre route non définie redirige vers la racine
 # (sera géré par le JavaScript côté client si c'est une ville valide)
