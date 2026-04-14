@@ -162,14 +162,18 @@
 import { ref } from 'vue'
 import { ArrowRight, ArrowUpRight, MapIcon, MapPin, Lock, RotateCw } from 'lucide-vue-next'
 
+// En dev, l'origine est localhost — on utilise la prod directement mais en prod
+// X-Frame-Options n'est plus sur les pages publiques donc les iframes fonctionnent.
+const base = import.meta.env.VITE_MAP_BASE_URL || 'https://openprojets.com'
+
 const spaces = [
   {
     id: 'default',
     name: 'Métropole de Lyon',
     shortName: 'Lyon',
     type: 'Métropole — Espace démonstration',
-    src: 'https://openprojets.com/default',
-    href: 'https://openprojets.com/default',
+    src: `${base}/default`,
+    href: `${base}/default`,
     urlDisplay: 'openprojets.com/default',
     color: '#5AAB7D',
   },
@@ -178,8 +182,8 @@ const spaces = [
     name: 'Villeurbanne',
     shortName: 'Villeurbanne',
     type: 'Ville — Espace démonstration',
-    src: 'https://openprojets.com/projet',
-    href: 'https://openprojets.com/projet',
+    src: `${base}/projet`,
+    href: `${base}/projet`,
     urlDisplay: 'openprojets.com/projet',
     color: '#4E2BFF',
   },
@@ -188,8 +192,8 @@ const spaces = [
     name: 'Besançon',
     shortName: 'Besançon',
     type: 'Ville — Espace démonstration',
-    src: 'https://openprojets.com/besancon',
-    href: 'https://openprojets.com/besancon',
+    src: `${base}/besancon`,
+    href: `${base}/besancon`,
     urlDisplay: 'openprojets.com/besancon',
     color: '#F2B327',
   },

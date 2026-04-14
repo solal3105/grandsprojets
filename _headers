@@ -5,7 +5,16 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(self), microphone=(), camera=()
-  X-Frame-Options: SAMEORIGIN
+
+# Pages sensibles : protégées contre le clickjacking
+/admin/*
+  X-Frame-Options: DENY
+
+/login/*
+  X-Frame-Options: DENY
+
+/logout/*
+  X-Frame-Options: DENY
 
 # Cache long pour assets statiques immuables (images, fonts)
 /img/*
