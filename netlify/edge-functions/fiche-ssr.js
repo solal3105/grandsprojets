@@ -420,9 +420,18 @@ export default async (request, context) => {
     console.error('[fiche-ssr] Fetch project failed:', e);
   }
 
-  // Pas de projet trouvé → servir la page statique (le JS client affichera l'erreur)
+  // Pas de projet trouvé → servir la page normalement (200) mais avec noindex
+  // ⚠️  Ne pas retourner 404 : le JS client (fiche-v2.js) doit s'exécuter
+  //     pour afficher l'écran d'erreur côté navigateur.
   if (!project) {
-    return await context.next();
+    const response = await context.next();
+    return new Response(response.body, {
+      status: 200,
+      headers: {
+        ...Object.fromEntries(response.headers.entries()),
+        'X-Robots-Tag': 'noindex, nofollow',
+      },
+    });
   }
 
   // Récupérer projets liés + branding ville + label catégorie en parallèle

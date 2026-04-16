@@ -59,12 +59,37 @@ export default async (_request, _context) => {
       priority: '0.9'
     });
 
+    // Pages Home SPA
+    const homePages = [
+      { path: '/home/fonctionnalites', priority: '0.8' },
+      { path: '/home/a-propos', priority: '0.7' },
+      { path: '/home/contact', priority: '0.7' },
+      { path: '/home/aide', priority: '0.6' },
+    ];
+    for (const hp of homePages) {
+      urlset.push({
+        loc: `${BASE_ORIGIN}${hp.path}`,
+        lastmod: latestDate,
+        changefreq: 'monthly',
+        priority: hp.priority,
+      });
+    }
+
+    // Filtrer les entrées de test E2E
+    const isTestEntry = (name, cat) => {
+      const lower = name.toLowerCase();
+      return lower.startsWith('e2e-') || lower.startsWith('e2e_') ||
+        lower.startsWith('test ') || lower === 'test' ||
+        cat.startsWith('e2e-') || cat.startsWith('e2e_');
+    };
+
     // Fiches individuelles avec images pour Google Images
     for (const it of items) {
       const name = it?.project_name || '';
       const cat = String(it?.category || '').toLowerCase();
       const ville = it?.ville || '';
       if (!name || !cat) continue;
+      if (isTestEntry(name, cat)) continue;
       const encoded = encodeURIComponent(name);
       const loc = `${BASE_ORIGIN}/fiche/?cat=${encodeURIComponent(cat)}&project=${encoded}${ville ? `&city=${encodeURIComponent(ville)}` : ''}`;
       const lastmod = fmtDate(it?.created_at) || undefined;

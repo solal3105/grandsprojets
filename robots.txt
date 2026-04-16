@@ -16,7 +16,6 @@ Disallow: /test-results/
 Disallow: /playwright-report/
 Disallow: /_headers
 Disallow: /*.json
-Disallow: /modules/
 Disallow: /netlify/
 
 Sitemap: https://openprojets.com/sitemap.xml
