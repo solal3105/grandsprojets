@@ -7,7 +7,7 @@
   Permissions-Policy: geolocation=(self), microphone=(), camera=()
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
   Cross-Origin-Opener-Policy: same-origin-allow-popups
-  X-Frame-Options: SAMEORIGIN
+  Content-Security-Policy: frame-ancestors *
 
 # Cache long pour assets statiques immuables (images, fonts)
 /img/*
