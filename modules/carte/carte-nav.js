@@ -166,9 +166,9 @@
     });
 
     li.addEventListener('mouseenter', () => {
-      win.NavigationModule?.highlightProjectOnMapById?.(project.id, category, { fadeOthers: true });
+      win.NavigationModule?.highlightProjectOnMap?.(project.project_name, category, { fadeOthers: true });
       focusTimer = setTimeout(() => {
-        win.NavigationModule?.panToProjectById?.(project.id, category);
+        win.NavigationModule?.panToProject?.(project.project_name, category);
       }, HOVER_PAN_DELAY);
     });
 

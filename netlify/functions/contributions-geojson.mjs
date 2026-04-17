@@ -64,6 +64,7 @@ export const handler = async (event) => {
 
             const enrich = (f) => {
               if (!f.properties) f.properties = {};
+              f.properties.id = project.id;
               f.properties.project_name = project.project_name;
               f.properties.category = project.category;
               f.properties.cover_url = project.cover_url || '';

@@ -309,16 +309,17 @@ const NavigationModule = (() => {
    */
   async function showSpecificContribution(projectName, category, contributionData = null) {
     const layerName = normalizeCategoryName(category);
-    
-    // S'assurer que le layer est chargé
     try {
       await ensureLayerLoaded(layerName);
     } catch (e) {
       console.debug('[NavigationModule] Layer non disponible:', e);
     }
-    
-    // Afficher le panneau de détail (le centrage est géré par highlightProjectOnMap)
-    showProjectDetail(projectName, category, null, contributionData);
+    // Utilise l'ID si disponible pour un lookup fiable
+    if (contributionData?.id) {
+      showProjectDetailById(contributionData.id, null);
+    } else {
+      showProjectDetail(projectName, category, null, contributionData);
+    }
   }
 
   // Fonction utilitaire pour ajuster la vue de la carte
@@ -344,8 +345,12 @@ const NavigationModule = (() => {
   let _showProjectDebounceTimer = null;
 
   async function showProjectDetailById(projectId, event) {
-    let contributionProject = null;
     if (!projectId) return;
+    // Guard: éviter les appels redondants
+    const projectKey = `id::${projectId}`;
+    if (_lastShownProject === projectKey) return;
+    _lastShownProject = projectKey;
+    let contributionProject = null;
     try {
       contributionProject = await window.supabaseService.getContributionById(projectId);
     } catch (error) {
@@ -353,22 +358,23 @@ const NavigationModule = (() => {
     }
     if (!contributionProject) {
       _lastShownProject = null;
-      panel.innerHTML = `
-      <div style="padding: 2em; text-align: center; color: var(--text-secondary, #666);">
-        <h3>Projet non trouvé</h3>
-        <p>Le projet n'a pas été trouvé dans la base de données.</p>
-        <p>Seuls les projets de la table contribution_uploads sont disponibles.</p>
-      </div>
-      `;
+      const errorPanel = document.getElementById('project-detail');
+      if (errorPanel) {
+        errorPanel.style.display = 'flex';
+        errorPanel.innerHTML = `
+        <div style="padding: 2em; text-align: center; color: var(--text-secondary, #666);">
+          <h3>Projet non trouvé</h3>
+          <p>Le projet n'a pas été trouvé dans la base de données.</p>
+          <p>Seuls les projets de la table contribution_uploads sont disponibles.</p>
+        </div>
+        `;
+      }
       return;
     }
-    // Réutilise le rendu existant
+    // Délègue au rendu complet avec toutes les données
     showProjectDetail(contributionProject.project_name, contributionProject.category, event, contributionProject);
   }
 
-  // ...existing code...
-
-  // Garde l'ancienne fonction pour compatibilité URL ou autres usages
   async function showProjectDetail(projectName, category, event, enrichedProps = null) {
   if (event?.stopPropagation) {
     event.stopPropagation();
@@ -748,8 +754,8 @@ const NavigationModule = (() => {
     zoomOutOnLoadedLayers,
     resetToDefaultView,
     _resetProjectGuard: () => { _lastShownProject = null; },
-    highlightProjectOnMapById,
-    panToProjectById,
+    highlightProjectOnMap,
+    panToProject,
     clearProjectHighlight,
     computeMapPadding: _computeMapPadding,
   };

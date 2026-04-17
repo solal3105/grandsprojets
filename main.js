@@ -669,13 +669,8 @@
         try {
           if (window.supabaseService?.fetchProjectByCategoryAndName) {
             const contributionProject = await window.supabaseService.fetchProjectByCategoryAndName(cat, project);
-            if (contributionProject && window.NavigationModule?.showProjectDetail) {
-              window.NavigationModule.showProjectDetail(
-                contributionProject.project_name, 
-                contributionProject.category, 
-                null, 
-                contributionProject
-              );
+            if (contributionProject && window.NavigationModule?.showProjectDetailById) {
+              window.NavigationModule.showProjectDetailById(contributionProject.id);
               return true;
             }
           }

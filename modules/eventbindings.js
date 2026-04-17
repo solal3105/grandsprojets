@@ -96,8 +96,8 @@ const EventBindings = (() => {
       else if (window.UIModule?.showDetailPanel) {
         window.UIModule.showDetailPanel(layerName, feature);
       } 
-      else if (window.NavigationModule?.showProjectDetail) {
-        window.NavigationModule.showProjectDetail(projectName, category);
+      else if (window.NavigationModule?.showProjectDetailById && p.id) {
+        window.NavigationModule.showProjectDetailById(p.id);
       }
       else {
         const detailPanel = document.getElementById('project-detail');
