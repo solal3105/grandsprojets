@@ -39,7 +39,6 @@
   background: var(--white);
   border: 3px solid var(--marker-color, var(--primary));
   border-radius: 50% 50% 50% 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   transition: all 0.2s ease;
   z-index: 1;
 }
@@ -53,7 +52,6 @@
   font-size: 14px;
   color: var(--marker-color, var(--primary));
   z-index: 2;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
   transition: all 0.2s ease;
 }
 
@@ -61,7 +59,6 @@
 /* Variante pour les markers actifs/sélectionnés */
 .gp-custom-marker.active::before {
   transform: translateX(-50%) rotate(-45deg) scale(1.2);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
   border-width: 4px;
 }
 
@@ -121,6 +118,34 @@
   }
 }
 
+/* ============================================================================
+   STACKED BADGE — compteur de markers empilés au même endroit
+   ============================================================================ */
+.gp-marker-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-primary, #14AE5C);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 1px 4px rgba(0,0,0,.25);
+  animation: badgePop .3s cubic-bezier(.34,1.56,.64,1);
+}
+
+@keyframes badgePop {
+  0% { transform: scale(0); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 /* Animation de rebond vertical pour le marker - plus fluide */
 .gp-marker-container.is-highlighted .gp-custom-marker {
   animation: markerBounce 1.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
@@ -138,7 +163,6 @@
 /* Style amélioré pour le marker en surbrillance */
 .gp-marker-container.is-highlighted .gp-custom-marker::before {
   transform: translateX(-50%) rotate(-45deg) scale(1.25);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   border-width: 4px;
 }
 
@@ -208,7 +232,6 @@
 .gp-simple-marker i {
   font-size: 20px;
   color: var(--marker-color, var(--primary));
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
   transition: all 0.2s ease;
 }
 

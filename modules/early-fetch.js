@@ -15,15 +15,20 @@
     try { city = localStorage.getItem('activeCity'); } catch { /* noop */ }
   }
   city = city || 'metropole-lyon';
+  var vc = encodeURIComponent(city);
 
   function get(url) {
     return fetch(url, { headers: hdrs }).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; });
   }
 
   window.__earlyFetches = {
-    basemaps:    get(SB + '/basemaps_v2?select=*&active=eq.true&order=sort_order.asc'),
-    branding:    get(SB + '/city_branding?select=*&ville=eq.' + encodeURIComponent(city) + '&limit=1'),
-    cityModules: get(SB + '/city_modules?select=*&ville=eq.' + encodeURIComponent(city) + '&order=sort_order.asc')
+    basemaps:       get(SB + '/basemaps_v2?select=*&active=eq.true&order=sort_order.asc'),
+    branding:       get(SB + '/city_branding?select=*&ville=eq.' + vc + '&limit=1'),
+    cityModules:    get(SB + '/city_modules?select=*&ville=eq.' + vc + '&order=sort_order.asc'),
+    layersConfig:   get(SB + '/layers?select=name,url,style,is_default,ville,icon,icon_color&ville=eq.' + vc),
+    categoryIcons:  get(SB + '/category_icons?select=category,icon_class,display_order,layers_to_display,category_styles,ville,available_tags&ville=eq.' + vc + '&order=display_order.asc'),
+    contributions:  get(SB + '/contribution_uploads?select=project_name,category,geojson_url,cover_url,markdown_url,meta,description,ville&ville=eq.' + vc + '&approved=eq.true&order=created_at.desc'),
+    contribGeojson: fetch('/.netlify/functions/contributions-geojson?ville=' + vc).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; })
   };
   window.__earlyCity = city;
 })();

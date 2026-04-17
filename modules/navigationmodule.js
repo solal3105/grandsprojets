@@ -343,6 +343,32 @@ const NavigationModule = (() => {
   let _lastShownProject = null;
   let _showProjectDebounceTimer = null;
 
+  async function showProjectDetailById(projectId, event) {
+    let contributionProject = null;
+    if (!projectId) return;
+    try {
+      contributionProject = await window.supabaseService.getContributionById(projectId);
+    } catch (error) {
+      console.debug('[NavigationModule] Error fetching project by ID:', error);
+    }
+    if (!contributionProject) {
+      _lastShownProject = null;
+      panel.innerHTML = `
+      <div style="padding: 2em; text-align: center; color: var(--text-secondary, #666);">
+        <h3>Projet non trouvé</h3>
+        <p>Le projet n'a pas été trouvé dans la base de données.</p>
+        <p>Seuls les projets de la table contribution_uploads sont disponibles.</p>
+      </div>
+      `;
+      return;
+    }
+    // Réutilise le rendu existant
+    showProjectDetail(contributionProject.project_name, contributionProject.category, event, contributionProject);
+  }
+
+  // ...existing code...
+
+  // Garde l'ancienne fonction pour compatibilité URL ou autres usages
   async function showProjectDetail(projectName, category, event, enrichedProps = null) {
   if (event?.stopPropagation) {
     event.stopPropagation();
@@ -714,7 +740,7 @@ const NavigationModule = (() => {
   }
 
   const publicAPI = {
-    showProjectDetail,
+    showProjectDetailById,
     showSpecificContribution,
     showCategoryLayers,
     fitCategoryBounds,
@@ -722,8 +748,8 @@ const NavigationModule = (() => {
     zoomOutOnLoadedLayers,
     resetToDefaultView,
     _resetProjectGuard: () => { _lastShownProject = null; },
-    highlightProjectOnMap,
-    panToProject,
+    highlightProjectOnMapById,
+    panToProjectById,
     clearProjectHighlight,
     computeMapPadding: _computeMapPadding,
   };

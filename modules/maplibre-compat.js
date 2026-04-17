@@ -72,7 +72,7 @@
   L.latLngBounds = function(sw, ne) {
     const _sw = toLatLng(sw);
     const _ne = toLatLng(ne);
-    return {
+    const bounds = {
       _southWest: _sw,
       _northEast: _ne,
       getSouthWest: () => _sw,
@@ -83,16 +83,25 @@
         return p.lat >= _sw.lat && p.lat <= _ne.lat && p.lng >= _sw.lng && p.lng <= _ne.lng;
       },
       extend: (ll) => {
-        const p = toLatLng(ll);
-        _sw.lat = Math.min(_sw.lat, p.lat);
-        _sw.lng = Math.min(_sw.lng, p.lng);
-        _ne.lat = Math.max(_ne.lat, p.lat);
-        _ne.lng = Math.max(_ne.lng, p.lng);
-        return { _southWest: _sw, _northEast: _ne, getSouthWest: () => _sw, getNorthEast: () => _ne };
+        // Accepter un bounds OU un point
+        if (ll && ll._southWest && ll._northEast) {
+          _sw.lat = Math.min(_sw.lat, ll._southWest.lat);
+          _sw.lng = Math.min(_sw.lng, ll._southWest.lng);
+          _ne.lat = Math.max(_ne.lat, ll._northEast.lat);
+          _ne.lng = Math.max(_ne.lng, ll._northEast.lng);
+        } else {
+          const p = toLatLng(ll);
+          _sw.lat = Math.min(_sw.lat, p.lat);
+          _sw.lng = Math.min(_sw.lng, p.lng);
+          _ne.lat = Math.max(_ne.lat, p.lat);
+          _ne.lng = Math.max(_ne.lng, p.lng);
+        }
+        return bounds;
       },
       isValid: () => true,
       toBBoxArray: () => [_sw.lng, _sw.lat, _ne.lng, _ne.lat]
     };
+    return bounds;
   };
 
   // ============================================================

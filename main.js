@@ -209,19 +209,6 @@
       // PHASE 2.5 : Appliquer le branding (couleur, favicon, toggles) sans re-fetcher
       if (win.CityBrandingModule) {
         try {
-          // Attendre que toggleManager soit initialisé
-          if (!(win.toggleManager && win.toggleManager.initialized)) {
-            await new Promise((resolve) => {
-              const checkInterval = setInterval(() => {
-                if (win.toggleManager && win.toggleManager.initialized) {
-                  clearInterval(checkInterval);
-                  resolve();
-                }
-              }, 20);
-              setTimeout(() => { clearInterval(checkInterval); resolve(); }, 3000);
-            });
-          }
-          
           // Appliquer le branding déjà chargé (pas de fetch supplémentaire)
           const branding = win.CityManager?.getBranding();
           if (branding) {
@@ -241,12 +228,14 @@
 
       await yieldToMain();
 
-      // PHASE 3 : Données Supabase
+      // PHASE 3 : Données Supabase (consomme les early-fetches)
       const {
         layersConfig,
         metroColors,
         filtersConfig: _filtersConfig,
-        basemaps: remoteBasemaps
+        basemaps: remoteBasemaps,
+        categoryIcons: initCategoryIcons,
+        cityModules: initCityModules
       } = await supabaseService.initAllData(city);
 
       // PHASE 4 : Carte et couches
@@ -295,10 +284,9 @@
         if (is_default) defaultLayers.push(name);
       });
       
-      // Fusionner les styles des catégories depuis category_icons
-      // Les category_styles ont la priorité sur les styles de layers_config
-      if (window.supabaseService?.buildCategoryStylesMap && window.supabaseService?.fetchCategoryIcons) {
-        const categoryIconsData = await window.supabaseService.fetchCategoryIcons();
+      // Fusionner les styles des catégories depuis category_icons (déjà chargés par initAllData)
+      if (window.supabaseService?.buildCategoryStylesMap) {
+        const categoryIconsData = initCategoryIcons || [];
         const categoryStylesFromDB = window.supabaseService.buildCategoryStylesMap(categoryIconsData);
         
         // Appliquer les styles de catégorie (ils écrasent les styles de couche si présents)
@@ -339,47 +327,27 @@
       await yieldToMain();
 
       // PHASE 5 : Menus dynamiques (AVANT les layers)
-      // Chargement en parallèle des données nécessaires
-      const [allContributions, allCategoryIconsFromDB, cityModules] = await Promise.all([
-        // Fetch contributions
-        (async () => {
-          try {
-            if (window.supabaseService?.fetchAllProjects) {
-              const data = await window.supabaseService.fetchAllProjects();
-              win.allContributions = data;
-              return data;
-            }
-            return [];
-          } catch (err) {
-            console.error('[Main] Erreur fetchAllProjects:', err);
-            return [];
-          }
-        })(),
-        // Fetch category icons
-        (async () => {
-          try {
-            if (window.supabaseService?.fetchCategoryIcons) {
-              return await window.supabaseService.fetchCategoryIcons();
-            }
-            return [];
-          } catch (e) {
-            console.debug('[Main] Erreur fetch category icons:', e);
-            return [];
-          }
-        })(),
-        // Fetch city modules (remplace travaux_config)
-        (async () => {
-          try {
-            return await supabaseService.fetchCityModules(city);
-          } catch (err) {
-            console.debug('[Main] Erreur chargement city_modules:', err);
-            return [];
-          }
-        })()
-      ]);
+      // Lancer le préchargement des GeoJSON dès maintenant (parallèle avec le reste de Phase 5)
+      const activeCity = win.CityManager?.getActiveCity() || 'metropole-lyon';
+      const contribPreloadPromise = DataModule.preloadAllContributions(activeCity);
+
+      // fetchAllProjects consomme le prefetch (pas de re-fetch réseau)
+      // categoryIcons et cityModules sont déjà dans initAllData — réutiliser
+      let allContributions = [];
+      try {
+        if (window.supabaseService?.fetchAllProjects) {
+          allContributions = await window.supabaseService.fetchAllProjects();
+          win.allContributions = allContributions;
+        }
+      } catch (err) {
+        console.error('[Main] Erreur fetchAllProjects:', err);
+      }
+
+      const allCategoryIconsFromDB = initCategoryIcons || [];
+      const cityModules = initCityModules || [];
 
       // Stocker les modules de la ville
-      win._cityModules = cityModules || [];
+      win._cityModules = cityModules;
 
       const categoriesWithData = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
       
@@ -448,9 +416,10 @@
       const layersToLoad = [...new Set([...defaultLayers, ...categoryLayers])];
       
       try {
-        // Précharger uniquement (pas d'ajout à la carte) pour éviter la race condition :
-        // si l'utilisateur ouvre un module pendant le fetch, les couches en vol ne se
-        // réafficheraient pas par-dessus le module actif une fois le fetch terminé.
+        // Attendre le préchargement lancé au début de Phase 5 (consomme le early-fetch)
+        await contribPreloadPromise;
+
+        // Précharger les layers restants (URL-based + fallback contributions non cachées)
         await Promise.all(layersToLoad.map(layer =>
           DataModule.preloadLayer(layer).catch(err => {
             console.error(`[Main] Erreur chargement layer "${layer}":`, err);
@@ -514,6 +483,9 @@
       // Système unifié d'interactions (click contributions + travaux + sélection)
       if (window.FeatureInteractions && window.MapModule?.map?._mlMap) {
         window.FeatureInteractions.init(window.MapModule.map._mlMap);
+        // Précharger les images cover en arrière-plan
+        const allFeatures = layersToLoad.flatMap(l => DataModule.layerData[l]?.features || []);
+        window.FeatureInteractions.preloadCovers(allFeatures);
       }
       
       await yieldToMain();

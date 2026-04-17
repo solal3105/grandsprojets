@@ -138,7 +138,7 @@
 
     const li = document.createElement('li');
     li.classList.add('project-card');
-    li.dataset.project = project.project_name;
+    li.dataset.project = project.id;
     if (categoryColor) li.style.setProperty('--card-accent', categoryColor);
 
     const hasCover = !!(project.cover_url);
@@ -162,13 +162,13 @@
     let focusTimer = null;
     li.addEventListener('click', () => {
       if (focusTimer) { clearTimeout(focusTimer); focusTimer = null; }
-      win.NavigationModule?.showProjectDetail(project.project_name, category);
+      win.NavigationModule?.showProjectDetailById(project.id);
     });
 
     li.addEventListener('mouseenter', () => {
-      win.NavigationModule?.highlightProjectOnMap(project.project_name, category, { fadeOthers: true });
+      win.NavigationModule?.highlightProjectOnMapById?.(project.id, category, { fadeOthers: true });
       focusTimer = setTimeout(() => {
-        win.NavigationModule?.panToProject(project.project_name, category);
+        win.NavigationModule?.panToProjectById?.(project.id, category);
       }, HOVER_PAN_DELAY);
     });
 

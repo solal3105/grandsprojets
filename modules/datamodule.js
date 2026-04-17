@@ -67,6 +67,7 @@ window.DataModule = (function() {
 	let iconMap = {};
 	let iconColorMap = {};
 	let layerData = {};
+	let _contribPreloaded = false;
 
 	function initConfig({
 		urlMap: u,
@@ -116,6 +117,50 @@ window.DataModule = (function() {
 
 	const _esc = window.SecurityUtils.escapeHtml;
 
+	// Agrégation serveur : 1 requête pour TOUTES les contributions d'une ville
+	async function preloadAllContributions(ville) {
+		if (_contribPreloaded) return;
+		try {
+			// Consommer le prefetch si la ville correspond (lancé dès early-fetch.js)
+			let data = null;
+			if (window.__earlyFetches?.contribGeojson && window.__earlyCity === ville) {
+				try {
+					data = await window.__earlyFetches.contribGeojson;
+					delete window.__earlyFetches.contribGeojson;
+				} catch { data = null; }
+			}
+			if (!data) {
+				const fnUrl = `/.netlify/functions/contributions-geojson?ville=${encodeURIComponent(ville)}`;
+				const resp = await fetch(fnUrl);
+				if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+				data = await resp.json();
+			}
+
+			if (!data?.features?.length) { _contribPreloaded = true; return; }
+
+			// Grouper les features par catégorie → peupler les caches individuels
+			const byCategory = {};
+			for (const feature of data.features) {
+				const cat = feature.properties?.category;
+				if (!cat) continue;
+				if (!byCategory[cat]) byCategory[cat] = [];
+				byCategory[cat].push(feature);
+			}
+
+			for (const [cat, features] of Object.entries(byCategory)) {
+				const cacheKey = `layer_${cat}`;
+				const fc = { type: 'FeatureCollection', features };
+				simpleCache._cache[cacheKey] = { value: fc, timestamp: Date.now() };
+				layerData[cat] = fc;
+			}
+
+			_contribPreloaded = true;
+			console.debug(`[DataModule] Contributions préchargées : ${data.features.length} features en 1 requête`);
+		} catch (e) {
+			console.debug('[DataModule] Netlify contributions-geojson indisponible, fallback N+1:', e);
+		}
+	}
+
 	// Lie les événements à une feature
 	// Lines/Polygons : gérés par FeatureInteractions (MapLibre GL natif via queryRenderedFeatures)
 	// Points (DOM markers) : events wired here (markers are invisible to queryRenderedFeatures)
@@ -130,10 +175,15 @@ window.DataModule = (function() {
 
 		if ((isContrib || isTravaux) && layer.on) {
 			// Register DOM marker with FeatureInteractions for overlap detection
-			const FI = window.FeatureInteractions;
-			if (FI?.registerMarker) FI.registerMarker(layer, feature);
+			// FI may not be loaded yet (lazy Phase 6) — queue for later flush
+			if (window.FeatureInteractions?.registerMarker) {
+				window.FeatureInteractions.registerMarker(layer, feature);
+			} else {
+				(window._pendingFIMarkers ??= []).push({ marker: layer, feature });
+			}
 
 			layer.on('mouseover', function() {
+				const FI = window.FeatureInteractions;
 				if (!FI || !FI._mlMap) return;
 				const latlng = layer.getLatLng?.();
 				if (!latlng) return;
@@ -143,11 +193,11 @@ window.DataModule = (function() {
 			});
 
 			layer.on('mouseout', function() {
-				if (!FI) return;
-				FI.endHover();
+				window.FeatureInteractions?.endHover();
 			});
 
 			layer.on('click', function() {
+				const FI = window.FeatureInteractions;
 				if (!FI || !FI._mlMap) return;
 				const latlng = layer.getLatLng?.();
 				if (!latlng) return;
@@ -719,6 +769,7 @@ window.DataModule = (function() {
 		layerData,
 		loadLayer,
 		preloadLayer,
+		preloadAllContributions,
 		reloadLayer,
 		createGeoJsonLayer,
 		getFeatureStyle,

@@ -48,13 +48,24 @@
   function _isContrib(f) { const p = f.properties||{}; return !!(p.project_name && p.category); }
   function isTravaux(f) { const p = f.properties||{}; return isTravauxProps(p); }
 
+  // Image preload cache — précharge les cover_url en arrière-plan
+  const _preloadedImages = new Set();
+
+  function preloadImage(url) {
+    if (!url || _preloadedImages.has(url)) return;
+    _preloadedImages.add(url);
+    const img = new Image();
+    img.src = url;
+  }
+
   function cardHTML(props, opts) {
     const title = esc(projectNameOf(props));
     if (!title) return '';
     const img = props.cover_url || '';
     const cat = props.category || '';
     const tw = !!(props.nature_travaux || props.chantier_id);
-    const imgH = img ? `<div class="gp-hp-img"><img src="${esc(img)}" alt="" loading="lazy"/></div>` : '';
+    const preloaded = img && _preloadedImages.has(img);
+    const imgH = img ? `<div class="gp-hp-img"><img src="${esc(img)}" alt=""${preloaded ? '' : ' loading="lazy"'}/></div>` : '';
     const tagH = cat ? `<span class="gp-hp-tag">${esc(cat)}</span>`
       : tw ? '<span class="gp-hp-tag gp-hp-tag--travaux"><i class="fa-solid fa-helmet-safety"></i> Travaux</span>' : '';
     const ctaH = opts?.cta
@@ -75,6 +86,7 @@
     _savedPaint: null,
     _timer: null,
     _domMarkers: [],
+    _hoverFromDOM: false,
 
     // Glow pulse animation
     _glowLayerId: null,
@@ -93,6 +105,10 @@
     _currentKey: null,   // dedup key
     _boundUpdatePos: null,
 
+    // Stacked markers (même coordonnées exactes)
+    _stacks: new Map(),  // coordKey → [{ marker, feature, latlng }]
+    _stackTimer: null,
+
 
     //  INIT
 
@@ -103,6 +119,14 @@
       mlMap.on('mousemove', (e) => this._onMove(e));
       mlMap.on('mouseout',  ()  => { if (!_isTouch) this._endHover(); });
       mlMap.on('click',     (e) => this._onClick(e));
+
+      // Flush markers queued before FI was loaded (Phase 5.5 → Phase 6)
+      if (window._pendingFIMarkers?.length) {
+        for (const { marker, feature } of window._pendingFIMarkers) {
+          this.registerMarker(marker, feature);
+        }
+        delete window._pendingFIMarkers;
+      }
     },
 
 
@@ -111,6 +135,81 @@
     registerMarker(marker, feature) {
       if (!marker || !feature?.properties) return;
       this._domMarkers.push({ marker, feature, latlng: marker.getLatLng() });
+      this._scheduleStackDetect();
+    },
+
+    // Supprime les entrées dont le marker n'est plus rattaché au DOM
+    _pruneStaleMarkers() {
+      this._domMarkers = this._domMarkers.filter(entry => {
+        const el = entry.marker.getElement?.();
+        return el && el.isConnected;
+      });
+    },
+
+    // Clé de coordonnées — précision ~0.1 m
+    _coordKey(latlng) {
+      return latlng.lat.toFixed(6) + ',' + latlng.lng.toFixed(6);
+    },
+
+    // Debounce la détection de piles (évite le recalcul à chaque marker)
+    _scheduleStackDetect() {
+      if (this._stackTimer) clearTimeout(this._stackTimer);
+      this._stackTimer = setTimeout(() => { this._stackTimer = null; this.detectStacks(); }, 150);
+    },
+
+    // Détecte les markers empilés au même point et ajoute un badge compteur
+    detectStacks() {
+      // Nettoyer les markers détachés du DOM (après removeAllLayers + re-create)
+      this._pruneStaleMarkers();
+
+      // Grouper par coordonnées exactes
+      const groups = new Map();
+      for (const entry of this._domMarkers) {
+        const key = this._coordKey(entry.latlng);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(entry);
+      }
+
+      // Nettoyer les anciens badges
+      for (const [, entries] of this._stacks) {
+        if (!entries.length) continue;
+        const el = entries[0].marker.getElement?.();
+        if (el) {
+          const badge = el.querySelector('.gp-marker-badge');
+          if (badge) badge.remove();
+        }
+      }
+
+      this._stacks = groups;
+
+      // Appliquer la visibilité et les badges
+      for (const [, entries] of groups) {
+        if (entries.length <= 1) {
+          // Marker seul — s'assurer qu'il est visible, pas de badge
+          const el = entries[0].marker.getElement?.();
+          if (el) el.style.display = '';
+          continue;
+        }
+
+        // Pile de markers — montrer le premier, masquer les autres
+        entries.forEach((entry, i) => {
+          const el = entry.marker.getElement?.();
+          if (!el) return;
+          if (i === 0) {
+            el.style.display = '';
+            // Ajouter/mettre à jour le badge compteur
+            let badge = el.querySelector('.gp-marker-badge');
+            if (!badge) {
+              badge = document.createElement('span');
+              badge.className = 'gp-marker-badge';
+              el.appendChild(badge);
+            }
+            badge.textContent = entries.length;
+          } else {
+            el.style.display = 'none';
+          }
+        });
+      }
     },
 
 
@@ -154,6 +253,7 @@
     },
 
     _findNearbyDOMMarkers(point) {
+      this._pruneStaleMarkers();
       const r = [];
       for (const { feature, latlng } of this._domMarkers) {
         const px = this._mlMap.project([latlng.lng, latlng.lat]);
@@ -181,10 +281,13 @@
       const hits = this._hitTestAll(e.point);
 
       if (hits.length === 0) {
+        // Don't dismiss if a DOM marker hover is active (deferred mousemove race)
+        if (this._hoverFromDOM) return;
         this._endHover();
         this._mlMap.getCanvas().style.cursor = '';
         return;
       }
+      this._hoverFromDOM = false;
 
       this._mlMap.getCanvas().style.cursor = 'pointer';
       const key = computeKey(hits);
@@ -311,6 +414,7 @@
     },
 
     _endHover() {
+      this._hoverFromDOM = false;
       this._clearHoverState();
       if (this._state === 'single' || this._state === 'peek') this._close();
     },
@@ -318,6 +422,7 @@
     // Public: dismiss hover from external mouse events (no-op on touch)
     endHover() {
       if (_isTouch) return;
+      this._hoverFromDOM = false;
       this._endHover();
     },
 
@@ -529,6 +634,7 @@
       } else {
         this._hovered = { key, source: '__multi__', ids: new Set() };
       }
+      this._hoverFromDOM = true;
       this._showHover(hits, lngLat, key);
     },
 
@@ -832,12 +938,34 @@
       this._glowSourceId = null;
     },
 
+    // Précharge les images cover en arrière-plan via requestIdleCallback
+    preloadCovers(features) {
+      if (!features?.length) return;
+      const urls = [];
+      for (const f of features) {
+        const url = f.properties?.cover_url;
+        if (url && !_preloadedImages.has(url)) urls.push(url);
+      }
+      if (!urls.length) return;
+      const schedule = window.requestIdleCallback || ((cb) => setTimeout(cb, 50));
+      let idx = 0;
+      const CHUNK = 10;
+      const next = (_deadline) => {
+        const end = Math.min(idx + CHUNK, urls.length);
+        while (idx < end) { preloadImage(urls[idx++]); }
+        if (idx < urls.length) schedule(next);
+      };
+      schedule(next);
+    },
+
     destroy() {
       this.clearSelection();
       this._endHover();
       this._close();
       if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+      if (this._stackTimer) { clearTimeout(this._stackTimer); this._stackTimer = null; }
       this._domMarkers = [];
+      this._stacks = new Map();
       this._mlMap = null;
     }
   };

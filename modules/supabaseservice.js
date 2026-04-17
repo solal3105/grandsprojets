@@ -75,11 +75,42 @@
     }
   };
 
-  win.supabaseService = {
-    getClient: function() {
-      return supabaseClient;
-    },
+  // Helper: consomme un prefetch early-fetch si la ville correspond (ou si city===null = pas de check ville)
+  const consumePrefetch = async (key, activeCity, validate) => {
+    if (!win.__earlyFetches?.[key]) return null;
+    if (activeCity !== null && win.__earlyCity !== activeCity) return null;
+    try {
+      const early = await win.__earlyFetches[key];
+      delete win.__earlyFetches[key];
+      if (validate ? validate(early) : early != null) return early;
+    } catch { /* fallback requête normale */ }
+    return null;
+  };
 
+  // Helper: applique le filtre approved/created_by sur une query contribution_uploads
+  const applyVisibilityFilter = async (query) => {
+    try {
+      const { data: userData } = await supabaseClient.auth.getUser();
+      const uid = userData?.user?.id;
+      if (uid) return query.or(`approved.eq.true,created_by.eq.${uid}`);
+      return query.eq('approved', true);
+    } catch {
+      return query.eq('approved', true);
+    }
+  };
+
+  // Helper: parse un champ ville (peut être array JS, string JSON, ou format PostgreSQL {a,b})
+  const parseVilleArray = (raw) => {
+    if (Array.isArray(raw)) return raw;
+    if (!raw || typeof raw !== 'string') return [];
+    if (raw.startsWith('{') && raw.endsWith('}')) {
+      const inner = raw.slice(1, -1);
+      return inner ? inner.split(',') : [];
+    }
+    try { return JSON.parse(raw); } catch { return []; }
+  };
+
+  win.supabaseService = {
     getActiveCity: getActiveCity,
     
     /**
@@ -88,91 +119,26 @@
      */
     fetchLayersConfig: async function() {
       const activeCity = getActiveCity();
+      if (!activeCity) return [];
 
-      let q = supabaseClient
+      const parseRows = (rows) => (rows || []).filter(r => r?.name).map(row => {
+        let parsedStyle = row.style;
+        if (typeof parsedStyle === 'string') {
+          try { parsedStyle = JSON.parse(parsedStyle); } catch { parsedStyle = {}; }
+        }
+        return { name: row.name, url: row.url || '', style: parsedStyle, is_default: row.is_default || false, ville: row.ville, icon: row.icon || null, icon_color: row.icon_color || null };
+      });
+
+      const early = await consumePrefetch('layersConfig', activeCity, Array.isArray);
+      if (early) return parseRows(early);
+
+      const { data, error } = await supabaseClient
         .from('layers')
-        .select('name, url, style, is_default, ville, icon, icon_color');
+        .select('name, url, style, is_default, ville, icon, icon_color')
+        .eq('ville', activeCity);
 
-      if (activeCity) {
-        q = q.eq('ville', activeCity);
-      } else {
-        return [];
-      }
-
-      const { data, error } = await q;
-
-      if (error) {
-        return [];
-      }
-
-      // A ce stade, on a UNIQUEMENT les couches de la ville active (ou globales si aucune ville),
-      // ce qui garantit que les URLs ne réintroduisent pas des couches globales quand une ville est active.
-      return (data || [])
-        .filter(row => row && row.name)
-        .map(row => {
-          let parsedStyle = row.style;
-          if (typeof row.style === 'string') {
-            try {
-              parsedStyle = JSON.parse(row.style);
-            } catch (e) {
-              console.debug('[supabase] failed to parse layer style JSON for', row.name, ':', e);
-              parsedStyle = {};
-            }
-          }
-          
-          return {
-            name: row.name,
-            url: row.url || '',
-            style: parsedStyle,
-            is_default: row.is_default || false,
-            ville: row.ville,
-            icon: row.icon || null,
-            icon_color: row.icon_color || null
-          };
-        });
-    },
-
-    /**
-     * Récupère uniquement les styles pour une liste de couches données depuis la table 'layers'.
-     * N'inclut PAS les URLs afin d'éviter tout chargement legacy non souhaité.
-     * @param {string[]} names - Liste des noms de couches.
-     * @returns {Promise<Record<string, any>>} mapping { name: style }
-     */
-    fetchLayerStylesByNames: async function(names) {
-      try {
-        if (!Array.isArray(names) || names.length === 0) return {};
-
-        const activeCity = getActiveCity();
-
-        let q = supabaseClient
-          .from('layers')
-          .select('name, style, ville')
-          .in('name', names);
-
-        if (activeCity) {
-          // Filtrer uniquement par la ville active (plus de fallback global)
-          q = q.eq('ville', activeCity);
-        } else {
-          // Pas de ville : retourner vide
-          return {};
-        }
-
-        const { data, error } = await q;
-        if (error) {
-          return {};
-        }
-        // Construire le mapping name → style
-        const out = {};
-        (data || []).forEach(row => {
-          if (row && row.name) {
-            out[row.name] = row.style;
-          }
-        });
-        return out;
-      } catch (e) {
-        console.debug('[supabase] fetchLayerStylesByNames failed:', e);
-        return {};
-      }
+      if (error) return [];
+      return parseRows(data);
     },
 
     /**
@@ -183,47 +149,16 @@
     fetchCategoryIcons: async function() {
       try {
         const activeCity = getActiveCity();
+        if (!activeCity) return [];
 
-        let q = supabaseClient
-          .from('category_icons')
-          .select('category, icon_class, display_order, layers_to_display, category_styles, ville, available_tags')
-          .order('display_order', { ascending: true });
+        if (this._categoryIconsCache) return this._categoryIconsCache;
 
-        if (activeCity) {
-          // Ville spécifique : uniquement les catégories de cette ville
-          q = q.eq('ville', activeCity);
-        } else {
-          // Pas de ville : retourner vide
-          return [];
+        const early = await consumePrefetch('categoryIcons', activeCity, Array.isArray);
+        if (early) {
+          this._categoryIconsCache = early.filter(row => row?.category);
+          return this._categoryIconsCache;
         }
 
-        const { data, error } = await q;
-
-        if (error) {
-          console.debug('[supabaseService] fetchCategoryIcons error:', error);
-          return [];
-        }
-
-        return (data || []).filter(row => row && row.category);
-      } catch (e) {
-        console.debug('[supabaseService] fetchCategoryIcons exception:', e);
-        return [];
-      }
-    },
-
-    /**
-     * Récupère les catégories pour la ville active uniquement
-     * @returns {Promise<Array>}
-     */
-    fetchAllCategoryIcons: async function() {
-      try {
-        const activeCity = getActiveCity();
-        
-        if (!activeCity) {
-          console.debug('[supabaseService] fetchAllCategoryIcons: pas de ville active');
-          return [];
-        }
-        
         const { data, error } = await supabaseClient
           .from('category_icons')
           .select('category, icon_class, display_order, layers_to_display, category_styles, ville, available_tags')
@@ -231,13 +166,14 @@
           .order('display_order', { ascending: true });
 
         if (error) {
-          console.debug('[supabaseService] fetchAllCategoryIcons error:', error);
+          console.debug('[supabaseService] fetchCategoryIcons error:', error);
           return [];
         }
 
-        return (data || []).filter(row => row && row.category);
+        this._categoryIconsCache = (data || []).filter(row => row && row.category);
+        return this._categoryIconsCache;
       } catch (e) {
-        console.debug('[supabaseService] fetchAllCategoryIcons exception:', e);
+        console.debug('[supabaseService] fetchCategoryIcons exception:', e);
         return [];
       }
     },
@@ -657,25 +593,6 @@
       }, {});
     },
 
-    // fetchMobilityData: removed (legacy). Mobility catalog table is no longer consumed by the UI.
-
-    /**
-     * Récupère le mapping projet → URL de fiche
-     * @returns {Promise<Record<string,string>>}
-     */
-    fetchProjectPages: async function() {
-      const { data, error } = await supabaseClient
-        .from('project_pages')
-        .select('project_name, page_url');
-      if (error) {
-        return {};
-      }
-      return data.reduce((acc, { project_name, page_url }) => {
-        acc[project_name] = page_url;
-        return acc;
-      }, {});
-    },
-
 
     /**
      * Récupère tous les projets depuis contribution_uploads
@@ -683,68 +600,39 @@
      */
     fetchAllProjects: async function() {
       const activeCity = getActiveCity();
-      
-      // Pas de ville : retourner vide
-      if (!activeCity) {
-        return [];
-      }
-      
+      if (!activeCity) return [];
+
+      const early = await consumePrefetch('contributions', activeCity, Array.isArray);
+      if (early) return early;
+
       let q = supabaseClient
         .from('contribution_uploads')
         .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
         .eq('ville', activeCity)
         .order('created_at', { ascending: false });
-      try {
-        const { data: userData } = await supabaseClient.auth.getUser();
-        const uid = userData && userData.user ? userData.user.id : null;
-        if (uid) {
-          q = q.or(`approved.eq.true,created_by.eq.${uid}`);
-        } else {
-          q = q.eq('approved', true);
-        }
-      } catch (e) {
-        console.debug('[supabase] fetchAllProjects auth check failed:', e);
-        q = q.eq('approved', true);
-      }
+      q = await applyVisibilityFilter(q);
       
       const { data, error } = await q;
-      if (error) {
-        return [];
-      }
+      if (error) return [];
       return data; 
     },
 
     /**
      * Récupère les projets par catégorie depuis contribution_uploads
      * @param {string} category - La catégorie de projets à récupérer
-     * @returns {Promise<Array<{project_name:string, category:string, geojson_url:string, cover_url:string, markdown_url:string, meta:string, description:string}>>}
+     * @returns {Promise<Array>}
      */
     fetchProjectsByCategory: async function(category) {
       const activeCity = getActiveCity();
-      
-      // Pas de ville : retourner vide
-      if (!activeCity) {
-        return [];
-      }
+      if (!activeCity) return [];
       
       let q = supabaseClient
         .from('contribution_uploads')
-        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
+        .select('id, project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
         .eq('category', category)
         .eq('ville', activeCity)
         .order('created_at', { ascending: false });
-      try {
-        const { data: userData } = await supabaseClient.auth.getUser();
-        const uid = userData && userData.user ? userData.user.id : null;
-        if (uid) {
-          q = q.or(`approved.eq.true,created_by.eq.${uid}`);
-        } else {
-          q = q.eq('approved', true);
-        }
-      } catch (e) {
-        console.debug('[supabase] fetchProjectsByCategory auth check failed:', e);
-        q = q.eq('approved', true);
-      }
+      q = await applyVisibilityFilter(q);
       
       const { data, error } = await q;
       if (error) {
@@ -769,18 +657,7 @@
           .eq('category', category)
           .eq('project_name', projectName)
           .limit(1);
-        try {
-          const { data: userData } = await supabaseClient.auth.getUser();
-          const uid = userData && userData.user ? userData.user.id : null;
-          if (uid) {
-            q = q.or(`approved.eq.true,created_by.eq.${uid}`);
-          } else {
-            q = q.eq('approved', true);
-          }
-        } catch (e) {
-          console.debug('[supabase] fetchProjectByCategoryAndName auth check failed:', e);
-          q = q.eq('approved', true);
-        }
+        q = await applyVisibilityFilter(q);
         const { data, error } = await q.maybeSingle();
         if (error) {
           console.debug('[supabaseService] fetchProjectByCategoryAndName error:', error);
@@ -790,123 +667,6 @@
       } catch (e) {
         console.debug('[supabaseService] fetchProjectByCategoryAndName exception:', e);
         return null;
-      }
-    },
-
-    /**
-     * Charge les données GeoJSON depuis les URLs stockées dans contribution_uploads
-     * et les fusionne avec les couches existantes
-     * @param {string} layerName - Nom de la couche cible
-     * @param {string} category - Catégorie des projets à charger
-     * @returns {Promise<Object>} - Données GeoJSON fusionnées
-     */
-    loadContributionGeoJSON: async function(layerName, category, options) {
-      try {
-        const opts = options || {};
-        const normalize = (str) => String(str || '')
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '')
-          .trim();
-
-        // 1) Récupérer les projets de la catégorie
-        let projects = await this.fetchProjectsByCategory(category);
-
-        // 1.a Filtrage au niveau projet si projectName fourni (réduit le nombre de fetch)
-        if (opts.projectName) {
-          const target = normalize(opts.projectName);
-          projects = projects.filter(p => normalize(p.project_name) === target);
-        }
-
-        const geojsonFeatures = [];
-
-        // 2) Charger chaque GeoJSON en parallèle
-        const loadPromises = projects
-          .filter(project => project.geojson_url)
-          .map(async (project) => {
-            try {
-              const response = await fetch(project.geojson_url);
-              if (!response.ok) {
-                console.debug(`Impossible de charger le GeoJSON pour ${project.project_name}:`, response.status);
-                return null;
-              }
-              const geojson = await response.json();
-
-              // Ajouter les métadonnées du projet aux features
-              if (geojson.type === 'FeatureCollection' && geojson.features) {
-                geojson.features.forEach(feature => {
-                  if (!feature.properties) feature.properties = {};
-                  feature.properties.project_name = project.project_name;
-                  feature.properties.category = project.category;
-                  feature.properties.cover_url = project.cover_url;
-                  feature.properties.markdown_url = project.markdown_url;
-                  feature.properties.meta = project.meta;
-                  feature.properties.description = project.description;
-                });
-                return geojson.features;
-              } else if (geojson.type === 'Feature') {
-                if (!geojson.properties) geojson.properties = {};
-                geojson.properties.project_name = project.project_name;
-                geojson.properties.category = project.category;
-                geojson.properties.cover_url = project.cover_url;
-                geojson.properties.markdown_url = project.markdown_url;
-                geojson.properties.meta = project.meta;
-                geojson.properties.description = project.description;
-                return [geojson];
-              }
-              return null;
-            } catch (error) {
-              console.debug(`Erreur lors du chargement du GeoJSON pour ${project.project_name}:`, error);
-              return null;
-            }
-          });
-
-        const results = await Promise.all(loadPromises);
-        results.forEach(features => {
-          if (features) geojsonFeatures.push(...features);
-        });
-
-        // 3) Filtrage au niveau feature
-        let filtered = geojsonFeatures;
-        // 3.a Par nom de projet (fallback/garantie)
-        if (opts.projectName) {
-          const targetProj = normalize(opts.projectName);
-          const before = filtered.length;
-          filtered = filtered.filter(f => {
-            const props = (f && f.properties) ? f.properties : {};
-            const candidate = normalize(props.project_name || props.name || props.nom || props.Name || props.NOM || '');
-            return candidate === targetProj;
-          });
-          if (before !== filtered.length) {
-            console.debug(`[supabaseService] projectName filter applied: ${filtered.length}/${before}`);
-          }
-        }
-
-        // 3.b Par clé/valeur
-        if (opts.filterKey && (opts.filterValue !== undefined && opts.filterValue !== null)) {
-          const normKey = normalize(String(opts.filterKey)).replace(/\s+/g, '');
-          const normVal = normalize(String(opts.filterValue)).replace(/\s+/g, '');
-          filtered = filtered.filter(f => {
-            const props = (f && f.properties) ? f.properties : {};
-            const matchedKey = Object.keys(props).find(k => normalize(k).replace(/\s+/g, '') === normKey) || (Object.prototype.hasOwnProperty.call(props, opts.filterKey) ? opts.filterKey : null);
-            if (!matchedKey) return false;
-            const v = props[matchedKey];
-            if (v === undefined || v === null) return false;
-            return normalize(String(v)).replace(/\s+/g, '') === normVal;
-          });
-        }
-
-        return {
-          type: 'FeatureCollection',
-          features: filtered
-        };
-      } catch (error) {
-        console.debug('loadContributionGeoJSON error:', error);
-        return {
-          type: 'FeatureCollection',
-          features: []
-        };
       }
     },
 
@@ -960,14 +720,9 @@
      * @returns {Promise<Array<{name:string, label:string, kind:string, url:string, style_url?:string, attribution:string, theme?:string, is_default:boolean}>>}
      */
     fetchBasemaps: async function() {
-      // Consommer le prefetch si disponible (early-fetch.js)
-      if (win.__earlyFetches?.basemaps) {
-        try {
-          const early = await win.__earlyFetches.basemaps;
-          delete win.__earlyFetches.basemaps;
-          if (Array.isArray(early)) return early;
-        } catch { /* fallback requête normale */ }
-      }
+      const early = await consumePrefetch('basemaps', null, Array.isArray);
+      if (early) return early;
+
       const { data, error } = await supabaseClient
         .from('basemaps_v2')
         .select('*')
@@ -1005,18 +760,10 @@
     getCityBranding: async function(ville) {
       try {
         const v = String(ville || '').trim();
-        if (!v) {
-          return null;
-        }
+        if (!v) return null;
 
-        // Consommer le prefetch si la ville correspond (early-fetch.js)
-        if (win.__earlyFetches?.branding && win.__earlyCity === v) {
-          try {
-            const early = await win.__earlyFetches.branding;
-            delete win.__earlyFetches.branding;
-            if (early != null) return Array.isArray(early) ? early[0] || null : early;
-          } catch { /* fallback requête normale */ }
-        }
+        const early = await consumePrefetch('branding', v, e => e != null);
+        if (early) return Array.isArray(early) ? early[0] || null : early;
 
         const { data, error } = await supabaseClient
           .from('city_branding')
@@ -1029,7 +776,6 @@
           console.debug('[supabaseService] getCityBranding error:', error);
           return null;
         }
-        
         return data || null;
       } catch (e) {
         console.debug('[supabaseService] getCityBranding exception:', e);
@@ -1048,46 +794,17 @@
         const norm = (v) => String(v || '').toLowerCase().trim();
         const set = new Set();
 
-        // 1) Source principale: city_branding
-        try {
-          const { data, error } = await supabaseClient
-            .from('city_branding')
-            .select('ville');
-          if (!error && Array.isArray(data)) {
-            data.forEach(r => { const v = norm(r && r.ville); if (v) set.add(v); });
-          } else if (error) {
-            console.debug('[supabaseService] getValidCities city_branding error:', error);
-          }
-        } catch (e1) {
-          console.debug('[supabaseService] getValidCities city_branding exception:', e1);
-        }
+        // Lancer les 3 sources en parallèle
+        const [brandingRes, layersRes, contribRes] = await Promise.allSettled([
+          supabaseClient.from('city_branding').select('ville'),
+          supabaseClient.from('layers').select('ville'),
+          supabaseClient.from('contribution_uploads').select('ville')
+        ]);
 
-        // 2) Fallback: layers.ville
-        try {
-          const { data, error } = await supabaseClient
-            .from('layers')
-            .select('ville');
-          if (!error && Array.isArray(data)) {
-            data.forEach(r => { const v = norm(r && r.ville); if (v) set.add(v); });
-          } else if (error) {
-            console.debug('[supabaseService] getValidCities layers error:', error);
+        for (const res of [brandingRes, layersRes, contribRes]) {
+          if (res.status === 'fulfilled' && !res.value.error && Array.isArray(res.value.data)) {
+            res.value.data.forEach(r => { const v = norm(r && r.ville); if (v) set.add(v); });
           }
-        } catch (e2) {
-          console.debug('[supabaseService] getValidCities layers exception:', e2);
-        }
-
-        // 3) Fallback: contribution_uploads.ville
-        try {
-          const { data, error } = await supabaseClient
-            .from('contribution_uploads')
-            .select('ville');
-          if (!error && Array.isArray(data)) {
-            data.forEach(r => { const v = norm(r && r.ville); if (v) set.add(v); });
-          } else if (error) {
-            console.debug('[supabaseService] getValidCities contribution_uploads error:', error);
-          }
-        } catch (e3) {
-          console.debug('[supabaseService] getValidCities contribution_uploads exception:', e3);
         }
 
         return Array.from(set);
@@ -1124,27 +841,6 @@
     },
 
     /**
-     * Met à jour le titre d'un dossier de concertation.
-     * @param {number|string} id
-     * @param {string} newTitle
-     * @returns {Promise<boolean>}
-     */
-    updateConsultationDossierTitle: async function(id, newTitle) {
-      try {
-        if (!id) throw new Error('id requis');
-        const { error } = await supabaseClient
-          .from('consultation_dossiers')
-          .update({ title: newTitle })
-          .eq('id', id);
-        if (error) { console.error('[supabaseService] updateConsultationDossierTitle error:', error); return false; }
-        return true;
-      } catch (e) {
-        console.error('[supabaseService] updateConsultationDossierTitle exception:', e);
-        return false;
-      }
-    },
-
-    /**
      * Supprime un dossier de concertation par id.
      * @param {number|string} id
      * @returns {Promise<boolean>}
@@ -1165,31 +861,9 @@
     },
 
     /**
-     * Met à jour l'URL (pdf_url) d'un dossier de concertation.
-     * @param {number|string} id
-     * @param {string} newUrl
-     * @returns {Promise<boolean>}
-     */
-    updateConsultationDossierUrl: async function(id, newUrl) {
-      try {
-        if (!id) throw new Error('id requis');
-        const { error } = await supabaseClient
-          .from('consultation_dossiers')
-          .update({ pdf_url: newUrl })
-          .eq('id', id);
-        if (error) { console.error('[supabaseService] updateConsultationDossierUrl error:', error); return false; }
-        return true;
-      } catch (e) {
-        console.error('[supabaseService] updateConsultationDossierUrl exception:', e);
-        return false;
-      }
-    },
-
-    /**
      * Upload d'un fichier GeoJSON dans le bucket Storage 'uploads' et retourne son URL publique.
-     * Le chemin est dérivé de la catégorie et d'un slug du nom de projet.
      * @param {File|Blob} file
-     * @param {string} categoryLayer - mobilite | urbanisme | velo
+     * @param {string} categoryLayer
      * @param {string} projectName
      * @param {number} rowId
      * @returns {Promise<string>} publicUrl
@@ -1211,7 +885,6 @@
           throw upErr;
         }
         const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
-        // Log applicatif minimal: renseigne geojson_url
         try {
           if (win.supabaseService && typeof win.supabaseService.logContributionUpload === 'function') {
             await win.supabaseService.logContributionUpload(projectName, categoryLayer, data.publicUrl, 'geojson', rowId);
@@ -1228,10 +901,10 @@
 
     /**
      * Upload d'une image de cover dans le bucket Storage 'uploads' et retourne son URL publique.
-     * Le chemin est dérivé de la catégorie et d'un slug du nom de projet.
      * @param {File|Blob} file
-     * @param {string} categoryLayer - mobilite | urbanisme | velo
+     * @param {string} categoryLayer
      * @param {string} projectName
+     * @param {number} rowId
      * @returns {Promise<string>} publicUrl
      */
     uploadCoverToStorage: async function(file, categoryLayer, projectName, rowId) {
@@ -1239,20 +912,16 @@
         if (!file || !categoryLayer || !projectName) throw new Error('Paramètres manquants');
         const safeCat = slugify(categoryLayer);
         const safeName = slugify(projectName);
-
-        // Déterminer l'extension à partir du nom/type de fichier
         const lower = (file.name || '').toLowerCase();
         const ext = (lower.endsWith('.jpg') || lower.endsWith('.jpeg'))
           ? '.jpg'
-          : (lower.endsWith('.webp') ? '.webp' : '.png'); // éviter svg pour sécurité
+          : (lower.endsWith('.webp') ? '.webp' : '.png');
         const contentType = (file.type && file.type.startsWith('image/'))
           ? file.type
           : ({ '.jpg': 'image/jpeg', '.webp': 'image/webp', '.png': 'image/png' })[ext];
-
         const ts = Date.now();
         const path = `img/cover/${safeCat}/${safeName}-${ts}${ext}`;
         const bucket = 'uploads';
-
         const { error: upErr } = await supabaseClient
           .storage
           .from(bucket)
@@ -1261,7 +930,6 @@
           console.error('[supabaseService] uploadCoverToStorage error:', upErr);
           throw upErr;
         }
-
         const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
         try {
           if (win.supabaseService && typeof win.supabaseService.logContributionUpload === 'function') {
@@ -1302,37 +970,6 @@
       } catch (e) {
         console.error('[supabaseService] uploadBrandingAsset exception:', e);
         throw e;
-      }
-    },
-
-    /**
-     * Récupère les documents de consultation pour un projet.
-     * @param {string} projectName
-     * @param {string|null} category - optionnel, pour filtrer par catégorie
-     * @returns {Promise<Array>}
-     */
-    fetchConsultationDossiers: async function(projectName, category = null) {
-      try {
-        if (!projectName) return [];
-        let query = supabaseClient
-          .from('consultation_dossiers')
-          .select('id, project_name, category, title, pdf_url')
-          .eq('project_name', projectName)
-          .order('id', { ascending: true });
-        
-        if (category) {
-          query = query.eq('category', category);
-        }
-        
-        const { data, error } = await query;
-        if (error) {
-          console.debug('[supabaseService] fetchConsultationDossiers error:', error);
-          return [];
-        }
-        return data || [];
-      } catch (e) {
-        console.debug('[supabaseService] fetchConsultationDossiers exception:', e);
-        return [];
       }
     },
 
@@ -1428,31 +1065,6 @@
       } catch (e) {
         console.error('[supabaseService] createContributionRow exception:', e);
         throw e;
-      }
-    },
-
-    /**
-     * Liste des villes distinctes présentes dans la base pour alimenter le sélecteur.
-     * Source: contribution_uploads.ville (filtrées, non null/non vide), dédupliquées côté client.
-     * @returns {Promise<string[]>}
-     */
-    listCities: async function() {
-      try {
-        const { data, error } = await supabaseClient
-          .from('contribution_uploads')
-          .select('ville');
-        if (error) {
-          console.debug('[supabaseService] listCities error:', error);
-          return [];
-        }
-        const vals = Array.isArray(data) ? data.map(r => (r && r.ville ? String(r.ville).trim() : '')) : [];
-        const uniq = Array.from(new Set(vals.filter(v => !!v)));
-        // tri alpha pour UX stable
-        uniq.sort((a,b) => a.localeCompare(b));
-        return uniq;
-      } catch (e) {
-        console.debug('[supabaseService] listCities exception:', e);
-        return [];
       }
     },
 
@@ -1578,33 +1190,6 @@
       }
     },
 
-    /**
-     * Met à jour les champs meta et description sur la ligne de contribution.
-     * Les champs vides/indéfinis ne sont pas patchés.
-     * @param {number} rowId
-     * @param {string} [meta]
-     * @param {string} [description]
-     * @returns {Promise<{error:null|any}>}
-     */
-    updateContributionMeta: async function(rowId, meta, description) {
-      try {
-        if (!rowId) return { error: new Error('rowId required') };
-        const patch = {};
-        if (meta && meta.trim()) patch.meta = meta.trim();
-        if (description && description.trim()) patch.description = description.trim();
-        if (Object.keys(patch).length === 0) return { error: null };
-        const { error } = await supabaseClient
-          .from('contribution_uploads')
-          .update(patch)
-          .eq('id', rowId);
-        if (error) console.debug('[supabaseService] updateContributionMeta update error:', error);
-        return { error: null };
-      } catch (e) {
-        console.debug('[supabaseService] updateContributionMeta exception:', e);
-        return { error: e };
-      }
-    },
-
 
     /**
      * Charge toutes les données fetch* en parallèle,
@@ -1614,23 +1199,21 @@
      */
     initAllData: async function() {
       const svc = this;
-      // 1️⃣ repérer toutes les méthodes commençant par 'fetch' (sauf celles à exclure de l'auto-chargement)
+      // Repérer toutes les méthodes commençant par 'fetch' (sauf celles à exclure de l'auto-chargement)
+      const exclude = ['fetchAllProjects', 'fetchProjectsByCategory', 'fetchProjectByCategoryAndName', 'fetchMyTravaux'];
       const fetchers = Object
         .entries(svc)
         .filter(([key, fn]) => key.startsWith('fetch') && typeof fn === 'function')
-        // Exclure les fetchers non nécessaires au démarrage
-        .filter(([key]) => !['fetchUrbanismeProjects', 'fetchMobiliteProjects', 'fetchVoielyonnaiseProjects', 'fetchAllProjects', 'fetchProjectsByCategory', 'fetchProjectByCategoryAndName', 'fetchProjectPages'].includes(key));
+        .filter(([key]) => !exclude.includes(key));
 
-      // 2️⃣ appeler tous les fetchers en parallèle avec Promise.allSettled
-      // pour éviter qu'une erreur bloque tout le chargement
+      // Appeler tous les fetchers en parallèle avec Promise.allSettled
       const settledResults = await Promise.allSettled(
         fetchers.map(([key, fn]) => fn.call(svc).catch(err => {
           console.debug(`[supabaseService] initAllData: ${key} failed:`, err);
-          return null; // Valeur par défaut en cas d'erreur
+          return null;
         }))
       );
       
-      // Extraire les résultats (fulfilled ou valeur par défaut)
       const results = settledResults.map((result, i) => {
         if (result.status === 'fulfilled') {
           return result.value;
@@ -1640,21 +1223,18 @@
         }
       });
 
-      // 3️⃣ construire l'objet de retour et injecter sur window
+      // Construire l'objet de retour et injecter sur window
       const out = {};
       fetchers.forEach(([key], i) => {
-        // map 'fetchLayersConfig' → 'layersConfig'
         let prop;
         switch(key) {
           case 'fetchLayersConfig': prop = 'layersConfig'; break;
           case 'fetchMetroColors':   prop = 'metroColors';   break;
-          case 'fetchProjectPages':  prop = 'projectPages';  break;
           case 'fetchBasemaps':             prop = 'basemaps';             break;
           default:
             const name = key.replace(/^fetch/, '');
             prop = name[0].toLowerCase() + name.slice(1);
         }
-        // Utiliser un tableau vide comme fallback si null
         out[prop] = results[i] ?? [];
         window[prop] = results[i] ?? [];
       });
@@ -1976,19 +1556,8 @@
           return [];
         }
         
-        // Récupérer les villes de l'admin (déjà un array JavaScript natif depuis Supabase)
-        let adminVilles = [];
-        if (adminProfile.ville) {
-          if (Array.isArray(adminProfile.ville)) {
-            adminVilles = adminProfile.ville;
-          } else {
-            // Fallback si c'est une string ou autre
-            console.debug('[supabaseService] getVisibleUsers: ville is not an array, converting');
-            adminVilles = [adminProfile.ville];
-          }
-        }
-        
-        const isGlobalAdmin = Array.isArray(adminVilles) && adminVilles.includes('global');
+        const adminVilles = parseVilleArray(adminProfile.ville);
+        const isGlobalAdmin = adminVilles.includes('global');
         
         // Récupérer tous les utilisateurs (sauf soi-même) avec leur email via la fonction
         const { data: allUsers, error: usersError } = await supabaseClient
@@ -2002,25 +1571,7 @@
         // Filtrer pour exclure l'utilisateur connecté et parser ville
         const filteredUsers = (allUsers || [])
           .filter(u => u.id !== user.id)
-          .map(u => {
-            // Parser ville - peut être soit JSON array soit PostgreSQL array format
-            let parsedVille = u.ville;
-            if (typeof u.ville === 'string' && u.ville) {
-              // Si c'est un PostgreSQL array format: {lyon,divonne}
-              if (u.ville.startsWith('{') && u.ville.endsWith('}')) {
-                const content = u.ville.slice(1, -1); // Enlever { et }
-                parsedVille = content ? content.split(',') : [];
-              } else {
-                // Sinon essayer de parser comme JSON
-                try {
-                  parsedVille = JSON.parse(u.ville);
-                } catch (e) {
-                  console.debug('[supabase] getVisibleUsers: ville JSON parse failed, keeping original:', e);
-                }
-              }
-            }
-            return { ...u, ville: parsedVille };
-          });
+          .map(u => ({ ...u, ville: parseVilleArray(u.ville) }));
         
         // Filtrer selon les permissions (la fonction a déjà filtré par admin, mais on filtre encore par ville si nécessaire)
         let visibleUsers = filteredUsers;
@@ -2092,17 +1643,8 @@
           throw new Error('Unauthorized: caller is not admin');
         }
         
-        // Récupérer les villes de l'admin (déjà un array JavaScript natif depuis Supabase)
-        let adminVilles = [];
-        if (adminProfile.ville) {
-          if (Array.isArray(adminProfile.ville)) {
-            adminVilles = adminProfile.ville;
-          } else {
-            adminVilles = [adminProfile.ville];
-          }
-        }
-        
-        const isGlobalAdmin = Array.isArray(adminVilles) && adminVilles.includes('global');
+        const adminVilles = parseVilleArray(adminProfile.ville);
+        const isGlobalAdmin = adminVilles.includes('global');
         
         // Récupérer le profil de la cible
         const { data: targetProfile, error: targetError } = await supabaseClient
@@ -2127,12 +1669,7 @@
             throw new Error('Target user has no cities assigned');
           }
           
-          let targetVilles = [];
-          if (Array.isArray(targetProfile.ville)) {
-            targetVilles = targetProfile.ville;
-          } else if (targetProfile.ville) {
-            targetVilles = [targetProfile.ville];
-          }
+          const targetVilles = parseVilleArray(targetProfile.ville);
           
           const hasSharedCity = adminVilles.some(adminCity => targetVilles.includes(adminCity));
           
@@ -2185,16 +1722,7 @@
           return [];
         }
 
-        // Parser les villes
-        let adminVilles = [];
-        if (adminProfile.ville) {
-          if (Array.isArray(adminProfile.ville)) {
-            adminVilles = adminProfile.ville;
-          } else {
-            adminVilles = [adminProfile.ville];
-          }
-        }
-
+        const adminVilles = parseVilleArray(adminProfile.ville);
         const isGlobalAdmin = adminVilles.includes('global');
 
         // Si admin global, récupérer toutes les villes depuis city_branding
@@ -2306,17 +1834,7 @@
       );
       if (!existing) throw new Error('Utilisateur introuvable dans les profils');
 
-      // Parser les villes actuelles
-      let currentVilles = existing.ville || [];
-      if (typeof currentVilles === 'string') {
-        if (currentVilles.startsWith('{') && currentVilles.endsWith('}')) {
-          const inner = currentVilles.slice(1, -1);
-          currentVilles = inner ? inner.split(',') : [];
-        } else {
-          try { currentVilles = JSON.parse(currentVilles); } catch (e) { console.debug('[supabase] _addVilleToExistingUser: ville JSON parse failed:', e); currentVilles = []; }
-        }
-      }
-      if (!Array.isArray(currentVilles)) currentVilles = [];
+      const currentVilles = parseVilleArray(existing.ville);
 
       // Fusionner sans doublons
       const merged = [...new Set([...currentVilles, ...newVilles])];
@@ -2469,6 +1987,36 @@
 
     /**
      * Récupère les chantiers travaux pour une ville.
+    /**
+     * Récupère les travaux proposés par l'utilisateur connecté pour une ville
+     * @param {string} city - Code ville
+     * @returns {Promise<Array>}
+     */
+    async fetchMyTravaux(city) {
+      try {
+        const sanitized = sanitizeCity(city);
+        if (!sanitized) return [];
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (!user) return [];
+        const { data, error } = await supabaseClient
+          .from('city_travaux')
+          .select('*')
+          .eq('ville', sanitized)
+          .eq('created_by', user.id)
+          .order('created_at', { ascending: false });
+        if (error) {
+          console.debug('[supabaseService] fetchMyTravaux error:', error);
+          return [];
+        }
+        return data || [];
+      } catch (e) {
+        console.debug('[supabaseService] fetchMyTravaux exception:', e);
+        return [];
+      }
+    },
+
+    /**
+     * Charge les chantiers travaux d'une ville depuis city_travaux.
      * - Admins : tous les chantiers (approuvés ou non)
      * - Public : approved=true uniquement (RLS l'applique aussi)
      * @param {string|null} city - Code ville
@@ -2730,16 +2278,11 @@
      */
     fetchCityModules: async function(ville) {
       try {
+        ville = ville || getActiveCity();
         if (!ville) return [];
 
-        // Consommer le prefetch si la ville correspond (early-fetch.js)
-        if (win.__earlyFetches?.cityModules && win.__earlyCity === ville) {
-          try {
-            const early = await win.__earlyFetches.cityModules;
-            delete win.__earlyFetches.cityModules;
-            if (Array.isArray(early)) return early;
-          } catch { /* fallback requête normale */ }
-        }
+        const early = await consumePrefetch('cityModules', ville, Array.isArray);
+        if (early) return early;
 
         const { data, error } = await supabaseClient
           .from('city_modules')
@@ -2862,15 +2405,6 @@
           layers_to_display: config.layers_to_display || ['travaux'],
         },
       });
-    },
-
-    /**
-     * Compatibilité — supprime la config travaux via city_modules
-     * @param {string} ville
-     * @returns {Promise<{success: boolean, error: Error|null}>}
-     */
-    deleteTravauxConfig: async function(ville) {
-      return this.deleteCityModule(ville, 'travaux');
     }
   };
 })(window);
