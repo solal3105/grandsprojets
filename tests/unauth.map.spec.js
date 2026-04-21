@@ -854,3 +854,78 @@ test.describe('0.16 — Routage clic feature', () => {
     expect(calls.showProjectDetailById).toBe(0);
   });
 });
+
+// ═════════════════════════════════════════════════════════
+// 0.17 — Résilience de l'init (banner d'erreur)
+//
+// Le banner rouge `#init-error-message` ne doit apparaître que
+// si l'application est VRAIMENT inutilisable (map non créée).
+// Une simple erreur dans une phase secondaire (FilterManager,
+// Sidebar, UIModule…) ne doit PAS afficher le banner.
+// ═════════════════════════════════════════════════════════
+test.describe('0.17 — Résilience init (banner)', () => {
+
+  test('0.17.1 — Pas de banner init-error-message après boot normal', async ({ page }) => {
+    await waitForMapBoot(page);
+    const banner = page.locator('#init-error-message');
+    await expect(banner).toHaveCount(0);
+  });
+
+  test('0.17.2 — Une panne de FilterManager.init n\'affiche PAS le banner', async ({ page }) => {
+    await page.addInitScript(() => {
+      // Patcher FilterManager.init pour qu'il throw après chargement de main.js
+      Object.defineProperty(window, 'FilterManager', {
+        configurable: true,
+        get() { return this.__fm; },
+        set(v) {
+          this.__fm = v;
+          if (v && typeof v === 'object' && !v.__patched) {
+            v.__patched = true;
+            const origInit = v.init;
+            v.init = function() {
+              if (origInit) { try { origInit.call(this); } catch { /* noop */ } }
+              throw new Error('TEST: FilterManager.init simulated failure');
+            };
+          }
+        }
+      });
+    });
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    // Attendre que l'app ait fini (carte créée ou banner éventuellement)
+    await page.waitForFunction(
+      () => !!document.querySelector('#map canvas') || !!document.getElementById('init-error-message'),
+      { timeout: 20000 }
+    );
+    // La carte doit être là, le banner NE doit PAS être là
+    await expect(page.locator('#map canvas')).toHaveCount(1);
+    await expect(page.locator('#init-error-message')).toHaveCount(0);
+  });
+
+  test('0.17.3 — Une erreur dans CityManager.initCityMenu n\'affiche PAS le banner', async ({ page }) => {
+    await page.addInitScript(() => {
+      // Patcher CityManager avant Phase 2
+      const origDefine = Object.defineProperty;
+      Object.defineProperty(window, 'CityManager', {
+        configurable: true,
+        get() { return this.__cm; },
+        set(v) {
+          this.__cm = v;
+          if (v && typeof v === 'object' && !v.__patched) {
+            v.__patched = true;
+            const orig = v.initCityMenu;
+            v.initCityMenu = async function() {
+              if (orig) { try { await orig.apply(this, arguments); } catch { /* noop */ } }
+              throw new Error('TEST: initCityMenu simulated failure');
+            };
+          }
+        }
+      });
+    });
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(
+      () => !!document.querySelector('#map canvas') || !!document.getElementById('init-error-message'),
+      { timeout: 20000 }
+    );
+    await expect(page.locator('#init-error-message')).toHaveCount(0);
+  });
+});

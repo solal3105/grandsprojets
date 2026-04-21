@@ -168,6 +168,27 @@
     } catch (e) { console.debug('[main] Failed to persist load-complete marker:', e); }
   }
 
+  /**
+   * Exécute une étape d'init en isolant ses erreurs.
+   * Par défaut, une erreur est loggée mais n'interrompt pas le reste de l'init.
+   * Seules les étapes marquées `critical: true` propagent l'erreur.
+   * @param {string} name - nom de phase (pour diagnostic)
+   * @param {Function} fn - fonction async ou sync
+   * @param {{critical?: boolean}} opts
+   */
+  async function safePhase(name, fn, opts = {}) {
+    try {
+      return await fn();
+    } catch (err) {
+      // On trace toujours côté diagnostic sans faire apparaître le banner rouge
+      console.error(`[Main] Phase "${name}" en erreur:`, err);
+      win._initPhaseErrors = win._initPhaseErrors || [];
+      win._initPhaseErrors.push({ phase: name, message: String(err?.message || err) });
+      if (opts.critical) throw err;
+      return undefined;
+    }
+  }
+
   async function initApp() {
     try {
       // PHASE 0 : Health check automatique du localStorage
@@ -182,17 +203,24 @@
       }
       
       // PHASE 1 : Modules de base
-      win.AnalyticsModule?.init();
-      win.ThemeManager?.init();
-      await win.CityManager?.loadValidCities();
+      // Chacun protégé individuellement : une panne réseau sur une ville
+      // ou un échec analytics ne doit jamais bloquer le boot.
+      safePhase('AnalyticsModule.init', () => win.AnalyticsModule?.init());
+      safePhase('ThemeManager.init', () => win.ThemeManager?.init());
+      await safePhase('CityManager.loadValidCities', () => win.CityManager?.loadValidCities());
 
       // PHASE 2 : Ville active et redirections
       // Appliquer les redirections de routes (route-config.js)
-      if (win.RouteConfig && typeof win.RouteConfig.applyRedirect === 'function') {
-        win.RouteConfig.applyRedirect();
-      }
+      safePhase('RouteConfig.applyRedirect', () => {
+        if (win.RouteConfig && typeof win.RouteConfig.applyRedirect === 'function') {
+          win.RouteConfig.applyRedirect();
+        }
+      });
 
-      let city = win.CityManager?.initializeActiveCity();
+      let city = null;
+      try {
+        city = win.CityManager?.initializeActiveCity();
+      } catch (err) { console.error('[Main] Phase "CityManager.initializeActiveCity" en erreur:', err); }
       
       // Forcer metropole-lyon si city est vide ou null
       if (!city) {
@@ -202,8 +230,8 @@
       }
       
       // Phase 2 : un seul fetch branding (stocké dans CityManager._branding)
-      await win.CityManager?.updateLogoForCity(city);
-      await win.CityManager?.initCityMenu(city);
+      await safePhase('CityManager.updateLogoForCity', () => win.CityManager?.updateLogoForCity(city));
+      await safePhase('CityManager.initCityMenu', () => win.CityManager?.initCityMenu(city));
       win.toggleManager?.markReady('city');
 
       // PHASE 2.5 : Appliquer le branding (couleur, favicon, toggles) sans re-fetcher
@@ -229,14 +257,34 @@
       await yieldToMain();
 
       // PHASE 3 : Données Supabase (consomme les early-fetches)
+      // `initAllData` utilise déjà `Promise.allSettled` → ne throw jamais.
+      // On ajoute une relance en cas de résultat anormalement vide (panne
+      // réseau ponctuelle au démarrage → basemaps/layers absents = map vide).
+      let phase3 = await supabaseService.initAllData(city);
+      const isEmpty = (v) => !v || (Array.isArray(v) && v.length === 0);
+      if (isEmpty(phase3?.basemaps) && isEmpty(phase3?.layersConfig)) {
+        console.warn('[Main] initAllData retourne vide, nouvelle tentative dans 600ms…');
+        await new Promise(r => setTimeout(r, 600));
+        try { phase3 = await supabaseService.initAllData(city); }
+        catch (err) { console.error('[Main] initAllData retry failed:', err); }
+      }
+
       const {
-        layersConfig,
-        metroColors,
+        layersConfig: _layersConfigRaw,
+        metroColors: _metroColorsRaw,
         filtersConfig: _filtersConfig,
-        basemaps: remoteBasemaps,
-        categoryIcons: initCategoryIcons,
-        cityModules: initCityModules
-      } = await supabaseService.initAllData(city);
+        basemaps: _remoteBasemapsRaw,
+        categoryIcons: _initCategoryIconsRaw,
+        cityModules: _initCityModulesRaw
+      } = phase3 || {};
+
+      // Normaliser : chaque phase utilise `forEach`/`.length` sur ces tableaux,
+      // un `undefined` ici ferait crasher l'init et afficher le banner rouge.
+      const layersConfig = Array.isArray(_layersConfigRaw) ? _layersConfigRaw : [];
+      const metroColors = _metroColorsRaw || {};
+      const remoteBasemaps = Array.isArray(_remoteBasemapsRaw) ? _remoteBasemapsRaw : [];
+      const initCategoryIcons = Array.isArray(_initCategoryIconsRaw) ? _initCategoryIconsRaw : [];
+      const initCityModules = Array.isArray(_initCityModulesRaw) ? _initCityModulesRaw : [];
 
       // PHASE 4 : Carte et couches
       window.dataConfig = window.dataConfig || {};
@@ -251,14 +299,15 @@
       win._cityPreferredBasemap = cityBranding?.default_basemap || null;
 
       if (window.UIModule?.updateBasemaps) {
-        window.UIModule.updateBasemaps(basemapsForCity);
+        try { window.UIModule.updateBasemaps(basemapsForCity); }
+        catch (err) { console.error('[Main] UIModule.updateBasemaps failed:', err); }
       }
       
       // Initialiser le basemap - MapModule sélectionne par priorité :
       // ville préférée → thème courant → is_default → premier
-      window.MapModule.initBaseLayer();
+      await safePhase('MapModule.initBaseLayer', () => window.MapModule?.initBaseLayer?.());
       
-      win.CityManager?.applyCityInitialView(city);
+      await safePhase('CityManager.applyCityInitialView', () => win.CityManager?.applyCityInitialView(city));
       
       const { DataModule, MapModule } = win;
       const urlMap        = {};
@@ -385,12 +434,14 @@
       
       
       if (win.SidebarModule) {
-        win.SidebarModule.init();
+        safePhase('SidebarModule.init', () => win.SidebarModule.init());
       }
       if (win.NavPanel) {
-        win.NavPanel.init();
-        win.CarteNav?.register();
-        win.TravauxNav?.register();
+        safePhase('NavPanel.init', () => {
+          win.NavPanel.init();
+          win.CarteNav?.register();
+          win.TravauxNav?.register();
+        });
       }
       const contributionsByCategory = {};
       allContributions.forEach(contrib => {
@@ -453,11 +504,11 @@
 
       // Initialiser SearchModule maintenant qu'il est chargé
       if (window.SearchModule?.init) {
-        window.SearchModule.init(window.MapModule.map);
+        safePhase('SearchModule.init', () => window.SearchModule.init(window.MapModule?.map));
       }
 
       // PHASE 6 : Modules UI
-      await win.FilterManager?.init();
+      await safePhase('FilterManager.init', () => win.FilterManager?.init());
       win.toggleManager?.markReady('filters');
 
       if (DataModule.preloadLayer) {
@@ -470,22 +521,26 @@
       
       
       if (window.UIModule?.init) {
-        window.UIModule.init({ basemaps: basemapsForCity });
-        win.toggleManager?.markReady('basemap');
-        win.toggleManager?.markReady('theme');
+        safePhase('UIModule.init', () => {
+          window.UIModule.init({ basemaps: basemapsForCity });
+          win.toggleManager?.markReady('basemap');
+          win.toggleManager?.markReady('theme');
+        });
       }
       
       if (window.GeolocationModule) {
-        window.GeolocationModule.init(window.MapModule.map);
+        safePhase('GeolocationModule.init', () => window.GeolocationModule.init(window.MapModule?.map));
         // markReady('location') is called inside GeolocationModule.init()
       }
       
       // Système unifié d'interactions (click contributions + travaux + sélection)
       if (window.FeatureInteractions && window.MapModule?.map?._mlMap) {
-        window.FeatureInteractions.init(window.MapModule.map._mlMap);
-        // Précharger les images cover en arrière-plan
-        const allFeatures = layersToLoad.flatMap(l => DataModule.layerData[l]?.features || []);
-        window.FeatureInteractions.preloadCovers(allFeatures);
+        safePhase('FeatureInteractions.init', () => {
+          window.FeatureInteractions.init(window.MapModule.map._mlMap);
+          // Précharger les images cover en arrière-plan
+          const allFeatures = layersToLoad.flatMap(l => DataModule.layerData[l]?.features || []);
+          window.FeatureInteractions.preloadCovers(allFeatures);
+        });
       }
       
       await yieldToMain();
@@ -758,8 +813,23 @@
     } catch (err) {
       console.error('[Main] Erreur lors de l\'initialisation:', err);
       
+      // N'afficher le banner que si l'app est VRAIMENT inutilisable :
+      // - Le module carte n'a pas pu être créé, OU
+      // - Le conteneur #map n'a jamais reçu de canvas MapLibre
+      // Sinon, l'utilisateur peut continuer à utiliser la carte même si
+      // une phase secondaire (filtres, sidebar, géoloc…) a échoué.
+      const mapReady = !!(win.MapModule?.map && document.querySelector('#map canvas'));
+      if (mapReady) {
+        // App utilisable → pas de banner, juste un log + marquer la fin
+        console.warn('[Main] Init terminée avec une erreur partielle — app utilisable.');
+        try { markLoadComplete(); } catch { /* noop */ }
+        return;
+      }
+
       // Afficher un message d'erreur visible pour l'utilisateur
       try {
+        // Éviter les doublons si déjà affiché
+        if (document.getElementById('init-error-message')) return;
         const errorDiv = document.createElement('div');
         errorDiv.id = 'init-error-message';
         errorDiv.style.cssText = `
