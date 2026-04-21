@@ -27,11 +27,13 @@ Structure attendue :
 - Un titre H2 avec le nom du projet
 - Un paragraphe d'introduction (contexte, porteur du projet, état d'avancement)
 - 2-3 sections H3 (ex : Contexte, Objectifs, Calendrier & Budget, Impacts attendus)
+- Si tu trouves une image ou illustration pertinente (rendu, plan, photo), intègre-la avec la syntaxe Markdown : ![description](url)
+- Pour sourcer un fait précis, tu peux utiliser un lien inline [texte](url) avec parcimonie
 - Style factuel, institutionnel, accessible au grand public
 - Longueur : 400-800 mots
 Tu dois écrire en français. Ne mets pas de titre H1.
 IMPORTANT : Utilise impérativement la recherche web pour trouver des informations récentes et précises sur ce projet. Intègre des données chiffrées, des dates, des acteurs impliqués si disponibles.
-IMPORTANT : N'inclus AUCUN lien hypertexte inline [texte](url) dans le corps du texte. Les sources sont affichées séparément. Texte Markdown sans liens.`;
+IMPORTANT : Ne commence JAMAIS l'article par un lien seul ou une citation — commence directement par le contenu structuré (titre H2 puis introduction).`;
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
