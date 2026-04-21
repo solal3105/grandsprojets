@@ -1270,3 +1270,128 @@ test.describe('0.23 — Fiche : sécurité', () => {
     }
   });
 });
+
+// ═════════════════════════════════════════════════════════
+// 0.24 — Fiche : hydratation client (régression)
+//
+// Ces tests ciblent spécifiquement le cas où le SSR injecte
+// du contenu mais où l'hydratation JS échoue silencieusement
+// (ex : exception non capturée dans `fetchProjectByCategoryAndName`).
+// Sans ces tests, le bug est invisible car les assertions des
+// autres blocs sont gardées par `if (!isHidden)` qui passe dès
+// que le bloc n'a pas été révélé par le code client.
+// ═════════════════════════════════════════════════════════
+test.describe('0.24 — Fiche : hydratation client (régression)', () => {
+
+  test('0.24.1 — Aucune exception console lors de l\'init (fetch projet)', async ({ page }) => {
+    test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
+    const consoleErrors = [];
+    page.on('console', m => {
+      if (m.type() === 'error' || m.type() === 'debug') {
+        const t = m.text();
+        // On cible spécifiquement les exceptions du service Supabase
+        if (t.includes('supabaseService') && t.includes('exception')) {
+          consoleErrors.push(t);
+        }
+      }
+    });
+    await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
+    // L'init appelle fetchProjectByCategoryAndName et getConsultationDossiersByProject
+    await page.waitForTimeout(2000);
+    expect(consoleErrors, `Exceptions rencontrées : ${consoleErrors.join(' | ')}`).toHaveLength(0);
+  });
+
+  test('0.24.2 — Le SSR est masqué (is-hydrated) après boot réussi', async ({ page }) => {
+    test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
+    await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
+    // Attendre que le flag d'hydratation soit posé
+    await page.waitForFunction(
+      () => document.getElementById('fv2-ssr-content')?.classList.contains('is-hydrated'),
+      { timeout: 10000 }
+    );
+    const hydrated = await page.evaluate(() =>
+      document.getElementById('fv2-ssr-content')?.classList.contains('is-hydrated')
+    );
+    expect(hydrated).toBe(true);
+  });
+
+  test('0.24.3 — Le hero client (non-SSR) est rendu avec titre non vide', async ({ page }) => {
+    test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
+    await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
+    const title = page.locator('#fv2-hero .fv2-hero__title');
+    await expect(title).toBeVisible();
+    const text = (await title.textContent() || '').trim();
+    expect(text.length).toBeGreaterThan(0);
+    // Le titre rendu doit correspondre au project_name
+    expect(text).toBe(VALID_PROJECT);
+  });
+
+  test('0.24.4 — fetchProjectByCategoryAndName retourne un objet (pas de throw)', async ({ page }) => {
+    test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
+    await page.goto('/fiche/?cat=' + encodeURIComponent(VALID_CAT) + '&project=' + encodeURIComponent(VALID_PROJECT), { waitUntil: 'domcontentloaded' });
+    // Attendre que supabaseService soit dispo
+    await page.waitForFunction(() => !!window.supabaseService?.fetchProjectByCategoryAndName, { timeout: 10000 });
+    const result = await page.evaluate(async ([cat, proj]) => {
+      try {
+        const r = await window.supabaseService.fetchProjectByCategoryAndName(cat, proj);
+        return { ok: true, hasData: !!r, projectName: r?.project_name || null };
+      } catch (e) {
+        return { ok: false, error: String(e) };
+      }
+    }, [VALID_CAT, VALID_PROJECT]);
+    expect(result.ok, `Exception: ${result.error}`).toBe(true);
+    expect(result.hasData).toBe(true);
+    expect(result.projectName).toBe(VALID_PROJECT);
+  });
+
+  test('0.24.5 — Les blocs principaux sont révélés (non-hidden) après hydratation', async ({ page }) => {
+    test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
+    await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
+    // Attente du pipeline complet (branding + docs + markdown)
+    await page.waitForTimeout(5000);
+
+    const state = await page.evaluate(() => {
+      const get = id => document.getElementById(id);
+      return {
+        heroTitle: get('fv2-hero')?.querySelector('.fv2-hero__title')?.textContent?.trim() || '',
+        // Au moins un des trois blocs de contenu (desc | cover | prose) doit être visible
+        descVisible: !get('fv2-desc-block')?.hidden,
+        coverVisible: !get('fv2-cover-block')?.hidden,
+        proseVisible: !get('fv2-prose-block')?.hidden,
+        // Le map container doit avoir un canvas MapLibre
+        mapHasCanvas: !!get('fv2-map')?.querySelector('canvas'),
+      };
+    });
+
+    expect(state.heroTitle.length, 'hero title is empty').toBeGreaterThan(0);
+    expect(
+      state.descVisible || state.coverVisible || state.proseVisible,
+      `Aucun bloc de contenu visible (desc=${state.descVisible}, cover=${state.coverVisible}, prose=${state.proseVisible})`
+    ).toBe(true);
+    expect(state.mapHasCanvas, 'La carte MapLibre n\'a pas été initialisée').toBe(true);
+  });
+
+  test('0.24.6 — L\'ordre DOM est : hero → main (desc/cover/prose) → related', async ({ page }) => {
+    test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
+    await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
+    // Vérifie l'ordre DOM source (pas visuel)
+    const order = await page.evaluate(() => {
+      const ids = ['fv2-hero', 'fv2-desc-block', 'fv2-cover-block', 'fv2-prose-block', 'fv2-related-block'];
+      const positions = ids.map(id => {
+        const el = document.getElementById(id);
+        if (!el) return -1;
+        // compareDocumentPosition via index dans un flattened tree
+        return Array.from(document.querySelectorAll('*')).indexOf(el);
+      });
+      return positions;
+    });
+    // Tous les éléments présents doivent être en ordre croissant (aucun -1 pour hero)
+    expect(order[0]).toBeGreaterThan(-1); // hero existe toujours
+    let last = order[0];
+    for (let i = 1; i < order.length; i++) {
+      if (order[i] === -1) continue;
+      expect(order[i], `Élément ${i} précède le précédent (ordre cassé)`).toBeGreaterThan(last);
+      last = order[i];
+    }
+  });
+});

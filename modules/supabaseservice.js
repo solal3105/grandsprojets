@@ -651,13 +651,27 @@
     fetchProjectByCategoryAndName: async function(category, projectName) {
       try {
         if (!category || !projectName) return null;
+        // On résout l'uid AVANT de construire le query builder.
+        // Raison : `applyVisibilityFilter` est `async` et retourne un builder Postgrest,
+        // qui est lui-même thenable. Un `await applyVisibilityFilter(q)` déroule
+        // récursivement le thenable et renvoie `{data, error}` au lieu du builder,
+        // ce qui casse l'appel à `.maybeSingle()`.
+        let uid = null;
+        try {
+          const { data: userData } = await supabaseClient.auth.getUser();
+          uid = userData?.user?.id || null;
+        } catch { /* non bloquant */ }
+
         let q = supabaseClient
           .from('contribution_uploads')
           .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, official_url, ville')
           .eq('category', category)
           .eq('project_name', projectName)
           .limit(1);
-        q = await applyVisibilityFilter(q);
+        q = uid
+          ? q.or(`approved.eq.true,created_by.eq.${uid}`)
+          : q.eq('approved', true);
+
         const { data, error } = await q.maybeSingle();
         if (error) {
           console.debug('[supabaseService] fetchProjectByCategoryAndName error:', error);

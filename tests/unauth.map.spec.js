@@ -718,3 +718,139 @@ test.describe('0.15 — Accessibilité', () => {
     await expect(page.locator('#search-results')).toHaveAttribute('role', 'listbox');
   });
 });
+
+// ─────────────────────────────────────────────────────────
+// 0.16 — Routage des clics de feature (contribution vs travaux)
+// ─────────────────────────────────────────────────────────
+// Régression #contrib-click-bug : une contribution dont la GeoJSON source
+// contient une propriété générique `nature` / `nature_travaux` était
+// classée à tort comme travaux par isTravauxProps, ouvrant le modal
+// travaux au lieu de la fiche de contribution.
+//
+// Ces tests appellent FeatureInteractions._openFeature directement avec
+// des stubs pour les opérations carte (spotlight) et les destinations
+// d'ouverture — on teste uniquement la DÉCISION de routage.
+test.describe('0.16 — Routage clic feature', () => {
+
+  /**
+   * Installe des stubs sur les fonctions appelées par _openFeature et
+   * retourne un objet suivi via `window.__routeCalls`.
+   */
+  async function installRoutingStubs(page) {
+    await page.evaluate(() => {
+      const calls = { openTravauxModal: 0, showDetailPanel: 0, showProjectDetail: 0, showProjectDetailById: 0, lastArgs: null };
+      window.__routeCalls = calls;
+      // Stub spotlight (ne pas toucher à la carte)
+      if (window.FeatureInteractions) {
+        window.FeatureInteractions._spotlight = () => {};
+      }
+      // Stub des destinations
+      window.DataModule = window.DataModule || {};
+      window.DataModule.openTravauxModal = (p) => { calls.openTravauxModal++; calls.lastArgs = { route: 'travaux', p }; };
+      window.UIModule = window.UIModule || {};
+      window.UIModule.showDetailPanel = (cat, feat) => { calls.showDetailPanel++; calls.lastArgs = { route: 'showDetailPanel', cat, feat }; };
+      window.NavigationModule = window.NavigationModule || {};
+      window.NavigationModule.showProjectDetail = (name, cat, ev, props) => { calls.showProjectDetail++; calls.lastArgs = { route: 'showProjectDetail', name, cat, props }; };
+      window.NavigationModule.showProjectDetailById = (id) => { calls.showProjectDetailById++; calls.lastArgs = { route: 'showProjectDetailById', id }; };
+    });
+  }
+
+  test('0.16.1 — Clic sur contribution (project_name + category) → fiche', async ({ page }) => {
+    await waitForMapBoot(page);
+    await installRoutingStubs(page);
+    const calls = await page.evaluate(() => {
+      const feature = {
+        type: 'Feature',
+        source: null,
+        properties: { id: 123, project_name: 'Test Projet', category: 'velo', cover_url: '', description: 'd', markdown_url: '', ville: 'metropole-lyon' },
+        geometry: { type: 'Point', coordinates: [4.85, 45.75] }
+      };
+      window.FeatureInteractions._openFeature(feature);
+      return window.__routeCalls;
+    });
+    expect(calls.openTravauxModal).toBe(0);
+    // id présent → route par ID
+    expect(calls.showProjectDetailById).toBe(1);
+    expect(calls.lastArgs.id).toBe(123);
+  });
+
+  test('0.16.2 — Contribution SANS id tombe sur showDetailPanel', async ({ page }) => {
+    await waitForMapBoot(page);
+    await installRoutingStubs(page);
+    const calls = await page.evaluate(() => {
+      const feature = {
+        type: 'Feature',
+        source: null,
+        properties: { project_name: 'Legacy', category: 'urbanisme' },
+        geometry: { type: 'Point', coordinates: [4.85, 45.75] }
+      };
+      window.FeatureInteractions._openFeature(feature);
+      return window.__routeCalls;
+    });
+    expect(calls.openTravauxModal).toBe(0);
+    expect(calls.showDetailPanel).toBe(1);
+    expect(calls.lastArgs.cat).toBe('urbanisme');
+  });
+
+  test('0.16.3 — RÉGRESSION : contribution avec `nature` NE va PAS dans travaux', async ({ page }) => {
+    // Bug historique : props.nature='Piste cyclable' faisait basculer dans isTravauxProps.
+    await waitForMapBoot(page);
+    await installRoutingStubs(page);
+    const calls = await page.evaluate(() => {
+      const feature = {
+        type: 'Feature',
+        source: null,
+        properties: {
+          id: 42,
+          project_name: 'Piste Rhône',
+          category: 'velo',
+          nature: 'Piste cyclable',
+          nature_travaux: 'Voirie',
+          nature_chantier: 'Aménagement'
+        },
+        geometry: { type: 'Point', coordinates: [4.85, 45.75] }
+      };
+      window.FeatureInteractions._openFeature(feature);
+      return window.__routeCalls;
+    });
+    expect(calls.openTravauxModal).toBe(0);
+    expect(calls.showProjectDetailById).toBe(1);
+  });
+
+  test('0.16.4 — Feature travaux pure (chantier_key) → modal travaux', async ({ page }) => {
+    await waitForMapBoot(page);
+    await installRoutingStubs(page);
+    const calls = await page.evaluate(() => {
+      const feature = {
+        type: 'Feature',
+        source: 'travaux',
+        properties: { chantier_key: 'travaux-url:lyon:AUTO:1', chantier_id: 99, nature_travaux: 'Voirie' },
+        geometry: { type: 'Point', coordinates: [4.85, 45.75] }
+      };
+      window.FeatureInteractions._openFeature(feature);
+      return window.__routeCalls;
+    });
+    expect(calls.openTravauxModal).toBe(1);
+    expect(calls.showProjectDetailById).toBe(0);
+    expect(calls.showDetailPanel).toBe(0);
+  });
+
+  test('0.16.5 — Feature sans signature reconnue → aucun routage', async ({ page }) => {
+    await waitForMapBoot(page);
+    await installRoutingStubs(page);
+    const calls = await page.evaluate(() => {
+      const feature = {
+        type: 'Feature',
+        source: null,
+        properties: { nature: 'Route', libelle: 'D7' },
+        geometry: { type: 'Point', coordinates: [4.85, 45.75] }
+      };
+      window.FeatureInteractions._openFeature(feature);
+      return window.__routeCalls;
+    });
+    expect(calls.openTravauxModal).toBe(0);
+    expect(calls.showDetailPanel).toBe(0);
+    expect(calls.showProjectDetail).toBe(0);
+    expect(calls.showProjectDetailById).toBe(0);
+  });
+});

@@ -459,14 +459,10 @@ const NavigationModule = (() => {
     let contributionProject = null;
     
     if (enrichedProps) {
-      contributionProject = {
-        project_name: enrichedProps.project_name,
-        category: enrichedProps.category,
-        cover_url: enrichedProps.cover_url,
-        description: enrichedProps.description,
-        markdown_url: enrichedProps.markdown_url,
-        ville: enrichedProps.ville || ''
-      };
+      // Spread de tous les champs enrichis (id, project_name, category,
+      // cover_url, description, markdown_url, ville, official_url, tags…)
+      // pour que le rendu voie les mêmes données que la route par ID.
+      contributionProject = { ville: '', ...enrichedProps };
     } else if (window.supabaseService?.fetchProjectByCategoryAndName) {
       try {
         contributionProject = await window.supabaseService.fetchProjectByCategoryAndName(category, projectName);

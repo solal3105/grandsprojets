@@ -171,7 +171,11 @@ window.DataModule = (function() {
 		const props = feature?.properties || {};
 		// Contribution point markers — wire DOM click/hover
 		const isContrib = !!(props.project_name && props.category);
-		const isTravaux = !!(props.nature_travaux || props.chantier_id);
+		// Travaux : identité par clé primaire uniquement (même règle que
+		// feature-interactions.isTravauxProps). `nature_travaux` seul ne
+		// suffit pas — c'est une propriété générique partagée avec d'autres
+		// sources de données.
+		const isTravaux = props.chantier_key != null || props.chantier_id != null;
 
 		if ((isContrib || isTravaux) && layer.on) {
 			// Register DOM marker with FeatureInteractions for overlap detection
@@ -282,14 +286,19 @@ window.DataModule = (function() {
 								const geoData = await response.json();
 								
 								// Enrichir les features avec les métadonnées du projet
+								// (même set de champs que netlify/functions/contributions-geojson.mjs
+								// pour que le fallback N+1 client-side soit interchangeable)
 								const enrichFeature = (f) => {
 									if (!f.properties) f.properties = {};
+									f.properties.id = project.id;
 									f.properties.project_name = project.project_name;
 									f.properties.category = project.category;
-									f.properties.cover_url = project.cover_url;
-									f.properties.description = project.description;
-									f.properties.markdown_url = project.markdown_url;
+									f.properties.cover_url = project.cover_url || '';
+									f.properties.description = project.description || '';
+									f.properties.markdown_url = project.markdown_url || '';
 									f.properties.ville = project.ville;
+									f.properties.official_url = project.official_url || '';
+									f.properties.tags = project.tags || [];
 									return f;
 								};
 								

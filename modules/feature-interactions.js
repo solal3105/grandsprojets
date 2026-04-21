@@ -28,8 +28,13 @@
     return window.TravauxModule?.getChantierDisplayName?.(p)
       || p.project_name || p.name || p.nature_travaux || p.nature || p.nature_chantier || '';
   }
+  // Travaux identity : PK seulement (chantier_key est toujours injecté par
+  // TravauxModule.normalizeGeoJSON, fallback `auto:${index}`). Ne PAS inclure
+  // `nature` / `nature_travaux` — ce sont des propriétés génériques (OSM, IGN,
+  // open data…) qui existent aussi sur des features de contribution et
+  // provoquent une mauvaise classification (fiche ouverte en modal travaux).
   function isTravauxProps(p) {
-    return !!(p.chantier_key || p.chantier_id != null || p.nature_travaux || p.nature || p.nature_chantier);
+    return p.chantier_key != null || p.chantier_id != null;
   }
   // Display title (human-readable, used in cards/popups)
   function projectNameOf(p) { return p.project_name || p.name || p.nature_travaux || p.nature || p.nature_chantier || ''; }
@@ -590,22 +595,28 @@
     //  OPEN FEATURE
 
     _openFeature(feature) {
-      const p = feature.properties;
-      
+      const p = feature.properties || {};
+
+      // Contribution : signature déterministe (project_name + category)
+      // Vérifiée AVANT travaux pour qu'une feature de contribution dont
+      // la GeoJSON source contient un champ générique `nature` ne soit
+      // jamais mal routée vers le modal travaux.
+      if (p.project_name && p.category) {
+        this._spotlight(feature);
+        // Lookup par ID en priorité (depuis refactor ID-based)
+        if (p.id != null && win.NavigationModule?.showProjectDetailById) {
+          win.NavigationModule.showProjectDetailById(p.id);
+        } else if (win.UIModule?.showDetailPanel) {
+          win.UIModule.showDetailPanel(p.category, { properties: p, geometry: feature.geometry });
+        } else if (win.NavigationModule?.showProjectDetail) {
+          win.NavigationModule.showProjectDetail(p.project_name, p.category, null, p);
+        }
+        return;
+      }
+
       if (isTravaux(feature)) {
         this._spotlight(feature);
         win.DataModule?.openTravauxModal?.(p);
-        return;
-      }
-      
-      // Projets normaux et contributions
-      if (p.project_name && p.category) {
-        this._spotlight(feature);
-        if (win.UIModule?.showDetailPanel) {
-          win.UIModule.showDetailPanel(p.category, { properties: p, geometry: feature.geometry });
-        } else if (win.NavigationModule?.showProjectDetail) {
-          win.NavigationModule.showProjectDetail(p, p.category);
-        }
       }
     },
 
