@@ -27,7 +27,6 @@ Structure attendue :
 - Un titre H2 avec le nom du projet
 - Un paragraphe d'introduction (contexte, porteur du projet, état d'avancement)
 - 2-3 sections H3 (ex : Contexte, Objectifs, Calendrier & Budget, Impacts attendus)
-- Si tu trouves une image ou illustration pertinente (rendu, plan, photo), intègre-la avec la syntaxe Markdown : ![description](url)
 - Pour sourcer un fait précis, tu peux utiliser un lien inline [texte](url) avec parcimonie
 - Style factuel, institutionnel, accessible au grand public
 - Longueur : 400-800 mots
