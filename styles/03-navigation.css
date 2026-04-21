@@ -30,6 +30,10 @@
   display: block;
 }
 
+@media (max-width: 720px) {
+  .mobile-fixed-logo { display: flex; }
+}
+
 
 /* ---------------------------------------------------------------------------
    Project List — grid of cards (2 cols desktop, 1 col mobile)

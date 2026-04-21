@@ -10,12 +10,6 @@
 }
 
 /* ── Base mobile (≤ 720px) ── */
-@media (max-width: 720px) {
-  .mobile-fixed-logo {
-    display: flex;
-  }
-
-}
 
 /* ── Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
