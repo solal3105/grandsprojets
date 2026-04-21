@@ -929,3 +929,50 @@ test.describe('0.17 — Résilience init (banner)', () => {
     await expect(page.locator('#init-error-message')).toHaveCount(0);
   });
 });
+
+// ═════════════════════════════════════════════════════════
+// 0.18 — RÉGRESSION : logo mobile (.mobile-fixed-logo)
+//
+// Le logo fixe en haut à gauche doit être VISIBLE en mobile
+// et CACHÉ en desktop. Régression du bug cascade CSS où
+// 03-navigation.css (chargé après 08-responsive.css) écrasait
+// le display:flex du @media avec un display:none de même
+// spécificité.
+// ═════════════════════════════════════════════════════════
+test.describe('0.18 — RÉGRESSION logo mobile (cascade CSS)', () => {
+
+  test('0.18.1 — Logo mobile visible en viewport mobile (≤720px)', async ({ page }) => {
+    page.setViewportSize({ width: 375, height: 812 });
+    await waitForMapBoot(page);
+    const logo = page.locator('.mobile-fixed-logo');
+    // L'élément doit être dans le DOM
+    await expect(logo).toHaveCount(1);
+    // display calculé doit être "flex", pas "none"
+    const display = await logo.evaluate(el => getComputedStyle(el).display);
+    expect(display, 'Le logo mobile doit être display:flex sur mobile').toBe('flex');
+  });
+
+  test('0.18.2 — Logo mobile masqué en desktop (>720px)', async ({ page }) => {
+    page.setViewportSize({ width: 1280, height: 800 });
+    await waitForMapBoot(page);
+    const logo = page.locator('.mobile-fixed-logo');
+    await expect(logo).toHaveCount(1);
+    const display = await logo.evaluate(el => getComputedStyle(el).display);
+    expect(display, 'Le logo mobile ne doit pas être visible sur desktop').toBe('none');
+  });
+
+  test('0.18.3 — Logo mobile a un src non vide après boot', async ({ page }) => {
+    page.setViewportSize({ width: 375, height: 812 });
+    await waitForMapBoot(page);
+    // Attendre que citymanager ait injecté le logo (async)
+    await page.waitForFunction(
+      () => {
+        const img = document.querySelector('.mobile-fixed-logo img');
+        return img && img.src && img.src.length > 0 && img.naturalWidth > 0;
+      },
+      { timeout: 10000 }
+    );
+    const src = await page.locator('.mobile-fixed-logo img').getAttribute('src');
+    expect(src).toBeTruthy();
+  });
+});
