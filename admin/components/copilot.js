@@ -323,8 +323,14 @@ export class Copilot {
 
   _stripCitations(text) {
     return text
+      // Lignes contenant uniquement un lien Markdown [texte](url) (émis par le web search)
+      .replace(/^[ \t]*\[[^\]\n]+\]\(https?:\/\/[^)\n]+\)[ \t]*\n*/gm, '')
+      // Citations inline entre parenthèses : ([texte](url))
       .replace(/\s*\(\[[^\]]*\]\(https?:\/\/[^)]+\)\)/g, '')
+      // Références numériques [1], [2]…
       .replace(/\s*\[\d+\]/g, '')
+      // Lignes vides en tête après nettoyage
+      .replace(/^\n+/, '')
       .trim();
   }
 
