@@ -82,6 +82,6 @@ export default defineConfig({
     command: 'netlify dev --port 3001',
     url: 'http://localhost:3001',
     reuseExistingServer: true,
-    timeout: 60000,
+    timeout: 120000,
   },
 });
