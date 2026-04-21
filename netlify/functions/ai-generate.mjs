@@ -27,12 +27,12 @@ Structure attendue :
 - Un titre H2 avec le nom du projet
 - Un paragraphe d'introduction (contexte, porteur du projet, état d'avancement)
 - 2-3 sections H3 (ex : Contexte, Objectifs, Calendrier & Budget, Impacts attendus)
-- Pour sourcer un fait précis, tu peux utiliser un lien inline [texte](url) avec parcimonie
 - Style factuel, institutionnel, accessible au grand public
-- Longueur : 400-800 mots
+- Longueur : 300-500 mots
 Tu dois écrire en français. Ne mets pas de titre H1.
 IMPORTANT : Utilise impérativement la recherche web pour trouver des informations récentes et précises sur ce projet. Intègre des données chiffrées, des dates, des acteurs impliqués si disponibles.
-IMPORTANT : Ne commence JAMAIS l'article par un lien seul ou une citation — commence directement par le contenu structuré (titre H2 puis introduction).`;
+IMPORTANT : Ne commence JAMAIS l'article par un lien seul ou une citation — commence directement par le contenu structuré (titre H2 puis introduction).
+IMPORTANT : N'inclus AUCUN lien hypertexte inline [texte](url) dans le corps du texte. Texte Markdown pur, sans liens.`;
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
@@ -109,9 +109,22 @@ export default async function handler(req) {
   const systemPrompt = target === 'description' ? SYSTEM_PROMPT_DESC : SYSTEM_PROMPT_ARTICLE;
 
   // ── OpenAI Responses API avec web_search_preview ─────────────────
+  const TIMEOUT_MS = 25_000;
+  let _streamReader = null; // référence pour annulation depuis le timeout
+  const timeoutCtrl = new AbortController();
+  const timeoutId = setTimeout(() => {
+    console.warn('[ai-generate] Timeout 25s — annulation stream');
+    _streamReader?.cancel().catch(() => {});
+    timeoutCtrl.abort();
+  }, TIMEOUT_MS);
+
   try {
+    console.log(`[ai-generate] Début génération target=${target} webSearch=${useWebSearch}`);
+    const t0 = Date.now();
+
     const openaiRes = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
+      signal: timeoutCtrl.signal,
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
@@ -124,9 +137,10 @@ export default async function handler(req) {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        max_output_tokens: target === 'description' ? 300 : 2000,
+        max_output_tokens: target === 'description' ? 300 : 800,
       }),
     });
+    console.log(`[ai-generate] Réponse OpenAI reçue en ${Date.now() - t0}ms status=${openaiRes.status}`);
 
     if (!openaiRes.ok) {
       const errText = await openaiRes.text();
@@ -141,9 +155,12 @@ export default async function handler(req) {
 
     (async () => {
       const reader = openaiRes.body.getReader();
+      _streamReader = reader; // expose pour le timeout
       const decoder = new TextDecoder();
       let buffer = '';
       let doneSent = false;
+      let searchCount = 0;
+      let chunkCount = 0;
 
       try {
         while (true) {
@@ -198,6 +215,8 @@ export default async function handler(req) {
 
               // Fin
               if ((ev.type === 'response.completed' || ev.type === 'response.failed') && !doneSent) {
+                console.log(`[ai-generate] Terminé — type=${ev.type} searches=${searchCount} chunks=${chunkCount}`);
+                clearTimeout(timeoutId);
                 await writer.write(enc('data: [DONE]\n\n'));
                 doneSent = true;
               }
@@ -208,10 +227,14 @@ export default async function handler(req) {
           }
         }
       } catch (err) {
-        console.error('[ai-generate] Stream error:', err);
+        console.error('[ai-generate] Stream error:', err.name, err.message);
       } finally {
-        if (!doneSent) await writer.write(enc('data: [DONE]\n\n'));
-        await writer.close();
+        clearTimeout(timeoutId);
+        _streamReader = null;
+        try {
+          if (!doneSent) await writer.write(enc('data: [DONE]\n\n'));
+          await writer.close();
+        } catch { /* writer déjà fermé */ }
       }
     })();
 
@@ -226,7 +249,8 @@ export default async function handler(req) {
     });
 
   } catch (err) {
-    console.error('[ai-generate] Fatal:', err);
+    clearTimeout(timeoutId);
+    console.error('[ai-generate] Fatal:', err.name, err.message);
     return errResp(500, err.message, corsHeaders);
   }
 }
