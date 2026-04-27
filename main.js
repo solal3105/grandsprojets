@@ -254,6 +254,9 @@
         }
       }
 
+      // PHASE 2.6 : Bandeau webinaire temporaire (metropole-lyon, 27-28 avril 2026)
+      safePhase('WebinarBanner.init', () => win.WebinarBanner?.init(city));
+
       await yieldToMain();
 
       // PHASE 3 : Données Supabase (consomme les early-fetches)
