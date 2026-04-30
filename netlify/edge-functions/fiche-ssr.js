@@ -1,7 +1,7 @@
 /* ============================================================================
    EDGE FUNCTION — Pré-rendu SEO des fiches projet
    
-   Intercepte les requêtes GET sur /fiche/?cat=…&project=…
+   Intercepte les requêtes GET sur /fiche/{ville}/{categorySlug}/{projSlug}
    et injecte côté serveur :
    • <title>, meta description, OG, Twitter Cards
    • JSON-LD structuré (Article + BreadcrumbList)
@@ -75,14 +75,15 @@ const supaHeaders = {
   Accept: 'application/json',
 };
 
-async function fetchProject(category, projectName) {
+async function fetchProjectBySlug(villeSlug, categorySlug, projSlug) {
   const url = new URL('/rest/v1/contribution_uploads', SUPABASE_URL);
   url.searchParams.set(
     'select',
-    'project_name,description,cover_url,official_url,geojson_url,markdown_url,category,ville,created_at'
+    'project_name,description,cover_url,official_url,geojson_url,markdown_url,category,category_slug,slug,ville,created_at'
   );
-  url.searchParams.set('category', `eq.${category}`);
-  url.searchParams.set('project_name', `eq.${projectName}`);
+  url.searchParams.set('category_slug', `eq.${categorySlug}`);
+  url.searchParams.set('slug', `eq.${projSlug}`);
+  url.searchParams.set('ville', `eq.${villeSlug}`);
   url.searchParams.set('approved', 'eq.true');
   url.searchParams.set('limit', '1');
 
@@ -114,7 +115,7 @@ async function fetchCategoryLabel(category, ville) {
 
 async function fetchRelatedProjects(category, excludeName) {
   const url = new URL('/rest/v1/contribution_uploads', SUPABASE_URL);
-  url.searchParams.set('select', 'project_name,description,cover_url');
+  url.searchParams.set('select', 'project_name,description,cover_url,slug,category_slug,ville');
   url.searchParams.set('category', `eq.${category}`);
   url.searchParams.set('approved', 'eq.true');
   url.searchParams.set('project_name', `neq.${excludeName}`);
@@ -212,7 +213,7 @@ function buildBreadcrumbJsonLd(project, category, catLabel, canonical, structure
         '@type': 'ListItem',
         position: 2,
         name: catLabel,
-        item: `${BASE_ORIGIN}/?cat=${encodeURIComponent(category)}${ville ? `&city=${encodeURIComponent(ville)}` : ''}`,
+        item: `${BASE_ORIGIN}/${ville ? `?city=${encodeURIComponent(ville)}` : ''}`,
       },
       {
         '@type': 'ListItem',
@@ -289,7 +290,10 @@ function buildSsrContentBlock(project, category, catLabel, related, cityBrand, s
       <ul>`;
     for (const r of related) {
       const rName = escHtml(r.project_name);
-      const rHref = `/fiche/?cat=${encodeURIComponent(category)}&project=${encodeURIComponent(r.project_name)}${ville ? `&city=${encodeURIComponent(ville)}` : ''}`;
+      const rVille = r.ville || ville;
+      const rHref = (r.slug && r.category_slug && rVille)
+        ? `/fiche/${encodeURIComponent(rVille)}/${encodeURIComponent(r.category_slug)}/${encodeURIComponent(r.slug)}`
+        : '/';
       const rDesc = r.description ? escHtml(truncate(r.description, 120)) : '';
       html += `
         <li><a href="${escAttr(rHref)}">${rName}</a>${rDesc ? ` — ${rDesc}` : ''}</li>`;
@@ -401,11 +405,16 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
 
 export default async (request, context) => {
   const url = new URL(request.url);
-  const projectName = url.searchParams.get('project');
-  const category = url.searchParams.get('cat') || 'velo';
 
-  // Sans paramètre project, servir la page statique telle quelle
-  if (!projectName) {
+  // Parse les segments du path : /fiche/{ville}/{categorySlug}/{projSlug}
+  const parts = url.pathname.replace(/^\/+|\/+$/g, '').split('/');
+  // parts[0] = 'fiche', parts[1] = ville, parts[2] = categorySlug, parts[3] = projSlug
+  const villeSlug    = parts[1] || '';
+  const categorySlug = parts[2] || '';
+  const projSlug     = parts[3] || '';
+
+  // Si l'URL n'a pas les 3 segments attendus → servir la page statique telle quelle
+  if (!villeSlug || !categorySlug || !projSlug) {
     return await context.next();
   }
 
@@ -415,7 +424,7 @@ export default async (request, context) => {
   let cityBrand = null;
 
   try {
-    project = await fetchProject(category, projectName);
+    project = await fetchProjectBySlug(villeSlug, categorySlug, projSlug);
   } catch (e) {
     console.error('[fiche-ssr] Fetch project failed:', e);
   }
@@ -438,25 +447,24 @@ export default async (request, context) => {
   let catLabel = '';
   try {
     [related, cityBrand, catLabel] = await Promise.all([
-      fetchRelatedProjects(category, project.project_name),
+      fetchRelatedProjects(project.category, project.project_name),
       fetchCityBranding(project.ville),
-      fetchCategoryLabel(category, project.ville),
+      fetchCategoryLabel(project.category, project.ville),
     ]);
   } catch (e) {
     console.error('[fiche-ssr] Fetch related/branding/label failed:', e);
-    catLabel = catLabel || humanizeCategory(category);
+    catLabel = catLabel || humanizeCategory(categorySlug);
   }
 
   // Récupérer la réponse d'origine (page statique)
   const response = await context.next();
   let html = await response.text();
 
-  // Construire la canonical URL (toujours inclure la ville si disponible)
-  const ville = project.ville || '';
-  const canonical = `${BASE_ORIGIN}/fiche/?cat=${encodeURIComponent(category)}&project=${encodeURIComponent(project.project_name)}${ville ? `&city=${encodeURIComponent(ville)}` : ''}`;
+  // Canonical URL — format propre /fiche/{ville}/{category_slug}/{slug}
+  const canonical = `${BASE_ORIGIN}/fiche/${encodeURIComponent(project.ville)}/${encodeURIComponent(project.category_slug)}/${encodeURIComponent(project.slug)}`;
 
   // Injecter le SEO dans le HTML
-  html = injectIntoHtml(html, project, category, catLabel, canonical, related, cityBrand);
+  html = injectIntoHtml(html, project, project.category, catLabel, canonical, related, cityBrand);
 
   // Retourner la page enrichie avec cache court (les données changent)
   return new Response(html, {
@@ -471,7 +479,7 @@ export default async (request, context) => {
 };
 
 export const config = {
-  path: '/fiche/',
+  path: ['/fiche/', '/fiche/*/*/*'],
   // Ne pas exécuter pour les assets statiques
   excludedPath: ['/fiche/*.css', '/fiche/*.js', '/fiche/*.map'],
 };

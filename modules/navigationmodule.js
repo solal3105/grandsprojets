@@ -548,13 +548,11 @@ const NavigationModule = (() => {
     // Description
     description = description || attrs.description;
 
-    // Full page URL
-    const params = new URLSearchParams();
-    if (category) params.set('cat', category);
-    if (projectName) params.set('project', projectName);
-    const currentCity = new URLSearchParams(location.search).get('city') || contributionProject?.ville || window.supabaseService?.getActiveCity?.() || '';
-    if (currentCity) params.set('city', currentCity);
-    const fullPageUrl = `/fiche/?${params.toString()}`;
+    // Full page URL — format /fiche/{ville}/{category_slug}/{slug}
+    const currentCity = contributionProject?.ville || new URLSearchParams(location.search).get('city') || window.supabaseService?.getActiveCity?.() || '';
+    const fullPageUrl = (currentCity && contributionProject?.category_slug && contributionProject?.slug)
+      ? `/fiche/${encodeURIComponent(currentCity)}/${encodeURIComponent(contributionProject.category_slug)}/${encodeURIComponent(contributionProject.slug)}`
+      : null;
 
     // Hero cover (expand btn only — back/close live in the permanent overlay bar)
     const heroHTML = coverCandidate
@@ -562,7 +560,7 @@ const NavigationModule = (() => {
       : '';
 
     const hasRichContent = !!(contributionProject.markdown_url || contributionProject.official_url || hasDossiers);
-    const footerHTML = hasRichContent
+    const footerHTML = (hasRichContent && fullPageUrl)
       ? `<div class="detail-footer"><button type="button" class="detail-fullpage-btn" data-fiche-url="${fullPageUrl}" data-fiche-name="${safeName}"><i class="fa-solid fa-newspaper"></i>Voir la fiche complète</button></div>`
       : '';
 

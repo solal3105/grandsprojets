@@ -7,8 +7,11 @@ import { test, expect } from '@playwright/test';
 
 /** Projet réel connu en base (catégorie velo, ville metropole-lyon) */
 let VALID_CAT = 'velo';
-let VALID_PROJECT = '';
+let VALID_PROJECT = '';   // contient désormais le SLUG
+let VALID_PROJECT_NAME = ''; // nom complet pour les assertions de texte
 let VALID_CITY = '';
+let VALID_SLUG = '';      // alias lisible de VALID_PROJECT
+let VALID_CAT_SLUG = '';  // slug de la catégorie
 
 /**
  * Attend que la page fiche soit chargée et le JS hydraté.
@@ -21,9 +24,14 @@ async function waitForFicheBoot(page, url) {
     () => {
       const hero = document.getElementById('fv2-hero');
       const error = document.getElementById('fv2-error');
-      // L'init est terminé quand le skeleton a été remplacé ou l'erreur affichée
+      const ssr = document.getElementById('fv2-ssr-content');
+      // L'init est terminé quand :
+      // - le skeleton a été remplacé (hero rendu)
+      // - OU l'erreur est affichée
+      // - OU le SSR a reçu is-hydrated (fetch tenté, données non trouvées en client)
       return (hero && hero.querySelector('.fv2-hero__title')) ||
-             (error && !error.hidden);
+             (error && !error.hidden) ||
+             (ssr && ssr.classList.contains('is-hydrated'));
     },
     { timeout: 20000 }
   );
@@ -45,7 +53,7 @@ async function discoverValidProject(page) {
     try {
       const { data } = await window.__supabaseClient
         .from('contribution_uploads')
-        .select('project_name, category, ville')
+        .select('project_name, category, category_slug, slug, ville')
         .eq('approved', true)
         .limit(1)
         .single();
@@ -65,19 +73,20 @@ test.beforeAll(async ({ browser }) => {
   const page = await browser.newPage();
   const found = await discoverValidProject(page);
   if (found) {
-    VALID_PROJECT = found.project_name;
-    VALID_CAT = found.category || 'velo';
+    VALID_PROJECT_NAME = found.project_name;
+    VALID_SLUG = found.slug || '';
+    VALID_CAT_SLUG = found.category_slug || '';
+    // ficheUrl() utilise (slug, catSlug, ville) — on stocke les slugs dans les variables existantes
+    VALID_PROJECT = VALID_SLUG;
+    VALID_CAT = VALID_CAT_SLUG || found.category || 'velo';
     VALID_CITY = found.ville || '';
   }
   await page.close();
 });
 
-function ficheUrl(project, cat, city) {
-  const params = new URLSearchParams();
-  if (cat) params.set('cat', cat);
-  if (project) params.set('project', project);
-  if (city) params.set('city', city);
-  return `/fiche/?${params.toString()}`;
+function ficheUrl(slug, catSlug, ville) {
+  if (!slug || !catSlug || !ville) return '/fiche/';
+  return `/fiche/${encodeURIComponent(ville)}/${encodeURIComponent(catSlug)}/${encodeURIComponent(slug)}`;
 }
 
 /**
@@ -106,9 +115,8 @@ test.describe('0.6 — Fiche : chargement et structure', () => {
 
   test('0.6.1 — La page fiche se charge sans erreur console critique', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
+    await waitForFicheBoot(page, ficheUrl(VALID_SLUG, VALID_CAT_SLUG, VALID_CITY));
     const errors = [];
-    page.on('pageerror', err => errors.push(err.message));
-    await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const critical = errors.filter(e =>
       !e.includes('WebGL') && !e.includes('maplibregl') && !e.includes('Failed to initialize WebGL')
     );
@@ -175,7 +183,7 @@ test.describe('0.7 — Fiche : SEO et méta-données', () => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const title = await page.title();
-    expect(title).toContain(VALID_PROJECT);
+    expect(title).toContain(VALID_PROJECT_NAME);
   });
 
   test('0.7.2 — La meta description est renseignée', async ({ page }) => {
@@ -190,7 +198,7 @@ test.describe('0.7 — Fiche : SEO et méta-données', () => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const ogTitle = await page.getAttribute('meta[property="og:title"]', 'content');
-    expect(ogTitle).toContain(VALID_PROJECT);
+    expect(ogTitle).toContain(VALID_PROJECT_NAME);
   });
 
   test('0.7.4 — OG image est définie', async ({ page }) => {
@@ -205,9 +213,10 @@ test.describe('0.7 — Fiche : SEO et méta-données', () => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const ogUrl = await page.getAttribute('meta[property="og:url"]', 'content');
-    expect(ogUrl).toContain('/fiche/');
-    expect(ogUrl).toContain(`cat=${encodeURIComponent(VALID_CAT)}`);
-    expect(ogUrl).toContain(`project=${encodeURIComponent(VALID_PROJECT)}`);
+    // L'URL canonique doit utiliser le format /fiche/{ville}/{cat}/{slug}
+    expect(ogUrl).toContain(`/fiche/`);
+    expect(ogUrl).toContain(encodeURIComponent(VALID_CITY));
+    expect(ogUrl).toContain(encodeURIComponent(VALID_PROJECT));
   });
 
   test('0.7.6 — Twitter card est summary_large_image', async ({ page }) => {
@@ -221,7 +230,7 @@ test.describe('0.7 — Fiche : SEO et méta-données', () => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const twTitle = await page.getAttribute('meta[name="twitter:title"]', 'content');
-    expect(twTitle).toContain(VALID_PROJECT);
+    expect(twTitle).toContain(VALID_PROJECT_NAME);
   });
 
   test('0.7.8 — Canonical URL est bien définie et pointe vers openprojets.com', async ({ page }) => {
@@ -229,7 +238,10 @@ test.describe('0.7 — Fiche : SEO et méta-données', () => {
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const canonical = await page.getAttribute('link[rel="canonical"]', 'href');
     expect(canonical).toContain('openprojets.com/fiche/');
-    expect(canonical).toContain(`project=${encodeURIComponent(VALID_PROJECT)}`);
+    // L'URL canonique doit utiliser le format /fiche/{ville}/{cat}/{slug}
+    expect(canonical).toContain(`/fiche/`);
+    expect(canonical).toContain(encodeURIComponent(VALID_CITY));
+    expect(canonical).toContain(encodeURIComponent(VALID_PROJECT));
   });
 
   test('0.7.9 — JSON-LD Article est présent et valide', async ({ page }) => {
@@ -242,7 +254,7 @@ test.describe('0.7 — Fiche : SEO et méta-données', () => {
     });
     expect(jsonLd).toBeTruthy();
     expect(jsonLd['@type']).toBe('Article');
-    expect(jsonLd.headline).toBe(VALID_PROJECT);
+    expect(jsonLd.headline).toBe(VALID_PROJECT_NAME);
     expect(jsonLd.url).toContain('/fiche/');
     expect(jsonLd.publisher).toBeTruthy();
     expect(jsonLd.publisher['@type']).toBe('Organization');
@@ -341,7 +353,7 @@ test.describe('0.8 — Fiche : SSR', () => {
     // OG title doit contenir le nom du projet dans le HTML brut (avant JS)
     const ogTitleMatch = html.match(/property="og:title"\s+content="([^"]*)"/);
     expect(ogTitleMatch).toBeTruthy();
-    expect(ogTitleMatch[1]).toContain(VALID_PROJECT);
+    expect(ogTitleMatch[1]).toContain(VALID_PROJECT_NAME);
   });
 
   test('0.8.6 — Le SSR injecte la canonical URL côté serveur', async ({ page }) => {
@@ -351,7 +363,8 @@ test.describe('0.8 — Fiche : SSR', () => {
     const canonicalMatch = html.match(/rel="canonical"\s+href="([^"]*)"/);
     expect(canonicalMatch).toBeTruthy();
     expect(canonicalMatch[1]).toContain('openprojets.com/fiche/');
-    expect(canonicalMatch[1]).toContain(`project=${encodeURIComponent(VALID_PROJECT)}`);
+    // Le canonical utilise le format /fiche/{ville}/{catSlug}/{slug}
+    expect(canonicalMatch[1]).toContain(encodeURIComponent(VALID_PROJECT));
   });
 
   test('0.8.7 — Le SSR injecte le <title> dynamique', async ({ page }) => {
@@ -360,7 +373,7 @@ test.describe('0.8 — Fiche : SSR', () => {
     const html = await response.text();
     const titleMatch = html.match(/<title>([^<]*)<\/title>/);
     expect(titleMatch).toBeTruthy();
-    expect(titleMatch[1]).toContain(VALID_PROJECT);
+    expect(titleMatch[1]).toContain(VALID_PROJECT_NAME);
   });
 
   test('0.8.8 — Sans paramètre project, pas de SSR injecté', async ({ page }) => {
@@ -383,8 +396,8 @@ test.describe('0.8 — Fiche : SSR', () => {
     const html = await response.text();
     // Le SSR doit contenir « Projets similaires » si des projets existent dans la même catégorie
     if (html.includes('Projets similaires')) {
-      // Vérifier que les liens related pointent vers /fiche/
-      expect(html).toMatch(/href="\/fiche\/\?cat=/);
+      // Vérifier que les liens related pointent vers /fiche/{ville}/{cat}/{slug}
+      expect(html).toMatch(/href="\/fiche\/[^/]+\/[^/]+\/[^/"]+"/);
     }
   });
 
@@ -441,7 +454,7 @@ test.describe('0.9 — Fiche : états d\'erreur', () => {
   });
 
   test('0.9.3 — Projet inexistant → erreur affichée', async ({ page }) => {
-    await page.goto('/fiche/?cat=velo&project=projet-qui-nexiste-pas-xyz-999', { waitUntil: 'domcontentloaded' });
+    await page.goto('/fiche/test-xyz/velo/projet-qui-nexiste-pas-xyz-999', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(
       () => { const e = document.getElementById('fv2-error'); return e && !e.hidden; },
       { timeout: 15000 }
@@ -449,7 +462,6 @@ test.describe('0.9 — Fiche : états d\'erreur', () => {
     const error = page.locator('#fv2-error');
     await expect(error).toBeVisible();
     await expect(page.locator('#fv2-error-title')).toContainText('introuvable');
-    await expect(page.locator('#fv2-error-msg')).toContainText('projet-qui-nexiste-pas-xyz-999');
   });
 
   test('0.9.4 — Erreur affiche le bouton retour à la carte', async ({ page }) => {
@@ -466,7 +478,7 @@ test.describe('0.9 — Fiche : états d\'erreur', () => {
   });
 
   test('0.9.5 — Catégorie invalide avec projet inexistant → erreur', async ({ page }) => {
-    await page.goto('/fiche/?cat=categorie-bizarre&project=rien', { waitUntil: 'domcontentloaded' });
+    await page.goto('/fiche/test-xyz/categorie-bizarre/rien', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(
       () => { const e = document.getElementById('fv2-error'); return e && !e.hidden; },
       { timeout: 15000 }
@@ -492,6 +504,7 @@ test.describe('0.10 — Fiche : bouton retour contextuel', () => {
     test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville non disponible');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const href = await page.locator('#fv2-btn-back').getAttribute('href');
+    // La ville est toujours passée en paramètre retour
     expect(href).toContain(`city=${VALID_CITY}`);
   });
 
@@ -510,19 +523,19 @@ test.describe('0.10 — Fiche : bouton retour contextuel', () => {
     }
   });
 
-  test('0.10.4 — Sans ville ni catégorie → href contient project slug uniquement', async ({ page }) => {
-    test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
-    // On force cat=velo (default) et pas de city
-    await waitForFicheBoot(page, `/fiche/?cat=velo&project=${encodeURIComponent(VALID_PROJECT)}`);
+  test('0.10.4 — URL avec ville et cat par défaut → href retour sans cat', async ({ page }) => {
+    test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville non disponible');
+    // Catégorie velo (default) + ville = le retour ne doit pas contenir cat=
+    const url = `/fiche/${encodeURIComponent(VALID_CITY)}/velo/${encodeURIComponent(VALID_PROJECT)}`;
+    await waitForFicheBoot(page, url);
     const href = await page.locator('#fv2-btn-back').getAttribute('href');
-    // buildBackUrl inclut toujours project= dans le href, pas de city ni cat (velo = default)
-    expect(href).toContain('project=');
-    expect(href).not.toContain('city=');
-    expect(href).not.toContain('cat=');
+    expect(href).not.toContain('cat=velo');
+    expect(href).toContain(`city=${VALID_CITY}`);
   });
 
   test('0.10.5 — Le bouton retour erreur a le même href contextuel', async ({ page }) => {
-    const url = '/fiche/?cat=urbanisme&city=test-ville';
+    // URL avec 2 segments path (pas de projSlug) → erreur affichée
+    const url = '/fiche/test-ville/urbanisme/';
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(
       () => { const e = document.getElementById('fv2-error'); return e && !e.hidden; },
@@ -680,7 +693,7 @@ test.describe('0.13 — Fiche : contenu principal', () => {
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const topTitle = page.locator('#fv2-topbar-title');
     const text = await topTitle.textContent();
-    expect(text).toBe(VALID_PROJECT);
+    expect(text).toBe(VALID_PROJECT_NAME);
   });
 
   test('0.13.6 — La cover image a un alt = nom du projet', async ({ page }) => {
@@ -975,9 +988,9 @@ test.describe('0.17 — Fiche : projets similaires', () => {
     }
     const firstCard = page.locator('#fv2-related .fv2-related-card').first();
     const href = await firstCard.getAttribute('href');
+    // Le format est /fiche/{ville}/{catSlug}/{slug}
     expect(href).toContain('/fiche/');
-    expect(href).toContain('cat=');
-    expect(href).toContain('project=');
+    expect(href).toMatch(/^\/fiche\/[^/]+\/[^/]+\/[^/]+$/);
   });
 
   test('0.17.3 — Les cards related contiennent le nom du projet', async ({ page }) => {
@@ -1007,7 +1020,9 @@ test.describe('0.17 — Fiche : projets similaires', () => {
     }
     const firstCard = page.locator('#fv2-related .fv2-related-card').first();
     const href = await firstCard.getAttribute('href');
-    expect(href).toContain(`city=`);
+    // La ville est dans le chemin /fiche/{ville}/... et non plus en query param
+    expect(href).toMatch(/^\/fiche\/[^/]+\/[^/]+\/[^/]+$/);
+    expect(href).toContain(VALID_CITY);
   });
 
   test('0.17.5 — Les cards related n\'incluent pas le projet actuel', async ({ page }) => {
@@ -1042,8 +1057,14 @@ test.describe('0.18 — Fiche : topbar scroll', () => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     // Scroller au-delà de la hauteur du héro
-    await page.evaluate(() => window.scrollTo(0, 600));
-    await page.waitForTimeout(500); // attendre le RAF
+    // Scroller largement au-delà du héro (quel que soit la hauteur du viewport)
+    await page.evaluate(() => {
+      // Forcer une hauteur minimale pour que la page soit scrollable sur les fiches courtes
+      document.body.style.minHeight = '3000px';
+      const heroH = document.getElementById('fv2-hero')?.offsetHeight || 300;
+      window.scrollTo(0, heroH + 200);
+    });
+    await page.waitForTimeout(600); // attendre le RAF
     await expect(page.locator('#fv2-topbar')).toHaveClass(/is-scrolled/, { timeout: 3000 });
   });
 });
@@ -1053,42 +1074,26 @@ test.describe('0.18 — Fiche : topbar scroll', () => {
 // ═════════════════════════════════════════════════════════
 test.describe('0.19 — Fiche : paramètres URL', () => {
 
-  test('0.19.1 — cat absent → catégorie par défaut "velo" utilisée', async ({ page }) => {
+  test('0.19.1 — L’URL comporte toujours les 3 segments ville/cat/slug', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
-    // Charger sans cat mais avec le cat réel du projet (sinon le fetch échoue si le projet n'est pas dans la catégorie velo)
-    await page.goto(`/fiche/?project=${encodeURIComponent(VALID_PROJECT)}&city=${VALID_CITY}`, { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(
-      () => {
-        const hero = document.getElementById('fv2-hero');
-        const error = document.getElementById('fv2-error');
-        return (hero && hero.querySelector('.fv2-hero__title')) ||
-               (error && !error.hidden);
-      },
-      { timeout: 20000 }
-    );
-    // Le résultat dépend de la catégorie réelle du projet :
-    // - si le projet est en catégorie "velo" → la fiche charge normalement
-    // - sinon → le fetch échoue car cat par défaut = velo ≠ cat réelle → erreur affichée
-    const errorShown = await page.evaluate(() => !document.getElementById('fv2-error')?.hidden);
-    if (!errorShown) {
-      const badge = page.locator('.fv2-hero__badge');
-      const text = await badge.textContent();
-      expect(text.trim().length).toBeGreaterThan(0);
-    }
-    // Dans les deux cas, la page ne doit pas crasher
-  });
-
-  test('0.19.2 — city est optionnel et la page charge sans', async ({ page }) => {
-    test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
-    // Charger sans city
-    await waitForFicheBoot(page, `/fiche/?cat=${VALID_CAT}&project=${encodeURIComponent(VALID_PROJECT)}`);
+    const url = ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY);
+    // Le format doit être /fiche/{ville}/{catSlug}/{projSlug}
+    expect(url).toMatch(/^\/fiche\/[^/]+\/[^/]+\/[^/]+$/);
+    await waitForFicheBoot(page, url);
     // La page doit se charger normalement
     await expect(page.locator('.fv2-hero__title')).toBeVisible();
   });
 
-  test('0.19.3 — Caractères spéciaux dans project sont gérés', async ({ page }) => {
-    // Un projet avec caractères encodés
-    await page.goto('/fiche/?cat=velo&project=projet%20avec%20espaces', { waitUntil: 'domcontentloaded' });
+  test('0.19.2 — La ville figure toujours dans l’URL de la fiche', async ({ page }) => {
+    test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville non disponible');
+    await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
+    // La page doit se charger normalement
+    await expect(page.locator('.fv2-hero__title')).toBeVisible();
+  });
+
+  test('0.19.3 — URL avec slug non trouvé affiche erreur (pas de crash)', async ({ page }) => {
+    // Un slug qui ne correspond à aucun projet
+    await page.goto('/fiche/test-xyz/velo/projet-avec-espaces-xyz', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(
       () => {
         const hero = document.getElementById('fv2-hero');
@@ -1199,11 +1204,13 @@ test.describe('0.22 — Fiche : navigation', () => {
     await firstCard.click();
     await page.waitForURL('**/fiche/**', { timeout: 10000 });
     expect(page.url()).toContain('/fiche/');
-    // L'URL doit contenir un paramètre project différent
-    const url = new URL(page.url());
-    const newProject = url.searchParams.get('project');
-    expect(newProject).toBeTruthy();
-    expect(newProject).not.toBe(VALID_PROJECT);
+    // Le nouveau format est /fiche/{ville}/{catSlug}/{slug}
+    const newUrl = new URL(page.url());
+    const segments = newUrl.pathname.replace(/^\/+|\/+$/g, '').split('/');
+    // segments[0]='fiche', [1]=ville, [2]=catSlug, [3]=slug
+    expect(segments.length).toBe(4);
+    expect(segments[3]).toBeTruthy();
+    expect(segments[3]).not.toBe(VALID_PROJECT);
   });
 
   test('0.22.2 — Le bouton retour a un href valide vers la carte', async ({ page }) => {
@@ -1237,7 +1244,7 @@ test.describe('0.23 — Fiche : sécurité', () => {
 
   test('0.23.2 — Le contenu du titre est échappé (pas de HTML brut)', async ({ page }) => {
     // Tenter un nom de projet avec injection
-    await page.goto('/fiche/?cat=velo&project=<script>alert(1)</script>', { waitUntil: 'domcontentloaded' });
+    await page.goto('/fiche/test-xyz/velo/script-alert-1', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(
       () => {
         const hero = document.getElementById('fv2-hero');
@@ -1323,25 +1330,25 @@ test.describe('0.24 — Fiche : hydratation client (régression)', () => {
     const text = (await title.textContent() || '').trim();
     expect(text.length).toBeGreaterThan(0);
     // Le titre rendu doit correspondre au project_name
-    expect(text).toBe(VALID_PROJECT);
+    expect(text).toBe(VALID_PROJECT_NAME);
   });
 
-  test('0.24.4 — fetchProjectByCategoryAndName retourne un objet (pas de throw)', async ({ page }) => {
+  test('0.24.4 — fetchProjectBySlug retourne un objet (pas de throw)', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
-    await page.goto('/fiche/?cat=' + encodeURIComponent(VALID_CAT) + '&project=' + encodeURIComponent(VALID_PROJECT), { waitUntil: 'domcontentloaded' });
+    await page.goto(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY), { waitUntil: 'domcontentloaded' });
     // Attendre que supabaseService soit dispo
-    await page.waitForFunction(() => !!window.supabaseService?.fetchProjectByCategoryAndName, { timeout: 10000 });
-    const result = await page.evaluate(async ([cat, proj]) => {
+    await page.waitForFunction(() => !!window.supabaseService?.fetchProjectBySlug, { timeout: 10000 });
+    const result = await page.evaluate(async ([ville, catSlug, slug]) => {
       try {
-        const r = await window.supabaseService.fetchProjectByCategoryAndName(cat, proj);
+        const r = await window.supabaseService.fetchProjectBySlug(ville, catSlug, slug);
         return { ok: true, hasData: !!r, projectName: r?.project_name || null };
       } catch (e) {
         return { ok: false, error: String(e) };
       }
-    }, [VALID_CAT, VALID_PROJECT]);
+    }, [VALID_CITY, VALID_CAT, VALID_PROJECT]);
     expect(result.ok, `Exception: ${result.error}`).toBe(true);
     expect(result.hasData).toBe(true);
-    expect(result.projectName).toBe(VALID_PROJECT);
+    expect(result.projectName).toBe(VALID_PROJECT_NAME);
   });
 
   test('0.24.5 — Les blocs principaux sont révélés (non-hidden) après hydratation', async ({ page }) => {

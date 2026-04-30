@@ -628,7 +628,7 @@
       
       let q = supabaseClient
         .from('contribution_uploads')
-        .select('id, project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
+        .select('id, project_name, category, category_slug, slug, geojson_url, cover_url, markdown_url, meta, description, ville')
         .eq('category', category)
         .eq('ville', activeCity)
         .order('created_at', { ascending: false });
@@ -680,6 +680,46 @@
         return data || null;
       } catch (e) {
         console.debug('[supabaseService] fetchProjectByCategoryAndName exception:', e);
+        return null;
+      }
+    },
+
+    /**
+     * Récupère un projet par ses slugs (nouveau format d'URL /fiche/{ville}/{cat_slug}/{slug})
+     * @param {string} villeSlug
+     * @param {string} categorySlug
+     * @param {string} projSlug
+     * @returns {Promise<Object|null>}
+     */
+    fetchProjectBySlug: async function(villeSlug, categorySlug, projSlug) {
+      try {
+        if (!villeSlug || !categorySlug || !projSlug) return null;
+
+        let uid = null;
+        try {
+          const { data: userData } = await supabaseClient.auth.getUser();
+          uid = userData?.user?.id || null;
+        } catch { /* non bloquant */ }
+
+        let q = supabaseClient
+          .from('contribution_uploads')
+          .select('project_name, category, category_slug, slug, geojson_url, cover_url, markdown_url, meta, description, official_url, ville')
+          .eq('category_slug', categorySlug)
+          .eq('slug', projSlug)
+          .eq('ville', villeSlug)
+          .limit(1);
+        q = uid
+          ? q.or(`approved.eq.true,created_by.eq.${uid}`)
+          : q.eq('approved', true);
+
+        const { data, error } = await q.maybeSingle();
+        if (error) {
+          console.debug('[supabaseService] fetchProjectBySlug error:', error);
+          return null;
+        }
+        return data || null;
+      } catch (e) {
+        console.debug('[supabaseService] fetchProjectBySlug exception:', e);
         return null;
       }
     },

@@ -2,6 +2,8 @@
 # https://docs.netlify.com/routing/redirects/
 
 # Routes exclues - ne pas rediriger (déjà gérées par le serveur)
+# Nouvelle URL SEO : /fiche/{ville}/{categorie}/{slug} — DOIT être avant /fiche/*
+/fiche/*/*/*        /fiche/index.html     200
 /fiche/*            /fiche/:splat         200
 /login/*            /login/:splat         200
 /logout/*           /logout/:splat        200

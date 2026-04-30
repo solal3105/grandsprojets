@@ -482,10 +482,15 @@ async function _openDetail(id) {
       </div>` : ''}
     `;
 
+    const ficheUrl = (item.ville && item.category_slug && item.slug)
+      ? `/fiche/${encodeURIComponent(item.ville)}/${encodeURIComponent(item.category_slug)}/${encodeURIComponent(item.slug)}`
+      : null;
+
     const footer = `
       <button class="adm-btn adm-btn--ghost adm-btn--sm" id="sp-delete" style="color:var(--danger);margin-right:auto;">
         <i class="fa-solid fa-trash"></i> Supprimer
       </button>
+      ${ficheUrl ? `<a href="${esc(ficheUrl)}" target="_blank" rel="noopener" class="adm-btn adm-btn--ghost adm-btn--sm"><i class="fa-solid fa-arrow-up-right-from-square"></i> Voir la fiche</a>` : ''}
       <a href="/admin/contributions/modifier/${id}/" class="adm-btn adm-btn--secondary" data-section="contributions" id="sp-edit">
         <i class="fa-solid fa-pen"></i> Modifier
       </a>

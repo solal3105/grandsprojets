@@ -7,7 +7,7 @@ export default async (_request, _context) => {
 
     // Récupérer les projets avec les infos de ville
     const url = new URL('/rest/v1/contribution_uploads', SUPABASE_URL);
-    url.searchParams.set('select', 'project_name,category,markdown_url,cover_url,description,ville,created_at');
+    url.searchParams.set('select', 'project_name,category,category_slug,slug,markdown_url,cover_url,description,ville,created_at');
     url.searchParams.set('order', 'created_at.desc');
     url.searchParams.set('approved', 'eq.true');
 
@@ -88,10 +88,12 @@ export default async (_request, _context) => {
       const name = it?.project_name || '';
       const cat = String(it?.category || '').toLowerCase();
       const ville = it?.ville || '';
+      const catSlug = it?.category_slug || '';
+      const projSlug = it?.slug || '';
       if (!name || !cat) continue;
+      if (!ville || !catSlug || !projSlug) continue; // ignorer les entrées sans slugs
       if (isTestEntry(name, cat)) continue;
-      const encoded = encodeURIComponent(name);
-      const loc = `${BASE_ORIGIN}/fiche/?cat=${encodeURIComponent(cat)}&project=${encoded}${ville ? `&city=${encodeURIComponent(ville)}` : ''}`;
+      const loc = `${BASE_ORIGIN}/fiche/${encodeURIComponent(ville)}/${encodeURIComponent(catSlug)}/${encodeURIComponent(projSlug)}`;
       const lastmod = fmtDate(it?.created_at) || undefined;
       const priority = it?.markdown_url ? '0.8' : '0.6';
 

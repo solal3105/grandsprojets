@@ -90,21 +90,22 @@
   }
 
   function urlParams() {
-    const p = new URLSearchParams(window.location.search);
+    // Format : /fiche/{ville}/{categorySlug}/{projSlug}
+    const parts = window.location.pathname.replace(/^\/+|\/+$/g, '').split('/');
+    // parts[0] = 'fiche', parts[1] = ville, parts[2] = categorySlug, parts[3] = projSlug
     return {
-      project:  p.get('project') || '',
-      category: p.get('cat') || CFG.DEFAULT_CAT,
-      city:     p.get('city') || '',
+      projSlug:     parts[3] || '',
+      categorySlug: parts[2] || CFG.DEFAULT_CAT,
+      villeSlug:    parts[1] || '',
     };
   }
 
-  function buildBackUrl({ project, category, city }) {
+  function buildBackUrl({ villeSlug, categorySlug }) {
     const params = new URLSearchParams();
-    if (city) params.set('city', city);
-    if (category && category !== CFG.DEFAULT_CAT) params.set('cat', category);
-    if (project) params.set('project', project.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''));
+    if (villeSlug) params.set('city', villeSlug);
+    if (categorySlug && categorySlug !== CFG.DEFAULT_CAT) params.set('cat', categorySlug);
     const qs = params.toString();
-    return qs ? `/?${qs}` : (city ? `/${city}` : '/');
+    return qs ? `/?${qs}` : (villeSlug ? `/?city=${encodeURIComponent(villeSlug)}` : '/');
   }
 
   function initBackButton() {
@@ -423,13 +424,19 @@
   /* ═══════════════ SEO ═══════════════ */
   function updateSEO(project, category) {
     const name = project.project_name;
-    const desc = project.description || '';
+    const catLabel = CFG.CAT_LABELS[category] || humanizeCategory(category);
+    const desc = (project.description && project.description.length > 10)
+      ? project.description
+      : `Découvrez ${name}, un projet ${catLabel}.`;
     const cover = project.cover_url || '';
-    const ville = project.ville || urlParams().city || '';
-    const canonical = `${CFG.PROD}/fiche/?cat=${encodeURIComponent(category)}&project=${encodeURIComponent(name)}${ville ? `&city=${encodeURIComponent(ville)}` : ''}`;
+    const ville = project.ville || '';
+    const catSlug = project.category_slug || category;
+    const projSlug = project.slug || '';
+    const canonical = (ville && catSlug && projSlug)
+      ? `${CFG.PROD}/fiche/${encodeURIComponent(ville)}/${encodeURIComponent(catSlug)}/${encodeURIComponent(projSlug)}`
+      : `${CFG.PROD}/fiche/`;
 
     // Titre dynamique — utilise le branding ville si disponible (sera mis à jour par loadBranding)
-    const catLabel = CFG.CAT_LABELS[category] || humanizeCategory(category);
     document.title = `${name} – ${catLabel}`;
 
     const setMeta = (attr, key, val) => {
@@ -517,7 +524,7 @@
   }
 
   /* ═══════════════ RELATED PROJECTS ═══════════════ */
-  async function loadRelated(category, currentName, ville) {
+  async function loadRelated(category, currentName, ville, categorySlug) {
     try {
       const projects = await window.supabaseService?.fetchProjectsByCategory?.(category);
       if (!projects?.length) return;
@@ -531,7 +538,12 @@
       others.forEach(p => {
         const link = document.createElement('a');
         link.className = 'fv2-related-card';
-        link.href = `/fiche/?cat=${encodeURIComponent(category)}&project=${encodeURIComponent(p.project_name)}${ville ? `&city=${encodeURIComponent(ville)}` : ''}`;
+        const rVille  = p.ville || ville || '';
+        const rCatSlug = p.category_slug || categorySlug || '';
+        const rSlug   = p.slug || '';
+        link.href = (rVille && rCatSlug && rSlug)
+          ? `/fiche/${encodeURIComponent(rVille)}/${encodeURIComponent(rCatSlug)}/${encodeURIComponent(rSlug)}`
+          : '/';
 
         if (p.cover_url) {
           const img = document.createElement('img');
@@ -775,9 +787,9 @@
     });
 
     // Parse URL
-    const { project, category, city } = urlParams();
+    const { projSlug, categorySlug, villeSlug } = urlParams();
 
-    if (!project) {
+    if (!projSlug) {
       if (ssrBlock) ssrBlock.classList.add('is-hydrated');
       showError('Projet introuvable', "Aucun nom de projet n'a été fourni dans l'URL.");
       return;
@@ -790,8 +802,8 @@
     let data, docs;
     try {
       [data, docs] = await Promise.all([
-        window.supabaseService?.fetchProjectByCategoryAndName?.(category, project),
-        window.supabaseService?.getConsultationDossiersByProject?.(project),
+        window.supabaseService?.fetchProjectBySlug?.(villeSlug, categorySlug, projSlug),
+        window.supabaseService?.getConsultationDossiersByProject?.(projSlug),
       ]);
     } catch {
       // Réseau indisponible (ex: sandbox Google Rich Results) → garder le SSR visible
@@ -803,10 +815,11 @@
     }
 
     if (!data) {
-      // Projet réellement absent de la BDD → afficher l'erreur uniquement si pas de SSR
+      // Toujours signaler que le fetch est terminé (évite le zombie state)
+      if (ssrBlock) ssrBlock.classList.add('is-hydrated');
+      // Afficher l'erreur uniquement si pas de contenu SSR
       if (!ssrHasContent) {
-        if (ssrBlock) ssrBlock.classList.add('is-hydrated');
-        showError('Projet introuvable', `Le projet « ${sanitizeText(project)} » n'existe pas ou n'est pas encore approuvé.`);
+        showError('Projet introuvable', `Le projet demandé n'existe pas ou n'est pas encore approuvé.`);
       }
       return;
     }
@@ -815,13 +828,13 @@
     if (ssrBlock) ssrBlock.classList.add('is-hydrated');
 
     // Render hero
-    renderHero(data, category);
+    renderHero(data, data.category);
 
     // SEO
-    updateSEO(data, category);
+    updateSEO(data, data.category);
 
     // La ville est celle de la contribution en DB (contribution_uploads.ville → city_branding)
-    const ville = data.ville || city || null;
+    const ville = data.ville || villeSlug || null;
 
     // City branding + DataModule styles init in parallel
     await Promise.all([
@@ -847,7 +860,7 @@
 
     // Carte dans le héro (APRÈS DataModule init)
     if (data.geojson_url) {
-      const mapResult = await initMap('fv2-map', data.geojson_url, category);
+      const mapResult = await initMap('fv2-map', data.geojson_url, data.category);
       if (mapResult) {
         primaryMap = mapResult.map;
         primaryBasemap = mapResult.base;
@@ -865,7 +878,7 @@
     await renderMarkdown(data.markdown_url);
 
     // Related projects
-    loadRelated(category, data.project_name, ville);
+    loadRelated(data.category, data.project_name, ville, data.category_slug);
   }
 
   /* ═══════════════ BOOT ═══════════════ */
