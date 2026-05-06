@@ -703,7 +703,7 @@ test.describe('0.13 — Fiche : contenu principal', () => {
     const isHidden = await coverBlock.evaluate(el => el.hidden);
     if (!isHidden) {
       const alt = await page.locator('#fv2-cover-img').getAttribute('alt');
-      expect(alt).toBe(VALID_PROJECT);
+      expect(alt).toBe(VALID_PROJECT_NAME);
     }
   });
 });
@@ -892,14 +892,13 @@ test.describe('0.15 — Fiche : lightbox', () => {
       return;
     }
     await page.locator('#fv2-btn-cover-expand').click();
-    await expect(page.locator('#fv2-lightbox')).toHaveClass(/is-open/);
-    // Clic dans le coin supérieur gauche de la lightbox (pas sur l'image)
     const lb = page.locator('#fv2-lightbox');
-    const box = await lb.boundingBox();
-    if (box) {
-      await page.mouse.click(box.x + 5, box.y + 5);
-    }
-    await expect(page.locator('#fv2-lightbox')).not.toHaveClass(/is-open/, { timeout: 2000 });
+    await expect(lb).toHaveClass(/is-open/);
+    // Attendre la fin de la transition d'opacité (0.3s) avant de cliquer
+    await lb.waitFor({ state: 'visible' });
+    // Clic dans le coin supérieur gauche de la lightbox (pas sur l'image)
+    await lb.click({ position: { x: 5, y: 5 } });
+    await expect(lb).not.toHaveClass(/is-open/, { timeout: 2000 });
   });
 });
 
