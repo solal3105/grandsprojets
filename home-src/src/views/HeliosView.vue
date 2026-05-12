@@ -28,9 +28,7 @@
           <p class="mt-8 text-gray-text text-base sm:text-lg leading-relaxed max-w-[609px] mx-auto">
             En tant que partenaire Helios, vous bénéficiez d'un accès privilégié à <strong class="text-dark">Open Projets</strong> — la carte interactive qui rend vos aménagements, travaux de voirie et projets urbains accessibles à chaque habitant, en temps réel.
           </p>
-          <p class="mt-3 text-xs text-gray-text/50 tracking-wide">
-            Déploiement en 1 heure · Aucune compétence technique requise · Sans engagement
-          </p>
+
 
           <!-- CTAs -->
           <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -39,11 +37,11 @@
               Contacter le commercial Helios
               <ArrowRight class="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
             </a>
-            <router-link to="/" v-tilt-btn
+            <a href="https://openprojets.com/home/contact" v-tilt-btn
               class="inline-flex items-center gap-2.5 bg-white text-dark text-sm font-medium px-7 py-4 rounded-full border border-gray-border hover:border-gray-300 transition-colors">
-              En savoir plus sur Open Projets
+              Demander une démo
               <ArrowUpRight class="w-3.5 h-3.5 text-gray-400" />
-            </router-link>
+            </a>
           </div>
         </div>
 
@@ -381,32 +379,7 @@
       </div>
     </section>
 
-    <!-- ═══ GARANTIES ═══ -->
-    <section class="py-24 bg-white overflow-hidden">
-      <div class="max-w-container mx-auto px-6">
-        <div class="max-w-[680px] mx-auto text-center mb-16 reveal" :ref="setRevealRef(9)">
-          <span class="inline-flex items-center gap-2.5 text-xs font-semibold text-gray-text/40 uppercase tracking-widest mb-5">
-            <span class="w-5 h-px bg-gray-border inline-block" />
-            Garanties
-          </span>
-          <h2 class="font-heading font-bold text-3xl sm:text-4xl lg:text-[48px] leading-[1.08] tracking-tight text-dark">
-            Français, souverain, open source.
-            <span class="text-gradient-green"> Aucun compromis.</span>
-          </h2>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 reveal" :ref="setRevealRef(10)">
-          <div v-for="g in guarantees" :key="g.title" class="group flex flex-col items-start gap-4 rounded-2xl border border-gray-border bg-gray-bg p-7 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 cursor-default">
-            <div class="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110" :class="g.bgClass">
-              <component :is="g.icon" class="w-5 h-5" :class="g.iconClass" />
-            </div>
-            <div>
-              <h4 class="font-heading font-semibold text-base text-dark mb-1">{{ g.title }}</h4>
-              <p class="text-sm text-gray-text leading-relaxed">{{ g.desc }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+
 
     <!-- ═══ CTA FINAL ═══ -->
     <section class="relative py-32 bg-dark overflow-hidden">
@@ -425,17 +398,17 @@
           <span class="text-gradient">visibles par tous ?</span>
         </h2>
         <p class="mt-6 text-white/60 text-base sm:text-lg max-w-lg mx-auto leading-relaxed">
-          Contactez votre commercial Helios pour activer Open Projets sur votre territoire. Déploiement en une heure, accompagnement inclus.
+          Contactez votre commercial Helios pour activer Open Projets sur votre territoire.
         </p>
         <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <a href="mailto:commercial@helios-marquage.fr" v-tilt-btn class="group inline-flex items-center gap-2.5 bg-primary text-white text-sm font-medium px-7 py-4 rounded-full hover:bg-red-700 transition-all duration-200 shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40">
             Contacter le commercial Helios
             <ArrowRight class="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
           </a>
-          <router-link to="/" v-tilt-btn class="inline-flex items-center gap-2.5 bg-white/10 text-white text-sm font-medium px-7 py-4 rounded-full border border-white/20 hover:bg-white/20 transition-all duration-200">
-            En savoir plus sur Open Projets
+          <a href="https://openprojets.com/home/contact" v-tilt-btn class="inline-flex items-center gap-2.5 bg-white/10 text-white text-sm font-medium px-7 py-4 rounded-full border border-white/20 hover:bg-white/20 transition-all duration-200">
+            Demander une démo
             <ArrowUpRight class="w-3.5 h-3.5 text-white/60" />
-          </router-link>
+          </a>
         </div>
       </div>
     </section>
@@ -622,38 +595,6 @@ const steps = [
     image: 'feature-consultation.jpeg',
     title: 'Vos habitants consultent',
     desc: 'La carte est publique, sans inscription, accessible sur mobile. Chaque citoyen voit les projets et travaux de son quartier.',
-  },
-]
-
-// ── Guarantees ──────────────────────────────────────────────────────────────────
-const guarantees = [
-  {
-    icon: MapPin,
-    title: 'Entreprise française',
-    desc: 'Développé à Lyon, inscrit au RCS. Équipe locale, décision locale.',
-    bgClass: 'bg-primary/10',
-    iconClass: 'text-primary',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Données souveraines',
-    desc: 'Hébergement UE, zéro traceur, RGPD natif. Export complet à tout moment.',
-    bgClass: 'bg-green/10',
-    iconClass: 'text-green',
-  },
-  {
-    icon: Github,
-    title: 'Open source',
-    desc: 'Code public, licence permissive. Aucun enfermement propriétaire possible.',
-    bgClass: 'bg-purple/10',
-    iconClass: 'text-purple',
-  },
-  {
-    icon: Unlock,
-    title: 'Sans engagement',
-    desc: 'Tarif transparent, sans frais cachés. Vous restez libre, toujours.',
-    bgClass: 'bg-amber/10',
-    iconClass: 'text-amber',
   },
 ]
 
