@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Phaos mock host — test fixture</title>
+  <style>
+    body { margin: 0; padding: 0; }
+    iframe { display: block; width: 100vw; height: 100vh; border: none; }
+  </style>
+</head>
+<body>
+  <!--
+    Page de test simulant l'app Phaos embarquant la carte Open Projets en iframe.
+    Utilisée par tests/unauth.phaos-iframe.spec.js.
+
+    Comportement :
+    - Charge la carte dans une iframe
+    - Dès que l'iframe est prête (load), envoie un faux ID_TOKEN via postMessage
+    - Le token est invalide → /api/auth/token retourne 400
+    - phaos-auth.js gère l'erreur et résout quand même → carte chargée hors session
+    - Ce test vérifie la résilience (pas de blank screen sur échange échoué)
+  -->
+  <iframe
+    id="map-frame"
+    src="/?city=metropole-lyon"
+    title="Carte Open Projets (test)"
+  ></iframe>
+
+  <script>
+    const frame = document.getElementById('map-frame');
+    frame.addEventListener('load', () => {
+      // Envoyer un faux token dès que l'iframe est chargée.
+      // localhost:3001 est dans PHAOS_ORIGINS → message accepté par phaos-auth.js.
+      // Le token est syntaxiquement invalide → auth-token.mjs retourne 400 rapidement.
+      frame.contentWindow.postMessage(
+        { type: 'ID_TOKEN', idToken: 'fake.invalid.token' },
+        'http://localhost:3001'
+      );
+    });
+  </script>
+</body>
+</html>

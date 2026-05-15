@@ -191,7 +191,11 @@
 
   async function initApp() {
     try {
-      // PHASE 0 : Health check automatique du localStorage
+      // PHASE 0a : SSO Phaos iframe — bloquer l'init jusqu'à réception du token
+      // En navigation directe (hors iframe), waitForSession() résout immédiatement.
+      await win.PhaosAuth?.waitForSession();
+
+      // PHASE 0b : Health check automatique du localStorage
       const healthCheck = performStorageHealthCheck();
       if (healthCheck.needsReload) {
         console.debug('[Main] Nettoyage effectué, rechargement automatique...');

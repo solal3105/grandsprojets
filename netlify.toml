@@ -45,6 +45,12 @@
 # Redirections sous-domaines → ?city=
 # ============================================
 
+# SSO Phaos — URL propre pour la fonction d'échange de token
+[[redirects]]
+  from   = "/api/auth/token"
+  to     = "/.netlify/functions/auth-token"
+  status = 200
+
 [[redirects]]
   from = "https://lumieres.openprojets.com/*"
   to = "https://openprojets.com/:splat?city=lumieres"
