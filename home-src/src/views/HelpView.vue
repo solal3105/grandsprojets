@@ -110,15 +110,11 @@
 </template>
 
 <script setup>
-import { ref, computed, markRaw, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { h } from 'vue'
-import {
-  ShieldCheck, PenLine, LogIn, Compass, PenSquare,
-  Tags, Users, Building2, ChevronRight, FolderOpen, Scale, Home, Download,
-  HardHat, MapPin
-} from 'lucide-vue-next'
-import * as Details from '@/components/help/details.js'
+import { ShieldCheck, PenLine, ChevronRight, Home, Download } from 'lucide-vue-next'
+import { adminCategories, contribCategories } from '@/data/helpCategories.js'
 
 /* ── CategoryCard (render function) ── */
 
@@ -148,42 +144,10 @@ const CategoryCard = {
 
 const roleLabels = { admin: 'Administrateur', contrib: 'Contributeur' }
 
-const adminCategories = [
-  { id: 'general',       icon: markRaw(Compass),    color: 'primary', title: 'Général',                  desc: 'Connexion, navigation et rôles' },
-  { id: 'contributions', icon: markRaw(PenSquare),   color: 'green',   title: 'Gérer les contributions',  desc: 'Créer, modifier, approuver, supprimer, filtrer' },
-  { id: 'travaux',       icon: markRaw(HardHat),     color: 'amber',   title: 'Travaux',                  desc: 'Chantiers, configuration et source de données' },
-  { id: 'categories',    icon: markRaw(Tags),        color: 'amber',   title: 'Gérer les catégories',     desc: 'Couleurs, styles de tracés et couches associées' },
-  { id: 'users',         icon: markRaw(Users),       color: 'purple',  title: 'Gérer les utilisateurs',   desc: 'Inviter, promouvoir, rétrograder' },
-  { id: 'structure',     icon: markRaw(Building2),   color: 'dark',    title: 'Gérer ma structure',       desc: 'Branding, logos, couleur et contrôles de la carte' },
-  { id: 'villes',        icon: markRaw(MapPin),      color: 'primary', title: 'Gestion des villes',       desc: 'Créer et gérer les structures (admin global)' },
-]
-
-const contribCategories = [
-  { id: 'general',       icon: markRaw(Compass),    color: 'primary', title: 'Général',                  desc: 'Connexion, accès, droits et permissions' },
-  { id: 'contributions', icon: markRaw(PenSquare),   color: 'green',   title: 'Gérer mes contributions',  desc: 'Créer, modifier, supprimer, filtrer' },
-]
-
-const categoryLabels = {
-  'general': 'Général',
-  'contributions': 'Gérer les contributions',
-  'travaux': 'Travaux',
-  'categories': 'Gérer les catégories',
-  'users': 'Gérer les utilisateurs',
-  'structure': 'Gérer ma structure',
-  'villes': 'Gestion des villes',
-}
-
-const detailMap = {
-  'admin-general':       markRaw(Details.AdminGeneral),
-  'admin-contributions': markRaw(Details.AdminContributions),
-  'admin-travaux':       markRaw(Details.AdminTravaux),
-  'admin-categories':    markRaw(Details.AdminCategories),
-  'admin-users':         markRaw(Details.AdminUsers),
-  'admin-structure':     markRaw(Details.AdminStructure),
-  'admin-villes':        markRaw(Details.AdminVilles),
-  'contrib-general':       markRaw(Details.ContribGeneral),
-  'contrib-contributions': markRaw(Details.ContribContributions),
-}
+const detailMap = Object.fromEntries([
+  ...adminCategories.map(cat => [`admin-${cat.id}`, cat.component]),
+  ...contribCategories.map(cat => [`contrib-${cat.id}`, cat.component]),
+])
 
 /* ── State ── */
 
@@ -191,9 +155,9 @@ const currentRole = ref(null)
 const currentCategory = ref(null)
 
 const categoryLabel = computed(() => {
-  if (!currentCategory.value) return ''
-  if (currentRole.value === 'contrib' && currentCategory.value === 'contributions') return 'Gérer mes contributions'
-  return categoryLabels[currentCategory.value] || currentCategory.value
+  if (!currentCategory.value || !currentRole.value) return ''
+  const cats = currentRole.value === 'admin' ? adminCategories : contribCategories
+  return cats.find(c => c.id === currentCategory.value)?.title ?? currentCategory.value
 })
 
 const detailComponent = computed(() => {

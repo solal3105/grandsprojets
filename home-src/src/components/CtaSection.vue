@@ -7,13 +7,13 @@
 
     <div class="relative max-w-container mx-auto px-6 text-center">
       <h2 class="font-heading font-bold text-3xl sm:text-4xl lg:text-[52px] leading-tight tracking-tight text-white">
-        Déployez votre carte
+        {{ heading }}
         <br />
-        <span class="text-gradient">pour votre territoire</span>
+        <span :class="headingGradient">{{ headingLine2 }}</span>
       </h2>
 
       <p class="mt-6 text-white/60 text-base sm:text-lg max-w-md mx-auto leading-relaxed">
-        Tarif transparent, zéro frais caché. Découvrez Open Projets en démo personnalisée — on configure votre espace ensemble.
+        {{ subtitle }}
       </p>
 
       <!-- CTAs -->
@@ -42,6 +42,13 @@
 
 <script setup>
 import { ArrowRight, ArrowUpRight, MapIcon } from 'lucide-vue-next'
+
+const props = defineProps({
+  heading: { type: String, default: 'Déployez votre carte' },
+  headingLine2: { type: String, default: 'pour votre territoire' },
+  headingGradient: { type: String, default: 'text-gradient' },
+  subtitle: { type: String, default: 'Tarif transparent, zéro frais caché. Découvrez Open Projets en démo personnalisée — on configure votre espace ensemble.' },
+})
 </script>
 
 <style scoped>

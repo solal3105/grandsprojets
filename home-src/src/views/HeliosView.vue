@@ -53,7 +53,7 @@
               <div class="flex items-center gap-1.5 shrink-0">
                 <span class="w-2.5 h-2.5 rounded-full bg-red-400" />
                 <span class="w-2.5 h-2.5 rounded-full bg-amber" />
-                <span class="w-2.5 h-2.5 rounded-full" style="background:#5AAB7D" />
+                <span class="w-2.5 h-2.5 rounded-full bg-green" />
               </div>
               <div class="flex-1 bg-white border border-gray-200 rounded-full px-3 py-1.5 text-xs text-gray-500 flex items-center gap-1.5 min-w-0">
                 <Lock class="w-3 h-3 text-gray-300 shrink-0" />
@@ -75,8 +75,8 @@
           <!-- Badge -->
           <div class="mt-4 flex items-center justify-center">
             <div class="inline-flex items-center gap-3 bg-white rounded-xl shadow-lg shadow-black/5 border border-gray-border px-4 py-2.5">
-              <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background-color: rgba(90,171,125,0.09)">
-                <MapPin class="w-4 h-4" style="color:#5AAB7D" />
+              <div class="w-7 h-7 rounded-lg flex items-center justify-center bg-green/10">
+                <MapPin class="w-4 h-4 text-green" />
               </div>
               <div class="text-left">
                 <p class="text-[11px] text-gray-400 leading-tight">Espace démonstration</p>
@@ -84,7 +84,7 @@
               </div>
               <span class="ml-2 relative flex h-2 w-2">
                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-60" />
-                <span class="relative inline-flex rounded-full h-2 w-2" style="background:#5AAB7D" />
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-green" />
               </span>
               <span class="text-[11px] text-gray-400 font-medium">Live</span>
             </div>
@@ -94,14 +94,7 @@
     </section>
 
     <!-- ═══ TRUST BAR ═══ -->
-    <section class="bg-white border-y border-gray-100 py-5">
-      <div class="max-w-container mx-auto px-6 flex flex-wrap items-center justify-center gap-8 sm:gap-16">
-        <div v-for="item in trustItems" :key="item.label" class="group flex items-center gap-2.5 cursor-default">
-          <component :is="item.icon" class="w-3.5 h-3.5 text-primary transition-all duration-200 group-hover:scale-125 group-hover:-rotate-12" />
-          <span class="text-[13px] text-gray-text tracking-wide transition-colors duration-200 group-hover:text-dark">{{ item.label }}</span>
-        </div>
-      </div>
-    </section>
+    <TrustBar />
 
     <!-- ═══ LE CONSTAT — before/after table ═══ -->
     <section class="py-24 bg-white overflow-hidden">
@@ -198,9 +191,9 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 reveal" :ref="setRevealRef(3)">
-          <div v-for="(pillar, i) in pillars" :key="i" :ref="setCardRef(i)" class="card-tilt" @mousemove="(e) => onMouseMove(e, i)" @mouseleave="onMouseLeave(i)">
+          <div v-for="(pillar, i) in pillars" :key="i" :ref="(el) => { cardEls[i] = el }" class="card-tilt" @mousemove="(e) => onCardMove(e, i)" @mouseleave="onCardLeave(i)">
             <div class="group relative bg-white rounded-2xl border border-gray-border overflow-hidden h-full transition-shadow duration-300 hover:shadow-xl">
-              <div class="absolute inset-0 pointer-events-none z-10 rounded-2xl" :style="shineStyles[i]" />
+              <div class="absolute inset-0 pointer-events-none z-10 rounded-2xl" :style="cardShines[i]" />
               <div class="absolute top-0 left-0 right-0 h-[3px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-t-2xl" :style="{ background: pillar.gradient }" />
 
               <!-- Image area -->
@@ -256,15 +249,7 @@
               </li>
             </ul>
           </div>
-          <div class="image-tilt" :ref="setImgRef(0)" @mousemove="(e) => onImgMove(e, 0)" @mouseleave="onImgLeave(0)">
-            <div class="group relative rounded-2xl overflow-hidden border border-gray-border" style="box-shadow: 0 24px 64px -12px rgba(0,0,0,0.10);">
-              <div class="absolute inset-0 pointer-events-none z-10 rounded-2xl" :style="imgShines[0]" />
-              <div class="absolute inset-0 overflow-hidden pointer-events-none z-10">
-                <div class="-translate-x-full group-hover:translate-x-[280%] -skew-x-12 w-1/3 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 ease-in-out" />
-              </div>
-              <img :src="`${base}img/features/2.jpeg`" alt="Module suivi de chantier" class="w-full h-auto block transition-transform duration-700 group-hover:scale-[1.03]" loading="lazy" />
-            </div>
-          </div>
+          <ShimmerImage :src="`${base}img/features/2.jpeg`" alt="Module suivi de chantier" />
         </div>
       </div>
     </section>
@@ -273,14 +258,8 @@
     <section class="py-14 sm:py-20 lg:py-28 bg-gray-bg overflow-hidden">
       <div class="max-w-container mx-auto px-6">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 sm:gap-16 lg:gap-24 items-center reveal" :ref="setRevealRef(5)">
-          <div class="image-tilt order-2 lg:order-1" :ref="setImgRef(1)" @mousemove="(e) => onImgMove(e, 1)" @mouseleave="onImgLeave(1)">
-            <div class="group relative rounded-2xl overflow-hidden border border-gray-border" style="box-shadow: 0 24px 64px -12px rgba(0,0,0,0.10);">
-              <div class="absolute inset-0 pointer-events-none z-10 rounded-2xl" :style="imgShines[1]" />
-              <div class="absolute inset-0 overflow-hidden pointer-events-none z-10">
-                <div class="-translate-x-full group-hover:translate-x-[280%] -skew-x-12 w-1/3 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 ease-in-out" />
-              </div>
-              <img :src="`${base}img/features/1.jpeg`" alt="Interface de gestion des projets" class="w-full h-auto block transition-transform duration-700 group-hover:scale-[1.03]" loading="lazy" />
-            </div>
+          <div class="order-2 lg:order-1">
+            <ShimmerImage :src="`${base}img/features/1.jpeg`" alt="Interface de gestion des projets" />
           </div>
           <div class="order-1 lg:order-2">
             <div class="inline-flex items-center gap-2 mb-6 group/badge cursor-default">
@@ -330,15 +309,7 @@
               </li>
             </ul>
           </div>
-          <div class="image-tilt" :ref="setImgRef(2)" @mousemove="(e) => onImgMove(e, 2)" @mouseleave="onImgLeave(2)">
-            <div class="group relative rounded-2xl overflow-hidden border border-gray-border" style="box-shadow: 0 24px 64px -12px rgba(0,0,0,0.10);">
-              <div class="absolute inset-0 pointer-events-none z-10 rounded-2xl" :style="imgShines[2]" />
-              <div class="absolute inset-0 overflow-hidden pointer-events-none z-10">
-                <div class="-translate-x-full group-hover:translate-x-[280%] -skew-x-12 w-1/3 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 ease-in-out" />
-              </div>
-              <img :src="`${base}img/features/feature-consultation.jpeg`" alt="Carte publique consultable" class="w-full h-auto block transition-transform duration-700 group-hover:scale-[1.03]" loading="lazy" />
-            </div>
-          </div>
+          <ShimmerImage :src="`${base}img/features/feature-consultation.jpeg`" alt="Carte publique consultable" />
         </div>
       </div>
     </section>
@@ -358,7 +329,7 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 reveal" :ref="setRevealRef(8)">
-          <div v-for="(step, i) in steps" :key="i" :ref="setStepRef(i)" class="card-tilt" @mousemove="(e) => onStepMove(e, i)" @mouseleave="onStepLeave(i)">
+          <div v-for="(step, i) in steps" :key="i" :ref="(el) => { stepEls[i] = el }" class="card-tilt" @mousemove="(e) => onStepMove(e, i)" @mouseleave="onStepLeave(i)">
             <div class="group relative bg-white rounded-2xl border border-gray-border overflow-hidden h-full transition-shadow duration-300 hover:shadow-xl">
               <div class="absolute inset-0 pointer-events-none z-10 rounded-2xl" :style="stepShines[i]" />
               <div class="h-52 bg-gray-100 relative overflow-hidden">
@@ -427,24 +398,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
 import {
   ArrowRight, ArrowUpRight, Check,
   MapPin, HardHat, Users,
-  ShieldCheck, Github, Server, Unlock,
-  Zap, Building, Lock, RotateCw,
+  ShieldCheck, Building, Lock, RotateCw,
 } from 'lucide-vue-next'
+import TrustBar from '@/components/TrustBar.vue'
+import ShimmerImage from '@/components/ShimmerImage.vue'
+import { useTilt } from '@/composables/useTilt.js'
+import { useScrollReveal } from '@/composables/useScrollReveal.js'
 
 const base = import.meta.env.BASE_URL
-
-// ── Trust bar ───────────────────────────────────────────────────────────────────
-const trustItems = [
-  { icon: ShieldCheck, label: 'RGPD Conforme' },
-  { icon: Github, label: 'Open Source' },
-  { icon: Server, label: 'Hébergement UE' },
-  { icon: Zap, label: 'Aucune formation requise' },
-  { icon: Unlock, label: 'Sans engagement ni dépendance' },
-]
 
 // ── Before / After pairs ────────────────────────────────────────────────────────
 const pairs = [
@@ -598,112 +562,15 @@ const steps = [
   },
 ]
 
-// ── Ref setters (for template refs in v-for) ────────────────────────────────────
-const revealEls = ref([])
-const cardEls = ref([])
-const imgEls = ref([])
-const stepEls = ref([])
+// ── Composables ─────────────────────────────────────────────────────────────────
+const { els: cardEls, shines: cardShines, onMove: onCardMove, onLeave: onCardLeave } = useTilt(3)
+const { els: stepEls, shines: stepShines, onMove: onStepMove, onLeave: onStepLeave } = useTilt(3)
+const { revealEls } = useScrollReveal()
 
 function setRevealRef(i) {
   return (el) => { revealEls.value[i] = el }
 }
-function setCardRef(i) {
-  return (el) => { cardEls.value[i] = el }
-}
-function setImgRef(i) {
-  return (el) => { imgEls.value[i] = el }
-}
-function setStepRef(i) {
-  return (el) => { stepEls.value[i] = el }
-}
 
-// ── Card tilt + glare (pillars) ─────────────────────────────────────────────────
-const shineStyles = reactive([{}, {}, {}])
-
-function onMouseMove(e, i) {
-  const el = cardEls.value[i]
-  if (!el) return
-  const rect = el.getBoundingClientRect()
-  const x = (e.clientX - rect.left) / rect.width - 0.5
-  const y = (e.clientY - rect.top) / rect.height - 0.5
-  el.style.transition = 'transform 0.08s ease'
-  el.style.transform = 'perspective(700px) rotateX(' + (-y * 7) + 'deg) rotateY(' + (x * 7) + 'deg) translateZ(10px)'
-  shineStyles[i] = {
-    background: 'radial-gradient(circle at ' + ((x + 0.5) * 100) + '% ' + ((y + 0.5) * 100) + '%, rgba(255,255,255,0.2) 0%, transparent 60%)',
-  }
-}
-
-function onMouseLeave(i) {
-  const el = cardEls.value[i]
-  if (!el) return
-  el.style.transition = 'transform 0.6s cubic-bezier(0.23, 1, 0.32, 1)'
-  el.style.transform = ''
-  shineStyles[i] = {}
-}
-
-// ── Image tilt (feature sections) ───────────────────────────────────────────────
-const imgShines = reactive([{}, {}, {}])
-
-function onImgMove(e, i) {
-  const el = imgEls.value[i]
-  if (!el) return
-  const rect = el.getBoundingClientRect()
-  const x = (e.clientX - rect.left) / rect.width - 0.5
-  const y = (e.clientY - rect.top) / rect.height - 0.5
-  el.style.transition = 'transform 0.08s ease'
-  el.style.transform = 'perspective(900px) rotateX(' + (-y * 5) + 'deg) rotateY(' + (x * 5) + 'deg) translateZ(8px)'
-  imgShines[i] = {
-    background: 'radial-gradient(circle at ' + ((x + 0.5) * 100) + '% ' + ((y + 0.5) * 100) + '%, rgba(255,255,255,0.15) 0%, transparent 60%)',
-  }
-}
-
-function onImgLeave(i) {
-  const el = imgEls.value[i]
-  if (!el) return
-  el.style.transition = 'transform 0.6s cubic-bezier(0.23, 1, 0.32, 1)'
-  el.style.transform = ''
-  imgShines[i] = {}
-}
-
-// ── Step cards tilt ─────────────────────────────────────────────────────────────
-const stepShines = reactive([{}, {}, {}])
-
-function onStepMove(e, i) {
-  const el = stepEls.value[i]
-  if (!el) return
-  const rect = el.getBoundingClientRect()
-  const x = (e.clientX - rect.left) / rect.width - 0.5
-  const y = (e.clientY - rect.top) / rect.height - 0.5
-  el.style.transition = 'transform 0.08s ease'
-  el.style.transform = 'perspective(700px) rotateX(' + (-y * 7) + 'deg) rotateY(' + (x * 7) + 'deg) translateZ(10px)'
-  stepShines[i] = {
-    background: 'radial-gradient(circle at ' + ((x + 0.5) * 100) + '% ' + ((y + 0.5) * 100) + '%, rgba(255,255,255,0.2) 0%, transparent 60%)',
-  }
-}
-
-function onStepLeave(i) {
-  const el = stepEls.value[i]
-  if (!el) return
-  el.style.transition = 'transform 0.6s cubic-bezier(0.23, 1, 0.32, 1)'
-  el.style.transform = ''
-  stepShines[i] = {}
-}
-
-// ── Scroll reveal ───────────────────────────────────────────────────────────────
-onMounted(() => {
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('is-visible')
-          observer.unobserve(entry.target)
-        }
-      })
-    },
-    { threshold: 0.1, rootMargin: '0px 0px -60px 0px' }
-  )
-  revealEls.value.forEach((el) => { if (el) observer.observe(el) })
-})
 </script>
 
 <style scoped>

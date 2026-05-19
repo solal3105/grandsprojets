@@ -1,0 +1,90 @@
+import { markRaw } from 'vue'
+import { Compass, PenSquare, HardHat, Tags, Users, Building2, MapPin } from 'lucide-vue-next'
+import * as Details from '@/components/help/details.js'
+
+export const adminCategories = [
+  {
+    id: 'general',
+    icon: markRaw(Compass),
+    color: 'primary',
+    title: 'Général',
+    desc: 'Connexion, navigation et rôles',
+    component: markRaw(Details.AdminGeneral),
+    printable: true,
+  },
+  {
+    id: 'contributions',
+    icon: markRaw(PenSquare),
+    color: 'green',
+    title: 'Gérer les contributions',
+    desc: 'Créer, modifier, approuver, supprimer, filtrer',
+    component: markRaw(Details.AdminContributions),
+    printable: true,
+  },
+  {
+    id: 'travaux',
+    icon: markRaw(HardHat),
+    color: 'amber',
+    title: 'Travaux',
+    desc: 'Chantiers, configuration et source de données',
+    component: markRaw(Details.AdminTravaux),
+    printable: false,
+  },
+  {
+    id: 'categories',
+    icon: markRaw(Tags),
+    color: 'amber',
+    title: 'Gérer les catégories',
+    desc: 'Couleurs, styles de tracés et couches associées',
+    component: markRaw(Details.AdminCategories),
+    printable: true,
+  },
+  {
+    id: 'users',
+    icon: markRaw(Users),
+    color: 'purple',
+    title: 'Gérer les utilisateurs',
+    desc: 'Inviter, promouvoir, rétrograder',
+    component: markRaw(Details.AdminUsers),
+    printable: true,
+  },
+  {
+    id: 'structure',
+    icon: markRaw(Building2),
+    color: 'dark',
+    title: 'Gérer ma structure',
+    desc: 'Branding, logos, couleur et contrôles de la carte',
+    component: markRaw(Details.AdminStructure),
+    printable: true,
+  },
+  {
+    id: 'villes',
+    icon: markRaw(MapPin),
+    color: 'primary',
+    title: 'Gestion des villes',
+    desc: 'Créer et gérer les structures (admin global)',
+    component: markRaw(Details.AdminVilles),
+    printable: false,
+  },
+]
+
+export const contribCategories = [
+  {
+    id: 'general',
+    icon: markRaw(Compass),
+    color: 'primary',
+    title: 'Général',
+    desc: 'Connexion, accès, droits et permissions',
+    component: markRaw(Details.ContribGeneral),
+    printable: true,
+  },
+  {
+    id: 'contributions',
+    icon: markRaw(PenSquare),
+    color: 'green',
+    title: 'Gérer mes contributions',
+    desc: 'Créer, modifier, supprimer, filtrer',
+    component: markRaw(Details.ContribContributions),
+    printable: true,
+  },
+]

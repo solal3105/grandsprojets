@@ -2,15 +2,11 @@
   <div>
     <!-- Hero -->
     <section class="relative bg-gray-bg pt-36 pb-20 overflow-hidden">
-      <div class="absolute top-[-70px] right-[-60px] w-[700px] h-[700px] blob-amber opacity-40 blur-[120px] rounded-full pointer-events-none" />
-      <div class="absolute bottom-0 left-[-156px] w-[600px] h-[600px] blob-green opacity-30 blur-[120px] rounded-full pointer-events-none" />
+      <PageBlobs top="blob-amber" bottom="blob-green" top-offset="-70px" />
 
       <div class="relative max-w-container mx-auto px-6">
         <div class="max-w-[768px]">
-          <span class="inline-flex items-center gap-2 text-[11px] font-semibold text-gray-text/40 uppercase tracking-[0.18em] mb-8">
-            <span class="w-5 h-px bg-gray-border" />
-            À propos
-          </span>
+          <EyebrowLabel>À propos</EyebrowLabel>
           <h1 class="font-heading font-bold text-4xl sm:text-5xl lg:text-[64px] leading-[1.05] tracking-tight-hero text-dark">
             Un outil français,
             <span class="text-gradient-green"> pour l'intérêt public</span>
@@ -29,14 +25,14 @@
           <div
             v-for="(pillar, i) in pillars"
             :key="i"
-            :ref="(el) => { cardEls[i] = el }"
+            :ref="(el) => { els[i] = el }"
             class="card-tilt"
-            @mousemove="(e) => onMouseMove(e, i)"
-            @mouseleave="onMouseLeave(i)"
+            @mousemove="(e) => onMove(e, i)"
+            @mouseleave="onLeave(i)"
           >
             <div class="group relative rounded-2xl border border-gray-border p-8 h-full overflow-hidden transition-shadow duration-300 hover:shadow-xl">
               <!-- Glare -->
-              <div class="absolute inset-0 pointer-events-none z-10 rounded-2xl" :style="shineStyles[i]" />
+              <div class="absolute inset-0 pointer-events-none z-10 rounded-2xl" :style="shines[i]" />
               <!-- Top accent line -->
               <div
                 class="absolute top-0 left-0 right-0 h-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-t-2xl"
@@ -68,7 +64,9 @@
           Open Projets est développé par <strong class="text-dark">VAZY</strong>, une entreprise lyonnaise, Société à Mission inscrite au RCS de Lyon.
         </p>
 
-        <div class="mt-16 grid grid-cols-1 lg:grid-cols-2 gap-12 items-start reveal" :ref="(el) => { revealEls[1] = el }">
+        <div
+          class="mt-16 grid grid-cols-1 lg:grid-cols-2 gap-12 items-start reveal" :ref="(el) => { revealEls[1] = el }"
+        >
           <!-- Vazy card -->
           <div class="bg-white rounded-2xl border border-gray-border p-8 sm:p-10 transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
             <div class="flex items-center gap-5 mb-6">
@@ -127,95 +125,31 @@
     </section>
 
     <!-- CTA -->
-    <section class="relative py-32 bg-dark overflow-hidden">
-      <div class="absolute inset-0 opacity-20">
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] blob-amber blur-[160px] rounded-full" />
-      </div>
-      <div class="relative max-w-container mx-auto px-6 text-center">
-        <h2 class="font-heading font-bold text-3xl sm:text-4xl lg:text-[52px] leading-tight tracking-tight text-white">
-          Déployez votre carte
-          <br />
-          <span class="text-gradient-green">pour votre territoire</span>
-        </h2>
-        <p class="mt-6 text-white/60 text-base sm:text-lg max-w-md mx-auto leading-relaxed">
-          Demandez une démo personnalisée et découvrez Open Projets en quelques minutes.
-        </p>
-        <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <router-link
-            to="/contact" v-tilt-btn
-            class="inline-flex items-center gap-2.5 bg-primary text-white text-sm font-medium px-7 py-4 rounded-full hover:bg-red-700 transition-colors shadow-lg shadow-primary/30"
-          >
-            Demander une démo
-            <ArrowRight class="w-4 h-4" />
-          </router-link>
-          <a
-            href="https://openprojets.com/default"
-            target="_blank" v-tilt-btn
-            class="inline-flex items-center gap-2.5 bg-white/10 text-white text-sm font-medium px-7 py-4 rounded-full border border-white/20 hover:bg-white/20 transition-colors"
-          >
-            <MapIcon class="w-4 h-4" />
-            Voir l'exemple Lyon
-            <ArrowUpRight class="w-3.5 h-3.5 text-white/60" />
-          </a>
-        </div>
-      </div>
-    </section>
+    <CtaSection
+      heading="Déployez votre carte"
+      heading-line2="pour votre territoire"
+      heading-gradient="text-gradient-green"
+      subtitle="Demandez une démo personnalisée et découvrez Open Projets en quelques minutes."
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
 import {
   MapPin, GitBranch, ShieldCheck,
-  ArrowRight, ArrowUpRight, MapIcon,
   Code, Heart,
   Building, MapPin as MapPinIcon, Users, Leaf,
 } from 'lucide-vue-next'
+import { useTilt } from '@/composables/useTilt.js'
+import { useScrollReveal } from '@/composables/useScrollReveal.js'
+import PageBlobs from '@/components/PageBlobs.vue'
+import EyebrowLabel from '@/components/EyebrowLabel.vue'
+import CtaSection from '@/components/CtaSection.vue'
 
 const base = import.meta.env.BASE_URL
 
-// ── Pillar cards tilt + glare ───────────────────────────────────────────────────
-const cardEls = ref([])
-const shineStyles = reactive([{}, {}, {}])
-
-function onMouseMove(e, i) {
-  const el = cardEls.value[i]
-  if (!el) return
-  const rect = el.getBoundingClientRect()
-  const x = (e.clientX - rect.left) / rect.width - 0.5
-  const y = (e.clientY - rect.top) / rect.height - 0.5
-  el.style.transition = 'transform 0.08s ease'
-  el.style.transform = `perspective(700px) rotateX(${-y * 6}deg) rotateY(${x * 6}deg) translateZ(10px)`
-  shineStyles[i] = {
-    background: `radial-gradient(circle at ${(x + 0.5) * 100}% ${(y + 0.5) * 100}%, rgba(255,255,255,0.18) 0%, transparent 60%)`,
-  }
-}
-
-function onMouseLeave(i) {
-  const el = cardEls.value[i]
-  if (!el) return
-  el.style.transition = 'transform 0.6s cubic-bezier(0.23, 1, 0.32, 1)'
-  el.style.transform = ''
-  shineStyles[i] = {}
-}
-
-// ── Scroll reveal ──────────────────────────────────────────────────────────────
-const revealEls = ref([])
-
-onMounted(() => {
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('is-visible')
-          observer.unobserve(entry.target)
-        }
-      })
-    },
-    { threshold: 0.1, rootMargin: '0px 0px -60px 0px' }
-  )
-  revealEls.value.forEach((el) => { if (el) observer.observe(el) })
-})
+const { els, shines, onMove, onLeave } = useTilt(3, { rotateMax: 6 })
+const { revealEls } = useScrollReveal()
 
 const pillars = [
   {

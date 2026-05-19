@@ -64,6 +64,31 @@ La carte publique utilise un **système de modules enregistrables** piloté par 
 - Vue 3 Composition API (`<script setup>`), Tailwind 3.4, primary `#FF0037`, icônes `lucide-vue-next`
 - **Ne pas éditer `/home/`** — artefacts de build
 
+#### Règles de développement Home
+
+**Fichiers et build**
+- Toujours éditer dans `home-src/src/` — jamais dans `/home/` (build artifact commité)
+- Builder après chaque série de changements : `cd home-src && npm run build`
+- Serveur de dev local : `cd home-src && npm run dev` → `:5173` (Vite HMR, pas Netlify Dev)
+
+**Composants et réutilisabilité**
+- Avant d'écrire du markup, chercher un composant existant : `TrustBar`, `CtaSection`, `HeroSection`, `TheHeader`, `TheFooter`, `LogoSvg`
+- Toute logique UI répétée (tilt 3D, scroll-reveal) → extraire en composable dans `src/composables/`
+- Toute structure de données partagée entre vues (navLinks, catégories aide) → extraire dans `src/data/`
+- Ne jamais redéfinir `navLinks` — il est partagé entre header et footer via un module commun
+
+**Couleurs et tokens**
+- Utiliser exclusivement les classes Tailwind définies dans `tailwind.config.js` : `text-primary`, `bg-dark`, `text-gray-text`, `border-gray-border`, etc.
+- **Jamais** de couleur hexadécimale ou `rgba()` inline dans `style=` — si une couleur manque dans le config, l'y ajouter
+- La `box-shadow` de référence pour les cards est dans le config ou une classe utilitaire — ne pas la copier en inline
+
+**Supabase**
+- Toute requête Supabase passe par `src/lib/supabase.js` (instance unique) — ne jamais instancier `createClient` dans une vue
+
+**URL et variables d'environnement**
+- L'URL de base de production (`https://openprojets.com/home`) et les URLs d'exemple ne doivent pas être dupliquées — les centraliser ou utiliser `import.meta.env`
+- Chemins d'assets : toujours `` `${import.meta.env.BASE_URL}img/...` `` — jamais de chemin absolu `/home/img/...` hardcodé
+
 ### Fonctions Netlify
 - CORS géré manuellement — Auth : vérification JWT via `/auth/v1/user`
 - `OPENAI_API_KEY` injectée automatiquement par `netlify dev` depuis les env vars Netlify

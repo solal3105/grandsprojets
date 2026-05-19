@@ -43,10 +43,10 @@
 </template>
 
 <script setup>
-import { computed, markRaw, onMounted, nextTick } from 'vue'
+import { computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Download } from 'lucide-vue-next'
-import * as Details from '@/components/help/details.js'
+import { adminCategories, contribCategories } from '@/data/helpCategories.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -62,22 +62,10 @@ const title = computed(() =>
     : 'Guide Contributeur — Open Projets'
 )
 
-const adminCats = [
-  { id: 'general', title: 'Général', component: markRaw(Details.AdminGeneral) },
-  { id: 'contributions', title: 'Gérer les contributions', component: markRaw(Details.AdminContributions) },
-  { id: 'categories', title: 'Gérer les catégories', component: markRaw(Details.AdminCategories) },
-  { id: 'users', title: 'Gérer les utilisateurs', component: markRaw(Details.AdminUsers) },
-  { id: 'structure', title: 'Gérer ma structure', component: markRaw(Details.AdminStructure) },
-]
-
-const contribCats = [
-  { id: 'general', title: 'Général', component: markRaw(Details.ContribGeneral) },
-  { id: 'contributions', title: 'Gérer mes contributions', component: markRaw(Details.ContribContributions) },
-]
-
-const categories = computed(() =>
-  role.value === 'admin' ? adminCats : contribCats
-)
+const categories = computed(() => {
+  const source = role.value === 'admin' ? adminCategories : contribCategories
+  return source.filter(cat => cat.printable)
+})
 
 function doPrint() {
   window.print()

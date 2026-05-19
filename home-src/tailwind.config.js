@@ -25,6 +25,9 @@ export default {
       letterSpacing: {
         'tight-hero': '-1.824px',
       },
+      boxShadow: {
+        card: '0 24px 64px -12px rgba(0, 0, 0, 0.10)',
+      },
     },
   },
   plugins: [],

@@ -70,16 +70,10 @@
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import LogoSvg from './LogoSvg.vue'
+import { navLinks } from '@/data/navLinks.js'
 
 const route = useRoute()
 const mobileOpen = ref(false)
-
-const navLinks = [
-  { to: '/', label: 'Accueil' },
-  { to: '/fonctionnalites', label: 'Fonctionnalités' },
-  { to: '/a-propos', label: 'À propos' },
-  { to: '/contact', label: 'Contact' },
-]
 
 // Détecte si on est en mode embed (iframe)
 const isEmbedded = computed(() => {

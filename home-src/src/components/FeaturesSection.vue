@@ -61,49 +61,29 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { useTilt } from '@/composables/useTilt.js'
 
-const cardEls = ref([])
-const shineStyles = reactive([{}, {}, {}])
+const base = import.meta.env.BASE_URL
 
-function onMouseMove(e, i) {
-  const el = cardEls.value[i]
-  if (!el) return
-  const rect = el.getBoundingClientRect()
-  const x = (e.clientX - rect.left) / rect.width - 0.5
-  const y = (e.clientY - rect.top) / rect.height - 0.5
-  el.style.transition = 'transform 0.08s ease'
-  el.style.transform = `perspective(700px) rotateX(${-y * 7}deg) rotateY(${x * 7}deg) translateZ(10px)`
-  shineStyles[i] = {
-    background: `radial-gradient(circle at ${(x + 0.5) * 100}% ${(y + 0.5) * 100}%, rgba(255,255,255,0.2) 0%, transparent 60%)`,
-  }
-}
-
-function onMouseLeave(i) {
-  const el = cardEls.value[i]
-  if (!el) return
-  el.style.transition = 'transform 0.6s cubic-bezier(0.23, 1, 0.32, 1)'
-  el.style.transform = ''
-  shineStyles[i] = {}
-}
+const { els: cardEls, shines: shineStyles, onMove: onMouseMove, onLeave: onMouseLeave } = useTilt(3)
 
 const cards = [
   {
     title: 'Vos équipes ajoutent les projets',
     description: "Interface intuitive, zéro formation requise. Géolocalisez le projet sur la carte, rédigez la fiche, ajoutez une photo : tout se gère en quelques clics.",
-    image: '/home/img/features/feature-projects.jpeg',
+    image: `${base}img/features/feature-projects.jpeg`,
     imageAlt: 'Interface de gestion de projets sur fond de carte',
   },
   {
     title: 'La carte adopte votre identité visuelle',
     description: "Couleurs, logotype et fond de carte : votre espace reprend automatiquement la charte graphique de votre collectivité.",
-    image: '/home/img/features/feature-branding.jpeg',
+    image: `${base}img/features/feature-branding.jpeg`,
     imageAlt: 'Personnalisation visuelle de la carte avec palette et composants',
   },
   {
     title: 'Vos habitants consultent sans inscription',
     description: "Carte publique, sans compte, sans téléchargement. Recherche, filtres, fiches détaillées : tout est pensé pour que l'information atteigne vraiment vos administrés.",
-    image: '/home/img/features/feature-consultation.jpeg',
+    image: `${base}img/features/feature-consultation.jpeg`,
     imageAlt: 'Vue cartographique orientée consultation citoyenne',
   },
 ]

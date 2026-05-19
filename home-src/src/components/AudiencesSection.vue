@@ -63,32 +63,10 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
 import { UserCircle, Settings, Users, Check } from 'lucide-vue-next'
+import { useTilt } from '@/composables/useTilt.js'
 
-const cardEls = ref([])
-const shineStyles = reactive([{}, {}, {}])
-
-function onMouseMove(e, i) {
-  const el = cardEls.value[i]
-  if (!el) return
-  const rect = el.getBoundingClientRect()
-  const x = (e.clientX - rect.left) / rect.width - 0.5
-  const y = (e.clientY - rect.top) / rect.height - 0.5
-  el.style.transition = 'transform 0.08s ease'
-  el.style.transform = `perspective(700px) rotateX(${-y * 7}deg) rotateY(${x * 7}deg) translateZ(10px)`
-  shineStyles[i] = {
-    background: `radial-gradient(circle at ${(x + 0.5) * 100}% ${(y + 0.5) * 100}%, rgba(255,255,255,0.18) 0%, transparent 60%)`,
-  }
-}
-
-function onMouseLeave(i) {
-  const el = cardEls.value[i]
-  if (!el) return
-  el.style.transition = 'transform 0.6s cubic-bezier(0.23, 1, 0.32, 1)'
-  el.style.transform = ''
-  shineStyles[i] = {}
-}
+const { els: cardEls, shines: shineStyles, onMove: onMouseMove, onLeave: onMouseLeave } = useTilt(3)
 
 const audiences = [
   {

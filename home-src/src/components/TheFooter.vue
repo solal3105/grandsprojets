@@ -44,7 +44,7 @@
       <!-- Bottom bar -->
       <div class="border-t border-white/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
         <p class="text-xs text-white/70">
-          © 2026 Open Projets by VAZY. Tous droits réservés.
+          © {{ new Date().getFullYear() }} Open Projets by VAZY. Tous droits réservés.
         </p>
         <div class="flex items-center gap-6">
           <a href="https://www.linkedin.com/company/vazyapp/posts/?feedView=all" target="_blank" class="text-xs text-white/70 hover:text-white transition-colors">LinkedIn</a>
@@ -57,13 +57,7 @@
 
 <script setup>
 import LogoSvg from './LogoSvg.vue'
-
-const navLinks = [
-  { to: '/', label: 'Accueil' },
-  { to: '/fonctionnalites', label: 'Fonctionnalités' },
-  { to: '/a-propos', label: 'À propos' },
-  { to: '/contact', label: 'Contact' },
-]
+import { navLinks } from '@/data/navLinks.js'
 
 const legalLinks = ['Open Source', 'RGPD Conforme', 'Hébergement UE']
 </script>
