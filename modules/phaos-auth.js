@@ -32,9 +32,23 @@
   // Phaos ne répond pas (ex : bug côté Phaos, mauvaise URL)
   const INIT_TIMEOUT_MS = 15_000;
 
-  // ── Détection iframe ────────────────────────────────────────────────────────
-  // En navigation directe, on expose waitForSession() qui résout immédiatement.
-  const isInPhaosIframe = win.self !== win.top;
+  // ── Détection iframe Phaos ──────────────────────────────────────────────────
+  // On vérifie que l'iframe provient bien d'un domaine Phaos via document.referrer.
+  // window.parent.location est inaccessible cross-origin, mais document.referrer
+  // contient l'origine du parent quand la page est chargée dans une iframe.
+  // Si le parent n'est pas un domaine Phaos (ex : vazy.app, openprojets.com/home/),
+  // on se comporte comme en navigation directe.
+  function detectPhaosIframe() {
+    if (win.self === win.top) return false;
+    try {
+      const referrerOrigin = document.referrer ? new URL(document.referrer).origin : '';
+      return PHAOS_ORIGINS.includes(referrerOrigin);
+    } catch {
+      return false;
+    }
+  }
+
+  const isInPhaosIframe = detectPhaosIframe();
 
   if (!isInPhaosIframe) {
     win.PhaosAuth = { waitForSession: () => Promise.resolve() };
@@ -51,10 +65,12 @@
     rejectSession  = rej;
   });
 
-  // Timeout de sécurité — évite un loader infini côté utilisateur
+  // Timeout de sécurité — évite un loader infini côté utilisateur.
+  // On résout (pas reject) : la carte se chargera en mode anonyme si aucun token Phaos
+  // n'arrive (ex : iframe générique, vazy.app, openprojets.com/home/).
   const initTimeoutId = setTimeout(() => {
-    console.error('[PhaosAuth] Timeout : aucun ID_TOKEN reçu de Phaos en', INIT_TIMEOUT_MS, 'ms');
-    rejectSession(new Error('Phaos init timeout'));
+    console.warn('[PhaosAuth] Timeout : aucun ID_TOKEN reçu de Phaos en', INIT_TIMEOUT_MS, 'ms — init en mode anonyme');
+    resolveSession();
   }, INIT_TIMEOUT_MS);
 
   // ── Gestion du renouvellement ────────────────────────────────────────────────
