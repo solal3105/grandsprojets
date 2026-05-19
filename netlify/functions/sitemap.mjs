@@ -10,6 +10,7 @@ export default async (_request, _context) => {
     url.searchParams.set('select', 'project_name,category,category_slug,slug,markdown_url,cover_url,description,ville,created_at');
     url.searchParams.set('order', 'created_at.desc');
     url.searchParams.set('approved', 'eq.true');
+    url.searchParams.set('markdown_url', 'not.is.null');
 
     const resp = await fetch(url.toString(), {
       headers: {
@@ -95,9 +96,8 @@ export default async (_request, _context) => {
       if (isTestEntry(name, cat)) continue;
       const loc = `${BASE_ORIGIN}/fiche/${encodeURIComponent(ville)}/${encodeURIComponent(catSlug)}/${encodeURIComponent(projSlug)}`;
       const lastmod = fmtDate(it?.created_at) || undefined;
-      const priority = it?.markdown_url ? '0.8' : '0.6';
 
-      const entry = { loc, lastmod, changefreq: 'weekly', priority };
+      const entry = { loc, lastmod, changefreq: 'weekly', priority: '0.8' };
 
       // Image sitemap extension — permet l'indexation dans Google Images
       if (it.cover_url) {
