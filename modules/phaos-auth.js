@@ -59,10 +59,9 @@
 
   // ── Promise de débloquage ────────────────────────────────────────────────────
   // main.js attend cette Promise. Elle est résolue quand la session Supabase est prête.
-  let resolveSession, rejectSession;
-  const sessionReady = new Promise((res, rej) => {
+  let resolveSession;
+  const sessionReady = new Promise((res) => {
     resolveSession = res;
-    rejectSession  = rej;
   });
 
   // Timeout de sécurité — évite un loader infini côté utilisateur.
