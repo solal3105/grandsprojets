@@ -1,0 +1,1 @@
+import{_ as t,b as r,d as a,e as n,K as o}from"./index-DmHMbjeA.js";const c={},l={class:"inline-flex items-center gap-2 text-[11px] font-semibold text-gray-text/40 uppercase tracking-[0.18em] mb-8"};function p(s,e){return r(),a("span",l,[e[0]||(e[0]=n("span",{class:"w-5 h-px bg-gray-border"},null,-1)),o(s.$slots,"default")])}const i=t(c,[["render",p]]);export{i as E};

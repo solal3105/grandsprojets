@@ -27,6 +27,16 @@ const routes = [
     },
   },
   {
+    path: '/tarifs',
+    name: 'tarifs',
+    component: () => import('@/views/PricingView.vue'),
+    meta: {
+      title: 'Tarifs — Open Projets',
+      description: 'Découvrez nos tarifs transparents, adaptés à la taille de votre territoire. Simulez votre budget en 30 secondes.',
+      canonical: `${BASE}/tarifs`,
+    },
+  },
+  {
     path: '/a-propos',
     name: 'a-propos',
     component: () => import('@/views/AboutView.vue'),
