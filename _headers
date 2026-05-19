@@ -7,15 +7,6 @@
   Permissions-Policy: geolocation=(self), microphone=(), camera=()
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
   Cross-Origin-Opener-Policy: same-origin-allow-popups
-  Content-Security-Policy: frame-ancestors 'none'
-
-# Page carte — embeddable dans l'iframe Phaos
-# Domaines confirmés par Arthur (AXOPEN) le 15/05/2026
-/
-  Content-Security-Policy: frame-ancestors 'self' https://phaos.groupe-helios.com https://phaos-qa.groupe-helios.com https://terramap-dev.apollossc.com
-
-/index.html
-  Content-Security-Policy: frame-ancestors 'self' https://phaos.groupe-helios.com https://phaos-qa.groupe-helios.com https://terramap-dev.apollossc.com
 
 # Cache long pour assets statiques immuables (images, fonts)
 /img/*
