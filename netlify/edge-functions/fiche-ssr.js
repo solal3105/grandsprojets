@@ -152,7 +152,7 @@ function buildArticleJsonLd(project, category, catLabel, canonical, cityBrand, s
   const cover = project.cover_url || `${BASE_ORIGIN}/img/cover/meta.png`;
   const created = project.created_at ? new Date(project.created_at).toISOString() : undefined;
 
-  const publisherName = structureName || 'Carte des projets';
+  const publisherName = structureName || 'Open Projets';
   const publisherLogo = cityBrand?.logo_url || `${BASE_ORIGIN}/img/logo.svg`;
 
   const ld = {
@@ -336,7 +336,7 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
   );
 
   // 3. Open Graph — site_name dynamique (nom de la structure)
-  const ogSiteName = structureName || 'Carte des projets';
+  const ogSiteName = structureName || 'Open Projets';
   html = html.replace(
     /(<meta\s+property="og:site_name"\s+content=")[^"]*"/,
     `$1${escAttr(ogSiteName)}"`
@@ -407,11 +407,13 @@ export default async (request, context) => {
   const url = new URL(request.url);
 
   // Parse les segments du path : /fiche/{ville}/{categorySlug}/{projSlug}
+  // decodeURIComponent nécessaire : url.pathname conserve le percent-encoding (%C3%A9 → é)
+  // sans décodage, la lookup Supabase échoue pour les villes/slugs avec accents
   const parts = url.pathname.replace(/^\/+|\/+$/g, '').split('/');
   // parts[0] = 'fiche', parts[1] = ville, parts[2] = categorySlug, parts[3] = projSlug
-  const villeSlug    = parts[1] || '';
-  const categorySlug = parts[2] || '';
-  const projSlug     = parts[3] || '';
+  const villeSlug    = decodeURIComponent(parts[1] || '');
+  const categorySlug = decodeURIComponent(parts[2] || '');
+  const projSlug     = decodeURIComponent(parts[3] || '');
 
   // Si l'URL n'a pas les 3 segments attendus → servir la page statique telle quelle
   if (!villeSlug || !categorySlug || !projSlug) {

@@ -6,6 +6,7 @@
 const REDIRECT_HOSTS = new Set([
   'grandsprojets.com',
   'www.grandsprojets.com',
+  'www.openprojets.com',
   'openprojet.com',
   'www.openprojet.com',
   'openprojet.fr',
