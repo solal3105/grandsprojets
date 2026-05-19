@@ -12,129 +12,155 @@
           adapté à votre territoire
         </h2>
         <p class="mt-5 text-lg text-gray-text leading-relaxed">
-          Pas de forfait unique. Le prix s'adapte à la taille de votre commune et aux modules que vous activez.
+          Pas de forfait unique. Le prix s'adapte à la taille de votre commune et aux fonctionnalités que vous activez.
         </p>
       </div>
 
-      <!-- ── Cartes profils types ──────────────────────────────────────────── -->
-      <div class="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div
+      <!-- ── Profils types — presets interactifs ─────────────────────────── -->
+      <div class="mt-14 grid grid-cols-1 md:grid-cols-3 gap-5">
+        <button
           v-for="(profile, i) in pricingProfiles"
           :key="profile.label"
           :ref="(el) => { cardEls[i] = el }"
-          class="card-tilt"
+          class="card-tilt text-left w-full focus:outline-none"
           @mousemove="(e) => onMove(e, i)"
           @mouseleave="onLeave(i)"
+          @click="selectProfile(profile)"
         >
           <div
-            class="group relative flex flex-col h-full rounded-2xl p-8 overflow-hidden transition-shadow duration-300"
-            :class="profile.highlight
-              ? 'bg-white border-2 border-primary shadow-card'
-              : 'bg-gray-bg border border-gray-border hover:shadow-xl'"
+            class="group relative flex flex-col h-full rounded-2xl p-7 overflow-hidden transition-all duration-300"
+            :class="activeProfileIdx === i
+              ? ['bg-white border-2 shadow-card', profile.accentBorderClass]
+              : 'bg-gray-bg border border-gray-border hover:border-gray-300 hover:shadow-md'"
           >
-            <!-- Glare souris -->
+            <!-- Glare -->
             <div class="absolute inset-0 pointer-events-none z-10 rounded-2xl" :style="shines[i]" />
 
-            <!-- Badge "Le plus courant" -->
+            <!-- Badge "Le plus courant" (masqué quand actif) -->
             <div
-              v-if="profile.highlight"
-              class="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap z-20
-                     bg-primary text-white text-[11px] font-bold uppercase tracking-widest
-                     px-4 py-1.5 rounded-full shadow-sm shadow-primary/30"
+              v-if="profile.badge && activeProfileIdx !== i"
+              class="absolute -top-3.5 left-6 whitespace-nowrap z-20
+                     bg-primary text-white text-[10px] font-bold uppercase tracking-widest
+                     px-3.5 py-1.5 rounded-full shadow-sm shadow-primary/30"
             >
               {{ profile.badge }}
             </div>
 
+            <!-- Pill "Actif" -->
+            <div
+              v-if="activeProfileIdx === i"
+              class="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-2.5 py-1
+                     rounded-full text-[10px] font-bold uppercase tracking-wider"
+              :class="[profile.accentClass, profile.iconBgClass]"
+            >
+              <div class="w-1.5 h-1.5 rounded-full bg-current" />
+              Actif
+            </div>
+
             <!-- Icône + label -->
-            <div class="flex items-center gap-3 mb-6 relative z-20">
+            <div class="flex items-center gap-3 mb-5 relative z-20">
               <div
                 class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0
-                       transition-all duration-300 group-hover:scale-110"
+                       transition-transform duration-300 group-hover:scale-110"
                 :class="profile.iconBgClass"
               >
                 <component :is="profile.icon" class="w-5 h-5" :class="profile.accentClass" />
               </div>
               <div>
-                <p class="font-heading font-semibold text-base text-dark leading-tight">{{ profile.label }}</p>
+                <p class="font-heading font-semibold text-sm text-dark leading-tight">{{ profile.label }}</p>
                 <p class="text-xs text-gray-text mt-0.5">{{ profile.pop }}</p>
               </div>
             </div>
 
             <!-- Prix -->
-            <div class="mb-6 relative z-20">
-              <p class="text-xs text-gray-text font-medium mb-1.5">à partir de</p>
+            <div class="mb-5 relative z-20">
+              <p class="text-[11px] text-gray-text font-medium mb-1">à partir de</p>
               <div class="flex items-end gap-1.5">
-                <span class="font-heading font-bold text-4xl text-dark leading-none">{{ profile.monthlyFrom }}</span>
-                <span class="text-sm text-gray-text mb-1">€/mois HT</span>
+                <span
+                  class="font-heading font-bold text-3xl leading-none transition-colors duration-300"
+                  :class="activeProfileIdx === i ? profile.accentClass : 'text-dark'"
+                >
+                  {{ profile.monthlyFrom }}
+                </span>
+                <span class="text-xs text-gray-text mb-0.5">€/mois HT</span>
               </div>
-              <p class="text-xs text-gray-text mt-2">
-                Set up unique dès <strong class="text-dark">{{ profile.setupFrom }} €</strong> HT
-              </p>
             </div>
 
             <!-- Séparateur -->
-            <div class="h-px bg-gray-border mb-6 relative z-20" />
+            <div class="h-px bg-gray-border mb-4 relative z-20" />
 
-            <!-- Liste features -->
-            <ul class="space-y-3 flex-1 relative z-20">
+            <!-- Features -->
+            <ul class="space-y-2 flex-1 relative z-20 mb-5">
               <li
                 v-for="feat in profile.features"
                 :key="feat"
-                class="flex items-start gap-2.5 text-sm text-gray-text leading-snug"
+                class="flex items-start gap-2 text-xs text-gray-text leading-snug"
               >
-                <Check class="w-4 h-4 shrink-0 mt-0.5" :class="profile.accentClass" />
+                <Check class="w-3.5 h-3.5 shrink-0 mt-0.5" :class="profile.accentClass" />
                 <span>{{ feat }}</span>
               </li>
             </ul>
 
-            <!-- Barre d'accent bas (hover) -->
-            <div
-              class="absolute bottom-0 left-0 right-0 h-0.5 rounded-b-2xl transition-opacity duration-300"
-              :class="profile.highlight
-                ? 'bg-primary opacity-100'
-                : 'bg-gradient-to-r from-transparent via-gray-300 to-transparent opacity-0 group-hover:opacity-100'"
-            />
+            <!-- Footer carte -->
+            <div class="relative z-20">
+              <div
+                v-if="activeProfileIdx === i"
+                class="text-center text-[11px] font-bold uppercase tracking-wider py-2.5 rounded-xl"
+                :class="[profile.accentClass, profile.iconBgClass]"
+              >
+                ✓ Profil sélectionné — ajustez ci-dessous
+              </div>
+              <div
+                v-else
+                class="text-center text-xs text-gray-text/50 py-2.5 rounded-xl border border-dashed border-gray-border
+                       group-hover:border-gray-300 group-hover:text-gray-text/70 transition-all duration-200"
+              >
+                Partir de ce profil →
+              </div>
+            </div>
           </div>
-        </div>
+        </button>
       </div>
 
       <!-- ── Simulateur ────────────────────────────────────────────────────── -->
-      <div class="mt-20">
+      <div id="pricing-simulator" class="mt-24">
 
-        <!-- Séparateur titré -->
-        <div class="flex items-center gap-4 mb-12">
-          <div class="flex-1 h-px bg-gray-border" />
-          <div class="flex items-center gap-2.5 px-1">
-            <Calculator class="w-4 h-4 text-primary" />
-            <span class="text-sm font-semibold text-dark">Simulez votre tarif en 30 secondes</span>
-          </div>
-          <div class="flex-1 h-px bg-gray-border" />
+        <div class="text-center mb-12">
+          <h3 class="font-heading font-bold text-2xl sm:text-3xl text-dark mb-3">
+            Affinez votre estimation
+          </h3>
+          <p class="text-gray-text text-sm">
+            Sélectionnez votre tranche et les modules souhaités — le tarif se calcule instantanément.
+          </p>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-10 items-start">
 
-          <!-- ── Sélecteurs ───────────────────────────────────────────────── -->
-          <div class="space-y-10">
+          <!-- ── Sélecteurs (mobile : après le panneau résultat) ──────────── -->
+          <div class="order-2 lg:order-1 space-y-8">
 
             <!-- Toujours inclus -->
-            <div class="flex items-center gap-3 p-4 bg-gray-bg rounded-xl border border-gray-border text-sm text-gray-text">
-              <div class="w-7 h-7 rounded-lg bg-primary-10 flex items-center justify-center shrink-0">
+            <div class="flex items-start gap-3 p-4 bg-gray-bg rounded-xl border border-gray-border">
+              <div class="w-7 h-7 rounded-lg bg-primary-10 flex items-center justify-center shrink-0 mt-0.5">
                 <Check class="w-3.5 h-3.5 text-primary" />
               </div>
-              <span>
-                <strong class="text-dark">Carte interactive principale</strong>
-                incluse dans toute formule — projets, articles et visualisation illimités
-              </span>
+              <p class="text-sm text-gray-text">
+                <strong class="text-dark">Carte interactive principale incluse dans toute formule</strong>
+                — projets, articles et visualisation illimités, sans supplément.
+              </p>
             </div>
 
-            <!-- Tranche de population -->
+            <!-- Étape 1 : Population -->
             <div>
-              <p class="text-sm font-semibold text-dark mb-4">Quelle est la population de votre territoire ?</p>
+              <p class="text-sm font-semibold text-dark mb-3 flex items-center gap-2">
+                <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-dark text-white text-[10px] font-bold shrink-0">1</span>
+                Population de votre territoire
+              </p>
               <div class="flex flex-wrap gap-2">
                 <button
                   v-for="(tranche, i) in populationTranches"
                   :key="tranche.id"
-                  class="text-xs font-medium px-4 py-2 rounded-full border transition-all duration-200 focus:outline-none"
+                  class="text-xs font-medium px-3.5 py-2 rounded-full border transition-all duration-200 focus:outline-none"
                   :class="selectedTrancheIdx === i
                     ? 'bg-dark text-white border-dark shadow-sm'
                     : 'bg-white text-gray-text border-gray-border hover:border-gray-300 hover:text-dark'"
@@ -144,50 +170,33 @@
                 </button>
               </div>
               <p class="text-xs text-gray-text mt-3">
-                Carte de base pour cette tranche :
-                <strong class="text-dark">{{ computedBaseAnnual }} €/an HT</strong>
+                Carte de base : <strong class="text-dark">{{ computedBaseAnnual }} €/an HT</strong>
               </p>
             </div>
 
-            <!-- Modules -->
+            <!-- Étape 2 : Modules disponibles -->
             <div>
-              <p class="text-sm font-semibold text-dark mb-4">Modules optionnels</p>
+              <p class="text-sm font-semibold text-dark mb-3 flex items-center gap-2">
+                <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-dark text-white text-[10px] font-bold shrink-0">2</span>
+                Modules optionnels
+              </p>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
-                  v-for="mod in pricingModules"
+                  v-for="mod in availableModules"
                   :key="mod.id"
-                  class="relative text-left rounded-xl border p-4 transition-all duration-200 focus:outline-none"
-                  :class="[
-                    !mod.available
-                      ? 'border-gray-border bg-gray-bg opacity-55 cursor-not-allowed'
-                      : selectedModules.includes(mod.id)
-                        ? 'border-primary bg-primary-light shadow-sm'
-                        : 'border-gray-border bg-white hover:border-gray-300 cursor-pointer'
-                  ]"
-                  :disabled="!mod.available"
-                  @click="mod.available && toggleModule(mod.id)"
+                  class="relative text-left rounded-xl border p-4 transition-all duration-200 focus:outline-none cursor-pointer"
+                  :class="selectedModules.includes(mod.id)
+                    ? 'border-primary bg-primary-light shadow-sm'
+                    : 'border-gray-border bg-white hover:border-gray-300'"
+                  @click="toggleModule(mod.id)"
                 >
-                  <!-- Badge bientôt -->
-                  <span
-                    v-if="!mod.available"
-                    class="absolute top-3 right-3 text-[10px] font-bold uppercase tracking-wider
-                           bg-amber/10 text-amber border border-amber/20 px-2 py-0.5 rounded-full"
-                  >
-                    Bientôt
-                  </span>
-
                   <div class="flex items-start gap-3">
-                    <!-- Checkbox visuel -->
                     <div
-                      class="mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0
-                             transition-all duration-200"
-                      :class="selectedModules.includes(mod.id)
-                        ? 'bg-primary border-primary'
-                        : 'bg-white border-gray-border'"
+                      class="mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all duration-200"
+                      :class="selectedModules.includes(mod.id) ? 'bg-primary border-primary' : 'bg-white border-gray-border'"
                     >
                       <Check v-if="selectedModules.includes(mod.id)" class="w-3 h-3 text-white" />
                     </div>
-
                     <div class="flex-1 min-w-0">
                       <div class="flex items-center gap-2 mb-1">
                         <component
@@ -197,9 +206,8 @@
                         />
                         <span class="text-sm font-semibold text-dark">{{ mod.label }}</span>
                       </div>
-                      <p class="text-xs text-gray-text leading-relaxed pr-10">{{ mod.desc }}</p>
+                      <p class="text-xs text-gray-text leading-relaxed">{{ mod.desc }}</p>
                       <p
-                        v-if="mod.available"
                         class="text-xs font-medium mt-2 transition-colors duration-200"
                         :class="selectedModules.includes(mod.id) ? 'text-primary' : 'text-gray-text/60'"
                       >
@@ -209,41 +217,79 @@
                   </div>
                 </button>
               </div>
-              <p class="text-xs text-gray-text mt-3">Le coût des modules s'adapte également à la taille de votre territoire.</p>
             </div>
+
+            <!-- Modules à venir (repliés) -->
+            <div v-if="comingSoonModules.length">
+              <button
+                class="flex items-center gap-2 text-xs text-gray-text hover:text-dark transition-colors duration-200 focus:outline-none"
+                @click="showComingSoon = !showComingSoon"
+              >
+                <ChevronDown
+                  class="w-3.5 h-3.5 transition-transform duration-200"
+                  :class="{ 'rotate-180': showComingSoon }"
+                />
+                {{ showComingSoon ? 'Masquer' : 'Voir' }} les {{ comingSoonModules.length }} modules en cours de développement
+              </button>
+              <div v-if="showComingSoon" class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div
+                  v-for="mod in comingSoonModules"
+                  :key="mod.id"
+                  class="relative rounded-xl border border-gray-border bg-gray-bg p-4 opacity-55"
+                >
+                  <span class="absolute top-3 right-3 text-[10px] font-bold uppercase tracking-wider
+                               bg-amber/10 text-amber border border-amber/20 px-2 py-0.5 rounded-full">
+                    Bientôt
+                  </span>
+                  <div class="flex items-start gap-3">
+                    <div class="mt-0.5 w-5 h-5 rounded-md border-2 border-gray-border bg-white shrink-0" />
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-2 mb-1">
+                        <component :is="mod.icon" class="w-4 h-4 text-gray-text shrink-0" />
+                        <span class="text-sm font-semibold text-dark">{{ mod.label }}</span>
+                      </div>
+                      <p class="text-xs text-gray-text leading-relaxed pr-8">{{ mod.desc }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
 
-          <!-- ── Panneau résultat ──────────────────────────────────────────── -->
-          <div class="lg:sticky lg:top-24">
+          <!-- ── Panneau résultat (mobile : EN PREMIER) ──────────────────── -->
+          <div class="order-1 lg:order-2 lg:sticky lg:top-24">
             <div class="bg-dark rounded-2xl p-8 overflow-hidden relative">
 
-              <!-- Halo décoratif -->
               <div class="absolute -top-20 -right-20 w-56 h-56 rounded-full bg-primary/15 blur-3xl pointer-events-none" />
               <div class="absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-purple/10 blur-3xl pointer-events-none" />
 
-              <p class="text-[11px] font-semibold uppercase tracking-widest text-white/40 mb-6 relative z-10">
+              <p class="text-[11px] font-semibold uppercase tracking-widest text-white/40 mb-5 relative z-10">
                 Votre estimation
               </p>
 
-              <!-- Prix mensuel (animé) -->
+              <!-- Mensuel -->
               <div class="relative z-10">
                 <div class="flex items-end gap-2">
                   <span class="font-heading font-bold text-5xl text-white leading-none tabular-nums">
                     {{ displayMonthly }}
                   </span>
-                  <span class="text-white/50 text-sm mb-1.5">€ / mois HT</span>
+                  <span class="text-white/50 text-sm mb-1.5">€ / mois</span>
                 </div>
                 <p class="text-white/40 text-sm mt-1.5 tabular-nums">
-                  soit {{ displayAnnual }} €/an HT
+                  soit {{ displayAnnual }} €/an
+                </p>
+                <p class="text-[11px] text-white/25 mt-1.5 leading-relaxed">
+                  Tous prix hors taxes. TVA non récupérable pour les collectivités.
                 </p>
               </div>
 
-              <!-- Set up -->
+              <!-- Frais de mise en place -->
               <div class="mt-6 pt-6 border-t border-white/10 relative z-10">
-                <div class="flex items-center justify-between gap-4">
+                <div class="flex items-start justify-between gap-4">
                   <div>
-                    <p class="text-sm text-white/60">Set up unique</p>
-                    <p class="text-xs text-white/30 mt-0.5">Facturation ponctuelle à l'activation</p>
+                    <p class="text-sm text-white/60">Frais de mise en place</p>
+                    <p class="text-xs text-white/30 mt-0.5">Facturés une seule fois à l'activation</p>
                   </div>
                   <span class="font-heading font-semibold text-white text-lg tabular-nums shrink-0">
                     {{ displaySetup }} €
@@ -263,23 +309,69 @@
                 <ArrowRight class="w-4 h-4" />
               </RouterLink>
 
-              <p class="text-[11px] text-white/25 text-center mt-4 leading-relaxed relative z-10">
-                Simulation indicative, tous prix HT.<br />
-                Tarif définitif établi sur devis personnalisé.
+              <p class="text-[11px] text-white/20 text-center mt-4 leading-relaxed relative z-10">
+                Simulation indicative. Tarif définitif sur devis personnalisé.
               </p>
             </div>
           </div>
 
         </div>
       </div>
+
+      <!-- ── Ce qui est inclus ─────────────────────────────────────────────── -->
+      <div class="mt-20 pt-16 border-t border-gray-border">
+        <p class="text-center text-sm font-semibold text-dark mb-10">Inclus dans toute formule, sans condition</p>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-y-8 gap-x-4">
+          <div
+            v-for="item in INCLUDED_FEATURES"
+            :key="item.label"
+            class="flex flex-col items-center text-center gap-3"
+          >
+            <div class="w-11 h-11 rounded-2xl bg-gray-bg border border-gray-border flex items-center justify-center">
+              <component :is="item.icon" class="w-[18px] h-[18px] text-gray-text" />
+            </div>
+            <p class="text-xs text-gray-text leading-snug">{{ item.label }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── FAQ ──────────────────────────────────────────────────────────── -->
+      <div class="mt-16 max-w-2xl mx-auto">
+        <p class="text-center text-sm font-semibold text-dark mb-8">Questions fréquentes</p>
+        <div
+          v-for="(item, i) in FAQ_ITEMS"
+          :key="i"
+          class="border-b border-gray-border last:border-b-0"
+        >
+          <button
+            class="w-full flex items-center justify-between py-4 text-left focus:outline-none group"
+            @click="faqOpen[i] = !faqOpen[i]"
+          >
+            <span class="text-sm font-semibold text-dark pr-4 group-hover:text-primary transition-colors duration-200">
+              {{ item.q }}
+            </span>
+            <ChevronDown
+              class="w-4 h-4 text-gray-text shrink-0 transition-transform duration-200"
+              :class="{ 'rotate-180': faqOpen[i] }"
+            />
+          </button>
+          <div v-if="faqOpen[i]" class="pb-5 text-sm text-gray-text leading-relaxed">
+            {{ item.a }}
+          </div>
+        </div>
+      </div>
+
     </div>
   </section>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, reactive, markRaw } from 'vue'
 import { RouterLink } from 'vue-router'
-import { Check, ArrowRight, Calculator } from 'lucide-vue-next'
+import {
+  Check, ArrowRight, ChevronDown,
+  Layers, FileText, LayoutDashboard, Server, RefreshCw, Mail,
+} from 'lucide-vue-next'
 import EyebrowLabel from '@/components/EyebrowLabel.vue'
 import PageBlobs from '@/components/PageBlobs.vue'
 import { useTilt } from '@/composables/useTilt.js'
@@ -290,9 +382,26 @@ import {
 
 const { els: cardEls, shines, onMove, onLeave } = useTilt(3)
 
-// ── État du simulateur ───────────────────────────────────────────────────────
-const selectedTrancheIdx = ref(3) // 15 001 – 50 000 par défaut
+// ── État ─────────────────────────────────────────────────────────────────────
+const selectedTrancheIdx = ref(3)   // 15 001 – 50 000 par défaut
 const selectedModules = ref([])
+const showComingSoon = ref(false)
+const faqOpen = reactive([false, false, false, false])
+
+// ── Modules filtrés ───────────────────────────────────────────────────────────
+const availableModules = computed(() => pricingModules.filter(m => m.available))
+const comingSoonModules = computed(() => pricingModules.filter(m => !m.available))
+
+// ── Profils — preset actif ────────────────────────────────────────────────────
+const activeProfileIdx = computed(() =>
+  pricingProfiles.findIndex(p => p.trancheIndex === selectedTrancheIdx.value)
+)
+
+function selectProfile(profile) {
+  selectedTrancheIdx.value = profile.trancheIndex
+  document.getElementById('pricing-simulator')
+    ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+}
 
 function toggleModule(id) {
   const idx = selectedModules.value.indexOf(id)
@@ -300,7 +409,7 @@ function toggleModule(id) {
   else selectedModules.value.splice(idx, 1)
 }
 
-// ── Calcul des prix ──────────────────────────────────────────────────────────
+// ── Calculs ───────────────────────────────────────────────────────────────────
 const computedBaseAnnual = computed(() => {
   const { coef } = populationTranches[selectedTrancheIdx.value]
   return Math.round(BASE_PRICES.carte * coef)
@@ -322,7 +431,7 @@ const computedSetup = computed(() => {
   return Math.round(BASE_PRICES.setup * coef * COEF_SETUP)
 })
 
-// ── Animation compteur ───────────────────────────────────────────────────────
+// ── Animation compteur ────────────────────────────────────────────────────────
 const displayMonthly = ref(computedMonthly.value)
 const displayAnnual = ref(computedAnnual.value)
 const displaySetup = ref(computedSetup.value)
@@ -344,4 +453,33 @@ function animateTo(refVal, target, duration = 400) {
 watch(computedMonthly, val => animateTo(displayMonthly, val))
 watch(computedAnnual, val => animateTo(displayAnnual, val))
 watch(computedSetup, val => animateTo(displaySetup, val))
+
+// ── Données UI statiques ──────────────────────────────────────────────────────
+const INCLUDED_FEATURES = [
+  { label: 'Projets illimités', icon: markRaw(Layers) },
+  { label: 'Articles & actualités', icon: markRaw(FileText) },
+  { label: 'Interface d\'administration', icon: markRaw(LayoutDashboard) },
+  { label: 'Hébergement inclus', icon: markRaw(Server) },
+  { label: 'Mises à jour incluses', icon: markRaw(RefreshCw) },
+  { label: 'Support par email', icon: markRaw(Mail) },
+]
+
+const FAQ_ITEMS = [
+  {
+    q: 'La TVA est-elle applicable ?',
+    a: 'Les collectivités territoriales ne récupèrent pas la TVA. Tous nos prix sont affichés hors taxes — c\'est donc le montant que vous débourserez réellement. Aucune surprise à la facturation.',
+  },
+  {
+    q: 'Les frais de mise en place sont-ils obligatoires ?',
+    a: 'Oui, facturés une seule fois à l\'activation. Ils couvrent la configuration initiale de votre espace, le paramétrage du branding, et l\'accompagnement au démarrage avec notre équipe.',
+  },
+  {
+    q: 'Y a-t-il un engagement de durée ?',
+    a: 'L\'abonnement est annuel, renouvelé automatiquement. Résiliation possible à échéance avec un préavis de 30 jours. Aucun engagement pluriannuel requis.',
+  },
+  {
+    q: 'Le prix change-t-il si ma commune grandit ?',
+    a: 'Le tarif est révisé lors du renouvellement annuel en fonction de la population réelle déclarée. Aucun rattrapage en cours d\'année.',
+  },
+]
 </script>

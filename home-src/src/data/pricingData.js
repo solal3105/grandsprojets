@@ -71,6 +71,7 @@ export const pricingProfiles = [
     setupFrom: 360,
     highlight: false,
     accentClass: 'text-green',
+    accentBorderClass: 'border-green',
     iconBgClass: 'bg-green/10',
     features: [
       'Carte interactive publique',
@@ -89,6 +90,7 @@ export const pricingProfiles = [
     setupFrom: 540,
     highlight: true,
     accentClass: 'text-primary',
+    accentBorderClass: 'border-primary',
     iconBgClass: 'bg-primary-10',
     features: [
       'Tout le niveau précédent',
@@ -106,6 +108,7 @@ export const pricingProfiles = [
     setupFrom: 936,
     highlight: false,
     accentClass: 'text-purple',
+    accentBorderClass: 'border-purple',
     iconBgClass: 'bg-purple/10',
     features: [
       'Tout le niveau précédent',
