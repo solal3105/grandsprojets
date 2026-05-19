@@ -16,123 +16,8 @@
         </p>
       </div>
 
-      <!-- ── Profils types — presets interactifs ─────────────────────────── -->
-      <div class="mt-14 grid grid-cols-1 md:grid-cols-3 gap-5">
-        <button
-          v-for="(profile, i) in pricingProfiles"
-          :key="profile.label"
-          :ref="(el) => { cardEls[i] = el }"
-          class="card-tilt text-left w-full focus:outline-none"
-          @mousemove="(e) => onMove(e, i)"
-          @mouseleave="onLeave(i)"
-          @click="selectProfile(profile)"
-        >
-          <div
-            class="group relative flex flex-col h-full rounded-2xl p-7 overflow-hidden transition-all duration-300"
-            :class="activeProfileIdx === i
-              ? ['bg-white border-2 shadow-card', profile.accentBorderClass]
-              : 'bg-gray-bg border border-gray-border hover:border-gray-300 hover:shadow-md'"
-          >
-            <!-- Glare -->
-            <div class="absolute inset-0 pointer-events-none z-10 rounded-2xl" :style="shines[i]" />
-
-            <!-- Badge "Le plus courant" (masqué quand actif) -->
-            <div
-              v-if="profile.badge && activeProfileIdx !== i"
-              class="absolute -top-3.5 left-6 whitespace-nowrap z-20
-                     bg-primary text-white text-[10px] font-bold uppercase tracking-widest
-                     px-3.5 py-1.5 rounded-full shadow-sm shadow-primary/30"
-            >
-              {{ profile.badge }}
-            </div>
-
-            <!-- Pill "Actif" -->
-            <div
-              v-if="activeProfileIdx === i"
-              class="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-2.5 py-1
-                     rounded-full text-[10px] font-bold uppercase tracking-wider"
-              :class="[profile.accentClass, profile.iconBgClass]"
-            >
-              <div class="w-1.5 h-1.5 rounded-full bg-current" />
-              Actif
-            </div>
-
-            <!-- Icône + label -->
-            <div class="flex items-center gap-3 mb-5 relative z-20">
-              <div
-                class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0
-                       transition-transform duration-300 group-hover:scale-110"
-                :class="profile.iconBgClass"
-              >
-                <component :is="profile.icon" class="w-5 h-5" :class="profile.accentClass" />
-              </div>
-              <div>
-                <p class="font-heading font-semibold text-sm text-dark leading-tight">{{ profile.label }}</p>
-                <p class="text-xs text-gray-text mt-0.5">{{ profile.pop }}</p>
-              </div>
-            </div>
-
-            <!-- Prix -->
-            <div class="mb-5 relative z-20">
-              <p class="text-[11px] text-gray-text font-medium mb-1">à partir de</p>
-              <div class="flex items-end gap-1.5">
-                <span
-                  class="font-heading font-bold text-3xl leading-none transition-colors duration-300"
-                  :class="activeProfileIdx === i ? profile.accentClass : 'text-dark'"
-                >
-                  {{ profile.monthlyFrom }}
-                </span>
-                <span class="text-xs text-gray-text mb-0.5">€/mois HT</span>
-              </div>
-            </div>
-
-            <!-- Séparateur -->
-            <div class="h-px bg-gray-border mb-4 relative z-20" />
-
-            <!-- Features -->
-            <ul class="space-y-2 flex-1 relative z-20 mb-5">
-              <li
-                v-for="feat in profile.features"
-                :key="feat"
-                class="flex items-start gap-2 text-xs text-gray-text leading-snug"
-              >
-                <Check class="w-3.5 h-3.5 shrink-0 mt-0.5" :class="profile.accentClass" />
-                <span>{{ feat }}</span>
-              </li>
-            </ul>
-
-            <!-- Footer carte -->
-            <div class="relative z-20">
-              <div
-                v-if="activeProfileIdx === i"
-                class="text-center text-[11px] font-bold uppercase tracking-wider py-2.5 rounded-xl"
-                :class="[profile.accentClass, profile.iconBgClass]"
-              >
-                ✓ Profil sélectionné — ajustez ci-dessous
-              </div>
-              <div
-                v-else
-                class="text-center text-xs text-gray-text/50 py-2.5 rounded-xl border border-dashed border-gray-border
-                       group-hover:border-gray-300 group-hover:text-gray-text/70 transition-all duration-200"
-              >
-                Partir de ce profil →
-              </div>
-            </div>
-          </div>
-        </button>
-      </div>
-
       <!-- ── Simulateur ────────────────────────────────────────────────────── -->
-      <div id="pricing-simulator" class="mt-24">
-
-        <div class="text-center mb-12">
-          <h3 class="font-heading font-bold text-2xl sm:text-3xl text-dark mb-3">
-            Affinez votre estimation
-          </h3>
-          <p class="text-gray-text text-sm">
-            Sélectionnez votre tranche et les modules souhaités — le tarif se calcule instantanément.
-          </p>
-        </div>
+      <div class="mt-16">
 
         <div class="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-10 items-start">
 
@@ -374,13 +259,10 @@ import {
 } from 'lucide-vue-next'
 import EyebrowLabel from '@/components/EyebrowLabel.vue'
 import PageBlobs from '@/components/PageBlobs.vue'
-import { useTilt } from '@/composables/useTilt.js'
 import {
   BASE_PRICES, COEF_MODULE, COEF_SETUP,
-  populationTranches, pricingModules, pricingProfiles,
+  populationTranches, pricingModules,
 } from '@/data/pricingData.js'
-
-const { els: cardEls, shines, onMove, onLeave } = useTilt(3)
 
 // ── État ─────────────────────────────────────────────────────────────────────
 const selectedTrancheIdx = ref(3)   // 15 001 – 50 000 par défaut
@@ -391,17 +273,6 @@ const faqOpen = reactive([false, false, false, false])
 // ── Modules filtrés ───────────────────────────────────────────────────────────
 const availableModules = computed(() => pricingModules.filter(m => m.available))
 const comingSoonModules = computed(() => pricingModules.filter(m => !m.available))
-
-// ── Profils — preset actif ────────────────────────────────────────────────────
-const activeProfileIdx = computed(() =>
-  pricingProfiles.findIndex(p => p.trancheIndex === selectedTrancheIdx.value)
-)
-
-function selectProfile(profile) {
-  selectedTrancheIdx.value = profile.trancheIndex
-  document.getElementById('pricing-simulator')
-    ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-}
 
 function toggleModule(id) {
   const idx = selectedModules.value.indexOf(id)
