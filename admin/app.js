@@ -96,7 +96,7 @@ async function _loadAndApplyBrandColor() {
     const branding = await api.getBranding();
     if (branding?.primary_color) _applyBrandColor(branding.primary_color);
     const logoSrc = branding?.logo_url || '/img/logos/classic_color-1.png';
-    const logoAlt = branding?.brand_name || 'Grands Projets';
+    const logoAlt = branding?.brand_name || 'Open Projets';
     const img = document.getElementById('adm-sidebar-logo');
     if (img) { img.src = logoSrc; img.alt = logoAlt; }
     const mobileImg = document.getElementById('adm-mobile-logo');

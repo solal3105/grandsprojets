@@ -55,7 +55,7 @@
    */
   applyFavicon(faviconUrl) {
     if (typeof document === 'undefined') return;
-    const DEFAULT = '/img/logomin.png';
+    const DEFAULT = '/img/logos/favicon.png';
     const href = faviconUrl || DEFAULT;
 
     let icon = document.querySelector('link[rel="icon"]');

@@ -153,7 +153,7 @@ function buildArticleJsonLd(project, category, catLabel, canonical, cityBrand, s
   const created = project.created_at ? new Date(project.created_at).toISOString() : undefined;
 
   const publisherName = structureName || 'Open Projets';
-  const publisherLogo = cityBrand?.logo_url || `${BASE_ORIGIN}/img/logo.svg`;
+  const publisherLogo = cityBrand?.logo_url || `${BASE_ORIGIN}/img/logos/classic_color-1.png`;
 
   const ld = {
     '@context': 'https://schema.org',
