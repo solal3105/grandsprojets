@@ -200,12 +200,13 @@
             <!-- Détail ligne par ligne -->
             <div class="mx-8 border-t border-white/8 relative z-10" />
             <div class="px-8 py-5 relative z-10 space-y-2.5">
+              <p class="text-[10px] font-semibold uppercase tracking-widest text-white/20 mb-3">Ventilation mensuelle</p>
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                   <div class="w-1.5 h-1.5 rounded-full bg-green/70 shrink-0" />
-                  <p class="text-xs text-white/40">Carte interactive</p>
+                  <p class="text-xs text-white/40">Abonnement de base</p>
                 </div>
-                <p class="text-xs font-medium text-white/60 tabular-nums">{{ computedBaseAnnual }} €/an</p>
+                <p class="text-xs font-medium text-white/60 tabular-nums">{{ computedBaseMonthly }} €/mois</p>
               </div>
               <transition-group name="module-line" tag="div" class="space-y-2.5">
                 <div
@@ -215,9 +216,9 @@
                 >
                   <div class="flex items-center gap-2">
                     <div class="w-1.5 h-1.5 rounded-full bg-primary/80 shrink-0" />
-                    <p class="text-xs text-white/40">{{ mod.label }}</p>
+                    <p class="text-xs text-white/40">Module {{ mod.label }}</p>
                   </div>
-                  <p class="text-xs font-medium text-white/60 tabular-nums">+{{ computedModuleAnnual }} €/an</p>
+                  <p class="text-xs font-medium text-white/60 tabular-nums">+{{ computedModuleMonthly }} €/mois</p>
                 </div>
               </transition-group>
             </div>
@@ -325,6 +326,9 @@ const computedModuleAnnual = computed(() => {
   const { coef } = currentTranche.value
   return Math.round(BASE_PRICES.module * coef * COEF_MODULE)
 })
+
+const computedBaseMonthly = computed(() => Math.round(computedBaseAnnual.value / 12))
+const computedModuleMonthly = computed(() => Math.round(computedModuleAnnual.value / 12))
 
 const computedAnnual = computed(() =>
   computedBaseAnnual.value + selectedModules.value.length * computedModuleAnnual.value
