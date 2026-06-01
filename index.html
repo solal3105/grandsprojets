@@ -124,8 +124,44 @@
   <link rel="stylesheet" href="styles/hover-popup.css" />
   <link rel="stylesheet" href="styles/gp-lightbox.css" />
   <link rel="stylesheet" href="styles/gp-toast.css" />
+  <link rel="stylesheet" href="styles/demo-banner.css" />
 </head>
 <body>
+  <!-- ═══ Bannière démo ═══ -->
+  <div id="demo-banner" role="banner" aria-label="Espace de démonstration">
+    <span class="demo-banner__label">Open Projets équipe déjà des collectivités</span>
+    <span class="demo-banner__sep" aria-hidden="true"></span>
+    <a href="https://openprojets.com/home/#tester" target="_blank" rel="noopener noreferrer" class="demo-banner__cta">
+      Testez gratuitement
+      <span class="demo-banner__hint" aria-hidden="true">· sans CB, sans inscription</span>
+      <i class="fas fa-arrow-right" aria-hidden="true"></i>
+    </a>
+    <button type="button" id="demo-banner-close" class="demo-banner__close" aria-label="Fermer la bannière">
+      <i class="fas fa-xmark" aria-hidden="true"></i>
+    </button>
+  </div>
+  <script>
+    // Détection synchrone — s'exécute avant le rendu du reste du DOM
+    // Condition : pas d'iframe, pas de ?city= défini (espace démo par défaut)
+    (function () {
+      try { if (window.self !== window.top) return; } catch (_) { return; }
+      var sp = new URLSearchParams(location.search);
+      var city = sp.get('city') || '';
+      if (city && city !== 'default') return;
+      var banner = document.getElementById('demo-banner');
+      if (!banner) return;
+      banner.style.display = 'flex';
+      document.documentElement.style.setProperty('--banner-h', '36px');
+      document.getElementById('demo-banner-close').addEventListener('click', function () {
+        banner.style.animation = 'demo-banner-out 0.3s cubic-bezier(0.4,0,1,1) both';
+        setTimeout(function () {
+          banner.style.display = 'none';
+          document.documentElement.style.setProperty('--banner-h', '0px');
+        }, 280);
+      });
+    }());
+  </script>
+
   <!-- ═══ Sidebar Navigation ═══ -->
   <nav class="gp-sidebar" id="gp-sidebar" aria-label="Navigation principale">
     <!-- Logo -->
@@ -333,5 +369,6 @@
   <script defer src="main.js"></script>
   <!-- Analytics — chargé en différé (requestIdleCallback) pour ne pas impacter FCP/LCP -->
   <script defer src="modules/ga-init.js"></script>
+
 </body>
 </html>

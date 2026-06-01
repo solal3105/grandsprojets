@@ -1,0 +1,183 @@
+/* ============================================================================
+   DEMO BANNER
+   Barre de démonstration fixe en haut — espace par défaut uniquement,
+   jamais en iframe. Toujours sombre car superposée à la carte (map tile
+   dark quelle que soit la préférence UI). N'utilise pas --gray-* (inversé
+   en dark mode). Offset des éléments fixes via --banner-h.
+   ============================================================================ */
+
+:root {
+  --banner-h: 0px;
+}
+
+/* ── Conteneur ───────────────────────────────────────────────────────────── */
+
+#demo-banner {
+  display: none; /* montré par JS synchrone inline */
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 36px;
+  z-index: 1700;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 40px;
+  /* Glassmorphism — cohérent avec dock/sidebar dark */
+  background: rgba(8, 10, 22, 0.90);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.4), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+  font-size: 13px;
+  line-height: 1;
+  animation: demo-banner-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes demo-banner-in {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+@keyframes demo-banner-out {
+  from { transform: translateY(0);     opacity: 1; }
+  to   { transform: translateY(-100%); opacity: 0; }
+}
+
+/* ── Texte contextuel ────────────────────────────────────────────────────── */
+
+.demo-banner__label {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.42);
+  white-space: nowrap;
+}
+
+/* Séparateur vertical visuel */
+.demo-banner__sep {
+  display: block;
+  width: 1px;
+  height: 13px;
+  background: rgba(255, 255, 255, 0.10);
+  flex-shrink: 0;
+}
+
+/* ── CTA pill (lien principal) ───────────────────────────────────────────── */
+
+.demo-banner__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 10px;
+  background: var(--primary-alpha-12);
+  border: 1px solid var(--primary-alpha-35);
+  border-radius: 999px;
+  color: var(--primary);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.demo-banner__cta:hover {
+  background: var(--primary-alpha-22);
+  border-color: var(--primary-alpha-45);
+}
+
+.demo-banner__cta > i {
+  font-size: 10px;
+  opacity: 0.75;
+  transition: transform 0.2s;
+}
+
+.demo-banner__cta:hover > i {
+  transform: translateX(2px);
+  opacity: 1;
+}
+
+/* Hint à l'intérieur de la pill */
+.demo-banner__hint {
+  font-weight: 400;
+  font-size: 11.5px;
+  opacity: 0.55;
+}
+
+/* ── Bouton fermer ───────────────────────────────────────────────────────── */
+
+.demo-banner__close {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.28);
+  font-size: 11px;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+}
+
+.demo-banner__close:hover {
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* ── Offsets — éléments fixes décalés quand --banner-h = 36px ───────────── */
+
+/* Dock : toutes tailles d'écran */
+.toggle-dock {
+  top: calc(16px + var(--banner-h));
+}
+
+/* Mobile fixed logo : uniquement mobile (≤720px) */
+@media (max-width: 720px) {
+  .mobile-fixed-logo {
+    top: calc(16px + var(--banner-h));
+  }
+}
+
+/* Sidebar, nav-panel, detail : desktop uniquement (mobile = bottom-anchored) */
+@media (min-width: 721px) {
+  .gp-sidebar {
+    top: calc(var(--sb-inset) + var(--banner-h));
+  }
+
+  .nav-panel {
+    top: calc(var(--sb-inset) + var(--banner-h));
+  }
+
+  #project-detail {
+    top: calc(
+      16px + var(--banner-h) +
+      var(--dock-h, 46px) +
+      2 * var(--dock-pad, 4px) +
+      2px + 10px
+    );
+    max-height: calc(
+      100vh - 16px - var(--banner-h) -
+      var(--dock-h, 46px) - 2 * var(--dock-pad, 4px) -
+      2px - 10px - 16px
+    );
+  }
+}
+
+/* ── Mobile (≤640px) : masquer le contexte, garder la CTA pill ──────────── */
+
+@media (max-width: 640px) {
+  #demo-banner {
+    padding: 0 36px;
+    gap: 0;
+  }
+
+  .demo-banner__label,
+  .demo-banner__sep {
+    display: none;
+  }
+}
