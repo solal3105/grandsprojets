@@ -1,9 +1,23 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
+import { alternatives } from '@/data/alternatives.js'
 
 const BASE = 'https://openprojets.com/home'
 const DEFAULT_TITLE = 'Open Projets — La carte interactive pour votre collectivité'
 const DEFAULT_DESC = 'Open Projets transforme vos projets urbains en carte interactive. Publiez vos projets, informez vos habitants — sans une ligne de code.'
+
+// Pages SEO « Alternative à … » générées depuis data/alternatives.js
+const alternativeRoutes = Object.entries(alternatives).map(([key, alt]) => ({
+  path: `/${alt.slug}`,
+  name: `alternative-${key}`,
+  component: () => import('@/views/AlternativeView.vue'),
+  meta: {
+    altKey: key,
+    title: alt.seo.title,
+    description: alt.seo.description,
+    canonical: alt.seo.canonical,
+  },
+}))
 
 const routes = [
   {
@@ -76,6 +90,7 @@ const routes = [
     component: () => import('@/views/HeliosView.vue'),
     meta: { standalone: true, robots: 'noindex' },
   },
+  ...alternativeRoutes,
 ]
 
 const router = createRouter({

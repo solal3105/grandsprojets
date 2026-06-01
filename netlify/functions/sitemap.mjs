@@ -66,6 +66,9 @@ export default async (_request, _context) => {
       { path: '/home/a-propos', priority: '0.7' },
       { path: '/home/contact', priority: '0.7' },
       { path: '/home/aide', priority: '0.6' },
+      { path: '/home/alternative-panneaupocket', priority: '0.7' },
+      { path: '/home/alternative-cityall-lumiplan', priority: '0.7' },
+      { path: '/home/alternative-neocity', priority: '0.7' },
     ];
     for (const hp of homePages) {
       urlset.push({
