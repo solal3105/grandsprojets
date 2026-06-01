@@ -1,5 +1,6 @@
 <template>
   <div class="min-h-screen">
+    <AnnouncementBanner v-if="isHome && !isEmbedded && !isStandalone" />
     <TheHeader v-if="!isStandalone" />
     <main>
       <RouterView />
@@ -13,16 +14,11 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import TheHeader from '@/components/TheHeader.vue'
 import TheFooter from '@/components/TheFooter.vue'
+import AnnouncementBanner from '@/components/AnnouncementBanner.vue'
 
 const route = useRoute()
 
-// Détecte si on est en mode embed (iframe)
-const isEmbedded = computed(() => {
-  return route.query.embed === 'true'
-})
-
-// Détecte les pages standalone (sans nav/footer) comme /helios
-const isStandalone = computed(() => {
-  return route.meta.standalone === true
-})
+const isEmbedded = computed(() => route.query.embed === 'true')
+const isStandalone = computed(() => route.meta.standalone === true)
+const isHome = computed(() => route.name === 'home')
 </script>
