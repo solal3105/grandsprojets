@@ -22,6 +22,38 @@
   path = "/fiche/*/*/*"
   function = "fiche-ssr"
 
+[[edge_functions]]
+  path = "/home/"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/home/fonctionnalites"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/home/a-propos"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/home/contact"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/home/aide"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/home/alternative-panneaupocket"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/home/alternative-cityall-lumiplan"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/home/alternative-neocity"
+  function = "home-seo"
+
 # Prerendering pour les crawlers (Google, Bing, etc.)
 # Netlify sert une version pré-rendue du SPA aux bots
 [build.processing]
