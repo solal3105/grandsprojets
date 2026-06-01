@@ -124,8 +124,21 @@
   <link rel="stylesheet" href="styles/hover-popup.css" />
   <link rel="stylesheet" href="styles/gp-lightbox.css" />
   <link rel="stylesheet" href="styles/gp-toast.css" />
+  <link rel="stylesheet" href="styles/demo-banner.css" />
 </head>
 <body>
+  <!-- ═══ Bannière démo — visible uniquement sur l'espace défaut, masquée en iframe ═══ -->
+  <div id="demo-banner" style="display:none" role="banner" aria-label="Espace démonstration">
+    <span class="demo-banner__text">Open Projets équipe déjà des collectivités</span>
+    <span class="demo-banner__sep" aria-hidden="true">—</span>
+    <a href="https://openprojets.com/home/#tester" target="_blank" rel="noopener" class="demo-banner__cta">
+      Testez gratuitement <span class="demo-banner__hint">· Pas de CB, pas d'inscription</span>
+      <i class="fas fa-arrow-right" aria-hidden="true"></i>
+    </a>
+    <button class="demo-banner__close" id="demo-banner-close" aria-label="Fermer la bannière">
+      <i class="fas fa-xmark" aria-hidden="true"></i>
+    </button>
+  </div>
   <!-- ═══ Sidebar Navigation ═══ -->
   <nav class="gp-sidebar" id="gp-sidebar" aria-label="Navigation principale">
     <!-- Logo -->
@@ -331,6 +344,25 @@
   <script defer src="modules/travaux/travaux-nav.js"></script>
   <script defer src="modules/phaos-auth.js"></script>
   <script defer src="main.js"></script>
+  <script>
+    // Bannière démo — affichée uniquement sur l'espace "default", jamais en iframe
+    (function () {
+      try { if (window.self !== window.top) return; } catch (e) { return; }
+      var params = new URLSearchParams(location.search);
+      var city = params.get('city') || params.get('ville') || '';
+      var path = location.pathname.replace(/\/+$/, '');
+      var isDefault = path.endsWith('/default') || city === 'default' || (path === '' || path === '/') && !city;
+      if (!isDefault) return;
+      var banner = document.getElementById('demo-banner');
+      if (!banner) return;
+      banner.style.display = 'flex';
+      document.body.classList.add('has-demo-banner');
+      document.getElementById('demo-banner-close').addEventListener('click', function () {
+        banner.style.display = 'none';
+        document.body.classList.remove('has-demo-banner');
+      });
+    })();
+  </script>
   <!-- Analytics — chargé en différé (requestIdleCallback) pour ne pas impacter FCP/LCP -->
   <script defer src="modules/ga-init.js"></script>
 </body>

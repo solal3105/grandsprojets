@@ -1,0 +1,95 @@
+/* ─── Bannière démo ─────────────────────────────────────────────────────────
+   Visible uniquement sur l'espace défaut (openprojets.com/default).
+   Masquée si iframe. Injectée via #demo-banner dans index.html.
+   Le body reçoit la classe .has-demo-banner pour décaler la carte.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+#demo-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  height: 40px;
+  background: var(--color-dark, #111827);
+  color: #fff;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 48px 0 16px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+#demo-banner[style*="display:none"],
+#demo-banner[hidden] {
+  display: none !important;
+}
+
+.demo-banner__text {
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+}
+
+.demo-banner__sep {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.demo-banner__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+
+.demo-banner__cta:hover {
+  color: var(--color-primary, #FF0037);
+}
+
+.demo-banner__hint {
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 11px;
+}
+
+.demo-banner__close {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  padding: 4px 6px;
+  font-size: 14px;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.demo-banner__close:hover {
+  color: #fff;
+}
+
+/* Décaler tous les éléments fixés en haut quand la bannière est visible */
+body.has-demo-banner .toggle-dock,
+body.has-demo-banner .gp-sidebar,
+body.has-demo-banner .nav-panel,
+body.has-demo-banner #map,
+body.has-demo-banner #container {
+  top: 40px !important;
+}
+
+/* Sur mobile, masquer les éléments verbeux */
+@media (max-width: 640px) {
+  .demo-banner__text,
+  .demo-banner__sep,
+  .demo-banner__hint {
+    display: none;
+  }
+}
