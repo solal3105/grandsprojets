@@ -191,9 +191,12 @@
 
   async function initApp() {
     try {
-      // PHASE 0a : SSO Phaos iframe — bloquer l'init jusqu'à réception du token
-      // En navigation directe (hors iframe), waitForSession() résout immédiatement.
-      await win.PhaosAuth?.waitForSession();
+      // PHASE 0a : SSO Phaos iframe — démarrer la session en arrière-plan (non-bloquant)
+      // La carte charge immédiatement en mode anonyme (contributions approuvées visibles).
+      // phaos-auth.js appelle supabase.auth.setSession() dès réception du token Phaos ;
+      // toute interaction ultérieure (ouverture de panel, re-fetch) sera alors authentifiée.
+      // En navigation directe (hors iframe), waitForSession() résout immédiatement de toute façon.
+      win.PhaosAuth?.waitForSession();
 
       // PHASE 0b : Health check automatique du localStorage
       const healthCheck = performStorageHealthCheck();
