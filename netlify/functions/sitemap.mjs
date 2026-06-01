@@ -57,18 +57,18 @@ export default async (_request, _context) => {
       loc: `${BASE_ORIGIN}/home/`,
       lastmod: latestDate,
       changefreq: 'weekly',
-      priority: '0.9'
+      priority: '1.0'
     });
 
     // Pages Home SPA
     const homePages = [
-      { path: '/home/fonctionnalites', priority: '0.8' },
-      { path: '/home/a-propos', priority: '0.7' },
-      { path: '/home/contact', priority: '0.7' },
-      { path: '/home/aide', priority: '0.6' },
-      { path: '/home/alternative-panneaupocket', priority: '0.7' },
-      { path: '/home/alternative-cityall-lumiplan', priority: '0.7' },
-      { path: '/home/alternative-neocity', priority: '0.7' },
+      { path: '/home/fonctionnalites', priority: '0.9' },
+      { path: '/home/a-propos', priority: '0.9' },
+      { path: '/home/contact', priority: '0.9' },
+      { path: '/home/aide', priority: '0.8' },
+      { path: '/home/alternative-panneaupocket', priority: '0.9' },
+      { path: '/home/alternative-cityall-lumiplan', priority: '0.9' },
+      { path: '/home/alternative-neocity', priority: '0.9' },
     ];
     for (const hp of homePages) {
       urlset.push({
