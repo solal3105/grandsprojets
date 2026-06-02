@@ -145,6 +145,14 @@ router.afterEach((to) => {
   if (robots) {
     setMeta('robots', robots)
   }
+  // Tracking SPA — envoie une page_view GA4 à chaque navigation
+  if (typeof window.gtag === 'function') {
+    window.gtag('event', 'page_view', {
+      page_title: title || document.title,
+      page_location: window.location.href,
+      page_path: to.fullPath,
+    })
+  }
 })
 
 export default router
