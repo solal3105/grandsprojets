@@ -194,6 +194,9 @@
   
   /* Tile background for thumbnails */
   --tile-bg: var(--gray-100);
+
+  /* Banner height offset — set to 36px by JS when demo banner is visible */
+  --banner-h: 0px;
 }
 
 /* ============================================================================

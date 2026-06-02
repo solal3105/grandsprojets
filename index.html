@@ -104,7 +104,7 @@
   <script src="modules/theme-init.js"></script>
   <script src="modules/early-fetch.js"></script>
   <!-- Inline critical CSS — safe deferral of non-visible component CSS -->
-  <style>.nav-panel{visibility:hidden;pointer-events:none}.nav-panel.open{visibility:visible;pointer-events:auto}.nav-panel__scrim{display:none}.toggle-dock{position:fixed;top:16px;right:16px;z-index:1600}.toggle-dock__btn[data-ready="false"]:not([style*="display"]){display:none!important}.dock-panel{display:none}.mobile-fixed-logo{display:none}#project-detail{display:none}</style>
+  <style>.nav-panel{visibility:hidden;pointer-events:none}.nav-panel.open{visibility:visible;pointer-events:auto}.nav-panel__scrim{display:none}.toggle-dock{position:fixed;top:calc(16px + var(--banner-h,0px));right:16px;z-index:1600}.toggle-dock__btn[data-ready="false"]:not([style*="display"]){display:none!important}.dock-panel{display:none}.mobile-fixed-logo{display:none}#project-detail{display:none}</style>
   <!-- Render-blocking CSS — above-the-fold critical -->
   <link rel="stylesheet" href="styles/00-colors.css" />
   <link rel="stylesheet" href="styles/01-base.css" />

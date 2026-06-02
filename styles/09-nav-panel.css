@@ -25,7 +25,7 @@
 
 .nav-panel {
   position: fixed;
-  top: var(--sidebar-inset, 0px);
+  top: calc(var(--sidebar-inset, 0px) + var(--banner-h, 0px));
   left: calc(var(--sidebar-inset, 0px) * 2 + var(--sidebar-w, 0px));
   width: var(--nav-panel-w);
   height: auto;

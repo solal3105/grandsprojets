@@ -3,12 +3,9 @@
    Barre de démonstration fixe en haut — espace par défaut uniquement,
    jamais en iframe. Toujours sombre car superposée à la carte (map tile
    dark quelle que soit la préférence UI). N'utilise pas --gray-* (inversé
-   en dark mode). Offset des éléments fixes via --banner-h.
+   en dark mode). --banner-h est défini dans 00-colors.css et mis à jour
+   par JS inline — les composants l'intègrent directement dans leur top.
    ============================================================================ */
-
-:root {
-  --banner-h: 0px;
-}
 
 /* ── Conteneur ───────────────────────────────────────────────────────────── */
 
@@ -127,45 +124,6 @@
 .demo-banner__close:hover {
   color: rgba(255, 255, 255, 0.75);
   background: rgba(255, 255, 255, 0.07);
-}
-
-/* ── Offsets — éléments fixes décalés quand --banner-h = 36px ───────────── */
-
-/* Dock : toutes tailles d'écran */
-.toggle-dock {
-  top: calc(16px + var(--banner-h));
-}
-
-/* Mobile fixed logo : uniquement mobile (≤720px) */
-@media (max-width: 720px) {
-  .mobile-fixed-logo {
-    top: calc(16px + var(--banner-h));
-  }
-}
-
-/* Sidebar, nav-panel, detail : desktop uniquement (mobile = bottom-anchored) */
-@media (min-width: 721px) {
-  .gp-sidebar {
-    top: calc(var(--sb-inset) + var(--banner-h));
-  }
-
-  .nav-panel {
-    top: calc(var(--sb-inset) + var(--banner-h));
-  }
-
-  #project-detail {
-    top: calc(
-      16px + var(--banner-h) +
-      var(--dock-h, 46px) +
-      2 * var(--dock-pad, 4px) +
-      2px + 10px
-    );
-    max-height: calc(
-      100vh - 16px - var(--banner-h) -
-      var(--dock-h, 46px) - 2 * var(--dock-pad, 4px) -
-      2px - 10px - 16px
-    );
-  }
 }
 
 /* ── Mobile (≤640px) : masquer le contexte, garder la CTA pill ──────────── */

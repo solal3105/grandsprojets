@@ -66,7 +66,7 @@
 
 .gp-sidebar {
   position: fixed;
-  top: var(--sb-inset);
+  top: calc(var(--sb-inset) + var(--banner-h, 0px));
   left: var(--sb-inset);
   width: var(--sb-w);
   z-index: 1000;

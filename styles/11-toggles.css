@@ -64,7 +64,7 @@
 
 .toggle-dock {
   position: fixed;
-  top: 16px;
+  top: calc(16px + var(--banner-h, 0px));
   right: 16px;
   z-index: 1600;
   display: flex;

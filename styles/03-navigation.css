@@ -7,7 +7,7 @@
 /* Standalone fixed logo — visible only on mobile */
 .mobile-fixed-logo {
   position: fixed;
-  top: 16px;
+  top: calc(16px + var(--banner-h, 0px));
   left: 16px;
   z-index: 1600;
   display: none;
