@@ -8,7 +8,7 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Content-Type': 'application/json',
-  'Cache-Control': 'public, max-age=120, s-maxage=300'
+  'Cache-Control': 'no-store'
 };
 
 const SUPABASE_HEADERS = {
