@@ -237,7 +237,7 @@
               <span class="text-xs font-bold text-amber uppercase tracking-widest">Suivi de chantier</span>
             </div>
             <h2 class="font-heading font-bold text-3xl sm:text-[40px] leading-[1.1] tracking-tight text-dark">
-              Chaque chantier Helios, localisé et suivi en temps réel.
+              Chaque chantier de votre collectivité peut être localisé et suivi en temps réel pour une meilleure gestion et coordination.
             </h2>
             <p class="mt-5 text-gray-text text-base leading-relaxed">
               Marquage au sol, signalisation, aménagements cyclables — chaque intervention est localisée sur la carte avec ses dates, sa progression et ses zones d'impact. Vos riverains savent précisément ce qui se passe, et quand ça finit.
