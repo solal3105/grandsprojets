@@ -240,7 +240,7 @@
               Chaque chantier de votre collectivité peut être localisé et suivi en temps réel pour une meilleure gestion et coordination.
             </h2>
             <p class="mt-5 text-gray-text text-base leading-relaxed">
-              Marquage au sol, signalisation, aménagements cyclables — chaque intervention est localisée sur la carte avec ses dates, sa progression et ses zones d'impact. Vos riverains savent précisément ce qui se passe, et quand ça finit.
+              Aménagements et projets urbains, travaux sur les réseaux enterrés, réfection des voiries, aménagements cyclables, signalisation — chaque intervention est localisée sur la carte avec ses dates, sa progression et ses zones d'impact. Vos riverains savent précisément ce qui se passe, et quand ça finit.
             </p>
             <ul class="mt-8 space-y-3.5">
               <li v-for="feat in chantierFeats" :key="feat" class="flex items-start gap-3 group/item cursor-default">
@@ -414,7 +414,7 @@ const base = import.meta.env.BASE_URL
 const pairs = [
   {
     before: {
-      title: 'Un chantier Helios démarre sur la commune',
+      title: 'Un chantier démarre sur votre commune',
       sub: "L'info reste dans les échanges de mails entre services. Les riverains ne sont pas prévenus.",
     },
     after: {
@@ -475,7 +475,7 @@ const pillars = [
     icon: HardHat,
     title: 'Suivi de chantier',
     image: '2.jpeg',
-    desc: "Localisez chaque intervention Helios sur la carte. Dates, zones d'impact, progression — les riverains sont informés en temps réel, les services suivent l'avancement.",
+    desc: "Localisez chaque intervention sur la carte. Dates, zones d'impact, progression — les riverains sont informés en temps réel, les services suivent l'avancement.",
     bgClass: 'bg-amber/10',
     iconClass: 'text-amber',
     gradient: 'linear-gradient(to right, #F2B327, #5AAB7D)',
