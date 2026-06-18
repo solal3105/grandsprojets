@@ -38,7 +38,7 @@ window.FdlmLayerToggles = (() => {
     splashEl.querySelector('img').src = src;
     splashEl.classList.add('is-visible');
     clearTimeout(splashTimer);
-    splashTimer = setTimeout(() => hideSplash(), 2000);
+    splashTimer = setTimeout(() => hideSplash(), 1500);
   }
 
   function hideSplash() {

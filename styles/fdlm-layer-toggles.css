@@ -41,7 +41,7 @@
   position: fixed;
   bottom: 16px;
   left: calc(var(--sb-w, 78px) + 12px);
-  z-index: 1500;
+  z-index: 1200;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -127,7 +127,7 @@
     top: calc(16px + var(--banner-h, 0px) + var(--dock-h, 52px) + 16px);
     flex-direction: column;
     align-items: flex-end;
-    z-index: 1400; /* sous le toggle-dock (1600) et les dock-panels */
+    z-index: 1200; /* sous le project-detail (1300) et le toggle-dock (1600) */
   }
 
   .fdlm-layer-toggles__btn {
