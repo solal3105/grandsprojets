@@ -510,6 +510,8 @@ window.DataModule = (function() {
 					if (window.LayerRegistry?.isTravauxLayer?.(layerName)) {
 						return !!(props.project_name || props.name || props.nature_travaux || props.nature || props.nature_chantier || props.chantier_id != null);
 					}
+					// Couches URL externes (WFS, open data) — pas de project_name, afficher tous les points
+					if (urlMap[layerName]) return true;
 					return !!props.project_name;
 				}
 				
