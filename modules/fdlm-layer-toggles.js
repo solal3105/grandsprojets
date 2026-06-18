@@ -110,7 +110,7 @@ window.FdlmLayerToggles = (() => {
     btn.addEventListener('click', async () => {
       const isActive = state[layerDef.name];
       if (isActive) {
-        disableLayer(layerName);
+        disableLayer(layerDef.name);
         state[layerDef.name] = false;
         setButtonState(btn, false);
         showSplash(SPLASH_OFF);
