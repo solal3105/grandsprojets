@@ -208,6 +208,12 @@
       this._updateBreadcrumb(label);
       this._updateCollapseButton(label, true);
 
+      if (opts.color) {
+        this._panel.style.setProperty('--nav-accent', opts.color);
+      } else {
+        this._panel.style.removeProperty('--nav-accent');
+      }
+
       // Show a contextual skeleton immediately
       const renderer = this._moduleRenderers[this._currentModule];
       if (renderer?.skeletonL3) {
@@ -230,6 +236,7 @@
       this._currentCategory = null;
       this._setLevel(2);
       this._updateCollapseButton(null, false);
+      this._panel.style.removeProperty('--nav-accent');
 
       const renderer = this._moduleRenderers[this._currentModule];
       this._headerTitle.textContent = renderer?.label || this._currentModule || 'Navigation';
@@ -257,6 +264,7 @@
       this._currentModule = null;
       this._currentCategory = null;
       this._updateCollapseButton(null, false);
+      this._panel.style.removeProperty('--nav-accent');
 
       this._updateMapPadding(false);
 

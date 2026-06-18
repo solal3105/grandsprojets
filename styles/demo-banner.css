@@ -19,12 +19,9 @@
   justify-content: center;
   gap: 12px;
   padding: 0 40px;
-  /* Glassmorphism — cohérent avec dock/sidebar dark */
-  background: rgba(8, 10, 22, 0.90);
-  backdrop-filter: blur(24px) saturate(1.4);
-  -webkit-backdrop-filter: blur(24px) saturate(1.4);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.4), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+  background: #ffffff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.08);
   font-size: 13px;
   line-height: 1;
   animation: demo-banner-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -44,7 +41,7 @@
 
 .demo-banner__label {
   font-size: 12.5px;
-  color: rgba(255, 255, 255, 0.42);
+  color: rgba(0, 0, 0, 0.55);
   white-space: nowrap;
 }
 
@@ -53,7 +50,7 @@
   display: block;
   width: 1px;
   height: 13px;
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(0, 0, 0, 0.12);
   flex-shrink: 0;
 }
 
@@ -115,15 +112,15 @@
   background: none;
   border: none;
   border-radius: 6px;
-  color: rgba(255, 255, 255, 0.28);
+  color: rgba(0, 0, 0, 0.3);
   font-size: 11px;
   cursor: pointer;
   transition: color 0.2s, background 0.2s;
 }
 
 .demo-banner__close:hover {
-  color: rgba(255, 255, 255, 0.75);
-  background: rgba(255, 255, 255, 0.07);
+  color: rgba(0, 0, 0, 0.65);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 /* ── Mobile (≤640px) : masquer le contexte, garder la CTA pill ──────────── */

@@ -219,7 +219,7 @@
   function register() {
     if (!win.NavPanel?.registerModule) return;
     win.NavPanel.registerModule('carte', {
-      label: 'Carte',
+      label: 'Catégories',
       clearLayers: false,
       renderL2: renderL2,
       renderL3: renderL3,
