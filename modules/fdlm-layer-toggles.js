@@ -16,8 +16,35 @@ window.FdlmLayerToggles = (() => {
   const CITY = 'fdlm';
 
   let container = null;
+  let splashEl = null;
+  let splashTimer = null;
   // État des toggles : { [layerName]: boolean }
   const state = {};
+
+  const SPLASH_ON  = 'img/fdlm/fontaines_activees.jpeg';
+  const SPLASH_OFF = 'img/fdlm/fontaines_desactivees.png';
+
+  function showSplash(src) {
+    if (!splashEl) {
+      splashEl = document.createElement('div');
+      splashEl.className = 'fdlm-splash';
+      const img = document.createElement('img');
+      img.className = 'fdlm-splash__img';
+      img.alt = '';
+      splashEl.appendChild(img);
+      splashEl.addEventListener('click', () => hideSplash());
+      document.body.appendChild(splashEl);
+    }
+    splashEl.querySelector('img').src = src;
+    splashEl.classList.add('is-visible');
+    clearTimeout(splashTimer);
+    splashTimer = setTimeout(() => hideSplash(), 2000);
+  }
+
+  function hideSplash() {
+    clearTimeout(splashTimer);
+    splashEl?.classList.remove('is-visible');
+  }
 
   function getActiveCity() {
     return window.CityManager?.getActiveCity?.() || '';
@@ -83,9 +110,10 @@ window.FdlmLayerToggles = (() => {
     btn.addEventListener('click', async () => {
       const isActive = state[layerDef.name];
       if (isActive) {
-        disableLayer(layerDef.name);
+        disableLayer(layerName);
         state[layerDef.name] = false;
         setButtonState(btn, false);
+        showSplash(SPLASH_OFF);
       } else {
         setButtonState(btn, true); // optimistic
         state[layerDef.name] = true;
@@ -93,6 +121,7 @@ window.FdlmLayerToggles = (() => {
         // Re-sync si le chargement a échoué
         state[layerDef.name] = isLayerOnMap(layerDef.name);
         setButtonState(btn, state[layerDef.name]);
+        if (state[layerDef.name]) showSplash(SPLASH_ON);
       }
     });
 
