@@ -49,7 +49,9 @@ window.FdlmLayerToggles = (() => {
   function setButtonState(btn, active) {
     btn.classList.toggle('is-active', active);
     btn.setAttribute('aria-pressed', String(active));
-    btn.title = active ? `Masquer ${btn.dataset.layerLabel}` : `Afficher ${btn.dataset.layerLabel}`;
+    const label = btn.querySelector('.fdlm-layer-toggles__btn-label');
+    if (label) label.textContent = active ? `Masquer les ${btn.dataset.layerLabel.toLowerCase()}` : `Afficher les ${btn.dataset.layerLabel.toLowerCase()}`;
+    btn.title = label?.textContent || '';
   }
 
   function buildButton(layerDef) {

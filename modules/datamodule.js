@@ -324,7 +324,10 @@ window.DataModule = (function() {
 			const url = urlMap[layerName];
 			if (url) {
 				try {
-					const response = await fetch(url);
+					const controller = new AbortController();
+					const timeout = setTimeout(() => controller.abort(), 10000);
+					const response = await fetch(url, { signal: controller.signal });
+					clearTimeout(timeout);
 					if (!response.ok) throw new Error(`HTTP ${response.status}`);
 					return await response.json();
 				} catch (error) {
