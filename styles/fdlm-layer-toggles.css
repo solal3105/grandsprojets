@@ -1,0 +1,98 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   fdlm-layer-toggles.css — Widget de toggle de couches spécifique à fdlm
+   TEMPORAIRE — supprimer ce fichier + son <link> dans index.html pour nettoyer
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.fdlm-layer-toggles {
+  position: fixed;
+  bottom: 16px;
+  left: calc(var(--sb-w, 78px) + 12px);
+  z-index: 1500;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.fdlm-layer-toggles__btn {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px 8px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-light, rgba(0,0,0,0.10));
+  background: color-mix(in srgb, var(--surface-base, #fff) 80%, transparent);
+  backdrop-filter: blur(16px) saturate(160%);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.10),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.95);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary, #555);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.fdlm-layer-toggles__btn:hover {
+  border-color: var(--border-medium, rgba(0,0,0,0.18));
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.14),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.95);
+  transform: translateY(-1px);
+}
+
+.fdlm-layer-toggles__btn:active {
+  transform: translateY(0);
+}
+
+.fdlm-layer-toggles__btn-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+  background: var(--primary-alpha-12, rgba(20,174,92,0.12));
+  color: var(--text-secondary, #555);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.fdlm-layer-toggles__btn-label {
+  line-height: 1;
+}
+
+/* État actif */
+.fdlm-layer-toggles__btn.is-active {
+  border-color: var(--primary-alpha-35, rgba(20,174,92,0.35));
+  color: var(--text-primary, #111);
+}
+
+.fdlm-layer-toggles__btn.is-active .fdlm-layer-toggles__btn-icon {
+  background: var(--color-primary, #14AE5C);
+  color: #fff;
+}
+
+/* Dark mode */
+[data-theme="dark"] .fdlm-layer-toggles__btn {
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.35),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* Mobile — coller à la sidebar réduite */
+@media (max-width: 768px) {
+  .fdlm-layer-toggles {
+    left: calc(var(--sb-w, 78px) + 8px);
+    bottom: 72px; /* au-dessus de la barre mobile éventuelle */
+  }
+
+  .fdlm-layer-toggles__btn {
+    padding: 7px 12px 7px 8px;
+    font-size: 12px;
+  }
+}

@@ -380,6 +380,9 @@
       
       DataModule.initConfig({ city, urlMap, styleMap, iconMap, iconColorMap, defaultLayers });
 
+      // TEMPORAIRE fdlm — supprimer cette ligne pour nettoyer
+      win.FdlmLayerToggles?.init();
+
       await yieldToMain();
 
       // PHASE 5 : Menus dynamiques (AVANT les layers)
