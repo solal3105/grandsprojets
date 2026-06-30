@@ -30,11 +30,16 @@ Le développement côté Phaos est piloté par **Arthur Combe (AXOPEN)** — `ar
 
 ## Environnements Azure B2C
 
-| Env  | JWKS                                                                                             | `aud`                                  | `iss`                                                                          |
+> ⚠️ **JWKS = endpoint B2C de la policy** (`b2clogin.com/{tenantId}/b2c_1_login/discovery/v2.0/keys`).
+> NE PAS utiliser `login.microsoftonline.com/{tenant}/discovery/v2.0/keys` : il ne renvoie que les
+> clés Entra génériques (mêmes clés pour tout tenant), jamais le `kid` des tokens B2C → 401
+> "Clé de signature inconnue". Les clés B2C sont au niveau du tenant : toute policy valide expose
+> le même JWKS, donc `b2c_1_login` couvre toutes les policies. (Env Dev supprimé — n'existe plus.)
+
+| Env  | JWKS                                                                                              | `aud`                                  | `iss`                                                                          |
 |------|--------------------------------------------------------------------------------------------------|----------------------------------------|--------------------------------------------------------------------------------|
-| Prod | https://login.microsoftonline.com/e49dda1d-3ac4-43db-ab0c-479cd0ba9d36/discovery/v2.0/keys      | `74bf9434-d301-49a6-950b-24cde8047d95` | `https://terrampprod.b2clogin.com/e49dda1d-3ac4-43db-ab0c-479cd0ba9d36/v2.0/` |
-| QA   | https://login.microsoftonline.com/a5bf3fea-f831-426c-9892-1b8539d43023/discovery/v2.0/keys      | `b71c5170-bd1c-4e73-bbfc-ababa8eb0286` | `https://terrampqa.b2clogin.com/a5bf3fea-f831-426c-9892-1b8539d43023/v2.0/`   |
-| Dev  | https://login.microsoftonline.com/6d6d1704-34d0-4b2f-9c5e-f624b4e2d0fc/discovery/v2.0/keys     | `f81ab73a-59ba-440a-bb80-87669c8f7f0a` | `https://terrampdev.b2clogin.com/6d6d1704-34d0-4b2f-9c5e-f624b4e2d0fc/v2.0/` |
+| Prod | https://terrampprod.b2clogin.com/e49dda1d-3ac4-43db-ab0c-479cd0ba9d36/b2c_1_login/discovery/v2.0/keys | `74bf9434-d301-49a6-950b-24cde8047d95` | `https://terrampprod.b2clogin.com/e49dda1d-3ac4-43db-ab0c-479cd0ba9d36/v2.0/` |
+| QA   | https://terrampqa.b2clogin.com/a5bf3fea-f831-426c-9892-1b8539d43023/b2c_1_login/discovery/v2.0/keys   | `b71c5170-bd1c-4e73-bbfc-ababa8eb0286` | `https://terrampqa.b2clogin.com/a5bf3fea-f831-426c-9892-1b8539d43023/v2.0/`   |
 
 ---
 

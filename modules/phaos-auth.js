@@ -134,8 +134,8 @@
   let sessionEstablished = false;
 
   win.addEventListener('message', async (event) => {
-    // ⚠️ DEBUG TEMPORAIRE — à retirer : vérifie qu'un postMessage arrive bien jusqu'ici
-    alert('[PhaosAuth] message reçu — origin: ' + event.origin + ' — type: ' + (event.data && event.data.type));
+    // DEBUG : trace tout postMessage reçu (non bloquant) — utile pour diagnostiquer le SSO
+    console.log('[PhaosAuth] message reçu — origin:', event.origin, '— type:', event.data && event.data.type);
 
     // ① Valider l'origine
     if (PHAOS_ORIGINS.length > 0 && !PHAOS_ORIGINS.includes(event.origin)) {

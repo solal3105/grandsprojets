@@ -20,23 +20,25 @@ import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
 
-// ── Config Azure AD B2C — 3 environnements ──────────────────────────────────
-// Détection automatique via le claim `iss` du token
+// ── Config Azure AD B2C — environnements ────────────────────────────────────
+// Détection automatique via le claim `iss` du token.
+//
+// IMPORTANT : ce sont des tokens Azure AD *B2C*. Le JWKS doit donc pointer vers
+// l'endpoint b2clogin.com de la policy (user flow) — PAS vers
+// login.microsoftonline.com, qui ne renvoie que les clés Entra génériques et ne
+// contient jamais le kid des tokens B2C (→ erreur "Clé de signature inconnue").
+// Les clés de signature B2C sont au niveau du tenant : toute policy valide expose
+// le même JWKS, donc `b2c_1_login` suffit quelle que soit la policy du token.
 const AZURE_ENVS = {
   prod: {
-    jwksUrl: 'https://login.microsoftonline.com/e49dda1d-3ac4-43db-ab0c-479cd0ba9d36/discovery/v2.0/keys',
+    jwksUrl: 'https://terrampprod.b2clogin.com/e49dda1d-3ac4-43db-ab0c-479cd0ba9d36/b2c_1_login/discovery/v2.0/keys',
     aud: '74bf9434-d301-49a6-950b-24cde8047d95',
     iss: 'https://terrampprod.b2clogin.com/e49dda1d-3ac4-43db-ab0c-479cd0ba9d36/v2.0/',
   },
   qa: {
-    jwksUrl: 'https://login.microsoftonline.com/a5bf3fea-f831-426c-9892-1b8539d43023/discovery/v2.0/keys',
+    jwksUrl: 'https://terrampqa.b2clogin.com/a5bf3fea-f831-426c-9892-1b8539d43023/b2c_1_login/discovery/v2.0/keys',
     aud: 'b71c5170-bd1c-4e73-bbfc-ababa8eb0286',
     iss: 'https://terrampqa.b2clogin.com/a5bf3fea-f831-426c-9892-1b8539d43023/v2.0/',
-  },
-  dev: {
-    jwksUrl: 'https://login.microsoftonline.com/6d6d1704-34d0-4b2f-9c5e-f624b4e2d0fc/discovery/v2.0/keys',
-    aud: 'f81ab73a-59ba-440a-bb80-87669c8f7f0a',
-    iss: 'https://terrampdev.b2clogin.com/6d6d1704-34d0-4b2f-9c5e-f624b4e2d0fc/v2.0/',
   },
 };
 
@@ -93,7 +95,6 @@ async function verifyJwtSignature(token, jwk) {
 function detectAzureEnv(iss = '') {
   if (iss.includes('terrampprod')) return AZURE_ENVS.prod;
   if (iss.includes('terrampqa'))  return AZURE_ENVS.qa;
-  if (iss.includes('terrampdev')) return AZURE_ENVS.dev;
   return null;
 }
 
