@@ -4,16 +4,11 @@
  * Utilisé pour le SSO Phaos → Open Projets via iframe.
  *
  * POST /api/auth/token
- * Body    : { idToken: string }
+ * Body    : { idToken: string, city?: string }   // city = slug de la collectivité (optionnel)
  * Réponse : { access_token, refresh_token, expires_in }
  *
- * Variables d'environnement requises (Netlify Dashboard) :
+ * Variable d'environnement requise (Netlify Dashboard) :
  *   SUPABASE_SERVICE_ROLE_KEY — clé service role Supabase, jamais exposée côté client
- *
- * Checkboxes à valider avant mise en production :
- *   ☐ SUPABASE_SERVICE_ROLE_KEY configurée dans le dashboard Netlify
- *   ☐ Confirmer avec Arthur le claim email dans le token B2C (voir extractEmail())
- *   ☐ Tester en local avec un vrai token Azure Dev (npm run dev)
  */
 
 import { createClient } from '@supabase/supabase-js';

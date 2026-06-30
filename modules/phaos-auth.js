@@ -17,12 +17,12 @@
   'use strict';
 
   // ── Origines autorisées pour postMessage ────────────────────────────────────
-  // Domaines confirmés par Arthur (AXOPEN) le 15/05/2026
+  // Domaines de l'app Phaos. C'est le garde-fou de sécurité réel du SSO :
+  // tout message provenant d'une autre origine est ignoré.
   const PHAOS_ORIGINS = [
     'https://phaos.groupe-helios.com',       // prod
     'https://phaos-qa.groupe-helios.com',    // QA
-    'https://terramap-dev.apollossc.com',    // dev
-    'http://localhost:3001',                 // dev local
+    'http://localhost:3001',                 // dev local + tests E2E
     'http://localhost:8888',                 // dev local (netlify dev)
   ];
 
@@ -134,9 +134,6 @@
   let sessionEstablished = false;
 
   win.addEventListener('message', async (event) => {
-    // DEBUG : trace tout postMessage reçu (non bloquant) — utile pour diagnostiquer le SSO
-    console.log('[PhaosAuth] message reçu — origin:', event.origin, '— type:', event.data && event.data.type);
-
     // ① Valider l'origine
     if (PHAOS_ORIGINS.length > 0 && !PHAOS_ORIGINS.includes(event.origin)) {
       // Log silencieux — des messages légitimes d'autres origines existent (extensions, etc.)
