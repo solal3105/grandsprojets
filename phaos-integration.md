@@ -57,7 +57,7 @@ Le développement côté Phaos est piloté par **Arthur Combe (AXOPEN)** — `ar
 - [x] Valider `iss` (match exact avec l'env)
 - [x] Extraire l'identité : `payload.emails[0]` (array confirmé par Arthur le 15/05/2026)
 - [x] Chercher l'utilisateur dans Supabase par email (via service role — `auth.admin.listUsers`)
-- [x] Si trouvé → `auth.admin.createSession({ user_id })` → retourner `{ access_token, refresh_token, expires_in }`
+- [x] Si trouvé → forger une session via `generateLink({ type:'magiclink', email })` (sans email) puis `verifyOtp({ token_hash, type:'email' })` → retourner `{ access_token, refresh_token, expires_in }`. ⚠️ `auth.admin.createSession()` n'existe PAS dans @supabase/supabase-js.
 - [x] **Si non trouvé → auto-provisioning** : `auth.admin.createUser({ email, email_confirm: true })` puis session (acté avec Arthur le 08/04/2026 — **pas de 404, pas de redirect**)
 - [x] **Création du profil** : après `createUser`, `INSERT INTO profiles (id, role, ville)` avec `role = 'admin'` et `ville = [citySlug]` (city lue depuis le body, fournie par `phaos-auth.js` via `?city=` de l'URL). Non-bloquant : si l'insert échoue, l'auth réussit quand même et l'erreur est loguée.
 - [x] CORS : autorise `https://openprojets.com` + localhost dev (pas les domaines Phaos — ceux-ci ne font jamais d'appel direct à la fonction)

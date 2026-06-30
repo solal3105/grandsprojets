@@ -292,10 +292,30 @@ export default async function handler(req) {
     return errResp(502, 'Erreur lors de la gestion utilisateur', corsHeaders);
   }
 
-  // ⑩ Créer la session Supabase
+  // ⑩ Forger une session Supabase pour cet utilisateur.
+  // @supabase/supabase-js n'expose AUCUNE API admin "createSession". Le pattern serveur
+  // officiel pour ouvrir une session au nom d'un user connu : générer un magiclink
+  // one-time via service role (generateLink — n'envoie PAS d'email), puis l'échanger
+  // immédiatement contre une session (access/refresh) via verifyOtp + token_hash.
   try {
-    const { data: { session }, error: sessionErr } = await supabase.auth.admin.createSession({ user_id: userId });
-    if (sessionErr) throw sessionErr;
+    const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({
+      type: 'magiclink',
+      email,
+    });
+    if (linkErr) throw linkErr;
+
+    const tokenHash = linkData?.properties?.hashed_token;
+    if (!tokenHash) throw new Error('hashed_token absent de la réponse generateLink');
+
+    // type 'email' = vérification par token_hash (magiclink/signup dépréciés côté SDK)
+    const { data: verifyData, error: verifyErr } = await supabase.auth.verifyOtp({
+      type: 'email',
+      token_hash: tokenHash,
+    });
+    if (verifyErr) throw verifyErr;
+
+    const session = verifyData?.session;
+    if (!session?.access_token) throw new Error('session absente de la réponse verifyOtp');
 
     console.log(`[auth-token] Session créée pour userId : ${userId}`);
 
