@@ -143,4 +143,29 @@ test.describe('0.4.2 — PhaosAuth : iframe + token invalide → résilience', (
     expect(phaosAuthExists).toBe(true);
   });
 
+  test('0.4.2.4 — Mode iframe détecté même avec document.referrer vide (régression Phaos QA/prod)', async ({ page }) => {
+    // Régression : en prod, Phaos applique une Referrer-Policy stricte → document.referrer
+    // est "" dans l'iframe. L'ancienne détection (PHAOS_ORIGINS.includes(referrer)) renvoyait
+    // alors false → module no-op → le postMessage ID_TOKEN n'était jamais écouté → SSO cassé.
+    // La détection ne doit plus dépendre du referrer : la sécurité vient de event.origin.
+    const logs = [];
+    page.on('console', msg => logs.push(msg.text()));
+
+    await page.goto('/tests/fixtures/phaos-host-noreferrer.html', { waitUntil: 'domcontentloaded' });
+
+    const frame = page.frameLocator('#map-frame');
+    await frame.locator('#gp-sidebar').waitFor({ state: 'visible', timeout: 30000 });
+
+    // Précondition : le referrer est bien vide dans l'iframe (sinon le test ne prouve rien)
+    const childFrame = page.frames().find(f => f.url().includes('city=metropole-lyon'));
+    const referrer = await childFrame?.evaluate(() => document.referrer);
+    expect(referrer).toBe('');
+
+    // Malgré le referrer vide, le listener postMessage doit être actif et avoir reçu le token.
+    // (avec l'ancien code, aucun log "[PhaosAuth] …" n'apparaissait car le module était no-op)
+    await expect
+      .poll(() => logs.some(l => l.includes('[PhaosAuth] ID_TOKEN reçu')), { timeout: 15000 })
+      .toBe(true);
+  });
+
 });

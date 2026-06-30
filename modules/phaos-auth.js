@@ -33,19 +33,25 @@
   const INIT_TIMEOUT_MS = 15_000;
 
   // ── Détection iframe Phaos ──────────────────────────────────────────────────
-  // On vérifie que l'iframe provient bien d'un domaine Phaos via document.referrer.
-  // window.parent.location est inaccessible cross-origin, mais document.referrer
-  // contient l'origine du parent quand la page est chargée dans une iframe.
-  // Si le parent n'est pas un domaine Phaos (ex : vazy.app, openprojets.com/home/),
-  // on se comporte comme en navigation directe.
+  // Le seul critère fiable est `window.self !== window.top` (on est dans une iframe).
+  // La sécurité repose sur la validation de `event.origin` du postMessage (whitelist
+  // PHAOS_ORIGINS, garantie par le navigateur, non falsifiable) — PAS sur le referrer.
+  //
+  // document.referrer est volontairement traité comme un signal optionnel : il est
+  // souvent VIDE dans l'iframe quand le parent (Phaos QA/prod) applique une
+  // Referrer-Policy stricte (no-referrer / same-origin). S'y fier bloquait tout le SSO.
+  // On l'utilise uniquement comme filtre négatif : si un referrer est présent ET pointe
+  // vers un parent connu non-Phaos (ex : openprojets.com/home/), on reste no-op pour
+  // éviter d'écouter inutilement. Referrer vide → on active (cas Phaos réel).
   function detectPhaosIframe() {
     if (win.self === win.top) return false;
     try {
       const referrerOrigin = document.referrer ? new URL(document.referrer).origin : '';
-      return PHAOS_ORIGINS.includes(referrerOrigin);
+      if (referrerOrigin && !PHAOS_ORIGINS.includes(referrerOrigin)) return false;
     } catch {
-      return false;
+      // referrer illisible → on continue : l'origin du postMessage tranchera
     }
+    return true;
   }
 
   const isInPhaosIframe = detectPhaosIframe();
@@ -128,6 +134,9 @@
   let sessionEstablished = false;
 
   win.addEventListener('message', async (event) => {
+    // ⚠️ DEBUG TEMPORAIRE — à retirer : vérifie qu'un postMessage arrive bien jusqu'ici
+    alert('[PhaosAuth] message reçu — origin: ' + event.origin + ' — type: ' + (event.data && event.data.type));
+
     // ① Valider l'origine
     if (PHAOS_ORIGINS.length > 0 && !PHAOS_ORIGINS.includes(event.origin)) {
       // Log silencieux — des messages légitimes d'autres origines existent (extensions, etc.)

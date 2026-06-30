@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <!--
+    Référent volontairement supprimé : reproduit le comportement réel de Phaos QA/prod,
+    dont la Referrer-Policy stricte laisse document.referrer VIDE dans l'iframe.
+    C'est ce cas qui cassait la détection (detectPhaosIframe basée sur le referrer).
+  -->
+  <meta name="referrer" content="no-referrer">
+  <title>Phaos mock host (referrer vide) — test fixture</title>
+  <style>
+    body { margin: 0; padding: 0; }
+    iframe { display: block; width: 100vw; height: 100vh; border: none; }
+  </style>
+</head>
+<body>
+  <!--
+    Identique à phaos-host.html mais avec un referrer vide côté iframe.
+    Utilisée par tests/unauth.phaos-iframe.spec.js (régression 0.4.2.4).
+
+    Vérifie que phaos-auth.js détecte quand même le mode iframe et traite le token
+    quand document.referrer est "" — la sécurité reposant sur event.origin du postMessage.
+  -->
+  <iframe
+    id="map-frame"
+    src="/?city=metropole-lyon"
+    title="Carte Open Projets (test, referrer vide)"
+  ></iframe>
+
+  <script>
+    const frame = document.getElementById('map-frame');
+    frame.addEventListener('load', () => {
+      // origin localhost:3001 → message accepté par phaos-auth.js (whitelist PHAOS_ORIGINS).
+      // Token syntaxiquement invalide → auth-token.mjs retourne 400 rapidement.
+      frame.contentWindow.postMessage(
+        { type: 'ID_TOKEN', idToken: 'fake.invalid.token' },
+        'http://localhost:3001'
+      );
+    });
+  </script>
+</body>
+</html>
