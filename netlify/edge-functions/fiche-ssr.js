@@ -629,8 +629,11 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
   // 6. JSON-LD — remplacer le bloc statique
   const articleLd = buildArticleJsonLd(project, category, catLabel, canonical, cityBrand, structureName, articlePlain);
   const breadcrumbLd = buildBreadcrumbJsonLd(project, category, catLabel, canonical, structureName, project.ville);
-  const jsonLdBlock = `<script type="application/ld+json" id="fiche-jsonld">${JSON.stringify(articleLd)}</script>
-  <script type="application/ld+json">${JSON.stringify(breadcrumbLd)}</script>`;
+  // < encodé en < : un contenu contenant </script> ne peut pas fermer
+  // le bloc JSON-LD et injecter du HTML (XSS stocké)
+  const ldJson = obj => JSON.stringify(obj).replace(/</g, '\\u003c');
+  const jsonLdBlock = `<script type="application/ld+json" id="fiche-jsonld">${ldJson(articleLd)}</script>
+  <script type="application/ld+json">${ldJson(breadcrumbLd)}</script>`;
 
   html = html.replace(
     /<script\s+type="application\/ld\+json"\s+id="fiche-jsonld">[^<]*<\/script>/,

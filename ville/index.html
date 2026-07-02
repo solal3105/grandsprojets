@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- noindex par défaut : l'edge function ville-hub réécrit en index,follow
+       quand une ville réelle est rendue (évite d'indexer la coquille vide) -->
+  <meta name="robots" content="noindex, follow">
+  <meta name="description" content="Tous les grands projets urbains d'une ville : liste, catégories et carte interactive.">
+  <meta name="theme-color" content="#14AE5C">
+  <link rel="icon" type="image/png" href="/img/logos/favicon.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/img/logos/favicon.png">
+
+  <title>Projets urbains par ville | Open Projets</title>
+
+  <!-- Canonical + hreflang — réécrits par l'edge function -->
+  <link rel="canonical" href="https://openprojets.com/ville/">
+  <link rel="alternate" hreflang="fr" href="https://openprojets.com/ville/">
+
+  <!-- Open Graph / Twitter — réécrits par l'edge function -->
+  <meta property="og:site_name" content="Open Projets">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Projets urbains par ville | Open Projets">
+  <meta property="og:description" content="Tous les grands projets urbains d'une ville : liste, catégories et carte interactive.">
+  <meta property="og:url" content="https://openprojets.com/ville/">
+  <meta property="og:image" content="https://openprojets.com/img/cover/meta.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Projets urbains par ville | Open Projets">
+  <meta name="twitter:description" content="Tous les grands projets urbains d'une ville : liste, catégories et carte interactive.">
+  <meta name="twitter:image" content="https://openprojets.com/img/cover/meta.png">
+
+  <!-- Preconnects -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://wqqsuybmyqemhojsamgq.supabase.co">
+
+  <!-- Polices : Space Grotesk (titres) + Inter (corps) — same as /fiche/ et /home/ -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Design system tokens (obligatoire, avant le CSS de page) -->
+  <link rel="stylesheet" href="/styles/00-colors.css">
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer">
+
+  <!-- Styles de la page -->
+  <link rel="stylesheet" href="/ville/ville-hub.css">
+
+  <!-- GA4 -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-8LGDVJXTPK"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-8LGDVJXTPK');</script>
+
+  <!-- JSON-LD — réécrit par l'edge function (CollectionPage + ItemList) -->
+  <script type="application/ld+json" id="vh-jsonld">{"@context":"https://schema.org","@type":"CollectionPage","name":"Projets urbains par ville","url":"https://openprojets.com/ville/","inLanguage":"fr"}</script>
+</head>
+<body>
+
+  <div class="vh" id="vh">
+
+    <!-- ═══════════════ TOPBAR (chip system, même famille que /fiche/) ═══════════════ -->
+    <nav class="vh-topbar" id="vh-topbar">
+
+      <a href="/" id="vh-btn-back" class="vh-topbar__back vh-chip" aria-label="Retour à la carte">
+        <i class="fa-solid fa-arrow-left"></i>
+        <span>Carte</span>
+      </a>
+
+      <span class="vh-topbar__title" id="vh-topbar-title"></span>
+
+      <div class="vh-topbar__end">
+        <div class="vh-topbar__logo vh-chip" id="vh-topbar-logo" hidden>
+          <img id="vh-topbar-logo-img" src="" alt="">
+        </div>
+        <div class="vh-chip vh-topbar__btns">
+          <button type="button" class="vh-topbar__btn" id="vh-btn-theme" aria-label="Changer le thème">
+            <i class="fa-solid fa-moon"></i>
+          </button>
+          <span class="vh-topbar__sep" aria-hidden="true"></span>
+          <button type="button" class="vh-topbar__btn" id="vh-btn-share" aria-label="Copier le lien">
+            <i class="fa-solid fa-link"></i>
+          </button>
+        </div>
+      </div>
+
+    </nav>
+
+    <!-- ═══════════════ CONTENU — rendu côté serveur par l'edge function ville-hub ═══════════════ -->
+    <main class="vh-main" id="vh-main">
+      <!--VH:CONTENT-START-->
+      <div class="vh-fallback">
+        <div class="vh-fallback__icon"><i class="fa-solid fa-city"></i></div>
+        <h1>Projets urbains par ville</h1>
+        <p>Cette page liste les grands projets d'une ville. Choisissez une ville depuis la carte interactive.</p>
+        <a href="/" class="vh-btn-3d vh-btn-3d--primary">
+          <i class="fa-solid fa-map"></i>
+          <span>Ouvrir la carte</span>
+        </a>
+      </div>
+      <!--VH:CONTENT-END-->
+    </main>
+
+  </div>
+
+  <noscript>
+    <!-- Sans JS, les contrôles interactifs (filtres, vues, thème) sont inertes : masqués -->
+    <style>.vh-views, .vh-tags, .vh-topbar__btns { display: none !important; }</style>
+  </noscript>
+
+  <!-- Modules partagés (IIFE) — la chaîne MapLibre est chargée à la demande
+       par ville-hub.js à l'ouverture de la vue carte -->
+  <script src="/modules/thememanager.js"></script>
+  <script src="/ville/ville-hub.js"></script>
+</body>
+</html>

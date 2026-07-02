@@ -87,6 +87,25 @@ export default async (_request, _context) => {
         cat.startsWith('e2e-') || cat.startsWith('e2e_');
     };
 
+    // Hubs par ville — /ville/{slug} (items trié par created_at desc :
+    // la première occurrence d'une ville porte son lastmod le plus récent)
+    const villeLastmod = new Map();
+    for (const it of items) {
+      const name = it?.project_name || '';
+      const cat = String(it?.category || '').toLowerCase();
+      const ville = String(it?.ville || '').toLowerCase();
+      if (!name || !cat || !ville || isTestEntry(name, cat)) continue;
+      if (!villeLastmod.has(ville)) villeLastmod.set(ville, fmtDate(it?.created_at));
+    }
+    for (const [ville, lastmod] of villeLastmod) {
+      urlset.push({
+        loc: `${BASE_ORIGIN}/ville/${encodeURIComponent(ville)}`,
+        lastmod,
+        changefreq: 'weekly',
+        priority: '0.9',
+      });
+    }
+
     // Fiches individuelles avec images pour Google Images
     for (const it of items) {
       const name = it?.project_name || '';

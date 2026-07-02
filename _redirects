@@ -28,6 +28,9 @@
 # API Phaos SSO — doit être avant le catch-all /*
 /api/auth/token     /.netlify/functions/auth-token  200
 
+# Hub ville — pré-rendu edge (ville-hub) — DOIT être avant le catch-all /*
+/ville/*            /ville/index.html     200
+
 # Fallback : toute autre route non définie redirige vers la racine
 # (sera géré par le JavaScript côté client si c'est une ville valide)
 /*                  /index.html           200

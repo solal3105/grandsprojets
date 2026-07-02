@@ -2,6 +2,7 @@ User-agent: *
 Allow: /
 Allow: /fiche/
 Allow: /home/
+Allow: /ville/
 Allow: /img/
 Allow: /styles/
 

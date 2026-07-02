@@ -92,6 +92,7 @@ export default async (_request, _context) => {
     for (const ville of villes) {
       const label = cityNames.get(ville) || ville.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
       lines.push('', `## Projets — ${label}`, '');
+      lines.push(`- [Tous les projets — ${label}](${BASE_ORIGIN}/ville/${encodeURIComponent(ville)}) : hub de la ville (liste, catégories et carte)`);
       const fiches = byVille.get(ville).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
       for (const f of fiches) {
         lines.push(f.description ? `- [${f.name}](${f.url}) : ${f.description}` : `- [${f.name}](${f.url})`);

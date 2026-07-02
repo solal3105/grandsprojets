@@ -54,6 +54,10 @@
   path = "/home/alternative-neocity"
   function = "home-seo"
 
+[[edge_functions]]
+  path = "/ville/*"
+  function = "ville-hub"
+
 # Prerendering pour les crawlers (Google, Bing, etc.)
 # Netlify sert une version pré-rendue du SPA aux bots
 [build.processing]
