@@ -401,6 +401,39 @@
       background: var(--text-disabled);
     }
 
+    /* ── Toggle thème (bouton flottant glass) ── */
+    .lg-theme-toggle {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      z-index: 10;
+      width: 42px;
+      height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      color: var(--text-secondary);
+      background: var(--lg-glass);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid var(--lg-glass-border);
+      border-radius: 999px;
+      cursor: pointer;
+      box-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.06),
+        inset 0 1.5px 0 var(--lg-shimmer);
+      transition: all var(--lg-spring);
+    }
+    .lg-theme-toggle:hover {
+      transform: scale(1.08);
+      color: var(--text-primary);
+    }
+    .lg-theme-toggle:active { transform: scale(0.94); }
+    .lg-theme-toggle .fa-sun { display: none; }
+    html[data-theme='dark'] .lg-theme-toggle .fa-sun { display: inline; }
+    html[data-theme='dark'] .lg-theme-toggle .fa-moon { display: none; }
+
     /* ── A11y & motion ── */
     :focus-visible {
       outline: 2px solid var(--primary);
@@ -429,6 +462,11 @@
     <div class="lg-bg__aurora lg-bg__aurora--green"></div>
     <div class="lg-bg__aurora lg-bg__aurora--blue"></div>
   </div>
+
+  <button class="lg-theme-toggle" id="theme-toggle" type="button" aria-label="Changer de thème" title="Changer de thème">
+    <i class="fa-solid fa-moon" aria-hidden="true"></i>
+    <i class="fa-solid fa-sun" aria-hidden="true"></i>
+  </button>
 
   <main class="lg-wrap">
     <!-- Carte de connexion -->
@@ -655,6 +693,12 @@
         }
       } catch(_) {}
     })();
+
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+      const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem('theme', next); } catch (e) {}
+    });
 
     initAuthUI();
   </script>
