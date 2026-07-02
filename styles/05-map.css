@@ -20,8 +20,59 @@
    Navigation Control — zoom + compass, glass capsule, bottom-right
 --------------------------------------------------------------------------- */
 
-/* Suppress legacy bottom-left slot */
-.maplibregl-ctrl-bottom-left { display: none !important; }
+/* ---------------------------------------------------------------------------
+   Attribution — crédits fond de carte (© OpenStreetMap…), bas gauche
+   Contrôle compact MapLibre : pastille ⓘ repliée, panneau au clic
+--------------------------------------------------------------------------- */
+
+.maplibregl-ctrl-bottom-left .maplibregl-ctrl {
+  margin: 0 0 20px 16px !important;
+}
+
+/* Capsule verre — même signature que la nav bottom-right */
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  background: rgba(250, 251, 255, 0.82) !important;
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.88);
+  border-radius: 999px !important;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.045),
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* En bas à gauche, MapLibre place le bouton ⓘ à gauche → padding inversé */
+.maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib.maplibregl-compact-show {
+  padding: 4px 14px 4px 32px !important;
+}
+
+.maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-inner {
+  font-size: 0.68rem;
+  line-height: 1.6;
+  color: var(--text-secondary, #555);
+}
+
+/* Spécificité > maplibre-gl.css (chargé après style.css) */
+.maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib a {
+  color: var(--text-secondary, #555);
+  text-decoration: none;
+}
+
+.maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib a:hover {
+  color: var(--primary, #14AE5C);
+  text-decoration: underline;
+}
+
+.maplibregl-ctrl-attrib-button {
+  background-color: transparent !important;
+  border-radius: 999px;
+  opacity: 0.72;
+}
+
+.maplibregl-ctrl-attrib-button:hover {
+  opacity: 1;
+}
 
 /* Positioning */
 .maplibregl-ctrl-bottom-right .maplibregl-ctrl {
@@ -205,12 +256,31 @@
   clip-path: polygon(50% 100%, 100% 0%, 50% 26%, 0% 0%);
 }
 
-/* Mobile: hide navigation controls */
+/* Mobile: hide navigation controls, keep attribution (obligation OSM)
+   au-dessus du dock modules centré en bas */
 @media (max-width: 720px) {
-  .maplibregl-ctrl-bottom-right,
-  .maplibregl-ctrl-bottom-left {
+  .maplibregl-ctrl-bottom-right {
     display: none !important;
   }
+
+  .maplibregl-ctrl-bottom-left .maplibregl-ctrl {
+    margin: 0 0 max(80px, calc(env(safe-area-inset-bottom) + 76px)) 10px !important;
+  }
+}
+
+/* Dark theme — attribution */
+[data-theme="dark"] .maplibregl-ctrl-attrib.maplibregl-compact {
+  background: rgba(14, 16, 26, 0.85) !important;
+  border-color: rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.035),
+    0 2px 8px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Icône ⓘ (SVG sombre par défaut) passée en blanc */
+[data-theme="dark"] .maplibregl-ctrl-attrib-button {
+  filter: brightness(0) invert(1) opacity(0.75);
 }
 
 /* Dark theme */

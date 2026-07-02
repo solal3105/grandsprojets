@@ -937,12 +937,23 @@
         // Insertion anchor: first app-data layer — vbm layers go BELOW it
         const anchor = this._findAnchorLayer(mlMap);
 
+        // Attribution de basemaps_v2 en secours, uniquement si AUCUNE source du
+        // style n'en fournit (sinon doublon dans le contrôle d'attribution)
+        const styleSources = Object.values(styleJson.sources || {});
+        const needsFallbackAttrib = this.options.attribution &&
+          !styleSources.some(s => s.attribution);
+
         // Map original source IDs → prefixed IDs to avoid collisions
         const sourceIdMap = {};
+        let attribApplied = false;
         for (const [origId, srcDef] of Object.entries(styleJson.sources || {})) {
           const prefixed = `__vbm__${origId}`;
           sourceIdMap[origId] = prefixed;
           if (mlMap.getSource(prefixed)) continue;
+          if (needsFallbackAttrib && !attribApplied) {
+            srcDef.attribution = this.options.attribution;
+            attribApplied = true;
+          }
           try {
             mlMap.addSource(prefixed, srcDef);
           } catch (e) {
@@ -1912,9 +1923,22 @@
         zoom: zoom,
         pitch: opts.pitch || 0,
         bearing: opts.bearing || 0,
-        attributionControl: opts.attributionControl !== false,
+        // Contrôle natif désactivé — on ajoute notre propre contrôle compact
+        // ci-dessous (mlgl n'accepte pas `true`, uniquement false | options)
+        attributionControl: false,
         maxPitch: 85
       });
+
+      // Attribution compacte en bas à gauche (crédits OSM / fond de carte).
+      // Repliée en pastille ⓘ, elle se déplie au clic — les attributions
+      // proviennent des sources (champ `attribution` de basemaps_v2 ou du style vectoriel).
+      if (opts.attributionControl !== false) {
+        try {
+          this._mlMap.addControl(new mlgl.AttributionControl({ compact: true }), 'bottom-left');
+        } catch (e) {
+          console.debug('[MapLibreCompat] Could not add attribution control:', e);
+        }
+      }
 
       // Queue for operations before style loads
       this._styleLoaded = false;

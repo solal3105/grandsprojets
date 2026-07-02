@@ -976,3 +976,41 @@ test.describe('0.18 — RÉGRESSION logo mobile (cascade CSS)', () => {
     expect(src).toBeTruthy();
   });
 });
+
+// ═════════════════════════════════════════════════════════
+// 0.19 — Attribution fond de carte (crédits © OpenStreetMap…)
+//
+// Régression : le contrôle d'attribution avait disparu lors de
+// la migration MapLibre (attributionControl: false + slot
+// bottom-left masqué en CSS). Il doit être présent en mode
+// compact (pastille ⓘ) et afficher les crédits du basemap.
+// ═════════════════════════════════════════════════════════
+test.describe('0.19 — Attribution fond de carte', () => {
+
+  test('0.19.1 — Le contrôle d\'attribution compact est visible en bas à gauche', async ({ page }) => {
+    await waitForMapBoot(page);
+    const attrib = page.locator('.maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib');
+    await expect(attrib).toBeVisible({ timeout: 15000 });
+    await expect(attrib).toHaveClass(/maplibregl-compact/);
+  });
+
+  test('0.19.2 — Les crédits mentionnent OpenStreetMap', async ({ page }) => {
+    await waitForMapBoot(page);
+    await expect(page.locator('.maplibregl-ctrl-attrib')).toBeVisible({ timeout: 15000 });
+    // Déplier la pastille pour lire les crédits
+    await page.evaluate(() => {
+      const d = document.querySelector('details.maplibregl-ctrl-attrib');
+      if (d instanceof HTMLDetailsElement && !d.open) d.querySelector('summary')?.click();
+    });
+    // Les attributions arrivent avec le chargement des sources du basemap
+    await expect(page.locator('.maplibregl-ctrl-attrib-inner'))
+      .toContainText(/OpenStreetMap/i, { timeout: 20000 });
+  });
+
+  test('0.19.3 — L\'attribution reste visible en mobile (obligation OSM)', async ({ page }) => {
+    page.setViewportSize({ width: 375, height: 812 });
+    await waitForMapBoot(page);
+    const attrib = page.locator('.maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib');
+    await expect(attrib).toBeVisible({ timeout: 15000 });
+  });
+});

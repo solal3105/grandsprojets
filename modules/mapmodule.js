@@ -1,6 +1,7 @@
 window.MapModule = (() => {
   // Initialize the map view (MapLibre GL via compat layer)
-  const map = L.map('map', { attributionControl: false }).setView([45.75, 4.85], 12);
+  // attributionControl actif : crédits fond de carte (© OpenStreetMap…) en pastille compacte
+  const map = L.map('map').setView([45.75, 4.85], 12);
   let baseLayer;
   
   
