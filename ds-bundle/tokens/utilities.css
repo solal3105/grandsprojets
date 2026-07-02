@@ -1,0 +1,51 @@
+/* ============================================================================
+   Open Projets — Utility classes
+   These mirror the EXACT names from home-src/tailwind.config.js so that a
+   design written with Tailwind-style classes (`text-primary`, `bg-dark`,
+   `font-heading`, `shadow-card`, …) resolves to the real brand values even if
+   the rendering runtime's Tailwind doesn't carry this project's config.
+   Every class here maps to a token in tokens/*.css — nothing invented.
+   ============================================================================ */
+
+/* ── Text color ─────────────────────────────────────────────────────────── */
+.text-primary   { color: var(--color-primary); }
+.text-amber     { color: var(--color-amber); }
+.text-green     { color: var(--color-green); }
+.text-purple    { color: var(--color-purple); }
+.text-dark      { color: var(--color-dark); }
+.text-gray-text { color: var(--color-gray-text); }
+
+/* ── Background color ───────────────────────────────────────────────────── */
+.bg-primary       { background-color: var(--color-primary); }
+.bg-primary-light { background-color: var(--color-primary-light); }
+.bg-primary-10    { background-color: var(--color-primary-10); }
+.bg-amber         { background-color: var(--color-amber); }
+.bg-green         { background-color: var(--color-green); }
+.bg-purple        { background-color: var(--color-purple); }
+.bg-dark          { background-color: var(--color-dark); }
+.bg-gray-bg       { background-color: var(--color-gray-bg); }
+
+/* ── Border color ───────────────────────────────────────────────────────── */
+.border-gray-border { border-color: var(--color-gray-border); }
+
+/* ── Typography ─────────────────────────────────────────────────────────── */
+.font-heading        { font-family: var(--font-heading); }
+.font-body           { font-family: var(--font-body); }
+.tracking-tight-hero { letter-spacing: var(--tracking-tight-hero); }
+
+/* ── Effects & layout ───────────────────────────────────────────────────── */
+.shadow-card    { box-shadow: var(--shadow-card); }
+.max-w-container { max-width: var(--max-w-container); }
+
+/* ── Optional page shell ────────────────────────────────────────────────── */
+/* A convenient root wrapper: light background + Inter body font.
+   Wrap a full page in `op-page` to inherit the brand's default surface. */
+.op-page {
+  background-color: var(--color-gray-bg);
+  color: var(--color-dark);
+  font-family: var(--font-body);
+}
+.op-page h1, .op-page h2, .op-page h3,
+.op-page h4, .op-page h5, .op-page h6 {
+  font-family: var(--font-heading);
+}

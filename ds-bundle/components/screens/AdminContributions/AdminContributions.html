@@ -1,0 +1,271 @@
+<!-- @dsCard group="Screens" name="Admin — Contributions" -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Open Projets — Admin · Contributions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+<style>
+  :root {
+    /* App tokens (styles/00-colors.css) */
+    --primary: #14AE5C;  --primary-rgb: 20,174,92;
+    --warning: #F59E0B;  --info: #2563EB;  --danger: #EF4444;
+    --gray-50:#F8FAFC; --gray-100:#F1F5F9; --gray-200:#E2E8F0; --gray-300:#CBD5E1;
+    --gray-400:#94A3B8; --gray-500:#64748B; --gray-600:#475569; --gray-700:#334155;
+    --gray-800:#1E293B; --gray-900:#0F172A;
+    /* Admin glass tokens (admin.css) */
+    --adm-glass: rgba(255,255,255,.55);
+    --adm-glass-strong: rgba(255,255,255,.72);
+    --adm-glass-border: rgba(255,255,255,.5);
+    --adm-glass-inner: rgba(255,255,255,.45);
+    --adm-radius: 16px; --adm-radius-sm: 10px; --adm-radius-lg: 24px; --adm-radius-pill: 100px;
+    --adm-shadow: 0 4px 24px rgba(0,0,0,.06), 0 1px 4px rgba(0,0,0,.04);
+    --adm-shadow-lg: 0 12px 48px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.04);
+    --adm-sidebar-w: 272px; --adm-sidebar-inset: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--gray-900);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    background:
+      radial-gradient(ellipse 80% 50% at 5% 95%, rgba(var(--primary-rgb),.07) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 60% at 90% 15%, rgba(37,99,235,.06) 0%, transparent 55%),
+      radial-gradient(ellipse 50% 40% at 50% 50%, rgba(245,158,11,.03) 0%, transparent 50%),
+      linear-gradient(145deg, #f0f4f8 0%, #e6ecf4 35%, #f2eef6 65%, #ecf0f5 100%);
+    background-attachment: fixed;
+  }
+
+  /* ───────── Sidebar ───────── */
+  .adm-sidebar {
+    position: fixed; top: var(--adm-sidebar-inset); left: var(--adm-sidebar-inset);
+    bottom: var(--adm-sidebar-inset); width: var(--adm-sidebar-w);
+    background: rgba(250,251,255,.88);
+    backdrop-filter: blur(44px) saturate(180%); -webkit-backdrop-filter: blur(44px) saturate(180%);
+    display: flex; flex-direction: column; border-radius: 20px;
+    border: 1px solid rgba(255,255,255,.72); padding: 18px 14px 14px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.045), 0 8px 32px rgba(0,0,0,.08),
+      0 28px 64px rgba(0,0,0,.07), inset 0 1.5px 0 rgba(255,255,255,.95);
+  }
+  .adm-logo { display: flex; align-items: center; gap: 9px; padding: 2px 8px 14px; font-weight: 800; font-size: 17px; letter-spacing: -.02em; color: var(--gray-900); }
+  .adm-logo .mark { width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg, #FF0037, #FF5a7d); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; box-shadow: 0 4px 10px rgba(255,0,55,.35); }
+  .adm-logo .mark i { transform: rotate(-8deg); }
+
+  .adm-city { background: var(--adm-glass-inner); border: 1px solid var(--adm-glass-border); border-radius: var(--adm-radius); padding: 10px 12px; margin-bottom: 6px; }
+  .adm-city__label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--gray-500); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .adm-city__select { display: flex; align-items: center; justify-content: space-between; font-size: 14px; font-weight: 600; color: var(--gray-800); }
+  .adm-city__select i { color: var(--gray-400); font-size: 12px; }
+
+  .adm-sep { height: 1px; background: rgba(0,0,0,.06); margin: 10px 4px; }
+  .adm-nav { display: flex; flex-direction: column; gap: 2px; }
+  .adm-nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--adm-radius-sm); font-size: 14px; font-weight: 500; color: var(--gray-600); text-decoration: none; transition: all .2s; }
+  .adm-nav-item i { width: 18px; text-align: center; font-size: 15px; color: var(--gray-400); }
+  .adm-nav-item:hover { background: var(--adm-glass-inner); color: var(--gray-900); }
+  .adm-nav-item.active { background: rgba(var(--primary-rgb),.12); color: var(--primary); font-weight: 600; box-shadow: inset 0 0 0 1px rgba(var(--primary-rgb),.16); }
+  .adm-nav-item.active i { color: var(--primary); }
+
+  .adm-spacer { flex: 1; }
+  .adm-map-card { display: flex; align-items: center; gap: 11px; padding: 12px; margin-bottom: 10px; border-radius: var(--adm-radius); background: linear-gradient(135deg, rgba(var(--primary-rgb),.10), rgba(37,99,235,.06)); border: 1px solid var(--adm-glass-border); text-decoration: none; }
+  .adm-map-card__icon { width: 38px; height: 38px; border-radius: 10px; background: rgba(var(--primary-rgb),.16); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .adm-map-card__meta { display: flex; flex-direction: column; line-height: 1.3; flex: 1; }
+  .adm-map-card__label { font-size: 13px; font-weight: 600; color: var(--gray-800); }
+  .adm-map-card__city { font-size: 11px; color: var(--gray-500); }
+  .adm-map-card__arrow { color: var(--gray-400); font-size: 11px; }
+
+  .adm-user { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: var(--adm-radius); border: 1px solid var(--adm-glass-border); background: var(--adm-glass-inner); }
+  .adm-user__avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), #0ea55a); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; }
+  .adm-user__meta { display: flex; flex-direction: column; line-height: 1.3; flex: 1; min-width: 0; }
+  .adm-user__email { font-size: 12.5px; font-weight: 600; color: var(--gray-800); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .adm-user__role { font-size: 11px; color: var(--gray-500); }
+  .adm-user__logout { width: 30px; height: 30px; border-radius: 8px; border: none; background: transparent; color: var(--gray-400); cursor: pointer; font-size: 14px; }
+  .adm-user__logout:hover { background: rgba(239,68,68,.1); color: var(--danger); }
+
+  /* ───────── Main ───────── */
+  .adm-main { margin-left: calc(var(--adm-sidebar-w) + var(--adm-sidebar-inset) * 2); padding: 34px 40px 40px; max-width: 1180px; }
+
+  .adm-page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+  .adm-page-title { font-size: 26px; font-weight: 800; letter-spacing: -.02em; color: var(--gray-900); display: flex; align-items: center; gap: 12px; }
+  .adm-page-title i { color: var(--primary); font-size: 22px; }
+  .adm-page-subtitle { font-size: 14px; color: var(--gray-500); margin-top: 5px; }
+
+  .adm-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: var(--adm-radius); font-family: inherit; font-size: 14px; font-weight: 600; border: none; cursor: pointer; transition: all .2s; }
+  .adm-btn--primary { background: linear-gradient(135deg, var(--primary), #0ea55a); color: #fff; box-shadow: 0 6px 18px rgba(var(--primary-rgb),.28); }
+  .adm-btn--primary:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(var(--primary-rgb),.34); }
+
+  .adm-tabs { display: flex; gap: 6px; margin-bottom: 18px; }
+  .adm-tab { display: inline-flex; align-items: center; gap: 7px; padding: 8px 16px; border-radius: var(--adm-radius-pill); font-size: 13.5px; font-weight: 600; border: 1px solid var(--adm-glass-border); background: var(--adm-glass); color: var(--gray-600); cursor: pointer; }
+  .adm-tab.active { background: var(--gray-900); color: #fff; border-color: var(--gray-900); }
+  .adm-tab .count { font-size: 11px; padding: 1px 7px; border-radius: 100px; background: rgba(0,0,0,.06); }
+  .adm-tab.active .count { background: rgba(255,255,255,.2); }
+
+  .adm-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .adm-input--search { flex: 1; display: flex; align-items: center; gap: 10px; padding: 11px 16px; border-radius: var(--adm-radius); background: var(--adm-glass-strong); border: 1px solid var(--adm-glass-border); color: var(--gray-400); font-size: 14px; }
+  .adm-select { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: var(--adm-radius); background: var(--adm-glass-strong); border: 1px solid var(--adm-glass-border); color: var(--gray-700); font-size: 13.5px; font-weight: 500; }
+  .adm-select i { color: var(--gray-400); font-size: 11px; }
+
+  .adm-card { background: var(--adm-glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--adm-glass-border); border-radius: var(--adm-radius-lg); box-shadow: var(--adm-shadow); overflow: hidden; }
+
+  .adm-list-item { display: flex; align-items: center; gap: 16px; padding: 15px 20px; border-bottom: 1px solid rgba(0,0,0,.05); transition: background .2s; }
+  .adm-list-item:last-child { border-bottom: none; }
+  .adm-list-item:hover { background: var(--adm-glass-inner); }
+  .adm-list-item__cover { width: 58px; height: 58px; border-radius: 12px; object-fit: cover; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; }
+  .adm-list-item__info { flex: 1; min-width: 0; }
+  .adm-list-item__name { font-size: 15px; font-weight: 600; color: var(--gray-900); letter-spacing: -.01em; }
+  .adm-list-item__meta { font-size: 12.5px; color: var(--gray-500); margin-top: 3px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .adm-list-item__meta .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--gray-300); }
+  .adm-badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; font-size: 12px; font-weight: 600; border-radius: var(--adm-radius-pill); white-space: nowrap; }
+  .adm-badge--success { background: rgba(var(--primary-rgb),.12); color: var(--primary); }
+  .adm-badge--warning { background: rgba(245,158,11,.14); color: #b9770a; }
+  .adm-list-item__actions { display: flex; gap: 4px; }
+  .adm-icon-btn { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--adm-glass-border); background: var(--adm-glass-strong); color: var(--gray-500); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; }
+  .adm-icon-btn:hover { color: var(--gray-900); border-color: var(--gray-300); }
+
+  .cover-a { background: linear-gradient(135deg,#14AE5C,#0ea55a); }
+  .cover-b { background: linear-gradient(135deg,#2563EB,#4E2BFF); }
+  .cover-c { background: linear-gradient(135deg,#F59E0B,#F2B327); }
+  .cover-d { background: linear-gradient(135deg,#5AAB7D,#14AE5C); }
+  .cover-e { background: linear-gradient(135deg,#FF0037,#4E2BFF); }
+</style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="adm-sidebar">
+    <div class="adm-logo"><span class="mark"><i class="fa-solid fa-location-dot"></i></span> Open Projets</div>
+
+    <div class="adm-city">
+      <div class="adm-city__label"><i class="fa-solid fa-building"></i> Structure</div>
+      <div class="adm-city__select">Métropole de Lyon <i class="fa-solid fa-chevron-down"></i></div>
+    </div>
+
+    <div class="adm-sep"></div>
+
+    <nav class="adm-nav">
+      <a class="adm-nav-item active"><i class="fa-solid fa-pen-to-square"></i> Contributions</a>
+      <a class="adm-nav-item"><i class="fa-solid fa-helmet-safety"></i> Travaux</a>
+      <a class="adm-nav-item"><i class="fa-solid fa-tags"></i> Catégories</a>
+      <a class="adm-nav-item"><i class="fa-solid fa-users"></i> Utilisateurs</a>
+      <div class="adm-sep"></div>
+      <a class="adm-nav-item"><i class="fa-solid fa-palette"></i> Structure</a>
+      <a class="adm-nav-item"><i class="fa-solid fa-city"></i> Villes</a>
+      <a class="adm-nav-item"><i class="fa-solid fa-puzzle-piece"></i> Modules</a>
+    </nav>
+
+    <div class="adm-spacer"></div>
+
+    <a class="adm-map-card">
+      <div class="adm-map-card__icon"><i class="fa-solid fa-map"></i></div>
+      <div class="adm-map-card__meta">
+        <span class="adm-map-card__label">Voir la carte</span>
+        <span class="adm-map-card__city">Métropole de Lyon</span>
+      </div>
+      <i class="fa-solid fa-arrow-up-right-from-square adm-map-card__arrow"></i>
+    </a>
+
+    <div class="adm-user">
+      <div class="adm-user__avatar">S</div>
+      <div class="adm-user__meta">
+        <span class="adm-user__email">solal@openprojets.com</span>
+        <span class="adm-user__role">Administrateur</span>
+      </div>
+      <button class="adm-user__logout"><i class="fa-solid fa-right-from-bracket"></i></button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="adm-main">
+    <div class="adm-page-header">
+      <div>
+        <h1 class="adm-page-title"><i class="fa-solid fa-pen-to-square"></i> Contributions</h1>
+        <p class="adm-page-subtitle">Gérer les contributions de Métropole de Lyon</p>
+      </div>
+      <button class="adm-btn adm-btn--primary"><i class="fa-solid fa-plus"></i> Nouvelle contribution</button>
+    </div>
+
+    <div class="adm-tabs">
+      <button class="adm-tab active">Toutes <span class="count">5</span></button>
+      <button class="adm-tab"><i class="fa-solid fa-clock"></i> En attente <span class="count">2</span></button>
+      <button class="adm-tab"><i class="fa-solid fa-check"></i> Approuvées <span class="count">3</span></button>
+    </div>
+
+    <div class="adm-toolbar">
+      <div class="adm-input--search"><i class="fa-solid fa-magnifying-glass"></i> Rechercher une contribution…</div>
+      <div class="adm-select"><i class="fa-solid fa-tag"></i> Toutes catégories <i class="fa-solid fa-chevron-down"></i></div>
+      <div class="adm-select"><i class="fa-solid fa-arrow-down-wide-short"></i> Plus récentes <i class="fa-solid fa-chevron-down"></i></div>
+    </div>
+
+    <div class="adm-card">
+      <div class="adm-list-item">
+        <div class="adm-list-item__cover cover-a"><i class="fa-solid fa-tree-city"></i></div>
+        <div class="adm-list-item__info">
+          <div class="adm-list-item__name">Réaménagement de la Place Bellecour</div>
+          <div class="adm-list-item__meta">Aménagement urbain <span class="dot"></span> 2ᵉ arrondissement <span class="dot"></span> il y a 2 h</div>
+        </div>
+        <span class="adm-badge adm-badge--warning"><i class="fa-solid fa-clock"></i> En attente</span>
+        <div class="adm-list-item__actions">
+          <button class="adm-icon-btn"><i class="fa-solid fa-eye"></i></button>
+          <button class="adm-icon-btn"><i class="fa-solid fa-pen"></i></button>
+        </div>
+      </div>
+
+      <div class="adm-list-item">
+        <div class="adm-list-item__cover cover-b"><i class="fa-solid fa-bicycle"></i></div>
+        <div class="adm-list-item__info">
+          <div class="adm-list-item__name">Piste cyclable du Cours Lafayette</div>
+          <div class="adm-list-item__meta">Mobilité <span class="dot"></span> 3ᵉ &amp; 6ᵉ <span class="dot"></span> hier</div>
+        </div>
+        <span class="adm-badge adm-badge--success"><i class="fa-solid fa-check"></i> Approuvée</span>
+        <div class="adm-list-item__actions">
+          <button class="adm-icon-btn"><i class="fa-solid fa-eye"></i></button>
+          <button class="adm-icon-btn"><i class="fa-solid fa-pen"></i></button>
+        </div>
+      </div>
+
+      <div class="adm-list-item">
+        <div class="adm-list-item__cover cover-d"><i class="fa-solid fa-seedling"></i></div>
+        <div class="adm-list-item__info">
+          <div class="adm-list-item__name">Végétalisation de la Rue Garibaldi</div>
+          <div class="adm-list-item__meta">Espaces verts <span class="dot"></span> 3ᵉ arrondissement <span class="dot"></span> il y a 3 j</div>
+        </div>
+        <span class="adm-badge adm-badge--success"><i class="fa-solid fa-check"></i> Approuvée</span>
+        <div class="adm-list-item__actions">
+          <button class="adm-icon-btn"><i class="fa-solid fa-eye"></i></button>
+          <button class="adm-icon-btn"><i class="fa-solid fa-pen"></i></button>
+        </div>
+      </div>
+
+      <div class="adm-list-item">
+        <div class="adm-list-item__cover cover-c"><i class="fa-solid fa-train-tram"></i></div>
+        <div class="adm-list-item__info">
+          <div class="adm-list-item__name">Nouvelle ligne de tramway T9</div>
+          <div class="adm-list-item__meta">Transport <span class="dot"></span> Vaulx-en-Velin <span class="dot"></span> il y a 4 j</div>
+        </div>
+        <span class="adm-badge adm-badge--warning"><i class="fa-solid fa-clock"></i> En attente</span>
+        <div class="adm-list-item__actions">
+          <button class="adm-icon-btn"><i class="fa-solid fa-eye"></i></button>
+          <button class="adm-icon-btn"><i class="fa-solid fa-pen"></i></button>
+        </div>
+      </div>
+
+      <div class="adm-list-item">
+        <div class="adm-list-item__cover cover-e"><i class="fa-solid fa-water"></i></div>
+        <div class="adm-list-item__info">
+          <div class="adm-list-item__name">Rénovation des berges du Rhône</div>
+          <div class="adm-list-item__meta">Espaces publics <span class="dot"></span> 6ᵉ arrondissement <span class="dot"></span> il y a 6 j</div>
+        </div>
+        <span class="adm-badge adm-badge--success"><i class="fa-solid fa-check"></i> Approuvée</span>
+        <div class="adm-list-item__actions">
+          <button class="adm-icon-btn"><i class="fa-solid fa-eye"></i></button>
+          <button class="adm-icon-btn"><i class="fa-solid fa-pen"></i></button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+</body>
+</html>

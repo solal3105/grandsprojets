@@ -1,0 +1,44 @@
+<!-- @dsCard group="Foundations" name="Colors" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Open Projets — Colors</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --color-primary: #FF0037; --color-amber: #F2B327; --color-green: #5AAB7D;
+    --color-purple: #4E2BFF; --color-dark: #111111; --color-gray-text: #555555;
+    --color-gray-bg: #FAFAFA; --color-gray-border: rgba(0,0,0,.08);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: Inter, sans-serif; background: #fff; color: var(--color-dark); padding: 40px; }
+  h1 { font-family: 'Space Grotesk', sans-serif; font-size: 24px; letter-spacing: -.5px; margin-bottom: 4px; }
+  .sub { color: var(--color-gray-text); font-size: 14px; margin-bottom: 28px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 16px; }
+  .sw { border: 1px solid var(--color-gray-border); border-radius: 14px; overflow: hidden; }
+  .chip { height: 84px; }
+  .meta { padding: 10px 12px; }
+  .name { font-weight: 600; font-size: 13px; }
+  .val { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--color-gray-text); margin-top: 2px; }
+  .tints { display: flex; gap: 6px; margin-top: 6px; }
+  .tint { flex: 1; height: 18px; border-radius: 5px; border: 1px solid var(--color-gray-border); }
+</style>
+</head>
+<body>
+  <h1>Colors</h1>
+  <div class="sub">Open Projets brand palette · source: home-src/tailwind.config.js</div>
+  <div class="grid">
+    <div class="sw"><div class="chip" style="background:#FF0037"></div><div class="meta"><div class="name">primary</div><div class="val">#FF0037</div>
+      <div class="tints"><div class="tint" style="background:rgba(255,0,55,.10)"></div><div class="tint" style="background:rgba(255,0,55,.06)"></div></div></div></div>
+    <div class="sw"><div class="chip" style="background:#F2B327"></div><div class="meta"><div class="name">amber</div><div class="val">#F2B327</div></div></div>
+    <div class="sw"><div class="chip" style="background:#5AAB7D"></div><div class="meta"><div class="name">green</div><div class="val">#5AAB7D</div></div></div>
+    <div class="sw"><div class="chip" style="background:#4E2BFF"></div><div class="meta"><div class="name">purple</div><div class="val">#4E2BFF</div></div></div>
+    <div class="sw"><div class="chip" style="background:#111111"></div><div class="meta"><div class="name">dark</div><div class="val">#111111</div></div></div>
+    <div class="sw"><div class="chip" style="background:#555555"></div><div class="meta"><div class="name">gray-text</div><div class="val">#555555</div></div></div>
+    <div class="sw"><div class="chip" style="background:#FAFAFA;border-bottom:1px solid rgba(0,0,0,.08)"></div><div class="meta"><div class="name">gray-bg</div><div class="val">#FAFAFA</div></div></div>
+    <div class="sw"><div class="chip" style="background:repeating-linear-gradient(45deg,#fff,#fff 8px,#f3f3f3 8px,#f3f3f3 16px);position:relative"><div style="position:absolute;inset:18px;border:2px solid rgba(0,0,0,.08);border-radius:8px"></div></div><div class="meta"><div class="name">gray-border</div><div class="val">rgba(0,0,0,.08)</div></div></div>
+  </div>
+</body>
+</html>

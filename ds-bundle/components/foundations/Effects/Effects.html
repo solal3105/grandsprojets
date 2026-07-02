@@ -1,0 +1,57 @@
+<!-- @dsCard group="Foundations" name="Effects & gradients" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Open Projets — Effects</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: Inter, sans-serif; background: #FAFAFA; color: #111; padding: 40px; }
+  h1 { font-family: 'Space Grotesk', sans-serif; font-size: 24px; letter-spacing: -.5px; margin-bottom: 4px; }
+  .sub { color: #555; font-size: 14px; margin-bottom: 32px; }
+  .lbl { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #555; margin: 0 0 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 28px; }
+  .card { background: #fff; border-radius: 24px; padding: 28px; box-shadow: 0 24px 64px -12px rgba(0,0,0,.10); }
+  .grad { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 14px; }
+  .g1 { background: linear-gradient(180deg,#FF0037 0%,#F2B327 100%); }
+  .g2 { background: linear-gradient(180deg,#4E2BFF 0%,#FF0037 100%); }
+  .g3 { background: linear-gradient(180deg,#F2B327 0%,#5AAB7D 100%); }
+  .g4 { background: linear-gradient(180deg,#FF0037 0%,#4E2BFF 100%); }
+  .blobwrap { position: relative; height: 130px; border: 1px solid rgba(0,0,0,.08); border-radius: 18px; overflow: hidden; background: #fff; }
+  .blob { position: absolute; width: 220px; height: 220px; border-radius: 50%; filter: blur(6px); }
+  .b-red { top: -40px; left: -30px; background: radial-gradient(circle, rgba(255,0,55,.125) 0%, rgba(242,179,39,.063) 50%, transparent 70%); }
+  .b-purple { bottom: -60px; right: -20px; background: radial-gradient(circle, rgba(78,43,255,.082) 0%, rgba(90,171,125,.063) 50%, transparent 70%); }
+</style>
+</head>
+<body>
+  <h1>Effects &amp; gradients</h1>
+  <div class="sub">Card elevation · clipped text gradients · background blobs</div>
+  <div class="grid">
+    <div>
+      <p class="lbl">shadow-card · 0 24px 64px -12px rgba(0,0,0,.10)</p>
+      <div class="card">
+        <div style="font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:18px;margin-bottom:6px;">Card elevation</div>
+        <div style="color:#555;font-size:14px;">The one true shadow for floating cards and panels.</div>
+      </div>
+    </div>
+    <div>
+      <p class="lbl">text-gradient family</p>
+      <div class="card" style="padding:22px 28px;">
+        <div class="grad g1">text-gradient</div>
+        <div class="grad g2">purple</div>
+        <div class="grad g3">green</div>
+        <div class="grad g4" style="margin-bottom:0;">contact</div>
+      </div>
+    </div>
+    <div>
+      <p class="lbl">blob-* background auras</p>
+      <div class="blobwrap">
+        <div class="blob b-red"></div>
+        <div class="blob b-purple"></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

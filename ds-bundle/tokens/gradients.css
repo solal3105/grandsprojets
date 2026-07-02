@@ -1,0 +1,61 @@
+/* ============================================================================
+   Open Projets — Signature gradients & blobs
+   Source of truth: home-src/src/style.css (@layer utilities)
+   These are authentic, named brand utilities used across the marketing site:
+   - .text-gradient*  : clipped multi-stop text fills (the hero/section accents)
+   - .blob-*          : soft radial background auras behind sections
+   Class names are kept identical to production so designs map 1:1 to code.
+   ============================================================================ */
+
+/* ── Clipped text gradients ─────────────────────────────────────────────── */
+.text-gradient,
+.text-gradient-purple,
+.text-gradient-green,
+.text-gradient-contact {
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient         { background: linear-gradient(180deg, #FF0037 0%, #F2B327 100%); }  /* red → amber  */
+.text-gradient-purple  { background: linear-gradient(180deg, #4E2BFF 0%, #FF0037 100%); }  /* purple → red */
+.text-gradient-green   { background: linear-gradient(180deg, #F2B327 0%, #5AAB7D 100%); }  /* amber → green*/
+.text-gradient-contact { background: linear-gradient(180deg, #FF0037 0%, #4E2BFF 100%); }  /* red → purple */
+
+/* ── Radial background blobs ────────────────────────────────────────────── */
+.blob-red {
+  background: radial-gradient(circle,
+    rgba(255, 0, 55, 0.125) 0%,
+    rgba(242, 179, 39, 0.063) 50%,
+    transparent 70%);
+}
+.blob-purple {
+  background: radial-gradient(circle,
+    rgba(78, 43, 255, 0.082) 0%,
+    rgba(90, 171, 125, 0.063) 50%,
+    transparent 70%);
+}
+.blob-amber {
+  background: radial-gradient(circle,
+    rgba(242, 179, 39, 0.125) 0%,
+    rgba(90, 171, 125, 0.063) 50%,
+    transparent 70%);
+}
+.blob-green {
+  background: radial-gradient(circle,
+    rgba(90, 171, 125, 0.082) 0%,
+    rgba(242, 179, 39, 0.063) 50%,
+    transparent 70%);
+}
+.blob-contact-1 {
+  background: radial-gradient(circle,
+    rgba(255, 0, 55, 0.125) 0%,
+    rgba(78, 43, 255, 0.063) 50%,
+    transparent 70%);
+}
+.blob-contact-2 {
+  background: radial-gradient(circle,
+    rgba(78, 43, 255, 0.082) 0%,
+    rgba(255, 0, 55, 0.063) 50%,
+    transparent 70%);
+}

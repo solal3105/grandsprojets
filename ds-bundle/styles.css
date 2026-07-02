@@ -1,0 +1,23 @@
+/* ============================================================================
+   Open Projets — Design tokens entry point
+   ----------------------------------------------------------------------------
+   This is the single stylesheet every rendered design receives. Everything a
+   design needs to be on-brand is reachable from here via @import:
+     1. Brand fonts (Space Grotesk + Inter, from Google Fonts)
+     2. tokens/  — colors, typography, effects (CSS custom properties)
+     3. gradients & utility classes (named exactly as in the Tailwind config)
+
+   @import rules MUST come before any other rule, so the font import is first.
+   ============================================================================ */
+
+/* Brand fonts — same source as production (home-src/index.html) */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+/* Design tokens (CSS custom properties) */
+@import url('./tokens/colors.css');
+@import url('./tokens/typography.css');
+@import url('./tokens/effects.css');
+
+/* Signature brand utilities + token-backed utility classes (load last) */
+@import url('./tokens/gradients.css');
+@import url('./tokens/utilities.css');

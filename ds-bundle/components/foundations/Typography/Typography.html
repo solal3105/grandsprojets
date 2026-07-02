@@ -1,0 +1,38 @@
+<!-- @dsCard group="Foundations" name="Typography" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Open Projets — Typography</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: Inter, sans-serif; background: #fff; color: #111; padding: 40px; }
+  .head { font-family: 'Space Grotesk', sans-serif; }
+  .body { font-family: Inter, sans-serif; }
+  h1 { font-family: 'Space Grotesk', sans-serif; font-size: 24px; letter-spacing: -.5px; margin-bottom: 4px; }
+  .sub { color: #555; font-size: 14px; margin-bottom: 28px; }
+  .row { padding: 14px 0; border-top: 1px solid rgba(0,0,0,.08); display: grid; grid-template-columns: 92px 1fr; gap: 20px; align-items: baseline; }
+  .tag { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #555; padding-top: 6px; }
+  .hero { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 44px; letter-spacing: -1.824px; line-height: 1.05; }
+  .h2 { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 30px; letter-spacing: -.6px; }
+  .h3 { font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 21px; }
+  .lead { font-family: Inter, sans-serif; font-weight: 400; font-size: 17px; color: #333; }
+  .p { font-family: Inter, sans-serif; font-weight: 400; font-size: 15px; color: #555; }
+  .small { font-family: Inter, sans-serif; font-weight: 500; font-size: 12px; color: #555; text-transform: uppercase; letter-spacing: .8px; }
+  .accent { color: #FF0037; }
+</style>
+</head>
+<body>
+  <h1>Typography</h1>
+  <div class="sub">Space Grotesk (headings) · Inter (body) · source: home-src/tailwind.config.js</div>
+
+  <div class="row"><div class="tag">font-heading<br>700 · tight-hero</div><div class="hero">Vos projets, <span class="accent">sur une carte</span></div></div>
+  <div class="row"><div class="tag">font-heading<br>600 · 30px</div><div class="h2">Informez vos habitants</div></div>
+  <div class="row"><div class="tag">font-heading<br>500 · 21px</div><div class="h3">Sans une ligne de code</div></div>
+  <div class="row"><div class="tag">font-body<br>400 · 17px</div><div class="lead">Open Projets transforme vos projets urbains en carte interactive publique.</div></div>
+  <div class="row"><div class="tag">font-body<br>400 · 15px</div><div class="p">Publiez vos projets, suivez l'avancement des travaux et donnez la parole aux habitants — le tout depuis une interface d'administration simple.</div></div>
+  <div class="row"><div class="tag">font-body<br>500 · 12px</div><div class="small">Eyebrow label · uppercase</div></div>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "projectId": "597dfdae-cdd6-4d1b-b200-8b81cdadcb29",
+  "projectName": "Open Projets",
+  "shape": "tokens-only",
+  "localDir": "./ds-bundle",
+  "readmeHeader": ".design-sync/conventions.md",
+  "tokenSources": [
+    "home-src/tailwind.config.js",
+    "home-src/src/style.css"
+  ]
+}
