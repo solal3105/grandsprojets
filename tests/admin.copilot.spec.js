@@ -321,13 +321,61 @@ test.describe('10.5 — Suggestions de génération', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 10.6 — Génération IA (appel réel à /api/ai-generate)
+// 10.6 — Génération IA (parcours UI, /api/ai-generate mocké)
+//
+// La fonction ai-generate appelle OpenAI en direct : la brancher réellement
+// rendrait ces tests lents (90-180 s) et non déterministes (dépendants du
+// quota/latence/disponibilité du LLM). On mocke donc le flux SSE pour valider
+// le parcours copilot (indicateur → streaming → résultat → copier/insérer)
+// sans dépendance externe. Le contrat SSE mocké est celui de ai-generate.mjs :
+// lignes `data: {"content":"…"}` puis `data: [DONE]`.
 // ─────────────────────────────────────────────────────────
+
+const MOCK_DESC = 'Le parc Blandan à Lyon est un vaste espace vert aménagé sur une ancienne caserne militaire, offrant nature, sport et loisirs au cœur de la ville.';
+const MOCK_ARTICLE = [
+  '## Parc Blandan Lyon',
+  '',
+  "Le parc Blandan est un grand espace vert lyonnais issu de la reconversion d'une ancienne caserne militaire, aujourd'hui poumon vert au cœur de la ville.",
+  '',
+  '### Contexte',
+  '',
+  'Ancien site militaire, le terrain a été progressivement ouvert au public à partir des années 2010.',
+  '',
+  '### Objectifs',
+  '',
+  'Offrir un espace de nature, de sport et de détente aux habitants des quartiers environnants.',
+].join('\n');
+
+/**
+ * Intercepte /api/ai-generate et renvoie un flux SSE canné (déterministe).
+ * Un délai laisse l'indicateur de génération apparaître (et rend le stream
+ * interruptible pour le test du bouton stop).
+ */
+async function mockAiGenerate(page, { delayMs = 1200 } = {}) {
+  await page.route('**/api/ai-generate', async (route) => {
+    const target = route.request().postDataJSON()?.target;
+    const text = target === 'article' ? MOCK_ARTICLE : MOCK_DESC;
+    const body =
+      `data: ${JSON.stringify({ status: 'searching' })}\n\n` +
+      `data: ${JSON.stringify({ content: text })}\n\n` +
+      'data: [DONE]\n\n';
+    await new Promise((r) => setTimeout(r, delayMs));
+    try {
+      await route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+        body,
+      });
+    } catch { /* requête déjà annulée par le client (test du bouton stop) */ }
+  });
+}
 
 /**
  * Fill name + category, open copilot panel, ready for generation.
+ * Le mock SSE est branché avant toute génération.
  */
 async function openCopilotWithContext(page) {
+  await mockAiGenerate(page);
   await goToWizard(page);
   await page.fill('#cw-name', 'Parc Blandan Lyon');
   const pill = page.locator('.cw-cat-pill').first();
