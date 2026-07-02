@@ -115,7 +115,7 @@ La carte publique utilise un **système de modules enregistrables** piloté par 
 
 ## CSS
 
-- Pas de build CSS pour la carte — chaque feuille est chargée par un `<link>` individuel dans `index.html`. **L'ordre réel = l'ordre des `<link>`** (`00-colors.css` toujours en premier). La numérotation `00-` → `14-` est indicative, pas exhaustive (fichiers non numérotés : `gp-*`, `hover-popup`, `demo-banner`, `fdlm-layer-toggles`). Nouvelle feuille → ajouter le `<link>` dans `index.html`.
+- Pas de build CSS pour la carte — chaque feuille est chargée par un `<link>` individuel dans `index.html`. **L'ordre réel = l'ordre des `<link>`** (`00-colors.css` toujours en premier). La numérotation `00-` → `14-` est indicative, pas exhaustive (fichiers non numérotés : `gp-*`, `hover-popup`, `demo-banner`). Nouvelle feuille → ajouter le `<link>` dans `index.html`.
 - Nommage BEM-like : `dock-panel__header`, préfixe `gp-` pour les composants carte, états `.is-active / .is-visible` (du legacy `.active` / `.open` subsiste — tout nouveau code en `.is-*`)
 - **Transitions : PAS de `*` global.** `01-base.css` applique `transition: all 0.3s ease-in-out` à une allowlist de sélecteurs (`a`, `button`, `input`, `[class*="btn"]`, `[class*="card"]`, …). Un nouvel élément animé doit y être ajouté ou définir sa propre transition. Les exemptions MapLibre (`.maplibregl-* { transition: none !important }`) sont en place — ne pas les casser.
 
