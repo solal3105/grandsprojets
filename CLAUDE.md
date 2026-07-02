@@ -3,8 +3,8 @@
 ## Commandes
 
 ```bash
-npm run dev          # Netlify Dev → :3001 (site + fonctions serverless)
-npm run lint         # oxlint (pas d'ESLint)
+npm run dev          # Netlify Dev → :3001 (site + fonctions serverless + edge functions)
+npm run lint         # oxlint (pas d'ESLint) — 0 warning, 0 error exigé
 npm test             # Playwright — suite complète (~5 min) — UNIQUEMENT en fin de cycle
 npx playwright test tests/admin.categories.spec.js  # cibler un fichier
 npx playwright test --grep "3.2.16"                 # cibler un test
@@ -16,11 +16,12 @@ Build home : `cd home-src && npm ci && npm run build` → output dans `/home/`.
 
 | Zone | Stack |
 |---|---|
-| **Carte** (`/index.html`) | Vanilla JS, modules IIFE sur `window`, pas de bundler |
+| **Carte** (`/index.html` + `main.js` à la racine) | Vanilla JS, modules IIFE sur `window`, pas de bundler |
 | **Admin** (`/admin/`) | Vanilla JS, **ES modules**, routeur pushState custom |
-| **Fiche** (`/fiche/`) | Vanilla JS, IIFE autonome |
+| **Fiche** (`/fiche/`) | Vanilla JS, IIFE autonome (`fiche-v2.js`) |
 | **Home** (`/home-src/` → `/home/`) | Vue 3 + Vite + Tailwind, build séparé |
 | **Fonctions** (`/netlify/functions/`) | Node.js ESM `.mjs`, Netlify Functions v2 |
+| **Edge Functions** (`/netlify/edge-functions/`) | SEO/SSR : `domain-redirect`, `fiche-ssr`, `home-seo` — routes dans `netlify.toml [[edge_functions]]` |
 
 ## Patterns de code
 
@@ -28,17 +29,20 @@ Build home : `cd home-src && npm ci && npm run build` → output dans `/home/`.
 - **IIFE sur `window`** : `window.Module = (() => { ... return {...}; })();`
 - Communication inter-modules via `window` globals + optional chaining : `window.FilterManager?.syncUI?.()`
 - **NE PAS** convertir en ES modules — l'ordre de chargement dans `index.html` en dépend
-- `toggles.js` est la seule exception : `<script type="module">`
-- `main.js` orchestre l'init en 9 phases (Phase 0→8)
+- `modules/ui/toggles.js` est la seule exception : `<script type="module">`
+- `main.js` (à la racine du repo, pas dans `modules/`) orchestre l'init en phases **0→9**, avec sous-phases : 0a (SSO Phaos), 0b (health-check localStorage), 2.5 (branding), 5.5 (layers par défaut)
 
 ### `window.L` N'EST PAS Leaflet
 `maplibre-compat.js` expose un shim `window.L` (API Leaflet → MapLibre GL JS en interne). Ne jamais importer Leaflet. Pour les couches performantes, utiliser `maplibre-renderer.js`.
+
+### SSO Phaos (iframe Azure AD B2C)
+Quand la carte tourne dans une iframe Phaos (`window.self !== window.top`), `modules/phaos-auth.js` intercepte l'init : il attend le token Azure B2C envoyé par `postMessage` (origines strictement allowlistées dans `PHAOS_ORIGINS` — c'est le garde-fou de sécurité), l'échange contre une session Supabase via `/api/auth/token`, puis débloque `main.js` (Phase 0a). Hors iframe : aucun effet. Doc complète : `phaos-integration.md` à la racine.
 
 ### Admin (`admin/*.js`)
 - ES modules — seul sous-projet à les utiliser côté navigateur
 - Accède à `window.supabaseService` et `window.AuthModule` (chargés par le HTML parent)
 - État : `admin/store.js` (pub/sub simple) — Routeur : `admin/router.js`
-- Section Modules (`admin/sections/modules.js`) : gestion des modules par ville (global-admin uniquement)
+- Sections dans `admin/sections/` : `categories`, `contributions`, `structure`, `travaux`, `users`, `villes`, `modules` (cette dernière = gestion des modules par ville, global-admin uniquement)
 
 ### Modules carte — architecture découplée
 
@@ -73,9 +77,9 @@ La carte publique utilise un **système de modules enregistrables** piloté par 
 
 **Composants et réutilisabilité**
 - Avant d'écrire du markup, chercher un composant existant : `TrustBar`, `CtaSection`, `HeroSection`, `TheHeader`, `TheFooter`, `LogoSvg`
-- Toute logique UI répétée (tilt 3D, scroll-reveal) → extraire en composable dans `src/composables/`
+- Toute logique UI répétée (tilt 3D, scroll-reveal) → extraire en composable dans `src/composables/` (existants : `useTilt`, `useScrollReveal`)
 - Toute structure de données partagée entre vues (navLinks, catégories aide) → extraire dans `src/data/`
-- Ne jamais redéfinir `navLinks` — il est partagé entre header et footer via un module commun
+- Ne jamais redéfinir `navLinks` — il est partagé entre header et footer via `src/data/navLinks.js`
 
 **Couleurs et tokens**
 - Utiliser exclusivement les classes Tailwind définies dans `tailwind.config.js` : `text-primary`, `bg-dark`, `text-gray-text`, `border-gray-border`, etc.
@@ -87,42 +91,52 @@ La carte publique utilise un **système de modules enregistrables** piloté par 
 
 **URL et variables d'environnement**
 - L'URL de base de production (`https://openprojets.com/home`) et les URLs d'exemple ne doivent pas être dupliquées — les centraliser ou utiliser `import.meta.env`
-- Chemins d'assets : toujours `` `${import.meta.env.BASE_URL}img/...` `` — jamais de chemin absolu `/home/img/...` hardcodé
+- Chemins d'assets : toujours `` `${import.meta.env.BASE_URL}img/...` `` — jamais de chemin absolu `/img/...` ou `/home/img/...` hardcodé
+- Toute nouvelle page home indexable → ajouter sa route `home-seo` dans `netlify.toml [[edge_functions]]`
 
-### Fonctions Netlify
-- CORS géré manuellement — Auth : vérification JWT via `/auth/v1/user`
-- `OPENAI_API_KEY` injectée automatiquement par `netlify dev` depuis les env vars Netlify
+### Design system — `ds-bundle/` (généré)
+`.design-sync/config.json` pilote un export **tokens-only** du design system vers `ds-bundle/` (sources de vérité : `home-src/tailwind.config.js` + `home-src/src/style.css`). Ne jamais éditer `ds-bundle/` à la main — modifier les sources de tokens puis re-synchroniser.
+
+### Fonctions Netlify (`netlify/functions/*.mjs`)
+- CORS géré manuellement dans chaque fonction
+- `ai-generate.mjs` : seule fonction protégée par JWT Supabase (vérif via `/auth/v1/user`) — `OPENAI_API_KEY` injectée automatiquement par `netlify dev`
+- `auth-token.mjs` : échange token Azure B2C → session Supabase (SSO Phaos), vérif JWKS — route `/api/auth/token`
+- `contributions-geojson`, `travaux-geojson`, `sitemap` : GET publics (CORS seul, pas d'auth)
+
+### Edge Functions (`netlify/edge-functions/`)
+- `domain-redirect` (toutes les routes), `fiche-ssr` (pré-rendu SEO de `/fiche/` et `/fiche/*/*/*`), `home-seo` (meta SSR des pages home)
+- Routées via `[[edge_functions]]` dans `netlify.toml` — pas de détection automatique par chemin
 
 ## Supabase
 - Client instancié une seule fois sur `win.__supabaseClient` (partagé `auth.js` + `supabaseservice.js`)
 - `window.supabaseService` = couche données centralisée — toute requête passe par là
 - **City-scoping** : toujours `supabaseService.getActiveCity()` (fallback `metropole-lyon`)
-- Clé anon hardcodée (RLS protège les données) — cache TTL 10 min dans `datamodule.js`
+- Clé anon hardcodée (RLS protège les données) — cache TTL 10 min dans `datamodule.js` (override : 1 h pour `layer_travaux`)
 
 ## CSS
 
-- Pas de build CSS pour la carte — `@import url()` dans `style.css`, architecture `00-colors.css` → `08-responsive.css`
-- Nommage BEM-like : `dock-panel__header`, préfixe `gp-` pour sidebar, états `.is-active / .is-open / .is-visible`
-- `* { transition: all 0.3s ease-in-out; }` global — ajouter des exemptions pour les éléments MapLibre
+- Pas de build CSS pour la carte — chaque feuille est chargée par un `<link>` individuel dans `index.html`. **L'ordre réel = l'ordre des `<link>`** (`00-colors.css` toujours en premier). La numérotation `00-` → `14-` est indicative, pas exhaustive (fichiers non numérotés : `gp-*`, `hover-popup`, `demo-banner`, `fdlm-layer-toggles`). Nouvelle feuille → ajouter le `<link>` dans `index.html`.
+- Nommage BEM-like : `dock-panel__header`, préfixe `gp-` pour les composants carte, états `.is-active / .is-visible` (du legacy `.active` / `.open` subsiste — tout nouveau code en `.is-*`)
+- **Transitions : PAS de `*` global.** `01-base.css` applique `transition: all 0.3s ease-in-out` à une allowlist de sélecteurs (`a`, `button`, `input`, `[class*="btn"]`, `[class*="card"]`, …). Un nouvel élément animé doit y être ajouté ou définir sa propre transition. Les exemptions MapLibre (`.maplibregl-* { transition: none !important }`) sont en place — ne pas les casser.
 
 ### Couleurs — 3 couches (ne pas bypasser)
-1. **Tokens** : `--color-primary #14AE5C`, `--color-danger #EF4444`, `--color-info #2563EB`, `--color-warning #F59E0B`, `--color-success #10B981` + `--gray-50`→`--gray-900`
-2. **Variantes alpha** : `--primary-alpha-12` (fond), `--primary-alpha-35` (bordure) — via `color-mix()`
+1. **Tokens** : `--color-primary #14AE5C`, `--color-danger #EF4444`, `--color-info #2563EB`, `--color-warning #F59E0B`, `--color-success #10B981` + `--gray-50`→`--gray-900` (`--primary` existe comme alias de `--color-primary`)
+2. **Variantes alpha** : `--primary-alpha-12` (fond), `--primary-alpha-35` (bordure) — via `color-mix()` (toute l'échelle alpha-06→alpha-55 existe dans `00-colors.css`)
 3. **Alias sémantiques** (à utiliser dans tout nouveau CSS) : `--text-primary/secondary/tertiary`, `--surface-base/raised/overlay`, `--border-light/medium/strong`
 
-**Pattern badge/pill** : `color: var(--primary); background: var(--primary-alpha-12); border: 1px solid var(--primary-alpha-35); border-radius: 999px;`
+**Pattern badge/pill** : `color: var(--primary); background: var(--primary-alpha-12); border: 1px solid var(--primary-alpha-35); border-radius: 999px;` (référence : `.etat-pill` dans `04-components.css`)
 
 ### Dark mode
-Activé par `html[data-theme='dark']` — seule l'échelle `--gray-*` est inversée, tout le reste suit automatiquement. **Ne jamais redéfinir les alias sémantiques.**
+Activé par `html[data-theme='dark']`. Le bloc dark de `00-colors.css` redéfinit l'échelle `--gray-*`, les alias sémantiques et les tokens d'état — **c'est le SEUL fichier autorisé à le faire**. Dans un CSS de composant, un bloc `[data-theme='dark']` ne touche que des tokens locaux de composant (`--dock-bg`, `--sb-bg`, …), jamais les alias sémantiques ni les tokens globaux.
 - `box-shadow` : toujours `rgba(0,0,0,...)` hardcodé
 - Hover dark : `color-mix(in srgb, var(--color-primary) 115%, white)` (s'éclaircit)
 
 ### Glassmorphism
-Pattern dock/panneaux : `background: color-mix(in srgb, var(--surface-base) 75%, transparent)` + `backdrop-filter: blur(16px) saturate(160%)` + shimmer `inset 0 1.5px 0 rgba(255,255,255,0.95)` (signature visuelle — toujours présent).
+Signature commune des panneaux : fond translucide clair + `backdrop-filter: blur(28-44px) saturate(160-180%)` + shimmer `inset 0 1.5px 0 rgba(255,255,255,0.95)` — **le shimmer est la signature visuelle, toujours présent**. Les panneaux existants portent leur fond dans un token de composant (`--dock-bg`, `--sb-bg`, `--nav-panel-bg`). Pour un NOUVEAU panneau : `background: color-mix(in srgb, var(--surface-base) 75%, transparent)` + `backdrop-filter: blur(16px) saturate(160%)` + le shimmer signature (référence : boutons flottants de `04-components.css`).
 
 ### Rayons / Spacing / Animations
-- Panneaux `24px`, cards `16px`, boutons `12-14px`, pills `999px` — spacing multiples de 4px
-- Global : `0.3s ease-in-out` — rebond : `cubic-bezier(0.34, 1.56, 0.64, 1)` — entrée panneau : `cubic-bezier(0.16, 1, 0.3, 1)`
+- Panneaux `18-22px` (nav-panel 18, dock 20, sidebar 22), cards `16px`, boutons `11-14px`, pills `999px` — spacing multiples de 4px
+- Durée standard : `0.3s ease-in-out` — rebond : `cubic-bezier(0.34, 1.56, 0.64, 1)` — entrée panneau : `cubic-bezier(0.16, 1, 0.3, 1)`
 - Hover bouton flottant : `scale(1.08)` — bouton fermer : `scale(1.12) rotate(90deg)`
 
 ## Sécurité
@@ -130,6 +144,7 @@ Pattern dock/panneaux : `background: color-mix(in srgb, var(--surface-base) 75%,
 - `SecurityUtils.sanitizeUrl()` pour les liens externes (bloque `javascript:`, `data:text/html`)
 - Valider les codes ville : `/^[a-z0-9-]+$/i`
 - Refresh token proactif toutes les 4 min, graceful degradation après 3 échecs
+- SSO Phaos : ne jamais élargir `PHAOS_ORIGINS` sans validation — c'est l'unique barrière contre les postMessage forgés
 
 ## Conventions
 - Code **anglais**, commentaires/logs **français** — Pas de TypeScript
@@ -142,7 +157,7 @@ Pattern dock/panneaux : `background: color-mix(in srgb, var(--surface-base) 75%,
 
 ### Workflow
 1. Implémenter la feature (ou corriger le bug)
-2. Écrire les tests dans `tests/admin.*.spec.js` (ou `invited.*.spec.js` si rôle contributeur)
+2. Écrire les tests dans `tests/admin.*.spec.js` (ou `invited.*.spec.js` si rôle contributeur, `unauth.*.spec.js` si public)
 3. **Lancer uniquement le fichier spec concerné** — pas la suite complète à chaque itération :
    ```bash
    npx playwright test tests/admin.categories.spec.js
@@ -153,8 +168,8 @@ Pattern dock/panneaux : `background: color-mix(in srgb, var(--surface-base) 75%,
 
 ### Structure des tests
 - 1 fichier par section, numérotation `2.7.1`, `2.7.2`...
-- Helpers : `waitForBoot(page, path?)`, `goToSection(page)`, `clearToasts(page)`
-- Projets Playwright : `setup` → `admin` + `invited` → `admin-logout` → `unauth`
+- Helpers : `waitForBoot(page, path = '/admin/')` et `clearToasts(page)` — **dupliqués inline en tête de chaque spec** (pas de fichier helper partagé) : copier depuis un spec existant
+- Projets Playwright : `setup` → `admin` + `invited` → `admin-logout` ; `unauth` ne dépend que de `setup` (tourne en parallèle des autres)
 - Toasts admin : `.adm-toast--success / --error / --warning` (≠ `.gp-toast` de la carte)
 
 ### Projets Playwright — ordre garanti
@@ -176,24 +191,27 @@ setTimeout(hide, 250); // fallback headless
 - **Villes** : nécessite un compte global-admin (non configuré)
 - **Draw tools** : WebGL requis (MapLibre en headless)
 - **Drag-drop reorder** : interactions Playwright DnD complexes
+- **SSO Phaos** : l'échange de token Azure B2C réel (l'intégration iframe est testée avec token factice dans `unauth.phaos-iframe.spec.js`)
 
-### Couverture — lacunes connues (275 tests actuels)
-La suite couvre l'**admin** et la **carte publique** (UI/navigation). Aucun test sur :
+### Couverture — lacunes connues (440 tests / 19 fichiers)
+La suite couvre l'**admin**, la **carte publique** (UI/navigation) et la **fiche** (`unauth.fiche.spec.js` : boot, canonical, og:url, JSON-LD). Aucun test sur :
 
-**Carte publique** : `feature-interactions.js` (markers), `travauxmodule.js` / `travaux-views.js`, `article-view.js`, `lightbox.js`, `geolocation.js`, `layerregistry.js` / `maplibre-renderer.js`, `datamodule.js`, `citybranding.js` / `citymanager.js`
-
-**Page `/fiche/`** : `fiche-v2.js` — aucun test
+**Carte publique** : `feature-interactions.js` (markers), vues de `modules/travaux/`, `lightbox.js`, `geolocation.js`, `layerregistry.js` / `maplibre-renderer.js`, `datamodule.js`, `citybranding.js` / `citymanager.js`
 
 **Home Vue SPA** : toutes les vues (`HomeView`, `HelpView`, `FeaturesView`, etc.) — aucun test E2E
 
 **Admin** : édition/suppression catégorie, upload Supabase Storage, comportement hors-ligne, refresh token
 
+**Edge Functions** : `fiche-ssr`, `home-seo`, `domain-redirect` — aucun test
+
 ## Pièges courants
-- `toggles.js` est le seul `<script type="module">` de la carte
+- `modules/ui/toggles.js` est le seul `<script type="module">` de la carte
+- `main.js` est à la racine du repo, pas dans `modules/`
 - L'admin charge `auth.js` et `supabaseservice.js` via `<script>` → les IIFE doivent rester fonctionnelles
-- Éditer `/home-src/**`, jamais `/home/**` (build)
+- Éditer `/home-src/**`, jamais `/home/**` (build) — idem `ds-bundle/**` (généré par design-sync)
 - `activeCity` : toujours via `supabaseService.getActiveCity()` (3 sources possibles)
-- Transition `*` globale → ajouter des exemptions pour les éléments MapLibre
+- Transitions : allowlist dans `01-base.css` — un nouvel élément n'est PAS animé par défaut ; exemptions MapLibre à préserver
+- En iframe Phaos, l'init carte attend le SSO (Phase 0a) — en navigation directe, aucun effet
 
 ## Règle absolue — Pas de données métier dans le code
 Labels, icônes, couleurs, URLs, ordres, activation → **table Supabase** (colonnes `label`, `icon`, `sort_order`, `active`). En cas de doute, demander avant de coder.
