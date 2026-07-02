@@ -798,13 +798,10 @@
     // Start Markdown lib loading in parallel
     const mdReady = window.MarkdownUtils?.ensure?.();
 
-    // Fetch project data + city branding + docs in parallel
-    let data, docs;
+    // Fetch project data
+    let data;
     try {
-      [data, docs] = await Promise.all([
-        window.supabaseService?.fetchProjectBySlug?.(villeSlug, categorySlug, projSlug),
-        window.supabaseService?.getConsultationDossiersByProject?.(projSlug),
-      ]);
+      data = await window.supabaseService?.fetchProjectBySlug?.(villeSlug, categorySlug, projSlug);
     } catch {
       // Réseau indisponible (ex: sandbox Google Rich Results) → garder le SSR visible
       if (!ssrHasContent) {
@@ -826,6 +823,10 @@
 
     // Fetch réussi → masquer le SSR, rendre l'UI interactive
     if (ssrBlock) ssrBlock.classList.add('is-hydrated');
+
+    // Documents — matchés sur le nom réel du projet (pas le slug d'URL),
+    // lancé en parallèle du rendu, attendu juste avant renderDocs()
+    const docsPromise = window.supabaseService?.getConsultationDossiersByProject?.(data.project_name);
 
     // Render hero
     renderHero(data, data.category);
@@ -853,7 +854,7 @@
     renderLink(data.official_url);
 
     // Documents
-    renderDocs(docs);
+    renderDocs(await docsPromise);
 
     // Scroll reveals
     initReveal();

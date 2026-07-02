@@ -1276,7 +1276,6 @@ test.describe('0.22 — Fiche : navigation', () => {
       return;
     }
     const firstCard = page.locator('#fv2-related .fv2-related-card').first();
-    const targetHref = await firstCard.getAttribute('href');
     await firstCard.click();
     await page.waitForURL('**/fiche/**', { timeout: 10000 });
     expect(page.url()).toContain('/fiche/');
@@ -1379,7 +1378,7 @@ test.describe('0.24 — Fiche : hydratation client (régression)', () => {
       }
     });
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
-    // L'init appelle fetchProjectByCategoryAndName et getConsultationDossiersByProject
+    // L'init appelle fetchProjectBySlug puis getConsultationDossiersByProject
     await page.waitForTimeout(2000);
     expect(consoleErrors, `Exceptions rencontrées : ${consoleErrors.join(' | ')}`).toHaveLength(0);
   });
@@ -1476,5 +1475,21 @@ test.describe('0.24 — Fiche : hydratation client (régression)', () => {
       expect(order[i], `Élément ${i} précède le précédent (ordre cassé)`).toBeGreaterThan(last);
       last = order[i];
     }
+  });
+
+  test('0.24.7 — Les documents sont requêtés avec le nom réel du projet, pas le slug d\'URL', async ({ page }) => {
+    test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
+    test.skip(VALID_PROJECT_NAME === VALID_SLUG, 'Nom et slug identiques — test non discriminant');
+    // Régression : depuis les URLs /fiche/{ville}/{cat}/{slug}, le fetch des
+    // dossiers passait le slug d'URL alors que consultation_dossiers matche
+    // sur le project_name exact → les documents ne s'affichaient plus jamais.
+    const docsRequest = page.waitForRequest(
+      req => req.url().includes('/rest/v1/consultation_dossiers'),
+      { timeout: 20000 }
+    );
+    await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
+    const req = await docsRequest;
+    const filter = new URL(req.url()).searchParams.get('project_name');
+    expect(filter).toBe(`eq.${VALID_PROJECT_NAME}`);
   });
 });
