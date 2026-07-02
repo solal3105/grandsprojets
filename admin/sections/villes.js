@@ -638,7 +638,8 @@ function _bindMapSearch(container, map) {
 
     if (bbox) {
       const [s, n, w, e2] = bbox.split(',').map(Number);
-      map.fitBounds([[s, w], [n, e2]], { padding: 40, maxZoom: 15, duration: 1200 });
+      // MapLibre attend des paires [lng, lat] : [[ouest, sud], [est, nord]]
+      map.fitBounds([[w, s], [e2, n]], { padding: 40, maxZoom: 15, duration: 1200 });
     } else {
       map.flyTo({ center: [lng, lat], zoom: 13, duration: 1200 });
     }

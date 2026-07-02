@@ -5,7 +5,7 @@
 ```bash
 npm run dev          # Netlify Dev → :3001 (site + fonctions serverless + edge functions)
 npm run lint         # oxlint (pas d'ESLint) — 0 warning, 0 error exigé
-npm test             # Playwright — suite complète (~5 min) — UNIQUEMENT en fin de cycle
+npm test             # Playwright — suite complète (~5 min) — UNIQUEMENT si changement transversal
 npx playwright test tests/admin.categories.spec.js  # cibler un fichier
 npx playwright test --grep "3.2.16"                 # cibler un test
 ```
@@ -157,13 +157,13 @@ Signature commune des panneaux : fond translucide clair + `backdrop-filter: blur
 
 ### Workflow
 1. Implémenter la feature (ou corriger le bug)
-2. Écrire les tests dans `tests/admin.*.spec.js` (ou `invited.*.spec.js` si rôle contributeur, `unauth.*.spec.js` si public)
+2. Écrire les tests dans `tests/admin.*.spec.js` (ou `invited.*.spec.js` si rôle contributeur, `unauth.*.spec.js` si public). **Bug fixé → test de non-régression obligatoire SI le bug est testable en E2E** (voir « Ce qui n'est PAS testable ») ; sinon, le signaler dans le message de commit et passer à l'étape suivante.
 3. **Lancer uniquement le fichier spec concerné** — pas la suite complète à chaque itération :
    ```bash
    npx playwright test tests/admin.categories.spec.js
    npx playwright test tests/admin.categories.spec.js --grep "3.2.16"
    ```
-4. **`npm test` (suite complète) uniquement à la toute fin** avant de pousser
+4. Avant de pousser : **ne relancer que les tests impactés par le changement**. `npm test` (suite complète) uniquement si le changement est transversal (helpers partagés, auth, routeur, CSS global…). Un fix localisé dont le spec ciblé passe → pousser sans la suite complète. Si aucun spec ne couvre la zone modifiée, le lint suffit.
 5. `npm run lint` — 0 warning, 0 error
 
 ### Structure des tests
