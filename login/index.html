@@ -52,6 +52,12 @@
         radial-gradient(ellipse 60% 60% at 90% 15%, rgba(var(--lg-info-rgb), 0.06) 0%, transparent 55%),
         radial-gradient(ellipse 50% 40% at 50% 50%, rgba(var(--lg-warning-rgb), 0.03) 0%, transparent 50%),
         linear-gradient(145deg, #f0f4f8 0%, #e6ecf4 35%, #f2eef6 65%, #ecf0f5 100%);
+      --lg-shimmer-grad: linear-gradient(
+        170deg,
+        rgba(255, 255, 255, 0.32) 0%,
+        rgba(255, 255, 255, 0.08) 28%,
+        rgba(255, 255, 255, 0) 55%
+      );
     }
 
     html[data-theme='dark'] {
@@ -75,6 +81,12 @@
         radial-gradient(ellipse 60% 60% at 90% 15%, rgba(96, 165, 250, 0.08) 0%, transparent 55%),
         radial-gradient(ellipse 50% 40% at 50% 50%, rgba(251, 191, 36, 0.04) 0%, transparent 50%),
         linear-gradient(145deg, #0c1222 0%, #101828 35%, #151b2e 65%, #0f172a 100%);
+      --lg-shimmer-grad: linear-gradient(
+        170deg,
+        rgba(255, 255, 255, 0.07) 0%,
+        rgba(255, 255, 255, 0.02) 28%,
+        rgba(255, 255, 255, 0) 55%
+      );
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -153,20 +165,7 @@
       border-radius: inherit;
       pointer-events: none;
       z-index: 0;
-      background: linear-gradient(
-        170deg,
-        rgba(255, 255, 255, 0.32) 0%,
-        rgba(255, 255, 255, 0.08) 28%,
-        rgba(255, 255, 255, 0) 55%
-      );
-    }
-    html[data-theme='dark'] .lg-card::after {
-      background: linear-gradient(
-        170deg,
-        rgba(255, 255, 255, 0.07) 0%,
-        rgba(255, 255, 255, 0.02) 28%,
-        rgba(255, 255, 255, 0) 55%
-      );
+      background: var(--lg-shimmer-grad);
     }
     .lg-card > * { position: relative; z-index: 1; }
 
@@ -324,7 +323,7 @@
       border-radius: 12px;
       animation: lg-rise 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
-    .lg-status.show { display: flex; align-items: flex-start; gap: 9px; }
+    .lg-status.is-visible { display: flex; align-items: flex-start; gap: 9px; }
     .lg-status i { margin-top: 2px; font-size: 13px; flex-shrink: 0; }
     .lg-status,
     .lg-status.info {
@@ -557,7 +556,7 @@
       const text = document.createElement('span');
       text.textContent = msg;
       statusEl.append(icon, text);
-      statusEl.classList.add('show', type);
+      statusEl.classList.add('is-visible', type);
     }
 
     function setLoading(loading) {
