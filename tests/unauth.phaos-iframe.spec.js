@@ -130,7 +130,7 @@ test.describe('0.4.2 — PhaosAuth : iframe + token invalide → résilience', (
       try {
         const iframe = document.querySelector('#map-frame');
         return typeof iframe?.contentWindow?.PhaosAuth?.waitForSession === 'function';
-      } catch (_) { return false; }
+      } catch { return false; }
     }, { timeout: 30000 });
 
     // Si on arrive ici, la condition est déjà vraie — on l'évalue pour la lisibilité du rapport
@@ -138,7 +138,7 @@ test.describe('0.4.2 — PhaosAuth : iframe + token invalide → résilience', (
       try {
         const iframe = document.querySelector('#map-frame');
         return typeof iframe?.contentWindow?.PhaosAuth?.waitForSession === 'function';
-      } catch (_) { return false; }
+      } catch { return false; }
     });
     expect(phaosAuthExists).toBe(true);
   });

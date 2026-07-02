@@ -904,7 +904,6 @@ test.describe('0.17 — Résilience init (banner)', () => {
   test('0.17.3 — Une erreur dans CityManager.initCityMenu n\'affiche PAS le banner', async ({ page }) => {
     await page.addInitScript(() => {
       // Patcher CityManager avant Phase 2
-      const origDefine = Object.defineProperty;
       Object.defineProperty(window, 'CityManager', {
         configurable: true,
         get() { return this.__cm; },

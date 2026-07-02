@@ -143,8 +143,6 @@ test.describe('11.3 — Édition', () => {
     await goToModules(page);
     const items = page.locator('.mod-list-item');
     if ((await items.count()) === 0) { test.skip(); return; }
-    // Get original label to restore
-    const originalLabel = await items.first().locator('.adm-list-item__name').textContent();
     await items.first().locator('[data-action="edit"]').click();
     await clearToasts(page);
     const labelInput = page.locator('#mod-label');

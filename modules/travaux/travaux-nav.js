@@ -108,7 +108,7 @@
 
   /* ── Level 3: section-specific renderer ──────────────────────── */
 
-  async function renderL3(panel, section, opts) {
+  async function renderL3(panel, section, _opts) {
     await _loadTravauxLayers(panel);
 
     if (panel._currentModule !== 'travaux') return;
@@ -122,7 +122,7 @@
     const LAYER = TM.LAYER_NAME || 'travaux';
     const hasData = win.DataModule?.layerData?.[LAYER]?.features?.length > 0;
     if (!hasData) {
-      try { await win.DataModule?.loadLayer(LAYER); } catch (_) {}
+      try { await win.DataModule?.loadLayer(LAYER); } catch {}
       if (panel._currentModule !== 'travaux') return;
     }
 
@@ -240,7 +240,7 @@
       if (arrow && !btn.querySelector('.np-l2-badge')) {
         arrow.insertAdjacentHTML('beforebegin', `<span class="np-l2-badge">${pending.length}</span>`);
       }
-    } catch (_) {}
+    } catch {}
   }
 
   /* ── Layer management ──────────────────────────────────────────── */
@@ -271,7 +271,7 @@
 
       for (const name of travauxLayers) {
         if (win.DataModule?.layerData?.[name]) {
-          try { win.DataModule.createGeoJsonLayer(name, win.DataModule.layerData[name]); } catch (_) {}
+          try { win.DataModule.createGeoJsonLayer(name, win.DataModule.layerData[name]); } catch {}
         }
       }
     };

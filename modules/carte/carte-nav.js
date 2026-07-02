@@ -34,7 +34,7 @@
           const styles = typeof category_styles === 'string'
             ? JSON.parse(category_styles) : category_styles;
           color = styles.color;
-        } catch (_) {}
+        } catch {}
       }
       const colorStyle = color ? `style="--item-color: ${color}"` : '';
       const displayLabel = label || category;
@@ -133,7 +133,7 @@
         const styles = typeof categoryIcon.category_styles === 'string'
           ? JSON.parse(categoryIcon.category_styles) : categoryIcon.category_styles;
         categoryColor = styles.color || styles.fillColor;
-      } catch (_) {}
+      } catch {}
     }
 
     const li = document.createElement('li');
@@ -209,7 +209,7 @@
 
     for (const name of layersToDisplay) {
       if (win.DataModule?.layerData?.[name]) {
-        try { win.DataModule.createGeoJsonLayer(name, win.DataModule.layerData[name]); } catch (_) {}
+        try { win.DataModule.createGeoJsonLayer(name, win.DataModule.layerData[name]); } catch {}
       }
     }
   }

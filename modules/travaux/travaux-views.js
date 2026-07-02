@@ -417,7 +417,7 @@
     let allProposals = [];
     try {
       allProposals = await win.supabaseService?.fetchMyTravaux(city) || [];
-    } catch (_) {}
+    } catch {}
 
     if (ctx.isStale()) return;
 
