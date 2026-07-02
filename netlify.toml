@@ -111,4 +111,5 @@
   force = true
 
 # /sitemap.xml — routé directement par Netlify Functions v2 (config.path dans sitemap.mjs)
+# /llms.txt — idem (config.path dans llms-txt.mjs)
 # Pas de redirect nécessaire
