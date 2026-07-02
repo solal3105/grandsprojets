@@ -273,24 +273,26 @@ function buildJsonLd(villeSlug, villeLabel, metaDesc, canonical, projects) {
 function renderCard(p) {
   const name = escHtml(p.project_name);
   const href = `/fiche/${encodeURIComponent(p.ville)}/${encodeURIComponent(p.category_slug)}/${encodeURIComponent(p.slug)}`;
-  const excerpt = escHtml(truncate(stripMarkdown(p.description || ''), 150));
+  const excerpt = escHtml(truncate(stripMarkdown(p.description || ''), 160));
   const cover = safeUrl(p.cover_url);
   const geojson = safeStorageUrl(p.geojson_url);
   const color = safeHexColor(p._catColor);
+  // Texte agrégé pour la recherche client (nom + catégorie + description)
+  const haystack = escAttr(`${p.project_name} ${p.category} ${stripMarkdown(p.description || '')}`.toLowerCase());
 
   const media = cover
-    ? `<img src="${escAttr(cover)}" alt="" loading="lazy" width="400" height="225">`
-    : `<span class="vh-card__placeholder" aria-hidden="true"><i class="${escAttr(p._catIcon)}"></i></span>`;
+    ? `<img src="${escAttr(cover)}" alt="" loading="lazy" width="480" height="270">`
+    : `<span class="vh-card__ph" aria-hidden="true"><i class="${escAttr(p._catIcon)}"></i></span>`;
 
   return `
-      <article class="vh-card" data-cat="${escAttr(p.category_slug)}"${color ? ` style="--cat-color:${color}"` : ''}${geojson ? ` data-geojson="${escAttr(geojson)}"` : ''} data-name="${escAttr(p.project_name)}" data-url="${escAttr(href)}">
+      <article class="vh-card" data-cat="${escAttr(p.category_slug)}"${color ? ` style="--cat-color:${color}"` : ''}${geojson ? ` data-geojson="${escAttr(geojson)}"` : ''} data-name="${escAttr(p.project_name)}" data-url="${escAttr(href)}" data-search="${haystack}">
         <a class="vh-card__link" href="${escAttr(href)}">
           <figure class="vh-card__media">${media}<span class="vh-card__grad" aria-hidden="true"></span></figure>
           <div class="vh-card__body">
             <span class="vh-card__pill"><i class="${escAttr(p._catIcon)}" aria-hidden="true"></i>${escHtml(p.category)}</span>
             <h2 class="vh-card__title">${name}</h2>
             ${excerpt ? `<p class="vh-card__excerpt">${excerpt}</p>` : ''}
-            <span class="vh-card__arrow" aria-hidden="true"><i class="fa-solid fa-arrow-right"></i></span>
+            <span class="vh-card__more">Voir le projet <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
           </div>
         </a>
       </article>`;
@@ -298,21 +300,24 @@ function renderCard(p) {
 
 function renderTag(cat) {
   return `
-        <button type="button" class="vh-tag" data-cat="${escAttr(cat.slug)}" aria-pressed="false"${cat.color ? ` style="--tag-color:${cat.color}"` : ''}>
-          <i class="${escAttr(cat.icon)}" aria-hidden="true"></i>
-          <span>${escHtml(cat.label)}</span>
-          <span class="vh-tag__count">${cat.count}</span>
-        </button>`;
+          <button type="button" class="vh-tag" data-cat="${escAttr(cat.slug)}" aria-pressed="false"${cat.color ? ` style="--tag-color:${cat.color}"` : ''}>
+            <span class="vh-tag__dot" aria-hidden="true"></span>
+            <span>${escHtml(cat.label)}</span>
+            <span class="vh-tag__count">${cat.count}</span>
+          </button>`;
 }
 
 function buildContent({ villeSlug, villeLabel, projects, categories, branding, truncated, travaux }) {
   const n = projects.length;
-  const catNames = categories.map(c => escHtml(c.label)).join(', ');
   const mapAppUrl = `/?city=${encodeURIComponent(villeSlug)}`;
+  const multiCat = categories.length > 1;
+  const showSearch = n > 8; // la recherche n'a de sens qu'au-delà d'une poignée de projets
+  const projectWord = n > 1 ? 'projets' : 'projet';
 
   const dataAttrs = [
     `data-ville="${escAttr(villeSlug)}"`,
     `data-label="${escAttr(villeLabel)}"`,
+    `data-map-url="${escAttr(mapAppUrl)}"`,
     branding?.center_lat != null ? `data-center-lat="${escAttr(String(branding.center_lat))}"` : '',
     branding?.center_lng != null ? `data-center-lng="${escAttr(String(branding.center_lng))}"` : '',
     branding?.zoom != null ? `data-zoom="${escAttr(String(branding.zoom))}"` : '',
@@ -320,60 +325,66 @@ function buildContent({ villeSlug, villeLabel, projects, categories, branding, t
     branding?.dark_logo_url ? `data-logo-dark="${escAttr(safeUrl(branding.dark_logo_url))}"` : '',
   ].filter(Boolean).join(' ');
 
-  return `
-    <div class="vh-content" id="vh-content" ${dataAttrs}>
+  // Héros : la carte de la ville en fond (hydratée par le client), titre + CTA
+  // par-dessus un dégradé. Le fond dégradé reste visible si la carte ne charge pas.
+  const hero = `
+      <header class="vh-hero" id="vh-hero">
+        <div class="vh-hero__map" id="vh-hero-map" aria-hidden="true"></div>
+        <div class="vh-hero__scrim" aria-hidden="true"></div>
+        <div class="vh-hero__inner">
+          <nav class="vh-breadcrumb" aria-label="Fil d'Ariane">
+            <a href="/">Open Projets</a>
+            <span aria-hidden="true">›</span>
+            <span aria-current="page">${escHtml(villeLabel)}</span>
+          </nav>
+          <h1 class="vh-hero__title">Les grands projets de ${escHtml(villeLabel)}</h1>
+          <p class="vh-hero__intro">${n} ${projectWord}${multiCat ? ` dans ${categories.length} catégories` : ''} — description, avancement et carte pour chaque projet.</p>
+          <a class="vh-cta" id="vh-open-map" href="${escAttr(mapAppUrl)}">
+            <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i>
+            <span>Ouvrir la carte interactive${travaux.enabled ? ' et les travaux' : ''}</span>
+          </a>
+        </div>
+      </header>`;
 
-      <header class="vh-hero">
-        <nav class="vh-breadcrumb" aria-label="Fil d'Ariane">
-          <a href="/">Open Projets</a>
-          <span aria-hidden="true">›</span>
-          <span aria-current="page">${escHtml(villeLabel)}</span>
-        </nav>
-        <h1>Les grands projets de ${escHtml(villeLabel)}</h1>
-        <p class="vh-hero__intro">${n} projet${n > 1 ? 's' : ''} suivi${n > 1 ? 's' : ''} dans ${categories.length} catégorie${categories.length > 1 ? 's' : ''} — ${catNames}. Chaque fiche détaille le contexte, l'avancement et la carte du projet.</p>
-      </header>
-
-      <div class="vh-toolbar">
+  // Barre de filtres : chips catégories (si &gt;1), recherche (si beaucoup),
+  // et compteur de résultats annoncé aux lecteurs d'écran
+  const filterbar = `
+      <div class="vh-filterbar" id="vh-filterbar">
+        ${multiCat ? `
         <div class="vh-tags" role="group" aria-label="Filtrer par catégorie">
           <button type="button" class="vh-tag is-active" data-cat="" aria-pressed="true">
-            <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
-            <span>Tous</span>
-            <span class="vh-tag__count">${n}</span>
+            <span>Tous</span><span class="vh-tag__count">${n}</span>
           </button>${categories.map(renderTag).join('')}
+        </div>` : ''}
+        <div class="vh-filterbar__end">
+          ${showSearch ? `
+          <label class="vh-search">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <input type="search" id="vh-search" placeholder="Rechercher un projet…" aria-label="Rechercher un projet" autocomplete="off">
+          </label>` : ''}
+          <p class="vh-count" id="vh-count" role="status" aria-live="polite">${n} ${projectWord}</p>
         </div>
-        <div class="vh-views" role="group" aria-label="Mode d'affichage">
-          <button type="button" class="vh-view is-active" data-view="liste" aria-pressed="true">
-            <i class="fa-solid fa-list" aria-hidden="true"></i><span>Liste</span>
-          </button>
-          <button type="button" class="vh-view" data-view="carte" aria-pressed="false">
-            <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i><span>Carte</span>
-          </button>
-        </div>
-      </div>
+      </div>`;
 
-      <section class="vh-grid" id="vh-grid" aria-label="Liste des projets">${projects.map(renderCard).join('')}
+  return `
+    <div class="vh-content" id="vh-content" ${dataAttrs}>
+${hero}
+${filterbar}
+
+      <section class="vh-grid" id="vh-grid" aria-label="Projets de la ville">${projects.map(renderCard).join('')}
       </section>
 
       <p class="vh-empty" id="vh-empty" hidden>
         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-        Aucun projet dans cette catégorie.
+        Aucun projet ne correspond à cette recherche.
       </p>
 
-      <section class="vh-map" id="vh-map" hidden aria-label="Carte des projets">
-        <div class="vh-map__canvas" id="vh-map-canvas"></div>
-        <p class="vh-map__empty" id="vh-map-empty" hidden>
-          <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
-          Aucun tracé disponible pour cette sélection.
-        </p>
-      </section>
+      ${truncated ? `<p class="vh-note">Les ${MAX_PROJECTS} projets les plus récents sont affichés — l'intégralité est explorable sur la carte interactive.</p>` : ''}
 
-      ${truncated ? `<p class="vh-truncated">Les ${MAX_PROJECTS} projets les plus récents sont affichés — l'intégralité est explorable sur la carte interactive.</p>` : ''}
-
-      <footer class="vh-footer">
-        <a class="vh-btn-3d vh-btn-3d--primary" href="${escAttr(mapAppUrl)}">
-          <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i>
-          <span>Explorer la carte interactive${travaux.enabled ? ` — ${escHtml(travaux.label)}` : ''}</span>
-        </a>
+      <footer class="vh-foot">
+        <span class="vh-foot__b2b">Vous représentez une collectivité ?
+          <a href="/home/">Découvrir Open Projets</a>
+        </span>
       </footer>
 
     </div>`;

@@ -105,8 +105,9 @@
   </div>
 
   <noscript>
-    <!-- Sans JS, les contrôles interactifs (filtres, vues, thème) sont inertes : masqués -->
-    <style>.vh-views, .vh-tags, .vh-topbar__btns { display: none !important; }</style>
+    <!-- Sans JS, les contrôles interactifs (filtres, recherche, thème) sont inertes : masqués.
+         Le contenu (héros, cards liées aux fiches) reste lisible et crawlable. -->
+    <style>.vh-tags, .vh-search, .vh-topbar__btns { display: none !important; }</style>
   </noscript>
 
   <!-- Modules partagés (IIFE) — la chaîne MapLibre est chargée à la demande

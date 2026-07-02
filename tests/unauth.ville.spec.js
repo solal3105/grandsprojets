@@ -201,27 +201,45 @@ test.describe('0.27 — Hub ville : interactions', () => {
     expect(page.url()).not.toContain('#c=');
   });
 
-  test('0.27.4 — La vue Carte initialise MapLibre (chargement à la demande)', async ({ page }) => {
+  test('0.27.4 — La carte-héros s\'initialise (MapLibre chargé après le rendu)', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     await gotoHub(page);
-    await page.locator('.vh-view[data-view="carte"]').click();
-    await expect(page.locator('#vh-map')).toBeVisible();
-    await expect(page.locator('#vh-grid')).toBeHidden();
-    // La chaîne maplibre-gl + compat se charge puis crée le canvas
-    const canvas = page.locator('#vh-map-canvas canvas');
+    // La carte enrichit le héros après le premier paint (requestIdleCallback)
+    const canvas = page.locator('#vh-hero-map canvas');
     await expect(canvas).toBeAttached({ timeout: 30000 });
+    await expect(page.locator('#vh-hero-map')).toHaveClass(/is-ready/, { timeout: 30000 });
   });
 
-  test('0.27.5 — Le retour à la vue Liste réaffiche la grille', async ({ page }) => {
+  test('0.27.5 — La recherche filtre les cards et met à jour le compteur', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     await gotoHub(page);
-    await page.locator('.vh-view[data-view="carte"]').click();
-    await page.locator('.vh-view[data-view="liste"]').click();
-    await expect(page.locator('#vh-grid')).toBeVisible();
-    await expect(page.locator('#vh-map')).toBeHidden();
+    const search = page.locator('#vh-search');
+    // La recherche n'apparaît qu'au-delà d'un seuil de projets
+    const hasSearch = await search.count() > 0;
+    test.skip(!hasSearch, 'Trop peu de projets pour afficher la recherche');
+    // Un terme improbable ne matche rien → état vide + compteur à 0
+    await search.fill('zzzzxxxqqq');
+    await expect(page.locator('#vh-empty')).toBeVisible();
+    await expect(page.locator('#vh-count')).toHaveText(/^0 projet/);
+    // Vidé → toutes les cards réapparaissent (le filtrage est débouncé via rAF)
+    await search.fill('');
+    await expect(page.locator('#vh-empty')).toBeHidden();
+    const hidden = await page.evaluate(() =>
+      [...document.querySelectorAll('.vh-card')].some(c => c.hidden)
+    );
+    expect(hidden).toBe(false);
   });
 
-  test('0.27.6 — Le bouton thème bascule data-theme', async ({ page }) => {
+  test('0.27.6 — Le compteur de résultats suit le filtre catégorie', async ({ page }) => {
+    test.skip(!CITY, 'Aucune ville trouvée en base');
+    await gotoHub(page);
+    const tag = page.locator('.vh-tag:not([data-cat=""])').first();
+    const expected = parseInt(await tag.locator('.vh-tag__count').textContent() || '0', 10);
+    await tag.click();
+    await expect(page.locator('#vh-count')).toHaveText(new RegExp(`^${expected} projet`));
+  });
+
+  test('0.27.7 — Le bouton thème bascule data-theme', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     await gotoHub(page);
     const html = page.locator('html');
@@ -232,17 +250,23 @@ test.describe('0.27 — Hub ville : interactions', () => {
     expect(['dark', 'light']).toContain(after);
   });
 
-  test('0.27.7 — Le lien retour pointe vers la carte', async ({ page }) => {
+  test('0.27.8 — Le CTA « Ouvrir la carte » pointe vers l\'app de la ville', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     await gotoHub(page);
-    const href = await page.locator('#vh-btn-back').getAttribute('href');
-    expect(href).toBe('/');
+    const href = await page.locator('#vh-open-map').getAttribute('href');
+    expect(href).toContain(`city=${CITY.ville}`);
+    // Le lien retour de la topbar mène toujours à la carte
+    expect(await page.locator('#vh-btn-back').getAttribute('href')).toBe('/');
   });
 
-  test('0.27.8 — Le CTA du pied de page conserve la ville', async ({ page }) => {
+  test('0.27.9 — Le CTA carte transporte le filtre catégorie actif', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     await gotoHub(page);
-    const href = await page.locator('.vh-footer .vh-btn-3d').getAttribute('href');
+    const tag = page.locator('.vh-tag:not([data-cat=""])').first();
+    const slug = await tag.getAttribute('data-cat');
+    await tag.click();
+    const href = await page.locator('#vh-open-map').getAttribute('href');
     expect(href).toContain(`city=${CITY.ville}`);
+    expect(href).toContain(`cat=${slug}`);
   });
 });

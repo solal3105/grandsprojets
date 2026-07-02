@@ -1,29 +1,30 @@
 /* ============================================================================
    HUB VILLE — enrichissement progressif du HTML rendu par l'edge function.
 
-   Le contenu (liste, tags, compteurs) est déjà dans le DOM côté serveur :
-   ce script n'ajoute que l'interactivité — thème, partage, filtrage par
-   catégorie (avec deep-link #c=slug), bascule Liste/Carte et carte MapLibre
-   chargée à la demande (la chaîne maplibre-gl + maplibre-compat n'est
-   téléchargée qu'à la première ouverture de la vue carte).
+   Le contenu (héros, cards, filtres) est déjà dans le DOM côté serveur ; ce
+   script ajoute : thème, partage, filtrage combiné catégorie + recherche
+   (cards + compteur aria-live + carte + lien vers l'app), et la carte-héros
+   de la ville, chargée après le premier rendu (maplibre-gl à la demande).
 
-   Dépendances page : /modules/thememanager.js (window.ThemeManager).
-   Aucun appel Supabase : toutes les données viennent des data-attributes SSR.
+   La carte du héros est un DÉCOR cliquable (verrouillée, un clic sur un projet
+   ouvre sa fiche) ; l'exploration spatiale complète se fait dans l'app carte.
+
+   Dépendances page : /modules/thememanager.js. Aucun appel Supabase :
+   tout vient des data-attributes et de window.basemaps injectés par l'edge.
    ============================================================================ */
 
 ;(function () {
   'use strict';
 
-  /* ═══════════════ CONFIG ═══════════════ */
-  const MAX_MAP_PROJECTS = 150; // au-delà, seuls les plus récents sont dessinés
+  const MAX_MAP_PROJECTS = 200;
   const MAPLIBRE_CSS = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css';
   const MAPLIBRE_JS = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js';
   const COMPAT_JS = '/modules/maplibre-compat.js';
+  const MAP_HANDLERS = ['dragPan', 'scrollZoom', 'doubleClickZoom', 'dragRotate', 'touchZoomRotate', 'keyboard', 'boxZoom'];
 
-  /* window.basemaps est injecté par l'edge function (table basemaps_v2) —
-     sans lui, la carte affiche les géométries des projets sur fond neutre */
+  /* window.basemaps est injecté par l'edge function (table basemaps_v2) ;
+     sans lui, la carte affiche les tracés sur fond neutre */
 
-  /* ═══════════════ DOM refs ═══════════════ */
   const $ = id => document.getElementById(id);
   const el = {
     topbar:     $('vh-topbar'),
@@ -33,14 +34,14 @@
     btnTheme:   $('vh-btn-theme'),
     btnShare:   $('vh-btn-share'),
     content:    $('vh-content'),
+    heroMap:    $('vh-hero-map'),
     grid:       $('vh-grid'),
     empty:      $('vh-empty'),
-    map:        $('vh-map'),
-    mapCanvas:  $('vh-map-canvas'),
-    mapEmpty:   $('vh-map-empty'),
+    search:     $('vh-search'),
+    count:      $('vh-count'),
+    openMap:    $('vh-open-map'),
   };
 
-  /* ═══════════════ HELPERS ═══════════════ */
   const currentTheme = () => document.documentElement.getAttribute('data-theme') || 'light';
 
   function getBasemapForTheme(theme) {
@@ -57,7 +58,7 @@
       l.rel = 'stylesheet';
       l.href = href;
       l.onload = resolve;
-      l.onerror = resolve; // la carte reste utilisable même sans son CSS
+      l.onerror = resolve;
       document.head.appendChild(l);
     });
   }
@@ -66,7 +67,7 @@
     return new Promise((resolve, reject) => {
       if (document.querySelector(`script[src="${src}"][data-loaded]`)) return resolve();
       const existing = document.querySelector(`script[src="${src}"]`);
-      if (existing) existing.remove(); // tag d'un chargement précédent échoué → réessai propre
+      if (existing) existing.remove();
       const s = document.createElement('script');
       s.src = src;
       s.async = false; // préserve l'ordre maplibre-gl → maplibre-compat
@@ -76,17 +77,14 @@
     });
   }
 
-  /* ═══════════════ TOPBAR : thème, partage, scroll ═══════════════ */
+  /* ═══════════════ TOPBAR : thème, partage, scroll, branding ═══════════════ */
   function bindTheme() {
     if (!el.btnTheme) return;
     const icon = el.btnTheme.querySelector('i');
-    const syncIcon = () => {
-      if (icon) icon.className = currentTheme() === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
-    };
+    const sync = () => { if (icon) icon.className = currentTheme() === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon'; };
     el.btnTheme.addEventListener('click', () => window.ThemeManager?.toggle?.());
-    new MutationObserver(syncIcon)
-      .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    syncIcon();
+    new MutationObserver(sync).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    sync();
   }
 
   function bindShare() {
@@ -101,149 +99,116 @@
           el.btnShare.classList.remove('is-copied');
           if (icon) icon.className = 'fa-solid fa-link';
         }, 2000);
-      } catch { /* clipboard indisponible : pas de feedback */ }
+      } catch { /* clipboard indisponible */ }
     });
   }
 
   function initTopbarScroll() {
     if (!el.topbar) return;
     let raf = null;
-    const update = () => {
-      raf = null;
-      el.topbar.classList.toggle('is-scrolled', window.scrollY > 24);
-    };
+    const update = () => { raf = null; el.topbar.classList.toggle('is-scrolled', window.scrollY > 24); };
     window.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(update); }, { passive: true });
     update();
   }
 
-  /** Logo ville light/dark depuis les data-attributes SSR (pas de refetch) */
   function initBranding() {
     if (!el.content) return;
     const label = el.content.dataset.label || '';
     if (el.topTitle) el.topTitle.textContent = label;
-
     const logoLight = el.content.dataset.logo || '';
     const logoDark = el.content.dataset.logoDark || logoLight;
     if (!logoLight) return;
-
-    const applyLogo = () => {
+    const apply = () => {
       const url = currentTheme() === 'dark' ? logoDark : logoLight;
       if (el.topLogoImg) { el.topLogoImg.src = url; el.topLogoImg.alt = label; }
       if (el.topLogo) el.topLogo.hidden = false;
     };
-    applyLogo();
-    new MutationObserver(applyLogo)
-      .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    apply();
+    new MutationObserver(apply).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   }
 
-  /* ═══════════════ FILTRAGE PAR CATÉGORIE ═══════════════ */
+  /* ═══════════════ FILTRAGE (catégorie + recherche) ═══════════════ */
   let activeCat = '';
+  let query = '';
 
-  function cards() {
-    return el.grid ? [...el.grid.querySelectorAll('.vh-card')] : [];
-  }
+  const cards = () => (el.grid ? [...el.grid.querySelectorAll('.vh-card')] : []);
 
-  function applyFilter(catSlug) {
-    activeCat = catSlug || '';
+  function applyFilters() {
+    const q = query.trim().toLowerCase();
     let visible = 0;
     for (const card of cards()) {
-      const show = !activeCat || card.dataset.cat === activeCat;
+      const okCat = !activeCat || card.dataset.cat === activeCat;
+      const okQuery = !q || (card.dataset.search || '').includes(q);
+      const show = okCat && okQuery;
       card.hidden = !show;
       if (show) visible++;
     }
-    if (el.empty) el.empty.hidden = visible > 0 || !isListView();
 
+    // Compteur (annoncé aux lecteurs d'écran via aria-live)
+    if (el.count) el.count.textContent = `${visible} ${visible > 1 ? 'projets' : 'projet'}`;
+    if (el.empty) el.empty.hidden = visible > 0;
+
+    // État actif des chips
     for (const tag of document.querySelectorAll('.vh-tag')) {
       const active = (tag.dataset.cat || '') === activeCat;
       tag.classList.toggle('is-active', active);
       tag.setAttribute('aria-pressed', String(active));
     }
 
-    // Deep-link : #c={slug} (supprimé quand le filtre est « Tous »)
+    // Le CTA « Ouvrir la carte » transporte le filtre catégorie vers l'app
+    if (el.openMap) {
+      const base = el.content?.dataset.mapUrl || '/';
+      el.openMap.setAttribute('href', activeCat ? `${base}&cat=${encodeURIComponent(activeCat)}` : base);
+    }
+
+    // Deep-link #c={slug} (retiré quand « Tous »)
     const hash = activeCat ? `#c=${encodeURIComponent(activeCat)}` : '';
     history.replaceState(null, '', window.location.pathname + window.location.search + hash);
 
-    // La carte suit le filtre si elle est déjà initialisée (fire-and-forget : ne
-    // jamais laisser un rejet devenir une unhandled rejection)
-    if (mapReady) renderMapLayer().catch(() => {});
+    // La carte-héros suit la sélection
+    if (heroReady) renderHeroLayer().catch(() => {});
   }
 
   function applyFilterFromHash() {
     const m = window.location.hash.match(/^#c=([a-z0-9-]+)$/i);
     const slug = m ? decodeURIComponent(m[1]) : '';
-    if (!slug || cards().some(c => c.dataset.cat === slug)) applyFilter(slug);
+    if (!slug || cards().some(c => c.dataset.cat === slug)) { activeCat = slug; applyFilters(); }
   }
 
   function bindTags() {
     for (const tag of document.querySelectorAll('.vh-tag')) {
-      tag.addEventListener('click', () => applyFilter(tag.dataset.cat || ''));
+      tag.addEventListener('click', () => { activeCat = tag.dataset.cat || ''; applyFilters(); });
     }
-    // Deep-link : au chargement et à chaque changement de hash
-    // (replaceState dans applyFilter ne déclenche pas hashchange — pas de boucle)
     window.addEventListener('hashchange', applyFilterFromHash);
     applyFilterFromHash();
   }
 
-  /* ═══════════════ BASCULE LISTE / CARTE ═══════════════ */
-  const isListView = () => !el.grid?.hidden;
-
-  function setView(view) {
-    const showMap = view === 'carte';
-    if (el.grid) el.grid.hidden = showMap;
-    if (el.map) el.map.hidden = !showMap;
-    if (el.empty && showMap) el.empty.hidden = true;
-    if (!showMap) applyFilter(activeCat); // re-synchronise l'empty state de la liste
-
-    for (const btn of document.querySelectorAll('.vh-view')) {
-      const active = btn.dataset.view === view;
-      btn.classList.toggle('is-active', active);
-      btn.setAttribute('aria-pressed', String(active));
-    }
-
-    if (showMap) ensureMap();
+  function bindSearch() {
+    if (!el.search) return;
+    let raf = null;
+    el.search.addEventListener('input', () => {
+      query = el.search.value;
+      if (!raf) raf = requestAnimationFrame(() => { raf = null; applyFilters(); });
+    });
   }
 
-  function bindViews() {
-    for (const btn of document.querySelectorAll('.vh-view')) {
-      btn.addEventListener('click', () => setView(btn.dataset.view || 'liste'));
-    }
-  }
-
-  /* ═══════════════ CARTE (chargée à la demande) ═══════════════ */
-  let mapReady = false;
-  let mapLoading = null;
+  /* ═══════════════ CARTE-HÉROS (décor cliquable, chargée à la demande) ═══════════════ */
+  let heroReady = false;
   let map = null;
   let basemap = null;
   let projectsLayer = null;
-  const geojsonCache = new Map(); // url → FeatureCollection|null
+  let renderSeq = 0;
+  const geojsonCache = new Map();
 
-  function mapCenter() {
-    const lat = parseFloat(el.content?.dataset.centerLat || '');
-    const lng = parseFloat(el.content?.dataset.centerLng || '');
-    const zoom = parseInt(el.content?.dataset.zoom || '', 10);
-    if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      return { center: [lat, lng], zoom: Number.isFinite(zoom) ? zoom : 12 };
-    }
-    return null;
-  }
-
-  // Cache la PROMESSE (pas la valeur) : deux rendus concurrents partagent
-  // le même fetch au lieu de le dupliquer tant qu'il est en vol
   function fetchGeojson(url) {
     if (!geojsonCache.has(url)) {
-      geojsonCache.set(url, fetch(url)
-        .then(resp => (resp.ok ? resp.json() : null))
-        .catch(() => null));
+      geojsonCache.set(url, fetch(url).then(r => (r.ok ? r.json() : null)).catch(() => null));
     }
     return geojsonCache.get(url);
   }
 
-  /** Fusionne les geojsons des cards visibles en une FeatureCollection annotée */
   async function collectFeatures() {
-    const sources = cards()
-      .filter(c => !c.hidden && c.dataset.geojson)
-      .slice(0, MAX_MAP_PROJECTS);
-
+    const sources = cards().filter(c => !c.hidden && c.dataset.geojson).slice(0, MAX_MAP_PROJECTS);
     const results = await Promise.all(sources.map(async card => {
       const data = await fetchGeojson(card.dataset.geojson);
       const feats = Array.isArray(data?.features) ? data.features.filter(Boolean) : [];
@@ -251,57 +216,44 @@
       const color = getComputedStyle(card).getPropertyValue('--cat-color').trim() || '';
       return feats.map(f => ({
         ...f,
-        properties: { ...(f.properties || null), _name: card.dataset.name || '', _url: card.dataset.url || '', _color: color },
+        properties: { ...(f.properties || null), _url: card.dataset.url || '', _color: color },
       }));
     }));
-
     return { type: 'FeatureCollection', features: results.flat() };
   }
 
-  let renderSeq = 0;
-
-  async function renderMapLayer() {
+  async function renderHeroLayer() {
     if (!map) return;
-    // Jeton de séquence : un rendu obsolète (filtre précédent, fetch lent) ne
-    // doit jamais écraser la couche d'un rendu plus récent
     const seq = ++renderSeq;
     const collection = await collectFeatures();
     if (seq !== renderSeq || !map) return;
 
     if (projectsLayer) { map.removeLayer(projectsLayer); projectsLayer = null; }
-    if (el.mapEmpty) el.mapEmpty.hidden = collection.features.length > 0;
     if (!collection.features.length) return;
 
     projectsLayer = window.L.geoJSON(collection, {
-      style: f => ({
-        color: f?.properties?._color || 'var(--primary)',
-        weight: 3,
-        opacity: 0.85,
-        fillOpacity: 0.28,
-      }),
+      style: f => ({ color: f?.properties?._color || 'var(--primary)', weight: 3, opacity: 0.9, fillOpacity: 0.28 }),
       pointToLayer: (f, latlng) => window.L.marker(latlng, {
-        icon: window.L.divIcon({
-          className: 'vh-map-dot-wrap',
-          html: `<span class="vh-map-dot" style="--dot:${f?.properties?._color || ''}"></span>`,
-        }),
+        icon: window.L.divIcon({ className: 'vh-map-dot-wrap', html: `<span class="vh-map-dot" style="--dot:${f?.properties?._color || ''}"></span>` }),
       }),
+      onEachFeature: (f, layer) => {
+        const url = f?.properties?._url;
+        if (url) layer.on('click', () => { window.location.href = url; });
+      },
     }).addTo(map);
 
     fitToLayer(projectsLayer);
   }
 
-  /** Cadre la carte sur la couche — gère le cas dégénéré (projet ponctuel
-      unique) que le shim ne borne pas via maxZoom */
   function fitToLayer(layer) {
     const bounds = layer.getBounds?.();
     if (!bounds || bounds.isValid?.() === false) return;
     const ne = bounds.getNorthEast?.();
     const sw = bounds.getSouthWest?.();
-    const single = ne && sw && ne.lat === sw.lat && ne.lng === sw.lng;
-    if (single) {
-      map.setView(bounds.getCenter(), 15);
+    if (ne && sw && ne.lat === sw.lat && ne.lng === sw.lng) {
+      map.setView(bounds.getCenter(), 14);
     } else {
-      map.fitBounds(bounds, { padding: 40, maxZoom: 15 });
+      map.fitBounds(bounds, { padding: 56, maxZoom: 15 });
     }
   }
 
@@ -315,39 +267,45 @@
     }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   }
 
-  function ensureMap() {
-    if (mapReady) {
-      // Le conteneur vient de redevenir visible : recalculer la taille (une carte
-      // créée dans un conteneur display:none aurait mal cadré) puis re-cadrer
-      map?._mlMap?.resize?.();
-      if (projectsLayer) fitToLayer(projectsLayer);
-      return;
-    }
-    if (mapLoading) return;
+  function heroCenter() {
+    const lat = parseFloat(el.content?.dataset.centerLat || '');
+    const lng = parseFloat(el.content?.dataset.centerLng || '');
+    const zoom = parseInt(el.content?.dataset.zoom || '', 10);
+    return (Number.isFinite(lat) && Number.isFinite(lng))
+      ? { center: [lat, lng], zoom: Number.isFinite(zoom) ? zoom : 12 }
+      : { center: [46.6, 2.4], zoom: 5 };
+  }
 
-    mapLoading = (async () => {
+  async function initHeroMap() {
+    if (!el.heroMap) return;
+    try {
       await Promise.all([
         loadStyleOnce(MAPLIBRE_CSS),
         loadScriptOnce(MAPLIBRE_JS).then(() => loadScriptOnce(COMPAT_JS)),
       ]);
-      if (!window.L || !el.mapCanvas) return;
+      if (!window.L) return;
 
-      const start = mapCenter();
-      map = window.L.map('vh-map-canvas', start
-        ? { center: start.center, zoom: start.zoom }
-        : { center: [46.6, 2.4], zoom: 5 } /* France entière tant que fitBounds n'a pas les données */
-      );
+      const start = heroCenter();
+      map = window.L.map('vh-hero-map', { center: start.center, zoom: start.zoom, attributionControl: false });
       const bm = getBasemapForTheme(currentTheme());
       if (bm) basemap = window.L.createBasemapLayer(bm).addTo(map);
+
+      // Décor : on verrouille les interactions (le vrai zoom/pan est dans l'app)
+      const mlMap = map._mlMap;
+      if (mlMap) MAP_HANDLERS.forEach(h => mlMap[h]?.disable());
+
+      // Le conteneur a pu ne pas être encore dimensionné à la création
+      // (init différé) → forcer un recalcul avant de cadrer
+      requestAnimationFrame(() => mlMap?.resize?.());
+
       observeThemeForMap();
-      mapReady = true;
-      // La vue a pu être quittée pendant le chargement : resize avant de cadrer
-      map._mlMap?.resize?.();
-      await renderMapLayer();
-    })().catch(e => {
-      console.debug('[vh] Init carte échouée', e);
-      mapLoading = null; // autorise un nouvel essai au prochain clic
-    });
+      heroReady = true;
+      el.heroMap.classList.add('is-ready');
+      mlMap?.resize?.();
+      await renderHeroLayer();
+    } catch (e) {
+      console.debug('[vh] Carte héros indisponible', e);
+    }
   }
 
   /* ═══════════════ INIT ═══════════════ */
@@ -358,7 +316,13 @@
     initTopbarScroll();
     initBranding();
     bindTags();
-    bindViews();
+    bindSearch();
+    // La carte enrichit après le premier rendu : on ne bloque pas le LCP
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(initHeroMap, { timeout: 2000 });
+    } else {
+      setTimeout(initHeroMap, 400);
+    }
   }
 
   if (document.readyState === 'loading') {
