@@ -62,13 +62,14 @@ async function discoverValidProject(page) {
         .not('ville', 'is', null)
         .not('slug', 'ilike', 'e2e-%')
         .limit(1);
-      const [main, withMd, withoutMd] = await Promise.all([
-        base().single(),
+      // withMd/withoutMd partitionnent tous les projets approuvés :
+      // le projet « principal » est simplement l'un des deux
+      const [withMd, withoutMd] = await Promise.all([
         base().not('markdown_url', 'is', null).maybeSingle(),
         base().is('markdown_url', null).maybeSingle(),
       ]);
       return {
-        main: main.data,
+        main: withMd.data || withoutMd.data,
         withMd: withMd.data,
         withoutMd: withoutMd.data,
       };
@@ -447,9 +448,9 @@ test.describe('0.8 — Fiche : SSR', () => {
     if (!proj) return;
     const response = await page.request.get(ficheUrl(proj.slug, proj.category_slug, proj.ville));
     const html = await response.text();
-    expect(html).toContain('class="fv2-ssr__article"');
+    expect(html).toContain('fv2-ssr__article');
     expect(html).toContain('itemprop="articleBody"');
-    const article = html.match(/<section class="fv2-ssr__article"[\s\S]*?<\/section>/)?.[0] || '';
+    const article = html.match(/<section class="fv2-ssr__article[^"]*"[\s\S]*?<\/section>/)?.[0] || '';
     expect(article.length).toBeGreaterThan(0);
     const text = article.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     // Le texte servi aux crawlers doit refléter le contenu réel du markdown
@@ -471,7 +472,7 @@ test.describe('0.8 — Fiche : SSR', () => {
     if (!proj) return;
     const response = await page.request.get(ficheUrl(proj.slug, proj.category_slug, proj.ville));
     const html = await response.text();
-    const article = html.match(/<section class="fv2-ssr__article"[\s\S]*?<\/section>/)?.[0] || '';
+    const article = html.match(/<section class="fv2-ssr__article[^"]*"[\s\S]*?<\/section>/)?.[0] || '';
     expect(article.length).toBeGreaterThan(0);
     // Le seul h1 SSR est le nom du projet dans le header — l'article démarre à h2
     expect(article).not.toContain('<h1');
@@ -486,7 +487,7 @@ test.describe('0.8 — Fiche : SSR', () => {
     const response = await page.request.get(ficheUrl(proj.slug, proj.category_slug, proj.ville));
     const html = await response.text();
     expect(html).toContain('id="fv2-ssr-content"');
-    expect(html).not.toContain('class="fv2-ssr__article"');
+    expect(html).not.toContain('fv2-ssr__article');
   });
 });
 

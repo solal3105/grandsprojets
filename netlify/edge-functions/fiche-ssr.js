@@ -18,21 +18,14 @@ const BASE_ORIGIN = 'https://openprojets.com';
 
 /* ─── Helpers ─── */
 
+const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' };
+
 function escAttr(str) {
-  return String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  return String(str || '').replace(/[&"<>]/g, c => ESC_MAP[c]);
 }
 
 function escHtml(str) {
-  return String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;');
+  return String(str || '').replace(/[&<>"']/g, c => ESC_MAP[c]);
 }
 
 /** Tronque un texte à ~maxLen caractères sur une coupure de mot */
@@ -76,12 +69,18 @@ function stripMarkdown(text) {
 
 function safeUrl(url) {
   const u = String(url || '').trim();
-  return /^(https?:|mailto:|\/|#)/i.test(u) ? u : '';
+  if (/^(https?:|mailto:|#)/i.test(u)) return u;
+  // Chemins relatifs au site — mais pas les URLs protocol-relative (//host)
+  if (u.startsWith('/') && !/^\/[/\\]/.test(u)) return u;
+  return '';
 }
 
 function stripFrontMatter(rawMd) {
   const fm = rawMd.match(/^---\s*\r?\n([\s\S]*?)\r?\n---\s*/);
-  return fm ? rawMd.slice(fm[0].length) : rawMd;
+  // Ne retirer le bloc que s'il ressemble à du YAML (clé: valeur) — un document
+  // qui commence par un séparateur --- ne doit pas voir son intro avalée
+  if (!fm || !/^\w+\s*:/m.test(fm[1])) return rawMd;
+  return rawMd.slice(fm[0].length);
 }
 
 /** Directives custom → HTML final protégé par placeholders @@GPMD@@B{n}@@GPMD@@
@@ -112,55 +111,89 @@ function extractDirectives(md, blocks) {
   return md;
 }
 
-/** Inline markdown sur du texte déjà échappé HTML */
-function mdInline(t) {
-  // images ![alt](src)
-  t = t.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+&quot;[^)]*&quot;)?\)/g, (_, alt, src) => {
-    const u = safeUrl(src);
-    return u ? `<img src="${u}" alt="${alt}" loading="lazy">` : alt;
-  });
-  // liens [texte](url)
-  t = t.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+&quot;[^)]*&quot;)?\)/g, (_, text, href) => {
-    const u = safeUrl(href);
-    return u ? `<a href="${u}" rel="noopener noreferrer">${text}</a>` : text;
-  });
-  // gras puis italique
-  t = t.replace(/(\*\*|__)(?=\S)([\s\S]*?\S)\1/g, '<strong>$2</strong>');
-  t = t.replace(/(\*|_)(?=\S)([^*_]*\S)\1/g, '<em>$2</em>');
-  // code inline
-  t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+/** Emphase seule (gras/italique) — underscores intra-mot ignorés, comme en GFM */
+function applyEmphasis(t) {
+  t = t.replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/(^|[^\w_])__(?=\S)([\s\S]*?\S)__(?![\w_])/g, '$1<strong>$2</strong>');
+  t = t.replace(/\*(?=\S)([^*]*\S)\*(?!\*)/g, '<em>$1</em>');
+  t = t.replace(/(^|[^\w_])_(?=\S)([^_]*\S)_(?![\w_])/g, '$1<em>$2</em>');
   return t;
 }
 
-function renderTable(rows) {
-  const parseRow = r => r.replace(/^\||\|$/g, '').split('|').map(c => c.trim());
-  const head = parseRow(rows[0]);
-  const body = rows.slice(2).map(parseRow);
-  let html = '<table><thead><tr>' + head.map(c => `<th>${mdInline(c)}</th>`).join('') + '</tr></thead>';
-  if (body.length) {
-    html += '<tbody>' + body.map(r => '<tr>' + r.map(c => `<td>${mdInline(c)}</td>`).join('') + '</tr>').join('') + '</tbody>';
+/** Inline markdown sur du texte déjà échappé HTML.
+    Le code et le HTML généré (liens, images) sont mis de côté dans un stash
+    pour que la passe d'emphase ne corrompe jamais un href/src ni du code. */
+function mdInline(t) {
+  const stash = [];
+  const put = (html) => `@@GPMD@@I${stash.push(html) - 1}@@GPMD@@`;
+
+  // 1. Code inline — contenu littéral, jamais retraité
+  t = t.replace(/`([^`]+)`/g, (_, code) => put(`<code>${code}</code>`));
+
+  // 2. Images puis liens — titre optionnel entre "…" ou '…' (échappés)
+  t = t.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+(?:&quot;|&#x27;)[^)]*(?:&quot;|&#x27;))?\)/g, (_, alt, src) => {
+    const u = safeUrl(src);
+    return u ? put(`<img src="${u}" alt="${alt}" loading="lazy">`) : alt;
+  });
+  t = t.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+(?:&quot;|&#x27;)[^)]*(?:&quot;|&#x27;))?\)/g, (_, text, href) => {
+    const u = safeUrl(href);
+    return u ? put(`<a href="${u}" rel="noopener noreferrer">${applyEmphasis(text)}</a>`) : text;
+  });
+
+  // 3. Autolinks — URLs nues transformées en liens (comme marked gfm côté client)
+  t = t.replace(/(^|[\s(])(https?:\/\/[^\s<]*[^\s<.,;:!?)])/g, (_, pre, url) =>
+    `${pre}${put(`<a href="${url}" rel="noopener noreferrer">${url}</a>`)}`);
+
+  // 4. Emphase sur le texte restant (les URLs/code sont hors d'atteinte)
+  t = applyEmphasis(t);
+
+  // 5. Restaurer les fragments protégés (itératif : un lien peut contenir du code)
+  let prev;
+  do {
+    prev = t;
+    t = t.replace(/@@GPMD@@I(\d+)@@GPMD@@/g, (_, i) => stash[Number(i)] ?? '');
+  } while (t !== prev);
+  return t;
+}
+
+function renderTable(headerRow, bodyRows) {
+  // Split sur | non échappé (support GFM \|) après retrait des pipes de bordure
+  const parseRow = r => r.replace(/^\s*\||\|\s*$/g, '').split(/(?<!\\)\|/).map(c => c.trim().replace(/\\\|/g, '|'));
+  const head = parseRow(headerRow);
+  // .table-wrapper = même conteneur overflow-x que le rendu client (.fv2-prose)
+  let html = '<div class="table-wrapper"><table><thead><tr>' + head.map(c => `<th>${mdInline(c)}</th>`).join('') + '</tr></thead>';
+  if (bodyRows.length) {
+    html += '<tbody>' + bodyRows.map(r => '<tr>' + parseRow(r).map(c => `<td>${mdInline(c)}</td>`).join('') + '</tr>').join('') + '</tbody>';
   }
-  return html + '</table>';
+  return html + '</table></div>';
 }
 
 function mdToHtml(rawMd) {
   if (!rawMd) return '';
   const blocks = [];
-  let md = stripFrontMatter(rawMd).replace(/@@GPMD@@/g, '');
+  // Normaliser les fins de ligne (CRLF → LF) puis neutraliser la sentinelle —
+  // en boucle, pour que des occurrences imbriquées ne se reforment pas
+  let md = String(rawMd).replace(/\r\n?/g, '\n');
+  let prev;
+  do { prev = md; md = md.replace(/@@GPMD@@/g, ''); } while (md !== prev);
+  md = stripFrontMatter(md);
   md = extractDirectives(md, blocks);
   md = escHtml(md);
 
-  const lines = md.split(/\r?\n/);
+  const lines = md.split('\n');
   const out = [];
   let para = [];
   let listType = null;
-  let listItems = [];
+  let listItems = [];   // { text, sub: [] }
   let quote = [];
 
   const flushPara = () => { if (para.length) { out.push(`<p>${mdInline(para.join(' '))}</p>`); para = []; } };
+  const renderItems = items => items.map(i =>
+    `<li>${mdInline(i.text)}${i.sub.length ? `<ul>${i.sub.map(s => `<li>${mdInline(s)}</li>`).join('')}</ul>` : ''}</li>`
+  ).join('');
   const flushList = () => {
     if (listType) {
-      out.push(`<${listType}>` + listItems.map(i => `<li>${mdInline(i)}</li>`).join('') + `</${listType}>`);
+      out.push(`<${listType}>${renderItems(listItems)}</${listType}>`);
       listType = null; listItems = [];
     }
   };
@@ -168,13 +201,26 @@ function mdToHtml(rawMd) {
   const flushAll = () => { flushPara(); flushList(); flushQuote(); };
 
   for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
+    const raw = lines[i];
+    const trimmed = raw.trim();
 
     if (!trimmed) { flushAll(); continue; }
 
     // Placeholder de directive
     const ph = trimmed.match(/^@@GPMD@@B(\d+)@@GPMD@@$/);
     if (ph) { flushAll(); out.push(blocks[Number(ph[1])] || ''); continue; }
+
+    // Bloc de code fencé ``` — contenu littéral (déjà échappé), sans inline
+    if (/^(```|~~~)/.test(trimmed)) {
+      flushAll();
+      const fence = trimmed.slice(0, 3);
+      const code = [];
+      let j = i + 1;
+      while (j < lines.length && !lines[j].trim().startsWith(fence)) { code.push(lines[j]); j++; }
+      out.push(`<pre><code>${code.join('\n')}</code></pre>`);
+      i = j; // saute aussi la ligne de clôture (ou s'arrête en fin de document)
+      continue;
+    }
 
     // Titres — niveau décalé de +1 : le h1 de la page est le nom du projet
     const h = trimmed.match(/^(#{1,6})\s+(.*)$/);
@@ -192,26 +238,34 @@ function mdToHtml(rawMd) {
     const q = trimmed.match(/^&gt;\s?(.*)$/);
     if (q) { flushPara(); flushList(); quote.push(q[1]); continue; }
 
-    // Tableau GFM : ligne |...| suivie d'une ligne séparatrice |---|
-    if (trimmed.startsWith('|') && lines[i + 1] && /^\|?[\s:|-]+\|?$/.test(lines[i + 1].trim()) && lines[i + 1].includes('-')) {
+    // Tableau GFM : ligne à pipes suivie d'une séparatrice (|---|--- ou ---|---).
+    // On exige un | dans la séparatrice OU un | initial dans l'en-tête pour ne
+    // pas confondre « texte | texte » suivi d'un --- (hr) avec un tableau.
+    const sep = (lines[i + 1] || '').trim();
+    if (trimmed.includes('|') && /^\|?[\s:|-]+\|?$/.test(sep) && sep.includes('-') &&
+        (trimmed.startsWith('|') || sep.includes('|'))) {
       flushAll();
-      const rows = [];
-      let j = i;
-      while (j < lines.length && lines[j].trim().startsWith('|')) { rows.push(lines[j].trim()); j++; }
-      out.push(renderTable(rows));
+      const body = [];
+      let j = i + 2; // saute l'en-tête et la séparatrice
+      while (j < lines.length && lines[j].trim() && lines[j].includes('|')) { body.push(lines[j].trim()); j++; }
+      out.push(renderTable(trimmed, body));
       i = j - 1;
       continue;
     }
 
-    // Listes
+    // Listes — un niveau d'imbrication (item indenté d'au moins 2 espaces)
     const ul = trimmed.match(/^[-*+]\s+(.*)$/);
     const ol = trimmed.match(/^\d+[.)]\s+(.*)$/);
     if (ul || ol) {
       flushPara(); flushQuote();
+      if (/^\s{2,}/.test(raw) && listType && listItems.length) {
+        listItems[listItems.length - 1].sub.push((ul || ol)[1]);
+        continue;
+      }
       const type = ul ? 'ul' : 'ol';
       if (listType && listType !== type) flushList();
       listType = type;
-      listItems.push((ul || ol)[1]);
+      listItems.push({ text: (ul || ol)[1], sub: [] });
       continue;
     }
 
@@ -313,12 +367,12 @@ async function fetchMarkdownArticle(markdownUrl) {
 
 /* ─── JSON-LD builders ─── */
 
-function buildArticleJsonLd(project, category, catLabel, canonical, cityBrand, structureName) {
+function buildArticleJsonLd(project, category, catLabel, canonical, cityBrand, structureName, articlePlain) {
   const name = project.project_name;
   const defaultDesc = structureName
     ? `Découvrez ${name}, projet ${catLabel} porté par ${structureName}.`
     : `Découvrez le projet ${catLabel} : ${name}.`;
-  const desc = truncate(stripMarkdown(project.description || defaultDesc), 300);
+  const desc = truncate(stripMarkdown(project.description || '') || articlePlain || defaultDesc, 300);
   const cover = project.cover_url || `${BASE_ORIGIN}/img/cover/meta.png`;
   const created = project.created_at ? new Date(project.created_at).toISOString() : undefined;
 
@@ -399,7 +453,6 @@ function buildBreadcrumbJsonLd(project, category, catLabel, canonical, structure
 
 function buildSsrContentBlock(project, category, catLabel, related, cityBrand, structureName, articleHtml) {
   const name = escHtml(project.project_name);
-  const desc = escHtml(stripMarkdown(project.description || ''));
   const catLabelSafe = escHtml(catLabel);
   const structureNameSafe = escHtml(structureName || '');
   const ville = project.ville || '';
@@ -431,18 +484,26 @@ function buildSsrContentBlock(project, category, catLabel, related, cityBrand, s
       </div>
     </header>`;
 
-  // Article complet si disponible, sinon description seule
-  // (même logique que le client : la description est masquée quand un markdown existe)
+  // Article complet si disponible (même logique que le client : la description
+  // est masquée quand un markdown existe). .fv2-prose = typographie partagée
+  // avec le rendu client — ne pas créer de ruleset dédié.
   if (articleHtml) {
     html += `
-    <section class="fv2-ssr__article" itemprop="articleBody">
+    <section class="fv2-ssr__article fv2-prose" itemprop="articleBody">
 ${articleHtml}
     </section>`;
-  } else if (desc) {
-    html += `
+  }
+  // Description en repli si pas d'article OU si l'article n'a aucune prose
+  // (ex : markdown réduit à une directive image) — ne jamais servir un bloc sans texte
+  const articleText = articleHtml ? articleHtml.replace(/<[^>]*>/g, ' ').trim() : '';
+  if (!articleText) {
+    const desc = escHtml(stripMarkdown(project.description || ''));
+    if (desc) {
+      html += `
     <section>
       <p itemprop="description">${desc}</p>
     </section>`;
+    }
   }
 
   if (officialUrl) {
@@ -487,7 +548,7 @@ ${articleHtml}
   return html;
 }
 
-function injectIntoHtml(html, project, category, catLabel, canonical, related, cityBrand, articleHtml) {
+function injectIntoHtml(html, project, category, catLabel, canonical, related, cityBrand, articleHtml, articlePlain) {
   const name = project.project_name;
   const structureName = cityBrand?.brand_name
     || (project.ville ? humanizeCategory(project.ville) : '');
@@ -495,85 +556,90 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
   const defaultDesc = structureName
     ? `Découvrez ${name}, projet ${catLabel} porté par ${structureName}.`
     : `Découvrez ${name}, un projet ${catLabel}.`;
-  const metaDesc = truncate(stripMarkdown(project.description || defaultDesc), 160);
+  // Description : celle du projet, sinon un extrait de l'article, sinon le générique
+  const metaDesc = truncate(stripMarkdown(project.description || '') || articlePlain || defaultDesc, 160);
   // Image de partage = cover du projet si elle existe, sinon fallback générique
   const cover = project.cover_url || `${BASE_ORIGIN}/img/cover/meta.png`;
   const titleSuffix = structureName ? ` | ${structureName}` : '';
 
+  // ⚠️  Toujours passer une FONCTION à html.replace() quand le remplacement
+  // contient du contenu projet/article : une chaîne y ferait interpréter
+  // les séquences $ ($&, $`, $') comme motifs de remplacement JavaScript.
+
   // 1. <title>
   html = html.replace(
     /<title>[^<]*<\/title>/,
-    `<title>${escHtml(name)} – ${escHtml(catLabel)}${escHtml(titleSuffix)}</title>`
+    () => `<title>${escHtml(name)} – ${escHtml(catLabel)}${escHtml(titleSuffix)}</title>`
   );
 
   // 2. Meta description
   html = html.replace(
     /(<meta\s+name="description"\s+content=")[^"]*"/,
-    `$1${escAttr(metaDesc)}"`
+    (_, p1) => `${p1}${escAttr(metaDesc)}"`
   );
 
   // 3. Open Graph — site_name dynamique (nom de la structure)
   const ogSiteName = structureName || 'Open Projets';
   html = html.replace(
     /(<meta\s+property="og:site_name"\s+content=")[^"]*"/,
-    `$1${escAttr(ogSiteName)}"`
+    (_, p1) => `${p1}${escAttr(ogSiteName)}"`
   );
 
   html = html.replace(
     /(<meta\s+property="og:title"\s+content=")[^"]*"/,
-    `$1${escAttr(name)} – ${escAttr(catLabel)}${structureName ? ' | ' + escAttr(structureName) : ''}"`
+    (_, p1) => `${p1}${escAttr(name)} – ${escAttr(catLabel)}${structureName ? ' | ' + escAttr(structureName) : ''}"`
   );
   html = html.replace(
     /(<meta\s+property="og:description"\s+content=")[^"]*"/,
-    `$1${escAttr(metaDesc)}"`
+    (_, p1) => `${p1}${escAttr(metaDesc)}"`
   );
   html = html.replace(
     /(<meta\s+property="og:image"\s+content=")[^"]*"/,
-    `$1${escAttr(cover)}"`
+    (_, p1) => `${p1}${escAttr(cover)}"`
   );
   html = html.replace(
     /(<meta\s+property="og:url"\s+content=")[^"]*"/,
-    `$1${escAttr(canonical)}"`
+    (_, p1) => `${p1}${escAttr(canonical)}"`
   );
 
   // 4. Twitter Cards
   html = html.replace(
     /(<meta\s+name="twitter:title"\s+content=")[^"]*"/,
-    `$1${escAttr(name)} – ${escAttr(catLabel)}${structureName ? ' | ' + escAttr(structureName) : ''}"`
+    (_, p1) => `${p1}${escAttr(name)} – ${escAttr(catLabel)}${structureName ? ' | ' + escAttr(structureName) : ''}"`
   );
   html = html.replace(
     /(<meta\s+name="twitter:description"\s+content=")[^"]*"/,
-    `$1${escAttr(metaDesc)}"`
+    (_, p1) => `${p1}${escAttr(metaDesc)}"`
   );
   html = html.replace(
     /(<meta\s+name="twitter:image"\s+content=")[^"]*"/,
-    `$1${escAttr(cover)}"`
+    (_, p1) => `${p1}${escAttr(cover)}"`
   );
 
   // 5. Canonical URL
   html = html.replace(
     /(<link\s+rel="canonical"\s+href=")[^"]*"/,
-    `$1${escAttr(canonical)}"`
+    (_, p1) => `${p1}${escAttr(canonical)}"`
   );
   html = html.replace(
     /(<link\s+rel="alternate"\s+hreflang="fr"\s+href=")[^"]*"/,
-    `$1${escAttr(canonical)}"`
+    (_, p1) => `${p1}${escAttr(canonical)}"`
   );
 
   // 6. JSON-LD — remplacer le bloc statique
-  const articleLd = buildArticleJsonLd(project, category, catLabel, canonical, cityBrand, structureName);
+  const articleLd = buildArticleJsonLd(project, category, catLabel, canonical, cityBrand, structureName, articlePlain);
   const breadcrumbLd = buildBreadcrumbJsonLd(project, category, catLabel, canonical, structureName, project.ville);
   const jsonLdBlock = `<script type="application/ld+json" id="fiche-jsonld">${JSON.stringify(articleLd)}</script>
   <script type="application/ld+json">${JSON.stringify(breadcrumbLd)}</script>`;
 
   html = html.replace(
     /<script\s+type="application\/ld\+json"\s+id="fiche-jsonld">[^<]*<\/script>/,
-    jsonLdBlock
+    () => jsonLdBlock
   );
 
   // 7. Contenu sémantique SSR — injecter juste après <body>
   const ssrBlock = buildSsrContentBlock(project, category, catLabel, related, cityBrand, structureName, articleHtml);
-  html = html.replace('<body>', `<body>\n${ssrBlock}`);
+  html = html.replace('<body>', () => `<body>\n${ssrBlock}`);
 
   return html;
 }
@@ -597,6 +663,10 @@ export default async (request, context) => {
     return await context.next();
   }
 
+  // Lancer le fetch de la page statique immédiatement : il ne dépend d'aucune
+  // donnée Supabase — l'aller-retour origin recouvre les fetchs et le rendu
+  const responsePromise = context.next();
+
   // Récupérer les données du projet depuis Supabase
   let project = null;
   let related = [];
@@ -612,7 +682,7 @@ export default async (request, context) => {
   // ⚠️  Ne pas retourner 404 : le JS client (fiche-v2.js) doit s'exécuter
   //     pour afficher l'écran d'erreur côté navigateur.
   if (!project) {
-    const response = await context.next();
+    const response = await responsePromise;
     return new Response(response.body, {
       status: 200,
       headers: {
@@ -637,23 +707,34 @@ export default async (request, context) => {
     catLabel = catLabel || humanizeCategory(categorySlug);
   }
 
-  // Conversion markdown → HTML (jamais bloquante : en cas d'échec, description seule)
+  // Conversion markdown → HTML + texte brut (jamais bloquante : en cas d'échec,
+  // repli sur la description seule)
   let articleHtml = '';
+  let articlePlain = '';
   try {
     articleHtml = mdToHtml(articleMd);
+    if (articleMd) {
+      // Texte brut de l'article — repli pour les meta descriptions quand
+      // le projet n'a pas de description propre
+      articlePlain = stripMarkdown(
+        stripFrontMatter(String(articleMd).replace(/\r\n?/g, '\n'))
+          .replace(/::content-image[\t\x20]*\n---[\s\S]*?---\s*::/g, ' ')
+          .replace(/::banner\{[^}]*\}/g, ' ')
+      );
+    }
   } catch (e) {
     console.error('[fiche-ssr] Rendu markdown échoué:', e);
   }
 
-  // Récupérer la réponse d'origine (page statique)
-  const response = await context.next();
+  // Récupérer la réponse d'origine (page statique, fetch lancé en amont)
+  const response = await responsePromise;
   let html = await response.text();
 
   // Canonical URL — format propre /fiche/{ville}/{category_slug}/{slug}
   const canonical = `${BASE_ORIGIN}/fiche/${encodeURIComponent(project.ville)}/${encodeURIComponent(project.category_slug)}/${encodeURIComponent(project.slug)}`;
 
   // Injecter le SEO dans le HTML
-  html = injectIntoHtml(html, project, project.category, catLabel, canonical, related, cityBrand, articleHtml);
+  html = injectIntoHtml(html, project, project.category, catLabel, canonical, related, cityBrand, articleHtml, articlePlain);
 
   // Retourner la page enrichie avec cache court (les données changent)
   return new Response(html, {
