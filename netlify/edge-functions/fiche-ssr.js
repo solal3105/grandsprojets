@@ -67,6 +67,161 @@ function stripMarkdown(text) {
     .trim();
 }
 
+/* ─── Markdown → HTML (rendu serveur, sans dépendance) ───
+   Sous-ensemble de ce que rend le client (marked + DOMPurify) : titres,
+   gras/italique, liens, images, listes, citations, tableaux GFM et les
+   directives ::content-image / ::banner. Tout le texte est échappé avant
+   parsing — le HTML brut éventuel du markdown est affiché comme texte,
+   pas interprété (équivalent strict de la sanitisation côté client). */
+
+function safeUrl(url) {
+  const u = String(url || '').trim();
+  return /^(https?:|mailto:|\/|#)/i.test(u) ? u : '';
+}
+
+function stripFrontMatter(rawMd) {
+  const fm = rawMd.match(/^---\s*\r?\n([\s\S]*?)\r?\n---\s*/);
+  return fm ? rawMd.slice(fm[0].length) : rawMd;
+}
+
+/** Directives custom → HTML final protégé par placeholders @@GPMD@@B{n}@@GPMD@@
+    (résolus après échappement global du texte) */
+function extractDirectives(md, blocks) {
+  md = md.replace(/::content-image[\t\x20]*\n---([\s\S]*?)---\s*::/g, (_, yamlBlock) => {
+    const data = {};
+    yamlBlock.split(/\n/).map(l => l.trim()).filter(Boolean).forEach(line => {
+      const m = line.match(/^(\w+)\s*:\s*(.*)$/);
+      if (m) data[m[1]] = m[2];
+    });
+    const src = safeUrl(data.imageUrl);
+    if (!src) return '';
+    const caption = data.caption
+      ? `<figcaption>${escHtml(data.caption)}${data.credit ? ` – <em>${escHtml(data.credit)}</em>` : ''}</figcaption>`
+      : '';
+    blocks.push(`<figure class="content-image"><img src="${escAttr(src)}" alt="${escAttr(data.caption || '')}" loading="lazy">${caption}</figure>`);
+    return `\n@@GPMD@@B${blocks.length - 1}@@GPMD@@\n`;
+  });
+
+  md = md.replace(/::banner\{type="([^"]+)"\}([\s\S]*?)::/g, (_, type, inner) => {
+    blocks.push(`<div class="banner banner-${escAttr(type)}">${mdInline(escHtml(inner.trim().replace(/\n+/g, ' ')))}</div>`);
+    return `\n@@GPMD@@B${blocks.length - 1}@@GPMD@@\n`;
+  });
+
+  md = md.replace(/^::$/gm, '');
+  md = md.replace(/:[\w-]+-link\{[^}]+\}/g, '');
+  return md;
+}
+
+/** Inline markdown sur du texte déjà échappé HTML */
+function mdInline(t) {
+  // images ![alt](src)
+  t = t.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+&quot;[^)]*&quot;)?\)/g, (_, alt, src) => {
+    const u = safeUrl(src);
+    return u ? `<img src="${u}" alt="${alt}" loading="lazy">` : alt;
+  });
+  // liens [texte](url)
+  t = t.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+&quot;[^)]*&quot;)?\)/g, (_, text, href) => {
+    const u = safeUrl(href);
+    return u ? `<a href="${u}" rel="noopener noreferrer">${text}</a>` : text;
+  });
+  // gras puis italique
+  t = t.replace(/(\*\*|__)(?=\S)([\s\S]*?\S)\1/g, '<strong>$2</strong>');
+  t = t.replace(/(\*|_)(?=\S)([^*_]*\S)\1/g, '<em>$2</em>');
+  // code inline
+  t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+  return t;
+}
+
+function renderTable(rows) {
+  const parseRow = r => r.replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+  const head = parseRow(rows[0]);
+  const body = rows.slice(2).map(parseRow);
+  let html = '<table><thead><tr>' + head.map(c => `<th>${mdInline(c)}</th>`).join('') + '</tr></thead>';
+  if (body.length) {
+    html += '<tbody>' + body.map(r => '<tr>' + r.map(c => `<td>${mdInline(c)}</td>`).join('') + '</tr>').join('') + '</tbody>';
+  }
+  return html + '</table>';
+}
+
+function mdToHtml(rawMd) {
+  if (!rawMd) return '';
+  const blocks = [];
+  let md = stripFrontMatter(rawMd).replace(/@@GPMD@@/g, '');
+  md = extractDirectives(md, blocks);
+  md = escHtml(md);
+
+  const lines = md.split(/\r?\n/);
+  const out = [];
+  let para = [];
+  let listType = null;
+  let listItems = [];
+  let quote = [];
+
+  const flushPara = () => { if (para.length) { out.push(`<p>${mdInline(para.join(' '))}</p>`); para = []; } };
+  const flushList = () => {
+    if (listType) {
+      out.push(`<${listType}>` + listItems.map(i => `<li>${mdInline(i)}</li>`).join('') + `</${listType}>`);
+      listType = null; listItems = [];
+    }
+  };
+  const flushQuote = () => { if (quote.length) { out.push(`<blockquote><p>${mdInline(quote.join(' '))}</p></blockquote>`); quote = []; } };
+  const flushAll = () => { flushPara(); flushList(); flushQuote(); };
+
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+
+    if (!trimmed) { flushAll(); continue; }
+
+    // Placeholder de directive
+    const ph = trimmed.match(/^@@GPMD@@B(\d+)@@GPMD@@$/);
+    if (ph) { flushAll(); out.push(blocks[Number(ph[1])] || ''); continue; }
+
+    // Titres — niveau décalé de +1 : le h1 de la page est le nom du projet
+    const h = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (h) {
+      flushAll();
+      const lvl = Math.min(h[1].length + 1, 6);
+      out.push(`<h${lvl}>${mdInline(h[2].replace(/\s#+\s*$/, ''))}</h${lvl}>`);
+      continue;
+    }
+
+    // Séparateur horizontal
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) { flushAll(); out.push('<hr>'); continue; }
+
+    // Citation (le « > » est déjà échappé en &gt;)
+    const q = trimmed.match(/^&gt;\s?(.*)$/);
+    if (q) { flushPara(); flushList(); quote.push(q[1]); continue; }
+
+    // Tableau GFM : ligne |...| suivie d'une ligne séparatrice |---|
+    if (trimmed.startsWith('|') && lines[i + 1] && /^\|?[\s:|-]+\|?$/.test(lines[i + 1].trim()) && lines[i + 1].includes('-')) {
+      flushAll();
+      const rows = [];
+      let j = i;
+      while (j < lines.length && lines[j].trim().startsWith('|')) { rows.push(lines[j].trim()); j++; }
+      out.push(renderTable(rows));
+      i = j - 1;
+      continue;
+    }
+
+    // Listes
+    const ul = trimmed.match(/^[-*+]\s+(.*)$/);
+    const ol = trimmed.match(/^\d+[.)]\s+(.*)$/);
+    if (ul || ol) {
+      flushPara(); flushQuote();
+      const type = ul ? 'ul' : 'ol';
+      if (listType && listType !== type) flushList();
+      listType = type;
+      listItems.push((ul || ol)[1]);
+      continue;
+    }
+
+    flushList(); flushQuote();
+    para.push(trimmed);
+  }
+  flushAll();
+  return out.join('\n');
+}
+
 /* ─── Supabase REST helpers ─── */
 
 const supaHeaders = {
@@ -139,6 +294,21 @@ async function fetchCityBranding(ville) {
   if (!resp.ok) return null;
   const rows = await resp.json();
   return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+}
+
+/** Télécharge l'article markdown du projet (URL publique Supabase Storage) */
+async function fetchMarkdownArticle(markdownUrl) {
+  const u = String(markdownUrl || '').trim();
+  if (!/^https:\/\//i.test(u)) return '';
+  try {
+    const resp = await fetch(u, { signal: AbortSignal.timeout(4000) });
+    if (!resp.ok) return '';
+    const md = await resp.text();
+    // Garde-fou taille : au-delà, on retombe sur la description seule
+    return md.length > 200000 ? '' : md;
+  } catch {
+    return '';
+  }
 }
 
 /* ─── JSON-LD builders ─── */
@@ -227,7 +397,7 @@ function buildBreadcrumbJsonLd(project, category, catLabel, canonical, structure
 
 /* ─── HTML injection ─── */
 
-function buildSsrContentBlock(project, category, catLabel, related, cityBrand, structureName) {
+function buildSsrContentBlock(project, category, catLabel, related, cityBrand, structureName, articleHtml) {
   const name = escHtml(project.project_name);
   const desc = escHtml(stripMarkdown(project.description || ''));
   const catLabelSafe = escHtml(catLabel);
@@ -261,7 +431,14 @@ function buildSsrContentBlock(project, category, catLabel, related, cityBrand, s
       </div>
     </header>`;
 
-  if (desc) {
+  // Article complet si disponible, sinon description seule
+  // (même logique que le client : la description est masquée quand un markdown existe)
+  if (articleHtml) {
+    html += `
+    <section class="fv2-ssr__article" itemprop="articleBody">
+${articleHtml}
+    </section>`;
+  } else if (desc) {
     html += `
     <section>
       <p itemprop="description">${desc}</p>
@@ -310,7 +487,7 @@ function buildSsrContentBlock(project, category, catLabel, related, cityBrand, s
   return html;
 }
 
-function injectIntoHtml(html, project, category, catLabel, canonical, related, cityBrand) {
+function injectIntoHtml(html, project, category, catLabel, canonical, related, cityBrand, articleHtml) {
   const name = project.project_name;
   const structureName = cityBrand?.brand_name
     || (project.ville ? humanizeCategory(project.ville) : '');
@@ -395,7 +572,7 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
   );
 
   // 7. Contenu sémantique SSR — injecter juste après <body>
-  const ssrBlock = buildSsrContentBlock(project, category, catLabel, related, cityBrand, structureName);
+  const ssrBlock = buildSsrContentBlock(project, category, catLabel, related, cityBrand, structureName, articleHtml);
   html = html.replace('<body>', `<body>\n${ssrBlock}`);
 
   return html;
@@ -445,17 +622,27 @@ export default async (request, context) => {
     });
   }
 
-  // Récupérer projets liés + branding ville + label catégorie en parallèle
+  // Récupérer projets liés + branding ville + label catégorie + article markdown en parallèle
   let catLabel = '';
+  let articleMd = '';
   try {
-    [related, cityBrand, catLabel] = await Promise.all([
+    [related, cityBrand, catLabel, articleMd] = await Promise.all([
       fetchRelatedProjects(project.category, project.project_name),
       fetchCityBranding(project.ville),
       fetchCategoryLabel(project.category, project.ville),
+      fetchMarkdownArticle(project.markdown_url),
     ]);
   } catch (e) {
     console.error('[fiche-ssr] Fetch related/branding/label failed:', e);
     catLabel = catLabel || humanizeCategory(categorySlug);
+  }
+
+  // Conversion markdown → HTML (jamais bloquante : en cas d'échec, description seule)
+  let articleHtml = '';
+  try {
+    articleHtml = mdToHtml(articleMd);
+  } catch (e) {
+    console.error('[fiche-ssr] Rendu markdown échoué:', e);
   }
 
   // Récupérer la réponse d'origine (page statique)
@@ -466,7 +653,7 @@ export default async (request, context) => {
   const canonical = `${BASE_ORIGIN}/fiche/${encodeURIComponent(project.ville)}/${encodeURIComponent(project.category_slug)}/${encodeURIComponent(project.slug)}`;
 
   // Injecter le SEO dans le HTML
-  html = injectIntoHtml(html, project, project.category, catLabel, canonical, related, cityBrand);
+  html = injectIntoHtml(html, project, project.category, catLabel, canonical, related, cityBrand, articleHtml);
 
   // Retourner la page enrichie avec cache court (les données changent)
   return new Response(html, {

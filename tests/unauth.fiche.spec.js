@@ -12,6 +12,10 @@ let VALID_PROJECT_NAME = ''; // nom complet pour les assertions de texte
 let VALID_CITY = '';
 let VALID_SLUG = '';      // alias lisible de VALID_PROJECT
 let VALID_CAT_SLUG = '';  // slug de la catégorie
+/** @type {{project_name: string, category_slug: string, slug: string, ville: string, markdown_url: string} | null} */
+let MD_PROJECT = null;    // projet avec article markdown (pour les tests SSR article)
+/** @type {{project_name: string, category_slug: string, slug: string, ville: string, markdown_url: string|null} | null} */
+let NOMD_PROJECT = null;  // projet sans article markdown (pour le fallback description)
 
 /**
  * Attend que la page fiche soit chargée et le JS hydraté.
@@ -47,23 +51,33 @@ async function discoverValidProject(page) {
   await page.waitForTimeout(3000);
 
   // Chercher un lien fiche dans la page, ou utiliser Supabase directement
-  const projectSlug = await page.evaluate(async () => {
+  const projects = await page.evaluate(async () => {
     const svc = window.supabaseService;
     if (!svc) return null;
     try {
-      const { data } = await window.__supabaseClient
+      const base = () => window.__supabaseClient
         .from('contribution_uploads')
-        .select('project_name, category, category_slug, slug, ville')
+        .select('project_name, category, category_slug, slug, ville, markdown_url')
         .eq('approved', true)
-        .limit(1)
-        .single();
-      return data;
+        .not('ville', 'is', null)
+        .not('slug', 'ilike', 'e2e-%')
+        .limit(1);
+      const [main, withMd, withoutMd] = await Promise.all([
+        base().single(),
+        base().not('markdown_url', 'is', null).maybeSingle(),
+        base().is('markdown_url', null).maybeSingle(),
+      ]);
+      return {
+        main: main.data,
+        withMd: withMd.data,
+        withoutMd: withoutMd.data,
+      };
     } catch {
       return null;
     }
   });
 
-  return projectSlug;
+  return projects;
 }
 
 // ─────────────────────────────────────────────────────────
@@ -71,7 +85,10 @@ async function discoverValidProject(page) {
 // ─────────────────────────────────────────────────────────
 test.beforeAll(async ({ browser }) => {
   const page = await browser.newPage();
-  const found = await discoverValidProject(page);
+  const discovered = await discoverValidProject(page);
+  MD_PROJECT = discovered?.withMd || null;
+  NOMD_PROJECT = discovered?.withoutMd || null;
+  const found = discovered?.main;
   if (found) {
     VALID_PROJECT_NAME = found.project_name;
     VALID_SLUG = found.slug || '';
@@ -383,11 +400,13 @@ test.describe('0.8 — Fiche : SSR', () => {
     expect(html).not.toContain('id="fv2-ssr-content"');
   });
 
-  test('0.8.9 — Le SSR contient itemprop="description"', async ({ page }) => {
+  test('0.8.9 — Le SSR contient la description ou l\'article complet', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     const response = await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const html = await response.text();
-    expect(html).toContain('itemprop="description"');
+    // Projet avec markdown → article complet ; sans markdown → description seule
+    const hasContent = html.includes('itemprop="articleBody"') || html.includes('itemprop="description"');
+    expect(hasContent).toBe(true);
   });
 
   test('0.8.10 — Le SSR contient les projets similaires en maillage interne', async ({ page }) => {
@@ -420,6 +439,54 @@ test.describe('0.8 — Fiche : SSR', () => {
     if (html.includes('Site officiel')) {
       expect(html).toMatch(/rel="noopener noreferrer"/);
     }
+  });
+
+  test('0.8.13 — Projet avec markdown : l\'article complet est rendu côté serveur', async ({ page }) => {
+    const proj = MD_PROJECT;
+    test.skip(!proj, 'Aucun projet avec article markdown en base');
+    if (!proj) return;
+    const response = await page.request.get(ficheUrl(proj.slug, proj.category_slug, proj.ville));
+    const html = await response.text();
+    expect(html).toContain('class="fv2-ssr__article"');
+    expect(html).toContain('itemprop="articleBody"');
+    const article = html.match(/<section class="fv2-ssr__article"[\s\S]*?<\/section>/)?.[0] || '';
+    expect(article.length).toBeGreaterThan(0);
+    const text = article.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    // Le texte servi aux crawlers doit refléter le contenu réel du markdown
+    // (comparaison en longueur : au moins la moitié du texte brut, plafonné à 100)
+    const mdResp = await page.request.get(proj.markdown_url);
+    const rawMd = await mdResp.text();
+    const plainMd = rawMd
+      .replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*/, '')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/[#>*_`[\]()|-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    expect(text.length).toBeGreaterThanOrEqual(Math.min(100, Math.floor(plainMd.length / 2)));
+  });
+
+  test('0.8.14 — Projet avec markdown : pas de h1 dans l\'article (titres décalés)', async ({ page }) => {
+    const proj = MD_PROJECT;
+    test.skip(!proj, 'Aucun projet avec article markdown en base');
+    if (!proj) return;
+    const response = await page.request.get(ficheUrl(proj.slug, proj.category_slug, proj.ville));
+    const html = await response.text();
+    const article = html.match(/<section class="fv2-ssr__article"[\s\S]*?<\/section>/)?.[0] || '';
+    expect(article.length).toBeGreaterThan(0);
+    // Le seul h1 SSR est le nom du projet dans le header — l'article démarre à h2
+    expect(article).not.toContain('<h1');
+    // Le HTML brut éventuel du markdown doit être échappé, jamais interprété
+    expect(article).not.toContain('<script');
+  });
+
+  test('0.8.15 — Projet sans markdown : fallback sur la description seule', async ({ page }) => {
+    const proj = NOMD_PROJECT;
+    test.skip(!proj, 'Aucun projet sans markdown en base');
+    if (!proj) return;
+    const response = await page.request.get(ficheUrl(proj.slug, proj.category_slug, proj.ville));
+    const html = await response.text();
+    expect(html).toContain('id="fv2-ssr-content"');
+    expect(html).not.toContain('class="fv2-ssr__article"');
   });
 });
 
