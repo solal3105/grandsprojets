@@ -907,12 +907,32 @@ body { margin: 0; }
 .fv2-glass-card--brand {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 16px;
   padding: 18px 22px;
   background-image:
     radial-gradient(ellipse at 0% 100%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 60%),
     var(--fv2-glass-shimmer);
 }
+
+/* Lien vers le hub de la ville — sur sa propre ligne sous le logo/nom */
+.fv2-glass-card__city-hub {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-light);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--primary);
+  transition: color 0.2s ease;
+}
+.fv2-glass-card__city-hub i { font-size: 0.72rem; transition: transform 0.25s var(--fv2-spring); }
+.fv2-glass-card__city-hub:hover { color: color-mix(in srgb, var(--primary) 82%, var(--text-primary)); }
+.fv2-glass-card__city-hub:hover i { transform: translateX(4px); }
+.fv2-glass-card__city-hub[hidden] { display: none; }
 
 .fv2-glass-card__city-logo {
   height: 44px;

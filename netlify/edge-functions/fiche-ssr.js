@@ -419,10 +419,12 @@ function buildArticleJsonLd(project, category, catLabel, canonical, cityBrand, s
 }
 
 function buildBreadcrumbJsonLd(project, category, catLabel, canonical, structureName, ville) {
-  const rootName = structureName || catLabel;
-  const rootUrl = ville
-    ? `${BASE_ORIGIN}/?city=${encodeURIComponent(ville)}`
-    : BASE_ORIGIN;
+  // Le parent d'une fiche est le hub de sa ville (et non la carte brute) :
+  // niveau ville → /ville/{ville}, niveau catégorie → hub filtré (#c=slug).
+  const hubUrl = ville ? `${BASE_ORIGIN}/ville/${encodeURIComponent(ville)}` : BASE_ORIGIN;
+  const catUrl = (ville && project.category_slug)
+    ? `${hubUrl}#c=${encodeURIComponent(project.category_slug)}`
+    : hubUrl;
   return {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -430,14 +432,14 @@ function buildBreadcrumbJsonLd(project, category, catLabel, canonical, structure
       {
         '@type': 'ListItem',
         position: 1,
-        name: rootName,
-        item: rootUrl,
+        name: structureName || catLabel,
+        item: hubUrl,
       },
       {
         '@type': 'ListItem',
         position: 2,
         name: catLabel,
-        item: `${BASE_ORIGIN}/${ville ? `?city=${encodeURIComponent(ville)}` : ''}`,
+        item: catUrl,
       },
       {
         '@type': 'ListItem',
@@ -458,7 +460,11 @@ function buildSsrContentBlock(project, category, catLabel, related, cityBrand, s
   const ville = project.ville || '';
   const officialUrl = project.official_url || '';
 
-  const rootHref = ville ? `/?city=${encodeURIComponent(ville)}` : '/';
+  // Fil d'Ariane vers le hub de la ville (le vrai parent de la fiche)
+  const hubHref = ville ? `/ville/${encodeURIComponent(ville)}` : '/';
+  const catHref = (ville && project.category_slug)
+    ? `${hubHref}#c=${encodeURIComponent(project.category_slug)}`
+    : hubHref;
   const rootLabel = structureNameSafe || catLabelSafe;
 
   let html = `
@@ -467,8 +473,8 @@ function buildSsrContentBlock(project, category, catLabel, related, cityBrand, s
   <article itemscope itemtype="https://schema.org/Article">
     <header>
       <nav aria-label="Fil d'Ariane" class="fv2-ssr__breadcrumb">
-        <a href="${escAttr(rootHref)}">${rootLabel}</a> › 
-        <span>${catLabelSafe}</span> › 
+        <a href="${escAttr(hubHref)}">${rootLabel}</a> ›
+        <a href="${escAttr(catHref)}">${catLabelSafe}</a> ›
         <span>${name}</span>
       </nav>
       <h1 itemprop="headline">${name}</h1>
@@ -539,6 +545,14 @@ ${articleHtml}
     html += `
       </ul>
     </section>`;
+  }
+
+  // Lien vers le hub de la ville — maillage interne fiche → hub
+  if (ville) {
+    html += `
+    <nav class="fv2-ssr__hub" aria-label="Navigation ville">
+      <a href="${escAttr(hubHref)}">Tous les projets de ${rootLabel}</a>
+    </nav>`;
   }
 
   html += `

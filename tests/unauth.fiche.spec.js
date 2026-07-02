@@ -1494,3 +1494,69 @@ test.describe('0.24 — Fiche : hydratation client (régression)', () => {
     expect(filter).toBe(`eq.${VALID_PROJECT_NAME}`);
   });
 });
+
+// ═════════════════════════════════════════════════════════
+// 0.28 — Fiche → hub ville : recâblage du flow (§1)
+// ═════════════════════════════════════════════════════════
+test.describe('0.28 — Fiche → hub ville', () => {
+
+  test('0.28.1 — Le fil d\'Ariane SSR pointe vers le hub de la ville', async ({ page }) => {
+    test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville indisponible');
+    const response = await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
+    const html = await response.text();
+    const bc = html.match(/<nav[^>]*fv2-ssr__breadcrumb[\s\S]*?<\/nav>/)?.[0] || '';
+    expect(bc).toContain(`href="/ville/${VALID_CITY}"`);
+    // Le niveau catégorie mène au hub filtré
+    expect(bc).toContain(`/ville/${VALID_CITY}#c=${VALID_CAT_SLUG}`);
+  });
+
+  test('0.28.2 — Le JSON-LD BreadcrumbList remonte vers /ville/{ville}', async ({ page }) => {
+    test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville indisponible');
+    const response = await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
+    const html = await response.text();
+    const ld = html.match(/"@type":"BreadcrumbList"[\s\S]*?\}\]\}/)?.[0] || '';
+    expect(ld).toContain(`https://openprojets.com/ville/${VALID_CITY}`);
+    // Plus aucun renvoi vers la carte paramétrée /?city= dans le fil d'Ariane
+    expect(ld).not.toContain('/?city=');
+  });
+
+  test('0.28.3 — Le SSR contient un lien « Tous les projets de la ville »', async ({ page }) => {
+    test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville indisponible');
+    const response = await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
+    const html = await response.text();
+    expect(html).toContain('fv2-ssr__hub');
+    const hub = html.match(/<nav class="fv2-ssr__hub"[\s\S]*?<\/nav>/)?.[0] || '';
+    expect(hub).toContain(`href="/ville/${VALID_CITY}"`);
+  });
+
+  test('0.28.4 — La brand card expose un lien vers le hub après hydratation', async ({ page }) => {
+    test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville indisponible');
+    await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
+    await page.waitForTimeout(3000); // branding async
+    const brandHidden = await page.locator('#fv2-brand-card').evaluate(el => el.hidden);
+    test.skip(brandHidden, 'Pas de branding pour cette ville');
+    const hub = page.locator('#fv2-city-hub');
+    await expect(hub).toBeVisible();
+    expect(await hub.getAttribute('href')).toBe(`/ville/${VALID_CITY}`);
+  });
+
+  test('0.28.5 — Retour contextuel : une fiche ouverte depuis le hub revient au hub', async ({ page }) => {
+    test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville indisponible');
+    // Le referrer /ville/... doit ramener au hub (filtre compris) plutôt qu'à la carte
+    await page.goto(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY), {
+      waitUntil: 'domcontentloaded',
+      referer: `http://localhost:3001/ville/${VALID_CITY}#c=${VALID_CAT_SLUG}`,
+    });
+    await page.waitForSelector('#fv2-btn-back', { timeout: 20000 });
+    const href = await page.locator('#fv2-btn-back').getAttribute('href');
+    expect(href).toContain(`/ville/${VALID_CITY}`);
+  });
+
+  test('0.28.6 — Sans referrer hub, le retour mène toujours à la carte', async ({ page }) => {
+    test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville indisponible');
+    await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
+    const href = await page.locator('#fv2-btn-back').getAttribute('href');
+    expect(href).not.toContain('/ville/');
+    expect(href).toContain(`city=${VALID_CITY}`);
+  });
+});

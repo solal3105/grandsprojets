@@ -56,6 +56,7 @@
     brandCard:    $('fv2-brand-card'),
     cityLogo:     $('fv2-city-logo'),
     cityName:     $('fv2-city-name'),
+    cityHub:      $('fv2-city-hub'),
     linkCard:     $('fv2-link-card'),
     linkFavicon:  $('fv2-link-favicon'),
     linkDomain:   $('fv2-link-domain'),
@@ -101,6 +102,14 @@
   }
 
   function buildBackUrl({ villeSlug, categorySlug }) {
+    // Retour contextuel : si l'utilisateur vient du hub de la ville (ou de la
+    // carte), on le ramène exactement là — filtre compris. Sinon, la carte.
+    try {
+      const ref = document.referrer && new URL(document.referrer);
+      if (ref && ref.host === window.location.host && /^\/ville\/[a-z0-9-]+/i.test(ref.pathname)) {
+        return ref.pathname + ref.search + ref.hash;
+      }
+    } catch { /* referrer absent ou cross-origin */ }
     const params = new URLSearchParams();
     if (villeSlug) params.set('city', villeSlug);
     if (categorySlug && categorySlug !== CFG.DEFAULT_CAT) params.set('cat', categorySlug);
@@ -409,6 +418,8 @@
       if (el.cityLogo)   { el.cityLogo.src = url; el.cityLogo.alt = brandName; }
       if (el.cityName)   { el.cityName.textContent = brandName; }
       if (el.brandCard)  { el.brandCard.hidden = false; }
+      // Lien vers le hub de la ville (retravaille le flow fiche → liste)
+      if (el.cityHub)    { el.cityHub.href = `/ville/${encodeURIComponent(v)}`; el.cityHub.hidden = false; }
 
       // Topbar logo
       if (el.topLogoImg) { el.topLogoImg.src = url; el.topLogoImg.alt = brandName; }
