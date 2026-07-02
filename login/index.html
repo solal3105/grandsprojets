@@ -8,314 +8,11 @@
   <title>Connexion – Open Projets</title>
   <link rel="icon" type="image/png" href="/img/logos/favicon.png" sizes="32x32">
   <link rel="apple-touch-icon" href="/img/logos/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles/00-colors.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body, html { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
-
-    /* ── Animated background ── */
-    body {
-      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 25%, #0f172a 50%, #14532d 75%, #0f172a 100%);
-      background-size: 400% 400%;
-      animation: gradientShift 20s ease infinite;
-      color: #f8fafc;
-      overflow-x: hidden;
-    }
-
-    @keyframes gradientShift {
-      0%   { background-position: 0% 50%; }
-      50%  { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-
-    /* ── Floating orbs ── */
-    .bg-orbs { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
-    .bg-orbs .orb {
-      position: absolute;
-      border-radius: 50%;
-      filter: blur(80px);
-      opacity: 0.3;
-      animation: orbFloat 18s ease-in-out infinite;
-    }
-    .bg-orbs .orb:nth-child(1) { width: 400px; height: 400px; background: #14AE5C; top: -10%; left: -5%; animation-delay: 0s; }
-    .bg-orbs .orb:nth-child(2) { width: 350px; height: 350px; background: #2563EB; top: 60%; right: -8%; animation-delay: -6s; animation-duration: 22s; }
-    .bg-orbs .orb:nth-child(3) { width: 250px; height: 250px; background: #F59E0B; bottom: -5%; left: 30%; animation-delay: -12s; animation-duration: 25s; }
-
-    @keyframes orbFloat {
-      0%, 100% { transform: translate(0, 0) scale(1); }
-      33%      { transform: translate(40px, -30px) scale(1.05); }
-      66%      { transform: translate(-20px, 20px) scale(0.95); }
-    }
-
-    /* ── Layout ── */
-    .login-wrapper {
-      position: relative;
-      z-index: 1;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      gap: 20px;
-      perspective: 1200px;
-    }
-
-    /* ── Logo ── */
-    .login-logo {
-      text-align: center;
-      animation: fadeSlideIn 0.6s ease-out both;
-    }
-    .login-logo a { display: inline-block; text-decoration: none; transition: transform 0.3s ease; }
-    .login-logo a:hover { transform: scale(1.05); }
-    .login-logo img {
-      width: 64px;
-      height: 64px;
-      margin-bottom: 12px;
-      filter: drop-shadow(0 4px 20px rgba(20, 174, 92, 0.4));
-    }
-    .login-logo h1 {
-      font-size: 30px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      background: linear-gradient(135deg, #f8fafc, #94a3b8);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    /* ── Glass Card ── */
-    .glass-card {
-      width: 100%;
-      max-width: 460px;
-      background: rgba(255, 255, 255, 0.06);
-      backdrop-filter: blur(24px) saturate(1.4);
-      -webkit-backdrop-filter: blur(24px) saturate(1.4);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 20px;
-      padding: 36px 32px;
-      box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.3),
-        0 1px 0 rgba(255, 255, 255, 0.08) inset;
-      transform: rotateX(2deg) rotateY(0deg);
-      transform-style: preserve-3d;
-      transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.5s ease;
-      animation: cardAppear 0.8s ease-out both;
-      animation-delay: 0.15s;
-    }
-    .glass-card:hover {
-      transform: rotateX(0deg) rotateY(0deg) translateY(-4px);
-      box-shadow:
-        0 20px 60px rgba(0, 0, 0, 0.35),
-        0 1px 0 rgba(255, 255, 255, 0.1) inset;
-    }
-
-    @keyframes cardAppear {
-      from { opacity: 0; transform: rotateX(8deg) translateY(30px) scale(0.96); }
-      to   { opacity: 1; transform: rotateX(2deg) translateY(0) scale(1); }
-    }
-
-    @keyframes fadeSlideIn {
-      from { opacity: 0; transform: translateY(-20px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    /* ── Card Title ── */
-    .card-title {
-      font-size: 20px;
-      font-weight: 700;
-      text-align: center;
-      margin-bottom: 28px;
-      color: #f8fafc;
-      letter-spacing: -0.3px;
-    }
-
-    /* ── Form ── */
-    .form-group { margin-bottom: 20px; }
-    .form-label {
-      display: block;
-      font-size: 13px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: rgba(248, 250, 252, 0.7);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .form-input {
-      width: 100%;
-      padding: 14px 16px;
-      font-size: 15px;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.06);
-      color: #f8fafc;
-      transition: all 0.3s ease;
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-    }
-    .form-input::placeholder { color: rgba(255, 255, 255, 0.35); }
-    .form-input:focus {
-      outline: none;
-      border-color: #60a5fa;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25), 0 0 20px rgba(37, 99, 235, 0.1);
-      background: rgba(255, 255, 255, 0.1);
-    }
-
-    /* ── Buttons ── */
-    .btn {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      padding: 14px 20px;
-      font-size: 15px;
-      font-weight: 600;
-      border: none;
-      border-radius: 12px;
-      cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
-      text-decoration: none;
-      position: relative;
-      overflow: hidden;
-    }
-    .btn::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
-      opacity: 0;
-      transition: opacity 0.3s ease;
-      pointer-events: none;
-    }
-    .btn:hover::before { opacity: 1; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn:disabled::before { display: none; }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #2563EB, #1d4ed8);
-      color: #fff;
-      box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
-    }
-    .btn-primary:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 28px rgba(37, 99, 235, 0.45);
-    }
-    .btn-primary:active:not(:disabled) {
-      transform: translateY(0);
-      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
-    }
-
-    .btn-github {
-      background: rgba(255, 255, 255, 0.08);
-      color: #f8fafc;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-    }
-    .btn-github:hover:not(:disabled) {
-      background: rgba(255, 255, 255, 0.14);
-      border-color: rgba(255, 255, 255, 0.25);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-    }
-
-    /* ── Separator ── */
-    .separator {
-      display: flex;
-      align-items: center;
-      margin: 22px 0;
-      color: rgba(248, 250, 252, 0.4);
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    .separator::before, .separator::after {
-      content: '';
-      flex: 1;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .separator span { padding: 0 14px; }
-
-    /* ── Info Box ── */
-    .info-box {
-      padding: 24px;
-      background: rgba(37, 99, 235, 0.08);
-      border-color: rgba(37, 99, 235, 0.2);
-      animation-delay: 0.3s;
-    }
-    .info-box-title {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 15px;
-      font-weight: 700;
-      margin-bottom: 8px;
-      color: #60a5fa;
-    }
-    .info-box-text {
-      font-size: 14px;
-      line-height: 1.7;
-      color: rgba(248, 250, 252, 0.6);
-    }
-
-    /* ── Status ── */
-    .status {
-      margin-top: 14px;
-      padding: 12px 16px;
-      border-radius: 12px;
-      font-size: 14px;
-      text-align: center;
-      display: none;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      animation: statusPop 0.3s ease-out;
-    }
-    .status.show { display: block; }
-    .status.success {
-      background: rgba(20, 174, 92, 0.15);
-      color: #34d399;
-      border: 1px solid rgba(20, 174, 92, 0.25);
-    }
-    .status.error {
-      background: rgba(239, 68, 68, 0.15);
-      color: #f87171;
-      border: 1px solid rgba(239, 68, 68, 0.25);
-    }
-
-    @keyframes statusPop {
-      from { opacity: 0; transform: translateY(-8px) scale(0.98); }
-      to   { opacity: 1; transform: translateY(0) scale(1); }
-    }
-
-    /* ── Back Link ── */
-    .back-link { text-align: center; animation: fadeSlideIn 0.6s ease-out both; animation-delay: 0.4s; }
-    .back-link a {
-      color: rgba(248, 250, 252, 0.5);
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 500;
-      transition: all 0.3s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 16px;
-      border-radius: 10px;
-    }
-    .back-link a:hover {
-      color: #f8fafc;
-      background: rgba(255, 255, 255, 0.06);
-    }
-
-    /* ── Responsive ── */
-    @media (max-width: 640px) {
-      .glass-card { padding: 28px 20px; border-radius: 16px; }
-      .login-logo h1 { font-size: 24px; }
-      .card-title { font-size: 17px; }
-      .bg-orbs .orb { opacity: 0.2; }
-    }
-  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <script>
     (function() {
       try {
@@ -326,80 +23,474 @@
       } catch (e) {}
     })();
   </script>
+  <style>
+    /* ── Tokens locaux (miroir de admin.css) ── */
+    :root {
+      --lg-primary-rgb: 20, 174, 92;
+      --lg-info-rgb: 37, 99, 235;
+      --lg-warning-rgb: 245, 158, 11;
+      --lg-glass: rgba(250, 251, 255, 0.88);
+      --lg-glass-inner: rgba(255, 255, 255, 0.45);
+      --lg-glass-border: rgba(255, 255, 255, 0.72);
+      --lg-input-bg: rgba(255, 255, 255, 0.45);
+      --lg-input-bg-focus: rgba(255, 255, 255, 0.75);
+      --lg-input-border: rgba(15, 23, 42, 0.10);
+      --lg-shimmer: rgba(255, 255, 255, 0.95);
+      --lg-hairline: rgba(15, 23, 42, 0.07);
+      --lg-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      --lg-spring: 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      --lg-enter: 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+      --lg-card-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.045),
+        0 2px 6px  rgba(0, 0, 0, 0.04),
+        0 8px 32px rgba(0, 0, 0, 0.08),
+        0 28px 64px rgba(0, 0, 0, 0.07),
+        inset 0 1.5px 0 var(--lg-shimmer),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.02);
+      --lg-mesh:
+        radial-gradient(ellipse 80% 50% at 5% 95%, rgba(var(--lg-primary-rgb), 0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 60% at 90% 15%, rgba(var(--lg-info-rgb), 0.06) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 40% at 50% 50%, rgba(var(--lg-warning-rgb), 0.03) 0%, transparent 50%),
+        linear-gradient(145deg, #f0f4f8 0%, #e6ecf4 35%, #f2eef6 65%, #ecf0f5 100%);
+    }
+
+    html[data-theme='dark'] {
+      --lg-glass: rgba(22, 30, 48, 0.72);
+      --lg-glass-inner: rgba(255, 255, 255, 0.04);
+      --lg-glass-border: rgba(255, 255, 255, 0.08);
+      --lg-input-bg: rgba(255, 255, 255, 0.05);
+      --lg-input-bg-focus: rgba(255, 255, 255, 0.09);
+      --lg-input-border: rgba(255, 255, 255, 0.10);
+      --lg-shimmer: rgba(255, 255, 255, 0.12);
+      --lg-hairline: rgba(255, 255, 255, 0.07);
+      --lg-card-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.2),
+        0 2px 6px  rgba(0, 0, 0, 0.2),
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        0 28px 64px rgba(0, 0, 0, 0.28),
+        inset 0 1.5px 0 var(--lg-shimmer),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+      --lg-mesh:
+        radial-gradient(ellipse 80% 50% at 5% 95%, rgba(var(--lg-primary-rgb), 0.1) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 60% at 90% 15%, rgba(96, 165, 250, 0.08) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 40% at 50% 50%, rgba(251, 191, 36, 0.04) 0%, transparent 50%),
+        linear-gradient(145deg, #0c1222 0%, #101828 35%, #151b2e 65%, #0f172a 100%);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--lg-mesh);
+      background-attachment: fixed;
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
+    }
+
+    /* ── Aurores décoratives (dérive très lente) ── */
+    .lg-bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .lg-bg__aurora {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(90px);
+      opacity: 0.5;
+      animation: lg-drift 30s ease-in-out infinite alternate;
+    }
+    .lg-bg__aurora--green {
+      width: 520px; height: 520px;
+      background: rgba(var(--lg-primary-rgb), 0.16);
+      top: -12%; left: -8%;
+    }
+    .lg-bg__aurora--blue {
+      width: 460px; height: 460px;
+      background: rgba(var(--lg-info-rgb), 0.12);
+      bottom: -14%; right: -6%;
+      animation-delay: -14s;
+      animation-duration: 36s;
+    }
+    @keyframes lg-drift {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(60px, -40px) scale(1.12); }
+    }
+
+    /* ── Layout ── */
+    .lg-wrap {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      padding: 32px 20px;
+    }
+
+    /* ── Carte glass (signature admin) ── */
+    .lg-card {
+      width: 100%;
+      max-width: 430px;
+      background: var(--lg-glass);
+      backdrop-filter: blur(44px) saturate(180%);
+      -webkit-backdrop-filter: blur(44px) saturate(180%);
+      border: 1px solid var(--lg-glass-border);
+      border-radius: 24px;
+      box-shadow: var(--lg-card-shadow);
+      padding: 40px 36px 32px;
+      position: relative;
+      isolation: isolate;
+      animation: lg-card-in var(--lg-enter) both;
+    }
+    /* Shimmer — signature 3D depth layer */
+    .lg-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      z-index: 0;
+      background: linear-gradient(
+        170deg,
+        rgba(255, 255, 255, 0.32) 0%,
+        rgba(255, 255, 255, 0.08) 28%,
+        rgba(255, 255, 255, 0) 55%
+      );
+    }
+    html[data-theme='dark'] .lg-card::after {
+      background: linear-gradient(
+        170deg,
+        rgba(255, 255, 255, 0.07) 0%,
+        rgba(255, 255, 255, 0.02) 28%,
+        rgba(255, 255, 255, 0) 55%
+      );
+    }
+    .lg-card > * { position: relative; z-index: 1; }
+
+    @keyframes lg-card-in {
+      from { opacity: 0; transform: translateY(24px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Enfants en cascade */
+    .lg-head, .lg-form, .lg-foot { animation: lg-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+    .lg-head { animation-delay: 0.08s; }
+    .lg-form { animation-delay: 0.16s; }
+    .lg-foot { animation-delay: 0.24s; }
+    @keyframes lg-rise {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── En-tête de carte ── */
+    .lg-head { text-align: center; margin-bottom: 28px; }
+    .lg-head__logo {
+      display: inline-block;
+      margin-bottom: 20px;
+      transition: transform var(--lg-spring), filter 0.25s ease;
+    }
+    .lg-head__logo:hover  { transform: scale(1.05); filter: brightness(1.06); }
+    .lg-head__logo:active { transform: scale(0.96); }
+    .lg-head__logo img {
+      height: 44px;
+      width: auto;
+      max-width: 190px;
+      object-fit: contain;
+      display: block;
+    }
+    .lg-head__logo img.lg-logo--dark { display: none; height: 84px; opacity: 0.95; }
+    html[data-theme='dark'] .lg-head__logo img.lg-logo--light { display: none; }
+    html[data-theme='dark'] .lg-head__logo img.lg-logo--dark { display: block; }
+    .lg-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      color: var(--primary);
+      background: var(--primary-alpha-12);
+      border: 1px solid var(--primary-alpha-35);
+      border-radius: 999px;
+    }
+    .lg-badge i { font-size: 10px; }
+    .lg-head__title {
+      font-size: 23px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+    .lg-head__subtitle {
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+    }
+
+    /* ── Formulaire ── */
+    .lg-field { margin-bottom: 16px; }
+    .lg-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    .lg-input-wrap { position: relative; }
+    .lg-input-wrap > i {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+      color: var(--text-tertiary);
+      pointer-events: none;
+      transition: color var(--lg-transition);
+    }
+    .lg-input-wrap:focus-within > i { color: var(--primary); }
+    .lg-input {
+      width: 100%;
+      padding: 13px 15px 13px 42px;
+      font-size: 15px;
+      font-family: inherit;
+      color: var(--text-primary);
+      background: var(--lg-input-bg);
+      border: 1px solid var(--lg-input-border);
+      border-radius: 12px;
+      outline: none;
+      transition: all var(--lg-transition);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .lg-input::placeholder { color: var(--text-disabled); }
+    .lg-input:hover:not(:focus) { border-color: var(--border-medium); }
+    .lg-input:focus {
+      border-color: var(--primary);
+      background: var(--lg-input-bg-focus);
+      box-shadow: 0 0 0 4px rgba(var(--lg-primary-rgb), 0.12);
+    }
+
+    /* ── Bouton principal (adm-btn--primary) ── */
+    .lg-submit {
+      width: 100%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 13px 24px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      letter-spacing: -0.01em;
+      color: #fff;
+      background: linear-gradient(135deg, rgb(var(--lg-primary-rgb)), color-mix(in srgb, rgb(var(--lg-primary-rgb)) 70%, #000));
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow:
+        0 2px 12px rgba(var(--lg-primary-rgb), 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
+      transition: all var(--lg-transition);
+      position: relative;
+      overflow: hidden;
+    }
+    .lg-submit i { font-size: 14px; }
+    .lg-submit:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow:
+        0 4px 20px rgba(var(--lg-primary-rgb), 0.38),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    }
+    .lg-submit:active:not(:disabled) { transform: scale(0.97); }
+    .lg-submit:disabled { opacity: 0.55; cursor: not-allowed; filter: grayscale(0.2); }
+    .lg-submit__spinner { display: none; }
+    .lg-submit.is-loading .lg-submit__spinner { display: inline-block; }
+    .lg-submit.is-loading .lg-submit__icon { display: none; }
+
+    /* ── Statut ── */
+    .lg-status {
+      display: none;
+      margin-top: 14px;
+      padding: 12px 15px;
+      font-size: 13.5px;
+      font-weight: 500;
+      line-height: 1.5;
+      border-radius: 12px;
+      animation: lg-rise 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    .lg-status.show { display: flex; align-items: flex-start; gap: 9px; }
+    .lg-status i { margin-top: 2px; font-size: 13px; flex-shrink: 0; }
+    .lg-status,
+    .lg-status.info {
+      color: var(--info);
+      background: var(--info-alpha-10);
+      border: 1px solid var(--info-alpha-25);
+    }
+    .lg-status.success {
+      color: var(--primary);
+      background: var(--primary-alpha-12);
+      border: 1px solid var(--primary-alpha-35);
+    }
+    .lg-status.error {
+      color: var(--danger);
+      background: var(--danger-alpha-10);
+      border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+    }
+
+    /* ── Pied de carte ── */
+    .lg-foot {
+      margin-top: 26px;
+      padding-top: 20px;
+      border-top: 1px solid var(--lg-hairline);
+      display: flex;
+      gap: 11px;
+      align-items: flex-start;
+    }
+    .lg-foot > i {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      margin-top: 3px;
+      flex-shrink: 0;
+    }
+    .lg-foot p {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-tertiary);
+    }
+    .lg-foot p strong { color: var(--text-secondary); font-weight: 600; }
+
+    /* ── Liens secondaires sous la carte ── */
+    .lg-links {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      animation: lg-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+      animation-delay: 0.35s;
+    }
+    .lg-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      color: var(--text-tertiary);
+      background: transparent;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all var(--lg-transition);
+    }
+    .lg-link:hover:not(:disabled) {
+      color: var(--text-primary);
+      background: var(--lg-glass-inner);
+    }
+    .lg-link:disabled { opacity: 0.45; cursor: not-allowed; }
+    .lg-link i { font-size: 12px; }
+    .lg-links__dot {
+      width: 3px; height: 3px;
+      border-radius: 50%;
+      background: var(--text-disabled);
+    }
+
+    /* ── A11y & motion ── */
+    :focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      .lg-card { padding: 32px 24px 26px; border-radius: 20px; }
+      .lg-head__title { font-size: 20px; }
+      .lg-links { flex-direction: column; gap: 2px; }
+      .lg-links__dot { display: none; }
+    }
+  </style>
 </head>
 <body>
-  <!-- Animated background orbs -->
-  <div class="bg-orbs" aria-hidden="true">
-    <div class="orb"></div>
-    <div class="orb"></div>
-    <div class="orb"></div>
+  <!-- Aurores d'arrière-plan -->
+  <div class="lg-bg" aria-hidden="true">
+    <div class="lg-bg__aurora lg-bg__aurora--green"></div>
+    <div class="lg-bg__aurora lg-bg__aurora--blue"></div>
   </div>
 
-  <div class="login-wrapper">
-    <!-- Main Login Card -->
-    <div class="glass-card" role="region" aria-labelledby="card-title">
-      <h2 id="card-title" class="card-title">Connectez-vous à votre compte</h2>
+  <main class="lg-wrap">
+    <!-- Carte de connexion -->
+    <section class="lg-card" role="region" aria-labelledby="lg-title">
+      <header class="lg-head">
+        <a href="/" class="lg-head__logo" aria-label="Retour à la carte">
+          <img class="lg-logo--light" src="/img/logos/classic_color-1.png" alt="Open Projets">
+          <img class="lg-logo--dark" src="/img/logos/square_white-4.png" alt="Open Projets">
+        </a>
+        <div>
+          <span class="lg-badge"><i class="fa-solid fa-lock"></i> Espace sécurisé</span>
+        </div>
+        <h1 id="lg-title" class="lg-head__title">Connexion à votre espace</h1>
+        <p class="lg-head__subtitle">Recevez un lien de connexion par email —<br>aucun mot de passe requis.</p>
+      </header>
 
       <div id="auth-area">
-        <!-- Email Login Form -->
-        <form id="email-form">
-          <div class="form-group">
-            <label for="email-input" class="form-label">
-              <i class="fa-regular fa-envelope" style="margin-right:4px"></i> Adresse email
-            </label>
-            <input
-              id="email-input"
-              type="email"
-              inputmode="email"
-              autocomplete="email"
-              placeholder="votre.email@exemple.com"
-              aria-label="Email"
-              class="form-input"
-              required
-            />
+        <form id="email-form" class="lg-form" novalidate>
+          <div class="lg-field">
+            <label for="email-input" class="lg-label">Adresse email</label>
+            <div class="lg-input-wrap">
+              <i class="fa-regular fa-envelope" aria-hidden="true"></i>
+              <input
+                id="email-input"
+                class="lg-input"
+                type="email"
+                inputmode="email"
+                autocomplete="email"
+                placeholder="prenom.nom@exemple.fr"
+                aria-label="Adresse email"
+                required
+              />
+            </div>
           </div>
 
-          <button id="magic-btn" class="btn btn-primary" type="submit">
-            <i class="fa-regular fa-paper-plane"></i>
+          <button id="magic-btn" class="lg-submit" type="submit">
+            <span class="lg-submit__icon"><i class="fa-regular fa-paper-plane" aria-hidden="true"></i></span>
+            <span class="lg-submit__spinner"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i></span>
             <span>Recevoir un lien de connexion</span>
           </button>
         </form>
 
-        <!-- Status Message -->
-        <div id="status" class="status" role="alert" aria-live="polite"></div>
-
-        <!-- Separator -->
-        <div class="separator" aria-hidden="true">
-          <span>ou</span>
-        </div>
-
-        <!-- GitHub Login -->
-        <button id="github-btn" class="btn btn-github" type="button">
-          <i class="fab fa-github"></i>
-          <span>Se connecter avec GitHub</span>
-        </button>
+        <div id="status" class="lg-status" role="alert" aria-live="polite"></div>
       </div>
-    </div>
 
-    <!-- Info Box -->
-    <div class="glass-card info-box">
-      <h3 class="info-box-title">
-        <i class="fa-solid fa-circle-info"></i>
-        Pas encore de compte ?
-      </h3>
-      <p class="info-box-text">
-        Seuls les membres invités peuvent accéder à cette plateforme.
-        Contactez l'administrateur de votre organisation pour obtenir une invitation.
-      </p>
-    </div>
+      <footer class="lg-foot">
+        <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+        <p><strong>Accès sur invitation uniquement.</strong> Contactez l'administrateur de votre structure pour obtenir un compte.</p>
+      </footer>
+    </section>
 
-    <!-- Back Link -->
-    <div class="back-link">
-      <a href="/" aria-label="Retour à l'accueil">
-        <i class="fa-solid fa-arrow-left"></i> Retour à l'accueil
+    <!-- Liens secondaires -->
+    <nav class="lg-links" aria-label="Autres options">
+      <a href="/" class="lg-link">
+        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Retour à la carte
       </a>
-    </div>
-  </div>
+      <span class="lg-links__dot" aria-hidden="true"></span>
+      <button id="github-btn" class="lg-link" type="button">
+        <i class="fa-brands fa-github" aria-hidden="true"></i> Continuer avec GitHub
+      </button>
+    </nav>
+  </main>
 
   <!-- Supabase client via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
@@ -412,20 +503,34 @@
     const magicBtn = document.getElementById('magic-btn');
     const emailForm = document.getElementById('email-form');
 
-    function setStatus(msg, type = '') {
-      statusEl.textContent = msg || '';
-      statusEl.className = 'status';
-      if (msg) {
-        statusEl.classList.add('show');
-        if (type) statusEl.classList.add(type);
-      }
+    const STATUS_ICONS = {
+      info: 'fa-solid fa-circle-notch fa-spin',
+      success: 'fa-solid fa-circle-check',
+      error: 'fa-solid fa-circle-exclamation'
+    };
+
+    function setStatus(msg, type = 'info') {
+      statusEl.className = 'lg-status';
+      statusEl.textContent = '';
+      if (!msg) return;
+      const icon = document.createElement('i');
+      icon.className = STATUS_ICONS[type] || STATUS_ICONS.info;
+      icon.setAttribute('aria-hidden', 'true');
+      const text = document.createElement('span');
+      text.textContent = msg;
+      statusEl.append(icon, text);
+      statusEl.classList.add('show', type);
+    }
+
+    function setLoading(loading) {
+      magicBtn.classList.toggle('is-loading', loading);
     }
 
     async function initAuthUI() {
       try {
         const { data: { session } } = await auth.getSession();
         if (session?.user) {
-          setStatus(`\u2705 Connect\u00e9 en tant que ${session.user.user_metadata?.user_name || session.user.email || 'utilisateur'}.`, 'success');
+          setStatus(`Connecté en tant que ${session.user.user_metadata?.user_name || session.user.email || 'utilisateur'}.`, 'success');
           githubBtn.style.display = 'none';
           emailForm.style.display = 'none';
         }
@@ -436,18 +541,18 @@
 
     githubBtn.addEventListener('click', async () => {
       try {
-        setStatus('\ud83d\udd04 Redirection vers GitHub\u2026');
+        setStatus('Redirection vers GitHub…');
         githubBtn.disabled = true;
         const redirectUrl = window.location.origin + '/';
         const { error } = await auth.signInWithGitHub(redirectUrl);
         if (error) {
           console.error('OAuth error:', error);
-          setStatus("\u274c Impossible de d\u00e9marrer l'authentification GitHub.", 'error');
+          setStatus("Impossible de démarrer l'authentification GitHub.", 'error');
           githubBtn.disabled = false;
         }
       } catch (e) {
         console.error(e);
-        setStatus('\u274c Erreur inattendue.', 'error');
+        setStatus('Erreur inattendue.', 'error');
         githubBtn.disabled = false;
       }
     });
@@ -464,12 +569,13 @@
       try {
         const email = (emailInput?.value || '').trim();
         if (!isValidEmail(email)) {
-          setStatus('\u26a0\ufe0f Veuillez saisir un email valide.', 'error');
+          setStatus('Veuillez saisir un email valide.', 'error');
           emailInput?.focus();
           return;
         }
 
-        setStatus('\ud83d\udce4 Envoi du lien de connexion\u2026');
+        setStatus('Envoi du lien de connexion…');
+        setLoading(true);
         magicBtn.disabled = true;
         githubBtn.disabled = true;
 
@@ -489,7 +595,7 @@
               }
             }));
           } else {
-            error = new Error('M\u00e9thode de magic link indisponible.');
+            error = new Error('Méthode de magic link indisponible.');
           }
         }
 
@@ -499,26 +605,27 @@
           const errorMsg = error.message || '';
 
           if (errorMsg.includes('User not found') || errorMsg.includes('not found') || errorMsg.includes('Signups not allowed')) {
-            setStatus("\u274c Cet email n'est pas enregistr\u00e9. Contactez l'administrateur de votre organisation pour obtenir un acc\u00e8s.", 'error');
+            setStatus("Cet email n'est pas enregistré. Contactez l'administrateur de votre organisation pour obtenir un accès.", 'error');
           } else if (errorMsg.includes('can only request this after') || errorMsg.includes('seconds')) {
             const match = errorMsg.match(/after (\d+) seconds/);
             const seconds = match ? parseInt(match[1], 10) : 60;
-            setStatus(`\u23f1\ufe0f Veuillez patienter ${seconds} secondes avant de demander un nouveau lien.`, 'error');
+            setStatus(`Veuillez patienter ${seconds} secondes avant de demander un nouveau lien.`, 'error');
             rateLimitDelay = (seconds + 1) * 1000;
           } else if (errorMsg.includes('rate limit') || errorMsg.includes('too many')) {
-            setStatus("\u23f1\ufe0f Trop de tentatives. Veuillez patienter quelques instants avant de r\u00e9essayer.", 'error');
+            setStatus('Trop de tentatives. Veuillez patienter quelques instants avant de réessayer.', 'error');
             rateLimitDelay = 60000;
           } else {
-            setStatus("\u274c \u00c9chec de l'envoi du lien. R\u00e9essayez plus tard.", 'error');
+            setStatus("Échec de l'envoi du lien. Réessayez plus tard.", 'error');
           }
         } else {
-          setStatus('\u2705 Email envoy\u00e9 ! V\u00e9rifiez votre bo\u00eete de r\u00e9ception.', 'success');
+          setStatus('Email envoyé ! Vérifiez votre boîte de réception.', 'success');
           rateLimitDelay = 60000;
         }
       } catch (e) {
         console.error(e);
-        setStatus('\u274c Erreur inattendue.', 'error');
+        setStatus('Erreur inattendue.', 'error');
       } finally {
+        setLoading(false);
         setTimeout(() => {
           magicBtn.disabled = false;
           githubBtn.disabled = false;
@@ -541,9 +648,9 @@
         const code = params.get('error_code');
         if (err) {
           if (code === 'otp_expired') {
-            setStatus("\u26a0\ufe0f Le lien a expir\u00e9. Veuillez redemander un nouveau lien.", 'error');
+            setStatus('Le lien a expiré. Veuillez redemander un nouveau lien.', 'error');
           } else {
-            setStatus('\u274c Erreur de connexion: ' + (code || err), 'error');
+            setStatus('Erreur de connexion : ' + (code || err), 'error');
           }
         }
       } catch(_) {}
