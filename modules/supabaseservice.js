@@ -31,6 +31,56 @@
     .trim()
     .toLowerCase();
 
+  // Formats jamais recompressés : un canvas rasteriserait le vectoriel et ne
+  // garderait que la première frame d'un GIF animé.
+  const IMAGE_COMPRESS_SKIP = ['image/svg+xml', 'image/gif', 'image/x-icon', 'image/vnd.microsoft.icon'];
+
+  /**
+   * Compress an image before uploading it to Storage.
+   * Returns null when the file must be uploaded untouched: vector, animated,
+   * undecodable, or when the result would be heavier than the source.
+   * @param {File|Blob} file
+   * @param {{maxWidth?:number, quality?:number, mime?:string}} [opts]
+   * @returns {Promise<Blob|null>}
+   */
+  const compressImage = async (file, opts) => {
+    const maxWidth = (opts && opts.maxWidth) || 1920;
+    const quality = (opts && typeof opts.quality === 'number') ? opts.quality : 0.82;
+    const mime = (opts && opts.mime) || 'image/webp';
+    let bitmap = null;
+    try {
+      const type = String((file && file.type) || '').toLowerCase();
+      if (!type.startsWith('image/')) return null;
+      if (IMAGE_COMPRESS_SKIP.includes(type)) return null;
+      if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return null;
+
+      // imageOrientation: applique l'EXIF, sinon les photos de téléphone pivotent
+      bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      const scale = Math.min(1, maxWidth / bitmap.width);
+      const w = Math.max(1, Math.round(bitmap.width * scale));
+      const h = Math.max(1, Math.round(bitmap.height * scale));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(bitmap, 0, 0, w, h);
+
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, mime, quality));
+      // toBlob retombe silencieusement sur PNG si le format n'est pas supporté
+      if (!blob || blob.type !== mime) return null;
+      // Un WebP/AVIF déjà optimisé peut ressortir plus lourd : on garde l'original
+      if (blob.size >= file.size) return null;
+      return blob;
+    } catch (e) {
+      console.debug('[supabaseService] compressImage: compression ignorée:', e);
+      return null;
+    } finally {
+      if (bitmap && typeof bitmap.close === 'function') bitmap.close();
+    }
+  };
+
   // Helper: sanitizeCity → retourne '' si la ville n'est pas valide ou vide
   const sanitizeCity = (raw) => {
     // null = "Global" (valide)
@@ -112,7 +162,8 @@
 
   win.supabaseService = {
     getActiveCity: getActiveCity,
-    
+    compressImage: compressImage,
+
     /**
      * Récupère toutes les couches dans la table 'layers'
      * @returns {Promise<Array<{name:string, url:string, style:string, is_default:boolean}>>}
@@ -966,20 +1017,26 @@
         if (!file || !categoryLayer || !projectName) throw new Error('Paramètres manquants');
         const safeCat = slugify(categoryLayer);
         const safeName = slugify(projectName);
+        const compressed = await compressImage(file, { maxWidth: 1920 });
+        const body = compressed || file;
         const lower = (file.name || '').toLowerCase();
-        const ext = (lower.endsWith('.jpg') || lower.endsWith('.jpeg'))
+        const srcExt = (lower.endsWith('.jpg') || lower.endsWith('.jpeg'))
           ? '.jpg'
           : (lower.endsWith('.webp') ? '.webp' : '.png');
-        const contentType = (file.type && file.type.startsWith('image/'))
-          ? file.type
-          : ({ '.jpg': 'image/jpeg', '.webp': 'image/webp', '.png': 'image/png' })[ext];
+        // ext/contentType suivent le blob réellement envoyé, jamais le nom source
+        const ext = compressed ? '.webp' : srcExt;
+        const contentType = compressed
+          ? 'image/webp'
+          : ((file.type && file.type.startsWith('image/'))
+            ? file.type
+            : ({ '.jpg': 'image/jpeg', '.webp': 'image/webp', '.png': 'image/png' })[srcExt]);
         const ts = Date.now();
         const path = `img/cover/${safeCat}/${safeName}-${ts}${ext}`;
         const bucket = 'uploads';
         const { error: upErr } = await supabaseClient
           .storage
           .from(bucket)
-          .upload(path, file, { upsert: false, contentType });
+          .upload(path, body, { upsert: false, contentType });
         if (upErr) {
           console.error('[supabaseService] uploadCoverToStorage error:', upErr);
           throw upErr;
@@ -1009,7 +1066,16 @@
     uploadBrandingAsset: async function(file, ville, type) {
       try {
         if (!file || !ville || !type) throw new Error('Paramètres manquants');
-        const ext = (file.name || '').split('.').pop()?.toLowerCase() || 'png';
+        // Favicon : réduit mais gardé en PNG — un .webp en <link rel="icon">
+        // reste mal supporté par certains agents (cf. citybranding.applyFavicon).
+        const compressed = type === 'favicon'
+          ? await compressImage(file, { maxWidth: 128, mime: 'image/png' })
+          : await compressImage(file, { maxWidth: 512 });
+        const body = compressed || file;
+        const ext = compressed
+          ? (compressed.type === 'image/png' ? 'png' : 'webp')
+          : ((file.name || '').split('.').pop()?.toLowerCase() || 'png');
+        const contentType = compressed ? compressed.type : (file.type || 'image/png');
         const safeName = slugify(ville);
         const ts = Date.now();
         const path = `branding/${safeName}/${type}-${ts}.${ext}`;
@@ -1017,7 +1083,7 @@
         const { error: upErr } = await supabaseClient
           .storage
           .from(bucket)
-          .upload(path, file, { upsert: false, contentType: file.type || 'image/png' });
+          .upload(path, body, { upsert: false, contentType });
         if (upErr) { console.error('[supabaseService] uploadBrandingAsset error:', upErr); throw upErr; }
         const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
         return data.publicUrl;
@@ -1218,12 +1284,18 @@
         if (!file || !categoryLayer || !projectName) throw new Error('Paramètres manquants');
         const safeCat = slugify(categoryLayer);
         const safeName = slugify(projectName);
+        const compressed = await compressImage(file, { maxWidth: 1600 });
+        const body = compressed || file;
         const lower = (file.name || '').toLowerCase();
-        const ext = lower.endsWith('.jpg') || lower.endsWith('.jpeg') ? '.jpg'
+        const srcExt = lower.endsWith('.jpg') || lower.endsWith('.jpeg') ? '.jpg'
           : lower.endsWith('.webp') ? '.webp'
           : lower.endsWith('.gif') ? '.gif'
           : '.png';
-        const contentType = file.type && file.type.startsWith('image/') ? file.type : 'image/png';
+        // ext/contentType suivent le blob réellement envoyé, jamais le nom source
+        const ext = compressed ? '.webp' : srcExt;
+        const contentType = compressed
+          ? 'image/webp'
+          : (file.type && file.type.startsWith('image/') ? file.type : 'image/png');
         const ts = Date.now();
         const rand = Math.random().toString(36).slice(2, 8);
         const path = `img/articles/${safeCat}/${safeName}-${ts}-${rand}${ext}`;
@@ -1231,7 +1303,7 @@
         const { error: upErr } = await supabaseClient
           .storage
           .from(bucket)
-          .upload(path, file, { upsert: false, contentType });
+          .upload(path, body, { upsert: false, contentType });
         if (upErr) {
           console.error('[supabaseService] uploadArticleImageToStorage error:', upErr);
           throw upErr;
