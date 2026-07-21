@@ -16,7 +16,7 @@ import { openReport } from './report.js';
 const _fmt = (n) => Number(n || 0).toLocaleString('fr-FR');
 const _fmtKm2 = (n) => Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 const CORRELATION_RADIUS_M = 60;
-const SAMPLE_SIZE = 30;
+const SAMPLE_SIZE = 40; // aligné sur le plafond serveur (MAX_SAMPLE)
 
 const _layerOf = (f) => dg.layers.find((l) => l.id === f.__layerId);
 const _polarityOf = (f) => _layerOf(f)?.polarity || 'neutre';
@@ -41,11 +41,27 @@ function _textOf(f) {
   return '';
 }
 
+/**
+ * Contexte compact d'un point pour l'IA : valeur de catégorisation puis
+ * jusqu'à 2 champs popup courts (rue, commune, date…) — piloté par la config.
+ */
 function _extraOf(f) {
   const layer = _layerOf(f);
-  const field = layer?.style?.category_field;
-  const v = field ? f.properties?.[field] : null;
-  return (v !== null && v !== undefined && v !== '') ? String(v) : '';
+  const popup = layer?.popup || {};
+  const parts = [];
+  const catField = layer?.style?.category_field;
+  const catValue = catField ? f.properties?.[catField] : null;
+  if (catValue !== null && catValue !== undefined && catValue !== '') parts.push(String(catValue).slice(0, 40));
+  const text = _textOf(f);
+  for (const field of popup.fields || []) {
+    if (field === popup.title_field || parts.length >= 3) continue;
+    const v = f.properties?.[field];
+    if (v === null || v === undefined || v === '') continue;
+    const s = String(v).trim().slice(0, 40);
+    if (s === text.slice(0, 40) || parts.includes(s)) continue;
+    parts.push(s);
+  }
+  return parts.slice(0, 3).join(' · ');
 }
 
 /* ── Sélection ─────────────────────────────────────────────────── */
@@ -148,7 +164,7 @@ function _correlations(features) {
     if (arr.length < CAP) arr.push(f);
   }
   const ids = [...negByLayer.keys()];
-  const lines = [];
+  const entries = [];
   let total = 0;
   for (let i = 0; i < ids.length; i++) {
     for (let j = i + 1; j < ids.length; j++) {
@@ -161,12 +177,14 @@ function _correlations(features) {
       if (count > 0) {
         const la = dg.layers.find((l) => l.id === ids[i])?.label;
         const lb = dg.layers.find((l) => l.id === ids[j])?.label;
-        lines.push(`${count} point(s) « ${la} » à moins de ${CORRELATION_RADIUS_M} m d'un point « ${lb} ».`);
+        entries.push({ count, line: `${count} point(s) « ${la} » à moins de ${CORRELATION_RADIUS_M} m d'un point « ${lb} ».` });
         total += count;
       }
     }
   }
-  return { text: lines.join('\n'), total };
+  // De la plus forte à la plus faible : l'IA doit exploiter les majeures d'abord
+  entries.sort((a, b) => b.count - a.count);
+  return { text: entries.map((e) => e.line).join('\n'), total };
 }
 
 /** Niveau de vigilance de la zone — purement déterministe. */
