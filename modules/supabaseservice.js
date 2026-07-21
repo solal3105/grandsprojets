@@ -2531,6 +2531,204 @@
           layers_to_display: config.layers_to_display || ['travaux'],
         },
       });
+    },
+
+    // ══════════════════════════════════════════════════════════════
+    // Diagnostic terrain (tables diagnostic_layers / diagnostic_reports)
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Récupère les couches de diagnostic d'une ville
+     * @param {string} ville
+     * @returns {Promise<Array>} Lignes diagnostic_layers triées par sort_order
+     */
+    fetchDiagnosticLayers: async function(ville) {
+      try {
+        if (!ville) return [];
+        const { data, error } = await supabaseClient
+          .from('diagnostic_layers')
+          .select('*')
+          .eq('ville', ville)
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: true });
+        if (error) {
+          console.debug('[supabaseService] Erreur fetchDiagnosticLayers:', error);
+          return [];
+        }
+        return data || [];
+      } catch (e) {
+        console.error('[supabaseService] fetchDiagnosticLayers exception:', e);
+        return [];
+      }
+    },
+
+    /**
+     * Crée ou met à jour une couche de diagnostic
+     * @param {string} ville
+     * @param {Object} layer - Champs de la couche ; layer.id présent = mise à jour
+     * @returns {Promise<{data: Object|null, error: Error|null}>}
+     */
+    upsertDiagnosticLayer: async function(ville, layer) {
+      try {
+        if (!ville || !layer || !layer.label || !layer.source_ref) {
+          return { data: null, error: new Error('ville, label et source_ref requis') };
+        }
+        const row = {
+          ville,
+          label: layer.label,
+          group_label: layer.group_label ?? '',
+          source_type: layer.source_type || 'url',
+          source_ref: layer.source_ref,
+          style: layer.style || {},
+          popup: layer.popup || {},
+          ai_context: layer.ai_context ?? '',
+          polarity: layer.polarity || 'neutre',
+          default_on: layer.default_on !== undefined ? layer.default_on : true,
+          enabled: layer.enabled !== undefined ? layer.enabled : true,
+          sort_order: layer.sort_order ?? 0,
+          updated_at: new Date().toISOString(),
+        };
+        let query;
+        if (layer.id) {
+          query = supabaseClient
+            .from('diagnostic_layers')
+            .update(row)
+            .eq('id', layer.id)
+            .eq('ville', ville);
+        } else {
+          row.created_by = (await supabaseClient.auth.getUser()).data?.user?.id || null;
+          query = supabaseClient.from('diagnostic_layers').insert(row);
+        }
+        const { data, error } = await query.select().single();
+        return { data, error };
+      } catch (e) {
+        console.error('[supabaseService] upsertDiagnosticLayer exception:', e);
+        return { data: null, error: e };
+      }
+    },
+
+    /**
+     * Supprime une couche de diagnostic
+     * @param {string} ville
+     * @param {string} id - UUID de la couche
+     * @returns {Promise<{success: boolean, error: Error|null}>}
+     */
+    deleteDiagnosticLayer: async function(ville, id) {
+      try {
+        if (!ville || !id) return { success: false, error: new Error('ville et id requis') };
+        const { error } = await supabaseClient
+          .from('diagnostic_layers')
+          .delete()
+          .eq('id', id)
+          .eq('ville', ville);
+        return { success: !error, error: error || null };
+      } catch (e) {
+        console.error('[supabaseService] deleteDiagnosticLayer exception:', e);
+        return { success: false, error: e };
+      }
+    },
+
+    /**
+     * Upload d'un GeoJSON normalisé d'une couche de diagnostic dans Storage
+     * @param {string} ville
+     * @param {Object} geojson - FeatureCollection
+     * @returns {Promise<string>} URL publique du fichier
+     */
+    uploadDiagnosticGeoJSON: async function(ville, geojson) {
+      try {
+        if (!ville || !geojson) throw new Error('Paramètres manquants');
+        const path = `diagnostic/${ville}/${crypto.randomUUID()}.geojson`;
+        const blob = new Blob([JSON.stringify(geojson)], { type: 'application/geo+json' });
+        const { error } = await supabaseClient.storage
+          .from('uploads')
+          .upload(path, blob, { contentType: 'application/geo+json', upsert: false });
+        if (error) {
+          console.error('[supabaseService] uploadDiagnosticGeoJSON error:', error);
+          throw error;
+        }
+        const { data } = supabaseClient.storage.from('uploads').getPublicUrl(path);
+        return data.publicUrl;
+      } catch (e) {
+        console.error('[supabaseService] uploadDiagnosticGeoJSON exception:', e);
+        throw e;
+      }
+    },
+
+    /**
+     * Sauvegarde un rapport de diagnostic de zone
+     * @param {string} ville
+     * @param {Object} report - { title, zone, stats, analysis, point_count }
+     * @returns {Promise<{data: Object|null, error: Error|null}>}
+     */
+    insertDiagnosticReport: async function(ville, report) {
+      try {
+        if (!ville || !report) return { data: null, error: new Error('ville et report requis') };
+        const row = {
+          ville,
+          title: report.title || '',
+          zone: report.zone || {},
+          stats: report.stats || {},
+          analysis: report.analysis || {},
+          point_count: report.point_count ?? 0,
+          created_by: (await supabaseClient.auth.getUser()).data?.user?.id || null,
+        };
+        const { data, error } = await supabaseClient
+          .from('diagnostic_reports')
+          .insert(row)
+          .select()
+          .single();
+        return { data, error };
+      } catch (e) {
+        console.error('[supabaseService] insertDiagnosticReport exception:', e);
+        return { data: null, error: e };
+      }
+    },
+
+    /**
+     * Récupère l'historique des rapports de diagnostic d'une ville
+     * @param {string} ville
+     * @param {number} [limit=30]
+     * @returns {Promise<Array>}
+     */
+    fetchDiagnosticReports: async function(ville, limit = 30) {
+      try {
+        if (!ville) return [];
+        const { data, error } = await supabaseClient
+          .from('diagnostic_reports')
+          .select('*')
+          .eq('ville', ville)
+          .order('created_at', { ascending: false })
+          .limit(limit);
+        if (error) {
+          console.debug('[supabaseService] Erreur fetchDiagnosticReports:', error);
+          return [];
+        }
+        return data || [];
+      } catch (e) {
+        console.error('[supabaseService] fetchDiagnosticReports exception:', e);
+        return [];
+      }
+    },
+
+    /**
+     * Supprime un rapport de diagnostic
+     * @param {string} ville
+     * @param {string} id - UUID du rapport
+     * @returns {Promise<{success: boolean, error: Error|null}>}
+     */
+    deleteDiagnosticReport: async function(ville, id) {
+      try {
+        if (!ville || !id) return { success: false, error: new Error('ville et id requis') };
+        const { error } = await supabaseClient
+          .from('diagnostic_reports')
+          .delete()
+          .eq('id', id)
+          .eq('ville', ville);
+        return { success: !error, error: error || null };
+      } catch (e) {
+        console.error('[supabaseService] deleteDiagnosticReport exception:', e);
+        return { success: false, error: e };
+      }
     }
   };
 })(window);

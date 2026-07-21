@@ -201,3 +201,33 @@ export async function upsertCityModule(moduleKey, fields) {
 export async function deleteCityModule(moduleKey) {
   return svc().deleteCityModule(requireCity(), moduleKey);
 }
+
+// ── Diagnostic terrain ────────────────────────────────────────────
+
+export async function getDiagnosticLayers() {
+  return svc().fetchDiagnosticLayers(requireCity());
+}
+
+export async function upsertDiagnosticLayer(layer) {
+  return svc().upsertDiagnosticLayer(requireCity(), layer);
+}
+
+export async function deleteDiagnosticLayer(id) {
+  return svc().deleteDiagnosticLayer(requireCity(), id);
+}
+
+export async function uploadDiagnosticGeoJSON(geojson) {
+  return svc().uploadDiagnosticGeoJSON(requireCity(), geojson);
+}
+
+export async function saveDiagnosticReport(report) {
+  return svc().insertDiagnosticReport(requireCity(), report);
+}
+
+export async function getDiagnosticReports(limit) {
+  return svc().fetchDiagnosticReports(requireCity(), limit);
+}
+
+export async function deleteDiagnosticReport(id) {
+  return svc().deleteDiagnosticReport(requireCity(), id);
+}
