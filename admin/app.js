@@ -6,6 +6,7 @@ import { renderContributions } from './sections/contributions.js';
 import { renderCategories } from './sections/categories.js';
 import { renderUsers } from './sections/users.js';
 import { renderTravaux } from './sections/travaux.js';
+import { renderDiagnostic, destroyDiagnostic } from './sections/diagnostic.js';
 import { renderStructure } from './sections/structure.js';
 import { renderVilles } from './sections/villes.js';
 import { renderModules } from './sections/modules.js';
@@ -33,6 +34,7 @@ async function boot() {
     router.define('categories',     (c, p) => renderCategories(c, p));
     router.define('utilisateurs',   (c, p) => renderUsers(c, p));
     router.define('travaux',        (c, p) => renderTravaux(c, p));
+    router.define('diagnostic',     (c, p) => renderDiagnostic(c, p));
     router.define('structure',      (c, p) => renderStructure(c, p));
     router.define('villes',         (c, p) => renderVilles(c, p));
     router.define('modules',        (c, p) => renderModules(c, p));
@@ -46,6 +48,7 @@ async function boot() {
         categories: renderCategories,
         utilisateurs: renderUsers,
         travaux: renderTravaux,
+        diagnostic: renderDiagnostic,
         structure: renderStructure,
         villes: renderVilles,
         modules: renderModules,
@@ -60,6 +63,11 @@ async function boot() {
           });
         }
       }
+    });
+
+    // Détruire la carte du diagnostic en quittant la section (WebGL + listeners)
+    router.setBeforeNavigate((from, to) => {
+      if (from === 'diagnostic' && to !== 'diagnostic') destroyDiagnostic();
     });
 
     // 4. Start
