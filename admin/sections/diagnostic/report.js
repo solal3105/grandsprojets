@@ -209,7 +209,7 @@ function _showReportDoc(data, mapImg, date) {
       </div>` : ''}
       <div class="dg-rp-sec">
         <div class="dg-rp-h2"><i class="fa-solid fa-circle-info"></i> Méthodologie &amp; limites</div>
-        <div class="dg-rp-method">Diagnostic généré par IA à partir d'un échantillon représentatif des ${_fmt(data.point_count)} points de la zone, enrichi de statistiques et de co-occurrences spatiales calculées par le système (rayon 60 m). Les constats sont des observations factuelles issues des données ; les citations sont extraites verbatim des signalements sources. Les « pistes à explorer » sont indicatives et non prescriptives : elles ne préjugent d'aucune solution technique et doivent être instruites par les services compétents. Les données analysées sont celles des couches activées au moment de la sélection.</div>
+        <div class="dg-rp-method">Diagnostic généré par IA à partir de <b>l'intégralité des ${_fmt(data.point_count)} points</b> de la zone — aucun échantillonnage —, enrichie de statistiques et de co-occurrences spatiales calculées par le système (rayon 60 m). La sélection est plafonnée à 300 points précisément pour que chaque point soit lu. Les constats sont des observations factuelles issues des données ; les citations sont extraites verbatim des signalements sources. Les « pistes à explorer » sont indicatives et non prescriptives : elles ne préjugent d'aucune solution technique et doivent être instruites par les services compétents. Les données analysées sont celles des couches activées au moment de la sélection.</div>
       </div>
       <div class="dg-rp-foot"><span>Open Projets — Diagnostic terrain</span><span>Généré le ${esc(dateLabel)}</span></div>
     </div>

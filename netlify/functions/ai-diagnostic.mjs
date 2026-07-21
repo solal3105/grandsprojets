@@ -2,8 +2,8 @@
  * Netlify Function: ai-diagnostic
  * Analyse IA d'une zone du module « Diagnostic terrain » (admin).
  * Le client envoie des données pré-agrégées (ventilation, corrélations spatiales
- * calculées, échantillon de points) ; le serveur détient le prompt — charte
- * « zéro invention » — et impose un schéma JSON strict à OpenAI.
+ * calculées, et la LISTE COMPLÈTE des points de la zone) ; le serveur détient
+ * le prompt — charte « zéro invention » — et impose un schéma JSON strict à OpenAI.
  * Supporte le streaming SSE (mêmes événements que ai-generate).
  *
  * Variables d'environnement requises :
@@ -29,7 +29,7 @@ const SYSTEM_PROMPT = `Tu es un analyste senior en mobilité et aménagement urb
 
 MÉTHODE — travaille dans cet ordre :
 1. Lis les STATISTIQUES et les CO-OCCURRENCES calculées (lignes C1, C2… triées de la plus forte à la plus faible) : ce sont des faits sûrs, chiffres citables tels quels.
-2. Parcours l'ÉCHANTILLON et identifie les FAMILLES de signaux récurrents dans les textes (chaussée dégradée, discontinuités cyclables, vitesse, stationnement, congestion…).
+2. Parcours la LISTE DES POINTS — elle contient la TOTALITÉ des points de la zone, aucun n'est omis — et identifie les FAMILLES de signaux récurrents dans les textes (chaussée dégradée, discontinuités cyclables, vitesse, stationnement, congestion…).
 3. Rédige 4 à 8 constats (un par famille significative), triés du plus grave au moins grave. Ne fabrique jamais de constat pour remplir.
 4. Vérifie la COUVERTURE : chaque couche listée comme significative doit être couverte par au moins un constat si son signal est réel ; regroupe par thème quand plusieurs couches racontent la même chose.
 5. Rédige la SYNTHÈSE en dernier.
@@ -41,7 +41,7 @@ RÈGLES ABSOLUES (le non-respect invalide la réponse) :
 - ZÉRO TEMPORALITÉ INVENTÉE : interdit d'écrire « récurrent », « croissant », « souvent », « régulièrement », « fréquemment » ou toute idée d'évolution si les données ne portent aucune information temporelle. Un snapshot décrit UN instant. Pour une co-occurrence, cite son chiffre calculé au lieu d'un adverbe (« 134 points à moins de 60 m », jamais « souvent proches »).
 - "titre" = le CONSTAT observé, factuel et neutre, JAMAIS une solution. Correct : « Concentration de signalements de chaussée dégradée ». Interdit : « Réparer la chaussée ».
 - "categorie" = 1-2 mots métier : Voirie, Cyclable, Sécurité routière, Congestion, Stationnement, Éclairage, Piéton, Aménagement… selon le contenu réel.
-- "refs" = des INDICES DE L'ÉCHANTILLON uniquement (entre 1 et la taille indiquée de l'échantillon) — jamais un chiffre issu des statistiques ou des co-occurrences. Chaque constat a au moins 1 ref.
+- "refs" = des INDICES DE LA LISTE DES POINTS uniquement (entre 1 et le nombre de points indiqué) — jamais un chiffre issu des statistiques ou des co-occurrences. Chaque constat a au moins 1 ref.
 - "verbatims" = 1 à 3 citations EXACTES, recopiées caractère par caractère depuis le texte entre « … » des points cités en refs. Choisis des citations DESCRIPTIVES (ce que décrivent les gens), jamais une adresse seule, un horodatage ou un code. Si tu coupes une citation, termine-la par « … ». N'assemble jamais plusieurs champs en une fausse citation. Si aucun texte descriptif dans tes refs, mets [].
 - "gravite" — barème : 5 = accidents corporels (ou danger grave) corroborés par d'autres signaux au même endroit ; 4 = forte concentration de signaux négatifs concordants (dizaines de points ou co-occurrence calculée) ; 3 = signal négatif net non corroboré ; 2 = signal modéré ou localisé ; 1 = informatif. Un constat de polarité "positif" = gravite 1.
 - "confiance" : haute = nombreux points concordants ou co-occurrence calculée ; moyenne = plusieurs points ; faible = signal isolé.
@@ -80,8 +80,10 @@ const OUTPUT_SCHEMA = {
   required: ['resume', 'insights'],
 };
 
-// Bornes de la requête (protection prompt + coût).
-const MAX_SAMPLE = 40;
+// Bornes de la requête (protection prompt + coût). MAX_POINTS doit rester
+// aligné sur MAX_ANALYSIS_POINTS côté client : l'analyse porte sur la totalité
+// des points de la zone, jamais sur un échantillon.
+const MAX_POINTS = 300;
 const MAX_LAYERS = 20;
 
 const ALLOWED_ORIGINS = [
@@ -205,7 +207,7 @@ function buildUserPrompt({ ville, zone, layers, stats, correlations, sample }) {
     if (extra) line += ` (${extra})`;
     return line;
   });
-  parts.push(`Échantillon représentatif (${sample.length} points) — seuls ces points sont citables via "refs" :\n` + sampleLines.join('\n'));
+  parts.push(`Liste des points de la zone (${sample.length} points — la totalité, aucun omis) — chacun est citable via "refs" :\n` + sampleLines.join('\n'));
   parts.push('=== FIN DONNÉES ===');
 
   parts.push('Produis le diagnostic de la zone selon le schéma imposé.');
@@ -230,7 +232,7 @@ export default async function handler(req) {
 
   const ville = String(body.ville || '');
   if (!/^[a-z0-9-]+$/i.test(ville)) return errResp(400, 'Paramètre ville invalide', corsHeaders);
-  if (!Array.isArray(body.sample) || !body.sample.length) return errResp(400, 'Échantillon vide', corsHeaders);
+  if (!Array.isArray(body.sample) || !body.sample.length) return errResp(400, 'Aucun point à analyser', corsHeaders);
 
   const allowed = await isAdminForVille(user, ville);
   if (!allowed) return errResp(403, 'Réservé aux administrateurs de cette structure', corsHeaders);
@@ -243,7 +245,7 @@ export default async function handler(req) {
     correlations: body.correlations || '',
     sample: body.sample
       .filter((s) => s && typeof s === 'object')
-      .slice(0, MAX_SAMPLE)
+      .slice(0, MAX_POINTS)
       .map((s, idx) => ({
         i: Number(s.i) || idx + 1,
         layer: s.layer,
@@ -252,7 +254,7 @@ export default async function handler(req) {
         extra: s.extra,
       })),
   };
-  if (!payload.sample.length) return errResp(400, 'Échantillon vide', corsHeaders);
+  if (!payload.sample.length) return errResp(400, 'Aucun point à analyser', corsHeaders);
   const userPrompt = buildUserPrompt(payload);
 
   // ── Appel OpenAI (Responses API, sortie JSON stricte, streaming) ──

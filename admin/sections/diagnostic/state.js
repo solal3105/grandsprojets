@@ -44,6 +44,14 @@ export const INTERNAL_SOURCES = {
 
 export const DEFAULT_STYLE = { mode: 'single', color: PALETTE[1], radius: 4 };
 
+/**
+ * Nombre maximal de points analysables en une fois. L'IA lit l'INTÉGRALITÉ des
+ * points sélectionnés : au-delà de ce seuil la requête ne tiendrait plus dans
+ * la fenêtre de contexte du modèle, et l'analyse serait un sondage déguisé.
+ * L'analyse porte donc sur une intersection, un carrefour ou un tronçon.
+ */
+export const MAX_ANALYSIS_POINTS = 300;
+
 // Les couleurs de couches viennent de la config en base : ne jamais les
 // injecter telles quelles dans un attribut style sans validation.
 const COLOR_RE = /^(#[0-9a-fA-F]{3,8}|rgba?\([\d.,\s%]+\)|hsla?\([\d.,\s%deg]+\)|[a-zA-Z]{3,20})$/;
@@ -63,7 +71,9 @@ function _blankState() {
     runtime: new Map(), // id → { status, features, count, fields, visible, error }
     heatmapOn: false,
     wiredPopups: new Set(), // ids de layers carte dont la popup est déjà câblée
-    onLayerRemoved: null, // hook posé par analysis.js (évite un import circulaire)
+    // Hooks posés par diagnostic.js (évitent un import circulaire) : la
+    // sélection doit être recalculée quand les couches visibles changent.
+    onSelectionStale: null,
     // Sélection lasso.
     lasso: { armed: false, drawing: false, points: [] },
     selection: null, // { features, polygon, bbox, areaKm2 }

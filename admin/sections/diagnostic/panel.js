@@ -195,7 +195,6 @@ function _bindLayerRow(row) {
     if (!ok) return;
     try {
       await deleteLayer(id);
-      dg.onLayerRemoved?.(id); // purge la sélection lasso des features de cette couche
       toast('Couche supprimée', 'success');
       renderLayersPanel();
     } catch (err) {

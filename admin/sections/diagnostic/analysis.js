@@ -7,16 +7,15 @@
 
 import { store } from '../../store.js';
 import { esc, escAttr } from '../../components/ui.js';
-import { dg, LEVEL_COLORS, SEVERITY_COLORS, safeColor } from './state.js';
+import { dg, LEVEL_COLORS, SEVERITY_COLORS, safeColor, MAX_ANALYSIS_POINTS } from './state.js';
 import { distanceM, featuresBbox, bboxAreaKm2, geometryBbox } from './data.js';
-import { resolveSelection, renderSelection, setHover, fitFeatures } from './map.js';
+import { resolveSelection, selectInRing, renderSelection, setHover, fitFeatures } from './map.js';
 import { setAnalysisBadge, showTab } from './panel.js';
 import { openReport } from './report.js';
 
 const _fmt = (n) => Number(n || 0).toLocaleString('fr-FR');
 const _fmtKm2 = (n) => Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 const CORRELATION_RADIUS_M = 60;
-const SAMPLE_SIZE = 40; // aligné sur le plafond serveur (MAX_SAMPLE)
 
 const _layerOf = (f) => dg.layers.find((l) => l.id === f.__layerId);
 const _polarityOf = (f) => _layerOf(f)?.polarity || 'neutre';
@@ -84,21 +83,22 @@ export function handleSelection(screenPoints) {
 }
 
 /**
- * Une couche vient d'être supprimée : purge ses features de la sélection
- * et invalide l'analyse (les statistiques ne sont plus valables).
- * Posé sur dg.onLayerRemoved par diagnostic.js (évite un import circulaire).
+ * Recalcule la sélection sur la zone déjà tracée : appelé quand les couches
+ * visibles changent (affichage, suppression). Masquer une couche allège donc
+ * immédiatement la sélection — c'est le levier pour repasser sous le plafond.
+ * Posé sur dg.onSelectionStale par diagnostic.js (évite un import circulaire).
  */
-export function removeLayerFromSelection(layerId) {
-  if (!dg.selection) return;
-  const kept = dg.selection.features.filter((f) => f.__layerId !== layerId);
-  if (kept.length === dg.selection.features.length) return;
+export function refreshSelection() {
+  const ring = dg.selection?.polygon?.coordinates?.[0];
+  if (!ring) return;
   dg.abortCtrl?.abort();
-  const bbox = featuresBbox(kept);
-  dg.selection = { ...dg.selection, features: kept, bbox, areaKm2: bboxAreaKm2(bbox) };
+  const features = selectInRing(ring);
+  const bbox = featuresBbox(features) || geometryBbox(dg.selection.polygon);
+  dg.selection = { ...dg.selection, features, bbox, areaKm2: bboxAreaKm2(bbox) };
   dg.analysis = null;
   dg.aiSample = null;
   renderSelection(dg.selection);
-  setAnalysisBadge(kept.length);
+  setAnalysisBadge(features.length);
   renderAnalysisPanel();
 }
 
@@ -184,7 +184,25 @@ function _correlations(features) {
   }
   // De la plus forte à la plus faible : l'IA doit exploiter les majeures d'abord
   entries.sort((a, b) => b.count - a.count);
-  return { text: entries.map((e) => e.line).join('\n'), total };
+  const lines = entries.map((e) => e.line);
+  return { text: lines.join('\n'), lines, total };
+}
+
+/**
+ * Ramène la corrélation renvoyée par l'IA à la ligne réellement calculée qui
+ * lui correspond (appariement par le décompte, seul identifiant fiable). Une
+ * paraphrase — « à moins de 75 m » là où le calcul dit 60 — est ainsi
+ * remplacée par le fait exact, et une corrélation sans correspondance est
+ * effacée plutôt qu'affichée.
+ */
+function _canonicalCorrelation(raw, computedLines) {
+  const text = String(raw || '').trim();
+  if (!text || !computedLines.length) return '';
+  const exact = computedLines.find((line) => text.includes(line));
+  if (exact) return exact;
+  const cited = (text.match(/\d+/g) || []).map(Number);
+  const matches = computedLines.filter((line) => cited.includes(Number((line.match(/^(\d+)/) || [])[1])));
+  return matches.length === 1 ? matches[0] : '';
 }
 
 /** Niveau de vigilance de la zone — purement déterministe. */
@@ -197,8 +215,12 @@ function _zoneLevel(stats, correlations, totalCount) {
   return 'Critique';
 }
 
-/** Échantillon stratifié : équilibre entre couches, priorité aux points textés. */
-function _stratifiedSample(features, cap) {
+/**
+ * Ordonne les points à la ronde entre couches : la liste envoyée à l'IA reste
+ * équilibrée d'un bout à l'autre. Tous les points sont transmis — le plafond
+ * MAX_ANALYSIS_POINTS garantit que la liste tient dans la requête.
+ */
+function _orderedPoints(features, cap) {
   const groups = new Map();
   for (const f of features) {
     if (!groups.has(f.__layerId)) groups.set(f.__layerId, []);
@@ -228,14 +250,15 @@ function _stratifiedSample(features, cap) {
 
 async function _runAnalysis() {
   const sel = dg.selection;
-  if (!sel || !sel.features.length) return;
+  if (!sel || !sel.features.length || sel.features.length > MAX_ANALYSIS_POINTS) return;
   const panel = dg.container?.querySelector('#dg-panel-analyse');
   if (!panel) return;
 
   const stats = _zoneStats(sel.features);
   const correlations = _correlations(sel.features);
   const level = _zoneLevel(stats, correlations, sel.features.length);
-  const sampled = _stratifiedSample(sel.features, SAMPLE_SIZE);
+  // Intégralité des points de la zone, ordonnés à la ronde entre couches.
+  const sampled = _orderedPoints(sel.features, MAX_ANALYSIS_POINTS);
   dg.aiSample = sampled;
 
   const body = {
@@ -313,6 +336,7 @@ async function _runAnalysis() {
         gravite: Math.max(1, Math.min(5, Math.round(Number(ins.gravite) || 1))),
         refs: (Array.isArray(ins.refs) ? ins.refs : []).filter((n) => Number.isInteger(n) && n >= 1 && n <= sampled.length),
         verbatims: (Array.isArray(ins.verbatims) ? ins.verbatims : []).map((v) => String(v).trim()).filter(Boolean).slice(0, 3),
+        correlation: _canonicalCorrelation(ins.correlation, correlations.lines),
       }))
       .sort((a, b) => b.gravite - a.gravite);
 
@@ -369,22 +393,47 @@ function _breakdownHtml(features) {
 function _renderSelectionView(panel) {
   const sel = dg.selection;
   const n = sel.features.length;
+  const tooMany = n > MAX_ANALYSIS_POINTS;
+
+  let body;
+  if (n === 0) {
+    body = `
+      <div class="dg-empty">
+        <i class="fa-solid fa-magnifying-glass-location dg-empty__icon"></i>
+        <div class="dg-empty__text">Aucun point des couches visibles dans cette zone. Élargissez la sélection ou activez d'autres couches.</div>
+      </div>`;
+  } else if (tooMany) {
+    // L'analyse lit l'intégralité des points : au-delà du plafond, elle serait
+    // un sondage. On montre le poids de chaque couche pour guider l'allègement.
+    body = `
+      <div class="dg-over">
+        <div class="dg-over__title"><i class="fa-solid fa-circle-exclamation"></i> Zone trop large pour être analysée</div>
+        <div class="dg-over__text">
+          L'analyse lit <b>tous</b> les points de la zone, dans la limite de ${_fmt(MAX_ANALYSIS_POINTS)}.
+          Resserrez la sélection autour d'un carrefour ou d'un tronçon, ou masquez des couches ci-dessous
+          — le décompte se met à jour aussitôt.
+        </div>
+      </div>
+      ${_breakdownHtml(sel.features)}
+      <button type="button" class="dg-analyze-btn" id="dg-analyze" disabled>
+        <i class="fa-solid fa-wand-magic-sparkles"></i> ${_fmt(n)} points — maximum ${_fmt(MAX_ANALYSIS_POINTS)}
+      </button>`;
+  } else {
+    body = `
+      ${_breakdownHtml(sel.features)}
+      <button type="button" class="dg-analyze-btn" id="dg-analyze">
+        <i class="fa-solid fa-wand-magic-sparkles"></i> Analyser la zone
+      </button>
+      <div class="adm-form-hint dg-analyze-hint">L'IA lit l'intégralité des ${_fmt(n)} points sélectionnés et en tire des constats sourcés — chaque constat renvoie aux points qui le justifient.</div>`;
+  }
+
   panel.innerHTML = `
-    <div class="dg-sel-status">
+    <div class="dg-sel-status${tooMany ? ' dg-sel-status--over' : ''}">
       <i class="fa-solid fa-vector-square"></i>
       <span><b>${_fmt(n)}</b> point${n > 1 ? 's' : ''} dans la zone (~${_fmtKm2(sel.areaKm2)} km²)</span>
       <button type="button" class="dg-sel-clear" id="dg-sel-clear" title="Effacer la sélection"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    ${n === 0 ? `
-    <div class="dg-empty">
-      <i class="fa-solid fa-magnifying-glass-location dg-empty__icon"></i>
-      <div class="dg-empty__text">Aucun point des couches visibles dans cette zone. Élargissez la sélection ou activez d'autres couches.</div>
-    </div>` : `
-    ${_breakdownHtml(sel.features)}
-    <button type="button" class="dg-analyze-btn" id="dg-analyze">
-      <i class="fa-solid fa-wand-magic-sparkles"></i> Analyser la zone
-    </button>
-    <div class="adm-form-hint dg-analyze-hint">L'IA synthétise les signaux en constats sourcés — chaque constat renvoie aux points qui le justifient.</div>`}
+    ${body}
   `;
   panel.querySelector('#dg-sel-clear')?.addEventListener('click', clearSelection);
   panel.querySelector('#dg-analyze')?.addEventListener('click', _runAnalysis);

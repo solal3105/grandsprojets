@@ -5230,3 +5230,28 @@ html[data-theme='dark'] .adm-user-row {
 /* Règles [hidden] — des display auteur (grid/flex) l'emportent sinon sur l'UA */
 .adm-form-row[hidden] { display: none; }
 .dg-lasso-btn[hidden] { display: none; }
+
+/* Zone dépassant le plafond d'analyse (l'IA lit tous les points, jamais un échantillon) */
+.dg-sel-status--over {
+  background: rgba(var(--adm-warning-rgb), 0.12);
+  border-color: rgba(var(--adm-warning-rgb), 0.3);
+}
+.dg-sel-status--over i { color: var(--color-warning); }
+.dg-over {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 13px; margin-bottom: 12px;
+  border-radius: 12px;
+  background: rgba(var(--adm-warning-rgb), 0.08);
+  border: 1px solid rgba(var(--adm-warning-rgb), 0.22);
+}
+.dg-over__title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12.5px; font-weight: 800; color: var(--gray-900);
+}
+.dg-over__title i { color: var(--color-warning); }
+.dg-over__text { font-size: 11.5px; line-height: 1.5; color: var(--gray-600); }
+.dg-analyze-btn:disabled {
+  background: var(--gray-200); color: var(--gray-500);
+  box-shadow: none; cursor: not-allowed; transform: none;
+}
+.dg-analyze-btn:disabled:hover { transform: none; box-shadow: none; }

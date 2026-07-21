@@ -15,7 +15,7 @@ import { dg, resetState } from './diagnostic/state.js';
 import { createMap, wireLasso, syncLayerRender } from './diagnostic/map.js';
 import { loadAllLayers, fitToData } from './diagnostic/layers.js';
 import { renderDock, updateLayerRow, renderLayersPanel } from './diagnostic/panel.js';
-import { handleSelection, removeLayerFromSelection, renderAnalysisPanel } from './diagnostic/analysis.js';
+import { handleSelection, refreshSelection, renderAnalysisPanel } from './diagnostic/analysis.js';
 import { openReportsHistory } from './diagnostic/report.js';
 
 // Jeton de génération : le routeur ré-utilise toujours le même conteneur
@@ -30,7 +30,7 @@ export async function renderDiagnostic(container) {
   const epoch = ++_epoch;
   const alive = () => _epoch === epoch;
   dg.container = container;
-  dg.onLayerRemoved = removeLayerFromSelection;
+  dg.onSelectionStale = refreshSelection;
 
   if (!store.isAdmin) {
     container.innerHTML = `

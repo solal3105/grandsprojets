@@ -68,6 +68,7 @@ export function toggleLayer(id, visible) {
   rt.visible = visible;
   setLayerVisibility(id, visible);
   updateHeatmap(dg.heatmapOn);
+  dg.onSelectionStale?.(); // la zone tracée ne contient plus les mêmes points
 }
 
 /** Supprime une couche : base, carte et état local. */
@@ -78,6 +79,7 @@ export async function deleteLayer(id) {
   dg.runtime.delete(id);
   dg.layers = dg.layers.filter((l) => l.id !== id);
   updateHeatmap(dg.heatmapOn);
+  dg.onSelectionStale?.();
 }
 
 /** Cadre la carte sur l'ensemble des données visibles chargées. */

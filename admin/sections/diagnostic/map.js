@@ -406,20 +406,13 @@ export function wireLasso(mapWrap, onSelect) {
 }
 
 /**
- * Résout un polygone écran en sélection, sur les DONNÉES sources (pas
- * seulement le viewport) : un point est retenu si son ancrage tombe dans le
- * polygone ; une ligne / un polygone si l'un de ses sommets y tombe.
- * Pré-filtre par emprise géographique pour rester fluide sur de gros jeux.
+ * Sélectionne les features des couches VISIBLES contenues dans un anneau
+ * géographique : un point est retenu si son ancrage y tombe, une ligne ou un
+ * polygone si l'un de ses sommets y tombe. Le test est géographique (et non
+ * écran), donc rejouable après un déplacement de carte ou un changement de
+ * couches. Pré-filtre par emprise pour rester fluide sur de gros jeux.
  */
-export function resolveSelection(screenPoints) {
-  const map = dg.map;
-
-  // Polygone géographique correspondant au tracé écran (zone + rapport + pré-filtre).
-  const ring = screenPoints.map(([x, y]) => {
-    const ll = map.unproject([x, y]);
-    return [ll.lng, ll.lat];
-  });
-  ring.push(ring[0]);
+export function selectInRing(ring) {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const [x, y] of ring) {
     if (x < minX) minX = x;
@@ -427,11 +420,7 @@ export function resolveSelection(screenPoints) {
     if (y < minY) minY = y;
     if (y > maxY) maxY = y;
   }
-
-  const inLasso = (lngLat) => {
-    const p = map.project(lngLat);
-    return pointInPolygon([p.x, p.y], screenPoints);
-  };
+  const inRing = (lngLat) => pointInPolygon(lngLat, ring);
 
   const selected = [];
   for (const layer of dg.layers) {
@@ -441,12 +430,23 @@ export function resolveSelection(screenPoints) {
       const [bMinX, bMinY, bMaxX, bMaxY] = f.__bbox;
       if (bMaxX < minX || bMinX > maxX || bMaxY < minY || bMinY > maxY) continue;
       const hit = f.geometry.type === 'Point'
-        ? inLasso(f.__pt)
-        : (inLasso(f.__pt) || someVertex(f.geometry, (lng, lat) => inLasso([lng, lat])));
+        ? inRing(f.__pt)
+        : (inRing(f.__pt) || someVertex(f.geometry, (lng, lat) => inRing([lng, lat])));
       if (hit) selected.push({ ...f, __layerId: layer.id });
     }
   }
-  return { features: selected, polygon: { type: 'Polygon', coordinates: [ring] } };
+  return selected;
+}
+
+/** Convertit le tracé écran du lasso en anneau géographique puis sélectionne. */
+export function resolveSelection(screenPoints) {
+  const map = dg.map;
+  const ring = screenPoints.map(([x, y]) => {
+    const ll = map.unproject([x, y]);
+    return [ll.lng, ll.lat];
+  });
+  ring.push(ring[0]);
+  return { features: selectInRing(ring), polygon: { type: 'Polygon', coordinates: [ring] } };
 }
 
 /* ── Capture pour le rapport ────────────────────────────────────── */
