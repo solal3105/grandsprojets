@@ -325,8 +325,35 @@ function _configStepsHtml(w) {
 function _showConfig(overlay, w) {
   const config = overlay.querySelector('#dg-wz-config');
   if (config) config.hidden = false;
+  _syncConfigUI(overlay, w);
   _refreshFieldSelectors(overlay, w);
   _updateSaveState(overlay, w);
+}
+
+/** Reflète w.cfg dans les contrôles du formulaire (après choix d'une source). */
+function _syncConfigUI(overlay, w) {
+  const cfg = w.cfg;
+  const label = overlay.querySelector('#dg-wz-label');
+  if (label && !label.value && cfg.label) label.value = cfg.label;
+  const group = overlay.querySelector('#dg-wz-group');
+  if (group && !group.value && cfg.group_label) group.value = cfg.group_label;
+  const ai = overlay.querySelector('#dg-wz-ai');
+  if (ai && !ai.value && cfg.ai_context) ai.value = cfg.ai_context;
+  overlay.querySelectorAll('#dg-wz-polarity button').forEach((b) => {
+    b.classList.toggle('is-active', b.dataset.pol === cfg.polarity);
+  });
+  overlay.querySelectorAll('#dg-wz-colormode button').forEach((b) => {
+    b.classList.toggle('is-active', b.dataset.mode === (cfg.style.mode === 'category' ? 'category' : 'single'));
+  });
+  const singleWrap = overlay.querySelector('#dg-wz-single-wrap');
+  if (singleWrap) singleWrap.hidden = cfg.style.mode === 'category';
+  const catWrap = overlay.querySelector('#dg-wz-cat-wrap');
+  if (catWrap) catWrap.hidden = cfg.style.mode !== 'category';
+  const radius = overlay.querySelector('#dg-wz-radius');
+  if (radius) radius.value = String(cfg.style.radius || 4);
+  const radiusLabel = overlay.querySelector('#dg-wz-radius-v');
+  if (radiusLabel) radiusLabel.textContent = String(cfg.style.radius || 4);
+  _renderSwatches(overlay, w);
 }
 
 function _bindConfigSteps(overlay, w) {

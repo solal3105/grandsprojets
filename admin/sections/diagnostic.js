@@ -12,8 +12,8 @@ import * as api from '../api.js';
 import { store } from '../store.js';
 import { esc } from '../components/ui.js';
 import { dg, resetState } from './diagnostic/state.js';
-import { createMap, wireLasso } from './diagnostic/map.js';
-import { loadAllLayers } from './diagnostic/layers.js';
+import { createMap, wireLasso, syncLayerRender } from './diagnostic/map.js';
+import { loadAllLayers, fitToData } from './diagnostic/layers.js';
 import { renderDock, updateLayerRow, renderLayersPanel } from './diagnostic/panel.js';
 import { handleSelection, renderAnalysisPanel } from './diagnostic/analysis.js';
 import { openReportsHistory } from './diagnostic/report.js';
@@ -60,12 +60,6 @@ export async function renderDiagnostic(container) {
 
   container.querySelector('#dg-history-btn')?.addEventListener('click', openReportsHistory);
 
-  if (typeof maplibregl === 'undefined') {
-    container.querySelector('#dg-mapwrap').innerHTML =
-      `<div class="adm-empty"><div class="adm-empty__title">${esc('Carte indisponible')}</div><div class="adm-empty__text">MapLibre n'a pas pu être chargé.</div></div>`;
-    return;
-  }
-
   // Config en parallèle : branding (centre + fond), catalogue de fonds, couches.
   const [branding, basemaps, layers] = await Promise.all([
     api.getBranding().catch(() => null),
@@ -76,17 +70,35 @@ export async function renderDiagnostic(container) {
   dg.branding = branding;
   dg.layers = layers;
 
+  // Le dock et les données ne dépendent pas de la carte : la gestion des
+  // couches reste fonctionnelle même si WebGL est indisponible.
   const mapWrap = container.querySelector('#dg-mapwrap');
+  renderDock(mapWrap);
+  renderAnalysisPanel();
+  loadAllLayers((layer) => updateLayerRow(layer.id)).then(() => {
+    if (dg.container === container) renderLayersPanel();
+  });
+
   // MapLibre lit la taille du conteneur à l'init : attendre la fin du layout.
   setTimeout(async () => {
     if (dg.container !== container) return;
-    await createMap(container.querySelector('#dg-map'), basemaps);
-    if (dg.container !== container) return;
-    renderDock(mapWrap);
-    renderAnalysisPanel();
-    wireLasso(mapWrap, handleSelection);
-    await loadAllLayers((layer) => updateLayerRow(layer.id));
-    renderLayersPanel();
+    try {
+      if (typeof maplibregl === 'undefined') throw new Error('MapLibre non chargé');
+      await createMap(container.querySelector('#dg-map'), basemaps);
+      if (dg.container !== container) return;
+      wireLasso(mapWrap, handleSelection);
+      // Synchroniser les couches déjà chargées pendant l'init de la carte.
+      for (const layer of dg.layers) syncLayerRender(layer);
+      fitToData();
+    } catch (err) {
+      console.warn('[admin/diagnostic] Carte indisponible:', err);
+      if (dg.container !== container) return;
+      mapWrap.querySelector('#dg-lasso-btn')?.setAttribute('hidden', '');
+      const notice = document.createElement('div');
+      notice.className = 'dg-map-error';
+      notice.innerHTML = `<i class="fa-solid fa-map"></i> ${esc('Carte non disponible dans cet environnement — la gestion des couches reste accessible.')}`;
+      mapWrap.appendChild(notice);
+    }
   }, 200);
 }
 

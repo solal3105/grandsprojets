@@ -5213,3 +5213,16 @@ html[data-theme='dark'] .adm-user-row {
   .dg-rp-grid2 { grid-template-columns: 1fr; }
   .dg-rp-page { padding: 24px 18px; }
 }
+
+/* Carte indisponible (WebGL absent) — le dock reste fonctionnel */
+.dg-map-error {
+  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+  z-index: 4;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 16px;
+  border-radius: var(--adm-radius-pill);
+  background: var(--gray-900); color: #fff;
+  font-size: 12px; font-weight: 600;
+  box-shadow: var(--adm-shadow-lg);
+  max-width: calc(100% - 28px);
+}
