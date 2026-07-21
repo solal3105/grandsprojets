@@ -18,6 +18,10 @@
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
 
+// Passerelle IA Netlify : quand elle est active, OPENAI_API_KEY est un jeton
+// de passerelle valable uniquement sur OPENAI_BASE_URL (jamais api.openai.com).
+const OPENAI_RESPONSES_URL = (process.env.OPENAI_BASE_URL?.replace(/\/$/, '') || 'https://api.openai.com') + '/v1/responses';
+
 const SYSTEM_PROMPT = `Tu es un analyste senior en mobilité et aménagement urbain. Ta mission : SYNTHÉTISER FACTUELLEMENT ce que disent les données d'une zone géographique, PAS proposer des solutions.
 RÈGLES ABSOLUES (le non-respect invalide la réponse) :
 - ZÉRO INVENTION. N'écris QUE ce qui est littéralement présent dans les données fournies. Interdit d'inventer une date, un chiffre, un nom de rue, une fréquence ou une cause non fournie.
@@ -217,7 +221,7 @@ export default async function handler(req) {
     console.log(`[ai-diagnostic] Début analyse ville=${ville} sample=${payload.sample.length}`);
     const t0 = Date.now();
 
-    const openaiRes = await fetch('https://api.openai.com/v1/responses', {
+    const openaiRes = await fetch(OPENAI_RESPONSES_URL, {
       method: 'POST',
       signal: timeoutCtrl.signal,
       headers: {
@@ -241,7 +245,8 @@ export default async function handler(req) {
 
     if (!openaiRes.ok) {
       const errText = await openaiRes.text();
-      console.error('[ai-diagnostic] OpenAI error:', errText);
+      console.error('[ai-diagnostic] OpenAI error:', openaiRes.status, errText);
+      clearTimeout(timeoutId);
       return errResp(502, 'OpenAI API error', corsHeaders);
     }
 
