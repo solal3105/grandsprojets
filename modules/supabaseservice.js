@@ -2540,7 +2540,8 @@
     /**
      * Récupère les couches de diagnostic d'une ville
      * @param {string} ville
-     * @returns {Promise<Array>} Lignes diagnostic_layers triées par sort_order
+     * @returns {Promise<Array|null>} Lignes triées par sort_order — null en cas
+     *   d'erreur (réseau/RLS), pour distinguer l'échec de l'état vide côté UI
      */
     fetchDiagnosticLayers: async function(ville) {
       try {
@@ -2553,12 +2554,12 @@
           .order('created_at', { ascending: true });
         if (error) {
           console.debug('[supabaseService] Erreur fetchDiagnosticLayers:', error);
-          return [];
+          return null;
         }
         return data || [];
       } catch (e) {
         console.error('[supabaseService] fetchDiagnosticLayers exception:', e);
-        return [];
+        return null;
       }
     },
 
@@ -2629,7 +2630,9 @@
     },
 
     /**
-     * Upload d'un GeoJSON normalisé d'une couche de diagnostic dans Storage
+     * Upload d'un GeoJSON normalisé d'une couche de diagnostic dans Storage.
+     * NB : bucket public (même modèle que travaux-geojson) — chemin non
+     * devinable via UUID, mais ne pas y déposer de données nominatives.
      * @param {string} ville
      * @param {Object} geojson - FeatureCollection
      * @returns {Promise<string>} URL publique du fichier

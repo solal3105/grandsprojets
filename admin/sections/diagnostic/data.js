@@ -14,13 +14,9 @@ export function toFeatureCollection(json) {
   return null;
 }
 
-/** Point d'ancrage d'une feature (centre de l'emprise pour les lignes/polygones). */
-export function anchorPoint(geometry) {
+/** Emprise [minX, minY, maxX, maxY] d'une géométrie (null si invalide). */
+export function geometryBbox(geometry) {
   if (!geometry) return null;
-  if (geometry.type === 'Point') {
-    const c = geometry.coordinates;
-    return Array.isArray(c) && isFinite(c[0]) && isFinite(c[1]) ? [c[0], c[1]] : null;
-  }
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   const walk = (coords) => {
     if (!Array.isArray(coords)) return;
@@ -35,21 +31,35 @@ export function anchorPoint(geometry) {
     coords.forEach(walk);
   };
   walk(geometry.coordinates);
-  if (!isFinite(minX)) return null;
-  return [(minX + maxX) / 2, (minY + maxY) / 2];
+  return isFinite(minX) ? [minX, minY, maxX, maxY] : null;
+}
+
+/** Applique `fn(lng, lat)` à chaque sommet de la géométrie ; s'arrête si fn retourne true. */
+export function someVertex(geometry, fn) {
+  const walk = (coords) => {
+    if (!Array.isArray(coords)) return false;
+    if (typeof coords[0] === 'number') return fn(coords[0], coords[1]);
+    for (const c of coords) if (walk(c)) return true;
+    return false;
+  };
+  return walk(geometry?.coordinates);
 }
 
 /**
  * Prépare les features d'une couche : filtre les géométries invalides et
- * pré-calcule le point d'ancrage (`__pt`) utilisé par le lasso et la heatmap.
+ * pré-calcule le point d'ancrage (`__pt`) et l'emprise (`__bbox`) utilisés
+ * par le lasso et la heatmap.
  */
 export function prepareFeatures(fc) {
   const out = [];
   for (const f of fc.features || []) {
     if (!f || !f.geometry) continue;
-    const pt = anchorPoint(f.geometry);
-    if (!pt) continue;
-    out.push({ ...f, properties: f.properties || {}, __pt: pt });
+    const bbox = geometryBbox(f.geometry);
+    if (!bbox) continue;
+    const pt = f.geometry.type === 'Point'
+      ? [f.geometry.coordinates[0], f.geometry.coordinates[1]]
+      : [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2];
+    out.push({ ...f, properties: f.properties || {}, __pt: pt, __bbox: bbox });
   }
   return out;
 }
@@ -98,31 +108,47 @@ export async function loadLayerData(layer) {
 
 /* ── CSV → GeoJSON ─────────────────────────────────────────────── */
 
-function _parseCsvLine(line, sep) {
-  const cells = [];
-  let cur = '';
+/**
+ * Parse un CSV en objets clé→valeur. Parser à état conforme RFC 4180 :
+ * guillemets, séparateur , ou ; auto-détecté, retours à la ligne DANS les
+ * champs entre guillemets.
+ */
+export function parseCsv(text) {
+  const src = String(text).replace(/\r\n?/g, '\n');
+  const firstLine = src.slice(0, src.indexOf('\n') === -1 ? src.length : src.indexOf('\n'));
+  const sep = (firstLine.match(/;/g) || []).length >= (firstLine.match(/,/g) || []).length ? ';' : ',';
+
+  const rows = [];
+  let row = [];
+  let cell = '';
   let quoted = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (c === '"') {
-      if (quoted && line[i + 1] === '"') { cur += '"'; i++; } else quoted = !quoted;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (quoted) {
+      if (c === '"') {
+        if (src[i + 1] === '"') { cell += '"'; i++; } else quoted = false;
+      } else {
+        cell += c;
+      }
       continue;
     }
-    if (c === sep && !quoted) { cells.push(cur.trim()); cur = ''; continue; }
-    cur += c;
+    if (c === '"') { quoted = true; continue; }
+    if (c === sep) { row.push(cell.trim()); cell = ''; continue; }
+    if (c === '\n') {
+      row.push(cell.trim());
+      if (row.some((v) => v !== '')) rows.push(row);
+      row = [];
+      cell = '';
+      continue;
+    }
+    cell += c;
   }
-  cells.push(cur.trim());
-  return cells;
-}
+  row.push(cell.trim());
+  if (row.some((v) => v !== '')) rows.push(row);
 
-/** Parse un CSV (séparateur , ou ; auto-détecté) en objets clé→valeur. */
-export function parseCsv(text) {
-  const lines = String(text).trim().split('\n').map((l) => l.replace(/\r/g, ''));
-  if (lines.length < 2) return { headers: [], records: [] };
-  const sep = (lines[0].match(/;/g) || []).length >= (lines[0].match(/,/g) || []).length ? ';' : ',';
-  const headers = _parseCsvLine(lines[0], sep);
-  const records = lines.slice(1).filter(Boolean).map((line) => {
-    const values = _parseCsvLine(line, sep);
+  if (rows.length < 2) return { headers: rows[0] || [], records: [] };
+  const headers = rows[0];
+  const records = rows.slice(1).map((values) => {
     const rec = {};
     headers.forEach((h, i) => { rec[h] = values[i] ?? ''; });
     return rec;
@@ -137,8 +163,10 @@ export function guessColumn(headers, keys) {
     const i = low.indexOf(k);
     if (i >= 0) return headers[i];
   }
+  // Repli par sous-chaîne — uniquement pour les clés non ambiguës (≥ 3 car.,
+  // sinon « x »/« y » matchent n'importe quel en-tête).
   for (let i = 0; i < low.length; i++) {
-    if (keys.some((k) => low[i].includes(k))) return headers[i];
+    if (keys.some((k) => k.length >= 3 && low[i].includes(k))) return headers[i];
   }
   return headers[0] || '';
 }

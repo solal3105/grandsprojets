@@ -4,8 +4,9 @@
  * lasso + diagnostic IA, contenu rendu par analysis.js).
  */
 
-import { esc, toast, confirm } from '../../components/ui.js';
-import { dg } from './state.js';
+import { esc, escAttr, toast, confirm } from '../../components/ui.js';
+import { router } from '../../router.js';
+import { dg, safeColor } from './state.js';
 import { loadLayer, toggleLayer, deleteLayer } from './layers.js';
 import { colorExpression, updateHeatmap } from './map.js';
 import { openLayerWizard } from './wizard.js';
@@ -61,6 +62,23 @@ export function renderLayersPanel() {
   const panel = dg.container?.querySelector('#dg-panel-layers');
   if (!panel) return;
 
+  if (dg.layersLoadFailed) {
+    panel.innerHTML = `
+      <div class="dg-empty">
+        <i class="fa-solid fa-plug-circle-xmark dg-empty__icon"></i>
+        <div class="dg-empty__title">Chargement impossible</div>
+        <div class="dg-empty__text">Les couches n'ont pas pu être récupérées. Vérifiez votre connexion puis réessayez.</div>
+        <button type="button" class="adm-btn adm-btn--secondary adm-btn--sm" id="dg-layers-retry">
+          <i class="fa-solid fa-rotate"></i> Réessayer
+        </button>
+      </div>
+    `;
+    panel.querySelector('#dg-layers-retry')?.addEventListener('click', () => {
+      router.navigate('/admin/diagnostic/', { replace: true });
+    });
+    return;
+  }
+
   if (!dg.layers.length) {
     panel.innerHTML = `
       <div class="dg-empty">
@@ -115,9 +133,9 @@ export function renderLayersPanel() {
 
 function _swatchColor(layer) {
   const expr = colorExpression(layer.style);
-  if (typeof expr === 'string') return expr;
+  if (typeof expr === 'string') return safeColor(expr);
   const colors = Object.values(layer.style?.cat_colors || {});
-  return colors[0] || layer.style?.color || '#2563EB';
+  return safeColor(colors[0] || layer.style?.color);
 }
 
 function _layerRowHtml(layer) {
@@ -129,8 +147,8 @@ function _layerRowHtml(layer) {
   else count = _fmt(rt.count);
   const statusClass = rt?.status === 'error' ? ' dg-row--error' : '';
   return `
-    <div class="dg-row${statusClass}" data-id="${esc(layer.id)}">
-      <span class="dg-swatch" style="background:${esc(_swatchColor(layer))}"></span>
+    <div class="dg-row${statusClass}" data-id="${escAttr(layer.id)}">
+      <span class="dg-swatch" style="background:${escAttr(_swatchColor(layer))}"></span>
       <span class="dg-row__txt">
         <span class="dg-row__label">${esc(layer.label)}</span>
         ${layer.polarity !== 'neutre' ? `<span class="dg-row__sub">${layer.polarity === 'negatif' ? 'Signaux négatifs' : 'Signaux positifs'}</span>` : ''}
@@ -138,7 +156,7 @@ function _layerRowHtml(layer) {
       <span class="dg-count" data-count>${count}</span>
       <button type="button" class="dg-row__act" data-act="edit" title="Éditer la couche"><i class="fa-solid fa-pen"></i></button>
       <button type="button" class="dg-row__act" data-act="delete" title="Supprimer la couche"><i class="fa-solid fa-trash-can"></i></button>
-      <span class="adm-switch adm-switch--sm"><input type="checkbox" data-act="toggle" ${visible ? 'checked' : ''} aria-label="Afficher ${esc(layer.label)}"><span class="adm-switch__track"></span></span>
+      <span class="adm-switch adm-switch--sm"><input type="checkbox" data-act="toggle" ${visible ? 'checked' : ''} aria-label="Afficher ${escAttr(layer.label)}"><span class="adm-switch__track"></span></span>
     </div>
   `;
 }
@@ -177,6 +195,7 @@ function _bindLayerRow(row) {
     if (!ok) return;
     try {
       await deleteLayer(id);
+      dg.onLayerRemoved?.(id); // purge la sélection lasso des features de cette couche
       toast('Couche supprimée', 'success');
       renderLayersPanel();
     } catch (err) {

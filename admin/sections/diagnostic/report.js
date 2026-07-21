@@ -6,12 +6,14 @@
  */
 
 import * as api from '../../api.js';
-import { esc, toast, confirm, slidePanel, formatDate } from '../../components/ui.js';
+import { esc, escAttr, toast, confirm, slidePanel, formatDate } from '../../components/ui.js';
 import { store } from '../../store.js';
-import { dg, LEVEL_COLORS, SEVERITY_COLORS } from './state.js';
+import { dg, LEVEL_COLORS, SEVERITY_COLORS, safeColor } from './state.js';
 import { captureZoneImage } from './map.js';
 
 const _fmt = (n) => Number(n || 0).toLocaleString('fr-FR');
+const _fmtKm2 = (n) => Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+const _sev = (g) => Math.max(1, Math.min(5, Math.round(Number(g) || 1)));
 
 /* ── Génération depuis l'analyse courante ──────────────────────── */
 
@@ -24,7 +26,7 @@ function _reportData() {
   const breakdown = [...byLayer.entries()]
     .map(([id, count]) => {
       const layer = dg.layers.find((l) => l.id === id);
-      return layer ? { label: layer.label, color: layer.style?.color || '#2563EB', count } : null;
+      return layer ? { label: layer.label, color: safeColor(layer.style?.color), count } : null;
     })
     .filter(Boolean)
     .sort((x, y) => y.count - x.count);
@@ -82,7 +84,7 @@ function _barChart(items) {
   return items.map((i) => `
     <div class="dg-rp-bar">
       <span class="dg-rp-bar__label">${esc(i.label)}</span>
-      <span class="dg-rp-bar__track"><span class="dg-rp-bar__fill" style="width:${Math.max(3, Math.round(i.value / max * 100))}%;background:${esc(i.color)}"></span></span>
+      <span class="dg-rp-bar__track"><span class="dg-rp-bar__fill" style="width:${Math.max(3, Math.round(i.value / max * 100))}%;background:${escAttr(i.color)}"></span></span>
       <span class="dg-rp-bar__value">${_fmt(i.value)}</span>
     </div>`).join('');
 }
@@ -106,22 +108,25 @@ function _showReportDoc(data, mapImg, date) {
   const levelColor = LEVEL_COLORS[a.level] || '#64748B';
   const brand = dg.branding?.brand_name || store.city || '';
   const dateLabel = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  const insights = (a.insights || []).slice().sort((x, y) => (y.gravite || 0) - (x.gravite || 0));
-  const grave = insights.filter((i) => (i.gravite || 0) >= 4).length;
+  // Les rapports historisés reviennent d'un jsonb : normaliser la gravité.
+  const insights = (a.insights || [])
+    .map((i) => ({ ...i, gravite: _sev(i.gravite) }))
+    .sort((x, y) => y.gravite - x.gravite);
+  const grave = insights.filter((i) => i.gravite >= 4).length;
 
   const gravCounts = [5, 4, 3, 2, 1].map((g) => ({
     label: `Gravité ${g}`,
     value: insights.filter((i) => i.gravite === g).length,
     color: SEVERITY_COLORS[g],
   }));
-  const layerItems = (s.breakdown || []).map((b) => ({ label: b.label, value: b.count, color: b.color }));
+  const layerItems = (s.breakdown || []).map((b) => ({ label: b.label, value: b.count, color: safeColor(b.color) }));
 
   const insightBlocks = insights.map((i) => {
-    const sev = SEVERITY_COLORS[i.gravite] || SEVERITY_COLORS[1];
+    const sev = SEVERITY_COLORS[i.gravite];
     return `
-      <div class="dg-rp-ins" style="border-left-color:${esc(sev)}">
+      <div class="dg-rp-ins" style="border-left-color:${escAttr(sev)}">
         <div class="dg-rp-ins__top">
-          <span class="dg-rp-ins__sev" style="background:${esc(sev)}">Gravité ${i.gravite}</span>
+          <span class="dg-rp-ins__sev" style="background:${escAttr(sev)}">Gravité ${i.gravite}</span>
           <span class="dg-rp-ins__cat">${esc(i.categorie || '')}</span>
           <span class="dg-rp-ins__conf">Confiance ${esc(i.confiance || '—')}</span>
         </div>
@@ -133,9 +138,9 @@ function _showReportDoc(data, mapImg, date) {
   }).join('');
 
   const pisteRows = insights.filter((i) => i.piste).map((i) => {
-    const sev = SEVERITY_COLORS[i.gravite] || SEVERITY_COLORS[1];
+    const sev = SEVERITY_COLORS[i.gravite];
     return `<tr>
-      <td><span class="dg-rp-pill" style="background:${esc(sev)}">${i.gravite}</span></td>
+      <td><span class="dg-rp-pill" style="background:${escAttr(sev)}">${i.gravite}</span></td>
       <td>${esc(i.piste)}</td>
       <td>${esc(i.categorie || '')}</td>
     </tr>`;
@@ -164,7 +169,7 @@ function _showReportDoc(data, mapImg, date) {
         <div>
           <div class="dg-rp-brand"><i class="fa-solid fa-location-dot"></i> Open Projets</div>
           <div class="dg-rp-title">Diagnostic terrain — zone</div>
-          <div class="dg-rp-sub">${esc(brand)} · ${esc(dateLabel)}<br>${_fmt(data.point_count)} points · ${Number(data.zone?.area_km2 || 0).toFixed(2)} km²</div>
+          <div class="dg-rp-sub">${esc(brand)} · ${esc(dateLabel)}<br>${_fmt(data.point_count)} points · ${_fmtKm2(data.zone?.area_km2)} km²</div>
         </div>
         <span class="dg-rp-level" style="background:${esc(levelColor)}">Zone ${esc(a.level)}</span>
       </div>

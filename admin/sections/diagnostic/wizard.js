@@ -6,7 +6,7 @@
  */
 
 import * as api from '../../api.js';
-import { esc, toast } from '../../components/ui.js';
+import { esc, escAttr, toast } from '../../components/ui.js';
 import { dg, PALETTE, INTERNAL_SOURCES, DEFAULT_STYLE } from './state.js';
 import {
   toFeatureCollection, prepareFeatures, detectFields,
@@ -64,9 +64,15 @@ export function openLayerWizard({ layer = null, onSaved }) {
   `;
   document.body.appendChild(overlay);
 
-  const close = () => overlay.remove();
+  const onKeydown = (e) => { if (e.key === 'Escape') close(); };
+  const close = () => {
+    document.removeEventListener('keydown', onKeydown);
+    overlay.remove();
+  };
+  document.addEventListener('keydown', onKeydown);
   overlay.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', close));
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  overlay.querySelector('#dg-wz-label')?.focus();
 
   if (!isEdit) _bindSourceStep(overlay, w);
   _bindConfigSteps(overlay, w);
@@ -135,7 +141,11 @@ function _bindSourceStep(overlay, w) {
   // Fichier (clic + drag & drop).
   const drop = overlay.querySelector('#dg-wz-drop');
   const fileInput = overlay.querySelector('#dg-wz-file');
-  fileInput?.addEventListener('change', (e) => { if (e.target.files[0]) _readFile(overlay, w, e.target.files[0]); });
+  fileInput?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    e.target.value = ''; // permet de re-sélectionner le même fichier après une erreur
+    if (file) _readFile(overlay, w, file);
+  });
   ['dragover', 'dragenter'].forEach((ev) => drop?.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('is-over'); }));
   ['dragleave', 'drop'].forEach((ev) => drop?.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('is-over'); }));
   drop?.addEventListener('drop', (e) => { const f = e.dataTransfer.files[0]; if (f) _readFile(overlay, w, f); });
@@ -254,12 +264,12 @@ function _configStepsHtml(w) {
     <div class="adm-form-row">
       <div class="adm-form-group">
         <label class="adm-label" for="dg-wz-label">Nom de la couche</label>
-        <input type="text" class="adm-input" id="dg-wz-label" value="${esc(cfg.label)}" placeholder="Ex. Comptages vélo 2026">
+        <input type="text" class="adm-input" id="dg-wz-label" value="${escAttr(cfg.label)}" placeholder="Ex. Comptages vélo 2026">
       </div>
       <div class="adm-form-group">
         <label class="adm-label" for="dg-wz-group">Groupe <span class="dg-opt">(optionnel)</span></label>
-        <input type="text" class="adm-input" id="dg-wz-group" list="dg-wz-groups" value="${esc(cfg.group_label)}" placeholder="Ex. Contributions citoyennes">
-        <datalist id="dg-wz-groups">${groups.map((g) => `<option value="${esc(g)}"></option>`).join('')}</datalist>
+        <input type="text" class="adm-input" id="dg-wz-group" list="dg-wz-groups" value="${escAttr(cfg.group_label)}" placeholder="Ex. Contributions citoyennes">
+        <datalist id="dg-wz-groups">${groups.map((g) => `<option value="${escAttr(g)}"></option>`).join('')}</datalist>
       </div>
     </div>
     <div class="adm-form-row" id="dg-wz-latlng" hidden>

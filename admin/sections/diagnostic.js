@@ -15,13 +15,22 @@ import { dg, resetState } from './diagnostic/state.js';
 import { createMap, wireLasso, syncLayerRender } from './diagnostic/map.js';
 import { loadAllLayers, fitToData } from './diagnostic/layers.js';
 import { renderDock, updateLayerRow, renderLayersPanel } from './diagnostic/panel.js';
-import { handleSelection, renderAnalysisPanel } from './diagnostic/analysis.js';
+import { handleSelection, removeLayerFromSelection, renderAnalysisPanel } from './diagnostic/analysis.js';
 import { openReportsHistory } from './diagnostic/report.js';
+
+// Jeton de génération : le routeur ré-utilise toujours le même conteneur
+// #adm-content, donc comparer les conteneurs ne détecte pas un re-render
+// (changement de structure, re-clic nav). Chaque rendu incrémente le jeton et
+// les continuations async de l'ancien rendu s'interrompent.
+let _epoch = 0;
 
 export async function renderDiagnostic(container) {
   destroyDiagnostic();
   resetState();
+  const epoch = ++_epoch;
+  const alive = () => _epoch === epoch;
   dg.container = container;
+  dg.onLayerRemoved = removeLayerFromSelection;
 
   if (!store.isAdmin) {
     container.innerHTML = `
@@ -66,37 +75,43 @@ export async function renderDiagnostic(container) {
     window.supabaseService?.fetchBasemaps() ?? [],
     api.getDiagnosticLayers(),
   ]);
-  if (dg.container !== container) return; // section quittée pendant le chargement
+  if (!alive()) return; // section quittée ou re-rendue pendant le chargement
   dg.branding = branding;
-  dg.layers = layers;
+  dg.layersLoadFailed = layers === null;
+  dg.layers = layers || [];
 
   // Le dock et les données ne dépendent pas de la carte : la gestion des
   // couches reste fonctionnelle même si WebGL est indisponible.
   const mapWrap = container.querySelector('#dg-mapwrap');
   renderDock(mapWrap);
   renderAnalysisPanel();
-  loadAllLayers((layer) => updateLayerRow(layer.id)).then(() => {
-    if (dg.container === container) renderLayersPanel();
+  loadAllLayers((layer) => { if (alive()) updateLayerRow(layer.id); }).then(() => {
+    if (alive()) renderLayersPanel();
   });
 
   // MapLibre lit la taille du conteneur à l'init : attendre la fin du layout.
   setTimeout(async () => {
-    if (dg.container !== container) return;
+    if (!alive()) return;
     try {
       if (typeof maplibregl === 'undefined') throw new Error('MapLibre non chargé');
       await createMap(container.querySelector('#dg-map'), basemaps);
-      if (dg.container !== container) return;
+      if (!alive()) return;
       wireLasso(mapWrap, handleSelection);
       // Synchroniser les couches déjà chargées pendant l'init de la carte.
       for (const layer of dg.layers) syncLayerRender(layer);
       fitToData();
     } catch (err) {
       console.warn('[admin/diagnostic] Carte indisponible:', err);
-      if (dg.container !== container) return;
+      // Rendu obsolète : destroyDiagnostic a déjà retiré la carte de CE rendu,
+      // et dg.map peut appartenir au rendu suivant — ne pas y toucher.
+      if (!alive()) return;
+      try { dg.map?.remove(); } catch { /* jamais initialisée */ }
+      dg.map = null;
+      dg.mapReady = false;
       mapWrap.querySelector('#dg-lasso-btn')?.setAttribute('hidden', '');
       const notice = document.createElement('div');
       notice.className = 'dg-map-error';
-      notice.innerHTML = `<i class="fa-solid fa-map"></i> ${esc('Carte non disponible dans cet environnement — la gestion des couches reste accessible.')}`;
+      notice.innerHTML = `<i class="fa-solid fa-map"></i> ${esc('Carte non disponible — la gestion des couches reste accessible.')}`;
       mapWrap.appendChild(notice);
     }
   }, 200);
@@ -104,6 +119,7 @@ export async function renderDiagnostic(container) {
 
 /** Détruit la carte et les listeners globaux de la section. */
 export function destroyDiagnostic() {
+  _epoch++; // interrompt les continuations async du rendu en cours
   dg.abortCtrl?.abort();
   for (const fn of dg.cleanupFns) {
     try { fn(); } catch { /* listener déjà retiré */ }

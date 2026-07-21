@@ -96,6 +96,11 @@ export function esc(str) {
   return el.innerHTML;
 }
 
+/** Échappement pour les VALEURS D'ATTRIBUT (esc() ne couvre pas les guillemets) */
+export function escAttr(str) {
+  return esc(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 export function formatDate(dateStr) {
   if (!dateStr) return '—';
   const d = new Date(dateStr);

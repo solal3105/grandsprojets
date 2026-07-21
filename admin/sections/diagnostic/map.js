@@ -5,9 +5,9 @@
  * sélection lasso dessinée sur un canvas overlay.
  */
 
-import { esc } from '../../components/ui.js';
-import { dg, onCleanup } from './state.js';
-import { pointInPolygon } from './data.js';
+import { esc, escAttr } from '../../components/ui.js';
+import { dg, onCleanup, safeColor } from './state.js';
+import { pointInPolygon, someVertex } from './data.js';
 
 const EMPTY_FC = () => ({ type: 'FeatureCollection', features: [] });
 
@@ -55,54 +55,75 @@ function _resolveBasemapStyle(basemaps) {
   return OSM_FALLBACK_STYLE;
 }
 
-/** Crée la carte et ses sources utilitaires. Résout quand la carte est prête. */
-export function createMap(el, basemaps) {
-  return new Promise((resolve) => {
-    const b = dg.branding || {};
-    const center = [parseFloat(b.center_lng) || 4.835, parseFloat(b.center_lat) || 45.764];
-    const zoom = parseFloat(b.zoom) || 12;
-
-    const map = new maplibregl.Map({
-      container: el,
-      style: _resolveBasemapStyle(basemaps),
-      center,
-      zoom,
-      attributionControl: false,
-      preserveDrawingBuffer: true, // requis pour la capture du rapport
-    });
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
-    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
-    dg.map = map;
-
-    map.on('load', () => {
-      // Heatmap (sous les couches de données).
-      map.addSource('dg-heat-src', { type: 'geojson', data: EMPTY_FC() });
-      map.addLayer({
-        id: 'dg-heat',
-        type: 'heatmap',
-        source: 'dg-heat-src',
-        layout: { visibility: 'none' },
-        paint: {
-          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 8, 0.5, 13, 1.3],
-          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 12, 13, 28],
-          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 8, 0.75, 14, 0.4],
-          'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'],
-            0, 'rgba(37,99,235,0)', 0.2, '#22d3ee', 0.45, '#84cc16', 0.7, '#f59e0b', 1, '#dc2626'],
-        },
-      });
-      // Polygone de sélection + points sélectionnés + survol (au-dessus des données).
-      map.addSource('dg-zone-src', { type: 'geojson', data: EMPTY_FC() });
-      map.addLayer({ id: 'dg-zone-fill', type: 'fill', source: 'dg-zone-src', paint: { 'fill-color': 'rgb(20,174,92)', 'fill-opacity': 0.06 } });
-      map.addLayer({ id: 'dg-zone-line', type: 'line', source: 'dg-zone-src', paint: { 'line-color': '#0ea55a', 'line-width': 2, 'line-dasharray': [3, 2] } });
-      map.addSource('dg-sel-src', { type: 'geojson', data: EMPTY_FC() });
-      map.addLayer({ id: 'dg-sel-halo', type: 'circle', source: 'dg-sel-src', paint: { 'circle-radius': 10, 'circle-color': '#14AE5C', 'circle-opacity': 0.18, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#0ea55a' } });
-      map.addSource('dg-hov-src', { type: 'geojson', data: EMPTY_FC() });
-      map.addLayer({ id: 'dg-hov', type: 'circle', source: 'dg-hov-src', paint: { 'circle-radius': 11, 'circle-color': '#4E2BFF', 'circle-opacity': 0.35, 'circle-stroke-width': 2, 'circle-stroke-color': '#3416b8' } });
-
-      dg.mapReady = true;
-      resolve(map);
-    });
+/** Attend l'événement load de la carte, avec délai maximal. */
+function _waitForLoad(map, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    if (map.loaded()) { resolve(); return; }
+    const timer = setTimeout(() => reject(new Error('Fond de carte indisponible (délai dépassé)')), timeoutMs);
+    map.once('load', () => { clearTimeout(timer); resolve(); });
   });
+}
+
+/**
+ * Crée la carte et ses sources utilitaires. Résout quand la carte est prête ;
+ * si le fond configuré ne charge pas, retente avec le fallback OSM avant
+ * d'échouer (throw).
+ */
+export async function createMap(el, basemaps) {
+  const b = dg.branding || {};
+  const center = [parseFloat(b.center_lng) || 4.835, parseFloat(b.center_lat) || 45.764];
+  const zoom = parseFloat(b.zoom) || 12;
+  const style = _resolveBasemapStyle(basemaps);
+
+  const map = new maplibregl.Map({
+    container: el,
+    style,
+    center,
+    zoom,
+    attributionControl: false,
+    preserveDrawingBuffer: true, // requis pour la capture du rapport
+  });
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
+  map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
+  dg.map = map;
+
+  try {
+    await _waitForLoad(map, 12000);
+  } catch (err) {
+    if (style === OSM_FALLBACK_STYLE) throw err;
+    console.warn('[admin/diagnostic] Fond configuré en échec, repli OSM:', err.message);
+    map.setStyle(OSM_FALLBACK_STYLE);
+    await _waitForLoad(map, 12000);
+  }
+  _installUtilitySources(map);
+  dg.mapReady = true;
+  return map;
+}
+
+function _installUtilitySources(map) {
+  // Heatmap (sous les couches de données).
+  map.addSource('dg-heat-src', { type: 'geojson', data: EMPTY_FC() });
+  map.addLayer({
+    id: 'dg-heat',
+    type: 'heatmap',
+    source: 'dg-heat-src',
+    layout: { visibility: 'none' },
+    paint: {
+      'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 8, 0.5, 13, 1.3],
+      'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 12, 13, 28],
+      'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 8, 0.75, 14, 0.4],
+      'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'],
+        0, 'rgba(37,99,235,0)', 0.2, '#22d3ee', 0.45, '#84cc16', 0.7, '#f59e0b', 1, '#dc2626'],
+    },
+  });
+  // Polygone de sélection + points sélectionnés + survol (au-dessus des données).
+  map.addSource('dg-zone-src', { type: 'geojson', data: EMPTY_FC() });
+  map.addLayer({ id: 'dg-zone-fill', type: 'fill', source: 'dg-zone-src', paint: { 'fill-color': 'rgb(20,174,92)', 'fill-opacity': 0.06 } });
+  map.addLayer({ id: 'dg-zone-line', type: 'line', source: 'dg-zone-src', paint: { 'line-color': '#0ea55a', 'line-width': 2, 'line-dasharray': [3, 2] } });
+  map.addSource('dg-sel-src', { type: 'geojson', data: EMPTY_FC() });
+  map.addLayer({ id: 'dg-sel-halo', type: 'circle', source: 'dg-sel-src', paint: { 'circle-radius': 10, 'circle-color': '#14AE5C', 'circle-opacity': 0.18, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#0ea55a' } });
+  map.addSource('dg-hov-src', { type: 'geojson', data: EMPTY_FC() });
+  map.addLayer({ id: 'dg-hov', type: 'circle', source: 'dg-hov-src', paint: { 'circle-radius': 11, 'circle-color': '#4E2BFF', 'circle-opacity': 0.35, 'circle-stroke-width': 2, 'circle-stroke-color': '#3416b8' } });
 }
 
 /* ── Rendu des couches de données ──────────────────────────────── */
@@ -172,6 +193,7 @@ export function setLayerVisibility(id, visible) {
 export function removeLayerRender(id) {
   const map = dg.map;
   if (!map || !dg.mapReady) return;
+  closePopup();
   for (const layerId of _layerIds(id)) {
     if (map.getLayer(layerId)) map.removeLayer(layerId);
   }
@@ -181,6 +203,11 @@ export function removeLayerRender(id) {
 /* ── Popups ─────────────────────────────────────────────────────── */
 
 let _popup = null;
+
+/** Ferme la popup ouverte (suppression de couche, destroy…). */
+export function closePopup() {
+  _popup?.remove();
+}
 
 function _popupHtml(layer, props) {
   const popup = layer.popup || {};
@@ -195,14 +222,17 @@ function _popupHtml(layer, props) {
       return `<div class="dg-pop__row"><b>${esc(f)}</b> : ${esc(String(v).slice(0, 300))}</div>`;
     })
     .join('');
-  const color = layer.style?.color || '#2563EB';
+  const color = safeColor(layer.style?.color);
   return `<div class="dg-pop">
-    <div class="dg-pop__title"><span class="dg-pop__dot" style="background:${esc(color)}"></span>${esc(String(title).slice(0, 120))}</div>
+    <div class="dg-pop__title"><span class="dg-pop__dot" style="background:${escAttr(color)}"></span>${esc(String(title).slice(0, 120))}</div>
     ${rows}
   </div>`;
 }
 
 function _wirePopup(layerConfigId, mapLayerId) {
+  // Les handlers survivent au removeLayer : ne jamais câbler deux fois le même id.
+  if (dg.wiredPopups.has(mapLayerId)) return;
+  dg.wiredPopups.add(mapLayerId);
   const map = dg.map;
   map.on('click', mapLayerId, (e) => {
     if (dg.lasso.armed) return;
@@ -328,21 +358,28 @@ export function wireLasso(mapWrap, onSelect) {
     if (!armed) { dg.lasso.drawing = false; dg.lasso.points = []; clear(); }
   };
 
+  // Pointer Events : souris ET tactile (le bouton arme le lasso, Maj+glisser
+  // reste un raccourci souris).
   const mapCanvas = map.getCanvas();
-  mapCanvas.addEventListener('mousedown', (e) => {
+  mapCanvas.addEventListener('pointerdown', (e) => {
     if (!dg.lasso.armed && !e.shiftKey) return;
-    if (e.button !== 0) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
     if (!dg.lasso.armed) setArmed(true); // Maj + glisser = armement direct
     dg.lasso.drawing = true;
     dg.lasso.points = [[e.offsetX, e.offsetY]];
+    try { mapCanvas.setPointerCapture(e.pointerId); } catch { /* capture non supportée */ }
     draw();
   });
-  mapCanvas.addEventListener('mousemove', (e) => {
+  mapCanvas.addEventListener('pointermove', (e) => {
     if (!dg.lasso.drawing) return;
     e.preventDefault();
-    dg.lasso.points.push([e.offsetX, e.offsetY]);
+    // Décimation : inutile d'accumuler des sommets à moins de 3 px.
+    const pts = dg.lasso.points;
+    const last = pts[pts.length - 1];
+    if (Math.abs(e.offsetX - last[0]) + Math.abs(e.offsetY - last[1]) < 3) return;
+    pts.push([e.offsetX, e.offsetY]);
     draw();
   });
   const onUp = () => {
@@ -352,8 +389,12 @@ export function wireLasso(mapWrap, onSelect) {
     setArmed(false);
     if (pts.length >= 3) onSelect(pts);
   };
-  window.addEventListener('mouseup', onUp);
-  onCleanup(() => window.removeEventListener('mouseup', onUp));
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
+  onCleanup(() => {
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
+  });
 
   const onKey = (e) => {
     if (e.key === 'Escape' && dg.lasso.armed) setArmed(false);
@@ -365,28 +406,46 @@ export function wireLasso(mapWrap, onSelect) {
 }
 
 /**
- * Résout un polygone écran en sélection : features visibles dont le point
- * d'ancrage tombe dans le polygone (données sources, pas seulement le viewport).
+ * Résout un polygone écran en sélection, sur les DONNÉES sources (pas
+ * seulement le viewport) : un point est retenu si son ancrage tombe dans le
+ * polygone ; une ligne / un polygone si l'un de ses sommets y tombe.
+ * Pré-filtre par emprise géographique pour rester fluide sur de gros jeux.
  */
 export function resolveSelection(screenPoints) {
   const map = dg.map;
-  const selected = [];
-  for (const layer of dg.layers) {
-    const rt = dg.runtime.get(layer.id);
-    if (!rt || rt.status !== 'ready' || !rt.visible) continue;
-    for (const f of rt.features) {
-      const projected = map.project(f.__pt);
-      if (pointInPolygon([projected.x, projected.y], screenPoints)) {
-        selected.push({ ...f, __layerId: layer.id });
-      }
-    }
-  }
-  // Polygone géographique correspondant au tracé écran (pour la zone + le rapport).
+
+  // Polygone géographique correspondant au tracé écran (zone + rapport + pré-filtre).
   const ring = screenPoints.map(([x, y]) => {
     const ll = map.unproject([x, y]);
     return [ll.lng, ll.lat];
   });
   ring.push(ring[0]);
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [x, y] of ring) {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+
+  const inLasso = (lngLat) => {
+    const p = map.project(lngLat);
+    return pointInPolygon([p.x, p.y], screenPoints);
+  };
+
+  const selected = [];
+  for (const layer of dg.layers) {
+    const rt = dg.runtime.get(layer.id);
+    if (!rt || rt.status !== 'ready' || !rt.visible) continue;
+    for (const f of rt.features) {
+      const [bMinX, bMinY, bMaxX, bMaxY] = f.__bbox;
+      if (bMaxX < minX || bMinX > maxX || bMaxY < minY || bMinY > maxY) continue;
+      const hit = f.geometry.type === 'Point'
+        ? inLasso(f.__pt)
+        : (inLasso(f.__pt) || someVertex(f.geometry, (lng, lat) => inLasso([lng, lat])));
+      if (hit) selected.push({ ...f, __layerId: layer.id });
+    }
+  }
   return { features: selected, polygon: { type: 'Polygon', coordinates: [ring] } };
 }
 

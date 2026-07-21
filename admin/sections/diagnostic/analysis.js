@@ -6,14 +6,15 @@
  */
 
 import { store } from '../../store.js';
-import { esc } from '../../components/ui.js';
-import { dg, LEVEL_COLORS, SEVERITY_COLORS } from './state.js';
-import { distanceM, featuresBbox, bboxAreaKm2 } from './data.js';
+import { esc, escAttr } from '../../components/ui.js';
+import { dg, LEVEL_COLORS, SEVERITY_COLORS, safeColor } from './state.js';
+import { distanceM, featuresBbox, bboxAreaKm2, geometryBbox } from './data.js';
 import { resolveSelection, renderSelection, setHover, fitFeatures } from './map.js';
 import { setAnalysisBadge, showTab } from './panel.js';
 import { openReport } from './report.js';
 
 const _fmt = (n) => Number(n || 0).toLocaleString('fr-FR');
+const _fmtKm2 = (n) => Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 const CORRELATION_RADIUS_M = 60;
 const SAMPLE_SIZE = 30;
 
@@ -51,18 +52,38 @@ function _extraOf(f) {
 
 /** Reçoit le polygone écran du lasso, résout et affiche la sélection. */
 export function handleSelection(screenPoints) {
+  dg.abortCtrl?.abort(); // une analyse en cours ne doit jamais se rattacher à la nouvelle zone
   const { features, polygon } = resolveSelection(screenPoints);
-  const bbox = featuresBbox(features);
-  dg.selection = features.length
-    ? { features, polygon, bbox, areaKm2: bboxAreaKm2(bbox) }
-    : null;
+  // Emprise des points retenus — à défaut, celle du polygone tracé (zone vide).
+  const bbox = featuresBbox(features) || geometryBbox(polygon);
+  // Une zone vide reste une sélection : le panneau explique quoi faire.
+  dg.selection = { features, polygon, bbox, areaKm2: bboxAreaKm2(bbox) };
   dg.analysis = null;
   dg.aiSample = null;
-  renderSelection(dg.selection ? { features, polygon } : null);
+  renderSelection(dg.selection);
   setAnalysisBadge(features.length);
   renderAnalysisPanel();
   showTab('analyse');
   if (features.length) fitFeatures(features);
+}
+
+/**
+ * Une couche vient d'être supprimée : purge ses features de la sélection
+ * et invalide l'analyse (les statistiques ne sont plus valables).
+ * Posé sur dg.onLayerRemoved par diagnostic.js (évite un import circulaire).
+ */
+export function removeLayerFromSelection(layerId) {
+  if (!dg.selection) return;
+  const kept = dg.selection.features.filter((f) => f.__layerId !== layerId);
+  if (kept.length === dg.selection.features.length) return;
+  dg.abortCtrl?.abort();
+  const bbox = featuresBbox(kept);
+  dg.selection = { ...dg.selection, features: kept, bbox, areaKm2: bboxAreaKm2(bbox) };
+  dg.analysis = null;
+  dg.aiSample = null;
+  renderSelection(dg.selection);
+  setAnalysisBadge(kept.length);
+  renderAnalysisPanel();
 }
 
 export function clearSelection() {
@@ -130,15 +151,14 @@ function _correlations(features) {
   const lines = [];
   let total = 0;
   for (let i = 0; i < ids.length; i++) {
-    for (let j = 0; j < ids.length; j++) {
-      if (i === j) continue;
+    for (let j = i + 1; j < ids.length; j++) {
       const a = negByLayer.get(ids[i]);
       const b = negByLayer.get(ids[j]);
       let count = 0;
       for (const fa of a) {
         if (b.some((fb) => distanceM(fa.__pt, fb.__pt) <= CORRELATION_RADIUS_M)) count++;
       }
-      if (count > 0 && i < j) {
+      if (count > 0) {
         const la = dg.layers.find((l) => l.id === ids[i])?.label;
         const lb = dg.layers.find((l) => l.id === ids[j])?.label;
         lines.push(`${count} point(s) « ${la} » à moins de ${CORRELATION_RADIUS_M} m d'un point « ${lb} ».`);
@@ -190,7 +210,7 @@ function _stratifiedSample(features, cap) {
 
 async function _runAnalysis() {
   const sel = dg.selection;
-  if (!sel) return;
+  if (!sel || !sel.features.length) return;
   const panel = dg.container?.querySelector('#dg-panel-analyse');
   if (!panel) return;
 
@@ -265,6 +285,7 @@ async function _runAnalysis() {
     }
     if (streamError) throw new Error(streamError);
     if (!fullText.trim()) throw new Error('Réponse vide');
+    if (dg.selection !== sel) return; // la zone a changé pendant le stream : résultat obsolète
 
     const result = JSON.parse(fullText);
     const insights = (Array.isArray(result.insights) ? result.insights : [])
@@ -288,7 +309,7 @@ async function _runAnalysis() {
     dg.insightFilter = 'all';
     renderAnalysisPanel();
   } catch (err) {
-    if (err.name === 'AbortError') return;
+    if (err.name === 'AbortError' || dg.selection !== sel) return;
     console.error('[admin/diagnostic] Analyse IA:', err);
     _renderError(panel, err.message || 'Erreur inconnue');
   }
@@ -315,13 +336,16 @@ function _breakdownHtml(features) {
   const rows = _breakdown(features);
   if (!rows.length) return '';
   const max = rows[0].count;
-  return `<ul class="dg-break">${rows.map((r) => `
+  return `<ul class="dg-break">${rows.map((r) => {
+    const color = escAttr(safeColor(r.layer.style?.color));
+    return `
     <li class="dg-brow">
-      <span class="dg-bdot" style="background:${esc(r.layer.style?.color || '#2563EB')}"></span>
+      <span class="dg-bdot" style="background:${color}"></span>
       <span class="dg-bname">${esc(r.layer.label)}</span>
       <span class="dg-bcount">${_fmt(r.count)}</span>
-      <span class="dg-btrack"><span class="dg-bfill" style="width:${Math.max(6, Math.round(r.count / max * 100))}%;background:${esc(r.layer.style?.color || '#2563EB')}"></span></span>
-    </li>`).join('')}</ul>`;
+      <span class="dg-btrack"><span class="dg-bfill" style="width:${Math.max(6, Math.round(r.count / max * 100))}%;background:${color}"></span></span>
+    </li>`;
+  }).join('')}</ul>`;
 }
 
 function _renderSelectionView(panel) {
@@ -330,14 +354,19 @@ function _renderSelectionView(panel) {
   panel.innerHTML = `
     <div class="dg-sel-status">
       <i class="fa-solid fa-vector-square"></i>
-      <span><b>${_fmt(n)}</b> point${n > 1 ? 's' : ''} dans la zone (~${sel.areaKm2.toFixed(2)} km²)</span>
+      <span><b>${_fmt(n)}</b> point${n > 1 ? 's' : ''} dans la zone (~${_fmtKm2(sel.areaKm2)} km²)</span>
       <button type="button" class="dg-sel-clear" id="dg-sel-clear" title="Effacer la sélection"><i class="fa-solid fa-xmark"></i></button>
     </div>
+    ${n === 0 ? `
+    <div class="dg-empty">
+      <i class="fa-solid fa-magnifying-glass-location dg-empty__icon"></i>
+      <div class="dg-empty__text">Aucun point des couches visibles dans cette zone. Élargissez la sélection ou activez d'autres couches.</div>
+    </div>` : `
     ${_breakdownHtml(sel.features)}
     <button type="button" class="dg-analyze-btn" id="dg-analyze">
       <i class="fa-solid fa-wand-magic-sparkles"></i> Analyser la zone
     </button>
-    <div class="adm-form-hint dg-analyze-hint">L'IA synthétise les signaux en constats sourcés — chaque constat renvoie aux points qui le justifient.</div>
+    <div class="adm-form-hint dg-analyze-hint">L'IA synthétise les signaux en constats sourcés — chaque constat renvoie aux points qui le justifient.</div>`}
   `;
   panel.querySelector('#dg-sel-clear')?.addEventListener('click', clearSelection);
   panel.querySelector('#dg-analyze')?.addEventListener('click', _runAnalysis);

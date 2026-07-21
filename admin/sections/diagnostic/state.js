@@ -44,6 +44,13 @@ export const INTERNAL_SOURCES = {
 
 export const DEFAULT_STYLE = { mode: 'single', color: PALETTE[1], radius: 4 };
 
+// Les couleurs de couches viennent de la config en base : ne jamais les
+// injecter telles quelles dans un attribut style sans validation.
+const COLOR_RE = /^(#[0-9a-fA-F]{3,8}|rgba?\([\d.,\s%]+\)|hsla?\([\d.,\s%deg]+\)|[a-zA-Z]{3,20})$/;
+export function safeColor(color, fallback = '#2563EB') {
+  return COLOR_RE.test(String(color || '')) ? String(color) : fallback;
+}
+
 function _blankState() {
   return {
     container: null,
@@ -52,8 +59,11 @@ function _blankState() {
     branding: null,
     // Config des couches (lignes diagnostic_layers) + données chargées par id.
     layers: [],
+    layersLoadFailed: false,
     runtime: new Map(), // id → { status, features, count, fields, visible, error }
     heatmapOn: false,
+    wiredPopups: new Set(), // ids de layers carte dont la popup est déjà câblée
+    onLayerRemoved: null, // hook posé par analysis.js (évite un import circulaire)
     // Sélection lasso.
     lasso: { armed: false, drawing: false, points: [] },
     selection: null, // { features, polygon, bbox, areaKm2 }

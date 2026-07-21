@@ -5121,7 +5121,7 @@ html[data-theme='dark'] .adm-user-row {
 .dg-history__meta { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
 
 /* ── Rapport ── */
-.dg-report-doc { position: fixed; inset: 0; z-index: 400; background: #e9edf2; overflow: auto; }
+.dg-report-doc { position: fixed; inset: 0; z-index: 290; background: #e9edf2; overflow: auto; }
 .dg-rp-toolbar {
   position: sticky; top: 0; z-index: 2;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -5226,3 +5226,7 @@ html[data-theme='dark'] .adm-user-row {
   box-shadow: var(--adm-shadow-lg);
   max-width: calc(100% - 28px);
 }
+
+/* Règles [hidden] — des display auteur (grid/flex) l'emportent sinon sur l'UA */
+.adm-form-row[hidden] { display: none; }
+.dg-lasso-btn[hidden] { display: none; }
