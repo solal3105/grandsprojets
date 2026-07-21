@@ -110,7 +110,7 @@ function _sourceStepHtml() {
         <input type="url" class="adm-input" id="dg-wz-url" placeholder="https://…/donnees.geojson ou .csv">
         <button type="button" class="adm-btn adm-btn--secondary" id="dg-wz-url-load">Charger</button>
       </div>
-      <div class="adm-form-hint">Un GeoJSON ou CSV accessible publiquement (open data, API SIG…). La couche restera synchronisée avec cette URL.</div>
+      <div class="adm-form-hint">Un GeoJSON ou CSV accessible publiquement (open data, API SIG…). Un GeoJSON reste synchronisé avec l'URL ; un CSV est converti puis stocké.</div>
     </div>
     ${internal.length ? `
     <div data-srcpane="internal" hidden>
@@ -507,14 +507,15 @@ async function _save(overlay, w, existing, onSaved, close) {
     if (w.draft.kind === 'internal') {
       source_type = 'internal';
       source_ref = w.draft.internalKey;
-    } else if (w.draft.kind === 'url') {
+    } else if (w.draft.kind === 'url' && !w.draft.csv) {
       source_type = 'url';
       source_ref = w.draft.url;
-    } else if (w.draft.kind === 'file') {
-      // Fichier local : normalisé en FeatureCollection puis déposé dans Storage.
+    } else if (w.draft.kind === 'file' || w.draft.csv) {
+      // Fichier local OU CSV distant : normalisé en FeatureCollection puis
+      // déposé dans Storage (une source « url » est rechargée comme GeoJSON).
       const fc = {
         type: 'FeatureCollection',
-        features: w.draft.features.map(({ __pt, ...f }) => f),
+        features: w.draft.features.map(({ __pt, __bbox, ...f }) => f),
       };
       source_type = 'storage';
       source_ref = await api.uploadDiagnosticGeoJSON(fc);
