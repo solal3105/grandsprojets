@@ -42,7 +42,7 @@ Quand la carte tourne dans une iframe Phaos (`window.self !== window.top`), `mod
 - ES modules — seul sous-projet à les utiliser côté navigateur
 - Accède à `window.supabaseService` et `window.AuthModule` (chargés par le HTML parent)
 - État : `admin/store.js` (pub/sub simple) — Routeur : `admin/router.js`
-- Sections dans `admin/sections/` : `categories`, `contributions`, `structure`, `travaux`, `users`, `villes`, `modules` (cette dernière = gestion des modules par ville, global-admin uniquement)
+- Sections dans `admin/sections/` : `categories`, `contributions`, `structure`, `travaux`, `users`, `villes`, `modules` (cette dernière = gestion des modules par ville, global-admin uniquement), `diagnostic` (dossier `diagnostic/` en modules ES — carte MapLibre plein écran, couches par ville dans `diagnostic_layers`, analyse IA de zone, rapports dans `diagnostic_reports` ; cleanup carte via `router.setBeforeNavigate`)
 
 ### Modules carte — architecture découplée
 
@@ -99,7 +99,8 @@ La carte publique utilise un **système de modules enregistrables** piloté par 
 
 ### Fonctions Netlify (`netlify/functions/*.mjs`)
 - CORS géré manuellement dans chaque fonction
-- `ai-generate.mjs` : seule fonction protégée par JWT Supabase (vérif via `/auth/v1/user`) — `OPENAI_API_KEY` injectée automatiquement par `netlify dev`
+- `ai-generate.mjs` : protégée par JWT Supabase (vérif via `/auth/v1/user`) — `OPENAI_API_KEY` injectée automatiquement par `netlify dev`
+- `ai-diagnostic.mjs` : analyse IA de zone (Diagnostic terrain) — JWT + vérification serveur du rôle admin/ville, sortie JSON contrainte (`json_schema` strict), SSE — route `/api/ai-diagnostic`
 - `auth-token.mjs` : échange token Azure B2C → session Supabase (SSO Phaos), vérif JWKS — route `/api/auth/token`
 - `contributions-geojson`, `travaux-geojson`, `sitemap` : GET publics (CORS seul, pas d'auth)
 
@@ -190,10 +191,11 @@ setTimeout(hide, 250); // fallback headless
 ### Ce qui n'est PAS testable en E2E actuellement
 - **Villes** : nécessite un compte global-admin (non configuré)
 - **Draw tools** : WebGL requis (MapLibre en headless)
+- **Diagnostic terrain — rendu carte, lasso, flux IA** : WebGL requis ; le dock (CRUD des couches, wizard) est volontairement indépendant de la carte et se teste sans WebGL
 - **Drag-drop reorder** : interactions Playwright DnD complexes
 - **SSO Phaos** : l'échange de token Azure B2C réel (l'intégration iframe est testée avec token factice dans `unauth.phaos-iframe.spec.js`)
 
-### Couverture — lacunes connues (440 tests / 19 fichiers)
+### Couverture — lacunes connues (≈450 tests / 21 fichiers)
 La suite couvre l'**admin**, la **carte publique** (UI/navigation) et la **fiche** (`unauth.fiche.spec.js` : boot, canonical, og:url, JSON-LD). Aucun test sur :
 
 **Carte publique** : `feature-interactions.js` (markers), vues de `modules/travaux/`, `lightbox.js`, `geolocation.js`, `layerregistry.js` / `maplibre-renderer.js`, `datamodule.js`, `citybranding.js` / `citymanager.js`
