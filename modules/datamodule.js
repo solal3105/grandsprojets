@@ -232,10 +232,12 @@ window.DataModule = (function() {
 					window.TravauxModule?.normalizeGeoJSON?.(data, sourceTag)
 						|| { type: 'FeatureCollection', features: Array.isArray(data?.features) ? data.features : [] };
 				const activeCity = window.CityManager?.getActiveCity() || 'metropole-lyon';
-				// Use cached config from _cityModules, fallback to Supabase query
+				// Use cached config from _cityModules, fallback to Supabase query.
+				// Mêmes défauts que getTravauxConfig/travaux-nav : un config jsonb vide
+				// (ville fraîchement créée) doit retomber sur city_travaux, pas sur rien.
 				const mod = (window._cityModules || []).find(m => m.module_key === 'travaux');
 				const config = mod
-					? { enabled: mod.enabled, ...mod.config }
+					? { enabled: mod.enabled, ...mod.config, source_type: mod.config?.source_type || 'city_travaux' }
 					: await window.supabaseService.getTravauxConfig(activeCity);
 				
 				if (!config) return { type: 'FeatureCollection', features: [] };
