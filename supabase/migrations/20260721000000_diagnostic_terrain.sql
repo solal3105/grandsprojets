@@ -92,3 +92,16 @@ create policy diagnostic_reports_insert_admin on public.diagnostic_reports
   for insert to authenticated with check (is_admin_for_ville(ville));
 create policy diagnostic_reports_delete_admin on public.diagnostic_reports
   for delete to authenticated using (is_admin_for_ville(ville));
+
+-- Durcissement : search_path figé pour le helper RLS (lint 0011).
+alter function public.is_admin_for_ville(text) set search_path = public;
+
+-- Storage : dépôt des GeoJSON normalisés dans uploads/diagnostic/<ville>/…
+-- réservé aux admins de la ville (même pattern que travaux-geojson).
+create policy diagnostic_geojson_insert_admin on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'uploads'
+    and (storage.foldername(name))[1] = 'diagnostic'
+    and public.is_admin_for_ville((storage.foldername(name))[2])
+  );

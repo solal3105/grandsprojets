@@ -156,7 +156,7 @@ function _layerRowHtml(layer) {
       <span class="dg-count" data-count>${count}</span>
       <button type="button" class="dg-row__act" data-act="edit" title="Éditer la couche"><i class="fa-solid fa-pen"></i></button>
       <button type="button" class="dg-row__act" data-act="delete" title="Supprimer la couche"><i class="fa-solid fa-trash-can"></i></button>
-      <span class="adm-switch adm-switch--sm"><input type="checkbox" data-act="toggle" ${visible ? 'checked' : ''} aria-label="Afficher ${escAttr(layer.label)}"><span class="adm-switch__track"></span></span>
+      <label class="adm-switch adm-switch--sm"><input type="checkbox" data-act="toggle" ${visible ? 'checked' : ''} aria-label="Afficher ${escAttr(layer.label)}"><span class="adm-switch__track"></span></label>
     </div>
   `;
 }
