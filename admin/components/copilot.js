@@ -401,6 +401,7 @@ export class Copilot {
       const decoder = new TextDecoder();
       let buffer = '';
       let fullText = '';
+      let streamError = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -445,9 +446,15 @@ export class Copilot {
               const rw = panel.querySelector('#cp-result-' + resultIdx)?.closest('.cp-msg--result');
               if (rw) this._renderSources(rw, parsed.sources);
             }
+
+            // Erreur émise par le serveur en cours de stream (quota, timeout…)
+            if (parsed.error) streamError = parsed.error;
           } catch { /* skip */ }
         }
       }
+
+      // Erreur sans aucun contenu : la remonter ; avec du contenu partiel, on le garde
+      if (streamError && !fullText) throw new Error(streamError);
 
       this._messages[resultIdx].streaming = false;
       this._messages[resultIdx].text = this._stripCitations(this._messages[resultIdx].text);

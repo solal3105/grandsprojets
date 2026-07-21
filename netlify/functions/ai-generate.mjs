@@ -60,6 +60,32 @@ function errResp(status, error, corsHeaders) {
   });
 }
 
+/**
+ * Message utilisateur (français) pour une erreur du service IA.
+ * @param {number} status - Statut HTTP OpenAI/passerelle (0 si inconnu)
+ * @param {string} raw - Corps d'erreur brut (JSON OpenAI ou texte)
+ */
+function friendlyAIError(status, raw) {
+  let code = '';
+  let msg = '';
+  try {
+    const parsed = JSON.parse(raw);
+    code = parsed.error?.code || parsed.error?.type || '';
+    msg = parsed.error?.message || '';
+  } catch { msg = String(raw || ''); }
+  const s = Number(status) || 0;
+  if (code === 'insufficient_quota' || /quota|billing|credit/i.test(`${code} ${msg}`)) {
+    return 'Crédits du service IA épuisés — vérifiez la facturation OpenAI ou les crédits de la passerelle IA Netlify.';
+  }
+  if (s === 429 || code === 'rate_limit_exceeded') return 'Service IA saturé (limite de débit atteinte) — réessayez dans quelques instants.';
+  if (s === 401 || s === 403) return 'Authentification au service IA refusée — clé API ou jeton de passerelle IA Netlify invalide ou expiré.';
+  if (s === 402) return 'Crédits du service IA épuisés — vérifiez la facturation.';
+  if (s === 404 || code === 'model_not_found') return 'Modèle IA indisponible — vérifiez la configuration.';
+  if (s === 400) return 'Requête refusée par le service IA — réessayez.';
+  if (s >= 500) return 'Service IA temporairement indisponible — réessayez dans quelques instants.';
+  return `Service IA indisponible${s ? ` (HTTP ${s})` : ''} — réessayez.`;
+}
+
 const ALLOWED_ORIGINS = [
   'https://openprojets.com',
   'http://localhost:3001',
@@ -115,9 +141,11 @@ export default async function handler(req) {
   // ── OpenAI Responses API avec web_search_preview ─────────────────
   const TIMEOUT_MS = 25_000;
   let _streamReader = null; // référence pour annulation depuis le timeout
+  let _timedOut = false; // signalé au client s'il n'a encore rien reçu
   const timeoutCtrl = new AbortController();
   const timeoutId = setTimeout(() => {
     console.warn('[ai-generate] Timeout 25s — annulation stream');
+    _timedOut = true;
     _streamReader?.cancel().catch(() => {});
     timeoutCtrl.abort();
   }, TIMEOUT_MS);
@@ -150,7 +178,7 @@ export default async function handler(req) {
       const errText = await openaiRes.text();
       console.error('[ai-generate] OpenAI error:', openaiRes.status, errText);
       clearTimeout(timeoutId);
-      return errResp(502, 'OpenAI API error', corsHeaders);
+      return errResp(502, friendlyAIError(openaiRes.status, errText), corsHeaders);
     }
 
     // ── Traduction des événements Responses API → notre format SSE ──
@@ -196,6 +224,7 @@ export default async function handler(req) {
 
               // Chunk de texte
               if (ev.type === 'response.output_text.delta' && ev.delta) {
+                chunkCount++;
                 await writer.write(enc(`data: ${JSON.stringify({ content: ev.delta })}\n\n`));
               }
 
@@ -212,7 +241,8 @@ export default async function handler(req) {
 
               // Erreur API OpenAI (ex: quota dépassé)
               if (ev.type === 'error') {
-                const msg = ev.error?.message || ev.error?.code || 'OpenAI error';
+                console.error('[ai-generate] OpenAI stream error:', JSON.stringify(ev.error || {}));
+                const msg = friendlyAIError(0, JSON.stringify({ error: ev.error }));
                 await writer.write(enc(`data: ${JSON.stringify({ error: msg })}\n\n`));
                 if (!doneSent) { await writer.write(enc('data: [DONE]\n\n')); doneSent = true; }
                 return;
@@ -237,6 +267,11 @@ export default async function handler(req) {
         clearTimeout(timeoutId);
         _streamReader = null;
         try {
+          // Timeout sans aucun contenu généré : signaler plutôt qu'un silence
+          // (avec du contenu partiel, le texte déjà reçu reste utilisable).
+          if (_timedOut && chunkCount === 0 && !doneSent) {
+            await writer.write(enc(`data: ${JSON.stringify({ error: 'Génération interrompue (délai dépassé) — réessayez.' })}\n\n`));
+          }
           if (!doneSent) await writer.write(enc('data: [DONE]\n\n'));
           await writer.close();
         } catch { /* writer déjà fermé */ }
@@ -256,7 +291,10 @@ export default async function handler(req) {
   } catch (err) {
     clearTimeout(timeoutId);
     console.error('[ai-generate] Fatal:', err.name, err.message);
-    return errResp(500, err.message, corsHeaders);
+    const msg = err.name === 'AbortError'
+      ? 'Génération interrompue (délai dépassé) — réessayez.'
+      : 'Service IA injoignable — vérifiez la connexion puis réessayez.';
+    return errResp(500, msg, corsHeaders);
   }
 }
 
