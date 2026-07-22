@@ -9,7 +9,7 @@ import * as api from '../../api.js';
 import { esc, escAttr, toast, confirm, slidePanel, formatDate } from '../../components/ui.js';
 import { store } from '../../store.js';
 import { dg, safeColor } from './state.js';
-import { captureZoneImage } from './map.js';
+import { renderZoneFigure } from './figure.js';
 
 const _fmt = (n) => Number(n || 0).toLocaleString('fr-FR');
 const _fmtKm2 = (n) => Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
@@ -35,7 +35,10 @@ function _reportData() {
     title: `Diagnostic du ${new Date().toLocaleDateString('fr-FR')} — ${_fmt(sel.features.length)} points`,
     zone: { polygon: sel.polygon, bbox: sel.bbox, area_km2: Math.round(sel.areaKm2 * 100) / 100 },
     stats: { couches: a.couches.map(({ label, color, count }) => ({ label, color, count })) },
-    analysis: { resume: a.resume, couches: a.couches },
+    // L'annexe voyage dans le jsonb analysis : sans elle, les renvois
+    // « Points #3, #7 » d'un rapport rouvert depuis l'historique seraient
+    // invérifiables, alors que la section Méthode affirme le contraire.
+    analysis: { resume: a.resume, couches: a.couches, cites },
     cites,
     point_count: sel.features.length,
   };
@@ -71,7 +74,7 @@ export async function openReport(btn) {
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Génération du rapport…';
   }
   let mapImg = null;
-  try { mapImg = await captureZoneImage(dg.selection.features); } catch { mapImg = null; }
+  try { mapImg = await renderZoneFigure(dg.selection); } catch { mapImg = null; }
 
   const data = _reportData();
   try {
@@ -104,6 +107,22 @@ function _mixBar(couches, total) {
     <div class="dg-rp-mix__legend">${legend}</div></div>`;
 }
 
+/**
+ * Restitution de repli d'une source sans sujet. Le message doit dire la vérité :
+ * « pas de texte descriptif » est faux dès lors que les points en portent et que
+ * c'est seulement le regroupement qui n'a rien donné.
+ */
+function _fallbackHtml(c) {
+  if (!c.hasText) {
+    return '<div class="dg-rp-muted">Ces points ne portent pas de texte descriptif : seul leur décompte est exploitable.</div>';
+  }
+  const rows = (c.apercu || []).map((p) => `<div class="dg-rp-raw"><b>${esc(p.label)}</b> ${esc(p.texte)}</div>`).join('');
+  const reste = c.count - (c.apercu || []).length;
+  return '<div class="dg-rp-muted">Aucun sujet récurrent ne se dégage de ces points. Leur contenu, tel quel :</div>'
+    + rows
+    + (reste > 0 ? `<div class="dg-rp-muted">+ ${_fmt(reste)} autre${reste > 1 ? 's' : ''} point${reste > 1 ? 's' : ''}.</div>` : '');
+}
+
 function _showReportDoc(data, mapImg, date) {
   const a = data.analysis;
   const brand = dg.branding?.brand_name || store.city || '';
@@ -111,7 +130,7 @@ function _showReportDoc(data, mapImg, date) {
   const couches = a.couches || [];
   const total = data.point_count || couches.reduce((acc, c) => acc + c.count, 0);
   const nbSujets = couches.reduce((acc, c) => acc + (c.sujets?.length || 0), 0);
-  const cites = data.cites || [];
+  const cites = data.cites || data.analysis?.cites || [];
 
   const sections = couches.map((c) => {
     const share = total ? Math.round((c.count / total) * 100) : 0;
@@ -135,7 +154,7 @@ function _showReportDoc(data, mapImg, date) {
           <span class="dg-rp-source__count">${_fmt(c.count)} point${c.count > 1 ? 's' : ''} · ${share} %</span>
         </div>
         ${c.synthese ? `<p class="dg-rp-source__synth">${esc(c.synthese)}</p>` : ''}
-        ${sujets || '<div class="dg-rp-muted">Ces points ne portent pas de texte descriptif : seul leur décompte est exploitable.</div>'}
+        ${sujets || _fallbackHtml(c)}
       </div>`;
   }).join('');
 
@@ -171,7 +190,7 @@ function _showReportDoc(data, mapImg, date) {
           <h1 class="dg-rp-title">Diagnostic terrain</h1>
           <div class="dg-rp-sub">Zone analysée le ${esc(dateLabel)}</div>
         </div>
-        ${mapImg ? `<img class="dg-rp-cover__map" src="${mapImg}" alt="Carte de la zone analysée">` : ''}
+        ${mapImg ? `<img class="dg-rp-cover__map" src="${mapImg}" alt="Plan de la zone analysée">` : ''}
         <div class="dg-rp-kpis">${kpis}</div>
       </header>
 
