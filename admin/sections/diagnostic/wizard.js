@@ -26,7 +26,7 @@ export function openLayerWizard({ layer = null, onSaved }) {
     cfg: {
       label: layer?.label || '',
       group_label: layer?.group_label || '',
-      style: { ...DEFAULT_STYLE, ...layer?.style },
+      style: { ...DEFAULT_STYLE, color: PALETTE[dg.layers.length % PALETTE.length], ...layer?.style },
       popup: { title_field: '', fields: [], ...layer?.popup },
       ai_context: layer?.ai_context || '',
       default_on: layer ? layer.default_on !== false : true,
@@ -412,6 +412,26 @@ function _renderSwatches(overlay, w) {
   }
 }
 
+/**
+ * Devine le champ qui identifie un point : le premier champ textuel dont les
+ * valeurs sont courtes et majoritairement distinctes (un intitulé, pas une
+ * description ni une constante). Retourne '' si rien de convaincant.
+ */
+function _guessTitleField(draft, fields) {
+  const sample = (draft?.features || []).slice(0, 60);
+  if (!sample.length) return '';
+  for (const field of fields) {
+    const values = sample.map((f) => f.properties?.[field]).filter((v) => typeof v === 'string' && v.trim());
+    if (values.length < sample.length * 0.6) continue;
+    const avg = values.reduce((acc, v) => acc + v.trim().length, 0) / values.length;
+    if (avg > 45) continue; // c'est une description, pas un intitulé
+    const distinct = new Set(values.map((v) => v.trim())).size;
+    if (distinct < 2 && values.length > 3) continue; // valeur constante
+    return field;
+  }
+  return '';
+}
+
 /** Alimente les selects champ-titre / catégorie / popup depuis les champs détectés. */
 function _refreshFieldSelectors(overlay, w) {
   const fields = w.draft?.fields || [];
@@ -434,6 +454,9 @@ function _refreshFieldSelectors(overlay, w) {
 
   const fieldOptions = (selected) => '<option value="">(aucun)</option>'
     + fields.map((f) => `<option ${f === selected ? 'selected' : ''}>${esc(f)}</option>`).join('');
+  // Champ-titre pré-choisi : sans lui, chaque point s'affiche sous le nom de sa
+  // couche — dans la popup comme dans l'annexe du rapport.
+  if (!cfg.popup.title_field) cfg.popup.title_field = _guessTitleField(w.draft, fields);
   const titleSel = overlay.querySelector('#dg-wz-title');
   if (titleSel) titleSel.innerHTML = fieldOptions(cfg.popup.title_field);
   const catSel = overlay.querySelector('#dg-wz-catfield');

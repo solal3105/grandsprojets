@@ -1,8 +1,8 @@
 /**
  * Diagnostic terrain — onglet Analyse.
- * Les nombres sont calculés ici (ventilation par couche, décompte des points
- * par sujet) ; l'IA (via /api/ai-diagnostic) ne fait que lire le texte des
- * points et le regrouper par sujet, en citant. Aucune note, aucun jugement.
+ * Les nombres sont calculés ici (répartition par source, décompte des points
+ * par sujet) ; l'IA (via /api/ai-diagnostic) ne fait que restituer, source par
+ * source, ce que disent les points, en citant. Aucune note, aucun jugement.
  */
 
 import { store } from '../../store.js';
@@ -266,25 +266,41 @@ async function _runAnalysis() {
     if (dg.selection !== sel) return; // la zone a changé pendant le stream : résultat obsolète
 
     const result = JSON.parse(fullText);
-    // Le décompte n'est jamais celui annoncé par l'IA : il est déduit des
-    // points réellement référencés, après élimination des indices invalides.
-    const sujets = (Array.isArray(result.sujets) ? result.sujets : [])
-      .map((s) => ({
-        sujet: String(s?.sujet || '').trim(),
-        refs: [...new Set((Array.isArray(s?.refs) ? s.refs : [])
-          .filter((n) => Number.isInteger(n) && n >= 1 && n <= sampled.length))],
-        verbatims: (Array.isArray(s?.verbatims) ? s.verbatims : [])
-          .map((v) => String(v).trim()).filter(Boolean).slice(0, 3),
-      }))
-      .filter((s) => s.sujet && s.refs.length)
-      .sort((a, b) => b.refs.length - a.refs.length);
+    // La liste des sources et tous les décomptes viennent des données ; l'IA
+    // n'apporte que la prose, et ses références sont recadrées sur la source.
+    const byLabel = new Map();
+    for (const c of Array.isArray(result.couches) ? result.couches : []) {
+      const key = String(c?.couche || '').trim();
+      if (key && !byLabel.has(key)) byLabel.set(key, c);
+    }
+    const couches = stats.rows.map((r) => {
+      const ai = byLabel.get(r.layer.label);
+      const owned = new Set();
+      sampled.forEach((f, i) => { if (f.__layerId === r.layer.id) owned.add(i + 1); });
+      const sujets = (Array.isArray(ai?.sujets) ? ai.sujets : [])
+        .map((su) => ({
+          sujet: String(su?.sujet || '').trim(),
+          refs: [...new Set((Array.isArray(su?.refs) ? su.refs : []).filter((n) => owned.has(n)))],
+          verbatims: (Array.isArray(su?.verbatims) ? su.verbatims : [])
+            .map((v) => String(v).trim()).filter(Boolean).slice(0, 3),
+        }))
+        .filter((su) => su.sujet && su.refs.length)
+        .sort((a, b) => b.refs.length - a.refs.length);
+      return {
+        id: r.layer.id,
+        label: r.layer.label,
+        color: safeColor(r.layer.style?.color),
+        count: r.count,
+        synthese: String(ai?.synthese || '').trim(),
+        sujets,
+      };
+    });
 
     dg.analysis = {
       resume: String(result.resume || ''),
-      sujets,
-      statsTxt: stats.text,
-      rows: stats.rows.map((r) => ({ label: r.layer.label, color: safeColor(r.layer.style?.color), count: r.count })),
+      couches,
       pointCount: sel.features.length,
+      areaKm2: sel.areaKm2,
     };
     renderAnalysisPanel();
   } catch (err) {
@@ -312,19 +328,17 @@ export function renderAnalysisPanel() {
 }
 
 function _breakdownHtml(features) {
-  const rows = _breakdown(features);
+  const rows = _breakdown(features).map((r) => ({
+    id: r.layer.id, label: r.layer.label, color: safeColor(r.layer.style?.color), count: r.count,
+  }));
   if (!rows.length) return '';
-  const max = rows[0].count;
-  return `<ul class="dg-break">${rows.map((r) => {
-    const color = escAttr(safeColor(r.layer.style?.color));
-    return `
-    <li class="dg-brow">
-      <span class="dg-bdot" style="background:${color}"></span>
-      <span class="dg-bname">${esc(r.layer.label)}</span>
-      <span class="dg-bcount">${_fmt(r.count)}</span>
-      <span class="dg-btrack"><span class="dg-bfill" style="width:${Math.max(6, Math.round(r.count / max * 100))}%;background:${color}"></span></span>
-    </li>`;
-  }).join('')}</ul>`;
+  const total = rows.reduce((acc, r) => acc + r.count, 0);
+  return _mixBarHtml(rows, total) + `<ul class="dg-legend-list">${rows.map((r) => `
+    <li class="dg-legend-item" data-layer="${escAttr(r.id)}">
+      <span class="dg-legend-dot" style="background:${escAttr(r.color)}"></span>
+      <span class="dg-legend-name">${esc(r.label)}</span>
+      <span class="dg-legend-count">${_fmt(r.count)}</span>
+    </li>`).join('')}</ul>`;
 }
 
 function _renderSelectionView(panel) {
@@ -374,6 +388,16 @@ function _renderSelectionView(panel) {
   `;
   panel.querySelector('#dg-sel-clear')?.addEventListener('click', clearSelection);
   panel.querySelector('#dg-analyze')?.addEventListener('click', _runAnalysis);
+
+  // Survol de la barre ou de la légende : les points concernés s'allument sur la carte
+  const rows = _breakdown(sel.features).map((r) => ({
+    id: r.layer.id, label: r.layer.label, color: safeColor(r.layer.style?.color), count: r.count,
+  }));
+  _bindMixBar(panel, rows);
+  panel.querySelectorAll('.dg-legend-item').forEach((item) => {
+    item.addEventListener('mouseenter', () => setHover(_featuresOfLayer(item.dataset.layer)));
+    item.addEventListener('mouseleave', () => setHover([]));
+  });
 }
 
 function _renderLoading(panel) {
@@ -403,20 +427,18 @@ function _renderError(panel, message) {
 function _renderResults(panel) {
   const a = dg.analysis;
   const n = a.pointCount || 0;
-  const nb = a.sujets.length;
+  const nbSujets = a.couches.reduce((acc, c) => acc + c.sujets.length, 0);
 
   panel.innerHTML = `
     <div class="dg-rbar">
-      <span class="dg-rbar__meta"><b>${_fmt(n)}</b> point${n > 1 ? 's' : ''} lu${n > 1 ? 's' : ''} · ${nb} sujet${nb > 1 ? 's' : ''}</span>
+      <span class="dg-rbar__meta"><b>${_fmt(n)}</b> point${n > 1 ? 's' : ''} lu${n > 1 ? 's' : ''} · ${a.couches.length} source${a.couches.length > 1 ? 's' : ''}${nbSujets ? ` · ${nbSujets} sujet${nbSujets > 1 ? 's' : ''}` : ''}</span>
       <span class="dg-rbar__spacer"></span>
       <button type="button" class="dg-rbar__btn" id="dg-re" title="Relancer l'analyse"><i class="fa-solid fa-rotate"></i></button>
       <button type="button" class="dg-rbar__btn" id="dg-cl" title="Fermer l'analyse"><i class="fa-solid fa-xmark"></i></button>
     </div>
+    ${_mixBarHtml(a.couches, n)}
     ${a.resume ? `<div class="dg-resume">${esc(a.resume)}</div>` : ''}
-    <div class="dg-section-label">Répartition des points</div>
-    ${_rowsHtml(a.rows)}
-    <div class="dg-section-label">Ce que disent les points</div>
-    <div class="dg-icards" id="dg-icards"></div>
+    <div class="dg-layers-detail" id="dg-layers-detail"></div>
     <button type="button" class="dg-report-btn" id="dg-report">
       <i class="fa-solid fa-file-lines"></i> Générer le rapport de zone
     </button>
@@ -429,25 +451,97 @@ function _renderResults(panel) {
   });
   panel.querySelector('#dg-report')?.addEventListener('click', (e) => openReport(e.currentTarget));
 
-  const cards = panel.querySelector('#dg-icards');
-  if (!a.sujets.length) {
-    cards.innerHTML = '<div class="dg-empty__text" style="text-align:center;padding:14px;">Les points de cette zone ne portent aucun texte exploitable — seuls les décomptes ci-dessus sont disponibles.</div>';
-  } else {
-    for (const sujet of a.sujets) cards.appendChild(_sujetCard(sujet));
-  }
+  _bindMixBar(panel, a.couches);
+  const detail = panel.querySelector('#dg-layers-detail');
+  for (const couche of a.couches) detail.appendChild(_coucheBlock(couche));
 }
 
-/** Barres de répartition par couche (données calculées, pas issues de l'IA). */
-function _rowsHtml(rows) {
-  if (!rows?.length) return '';
-  const max = rows[0].count;
-  return `<ul class="dg-break">${rows.map((r) => `
-    <li class="dg-brow">
-      <span class="dg-bdot" style="background:${escAttr(r.color)}"></span>
-      <span class="dg-bname">${esc(r.label)}</span>
-      <span class="dg-bcount">${_fmt(r.count)}</span>
-      <span class="dg-btrack"><span class="dg-bfill" style="width:${Math.max(6, Math.round(r.count / max * 100))}%;background:${escAttr(r.color)}"></span></span>
-    </li>`).join('')}</ul>`;
+/* ── Répartition : une seule barre, la légende est au survol ────── */
+
+function _mixBarHtml(couches, total) {
+  if (!couches.length || !total) return '';
+  const segs = couches.map((c) => `<button type="button" class="dg-mix__seg" data-layer="${escAttr(c.id)}"
+      style="width:${(c.count / total * 100).toFixed(3)}%;background:${escAttr(c.color)}"
+      aria-label="${escAttr(`${c.label} : ${c.count} points`)}"></button>`).join('');
+  return `<div class="dg-mix" id="dg-mix">
+      <div class="dg-mix__bar">${segs}</div>
+      <div class="dg-mix__tip" id="dg-mix-tip" hidden></div>
+    </div>`;
+}
+
+/**
+ * Survol d'un segment : infobulle + mise en évidence des points de cette
+ * source sur la carte. Clic : ouvre la section correspondante.
+ */
+function _bindMixBar(panel, couches) {
+  const wrap = panel.querySelector('#dg-mix');
+  const tip = panel.querySelector('#dg-mix-tip');
+  if (!wrap || !tip) return;
+  const total = couches.reduce((acc, c) => acc + c.count, 0) || 1;
+
+  wrap.querySelectorAll('.dg-mix__seg').forEach((seg) => {
+    const couche = couches.find((c) => c.id === seg.dataset.layer);
+    if (!couche) return;
+    seg.addEventListener('mouseenter', () => {
+      const share = Math.round((couche.count / total) * 100);
+      tip.innerHTML = `<span class="dg-mix__tip-dot" style="background:${escAttr(couche.color)}"></span>`
+        + `${esc(couche.label)} · <b>${_fmt(couche.count)}</b> pt${couche.count > 1 ? 's' : ''} (${share} %)`;
+      tip.hidden = false;
+      // Centrer l'infobulle sur le segment, bornée à la largeur du panneau
+      const left = seg.offsetLeft + seg.offsetWidth / 2;
+      tip.style.left = `${Math.min(Math.max(left, 70), wrap.clientWidth - 70)}px`;
+      setHover(_featuresOfLayer(couche.id));
+    });
+    seg.addEventListener('mouseleave', () => { tip.hidden = true; setHover([]); });
+    seg.addEventListener('click', () => {
+      const block = panel.querySelector(`.dg-couche[data-layer="${CSS.escape(couche.id)}"]`);
+      if (!block) return; // vue « sélection » : pas encore de sections par source
+      _toggleCouche(block, true);
+      block.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  });
+}
+
+const _featuresOfLayer = (id) => (dg.selection?.features || []).filter((f) => f.__layerId === id);
+
+/* ── Une source : synthèse visible, détail au clic ──────────────── */
+
+function _toggleCouche(block, open) {
+  const body = block.querySelector('.dg-couche__body');
+  const head = block.querySelector('.dg-couche__head');
+  const next = open === undefined ? body.hidden : open;
+  body.hidden = !next;
+  block.classList.toggle('is-open', next);
+  head.setAttribute('aria-expanded', String(next));
+}
+
+function _coucheBlock(couche) {
+  const block = document.createElement('div');
+  block.className = 'dg-couche';
+  block.dataset.layer = couche.id;
+  const nbSujets = couche.sujets.length;
+  block.innerHTML = `
+    <button type="button" class="dg-couche__head" aria-expanded="false">
+      <span class="dg-couche__dot" style="background:${escAttr(couche.color)}"></span>
+      <span class="dg-couche__name">${esc(couche.label)}</span>
+      <span class="dg-couche__count">${_fmt(couche.count)}</span>
+      <i class="fa-solid fa-chevron-down dg-couche__chev"></i>
+    </button>
+    ${couche.synthese ? `<div class="dg-couche__synth">${esc(couche.synthese)}</div>` : ''}
+    <div class="dg-couche__body" hidden></div>
+  `;
+  const head = block.querySelector('.dg-couche__head');
+  head.addEventListener('click', () => _toggleCouche(block));
+  head.addEventListener('mouseenter', () => setHover(_featuresOfLayer(couche.id)));
+  head.addEventListener('mouseleave', () => setHover([]));
+
+  const body = block.querySelector('.dg-couche__body');
+  if (!nbSujets) {
+    body.innerHTML = `<div class="dg-couche__none">Ces points ne portent pas de texte descriptif : seul leur décompte est exploitable.</div>`;
+  } else {
+    for (const sujet of couche.sujets) body.appendChild(_sujetCard(sujet));
+  }
+  return block;
 }
 
 function _sujetCard(sujet) {

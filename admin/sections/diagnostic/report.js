@@ -20,23 +20,46 @@ const _fmtKm2 = (n) => Number(n || 0).toLocaleString('fr-FR', { maximumFractionD
 function _reportData() {
   const a = dg.analysis;
   const sel = dg.selection;
-  const byLayer = new Map();
-  for (const f of sel.features) byLayer.set(f.__layerId, (byLayer.get(f.__layerId) || 0) + 1);
-  const breakdown = [...byLayer.entries()]
-    .map(([id, count]) => {
-      const layer = dg.layers.find((l) => l.id === id);
-      return layer ? { label: layer.label, color: safeColor(layer.style?.color), count } : null;
-    })
-    .filter(Boolean)
-    .sort((x, y) => y.count - x.count);
+
+  // Points effectivement cités, pour que le lecteur puisse tout vérifier.
+  const citedIdx = new Set();
+  for (const c of a.couches) for (const su of c.sujets) for (const n of su.refs) citedIdx.add(n);
+  const cites = [...citedIdx].sort((x, y) => x - y).map((n) => {
+    const f = dg.aiSample?.[n - 1];
+    if (!f) return null;
+    const layer = dg.layers.find((l) => l.id === f.__layerId);
+    return { n, couche: layer?.label || '', label: _titleOfPoint(f, layer), texte: _textOfPoint(f, layer) };
+  }).filter(Boolean);
 
   return {
     title: `Diagnostic du ${new Date().toLocaleDateString('fr-FR')} — ${_fmt(sel.features.length)} points`,
     zone: { polygon: sel.polygon, bbox: sel.bbox, area_km2: Math.round(sel.areaKm2 * 100) / 100 },
-    stats: { breakdown, stats_txt: a.statsTxt },
-    analysis: { resume: a.resume, sujets: a.sujets },
+    stats: { couches: a.couches.map(({ label, color, count }) => ({ label, color, count })) },
+    analysis: { resume: a.resume, couches: a.couches },
+    cites,
     point_count: sel.features.length,
   };
+}
+
+/** Libellé d'un point (même règle que le panneau : champ-titre de la popup). */
+function _titleOfPoint(f, layer) {
+  const field = layer?.popup?.title_field;
+  const v = field ? f.properties?.[field] : null;
+  return (v !== null && v !== undefined && v !== '') ? String(v) : (layer?.label || 'Point');
+}
+
+/** Texte descriptif d'un point : le plus long de ses champs de popup. */
+function _textOfPoint(f, layer) {
+  const popup = layer?.popup || {};
+  let best = '';
+  for (const field of popup.fields || []) {
+    if (field === popup.title_field) continue;
+    const v = f.properties?.[field];
+    if (typeof v !== 'string') continue;
+    const t = v.trim();
+    if (t.length > best.length) best = t;
+  }
+  return best.length > 12 ? best : '';
 }
 
 /** Génère le rapport de la zone analysée : capture carte, sauvegarde, affichage. */
@@ -69,49 +92,65 @@ export async function openReport(btn) {
 
 /* ── Document ──────────────────────────────────────────────────── */
 
-function _barChart(items) {
-  if (!items.length) return '<div class="dg-rp-muted">Aucune donnée.</div>';
-  const max = Math.max(...items.map((i) => i.value), 1);
-  return items.map((i) => `
-    <div class="dg-rp-bar">
-      <span class="dg-rp-bar__label">${esc(i.label)}</span>
-      <span class="dg-rp-bar__track"><span class="dg-rp-bar__fill" style="width:${Math.max(3, Math.round(i.value / max * 100))}%;background:${escAttr(i.color)}"></span></span>
-      <span class="dg-rp-bar__value">${_fmt(i.value)}</span>
-    </div>`).join('');
+/** Barre de répartition empilée + légende (le PDF n'a pas de survol). */
+function _mixBar(couches, total) {
+  if (!couches.length || !total) return '';
+  const segs = couches.map((c) => `<span class="dg-rp-mix__seg" style="width:${(c.count / total * 100).toFixed(3)}%;background:${escAttr(safeColor(c.color))}"></span>`).join('');
+  const legend = couches.map((c) => `<span class="dg-rp-mix__key">
+      <i style="background:${escAttr(safeColor(c.color))}"></i>${esc(c.label)}
+      <b>${_fmt(c.count)}</b><small>${Math.round(c.count / total * 100)} %</small>
+    </span>`).join('');
+  return `<div class="dg-rp-mix"><div class="dg-rp-mix__bar">${segs}</div>
+    <div class="dg-rp-mix__legend">${legend}</div></div>`;
 }
 
 function _showReportDoc(data, mapImg, date) {
   const a = data.analysis;
-  const s = data.stats;
   const brand = dg.branding?.brand_name || store.city || '';
   const dateLabel = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  const sujets = (a.sujets || []).slice().sort((x, y) => (y.refs?.length || 0) - (x.refs?.length || 0));
-  const layerItems = (s.breakdown || []).map((b) => ({ label: b.label, value: b.count, color: safeColor(b.color) }));
-  const cited = sujets.reduce((acc, su) => acc + (su.refs?.length || 0), 0);
+  const couches = a.couches || [];
+  const total = data.point_count || couches.reduce((acc, c) => acc + c.count, 0);
+  const nbSujets = couches.reduce((acc, c) => acc + (c.sujets?.length || 0), 0);
+  const cites = data.cites || [];
 
-  const sujetBlocks = sujets.map((su) => {
-    const n = su.refs?.length || 0;
+  const sections = couches.map((c) => {
+    const share = total ? Math.round((c.count / total) * 100) : 0;
+    const sujets = (c.sujets || []).map((su) => {
+      const n = su.refs?.length || 0;
+      return `
+        <div class="dg-rp-sujet">
+          <div class="dg-rp-sujet__head">
+            <span class="dg-rp-sujet__title">${esc(su.sujet || '')}</span>
+            <span class="dg-rp-sujet__count">${_fmt(n)} point${n > 1 ? 's' : ''}</span>
+          </div>
+          ${(su.verbatims || []).map((v) => `<div class="dg-rp-verb">« ${esc(v)} »</div>`).join('')}
+          ${su.refs?.length ? `<div class="dg-rp-sujet__refs">Points ${su.refs.map((r) => `#${r}`).join(', ')}</div>` : ''}
+        </div>`;
+    }).join('');
     return `
-      <div class="dg-rp-sujet">
-        <div class="dg-rp-sujet__head">
-          <span class="dg-rp-sujet__title">${esc(su.sujet || '')}</span>
-          <span class="dg-rp-sujet__count">${_fmt(n)} point${n > 1 ? 's' : ''}</span>
+      <div class="dg-rp-source">
+        <div class="dg-rp-source__head">
+          <span class="dg-rp-source__dot" style="background:${escAttr(safeColor(c.color))}"></span>
+          <span class="dg-rp-source__name">${esc(c.label)}</span>
+          <span class="dg-rp-source__count">${_fmt(c.count)} point${c.count > 1 ? 's' : ''} · ${share} %</span>
         </div>
-        ${(su.verbatims || []).map((v) => `<div class="dg-rp-verb">« ${esc(v)} »</div>`).join('')}
+        ${c.synthese ? `<p class="dg-rp-source__synth">${esc(c.synthese)}</p>` : ''}
+        ${sujets || '<div class="dg-rp-muted">Ces points ne portent pas de texte descriptif : seul leur décompte est exploitable.</div>'}
       </div>`;
   }).join('');
 
-  const sujetRows = sujets.map((su) => `<tr>
-      <td><b>${_fmt(su.refs?.length || 0)}</b></td>
-      <td>${esc(su.sujet || '')}</td>
-      <td>${esc((su.verbatims || [])[0] || '—')}</td>
+  const citeRows = cites.map((c) => `<tr>
+      <td class="dg-rp-cite__n">#${c.n}</td>
+      <td>${esc(c.couche)}</td>
+      <td>${esc(c.label)}</td>
+      <td>${esc(c.texte || '—')}</td>
     </tr>`).join('');
 
   const kpis = [
-    ['Points lus', _fmt(data.point_count)],
-    ['Couches', _fmt((s.breakdown || []).length)],
-    ['Sujets identifiés', _fmt(sujets.length)],
-    ['Zone', `${_fmtKm2(data.zone?.area_km2)} km²`],
+    ['Points lus', _fmt(total)],
+    ['Sources', _fmt(couches.length)],
+    ['Sujets relevés', _fmt(nbSujets)],
+    ['Emprise', `${_fmtKm2(data.zone?.area_km2)} km²`],
   ].map(([label, value]) => `<div class="dg-rp-kpi"><b>${value}</b><span>${label}</span></div>`).join('');
 
   const doc = document.createElement('div');
@@ -125,55 +164,62 @@ function _showReportDoc(data, mapImg, date) {
       </span>
     </div>
     <div class="dg-rp-page">
-      <div class="dg-rp-cover">
-        <div>
+
+      <header class="dg-rp-cover">
+        <div class="dg-rp-cover__meta">
           <div class="dg-rp-brand">${esc(brand)}</div>
-          <div class="dg-rp-title">Diagnostic terrain — zone</div>
-          <div class="dg-rp-sub">${esc(dateLabel)} · ${_fmt(data.point_count)} points · ${_fmtKm2(data.zone?.area_km2)} km²</div>
+          <h1 class="dg-rp-title">Diagnostic terrain</h1>
+          <div class="dg-rp-sub">Zone analysée le ${esc(dateLabel)}</div>
         </div>
-      </div>
-      <div class="dg-rp-kpis">${kpis}</div>
-      <div class="dg-rp-sec">
-        <div class="dg-rp-h2"><i class="fa-solid fa-align-left"></i> Description de la zone</div>
-        <p>${esc(a.resume || '')}</p>
-      </div>
-      ${mapImg ? `
-      <div class="dg-rp-sec">
-        <div class="dg-rp-h2"><i class="fa-solid fa-map-location-dot"></i> Carte de la zone</div>
-        <img class="dg-rp-map" src="${mapImg}" alt="Carte de la zone analysée">
-        <div class="dg-rp-muted">Fond de carte et couches actives, cadrés sur la sélection.</div>
-      </div>` : ''}
-      <div class="dg-rp-sec">
-        <div class="dg-rp-h2"><i class="fa-solid fa-layer-group"></i> Répartition des points</div>
-        ${_barChart(layerItems)}
-      </div>
-      <div class="dg-rp-sec">
-        <div class="dg-rp-h2"><i class="fa-solid fa-comment-dots"></i> Ce que disent les points</div>
-        ${sujetBlocks || '<div class="dg-rp-muted">Les points de cette zone ne portent aucun texte exploitable.</div>'}
-      </div>
-      ${sujetRows ? `
-      <div class="dg-rp-sec">
-        <div class="dg-rp-h2"><i class="fa-solid fa-table-list"></i> Récapitulatif</div>
-        <table class="dg-rp-table">
-          <thead><tr><th>Points</th><th>Sujet</th><th>Exemple cité</th></tr></thead>
-          <tbody>${sujetRows}</tbody>
+        ${mapImg ? `<img class="dg-rp-cover__map" src="${mapImg}" alt="Carte de la zone analysée">` : ''}
+        <div class="dg-rp-kpis">${kpis}</div>
+      </header>
+
+      <section class="dg-rp-sec">
+        <h2 class="dg-rp-h2">Composition de la zone</h2>
+        ${_mixBar(couches, total)}
+      </section>
+
+      ${a.resume ? `<section class="dg-rp-sec">
+        <h2 class="dg-rp-h2">Vue d'ensemble</h2>
+        <p class="dg-rp-lead">${esc(a.resume)}</p>
+      </section>` : ''}
+
+      <section class="dg-rp-sec">
+        <h2 class="dg-rp-h2">Ce que disent les points, source par source</h2>
+        ${sections || '<div class="dg-rp-muted">Aucune source exploitable dans cette zone.</div>'}
+      </section>
+
+      ${citeRows ? `<section class="dg-rp-sec dg-rp-sec--annexe">
+        <h2 class="dg-rp-h2">Annexe — points cités</h2>
+        <div class="dg-rp-muted" style="margin-bottom:8px">Chaque point référencé dans ce rapport, tel qu'il figure dans les données sources.</div>
+        <table class="dg-rp-table dg-rp-table--cites">
+          <thead><tr><th>N°</th><th>Source</th><th>Libellé</th><th>Texte du signalement</th></tr></thead>
+          <tbody>${citeRows}</tbody>
         </table>
-      </div>` : ''}
-      <div class="dg-rp-sec">
-        <div class="dg-rp-h2"><i class="fa-solid fa-circle-info"></i> Méthode</div>
-        <div class="dg-rp-method">Les ${_fmt(data.point_count)} points de la zone ont <b>tous</b> été lus, sans échantillonnage — c'est la raison du plafond de 300 points par sélection. La répartition par couche est calculée par le système. Les sujets ci-dessus sont un regroupement, par lecture du texte des signalements, de ce que ces points expriment ; le nombre de points associé à chaque sujet est recalculé à partir des points effectivement rattachés, et les citations sont reproduites mot pour mot. Ce document ne comporte volontairement ni notation, ni hiérarchisation, ni recommandation : il restitue le contenu des données, l'interprétation revient aux services compétents. Les données analysées sont celles des couches activées au moment de la sélection.</div>
-      </div>
-      <div class="dg-rp-foot"><span>${esc(brand)} — Diagnostic terrain</span><span>Généré le ${esc(dateLabel)} · ${_fmt(cited)} points rattachés à un sujet</span></div>
+      </section>` : ''}
+
+      <section class="dg-rp-sec">
+        <h2 class="dg-rp-h2">Méthode et limites</h2>
+        <div class="dg-rp-method">
+          <p><b>Périmètre.</b> Les ${_fmt(total)} points contenus dans la zone tracée ont <b>tous</b> été lus, sans échantillonnage — c'est la raison du plafond de 300 points par sélection. Seules les couches activées au moment de la sélection sont prises en compte.</p>
+          <p><b>Ce qui est calculé.</b> La composition de la zone, le nombre de points par source et le nombre de points rattaché à chaque sujet sont calculés à partir des données, jamais énoncés par le modèle.</p>
+          <p><b>Ce qui est rédigé.</b> Les synthèses par source et les intitulés de sujets sont produits par un modèle de langage à partir du seul texte des points ; les citations sont reproduites mot pour mot et chaque point cité figure en annexe.</p>
+          <p><b>Ce que ce document ne fait pas.</b> Il ne note pas, ne hiérarchise pas et ne recommande rien. Il restitue le contenu des signalements : l'interprétation et les suites à donner relèvent des services compétents.</p>
+        </div>
+      </section>
+
+      <footer class="dg-rp-foot"><span>${esc(brand)} — Diagnostic terrain</span><span>Généré le ${esc(dateLabel)}</span></footer>
     </div>
   `;
   document.body.appendChild(doc);
-  doc.querySelector('[data-rp-close]')?.addEventListener('click', () => doc.remove());
+  const close = () => doc.remove();
+  doc.querySelector('[data-rp-close]')?.addEventListener('click', close);
   doc.querySelector('[data-rp-print]')?.addEventListener('click', () => window.print());
 }
 
 /* ── Historique ────────────────────────────────────────────────── */
 
-/** Ouvre l'historique des rapports de la structure en slide-panel. */
 export async function openReportsHistory() {
   const handle = slidePanel.open({
     title: 'Historique des diagnostics',
@@ -193,7 +239,7 @@ export async function openReportsHistory() {
 
   const body = handle.content.querySelector('.adm-slide-panel__body');
   body.innerHTML = `<div class="dg-history">${reports.map((r) => {
-    const nb = (r.analysis?.sujets || []).length;
+    const nb = (r.analysis?.couches || []).reduce((acc, c) => acc + (c.sujets?.length || 0), 0);
     return `
       <div class="dg-history__row" data-id="${esc(r.id)}">
         <span class="dg-history__count">${_fmt(r.point_count)}<small>pts</small></span>
