@@ -91,11 +91,11 @@ function _renderCityList(body, cities) {
 
   body.innerHTML = list.map(city => {
     const logo = city.logo_url
-      ? `<img src="${esc(city.logo_url)}" alt="" style="width:40px;height:40px;object-fit:contain;border-radius:8px;background:var(--adm-bg-tertiary);padding:2px;">`
+      ? `<img src="${esc(city.logo_url)}" alt="" style="width:40px;height:40px;object-fit:contain;border-radius:8px;background:var(--black-alpha-06);padding:2px;">`
       : `<div style="width:40px;height:40px;border-radius:8px;background:var(--primary-alpha-12);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--primary);"><i class="fa-solid fa-city"></i></div>`;
 
     const colorDot = city.primary_color
-      ? `<span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${esc(city.primary_color)};vertical-align:middle;margin-right:4px;border:2px solid var(--adm-border);"></span>`
+      ? `<span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${esc(city.primary_color)};vertical-align:middle;margin-right:4px;border:2px solid var(--adm-glass-border);"></span>`
       : '';
 
     const adminBadge = city.admin_count != null
@@ -345,7 +345,8 @@ function _logoDropzoneHTML(prefix, existingUrl, label, small = false) {
   const hasUrl = !!existingUrl;
   const isDark = label.toLowerCase().includes('sombre');
   const height = small ? '100px' : '140px';
-  const bgColor = isDark ? '#1a1a2e' : 'var(--adm-glass-inner)';
+  // Fond fixe : la preview représente le contexte cible du logo, pas le thème UI
+  const bgColor = isDark ? '#1a1a2e' : '#f1f5f9';
 
   return `
     <div class="st-logo-zone" id="${prefix}-zone" data-prefix="${prefix}">

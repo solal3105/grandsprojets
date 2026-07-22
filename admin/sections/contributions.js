@@ -1,7 +1,7 @@
 import { store } from '../store.js';
 import { router } from '../router.js';
 import * as api from '../api.js';
-import { toast, confirm, slidePanel, esc, formatDate, formatRelativeDate, renderPagination, emptyState, skeletonTable } from '../components/ui.js';
+import { toast, confirm, slidePanel, esc, escAttr, formatDate, formatRelativeDate, renderPagination, emptyState, skeletonTable } from '../components/ui.js';
 import { Copilot } from '../components/copilot.js';
 
 const PAGE_SIZE = 20;
@@ -324,6 +324,12 @@ function _bindListActions(container, listBody) {
   }, { signal: _listBodyAbort.signal });
 }
 
+// tags peut être un tableau (Supabase) ou une chaîne — normalise en chaîne affichable
+function _formatTags(tags) {
+  const s = Array.isArray(tags) ? tags.filter(Boolean).join(', ') : String(tags ?? '');
+  return s.trim();
+}
+
 function _injectDetailStyles() {
   if (document.getElementById('contrib-detail-styles')) return;
   const s = document.createElement('style');
@@ -331,43 +337,75 @@ function _injectDetailStyles() {
   s.textContent = `
     .sp-cover {
       width: calc(100% + 48px); margin: -24px -24px 20px;
-      height: 200px; object-fit: cover; display: block;
-      background: var(--adm-bg-tertiary);
+      height: 190px; object-fit: cover; display: block;
+      background: var(--black-alpha-06);
+      border-bottom: 1px solid var(--adm-glass-border);
     }
     .sp-cover--placeholder {
       display: flex; align-items: center; justify-content: center;
-      font-size: 48px; opacity: .15;
-      background: radial-gradient(circle at 30% 60%, var(--primary-alpha-24, rgba(33,185,41,.24)) 0%, transparent 60%);
+      background:
+        radial-gradient(ellipse 75% 90% at 15% 100%, rgba(var(--adm-primary-rgb), 0.14) 0%, transparent 58%),
+        radial-gradient(ellipse 55% 65% at 88% 6%, rgba(var(--adm-info-rgb), 0.10) 0%, transparent 55%),
+        var(--adm-glass-inner);
     }
-    .sp-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+    .sp-cover--placeholder i { font-size: 42px; color: rgb(var(--adm-primary-rgb)); opacity: .28; }
+    .sp-badges { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 18px; }
     .sp-meta {
-      display: flex; flex-direction: column; gap: 7px;
-      margin-bottom: 20px; padding-bottom: 18px;
-      border-bottom: 1px solid var(--adm-glass-border, rgba(0,0,0,.06));
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+      margin-bottom: 24px; padding: 8px;
+      background: var(--adm-glass-inner);
+      border: 1px solid var(--adm-glass-border);
+      border-radius: 14px;
     }
     .sp-meta-item {
-      display: flex; align-items: center; gap: 8px;
-      font-size: 13px; color: var(--gray-500);
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; min-width: 0;
     }
-    .sp-meta-item i { color: var(--primary); width: 14px; text-align: center; flex-shrink: 0; }
-    .sp-meta-item a { color: var(--primary); text-decoration: none; word-break: break-all; }
-    .sp-meta-item a:hover { text-decoration: underline; }
-    .sp-section { margin-bottom: 22px; }
+    .sp-meta-item--wide { grid-column: 1 / -1; }
+    .sp-meta-ico {
+      width: 30px; height: 30px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 9px; font-size: 12px;
+      color: var(--primary);
+      background: var(--primary-alpha-12);
+      border: 1px solid var(--primary-alpha-35);
+    }
+    .sp-meta-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .sp-meta-label {
+      font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .07em; color: var(--text-disabled);
+    }
+    .sp-meta-value {
+      font-size: 13px; font-weight: 600; color: var(--gray-800);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    a.sp-meta-value { color: var(--primary); text-decoration: none; }
+    a.sp-meta-value:hover { text-decoration: underline; }
+    .sp-section { margin-bottom: 24px; }
     .sp-section-title {
-      font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
-      color: var(--gray-400); margin-bottom: 10px;
+      display: flex; align-items: center; gap: 7px;
+      font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .09em;
+      color: var(--text-disabled); margin-bottom: 10px;
+    }
+    .sp-section-title::before {
+      content: ''; width: 14px; height: 2px; border-radius: 2px;
+      background: rgba(var(--adm-primary-rgb), .55);
     }
     .sp-description {
       font-size: 14px; color: var(--gray-700); line-height: 1.65;
-      background: var(--adm-glass-inner); border-radius: 10px; padding: 14px 16px;
+      background: var(--adm-glass-inner);
+      border: 1px solid var(--adm-glass-border);
+      border-radius: 12px; padding: 14px 16px;
     }
     .sp-map {
-      width: 100%; height: 220px; border-radius: 10px; overflow: hidden;
+      width: 100%; height: 220px; border-radius: 12px; overflow: hidden;
       border: 1px solid var(--adm-glass-border);
     }
     .sp-article {
       font-size: 14px; line-height: 1.7; color: var(--gray-700);
-      background: var(--adm-glass-inner); border-radius: 10px; padding: 16px 18px;
+      background: var(--adm-glass-inner);
+      border: 1px solid var(--adm-glass-border);
+      border-radius: 12px; padding: 16px 18px;
     }
     .sp-article h1, .sp-article h2, .sp-article h3 { font-weight: 700; margin: 1em 0 .4em; color: var(--gray-800); }
     .sp-article h1 { font-size: 1.3em; }
@@ -380,20 +418,23 @@ function _injectDetailStyles() {
     .sp-article blockquote {
       border-left: 3px solid var(--primary); margin: .6em 0;
       padding: .35em .9em; color: var(--gray-500);
-      background: var(--primary-alpha-6, rgba(33,185,41,.06)); border-radius: 0 8px 8px 0;
+      background: var(--primary-alpha-06); border-radius: 0 8px 8px 0;
     }
-    .sp-article code { background: var(--adm-bg-tertiary); padding: 2px 5px; border-radius: 4px; font-size: .88em; }
-    .sp-article pre { background: var(--adm-bg-tertiary); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+    .sp-article code { background: var(--black-alpha-06); padding: 2px 5px; border-radius: 4px; font-size: .88em; }
+    .sp-article pre { background: var(--black-alpha-06); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
     .sp-docs { display: flex; flex-direction: column; gap: 7px; }
     .sp-doc-link {
-      display: flex; align-items: center; gap: 9px;
-      padding: 9px 13px;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px;
       background: var(--adm-glass-inner); border: 1px solid var(--adm-glass-border);
-      border-radius: 9px; text-decoration: none; color: var(--gray-700);
+      border-radius: 11px; text-decoration: none; color: var(--gray-700);
       font-size: 13px; font-weight: 500;
-      transition: background .15s, border-color .15s;
+      transition: background .15s, border-color .15s, color .15s, transform .15s;
     }
-    .sp-doc-link:hover { background: var(--adm-glass); border-color: var(--primary); color: var(--primary); }
+    .sp-doc-link:hover {
+      background: var(--adm-glass); border-color: var(--primary-alpha-35);
+      color: var(--primary); transform: translateX(2px);
+    }
     .sp-doc-link i.fa-file-pdf { color: var(--danger); font-size: 15px; }
     .sp-doc-link .sp-doc-ext { margin-left: auto; font-size: 10px; opacity: .45; }
   `;
@@ -435,14 +476,33 @@ async function _openDetail(id) {
       <div class="sp-badges">
         ${statusBadge}
         <span class="adm-badge adm-badge--info">${esc(item.category)}</span>
-        ${item.tags ? `<span class="adm-badge adm-badge--neutral">${esc(item.tags)}</span>` : ''}
+        ${_formatTags(item.tags) ? `<span class="adm-badge adm-badge--neutral">${esc(_formatTags(item.tags))}</span>` : ''}
       </div>
 
       <!-- Meta -->
       <div class="sp-meta">
-        <div class="sp-meta-item"><i class="fa-solid fa-calendar"></i> ${formatDate(item.created_at)}</div>
-        <div class="sp-meta-item"><i class="fa-solid fa-building"></i> ${esc(item.ville)}</div>
-        ${item.official_url ? `<div class="sp-meta-item"><i class="fa-solid fa-link"></i> <a href="${esc(item.official_url)}" target="_blank" rel="noopener">${esc(item.official_url)}</a></div>` : ''}
+        <div class="sp-meta-item">
+          <span class="sp-meta-ico"><i class="fa-solid fa-calendar"></i></span>
+          <div class="sp-meta-txt">
+            <span class="sp-meta-label">Créée le</span>
+            <span class="sp-meta-value">${formatDate(item.created_at)}</span>
+          </div>
+        </div>
+        <div class="sp-meta-item">
+          <span class="sp-meta-ico"><i class="fa-solid fa-building"></i></span>
+          <div class="sp-meta-txt">
+            <span class="sp-meta-label">Structure</span>
+            <span class="sp-meta-value">${esc(item.ville)}</span>
+          </div>
+        </div>
+        ${item.official_url ? `
+        <div class="sp-meta-item sp-meta-item--wide">
+          <span class="sp-meta-ico"><i class="fa-solid fa-link"></i></span>
+          <div class="sp-meta-txt">
+            <span class="sp-meta-label">Site officiel</span>
+            <a class="sp-meta-value" href="${escAttr(item.official_url)}" target="_blank" rel="noopener">${esc(item.official_url)}</a>
+          </div>
+        </div>` : ''}
       </div>
 
       <!-- Description -->
@@ -1089,6 +1149,7 @@ function _initMarkdownEditor(body) {
   const editor = new EditorClass({
     el,
     height: '420px',
+    theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light',
     initialEditType: 'wysiwyg',
     initialValue: _wiz.markdownText || '',
     previewStyle: 'vertical',

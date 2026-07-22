@@ -10,11 +10,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="/modules/theme-init.js"></script>
   <link rel="stylesheet" href="/styles/00-colors.css">
   <link rel="stylesheet" href="/admin/admin.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
   <link rel="stylesheet" href="https://uicdn.toast.com/editor/3.2.2/toastui-editor.min.css">
+  <link rel="stylesheet" href="https://uicdn.toast.com/editor/3.2.2/theme/toastui-editor-dark.min.css">
 </head>
 <body>
 
@@ -85,6 +87,9 @@
         <span class="adm-sidebar__user-email" id="adm-user-email"></span>
         <span class="adm-sidebar__user-role" id="adm-user-role"></span>
       </div>
+      <button class="adm-sidebar__theme" id="adm-theme-toggle" aria-label="Mode sombre" title="Mode sombre">
+        <i class="fa-solid fa-moon"></i>
+      </button>
       <button class="adm-sidebar__logout" id="adm-logout" aria-label="Déconnexion" title="Déconnexion">
         <i class="fa-solid fa-right-from-bracket"></i>
       </button>
@@ -106,7 +111,7 @@
     <!-- Splash / loader -->
     <div id="adm-splash" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:16px;transition:opacity .3s;">
       <i class="fa-solid fa-spinner fa-spin" style="font-size:32px;color:var(--primary);"></i>
-      <span style="color:var(--adm-text-secondary);font-size:14px;">Chargement…</span>
+      <span style="color:var(--text-secondary);font-size:14px;">Chargement…</span>
     </div>
     <div class="adm-main__inner" id="adm-content">
       <!-- Sections rendered here by router -->
@@ -141,6 +146,7 @@
   <script src="https://uicdn.toast.com/editor/3.2.2/toastui-editor-all.min.js"></script>
   <script src="/modules/auth.js"></script>
   <script src="/modules/supabaseservice.js"></script>
+  <script src="/modules/thememanager.js"></script>
 
   <!-- Admin app (ES modules) -->
   <script type="module" src="/admin/app.js"></script>

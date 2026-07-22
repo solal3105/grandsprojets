@@ -266,7 +266,8 @@ function _logoDropzoneHTML(prefix, existingUrl, label, small = false) {
   const hasUrl = !!existingUrl;
   const isDark = label.toLowerCase().includes('sombre');
   const height = small ? '100px' : '140px';
-  const bgColor = isDark ? '#1a1a2e' : 'var(--adm-glass-inner)';
+  // Fond fixe : la preview représente le contexte cible du logo, pas le thème UI
+  const bgColor = isDark ? '#1a1a2e' : '#f1f5f9';
 
   return `
     <div class="st-logo-zone" id="${prefix}-zone" data-prefix="${prefix}">

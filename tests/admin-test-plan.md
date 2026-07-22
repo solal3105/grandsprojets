@@ -19,6 +19,7 @@
 | 7 · Composants transversaux | `admin.resilience.spec.js` | 4 | ✅ Partiel (couverts aussi indirectement) |
 | 8 · Changement de ville | — | 0 | ⏭️ Skippé (nécessite 2e ville test) |
 | 9 · Résilience | `admin.resilience.spec.js` | 5 | ✅ Complet |
+| 13 · Thème sombre | `admin.theme.spec.js` | 6 | ✅ Complet |
 | **Total** | | **~130** | |
 
 ### Bugs découverts et corrigés par les tests
@@ -513,3 +514,16 @@
 | 10.5 | Double-clic sur un bouton de soumission | Pas de double soumission (`disabled` immédiat) |
 | 10.6 | Ouvrir un slide panel, le fermer, re-ouvrir | Panel fonctionne à chaque fois, pas de listeners zombies |
 | 10.7 | XSS dans un nom de projet (ex : `<img onerror=alert(1)>`) | Rendu échappé via `esc()`, pas d'exécution |
+
+---
+
+## 13 · Thème sombre
+
+| # | Scénario | Attendu |
+|---|----------|---------|
+| 13.1.1 | Bouton toggle visible dans la sidebar | `#adm-theme-toggle` visible, icône lune ou soleil |
+| 13.1.2 | Clic bascule en dark | `html[data-theme='dark']`, icône `fa-sun`, title "Mode clair" |
+| 13.1.3 | Second clic revient en light | `html[data-theme='light']`, icône `fa-moon` |
+| 13.1.4 | Préférence persistée | `localStorage('theme')='dark'`, réappliquée au reload avant le boot (pas de flash) |
+| 13.1.5 | Sans préférence, suit l'OS | `prefers-color-scheme: dark` → `data-theme='dark'`, localStorage vide |
+| 13.1.6 | Préférence explicite prime sur l'OS | Toggle dark + OS light → reste dark après reload |

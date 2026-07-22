@@ -11,9 +11,13 @@ import { renderStructure } from './sections/structure.js';
 import { renderVilles } from './sections/villes.js';
 import { renderModules } from './sections/modules.js';
 import { toast } from './components/ui.js';
+import { initTheme } from './theme.js';
 
 async function boot() {
   const splash = document.getElementById('adm-splash');
+
+  // 0. Thème (avant l'auth : le splash et le login doivent déjà être thémés)
+  initTheme();
 
   try {
     // 1. Auth + profile
@@ -25,6 +29,9 @@ async function boot() {
 
     // Apply branding color for the initial city
     _loadAndApplyBrandColor();
+
+    // Re-évaluer le logo (dark_logo_url) quand le thème bascule
+    document.addEventListener('adm:themechange', () => _loadAndApplyBrandColor());
 
     // 3. Router
     const main = document.getElementById('adm-content');
@@ -82,7 +89,7 @@ async function boot() {
   } catch (err) {
     console.error('[admin/app] Boot failed:', err);
     const _esc = window.SecurityUtils ? window.SecurityUtils.escapeHtml : (s => String(s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
-    if (splash) splash.innerHTML = `<div style="color:#ef4444;text-align:center;padding:40px;"><p style="font-size:18px;font-weight:600;">Erreur de chargement</p><p style="margin-top:8px;">${_esc(err.message)}</p><a href="/admin/" style="color:var(--primary);margin-top:16px;display:inline-block;">Réessayer</a></div>`;
+    if (splash) splash.innerHTML = `<div style="color:var(--color-danger);text-align:center;padding:40px;"><p style="font-size:18px;font-weight:600;">Erreur de chargement</p><p style="margin-top:8px;">${_esc(err.message)}</p><a href="/admin/" style="color:var(--primary);margin-top:16px;display:inline-block;">Réessayer</a></div>`;
     toast('Erreur de démarrage — vérifiez votre connexion', 'error');
   }
 }
@@ -103,7 +110,8 @@ async function _loadAndApplyBrandColor() {
   try {
     const branding = await api.getBranding();
     if (branding?.primary_color) _applyBrandColor(branding.primary_color);
-    const logoSrc = branding?.logo_url || '/img/logos/classic_color-1.png';
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const logoSrc = (isDark && branding?.dark_logo_url) || branding?.logo_url || '/img/logos/classic_color-1.png';
     const logoAlt = branding?.brand_name || 'Open Projets';
     const img = document.getElementById('adm-sidebar-logo');
     if (img) { img.src = logoSrc; img.alt = logoAlt; }
