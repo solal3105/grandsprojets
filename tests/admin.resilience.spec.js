@@ -279,6 +279,30 @@ test.describe('7.5 — Toast variants et composants UI', () => {
     await page.click('#adm-dialog-cancel');
   });
 
+  // Non-régression : le reset global `* { margin: 0 }` écrasait le `margin: auto`
+  // de la feuille UA et collait la modale en haut à gauche de l'écran.
+  test('7.5.5b — Dialog centré dans le viewport', async ({ page }) => {
+    await waitForBoot(page, '/admin/contributions/');
+    await page.waitForSelector('#contrib-list-body .adm-list-item', { timeout: 10000 });
+
+    await page.locator('.adm-list-item [data-action="delete"]').first().click();
+    const dialog = page.locator('#adm-dialog');
+    await expect(dialog).toBeVisible({ timeout: 5000 });
+
+    // L'animation d'entrée translate de 10px : mesurer une fois posée.
+    await page.waitForFunction(
+      () => document.getElementById('adm-dialog').getAnimations().every(a => a.playState === 'finished'),
+      null, { timeout: 3000 },
+    );
+    const box = await dialog.boundingBox();
+    const vp = page.viewportSize();
+    // Tolérance de 2px : le centrage `margin: auto` peut arrondir au demi-pixel.
+    expect(Math.abs((box.x + box.width / 2) - vp.width / 2)).toBeLessThan(2);
+    expect(Math.abs((box.y + box.height / 2) - vp.height / 2)).toBeLessThan(2);
+
+    await page.click('#adm-dialog-cancel');
+  });
+
   test('7.5.6 — Slide panel : titre, corps et footer rendus', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/');
     await page.waitForSelector('#contrib-list-body .adm-list-item', { timeout: 10000 });

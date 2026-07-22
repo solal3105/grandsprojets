@@ -1066,6 +1066,9 @@ html[data-theme='dark'] .adm-table td {
    ============================================================================ */
 
 .adm-dialog {
+  /* Le reset global `* { margin: 0 }` écrase le `margin: auto` de la feuille
+     UA : sans ça, la modale se colle en haut à gauche au lieu d'être centrée. */
+  margin: auto;
   border: none;
   border-radius: var(--adm-radius-lg);
   padding: 28px;
