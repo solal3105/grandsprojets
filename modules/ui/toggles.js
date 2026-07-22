@@ -267,10 +267,7 @@ class ToggleManager {
       if (!t) return;
       if (t.element.getAttribute('data-ready') === 'false') return;
       const brandAttr = t.element.getAttribute('data-branding-enabled');
-      let show = true;
-      if (brandAttr !== null) show = brandAttr === 'true';
-      else if (key === 'contribute') show = this._isConnected();
-      else if (key === 'login') show = !this._isConnected();
+      const show = brandAttr !== null ? brandAttr === 'true' : true;
       if (show) eligible.push({ key, element: t.element, config: t.config });
     });
     return eligible;
@@ -426,14 +423,6 @@ class ToggleManager {
     // Re-run after layout is fully painted so the logo pill is measurable
     requestAnimationFrame(() => requestAnimationFrame(() => this.recalculate()));
     window.addEventListener('load', () => this.recalculate(), { once: true });
-  }
-
-  _isConnected() {
-    if (window.AuthModule?.isAuthenticated) return window.AuthModule.isAuthenticated();
-    const keys = Object.keys(localStorage);
-    const sbKey = keys.find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
-    if (sbKey) { try { const d = JSON.parse(localStorage.getItem(sbKey)); return !!(d?.access_token || d?.user); } catch (e) { console.debug('[toggles] auth token parse error:', e); return false; } }
-    return false;
   }
 
   /**

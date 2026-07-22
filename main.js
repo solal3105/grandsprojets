@@ -562,9 +562,6 @@
       // Basemap — ToggleManager toggles .active on #basemap-menu via menuSelector
       // (no extra logic needed, UIModule.init already rendered basemap tiles)
 
-      // Info — ToggleManager handles modal via modalSelector
-      win.toggleManager?.markReady('info');
-
       // About close button → close through ToggleManager
       const aboutClose = document.getElementById('about-close');
       if (aboutClose) {
@@ -573,10 +570,6 @@
           win.toggleManager?.setState('info', false);
         });
       }
-
-      // Login — ToggleManager redirects via redirectUrl config
-      win.toggleManager?.markReady('login');
-      win.toggleManager?.markReady('contribute');
 
       // Actions panel (mobile only) — populate with sidebar actions
       const actionsPanel = document.getElementById('actions-panel-body');
@@ -654,55 +647,6 @@
       if (!win._cityPreferredBasemap) {
         win.ThemeManager?.startOSThemeSync();
       }
-
-      // Listener pour recharger les styles quand les catégories sont modifiées
-      window.addEventListener('categories:updated', async () => {
-        try {
-          // Recharger les category_icons depuis la DB
-          if (window.supabaseService?.fetchCategoryIcons && window.supabaseService?.buildCategoryStylesMap) {
-            const categoryIconsData = await window.supabaseService.fetchCategoryIcons();
-            const categoryStylesFromDB = window.supabaseService.buildCategoryStylesMap(categoryIconsData);
-            
-            Object.keys(categoryStylesFromDB).forEach(category => {
-              const categoryStyle = categoryStylesFromDB[category];
-              if (categoryStyle && Object.keys(categoryStyle).length > 0) {
-                styleMap[category] = {
-                  ...styleMap[category],
-                  ...categoryStyle
-                };
-                
-                const categoryIcon = categoryIconsData.find(icon => icon.category === category);
-                if (categoryIcon && Array.isArray(categoryIcon.layers_to_display)) {
-                  categoryIcon.layers_to_display.forEach(layerName => {
-                    if (layerName !== category) {
-                      styleMap[layerName] = {
-                        ...categoryStyle,
-                        ...styleMap[layerName]
-                      };
-                    }
-                  });
-                }
-              }
-            });
-            
-            DataModule.initConfig({ city, urlMap, styleMap, defaultLayers });
-            
-            if (MapModule?.layers) {
-              const layersToReload = Object.keys(MapModule.layers);
-              
-              for (const layerName of layersToReload) {
-                try {
-                  await DataModule.loadLayer(layerName);
-                } catch (err) {
-                  console.debug(`[Main] Erreur rechargement ${layerName}:`, err);
-                }
-              }
-            }
-          }
-        } catch (err) {
-          console.error('[Main] Erreur rechargement styles:', err);
-        }
-      });
 
       // PHASE 8 : Gestion du routing et de l'historique
 
