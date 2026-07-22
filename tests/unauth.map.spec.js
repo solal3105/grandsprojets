@@ -1013,3 +1013,100 @@ test.describe('0.19 — Attribution fond de carte', () => {
     await expect(attrib).toBeVisible({ timeout: 15000 });
   });
 });
+
+// ═════════════════════════════════════════════════════════
+// 0.20 — RÉGRESSION ancrage des markers
+//
+// `maplibre-compat` traduit l'iconAnchor de Leaflet en offset
+// MapLibre. Le signe était inversé : un pin 32x40 ancré en
+// [16, 40] était dessiné 40px SOUS sa coordonnée. L'erreur
+// étant en pixels écran, le marker semblait glisser par rapport
+// au fond de carte à chaque zoom.
+// ═════════════════════════════════════════════════════════
+test.describe('0.20 — RÉGRESSION ancrage des markers', () => {
+
+  /** Mesure l'écart entre le point d'ancrage de l'icône et sa coordonnée, à plusieurs zooms. */
+  async function probeAnchor(page, iconSize, iconAnchor) {
+    await waitForMapBoot(page);
+    await page.waitForFunction(() => window.MapModule?.map?._mlMap && window.L, { timeout: 20000 });
+
+    return page.evaluate(async ({ size, anchor }) => {
+      const wrapper = window.MapModule.map;
+      const mlMap = wrapper._mlMap;
+      const center = mlMap.getCenter();
+      const lngLat = [center.lng, center.lat];
+
+      const marker = window.L.marker([center.lat, center.lng], {
+        icon: window.L.divIcon({
+          html: '<div style="width:100%;height:100%"></div>',
+          className: 'gp-anchor-probe',
+          iconSize: size,
+          iconAnchor: anchor,
+        }),
+      }).addTo(wrapper);
+
+      const out = [];
+      for (const z of [11, 14, 17]) {
+        mlMap.jumpTo({ center: lngLat, zoom: z });
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const pt = mlMap.project(lngLat);
+        const rect = marker.getElement().getBoundingClientRect();
+        const cont = mlMap.getContainer().getBoundingClientRect();
+        out.push({
+          zoom: z,
+          dx: (rect.left - cont.left + anchor[0]) - pt.x,
+          dy: (rect.top - cont.top + anchor[1]) - pt.y,
+        });
+      }
+      marker.remove();
+      return out;
+    }, { size: iconSize, anchor: iconAnchor });
+  }
+
+  test('0.20.1 — Un pin est ancré par sa pointe, à tous les zooms', async ({ page }) => {
+    // Icône identique à createCustomMarkerIcon() de datamodule.js
+    const rows = await probeAnchor(page, [32, 40], [16, 40]);
+    expect(rows).toHaveLength(3);
+    for (const r of rows) {
+      expect(Math.abs(r.dx), `zoom ${r.zoom} : décalage horizontal ${r.dx}px`).toBeLessThanOrEqual(1);
+      expect(Math.abs(r.dy), `zoom ${r.zoom} : décalage vertical ${r.dy}px`).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test('0.20.2 — Un marker simple est centré sur sa coordonnée', async ({ page }) => {
+    // Icône identique à createSimpleMarkerIcon() de datamodule.js
+    const rows = await probeAnchor(page, [24, 24], [12, 12]);
+    for (const r of rows) {
+      expect(Math.abs(r.dx), `zoom ${r.zoom} : décalage horizontal ${r.dx}px`).toBeLessThanOrEqual(1);
+      expect(Math.abs(r.dy), `zoom ${r.zoom} : décalage vertical ${r.dy}px`).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test('0.20.3 — La carte de survol se décale de la hauteur du pin', async ({ page }) => {
+    await waitForMapBoot(page);
+    await page.waitForFunction(
+      () => window.MapModule?.map?._mlMap && window.L && window.FeatureInteractions,
+      { timeout: 20000 }
+    );
+
+    const lift = await page.evaluate(() => {
+      const wrapper = window.MapModule.map;
+      const center = wrapper._mlMap.getCenter();
+      const marker = window.L.marker([center.lat, center.lng], {
+        icon: window.L.divIcon({
+          html: '<div style="width:100%;height:100%"></div>',
+          className: 'gp-anchor-probe',
+          iconSize: [32, 40],
+          iconAnchor: [16, 40],
+        }),
+      }).addTo(wrapper);
+      const value = window.FeatureInteractions._markerLift(marker, { lng: center.lng, lat: center.lat });
+      marker.remove();
+      return value;
+    });
+
+    // Le pin s'élève de 40px au-dessus de sa pointe : sans ce décalage,
+    // la carte de survol recouvrirait le marker.
+    expect(Math.round(lift)).toBe(40);
+  });
+});

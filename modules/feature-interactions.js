@@ -108,6 +108,7 @@
     _displayKeys: [],    // keys of cards currently in _cardsEl DOM
     _lngLat: null,
     _currentKey: null,   // dedup key
+    _anchorLift: 0,      // hauteur de l'icône au-dessus du point géo (px) — 0 si survol curseur
     _boundUpdatePos: null,
 
     // Stacked markers (même coordonnées exactes)
@@ -273,8 +274,10 @@
     _onMove(e) {
       if (_isTouch) return;
       // Always update position for single card (no throttle, keeps it glued to cursor)
-      if (this._state === 'single') {
+      // Un survol issu d'un marker DOM reste ancré sur son icône : on ne le recolle pas au curseur.
+      if (this._state === 'single' && !this._hoverFromDOM) {
         this._lngLat = e.lngLat;
+        this._anchorLift = 0;
         this._updatePosition();
       }
 
@@ -318,11 +321,12 @@
       this._showHover(hits, e.lngLat, key);
     },
 
-    _showHover(features, lngLat, key) {
+    _showHover(features, lngLat, key, lift) {
       // features are already deduplicated by _hitTestAll / DOM marker handlers
       const nextState = features.length === 1 ? 'single' : 'peek';
       this._features = features;
       this._lngLat = lngLat;
+      this._anchorLift = lift || 0;
       this._currentKey = key;
 
       this._ensureOverlay();
@@ -464,7 +468,9 @@
       const pt = this._mlMap.project(this._lngLat);
       const r = this._mlMap.getContainer().getBoundingClientRect();
       let x = r.left + pt.x;
-      const y = r.top + pt.y;
+      // Le point géo correspond à la pointe du pin : on remonte de la hauteur de
+      // l'icône pour que la carte reste au-dessus du marker et ne le recouvre pas.
+      const y = r.top + pt.y - this._anchorLift;
       // Clamp horizontal: keep card within viewport
       const halfCard = 130;
       x = Math.max(halfCard + 8, Math.min(window.innerWidth - halfCard - 8, x));
@@ -485,6 +491,7 @@
       this._features = [];
       this._displayKeys = [];
       this._lngLat = null;
+      this._anchorLift = 0;
       this._currentKey = null;
       if (this._mlMap) this._mlMap.off('move', this._boundUpdatePos);
       setTimeout(() => el.remove(), 200);
@@ -623,6 +630,18 @@
 
     //  DOM MARKER HANDLERS (called by datamodule.js)
 
+    // Hauteur de l'icône située au-dessus du point géographique, mesurée sur le DOM
+    // (40px pour un pin, 12px pour un marker simple) — pas de valeur en dur.
+    _markerLift(marker, lngLat) {
+      const el = marker?.getElement?.();
+      if (!el || !this._mlMap) return 0;
+      const r = el.getBoundingClientRect();
+      if (!r.height) return 0;
+      const c = this._mlMap.getContainer().getBoundingClientRect();
+      const pt = this._mlMap.project([lngLat.lng, lngLat.lat]);
+      return Math.max(0, (c.top + pt.y) - r.top);
+    },
+
     _onDOMMarkerHover(marker, feature, lngLat) {
       if (_isTouch) return;
       if (this._state === 'picker') return;
@@ -632,10 +651,15 @@
       if (!hits.some(f => keyOf(f) === name)) hits.push(feature);
 
       const key = hits.length === 1 ? name : computeKey(hits);
+      const lift = this._markerLift(marker, lngLat);
       this._mlMap.getCanvas().style.cursor = 'pointer';
 
       if (key === this._currentKey && this._state) {
-        if (this._state === 'single') { this._lngLat = lngLat; this._updatePosition(); }
+        if (this._state === 'single') {
+          this._lngLat = lngLat;
+          this._anchorLift = lift;
+          this._updatePosition();
+        }
         return;
       }
 
@@ -646,7 +670,7 @@
         this._hovered = { key, source: '__multi__', ids: new Set() };
       }
       this._hoverFromDOM = true;
-      this._showHover(hits, lngLat, key);
+      this._showHover(hits, lngLat, key, lift);
     },
 
     _onDOMMarkerClick(marker, feature, lngLat) {
@@ -667,7 +691,7 @@
             this._endHover(); this._openFeature(feature); return;
           }
           this._clearHoverState();
-          this._showHover(hits, lngLat, name);
+          this._showHover(hits, lngLat, name, this._markerLift(marker, lngLat));
           return;
         }
         this._endHover(); this._openFeature(feature); return;
@@ -675,6 +699,7 @@
       this._clearHoverState();
       this._features = hits;
       this._lngLat = lngLat;
+      this._anchorLift = this._markerLift(marker, lngLat);
       this._currentKey = computeKey(hits);
       this._openPicker();
     },

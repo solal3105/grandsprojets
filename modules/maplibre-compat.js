@@ -729,6 +729,8 @@
       if (this._mlMarker) {
         const el = this._createEl();
         this._mlMarker.getElement().replaceWith(el);
+        // La nouvelle icône peut avoir un ancrage différent
+        this._mlMarker.setOffset(this._getAnchor());
       }
       return this;
     }
@@ -765,7 +767,13 @@
     openPopup() {
       if (!this._popupContent || !this._map) return this;
       if (this._popup) this._popup.remove();
-      this._popup = new Popup(this._popupOptions);
+      // Leaflet : popupAnchor est relatif au point d'ancrage de l'icône, pas à son centre.
+      // Sans ça la popup se superpose au pin maintenant que celui-ci est correctement ancré.
+      const popupOptions = Object.assign({}, this._popupOptions);
+      if (!popupOptions.offset && this.options.icon?.options?.popupAnchor) {
+        popupOptions.offset = this.options.icon.options.popupAnchor;
+      }
+      this._popup = new Popup(popupOptions);
       this._popup.setContent(typeof this._popupContent === 'function' ? this._popupContent(this) : this._popupContent);
       this._popup.setLatLng(this._latlng);
       this._popup.openOn(this._map);
@@ -799,11 +807,15 @@
       return el;
     }
     _getAnchor() {
+      // MapLibre positionne le centre de l'élément sur project(lngLat) + offset (anchor: 'center').
+      // Pour que le point iconAnchor de l'icône tombe pile sur la coordonnée, il faut décaler
+      // de (taille / 2 - iconAnchor) : un pin 32x40 ancré en [16, 40] remonte donc de 20px,
+      // sa pointe se cale sur le point géographique.
       const icon = this.options.icon;
       if (icon && icon.options && icon.options.iconAnchor) {
         const a = icon.options.iconAnchor;
         const s = icon.options.iconSize || [0, 0];
-        return [a[0] - s[0]/2, a[1] - s[1]/2];
+        return [s[0]/2 - a[0], s[1]/2 - a[1]];
       }
       return [0, 0];
     }
