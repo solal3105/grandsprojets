@@ -89,5 +89,5 @@ export function fitToData() {
     const rt = dg.runtime.get(layer.id);
     if (rt?.status === 'ready' && rt.visible) all.push(...rt.features);
   }
-  if (all.length) fitFeatures(all, { maxZoom: 13, padding: 70 });
+  if (all.length) fitFeatures(all, { maxZoom: 13, base: 70 });
 }

@@ -92,7 +92,6 @@ export async function createMap(el) {
     center,
     zoom,
     attributionControl: false,
-    preserveDrawingBuffer: true, // requis pour la capture du rapport
   });
   // Boussole inclinable : l'affordance pour basculer en vue 3D.
   map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true }), 'bottom-right');
@@ -301,17 +300,108 @@ export function setHover(features) {
   dg.map?.getSource('dg-hov-src')?.setData(_toPointFC(features));
 }
 
-/** Recentre la carte sur des features préparées. */
-export function fitFeatures(features, { maxZoom = 15, padding = 60 } = {}) {
-  const map = dg.map;
-  if (!map || !features?.length) return;
-  if (features.length === 1) {
-    map.easeTo({ center: features[0].__pt, zoom: Math.max(map.getZoom(), 15), duration: 450 });
-    return;
+/* ── Cadrage ────────────────────────────────────────────────────── */
+
+// Emprise minimale, en degrés, appliquée à une sélection dégénérée (un seul
+// point, ou N points de coordonnées identiques — plusieurs signalements à la
+// même adresse). Sans elle, MapLibre calcule une échelle infinie et retombe
+// exactement sur maxZoom, ce qui produit un saut de zoom brutal.
+const MIN_SPAN_DEG = 0.0009; // ≈ 100 m
+
+/**
+ * Emprise de la zone : l'anneau TRACÉ réuni aux features retenues. On cadre
+ * sur ce que l'utilisateur a dessiné, pas seulement sur ce qu'il a attrapé —
+ * c'est ce qui donne la marge de contexte autour de la sélection. Les
+ * géométries non ponctuelles sont prises sur leur emprise réelle, jamais
+ * réduites à leur centre.
+ */
+export function zoneBounds(ring, features) {
+  const bounds = new maplibregl.LngLatBounds();
+  for (const c of ring || []) bounds.extend(c);
+  for (const f of features || []) {
+    if (f.__bbox) {
+      bounds.extend([f.__bbox[0], f.__bbox[1]]);
+      bounds.extend([f.__bbox[2], f.__bbox[3]]);
+    } else if (f.__pt) {
+      bounds.extend(f.__pt);
+    }
   }
-  const bounds = new maplibregl.LngLatBounds(features[0].__pt, features[0].__pt);
-  for (const f of features) bounds.extend(f.__pt);
-  map.fitBounds(bounds, { padding, maxZoom, duration: 500 });
+  if (bounds.isEmpty()) return null;
+  // Élargir une emprise dégénérée avant tout calcul de caméra.
+  const sw = bounds.getSouthWest();
+  const ne = bounds.getNorthEast();
+  const dx = Math.max(0, (MIN_SPAN_DEG - (ne.lng - sw.lng)) / 2);
+  const dy = Math.max(0, (MIN_SPAN_DEG - (ne.lat - sw.lat)) / 2);
+  if (dx || dy) {
+    bounds.extend([sw.lng - dx, sw.lat - dy]);
+    bounds.extend([ne.lng + dx, ne.lat + dy]);
+  }
+  return bounds;
+}
+
+/**
+ * Marges de cadrage en pixels. Le dock est superposé à la carte : en desktop
+ * il occupe une bande à gauche, sous 768px un bandeau en haut. On mesure sa
+ * géométrie réelle plutôt que de coder ses dimensions en dur, et on borne le
+ * total : dès que la somme des marges dépasse une dimension du canvas,
+ * MapLibre abandonne le recadrage sans rien dire (warnOnce + no-op).
+ */
+function _framePadding(map, base = 48) {
+  const cv = map.getCanvas();
+  const w = cv.clientWidth || 1;
+  const h = cv.clientHeight || 1;
+  const pad = { top: base, right: base, bottom: base, left: base };
+
+  const wrap = dg.container?.querySelector('#dg-mapwrap');
+  const dock = wrap?.querySelector('.dg-dock');
+  if (dock && wrap) {
+    const r = dock.getBoundingClientRect();
+    const m = wrap.getBoundingClientRect();
+    // Le dock se colle à un bord : on dégage celui qu'il occupe le plus.
+    const coversWidth = r.width / m.width;
+    if (coversWidth > 0.6) pad.top = Math.max(pad.top, r.bottom - m.top + 16);
+    else pad.left = Math.max(pad.left, r.right - m.left + 16);
+  }
+
+  // Bornage : chaque axe garde au moins 40 % de place utile.
+  const capX = w * 0.3;
+  const capY = h * 0.3;
+  pad.left = Math.min(pad.left, capX);
+  pad.right = Math.min(pad.right, capX);
+  pad.top = Math.min(pad.top, capY);
+  pad.bottom = Math.min(pad.bottom, capY);
+  return pad;
+}
+
+/**
+ * Cadre la carte sur une emprise sans jamais dézoomer : le lasso est tracé à
+ * l'écran, la zone tient donc déjà dans la vue — reculer n'apporte rien et
+ * fait perdre le détail que l'utilisateur était allé chercher.
+ */
+export function fitBoundsSafely(bounds, { maxZoom = 17.5, duration = 550, base = 48, allowZoomOut = false } = {}) {
+  const map = dg.map;
+  if (!map || !bounds || bounds.isEmpty?.()) return;
+  const padding = _framePadding(map, base);
+  // cameraForBounds force bearing 0 si on ne le lui passe pas : la carte
+  // reviendrait au nord à chaque sélection alors que l'utilisateur l'a tournée.
+  const cam = map.cameraForBounds(bounds, { padding, maxZoom, bearing: map.getBearing() });
+  if (!cam) return; // emprise incadrable dans ce canvas
+  map.easeTo({
+    center: cam.center,
+    zoom: allowZoomOut ? cam.zoom : Math.max(cam.zoom, map.getZoom()),
+    bearing: map.getBearing(),
+    duration,
+  });
+}
+
+/**
+ * Cadre la carte sur l'ensemble des données chargées. Contrairement au cadrage
+ * d'une sélection, celui-ci a le droit de reculer : au premier rendu, les
+ * données peuvent déborder de la vue initiale de la ville.
+ */
+export function fitFeatures(features, { maxZoom = 15, base = 48 } = {}) {
+  if (!features?.length) return;
+  fitBoundsSafely(zoneBounds(null, features), { maxZoom, base, allowZoomOut: true });
 }
 
 /* ── Lasso ──────────────────────────────────────────────────────── */
@@ -456,28 +546,3 @@ export function resolveSelection(screenPoints) {
   return { features: selectInRing(ring), polygon: { type: 'Polygon', coordinates: [ring] } };
 }
 
-/* ── Capture pour le rapport ────────────────────────────────────── */
-
-/** Capture la carte cadrée sur la sélection (data URL PNG, ou null). */
-export async function captureZoneImage(features) {
-  const map = dg.map;
-  if (!map || !features?.length) return null;
-  const prev = { center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
-  try {
-    await new Promise((resolve) => {
-      let done = false;
-      const finish = () => { if (!done) { done = true; resolve(); } };
-      map.once('idle', finish);
-      try {
-        const bounds = new maplibregl.LngLatBounds(features[0].__pt, features[0].__pt);
-        for (const f of features) bounds.extend(f.__pt);
-        map.fitBounds(bounds, { padding: 60, animate: false, maxZoom: 16, duration: 0 });
-      } catch { finish(); }
-      setTimeout(finish, 3000);
-    });
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    try { return map.getCanvas().toDataURL('image/png'); } catch { return null; }
-  } finally {
-    try { map.jumpTo(prev); } catch { /* carte détruite entre-temps */ }
-  }
-}

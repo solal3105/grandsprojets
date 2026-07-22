@@ -9,7 +9,7 @@ import { store } from '../../store.js';
 import { esc, escAttr } from '../../components/ui.js';
 import { dg, safeColor, MAX_ANALYSIS_POINTS } from './state.js';
 import { featuresBbox, bboxAreaKm2, geometryBbox } from './data.js';
-import { resolveSelection, selectInRing, renderSelection, setHover, fitFeatures } from './map.js';
+import { resolveSelection, selectInRing, renderSelection, setHover, fitBoundsSafely, zoneBounds } from './map.js';
 import { setAnalysisBadge, showTab } from './panel.js';
 import { openReport } from './report.js';
 
@@ -88,7 +88,8 @@ export function handleSelection(screenPoints) {
   setAnalysisBadge(features.length);
   renderAnalysisPanel();
   showTab('analyse');
-  if (features.length) fitFeatures(features);
+  // Cadrer sur la zone tracée réunie aux points retenus, sans jamais dézoomer.
+  fitBoundsSafely(zoneBounds(polygon?.coordinates?.[0], features));
 }
 
 /**
@@ -187,6 +188,75 @@ function _orderedPoints(features, cap) {
   return out;
 }
 
+/* ── Fusion du résultat IA avec les décomptes ──────────────────── */
+
+/**
+ * Construit la liste des sources du rapport. La liste, l'ordre et tous les
+ * décomptes viennent des données : TOUTE couche ayant au moins un point dans
+ * la zone y figure, que le modèle l'ait traitée ou non. L'IA n'apporte que la
+ * prose, et chacune de ses affirmations est recadrée sur la source qui possède
+ * réellement les points cités.
+ */
+function _mergeCouches(result, rows, sampled, codeOf) {
+  // Indice de point → identifiant de la couche qui le possède.
+  const ownerOf = new Map();
+  sampled.forEach((f, i) => ownerOf.set(i + 1, f.__layerId));
+  const byCode = new Map([...codeOf.entries()].map(([layerId, code]) => [code, layerId]));
+
+  // Un sujet est rattaché à la source qui possède la majorité de ses points,
+  // pas à celle que le modèle a déclarée : une erreur d'étiquette ne doit pas
+  // détruire un sujet correctement rédigé.
+  const sujetsByLayer = new Map();
+  const syntheseByLayer = new Map();
+  for (const c of Array.isArray(result?.couches) ? result.couches : []) {
+    const declared = byCode.get(String(c?.couche || '').trim());
+    const synthese = String(c?.synthese || '').trim();
+    // Plusieurs entrées pour une même source (le modèle scinde parfois) :
+    // on les cumule au lieu de ne garder que la première.
+    if (declared && synthese) {
+      const prev = syntheseByLayer.get(declared);
+      syntheseByLayer.set(declared, prev ? `${prev} ${synthese}` : synthese);
+    }
+    for (const su of Array.isArray(c?.sujets) ? c.sujets : []) {
+      const sujet = String(su?.sujet || '').trim();
+      if (!sujet) continue;
+      const refs = [...new Set((Array.isArray(su?.refs) ? su.refs : []).filter((n) => ownerOf.has(n)))];
+      if (!refs.length) continue;
+      const tally = new Map();
+      for (const n of refs) {
+        const owner = ownerOf.get(n);
+        tally.set(owner, (tally.get(owner) || 0) + 1);
+      }
+      const owner = [...tally.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      if (!sujetsByLayer.has(owner)) sujetsByLayer.set(owner, []);
+      sujetsByLayer.get(owner).push({
+        sujet,
+        refs: refs.filter((n) => ownerOf.get(n) === owner),
+        verbatims: (Array.isArray(su?.verbatims) ? su.verbatims : [])
+          .map((v) => String(v).trim()).filter(Boolean).slice(0, 3),
+      });
+    }
+  }
+
+  return rows.map((r) => {
+    const points = sampled.filter((f) => f.__layerId === r.layer.id);
+    return {
+      id: r.layer.id,
+      label: r.layer.label,
+      color: safeColor(r.layer.style?.color),
+      count: r.count,
+      synthese: syntheseByLayer.get(r.layer.id) || '',
+      sujets: (sujetsByLayer.get(r.layer.id) || []).sort((a, b) => b.refs.length - a.refs.length),
+      // Calculé, jamais déduit d'une absence de sujet : c'est ce qui permet de
+      // dire la vérité sur une source que le modèle a laissée de côté.
+      hasText: points.some((f) => _textOf(f)),
+      // Repli déterministe : la source reste traitée même sans sujet.
+      apercu: points.filter((f) => _textOf(f)).slice(0, 8)
+        .map((f) => ({ label: _titleOf(f), texte: _textOf(f) })),
+    };
+  });
+}
+
 /* ── Appel IA ──────────────────────────────────────────────────── */
 
 async function _runAnalysis() {
@@ -200,17 +270,24 @@ async function _runAnalysis() {
   const sampled = _orderedPoints(sel.features, MAX_ANALYSIS_POINTS);
   dg.aiSample = sampled;
 
+  // Code de source stable (S1, S2…) : l'appariement de la réponse ne dépend
+  // plus du libellé, qui peut être long, accentué, dupliqué entre deux couches
+  // ou réécrit par le modèle — autant de façons de perdre une source.
+  const codeOf = new Map(stats.rows.map((r, i) => [r.layer.id, `S${i + 1}`]));
+
   const body = {
     ville: store.city,
     zone: { area_km2: Math.round(sel.areaKm2 * 100) / 100, point_count: sel.features.length },
     stats: stats.text,
     layers: stats.rows.map((r) => ({
+      code: codeOf.get(r.layer.id),
       label: r.layer.label,
       ai_context: r.layer.ai_context,
       count: r.count,
     })),
     sample: sampled.map((f, i) => ({
       i: i + 1,
+      code: codeOf.get(f.__layerId) || '',
       layer: _layerOf(f)?.label || '',
       label: _titleOf(f),
       text: _textOf(f),
@@ -266,35 +343,7 @@ async function _runAnalysis() {
     if (dg.selection !== sel) return; // la zone a changé pendant le stream : résultat obsolète
 
     const result = JSON.parse(fullText);
-    // La liste des sources et tous les décomptes viennent des données ; l'IA
-    // n'apporte que la prose, et ses références sont recadrées sur la source.
-    const byLabel = new Map();
-    for (const c of Array.isArray(result.couches) ? result.couches : []) {
-      const key = String(c?.couche || '').trim();
-      if (key && !byLabel.has(key)) byLabel.set(key, c);
-    }
-    const couches = stats.rows.map((r) => {
-      const ai = byLabel.get(r.layer.label);
-      const owned = new Set();
-      sampled.forEach((f, i) => { if (f.__layerId === r.layer.id) owned.add(i + 1); });
-      const sujets = (Array.isArray(ai?.sujets) ? ai.sujets : [])
-        .map((su) => ({
-          sujet: String(su?.sujet || '').trim(),
-          refs: [...new Set((Array.isArray(su?.refs) ? su.refs : []).filter((n) => owned.has(n)))],
-          verbatims: (Array.isArray(su?.verbatims) ? su.verbatims : [])
-            .map((v) => String(v).trim()).filter(Boolean).slice(0, 3),
-        }))
-        .filter((su) => su.sujet && su.refs.length)
-        .sort((a, b) => b.refs.length - a.refs.length);
-      return {
-        id: r.layer.id,
-        label: r.layer.label,
-        color: safeColor(r.layer.style?.color),
-        count: r.count,
-        synthese: String(ai?.synthese || '').trim(),
-        sujets,
-      };
-    });
+    const couches = _mergeCouches(result, stats.rows, sampled, codeOf);
 
     dg.analysis = {
       resume: String(result.resume || ''),
@@ -536,10 +585,16 @@ function _coucheBlock(couche) {
   head.addEventListener('mouseleave', () => setHover([]));
 
   const body = block.querySelector('.dg-couche__body');
-  if (!nbSujets) {
+  if (nbSujets) {
+    for (const sujet of couche.sujets) body.appendChild(_sujetCard(sujet));
+  } else if (!couche.hasText) {
     body.innerHTML = `<div class="dg-couche__none">Ces points ne portent pas de texte descriptif : seul leur décompte est exploitable.</div>`;
   } else {
-    for (const sujet of couche.sujets) body.appendChild(_sujetCard(sujet));
+    // La source porte du texte mais aucun sujet n'en est ressorti : le dire,
+    // et restituer quand même son contenu plutôt que laisser un blanc.
+    body.innerHTML = `<div class="dg-couche__none">Aucun sujet récurrent ne se dégage de ces points. Leur contenu, tel quel :</div>`
+      + couche.apercu.map((p) => `<div class="dg-couche__raw"><b>${esc(p.label)}</b> ${esc(p.texte)}</div>`).join('')
+      + (couche.count > couche.apercu.length ? `<div class="dg-couche__none">+ ${_fmt(couche.count - couche.apercu.length)} autre${couche.count - couche.apercu.length > 1 ? 's' : ''} point${couche.count - couche.apercu.length > 1 ? 's' : ''}.</div>` : '');
   }
   return block;
 }
