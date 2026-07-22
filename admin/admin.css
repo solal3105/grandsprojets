@@ -4686,11 +4686,41 @@ html[data-theme='dark'] .adm-user-row {
   background: var(--gray-100);
 }
 #dg-map { position: absolute; inset: 0; }
+
+/* Plein écran applicatif — z-index au-dessus de la sidebar (200) mais sous
+   l'overlay du wizard (250), le rapport (290) et les toasts (300). */
+.dg-mapwrap.is-fullscreen {
+  position: fixed; inset: 0; z-index: 210;
+  height: auto; min-height: 0;
+  border-radius: 0; border: none;
+}
+body.dg-fs-lock { overflow: hidden; }
 .dg-lasso-canvas { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+
+/* Outils de carte (plein écran + lasso), groupés en haut à droite */
+.dg-maptools {
+  position: absolute; top: 14px; right: 14px; z-index: 6;
+  display: flex; align-items: center; gap: 8px;
+}
+.dg-maptools[hidden] { display: none; }
+.dg-tool-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px;
+  border: 1px solid var(--adm-glass-border);
+  border-radius: 12px;
+  background: var(--adm-glass-strong);
+  backdrop-filter: blur(var(--adm-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--adm-blur)) saturate(160%);
+  box-shadow: var(--adm-shadow), inset 0 1.5px 0 rgba(255,255,255,0.95);
+  font-size: 14px; color: var(--gray-700);
+  cursor: pointer;
+  transition: all var(--adm-transition);
+}
+.dg-tool-btn:hover { transform: scale(1.08); box-shadow: var(--adm-shadow-lg); color: var(--gray-900); }
+.dg-tool-btn[aria-pressed='true'] { background: rgb(var(--adm-primary-rgb)); border-color: transparent; color: #fff; }
 
 /* Bouton lasso + indication de tracé */
 .dg-lasso-btn {
-  position: absolute; top: 14px; right: 14px; z-index: 6;
   display: flex; align-items: center; gap: 8px;
   padding: 10px 16px;
   border: 1px solid var(--adm-glass-border);
@@ -5111,14 +5141,17 @@ html[data-theme='dark'] .adm-user-row {
   .dg-report-doc { position: static !important; overflow: visible !important; background: #fff !important; }
   .dg-rp-toolbar { display: none !important; }
   .dg-rp-page { max-width: none; margin: 0; box-shadow: none; padding: 0; }
-  .dg-rp-sec, .dg-rp-cover,   @page { size: A4; margin: 14mm; }
+  .dg-rp-cover { break-inside: avoid; }
 }
+/* Hors de tout @media print : `@page` est une at-rule, elle ne peut pas figurer
+   dans une liste de sélecteurs — c'est ce qui invalidait la règle jusqu'ici. */
+@page { size: A4; margin: 14mm; }
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .dg-mapwrap { height: calc(100vh - 200px); min-height: 380px; }
   .dg-dock { width: calc(100% - 28px); max-height: 55%; }
-  .dg-lasso-btn { top: auto; bottom: 14px; right: 14px; }
+  .dg-maptools { top: auto; bottom: 14px; right: 14px; }
   .dg-lasso-hint { top: auto; bottom: 64px; right: 14px; }
       .dg-rp-page { padding: 24px 18px; }
 }
@@ -5281,7 +5314,10 @@ html[data-theme='dark'] .adm-user-row {
 .dg-rp-title { font-size: 30px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin: 4px 0 2px; }
 .dg-rp-sub { font-size: 13px; color: var(--gray-500); }
 .dg-rp-cover__map {
-  width: 100%; height: 260px; object-fit: cover;
+  /* Le gabarit suit le ratio de rendu de la figure : en `cover` sur un cadre
+     plus large, un tiers de la hauteur était rogné à l'affichage. */
+  width: 100%; aspect-ratio: 16 / 10; height: auto; object-fit: contain;
+  background: var(--gray-100);
   border: 1px solid rgba(0,0,0,0.1); border-radius: 12px; display: block;
 }
 .dg-rp-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
@@ -5332,10 +5368,21 @@ html[data-theme='dark'] .adm-user-row {
 .dg-rp-method p:last-child { margin-bottom: 0; }
 
 @media print {
-  .dg-rp-cover__map { height: 200px; }
+  .dg-rp-cover__map { break-inside: avoid; }
   .dg-rp-source, .dg-rp-sujet { page-break-inside: avoid; }
   .dg-rp-h2 { page-break-after: avoid; }
 }
+
+/* Repli : contenu brut des points d'une source sans sujet dégagé */
+.dg-couche__raw {
+  font-size: 12px; line-height: 1.55; color: var(--gray-700);
+  padding: 7px 10px; margin-top: 6px;
+  border-left: 2px solid var(--gray-200); background: var(--gray-50);
+  border-radius: 0 8px 8px 0;
+}
+.dg-couche__raw b { color: var(--gray-900); font-weight: 700; }
+.dg-rp-raw { font-size: 11.5px; line-height: 1.6; color: #374151; margin-top: 5px; padding-left: 10px; border-left: 2px solid #e5e7eb; }
+.dg-rp-raw b { color: #111827; }
 
 /* Pastille de la bascule « bâtiments en relief » : reprend le dégradé
    d'élévation du bâti, assombri pour rester lisible à 10px sur le dock. */

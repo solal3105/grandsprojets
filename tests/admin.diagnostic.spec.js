@@ -77,6 +77,46 @@ test.describe('12.1 — Boot & navigation', () => {
     await expect(navItem).toHaveClass(/active/);
   });
 
+  test('12.1.3 — Plein écran : bascule aller-retour, Échap réduit', async ({ page }) => {
+    await goToDiagnostic(page);
+    const wrap = page.locator('#dg-mapwrap');
+    const btn = page.locator('#dg-fs-btn');
+    // WebGL absent en headless : la carte échoue et masque ses outils. La
+    // bascule elle-même ne dépend pas de la carte — on la ré-expose pour la
+    // tester (cf. lacunes connues, CLAUDE.md).
+    await page.locator('#dg-maptools').evaluate((el) => el.removeAttribute('hidden'));
+    await expect(btn).toBeVisible();
+    await expect(btn).toHaveAttribute('aria-pressed', 'false');
+
+    await btn.click();
+    await expect(wrap).toHaveClass(/is-fullscreen/);
+    await expect(btn).toHaveAttribute('aria-pressed', 'true');
+    // Occupe bien tout le viewport, et la page ne défile plus derrière
+    const box = await wrap.boundingBox();
+    const vp = page.viewportSize();
+    expect(Math.round(box.width)).toBe(vp.width);
+    expect(Math.round(box.height)).toBe(vp.height);
+    await expect(page.locator('body')).toHaveClass(/dg-fs-lock/);
+
+    await page.keyboard.press('Escape');
+    await expect(wrap).not.toHaveClass(/is-fullscreen/);
+    await expect(btn).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('body')).not.toHaveClass(/dg-fs-lock/);
+  });
+
+  test('12.1.4 — Plein écran : le dock reste utilisable au-dessus de la carte', async ({ page }) => {
+    await goToDiagnostic(page);
+    await page.locator('#dg-maptools').evaluate((el) => el.removeAttribute('hidden'));
+    await page.click('#dg-fs-btn');
+    await expect(page.locator('#dg-mapwrap')).toHaveClass(/is-fullscreen/);
+    // Le dock est dans le conteneur passé en plein écran : il suit
+    await expect(page.locator('.dg-dock')).toBeVisible();
+    await page.click('.dg-tab[data-tab="analyse"]');
+    await expect(page.locator('.dg-tab[data-tab="analyse"]')).toHaveClass(/is-active/);
+    await page.click('#dg-fs-btn');
+    await expect(page.locator('#dg-mapwrap')).not.toHaveClass(/is-fullscreen/);
+  });
+
   test('12.1.2 — Dock : onglets Couches / Analyse', async ({ page }) => {
     await goToDiagnostic(page);
     await expect(page.locator('.dg-tab[data-tab="layers"]')).toHaveClass(/is-active/);
