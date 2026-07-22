@@ -29,7 +29,6 @@ export function openLayerWizard({ layer = null, onSaved }) {
       style: { ...DEFAULT_STYLE, ...layer?.style },
       popup: { title_field: '', fields: [], ...layer?.popup },
       ai_context: layer?.ai_context || '',
-      polarity: layer?.polarity || 'neutre',
       default_on: layer ? layer.default_on !== false : true,
     },
   };
@@ -183,7 +182,6 @@ function _bindSourceStep(overlay, w) {
       w.cfg.style = { ...DEFAULT_STYLE, ...src.defaults.style };
       w.cfg.popup = { ...src.defaults.popup };
       w.cfg.ai_context = src.defaults.ai_context;
-      w.cfg.polarity = src.defaults.polarity;
       overlay.querySelectorAll('[data-internal]').forEach((b) => b.classList.toggle('is-active', b === btn));
       _showDetect(overlay, `<b>${esc(src.label)}</b> — les données de la structure seront chargées automatiquement.`, false);
       _showConfig(overlay, w);
@@ -317,15 +315,6 @@ function _configStepsHtml(w) {
       <label class="adm-label" for="dg-wz-ai">Contexte pour l'IA <span class="dg-opt">(que représentent ces données ?)</span></label>
       <textarea class="adm-textarea" id="dg-wz-ai" rows="2" placeholder="Ex. Signalements citoyens de dangers cyclables">${esc(cfg.ai_context)}</textarea>
     </div>
-    <div class="adm-form-group">
-      <label class="adm-label">Polarité des signaux</label>
-      <div class="dg-seg" id="dg-wz-polarity">
-        <button type="button" data-pol="negatif" class="${cfg.polarity === 'negatif' ? 'is-active' : ''}">Négatif</button>
-        <button type="button" data-pol="neutre" class="${cfg.polarity === 'neutre' ? 'is-active' : ''}">Neutre</button>
-        <button type="button" data-pol="positif" class="${cfg.polarity === 'positif' ? 'is-active' : ''}">Positif</button>
-      </div>
-      <div class="adm-form-hint">Pèse dans le score de zone : négatif = problèmes signalés, positif = points forts.</div>
-    </div>
     <label class="adm-checkbox-label">
       <input type="checkbox" id="dg-wz-defon" ${cfg.default_on ? 'checked' : ''}> Afficher la couche par défaut
     </label>
@@ -349,9 +338,6 @@ function _syncConfigUI(overlay, w) {
   if (group && !group.value && cfg.group_label) group.value = cfg.group_label;
   const ai = overlay.querySelector('#dg-wz-ai');
   if (ai && !ai.value && cfg.ai_context) ai.value = cfg.ai_context;
-  overlay.querySelectorAll('#dg-wz-polarity button').forEach((b) => {
-    b.classList.toggle('is-active', b.dataset.pol === cfg.polarity);
-  });
   overlay.querySelectorAll('#dg-wz-colormode button').forEach((b) => {
     b.classList.toggle('is-active', b.dataset.mode === (cfg.style.mode === 'category' ? 'category' : 'single'));
   });
@@ -392,12 +378,6 @@ function _bindConfigSteps(overlay, w) {
   });
   overlay.querySelector('#dg-wz-title')?.addEventListener('change', (e) => { w.cfg.popup.title_field = e.target.value; });
   overlay.querySelector('#dg-wz-ai')?.addEventListener('input', (e) => { w.cfg.ai_context = e.target.value.trim(); });
-  overlay.querySelector('#dg-wz-polarity')?.querySelectorAll('button').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      overlay.querySelectorAll('#dg-wz-polarity button').forEach((b) => b.classList.toggle('is-active', b === btn));
-      w.cfg.polarity = btn.dataset.pol;
-    });
-  });
   overlay.querySelector('#dg-wz-defon')?.addEventListener('change', (e) => { w.cfg.default_on = e.target.checked; });
 
   overlay.querySelector('#dg-wz-lat')?.addEventListener('change', (e) => {
@@ -530,7 +510,6 @@ async function _save(overlay, w, existing, onSaved, close) {
       style: w.cfg.style,
       popup: w.cfg.popup,
       ai_context: w.cfg.ai_context,
-      polarity: w.cfg.polarity,
       default_on: w.cfg.default_on,
       sort_order: existing?.sort_order ?? dg.layers.length,
     });

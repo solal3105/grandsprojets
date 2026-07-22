@@ -146,7 +146,6 @@ test.describe('12.3 — CRUD des couches', () => {
 
     await page.fill('#dg-wz-label', 'E2E-Signalements');
     await page.fill('#dg-wz-ai', 'Signalements E2E de test');
-    await page.click('#dg-wz-polarity [data-pol="negatif"]');
     await expect(page.locator('#dg-wz-save')).toBeEnabled();
     await page.click('#dg-wz-save');
 
@@ -155,8 +154,6 @@ test.describe('12.3 — CRUD des couches', () => {
     await expect(row).toBeVisible();
     // Les données remontent depuis Storage : compteur = 3
     await expect(row.locator('[data-count]')).toHaveText('3', { timeout: 15000 });
-    // Polarité négative affichée en sous-titre
-    await expect(row.locator('.dg-row__sub')).toContainText('négatifs');
   });
 
   test('12.3.2 — Édition : label + contexte IA persistés', async ({ page }) => {

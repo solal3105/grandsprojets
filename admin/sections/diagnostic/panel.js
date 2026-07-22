@@ -151,7 +151,6 @@ function _layerRowHtml(layer) {
       <span class="dg-swatch" style="background:${escAttr(_swatchColor(layer))}"></span>
       <span class="dg-row__txt">
         <span class="dg-row__label">${esc(layer.label)}</span>
-        ${layer.polarity !== 'neutre' ? `<span class="dg-row__sub">${layer.polarity === 'negatif' ? 'Signaux négatifs' : 'Signaux positifs'}</span>` : ''}
       </span>
       <span class="dg-count" data-count>${count}</span>
       <button type="button" class="dg-row__act" data-act="edit" title="Éditer la couche"><i class="fa-solid fa-pen"></i></button>

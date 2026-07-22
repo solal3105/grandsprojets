@@ -2583,7 +2583,6 @@
           style: layer.style || {},
           popup: layer.popup || {},
           ai_context: layer.ai_context ?? '',
-          polarity: layer.polarity || 'neutre',
           default_on: layer.default_on !== undefined ? layer.default_on : true,
           enabled: layer.enabled !== undefined ? layer.enabled : true,
           sort_order: layer.sort_order ?? 0,

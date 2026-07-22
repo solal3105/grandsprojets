@@ -9,9 +9,6 @@ export const PALETTE = [
   '#B45309', '#0EA5E9', '#DB2777', '#65A30D', '#9333EA', '#0891B2',
 ];
 
-// Couleurs des niveaux de gravité (1 → 5) et des niveaux de zone.
-export const SEVERITY_COLORS = { 1: '#94A3B8', 2: '#5AAB7D', 3: '#F2B327', 4: '#F97316', 5: '#DC2626' };
-export const LEVEL_COLORS = { 'Faible': '#5AAB7D', 'Modéré': '#F2B327', 'Élevé': '#F97316', 'Critique': '#DC2626' };
 
 // Sources internes Open Projets proposées par le wizard (catalogue technique,
 // la configuration réelle de chaque couche vit en base).
@@ -22,7 +19,6 @@ export const INTERNAL_SOURCES = {
     icon: 'fa-solid fa-map-pin',
     endpoint: '/.netlify/functions/contributions-geojson',
     defaults: {
-      polarity: 'neutre',
       style: { mode: 'category', color: '#2563EB', category_field: 'category', radius: 5 },
       popup: { title_field: 'project_name', fields: ['category', 'description'] },
       ai_context: 'Projets urbains publiés sur la carte Open Projets de la structure',
@@ -34,7 +30,6 @@ export const INTERNAL_SOURCES = {
     icon: 'fa-solid fa-helmet-safety',
     endpoint: '/.netlify/functions/travaux-geojson',
     defaults: {
-      polarity: 'neutre',
       style: { mode: 'single', color: '#F59E0B', radius: 5 },
       popup: { title_field: 'project_name', fields: ['nature_travaux', 'etat', 'description'] },
       ai_context: 'Chantiers et travaux de voirie en cours déclarés par la structure',

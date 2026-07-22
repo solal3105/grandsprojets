@@ -105,3 +105,8 @@ create policy diagnostic_geojson_insert_admin on storage.objects
     and (storage.foldername(name))[1] = 'diagnostic'
     and public.is_admin_for_ville((storage.foldername(name))[2])
   );
+
+-- Le diagnostic ne qualifie plus les couches (négatif/neutre/positif) :
+-- l'analyse restitue ce que disent les points, sans jugement de valeur.
+alter table public.diagnostic_layers drop constraint if exists diagnostic_layers_polarity_check;
+alter table public.diagnostic_layers drop column if exists polarity;
