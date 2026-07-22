@@ -6,7 +6,6 @@
   'use strict';
 
   let _travauxLoadPromise = null;
-  let _onTravauxSaved = null;
 
   /** Derive travaux config from city_modules (single source of truth) */
   function _getTravauxConfig() {
@@ -148,15 +147,6 @@
   /* ── goBack ────────────────────────────────────────────────────── */
 
   function onBack(panel) {
-    // Stop active drawing session if any
-    if (win.TravauxEditorModule?.isDrawing?.()) {
-      win.TravauxEditorModule.stopDrawing();
-    }
-    // Clean up admin save listener
-    if (_onTravauxSaved) {
-      win.removeEventListener('travaux:saved', _onTravauxSaved);
-      _onTravauxSaved = null;
-    }
     renderL2(panel);
     // Reset travaux filters and timeline when going back to L2
     win.FilterModule?.resetAll?.();
@@ -168,13 +158,6 @@
   /* ── onClose ───────────────────────────────────────────────────── */
 
   function onClose() {
-    if (win.TravauxEditorModule?.isDrawing?.()) {
-      win.TravauxEditorModule.stopDrawing();
-    }
-    if (_onTravauxSaved) {
-      win.removeEventListener('travaux:saved', _onTravauxSaved);
-      _onTravauxSaved = null;
-    }
   }
 
   /* ── Timeline ──────────────────────────────────────────────────── */
@@ -202,7 +185,6 @@
     }
     win.TravauxViews.buildAdmin(panel._level3, {
       isStale: () => panel._currentModule !== 'travaux' || panel._currentCategory !== 'travaux-admin',
-      onSaved: (refreshFn) => _bindTravauxSaved('travaux-admin', refreshFn, panel),
     });
   }
 
@@ -215,19 +197,10 @@
     }
     win.TravauxViews.buildContributor(panel._level3, {
       isStale: () => panel._currentModule !== 'travaux' || panel._currentCategory !== 'travaux-propose',
-      onSaved: (refreshFn) => _bindTravauxSaved('travaux-propose', refreshFn, panel),
     });
   }
 
   /* ── Helpers ─────────────────────────────────────────────────────── */
-
-  function _bindTravauxSaved(expectedCategory, refreshFn, panel) {
-    if (_onTravauxSaved) win.removeEventListener('travaux:saved', _onTravauxSaved);
-    _onTravauxSaved = () => {
-      if (panel._currentCategory === expectedCategory) refreshFn();
-    };
-    win.addEventListener('travaux:saved', _onTravauxSaved);
-  }
 
   async function _injectPendingBadge(panel, city) {
     try {

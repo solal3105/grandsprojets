@@ -6,12 +6,6 @@
   'use strict';
 
   function bindListActions(container, { onDelete, onRefresh }) {
-    container.querySelectorAll('.np-admin-action--edit').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        win.TravauxEditorModule?.openEditorForEdit(btn.dataset.id);
-      });
-    });
     container.querySelectorAll('.np-admin-action--delete').forEach(btn => {
       btn.addEventListener('click', async e => {
         e.stopPropagation();
@@ -33,39 +27,6 @@
   }
 
   const esc = s => win.SecurityUtils?.escapeHtml(s) ?? String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-  /** HTML du panneau de dessin — réutilisé par admin et contributeur */
-  function drawPanelHTML() {
-    return `
-      <div id="travaux-drawing-panel" class="np-admin-draw" style="display:none">
-        <div class="np-admin-draw-header">
-          <div class="np-admin-draw-icon"><i class="fa-solid fa-draw-polygon"></i></div>
-          <div>
-            <div class="np-admin-draw-title">Mode dessin</div>
-            <div class="np-admin-draw-hint">Sélectionnez un outil puis dessinez sur la carte</div>
-          </div>
-        </div>
-        <div class="np-admin-draw-tools">
-          <button type="button" class="travaux-draw-tool" data-tool="polyline">
-            <div class="tool-icon"><i class="fa-solid fa-route"></i></div>
-            <div class="tool-content"><span class="tool-name">Ligne</span></div>
-          </button>
-          <button type="button" class="travaux-draw-tool" data-tool="polygon">
-            <div class="tool-icon"><i class="fa-solid fa-draw-polygon"></i></div>
-            <div class="tool-content"><span class="tool-name">Zone</span></div>
-          </button>
-          <button type="button" class="travaux-draw-tool" data-tool="marker">
-            <div class="tool-icon"><i class="fa-solid fa-map-pin"></i></div>
-            <div class="tool-content"><span class="tool-name">Point</span></div>
-          </button>
-        </div>
-        <div class="travaux-drawing-help"><i class="fa-solid fa-circle-info"></i> <span>Dessinez sur la carte puis cliquez sur « Continuer ».</span></div>
-        <div class="np-admin-draw-actions">
-          <button type="button" class="np-admin-btn-cancel" id="travaux-cancel-drawing"><i class="fa-solid fa-xmark"></i> Annuler</button>
-          <button type="button" class="np-admin-btn-confirm" id="travaux-finish-drawing" disabled><i class="fa-solid fa-check"></i> Continuer</button>
-        </div>
-      </div>`;
-  }
 
   function buildTimeline(container, allFeatures, TM) {
     let tlMin = null, tlMax = null;
@@ -271,9 +232,8 @@
 
   /**
    * @param {HTMLElement} container
-   * @param {Object} ctx - { isStale, onSaved }
+   * @param {Object} ctx - { isStale }
    *   isStale() → true if user navigated away (abort guard)
-   *   onSaved(refreshFn) → bind travaux:saved listener
    */
   async function buildAdmin(container, ctx) {
     container.innerHTML =
@@ -339,7 +299,6 @@
             </div>
             <div class="np-admin-item-actions">
               ${!c.approved ? `<button class="np-admin-action np-admin-action--approve" data-id="${esc(c.id)}" title="Valider"><i class="fa-solid fa-check"></i></button>` : ''}
-              <button class="np-admin-action np-admin-action--edit" data-id="${esc(c.id)}" title="Modifier"><i class="fa-solid fa-pen"></i></button>
               <button class="np-admin-action np-admin-action--delete" data-id="${esc(c.id)}" title="Supprimer"><i class="fa-solid fa-trash-can"></i></button>
             </div>
           </div>`;
@@ -395,14 +354,12 @@
       onDelete: { confirmMsg: 'Supprimer ce chantier ? Cette action est irréversible.', successMsg: 'Chantier supprimé' },
       onRefresh: refresh,
     });
-
-    ctx.onSaved(refresh);
   }
 
   /**
    * Vue contributeur — mes propositions
    * @param {HTMLElement} container
-   * @param {Object} ctx - { isStale(), onSaved(fn) }
+   * @param {Object} ctx - { isStale() }
    */
   async function buildContributor(container, ctx) {
     container.innerHTML =
@@ -426,38 +383,15 @@
 
     let html = '<div class="np-admin">';
 
-    // Onboarding (0 proposals)
+    // Aucune proposition — la création se fait désormais depuis l'admin
     if (!allProposals.length) {
-      html += drawPanelHTML();
       html += `
-        <div class="np-onboarding">
-          <div class="np-onboarding-icon"><i class="fa-solid fa-paper-plane"></i></div>
-          <h3 class="np-onboarding-title">Proposez un chantier</h3>
-          <p class="np-onboarding-desc">Partagez les travaux que vous observez dans votre ville</p>
-          <ol class="np-onboarding-steps">
-            <li class="np-step">
-              <div class="np-step-num">1</div>
-              <div class="np-step-text"><strong>Dessinez</strong> — tracez la zone sur la carte</div>
-            </li>
-            <li class="np-step">
-              <div class="np-step-num">2</div>
-              <div class="np-step-text"><strong>Décrivez</strong> — remplissez les informations</div>
-            </li>
-            <li class="np-step">
-              <div class="np-step-num">3</div>
-              <div class="np-step-text"><strong>Soumis !</strong> — un admin valide et publie</div>
-            </li>
-          </ol>
-          <button type="button" class="np-admin-add" id="np-contrib-add">
-            <i class="fa-solid fa-plus"></i> Proposer mon premier chantier
-          </button>
+        <div class="nav-panel__empty">
+          <i class="fa-solid fa-paper-plane"></i>
+          <span>Aucune proposition pour le moment</span>
         </div>`;
       html += '</div>';
       container.innerHTML = html;
-      container.querySelector('#np-contrib-add')?.addEventListener('click', () => {
-        win.TravauxEditorModule?.openEditor();
-      });
-      ctx.onSaved(() => buildContributor(container, ctx));
       return;
     }
 
@@ -466,12 +400,7 @@
       <div class="np-admin-hero">
         <div class="np-admin-hero-count">${allProposals.length}</div>
         <div class="np-admin-hero-label">proposition${allProposals.length !== 1 ? 's' : ''}</div>
-        <button type="button" class="np-admin-add" id="np-contrib-add">
-          <i class="fa-solid fa-plus"></i> Proposer un chantier
-        </button>
       </div>`;
-
-    html += drawPanelHTML();
 
     // Tabs
     html += `
@@ -506,7 +435,6 @@
             </div>
             ${isPending ? `
             <div class="np-admin-item-actions">
-              <button class="np-admin-action np-admin-action--edit" data-id="${esc(c.id)}" title="Modifier"><i class="fa-solid fa-pen"></i></button>
               <button class="np-admin-action np-admin-action--delete" data-id="${esc(c.id)}" title="Retirer"><i class="fa-solid fa-trash-can"></i></button>
             </div>` : ''}
           </div>`;
@@ -516,11 +444,6 @@
 
     html += '</div>';
     container.innerHTML = html;
-
-    // Bind: Add
-    container.querySelector('#np-contrib-add')?.addEventListener('click', () => {
-      win.TravauxEditorModule?.openEditor();
-    });
 
     // Bind: Tabs
     const tabs  = container.querySelectorAll('.np-tab');
@@ -545,10 +468,8 @@
       onDelete: { confirmMsg: 'Retirer cette proposition ? Elle sera définitivement supprimée.', successMsg: 'Proposition retirée' },
       onRefresh: () => buildContributor(container, ctx),
     });
-
-    ctx.onSaved(() => buildContributor(container, ctx));
   }
 
-  win.TravauxViews = { buildTimeline, buildFilters, buildAdmin, buildContributor, bindListActions, drawPanelHTML };
+  win.TravauxViews = { buildTimeline, buildFilters, buildAdmin, buildContributor, bindListActions };
 
 })(window);
