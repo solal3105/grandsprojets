@@ -57,9 +57,14 @@ export async function renderDiagnostic(container) {
       </div>
       <div class="dg-mapwrap" id="dg-mapwrap">
         <div id="dg-map"></div>
-        <button type="button" class="dg-lasso-btn" id="dg-lasso-btn" title="Dessinez une zone à main levée sur la carte">
-          <i class="fa-solid fa-draw-polygon"></i> Sélectionner une zone
-        </button>
+        <div class="dg-maptools" id="dg-maptools">
+          <button type="button" class="dg-tool-btn" id="dg-fs-btn" aria-pressed="false" title="Afficher la carte en plein écran">
+            <i class="fa-solid fa-expand"></i>
+          </button>
+          <button type="button" class="dg-lasso-btn" id="dg-lasso-btn" title="Dessinez une zone à main levée sur la carte">
+            <i class="fa-solid fa-draw-polygon"></i> Sélectionner une zone
+          </button>
+        </div>
         <div class="dg-lasso-hint" id="dg-lasso-hint" hidden>
           <i class="fa-solid fa-hand-pointer"></i> Entourez les points à analyser — <b>Échap</b> pour annuler
         </div>
@@ -82,6 +87,7 @@ export async function renderDiagnostic(container) {
   // Le dock et les données ne dépendent pas de la carte : la gestion des
   // couches reste fonctionnelle même si WebGL est indisponible.
   const mapWrap = container.querySelector('#dg-mapwrap');
+  _wireFullscreen(mapWrap);
   renderDock(mapWrap);
   renderAnalysisPanel();
   loadAllLayers((layer) => { if (alive()) updateLayerRow(layer.id); }).then(() => {
@@ -107,13 +113,48 @@ export async function renderDiagnostic(container) {
       try { dg.map?.remove(); } catch { /* jamais initialisée */ }
       dg.map = null;
       dg.mapReady = false;
-      mapWrap.querySelector('#dg-lasso-btn')?.setAttribute('hidden', '');
+      mapWrap.querySelector('#dg-maptools')?.setAttribute('hidden', '');
       const notice = document.createElement('div');
       notice.className = 'dg-map-error';
       notice.innerHTML = `<i class="fa-solid fa-map"></i> ${esc('Carte non disponible — la gestion des couches reste accessible.')}`;
       mapWrap.appendChild(notice);
     }
   }, 200);
+}
+
+/**
+ * Bascule « plein écran » de la carte. Volontairement applicative (classe CSS)
+ * plutôt que l'API Fullscreen native : le rapport, le wizard, les toasts et les
+ * modales de confirmation vivent sur document.body et seraient invisibles dans
+ * un élément passé en plein écran natif.
+ */
+function _wireFullscreen(mapWrap) {
+  const btn = mapWrap.querySelector('#dg-fs-btn');
+  if (!btn) return;
+
+  const isOn = () => mapWrap.classList.contains('is-fullscreen');
+  const apply = (on) => {
+    mapWrap.classList.toggle('is-fullscreen', on);
+    document.body.classList.toggle('dg-fs-lock', on);
+    btn.innerHTML = `<i class="fa-solid fa-${on ? 'compress' : 'expand'}"></i>`;
+    btn.title = on ? 'Quitter le plein écran' : 'Afficher la carte en plein écran';
+    btn.setAttribute('aria-pressed', String(on));
+    // MapLibre lit la taille du conteneur : la relire après le reflow.
+    requestAnimationFrame(() => dg.map?.resize());
+  };
+
+  btn.addEventListener('click', () => apply(!isOn()));
+
+  const onKeydown = (e) => {
+    // Échap sert d'abord à annuler un tracé en cours (géré par le lasso).
+    if (e.key !== 'Escape' || !isOn() || dg.lasso.armed) return;
+    apply(false);
+  };
+  document.addEventListener('keydown', onKeydown);
+  dg.cleanupFns.push(() => {
+    document.removeEventListener('keydown', onKeydown);
+    document.body.classList.remove('dg-fs-lock');
+  });
 }
 
 /** Détruit la carte et les listeners globaux de la section. */
