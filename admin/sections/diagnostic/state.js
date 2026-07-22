@@ -65,6 +65,7 @@ function _blankState() {
     layersLoadFailed: false,
     runtime: new Map(), // id → { status, features, count, fields, visible, error }
     heatmapOn: false,
+    buildings3D: true, // relief bâti, visible à partir du zoom 15
     wiredPopups: new Set(), // ids de layers carte dont la popup est déjà câblée
     // Hooks posés par diagnostic.js (évitent un import circulaire) : la
     // sélection doit être recalculée quand les couches visibles changent.

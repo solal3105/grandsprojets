@@ -8,7 +8,7 @@ import { esc, escAttr, toast, confirm } from '../../components/ui.js';
 import { router } from '../../router.js';
 import { dg, safeColor } from './state.js';
 import { loadLayer, toggleLayer, deleteLayer } from './layers.js';
-import { colorExpression, updateHeatmap } from './map.js';
+import { colorExpression, updateHeatmap, setBuildings3D } from './map.js';
 import { openLayerWizard } from './wizard.js';
 
 const _fmt = (n) => Number(n || 0).toLocaleString('fr-FR');
@@ -115,6 +115,11 @@ export function renderLayersPanel() {
         <span class="dg-row__txt"><span class="dg-row__label">Heatmap de densité</span></span>
         <span class="adm-switch"><input type="checkbox" id="dg-heatmap-toggle" ${dg.heatmapOn ? 'checked' : ''}><span class="adm-switch__track"></span></span>
       </label>
+      <label class="dg-row dg-row--tool" id="dg-b3d-row">
+        <span class="dg-swatch dg-swatch--3d"></span>
+        <span class="dg-row__txt"><span class="dg-row__label">Bâtiments en relief</span><span class="dg-row__sub">à partir du zoom 15</span></span>
+        <span class="adm-switch"><input type="checkbox" id="dg-b3d-toggle" ${dg.buildings3D ? 'checked' : ''}><span class="adm-switch__track"></span></span>
+      </label>
       <button type="button" class="adm-btn adm-btn--secondary adm-btn--sm dg-add-btn" id="dg-add-layer">
         <i class="fa-solid fa-plus"></i> Ajouter une couche
       </button>
@@ -126,6 +131,10 @@ export function renderLayersPanel() {
   panel.querySelector('#dg-heatmap-toggle')?.addEventListener('change', (e) => {
     dg.heatmapOn = e.target.checked;
     updateHeatmap(dg.heatmapOn);
+  });
+  panel.querySelector('#dg-b3d-toggle')?.addEventListener('change', (e) => {
+    dg.buildings3D = e.target.checked;
+    setBuildings3D(dg.buildings3D, 'dg-heat');
   });
 
   panel.querySelectorAll('.dg-row[data-id]').forEach((row) => _bindLayerRow(row));

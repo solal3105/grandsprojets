@@ -69,10 +69,9 @@ export async function renderDiagnostic(container) {
 
   container.querySelector('#dg-history-btn')?.addEventListener('click', openReportsHistory);
 
-  // Config en parallèle : branding (centre + fond), catalogue de fonds, couches.
-  const [branding, basemaps, layers] = await Promise.all([
+  // Config en parallèle : branding (centre de carte) et couches de la ville.
+  const [branding, layers] = await Promise.all([
     api.getBranding().catch(() => null),
-    window.supabaseService?.fetchBasemaps() ?? [],
     api.getDiagnosticLayers(),
   ]);
   if (!alive()) return; // section quittée ou re-rendue pendant le chargement
@@ -94,7 +93,7 @@ export async function renderDiagnostic(container) {
     if (!alive()) return;
     try {
       if (typeof maplibregl === 'undefined') throw new Error('MapLibre non chargé');
-      await createMap(container.querySelector('#dg-map'), basemaps);
+      await createMap(container.querySelector('#dg-map'));
       if (!alive()) return;
       wireLasso(mapWrap, handleSelection);
       // Synchroniser les couches déjà chargées pendant l'init de la carte.

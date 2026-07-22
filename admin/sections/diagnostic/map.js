@@ -1,7 +1,7 @@
 /**
  * Diagnostic terrain — carte MapLibre.
- * Fond de carte résolu depuis basemaps_v2 (fallback OSM raster), centre depuis
- * city_branding, rendu des couches piloté par leur config (style jsonb),
+ * Fond OSM classique, bâtiments 3D (tuiles vectorielles OpenFreeMap), centre
+ * depuis city_branding, rendu des couches piloté par leur config (style jsonb),
  * sélection lasso dessinée sur un canvas overlay.
  */
 
@@ -11,13 +11,16 @@ import { pointInPolygon, someVertex } from './data.js';
 
 const EMPTY_FC = () => ({ type: 'FeatureCollection', features: [] });
 
-const OSM_FALLBACK_STYLE = {
+// Fond OSM classique — même choix que les cartes des sections Contributions
+// et Travaux : un rendu familier, lisible, sans dépendance de configuration.
+const OSM_STYLE = {
   version: 8,
   sources: {
     'osm-raster': {
       type: 'raster',
       tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
       tileSize: 256,
+      maxzoom: 19,
       attribution: '© OpenStreetMap contributors',
     },
   },
@@ -25,34 +28,47 @@ const OSM_FALLBACK_STYLE = {
   glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
 };
 
+/* ── Bâtiments 3D ───────────────────────────────────────────────── */
+
+// Tuiles vectorielles OpenFreeMap (schéma OpenMapTiles, données OSM) : source
+// indépendante du fond, donc compatible avec un fond raster. Même source et
+// même rendu que le mode 3D de la carte publique.
+const BUILDINGS_SOURCE_URL = 'https://tiles.openfreemap.org/planet';
+const BUILDINGS_LAYER_ID = 'dg-buildings-3d';
+const BUILDINGS_COLOR = ['interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 10],
+  0, '#e8e4e0', 20, '#d5d0cc', 60, '#bfc5cc', 150, '#a0b0c0', 300, '#8fa8bd'];
+
 /**
- * Style MapLibre depuis le fond de carte de la structure :
- * city_branding.default_basemap → défaut du catalogue basemaps_v2 → OSM.
+ * Ajoute ou retire l'extrusion des bâtiments. Visible à partir du zoom 15,
+ * c'est-à-dire à l'échelle où l'on analyse un carrefour ou un tronçon.
+ * @param {boolean} enabled
+ * @param {string} [beforeId] - couche sous laquelle insérer (garde les données au-dessus)
  */
-function _resolveBasemapStyle(basemaps) {
-  const active = (basemaps || []).filter((b) => b.active !== false);
-  const cityDefault = dg.branding?.default_basemap;
-  const preferred = active.find((b) => b.name === cityDefault)
-    || active.find((b) => b.is_default)
-    || active[0];
-  if (!preferred) return OSM_FALLBACK_STYLE;
-  if (preferred.kind === 'vector' && preferred.style_url) return preferred.style_url;
-  if (preferred.url) {
-    return {
-      version: 8,
-      sources: {
-        'city-raster': {
-          type: 'raster',
-          tiles: [preferred.url],
-          tileSize: 256,
-          attribution: preferred.attribution || '',
-        },
-      },
-      layers: [{ id: 'city-raster-layer', type: 'raster', source: 'city-raster' }],
-      glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-    };
+export function setBuildings3D(enabled, beforeId) {
+  const map = dg.map;
+  if (!map || !dg.mapReady) return;
+  if (!enabled) {
+    if (map.getLayer(BUILDINGS_LAYER_ID)) map.removeLayer(BUILDINGS_LAYER_ID);
+    return;
   }
-  return OSM_FALLBACK_STYLE;
+  if (map.getLayer(BUILDINGS_LAYER_ID)) return;
+  if (!map.getSource('dg-buildings-src')) {
+    map.addSource('dg-buildings-src', { type: 'vector', url: BUILDINGS_SOURCE_URL });
+  }
+  map.addLayer({
+    id: BUILDINGS_LAYER_ID,
+    type: 'fill-extrusion',
+    source: 'dg-buildings-src',
+    'source-layer': 'building',
+    minzoom: 15,
+    filter: ['!=', ['get', 'hide_3d'], true],
+    paint: {
+      'fill-extrusion-color': BUILDINGS_COLOR,
+      'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 10],
+      'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+      'fill-extrusion-opacity': 0.92,
+    },
+  }, beforeId && map.getLayer(beforeId) ? beforeId : undefined);
 }
 
 /** Attend l'événement load de la carte, avec délai maximal. */
@@ -64,39 +80,30 @@ function _waitForLoad(map, timeoutMs) {
   });
 }
 
-/**
- * Crée la carte et ses sources utilitaires. Résout quand la carte est prête ;
- * si le fond configuré ne charge pas, retente avec le fallback OSM avant
- * d'échouer (throw).
- */
-export async function createMap(el, basemaps) {
+/** Crée la carte et ses sources utilitaires. Résout quand la carte est prête. */
+export async function createMap(el) {
   const b = dg.branding || {};
   const center = [parseFloat(b.center_lng) || 4.835, parseFloat(b.center_lat) || 45.764];
   const zoom = parseFloat(b.zoom) || 12;
-  const style = _resolveBasemapStyle(basemaps);
 
   const map = new maplibregl.Map({
     container: el,
-    style,
+    style: OSM_STYLE,
     center,
     zoom,
     attributionControl: false,
     preserveDrawingBuffer: true, // requis pour la capture du rapport
   });
-  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
+  // Boussole inclinable : l'affordance pour basculer en vue 3D.
+  map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true }), 'bottom-right');
   map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
   dg.map = map;
 
-  try {
-    await _waitForLoad(map, 12000);
-  } catch (err) {
-    if (style === OSM_FALLBACK_STYLE) throw err;
-    console.warn('[admin/diagnostic] Fond configuré en échec, repli OSM:', err.message);
-    map.setStyle(OSM_FALLBACK_STYLE);
-    await _waitForLoad(map, 12000);
-  }
-  _installUtilitySources(map);
+  await _waitForLoad(map, 12000);
   dg.mapReady = true;
+  // Bâtiments d'abord : ils restent sous la heatmap, la zone et les données.
+  setBuildings3D(dg.buildings3D);
+  _installUtilitySources(map);
   return map;
 }
 

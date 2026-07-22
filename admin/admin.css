@@ -5333,3 +5333,7 @@ html[data-theme='dark'] .adm-user-row {
   .dg-rp-source, .dg-rp-sujet { page-break-inside: avoid; }
   .dg-rp-h2 { page-break-after: avoid; }
 }
+
+/* Pastille de la bascule « bâtiments en relief » : reprend le dégradé
+   d'élévation du bâti, assombri pour rester lisible à 10px sur le dock. */
+.dg-swatch--3d { background: linear-gradient(135deg, #b9c2cc 0%, #8fa8bd 55%, #5d7a94 100%); }
