@@ -5,14 +5,14 @@
   >
     <div class="max-w-container mx-auto px-6 h-11 flex items-center justify-center gap-4">
       <span class="hidden sm:inline text-white/60">Open Projets équipe déjà des collectivités —</span>
-      <a
-        href="#tester"
+      <router-link
+        to="/contact"
         class="inline-flex items-center gap-2 font-medium text-white hover:text-primary transition-colors"
       >
         Testez l'outil gratuitement
         <span class="hidden sm:inline text-white/40 font-normal text-xs">Pas de CB, pas d'inscription</span>
         <ArrowRight class="w-3.5 h-3.5 shrink-0" />
-      </a>
+      </router-link>
     </div>
   </div>
 </template>

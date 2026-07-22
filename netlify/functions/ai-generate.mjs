@@ -219,6 +219,7 @@ export default async function handler(req) {
 
               // Recherche web en cours
               if (ev.type === 'response.output_item.added' && ev.item?.type === 'web_search_call') {
+                searchCount++;
                 await writer.write(enc(`data: ${JSON.stringify({ status: 'searching' })}\n\n`));
               }
 

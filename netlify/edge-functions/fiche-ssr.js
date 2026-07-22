@@ -341,7 +341,7 @@ async function fetchCityBranding(ville) {
   if (!ville) return null;
   const url = new URL('/rest/v1/city_branding', SUPABASE_URL);
   url.searchParams.set('select', 'brand_name,primary_color,logo_url');
-  url.searchParams.set('city_code', `eq.${ville.toLowerCase()}`);
+  url.searchParams.set('ville', `eq.${ville.toLowerCase()}`);
   url.searchParams.set('limit', '1');
 
   const resp = await fetch(url.toString(), { headers: supaHeaders });

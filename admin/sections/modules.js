@@ -332,7 +332,7 @@ function _showModuleForm(container, key, existing) {
 
   container.querySelector('#mod-submit')?.addEventListener('click', async () => {
     const label = container.querySelector('#mod-label')?.value.trim();
-    const iconInput = container.querySelector('#mod-icon-value');
+    const iconInput = container.querySelector('#mod-icon');
     const icon_class = iconInput?.value || mod.icon_class;
     const sort_order = parseInt(container.querySelector('#mod-sort')?.value, 10) || 0;
     const enabled = container.querySelector('#mod-enabled')?.checked ?? true;
