@@ -515,7 +515,7 @@ ${articleHtml}
   if (officialUrl) {
     html += `
     <section>
-      <p>Site officiel : <a href="${escAttr(officialUrl)}" rel="noopener noreferrer">${escHtml(officialUrl)}</a></p>
+      <p>Site officiel : <a href="${escAttr(safeUrl(officialUrl))}" rel="noopener noreferrer">${escHtml(officialUrl)}</a></p>
     </section>`;
   }
 

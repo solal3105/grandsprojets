@@ -90,6 +90,21 @@
     return d.innerHTML;
   }
 
+  // Valide une URL avant affectation en href/src - bloque javascript:, data:text/html, etc.
+  // Retourne '' si le schéma n'est pas dans l'allowlist. Miroir de SecurityUtils.sanitizeUrl.
+  function sanitizeUrl(url) {
+    if (!url) return '';
+    const u = String(url).trim();
+    if (u.startsWith('/') || u.startsWith('#') || u.startsWith('?')) return u;
+    try {
+      const parsed = new URL(u);
+      if (['http:', 'https:', 'mailto:', 'tel:'].includes(parsed.protocol)) return u;
+    } catch {
+      if (!/^[a-z][a-z0-9+.-]*:/i.test(u)) return u;
+    }
+    return '';
+  }
+
   function urlParams() {
     // Format : /fiche/{ville}/{categorySlug}/{projSlug}
     const parts = window.location.pathname.replace(/^\/+|\/+$/g, '').split('/');
@@ -516,13 +531,13 @@
       viewBtn.innerHTML = '<i class="fa-solid fa-eye"></i>';
       viewBtn.addEventListener('click', () => {
         el.pdfTitle.textContent = title;
-        el.pdfFrame.src = doc.pdf_url;
+        el.pdfFrame.src = sanitizeUrl(doc.pdf_url);
         openOverlay(el.ovPdf);
       });
 
       const dlBtn = document.createElement('a');
       dlBtn.className = 'fv2-doc__btn';
-      dlBtn.href = doc.pdf_url;
+      dlBtn.href = sanitizeUrl(doc.pdf_url);
       dlBtn.target = '_blank';
       dlBtn.rel = 'noopener noreferrer';
       dlBtn.setAttribute('aria-label', 'Télécharger');
@@ -681,7 +696,7 @@
     if (!url) return;
     const domain = domainOf(url);
     const favicon = faviconOf(url);
-    el.linkCard.href = url;
+    el.linkCard.href = sanitizeUrl(url);
     el.linkFavicon.src = favicon;
     el.linkFavicon.alt = domain;
     el.linkDomain.textContent = domain;
