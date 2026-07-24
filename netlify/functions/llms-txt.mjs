@@ -104,7 +104,8 @@ export default async (_request, _context) => {
     } catch { /* pas de manifest : llms.txt sans les guides */ }
 
     // Une section par ville, fiches en ordre alphabétique
-    const villes = [...byVille.keys()].sort();
+    // (villes essai-* : démos générées automatiquement, hors référencement)
+    const villes = [...byVille.keys()].filter((v) => !v.startsWith('essai-')).sort();
     for (const ville of villes) {
       const label = cityNames.get(ville) || ville.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
       lines.push('', `## Projets - ${label}`, '');

@@ -113,6 +113,7 @@ export default async (_request, _context) => {
       const cat = String(it?.category || '').toLowerCase();
       const ville = String(it?.ville || '').toLowerCase();
       if (!name || !cat || !ville || isTestEntry(name, cat)) continue;
+      if (ville.startsWith('essai-')) continue; // démos générées : hors index
       if (!villeLastmod.has(ville)) villeLastmod.set(ville, fmtDate(it?.created_at));
     }
     for (const [ville, lastmod] of villeLastmod) {
@@ -134,6 +135,7 @@ export default async (_request, _context) => {
       if (!name || !cat) continue;
       if (!ville || !catSlug || !projSlug) continue; // ignorer les entrées sans slugs
       if (isTestEntry(name, cat)) continue;
+      if (String(ville).toLowerCase().startsWith('essai-')) continue; // démos générées : hors index
       const loc = `${BASE_ORIGIN}/fiche/${encodeURIComponent(ville)}/${encodeURIComponent(catSlug)}/${encodeURIComponent(projSlug)}`;
       const lastmod = fmtDate(it?.created_at) || undefined;
 

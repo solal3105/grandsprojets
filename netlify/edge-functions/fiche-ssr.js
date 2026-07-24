@@ -598,6 +598,11 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
     (_, p1) => `${p1}${escAttr(metaDesc)}"`
   );
 
+  // Fiches des villes essai-* : démos générées automatiquement, jamais indexées
+  if (String(project.ville || '').startsWith('essai-')) {
+    html = html.replace('</head>', '<meta name="robots" content="noindex, nofollow">\n</head>');
+  }
+
   // 3. Open Graph - site_name dynamique (nom de la structure)
   const ogSiteName = structureName || 'Open Projets';
   html = html.replace(

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>La carte des projets de votre commune, générée en direct | Open Projets</title>
+  <meta name="description" content="Tapez le nom de votre commune : Open Projets recherche ses projets urbains sur le web public et génère sa carte interactive en direct, sous vos yeux." />
+  <link rel="canonical" href="https://openprojets.com/demo/" />
+  <meta name="robots" content="index, follow" />
+  <meta property="og:title" content="La carte des projets de votre commune, générée en direct" />
+  <meta property="og:description" content="Un nom de commune suffit : la carte de ses projets urbains se construit sous vos yeux, à partir de sources publiques." />
+  <meta property="og:url" content="https://openprojets.com/demo/" />
+  <link rel="icon" href="/home/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="demo.css" />
+</head>
+<body>
+  <main class="kiosk">
+    <header class="kiosk__brand">
+      <img src="/home/img/logos/classic_color.png" alt="Open Projets" class="kiosk__logo"
+           onerror="this.style.display='none'" />
+    </header>
+
+    <!-- Écran 1 : saisie -->
+    <section id="screen-input" class="screen is-active">
+      <h1 class="kiosk__title">La carte des projets<br /><span class="accent">de votre commune</span></h1>
+      <p class="kiosk__subtitle">Tapez le nom de votre commune : sa carte se construit sous vos yeux, à partir de sources publiques (site de la mairie, presse locale, marchés publics).</p>
+
+      <div class="search">
+        <input id="commune-input" class="search__input" type="text"
+               placeholder="Nom de votre commune..." autocomplete="off" autofocus
+               aria-label="Nom de votre commune" />
+        <ul id="suggestions" class="search__suggestions" hidden></ul>
+      </div>
+      <p class="kiosk__hint">Démonstration automatique : les projets affichés proviennent du web public et peuvent être incomplets ou inexacts.</p>
+    </section>
+
+    <!-- Écran 2 : génération -->
+    <section id="screen-progress" class="screen">
+      <h2 class="progress__title">Génération de la carte de <span id="progress-commune" class="accent"></span></h2>
+      <ol id="steps" class="steps"></ol>
+      <p id="progress-error" class="progress__error" hidden></p>
+      <button id="btn-retry" class="btn btn--ghost" hidden>Recommencer</button>
+    </section>
+
+    <!-- Écran 3 : terminé -->
+    <section id="screen-done" class="screen">
+      <div class="done__check" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      </div>
+      <h2 class="done__title">La carte de <span id="done-commune" class="accent"></span> est prête</h2>
+      <p id="done-detail" class="done__detail"></p>
+      <div class="done__actions">
+        <a id="btn-open" class="btn btn--primary" href="#">Découvrir la carte</a>
+        <button id="btn-again" class="btn btn--ghost">Autre commune</button>
+      </div>
+      <div class="done__qr">
+        <img id="qr-img" alt="QR code vers la carte de la commune" width="200" height="200" />
+        <span>Scannez pour repartir avec la carte<br />sur votre téléphone</span>
+      </div>
+      <p id="countdown" class="done__countdown"></p>
+    </section>
+  </main>
+
+  <script src="demo.js"></script>
+</body>
+</html>

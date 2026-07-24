@@ -396,7 +396,9 @@ function injectIntoHtml(html, { villeLabel, metaDesc, canonical, ogImage, jsonLd
   const title = `${villeLabel} : les grands projets urbains à suivre | Open Projets`;
 
   html = html.replace(/<title>[^<]*<\/title>/, () => `<title>${escHtml(title)}</title>`);
-  html = html.replace(/(<meta\s+name="robots"\s+content=")[^"]*"/, (_, p1) => `${p1}index, follow, max-image-preview:large, max-snippet:-1"`);
+  // Villes essai-* : démos générées automatiquement, jamais indexées
+  const isDemoVille = /\/ville\/essai-/.test(canonical || '');
+  html = html.replace(/(<meta\s+name="robots"\s+content=")[^"]*"/, (_, p1) => `${p1}${isDemoVille ? 'noindex, nofollow' : 'index, follow, max-image-preview:large, max-snippet:-1'}"`);
   html = html.replace(/(<meta\s+name="description"\s+content=")[^"]*"/, (_, p1) => `${p1}${escAttr(metaDesc)}"`);
   html = html.replace(/(<link\s+rel="canonical"\s+href=")[^"]*"/, (_, p1) => `${p1}${escAttr(canonical)}"`);
   html = html.replace(/(<link\s+rel="alternate"\s+hreflang="fr"\s+href=")[^"]*"/, (_, p1) => `${p1}${escAttr(canonical)}"`);
