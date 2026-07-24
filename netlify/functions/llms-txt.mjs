@@ -87,6 +87,22 @@ export default async (_request, _context) => {
       `- [Contact](${BASE_ORIGIN}/home/contact) : contacter l'équipe`,
     ];
 
+    // Guides de la section Ressources (manifest généré au build de home-src)
+    try {
+      const manifestResp = await fetch(`${BASE_ORIGIN}/home/ressources/manifest.json`);
+      if (manifestResp.ok) {
+        const guides = await manifestResp.json();
+        if (guides.length) {
+          lines.push('', '## Guides pour les collectivités', '');
+          lines.push(`- [Toutes les ressources](${BASE_ORIGIN}/home/ressources) : guides pratiques pour communiquer sur les projets et travaux de sa commune`);
+          for (const g of guides) {
+            if (!g?.slug) continue;
+            lines.push(`- [${g.title}](${BASE_ORIGIN}/home/ressources/${encodeURIComponent(g.slug)}) : ${g.description || ''}`.trimEnd());
+          }
+        }
+      }
+    } catch { /* pas de manifest : llms.txt sans les guides */ }
+
     // Une section par ville, fiches en ordre alphabétique
     const villes = [...byVille.keys()].sort();
     for (const ville of villes) {

@@ -213,7 +213,8 @@ export default async (request, context) => {
   const url = new URL(request.url);
 
   // Extraire le path relatif à /home (ex: "/home/alternative-panneaupocket" → "/alternative-panneaupocket")
-  const path = url.pathname.replace(/^\/home/, '') || '/';
+  // Slash final normalisé : "/ressources/" et "/ressources" doivent matcher la même entrée
+  const path = url.pathname.replace(/^\/home/, '').replace(/\/+$/, '') || '/';
 
   let meta = PAGES[path];
   if (!meta && path.startsWith('/ressources/')) meta = await ressourceMeta(path);

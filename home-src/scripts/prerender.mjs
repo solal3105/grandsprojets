@@ -190,11 +190,15 @@ if (failed) {
 }
 
 // Écriture en fin de run seulement : le fallback SPA du serveur local reste
-// l'index.html brut de Vite pendant tout le rendu
+// l'index.html brut de Vite pendant tout le rendu.
+// Format FICHIER (fonctionnalites.html), pas dossier (fonctionnalites/index.html) :
+// un dossier déclenche une 301 Netlify vers l'URL à slash final, sur laquelle
+// les routes exactes de l'edge function home-seo ne matchent plus (metas et
+// JSON-LD perdus) et qui contredit les canonicals sans slash.
 for (const [route, html] of snapshots) {
   const outFile = route === '/'
     ? join(HOME_DIR, 'index.html')
-    : join(HOME_DIR, route.slice(1), 'index.html')
+    : join(HOME_DIR, `${route.slice(1)}.html`)
   await mkdir(dirname(outFile), { recursive: true })
   await writeFile(outFile, html)
 }
