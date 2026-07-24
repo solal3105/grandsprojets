@@ -8,7 +8,7 @@
 
   const supabaseService = win.supabaseService;
 
-  // Helpers — main-thread yielding et lazy-loading de scripts post-rendu
+  // Helpers - main-thread yielding et lazy-loading de scripts post-rendu
   const yieldToMain = globalThis.scheduler?.yield
     ? () => scheduler.yield()
     : () => new Promise(r => setTimeout(r, 0));
@@ -191,7 +191,7 @@
 
   async function initApp() {
     try {
-      // PHASE 0a : SSO Phaos iframe — démarrer la session en arrière-plan (non-bloquant)
+      // PHASE 0a : SSO Phaos iframe - démarrer la session en arrière-plan (non-bloquant)
       // La carte charge immédiatement en mode anonyme (contributions approuvées visibles).
       // phaos-auth.js appelle supabase.auth.setSession() dès réception du token Phaos ;
       // toute interaction ultérieure (ouverture de panel, re-fetch) sera alors authentifiée.
@@ -235,7 +235,11 @@
         city = 'metropole-lyon';
         if (win.CityManager) win.CityManager._activeCity = city;
       }
-      
+
+      // Bannière démo : masquer si la ville résolue est un espace client
+      // (barrière défensive - le script inline de index.html ne voit que ?city= et localStorage)
+      try { win.__syncDemoBanner?.(city); } catch { /* no-op */ }
+
       // Phase 2 : un seul fetch branding (stocké dans CityManager._branding)
       await safePhase('CityManager.updateLogoForCity', () => win.CityManager?.updateLogoForCity(city));
       await safePhase('CityManager.initCityMenu', () => win.CityManager?.initCityMenu(city));
@@ -388,7 +392,7 @@
       const contribPreloadPromise = DataModule.preloadAllContributions(activeCity);
 
       // fetchAllProjects consomme le prefetch (pas de re-fetch réseau)
-      // categoryIcons et cityModules sont déjà dans initAllData — réutiliser
+      // categoryIcons et cityModules sont déjà dans initAllData - réutiliser
       let allContributions = [];
       try {
         if (window.supabaseService?.fetchAllProjects) {
@@ -556,10 +560,10 @@
       // ToggleManager handles: click → state → ARIA → visual feedback
       // Business logic is registered via .on() listeners
 
-      // Filters — ToggleManager shows/hides #filters-container via targetElement
+      // Filters - ToggleManager shows/hides #filters-container via targetElement
       // (no extra logic needed, UIModule.init already rendered filter items)
 
-      // Basemap — ToggleManager toggles .active on #basemap-menu via menuSelector
+      // Basemap - ToggleManager toggles .active on #basemap-menu via menuSelector
       // (no extra logic needed, UIModule.init already rendered basemap tiles)
 
       // About close button → close through ToggleManager
@@ -571,7 +575,7 @@
         });
       }
 
-      // Actions panel (mobile only) — populate with sidebar actions
+      // Actions panel (mobile only) - populate with sidebar actions
       const actionsPanel = document.getElementById('actions-panel-body');
       const sidebarActions = document.querySelector('.gp-sidebar__actions');
       if (actionsPanel && sidebarActions) {
@@ -608,7 +612,7 @@
       }
       win.toggleManager?.markReady('actions');
 
-      // Mode 3D — apply saved state now that map is ready, listen for changes
+      // Mode 3D - apply saved state now that map is ready, listen for changes
       // Active à la fois le relief et les bâtiments 3D
       const mode3DState = win.toggleManager?.getState('mode3d');
       if (MapModule?.map) {
@@ -623,7 +627,7 @@
       });
       win.toggleManager?.markReady('mode3d');
 
-      // Theme — delegate to ThemeManager (applyTheme → onThemeChanged handles all MapLibre updates)
+      // Theme - delegate to ThemeManager (applyTheme → onThemeChanged handles all MapLibre updates)
       win.toggleManager?.on('theme', () => {
         win.ThemeManager?.toggle();
         const dock = document.getElementById('toggle-dock');
@@ -715,6 +719,7 @@
           if (nextCity && nextCity !== currentCity) {
             if (win.CityManager) win.CityManager._activeCity = nextCity;
             win.CityManager?.persistCity(nextCity);
+            try { win.__syncDemoBanner?.(nextCity); } catch { /* no-op */ }
             await win.CityManager?.updateLogoForCity(nextCity);
             try {
               await win.FilterManager?.init();
@@ -772,7 +777,7 @@
       const mapReady = !!(win.MapModule?.map && document.querySelector('#map canvas'));
       if (mapReady) {
         // App utilisable → pas de banner, juste un log + marquer la fin
-        console.warn('[Main] Init terminée avec une erreur partielle — app utilisable.');
+        console.warn('[Main] Init terminée avec une erreur partielle - app utilisable.');
         try { markLoadComplete(); } catch { /* noop */ }
         return;
       }

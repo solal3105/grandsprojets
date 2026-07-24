@@ -195,7 +195,7 @@
   /* Tile background for thumbnails */
   --tile-bg: var(--gray-100);
 
-  /* Banner height offset — set to 36px by JS when demo banner is visible */
+  /* Banner height offset - set to 40px by JS when demo banner is visible */
   --banner-h: 0px;
 }
 
@@ -251,7 +251,7 @@ html[data-theme='dark'] {
   --white-alpha-95: rgba(15, 23, 42, 0.95);
   
   /* --black-alpha-* : Inverted for dark mode (light translucent for overlays).
-     For box-shadow, use hardcoded rgba(0,0,0,...) instead — shadows stay black. */
+     For box-shadow, use hardcoded rgba(0,0,0,...) instead - shadows stay black. */
   --black-alpha-04: rgba(248, 250, 252, 0.04);
   --black-alpha-06: rgba(248, 250, 252, 0.06);
   --black-alpha-08: rgba(248, 250, 252, 0.08);

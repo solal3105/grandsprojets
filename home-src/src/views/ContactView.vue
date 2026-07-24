@@ -36,7 +36,7 @@
           </div>
 
           <!-- Right: Form -->
-          <DemoRequestForm referrer="home" />
+          <DemoRequestForm :referrer="referrer" />
         </div>
       </div>
     </section>
@@ -44,9 +44,15 @@
 </template>
 
 <script setup>
+import { useRoute } from 'vue-router'
 import { ShieldCheck, Github, UserCircle, Wallet } from 'lucide-vue-next'
 import EyebrowLabel from '@/components/EyebrowLabel.vue'
 import DemoRequestForm from '@/components/DemoRequestForm.vue'
+
+// Attribution : ?ref=<slug> (ex. bannière démo de la carte) → contact_requests.referrer
+const route = useRoute()
+const rawRef = String(route.query.ref || '')
+const referrer = /^[a-z0-9-]{1,40}$/.test(rawRef) ? rawRef : 'home'
 
 const trustItems = [
   {

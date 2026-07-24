@@ -16,7 +16,7 @@
   <meta property="og:site_name" content="Open Projets">
   <meta property="og:locale" content="fr_FR">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Open Projets — Carte des grands projets urbains">
+  <meta property="og:title" content="Open Projets - Carte des grands projets urbains">
   <meta property="og:description" content="Carte des projets urbains et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
   <meta property="og:url" content="https://openprojets.com/">
   <meta property="og:image" content="https://openprojets.com/img/cover/meta.png">
@@ -24,7 +24,7 @@
   <meta property="og:image:height" content="773">
   <meta property="og:image:alt" content="Carte interactive des grands projets urbains de Lyon">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Open Projets — Carte des grands projets urbains">
+  <meta name="twitter:title" content="Open Projets - Carte des grands projets urbains">
   <meta name="twitter:description" content="Carte des projets urbains et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
   <meta name="twitter:image" content="https://openprojets.com/img/cover/meta.png">
   <meta name="twitter:image:alt" content="Carte interactive des grands projets urbains de Lyon">
@@ -103,14 +103,14 @@
   </script>
   <script src="modules/theme-init.js"></script>
   <script src="modules/early-fetch.js"></script>
-  <!-- Inline critical CSS — safe deferral of non-visible component CSS -->
+  <!-- Inline critical CSS - safe deferral of non-visible component CSS -->
   <style>.nav-panel{visibility:hidden;pointer-events:none}.nav-panel.open{visibility:visible;pointer-events:auto}.nav-panel__scrim{display:none}.toggle-dock{position:fixed;top:calc(16px + var(--banner-h,0px));right:16px;z-index:1600}.toggle-dock__btn[data-ready="false"]:not([style*="display"]){display:none!important}.dock-panel{display:none}.mobile-fixed-logo{display:none}#project-detail{display:none}</style>
-  <!-- Render-blocking CSS — above-the-fold critical -->
+  <!-- Render-blocking CSS - above-the-fold critical -->
   <link rel="stylesheet" href="styles/00-colors.css" />
   <link rel="stylesheet" href="styles/01-base.css" />
   <link rel="stylesheet" href="styles/02-layout.css" />
   <link rel="stylesheet" href="styles/09-sidebar.css" />
-  <!-- Non-critical CSS — same-origin, loaded normally -->
+  <!-- Non-critical CSS - same-origin, loaded normally -->
   <link rel="stylesheet" href="styles/03-navigation.css" />
   <link rel="stylesheet" href="styles/09-nav-panel.css" />
   <link rel="stylesheet" href="styles/04-components.css" />
@@ -124,13 +124,12 @@
   <link rel="stylesheet" href="styles/demo-banner.css" />
 </head>
 <body>
-  <!-- ═══ Bannière démo ═══ -->
-  <div id="demo-banner" role="banner" aria-label="Espace de démonstration">
-    <span class="demo-banner__label">Open Projets équipe déjà des collectivités</span>
-    <span class="demo-banner__sep" aria-hidden="true"></span>
-    <a href="https://openprojets.com/home/contact" target="_blank" rel="noopener noreferrer" class="demo-banner__cta">
-      Testez gratuitement
-      <span class="demo-banner__hint" aria-hidden="true">· sans CB, sans inscription</span>
+  <!-- ═══ Bannière démo - espace démo (metropole-lyon) uniquement ═══ -->
+  <div id="demo-banner" role="region" aria-label="Essai gratuit Open Projets">
+    <span class="demo-banner__label">Cette carte est une démo. La même, <strong>avec vos projets</strong> ?</span>
+    <a href="https://openprojets.com/home/contact?ref=demo-banner" target="_blank" rel="noopener noreferrer" class="demo-banner__cta">
+      Demander mon espace d'essai
+      <span class="demo-banner__hint">gratuit · sans CB · configuré avec vous en 1 h</span>
       <i class="fas fa-arrow-right" aria-hidden="true"></i>
     </a>
     <button type="button" id="demo-banner-close" class="demo-banner__close" aria-label="Fermer la bannière">
@@ -138,23 +137,65 @@
     </button>
   </div>
   <script>
-    // Détection synchrone — s'exécute avant le rendu du reste du DOM
-    // Condition : pas d'iframe, pas de ?city= défini (espace démo par défaut)
+    // Détection synchrone - s'exécute avant le rendu du reste du DOM.
+    // Affichée UNIQUEMENT sur l'espace démo : jamais en iframe (Phaos), jamais
+    // quand une ville cliente est résolue. Réplique fail-safe de
+    // CityManager.resolveActiveCity (path puis ?city= puis localStorage) :
+    // tout path ou ?city= non reconnu → pas de bannière (assumé : un ?city=
+    // invalide charge la démo sans bannière plutôt que de risquer l'inverse).
+    // Après boot, main.js appelle window.__syncDemoBanner(ville) - barrière
+    // défensive qui ne peut que MASQUER, jamais afficher.
+    // Fermeture persistée 7 jours (gp-demo-banner-dismissed = timestamp).
     (function () {
-      try { if (window.self !== window.top) return; } catch (_) { return; }
-      var sp = new URLSearchParams(location.search);
-      var city = sp.get('city') || '';
-      if (city && city !== 'default') return;
+      var DEMO_CITIES = ['', 'default', 'metropole-lyon'];
+      var DISMISS_KEY = 'gp-demo-banner-dismissed';
+      var DISMISS_TTL = 7 * 24 * 3600 * 1000; // 7 jours
+      var REVEAL_DELAY = 1200; // ms - la barre arrive quand le visiteur explore déjà
       var banner = document.getElementById('demo-banner');
       if (!banner) return;
-      banner.style.display = 'flex';
-      document.documentElement.style.setProperty('--banner-h', '36px');
+
+      var hidden = false;
+      var hide = function () {
+        hidden = true;
+        banner.style.display = 'none';
+        document.documentElement.style.setProperty('--banner-h', '0px');
+      };
+
+      // Barrière défensive post-boot (main.js Phase 1 + popstate)
+      window.__syncDemoBanner = function (city) {
+        if (DEMO_CITIES.indexOf(String(city || '').toLowerCase().trim()) === -1) hide();
+      };
+
+      try { if (window.self !== window.top) return; } catch (_) { return; }
+
+      var city = '';
+      try {
+        // Un segment de path = route ville (route-config.js : /bilan, /annecy…) → espace client
+        var seg = location.pathname.split('/').filter(Boolean)[0] || '';
+        if (seg && seg !== 'index.html') return;
+        city = String(new URLSearchParams(location.search).get('city') || '').toLowerCase().trim();
+        if (!city) city = String(localStorage.getItem('activeCity') || '').toLowerCase().trim();
+      } catch (_) { return; /* URL/storage illisible → prudence : ne pas afficher */ }
+      if (DEMO_CITIES.indexOf(city) === -1) return;
+
+      try {
+        var ts = parseInt(localStorage.getItem(DISMISS_KEY), 10);
+        if (ts && Date.now() - ts < DISMISS_TTL) return;
+      } catch (_) { /* storage bloqué : afficher quand même */ }
+
+      // --banner-h est posé dès le premier paint (zéro décalage de layout) ;
+      // la barre reste en display:none pendant le délai (pas de focus clavier
+      // sur un élément invisible), puis apparaît avec son animation CSS.
+      document.documentElement.style.setProperty('--banner-h', '40px');
+      var reveal = function () { if (!hidden) banner.style.display = 'flex'; };
+      var reduced = false;
+      try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) { /* no-op */ }
+      if (reduced) reveal(); else setTimeout(reveal, REVEAL_DELAY);
+
       document.getElementById('demo-banner-close').addEventListener('click', function () {
+        try { localStorage.setItem(DISMISS_KEY, String(Date.now())); } catch (_) { /* no-op */ }
         banner.style.animation = 'demo-banner-out 0.3s cubic-bezier(0.4,0,1,1) both';
-        setTimeout(function () {
-          banner.style.display = 'none';
-          document.documentElement.style.setProperty('--banner-h', '0px');
-        }, 280);
+        setTimeout(hide, 280);
       });
     }());
   </script>
@@ -167,7 +208,7 @@
     </a>
     <div class="gp-sidebar__divider"></div>
 
-    <!-- Modules — generated dynamically by SidebarModule from city_modules -->
+    <!-- Modules - generated dynamically by SidebarModule from city_modules -->
     <div class="gp-sidebar__modules">
     </div>
 
@@ -228,13 +269,13 @@
   </a>
   <noscript>
     <div style="padding:2rem;text-align:center;font-family:sans-serif">
-      <h1>Open Projets — Carte des grands projets urbains</h1>
+      <h1>Open Projets - Carte des grands projets urbains</h1>
       <p>Cette application nécessite JavaScript pour fonctionner. Veuillez activer JavaScript dans votre navigateur.</p>
       <p>Découvrez les grands projets d'urbanisme et de mobilité : tramway, voies lyonnaises, travaux, projets urbains.</p>
     </div>
   </noscript>
   <div id="container">
-    <h1 class="visually-hidden">Carte interactive des grands projets urbains — Open Projets</h1>
+    <h1 class="visually-hidden">Carte interactive des grands projets urbains - Open Projets</h1>
     <div id="map" role="application" aria-label="Carte interactive des projets urbains"></div>
 
 
@@ -242,7 +283,7 @@
       <div id="project-detail" class="project-detail" style="display:none"></div>
     </div>
 
-    <!-- ═══ Toggle Dock — Floating glass toolbar ═══ -->
+    <!-- ═══ Toggle Dock - Floating glass toolbar ═══ -->
     <nav class="toggle-dock" id="toggle-dock" aria-label="Contrôles de carte">
       <button id="city-toggle" class="toggle-dock__btn" data-ready="false" data-title="Espace" aria-label="Changer d'espace">
         <i class="fas fa-city" aria-hidden="true"></i>
@@ -301,7 +342,7 @@
       <div class="dock-panel__body" id="dynamic-filters"></div>
     </div>
 
-    <!-- Actions panel (mobile only) — unified: overflow dock buttons + sidebar actions -->
+    <!-- Actions panel (mobile only) - unified: overflow dock buttons + sidebar actions -->
     <div id="actions-panel" class="dock-panel" data-toggle="actions">
       <div class="dock-panel__header">
         <span class="dock-panel__title">Menu</span>
@@ -322,7 +363,7 @@
 
 
 
-  <!-- CDN CSS (async load — preloaded in head, non-render-blocking) -->
+  <!-- CDN CSS (async load - preloaded in head, non-render-blocking) -->
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" id="css-maplibre" media="print" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/fontawesome.min.css"
         crossorigin="anonymous" referrerpolicy="no-referrer" id="css-fa-base" media="print" />
@@ -364,7 +405,7 @@
   <script defer src="modules/travaux/travaux-nav.js"></script>
   <script defer src="modules/phaos-auth.js"></script>
   <script defer src="main.js"></script>
-  <!-- Analytics — chargé en différé (requestIdleCallback) pour ne pas impacter FCP/LCP -->
+  <!-- Analytics - chargé en différé (requestIdleCallback) pour ne pas impacter FCP/LCP -->
   <script defer src="modules/ga-init.js"></script>
 
 </body>
