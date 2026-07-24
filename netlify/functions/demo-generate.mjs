@@ -525,6 +525,13 @@ export default async (req, context) => {
       const finding = (f) => send({ type: 'finding', ...f });
       const t0 = Date.now();
 
+      // Battement de cœur : sans octets pendant ~30 s (appels IA), la réponse
+      // streamée est coupée par l'infrastructure. Un commentaire SSE toutes les
+      // 5 s maintient la connexion (ignoré par EventSource côté client).
+      const heartbeat = setInterval(() => {
+        try { controller.enqueue(encoder.encode(`: ping ${Date.now() - t0}\n\n`)); } catch { /* flux fermé */ }
+      }, 5000);
+
       try {
         // 0. Idempotence + quotas
         const already = await existingInstance(insee);
@@ -704,6 +711,7 @@ export default async (req, context) => {
         console.error('[demo-generate]', err);
         send({ type: 'error', message: 'Un imprévu est survenu pendant la génération. Réessayez, ou passez nous voir pour une démo guidée.' });
       } finally {
+        clearInterval(heartbeat);
         try { controller.close(); } catch { /* déjà fermé */ }
       }
     },
