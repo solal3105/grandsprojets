@@ -1,5 +1,5 @@
 /**
- * v-tilt-btn — Directive Vue pour l'effet 3D subtil sur les boutons.
+ * v-tilt-btn - Directive Vue pour l'effet 3D subtil sur les boutons.
  *
  * Ce qu'elle fait :
  * - Légère inclinaison 3D suivant la position de la souris (±6° X, ±4° Y)

@@ -5,7 +5,7 @@ import { toast, esc, skeletonTable } from '../components/ui.js';
 const DEFAULT_COLOR = '#14AE5C';
 
 /**
- * Catalogue des contrôles UI — chargé depuis Supabase (table ui_toggles).
+ * Catalogue des contrôles UI - chargé depuis Supabase (table ui_toggles).
  * Keys NOT in this list are either auto-managed (contribute) or internal (overflow, actions).
  */
 async function _fetchUIToggles() {
@@ -113,14 +113,14 @@ function _renderContent(container, branding, basemaps, allToggles) {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
             <!-- Logo clair -->
             <div class="cw-field">
-              <label class="cw-field__label">Logo — thème clair</label>
+              <label class="cw-field__label">Logo - thème clair</label>
               ${_logoDropzoneHTML('st-logo', branding.logo_url, 'Fond clair')}
               <input type="file" id="st-logo-file" accept="image/png,image/svg+xml,image/jpeg,image/webp" hidden>
               <input type="hidden" id="st-logo-url" value="${esc(branding.logo_url || '')}">
             </div>
             <!-- Logo sombre -->
             <div class="cw-field">
-              <label class="cw-field__label">Logo — thème sombre</label>
+              <label class="cw-field__label">Logo - thème sombre</label>
               ${_logoDropzoneHTML('st-dark-logo', branding.dark_logo_url, 'Fond sombre')}
               <input type="file" id="st-dark-logo-file" accept="image/png,image/svg+xml,image/jpeg,image/webp" hidden>
               <input type="hidden" id="st-dark-logo-url" value="${esc(branding.dark_logo_url || '')}">
@@ -177,7 +177,7 @@ function _renderContent(container, branding, basemaps, allToggles) {
               <option value="">Défaut global</option>
               ${basemaps.map(b => `<option value="${esc(b.name)}" ${b.name === branding.default_basemap ? 'selected' : ''}>${esc(b.label || b.name)}</option>`).join('')}
             </select>
-            ${basemaps.length === 0 ? '<p class="cw-field__tip"><i class="fa-solid fa-circle-info"></i> Aucun fond de carte disponible — le défaut global sera utilisé.</p>' : ''}
+            ${basemaps.length === 0 ? '<p class="cw-field__tip"><i class="fa-solid fa-circle-info"></i> Aucun fond de carte disponible - le défaut global sera utilisé.</p>' : ''}
           </div>
         </div>
       </section>
@@ -188,7 +188,7 @@ function _renderContent(container, branding, basemaps, allToggles) {
           <div class="cw-section__icon"><i class="fa-solid fa-sliders"></i></div>
           <div class="cw-section__titles">
             <h2 class="cw-section__title">Contrôles de la carte</h2>
-            <p class="cw-section__desc">Boutons visibles sur la carte publique — activez ceux dont vous avez besoin</p>
+            <p class="cw-section__desc">Boutons visibles sur la carte publique - activez ceux dont vous avez besoin</p>
           </div>
         </div>
         <div class="cw-section__body">
@@ -238,7 +238,7 @@ function _renderContent(container, branding, basemaps, allToggles) {
               <i class="fa-solid fa-plus"></i> Ajouter
             </button>
           </div>
-          <p class="cw-field__tip"><i class="fa-solid fa-lightbulb"></i> Identifiants en minuscules — chaque code correspond à un espace existant dans la plateforme.</p>
+          <p class="cw-field__tip"><i class="fa-solid fa-lightbulb"></i> Identifiants en minuscules - chaque code correspond à un espace existant dans la plateforme.</p>
         </div>
       </section>
 
@@ -278,7 +278,7 @@ function _logoDropzoneHTML(prefix, existingUrl, label, small = false) {
         </div>
         <div class="cw-drop-area__text">
           <span class="cw-drop-area__title" style="font-size:13px;">Glissez-déposez ici</span>
-          <span class="cw-drop-area__hint">ou <u>cliquez pour parcourir</u> — PNG, SVG, WebP</span>
+          <span class="cw-drop-area__hint">ou <u>cliquez pour parcourir</u> - PNG, SVG, WebP</span>
         </div>
       </div>
       <!-- Preview -->
@@ -372,7 +372,7 @@ function _bindLogoDropzones(container) {
       fileInput.value = '';
     });
 
-    // Preview overlay actions (change / remove) — delegate
+    // Preview overlay actions (change / remove) - delegate
     previewEl?.addEventListener('click', e => {
       const action = e.target.closest('[data-action]')?.dataset.action;
       if (action === 'change') fileInput.click();
@@ -451,12 +451,12 @@ async function _doSave(container) {
   const colorHex = (container.querySelector('#st-color-text')?.value || '').trim().replace(/^#/, '');
   const color = '#' + colorHex.toUpperCase();
   if (!color.match(/^#[0-9A-Fa-f]{6}$/)) {
-    toast('Couleur invalide — saisissez 6 caractères hexadécimaux (ex : 21B929)', 'error');
+    toast('Couleur invalide - saisissez 6 caractères hexadécimaux (ex : 21B929)', 'error');
     if (btn) { btn.disabled = false; btn.innerHTML = origHTML; }
     return;
   }
 
-  // Upload pending logo files (use '' not null — city_branding columns are NOT NULL)
+  // Upload pending logo files (use '' not null - city_branding columns are NOT NULL)
   let logoUrl = container.querySelector('#st-logo-url')?.value || '';
   let darkLogoUrl = container.querySelector('#st-dark-logo-url')?.value || '';
   let faviconUrl = container.querySelector('#st-favicon-url')?.value || '';

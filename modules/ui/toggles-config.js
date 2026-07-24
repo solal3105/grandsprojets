@@ -77,7 +77,7 @@ export const TOGGLES_CONFIG = {
     defaultState: false,
     hasDockPanel: true,
     mobileOnly: true,
-    // Never trimmed by the overflow algorithm — it IS the overflow entry point
+    // Never trimmed by the overflow algorithm - it IS the overflow entry point
     overflowExempt: true
   }
 };

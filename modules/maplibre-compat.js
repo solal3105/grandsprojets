@@ -108,11 +108,11 @@
   // COLOR UTILITIES
   // ============================================================
 
-  // Default layer color — replaces Leaflet legacy #3388ff.
+  // Default layer color - replaces Leaflet legacy #3388ff.
   // Uses the CSS primary token so it reacts to city branding + theme.
   const _defaultColor = 'var(--color-primary)';
 
-  // Convert CSS color (including var(), color-mix(), etc.) to a value MapLibre GL accepts — cached
+  // Convert CSS color (including var(), color-mix(), etc.) to a value MapLibre GL accepts - cached
   const _colorCache = new Map();
   // Reusable hidden element for forcing browser color resolution
   let _colorProbe = null;
@@ -127,10 +127,10 @@
   // Convert a browser-serialized color string (rgb(...) or color(srgb ...)) to #rrggbb.
   // Returns null if the format is not recognised.
   function _parseBrowserColor(str) {
-    // rgb(r, g, b) — standard serialization on all browsers
+    // rgb(r, g, b) - standard serialization on all browsers
     const rgbM = str.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
     if (rgbM) return '#' + [rgbM[1], rgbM[2], rgbM[3]].map(n => parseInt(n).toString(16).padStart(2, '0')).join('');
-    // color(srgb r g b) — CSS Color Level 4 format returned by modern browsers (Safari ≥15, Chrome ≥111)
+    // color(srgb r g b) - CSS Color Level 4 format returned by modern browsers (Safari ≥15, Chrome ≥111)
     //   values are floats in [0, 1], multiply × 255 to get 8-bit channels
     const srgbM = str.match(/^color\(\s*srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*[\d.]+)?\s*\)$/);
     if (srgbM) return '#' + [srgbM[1], srgbM[2], srgbM[3]].map(n => Math.round(Math.min(1, Math.max(0, parseFloat(n))) * 255).toString(16).padStart(2, '0')).join('');
@@ -139,7 +139,7 @@
 
   function resolveColor(color) {
     if (!color || typeof color !== 'string') return color;
-    // Plain hex/rgb/named color — MapLibre handles these natively
+    // Plain hex/rgb/named color - MapLibre handles these natively
     if (!color.startsWith('var(') && !color.startsWith('color-mix(')) return color;
 
     const cached = _colorCache.get(color);
@@ -167,7 +167,7 @@
           return result;
         }
       } catch {}
-      // Fallback: probe returned same string (P3 display) — parse color(srgb …) directly
+      // Fallback: probe returned same string (P3 display) - parse color(srgb …) directly
       const direct = _parseBrowserColor(raw);
       if (direct) {
         _colorCache.set(color, direct);
@@ -905,13 +905,13 @@
   L.tileLayer = function(url, options) { return new TileLayer(url, options); };
 
   // ============================================================
-  // VECTOR BASEMAP (MapLibre GL style — no setStyle(), no data loss)
+  // VECTOR BASEMAP (MapLibre GL style - no setStyle(), no data loss)
   // ============================================================
   //
-  // Strategy: never call mlMap.setStyle() — it wipes all user data layers.
+  // Strategy: never call mlMap.setStyle() - it wipes all user data layers.
   // Instead, fetch the style JSON and inject its sources/layers directly using
   // prefixed IDs (__vbm__<id>), inserted before user data layers.
-  // _cleanupOwned() scans the live style by prefix — never misses anything.
+  // _cleanupOwned() scans the live style by prefix - never misses anything.
 
   class VectorBasemap extends EventEmitter {
     constructor(styleUrl, options) {
@@ -937,16 +937,16 @@
         const styleJson = await resp.json();
 
         // Update glyphs so road labels render with correct fonts.
-        // setGlyphs() only updates the glyph URL — does NOT touch sources or layers.
+        // setGlyphs() only updates the glyph URL - does NOT touch sources or layers.
         if (styleJson.glyphs && typeof mlMap.setGlyphs === 'function') {
           try { mlMap.setGlyphs(styleJson.glyphs); } catch {}
         }
 
-        // Do NOT call setSprite() — the basemap sprite references images (e.g. fill-pattern
+        // Do NOT call setSprite() - the basemap sprite references images (e.g. fill-pattern
         // textures) that may not exist in every environment. We inject individual layers
         // so the sprite is unnecessary; pattern layers are stripped below.
 
-        // Insertion anchor: first app-data layer — vbm layers go BELOW it
+        // Insertion anchor: first app-data layer - vbm layers go BELOW it
         const anchor = this._findAnchorLayer(mlMap);
 
         // Attribution de basemaps_v2 en secours, uniquement si AUCUNE source du
@@ -974,7 +974,7 @@
         }
 
         // Add layers in style order, each prefixed and wired to the prefixed source.
-        // Skip layers that use fill-pattern or icon-image — they depend on the external
+        // Skip layers that use fill-pattern or icon-image - they depend on the external
         // sprite and would produce "image could not be loaded" warnings.
         for (const layer of (styleJson.layers || [])) {
           if (layer.source && !sourceIdMap[layer.source]) continue;
@@ -1013,7 +1013,7 @@
 
     /**
      * Remove ALL __vbm__ layers then ALL __vbm__ sources by scanning the live
-     * style — no tracking list needed, never misses layers added by a prior run.
+     * style - no tracking list needed, never misses layers added by a prior run.
      * Layers MUST be removed before their sources (MapLibre requirement).
      */
     _cleanupOwned(mlMap) {
@@ -1219,7 +1219,7 @@
     // Fast-path: accept original GeoJSON feature, skip coordinate conversions
     static _fromGeoJSON(feature, style) {
       const instance = new LPolyline([], style);
-      instance._latlngs = null; // Lazy — computed on demand
+      instance._latlngs = null; // Lazy - computed on demand
       instance._geojson = feature;
       instance.feature = feature;
       return instance;
@@ -1322,7 +1322,7 @@
     // Fast-path: accept original GeoJSON feature, skip coordinate conversions
     static _fromGeoJSON(feature, style) {
       const instance = new LPolygon([], style);
-      instance._latlngs = null; // Lazy — computed on demand
+      instance._latlngs = null; // Lazy - computed on demand
       instance._geojson = feature;
       instance.feature = feature;
       return instance;
@@ -1935,14 +1935,14 @@
         zoom: zoom,
         pitch: opts.pitch || 0,
         bearing: opts.bearing || 0,
-        // Contrôle natif désactivé — on ajoute notre propre contrôle compact
+        // Contrôle natif désactivé - on ajoute notre propre contrôle compact
         // ci-dessous (mlgl n'accepte pas `true`, uniquement false | options)
         attributionControl: false,
         maxPitch: 85
       });
 
       // Attribution compacte en bas à gauche (crédits OSM / fond de carte).
-      // Repliée en pastille ⓘ, elle se déplie au clic — les attributions
+      // Repliée en pastille ⓘ, elle se déplie au clic - les attributions
       // proviennent des sources (champ `attribution` de basemaps_v2 ou du style vectoriel).
       if (opts.attributionControl !== false) {
         try {
@@ -2043,7 +2043,7 @@
       const mlMap = this._mlMap;
       
       if (enabled && !this._buildings3DEnabled) {
-        this._addForest3DLayers();   // forests first — lower z-order than buildings
+        this._addForest3DLayers();   // forests first - lower z-order than buildings
         this._addBuildings3DLayer();
         this._buildings3DEnabled = true;
       } else if (!enabled && this._buildings3DEnabled) {
@@ -2078,17 +2078,17 @@
       };
     }
 
-    // ─── Forest 3D — two-pass stratified canopy ────────────────────────────────
+    // ─── Forest 3D - two-pass stratified canopy ────────────────────────────────
     _FOREST_COLORS = {
       light: {
-        understory: '#071a0e',   // forest floor — near-black green
+        understory: '#071a0e',   // forest floor - near-black green
         wood:       '#1c5e36',   // mature forest canopy
         park:       '#3d8c4a',   // managed park trees
         scrub:      '#6b7c32',   // dry scrub / heath
         grass:      '#558c3c',   // meadow / grassland
       },
       dark: {
-        understory: '#020708',   // moonlit floor — almost black
+        understory: '#020708',   // moonlit floor - almost black
         wood:       '#0b2418',   // deep moonlit forest
         park:       '#112e1c',   // dark teal park
         scrub:      '#1c2610',   // very dark olive
@@ -2131,7 +2131,7 @@
 
     _addForest3DLayers() {
       const mlMap = this._mlMap;
-      // Source is shared with buildings — ensure it exists
+      // Source is shared with buildings - ensure it exists
       if (!mlMap.getSource('ofm-buildings')) {
         mlMap.addSource('ofm-buildings', { type: 'vector', url: 'https://tiles.openfreemap.org/planet' });
       }
@@ -2219,7 +2219,7 @@
 
     /**
      * Centralise tous les effets visuels MapLibre lors d'un changement de thème.
-     * Appelé depuis ThemeManager.applyTheme() — couvre toggle manuel ET sync OS.
+     * Appelé depuis ThemeManager.applyTheme() - couvre toggle manuel ET sync OS.
      */
     onThemeChanged() {
       this.repaintDataColors();
@@ -2252,7 +2252,7 @@
     _terrainEnabled    = false;
     _DEM_TILES_URL     = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
     _DEM_MAX_ZOOM      = 15;
-    // Sky presets (MapLibre requires valid SkySpecification — never null)
+    // Sky presets (MapLibre requires valid SkySpecification - never null)
     // Light: soft blue midday sky
     _SKY_DAY     = { 'sky-color': '#89CFF0', 'sky-horizon-blend': 0.3, 'horizon-color': '#f0e8d8', 'horizon-fog-blend': 0.8, 'fog-color': '#dce6ef', 'fog-ground-blend': 0.9 };
     // Dark: warm amber-violet sunset

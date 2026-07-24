@@ -1,5 +1,5 @@
 /* ============================================================================
-   Open Projets — Typography
+   Open Projets - Typography
    Source of truth: home-src/tailwind.config.js (fontFamily, letterSpacing)
    + the Google Fonts loaded in home-src/index.html.
    Fonts are served from Google Fonts (same as production). The @import that
@@ -11,6 +11,6 @@
   --font-heading: 'Space Grotesk', sans-serif;  /* headings / display */
   --font-body:    'Inter', sans-serif;          /* body / UI text     */
 
-  /* Tracking — used on the hero display line */
+  /* Tracking - used on the hero display line */
   --tracking-tight-hero: -1.824px;
 }

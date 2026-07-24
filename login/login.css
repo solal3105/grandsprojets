@@ -1,5 +1,5 @@
 /* ============================================================================
-   LOGIN — page de connexion Open Projets
+   LOGIN - page de connexion Open Projets
    Style aligné sur le design system admin (admin/admin.css)
    Tokens globaux et alias sémantiques : styles/00-colors.css (chargé avant)
    ============================================================================ */
@@ -137,7 +137,7 @@ body {
   isolation: isolate;
   animation: lg-card-in var(--lg-enter) both;
 }
-/* Shimmer — signature 3D depth layer */
+/* Shimmer - signature 3D depth layer */
 .lg-card::after {
   content: '';
   position: absolute;

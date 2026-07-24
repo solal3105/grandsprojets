@@ -94,7 +94,7 @@ test.beforeAll(async ({ browser }) => {
     VALID_PROJECT_NAME = found.project_name;
     VALID_SLUG = found.slug || '';
     VALID_CAT_SLUG = found.category_slug || '';
-    // ficheUrl() utilise (slug, catSlug, ville) — on stocke les slugs dans les variables existantes
+    // ficheUrl() utilise (slug, catSlug, ville) - on stocke les slugs dans les variables existantes
     VALID_PROJECT = VALID_SLUG;
     VALID_CAT = VALID_CAT_SLUG || found.category || 'velo';
     VALID_CITY = found.ville || '';
@@ -127,11 +127,11 @@ async function waitForRelated(page) {
 }
 
 // ═════════════════════════════════════════════════════════
-// 0.6 — Page Fiche : chargement et structure de base
+// 0.6 - Page Fiche : chargement et structure de base
 // ═════════════════════════════════════════════════════════
-test.describe('0.6 — Fiche : chargement et structure', () => {
+test.describe('0.6 - Fiche : chargement et structure', () => {
 
-  test('0.6.1 — La page fiche se charge sans erreur console critique', async ({ page }) => {
+  test('0.6.1 - La page fiche se charge sans erreur console critique', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_SLUG, VALID_CAT_SLUG, VALID_CITY));
     const errors = [];
@@ -141,19 +141,19 @@ test.describe('0.6 — Fiche : chargement et structure', () => {
     expect(critical).toHaveLength(0);
   });
 
-  test('0.6.2 — Le shell #fv2 est rendu', async ({ page }) => {
+  test('0.6.2 - Le shell #fv2 est rendu', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await expect(page.locator('#fv2')).toBeVisible();
   });
 
-  test('0.6.3 — La topbar est présente', async ({ page }) => {
+  test('0.6.3 - La topbar est présente', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await expect(page.locator('#fv2-topbar')).toBeVisible();
   });
 
-  test('0.6.4 — Le hero est visible avec le titre du projet', async ({ page }) => {
+  test('0.6.4 - Le hero est visible avec le titre du projet', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const hero = page.locator('#fv2-hero');
@@ -164,7 +164,7 @@ test.describe('0.6 — Fiche : chargement et structure', () => {
     expect(text.length).toBeGreaterThan(0);
   });
 
-  test('0.6.5 — Le hero affiche un badge catégorie', async ({ page }) => {
+  test('0.6.5 - Le hero affiche un badge catégorie', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const badge = page.locator('.fv2-hero__badge');
@@ -173,7 +173,7 @@ test.describe('0.6 — Fiche : chargement et structure', () => {
     expect(text.trim().length).toBeGreaterThan(0);
   });
 
-  test('0.6.6 — Le body (main + aside) est visible', async ({ page }) => {
+  test('0.6.6 - Le body (main + aside) est visible', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await expect(page.locator('#fv2-body')).toBeVisible();
@@ -181,7 +181,7 @@ test.describe('0.6 — Fiche : chargement et structure', () => {
     await expect(page.locator('#fv2-aside')).toBeVisible();
   });
 
-  test('0.6.7 — La carte MapLibre est insérée dans le hero', async ({ page }) => {
+  test('0.6.7 - La carte MapLibre est insérée dans le hero', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const map = page.locator('#fv2-map');
@@ -193,18 +193,18 @@ test.describe('0.6 — Fiche : chargement et structure', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.7 — Fiche : SEO et méta-données
+// 0.7 - Fiche : SEO et méta-données
 // ═════════════════════════════════════════════════════════
-test.describe('0.7 — Fiche : SEO et méta-données', () => {
+test.describe('0.7 - Fiche : SEO et méta-données', () => {
 
-  test('0.7.1 — Le titre de la page contient le nom du projet', async ({ page }) => {
+  test('0.7.1 - Le titre de la page contient le nom du projet', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const title = await page.title();
     expect(title).toContain(VALID_PROJECT_NAME);
   });
 
-  test('0.7.2 — La meta description est renseignée', async ({ page }) => {
+  test('0.7.2 - La meta description est renseignée', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const desc = await page.getAttribute('meta[name="description"]', 'content');
@@ -212,14 +212,14 @@ test.describe('0.7 — Fiche : SEO et méta-données', () => {
     expect(desc.length).toBeGreaterThan(10);
   });
 
-  test('0.7.3 — OG title contient le nom du projet', async ({ page }) => {
+  test('0.7.3 - OG title contient le nom du projet', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const ogTitle = await page.getAttribute('meta[property="og:title"]', 'content');
     expect(ogTitle).toContain(VALID_PROJECT_NAME);
   });
 
-  test('0.7.4 — OG image est définie', async ({ page }) => {
+  test('0.7.4 - OG image est définie', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const ogImage = await page.getAttribute('meta[property="og:image"]', 'content');
@@ -227,7 +227,7 @@ test.describe('0.7 — Fiche : SEO et méta-données', () => {
     expect(ogImage).toMatch(/^https?:\/\//);
   });
 
-  test('0.7.5 — OG url contient le canonical avec cat et project', async ({ page }) => {
+  test('0.7.5 - OG url contient le canonical avec cat et project', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const ogUrl = await page.getAttribute('meta[property="og:url"]', 'content');
@@ -237,21 +237,21 @@ test.describe('0.7 — Fiche : SEO et méta-données', () => {
     expect(ogUrl).toContain(encodeURIComponent(VALID_PROJECT));
   });
 
-  test('0.7.6 — Twitter card est summary_large_image', async ({ page }) => {
+  test('0.7.6 - Twitter card est summary_large_image', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const card = await page.getAttribute('meta[name="twitter:card"]', 'content');
     expect(card).toBe('summary_large_image');
   });
 
-  test('0.7.7 — Twitter title contient le nom du projet', async ({ page }) => {
+  test('0.7.7 - Twitter title contient le nom du projet', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const twTitle = await page.getAttribute('meta[name="twitter:title"]', 'content');
     expect(twTitle).toContain(VALID_PROJECT_NAME);
   });
 
-  test('0.7.8 — Canonical URL est bien définie et pointe vers openprojets.com', async ({ page }) => {
+  test('0.7.8 - Canonical URL est bien définie et pointe vers openprojets.com', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const canonical = await page.getAttribute('link[rel="canonical"]', 'href');
@@ -262,7 +262,7 @@ test.describe('0.7 — Fiche : SEO et méta-données', () => {
     expect(canonical).toContain(encodeURIComponent(VALID_PROJECT));
   });
 
-  test('0.7.9 — JSON-LD Article est présent et valide', async ({ page }) => {
+  test('0.7.9 - JSON-LD Article est présent et valide', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const jsonLd = await page.evaluate(() => {
@@ -278,14 +278,14 @@ test.describe('0.7 — Fiche : SEO et méta-données', () => {
     expect(jsonLd.publisher['@type']).toBe('Organization');
   });
 
-  test('0.7.10 — Alternate hreflang=fr est défini', async ({ page }) => {
+  test('0.7.10 - Alternate hreflang=fr est défini', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const alt = await page.getAttribute('link[rel="alternate"][hreflang="fr"]', 'href');
     expect(alt).toContain('/fiche/');
   });
 
-  test('0.7.11 — OG description est renseignée côté client', async ({ page }) => {
+  test('0.7.11 - OG description est renseignée côté client', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const ogDesc = await page.getAttribute('meta[property="og:description"]', 'content');
@@ -293,7 +293,7 @@ test.describe('0.7 — Fiche : SEO et méta-données', () => {
     expect(ogDesc.length).toBeGreaterThan(5);
   });
 
-  test('0.7.12 — Twitter description est renseignée côté client', async ({ page }) => {
+  test('0.7.12 - Twitter description est renseignée côté client', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const twDesc = await page.getAttribute('meta[name="twitter:description"]', 'content');
@@ -301,7 +301,7 @@ test.describe('0.7 — Fiche : SEO et méta-données', () => {
     expect(twDesc.length).toBeGreaterThan(5);
   });
 
-  test('0.7.13 — La meta theme-color est présente', async ({ page }) => {
+  test('0.7.13 - La meta theme-color est présente', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const tc = await page.getAttribute('meta[name="theme-color"]', 'content');
@@ -309,14 +309,14 @@ test.describe('0.7 — Fiche : SEO et méta-données', () => {
     expect(tc).toMatch(/^#[0-9a-fA-F]{6}$/);
   });
 
-  test('0.7.14 — OG type est article', async ({ page }) => {
+  test('0.7.14 - OG type est article', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const ogType = await page.getAttribute('meta[property="og:type"]', 'content');
     expect(ogType).toBe('article');
   });
 
-  test('0.7.15 — OG locale est fr_FR', async ({ page }) => {
+  test('0.7.15 - OG locale est fr_FR', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const locale = await page.getAttribute('meta[property="og:locale"]', 'content');
@@ -325,11 +325,11 @@ test.describe('0.7 — Fiche : SEO et méta-données', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.8 — Fiche : SSR (pré-rendu serveur)
+// 0.8 - Fiche : SSR (pré-rendu serveur)
 // ═════════════════════════════════════════════════════════
-test.describe('0.8 — Fiche : SSR', () => {
+test.describe('0.8 - Fiche : SSR', () => {
 
-  test('0.8.1 — Le bloc SSR est injecté par l\'edge function (contient <h1>)', async ({ page }) => {
+  test('0.8.1 - Le bloc SSR est injecté par l\'edge function (contient <h1>)', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     // On fait un fetch brut HTTP pour obtenir le HTML servi avant JS
     const response = await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
@@ -339,7 +339,7 @@ test.describe('0.8 — Fiche : SSR', () => {
     expect(html).toContain(VALID_PROJECT);
   });
 
-  test('0.8.2 — Le SSR contient le fil d\'Ariane (breadcrumb)', async ({ page }) => {
+  test('0.8.2 - Le SSR contient le fil d\'Ariane (breadcrumb)', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     const response = await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const html = await response.text();
@@ -347,14 +347,14 @@ test.describe('0.8 — Fiche : SSR', () => {
     expect(html).toContain('Fil d\'Ariane');
   });
 
-  test('0.8.3 — Le SSR contient un JSON-LD BreadcrumbList', async ({ page }) => {
+  test('0.8.3 - Le SSR contient un JSON-LD BreadcrumbList', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     const response = await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const html = await response.text();
     expect(html).toContain('"@type":"BreadcrumbList"');
   });
 
-  test('0.8.4 — Après hydratation JS, le SSR est masqué (.is-hydrated)', async ({ page }) => {
+  test('0.8.4 - Après hydratation JS, le SSR est masqué (.is-hydrated)', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const ssrBlock = page.locator('#fv2-ssr-content');
@@ -364,7 +364,7 @@ test.describe('0.8 — Fiche : SSR', () => {
     }
   });
 
-  test('0.8.5 — Le SSR injecte les meta OG côté serveur', async ({ page }) => {
+  test('0.8.5 - Le SSR injecte les meta OG côté serveur', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     const response = await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const html = await response.text();
@@ -374,7 +374,7 @@ test.describe('0.8 — Fiche : SSR', () => {
     expect(ogTitleMatch[1]).toContain(VALID_PROJECT_NAME);
   });
 
-  test('0.8.6 — Le SSR injecte la canonical URL côté serveur', async ({ page }) => {
+  test('0.8.6 - Le SSR injecte la canonical URL côté serveur', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     const response = await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const html = await response.text();
@@ -385,7 +385,7 @@ test.describe('0.8 — Fiche : SSR', () => {
     expect(canonicalMatch[1]).toContain(encodeURIComponent(VALID_PROJECT));
   });
 
-  test('0.8.7 — Le SSR injecte le <title> dynamique', async ({ page }) => {
+  test('0.8.7 - Le SSR injecte le <title> dynamique', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     const response = await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const html = await response.text();
@@ -394,14 +394,14 @@ test.describe('0.8 — Fiche : SSR', () => {
     expect(titleMatch[1]).toContain(VALID_PROJECT_NAME);
   });
 
-  test('0.8.8 — Sans paramètre project, pas de SSR injecté', async ({ page }) => {
+  test('0.8.8 - Sans paramètre project, pas de SSR injecté', async ({ page }) => {
     const response = await page.request.get('/fiche/');
     const html = await response.text();
     // Pas de bloc SSR quand il n'y a pas de projet
     expect(html).not.toContain('id="fv2-ssr-content"');
   });
 
-  test('0.8.9 — Le SSR contient la description ou l\'article complet', async ({ page }) => {
+  test('0.8.9 - Le SSR contient la description ou l\'article complet', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     const response = await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const html = await response.text();
@@ -410,7 +410,7 @@ test.describe('0.8 — Fiche : SSR', () => {
     expect(hasContent).toBe(true);
   });
 
-  test('0.8.10 — Le SSR contient les projets similaires en maillage interne', async ({ page }) => {
+  test('0.8.10 - Le SSR contient les projets similaires en maillage interne', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     const response = await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const html = await response.text();
@@ -421,7 +421,7 @@ test.describe('0.8 — Fiche : SSR', () => {
     }
   });
 
-  test('0.8.11 — Le SSR contient la cover image si disponible', async ({ page }) => {
+  test('0.8.11 - Le SSR contient la cover image si disponible', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     const response = await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const html = await response.text();
@@ -432,7 +432,7 @@ test.describe('0.8 — Fiche : SSR', () => {
     }
   });
 
-  test('0.8.12 — Le SSR contient le lien officiel si official_url existe', async ({ page }) => {
+  test('0.8.12 - Le SSR contient le lien officiel si official_url existe', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     const response = await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const html = await response.text();
@@ -442,7 +442,7 @@ test.describe('0.8 — Fiche : SSR', () => {
     }
   });
 
-  test('0.8.13 — Projet avec markdown : l\'article complet est rendu côté serveur', async ({ page }) => {
+  test('0.8.13 - Projet avec markdown : l\'article complet est rendu côté serveur', async ({ page }) => {
     const proj = MD_PROJECT;
     test.skip(!proj, 'Aucun projet avec article markdown en base');
     if (!proj) return;
@@ -466,7 +466,7 @@ test.describe('0.8 — Fiche : SSR', () => {
     expect(text.length).toBeGreaterThanOrEqual(Math.min(100, Math.floor(plainMd.length / 2)));
   });
 
-  test('0.8.14 — Projet avec markdown : pas de h1 dans l\'article (titres décalés)', async ({ page }) => {
+  test('0.8.14 - Projet avec markdown : pas de h1 dans l\'article (titres décalés)', async ({ page }) => {
     const proj = MD_PROJECT;
     test.skip(!proj, 'Aucun projet avec article markdown en base');
     if (!proj) return;
@@ -474,13 +474,13 @@ test.describe('0.8 — Fiche : SSR', () => {
     const html = await response.text();
     const article = html.match(/<section class="fv2-ssr__article[^"]*"[\s\S]*?<\/section>/)?.[0] || '';
     expect(article.length).toBeGreaterThan(0);
-    // Le seul h1 SSR est le nom du projet dans le header — l'article démarre à h2
+    // Le seul h1 SSR est le nom du projet dans le header - l'article démarre à h2
     expect(article).not.toContain('<h1');
     // Le HTML brut éventuel du markdown doit être échappé, jamais interprété
     expect(article).not.toContain('<script');
   });
 
-  test('0.8.15 — Projet sans markdown : fallback sur la description seule', async ({ page }) => {
+  test('0.8.15 - Projet sans markdown : fallback sur la description seule', async ({ page }) => {
     const proj = NOMD_PROJECT;
     test.skip(!proj, 'Aucun projet sans markdown en base');
     if (!proj) return;
@@ -492,11 +492,11 @@ test.describe('0.8 — Fiche : SSR', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.9 — Fiche : états d'erreur
+// 0.9 - Fiche : états d'erreur
 // ═════════════════════════════════════════════════════════
-test.describe('0.9 — Fiche : états d\'erreur', () => {
+test.describe('0.9 - Fiche : états d\'erreur', () => {
 
-  test('0.9.1 — Sans paramètre project → erreur "Projet introuvable"', async ({ page }) => {
+  test('0.9.1 - Sans paramètre project → erreur "Projet introuvable"', async ({ page }) => {
     await page.goto('/fiche/', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(
       () => { const e = document.getElementById('fv2-error'); return e && !e.hidden; },
@@ -508,7 +508,7 @@ test.describe('0.9 — Fiche : états d\'erreur', () => {
     await expect(title).toContainText('introuvable');
   });
 
-  test('0.9.2 — Sans paramètre project → hero et body masqués', async ({ page }) => {
+  test('0.9.2 - Sans paramètre project → hero et body masqués', async ({ page }) => {
     await page.goto('/fiche/', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(
       () => { const e = document.getElementById('fv2-error'); return e && !e.hidden; },
@@ -521,7 +521,7 @@ test.describe('0.9 — Fiche : états d\'erreur', () => {
     expect(bodyHidden).toBe(true);
   });
 
-  test('0.9.3 — Projet inexistant → erreur affichée', async ({ page }) => {
+  test('0.9.3 - Projet inexistant → erreur affichée', async ({ page }) => {
     await page.goto('/fiche/test-xyz/velo/projet-qui-nexiste-pas-xyz-999', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(
       () => { const e = document.getElementById('fv2-error'); return e && !e.hidden; },
@@ -532,7 +532,7 @@ test.describe('0.9 — Fiche : états d\'erreur', () => {
     await expect(page.locator('#fv2-error-title')).toContainText('introuvable');
   });
 
-  test('0.9.4 — Erreur affiche le bouton retour à la carte', async ({ page }) => {
+  test('0.9.4 - Erreur affiche le bouton retour à la carte', async ({ page }) => {
     await page.goto('/fiche/', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(
       () => { const e = document.getElementById('fv2-error'); return e && !e.hidden; },
@@ -545,7 +545,7 @@ test.describe('0.9 — Fiche : états d\'erreur', () => {
     expect(href).toBeTruthy();
   });
 
-  test('0.9.5 — Catégorie invalide avec projet inexistant → erreur', async ({ page }) => {
+  test('0.9.5 - Catégorie invalide avec projet inexistant → erreur', async ({ page }) => {
     await page.goto('/fiche/test-xyz/categorie-bizarre/rien', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(
       () => { const e = document.getElementById('fv2-error'); return e && !e.hidden; },
@@ -556,11 +556,11 @@ test.describe('0.9 — Fiche : états d\'erreur', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.10 — Fiche : bouton retour contextuel
+// 0.10 - Fiche : bouton retour contextuel
 // ═════════════════════════════════════════════════════════
-test.describe('0.10 — Fiche : bouton retour contextuel', () => {
+test.describe('0.10 - Fiche : bouton retour contextuel', () => {
 
-  test('0.10.1 — Le bouton retour est visible dans la topbar', async ({ page }) => {
+  test('0.10.1 - Le bouton retour est visible dans la topbar', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const btn = page.locator('#fv2-btn-back');
@@ -568,7 +568,7 @@ test.describe('0.10 — Fiche : bouton retour contextuel', () => {
     await expect(btn).toContainText('Retour');
   });
 
-  test('0.10.2 — Le bouton retour conserve la ville dans le href', async ({ page }) => {
+  test('0.10.2 - Le bouton retour conserve la ville dans le href', async ({ page }) => {
     test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville non disponible');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const href = await page.locator('#fv2-btn-back').getAttribute('href');
@@ -576,7 +576,7 @@ test.describe('0.10 — Fiche : bouton retour contextuel', () => {
     expect(href).toContain(`city=${VALID_CITY}`);
   });
 
-  test('0.10.3 — Le bouton retour conserve la catégorie si non default', async ({ page }) => {
+  test('0.10.3 - Le bouton retour conserve la catégorie si non default', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     // Si la catégorie n'est pas "velo" (default), elle doit apparaître dans le href
     if (VALID_CAT !== 'velo') {
@@ -591,7 +591,7 @@ test.describe('0.10 — Fiche : bouton retour contextuel', () => {
     }
   });
 
-  test('0.10.4 — URL avec ville et cat par défaut → href retour sans cat', async ({ page }) => {
+  test('0.10.4 - URL avec ville et cat par défaut → href retour sans cat', async ({ page }) => {
     test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville non disponible');
     // Catégorie velo (default) + ville = le retour ne doit pas contenir cat=
     const url = `/fiche/${encodeURIComponent(VALID_CITY)}/velo/${encodeURIComponent(VALID_PROJECT)}`;
@@ -601,7 +601,7 @@ test.describe('0.10 — Fiche : bouton retour contextuel', () => {
     expect(href).toContain(`city=${VALID_CITY}`);
   });
 
-  test('0.10.5 — Le bouton retour erreur a le même href contextuel', async ({ page }) => {
+  test('0.10.5 - Le bouton retour erreur a le même href contextuel', async ({ page }) => {
     // URL avec 2 segments path (pas de projSlug) → erreur affichée
     const url = '/fiche/test-ville/urbanisme/';
     await page.goto(url, { waitUntil: 'domcontentloaded' });
@@ -616,17 +616,17 @@ test.describe('0.10 — Fiche : bouton retour contextuel', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.11 — Fiche : thème sombre / clair
+// 0.11 - Fiche : thème sombre / clair
 // ═════════════════════════════════════════════════════════
-test.describe('0.11 — Fiche : thème', () => {
+test.describe('0.11 - Fiche : thème', () => {
 
-  test('0.11.1 — Le bouton thème est visible', async ({ page }) => {
+  test('0.11.1 - Le bouton thème est visible', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await expect(page.locator('#fv2-btn-theme')).toBeVisible();
   });
 
-  test('0.11.2 — Clic thème change data-theme sur <html>', async ({ page }) => {
+  test('0.11.2 - Clic thème change data-theme sur <html>', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const html = page.locator('html');
@@ -637,7 +637,7 @@ test.describe('0.11 — Fiche : thème', () => {
     expect(['dark', 'light']).toContain(after);
   });
 
-  test('0.11.3 — L\'icône du bouton thème bascule (moon ↔ sun)', async ({ page }) => {
+  test('0.11.3 - L\'icône du bouton thème bascule (moon ↔ sun)', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const btn = page.locator('#fv2-btn-theme');
@@ -653,17 +653,17 @@ test.describe('0.11 — Fiche : thème', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.12 — Fiche : bouton partage (copie URL)
+// 0.12 - Fiche : bouton partage (copie URL)
 // ═════════════════════════════════════════════════════════
-test.describe('0.12 — Fiche : partage', () => {
+test.describe('0.12 - Fiche : partage', () => {
 
-  test('0.12.1 — Le bouton partage est visible', async ({ page }) => {
+  test('0.12.1 - Le bouton partage est visible', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await expect(page.locator('#fv2-btn-share')).toBeVisible();
   });
 
-  test('0.12.2 — Clic partage ajoute la classe is-copied et l\'icône check', async ({ page }) => {
+  test('0.12.2 - Clic partage ajoute la classe is-copied et l\'icône check', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
 
@@ -677,7 +677,7 @@ test.describe('0.12 — Fiche : partage', () => {
     await expect(btn).toHaveClass(/is-copied/);
   });
 
-  test('0.12.3 — Après 2s, l\'icône revient à fa-link', async ({ page }) => {
+  test('0.12.3 - Après 2s, l\'icône revient à fa-link', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await page.context().grantPermissions(['clipboard-write', 'clipboard-read']);
@@ -692,11 +692,11 @@ test.describe('0.12 — Fiche : partage', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.13 — Fiche : contenu principal (description, cover, prose)
+// 0.13 - Fiche : contenu principal (description, cover, prose)
 // ═════════════════════════════════════════════════════════
-test.describe('0.13 — Fiche : contenu principal', () => {
+test.describe('0.13 - Fiche : contenu principal', () => {
 
-  test('0.13.1 — Le bloc description est affiché ou masqué correctement', async ({ page }) => {
+  test('0.13.1 - Le bloc description est affiché ou masqué correctement', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     // Attendre que l'init async (branding + DataModule) soit terminé et que
@@ -719,7 +719,7 @@ test.describe('0.13 — Fiche : contenu principal', () => {
     // Si masqué, c'est que le markdown prend le relais → ok
   });
 
-  test('0.13.2 — La photo de couverture est affichée si disponible', async ({ page }) => {
+  test('0.13.2 - La photo de couverture est affichée si disponible', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const coverBlock = page.locator('#fv2-cover-block');
@@ -732,7 +732,7 @@ test.describe('0.13 — Fiche : contenu principal', () => {
     }
   });
 
-  test('0.13.3 — Le bouton expand cover est présent si cover affichée', async ({ page }) => {
+  test('0.13.3 - Le bouton expand cover est présent si cover affichée', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const coverBlock = page.locator('#fv2-cover-block');
@@ -742,7 +742,7 @@ test.describe('0.13 — Fiche : contenu principal', () => {
     }
   });
 
-  test('0.13.4 — Le bloc prose est affiché si markdown disponible', async ({ page }) => {
+  test('0.13.4 - Le bloc prose est affiché si markdown disponible', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     // Wait a bit for markdown to load asynchronously
@@ -756,7 +756,7 @@ test.describe('0.13 — Fiche : contenu principal', () => {
     }
   });
 
-  test('0.13.5 — Le topbar title contient le nom du projet', async ({ page }) => {
+  test('0.13.5 - Le topbar title contient le nom du projet', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const topTitle = page.locator('#fv2-topbar-title');
@@ -764,7 +764,7 @@ test.describe('0.13 — Fiche : contenu principal', () => {
     expect(text).toBe(VALID_PROJECT_NAME);
   });
 
-  test('0.13.6 — La cover image a un alt = nom du projet', async ({ page }) => {
+  test('0.13.6 - La cover image a un alt = nom du projet', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     let loaded = false;
     try {
@@ -782,11 +782,11 @@ test.describe('0.13 — Fiche : contenu principal', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.14 — Fiche : sidebar (aside)
+// 0.14 - Fiche : sidebar (aside)
 // ═════════════════════════════════════════════════════════
-test.describe('0.14 — Fiche : sidebar', () => {
+test.describe('0.14 - Fiche : sidebar', () => {
 
-  test('0.14.1 — Le brand card est affiché si branding ville existe', async ({ page }) => {
+  test('0.14.1 - Le brand card est affiché si branding ville existe', async ({ page }) => {
     test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville non disponible');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     // Attendre le branding async
@@ -803,7 +803,7 @@ test.describe('0.14 — Fiche : sidebar', () => {
     }
   });
 
-  test('0.14.2 — Le link card est affiché si official_url existe', async ({ page }) => {
+  test('0.14.2 - Le link card est affiché si official_url existe', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const linkCard = page.locator('#fv2-link-card');
@@ -821,7 +821,7 @@ test.describe('0.14 — Fiche : sidebar', () => {
     }
   });
 
-  test('0.14.3 — Le docs card est affiché si documents existent', async ({ page }) => {
+  test('0.14.3 - Le docs card est affiché si documents existent', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const docsCard = page.locator('#fv2-docs-card');
@@ -838,7 +838,7 @@ test.describe('0.14 — Fiche : sidebar', () => {
     }
   });
 
-  test('0.14.4 — Le topbar logo s\'affiche après chargement du branding', async ({ page }) => {
+  test('0.14.4 - Le topbar logo s\'affiche après chargement du branding', async ({ page }) => {
     test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville non disponible');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     // Attendre le branding
@@ -858,7 +858,7 @@ test.describe('0.14 — Fiche : sidebar', () => {
     }
   });
 
-  test('0.14.5 — Le lien officiel a un favicon Google', async ({ page }) => {
+  test('0.14.5 - Le lien officiel a un favicon Google', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const linkCard = page.locator('#fv2-link-card');
@@ -871,11 +871,11 @@ test.describe('0.14 — Fiche : sidebar', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.15 — Fiche : lightbox
+// 0.15 - Fiche : lightbox
 // ═════════════════════════════════════════════════════════
-test.describe('0.15 — Fiche : lightbox', () => {
+test.describe('0.15 - Fiche : lightbox', () => {
 
-  test('0.15.1 — Lightbox est fermée par défaut', async ({ page }) => {
+  test('0.15.1 - Lightbox est fermée par défaut', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const lb = page.locator('#fv2-lightbox');
@@ -883,7 +883,7 @@ test.describe('0.15 — Fiche : lightbox', () => {
     await expect(lb).not.toHaveClass(/is-open/);
   });
 
-  test('0.15.2 — Clic sur la cover ouvre la lightbox', async ({ page }) => {
+  test('0.15.2 - Clic sur la cover ouvre la lightbox', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const coverBlock = page.locator('#fv2-cover-block');
@@ -901,7 +901,7 @@ test.describe('0.15 — Fiche : lightbox', () => {
     expect(src).toBeTruthy();
   });
 
-  test('0.15.3 — Clic sur le bouton ferme la lightbox', async ({ page }) => {
+  test('0.15.3 - Clic sur le bouton ferme la lightbox', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const coverBlock = page.locator('#fv2-cover-block');
@@ -918,7 +918,7 @@ test.describe('0.15 — Fiche : lightbox', () => {
     await expect(page.locator('#fv2-lightbox')).not.toHaveClass(/is-open/, { timeout: 2000 });
   });
 
-  test('0.15.4 — Escape ferme la lightbox', async ({ page }) => {
+  test('0.15.4 - Escape ferme la lightbox', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const coverBlock = page.locator('#fv2-cover-block');
@@ -933,7 +933,7 @@ test.describe('0.15 — Fiche : lightbox', () => {
     await expect(page.locator('#fv2-lightbox')).not.toHaveClass(/is-open/, { timeout: 2000 });
   });
 
-  test('0.15.5 — Ouvrir la lightbox bloque le scroll body', async ({ page }) => {
+  test('0.15.5 - Ouvrir la lightbox bloque le scroll body', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const coverBlock = page.locator('#fv2-cover-block');
@@ -955,7 +955,7 @@ test.describe('0.15 — Fiche : lightbox', () => {
     expect(overflowAfter).toBe('');
   });
 
-  test('0.15.6 — Clic sur le fond de la lightbox (hors image) la ferme', async ({ page }) => {
+  test('0.15.6 - Clic sur le fond de la lightbox (hors image) la ferme', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     let loaded = false;
     try {
@@ -981,11 +981,11 @@ test.describe('0.15 — Fiche : lightbox', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.16 — Fiche : overlay PDF
+// 0.16 - Fiche : overlay PDF
 // ═════════════════════════════════════════════════════════
-test.describe('0.16 — Fiche : overlay PDF', () => {
+test.describe('0.16 - Fiche : overlay PDF', () => {
 
-  test('0.16.1 — L\'overlay PDF est fermé par défaut', async ({ page }) => {
+  test('0.16.1 - L\'overlay PDF est fermé par défaut', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const ov = page.locator('#fv2-ov-pdf');
@@ -993,7 +993,7 @@ test.describe('0.16 — Fiche : overlay PDF', () => {
     await expect(ov).not.toHaveClass(/is-open/);
   });
 
-  test('0.16.2 — Clic sur l\'icône view d\'un doc ouvre l\'overlay PDF', async ({ page }) => {
+  test('0.16.2 - Clic sur l\'icône view d\'un doc ouvre l\'overlay PDF', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const docsCard = page.locator('#fv2-docs-card');
@@ -1016,7 +1016,7 @@ test.describe('0.16 — Fiche : overlay PDF', () => {
     expect(src).toBeTruthy();
   });
 
-  test('0.16.3 — Bouton fermer de l\'overlay PDF le ferme', async ({ page }) => {
+  test('0.16.3 - Bouton fermer de l\'overlay PDF le ferme', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const docsCard = page.locator('#fv2-docs-card');
@@ -1035,11 +1035,11 @@ test.describe('0.16 — Fiche : overlay PDF', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.17 — Fiche : projets similaires (related)
+// 0.17 - Fiche : projets similaires (related)
 // ═════════════════════════════════════════════════════════
-test.describe('0.17 — Fiche : projets similaires', () => {
+test.describe('0.17 - Fiche : projets similaires', () => {
 
-  test('0.17.1 — Le bloc related est affiché si des projets similaires existent', async ({ page }) => {
+  test('0.17.1 - Le bloc related est affiché si des projets similaires existent', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await waitForRelated(page);
@@ -1053,7 +1053,7 @@ test.describe('0.17 — Fiche : projets similaires', () => {
     }
   });
 
-  test('0.17.2 — Les cards related ont un lien vers /fiche/', async ({ page }) => {
+  test('0.17.2 - Les cards related ont un lien vers /fiche/', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await waitForRelated(page);
@@ -1070,7 +1070,7 @@ test.describe('0.17 — Fiche : projets similaires', () => {
     expect(href).toMatch(/^\/fiche\/[^/]+\/[^/]+\/[^/]+$/);
   });
 
-  test('0.17.3 — Les cards related contiennent le nom du projet', async ({ page }) => {
+  test('0.17.3 - Les cards related contiennent le nom du projet', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await waitForRelated(page);
@@ -1085,7 +1085,7 @@ test.describe('0.17 — Fiche : projets similaires', () => {
     expect(text.trim().length).toBeGreaterThan(0);
   });
 
-  test('0.17.4 — Les cards related conservent la ville dans le href', async ({ page }) => {
+  test('0.17.4 - Les cards related conservent la ville dans le href', async ({ page }) => {
     test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville non disponible');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await waitForRelated(page);
@@ -1102,7 +1102,7 @@ test.describe('0.17 — Fiche : projets similaires', () => {
     expect(href).toContain(VALID_CITY);
   });
 
-  test('0.17.5 — Les cards related n\'incluent pas le projet actuel', async ({ page }) => {
+  test('0.17.5 - Les cards related n\'incluent pas le projet actuel', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await waitForRelated(page);
@@ -1120,17 +1120,17 @@ test.describe('0.17 — Fiche : projets similaires', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.18 — Fiche : topbar scroll
+// 0.18 - Fiche : topbar scroll
 // ═════════════════════════════════════════════════════════
-test.describe('0.18 — Fiche : topbar scroll', () => {
+test.describe('0.18 - Fiche : topbar scroll', () => {
 
-  test('0.18.1 — La topbar n\'a pas la classe is-scrolled au chargement', async ({ page }) => {
+  test('0.18.1 - La topbar n\'a pas la classe is-scrolled au chargement', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await expect(page.locator('#fv2-topbar')).not.toHaveClass(/is-scrolled/);
   });
 
-  test('0.18.2 — Après scroll la topbar a la classe is-scrolled', async ({ page }) => {
+  test('0.18.2 - Après scroll la topbar a la classe is-scrolled', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     // Scroller au-delà de la hauteur du héro
@@ -1147,11 +1147,11 @@ test.describe('0.18 — Fiche : topbar scroll', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.19 — Fiche : gestion des paramètres URL
+// 0.19 - Fiche : gestion des paramètres URL
 // ═════════════════════════════════════════════════════════
-test.describe('0.19 — Fiche : paramètres URL', () => {
+test.describe('0.19 - Fiche : paramètres URL', () => {
 
-  test('0.19.1 — L’URL comporte toujours les 3 segments ville/cat/slug', async ({ page }) => {
+  test('0.19.1 - L’URL comporte toujours les 3 segments ville/cat/slug', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     const url = ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY);
     // Le format doit être /fiche/{ville}/{catSlug}/{projSlug}
@@ -1161,14 +1161,14 @@ test.describe('0.19 — Fiche : paramètres URL', () => {
     await expect(page.locator('.fv2-hero__title')).toBeVisible();
   });
 
-  test('0.19.2 — La ville figure toujours dans l’URL de la fiche', async ({ page }) => {
+  test('0.19.2 - La ville figure toujours dans l’URL de la fiche', async ({ page }) => {
     test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville non disponible');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     // La page doit se charger normalement
     await expect(page.locator('.fv2-hero__title')).toBeVisible();
   });
 
-  test('0.19.3 — URL avec slug non trouvé affiche erreur (pas de crash)', async ({ page }) => {
+  test('0.19.3 - URL avec slug non trouvé affiche erreur (pas de crash)', async ({ page }) => {
     // Un slug qui ne correspond à aucun projet
     await page.goto('/fiche/test-xyz/velo/projet-avec-espaces-xyz', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(
@@ -1188,47 +1188,47 @@ test.describe('0.19 — Fiche : paramètres URL', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.20 — Fiche : accessibilité
+// 0.20 - Fiche : accessibilité
 // ═════════════════════════════════════════════════════════
-test.describe('0.20 — Fiche : accessibilité', () => {
+test.describe('0.20 - Fiche : accessibilité', () => {
 
-  test('0.20.1 — Le bouton retour a un aria-label', async ({ page }) => {
+  test('0.20.1 - Le bouton retour a un aria-label', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await expect(page.locator('#fv2-btn-back')).toHaveAttribute('aria-label', 'Retour à la carte');
   });
 
-  test('0.20.2 — Le bouton thème a un aria-label', async ({ page }) => {
+  test('0.20.2 - Le bouton thème a un aria-label', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await expect(page.locator('#fv2-btn-theme')).toHaveAttribute('aria-label', 'Changer le thème');
   });
 
-  test('0.20.3 — Le bouton partage a un aria-label', async ({ page }) => {
+  test('0.20.3 - Le bouton partage a un aria-label', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await expect(page.locator('#fv2-btn-share')).toHaveAttribute('aria-label', 'Copier le lien');
   });
 
-  test('0.20.4 — La lightbox a aria-hidden=true par défaut', async ({ page }) => {
+  test('0.20.4 - La lightbox a aria-hidden=true par défaut', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await expect(page.locator('#fv2-lightbox')).toHaveAttribute('aria-hidden', 'true');
   });
 
-  test('0.20.5 — L\'overlay PDF a aria-hidden=true par défaut', async ({ page }) => {
+  test('0.20.5 - L\'overlay PDF a aria-hidden=true par défaut', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await expect(page.locator('#fv2-ov-pdf')).toHaveAttribute('aria-hidden', 'true');
   });
 
-  test('0.20.6 — La page a le lang=fr', async ({ page }) => {
+  test('0.20.6 - La page a le lang=fr', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
   });
 
-  test('0.20.7 — Le bouton expand cover a un aria-label', async ({ page }) => {
+  test('0.20.7 - Le bouton expand cover a un aria-label', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const btn = page.locator('#fv2-btn-cover-expand');
@@ -1237,7 +1237,7 @@ test.describe('0.20 — Fiche : accessibilité', () => {
     }
   });
 
-  test('0.20.8 — Les boutons close des overlays ont aria-label', async ({ page }) => {
+  test('0.20.8 - Les boutons close des overlays ont aria-label', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const pdfClose = page.locator('#fv2-ov-pdf .fv2-overlay__close');
@@ -1248,11 +1248,11 @@ test.describe('0.20 — Fiche : accessibilité', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.21 — Fiche : noscript
+// 0.21 - Fiche : noscript
 // ═════════════════════════════════════════════════════════
-test.describe('0.21 — Fiche : noscript', () => {
+test.describe('0.21 - Fiche : noscript', () => {
 
-  test('0.21.1 — Le fallback noscript est dans le HTML', async ({ page }) => {
+  test('0.21.1 - Le fallback noscript est dans le HTML', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     const response = await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const html = await response.text();
@@ -1262,11 +1262,11 @@ test.describe('0.21 — Fiche : noscript', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.22 — Fiche : navigation vers related
+// 0.22 - Fiche : navigation vers related
 // ═════════════════════════════════════════════════════════
-test.describe('0.22 — Fiche : navigation', () => {
+test.describe('0.22 - Fiche : navigation', () => {
 
-  test('0.22.1 — Clic sur un related card navigue vers une autre fiche', async ({ page }) => {
+  test('0.22.1 - Clic sur un related card navigue vers une autre fiche', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await waitForRelated(page);
@@ -1289,7 +1289,7 @@ test.describe('0.22 — Fiche : navigation', () => {
     expect(segments[3]).not.toBe(VALID_PROJECT);
   });
 
-  test('0.22.2 — Le bouton retour a un href valide vers la carte', async ({ page }) => {
+  test('0.22.2 - Le bouton retour a un href valide vers la carte', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const btn = page.locator('#fv2-btn-back');
@@ -1302,11 +1302,11 @@ test.describe('0.22 — Fiche : navigation', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.23 — Fiche : sécurité
+// 0.23 - Fiche : sécurité
 // ═════════════════════════════════════════════════════════
-test.describe('0.23 — Fiche : sécurité', () => {
+test.describe('0.23 - Fiche : sécurité', () => {
 
-  test('0.23.1 — Le link card a rel=noopener noreferrer', async ({ page }) => {
+  test('0.23.1 - Le link card a rel=noopener noreferrer', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const linkCard = page.locator('#fv2-link-card');
@@ -1318,7 +1318,7 @@ test.describe('0.23 — Fiche : sécurité', () => {
     }
   });
 
-  test('0.23.2 — Le contenu du titre est échappé (pas de HTML brut)', async ({ page }) => {
+  test('0.23.2 - Le contenu du titre est échappé (pas de HTML brut)', async ({ page }) => {
     // Tenter un nom de projet avec injection
     await page.goto('/fiche/test-xyz/velo/script-alert-1', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(
@@ -1338,7 +1338,7 @@ test.describe('0.23 — Fiche : sécurité', () => {
     expect(hasScript).toBe(false);
   });
 
-  test('0.23.3 — Les documents ont target=_blank avec noopener', async ({ page }) => {
+  test('0.23.3 - Les documents ont target=_blank avec noopener', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const docsCard = page.locator('#fv2-docs-card');
@@ -1355,7 +1355,7 @@ test.describe('0.23 — Fiche : sécurité', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.24 — Fiche : hydratation client (régression)
+// 0.24 - Fiche : hydratation client (régression)
 //
 // Ces tests ciblent spécifiquement le cas où le SSR injecte
 // du contenu mais où l'hydratation JS échoue silencieusement
@@ -1364,9 +1364,9 @@ test.describe('0.23 — Fiche : sécurité', () => {
 // autres blocs sont gardées par `if (!isHidden)` qui passe dès
 // que le bloc n'a pas été révélé par le code client.
 // ═════════════════════════════════════════════════════════
-test.describe('0.24 — Fiche : hydratation client (régression)', () => {
+test.describe('0.24 - Fiche : hydratation client (régression)', () => {
 
-  test('0.24.1 — Aucune exception console lors de l\'init (fetch projet)', async ({ page }) => {
+  test('0.24.1 - Aucune exception console lors de l\'init (fetch projet)', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     const consoleErrors = [];
     page.on('console', m => {
@@ -1384,7 +1384,7 @@ test.describe('0.24 — Fiche : hydratation client (régression)', () => {
     expect(consoleErrors, `Exceptions rencontrées : ${consoleErrors.join(' | ')}`).toHaveLength(0);
   });
 
-  test('0.24.2 — Le SSR est masqué (is-hydrated) après boot réussi', async ({ page }) => {
+  test('0.24.2 - Le SSR est masqué (is-hydrated) après boot réussi', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     // Attendre que le flag d'hydratation soit posé
@@ -1398,7 +1398,7 @@ test.describe('0.24 — Fiche : hydratation client (régression)', () => {
     expect(hydrated).toBe(true);
   });
 
-  test('0.24.3 — Le hero client (non-SSR) est rendu avec titre non vide', async ({ page }) => {
+  test('0.24.3 - Le hero client (non-SSR) est rendu avec titre non vide', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const title = page.locator('#fv2-hero .fv2-hero__title');
@@ -1409,7 +1409,7 @@ test.describe('0.24 — Fiche : hydratation client (régression)', () => {
     expect(text).toBe(VALID_PROJECT_NAME);
   });
 
-  test('0.24.4 — fetchProjectBySlug retourne un objet (pas de throw)', async ({ page }) => {
+  test('0.24.4 - fetchProjectBySlug retourne un objet (pas de throw)', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await page.goto(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY), { waitUntil: 'domcontentloaded' });
     // Attendre que supabaseService soit dispo
@@ -1427,7 +1427,7 @@ test.describe('0.24 — Fiche : hydratation client (régression)', () => {
     expect(result.projectName).toBe(VALID_PROJECT_NAME);
   });
 
-  test('0.24.5 — Les blocs principaux sont révélés (non-hidden) après hydratation', async ({ page }) => {
+  test('0.24.5 - Les blocs principaux sont révélés (non-hidden) après hydratation', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     // Attente du pipeline complet (branding + docs + markdown)
@@ -1454,7 +1454,7 @@ test.describe('0.24 — Fiche : hydratation client (régression)', () => {
     expect(state.mapHasCanvas, 'La carte MapLibre n\'a pas été initialisée').toBe(true);
   });
 
-  test('0.24.6 — L\'ordre DOM est : hero → main (desc/cover/prose) → related', async ({ page }) => {
+  test('0.24.6 - L\'ordre DOM est : hero → main (desc/cover/prose) → related', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     // Vérifie l'ordre DOM source (pas visuel)
@@ -1478,9 +1478,9 @@ test.describe('0.24 — Fiche : hydratation client (régression)', () => {
     }
   });
 
-  test('0.24.7 — Les documents sont requêtés avec le nom réel du projet, pas le slug d\'URL', async ({ page }) => {
+  test('0.24.7 - Les documents sont requêtés avec le nom réel du projet, pas le slug d\'URL', async ({ page }) => {
     test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
-    test.skip(VALID_PROJECT_NAME === VALID_SLUG, 'Nom et slug identiques — test non discriminant');
+    test.skip(VALID_PROJECT_NAME === VALID_SLUG, 'Nom et slug identiques - test non discriminant');
     // Régression : depuis les URLs /fiche/{ville}/{cat}/{slug}, le fetch des
     // dossiers passait le slug d'URL alors que consultation_dossiers matche
     // sur le project_name exact → les documents ne s'affichaient plus jamais.
@@ -1496,11 +1496,11 @@ test.describe('0.24 — Fiche : hydratation client (régression)', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.28 — Fiche → hub ville : recâblage du flow (§1)
+// 0.28 - Fiche → hub ville : recâblage du flow (§1)
 // ═════════════════════════════════════════════════════════
-test.describe('0.28 — Fiche → hub ville', () => {
+test.describe('0.28 - Fiche → hub ville', () => {
 
-  test('0.28.1 — Le fil d\'Ariane SSR pointe vers le hub de la ville', async ({ page }) => {
+  test('0.28.1 - Le fil d\'Ariane SSR pointe vers le hub de la ville', async ({ page }) => {
     test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville indisponible');
     const response = await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const html = await response.text();
@@ -1510,7 +1510,7 @@ test.describe('0.28 — Fiche → hub ville', () => {
     expect(bc).toContain(`/ville/${VALID_CITY}#c=${VALID_CAT_SLUG}`);
   });
 
-  test('0.28.2 — Le JSON-LD BreadcrumbList remonte vers /ville/{ville}', async ({ page }) => {
+  test('0.28.2 - Le JSON-LD BreadcrumbList remonte vers /ville/{ville}', async ({ page }) => {
     test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville indisponible');
     const response = await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const html = await response.text();
@@ -1520,7 +1520,7 @@ test.describe('0.28 — Fiche → hub ville', () => {
     expect(ld).not.toContain('/?city=');
   });
 
-  test('0.28.3 — Le SSR contient un lien « Tous les projets de la ville »', async ({ page }) => {
+  test('0.28.3 - Le SSR contient un lien « Tous les projets de la ville »', async ({ page }) => {
     test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville indisponible');
     const response = await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const html = await response.text();
@@ -1529,7 +1529,7 @@ test.describe('0.28 — Fiche → hub ville', () => {
     expect(hub).toContain(`href="/ville/${VALID_CITY}"`);
   });
 
-  test('0.28.4 — La brand card expose un lien vers le hub après hydratation', async ({ page }) => {
+  test('0.28.4 - La brand card expose un lien vers le hub après hydratation', async ({ page }) => {
     test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville indisponible');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     await page.waitForTimeout(3000); // branding async
@@ -1540,7 +1540,7 @@ test.describe('0.28 — Fiche → hub ville', () => {
     expect(await hub.getAttribute('href')).toBe(`/ville/${VALID_CITY}`);
   });
 
-  test('0.28.5 — Retour contextuel : une fiche ouverte depuis le hub revient au hub', async ({ page }) => {
+  test('0.28.5 - Retour contextuel : une fiche ouverte depuis le hub revient au hub', async ({ page }) => {
     test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville indisponible');
     // Le referrer /ville/... doit ramener au hub (filtre compris) plutôt qu'à la carte
     await page.goto(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY), {
@@ -1552,7 +1552,7 @@ test.describe('0.28 — Fiche → hub ville', () => {
     expect(href).toContain(`/ville/${VALID_CITY}`);
   });
 
-  test('0.28.6 — Sans referrer hub, le retour mène toujours à la carte', async ({ page }) => {
+  test('0.28.6 - Sans referrer hub, le retour mène toujours à la carte', async ({ page }) => {
     test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville indisponible');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const href = await page.locator('#fv2-btn-back').getAttribute('href');

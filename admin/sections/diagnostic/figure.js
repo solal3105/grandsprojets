@@ -1,5 +1,5 @@
 /**
- * Diagnostic terrain — figure cartographique du rapport.
+ * Diagnostic terrain - figure cartographique du rapport.
  *
  * Rend un « plan de zone » sur une carte MapLibre éphémère, hors écran, puis
  * compose l'habillage au canvas 2D. La carte de l'utilisateur n'est jamais
@@ -26,7 +26,7 @@ const VEIL = 'rgba(255,255,255,0.58)';
 
 /**
  * Style dédié : uniquement le fond, dégrisé. Aucune couche de données ne peut
- * y entrer par effet de bord — ni heatmap, ni bâtiments 3D, ni survol.
+ * y entrer par effet de bord - ni heatmap, ni bâtiments 3D, ni survol.
  */
 function _figureStyle() {
   return {
@@ -147,7 +147,7 @@ function _drawNorth(ctx, w, k) {
   ctx.restore();
 }
 
-/** Attribution — obligation de licence dès qu'on diffuse une image du fond. */
+/** Attribution - obligation de licence dès qu'on diffuse une image du fond. */
 function _drawAttribution(ctx, w, h, k, text) {
   ctx.save();
   ctx.scale(k, k);
@@ -219,7 +219,7 @@ function _drawPoints(ctx, map, features, w, h, k, { radius = 4.4, context = fals
   ctx.restore();
 }
 
-/** Points des couches visibles hors sélection — le contexte de la zone. */
+/** Points des couches visibles hors sélection - le contexte de la zone. */
 function _contextFeatures(selected) {
   const taken = new Set(selected.map((f) => `${f.__layerId}|${f.__pt?.join(',')}`));
   const out = [];

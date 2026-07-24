@@ -14,7 +14,7 @@ async function waitForBoot(page, path = '/admin/') {
  */
 async function goToStructure(page) {
   await waitForBoot(page, '/admin/structure/');
-  // _renderContent replaces #structure-body entirely — wait for the actual form to appear
+  // _renderContent replaces #structure-body entirely - wait for the actual form to appear
   await page.waitForSelector('#st-brand-name', { state: 'visible', timeout: 15000 });
 }
 
@@ -28,17 +28,17 @@ const clearToasts = (page) =>
   page.evaluate(() => document.querySelectorAll('.adm-toast').forEach(t => t.remove()));
 
 // ─────────────────────────────────────────────────────────
-// 6.1 — Affichage
+// 6.1 - Affichage
 // ─────────────────────────────────────────────────────────
-test.describe('6.1 — Affichage', () => {
+test.describe('6.1 - Affichage', () => {
 
-  test('6.1.1 — Page chargée avec titre et sous-titre', async ({ page }) => {
+  test('6.1.1 - Page chargée avec titre et sous-titre', async ({ page }) => {
     await goToStructure(page);
     await expect(page.locator('.cw-header__title')).toContainText('Ma structure');
     await expect(page.locator('.cw-header__subtitle')).toContainText('test-e2e');
   });
 
-  test('6.1.2 — Section identité : brand name pré-rempli', async ({ page }) => {
+  test('6.1.2 - Section identité : brand name pré-rempli', async ({ page }) => {
     await goToStructure(page);
     const brandName = page.locator('#st-brand-name');
     await expect(brandName).toBeVisible();
@@ -47,16 +47,16 @@ test.describe('6.1 — Affichage', () => {
     expect(val.length).toBeGreaterThan(0);
   });
 
-  test('6.1.3 — Code ville en lecture seule (disabled)', async ({ page }) => {
+  test('6.1.3 - Code ville en lecture seule (disabled)', async ({ page }) => {
     await goToStructure(page);
-    // City code input is disabled — it's the second .cw-field__input in the identity section
+    // City code input is disabled - it's the second .cw-field__input in the identity section
     const disabledInput = page.locator('.cw-field__input[disabled]');
     await expect(disabledInput).toBeVisible();
     await expect(disabledInput).toBeDisabled();
     await expect(disabledInput).toHaveValue('test-e2e');
   });
 
-  test('6.1.4 — Logos : dropzone ou preview visible pour chaque type', async ({ page }) => {
+  test('6.1.4 - Logos : dropzone ou preview visible pour chaque type', async ({ page }) => {
     await goToStructure(page);
     for (const prefix of ['st-logo', 'st-dark-logo', 'st-favicon']) {
       const drop = page.locator(`#${prefix}-drop`);
@@ -68,7 +68,7 @@ test.describe('6.1 — Affichage', () => {
     }
   });
 
-  test('6.1.5 — Color picker et hex input synchronisés', async ({ page }) => {
+  test('6.1.5 - Color picker et hex input synchronisés', async ({ page }) => {
     await goToStructure(page);
     await expect(page.locator('#st-color-picker')).toBeVisible();
     await expect(page.locator('#st-color-text')).toBeVisible();
@@ -78,12 +78,12 @@ test.describe('6.1 — Affichage', () => {
     expect(pickerVal).toBe(textVal);
   });
 
-  test('6.1.6 — Aperçu badge et bouton couleur', async ({ page }) => {
+  test('6.1.6 - Aperçu badge et bouton couleur', async ({ page }) => {
     await goToStructure(page);
     await expect(page.locator('#st-color-preview')).toBeVisible();
   });
 
-  test('6.1.7 — Basemap selector peuplé', async ({ page }) => {
+  test('6.1.7 - Basemap selector peuplé', async ({ page }) => {
     await goToStructure(page);
     const select = page.locator('#st-basemap');
     await expect(select).toBeVisible();
@@ -91,7 +91,7 @@ test.describe('6.1 — Affichage', () => {
     expect(optionCount).toBeGreaterThanOrEqual(1); // At least "Défaut global"
   });
 
-  test('6.1.8 — Toggles UI chargés depuis la base', async ({ page }) => {
+  test('6.1.8 - Toggles UI chargés depuis la base', async ({ page }) => {
     await goToStructure(page);
     const toggles = page.locator('.st-toggle-row');
     const count = await toggles.count();
@@ -101,14 +101,14 @@ test.describe('6.1 — Affichage', () => {
     await expect(toggles.first().locator('.adm-switch__track')).toBeVisible();
   });
 
-  test('6.1.9 — Espaces activés avec chips et input ajout', async ({ page }) => {
+  test('6.1.9 - Espaces activés avec chips et input ajout', async ({ page }) => {
     await goToStructure(page);
     await expect(page.locator('#st-enabled-cities')).toBeVisible();
     await expect(page.locator('#st-add-city-input')).toBeVisible();
     await expect(page.locator('#st-add-city-btn')).toBeVisible();
   });
 
-  test('6.1.10 — Basemap selector : sélection et au moins 1 option', async ({ page }) => {
+  test('6.1.10 - Basemap selector : sélection et au moins 1 option', async ({ page }) => {
     await goToStructure(page);
     const select = page.locator('#st-basemap');
     await expect(select).toBeVisible();
@@ -129,11 +129,11 @@ test.describe('6.1 — Affichage', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 6.2 — Modifications
+// 6.2 - Modifications
 // ─────────────────────────────────────────────────────────
-test.describe('6.2 — Modifications', () => {
+test.describe('6.2 - Modifications', () => {
 
-  test('6.2.1 — Saisir un hex valide → picker se synchronise', async ({ page }) => {
+  test('6.2.1 - Saisir un hex valide → picker se synchronise', async ({ page }) => {
     await goToStructure(page);
     const textInput = page.locator('#st-color-text');
     const picker = page.locator('#st-color-picker');
@@ -145,7 +145,7 @@ test.describe('6.2 — Modifications', () => {
     expect(pickerVal.toUpperCase()).toBe('#FF0000');
   });
 
-  test('6.2.2 — Aperçu couleur se met à jour', async ({ page }) => {
+  test('6.2.2 - Aperçu couleur se met à jour', async ({ page }) => {
     await goToStructure(page);
     const textInput = page.locator('#st-color-text');
 
@@ -160,7 +160,7 @@ test.describe('6.2 — Modifications', () => {
     expect(bg).toBeTruthy();
   });
 
-  test('6.2.3 — Toggle switch change d\'état au clic sur la ligne', async ({ page }) => {
+  test('6.2.3 - Toggle switch change d\'état au clic sur la ligne', async ({ page }) => {
     await goToStructure(page);
     const rows = page.locator('.st-toggle-row:not(.st-toggle-row--disabled)');
     const count = await rows.count();
@@ -181,7 +181,7 @@ test.describe('6.2 — Modifications', () => {
     expect(await checkbox.isChecked()).toBe(wasChecked);
   });
 
-  test('6.2.4 — Ajouter un espace → chip créée', async ({ page }) => {
+  test('6.2.4 - Ajouter un espace → chip créée', async ({ page }) => {
     await goToStructure(page);
     const input = page.locator('#st-add-city-input');
     const btn = page.locator('#st-add-city-btn');
@@ -195,7 +195,7 @@ test.describe('6.2 — Modifications', () => {
     await expect(input).toHaveValue('');
   });
 
-  test('6.2.5 — Code invalide → nettoyé en minuscules/tirets', async ({ page }) => {
+  test('6.2.5 - Code invalide → nettoyé en minuscules/tirets', async ({ page }) => {
     await goToStructure(page);
     const input = page.locator('#st-add-city-input');
     const btn = page.locator('#st-add-city-btn');
@@ -208,7 +208,7 @@ test.describe('6.2 — Modifications', () => {
     await expect(container.locator('.st-city-chip', { hasText: 'ma-ville-test' })).toBeVisible();
   });
 
-  test('6.2.6 — Ajouter un espace en double → toast warning', async ({ page }) => {
+  test('6.2.6 - Ajouter un espace en double → toast warning', async ({ page }) => {
     await goToStructure(page);
     const input = page.locator('#st-add-city-input');
     const btn = page.locator('#st-add-city-btn');
@@ -222,7 +222,7 @@ test.describe('6.2 — Modifications', () => {
     await expect(warningToast(page, 'Espace déjà ajouté')).toBeVisible({ timeout: 5000 });
   });
 
-  test('6.2.7 — Supprimer un chip de ville (×)', async ({ page }) => {
+  test('6.2.7 - Supprimer un chip de ville (×)', async ({ page }) => {
     await goToStructure(page);
     const input = page.locator('#st-add-city-input');
     const btn = page.locator('#st-add-city-btn');
@@ -238,7 +238,7 @@ test.describe('6.2 — Modifications', () => {
     await expect(container.locator('.st-city-chip', { hasText: TEST_CITY })).toHaveCount(0);
   });
 
-  test('6.2.8 — Ajouter un espace via Enter', async ({ page }) => {
+  test('6.2.8 - Ajouter un espace via Enter', async ({ page }) => {
     await goToStructure(page);
     const input = page.locator('#st-add-city-input');
     const container = page.locator('#st-enabled-cities');
@@ -250,14 +250,14 @@ test.describe('6.2 — Modifications', () => {
     await expect(container.locator('.st-city-chip', { hasText: TEST_CITY })).toBeVisible();
   });
 
-  test('6.2.9 — Upload logo → preview affichée', async ({ page }) => {
+  test('6.2.9 - Upload logo → preview affichée', async ({ page }) => {
     await goToStructure(page);
     const preview = page.locator('#st-logo-preview');
 
     // If there's already a preview (logo already uploaded), skip the upload
     const previewVisible = await preview.isVisible().catch(() => false);
     if (previewVisible) {
-      // Logo already exists — verify preview has an image
+      // Logo already exists - verify preview has an image
       await expect(page.locator('#st-logo-img')).toBeVisible();
       return;
     }
@@ -281,11 +281,11 @@ test.describe('6.2 — Modifications', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 6.3 — Sauvegarde
+// 6.3 - Sauvegarde
 // ─────────────────────────────────────────────────────────
-test.describe('6.3 — Sauvegarde', () => {
+test.describe('6.3 - Sauvegarde', () => {
 
-  test('6.3.1 — Couleur invalide → toast erreur, bouton re-activé', async ({ page }) => {
+  test('6.3.1 - Couleur invalide → toast erreur, bouton re-activé', async ({ page }) => {
     await goToStructure(page);
     // Set invalid hex
     await page.locator('#st-color-text').fill('GGGGGG');
@@ -297,7 +297,7 @@ test.describe('6.3 — Sauvegarde', () => {
     await expect(page.locator('#st-save-all')).toBeEnabled({ timeout: 3000 });
   });
 
-  test('6.3.2 — Sauvegarde valide → toast succès', async ({ page }) => {
+  test('6.3.2 - Sauvegarde valide → toast succès', async ({ page }) => {
     await goToStructure(page);
     // Store original values to re-save them unchanged
     const originalName = await page.locator('#st-brand-name').inputValue();
@@ -315,7 +315,7 @@ test.describe('6.3 — Sauvegarde', () => {
     await expect(page.locator('#st-save-all')).toBeEnabled({ timeout: 5000 });
   });
 
-  test('6.3.3 — Toast succès après sauvegarde', async ({ page }) => {
+  test('6.3.3 - Toast succès après sauvegarde', async ({ page }) => {
     await goToStructure(page);
     const originalColor = await page.locator('#st-color-text').inputValue();
     await page.locator('#st-color-text').fill(originalColor || '14AE5C');
@@ -324,7 +324,7 @@ test.describe('6.3 — Sauvegarde', () => {
     await clearToasts(page);
     // Click save and immediately check for spinner
     await page.locator('#st-save-all').click();
-    // Le spinner peut disparaître trop vite pour être capturé — on vérifie au moins le toast
+    // Le spinner peut disparaître trop vite pour être capturé - on vérifie au moins le toast
     // Even if we can't catch the spinner (too fast), the success toast should appear
     await expect(successToast(page, 'Structure mise à jour')).toBeVisible({ timeout: 15000 });
   });
@@ -332,16 +332,16 @@ test.describe('6.3 — Sauvegarde', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 6.4 — Sections supplémentaires
+// 6.4 - Sections supplémentaires
 // ─────────────────────────────────────────────────────────
-test.describe('6.4 — Sections supplémentaires', () => {
+test.describe('6.4 - Sections supplémentaires', () => {
 
-  test('6.4.1 — Sous-titre affiché avec code ville', async ({ page }) => {
+  test('6.4.1 - Sous-titre affiché avec code ville', async ({ page }) => {
     await goToStructure(page);
     await expect(page.locator('.cw-header__subtitle')).toContainText('test-e2e');
   });
 
-  test('6.4.2 — Champ ville (code) est readonly', async ({ page }) => {
+  test('6.4.2 - Champ ville (code) est readonly', async ({ page }) => {
     await goToStructure(page);
     const cityInput = page.locator('#st-city-code');
     if (await cityInput.count() > 0) {
@@ -351,7 +351,7 @@ test.describe('6.4 — Sections supplémentaires', () => {
     }
   });
 
-  test('6.4.3 — Section logo dropzone/preview visible', async ({ page }) => {
+  test('6.4.3 - Section logo dropzone/preview visible', async ({ page }) => {
     await goToStructure(page);
     // Either dropzone or preview should be visible (one or the other)
     const dropzone = page.locator('#st-logo-drop');
@@ -361,7 +361,7 @@ test.describe('6.4 — Sections supplémentaires', () => {
     expect(dropVisible || previewVisible).toBeTruthy();
   });
 
-  test('6.4.4 — Section favicon dropzone/preview visible', async ({ page }) => {
+  test('6.4.4 - Section favicon dropzone/preview visible', async ({ page }) => {
     await goToStructure(page);
     // Favicon section (if present in the form)
     const faviconDrop = page.locator('#st-favicon-drop');
@@ -375,7 +375,7 @@ test.describe('6.4 — Sections supplémentaires', () => {
     }
   });
 
-  test('6.4.5 — Bouton save-all visible et activé', async ({ page }) => {
+  test('6.4.5 - Bouton save-all visible et activé', async ({ page }) => {
     await goToStructure(page);
     const saveBtn = page.locator('#st-save-all');
     await expect(saveBtn).toBeVisible();

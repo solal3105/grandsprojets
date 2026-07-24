@@ -1,5 +1,5 @@
 // modules/sidebar.js
-// Sidebar controller — Level 1 module buttons (Carte / Travaux) + auth-aware bottom actions
+// Sidebar controller - Level 1 module buttons (Carte / Travaux) + auth-aware bottom actions
 // Delegates to NavPanel for Level 2/3 navigation.
 
 ;(function(win) {

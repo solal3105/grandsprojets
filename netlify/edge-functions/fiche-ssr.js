@@ -1,5 +1,5 @@
 /* ============================================================================
-   EDGE FUNCTION — Pré-rendu SEO des fiches projet
+   EDGE FUNCTION - Pré-rendu SEO des fiches projet
    
    Intercepte les requêtes GET sur /fiche/{ville}/{categorySlug}/{projSlug}
    et injecte côté serveur :
@@ -64,20 +64,20 @@ function stripMarkdown(text) {
    Sous-ensemble de ce que rend le client (marked + DOMPurify) : titres,
    gras/italique, liens, images, listes, citations, tableaux GFM et les
    directives ::content-image / ::banner. Tout le texte est échappé avant
-   parsing — le HTML brut éventuel du markdown est affiché comme texte,
+   parsing - le HTML brut éventuel du markdown est affiché comme texte,
    pas interprété (équivalent strict de la sanitisation côté client). */
 
 function safeUrl(url) {
   const u = String(url || '').trim();
   if (/^(https?:|mailto:|#)/i.test(u)) return u;
-  // Chemins relatifs au site — mais pas les URLs protocol-relative (//host)
+  // Chemins relatifs au site - mais pas les URLs protocol-relative (//host)
   if (u.startsWith('/') && !/^\/[/\\]/.test(u)) return u;
   return '';
 }
 
 function stripFrontMatter(rawMd) {
   const fm = rawMd.match(/^---\s*\r?\n([\s\S]*?)\r?\n---\s*/);
-  // Ne retirer le bloc que s'il ressemble à du YAML (clé: valeur) — un document
+  // Ne retirer le bloc que s'il ressemble à du YAML (clé: valeur) - un document
   // qui commence par un séparateur --- ne doit pas voir son intro avalée
   if (!fm || !/^\w+\s*:/m.test(fm[1])) return rawMd;
   return rawMd.slice(fm[0].length);
@@ -95,7 +95,7 @@ function extractDirectives(md, blocks) {
     const src = safeUrl(data.imageUrl);
     if (!src) return '';
     const caption = data.caption
-      ? `<figcaption>${escHtml(data.caption)}${data.credit ? ` – <em>${escHtml(data.credit)}</em>` : ''}</figcaption>`
+      ? `<figcaption>${escHtml(data.caption)}${data.credit ? ` - <em>${escHtml(data.credit)}</em>` : ''}</figcaption>`
       : '';
     blocks.push(`<figure class="content-image"><img src="${escAttr(src)}" alt="${escAttr(data.caption || '')}" loading="lazy">${caption}</figure>`);
     return `\n@@GPMD@@B${blocks.length - 1}@@GPMD@@\n`;
@@ -111,7 +111,7 @@ function extractDirectives(md, blocks) {
   return md;
 }
 
-/** Emphase seule (gras/italique) — underscores intra-mot ignorés, comme en GFM */
+/** Emphase seule (gras/italique) - underscores intra-mot ignorés, comme en GFM */
 function applyEmphasis(t) {
   t = t.replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, '<strong>$1</strong>');
   t = t.replace(/(^|[^\w_])__(?=\S)([\s\S]*?\S)__(?![\w_])/g, '$1<strong>$2</strong>');
@@ -127,10 +127,10 @@ function mdInline(t) {
   const stash = [];
   const put = (html) => `@@GPMD@@I${stash.push(html) - 1}@@GPMD@@`;
 
-  // 1. Code inline — contenu littéral, jamais retraité
+  // 1. Code inline - contenu littéral, jamais retraité
   t = t.replace(/`([^`]+)`/g, (_, code) => put(`<code>${code}</code>`));
 
-  // 2. Images puis liens — titre optionnel entre "…" ou '…' (échappés)
+  // 2. Images puis liens - titre optionnel entre "…" ou '…' (échappés)
   t = t.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+(?:&quot;|&#x27;)[^)]*(?:&quot;|&#x27;))?\)/g, (_, alt, src) => {
     const u = safeUrl(src);
     return u ? put(`<img src="${u}" alt="${alt}" loading="lazy">`) : alt;
@@ -140,7 +140,7 @@ function mdInline(t) {
     return u ? put(`<a href="${u}" rel="noopener noreferrer">${applyEmphasis(text)}</a>`) : text;
   });
 
-  // 3. Autolinks — URLs nues transformées en liens (comme marked gfm côté client)
+  // 3. Autolinks - URLs nues transformées en liens (comme marked gfm côté client)
   t = t.replace(/(^|[\s(])(https?:\/\/[^\s<]*[^\s<.,;:!?)])/g, (_, pre, url) =>
     `${pre}${put(`<a href="${url}" rel="noopener noreferrer">${url}</a>`)}`);
 
@@ -171,7 +171,7 @@ function renderTable(headerRow, bodyRows) {
 function mdToHtml(rawMd) {
   if (!rawMd) return '';
   const blocks = [];
-  // Normaliser les fins de ligne (CRLF → LF) puis neutraliser la sentinelle —
+  // Normaliser les fins de ligne (CRLF → LF) puis neutraliser la sentinelle -
   // en boucle, pour que des occurrences imbriquées ne se reforment pas
   let md = String(rawMd).replace(/\r\n?/g, '\n');
   let prev;
@@ -210,7 +210,7 @@ function mdToHtml(rawMd) {
     const ph = trimmed.match(/^@@GPMD@@B(\d+)@@GPMD@@$/);
     if (ph) { flushAll(); out.push(blocks[Number(ph[1])] || ''); continue; }
 
-    // Bloc de code fencé ``` — contenu littéral (déjà échappé), sans inline
+    // Bloc de code fencé ``` - contenu littéral (déjà échappé), sans inline
     if (/^(```|~~~)/.test(trimmed)) {
       flushAll();
       const fence = trimmed.slice(0, 3);
@@ -222,7 +222,7 @@ function mdToHtml(rawMd) {
       continue;
     }
 
-    // Titres — niveau décalé de +1 : le h1 de la page est le nom du projet
+    // Titres - niveau décalé de +1 : le h1 de la page est le nom du projet
     const h = trimmed.match(/^(#{1,6})\s+(.*)$/);
     if (h) {
       flushAll();
@@ -253,7 +253,7 @@ function mdToHtml(rawMd) {
       continue;
     }
 
-    // Listes — un niveau d'imbrication (item indenté d'au moins 2 espaces)
+    // Listes - un niveau d'imbrication (item indenté d'au moins 2 espaces)
     const ul = trimmed.match(/^[-*+]\s+(.*)$/);
     const ol = trimmed.match(/^\d+[.)]\s+(.*)$/);
     if (ul || ol) {
@@ -315,7 +315,7 @@ async function fetchCategoryLabel(category, ville) {
     const resp = await fetch(url.toString(), { headers: supaHeaders });
     if (!resp.ok) return humanizeCategory(category);
     const rows = await resp.json();
-    // La table n'a pas de colonne label — le nom de la catégorie EST le label
+    // La table n'a pas de colonne label - le nom de la catégorie EST le label
     // On retourne une version humanisée
     if (rows?.[0]?.category) return humanizeCategory(rows[0].category);
   } catch { /* fallback */ }
@@ -492,7 +492,7 @@ function buildSsrContentBlock(project, category, catLabel, related, cityBrand, s
 
   // Article complet si disponible (même logique que le client : la description
   // est masquée quand un markdown existe). .fv2-prose = typographie partagée
-  // avec le rendu client — ne pas créer de ruleset dédié.
+  // avec le rendu client - ne pas créer de ruleset dédié.
   if (articleHtml) {
     html += `
     <section class="fv2-ssr__article fv2-prose" itemprop="articleBody">
@@ -500,7 +500,7 @@ ${articleHtml}
     </section>`;
   }
   // Description en repli si pas d'article OU si l'article n'a aucune prose
-  // (ex : markdown réduit à une directive image) — ne jamais servir un bloc sans texte
+  // (ex : markdown réduit à une directive image) - ne jamais servir un bloc sans texte
   const articleText = articleHtml ? articleHtml.replace(/<[^>]*>/g, ' ').trim() : '';
   if (!articleText) {
     const desc = escHtml(stripMarkdown(project.description || ''));
@@ -526,7 +526,7 @@ ${articleHtml}
     </figure>`;
   }
 
-  // Projets liés — maillage interne (très important pour le SEO)
+  // Projets liés - maillage interne (très important pour le SEO)
   if (related && related.length > 0) {
     html += `
     <section>
@@ -540,14 +540,14 @@ ${articleHtml}
         : '/';
       const rDesc = r.description ? escHtml(truncate(r.description, 120)) : '';
       html += `
-        <li><a href="${escAttr(rHref)}">${rName}</a>${rDesc ? ` — ${rDesc}` : ''}</li>`;
+        <li><a href="${escAttr(rHref)}">${rName}</a>${rDesc ? ` - ${rDesc}` : ''}</li>`;
     }
     html += `
       </ul>
     </section>`;
   }
 
-  // Lien vers le hub de la ville — maillage interne fiche → hub
+  // Lien vers le hub de la ville - maillage interne fiche → hub
   if (ville) {
     html += `
     <nav class="fv2-ssr__hub" aria-label="Navigation ville">
@@ -583,7 +583,7 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
   // 1. <title>
   html = html.replace(
     /<title>[^<]*<\/title>/,
-    () => `<title>${escHtml(name)} – ${escHtml(catLabel)}${escHtml(titleSuffix)}</title>`
+    () => `<title>${escHtml(name)} - ${escHtml(catLabel)}${escHtml(titleSuffix)}</title>`
   );
 
   // 2. Meta description
@@ -592,7 +592,7 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
     (_, p1) => `${p1}${escAttr(metaDesc)}"`
   );
 
-  // 3. Open Graph — site_name dynamique (nom de la structure)
+  // 3. Open Graph - site_name dynamique (nom de la structure)
   const ogSiteName = structureName || 'Open Projets';
   html = html.replace(
     /(<meta\s+property="og:site_name"\s+content=")[^"]*"/,
@@ -601,7 +601,7 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
 
   html = html.replace(
     /(<meta\s+property="og:title"\s+content=")[^"]*"/,
-    (_, p1) => `${p1}${escAttr(name)} – ${escAttr(catLabel)}${structureName ? ' | ' + escAttr(structureName) : ''}"`
+    (_, p1) => `${p1}${escAttr(name)} - ${escAttr(catLabel)}${structureName ? ' | ' + escAttr(structureName) : ''}"`
   );
   html = html.replace(
     /(<meta\s+property="og:description"\s+content=")[^"]*"/,
@@ -619,7 +619,7 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
   // 4. Twitter Cards
   html = html.replace(
     /(<meta\s+name="twitter:title"\s+content=")[^"]*"/,
-    (_, p1) => `${p1}${escAttr(name)} – ${escAttr(catLabel)}${structureName ? ' | ' + escAttr(structureName) : ''}"`
+    (_, p1) => `${p1}${escAttr(name)} - ${escAttr(catLabel)}${structureName ? ' | ' + escAttr(structureName) : ''}"`
   );
   html = html.replace(
     /(<meta\s+name="twitter:description"\s+content=")[^"]*"/,
@@ -640,7 +640,7 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
     (_, p1) => `${p1}${escAttr(canonical)}"`
   );
 
-  // 6. JSON-LD — remplacer le bloc statique
+  // 6. JSON-LD - remplacer le bloc statique
   const articleLd = buildArticleJsonLd(project, category, catLabel, canonical, cityBrand, structureName, articlePlain);
   const breadcrumbLd = buildBreadcrumbJsonLd(project, category, catLabel, canonical, structureName, project.ville);
   // < encodé en < : un contenu contenant </script> ne peut pas fermer
@@ -654,7 +654,7 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
     () => jsonLdBlock
   );
 
-  // 7. Contenu sémantique SSR — injecter juste après <body>
+  // 7. Contenu sémantique SSR - injecter juste après <body>
   const ssrBlock = buildSsrContentBlock(project, category, catLabel, related, cityBrand, structureName, articleHtml);
   html = html.replace('<body>', () => `<body>\n${ssrBlock}`);
 
@@ -681,7 +681,7 @@ export default async (request, context) => {
   }
 
   // Lancer le fetch de la page statique immédiatement : il ne dépend d'aucune
-  // donnée Supabase — l'aller-retour origin recouvre les fetchs et le rendu
+  // donnée Supabase - l'aller-retour origin recouvre les fetchs et le rendu
   const responsePromise = context.next();
 
   // Récupérer les données du projet depuis Supabase
@@ -731,7 +731,7 @@ export default async (request, context) => {
   try {
     articleHtml = mdToHtml(articleMd);
     if (articleMd) {
-      // Texte brut de l'article — repli pour les meta descriptions quand
+      // Texte brut de l'article - repli pour les meta descriptions quand
       // le projet n'a pas de description propre
       articlePlain = stripMarkdown(
         stripFrontMatter(String(articleMd).replace(/\r\n?/g, '\n'))
@@ -747,7 +747,7 @@ export default async (request, context) => {
   const response = await responsePromise;
   let html = await response.text();
 
-  // Canonical URL — format propre /fiche/{ville}/{category_slug}/{slug}
+  // Canonical URL - format propre /fiche/{ville}/{category_slug}/{slug}
   const canonical = `${BASE_ORIGIN}/fiche/${encodeURIComponent(project.ville)}/${encodeURIComponent(project.category_slug)}/${encodeURIComponent(project.slug)}`;
 
   // Injecter le SEO dans le HTML

@@ -33,7 +33,7 @@ async function waitForBoot(page, path = '/admin/') {
 
 /**
  * Navigate to diagnostic and wait for the dock to render.
- * NB : le dock ne dépend pas de la carte (WebGL indisponible en headless) —
+ * NB : le dock ne dépend pas de la carte (WebGL indisponible en headless) -
  * seuls le rendu MapLibre et le lasso ne sont pas testables ici.
  */
 async function goToDiagnostic(page) {
@@ -63,11 +63,11 @@ const CSV_FIXTURE = Buffer.from(
 );
 
 // ─────────────────────────────────────────────────────────
-// 12.1 — Boot & navigation
+// 12.1 - Boot & navigation
 // ─────────────────────────────────────────────────────────
-test.describe('12.1 — Boot & navigation', () => {
+test.describe('12.1 - Boot & navigation', () => {
 
-  test('12.1.1 — Entrée sidebar visible et section accessible', async ({ page }) => {
+  test('12.1.1 - Entrée sidebar visible et section accessible', async ({ page }) => {
     await waitForBoot(page);
     const navItem = page.locator('.adm-nav-item[data-section="diagnostic"]');
     await expect(navItem).toBeVisible();
@@ -77,12 +77,12 @@ test.describe('12.1 — Boot & navigation', () => {
     await expect(navItem).toHaveClass(/active/);
   });
 
-  test('12.1.3 — Plein écran : bascule aller-retour, Échap réduit', async ({ page }) => {
+  test('12.1.3 - Plein écran : bascule aller-retour, Échap réduit', async ({ page }) => {
     await goToDiagnostic(page);
     const wrap = page.locator('#dg-mapwrap');
     const btn = page.locator('#dg-fs-btn');
     // WebGL absent en headless : la carte échoue et masque ses outils. La
-    // bascule elle-même ne dépend pas de la carte — on la ré-expose pour la
+    // bascule elle-même ne dépend pas de la carte - on la ré-expose pour la
     // tester (cf. lacunes connues, CLAUDE.md).
     await page.locator('#dg-maptools').evaluate((el) => el.removeAttribute('hidden'));
     await expect(btn).toBeVisible();
@@ -104,7 +104,7 @@ test.describe('12.1 — Boot & navigation', () => {
     await expect(page.locator('body')).not.toHaveClass(/dg-fs-lock/);
   });
 
-  test('12.1.4 — Plein écran : le dock reste utilisable au-dessus de la carte', async ({ page }) => {
+  test('12.1.4 - Plein écran : le dock reste utilisable au-dessus de la carte', async ({ page }) => {
     await goToDiagnostic(page);
     await page.locator('#dg-maptools').evaluate((el) => el.removeAttribute('hidden'));
     await page.click('#dg-fs-btn');
@@ -117,7 +117,7 @@ test.describe('12.1 — Boot & navigation', () => {
     await expect(page.locator('#dg-mapwrap')).not.toHaveClass(/is-fullscreen/);
   });
 
-  test('12.1.2 — Dock : onglets Couches / Analyse', async ({ page }) => {
+  test('12.1.2 - Dock : onglets Couches / Analyse', async ({ page }) => {
     await goToDiagnostic(page);
     await expect(page.locator('.dg-tab[data-tab="layers"]')).toHaveClass(/is-active/);
     await page.click('.dg-tab[data-tab="analyse"]');
@@ -128,17 +128,17 @@ test.describe('12.1 — Boot & navigation', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 12.2 — État vide & wizard (sans persistance)
+// 12.2 - État vide & wizard (sans persistance)
 // ─────────────────────────────────────────────────────────
-test.describe('12.2 — État vide & wizard', () => {
+test.describe('12.2 - État vide & wizard', () => {
 
-  test('12.2.1 — Aucune couche : état vide avec CTA', async ({ page }) => {
+  test('12.2.1 - Aucune couche : état vide avec CTA', async ({ page }) => {
     await goToDiagnostic(page);
     await expect(page.locator('#dg-panel-layers .dg-empty__title')).toContainText('Aucune couche', { timeout: 10000 });
     await expect(page.locator('#dg-add-first')).toBeVisible();
   });
 
-  test('12.2.2 — Wizard : ouverture, sources, validation, annulation', async ({ page }) => {
+  test('12.2.2 - Wizard : ouverture, sources, validation, annulation', async ({ page }) => {
     await goToDiagnostic(page);
     await page.click('#dg-add-first');
     await expect(page.locator('.dg-modal__title')).toContainText('Ajouter une couche');
@@ -156,7 +156,7 @@ test.describe('12.2 — État vide & wizard', () => {
     await expect(page.locator('.dg-modal')).toHaveCount(0);
   });
 
-  test('12.2.3 — Wizard : détection CSV + colonnes lat/lng', async ({ page }) => {
+  test('12.2.3 - Wizard : détection CSV + colonnes lat/lng', async ({ page }) => {
     await goToDiagnostic(page);
     await page.click('#dg-add-first');
     await page.setInputFiles('#dg-wz-file', { name: 'capteurs.csv', mimeType: 'text/csv', buffer: CSV_FIXTURE });
@@ -172,12 +172,12 @@ test.describe('12.2 — État vide & wizard', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 12.3 — CRUD des couches (persistance Supabase)
+// 12.3 - CRUD des couches (persistance Supabase)
 // ─────────────────────────────────────────────────────────
-test.describe('12.3 — CRUD des couches', () => {
+test.describe('12.3 - CRUD des couches', () => {
   test.describe.configure({ mode: 'serial' });
 
-  test('12.3.1 — Ajout d\'une couche GeoJSON (fichier → Storage)', async ({ page }) => {
+  test('12.3.1 - Ajout d\'une couche GeoJSON (fichier → Storage)', async ({ page }) => {
     await goToDiagnostic(page);
     await page.click('#dg-add-first');
     await page.setInputFiles('#dg-wz-file', { name: 'e2e-signalements.geojson', mimeType: 'application/geo+json', buffer: GEOJSON_FIXTURE });
@@ -196,7 +196,7 @@ test.describe('12.3 — CRUD des couches', () => {
     await expect(row.locator('[data-count]')).toHaveText('3', { timeout: 15000 });
   });
 
-  test('12.3.2 — Édition : label + contexte IA persistés', async ({ page }) => {
+  test('12.3.2 - Édition : label + contexte IA persistés', async ({ page }) => {
     await goToDiagnostic(page);
     const row = page.locator('.dg-row', { hasText: 'E2E-Signalements' });
     await expect(row).toBeVisible({ timeout: 10000 });
@@ -211,7 +211,7 @@ test.describe('12.3 — CRUD des couches', () => {
     await expect(page.locator('.dg-row', { hasText: 'E2E-Signalements-Edit' })).toBeVisible();
   });
 
-  test('12.3.3 — Visibilité : le toggle ne supprime rien', async ({ page }) => {
+  test('12.3.3 - Visibilité : le toggle ne supprime rien', async ({ page }) => {
     await goToDiagnostic(page);
     const row = page.locator('.dg-row', { hasText: 'E2E-Signalements-Edit' });
     await expect(row).toBeVisible({ timeout: 10000 });
@@ -224,7 +224,7 @@ test.describe('12.3 — CRUD des couches', () => {
     await expect(page.locator('.dg-row', { hasText: 'E2E-Signalements-Edit' })).toBeVisible({ timeout: 10000 });
   });
 
-  test('12.3.4 — Suppression avec confirmation', async ({ page }) => {
+  test('12.3.4 - Suppression avec confirmation', async ({ page }) => {
     await goToDiagnostic(page);
     const row = page.locator('.dg-row', { hasText: 'E2E-Signalements-Edit' });
     await expect(row).toBeVisible({ timeout: 10000 });
@@ -240,11 +240,11 @@ test.describe('12.3 — CRUD des couches', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 12.4 — Historique des rapports
+// 12.4 - Historique des rapports
 // ─────────────────────────────────────────────────────────
-test.describe('12.4 — Historique des rapports', () => {
+test.describe('12.4 - Historique des rapports', () => {
 
-  test('12.4.1 — Panneau historique (état vide)', async ({ page }) => {
+  test('12.4.1 - Panneau historique (état vide)', async ({ page }) => {
     await goToDiagnostic(page);
     await page.click('#dg-history-btn');
     await expect(page.locator('#adm-slide-panel')).toHaveAttribute('aria-hidden', 'false');
@@ -254,6 +254,6 @@ test.describe('12.4 — Historique des rapports', () => {
 });
 
 // NB : le rendu MapLibre, le lasso et le flux d'analyse IA (sélection → /api/ai-diagnostic)
-// nécessitent WebGL, indisponible dans le projet Playwright « admin » — couverts
+// nécessitent WebGL, indisponible dans le projet Playwright « admin » - couverts
 // manuellement (cf. lacunes connues CLAUDE.md). Le contrat SSE de /api/ai-diagnostic
 // suit exactement celui de /api/ai-generate, mocké dans admin.copilot.spec.js.

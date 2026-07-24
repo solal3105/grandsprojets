@@ -32,11 +32,11 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Filters Container — now uses .dock-panel (see 11-toggles.css)
+   Filters Container - now uses .dock-panel (see 11-toggles.css)
 --------------------------------------------------------------------------- */
 
 /* ---------------------------------------------------------------------------
-   Panneau de détails — Right-side floating popup
+   Panneau de détails - Right-side floating popup
 --------------------------------------------------------------------------- */
 #detail-content {
   flex: 1;
@@ -47,7 +47,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Project Detail Panel — glass card with cinematic entrance
+   Project Detail Panel - glass card with cinematic entrance
 --------------------------------------------------------------------------- */
 #project-detail {
   position: fixed;

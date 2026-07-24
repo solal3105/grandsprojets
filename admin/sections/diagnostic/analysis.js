@@ -1,5 +1,5 @@
 /**
- * Diagnostic terrain — onglet Analyse.
+ * Diagnostic terrain - onglet Analyse.
  * Les nombres sont calculés ici (répartition par source, décompte des points
  * par sujet) ; l'IA (via /api/ai-diagnostic) ne fait que restituer, source par
  * source, ce que disent les points, en citant. Aucune note, aucun jugement.
@@ -30,7 +30,7 @@ function _titleOf(f) {
 /**
  * Texte descriptif d'un point : le plus long des champs de popup. Prendre le
  * premier venu ferait passer un intitulé court (« Signalement 12 ») pour la
- * description, et reléguerait le vrai texte dans le contexte — où il serait
+ * description, et reléguerait le vrai texte dans le contexte - où il serait
  * tronqué, puis cité tronqué.
  */
 function _textOf(f) {
@@ -49,7 +49,7 @@ function _textOf(f) {
 
 /**
  * Contexte compact d'un point pour l'IA : valeur de catégorisation puis
- * jusqu'à 2 champs popup courts (rue, commune, date…) — piloté par la config.
+ * jusqu'à 2 champs popup courts (rue, commune, date…) - piloté par la config.
  */
 function _extraOf(f) {
   const layer = _layerOf(f);
@@ -78,7 +78,7 @@ function _extraOf(f) {
 export function handleSelection(screenPoints) {
   dg.abortCtrl?.abort(); // une analyse en cours ne doit jamais se rattacher à la nouvelle zone
   const { features, polygon } = resolveSelection(screenPoints);
-  // Emprise des points retenus — à défaut, celle du polygone tracé (zone vide).
+  // Emprise des points retenus - à défaut, celle du polygone tracé (zone vide).
   const bbox = featuresBbox(features) || geometryBbox(polygon);
   // Une zone vide reste une sélection : le panneau explique quoi faire.
   dg.selection = { features, polygon, bbox, areaKm2: bboxAreaKm2(bbox) };
@@ -95,7 +95,7 @@ export function handleSelection(screenPoints) {
 /**
  * Recalcule la sélection sur la zone déjà tracée : appelé quand les couches
  * visibles changent (affichage, suppression). Masquer une couche allège donc
- * immédiatement la sélection — c'est le levier pour repasser sous le plafond.
+ * immédiatement la sélection - c'est le levier pour repasser sous le plafond.
  * Posé sur dg.onSelectionStale par diagnostic.js (évite un import circulaire).
  */
 export function refreshSelection() {
@@ -159,7 +159,7 @@ function _zoneStats(features) {
 
 /**
  * Ordonne les points à la ronde entre couches : la liste envoyée à l'IA reste
- * équilibrée d'un bout à l'autre. Tous les points sont transmis — le plafond
+ * équilibrée d'un bout à l'autre. Tous les points sont transmis - le plafond
  * MAX_ANALYSIS_POINTS garantit que la liste tient dans la requête.
  */
 function _orderedPoints(features, cap) {
@@ -272,7 +272,7 @@ async function _runAnalysis() {
 
   // Code de source stable (S1, S2…) : l'appariement de la réponse ne dépend
   // plus du libellé, qui peut être long, accentué, dupliqué entre deux couches
-  // ou réécrit par le modèle — autant de façons de perdre une source.
+  // ou réécrit par le modèle - autant de façons de perdre une source.
   const codeOf = new Map(stats.rows.map((r, i) => [r.layer.id, `S${i + 1}`]));
 
   const body = {
@@ -411,12 +411,12 @@ function _renderSelectionView(panel) {
         <div class="dg-over__text">
           L'analyse lit <b>tous</b> les points de la zone, dans la limite de ${_fmt(MAX_ANALYSIS_POINTS)}.
           Resserrez la sélection autour d'un carrefour ou d'un tronçon, ou masquez des couches ci-dessous
-          — le décompte se met à jour aussitôt.
+          - le décompte se met à jour aussitôt.
         </div>
       </div>
       ${_breakdownHtml(sel.features)}
       <button type="button" class="dg-analyze-btn" id="dg-analyze" disabled>
-        <i class="fa-solid fa-wand-magic-sparkles"></i> ${_fmt(n)} points — maximum ${_fmt(MAX_ANALYSIS_POINTS)}
+        <i class="fa-solid fa-wand-magic-sparkles"></i> ${_fmt(n)} points - maximum ${_fmt(MAX_ANALYSIS_POINTS)}
       </button>`;
   } else {
     body = `
@@ -424,7 +424,7 @@ function _renderSelectionView(panel) {
       <button type="button" class="dg-analyze-btn" id="dg-analyze">
         <i class="fa-solid fa-wand-magic-sparkles"></i> Analyser la zone
       </button>
-      <div class="adm-form-hint dg-analyze-hint">L'IA lit l'intégralité des ${_fmt(n)} points sélectionnés et en tire des constats sourcés — chaque constat renvoie aux points qui le justifient.</div>`;
+      <div class="adm-form-hint dg-analyze-hint">L'IA lit l'intégralité des ${_fmt(n)} points sélectionnés et en tire des constats sourcés - chaque constat renvoie aux points qui le justifient.</div>`;
   }
 
   panel.innerHTML = `

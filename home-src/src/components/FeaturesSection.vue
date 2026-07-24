@@ -8,7 +8,7 @@
         <span class="font-bold">vos habitants consultent</span>
       </h2>
       <p class="mt-5 text-gray-text text-base sm:text-lg leading-relaxed max-w-[540px]">
-        Une interface pensée pour les équipes non techniques — vos agents sont opérationnels en quelques minutes, sans formation.
+        Une interface pensée pour les équipes non techniques - vos agents sont opérationnels en quelques minutes, sans formation.
       </p>
 
       <!-- 3 Cards -->

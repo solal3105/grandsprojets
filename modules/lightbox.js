@@ -1,4 +1,4 @@
-// modules/lightbox.js — Fullscreen image lightbox
+// modules/lightbox.js - Fullscreen image lightbox
 
 ;(function(win) {
   'use strict';

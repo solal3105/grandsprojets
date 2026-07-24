@@ -12,7 +12,7 @@
           adapté à votre territoire
         </h2>
         <p class="mt-5 text-lg text-gray-text leading-relaxed">
-          Configurez votre formule en 30 secondes — le prix se calcule en temps réel.
+          Configurez votre formule en 30 secondes - le prix se calcule en temps réel.
         </p>
       </div>
 
@@ -377,7 +377,7 @@ const INCLUDED_FEATURES = [
 const FAQ_ITEMS = [
   {
     q: 'La TVA est-elle applicable ?',
-    a: 'Les collectivités territoriales ne récupèrent pas la TVA. Tous nos prix sont affichés hors taxes — c\'est donc le montant que vous débourserez réellement. Aucune surprise à la facturation.',
+    a: 'Les collectivités territoriales ne récupèrent pas la TVA. Tous nos prix sont affichés hors taxes - c\'est donc le montant que vous débourserez réellement. Aucune surprise à la facturation.',
   },
   {
     q: 'Les frais de mise en place sont-ils obligatoires ?',

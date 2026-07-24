@@ -1,5 +1,5 @@
 /**
- * Diagnostic terrain — carte MapLibre.
+ * Diagnostic terrain - carte MapLibre.
  * Fond OSM classique, bâtiments 3D (tuiles vectorielles OpenFreeMap), centre
  * depuis city_branding, rendu des couches piloté par leur config (style jsonb),
  * sélection lasso dessinée sur un canvas overlay.
@@ -11,7 +11,7 @@ import { pointInPolygon, someVertex } from './data.js';
 
 const EMPTY_FC = () => ({ type: 'FeatureCollection', features: [] });
 
-// Fond OSM classique — même choix que les cartes des sections Contributions
+// Fond OSM classique - même choix que les cartes des sections Contributions
 // et Travaux : un rendu familier, lisible, sans dépendance de configuration.
 const OSM_STYLE = {
   version: 8,
@@ -303,14 +303,14 @@ export function setHover(features) {
 /* ── Cadrage ────────────────────────────────────────────────────── */
 
 // Emprise minimale, en degrés, appliquée à une sélection dégénérée (un seul
-// point, ou N points de coordonnées identiques — plusieurs signalements à la
+// point, ou N points de coordonnées identiques - plusieurs signalements à la
 // même adresse). Sans elle, MapLibre calcule une échelle infinie et retombe
 // exactement sur maxZoom, ce qui produit un saut de zoom brutal.
 const MIN_SPAN_DEG = 0.0009; // ≈ 100 m
 
 /**
  * Emprise de la zone : l'anneau TRACÉ réuni aux features retenues. On cadre
- * sur ce que l'utilisateur a dessiné, pas seulement sur ce qu'il a attrapé —
+ * sur ce que l'utilisateur a dessiné, pas seulement sur ce qu'il a attrapé -
  * c'est ce qui donne la marge de contexte autour de la sélection. Les
  * géométries non ponctuelles sont prises sur leur emprise réelle, jamais
  * réduites à leur centre.
@@ -375,7 +375,7 @@ function _framePadding(map, base = 48) {
 
 /**
  * Cadre la carte sur une emprise sans jamais dézoomer : le lasso est tracé à
- * l'écran, la zone tient donc déjà dans la vue — reculer n'apporte rien et
+ * l'écran, la zone tient donc déjà dans la vue - reculer n'apporte rien et
  * fait perdre le détail que l'utilisateur était allé chercher.
  */
 export function fitBoundsSafely(bounds, { maxZoom = 17.5, duration = 550, base = 48, allowZoomOut = false } = {}) {

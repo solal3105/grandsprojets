@@ -1,4 +1,4 @@
-// Netlify Function — Agrège les GeoJSON contributions côté serveur
+// Netlify Function - Agrège les GeoJSON contributions côté serveur
 // Évite N+1 requêtes client : 1 seule requête → FeatureCollection complète
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';

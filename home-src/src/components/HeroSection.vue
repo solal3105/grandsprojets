@@ -13,7 +13,7 @@
         </h1>
 
         <p class="mt-8 text-gray-text text-base sm:text-lg leading-relaxed max-w-[609px] mx-auto">
-          Commune, intercommunalité ou métropole : publiez vos projets d'aménagement et vos chantiers sur une carte publique à vos couleurs — intuitif pour vos agents, consultable par tous, sans inscription.
+          Commune, intercommunalité ou métropole : publiez vos projets d'aménagement et vos chantiers sur une carte publique à vos couleurs - intuitif pour vos agents, consultable par tous, sans inscription.
         </p>
         <p class="mt-3 text-xs text-gray-text/50 tracking-wide">
           Prise en main en quelques minutes · Zéro prestataire imposé · Zéro frais caché

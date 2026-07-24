@@ -1,5 +1,5 @@
 // modules/travaux-views.js
-// Travaux Level-3 views — extracted from nav-panel.js for maintainability.
+// Travaux Level-3 views - extracted from nav-panel.js for maintainability.
 // Each builder receives `container` (DOM element) and a `ctx` object.
 
 ;(function(win) {
@@ -357,7 +357,7 @@
   }
 
   /**
-   * Vue contributeur — mes propositions
+   * Vue contributeur - mes propositions
    * @param {HTMLElement} container
    * @param {Object} ctx - { isStale() }
    */
@@ -383,7 +383,7 @@
 
     let html = '<div class="np-admin">';
 
-    // Aucune proposition — la création se fait désormais depuis l'admin
+    // Aucune proposition - la création se fait désormais depuis l'admin
     if (!allProposals.length) {
       html += `
         <div class="nav-panel__empty">

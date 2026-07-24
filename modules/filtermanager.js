@@ -36,7 +36,7 @@
       if (!container) return;
       container.innerHTML = '';
 
-      // 1. Contribution categories — data already loaded by main.js Phase 5
+      // 1. Contribution categories - data already loaded by main.js Phase 5
       const addedLayers = new Set();
       (win.categoryIcons || []).forEach(({ category, icon_class, label }) => {
         if (!category) return;

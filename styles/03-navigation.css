@@ -1,10 +1,10 @@
 /* ===========================================================================
-   NAVIGATION — Premium bottom bar + submenu system
+   NAVIGATION - Premium bottom bar + submenu system
    Bold, refined, with rich depth and micro-interactions
    =========================================================================== */
 
 
-/* Standalone fixed logo — visible only on mobile */
+/* Standalone fixed logo - visible only on mobile */
 .mobile-fixed-logo {
   position: fixed;
   top: calc(16px + var(--banner-h, 0px));
@@ -35,7 +35,7 @@
 
 
 /* ---------------------------------------------------------------------------
-   Project List — grid of cards (2 cols desktop, 1 col mobile)
+   Project List - grid of cards (2 cols desktop, 1 col mobile)
 --------------------------------------------------------------------------- */
 .project-list {
   list-style: none;
@@ -47,7 +47,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Project Card — image-dominant vertical card with stagger entrance
+   Project Card - image-dominant vertical card with stagger entrance
 --------------------------------------------------------------------------- */
 .project-card {
   --card-accent: var(--cat-color, var(--primary));
@@ -83,7 +83,7 @@
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* Hover — lift with accent border */
+/* Hover - lift with accent border */
 .project-card:hover {
   transform: translateY(-4px) scale(1.01);
   border-color: color-mix(in srgb, var(--card-accent) 30%, transparent);
@@ -103,7 +103,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Card Hero — large image area
+   Card Hero - large image area
 --------------------------------------------------------------------------- */
 .card-hero {
   position: relative;
@@ -163,7 +163,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Card Body — title + arrow
+   Card Body - title + arrow
 --------------------------------------------------------------------------- */
 .card-body {
   display: flex;

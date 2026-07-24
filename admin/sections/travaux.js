@@ -367,7 +367,7 @@ async function _renderCreateForm(container, chantier = null) {
       <div class="cw-header__main">
         <div class="cw-header__text">
           <h1 class="cw-header__title">${isEdit ? 'Modifier le chantier' : 'Nouveau chantier'}</h1>
-          <p class="cw-header__subtitle">${isEdit ? esc(chantier.name) : 'Renseignez les informations du chantier — seul le <strong>nom</strong> est obligatoire.'}</p>
+          <p class="cw-header__subtitle">${isEdit ? esc(chantier.name) : 'Renseignez les informations du chantier - seul le <strong>nom</strong> est obligatoire.'}</p>
         </div>
       </div>
     </div>
@@ -481,7 +481,7 @@ async function _renderCreateForm(container, chantier = null) {
               <div class="cw-drop-area__illustration"><i class="fa-solid fa-file-arrow-up"></i></div>
               <div class="cw-drop-area__text">
                 <span class="cw-drop-area__title">Déposez votre fichier GeoJSON</span>
-                <span class="cw-drop-area__hint">ou <u>cliquez pour parcourir</u> — .geojson, .json</span>
+                <span class="cw-drop-area__hint">ou <u>cliquez pour parcourir</u> - .geojson, .json</span>
               </div>
             </div>
             <input type="file" id="tw-geojson-file" accept=".geojson,.json" hidden>
@@ -671,7 +671,7 @@ async function _submitTwForm(container, existingChantier) {
     } else {
       data.approved = store.isAdmin;
       await api.createTravaux(data);
-      toast(store.isAdmin ? 'Chantier créé' : 'Proposition envoyée — en attente de validation', 'success');
+      toast(store.isAdmin ? 'Chantier créé' : 'Proposition envoyée - en attente de validation', 'success');
     }
     router.navigate('/admin/travaux/');
   } catch (err) {
@@ -857,7 +857,7 @@ function _renderTwDrawPanel(body, opts) {
     const t = TW_DRAW_TOOLS[mode], minPts = mode === 'polygon' ? 3 : 2, canFinish = mode !== 'marker' && pts >= minPts;
     const statusMsg = mode === 'marker' ? 'Cliquez sur la carte pour poser le point'
       : pts === 0 ? 'Cliquez sur la carte pour commencer'
-      : canFinish ? `<strong>${pts}</strong> points — double-clic ou cliquez Terminer`
+      : canFinish ? `<strong>${pts}</strong> points - double-clic ou cliquez Terminer`
       : `<strong>${pts}\u202f/\u202f${minPts}</strong> points minimum`;
     panel.innerHTML = `<div class="cw-dtb cw-dtb--active">
       <button class="cw-dtb__back" id="tw-draw-cancel-tool" title="Changer d'outil"><i class="fa-solid fa-arrow-left"></i></button>
@@ -943,7 +943,7 @@ async function _renderConfig(container) {
       <form id="tw-config-form">
         <div class="cw-sections">
 
-          <!-- § 1 — ACTIVATION -->
+          <!-- § 1 - ACTIVATION -->
           <section class="cw-section">
             <div class="cw-section__header">
               <div class="cw-section__icon"><i class="fa-solid fa-power-off"></i></div>
@@ -969,13 +969,13 @@ async function _renderConfig(container) {
             </div>
           </section>
 
-          <!-- § 2 — SOURCE -->
+          <!-- § 2 - SOURCE -->
           <section class="cw-section">
             <div class="cw-section__header">
               <div class="cw-section__icon"><i class="fa-solid fa-database"></i></div>
               <div class="cw-section__titles">
                 <h2 class="cw-section__title">Source des données</h2>
-                <p class="cw-section__desc">D'où viennent les chantiers — saisis manuellement ici, ou importés depuis un flux GeoJSON externe.</p>
+                <p class="cw-section__desc">D'où viennent les chantiers - saisis manuellement ici, ou importés depuis un flux GeoJSON externe.</p>
               </div>
             </div>
             <div class="cw-section__body">
@@ -1013,7 +1013,7 @@ async function _renderConfig(container) {
             </div>
           </section>
 
-          <!-- § 3 — APPARENCE -->
+          <!-- § 3 - APPARENCE -->
           <section class="cw-section">
             <div class="cw-section__header">
               <div class="cw-section__icon"><i class="fa-solid fa-palette"></i></div>
@@ -1030,18 +1030,18 @@ async function _renderConfig(container) {
             </div>
           </section>
 
-          <!-- § 4 — COUCHES ASSOCIÉES -->
+          <!-- § 4 - COUCHES ASSOCIÉES -->
           <section class="cw-section">
             <div class="cw-section__header">
               <div class="cw-section__icon"><i class="fa-solid fa-layer-group"></i></div>
               <div class="cw-section__titles">
                 <h2 class="cw-section__title">Couches associées</h2>
-                <p class="cw-section__desc">Affichées automatiquement quand le filtre Travaux est actif — utile pour contextualiser les déviations ou périmètres de chantier.</p>
+                <p class="cw-section__desc">Affichées automatiquement quand le filtre Travaux est actif - utile pour contextualiser les déviations ou périmètres de chantier.</p>
               </div>
             </div>
             <div class="cw-section__body">
               ${layers.length === 0
-                ? `<p class="twc-empty-layers"><i class="fa-solid fa-layer-group"></i> Aucune couche disponible — créez-en dans la section <strong>Couches</strong> de l'admin.</p>`
+                ? `<p class="twc-empty-layers"><i class="fa-solid fa-layer-group"></i> Aucune couche disponible - créez-en dans la section <strong>Couches</strong> de l'admin.</p>`
                 : `<div id="twc-layers" class="adm-toggle-grid">
                   ${layers.map(l => {
                     const active = Array.isArray(cfg.layers_to_display) && cfg.layers_to_display.includes(l.name);

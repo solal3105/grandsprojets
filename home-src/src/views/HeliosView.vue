@@ -26,7 +26,7 @@
           </h1>
 
           <p class="mt-8 text-gray-text text-base sm:text-lg leading-relaxed max-w-[609px] mx-auto">
-            En tant que partenaire Helios, vous bénéficiez d'un accès privilégié à <strong class="text-dark">Open Projets</strong> — la carte interactive qui rend vos aménagements, travaux de voirie et projets urbains accessibles à chaque habitant, en temps réel.
+            En tant que partenaire Helios, vous bénéficiez d'un accès privilégié à <strong class="text-dark">Open Projets</strong> - la carte interactive qui rend vos aménagements, travaux de voirie et projets urbains accessibles à chaque habitant, en temps réel.
           </p>
 
 
@@ -96,7 +96,7 @@
     <!-- ═══ TRUST BAR ═══ -->
     <TrustBar />
 
-    <!-- ═══ LE CONSTAT — before/after table ═══ -->
+    <!-- ═══ LE CONSTAT - before/after table ═══ -->
     <section class="py-24 bg-white overflow-hidden">
       <div class="max-w-container mx-auto px-6">
         <div class="max-w-[680px] mx-auto text-center mb-16 reveal" :ref="setRevealRef(0)">
@@ -109,7 +109,7 @@
             <span class="text-gradient-green"> des administrés qui ne prennent pas la mesure des investissements.</span>
           </h2>
           <p class="mt-6 text-gray-text text-base leading-relaxed max-w-[560px] mx-auto">
-            Marquage au sol, aménagements cyclables, requalification de voirie — les projets se concrétisent sur le terrain, mais l'information reste dans des comptes rendus. Les citoyens découvrent les travaux au dernier moment.
+            Marquage au sol, aménagements cyclables, requalification de voirie - les projets se concrétisent sur le terrain, mais l'information reste dans des comptes rendus. Les citoyens découvrent les travaux au dernier moment.
           </p>
         </div>
 
@@ -240,7 +240,7 @@
               Chaque chantier de votre collectivité peut être localisé et suivi en temps réel pour une meilleure gestion et coordination.
             </h2>
             <p class="mt-5 text-gray-text text-base leading-relaxed">
-              Aménagements et projets urbains, travaux sur les réseaux enterrés, réfection des voiries, aménagements cyclables, signalisation — chaque intervention est localisée sur la carte avec ses dates, sa progression et ses zones d'impact. Vos riverains savent précisément ce qui se passe, et quand ça finit.
+              Aménagements et projets urbains, travaux sur les réseaux enterrés, réfection des voiries, aménagements cyclables, signalisation - chaque intervention est localisée sur la carte avec ses dates, sa progression et ses zones d'impact. Vos riverains savent précisément ce qui se passe, et quand ça finit.
             </p>
             <ul class="mt-8 space-y-3.5">
               <li v-for="feat in chantierFeats" :key="feat" class="flex items-start gap-3 group/item cursor-default">
@@ -272,7 +272,7 @@
               Un référentiel partagé entre vos services.
             </h2>
             <p class="mt-5 text-gray-text text-base leading-relaxed">
-              Urbanisme, voirie, espaces verts, communication — chaque service publie et consulte les mêmes projets, sur la même carte. Plus de doublons, plus de mails perdus : une source unique et toujours à jour.
+              Urbanisme, voirie, espaces verts, communication - chaque service publie et consulte les mêmes projets, sur la même carte. Plus de doublons, plus de mails perdus : une source unique et toujours à jour.
             </p>
             <ul class="mt-8 space-y-3.5">
               <li v-for="feat in interneFeats" :key="feat" class="flex items-start gap-3 group/item cursor-default">
@@ -300,7 +300,7 @@
               Vos administrés informés, sans effort.
             </h2>
             <p class="mt-5 text-gray-text text-base leading-relaxed">
-              Fini les appels au standard. La carte publique est consultable 24h/24, sans inscription, sur mobile comme sur desktop. Chaque habitant retrouve les projets de son quartier en quelques secondes — et comprend ce qui change, pourquoi, et quand.
+              Fini les appels au standard. La carte publique est consultable 24h/24, sans inscription, sur mobile comme sur desktop. Chaque habitant retrouve les projets de son quartier en quelques secondes - et comprend ce qui change, pourquoi, et quand.
             </p>
             <ul class="mt-8 space-y-3.5">
               <li v-for="feat in externeFeats" :key="feat" class="flex items-start gap-3 group/item cursor-default">
@@ -389,7 +389,7 @@
       <div class="max-w-container mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div class="flex items-center gap-3 text-white/40 text-sm">
           <img :src="`${base}img/logos/square_white.png`" alt="Open Projets" class="h-6 w-auto opacity-60" />
-          <span>&copy; {{ new Date().getFullYear() }} Open Projets — VAZY, Société à Mission</span>
+          <span>&copy; {{ new Date().getFullYear() }} Open Projets - VAZY, Société à Mission</span>
         </div>
         <a href="https://openprojets.com/home/" class="text-sm text-white/40 hover:text-white transition-colors">openprojets.com</a>
       </div>
@@ -441,7 +441,7 @@ const pairs = [
     },
     after: {
       title: 'Tous les projets sur une carte unique, partagée entre services',
-      sub: 'Urbanisme, voirie, espaces verts — chacun publie et consulte les mêmes données.',
+      sub: 'Urbanisme, voirie, espaces verts - chacun publie et consulte les mêmes données.',
     },
     feature: 'Gestion multi-services',
   },
@@ -475,7 +475,7 @@ const pillars = [
     icon: HardHat,
     title: 'Suivi de chantier',
     image: '2.jpeg',
-    desc: "Localisez chaque intervention sur la carte. Dates, zones d'impact, progression — les riverains sont informés en temps réel, les services suivent l'avancement.",
+    desc: "Localisez chaque intervention sur la carte. Dates, zones d'impact, progression - les riverains sont informés en temps réel, les services suivent l'avancement.",
     bgClass: 'bg-amber/10',
     iconClass: 'text-amber',
     gradient: 'linear-gradient(to right, #F2B327, #5AAB7D)',
@@ -489,7 +489,7 @@ const pillars = [
     icon: Building,
     title: 'Coordination inter-services',
     image: '5.jpeg',
-    desc: "Urbanisme, voirie, espaces verts — tous vos services publient et consultent les mêmes projets. Une source de vérité unique qui évite les doublons et les mails perdus.",
+    desc: "Urbanisme, voirie, espaces verts - tous vos services publient et consultent les mêmes projets. Une source de vérité unique qui évite les doublons et les mails perdus.",
     bgClass: 'bg-purple/10',
     iconClass: 'text-purple',
     gradient: 'linear-gradient(to right, #4E2BFF, #7C3AED)',
@@ -529,7 +529,7 @@ const interneFeats = [
   'Vue cartographique consolidée de tous les projets en cours',
   'Rôles contributeur / admin pour structurer les droits',
   'Filtres croisés par catégorie, état, et date',
-  "Aucune dépendance DSI — tout se configure dans l'admin",
+  "Aucune dépendance DSI - tout se configure dans l'admin",
 ]
 
 const externeFeats = [
@@ -546,7 +546,7 @@ const steps = [
     num: '01',
     image: '4.jpeg',
     title: 'On configure votre espace',
-    desc: 'Logo, couleurs, fond de carte — votre identité visuelle est appliquée en quelques clics. Votre carte ressemble à votre collectivité.',
+    desc: 'Logo, couleurs, fond de carte - votre identité visuelle est appliquée en quelques clics. Votre carte ressemble à votre collectivité.',
   },
   {
     num: '02',

@@ -1,10 +1,10 @@
 /**
- * Section admin — Diagnostic terrain.
+ * Section admin - Diagnostic terrain.
  * Carte plein écran qui agrège les couches de données de la structure
  * (diagnostic_layers), permet une sélection lasso et produit un diagnostic
  * IA de zone sourcé, exportable en rapport.
  *
- * Entrée : renderDiagnostic(container) — cleanup : destroyDiagnostic()
+ * Entrée : renderDiagnostic(container) - cleanup : destroyDiagnostic()
  * (branché sur router.setBeforeNavigate dans app.js).
  */
 
@@ -66,7 +66,7 @@ export async function renderDiagnostic(container) {
           </button>
         </div>
         <div class="dg-lasso-hint" id="dg-lasso-hint" hidden>
-          <i class="fa-solid fa-hand-pointer"></i> Entourez les points à analyser — <b>Échap</b> pour annuler
+          <i class="fa-solid fa-hand-pointer"></i> Entourez les points à analyser - <b>Échap</b> pour annuler
         </div>
       </div>
     </div>
@@ -108,7 +108,7 @@ export async function renderDiagnostic(container) {
     } catch (err) {
       console.warn('[admin/diagnostic] Carte indisponible:', err);
       // Rendu obsolète : destroyDiagnostic a déjà retiré la carte de CE rendu,
-      // et dg.map peut appartenir au rendu suivant — ne pas y toucher.
+      // et dg.map peut appartenir au rendu suivant - ne pas y toucher.
       if (!alive()) return;
       try { dg.map?.remove(); } catch { /* jamais initialisée */ }
       dg.map = null;
@@ -116,7 +116,7 @@ export async function renderDiagnostic(container) {
       mapWrap.querySelector('#dg-maptools')?.setAttribute('hidden', '');
       const notice = document.createElement('div');
       notice.className = 'dg-map-error';
-      notice.innerHTML = `<i class="fa-solid fa-map"></i> ${esc('Carte non disponible — la gestion des couches reste accessible.')}`;
+      notice.innerHTML = `<i class="fa-solid fa-map"></i> ${esc('Carte non disponible - la gestion des couches reste accessible.')}`;
       mapWrap.appendChild(notice);
     }
   }, 200);

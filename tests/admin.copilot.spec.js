@@ -11,11 +11,11 @@ async function goToWizard(page) {
 }
 
 // ─────────────────────────────────────────────────────────
-// 10 — Assistant de rédaction (Copilot)
+// 10 - Assistant de rédaction (Copilot)
 // ─────────────────────────────────────────────────────────
-test.describe('10.1 — Présence et ouverture du panneau', () => {
+test.describe('10.1 - Présence et ouverture du panneau', () => {
 
-  test('10.1.1 — Bouton trigger visible dans le footer du wizard', async ({ page }) => {
+  test('10.1.1 - Bouton trigger visible dans le footer du wizard', async ({ page }) => {
     await goToWizard(page);
     const trigger = page.locator('.cp-trigger');
     await expect(trigger).toBeVisible({ timeout: 5000 });
@@ -23,7 +23,7 @@ test.describe('10.1 — Présence et ouverture du panneau', () => {
     await expect(trigger.locator('i.fa-wand-magic-sparkles')).toBeVisible();
   });
 
-  test('10.1.2 — Clic trigger → panneau s\'ouvre', async ({ page }) => {
+  test('10.1.2 - Clic trigger → panneau s\'ouvre', async ({ page }) => {
     await goToWizard(page);
     const panel = page.locator('#cp-panel');
     await expect(panel).toBeHidden();
@@ -35,7 +35,7 @@ test.describe('10.1 — Présence et ouverture du panneau', () => {
     await expect(panel.locator('.cp-panel__expand')).toBeVisible();
   });
 
-  test('10.1.3 — Panneau fermé via bouton ×', async ({ page }) => {
+  test('10.1.3 - Panneau fermé via bouton ×', async ({ page }) => {
     await goToWizard(page);
     await page.locator('.cp-trigger').click();
     const panel = page.locator('#cp-panel');
@@ -44,7 +44,7 @@ test.describe('10.1 — Présence et ouverture du panneau', () => {
     await expect(panel).toBeHidden({ timeout: 3000 });
   });
 
-  test('10.1.4 — Panneau fermé via Escape', async ({ page }) => {
+  test('10.1.4 - Panneau fermé via Escape', async ({ page }) => {
     await goToWizard(page);
     await page.locator('.cp-trigger').click();
     const panel = page.locator('#cp-panel');
@@ -53,7 +53,7 @@ test.describe('10.1 — Présence et ouverture du panneau', () => {
     await expect(panel).toBeHidden({ timeout: 3000 });
   });
 
-  test('10.1.5 — Toggle : ouvrir → fermer → rouvrir', async ({ page }) => {
+  test('10.1.5 - Toggle : ouvrir → fermer → rouvrir', async ({ page }) => {
     await goToWizard(page);
     const trigger = page.locator('.cp-trigger');
     const panel = page.locator('#cp-panel');
@@ -69,9 +69,9 @@ test.describe('10.1 — Présence et ouverture du panneau', () => {
   });
 });
 
-test.describe('10.2 — Carte de complétion et signaux', () => {
+test.describe('10.2 - Carte de complétion et signaux', () => {
 
-  test('10.2.1 — Carte de complétion visible à 0% quand formulaire vide', async ({ page }) => {
+  test('10.2.1 - Carte de complétion visible à 0% quand formulaire vide', async ({ page }) => {
     await goToWizard(page);
     await page.locator('.cp-trigger').click();
     const panel = page.locator('#cp-panel');
@@ -83,7 +83,7 @@ test.describe('10.2 — Carte de complétion et signaux', () => {
     await expect(card.locator('.cp-completion-card__pct')).toContainText('0%');
   });
 
-  test('10.2.2 — 7 signaux affichés (nom, catégorie, url, description, pdf, cover, article)', async ({ page }) => {
+  test('10.2.2 - 7 signaux affichés (nom, catégorie, url, description, pdf, cover, article)', async ({ page }) => {
     await goToWizard(page);
     await page.locator('.cp-trigger').click();
     const panel = page.locator('#cp-panel');
@@ -96,7 +96,7 @@ test.describe('10.2 — Carte de complétion et signaux', () => {
     await expect(offSignals).toHaveCount(7);
   });
 
-  test('10.2.3 — Complétion augmente quand nom rempli', async ({ page }) => {
+  test('10.2.3 - Complétion augmente quand nom rempli', async ({ page }) => {
     await goToWizard(page);
     await page.fill('#cw-name', 'Test Project');
     await page.locator('.cp-trigger').click();
@@ -110,7 +110,7 @@ test.describe('10.2 — Carte de complétion et signaux', () => {
     await expect(onSignals).toHaveCount(1);
   });
 
-  test('10.2.4 — Complétion augmente quand nom + catégorie remplis → suggestions apparaissent', async ({ page }) => {
+  test('10.2.4 - Complétion augmente quand nom + catégorie remplis → suggestions apparaissent', async ({ page }) => {
     await goToWizard(page);
     await page.fill('#cw-name', 'Test Project');
     const pill = page.locator('.cw-cat-pill').first();
@@ -133,7 +133,7 @@ test.describe('10.2 — Carte de complétion et signaux', () => {
     expect(count).toBeGreaterThanOrEqual(1);
   });
 
-  test('10.2.5 — Message contextuel quand nom/catégorie absents', async ({ page }) => {
+  test('10.2.5 - Message contextuel quand nom/catégorie absents', async ({ page }) => {
     await goToWizard(page);
     await page.locator('.cp-trigger').click();
     const panel = page.locator('#cp-panel');
@@ -146,9 +146,9 @@ test.describe('10.2 — Carte de complétion et signaux', () => {
   });
 });
 
-test.describe('10.3 — Recherche web et mode étendu', () => {
+test.describe('10.3 - Recherche web et mode étendu', () => {
 
-  test('10.3.1 — Toggle recherche web visible et fonctionnel', async ({ page }) => {
+  test('10.3.1 - Toggle recherche web visible et fonctionnel', async ({ page }) => {
     await goToWizard(page);
     await page.locator('.cp-trigger').click();
     const panel = page.locator('#cp-panel');
@@ -170,7 +170,7 @@ test.describe('10.3 — Recherche web et mode étendu', () => {
     await expect(panel.locator('.cp-web-toggle')).toHaveClass(/cp-web-toggle--on/);
   });
 
-  test('10.3.2 — Mode étendu (expand) : panneau plein écran + backdrop', async ({ page }) => {
+  test('10.3.2 - Mode étendu (expand) : panneau plein écran + backdrop', async ({ page }) => {
     await goToWizard(page);
     await page.locator('.cp-trigger').click();
     const panel = page.locator('#cp-panel');
@@ -186,7 +186,7 @@ test.describe('10.3 — Recherche web et mode étendu', () => {
     await expect(panel).not.toHaveClass(/cp-panel--expanded/, { timeout: 3000 });
   });
 
-  test('10.3.3 — Escape ferme le mode étendu sans fermer le panneau', async ({ page }) => {
+  test('10.3.3 - Escape ferme le mode étendu sans fermer le panneau', async ({ page }) => {
     await goToWizard(page);
     await page.locator('.cp-trigger').click();
     const panel = page.locator('#cp-panel');
@@ -206,7 +206,7 @@ test.describe('10.3 — Recherche web et mode étendu', () => {
     await expect(panel).toBeHidden({ timeout: 3000 });
   });
 
-  test('10.3.4 — Backdrop click ferme le mode étendu', async ({ page }) => {
+  test('10.3.4 - Backdrop click ferme le mode étendu', async ({ page }) => {
     await goToWizard(page);
     await page.locator('.cp-trigger').click();
     const panel = page.locator('#cp-panel');
@@ -228,11 +228,11 @@ test.describe('10.3 — Recherche web et mode étendu', () => {
   });
 });
 
-test.describe('10.4 — Badge et polling', () => {
+test.describe('10.4 - Badge et polling', () => {
 
-  test('10.4.1 — Badge caché initialement (formulaire vide)', async ({ page }) => {
+  test('10.4.1 - Badge caché initialement (formulaire vide)', async ({ page }) => {
     await goToWizard(page);
-    // Trigger button should be visible — copilot is mounted
+    // Trigger button should be visible - copilot is mounted
     await expect(page.locator('.cp-trigger')).toBeVisible({ timeout: 5000 });
     const badge = page.locator('#cp-badge');
     // Wait one polling cycle (2s) to confirm badge stays hidden
@@ -240,7 +240,7 @@ test.describe('10.4 — Badge et polling', () => {
     await expect(badge).toBeHidden();
   });
 
-  test('10.4.2 — Badge apparaît quand formulaire suffisamment rempli (polling)', async ({ page }) => {
+  test('10.4.2 - Badge apparaît quand formulaire suffisamment rempli (polling)', async ({ page }) => {
     await goToWizard(page);
     await expect(page.locator('.cp-trigger')).toBeVisible({ timeout: 5000 });
     // Fill name and category to trigger suggestions
@@ -256,7 +256,7 @@ test.describe('10.4 — Badge et polling', () => {
     expect(parseInt(badgeText)).toBeGreaterThanOrEqual(1);
   });
 
-  test('10.4.3 — Badge caché quand panneau ouvert', async ({ page }) => {
+  test('10.4.3 - Badge caché quand panneau ouvert', async ({ page }) => {
     await goToWizard(page);
     await expect(page.locator('.cp-trigger')).toBeVisible({ timeout: 5000 });
     await page.fill('#cw-name', 'Parc Central');
@@ -275,9 +275,9 @@ test.describe('10.4 — Badge et polling', () => {
   });
 });
 
-test.describe('10.5 — Suggestions de génération', () => {
+test.describe('10.5 - Suggestions de génération', () => {
 
-  test('10.5.1 — Bouton "Générer la description" visible quand nom+catégorie remplis', async ({ page }) => {
+  test('10.5.1 - Bouton "Générer la description" visible quand nom+catégorie remplis', async ({ page }) => {
     await goToWizard(page);
     await page.fill('#cw-name', 'Test');
     const pill = page.locator('.cw-cat-pill').first();
@@ -293,7 +293,7 @@ test.describe('10.5 — Suggestions de génération', () => {
     await expect(descBtn).toContainText('description');
   });
 
-  test('10.5.2 — Bouton "Générer l\'article" visible', async ({ page }) => {
+  test('10.5.2 - Bouton "Générer l\'article" visible', async ({ page }) => {
     await goToWizard(page);
     await page.fill('#cw-name', 'Test');
     const pill = page.locator('.cw-cat-pill').first();
@@ -309,7 +309,7 @@ test.describe('10.5 — Suggestions de génération', () => {
     await expect(articleBtn).toContainText('article');
   });
 
-  test('10.5.3 — Aucune suggestion si nom vide', async ({ page }) => {
+  test('10.5.3 - Aucune suggestion si nom vide', async ({ page }) => {
     await goToWizard(page);
     await page.locator('.cp-trigger').click();
     const panel = page.locator('#cp-panel');
@@ -321,7 +321,7 @@ test.describe('10.5 — Suggestions de génération', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 10.6 — Génération IA (parcours UI, /api/ai-generate mocké)
+// 10.6 - Génération IA (parcours UI, /api/ai-generate mocké)
 //
 // La fonction ai-generate appelle OpenAI en direct : la brancher réellement
 // rendrait ces tests lents (90-180 s) et non déterministes (dépendants du
@@ -387,9 +387,9 @@ async function openCopilotWithContext(page) {
   return panel;
 }
 
-test.describe('10.6 — Génération IA (description)', () => {
+test.describe('10.6 - Génération IA (description)', () => {
 
-  test('10.6.1 — Indicateur de génération visible après clic', async ({ page }) => {
+  test('10.6.1 - Indicateur de génération visible après clic', async ({ page }) => {
     test.setTimeout(120_000);
     const panel = await openCopilotWithContext(page);
 
@@ -423,7 +423,7 @@ test.describe('10.6 — Génération IA (description)', () => {
     expect(resultText.trim().length).toBeGreaterThan(10);
   });
 
-  test('10.6.2 — Insérer la description dans le champ', async ({ page }) => {
+  test('10.6.2 - Insérer la description dans le champ', async ({ page }) => {
     test.setTimeout(120_000);
     const panel = await openCopilotWithContext(page);
 
@@ -445,7 +445,7 @@ test.describe('10.6 — Génération IA (description)', () => {
     await expect(toastEl).toContainText('Description insérée', { timeout: 5000 });
   });
 
-  test('10.6.3 — Bouton stop interrompt la génération', async ({ page }) => {
+  test('10.6.3 - Bouton stop interrompt la génération', async ({ page }) => {
     test.setTimeout(60_000);
     const panel = await openCopilotWithContext(page);
 
@@ -467,7 +467,7 @@ test.describe('10.6 — Génération IA (description)', () => {
     expect(interrupted || hasPartialResult).toBe(true);
   });
 
-  test('10.6.4 — Double clic ne lance pas deux générations', async ({ page }) => {
+  test('10.6.4 - Double clic ne lance pas deux générations', async ({ page }) => {
     test.setTimeout(120_000);
     const panel = await openCopilotWithContext(page);
 
@@ -489,9 +489,9 @@ test.describe('10.6 — Génération IA (description)', () => {
   });
 });
 
-test.describe('10.7 — Génération IA (article)', () => {
+test.describe('10.7 - Génération IA (article)', () => {
 
-  test('10.7.1 — Génération article : résultat plus long', async ({ page }) => {
+  test('10.7.1 - Génération article : résultat plus long', async ({ page }) => {
     test.setTimeout(180_000);
     const panel = await openCopilotWithContext(page);
 
@@ -515,7 +515,7 @@ test.describe('10.7 — Génération IA (article)', () => {
     expect(resultText.trim().length).toBeGreaterThan(100);
   });
 
-  test('10.7.2 — Insérer article active l\'éditeur markdown', async ({ page }) => {
+  test('10.7.2 - Insérer article active l\'éditeur markdown', async ({ page }) => {
     test.setTimeout(180_000);
     const panel = await openCopilotWithContext(page);
 

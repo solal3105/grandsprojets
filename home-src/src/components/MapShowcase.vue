@@ -48,7 +48,7 @@
         </div>
       </div>
 
-      <!-- Iframe container — content scaled down to 65% -->
+      <!-- Iframe container - content scaled down to 65% -->
       <div class="relative bg-gray-100" style="height: 480px; overflow: hidden;">
         <div
           v-for="space in spaces"
@@ -110,7 +110,7 @@
 import { ref } from 'vue'
 import { MapPin, Lock, RotateCw } from 'lucide-vue-next'
 
-// En dev, l'origine est localhost — on pointe sur la prod (les pages publiques
+// En dev, l'origine est localhost - on pointe sur la prod (les pages publiques
 // n'ont plus de X-Frame-Options, les iframes fonctionnent donc en preview).
 const base = import.meta.env.VITE_MAP_BASE_URL || 'https://openprojets.com'
 
@@ -118,7 +118,7 @@ const spaces = [
   {
     id: 'default',
     name: 'Métropole de Lyon',
-    type: 'Métropole — Espace démonstration',
+    type: 'Métropole - Espace démonstration',
     src: `${base}/default`,
     urlDisplay: 'openprojets.com/default',
     color: '#5AAB7D',
@@ -126,7 +126,7 @@ const spaces = [
   {
     id: 'projet',
     name: 'Villeurbanne',
-    type: 'Ville — Espace démonstration',
+    type: 'Ville - Espace démonstration',
     src: `${base}/projet`,
     urlDisplay: 'openprojets.com/projet',
     color: '#4E2BFF',
@@ -134,7 +134,7 @@ const spaces = [
   {
     id: 'besancon',
     name: 'Besançon',
-    type: 'Ville — Espace démonstration',
+    type: 'Ville - Espace démonstration',
     src: `${base}/besancon`,
     urlDisplay: 'openprojets.com/besancon',
     color: '#F2B327',

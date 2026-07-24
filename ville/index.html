@@ -13,11 +13,11 @@
 
   <title>Projets urbains par ville | Open Projets</title>
 
-  <!-- Canonical + hreflang — réécrits par l'edge function -->
+  <!-- Canonical + hreflang - réécrits par l'edge function -->
   <link rel="canonical" href="https://openprojets.com/ville/">
   <link rel="alternate" hreflang="fr" href="https://openprojets.com/ville/">
 
-  <!-- Open Graph / Twitter — réécrits par l'edge function -->
+  <!-- Open Graph / Twitter - réécrits par l'edge function -->
   <meta property="og:site_name" content="Open Projets">
   <meta property="og:locale" content="fr_FR">
   <meta property="og:type" content="website">
@@ -37,7 +37,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link rel="preconnect" href="https://wqqsuybmyqemhojsamgq.supabase.co">
 
-  <!-- Polices : Space Grotesk (titres) + Inter (corps) — same as /fiche/ et /home/ -->
+  <!-- Polices : Space Grotesk (titres) + Inter (corps) - same as /fiche/ et /home/ -->
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 
   <!-- Design system tokens (obligatoire, avant le CSS de page) -->
@@ -53,7 +53,7 @@
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-8LGDVJXTPK"></script>
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-8LGDVJXTPK');</script>
 
-  <!-- JSON-LD — réécrit par l'edge function (CollectionPage + ItemList) -->
+  <!-- JSON-LD - réécrit par l'edge function (CollectionPage + ItemList) -->
   <script type="application/ld+json" id="vh-jsonld">{"@context":"https://schema.org","@type":"CollectionPage","name":"Projets urbains par ville","url":"https://openprojets.com/ville/","inLanguage":"fr"}</script>
 </head>
 <body>
@@ -87,7 +87,7 @@
 
     </nav>
 
-    <!-- ═══════════════ CONTENU — rendu côté serveur par l'edge function ville-hub ═══════════════ -->
+    <!-- ═══════════════ CONTENU - rendu côté serveur par l'edge function ville-hub ═══════════════ -->
     <main class="vh-main" id="vh-main">
       <!--VH:CONTENT-START-->
       <div class="vh-fallback">
@@ -110,7 +110,7 @@
     <style>.vh-tags, .vh-search, .vh-topbar__btns { display: none !important; }</style>
   </noscript>
 
-  <!-- Modules partagés (IIFE) — la chaîne MapLibre est chargée à la demande
+  <!-- Modules partagés (IIFE) - la chaîne MapLibre est chargée à la demande
        par ville-hub.js à l'ouverture de la vue carte -->
   <script src="/modules/thememanager.js"></script>
   <script src="/ville/ville-hub.js"></script>

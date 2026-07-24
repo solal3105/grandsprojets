@@ -17,11 +17,11 @@ const clearToasts = (page) =>
   page.evaluate(() => document.querySelectorAll('.adm-toast').forEach(t => t.remove()));
 
 // ─────────────────────────────────────────────────────────
-// 7 — Composants transversaux
+// 7 - Composants transversaux
 // ─────────────────────────────────────────────────────────
-test.describe('7 — Composants transversaux', () => {
+test.describe('7 - Composants transversaux', () => {
 
-  test('7.1 — Toast auto-dismiss après ~3.5s', async ({ page }) => {
+  test('7.1 - Toast auto-dismiss après ~3.5s', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/');
     await page.waitForSelector('#contrib-list-body .adm-list-item', { timeout: 10000 });
 
@@ -39,7 +39,7 @@ test.describe('7 — Composants transversaux', () => {
     await expect(toast).toBeHidden({ timeout: 6000 });
   });
 
-  test('7.2 — Dialog annulé via Escape', async ({ page }) => {
+  test('7.2 - Dialog annulé via Escape', async ({ page }) => {
     await waitForBoot(page, '/admin/categories/');
     await page.waitForSelector('.adm-cat-card', { timeout: 10000 });
 
@@ -58,7 +58,7 @@ test.describe('7 — Composants transversaux', () => {
     await expect(page.locator('.adm-cat-card').first()).toBeVisible();
   });
 
-  test('7.3 — Slide panel open/close/re-open sans listeners zombies', async ({ page }) => {
+  test('7.3 - Slide panel open/close/re-open sans listeners zombies', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/');
     await page.waitForSelector('#contrib-list-body .adm-list-item', { timeout: 10000 });
 
@@ -81,7 +81,7 @@ test.describe('7 — Composants transversaux', () => {
     await expect(panel).toHaveAttribute('aria-hidden', 'true', { timeout: 3000 });
   });
 
-  test('7.4 — Multiples toasts empilés', async ({ page }) => {
+  test('7.4 - Multiples toasts empilés', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/');
     await clearToasts(page);
 
@@ -99,11 +99,11 @@ test.describe('7 — Composants transversaux', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 9 — Résilience & edge cases
+// 9 - Résilience & edge cases
 // ─────────────────────────────────────────────────────────
-test.describe('9 — Résilience & edge cases', () => {
+test.describe('9 - Résilience & edge cases', () => {
 
-  test('9.1 — Route inconnue /admin/foobar/ → fallback contributions', async ({ page }) => {
+  test('9.1 - Route inconnue /admin/foobar/ → fallback contributions', async ({ page }) => {
     await waitForBoot(page, '/admin/foobar/');
     // Fallback renders contributions section
     await page.waitForSelector('#contrib-list-body', { timeout: 10000 });
@@ -113,22 +113,22 @@ test.describe('9 — Résilience & edge cases', () => {
     await expect(activeNav).toHaveCount(0);
   });
 
-  test('9.2 — Contribution introuvable /admin/contributions/999999/', async ({ page }) => {
+  test('9.2 - Contribution introuvable /admin/contributions/999999/', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/999999/');
     await expect(errorToast(page, 'Contribution introuvable')).toBeVisible({ timeout: 10000 });
   });
 
-  test('9.3 — Chantier introuvable → toast erreur + redirect', async ({ page }) => {
+  test('9.3 - Chantier introuvable → toast erreur + redirect', async ({ page }) => {
     // First ensure travaux module is configured, otherwise the empty state blocks deep links
     await waitForBoot(page, '/admin/travaux/config/');
-    // If config page renders, enable and save — then test the not-found
+    // If config page renders, enable and save - then test the not-found
     const enabledCheckbox = page.locator('#twc-enabled');
     const isConfigPage = await enabledCheckbox.count().then(c => c > 0).catch(() => false);
     if (!isConfigPage) {
       test.skip();
       return;
     }
-    // Check if already enabled — if not, enable it
+    // Check if already enabled - if not, enable it
     const isChecked = await enabledCheckbox.isChecked();
     if (!isChecked) {
       await page.locator('#twc-enabled').check({ force: true });
@@ -148,7 +148,7 @@ test.describe('9 — Résilience & edge cases', () => {
     await expect(page).toHaveURL(/\/admin\/travaux\/$/, { timeout: 5000 });
   });
 
-  test('9.4 — XSS dans un nom de projet → rendu échappé', async ({ page }) => {
+  test('9.4 - XSS dans un nom de projet → rendu échappé', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/');
     await page.waitForSelector('#contrib-list-body .adm-list-item', { timeout: 10000 });
 
@@ -162,7 +162,7 @@ test.describe('9 — Résilience & edge cases', () => {
       const names = listBody.querySelectorAll('.adm-list-item__name');
       for (const name of names) {
         if (name.innerHTML !== name.textContent.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')) {
-          // innerHTML differs from escaped textContent — potential XSS vector
+          // innerHTML differs from escaped textContent - potential XSS vector
           // This is OK if it's just normal text with no HTML entities
         }
       }
@@ -172,7 +172,7 @@ test.describe('9 — Résilience & edge cases', () => {
     expect(hasInjection).toBe(false);
   });
 
-  test('9.5 — Double-clic sur un bouton de soumission → pas de double soumission', async ({ page }) => {
+  test('9.5 - Double-clic sur un bouton de soumission → pas de double soumission', async ({ page }) => {
     await waitForBoot(page, '/admin/structure/');
     await page.waitForSelector('#st-brand-name', { state: 'visible', timeout: 15000 });
 
@@ -188,7 +188,7 @@ test.describe('9 — Résilience & edge cases', () => {
     await page.evaluate(() => {
       const btn = document.querySelector('#st-save-all');
       btn?.click();
-      btn?.click(); // second click — button should be disabled
+      btn?.click(); // second click - button should be disabled
     });
 
     // Button should be disabled during save
@@ -202,11 +202,11 @@ test.describe('9 — Résilience & edge cases', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 7.5 — Toast variants et composants UI
+// 7.5 - Toast variants et composants UI
 // ─────────────────────────────────────────────────────────
-test.describe('7.5 — Toast variants et composants UI', () => {
+test.describe('7.5 - Toast variants et composants UI', () => {
 
-  test('7.5.1 — Toast success a l\'icône check', async ({ page }) => {
+  test('7.5.1 - Toast success a l\'icône check', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/');
     await page.waitForSelector('#contrib-list-body', { timeout: 10000 });
 
@@ -219,7 +219,7 @@ test.describe('7.5 — Toast variants et composants UI', () => {
     await expect(t.locator('i.fa-check')).toBeVisible();
   });
 
-  test('7.5.2 — Toast error a l\'icône xmark', async ({ page }) => {
+  test('7.5.2 - Toast error a l\'icône xmark', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/');
     await page.waitForSelector('#contrib-list-body', { timeout: 10000 });
 
@@ -232,7 +232,7 @@ test.describe('7.5 — Toast variants et composants UI', () => {
     await expect(t.locator('i.fa-xmark')).toBeVisible();
   });
 
-  test('7.5.3 — Toast warning a l\'icône triangle', async ({ page }) => {
+  test('7.5.3 - Toast warning a l\'icône triangle', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/');
     await page.waitForSelector('#contrib-list-body', { timeout: 10000 });
 
@@ -245,7 +245,7 @@ test.describe('7.5 — Toast variants et composants UI', () => {
     await expect(t.locator('i.fa-triangle-exclamation')).toBeVisible();
   });
 
-  test('7.5.4 — Dialog danger : bouton confirm rouge', async ({ page }) => {
+  test('7.5.4 - Dialog danger : bouton confirm rouge', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/');
     await page.waitForSelector('#contrib-list-body .adm-list-item', { timeout: 10000 });
 
@@ -263,7 +263,7 @@ test.describe('7.5 — Toast variants et composants UI', () => {
     await page.click('#adm-dialog-cancel');
   });
 
-  test('7.5.5 — Dialog body contient titre en gras et message', async ({ page }) => {
+  test('7.5.5 - Dialog body contient titre en gras et message', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/');
     await page.waitForSelector('#contrib-list-body .adm-list-item', { timeout: 10000 });
 
@@ -281,7 +281,7 @@ test.describe('7.5 — Toast variants et composants UI', () => {
 
   // Non-régression : le reset global `* { margin: 0 }` écrasait le `margin: auto`
   // de la feuille UA et collait la modale en haut à gauche de l'écran.
-  test('7.5.5b — Dialog centré dans le viewport', async ({ page }) => {
+  test('7.5.5b - Dialog centré dans le viewport', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/');
     await page.waitForSelector('#contrib-list-body .adm-list-item', { timeout: 10000 });
 
@@ -303,7 +303,7 @@ test.describe('7.5 — Toast variants et composants UI', () => {
     await page.click('#adm-dialog-cancel');
   });
 
-  test('7.5.6 — Slide panel : titre, corps et footer rendus', async ({ page }) => {
+  test('7.5.6 - Slide panel : titre, corps et footer rendus', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/');
     await page.waitForSelector('#contrib-list-body .adm-list-item', { timeout: 10000 });
 
@@ -328,23 +328,23 @@ test.describe('7.5 — Toast variants et composants UI', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 9.6 — Routes deep-links et sous-routes
+// 9.6 - Routes deep-links et sous-routes
 // ─────────────────────────────────────────────────────────
-test.describe('9.6 — Routes deep-links', () => {
+test.describe('9.6 - Routes deep-links', () => {
 
-  test('9.6.1 — Deep link /admin/contributions/nouveau/ → wizard direct', async ({ page }) => {
+  test('9.6.1 - Deep link /admin/contributions/nouveau/ → wizard direct', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-name', { state: 'visible', timeout: 15000 });
     await expect(page.locator('.cw-header__title')).toContainText('Nouvelle contribution');
   });
 
-  test('9.6.2 — Deep link /admin/structure/ → structure chargée', async ({ page }) => {
+  test('9.6.2 - Deep link /admin/structure/ → structure chargée', async ({ page }) => {
     await waitForBoot(page, '/admin/structure/');
     await page.waitForSelector('#st-brand-name', { state: 'visible', timeout: 15000 });
     await expect(page.locator('.cw-header__title')).toContainText('Ma structure');
   });
 
-  test('9.6.3 — Deep link /admin/categories/ → catégories chargées', async ({ page }) => {
+  test('9.6.3 - Deep link /admin/categories/ → catégories chargées', async ({ page }) => {
     await waitForBoot(page, '/admin/categories/');
     await page.waitForSelector('.adm-page-title', { state: 'visible', timeout: 15000 });
     await expect(page.locator('.adm-page-title')).toContainText('Catégories');

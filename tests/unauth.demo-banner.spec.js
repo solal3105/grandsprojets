@@ -91,7 +91,7 @@ test.describe('0.30.2 - Bannière démo : jamais sur un espace client', () => {
 
   test('0.30.2.4 - Masquée sur une route ville par path (ex. /bilan, régression)', async ({ page }) => {
     // route-config.js mappe /bilan → rassemblees ; le catch-all _redirects sert index.html.
-    // Avant ou après la redirection applyRedirect, la bannière doit être masquée —
+    // Avant ou après la redirection applyRedirect, la bannière doit être masquée -
     // poll résilient car applyRedirect peut naviguer pendant l'assertion.
     await page.goto('/bilan', { waitUntil: 'domcontentloaded' });
     await expect.poll(async () => {

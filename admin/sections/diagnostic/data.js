@@ -1,5 +1,5 @@
 /**
- * Diagnostic terrain — chargement et normalisation des données.
+ * Diagnostic terrain - chargement et normalisation des données.
  * Fonctions pures : GeoJSON, CSV, détection de champs, géométrie.
  */
 
@@ -163,7 +163,7 @@ export function guessColumn(headers, keys) {
     const i = low.indexOf(k);
     if (i >= 0) return headers[i];
   }
-  // Repli par sous-chaîne — uniquement pour les clés non ambiguës (≥ 3 car.,
+  // Repli par sous-chaîne - uniquement pour les clés non ambiguës (≥ 3 car.,
   // sinon « x »/« y » matchent n'importe quel en-tête).
   for (let i = 0; i < low.length; i++) {
     if (keys.some((k) => k.length >= 3 && low[i].includes(k))) return headers[i];
@@ -220,7 +220,7 @@ export function bboxAreaKm2(bbox) {
   return Math.max(0.01, Math.abs(w * h));
 }
 
-/** Test point dans polygone (ray casting) — poly = [[x, y], …] en coordonnées écran. */
+/** Test point dans polygone (ray casting) - poly = [[x, y], …] en coordonnées écran. */
 export function pointInPolygon(pt, poly) {
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {

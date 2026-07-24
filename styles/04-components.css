@@ -104,7 +104,7 @@
   border-radius: 24px 24px 0 0;
 }
 
-/* Paliers mobiles — DOIVENT rester dans ce fichier : 04-components.css est
+/* Paliers mobiles - DOIVENT rester dans ce fichier : 04-components.css est
    chargé APRÈS 02-layout.css et 08-responsive.css dans index.html, où ces
    règles étaient écrasées à spécificité égale. L'ordre 720 puis 640 compte :
    sous 640px les deux media queries matchent, la dernière source l'emporte. */
@@ -144,7 +144,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Always-visible overlay bar (back + close) — floats above scroll content
+   Always-visible overlay bar (back + close) - floats above scroll content
 --------------------------------------------------------------------------- */
 .detail-overlay-btns {
   position: absolute;
@@ -220,7 +220,7 @@
   font-size: 0.9rem;
 }
 
-/* Close (X) button — uses category color */
+/* Close (X) button - uses category color */
 .detail-close-floating {
   background: var(--cat-color, var(--primary));
   color: #fff;
@@ -244,7 +244,7 @@
   padding-top: 68px;
 }
 
-/* Sticky footer — "Voir la fiche complète" CTA always visible at the bottom */
+/* Sticky footer - "Voir la fiche complète" CTA always visible at the bottom */
 .detail-footer {
   flex-shrink: 0;
   padding: 10px 16px 16px;
@@ -470,12 +470,12 @@
   }
 }
 
-/* (Legacy supprimé : #detail-fullpage-btn — sélecteur ID mort,
+/* (Legacy supprimé : #detail-fullpage-btn - sélecteur ID mort,
    seule la classe .detail-fullpage-btn est utilisée par JS) */
 
 
 /* ---------------------------------------------------------------------------
-   Basemap & City menus — now use .dock-panel (see 11-toggles.css)
+   Basemap & City menus - now use .dock-panel (see 11-toggles.css)
    Only city-logo sizing override below.
 --------------------------------------------------------------------------- */
 
@@ -511,7 +511,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Detail Hero — variante travaux (icône + gradient, sans image)
+   Detail Hero - variante travaux (icône + gradient, sans image)
 --------------------------------------------------------------------------- */
 .detail-hero--travaux {
   background: linear-gradient(
@@ -546,7 +546,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Travaux detail — timeline barre de progression
+   Travaux detail - timeline barre de progression
 --------------------------------------------------------------------------- */
 .tw-detail-timeline {
   margin: 16px 0 8px;
@@ -609,7 +609,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Travaux detail — adresses
+   Travaux detail - adresses
 --------------------------------------------------------------------------- */
 .tw-detail-addresses {
   margin-top: 14px;

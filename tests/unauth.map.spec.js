@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Wait for the map page to fully boot (Phase 6+ — toggles ready).
+ * Wait for the map page to fully boot (Phase 6+ - toggles ready).
  */
 async function waitForMapBoot(page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -16,11 +16,11 @@ async function waitForMapBoot(page) {
 }
 
 // ─────────────────────────────────────────────────────────
-// 0.2 — Chargement de la page carte
+// 0.2 - Chargement de la page carte
 // ─────────────────────────────────────────────────────────
-test.describe('0.2 — Chargement de la page carte', () => {
+test.describe('0.2 - Chargement de la page carte', () => {
 
-  test('0.2.1 — La page se charge et affiche la carte', async ({ page }) => {
+  test('0.2.1 - La page se charge et affiche la carte', async ({ page }) => {
     await waitForMapBoot(page);
     // Le conteneur de carte est présent
     await expect(page.locator('#map')).toBeVisible();
@@ -30,14 +30,14 @@ test.describe('0.2 — Chargement de la page carte', () => {
     await expect(page.locator('#gp-sidebar')).toBeVisible();
   });
 
-  test('0.2.2 — Le titre de la page contient un nom de ville', async ({ page }) => {
+  test('0.2.2 - Le titre de la page contient un nom de ville', async ({ page }) => {
     await waitForMapBoot(page);
     const title = await page.title();
     // Le titre doit contenir quelque chose (dépend de la config ville)
     expect(title.length).toBeGreaterThan(0);
   });
 
-  test('0.2.3 — Aucune erreur console bloquante au chargement', async ({ page }) => {
+  test('0.2.3 - Aucune erreur console bloquante au chargement', async ({ page }) => {
     const errors = [];
     page.on('pageerror', err => errors.push(err.message));
     await waitForMapBoot(page);
@@ -50,31 +50,31 @@ test.describe('0.2 — Chargement de la page carte', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.3 — Sidebar (navigation latérale)
+// 0.3 - Sidebar (navigation latérale)
 // ─────────────────────────────────────────────────────────
-test.describe('0.3 — Sidebar', () => {
+test.describe('0.3 - Sidebar', () => {
 
-  test('0.3.1 — Logo visible avec lien vers accueil', async ({ page }) => {
+  test('0.3.1 - Logo visible avec lien vers accueil', async ({ page }) => {
     await waitForMapBoot(page);
     const logo = page.locator('.gp-sidebar__logo');
     await expect(logo).toBeVisible();
     await expect(logo).toHaveAttribute('href', '/');
   });
 
-  test('0.3.2 — Bouton Carte visible et cliquable', async ({ page }) => {
+  test('0.3.2 - Bouton Carte visible et cliquable', async ({ page }) => {
     await waitForMapBoot(page);
     const carteBtn = page.locator('[data-module="carte"]');
     await expect(carteBtn).toBeVisible();
     await expect(carteBtn).toHaveAttribute('data-tooltip', 'Menu');
   });
 
-  test('0.3.3 — Bouton thème visible', async ({ page }) => {
+  test('0.3.3 - Bouton thème visible', async ({ page }) => {
     await waitForMapBoot(page);
     const themeBtn = page.locator('#gp-sidebar [data-action="theme"]');
     await expect(themeBtn).toBeVisible();
   });
 
-  test('0.3.4 — Boutons auth connecté cachés quand non authentifié', async ({ page }) => {
+  test('0.3.4 - Boutons auth connecté cachés quand non authentifié', async ({ page }) => {
     await waitForMapBoot(page);
     // data-connected="false" sur le sidebar quand non connecté
     await expect(page.locator('#gp-sidebar')).toHaveAttribute('data-connected', 'false');
@@ -87,13 +87,13 @@ test.describe('0.3 — Sidebar', () => {
     await expect(logoutBtn).toBeHidden();
   });
 
-  test('0.3.5 — Bouton login visible quand non authentifié', async ({ page }) => {
+  test('0.3.5 - Bouton login visible quand non authentifié', async ({ page }) => {
     await waitForMapBoot(page);
     const loginBtn = page.locator('#gp-sidebar [data-action="login"]');
     await expect(loginBtn).toBeVisible();
   });
 
-  test('0.3.6 — Bouton info visible', async ({ page }) => {
+  test('0.3.6 - Bouton info visible', async ({ page }) => {
     await waitForMapBoot(page);
     const infoBtn = page.locator('#gp-sidebar [data-action="info"]');
     await expect(infoBtn).toBeVisible();
@@ -101,11 +101,11 @@ test.describe('0.3 — Sidebar', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.4 — Toggle Dock (barre d'outils flottante)
+// 0.4 - Toggle Dock (barre d'outils flottante)
 // ─────────────────────────────────────────────────────────
-test.describe('0.4 — Toggle Dock', () => {
+test.describe('0.4 - Toggle Dock', () => {
 
-  test('0.4.1 — Tous les toggles principaux sont rendus', async ({ page }) => {
+  test('0.4.1 - Tous les toggles principaux sont rendus', async ({ page }) => {
     await waitForMapBoot(page);
     await expect(page.locator('#city-toggle')).toBeVisible();
     await expect(page.locator('#filters-toggle')).toBeVisible();
@@ -115,7 +115,7 @@ test.describe('0.4 — Toggle Dock', () => {
     await expect(page.locator('#location-toggle')).toBeVisible();
   });
 
-  test('0.4.2 — Les toggles ont des attributs ARIA', async ({ page }) => {
+  test('0.4.2 - Les toggles ont des attributs ARIA', async ({ page }) => {
     await waitForMapBoot(page);
     const filtersToggle = page.locator('#filters-toggle');
     // aria-label est toujours présent (défini dans _setupAria)
@@ -125,13 +125,13 @@ test.describe('0.4 — Toggle Dock', () => {
     await expect(page.locator('#mode3d-toggle')).toHaveAttribute('aria-pressed', 'false');
   });
 
-  test('0.4.3 — Mode 3D est inactif par défaut', async ({ page }) => {
+  test('0.4.3 - Mode 3D est inactif par défaut', async ({ page }) => {
     await waitForMapBoot(page);
     const mode3d = page.locator('#mode3d-toggle');
     await expect(mode3d).toHaveAttribute('aria-pressed', 'false');
   });
 
-  test('0.4.4 — Clic toggle filters → panneau filtres s\'ouvre', async ({ page }) => {
+  test('0.4.4 - Clic toggle filters → panneau filtres s\'ouvre', async ({ page }) => {
     await waitForMapBoot(page);
     const panel = page.locator('#filters-container');
     await expect(panel).not.toHaveClass(/dock-panel--open/);
@@ -139,7 +139,7 @@ test.describe('0.4 — Toggle Dock', () => {
     await expect(panel).toHaveClass(/dock-panel--open/, { timeout: 3000 });
   });
 
-  test('0.4.5 — Exclusion mutuelle : ouvrir basemap ferme filters', async ({ page }) => {
+  test('0.4.5 - Exclusion mutuelle : ouvrir basemap ferme filters', async ({ page }) => {
     await waitForMapBoot(page);
     // Ouvrir filters
     await page.locator('#filters-toggle').click();
@@ -150,7 +150,7 @@ test.describe('0.4 — Toggle Dock', () => {
     await expect(page.locator('#filters-container')).not.toHaveClass(/dock-panel--open/);
   });
 
-  test('0.4.6 — Re-clic sur un toggle ouvert le ferme', async ({ page }) => {
+  test('0.4.6 - Re-clic sur un toggle ouvert le ferme', async ({ page }) => {
     await waitForMapBoot(page);
     const filtersToggle = page.locator('#filters-toggle');
     const panel = page.locator('#filters-container');
@@ -164,11 +164,11 @@ test.describe('0.4 — Toggle Dock', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.5 — Thème sombre / clair
+// 0.5 - Thème sombre / clair
 // ─────────────────────────────────────────────────────────
-test.describe('0.5 — Thème sombre / clair', () => {
+test.describe('0.5 - Thème sombre / clair', () => {
 
-  test('0.5.1 — Toggle thème change l\'attribut data-theme', async ({ page }) => {
+  test('0.5.1 - Toggle thème change l\'attribut data-theme', async ({ page }) => {
     await waitForMapBoot(page);
     const html = page.locator('html');
     const initialTheme = await html.getAttribute('data-theme');
@@ -180,7 +180,7 @@ test.describe('0.5 — Thème sombre / clair', () => {
     expect(['dark', 'light']).toContain(newTheme);
   });
 
-  test('0.5.2 — L\'icône du bouton thème bascule (moon ↔ sun)', async ({ page }) => {
+  test('0.5.2 - L\'icône du bouton thème bascule (moon ↔ sun)', async ({ page }) => {
     await waitForMapBoot(page);
     const themeBtn = page.locator('#gp-sidebar .gp-sidebar__btn--theme');
     const icon = themeBtn.locator('i');
@@ -198,7 +198,7 @@ test.describe('0.5 — Thème sombre / clair', () => {
     expect(hasChanged).toBe(true);
   });
 
-  test('0.5.3 — Le thème est persisté dans localStorage', async ({ page }) => {
+  test('0.5.3 - Le thème est persisté dans localStorage', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('#gp-sidebar .gp-sidebar__btn--theme').click();
     const savedTheme = await page.evaluate(() => localStorage.getItem('theme'));
@@ -206,7 +206,7 @@ test.describe('0.5 — Thème sombre / clair', () => {
     expect(savedTheme).toBe(htmlTheme);
   });
 
-  test('0.5.4 — Double toggle revient au thème initial', async ({ page }) => {
+  test('0.5.4 - Double toggle revient au thème initial', async ({ page }) => {
     await waitForMapBoot(page);
     const initialTheme = await page.locator('html').getAttribute('data-theme');
     await page.locator('#gp-sidebar .gp-sidebar__btn--theme').click();
@@ -217,11 +217,11 @@ test.describe('0.5 — Thème sombre / clair', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.6 — Panneau de navigation (NavPanel)
+// 0.6 - Panneau de navigation (NavPanel)
 // ─────────────────────────────────────────────────────────
-test.describe('0.6 — Panneau de navigation', () => {
+test.describe('0.6 - Panneau de navigation', () => {
 
-  test('0.6.1 — Clic Carte → NavPanel s\'ouvre en Level 2', async ({ page }) => {
+  test('0.6.1 - Clic Carte → NavPanel s\'ouvre en Level 2', async ({ page }) => {
     await waitForMapBoot(page);
     const navPanel = page.locator('#nav-panel');
     // Initialement fermé (level 0)
@@ -234,7 +234,7 @@ test.describe('0.6 — Panneau de navigation', () => {
     await expect(navPanel).toHaveAttribute('data-module', 'carte');
   });
 
-  test('0.6.2 — Level 2 affiche les catégories', async ({ page }) => {
+  test('0.6.2 - Level 2 affiche les catégories', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('[data-module="carte"]').click();
     await expect(page.locator('#nav-panel')).toHaveClass(/open/, { timeout: 3000 });
@@ -246,7 +246,7 @@ test.describe('0.6 — Panneau de navigation', () => {
     expect(count).toBeGreaterThan(0);
   });
 
-  test('0.6.3 — Le titre du NavPanel est affiché', async ({ page }) => {
+  test('0.6.3 - Le titre du NavPanel est affiché', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('[data-module="carte"]').click();
     await expect(page.locator('#nav-panel')).toHaveClass(/open/, { timeout: 3000 });
@@ -256,7 +256,7 @@ test.describe('0.6 — Panneau de navigation', () => {
     expect(text.trim().length).toBeGreaterThan(0);
   });
 
-  test('0.6.4 — Clic catégorie → Level 3 avec projets', async ({ page }) => {
+  test('0.6.4 - Clic catégorie → Level 3 avec projets', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('[data-module="carte"]').click();
     const navPanel = page.locator('#nav-panel');
@@ -277,7 +277,7 @@ test.describe('0.6 — Panneau de navigation', () => {
     await expect(page.locator('.nav-panel__breadcrumb')).toBeVisible();
   });
 
-  test('0.6.5 — Bouton retour Level 3 → Level 2', async ({ page }) => {
+  test('0.6.5 - Bouton retour Level 3 → Level 2', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('[data-module="carte"]').click();
     await expect(page.locator('#nav-panel')).toHaveClass(/open/, { timeout: 3000 });
@@ -292,7 +292,7 @@ test.describe('0.6 — Panneau de navigation', () => {
     await expect(page.locator('#nav-panel')).toHaveAttribute('data-level', '2', { timeout: 3000 });
   });
 
-  test('0.6.6 — Bouton fermer → NavPanel se collapse', async ({ page }) => {
+  test('0.6.6 - Bouton fermer → NavPanel se collapse', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('[data-module="carte"]').click();
     await expect(page.locator('#nav-panel')).toHaveClass(/open/, { timeout: 3000 });
@@ -302,7 +302,7 @@ test.describe('0.6 — Panneau de navigation', () => {
     await expect(page.locator('#nav-panel')).toHaveClass(/collapsed/, { timeout: 3000 });
   });
 
-  test('0.6.7 — Scrim est masqué après collapse', async ({ page }) => {
+  test('0.6.7 - Scrim est masqué après collapse', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('[data-module="carte"]').click();
     await expect(page.locator('#nav-panel')).toHaveClass(/open/, { timeout: 3000 });
@@ -315,7 +315,7 @@ test.describe('0.6 — Panneau de navigation', () => {
     await expect(page.locator('#nav-panel-scrim')).not.toHaveClass(/visible/, { timeout: 3000 });
   });
 
-  test('0.6.8 — Re-clic module après collapse → expand le panneau', async ({ page }) => {
+  test('0.6.8 - Re-clic module après collapse → expand le panneau', async ({ page }) => {
     await waitForMapBoot(page);
     const carteBtn = page.locator('#gp-sidebar [data-module="carte"]');
     await carteBtn.click();
@@ -331,14 +331,14 @@ test.describe('0.6 — Panneau de navigation', () => {
     await expect(page.locator('#nav-panel')).toHaveClass(/open/);
   });
 
-  test('0.6.9 — Scrim visible quand panneau ouvert', async ({ page }) => {
+  test('0.6.9 - Scrim visible quand panneau ouvert', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('[data-module="carte"]').click();
     await expect(page.locator('#nav-panel')).toHaveClass(/open/, { timeout: 3000 });
     await expect(page.locator('#nav-panel-scrim')).toHaveClass(/visible/, { timeout: 3000 });
   });
 
-  test('0.6.10 — Clic scrim → collapse le panneau', async ({ page }) => {
+  test('0.6.10 - Clic scrim → collapse le panneau', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('[data-module="carte"]').click();
     await expect(page.locator('#nav-panel')).toHaveClass(/open/, { timeout: 3000 });
@@ -348,7 +348,7 @@ test.describe('0.6 — Panneau de navigation', () => {
     await expect(page.locator('#nav-panel')).toHaveClass(/collapsed/, { timeout: 3000 });
   });
 
-  test('0.6.11 — Bouton module Carte prend la classe active', async ({ page }) => {
+  test('0.6.11 - Bouton module Carte prend la classe active', async ({ page }) => {
     await waitForMapBoot(page);
     // Scoper au sidebar pour éviter la collision avec #nav-panel[data-module="carte"]
     const carteBtn = page.locator('#gp-sidebar [data-module="carte"]');
@@ -360,11 +360,11 @@ test.describe('0.6 — Panneau de navigation', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.7 — Navigation clavier (NavPanel)
+// 0.7 - Navigation clavier (NavPanel)
 // ─────────────────────────────────────────────────────────
-test.describe('0.7 — Navigation clavier', () => {
+test.describe('0.7 - Navigation clavier', () => {
 
-  test('0.7.1 — Escape en Level 2 → collapse le panneau', async ({ page }) => {
+  test('0.7.1 - Escape en Level 2 → collapse le panneau', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('[data-module="carte"]').click();
     await expect(page.locator('#nav-panel')).toHaveClass(/open/, { timeout: 3000 });
@@ -373,7 +373,7 @@ test.describe('0.7 — Navigation clavier', () => {
     await expect(page.locator('#nav-panel')).toHaveClass(/collapsed/, { timeout: 3000 });
   });
 
-  test('0.7.2 — Escape en Level 3 → retour Level 2', async ({ page }) => {
+  test('0.7.2 - Escape en Level 3 → retour Level 2', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('[data-module="carte"]').click();
     await expect(page.locator('#nav-panel')).toHaveClass(/open/, { timeout: 3000 });
@@ -389,11 +389,11 @@ test.describe('0.7 — Navigation clavier', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.8 — Recherche d'adresse
+// 0.8 - Recherche d'adresse
 // ─────────────────────────────────────────────────────────
-test.describe('0.8 — Recherche d\'adresse', () => {
+test.describe('0.8 - Recherche d\'adresse', () => {
 
-  test('0.8.1 — Clic search → panneau s\'ouvre et input focus', async ({ page }) => {
+  test('0.8.1 - Clic search → panneau s\'ouvre et input focus', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('#search-toggle').click();
     const panel = page.locator('#search-overlay');
@@ -402,7 +402,7 @@ test.describe('0.8 — Recherche d\'adresse', () => {
     await expect(input).toBeFocused({ timeout: 3000 });
   });
 
-  test('0.8.2 — Saisie texte → bouton clear apparaît', async ({ page }) => {
+  test('0.8.2 - Saisie texte → bouton clear apparaît', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('#search-toggle').click();
     const clearBtn = page.locator('.search__clear');
@@ -412,7 +412,7 @@ test.describe('0.8 — Recherche d\'adresse', () => {
     await expect(clearBtn).toHaveClass(/visible/, { timeout: 2000 });
   });
 
-  test('0.8.3 — Recherche "Lyon" → résultats affichés', async ({ page }) => {
+  test('0.8.3 - Recherche "Lyon" → résultats affichés', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('#search-toggle').click();
     await page.fill('#address-search', 'Lyon');
@@ -425,7 +425,7 @@ test.describe('0.8 — Recherche d\'adresse', () => {
     expect(count).toBeLessThanOrEqual(6);
   });
 
-  test('0.8.4 — Bouton clear → vide l\'input et les résultats', async ({ page }) => {
+  test('0.8.4 - Bouton clear → vide l\'input et les résultats', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('#search-toggle').click();
     await page.fill('#address-search', 'Lyon');
@@ -437,7 +437,7 @@ test.describe('0.8 — Recherche d\'adresse', () => {
     await expect(page.locator('.search-result-item')).toHaveCount(0, { timeout: 3000 });
   });
 
-  test('0.8.5 — Escape ferme le panneau recherche', async ({ page }) => {
+  test('0.8.5 - Escape ferme le panneau recherche', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('#search-toggle').click();
     await expect(page.locator('#search-overlay')).toHaveClass(/dock-panel--open/);
@@ -445,7 +445,7 @@ test.describe('0.8 — Recherche d\'adresse', () => {
     await expect(page.locator('#search-overlay')).not.toHaveClass(/dock-panel--open/, { timeout: 3000 });
   });
 
-  test('0.8.6 — Navigation clavier dans les résultats', async ({ page }) => {
+  test('0.8.6 - Navigation clavier dans les résultats', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('#search-toggle').click();
     await page.fill('#address-search', 'Lyon');
@@ -456,7 +456,7 @@ test.describe('0.8 — Recherche d\'adresse', () => {
     await expect(page.locator('.search-result-item.is-focused')).toHaveCount(1, { timeout: 2000 });
   });
 
-  test('0.8.7 — Recherche sans résultat → message vide', async ({ page }) => {
+  test('0.8.7 - Recherche sans résultat → message vide', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('#search-toggle').click();
     await page.fill('#address-search', 'xyzzyqwertyu12345');
@@ -468,11 +468,11 @@ test.describe('0.8 — Recherche d\'adresse', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.9 — Panneau filtres
+// 0.9 - Panneau filtres
 // ─────────────────────────────────────────────────────────
-test.describe('0.9 — Panneau filtres', () => {
+test.describe('0.9 - Panneau filtres', () => {
 
-  test('0.9.1 — Ouvrir le panneau → items de filtres affichés', async ({ page }) => {
+  test('0.9.1 - Ouvrir le panneau → items de filtres affichés', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('#filters-toggle').click();
     const panel = page.locator('#filters-container');
@@ -484,7 +484,7 @@ test.describe('0.9 — Panneau filtres', () => {
     expect(count).toBeGreaterThan(0);
   });
 
-  test('0.9.2 — Clic filtre → toggle is-active', async ({ page }) => {
+  test('0.9.2 - Clic filtre → toggle is-active', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('#filters-toggle').click();
     await expect(page.locator('#filters-container')).toHaveClass(/dock-panel--open/);
@@ -498,7 +498,7 @@ test.describe('0.9 — Panneau filtres', () => {
     expect(isNowActive).not.toBe(wasActive);
   });
 
-  test('0.9.3 — Badge compteur affiche le nombre de filtres actifs', async ({ page }) => {
+  test('0.9.3 - Badge compteur affiche le nombre de filtres actifs', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('#filters-toggle').click();
     await expect(page.locator('#filters-container')).toHaveClass(/dock-panel--open/);
@@ -510,7 +510,7 @@ test.describe('0.9 — Panneau filtres', () => {
     expect(parseInt(badgeText)).toBe(activeCount);
   });
 
-  test('0.9.4 — Chaque filtre a un libellé et une icône', async ({ page }) => {
+  test('0.9.4 - Chaque filtre a un libellé et une icône', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('#filters-toggle').click();
     const firstFilter = page.locator('.filter-item').first();
@@ -527,11 +527,11 @@ test.describe('0.9 — Panneau filtres', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.10 — Fond de carte (basemaps)
+// 0.10 - Fond de carte (basemaps)
 // ─────────────────────────────────────────────────────────
-test.describe('0.10 — Fond de carte', () => {
+test.describe('0.10 - Fond de carte', () => {
 
-  test('0.10.1 — Ouvrir le menu → tuiles de basemaps affichées', async ({ page }) => {
+  test('0.10.1 - Ouvrir le menu → tuiles de basemaps affichées', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('#basemap-toggle').click();
     const panel = page.locator('#basemap-menu');
@@ -543,7 +543,7 @@ test.describe('0.10 — Fond de carte', () => {
     expect(count).toBeGreaterThan(1);
   });
 
-  test('0.10.2 — Un basemap est actif par défaut', async ({ page }) => {
+  test('0.10.2 - Un basemap est actif par défaut', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('#basemap-toggle').click();
     const panel = page.locator('#basemap-menu');
@@ -553,7 +553,7 @@ test.describe('0.10 — Fond de carte', () => {
     await expect(activeItem).toHaveCount(1, { timeout: 5000 });
   });
 
-  test('0.10.3 — Clic basemap → change l\'actif et ferme le menu', async ({ page }) => {
+  test('0.10.3 - Clic basemap → change l\'actif et ferme le menu', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('#basemap-toggle').click();
     const panel = page.locator('#basemap-menu');
@@ -575,18 +575,18 @@ test.describe('0.10 — Fond de carte', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.11 — Sélecteur de ville (city)
+// 0.11 - Sélecteur de ville (city)
 // ─────────────────────────────────────────────────────────
-test.describe('0.11 — Sélecteur de ville', () => {
+test.describe('0.11 - Sélecteur de ville', () => {
 
-  test('0.11.1 — Ouvrir le menu ville', async ({ page }) => {
+  test('0.11.1 - Ouvrir le menu ville', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('#city-toggle').click();
     const panel = page.locator('#city-menu');
     await expect(panel).toHaveClass(/dock-panel--open/, { timeout: 3000 });
   });
 
-  test('0.11.2 — Le menu contient des options de ville', async ({ page }) => {
+  test('0.11.2 - Le menu contient des options de ville', async ({ page }) => {
     await waitForMapBoot(page);
     await page.locator('#city-toggle').click();
     const panel = page.locator('#city-menu');
@@ -601,11 +601,11 @@ test.describe('0.11 — Sélecteur de ville', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.12 — Mode 3D
+// 0.12 - Mode 3D
 // ─────────────────────────────────────────────────────────
-test.describe('0.12 — Mode 3D', () => {
+test.describe('0.12 - Mode 3D', () => {
 
-  test('0.12.1 — Toggle 3D change aria-pressed', async ({ page }) => {
+  test('0.12.1 - Toggle 3D change aria-pressed', async ({ page }) => {
     await waitForMapBoot(page);
     const btn = page.locator('#mode3d-toggle');
     const initial = await btn.getAttribute('aria-pressed');
@@ -615,7 +615,7 @@ test.describe('0.12 — Mode 3D', () => {
     expect(newState).not.toBe(initial);
   });
 
-  test('0.12.2 — Mode 3D est persisté dans localStorage', async ({ page }) => {
+  test('0.12.2 - Mode 3D est persisté dans localStorage', async ({ page }) => {
     await waitForMapBoot(page);
     const btn = page.locator('#mode3d-toggle');
     await btn.click();
@@ -627,11 +627,11 @@ test.describe('0.12 — Mode 3D', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.13 — Panneaux dock divers
+// 0.13 - Panneaux dock divers
 // ─────────────────────────────────────────────────────────
-test.describe('0.13 — Interactions dock et panneaux', () => {
+test.describe('0.13 - Interactions dock et panneaux', () => {
 
-  test('0.13.1 — Ouvrir un panel dock ferme le NavPanel s\'il est ouvert', async ({ page }) => {
+  test('0.13.1 - Ouvrir un panel dock ferme le NavPanel s\'il est ouvert', async ({ page }) => {
     await waitForMapBoot(page);
     // Ouvrir NavPanel
     await page.locator('[data-module="carte"]').click();
@@ -642,7 +642,7 @@ test.describe('0.13 — Interactions dock et panneaux', () => {
     await expect(page.locator('#search-overlay')).toHaveClass(/dock-panel--open/, { timeout: 3000 });
   });
 
-  test('0.13.2 — Le panneau projet est caché au démarrage', async ({ page }) => {
+  test('0.13.2 - Le panneau projet est caché au démarrage', async ({ page }) => {
     await waitForMapBoot(page);
     const detail = page.locator('#project-detail');
     // display: none
@@ -651,11 +651,11 @@ test.describe('0.13 — Interactions dock et panneaux', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.14 — URLs et routing
+// 0.14 - URLs et routing
 // ─────────────────────────────────────────────────────────
-test.describe('0.14 — URLs et routing', () => {
+test.describe('0.14 - URLs et routing', () => {
 
-  test('0.14.1 — Navigation catégorie → Level 3 affiche les projets', async ({ page }) => {
+  test('0.14.1 - Navigation catégorie → Level 3 affiche les projets', async ({ page }) => {
     await waitForMapBoot(page);
     // Ouvrir le NavPanel en cliquant sur Carte
     await page.locator('#gp-sidebar [data-module="carte"]').click();
@@ -675,7 +675,7 @@ test.describe('0.14 — URLs et routing', () => {
     await expect(hasContent.first()).toBeVisible({ timeout: 15000 });
   });
 
-  test('0.14.2 — La page d\'accueil charge sans paramètre', async ({ page }) => {
+  test('0.14.2 - La page d\'accueil charge sans paramètre', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#gp-sidebar', { state: 'visible', timeout: 15000 });
     expect(page.url()).not.toContain('?cat=');
@@ -684,26 +684,26 @@ test.describe('0.14 — URLs et routing', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.15 — Responsive et accessibilité
+// 0.15 - Responsive et accessibilité
 // ─────────────────────────────────────────────────────────
-test.describe('0.15 — Accessibilité', () => {
+test.describe('0.15 - Accessibilité', () => {
 
-  test('0.15.1 — Le sidebar a un aria-label', async ({ page }) => {
+  test('0.15.1 - Le sidebar a un aria-label', async ({ page }) => {
     await waitForMapBoot(page);
     await expect(page.locator('#gp-sidebar')).toHaveAttribute('aria-label', 'Navigation principale');
   });
 
-  test('0.15.2 — Le toggle dock a un aria-label', async ({ page }) => {
+  test('0.15.2 - Le toggle dock a un aria-label', async ({ page }) => {
     await waitForMapBoot(page);
     await expect(page.locator('#toggle-dock')).toHaveAttribute('aria-label', 'Contrôles de carte');
   });
 
-  test('0.15.3 — Le NavPanel a un aria-label', async ({ page }) => {
+  test('0.15.3 - Le NavPanel a un aria-label', async ({ page }) => {
     await waitForMapBoot(page);
     await expect(page.locator('#nav-panel')).toHaveAttribute('aria-label', 'Panneau de navigation');
   });
 
-  test('0.15.4 — Les boutons de toggle ont des titres descriptifs', async ({ page }) => {
+  test('0.15.4 - Les boutons de toggle ont des titres descriptifs', async ({ page }) => {
     await waitForMapBoot(page);
     // Chaque toggle doit avoir un data-title
     const toggles = ['#city-toggle', '#filters-toggle', '#mode3d-toggle', '#basemap-toggle', '#search-toggle', '#location-toggle'];
@@ -713,14 +713,14 @@ test.describe('0.15 — Accessibilité', () => {
     }
   });
 
-  test('0.15.5 — Résultats de recherche ont role=listbox', async ({ page }) => {
+  test('0.15.5 - Résultats de recherche ont role=listbox', async ({ page }) => {
     await waitForMapBoot(page);
     await expect(page.locator('#search-results')).toHaveAttribute('role', 'listbox');
   });
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.16 — Routage des clics de feature (contribution vs travaux)
+// 0.16 - Routage des clics de feature (contribution vs travaux)
 // ─────────────────────────────────────────────────────────
 // Régression #contrib-click-bug : une contribution dont la GeoJSON source
 // contient une propriété générique `nature` / `nature_travaux` était
@@ -729,8 +729,8 @@ test.describe('0.15 — Accessibilité', () => {
 //
 // Ces tests appellent FeatureInteractions._openFeature directement avec
 // des stubs pour les opérations carte (spotlight) et les destinations
-// d'ouverture — on teste uniquement la DÉCISION de routage.
-test.describe('0.16 — Routage clic feature', () => {
+// d'ouverture - on teste uniquement la DÉCISION de routage.
+test.describe('0.16 - Routage clic feature', () => {
 
   /**
    * Installe des stubs sur les fonctions appelées par _openFeature et
@@ -755,7 +755,7 @@ test.describe('0.16 — Routage clic feature', () => {
     });
   }
 
-  test('0.16.1 — Clic sur contribution (project_name + category) → fiche', async ({ page }) => {
+  test('0.16.1 - Clic sur contribution (project_name + category) → fiche', async ({ page }) => {
     await waitForMapBoot(page);
     await installRoutingStubs(page);
     const calls = await page.evaluate(() => {
@@ -774,7 +774,7 @@ test.describe('0.16 — Routage clic feature', () => {
     expect(calls.lastArgs.id).toBe(123);
   });
 
-  test('0.16.2 — Contribution SANS id tombe sur showDetailPanel', async ({ page }) => {
+  test('0.16.2 - Contribution SANS id tombe sur showDetailPanel', async ({ page }) => {
     await waitForMapBoot(page);
     await installRoutingStubs(page);
     const calls = await page.evaluate(() => {
@@ -792,7 +792,7 @@ test.describe('0.16 — Routage clic feature', () => {
     expect(calls.lastArgs.cat).toBe('urbanisme');
   });
 
-  test('0.16.3 — RÉGRESSION : contribution avec `nature` NE va PAS dans travaux', async ({ page }) => {
+  test('0.16.3 - RÉGRESSION : contribution avec `nature` NE va PAS dans travaux', async ({ page }) => {
     // Bug historique : props.nature='Piste cyclable' faisait basculer dans isTravauxProps.
     await waitForMapBoot(page);
     await installRoutingStubs(page);
@@ -817,7 +817,7 @@ test.describe('0.16 — Routage clic feature', () => {
     expect(calls.showProjectDetailById).toBe(1);
   });
 
-  test('0.16.4 — Feature travaux pure (chantier_key) → modal travaux', async ({ page }) => {
+  test('0.16.4 - Feature travaux pure (chantier_key) → modal travaux', async ({ page }) => {
     await waitForMapBoot(page);
     await installRoutingStubs(page);
     const calls = await page.evaluate(() => {
@@ -835,7 +835,7 @@ test.describe('0.16 — Routage clic feature', () => {
     expect(calls.showDetailPanel).toBe(0);
   });
 
-  test('0.16.5 — Feature sans signature reconnue → aucun routage', async ({ page }) => {
+  test('0.16.5 - Feature sans signature reconnue → aucun routage', async ({ page }) => {
     await waitForMapBoot(page);
     await installRoutingStubs(page);
     const calls = await page.evaluate(() => {
@@ -856,22 +856,22 @@ test.describe('0.16 — Routage clic feature', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.17 — Résilience de l'init (banner d'erreur)
+// 0.17 - Résilience de l'init (banner d'erreur)
 //
 // Le banner rouge `#init-error-message` ne doit apparaître que
 // si l'application est VRAIMENT inutilisable (map non créée).
 // Une simple erreur dans une phase secondaire (FilterManager,
 // Sidebar, UIModule…) ne doit PAS afficher le banner.
 // ═════════════════════════════════════════════════════════
-test.describe('0.17 — Résilience init (banner)', () => {
+test.describe('0.17 - Résilience init (banner)', () => {
 
-  test('0.17.1 — Pas de banner init-error-message après boot normal', async ({ page }) => {
+  test('0.17.1 - Pas de banner init-error-message après boot normal', async ({ page }) => {
     await waitForMapBoot(page);
     const banner = page.locator('#init-error-message');
     await expect(banner).toHaveCount(0);
   });
 
-  test('0.17.2 — Une panne de FilterManager.init n\'affiche PAS le banner', async ({ page }) => {
+  test('0.17.2 - Une panne de FilterManager.init n\'affiche PAS le banner', async ({ page }) => {
     await page.addInitScript(() => {
       // Patcher FilterManager.init pour qu'il throw après chargement de main.js
       Object.defineProperty(window, 'FilterManager', {
@@ -901,7 +901,7 @@ test.describe('0.17 — Résilience init (banner)', () => {
     await expect(page.locator('#init-error-message')).toHaveCount(0);
   });
 
-  test('0.17.3 — Une erreur dans CityManager.initCityMenu n\'affiche PAS le banner', async ({ page }) => {
+  test('0.17.3 - Une erreur dans CityManager.initCityMenu n\'affiche PAS le banner', async ({ page }) => {
     await page.addInitScript(() => {
       // Patcher CityManager avant Phase 2
       Object.defineProperty(window, 'CityManager', {
@@ -930,7 +930,7 @@ test.describe('0.17 — Résilience init (banner)', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.18 — RÉGRESSION : logo mobile (.mobile-fixed-logo)
+// 0.18 - RÉGRESSION : logo mobile (.mobile-fixed-logo)
 //
 // Le logo fixe en haut à gauche doit être VISIBLE en mobile
 // et CACHÉ en desktop. Régression du bug cascade CSS où
@@ -938,9 +938,9 @@ test.describe('0.17 — Résilience init (banner)', () => {
 // le display:flex du @media avec un display:none de même
 // spécificité.
 // ═════════════════════════════════════════════════════════
-test.describe('0.18 — RÉGRESSION logo mobile (cascade CSS)', () => {
+test.describe('0.18 - RÉGRESSION logo mobile (cascade CSS)', () => {
 
-  test('0.18.1 — Logo mobile visible en viewport mobile (≤720px)', async ({ page }) => {
+  test('0.18.1 - Logo mobile visible en viewport mobile (≤720px)', async ({ page }) => {
     page.setViewportSize({ width: 375, height: 812 });
     await waitForMapBoot(page);
     const logo = page.locator('.mobile-fixed-logo');
@@ -951,7 +951,7 @@ test.describe('0.18 — RÉGRESSION logo mobile (cascade CSS)', () => {
     expect(display, 'Le logo mobile doit être display:flex sur mobile').toBe('flex');
   });
 
-  test('0.18.2 — Logo mobile masqué en desktop (>720px)', async ({ page }) => {
+  test('0.18.2 - Logo mobile masqué en desktop (>720px)', async ({ page }) => {
     page.setViewportSize({ width: 1280, height: 800 });
     await waitForMapBoot(page);
     const logo = page.locator('.mobile-fixed-logo');
@@ -960,7 +960,7 @@ test.describe('0.18 — RÉGRESSION logo mobile (cascade CSS)', () => {
     expect(display, 'Le logo mobile ne doit pas être visible sur desktop').toBe('none');
   });
 
-  test('0.18.3 — Logo mobile a un src non vide après boot', async ({ page }) => {
+  test('0.18.3 - Logo mobile a un src non vide après boot', async ({ page }) => {
     page.setViewportSize({ width: 375, height: 812 });
     await waitForMapBoot(page);
     // Attendre que citymanager ait injecté le logo (async)
@@ -977,23 +977,23 @@ test.describe('0.18 — RÉGRESSION logo mobile (cascade CSS)', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.19 — Attribution fond de carte (crédits © OpenStreetMap…)
+// 0.19 - Attribution fond de carte (crédits © OpenStreetMap…)
 //
 // Régression : le contrôle d'attribution avait disparu lors de
 // la migration MapLibre (attributionControl: false + slot
 // bottom-left masqué en CSS). Il doit être présent en mode
 // compact (pastille ⓘ) et afficher les crédits du basemap.
 // ═════════════════════════════════════════════════════════
-test.describe('0.19 — Attribution fond de carte', () => {
+test.describe('0.19 - Attribution fond de carte', () => {
 
-  test('0.19.1 — Le contrôle d\'attribution compact est visible en bas à gauche', async ({ page }) => {
+  test('0.19.1 - Le contrôle d\'attribution compact est visible en bas à gauche', async ({ page }) => {
     await waitForMapBoot(page);
     const attrib = page.locator('.maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib');
     await expect(attrib).toBeVisible({ timeout: 15000 });
     await expect(attrib).toHaveClass(/maplibregl-compact/);
   });
 
-  test('0.19.2 — Les crédits mentionnent OpenStreetMap', async ({ page }) => {
+  test('0.19.2 - Les crédits mentionnent OpenStreetMap', async ({ page }) => {
     await waitForMapBoot(page);
     await expect(page.locator('.maplibregl-ctrl-attrib')).toBeVisible({ timeout: 15000 });
     // Déplier la pastille pour lire les crédits
@@ -1006,7 +1006,7 @@ test.describe('0.19 — Attribution fond de carte', () => {
       .toContainText(/OpenStreetMap/i, { timeout: 20000 });
   });
 
-  test('0.19.3 — L\'attribution reste visible en mobile (obligation OSM)', async ({ page }) => {
+  test('0.19.3 - L\'attribution reste visible en mobile (obligation OSM)', async ({ page }) => {
     page.setViewportSize({ width: 375, height: 812 });
     await waitForMapBoot(page);
     const attrib = page.locator('.maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib');
@@ -1015,7 +1015,7 @@ test.describe('0.19 — Attribution fond de carte', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.20 — RÉGRESSION ancrage des markers
+// 0.20 - RÉGRESSION ancrage des markers
 //
 // `maplibre-compat` traduit l'iconAnchor de Leaflet en offset
 // MapLibre. Le signe était inversé : un pin 32x40 ancré en
@@ -1023,7 +1023,7 @@ test.describe('0.19 — Attribution fond de carte', () => {
 // étant en pixels écran, le marker semblait glisser par rapport
 // au fond de carte à chaque zoom.
 // ═════════════════════════════════════════════════════════
-test.describe('0.20 — RÉGRESSION ancrage des markers', () => {
+test.describe('0.20 - RÉGRESSION ancrage des markers', () => {
 
   /** Mesure l'écart entre le point d'ancrage de l'icône et sa coordonnée, à plusieurs zooms. */
   async function probeAnchor(page, iconSize, iconAnchor) {
@@ -1063,7 +1063,7 @@ test.describe('0.20 — RÉGRESSION ancrage des markers', () => {
     }, { size: iconSize, anchor: iconAnchor });
   }
 
-  test('0.20.1 — Un pin est ancré par sa pointe, à tous les zooms', async ({ page }) => {
+  test('0.20.1 - Un pin est ancré par sa pointe, à tous les zooms', async ({ page }) => {
     // Icône identique à createCustomMarkerIcon() de datamodule.js
     const rows = await probeAnchor(page, [32, 40], [16, 40]);
     expect(rows).toHaveLength(3);
@@ -1073,7 +1073,7 @@ test.describe('0.20 — RÉGRESSION ancrage des markers', () => {
     }
   });
 
-  test('0.20.2 — Un marker simple est centré sur sa coordonnée', async ({ page }) => {
+  test('0.20.2 - Un marker simple est centré sur sa coordonnée', async ({ page }) => {
     // Icône identique à createSimpleMarkerIcon() de datamodule.js
     const rows = await probeAnchor(page, [24, 24], [12, 12]);
     for (const r of rows) {
@@ -1082,7 +1082,7 @@ test.describe('0.20 — RÉGRESSION ancrage des markers', () => {
     }
   });
 
-  test('0.20.3 — La carte de survol se décale de la hauteur du pin', async ({ page }) => {
+  test('0.20.3 - La carte de survol se décale de la hauteur du pin', async ({ page }) => {
     await waitForMapBoot(page);
     await page.waitForFunction(
       () => window.MapModule?.map?._mlMap && window.L && window.FeatureInteractions,

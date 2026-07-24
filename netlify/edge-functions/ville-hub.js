@@ -1,5 +1,5 @@
 /* ============================================================================
-   EDGE FUNCTION — Hub ville : /ville/{ville}
+   EDGE FUNCTION - Hub ville : /ville/{ville}
 
    Rend côté serveur la liste complète des projets d'une ville :
    • <title>, meta description, OG/Twitter, canonical, robots
@@ -70,12 +70,12 @@ function stripMarkdown(text) {
 function safeUrl(url) {
   const u = String(url || '').trim();
   if (/^(https?:|mailto:|#)/i.test(u)) return u;
-  // Chemins relatifs au site — mais pas les URLs protocol-relative (//host)
+  // Chemins relatifs au site - mais pas les URLs protocol-relative (//host)
   if (u.startsWith('/') && !/^\/[/\\]/.test(u)) return u;
   return '';
 }
 
-/** URL absolue http(s) — pour og:image (les scrapers ignorent le relatif) */
+/** URL absolue http(s) - pour og:image (les scrapers ignorent le relatif) */
 function absUrl(url) {
   const u = safeUrl(url);
   if (!u) return '';
@@ -86,7 +86,7 @@ function absUrl(url) {
 const SUPABASE_HOST = new URL(SUPABASE_URL).host;
 
 /** URL de fichier Storage : restreinte à l'hôte Supabase (le geojson est
-    fetché par le client — empêche un geojson_url forgé de baliser un tiers) */
+    fetché par le client - empêche un geojson_url forgé de baliser un tiers) */
 function safeStorageUrl(url) {
   const u = safeUrl(url);
   if (!u) return '';
@@ -95,7 +95,7 @@ function safeStorageUrl(url) {
 }
 
 /** N'autorise que les ancres http(s) dans une attribution ; tout le reste
-    (scripts, <img onerror>, styles) est réduit à son texte — la valeur vient
+    (scripts, <img onerror>, styles) est réduit à son texte - la valeur vient
     de basemaps_v2 mais finit en innerHTML dans AttributionControl */
 function sanitizeAttribution(html) {
   return String(html || '')
@@ -119,7 +119,7 @@ function safeHexColor(color) {
   return /^#[0-9A-Fa-f]{6}$/.test(c) ? c : '';
 }
 
-/** Mêmes exclusions que sitemap.mjs — entrées de test e2e */
+/** Mêmes exclusions que sitemap.mjs - entrées de test e2e */
 function isTestEntry(name, cat) {
   const n = String(name || '').toLowerCase();
   const c = String(cat || '').toLowerCase();
@@ -129,7 +129,7 @@ function isTestEntry(name, cat) {
 
 /** Headers du shell statique privés de leurs validateurs de cache : on sert un
     corps réécrit (≠ du shell), donc son ETag/Last-Modified ne doivent pas fuiter
-    — sinon une revalidation renverrait 304 + corps vide → page blanche cachée */
+    - sinon une revalidation renverrait 304 + corps vide → page blanche cachée */
 function safeShellHeaders(response) {
   const h = Object.fromEntries(response.headers.entries());
   delete h.etag;
@@ -210,7 +210,7 @@ function fetchBasemaps() {
 
 /**
  * Groupe les projets par catégorie, enrichis par category_icons
- * (icône, couleur, ordre — données pilotées par la base, jamais hardcodées).
+ * (icône, couleur, ordre - données pilotées par la base, jamais hardcodées).
  */
 function buildCategories(projects, categoryIcons) {
   const iconByCategory = new Map(categoryIcons.map(ci => [ci.category, ci]));
@@ -338,7 +338,7 @@ function buildContent({ villeSlug, villeLabel, projects, categories, branding, t
             <span aria-current="page">${escHtml(villeLabel)}</span>
           </nav>
           <h1 class="vh-hero__title">Les grands projets de ${escHtml(villeLabel)}</h1>
-          <p class="vh-hero__intro">${n} ${projectWord}${multiCat ? ` dans ${categories.length} catégories` : ''} — description, avancement et carte pour chaque projet.</p>
+          <p class="vh-hero__intro">${n} ${projectWord}${multiCat ? ` dans ${categories.length} catégories` : ''} - description, avancement et carte pour chaque projet.</p>
           <a class="vh-cta" id="vh-open-map" href="${escAttr(mapAppUrl)}">
             <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i>
             <span>Ouvrir la carte interactive${travaux.enabled ? ' et les travaux' : ''}</span>
@@ -379,7 +379,7 @@ ${filterbar}
         Aucun projet ne correspond à cette recherche.
       </p>
 
-      ${truncated ? `<p class="vh-note">Les ${MAX_PROJECTS} projets les plus récents sont affichés — l'intégralité est explorable sur la carte interactive.</p>` : ''}
+      ${truncated ? `<p class="vh-note">Les ${MAX_PROJECTS} projets les plus récents sont affichés - l'intégralité est explorable sur la carte interactive.</p>` : ''}
 
       <footer class="vh-foot">
         <span class="vh-foot__b2b">Vous représentez une collectivité ?
@@ -416,13 +416,13 @@ function injectIntoHtml(html, { villeLabel, metaDesc, canonical, ogImage, jsonLd
   <script type="application/ld+json">${ldJson(jsonLd.breadcrumb)}</script>`;
   html = html.replace(/<script\s+type="application\/ld\+json"\s+id="vh-jsonld">[^<]*<\/script>/, () => jsonLdBlock);
 
-  // Couleur primaire de la ville — injectée avant </head> pour un rendu sans flash
+  // Couleur primaire de la ville - injectée avant </head> pour un rendu sans flash
   if (brandColor) {
     html = html.replace(/(<meta\s+name="theme-color"\s+content=")[^"]*"/, (_, p1) => `${p1}${brandColor}"`);
     html = html.replace('</head>', () => `  <style id="vh-brand">:root { --color-primary: ${brandColor}; }</style>\n</head>`);
   }
 
-  // Fonds de carte (basemaps_v2) — injectés pour la vue carte, sans fetch client
+  // Fonds de carte (basemaps_v2) - injectés pour la vue carte, sans fetch client
   // (les < du JSON sont encodés en < : aucun </script> ne peut s'échapper)
   if (basemapsJson) {
     html = html.replace('</head>', () => `  <script id="vh-basemaps">window.basemaps = ${basemapsJson};</script>\n</head>`);
@@ -439,7 +439,7 @@ function injectIntoHtml(html, { villeLabel, metaDesc, canonical, ogImage, jsonLd
 export default async (request, context) => {
   const url = new URL(request.url);
 
-  // Format strict : /ville/{ville} — tout segment supplémentaire est refusé
+  // Format strict : /ville/{ville} - tout segment supplémentaire est refusé
   // (sinon /ville/x/n-importe-quoi servirait un duplicata indexable du hub)
   const parts = url.pathname.replace(/^\/+|\/+$/g, '').split('/');
   let villeSlug = '';
@@ -456,7 +456,7 @@ export default async (request, context) => {
   }
 
   // Lancer le fetch de la page statique immédiatement : il ne dépend d'aucune
-  // donnée Supabase — l'aller-retour origin recouvre les fetchs et le rendu
+  // donnée Supabase - l'aller-retour origin recouvre les fetchs et le rendu
   const responsePromise = context.next();
 
   let projects = [];
@@ -535,7 +535,7 @@ export default async (request, context) => {
   let html = await response.text();
 
   // Garde-fou : si l'origin a répondu sans corps (304/vide), servir tel quel
-  // plutôt qu'une page blanche — le client réessaiera sans validateur
+  // plutôt qu'une page blanche - le client réessaiera sans validateur
   if (!html) {
     return new Response(response.body, {
       status: response.status === 304 ? 200 : response.status,

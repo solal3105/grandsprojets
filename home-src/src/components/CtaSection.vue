@@ -47,7 +47,7 @@ const props = defineProps({
   heading: { type: String, default: 'Déployez votre carte' },
   headingLine2: { type: String, default: 'pour votre territoire' },
   headingGradient: { type: String, default: 'text-gradient' },
-  subtitle: { type: String, default: 'Tarif transparent, zéro frais caché. Découvrez Open Projets en démo personnalisée — on configure votre espace ensemble.' },
+  subtitle: { type: String, default: 'Tarif transparent, zéro frais caché. Découvrez Open Projets en démo personnalisée - on configure votre espace ensemble.' },
 })
 </script>
 

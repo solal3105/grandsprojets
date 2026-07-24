@@ -569,7 +569,7 @@ async function _persistOrder(listEl) {
 
   cards.forEach((card, i) => {
     const name = card.dataset.category;
-    const newOrder = (i + 1) * 10; // Start at 10 — avoids parseInt(0)||100 bug in supabaseservice
+    const newOrder = (i + 1) * 10; // Start at 10 - avoids parseInt(0)||100 bug in supabaseservice
     const cat = _categories.find(c => c.category === name);
     if (cat && cat.display_order !== newOrder) {
       updates.push({ name, newOrder });
@@ -602,7 +602,7 @@ function _startEdit(container, categoryName) {
   _editingCategory = categoryName;
   const formCard = container.querySelector('#cat-form-card');
 
-  container.querySelector('#cat-form-title').textContent = `Modifier — ${categoryName}`;
+  container.querySelector('#cat-form-title').textContent = `Modifier - ${categoryName}`;
   container.querySelector('#cat-form-submit').innerHTML = '<i class="fa-solid fa-check"></i> Mettre à jour';
   container.querySelector('#cat-name').value = cat.category || '';
   setIconField(container, 'cat-icon', cat.icon_class || 'fa-solid fa-folder');

@@ -56,7 +56,7 @@
           </h2>
           <p class="mt-6 text-gray-text text-base sm:text-lg leading-relaxed">
             Une plateforme pensée pour les collectivités : vous publiez vos projets d'aménagement et vos chantiers,
-            vos habitants les consultent sur une carte claire — sans inscription, sans application.
+            vos habitants les consultent sur une carte claire - sans inscription, sans application.
           </p>
         </div>
 
@@ -257,14 +257,14 @@ const base = import.meta.env.BASE_URL
 const route = useRoute()
 const alt = computed(() => alternatives[route.meta.altKey])
 
-// Le produit Open Projets — identique quel que soit le concurrent.
+// Le produit Open Projets - identique quel que soit le concurrent.
 const pillars = [
   {
     icon: Map,
     bg: 'bg-primary/10',
     accent: 'text-primary',
     title: 'Une carte publique',
-    desc: 'Tous vos projets localisés sur une carte à vos couleurs. Recherche, filtres, catégories — sans inscription.',
+    desc: 'Tous vos projets localisés sur une carte à vos couleurs. Recherche, filtres, catégories - sans inscription.',
   },
   {
     icon: FileText,
@@ -315,7 +315,7 @@ const showcase = [
     accent: 'text-amber',
     badge: 'Marque blanche',
     title: 'La carte adopte votre identité',
-    description: "Couleurs, logotype, favicon et fond de carte : votre espace reprend automatiquement la charte de votre collectivité. La carte est à votre nom, sur votre domaine — elle vous appartient.",
+    description: "Couleurs, logotype, favicon et fond de carte : votre espace reprend automatiquement la charte de votre collectivité. La carte est à votre nom, sur votre domaine - elle vous appartient.",
     feats: [
       'Charte graphique appliquée sur chaque écran',
       'Votre domaine, votre logo, vos catégories',
@@ -332,7 +332,7 @@ const showcase = [
     accent: 'text-blue-500',
     badge: 'Consultation citoyenne',
     title: 'Vos habitants consultent sans compte',
-    description: "Carte publique, sans inscription, sans téléchargement. Un QR code sur la palissade ou un lien sur le site de la mairie suffit pour ouvrir la fiche d'un chantier — pour tout le monde, immédiatement.",
+    description: "Carte publique, sans inscription, sans téléchargement. Un QR code sur la palissade ou un lien sur le site de la mairie suffit pour ouvrir la fiche d'un chantier - pour tout le monde, immédiatement.",
     feats: [
       'Aucune inscription, aucune application',
       'Accessible par lien, QR code ou iframe',

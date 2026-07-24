@@ -1,5 +1,5 @@
 /* ============================================================================
-   SIDEBAR — 3D Glassmorphism Capsule Navigation
+   SIDEBAR - 3D Glassmorphism Capsule Navigation
    Matching the toggle-dock visual language: depth, shimmer, spring physics
    ============================================================================ */
 
@@ -14,7 +14,7 @@
   --sb-btn-radius:    14px;
   --sb-module-h:      60px;
 
-  /* Legacy aliases — consumed by nav-panel.css + sidebar.js */
+  /* Legacy aliases - consumed by nav-panel.css + sidebar.js */
   --sidebar-w:        var(--sb-w);
   --sidebar-inset:    var(--sb-inset);
 
@@ -92,7 +92,7 @@
     border-radius 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Inner gradient shimmer — the signature 3D depth layer */
+/* Inner gradient shimmer - the signature 3D depth layer */
 .gp-sidebar::after {
   content: '';
   position: absolute;
@@ -194,7 +194,7 @@
   box-shadow: 0 0.5px 0 rgba(255, 255, 255, 0.04);
 }
 
-/* Hide the divider right before actions — the recessed zone self-separates */
+/* Hide the divider right before actions - the recessed zone self-separates */
 .gp-sidebar__divider + .gp-sidebar__actions { }
 .gp-sidebar__divider:has(+ .gp-sidebar__actions) { display: none; }
 
@@ -210,7 +210,7 @@
   z-index: 1;
 }
 
-/* ── Button — Base ─────────────────────────────────────────────────────── */
+/* ── Button - Base ─────────────────────────────────────────────────────── */
 
 .gp-sidebar__btn {
   --_accent: var(--sb-icon);
@@ -272,7 +272,7 @@
   pointer-events: none;
 }
 
-/* Hover — scale pop + frosted bg */
+/* Hover - scale pop + frosted bg */
 .gp-sidebar__btn:hover {
   background: var(--sb-btn-hover);
   transform: scale(1.08);
@@ -285,7 +285,7 @@
   opacity: 1;
 }
 
-/* Press — spring squish */
+/* Press - spring squish */
 .gp-sidebar__btn:active {
   transform: scale(0.90);
   transition-duration: 0.1s;
@@ -298,7 +298,7 @@
   outline-offset: 2px;
 }
 
-/* ── Module button (Carte, Travaux) — Primary nav ──────────────────────── */
+/* ── Module button (Carte, Travaux) - Primary nav ──────────────────────── */
 
 .gp-sidebar__btn--module {
   width: 100%;
@@ -318,7 +318,7 @@
   line-height: 1.2;
 }
 
-/* Hover — module: tinted glow */
+/* Hover - module: tinted glow */
 .gp-sidebar__btn--module:hover {
   background: color-mix(in srgb, var(--cat-color, var(--primary)) 10%, transparent);
   transform: scale(1.06);
@@ -335,7 +335,7 @@
   opacity: 1;
 }
 
-/* Active — solid fill + glow (matching dock [aria-pressed="true"]) */
+/* Active - solid fill + glow (matching dock [aria-pressed="true"]) */
 .gp-sidebar__btn--module.active {
   background: var(--cat-color, var(--sb-btn-active-bg));
   box-shadow:
@@ -421,7 +421,7 @@
   display: none;
 }
 
-/* Hover — fade in + gentle lift */
+/* Hover - fade in + gentle lift */
 .gp-sidebar__actions .gp-sidebar__btn:hover {
   opacity: 1;
   background: color-mix(in srgb, var(--_accent, var(--sb-icon-hover)) 8%, transparent);
@@ -434,21 +434,21 @@
   transform: scale(1.06);
 }
 
-/* Press — subtle spring */
+/* Press - subtle spring */
 .gp-sidebar__actions .gp-sidebar__btn:active {
   transform: scale(0.90);
   transition-duration: 0.06s;
   opacity: 1;
 }
 
-/* ── Action variants — Semantic accent colors ──────────────────────────── */
+/* ── Action variants - Semantic accent colors ──────────────────────────── */
 
 .gp-sidebar__btn--theme { --_accent: var(--color-warning); }
 .gp-sidebar__btn--info  { --_accent: var(--color-info); }
 .gp-sidebar__btn--help  { --_accent: var(--color-warning); }
 .gp-sidebar__btn--login { --_accent: var(--primary); }
 
-/* Contribute — always subtly tinted, the one "warm" action */
+/* Contribute - always subtly tinted, the one "warm" action */
 .gp-sidebar__btn--contribute {
   --_accent: var(--primary);
   opacity: 0.72;
@@ -470,7 +470,7 @@
   color: var(--primary);
 }
 
-/* Logout — danger, dimmer baseline */
+/* Logout - danger, dimmer baseline */
 .gp-sidebar__btn--logout {
   --_accent: var(--color-danger);
   opacity: 0.52;
@@ -494,7 +494,7 @@
 .gp-sidebar[data-connected="true"] .gp-sidebar__btn[data-auth="connected"]    { display: flex; }
 .gp-sidebar[data-connected="true"] .gp-sidebar__btn[data-auth="disconnected"] { display: none; }
 
-/* ── Tooltip (frosted glass pill — matching dock) ──────────────────────── */
+/* ── Tooltip (frosted glass pill - matching dock) ──────────────────────── */
 
 .gp-sidebar__btn[data-tooltip]::before {
   content: attr(data-tooltip);
@@ -593,7 +593,7 @@
 #city-menu.dock-panel--open::before { display: none; }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   RESPONSIVE — Mobile (≤ 720px)  ·  Bottom-docked glass capsule
+   RESPONSIVE - Mobile (≤ 720px)  ·  Bottom-docked glass capsule
    ══════════════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 720px) {
@@ -675,7 +675,7 @@
     z-index: 1;
   }
 
-  /* Module tabs — 3D mini-cards */
+  /* Module tabs - 3D mini-cards */
   .gp-sidebar__btn--module {
     position: relative;
     isolation: isolate;
@@ -778,7 +778,7 @@
   .gp-sidebar__btn--module:hover i { color: var(--sb-icon-hover); transform: translateY(-1px); }
   .gp-sidebar__btn--module:hover .gp-sidebar__label { color: var(--sb-icon-hover); opacity: 1; }
 
-  /* Active — solid fill + glow, consistent with desktop */
+  /* Active - solid fill + glow, consistent with desktop */
   .gp-sidebar__btn--module.active {
     background: var(--cat-color, var(--sb-btn-active-bg));
     border-color: color-mix(in srgb, var(--cat-color, var(--primary)) 78%, white);

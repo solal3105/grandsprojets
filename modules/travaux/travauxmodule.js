@@ -228,7 +228,7 @@ void (() => {
     return `linear-gradient(90deg, var(--warning) 0%, var(--warning) ${100 - r}%, var(--success) 100%)`;
   }
 
-  // API publique — utilities for NavPanel custom renderers
+  // API publique - utilities for NavPanel custom renderers
   window.TravauxModule = {
     LAYER_NAME,
     enrichTimestamps,

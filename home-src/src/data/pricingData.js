@@ -19,12 +19,12 @@ export const COEF_SETUP = 0.3
 // ── Tranches de population ───────────────────────────────────────────────────
 export const populationTranches = [
   { id: 't1', label: '< 2 000',           coef: 1.0 },
-  { id: 't2', label: '2 000 – 5 000',     coef: 1.2 },
-  { id: 't3', label: '5 001 – 15 000',    coef: 1.5 },
-  { id: 't4', label: '15 001 – 50 000',   coef: 2.0 },
-  { id: 't5', label: '50 001 – 100 000',  coef: 2.6 },
-  { id: 't6', label: '100 001 – 250 000', coef: 3.2 },
-  { id: 't7', label: '250 001 – 500 000', coef: 3.8 },
+  { id: 't2', label: '2 000 - 5 000',     coef: 1.2 },
+  { id: 't3', label: '5 001 - 15 000',    coef: 1.5 },
+  { id: 't4', label: '15 001 - 50 000',   coef: 2.0 },
+  { id: 't5', label: '50 001 - 100 000',  coef: 2.6 },
+  { id: 't6', label: '100 001 - 250 000', coef: 3.2 },
+  { id: 't7', label: '250 001 - 500 000', coef: 3.8 },
   { id: 't8', label: '> 500 000',         coef: 4.4 },
 ]
 
@@ -82,7 +82,7 @@ export const pricingProfiles = [
   },
   {
     label: 'Ville moyenne',
-    pop: '5 000 – 50 000 hab.',
+    pop: '5 000 - 50 000 hab.',
     icon: markRaw(Building2),
     badge: 'Le plus courant',
     trancheIndex: 2,
@@ -101,7 +101,7 @@ export const pricingProfiles = [
   },
   {
     label: 'Grande collectivité',
-    pop: '50 000 – 500 000 hab.',
+    pop: '50 000 - 500 000 hab.',
     icon: markRaw(Users),
     trancheIndex: 4,
     monthlyFrom: 325,

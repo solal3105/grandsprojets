@@ -12,7 +12,7 @@
             <span class="text-gradient-green"> pour l'intérêt public</span>
           </h1>
           <p class="mt-8 text-gray-text text-base sm:text-lg leading-relaxed max-w-[540px]">
-            Développé à Lyon, hébergé en Europe, code public. Open Projets est conçu par une Société à Mission française — sans traceurs, sans ambiguïté sur vos données.
+            Développé à Lyon, hébergé en Europe, code public. Open Projets est conçu par une Société à Mission française - sans traceurs, sans ambiguïté sur vos données.
           </p>
         </div>
       </div>
@@ -81,11 +81,11 @@
             </div>
 
             <p class="text-sm text-gray-text leading-relaxed mb-4">
-              Fondée à Lyon, VAZY est une <strong class="text-dark">Société à Mission</strong> au sens de la loi PACTE, avec des engagements sociaux et environnementaux inscrits dans ses statuts — vérifiables publiquement au RCS de Lyon.
+              Fondée à Lyon, VAZY est une <strong class="text-dark">Société à Mission</strong> au sens de la loi PACTE, avec des engagements sociaux et environnementaux inscrits dans ses statuts - vérifiables publiquement au RCS de Lyon.
             </p>
 
             <p class="text-sm text-gray-text leading-relaxed mb-4">
-              Open Projets est le produit phare de VAZY — conçu pour rendre l’action des collectivités <strong class="text-dark">lisible, accessible et vérifiable</strong> par chaque habitant.
+              Open Projets est le produit phare de VAZY - conçu pour rendre l’action des collectivités <strong class="text-dark">lisible, accessible et vérifiable</strong> par chaque habitant.
             </p>
 
             <div class="flex flex-wrap gap-3 mt-6">
@@ -95,7 +95,7 @@
               </span>
               <span class="inline-flex items-center gap-1.5 text-xs text-gray-text bg-white border border-gray-border px-3 py-1.5 rounded-full">
                 <Building class="w-3.5 h-3.5 text-purple" />
-                SASU — RCS Lyon
+                SASU - RCS Lyon
               </span>
               <span class="inline-flex items-center gap-1.5 text-xs text-gray-text bg-white border border-gray-border px-3 py-1.5 rounded-full">
                 <ShieldCheck class="w-3.5 h-3.5 text-green" />
@@ -159,12 +159,12 @@ const pillars = [
     bgClass: 'bg-primary/10',
     iconClass: 'text-primary',
     accentGradient: 'linear-gradient(to right, #FF0037, #F2B327)',
-    tags: ['Lyon / Villeurbanne', 'SASU — RCS Lyon', 'Équipe locale'],
+    tags: ['Lyon / Villeurbanne', 'SASU - RCS Lyon', 'Équipe locale'],
   },
   {
     icon: ShieldCheck,
     title: 'Données souveraines',
-    desc: 'Hébergement en Europe, zéro traceur, zéro publicité. Vos données appartiennent à votre collectivité — exportables et auditables à tout moment. Conformité RGPD native.',
+    desc: 'Hébergement en Europe, zéro traceur, zéro publicité. Vos données appartiennent à votre collectivité - exportables et auditables à tout moment. Conformité RGPD native.',
     bgClass: 'bg-green/10',
     iconClass: 'text-green',
     accentGradient: 'linear-gradient(to right, #5AAB7D, #2563EB)',
@@ -185,7 +185,7 @@ const whyVazy = [
   {
     icon: Leaf,
     title: 'Engagement statué',
-    desc: 'VAZY est une Société à Mission au sens de la loi PACTE. Ses obligations sociales et environnementales sont inscrites dans ses statuts — vérifiables publiquement au RCS de Lyon.',
+    desc: 'VAZY est une Société à Mission au sens de la loi PACTE. Ses obligations sociales et environnementales sont inscrites dans ses statuts - vérifiables publiquement au RCS de Lyon.',
     bgClass: 'bg-green/10',
     iconClass: 'text-green',
   },
@@ -206,7 +206,7 @@ const whyVazy = [
   {
     icon: ShieldCheck,
     title: 'Données sous votre contrôle',
-    desc: 'Hébergement en Europe, conformité RGPD, export complet à tout moment. Vos données restent vôtres — même si vous résiliez demain.',
+    desc: 'Hébergement en Europe, conformité RGPD, export complet à tout moment. Vos données restent vôtres - même si vous résiliez demain.',
     bgClass: 'bg-amber/10',
     iconClass: 'text-amber',
   },

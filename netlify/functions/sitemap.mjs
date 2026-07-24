@@ -87,7 +87,7 @@ export default async (_request, _context) => {
         cat.startsWith('e2e-') || cat.startsWith('e2e_');
     };
 
-    // Hubs par ville — /ville/{slug} (items trié par created_at desc :
+    // Hubs par ville - /ville/{slug} (items trié par created_at desc :
     // la première occurrence d'une ville porte son lastmod le plus récent)
     const villeLastmod = new Map();
     for (const it of items) {
@@ -121,7 +121,7 @@ export default async (_request, _context) => {
 
       const entry = { loc, lastmod, changefreq: 'weekly', priority: '0.8' };
 
-      // Image sitemap extension — permet l'indexation dans Google Images
+      // Image sitemap extension - permet l'indexation dans Google Images
       if (it.cover_url) {
         entry.image = {
           loc: it.cover_url,

@@ -79,7 +79,7 @@
         if (m) data[m[1]] = m[2];
       });
       if (!data.imageUrl) return '';
-      const caption = data.caption ? `<figcaption>${data.caption}${data.credit ? ` – <em>${data.credit}</em>` : ''}</figcaption>` : '';
+      const caption = data.caption ? `<figcaption>${data.caption}${data.credit ? ` - <em>${data.credit}</em>` : ''}</figcaption>` : '';
       return `\n<figure class="content-image">\n  <img src="${data.imageUrl}" alt="${data.caption || ''}">\n  ${caption}\n</figure>\n`;
     });
 

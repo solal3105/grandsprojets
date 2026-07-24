@@ -1,5 +1,5 @@
 /* ============================================================================
-   EDGE FUNCTION — Injection SEO des pages home SPA
+   EDGE FUNCTION - Injection SEO des pages home SPA
    
    Intercepte les requêtes sur les routes home (/, /fonctionnalites,
    /a-propos, /contact, /aide, /alternative-*) et injecte côté serveur :
@@ -16,8 +16,8 @@ const BASE_ORIGIN = 'https://openprojets.com';
 const BASE = `${BASE_ORIGIN}/home`;
 
 const DEFAULT = {
-  title: 'Open Projets — La carte interactive pour votre collectivité',
-  description: 'Open Projets transforme vos projets urbains en carte interactive. Publiez vos projets, informez vos habitants — sans une ligne de code.',
+  title: 'Open Projets - La carte interactive pour votre collectivité',
+  description: 'Open Projets transforme vos projets urbains en carte interactive. Publiez vos projets, informez vos habitants - sans une ligne de code.',
   canonical: `${BASE}/`,
 };
 
@@ -26,22 +26,22 @@ const PAGES = {
   '': DEFAULT,
   '/': DEFAULT,
   '/fonctionnalites': {
-    title: 'Fonctionnalités — Open Projets',
-    description: 'Contributions citoyennes, module travaux, catégories personnalisées, branding, gestion d\'équipe — toutes les fonctionnalités d\'Open Projets.',
+    title: 'Fonctionnalités - Open Projets',
+    description: 'Contributions citoyennes, module travaux, catégories personnalisées, branding, gestion d\'équipe - toutes les fonctionnalités d\'Open Projets.',
     canonical: `${BASE}/fonctionnalites`,
   },
   '/a-propos': {
-    title: 'À propos — Open Projets',
+    title: 'À propos - Open Projets',
     description: 'Open Projets transforme les données publiques en information citoyenne, accessible et transparente pour tous.',
     canonical: `${BASE}/a-propos`,
   },
   '/contact': {
-    title: 'Contact — Open Projets',
+    title: 'Contact - Open Projets',
     description: 'Demandez une démo d\'Open Projets. On configure votre espace ensemble, en moins d\'une heure.',
     canonical: `${BASE}/contact`,
   },
   '/aide': {
-    title: 'Aide — Open Projets',
+    title: 'Aide - Open Projets',
     description: 'Guides d\'utilisation et documentation pour administrateurs et contributeurs Open Projets.',
     canonical: `${BASE}/aide`,
   },

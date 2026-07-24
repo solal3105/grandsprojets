@@ -1,9 +1,9 @@
-# Plan de tests — Espace administrateur
+# Plan de tests - Espace administrateur
 
 > **Objectif** : Couvrir exhaustivement l'admin (`/admin/`) avec Playwright.
 > **2 comptes de test** sur une ville dédiée :
-> - `admin@test` — rôle `admin`, accès à toutes les sections
-> - `invited@test` — rôle `invited` (contributeur), accès limité
+> - `admin@test` - rôle `admin`, accès à toutes les sections
+> - `invited@test` - rôle `invited` (contributeur), accès limité
 
 ## État d'implémentation
 
@@ -17,7 +17,7 @@
 | 5 · Travaux | `admin.travaux.spec.js` | 10 | ✅ Complet |
 | 6 · Structure | `admin.structure.spec.js` | 20 | ✅ Complet |
 | 7 · Composants transversaux | `admin.resilience.spec.js` | 4 | ✅ Partiel (couverts aussi indirectement) |
-| 8 · Changement de ville | — | 0 | ⏭️ Skippé (nécessite 2e ville test) |
+| 8 · Changement de ville | - | 0 | ⏭️ Skippé (nécessite 2e ville test) |
 | 9 · Résilience | `admin.resilience.spec.js` | 5 | ✅ Complet |
 | 13 · Thème sombre | `admin.theme.spec.js` | 6 | ✅ Complet |
 | **Total** | | **~130** | |
@@ -31,14 +31,14 @@
 
 ## 0 · Authentification & boot
 
-### 0.1 — Redirection non-authentifié
+### 0.1 - Redirection non-authentifié
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 0.1.1 | Accéder à `/admin/` sans session | Redirect vers `/login/?redirect=/admin/` |
 | 0.1.2 | Accéder à une sous-route (`/admin/categories/`) sans session | Redirect login avec bon `redirect` |
 | 0.1.3 | Session expirée (token invalide) | Redirect vers `/login/` |
 
-### 0.2 — Login et initialisation
+### 0.2 - Login et initialisation
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 0.2.1 | Login admin → arrivée sur `/admin/` | Splash disparaît, sidebar affichée, section contributions chargée |
@@ -46,7 +46,7 @@
 | 0.2.3 | Vérifier email affiché dans `#adm-user-email` | Correspond au compte connecté |
 | 0.2.4 | Vérifier badge rôle dans `#adm-user-role` | "Admin" ou "Contributeur" selon le compte |
 
-### 0.3 — Déconnexion
+### 0.3 - Déconnexion
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 0.3.1 | Clic sur le bouton déconnexion (`#adm-logout`) | Redirect vers `/login/` |
@@ -56,7 +56,7 @@
 
 ## 1 · Sidebar & navigation
 
-### 1.1 — Visibilité des liens par rôle
+### 1.1 - Visibilité des liens par rôle
 
 #### Rôle admin
 | # | Scénario | Attendu |
@@ -78,7 +78,7 @@
 | 1.1.11 | Lien "Structure" masqué | ❌ `hidden` |
 | 1.1.12 | Lien "Villes" masqué | ❌ `hidden` |
 
-### 1.2 — Navigation entre sections (admin)
+### 1.2 - Navigation entre sections (admin)
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 1.2.1 | Clic "Contributions" dans la sidebar | URL = `/admin/contributions/`, section rendue, lien `.active` |
@@ -89,22 +89,22 @@
 | 1.2.6 | Back/forward du navigateur | Section correcte re-rendue |
 | 1.2.7 | URL directe `/admin/categories/` → refresh | Section catégories chargée au boot |
 
-### 1.3 — Accès direct URL par rôle invited
+### 1.3 - Accès direct URL par rôle invited
 | # | Scénario | Attendu |
 |---|----------|---------|
-| 1.3.1 | Invited accède à `/admin/categories/` directement | Le routeur rend la section normalement (pas de guard côté routeur). La page s'affiche — vérifier si les données chargent ou si l'API renvoie une erreur RLS |
-| 1.3.2 | Invited accède à `/admin/utilisateurs/` directement | Idem — la section se rend, les données peuvent charger selon les RLS |
+| 1.3.1 | Invited accède à `/admin/categories/` directement | Le routeur rend la section normalement (pas de guard côté routeur). La page s'affiche - vérifier si les données chargent ou si l'API renvoie une erreur RLS |
+| 1.3.2 | Invited accède à `/admin/utilisateurs/` directement | Idem - la section se rend, les données peuvent charger selon les RLS |
 | 1.3.3 | Invited accède à `/admin/travaux/` directement | Idem |
 | 1.3.4 | Invited accède à `/admin/structure/` directement | Idem |
 
-### 1.4 — Sélecteur de ville
+### 1.4 - Sélecteur de ville
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 1.4.1 | Le select `#adm-city-select` contient la ville de test | Option présente et sélectionnée |
 | 1.4.2 | La carte "Voir la carte" (`#adm-map-card`) pointe vers `/?city=<ville>` | `href` correct |
 | 1.4.3 | Le nom de la ville apparaît dans `#adm-map-card-city` | Nom branding ou code ville |
 
-### 1.5 — Mobile
+### 1.5 - Mobile
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 1.5.1 | En viewport mobile (375px), sidebar masquée initialement | Sidebar n'a pas la class `open` |
@@ -116,7 +116,7 @@
 
 ## 2 · Contributions
 
-### 2.1 — Liste (admin)
+### 2.1 - Liste (admin)
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 2.1.1 | Arrivée sur `/admin/contributions/` | Titre "Contributions", sous-titre contient le nom de la ville, bouton "Nouvelle contribution" visible |
@@ -127,7 +127,7 @@
 | 2.1.6 | Boutons actions admin : approuver, détails (👁), supprimer (🗑) visibles | `data-action="approve"`, `data-action="detail"`, `data-action="delete"` |
 | 2.1.7 | Bouton approuver absent si contribution déjà approuvée → bouton "Retirer" à la place | `data-action="unapprove"` avec icône `fa-rotate-left` |
 
-### 2.2 — Filtres et recherche
+### 2.2 - Filtres et recherche
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 2.2.1 | Onglet "Toutes" actif par défaut | `.adm-tab.active` data-status="" |
@@ -139,21 +139,21 @@
 | 2.2.7 | Tri "Plus récent" / "Plus ancien" / "Nom A-Z" | Ordre change dans la liste |
 | 2.2.8 | Recherche sans résultat | Empty state "Aucune contribution" affiché |
 
-### 2.3 — Approuver / Désapprouver (admin only)
+### 2.3 - Approuver / Désapprouver (admin only)
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 2.3.1 | Clic bouton approuver sur un item en attente | Toast "Contribution approuvée", badge passe à "Approuvée", bouton change en "Retirer" |
 | 2.3.2 | Clic bouton "Retirer l'approbation" | Toast "Approbation retirée", badge repasse en attente |
 | 2.3.3 | Bouton désactivé pendant l'opération | `btn.disabled = true` pendant l'API call |
 
-### 2.4 — Suppression
+### 2.4 - Suppression
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 2.4.1 | Clic icône supprimer → dialog de confirmation | Dialog modale s'ouvre avec le nom du projet |
 | 2.4.2 | Clic "Annuler" dans le dialog | Dialog fermée, rien ne change |
 | 2.4.3 | Clic "Supprimer" dans le dialog | Contribution supprimée, toast succès, liste rechargée, item disparu |
 
-### 2.5 — Détail (slide panel)
+### 2.5 - Détail (slide panel)
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 2.5.1 | Clic sur un item de la liste (row entière ou bouton "Détails") | Slide panel s'ouvre (`aria-hidden="false"`), titre = nom du projet, URL inchangée |
@@ -172,7 +172,7 @@
 | 2.5.14 | URL directe `/admin/contributions/{id}/` → ouvre le panel au boot | Liste rendue + panel ouvert automatiquement |
 | 2.5.15 | Fermer le panel ouvert via URL directe | Panel se ferme, URL mise à jour vers `/admin/contributions/` via `router.navigate` |
 
-### 2.6 — Wizard de création (admin)
+### 2.6 - Wizard de création (admin)
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 2.6.1 | Clic "Nouvelle contribution" → URL `/admin/contributions/nouveau/` | Formulaire affiché, titre "Nouvelle contribution" |
@@ -200,7 +200,7 @@
 | 2.6.23 | **Soumission complète** (nom + catégorie + tracé) | Bouton spinner, toast succès, redirect vers la liste |
 | 2.6.24 | Bouton "Retour" (`href` contributions) | Retour à la liste sans créer |
 
-### 2.7 — Wizard d'édition (admin)
+### 2.7 - Wizard d'édition (admin)
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 2.7.1 | URL `/admin/contributions/modifier/{id}/` | Formulaire pré-rempli, titre "Modifier la contribution" |
@@ -210,29 +210,29 @@
 | 2.7.5 | Article existant pré-chargé dans l'éditeur | Markdown récupéré et injecté |
 | 2.7.6 | Modifier le nom → sauvegarder | Toast "Contribution mise à jour", retour à la liste |
 
-### 2.8 — Contributions (rôle invited)
+### 2.8 - Contributions (rôle invited)
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 2.8.1 | Bouton "Nouvelle contribution" visible | ✅ Les invités peuvent créer |
-| 2.8.2 | Pas de bouton approuver/désapprouver dans la liste | Absents — conditionné par `store.isAdmin` dans `_renderItem()` |
+| 2.8.2 | Pas de bouton approuver/désapprouver dans la liste | Absents - conditionné par `store.isAdmin` dans `_renderItem()` |
 | 2.8.3 | Checkbox "Mes contributions" visible (`#contrib-mine-only`) | ✅ Visible pour les invités |
 | 2.8.4 | Cocher "Mes contributions" → filtre actif | Seules les contributions du user affichées |
 | 2.8.5 | Section "Publication" du wizard : notice "Soumise à validation" | Pas de toggle publish, notice info à la place |
 | 2.8.6 | Création par invited → status "En attente" | contribution créée avec `approved: false` |
 | 2.8.7 | Invited peut supprimer ses propres contributions | Bouton poubelle fonctionnel |
 
-### 2.9 — Pagination
+### 2.9 - Pagination
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 2.9.1 | Si >20 contributions, pagination visible | `#contrib-pagination` contient les boutons |
 | 2.9.2 | Clic page suivante | Nouvelles contributions chargées |
-| 2.9.3 | Info "1–20 sur N" correcte | Texte `.adm-pagination__info` juste |
+| 2.9.3 | Info "1-20 sur N" correcte | Texte `.adm-pagination__info` juste |
 
 ---
 
 ## 3 · Catégories (admin only)
 
-### 3.1 — Liste
+### 3.1 - Liste
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 3.1.1 | Arrivée sur `/admin/categories/` | Titre "Catégories", liste chargée |
@@ -241,7 +241,7 @@
 | 3.1.4 | Drag handle visible | `.adm-cat-card__drag` avec `fa-grip-vertical` |
 | 3.1.5 | Liste vide → empty state "Aucune catégorie" | `.adm-empty` affiché |
 
-### 3.2 — Création
+### 3.2 - Création
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 3.2.1 | Clic "Nouvelle catégorie" | Formulaire déroulé (`#cat-form-card` visible) |
@@ -259,23 +259,23 @@
 | 3.2.13 | Soumettre le formulaire | Catégorie créée, toast succès, liste mise à jour, formulaire masqué |
 | 3.2.14 | Annuler → formulaire masqué | `#cat-form-card hidden` |
 
-### 3.3 — Édition
+### 3.3 - Édition
 | # | Scénario | Attendu |
 |---|----------|---------|
-| 3.3.1 | Clic bouton éditer sur une catégorie | Formulaire ouvert, titre "Modifier — {nom}" |
+| 3.3.1 | Clic bouton éditer sur une catégorie | Formulaire ouvert, titre "Modifier - {nom}" |
 | 3.3.2 | Champs pré-remplis (nom, icône, couleur) | Valeurs de la catégorie existante |
 | 3.3.3 | Styles de tracé pré-remplis (épaisseur, dash, opacité, fill) | Valeurs des `category_styles` |
 | 3.3.4 | Couches associées pré-sélectionnées | Items avec class `active` |
 | 3.3.5 | Soumettre les modifications | Toast "Catégorie mise à jour", liste rafraîchie |
 
-### 3.4 — Suppression
+### 3.4 - Suppression
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 3.4.1 | Clic supprimer → dialog confirmation | Message contient le nom de la catégorie |
 | 3.4.2 | Confirmer → suppression | Toast succès, catégorie disparait de la liste |
 | 3.4.3 | Annuler → rien ne change | Dialog fermée |
 
-### 3.5 — Drag & drop (réordonnement)
+### 3.5 - Drag & drop (réordonnement)
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 3.5.1 | Drag une catégorie vers le bas | L'item se déplace visuellement (`.is-dragging`) |
@@ -286,7 +286,7 @@
 
 ## 4 · Utilisateurs (admin only)
 
-### 4.1 — Liste
+### 4.1 - Liste
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 4.1.1 | Arrivée `/admin/utilisateurs/` | Titre, bouton "Inviter", tabs rôles |
@@ -294,7 +294,7 @@
 | 4.1.3 | Chaque user affiche : avatar, email, badge rôle, villes, date | Éléments présents |
 | 4.1.4 | Bouton "Promouvoir"/"Rétrograder" selon le rôle actuel | Label dynamique |
 
-### 4.2 — Filtres
+### 4.2 - Filtres
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 4.2.1 | Tab "Tous" actif par défaut | `.adm-tab.active` data-role="all" |
@@ -303,7 +303,7 @@
 | 4.2.4 | Recherche par email | Filtrage instantané (250ms debounce) |
 | 4.2.5 | Aucun résultat → empty state | `.adm-empty` affiché |
 
-### 4.3 — Invitation
+### 4.3 - Invitation
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 4.3.1 | Clic "Inviter" → formulaire visible | `#users-invite-card` visible, focus sur email |
@@ -315,7 +315,7 @@
 | 4.3.7 | Inviter un email existant sur autre ville | Toast succès "{email} ajouté à la structure" |
 | 4.3.8 | Annuler → formulaire masqué et reset | Email vide, rôle revient à "Contributeur" |
 
-### 4.4 — Changement de rôle
+### 4.4 - Changement de rôle
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 4.4.1 | Clic "Promouvoir" sur un contributeur | Dialog "Promouvoir en Admin" |
@@ -328,7 +328,7 @@
 
 ## 5 · Travaux (admin only)
 
-### 5.1 — Scénarios de module
+### 5.1 - Scénarios de module
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 5.1.1 | Config absente (scénario A "unconfigured") | Empty state "Module non configuré", lien "Configurer" |
@@ -337,7 +337,7 @@
 | 5.1.4 | Config `source_type: 'url'` avec URL (scénario D "opendata") | Banner info "Source open data", pas de bouton "Nouveau" |
 | 5.1.5 | Config `source_type: 'url'` sans URL (scénario E) | Banner warning "URL non définie" |
 
-### 5.2 — Liste (scénario normal)
+### 5.2 - Liste (scénario normal)
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 5.2.1 | Liste des chantiers chargée | Items rendus avec icône, nom, état, nature, dates, localisation |
@@ -347,7 +347,7 @@
 | 5.2.5 | Recherche textuelle | Filtre par nom, nature, localisation |
 | 5.2.6 | Tri (plus récent, plus ancien, nom A-Z) | Ordre change |
 
-### 5.3 — Actions chantiers
+### 5.3 - Actions chantiers
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 5.3.1 | Clic "Approuver" sur chantier en attente | Toast succès, badge mis à jour |
@@ -355,7 +355,7 @@
 | 5.3.3 | Clic "Supprimer" → dialog confirmation | Message avec le nom du chantier |
 | 5.3.4 | Confirmer suppression | Toast succès, chantier disparu de la liste |
 
-### 5.4 — Création d'un chantier
+### 5.4 - Création d'un chantier
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 5.4.1 | URL `/admin/travaux/nouveau/` | Formulaire "Nouveau chantier" |
@@ -370,7 +370,7 @@
 | 5.4.10 | Soumission complète → admin = auto-approuvé | `data.approved = true` (via `store.isAdmin`) |
 | 5.4.11 | Toast succès + redirect vers la liste | URL = `/admin/travaux/` |
 
-### 5.5 — Édition d'un chantier
+### 5.5 - Édition d'un chantier
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 5.5.1 | URL `/admin/travaux/{id}/` | Formulaire pré-rempli avec données existantes |
@@ -380,7 +380,7 @@
 | 5.5.5 | GeoJSON existant affiché sur la carte | Features visibles sur la carte |
 | 5.5.6 | Modifier et sauvegarder | Toast "Chantier mis à jour" |
 
-### 5.6 — Configuration du module
+### 5.6 - Configuration du module
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 5.6.1 | URL `/admin/travaux/config/` | Page configuration affichée |
@@ -392,7 +392,7 @@
 | 5.6.7 | Sauvegarder la config | Toast "Configuration sauvegardée" |
 | 5.6.8 | Bouton "Retour" | Retour à la liste travaux |
 
-### 5.7 — Scénario open data (read-only)
+### 5.7 - Scénario open data (read-only)
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 5.7.1 | Pas de bouton "Nouveau chantier" | Bouton absent |
@@ -404,7 +404,7 @@
 
 ## 6 · Structure (admin only)
 
-### 6.1 — Affichage
+### 6.1 - Affichage
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 6.1.1 | Arrivée `/admin/structure/` | Titre "Ma structure", sous-titre mention la ville |
@@ -417,7 +417,7 @@
 | 6.1.8 | Toggles UI chargés depuis la base | `.st-toggle-row` rendus avec switch |
 | 6.1.9 | Cities activées affichées en chips | `.st-city-chip` pour chaque ville |
 
-### 6.2 — Modifications
+### 6.2 - Modifications
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 6.2.1 | Changer la couleur via le picker | Hex input + preview se mettent à jour |
@@ -428,13 +428,13 @@
 | 6.2.6 | Bouton "Changer" sur un logo existant | File picker s'ouvre |
 | 6.2.7 | Bouton "Supprimer" sur un logo existant | Preview masqué, dropzone réaffichée |
 | 6.2.8 | Toggle un contrôle UI ON/OFF | Switch change d'état |
-| 6.2.9 | Clic sur la ligne entière du toggle (pas juste le switch) | Même effet — toggle l'état |
+| 6.2.9 | Clic sur la ligne entière du toggle (pas juste le switch) | Même effet - toggle l'état |
 | 6.2.10 | Ajouter un espace activé via l'input | Chip ajoutée |
 | 6.2.11 | Ajouter un code invalide (caractères spéciaux) | Nettoyé en minuscules/tirets |
 | 6.2.12 | Ajouter un code déjà présent | Toast "Espace déjà ajouté" |
 | 6.2.13 | Supprimer un chip de ville (×) | Chip retirée |
 
-### 6.3 — Sauvegarde
+### 6.3 - Sauvegarde
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 6.3.1 | Clic "Enregistrer les modifications" | Bouton spinner, uploads effectués, toast succès |
@@ -447,7 +447,7 @@
 
 ## 7 · Composants transversaux
 
-### 8.1 — Toasts
+### 8.1 - Toasts
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 8.1.1 | Toast succès (vert) | `.adm-toast--success` visible ~3.5s puis s'efface |
@@ -456,7 +456,7 @@
 | 8.1.4 | Toast info (bleu) | `.adm-toast--info` |
 | 8.1.5 | Multiples toasts simultanés | Empilés dans `#adm-toast-container` |
 
-### 8.2 — Dialog de confirmation
+### 8.2 - Dialog de confirmation
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 8.2.1 | Dialog s'ouvre en modal (`showModal`) | `<dialog>` `.adm-dialog` affichée |
@@ -466,7 +466,7 @@
 | 8.2.5 | Touche Escape → résout `false` | Dialog fermée |
 | 8.2.6 | Mode `danger: true` → bouton rouge | `.adm-btn--danger` |
 
-### 8.3 — Slide panel
+### 8.3 - Slide panel
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 8.3.1 | Ouverture : `aria-hidden="false"` | Panel visible avec animation |
@@ -475,7 +475,7 @@
 | 8.3.4 | Bouton × ferme le panel | `aria-hidden="true"` |
 | 8.3.5 | Clic backdrop ferme le panel | Idem |
 
-### 8.4 — Icon picker
+### 8.4 - Icon picker
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 8.4.1 | Bouton ouvre le picker | Panel `.icon-picker__dropdown` visible |
@@ -483,7 +483,7 @@
 | 8.4.3 | Clic sur une icône → champ mis à jour | `<input>` value change, preview change |
 | 8.4.4 | Reset button remet l'icône par défaut | Valeur et preview reviennent au défaut |
 
-### 8.5 — Skeleton loading
+### 8.5 - Skeleton loading
 | # | Scénario | Attendu |
 |---|----------|---------|
 | 8.5.1 | Pendant le chargement, skeletons visibles | `.adm-skeleton` présents |

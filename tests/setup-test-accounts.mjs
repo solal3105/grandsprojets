@@ -1,5 +1,5 @@
 /**
- * Setup script — creates the two E2E test accounts in Supabase.
+ * Setup script - creates the two E2E test accounts in Supabase.
  *
  * Usage:  node tests/setup-test-accounts.mjs
  *
@@ -9,7 +9,7 @@
  *   - Supabase email+password sign-ups must be enabled (Dashboard → Auth → Providers → Email)
  *
  * What this script does:
- *   1. Signs up both accounts (idempotent — skips if they already exist)
+ *   1. Signs up both accounts (idempotent - skips if they already exist)
  *   2. Signs in to obtain user IDs
  *   3. Checks profiles exist with correct roles
  *   4. If profiles are wrong, prints SQL to run in Supabase SQL Editor
@@ -91,7 +91,7 @@ async function main() {
 
     const userId = signInData.user.id;
     userIds[acct.label] = userId;
-    console.log(`[${acct.label}] ✅ Signed in — id: ${userId}`);
+    console.log(`[${acct.label}] ✅ Signed in - id: ${userId}`);
 
     // --- 3. Check profile ---
     const { data: profile } = await supabase
@@ -104,9 +104,9 @@ async function main() {
     const roleOk = profile?.role === acct.role;
 
     if (roleOk && villeOk) {
-      console.log(`[${acct.label}] ✅ Profile OK — role: ${profile.role}, ville: ${JSON.stringify(profile.ville)}`);
+      console.log(`[${acct.label}] ✅ Profile OK - role: ${profile.role}, ville: ${JSON.stringify(profile.ville)}`);
     } else {
-      console.warn(`[${acct.label}] ⚠️  Profile needs fix — current: role=${profile?.role}, ville=${JSON.stringify(profile?.ville)}`);
+      console.warn(`[${acct.label}] ⚠️  Profile needs fix - current: role=${profile?.role}, ville=${JSON.stringify(profile?.ville)}`);
       sqlFixes.push(
         `UPDATE profiles SET role = '${acct.role}', ville = '{"${acct.ville.join('","')}"}' WHERE id = '${userId}';`
       );
@@ -129,7 +129,7 @@ async function main() {
     .maybeSingle();
 
   if (cityData) {
-    console.log(`\n✅ City "${TEST_CITY}" exists — brand_name: ${cityData.brand_name}`);
+    console.log(`\n✅ City "${TEST_CITY}" exists - brand_name: ${cityData.brand_name}`);
   } else {
     console.warn(`\n⚠️  City "${TEST_CITY}" does NOT exist in city_branding.`);
     sqlFixes.push(

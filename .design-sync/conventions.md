@@ -1,8 +1,8 @@
-# Open Projets — design tokens (brand foundation)
+# Open Projets - design tokens (brand foundation)
 
 This is a **tokens-only** design foundation for **Open Projets** (openprojets.com),
 a SaaS that turns a collectivity's urban projects into an interactive public map.
-There are **no components** here yet — the source product is built in Vue, so what
+There are **no components** here yet - the source product is built in Vue, so what
 ships is the brand's color, type, and effect language. Style every design you build
 with these tokens so it reads as Open Projets.
 
@@ -11,13 +11,13 @@ with these tokens so it reads as Open Projets.
 This is a **Tailwind-token** system. Two equivalent ways to apply a token, both
 backed by the same values:
 
-1. **Utility classes** — same names as the production Tailwind config, available as
+1. **Utility classes** - same names as the production Tailwind config, available as
    plain CSS (so they work with or without Tailwind):
    `text-primary` · `bg-primary` · `bg-primary-light` · `text-amber` · `text-green`
    · `text-purple` · `text-dark` · `bg-dark` · `text-gray-text` · `bg-gray-bg`
    · `border-gray-border` · `font-heading` · `font-body` · `tracking-tight-hero`
    · `shadow-card` · `max-w-container`
-2. **CSS variables** — for any property a utility doesn't cover:
+2. **CSS variables** - for any property a utility doesn't cover:
    `var(--color-primary)`, `var(--color-amber)`, `var(--font-heading)`,
    `var(--shadow-card)`, `var(--max-w-container)`, …
 
@@ -27,7 +27,7 @@ Prefer the utility classes; reach for `var(--*)` for one-off properties.
 
 | Token | Value | Use |
 |---|---|---|
-| `primary` | `#FF0037` | THE brand red — primary CTAs, links, accents, active state |
+| `primary` | `#FF0037` | THE brand red - primary CTAs, links, accents, active state |
 | `amber` | `#F2B327` | warm accent, gradient partner |
 | `green` | `#5AAB7D` | calm/success accent |
 | `purple` | `#4E2BFF` | secondary accent, gradient partner |
@@ -41,10 +41,10 @@ the tints for soft red fills (hover backgrounds, badges).
 
 ## Type
 
-- **Headings / display:** `font-heading` → Space Grotesk (400–700).
-- **Body / UI:** `font-body` → Inter (300–600).
+- **Headings / display:** `font-heading` → Space Grotesk (400-700).
+- **Body / UI:** `font-body` → Inter (300-600).
 - Hero/display lines use tight tracking: `tracking-tight-hero` (`-1.824px`).
-- Fonts load from Google Fonts via `styles.css` — no extra setup needed.
+- Fonts load from Google Fonts via `styles.css` - no extra setup needed.
 
 ## Signature flourishes (use sparingly, they're the brand's personality)
 
@@ -52,10 +52,10 @@ the tints for soft red fills (hover backgrounds, badges).
   `text-gradient` (red→amber) · `text-gradient-purple` (purple→red)
   · `text-gradient-green` (amber→green) · `text-gradient-contact` (red→purple).
   Apply to the text element itself.
-- **Background blobs** — soft radial auras placed behind sections (absolutely
+- **Background blobs** - soft radial auras placed behind sections (absolutely
   positioned, large, blurred): `blob-red` · `blob-purple` · `blob-amber`
   · `blob-green` · `blob-contact-1` · `blob-contact-2`.
-- **Card elevation:** `shadow-card` — the one true elevation for floating cards/panels.
+- **Card elevation:** `shadow-card` - the one true elevation for floating cards/panels.
 
 ## Where the truth lives
 

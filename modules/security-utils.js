@@ -56,7 +56,7 @@
           return urlStr;
         }
       } catch {
-        // URL relative sans / initial (ex: "page.html") — accepter si pas de scheme dangereux
+        // URL relative sans / initial (ex: "page.html") - accepter si pas de scheme dangereux
         if (!/^[a-z][a-z0-9+.-]*:/i.test(urlStr)) return urlStr;
       }
       

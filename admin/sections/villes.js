@@ -22,7 +22,7 @@ function _showList(container) {
     <div class="adm-page-header">
       <div>
         <h1 class="adm-page-title"><i class="fa-solid fa-earth-europe"></i> Gestion des villes</h1>
-        <p class="adm-page-subtitle">Administration globale — toutes les structures</p>
+        <p class="adm-page-subtitle">Administration globale - toutes les structures</p>
       </div>
       <button class="adm-btn adm-btn--primary" id="ville-create-btn">
         <i class="fa-solid fa-plus"></i> Nouvelle ville
@@ -307,15 +307,15 @@ function _showCityForm(container, existing) {
           <div class="cf-map-coords" id="cf-map-coords">
             <div class="cf-map-coord">
               <span class="cf-map-coord__label">Lat</span>
-              <span class="cf-map-coord__value" id="cf-coord-lat">${existingCenter ? existingCenter[1].toFixed(5) : '—'}</span>
+              <span class="cf-map-coord__value" id="cf-coord-lat">${existingCenter ? existingCenter[1].toFixed(5) : '-'}</span>
             </div>
             <div class="cf-map-coord">
               <span class="cf-map-coord__label">Lng</span>
-              <span class="cf-map-coord__value" id="cf-coord-lng">${existingCenter ? existingCenter[0].toFixed(5) : '—'}</span>
+              <span class="cf-map-coord__value" id="cf-coord-lng">${existingCenter ? existingCenter[0].toFixed(5) : '-'}</span>
             </div>
             <div class="cf-map-coord">
               <span class="cf-map-coord__label">Zoom</span>
-              <span class="cf-map-coord__value" id="cf-coord-zoom">${existingZoom != null ? existingZoom.toFixed(1) : '—'}</span>
+              <span class="cf-map-coord__value" id="cf-coord-zoom">${existingZoom != null ? existingZoom.toFixed(1) : '-'}</span>
             </div>
           </div>
 
@@ -356,7 +356,7 @@ function _logoDropzoneHTML(prefix, existingUrl, label, small = false) {
         </div>
         <div class="cw-drop-area__text">
           <span class="cw-drop-area__title" style="font-size:13px;">Glissez-déposez ici</span>
-          <span class="cw-drop-area__hint">ou <u>cliquez pour parcourir</u> — PNG, SVG, WebP</span>
+          <span class="cw-drop-area__hint">ou <u>cliquez pour parcourir</u> - PNG, SVG, WebP</span>
         </div>
       </div>
       <div class="st-logo-preview" id="${prefix}-preview" ${hasUrl ? '' : 'hidden'} style="background:${bgColor};height:${height};">
@@ -411,7 +411,7 @@ function _bindCityForm(container, existing) {
     // Validate color
     const colorVal = (container.querySelector('#cf-color-text')?.value || '').trim();
     if (colorVal && !colorVal.match(/^#[0-9A-Fa-f]{6}$/)) {
-      toast('Couleur invalide — format #RRGGBB attendu', 'error');
+      toast('Couleur invalide - format #RRGGBB attendu', 'error');
       btn.disabled = false; btn.innerHTML = origHTML;
       return;
     }

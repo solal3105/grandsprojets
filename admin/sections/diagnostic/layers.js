@@ -1,5 +1,5 @@
 /**
- * Diagnostic terrain — cycle de vie des couches de données.
+ * Diagnostic terrain - cycle de vie des couches de données.
  * Orchestration entre la config (diagnostic_layers), les données chargées
  * (dg.runtime) et le rendu carte. Aucune manipulation de DOM ici : les
  * appelants fournissent un callback `onUpdate(layer)` pour rafraîchir l'UI.

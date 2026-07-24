@@ -62,7 +62,7 @@ function _bindCityChange() {
     document.getElementById('adm-content')?.classList.add('adm-content--refreshing');
     // Update city context chip immediately (no wait for re-render)
     _updateCityContext(code);
-    // Single source of truth — the store subscriber in app.js handles the re-render
+    // Single source of truth - the store subscriber in app.js handles the re-render
     store.setCity(code);
   });
 }

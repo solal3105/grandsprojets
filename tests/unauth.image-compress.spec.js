@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 
 /**
  * Attend que supabaseService soit chargé sur la carte publique.
- * Le helper de compression est pur client — pas besoin d'auth ni du boot complet.
+ * Le helper de compression est pur client - pas besoin d'auth ni du boot complet.
  */
 async function waitForService(page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -60,11 +60,11 @@ function runCompressRaw(page, { bytes, name, type }) {
 }
 
 // ─────────────────────────────────────────────────────────
-// 0.29 — Compression des images à l'upload
+// 0.29 - Compression des images à l'upload
 // ─────────────────────────────────────────────────────────
-test.describe('0.29 — Compression des images à l\'upload', () => {
+test.describe('0.29 - Compression des images à l\'upload', () => {
 
-  test('0.29.1 — Un PNG volumineux est converti en WebP et allégé', async ({ page }) => {
+  test('0.29.1 - Un PNG volumineux est converti en WebP et allégé', async ({ page }) => {
     await waitForService(page);
     const { src, out } = await runCompress(page, {
       width: 2400, height: 1600, srcType: 'image/png', srcQuality: undefined,
@@ -75,7 +75,7 @@ test.describe('0.29 — Compression des images à l\'upload', () => {
     expect(out.size).toBeLessThan(src.size);
   });
 
-  test('0.29.2 — Le redimensionnement respecte maxWidth', async ({ page }) => {
+  test('0.29.2 - Le redimensionnement respecte maxWidth', async ({ page }) => {
     await waitForService(page);
     const { out } = await runCompress(page, {
       width: 2400, height: 1600, srcType: 'image/png', srcQuality: undefined,
@@ -85,7 +85,7 @@ test.describe('0.29 — Compression des images à l\'upload', () => {
     expect(out.width).toBe(1920);
   });
 
-  test('0.29.3 — Une image plus petite que maxWidth n\'est pas agrandie', async ({ page }) => {
+  test('0.29.3 - Une image plus petite que maxWidth n\'est pas agrandie', async ({ page }) => {
     await waitForService(page);
     const { out } = await runCompress(page, {
       width: 400, height: 300, srcType: 'image/png', srcQuality: undefined,
@@ -95,7 +95,7 @@ test.describe('0.29 — Compression des images à l\'upload', () => {
     expect(out.width).toBe(400);
   });
 
-  test('0.29.4 — Un SVG n\'est jamais rasterisé', async ({ page }) => {
+  test('0.29.4 - Un SVG n\'est jamais rasterisé', async ({ page }) => {
     await waitForService(page);
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><circle cx="50" cy="50" r="40"/></svg>';
     const out = await page.evaluate(async (svg) => {
@@ -106,16 +106,16 @@ test.describe('0.29 — Compression des images à l\'upload', () => {
     expect(out).toBeNull();
   });
 
-  test('0.29.5 — Un GIF n\'est jamais touché (animation préservée)', async ({ page }) => {
+  test('0.29.5 - Un GIF n\'est jamais touché (animation préservée)', async ({ page }) => {
     await waitForService(page);
-    // En-tête GIF89a — le helper doit sortir sur le mime avant tout décodage
+    // En-tête GIF89a - le helper doit sortir sur le mime avant tout décodage
     const out = await runCompressRaw(page, {
       bytes: [0x47, 0x49, 0x46, 0x38, 0x39, 0x61], name: 'anim.gif', type: 'image/gif',
     });
     expect(out).toBeNull();
   });
 
-  test('0.29.6 — Un favicon .ico n\'est jamais touché', async ({ page }) => {
+  test('0.29.6 - Un favicon .ico n\'est jamais touché', async ({ page }) => {
     await waitForService(page);
     const out = await runCompressRaw(page, {
       bytes: [0x00, 0x00, 0x01, 0x00], name: 'favicon.ico', type: 'image/x-icon',
@@ -123,7 +123,7 @@ test.describe('0.29 — Compression des images à l\'upload', () => {
     expect(out).toBeNull();
   });
 
-  test('0.29.7 — Un non-image est refusé', async ({ page }) => {
+  test('0.29.7 - Un non-image est refusé', async ({ page }) => {
     await waitForService(page);
     const out = await runCompressRaw(page, {
       bytes: [0x25, 0x50, 0x44, 0x46], name: 'doc.pdf', type: 'application/pdf',
@@ -131,7 +131,7 @@ test.describe('0.29 — Compression des images à l\'upload', () => {
     expect(out).toBeNull();
   });
 
-  test('0.29.8 — Un WebP déjà optimisé n\'est pas regonflé', async ({ page }) => {
+  test('0.29.8 - Un WebP déjà optimisé n\'est pas regonflé', async ({ page }) => {
     await waitForService(page);
     // Source encodée très bas : la ré-encoder à q0.82 la rendrait plus lourde
     const { out } = await runCompress(page, {
@@ -141,7 +141,7 @@ test.describe('0.29 — Compression des images à l\'upload', () => {
     expect(out).toBeNull();
   });
 
-  test('0.29.9 — Le mime PNG est respecté (chemin favicon)', async ({ page }) => {
+  test('0.29.9 - Le mime PNG est respecté (chemin favicon)', async ({ page }) => {
     await waitForService(page);
     const { src, out } = await runCompress(page, {
       width: 1024, height: 1024, srcType: 'image/png', srcQuality: undefined,

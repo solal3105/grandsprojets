@@ -17,7 +17,7 @@ async function goToModules(page) {
   await page.waitForFunction(() => {
     const el = document.querySelector('#mod-list-body');
     if (!el) return false;
-    // No spinner — either modules or empty state
+    // No spinner - either modules or empty state
     return !el.textContent.includes('Chargement');
   }, { timeout: 15000 });
 }
@@ -28,36 +28,36 @@ const clearToasts = (page) =>
   page.evaluate(() => document.querySelectorAll('.adm-toast').forEach(t => t.remove()));
 
 // ─────────────────────────────────────────────────────────
-// 11.1 — Affichage liste modules
+// 11.1 - Affichage liste modules
 // ─────────────────────────────────────────────────────────
-test.describe('11.1 — Affichage', () => {
+test.describe('11.1 - Affichage', () => {
 
-  test('11.1.1 — Page chargée avec titre', async ({ page }) => {
+  test('11.1.1 - Page chargée avec titre', async ({ page }) => {
     await goToModules(page);
     await expect(page.locator('.adm-page-title')).toContainText('Modules');
   });
 
-  test('11.1.2 — Sous-titre contient le nom de la ville active', async ({ page }) => {
+  test('11.1.2 - Sous-titre contient le nom de la ville active', async ({ page }) => {
     await goToModules(page);
     await expect(page.locator('.adm-page-subtitle')).not.toBeEmpty();
   });
 
-  test('11.1.3 — Bouton "Ajouter un module" visible', async ({ page }) => {
+  test('11.1.3 - Bouton "Ajouter un module" visible', async ({ page }) => {
     await goToModules(page);
     await expect(page.locator('#mod-add-btn')).toBeVisible();
   });
 
-  test('11.1.4 — Chaque module affiché montre label, clé et badge activé/désactivé', async ({ page }) => {
+  test('11.1.4 - Chaque module affiché montre label, clé et badge activé/désactivé', async ({ page }) => {
     await goToModules(page);
     const items = page.locator('.mod-list-item');
     const count = await items.count();
-    if (count === 0) return; // empty state — nothing to check
+    if (count === 0) return; // empty state - nothing to check
     const first = items.first();
     await expect(first.locator('.adm-list-item__name')).not.toBeEmpty();
     await expect(first.locator('.adm-badge--info')).toBeVisible(); // module_key badge
   });
 
-  test('11.1.5 — Toggle switch visible pour chaque module', async ({ page }) => {
+  test('11.1.5 - Toggle switch visible pour chaque module', async ({ page }) => {
     await goToModules(page);
     const items = page.locator('.mod-list-item');
     const count = await items.count();
@@ -67,11 +67,11 @@ test.describe('11.1 — Affichage', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 11.2 — Toggle activation module
+// 11.2 - Toggle activation module
 // ─────────────────────────────────────────────────────────
-test.describe('11.2 — Toggle activation', () => {
+test.describe('11.2 - Toggle activation', () => {
 
-  test('11.2.1 — Toggle un module produit un toast de succès', async ({ page }) => {
+  test('11.2.1 - Toggle un module produit un toast de succès', async ({ page }) => {
     await goToModules(page);
     const items = page.locator('.mod-list-item');
     const count = await items.count();
@@ -93,11 +93,11 @@ test.describe('11.2 — Toggle activation', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 11.3 — Édition module
+// 11.3 - Édition module
 // ─────────────────────────────────────────────────────────
-test.describe('11.3 — Édition', () => {
+test.describe('11.3 - Édition', () => {
 
-  test('11.3.1 — Clic "Éditer" ouvre le formulaire', async ({ page }) => {
+  test('11.3.1 - Clic "Éditer" ouvre le formulaire', async ({ page }) => {
     await goToModules(page);
     const items = page.locator('.mod-list-item');
     const count = await items.count();
@@ -109,7 +109,7 @@ test.describe('11.3 — Édition', () => {
     await expect(page.locator('.cw-header__title')).toContainText('Modifier');
   });
 
-  test('11.3.2 — Formulaire contient champs label, icône, ordre, activé', async ({ page }) => {
+  test('11.3.2 - Formulaire contient champs label, icône, ordre, activé', async ({ page }) => {
     await goToModules(page);
     const items = page.locator('.mod-list-item');
     if ((await items.count()) === 0) { test.skip(); return; }
@@ -119,7 +119,7 @@ test.describe('11.3 — Édition', () => {
     await expect(page.locator('#mod-enabled')).toBeAttached();
   });
 
-  test('11.3.3 — Bouton retour revient à la liste', async ({ page }) => {
+  test('11.3.3 - Bouton retour revient à la liste', async ({ page }) => {
     await goToModules(page);
     const items = page.locator('.mod-list-item');
     if ((await items.count()) === 0) { test.skip(); return; }
@@ -129,7 +129,7 @@ test.describe('11.3 — Édition', () => {
     await expect(page.locator('.adm-page-title')).toContainText('Modules');
   });
 
-  test('11.3.4 — Sauvegarde avec label vide montre un warning', async ({ page }) => {
+  test('11.3.4 - Sauvegarde avec label vide montre un warning', async ({ page }) => {
     await goToModules(page);
     const items = page.locator('.mod-list-item');
     if ((await items.count()) === 0) { test.skip(); return; }
@@ -139,7 +139,7 @@ test.describe('11.3 — Édition', () => {
     await expect(page.locator('.adm-toast--warning')).toBeVisible({ timeout: 5000 });
   });
 
-  test('11.3.5 — Sauvegarde avec données valides montre un toast succès', async ({ page }) => {
+  test('11.3.5 - Sauvegarde avec données valides montre un toast succès', async ({ page }) => {
     await goToModules(page);
     const items = page.locator('.mod-list-item');
     if ((await items.count()) === 0) { test.skip(); return; }
@@ -161,11 +161,11 @@ test.describe('11.3 — Édition', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 11.4 — Sidebar
+// 11.4 - Sidebar
 // ─────────────────────────────────────────────────────────
-test.describe('11.4 — Sidebar', () => {
+test.describe('11.4 - Sidebar', () => {
 
-  test('11.4.1 — Lien Modules visible pour global-admin', async ({ page }) => {
+  test('11.4.1 - Lien Modules visible pour global-admin', async ({ page }) => {
     await waitForBoot(page);
     // data-role="global" → only visible if global admin
     const link = page.locator('.adm-nav-item[data-section="modules"]');

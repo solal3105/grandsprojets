@@ -1,10 +1,10 @@
 /* ============================================================================
-   Open Projets — Effects & layout tokens
+   Open Projets - Effects & layout tokens
    Source of truth: home-src/tailwind.config.js (boxShadow, maxWidth)
    ============================================================================ */
 
 :root {
-  /* The reference card elevation — used on every floating card / panel */
+  /* The reference card elevation - used on every floating card / panel */
   --shadow-card: 0 24px 64px -12px rgba(0, 0, 0, 0.10);
 
   /* Max content width of the centered page container */

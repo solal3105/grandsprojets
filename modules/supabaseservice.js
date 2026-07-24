@@ -1066,7 +1066,7 @@
     uploadBrandingAsset: async function(file, ville, type) {
       try {
         if (!file || !ville || !type) throw new Error('Paramètres manquants');
-        // Favicon : réduit mais gardé en PNG — un .webp en <link rel="icon">
+        // Favicon : réduit mais gardé en PNG - un .webp en <link rel="icon">
         // reste mal supporté par certains agents (cf. citybranding.applyFavicon).
         const compressed = type === 'favicon'
           ? await compressImage(file, { maxWidth: 128, mime: 'image/png' })
@@ -2394,7 +2394,7 @@
     },
 
     /* ────────────────────────────────────────────────────────────────
-     *  city_modules — table unique pour les modules par ville
+     *  city_modules - table unique pour les modules par ville
      * ──────────────────────────────────────────────────────────────── */
 
     /**
@@ -2480,7 +2480,7 @@
     },
 
     /**
-     * Compatibilité — récupère la config travaux depuis city_modules
+     * Compatibilité - récupère la config travaux depuis city_modules
      * @param {string} ville
      * @returns {Promise<Object|null>} Format compatible avec l'ancien travaux_config
      */
@@ -2513,7 +2513,7 @@
     },
 
     /**
-     * Compatibilité — met à jour la config travaux via city_modules
+     * Compatibilité - met à jour la config travaux via city_modules
      * @param {string} ville
      * @param {Object} config
      * @returns {Promise<{data: Object|null, error: Error|null}>}
@@ -2540,7 +2540,7 @@
     /**
      * Récupère les couches de diagnostic d'une ville
      * @param {string} ville
-     * @returns {Promise<Array|null>} Lignes triées par sort_order — null en cas
+     * @returns {Promise<Array|null>} Lignes triées par sort_order - null en cas
      *   d'erreur (réseau/RLS), pour distinguer l'échec de l'état vide côté UI
      */
     fetchDiagnosticLayers: async function(ville) {
@@ -2630,7 +2630,7 @@
 
     /**
      * Upload d'un GeoJSON normalisé d'une couche de diagnostic dans Storage.
-     * NB : bucket public (même modèle que travaux-geojson) — chemin non
+     * NB : bucket public (même modèle que travaux-geojson) - chemin non
      * devinable via UUID, mais ne pas y déposer de données nominatives.
      * @param {string} ville
      * @param {Object} geojson - FeatureCollection

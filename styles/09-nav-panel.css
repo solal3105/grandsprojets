@@ -1,6 +1,6 @@
 /* ===========================================================================
-   NAV PANEL — 3-Level Expandable Navigation
-   Premium glass morphism design — rich micro-interactions
+   NAV PANEL - 3-Level Expandable Navigation
+   Premium glass morphism design - rich micro-interactions
    =========================================================================== */
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -20,7 +20,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PANEL CONTAINER — Slides out from sidebar
+   PANEL CONTAINER - Slides out from sidebar
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .nav-panel {
@@ -102,7 +102,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PANEL HEADER — Module title + close
+   PANEL HEADER - Module title + close
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .nav-panel__header {
@@ -178,7 +178,7 @@
   display: none;
 }
 
-/* Collapse button — mobile only, pill at bottom */
+/* Collapse button - mobile only, pill at bottom */
 .nav-panel__footer {
   display: none;
   padding: 10px 16px;
@@ -226,7 +226,7 @@
   transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* City-colored state — active when a category is selected (level 3) */
+/* City-colored state - active when a category is selected (level 3) */
 .nav-panel__collapse--city {
   background: var(--primary);
   color: #fff;
@@ -246,7 +246,7 @@
     display: block;
   }
 
-  /* Hide at level 2 for 'carte' only — no filter applied yet */
+  /* Hide at level 2 for 'carte' only - no filter applied yet */
 }
 
 .nav-panel__title {
@@ -296,7 +296,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   BREADCRUMB — Shows navigation path at Level 3
+   BREADCRUMB - Shows navigation path at Level 3
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .nav-panel__breadcrumb {
@@ -345,7 +345,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PANEL BODY — Scrollable content area
+   PANEL BODY - Scrollable content area
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .nav-panel__body {
@@ -369,7 +369,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   LEVEL 2 — Category / Section List
+   LEVEL 2 - Category / Section List
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .nav-panel__level2,
@@ -502,7 +502,7 @@
     color 0.25s ease;
 }
 
-/* Hover — glass lift */
+/* Hover - glass lift */
 .nav-panel__item:hover {
   background: color-mix(in srgb, var(--item-color) 7%, transparent);
   transform: translateX(2px);
@@ -529,7 +529,7 @@
   color: var(--item-color);
 }
 
-/* Active state — filled gradient */
+/* Active state - filled gradient */
 .nav-panel__item.active {
   background: linear-gradient(
     135deg,
@@ -562,7 +562,7 @@
   color: var(--item-color);
 }
 
-/* Press — springy */
+/* Press - springy */
 .nav-panel__item:active {
   transform: scale(0.97);
   transition-duration: 0.1s;
@@ -570,7 +570,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   LEVEL 3 — Project Cards / Travaux Content
+   LEVEL 3 - Project Cards / Travaux Content
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .nav-panel__level3 {
@@ -616,7 +616,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   TRAVAUX — CHRONOLOGIE (custom timeline UI)
+   TRAVAUX - CHRONOLOGIE (custom timeline UI)
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .np-travaux-chrono {
@@ -796,7 +796,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   TRAVAUX — FILTRES (custom filter UI)
+   TRAVAUX - FILTRES (custom filter UI)
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .np-travaux-filters {
@@ -1090,7 +1090,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   TRAVAUX — ADMINISTRATION (admin panel in L3)
+   TRAVAUX - ADMINISTRATION (admin panel in L3)
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── L2 pending badge (on "Administrer" button) ────────────────────────── */
@@ -1658,13 +1658,13 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   LAYOUT OFFSET — Push map when panel is open
+   LAYOUT OFFSET - Push map when panel is open
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* Smooth map padding handled by JS via MapLibre easeTo */
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SCRIM / BACKDROP — Mobile overlay behind panel
+   SCRIM / BACKDROP - Mobile overlay behind panel
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .nav-panel__scrim {
@@ -1672,7 +1672,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   RESPONSIVE — Mobile (≤ 720px)
+   RESPONSIVE - Mobile (≤ 720px)
    Panel → premium glass bottom sheet
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -1732,7 +1732,7 @@
     pointer-events: none;
   }
 
-  /* Drag handle — large tap target with visual pill */
+  /* Drag handle - large tap target with visual pill */
   .nav-panel__handle {
     position: absolute;
     top: 0;
@@ -1832,7 +1832,7 @@
     max-height: calc(72vh - 80px);
   }
 
-  /* ── Items — more spacing, bigger tap targets ── */
+  /* ── Items - more spacing, bigger tap targets ── */
   .nav-panel__item {
     padding: 14px 16px;
     margin: 3px 8px;
@@ -1908,7 +1908,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   DARK MODE — Desktop refinements
+   DARK MODE - Desktop refinements
    ═══════════════════════════════════════════════════════════════════════════ */
 
 [data-theme="dark"] .nav-panel__section-label {

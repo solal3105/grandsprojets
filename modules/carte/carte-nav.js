@@ -1,5 +1,5 @@
 // modules/carte/carte-nav.js
-// Carte module — Level 2/3 renderers for NavPanel
+// Carte module - Level 2/3 renderers for NavPanel
 // Registers itself with NavPanel.registerModule('carte', ...)
 
 ;(function(win) {

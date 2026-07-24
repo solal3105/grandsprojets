@@ -28,7 +28,7 @@ const collapse = (title, children, defaultOpen = false) =>
   ])
 
 /* ======================================================================== */
-/*  ADMIN — GÉNÉRAL                                                         */
+/*  ADMIN - GÉNÉRAL                                                         */
 /* ======================================================================== */
 
 export const AdminGeneral = D(() => [
@@ -37,11 +37,11 @@ export const AdminGeneral = D(() => [
   h('p', { class: 'text-sm text-gray-text mb-6' }, 'Connexion, navigation dans l\'interface d\'administration et rôles'),
 
   collapse('🔑 Se connecter', [
-    h('p', { class: 'text-sm text-gray-text mb-3' }, 'La plateforme utilise un système de connexion par lien magique — aucun mot de passe à retenir.'),
+    h('p', { class: 'text-sm text-gray-text mb-3' }, 'La plateforme utilise un système de connexion par lien magique - aucun mot de passe à retenir.'),
     h('ol', { class: 'steps' }, [
       h('li', {}, [h('strong', {}, 'Ouvrez l\'email'), ' d\'invitation que vous avez reçu de la plateforme']),
       h('li', {}, ['Cliquez sur le bouton ', h('strong', {}, '"Se connecter"'), ' dans l\'email']),
-      h('li', {}, ['Vous êtes ', h('strong', {}, 'directement connecté'), ' — aucun mot de passe nécessaire']),
+      h('li', {}, ['Vous êtes ', h('strong', {}, 'directement connecté'), ' - aucun mot de passe nécessaire']),
     ]),
     h('div', { class: 'info mt-4' }, [
       h('p', {}, [
@@ -63,12 +63,12 @@ export const AdminGeneral = D(() => [
   collapse('🧭 Naviguer dans l\'administration', [
     h('p', { class: 'text-sm text-gray-text mb-3' }, 'L\'interface d\'administration est accessible à l\'adresse /admin/. Elle se compose d\'une barre latérale à gauche et d\'un contenu principal à droite.'),
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-2' }, [
-      h('li', {}, [h('strong', {}, 'Logo'), ' — En haut de la barre latérale, cliquez dessus pour revenir à la carte publique']),
-      h('li', {}, [h('strong', {}, 'Sélecteur de structure'), ' — Menu déroulant sous le logo. Permet de changer la ville/structure active. Le choix est mémorisé d\'une session à l\'autre.']),
-      h('li', {}, [h('strong', {}, 'Menu de navigation'), ' — Liens vers les différentes sections : Contributions, Travaux, Catégories, Utilisateurs, Structure, Villes']),
-      h('li', {}, [h('strong', {}, 'Carte "Voir la carte"'), ' — Lien flottant vers la carte publique de la ville active']),
-      h('li', {}, [h('strong', {}, 'Infos utilisateur'), ' — En bas de la barre : votre email, votre badge de rôle et le bouton de déconnexion']),
-      h('li', {}, [h('strong', {}, 'Thème clair / sombre'), ' — Bouton soleil / lune en bas de la barre pour basculer l\'apparence de l\'administration. Votre choix est mémorisé.']),
+      h('li', {}, [h('strong', {}, 'Logo'), ' - En haut de la barre latérale, cliquez dessus pour revenir à la carte publique']),
+      h('li', {}, [h('strong', {}, 'Sélecteur de structure'), ' - Menu déroulant sous le logo. Permet de changer la ville/structure active. Le choix est mémorisé d\'une session à l\'autre.']),
+      h('li', {}, [h('strong', {}, 'Menu de navigation'), ' - Liens vers les différentes sections : Contributions, Travaux, Catégories, Utilisateurs, Structure, Villes']),
+      h('li', {}, [h('strong', {}, 'Carte "Voir la carte"'), ' - Lien flottant vers la carte publique de la ville active']),
+      h('li', {}, [h('strong', {}, 'Infos utilisateur'), ' - En bas de la barre : votre email, votre badge de rôle et le bouton de déconnexion']),
+      h('li', {}, [h('strong', {}, 'Thème clair / sombre'), ' - Bouton soleil / lune en bas de la barre pour basculer l\'apparence de l\'administration. Votre choix est mémorisé.']),
     ]),
     h('div', { class: 'info mt-3' }, [
       h('p', {}, [
@@ -121,7 +121,7 @@ export const AdminGeneral = D(() => [
 ])
 
 /* ======================================================================== */
-/*  ADMIN — GÉRER LES CONTRIBUTIONS                                        */
+/*  ADMIN - GÉRER LES CONTRIBUTIONS                                        */
 /* ======================================================================== */
 
 export const AdminContributions = D(() => [
@@ -134,13 +134,13 @@ export const AdminContributions = D(() => [
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1 mb-3' }, [
       h('li', {}, ['Chaque projet apparaît avec son ', h('strong', {}, 'image de couverture'), ' (ou une icône par défaut), son titre, sa catégorie, sa date relative et son statut']),
       h('li', {}, ['Badges de statut : ', badge('Approuvée', '#5AAB7D'), ' (coche verte) ou ', badge('En attente', '#F2B327'), ' (horloge orange)']),
-      h('li', {}, ['Pagination en bas de liste : format ', h('strong', {}, '"1–20 sur 150"'), ' avec boutons Précédent / Suivant']),
+      h('li', {}, ['Pagination en bas de liste : format ', h('strong', {}, '"1-20 sur 150"'), ' avec boutons Précédent / Suivant']),
     ]),
     h('p', { class: 'text-sm text-gray-text font-semibold mt-4 mb-2' }, 'Onglets de statut'),
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1' }, [
-      h('li', {}, [h('strong', {}, '"Toutes"'), ' — Affiche toutes les contributions (par défaut)']),
-      h('li', {}, [h('strong', {}, '"En attente"'), ' — Uniquement les contributions non approuvées']),
-      h('li', {}, [h('strong', {}, '"Approuvées"'), ' — Uniquement les contributions approuvées']),
+      h('li', {}, [h('strong', {}, '"Toutes"'), ' - Affiche toutes les contributions (par défaut)']),
+      h('li', {}, [h('strong', {}, '"En attente"'), ' - Uniquement les contributions non approuvées']),
+      h('li', {}, [h('strong', {}, '"Approuvées"'), ' - Uniquement les contributions approuvées']),
     ]),
   ], true),
 
@@ -178,18 +178,18 @@ export const AdminContributions = D(() => [
     h('p', { class: 'text-sm text-gray-text font-semibold mt-3 mb-2' }, 'Le panneau affiche :'),
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1' }, [
       h('li', {}, [h('strong', {}, 'Image de couverture'), ' en pleine largeur']),
-      h('li', {}, [h('strong', {}, 'Badges'), ' — Statut (approuvée/en attente), catégorie, tags']),
-      h('li', {}, [h('strong', {}, 'Métadonnées'), ' — Date de création, ville, lien officiel']),
+      h('li', {}, [h('strong', {}, 'Badges'), ' - Statut (approuvée/en attente), catégorie, tags']),
+      h('li', {}, [h('strong', {}, 'Métadonnées'), ' - Date de création, ville, lien officiel']),
       h('li', {}, [h('strong', {}, 'Description'), ' courte']),
-      h('li', {}, [h('strong', {}, 'Carte'), ' — Aperçu interactif des tracés GeoJSON du projet']),
-      h('li', {}, [h('strong', {}, 'Article'), ' — Contenu markdown mis en forme']),
-      h('li', {}, [h('strong', {}, 'Documents'), ' — Liste des PDFs avec icône et lien de téléchargement']),
+      h('li', {}, [h('strong', {}, 'Carte'), ' - Aperçu interactif des tracés GeoJSON du projet']),
+      h('li', {}, [h('strong', {}, 'Article'), ' - Contenu markdown mis en forme']),
+      h('li', {}, [h('strong', {}, 'Documents'), ' - Liste des PDFs avec icône et lien de téléchargement']),
     ]),
     h('p', { class: 'text-sm text-gray-text font-semibold mt-3 mb-2' }, 'Actions en bas du panneau :'),
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1' }, [
-      h('li', {}, ['🗑️ ', h('strong', {}, 'Supprimer'), ' — Bouton rouge à gauche']),
-      h('li', {}, ['✏️ ', h('strong', {}, 'Modifier'), ' — Ouvre le formulaire d\'édition']),
-      h('li', {}, ['✅ ', h('strong', {}, 'Approuver / Révoquer'), ' — Bouton vert (admin uniquement)']),
+      h('li', {}, ['🗑️ ', h('strong', {}, 'Supprimer'), ' - Bouton rouge à gauche']),
+      h('li', {}, ['✏️ ', h('strong', {}, 'Modifier'), ' - Ouvre le formulaire d\'édition']),
+      h('li', {}, ['✅ ', h('strong', {}, 'Approuver / Révoquer'), ' - Bouton vert (admin uniquement)']),
     ]),
   ]),
 
@@ -218,8 +218,8 @@ export const AdminContributions = D(() => [
       h('li', {}, [
         h('strong', {}, '2. Localisation'), h('br'),
         'Deux modes au choix :', h('br'),
-        '• ', h('strong', {}, '"Dessiner sur la carte"'), ' — Outils Point, Ligne ou Zone. Double-cliquez ou cliquez sur le bouton pour terminer un tracé.', h('br'),
-        '• ', h('strong', {}, '"Importer un fichier"'), ' — Glissez-déposez un fichier .geojson ou .json',
+        '• ', h('strong', {}, '"Dessiner sur la carte"'), ' - Outils Point, Ligne ou Zone. Double-cliquez ou cliquez sur le bouton pour terminer un tracé.', h('br'),
+        '• ', h('strong', {}, '"Importer un fichier"'), ' - Glissez-déposez un fichier .geojson ou .json',
       ]),
       h('li', {}, [
         h('strong', {}, '3. Couverture'), h('br'),
@@ -247,11 +247,11 @@ export const AdminContributions = D(() => [
     h('p', { class: 'text-sm text-gray-text mb-3' }, 'Disponible dans le formulaire de création/modification. Le bouton "Assistant" en bas à droite affiche un badge indiquant le nombre de suggestions disponibles.'),
     h('p', { class: 'text-sm text-gray-text font-semibold mt-3 mb-2' }, 'Fonctionnement :'),
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1 mb-3' }, [
-      h('li', {}, [h('strong', {}, 'Jauge de complétion'), ' — Barre de progression + pourcentage + checklist des champs remplis (nom, catégorie, URL, description, PDF, couverture, article)']),
-      h('li', {}, [h('strong', {}, 'Recherche web'), ' — Activez l\'option pour enrichir la génération avec des résultats de recherche en ligne']),
-      h('li', {}, [h('strong', {}, 'Suggestions'), ' — Boutons "Générer la description" et "Générer l\'article" (disponibles si suffisamment de champs sont remplis)']),
-      h('li', {}, [h('strong', {}, 'Génération'), ' — Le texte apparaît en temps réel (streaming). Les sources web sont listées en bas.']),
-      h('li', {}, [h('strong', {}, 'Actions post-génération'), ' — Boutons "Copier" et "Insérer" pour intégrer le texte dans le formulaire']),
+      h('li', {}, [h('strong', {}, 'Jauge de complétion'), ' - Barre de progression + pourcentage + checklist des champs remplis (nom, catégorie, URL, description, PDF, couverture, article)']),
+      h('li', {}, [h('strong', {}, 'Recherche web'), ' - Activez l\'option pour enrichir la génération avec des résultats de recherche en ligne']),
+      h('li', {}, [h('strong', {}, 'Suggestions'), ' - Boutons "Générer la description" et "Générer l\'article" (disponibles si suffisamment de champs sont remplis)']),
+      h('li', {}, [h('strong', {}, 'Génération'), ' - Le texte apparaît en temps réel (streaming). Les sources web sont listées en bas.']),
+      h('li', {}, [h('strong', {}, 'Actions post-génération'), ' - Boutons "Copier" et "Insérer" pour intégrer le texte dans le formulaire']),
     ]),
     h('div', { class: 'info mt-3' }, [
       h('p', {}, ['ℹ️ Vous pouvez ', h('strong', {}, 'arrêter'), ' la génération en cours avec le bouton Stop. Cliquez sur "Regénérer" pour relancer avec un nouveau résultat.']),
@@ -277,13 +277,13 @@ export const AdminContributions = D(() => [
       h('li', {}, ['Cliquez sur ', h('strong', {}, '"Supprimer"'), ' pour confirmer']),
     ]),
     h('div', { class: 'warn mt-3' }, [
-      h('p', {}, ['⚠️ ', h('strong', {}, 'Action irréversible'), ' — La contribution et tous les fichiers associés (GeoJSON, documents, images) seront définitivement supprimés.']),
+      h('p', {}, ['⚠️ ', h('strong', {}, 'Action irréversible'), ' - La contribution et tous les fichiers associés (GeoJSON, documents, images) seront définitivement supprimés.']),
     ]),
   ]),
 ])
 
 /* ======================================================================== */
-/*  ADMIN — TRAVAUX                                                         */
+/*  ADMIN - TRAVAUX                                                         */
 /* ======================================================================== */
 
 export const AdminTravaux = D(() => [
@@ -297,13 +297,13 @@ export const AdminTravaux = D(() => [
     ]),
     h('p', { class: 'text-sm text-gray-text font-semibold mt-3 mb-2' }, 'Activation'),
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1 mb-3' }, [
-      h('li', {}, [h('strong', {}, 'Interrupteur d\'activation'), ' — Active ou masque le module Travaux sur la carte publique']),
+      h('li', {}, [h('strong', {}, 'Interrupteur d\'activation'), ' - Active ou masque le module Travaux sur la carte publique']),
       h('li', {}, ['Quand désactivé, le filtre "Travaux" n\'apparaît pas dans les filtres de la carte']),
     ]),
     h('p', { class: 'text-sm text-gray-text font-semibold mt-3 mb-2' }, 'Source des données'),
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1 mb-3' }, [
-      h('li', {}, [h('strong', {}, '"Base interne"'), ' — Créez et gérez vos chantiers directement dans l\'interface (mode par défaut)']),
-      h('li', {}, [h('strong', {}, '"Flux externe (open data)"'), ' — Importez automatiquement les chantiers via une URL GeoJSON externe']),
+      h('li', {}, [h('strong', {}, '"Base interne"'), ' - Créez et gérez vos chantiers directement dans l\'interface (mode par défaut)']),
+      h('li', {}, [h('strong', {}, '"Flux externe (open data)"'), ' - Importez automatiquement les chantiers via une URL GeoJSON externe']),
     ]),
     h('div', { class: 'info mt-3' }, [
       h('p', {}, ['ℹ️ En mode "Flux externe", la liste des chantiers est en ', h('strong', {}, 'lecture seule'), '. Vous ne pouvez pas créer ni modifier de chantiers manuellement.']),
@@ -330,9 +330,9 @@ export const AdminTravaux = D(() => [
     ]),
     h('p', { class: 'text-sm text-gray-text font-semibold mt-3 mb-2' }, 'Onglets de filtre'),
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1 mb-3' }, [
-      h('li', {}, [h('strong', {}, '"Tous"'), ' — Tous les chantiers']),
-      h('li', {}, [h('strong', {}, '"En attente"'), ' — Chantiers non approuvés']),
-      h('li', {}, [h('strong', {}, '"Approuvés"'), ' — Chantiers visibles sur la carte publique']),
+      h('li', {}, [h('strong', {}, '"Tous"'), ' - Tous les chantiers']),
+      h('li', {}, [h('strong', {}, '"En attente"'), ' - Chantiers non approuvés']),
+      h('li', {}, [h('strong', {}, '"Approuvés"'), ' - Chantiers visibles sur la carte publique']),
     ]),
     h('p', { class: 'text-sm text-gray-text mb-2' }, ['Barre d\'outils : recherche par nom/nature/localisation et tri (récent, ancien, A→Z).']),
     h('p', { class: 'text-sm text-gray-text mb-2' }, [
@@ -382,7 +382,7 @@ export const AdminTravaux = D(() => [
     h('p', { class: 'text-sm text-gray-text mb-3' }, 'Quand la source est configurée sur "Flux externe" :'),
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1 mb-3' }, [
       h('li', {}, ['Une bannière bleue indique ', h('strong', {}, '"Source open data active"'), ' avec l\'URL du flux']),
-      h('li', {}, ['La liste est en ', h('strong', {}, 'lecture seule'), ' — pas de boutons créer/modifier/supprimer']),
+      h('li', {}, ['La liste est en ', h('strong', {}, 'lecture seule'), ' - pas de boutons créer/modifier/supprimer']),
       h('li', {}, ['Les chantiers importés portent un badge ', badge('Legacy', '#555')]),
     ]),
     h('div', { class: 'warn mt-3' }, [
@@ -392,7 +392,7 @@ export const AdminTravaux = D(() => [
 ])
 
 /* ======================================================================== */
-/*  ADMIN — DIAGNOSTIC TERRAIN                                             */
+/*  ADMIN - DIAGNOSTIC TERRAIN                                             */
 /* ======================================================================== */
 
 export const AdminDiagnostic = D(() => [
@@ -407,9 +407,9 @@ export const AdminDiagnostic = D(() => [
   collapse('🧭 Vue d\'ensemble', [
     h('p', { class: 'text-sm text-gray-text mb-3' }, 'La section ouvre une carte plein écran de votre territoire, surmontée d\'un dock flottant et d\'une barre d\'outils.'),
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-2' }, [
-      h('li', {}, [h('strong', {}, 'Dock'), ' — Deux onglets : ', h('strong', {}, 'Couches'), ' (vos sources de données) et ', h('strong', {}, 'Analyse'), ' (sélection de zone + diagnostic IA)']),
-      h('li', {}, [h('strong', {}, 'Barre d\'outils'), ' — Bouton ', h('strong', {}, 'plein écran'), ' et bouton ', h('strong', {}, '"Sélectionner une zone"'), ' (lasso)']),
-      h('li', {}, [h('strong', {}, 'Historique'), ' — En haut à droite, rouvre les diagnostics déjà enregistrés']),
+      h('li', {}, [h('strong', {}, 'Dock'), ' - Deux onglets : ', h('strong', {}, 'Couches'), ' (vos sources de données) et ', h('strong', {}, 'Analyse'), ' (sélection de zone + diagnostic IA)']),
+      h('li', {}, [h('strong', {}, 'Barre d\'outils'), ' - Bouton ', h('strong', {}, 'plein écran'), ' et bouton ', h('strong', {}, '"Sélectionner une zone"'), ' (lasso)']),
+      h('li', {}, [h('strong', {}, 'Historique'), ' - En haut à droite, rouvre les diagnostics déjà enregistrés']),
     ]),
   ], true),
 
@@ -419,9 +419,9 @@ export const AdminDiagnostic = D(() => [
       h('li', {}, [
         h('strong', {}, '1. Source des données'), h('br'),
         'Trois origines possibles :', h('br'),
-        '• ', h('strong', {}, 'Fichier'), ' — Glissez-déposez un .geojson, .json ou .csv', h('br'),
-        '• ', h('strong', {}, 'Lien'), ' — Une URL vers un flux GeoJSON ou CSV (open data)', h('br'),
-        '• ', h('strong', {}, 'Données Open Projets'), ' — ', h('strong', {}, 'Projets publiés'), ' (vos contributions approuvées) ou ', h('strong', {}, 'Travaux en cours'), ' (vos chantiers)',
+        '• ', h('strong', {}, 'Fichier'), ' - Glissez-déposez un .geojson, .json ou .csv', h('br'),
+        '• ', h('strong', {}, 'Lien'), ' - Une URL vers un flux GeoJSON ou CSV (open data)', h('br'),
+        '• ', h('strong', {}, 'Données Open Projets'), ' - ', h('strong', {}, 'Projets publiés'), ' (vos contributions approuvées) ou ', h('strong', {}, 'Travaux en cours'), ' (vos chantiers)',
       ]),
       h('li', {}, [
         h('strong', {}, '2. Identité'), h('br'),
@@ -429,11 +429,11 @@ export const AdminDiagnostic = D(() => [
       ]),
       h('li', {}, [
         h('strong', {}, '3. Style'), h('br'),
-        'Couleur des points — en aplat unique ou ', h('strong', {}, 'par catégorie'), ' (une couleur par valeur d\'un champ) — et taille des marqueurs.',
+        'Couleur des points - en aplat unique ou ', h('strong', {}, 'par catégorie'), ' (une couleur par valeur d\'un champ) - et taille des marqueurs.',
       ]),
       h('li', {}, [
         h('strong', {}, '4. Popup & analyse IA'), h('br'),
-        'Champs affichés au clic sur un point, et surtout le ', h('strong', {}, 'contexte pour l\'IA'), ' — une phrase décrivant ce que représente la couche (ex. "Signalements citoyens de dangers cyclables"). Ce contexte aide l\'analyse à situer les points.',
+        'Champs affichés au clic sur un point, et surtout le ', h('strong', {}, 'contexte pour l\'IA'), ' - une phrase décrivant ce que représente la couche (ex. "Signalements citoyens de dangers cyclables"). Ce contexte aide l\'analyse à situer les points.',
       ]),
     ]),
     h('div', { class: 'tip mt-3' }, [
@@ -444,14 +444,14 @@ export const AdminDiagnostic = D(() => [
   collapse('👁️ Gérer les couches', [
     h('p', { class: 'text-sm text-gray-text mb-3' }, 'Chaque couche affiche sa pastille de couleur, son nom et son nombre de points.'),
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1 mb-3' }, [
-      h('li', {}, [h('strong', {}, 'Interrupteur'), ' — Affiche ou masque la couche sur la carte']),
-      h('li', {}, [h('strong', {}, 'Crayon'), ' — Modifie la couche (rouvre l\'assistant)']),
-      h('li', {}, [h('strong', {}, 'Corbeille'), ' — Retire la couche du diagnostic (les données sources ne sont pas affectées)']),
+      h('li', {}, [h('strong', {}, 'Interrupteur'), ' - Affiche ou masque la couche sur la carte']),
+      h('li', {}, [h('strong', {}, 'Crayon'), ' - Modifie la couche (rouvre l\'assistant)']),
+      h('li', {}, [h('strong', {}, 'Corbeille'), ' - Retire la couche du diagnostic (les données sources ne sont pas affectées)']),
     ]),
     h('p', { class: 'text-sm text-gray-text font-semibold mt-3 mb-2' }, 'Outils d\'affichage (bas du dock)'),
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1' }, [
-      h('li', {}, [h('strong', {}, 'Heatmap de densité'), ' — Carte de chaleur pour repérer les concentrations de points']),
-      h('li', {}, [h('strong', {}, 'Bâtiments en relief'), ' — Volumes 3D du bâti, visibles à partir du zoom 15']),
+      h('li', {}, [h('strong', {}, 'Heatmap de densité'), ' - Carte de chaleur pour repérer les concentrations de points']),
+      h('li', {}, [h('strong', {}, 'Bâtiments en relief'), ' - Volumes 3D du bâti, visibles à partir du zoom 15']),
     ]),
   ]),
 
@@ -459,7 +459,7 @@ export const AdminDiagnostic = D(() => [
     h('ol', { class: 'steps' }, [
       h('li', {}, ['Cliquez sur ', h('strong', {}, '"Sélectionner une zone"'), ' (ou maintenez la touche ', h('strong', {}, 'Maj'), ')']),
       h('li', {}, ['Dessinez à main levée un contour ', h('strong', {}, 'autour des points'), ' à analyser (une intersection, un carrefour, un tronçon)']),
-      h('li', {}, ['Relâchez pour fermer la zone — appuyez sur ', h('strong', {}, 'Échap'), ' pour annuler']),
+      h('li', {}, ['Relâchez pour fermer la zone - appuyez sur ', h('strong', {}, 'Échap'), ' pour annuler']),
     ]),
     h('div', { class: 'info mt-3' }, [
       h('p', {}, ['ℹ️ L\'analyse lit ', h('strong', {}, 'l\'intégralité'), ' des points de la zone, dans la limite de ', h('strong', {}, '300 points'), '. Le diagnostic vise donc une zone précise (carrefour, tronçon), pas une ville entière.']),
@@ -499,7 +499,7 @@ export const AdminDiagnostic = D(() => [
 ])
 
 /* ======================================================================== */
-/*  ADMIN — GÉRER LES CATÉGORIES                                           */
+/*  ADMIN - GÉRER LES CATÉGORIES                                           */
 /* ======================================================================== */
 
 export const AdminCategories = D(() => [
@@ -512,7 +512,7 @@ export const AdminCategories = D(() => [
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1 mb-3' }, [
       h('li', {}, ['Chaque carte affiche un ', h('strong', {}, 'point coloré'), ', l\'icône de la catégorie et son nom']),
       h('li', {}, ['Actions sur chaque carte : ', h('strong', {}, 'Modifier'), ' (crayon) et ', h('strong', {}, 'Supprimer'), ' (corbeille rouge)']),
-      h('li', {}, ['Les catégories sont ', h('strong', {}, 'réordonnables par glisser-déposer'), ' — l\'ordre détermine l\'affichage dans les filtres de la carte publique']),
+      h('li', {}, ['Les catégories sont ', h('strong', {}, 'réordonnables par glisser-déposer'), ' - l\'ordre détermine l\'affichage dans les filtres de la carte publique']),
     ]),
   ], true),
 
@@ -523,7 +523,7 @@ export const AdminCategories = D(() => [
     h('ol', { class: 'steps' }, [
       h('li', {}, [
         h('strong', {}, '1. Informations'), h('br'),
-        h('strong', {}, 'Nom'), ' (obligatoire) et ', h('strong', {}, 'Icône'), ' — Choisissez via le sélecteur d\'icônes qui propose 150+ icônes classées par catégorie (Travaux, Transport, Mobilité, Bâtiments, Infrastructure, Nature, Général). Vous pouvez aussi saisir une classe manuellement.',
+        h('strong', {}, 'Nom'), ' (obligatoire) et ', h('strong', {}, 'Icône'), ' - Choisissez via le sélecteur d\'icônes qui propose 150+ icônes classées par catégorie (Travaux, Transport, Mobilité, Bâtiments, Infrastructure, Nature, Général). Vous pouvez aussi saisir une classe manuellement.',
       ]),
       h('li', {}, [
         h('strong', {}, '2. Couleur'), h('br'),
@@ -532,10 +532,10 @@ export const AdminCategories = D(() => [
       h('li', {}, [
         h('strong', {}, '3. Style des tracés'), ' (optionnel)', h('br'),
         'Configuration avancée avec aperçu SVG en direct (ligne + polygone) :', h('br'),
-        '• ', h('strong', {}, 'Épaisseur'), ' — Curseur 1 à 12 px', h('br'),
-        '• ', h('strong', {}, 'Style du tracé'), ' — Continu, tirets ou pointillés', h('br'),
-        '• ', h('strong', {}, 'Opacité du tracé'), ' — Curseur 10 % à 100 %', h('br'),
-        '• ', h('strong', {}, 'Remplissage du polygone'), ' — Activez puis choisissez couleur et opacité du fond',
+        '• ', h('strong', {}, 'Épaisseur'), ' - Curseur 1 à 12 px', h('br'),
+        '• ', h('strong', {}, 'Style du tracé'), ' - Continu, tirets ou pointillés', h('br'),
+        '• ', h('strong', {}, 'Opacité du tracé'), ' - Curseur 10 % à 100 %', h('br'),
+        '• ', h('strong', {}, 'Remplissage du polygone'), ' - Activez puis choisissez couleur et opacité du fond',
       ]),
       h('li', {}, [
         h('strong', {}, '4. Couches associées'), ' (optionnel)', h('br'),
@@ -554,7 +554,7 @@ export const AdminCategories = D(() => [
       h('li', {}, ['Cliquez sur ', h('strong', {}, '"Supprimer"'), ' pour confirmer']),
     ]),
     h('div', { class: 'warn mt-3' }, [
-      h('p', {}, ['⚠️ ', h('strong', {}, 'Action irréversible'), ' — La catégorie sera définitivement supprimée.']),
+      h('p', {}, ['⚠️ ', h('strong', {}, 'Action irréversible'), ' - La catégorie sera définitivement supprimée.']),
     ]),
   ]),
 
@@ -563,13 +563,13 @@ export const AdminCategories = D(() => [
     h('ol', { class: 'steps' }, [
       h('li', {}, ['Maintenez le clic sur une carte de catégorie']),
       h('li', {}, ['Glissez-la vers la position souhaitée']),
-      h('li', {}, ['Relâchez — l\'ordre est ', h('strong', {}, 'sauvegardé automatiquement')]),
+      h('li', {}, ['Relâchez - l\'ordre est ', h('strong', {}, 'sauvegardé automatiquement')]),
     ]),
   ]),
 ])
 
 /* ======================================================================== */
-/*  ADMIN — GÉRER LES UTILISATEURS                                         */
+/*  ADMIN - GÉRER LES UTILISATEURS                                         */
 /* ======================================================================== */
 
 export const AdminUsers = D(() => [
@@ -585,8 +585,8 @@ export const AdminUsers = D(() => [
     ]),
     h('p', { class: 'text-sm text-gray-text font-semibold mt-3 mb-2' }, 'Filtres'),
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1' }, [
-      h('li', {}, [h('strong', {}, 'Onglets de rôle'), ' — "Tous", "Admins" (bouclier), "Contributeurs" (utilisateur)']),
-      h('li', {}, [h('strong', {}, 'Recherche'), ' — Par email, en temps réel']),
+      h('li', {}, [h('strong', {}, 'Onglets de rôle'), ' - "Tous", "Admins" (bouclier), "Contributeurs" (utilisateur)']),
+      h('li', {}, [h('strong', {}, 'Recherche'), ' - Par email, en temps réel']),
     ]),
   ], true),
 
@@ -598,8 +598,8 @@ export const AdminUsers = D(() => [
       h('li', {}, ['Renseignez l\'', h('strong', {}, 'adresse email'), ' du nouvel utilisateur']),
       h('li', {}, [
         'Choisissez le ', h('strong', {}, 'rôle'), ' :', h('br'),
-        '• ', h('strong', {}, 'Contributeur'), ' — Peut ajouter du contenu', h('br'),
-        '• ', h('strong', {}, 'Admin'), ' — Peut aussi gérer les utilisateurs, catégories et la structure',
+        '• ', h('strong', {}, 'Contributeur'), ' - Peut ajouter du contenu', h('br'),
+        '• ', h('strong', {}, 'Admin'), ' - Peut aussi gérer les utilisateurs, catégories et la structure',
       ]),
       h('li', {}, ['Cliquez sur ', h('strong', {}, '"Envoyer l\'invitation"')]),
     ]),
@@ -621,7 +621,7 @@ export const AdminUsers = D(() => [
 ])
 
 /* ======================================================================== */
-/*  ADMIN — GÉRER MA STRUCTURE                                              */
+/*  ADMIN - GÉRER MA STRUCTURE                                              */
 /* ======================================================================== */
 
 export const AdminStructure = D(() => [
@@ -631,16 +631,16 @@ export const AdminStructure = D(() => [
 
   collapse('🏷️ Identité', [
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1' }, [
-      h('li', {}, [h('strong', {}, 'Nom affiché'), ' — Le nom public de votre structure, affiché dans l\'en-tête de la carte (80 car. max)']),
-      h('li', {}, [h('strong', {}, 'Code ville'), ' — Identifiant technique (lecture seule, non modifiable)']),
+      h('li', {}, [h('strong', {}, 'Nom affiché'), ' - Le nom public de votre structure, affiché dans l\'en-tête de la carte (80 car. max)']),
+      h('li', {}, [h('strong', {}, 'Code ville'), ' - Identifiant technique (lecture seule, non modifiable)']),
     ]),
   ], true),
 
   collapse('🖼️ Logos & Favicon', [
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1 mb-3' }, [
-      h('li', {}, [h('strong', {}, 'Logo — thème clair'), ' — Le logo principal de votre structure']),
-      h('li', {}, [h('strong', {}, 'Logo — thème sombre'), ' — Version alternative pour le mode sombre (optionnel)']),
-      h('li', {}, [h('strong', {}, 'Favicon'), ' — Petite icône affichée dans l\'onglet du navigateur (optionnel)']),
+      h('li', {}, [h('strong', {}, 'Logo - thème clair'), ' - Le logo principal de votre structure']),
+      h('li', {}, [h('strong', {}, 'Logo - thème sombre'), ' - Version alternative pour le mode sombre (optionnel)']),
+      h('li', {}, [h('strong', {}, 'Favicon'), ' - Petite icône affichée dans l\'onglet du navigateur (optionnel)']),
     ]),
     h('div', { class: 'info mt-3' }, [
       h('p', {}, ['📁 Formats acceptés : ', h('strong', {}, 'PNG, SVG, WebP'), '. Upload par glisser-déposer ou clic sur la zone. Aperçu avec options de remplacement et suppression.']),
@@ -649,8 +649,8 @@ export const AdminStructure = D(() => [
 
   collapse('🎨 Couleur primaire', [
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1 mb-3' }, [
-      h('li', {}, [h('strong', {}, 'Sélecteur de couleur'), ' — Cliquez pour ouvrir le color picker natif du navigateur']),
-      h('li', {}, [h('strong', {}, 'Champ hexadécimal'), ' — Saisissez directement un code #RRGGBB']),
+      h('li', {}, [h('strong', {}, 'Sélecteur de couleur'), ' - Cliquez pour ouvrir le color picker natif du navigateur']),
+      h('li', {}, [h('strong', {}, 'Champ hexadécimal'), ' - Saisissez directement un code #RRGGBB']),
       h('li', {}, ['Un ', h('strong', {}, 'aperçu'), ' montre le rendu de la couleur sur un badge et un bouton']),
     ]),
     h('div', { class: 'tip mt-3' }, [
@@ -661,7 +661,7 @@ export const AdminStructure = D(() => [
   collapse('🗺️ Fond de carte', [
     h('p', { class: 'text-sm text-gray-text mb-3' }, 'Choisissez le fond de carte affiché par défaut sur la carte publique.'),
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1' }, [
-      h('li', {}, [h('strong', {}, '"Défaut global"'), ' — Utilise le fond de carte par défaut de la plateforme']),
+      h('li', {}, [h('strong', {}, '"Défaut global"'), ' - Utilise le fond de carte par défaut de la plateforme']),
       h('li', {}, ['Sinon, sélectionnez un fond de carte parmi ceux disponibles dans la liste déroulante']),
     ]),
   ]),
@@ -715,7 +715,7 @@ export const AdminStructure = D(() => [
 ])
 
 /* ======================================================================== */
-/*  ADMIN — GESTION DES VILLES                                             */
+/*  ADMIN - GESTION DES VILLES                                             */
 /* ======================================================================== */
 
 export const AdminVilles = D(() => [
@@ -742,8 +742,8 @@ export const AdminVilles = D(() => [
     h('ol', { class: 'steps' }, [
       h('li', {}, [
         h('strong', {}, '1. Identifiant'), h('br'),
-        h('strong', {}, 'Code ville'), ' (obligatoire) — Identifiant unique en minuscules, sans espaces. ', h('strong', {}, 'Non modifiable'), ' après création.', h('br'),
-        h('strong', {}, 'Nom affiché'), ' (obligatoire) — Le nom public de la structure.',
+        h('strong', {}, 'Code ville'), ' (obligatoire) - Identifiant unique en minuscules, sans espaces. ', h('strong', {}, 'Non modifiable'), ' après création.', h('br'),
+        h('strong', {}, 'Nom affiché'), ' (obligatoire) - Le nom public de la structure.',
       ]),
       h('li', {}, [
         h('strong', {}, '2. Apparence'), ' (optionnel)', h('br'),
@@ -751,9 +751,9 @@ export const AdminVilles = D(() => [
       ]),
       h('li', {}, [
         h('strong', {}, '3. Position sur la carte'), h('br'),
-        '• ', h('strong', {}, 'Recherche d\'adresse'), ' — Barre de recherche avec géocodage (résultats OpenStreetMap). Cliquez sur un résultat pour centrer la carte.', h('br'),
-        '• ', h('strong', {}, 'Carte interactive'), ' — Déplacez et zoomez pour définir le centre et le zoom par défaut. Le zoom est verrouillé initialement (cliquez sur l\'overlay pour l\'activer).', h('br'),
-        '• ', h('strong', {}, 'Coordonnées'), ' — Latitude, longitude et zoom affichés en temps réel (lecture seule).',
+        '• ', h('strong', {}, 'Recherche d\'adresse'), ' - Barre de recherche avec géocodage (résultats OpenStreetMap). Cliquez sur un résultat pour centrer la carte.', h('br'),
+        '• ', h('strong', {}, 'Carte interactive'), ' - Déplacez et zoomez pour définir le centre et le zoom par défaut. Le zoom est verrouillé initialement (cliquez sur l\'overlay pour l\'activer).', h('br'),
+        '• ', h('strong', {}, 'Coordonnées'), ' - Latitude, longitude et zoom affichés en temps réel (lecture seule).',
       ]),
     ]),
     h('p', { class: 'text-sm text-gray-text mt-4' }, [
@@ -776,13 +776,13 @@ export const AdminVilles = D(() => [
       h('li', {}, ['Confirmez dans la boîte de dialogue']),
     ]),
     h('div', { class: 'warn mt-3' }, [
-      h('p', {}, ['⚠️ ', h('strong', {}, 'Action irréversible'), ' — La ville et ses données de branding seront définitivement supprimées.']),
+      h('p', {}, ['⚠️ ', h('strong', {}, 'Action irréversible'), ' - La ville et ses données de branding seront définitivement supprimées.']),
     ]),
   ]),
 ])
 
 /* ======================================================================== */
-/*  CONTRIBUTEUR — GÉNÉRAL                                                  */
+/*  CONTRIBUTEUR - GÉNÉRAL                                                  */
 /* ======================================================================== */
 
 export const ContribGeneral = D(() => [
@@ -795,7 +795,7 @@ export const ContribGeneral = D(() => [
     h('ol', { class: 'steps' }, [
       h('li', {}, [h('strong', {}, 'Ouvrez l\'email'), ' d\'invitation que vous avez reçu']),
       h('li', {}, ['Cliquez sur ', h('strong', {}, '"Se connecter"')]),
-      h('li', {}, ['Vous êtes connecté — aucun mot de passe']),
+      h('li', {}, ['Vous êtes connecté - aucun mot de passe']),
     ]),
     h('div', { class: 'info mt-4' }, [
       h('p', {}, ['⏰ Session de ', h('strong', {}, '1 heure'), ', rafraîchissement automatique toutes les 4 minutes. Si la session expire, vous serez redirigé vers la page de connexion.']),
@@ -805,11 +805,11 @@ export const ContribGeneral = D(() => [
   collapse('🧭 Naviguer dans l\'interface', [
     h('p', { class: 'text-sm text-gray-text mb-3' }, 'En tant que contributeur, vous accédez à l\'interface d\'administration via /admin/.'),
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-2' }, [
-      h('li', {}, [h('strong', {}, 'Barre latérale'), ' — Seule la section ', h('strong', {}, '"Contributions"'), ' est visible']),
-      h('li', {}, [h('strong', {}, 'Sélecteur de structure'), ' — Vous ne voyez que les structures auxquelles vous êtes rattaché']),
-      h('li', {}, [h('strong', {}, 'Lien "Voir la carte"'), ' — Accès rapide à la carte publique']),
-      h('li', {}, [h('strong', {}, 'Déconnexion'), ' — En bas de la barre latérale']),
-      h('li', {}, [h('strong', {}, 'Thème clair / sombre'), ' — Bouton soleil / lune en bas de la barre pour changer l\'apparence. Votre choix est mémorisé.']),
+      h('li', {}, [h('strong', {}, 'Barre latérale'), ' - Seule la section ', h('strong', {}, '"Contributions"'), ' est visible']),
+      h('li', {}, [h('strong', {}, 'Sélecteur de structure'), ' - Vous ne voyez que les structures auxquelles vous êtes rattaché']),
+      h('li', {}, [h('strong', {}, 'Lien "Voir la carte"'), ' - Accès rapide à la carte publique']),
+      h('li', {}, [h('strong', {}, 'Déconnexion'), ' - En bas de la barre latérale']),
+      h('li', {}, [h('strong', {}, 'Thème clair / sombre'), ' - Bouton soleil / lune en bas de la barre pour changer l\'apparence. Votre choix est mémorisé.']),
     ]),
   ]),
 
@@ -839,7 +839,7 @@ export const ContribGeneral = D(() => [
 ])
 
 /* ======================================================================== */
-/*  CONTRIBUTEUR — GÉRER MES CONTRIBUTIONS                                 */
+/*  CONTRIBUTEUR - GÉRER MES CONTRIBUTIONS                                 */
 /* ======================================================================== */
 
 export const ContribContributions = D(() => [
@@ -863,19 +863,19 @@ export const ContribContributions = D(() => [
       h('li', {}, [h('strong', {}, 'Recherche'), ' par nom de projet']),
       h('li', {}, [h('strong', {}, 'Filtre'), ' par catégorie']),
       h('li', {}, [h('strong', {}, 'Tri'), ' : plus récent, plus ancien, nom A→Z']),
-      h('li', {}, [h('strong', {}, '"Mes contributions"'), ' — Filtre rapide pour ne voir que les vôtres']),
+      h('li', {}, [h('strong', {}, '"Mes contributions"'), ' - Filtre rapide pour ne voir que les vôtres']),
     ]),
   ]),
 
   collapse('➕ Proposer un nouveau projet', [
     h('p', { class: 'text-sm text-gray-text mb-3' }, 'Le formulaire de création est le même que pour l\'administrateur (6 sections).'),
     h('ol', { class: 'steps' }, [
-      h('li', {}, [h('strong', {}, 'Informations'), ' — Titre (obligatoire), catégorie (obligatoire), description, tags, URL, etc.']),
-      h('li', {}, [h('strong', {}, 'Localisation'), ' — Dessin sur la carte ou import GeoJSON']),
-      h('li', {}, [h('strong', {}, 'Couverture'), ' — Image par glisser-déposer']),
-      h('li', {}, [h('strong', {}, 'Article'), ' — Éditeur Markdown riche']),
-      h('li', {}, [h('strong', {}, 'Documents'), ' — Ajout de fichiers PDF']),
-      h('li', {}, [h('strong', {}, 'Assistant IA'), ' — Génération auto de description et article']),
+      h('li', {}, [h('strong', {}, 'Informations'), ' - Titre (obligatoire), catégorie (obligatoire), description, tags, URL, etc.']),
+      h('li', {}, [h('strong', {}, 'Localisation'), ' - Dessin sur la carte ou import GeoJSON']),
+      h('li', {}, [h('strong', {}, 'Couverture'), ' - Image par glisser-déposer']),
+      h('li', {}, [h('strong', {}, 'Article'), ' - Éditeur Markdown riche']),
+      h('li', {}, [h('strong', {}, 'Documents'), ' - Ajout de fichiers PDF']),
+      h('li', {}, [h('strong', {}, 'Assistant IA'), ' - Génération auto de description et article']),
     ]),
     h('div', { class: 'info mt-3' }, [
       h('p', {}, ['📌 Votre contribution sera en statut ', badge('En attente', '#F2B327'), ' jusqu\'à ce qu\'un administrateur l\'approuve.']),
@@ -900,7 +900,7 @@ export const ContribContributions = D(() => [
       h('li', {}, ['Confirmez dans la boîte de dialogue de suppression']),
     ]),
     h('div', { class: 'warn mt-3' }, [
-      h('p', {}, ['⚠️ ', h('strong', {}, 'Irréversible'), ' — Le projet et tous ses documents seront définitivement supprimés.']),
+      h('p', {}, ['⚠️ ', h('strong', {}, 'Irréversible'), ' - Le projet et tous ses documents seront définitivement supprimés.']),
     ]),
   ]),
 ])

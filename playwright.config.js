@@ -39,7 +39,7 @@ export default defineConfig({
     },
 
     // --- Admin logout (DOIT tourner après tous les tests admin/invited)
-    // signOut() côté serveur révoque le token — ce projet en dépend ---
+    // signOut() côté serveur révoque le token - ce projet en dépend ---
     {
       name: 'admin-logout',
       use: {

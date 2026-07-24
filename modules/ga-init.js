@@ -1,5 +1,5 @@
 /**
- * Google Analytics — chargé après requestIdleCallback pour ne pas impacter le LCP.
+ * Google Analytics - chargé après requestIdleCallback pour ne pas impacter le LCP.
  * Le dataLayer est prêt immédiatement (les events sont mis en file).
  */
 window.dataLayer = window.dataLayer || [];

@@ -1,5 +1,5 @@
 /**
- * Diagnostic terrain — état partagé de la section.
+ * Diagnostic terrain - état partagé de la section.
  * Un seul objet mutable `dg`, réinitialisé à chaque entrée dans la section
  * (et détruit à la sortie via destroyDiagnostic).
  */

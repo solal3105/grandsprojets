@@ -1,5 +1,5 @@
 /**
- * Edge function — redirection 301 des domaines alternatifs vers openprojets.com
+ * Edge function - redirection 301 des domaines alternatifs vers openprojets.com
  * Doit être listé AVANT fiche-ssr dans netlify.toml pour `/fiche/`
  */
 

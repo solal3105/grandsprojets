@@ -6,7 +6,7 @@ import { Copilot } from '../components/copilot.js';
 
 const PAGE_SIZE = 20;
 
-// AbortController for list click listener — ensures only one listener exists at a time
+// AbortController for list click listener - ensures only one listener exists at a time
 let _listBodyAbort = null;
 
 let _state = {
@@ -324,7 +324,7 @@ function _bindListActions(container, listBody) {
   }, { signal: _listBodyAbort.signal });
 }
 
-// tags peut être un tableau (Supabase) ou une chaîne — normalise en chaîne affichable
+// tags peut être un tableau (Supabase) ou une chaîne - normalise en chaîne affichable
 function _formatTags(tags) {
   const s = Array.isArray(tags) ? tags.filter(Boolean).join(', ') : String(tags ?? '');
   return s.trim();
@@ -467,7 +467,7 @@ async function _openDetail(id) {
       : '';
 
     const body = `
-      <!-- Cover image — full width, no text overlay -->
+      <!-- Cover image - full width, no text overlay -->
       ${item.cover_url
         ? `<img class="sp-cover" src="${esc(item.cover_url)}" alt="">`
         : `<div class="sp-cover sp-cover--placeholder"><i class="fa-solid fa-map-location-dot"></i></div>`}
@@ -754,12 +754,12 @@ function _initDrawMap(body) {
   const container = body.querySelector('#cw-map');
   if (!container || _wiz._map) return;
   if (typeof maplibregl === 'undefined') {
-    toast('MapLibre non chargé — impossible d\'afficher la carte', 'error');
+    toast('MapLibre non chargé - impossible d\'afficher la carte', 'error');
     return;
   }
 
   // Wait until the container has real dimensions before creating the map.
-  // MapLibre reads the container size at `new Map()` time — if the flex layout
+  // MapLibre reads the container size at `new Map()` time - if the flex layout
   // hasn't been calculated yet the canvas is created at 0×0.
   function _createMap() {
     if (_wiz._map) return; // guard against double-init
@@ -852,7 +852,7 @@ function _handleMapClick(body, e) {
     return;
   }
 
-  // Line or Polygon — accumulate points
+  // Line or Polygon - accumulate points
   _wiz._drawPoints.push([lng, lat]);
   _updateActiveDrawLine();
   _renderDrawPanel(body);
@@ -986,7 +986,7 @@ function _renderDrawPanel(body, opts) {
       : pts === 0
         ? 'Cliquez sur la carte pour commencer'
         : canFinish
-          ? `<strong>${pts}</strong> points — double-clic ou cliquez Terminer`
+          ? `<strong>${pts}</strong> points - double-clic ou cliquez Terminer`
           : `<strong>${pts}\u202f/\u202f${minPts}</strong> points minimum`;
 
     panel.innerHTML = `
@@ -1294,7 +1294,7 @@ function _renderRecap(body) {
       <span>${c.label}</span>
       ${c.ok
         ? '<span class="adm-badge adm-badge--success" style="font-size:11px;"><i class="fa-solid fa-check"></i> OK</span>'
-        : '<span style="font-size:12px;color:var(--text-muted);">—</span>'
+        : '<span style="font-size:12px;color:var(--text-muted);">-</span>'
       }
     </div>
   `).join('');
@@ -1338,7 +1338,7 @@ function _renderOnePage(container) {
       <div class="cw-header__main">
         <div class="cw-header__text">
           <h1 class="cw-header__title">${isEdit ? 'Modifier la contribution' : 'Nouvelle contribution'}</h1>
-          <p class="cw-header__subtitle">${isEdit ? esc(_wiz.project_name) : 'Complétez le formulaire ci-dessous — seuls les champs marqués d\'une <strong>étoile</strong> sont obligatoires.'}</p>
+          <p class="cw-header__subtitle">${isEdit ? esc(_wiz.project_name) : 'Complétez le formulaire ci-dessous - seuls les champs marqués d\'une <strong>étoile</strong> sont obligatoires.'}</p>
         </div>
       </div>
     </div>
@@ -1363,7 +1363,7 @@ function _renderOnePage(container) {
             </label>
             <input type="text" class="cw-field__input cw-field__input--hero" id="cw-name" autocomplete="off"
               value="${esc(_wiz.project_name)}" placeholder="Ex : Rénovation du parc central" maxlength="120">
-            <p class="cw-field__tip"><i class="fa-solid fa-lightbulb"></i> Choisissez un nom clair et descriptif — il sera affiché sur la carte publique.</p>
+            <p class="cw-field__tip"><i class="fa-solid fa-lightbulb"></i> Choisissez un nom clair et descriptif - il sera affiché sur la carte publique.</p>
           </div>
 
           <div class="cw-field">
@@ -1416,7 +1416,7 @@ function _renderOnePage(container) {
               </div>
               <div class="cw-drop-area__text">
                 <span class="cw-drop-area__title">Glissez-déposez une image ici</span>
-                <span class="cw-drop-area__hint">ou <u>cliquez pour parcourir</u> — JPG, PNG, WebP</span>
+                <span class="cw-drop-area__hint">ou <u>cliquez pour parcourir</u> - JPG, PNG, WebP</span>
               </div>
             </div>
             <input type="file" id="cw-cover-file" accept="image/jpeg,image/png,image/webp" hidden>
@@ -1440,7 +1440,7 @@ function _renderOnePage(container) {
               <i class="fa-solid fa-check-circle"></i>
               <div>
                 <strong>GeoJSON existant</strong>
-                <span>— <a href="${esc(_wiz.editItem.geojson_url)}" target="_blank" rel="noopener">voir le tracé actuel</a>. Dessinez ou importez pour le remplacer.</span>
+                <span>- <a href="${esc(_wiz.editItem.geojson_url)}" target="_blank" rel="noopener">voir le tracé actuel</a>. Dessinez ou importez pour le remplacer.</span>
               </div>
             </div>` : ''}
 
@@ -1473,7 +1473,7 @@ function _renderOnePage(container) {
               </div>
               <div class="cw-drop-area__text">
                 <span class="cw-drop-area__title">Déposez votre fichier GeoJSON</span>
-                <span class="cw-drop-area__hint">ou <u>cliquez pour parcourir</u> — .geojson, .json</span>
+                <span class="cw-drop-area__hint">ou <u>cliquez pour parcourir</u> - .geojson, .json</span>
               </div>
             </div>
             <input type="file" id="cw-geojson-file" accept=".geojson,.json" hidden>
@@ -1614,7 +1614,7 @@ function _renderOnePage(container) {
   if (_wiz.markdownText) setTimeout(() => _initMarkdownEditor(container), 60);
   _renderDocsList(container);
 
-  // Assistant de rédaction IA — bouton intégré dans la barre footer
+  // Assistant de rédaction IA - bouton intégré dans la barre footer
   const _footerEl = container.querySelector('.cw-footer');
   _wiz._copilot = new Copilot(container, {
     footer: _footerEl,
@@ -1669,7 +1669,7 @@ function _handleCopilotInsert(container, target, text) {
 }
 
 function _bindOnePage(container) {
-  // Name input — live validation
+  // Name input - live validation
   const nameInput = container.querySelector('#cw-name');
   nameInput?.addEventListener('input', () => {
     const val = nameInput.value.trim();
@@ -1773,7 +1773,7 @@ function _validateForm(container) {
   }
   const hasGeo = !!_wiz.drawnGeoJSON || !!_wiz.geojsonFile || (!!_wiz.editItem?.geojson_url);
   if (!hasGeo) {
-    toast('Le tracé géographique est obligatoire — dessinez ou importez un fichier', 'error');
+    toast('Le tracé géographique est obligatoire - dessinez ou importez un fichier', 'error');
     container.querySelector('#cw-sect-location')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return false;
   }

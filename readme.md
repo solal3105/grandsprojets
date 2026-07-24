@@ -1,4 +1,4 @@
-# Grands Projets – Plateforme de cartographie urbaine
+# Grands Projets - Plateforme de cartographie urbaine
 
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC) [![Leaflet](https://img.shields.io/badge/Leaflet-1.9.x-brightgreen)](#) [![Tests](https://img.shields.io/badge/Tests-Playwright-45ba4b)](#)
 
@@ -193,7 +193,7 @@ Pour toute question, pour référencer une nouvelle ville ou pour organiser une 
 
 ## 📄 Licence
 
-ISC License – Voir le fichier [Licence.md](./Licence.md)
+ISC License - Voir le fichier [Licence.md](./Licence.md)
 
 ---
 

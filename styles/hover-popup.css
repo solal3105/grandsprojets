@@ -1,5 +1,5 @@
 /* ============================================================
-   HOVER CARDS — Unified card system for feature interactions
+   HOVER CARDS - Unified card system for feature interactions
    Used by feature-interactions.js (custom DOM overlay)
    States: single | peek | picker
    ============================================================ */
@@ -65,7 +65,7 @@
 .gp-hp-cta i { font-size: 10px; opacity: .6; }
 
 /* ============================================================
-   OVERLAY — root container (position: fixed on body)
+   OVERLAY - root container (position: fixed on body)
    JS sets left/top to the map feature screen position
    ============================================================ */
 .gp-fan-overlay {
@@ -114,7 +114,7 @@
 }
 
 /* ============================================================
-   SINGLE — 1 card + tip arrow, follows cursor
+   SINGLE - 1 card + tip arrow, follows cursor
    ============================================================ */
 .gp-fan-overlay.single .gp-fan-card {
   width: 260px;
@@ -126,13 +126,13 @@
 .gp-fan-overlay.single .gp-fan-card .gp-hp { width: 260px; }
 .gp-fan-overlay.single .gp-fan-card .gp-hp-img { height: 120px; }
 
-/* Tip arrow — hidden */
+/* Tip arrow - hidden */
 .gp-fan-tip {
   display: none;
 }
 
 /* ============================================================
-   PEEK — cards in fan layout (rotation around bottom center)
+   PEEK - cards in fan layout (rotation around bottom center)
    ============================================================ */
 .gp-fan-overlay.peek .gp-fan-card {
   width: 260px;
@@ -161,7 +161,7 @@
 }
 
 /* ============================================================
-   PICKER — grid of visual cards (on click)
+   PICKER - grid of visual cards (on click)
    ============================================================ */
 .gp-fan-overlay.picker {
   /* Full screen centered */
@@ -267,7 +267,7 @@
 
 
 /* ============================================================
-   CLOSING — shared fade-out
+   CLOSING - shared fade-out
    ============================================================ */
 .gp-fan-overlay.closing .gp-fan-card,
 .gp-fan-overlay.closing .gp-fan-tip {
@@ -306,7 +306,7 @@
 
 
 /* ============================================================
-   TOUCH DEVICES — make cards tappable
+   TOUCH DEVICES - make cards tappable
    ============================================================ */
 @media (pointer: coarse) {
   .gp-fan-overlay.single .gp-fan-card,
@@ -322,7 +322,7 @@
 }
 
 /* ============================================================
-   MOBILE — responsive card sizing + picker layout
+   MOBILE - responsive card sizing + picker layout
    ============================================================ */
 @media (max-width: 480px) {
   /* Single / peek: smaller cards */

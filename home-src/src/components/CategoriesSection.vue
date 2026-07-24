@@ -14,7 +14,7 @@
           <span class="text-gradient">Faites-en encore plus.</span>
         </h2>
         <p class="mt-5 text-gray-text text-base sm:text-lg leading-relaxed">
-          Open Projets ne repart pas de zéro — il amplifie ce que vous faites déjà, et le rend visible pour vos habitants.
+          Open Projets ne repart pas de zéro - il amplifie ce que vous faites déjà, et le rend visible pour vos habitants.
           Tout se configure en quelques clics, directement depuis l'interface.
         </p>
       </div>
@@ -123,7 +123,7 @@ const pairs = [
   {
     before: {
       title: 'Vous informez via réunions, PDF et communiqués',
-      sub: "Comptes-rendus, affiches, publications réseaux — l'information existe, dispersée sur plusieurs canaux.",
+      sub: "Comptes-rendus, affiches, publications réseaux - l'information existe, dispersée sur plusieurs canaux.",
     },
     after: {
       title: 'Carte en ligne, consultable 24h/24, sans inscription',
@@ -134,7 +134,7 @@ const pairs = [
   {
     before: {
       title: 'Vos services suivent les chantiers en interne',
-      sub: 'Les équipes maîtrisent le planning — mais cette information reste côté mairie.',
+      sub: 'Les équipes maîtrisent le planning - mais cette information reste côté mairie.',
     },
     after: {
       title: 'Riverains informés : zone, dates, avancement en temps réel',
@@ -145,7 +145,7 @@ const pairs = [
   {
     before: {
       title: 'Vous documentez vos projets en bilan de mandat',
-      sub: 'Rapports annuels, délibérations — votre action est réelle, mais peu visible au quotidien.',
+      sub: 'Rapports annuels, délibérations - votre action est réelle, mais peu visible au quotidien.',
     },
     after: {
       title: "Chaque projet documenté, géolocalisé, consultable toute l'année",
@@ -156,7 +156,7 @@ const pairs = [
   {
     before: {
       title: 'Vous organisez vos thématiques en interne',
-      sub: 'Mobilité, patrimoine, logement, environnement — des silos métier que vos habitants ne voient pas organisés ainsi.',
+      sub: 'Mobilité, patrimoine, logement, environnement - des silos métier que vos habitants ne voient pas organisés ainsi.',
     },
     after: {
       title: 'Navigation publique par catégories propres à votre territoire',
@@ -167,7 +167,7 @@ const pairs = [
   {
     before: {
       title: 'Vous maintenez une identité visuelle sur vos supports',
-      sub: 'Couleurs, logo, typographie — présents sur votre site, souvent absents de vos outils de transparence.',
+      sub: 'Couleurs, logo, typographie - présents sur votre site, souvent absents de vos outils de transparence.',
     },
     after: {
       title: 'Votre charte graphique sur chaque écran de la carte',
@@ -178,7 +178,7 @@ const pairs = [
   {
     before: {
       title: 'Vos agents travaillent avec des outils et fichiers séparés',
-      sub: 'Chaque service a ses propres fichiers, sa façon de documenter — difficile à centraliser.',
+      sub: 'Chaque service a ses propres fichiers, sa façon de documenter - difficile à centraliser.',
     },
     after: {
       title: 'Un espace commun, des rôles clairs, zéro dépendance à la DSI',

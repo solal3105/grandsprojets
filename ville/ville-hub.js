@@ -1,5 +1,5 @@
 /* ============================================================================
-   HUB VILLE — enrichissement progressif du HTML rendu par l'edge function.
+   HUB VILLE - enrichissement progressif du HTML rendu par l'edge function.
 
    Le contenu (héros, cards, filtres) est déjà dans le DOM côté serveur ; ce
    script ajoute : thème, partage, filtrage combiné catégorie + recherche

@@ -1,5 +1,5 @@
 /* ============================================================================
-   TOGGLE DOCK — Glassmorphism floating toolbar  ·  Full redesign
+   TOGGLE DOCK - Glassmorphism floating toolbar  ·  Full redesign
    ============================================================================ */
 
 /* ── Variables ─────────────────────────────────────────────────────────── */
@@ -34,7 +34,7 @@
   --dock-tooltip-bg:    rgba(10, 11, 18, 0.88);
   --dock-tooltip-fg:    rgba(255, 255, 255, 0.94);
 
-  /* Legacy compat — used by ToggleManager JS */
+  /* Legacy compat - used by ToggleManager JS */
   --toggle-size:        44px;
   --toggle-gap:         54px;
   --toggle-offset-base: 20px;
@@ -209,7 +209,7 @@
   filter: brightness(0.93);
 }
 
-/* No dot — filled button is clear enough */
+/* No dot - filled button is clear enough */
 .toggle-dock__btn[aria-pressed="true"]::after,
 .toggle-dock__btn[aria-expanded="true"]::after { display: none; }
 
@@ -489,7 +489,7 @@
   transition-duration: 0.06s;
 }
 
-/* ── Body — list layout (default) ───────────────────────────────────────── */
+/* ── Body - list layout (default) ───────────────────────────────────────── */
 
 .dock-panel__body {
   display: flex;
@@ -498,7 +498,7 @@
   padding: 2px 0;
 }
 
-/* ── Body — grid layout for basemap + filters ───────────────────────────── */
+/* ── Body - grid layout for basemap + filters ───────────────────────────── */
 
 #city-menu    .dock-panel__body,
 #basemap-menu .dock-panel__body,
@@ -629,7 +629,7 @@
   );
 }
 
-/* Card hover — levée 3D vers l'utilisateur */
+/* Card hover - levée 3D vers l'utilisateur */
 #city-menu    .dock-panel__body .dock-panel__item:hover,
 #basemap-menu .dock-panel__body .dock-panel__item:hover,
 #dynamic-filters .dock-panel__item:hover {
@@ -649,7 +649,7 @@
   opacity: 1.4;
 }
 
-/* Card press — enfoncée */
+/* Card press - enfoncée */
 #city-menu    .dock-panel__body .dock-panel__item:active,
 #basemap-menu .dock-panel__body .dock-panel__item:active,
 #dynamic-filters .dock-panel__item:active {
@@ -660,7 +660,7 @@
   opacity: 1;
 }
 
-/* Card active state — carte neutre, icône fond plein couleur */
+/* Card active state - carte neutre, icône fond plein couleur */
 #city-menu    .dock-panel__body .dock-panel__item.is-active,
 #basemap-menu .dock-panel__body .dock-panel__item.is-active,
 #dynamic-filters .dock-panel__item.is-active {
@@ -702,7 +702,7 @@
   color: #fff;
 }
 
-/* Grid card icon — larger, pill background */
+/* Grid card icon - larger, pill background */
 #city-menu    .dock-panel__body .dock-panel__item-icon,
 #basemap-menu .dock-panel__body .dock-panel__item-icon,
 #dynamic-filters .dock-panel__item-icon {
@@ -729,7 +729,7 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-/* Icon in active card — fond plein couleur + icône blanche */
+/* Icon in active card - fond plein couleur + icône blanche */
 #city-menu    .dock-panel__body .dock-panel__item.is-active .dock-panel__item-icon,
 #basemap-menu .dock-panel__body .dock-panel__item.is-active .dock-panel__item-icon,
 #dynamic-filters .dock-panel__item.is-active .dock-panel__item-icon {
@@ -761,7 +761,7 @@
   text-overflow: ellipsis;
 }
 
-/* Grid card label — wraps, centered */
+/* Grid card label - wraps, centered */
 #city-menu    .dock-panel__body .dock-panel__item-label,
 #basemap-menu .dock-panel__body .dock-panel__item-label,
 #dynamic-filters .dock-panel__item-label {
@@ -938,7 +938,7 @@
 
 .search-status i { font-size: 0.82rem; }
 
-/* City menu logo img — fills icon pill */
+/* City menu logo img - fills icon pill */
 #city-menu .dock-panel__item-icon img.city-menu-logo {
   width: 100%;
   height: 100%;

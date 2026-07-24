@@ -1,5 +1,5 @@
 /**
- * Diagnostic terrain — dock flottant sur la carte.
+ * Diagnostic terrain - dock flottant sur la carte.
  * Deux onglets : « Couches » (visibilité + gestion) et « Analyse » (sélection
  * lasso + diagnostic IA, contenu rendu par analysis.js).
  */

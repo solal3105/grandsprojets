@@ -1,10 +1,10 @@
 /* ============================================================================
-   Open Projets — Utility classes
+   Open Projets - Utility classes
    These mirror the EXACT names from home-src/tailwind.config.js so that a
    design written with Tailwind-style classes (`text-primary`, `bg-dark`,
    `font-heading`, `shadow-card`, …) resolves to the real brand values even if
    the rendering runtime's Tailwind doesn't carry this project's config.
-   Every class here maps to a token in tokens/*.css — nothing invented.
+   Every class here maps to a token in tokens/*.css - nothing invented.
    ============================================================================ */
 
 /* ── Text color ─────────────────────────────────────────────────────────── */

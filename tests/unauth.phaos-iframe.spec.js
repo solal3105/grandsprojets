@@ -1,5 +1,5 @@
 // @ts-check
-// Tests E2E du module phaos-auth.js — comportement en iframe et en navigation directe.
+// Tests E2E du module phaos-auth.js - comportement en iframe et en navigation directe.
 //
 // Couverture :
 //   - Navigation directe (hors iframe) : PhaosAuth est no-op, carte chargée normalement
@@ -10,7 +10,7 @@
 //   - Flow renouvellement TOKEN_EXPIRED → ID_TOKEN (nécessite un vrai token Azure)
 //   - Session active après échange réussi (nécessite un vrai token Azure)
 //
-// Section : 0.4 — SSO Phaos / Module iframe
+// Section : 0.4 - SSO Phaos / Module iframe
 
 import { test, expect } from '@playwright/test';
 
@@ -38,11 +38,11 @@ async function waitForIframeBoot(frame) {
 }
 
 // ─────────────────────────────────────────────────────────
-// 0.4.1 — Navigation directe (hors iframe)
+// 0.4.1 - Navigation directe (hors iframe)
 // ─────────────────────────────────────────────────────────
-test.describe('0.4.1 — PhaosAuth : navigation directe (no-op)', () => {
+test.describe('0.4.1 - PhaosAuth : navigation directe (no-op)', () => {
 
-  test('0.4.1.1 — Carte chargée normalement sans blocage phaos-auth', async ({ page }) => {
+  test('0.4.1.1 - Carte chargée normalement sans blocage phaos-auth', async ({ page }) => {
     // En navigation directe : window.self === window.top
     // → PhaosAuth.waitForSession() résout immédiatement
     // → aucun impact sur l'init normale
@@ -58,7 +58,7 @@ test.describe('0.4.1 — PhaosAuth : navigation directe (no-op)', () => {
     expect(phaosErrors).toHaveLength(0);
   });
 
-  test('0.4.1.2 — window.PhaosAuth exposé avec waitForSession', async ({ page }) => {
+  test('0.4.1.2 - window.PhaosAuth exposé avec waitForSession', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(
       () => typeof window.PhaosAuth?.waitForSession === 'function',
@@ -74,11 +74,11 @@ test.describe('0.4.1 — PhaosAuth : navigation directe (no-op)', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.4.2 — Mode iframe avec token invalide (résilience)
+// 0.4.2 - Mode iframe avec token invalide (résilience)
 // ─────────────────────────────────────────────────────────
-test.describe('0.4.2 — PhaosAuth : iframe + token invalide → résilience', () => {
+test.describe('0.4.2 - PhaosAuth : iframe + token invalide → résilience', () => {
 
-  test('0.4.2.1 — Carte chargée en mode iframe même si échange token échoue', async ({ page }) => {
+  test('0.4.2.1 - Carte chargée en mode iframe même si échange token échoue', async ({ page }) => {
     // La fixture phaos-host.html simule l'app Phaos :
     //   - Embarque la carte dans une iframe
     //   - Envoie un faux ID_TOKEN via postMessage (origin localhost:3001)
@@ -105,7 +105,7 @@ test.describe('0.4.2 — PhaosAuth : iframe + token invalide → résilience', (
     expect(criticalErrors).toHaveLength(0);
   });
 
-  test('0.4.2.2 — Aucun loader infini après échec échange token', async ({ page }) => {
+  test('0.4.2.2 - Aucun loader infini après échec échange token', async ({ page }) => {
     await page.goto('/tests/fixtures/phaos-host.html', { waitUntil: 'domcontentloaded' });
 
     const frame = page.frameLocator('#map-frame');
@@ -120,7 +120,7 @@ test.describe('0.4.2 — PhaosAuth : iframe + token invalide → résilience', (
     expect(loaderVisible).toBe(false);
   });
 
-  test('0.4.2.3 — window.PhaosAuth détecte bien le mode iframe', async ({ page }) => {
+  test('0.4.2.3 - window.PhaosAuth détecte bien le mode iframe', async ({ page }) => {
     await page.goto('/tests/fixtures/phaos-host.html', { waitUntil: 'domcontentloaded' });
 
     // Attendre que phaos-auth.js ait initialisé PhaosAuth dans l'iframe.
@@ -133,7 +133,7 @@ test.describe('0.4.2 — PhaosAuth : iframe + token invalide → résilience', (
       } catch { return false; }
     }, { timeout: 30000 });
 
-    // Si on arrive ici, la condition est déjà vraie — on l'évalue pour la lisibilité du rapport
+    // Si on arrive ici, la condition est déjà vraie - on l'évalue pour la lisibilité du rapport
     const phaosAuthExists = await page.evaluate(() => {
       try {
         const iframe = document.querySelector('#map-frame');
@@ -143,7 +143,7 @@ test.describe('0.4.2 — PhaosAuth : iframe + token invalide → résilience', (
     expect(phaosAuthExists).toBe(true);
   });
 
-  test('0.4.2.4 — Mode iframe détecté même avec document.referrer vide (régression Phaos QA/prod)', async ({ page }) => {
+  test('0.4.2.4 - Mode iframe détecté même avec document.referrer vide (régression Phaos QA/prod)', async ({ page }) => {
     // Régression : en prod, Phaos applique une Referrer-Policy stricte → document.referrer
     // est "" dans l'iframe. L'ancienne détection (PHAOS_ORIGINS.includes(referrer)) renvoyait
     // alors false → module no-op → le postMessage ID_TOKEN n'était jamais écouté → SSO cassé.

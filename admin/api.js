@@ -79,7 +79,7 @@ export async function deleteCategory(categoryName) {
 export async function getUsers() {
   const allUsers = await svc().getVisibleUsers();
   const city = requireCity();
-  // Always filter by selected city — global admins see users of that city + global-access users
+  // Always filter by selected city - global admins see users of that city + global-access users
   return allUsers.filter(u => {
     const uVilles = Array.isArray(u.ville) ? u.ville : [];
     return uVilles.includes(city) || uVilles.includes('global');

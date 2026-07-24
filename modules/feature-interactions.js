@@ -1,5 +1,5 @@
 /**
- * FEATURE INTERACTIONS — MapLibre GL natif
+ * FEATURE INTERACTIONS - MapLibre GL natif
  *
  * Système de cards unifié (zéro MapLibre Popup) :
  *   single → 1 card + tip, suit le curseur
@@ -30,7 +30,7 @@
   }
   // Travaux identity : PK seulement (chantier_key est toujours injecté par
   // TravauxModule.normalizeGeoJSON, fallback `auto:${index}`). Ne PAS inclure
-  // `nature` / `nature_travaux` — ce sont des propriétés génériques (OSM, IGN,
+  // `nature` / `nature_travaux` - ce sont des propriétés génériques (OSM, IGN,
   // open data…) qui existent aussi sur des features de contribution et
   // provoquent une mauvaise classification (fiche ouverte en modal travaux).
   function isTravauxProps(p) {
@@ -53,7 +53,7 @@
   function _isContrib(f) { const p = f.properties||{}; return !!(p.project_name && p.category); }
   function isTravaux(f) { const p = f.properties||{}; return isTravauxProps(p); }
 
-  // Image preload cache — précharge les cover_url en arrière-plan
+  // Image preload cache - précharge les cover_url en arrière-plan
   const _preloadedImages = new Set();
 
   function preloadImage(url) {
@@ -108,7 +108,7 @@
     _displayKeys: [],    // keys of cards currently in _cardsEl DOM
     _lngLat: null,
     _currentKey: null,   // dedup key
-    _anchorLift: 0,      // hauteur de l'icône au-dessus du point géo (px) — 0 si survol curseur
+    _anchorLift: 0,      // hauteur de l'icône au-dessus du point géo (px) - 0 si survol curseur
     _boundUpdatePos: null,
 
     // Stacked markers (même coordonnées exactes)
@@ -152,7 +152,7 @@
       });
     },
 
-    // Clé de coordonnées — précision ~0.1 m
+    // Clé de coordonnées - précision ~0.1 m
     _coordKey(latlng) {
       return latlng.lat.toFixed(6) + ',' + latlng.lng.toFixed(6);
     },
@@ -191,13 +191,13 @@
       // Appliquer la visibilité et les badges
       for (const [, entries] of groups) {
         if (entries.length <= 1) {
-          // Marker seul — s'assurer qu'il est visible, pas de badge
+          // Marker seul - s'assurer qu'il est visible, pas de badge
           const el = entries[0].marker.getElement?.();
           if (el) el.style.display = '';
           continue;
         }
 
-        // Pile de markers — montrer le premier, masquer les autres
+        // Pile de markers - montrer le premier, masquer les autres
         entries.forEach((entry, i) => {
           const el = entry.marker.getElement?.();
           if (!el) return;
@@ -631,7 +631,7 @@
     //  DOM MARKER HANDLERS (called by datamodule.js)
 
     // Hauteur de l'icône située au-dessus du point géographique, mesurée sur le DOM
-    // (40px pour un pin, 12px pour un marker simple) — pas de valeur en dur.
+    // (40px pour un pin, 12px pour un marker simple) - pas de valeur en dur.
     _markerLift(marker, lngLat) {
       const el = marker?.getElement?.();
       if (!el || !this._mlMap) return 0;
@@ -824,7 +824,7 @@
 
     /**
      * Returns the geographic bounding box of a project from pool features.
-     * Pure read — no visual or camera side effects.
+     * Pure read - no visual or camera side effects.
      * @param {string} projectName
      * @returns {{ minLng, maxLng, minLat, maxLat } | null}
      */
@@ -875,7 +875,7 @@
     },
 
 
-    //  GLOW PULSE — dedicated source + animated wide blurred line
+    //  GLOW PULSE - dedicated source + animated wide blurred line
 
     _glowSourceId: null,
 

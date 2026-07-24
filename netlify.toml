@@ -7,7 +7,7 @@
   directory = "netlify/functions"
 
 # ============================================
-# Edge Functions — pré-rendu SEO
+# Edge Functions - pré-rendu SEO
 # ============================================
 
 [[edge_functions]]
@@ -81,7 +81,7 @@
 # Redirections sous-domaines → ?city=
 # ============================================
 
-# SSO Phaos — URL propre pour la fonction d'échange de token
+# SSO Phaos - URL propre pour la fonction d'échange de token
 [[redirects]]
   from   = "/api/auth/token"
   to     = "/.netlify/functions/auth-token"
@@ -114,6 +114,6 @@
   status = 200
   force = true
 
-# /sitemap.xml — routé directement par Netlify Functions v2 (config.path dans sitemap.mjs)
-# /llms.txt — idem (config.path dans llms-txt.mjs)
+# /sitemap.xml - routé directement par Netlify Functions v2 (config.path dans sitemap.mjs)
+# /llms.txt - idem (config.path dans llms-txt.mjs)
 # Pas de redirect nécessaire

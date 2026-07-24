@@ -33,7 +33,7 @@
     },
 
     /**
-     * Initialise tous les outils d'analytics — différé via requestIdleCallback
+     * Initialise tous les outils d'analytics - différé via requestIdleCallback
      * pour libérer le main-thread pendant le chargement critique
      */
     init() {

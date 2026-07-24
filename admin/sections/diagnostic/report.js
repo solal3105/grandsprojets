@@ -1,5 +1,5 @@
 /**
- * Diagnostic terrain — rapport de zone.
+ * Diagnostic terrain - rapport de zone.
  * Document imprimable (export PDF via impression navigateur), sauvegardé
  * automatiquement dans diagnostic_reports ; historique consultable en
  * slide-panel avec ré-ouverture des rapports passés.
@@ -32,7 +32,7 @@ function _reportData() {
   }).filter(Boolean);
 
   return {
-    title: `Diagnostic du ${new Date().toLocaleDateString('fr-FR')} — ${_fmt(sel.features.length)} points`,
+    title: `Diagnostic du ${new Date().toLocaleDateString('fr-FR')} - ${_fmt(sel.features.length)} points`,
     zone: { polygon: sel.polygon, bbox: sel.bbox, area_km2: Math.round(sel.areaKm2 * 100) / 100 },
     stats: { couches: a.couches.map(({ label, color, count }) => ({ label, color, count })) },
     // L'annexe voyage dans le jsonb analysis : sans elle, les renvois
@@ -162,7 +162,7 @@ function _showReportDoc(data, mapImg, date) {
       <td class="dg-rp-cite__n">#${c.n}</td>
       <td>${esc(c.couche)}</td>
       <td>${esc(c.label)}</td>
-      <td>${esc(c.texte || '—')}</td>
+      <td>${esc(c.texte || '-')}</td>
     </tr>`).join('');
 
   const kpis = [
@@ -210,7 +210,7 @@ function _showReportDoc(data, mapImg, date) {
       </section>
 
       ${citeRows ? `<section class="dg-rp-sec dg-rp-sec--annexe">
-        <h2 class="dg-rp-h2">Annexe — points cités</h2>
+        <h2 class="dg-rp-h2">Annexe - points cités</h2>
         <div class="dg-rp-muted" style="margin-bottom:8px">Chaque point référencé dans ce rapport, tel qu'il figure dans les données sources.</div>
         <table class="dg-rp-table dg-rp-table--cites">
           <thead><tr><th>N°</th><th>Source</th><th>Libellé</th><th>Texte du signalement</th></tr></thead>
@@ -221,14 +221,14 @@ function _showReportDoc(data, mapImg, date) {
       <section class="dg-rp-sec">
         <h2 class="dg-rp-h2">Méthode et limites</h2>
         <div class="dg-rp-method">
-          <p><b>Périmètre.</b> Les ${_fmt(total)} points contenus dans la zone tracée ont <b>tous</b> été lus, sans échantillonnage — c'est la raison du plafond de 300 points par sélection. Seules les couches activées au moment de la sélection sont prises en compte.</p>
+          <p><b>Périmètre.</b> Les ${_fmt(total)} points contenus dans la zone tracée ont <b>tous</b> été lus, sans échantillonnage - c'est la raison du plafond de 300 points par sélection. Seules les couches activées au moment de la sélection sont prises en compte.</p>
           <p><b>Ce qui est calculé.</b> La composition de la zone, le nombre de points par source et le nombre de points rattaché à chaque sujet sont calculés à partir des données, jamais énoncés par le modèle.</p>
           <p><b>Ce qui est rédigé.</b> Les synthèses par source et les intitulés de sujets sont produits par un modèle de langage à partir du seul texte des points ; les citations sont reproduites mot pour mot et chaque point cité figure en annexe.</p>
           <p><b>Ce que ce document ne fait pas.</b> Il ne note pas, ne hiérarchise pas et ne recommande rien. Il restitue le contenu des signalements : l'interprétation et les suites à donner relèvent des services compétents.</p>
         </div>
       </section>
 
-      <footer class="dg-rp-foot"><span>${esc(brand)} — Diagnostic terrain</span><span>Généré le ${esc(dateLabel)}</span></footer>
+      <footer class="dg-rp-foot"><span>${esc(brand)} - Diagnostic terrain</span><span>Généré le ${esc(dateLabel)}</span></footer>
     </div>
   `;
   document.body.appendChild(doc);

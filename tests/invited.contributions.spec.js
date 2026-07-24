@@ -22,16 +22,16 @@ async function goToContributions(page) {
 }
 
 // ─────────────────────────────────────────────────────────
-// 2.8 — Contributions (rôle invited)
+// 2.8 - Contributions (rôle invited)
 // ─────────────────────────────────────────────────────────
-test.describe('2.8 — Contributions (rôle invited)', () => {
+test.describe('2.8 - Contributions (rôle invited)', () => {
 
-  test('2.8.1 — Bouton "Nouvelle contribution" visible', async ({ page }) => {
+  test('2.8.1 - Bouton "Nouvelle contribution" visible', async ({ page }) => {
     await goToContributions(page);
     await expect(page.locator('a[href="/admin/contributions/nouveau/"]')).toBeVisible();
   });
 
-  test('2.8.2 — Pas de bouton approuver/désapprouver dans la liste', async ({ page }) => {
+  test('2.8.2 - Pas de bouton approuver/désapprouver dans la liste', async ({ page }) => {
     await goToContributions(page);
     const items = page.locator('.adm-list-item');
     if (await items.count() === 0) return;
@@ -39,12 +39,12 @@ test.describe('2.8 — Contributions (rôle invited)', () => {
     await expect(page.locator('[data-action="unapprove"]')).toHaveCount(0);
   });
 
-  test('2.8.3 — Checkbox "Mes contributions" visible', async ({ page }) => {
+  test('2.8.3 - Checkbox "Mes contributions" visible', async ({ page }) => {
     await goToContributions(page);
     await expect(page.locator('#contrib-mine-only')).toBeAttached();
   });
 
-  test('2.8.5 — Section publication wizard : notice "Soumise à validation"', async ({ page }) => {
+  test('2.8.5 - Section publication wizard : notice "Soumise à validation"', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-name', { state: 'visible', timeout: 10000 });
     // No publish toggle for invited
@@ -56,7 +56,7 @@ test.describe('2.8 — Contributions (rôle invited)', () => {
     await expect(notice).toContainText('Soumise à validation');
   });
 
-  test('2.8.4 — Checkbox "Mes contributions" filtre la liste', async ({ page }) => {
+  test('2.8.4 - Checkbox "Mes contributions" filtre la liste', async ({ page }) => {
     await goToContributions(page);
     const checkbox = page.locator('#contrib-mine-only');
     await expect(checkbox).toBeAttached();
@@ -74,7 +74,7 @@ test.describe('2.8 — Contributions (rôle invited)', () => {
     expect(restoredCount).toBe(allCount);
   });
 
-  test('2.8.6–2.8.7 — Création par invited → en attente → suppression', async ({ page }) => {
+  test('2.8.6-2.8.7 - Création par invited → en attente → suppression', async ({ page }) => {
     const TEST_NAME = `E2E-Invited-${Date.now()}`;
 
     await goToContributions(page);
@@ -133,7 +133,7 @@ test.describe('2.8 — Contributions (rôle invited)', () => {
     await expect(page.locator('.adm-list-item', { hasText: TEST_NAME })).toHaveCount(0, { timeout: 5000 });
   });
 
-  test('2.8.8 — Section publication : notice "Soumise à validation" (pas de toggle)', async ({ page }) => {
+  test('2.8.8 - Section publication : notice "Soumise à validation" (pas de toggle)', async ({ page }) => {
     await goToContributions(page);
     await page.click('a[href="/admin/contributions/nouveau/"]');
     await page.waitForSelector('#cw-name', { state: 'visible', timeout: 10000 });
@@ -147,7 +147,7 @@ test.describe('2.8 — Contributions (rôle invited)', () => {
     await expect(page.locator('#cw-publish')).toHaveCount(0);
   });
 
-  test('2.8.9 — Assistant de rédaction disponible pour invited', async ({ page }) => {
+  test('2.8.9 - Assistant de rédaction disponible pour invited', async ({ page }) => {
     await goToContributions(page);
     await page.click('a[href="/admin/contributions/nouveau/"]');
     await page.waitForSelector('#cw-name', { state: 'visible', timeout: 10000 });

@@ -58,8 +58,8 @@ const today = new Date().toLocaleDateString('fr-FR', {
 
 const title = computed(() =>
   role.value === 'admin'
-    ? 'Guide Administrateur — Open Projets'
-    : 'Guide Contributeur — Open Projets'
+    ? 'Guide Administrateur - Open Projets'
+    : 'Guide Contributeur - Open Projets'
 )
 
 const categories = computed(() => {
@@ -85,7 +85,7 @@ onMounted(async () => {
 </script>
 
 <style>
-/* Print-optimized styles — intentionally NOT scoped so they apply to child components */
+/* Print-optimized styles - intentionally NOT scoped so they apply to child components */
 .print-guide {
   max-width: 800px;
   margin: 0 auto;

@@ -1,10 +1,10 @@
 # Licence GrandsProjets
 
-**Copyright © 2025 – Solal Gendrin**  
+**Copyright © 2025 - Solal Gendrin**  
 **Tous droits réservés**, sauf autorisation expresse prévue ci-dessous.
 
 Le projet **GrandsProjets** est un projet civic-tech de cartographie et de diffusion d’informations sur les projets urbains.  
-Il est protégé par le droit d’auteur (Code de la propriété intellectuelle – France).
+Il est protégé par le droit d’auteur (Code de la propriété intellectuelle - France).
 
 ---
 
@@ -109,7 +109,7 @@ L’auteur décline toute responsabilité en cas de dommage résultant de son ut
 
 ---
 
-## 8. Contact – autorisations et licences
+## 8. Contact - autorisations et licences
 
 Pour toute demande de :
 

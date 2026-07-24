@@ -1,5 +1,5 @@
 /* ============================================================================
-   GP TOAST — Unified toast notification system
+   GP TOAST - Unified toast notification system
    Replaces: ContribUtils.showToast() inline styles, .fiche-toast (fiche.css)
    ============================================================================ */
 
@@ -44,7 +44,7 @@
 
 /* Kind variants */
 .gp-toast--info {
-  /* Slate profond hardcodé — lisible en tout thème (white text sur fond sombre) */
+  /* Slate profond hardcodé - lisible en tout thème (white text sur fond sombre) */
   background: rgba(15, 23, 42, 0.92);
 }
 

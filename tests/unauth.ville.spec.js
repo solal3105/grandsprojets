@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * 0.26 — Hub ville : /ville/{ville}
+ * 0.26 - Hub ville : /ville/{ville}
  * Page rendue côté serveur par l'edge function ville-hub (liste des projets
  * d'une ville, tags catégories, vue carte) + enrichissement client.
  */
@@ -55,11 +55,11 @@ async function gotoHub(page) {
 }
 
 // ═════════════════════════════════════════════════════════
-// 0.26 — Hub ville : SSR (pré-rendu edge)
+// 0.26 - Hub ville : SSR (pré-rendu edge)
 // ═════════════════════════════════════════════════════════
-test.describe('0.26 — Hub ville : SSR', () => {
+test.describe('0.26 - Hub ville : SSR', () => {
 
-  test('0.26.1 — Title, canonical et robots index sont injectés côté serveur', async ({ page }) => {
+  test('0.26.1 - Title, canonical et robots index sont injectés côté serveur', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     const response = await page.request.get(hubUrl());
     // Ne pas utiliser toContain('index') : 'noindex' le contiendrait aussi
@@ -73,7 +73,7 @@ test.describe('0.26 — Hub ville : SSR', () => {
     expect(html).toMatch(/<meta name="robots" content="index, follow/);
   });
 
-  test('0.26.2 — JSON-LD CollectionPage + ItemList + BreadcrumbList', async ({ page }) => {
+  test('0.26.2 - JSON-LD CollectionPage + ItemList + BreadcrumbList', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     const response = await page.request.get(hubUrl());
     const html = await response.text();
@@ -84,7 +84,7 @@ test.describe('0.26 — Hub ville : SSR', () => {
     expect(html).toMatch(/"url":"https:\/\/openprojets\.com\/fiche\/[^"]+"/);
   });
 
-  test('0.26.3 — Les cards projets sont rendues avec des liens crawlables vers les fiches', async ({ page }) => {
+  test('0.26.3 - Les cards projets sont rendues avec des liens crawlables vers les fiches', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     const response = await page.request.get(hubUrl());
     const html = await response.text();
@@ -96,7 +96,7 @@ test.describe('0.26 — Hub ville : SSR', () => {
     expect((html.match(/<h1[^>]*>/g) || []).length).toBe(1);
   });
 
-  test('0.26.4 — Les tags catégories portent des compteurs', async ({ page }) => {
+  test('0.26.4 - Les tags catégories portent des compteurs', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     const response = await page.request.get(hubUrl());
     const html = await response.text();
@@ -106,27 +106,27 @@ test.describe('0.26 — Hub ville : SSR', () => {
     expect(html).toMatch(/class="vh-tag__count">\d+</);
   });
 
-  test('0.26.5 — Ville inconnue → 200 avec X-Robots-Tag noindex', async ({ page }) => {
+  test('0.26.5 - Ville inconnue → 200 avec X-Robots-Tag noindex', async ({ page }) => {
     const response = await page.request.get('/ville/ville-inexistante-xyz-999');
     expect(response.status()).toBe(200);
     expect(response.headers()['x-robots-tag']).toContain('noindex');
   });
 
-  test('0.26.6 — /ville/ sans slug → coquille en noindex', async ({ page }) => {
+  test('0.26.6 - /ville/ sans slug → coquille en noindex', async ({ page }) => {
     const response = await page.request.get('/ville/');
     expect(response.status()).toBe(200);
     const html = await response.text();
     expect(html).toMatch(/<meta name="robots" content="noindex/);
   });
 
-  test('0.26.7 — Le sitemap référence le hub de la ville', async ({ page }) => {
+  test('0.26.7 - Le sitemap référence le hub de la ville', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     const response = await page.request.get('/sitemap.xml');
     const xml = await response.text();
     expect(xml).toContain(`https://openprojets.com/ville/${encodeURIComponent(CITY.ville)}`);
   });
 
-  test('0.26.8 — JSON-LD : les < sont échappés (pas de sortie de <script>)', async ({ page }) => {
+  test('0.26.8 - JSON-LD : les < sont échappés (pas de sortie de <script>)', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     const response = await page.request.get(hubUrl());
     const html = await response.text();
@@ -139,7 +139,7 @@ test.describe('0.26 — Hub ville : SSR', () => {
     }
   });
 
-  test('0.26.9 — og:image est une URL absolue', async ({ page }) => {
+  test('0.26.9 - og:image est une URL absolue', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     const response = await page.request.get(hubUrl());
     const html = await response.text();
@@ -149,16 +149,16 @@ test.describe('0.26 — Hub ville : SSR', () => {
 
   // Note : le cas « percent-encoding invalide » (/ville/%zz) est géré par un
   // try/catch autour de decodeURIComponent dans l'edge function, mais n'est pas
-  // testable ici — netlify-cli (dev) plante lui-même sur ces URLs, en amont de
+  // testable ici - netlify-cli (dev) plante lui-même sur ces URLs, en amont de
   // la fonction. En production, le runtime edge les route normalement.
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.27 — Hub ville : interactions client
+// 0.27 - Hub ville : interactions client
 // ═════════════════════════════════════════════════════════
-test.describe('0.27 — Hub ville : interactions', () => {
+test.describe('0.27 - Hub ville : interactions', () => {
 
-  test('0.27.1 — Filtrer par tag masque les autres cards et pose le hash', async ({ page }) => {
+  test('0.27.1 - Filtrer par tag masque les autres cards et pose le hash', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     await gotoHub(page);
     const tag = page.locator('.vh-tag:not([data-cat=""])').first();
@@ -174,7 +174,7 @@ test.describe('0.27 — Hub ville : interactions', () => {
     expect(page.url()).toContain(`#c=${slug}`);
   });
 
-  test('0.27.2 — Le hash #c={slug} filtre dès le chargement', async ({ page }) => {
+  test('0.27.2 - Le hash #c={slug} filtre dès le chargement', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     await gotoHub(page);
     const slug = await page.locator('.vh-tag:not([data-cat=""])').first().getAttribute('data-cat');
@@ -189,7 +189,7 @@ test.describe('0.27 — Hub ville : interactions', () => {
     if (catCount > 1) expect(hidden).toBe(true);
   });
 
-  test('0.27.3 — Le tag « Tous » réaffiche toutes les cards', async ({ page }) => {
+  test('0.27.3 - Le tag « Tous » réaffiche toutes les cards', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     await gotoHub(page);
     await page.locator('.vh-tag:not([data-cat=""])').first().click();
@@ -201,7 +201,7 @@ test.describe('0.27 — Hub ville : interactions', () => {
     expect(page.url()).not.toContain('#c=');
   });
 
-  test('0.27.4 — La carte-héros s\'initialise (MapLibre chargé après le rendu)', async ({ page }) => {
+  test('0.27.4 - La carte-héros s\'initialise (MapLibre chargé après le rendu)', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     await gotoHub(page);
     // La carte enrichit le héros après le premier paint (requestIdleCallback)
@@ -210,7 +210,7 @@ test.describe('0.27 — Hub ville : interactions', () => {
     await expect(page.locator('#vh-hero-map')).toHaveClass(/is-ready/, { timeout: 30000 });
   });
 
-  test('0.27.5 — La recherche filtre les cards et met à jour le compteur', async ({ page }) => {
+  test('0.27.5 - La recherche filtre les cards et met à jour le compteur', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     await gotoHub(page);
     const search = page.locator('#vh-search');
@@ -230,7 +230,7 @@ test.describe('0.27 — Hub ville : interactions', () => {
     expect(hidden).toBe(false);
   });
 
-  test('0.27.6 — Le compteur de résultats suit le filtre catégorie', async ({ page }) => {
+  test('0.27.6 - Le compteur de résultats suit le filtre catégorie', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     await gotoHub(page);
     const tag = page.locator('.vh-tag:not([data-cat=""])').first();
@@ -239,7 +239,7 @@ test.describe('0.27 — Hub ville : interactions', () => {
     await expect(page.locator('#vh-count')).toHaveText(new RegExp(`^${expected} projet`));
   });
 
-  test('0.27.7 — Le bouton thème bascule data-theme', async ({ page }) => {
+  test('0.27.7 - Le bouton thème bascule data-theme', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     await gotoHub(page);
     const html = page.locator('html');
@@ -250,7 +250,7 @@ test.describe('0.27 — Hub ville : interactions', () => {
     expect(['dark', 'light']).toContain(after);
   });
 
-  test('0.27.8 — Le CTA « Ouvrir la carte » pointe vers l\'app de la ville', async ({ page }) => {
+  test('0.27.8 - Le CTA « Ouvrir la carte » pointe vers l\'app de la ville', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     await gotoHub(page);
     const href = await page.locator('#vh-open-map').getAttribute('href');
@@ -259,7 +259,7 @@ test.describe('0.27 — Hub ville : interactions', () => {
     expect(await page.locator('#vh-btn-back').getAttribute('href')).toBe('/');
   });
 
-  test('0.27.9 — Le CTA carte transporte le filtre catégorie actif', async ({ page }) => {
+  test('0.27.9 - Le CTA carte transporte le filtre catégorie actif', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     await gotoHub(page);
     const tag = page.locator('.vh-tag:not([data-cat=""])').first();

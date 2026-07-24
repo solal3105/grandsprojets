@@ -38,7 +38,7 @@ async function goToTravaux(page) {
  */
 async function goToConfig(page) {
   await waitForBoot(page, '/admin/travaux/config/');
-  // #twc-enabled is display:none (custom toggle) — wait for visible wrapper instead
+  // #twc-enabled is display:none (custom toggle) - wait for visible wrapper instead
   await page.waitForSelector('.twc-toggle-row', { timeout: 10000 });
 }
 
@@ -49,11 +49,11 @@ const clearToasts = (page) =>
   page.evaluate(() => document.querySelectorAll('.adm-toast').forEach(t => t.remove()));
 
 // ─────────────────────────────────────────────────────────
-// 5.1 — Scénarios de module
+// 5.1 - Scénarios de module
 // ─────────────────────────────────────────────────────────
-test.describe('5.1 — Scénarios de module', () => {
+test.describe('5.1 - Scénarios de module', () => {
 
-  test('5.1.1 — Config absente (scénario A "unconfigured")', async ({ page }) => {
+  test('5.1.1 - Config absente (scénario A "unconfigured")', async ({ page }) => {
     await goToTravaux(page);
     await expect(page.locator('.adm-page-title')).toContainText('Travaux');
     // Empty state for unconfigured module
@@ -63,7 +63,7 @@ test.describe('5.1 — Scénarios de module', () => {
     await expect(configBtn).toBeVisible();
   });
 
-  test('5.1.2 — Module désactivé (scénario B) → empty state "désactivé"', async ({ page }) => {
+  test('5.1.2 - Module désactivé (scénario B) → empty state "désactivé"', async ({ page }) => {
     // Enable then disable to get scenario B
     await goToConfig(page);
     const enabledToggle = page.locator('#twc-enabled');
@@ -93,31 +93,31 @@ test.describe('5.1 — Scénarios de module', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 5.6 — Configuration du module
+// 5.6 - Configuration du module
 // ─────────────────────────────────────────────────────────
-test.describe('5.6 — Configuration du module', () => {
+test.describe('5.6 - Configuration du module', () => {
 
-  test('5.6.1 — Page configuration accessible', async ({ page }) => {
+  test('5.6.1 - Page configuration accessible', async ({ page }) => {
     await goToConfig(page);
     await expect(page.locator('.cw-header__title')).toContainText('Configuration du module');
     await expect(page.locator('.cw-header__subtitle')).toContainText('test-e2e');
   });
 
-  test('5.6.2 — Toggle activation visible', async ({ page }) => {
+  test('5.6.2 - Toggle activation visible', async ({ page }) => {
     await goToConfig(page);
-    // The actual checkbox is display:none — assert the visible label/track
+    // The actual checkbox is display:none - assert the visible label/track
     await expect(page.locator('.twc-toggle-row .adm-switch__track')).toBeVisible();
     // And the hidden input should exist
     await expect(page.locator('#twc-enabled')).toBeAttached();
   });
 
-  test('5.6.3 — Source picker : Base interne vs Flux externe', async ({ page }) => {
+  test('5.6.3 - Source picker : Base interne vs Flux externe', async ({ page }) => {
     await goToConfig(page);
     await expect(page.locator('.tw-source-option[data-val="city_travaux"]')).toBeVisible();
     await expect(page.locator('.tw-source-option[data-val="url"]')).toBeVisible();
   });
 
-  test('5.6.4 — Sélection Flux externe → champ URL visible', async ({ page }) => {
+  test('5.6.4 - Sélection Flux externe → champ URL visible', async ({ page }) => {
     await goToConfig(page);
     await page.click('.tw-source-option[data-val="url"]');
     await expect(page.locator('#twc-url-group')).toBeVisible({ timeout: 3000 });
@@ -126,7 +126,7 @@ test.describe('5.6 — Configuration du module', () => {
     await expect(page.locator('#twc-url-group')).toBeHidden();
   });
 
-  test('5.6.6 — Couches associées : toggle items', async ({ page }) => {
+  test('5.6.6 - Couches associées : toggle items', async ({ page }) => {
     await goToConfig(page);
     const layers = page.locator('#twc-layers .adm-toggle-item');
     // If layers exist, at least one should be visible
@@ -135,13 +135,13 @@ test.describe('5.6 — Configuration du module', () => {
     }
   });
 
-  test('5.6.8 — Bouton retour', async ({ page }) => {
+  test('5.6.8 - Bouton retour', async ({ page }) => {
     await goToConfig(page);
     const backBtn = page.locator('.cw-footer__cancel');
     await expect(backBtn).toBeVisible();
   });
 
-  test('5.6.9 — États personnalisables affichés', async ({ page }) => {
+  test('5.6.9 - États personnalisables affichés', async ({ page }) => {
     await goToConfig(page);
     // Check for état option items (en_cours, prevu, termine, etc.)
     const etatOptions = page.locator('.tw-etat-option');
@@ -150,7 +150,7 @@ test.describe('5.6 — Configuration du module', () => {
     }
   });
 
-  test('5.6.10 — Save config → toast succès', async ({ page }) => {
+  test('5.6.10 - Save config → toast succès', async ({ page }) => {
     await goToConfig(page);
     // Ensure module is enabled (checkbox checked)
     const toggle = page.locator('#twc-enabled');
@@ -167,11 +167,11 @@ test.describe('5.6 — Configuration du module', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 5.2 — Onglets de statut (liste travaux)
+// 5.2 - Onglets de statut (liste travaux)
 // ─────────────────────────────────────────────────────────
-test.describe('5.2 — Onglets de statut', () => {
+test.describe('5.2 - Onglets de statut', () => {
 
-  test('5.2.1 — Onglets "Tous", "En attente", "Approuvés" visibles', async ({ page }) => {
+  test('5.2.1 - Onglets "Tous", "En attente", "Approuvés" visibles', async ({ page }) => {
     await goToTravaux(page);
     // Wait for list to render (tabs only appear when module is enabled with list view)
     const tabs = page.locator('#travaux-tabs .adm-tab');
@@ -186,7 +186,7 @@ test.describe('5.2 — Onglets de statut', () => {
     await expect(tabs.nth(2)).toContainText('Approuvés');
   });
 
-  test('5.2.2 — Clic sur onglet "En attente" active le filtre', async ({ page }) => {
+  test('5.2.2 - Clic sur onglet "En attente" active le filtre', async ({ page }) => {
     await goToTravaux(page);
     const tabs = page.locator('#travaux-tabs .adm-tab');
     if (await tabs.count() === 0) { test.skip(); return; }
@@ -198,7 +198,7 @@ test.describe('5.2 — Onglets de statut', () => {
     await expect(tabs.nth(0)).not.toHaveClass(/active/);
   });
 
-  test('5.2.3 — Clic retour sur "Tous" restaure la liste complète', async ({ page }) => {
+  test('5.2.3 - Clic retour sur "Tous" restaure la liste complète', async ({ page }) => {
     await goToTravaux(page);
     const tabs = page.locator('#travaux-tabs .adm-tab');
     if (await tabs.count() === 0) { test.skip(); return; }
@@ -212,9 +212,9 @@ test.describe('5.2 — Onglets de statut', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 5.x — Cycle complet : config → créer → lister → modifier → supprimer
+// 5.x - Cycle complet : config → créer → lister → modifier → supprimer
 // ─────────────────────────────────────────────────────────
-test.describe('5.x — CRUD complet travaux', () => {
+test.describe('5.x - CRUD complet travaux', () => {
 
   test('Config → Créer → Liste → Approuver → Modifier → Supprimer', async ({ page }) => {
     const TEST_NAME = `E2E-Chantier-${Date.now()}`;
@@ -239,7 +239,7 @@ test.describe('5.x — CRUD complet travaux', () => {
 
     // ── 5.4.1 Naviguer vers création ──
     await waitForBoot(page, '/admin/travaux/');
-    // Now in normal mode — should show "Nouveau chantier" button
+    // Now in normal mode - should show "Nouveau chantier" button
     const newBtn = page.locator('.adm-btn--primary', { hasText: 'Nouveau chantier' });
     await expect(newBtn).toBeVisible({ timeout: 10000 });
     // Also "Configuration" button
@@ -248,14 +248,14 @@ test.describe('5.x — CRUD complet travaux', () => {
     await expect(page).toHaveURL(/\/admin\/travaux\/nouveau\//);
     await page.waitForSelector('#tw-name', { state: 'visible', timeout: 10000 });
 
-    // ── 5.4.2–5.4.3 Formulaire de création ──
+    // ── 5.4.2-5.4.3 Formulaire de création ──
     await expect(page.locator('.cw-header__title')).toContainText('Nouveau chantier');
     await expect(page.locator('#tw-name')).toBeVisible();
     await expect(page.locator('#tw-nature')).toBeVisible();
     await expect(page.locator('#tw-localisation')).toBeVisible();
     await expect(page.locator('#tw-description')).toBeVisible();
 
-    // ── 5.4.4–5.4.5 État picker ──
+    // ── 5.4.4-5.4.5 État picker ──
     const etatOptions = page.locator('.tw-etat-option');
     await expect(etatOptions).toHaveCount(4);
     // Default value should be "en_cours" (selected)
@@ -341,7 +341,7 @@ test.describe('5.x — CRUD complet travaux', () => {
     await expect(page.locator('.cw-header__title')).toContainText('Modifier le chantier');
     await expect(page.locator('#tw-name')).toHaveValue(TEST_NAME);
 
-    // 5.5.6 — Change name and save
+    // 5.5.6 - Change name and save
     await page.locator('#tw-name').clear();
     await page.locator('#tw-name').fill(UPDATED_NAME);
     // Verify the field has the new value before submitting
@@ -352,7 +352,7 @@ test.describe('5.x — CRUD complet travaux', () => {
     await expect(page).toHaveURL(/\/admin\/travaux\//, { timeout: 10000 });
     await clearToasts(page);
 
-    // ── 5.3.3–5.3.4 Supprimer ──
+    // ── 5.3.3-5.3.4 Supprimer ──
     await page.reload();
     await page.waitForSelector('#adm-splash', { state: 'detached', timeout: 15000 });
     await page.waitForFunction(() => {

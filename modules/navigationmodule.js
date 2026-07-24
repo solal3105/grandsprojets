@@ -73,7 +73,7 @@ const NavigationModule = (() => {
 
   /**
    * Calcule le padding carte selon les panneaux UI actuellement visibles.
-   * Source unique de vérité — utilisée par panToProject et showProjectDetail.
+   * Source unique de vérité - utilisée par panToProject et showProjectDetail.
    * @returns {{ top, right, bottom, left }}
    */
   /**
@@ -104,7 +104,7 @@ const NavigationModule = (() => {
     }
 
     // Desktop: nav panel on the left, detail panel on the right.
-    const sidebarW  = 78 + 14; // sidebar icon strip + inset gap — fixed in CSS
+    const sidebarW  = 78 + 14; // sidebar icon strip + inset gap - fixed in CSS
     const navPanel  = document.querySelector('.nav-panel.open:not(.collapsed)');
     const navW      = navPanel ? navPanel.offsetWidth + 14 : 0;
     const detailW   = detailOpen ? detailPanel.offsetWidth + 20 : 0;
@@ -118,7 +118,7 @@ const NavigationModule = (() => {
 
   /**
    * Applique le highlight visuel d'un projet sur la carte (feature-state + pulse rings).
-   * Ne déplace PAS la caméra — appeler panToProject() séparément pour ça.
+   * Ne déplace PAS la caméra - appeler panToProject() séparément pour ça.
    * @param {string} projectName
    * @param {string} category
    * @param {{ fadeOthers?: boolean }} options
@@ -192,7 +192,7 @@ const NavigationModule = (() => {
     if (!bounds) return;
     try {
       // Reset any persistent internal padding (set by _updateMapPadding) before
-      // fitBounds so values don't stack — same pattern as showProjectDetail.
+      // fitBounds so values don't stack - same pattern as showProjectDetail.
       // _computeMapPadding() is then the sole source of truth for all UI offsets.
       mlMap.jumpTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 } });
       mlMap.fitBounds(
@@ -209,7 +209,7 @@ const NavigationModule = (() => {
 
   /**
    * Affiche tous les layers d'une catégorie sur la carte.
-   * Source unique de vérité — appelée par NavPanel et resetToDefaultView.
+   * Source unique de vérité - appelée par NavPanel et resetToDefaultView.
    * @param {string} category
    * @param {{ skipFitBounds?: boolean, preserveTravaux?: boolean }} [opts]
    */
@@ -284,7 +284,7 @@ const NavigationModule = (() => {
     if (!combined) return;
     const mlMap = window.MapModule?.map?._mlMap;
     if (!mlMap) return;
-    // toBBoxArray() → [west, south, east, north] — compat-bounds convention
+    // toBBoxArray() → [west, south, east, north] - compat-bounds convention
     const [west, south, east, north] = combined.toBBoxArray();
     mlMap.jumpTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 } });
     mlMap.fitBounds([[west, south], [east, north]],
@@ -293,7 +293,7 @@ const NavigationModule = (() => {
 
   /**
    * Fit the map to show all loaded layers for a given category.
-   * Public — called by NavPanel's collapse button.
+   * Public - called by NavPanel's collapse button.
    * @param {string} category
    */
   function fitCategoryBounds(category) {
@@ -399,19 +399,19 @@ const NavigationModule = (() => {
   _lastShownProject = projectKey;
   
   // Stop any in-flight map animation (e.g. hover-triggered fitBounds) before
-  // starting our own sequence — otherwise the collapse easeTo will cancel it
+  // starting our own sequence - otherwise the collapse easeTo will cancel it
   // mid-flight, producing a visible zoom-out glitch.
   try {
     const mlMap = window.MapModule?.map?._mlMap;
     if (mlMap?.stop) mlMap.stop();
   } catch (e) { console.debug('[nav] stop map animation failed:', e); }
 
-  // Hide NavPanel if open — preserve state so it can be restored on back
+  // Hide NavPanel if open - preserve state so it can be restored on back
   window.NavPanel?.collapse();
   // Reset any persistent map padding BEFORE fitBounds runs.
   // In MapLibre GL v4, fitBounds ADDS its padding to the map's internal
   // padding (set by easeTo). If we don't reset first, the two stack and
-  // the total can exceed the viewport — especially on mobile where
+  // the total can exceed the viewport - especially on mobile where
   // bottom padding alone would be 2 × 62 vh ≈ 124 % of screen height.
   try {
     const mlMap = window.MapModule?.map?._mlMap;
@@ -548,13 +548,13 @@ const NavigationModule = (() => {
     // Description
     description = description || attrs.description;
 
-    // Full page URL — format /fiche/{ville}/{category_slug}/{slug}
+    // Full page URL - format /fiche/{ville}/{category_slug}/{slug}
     const currentCity = contributionProject?.ville || new URLSearchParams(location.search).get('city') || window.supabaseService?.getActiveCity?.() || '';
     const fullPageUrl = (currentCity && contributionProject?.category_slug && contributionProject?.slug)
       ? `/fiche/${encodeURIComponent(currentCity)}/${encodeURIComponent(contributionProject.category_slug)}/${encodeURIComponent(contributionProject.slug)}`
       : null;
 
-    // Hero cover (expand btn only — back/close live in the permanent overlay bar)
+    // Hero cover (expand btn only - back/close live in the permanent overlay bar)
     const heroHTML = coverCandidate
       ? `<div class="detail-hero"><img class="detail-hero__img" src="${_esc(resolveAssetUrl(coverCandidate))}" alt="${_esc(attrs.name || projectName || '')}" loading="eager"><div class="detail-hero__grad"></div><button class="detail-hero__expand" aria-label="Agrandir l'image" title="Agrandir"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button></div>`
       : '';
@@ -698,7 +698,7 @@ const NavigationModule = (() => {
     // ── CAS 2: Full close (back to initial state) ──
     FilterModule.resetAll();
 
-    // Remove all layers first — clean slate
+    // Remove all layers first - clean slate
     window.MapModule?.removeAllLayers?.();
 
     // Build a set of all layers to restore (defaults + contributions)

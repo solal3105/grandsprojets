@@ -1,5 +1,5 @@
 // modules/toast.js
-// Unified toast notification system — replaces:
+// Unified toast notification system - replaces:
 //   - ContribUtils.showToast() inline styles + #toast-container
 //   - ficheprojet.js showFicheToast() + .fiche-toast CSS
 

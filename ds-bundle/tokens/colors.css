@@ -1,11 +1,11 @@
 /* ============================================================================
-   Open Projets — Brand colors
+   Open Projets - Brand colors
    Source of truth: home-src/tailwind.config.js (theme.extend.colors)
-   Faithful 1:1 with the production Tailwind config — do not invent values.
+   Faithful 1:1 with the production Tailwind config - do not invent values.
    ============================================================================ */
 
 :root {
-  /* Primary — the signature Open Projets red */
+  /* Primary - the signature Open Projets red */
   --color-primary:        #FF0037;
   --color-primary-light:  rgba(255, 0, 55, 0.06);  /* tailwind: primary-light */
   --color-primary-10:     rgba(255, 0, 55, 0.10);  /* tailwind: primary-10   */

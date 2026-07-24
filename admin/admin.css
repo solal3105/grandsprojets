@@ -1,6 +1,6 @@
 /* ============================================================================
-   ADMIN DESIGN SYSTEM — GLASSMORPHISM EDITION
-   Standalone CSS for /admin/ — imports 00-colors.css via HTML <link>
+   ADMIN DESIGN SYSTEM - GLASSMORPHISM EDITION
+   Standalone CSS for /admin/ - imports 00-colors.css via HTML <link>
    All classes prefixed with .adm- to avoid collisions with main site
    
    Design language:
@@ -79,7 +79,7 @@ html[data-theme='dark'] {
 /* ── Reset & Base ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* Changement de thème instantané — même mécanique que 01-base.css (non chargé ici) */
+/* Changement de thème instantané - même mécanique que 01-base.css (non chargé ici) */
 html.theme-transitioning *,
 html.theme-transitioning *::before,
 html.theme-transitioning *::after {
@@ -130,7 +130,7 @@ body {
   isolation: isolate;
 }
 
-/* Shimmer — signature 3D depth layer (matches gp-sidebar) */
+/* Shimmer - signature 3D depth layer (matches gp-sidebar) */
 .adm-sidebar::after {
   content: '';
   position: absolute;
@@ -172,7 +172,7 @@ html[data-theme='dark'] .adm-sidebar::after {
   margin: 0 auto;
 }
 
-/* ── Mobile header — floating pill (hidden desktop) ── */
+/* ── Mobile header - floating pill (hidden desktop) ── */
 .adm-mobile-header {
   display: none;
   position: fixed;
@@ -304,7 +304,7 @@ html[data-theme='dark'] .adm-mobile-header::after {
   flex-shrink: 0;
 }
 
-/* Luminous hairline separator — same as gp-sidebar__divider */
+/* Luminous hairline separator - same as gp-sidebar__divider */
 .adm-sidebar__sep {
   width: calc(100% - 36px);
   height: 1px;
@@ -441,7 +441,7 @@ html[data-theme='dark'] .adm-sidebar__city-select {
     transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Frosted bg fill — appears on hover/active */
+/* Frosted bg fill - appears on hover/active */
 .adm-nav-item::before {
   content: '';
   position: absolute;
@@ -452,7 +452,7 @@ html[data-theme='dark'] .adm-sidebar__city-select {
   transition: opacity 0.22s ease;
 }
 
-/* Icon box — floating capsule within each item */
+/* Icon box - floating capsule within each item */
 .adm-nav-item i {
   width: 34px; height: 34px;
   display: flex; align-items: center; justify-content: center;
@@ -476,7 +476,7 @@ html[data-theme='dark'] .adm-sidebar__city-select {
   transition: color 0.22s ease;
 }
 
-/* Hover — tinted primary glow, inspired by gp-sidebar__btn--module */
+/* Hover - tinted primary glow, inspired by gp-sidebar__btn--module */
 .adm-nav-item:hover {
   color: var(--text-primary);
   transform: scale(1.025);
@@ -497,7 +497,7 @@ html[data-theme='dark'] .adm-sidebar__city-select {
     inset 0 1px 0 var(--adm-inset-hi-weak);
 }
 
-/* Active — icon box gets primary gradient + glow */
+/* Active - icon box gets primary gradient + glow */
 .adm-nav-item.active {
   color: var(--text-primary);
   transform: translateX(0);
@@ -615,7 +615,7 @@ html[data-theme='dark'] .adm-sidebar__city-select {
   display: flex;
   align-items: center;
   gap: 10px;
-  /* Light frosted capsule — sits above the glass surface */
+  /* Light frosted capsule - sits above the glass surface */
   margin: 0 10px 12px;
   background: var(--black-alpha-04);
   border: 1px solid var(--black-alpha-08);
@@ -905,7 +905,7 @@ html[data-theme='dark'] .adm-table td {
 .adm-table__empty i { font-size: 32px; display: block; margin-bottom: 12px; opacity: 0.5; }
 
 /* ============================================================================
-   BADGES — Pill-shaped with subtle glow
+   BADGES - Pill-shaped with subtle glow
    ============================================================================ */
 
 .adm-badge {
@@ -938,7 +938,7 @@ html[data-theme='dark'] .adm-table td {
 }
 
 /* ============================================================================
-   FORMS — Floating glass inputs
+   FORMS - Floating glass inputs
    ============================================================================ */
 
 .adm-form-group {
@@ -1043,7 +1043,7 @@ html[data-theme='dark'] .adm-table td {
 }
 
 /* ============================================================================
-   SLIDE PANEL — Glassmorphism overlay
+   SLIDE PANEL - Glassmorphism overlay
    ============================================================================ */
 
 .adm-slide-panel {
@@ -1113,7 +1113,7 @@ html[data-theme='dark'] .adm-table td {
   color: var(--gray-900);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-/* Bouton fermer — signature DS : rotation au hover */
+/* Bouton fermer - signature DS : rotation au hover */
 .adm-slide-panel__header .adm-btn--icon {
   border-radius: 999px;
   flex-shrink: 0;
@@ -1140,7 +1140,7 @@ html[data-theme='dark'] .adm-table td {
 }
 
 /* ============================================================================
-   DIALOG (confirm) — Glass modal
+   DIALOG (confirm) - Glass modal
    ============================================================================ */
 
 .adm-dialog {
@@ -1170,7 +1170,7 @@ html[data-theme='dark'] .adm-table td {
 .adm-dialog__actions { display: flex; justify-content: flex-end; gap: 10px; }
 
 /* ============================================================================
-   TOAST — Floating glass notifications
+   TOAST - Floating glass notifications
    ============================================================================ */
 
 .adm-toast-container {
@@ -1252,7 +1252,7 @@ html[data-theme='dark'] .adm-toast {
 }
 
 /* ============================================================================
-   SKELETON LOADING — Shimmer with glass
+   SKELETON LOADING - Shimmer with glass
    ============================================================================ */
 
 .adm-skeleton {
@@ -1272,7 +1272,7 @@ html[data-theme='dark'] .adm-toast {
 .adm-skeleton--stat { height: 96px; border-radius: var(--adm-radius-lg); }
 
 /* ============================================================================
-   LIST ITEMS (contributions, travaux) — Glass rows with hover glow
+   LIST ITEMS (contributions, travaux) - Glass rows with hover glow
    ============================================================================ */
 
 .adm-list-item {
@@ -1329,7 +1329,7 @@ html[data-theme='dark'] .adm-list-item {
 .adm-list-item:hover .adm-list-item__actions { opacity: 1; }
 
 /* ============================================================================
-   CATEGORY CARDS — Elevated glass
+   CATEGORY CARDS - Elevated glass
    ============================================================================ */
 
 .adm-cat-card {
@@ -1451,7 +1451,7 @@ html[data-theme='dark'] .adm-user-row {
 }
 
 /* ============================================================================
-   TOGGLE GRID — Glass toggle items
+   TOGGLE GRID - Glass toggle items
    ============================================================================ */
 
 .adm-toggle-grid {
@@ -1505,7 +1505,7 @@ html[data-theme='dark'] .adm-user-row {
 .adm-pagination__buttons { display: flex; gap: 6px; }
 
 /* ============================================================================
-   TABS — Floating pill tabs
+   TABS - Floating pill tabs
    ============================================================================ */
 
 .adm-tabs {
@@ -1643,7 +1643,7 @@ html[data-theme='dark'] .adm-user-row {
 }
 
 /* ============================================================================
-   TRAVAUX — Custom components
+   TRAVAUX - Custom components
    ============================================================================ */
 
 /* Quick stats bar */
@@ -1736,7 +1736,7 @@ html[data-theme='dark'] .adm-user-row {
 .tw-etat-option--neutral.selected { background: rgba(107,114,128,0.1); border-color: var(--gray-500); color: var(--gray-500); }
 .tw-etat-option--warning.selected { background: rgba(245,158,11,0.1);  border-color: var(--warning); color: var(--warning); }
 
-/* Config grid — removed (replaced by cw-sections layout) */
+/* Config grid - removed (replaced by cw-sections layout) */
 
 /* Source picker */
 .tw-source-picker {
@@ -1765,7 +1765,7 @@ html[data-theme='dark'] .adm-user-row {
 .tw-source-option__title { font-size: 13px; font-weight: 600; color: var(--gray-900); }
 .tw-source-option__desc  { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
 
-/* Toggle row (label + switch) — config page variant */
+/* Toggle row (label + switch) - config page variant */
 .twc-toggle-row {
   display: flex;
   align-items: center;
@@ -1819,7 +1819,7 @@ html[data-theme='dark'] .twc-url-notice { color: var(--warning); }
 }
 .twc-empty-layers i { opacity: 0.4; flex-shrink: 0; }
 
-/* Toggle row (label + switch) — generic admin variant */
+/* Toggle row (label + switch) - generic admin variant */
 .adm-toggle-row {
   display: flex;
   align-items: center;
@@ -1884,7 +1884,7 @@ html[data-theme='dark'] .twc-url-notice { color: var(--warning); }
 }
 
 /* ============================================================================
-   CONTRIBUTION WIZARD — Guided creation form
+   CONTRIBUTION WIZARD - Guided creation form
    ============================================================================ */
 
 /* ── Header ── */
@@ -3373,7 +3373,7 @@ html[data-theme='dark'] .cw-collapsible__trigger:hover {
 }
 .adm-ip-icon--selected i { color: rgb(var(--adm-primary-rgb)); }
 
-/* Empty state — hidden by default; [hidden] must win over display:flex */
+/* Empty state - hidden by default; [hidden] must win over display:flex */
 .adm-ip-empty {
   display: none;
   flex-direction: column;
@@ -3469,7 +3469,7 @@ html[data-theme='dark'] .cw-collapsible__trigger:hover {
 }
 
 /* ============================================================================
-   MODULE EMPTY STATE — Module non configuré ou désactivé
+   MODULE EMPTY STATE - Module non configuré ou désactivé
    ============================================================================ */
 
 .adm-module-empty {
@@ -3511,7 +3511,7 @@ html[data-theme='dark'] .cw-collapsible__trigger:hover {
 }
 
 /* ============================================================================
-   OPEN DATA BANNER — Avertissement mode flux externe
+   OPEN DATA BANNER - Avertissement mode flux externe
    ============================================================================ */
 
 .adm-opendata-banner {
@@ -3777,7 +3777,7 @@ html[data-theme='dark'] .adm-opendata-banner--warning { color: var(--warning); }
 }
 
 /* =====================================================================
-   STRUCTURE PAGE — st-* scoped components
+   STRUCTURE PAGE - st-* scoped components
    ===================================================================== */
 
 /* ── Color row ── */
@@ -4031,7 +4031,7 @@ html[data-theme='dark'] .st-logo-preview__btn:hover { background: rgb(22, 30, 48
 }
 
 /* ══════════════════════════════════════════
-   City form — Map search & position
+   City form - Map search & position
    ══════════════════════════════════════════ */
 
 /* Search wrapper */
@@ -4197,7 +4197,7 @@ html[data-theme='dark'] .st-logo-preview__btn:hover { background: rgb(22, 30, 48
 }
 
 /* ══════════════════════════════════════════
-   Assistant de rédaction — IA panel
+   Assistant de rédaction - IA panel
    ══════════════════════════════════════════ */
 
 /* ── Trigger button (lives inside .cw-footer) ── */
@@ -4251,7 +4251,7 @@ html[data-theme='dark'] .st-logo-preview__btn:hover { background: rgb(22, 30, 48
   100% { transform: scale(1); }
 }
 
-/* ── Panel — positioned above footer ── */
+/* ── Panel - positioned above footer ── */
 .cp-panel {
   position: absolute;
   bottom: calc(100% + 12px);
@@ -4757,7 +4757,7 @@ html[data-theme='dark'] .st-logo-preview__btn:hover { background: rgb(22, 30, 48
 .mod-dialog__close:hover { color: var(--text-primary); background: var(--gray-100); }
 
 /* ============================================================================
-   DIAGNOSTIC TERRAIN (dg-*) — carte plein écran, dock, wizard, analyse, rapport
+   DIAGNOSTIC TERRAIN (dg-*) - carte plein écran, dock, wizard, analyse, rapport
    ============================================================================ */
 
 .dg-section { display: flex; flex-direction: column; height: 100%; }
@@ -4776,7 +4776,7 @@ html[data-theme='dark'] .st-logo-preview__btn:hover { background: rgb(22, 30, 48
 }
 #dg-map { position: absolute; inset: 0; }
 
-/* Plein écran applicatif — z-index au-dessus de la sidebar (200) mais sous
+/* Plein écran applicatif - z-index au-dessus de la sidebar (200) mais sous
    l'overlay du wizard (250), le rapport (290) et les toasts (300). */
 .dg-mapwrap.is-fullscreen {
   position: fixed; inset: 0; z-index: 210;
@@ -5239,7 +5239,7 @@ html[data-theme='dark'] .dg-seg button.is-active { background: rgba(255, 255, 25
   .dg-rp-cover { break-inside: avoid; }
 }
 /* Hors de tout @media print : `@page` est une at-rule, elle ne peut pas figurer
-   dans une liste de sélecteurs — c'est ce qui invalidait la règle jusqu'ici. */
+   dans une liste de sélecteurs - c'est ce qui invalidait la règle jusqu'ici. */
 @page { size: A4; margin: 14mm; }
 
 /* ── Responsive ── */
@@ -5251,7 +5251,7 @@ html[data-theme='dark'] .dg-seg button.is-active { background: rgba(255, 255, 25
       .dg-rp-page { padding: 24px 18px; }
 }
 
-/* Carte indisponible (WebGL absent) — le dock reste fonctionnel */
+/* Carte indisponible (WebGL absent) - le dock reste fonctionnel */
 .dg-map-error {
   position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
   z-index: 4;
@@ -5264,7 +5264,7 @@ html[data-theme='dark'] .dg-seg button.is-active { background: rgba(255, 255, 25
   max-width: calc(100% - 28px);
 }
 
-/* Règles [hidden] — des display auteur (grid/flex) l'emportent sinon sur l'UA */
+/* Règles [hidden] - des display auteur (grid/flex) l'emportent sinon sur l'UA */
 .adm-form-row[hidden] { display: none; }
 .dg-lasso-btn[hidden] { display: none; }
 
@@ -5293,7 +5293,7 @@ html[data-theme='dark'] .dg-seg button.is-active { background: rgba(255, 255, 25
 }
 .dg-analyze-btn:disabled:hover { transform: none; box-shadow: none; }
 
-/* ── Sujets (« ce que disent les points ») — aucune notation, un décompte ── */
+/* ── Sujets (« ce que disent les points ») - aucune notation, un décompte ── */
 .dg-section-label {
   font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.7px;
   color: var(--gray-400); margin: 14px 2px 8px;
@@ -5321,7 +5321,7 @@ html[data-theme='dark'] .dg-seg button.is-active { background: rgba(255, 255, 25
 }
 .dg-history__count small { font-size: 9px; font-weight: 700; color: var(--gray-500); margin-top: 2px; }
 
-/* Rapport — sujets */
+/* Rapport - sujets */
 .dg-rp-sujet { border: 1px solid var(--black-alpha-08); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; page-break-inside: avoid; }
 .dg-rp-sujet__head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
 .dg-rp-sujet__title { flex: 1; font-size: 14px; font-weight: 700; color: var(--gray-900); }
@@ -5393,7 +5393,7 @@ html[data-theme='dark'] .dg-seg button.is-active { background: rgba(255, 255, 25
 .dg-couche .dg-sujet { border-color: var(--black-alpha-06); background: rgba(0,0,0,0.015); }
 html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0.02); }
 
-/* ══ Rapport — document de diagnostic ══════════════════════════════ */
+/* ══ Rapport - document de diagnostic ══════════════════════════════ */
 /* Les aplats de couleur portent l'information : ils doivent s'imprimer. */
 .dg-report-doc, .dg-report-doc * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 

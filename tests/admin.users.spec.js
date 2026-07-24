@@ -14,11 +14,11 @@ async function goToUsers(page) {
 }
 
 // ─────────────────────────────────────────────────────────
-// 4.1 — Liste
+// 4.1 - Liste
 // ─────────────────────────────────────────────────────────
-test.describe('4.1 — Liste des utilisateurs', () => {
+test.describe('4.1 - Liste des utilisateurs', () => {
 
-  test('4.1.1 — Titre, bouton Inviter, tabs rôles', async ({ page }) => {
+  test('4.1.1 - Titre, bouton Inviter, tabs rôles', async ({ page }) => {
     await goToUsers(page);
     await expect(page.locator('.adm-page-title')).toContainText('Utilisateurs');
     await expect(page.locator('#users-invite-btn')).toBeVisible();
@@ -27,7 +27,7 @@ test.describe('4.1 — Liste des utilisateurs', () => {
     await expect(page.locator('#users-role-filter .adm-tab[data-role="invited"]')).toBeVisible();
   });
 
-  test('4.1.2 — Liste chargée avec des user rows', async ({ page }) => {
+  test('4.1.2 - Liste chargée avec des user rows', async ({ page }) => {
     await goToUsers(page);
     const rows = page.locator('.adm-user-row');
     await expect(rows.first()).toBeVisible();
@@ -35,7 +35,7 @@ test.describe('4.1 — Liste des utilisateurs', () => {
     expect(await rows.count()).toBeGreaterThanOrEqual(1);
   });
 
-  test('4.1.3 — Chaque user row : avatar, email, badge rôle', async ({ page }) => {
+  test('4.1.3 - Chaque user row : avatar, email, badge rôle', async ({ page }) => {
     await goToUsers(page);
     const row = page.locator('.adm-user-row').first();
     await expect(row.locator('.adm-user-row__avatar')).toBeVisible();
@@ -43,13 +43,13 @@ test.describe('4.1 — Liste des utilisateurs', () => {
     await expect(row.locator('.adm-badge').first()).toBeVisible();
   });
 
-  test('4.1.4 — Bouton Promouvoir/Rétrograder présent', async ({ page }) => {
+  test('4.1.4 - Bouton Promouvoir/Rétrograder présent', async ({ page }) => {
     await goToUsers(page);
     const toggleBtn = page.locator('[data-action="toggle-role"]').first();
     await expect(toggleBtn).toBeVisible();
   });
 
-  test('4.1.5 — Admin courant exclu de sa propre liste', async ({ page }) => {
+  test('4.1.5 - Admin courant exclu de sa propre liste', async ({ page }) => {
     await goToUsers(page);
     // The current admin email should NOT appear in the user list
     const adminRow = page.locator('.adm-user-row', { hasText: 'teste2e+admin' });
@@ -58,7 +58,7 @@ test.describe('4.1 — Liste des utilisateurs', () => {
     await expect(page.locator('.adm-user-row', { hasText: 'teste2e+invited' })).toBeVisible({ timeout: 5000 });
   });
 
-  test('4.1.6 — Badge rôle coloré : Admin=info, Contributeur=neutral', async ({ page }) => {
+  test('4.1.6 - Badge rôle coloré : Admin=info, Contributeur=neutral', async ({ page }) => {
     await goToUsers(page);
     const rows = page.locator('.adm-user-row');
     const count = await rows.count();
@@ -70,7 +70,7 @@ test.describe('4.1 — Liste des utilisateurs', () => {
     }
   });
 
-  test('4.1.7 — Avatar icône utilisateur visible par ligne', async ({ page }) => {
+  test('4.1.7 - Avatar icône utilisateur visible par ligne', async ({ page }) => {
     await goToUsers(page);
     const rows = page.locator('.adm-user-row');
     const count = await rows.count();
@@ -82,7 +82,7 @@ test.describe('4.1 — Liste des utilisateurs', () => {
     }
   });
 
-  test('4.1.8 — Email affiché par ligne', async ({ page }) => {
+  test('4.1.8 - Email affiché par ligne', async ({ page }) => {
     await goToUsers(page);
     const rows = page.locator('.adm-user-row');
     const count = await rows.count();
@@ -97,16 +97,16 @@ test.describe('4.1 — Liste des utilisateurs', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 4.2 — Filtres
+// 4.2 - Filtres
 // ─────────────────────────────────────────────────────────
-test.describe('4.2 — Filtres utilisateurs', () => {
+test.describe('4.2 - Filtres utilisateurs', () => {
 
-  test('4.2.1 — Tab "Tous" actif par défaut', async ({ page }) => {
+  test('4.2.1 - Tab "Tous" actif par défaut', async ({ page }) => {
     await goToUsers(page);
     await expect(page.locator('#users-role-filter .adm-tab[data-role="all"]')).toHaveClass(/active/);
   });
 
-  test('4.2.2–4.2.3 — Tabs Admins et Contributeurs filtrent', async ({ page }) => {
+  test('4.2.2-4.2.3 - Tabs Admins et Contributeurs filtrent', async ({ page }) => {
     await goToUsers(page);
 
     // Count all users first (current admin excluded from list)
@@ -131,7 +131,7 @@ test.describe('4.2 — Filtres utilisateurs', () => {
     await expect(page.locator('.adm-user-row')).toHaveCount(allCount);
   });
 
-  test('4.2.4 — Recherche par email', async ({ page }) => {
+  test('4.2.4 - Recherche par email', async ({ page }) => {
     await goToUsers(page);
     const allCount = await page.locator('.adm-user-row').count();
 
@@ -145,7 +145,7 @@ test.describe('4.2 — Filtres utilisateurs', () => {
     await expect(page.locator('.adm-user-row').first().locator('.adm-user-row__email')).toContainText('teste2e+invited');
   });
 
-  test('4.2.5 — Recherche sans résultat → empty state', async ({ page }) => {
+  test('4.2.5 - Recherche sans résultat → empty state', async ({ page }) => {
     await goToUsers(page);
     await page.fill('#users-search', 'nonexistent-email-xyz-12345');
     await page.waitForTimeout(400);
@@ -156,18 +156,18 @@ test.describe('4.2 — Filtres utilisateurs', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 4.3 — Invitation
+// 4.3 - Invitation
 // ─────────────────────────────────────────────────────────
-test.describe('4.3 — Invitation', () => {
+test.describe('4.3 - Invitation', () => {
 
-  test('4.3.1 — Clic Inviter ouvre le formulaire', async ({ page }) => {
+  test('4.3.1 - Clic Inviter ouvre le formulaire', async ({ page }) => {
     await goToUsers(page);
     await page.click('#users-invite-btn');
     await expect(page.locator('#users-invite-card')).toBeVisible();
     await expect(page.locator('#invite-email')).toBeVisible();
   });
 
-  test('4.3.2 — Champ email requis, type email', async ({ page }) => {
+  test('4.3.2 - Champ email requis, type email', async ({ page }) => {
     await goToUsers(page);
     await page.click('#users-invite-btn');
     const emailInput = page.locator('#invite-email');
@@ -175,14 +175,14 @@ test.describe('4.3 — Invitation', () => {
     await expect(emailInput).toHaveAttribute('required', '');
   });
 
-  test('4.3.3 — Rôle Contributeur actif par défaut', async ({ page }) => {
+  test('4.3.3 - Rôle Contributeur actif par défaut', async ({ page }) => {
     await goToUsers(page);
     await page.click('#users-invite-btn');
     await expect(page.locator('[data-invite-role="invited"]')).toHaveClass(/active/);
     await expect(page.locator('#invite-role-value')).toHaveValue('invited');
   });
 
-  test('4.3.4 — Switcher vers rôle Admin', async ({ page }) => {
+  test('4.3.4 - Switcher vers rôle Admin', async ({ page }) => {
     await goToUsers(page);
     await page.click('#users-invite-btn');
     await page.click('[data-invite-role="admin"]');
@@ -190,7 +190,7 @@ test.describe('4.3 — Invitation', () => {
     await expect(page.locator('#invite-role-value')).toHaveValue('admin');
   });
 
-  test('4.3.6 — Inviter un email déjà membre → toast info', async ({ page }) => {
+  test('4.3.6 - Inviter un email déjà membre → toast info', async ({ page }) => {
     await goToUsers(page);
     await page.click('#users-invite-btn');
     await page.fill('#invite-email', 'teste2e+admin@openprojets.com');
@@ -199,7 +199,7 @@ test.describe('4.3 — Invitation', () => {
     await expect(page.locator('.adm-toast--info').filter({ hasText: 'a déjà accès' })).toBeVisible({ timeout: 10000 });
   });
 
-  test('4.3.8 — Annuler le formulaire', async ({ page }) => {
+  test('4.3.8 - Annuler le formulaire', async ({ page }) => {
     await goToUsers(page);
     await page.click('#users-invite-btn');
     await expect(page.locator('#users-invite-card')).toBeVisible();
@@ -219,9 +219,9 @@ test.describe('4.3 — Invitation', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 4.4 — Changement de rôle
+// 4.4 - Changement de rôle
 // ─────────────────────────────────────────────────────────
-test.describe('4.4 — Changement de rôle', () => {
+test.describe('4.4 - Changement de rôle', () => {
 
   test('Cycle : promouvoir invited → annuler, puis promouvoir → confirmer → rétrograder', async ({ page }) => {
     await goToUsers(page);
@@ -236,7 +236,7 @@ test.describe('4.4 — Changement de rôle', () => {
     const toggleBtn = invitedRow.locator('[data-action="toggle-role"]');
     await expect(toggleBtn).toContainText('Promouvoir');
 
-    // 4.4.5 — Cancel promotion dialog
+    // 4.4.5 - Cancel promotion dialog
     await toggleBtn.click();
     await expect(page.locator('#adm-dialog[open]')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('#adm-dialog-body')).toContainText('Promouvoir en Admin');
@@ -245,14 +245,14 @@ test.describe('4.4 — Changement de rôle', () => {
     // Row unchanged
     await expect(toggleBtn).toContainText('Promouvoir');
 
-    // 4.4.1–4.4.2 — Confirm promotion
+    // 4.4.1-4.4.2 - Confirm promotion
     await toggleBtn.click();
     await expect(page.locator('#adm-dialog[open]')).toBeVisible({ timeout: 5000 });
     await page.click('#adm-dialog-confirm');
     await expect(successToast('Rôle mis à jour : admin')).toBeVisible({ timeout: 10000 });
     await clearToasts();
 
-    // Wait for list reload — the row should now show "Rétrograder"
+    // Wait for list reload - the row should now show "Rétrograder"
     await page.waitForFunction(() => {
       const el = document.querySelector('#users-list-body');
       return el && !el.querySelector('.adm-skeleton');
@@ -262,14 +262,14 @@ test.describe('4.4 — Changement de rôle', () => {
     const demoteBtn = promotedRow.locator('[data-action="toggle-role"]');
     await expect(demoteBtn).toContainText('Rétrograder');
 
-    // 4.4.3–4.4.4 — Demote back to invited
+    // 4.4.3-4.4.4 - Demote back to invited
     await demoteBtn.click();
     await expect(page.locator('#adm-dialog[open]')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('#adm-dialog-body')).toContainText('Rétrograder en Contributeur');
     await page.click('#adm-dialog-confirm');
     await expect(successToast('Rôle mis à jour : invited')).toBeVisible({ timeout: 10000 });
 
-    // Wait for list reload — back to "Promouvoir"
+    // Wait for list reload - back to "Promouvoir"
     await clearToasts();
     await page.waitForFunction(() => {
       const el = document.querySelector('#users-list-body');

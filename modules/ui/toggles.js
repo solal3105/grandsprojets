@@ -1,5 +1,5 @@
 /**
- * ToggleManager — Unified toggle dock controller
+ * ToggleManager - Unified toggle dock controller
  * State management, events, accessibility, overflow menu
  * Layout is handled entirely by CSS flexbox (no JS positioning)
  */
@@ -251,7 +251,7 @@ class ToggleManager {
     const r = logo.getBoundingClientRect();
     // If logo is rendered, use its right edge + 8px gap
     if (r.width > 0) return r.right + 8;
-    // Fallback: logo not yet laid out — estimate from CSS
+    // Fallback: logo not yet laid out - estimate from CSS
     // left:10 + padding:~24 + img:~85 + gap:8 ≈ 127px
     return 127;
   }
@@ -281,7 +281,7 @@ class ToggleManager {
     return eligible.filter(({ config }) => !config.overflowExempt);
   }
 
-  /** Debounced recalculate — batches rapid calls (markReady during init) */
+  /** Debounced recalculate - batches rapid calls (markReady during init) */
   scheduleRecalculate() {
     if (this._recalcTimer) return;
     this._recalcTimer = requestAnimationFrame(() => {
@@ -326,7 +326,7 @@ class ToggleManager {
     const minLeft = this._getMinDockLeft();
 
     // Step 3: Trim candidates from the END, one at a time, until the dock fits.
-    // actions-toggle (overflowExempt) is never a victim — it IS the overflow entry point.
+    // actions-toggle (overflowExempt) is never a victim - it IS the overflow entry point.
     // Minimum 3 visible buttons regardless.
     const overflowed = [];
     let safetyMax = candidates.length;

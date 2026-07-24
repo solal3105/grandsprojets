@@ -82,7 +82,7 @@ window.MapModule = (() => {
 
   /**
    * Remove all layers from the map, except those in the provided Set.
-   * @param {Set<string>} [except] — layer names to keep
+   * @param {Set<string>} [except] - layer names to keep
    */
   const removeAllLayers = (except = new Set()) => {
     const names = Object.keys(layers);

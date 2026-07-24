@@ -80,7 +80,7 @@ export default async (_request, _context) => {
       '## Pages principales',
       '',
       `- [Carte interactive](${BASE_ORIGIN}/) : carte des grands projets urbains (application, contenu par ville)`,
-      `- [Présentation](${BASE_ORIGIN}/home/) : Open Projets pour les collectivités — publier ses projets urbains sur une carte interactive`,
+      `- [Présentation](${BASE_ORIGIN}/home/) : Open Projets pour les collectivités - publier ses projets urbains sur une carte interactive`,
       `- [Fonctionnalités](${BASE_ORIGIN}/home/fonctionnalites) : détail des fonctionnalités de la plateforme`,
       `- [À propos](${BASE_ORIGIN}/home/a-propos) : qui est derrière Open Projets`,
       `- [Aide](${BASE_ORIGIN}/home/aide) : centre d'aide et questions fréquentes`,
@@ -91,8 +91,8 @@ export default async (_request, _context) => {
     const villes = [...byVille.keys()].sort();
     for (const ville of villes) {
       const label = cityNames.get(ville) || ville.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-      lines.push('', `## Projets — ${label}`, '');
-      lines.push(`- [Tous les projets — ${label}](${BASE_ORIGIN}/ville/${encodeURIComponent(ville)}) : hub de la ville (liste, catégories et carte)`);
+      lines.push('', `## Projets - ${label}`, '');
+      lines.push(`- [Tous les projets - ${label}](${BASE_ORIGIN}/ville/${encodeURIComponent(ville)}) : hub de la ville (liste, catégories et carte)`);
       const fiches = byVille.get(ville).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
       for (const f of fiches) {
         lines.push(f.description ? `- [${f.name}](${f.url}) : ${f.description}` : `- [${f.name}](${f.url})`);

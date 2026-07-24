@@ -21,7 +21,7 @@ window.SearchModule = (() => {
   let _list    = null;  // #search-results
   let _marker  = null;
   let _timer   = 0;
-  let _focusIdx = -1;   // keyboard-highlighted index (–1 = none)
+  let _focusIdx = -1;   // keyboard-highlighted index (-1 = none)
   let _abortCtrl = null;
 
   // Init

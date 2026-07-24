@@ -17,11 +17,11 @@
 
 
 /* ---------------------------------------------------------------------------
-   Navigation Control — zoom + compass, glass capsule, bottom-right
+   Navigation Control - zoom + compass, glass capsule, bottom-right
 --------------------------------------------------------------------------- */
 
 /* ---------------------------------------------------------------------------
-   Attribution — crédits fond de carte (© OpenStreetMap…), bas gauche
+   Attribution - crédits fond de carte (© OpenStreetMap…), bas gauche
    Contrôle compact MapLibre : pastille ⓘ repliée, panneau au clic
 --------------------------------------------------------------------------- */
 
@@ -29,7 +29,7 @@
   margin: 0 0 20px 16px !important;
 }
 
-/* Capsule verre — même signature que la nav bottom-right */
+/* Capsule verre - même signature que la nav bottom-right */
 .maplibregl-ctrl-attrib.maplibregl-compact {
   background: rgba(250, 251, 255, 0.82) !important;
   backdrop-filter: blur(28px) saturate(180%);
@@ -218,7 +218,7 @@
   z-index: 2;
 }
 
-/* North needle — city primary color */
+/* North needle - city primary color */
 .maplibregl-ctrl-compass .maplibregl-ctrl-icon::before {
   content: '';
   position: absolute;
@@ -238,7 +238,7 @@
   filter: drop-shadow(0 1px 3px color-mix(in srgb, var(--primary) 55%, black));
 }
 
-/* South needle — pearl white/gray */
+/* South needle - pearl white/gray */
 .maplibregl-ctrl-compass .maplibregl-ctrl-icon::after {
   content: '';
   position: absolute;
@@ -268,7 +268,7 @@
   }
 }
 
-/* Dark theme — attribution */
+/* Dark theme - attribution */
 [data-theme="dark"] .maplibregl-ctrl-attrib.maplibregl-compact {
   background: rgba(14, 16, 26, 0.85) !important;
   border-color: rgba(255, 255, 255, 0.09);

@@ -1,5 +1,5 @@
 /**
- * Assistant de rédaction — IA contextuelle pour le wizard contribution.
+ * Assistant de rédaction - IA contextuelle pour le wizard contribution.
  */
 
 import { toast, esc } from './ui.js';

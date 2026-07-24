@@ -1,4 +1,4 @@
-// Netlify Edge Function — Agrège les GeoJSON travaux côté serveur
+// Netlify Edge Function - Agrège les GeoJSON travaux côté serveur
 // Évite N+1 requêtes client : 1 seule requête → FeatureCollection complète
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';

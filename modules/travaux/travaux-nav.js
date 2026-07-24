@@ -1,5 +1,5 @@
 // modules/travaux/travaux-nav.js
-// Travaux module — Level 2/3 renderers for NavPanel
+// Travaux module - Level 2/3 renderers for NavPanel
 // Registers itself with NavPanel.registerModule('travaux', ...)
 
 ;(function(win) {

@@ -1,5 +1,5 @@
 /**
- * Open Projets — Tailwind preset
+ * Open Projets - Tailwind preset
  * Mirrors home-src/tailwind.config.js (theme.extend) exactly. A Tailwind-aware
  * runtime can `presets: [openProjetsPreset]` to make `text-primary`, `bg-dark`,
  * `font-heading`, `shadow-card`, `max-w-container`, etc. resolve natively.

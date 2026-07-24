@@ -8,18 +8,18 @@
  * Réponse : { access_token, refresh_token, expires_in }
  *
  * Variable d'environnement requise (Netlify Dashboard) :
- *   SUPABASE_SERVICE_ROLE_KEY — clé service role Supabase, jamais exposée côté client
+ *   SUPABASE_SERVICE_ROLE_KEY - clé service role Supabase, jamais exposée côté client
  */
 
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
 
-// ── Config Azure AD B2C — environnements ────────────────────────────────────
+// ── Config Azure AD B2C - environnements ────────────────────────────────────
 // Détection automatique via le claim `iss` du token.
 //
 // IMPORTANT : ce sont des tokens Azure AD *B2C*. Le JWKS doit donc pointer vers
-// l'endpoint b2clogin.com de la policy (user flow) — PAS vers
+// l'endpoint b2clogin.com de la policy (user flow) - PAS vers
 // login.microsoftonline.com, qui ne renvoie que les clés Entra génériques et ne
 // contient jamais le kid des tokens B2C (→ erreur "Clé de signature inconnue").
 // Les clés de signature B2C sont au niveau du tenant : toute policy valide expose
@@ -37,7 +37,7 @@ const AZURE_ENVS = {
   },
 };
 
-// ── Cache JWKS — TTL 1h ──────────────────────────────────────────────────────
+// ── Cache JWKS - TTL 1h ──────────────────────────────────────────────────────
 // Survit aux warm instances Netlify. Recalculé sur cold start (acceptable).
 const jwksCache = new Map(); // jwksUrl → { keys: JWK[], fetchedAt: number }
 const JWKS_TTL_MS = 60 * 60 * 1000;
@@ -52,7 +52,7 @@ async function fetchJwks(jwksUrl) {
   return keys;
 }
 
-// ── Helpers JWT (Web Crypto API — Node 18+) ──────────────────────────────────
+// ── Helpers JWT (Web Crypto API - Node 18+) ──────────────────────────────────
 function base64urlToBuffer(str) {
   const base64 = str.replace(/-/g, '+').replace(/_/g, '/');
   const padded = base64.padEnd(base64.length + (4 - base64.length % 4) % 4, '=');
@@ -122,7 +122,7 @@ function checkRateLimit(ip) {
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
 // Cette fonction est appelée par phaos-auth.js qui tourne sur openprojets.com.
-// Les domaines Phaos n'appellent jamais cette fonction directement —
+// Les domaines Phaos n'appellent jamais cette fonction directement -
 // ils communiquent uniquement via postMessage (validé côté client dans phaos-auth.js).
 const CORS_ORIGINS = [
   'https://openprojets.com',
@@ -158,7 +158,7 @@ export default async function handler(req) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
   if (!checkRateLimit(ip)) {
     console.warn(`[auth-token] Rate limit dépassé pour IP : ${ip}`);
-    return errResp(429, 'Trop de requêtes — réessayer dans 1 minute', corsHeaders);
+    return errResp(429, 'Trop de requêtes - réessayer dans 1 minute', corsHeaders);
   }
 
   // ① Lire le body
@@ -171,7 +171,7 @@ export default async function handler(req) {
   if (!idToken || typeof idToken !== 'string') {
     return errResp(400, 'idToken manquant ou invalide', corsHeaders);
   }
-  // city est optionnelle — si absente, le profil sera créé sans ville
+  // city est optionnelle - si absente, le profil sera créé sans ville
   const citySlug = (typeof city === 'string' && /^[a-z0-9-]+$/i.test(city)) ? city : null;
 
   // ② Décoder le JWT sans vérification pour lire iss (détection env) et kid (sélection clé)
@@ -240,18 +240,18 @@ export default async function handler(req) {
   // de validation JWT/CORS sans avoir besoin de SUPABASE_SERVICE_ROLE_KEY en local.
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceRoleKey) {
-    console.error('[auth-token] SUPABASE_SERVICE_ROLE_KEY absente — à configurer dans le dashboard Netlify');
+    console.error('[auth-token] SUPABASE_SERVICE_ROLE_KEY absente - à configurer dans le dashboard Netlify');
     return errResp(500, 'Configuration serveur incomplète', corsHeaders);
   }
 
-  // Client instancié à chaque requête — pas de persistance de session inter-requêtes
+  // Client instancié à chaque requête - pas de persistance de session inter-requêtes
   const supabase = createClient(SUPABASE_URL, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
   let userId;
   try {
-    // TODO[PERF] : listUsers sans filtre serveur — correct en V1 (B2B, < quelques centaines d'users)
+    // TODO[PERF] : listUsers sans filtre serveur - correct en V1 (B2B, < quelques centaines d'users)
     // Si la base dépasse ~1000 entrées, remplacer par une requête directe sur auth.users via REST admin
     const { data: { users }, error: listErr } = await supabase.auth.admin.listUsers({ perPage: 1000 });
     if (listErr) throw listErr;
@@ -262,7 +262,7 @@ export default async function handler(req) {
       userId = existing.id;
       console.log(`[auth-token] Utilisateur existant trouvé : ${userId}`);
     } else {
-      // Auto-provisioning — acté avec Arthur le 08/04/2026
+      // Auto-provisioning - acté avec Arthur le 08/04/2026
       const { data: { user: created }, error: createErr } = await supabase.auth.admin.createUser({
         email,
         email_confirm: true,
@@ -290,7 +290,7 @@ export default async function handler(req) {
   // ⑩ Forger une session Supabase pour cet utilisateur.
   // @supabase/supabase-js n'expose AUCUNE API admin "createSession". Le pattern serveur
   // officiel pour ouvrir une session au nom d'un user connu : générer un magiclink
-  // one-time via service role (generateLink — n'envoie PAS d'email), puis l'échanger
+  // one-time via service role (generateLink - n'envoie PAS d'email), puis l'échanger
   // immédiatement contre une session (access/refresh) via verifyOtp + token_hash.
   try {
     const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({

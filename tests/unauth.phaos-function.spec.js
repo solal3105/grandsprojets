@@ -5,7 +5,7 @@
 // Couverture : toutes les rejections possibles AVANT l'appel JWKS (pas de dépendance réseau Azure).
 // Les chemins qui nécessitent un vrai token Azure B2C signé ne sont PAS testés en E2E.
 //
-// Section : 0.3 — SSO Phaos / Fonction auth-token
+// Section : 0.3 - SSO Phaos / Fonction auth-token
 
 import { test, expect } from '@playwright/test';
 
@@ -49,9 +49,9 @@ const JWT_WRONG_ISS_EXACT = makeFakeJwt({
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.3.1 — Preflight CORS
+// 0.3.1 - Preflight CORS
 // ─────────────────────────────────────────────────────────
-test.describe('0.3.1 — auth-token : preflight CORS', () => {
+test.describe('0.3.1 - auth-token : preflight CORS', () => {
 
   test('OPTIONS → 204 avec headers CORS', async ({ request }) => {
     const res = await request.fetch(ENDPOINT, {
@@ -67,9 +67,9 @@ test.describe('0.3.1 — auth-token : preflight CORS', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.3.2 — Validation des inputs
+// 0.3.2 - Validation des inputs
 // ─────────────────────────────────────────────────────────
-test.describe('0.3.2 — auth-token : validation des inputs', () => {
+test.describe('0.3.2 - auth-token : validation des inputs', () => {
 
   test('POST sans body → 400', async ({ request }) => {
     const res = await request.post(ENDPOINT, {
@@ -110,9 +110,9 @@ test.describe('0.3.2 — auth-token : validation des inputs', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.3.3 — Validation du JWT (sans appel JWKS)
+// 0.3.3 - Validation du JWT (sans appel JWKS)
 // ─────────────────────────────────────────────────────────
-test.describe('0.3.3 — auth-token : validation JWT (sans JWKS)', () => {
+test.describe('0.3.3 - auth-token : validation JWT (sans JWKS)', () => {
 
   test('JWT avec iss non reconnu → 401 émetteur non reconnu', async ({ request }) => {
     const res = await request.post(ENDPOINT, {
@@ -157,9 +157,9 @@ test.describe('0.3.3 — auth-token : validation JWT (sans JWKS)', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 0.3.4 — Méthodes HTTP non autorisées
+// 0.3.4 - Méthodes HTTP non autorisées
 // ─────────────────────────────────────────────────────────
-test.describe('0.3.4 — auth-token : méthodes non autorisées', () => {
+test.describe('0.3.4 - auth-token : méthodes non autorisées', () => {
 
   test('GET → 405', async ({ request }) => {
     const res = await request.get(ENDPOINT, {

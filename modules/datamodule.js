@@ -169,17 +169,17 @@ window.DataModule = (function() {
 		if (!isPoint) return;
 
 		const props = feature?.properties || {};
-		// Contribution point markers — wire DOM click/hover
+		// Contribution point markers - wire DOM click/hover
 		const isContrib = !!(props.project_name && props.category);
 		// Travaux : identité par clé primaire uniquement (même règle que
 		// feature-interactions.isTravauxProps). `nature_travaux` seul ne
-		// suffit pas — c'est une propriété générique partagée avec d'autres
+		// suffit pas - c'est une propriété générique partagée avec d'autres
 		// sources de données.
 		const isTravaux = props.chantier_key != null || props.chantier_id != null;
 
 		if ((isContrib || isTravaux) && layer.on) {
 			// Register DOM marker with FeatureInteractions for overlap detection
-			// FI may not be loaded yet (lazy Phase 6) — queue for later flush
+			// FI may not be loaded yet (lazy Phase 6) - queue for later flush
 			if (window.FeatureInteractions?.registerMarker) {
 				window.FeatureInteractions.registerMarker(layer, feature);
 			} else {
@@ -464,7 +464,7 @@ window.DataModule = (function() {
 					const pct = Math.max(0, Math.min(100, Math.round(((now - tsDebut) / total) * 100)));
 					idx = Math.round((pct / 100) * 9);
 				} else if (!isNaN(d) || !isNaN(e)) {
-					// Dates exist but equal / reversed — position relative to now
+					// Dates exist but equal / reversed - position relative to now
 					idx = tsDebut > now ? 0 : 9;
 				}
 				if (idx !== undefined) {
@@ -515,7 +515,7 @@ window.DataModule = (function() {
 					if (window.LayerRegistry?.isTravauxLayer?.(layerName)) {
 						return !!(props.project_name || props.name || props.nature_travaux || props.nature || props.nature_chantier || props.chantier_id != null);
 					}
-					// Couches URL externes (WFS, open data) — pas de project_name, afficher tous les points
+					// Couches URL externes (WFS, open data) - pas de project_name, afficher tous les points
 					if (urlMap[layerName]) return true;
 					return !!props.project_name;
 				}
@@ -642,7 +642,7 @@ window.DataModule = (function() {
 
 			// ── Données ──────────────────────────────────────────────────────
 			const titre       = props.project_name || props.name || props.nature_travaux || props.nature || props.nature_chantier || 'Chantier';
-			const etat        = props.etat || '—';
+			const etat        = props.etat || '-';
 			const etatLow     = etat.toLowerCase();
 			const etatClass   = etatLow.includes('ouver') ? 'etat--ouvert'
 			                  : etatLow.includes('prochain') ? 'etat--prochain'
@@ -657,7 +657,7 @@ window.DataModule = (function() {
 			const debut        = TravauxModule.safeDate(props.date_debut);
 			const fin          = TravauxModule.safeDate(props.date_fin);
 			const now          = new Date();
-			const dateFmt      = (d) => d ? d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
+			const dateFmt      = (d) => d ? d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
 			const durationDays = (debut && fin && fin > debut) ? Math.max(1, Math.round((fin - debut) / 86400000)) : null;
 			const todayPct     = (debut && fin && fin > debut) ? Math.max(0, Math.min(100, ((now - debut) / (fin - debut)) * 100)) : 0;
 			const todayColor   = progressPct <= 50
@@ -666,7 +666,7 @@ window.DataModule = (function() {
 
 			const isPending = props.approved === false;
 
-			// ── HTML — même structure que showProjectDetail ───────────────────
+			// ── HTML - même structure que showProjectDetail ───────────────────
 			const natures = [props.nature_chantier, props.nature_travaux].filter(Boolean);
 
 			panel.innerHTML = `

@@ -1,6 +1,6 @@
 // modules/nav-panel.js
 // 3-Level Navigation Panel Controller
-// Level 1: Module selection (Carte / Travaux) — handled by sidebar.js
+// Level 1: Module selection (Carte / Travaux) - handled by sidebar.js
 // Level 2: Categories (Carte) or Sections (Travaux)
 // Level 3: Projects list / Travaux filters & timeline
 
@@ -115,7 +115,7 @@
         const velocity = deltaY / elapsed; // px/ms
 
         if (deltaY > 80 || velocity > 0.45) {
-          // fast enough or far enough — collapse
+          // fast enough or far enough - collapse
           this._panel.style.removeProperty('transform');
           this._panel.style.removeProperty('transition');
           this.collapse();
@@ -314,7 +314,7 @@
     },
 
     /**
-     * Collapse — hide panel but preserve all state
+     * Collapse - hide panel but preserve all state
      */
     collapse() {
       if (!this._panel || !this.isOpen() || this._collapsed) return;
@@ -325,7 +325,7 @@
     },
 
     /**
-     * Expand — restore collapsed panel
+     * Expand - restore collapsed panel
      */
     expand() {
       if (!this._panel || !this._collapsed) return;
@@ -417,7 +417,7 @@
 
     /**
      * Remove map layers (except an optional exclusion set) and reset filters.
-     * @param {Set<string>} [exclude] — layer names to keep on the map
+     * @param {Set<string>} [exclude] - layer names to keep on the map
      */
     _removeLayersExcept(exclude = new Set()) {
       win.MapModule?.removeAllLayers?.(exclude);
@@ -432,7 +432,7 @@
 
     /**
      * Clear the map and restore contributions + default layers.
-     * @param {boolean} [keepTravaux=false] — preserve travaux layers on the map (goBack use-case)
+     * @param {boolean} [keepTravaux=false] - preserve travaux layers on the map (goBack use-case)
      */
     _restoreDefaultLayers(keepTravaux = false) {
       const layersMap = win.categoryLayersMap || {};
@@ -442,7 +442,7 @@
 
       if (!keepTravaux) {
         this._travauxLayersLoaded = false;
-        // Don't null _travauxLoadPromise here — let the running promise finish naturally
+        // Don't null _travauxLoadPromise here - let the running promise finish naturally
         // and its guard will prevent layer creation. Nulling causes _travauxLayersLoaded
         // desync when the abandoned promise's finally block runs after the flag is reset.
       }

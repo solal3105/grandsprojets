@@ -1,5 +1,5 @@
 /* ============================================================================
-   HUB VILLE — /ville/{ville}
+   HUB VILLE - /ville/{ville}
 
    Direction : « carte-héros immersif ». Le héros est la carte de la ville
    (pins des projets par catégorie) surmontée d'un dégradé et du titre ; en
@@ -55,7 +55,7 @@ body { margin: 0; background: var(--surface-base); }
 .vh input { font: inherit; }
 .vh [hidden] { display: none !important; }
 
-/* ═══════════════ TOPBAR — chip system ═══════════════ */
+/* ═══════════════ TOPBAR - chip system ═══════════════ */
 .vh-topbar {
   position: fixed;
   inset: var(--banner-h, 0px) 0 auto;
@@ -166,7 +166,7 @@ body { margin: 0; background: var(--surface-base); }
 .vh-fallback h1 { font-family: var(--vh-heading); font-size: 1.6rem; margin: 0; }
 .vh-fallback p { color: var(--text-secondary); max-width: 46ch; margin: 0 0 10px; }
 
-/* ═══════════════ HÉROS — carte de la ville en fond ═══════════════ */
+/* ═══════════════ HÉROS - carte de la ville en fond ═══════════════ */
 .vh-hero {
   position: relative;
   min-height: clamp(360px, 48vh, 560px);
@@ -248,7 +248,7 @@ body { margin: 0; background: var(--surface-base); }
   text-shadow: 0 1px 12px rgba(0, 0, 0, 0.3);
 }
 
-/* CTA héros — pilule claire qui ressort sur le scrim sombre.
+/* CTA héros - pilule claire qui ressort sur le scrim sombre.
    Sélecteur `.vh a.vh-cta` : bat le reset `.vh a { color: inherit }` en
    spécificité, sinon le texte hériterait du blanc du héros. */
 .vh a.vh-cta {
@@ -332,7 +332,7 @@ body { margin: 0; background: var(--surface-base); }
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
 }
 .vh-tag:active { transform: translateY(0) scale(0.97); transition-duration: 0.08s; }
-/* Actif : teinte de catégorie + anneau — lisible quelle que soit la couleur */
+/* Actif : teinte de catégorie + anneau - lisible quelle que soit la couleur */
 .vh-tag.is-active {
   color: color-mix(in srgb, var(--tag-color) 72%, var(--text-primary));
   background: color-mix(in srgb, var(--tag-color) 14%, transparent);
@@ -545,7 +545,7 @@ body { margin: 0; background: var(--surface-base); }
 }
 .vh-foot__b2b a:hover { border-bottom-color: var(--primary); }
 
-/* Marqueur ponctuel de la carte héros — couleur de catégorie via --dot */
+/* Marqueur ponctuel de la carte héros - couleur de catégorie via --dot */
 .vh-map-dot {
   display: block;
   width: 14px;

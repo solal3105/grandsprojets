@@ -1,5 +1,5 @@
 /**
- * Prefetch critique Supabase — déclenché pendant le parsing HTML,
+ * Prefetch critique Supabase - déclenché pendant le parsing HTML,
  * avant le chargement des modules JS, pour superposer les appels réseau
  * avec l'exécution JS (~2 s de gain potentiel sur le chemin critique LCP).
  */

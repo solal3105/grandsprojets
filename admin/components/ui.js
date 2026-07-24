@@ -1,5 +1,5 @@
 /* ============================================================================
-   ADMIN UI — Shared UI primitives (toast, confirm, slide-panel, format)
+   ADMIN UI - Shared UI primitives (toast, confirm, slide-panel, format)
    ============================================================================ */
 
 /* ── Toast ── */
@@ -102,9 +102,9 @@ export function escAttr(str) {
 }
 
 export function formatDate(dateStr) {
-  if (!dateStr) return '—';
+  if (!dateStr) return '-';
   const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return '—';
+  if (isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -145,7 +145,7 @@ export function renderPagination({ page, pageSize, total, onPageChange }) {
   const div = document.createElement('div');
   div.className = 'adm-pagination';
   div.innerHTML = `
-    <span class="adm-pagination__info">${start}–${end} sur ${total}</span>
+    <span class="adm-pagination__info">${start}-${end} sur ${total}</span>
     <div class="adm-pagination__buttons">
       <button class="adm-btn adm-btn--secondary adm-btn--sm" ${page <= 1 ? 'disabled' : ''} data-page="${page - 1}">
         <i class="fa-solid fa-chevron-left"></i>

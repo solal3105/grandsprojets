@@ -16,7 +16,7 @@
       <!-- Cards -->
       <div class="flex flex-col gap-5 max-w-4xl">
 
-        <!-- Card: BFM Lyon — TV -->
+        <!-- Card: BFM Lyon - TV -->
         <article class="bg-white rounded-2xl border border-gray-border overflow-hidden shadow-sm flex flex-col sm:flex-row">
 
           <!-- Logo pane -->
@@ -43,7 +43,7 @@
               <p class="text-[15px] text-dark/75 leading-relaxed italic">
                 « Une carte des travaux et projets urbains de la Métropole de Lyon… et demain, peut-être, <strong class="text-dark font-semibold not-italic">de toute la France ?</strong> »
               </p>
-              <cite class="not-italic text-[11px] text-gray-text mt-2 block">— Gérald Bouchon · BFM Lyon</cite>
+              <cite class="not-italic text-[11px] text-gray-text mt-2 block">- Gérald Bouchon · BFM Lyon</cite>
             </blockquote>
 
             <!-- CTA -->
@@ -89,7 +89,7 @@
               <p class="text-[15px] text-dark/75 leading-relaxed italic">
                 « Les travaux en ville, tout le monde les subit. Mais les comprendre, c'est une autre histoire. La start-up villeurbannaise Vazy s'attaque à ce problème avec <strong class="text-dark font-semibold not-italic">un outil cartographique interactif baptisé Open Projets</strong>. »
               </p>
-              <cite class="not-italic text-[11px] text-gray-text mt-2 block">— Noham Mouret · Le Quart d'Heure Lyonnais</cite>
+              <cite class="not-italic text-[11px] text-gray-text mt-2 block">- Noham Mouret · Le Quart d'Heure Lyonnais</cite>
             </blockquote>
 
             <!-- Audio player -->
@@ -104,7 +104,7 @@
                   <Play v-else class="w-3.5 h-3.5 ml-px" />
                 </button>
                 <div class="flex-1 min-w-0">
-                  <div class="text-[13px] font-medium text-dark truncate">L'actualité du mardi 14 avril — Le Quart d'Heure Lyonnais</div>
+                  <div class="text-[13px] font-medium text-dark truncate">L'actualité du mardi 14 avril - Le Quart d'Heure Lyonnais</div>
                   <div class="text-[11px] text-gray-text mt-0.5">Invités : Solal Gendrin &amp; Loïc Robbiani (Vazy)</div>
                 </div>
               </div>
@@ -137,7 +137,7 @@
           </div>
         </article>
 
-        <!-- Card: La Gazette des Communes — Webinaire -->
+        <!-- Card: La Gazette des Communes - Webinaire -->
         <article class="bg-white rounded-2xl border border-gray-border overflow-hidden shadow-sm flex flex-col sm:flex-row">
 
           <!-- Logo pane -->
@@ -168,7 +168,7 @@
                 <p class="text-[14px] text-dark/70 leading-relaxed italic">
                   « À partir de retours d'expérience, une réponse concrète à une contrainte structurelle pour les collectivités : <strong class="text-dark font-semibold not-italic">informer avec rigueur, en répondant aux attentes d'accès continu à l'information de manière centralisée et interactive</strong>. »
                 </p>
-                <cite class="not-italic text-[11px] text-gray-text mt-2 block">— La Gazette des Communes · Proposé par Vazy</cite>
+                <cite class="not-italic text-[11px] text-gray-text mt-2 block">- La Gazette des Communes · Proposé par Vazy</cite>
               </blockquote>
             </div>
 

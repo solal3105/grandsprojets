@@ -77,7 +77,7 @@ const audiences = [
     accentGradient: 'linear-gradient(to right, #FF0037, #F2B327)',
     features: [
       'Valorisez l\'action publique et renforcez la transparence',
-      'Aucune dépendance à un prestataire externe — vos équipes gèrent en autonomie',
+      'Aucune dépendance à un prestataire externe - vos équipes gèrent en autonomie',
       'Outil souverain, conforme RGPD, made in EU',
     ],
   },

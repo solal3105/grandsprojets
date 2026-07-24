@@ -1,5 +1,5 @@
 /* ============================================================================
-   FICHE V2 — Glassmorphism editorial page
+   FICHE V2 - Glassmorphism editorial page
    
    Dependencies: /styles/00-colors.css (loaded in HTML)
    Uses ALL site tokens: --surface-*, --text-*, --border-*, --gray-*,
@@ -8,7 +8,7 @@
    Glassmorphism recipe: exact dock values from 11-toggles.css
    3D buttons: same physics as gp-button-system.css
    City's --color-primary drives the accent via CityBrandingModule
-   Fonts: Space Grotesk (headings) + Inter (body) — same as /home/
+   Fonts: Space Grotesk (headings) + Inter (body) - same as /home/
    ============================================================================ */
 
 /* ═══════════════ PAGE RESET ═══════════════ */
@@ -20,7 +20,7 @@ body { margin: 0; }
 .fv2 [hidden] { display: none !important; }
 
 /* ═══════════════ SSR CONTENT (pré-rendu pour le SEO) ═══════════════ */
-/* Visible tant que le JS n'a pas pris le relais — les crawlers sans JS voient ceci */
+/* Visible tant que le JS n'a pas pris le relais - les crawlers sans JS voient ceci */
 .fv2-ssr {
   font-family: var(--fv2-sans, 'Inter', sans-serif);
   max-width: 800px;
@@ -59,7 +59,7 @@ body { margin: 0; }
 .fv2-ssr li { margin-bottom: 0.5rem; }
 .fv2-ssr li a { color: var(--color-primary, #14AE5C); text-decoration: underline; }
 /* L'article markdown SSR utilise .fv2-prose (typographie partagée avec le
-   rendu client, plus bas dans ce fichier) — pas de ruleset dédié. */
+   rendu client, plus bas dans ce fichier) - pas de ruleset dédié. */
 /* Masqué dès que le JS interactif démarre */
 .fv2-ssr.is-hydrated { display: none; }
 
@@ -74,7 +74,7 @@ body { margin: 0; }
   --fv2-radius-sm: 14px;
   --fv2-radius-xs: 10px;
 
-  /* Glassmorphism — exact dock recipe from toggle-dock */
+  /* Glassmorphism - exact dock recipe from toggle-dock */
   --fv2-glass-bg: rgba(250, 251, 255, 0.82);
   --fv2-glass-border: rgba(255, 255, 255, 0.88);
   --fv2-glass-blur: 44px;
@@ -119,7 +119,7 @@ body { margin: 0; }
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   TOPBAR — Chip system
+   TOPBAR - Chip system
    ─────────────────────────────────────────────────────────────────────────
    Principe : un seul motif `.fv2-chip` pour tous les éléments flottants.
    · Floating  : chaque chip est une pilule glass individuelle sur le hero.
@@ -131,7 +131,7 @@ body { margin: 0; }
    · --text-primary / --text-secondary    → couleurs texte
    · --border-light / --border-medium     → séparateur
    · --primary-alpha-12 / --primary-alpha-35 → hover primaire
-   · box-shadow : rgba(0,0,0,...) hardcodé — règle projet (ombres noires fixes)
+   · box-shadow : rgba(0,0,0,...) hardcodé - règle projet (ombres noires fixes)
    ════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Conteneur ── */
@@ -148,7 +148,7 @@ body { margin: 0; }
   transition: background .3s var(--fv2-ease), box-shadow .3s var(--fv2-ease);
 }
 
-/* Trait inférieur — apparaît uniquement scrolled */
+/* Trait inférieur - apparaît uniquement scrolled */
 .fv2-topbar::after {
   content: '';
   position: absolute;
@@ -332,7 +332,7 @@ body { margin: 0; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   HERO — Cinematic cover with scrim + city logo + category badge
+   HERO - Cinematic cover with scrim + city logo + category badge
    ═══════════════════════════════════════════════════════════════════════════ */
 .fv2-hero {
   position: relative;
@@ -345,14 +345,14 @@ body { margin: 0; }
   align-items: flex-end;
 }
 
-/* Map as hero background — same behaviour as .fv2-hero__bg but interactive */
+/* Map as hero background - same behaviour as .fv2-hero__bg but interactive */
 .fv2-hero__map {
   position: absolute;
   inset: 0;
   z-index: 0;
 }
 
-/* Old photo bg — kept for potential reuse but inactive */
+/* Old photo bg - kept for potential reuse but inactive */
 .fv2-hero__bg {
   position: absolute;
   inset: -4%;
@@ -368,7 +368,7 @@ body { margin: 0; }
   to   { transform: scale(1.03) translate(-.3%, -.6%); }
 }
 
-/* Triple-layer scrim — toujours visible (fond carte ou photo) */
+/* Triple-layer scrim - toujours visible (fond carte ou photo) */
 .fv2-hero__scrim {
   position: absolute;
   inset: 0;
@@ -397,7 +397,7 @@ body { margin: 0; }
   padding: calc(var(--fv2-topbar-h) + 32px) 28px 48px;
 }
 
-/* City brand badge — glass pill, always legible regardless of hero bg */
+/* City brand badge - glass pill, always legible regardless of hero bg */
 .fv2-hero__city-badge {
   display: inline-flex;
   align-items: center;
@@ -424,7 +424,7 @@ body { margin: 0; }
   width: auto;
   max-width: 72px;
   object-fit: contain;
-  /* No filter — the dark glass pill provides contrast for any logo color */
+  /* No filter - the dark glass pill provides contrast for any logo color */
   border-radius: 6px;
 }
 
@@ -436,7 +436,7 @@ body { margin: 0; }
   letter-spacing: -.01em;
 }
 
-/* Empty hero (no cover photo) — light glass badge */
+/* Empty hero (no cover photo) - light glass badge */
 .fv2-hero--empty .fv2-hero__city-badge {
   background: var(--surface-raised);
   border-color: var(--border-light);
@@ -514,7 +514,7 @@ body { margin: 0; }
 .fv2-hero__expand:hover { background: rgba(255,255,255,.20); transform: scale(1.08); }
 @media (hover: none) { .fv2-hero__expand { opacity: 1; transform: scale(1); } }
 
-/* Hero — no cover */
+/* Hero - no cover */
 .fv2-hero--empty {
   min-height: auto;
   max-height: none;
@@ -542,7 +542,7 @@ body { margin: 0; }
   100% { background-position: 200% 0; }
 }
 
-/* Skeleton de base : fond sombre (hero avec scrim carte) — shimmer blanc */
+/* Skeleton de base : fond sombre (hero avec scrim carte) - shimmer blanc */
 .fv2-skel {
   display: block;
   border-radius: 6px;
@@ -571,7 +571,7 @@ body { margin: 0; }
 .fv2-skel--w70   { width: 70%; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   BODY GRID — Main + Aside
+   BODY GRID - Main + Aside
    ═══════════════════════════════════════════════════════════════════════════ */
 .fv2-body {
   max-width: var(--fv2-body-max);
@@ -597,7 +597,7 @@ body { margin: 0; }
   gap: 40px;
 }
 
-/* Block — scroll-reveal container */
+/* Block - scroll-reveal container */
 .fv2-block {
   opacity: 1;
   transform: none;
@@ -608,7 +608,7 @@ body { margin: 0; }
   transform: none;
 }
 
-/* Bleed — full width on mobile */
+/* Bleed - full width on mobile */
 .fv2-block--bleed {
   margin-left: -28px;
   margin-right: -28px;
@@ -679,7 +679,7 @@ body { margin: 0; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   MAP — Glassmorphism container
+   MAP - Glassmorphism container
    ═══════════════════════════════════════════════════════════════════════════ */
 .fv2-map-glass {
   position: relative;
@@ -713,7 +713,7 @@ body { margin: 0; }
 @media (min-width: 600px) { .fv2-map { height: 460px; } }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PROSE — Markdown rendered content
+   PROSE - Markdown rendered content
    ═══════════════════════════════════════════════════════════════════════════ */
 .fv2-prose {
   font-family: var(--fv2-sans);
@@ -861,7 +861,7 @@ body { margin: 0; }
 .fv2-prose .copy-btn:hover { color: var(--primary); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SIDEBAR — Glassmorphism cards
+   SIDEBAR - Glassmorphism cards
    ═══════════════════════════════════════════════════════════════════════════ */
 .fv2-aside {
   display: flex;
@@ -877,7 +877,7 @@ body { margin: 0; }
   }
 }
 
-/* Glass card — same glassmorphism as toggle-dock */
+/* Glass card - same glassmorphism as toggle-dock */
 .fv2-glass-card {
   background: var(--fv2-glass-bg);
   background-image: var(--fv2-glass-shimmer);
@@ -915,7 +915,7 @@ body { margin: 0; }
     var(--fv2-glass-shimmer);
 }
 
-/* Lien vers le hub de la ville — sur sa propre ligne sous le logo/nom */
+/* Lien vers le hub de la ville - sur sa propre ligne sous le logo/nom */
 .fv2-glass-card__city-hub {
   flex-basis: 100%;
   display: flex;
@@ -1229,7 +1229,7 @@ body { margin: 0; }
   max-width: 400px;
 }
 
-/* 3D button — same physics as gp-button-system */
+/* 3D button - same physics as gp-button-system */
 .fv2-btn-3d {
   display: inline-flex;
   align-items: center;
@@ -1285,7 +1285,7 @@ body { margin: 0; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   OVERLAYS — Custom fullscreen panels
+   OVERLAYS - Custom fullscreen panels
    ═══════════════════════════════════════════════════════════════════════════ */
 .fv2-overlay {
   position: fixed;

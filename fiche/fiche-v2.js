@@ -1,5 +1,5 @@
 /* ============================================================================
-   FICHE V2 — JavaScript
+   FICHE V2 - JavaScript
    
    Self-contained page logic. No ModalHelper, no Lightbox module.
    Uses site modules: supabaseService, ThemeManager, CityBrandingModule,
@@ -103,7 +103,7 @@
 
   function buildBackUrl({ villeSlug, categorySlug }) {
     // Retour contextuel : si l'utilisateur vient du hub de la ville (ou de la
-    // carte), on le ramène exactement là — filtre compris. Sinon, la carte.
+    // carte), on le ramène exactement là - filtre compris. Sinon, la carte.
     try {
       const ref = document.referrer && new URL(document.referrer);
       if (ref && ref.host === window.location.host && /^\/ville\/[a-z0-9-]+/i.test(ref.pathname)) {
@@ -256,7 +256,7 @@
 
   // Rotation cinématique
   let rotationRafId = null;
-  let orbitCenter = null;   // LngLat natif — centre géographique de l'objet
+  let orbitCenter = null;   // LngLat natif - centre géographique de l'objet
   let rotationStartTs = null; // timestamp de départ pour drift-free bearing
   let rotationStartBearing = 0;
   const MAP_HANDLERS = ['dragPan', 'scrollZoom', 'doubleClickZoom', 'dragRotate', 'touchZoomRotate', 'keyboard', 'boxZoom'];
@@ -447,8 +447,8 @@
       ? `${CFG.PROD}/fiche/${encodeURIComponent(ville)}/${encodeURIComponent(catSlug)}/${encodeURIComponent(projSlug)}`
       : `${CFG.PROD}/fiche/`;
 
-    // Titre dynamique — utilise le branding ville si disponible (sera mis à jour par loadBranding)
-    document.title = `${name} – ${catLabel}`;
+    // Titre dynamique - utilise le branding ville si disponible (sera mis à jour par loadBranding)
+    document.title = `${name} - ${catLabel}`;
 
     const setMeta = (attr, key, val) => {
       let tag = document.querySelector(`meta[${attr}="${key}"]`);
@@ -644,7 +644,7 @@
     // Title in topbar
     el.topTitle.textContent = name;
 
-    // Hero — clear skeletons and populate
+    // Hero - clear skeletons and populate
     el.heroInner.innerHTML = '';
 
     // Badge catégorie
@@ -769,11 +769,11 @@
   /* ═══════════════ MAIN INIT ═══════════════ */
   async function init() {
     // Le bloc SSR sera masqué uniquement après un fetch réussi.
-    // (si le fetch échoue — ex: sandbox Google Rich Results — le SSR reste visible)
+    // (si le fetch échoue - ex: sandbox Google Rich Results - le SSR reste visible)
     const ssrBlock = document.getElementById('fv2-ssr-content');
     const ssrHasContent = ssrBlock && !!ssrBlock.querySelector('h1');
 
-    // Bouton retour — construit le href contextuel immédiatement (avant tout fetch)
+    // Bouton retour - construit le href contextuel immédiatement (avant tout fetch)
     initBackButton();
 
     // Theme
@@ -835,7 +835,7 @@
     // Fetch réussi → masquer le SSR, rendre l'UI interactive
     if (ssrBlock) ssrBlock.classList.add('is-hydrated');
 
-    // Documents — matchés sur le nom réel du projet (pas le slug d'URL),
+    // Documents - matchés sur le nom réel du projet (pas le slug d'URL),
     // lancé en parallèle du rendu, attendu juste avant renderDocs()
     const docsPromise = window.supabaseService?.getConsultationDossiersByProject?.(data.project_name);
 
@@ -854,7 +854,7 @@
       initDataModuleStyles(ville),
     ]);
 
-    // Description — masquée si un article markdown est présent
+    // Description - masquée si un article markdown est présent
     if (data.markdown_url) {
       if (el.descBlock) el.descBlock.hidden = true;
     } else {

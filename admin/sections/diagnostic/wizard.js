@@ -1,5 +1,5 @@
 /**
- * Diagnostic terrain — wizard d'ajout / édition d'une couche.
+ * Diagnostic terrain - wizard d'ajout / édition d'une couche.
  * Modale en 4 étapes : source (fichier GeoJSON/CSV, lien, données Open Projets),
  * identité, style, popup & contexte IA. Tout est persisté dans diagnostic_layers ;
  * les fichiers sont normalisés en GeoJSON et déposés dans Storage.
@@ -183,7 +183,7 @@ function _bindSourceStep(overlay, w) {
       w.cfg.popup = { ...src.defaults.popup };
       w.cfg.ai_context = src.defaults.ai_context;
       overlay.querySelectorAll('[data-internal]').forEach((b) => b.classList.toggle('is-active', b === btn));
-      _showDetect(overlay, `<b>${esc(src.label)}</b> — les données de la structure seront chargées automatiquement.`, false);
+      _showDetect(overlay, `<b>${esc(src.label)}</b> - les données de la structure seront chargées automatiquement.`, false);
       _showConfig(overlay, w);
     });
   });
@@ -208,7 +208,7 @@ function _ingest(overlay, w, text, kind, name, url) {
       const features = prepareFeatures(fc);
       if (!features.length) throw new Error('Aucune géométrie valide trouvée');
       w.draft = { kind: url ? 'url' : 'file', url, features, fields: detectFields(features), name };
-      _showDetect(overlay, `<b>GeoJSON</b> reconnu — <b>${features.length.toLocaleString('fr-FR')}</b> entité(s) valide(s).`, false);
+      _showDetect(overlay, `<b>GeoJSON</b> reconnu - <b>${features.length.toLocaleString('fr-FR')}</b> entité(s) valide(s).`, false);
     } else {
       const { headers, records } = parseCsv(text);
       if (!records.length) throw new Error('CSV vide ou illisible');
@@ -237,8 +237,8 @@ function _recountCsv(overlay, w) {
   _showDetect(
     overlay,
     ok
-      ? `<b>CSV</b> reconnu — <b>${features.length.toLocaleString('fr-FR')}</b> point(s) géolocalisé(s) sur ${records.length.toLocaleString('fr-FR')} ligne(s).`
-      : 'Aucun point géolocalisé — vérifiez les colonnes latitude / longitude.',
+      ? `<b>CSV</b> reconnu - <b>${features.length.toLocaleString('fr-FR')}</b> point(s) géolocalisé(s) sur ${records.length.toLocaleString('fr-FR')} ligne(s).`
+      : 'Aucun point géolocalisé - vérifiez les colonnes latitude / longitude.',
     !ok
   );
   _updateSaveState(overlay, w);
@@ -298,7 +298,7 @@ function _configStepsHtml(w) {
       <div class="adm-form-hint">Une couleur est attribuée automatiquement à chaque valeur.</div>
     </div>
     <div class="adm-form-group">
-      <label class="adm-label" for="dg-wz-radius">Taille des points — <b id="dg-wz-radius-v">${esc(String(cfg.style.radius || 4))}</b> px</label>
+      <label class="adm-label" for="dg-wz-radius">Taille des points - <b id="dg-wz-radius-v">${esc(String(cfg.style.radius || 4))}</b> px</label>
       <input type="range" min="2" max="9" value="${esc(String(cfg.style.radius || 4))}" id="dg-wz-radius" class="dg-range">
     </div>
 
@@ -455,7 +455,7 @@ function _refreshFieldSelectors(overlay, w) {
   const fieldOptions = (selected) => '<option value="">(aucun)</option>'
     + fields.map((f) => `<option ${f === selected ? 'selected' : ''}>${esc(f)}</option>`).join('');
   // Champ-titre pré-choisi : sans lui, chaque point s'affiche sous le nom de sa
-  // couche — dans la popup comme dans l'annexe du rapport.
+  // couche - dans la popup comme dans l'annexe du rapport.
   if (!cfg.popup.title_field) cfg.popup.title_field = _guessTitleField(w.draft, fields);
   const titleSel = overlay.querySelector('#dg-wz-title');
   if (titleSel) titleSel.innerHTML = fieldOptions(cfg.popup.title_field);

@@ -1,17 +1,17 @@
 /**
  * Netlify Function: ai-generate
- * Proxy vers OpenAI — utilise l'API Responses avec le tool web_search_preview
+ * Proxy vers OpenAI - utilise l'API Responses avec le tool web_search_preview
  * pour chercher des informations réelles sur le projet avant de rédiger.
  * Supporte le streaming SSE.
  *
  * Variables d'environnement requises :
- *   OPENAI_API_KEY — clé API OpenAI
+ *   OPENAI_API_KEY - clé API OpenAI
  *
  * Événements SSE émis vers le client :
- *   { status: 'searching' }         — recherche web en cours
- *   { content: '...' }              — chunk de texte
- *   { sources: [{url, title}] }     — sources consultées (fin de génération)
- *   [DONE]                          — fin du stream
+ *   { status: 'searching' }         - recherche web en cours
+ *   { content: '...' }              - chunk de texte
+ *   { sources: [{url, title}] }     - sources consultées (fin de génération)
+ *   [DONE]                          - fin du stream
  */
 
 const SYSTEM_PROMPT_DESC = `Tu es un rédacteur expert en urbanisme et projets de territoire.
@@ -31,7 +31,7 @@ Structure attendue :
 - Longueur : 300-500 mots
 Tu dois écrire en français. Ne mets pas de titre H1.
 IMPORTANT : Utilise impérativement la recherche web pour trouver des informations récentes et précises sur ce projet. Intègre des données chiffrées, des dates, des acteurs impliqués si disponibles.
-IMPORTANT : Ne commence JAMAIS l'article par un lien seul ou une citation — commence directement par le contenu structuré (titre H2 puis introduction).
+IMPORTANT : Ne commence JAMAIS l'article par un lien seul ou une citation - commence directement par le contenu structuré (titre H2 puis introduction).
 IMPORTANT : N'inclus AUCUN lien hypertexte inline [texte](url) dans le corps du texte. Texte Markdown pur, sans liens.`;
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
@@ -75,15 +75,15 @@ function friendlyAIError(status, raw) {
   } catch { msg = String(raw || ''); }
   const s = Number(status) || 0;
   if (code === 'insufficient_quota' || /quota|billing|credit/i.test(`${code} ${msg}`)) {
-    return 'Crédits du service IA épuisés — vérifiez la facturation OpenAI ou les crédits de la passerelle IA Netlify.';
+    return 'Crédits du service IA épuisés - vérifiez la facturation OpenAI ou les crédits de la passerelle IA Netlify.';
   }
-  if (s === 429 || code === 'rate_limit_exceeded') return 'Service IA saturé (limite de débit atteinte) — réessayez dans quelques instants.';
-  if (s === 401 || s === 403) return 'Authentification au service IA refusée — clé API ou jeton de passerelle IA Netlify invalide ou expiré.';
-  if (s === 402) return 'Crédits du service IA épuisés — vérifiez la facturation.';
-  if (s === 404 || code === 'model_not_found') return 'Modèle IA indisponible — vérifiez la configuration.';
-  if (s === 400) return 'Requête refusée par le service IA — réessayez.';
-  if (s >= 500) return 'Service IA temporairement indisponible — réessayez dans quelques instants.';
-  return `Service IA indisponible${s ? ` (HTTP ${s})` : ''} — réessayez.`;
+  if (s === 429 || code === 'rate_limit_exceeded') return 'Service IA saturé (limite de débit atteinte) - réessayez dans quelques instants.';
+  if (s === 401 || s === 403) return 'Authentification au service IA refusée - clé API ou jeton de passerelle IA Netlify invalide ou expiré.';
+  if (s === 402) return 'Crédits du service IA épuisés - vérifiez la facturation.';
+  if (s === 404 || code === 'model_not_found') return 'Modèle IA indisponible - vérifiez la configuration.';
+  if (s === 400) return 'Requête refusée par le service IA - réessayez.';
+  if (s >= 500) return 'Service IA temporairement indisponible - réessayez dans quelques instants.';
+  return `Service IA indisponible${s ? ` (HTTP ${s})` : ''} - réessayez.`;
 }
 
 const ALLOWED_ORIGINS = [
@@ -144,7 +144,7 @@ export default async function handler(req) {
   let _timedOut = false; // signalé au client s'il n'a encore rien reçu
   const timeoutCtrl = new AbortController();
   const timeoutId = setTimeout(() => {
-    console.warn('[ai-generate] Timeout 25s — annulation stream');
+    console.warn('[ai-generate] Timeout 25s - annulation stream');
     _timedOut = true;
     _streamReader?.cancel().catch(() => {});
     timeoutCtrl.abort();
@@ -251,7 +251,7 @@ export default async function handler(req) {
 
               // Fin
               if ((ev.type === 'response.completed' || ev.type === 'response.failed') && !doneSent) {
-                console.log(`[ai-generate] Terminé — type=${ev.type} searches=${searchCount} chunks=${chunkCount}`);
+                console.log(`[ai-generate] Terminé - type=${ev.type} searches=${searchCount} chunks=${chunkCount}`);
                 clearTimeout(timeoutId);
                 await writer.write(enc('data: [DONE]\n\n'));
                 doneSent = true;
@@ -271,7 +271,7 @@ export default async function handler(req) {
           // Timeout sans aucun contenu généré : signaler plutôt qu'un silence
           // (avec du contenu partiel, le texte déjà reçu reste utilisable).
           if (_timedOut && chunkCount === 0 && !doneSent) {
-            await writer.write(enc(`data: ${JSON.stringify({ error: 'Génération interrompue (délai dépassé) — réessayez.' })}\n\n`));
+            await writer.write(enc(`data: ${JSON.stringify({ error: 'Génération interrompue (délai dépassé) - réessayez.' })}\n\n`));
           }
           if (!doneSent) await writer.write(enc('data: [DONE]\n\n'));
           await writer.close();
@@ -293,8 +293,8 @@ export default async function handler(req) {
     clearTimeout(timeoutId);
     console.error('[ai-generate] Fatal:', err.name, err.message);
     const msg = err.name === 'AbortError'
-      ? 'Génération interrompue (délai dépassé) — réessayez.'
-      : 'Service IA injoignable — vérifiez la connexion puis réessayez.';
+      ? 'Génération interrompue (délai dépassé) - réessayez.'
+      : 'Service IA injoignable - vérifiez la connexion puis réessayez.';
     return errResp(500, msg, corsHeaders);
   }
 }

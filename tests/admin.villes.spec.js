@@ -36,35 +36,35 @@ const clearToasts = (page) =>
 test.describe.configure({ mode: 'serial' });
 
 // ─────────────────────────────────────────────────────────
-// 8.1 — Liste des villes
+// 8.1 - Liste des villes
 // ─────────────────────────────────────────────────────────
-test.describe('8.1 — Liste des villes', () => {
+test.describe('8.1 - Liste des villes', () => {
 
-  test('8.1.1 — Page chargée avec titre', async ({ page }) => {
+  test('8.1.1 - Page chargée avec titre', async ({ page }) => {
     await goToVilles(page);
     await expect(page.locator('.adm-page-title')).toContainText('Gestion des villes');
   });
 
-  test('8.1.2 — Bouton "Nouvelle ville" visible', async ({ page }) => {
+  test('8.1.2 - Bouton "Nouvelle ville" visible', async ({ page }) => {
     await goToVilles(page);
     await expect(page.locator('#ville-create-btn')).toBeVisible();
     await expect(page.locator('#ville-create-btn')).toContainText('Nouvelle ville');
   });
 
-  test('8.1.3 — Liste contient au moins la ville test-e2e', async ({ page }) => {
+  test('8.1.3 - Liste contient au moins la ville test-e2e', async ({ page }) => {
     await goToVilles(page);
     const item = page.locator('.adm-list-item[data-ville="test-e2e"]');
     await expect(item).toBeVisible();
   });
 
-  test('8.1.4 — Chaque item : badge code ville + nom', async ({ page }) => {
+  test('8.1.4 - Chaque item : badge code ville + nom', async ({ page }) => {
     await goToVilles(page);
     const item = page.locator('.adm-list-item').first();
     await expect(item.locator('.adm-badge--info')).toBeVisible();
     await expect(item.locator('.adm-list-item__name')).toBeVisible();
   });
 
-  test('8.1.5 — Champ recherche filtre la liste', async ({ page }) => {
+  test('8.1.5 - Champ recherche filtre la liste', async ({ page }) => {
     await goToVilles(page);
     const allBefore = await page.locator('.adm-list-item').count();
     await page.fill('#villes-search', 'zzz-inexistant-zzz');
@@ -79,7 +79,7 @@ test.describe('8.1 — Liste des villes', () => {
     expect(await page.locator('.adm-list-item').count()).toBe(allBefore);
   });
 
-  test('8.1.6 — Boutons actions (administrer + supprimer) sur chaque item', async ({ page }) => {
+  test('8.1.6 - Boutons actions (administrer + supprimer) sur chaque item', async ({ page }) => {
     await goToVilles(page);
     const item = page.locator('.adm-list-item').first();
     await expect(item.locator('[data-action="select"]')).toBeVisible();
@@ -88,17 +88,17 @@ test.describe('8.1 — Liste des villes', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 8.2 — Formulaire de création
+// 8.2 - Formulaire de création
 // ─────────────────────────────────────────────────────────
-test.describe('8.2 — Formulaire de création', () => {
+test.describe('8.2 - Formulaire de création', () => {
 
-  test('8.2.1 — Clic "Nouvelle ville" ouvre le formulaire', async ({ page }) => {
+  test('8.2.1 - Clic "Nouvelle ville" ouvre le formulaire', async ({ page }) => {
     await goToVilles(page);
     await page.click('#ville-create-btn');
     await expect(page.locator('.cw-header__title')).toHaveText('Nouvelle ville');
   });
 
-  test('8.2.2 — Champs code ville et nom affiché présents et obligatoires', async ({ page }) => {
+  test('8.2.2 - Champs code ville et nom affiché présents et obligatoires', async ({ page }) => {
     await goToVilles(page);
     await page.click('#ville-create-btn');
     await expect(page.locator('#cf-ville')).toBeVisible();
@@ -108,14 +108,14 @@ test.describe('8.2 — Formulaire de création', () => {
     await expect(page.locator('#cf-brand-name')).toHaveAttribute('required', '');
   });
 
-  test('8.2.3 — Code ville en mode création est éditable', async ({ page }) => {
+  test('8.2.3 - Code ville en mode création est éditable', async ({ page }) => {
     await goToVilles(page);
     await page.click('#ville-create-btn');
     const input = page.locator('#cf-ville');
     await expect(input).toBeEnabled();
   });
 
-  test('8.2.4 — Couleur primaire : valeur par défaut + sync picker↔texte', async ({ page }) => {
+  test('8.2.4 - Couleur primaire : valeur par défaut + sync picker↔texte', async ({ page }) => {
     await goToVilles(page);
     await page.click('#ville-create-btn');
     await expect(page.locator('#cf-color-picker')).toHaveValue('#14ae5c');
@@ -126,7 +126,7 @@ test.describe('8.2 — Formulaire de création', () => {
     await expect(page.locator('#cf-color-picker')).toHaveValue('#ff0000');
   });
 
-  test('8.2.5 — Zones de dépôt logo, logo sombre, favicon', async ({ page }) => {
+  test('8.2.5 - Zones de dépôt logo, logo sombre, favicon', async ({ page }) => {
     await goToVilles(page);
     await page.click('#ville-create-btn');
     await expect(page.locator('#cf-logo-drop')).toBeVisible();
@@ -134,7 +134,7 @@ test.describe('8.2 — Formulaire de création', () => {
     await expect(page.locator('#cf-favicon-drop')).toBeVisible();
   });
 
-  test('8.2.6 — Boutons Retour et Annuler reviennent à la liste', async ({ page }) => {
+  test('8.2.6 - Boutons Retour et Annuler reviennent à la liste', async ({ page }) => {
     await goToVilles(page);
     await page.click('#ville-create-btn');
     await expect(page.locator('.cw-header__title')).toHaveText('Nouvelle ville');
@@ -144,7 +144,7 @@ test.describe('8.2 — Formulaire de création', () => {
     await expect(page.locator('.adm-page-title')).toContainText('Gestion des villes');
   });
 
-  test('8.2.7 — Validation : code ville vide → toast erreur', async ({ page }) => {
+  test('8.2.7 - Validation : code ville vide → toast erreur', async ({ page }) => {
     await goToVilles(page);
     await page.click('#ville-create-btn');
     // Leave code empty, fill name
@@ -154,7 +154,7 @@ test.describe('8.2 — Formulaire de création', () => {
     await clearToasts(page);
   });
 
-  test('8.2.8 — Validation : code ville invalide → toast erreur', async ({ page }) => {
+  test('8.2.8 - Validation : code ville invalide → toast erreur', async ({ page }) => {
     await goToVilles(page);
     await page.click('#ville-create-btn');
     await page.fill('#cf-ville', 'INVALID CITY!');
@@ -164,7 +164,7 @@ test.describe('8.2 — Formulaire de création', () => {
     await clearToasts(page);
   });
 
-  test('8.2.9 — Validation : nom affiché vide → toast erreur', async ({ page }) => {
+  test('8.2.9 - Validation : nom affiché vide → toast erreur', async ({ page }) => {
     await goToVilles(page);
     await page.click('#ville-create-btn');
     await page.fill('#cf-ville', 'test-valid-code');
@@ -174,7 +174,7 @@ test.describe('8.2 — Formulaire de création', () => {
     await clearToasts(page);
   });
 
-  test('8.2.10 — Validation : couleur invalide → toast erreur', async ({ page }) => {
+  test('8.2.10 - Validation : couleur invalide → toast erreur', async ({ page }) => {
     await goToVilles(page);
     await page.click('#ville-create-btn');
     await page.fill('#cf-ville', 'test-valid-code');
@@ -188,11 +188,11 @@ test.describe('8.2 — Formulaire de création', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 8.3 — Cycle complet : créer → vérifier → supprimer
+// 8.3 - Cycle complet : créer → vérifier → supprimer
 // ─────────────────────────────────────────────────────────
-test.describe('8.3 — Cycle créer → vérifier → supprimer', () => {
+test.describe('8.3 - Cycle créer → vérifier → supprimer', () => {
 
-  test('8.3.1 — Créer une ville avec succès', async ({ page }) => {
+  test('8.3.1 - Créer une ville avec succès', async ({ page }) => {
     await goToVilles(page);
     await page.click('#ville-create-btn');
 
@@ -209,7 +209,7 @@ test.describe('8.3 — Cycle créer → vérifier → supprimer', () => {
     await clearToasts(page);
   });
 
-  test('8.3.2 — La ville créée apparaît dans la liste', async ({ page }) => {
+  test('8.3.2 - La ville créée apparaît dans la liste', async ({ page }) => {
     await goToVilles(page);
     const item = page.locator(`.adm-list-item[data-ville="${TEST_CITY_CODE}"]`);
     await expect(item).toBeVisible({ timeout: 10000 });
@@ -219,7 +219,7 @@ test.describe('8.3 — Cycle créer → vérifier → supprimer', () => {
     await expect(item.locator('.adm-list-item__name')).toContainText(TEST_CITY_NAME);
   });
 
-  test('8.3.3 — La ville est trouvable via la recherche', async ({ page }) => {
+  test('8.3.3 - La ville est trouvable via la recherche', async ({ page }) => {
     await goToVilles(page);
     await page.fill('#villes-search', TEST_CITY_NAME.substring(0, 8));
     await page.waitForTimeout(400);
@@ -227,7 +227,7 @@ test.describe('8.3 — Cycle créer → vérifier → supprimer', () => {
     await expect(item).toBeVisible();
   });
 
-  test('8.3.4 — Bouton "Administrer" change la ville active', async ({ page }) => {
+  test('8.3.4 - Bouton "Administrer" change la ville active', async ({ page }) => {
     await goToVilles(page);
     const selectBtn = page.locator(`[data-action="select"][data-ville="${TEST_CITY_CODE}"]`);
     await selectBtn.click();
@@ -235,7 +235,7 @@ test.describe('8.3 — Cycle créer → vérifier → supprimer', () => {
     await clearToasts(page);
   });
 
-  test('8.3.5 — Supprimer la ville créée (confirmation)', async ({ page }) => {
+  test('8.3.5 - Supprimer la ville créée (confirmation)', async ({ page }) => {
     await goToVilles(page);
     const deleteBtn = page.locator(`[data-action="delete"][data-ville="${TEST_CITY_CODE}"]`);
     await deleteBtn.click();
@@ -250,7 +250,7 @@ test.describe('8.3 — Cycle créer → vérifier → supprimer', () => {
     await clearToasts(page);
   });
 
-  test('8.3.6 — La ville supprimée a disparu de la liste', async ({ page }) => {
+  test('8.3.6 - La ville supprimée a disparu de la liste', async ({ page }) => {
     await goToVilles(page);
     const item = page.locator(`.adm-list-item[data-ville="${TEST_CITY_CODE}"]`);
     await expect(item).toHaveCount(0);
@@ -258,11 +258,11 @@ test.describe('8.3 — Cycle créer → vérifier → supprimer', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 8.4 — Création doublon (non-régression bug 400)
+// 8.4 - Création doublon (non-régression bug 400)
 // ─────────────────────────────────────────────────────────
-test.describe('8.4 — Non-régression', () => {
+test.describe('8.4 - Non-régression', () => {
 
-  test('8.4.1 — Créer une ville sans logo ne provoque pas d\'erreur 400', async ({ page }) => {
+  test('8.4.1 - Créer une ville sans logo ne provoque pas d\'erreur 400', async ({ page }) => {
     await goToVilles(page);
     await page.click('#ville-create-btn');
 
@@ -277,7 +277,7 @@ test.describe('8.4 — Non-régression', () => {
     await clearToasts(page);
   });
 
-  test('8.4.2 — Nettoyage : supprimer la ville de non-régression', async ({ page }) => {
+  test('8.4.2 - Nettoyage : supprimer la ville de non-régression', async ({ page }) => {
     await goToVilles(page);
     const deleteBtn = page.locator(`[data-action="delete"][data-ville="${TEST_CITY_CODE}"]`);
     await deleteBtn.click();

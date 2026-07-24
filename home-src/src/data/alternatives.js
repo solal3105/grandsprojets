@@ -1,7 +1,7 @@
 // Données des pages SEO « Alternative à … ».
 // Ajouter un concurrent = une entrée ici + une route dans router/index.js.
 // Le produit Open Projets (piliers + showcase) est décrit une seule fois dans
-// AlternativeView.vue — ici on ne décrit que ce qui est propre à chaque concurrent.
+// AlternativeView.vue - ici on ne décrit que ce qui est propre à chaque concurrent.
 // Tous les faits sur les concurrents sont sourcés (voir `sources` de chaque entrée).
 
 const BASE = 'https://openprojets.com/home'
@@ -24,9 +24,9 @@ export const alternatives = {
 
       gradient: 'text-gradient',
       intro:
-        "PanneauPocket diffuse très bien vos alertes et vos actualités du quotidien. Open Projets répond à un autre besoin : montrer où se passent vos projets d'aménagement et vos travaux, sur une carte publique à vos couleurs — consultable par tous, sans application à télécharger.",
+        "PanneauPocket diffuse très bien vos alertes et vos actualités du quotidien. Open Projets répond à un autre besoin : montrer où se passent vos projets d'aménagement et vos travaux, sur une carte publique à vos couleurs - consultable par tous, sans application à télécharger.",
     },
-    // Ce que le concurrent fait bien — reconnu honnêtement
+    // Ce que le concurrent fait bien - reconnu honnêtement
     context: {
       title: "PanneauPocket, et pourquoi tant de communes l'utilisent",
       intro:
@@ -42,7 +42,7 @@ export const alternatives = {
     bridge: {
       title: 'Là où Open Projets prend le relais',
       desc:
-        "Dans PanneauPocket, l'information vit dans un flux : un message sur un chantier remonte quelques jours, puis laisse place au suivant. Pour un projet d'aménagement qui dure des mois, vos habitants ont besoin d'une information localisée et permanente. C'est exactement le rôle d'Open Projets — une carte où chaque projet a sa fiche, son statut et son calendrier, accessible à tout moment depuis un simple lien ou un QR code sur la palissade.",
+        "Dans PanneauPocket, l'information vit dans un flux : un message sur un chantier remonte quelques jours, puis laisse place au suivant. Pour un projet d'aménagement qui dure des mois, vos habitants ont besoin d'une information localisée et permanente. C'est exactement le rôle d'Open Projets - une carte où chaque projet a sa fiche, son statut et son calendrier, accessible à tout moment depuis un simple lien ou un QR code sur la palissade.",
     },
     comparison: {
       title: 'Deux usages complémentaires',
@@ -60,7 +60,7 @@ export const alternatives = {
     },
     coexist: {
       title: 'Les deux fonctionnent très bien ensemble',
-      desc: "Gardez PanneauPocket pour vos alertes et l'actualité du quotidien. Ajoutez Open Projets pour la carte permanente de vos projets — PanneauPocket peut même renvoyer vers votre carte via un lien.",
+      desc: "Gardez PanneauPocket pour vos alertes et l'actualité du quotidien. Ajoutez Open Projets pour la carte permanente de vos projets - PanneauPocket peut même renvoyer vers votre carte via un lien.",
     },
     sources: [
       { label: 'panneaupocket.com/fonctionnalites', url: 'https://www.panneaupocket.com/fonctionnalites/' },
@@ -101,7 +101,7 @@ export const alternatives = {
     bridge: {
       title: 'Là où Open Projets prend le relais',
       desc:
-        "CityAll diffuse l'information dans une application mutualisée, où votre commune est l'un des canaux. Pour rendre vos projets d'aménagement vraiment lisibles, il faut une carte à votre nom, où chaque chantier est localisé avec sa fiche et son avancement — et accessible sans rien installer. C'est le rôle d'Open Projets : votre carte, vos couleurs, votre domaine, ouverte d'un simple lien ou QR code.",
+        "CityAll diffuse l'information dans une application mutualisée, où votre commune est l'un des canaux. Pour rendre vos projets d'aménagement vraiment lisibles, il faut une carte à votre nom, où chaque chantier est localisé avec sa fiche et son avancement - et accessible sans rien installer. C'est le rôle d'Open Projets : votre carte, vos couleurs, votre domaine, ouverte d'un simple lien ou QR code.",
     },
     comparison: {
       title: 'Deux approches complémentaires',
@@ -114,12 +114,12 @@ export const alternatives = {
         { label: "Accès sans télécharger d'application", op: 'Lien, QR code, iframe', comp: 'Via l\'app' },
         { label: 'Espace 100 % à votre nom', op: 'Marque blanche dédiée', comp: 'App mutualisée' },
         { label: 'Intégration sur votre site (iframe)', op: 'Natif', comp: false },
-        { label: "Mise à jour en autonomie par l'agent", op: 'No-code, immédiat', comp: '—' },
+        { label: "Mise à jour en autonomie par l'agent", op: 'No-code, immédiat', comp: '-' },
       ],
     },
     coexist: {
       title: 'Compatible avec votre écosystème Lumiplan',
-      desc: "Vos panneaux, bornes et application restent en place. Open Projets s'ajoute comme couche cartographique web de vos projets, accessible depuis un lien ou un QR code — sans rien changer à l'existant.",
+      desc: "Vos panneaux, bornes et application restent en place. Open Projets s'ajoute comme couche cartographique web de vos projets, accessible depuis un lien ou un QR code - sans rien changer à l'existant.",
     },
     sources: [
       { label: 'lumiplan.com/carte-identite', url: 'https://www.lumiplan.com/carte-identite/' },
@@ -144,7 +144,7 @@ export const alternatives = {
 
       gradient: 'text-gradient',
       intro:
-        "Neocity est une application citoyenne riche, idéale pour entretenir une relation mobile avec ses habitants. Open Projets répond à un besoin plus précis : rendre vos projets et chantiers visibles sur une carte web, ouverte d'un simple lien ou QR code — sans demander à personne d'installer une application.",
+        "Neocity est une application citoyenne riche, idéale pour entretenir une relation mobile avec ses habitants. Open Projets répond à un besoin plus précis : rendre vos projets et chantiers visibles sur une carte web, ouverte d'un simple lien ou QR code - sans demander à personne d'installer une application.",
     },
     context: {
       title: "Neocity, et pourquoi des mairies l'adoptent",

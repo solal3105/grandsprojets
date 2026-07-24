@@ -1,6 +1,6 @@
 // Thème clair/sombre de l'admin.
 // La logique d'état (localStorage 'theme', sync OS, data-theme) est déléguée à
-// window.ThemeManager (module partagé avec la carte, chargé par index.html) —
+// window.ThemeManager (module partagé avec la carte, chargé par index.html) -
 // ce module ne gère que l'UI admin : bouton toggle et thème du Toast UI Editor.
 
 const LABELS = { dark: 'Mode clair', light: 'Mode sombre' };
@@ -21,7 +21,7 @@ function syncToggleButton() {
 }
 
 // Le Toast UI Editor applique son thème sombre via la classe .toastui-editor-dark
-// sur son conteneur racine — on la synchronise sur les éditeurs déjà montés
+// sur son conteneur racine - on la synchronise sur les éditeurs déjà montés
 // (ceux créés après coup reçoivent l'option `theme` à l'instanciation).
 function syncEditorTheme() {
   const dark = currentTheme() === 'dark';

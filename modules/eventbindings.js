@@ -1,7 +1,7 @@
 // modules/EventBindings.js
 const EventBindings = (() => {
 
-  // Navigation generation counter — guards against stale async loads
+  // Navigation generation counter - guards against stale async loads
   let _navGeneration = 0;
 
   const handleNavigation = async (menu, layersToDisplay) => {
@@ -30,7 +30,7 @@ const EventBindings = (() => {
 
     // Gestion des couches à afficher
     if (Array.isArray(layersToDisplay)) {
-      // 1. Remove ALL layers unconditionally — guarantees clean state
+      // 1. Remove ALL layers unconditionally - guarantees clean state
       const currentLayers = Object.keys(MapModule.layers);
       currentLayers.forEach(layerName => {
         MapModule.removeLayer(layerName);

@@ -22,17 +22,17 @@ async function goToCategories(page) {
 }
 
 // ─────────────────────────────────────────────────────────
-// 3.1 — Liste des catégories
+// 3.1 - Liste des catégories
 // ─────────────────────────────────────────────────────────
-test.describe('3.1 — Liste des catégories', () => {
+test.describe('3.1 - Liste des catégories', () => {
 
-  test('3.1.1 — Titre et liste chargée', async ({ page }) => {
+  test('3.1.1 - Titre et liste chargée', async ({ page }) => {
     await goToCategories(page);
     await expect(page.locator('.adm-page-title')).toContainText('Catégories');
     await expect(page.locator('#cat-list')).toBeVisible();
   });
 
-  test('3.1.3 — Bouton "Nouvelle catégorie" visible', async ({ page }) => {
+  test('3.1.3 - Bouton "Nouvelle catégorie" visible', async ({ page }) => {
     await goToCategories(page);
     await expect(page.locator('#cat-add-btn')).toBeVisible();
     await expect(page.locator('#cat-add-btn')).toContainText('Nouvelle catégorie');
@@ -41,23 +41,23 @@ test.describe('3.1 — Liste des catégories', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 3.2 — Formulaire de création
+// 3.2 - Formulaire de création
 // ─────────────────────────────────────────────────────────
-test.describe('3.2 — Formulaire de création', () => {
+test.describe('3.2 - Formulaire de création', () => {
 
-  test('3.2.1 — Clic "Nouvelle catégorie" ouvre le formulaire', async ({ page }) => {
+  test('3.2.1 - Clic "Nouvelle catégorie" ouvre le formulaire', async ({ page }) => {
     await goToCategories(page);
     await page.click('#cat-add-btn');
     await expect(page.locator('#cat-form-card')).toBeVisible();
   });
 
-  test('3.2.2 — Titre formulaire = "Nouvelle catégorie"', async ({ page }) => {
+  test('3.2.2 - Titre formulaire = "Nouvelle catégorie"', async ({ page }) => {
     await goToCategories(page);
     await page.click('#cat-add-btn');
     await expect(page.locator('#cat-form-title')).toHaveText('Nouvelle catégorie');
   });
 
-  test('3.2.3 — Champ nom obligatoire', async ({ page }) => {
+  test('3.2.3 - Champ nom obligatoire', async ({ page }) => {
     await goToCategories(page);
     await page.click('#cat-add-btn');
     const nameInput = page.locator('#cat-name');
@@ -65,20 +65,20 @@ test.describe('3.2 — Formulaire de création', () => {
     await expect(nameInput).toHaveAttribute('required', '');
   });
 
-  test('3.2.5 — Color picker : couleur par défaut #6366f1', async ({ page }) => {
+  test('3.2.5 - Color picker : couleur par défaut #6366f1', async ({ page }) => {
     await goToCategories(page);
     await page.click('#cat-add-btn');
     await expect(page.locator('#cat-color')).toHaveValue('#6366f1');
   });
 
-  test('3.2.6 — Aperçu SVG ligne et polygone', async ({ page }) => {
+  test('3.2.6 - Aperçu SVG ligne et polygone', async ({ page }) => {
     await goToCategories(page);
     await page.click('#cat-add-btn');
     await expect(page.locator('#cat-prev-line')).toBeAttached();
     await expect(page.locator('#cat-prev-polygon')).toBeAttached();
   });
 
-  test('3.2.7 — Slider épaisseur → label mis à jour', async ({ page }) => {
+  test('3.2.7 - Slider épaisseur → label mis à jour', async ({ page }) => {
     await goToCategories(page);
     await page.click('#cat-add-btn');
     const label = page.locator('#cat-weight-val');
@@ -88,7 +88,7 @@ test.describe('3.2 — Formulaire de création', () => {
     await expect(label).toContainText('8 px');
   });
 
-  test('3.2.8 — Changement dash pattern', async ({ page }) => {
+  test('3.2.8 - Changement dash pattern', async ({ page }) => {
     await goToCategories(page);
     await page.click('#cat-add-btn');
     await expect(page.locator('.cat-dash-btn[data-dash=""]')).toHaveClass(/cat-dash-btn--active/);
@@ -99,7 +99,7 @@ test.describe('3.2 — Formulaire de création', () => {
     await expect(page.locator('.cat-dash-btn[data-dash="2,5"]')).toHaveClass(/cat-dash-btn--active/);
   });
 
-  test('3.2.9 — Slider opacité → label mis à jour', async ({ page }) => {
+  test('3.2.9 - Slider opacité → label mis à jour', async ({ page }) => {
     await goToCategories(page);
     await page.click('#cat-add-btn');
     await expect(page.locator('#cat-opacity-val')).toContainText('80 %');
@@ -108,7 +108,7 @@ test.describe('3.2 — Formulaire de création', () => {
     await expect(page.locator('#cat-opacity-val')).toContainText('50 %');
   });
 
-  test('3.2.10 — Toggle remplissage → options fill affichées', async ({ page }) => {
+  test('3.2.10 - Toggle remplissage → options fill affichées', async ({ page }) => {
     await goToCategories(page);
     await page.click('#cat-add-btn');
     // Fill options hidden by default
@@ -118,7 +118,7 @@ test.describe('3.2 — Formulaire de création', () => {
     await expect(page.locator('#cat-fill-options')).toBeVisible();
   });
 
-  test('3.2.10b — Fill activé → couleur et opacité de remplissage éditables', async ({ page }) => {
+  test('3.2.10b - Fill activé → couleur et opacité de remplissage éditables', async ({ page }) => {
     await goToCategories(page);
     await page.click('#cat-add-btn');
     await page.locator('#cat-fill').check({ force: true });
@@ -136,13 +136,13 @@ test.describe('3.2 — Formulaire de création', () => {
     await expect(page.locator('#cat-fill-opacity-val')).toContainText('30 %');
   });
 
-  test('3.2.11 — Section couches associées', async ({ page }) => {
+  test('3.2.11 - Section couches associées', async ({ page }) => {
     await goToCategories(page);
     await page.click('#cat-add-btn');
     await expect(page.locator('#cat-layers')).toBeAttached();
   });
 
-  test('3.2.12 — Icon picker : ouvre, recherche, sélectionne', async ({ page }) => {
+  test('3.2.12 - Icon picker : ouvre, recherche, sélectionne', async ({ page }) => {
     await goToCategories(page);
     await page.click('#cat-add-btn');
     // Click the icon picker button
@@ -165,7 +165,7 @@ test.describe('3.2 — Formulaire de création', () => {
     await expect(page.locator('#cat-icon')).toHaveValue(iconClass, { timeout: 3000 });
   });
 
-  test('3.2.14 — Annuler masque le formulaire', async ({ page }) => {
+  test('3.2.14 - Annuler masque le formulaire', async ({ page }) => {
     await goToCategories(page);
     await page.click('#cat-add-btn');
     await expect(page.locator('#cat-form-card')).toBeVisible();
@@ -173,7 +173,7 @@ test.describe('3.2 — Formulaire de création', () => {
     await expect(page.locator('#cat-form-card')).toBeHidden();
   });
 
-  test('3.2.15 — Icon picker : recherche filtre la grille', async ({ page }) => {
+  test('3.2.15 - Icon picker : recherche filtre la grille', async ({ page }) => {
     await goToCategories(page);
     await page.click('#cat-add-btn');
     await expect(page.locator('#cat-form-card')).toBeVisible({ timeout: 5000 });
@@ -185,7 +185,7 @@ test.describe('3.2 — Formulaire de création', () => {
     const initialCount = await popover.locator('.adm-ip-icon').count();
     expect(initialCount).toBeGreaterThan(0);
 
-    // Type search term — should filter
+    // Type search term - should filter
     const searchInput = popover.locator('.adm-ip-search');
     await searchInput.fill('map');
     await page.waitForTimeout(400); // debounce
@@ -194,7 +194,7 @@ test.describe('3.2 — Formulaire de création', () => {
     expect(filteredCount).toBeLessThan(initialCount);
   });
 
-  test('3.2.16 — Icon picker : bouton ferme le popover au clic en dehors', async ({ page }) => {
+  test('3.2.16 - Icon picker : bouton ferme le popover au clic en dehors', async ({ page }) => {
     await goToCategories(page);
     await page.click('#cat-add-btn');
     await expect(page.locator('#cat-form-card')).toBeVisible({ timeout: 5000 });
@@ -209,7 +209,7 @@ test.describe('3.2 — Formulaire de création', () => {
     await expect(popover).toBeHidden({ timeout: 5000 });
   });
 
-  test('3.2.17 — Saisie manuelle d\'icône : section "Avancé" visible', async ({ page }) => {
+  test('3.2.17 - Saisie manuelle d\'icône : section "Avancé" visible', async ({ page }) => {
     await goToCategories(page);
     await page.click('#cat-add-btn');
     await expect(page.locator('#cat-form-card')).toBeVisible({ timeout: 5000 });
@@ -230,9 +230,9 @@ test.describe('3.2 — Formulaire de création', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 3.x — CRUD complet en un seul test (même page context)
+// 3.x - CRUD complet en un seul test (même page context)
 // ─────────────────────────────────────────────────────────
-test.describe('3.x — CRUD complet des catégories', () => {
+test.describe('3.x - CRUD complet des catégories', () => {
 
   test('Cycle complet : création → vérif liste → édition → suppression', async ({ page }) => {
     // Supabase lowercases category names (supabaseservice.js)
@@ -256,15 +256,15 @@ test.describe('3.x — CRUD complet des catégories', () => {
     await expect(card.locator('.adm-cat-card__name')).toHaveText(CAT_NAME);
     await expect(card.locator('.adm-cat-card__icon')).toBeVisible();
 
-    // ── 3.1.3–3.1.4 Boutons et drag handle ──
+    // ── 3.1.3-3.1.4 Boutons et drag handle ──
     await expect(card.locator('[data-action="edit"]')).toBeVisible();
     await expect(card.locator('[data-action="delete"]')).toBeVisible();
     await expect(card.locator('.adm-cat-card__drag')).toBeVisible();
 
-    // ── 3.3.1–3.3.2 Éditer : formulaire pré-rempli ──
+    // ── 3.3.1-3.3.2 Éditer : formulaire pré-rempli ──
     await card.locator('[data-action="edit"]').click();
     await expect(page.locator('#cat-form-card')).toBeVisible();
-    await expect(page.locator('#cat-form-title')).toContainText(`Modifier — ${CAT_NAME}`);
+    await expect(page.locator('#cat-form-title')).toContainText(`Modifier - ${CAT_NAME}`);
     await expect(page.locator('#cat-name')).toHaveValue(CAT_NAME);
     await expect(page.locator('#cat-form-submit')).toContainText('Mettre à jour');
 
@@ -275,7 +275,7 @@ test.describe('3.x — CRUD complet des catégories', () => {
     const updatedCard = page.locator(`.adm-cat-card[data-category="${CAT_UPDATED}"]`);
     await expect(updatedCard).toBeVisible({ timeout: 5000 });
 
-    // ── 3.4.1–3.4.3 Supprimer avec confirmation ──
+    // ── 3.4.1-3.4.3 Supprimer avec confirmation ──
     await updatedCard.locator('[data-action="delete"]').click();
     await expect(page.locator('#adm-dialog[open]')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('#adm-dialog-body')).toContainText('Supprimer cette catégorie');

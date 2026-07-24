@@ -22,11 +22,11 @@ async function goToContributions(page) {
 }
 
 // ─────────────────────────────────────────────────────────
-// 2.1 — Liste (admin)
+// 2.1 - Liste (admin)
 // ─────────────────────────────────────────────────────────
-test.describe('2.1 — Liste des contributions (admin)', () => {
+test.describe('2.1 - Liste des contributions (admin)', () => {
 
-  test('2.1.1 — Titre, sous-titre, bouton nouvelle contribution', async ({ page }) => {
+  test('2.1.1 - Titre, sous-titre, bouton nouvelle contribution', async ({ page }) => {
     await goToContributions(page);
     await expect(page.locator('.adm-page-title')).toContainText('Contributions');
     await expect(page.locator('.adm-page-subtitle')).toBeVisible();
@@ -34,12 +34,12 @@ test.describe('2.1 — Liste des contributions (admin)', () => {
     await expect(page.locator('a[href="/admin/contributions/nouveau/"]')).toContainText('Nouvelle contribution');
   });
 
-  test('2.1.2 — Liste chargée (skeleton disparaît)', async ({ page }) => {
+  test('2.1.2 - Liste chargée (skeleton disparaît)', async ({ page }) => {
     await goToContributions(page);
     await expect(page.locator('#contrib-list-body .adm-skeleton')).toHaveCount(0);
   });
 
-  test('2.1.6 — Boutons actions visibles (admin)', async ({ page }) => {
+  test('2.1.6 - Boutons actions visibles (admin)', async ({ page }) => {
     await goToContributions(page);
     const items = page.locator('.adm-list-item');
     const count = await items.count();
@@ -55,17 +55,17 @@ test.describe('2.1 — Liste des contributions (admin)', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 2.2 — Filtres et recherche
+// 2.2 - Filtres et recherche
 // ─────────────────────────────────────────────────────────
-test.describe('2.2 — Filtres et recherche', () => {
+test.describe('2.2 - Filtres et recherche', () => {
 
-  test('2.2.1 — Onglet "Toutes" actif par défaut', async ({ page }) => {
+  test('2.2.1 - Onglet "Toutes" actif par défaut', async ({ page }) => {
     await goToContributions(page);
     const allTab = page.locator('#contrib-tabs .adm-tab[data-status=""]');
     await expect(allTab).toHaveClass(/active/);
   });
 
-  test('2.2.2–2.2.4 — Onglets status filtrent', async ({ page }) => {
+  test('2.2.2-2.2.4 - Onglets status filtrent', async ({ page }) => {
     await goToContributions(page);
     await page.click('#contrib-tabs .adm-tab[data-status="pending"]');
     await expect(page.locator('#contrib-tabs .adm-tab[data-status="pending"]')).toHaveClass(/active/);
@@ -77,7 +77,7 @@ test.describe('2.2 — Filtres et recherche', () => {
     await expect(page.locator('#contrib-tabs .adm-tab[data-status=""]')).toHaveClass(/active/);
   });
 
-  test('2.2.5 — Recherche avec debounce', async ({ page }) => {
+  test('2.2.5 - Recherche avec debounce', async ({ page }) => {
     await goToContributions(page);
     const searchInput = page.locator('#contrib-search');
     await expect(searchInput).toBeVisible();
@@ -87,7 +87,7 @@ test.describe('2.2 — Filtres et recherche', () => {
     await expect(items).toHaveCount(0);
   });
 
-  test('2.2.5b — Recherche sans résultat → empty state', async ({ page }) => {
+  test('2.2.5b - Recherche sans résultat → empty state', async ({ page }) => {
     await goToContributions(page);
     await page.locator('#contrib-search').fill('aucunresultatpossible999');
     await page.waitForTimeout(1000);
@@ -95,14 +95,14 @@ test.describe('2.2 — Filtres et recherche', () => {
     await expect(page.locator('#contrib-list-body .adm-empty__title')).toContainText('Aucun');
   });
 
-  test('2.2.6 — Filtre catégorie existe', async ({ page }) => {
+  test('2.2.6 - Filtre catégorie existe', async ({ page }) => {
     await goToContributions(page);
     const catSelect = page.locator('#contrib-filter-cat');
     await expect(catSelect).toBeVisible();
     expect(await catSelect.locator('option').count()).toBeGreaterThanOrEqual(1);
   });
 
-  test('2.2.7 — Tri fonctionne', async ({ page }) => {
+  test('2.2.7 - Tri fonctionne', async ({ page }) => {
     await goToContributions(page);
     const sortSelect = page.locator('#contrib-sort');
     await expect(sortSelect).toBeVisible();
@@ -116,25 +116,25 @@ test.describe('2.2 — Filtres et recherche', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 2.6 — Wizard de création (admin)
+// 2.6 - Wizard de création (admin)
 // ─────────────────────────────────────────────────────────
-test.describe('2.6 — Wizard de création (admin)', () => {
+test.describe('2.6 - Wizard de création (admin)', () => {
 
-  test('2.6.1 — Clic "Nouvelle contribution" → URL wizard', async ({ page }) => {
+  test('2.6.1 - Clic "Nouvelle contribution" → URL wizard', async ({ page }) => {
     await goToContributions(page);
     await page.click('a[href="/admin/contributions/nouveau/"]');
     await expect(page).toHaveURL(/\/admin\/contributions\/nouveau\//);
     await expect(page.locator('.cw-header__title')).toContainText('Nouvelle contribution');
   });
 
-  test('2.6.2 — Section identité : champ nom obligatoire', async ({ page }) => {
+  test('2.6.2 - Section identité : champ nom obligatoire', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-name', { state: 'visible', timeout: 10000 });
     await expect(page.locator('#cw-name')).toBeVisible();
     await expect(page.locator('label[for="cw-name"]')).toContainText('*');
   });
 
-  test('2.6.3–2.6.4 — Pills catégorie chargées et sélectionnables', async ({ page }) => {
+  test('2.6.3-2.6.4 - Pills catégorie chargées et sélectionnables', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-name', { state: 'visible', timeout: 10000 });
 
@@ -151,20 +151,20 @@ test.describe('2.6 — Wizard de création (admin)', () => {
     }
   });
 
-  test('2.6.5 — Compteur de caractères description', async ({ page }) => {
+  test('2.6.5 - Compteur de caractères description', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-description', { state: 'visible', timeout: 10000 });
     await page.locator('#cw-description').fill('Test description');
     await expect(page.locator('#cw-desc-count')).toContainText('16');
   });
 
-  test('2.6.6 — Section image : dropzone visible', async ({ page }) => {
+  test('2.6.6 - Section image : dropzone visible', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-cover-drop', { state: 'visible', timeout: 10000 });
     await expect(page.locator('#cw-cover-drop')).toBeVisible();
   });
 
-  test('2.6.8 — Toggle Dessiner / Importer', async ({ page }) => {
+  test('2.6.8 - Toggle Dessiner / Importer', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     const drawBtn = page.locator('.cw-loc-toggle__btn[data-mode="draw"]');
     await drawBtn.scrollIntoViewIfNeeded();
@@ -174,7 +174,7 @@ test.describe('2.6 — Wizard de création (admin)', () => {
     await expect(page.locator('#cw-loc-file')).toBeVisible();
   });
 
-  test.fixme('2.6.10 — Outils de dessin disponibles — requires WebGL', async ({ page }) => {
+  test.fixme('2.6.10 - Outils de dessin disponibles - requires WebGL', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     // The draw toolbar buttons render only AFTER MapLibre map fires 'load' (WebGL required)
     const toolbar = page.locator('#cw-draw-toolbar');
@@ -185,7 +185,7 @@ test.describe('2.6 — Wizard de création (admin)', () => {
     await expect(page.locator('.cw-dtb__tool[data-tool="polygon"]')).toBeVisible();
   });
 
-  test('2.6.12–2.6.13 — Import GeoJSON valide', async ({ page }) => {
+  test('2.6.12-2.6.13 - Import GeoJSON valide', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     const fileBtn = page.locator('.cw-loc-toggle__btn[data-mode="file"]');
     await fileBtn.scrollIntoViewIfNeeded();
@@ -212,7 +212,7 @@ test.describe('2.6 — Wizard de création (admin)', () => {
     await expect(page.locator('#cw-geojson-meta')).toContainText('1 feature');
   });
 
-  test('2.6.15 — Champ URL officielle', async ({ page }) => {
+  test('2.6.15 - Champ URL officielle', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     const urlInput = page.locator('#cw-official-url');
     await urlInput.scrollIntoViewIfNeeded();
@@ -220,7 +220,7 @@ test.describe('2.6 — Wizard de création (admin)', () => {
     await expect(urlInput).toHaveAttribute('type', 'url');
   });
 
-  test('2.6.17 — Bouton Ajouter un PDF visible', async ({ page }) => {
+  test('2.6.17 - Bouton Ajouter un PDF visible', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     const btn = page.locator('#cw-add-doc');
     await btn.scrollIntoViewIfNeeded();
@@ -228,7 +228,7 @@ test.describe('2.6 — Wizard de création (admin)', () => {
     await expect(btn).toContainText('Ajouter un PDF');
   });
 
-  test('2.6.18 — Section publication (admin) : toggle publier', async ({ page }) => {
+  test('2.6.18 - Section publication (admin) : toggle publier', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     const section = page.locator('#cw-sect-publish');
     await section.scrollIntoViewIfNeeded();
@@ -236,7 +236,7 @@ test.describe('2.6 — Wizard de création (admin)', () => {
     await expect(page.locator('#cw-publish')).toBeChecked();
   });
 
-  test('2.6.20 — Validation : soumettre sans nom → toast erreur', async ({ page }) => {
+  test('2.6.20 - Validation : soumettre sans nom → toast erreur', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-submit', { state: 'visible', timeout: 10000 });
     const pill = page.locator('.cw-cat-pill').first();
@@ -247,7 +247,7 @@ test.describe('2.6 — Wizard de création (admin)', () => {
     await expect(page.locator('.adm-toast--error')).toContainText('Le nom du projet est obligatoire', { timeout: 5000 });
   });
 
-  test('2.6.21 — Validation : soumettre sans catégorie → toast erreur', async ({ page }) => {
+  test('2.6.21 - Validation : soumettre sans catégorie → toast erreur', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-submit', { state: 'visible', timeout: 10000 });
     await page.fill('#cw-name', 'Test sans catégorie');
@@ -257,7 +257,7 @@ test.describe('2.6 — Wizard de création (admin)', () => {
     await expect(page.locator('.adm-toast--error')).toContainText('Veuillez choisir une catégorie', { timeout: 5000 });
   });
 
-  test('2.6.22 — Validation : soumettre sans tracé → toast erreur', async ({ page }) => {
+  test('2.6.22 - Validation : soumettre sans tracé → toast erreur', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-submit', { state: 'visible', timeout: 10000 });
     await page.fill('#cw-name', 'Test sans tracé');
@@ -273,7 +273,7 @@ test.describe('2.6 — Wizard de création (admin)', () => {
     await expect(page.locator('.adm-toast--error')).toContainText('tracé géographique est obligatoire', { timeout: 5000 });
   });
 
-  test('2.6.24 — Bouton retour vers la liste', async ({ page }) => {
+  test('2.6.24 - Bouton retour vers la liste', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('.cw-back-link', { state: 'visible', timeout: 10000 });
     await expect(page.locator('.cw-back-link')).toHaveAttribute('href', '/admin/contributions/');
@@ -282,9 +282,9 @@ test.describe('2.6 — Wizard de création (admin)', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 2.5 — Panneau de détail (contenu riche)
+// 2.5 - Panneau de détail (contenu riche)
 // ─────────────────────────────────────────────────────────
-test.describe('2.5 — Panneau de détail (contenu riche)', () => {
+test.describe('2.5 - Panneau de détail (contenu riche)', () => {
 
   /**
    * Open the detail panel for the first visible contribution.
@@ -300,7 +300,7 @@ test.describe('2.5 — Panneau de détail (contenu riche)', () => {
     return items.first();
   }
 
-  test('2.5.1 — Cover image ou placeholder affiché', async ({ page }) => {
+  test('2.5.1 - Cover image ou placeholder affiché', async ({ page }) => {
     await openFirstDetail(page);
     const panel = page.locator('#adm-slide-content');
     // Either an actual cover image or the placeholder icon
@@ -308,7 +308,7 @@ test.describe('2.5 — Panneau de détail (contenu riche)', () => {
     await expect(cover).toBeVisible({ timeout: 5000 });
   });
 
-  test('2.5.2 — Badge statut (Approuvée ou En attente) visible', async ({ page }) => {
+  test('2.5.2 - Badge statut (Approuvée ou En attente) visible', async ({ page }) => {
     await openFirstDetail(page);
     const panel = page.locator('#adm-slide-content');
     const badges = panel.locator('.sp-badges .adm-badge');
@@ -318,27 +318,27 @@ test.describe('2.5 — Panneau de détail (contenu riche)', () => {
     await expect(statusBadge).toBeVisible();
   });
 
-  test('2.5.3 — Badge catégorie visible', async ({ page }) => {
+  test('2.5.3 - Badge catégorie visible', async ({ page }) => {
     await openFirstDetail(page);
     const panel = page.locator('#adm-slide-content');
     await expect(panel.locator('.sp-badges .adm-badge--info')).toBeVisible();
   });
 
-  test('2.5.4 — Date de création affichée', async ({ page }) => {
+  test('2.5.4 - Date de création affichée', async ({ page }) => {
     await openFirstDetail(page);
     const panel = page.locator('#adm-slide-content');
     const dateMeta = panel.locator('.sp-meta-item').filter({ has: page.locator('i.fa-calendar') });
     await expect(dateMeta).toBeVisible();
   });
 
-  test('2.5.5 — Ville affichée', async ({ page }) => {
+  test('2.5.5 - Ville affichée', async ({ page }) => {
     await openFirstDetail(page);
     const panel = page.locator('#adm-slide-content');
     const villeMeta = panel.locator('.sp-meta-item').filter({ has: page.locator('i.fa-building') });
     await expect(villeMeta).toBeVisible();
   });
 
-  test('2.5.6 — Boutons Edit et Supprimer dans le footer', async ({ page }) => {
+  test('2.5.6 - Boutons Edit et Supprimer dans le footer', async ({ page }) => {
     await openFirstDetail(page);
     const panel = page.locator('#adm-slide-content');
     await expect(panel.locator('#sp-edit')).toBeVisible();
@@ -347,7 +347,7 @@ test.describe('2.5 — Panneau de détail (contenu riche)', () => {
     expect(await panel.locator('#sp-edit').getAttribute('href')).toContain('/admin/contributions/modifier/');
   });
 
-  test('2.5.7 — Description affichée si présente', async ({ page }) => {
+  test('2.5.7 - Description affichée si présente', async ({ page }) => {
     await openFirstDetail(page);
     const panel = page.locator('#adm-slide-content');
     // Description may or may not be present, just verify section renders
@@ -362,11 +362,11 @@ test.describe('2.5 — Panneau de détail (contenu riche)', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 2.7 — Wizard : sections supplémentaires
+// 2.7 - Wizard : sections supplémentaires
 // ─────────────────────────────────────────────────────────
-test.describe('2.7 — Wizard sections supplémentaires', () => {
+test.describe('2.7 - Wizard sections supplémentaires', () => {
 
-  test('2.7.1 — Section couverture visible avec dropzone', async ({ page }) => {
+  test('2.7.1 - Section couverture visible avec dropzone', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-name', { state: 'visible', timeout: 15000 });
     const coverSection = page.locator('#cw-sect-visual');
@@ -375,7 +375,7 @@ test.describe('2.7 — Wizard sections supplémentaires', () => {
     await expect(page.locator('#cw-cover-file')).toHaveCount(1); // hidden input exists
   });
 
-  test('2.7.2 — Upload image couverture → preview affichée', async ({ page }) => {
+  test('2.7.2 - Upload image couverture → preview affichée', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-name', { state: 'visible', timeout: 15000 });
 
@@ -394,7 +394,7 @@ test.describe('2.7 — Wizard sections supplémentaires', () => {
     await expect(page.locator('#cw-cover-img')).toBeVisible({ timeout: 3000 });
   });
 
-  test('2.7.3 — Toggle dessiner/importer bascule les panneaux', async ({ page }) => {
+  test('2.7.3 - Toggle dessiner/importer bascule les panneaux', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-name', { state: 'visible', timeout: 15000 });
 
@@ -421,7 +421,7 @@ test.describe('2.7 — Wizard sections supplémentaires', () => {
     await expect(drawPane).toBeVisible({ timeout: 5000 });
   });
 
-  test('2.7.4 — Section documents : bouton "Ajouter un PDF" visible', async ({ page }) => {
+  test('2.7.4 - Section documents : bouton "Ajouter un PDF" visible', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-name', { state: 'visible', timeout: 15000 });
 
@@ -432,7 +432,7 @@ test.describe('2.7 — Wizard sections supplémentaires', () => {
     await expect(page.locator('#cw-doc-file')).toHaveCount(1); // hidden input
   });
 
-  test('2.7.5 — Toggle markdown article : cocher → éditeur visible', async ({ page }) => {
+  test('2.7.5 - Toggle markdown article : cocher → éditeur visible', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-name', { state: 'visible', timeout: 15000 });
 
@@ -452,7 +452,7 @@ test.describe('2.7 — Wizard sections supplémentaires', () => {
     await expect(editorArea).toBeVisible();
   });
 
-  test('2.7.6 — Section documents : zone documents vide par défaut', async ({ page }) => {
+  test('2.7.6 - Section documents : zone documents vide par défaut', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-name', { state: 'visible', timeout: 15000 });
 
@@ -462,7 +462,7 @@ test.describe('2.7 — Wizard sections supplémentaires', () => {
     await expect(docsList).toContainText('Aucun document');
   });
 
-  test('2.7.7 — Section publication : admin voit le toggle publier', async ({ page }) => {
+  test('2.7.7 - Section publication : admin voit le toggle publier', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-name', { state: 'visible', timeout: 15000 });
 
@@ -473,7 +473,7 @@ test.describe('2.7 — Wizard sections supplémentaires', () => {
     await expect(page.locator('#cw-publish')).toHaveCount(1);
   });
 
-  test('2.7.8 — URL officielle : champ visible avec placeholder', async ({ page }) => {
+  test('2.7.8 - URL officielle : champ visible avec placeholder', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-name', { state: 'visible', timeout: 15000 });
 
@@ -484,7 +484,7 @@ test.describe('2.7 — Wizard sections supplémentaires', () => {
     await expect(urlField).toHaveAttribute('placeholder', /https?:\/\//);
   });
 
-  test('2.7.9 — Upload PDF → item rendu dans la liste documents', async ({ page }) => {
+  test('2.7.9 - Upload PDF → item rendu dans la liste documents', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-name', { state: 'visible', timeout: 15000 });
 
@@ -505,7 +505,7 @@ test.describe('2.7 — Wizard sections supplémentaires', () => {
     await expect(docItem.locator('[data-remove-doc]')).toBeVisible();
   });
 
-  test('2.7.10 — Suppression document de la liste', async ({ page }) => {
+  test('2.7.10 - Suppression document de la liste', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-name', { state: 'visible', timeout: 15000 });
 
@@ -524,7 +524,7 @@ test.describe('2.7 — Wizard sections supplémentaires', () => {
     await expect(page.locator('.cw-docs-empty')).toBeVisible({ timeout: 3000 });
   });
 
-  test('2.7.11 — Markdown editor : saisie dans le textarea/editor', async ({ page }) => {
+  test('2.7.11 - Markdown editor : saisie dans le textarea/editor', async ({ page }) => {
     await waitForBoot(page, '/admin/contributions/nouveau/');
     await page.waitForSelector('#cw-name', { state: 'visible', timeout: 15000 });
 
@@ -541,9 +541,9 @@ test.describe('2.7 — Wizard sections supplémentaires', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// 2.x — CRUD complet en un seul test (même page context)
+// 2.x - CRUD complet en un seul test (même page context)
 // ─────────────────────────────────────────────────────────
-test.describe('2.x — CRUD complet contributions', () => {
+test.describe('2.x - CRUD complet contributions', () => {
 
   test('Cycle complet : création → liste → détail → approve → edit → suppression', async ({ page }) => {
     const TEST_NAME = `E2E-Test-${Date.now()}`;
@@ -586,7 +586,7 @@ test.describe('2.x — CRUD complet contributions', () => {
     await expect(successToast('Contribution créée')).toBeVisible({ timeout: 15000 });
     await expect(page).toHaveURL(/\/admin\/contributions\//, { timeout: 10000 });
 
-    // ── Vérifier dans la liste — reload pour forcer un fetch frais ──
+    // ── Vérifier dans la liste - reload pour forcer un fetch frais ──
     await page.reload();
     await page.waitForSelector('#adm-splash', { state: 'detached', timeout: 15000 });
     await page.waitForFunction(() => {

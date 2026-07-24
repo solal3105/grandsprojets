@@ -28,14 +28,14 @@
 
   const AUTH_TOKEN_URL = '/api/auth/token';
 
-  // Timeout d'attente du premier ID_TOKEN (15s) — évite un loader infini si
+  // Timeout d'attente du premier ID_TOKEN (15s) - évite un loader infini si
   // Phaos ne répond pas (ex : bug côté Phaos, mauvaise URL)
   const INIT_TIMEOUT_MS = 15_000;
 
   // ── Détection iframe Phaos ──────────────────────────────────────────────────
   // Le seul critère fiable est `window.self !== window.top` (on est dans une iframe).
   // La sécurité repose sur la validation de `event.origin` du postMessage (whitelist
-  // PHAOS_ORIGINS, garantie par le navigateur, non falsifiable) — PAS sur le referrer.
+  // PHAOS_ORIGINS, garantie par le navigateur, non falsifiable) - PAS sur le referrer.
   //
   // document.referrer est volontairement traité comme un signal optionnel : il est
   // souvent VIDE dans l'iframe quand le parent (Phaos QA/prod) applique une
@@ -61,7 +61,7 @@
     return;
   }
 
-  console.log('[PhaosAuth] Mode iframe Phaos détecté — init suspendue en attente du token');
+  console.log('[PhaosAuth] Mode iframe Phaos détecté - init suspendue en attente du token');
 
   // ── Promise de débloquage ────────────────────────────────────────────────────
   // main.js attend cette Promise. Elle est résolue quand la session Supabase est prête.
@@ -70,11 +70,11 @@
     resolveSession = res;
   });
 
-  // Timeout de sécurité — évite un loader infini côté utilisateur.
+  // Timeout de sécurité - évite un loader infini côté utilisateur.
   // On résout (pas reject) : la carte se chargera en mode anonyme si aucun token Phaos
   // n'arrive (ex : iframe générique, vazy.app, openprojets.com/home/).
   const initTimeoutId = setTimeout(() => {
-    console.warn('[PhaosAuth] Timeout : aucun ID_TOKEN reçu de Phaos en', INIT_TIMEOUT_MS, 'ms — init en mode anonyme');
+    console.warn('[PhaosAuth] Timeout : aucun ID_TOKEN reçu de Phaos en', INIT_TIMEOUT_MS, 'ms - init en mode anonyme');
     resolveSession();
   }, INIT_TIMEOUT_MS);
 
@@ -88,7 +88,7 @@
     if (renewalTimerId) clearTimeout(renewalTimerId);
     const delayMs = Math.max((expiresIn - 60) * 1000, 0);
     renewalTimerId = setTimeout(() => {
-      console.log('[PhaosAuth] Session Supabase bientôt expirée — notification Phaos');
+      console.log('[PhaosAuth] Session Supabase bientôt expirée - notification Phaos');
       try {
         win.parent.postMessage({ type: 'TOKEN_EXPIRED' }, phaosOrigin ?? PHAOS_ORIGINS[0]);
       } catch (err) {
@@ -120,7 +120,7 @@
 
     // win.__supabaseClient est initialisé par auth.js, chargé avant phaos-auth.js
     const client = win.__supabaseClient;
-    if (!client) throw new Error('__supabaseClient introuvable — auth.js non chargé ?');
+    if (!client) throw new Error('__supabaseClient introuvable - auth.js non chargé ?');
 
     const { error } = await client.auth.setSession({ access_token, refresh_token });
     if (error) throw error;
@@ -136,7 +136,7 @@
   win.addEventListener('message', async (event) => {
     // ① Valider l'origine
     if (PHAOS_ORIGINS.length > 0 && !PHAOS_ORIGINS.includes(event.origin)) {
-      // Log silencieux — des messages légitimes d'autres origines existent (extensions, etc.)
+      // Log silencieux - des messages légitimes d'autres origines existent (extensions, etc.)
       return;
     }
 
@@ -149,17 +149,17 @@
       await applySession(event.data.idToken);
 
       if (!sessionEstablished) {
-        // Première connexion — débloquer l'init de la carte
+        // Première connexion - débloquer l'init de la carte
         sessionEstablished = true;
         clearTimeout(initTimeoutId);
         resolveSession();
       }
-      // Reconnexion silencieuse (renouvellement) — session déjà active, rien à débloquer
+      // Reconnexion silencieuse (renouvellement) - session déjà active, rien à débloquer
     } catch (err) {
       console.error('[PhaosAuth] Échec échange token :', err.message);
       if (!sessionEstablished) {
         clearTimeout(initTimeoutId);
-        // On résout quand même (pas reject) — la carte se chargera sans session.
+        // On résout quand même (pas reject) - la carte se chargera sans session.
         // L'utilisateur verra l'état non connecté plutôt qu'un écran vide.
         resolveSession();
       }

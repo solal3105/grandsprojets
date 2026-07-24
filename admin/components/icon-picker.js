@@ -226,7 +226,7 @@ function _createPopover() {
   el.setAttribute('aria-label', 'Choisir une icône');
   document.body.appendChild(el);
 
-  // Global click-outside — guard against detached targets (happens when _renderPopover rebuilds innerHTML)
+  // Global click-outside - guard against detached targets (happens when _renderPopover rebuilds innerHTML)
   document.addEventListener('click', (e) => {
     if (_popover && !_popover.hidden &&
         e.target.isConnected &&
@@ -299,7 +299,7 @@ function _bindPopoverEvents() {
   const clearBtn = _popover.querySelector('.adm-ip-search-clear');
   let _t;
 
-  // Search — only update grid, never rebuild full HTML
+  // Search - only update grid, never rebuild full HTML
   searchEl?.addEventListener('input', (e) => {
     clearTimeout(_t);
     _t = setTimeout(() => {
@@ -321,7 +321,7 @@ function _bindPopoverEvents() {
     searchEl?.focus();
   });
 
-  // Tabs — stopPropagation prevents click bubbling to the click-outside handler
+  // Tabs - stopPropagation prevents click bubbling to the click-outside handler
   // Only update active states + re-render grid, never rebuild full HTML
   _popover.querySelectorAll('.adm-ip-tab').forEach(tab => {
     tab.addEventListener('click', (e) => {

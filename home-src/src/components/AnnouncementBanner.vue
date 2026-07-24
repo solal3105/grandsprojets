@@ -4,7 +4,7 @@
     class="relative z-40 bg-dark text-white text-sm"
   >
     <div class="max-w-container mx-auto px-6 h-11 flex items-center justify-center gap-4">
-      <span class="hidden sm:inline text-white/60">Open Projets équipe déjà des collectivités —</span>
+      <span class="hidden sm:inline text-white/60">Open Projets équipe déjà des collectivités -</span>
       <router-link
         to="/contact"
         class="inline-flex items-center gap-2 font-medium text-white hover:text-primary transition-colors"

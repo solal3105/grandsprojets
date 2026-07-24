@@ -8,7 +8,7 @@ const MODULE_TEMPLATES = {
   carte: {
     label: 'Carte',
     icon_class: 'fa-solid fa-map',
-    description: 'Module principal — carte interactive et catégories',
+    description: 'Module principal - carte interactive et catégories',
   },
   travaux: {
     label: 'Travaux',

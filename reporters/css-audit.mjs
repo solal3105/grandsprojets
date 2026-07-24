@@ -32,7 +32,7 @@ const SKIP_CSS = new Set(['00-colors.css', '01-base.css']);
 // (e.g. Tailwind utilities in home-src, MapLibre internals, FontAwesome)
 const IGNORE_PREFIXES = ['fa-', 'maplibre', 'mapboxgl-', 'leaflet-'];
 
-// Class name *fragments* — if the corpus contains this fragment, the class is
+// Class name *fragments* - if the corpus contains this fragment, the class is
 // likely constructed dynamically (e.g. 'gp-toast--' + type → gp-toast--success).
 // If any fragment matches the start of a class name, it's excluded from orphans.
 const DYNAMIC_FRAGMENTS = [
@@ -42,7 +42,7 @@ const DYNAMIC_FRAGMENTS = [
 ];
 
 // Classes known to be set purely via JavaScript string manipulation
-// or in HTML attributes not detectable by simple text search — add here if needed.
+// or in HTML attributes not detectable by simple text search - add here if needed.
 const KNOWN_DYNAMIC = new Set([]);
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
