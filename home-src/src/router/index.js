@@ -3,8 +3,8 @@ import HomeView from '@/views/HomeView.vue'
 import { alternatives } from '@/data/alternatives.js'
 
 const BASE = 'https://openprojets.com/home'
-const DEFAULT_TITLE = 'Open Projets — La carte interactive pour votre collectivité'
-const DEFAULT_DESC = 'Open Projets transforme vos projets urbains en carte interactive. Publiez vos projets, informez vos habitants — sans une ligne de code.'
+const DEFAULT_TITLE = 'Open Projets - La carte interactive pour votre collectivité'
+const DEFAULT_DESC = 'Open Projets transforme vos projets urbains en carte interactive. Publiez vos projets, informez vos habitants - sans une ligne de code.'
 
 // Pages SEO « Alternative à … » générées depuis data/alternatives.js
 const alternativeRoutes = Object.entries(alternatives).map(([key, alt]) => ({
@@ -35,8 +35,8 @@ const routes = [
     name: 'fonctionnalites',
     component: () => import('@/views/FeaturesView.vue'),
     meta: {
-      title: 'Fonctionnalités — Open Projets',
-      description: 'Contributions, module travaux, catégories personnalisées, branding, gestion d\'équipe — découvrez toutes les fonctionnalités d\'Open Projets.',
+      title: 'Fonctionnalités - Open Projets',
+      description: 'Contributions, module travaux, catégories personnalisées, branding, gestion d\'équipe - découvrez toutes les fonctionnalités d\'Open Projets.',
       canonical: `${BASE}/fonctionnalites`,
     },
   },
@@ -49,7 +49,7 @@ const routes = [
     name: 'a-propos',
     component: () => import('@/views/AboutView.vue'),
     meta: {
-      title: 'À propos — Open Projets',
+      title: 'À propos - Open Projets',
       description: 'Open Projets transforme les données publiques en information citoyenne, accessible et transparente pour tous.',
       canonical: `${BASE}/a-propos`,
     },
@@ -59,7 +59,7 @@ const routes = [
     name: 'contact',
     component: () => import('@/views/ContactView.vue'),
     meta: {
-      title: 'Contact — Open Projets',
+      title: 'Contact - Open Projets',
       description: 'Demandez une démo d\'Open Projets. On configure votre espace ensemble, en moins d\'une heure.',
       canonical: `${BASE}/contact`,
     },
@@ -69,7 +69,7 @@ const routes = [
     name: 'aide',
     component: () => import('@/views/HelpView.vue'),
     meta: {
-      title: 'Aide — Open Projets',
+      title: 'Aide - Open Projets',
       description: 'Guides d\'utilisation et documentation pour administrateurs et contributeurs Open Projets.',
       canonical: `${BASE}/aide`,
     },
@@ -79,7 +79,7 @@ const routes = [
     name: 'guide-print',
     component: () => import('@/views/HelpPrintView.vue'),
     meta: {
-      title: 'Guide — Open Projets',
+      title: 'Guide - Open Projets',
       description: 'Guide d\'utilisation détaillé pour Open Projets.',
       robots: 'noindex',
     },
@@ -96,7 +96,14 @@ const routes = [
 const router = createRouter({
   history: createWebHistory('/home/'),
   routes,
-  scrollBehavior() {
+  scrollBehavior(to) {
+    // Ancre inter-page (ex. /fonctionnalites#diagnostic) : viser l'élément, en
+    // laissant le temps à la route lazy de se monter, et compenser le header fixe.
+    if (to.hash) {
+      return new Promise((resolve) => {
+        setTimeout(() => resolve({ el: to.hash, top: 90, behavior: 'smooth' }), 300)
+      })
+    }
     return { top: 0, behavior: 'smooth' }
   },
 })
@@ -145,7 +152,7 @@ router.afterEach((to) => {
   if (robots) {
     setMeta('robots', robots)
   }
-  // Tracking SPA — envoie une page_view GA4 à chaque navigation
+  // Tracking SPA - envoie une page_view GA4 à chaque navigation
   if (typeof window.gtag === 'function') {
     window.gtag('event', 'page_view', {
       page_title: title || document.title,

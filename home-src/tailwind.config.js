@@ -10,6 +10,7 @@ export default {
         amber: '#F2B327',
         green: '#5AAB7D',
         purple: '#4E2BFF',
+        teal: '#0E7C86',
         dark: '#111111',
         'gray-text': '#555555',
         'gray-bg': '#FAFAFA',

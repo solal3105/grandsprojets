@@ -48,9 +48,11 @@
           </Transition>
         </div>
 
-        <!-- Image -->
+        <!-- Visual : image par défaut, ou contenu personnalisé via le slot #visual -->
         <div :class="reversed ? 'order-2 lg:order-1' : ''">
-          <ShimmerImage :src="imgSrc" :alt="imgAlt" />
+          <slot name="visual">
+            <ShimmerImage v-if="imgSrc" :src="imgSrc" :alt="imgAlt" />
+          </slot>
         </div>
 
       </div>
@@ -73,8 +75,8 @@ defineProps({
   title: { type: String, required: true },
   description: { type: String, required: true },
   feats: { type: Array, required: true },
-  imgSrc: { type: String, required: true },
-  imgAlt: { type: String, required: true },
+  imgSrc: { type: String, default: '' },
+  imgAlt: { type: String, default: '' },
   reversed: { type: Boolean, default: false },
 })
 
