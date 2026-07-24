@@ -58,6 +58,14 @@ body { margin: 0; }
 .fv2-ssr ul { padding-left: 1.5rem; }
 .fv2-ssr li { margin-bottom: 0.5rem; }
 .fv2-ssr li a { color: var(--color-primary, #14AE5C); text-decoration: underline; }
+.fv2-ssr__brand {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-light, rgba(0, 0, 0, 0.08));
+  font-size: 0.8rem;
+  color: var(--text-secondary, #6b7280);
+}
+.fv2-ssr__brand a { color: var(--color-primary, #14AE5C); text-decoration: underline; }
 /* L'article markdown SSR utilise .fv2-prose (typographie partagée avec le
    rendu client, plus bas dans ce fichier) - pas de ruleset dédié. */
 /* Masqué dès que le JS interactif démarre */

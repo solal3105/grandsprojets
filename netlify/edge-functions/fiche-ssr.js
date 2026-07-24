@@ -555,6 +555,12 @@ ${articleHtml}
     </nav>`;
   }
 
+  // Lien de marque - ancre « Open Projets » sur chaque fiche (SERP de marque)
+  html += `
+    <footer class="fv2-ssr__brand">
+      <span>Fiche publiée avec <a href="/home/">Open Projets</a>, la carte interactive des projets pour les collectivités.</span>
+    </footer>`;
+
   html += `
   </article>
 </div>`;

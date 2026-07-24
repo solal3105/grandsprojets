@@ -3,6 +3,11 @@
   publish = "."
   edge_functions = "netlify/edge-functions"
 
+[build.environment]
+  # Le prerender installe uniquement Chromium (scripts/prerender.mjs),
+  # inutile de télécharger les 3 navigateurs à chaque npm ci
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
+
 [functions]
   directory = "netlify/functions"
 
@@ -52,6 +57,14 @@
 
 [[edge_functions]]
   path = "/home/alternative-neocity"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/home/ressources"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/home/ressources/*"
   function = "home-seo"
 
 [[edge_functions]]

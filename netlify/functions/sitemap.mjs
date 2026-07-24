@@ -69,6 +69,7 @@ export default async (_request, _context) => {
       { path: '/home/alternative-panneaupocket', priority: '0.9' },
       { path: '/home/alternative-cityall-lumiplan', priority: '0.9' },
       { path: '/home/alternative-neocity', priority: '0.9' },
+      { path: '/home/ressources', priority: '0.9' },
     ];
     for (const hp of homePages) {
       urlset.push({
@@ -78,6 +79,23 @@ export default async (_request, _context) => {
         priority: hp.priority,
       });
     }
+
+    // Articles Ressources - manifest généré par le prerender de home-src
+    try {
+      const manifestResp = await fetch(`${BASE_ORIGIN}/home/ressources/manifest.json`);
+      if (manifestResp.ok) {
+        const ressources = await manifestResp.json();
+        for (const article of ressources) {
+          if (!article?.slug) continue;
+          urlset.push({
+            loc: `${BASE_ORIGIN}/home/ressources/${encodeURIComponent(article.slug)}`,
+            lastmod: article.updated || article.date || latestDate,
+            changefreq: 'monthly',
+            priority: '0.8',
+          });
+        }
+      }
+    } catch { /* pas de manifest : sitemap sans les articles */ }
 
     // Filtrer les entrées de test E2E
     const isTestEntry = (name, cat) => {

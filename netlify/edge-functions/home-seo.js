@@ -60,7 +60,43 @@ const PAGES = {
     description: 'Neocity est une app citoyenne complète. Open Projets apporte une carte web de vos projets et chantiers, accessible par lien ou QR code, sans installation.',
     canonical: `${BASE}/alternative-neocity`,
   },
+  '/ressources': {
+    title: 'Ressources : communiquer sur les projets de sa collectivité | Open Projets',
+    description: 'Guides pratiques pour les communes : plan de mandat, carte des travaux, information des riverains. Des méthodes concrètes issues du terrain, sans jargon.',
+    canonical: `${BASE}/ressources`,
+  },
 };
+
+/* ─── Articles Ressources : metas dynamiques via le manifest généré au build ─── */
+
+const MANIFEST_URL = `${BASE}/ressources/manifest.json`;
+const MANIFEST_TTL_MS = 10 * 60 * 1000;
+let manifestCache = { data: null, at: 0 };
+
+async function getRessourcesManifest() {
+  if (manifestCache.data && Date.now() - manifestCache.at < MANIFEST_TTL_MS) {
+    return manifestCache.data;
+  }
+  try {
+    const resp = await fetch(MANIFEST_URL);
+    if (resp.ok) manifestCache = { data: await resp.json(), at: Date.now() };
+  } catch { /* réseau : on garde le cache existant, même périmé */ }
+  return manifestCache.data;
+}
+
+async function ressourceMeta(path) {
+  const slug = path.split('/')[2];
+  if (!slug) return null;
+  const manifest = await getRessourcesManifest();
+  const article = manifest?.find((a) => a.slug === slug);
+  if (!article) return null;
+  return {
+    title: `${article.title} | Open Projets`,
+    description: article.description,
+    canonical: `${BASE}/ressources/${article.slug}`,
+    article,
+  };
+}
 
 function esc(str) {
   return String(str || '')
@@ -70,23 +106,58 @@ function esc(str) {
     .replace(/>/g, '&gt;');
 }
 
+// Organisation complète : désambiguïse « Open Projets » (vs OpenProject) dans
+// le Knowledge Graph. sameAs = profils publics vérifiés de l'éditeur VAZY.
+const ORG_ID = `${BASE_ORIGIN}/home/#organization`;
+const ORGANIZATION = {
+  '@type': 'Organization',
+  '@id': ORG_ID,
+  name: 'Open Projets',
+  legalName: 'VAZY',
+  description: 'Open Projets est la carte interactive des projets urbains et des chantiers des collectivités, éditée par VAZY, Société à Mission lyonnaise.',
+  url: `${BASE_ORIGIN}/home/`,
+  logo: {
+    '@type': 'ImageObject',
+    url: `${BASE_ORIGIN}/home/img/logos/classic_color.png`,
+  },
+  address: {
+    '@type': 'PostalAddress',
+    addressLocality: 'Lyon',
+    addressCountry: 'FR',
+  },
+  sameAs: [
+    'https://fr.linkedin.com/company/vazyapp',
+    'https://vazy.app/',
+  ],
+};
+
 function buildJsonLd(meta) {
+  const page = meta.article
+    ? {
+        '@type': 'Article',
+        headline: meta.article.title,
+        description: meta.description,
+        url: meta.canonical,
+        mainEntityOfPage: meta.canonical,
+        datePublished: meta.article.date,
+        dateModified: meta.article.updated || meta.article.date,
+        inLanguage: 'fr-FR',
+        image: `${BASE_ORIGIN}/home/img/logos/square_white.png`,
+        author: { '@id': ORG_ID },
+        publisher: { '@id': ORG_ID },
+      }
+    : {
+        '@type': 'WebPage',
+        name: meta.title,
+        description: meta.description,
+        url: meta.canonical,
+        inLanguage: 'fr-FR',
+        publisher: { '@id': ORG_ID },
+      };
+
   return {
     '@context': 'https://schema.org',
-    '@type': 'WebPage',
-    name: meta.title,
-    description: meta.description,
-    url: meta.canonical,
-    inLanguage: 'fr-FR',
-    publisher: {
-      '@type': 'Organization',
-      name: 'Open Projets',
-      url: `${BASE_ORIGIN}/home/`,
-      logo: {
-        '@type': 'ImageObject',
-        url: `${BASE_ORIGIN}/home/img/logos/classic_color.png`,
-      },
-    },
+    '@graph': [page, ORGANIZATION],
   };
 }
 
@@ -144,7 +215,8 @@ export default async (request, context) => {
   // Extraire le path relatif à /home (ex: "/home/alternative-panneaupocket" → "/alternative-panneaupocket")
   const path = url.pathname.replace(/^\/home/, '') || '/';
 
-  const meta = PAGES[path];
+  let meta = PAGES[path];
+  if (!meta && path.startsWith('/ressources/')) meta = await ressourceMeta(path);
   // Route inconnue ou asset → passer
   if (!meta) return await context.next();
 
@@ -177,5 +249,7 @@ export const config = {
     '/home/alternative-panneaupocket',
     '/home/alternative-cityall-lumiplan',
     '/home/alternative-neocity',
+    '/home/ressources',
+    '/home/ressources/*',
   ],
 };

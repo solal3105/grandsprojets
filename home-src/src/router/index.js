@@ -65,6 +65,22 @@ const routes = [
     },
   },
   {
+    path: '/ressources',
+    name: 'ressources',
+    component: () => import('@/views/RessourcesView.vue'),
+    meta: {
+      title: 'Ressources : communiquer sur les projets de sa collectivité | Open Projets',
+      description: 'Guides pratiques pour les communes : plan de mandat, carte des travaux, information des riverains. Des méthodes concrètes issues du terrain, sans jargon.',
+      canonical: `${BASE}/ressources`,
+    },
+  },
+  {
+    // Metas posées par la vue (title/canonical propres à chaque article)
+    path: '/ressources/:slug',
+    name: 'ressource-article',
+    component: () => import('@/views/RessourceArticleView.vue'),
+  },
+  {
     path: '/aide',
     name: 'aide',
     component: () => import('@/views/HelpView.vue'),
@@ -123,12 +139,13 @@ router.beforeEach((to, from) => {
 })
 
 // Mettre à jour les balises <head> SEO à chaque navigation
-function setMeta(name, content, attr = 'name') {
+// (exportées : les vues à routes dynamiques comme /ressources/:slug les réutilisent)
+export function setMeta(name, content, attr = 'name') {
   let el = document.querySelector(`meta[${attr}="${name}"]`)
   if (!el) { el = document.createElement('meta'); el.setAttribute(attr, name); document.head.appendChild(el) }
   el.setAttribute('content', content)
 }
-function setCanonical(href) {
+export function setCanonical(href) {
   let el = document.querySelector('link[rel="canonical"]')
   if (!el) { el = document.createElement('link'); el.setAttribute('rel', 'canonical'); document.head.appendChild(el) }
   el.setAttribute('href', href)
