@@ -33,6 +33,13 @@ export const articles = Object.entries(files)
       updated: meta.updated || meta.date || '',
       tag: meta.tag || '',
       readingTime: meta.readingTime || '',
+      // Bloc solution contextualisé (SolutionShowcase) : intro libre +
+      // points séparés par « | » dans le frontmatter
+      solutionHeading: meta.solutionHeading || '',
+      solutionIntro: meta.solutionIntro || '',
+      solutionPoints: meta.solutionPoints
+        ? meta.solutionPoints.split('|').map((p) => p.trim()).filter(Boolean)
+        : [],
       html: marked.parse(body),
     }
   })

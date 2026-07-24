@@ -5,6 +5,9 @@ date: 2026-07-24
 updated: 2026-07-24
 tag: Riverains
 readingTime: 12
+solutionHeading: Le point fixe de votre dispositif riverains
+solutionIntro: Courrier, affichage et QR code annoncent ; la fiche chantier en ligne, permanente et à jour, reste. Cette fiche peut vivre sur votre site municipal ; Open Projets la fournit prête à l'emploi, QR code compris.
+solutionPoints: Une page publique par chantier : nature, dates, avancement, contact | Calendrier et statut modifiables par vos services au fil du chantier, sans prestataire | QR code de palissade généré pour chaque fiche | Aucune application à installer pour les riverains
 ---
 
 Un lundi matin, des barrières apparaissent au bout de la rue. Personne n'a rien reçu, le panneau ne dit rien de plus que le nom d'une entreprise, et à 9 h 30 le standard de la mairie commence à sonner. Cette scène se rejoue chaque semaine dans des centaines de communes, et elle a une particularité : dans la plupart des cas, la commune n'a violé aucune obligation légale. C'est tout le paradoxe de l'information riverains, et la raison pour laquelle ce guide distingue soigneusement ce que le droit impose de ce que le bon sens recommande.
@@ -36,14 +39,13 @@ Sur le terrain, les dispositifs vérifiables ne manquent pas :
 - **Pantin** adresse des « [lettres informations riverains](https://pratique.pantin.fr/travaux) » par quartier : plus de 80 courriers archivés en ligne, chacun précisant nature, objectifs, rues et périodes concernées.
 - **Meaux** publie sa « [lettre aux riverains](https://www.ville-meaux.fr/ma-ville-et-actualites/elus-et-institution/publications-municipales/la-lettre-aux-riverains) », distribuée dans les zones concernées, des réfections de voirie aux chantiers immobiliers.
 - **Rennes Métropole** combine [fiches riverains en PDF, carte des travaux et « météo des travaux » hebdomadaire](https://travaux.rennesmetropole.fr/infos-riverains/), avec un service de médiation.
-- **La Métropole de Lyon** propose des [alertes SMS et courriel](https://mobilites.grandlyon.com/travaux) personnalisées autour d'une adresse.
 - Côté prévention, l'OPPBTP documente le [QR code d'information riverains sur les barrières de chantier](https://www.preventionbtp.fr/ressources/solutions/informer-les-riverains-sur-les-travaux-en-cours-avec-un-qr-code_V6trtYiqJiy3U9DjS2FsXk), donnant accès aux contacts de l'équipe, au planning, à l'avancement semaine par semaine et à un formulaire de signalement. Le témoignage cité vaut d'être retenu : « Les équipes travaux sont plus sereines car il y a moins d'agressivité de la part des riverains qui savent à qui s'adresser et sont informés régulièrement. » L'information des riverains n'est pas que de la communication : c'est aussi de la prévention pour les compagnons.
 
 ## La méthode : avant, pendant, après
 
 **Avant (idéalement deux semaines).** Une lettre aux adresses riveraines, avec les quatre informations que recommande le CNFPT : nature des travaux, durée prévisionnelle, plan de circulation, point de contact. Pour les chantiers longs ou sensibles, une réunion ou une permanence sur site. L'arrêté est publié dans les formes (électronique ou affichage selon votre cas), et affiché aux extrémités du chantier si vos textes locaux le prévoient.
 
-**Au démarrage.** La signalisation est posée conformément à l'arrêté (sans elle, rien n'est opposable aux usagers), le panneau de chantier est en place, et la fiche du chantier est en ligne : dates, impact, contact. C'est le bon endroit pour un [QR code qui pointe vers cette fiche](/home/ressources/qr-code-panneau-chantier) plutôt que vers la page d'accueil du site.
+**Au démarrage.** La signalisation est posée conformément à l'arrêté (sans elle, rien n'est opposable aux usagers), le panneau de chantier est en place, et la fiche du chantier est en ligne : dates, impact, contact. Ne voyez pas cette fiche comme un chantier informatique : sur un site municipal classique, une page bien structurée fait l'affaire ; sur un outil dédié comme le nôtre, elle se crée en quelques minutes, QR code compris. L'important est le [QR code qui pointe vers cette fiche](/home/ressources/qr-code-panneau-chantier) plutôt que vers la page d'accueil du site.
 
 **Pendant.** Un point d'avancement régulier (hebdomadaire sur les chantiers qui gênent), la mise à jour de la fiche à chaque évolution de calendrier, et un canal identifié pour les réclamations : registre sur le chantier, adresse courriel dédiée, ou les deux. Un retard expliqué et daté se pardonne ; un silence, jamais.
 

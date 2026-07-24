@@ -5,6 +5,9 @@ date: 2026-07-24
 updated: 2026-07-24
 tag: Plan de mandat
 readingTime: 10
+solutionHeading: La carte du mandat, prête pour l'annonce du budget 2027
+solutionIntro: Open Projets est né pour ce cas d'usage : donner au plan de mandat une carte publique qui traverse les six ans du mandat, et que la mairie fait vivre sans compétence technique.
+solutionPoints: Une fiche par projet, avec photos, calendrier et statut actualisés après chaque conseil | La carte aux couleurs de la commune, intégrée à votre site en iframe | QR codes prêts pour le magazine municipal et les panneaux | En ligne en quelques semaines une fois vos fiches rédigées, pour un budget compatible avec un achat sans mise en concurrence préalable
 ---
 
 Chaque début de mandat produit le même document. Quarante pages, une belle photo de la place principale au coucher du soleil, un édito du maire, des projets rangés par thématiques. Le plan de mandat est présenté en conseil municipal, mis en ligne au format PDF, annoncé dans le magazine. Puis il disparaît.
@@ -19,7 +22,7 @@ Un plan de mandat représente des mois de travail : arbitrages politiques, chiff
 
 Ce n'est pas que les habitants se désintéressent de l'action municipale. C'est qu'on leur répond à côté de la question. Un habitant ne se demande pas « quelle est la stratégie d'investissement pluriannuelle de ma commune ». Il se demande pourquoi il y a des barrières devant l'école, quand la rue du marché rouvrira, et si la friche derrière chez lui deviendra un parking ou un square. Sa question est géographique, datée, et locale. Le PDF thématique de quarante pages ne peut pas y répondre : c'est un format d'archivage, pas un format d'information.
 
-Des communes l'ont compris et publient désormais leurs projets de mandature sur une page web dédiée : [Ivry-sur-Seine](https://www.ivry94.fr/2889/le-projet-municipal-2026-2032.htm) et [Moissy-Cramayel](https://www.moissy-cramayel.fr/notre-ville/les-projets-de-la-mandature-2026-2032/) l'ont fait pour 2026-2032, [Lyon](https://www.lyon.fr/mandat-2026-2032) consacre une rubrique entière à son mandat. C'est un vrai progrès par rapport au PDF. Il manque encore l'entrée par laquelle les habitants pensent leur commune : le lieu.
+Des communes l'ont compris et publient désormais leurs projets de mandature sur une page web dédiée : [Ivry-sur-Seine](https://www.ivry94.fr/2889/le-projet-municipal-2026-2032.htm) et [Moissy-Cramayel](https://www.moissy-cramayel.fr/notre-ville/les-projets-de-la-mandature-2026-2032/) l'ont fait pour 2026-2032. C'est un vrai progrès par rapport au PDF. Il manque encore l'entrée par laquelle les habitants pensent leur commune : le lieu.
 
 ## Pourquoi l'automne 2026 est le moment exact
 
@@ -60,7 +63,7 @@ Et ce qu'une carte de mandat n'est pas : un SIG d'expert (vos habitants ne liron
 
 **3. Écrire les fiches en langage clair.** Bannissez « requalification », « VRD », « maîtrise d'œuvre », ou traduisez-les. Trois dates maximum par fiche : l'annonce, le début des travaux, la livraison. Un ordre de grandeur budgétaire si vous l'assumez publiquement. Le test de relecture : est-ce qu'un nouvel arrivant dans la commune comprend la fiche sans rien connaître du dossier ?
 
-**4. Nommer la personne qui met à jour, et fixer le rythme.** C'est l'étape que tout le monde saute, et c'est elle qui décide du sort de la carte. Une carte qui affiche « travaux : démarrage septembre 2026 » en février 2027 fait plus de dégâts que pas de carte du tout. Le rythme réaliste : une passe de mise à jour après chaque conseil municipal, car les délibérations sont la source naturelle des changements de statut. Une personne nommée, une heure par mois. Si vous ne pouvez pas garantir cela, ne publiez pas encore.
+**4. Nommer la personne qui met à jour, et fixer le rythme.** C'est l'étape que tout le monde saute, et c'est elle qui décide du sort de la carte. Une carte qui affiche « travaux : démarrage septembre 2026 » en février 2027 fait plus de dégâts que pas de carte du tout. Le rythme réaliste : une passe de mise à jour après chaque conseil municipal, car les délibérations sont la source naturelle des changements de statut. Une personne nommée, une heure par mois. C'est d'ailleurs le critère qui devrait guider votre choix d'outil, quel qu'il soit : changer un statut ou une date doit prendre deux clics, pas une formation. Si vous ne pouvez pas garantir cette heure mensuelle, ne publiez pas encore.
 
 **5. Publier au bon moment, brancher les canaux existants.** Le bon moment, on l'a vu : l'annonce du plan de mandat, entre le débat d'orientation budgétaire et le vote du budget 2027. Le jour J, la carte s'intègre sur le site de la commune, un [QR code](/home/ressources/qr-code-panneau-chantier) part dans le magazine municipal, le lien accompagne le communiqué à la presse locale. Ensuite, chaque actualité projet renvoie vers sa fiche : c'est la fiche qui cumule l'audience au fil des années, pas l'article d'annonce.
 
@@ -82,7 +85,7 @@ Trois familles de solutions, honnêtement.
 
 **Le SIG de la collectivité**, pour celles qui en ont un. Puissant, mais conçu pour les services techniques : l'interface, le vocabulaire et les couches de données parlent aux experts, rarement aux habitants.
 
-**Un outil dédié.** C'est ce que nous construisons : Open Projets est une carte en marque blanche, aux couleurs de la commune, où chaque projet a sa fiche, son statut et son QR code, sans application à installer, mise à jour depuis une interface pensée pour un agent non technique. Nous l'éditons, donc ne nous croyez pas sur parole : [une démo en ligne est ouverte](https://openprojets.com/default), et les [tarifs se discutent simplement](https://openprojets.com/home/contact), très en dessous des seuils qui imposeraient une procédure de marché.
+**Un outil dédié.** C'est ce que nous construisons : Open Projets est une carte en marque blanche, aux couleurs de la commune, où chaque projet a sa fiche, son statut et son QR code, sans application à installer, mise à jour depuis une interface pensée pour un agent non technique. Nous l'éditons, donc ne nous croyez pas sur parole : [une démo en ligne est ouverte](https://openprojets.com/default). Côté budget, l'ordre de grandeur reste sous les seuils qui imposeraient une procédure de marché : un point à vérifier quelle que soit la solution que vous retiendrez.
 
 ## L'essentiel en six points
 

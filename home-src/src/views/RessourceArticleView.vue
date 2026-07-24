@@ -42,6 +42,11 @@
       </div>
     </section>
 
+    <!-- Bloc solution : démo embarquée + capacités liées au sujet de l'article -->
+    <SolutionShowcase
+      v-bind="showcaseProps"
+    />
+
     <!-- CTA -->
     <CtaSection
       heading="Montrez vos projets"
@@ -58,6 +63,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft } from 'lucide-vue-next'
 import PageBlobs from '@/components/PageBlobs.vue'
 import CtaSection from '@/components/CtaSection.vue'
+import SolutionShowcase from '@/components/SolutionShowcase.vue'
 import { articleBySlug, formatDateFr } from '@/data/ressources.js'
 import { setMeta, setCanonical } from '@/router'
 
@@ -66,6 +72,18 @@ const BASE = 'https://openprojets.com/home'
 const route = useRoute()
 const router = useRouter()
 const article = computed(() => articleBySlug[route.params.slug])
+
+// Ne transmettre que les champs renseignés : les autres gardent les
+// valeurs par défaut du composant
+const showcaseProps = computed(() => {
+  const a = article.value
+  if (!a) return {}
+  const props = {}
+  if (a.solutionHeading) props.heading = a.solutionHeading
+  if (a.solutionIntro) props.intro = a.solutionIntro
+  if (a.solutionPoints.length) props.points = a.solutionPoints
+  return props
+})
 
 // Metas par article : la route est dynamique, le routeur ne peut pas les
 // porter en meta statique. Posées ici, elles sont figées par le prerender.

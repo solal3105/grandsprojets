@@ -5,6 +5,9 @@ date: 2026-07-24
 updated: 2026-07-24
 tag: Chantier
 readingTime: 10
+solutionHeading: La page derrière le code, prête à imprimer
+solutionIntro: Chaque fiche Open Projets est conçue pour être la destination d'un QR code de chantier : une adresse stable, une page légère pensée pour s'afficher vite sur mobile, un contenu qui vit au rythme des travaux.
+solutionPoints: URL stable pendant toute la vie du chantier : le code imprimé ne change jamais | La fiche évolue derrière : statut, dates, photos, explication des retards | S'ouvre sans application ni compte, immédiatement | Contact et signalement accessibles depuis la fiche
 ---
 
 Le panneau de chantier est un objet étrange : il est là, au contact direct des personnes les plus concernées par les travaux, et il ne leur dit presque rien. Le nom d'une entreprise, un numéro de permis, parfois une perspective d'architecte. Ni la date de fin, ni la raison des travaux, ni où poser une question.
@@ -27,7 +30,7 @@ L'OPPBTP, l'organisme professionnel de prévention du BTP, consacre une [fiche e
 
 Un écosystème de prestataires du « panneau de chantier connecté » s'est d'ailleurs constitué en France ([SmartPanneau](https://smartpanneau.fr/), [PanoQR](https://logist.fr/panoqr/), entre autres), signe que la pratique se répand côté entreprises et promoteurs : un cas documenté, la palissade de plus de 60 mètres du promoteur Pierreval en Gironde, [intègre un QR code](https://www.light-air.com/2025/palissade-chantier-communication-pierreval/) vers le site du projet.
 
-Côté collectivités, en revanche, le constat de nos recherches est sans appel : les grandes villes ont des cartes de travaux en ligne (Paris, Lyon, Montpellier, Rennes), mais nous n'avons trouvé aucun cas documenté de commune française affichant systématiquement un QR code d'information sur ses chantiers. Le pont entre la rue et l'information en ligne reste à construire, et c'est une vraie opportunité pour les communes qui s'en saisiront les premières : le dispositif est peu coûteux, immédiatement visible, et personne ne l'attend.
+Côté collectivités, en revanche, le constat de nos recherches est sans appel : les grandes villes ont des cartes de travaux en ligne (Paris, Montpellier, Rennes), mais nous n'avons trouvé aucun cas documenté de commune française affichant systématiquement un QR code d'information sur ses chantiers. Le pont entre la rue et l'information en ligne reste à construire, et c'est une vraie opportunité pour les communes qui s'en saisiront les premières : le dispositif est peu coûteux, immédiatement visible, et personne ne l'attend.
 
 ## Les règles techniques d'un QR code qui fonctionne dehors
 
@@ -53,7 +56,7 @@ Le QR code n'est qu'une porte. Ce qui fait réussir ou échouer le dispositif, c
 
 **Une fiche qui vit.** La liste de l'OPPBTP est le bon cahier des charges : quoi, pourquoi, quand, où en est-on, qui contacter, comment signaler un problème. Le tout mis à jour au rythme du chantier ; une fiche figée depuis trois mois détruit la confiance que le QR code avait créée. C'est le même principe que pour la [carte des travaux de la commune](/home/ressources/carte-des-travaux-commune) : le rythme de mise à jour prime sur la sophistication.
 
-**Une page qui s'ouvre sans rien installer.** Pas d'application à télécharger, pas de compte à créer : le scan doit donner l'information en deux secondes, sur n'importe quel téléphone. C'est exactement ainsi que sont conçues les fiches projet d'[Open Projets](https://openprojets.com/home/fonctionnalites) : chaque chantier a sa page publique, avec statut et calendrier, pensée pour être la cible d'un QR code de palissade. Mais quel que soit l'outil, le principe demeure : le code imprimé ne change jamais, la page derrière, si.
+**Une page qui s'ouvre sans rien installer.** Pas d'application à télécharger, pas de compte à créer : le scan doit donner l'information en deux secondes, sur n'importe quel téléphone. Une page bien structurée sur le site de la commune remplit parfaitement ce rôle ; c'est aussi le cahier des charges que nous avons suivi pour les fiches d'[Open Projets](https://openprojets.com/home/fonctionnalites), où chaque chantier a sa page publique avec statut et calendrier. Dans tous les cas, le principe demeure : le code imprimé ne change jamais, la page derrière, si.
 
 Ce dispositif s'inscrit dans une stratégie plus large d'information des riverains, dont les obligations et la méthode complète sont détaillées dans [notre guide dédié](/home/ressources/informer-les-riverains-travaux).
 

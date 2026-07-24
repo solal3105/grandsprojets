@@ -5,11 +5,14 @@ date: 2026-07-24
 updated: 2026-07-24
 tag: Exemples
 readingTime: 12
+solutionHeading: Le même exercice, appliqué à notre propre outil
+solutionIntro: Nous avons construit Open Projets en appliquant les leçons de ce banc d'essai. La démo ci-contre est en accès libre : explorez-la avec exactement les mêmes critères que les neuf exemples (fraîcheur, lisibilité des fiches, périmètre annoncé).
+solutionPoints: Fiches lisibles par les moteurs de recherche, sans exécuter de JavaScript | Carte en marque blanche aux couleurs de la collectivité | Statuts et calendrier par projet, mis à jour en autonomie par vos agents | Accessible par lien, QR code ou iframe, sans application
 ---
 
 Comment les collectivités françaises informent-elles vraiment leurs habitants sur les travaux ? Pour le savoir, nous avons fait ce que personne ne prend le temps de faire : visiter les pages travaux une par une, inspecter leur code source pour identifier les outils utilisés, vérifier les dates de mise à jour, et noter honnêtement ce qui marche et ce qui manque. Toutes les observations ci-dessous ont été faites le 24 juillet 2026 ; les pages évoluent, les liens font foi.
 
-Transparence d'abord : nous éditons Open Projets, un outil de ce domaine. Un des exemples ci-dessous tourne dessus, il est signalé et jugé avec la même sévérité que les autres. Ce panorama va du village de 3 700 habitants à la capitale : quelle que soit la taille de votre commune, au moins un de ces exemples est à votre portée.
+Transparence d'abord : nous éditons Open Projets, un outil de ce domaine ; aucun des exemples ci-dessous n'utilise notre solution, et chacun est jugé sur ce que nous avons réellement constaté. Ce panorama va du village de 3 700 habitants à la capitale : quelle que soit la taille de votre commune, au moins un de ces exemples est à votre portée.
 
 ## 1. Saint-Cergues (Haute-Savoie, ~3 700 habitants) : géolocaliser ses arrêtés avec son CMS
 
@@ -35,13 +38,13 @@ La preuve qu'il ne faut pas être une métropole pour avoir une carte : [la cart
 **Ce qui manque** : pas de moteur de recherche ni d'abonnement visibles.
 **La leçon** : hiérarchiser (une « météo ») parle aux habitants ; le rythme éditorial compte plus que l'exhaustivité.
 
-## 4. Métropole de Lyon : l'info travaux devenue service
+## 4. Montpellier Méditerranée Métropole : trois lectures de la même information
 
-Chez [la Métropole de Lyon](https://mobilites.grandlyon.com/travaux), l'information travaux n'est pas une page isolée mais une brique de l'Agence des mobilités : recherche des chantiers « dans un rayon de 300 mètres autour d'un lieu », carte à la date sélectionnée, alertes SMS et courriel personnalisées, et [données publiées en open data](https://data.grandlyon.com/portail/fr/jeux-de-donnees/chantiers-perturbants-metropole-lyon/donnees). On note aussi l'honnêteté des avertissements affichés : les dates « sont susceptibles d'évoluer en fonction des aléas de chantiers ».
+[travaux.montpellier.fr](https://travaux.montpellier.fr/) est un site entièrement dédié aux travaux de la métropole, avec une idée simple et efficace : la même information se consulte de trois façons, une vue « Carte », une vue « Liste » et une vue « Hebdo », complétées par un point travaux hebdomadaire téléchargeable en PDF.
 
-**Ce qui marche** : la question de l'habitant (« et devant chez moi ? ») a sa réponse littérale : la recherche par adresse avec rayon. L'abonnement transforme l'information passive en service.
-**Ce qui manque** : tout se charge en JavaScript ; aucune fiche chantier n'est lisible par un moteur de recherche.
-**La leçon** : proposer l'alerte autour de chez soi, c'est faire de l'info travaux un service rendu, pas un affichage.
+**Ce qui marche** : chacun choisit son format ; l'habitant pressé lit la liste, le curieux explore la carte, l'habitué télécharge le point hebdo. La même donnée sert trois usages sans travail supplémentaire.
+**Ce qui manque** : comme la plupart des cartes de ce panel, le contenu détaillé se charge en JavaScript, donc peu lisible par les moteurs de recherche.
+**La leçon** : ne présumez pas du format préféré de vos habitants ; carte, liste et rendez-vous périodique se complètent à partir de la même source.
 
 ## 5. Grand Paris Seine et Oise (73 communes) : dire ce que la carte ne montre pas
 
@@ -81,9 +84,7 @@ Rueil-Malmaison publie [une liste de grands chantiers](https://www.villederueil.
 
 **La leçon**, et elle vaut pour tout ce guide : une page travaux périmée fait plus de dégâts que pas de page du tout, parce qu'elle prouve publiquement que le suivi annoncé n'est pas assuré. Avant de créer votre page, décidez qui la fera vivre ; c'est le cœur de notre [guide de la carte des travaux](/home/ressources/carte-des-travaux-commune).
 
-## Et Divonne-les-Bains, sur notre propre outil
-
-Par transparence, le même exercice sur [la page de Divonne-les-Bains](https://openprojets.com/ville/divonne) (~10 500 habitants), qui tourne sur Open Projets : six projets structurants avec image, catégorie, description et fiche dédiée, une carte, une recherche et des filtres. Le point fort, vérifié en inspectant ce que voit un moteur de recherche : contrairement à la plupart des cartes de ce panel, tout le contenu est lisible dans le HTML servi, sans exécuter de JavaScript, donc indexable. Le point faible, avec la même honnêteté : la fraîcheur éditoriale n'est pas assez visible (pas de date de mise à jour affichée par fiche), un chantier d'amélioration que cet audit nous a mis sous les yeux. Le positionnement est aussi différent : des grands projets présentés au long cours, plus proches de la logique d'une [carte de plan de mandat](/home/ressources/carte-plan-de-mandat-2026-2032) que du suivi hebdomadaire de voirie à la rennaise. Les deux registres se complètent.
+Un mot sur la question qui fâche, avant la synthèse : sur les neuf pages de ce panel, la grande majorité des cartes sont invisibles pour les moteurs de recherche (le contenu ne se charge qu'en JavaScript). Concrètement, un habitant qui tape « travaux rue X » dans Google ne trouvera jamais le chantier, même s'il figure sur la carte de sa commune. C'est un critère que presque personne ne regarde en choisissant son outil, et l'un de ceux qui comptent le plus ; nous en avons fait un principe de conception d'Open Projets, et le point se vérifie sur n'importe quelle page de la démo. Les fiches d'un chantier ou d'un projet méritent d'exister aussi comme pages web à part entière, pas seulement comme des points sur une carte. Elles sont d'ailleurs la brique de départ d'une [carte de plan de mandat](/home/ressources/carte-plan-de-mandat-2026-2032) comme d'une carte des travaux.
 
 ## Les leçons, en synthèse
 

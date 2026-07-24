@@ -5,6 +5,9 @@ date: 2026-07-24
 updated: 2026-07-24
 tag: Travaux
 readingTime: 11
+solutionHeading: La méthode de ce guide, appliquée sans SIG
+solutionIntro: Le module Travaux d'Open Projets applique la méthode décrite ici, pour les communes qui n'ont ni SIG ni prestataire : la matière vient de vos arrêtés, l'outil se charge de la carte, des fiches et de leur publication ; le rythme de mise à jour, lui, reste chez vous.
+solutionPoints: Trois statuts natifs (à venir, en cours, terminé) et les chantiers finis qui s'archivent | Mise à jour par un agent depuis un simple navigateur, au rythme des arrêtés | Chaque chantier a sa fiche publique, lisible par les moteurs de recherche | Carte intégrable au site de la commune, partageable par lien ou QR code
 ---
 
 Il y a une question que toutes les mairies de France entendent, du village à la métropole : « pourquoi ma rue est barrée, et jusqu'à quand ? » La réponse existe presque toujours quelque part : dans un arrêté, dans le calendrier des services techniques, dans le programme d'un concessionnaire. Elle est simplement rangée là où les habitants ne la verront jamais.
@@ -39,7 +42,7 @@ Nous avons inspecté le code source de plusieurs pages travaux de collectivités
 - **[Saint-Cergues](https://www.saint-cergues.fr/Carte-des-travaux-en-cours)** (Haute-Savoie, ~3 700 habitants) : une carte Leaflet générée par le plugin cartographique de son CMS, qui géolocalise les arrêtés de circulation. La preuve qu'une commune de moins de 4 000 habitants peut géolocaliser ses travaux.
 - **[Rennes Métropole](https://travaux.rennesmetropole.fr/)** : un site dédié adossé au SIG de la métropole, avec une trouvaille éditoriale, la « météo des travaux » : chaque semaine, un bulletin des perturbations avec un indicateur global de circulation.
 - **[Grand Paris Seine et Oise](https://gpseo.fr/article/carte-travaux)** : une carte ArcGIS pour 73 communes, avec une phrase précieuse écrite noir sur blanc : les interventions de moins d'une semaine et les travaux des concessionnaires n'y figurent pas. Dire le périmètre de sa carte, c'est la crédibiliser.
-- **[Métropole de Lyon](https://mobilites.grandlyon.com/travaux)** : l'info travaux comme service de mobilité, avec recherche « dans un rayon de 300 mètres autour d'un lieu », alertes SMS et courriel, et [données ouvertes](https://data.grandlyon.com/portail/fr/jeux-de-donnees/chantiers-perturbants-metropole-lyon/donnees).
+- **[Montpellier Méditerranée Métropole](https://travaux.montpellier.fr/)** : un site entièrement dédié, où la même information se lit de trois façons (carte, liste, point hebdomadaire en PDF) : chaque habitant choisit son format.
 
 Aucun de ces dispositifs n'est parfait, mais chacun apporte une leçon transférable à n'importe quelle commune, quelle que soit sa taille.
 
@@ -61,7 +64,7 @@ Ce qu'une commune de 5 000 habitants doit retenir de ce cas, ce n'est pas le bud
 
 **4. Fixez le rythme de mise à jour, et affichez-le.** Vence écrit sur sa page que sa carte est « réactualisée chaque semaine par les Services Techniques » : c'est un contrat de confiance. Rennes tient un rendez-vous hebdomadaire. Le rythme réaliste pour une commune moyenne : une passe hebdomadaire en saison de travaux, calée sur la sortie des arrêtés.
 
-**5. Trois statuts suffisent.** À venir, en cours, terminé. Les chantiers terminés ne doivent pas s'accumuler sur la carte : une carte encombrée de travaux finis depuis deux ans dit aux habitants qu'on ne s'en occupe plus.
+**5. Trois statuts suffisent.** À venir, en cours, terminé. Résistez à la tentation des nomenclatures de service technique (phase APD, réception provisoire...) : elles parlent aux experts, pas aux riverains. Et les chantiers terminés ne doivent pas s'accumuler sur la carte : une carte encombrée de travaux finis depuis deux ans dit aux habitants qu'on ne s'en occupe plus. C'est pour cela que dans le module Travaux d'Open Projets, ces trois statuts sont natifs et les chantiers terminés s'archivent : le choix d'interface fait la politique éditoriale.
 
 **6. Branchez la carte sur vos canaux existants.** Un lien dans chaque publication travaux sur les réseaux, une intégration sur le site, une mention dans le bulletin, et le lien dans chaque [courrier aux riverains](/home/ressources/informer-les-riverains-travaux). Sur le terrain, un [QR code sur le panneau ou la barrière de chantier](/home/ressources/qr-code-panneau-chantier) fait le pont entre la rue et la fiche.
 
