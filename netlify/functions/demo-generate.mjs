@@ -349,12 +349,15 @@ async function fetchBoamp(communeNom, onFinding) {
 
 /* ─── IA : deux passes ─── */
 
-async function callOpenAI(system, user, schemaName, schema, maxTokens) {
+// Appel OpenAI en streaming : le JSON se construit token par token, et chaque
+// "title" complet déclenche onTitle() pour révéler le projet à l'écran en direct
+async function callOpenAI(system, user, schemaName, schema, maxTokens, onTitle) {
   const r = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: OPENAI_MODEL,
+      stream: true,
       input: [
         { role: 'system', content: system },
         { role: 'user', content: user },
@@ -362,16 +365,45 @@ async function callOpenAI(system, user, schemaName, schema, maxTokens) {
       text: { format: { type: 'json_schema', name: schemaName, schema, strict: true } },
       max_output_tokens: maxTokens,
     }),
-  }, 90000);
+  }, 120000);
   if (!r.ok) {
     const errText = await r.text().catch(() => '');
     throw new Error(`IA indisponible (${r.status}) ${errText.slice(0, 200)}`);
   }
-  const data = await r.json();
-  const text = data.output_text
-    || data.output?.flatMap((o) => o.content || []).find((c) => c.type === 'output_text')?.text;
-  if (!text) throw new Error('Réponse IA vide');
-  return JSON.parse(text);
+
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  let full = '';
+  let titlesSeen = 0;
+  const TITLE_RE = /"title"\s*:\s*"((?:[^"\\]|\\.)+)"/g;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, idx).trim();
+      buf = buf.slice(idx + 1);
+      if (!line.startsWith('data:')) continue;
+      const payload = line.slice(5).trim();
+      if (!payload || payload === '[DONE]') continue;
+      try {
+        const ev = JSON.parse(payload);
+        if (ev.type === 'response.output_text.delta' && ev.delta) {
+          full += ev.delta;
+          const titles = [...full.matchAll(TITLE_RE)];
+          for (; titlesSeen < titles.length; titlesSeen++) {
+            onTitle?.(titles[titlesSeen][1].replace(/\\(["\\])/g, '$1'));
+          }
+        } else if (ev.type === 'response.output_text.done' && ev.text) {
+          full = ev.text;
+        }
+      } catch { /* ligne partielle : suite au prochain chunk */ }
+    }
+  }
+  if (!full) throw new Error('Réponse IA vide');
+  return JSON.parse(full);
 }
 
 function buildSourcesBundle({ mairie, news, boamp }) {
@@ -388,13 +420,13 @@ function buildSourcesBundle({ mairie, news, boamp }) {
   return parts.join('\n\n---\n\n');
 }
 
-async function extractCandidates(commune, bundle) {
+async function extractCandidates(commune, bundle, onTitle) {
   const system = `Tu dépouilles des sources web au sujet de la commune de ${commune.nom}. Extrais TOUS les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES concernant cette commune précise (jusqu'à 20). Pour chacun : une citation exacte copiée mot pour mot d'une source (evidence_quote) et l'URL de cette source (source_url, obligatoirement une URL présente entre crochets dans les sources). Ignore : événements, politique, faits divers, autres communes, généralités sans projet.`;
-  const out = await callOpenAI(system, `SOURCES :\n\n${bundle}`, 'candidats', CANDIDATES_SCHEMA, 4000);
+  const out = await callOpenAI(system, `SOURCES :\n\n${bundle}`, 'candidats', CANDIDATES_SCHEMA, 4000, onTitle);
   return out.candidates || [];
 }
 
-async function selectProjects(commune, candidates, bundle) {
+async function selectProjects(commune, candidates, bundle, onTitle) {
   const system = `Tu es un rédacteur territorial exigeant. À partir des candidats extraits et des sources, compose la sélection finale des projets de ${commune.nom} (5 à 10 si la matière le permet, moins sinon). Règles :
 - Uniquement des projets physiques et localisables DANS la commune, actuels (en cours, récents ou annoncés). Fusionne les doublons.
 - confidence "haute" seulement si la citation atteste clairement le projet ; "basse" si douteux (il sera écarté).
@@ -402,7 +434,7 @@ async function selectProjects(commune, candidates, bundle) {
 - place : le lieu géocodable le plus précis mentionné (rue, quartier, équipement), chaîne vide sinon.
 - source_url : reprends l'URL de la source qui atteste le projet.`;
   const user = `CANDIDATS :\n${JSON.stringify(candidates, null, 1)}\n\nSOURCES (pour vérification) :\n\n${bundle.slice(0, 30000)}`;
-  const out = await callOpenAI(system, user, 'selection_finale', FINAL_SCHEMA, 3200);
+  const out = await callOpenAI(system, user, 'selection_finale', FINAL_SCHEMA, 3200, onTitle);
   return out.projects || [];
 }
 
@@ -594,15 +626,19 @@ export default async (req, context) => {
           return;
         }
 
-        // 5. IA passe 1 : extraction exhaustive avec citations
-        step('ai1', 'start', 'Dépouillement des sources par l\'IA');
+        // 5. IA passe 1 : extraction exhaustive avec citations, révélée en direct
+        const sourcesCount = mairie.pages.length + news.length + (boamp.length ? 1 : 0);
+        const words = Math.round(buildSourcesBundle({ mairie, news, boamp }).length / 6);
+        step('ai1', 'start', 'Dépouillement des sources par l\'IA', `${sourcesCount} sources, ~${words.toLocaleString('fr-FR')} mots à lire`);
         const bundle = buildSourcesBundle({ mairie, news, boamp });
-        const candidates = await extractCandidates(commune, bundle);
+        const candidates = await extractCandidates(commune, bundle, (title) => send({ type: 'ai-item', phase: 'ai1', title }));
         step('ai1', 'done', 'Sources dépouillées', `${candidates.length} projet(s) candidat(s) repéré(s)`);
 
-        // 6. IA passe 2 : critique, fusion, rédaction
-        step('ai2', 'start', 'Sélection et vérification des projets');
-        let projects = candidates.length ? await selectProjects(commune, candidates, bundle) : [];
+        // 6. IA passe 2 : critique, fusion, rédaction, révélée en direct
+        step('ai2', 'start', 'Sélection et vérification des projets', 'Chaque projet doit citer sa source mot pour mot');
+        let projects = candidates.length
+          ? await selectProjects(commune, candidates, bundle, (title) => send({ type: 'ai-item', phase: 'ai2', title }))
+          : [];
 
         // Verrous serveur : source réellement collectée + confiance suffisante
         const allowedUrls = new Set([
@@ -635,8 +671,18 @@ export default async (req, context) => {
         const real = located.filter((p) => p.method !== 'centre').length;
         step('geo', 'done', 'Projets localisés', `${real}/${located.length} emplacements précis`);
 
-        // 8. Création de l'espace
+        // 8. Création de l'espace, sous-étape par sous-étape
         step('create', 'start', `Création de l'espace de ${commune.nom}`);
+        if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+          send({
+            type: 'error',
+            message: 'Environnement local sans clé service Supabase : la création de l\'espace est désactivée ici. En production, cette étape fonctionne.',
+            debug: 'SUPABASE_SERVICE_ROLE_KEY absente du contexte (netlify dev)',
+          });
+          controller.close();
+          return;
+        }
+        const createItem = (label) => send({ type: 'create-item', label });
         const ville = `${VILLE_PREFIX}${slugify(commune.nom)}`;
 
         let logoUrl = null;
@@ -648,6 +694,7 @@ export default async (req, context) => {
               if (/image|icon|octet/.test(ct)) {
                 const ext = ct.includes('svg') ? 'svg' : ct.includes('jpeg') ? 'jpg' : ct.includes('ico') ? 'ico' : 'png';
                 logoUrl = await uploadToStorage(`branding/${ville}/logo.${ext}`, await ir.arrayBuffer(), ct);
+                createItem('Logo de la mairie installé');
               }
             }
           } catch { /* logo facultatif */ }
@@ -669,9 +716,13 @@ export default async (req, context) => {
           enabled_toggles: ['filters', 'basemap', 'theme', 'search', 'info'],
           travaux: false,
         }]);
+        createItem(mairie.themeColor
+          ? `Espace créé aux couleurs de ${commune.nom} (${mairie.themeColor})`
+          : `Espace ${commune.nom} créé`);
         await insertRows('city_modules', [{
           ville, module_key: 'carte', label: 'Menu', icon_class: 'fas fa-map', sort_order: 0, enabled: true, config: {},
         }]);
+        createItem('Navigation et catégories configurées');
 
         const rows = [];
         for (const p of located) {
@@ -681,6 +732,7 @@ export default async (req, context) => {
             features: [{ type: 'Feature', geometry: p.geometry, properties: { name: p.title } }],
           };
           const geojsonUrl = await uploadToStorage(`demo/${ville}/${slug}.geojson`, JSON.stringify(fc), 'application/json');
+          createItem(`Fiche publiée : ${p.title}`);
           const statusLabel = STATUS_LABELS[p.status] || '';
           rows.push({
             ville,
@@ -709,7 +761,11 @@ export default async (req, context) => {
         send({ type: 'done', url: `/?city=${ville}`, ville, communeNom: commune.nom, projectsCount: rows.length });
       } catch (err) {
         console.error('[demo-generate]', err);
-        send({ type: 'error', message: 'Un imprévu est survenu pendant la génération. Réessayez, ou passez nous voir pour une démo guidée.' });
+        send({
+          type: 'error',
+          message: 'Un imprévu est survenu pendant la génération. Réessayez, ou passez nous voir pour une démo guidée.',
+          debug: String(err?.message || err).slice(0, 180),
+        });
       } finally {
         clearInterval(heartbeat);
         try { controller.close(); } catch { /* déjà fermé */ }

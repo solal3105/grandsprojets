@@ -132,9 +132,38 @@
     box.appendChild(chip);
   }
 
+  // Titres révélés en direct pendant que l'IA écrit (passes 1 et 2)
+  const aiCounts = { ai1: 0, ai2: 0 };
+  function addAiItem(msg) {
+    const box = currentFindingsContainer(msg.phase);
+    if (!box) return;
+    aiCounts[msg.phase] = (aiCounts[msg.phase] || 0) + 1;
+    const chip = document.createElement('span');
+    chip.className = 'finding finding--project';
+    chip.innerHTML = `<span class="finding__title">${escapeHtml(msg.title)}</span>`;
+    box.appendChild(chip);
+    const li = document.getElementById(`step-${msg.phase}`);
+    if (li) {
+      li.querySelector('.step__detail').textContent = msg.phase === 'ai1'
+        ? `${aiCounts.ai1} projet(s) repéré(s) dans les sources...`
+        : `${aiCounts.ai2} projet(s) retenus et vérifiés...`;
+    }
+  }
+
+  // Sous-étapes de la création d'espace (logo, branding, fiche par fiche)
+  function addCreateItem(msg) {
+    const box = currentFindingsContainer('create');
+    if (!box) return;
+    const chip = document.createElement('span');
+    chip.className = 'finding finding--geo-ok';
+    chip.innerHTML = `<span class="finding__title">${escapeHtml(msg.label)}</span>`;
+    box.appendChild(chip);
+  }
+
   function revealProjects(items) {
     const box = currentFindingsContainer('ai2');
     if (!box) return;
+    box.innerHTML = ''; // remplace les titres bruts streamés par les fiches finales
     items.forEach((p, i) => {
       setTimeout(() => {
         const chip = document.createElement('span');
@@ -177,10 +206,12 @@
       try { msg = JSON.parse(e.data); } catch { return; }
       if (msg.type === 'step') upsertStep(msg);
       else if (msg.type === 'finding') addFinding(msg);
+      else if (msg.type === 'ai-item') addAiItem(msg);
+      else if (msg.type === 'create-item') addCreateItem(msg);
       else if (msg.type === 'projects') revealProjects(msg.items || []);
       else if (msg.type === 'geo-item') addGeoItem(msg);
       else if (msg.type === 'done') { es.close(); es = null; onDone(msg, commune); }
-      else if (msg.type === 'error') { es.close(); es = null; onError(msg.message); }
+      else if (msg.type === 'error') { es.close(); es = null; onError(msg.message, msg.debug); }
     };
     es.onerror = () => {
       // Pas de reconnexion automatique : une génération = un déclenchement
@@ -207,7 +238,8 @@
     tick();
   }
 
-  function onError(message) {
+  function onError(message, debug) {
+    if (debug) console.error('[demo-generate]', debug);
     const el = $('progress-error');
     el.textContent = message;
     el.hidden = false;
