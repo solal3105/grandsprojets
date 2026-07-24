@@ -1,6 +1,7 @@
 import { store } from '../store.js';
 import * as api from '../api.js';
 import { toast, esc, skeletonTable } from '../components/ui.js';
+import { uploaderHTML, bindUploader } from '../components/uploader.js';
 
 const DEFAULT_COLOR = '#14AE5C';
 
@@ -115,14 +116,12 @@ function _renderContent(container, branding, basemaps, allToggles) {
             <div class="cw-field">
               <label class="cw-field__label">Logo - thème clair</label>
               ${_logoDropzoneHTML('st-logo', branding.logo_url, 'Fond clair')}
-              <input type="file" id="st-logo-file" accept="image/png,image/svg+xml,image/jpeg,image/webp" hidden>
               <input type="hidden" id="st-logo-url" value="${esc(branding.logo_url || '')}">
             </div>
             <!-- Logo sombre -->
             <div class="cw-field">
               <label class="cw-field__label">Logo - thème sombre</label>
               ${_logoDropzoneHTML('st-dark-logo', branding.dark_logo_url, 'Fond sombre')}
-              <input type="file" id="st-dark-logo-file" accept="image/png,image/svg+xml,image/jpeg,image/webp" hidden>
               <input type="hidden" id="st-dark-logo-url" value="${esc(branding.dark_logo_url || '')}">
             </div>
           </div>
@@ -130,8 +129,7 @@ function _renderContent(container, branding, basemaps, allToggles) {
           <!-- Favicon -->
           <div class="cw-field" style="margin-top:20px;">
             <label class="cw-field__label">Favicon</label>
-            ${_logoDropzoneHTML('st-favicon', branding.favicon_url, 'Favicon', true)}
-            <input type="file" id="st-favicon-file" accept="image/png,image/x-icon,image/svg+xml,image/webp" hidden>
+            ${_logoDropzoneHTML('st-favicon', branding.favicon_url, 'Favicon', true, 'image/png,image/x-icon,image/svg+xml,image/webp')}
             <input type="hidden" id="st-favicon-url" value="${esc(branding.favicon_url || '')}">
           </div>
         </div>
@@ -262,34 +260,20 @@ function _renderContent(container, branding, basemaps, allToggles) {
   _bindSave(container);
 }
 
-function _logoDropzoneHTML(prefix, existingUrl, label, small = false) {
-  const hasUrl = !!existingUrl;
-  const isDark = label.toLowerCase().includes('sombre');
-  const height = small ? '100px' : '140px';
-  // Fond fixe : la preview représente le contexte cible du logo, pas le thème UI
-  const bgColor = isDark ? '#1a1a2e' : '#f1f5f9';
-
-  return `
-    <div class="st-logo-zone" id="${prefix}-zone" data-prefix="${prefix}">
-      <!-- Drop area -->
-      <div class="cw-drop-area st-logo-drop ${small ? 'st-logo-drop--sm' : ''}" id="${prefix}-drop" ${hasUrl ? 'hidden' : ''} style="padding:${small ? '20px 16px' : '32px 16px'};">
-        <div class="cw-drop-area__illustration" style="width:${small ? '40px' : '52px'};height:${small ? '40px' : '52px'};font-size:${small ? '16px' : '20px'};">
-          <i class="fa-solid fa-cloud-arrow-up"></i>
-        </div>
-        <div class="cw-drop-area__text">
-          <span class="cw-drop-area__title" style="font-size:13px;">Glissez-déposez ici</span>
-          <span class="cw-drop-area__hint">ou <u>cliquez pour parcourir</u> - PNG, SVG, WebP</span>
-        </div>
-      </div>
-      <!-- Preview -->
-      <div class="st-logo-preview" id="${prefix}-preview" ${hasUrl ? '' : 'hidden'} style="background:${bgColor};height:${height};">
-        <img id="${prefix}-img" src="${esc(existingUrl || '')}" alt="${esc(label)}">
-        <div class="st-logo-preview__overlay">
-          <button type="button" class="st-logo-preview__btn" data-action="change"><i class="fa-solid fa-camera"></i> Changer</button>
-          <button type="button" class="st-logo-preview__btn st-logo-preview__btn--danger" data-action="remove"><i class="fa-solid fa-trash"></i></button>
-        </div>
-      </div>
-    </div>`;
+function _logoDropzoneHTML(prefix, existingUrl, label, small = false, accept = 'image/png,image/svg+xml,image/jpeg,image/webp') {
+  return uploaderHTML({
+    prefix,
+    accept,
+    initialUrl: existingUrl || '',
+    title: 'Glissez-déposez ici',
+    hint: 'PNG, SVG, WebP',
+    small,
+    fit: 'contain',
+    // Fond fixe : la preview représente le contexte cible du logo, pas le thème UI
+    previewBg: label.toLowerCase().includes('sombre') ? '#1a1a2e' : '#f1f5f9',
+    removable: true,
+    alt: label,
+  });
 }
 
 function _cityChipHTML(c) {
@@ -338,68 +322,25 @@ function _bindToggleRows(container) {
 
 function _bindLogoDropzones(container) {
   const bindings = [
-    { prefix: 'st-logo',      fileRef: () => _logoFile,      setRef: f => { _logoFile = f; } },
-    { prefix: 'st-dark-logo', fileRef: () => _darkLogoFile,   setRef: f => { _darkLogoFile = f; } },
-    { prefix: 'st-favicon',   fileRef: () => _faviconFile,    setRef: f => { _faviconFile = f; } },
+    { prefix: 'st-logo',      setRef: f => { _logoFile = f; } },
+    { prefix: 'st-dark-logo', setRef: f => { _darkLogoFile = f; } },
+    { prefix: 'st-favicon',   setRef: f => { _faviconFile = f; } },
   ];
 
   for (const { prefix, setRef } of bindings) {
-    const dropArea = container.querySelector(`#${prefix}-drop`);
-    const fileInput = container.querySelector(`#${prefix}-file`);
-    const previewEl = container.querySelector(`#${prefix}-preview`);
-    const imgEl = container.querySelector(`#${prefix}-img`);
     const hiddenUrl = container.querySelector(`#${prefix}-url`);
-
-    if (!dropArea || !fileInput) continue;
-
-    // Click to browse
-    dropArea.addEventListener('click', () => fileInput.click());
-
-    // Drag & drop
-    dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.classList.add('dragover'); });
-    dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
-    dropArea.addEventListener('drop', e => {
-      e.preventDefault();
-      dropArea.classList.remove('dragover');
-      const file = e.dataTransfer?.files?.[0];
-      if (file) _setLogoFile(file, prefix, setRef, dropArea, previewEl, imgEl, hiddenUrl);
-    });
-
-    // File input change
-    fileInput.addEventListener('change', () => {
-      const file = fileInput.files?.[0];
-      if (file) _setLogoFile(file, prefix, setRef, dropArea, previewEl, imgEl, hiddenUrl);
-      fileInput.value = '';
-    });
-
-    // Preview overlay actions (change / remove) - delegate
-    previewEl?.addEventListener('click', e => {
-      const action = e.target.closest('[data-action]')?.dataset.action;
-      if (action === 'change') fileInput.click();
-      if (action === 'remove') {
+    bindUploader(container, {
+      prefix,
+      onFile(file) {
+        setRef(file);
+        if (hiddenUrl) hiddenUrl.value = '__pending_upload__';
+      },
+      onRemove() {
         setRef(null);
         if (hiddenUrl) hiddenUrl.value = '';
-        if (imgEl) imgEl.src = '';
-        if (previewEl) previewEl.hidden = true;
-        if (dropArea) dropArea.hidden = false;
-      }
+      },
     });
   }
-}
-
-function _setLogoFile(file, prefix, setRef, dropArea, previewEl, imgEl, hiddenUrl) {
-  if (!file.type.startsWith('image/') && !file.type.includes('svg')) {
-    toast('Le fichier doit être une image (PNG, SVG, WebP, JPG)', 'error');
-    return;
-  }
-  setRef(file);
-  if (hiddenUrl) hiddenUrl.value = '__pending_upload__';
-  if (imgEl) {
-    if (imgEl.src && imgEl.src.startsWith('blob:')) URL.revokeObjectURL(imgEl.src);
-    imgEl.src = URL.createObjectURL(file);
-  }
-  if (previewEl) previewEl.hidden = false;
-  if (dropArea) dropArea.hidden = true;
 }
 
 function _bindCitiesList(container) {

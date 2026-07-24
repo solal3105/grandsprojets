@@ -788,6 +788,16 @@ html[data-theme='dark'] .adm-sidebar__city-select {
   color: var(--gray-900);
 }
 
+/* Variante danger du ghost (actions destructrices dans listes et footers) */
+.adm-btn--ghost-danger { color: var(--danger); }
+.adm-btn--ghost-danger:hover:not(:disabled) {
+  background: rgba(var(--adm-danger-rgb), 0.1);
+  color: var(--danger);
+}
+
+/* Pousse l'élément à gauche d'un footer flex (les suivants partent à droite) */
+.adm-push-left { margin-right: auto; }
+
 .adm-btn--sm { padding: 7px 12px; font-size: 13px; border-radius: 8px; }
 .adm-btn--sm i { font-size: 12px; }
 
@@ -975,10 +985,31 @@ html[data-theme='dark'] .adm-table td {
 .adm-textarea:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 4px rgba(var(--adm-primary-rgb), 0.1), var(--adm-shadow-sm);
-  background: var(--adm-glass);
+  /* background-color (pas le shorthand) : préserve les background-image (loupe, chevron) */
+  background-color: var(--adm-glass);
 }
 .adm-input::placeholder,
 .adm-textarea::placeholder { color: var(--gray-400); }
+
+/* Select : apparence custom - chevron SVG, natif masqué (même traitement que la sidebar) */
+.adm-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='rgba(15,23,42,0.4)' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  cursor: pointer;
+}
+.adm-select:hover:not(:disabled) {
+  border-color: var(--adm-glass-border-hover);
+  background-color: var(--adm-glass);
+}
+.adm-select option { background: var(--surface-raised); color: var(--text-primary); }
+html[data-theme='dark'] .adm-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='rgba(248,250,252,0.45)' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+}
 
 .adm-textarea { resize: vertical; min-height: 88px; }
 
@@ -1327,6 +1358,31 @@ html[data-theme='dark'] .adm-list-item {
   transition: opacity var(--adm-transition);
 }
 .adm-list-item:hover .adm-list-item__actions { opacity: 1; }
+
+/* Placeholder de cover - même langage mesh que le panneau détail */
+.adm-list-item__cover--ph {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px;
+  color: rgb(var(--adm-primary-rgb));
+  background:
+    radial-gradient(ellipse 90% 90% at 15% 100%, rgba(var(--adm-primary-rgb), 0.16) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 70% at 90% 0%, rgba(var(--adm-info-rgb), 0.10) 0%, transparent 55%),
+    var(--adm-glass-inner);
+}
+.adm-list-item__cover--ph i { opacity: .38; }
+
+/* Chip catégorie (pastille couleur + nom) dans les métas de liste */
+.adm-cat-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-weight: 600; color: var(--gray-600);
+  max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.adm-cat-chip__dot {
+  width: 8px; height: 8px; border-radius: 3px; flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.08);
+}
+.adm-list-item__date { display: inline-flex; align-items: center; gap: 5px; }
+.adm-list-item__date i { font-size: 11px; opacity: .7; }
 
 /* ============================================================================
    CATEGORY CARDS - Elevated glass
@@ -2262,59 +2318,80 @@ html[data-theme='dark'] .twc-url-notice { color: var(--warning); }
   color: rgb(var(--adm-primary-rgb));
   font-weight: 500;
 }
+/* [hidden] doit gagner sur display:flex (piège documenté - dropzone visible sous la préview) */
+.cw-drop-area[hidden] { display: none !important; }
 
-/* ── Cover preview ── */
-.cw-cover-zone { position: relative; }
-.cw-cover-preview {
+/* Variante compacte (logos, favicon) */
+.cw-drop-area--sm { padding: 22px 16px; gap: 10px; }
+.cw-drop-area--sm .cw-drop-area__illustration { width: 44px; height: 44px; font-size: 17px; }
+.cw-drop-area--sm .cw-drop-area__title { font-size: 13px; }
+
+/* ── Uploader partagé (components/uploader.js) ── */
+.adm-uploader { position: relative; }
+.adm-uploader--sm { max-width: 280px; }
+.adm-uploader__preview {
   position: relative;
+  height: var(--up-h, 220px);
   border-radius: var(--adm-radius);
   overflow: hidden;
+  background: var(--up-bg, var(--adm-glass-inner));
+  border: 1px solid var(--adm-glass-border);
 }
-.cw-cover-preview img {
-  width: 100%;
-  height: 220px;
-  object-fit: cover;
-  display: block;
-  border-radius: var(--adm-radius);
+.adm-uploader__preview[hidden] { display: none !important; }
+.adm-uploader__preview--cover img {
+  width: 100%; height: 100%;
+  object-fit: cover; display: block;
 }
-.cw-cover-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0);
-  transition: background 0.2s;
-  border-radius: var(--adm-radius);
+.adm-uploader__preview--contain {
+  display: flex; align-items: center; justify-content: center;
 }
-.cw-cover-preview:hover .cw-cover-overlay {
-  background: rgba(0, 0, 0, 0.4);
+.adm-uploader__preview--contain img {
+  max-width: 100%; max-height: 100%;
+  object-fit: contain; padding: 16px;
 }
-.cw-cover-overlay__btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 18px;
-  border: none;
-  border-radius: var(--adm-radius-sm);
-  background: var(--white-alpha-95);
-  color: var(--gray-800);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
+.adm-uploader__overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: rgba(2, 6, 23, 0.45);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
   opacity: 0;
-  transform: translateY(6px);
-  transition: all 0.25s;
-  backdrop-filter: blur(6px);
+  transition: opacity 0.2s ease;
 }
-.cw-cover-preview:hover .cw-cover-overlay__btn {
-  opacity: 1;
-  transform: translateY(0);
+.adm-uploader__preview:hover .adm-uploader__overlay,
+.adm-uploader__preview:focus-within .adm-uploader__overlay { opacity: 1; }
+.adm-uploader__btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 16px;
+  border: none; border-radius: var(--adm-radius-sm);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--gray-800);
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transform: translateY(4px);
+  transition: all 0.22s ease;
 }
-.cw-cover-overlay__btn:hover {
-  background: var(--white);
+.adm-uploader__preview:hover .adm-uploader__btn { transform: translateY(0); }
+.adm-uploader__btn:hover { background: #fff; }
+html[data-theme='dark'] .adm-uploader__btn { background: rgba(22, 30, 48, 0.92); }
+html[data-theme='dark'] .adm-uploader__btn:hover { background: rgb(22, 30, 48); }
+.adm-uploader__btn--danger { background: rgba(220, 53, 69, 0.88); color: #fff; }
+.adm-uploader__btn--danger:hover { background: rgb(220, 53, 69); }
+html[data-theme='dark'] .adm-uploader__btn--danger { background: rgba(220, 53, 69, 0.88); }
+html[data-theme='dark'] .adm-uploader__btn--danger:hover { background: rgb(220, 53, 69); }
+.adm-uploader__chip {
+  position: absolute; left: 10px; bottom: 10px;
+  max-width: calc(100% - 20px);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.72);
+  color: #fff;
+  font-size: 11px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.adm-uploader__chip[hidden] { display: none; }
 
+/* ── Cover preview ── */
 /* ── Location section ── */
 .cw-loc-toggle {
   display: flex;
@@ -3900,68 +3977,6 @@ html[data-theme='dark'] .adm-opendata-banner--warning { color: var(--warning); }
   color: var(--warning, #e67e22);
   font-style: normal;
   font-weight: 500;
-}
-
-/* ── Logo drop zones & preview ── */
-.st-logo-zone { position: relative; }
-.st-logo-drop {
-  min-height: unset !important;
-}
-.st-logo-drop--sm {
-  max-width: 280px;
-}
-.st-logo-preview {
-  position: relative;
-  border-radius: var(--adm-radius);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--gray-200);
-}
-.st-logo-preview img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  padding: 16px;
-}
-.st-logo-preview__overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: rgba(0,0,0,.45);
-  opacity: 0;
-  transition: opacity .2s;
-}
-.st-logo-preview:hover .st-logo-preview__overlay {
-  opacity: 1;
-}
-.st-logo-preview__btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: var(--adm-radius-sm);
-  background: rgba(255,255,255,.9);
-  color: var(--gray-800);
-  font-size: 13px;
-  font-weight: 500;
-  border: none;
-  cursor: pointer;
-  transition: background .15s;
-}
-.st-logo-preview__btn:hover { background: #fff; }
-html[data-theme='dark'] .st-logo-preview__btn { background: rgba(22, 30, 48, 0.9); }
-html[data-theme='dark'] .st-logo-preview__btn:hover { background: rgb(22, 30, 48); }
-.st-logo-preview__btn--danger {
-  background: rgba(220,53,69,.85);
-  color: #fff;
-}
-.st-logo-preview__btn--danger:hover {
-  background: rgba(220,53,69,1);
 }
 
 /* ── City chips ── */

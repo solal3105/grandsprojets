@@ -1,8 +1,10 @@
 import { store } from '../store.js';
 import { router } from '../router.js';
 import * as api from '../api.js';
-import { toast, confirm, slidePanel, esc, escAttr, formatDate, formatRelativeDate, renderPagination, emptyState, skeletonTable } from '../components/ui.js';
+import { toast, confirm, slidePanel, esc, escAttr, sanitizeUrl, formatDate, formatRelativeDate, renderPagination, emptyState, skeletonTable } from '../components/ui.js';
 import { Copilot } from '../components/copilot.js';
+import { createMiniMap, pickBasemap, parseCategoryStyles } from '../components/minimap.js';
+import { uploaderHTML, bindUploader } from '../components/uploader.js';
 
 const PAGE_SIZE = 20;
 
@@ -12,6 +14,7 @@ let _listBodyAbort = null;
 let _state = {
   search: '',
   category: '',
+  catColors: {},  // category → couleur (category_styles) pour les pastilles
   status: '',     // '' | 'pending' | 'approved'
   sortBy: 'created_at',
   sortDir: 'desc',
@@ -75,10 +78,10 @@ function _renderList(container) {
         <input type="text" class="adm-input adm-input--search" id="contrib-search" placeholder="Rechercher une contribution…" value="${esc(_state.search)}">
       </div>
       <div class="adm-toolbar__filters">
-        <select class="adm-select" id="contrib-filter-cat" style="min-width:160px;">
+        <select class="adm-select" id="contrib-filter-cat">
           <option value="">Toutes les catégories</option>
         </select>
-        <select class="adm-select" id="contrib-sort" style="min-width:140px;">
+        <select class="adm-select" id="contrib-sort">
           <option value="created_at:desc" ${_state.sortBy === 'created_at' && _state.sortDir === 'desc' ? 'selected' : ''}>Plus récent</option>
           <option value="created_at:asc" ${_state.sortBy === 'created_at' && _state.sortDir === 'asc' ? 'selected' : ''}>Plus ancien</option>
           <option value="project_name:asc" ${_state.sortBy === 'project_name' ? 'selected' : ''}>Nom A-Z</option>
@@ -156,6 +159,10 @@ function _bindToolbar(container) {
 async function _loadCategories(container) {
   try {
     const cats = await api.getCategories();
+    // Couleurs des catégories (category_styles) pour les pastilles de la liste
+    _state.catColors = Object.fromEntries(
+      cats.map(c => [c.category, parseCategoryStyles(c).color || ''])
+    );
     const select = container.querySelector('#contrib-filter-cat');
     if (!select) return;
     for (const cat of cats) {
@@ -232,17 +239,20 @@ function _renderItem(item) {
 
   const coverHTML = item.cover_url
     ? `<img class="adm-list-item__cover" src="${esc(item.cover_url)}" alt="" loading="lazy">`
-    : `<div class="adm-list-item__cover" style="display:flex;align-items:center;justify-content:center;color:var(--gray-400);font-size:18px;"><i class="fa-solid fa-image"></i></div>`;
+    : `<div class="adm-list-item__cover adm-list-item__cover--ph"><i class="fa-solid fa-image"></i></div>`;
+
+  const catColor = _state.catColors?.[item.category] || 'var(--primary)';
 
   return `
-    <div class="adm-list-item" data-id="${item.id}">
+    <div class="adm-list-item ${item.approved ? '' : 'adm-list-item--pending'}" data-id="${item.id}">
       ${coverHTML}
       <div class="adm-list-item__info">
         <div class="adm-list-item__name">${esc(item.project_name)}</div>
         <div class="adm-list-item__meta">
-          <span>${esc(item.category)}</span>
-          <span>·</span>
-          <span>${formatRelativeDate(item.created_at)}</span>
+          <span class="adm-cat-chip">
+            <span class="adm-cat-chip__dot" style="background:${escAttr(catColor)}"></span>${esc(item.category)}
+          </span>
+          <span class="adm-list-item__date"><i class="fa-regular fa-clock"></i> ${formatRelativeDate(item.created_at)}</span>
           ${statusBadge}
         </div>
       </div>
@@ -258,7 +268,7 @@ function _renderItem(item) {
         <button class="adm-btn adm-btn--ghost adm-btn--sm" data-action="detail" data-id="${item.id}" title="Détails">
           <i class="fa-solid fa-eye"></i>
         </button>
-        <button class="adm-btn adm-btn--ghost adm-btn--sm" data-action="delete" data-id="${item.id}" title="Supprimer" style="color:var(--danger);">
+        <button class="adm-btn adm-btn--ghost adm-btn--ghost-danger adm-btn--sm" data-action="delete" data-id="${item.id}" title="Supprimer">
           <i class="fa-solid fa-trash"></i>
         </button>
       </div>
@@ -398,9 +408,11 @@ function _injectDetailStyles() {
       border-radius: 12px; padding: 14px 16px;
     }
     .sp-map {
-      width: 100%; height: 220px; border-radius: 12px; overflow: hidden;
+      width: 100%; height: 280px; border-radius: 12px; overflow: hidden;
       border: 1px solid var(--adm-glass-border);
+      position: relative;
     }
+    .sp-map .maplibregl-ctrl-attrib { font-size: 9px; }
     .sp-article {
       font-size: 14px; line-height: 1.7; color: var(--gray-700);
       background: var(--adm-glass-inner);
@@ -422,6 +434,15 @@ function _injectDetailStyles() {
     }
     .sp-article code { background: var(--black-alpha-06); padding: 2px 5px; border-radius: 4px; font-size: .88em; }
     .sp-article pre { background: var(--black-alpha-06); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+    .sp-article hr { border: none; border-top: 1px solid var(--adm-glass-border); margin: 1.2em 0; }
+    .sp-article table { border-collapse: collapse; width: 100%; margin: .6em 0; font-size: .93em; }
+    .sp-article th, .sp-article td { border: 1px solid var(--black-alpha-08); padding: 6px 9px; text-align: left; }
+    .sp-article th { background: var(--black-alpha-04); font-weight: 700; }
+    .sp-article figure { margin: .8em 0; }
+    .sp-article figcaption { font-size: .85em; color: var(--gray-500); margin-top: 4px; font-style: italic; }
+    .sp-article .banner { border-radius: 10px; padding: 10px 14px; margin: .6em 0; font-size: .93em; }
+    .sp-article .banner-info { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); }
+    .sp-article .banner-warning { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); }
     .sp-docs { display: flex; flex-direction: column; gap: 7px; }
     .sp-doc-link {
       display: flex; align-items: center; gap: 10px;
@@ -500,7 +521,7 @@ async function _openDetail(id) {
           <span class="sp-meta-ico"><i class="fa-solid fa-link"></i></span>
           <div class="sp-meta-txt">
             <span class="sp-meta-label">Site officiel</span>
-            <a class="sp-meta-value" href="${escAttr(item.official_url)}" target="_blank" rel="noopener">${esc(item.official_url)}</a>
+            <a class="sp-meta-value" href="${escAttr(sanitizeUrl(item.official_url))}" target="_blank" rel="noopener">${esc(item.official_url)}</a>
           </div>
         </div>` : ''}
       </div>
@@ -532,7 +553,7 @@ async function _openDetail(id) {
         <div class="sp-section-title">Documents (${dossiers.length})</div>
         <div class="sp-docs">
           ${dossiers.map(d => `
-            <a href="${esc(d.pdf_url)}" target="_blank" rel="noopener" class="sp-doc-link">
+            <a href="${escAttr(sanitizeUrl(d.pdf_url))}" target="_blank" rel="noopener" class="sp-doc-link">
               <i class="fa-solid fa-file-pdf"></i>
               <span>${esc(d.title || 'Document')}</span>
               <i class="fa-solid fa-arrow-up-right-from-square sp-doc-ext"></i>
@@ -547,7 +568,7 @@ async function _openDetail(id) {
       : null;
 
     const footer = `
-      <button class="adm-btn adm-btn--ghost adm-btn--sm" id="sp-delete" style="color:var(--danger);margin-right:auto;">
+      <button class="adm-btn adm-btn--ghost adm-btn--ghost-danger adm-btn--sm adm-push-left" id="sp-delete">
         <i class="fa-solid fa-trash"></i> Supprimer
       </button>
       ${ficheUrl ? `<a href="${esc(ficheUrl)}" target="_blank" rel="noopener" class="adm-btn adm-btn--ghost adm-btn--sm"><i class="fa-solid fa-arrow-up-right-from-square"></i> Voir la fiche</a>` : ''}
@@ -557,11 +578,17 @@ async function _openDetail(id) {
       ${approveBtn}
     `;
 
+    let previewMini = null;
+    let onThemeChange = null;
+
     const handle = slidePanel.open({
       title: item.project_name || 'Contribution',
       body,
       footer,
       onClose() {
+        if (onThemeChange) document.removeEventListener('adm:themechange', onThemeChange);
+        previewMini?.destroy();
+        previewMini = null;
         if (location.pathname.includes(`/contributions/${id}`)) {
           router.navigate('/admin/contributions/', { replace: true, skipRender: true });
         }
@@ -572,64 +599,55 @@ async function _openDetail(id) {
     if (markdownContent) {
       const articleEl = handle.content.querySelector('#sp-contrib-article');
       if (articleEl) {
-        if (window.MarkdownUtils) {
+        try {
+          if (!window.MarkdownUtils) throw new Error('MarkdownUtils indisponible');
           await window.MarkdownUtils.loadDeps();
-          articleEl.innerHTML = window.MarkdownUtils.renderMarkdown(markdownContent);
-        } else {
+          // renderMarkdown retourne { attrs, html } : front-matter extrait, HTML sanitisé
+          articleEl.innerHTML = window.MarkdownUtils.renderMarkdown(markdownContent).html;
+        } catch (e) {
+          console.warn('[admin-contrib] rendu markdown', e);
           articleEl.textContent = markdownContent;
         }
       }
     }
 
-    // Init mini-map with GeoJSON trace
+    // Mini-carte 3D : basemap de la ville, tracé au style de la catégorie
     if (item.geojson_url) {
       const mapEl = handle.content.querySelector('#sp-contrib-map');
       if (mapEl && typeof maplibregl !== 'undefined') {
-        const branding = await api.getBranding().catch(() => null);
-        const center = [parseFloat(branding?.center_lng) || 4.835, parseFloat(branding?.center_lat) || 45.764];
-        const previewMap = new maplibregl.Map({
-          container: mapEl,
-          style: {
-            version: 8,
-            sources: { osm: { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, attribution: '© OpenStreetMap' } },
-            layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
-          },
-          center, zoom: 12,
-          attributionControl: false,
-          interactive: true,
-        });
-        previewMap.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
-        previewMap.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
-        previewMap.on('load', async () => {
-          try {
-            const geo = await fetch(item.geojson_url).then(r => { if (!r.ok) throw new Error('GeoJSON fetch failed'); return r.json(); });
-            previewMap.addSource('contrib', { type: 'geojson', data: geo });
-            previewMap.addLayer({ id: 'contrib-fill', type: 'fill', source: 'contrib', filter: ['==', '$type', 'Polygon'], paint: { 'fill-color': '#14AE5C', 'fill-opacity': 0.18 } });
-            previewMap.addLayer({ id: 'contrib-line', type: 'line', source: 'contrib', filter: ['in', '$type', 'LineString', 'Polygon'], paint: { 'line-color': '#14AE5C', 'line-width': 2.5 } });
-            previewMap.addLayer({ id: 'contrib-point', type: 'circle', source: 'contrib', filter: ['==', '$type', 'Point'], paint: { 'circle-radius': 7, 'circle-color': '#14AE5C', 'circle-stroke-color': '#fff', 'circle-stroke-width': 2 } });
+        try {
+          const [branding, basemaps, categories, geo] = await Promise.all([
+            api.getBranding().catch(() => null),
+            api.getBasemaps().catch(() => []),
+            api.getCategories().catch(() => []),
+            fetch(item.geojson_url).then(r => { if (!r.ok) throw new Error('GeoJSON fetch failed'); return r.json(); }),
+          ]);
 
-            // Fit bounds to GeoJSON extent
-            const coords = [];
-            const collect = (g) => {
-              if (!g) return;
-              if (g.type === 'Point') { coords.push(g.coordinates); return; }
-              if (g.type === 'LineString') { coords.push(...g.coordinates); return; }
-              if (g.type === 'Polygon') { g.coordinates.forEach(r => coords.push(...r)); return; }
-              if (g.type === 'MultiPolygon') { g.coordinates.forEach(p => p.forEach(r => coords.push(...r))); return; }
-              if (g.type === 'MultiLineString') { g.coordinates.forEach(l => coords.push(...l)); return; }
-              if (g.type === 'FeatureCollection') { g.features.forEach(f => collect(f.geometry)); return; }
-              if (g.type === 'Feature') { collect(g.geometry); }
-            };
-            collect(geo);
-            if (coords.length > 0) {
-              previewMap.fitBounds(
-                [[Math.min(...coords.map(c => c[0])), Math.min(...coords.map(c => c[1]))],
-                 [Math.max(...coords.map(c => c[0])), Math.max(...coords.map(c => c[1]))]],
-                { padding: 40, maxZoom: 16, duration: 600 }
-              );
-            }
-          } catch (e) { console.debug('[admin-contrib] map fitBounds', e); }
-        });
+          const cat = categories.find(c => c.category === item.category);
+          const trackStyles = parseCategoryStyles(cat);
+          const primaryRgb = getComputedStyle(document.documentElement).getPropertyValue('--adm-primary-rgb').trim();
+          const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+          const preferred = branding?.default_basemap || null;
+
+          previewMini = await createMiniMap({
+            container: mapEl,
+            center: [parseFloat(branding?.center_lng) || 4.835, parseFloat(branding?.center_lat) || 45.764],
+            basemap: pickBasemap(basemaps, { preferred, theme }),
+            geojson: geo,
+            trackStyles,
+            fallbackColor: primaryRgb ? `rgb(${primaryRgb})` : '#14AE5C',
+            theme,
+          });
+          previewMini.fitTo(geo);
+
+          // Suivre les bascules de thème tant que le panneau est ouvert
+          onThemeChange = (e) => {
+            const next = e.detail?.theme === 'dark' ? 'dark' : 'light';
+            // Le fond configuré de la ville prime sur le thème (comme la carte publique)
+            previewMini?.setTheme(next, preferred ? null : pickBasemap(basemaps, { theme: next }));
+          };
+          document.addEventListener('adm:themechange', onThemeChange);
+        } catch (e) { console.debug('[admin-contrib] mini-carte', e); }
       }
     }
 
@@ -1182,42 +1200,13 @@ function _initMarkdownEditor(body) {
 }
 
 function _bindCoverUpload(body) {
-  const dropzone = body.querySelector('#cw-cover-drop');
-  const fileInput = body.querySelector('#cw-cover-file');
-
-  dropzone?.addEventListener('click', () => fileInput?.click());
-  dropzone?.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
-  dropzone?.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
-  dropzone?.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropzone.classList.remove('dragover');
-    if (e.dataTransfer?.files?.[0]) _setCoverFile(body, e.dataTransfer.files[0]);
+  bindUploader(body, {
+    prefix: 'cw-cover',
+    onFile(file) {
+      _wiz.coverFile = file;
+      _renderRecap(body);
+    },
   });
-  fileInput?.addEventListener('change', () => {
-    if (fileInput.files?.[0]) _setCoverFile(body, fileInput.files[0]);
-  });
-
-  body.querySelector('#cw-cover-change-btn')?.addEventListener('click', () => fileInput?.click());
-}
-
-function _setCoverFile(body, file) {
-  if (!file.type.startsWith('image/')) { toast('Le fichier doit être une image', 'error'); return; }
-  _wiz.coverFile = file;
-
-  const img = body.querySelector('#cw-cover-img');
-  const preview = body.querySelector('#cw-cover-preview');
-  const dropzone = body.querySelector('#cw-cover-drop');
-
-  if (img) {
-    // Révoquer l'ancienne ObjectURL pour éviter les fuites mémoire
-    if (img.src && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
-    const url = URL.createObjectURL(file);
-    img.src = url;
-  }
-  if (preview) preview.hidden = false;
-  if (dropzone) dropzone.hidden = true;
-
-  _renderRecap(body);
 }
 
 function _bindDocUpload(body) {
@@ -1401,26 +1390,11 @@ function _renderOnePage(container) {
 
         </div>
         <div class="cw-section__body">
-          <div class="cw-cover-zone">
-            <div class="cw-cover-preview" id="cw-cover-preview" ${hasCover ? '' : 'hidden'}>
-              <img src="${hasCover ? esc(_wiz.editItem.cover_url) : ''}" alt="" id="cw-cover-img">
-              <div class="cw-cover-overlay">
-                <button type="button" class="cw-cover-overlay__btn" id="cw-cover-change-btn">
-                  <i class="fa-solid fa-camera"></i> Changer l'image
-                </button>
-              </div>
-            </div>
-            <div class="cw-drop-area" id="cw-cover-drop" ${hasCover ? 'hidden' : ''}>
-              <div class="cw-drop-area__illustration">
-                <i class="fa-solid fa-cloud-arrow-up"></i>
-              </div>
-              <div class="cw-drop-area__text">
-                <span class="cw-drop-area__title">Glissez-déposez une image ici</span>
-                <span class="cw-drop-area__hint">ou <u>cliquez pour parcourir</u> - JPG, PNG, WebP</span>
-              </div>
-            </div>
-            <input type="file" id="cw-cover-file" accept="image/jpeg,image/png,image/webp" hidden>
-          </div>
+          ${uploaderHTML({
+            prefix: 'cw-cover',
+            initialUrl: hasCover ? _wiz.editItem.cover_url : '',
+            alt: 'Image de couverture',
+          })}
         </div>
       </section>
 
@@ -1440,7 +1414,7 @@ function _renderOnePage(container) {
               <i class="fa-solid fa-check-circle"></i>
               <div>
                 <strong>GeoJSON existant</strong>
-                <span>- <a href="${esc(_wiz.editItem.geojson_url)}" target="_blank" rel="noopener">voir le tracé actuel</a>. Dessinez ou importez pour le remplacer.</span>
+                <span>- <a href="${escAttr(sanitizeUrl(_wiz.editItem.geojson_url))}" target="_blank" rel="noopener">voir le tracé actuel</a>. Dessinez ou importez pour le remplacer.</span>
               </div>
             </div>` : ''}
 

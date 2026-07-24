@@ -2,7 +2,7 @@
  * Assistant de rédaction - IA contextuelle pour le wizard contribution.
  */
 
-import { toast, esc } from './ui.js';
+import { toast, esc, escAttr, sanitizeUrl } from './ui.js';
 import { store } from '../store.js';
 
 const SIGNALS = [
@@ -276,7 +276,7 @@ export class Copilot {
           let srcHtml = '';
           if (m.sources?.length) {
             srcHtml = '<div class="cp-sources"><span class="cp-sources__label"><i class="fa-solid fa-globe"></i> Sources consultées</span><div class="cp-sources__list">' +
-              m.sources.map(s => '<a class="cp-sources__link" href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square"></i><span>' + esc(s.title || s.url) + '</span></a>').join('') +
+              m.sources.map(s => '<a class="cp-sources__link" href="' + escAttr(sanitizeUrl(s.url)) + '" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square"></i><span>' + esc(s.title || s.url) + '</span></a>').join('') +
               '</div></div>';
           }
           html += '<div class="cp-msg cp-msg--result"><div class="cp-msg__content ' + (streaming ? 'cp-msg--streaming' : '') + '" id="cp-result-' + i + '">' + this._renderMarkdown(m.text) + '</div>' +
@@ -345,7 +345,7 @@ export class Copilot {
     }
     el.innerHTML = '<span class="cp-sources__label"><i class="fa-solid fa-globe"></i> Sources consultées</span>' +
       '<div class="cp-sources__list">' + sources.map(s =>
-        '<a class="cp-sources__link" href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square"></i><span>' + esc(s.title || s.url) + '</span></a>'
+        '<a class="cp-sources__link" href="' + escAttr(sanitizeUrl(s.url)) + '" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square"></i><span>' + esc(s.title || s.url) + '</span></a>'
       ).join('') + '</div>';
   }
 

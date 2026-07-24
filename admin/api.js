@@ -131,6 +131,10 @@ export async function getBranding() {
   return svc().getCityBranding(requireCity());
 }
 
+export async function getBasemaps() {
+  return svc().fetchBasemaps();
+}
+
 export async function updateBranding(data) {
   return svc().updateCity(requireCity(), data);
 }

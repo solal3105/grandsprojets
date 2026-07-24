@@ -91,14 +91,41 @@ export const slidePanel = {
 
 export function esc(str) {
   if (!str) return '';
-  const el = document.createElement('span');
-  el.textContent = String(str);
-  return el.innerHTML;
+  // Échappe TOUS les caractères HTML dangereux, guillemets compris - sûr aussi bien
+  // en contenu texte qu'en VALEUR D'ATTRIBUT (évite les breakouts `"`/`'`).
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
-/** Échappement pour les VALEURS D'ATTRIBUT (esc() ne couvre pas les guillemets) */
+/** Échappement d'attribut - désormais identique à esc() (qui couvre les guillemets).
+ *  Conservé comme marqueur d'intention sur les sinks d'attribut. */
 export function escAttr(str) {
-  return esc(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  return esc(str);
+}
+
+/**
+ * Valide/nettoie une URL avant injection en href/src.
+ * Allowlist de schémas : bloque `javascript:`, `data:text/html`, etc.
+ * Retourne '' si l'URL est dangereuse. Aligné sur window.SecurityUtils.sanitizeUrl (carte).
+ */
+export function sanitizeUrl(url) {
+  if (!url) return '';
+  const urlStr = String(url).trim();
+  // URLs relatives (chemin, ancre, query) - sûres
+  if (urlStr.startsWith('/') || urlStr.startsWith('#') || urlStr.startsWith('?')) return urlStr;
+  try {
+    const parsed = new URL(urlStr);
+    if (['http:', 'https:', 'mailto:', 'tel:'].includes(parsed.protocol)) return urlStr;
+  } catch {
+    // Pas de schéma explicite (ex: "page.html") - accepter si aucun schéme dangereux
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(urlStr)) return urlStr;
+  }
+  console.warn('[ui] URL dangereuse bloquée:', url);
+  return '';
 }
 
 export function formatDate(dateStr) {

@@ -1,6 +1,7 @@
 import { store } from '../store.js';
 import * as api from '../api.js';
 import { toast, confirm, esc, skeletonTable, emptyState } from '../components/ui.js';
+import { uploaderHTML, bindUploader } from '../components/uploader.js';
 
 const DEFAULT_COLOR = '#14AE5C';
 const DEFAULT_CENTER = [2.35, 46.85]; // France center
@@ -242,7 +243,6 @@ function _showCityForm(container, existing) {
           <div class="cw-field">
             <label class="cw-field__label">Logo</label>
             ${_logoDropzoneHTML('cf-logo', existing?.logo_url, 'Logo')}
-            <input type="file" id="cf-logo-file" accept="image/*" hidden>
             <input type="hidden" id="cf-logo-url" value="${esc(existing?.logo_url || '')}">
           </div>
 
@@ -250,15 +250,13 @@ function _showCityForm(container, existing) {
           <div class="cw-field">
             <label class="cw-field__label">Logo sombre</label>
             ${_logoDropzoneHTML('cf-dark-logo', existing?.dark_logo_url, 'Logo sombre')}
-            <input type="file" id="cf-dark-logo-file" accept="image/*" hidden>
             <input type="hidden" id="cf-dark-logo-url" value="${esc(existing?.dark_logo_url || '')}">
           </div>
 
           <!-- Favicon -->
           <div class="cw-field">
             <label class="cw-field__label">Favicon</label>
-            ${_logoDropzoneHTML('cf-favicon', existing?.favicon_url, 'Favicon', true)}
-            <input type="file" id="cf-favicon-file" accept="image/*" hidden>
+            ${_logoDropzoneHTML('cf-favicon', existing?.favicon_url, 'Favicon', true, 'image/png,image/x-icon,image/svg+xml,image/webp')}
             <input type="hidden" id="cf-favicon-url" value="${esc(existing?.favicon_url || '')}">
           </div>
 
@@ -341,32 +339,20 @@ function _showCityForm(container, existing) {
 }
 
 /* ── Logo dropzone HTML (reuses structure.js pattern) ── */
-function _logoDropzoneHTML(prefix, existingUrl, label, small = false) {
-  const hasUrl = !!existingUrl;
-  const isDark = label.toLowerCase().includes('sombre');
-  const height = small ? '100px' : '140px';
-  // Fond fixe : la preview représente le contexte cible du logo, pas le thème UI
-  const bgColor = isDark ? '#1a1a2e' : '#f1f5f9';
-
-  return `
-    <div class="st-logo-zone" id="${prefix}-zone" data-prefix="${prefix}">
-      <div class="cw-drop-area st-logo-drop ${small ? 'st-logo-drop--sm' : ''}" id="${prefix}-drop" ${hasUrl ? 'hidden' : ''} style="padding:${small ? '20px 16px' : '32px 16px'};">
-        <div class="cw-drop-area__illustration" style="width:${small ? '40px' : '52px'};height:${small ? '40px' : '52px'};font-size:${small ? '16px' : '20px'};">
-          <i class="fa-solid fa-cloud-arrow-up"></i>
-        </div>
-        <div class="cw-drop-area__text">
-          <span class="cw-drop-area__title" style="font-size:13px;">Glissez-déposez ici</span>
-          <span class="cw-drop-area__hint">ou <u>cliquez pour parcourir</u> - PNG, SVG, WebP</span>
-        </div>
-      </div>
-      <div class="st-logo-preview" id="${prefix}-preview" ${hasUrl ? '' : 'hidden'} style="background:${bgColor};height:${height};">
-        <img id="${prefix}-img" src="${esc(existingUrl || '')}" alt="${esc(label)}">
-        <div class="st-logo-preview__overlay">
-          <button type="button" class="st-logo-preview__btn" data-action="change"><i class="fa-solid fa-camera"></i> Changer</button>
-          <button type="button" class="st-logo-preview__btn st-logo-preview__btn--danger" data-action="remove"><i class="fa-solid fa-trash"></i></button>
-        </div>
-      </div>
-    </div>`;
+function _logoDropzoneHTML(prefix, existingUrl, label, small = false, accept = 'image/png,image/svg+xml,image/jpeg,image/webp') {
+  return uploaderHTML({
+    prefix,
+    accept,
+    initialUrl: existingUrl || '',
+    title: 'Glissez-déposez ici',
+    hint: 'PNG, SVG, WebP',
+    small,
+    fit: 'contain',
+    // Fond fixe : la preview représente le contexte cible du logo, pas le thème UI
+    previewBg: label.toLowerCase().includes('sombre') ? '#1a1a2e' : '#f1f5f9',
+    removable: true,
+    alt: label,
+  });
 }
 
 function _bindCityForm(container, existing) {
@@ -491,57 +477,19 @@ function _bindLogoDropzones(container) {
   ];
 
   for (const { prefix, setRef } of bindings) {
-    const dropArea = container.querySelector(`#${prefix}-drop`);
-    const fileInput = container.querySelector(`#${prefix}-file`);
-    const previewEl = container.querySelector(`#${prefix}-preview`);
-    const imgEl = container.querySelector(`#${prefix}-img`);
     const hiddenUrl = container.querySelector(`#${prefix}-url`);
-
-    if (!dropArea || !fileInput) continue;
-
-    dropArea.addEventListener('click', () => fileInput.click());
-    dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.classList.add('dragover'); });
-    dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
-    dropArea.addEventListener('drop', e => {
-      e.preventDefault();
-      dropArea.classList.remove('dragover');
-      const file = e.dataTransfer?.files?.[0];
-      if (file) _setLogoFile(file, prefix, setRef, dropArea, previewEl, imgEl, hiddenUrl);
-    });
-
-    fileInput.addEventListener('change', () => {
-      const file = fileInput.files?.[0];
-      if (file) _setLogoFile(file, prefix, setRef, dropArea, previewEl, imgEl, hiddenUrl);
-      fileInput.value = '';
-    });
-
-    previewEl?.addEventListener('click', e => {
-      const action = e.target.closest('[data-action]')?.dataset.action;
-      if (action === 'change') fileInput.click();
-      if (action === 'remove') {
+    bindUploader(container, {
+      prefix,
+      onFile(file) {
+        setRef(file);
+        if (hiddenUrl) hiddenUrl.value = '__pending_upload__';
+      },
+      onRemove() {
         setRef(null);
         if (hiddenUrl) hiddenUrl.value = '';
-        if (imgEl) imgEl.src = '';
-        if (previewEl) previewEl.hidden = true;
-        if (dropArea) dropArea.hidden = false;
-      }
+      },
     });
   }
-}
-
-function _setLogoFile(file, prefix, setRef, dropArea, previewEl, imgEl, hiddenUrl) {
-  if (!file.type.startsWith('image/') && !file.type.includes('svg')) {
-    toast('Le fichier doit être une image (PNG, SVG, WebP, JPG)', 'error');
-    return;
-  }
-  setRef(file);
-  if (hiddenUrl) hiddenUrl.value = '__pending_upload__';
-  if (imgEl) {
-    if (imgEl.src && imgEl.src.startsWith('blob:')) URL.revokeObjectURL(imgEl.src);
-    imgEl.src = URL.createObjectURL(file);
-  }
-  if (previewEl) previewEl.hidden = false;
-  if (dropArea) dropArea.hidden = true;
 }
 
 /* ── Interactive map with search ── */
