@@ -68,6 +68,7 @@ export const AdminGeneral = D(() => [
       h('li', {}, [h('strong', {}, 'Menu de navigation'), ' — Liens vers les différentes sections : Contributions, Travaux, Catégories, Utilisateurs, Structure, Villes']),
       h('li', {}, [h('strong', {}, 'Carte "Voir la carte"'), ' — Lien flottant vers la carte publique de la ville active']),
       h('li', {}, [h('strong', {}, 'Infos utilisateur'), ' — En bas de la barre : votre email, votre badge de rôle et le bouton de déconnexion']),
+      h('li', {}, [h('strong', {}, 'Thème clair / sombre'), ' — Bouton soleil / lune en bas de la barre pour basculer l\'apparence de l\'administration. Votre choix est mémorisé.']),
     ]),
     h('div', { class: 'info mt-3' }, [
       h('p', {}, [
@@ -391,6 +392,113 @@ export const AdminTravaux = D(() => [
 ])
 
 /* ======================================================================== */
+/*  ADMIN — DIAGNOSTIC TERRAIN                                             */
+/* ======================================================================== */
+
+export const AdminDiagnostic = D(() => [
+
+  h('h2', {}, [h('span', { class: 'text-2xl' }, '🗺️'), ' Diagnostic terrain']),
+  h('p', { class: 'text-sm text-gray-text mb-6' }, 'Agrégez les données de votre territoire, sélectionnez une zone et obtenez un diagnostic sourcé, exportable en rapport.'),
+
+  h('div', { class: 'info mb-5' }, [
+    h('p', {}, ['🔒 ', h('strong', {}, 'Réservé aux administrateurs'), ' de la structure. La carte nécessite un navigateur compatible WebGL ; si elle est indisponible, la gestion des couches reste accessible.']),
+  ]),
+
+  collapse('🧭 Vue d\'ensemble', [
+    h('p', { class: 'text-sm text-gray-text mb-3' }, 'La section ouvre une carte plein écran de votre territoire, surmontée d\'un dock flottant et d\'une barre d\'outils.'),
+    h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-2' }, [
+      h('li', {}, [h('strong', {}, 'Dock'), ' — Deux onglets : ', h('strong', {}, 'Couches'), ' (vos sources de données) et ', h('strong', {}, 'Analyse'), ' (sélection de zone + diagnostic IA)']),
+      h('li', {}, [h('strong', {}, 'Barre d\'outils'), ' — Bouton ', h('strong', {}, 'plein écran'), ' et bouton ', h('strong', {}, '"Sélectionner une zone"'), ' (lasso)']),
+      h('li', {}, [h('strong', {}, 'Historique'), ' — En haut à droite, rouvre les diagnostics déjà enregistrés']),
+    ]),
+  ], true),
+
+  collapse('🗂️ Ajouter une couche de données', [
+    h('p', { class: 'text-sm text-gray-text mb-3' }, ['Dans l\'onglet ', h('strong', {}, 'Couches'), ', cliquez sur ', h('strong', {}, '"Ajouter une couche"'), '. Un assistant en 4 étapes s\'ouvre :']),
+    h('ol', { class: 'steps' }, [
+      h('li', {}, [
+        h('strong', {}, '1. Source des données'), h('br'),
+        'Trois origines possibles :', h('br'),
+        '• ', h('strong', {}, 'Fichier'), ' — Glissez-déposez un .geojson, .json ou .csv', h('br'),
+        '• ', h('strong', {}, 'Lien'), ' — Une URL vers un flux GeoJSON ou CSV (open data)', h('br'),
+        '• ', h('strong', {}, 'Données Open Projets'), ' — ', h('strong', {}, 'Projets publiés'), ' (vos contributions approuvées) ou ', h('strong', {}, 'Travaux en cours'), ' (vos chantiers)',
+      ]),
+      h('li', {}, [
+        h('strong', {}, '2. Identité'), h('br'),
+        h('strong', {}, 'Nom'), ' de la couche (ex. "Comptages vélo 2026") et ', h('strong', {}, 'groupe'), ' facultatif pour organiser le dock (ex. "Contributions citoyennes").',
+      ]),
+      h('li', {}, [
+        h('strong', {}, '3. Style'), h('br'),
+        'Couleur des points — en aplat unique ou ', h('strong', {}, 'par catégorie'), ' (une couleur par valeur d\'un champ) — et taille des marqueurs.',
+      ]),
+      h('li', {}, [
+        h('strong', {}, '4. Popup & analyse IA'), h('br'),
+        'Champs affichés au clic sur un point, et surtout le ', h('strong', {}, 'contexte pour l\'IA'), ' — une phrase décrivant ce que représente la couche (ex. "Signalements citoyens de dangers cyclables"). Ce contexte aide l\'analyse à situer les points.',
+      ]),
+    ]),
+    h('div', { class: 'tip mt-3' }, [
+      h('p', {}, ['💡 Empilez autant de couches que nécessaire : signalements citoyens, comptages, open data, plus vos propres projets et chantiers Open Projets.']),
+    ]),
+  ]),
+
+  collapse('👁️ Gérer les couches', [
+    h('p', { class: 'text-sm text-gray-text mb-3' }, 'Chaque couche affiche sa pastille de couleur, son nom et son nombre de points.'),
+    h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1 mb-3' }, [
+      h('li', {}, [h('strong', {}, 'Interrupteur'), ' — Affiche ou masque la couche sur la carte']),
+      h('li', {}, [h('strong', {}, 'Crayon'), ' — Modifie la couche (rouvre l\'assistant)']),
+      h('li', {}, [h('strong', {}, 'Corbeille'), ' — Retire la couche du diagnostic (les données sources ne sont pas affectées)']),
+    ]),
+    h('p', { class: 'text-sm text-gray-text font-semibold mt-3 mb-2' }, 'Outils d\'affichage (bas du dock)'),
+    h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1' }, [
+      h('li', {}, [h('strong', {}, 'Heatmap de densité'), ' — Carte de chaleur pour repérer les concentrations de points']),
+      h('li', {}, [h('strong', {}, 'Bâtiments en relief'), ' — Volumes 3D du bâti, visibles à partir du zoom 15']),
+    ]),
+  ]),
+
+  collapse('✏️ Sélectionner une zone', [
+    h('ol', { class: 'steps' }, [
+      h('li', {}, ['Cliquez sur ', h('strong', {}, '"Sélectionner une zone"'), ' (ou maintenez la touche ', h('strong', {}, 'Maj'), ')']),
+      h('li', {}, ['Dessinez à main levée un contour ', h('strong', {}, 'autour des points'), ' à analyser (une intersection, un carrefour, un tronçon)']),
+      h('li', {}, ['Relâchez pour fermer la zone — appuyez sur ', h('strong', {}, 'Échap'), ' pour annuler']),
+    ]),
+    h('div', { class: 'info mt-3' }, [
+      h('p', {}, ['ℹ️ L\'analyse lit ', h('strong', {}, 'l\'intégralité'), ' des points de la zone, dans la limite de ', h('strong', {}, '300 points'), '. Le diagnostic vise donc une zone précise (carrefour, tronçon), pas une ville entière.']),
+    ]),
+  ]),
+
+  collapse('🪄 Lancer et lire le diagnostic', [
+    h('p', { class: 'text-sm text-gray-text mb-3' }, ['Zone tracée, l\'onglet ', h('strong', {}, 'Analyse'), ' indique le nombre de points retenus. Cliquez sur ', h('strong', {}, '"Analyser la zone"'), '.']),
+    h('p', { class: 'text-sm text-gray-text font-semibold mt-3 mb-2' }, 'Ce que produit l\'IA'),
+    h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1 mb-3' }, [
+      h('li', {}, ['Une restitution ', h('strong', {}, 'source par source'), ' : pour chaque couche, une synthèse de ce que contiennent ses points']),
+      h('li', {}, ['Des ', h('strong', {}, 'sujets récurrents'), ' regroupant les points qui en parlent, avec citations exactes (verbatims)']),
+      h('li', {}, ['Chaque constat ', h('strong', {}, 'renvoie aux points'), ' qui le justifient']),
+    ]),
+    h('div', { class: 'info mt-3' }, [
+      h('p', {}, ['🛈 L\'IA ', h('strong', {}, 'restitue et cite'), ', elle ne juge pas : aucune note, aucune hiérarchie, aucune recommandation. Les chiffres sont recalculés à partir des points, jamais inventés. Le bouton ', h('strong', {}, 'Relancer'), ' regénère l\'analyse.']),
+    ]),
+  ]),
+
+  collapse('📄 Générer et exporter le rapport', [
+    h('p', { class: 'text-sm text-gray-text mb-3' }, ['Sous le diagnostic, cliquez sur ', h('strong', {}, '"Générer le rapport de zone"'), '. Le rapport reprend :']),
+    h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1 mb-3' }, [
+      h('li', {}, ['Une ', h('strong', {}, 'capture de la carte'), ' de la zone analysée']),
+      h('li', {}, ['La ', h('strong', {}, 'répartition'), ' des points par source et par sujet']),
+      h('li', {}, ['Les ', h('strong', {}, 'points référencés'), ', tels qu\'ils figurent dans les données sources']),
+    ]),
+    h('p', { class: 'text-sm text-gray-text' }, ['Cliquez sur ', h('strong', {}, '"Exporter en PDF"'), ' pour l\'imprimer ou l\'enregistrer via la boîte d\'impression du navigateur. Le rapport est aussi ', h('strong', {}, 'sauvegardé automatiquement'), ' dans l\'historique.']),
+  ]),
+
+  collapse('🕘 Retrouver mes diagnostics', [
+    h('p', { class: 'text-sm text-gray-text mb-3' }, ['Le bouton ', h('strong', {}, '"Historique"'), ' (en haut à droite) liste tous les diagnostics enregistrés pour la structure.']),
+    h('ol', { class: 'steps' }, [
+      h('li', {}, ['Cliquez sur ', h('strong', {}, 'l\'œil'), ' pour rouvrir un rapport']),
+      h('li', {}, ['Cliquez sur la ', h('strong', {}, 'corbeille'), ' pour le supprimer de l\'historique']),
+    ]),
+  ]),
+])
+
+/* ======================================================================== */
 /*  ADMIN — GÉRER LES CATÉGORIES                                           */
 /* ======================================================================== */
 
@@ -701,6 +809,7 @@ export const ContribGeneral = D(() => [
       h('li', {}, [h('strong', {}, 'Sélecteur de structure'), ' — Vous ne voyez que les structures auxquelles vous êtes rattaché']),
       h('li', {}, [h('strong', {}, 'Lien "Voir la carte"'), ' — Accès rapide à la carte publique']),
       h('li', {}, [h('strong', {}, 'Déconnexion'), ' — En bas de la barre latérale']),
+      h('li', {}, [h('strong', {}, 'Thème clair / sombre'), ' — Bouton soleil / lune en bas de la barre pour changer l\'apparence. Votre choix est mémorisé.']),
     ]),
   ]),
 

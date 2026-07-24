@@ -76,7 +76,7 @@
           <CategoryCard
             v-for="cat in adminCategories" :key="cat.id"
             :icon="cat.icon" :color="cat.color"
-            :title="cat.title" :desc="cat.desc"
+            :title="cat.title" :desc="cat.desc" :badge="cat.badge"
             @click="showCategory(cat.id)"
           />
         </div>
@@ -119,7 +119,7 @@ import { adminCategories, contribCategories } from '@/data/helpCategories.js'
 /* ── CategoryCard (render function) ── */
 
 const CategoryCard = {
-  props: ['icon', 'color', 'title', 'desc'],
+  props: ['icon', 'color', 'title', 'desc', 'badge'],
   emits: ['click'],
   setup(props, { emit }) {
     return () => h('button', {
@@ -132,7 +132,12 @@ const CategoryCard = {
         h(props.icon, { class: `w-5 h-5 text-${props.color}` })
       ]),
       h('div', { class: 'flex-1 min-w-0' }, [
-        h('h4', { class: 'text-[15px] font-semibold text-dark' }, props.title),
+        h('div', { class: 'flex items-center gap-2' }, [
+          h('h4', { class: 'text-[15px] font-semibold text-dark' }, props.title),
+          props.badge
+            ? h('span', { class: 'inline-block text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/10 text-primary' }, props.badge)
+            : null
+        ]),
         h('p', { class: 'text-[13px] text-gray-text' }, props.desc)
       ]),
       h(ChevronRight, { class: 'w-4 h-4 text-gray-300 shrink-0 group-hover:text-primary transition-colors' })

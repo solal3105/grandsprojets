@@ -1,5 +1,5 @@
 import { markRaw } from 'vue'
-import { Compass, PenSquare, HardHat, Tags, Users, Building2, MapPin } from 'lucide-vue-next'
+import { Compass, PenSquare, HardHat, Radar, Tags, Users, Building2, MapPin } from 'lucide-vue-next'
 import * as Details from '@/components/help/details.js'
 
 export const adminCategories = [
@@ -29,6 +29,16 @@ export const adminCategories = [
     desc: 'Chantiers, configuration et source de données',
     component: markRaw(Details.AdminTravaux),
     printable: false,
+  },
+  {
+    id: 'diagnostic',
+    icon: markRaw(Radar),
+    color: 'purple',
+    title: 'Diagnostic terrain',
+    desc: 'Agréger vos données, analyser une zone, exporter un rapport',
+    badge: 'Nouveau',
+    component: markRaw(Details.AdminDiagnostic),
+    printable: true,
   },
   {
     id: 'categories',
