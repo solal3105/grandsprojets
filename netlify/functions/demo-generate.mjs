@@ -67,6 +67,28 @@ const CANDIDATES_SCHEMA = {
   required: ['candidates'],
 };
 
+const ARTICLES_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    articles: {
+      type: 'array',
+      maxItems: 10,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          index: { type: 'integer', description: 'Index du projet dans la liste fournie, ordre conservé' },
+          title: { type: 'string', description: 'Titre du projet, repris tel quel' },
+          markdown: { type: 'string', description: 'Article en markdown, 150 à 250 mots' },
+        },
+        required: ['index', 'title', 'markdown'],
+      },
+    },
+  },
+  required: ['articles'],
+};
+
 const FINAL_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -203,9 +225,24 @@ async function findMairieWebsite(insee) {
   return null;
 }
 
+// Liens PDF officiels (concertation, enquêtes, PLU...) trouvés dans une page
+function collectPdfLinks(html, baseUrl, out) {
+  const re = /<a[^>]+href=["']([^"']+\.pdf(?:\?[^"']*)?)["'][^>]*>([\s\S]{0,140}?)<\/a>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null && out.length < 12) {
+    const label = stripHtml(m[2]).slice(0, 90);
+    const target = `${m[1]} ${label}`.toLowerCase();
+    if (!/(concertation|enqu[eê]te|dossier|r[eé]union|projet|am[eé]nagement|amenagement|plu|orientation|travaux|plan[ -]guide)/.test(target)) continue;
+    try {
+      const abs = new URL(m[1], baseUrl).toString();
+      if (!out.some((p) => p.url === abs)) out.push({ url: abs, label: label || 'Document PDF' });
+    } catch { /* lien invalide */ }
+  }
+}
+
 // Site de la mairie : identité (logo, couleur) + texte + pages internes projets/travaux
 async function inspectMairieSite(siteUrl, onFinding) {
-  const out = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [] };
+  const out = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [] };
   let html = '';
   let finalUrl = null;
   try {
@@ -216,6 +253,7 @@ async function inspectMairieSite(siteUrl, onFinding) {
     out.urls.push(r.url);
     html = (await r.text()).slice(0, 500000);
     out.pages.push({ url: r.url, title: 'Accueil du site de la mairie', text: stripHtml(html).slice(0, 5000) });
+    collectPdfLinks(html, r.url, out.pdfs);
   } catch {
     return out;
   }
@@ -264,7 +302,9 @@ async function inspectMairieSite(siteUrl, onFinding) {
     try {
       const r = await fetchWithTimeout(link.url, { headers: UA }, 6000);
       if (!r.ok) continue;
-      const text = stripHtml((await r.text()).slice(0, 400000)).slice(0, 5000);
+      const pageHtml = (await r.text()).slice(0, 400000);
+      const text = stripHtml(pageHtml).slice(0, 5000);
+      collectPdfLinks(pageHtml, r.url, out.pdfs);
       if (text.length > 400) {
         out.pages.push({ url: link.url, title: link.label, text });
         out.urls.push(link.url);
@@ -272,7 +312,56 @@ async function inspectMairieSite(siteUrl, onFinding) {
       }
     } catch { /* page suivante */ }
   }
+  for (const pdf of out.pdfs.slice(0, 6)) {
+    onFinding?.({ kind: 'pdf', title: pdf.label, domain: 'PDF officiel' });
+  }
   return out;
+}
+
+/* ─── Illustrations libres : Wikimedia Commons, photos prises sur place ─── */
+
+function centroidOf(geometry) {
+  const pts = [];
+  const walk = (c) => { if (typeof c[0] === 'number') pts.push(c); else c.forEach(walk); };
+  walk(geometry.coordinates);
+  const n = pts.length || 1;
+  return {
+    lng: pts.reduce((s, p) => s + p[0], 0) / n,
+    lat: pts.reduce((s, p) => s + p[1], 0) / n,
+  };
+}
+
+const COMMONS_BLOCKLIST = /(blason|logo|carte|map|flag|armoiries|plan[_ ]de|\.svg|\.tif|\.pdf)/i;
+
+async function commonsImageAt(lat, lng, radius) {
+  try {
+    const u = new URL('https://commons.wikimedia.org/w/api.php');
+    u.searchParams.set('action', 'query');
+    u.searchParams.set('format', 'json');
+    u.searchParams.set('generator', 'geosearch');
+    u.searchParams.set('ggscoord', `${lat}|${lng}`);
+    u.searchParams.set('ggsradius', String(radius));
+    u.searchParams.set('ggslimit', '5');
+    u.searchParams.set('ggsnamespace', '6');
+    u.searchParams.set('prop', 'imageinfo');
+    u.searchParams.set('iiprop', 'url|extmetadata');
+    u.searchParams.set('iiurlwidth', '1200');
+    u.searchParams.set('origin', '*');
+    const r = await fetchWithTimeout(u.toString(), { headers: UA }, 7000);
+    if (!r.ok) return null;
+    const data = await r.json();
+    const pages = Object.values(data?.query?.pages || {});
+    for (const page of pages) {
+      if (COMMONS_BLOCKLIST.test(page.title || '')) continue;
+      const info = page.imageinfo?.[0];
+      if (!info?.thumburl) continue;
+      const meta = info.extmetadata || {};
+      const artist = stripHtml(meta.Artist?.value || '').slice(0, 60) || 'auteur inconnu';
+      const license = meta.LicenseShortName?.value || 'licence libre';
+      return { url: info.thumburl, credit: `${artist}, Wikimedia Commons (${license})` };
+    }
+  } catch { /* Commons indisponible : pas d'illustration */ }
+  return null;
 }
 
 // Presse locale : flux RSS Google News, puis lecture des articles ouverts
@@ -438,6 +527,22 @@ async function selectProjects(commune, candidates, bundle, onTitle) {
   return out.projects || [];
 }
 
+// Troisième passe : un article de présentation par projet, sourcé et honnête
+async function writeArticles(commune, projects, pdfs, onTitle) {
+  const system = `Tu es un rédacteur territorial. Pour CHAQUE projet fourni (index conservé), écris un article markdown de 150 à 250 mots destiné aux habitants de ${commune.nom} : 2 phrases d'introduction, une section "## Ce qui change" (2 à 4 puces concrètes), une section "## Calendrier" seulement si des dates sont connues. Si un des documents PDF fournis correspond CLAIREMENT au projet, ajoute une section "## Documents" avec le lien markdown ; sinon aucune section Documents. Termine toujours par : *Fiche générée automatiquement à partir de sources publiques : [NOM_DU_MEDIA](URL_SOURCE).* Ton sobre et factuel, aucun superlatif, rien d'inventé au-delà des informations fournies.`;
+  const user = `PROJETS :\n${JSON.stringify(projects.map((p, i) => ({
+    index: i,
+    title: p.title,
+    description: p.description,
+    status: STATUS_LABELS[p.status] || '',
+    place: p.place,
+    source_url: p.source_url,
+    source_media: hostOf(p.source_url),
+  })), null, 1)}\n\nDOCUMENTS PDF DISPONIBLES :\n${pdfs.length ? pdfs.map((p) => `- [${p.label}](${p.url})`).join('\n') : '(aucun)'}`;
+  const out = await callOpenAI(system, user, 'articles_projets', ARTICLES_SCHEMA, 4500, onTitle);
+  return out.articles || [];
+}
+
 /* ─── Localisation hybride : emprise OSM > adresse BAN > centre ─── */
 
 async function locateProject(project, commune, bbox, index) {
@@ -501,16 +606,20 @@ async function uploadToStorage(path, body, contentType) {
   return `${SUPABASE_URL}/storage/v1/object/public/uploads/${path}`;
 }
 
-async function insertRows(table, rows) {
+async function insertRows(table, rows, returning = false) {
   const r = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: 'POST',
-    headers: { ...serviceHeaders(), Prefer: 'resolution=merge-duplicates' },
+    headers: {
+      ...serviceHeaders(),
+      Prefer: `resolution=merge-duplicates${returning ? ',return=representation' : ''}`,
+    },
     body: JSON.stringify(rows),
   });
   if (!r.ok) {
     const t = await r.text().catch(() => '');
     throw new Error(`Insertion ${table} : ${r.status} ${t.slice(0, 200)}`);
   }
+  return returning ? r.json() : null;
 }
 
 async function countToday(filterCol, filterVal) {
@@ -671,7 +780,41 @@ export default async (req, context) => {
         const real = located.filter((p) => p.method !== 'centre').length;
         step('geo', 'done', 'Projets localisés', `${real}/${located.length} emplacements précis`);
 
-        // 8. Création de l'espace, sous-étape par sous-étape
+        // 8. Illustrations libres de droits : photos prises à l'emplacement du projet
+        step('media', 'start', 'Recherche d\'illustrations libres de droits', 'Wikimedia Commons : photos prises sur place');
+        let communeFallbackImg = null;
+        let illustrated = 0;
+        for (const p of located) {
+          const c = centroidOf(p.geometry);
+          let img = await commonsImageAt(c.lat, c.lng, 350);
+          if (!img) {
+            if (communeFallbackImg === null) {
+              communeFallbackImg = await commonsImageAt(
+                commune.centre.coordinates[1], commune.centre.coordinates[0], 2500
+              ) || false;
+            }
+            img = communeFallbackImg || null;
+          }
+          if (img) {
+            p.coverSrc = img.url;
+            p.coverCredit = img.credit;
+            illustrated++;
+            send({ type: 'media-item', title: p.title, credit: img.credit });
+          }
+        }
+        step('media', illustrated ? 'done' : 'skip', 'Illustrations trouvées', `${illustrated}/${located.length} projets illustrés (photos libres de droits)`);
+
+        // 9. Rédaction des articles de présentation, révélée en direct
+        step('articles', 'start', 'Rédaction des articles de présentation', 'Un article sourcé par projet, avec les documents officiels');
+        let articles = [];
+        try {
+          articles = await writeArticles(commune, located, mairie.pdfs, (title) => send({ type: 'article-item', title }));
+        } catch (e) {
+          console.error('[demo-generate] articles :', e.message);
+        }
+        step('articles', articles.length ? 'done' : 'skip', 'Articles rédigés', `${articles.length} article(s) de présentation`);
+
+        // 10. Création de l'espace, sous-étape par sous-étape
         step('create', 'start', `Création de l'espace de ${commune.nom}`);
         if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
           send({
@@ -725,13 +868,42 @@ export default async (req, context) => {
         createItem('Navigation et catégories configurées');
 
         const rows = [];
-        for (const p of located) {
+        for (let i = 0; i < located.length; i++) {
+          const p = located[i];
           const slug = `${slugify(p.title)}-${Math.random().toString(36).slice(2, 6)}`;
           const fc = {
             type: 'FeatureCollection',
             features: [{ type: 'Feature', geometry: p.geometry, properties: { name: p.title } }],
           };
           const geojsonUrl = await uploadToStorage(`demo/${ville}/${slug}.geojson`, JSON.stringify(fc), 'application/json');
+
+          // Illustration : re-hébergée dans le storage (URL stable, pas de hotlink)
+          let coverUrl = null;
+          if (p.coverSrc) {
+            try {
+              const ir = await fetchWithTimeout(p.coverSrc, { headers: UA });
+              if (ir.ok) {
+                const buf = await ir.arrayBuffer();
+                if (buf.byteLength <= 4500000) {
+                  const ct = ir.headers.get('content-type') || 'image/jpeg';
+                  coverUrl = await uploadToStorage(`demo/${ville}/${slug}-cover.jpg`, buf, ct);
+                }
+              }
+            } catch { /* illustration facultative */ }
+          }
+
+          // Article : crédit photo ajouté, puis publication dans le storage
+          let markdownUrl = null;
+          const article = articles.find((a) => a.index === i) || articles[i];
+          if (article?.markdown) {
+            const credit = p.coverCredit ? `\n\n*Illustration : ${p.coverCredit}.*` : '';
+            markdownUrl = await uploadToStorage(
+              `demo/${ville}/${slug}.md`,
+              new TextEncoder().encode(article.markdown + credit),
+              'text/markdown; charset=utf-8'
+            );
+          }
+
           createItem(`Fiche publiée : ${p.title}`);
           const statusLabel = STATUS_LABELS[p.status] || '';
           rows.push({
@@ -743,11 +915,37 @@ export default async (req, context) => {
             description: p.description,
             official_url: p.source_url || null,
             geojson_url: geojsonUrl,
+            cover_url: coverUrl,
+            markdown_url: markdownUrl,
             tags: statusLabel ? [statusLabel] : null,
             approved: true,
           });
         }
-        await insertRows('contribution_uploads', rows);
+        const inserted = await insertRows('contribution_uploads', rows, true) || [];
+
+        // Dossiers PDF officiels rattachés aux fiches (si l'article les cite)
+        const dossierRows = [];
+        for (const row of rows) {
+          const article = articles.find((a) => `${slugify(a.title)}` === row.slug.replace(/-[a-z0-9]{4}$/, ''))
+            || articles[rows.indexOf(row)];
+          if (!article?.markdown) continue;
+          const contribution = inserted.find((c) => c.slug === row.slug);
+          for (const pdf of mairie.pdfs) {
+            if (article.markdown.includes(pdf.url)) {
+              dossierRows.push({
+                project_name: row.project_name,
+                category: row.category,
+                title: pdf.label,
+                pdf_url: pdf.url,
+                contribution_id: contribution?.id || null,
+              });
+            }
+          }
+        }
+        if (dossierRows.length) {
+          await insertRows('consultation_dossiers', dossierRows);
+          createItem(`${dossierRows.length} document(s) officiel(s) rattaché(s) aux fiches`);
+        }
         await insertRows('demo_instances', [{
           ville,
           commune_insee: insee,

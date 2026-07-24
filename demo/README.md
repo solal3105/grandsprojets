@@ -2,10 +2,14 @@
 
 Écran plein format (« Tapez le nom de votre commune ») qui génère en direct
 l'espace Open Projets d'une commune à partir de sources publiques : site de la
-mairie (logo, couleur, pages projets), presse locale (Google News, articles
-lus en entier), marchés publics (BOAMP). Sélection par IA en deux passes avec
-citations obligatoires, localisation hybride (emprises réelles OSM/Nominatim,
-adresses BAN, repli centre commune), création de l'espace complet.
+mairie (logo, couleur, pages projets, PDFs officiels), presse locale (Google
+News, articles lus en entier), marchés publics (BOAMP). Sélection par IA en
+deux passes avec citations obligatoires, localisation hybride (emprises
+réelles OSM/Nominatim, adresses BAN, repli centre commune), illustrations
+libres de droits (Wikimedia Commons, geosearch à l'emplacement du projet,
+crédit ajouté dans la fiche), article de présentation rédigé par fiche
+(mention d'auto-génération et source citée), dossiers PDF rattachés aux
+fiches (consultation_dossiers). Durée totale : 2 à 4 minutes par commune.
 
 ## URLs
 

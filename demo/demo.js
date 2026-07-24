@@ -110,7 +110,7 @@
     return box;
   }
 
-  const FINDING_STEP = { logo: 'mairie', page: 'mairie', article: 'news', boamp: 'boamp' };
+  const FINDING_STEP = { logo: 'mairie', page: 'mairie', pdf: 'mairie', article: 'news', boamp: 'boamp' };
 
   function addFinding(f) {
     const box = currentFindingsContainer(FINDING_STEP[f.kind] || 'news');
@@ -148,6 +148,18 @@
         ? `${aiCounts.ai1} projet(s) repéré(s) dans les sources...`
         : `${aiCounts.ai2} projet(s) retenus et vérifiés...`;
     }
+  }
+
+  // Chips génériques des étapes illustrations / articles
+  function addSubItem(stepId, title, meta) {
+    const box = currentFindingsContainer(stepId);
+    if (!box) return;
+    const chip = document.createElement('span');
+    chip.className = 'finding';
+    chip.innerHTML = `
+      <span class="finding__title">${escapeHtml(title)}</span>
+      ${meta ? `<span class="finding__meta">${escapeHtml(meta)}</span>` : ''}`;
+    box.appendChild(chip);
   }
 
   // Sous-étapes de la création d'espace (logo, branding, fiche par fiche)
@@ -207,6 +219,8 @@
       if (msg.type === 'step') upsertStep(msg);
       else if (msg.type === 'finding') addFinding(msg);
       else if (msg.type === 'ai-item') addAiItem(msg);
+      else if (msg.type === 'media-item') addSubItem('media', msg.title, msg.credit);
+      else if (msg.type === 'article-item') addSubItem('articles', msg.title, 'article rédigé');
       else if (msg.type === 'create-item') addCreateItem(msg);
       else if (msg.type === 'projects') revealProjects(msg.items || []);
       else if (msg.type === 'geo-item') addGeoItem(msg);
