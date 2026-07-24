@@ -1,8 +1,10 @@
 /* ============================================================================
    ÉCRAN DÉMO SALON - /demo/demo.js
-   Autocomplétion des communes (geo.api.gouv.fr), génération en direct via SSE
-   (/api/demo-generate), journal d'étapes avec trouvailles, thématisation aux
-   couleurs de la commune, QR code final et redirection vers l'espace créé.
+   Flow complet : mode attract (globe + machine à écrire), autocomplétion des
+   communes, génération en deux phases SSE (analyse puis création) avec
+   chorégraphie carte (plongée, contour, orbite IA, épingles en direct),
+   écran final : statistiques du recensement, QR code, bouton vers l'espace.
+   Mode kiosque : ?kiosk=1 (pas de redirection auto, retour attract).
    ============================================================================ */
 (() => {
   'use strict';
@@ -12,12 +14,17 @@
   const input = $('commune-input');
   const suggestionsEl = $('suggestions');
   const stepsEl = $('steps');
+  const KIOSK = new URLSearchParams(window.location.search).get('kiosk') === '1';
 
   let es = null;
   let selectedIndex = -1;
   let suggestions = [];
   let redirectTimer = null;
   let debounceTimer = null;
+  let typeTimer = null;
+  let currentCommune = null;
+
+  const hasFx = window.MapFX && window.MapFX.init();
 
   const show = (name) => {
     Object.values(screens).forEach((s) => s.classList.remove('is-active'));
@@ -28,12 +35,48 @@
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));
 
+  /* ─── Mode attract : le champ se tape des noms de communes tout seul ─── */
+
+  const DEMO_NAMES = ['Bourg-en-Bresse', 'Oyonnax', 'Ambérieu-en-Bugey', 'Belley', 'Gex', 'Meximieux', 'Trévoux'];
+  let typeIdx = 0;
+
+  function typewriter() {
+    if (document.activeElement === input && input.value) return; // l'utilisateur a pris la main
+    const name = DEMO_NAMES[typeIdx % DEMO_NAMES.length];
+    let i = 0;
+    let phase = 'typing';
+    const tick = () => {
+      if (document.activeElement === input && input.value) { input.placeholder = 'Tapez le nom de votre commune'; return; }
+      if (phase === 'typing') {
+        i++;
+        input.placeholder = name.slice(0, i) + '|';
+        if (i >= name.length) { phase = 'hold'; typeTimer = setTimeout(tick, 1600); return; }
+        typeTimer = setTimeout(tick, 90 + Math.random() * 70);
+      } else if (phase === 'hold') {
+        phase = 'erasing';
+        typeTimer = setTimeout(tick, 40);
+      } else {
+        i--;
+        input.placeholder = name.slice(0, i) + '|';
+        if (i <= 0) { typeIdx++; typeTimer = setTimeout(typewriter, 700); return; }
+        typeTimer = setTimeout(tick, 34);
+      }
+    };
+    tick();
+  }
+
+  function attractStart() {
+    if (hasFx) window.MapFX.attractStart();
+    clearTimeout(typeTimer);
+    typewriter();
+  }
+
   /* ─── Autocomplétion ─── */
 
   async function fetchSuggestions(q) {
     if (q.length < 2) { renderSuggestions([]); return; }
     try {
-      const r = await fetch(`https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=departement,population&boost=population&limit=6`);
+      const r = await fetch(`https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=departement,population,centre&boost=population&limit=6`);
       renderSuggestions(r.ok ? await r.json() : []);
     } catch { renderSuggestions([]); }
   }
@@ -99,6 +142,12 @@
     else if (status === 'done') icon.innerHTML = `<span class="step__check">${CHECK_SVG}</span>`;
     else if (status === 'skip') icon.innerHTML = `<span class="step__skip">${SKIP_SVG}</span>`;
     li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+    // Chorégraphie carte : l'IA réfléchit = la caméra orbite autour de la commune
+    if (hasFx) {
+      if (id === 'ai1' && status === 'start') window.MapFX.orbitStart();
+      if (id === 'geo' && status === 'start') window.MapFX.orbitStop();
+    }
     return li;
   }
 
@@ -118,8 +167,11 @@
     const chip = document.createElement('span');
     chip.className = 'finding';
     if (f.kind === 'logo') {
-      // Thématisation en direct : l'écran prend les couleurs de la commune
-      if (f.color) document.documentElement.style.setProperty('--accent', f.color);
+      // Thématisation en direct : l'écran et la carte prennent la couleur de la commune
+      if (f.color) {
+        document.documentElement.style.setProperty('--accent', f.color);
+        if (hasFx) window.MapFX.setAccent(f.color);
+      }
       chip.innerHTML = `
         ${f.iconUrl ? `<img src="${escapeHtml(f.iconUrl)}" alt="" onerror="this.remove()">` : ''}
         <span class="finding__title">${escapeHtml(f.title)}</span>
@@ -132,7 +184,6 @@
     box.appendChild(chip);
   }
 
-  // Titres révélés en direct pendant que l'IA écrit (passes 1 et 2)
   const aiCounts = { ai1: 0, ai2: 0 };
   function addAiItem(msg) {
     const box = currentFindingsContainer(msg.phase);
@@ -150,7 +201,6 @@
     }
   }
 
-  // Chips génériques des étapes illustrations / articles
   function addSubItem(stepId, title, meta) {
     const box = currentFindingsContainer(stepId);
     if (!box) return;
@@ -162,7 +212,6 @@
     box.appendChild(chip);
   }
 
-  // Sous-étapes de la création d'espace (logo, branding, fiche par fiche)
   function addCreateItem(msg) {
     const box = currentFindingsContainer('create');
     if (!box) return;
@@ -175,7 +224,7 @@
   function revealProjects(items) {
     const box = currentFindingsContainer('ai2');
     if (!box) return;
-    box.innerHTML = ''; // remplace les titres bruts streamés par les fiches finales
+    box.innerHTML = '';
     items.forEach((p, i) => {
       setTimeout(() => {
         const chip = document.createElement('span');
@@ -191,28 +240,25 @@
 
   function addGeoItem(g) {
     const box = currentFindingsContainer('geo');
-    if (!box) return;
-    const precise = g.method !== 'centre';
-    const chip = document.createElement('span');
-    chip.className = `finding${precise ? ' finding--geo-ok' : ''}`;
-    chip.innerHTML = `
-      <span class="finding__title">${escapeHtml(g.title)}</span>
-      <span class="finding__meta">${escapeHtml(g.label || g.method)}</span>`;
-    box.appendChild(chip);
+    if (box) {
+      const precise = g.method !== 'centre';
+      const chip = document.createElement('span');
+      chip.className = `finding${precise ? ' finding--geo-ok' : ''}`;
+      chip.innerHTML = `
+        <span class="finding__title">${escapeHtml(g.title)}</span>
+        <span class="finding__meta">${escapeHtml(g.label || g.method)}</span>`;
+      box.appendChild(chip);
+    }
+    // L'épingle tombe sur la carte, l'emprise réelle s'embrase
+    if (hasFx && typeof g.lat === 'number') {
+      window.MapFX.addProject({ lat: g.lat, lng: g.lng, geometry: g.geometry, precise: g.method !== 'centre' });
+    }
   }
 
-  /* ─── Génération ─── */
+  /* ─── Génération (deux phases SSE enchaînées) ─── */
 
-  function start(commune) {
-    renderSuggestions([]);
-    input.blur();
-    stepsEl.innerHTML = '';
-    $('progress-error').hidden = true;
-    $('btn-retry').hidden = true;
-    $('progress-commune').textContent = commune.nom;
-    show('progress');
-
-    es = new EventSource(`/api/demo-generate?commune=${encodeURIComponent(commune.code)}`);
+  function openStream(url) {
+    es = new EventSource(url);
     es.onmessage = (e) => {
       let msg;
       try { msg = JSON.parse(e.data); } catch { return; }
@@ -220,36 +266,89 @@
       else if (msg.type === 'finding') addFinding(msg);
       else if (msg.type === 'ai-item') addAiItem(msg);
       else if (msg.type === 'media-item') addSubItem('media', msg.title, msg.credit);
+      else if (msg.type === 'cover-item') addSubItem('covers', msg.title, 'illustration installée');
       else if (msg.type === 'article-item') addSubItem('articles', msg.title, 'article rédigé');
       else if (msg.type === 'create-item') addCreateItem(msg);
       else if (msg.type === 'projects') revealProjects(msg.items || []);
       else if (msg.type === 'geo-item') addGeoItem(msg);
-      else if (msg.type === 'done') { es.close(); es = null; onDone(msg, commune); }
+      else if (msg.type === 'phase') { es.close(); es = null; openStream(`/api/demo-generate?phase=create&ville=${encodeURIComponent(msg.ville)}`); }
+      else if (msg.type === 'done') { es.close(); es = null; onDone(msg); }
       else if (msg.type === 'error') { es.close(); es = null; onError(msg.message, msg.debug); }
     };
     es.onerror = () => {
-      // Pas de reconnexion automatique : une génération = un déclenchement
       if (es) { es.close(); es = null; onError('La connexion a été interrompue. Réessayez.'); }
     };
   }
 
-  function onDone(msg, commune) {
+  function start(commune) {
+    currentCommune = commune;
+    renderSuggestions([]);
+    input.blur();
+    clearTimeout(typeTimer);
+    stepsEl.innerHTML = '';
+    aiCounts.ai1 = 0; aiCounts.ai2 = 0;
+    $('progress-error').hidden = true;
+    $('btn-retry').hidden = true;
+    $('progress-commune').textContent = commune.nom;
+    show('progress');
+
+    // Chorégraphie : plongée cinématique sur la commune + contour illuminé
+    if (hasFx && commune.centre) {
+      window.MapFX.focusCommune({
+        lat: commune.centre.coordinates[1],
+        lng: commune.centre.coordinates[0],
+        population: commune.population || 0,
+      });
+      fetch(`https://geo.api.gouv.fr/communes/${commune.code}?format=geojson&geometry=contour`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((f) => f?.geometry && window.MapFX.drawContour(f.geometry))
+        .catch(() => { /* contour décoratif */ });
+    }
+
+    openStream(`/api/demo-generate?commune=${encodeURIComponent(commune.code)}`);
+  }
+
+  function onDone(msg) {
     const targetUrl = new URL(msg.url, window.location.origin).toString();
-    $('done-commune').textContent = msg.communeNom || commune.nom;
+    $('done-commune').textContent = msg.communeNom || currentCommune?.nom || '';
     $('done-detail').textContent = msg.existing
       ? 'Cet espace avait déjà été généré : le voici.'
-      : `${msg.projectsCount} projets trouvés dans les sources publiques, cartographiés et publiés.`;
+      : `Recensement terminé : ${msg.projectsCount} projets publiés sur la carte.`;
     $('btn-open').href = targetUrl;
+    if (KIOSK) $('btn-open').target = '_blank';
     $('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=8&data=${encodeURIComponent(targetUrl)}`;
+
+    if (msg.stats) {
+      $('stat-sources').textContent = msg.stats.sources;
+      $('stat-verified').textContent = msg.stats.verified;
+      $('stat-precise').textContent = msg.stats.precise;
+      $('stat-illustrated').textContent = msg.stats.illustrated;
+      $('done-stats').hidden = false;
+    } else {
+      $('done-stats').hidden = true;
+    }
+
+    if (hasFx) window.MapFX.finale(0);
     show('done');
 
-    let remaining = 12;
-    const tick = () => {
-      $('countdown').textContent = `Ouverture automatique de la carte dans ${remaining} s`;
-      if (remaining-- <= 0) { window.location.href = targetUrl; return; }
-      redirectTimer = setTimeout(tick, 1000);
-    };
-    tick();
+    if (KIOSK) {
+      // Mode salon : pas de redirection, l'écran revient à l'accueil tout seul
+      let remaining = 90;
+      const tick = () => {
+        $('countdown').textContent = `L'écran revient à l'accueil dans ${remaining} s`;
+        if (remaining-- <= 0) { reset(); return; }
+        redirectTimer = setTimeout(tick, 1000);
+      };
+      tick();
+    } else {
+      let remaining = 12;
+      const tick = () => {
+        $('countdown').textContent = `Ouverture automatique de la carte dans ${remaining} s`;
+        if (remaining-- <= 0) { window.location.href = targetUrl; return; }
+        redirectTimer = setTimeout(tick, 1000);
+      };
+      tick();
+    }
   }
 
   function onError(message, debug) {
@@ -258,26 +357,38 @@
     el.textContent = message;
     el.hidden = false;
     $('btn-retry').hidden = false;
+    if (KIOSK) redirectTimer = setTimeout(reset, 60000);
   }
 
   function reset() {
     clearTimeout(redirectTimer);
     if (es) { es.close(); es = null; }
     input.value = '';
+    document.documentElement.style.removeProperty('--accent');
+    if (hasFx) window.MapFX.reset();
     show('input');
-    input.focus();
+    attractStart();
+    if (!KIOSK) input.focus();
   }
 
   $('btn-retry').addEventListener('click', reset);
   $('btn-again').addEventListener('click', reset);
 
-  /* ─── Lancement direct par URL (?commune=CODE_INSEE&nom=...&auto=1) ─── */
+  /* ─── Lancement ─── */
 
   const params = new URLSearchParams(window.location.search);
   const codeParam = params.get('commune');
   if (codeParam && /^\d{2}[0-9ABab]\d{2}$/.test(codeParam)) {
-    const nom = params.get('nom') || 'votre commune';
-    if (params.get('auto') === '1') start({ code: codeParam.toUpperCase(), nom });
-    else { input.value = nom; }
+    // Lien direct (prospection ou salon) : on résout la commune puis on lance
+    fetch(`https://geo.api.gouv.fr/communes/${codeParam.toUpperCase()}?fields=nom,code,population,centre`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => {
+        if (!c) return attractStart();
+        if (params.get('auto') === '1') start(c);
+        else { input.value = c.nom; attractStart(); }
+      })
+      .catch(() => attractStart());
+  } else {
+    attractStart();
   }
 })();

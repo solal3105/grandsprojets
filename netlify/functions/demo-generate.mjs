@@ -1,20 +1,23 @@
 /* ============================================================================
-   FONCTION DEMO-GENERATE - route /api/demo-generate (SSE)
+   FONCTION DEMO-GENERATE - route /api/demo-generate (SSE, deux phases)
 
-   Génère en direct l'espace de démo d'une commune : collecte multi-sources
-   (site de la mairie + pages projets internes, presse locale lue en entier,
-   marchés publics BOAMP), sélection par IA en deux passes (extraction avec
-   citations, puis critique/fusion), géolocalisation hybride (emprises réelles
-   OSM/Nominatim, sinon adresse BAN, sinon centre), création de l'espace
-   complet aux couleurs de la commune (logo + theme-color du site officiel).
+   Phase « analyse » (par défaut) : recensement multi-sources en direct
+   (site de la mairie + pages projets + PDFs officiels, presse locale lue en
+   entier, marchés publics BOAMP), sélection IA en deux passes streamées avec
+   citations obligatoires, localisation hybride (emprises réelles OSM,
+   adresses BAN), illustrations libres (Wikimedia Commons, geosearch sur
+   place), articles rédigés par fiche. Résultat sauvegardé en brouillon
+   (demo_instances.payload) puis événement { type: 'phase' } : l'écran
+   enchaîne aussitôt la seconde invocation.
 
-   Chaque étape et chaque trouvaille émettent un événement SSE consommé par
-   l'écran /demo/ (mode salon). Villes créées sous le préfixe `essai-` :
-   exclues du sitemap et du llms.txt, noindex (voir demo/README.md pour la
-   désinstallation complète).
+   Phase « create » : invocation fraîche et courte qui matérialise le
+   brouillon (branding aux couleurs de la commune, modules, covers, articles,
+   fiches, dossiers PDF) puis émet { type: 'done' } avec les statistiques du
+   recensement. Ce découpage tient chaque invocation loin de la durée
+   maximale d'exécution (la version monolithique était tuée en vol).
 
-   Garde-fous : idempotence par commune, quotas jour par IP et global,
-   projets rejetés si source non collectée, confiance basse ou hors commune.
+   Villes créées sous le préfixe `essai-` : exclues du sitemap et du
+   llms.txt, noindex (voir demo/README.md pour la désinstallation complète).
    ============================================================================ */
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
@@ -67,28 +70,6 @@ const CANDIDATES_SCHEMA = {
   required: ['candidates'],
 };
 
-const ARTICLES_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    articles: {
-      type: 'array',
-      maxItems: 10,
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          index: { type: 'integer', description: 'Index du projet dans la liste fournie, ordre conservé' },
-          title: { type: 'string', description: 'Titre du projet, repris tel quel' },
-          markdown: { type: 'string', description: 'Article en markdown, 150 à 250 mots' },
-        },
-        required: ['index', 'title', 'markdown'],
-      },
-    },
-  },
-  required: ['articles'],
-};
-
 const FINAL_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -115,7 +96,29 @@ const FINAL_SCHEMA = {
   required: ['projects'],
 };
 
-/* ─── Helpers ─── */
+const ARTICLES_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    articles: {
+      type: 'array',
+      maxItems: 10,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          index: { type: 'integer', description: 'Index du projet dans la liste fournie, ordre conservé' },
+          title: { type: 'string', description: 'Titre du projet, repris tel quel' },
+          markdown: { type: 'string', description: 'Article en markdown, 150 à 250 mots' },
+        },
+        required: ['index', 'title', 'markdown'],
+      },
+    },
+  },
+  required: ['articles'],
+};
+
+/* ─── Helpers génériques ─── */
 
 function serviceHeaders() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -164,6 +167,14 @@ function hostOf(u) {
   try { return new URL(u).host.replace(/^www\./, ''); } catch { return ''; }
 }
 
+async function inChunks(items, size, worker) {
+  const out = [];
+  for (let i = 0; i < items.length; i += size) {
+    out.push(...await Promise.all(items.slice(i, i + size).map(worker)));
+  }
+  return out;
+}
+
 /* ─── Sources publiques ─── */
 
 async function resolveCommune(insee) {
@@ -184,7 +195,6 @@ function bboxOfContour(contour) {
   };
   if (contour?.coordinates) walk(contour.coordinates);
   if (!isFinite(minLng)) return null;
-  // Marge de 15 % : un projet en limite de commune reste valide
   const dLng = (maxLng - minLng) * 0.15, dLat = (maxLat - minLat) * 0.15;
   return { minLng: minLng - dLng, minLat: minLat - dLat, maxLng: maxLng + dLng, maxLat: maxLat + dLat };
 }
@@ -201,7 +211,6 @@ function geometryInBbox(geometry, bbox) {
   return ok;
 }
 
-// Annuaire de l'administration (DILA) : site web officiel de la mairie
 async function findMairieWebsite(insee) {
   try {
     const url = new URL('https://api-lannuaire.service-public.fr/api/explore/v2.1/catalog/datasets/api-lannuaire-administration/records');
@@ -225,7 +234,6 @@ async function findMairieWebsite(insee) {
   return null;
 }
 
-// Liens PDF officiels (concertation, enquêtes, PLU...) trouvés dans une page
 function collectPdfLinks(html, baseUrl, out) {
   const re = /<a[^>]+href=["']([^"']+\.pdf(?:\?[^"']*)?)["'][^>]*>([\s\S]{0,140}?)<\/a>/gi;
   let m;
@@ -240,7 +248,6 @@ function collectPdfLinks(html, baseUrl, out) {
   }
 }
 
-// Site de la mairie : identité (logo, couleur) + texte + pages internes projets/travaux
 async function inspectMairieSite(siteUrl, onFinding) {
   const out = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [] };
   let html = '';
@@ -258,7 +265,6 @@ async function inspectMairieSite(siteUrl, onFinding) {
     return out;
   }
 
-  // Couleur de marque : meta theme-color (écarte blanc/noir quasi purs)
   const color = /<meta[^>]+name=["']theme-color["'][^>]+content=["'](#[0-9a-fA-F]{3,8})["']/.exec(html)
     || /<meta[^>]+content=["'](#[0-9a-fA-F]{3,8})["'][^>]+name=["']theme-color["']/.exec(html);
   if (color) {
@@ -266,7 +272,6 @@ async function inspectMairieSite(siteUrl, onFinding) {
     if (!/^#(fff|ffffff|000|000000|f8f8f8|fefefe)$/.test(hex)) out.themeColor = hex;
   }
 
-  // Logo : apple-touch-icon > icon le plus grand > /favicon.ico
   const iconCandidates = [];
   const linkRe = /<link[^>]+rel=["']([^"']*)["'][^>]*>/gi;
   let m;
@@ -282,7 +287,6 @@ async function inspectMairieSite(siteUrl, onFinding) {
   out.logoUrl = new URL(iconCandidates[0]?.href || '/favicon.ico', finalUrl).toString();
   onFinding?.({ kind: 'logo', title: out.host, iconUrl: out.logoUrl, color: out.themeColor });
 
-  // Pages internes prometteuses : projets, travaux, urbanisme, aménagement
   const links = [];
   const aRe = /<a[^>]+href=["']([^"'#]+)["'][^>]*>([\s\S]{0,120}?)<\/a>/gi;
   while ((m = aRe.exec(html)) !== null && links.length < 60) {
@@ -318,53 +322,6 @@ async function inspectMairieSite(siteUrl, onFinding) {
   return out;
 }
 
-/* ─── Illustrations libres : Wikimedia Commons, photos prises sur place ─── */
-
-function centroidOf(geometry) {
-  const pts = [];
-  const walk = (c) => { if (typeof c[0] === 'number') pts.push(c); else c.forEach(walk); };
-  walk(geometry.coordinates);
-  const n = pts.length || 1;
-  return {
-    lng: pts.reduce((s, p) => s + p[0], 0) / n,
-    lat: pts.reduce((s, p) => s + p[1], 0) / n,
-  };
-}
-
-const COMMONS_BLOCKLIST = /(blason|logo|carte|map|flag|armoiries|plan[_ ]de|\.svg|\.tif|\.pdf)/i;
-
-async function commonsImageAt(lat, lng, radius) {
-  try {
-    const u = new URL('https://commons.wikimedia.org/w/api.php');
-    u.searchParams.set('action', 'query');
-    u.searchParams.set('format', 'json');
-    u.searchParams.set('generator', 'geosearch');
-    u.searchParams.set('ggscoord', `${lat}|${lng}`);
-    u.searchParams.set('ggsradius', String(radius));
-    u.searchParams.set('ggslimit', '5');
-    u.searchParams.set('ggsnamespace', '6');
-    u.searchParams.set('prop', 'imageinfo');
-    u.searchParams.set('iiprop', 'url|extmetadata');
-    u.searchParams.set('iiurlwidth', '1200');
-    u.searchParams.set('origin', '*');
-    const r = await fetchWithTimeout(u.toString(), { headers: UA }, 7000);
-    if (!r.ok) return null;
-    const data = await r.json();
-    const pages = Object.values(data?.query?.pages || {});
-    for (const page of pages) {
-      if (COMMONS_BLOCKLIST.test(page.title || '')) continue;
-      const info = page.imageinfo?.[0];
-      if (!info?.thumburl) continue;
-      const meta = info.extmetadata || {};
-      const artist = stripHtml(meta.Artist?.value || '').slice(0, 60) || 'auteur inconnu';
-      const license = meta.LicenseShortName?.value || 'licence libre';
-      return { url: info.thumburl, credit: `${artist}, Wikimedia Commons (${license})` };
-    }
-  } catch { /* Commons indisponible : pas d'illustration */ }
-  return null;
-}
-
-// Presse locale : flux RSS Google News, puis lecture des articles ouverts
 async function fetchLocalNews(communeNom, departement, onFinding) {
   const queries = [
     `"${communeNom}" (projet OR aménagement OR rénovation OR réhabilitation)`,
@@ -394,25 +351,21 @@ async function fetchLocalNews(communeNom, departement, onFinding) {
     } catch { /* flux indisponible */ }
   }
 
-  // Lecture du contenu des articles (par lots de 3, sites fermés ignorés)
-  for (let i = 0; i < Math.min(items.length, 9); i += 3) {
-    await Promise.all(items.slice(i, i + 3).map(async (item) => {
-      try {
-        const r = await fetchWithTimeout(item.link, { headers: UA }, 6000);
-        if (!r.ok) return;
-        item.finalUrl = r.url;
-        const html = (await r.text()).slice(0, 400000);
-        const ogDesc = /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/.exec(html)?.[1];
-        const body = stripHtml(html);
-        item.text = [(ogDesc || ''), body.slice(0, 2500)].filter(Boolean).join(' | ');
-        onFinding?.({ kind: 'article', title: item.title.replace(/ - [^-]+$/, ''), domain: hostOf(item.finalUrl || item.link) || item.source, date: item.date });
-      } catch { /* article fermé : titre + extrait RSS suffisent */ }
-    }));
-  }
+  await inChunks(items.slice(0, 9), 3, async (item) => {
+    try {
+      const r = await fetchWithTimeout(item.link, { headers: UA }, 6000);
+      if (!r.ok) return;
+      item.finalUrl = r.url;
+      const html = (await r.text()).slice(0, 400000);
+      const ogDesc = /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/.exec(html)?.[1];
+      const body = stripHtml(html);
+      item.text = [(ogDesc || ''), body.slice(0, 2500)].filter(Boolean).join(' | ');
+      onFinding?.({ kind: 'article', title: item.title.replace(/ - [^-]+$/, ''), domain: hostOf(item.finalUrl || item.link) || item.source, date: item.date });
+    } catch { /* article fermé : titre + extrait RSS suffisent */ }
+  });
   return items;
 }
 
-// Marchés publics récents (BOAMP open data)
 async function fetchBoamp(communeNom, onFinding) {
   try {
     const url = new URL('https://boamp-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/boamp/records');
@@ -436,10 +389,8 @@ async function fetchBoamp(communeNom, onFinding) {
   }
 }
 
-/* ─── IA : deux passes ─── */
+/* ─── IA : trois passes streamées ─── */
 
-// Appel OpenAI en streaming : le JSON se construit token par token, et chaque
-// "title" complet déclenche onTitle() pour révéler le projet à l'écran en direct
 async function callOpenAI(system, user, schemaName, schema, maxTokens, onTitle) {
   const r = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
     method: 'POST',
@@ -527,7 +478,6 @@ async function selectProjects(commune, candidates, bundle, onTitle) {
   return out.projects || [];
 }
 
-// Troisième passe : un article de présentation par projet, sourcé et honnête
 async function writeArticles(commune, projects, pdfs, onTitle) {
   const system = `Tu es un rédacteur territorial. Pour CHAQUE projet fourni (index conservé), écris un article markdown de 150 à 250 mots destiné aux habitants de ${commune.nom} : 2 phrases d'introduction, une section "## Ce qui change" (2 à 4 puces concrètes), une section "## Calendrier" seulement si des dates sont connues. Si un des documents PDF fournis correspond CLAIREMENT au projet, ajoute une section "## Documents" avec le lien markdown ; sinon aucune section Documents. Termine toujours par : *Fiche générée automatiquement à partir de sources publiques : [NOM_DU_MEDIA](URL_SOURCE).* Ton sobre et factuel, aucun superlatif, rien d'inventé au-delà des informations fournies.`;
   const user = `PROJETS :\n${JSON.stringify(projects.map((p, i) => ({
@@ -543,12 +493,22 @@ async function writeArticles(commune, projects, pdfs, onTitle) {
   return out.articles || [];
 }
 
-/* ─── Localisation hybride : emprise OSM > adresse BAN > centre ─── */
+/* ─── Localisation hybride ─── */
+
+function centroidOf(geometry) {
+  const pts = [];
+  const walk = (c) => { if (typeof c[0] === 'number') pts.push(c); else c.forEach(walk); };
+  walk(geometry.coordinates);
+  const n = pts.length || 1;
+  return {
+    lng: pts.reduce((s, p) => s + p[0], 0) / n,
+    lat: pts.reduce((s, p) => s + p[1], 0) / n,
+  };
+}
 
 async function locateProject(project, commune, bbox, index) {
   const center = { lng: commune.centre.coordinates[0], lat: commune.centre.coordinates[1] };
   if (project.place) {
-    // 1. Nominatim avec emprise réelle (polygone de bâtiment, tracé de rue...)
     try {
       const u = new URL('https://nominatim.openstreetmap.org/search');
       u.searchParams.set('q', `${project.place}, ${commune.nom}`);
@@ -571,9 +531,8 @@ async function locateProject(project, commune, bbox, index) {
         }
       }
     } catch { /* Nominatim indisponible : BAN ensuite */ }
-    await sleep(1100); // politique d'usage Nominatim : 1 requête/seconde
+    await sleep(1050); // politique d'usage Nominatim : 1 requête/seconde
 
-    // 2. Adresse BAN
     try {
       const u = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(project.place)}&citycode=${commune.code}&limit=1`;
       const r = await fetchWithTimeout(u);
@@ -586,12 +545,46 @@ async function locateProject(project, commune, bbox, index) {
       }
     } catch { /* BAN indisponible : centre ensuite */ }
   }
-  // 3. Anneau autour du centre (évite l'empilement)
   const angle = (index * 2 * Math.PI) / 10;
   return {
     geometry: { type: 'Point', coordinates: [center.lng + 0.004 * Math.cos(angle), center.lat + 0.003 * Math.sin(angle)] },
     method: 'centre',
   };
+}
+
+/* ─── Illustrations libres (Wikimedia Commons) ─── */
+
+const COMMONS_BLOCKLIST = /(blason|logo|carte|map|flag|armoiries|plan[_ ]de|\.svg|\.tif|\.pdf)/i;
+
+async function commonsImageAt(lat, lng, radius) {
+  try {
+    const u = new URL('https://commons.wikimedia.org/w/api.php');
+    u.searchParams.set('action', 'query');
+    u.searchParams.set('format', 'json');
+    u.searchParams.set('generator', 'geosearch');
+    u.searchParams.set('ggscoord', `${lat}|${lng}`);
+    u.searchParams.set('ggsradius', String(radius));
+    u.searchParams.set('ggslimit', '5');
+    u.searchParams.set('ggsnamespace', '6');
+    u.searchParams.set('prop', 'imageinfo');
+    u.searchParams.set('iiprop', 'url|extmetadata');
+    u.searchParams.set('iiurlwidth', '1200');
+    u.searchParams.set('origin', '*');
+    const r = await fetchWithTimeout(u.toString(), { headers: UA }, 7000);
+    if (!r.ok) return null;
+    const data = await r.json();
+    const pages = Object.values(data?.query?.pages || {});
+    for (const page of pages) {
+      if (COMMONS_BLOCKLIST.test(page.title || '')) continue;
+      const info = page.imageinfo?.[0];
+      if (!info?.thumburl) continue;
+      const meta = info.extmetadata || {};
+      const artist = stripHtml(meta.Artist?.value || '').slice(0, 60) || 'auteur inconnu';
+      const license = meta.LicenseShortName?.value || 'licence libre';
+      return { url: info.thumburl, credit: `${artist}, Wikimedia Commons (${license})` };
+    }
+  } catch { /* Commons indisponible : pas d'illustration */ }
+  return null;
 }
 
 /* ─── Écriture Supabase ─── */
@@ -622,6 +615,15 @@ async function insertRows(table, rows, returning = false) {
   return returning ? r.json() : null;
 }
 
+async function updateInstance(ville, patch) {
+  const r = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/demo_instances?ville=eq.${encodeURIComponent(ville)}`, {
+    method: 'PATCH',
+    headers: serviceHeaders(),
+    body: JSON.stringify(patch),
+  });
+  if (!r.ok) throw new Error(`Mise à jour demo_instances : ${r.status}`);
+}
+
 async function countToday(filterCol, filterVal) {
   const today = new Date().toISOString().slice(0, 10);
   const url = new URL(`${SUPABASE_URL}/rest/v1/demo_instances`);
@@ -635,24 +637,353 @@ async function countToday(filterCol, filterVal) {
   return parseInt(range.split('/')[1] || '0', 10);
 }
 
-async function existingInstance(insee) {
+async function getInstance(where) {
   const url = new URL(`${SUPABASE_URL}/rest/v1/demo_instances`);
-  url.searchParams.set('select', 'ville,commune_nom');
-  url.searchParams.set('commune_insee', `eq.${insee}`);
+  url.searchParams.set('select', 'ville,commune_nom,commune_insee,status,payload');
+  for (const [k, v] of Object.entries(where)) url.searchParams.set(k, `eq.${v}`);
   const r = await fetchWithTimeout(url.toString(), { headers: serviceHeaders() });
   if (!r.ok) return null;
   const rows = await r.json();
   return rows[0] || null;
 }
 
+/* ─── Phase ANALYSE : recensement, IA, localisation, illustrations, articles ─── */
+
+async function runAnalyse(send, step, insee, ipHash) {
+  const finding = (f) => send({ type: 'finding', ...f });
+
+  step('resolve', 'start', 'Recherche de la commune');
+  const commune = await resolveCommune(insee);
+  if (!commune?.centre) {
+    send({ type: 'error', message: 'Commune introuvable. Vérifiez la saisie.' });
+    return;
+  }
+  const bbox = bboxOfContour(commune.contour);
+  step('resolve', 'done', 'Commune reconnue',
+    `${commune.nom} · ${commune.departement?.nom || ''} · ${(commune.population || 0).toLocaleString('fr-FR')} habitants`);
+
+  step('mairie', 'start', 'Visite du site officiel de la mairie');
+  const site = await findMairieWebsite(insee);
+  let mairie = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [] };
+  if (site) {
+    mairie = await inspectMairieSite(site, finding);
+    const bits = [];
+    if (mairie.host) bits.push(mairie.host);
+    if (mairie.logoUrl) bits.push('logo récupéré');
+    if (mairie.themeColor) bits.push('couleur de la commune détectée');
+    if (mairie.pages.length > 1) bits.push(`${mairie.pages.length - 1} page(s) projets lue(s)`);
+    if (mairie.pdfs.length) bits.push(`${mairie.pdfs.length} document(s) officiel(s)`);
+    step('mairie', mairie.host ? 'done' : 'skip', 'Site officiel de la mairie', bits.join(' · ') || 'non exploitable');
+  } else {
+    step('mairie', 'skip', 'Site officiel de la mairie', "non renseigné dans l'annuaire officiel");
+  }
+
+  step('news', 'start', 'Lecture de la presse locale');
+  const news = await fetchLocalNews(commune.nom, commune.departement?.nom, finding);
+  step('news', news.length ? 'done' : 'skip', 'Presse locale', `${news.length} article(s) récents analysés`);
+
+  step('boamp', 'start', 'Consultation des marchés publics (BOAMP)');
+  const boamp = await fetchBoamp(commune.nom, finding);
+  step('boamp', boamp.length ? 'done' : 'skip', 'Marchés publics', `${boamp.length} avis trouvé(s)`);
+
+  if (!mairie.pages.length && !news.length && !boamp.length) {
+    send({ type: 'error', message: `Pas assez de sources publiques exploitables pour ${commune.nom}. Passez nous voir : on prépare la carte avec vous, avec vos documents.` });
+    return;
+  }
+
+  const bundle = buildSourcesBundle({ mairie, news, boamp });
+  const sourcesCount = mairie.pages.length + news.length + (boamp.length ? 1 : 0);
+  const words = Math.round(bundle.length / 6);
+  step('ai1', 'start', 'Dépouillement des sources par l\'IA', `${sourcesCount} sources, ~${words.toLocaleString('fr-FR')} mots à lire`);
+  const candidates = await extractCandidates(commune, bundle, (title) => send({ type: 'ai-item', phase: 'ai1', title }));
+  step('ai1', 'done', 'Sources dépouillées', `${candidates.length} projet(s) candidat(s) repéré(s)`);
+
+  step('ai2', 'start', 'Sélection et vérification des projets', 'Chaque projet doit citer sa source mot pour mot');
+  let projects = candidates.length
+    ? await selectProjects(commune, candidates, bundle, (title) => send({ type: 'ai-item', phase: 'ai2', title }))
+    : [];
+
+  const allowedUrls = new Set([
+    ...mairie.urls,
+    ...news.flatMap((n) => [n.link, n.finalUrl].filter(Boolean)),
+    ...boamp.map((b) => b.link),
+  ]);
+  const allowedHosts = new Set([...allowedUrls].map(hostOf).filter(Boolean));
+  projects = projects.filter((p) =>
+    p.confidence !== 'basse' && (allowedUrls.has(p.source_url) || allowedHosts.has(hostOf(p.source_url)))
+  );
+
+  if (projects.length < 3) {
+    send({ type: 'error', message: `Les sources publiques ne suffisent pas pour une carte fidèle de ${commune.nom} (${projects.length} projet(s) vérifié(s)). Avec vos documents, la carte complète se monte en quelques jours : parlons-en.` });
+    return;
+  }
+  step('ai2', 'done', 'Projets vérifiés', `${projects.length} projets attestés par les sources`);
+  send({ type: 'projects', items: projects.map((p) => ({ title: p.title, category_slug: p.category_slug, status: STATUS_LABELS[p.status] || '' })) });
+
+  step('geo', 'start', 'Localisation des projets', 'Emprises réelles OpenStreetMap, adresses officielles BAN');
+  const located = [];
+  const METHOD_LABELS = { emprise: 'emprise réelle trouvée', trace: 'tracé réel trouvé', adresse: 'adresse précise', centre: 'placé au centre-ville' };
+  for (let i = 0; i < projects.length; i++) {
+    const loc = await locateProject(projects[i], commune, bbox, i);
+    located.push({ ...projects[i], ...loc });
+    const c = centroidOf(loc.geometry);
+    const geomJson = JSON.stringify(loc.geometry);
+    send({
+      type: 'geo-item',
+      title: projects[i].title,
+      method: loc.method,
+      label: METHOD_LABELS[loc.method],
+      category_slug: projects[i].category_slug,
+      lat: c.lat,
+      lng: c.lng,
+      geometry: (loc.method !== 'centre' && geomJson.length < 15000) ? loc.geometry : null,
+    });
+  }
+  const precise = located.filter((p) => p.method !== 'centre').length;
+  step('geo', 'done', 'Projets localisés', `${precise}/${located.length} emplacements précis`);
+
+  step('media', 'start', 'Recherche d\'illustrations libres de droits', 'Wikimedia Commons : photos prises sur place');
+  let communeFallbackImg = null;
+  const images = await inChunks(located.map((p, i) => ({ p, i })), 4, async ({ p }) => {
+    const c = centroidOf(p.geometry);
+    return commonsImageAt(c.lat, c.lng, 350);
+  });
+  let illustrated = 0;
+  for (let i = 0; i < located.length; i++) {
+    let img = images[i];
+    if (!img) {
+      if (communeFallbackImg === null) {
+        communeFallbackImg = await commonsImageAt(commune.centre.coordinates[1], commune.centre.coordinates[0], 2500) || false;
+      }
+      img = communeFallbackImg || null;
+    }
+    if (img) {
+      located[i].coverSrc = img.url;
+      located[i].coverCredit = img.credit;
+      illustrated++;
+      send({ type: 'media-item', title: located[i].title, credit: img.credit });
+    }
+  }
+  step('media', illustrated ? 'done' : 'skip', 'Illustrations trouvées', `${illustrated}/${located.length} projets illustrés (photos libres de droits)`);
+
+  step('articles', 'start', 'Rédaction des articles de présentation', 'Un article sourcé par projet, avec les documents officiels');
+  let articles = [];
+  try {
+    articles = await writeArticles(commune, located, mairie.pdfs, (title) => send({ type: 'article-item', title }));
+  } catch (e) {
+    console.error('[demo-generate] articles :', e.message);
+  }
+  step('articles', articles.length ? 'done' : 'skip', 'Articles rédigés', `${articles.length} article(s) de présentation`);
+
+  // Brouillon sauvegardé : la phase création (invocation fraîche) prend le relais
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    send({
+      type: 'error',
+      message: 'Environnement local sans clé service Supabase : la création de l\'espace est désactivée ici. En production, cette étape fonctionne.',
+      debug: 'SUPABASE_SERVICE_ROLE_KEY absente du contexte (netlify dev)',
+    });
+    return;
+  }
+  const ville = `${VILLE_PREFIX}${slugify(commune.nom)}`;
+  await insertRows('demo_instances', [{
+    ville,
+    commune_insee: insee,
+    commune_nom: commune.nom,
+    ip_hash: ipHash,
+    status: 'draft',
+    payload: {
+      commune: {
+        nom: commune.nom,
+        code: commune.code,
+        population: commune.population || 0,
+        lat: commune.centre.coordinates[1],
+        lng: commune.centre.coordinates[0],
+      },
+      mairie: { host: mairie.host, logoUrl: mairie.logoUrl, themeColor: mairie.themeColor, pdfs: mairie.pdfs },
+      stats: {
+        sources: sourcesCount,
+        words,
+        news: news.length,
+        boamp: boamp.length,
+        candidates: candidates.length,
+        verified: located.length,
+        precise,
+        illustrated,
+      },
+      located,
+      articles,
+    },
+  }]);
+  send({ type: 'phase', next: 'create', ville });
+}
+
+/* ─── Phase CREATE : matérialisation du brouillon (invocation courte) ─── */
+
+async function runCreate(send, step, ville) {
+  const createItem = (label) => send({ type: 'create-item', label });
+  const t0 = Date.now();
+
+  const instance = await getInstance({ ville });
+  if (!instance) {
+    send({ type: 'error', message: 'Brouillon introuvable : relancez la génération.' });
+    return;
+  }
+  if (instance.status === 'ready') {
+    send({ type: 'done', url: `/?city=${ville}`, ville, communeNom: instance.commune_nom, existing: true });
+    return;
+  }
+  const { commune, mairie, stats, located, articles } = instance.payload || {};
+  if (!commune || !located?.length) {
+    send({ type: 'error', message: 'Brouillon incomplet : relancez la génération.' });
+    return;
+  }
+
+  step('create', 'start', `Ouverture de l'espace de ${commune.nom}`);
+
+  let logoUrl = null;
+  if (mairie.logoUrl) {
+    try {
+      const ir = await fetchWithTimeout(mairie.logoUrl, { headers: UA });
+      if (ir.ok) {
+        const ct = ir.headers.get('content-type') || 'image/png';
+        if (/image|icon|octet/.test(ct)) {
+          const ext = ct.includes('svg') ? 'svg' : ct.includes('jpeg') ? 'jpg' : ct.includes('ico') ? 'ico' : 'png';
+          logoUrl = await uploadToStorage(`branding/${ville}/logo.${ext}`, await ir.arrayBuffer(), ct);
+          createItem('Logo de la mairie installé');
+        }
+      }
+    } catch { /* logo facultatif */ }
+  }
+
+  const population = commune.population || 0;
+  const zoom = population > 100000 ? 12 : population > 20000 ? 13 : population > 5000 ? 14 : 15;
+  await insertRows('city_branding', [{
+    ville,
+    brand_name: commune.nom,
+    logo_url: logoUrl || 'https://openprojets.com/home/img/logos/classic_color.png',
+    center_lat: commune.lat,
+    center_lng: commune.lng,
+    zoom,
+    primary_color: mairie.themeColor || '#14AE5C',
+    enabled_toggles: ['filters', 'basemap', 'theme', 'search', 'info'],
+    travaux: false,
+  }]);
+  createItem(mairie.themeColor
+    ? `Espace créé aux couleurs de ${commune.nom} (${mairie.themeColor})`
+    : `Espace ${commune.nom} créé`);
+  await insertRows('city_modules', [{
+    ville, module_key: 'carte', label: 'Menu', icon_class: 'fas fa-map', sort_order: 0, enabled: true, config: {},
+  }]);
+  createItem('Navigation et catégories configurées');
+
+  // Illustrations re-hébergées en parallèle (URL stables, pas de hotlink)
+  step('covers', 'start', 'Installation des illustrations');
+  const slugs = located.map((p) => `${slugify(p.title)}-${Math.random().toString(36).slice(2, 6)}`);
+  const coverUrls = await inChunks(located.map((p, i) => ({ p, i })), 3, async ({ p, i }) => {
+    if (!p.coverSrc) return null;
+    try {
+      const ir = await fetchWithTimeout(p.coverSrc, { headers: UA });
+      if (!ir.ok) return null;
+      const buf = await ir.arrayBuffer();
+      if (buf.byteLength > 4500000) return null;
+      const ct = ir.headers.get('content-type') || 'image/jpeg';
+      const url = await uploadToStorage(`demo/${ville}/${slugs[i]}-cover.jpg`, buf, ct);
+      send({ type: 'cover-item', title: p.title });
+      return url;
+    } catch { return null; }
+  });
+  step('covers', 'done', 'Illustrations installées', `${coverUrls.filter(Boolean).length}/${located.length}`);
+
+  step('publish', 'start', 'Publication des fiches');
+  const rows = [];
+  for (let i = 0; i < located.length; i++) {
+    const p = located[i];
+    const slug = slugs[i];
+    const fc = {
+      type: 'FeatureCollection',
+      features: [{ type: 'Feature', geometry: p.geometry, properties: { name: p.title } }],
+    };
+    const geojsonUrl = await uploadToStorage(`demo/${ville}/${slug}.geojson`, JSON.stringify(fc), 'application/json');
+
+    let markdownUrl = null;
+    const article = articles.find((a) => a.index === i) || articles[i];
+    if (article?.markdown) {
+      const credit = p.coverCredit && coverUrls[i] ? `\n\n*Illustration : ${p.coverCredit}.*` : '';
+      markdownUrl = await uploadToStorage(
+        `demo/${ville}/${slug}.md`,
+        new TextEncoder().encode(article.markdown + credit),
+        'text/markdown; charset=utf-8'
+      );
+    }
+
+    createItem(`Fiche publiée : ${p.title}`);
+    const statusLabel = STATUS_LABELS[p.status] || '';
+    rows.push({
+      ville,
+      project_name: p.title,
+      category: CATEGORIES[p.category_slug] || 'urbanisme',
+      category_slug: p.category_slug,
+      slug,
+      description: p.description,
+      official_url: p.source_url || null,
+      geojson_url: geojsonUrl,
+      cover_url: coverUrls[i],
+      markdown_url: markdownUrl,
+      tags: statusLabel ? [statusLabel] : null,
+      approved: true,
+    });
+  }
+  const inserted = await insertRows('contribution_uploads', rows, true) || [];
+
+  const dossierRows = [];
+  for (let i = 0; i < rows.length; i++) {
+    const article = articles.find((a) => a.index === i) || articles[i];
+    if (!article?.markdown) continue;
+    const contribution = inserted.find((c) => c.slug === rows[i].slug);
+    for (const pdf of mairie.pdfs || []) {
+      if (article.markdown.includes(pdf.url)) {
+        dossierRows.push({
+          project_name: rows[i].project_name,
+          category: rows[i].category,
+          title: pdf.label,
+          pdf_url: pdf.url,
+          contribution_id: contribution?.id || null,
+        });
+      }
+    }
+  }
+  if (dossierRows.length) {
+    await insertRows('consultation_dossiers', dossierRows);
+    createItem(`${dossierRows.length} document(s) officiel(s) rattaché(s) aux fiches`);
+  }
+  step('publish', 'done', 'Fiches publiées', `${rows.length} projets sur la carte de ${commune.nom}`);
+
+  await updateInstance(ville, {
+    status: 'ready',
+    payload: null,
+    projects_count: rows.length,
+    duration_ms: Date.now() - t0,
+  });
+  step('create', 'done', 'Espace prêt', commune.nom);
+  send({ type: 'done', url: `/?city=${ville}`, ville, communeNom: commune.nom, projectsCount: rows.length, stats });
+}
+
 /* ─── Handler SSE ─── */
 
 export default async (req, context) => {
   const url = new URL(req.url);
+  const phase = url.searchParams.get('phase') || 'analyse';
   const insee = (url.searchParams.get('commune') || '').toUpperCase();
+  const villeParam = url.searchParams.get('ville') || '';
 
-  if (!/^\d{2}[0-9AB]\d{2}$/.test(insee)) {
+  if (phase === 'analyse' && !/^\d{2}[0-9AB]\d{2}$/.test(insee)) {
     return new Response(JSON.stringify({ error: 'Paramètre commune invalide (code INSEE attendu)' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    });
+  }
+  if (phase === 'create' && !/^essai-[a-z0-9-]+$/.test(villeParam)) {
+    return new Response(JSON.stringify({ error: 'Paramètre ville invalide' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
     });
@@ -663,300 +994,35 @@ export default async (req, context) => {
     async start(controller) {
       const send = (obj) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
       const step = (id, status, label, detail = '') => send({ type: 'step', id, status, label, detail });
-      const finding = (f) => send({ type: 'finding', ...f });
       const t0 = Date.now();
-
-      // Battement de cœur : sans octets pendant ~30 s (appels IA), la réponse
-      // streamée est coupée par l'infrastructure. Un commentaire SSE toutes les
-      // 5 s maintient la connexion (ignoré par EventSource côté client).
       const heartbeat = setInterval(() => {
         try { controller.enqueue(encoder.encode(`: ping ${Date.now() - t0}\n\n`)); } catch { /* flux fermé */ }
       }, 5000);
 
       try {
-        // 0. Idempotence + quotas
-        const already = await existingInstance(insee);
-        if (already) {
-          step('resolve', 'done', 'Commune reconnue', already.commune_nom);
-          step('exists', 'done', 'Espace déjà généré', 'Redirection vers la carte existante');
-          send({ type: 'done', url: `/?city=${already.ville}`, ville: already.ville, communeNom: already.commune_nom, existing: true });
-          controller.close();
-          return;
-        }
-        const ipHash = (await sha256Hex(context?.ip || 'inconnu')).slice(0, 24);
-        const [byIp, global] = await Promise.all([countToday('ip_hash', ipHash), countToday(null, null)]);
-        if (global >= MAX_GLOBAL_PER_DAY || byIp >= MAX_PER_IP_PER_DAY) {
-          send({ type: 'error', message: 'Le quota de démonstrations du jour est atteint. Contactez-nous pour une démo guidée.' });
-          controller.close();
-          return;
-        }
-
-        // 1. Commune
-        step('resolve', 'start', 'Recherche de la commune');
-        const commune = await resolveCommune(insee);
-        if (!commune?.centre) {
-          send({ type: 'error', message: 'Commune introuvable. Vérifiez la saisie.' });
-          controller.close();
-          return;
-        }
-        const bbox = bboxOfContour(commune.contour);
-        step('resolve', 'done', 'Commune reconnue',
-          `${commune.nom} · ${commune.departement?.nom || ''} · ${(commune.population || 0).toLocaleString('fr-FR')} habitants`);
-
-        // 2. Site de la mairie (identité + pages projets)
-        step('mairie', 'start', 'Visite du site officiel de la mairie');
-        const site = await findMairieWebsite(insee);
-        let mairie = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [] };
-        if (site) {
-          mairie = await inspectMairieSite(site, finding);
-          const bits = [];
-          if (mairie.host) bits.push(mairie.host);
-          if (mairie.logoUrl) bits.push('logo récupéré');
-          if (mairie.themeColor) bits.push('couleur de la commune détectée');
-          if (mairie.pages.length > 1) bits.push(`${mairie.pages.length - 1} page(s) projets lue(s)`);
-          step('mairie', mairie.host ? 'done' : 'skip', 'Site officiel de la mairie', bits.join(' · ') || 'non exploitable');
+        if (phase === 'create') {
+          await runCreate(send, step, villeParam);
         } else {
-          step('mairie', 'skip', 'Site officiel de la mairie', "non renseigné dans l'annuaire officiel");
-        }
-
-        // 3. Presse locale (lecture des articles)
-        step('news', 'start', 'Lecture de la presse locale');
-        const news = await fetchLocalNews(commune.nom, commune.departement?.nom, finding);
-        step('news', news.length ? 'done' : 'skip', 'Presse locale', `${news.length} article(s) récents analysés`);
-
-        // 4. Marchés publics
-        step('boamp', 'start', 'Consultation des marchés publics (BOAMP)');
-        const boamp = await fetchBoamp(commune.nom, finding);
-        step('boamp', boamp.length ? 'done' : 'skip', 'Marchés publics', `${boamp.length} avis trouvé(s)`);
-
-        if (!mairie.pages.length && !news.length && !boamp.length) {
-          send({ type: 'error', message: `Pas assez de sources publiques exploitables pour ${commune.nom}. Passez nous voir : on prépare la carte avec vous, avec vos documents.` });
-          controller.close();
-          return;
-        }
-
-        // 5. IA passe 1 : extraction exhaustive avec citations, révélée en direct
-        const sourcesCount = mairie.pages.length + news.length + (boamp.length ? 1 : 0);
-        const words = Math.round(buildSourcesBundle({ mairie, news, boamp }).length / 6);
-        step('ai1', 'start', 'Dépouillement des sources par l\'IA', `${sourcesCount} sources, ~${words.toLocaleString('fr-FR')} mots à lire`);
-        const bundle = buildSourcesBundle({ mairie, news, boamp });
-        const candidates = await extractCandidates(commune, bundle, (title) => send({ type: 'ai-item', phase: 'ai1', title }));
-        step('ai1', 'done', 'Sources dépouillées', `${candidates.length} projet(s) candidat(s) repéré(s)`);
-
-        // 6. IA passe 2 : critique, fusion, rédaction, révélée en direct
-        step('ai2', 'start', 'Sélection et vérification des projets', 'Chaque projet doit citer sa source mot pour mot');
-        let projects = candidates.length
-          ? await selectProjects(commune, candidates, bundle, (title) => send({ type: 'ai-item', phase: 'ai2', title }))
-          : [];
-
-        // Verrous serveur : source réellement collectée + confiance suffisante
-        const allowedUrls = new Set([
-          ...mairie.urls,
-          ...news.flatMap((n) => [n.link, n.finalUrl].filter(Boolean)),
-          ...boamp.map((b) => b.link),
-        ]);
-        const allowedHosts = new Set([...allowedUrls].map(hostOf).filter(Boolean));
-        projects = projects.filter((p) =>
-          p.confidence !== 'basse' && (allowedUrls.has(p.source_url) || allowedHosts.has(hostOf(p.source_url)))
-        );
-
-        if (projects.length < 3) {
-          send({ type: 'error', message: `Les sources publiques ne suffisent pas pour une carte fidèle de ${commune.nom} (${projects.length} projet(s) vérifié(s)). Avec vos documents, la carte complète se monte en quelques jours : parlons-en.` });
-          controller.close();
-          return;
-        }
-        step('ai2', 'done', 'Projets vérifiés', `${projects.length} projets attestés par les sources`);
-        send({ type: 'projects', items: projects.map((p) => ({ title: p.title, category_slug: p.category_slug, status: STATUS_LABELS[p.status] || '' })) });
-
-        // 7. Localisation hybride
-        step('geo', 'start', 'Localisation des projets');
-        const located = [];
-        const METHOD_LABELS = { emprise: 'emprise réelle trouvée', trace: 'tracé réel trouvé', adresse: 'adresse précise', centre: 'placé au centre-ville' };
-        for (let i = 0; i < projects.length; i++) {
-          const loc = await locateProject(projects[i], commune, bbox, i);
-          located.push({ ...projects[i], ...loc });
-          send({ type: 'geo-item', title: projects[i].title, method: loc.method, label: METHOD_LABELS[loc.method] });
-        }
-        const real = located.filter((p) => p.method !== 'centre').length;
-        step('geo', 'done', 'Projets localisés', `${real}/${located.length} emplacements précis`);
-
-        // 8. Illustrations libres de droits : photos prises à l'emplacement du projet
-        step('media', 'start', 'Recherche d\'illustrations libres de droits', 'Wikimedia Commons : photos prises sur place');
-        let communeFallbackImg = null;
-        let illustrated = 0;
-        for (const p of located) {
-          const c = centroidOf(p.geometry);
-          let img = await commonsImageAt(c.lat, c.lng, 350);
-          if (!img) {
-            if (communeFallbackImg === null) {
-              communeFallbackImg = await commonsImageAt(
-                commune.centre.coordinates[1], commune.centre.coordinates[0], 2500
-              ) || false;
-            }
-            img = communeFallbackImg || null;
-          }
-          if (img) {
-            p.coverSrc = img.url;
-            p.coverCredit = img.credit;
-            illustrated++;
-            send({ type: 'media-item', title: p.title, credit: img.credit });
-          }
-        }
-        step('media', illustrated ? 'done' : 'skip', 'Illustrations trouvées', `${illustrated}/${located.length} projets illustrés (photos libres de droits)`);
-
-        // 9. Rédaction des articles de présentation, révélée en direct
-        step('articles', 'start', 'Rédaction des articles de présentation', 'Un article sourcé par projet, avec les documents officiels');
-        let articles = [];
-        try {
-          articles = await writeArticles(commune, located, mairie.pdfs, (title) => send({ type: 'article-item', title }));
-        } catch (e) {
-          console.error('[demo-generate] articles :', e.message);
-        }
-        step('articles', articles.length ? 'done' : 'skip', 'Articles rédigés', `${articles.length} article(s) de présentation`);
-
-        // 10. Création de l'espace, sous-étape par sous-étape
-        step('create', 'start', `Création de l'espace de ${commune.nom}`);
-        if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-          send({
-            type: 'error',
-            message: 'Environnement local sans clé service Supabase : la création de l\'espace est désactivée ici. En production, cette étape fonctionne.',
-            debug: 'SUPABASE_SERVICE_ROLE_KEY absente du contexte (netlify dev)',
-          });
-          controller.close();
-          return;
-        }
-        const createItem = (label) => send({ type: 'create-item', label });
-        const ville = `${VILLE_PREFIX}${slugify(commune.nom)}`;
-
-        let logoUrl = null;
-        if (mairie.logoUrl) {
-          try {
-            const ir = await fetchWithTimeout(mairie.logoUrl, { headers: UA });
-            if (ir.ok) {
-              const ct = ir.headers.get('content-type') || 'image/png';
-              if (/image|icon|octet/.test(ct)) {
-                const ext = ct.includes('svg') ? 'svg' : ct.includes('jpeg') ? 'jpg' : ct.includes('ico') ? 'ico' : 'png';
-                logoUrl = await uploadToStorage(`branding/${ville}/logo.${ext}`, await ir.arrayBuffer(), ct);
-                createItem('Logo de la mairie installé');
-              }
-            }
-          } catch { /* logo facultatif */ }
-        }
-
-        const population = commune.population || 0;
-        // zoom entier (contrainte du schéma city_branding)
-        const zoom = population > 100000 ? 12 : population > 20000 ? 13 : population > 5000 ? 14 : 15;
-        await insertRows('city_branding', [{
-          ville,
-          brand_name: commune.nom,
-          // logo_url et primary_color sont NOT NULL : replis neutres si la
-          // mairie n'a ni favicon exploitable ni meta theme-color
-          logo_url: logoUrl || 'https://openprojets.com/home/img/logos/classic_color.png',
-          center_lat: commune.centre.coordinates[1],
-          center_lng: commune.centre.coordinates[0],
-          zoom,
-          primary_color: mairie.themeColor || '#14AE5C',
-          enabled_toggles: ['filters', 'basemap', 'theme', 'search', 'info'],
-          travaux: false,
-        }]);
-        createItem(mairie.themeColor
-          ? `Espace créé aux couleurs de ${commune.nom} (${mairie.themeColor})`
-          : `Espace ${commune.nom} créé`);
-        await insertRows('city_modules', [{
-          ville, module_key: 'carte', label: 'Menu', icon_class: 'fas fa-map', sort_order: 0, enabled: true, config: {},
-        }]);
-        createItem('Navigation et catégories configurées');
-
-        const rows = [];
-        for (let i = 0; i < located.length; i++) {
-          const p = located[i];
-          const slug = `${slugify(p.title)}-${Math.random().toString(36).slice(2, 6)}`;
-          const fc = {
-            type: 'FeatureCollection',
-            features: [{ type: 'Feature', geometry: p.geometry, properties: { name: p.title } }],
-          };
-          const geojsonUrl = await uploadToStorage(`demo/${ville}/${slug}.geojson`, JSON.stringify(fc), 'application/json');
-
-          // Illustration : re-hébergée dans le storage (URL stable, pas de hotlink)
-          let coverUrl = null;
-          if (p.coverSrc) {
-            try {
-              const ir = await fetchWithTimeout(p.coverSrc, { headers: UA });
-              if (ir.ok) {
-                const buf = await ir.arrayBuffer();
-                if (buf.byteLength <= 4500000) {
-                  const ct = ir.headers.get('content-type') || 'image/jpeg';
-                  coverUrl = await uploadToStorage(`demo/${ville}/${slug}-cover.jpg`, buf, ct);
-                }
-              }
-            } catch { /* illustration facultative */ }
-          }
-
-          // Article : crédit photo ajouté, puis publication dans le storage
-          let markdownUrl = null;
-          const article = articles.find((a) => a.index === i) || articles[i];
-          if (article?.markdown) {
-            const credit = p.coverCredit ? `\n\n*Illustration : ${p.coverCredit}.*` : '';
-            markdownUrl = await uploadToStorage(
-              `demo/${ville}/${slug}.md`,
-              new TextEncoder().encode(article.markdown + credit),
-              'text/markdown; charset=utf-8'
-            );
-          }
-
-          createItem(`Fiche publiée : ${p.title}`);
-          const statusLabel = STATUS_LABELS[p.status] || '';
-          rows.push({
-            ville,
-            project_name: p.title,
-            category: CATEGORIES[p.category_slug] || 'urbanisme',
-            category_slug: p.category_slug,
-            slug,
-            description: p.description,
-            official_url: p.source_url || null,
-            geojson_url: geojsonUrl,
-            cover_url: coverUrl,
-            markdown_url: markdownUrl,
-            tags: statusLabel ? [statusLabel] : null,
-            approved: true,
-          });
-        }
-        const inserted = await insertRows('contribution_uploads', rows, true) || [];
-
-        // Dossiers PDF officiels rattachés aux fiches (si l'article les cite)
-        const dossierRows = [];
-        for (const row of rows) {
-          const article = articles.find((a) => `${slugify(a.title)}` === row.slug.replace(/-[a-z0-9]{4}$/, ''))
-            || articles[rows.indexOf(row)];
-          if (!article?.markdown) continue;
-          const contribution = inserted.find((c) => c.slug === row.slug);
-          for (const pdf of mairie.pdfs) {
-            if (article.markdown.includes(pdf.url)) {
-              dossierRows.push({
-                project_name: row.project_name,
-                category: row.category,
-                title: pdf.label,
-                pdf_url: pdf.url,
-                contribution_id: contribution?.id || null,
-              });
+          // Idempotence + quotas
+          const already = await getInstance({ commune_insee: insee });
+          if (already?.status === 'ready') {
+            step('resolve', 'done', 'Commune reconnue', already.commune_nom);
+            step('exists', 'done', 'Espace déjà généré', 'On vous y emmène');
+            send({ type: 'done', url: `/?city=${already.ville}`, ville: already.ville, communeNom: already.commune_nom, existing: true });
+          } else if (already?.status === 'draft') {
+            step('resolve', 'done', 'Commune reconnue', already.commune_nom);
+            step('exists', 'done', 'Analyse déjà réalisée', 'Finalisation de l\'espace');
+            send({ type: 'phase', next: 'create', ville: already.ville });
+          } else {
+            const ipHash = (await sha256Hex(context?.ip || 'inconnu')).slice(0, 24);
+            const [byIp, global] = await Promise.all([countToday('ip_hash', ipHash), countToday(null, null)]);
+            if (global >= MAX_GLOBAL_PER_DAY || byIp >= MAX_PER_IP_PER_DAY) {
+              send({ type: 'error', message: 'Le quota de démonstrations du jour est atteint. Contactez-nous pour une démo guidée.' });
+            } else {
+              await runAnalyse(send, step, insee, ipHash);
             }
           }
         }
-        if (dossierRows.length) {
-          await insertRows('consultation_dossiers', dossierRows);
-          createItem(`${dossierRows.length} document(s) officiel(s) rattaché(s) aux fiches`);
-        }
-        await insertRows('demo_instances', [{
-          ville,
-          commune_insee: insee,
-          commune_nom: commune.nom,
-          ip_hash: ipHash,
-          projects_count: rows.length,
-          duration_ms: Date.now() - t0,
-        }]);
-        step('create', 'done', 'Espace créé', `${rows.length} projets sur la carte de ${commune.nom}`);
-
-        send({ type: 'done', url: `/?city=${ville}`, ville, communeNom: commune.nom, projectsCount: rows.length });
       } catch (err) {
         console.error('[demo-generate]', err);
         send({

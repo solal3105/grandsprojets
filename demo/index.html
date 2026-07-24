@@ -4,66 +4,84 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>La carte des projets de votre commune, générée en direct | Open Projets</title>
-  <meta name="description" content="Tapez le nom de votre commune : Open Projets recherche ses projets urbains sur le web public et génère sa carte interactive en direct, sous vos yeux." />
+  <meta name="description" content="Tapez le nom de votre commune : Open Projets recense ses projets urbains sur le web public (mairie, presse, marchés publics) et génère sa carte interactive en direct, sous vos yeux." />
   <link rel="canonical" href="https://openprojets.com/demo/" />
   <meta name="robots" content="index, follow" />
   <meta property="og:title" content="La carte des projets de votre commune, générée en direct" />
-  <meta property="og:description" content="Un nom de commune suffit : la carte de ses projets urbains se construit sous vos yeux, à partir de sources publiques." />
+  <meta property="og:description" content="Un nom de commune suffit : sa carte des projets se construit sous vos yeux, à partir de sources publiques." />
   <meta property="og:url" content="https://openprojets.com/demo/" />
   <link rel="icon" href="/home/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" rel="stylesheet" />
   <link rel="stylesheet" href="demo.css" />
 </head>
 <body>
+  <!-- Scène WebGL : globe, plongée sur la commune, épingles (repli statique sans WebGL) -->
+  <div id="map" aria-hidden="true"></div>
+
   <main class="kiosk">
     <header class="kiosk__brand">
       <img src="/home/img/logos/classic_color.png" alt="Open Projets" class="kiosk__logo"
            onerror="this.style.display='none'" />
     </header>
 
-    <!-- Écran 1 : saisie -->
+    <!-- Écran 1 : attract + saisie -->
     <section id="screen-input" class="screen is-active">
-      <h1 class="kiosk__title">La carte des projets<br /><span class="accent">de votre commune</span></h1>
-      <p class="kiosk__subtitle">Tapez le nom de votre commune : sa carte se construit sous vos yeux, à partir de sources publiques (site de la mairie, presse locale, marchés publics).</p>
+      <h1 class="kiosk__title">Et si la carte des projets<br /><span class="accent">de votre commune</span> existait ?</h1>
+      <p class="kiosk__subtitle">Tapez son nom. En 3 minutes, nous recensons ses projets sur le web public et sa carte prend vie, sous vos yeux.</p>
 
       <div class="search">
         <input id="commune-input" class="search__input" type="text"
-               placeholder="Nom de votre commune..." autocomplete="off" autofocus
+               placeholder="Tapez le nom de votre commune" autocomplete="off" autofocus
                aria-label="Nom de votre commune" />
         <ul id="suggestions" class="search__suggestions" hidden></ul>
       </div>
-      <p class="kiosk__hint">Démonstration automatique : les projets affichés proviennent du web public et peuvent être incomplets ou inexacts.</p>
+      <p class="kiosk__hint">Sources publiques uniquement : site de la mairie, presse locale, marchés publics, OpenStreetMap, Wikimedia Commons. Les projets affichés peuvent être incomplets ou inexacts.</p>
     </section>
 
-    <!-- Écran 2 : génération -->
-    <section id="screen-progress" class="screen">
-      <h2 class="progress__title">Génération de la carte de <span id="progress-commune" class="accent"></span></h2>
-      <ol id="steps" class="steps"></ol>
-      <p id="progress-error" class="progress__error" hidden></p>
-      <button id="btn-retry" class="btn btn--ghost" hidden>Recommencer</button>
+    <!-- Écran 2 : génération (panneau de verre, la carte vit derrière) -->
+    <section id="screen-progress" class="screen screen--panel">
+      <aside class="panel">
+        <h2 class="progress__title">Carte de <span id="progress-commune" class="accent"></span></h2>
+        <ol id="steps" class="steps"></ol>
+        <p id="progress-error" class="progress__error" hidden></p>
+        <button id="btn-retry" class="btn btn--ghost" hidden>Recommencer</button>
+      </aside>
     </section>
 
-    <!-- Écran 3 : terminé -->
+    <!-- Écran 3 : recensement terminé, l'espace attend -->
     <section id="screen-done" class="screen">
-      <div class="done__check" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <div class="done">
+        <div class="done__check" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        </div>
+        <h2 class="done__title">La carte de <span id="done-commune" class="accent"></span> est prête</h2>
+        <p id="done-detail" class="done__detail"></p>
+
+        <div id="done-stats" class="done__stats" hidden>
+          <div class="stat"><span class="stat__n" id="stat-sources">0</span><span class="stat__l">sources publiques lues</span></div>
+          <div class="stat"><span class="stat__n" id="stat-verified">0</span><span class="stat__l">projets vérifiés</span></div>
+          <div class="stat"><span class="stat__n" id="stat-precise">0</span><span class="stat__l">emplacements réels</span></div>
+          <div class="stat"><span class="stat__n" id="stat-illustrated">0</span><span class="stat__l">fiches illustrées</span></div>
+        </div>
+
+        <div class="done__actions">
+          <a id="btn-open" class="btn btn--primary" href="#">Découvrir l'espace</a>
+          <button id="btn-again" class="btn btn--ghost">Autre commune</button>
+        </div>
+        <div class="done__qr">
+          <img id="qr-img" alt="QR code vers la carte de la commune" width="200" height="200" />
+          <span>Scannez pour repartir avec la carte<br />sur votre téléphone</span>
+        </div>
+        <p id="countdown" class="done__countdown"></p>
       </div>
-      <h2 class="done__title">La carte de <span id="done-commune" class="accent"></span> est prête</h2>
-      <p id="done-detail" class="done__detail"></p>
-      <div class="done__actions">
-        <a id="btn-open" class="btn btn--primary" href="#">Découvrir la carte</a>
-        <button id="btn-again" class="btn btn--ghost">Autre commune</button>
-      </div>
-      <div class="done__qr">
-        <img id="qr-img" alt="QR code vers la carte de la commune" width="200" height="200" />
-        <span>Scannez pour repartir avec la carte<br />sur votre téléphone</span>
-      </div>
-      <p id="countdown" class="done__countdown"></p>
     </section>
   </main>
 
+  <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
+  <script src="map-fx.js"></script>
   <script src="demo.js"></script>
 </body>
 </html>
