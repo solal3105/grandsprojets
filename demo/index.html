@@ -41,14 +41,25 @@
       <p class="kiosk__hint">Sources publiques uniquement : site de la mairie, presse locale, marchés publics, OpenStreetMap, Wikimedia Commons. Les projets affichés peuvent être incomplets ou inexacts.</p>
     </section>
 
-    <!-- Écran 2 : génération (panneau de verre, la carte vit derrière) -->
-    <section id="screen-progress" class="screen screen--panel">
-      <aside class="panel">
-        <h2 class="progress__title">Carte de <span id="progress-commune" class="accent"></span></h2>
-        <ol id="steps" class="steps"></ol>
-        <p id="progress-error" class="progress__error" hidden></p>
-        <button id="btn-retry" class="btn btn--ghost" hidden>Recommencer</button>
-      </aside>
+    <!-- Écran 2 : génération immersive, le HUD flotte sur la carte -->
+    <section id="screen-progress" class="screen screen--hud">
+      <div id="topline" class="topline" aria-hidden="true"><span id="topline-fill"></span></div>
+
+      <div id="hud-pill" class="hud-pill">
+        <span id="hud-icon" class="hud-pill__icon"><span class="spinner"></span></span>
+        <span class="hud-pill__texts">
+          <span id="hud-label" class="hud-pill__label">Préparation...</span>
+          <span id="hud-detail" class="hud-pill__detail"></span>
+        </span>
+        <span id="hud-commune" class="hud-pill__commune"></span>
+      </div>
+
+      <ol id="feed" class="feed" aria-live="polite"></ol>
+
+      <div id="hud-error" class="hud-error" hidden>
+        <p id="progress-error"></p>
+        <button id="btn-retry" class="btn btn--ghost">Recommencer</button>
+      </div>
     </section>
 
     <!-- Écran 3 : recensement terminé, l'espace attend -->

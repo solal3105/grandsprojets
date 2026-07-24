@@ -649,14 +649,19 @@ async function getInstance(where) {
 
 /* ─── Phase ANALYSE : recensement, IA, localisation, illustrations, articles ─── */
 
-async function runAnalyse(send, step, insee, ipHash) {
+/* Les trois cœurs de l'analyse opèrent sur un objet `state` sérialisable :
+   en production, chaque cœur tourne dans sa propre invocation (le state
+   voyage via demo_instances.payload) ; en local sans clé service, ils
+   s'enchaînent dans la même invocation pour garder la démo visuelle. */
+
+async function coreSources(send, step, insee) {
   const finding = (f) => send({ type: 'finding', ...f });
 
   step('resolve', 'start', 'Recherche de la commune');
   const commune = await resolveCommune(insee);
   if (!commune?.centre) {
     send({ type: 'error', message: 'Commune introuvable. Vérifiez la saisie.' });
-    return;
+    return null;
   }
   const bbox = bboxOfContour(commune.contour);
   step('resolve', 'done', 'Commune reconnue',
@@ -688,13 +693,32 @@ async function runAnalyse(send, step, insee, ipHash) {
 
   if (!mairie.pages.length && !news.length && !boamp.length) {
     send({ type: 'error', message: `Pas assez de sources publiques exploitables pour ${commune.nom}. Passez nous voir : on prépare la carte avec vous, avec vos documents.` });
-    return;
+    return null;
   }
 
-  const bundle = buildSourcesBundle({ mairie, news, boamp });
   const sourcesCount = mairie.pages.length + news.length + (boamp.length ? 1 : 0);
+  return {
+    commune: {
+      nom: commune.nom,
+      code: commune.code,
+      population: commune.population || 0,
+      lat: commune.centre.coordinates[1],
+      lng: commune.centre.coordinates[0],
+    },
+    bbox,
+    mairie: { host: mairie.host, logoUrl: mairie.logoUrl, themeColor: mairie.themeColor, pdfs: mairie.pdfs, pages: mairie.pages, urls: mairie.urls },
+    news,
+    boamp,
+    stats: { sources: sourcesCount, news: news.length, boamp: boamp.length },
+  };
+}
+
+async function coreAi(send, step, state) {
+  const { commune, mairie, news, boamp } = state;
+  const bundle = buildSourcesBundle({ mairie, news, boamp });
   const words = Math.round(bundle.length / 6);
-  step('ai1', 'start', 'Dépouillement des sources par l\'IA', `${sourcesCount} sources, ~${words.toLocaleString('fr-FR')} mots à lire`);
+
+  step('ai1', 'start', 'Dépouillement des sources par l\'IA', `${state.stats.sources} sources, ~${words.toLocaleString('fr-FR')} mots à lire`);
   const candidates = await extractCandidates(commune, bundle, (title) => send({ type: 'ai-item', phase: 'ai1', title }));
   step('ai1', 'done', 'Sources dépouillées', `${candidates.length} projet(s) candidat(s) repéré(s)`);
 
@@ -715,16 +739,32 @@ async function runAnalyse(send, step, insee, ipHash) {
 
   if (projects.length < 3) {
     send({ type: 'error', message: `Les sources publiques ne suffisent pas pour une carte fidèle de ${commune.nom} (${projects.length} projet(s) vérifié(s)). Avec vos documents, la carte complète se monte en quelques jours : parlons-en.` });
-    return;
+    return null;
   }
   step('ai2', 'done', 'Projets vérifiés', `${projects.length} projets attestés par les sources`);
   send({ type: 'projects', items: projects.map((p) => ({ title: p.title, category_slug: p.category_slug, status: STATUS_LABELS[p.status] || '' })) });
+
+  state.projects = projects;
+  state.stats.words = words;
+  state.stats.candidates = candidates.length;
+  // Le paquet de sources ne sert plus : on allège le brouillon
+  state.mairie.pages = [];
+  return state;
+}
+
+async function coreLocate(send, step, state) {
+  const { projects, bbox, mairie } = state;
+  const communeShim = {
+    nom: state.commune.nom,
+    code: state.commune.code,
+    centre: { coordinates: [state.commune.lng, state.commune.lat] },
+  };
 
   step('geo', 'start', 'Localisation des projets', 'Emprises réelles OpenStreetMap, adresses officielles BAN');
   const located = [];
   const METHOD_LABELS = { emprise: 'emprise réelle trouvée', trace: 'tracé réel trouvé', adresse: 'adresse précise', centre: 'placé au centre-ville' };
   for (let i = 0; i < projects.length; i++) {
-    const loc = await locateProject(projects[i], commune, bbox, i);
+    const loc = await locateProject(projects[i], communeShim, bbox, i);
     located.push({ ...projects[i], ...loc });
     const c = centroidOf(loc.geometry);
     const geomJson = JSON.stringify(loc.geometry);
@@ -753,7 +793,7 @@ async function runAnalyse(send, step, insee, ipHash) {
     let img = images[i];
     if (!img) {
       if (communeFallbackImg === null) {
-        communeFallbackImg = await commonsImageAt(commune.centre.coordinates[1], commune.centre.coordinates[0], 2500) || false;
+        communeFallbackImg = await commonsImageAt(state.commune.lat, state.commune.lng, 2500) || false;
       }
       img = communeFallbackImg || null;
     }
@@ -769,14 +809,44 @@ async function runAnalyse(send, step, insee, ipHash) {
   step('articles', 'start', 'Rédaction des articles de présentation', 'Un article sourcé par projet, avec les documents officiels');
   let articles = [];
   try {
-    articles = await writeArticles(commune, located, mairie.pdfs, (title) => send({ type: 'article-item', title }));
+    articles = await writeArticles(communeShim, located, mairie.pdfs, (title) => send({ type: 'article-item', title }));
   } catch (e) {
     console.error('[demo-generate] articles :', e.message);
   }
   step('articles', articles.length ? 'done' : 'skip', 'Articles rédigés', `${articles.length} article(s) de présentation`);
 
-  // Brouillon sauvegardé : la phase création (invocation fraîche) prend le relais
+  state.located = located;
+  state.articles = articles;
+  state.projects = [];
+  state.stats.verified = located.length;
+  state.stats.precise = precise;
+  state.stats.illustrated = illustrated;
+  return state;
+}
+
+/* Wrappers de phase : chargent le brouillon, exécutent un cœur, sauvegardent,
+   annoncent la phase suivante. Chaque invocation reste courte. */
+
+async function saveDraft(ville, insee, communeNom, ipHash, status, state) {
+  await insertRows('demo_instances', [{
+    ville,
+    commune_insee: insee,
+    commune_nom: communeNom,
+    ip_hash: ipHash,
+    status,
+    payload: state,
+  }]);
+}
+
+async function runSources(send, step, insee, ipHash) {
+  const state = await coreSources(send, step, insee);
+  if (!state) return;
+
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    // Local : pas de persistance possible, on enchaîne tout dans l'invocation
+    const s2 = await coreAi(send, step, state);
+    if (!s2) return;
+    await coreLocate(send, step, s2);
     send({
       type: 'error',
       message: 'Environnement local sans clé service Supabase : la création de l\'espace est désactivée ici. En production, cette étape fonctionne.',
@@ -784,36 +854,32 @@ async function runAnalyse(send, step, insee, ipHash) {
     });
     return;
   }
-  const ville = `${VILLE_PREFIX}${slugify(commune.nom)}`;
-  await insertRows('demo_instances', [{
-    ville,
-    commune_insee: insee,
-    commune_nom: commune.nom,
-    ip_hash: ipHash,
-    status: 'draft',
-    payload: {
-      commune: {
-        nom: commune.nom,
-        code: commune.code,
-        population: commune.population || 0,
-        lat: commune.centre.coordinates[1],
-        lng: commune.centre.coordinates[0],
-      },
-      mairie: { host: mairie.host, logoUrl: mairie.logoUrl, themeColor: mairie.themeColor, pdfs: mairie.pdfs },
-      stats: {
-        sources: sourcesCount,
-        words,
-        news: news.length,
-        boamp: boamp.length,
-        candidates: candidates.length,
-        verified: located.length,
-        precise,
-        illustrated,
-      },
-      located,
-      articles,
-    },
-  }]);
+
+  const ville = `${VILLE_PREFIX}${slugify(state.commune.nom)}`;
+  await saveDraft(ville, insee, state.commune.nom, ipHash, 'draft-sources', state);
+  send({ type: 'phase', next: 'ai', ville });
+}
+
+async function runAi(send, step, ville) {
+  const instance = await getInstance({ ville });
+  if (!instance?.payload || instance.status !== 'draft-sources') {
+    send({ type: 'error', message: 'Analyse introuvable : relancez la génération.' });
+    return;
+  }
+  const state = await coreAi(send, step, instance.payload);
+  if (!state) return;
+  await updateInstance(ville, { status: 'draft-ai', payload: state });
+  send({ type: 'phase', next: 'locate', ville });
+}
+
+async function runLocate(send, step, ville) {
+  const instance = await getInstance({ ville });
+  if (!instance?.payload || instance.status !== 'draft-ai') {
+    send({ type: 'error', message: 'Analyse introuvable : relancez la génération.' });
+    return;
+  }
+  const state = await coreLocate(send, step, instance.payload);
+  await updateInstance(ville, { status: 'draft', payload: state });
   send({ type: 'phase', next: 'create', ville });
 }
 
@@ -982,7 +1048,7 @@ export default async (req, context) => {
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
     });
   }
-  if (phase === 'create' && !/^essai-[a-z0-9-]+$/.test(villeParam)) {
+  if (phase !== 'analyse' && !/^essai-[a-z0-9-]+$/.test(villeParam)) {
     return new Response(JSON.stringify({ error: 'Paramètre ville invalide' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
@@ -1000,26 +1066,31 @@ export default async (req, context) => {
       }, 5000);
 
       try {
-        if (phase === 'create') {
+        if (phase === 'ai') {
+          await runAi(send, step, villeParam);
+        } else if (phase === 'locate') {
+          await runLocate(send, step, villeParam);
+        } else if (phase === 'create') {
           await runCreate(send, step, villeParam);
         } else {
-          // Idempotence + quotas
+          // Idempotence : reprendre là où une génération précédente s'est arrêtée
           const already = await getInstance({ commune_insee: insee });
+          const RESUME = { 'draft-sources': 'ai', 'draft-ai': 'locate', 'draft': 'create' };
           if (already?.status === 'ready') {
             step('resolve', 'done', 'Commune reconnue', already.commune_nom);
             step('exists', 'done', 'Espace déjà généré', 'On vous y emmène');
             send({ type: 'done', url: `/?city=${already.ville}`, ville: already.ville, communeNom: already.commune_nom, existing: true });
-          } else if (already?.status === 'draft') {
+          } else if (RESUME[already?.status]) {
             step('resolve', 'done', 'Commune reconnue', already.commune_nom);
-            step('exists', 'done', 'Analyse déjà réalisée', 'Finalisation de l\'espace');
-            send({ type: 'phase', next: 'create', ville: already.ville });
+            step('exists', 'done', 'Analyse déjà engagée', 'Reprise là où elle s\'était arrêtée');
+            send({ type: 'phase', next: RESUME[already.status], ville: already.ville });
           } else {
             const ipHash = (await sha256Hex(context?.ip || 'inconnu')).slice(0, 24);
             const [byIp, global] = await Promise.all([countToday('ip_hash', ipHash), countToday(null, null)]);
             if (global >= MAX_GLOBAL_PER_DAY || byIp >= MAX_PER_IP_PER_DAY) {
               send({ type: 'error', message: 'Le quota de démonstrations du jour est atteint. Contactez-nous pour une démo guidée.' });
             } else {
-              await runAnalyse(send, step, insee, ipHash);
+              await runSources(send, step, insee, ipHash);
             }
           }
         }

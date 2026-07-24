@@ -1,9 +1,10 @@
 /* ============================================================================
    ÉCRAN DÉMO SALON - /demo/demo.js
-   Flow complet : mode attract (globe + machine à écrire), autocomplétion des
-   communes, génération en deux phases SSE (analyse puis création) avec
-   chorégraphie carte (plongée, contour, orbite IA, épingles en direct),
-   écran final : statistiques du recensement, QR code, bouton vers l'espace.
+   Flow immersif : mode attract (globe + machine à écrire), génération en
+   quatre phases SSE enchaînées sans couture, HUD flottant sur la carte
+   (pilule de statut, fil d'activité, barre de progression), chorégraphie
+   WebGL (plongée, relief 3D, orbite IA, épingles étiquetées), écran final
+   avec statistiques du recensement, QR code et bouton vers l'espace.
    Mode kiosque : ?kiosk=1 (pas de redirection auto, retour attract).
    ============================================================================ */
 (() => {
@@ -13,7 +14,7 @@
   const screens = { input: $('screen-input'), progress: $('screen-progress'), done: $('screen-done') };
   const input = $('commune-input');
   const suggestionsEl = $('suggestions');
-  const stepsEl = $('steps');
+  const feedEl = $('feed');
   const KIOSK = new URLSearchParams(window.location.search).get('kiosk') === '1';
 
   let es = null;
@@ -35,13 +36,13 @@
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));
 
-  /* ─── Mode attract : le champ se tape des noms de communes tout seul ─── */
+  /* ─── Mode attract ─── */
 
   const DEMO_NAMES = ['Bourg-en-Bresse', 'Oyonnax', 'Ambérieu-en-Bugey', 'Belley', 'Gex', 'Meximieux', 'Trévoux'];
   let typeIdx = 0;
 
   function typewriter() {
-    if (document.activeElement === input && input.value) return; // l'utilisateur a pris la main
+    if (document.activeElement === input && input.value) return;
     const name = DEMO_NAMES[typeIdx % DEMO_NAMES.length];
     let i = 0;
     let phase = 'typing';
@@ -117,161 +118,138 @@
     if (li) start(suggestions[parseInt(li.dataset.i, 10)]);
   });
 
-  /* ─── Journal d'étapes ─── */
+  /* ─── HUD : pilule de statut, progression, fil d'activité ─── */
 
   const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
-  const SKIP_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12h14"/></svg>';
+  const ICONS = {
+    globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>',
+    mairie: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M5 21V9l7-5 7 5v12M9 21v-6h6v6"/></svg>',
+    file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
+    presse: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0V9"/><path d="M12 6h6M12 10h6M12 14h6M12 18h6"/></svg>',
+    marche: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>',
+    ia: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg>',
+    verif: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>',
+    pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>',
+    photo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+    plume: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+    fusee: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>',
+  };
 
-  function upsertStep({ id, status, label, detail }) {
-    let li = document.getElementById(`step-${id}`);
-    if (!li) {
-      li = document.createElement('li');
-      li.className = 'step';
-      li.id = `step-${id}`;
-      li.innerHTML = `
-        <span class="step__icon"></span>
-        <span class="step__label"></span>
-        <span class="step__detail"></span>
-        <span class="step__findings" hidden></span>`;
-      stepsEl.appendChild(li);
-    }
-    li.querySelector('.step__label').textContent = label;
-    if (detail) li.querySelector('.step__detail').textContent = detail;
-    const icon = li.querySelector('.step__icon');
-    if (status === 'start') icon.innerHTML = '<span class="spinner"></span>';
-    else if (status === 'done') icon.innerHTML = `<span class="step__check">${CHECK_SVG}</span>`;
-    else if (status === 'skip') icon.innerHTML = `<span class="step__skip">${SKIP_SVG}</span>`;
-    li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  // Poids de progression par étape (barre du haut)
+  const STEP_PCT = {
+    resolve: 6, mairie: 18, news: 34, boamp: 40, ai1: 54, ai2: 66,
+    geo: 76, media: 85, articles: 92, exists: 90, create: 95, covers: 97, publish: 100,
+  };
 
-    // Chorégraphie carte : l'IA réfléchit = la caméra orbite autour de la commune
-    if (hasFx) {
-      if (id === 'ai1' && status === 'start') window.MapFX.orbitStart();
-      if (id === 'geo' && status === 'start') window.MapFX.orbitStop();
+  function setProgress(pct) {
+    $('topline-fill').style.width = `${Math.min(100, pct)}%`;
+  }
+
+  function setPill(label, detail, done) {
+    $('hud-label').textContent = label;
+    $('hud-detail').textContent = detail || '';
+    $('hud-icon').innerHTML = done ? `<span class="hud-check">${CHECK_SVG}</span>` : '<span class="spinner"></span>';
+  }
+
+  const FEED_MAX = 6;
+  function addFeed(icon, title, meta, ok) {
+    const li = document.createElement('li');
+    if (ok) li.className = 'feed--ok';
+    li.innerHTML = `
+      <span class="feed__icon">${ICONS[icon] || ICONS.file}</span>
+      <span class="feed__text">
+        <span class="feed__title">${escapeHtml(title)}</span>
+        ${meta ? `<span class="feed__meta">${escapeHtml(meta)}</span>` : ''}
+      </span>`;
+    feedEl.appendChild(li);
+    const items = [...feedEl.children];
+    items.slice(0, Math.max(0, items.length - 3)).forEach((el) => el.classList.add('is-old'));
+    while (feedEl.children.length > FEED_MAX) {
+      const first = feedEl.firstElementChild;
+      first.classList.add('is-gone');
+      setTimeout(() => first.remove(), 600);
+      if (feedEl.children.length > FEED_MAX + 3) first.remove();
     }
     return li;
   }
 
-  function currentFindingsContainer(stepId) {
-    const li = document.getElementById(`step-${stepId}`);
-    if (!li) return null;
-    const box = li.querySelector('.step__findings');
-    box.hidden = false;
-    return box;
+  const aiCounts = { ai1: 0, ai2: 0 };
+  let currentStepLabel = '';
+
+  function onStep({ id, status, label, detail }) {
+    if (STEP_PCT[id]) setProgress(status === 'start' ? STEP_PCT[id] - 5 : STEP_PCT[id]);
+    if (status === 'start') {
+      currentStepLabel = label;
+      setPill(label, detail, false);
+    } else {
+      setPill(label, detail, true);
+      addFeed(status === 'skip' ? 'file' : 'verif', label, detail, status === 'done');
+    }
+    // Chorégraphie : l'IA réfléchit = la caméra orbite autour de la commune
+    if (hasFx) {
+      if (id === 'ai1' && status === 'start') window.MapFX.orbitStart();
+      if (id === 'geo' && status === 'start') window.MapFX.orbitStop();
+    }
   }
 
-  const FINDING_STEP = { logo: 'mairie', page: 'mairie', pdf: 'mairie', article: 'news', boamp: 'boamp' };
+  const FINDING_ICON = { logo: 'mairie', page: 'file', pdf: 'file', article: 'presse', boamp: 'marche' };
 
-  function addFinding(f) {
-    const box = currentFindingsContainer(FINDING_STEP[f.kind] || 'news');
-    if (!box) return;
-    const chip = document.createElement('span');
-    chip.className = 'finding';
+  function onFinding(f) {
     if (f.kind === 'logo') {
-      // Thématisation en direct : l'écran et la carte prennent la couleur de la commune
       if (f.color) {
         document.documentElement.style.setProperty('--accent', f.color);
         if (hasFx) window.MapFX.setAccent(f.color);
       }
-      chip.innerHTML = `
-        ${f.iconUrl ? `<img src="${escapeHtml(f.iconUrl)}" alt="" onerror="this.remove()">` : ''}
-        <span class="finding__title">${escapeHtml(f.title)}</span>
-        ${f.color ? `<span class="finding__swatch" style="background:${escapeHtml(f.color)}"></span>` : ''}`;
-    } else {
-      chip.innerHTML = `
-        <span class="finding__title">${escapeHtml(f.title)}</span>
-        <span class="finding__meta">${escapeHtml([f.domain, f.date].filter(Boolean).join(' · '))}</span>`;
+      const li = addFeed('mairie', f.title, f.color ? `identité récupérée · ${f.color}` : 'site officiel');
+      if (f.iconUrl) {
+        const img = document.createElement('img');
+        img.src = f.iconUrl;
+        img.onerror = () => img.remove();
+        li.querySelector('.feed__icon').replaceChildren(img);
+      }
+      return;
     }
-    box.appendChild(chip);
+    addFeed(FINDING_ICON[f.kind] || 'file', f.title, [f.domain, f.date].filter(Boolean).join(' · '));
   }
 
-  const aiCounts = { ai1: 0, ai2: 0 };
-  function addAiItem(msg) {
-    const box = currentFindingsContainer(msg.phase);
-    if (!box) return;
+  function onAiItem(msg) {
     aiCounts[msg.phase] = (aiCounts[msg.phase] || 0) + 1;
-    const chip = document.createElement('span');
-    chip.className = 'finding finding--project';
-    chip.innerHTML = `<span class="finding__title">${escapeHtml(msg.title)}</span>`;
-    box.appendChild(chip);
-    const li = document.getElementById(`step-${msg.phase}`);
-    if (li) {
-      li.querySelector('.step__detail').textContent = msg.phase === 'ai1'
-        ? `${aiCounts.ai1} projet(s) repéré(s) dans les sources...`
-        : `${aiCounts.ai2} projet(s) retenus et vérifiés...`;
-    }
+    addFeed('ia', msg.title, msg.phase === 'ai1' ? 'projet repéré' : 'projet retenu');
+    $('hud-detail').textContent = msg.phase === 'ai1'
+      ? `${aiCounts.ai1} projet(s) repéré(s) dans les sources...`
+      : `${aiCounts.ai2} projet(s) retenus et vérifiés...`;
   }
 
-  function addSubItem(stepId, title, meta) {
-    const box = currentFindingsContainer(stepId);
-    if (!box) return;
-    const chip = document.createElement('span');
-    chip.className = 'finding';
-    chip.innerHTML = `
-      <span class="finding__title">${escapeHtml(title)}</span>
-      ${meta ? `<span class="finding__meta">${escapeHtml(meta)}</span>` : ''}`;
-    box.appendChild(chip);
-  }
-
-  function addCreateItem(msg) {
-    const box = currentFindingsContainer('create');
-    if (!box) return;
-    const chip = document.createElement('span');
-    chip.className = 'finding finding--geo-ok';
-    chip.innerHTML = `<span class="finding__title">${escapeHtml(msg.label)}</span>`;
-    box.appendChild(chip);
-  }
-
-  function revealProjects(items) {
-    const box = currentFindingsContainer('ai2');
-    if (!box) return;
-    box.innerHTML = '';
+  function onProjects(items) {
     items.forEach((p, i) => {
-      setTimeout(() => {
-        const chip = document.createElement('span');
-        chip.className = 'finding finding--project';
-        chip.innerHTML = `
-          <span class="finding__badge">${escapeHtml(p.category_slug.replace(/-/g, ' '))}</span>
-          <span class="finding__title">${escapeHtml(p.title)}</span>
-          ${p.status ? `<span class="finding__meta">${escapeHtml(p.status)}</span>` : ''}`;
-        box.appendChild(chip);
-      }, i * 320);
+      setTimeout(() => addFeed('verif', p.title, [p.category_slug.replace(/-/g, ' '), p.status].filter(Boolean).join(' · '), true), i * 260);
     });
   }
 
-  function addGeoItem(g) {
-    const box = currentFindingsContainer('geo');
-    if (box) {
-      const precise = g.method !== 'centre';
-      const chip = document.createElement('span');
-      chip.className = `finding${precise ? ' finding--geo-ok' : ''}`;
-      chip.innerHTML = `
-        <span class="finding__title">${escapeHtml(g.title)}</span>
-        <span class="finding__meta">${escapeHtml(g.label || g.method)}</span>`;
-      box.appendChild(chip);
-    }
-    // L'épingle tombe sur la carte, l'emprise réelle s'embrase
+  function onGeoItem(g) {
+    addFeed('pin', g.title, g.label || g.method, g.method !== 'centre');
     if (hasFx && typeof g.lat === 'number') {
-      window.MapFX.addProject({ lat: g.lat, lng: g.lng, geometry: g.geometry, precise: g.method !== 'centre' });
+      window.MapFX.addProject({ lat: g.lat, lng: g.lng, geometry: g.geometry, precise: g.method !== 'centre', title: g.title });
     }
   }
 
-  /* ─── Génération (deux phases SSE enchaînées) ─── */
+  /* ─── Génération (phases SSE enchaînées sans couture) ─── */
 
   function openStream(url) {
     es = new EventSource(url);
     es.onmessage = (e) => {
       let msg;
       try { msg = JSON.parse(e.data); } catch { return; }
-      if (msg.type === 'step') upsertStep(msg);
-      else if (msg.type === 'finding') addFinding(msg);
-      else if (msg.type === 'ai-item') addAiItem(msg);
-      else if (msg.type === 'media-item') addSubItem('media', msg.title, msg.credit);
-      else if (msg.type === 'cover-item') addSubItem('covers', msg.title, 'illustration installée');
-      else if (msg.type === 'article-item') addSubItem('articles', msg.title, 'article rédigé');
-      else if (msg.type === 'create-item') addCreateItem(msg);
-      else if (msg.type === 'projects') revealProjects(msg.items || []);
-      else if (msg.type === 'geo-item') addGeoItem(msg);
-      else if (msg.type === 'phase') { es.close(); es = null; openStream(`/api/demo-generate?phase=create&ville=${encodeURIComponent(msg.ville)}`); }
+      if (msg.type === 'step') onStep(msg);
+      else if (msg.type === 'finding') onFinding(msg);
+      else if (msg.type === 'ai-item') onAiItem(msg);
+      else if (msg.type === 'media-item') addFeed('photo', msg.title, msg.credit);
+      else if (msg.type === 'cover-item') addFeed('photo', msg.title, 'illustration installée', true);
+      else if (msg.type === 'article-item') addFeed('plume', msg.title, 'article rédigé');
+      else if (msg.type === 'create-item') addFeed('fusee', msg.label, '', true);
+      else if (msg.type === 'projects') onProjects(msg.items || []);
+      else if (msg.type === 'geo-item') onGeoItem(msg);
+      else if (msg.type === 'phase') { es.close(); es = null; openStream(`/api/demo-generate?phase=${encodeURIComponent(msg.next)}&ville=${encodeURIComponent(msg.ville)}`); }
       else if (msg.type === 'done') { es.close(); es = null; onDone(msg); }
       else if (msg.type === 'error') { es.close(); es = null; onError(msg.message, msg.debug); }
     };
@@ -285,14 +263,14 @@
     renderSuggestions([]);
     input.blur();
     clearTimeout(typeTimer);
-    stepsEl.innerHTML = '';
+    feedEl.innerHTML = '';
     aiCounts.ai1 = 0; aiCounts.ai2 = 0;
-    $('progress-error').hidden = true;
-    $('btn-retry').hidden = true;
-    $('progress-commune').textContent = commune.nom;
+    setProgress(2);
+    setPill('Préparation...', '', false);
+    $('hud-commune').textContent = commune.nom;
+    $('hud-error').hidden = true;
     show('progress');
 
-    // Chorégraphie : plongée cinématique sur la commune + contour illuminé
     if (hasFx && commune.centre) {
       window.MapFX.focusCommune({
         lat: commune.centre.coordinates[1],
@@ -332,7 +310,6 @@
     show('done');
 
     if (KIOSK) {
-      // Mode salon : pas de redirection, l'écran revient à l'accueil tout seul
       let remaining = 90;
       const tick = () => {
         $('countdown').textContent = `L'écran revient à l'accueil dans ${remaining} s`;
@@ -353,10 +330,9 @@
 
   function onError(message, debug) {
     if (debug) console.error('[demo-generate]', debug);
-    const el = $('progress-error');
-    el.textContent = message;
-    el.hidden = false;
-    $('btn-retry').hidden = false;
+    $('progress-error').textContent = message;
+    $('hud-error').hidden = false;
+    setPill(currentStepLabel || 'Génération interrompue', '', true);
     if (KIOSK) redirectTimer = setTimeout(reset, 60000);
   }
 
@@ -364,6 +340,8 @@
     clearTimeout(redirectTimer);
     if (es) { es.close(); es = null; }
     input.value = '';
+    feedEl.innerHTML = '';
+    setProgress(0);
     document.documentElement.style.removeProperty('--accent');
     if (hasFx) window.MapFX.reset();
     show('input');
@@ -379,7 +357,6 @@
   const params = new URLSearchParams(window.location.search);
   const codeParam = params.get('commune');
   if (codeParam && /^\d{2}[0-9ABab]\d{2}$/.test(codeParam)) {
-    // Lien direct (prospection ou salon) : on résout la commune puis on lance
     fetch(`https://geo.api.gouv.fr/communes/${codeParam.toUpperCase()}?fields=nom,code,population,centre`)
       .then((r) => (r.ok ? r.json() : null))
       .then((c) => {

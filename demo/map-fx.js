@@ -149,6 +149,49 @@
             } catch { /* propriété absente sur cette couche */ }
           }
 
+          // Relief 3D : terrain mondial (tuiles Terrarium AWS, libres) + ombrage.
+          // La plongée sur une commune de montagne devient spectaculaire.
+          try {
+            map.addSource('fx-dem', {
+              type: 'raster-dem',
+              tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+              encoding: 'terrarium',
+              tileSize: 256,
+              maxzoom: 14,
+              attribution: 'Terrain: Mapzen/AWS',
+            });
+            map.setTerrain({ source: 'fx-dem', exaggeration: 1.35 });
+            map.addLayer({
+              id: 'fx-hillshade',
+              type: 'hillshade',
+              source: 'fx-dem',
+              paint: {
+                'hillshade-shadow-color': '#040910',
+                'hillshade-highlight-color': '#3d5f96',
+                'hillshade-accent-color': '#0d1a30',
+                'hillshade-exaggeration': 0.55,
+              },
+            });
+          } catch { /* relief indisponible : carte plate */ }
+
+          // Bâtiments en 3D au niveau rue (données du style Carto)
+          try {
+            const firstSymbol = map.getStyle().layers.find((l) => l.type === 'symbol')?.id;
+            map.addLayer({
+              id: 'fx-3d-buildings',
+              type: 'fill-extrusion',
+              source: 'carto',
+              'source-layer': 'building',
+              minzoom: 13,
+              paint: {
+                'fill-extrusion-color': '#28436f',
+                'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 10],
+                'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+                'fill-extrusion-opacity': 0.72,
+              },
+            }, firstSymbol);
+          } catch { /* extrusions indisponibles : sans gravité */ }
+
           map.addSource('fx-dots', {
             type: 'geojson',
             data: { type: 'FeatureCollection', features: CITY_DOTS.map((c) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: c }, properties: {} })) },
@@ -231,7 +274,7 @@
     orbitStop() { if (ok && mode === 'orbit') mode = 'focus'; },
 
     // Un projet localisé : emprise embrasée si géométrie réelle, épingle sinon
-    addProject({ lat, lng, geometry, precise }) {
+    addProject({ lat, lng, geometry, precise, title }) {
       if (!ok) return;
       projectCoords.push([lng, lat]);
 
@@ -258,9 +301,12 @@
       }
 
       const el = document.createElement('div');
-      el.className = `fx-pin${precise ? '' : ' fx-pin--approx'}`;
+      el.className = `fx-pin-wrap${precise ? '' : ' fx-pin-wrap--approx'}`;
       el.style.setProperty('--pin', accent);
+      el.innerHTML = `<span class="fx-pin"></span>${title ? `<span class="fx-pin-label">${String(title).replace(/[<>&]/g, '')}</span>` : ''}`;
       markers.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([lng, lat]).addTo(map));
+      // L'étiquette se replie après quelques secondes pour garder la carte lisible
+      setTimeout(() => el.classList.add('is-collapsed'), 5200);
     },
 
     // Recadrage final sur l'ensemble des projets
