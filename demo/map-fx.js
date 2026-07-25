@@ -4,8 +4,9 @@
    La carte est le spectacle : France en respiration lente (mode attract),
    plongée cinématique sur la commune, sonar de recensement et arcs de
    collecte convergents pendant l'analyse, orbite pendant la réflexion IA,
-   zoom cinématique sur chaque projet localisé (file d'attente), emprises
-   réelles embrasées, photos posées sur la carte, final en vue d'ensemble.
+   recadrage continu en vue d'ensemble à mesure que les projets se localisent
+   (jamais de plongée dans le relief), emprises réelles embrasées, photos
+   posées sur la carte, final en vue d'ensemble.
 
    Relief 3D : terrain Terrarium + ombrage + bâtiments extrudés.
    Sans WebGL, init() rend false : l'écran retombe sur le fond statique.
@@ -42,7 +43,7 @@
   const DEFAULT_ACCENT = '#ff4d6a';
   let accent = DEFAULT_ACCENT;
   let rafId = null;
-  let mode = 'off'; // off | attract | focus | orbit | spotlight
+  let mode = 'off'; // off | attract | focus | orbit
   let attractTimer = null;
   let attractFlip = false;
   let markers = [];
@@ -52,10 +53,17 @@
   let arcCount = 0;
   let projectCoords = [];
   let communeCenter = null;
-  let spotQueue = [];
-  let spotBusy = false;
+  let reframePending = false;
 
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Emprise englobant une liste de [lng, lat]
+  function boundsOf(coords) {
+    return coords.reduce(
+      (acc, c) => [[Math.min(acc[0][0], c[0]), Math.min(acc[0][1], c[1])], [Math.max(acc[1][0], c[0]), Math.max(acc[1][1], c[1])]],
+      [[Infinity, Infinity], [-Infinity, -Infinity]]
+    );
+  }
 
   function supportsWebGL() {
     try {
@@ -109,6 +117,11 @@
           interactive: false,
           attributionControl: { compact: true },
           fadeDuration: 200,
+        });
+        // Recadrage en attente : un point arrivé pendant un mouvement rejoue
+        // le recadrage dès la fin, pour toujours converger vers "tous les points"
+        map.on('moveend', () => {
+          if (reframePending) { reframePending = false; MapFX.reframe(); }
         });
         map.on('style.load', () => {
           try { map.setProjection({ type: 'globe' }); } catch { /* projection plane : très bien aussi */ }
@@ -240,7 +253,7 @@
       communeCenter = { lat, lng };
       const zoom = population > 100000 ? 12.4 : population > 20000 ? 13.2 : population > 5000 ? 13.8 : 14.4;
       map.flyTo({
-        center: [lng, lat], zoom, pitch: 47, bearing: -18,
+        center: [lng, lat], zoom, pitch: 42, bearing: -12,
         duration: prefersReduced ? 0 : 5200, curve: 1.6, essential: true,
       });
     },
@@ -343,30 +356,32 @@
       el.style.setProperty('--pin', accent);
       el.innerHTML = `<span class="fx-pin"></span>${title ? `<span class="fx-pin-label">${String(title).replace(/[<>&]/g, '')}</span>` : ''}`;
       markers.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([lng, lat]).addTo(map));
-      setTimeout(() => el.classList.add('is-collapsed'), 9000);
+      setTimeout(() => el.classList.add('is-collapsed'), 6000);
 
-      this.spotlight(lat, lng);
+      this.reframe();
     },
 
-    // Zoom cinématique sur un point, en file (jamais deux vols simultanés)
-    spotlight(lat, lng) {
-      if (!ok) return;
-      spotQueue.push([lng, lat]);
-      const next = () => {
-        if (!spotQueue.length) { spotBusy = false; return; }
-        spotBusy = true;
-        const target = spotQueue.shift();
-        mode = 'spotlight';
+    // Recadrage continu : la carte se réajuste en permanence pour montrer TOUS
+    // les points, en vue d'ensemble à pitch bas -> on ne plonge plus dans le
+    // relief (un seul mouvement à la fois, le suivant attend la fin du courant)
+    reframe() {
+      if (!ok || !projectCoords.length) return;
+      if (map.isMoving()) { reframePending = true; return; }
+      mode = 'focus';
+      if (projectCoords.length === 1) {
         map.easeTo({
-          center: target, zoom: 15.3, pitch: 50,
-          bearing: map.getBearing() + 14,
-          duration: prefersReduced ? 0 : 1700,
-          easing: (t) => 1 - Math.pow(1 - t, 3),
-          essential: true,
+          center: projectCoords[0], zoom: 13.8, pitch: 34, bearing: 0,
+          duration: prefersReduced ? 0 : 1500, essential: true,
         });
-        map.once('moveend', () => setTimeout(next, 650));
-      };
-      if (!spotBusy) next();
+        return;
+      }
+      map.fitBounds(boundsOf(projectCoords), {
+        // Padding généreux en haut (stepper + pilule) et en bas (compteurs +
+        // ticker) : les pins ne se cachent jamais derrière le HUD
+        padding: { top: 200, bottom: 190, left: 130, right: 130 },
+        pitch: 32, bearing: 0, maxZoom: 14.5,
+        duration: prefersReduced ? 0 : 1500, essential: true,
+      });
     },
 
     // Photo trouvée : posée sur la carte à l'emplacement du projet
@@ -379,19 +394,19 @@
       setTimeout(() => el.classList.add('is-small'), 6500);
     },
 
-    // Recadrage final sur l'ensemble des projets
+    // Recadrage final : vue d'ensemble douce sur tous les projets
     finale() {
       if (!ok || !projectCoords.length) return;
-      spotQueue = [];
-      const b = projectCoords.reduce(
-        (acc, c) => [[Math.min(acc[0][0], c[0]), Math.min(acc[0][1], c[1])], [Math.max(acc[1][0], c[0]), Math.max(acc[1][1], c[1])]],
-        [[Infinity, Infinity], [-Infinity, -Infinity]]
-      );
+      reframePending = false;
       mode = 'focus';
-      map.fitBounds(b, {
-        padding: { top: 120, bottom: 140, left: 110, right: 110 },
-        pitch: 42, bearing: 0, maxZoom: 15.2,
-        duration: prefersReduced ? 0 : 3200, essential: true,
+      if (projectCoords.length === 1) {
+        map.easeTo({ center: projectCoords[0], zoom: 14, pitch: 34, bearing: 0, duration: prefersReduced ? 0 : 2400, essential: true });
+        return;
+      }
+      map.fitBounds(boundsOf(projectCoords), {
+        padding: { top: 200, bottom: 190, left: 120, right: 120 },
+        pitch: 30, bearing: 0, maxZoom: 14.8,
+        duration: prefersReduced ? 0 : 2800, essential: true,
       });
     },
 
@@ -399,8 +414,7 @@
     reset() {
       if (!ok) return;
       this.scanStop();
-      spotQueue = [];
-      spotBusy = false;
+      reframePending = false;
       markers.forEach((m) => m.remove());
       photoMarkers.forEach((m) => m.remove());
       markers = [];

@@ -638,44 +638,82 @@ function centroidOf(geometry) {
   };
 }
 
+// Dérive un lieu géocodable depuis le titre quand `place` est vide ou muet
+// (ex : "Rénovation du quartier de la Forge" -> "quartier de la Forge")
+function placeFromTitle(title) {
+  const t = String(title || '').replace(
+    /^\s*(r[eé]novation|r[eé]am[eé]nagement|am[eé]nagement|construction|cr[eé]ation|r[eé]habilitation|transformation|extension|requalification|recomposition|restructuration|modernisation|installation|d[eé]molition|reconstruction|mise en valeur|am[eé]lioration|[eé]tude)\s+(du|de la|de l['’]|des|de |d['’]|au |aux |[àa] )?\s*/i,
+    ''
+  ).trim();
+  return t.length >= 4 ? t : '';
+}
+
+// BAN (adresses officielles), scopé sur la commune : rapide, sans quota
+async function banGeocode(q, commune, bbox) {
+  try {
+    const u = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&citycode=${commune.code}&limit=1`;
+    const r = await fetchWithTimeout(u);
+    if (r.ok) {
+      const f = (await r.json()).features?.[0];
+      if (f && f.properties?.score > 0.35 && geometryInBbox(f.geometry, bbox)) {
+        return { geometry: f.geometry, method: 'adresse' };
+      }
+    }
+  } catch { /* BAN indisponible */ }
+  return null;
+}
+
+// Géocodage complet d'une requête : Nominatim (emprises/tracés réels) puis BAN
+async function geocodeOne(q, commune, bbox) {
+  try {
+    const u = new URL('https://nominatim.openstreetmap.org/search');
+    u.searchParams.set('q', `${q}, ${commune.nom}`);
+    u.searchParams.set('format', 'jsonv2');
+    u.searchParams.set('polygon_geojson', '1');
+    u.searchParams.set('countrycodes', 'fr');
+    u.searchParams.set('limit', '1');
+    const r = await fetchWithTimeout(u.toString(), { headers: UA }, 7000);
+    if (r.ok) {
+      const hit = (await r.json())[0];
+      if (hit?.geojson && (hit.display_name || '').toLowerCase().includes(commune.nom.toLowerCase().slice(0, 8))) {
+        const g = hit.geojson;
+        if (['Polygon', 'MultiPolygon', 'LineString', 'MultiLineString'].includes(g.type) && geometryInBbox(g, bbox)) {
+          return { geometry: g, method: g.type.includes('Line') ? 'trace' : 'emprise' };
+        }
+        if (g.type === 'Point' && geometryInBbox(g, bbox)) return { geometry: g, method: 'adresse' };
+      }
+    }
+  } catch { /* Nominatim indisponible : BAN ensuite */ }
+  await sleep(1050); // politique d'usage Nominatim : 1 requête/seconde
+  return banGeocode(q, commune, bbox);
+}
+
 async function locateProject(project, commune, bbox, index) {
   const center = { lng: commune.centre.coordinates[0], lat: commune.centre.coordinates[1] };
-  if (project.place) {
-    try {
-      const u = new URL('https://nominatim.openstreetmap.org/search');
-      u.searchParams.set('q', `${project.place}, ${commune.nom}`);
-      u.searchParams.set('format', 'jsonv2');
-      u.searchParams.set('polygon_geojson', '1');
-      u.searchParams.set('countrycodes', 'fr');
-      u.searchParams.set('limit', '1');
-      const r = await fetchWithTimeout(u.toString(), { headers: UA }, 7000);
-      if (r.ok) {
-        const results = await r.json();
-        const hit = results[0];
-        if (hit?.geojson && (hit.display_name || '').toLowerCase().includes(commune.nom.toLowerCase().slice(0, 8))) {
-          const g = hit.geojson;
-          if (['Polygon', 'MultiPolygon', 'LineString', 'MultiLineString'].includes(g.type) && geometryInBbox(g, bbox)) {
-            return { geometry: g, method: g.type.includes('Line') ? 'trace' : 'emprise' };
-          }
-          if (g.type === 'Point' && geometryInBbox(g, bbox)) {
-            return { geometry: g, method: 'adresse' };
-          }
-        }
-      }
-    } catch { /* Nominatim indisponible : BAN ensuite */ }
-    await sleep(1050); // politique d'usage Nominatim : 1 requête/seconde
 
-    try {
-      const u = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(project.place)}&citycode=${commune.code}&limit=1`;
-      const r = await fetchWithTimeout(u);
-      if (r.ok) {
-        const d = await r.json();
-        const f = d.features?.[0];
-        if (f && f.properties?.score > 0.35 && geometryInBbox(f.geometry, bbox)) {
-          return { geometry: f.geometry, method: 'adresse' };
-        }
-      }
-    } catch { /* BAN indisponible : centre ensuite */ }
+  // 1) Lieu explicite (Nominatim + BAN)
+  if (project.place) {
+    const hit = await geocodeOne(project.place, commune, bbox);
+    if (hit) return hit;
+  }
+  // 2) Repli : lieu déduit du titre, via BAN (rapide, sans quota Nominatim)
+  const titlePlace = placeFromTitle(project.title);
+  if (titlePlace && titlePlace.toLowerCase() !== String(project.place || '').toLowerCase()) {
+    const hit = await banGeocode(titlePlace, commune, bbox);
+    if (hit) return hit;
+  }
+
+  // 3) Dernier recours : répartir dans l'emprise RÉELLE de la commune (spirale
+  // d'angle d'or) au lieu d'empiler les points sur le centre-ville
+  if (bbox) {
+    const halfW = (bbox.maxLng - bbox.minLng) * 0.30;
+    const halfH = (bbox.maxLat - bbox.minLat) * 0.30;
+    const a = index * 2.399963; // angle d'or : dispersion régulière non alignée
+    const rad = 0.35 + 0.6 * (((index * 7) % 11) / 11);
+    return {
+      geometry: { type: 'Point', coordinates: [center.lng + Math.cos(a) * halfW * rad, center.lat + Math.sin(a) * halfH * rad] },
+      method: 'centre',
+    };
   }
   const angle = (index * 2 * Math.PI) / 12;
   return {
@@ -1050,7 +1088,7 @@ async function coreGeo(send, step, state) {
 
   step('geo', 'start', 'Localisation des projets', 'Emprises réelles OpenStreetMap, adresses officielles BAN');
   const located = [];
-  const METHOD_LABELS = { emprise: 'emprise réelle trouvée', trace: 'tracé réel trouvé', adresse: 'adresse précise', centre: 'placé au centre-ville' };
+  const METHOD_LABELS = { emprise: 'emprise réelle trouvée', trace: 'tracé réel trouvé', adresse: 'adresse précise', centre: 'position approchée dans la commune' };
   for (let i = 0; i < projects.length; i++) {
     const loc = await locateProject(projects[i], communeShim, bbox, i);
     const c = centroidOf(loc.geometry);
