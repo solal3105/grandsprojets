@@ -66,7 +66,7 @@ const CANDIDATES_SCHEMA = {
   properties: {
     candidates: {
       type: 'array',
-      maxItems: 20,
+      maxItems: 24,
       items: {
         type: 'object',
         additionalProperties: false,
@@ -90,7 +90,7 @@ const FINAL_SCHEMA = {
   properties: {
     projects: {
       type: 'array',
-      maxItems: 10,
+      maxItems: 12,
       items: {
         type: 'object',
         additionalProperties: false,
@@ -116,7 +116,7 @@ const ARTICLES_SCHEMA = {
   properties: {
     articles: {
       type: 'array',
-      maxItems: 10,
+      maxItems: 12,
       items: {
         type: 'object',
         additionalProperties: false,
@@ -343,11 +343,11 @@ async function inspectMairieSite(siteUrl, onFinding) {
 
   const links = [];
   const aRe = /<a[^>]+href=["']([^"'#]+)["'][^>]*>([\s\S]{0,120}?)<\/a>/gi;
-  while ((m = aRe.exec(html)) !== null && links.length < 60) {
+  while ((m = aRe.exec(html)) !== null && links.length < 90) {
     const href = m[1];
     const label = stripHtml(m[2]).toLowerCase();
     const target = `${href} ${label}`.toLowerCase();
-    if (/(projet|travaux|urbanisme|amenagement|aménagement|chantier|grand[s-]?projet|cadre[ -]de[ -]vie)/.test(target)) {
+    if (/(projet|travaux|urbanisme|amenagement|aménagement|chantier|grand[s-]?projet|cadre[ -]de[ -]vie|renovation|rénovation|equipement|équipement|construction|amenager|concertation|mobilit|logement|ecoquartier|écoquartier|zac)/.test(target)) {
       try {
         const abs = new URL(href, finalUrl);
         if (abs.host === finalUrl.host && !links.some((l) => l.url === abs.toString())) {
@@ -356,15 +356,20 @@ async function inspectMairieSite(siteUrl, onFinding) {
       } catch { /* href invalide */ }
     }
   }
-  for (const link of links.slice(0, 3)) {
+  // Sous-pages projets en parallèle : 5 pages ne doivent pas rallonger la phase
+  const subPages = await inChunks(links.slice(0, 5), 5, async (link) => {
     const page = await fetchCapped(link.url, { headers: UA }, 6000, 400000);
-    if (!page) continue;
+    if (!page) return null;
     const text = stripHtml(page.data).slice(0, 5000);
-    collectPdfLinks(page.data, page.url, out.pdfs);
-    if (text.length > 400) {
-      out.pages.push({ url: link.url, title: link.label, text });
-      out.urls.push(link.url);
-      onFinding?.({ kind: 'page', title: link.label, domain: out.host });
+    return { link, page, text };
+  });
+  for (const sp of subPages) {
+    if (!sp) continue;
+    collectPdfLinks(sp.page.data, sp.page.url, out.pdfs);
+    if (sp.text.length > 400) {
+      out.pages.push({ url: sp.link.url, title: sp.link.label, text: sp.text });
+      out.urls.push(sp.link.url);
+      onFinding?.({ kind: 'page', title: sp.link.label, domain: out.host });
     }
   }
   for (const pdf of out.pdfs.slice(0, 6)) {
@@ -376,7 +381,8 @@ async function inspectMairieSite(siteUrl, onFinding) {
 async function fetchLocalNews(communeNom, departement, onFinding) {
   const queries = [
     `"${communeNom}" (projet OR aménagement OR rénovation OR réhabilitation)`,
-    `"${communeNom}" (travaux OR chantier) ${departement || ''}`,
+    `"${communeNom}" (travaux OR chantier OR construction) ${departement || ''}`,
+    `"${communeNom}" (ZAC OR écoquartier OR équipement OR médiathèque OR gymnase OR école OR crèche OR requalification)`,
   ];
   const items = [];
   const seen = new Set();
@@ -388,7 +394,7 @@ async function fetchLocalNews(communeNom, departement, onFinding) {
       const xml = await r.text();
       const itemRe = /<item>([\s\S]*?)<\/item>/g;
       let m;
-      while ((m = itemRe.exec(xml)) !== null && items.length < 14) {
+      while ((m = itemRe.exec(xml)) !== null && items.length < 22) {
         const block = m[1];
         const title = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/.exec(block)?.[1]?.trim();
         const link = /<link>([\s\S]*?)<\/link>/.exec(block)?.[1]?.trim();
@@ -402,7 +408,7 @@ async function fetchLocalNews(communeNom, departement, onFinding) {
     } catch { /* flux indisponible */ }
   }
 
-  await inChunks(items.slice(0, 9), 3, async (item) => {
+  await inChunks(items.slice(0, 13), 4, async (item) => {
     const page = await fetchCapped(item.link, { headers: UA }, 6000, 400000);
     if (!page) return;
     item.finalUrl = page.url;
@@ -420,7 +426,7 @@ async function fetchBoamp(communeNom, onFinding) {
     const url = new URL('https://boamp-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/boamp/records');
     url.searchParams.set('where', `search(objet, "${communeNom.replace(/"/g, '')}")`);
     url.searchParams.set('order_by', 'dateparution desc');
-    url.searchParams.set('limit', '8');
+    url.searchParams.set('limit', '10');
     const r = await fetchWithTimeout(url.toString());
     if (!r.ok) return [];
     const data = await r.json();
@@ -431,7 +437,7 @@ async function fetchBoamp(communeNom, onFinding) {
         link: rec.url_avis || 'https://www.boamp.fr/',
       }))
       .filter((x) => x.title);
-    rows.slice(0, 5).forEach((x) => onFinding?.({ kind: 'boamp', title: x.title.slice(0, 110), date: x.date }));
+    rows.slice(0, 7).forEach((x) => onFinding?.({ kind: 'boamp', title: x.title.slice(0, 110), date: x.date }));
     return rows;
   } catch {
     return [];
@@ -539,20 +545,20 @@ function buildSourcesBundle({ mairie, news, boamp }) {
 }
 
 async function extractCandidates(commune, bundle, onTitle) {
-  const system = `Tu dépouilles des sources web au sujet de la commune de ${commune.nom}. Extrais TOUS les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES concernant cette commune précise (jusqu'à 20). Pour chacun : une citation exacte copiée mot pour mot d'une source (evidence_quote) et l'URL de cette source (source_url, obligatoirement une URL présente entre crochets dans les sources). Ignore : événements, politique, faits divers, autres communes, généralités sans projet.`;
-  const out = await callOpenAI(system, `SOURCES :\n\n${bundle}`, 'candidats', CANDIDATES_SCHEMA, 4000, onTitle);
+  const system = `Tu dépouilles des sources web au sujet de la commune de ${commune.nom}. Extrais TOUS les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES concernant cette commune précise (jusqu'à 24, sois exhaustif : ne laisse passer aucun projet réel mentionné dans les sources). Pour chacun : une citation exacte copiée mot pour mot d'une source (evidence_quote) et l'URL de cette source (source_url, obligatoirement une URL présente entre crochets dans les sources). Ignore : événements, politique, faits divers, autres communes, généralités sans projet.`;
+  const out = await callOpenAI(system, `SOURCES :\n\n${bundle}`, 'candidats', CANDIDATES_SCHEMA, 5000, onTitle);
   return out.candidates || [];
 }
 
 async function selectProjects(commune, candidates, bundle, onTitle) {
-  const system = `Tu es un rédacteur territorial exigeant. À partir des candidats extraits et des sources, compose la sélection finale des projets de ${commune.nom} (5 à 10 si la matière le permet, moins sinon). Règles :
+  const system = `Tu es un rédacteur territorial exigeant. À partir des candidats extraits et des sources, compose la sélection finale des projets de ${commune.nom} (vise 6 à 12 si la matière le permet, moins seulement si les sources sont pauvres). Retiens tous les projets réels distincts, ne te limite pas artificiellement. Règles :
 - Uniquement des projets physiques et localisables DANS la commune, actuels (en cours, récents ou annoncés). Fusionne les doublons.
 - confidence "haute" seulement si la citation atteste clairement le projet ; "basse" si douteux (il sera écarté).
 - description : 2 à 4 phrases sobres et factuelles, dates si connues, zéro superlatif, en français impeccable.
 - place : le lieu géocodable le plus précis mentionné (rue, quartier, équipement), chaîne vide sinon.
 - source_url : reprends l'URL de la source qui atteste le projet.`;
   const user = `CANDIDATS :\n${JSON.stringify(candidates, null, 1)}\n\nSOURCES (pour vérification) :\n\n${bundle.slice(0, 30000)}`;
-  const out = await callOpenAIResilient(system, user, 'selection_finale', FINAL_SCHEMA, 3200, onTitle);
+  const out = await callOpenAIResilient(system, user, 'selection_finale', FINAL_SCHEMA, 4200, onTitle);
   return out.projects || [];
 }
 
@@ -567,7 +573,7 @@ async function writeArticles(commune, projects, pdfs, onTitle) {
     source_url: p.source_url,
     source_media: hostOf(p.source_url),
   })), null, 1)}\n\nDOCUMENTS PDF DISPONIBLES :\n${pdfs.length ? pdfs.map((p) => `- [${p.label}](${p.url})`).join('\n') : '(aucun)'}`;
-  const out = await callOpenAIResilient(system, user, 'articles_projets', ARTICLES_SCHEMA, 4500, onTitle);
+  const out = await callOpenAIResilient(system, user, 'articles_projets', ARTICLES_SCHEMA, 5500, onTitle);
   return out.articles || [];
 }
 
@@ -670,18 +676,20 @@ async function locateProject(project, commune, bbox, index) {
       }
     } catch { /* BAN indisponible : centre ensuite */ }
   }
-  const angle = (index * 2 * Math.PI) / 10;
+  const angle = (index * 2 * Math.PI) / 12;
   return {
     geometry: { type: 'Point', coordinates: [center.lng + 0.004 * Math.cos(angle), center.lat + 0.003 * Math.sin(angle)] },
     method: 'centre',
   };
 }
 
-/* ─── Illustrations libres (Wikimedia Commons) ─── */
+/* ─── Illustrations libres (Wikimedia Commons), pertinence jugée par l'IA ─── */
 
-const COMMONS_BLOCKLIST = /(blason|logo|carte|map|flag|armoiries|plan[_ ]de|\.svg|\.tif|\.pdf)/i;
+// Pré-filtre bon marché : jamais de blason/logo/carte/SVG envoyé à la vision
+const COMMONS_BLOCKLIST = /(blason|logo|coat[_ ]of[_ ]arms|carte|\bmap\b|\bplan\b|flag|drapeau|armoiries|diagram|\.svg|\.tif|\.pdf)/i;
 
-async function commonsImageAt(lat, lng, radius) {
+async function commonsCandidatesAt(lat, lng, radius) {
+  const out = [];
   try {
     const u = new URL('https://commons.wikimedia.org/w/api.php');
     u.searchParams.set('action', 'query');
@@ -689,27 +697,87 @@ async function commonsImageAt(lat, lng, radius) {
     u.searchParams.set('generator', 'geosearch');
     u.searchParams.set('ggscoord', `${lat}|${lng}`);
     u.searchParams.set('ggsradius', String(radius));
-    u.searchParams.set('ggslimit', '5');
+    u.searchParams.set('ggslimit', '8');
     u.searchParams.set('ggsnamespace', '6');
     u.searchParams.set('prop', 'imageinfo');
     u.searchParams.set('iiprop', 'url|extmetadata');
-    u.searchParams.set('iiurlwidth', '1200');
+    u.searchParams.set('iiurlwidth', '1024');
     u.searchParams.set('origin', '*');
     const r = await fetchWithTimeout(u.toString(), { headers: UA }, 7000);
-    if (!r.ok) return null;
+    if (!r.ok) return out;
     const data = await r.json();
-    const pages = Object.values(data?.query?.pages || {});
-    for (const page of pages) {
-      if (COMMONS_BLOCKLIST.test(page.title || '')) continue;
+    for (const page of Object.values(data?.query?.pages || {})) {
       const info = page.imageinfo?.[0];
       if (!info?.thumburl) continue;
       const meta = info.extmetadata || {};
+      const title = String(page.title || '').replace(/^File:/i, '');
+      if (COMMONS_BLOCKLIST.test(`${title} ${stripHtml(meta.Categories?.value || '')}`)) continue;
       const artist = stripHtml(meta.Artist?.value || '').slice(0, 60) || 'auteur inconnu';
       const license = meta.LicenseShortName?.value || 'licence libre';
-      return { url: info.thumburl, credit: `${artist}, Wikimedia Commons (${license})` };
+      out.push({ url: info.thumburl, title, credit: `${artist}, Wikimedia Commons (${license})` });
     }
-  } catch { /* Commons indisponible : pas d'illustration */ }
-  return null;
+  } catch { /* Commons indisponible */ }
+  return out;
+}
+
+// Candidats autour du projet (deux rayons croissants), dédupliqués, plafonnés
+async function gatherImageCandidates(lat, lng) {
+  const near = await commonsCandidatesAt(lat, lng, 300);
+  const wide = near.length >= 4 ? [] : await commonsCandidatesAt(lat, lng, 750);
+  const seen = new Set();
+  const all = [];
+  for (const c of [...near, ...wide]) {
+    if (seen.has(c.url) || all.length >= 4) continue;
+    seen.add(c.url);
+    all.push(c);
+  }
+  return all;
+}
+
+// L'IA REGARDE vraiment les photos et choisit celle qui illustre ce projet
+// précis, ou aucune (-1). C'est le juge de pertinence : mieux vaut rien qu'une
+// image hors sujet. Coût vision assumé, la crédibilité de la démo prime.
+async function pickBestImageWithAI(project, communeNom, candidates) {
+  if (!candidates.length) return null;
+  try {
+    const content = [{
+      type: 'input_text',
+      text: `Projet urbain à ${communeNom} : "${project.title}". ${project.description || ''}${project.place ? ` Lieu concerné : ${project.place}.` : ''}\n\nVoici ${candidates.length} photo(s) numérotée(s) de 0 à ${candidates.length - 1}. Choisis l'index de celle qui illustre le mieux CE lieu ou CE projet (le bâtiment, la rue, le quartier ou l'équipement concerné, ou une vue représentative du secteur). Si aucune ne correspond vraiment, réponds -1. Ne choisis jamais par défaut : une photo hors sujet est pire que pas de photo.`,
+    }];
+    candidates.forEach((c, i) => {
+      content.push({ type: 'input_text', text: `Image ${i} - ${c.title}` });
+      content.push({ type: 'input_image', image_url: c.url });
+    });
+    const r = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        input: [{ role: 'user', content }],
+        text: {
+          format: {
+            type: 'json_schema',
+            name: 'choix_image',
+            schema: {
+              type: 'object',
+              additionalProperties: false,
+              properties: { best_index: { type: 'integer' } },
+              required: ['best_index'],
+            },
+            strict: true,
+          },
+        },
+        max_output_tokens: 60,
+      }),
+    }, 25000);
+    if (!r.ok) return null;
+    const data = await r.json();
+    const text = data.output_text
+      || data.output?.flatMap((o) => o.content || []).find((c) => c.type === 'output_text')?.text;
+    const idx = JSON.parse(text || '{}').best_index;
+    if (typeof idx !== 'number' || idx < 0 || idx >= candidates.length) return null;
+    return candidates[idx];
+  } catch { return null; }
 }
 
 /* ─── Écriture Supabase ─── */
@@ -895,7 +963,9 @@ async function coreAi(send, step, state) {
   return state;
 }
 
-async function coreGeoMedia(send, step, state) {
+// Phase LOCALISATION : localisation seule (Nominatim est lent, 1 req/s) - la
+// recherche d'illustrations, coûteuse en vision IA, part dans sa propre phase
+async function coreGeo(send, step, state) {
   const { projects, bbox } = state;
   const communeShim = {
     nom: state.commune.nom,
@@ -928,21 +998,27 @@ async function coreGeoMedia(send, step, state) {
   const precise = located.filter((p) => p.method !== 'centre').length;
   step('geo', 'done', 'Projets localisés', `${precise}/${located.length} emplacements précis`);
 
-  step('media', 'start', 'Recherche d\'illustrations libres de droits', 'Wikimedia Commons : photos prises sur place');
-  let communeFallbackImg = null;
-  const images = await inChunks(located.map((p, i) => ({ p, i })), 4, async ({ p }) => {
+  state.located = located;
+  state.projects = [];
+  state.stats.verified = located.length;
+  state.stats.precise = precise;
+  return state;
+}
+
+// Phase ILLUSTRATIONS : candidats Commons puis juge visuel IA, projet par projet
+async function coreMedia(send, step, state) {
+  const { located } = state;
+  step('media', 'start', 'Recherche d\'illustrations libres de droits', 'Photos libres jugées une à une par l\'IA (sujet vérifié)');
+  const images = await inChunks(located, 3, async (p) => {
     const c = centroidOf(p.geometry);
-    return commonsImageAt(c.lat, c.lng, 350);
+    const candidates = await gatherImageCandidates(c.lat, c.lng);
+    return pickBestImageWithAI(p, state.commune.nom, candidates);
   });
   let illustrated = 0;
   for (let i = 0; i < located.length; i++) {
-    let img = images[i];
-    if (!img) {
-      if (communeFallbackImg === null) {
-        communeFallbackImg = await commonsImageAt(state.commune.lat, state.commune.lng, 2500) || false;
-      }
-      img = communeFallbackImg || null;
-    }
+    // Pas de photo de repli hors sujet : sans illustration pertinente, on
+    // n'en met aucune (une vignette qui ne colle pas casse la crédibilité)
+    const img = images[i];
     if (img) {
       located[i].coverSrc = img.url;
       located[i].coverCredit = img.credit;
@@ -952,12 +1028,9 @@ async function coreGeoMedia(send, step, state) {
       send({ type: 'media-item', title: located[i].title, credit: img.credit, coverSrc: img.url, lat: c.lat, lng: c.lng });
     }
   }
-  step('media', illustrated ? 'done' : 'skip', 'Illustrations trouvées', `${illustrated}/${located.length} projets illustrés (photos libres de droits)`);
+  step('media', illustrated ? 'done' : 'skip', 'Illustrations trouvées', `${illustrated}/${located.length} projets illustrés (photos libres, sujet vérifié)`);
 
   state.located = located;
-  state.projects = [];
-  state.stats.verified = located.length;
-  state.stats.precise = precise;
   state.stats.illustrated = illustrated;
   return state;
 }
@@ -1002,8 +1075,9 @@ async function runSources(send, step, insee, ipHash) {
     // Local : pas de persistance possible, on enchaîne tout dans l'invocation
     const s2 = await coreAi(send, step, state);
     if (!s2) return;
-    const s3 = await coreGeoMedia(send, step, s2);
-    await coreRedact(send, step, s3);
+    const s3 = await coreGeo(send, step, s2);
+    const s4 = await coreMedia(send, step, s3);
+    await coreRedact(send, step, s4);
     send({
       type: 'error',
       message: 'Environnement local sans clé service Supabase : la création de l\'espace est désactivée ici. En production, cette étape fonctionne.',
@@ -1046,7 +1120,18 @@ async function runLocate(send, step, ville) {
     send({ type: 'error', message: 'Analyse introuvable : relancez la génération.' });
     return;
   }
-  const state = await coreGeoMedia(send, step, instance.payload);
+  const state = await coreGeo(send, step, instance.payload);
+  await updateInstance(ville, { status: 'draft-locate', payload: state });
+  send({ type: 'phase', next: 'media', ville });
+}
+
+async function runMedia(send, step, ville) {
+  const instance = await getInstance({ ville });
+  if (!instance?.payload || instance.status !== 'draft-locate') {
+    send({ type: 'error', message: 'Analyse introuvable : relancez la génération.' });
+    return;
+  }
+  const state = await coreMedia(send, step, instance.payload);
   await updateInstance(ville, { status: 'draft-media', payload: state });
   send({ type: 'phase', next: 'redact', ville });
 }
@@ -1276,6 +1361,8 @@ export default async (req, context) => {
           await runAi(send, step, villeParam);
         } else if (phase === 'locate') {
           await runLocate(send, step, villeParam);
+        } else if (phase === 'media') {
+          await runMedia(send, step, villeParam);
         } else if (phase === 'redact') {
           await runRedact(send, step, villeParam);
         } else if (phase === 'create') {
@@ -1296,7 +1383,7 @@ export default async (req, context) => {
             await deleteWhere('demo_instances', { ville: `eq.${already.ville}` });
             already = null;
           }
-          const RESUME = { 'draft-sources': 'ai', 'draft-ai': 'locate', 'draft-media': 'redact', 'draft': 'create' };
+          const RESUME = { 'draft-sources': 'ai', 'draft-ai': 'locate', 'draft-locate': 'media', 'draft-media': 'redact', 'draft': 'create' };
           if (already?.status === 'ready') {
             step('resolve', 'done', 'Commune reconnue', already.commune_nom);
             step('exists', 'done', 'Espace déjà généré', 'On vous y emmène');

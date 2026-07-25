@@ -45,6 +45,16 @@
     <section id="screen-progress" class="screen screen--hud">
       <div id="topline" class="topline" aria-hidden="true"><span id="topline-fill"></span></div>
 
+      <!-- Stepper : les 5 phases du recensement, pour lire d'un coup d'oeil
+           ou on en est et ce qui vient -->
+      <ol id="stepper" class="stepper" aria-hidden="true">
+        <li class="step" data-stage="0"><span class="step__dot">1</span><span class="step__label">Sources</span></li>
+        <li class="step" data-stage="1"><span class="step__dot">2</span><span class="step__label">Analyse IA</span></li>
+        <li class="step" data-stage="2"><span class="step__dot">3</span><span class="step__label">Localisation</span></li>
+        <li class="step" data-stage="3"><span class="step__dot">4</span><span class="step__label">Illustrations</span></li>
+        <li class="step" data-stage="4"><span class="step__dot">5</span><span class="step__label">Espace</span></li>
+      </ol>
+
       <div id="hud-pill" class="hud-pill">
         <span id="hud-icon" class="hud-pill__icon"><span class="spinner"></span></span>
         <span class="hud-pill__texts">

@@ -2,7 +2,7 @@
    MAP-FX - moteur WebGL du kiosque /demo/ (window.MapFX)
 
    La carte est le spectacle : France en respiration lente (mode attract),
-   plongée cinématique sur la commune, radar de recensement et arcs de
+   plongée cinématique sur la commune, sonar de recensement et arcs de
    collecte convergents pendant l'analyse, orbite pendant la réflexion IA,
    zoom cinématique sur chaque projet localisé (file d'attente), emprises
    réelles embrasées, photos posées sur la carte, final en vue d'ensemble.
@@ -264,11 +264,12 @@
       map.isStyleLoaded() ? apply() : map.once('idle', apply);
     },
 
-    // Radar de recensement : balayage rotatif ancré sur la commune
+    // Sonar de recensement : anneaux concentriques qui pulsent depuis la commune
     scanStart() {
       if (!ok || !communeCenter || scanMarker) return;
       const el = document.createElement('div');
-      el.className = 'fx-scan';
+      el.className = 'fx-sonar';
+      el.innerHTML = '<span></span><span></span><span></span><i></i>';
       scanMarker = new maplibregl.Marker({ element: el, anchor: 'center' })
         .setLngLat([communeCenter.lng, communeCenter.lat])
         .addTo(map);

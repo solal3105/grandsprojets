@@ -224,7 +224,39 @@
     setTimeout(nextTick, 1500);
   }
 
+  // Stepper : chaque step interne appartient à l'une des 5 phases visibles.
+  // L'avancement est monotone (on ne recule jamais d'une phase).
+  const stepperEl = $('stepper');
+  const STAGE_OF = {
+    resolve: 0, mairie: 0, news: 0, boamp: 0,
+    ai1: 1, ai2: 1,
+    geo: 2,
+    media: 3, articles: 3,
+    exists: 4, create: 4, covers: 4, publish: 4,
+  };
+  let curStage = -1;
+
+  function setStage(idx) {
+    if (idx == null || idx <= curStage) return;
+    curStage = idx;
+    [...stepperEl.children].forEach((li, i) => {
+      li.classList.toggle('is-done', i < idx);
+      li.classList.toggle('is-current', i === idx);
+    });
+  }
+
+  function finishStages() {
+    curStage = 99;
+    [...stepperEl.children].forEach((li) => { li.classList.add('is-done'); li.classList.remove('is-current'); });
+  }
+
+  function resetStages() {
+    curStage = -1;
+    [...stepperEl.children].forEach((li) => li.classList.remove('is-done', 'is-current'));
+  }
+
   function onStep({ id, status, label, detail }) {
+    if (STAGE_OF[id] !== undefined) setStage(STAGE_OF[id]);
     if (STEP_PCT[id]) setProgress(status === 'start' ? STEP_PCT[id] - 5 : STEP_PCT[id]);
     if (status === 'start') setPill(label, detail, false);
     else {
@@ -356,6 +388,7 @@
     $('ticker-icon').innerHTML = '';
     $('ticker-text').textContent = `Recensement de ${commune.nom} en cours...`;
     $('ticker-meta').textContent = '';
+    resetStages();
     progressPct = 0;
     setProgress(2);
     setPill('Préparation...', '', false);
@@ -401,6 +434,7 @@
     }
 
     if (hasFx) window.MapFX.finale();
+    finishStages();
     setProgress(100);
     show('done');
 
@@ -443,6 +477,7 @@
     $('counters').innerHTML = '';
     tickerQueue = [];
     tickerBusy = false;
+    resetStages();
     progressPct = 0;
     setProgress(0);
     ['stat-sources', 'stat-verified', 'stat-precise', 'stat-illustrated'].forEach((id) => { $(id).textContent = '0'; });

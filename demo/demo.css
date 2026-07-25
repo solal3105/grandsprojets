@@ -166,10 +166,104 @@ body:not(.has-map) #map { display: none; }
   transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Pilule de statut : l'étape en cours, lisible à 3 mètres */
+/* Stepper : les 5 phases, colonne vertébrale de la linéarité du chargement.
+   Lu d'un coup d'oeil : ce qui est fait (coché), l'étape en cours (accent
+   pulsé), ce qui reste (grisé). */
+.stepper {
+  position: fixed;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  list-style: none;
+  background: rgba(9, 13, 24, 0.8);
+  backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 12px 30px 14px;
+  box-shadow: 0 24px 70px -18px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  max-width: 94vw;
+}
+.step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 clamp(18px, 3.4vw, 42px);
+  flex: 0 0 auto;
+}
+/* Trait de liaison entre deux pastilles, rempli quand l'étape est atteinte */
+.step::before {
+  content: '';
+  position: absolute;
+  top: 15px;
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.16);
+  z-index: 0;
+}
+.step:first-child::before { display: none; }
+.step.is-done::before,
+.step.is-current::before { background: color-mix(in srgb, var(--ok) 85%, transparent); }
+.step__dot {
+  position: relative;
+  z-index: 1;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(20, 26, 42, 0.95);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.step__label {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  transition: color 0.4s ease;
+}
+.step.is-current .step__dot {
+  color: #fff;
+  background: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 60%, #fff);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 22%, transparent), 0 0 22px color-mix(in srgb, var(--accent) 60%, transparent);
+  animation: stepPulse 1.6s ease-in-out infinite;
+}
+.step.is-current .step__label { color: #fff; font-weight: 600; }
+.step.is-done .step__dot {
+  color: transparent;
+  background: var(--ok);
+  border-color: var(--ok);
+}
+.step.is-done .step__dot::after {
+  content: '';
+  position: absolute;
+  width: 12px; height: 7px;
+  border-left: 2.4px solid #fff;
+  border-bottom: 2.4px solid #fff;
+  transform: translateY(-1px) rotate(-45deg);
+}
+.step.is-done .step__label { color: rgba(255, 255, 255, 0.82); }
+@keyframes stepPulse {
+  0%, 100% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 20%, transparent), 0 0 20px color-mix(in srgb, var(--accent) 55%, transparent); }
+  50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 8%, transparent), 0 0 30px color-mix(in srgb, var(--accent) 70%, transparent); }
+}
+
+/* Pilule de statut : l'action en cours, sous le stepper, lisible à 3 mètres */
 .hud-pill {
   position: fixed;
-  top: 26px;
+  top: 114px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 5;
@@ -318,20 +412,47 @@ body:not(.has-map) #map { display: none; }
 @keyframes tickerIn { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
 @keyframes findingIn { from { opacity: 0; transform: translateY(8px) scale(0.96); } to { opacity: 1; transform: none; } }
 
-/* Radar de recensement : balayage rotatif ancré sur la commune */
-.fx-scan {
-  width: 460px;
-  height: 460px;
-  border-radius: 50%;
+/* Sonar de recensement : anneaux concentriques qui se propagent depuis la
+   commune (remplace l'ancien balayage conique). Trois anneaux décalés + un
+   coeur pulsé, mix-blend screen pour se fondre dans la carte sombre. */
+.fx-sonar {
+  position: relative;
+  width: 0; height: 0;
   pointer-events: none;
-  background: conic-gradient(from 0deg, color-mix(in srgb, var(--accent, #ff4d6a) 38%, transparent), transparent 70deg, transparent 360deg);
-  -webkit-mask: radial-gradient(circle, transparent 34%, #000 35%, #000 66%, transparent 67%);
-  mask: radial-gradient(circle, transparent 34%, #000 35%, #000 66%, transparent 67%);
-  animation: scanSpin 3.2s linear infinite;
-  opacity: 0.75;
   mix-blend-mode: screen;
 }
-@keyframes scanSpin { to { transform: rotate(360deg); } }
+.fx-sonar span {
+  position: absolute;
+  left: 0; top: 0;
+  width: 40px; height: 40px;
+  margin: -20px 0 0 -20px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent, #ff4d6a) 80%, #fff);
+  box-shadow: 0 0 26px color-mix(in srgb, var(--accent, #ff4d6a) 55%, transparent);
+  opacity: 0;
+  animation: sonarPing 3.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+.fx-sonar span:nth-child(2) { animation-delay: 1.13s; }
+.fx-sonar span:nth-child(3) { animation-delay: 2.26s; }
+.fx-sonar i {
+  position: absolute;
+  left: 0; top: 0;
+  width: 12px; height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent, #ff4d6a) 90%, #fff);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent, #ff4d6a) 80%, transparent);
+  animation: sonarCore 1.7s ease-in-out infinite;
+}
+@keyframes sonarPing {
+  0% { transform: scale(0.2); opacity: 0; }
+  12% { opacity: 0.9; }
+  100% { transform: scale(11); opacity: 0; }
+}
+@keyframes sonarCore {
+  0%, 100% { transform: scale(0.8); opacity: 0.75; }
+  50% { transform: scale(1.25); opacity: 1; }
+}
 
 /* Photo posée sur la carte à l'emplacement du projet */
 .fx-photo {
@@ -530,6 +651,15 @@ body:not(.has-map) #map { display: none; }
 }
 .fx-pin-wrap.is-collapsed .fx-pin-label { opacity: 0; max-width: 0; padding: 6px 0; border-width: 0; }
 
+/* Écrans étroits (hors kiosque) : le stepper garde ses pastilles, cache ses
+   libellés pour tenir sur une ligne */
+@media (max-width: 880px) {
+  .stepper { padding: 10px 14px 12px; }
+  .step { padding: 0 clamp(9px, 2.4vw, 20px); }
+  .step__label { display: none; }
+  .hud-pill { top: 84px; }
+}
+
 @media (max-width: 720px) {
   .done__stats { grid-template-columns: repeat(2, 1fr); }
   .done__qr { flex-direction: column; text-align: center; }
@@ -540,4 +670,7 @@ body:not(.has-map) #map { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .search__input { animation: none; }
   .fx-pin::after { animation: none; opacity: 0; }
+  .fx-sonar span { animation: none; opacity: 0; }
+  .fx-sonar i { animation: none; opacity: 0.7; }
+  .step.is-current .step__dot { animation: none; }
 }
