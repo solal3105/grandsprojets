@@ -480,6 +480,35 @@ async function callOpenAI(system, user, schemaName, schema, maxTokens, onTitle) 
   return JSON.parse(full);
 }
 
+// Le flux OpenAI revient parfois vide (aléa transitoire constaté en prod) :
+// une passe streamée qui échoue est retentée une fois en mode non streamé
+async function callOpenAIResilient(system, user, schemaName, schema, maxTokens, onTitle) {
+  try {
+    return await callOpenAI(system, user, schemaName, schema, maxTokens, onTitle);
+  } catch (e) {
+    console.error('[demo-generate] retry IA non streamé après :', e.message);
+    const r = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        input: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        text: { format: { type: 'json_schema', name: schemaName, schema, strict: true } },
+        max_output_tokens: maxTokens,
+      }),
+    }, 120000);
+    if (!r.ok) throw new Error(`IA indisponible (${r.status})`);
+    const data = await r.json();
+    const text = data.output_text
+      || data.output?.flatMap((o) => o.content || []).find((c) => c.type === 'output_text')?.text;
+    if (!text) throw new Error('Réponse IA vide (retry)');
+    return JSON.parse(text);
+  }
+}
+
 function buildSourcesBundle({ mairie, news, boamp }) {
   const parts = [];
   for (const p of mairie.pages) {
@@ -508,7 +537,7 @@ async function selectProjects(commune, candidates, bundle, onTitle) {
 - place : le lieu géocodable le plus précis mentionné (rue, quartier, équipement), chaîne vide sinon.
 - source_url : reprends l'URL de la source qui atteste le projet.`;
   const user = `CANDIDATS :\n${JSON.stringify(candidates, null, 1)}\n\nSOURCES (pour vérification) :\n\n${bundle.slice(0, 30000)}`;
-  const out = await callOpenAI(system, user, 'selection_finale', FINAL_SCHEMA, 3200, onTitle);
+  const out = await callOpenAIResilient(system, user, 'selection_finale', FINAL_SCHEMA, 3200, onTitle);
   return out.projects || [];
 }
 
@@ -523,7 +552,7 @@ async function writeArticles(commune, projects, pdfs, onTitle) {
     source_url: p.source_url,
     source_media: hostOf(p.source_url),
   })), null, 1)}\n\nDOCUMENTS PDF DISPONIBLES :\n${pdfs.length ? pdfs.map((p) => `- [${p.label}](${p.url})`).join('\n') : '(aucun)'}`;
-  const out = await callOpenAI(system, user, 'articles_projets', ARTICLES_SCHEMA, 4500, onTitle);
+  const out = await callOpenAIResilient(system, user, 'articles_projets', ARTICLES_SCHEMA, 4500, onTitle);
   return out.articles || [];
 }
 
@@ -1210,6 +1239,7 @@ export default async (req, context) => {
         send({
           type: 'error',
           message: 'Un imprévu est survenu pendant la génération. Réessayez, ou passez nous voir pour une démo guidée.',
+          retryable: true,
           // Détail technique uniquement si le diagnostic est activé côté env
           ...(process.env.DEMO_DEBUG === '1' ? { debug: String(err?.message || err).slice(0, 180) } : {}),
         });

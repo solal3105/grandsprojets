@@ -285,24 +285,35 @@
         openStream(`/api/demo-generate?phase=${encodeURIComponent(msg.next)}&ville=${encodeURIComponent(msg.ville)}`);
       }
       else if (msg.type === 'done') { es.close(); es = null; onDone(msg); }
-      else if (msg.type === 'error') { es.close(); es = null; onError(msg.message, msg.debug); }
+      else if (msg.type === 'error') {
+        es.close(); es = null;
+        // Les imprévus serveur (marqués retryable) suivent le même chemin de
+        // reprise que les coupures réseau : l'état est côté serveur
+        if (msg.retryable) tryResume(msg.debug);
+        else onError(msg.message, msg.debug);
+      }
     };
     es.onerror = () => {
       if (!es) return;
       es.close();
       es = null;
-      if (currentCommune && resumeAttempts < MAX_RESUMES) {
-        resumeAttempts++;
-        addFeed('fusee', 'Reconnexion...', `reprise automatique (${resumeAttempts}/${MAX_RESUMES})`);
-        setTimeout(() => {
-          if (!es && screens.progress.classList.contains('is-active')) {
-            openStream(`/api/demo-generate?commune=${encodeURIComponent(currentCommune.code)}${kioskParam}`);
-          }
-        }, 1600);
-      } else {
-        onError('La connexion a été interrompue. Réessayez.');
-      }
+      tryResume();
     };
+  }
+
+  function tryResume(debug) {
+    if (debug) console.error('[demo-generate]', debug);
+    if (currentCommune && resumeAttempts < MAX_RESUMES) {
+      resumeAttempts++;
+      addFeed('fusee', 'Reconnexion...', `reprise automatique (${resumeAttempts}/${MAX_RESUMES})`);
+      setTimeout(() => {
+        if (!es && screens.progress.classList.contains('is-active')) {
+          openStream(`/api/demo-generate?commune=${encodeURIComponent(currentCommune.code)}${kioskParam}`);
+        }
+      }, 1800);
+    } else {
+      onError('La génération n\'a pas abouti malgré plusieurs tentatives. Réessayez, ou passez nous voir pour une démo guidée.');
+    }
   }
 
   function start(commune) {
