@@ -1,10 +1,10 @@
 /* ============================================================================
    ÉCRAN DÉMO SALON - /demo/demo.js
-   Flow immersif : mode attract (globe + machine à écrire), génération en
-   quatre phases SSE enchaînées sans couture, HUD flottant sur la carte
-   (pilule de statut, fil d'activité, barre de progression), chorégraphie
-   WebGL (plongée, relief 3D, orbite IA, épingles étiquetées), écran final
-   avec statistiques du recensement, QR code et bouton vers l'espace.
+   Flow immersif : mode attract (France en respiration + machine à écrire),
+   génération en phases SSE enchaînées avec reprise automatique, HUD intégré
+   à la carte (pilule de statut, compteurs de recensement, ticker une ligne),
+   chorégraphie WebGL (plongée, radar, arcs de collecte, zoom par projet,
+   photos posées sur la carte), écran final avec statistiques et QR code.
    Mode kiosque : ?kiosk=1 (pas de redirection auto, retour attract).
    ============================================================================ */
 (() => {
@@ -14,10 +14,8 @@
   const screens = { input: $('screen-input'), progress: $('screen-progress'), done: $('screen-done') };
   const input = $('commune-input');
   const suggestionsEl = $('suggestions');
-  const feedEl = $('feed');
   const URL_PARAMS = new URLSearchParams(window.location.search);
   const KIOSK = URL_PARAMS.get('kiosk') === '1';
-  // Clé kiosque optionnelle (quota par IP levé côté serveur au salon)
   const KIOSK_KEY = URL_PARAMS.get('k') || '';
   const kioskParam = KIOSK_KEY ? `&k=${encodeURIComponent(KIOSK_KEY)}` : '';
 
@@ -28,6 +26,7 @@
   let debounceTimer = null;
   let typeTimer = null;
   let currentCommune = null;
+  let startTime = 0;
 
   const hasFx = window.MapFX && window.MapFX.init();
 
@@ -104,7 +103,6 @@
   input.addEventListener('input', () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => fetchSuggestions(input.value.trim()), 180);
-    // Champ redevenu vide : la machine à écrire reprend la main
     if (!input.value && screens.input.classList.contains('is-active')) {
       clearTimeout(typeTimer);
       typewriter();
@@ -121,7 +119,6 @@
       const c = suggestions[selectedIndex >= 0 ? selectedIndex : 0];
       if (c) start(c);
       else if (input.value.trim().length >= 2) {
-        // Entrée avant l'arrivée des suggestions : recherche immédiate
         clearTimeout(debounceTimer);
         fetchSuggestions(input.value.trim()).then(() => { if (suggestions[0]) start(suggestions[0]); });
       }
@@ -135,11 +132,10 @@
     if (li) start(suggestions[parseInt(li.dataset.i, 10)]);
   });
 
-  /* ─── HUD : pilule de statut, progression, fil d'activité ─── */
+  /* ─── HUD : pilule, progression, compteurs, ticker ─── */
 
   const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
   const ICONS = {
-    globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>',
     mairie: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M5 21V9l7-5 7 5v12M9 21v-6h6v6"/></svg>',
     file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
     presse: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0V9"/><path d="M12 6h6M12 10h6M12 14h6M12 18h6"/></svg>',
@@ -152,7 +148,6 @@
     fusee: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>',
   };
 
-  // Poids de progression par étape (barre du haut), 100 % réservé au done
   const STEP_PCT = {
     resolve: 6, mairie: 18, news: 34, boamp: 40, ai1: 54, ai2: 66,
     geo: 76, media: 84, articles: 90, exists: 20, create: 93, covers: 95, publish: 98,
@@ -160,7 +155,6 @@
 
   let progressPct = 0;
   function setProgress(pct) {
-    // Monotone : la barre ne recule jamais, quel que soit l'ordre des reprises
     progressPct = pct <= 2 ? pct : Math.max(progressPct, pct);
     $('topline-fill').style.width = `${Math.min(100, progressPct)}%`;
   }
@@ -171,95 +165,129 @@
     $('hud-icon').innerHTML = done ? `<span class="hud-check">${CHECK_SVG}</span>` : '<span class="spinner"></span>';
   }
 
-  const FEED_MAX = 6;
-  function addFeed(icon, title, meta, ok) {
-    const li = document.createElement('li');
-    if (ok) li.className = 'feed--ok';
-    li.innerHTML = `
-      <span class="feed__icon">${ICONS[icon] || ICONS.file}</span>
-      <span class="feed__text">
-        <span class="feed__title">${escapeHtml(title)}</span>
-        ${meta ? `<span class="feed__meta">${escapeHtml(meta)}</span>` : ''}
-      </span>`;
-    feedEl.appendChild(li);
-    const items = [...feedEl.children];
-    items.slice(0, Math.max(0, items.length - 3)).forEach((el) => el.classList.add('is-old'));
-    // Purge dure au-delà de la marge, sortie animée une seule fois par nœud
-    while (feedEl.children.length > FEED_MAX + 3) feedEl.firstElementChild.remove();
-    items.slice(0, Math.max(0, items.length - FEED_MAX)).forEach((el) => {
-      if (!el.classList.contains('is-gone')) {
-        el.classList.add('is-gone');
-        setTimeout(() => el.remove(), 600);
-      }
-    });
-    return li;
+  // Compteurs cumulés du recensement, rendus uniquement quand ils vivent
+  const COUNTER_DEFS = [
+    ['sources', 'sources'],
+    ['articles', 'articles lus'],
+    ['docs', 'docs officiels'],
+    ['marches', 'marchés'],
+    ['candidats', 'candidats'],
+    ['verifies', 'vérifiés'],
+    ['localises', 'localisés'],
+    ['illustres', 'illustrés'],
+  ];
+  let counters = {};
+
+  function bumpCounter(key, value) {
+    counters[key] = value !== undefined ? value : (counters[key] || 0) + 1;
+    const box = $('counters');
+    let el = document.getElementById(`counter-${key}`);
+    if (!el) {
+      el = document.createElement('span');
+      el.className = 'counter';
+      el.id = `counter-${key}`;
+      const label = COUNTER_DEFS.find(([k]) => k === key)?.[1] || key;
+      el.innerHTML = `<span class="counter__n">0</span><span class="counter__l">${label}</span>`;
+      // Ordre stable, indépendant de l'ordre d'apparition
+      const order = COUNTER_DEFS.findIndex(([k]) => k === key);
+      const next = [...box.children].find((c) => COUNTER_DEFS.findIndex(([k]) => `counter-${k}` === c.id) > order);
+      box.insertBefore(el, next || null);
+    }
+    const n = el.querySelector('.counter__n');
+    n.textContent = counters[key];
+    n.classList.remove('is-bump');
+    requestAnimationFrame(() => n.classList.add('is-bump'));
   }
 
-  const aiCounts = { ai1: 0, ai2: 0 };
-  let currentStepLabel = '';
+  // Ticker : une seule trouvaille à la fois, file d'attente à débit régulier
+  let tickerQueue = [];
+  let tickerBusy = false;
+
+  function tick(icon, text, meta, iconUrl) {
+    tickerQueue.push({ icon, text, meta, iconUrl });
+    if (tickerQueue.length > 5) tickerQueue.splice(0, tickerQueue.length - 5);
+    if (!tickerBusy) nextTick();
+  }
+
+  function nextTick() {
+    const item = tickerQueue.shift();
+    if (!item) { tickerBusy = false; return; }
+    tickerBusy = true;
+    const t = $('ticker');
+    $('ticker-icon').innerHTML = item.iconUrl
+      ? `<img src="${escapeHtml(item.iconUrl)}" alt="" onerror="this.remove()">`
+      : (ICONS[item.icon] || ICONS.file);
+    $('ticker-text').textContent = item.text;
+    $('ticker-meta').textContent = item.meta || '';
+    t.classList.remove('is-swap');
+    requestAnimationFrame(() => t.classList.add('is-swap'));
+    setTimeout(nextTick, 1500);
+  }
 
   function onStep({ id, status, label, detail }) {
     if (STEP_PCT[id]) setProgress(status === 'start' ? STEP_PCT[id] - 5 : STEP_PCT[id]);
-    if (status === 'start') {
-      currentStepLabel = label;
-      setPill(label, detail, false);
-    } else {
+    if (status === 'start') setPill(label, detail, false);
+    else {
       setPill(label, detail, true);
-      addFeed(status === 'skip' ? 'file' : 'verif', label, detail, status === 'done');
+      tick('verif', label, detail);
     }
-    // Chorégraphie : l'IA réfléchit = la caméra orbite autour de la commune
     if (hasFx) {
+      if (id === 'mairie' && status === 'start') window.MapFX.scanStart();
       if (id === 'ai1' && status === 'start') window.MapFX.orbitStart();
-      if (id === 'geo' && status === 'start') window.MapFX.orbitStop();
+      if (id === 'geo' && status === 'start') { window.MapFX.scanStop(); window.MapFX.orbitStop(); }
     }
   }
 
-  const FINDING_ICON = { logo: 'mairie', page: 'file', pdf: 'file', article: 'presse', boamp: 'marche' };
-
   function onFinding(f) {
+    if (hasFx) window.MapFX.pulseSource();
     if (f.kind === 'logo') {
       if (f.color) {
         document.documentElement.style.setProperty('--accent', f.color);
         if (hasFx) window.MapFX.setAccent(f.color);
       }
-      const li = addFeed('mairie', f.title, f.color ? `identité récupérée · ${f.color}` : 'site officiel');
-      if (f.iconUrl) {
-        const img = document.createElement('img');
-        img.src = f.iconUrl;
-        img.onerror = () => img.remove();
-        li.querySelector('.feed__icon').replaceChildren(img);
-      }
+      bumpCounter('sources');
+      tick('mairie', f.title, f.color ? `identité et couleurs récupérées · ${f.color}` : 'site officiel', f.iconUrl);
       return;
     }
-    addFeed(FINDING_ICON[f.kind] || 'file', f.title, [f.domain, f.date].filter(Boolean).join(' · '));
+    if (f.kind === 'article') { bumpCounter('sources'); bumpCounter('articles'); tick('presse', f.text || f.title, [f.domain, f.date].filter(Boolean).join(' · ')); }
+    else if (f.kind === 'pdf') { bumpCounter('docs'); tick('file', f.title, 'document officiel'); }
+    else if (f.kind === 'page') { bumpCounter('sources'); tick('mairie', f.title, f.domain); }
+    else if (f.kind === 'boamp') { bumpCounter('marches'); tick('marche', f.title, f.date); }
   }
 
   function onAiItem(msg) {
-    aiCounts[msg.phase] = (aiCounts[msg.phase] || 0) + 1;
-    addFeed('ia', msg.title, msg.phase === 'ai1' ? 'projet repéré' : 'projet retenu');
+    if (msg.phase === 'ai1') { bumpCounter('candidats'); tick('ia', msg.title, 'projet repéré'); }
+    else { tick('verif', msg.title, 'projet retenu'); }
     $('hud-detail').textContent = msg.phase === 'ai1'
-      ? `${aiCounts.ai1} projet(s) repéré(s) dans les sources...`
-      : `${aiCounts.ai2} projet(s) retenus et vérifiés...`;
+      ? `${counters.candidats || 0} projet(s) repéré(s) dans les sources...`
+      : 'vérification des sources projet par projet...';
   }
 
   function onProjects(items) {
+    bumpCounter('verifies', items.length);
     items.forEach((p, i) => {
-      setTimeout(() => addFeed('verif', p.title, [p.category_slug.replace(/-/g, ' '), p.status].filter(Boolean).join(' · '), true), i * 260);
+      setTimeout(() => tick('verif', p.title, [p.category_slug.replace(/-/g, ' '), p.status].filter(Boolean).join(' · ')), i * 260);
     });
   }
 
   function onGeoItem(g) {
-    addFeed('pin', g.title, g.label || g.method, g.method !== 'centre');
+    bumpCounter('localises');
+    tick('pin', g.title, g.label || g.method);
     if (hasFx && typeof g.lat === 'number') {
       window.MapFX.addProject({ lat: g.lat, lng: g.lng, geometry: g.geometry, precise: g.method !== 'centre', title: g.title });
     }
   }
 
-  /* ─── Génération (phases SSE enchaînées sans couture) ─── */
+  function onMediaItem(msg) {
+    bumpCounter('illustres');
+    tick('photo', msg.title, 'photo libre trouvée sur place');
+    if (hasFx && typeof msg.lat === 'number' && msg.coverSrc) {
+      window.MapFX.attachPhoto(msg.lat, msg.lng, msg.coverSrc);
+    }
+  }
 
-  // Les phases serveur sont idempotentes et reprennent par statut : en cas de
-  // coupure transitoire du flux (reconnexion EventSource, réseau de salon...),
-  // on rappelle l'endpoint d'entrée qui reprend exactement où on en était.
+  /* ─── Génération (phases SSE enchaînées, reprise automatique) ─── */
+
   const MAX_RESUMES = 4;
   let resumeAttempts = 0;
 
@@ -268,27 +296,24 @@
     es.onmessage = (e) => {
       let msg;
       try { msg = JSON.parse(e.data); } catch { return; }
-      if (msg.type === 'step' || msg.type === 'phase') resumeAttempts = 0; // le flux progresse : santé confirmée
+      if (msg.type === 'step' || msg.type === 'phase') resumeAttempts = 0;
       if (msg.type === 'step') onStep(msg);
       else if (msg.type === 'finding') onFinding(msg);
       else if (msg.type === 'ai-item') onAiItem(msg);
-      else if (msg.type === 'media-item') addFeed('photo', msg.title, msg.credit);
-      else if (msg.type === 'cover-item') addFeed('photo', msg.title, 'illustration installée', true);
-      else if (msg.type === 'article-item') addFeed('plume', msg.title, 'article rédigé');
-      else if (msg.type === 'create-item') addFeed('fusee', msg.label, '', true);
+      else if (msg.type === 'media-item') onMediaItem(msg);
+      else if (msg.type === 'cover-item') tick('photo', msg.title, 'illustration installée');
+      else if (msg.type === 'article-item') tick('plume', msg.title, 'article rédigé');
+      else if (msg.type === 'create-item') tick('fusee', msg.label, '');
       else if (msg.type === 'projects') onProjects(msg.items || []);
       else if (msg.type === 'geo-item') onGeoItem(msg);
       else if (msg.type === 'phase') {
         es.close(); es = null;
-        // Le spinner reste actif pendant la transition d'invocation
-        setPill(currentStepLabel || 'Analyse en cours...', 'Étape suivante...', false);
+        setPill($('hud-label').textContent || 'Analyse en cours...', 'Étape suivante...', false);
         openStream(`/api/demo-generate?phase=${encodeURIComponent(msg.next)}&ville=${encodeURIComponent(msg.ville)}`);
       }
       else if (msg.type === 'done') { es.close(); es = null; onDone(msg); }
       else if (msg.type === 'error') {
         es.close(); es = null;
-        // Les imprévus serveur (marqués retryable) suivent le même chemin de
-        // reprise que les coupures réseau : l'état est côté serveur
         if (msg.retryable) tryResume(msg.debug);
         else onError(msg.message, msg.debug);
       }
@@ -305,7 +330,7 @@
     if (debug) console.error('[demo-generate]', debug);
     if (currentCommune && resumeAttempts < MAX_RESUMES) {
       resumeAttempts++;
-      addFeed('fusee', 'Reconnexion...', `reprise automatique (${resumeAttempts}/${MAX_RESUMES})`);
+      tick('fusee', 'Reconnexion...', `reprise automatique (${resumeAttempts}/${MAX_RESUMES})`);
       setTimeout(() => {
         if (!es && screens.progress.classList.contains('is-active')) {
           openStream(`/api/demo-generate?commune=${encodeURIComponent(currentCommune.code)}${kioskParam}`);
@@ -319,13 +344,18 @@
   function start(commune) {
     currentCommune = commune;
     resumeAttempts = 0;
-    currentStepLabel = '';
+    startTime = Date.now();
     clearTimeout(debounceTimer);
     renderSuggestions([]);
     input.blur();
     clearTimeout(typeTimer);
-    feedEl.innerHTML = '';
-    aiCounts.ai1 = 0; aiCounts.ai2 = 0;
+    counters = {};
+    $('counters').innerHTML = '';
+    tickerQueue = [];
+    tickerBusy = false;
+    $('ticker-icon').innerHTML = '';
+    $('ticker-text').textContent = `Recensement de ${commune.nom} en cours...`;
+    $('ticker-meta').textContent = '';
     progressPct = 0;
     setProgress(2);
     setPill('Préparation...', '', false);
@@ -350,10 +380,12 @@
 
   function onDone(msg) {
     const targetUrl = new URL(msg.url, window.location.origin).toString();
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    const elapsedTxt = elapsed >= 60 ? `${Math.floor(elapsed / 60)} min ${String(elapsed % 60).padStart(2, '0')} s` : `${elapsed} s`;
     $('done-commune').textContent = msg.communeNom || currentCommune?.nom || '';
     $('done-detail').textContent = msg.existing
       ? 'Cet espace avait déjà été généré : le voici.'
-      : `Recensement terminé : ${msg.projectsCount} projets publiés sur la carte.`;
+      : `${msg.projectsCount} projets recensés, vérifiés et publiés en ${elapsedTxt}.`;
     $('btn-open').href = targetUrl;
     if (KIOSK) $('btn-open').target = '_blank';
     $('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=8&data=${encodeURIComponent(targetUrl)}`;
@@ -368,26 +400,26 @@
       $('done-stats').hidden = true;
     }
 
-    if (hasFx) window.MapFX.finale(0);
+    if (hasFx) window.MapFX.finale();
     setProgress(100);
     show('done');
 
     if (KIOSK) {
       let remaining = 90;
-      const tick = () => {
+      const tickDown = () => {
         $('countdown').textContent = `L'écran revient à l'accueil dans ${remaining} s`;
         if (remaining-- <= 0) { reset(); return; }
-        redirectTimer = setTimeout(tick, 1000);
+        redirectTimer = setTimeout(tickDown, 1000);
       };
-      tick();
+      tickDown();
     } else {
       let remaining = 12;
-      const tick = () => {
+      const tickDown = () => {
         $('countdown').textContent = `Ouverture automatique de la carte dans ${remaining} s`;
         if (remaining-- <= 0) { window.location.href = targetUrl; return; }
-        redirectTimer = setTimeout(tick, 1000);
+        redirectTimer = setTimeout(tickDown, 1000);
       };
-      tick();
+      tickDown();
     }
   }
 
@@ -398,6 +430,7 @@
     $('hud-label').textContent = 'Génération interrompue';
     $('hud-detail').textContent = '';
     $('hud-icon').innerHTML = '<span class="hud-x">!</span>';
+    if (hasFx) { window.MapFX.scanStop(); window.MapFX.orbitStop(); }
     if (KIOSK) redirectTimer = setTimeout(reset, 60000);
   }
 
@@ -405,8 +438,11 @@
     clearTimeout(redirectTimer);
     if (es) { es.close(); es = null; }
     input.value = '';
-    feedEl.innerHTML = '';
     renderSuggestions([]);
+    counters = {};
+    $('counters').innerHTML = '';
+    tickerQueue = [];
+    tickerBusy = false;
     progressPct = 0;
     setProgress(0);
     ['stat-sources', 'stat-verified', 'stat-precise', 'stat-illustrated'].forEach((id) => { $(id).textContent = '0'; });
@@ -422,14 +458,13 @@
 
   /* ─── Lancement ─── */
 
-  const params = new URLSearchParams(window.location.search);
-  const codeParam = params.get('commune');
+  const codeParam = URL_PARAMS.get('commune');
   if (codeParam && /^\d{2}[0-9ABab]\d{2}$/.test(codeParam)) {
     fetch(`https://geo.api.gouv.fr/communes/${codeParam.toUpperCase()}?fields=nom,code,population,centre`)
       .then((r) => (r.ok ? r.json() : null))
       .then((c) => {
         if (!c) return attractStart();
-        if (params.get('auto') === '1') start(c);
+        if (URL_PARAMS.get('auto') === '1') start(c);
         else { input.value = c.nom; attractStart(); }
       })
       .catch(() => attractStart());

@@ -23,7 +23,7 @@
 
   <main class="kiosk">
     <header class="kiosk__brand">
-      <img src="/home/img/logos/classic_color.png" alt="Open Projets" class="kiosk__logo"
+      <img src="/home/img/logos/square_white.png" alt="Open Projets" class="kiosk__logo"
            onerror="this.style.display='none'" />
     </header>
 
@@ -54,7 +54,13 @@
         <span id="hud-commune" class="hud-pill__commune"></span>
       </div>
 
-      <ol id="feed" class="feed" aria-live="polite"></ol>
+      <!-- Compteurs cumulés du recensement + ticker : une seule ligne lisible -->
+      <div id="counters" class="counters" aria-hidden="true"></div>
+      <div id="ticker" class="ticker" aria-live="polite">
+        <span id="ticker-icon" class="ticker__icon"></span>
+        <span id="ticker-text" class="ticker__text"></span>
+        <span id="ticker-meta" class="ticker__meta"></span>
+      </div>
 
       <div id="hud-error" class="hud-error" hidden>
         <p id="progress-error"></p>

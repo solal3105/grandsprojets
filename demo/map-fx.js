@@ -1,23 +1,23 @@
 /* ============================================================================
    MAP-FX - moteur WebGL du kiosque /demo/ (window.MapFX)
 
-   La carte est le spectacle : globe MapLibre en rotation lente (mode attract),
-   plongée cinématique sur la commune choisie, contour communal illuminé,
-   orbite pendant la réflexion de l'IA, épingles et emprises réelles qui
-   s'embrasent projet par projet, final en recadrage d'ensemble.
+   La carte est le spectacle : France en respiration lente (mode attract),
+   plongée cinématique sur la commune, radar de recensement et arcs de
+   collecte convergents pendant l'analyse, orbite pendant la réflexion IA,
+   zoom cinématique sur chaque projet localisé (file d'attente), emprises
+   réelles embrasées, photos posées sur la carte, final en vue d'ensemble.
 
-   Aucune dépendance au reste de la carte Open Projets : MapLibre est chargé
-   depuis le CDN par index.html. Si WebGL est indisponible, init() rend false
-   et l'écran retombe sur le fond statique (aucune fonctionnalité perdue).
+   Relief 3D : terrain Terrarium + ombrage + bâtiments extrudés.
+   Sans WebGL, init() rend false : l'écran retombe sur le fond statique.
    ============================================================================ */
 (() => {
   'use strict';
 
   const STYLE_URL = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
-  const FRANCE = { center: [2.4, 46.6], zoom: 5.1 };
+  const FRANCE_A = { center: [2.6, 46.4], zoom: 5.15, pitch: 22, bearing: 0 };
+  const FRANCE_B = { center: [3.4, 45.4], zoom: 5.75, pitch: 40, bearing: -7 };
 
-  // Villes françaises (préfectures et grandes villes) : points lumineux du
-  // mode attract. Précision ~1 km, invisible à l'échelle du pays.
+  // Villes françaises : points lumineux du mode attract (précision ~1 km)
   const CITY_DOTS = [
     [2.35, 48.86], [5.37, 43.30], [4.84, 45.76], [1.44, 43.60], [7.27, 43.70],
     [-1.55, 47.22], [3.88, 43.61], [7.75, 48.58], [-0.58, 44.84], [3.06, 50.63],
@@ -42,11 +42,18 @@
   const DEFAULT_ACCENT = '#ff4d6a';
   let accent = DEFAULT_ACCENT;
   let rafId = null;
-  let mode = 'off'; // off | attract-globe | attract-france | focus | orbit
+  let mode = 'off'; // off | attract | focus | orbit | spotlight
   let attractTimer = null;
+  let attractFlip = false;
   let markers = [];
+  let photoMarkers = [];
+  let scanMarker = null;
   let shapeCount = 0;
+  let arcCount = 0;
   let projectCoords = [];
+  let communeCenter = null;
+  let spotQueue = [];
+  let spotBusy = false;
 
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -57,13 +64,12 @@
     } catch { return false; }
   }
 
-  /* ─── Boucle d'animation : rotation, pulsations ─── */
+  /* ─── Boucle d'animation : pulsations, orbite ─── */
 
   function loop(ts) {
     rafId = requestAnimationFrame(loop);
     if (!map || document.hidden) return;
 
-    // Pulsation des points lumineux (attract) et halo du contour
     if (map.getLayer('fx-dots')) {
       const k = (Math.sin(ts / 600) + 1) / 2;
       map.setPaintProperty('fx-dots', 'circle-radius', 2.4 + k * 2.2);
@@ -74,30 +80,18 @@
       map.setPaintProperty('fx-contour-glow', 'line-opacity', 0.18 + k * 0.22);
     }
 
-    if (prefersReduced) return;
-    // Ne jamais piloter la caméra pendant un vol : setCenter/setBearing
-    // annuleraient les flyTo (plongée commune, cycles attract, retour accueil)
-    if (map.isMoving()) return;
-    if (mode === 'attract-globe') {
-      map.setCenter([map.getCenter().lng + 0.045, 18]);
-    } else if (mode === 'orbit') {
-      map.setBearing(map.getBearing() + 0.06);
-    }
+    if (prefersReduced || map.isMoving()) return;
+    if (mode === 'orbit') map.setBearing(map.getBearing() + 0.06);
   }
 
-  /* ─── Mode attract : globe puis survol de la France, en boucle ─── */
+  /* ─── Mode attract : la France respire, sans jamais quitter le pays ─── */
 
   function attractCycle() {
-    if (mode !== 'attract-globe' && mode !== 'attract-france') return;
-    if (mode === 'attract-globe') {
-      mode = 'attract-france';
-      map.flyTo({ center: FRANCE.center, zoom: FRANCE.zoom, pitch: 30, bearing: 0, duration: 6000, essential: true });
-      attractTimer = setTimeout(attractCycle, 16000);
-    } else {
-      mode = 'attract-globe';
-      map.flyTo({ center: [map.getCenter().lng, 20], zoom: 2.1, pitch: 0, bearing: 0, duration: 6000, essential: true });
-      attractTimer = setTimeout(attractCycle, 14000);
-    }
+    if (mode !== 'attract') return;
+    attractFlip = !attractFlip;
+    const view = attractFlip ? FRANCE_B : FRANCE_A;
+    map.easeTo({ ...view, duration: prefersReduced ? 0 : 16000, easing: (t) => t * t * (3 - 2 * t), essential: true });
+    attractTimer = setTimeout(attractCycle, 18000);
   }
 
   /* ─── API publique ─── */
@@ -111,9 +105,7 @@
         map = new maplibregl.Map({
           container: 'map',
           style: STYLE_URL,
-          center: [2.4, 24],
-          zoom: 2.1,
-          pitch: 0,
+          ...FRANCE_A,
           interactive: false,
           attributionControl: { compact: true },
           fadeDuration: 200,
@@ -121,7 +113,6 @@
         map.on('style.load', () => {
           try { map.setProjection({ type: 'globe' }); } catch { /* projection plane : très bien aussi */ }
 
-          // Atmosphère du globe : halo bleu, horizon lumineux
           try {
             map.setSky({
               'sky-color': '#0a1730',
@@ -133,9 +124,8 @@
             });
           } catch { /* sky non supporté : sans gravité */ }
 
-          // Recoloration « navy tech » du style : le dark-matter d'origine est
-          // presque noir, illisible sur un écran de salon. On éclaircit routes,
-          // bâtiments et eau pour une carte vivante et contrastée.
+          // Recoloration « navy tech » : le dark-matter d'origine est presque
+          // noir ; on éclaircit routes, bâtiments et eau, on tamise les labels
           for (const layer of map.getStyle().layers) {
             try {
               if (layer.type === 'background') {
@@ -147,14 +137,14 @@
               } else if (layer.type === 'line') {
                 map.setPaintProperty(layer.id, 'line-color', /minor|service|tunnel|path|track/i.test(layer.id) ? '#26405f' : '#3d6291');
               } else if (layer.type === 'symbol') {
-                map.setPaintProperty(layer.id, 'text-color', '#8fa6cc');
+                map.setPaintProperty(layer.id, 'text-color', '#6c81a8');
                 map.setPaintProperty(layer.id, 'text-halo-color', '#0a1120');
+                map.setPaintProperty(layer.id, 'text-opacity', 0.75);
               }
             } catch { /* propriété absente sur cette couche */ }
           }
 
-          // Relief 3D : terrain mondial (tuiles Terrarium AWS, libres) + ombrage.
-          // La plongée sur une commune de montagne devient spectaculaire.
+          // Relief 3D : terrain mondial (tuiles Terrarium AWS, libres) + ombrage
           try {
             map.addSource('fx-dem', {
               type: 'raster-dem',
@@ -164,7 +154,7 @@
               maxzoom: 14,
               attribution: 'Terrain: Mapzen/AWS',
             });
-            map.setTerrain({ source: 'fx-dem', exaggeration: 1.35 });
+            map.setTerrain({ source: 'fx-dem', exaggeration: 1.12 });
             map.addLayer({
               id: 'fx-hillshade',
               type: 'hillshade',
@@ -178,7 +168,7 @@
             });
           } catch { /* relief indisponible : carte plate */ }
 
-          // Bâtiments en 3D au niveau rue (données du style Carto)
+          // Bâtiments en 3D au niveau rue
           try {
             const firstSymbol = map.getStyle().layers.find((l) => l.type === 'symbol')?.id;
             map.addLayer({
@@ -232,14 +222,14 @@
     attractStart() {
       if (!ok) return;
       clearTimeout(attractTimer);
-      mode = 'attract-globe';
-      attractTimer = setTimeout(attractCycle, 9000);
+      mode = 'attract';
+      attractTimer = setTimeout(attractCycle, 1200);
     },
 
     attractStop() {
       if (!ok) return;
       clearTimeout(attractTimer);
-      if (mode.startsWith('attract')) mode = 'off';
+      if (mode === 'attract') mode = 'off';
     },
 
     // Plongée cinématique du ciel vers la commune
@@ -247,14 +237,14 @@
       if (!ok) return;
       this.attractStop();
       mode = 'focus';
+      communeCenter = { lat, lng };
       const zoom = population > 100000 ? 12.4 : population > 20000 ? 13.2 : population > 5000 ? 13.8 : 14.4;
       map.flyTo({
-        center: [lng, lat], zoom, pitch: 55, bearing: -18,
+        center: [lng, lat], zoom, pitch: 47, bearing: -18,
         duration: prefersReduced ? 0 : 5200, curve: 1.6, essential: true,
       });
     },
 
-    // Contour communal illuminé
     drawContour(contourGeojson) {
       if (!ok || !contourGeojson) return;
       const apply = () => {
@@ -274,10 +264,53 @@
       map.isStyleLoaded() ? apply() : map.once('idle', apply);
     },
 
+    // Radar de recensement : balayage rotatif ancré sur la commune
+    scanStart() {
+      if (!ok || !communeCenter || scanMarker) return;
+      const el = document.createElement('div');
+      el.className = 'fx-scan';
+      scanMarker = new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([communeCenter.lng, communeCenter.lat])
+        .addTo(map);
+    },
+
+    scanStop() {
+      if (scanMarker) { scanMarker.remove(); scanMarker = null; }
+    },
+
+    // Arc de collecte : une source trouvée converge vers la commune
+    pulseSource() {
+      if (!ok || !communeCenter || prefersReduced) return;
+      const angle = Math.random() * 2 * Math.PI;
+      const dist = 0.02 + Math.random() * 0.025; // ~2 à 5 km
+      const from = [communeCenter.lng + dist * Math.cos(angle), communeCenter.lat + dist * 0.72 * Math.sin(angle)];
+      const id = `fx-arc-${arcCount++}`;
+      try {
+        map.addSource(id, {
+          type: 'geojson',
+          data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [from, [communeCenter.lng, communeCenter.lat]] }, properties: {} },
+        });
+        map.addLayer({
+          id, type: 'line', source: id,
+          paint: {
+            'line-color': accent, 'line-width': 2.4, 'line-blur': 2,
+            'line-opacity': 0, 'line-opacity-transition': { duration: 350 },
+          },
+        });
+        requestAnimationFrame(() => { try { map.setPaintProperty(id, 'line-opacity', 0.85); } catch { /* retirée */ } });
+        setTimeout(() => { try { map.setPaintProperty(id, 'line-opacity', 0); } catch { /* retirée */ } }, 900);
+        setTimeout(() => {
+          try { if (map.getLayer(id)) map.removeLayer(id); } catch { /* déjà retirée */ }
+          try { if (map.getSource(id)) map.removeSource(id); } catch { /* déjà retirée */ }
+        }, 1500);
+      } catch { /* style occupé : arc suivant */ }
+    },
+
     orbitStart() { if (ok && mode !== 'orbit') mode = 'orbit'; },
     orbitStop() { if (ok && mode === 'orbit') mode = 'focus'; },
 
-    // Un projet localisé : emprise embrasée si géométrie réelle, épingle sinon
+    // Un projet localisé : emprise embrasée, épingle étiquetée, et la caméra
+    // vient le voir (file d'attente : un vol après l'autre)
     addProject({ lat, lng, geometry, precise, title }) {
       if (!ok) return;
       projectCoords.push([lng, lat]);
@@ -301,7 +334,7 @@
             },
           });
           requestAnimationFrame(() => map.setPaintProperty(`${id}-line`, 'line-opacity', 0.95));
-        } catch { /* la géométrie tombera en épingle au prochain projet */ }
+        } catch { /* la géométrie tombera en épingle */ }
       }
 
       const el = document.createElement('div');
@@ -309,21 +342,54 @@
       el.style.setProperty('--pin', accent);
       el.innerHTML = `<span class="fx-pin"></span>${title ? `<span class="fx-pin-label">${String(title).replace(/[<>&]/g, '')}</span>` : ''}`;
       markers.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([lng, lat]).addTo(map));
-      // L'étiquette se replie après quelques secondes pour garder la carte lisible
-      setTimeout(() => el.classList.add('is-collapsed'), 5200);
+      setTimeout(() => el.classList.add('is-collapsed'), 9000);
+
+      this.spotlight(lat, lng);
+    },
+
+    // Zoom cinématique sur un point, en file (jamais deux vols simultanés)
+    spotlight(lat, lng) {
+      if (!ok) return;
+      spotQueue.push([lng, lat]);
+      const next = () => {
+        if (!spotQueue.length) { spotBusy = false; return; }
+        spotBusy = true;
+        const target = spotQueue.shift();
+        mode = 'spotlight';
+        map.easeTo({
+          center: target, zoom: 15.3, pitch: 50,
+          bearing: map.getBearing() + 14,
+          duration: prefersReduced ? 0 : 1700,
+          easing: (t) => 1 - Math.pow(1 - t, 3),
+          essential: true,
+        });
+        map.once('moveend', () => setTimeout(next, 650));
+      };
+      if (!spotBusy) next();
+    },
+
+    // Photo trouvée : posée sur la carte à l'emplacement du projet
+    attachPhoto(lat, lng, url) {
+      if (!ok || !url) return;
+      const el = document.createElement('div');
+      el.className = 'fx-photo';
+      el.innerHTML = `<img src="${String(url).replace(/"/g, '')}" alt="" onerror="this.parentNode.remove()">`;
+      photoMarkers.push(new maplibregl.Marker({ element: el, anchor: 'bottom', offset: [0, -14] }).setLngLat([lng, lat]).addTo(map));
+      setTimeout(() => el.classList.add('is-small'), 6500);
     },
 
     // Recadrage final sur l'ensemble des projets
-    finale(panelWidth) {
+    finale() {
       if (!ok || !projectCoords.length) return;
+      spotQueue = [];
       const b = projectCoords.reduce(
         (acc, c) => [[Math.min(acc[0][0], c[0]), Math.min(acc[0][1], c[1])], [Math.max(acc[1][0], c[0]), Math.max(acc[1][1], c[1])]],
         [[Infinity, Infinity], [-Infinity, -Infinity]]
       );
       mode = 'focus';
       map.fitBounds(b, {
-        padding: { top: 110, bottom: 110, left: (panelWidth || 0) + 90, right: 90 },
-        pitch: 42, bearing: 0, maxZoom: 15.4,
+        padding: { top: 120, bottom: 140, left: 110, right: 110 },
+        pitch: 42, bearing: 0, maxZoom: 15.2,
         duration: prefersReduced ? 0 : 3200, essential: true,
       });
     },
@@ -331,9 +397,15 @@
     // Retour à l'accueil : on nettoie la scène
     reset() {
       if (!ok) return;
+      this.scanStop();
+      spotQueue = [];
+      spotBusy = false;
       markers.forEach((m) => m.remove());
+      photoMarkers.forEach((m) => m.remove());
       markers = [];
+      photoMarkers = [];
       projectCoords = [];
+      communeCenter = null;
       for (let i = 0; i < shapeCount; i++) {
         for (const suffix of ['-fill', '-line']) {
           try { if (map.getLayer(`fx-shape-${i}${suffix}`)) map.removeLayer(`fx-shape-${i}${suffix}`); } catch { /* absente */ }
@@ -345,8 +417,8 @@
         try { if (map.getLayer(id)) map.removeLayer(id); } catch { /* absente */ }
       }
       try { if (map.getSource('fx-contour')) map.removeSource('fx-contour'); } catch { /* absente */ }
-      this.setAccent(DEFAULT_ACCENT); // la commune suivante repart de la couleur maison
-      map.flyTo({ center: [2.4, 24], zoom: 2.1, pitch: 0, bearing: 0, duration: 3000, essential: true });
+      this.setAccent(DEFAULT_ACCENT);
+      map.flyTo({ ...FRANCE_A, duration: 3000, essential: true });
       this.attractStart();
     },
   };

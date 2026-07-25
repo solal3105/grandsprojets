@@ -44,6 +44,20 @@ const CATEGORIES = {
 
 const STATUS_LABELS = { 'a-l-etude': "À l'étude", 'en-cours': 'En cours', 'livre': 'Livré', 'inconnu': '' };
 
+// Icônes Font Awesome et couleurs des catégories créées avec chaque espace
+// (mêmes colonnes que les villes réelles : category_icons.category_styles)
+const CATEGORY_META = {
+  'urbanisme': { icon: 'fa-solid fa-building', color: '#6366F1' },
+  'renovation-urbaine': { icon: 'fa-solid fa-trowel-bricks', color: '#F97316' },
+  'mobilite': { icon: 'fa-solid fa-bus', color: '#0EA5E9' },
+  'environnement': { icon: 'fa-solid fa-leaf', color: '#22C55E' },
+  'equipement-public': { icon: 'fa-solid fa-school', color: '#8B5CF6' },
+  'patrimoine': { icon: 'fa-solid fa-landmark', color: '#B45309' },
+  'economique': { icon: 'fa-solid fa-briefcase', color: '#0891B2' },
+  'logement': { icon: 'fa-solid fa-house', color: '#EC4899' },
+  'cadre-de-vie': { icon: 'fa-solid fa-tree', color: '#10B981' },
+};
+
 /* ─── Schémas de sortie IA ─── */
 
 const CANDIDATES_SCHEMA = {
@@ -324,7 +338,8 @@ async function inspectMairieSite(siteUrl, onFinding) {
   }
   iconCandidates.sort((a, b) => b.score - a.score);
   out.logoUrl = new URL(iconCandidates[0]?.href || '/favicon.ico', finalUrl).toString();
-  onFinding?.({ kind: 'logo', title: out.host, iconUrl: out.logoUrl, color: out.themeColor });
+  // Le finding logo est émis par coreSources, une fois la couleur résolue
+  // (meta theme-color, sinon couleur dominante du logo par vision IA)
 
   const links = [];
   const aRe = /<a[^>]+href=["']([^"'#]+)["'][^>]*>([\s\S]{0,120}?)<\/a>/gi;
@@ -556,6 +571,53 @@ async function writeArticles(commune, projects, pdfs, onTitle) {
   return out.articles || [];
 }
 
+// Couleur dominante du logo par vision IA : quand la mairie n'expose pas de
+// meta theme-color, l'espace prend quand même la couleur de la commune
+async function dominantColorFromLogo(logoUrl) {
+  try {
+    const r = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        input: [{
+          role: 'user',
+          content: [
+            { type: 'input_text', text: 'Donne la couleur dominante de ce logo en hexadécimal #RRGGBB, en ignorant blanc, noir et gris. Choisis la couleur de marque la plus saturée et identitaire.' },
+            { type: 'input_image', image_url: logoUrl },
+          ],
+        }],
+        text: {
+          format: {
+            type: 'json_schema',
+            name: 'couleur_logo',
+            schema: {
+              type: 'object',
+              additionalProperties: false,
+              properties: { color: { type: 'string' } },
+              required: ['color'],
+            },
+            strict: true,
+          },
+        },
+        max_output_tokens: 60,
+      }),
+    }, 25000);
+    if (!r.ok) return null;
+    const data = await r.json();
+    const text = data.output_text
+      || data.output?.flatMap((o) => o.content || []).find((c) => c.type === 'output_text')?.text;
+    const hex = JSON.parse(text || '{}').color?.toLowerCase();
+    if (!/^#[0-9a-f]{6}$/.test(hex || '')) return null;
+    // Écarter le quasi blanc / quasi noir : inutilisable comme couleur primaire
+    const [rr, gg, bb] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    if ((rr > 232 && gg > 232 && bb > 232) || (rr < 24 && gg < 24 && bb < 24)) return null;
+    return hex;
+  } catch {
+    return null;
+  }
+}
+
 /* ─── Localisation hybride ─── */
 
 function centroidOf(geometry) {
@@ -745,10 +807,17 @@ async function coreSources(send, step, insee) {
   let mairie = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [] };
   if (site) {
     mairie = await inspectMairieSite(site, finding);
+    // Identité visuelle : theme-color du site, sinon couleur dominante du logo
+    if (!mairie.themeColor && mairie.logoUrl) {
+      mairie.themeColor = await dominantColorFromLogo(mairie.logoUrl);
+    }
+    if (mairie.host) {
+      finding({ kind: 'logo', title: mairie.host, iconUrl: mairie.logoUrl, color: mairie.themeColor });
+    }
     const bits = [];
     if (mairie.host) bits.push(mairie.host);
     if (mairie.logoUrl) bits.push('logo récupéré');
-    if (mairie.themeColor) bits.push('couleur de la commune détectée');
+    if (mairie.themeColor) bits.push('couleurs de la commune extraites');
     if (mairie.pages.length > 1) bits.push(`${mairie.pages.length - 1} page(s) projets lue(s)`);
     if (mairie.pdfs.length) bits.push(`${mairie.pdfs.length} document(s) officiel(s)`);
     step('mairie', mairie.host ? 'done' : 'skip', 'Site officiel de la mairie', bits.join(' · ') || 'non exploitable');
@@ -878,7 +947,9 @@ async function coreGeoMedia(send, step, state) {
       located[i].coverSrc = img.url;
       located[i].coverCredit = img.credit;
       illustrated++;
-      send({ type: 'media-item', title: located[i].title, credit: img.credit });
+      const c = centroidOf(located[i].geometry);
+      // coverSrc + coordonnées : le front pose la photo directement sur la carte
+      send({ type: 'media-item', title: located[i].title, credit: img.credit, coverSrc: img.url, lat: c.lat, lng: c.lng });
     }
   }
   step('media', illustrated ? 'done' : 'skip', 'Illustrations trouvées', `${illustrated}/${located.length} projets illustrés (photos libres de droits)`);
@@ -1027,6 +1098,7 @@ async function runCreate(send, step, ville) {
     await deleteWhere('consultation_dossiers', { contribution_id: `in.(${previous.map((p) => p.id).join(',')})` });
     await deleteWhere('contribution_uploads', { ville: `eq.${ville}` });
   }
+  await deleteWhere('category_icons', { ville: `eq.${ville}` });
 
   // Illustrations re-hébergées en parallèle (URL stables, pas de hotlink).
   // Slugs déterministes : une reprise réécrit les mêmes fichiers (upsert)
@@ -1145,7 +1217,18 @@ async function runCreate(send, step, ville) {
   await insertRows('city_modules', [{
     ville, module_key: 'carte', label: 'Menu', icon_class: 'fas fa-map', sort_order: 0, enabled: true, config: {},
   }], { onConflict: 'ville,module_key' });
-  createItem('Navigation et catégories configurées');
+
+  // Catégories complètes : icône Font Awesome + couleur, comme une vraie ville
+  const usedSlugs = [...new Set(rows.map((r) => r.category_slug))];
+  await insertRows('category_icons', usedSlugs.map((slug, i) => ({
+    ville,
+    category: CATEGORIES[slug] || slug,
+    icon_class: CATEGORY_META[slug]?.icon || 'fa-solid fa-map-pin',
+    display_order: i + 1,
+    layers_to_display: [],
+    category_styles: { color: CATEGORY_META[slug]?.color || '#6366F1' },
+  })));
+  createItem(`${usedSlugs.length} catégorie(s) créée(s), avec icônes et couleurs`);
 
   await updateInstance(ville, {
     status: 'ready',

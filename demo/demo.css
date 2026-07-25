@@ -42,11 +42,8 @@ body:not(.has-map) #map { display: none; }
 
 .kiosk__brand { display: flex; justify-content: center; margin-bottom: 2.5vh; }
 .kiosk__logo {
-  height: clamp(32px, 4.2vh, 48px);
-  filter: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.5));
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 12px;
-  padding: 6px 12px;
+  height: clamp(38px, 5vh, 56px);
+  filter: drop-shadow(0 6px 22px rgba(0, 0, 0, 0.7));
 }
 
 .screen { display: none; flex-direction: column; align-items: center; text-align: center; flex: 1; animation: screenIn 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
@@ -55,7 +52,17 @@ body:not(.has-map) #map { display: none; }
 
 /* ─── Écran attract + saisie ─── */
 
-#screen-input { justify-content: center; padding-bottom: 8vh; }
+#screen-input { justify-content: center; padding-bottom: 8vh; position: relative; }
+
+/* Scrim de lisibilité : le titre respire, la carte reste visible autour */
+#screen-input::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse 62% 58% at 50% 44%, rgba(5, 8, 16, 0.88), rgba(5, 8, 16, 0.55) 55%, transparent 78%);
+  pointer-events: none;
+  z-index: -1;
+}
 
 .kiosk__title {
   font-family: 'Space Grotesk', sans-serif;
@@ -235,47 +242,113 @@ body:not(.has-map) #map { display: none; }
 .hud-check svg { width: 14px; height: 14px; }
 @keyframes pop { from { transform: scale(0.3); } to { transform: scale(1); } }
 
-/* Fil d'activité : les trouvailles glissent en bas à gauche puis s'estompent */
-.feed {
+/* Compteurs cumulés du recensement : lisibles, façon salle de contrôle */
+.counters {
   position: fixed;
-  left: 26px;
-  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 92px;
   z-index: 5;
-  list-style: none;
   display: flex;
-  flex-direction: column;
-  gap: 9px;
-  max-width: min(460px, 86vw);
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 94vw;
   pointer-events: none;
 }
-.feed li {
+.counter {
   display: flex;
-  align-items: center;
-  gap: 11px;
+  align-items: baseline;
+  gap: 8px;
   background: rgba(9, 13, 24, 0.78);
   backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-left: 3px solid var(--accent);
-  border-radius: 14px;
-  padding: 10px 16px;
-  color: #fff;
-  font-size: 0.86rem;
-  box-shadow: 0 14px 40px -14px rgba(0, 0, 0, 0.7);
-  animation: feedIn 0.45s cubic-bezier(0.16, 1, 0.3, 1);
-  transition: opacity 0.6s ease, transform 0.6s ease;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 12px;
+  padding: 8px 14px;
+  animation: findingIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.feed li.is-old { opacity: 0.35; }
-.feed li.is-gone { opacity: 0; transform: translateX(-20px); }
-@keyframes feedIn { from { opacity: 0; transform: translateX(-26px); } to { opacity: 1; transform: none; } }
+.counter__n {
+  font-family: 'Space Grotesk', monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--accent);
+  line-height: 1;
+  text-shadow: 0 0 16px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.counter__n.is-bump { animation: bump 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes bump { 50% { transform: scale(1.35); } }
+.counter__l { font-size: 0.72rem; color: rgba(255, 255, 255, 0.65); letter-spacing: 0.02em; }
 
-.feed__icon { width: 20px; height: 20px; color: var(--accent); flex-shrink: 0; }
-.feed__icon svg { width: 100%; height: 100%; }
-.feed__icon img { width: 20px; height: 20px; border-radius: 5px; }
-.feed__text { min-width: 0; display: flex; flex-direction: column; }
-.feed__title { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.feed__meta { font-size: 0.72rem; color: rgba(255, 255, 255, 0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.feed li.feed--ok { border-left-color: var(--ok); }
-.feed li.feed--ok .feed__icon { color: var(--ok); }
+/* Ticker : UNE trouvaille à la fois, grande et lisible */
+.ticker {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 30px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(9, 13, 24, 0.84);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 12px 24px;
+  max-width: min(880px, 94vw);
+  min-height: 48px;
+  box-shadow: 0 20px 60px -18px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+}
+.ticker__icon { width: 21px; height: 21px; color: var(--accent); flex-shrink: 0; }
+.ticker__icon svg { width: 100%; height: 100%; }
+.ticker__icon img { width: 21px; height: 21px; border-radius: 5px; }
+.ticker__text {
+  color: #fff;
+  font-size: 0.98rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ticker__meta { font-size: 0.8rem; color: rgba(255, 255, 255, 0.55); white-space: nowrap; flex-shrink: 0; }
+.ticker.is-swap .ticker__text, .ticker.is-swap .ticker__meta, .ticker.is-swap .ticker__icon {
+  animation: tickerIn 0.35s ease;
+}
+@keyframes tickerIn { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
+@keyframes findingIn { from { opacity: 0; transform: translateY(8px) scale(0.96); } to { opacity: 1; transform: none; } }
+
+/* Radar de recensement : balayage rotatif ancré sur la commune */
+.fx-scan {
+  width: 460px;
+  height: 460px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: conic-gradient(from 0deg, color-mix(in srgb, var(--accent, #ff4d6a) 38%, transparent), transparent 70deg, transparent 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 34%, #000 35%, #000 66%, transparent 67%);
+  mask: radial-gradient(circle, transparent 34%, #000 35%, #000 66%, transparent 67%);
+  animation: scanSpin 3.2s linear infinite;
+  opacity: 0.75;
+  mix-blend-mode: screen;
+}
+@keyframes scanSpin { to { transform: rotate(360deg); } }
+
+/* Photo posée sur la carte à l'emplacement du projet */
+.fx-photo {
+  pointer-events: none;
+  animation: photoIn 0.7s cubic-bezier(0.34, 1.5, 0.64, 1);
+}
+.fx-photo img {
+  width: 92px;
+  height: 66px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 2.5px solid #fff;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.65);
+  transition: width 0.6s ease, height 0.6s ease, opacity 0.6s ease;
+}
+.fx-photo.is-small img { width: 44px; height: 32px; opacity: 0.9; }
+@keyframes photoIn { 0% { transform: scale(0) translateY(-30px); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
 
 /* Erreur : carte centrée sombre */
 .hud-error {
