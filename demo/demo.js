@@ -277,6 +277,13 @@
         document.documentElement.style.setProperty('--accent', f.color);
         if (hasFx) window.MapFX.setAccent(f.color);
       }
+      // Logo de la mairie posé à côté du nom de la commune dans le HUD
+      if (f.iconUrl) {
+        const logo = $('hud-logo');
+        logo.onerror = () => { logo.hidden = true; };
+        logo.src = f.iconUrl;
+        logo.hidden = false;
+      }
       bumpCounter('sources');
       tick('mairie', f.title, f.color ? `identité et couleurs récupérées · ${f.color}` : 'site officiel', f.iconUrl);
       return;
@@ -312,7 +319,7 @@
 
   function onMediaItem(msg) {
     bumpCounter('illustres');
-    tick('photo', msg.title, 'photo libre trouvée sur place');
+    tick('photo', msg.title, 'illustration trouvée');
     if (hasFx && typeof msg.lat === 'number' && msg.coverSrc) {
       window.MapFX.attachPhoto(msg.lat, msg.lng, msg.coverSrc);
     }
@@ -393,6 +400,8 @@
     setProgress(2);
     setPill('Préparation...', '', false);
     $('hud-commune').textContent = commune.nom;
+    $('hud-logo').hidden = true;
+    $('hud-logo').removeAttribute('src');
     $('hud-error').hidden = true;
     show('progress');
 
@@ -478,6 +487,8 @@
     tickerQueue = [];
     tickerBusy = false;
     resetStages();
+    $('hud-logo').hidden = true;
+    $('hud-logo').removeAttribute('src');
     progressPct = 0;
     setProgress(0);
     ['stat-sources', 'stat-verified', 'stat-precise', 'stat-illustrated'].forEach((id) => { $(id).textContent = '0'; });

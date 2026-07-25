@@ -754,12 +754,47 @@ async function commonsTextCandidates(query) {
   return out;
 }
 
-// Candidats autour du projet : geosearch (deux rayons) complété par une
-// recherche texte si trop peu de photos géolocalisées. Dédupliqués, plafonnés.
+// Images de la SOURCE du projet (article de presse, page mairie) : og:image
+// et images de contenu. Ce sont les plus pertinentes car elles illustrent
+// littéralement le projet. Démo : la licence n'est pas un critère ici.
+const IMG_SKIP_RE = /(\.svg|sprite|logo|icone?|icon|avatar|pixel|placeholder|1x1|blank|spacer|button|share|facebook|twitter|instagram)/i;
+async function sourceImageCandidates(url) {
+  const out = [];
+  const page = await fetchCapped(url, { headers: UA }, 6000, 500000);
+  if (!page) return out;
+  const html = page.data;
+  const base = page.url;
+  const credit = `Source : ${hostOf(base) || 'web'}`;
+  const push = (src, title) => {
+    if (!src) return;
+    try {
+      const abs = new URL(src, base).toString();
+      if (/^https?:/.test(abs) && !IMG_SKIP_RE.test(abs) && !out.some((o) => o.url === abs)) {
+        out.push({ url: abs, title, credit });
+      }
+    } catch { /* src invalide */ }
+  };
+  const og = /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i.exec(html)
+    || /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i.exec(html)
+    || /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i.exec(html);
+  push(og?.[1], 'illustration de la source');
+  const imgRe = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+  let m; let n = 0;
+  while ((m = imgRe.exec(html)) !== null && n < 6) {
+    push(m[1], 'image de la source');
+    n++;
+  }
+  return out.slice(0, 5);
+}
+
+// Candidats autour du projet : d'abord les images de sa source (les plus
+// pertinentes), puis le geosearch Commons, complété par une recherche texte
+// si besoin. Dédupliqués, plafonnés. Le juge vision tranche ensuite.
 async function gatherImageCandidates(project, communeNom, lat, lng) {
+  const fromSource = project.source_url ? await sourceImageCandidates(project.source_url) : [];
   const near = await commonsCandidatesAt(lat, lng, 300);
-  const wide = near.length >= 4 ? [] : await commonsCandidatesAt(lat, lng, 750);
-  let pool = [...near, ...wide];
+  const wide = (fromSource.length + near.length) >= 4 ? [] : await commonsCandidatesAt(lat, lng, 750);
+  let pool = [...fromSource, ...near, ...wide];
   if (pool.length < 3) {
     const q = `${project.place || project.title} ${communeNom}`.trim();
     pool = [...pool, ...await commonsTextCandidates(q)];
@@ -1048,7 +1083,7 @@ async function coreGeo(send, step, state) {
 // Phase ILLUSTRATIONS : candidats Commons puis juge visuel IA, projet par projet
 async function coreMedia(send, step, state) {
   const { located } = state;
-  step('media', 'start', 'Recherche d\'illustrations libres de droits', 'Photos libres jugées une à une par l\'IA (sujet vérifié)');
+  step('media', 'start', 'Recherche des illustrations des projets', 'Chaque image est choisie par l\'IA selon le sujet');
   const images = await inChunks(located, 3, async (p) => {
     const c = centroidOf(p.geometry);
     const candidates = await gatherImageCandidates(p, state.commune.nom, c.lat, c.lng);
@@ -1068,7 +1103,7 @@ async function coreMedia(send, step, state) {
       send({ type: 'media-item', title: located[i].title, credit: img.credit, coverSrc: img.url, lat: c.lat, lng: c.lng });
     }
   }
-  step('media', illustrated ? 'done' : 'skip', 'Illustrations trouvées', `${illustrated}/${located.length} projets illustrés (photos libres, sujet vérifié)`);
+  step('media', illustrated ? 'done' : 'skip', 'Illustrations trouvées', `${illustrated}/${located.length} projets illustrés (image choisie par l'IA)`);
 
   state.located = located;
   state.stats.illustrated = illustrated;
