@@ -100,10 +100,11 @@ const FINAL_SCHEMA = {
           category_slug: { type: 'string', enum: Object.keys(CATEGORIES) },
           status: { type: 'string', enum: Object.keys(STATUS_LABELS) },
           place: { type: 'string', description: 'Lieu géocodable le plus précis (rue, quartier, équipement), vide si inconnu' },
+          geo_query: { type: 'string', description: 'Requête optimale pour localiser CE projet sur OpenStreetMap dans la commune : adresse (n° + rue) si connue, sinon le nom EXACT de l\'équipement (ex : "Centre nautique Robert Sautin") ou du quartier/lieu-dit tel qu\'il apparaît sur une carte. Chaîne vide seulement si aucun lieu n\'est identifiable.' },
           source_url: { type: 'string' },
           confidence: { type: 'string', enum: ['haute', 'moyenne', 'basse'] },
         },
-        required: ['title', 'description', 'category_slug', 'status', 'place', 'source_url', 'confidence'],
+        required: ['title', 'description', 'category_slug', 'status', 'place', 'geo_query', 'source_url', 'confidence'],
       },
     },
   },
@@ -557,6 +558,7 @@ async function selectProjects(commune, candidates, bundle, onTitle) {
 - confidence "haute" si la citation atteste clairement le projet ; "moyenne" si l'information est réelle mais partielle ; "basse" seulement si douteux (il sera écarté).
 - description : 2 à 4 phrases sobres et factuelles, dates si connues, zéro superlatif, en français impeccable.
 - place : le lieu géocodable le plus précis mentionné (rue, quartier, équipement), chaîne vide sinon.
+- geo_query : la MEILLEURE requête pour localiser ce projet sur une carte OpenStreetMap dans la commune. Adresse précise (n° + rue) si elle figure dans les sources, sinon le nom EXACT de l'équipement ou du quartier/lieu-dit. C'est ce texte qui sera envoyé au géocodeur : sois précis, fidèle au nom réel, sans le mot "projet" ni de verbe (écris "Centre nautique Robert Sautin", pas "Rénovation du centre nautique").
 - source_url : reprends l'URL de la source qui atteste le projet.`;
   const user = `CANDIDATS :\n${JSON.stringify(candidates, null, 1)}\n\nSOURCES (pour vérification) :\n\n${bundle.slice(0, 30000)}`;
   const out = await callOpenAIResilient(system, user, 'selection_finale', FINAL_SCHEMA, 4200, onTitle);
@@ -638,16 +640,6 @@ function centroidOf(geometry) {
   };
 }
 
-// Dérive un lieu géocodable depuis le titre quand `place` est vide ou muet
-// (ex : "Rénovation du quartier de la Forge" -> "quartier de la Forge")
-function placeFromTitle(title) {
-  const t = String(title || '').replace(
-    /^\s*(r[eé]novation|r[eé]am[eé]nagement|am[eé]nagement|construction|cr[eé]ation|r[eé]habilitation|transformation|extension|requalification|recomposition|restructuration|modernisation|installation|d[eé]molition|reconstruction|mise en valeur|am[eé]lioration|[eé]tude)\s+(du|de la|de l['’]|des|de |d['’]|au |aux |[àa] )?\s*/i,
-    ''
-  ).trim();
-  return t.length >= 4 ? t : '';
-}
-
 // BAN (adresses officielles), scopé sur la commune : rapide, sans quota
 async function banGeocode(q, commune, bbox) {
   try {
@@ -691,19 +683,20 @@ async function geocodeOne(q, commune, bbox) {
 async function locateProject(project, commune, bbox, index) {
   const center = { lng: commune.centre.coordinates[0], lat: commune.centre.coordinates[1] };
 
-  // 1) Lieu explicite (Nominatim + BAN)
-  if (project.place) {
-    const hit = await geocodeOne(project.place, commune, bbox);
-    if (hit) return hit;
+  // Requêtes de géocodage fournies par l'IA (geo_query optimisée pour la carte,
+  // puis place mentionné dans les sources), dédoublonnées en gardant l'ordre
+  const seen = new Set();
+  const queries = [];
+  for (const q of [project.geo_query, project.place]) {
+    const t = String(q || '').trim();
+    if (t.length >= 3 && !seen.has(t.toLowerCase())) { seen.add(t.toLowerCase()); queries.push(t); }
   }
-  // 2) Repli : lieu déduit du titre, via BAN (rapide, sans quota Nominatim)
-  const titlePlace = placeFromTitle(project.title);
-  if (titlePlace && titlePlace.toLowerCase() !== String(project.place || '').toLowerCase()) {
-    const hit = await banGeocode(titlePlace, commune, bbox);
+  for (const q of queries) {
+    const hit = await geocodeOne(q, commune, bbox);
     if (hit) return hit;
   }
 
-  // 3) Dernier recours : répartir dans l'emprise RÉELLE de la commune (spirale
+  // Dernier recours : répartir dans l'emprise RÉELLE de la commune (spirale
   // d'angle d'or) au lieu d'empiler les points sur le centre-ville
   if (bbox) {
     const halfW = (bbox.maxLng - bbox.minLng) * 0.30;
