@@ -135,6 +135,51 @@ async function fetchWithTimeout(url, opts = {}, ms = FETCH_TIMEOUT_MS) {
   }
 }
 
+// Garde anti-SSRF : jamais de fetch sortant vers du privé/loopback
+const PRIVATE_HOST_RE = /^(localhost$|.*\.local$|.*\.internal$|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.|\[?::1)/i;
+function isSafePublicUrl(u) {
+  try {
+    const p = new URL(u);
+    return /^https?:$/.test(p.protocol) && !PRIVATE_HOST_RE.test(p.hostname);
+  } catch { return false; }
+}
+
+// Fetch borné en temps ET en octets pendant toute la lecture du corps
+// (fetchWithTimeout ne couvre que les en-têtes : un serveur lent ou une
+// réponse géante pouvait bloquer la fonction ou saturer la mémoire)
+async function fetchCapped(url, opts = {}, ms = FETCH_TIMEOUT_MS, maxBytes = 500000, asBuffer = false) {
+  if (!isSafePublicUrl(url)) return null;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const r = await fetch(url, { ...opts, signal: ctrl.signal });
+    if (!r.ok || !r.body) return null;
+    const reader = r.body.getReader();
+    const chunks = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      total += value.byteLength;
+      if (total >= maxBytes) { try { await reader.cancel(); } catch { /* flux déjà clos */ } break; }
+    }
+    const buf = new Uint8Array(total);
+    let offset = 0;
+    for (const c of chunks) { buf.set(c, offset); offset += c.byteLength; }
+    const capped = buf.buffer.slice(0, Math.min(total, maxBytes));
+    return {
+      url: r.url,
+      headers: r.headers,
+      data: asBuffer ? capped : new TextDecoder('utf-8', { fatal: false }).decode(capped),
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 
 function slugify(str) {
@@ -250,20 +295,14 @@ function collectPdfLinks(html, baseUrl, out) {
 
 async function inspectMairieSite(siteUrl, onFinding) {
   const out = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [] };
-  let html = '';
-  let finalUrl = null;
-  try {
-    const r = await fetchWithTimeout(siteUrl, { headers: UA });
-    if (!r.ok) return out;
-    finalUrl = new URL(r.url);
-    out.host = finalUrl.host;
-    out.urls.push(r.url);
-    html = (await r.text()).slice(0, 500000);
-    out.pages.push({ url: r.url, title: 'Accueil du site de la mairie', text: stripHtml(html).slice(0, 5000) });
-    collectPdfLinks(html, r.url, out.pdfs);
-  } catch {
-    return out;
-  }
+  const home = await fetchCapped(siteUrl, { headers: UA }, FETCH_TIMEOUT_MS, 500000);
+  if (!home) return out;
+  const finalUrl = new URL(home.url);
+  out.host = finalUrl.host;
+  out.urls.push(home.url);
+  const html = home.data;
+  out.pages.push({ url: home.url, title: 'Accueil du site de la mairie', text: stripHtml(html).slice(0, 5000) });
+  collectPdfLinks(html, home.url, out.pdfs);
 
   const color = /<meta[^>]+name=["']theme-color["'][^>]+content=["'](#[0-9a-fA-F]{3,8})["']/.exec(html)
     || /<meta[^>]+content=["'](#[0-9a-fA-F]{3,8})["'][^>]+name=["']theme-color["']/.exec(html);
@@ -303,18 +342,15 @@ async function inspectMairieSite(siteUrl, onFinding) {
     }
   }
   for (const link of links.slice(0, 3)) {
-    try {
-      const r = await fetchWithTimeout(link.url, { headers: UA }, 6000);
-      if (!r.ok) continue;
-      const pageHtml = (await r.text()).slice(0, 400000);
-      const text = stripHtml(pageHtml).slice(0, 5000);
-      collectPdfLinks(pageHtml, r.url, out.pdfs);
-      if (text.length > 400) {
-        out.pages.push({ url: link.url, title: link.label, text });
-        out.urls.push(link.url);
-        onFinding?.({ kind: 'page', title: link.label, domain: out.host });
-      }
-    } catch { /* page suivante */ }
+    const page = await fetchCapped(link.url, { headers: UA }, 6000, 400000);
+    if (!page) continue;
+    const text = stripHtml(page.data).slice(0, 5000);
+    collectPdfLinks(page.data, page.url, out.pdfs);
+    if (text.length > 400) {
+      out.pages.push({ url: link.url, title: link.label, text });
+      out.urls.push(link.url);
+      onFinding?.({ kind: 'page', title: link.label, domain: out.host });
+    }
   }
   for (const pdf of out.pdfs.slice(0, 6)) {
     onFinding?.({ kind: 'pdf', title: pdf.label, domain: 'PDF officiel' });
@@ -352,16 +388,14 @@ async function fetchLocalNews(communeNom, departement, onFinding) {
   }
 
   await inChunks(items.slice(0, 9), 3, async (item) => {
-    try {
-      const r = await fetchWithTimeout(item.link, { headers: UA }, 6000);
-      if (!r.ok) return;
-      item.finalUrl = r.url;
-      const html = (await r.text()).slice(0, 400000);
-      const ogDesc = /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/.exec(html)?.[1];
-      const body = stripHtml(html);
-      item.text = [(ogDesc || ''), body.slice(0, 2500)].filter(Boolean).join(' | ');
-      onFinding?.({ kind: 'article', title: item.title.replace(/ - [^-]+$/, ''), domain: hostOf(item.finalUrl || item.link) || item.source, date: item.date });
-    } catch { /* article fermé : titre + extrait RSS suffisent */ }
+    const page = await fetchCapped(item.link, { headers: UA }, 6000, 400000);
+    if (!page) return;
+    item.finalUrl = page.url;
+    const html = page.data;
+    const ogDesc = /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/.exec(html)?.[1];
+    const body = stripHtml(html);
+    item.text = [(ogDesc || ''), body.slice(0, 2500)].filter(Boolean).join(' | ');
+    onFinding?.({ kind: 'article', title: item.title.replace(/ - [^-]+$/, ''), domain: hostOf(item.finalUrl || item.link) || item.source, date: item.date });
   });
   return items;
 }
@@ -599,8 +633,11 @@ async function uploadToStorage(path, body, contentType) {
   return `${SUPABASE_URL}/storage/v1/object/public/uploads/${path}`;
 }
 
-async function insertRows(table, rows, returning = false) {
-  const r = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/${table}`, {
+async function insertRows(table, rows, { returning = false, onConflict = null } = {}) {
+  // onConflict : indispensable pour l'idempotence quand la cible du conflit
+  // n'est pas la PK (city_modules, consultation_dossiers)
+  const url = `${SUPABASE_URL}/rest/v1/${table}${onConflict ? `?on_conflict=${encodeURIComponent(onConflict)}` : ''}`;
+  const r = await fetchWithTimeout(url, {
     method: 'POST',
     headers: {
       ...serviceHeaders(),
@@ -613,6 +650,13 @@ async function insertRows(table, rows, returning = false) {
     throw new Error(`Insertion ${table} : ${r.status} ${t.slice(0, 200)}`);
   }
   return returning ? r.json() : null;
+}
+
+async function deleteWhere(table, params) {
+  const url = new URL(`${SUPABASE_URL}/rest/v1/${table}`);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  const r = await fetchWithTimeout(url.toString(), { method: 'DELETE', headers: serviceHeaders() });
+  if (!r.ok) throw new Error(`Suppression ${table} : ${r.status}`);
 }
 
 async function updateInstance(ville, patch) {
@@ -639,7 +683,7 @@ async function countToday(filterCol, filterVal) {
 
 async function getInstance(where) {
   const url = new URL(`${SUPABASE_URL}/rest/v1/demo_instances`);
-  url.searchParams.set('select', 'ville,commune_nom,commune_insee,status,payload');
+  url.searchParams.set('select', 'ville,commune_nom,commune_insee,status,payload,created_at');
   for (const [k, v] of Object.entries(where)) url.searchParams.set(k, `eq.${v}`);
   const r = await fetchWithTimeout(url.toString(), { headers: serviceHeaders() });
   if (!r.ok) return null;
@@ -749,11 +793,12 @@ async function coreAi(send, step, state) {
   state.stats.candidates = candidates.length;
   // Le paquet de sources ne sert plus : on allège le brouillon
   state.mairie.pages = [];
+  state.news = [];
   return state;
 }
 
-async function coreLocate(send, step, state) {
-  const { projects, bbox, mairie } = state;
+async function coreGeoMedia(send, step, state) {
+  const { projects, bbox } = state;
   const communeShim = {
     nom: state.commune.nom,
     code: state.commune.code,
@@ -765,9 +810,12 @@ async function coreLocate(send, step, state) {
   const METHOD_LABELS = { emprise: 'emprise réelle trouvée', trace: 'tracé réel trouvé', adresse: 'adresse précise', centre: 'placé au centre-ville' };
   for (let i = 0; i < projects.length; i++) {
     const loc = await locateProject(projects[i], communeShim, bbox, i);
-    located.push({ ...projects[i], ...loc });
     const c = centroidOf(loc.geometry);
-    const geomJson = JSON.stringify(loc.geometry);
+    // Plafond aussi au stockage : une emprise Nominatim géante retombe en point
+    if (JSON.stringify(loc.geometry).length >= 15000) {
+      loc.geometry = { type: 'Point', coordinates: [c.lng, c.lat] };
+    }
+    located.push({ ...projects[i], ...loc });
     send({
       type: 'geo-item',
       title: projects[i].title,
@@ -776,7 +824,7 @@ async function coreLocate(send, step, state) {
       category_slug: projects[i].category_slug,
       lat: c.lat,
       lng: c.lng,
-      geometry: (loc.method !== 'centre' && geomJson.length < 15000) ? loc.geometry : null,
+      geometry: (loc.method !== 'centre' && loc.geometry.type !== 'Point') ? loc.geometry : null,
     });
   }
   const precise = located.filter((p) => p.method !== 'centre').length;
@@ -806,21 +854,29 @@ async function coreLocate(send, step, state) {
   }
   step('media', illustrated ? 'done' : 'skip', 'Illustrations trouvées', `${illustrated}/${located.length} projets illustrés (photos libres de droits)`);
 
-  step('articles', 'start', 'Rédaction des articles de présentation', 'Un article sourcé par projet, avec les documents officiels');
-  let articles = [];
-  try {
-    articles = await writeArticles(communeShim, located, mairie.pdfs, (title) => send({ type: 'article-item', title }));
-  } catch (e) {
-    console.error('[demo-generate] articles :', e.message);
-  }
-  step('articles', articles.length ? 'done' : 'skip', 'Articles rédigés', `${articles.length} article(s) de présentation`);
-
   state.located = located;
-  state.articles = articles;
   state.projects = [];
   state.stats.verified = located.length;
   state.stats.precise = precise;
   state.stats.illustrated = illustrated;
+  return state;
+}
+
+async function coreRedact(send, step, state) {
+  const communeShim = {
+    nom: state.commune.nom,
+    code: state.commune.code,
+    centre: { coordinates: [state.commune.lng, state.commune.lat] },
+  };
+  step('articles', 'start', 'Rédaction des articles de présentation', 'Un article sourcé par projet, avec les documents officiels');
+  let articles = [];
+  try {
+    articles = await writeArticles(communeShim, state.located, state.mairie.pdfs, (title) => send({ type: 'article-item', title }));
+  } catch (e) {
+    console.error('[demo-generate] articles :', e.message);
+  }
+  step('articles', articles.length ? 'done' : 'skip', 'Articles rédigés', `${articles.length} article(s) de présentation`);
+  state.articles = articles;
   return state;
 }
 
@@ -846,7 +902,8 @@ async function runSources(send, step, insee, ipHash) {
     // Local : pas de persistance possible, on enchaîne tout dans l'invocation
     const s2 = await coreAi(send, step, state);
     if (!s2) return;
-    await coreLocate(send, step, s2);
+    const s3 = await coreGeoMedia(send, step, s2);
+    await coreRedact(send, step, s3);
     send({
       type: 'error',
       message: 'Environnement local sans clé service Supabase : la création de l\'espace est désactivée ici. En production, cette étape fonctionne.',
@@ -855,7 +912,13 @@ async function runSources(send, step, insee, ipHash) {
     return;
   }
 
-  const ville = `${VILLE_PREFIX}${slugify(state.commune.nom)}`;
+  // Communes homonymes : la clé reste lisible, l'INSEE n'est ajouté qu'en cas
+  // de collision réelle (Castres du Tarn vs Castres de l'Aisne)
+  let ville = `${VILLE_PREFIX}${slugify(state.commune.nom)}`;
+  const clash = await getInstance({ ville });
+  if (clash && clash.commune_insee !== insee) {
+    ville = `${VILLE_PREFIX}${slugify(state.commune.nom)}-${insee.toLowerCase()}`;
+  }
   await saveDraft(ville, insee, state.commune.nom, ipHash, 'draft-sources', state);
   send({ type: 'phase', next: 'ai', ville });
 }
@@ -867,7 +930,12 @@ async function runAi(send, step, ville) {
     return;
   }
   const state = await coreAi(send, step, instance.payload);
-  if (!state) return;
+  if (!state) {
+    // Échec définitif (sources insuffisantes) : statut failed, plus aucun
+    // appel IA ne sera refait pour cette commune tant que le brouillon vit
+    await updateInstance(ville, { status: 'failed', payload: null });
+    return;
+  }
   await updateInstance(ville, { status: 'draft-ai', payload: state });
   send({ type: 'phase', next: 'locate', ville });
 }
@@ -878,7 +946,18 @@ async function runLocate(send, step, ville) {
     send({ type: 'error', message: 'Analyse introuvable : relancez la génération.' });
     return;
   }
-  const state = await coreLocate(send, step, instance.payload);
+  const state = await coreGeoMedia(send, step, instance.payload);
+  await updateInstance(ville, { status: 'draft-media', payload: state });
+  send({ type: 'phase', next: 'redact', ville });
+}
+
+async function runRedact(send, step, ville) {
+  const instance = await getInstance({ ville });
+  if (!instance?.payload || instance.status !== 'draft-media') {
+    send({ type: 'error', message: 'Analyse introuvable : relancez la génération.' });
+    return;
+  }
+  const state = await coreRedact(send, step, instance.payload);
   await updateInstance(ville, { status: 'draft', payload: state });
   send({ type: 'phase', next: 'create', ville });
 }
@@ -906,54 +985,31 @@ async function runCreate(send, step, ville) {
 
   step('create', 'start', `Ouverture de l'espace de ${commune.nom}`);
 
-  let logoUrl = null;
-  if (mairie.logoUrl) {
-    try {
-      const ir = await fetchWithTimeout(mairie.logoUrl, { headers: UA });
-      if (ir.ok) {
-        const ct = ir.headers.get('content-type') || 'image/png';
-        if (/image|icon|octet/.test(ct)) {
-          const ext = ct.includes('svg') ? 'svg' : ct.includes('jpeg') ? 'jpg' : ct.includes('ico') ? 'ico' : 'png';
-          logoUrl = await uploadToStorage(`branding/${ville}/logo.${ext}`, await ir.arrayBuffer(), ct);
-          createItem('Logo de la mairie installé');
-        }
-      }
-    } catch { /* logo facultatif */ }
+  // Rejouabilité : une reprise après échec partiel repart d'une base propre
+  // (les anciens dossiers d'abord, ils référencent les fiches par FK)
+  const previous = await (async () => {
+    const url = new URL(`${SUPABASE_URL}/rest/v1/contribution_uploads`);
+    url.searchParams.set('select', 'id');
+    url.searchParams.set('ville', `eq.${ville}`);
+    const r = await fetchWithTimeout(url.toString(), { headers: serviceHeaders() });
+    return r.ok ? r.json() : [];
+  })();
+  if (previous.length) {
+    await deleteWhere('consultation_dossiers', { contribution_id: `in.(${previous.map((p) => p.id).join(',')})` });
+    await deleteWhere('contribution_uploads', { ville: `eq.${ville}` });
   }
 
-  const population = commune.population || 0;
-  const zoom = population > 100000 ? 12 : population > 20000 ? 13 : population > 5000 ? 14 : 15;
-  await insertRows('city_branding', [{
-    ville,
-    brand_name: commune.nom,
-    logo_url: logoUrl || 'https://openprojets.com/home/img/logos/classic_color.png',
-    center_lat: commune.lat,
-    center_lng: commune.lng,
-    zoom,
-    primary_color: mairie.themeColor || '#14AE5C',
-    enabled_toggles: ['filters', 'basemap', 'theme', 'search', 'info'],
-    travaux: false,
-  }]);
-  createItem(mairie.themeColor
-    ? `Espace créé aux couleurs de ${commune.nom} (${mairie.themeColor})`
-    : `Espace ${commune.nom} créé`);
-  await insertRows('city_modules', [{
-    ville, module_key: 'carte', label: 'Menu', icon_class: 'fas fa-map', sort_order: 0, enabled: true, config: {},
-  }]);
-  createItem('Navigation et catégories configurées');
-
-  // Illustrations re-hébergées en parallèle (URL stables, pas de hotlink)
+  // Illustrations re-hébergées en parallèle (URL stables, pas de hotlink).
+  // Slugs déterministes : une reprise réécrit les mêmes fichiers (upsert)
   step('covers', 'start', 'Installation des illustrations');
-  const slugs = located.map((p) => `${slugify(p.title)}-${Math.random().toString(36).slice(2, 6)}`);
+  const slugs = located.map((p, i) => `${slugify(p.title)}-${i + 1}`);
   const coverUrls = await inChunks(located.map((p, i) => ({ p, i })), 3, async ({ p, i }) => {
     if (!p.coverSrc) return null;
     try {
-      const ir = await fetchWithTimeout(p.coverSrc, { headers: UA });
-      if (!ir.ok) return null;
-      const buf = await ir.arrayBuffer();
-      if (buf.byteLength > 4500000) return null;
-      const ct = ir.headers.get('content-type') || 'image/jpeg';
-      const url = await uploadToStorage(`demo/${ville}/${slugs[i]}-cover.jpg`, buf, ct);
+      const img = await fetchCapped(p.coverSrc, { headers: UA }, FETCH_TIMEOUT_MS, 4500000, true);
+      if (!img) return null;
+      const ct = img.headers.get('content-type') || 'image/jpeg';
+      const url = await uploadToStorage(`demo/${ville}/${slugs[i]}-cover.jpg`, img.data, ct);
       send({ type: 'cover-item', title: p.title });
       return url;
     } catch { return null; }
@@ -999,7 +1055,7 @@ async function runCreate(send, step, ville) {
       approved: true,
     });
   }
-  const inserted = await insertRows('contribution_uploads', rows, true) || [];
+  const inserted = await insertRows('contribution_uploads', rows, { returning: true }) || [];
 
   const dossierRows = [];
   for (let i = 0; i < rows.length; i++) {
@@ -1019,10 +1075,48 @@ async function runCreate(send, step, ville) {
     }
   }
   if (dossierRows.length) {
-    await insertRows('consultation_dossiers', dossierRows);
+    await insertRows('consultation_dossiers', dossierRows, { onConflict: 'project_name,pdf_url' });
     createItem(`${dossierRows.length} document(s) officiel(s) rattaché(s) aux fiches`);
   }
   step('publish', 'done', 'Fiches publiées', `${rows.length} projets sur la carte de ${commune.nom}`);
+
+  // Le branding en DERNIER : l'espace ne devient public qu'avec ses fiches
+  // (plus jamais d'espace fantôme si l'invocation meurt en route)
+  let logoUrl = null;
+  if (mairie.logoUrl) {
+    try {
+      const img = await fetchCapped(mairie.logoUrl, { headers: UA }, FETCH_TIMEOUT_MS, 4500000, true);
+      if (img) {
+        const ct = img.headers.get('content-type') || 'image/png';
+        if (/image|icon|octet/.test(ct)) {
+          const ext = ct.includes('svg') ? 'svg' : ct.includes('jpeg') ? 'jpg' : ct.includes('ico') ? 'ico' : 'png';
+          logoUrl = await uploadToStorage(`branding/${ville}/logo.${ext}`, img.data, ct);
+          createItem('Logo de la mairie installé');
+        }
+      }
+    } catch { /* logo facultatif */ }
+  }
+
+  const population = commune.population || 0;
+  const zoom = population > 100000 ? 12 : population > 20000 ? 13 : population > 5000 ? 14 : 15;
+  await insertRows('city_branding', [{
+    ville,
+    brand_name: commune.nom,
+    logo_url: logoUrl || 'https://openprojets.com/home/img/logos/classic_color.png',
+    center_lat: commune.lat,
+    center_lng: commune.lng,
+    zoom,
+    primary_color: mairie.themeColor || '#14AE5C',
+    enabled_toggles: ['filters', 'basemap', 'theme', 'search', 'info'],
+    travaux: false,
+  }]);
+  createItem(mairie.themeColor
+    ? `Espace créé aux couleurs de ${commune.nom} (${mairie.themeColor})`
+    : `Espace ${commune.nom} créé`);
+  await insertRows('city_modules', [{
+    ville, module_key: 'carte', label: 'Menu', icon_class: 'fas fa-map', sort_order: 0, enabled: true, config: {},
+  }], { onConflict: 'ville,module_key' });
+  createItem('Navigation et catégories configurées');
 
   await updateInstance(ville, {
     status: 'ready',
@@ -1045,13 +1139,13 @@ export default async (req, context) => {
   if (phase === 'analyse' && !/^\d{2}[0-9AB]\d{2}$/.test(insee)) {
     return new Response(JSON.stringify({ error: 'Paramètre commune invalide (code INSEE attendu)' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://openprojets.com' },
     });
   }
   if (phase !== 'analyse' && !/^essai-[a-z0-9-]+$/.test(villeParam)) {
     return new Response(JSON.stringify({ error: 'Paramètre ville invalide' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://openprojets.com' },
     });
   }
 
@@ -1070,12 +1164,27 @@ export default async (req, context) => {
           await runAi(send, step, villeParam);
         } else if (phase === 'locate') {
           await runLocate(send, step, villeParam);
+        } else if (phase === 'redact') {
+          await runRedact(send, step, villeParam);
         } else if (phase === 'create') {
           await runCreate(send, step, villeParam);
         } else {
           // Idempotence : reprendre là où une génération précédente s'est arrêtée
-          const already = await getInstance({ commune_insee: insee });
-          const RESUME = { 'draft-sources': 'ai', 'draft-ai': 'locate', 'draft': 'create' };
+          let already = await getInstance({ commune_insee: insee });
+          // Échec définitif frais : réponse immédiate sans re-brûler d'appels IA ;
+          // au-delà de 7 jours, on repart de zéro (de nouvelles sources existent)
+          if (already?.status === 'failed') {
+            const ageMs = Date.now() - new Date(already.created_at).getTime();
+            if (ageMs < 7 * 24 * 3600 * 1000) {
+              step('resolve', 'done', 'Commune reconnue', already.commune_nom);
+              send({ type: 'error', message: `Les sources publiques ne suffisent pas encore pour une carte fidèle de ${already.commune_nom}. Avec vos documents, la carte complète se monte en quelques jours : parlons-en.` });
+              controller.close();
+              return;
+            }
+            await deleteWhere('demo_instances', { ville: `eq.${already.ville}` });
+            already = null;
+          }
+          const RESUME = { 'draft-sources': 'ai', 'draft-ai': 'locate', 'draft-media': 'redact', 'draft': 'create' };
           if (already?.status === 'ready') {
             step('resolve', 'done', 'Commune reconnue', already.commune_nom);
             step('exists', 'done', 'Espace déjà généré', 'On vous y emmène');
@@ -1086,8 +1195,10 @@ export default async (req, context) => {
             send({ type: 'phase', next: RESUME[already.status], ville: already.ville });
           } else {
             const ipHash = (await sha256Hex(context?.ip || 'inconnu')).slice(0, 24);
+            const kioskOk = process.env.DEMO_KIOSK_KEY
+              && url.searchParams.get('k') === process.env.DEMO_KIOSK_KEY;
             const [byIp, global] = await Promise.all([countToday('ip_hash', ipHash), countToday(null, null)]);
-            if (global >= MAX_GLOBAL_PER_DAY || byIp >= MAX_PER_IP_PER_DAY) {
+            if (global >= MAX_GLOBAL_PER_DAY || (!kioskOk && byIp >= MAX_PER_IP_PER_DAY)) {
               send({ type: 'error', message: 'Le quota de démonstrations du jour est atteint. Contactez-nous pour une démo guidée.' });
             } else {
               await runSources(send, step, insee, ipHash);
@@ -1099,7 +1210,8 @@ export default async (req, context) => {
         send({
           type: 'error',
           message: 'Un imprévu est survenu pendant la génération. Réessayez, ou passez nous voir pour une démo guidée.',
-          debug: String(err?.message || err).slice(0, 180),
+          // Détail technique uniquement si le diagnostic est activé côté env
+          ...(process.env.DEMO_DEBUG === '1' ? { debug: String(err?.message || err).slice(0, 180) } : {}),
         });
       } finally {
         clearInterval(heartbeat);
@@ -1113,7 +1225,7 @@ export default async (req, context) => {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-store',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': 'https://openprojets.com',
     },
   });
 };

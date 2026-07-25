@@ -21,7 +21,15 @@ fiches (consultation_dossiers). Durée totale : 2 à 4 minutes par commune.
 
 - Idempotence : une commune déjà générée redirige vers l'espace existant
 - Quotas : 80 générations/jour au global, 15 par IP (constantes en tête de
-  `netlify/functions/demo-generate.mjs`)
+  `netlify/functions/demo-generate.mjs`). Pour le salon : définir la variable
+  d'env `DEMO_KIOSK_KEY` et ouvrir `/demo/?kiosk=1&k=<clé>` : le quota par IP
+  est levé pour cet écran (le plafond global reste)
+- Diagnostic : `DEMO_DEBUG=1` en variable d'env renvoie le détail technique
+  des erreurs au navigateur (désactivé par défaut)
+- Génération en 4 invocations SSE courtes (sources → ai → locate → redact →
+  create), état dans `demo_instances.status/payload`, reprise automatique
+  côté client en cas de coupure ; échec « sources insuffisantes » mémorisé
+  en statut `failed` 7 jours (aucun re-coût IA)
 - Qualité : projet rejeté si sa source n'a pas été réellement collectée, si la
   confiance est basse, ou s'il géocode hors du contour de la commune ;
   moins de 3 projets vérifiés = message d'orientation vers un contact humain

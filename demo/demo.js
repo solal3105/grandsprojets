@@ -15,7 +15,11 @@
   const input = $('commune-input');
   const suggestionsEl = $('suggestions');
   const feedEl = $('feed');
-  const KIOSK = new URLSearchParams(window.location.search).get('kiosk') === '1';
+  const URL_PARAMS = new URLSearchParams(window.location.search);
+  const KIOSK = URL_PARAMS.get('kiosk') === '1';
+  // Clé kiosque optionnelle (quota par IP levé côté serveur au salon)
+  const KIOSK_KEY = URL_PARAMS.get('k') || '';
+  const kioskParam = KIOSK_KEY ? `&k=${encodeURIComponent(KIOSK_KEY)}` : '';
 
   let es = null;
   let selectedIndex = -1;
@@ -74,12 +78,15 @@
 
   /* ─── Autocomplétion ─── */
 
+  let suggestSeq = 0;
   async function fetchSuggestions(q) {
     if (q.length < 2) { renderSuggestions([]); return; }
+    const seq = ++suggestSeq;
     try {
       const r = await fetch(`https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=departement,population,centre&boost=population&limit=6`);
-      renderSuggestions(r.ok ? await r.json() : []);
-    } catch { renderSuggestions([]); }
+      const list = r.ok ? await r.json() : [];
+      if (seq === suggestSeq) renderSuggestions(list); // ignorer les réponses périmées
+    } catch { if (seq === suggestSeq) renderSuggestions([]); }
   }
 
   function renderSuggestions(list) {
@@ -97,6 +104,11 @@
   input.addEventListener('input', () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => fetchSuggestions(input.value.trim()), 180);
+    // Champ redevenu vide : la machine à écrire reprend la main
+    if (!input.value && screens.input.classList.contains('is-active')) {
+      clearTimeout(typeTimer);
+      typewriter();
+    }
   });
 
   input.addEventListener('keydown', (e) => {
@@ -108,6 +120,11 @@
     } else if (e.key === 'Enter') {
       const c = suggestions[selectedIndex >= 0 ? selectedIndex : 0];
       if (c) start(c);
+      else if (input.value.trim().length >= 2) {
+        // Entrée avant l'arrivée des suggestions : recherche immédiate
+        clearTimeout(debounceTimer);
+        fetchSuggestions(input.value.trim()).then(() => { if (suggestions[0]) start(suggestions[0]); });
+      }
     } else if (e.key === 'Escape') {
       renderSuggestions([]);
     }
@@ -135,14 +152,17 @@
     fusee: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>',
   };
 
-  // Poids de progression par étape (barre du haut)
+  // Poids de progression par étape (barre du haut), 100 % réservé au done
   const STEP_PCT = {
     resolve: 6, mairie: 18, news: 34, boamp: 40, ai1: 54, ai2: 66,
-    geo: 76, media: 85, articles: 92, exists: 90, create: 95, covers: 97, publish: 100,
+    geo: 76, media: 84, articles: 90, exists: 20, create: 93, covers: 95, publish: 98,
   };
 
+  let progressPct = 0;
   function setProgress(pct) {
-    $('topline-fill').style.width = `${Math.min(100, pct)}%`;
+    // Monotone : la barre ne recule jamais, quel que soit l'ordre des reprises
+    progressPct = pct <= 2 ? pct : Math.max(progressPct, pct);
+    $('topline-fill').style.width = `${Math.min(100, progressPct)}%`;
   }
 
   function setPill(label, detail, done) {
@@ -164,12 +184,14 @@
     feedEl.appendChild(li);
     const items = [...feedEl.children];
     items.slice(0, Math.max(0, items.length - 3)).forEach((el) => el.classList.add('is-old'));
-    while (feedEl.children.length > FEED_MAX) {
-      const first = feedEl.firstElementChild;
-      first.classList.add('is-gone');
-      setTimeout(() => first.remove(), 600);
-      if (feedEl.children.length > FEED_MAX + 3) first.remove();
-    }
+    // Purge dure au-delà de la marge, sortie animée une seule fois par nœud
+    while (feedEl.children.length > FEED_MAX + 3) feedEl.firstElementChild.remove();
+    items.slice(0, Math.max(0, items.length - FEED_MAX)).forEach((el) => {
+      if (!el.classList.contains('is-gone')) {
+        el.classList.add('is-gone');
+        setTimeout(() => el.remove(), 600);
+      }
+    });
     return li;
   }
 
@@ -235,11 +257,18 @@
 
   /* ─── Génération (phases SSE enchaînées sans couture) ─── */
 
+  // Les phases serveur sont idempotentes et reprennent par statut : en cas de
+  // coupure transitoire du flux (reconnexion EventSource, réseau de salon...),
+  // on rappelle l'endpoint d'entrée qui reprend exactement où on en était.
+  const MAX_RESUMES = 4;
+  let resumeAttempts = 0;
+
   function openStream(url) {
     es = new EventSource(url);
     es.onmessage = (e) => {
       let msg;
       try { msg = JSON.parse(e.data); } catch { return; }
+      if (msg.type === 'step' || msg.type === 'phase') resumeAttempts = 0; // le flux progresse : santé confirmée
       if (msg.type === 'step') onStep(msg);
       else if (msg.type === 'finding') onFinding(msg);
       else if (msg.type === 'ai-item') onAiItem(msg);
@@ -249,22 +278,44 @@
       else if (msg.type === 'create-item') addFeed('fusee', msg.label, '', true);
       else if (msg.type === 'projects') onProjects(msg.items || []);
       else if (msg.type === 'geo-item') onGeoItem(msg);
-      else if (msg.type === 'phase') { es.close(); es = null; openStream(`/api/demo-generate?phase=${encodeURIComponent(msg.next)}&ville=${encodeURIComponent(msg.ville)}`); }
+      else if (msg.type === 'phase') {
+        es.close(); es = null;
+        // Le spinner reste actif pendant la transition d'invocation
+        setPill(currentStepLabel || 'Analyse en cours...', 'Étape suivante...', false);
+        openStream(`/api/demo-generate?phase=${encodeURIComponent(msg.next)}&ville=${encodeURIComponent(msg.ville)}`);
+      }
       else if (msg.type === 'done') { es.close(); es = null; onDone(msg); }
       else if (msg.type === 'error') { es.close(); es = null; onError(msg.message, msg.debug); }
     };
     es.onerror = () => {
-      if (es) { es.close(); es = null; onError('La connexion a été interrompue. Réessayez.'); }
+      if (!es) return;
+      es.close();
+      es = null;
+      if (currentCommune && resumeAttempts < MAX_RESUMES) {
+        resumeAttempts++;
+        addFeed('fusee', 'Reconnexion...', `reprise automatique (${resumeAttempts}/${MAX_RESUMES})`);
+        setTimeout(() => {
+          if (!es && screens.progress.classList.contains('is-active')) {
+            openStream(`/api/demo-generate?commune=${encodeURIComponent(currentCommune.code)}${kioskParam}`);
+          }
+        }, 1600);
+      } else {
+        onError('La connexion a été interrompue. Réessayez.');
+      }
     };
   }
 
   function start(commune) {
     currentCommune = commune;
+    resumeAttempts = 0;
+    currentStepLabel = '';
+    clearTimeout(debounceTimer);
     renderSuggestions([]);
     input.blur();
     clearTimeout(typeTimer);
     feedEl.innerHTML = '';
     aiCounts.ai1 = 0; aiCounts.ai2 = 0;
+    progressPct = 0;
     setProgress(2);
     setPill('Préparation...', '', false);
     $('hud-commune').textContent = commune.nom;
@@ -283,7 +334,7 @@
         .catch(() => { /* contour décoratif */ });
     }
 
-    openStream(`/api/demo-generate?commune=${encodeURIComponent(commune.code)}`);
+    openStream(`/api/demo-generate?commune=${encodeURIComponent(commune.code)}${kioskParam}`);
   }
 
   function onDone(msg) {
@@ -307,6 +358,7 @@
     }
 
     if (hasFx) window.MapFX.finale(0);
+    setProgress(100);
     show('done');
 
     if (KIOSK) {
@@ -332,7 +384,9 @@
     if (debug) console.error('[demo-generate]', debug);
     $('progress-error').textContent = message;
     $('hud-error').hidden = false;
-    setPill(currentStepLabel || 'Génération interrompue', '', true);
+    $('hud-label').textContent = 'Génération interrompue';
+    $('hud-detail').textContent = '';
+    $('hud-icon').innerHTML = '<span class="hud-x">!</span>';
     if (KIOSK) redirectTimer = setTimeout(reset, 60000);
   }
 
@@ -341,7 +395,10 @@
     if (es) { es.close(); es = null; }
     input.value = '';
     feedEl.innerHTML = '';
+    renderSuggestions([]);
+    progressPct = 0;
     setProgress(0);
+    ['stat-sources', 'stat-verified', 'stat-precise', 'stat-illustrated'].forEach((id) => { $(id).textContent = '0'; });
     document.documentElement.style.removeProperty('--accent');
     if (hasFx) window.MapFX.reset();
     show('input');

@@ -39,7 +39,8 @@
 
   let map = null;
   let ok = false;
-  let accent = '#ff4d6a';
+  const DEFAULT_ACCENT = '#ff4d6a';
+  let accent = DEFAULT_ACCENT;
   let rafId = null;
   let mode = 'off'; // off | attract-globe | attract-france | focus | orbit
   let attractTimer = null;
@@ -74,6 +75,9 @@
     }
 
     if (prefersReduced) return;
+    // Ne jamais piloter la caméra pendant un vol : setCenter/setBearing
+    // annuleraient les flyTo (plongée commune, cycles attract, retour accueil)
+    if (map.isMoving()) return;
     if (mode === 'attract-globe') {
       map.setCenter([map.getCenter().lng + 0.045, 18]);
     } else if (mode === 'orbit') {
@@ -341,6 +345,7 @@
         try { if (map.getLayer(id)) map.removeLayer(id); } catch { /* absente */ }
       }
       try { if (map.getSource('fx-contour')) map.removeSource('fx-contour'); } catch { /* absente */ }
+      this.setAccent(DEFAULT_ACCENT); // la commune suivante repart de la couleur maison
       map.flyTo({ center: [2.4, 24], zoom: 2.1, pitch: 0, bearing: 0, duration: 3000, essential: true });
       this.attractStart();
     },
