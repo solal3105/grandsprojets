@@ -551,9 +551,10 @@ async function extractCandidates(commune, bundle, onTitle) {
 }
 
 async function selectProjects(commune, candidates, bundle, onTitle) {
-  const system = `Tu es un rédacteur territorial exigeant. À partir des candidats extraits et des sources, compose la sélection finale des projets de ${commune.nom} (vise 6 à 12 si la matière le permet, moins seulement si les sources sont pauvres). Retiens tous les projets réels distincts, ne te limite pas artificiellement. Règles :
-- Uniquement des projets physiques et localisables DANS la commune, actuels (en cours, récents ou annoncés). Fusionne les doublons.
-- confidence "haute" seulement si la citation atteste clairement le projet ; "basse" si douteux (il sera écarté).
+  const system = `Tu es un rédacteur territorial exigeant. À partir des candidats extraits et des sources, compose la sélection finale des projets de ${commune.nom}. Retiens CHAQUE projet réel et distinct attesté par les sources : si 10 projets distincts sont vérifiés, rends-en 10 (jusqu'à 12). Ne vise pas un chiffre rond, ne résume pas la liste, n'élague pas les projets modestes. Règles :
+- Uniquement des projets physiques et localisables DANS la commune, actuels (en cours, récents ou annoncés).
+- Ne fusionne que deux entrées qui désignent EXACTEMENT le même projet au même endroit. Un parking, une résidence rénovée, un équipement (piscine, EHPAD, crématorium, médiathèque), une voie réaménagée, un espace public sont des projets DISTINCTS, même situés dans le même quartier.
+- confidence "haute" si la citation atteste clairement le projet ; "moyenne" si l'information est réelle mais partielle ; "basse" seulement si douteux (il sera écarté).
 - description : 2 à 4 phrases sobres et factuelles, dates si connues, zéro superlatif, en français impeccable.
 - place : le lieu géocodable le plus précis mentionné (rue, quartier, équipement), chaîne vide sinon.
 - source_url : reprends l'URL de la source qui atteste le projet.`;
@@ -720,14 +721,53 @@ async function commonsCandidatesAt(lat, lng, radius) {
   return out;
 }
 
-// Candidats autour du projet (deux rayons croissants), dédupliqués, plafonnés
-async function gatherImageCandidates(lat, lng) {
+// Recherche Commons par texte : rattrape les photos taguées au nom du lieu
+// mais pas géolocalisées à proximité (fréquent pour les équipements)
+async function commonsTextCandidates(query) {
+  const out = [];
+  try {
+    const u = new URL('https://commons.wikimedia.org/w/api.php');
+    u.searchParams.set('action', 'query');
+    u.searchParams.set('format', 'json');
+    u.searchParams.set('generator', 'search');
+    u.searchParams.set('gsrsearch', query);
+    u.searchParams.set('gsrnamespace', '6');
+    u.searchParams.set('gsrlimit', '6');
+    u.searchParams.set('prop', 'imageinfo');
+    u.searchParams.set('iiprop', 'url|extmetadata');
+    u.searchParams.set('iiurlwidth', '1024');
+    u.searchParams.set('origin', '*');
+    const r = await fetchWithTimeout(u.toString(), { headers: UA }, 7000);
+    if (!r.ok) return out;
+    const data = await r.json();
+    for (const page of Object.values(data?.query?.pages || {})) {
+      const info = page.imageinfo?.[0];
+      if (!info?.thumburl) continue;
+      const meta = info.extmetadata || {};
+      const title = String(page.title || '').replace(/^File:/i, '');
+      if (COMMONS_BLOCKLIST.test(`${title} ${stripHtml(meta.Categories?.value || '')}`)) continue;
+      const artist = stripHtml(meta.Artist?.value || '').slice(0, 60) || 'auteur inconnu';
+      const license = meta.LicenseShortName?.value || 'licence libre';
+      out.push({ url: info.thumburl, title, credit: `${artist}, Wikimedia Commons (${license})` });
+    }
+  } catch { /* Commons indisponible */ }
+  return out;
+}
+
+// Candidats autour du projet : geosearch (deux rayons) complété par une
+// recherche texte si trop peu de photos géolocalisées. Dédupliqués, plafonnés.
+async function gatherImageCandidates(project, communeNom, lat, lng) {
   const near = await commonsCandidatesAt(lat, lng, 300);
   const wide = near.length >= 4 ? [] : await commonsCandidatesAt(lat, lng, 750);
+  let pool = [...near, ...wide];
+  if (pool.length < 3) {
+    const q = `${project.place || project.title} ${communeNom}`.trim();
+    pool = [...pool, ...await commonsTextCandidates(q)];
+  }
   const seen = new Set();
   const all = [];
-  for (const c of [...near, ...wide]) {
-    if (seen.has(c.url) || all.length >= 4) continue;
+  for (const c of pool) {
+    if (seen.has(c.url) || all.length >= 6) continue;
     seen.add(c.url);
     all.push(c);
   }
@@ -1011,7 +1051,7 @@ async function coreMedia(send, step, state) {
   step('media', 'start', 'Recherche d\'illustrations libres de droits', 'Photos libres jugées une à une par l\'IA (sujet vérifié)');
   const images = await inChunks(located, 3, async (p) => {
     const c = centroidOf(p.geometry);
-    const candidates = await gatherImageCandidates(c.lat, c.lng);
+    const candidates = await gatherImageCandidates(p, state.commune.nom, c.lat, c.lng);
     return pickBestImageWithAI(p, state.commune.nom, candidates);
   });
   let illustrated = 0;
