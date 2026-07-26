@@ -1088,6 +1088,7 @@ async function coreGeo(send, step, state) {
     });
   }
   const precise = located.filter((p) => p.method !== 'centre').length;
+  console.log(`[demo-generate] geo ${state.commune.nom}: ${precise}/${located.length} localisés précisément`);
   step('geo', 'done', 'Projets localisés', `${precise}/${located.length} emplacements précis`);
 
   state.located = located;
@@ -1418,6 +1419,7 @@ async function runCreate(send, step, ville) {
     projects_count: rows.length,
     duration_ms: Date.now() - t0,
   });
+  console.log(`[demo-generate] espace prêt: ${ville} (${rows.length} fiches, ${coverUrls.filter(Boolean).length} illustrées, ${Date.now() - t0}ms)`);
   step('create', 'done', 'Espace prêt', commune.nom);
   send({ type: 'done', url: `/?city=${ville}`, ville, communeNom: commune.nom, projectsCount: rows.length, stats });
 }
@@ -1446,7 +1448,14 @@ export default async (req, context) => {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (obj) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
+      const send = (obj) => {
+        // Toute erreur envoyee au client est aussi tracee serveur : plus aucun
+        // echec silencieux (meme ceux qui ne passent pas par le catch)
+        if (obj.type === 'error') {
+          console.warn(`[demo-generate] ERREUR envoyee (${obj.retryable ? 'retry' : 'definitive'}) :: ${obj.message}${obj.debug ? ' :: ' + obj.debug : ''}`);
+        }
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
+      };
       const step = (id, status, label, detail = '') => send({ type: 'step', id, status, label, detail });
       const t0 = Date.now();
       const heartbeat = setInterval(() => {
@@ -1529,8 +1538,8 @@ export default async (req, context) => {
             ? 'Un imprévu est survenu pendant la génération. Nouvelle tentative...'
             : "La génération n'a pas pu aboutir pour cette commune. Réessayez plus tard, ou passez nous voir pour une démo guidée.",
           retryable,
-          // Détail technique uniquement si le diagnostic est activé côté env
-          ...(process.env.DEMO_DEBUG === '1' ? { debug: String(err?.message || err).slice(0, 180) } : {}),
+          // Motif technique court (visible en console pour comprendre l'echec)
+          debug: `phase=${phase} :: ${String(err?.message || err).slice(0, 200)}`,
         });
       } finally {
         clearInterval(heartbeat);
