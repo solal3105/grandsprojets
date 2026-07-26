@@ -335,6 +335,11 @@
     es.onmessage = (e) => {
       let msg;
       try { msg = JSON.parse(e.data); } catch { return; }
+      // Journal navigateur : suivre le déroulé et diagnostiquer un blocage
+      if (msg.type === 'step') console.log(`%c[demo] ${msg.id} ${msg.status}`, 'color:#1977b7;font-weight:600', msg.label, msg.detail || '');
+      else if (msg.type === 'phase') console.log('%c[demo] → phase suivante : ' + msg.next, 'color:#8B5CF6;font-weight:600', msg.ville);
+      else if (msg.type === 'error') console.warn(`[demo] ERREUR ${msg.retryable ? '(nouvelle tentative)' : '(definitive)'} :`, msg.message, msg.debug || '');
+      else if (msg.type === 'done') console.log('%c[demo] ✓ TERMINÉ', 'color:#22c583;font-weight:600', `${msg.projectsCount ?? ''} projets`, msg.url);
       if (msg.type === 'step' || msg.type === 'phase') resumeAttempts = 0;
       if (msg.type === 'step') onStep(msg);
       else if (msg.type === 'finding') onFinding(msg);
@@ -359,6 +364,7 @@
     };
     es.onerror = () => {
       if (!es) return;
+      console.warn('[demo] connexion SSE interrompue, tentative de reprise');
       es.close();
       es = null;
       tryResume();
@@ -369,6 +375,7 @@
     if (debug) console.error('[demo-generate]', debug);
     if (currentCommune && resumeAttempts < MAX_RESUMES) {
       resumeAttempts++;
+      console.warn(`[demo] reprise automatique ${resumeAttempts}/${MAX_RESUMES} pour ${currentCommune.nom}`);
       tick('fusee', 'Reconnexion...', `reprise automatique (${resumeAttempts}/${MAX_RESUMES})`);
       setTimeout(() => {
         if (!es && screens.progress.classList.contains('is-active')) {

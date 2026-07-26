@@ -27,6 +27,7 @@ const OPENAI_MODEL = process.env.DEMO_OPENAI_MODEL || 'gpt-4o';
 const VILLE_PREFIX = 'essai-';
 const MAX_PER_IP_PER_DAY = 15;
 const MAX_GLOBAL_PER_DAY = 80;
+const MAX_PHASE_ATTEMPTS = 2; // au-dela, la phase est declaree en echec (anti-boucle)
 const FETCH_TIMEOUT_MS = 8000;
 const UA = { 'User-Agent': 'Mozilla/5.0 (compatible; OpenProjetsDemo/1.0; +https://openprojets.com/demo/)' };
 
@@ -131,6 +132,21 @@ const ARTICLES_SCHEMA = {
     },
   },
   required: ['articles'],
+};
+
+// Schémas des appels vision (courts)
+const HEX_COLOR_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: { color: { type: 'string' } },
+  required: ['color'],
+};
+
+const IMAGE_CHOICE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: { best_index: { type: 'integer' } },
+  required: ['best_index'],
 };
 
 /* ─── Helpers génériques ─── */
@@ -308,8 +324,31 @@ function collectPdfLinks(html, baseUrl, out) {
   }
 }
 
+// Écarte les images qui ne sont jamais des illustrations de projet (logos,
+// icônes, pixels de tracking, boutons de partage, SVG)
+const IMG_SKIP_RE = /(\.svg|sprite|logo|icone?|\bicon\b|avatar|pixel|placeholder|1x1|blank|spacer|button|share|facebook|twitter|instagram|linkedin|youtube|banner|bandeau|drapeau)/i;
+
+// Moissonne les images d'une page (og:image + images de contenu de taille
+// plausible) : les pages "grands projets" des mairies portent les vrais
+// visuels des projets, la meilleure source d'illustrations
+function collectImages(html, baseUrl, out, cap = 16) {
+  const push = (src) => {
+    if (!src || out.length >= cap) return;
+    try {
+      const abs = new URL(src, baseUrl).toString();
+      if (/^https?:/.test(abs) && !IMG_SKIP_RE.test(abs) && !out.includes(abs)) out.push(abs);
+    } catch { /* src invalide */ }
+  };
+  const og = /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i.exec(html);
+  push(og?.[1]);
+  // srcset ou src, en privilégiant les grandes images (souvent des visuels)
+  const imgRe = /<img\b[^>]*?(?:data-src|src)=["']([^"']+)["'][^>]*>/gi;
+  let m; let n = 0;
+  while ((m = imgRe.exec(html)) !== null && n < 14) { push(m[1]); n++; }
+}
+
 async function inspectMairieSite(siteUrl, onFinding) {
-  const out = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [] };
+  const out = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [] };
   const home = await fetchCapped(siteUrl, { headers: UA }, FETCH_TIMEOUT_MS, 500000);
   if (!home) return out;
   const finalUrl = new URL(home.url);
@@ -318,6 +357,7 @@ async function inspectMairieSite(siteUrl, onFinding) {
   const html = home.data;
   out.pages.push({ url: home.url, title: 'Accueil du site de la mairie', text: stripHtml(html).slice(0, 5000) });
   collectPdfLinks(html, home.url, out.pdfs);
+  collectImages(html, home.url, out.images);
 
   const color = /<meta[^>]+name=["']theme-color["'][^>]+content=["'](#[0-9a-fA-F]{3,8})["']/.exec(html)
     || /<meta[^>]+content=["'](#[0-9a-fA-F]{3,8})["'][^>]+name=["']theme-color["']/.exec(html);
@@ -367,6 +407,7 @@ async function inspectMairieSite(siteUrl, onFinding) {
   for (const sp of subPages) {
     if (!sp) continue;
     collectPdfLinks(sp.page.data, sp.page.url, out.pdfs);
+    collectImages(sp.page.data, sp.page.url, out.images);
     if (sp.text.length > 400) {
       out.pages.push({ url: sp.link.url, title: sp.link.label, text: sp.text });
       out.urls.push(sp.link.url);
@@ -445,22 +486,56 @@ async function fetchBoamp(communeNom, onFinding) {
   }
 }
 
-/* ─── IA : trois passes streamées ─── */
+/* ─── IA : API Responses (retry réseau, appel structuré + variante streamée) ─── */
 
-async function callOpenAI(system, user, schemaName, schema, maxTokens, onTitle) {
-  const r = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      stream: true,
-      input: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-      text: { format: { type: 'json_schema', name: schemaName, schema, strict: true } },
-      max_output_tokens: maxTokens,
-    }),
+// POST vers l'API Responses, avec retry sur erreur réseau ("fetch failed")
+async function postOpenAI(body, timeoutMs = 120000, tries = 2) {
+  let lastErr;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fetchWithTimeout(OPENAI_RESPONSES_URL, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }, timeoutMs);
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[demo-generate] OpenAI fetch échec (${e?.message}), retry ${i + 1}/${tries}`);
+      await sleep(500);
+    }
+  }
+  throw lastErr;
+}
+
+// Texte de sortie d'une réponse (deux emplacements possibles selon le format)
+function outputTextOf(data) {
+  return data.output_text
+    || data.output?.flatMap((o) => o.content || []).find((c) => c.type === 'output_text')?.text
+    || '';
+}
+
+// Appel structuré non streamé : renvoie l'objet JSON validé (json_schema strict)
+async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs = 120000) {
+  const r = await postOpenAI({
+    model: OPENAI_MODEL,
+    input,
+    text: { format: { type: 'json_schema', name: schemaName, schema, strict: true } },
+    max_output_tokens: maxTokens,
+  }, timeoutMs);
+  if (!r.ok) throw new Error(`IA indisponible (${r.status})`);
+  const text = outputTextOf(await r.json());
+  if (!text) throw new Error('Réponse IA vide');
+  return JSON.parse(text);
+}
+
+// Passe streamée : diffuse les titres au fil de l'eau (onTitle) pour le direct
+async function callOpenAIStreamed(system, user, schemaName, schema, maxTokens, onTitle) {
+  const r = await postOpenAI({
+    model: OPENAI_MODEL,
+    stream: true,
+    input: [{ role: 'system', content: system }, { role: 'user', content: user }],
+    text: { format: { type: 'json_schema', name: schemaName, schema, strict: true } },
+    max_output_tokens: maxTokens,
   }, 120000);
   if (!r.ok) {
     const errText = await r.text().catch(() => '');
@@ -502,32 +577,14 @@ async function callOpenAI(system, user, schemaName, schema, maxTokens, onTitle) 
   return JSON.parse(full);
 }
 
-// Le flux OpenAI revient parfois vide (aléa transitoire constaté en prod) :
-// une passe streamée qui échoue est retentée une fois en mode non streamé
+// Passe texte : streamée (titres en direct), avec repli non streamé si le flux
+// échoue ou revient vide (aléa transitoire) - jamais d'interruption de démo
 async function callOpenAIResilient(system, user, schemaName, schema, maxTokens, onTitle) {
   try {
-    return await callOpenAI(system, user, schemaName, schema, maxTokens, onTitle);
+    return await callOpenAIStreamed(system, user, schemaName, schema, maxTokens, onTitle);
   } catch (e) {
-    console.error('[demo-generate] retry IA non streamé après :', e.message);
-    const r = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        input: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-        text: { format: { type: 'json_schema', name: schemaName, schema, strict: true } },
-        max_output_tokens: maxTokens,
-      }),
-    }, 120000);
-    if (!r.ok) throw new Error(`IA indisponible (${r.status})`);
-    const data = await r.json();
-    const text = data.output_text
-      || data.output?.flatMap((o) => o.content || []).find((c) => c.type === 'output_text')?.text;
-    if (!text) throw new Error('Réponse IA vide (retry)');
-    return JSON.parse(text);
+    console.error('[demo-generate] repli IA non streamé après :', e.message);
+    return openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }], schemaName, schema, maxTokens);
   }
 }
 
@@ -547,7 +604,9 @@ function buildSourcesBundle({ mairie, news, boamp }) {
 
 async function extractCandidates(commune, bundle, onTitle) {
   const system = `Tu dépouilles des sources web au sujet de la commune de ${commune.nom}. Extrais TOUS les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES concernant cette commune précise (jusqu'à 24, sois exhaustif : ne laisse passer aucun projet réel mentionné dans les sources). Pour chacun : une citation exacte copiée mot pour mot d'une source (evidence_quote) et l'URL de cette source (source_url, obligatoirement une URL présente entre crochets dans les sources). Ignore : événements, politique, faits divers, autres communes, généralités sans projet.`;
-  const out = await callOpenAI(system, `SOURCES :\n\n${bundle}`, 'candidats', CANDIDATES_SCHEMA, 5000, onTitle);
+  // Résilient : le flux OpenAI revient parfois vide (aléa constaté) -> une
+  // passe non streamée en secours plutôt que d'interrompre toute la démo
+  const out = await callOpenAIResilient(system, `SOURCES :\n\n${bundle}`, 'candidats', CANDIDATES_SCHEMA, 5000, onTitle);
   return out.candidates || [];
 }
 
@@ -584,39 +643,14 @@ async function writeArticles(commune, projects, pdfs, onTitle) {
 // meta theme-color, l'espace prend quand même la couleur de la commune
 async function dominantColorFromLogo(logoUrl) {
   try {
-    const r = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        input: [{
-          role: 'user',
-          content: [
-            { type: 'input_text', text: 'Donne la couleur dominante de ce logo en hexadécimal #RRGGBB, en ignorant blanc, noir et gris. Choisis la couleur de marque la plus saturée et identitaire.' },
-            { type: 'input_image', image_url: logoUrl },
-          ],
-        }],
-        text: {
-          format: {
-            type: 'json_schema',
-            name: 'couleur_logo',
-            schema: {
-              type: 'object',
-              additionalProperties: false,
-              properties: { color: { type: 'string' } },
-              required: ['color'],
-            },
-            strict: true,
-          },
-        },
-        max_output_tokens: 60,
-      }),
-    }, 25000);
-    if (!r.ok) return null;
-    const data = await r.json();
-    const text = data.output_text
-      || data.output?.flatMap((o) => o.content || []).find((c) => c.type === 'output_text')?.text;
-    const hex = JSON.parse(text || '{}').color?.toLowerCase();
+    const out = await openAIStructured([{
+      role: 'user',
+      content: [
+        { type: 'input_text', text: 'Donne la couleur dominante de ce logo en hexadécimal #RRGGBB, en ignorant blanc, noir et gris. Choisis la couleur de marque la plus saturée et identitaire.' },
+        { type: 'input_image', image_url: logoUrl },
+      ],
+    }], 'couleur_logo', HEX_COLOR_SCHEMA, 60, 25000);
+    const hex = out.color?.toLowerCase();
     if (!/^#[0-9a-f]{6}$/.test(hex || '')) return null;
     // Écarter le quasi blanc / quasi noir : inutilisable comme couleur primaire
     const [rr, gg, bb] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
@@ -720,75 +754,45 @@ async function locateProject(project, commune, bbox, index) {
 // Pré-filtre bon marché : jamais de blason/logo/carte/SVG envoyé à la vision
 const COMMONS_BLOCKLIST = /(blason|logo|coat[_ ]of[_ ]arms|carte|\bmap\b|\bplan\b|flag|drapeau|armoiries|diagram|\.svg|\.tif|\.pdf)/i;
 
-async function commonsCandidatesAt(lat, lng, radius) {
+// Mappe une réponse Commons (query.pages) en candidats {url,title,credit},
+// filtrés par la blocklist (blasons, logos, cartes...)
+function commonsPagesToCandidates(data) {
   const out = [];
-  try {
-    const u = new URL('https://commons.wikimedia.org/w/api.php');
-    u.searchParams.set('action', 'query');
-    u.searchParams.set('format', 'json');
-    u.searchParams.set('generator', 'geosearch');
-    u.searchParams.set('ggscoord', `${lat}|${lng}`);
-    u.searchParams.set('ggsradius', String(radius));
-    u.searchParams.set('ggslimit', '8');
-    u.searchParams.set('ggsnamespace', '6');
-    u.searchParams.set('prop', 'imageinfo');
-    u.searchParams.set('iiprop', 'url|extmetadata');
-    u.searchParams.set('iiurlwidth', '1024');
-    u.searchParams.set('origin', '*');
-    const r = await fetchWithTimeout(u.toString(), { headers: UA }, 7000);
-    if (!r.ok) return out;
-    const data = await r.json();
-    for (const page of Object.values(data?.query?.pages || {})) {
-      const info = page.imageinfo?.[0];
-      if (!info?.thumburl) continue;
-      const meta = info.extmetadata || {};
-      const title = String(page.title || '').replace(/^File:/i, '');
-      if (COMMONS_BLOCKLIST.test(`${title} ${stripHtml(meta.Categories?.value || '')}`)) continue;
-      const artist = stripHtml(meta.Artist?.value || '').slice(0, 60) || 'auteur inconnu';
-      const license = meta.LicenseShortName?.value || 'licence libre';
-      out.push({ url: info.thumburl, title, credit: `${artist}, Wikimedia Commons (${license})` });
-    }
-  } catch { /* Commons indisponible */ }
+  for (const page of Object.values(data?.query?.pages || {})) {
+    const info = page.imageinfo?.[0];
+    if (!info?.thumburl) continue;
+    const meta = info.extmetadata || {};
+    const title = String(page.title || '').replace(/^File:/i, '');
+    if (COMMONS_BLOCKLIST.test(`${title} ${stripHtml(meta.Categories?.value || '')}`)) continue;
+    const artist = stripHtml(meta.Artist?.value || '').slice(0, 60) || 'auteur inconnu';
+    const license = meta.LicenseShortName?.value || 'licence libre';
+    out.push({ url: info.thumburl, title, credit: `${artist}, Wikimedia Commons (${license})` });
+  }
   return out;
 }
 
-// Recherche Commons par texte : rattrape les photos taguées au nom du lieu
-// mais pas géolocalisées à proximité (fréquent pour les équipements)
-async function commonsTextCandidates(query) {
-  const out = [];
+// Interroge l'API Commons (namespace fichiers) : geosearch ou recherche texte
+async function commonsQuery(params) {
   try {
     const u = new URL('https://commons.wikimedia.org/w/api.php');
-    u.searchParams.set('action', 'query');
-    u.searchParams.set('format', 'json');
-    u.searchParams.set('generator', 'search');
-    u.searchParams.set('gsrsearch', query);
-    u.searchParams.set('gsrnamespace', '6');
-    u.searchParams.set('gsrlimit', '6');
-    u.searchParams.set('prop', 'imageinfo');
-    u.searchParams.set('iiprop', 'url|extmetadata');
-    u.searchParams.set('iiurlwidth', '1024');
-    u.searchParams.set('origin', '*');
+    const all = { action: 'query', format: 'json', prop: 'imageinfo', iiprop: 'url|extmetadata', iiurlwidth: '1024', origin: '*', ...params };
+    for (const [k, v] of Object.entries(all)) u.searchParams.set(k, String(v));
     const r = await fetchWithTimeout(u.toString(), { headers: UA }, 7000);
-    if (!r.ok) return out;
-    const data = await r.json();
-    for (const page of Object.values(data?.query?.pages || {})) {
-      const info = page.imageinfo?.[0];
-      if (!info?.thumburl) continue;
-      const meta = info.extmetadata || {};
-      const title = String(page.title || '').replace(/^File:/i, '');
-      if (COMMONS_BLOCKLIST.test(`${title} ${stripHtml(meta.Categories?.value || '')}`)) continue;
-      const artist = stripHtml(meta.Artist?.value || '').slice(0, 60) || 'auteur inconnu';
-      const license = meta.LicenseShortName?.value || 'licence libre';
-      out.push({ url: info.thumburl, title, credit: `${artist}, Wikimedia Commons (${license})` });
-    }
-  } catch { /* Commons indisponible */ }
-  return out;
+    return r.ok ? commonsPagesToCandidates(await r.json()) : [];
+  } catch { return []; }
 }
+
+// Photos géolocalisées autour d'un point
+const commonsCandidatesAt = (lat, lng, radius) =>
+  commonsQuery({ generator: 'geosearch', ggscoord: `${lat}|${lng}`, ggsradius: radius, ggslimit: 8, ggsnamespace: 6 });
+
+// Photos taguées au nom du lieu mais pas géolocalisées à proximité (équipements)
+const commonsTextCandidates = (query) =>
+  commonsQuery({ generator: 'search', gsrsearch: query, gsrnamespace: 6, gsrlimit: 6 });
 
 // Images de la SOURCE du projet (article de presse, page mairie) : og:image
 // et images de contenu. Ce sont les plus pertinentes car elles illustrent
 // littéralement le projet. Démo : la licence n'est pas un critère ici.
-const IMG_SKIP_RE = /(\.svg|sprite|logo|icone?|icon|avatar|pixel|placeholder|1x1|blank|spacer|button|share|facebook|twitter|instagram)/i;
 async function sourceImageCandidates(url) {
   const out = [];
   const page = await fetchCapped(url, { headers: UA }, 6000, 500000);
@@ -821,11 +825,13 @@ async function sourceImageCandidates(url) {
 // Candidats autour du projet : d'abord les images de sa source (les plus
 // pertinentes), puis le geosearch Commons, complété par une recherche texte
 // si besoin. Dédupliqués, plafonnés. Le juge vision tranche ensuite.
-async function gatherImageCandidates(project, communeNom, lat, lng) {
+async function gatherImageCandidates(project, communeNom, lat, lng, mairieImages = []) {
   const fromSource = project.source_url ? await sourceImageCandidates(project.source_url) : [];
+  // Images des pages "grands projets" de la mairie : souvent les vrais visuels
+  const fromMairie = mairieImages.slice(0, 8).map((url) => ({ url, title: 'Visuel du site de la mairie', credit: `Source : ${communeNom}` }));
   const near = await commonsCandidatesAt(lat, lng, 300);
   const wide = (fromSource.length + near.length) >= 4 ? [] : await commonsCandidatesAt(lat, lng, 750);
-  let pool = [...fromSource, ...near, ...wide];
+  let pool = [...fromSource, ...fromMairie, ...near, ...wide];
   if (pool.length < 3) {
     const q = `${project.place || project.title} ${communeNom}`.trim();
     pool = [...pool, ...await commonsTextCandidates(q)];
@@ -833,7 +839,7 @@ async function gatherImageCandidates(project, communeNom, lat, lng) {
   const seen = new Set();
   const all = [];
   for (const c of pool) {
-    if (seen.has(c.url) || all.length >= 6) continue;
+    if (seen.has(c.url) || all.length >= 8) continue;
     seen.add(c.url);
     all.push(c);
   }
@@ -854,33 +860,8 @@ async function pickBestImageWithAI(project, communeNom, candidates) {
       content.push({ type: 'input_text', text: `Image ${i} - ${c.title}` });
       content.push({ type: 'input_image', image_url: c.url });
     });
-    const r = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        input: [{ role: 'user', content }],
-        text: {
-          format: {
-            type: 'json_schema',
-            name: 'choix_image',
-            schema: {
-              type: 'object',
-              additionalProperties: false,
-              properties: { best_index: { type: 'integer' } },
-              required: ['best_index'],
-            },
-            strict: true,
-          },
-        },
-        max_output_tokens: 60,
-      }),
-    }, 25000);
-    if (!r.ok) return null;
-    const data = await r.json();
-    const text = data.output_text
-      || data.output?.flatMap((o) => o.content || []).find((c) => c.type === 'output_text')?.text;
-    const idx = JSON.parse(text || '{}').best_index;
+    const out = await openAIStructured([{ role: 'user', content }], 'choix_image', IMAGE_CHOICE_SCHEMA, 60, 30000);
+    const idx = out.best_index;
     if (typeof idx !== 'number' || idx < 0 || idx >= candidates.length) return null;
     return candidates[idx];
   } catch { return null; }
@@ -978,7 +959,7 @@ async function coreSources(send, step, insee) {
 
   step('mairie', 'start', 'Visite du site officiel de la mairie');
   const site = await findMairieWebsite(insee);
-  let mairie = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [] };
+  let mairie = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [] };
   if (site) {
     mairie = await inspectMairieSite(site, finding);
     // Identité visuelle : theme-color du site, sinon couleur dominante du logo
@@ -1013,6 +994,7 @@ async function coreSources(send, step, insee) {
   }
 
   const sourcesCount = mairie.pages.length + news.length + (boamp.length ? 1 : 0);
+  console.log(`[demo-generate] sources ${commune.nom}: ${mairie.pages.length} pages mairie, ${news.length} articles, ${boamp.length} BOAMP, ${(mairie.images || []).length} images mairie, theme=${mairie.themeColor || 'aucun'}`);
   return {
     commune: {
       nom: commune.nom,
@@ -1022,7 +1004,7 @@ async function coreSources(send, step, insee) {
       lng: commune.centre.coordinates[0],
     },
     bbox,
-    mairie: { host: mairie.host, logoUrl: mairie.logoUrl, themeColor: mairie.themeColor, pdfs: mairie.pdfs, pages: mairie.pages, urls: mairie.urls },
+    mairie: { host: mairie.host, logoUrl: mairie.logoUrl, themeColor: mairie.themeColor, pdfs: mairie.pdfs, pages: mairie.pages, urls: mairie.urls, images: mairie.images },
     news,
     boamp,
     stats: { sources: sourcesCount, news: news.length, boamp: boamp.length },
@@ -1034,8 +1016,10 @@ async function coreAi(send, step, state) {
   const bundle = buildSourcesBundle({ mairie, news, boamp });
   const words = Math.round(bundle.length / 6);
 
+  console.log(`[demo-generate] ai1 depouillement ${commune.nom} : ~${words} mots`);
   step('ai1', 'start', 'Dépouillement des sources par l\'IA', `${state.stats.sources} sources, ~${words.toLocaleString('fr-FR')} mots à lire`);
   const candidates = await extractCandidates(commune, bundle, (title) => send({ type: 'ai-item', phase: 'ai1', title }));
+  console.log(`[demo-generate] ai1 -> ${candidates.length} candidats`);
   step('ai1', 'done', 'Sources dépouillées', `${candidates.length} projet(s) candidat(s) repéré(s)`);
 
   step('ai2', 'start', 'Sélection et vérification des projets', 'Chaque projet doit citer sa source mot pour mot');
@@ -1049,9 +1033,11 @@ async function coreAi(send, step, state) {
     ...boamp.map((b) => b.link),
   ]);
   const allowedHosts = new Set([...allowedUrls].map(hostOf).filter(Boolean));
+  const beforeFilter = projects.length;
   projects = projects.filter((p) =>
     p.confidence !== 'basse' && (allowedUrls.has(p.source_url) || allowedHosts.has(hostOf(p.source_url)))
   );
+  console.log(`[demo-generate] ai2 -> ${projects.length} projets retenus (${beforeFilter} avant filtre source, ${candidates.length} candidats)`);
 
   if (projects.length < 3) {
     send({ type: 'error', message: `Les sources publiques ne suffisent pas pour une carte fidèle de ${commune.nom} (${projects.length} projet(s) vérifié(s)). Avec vos documents, la carte complète se monte en quelques jours : parlons-en.` });
@@ -1111,21 +1097,25 @@ async function coreGeo(send, step, state) {
   return state;
 }
 
-// Phase ILLUSTRATIONS : candidats Commons puis juge visuel IA, projet par projet
+// Phase ILLUSTRATIONS : candidats (sources + mairie + Commons) puis juge visuel
 async function coreMedia(send, step, state) {
   const { located } = state;
+  const mairieImages = state.mairie?.images || [];
+  console.log(`[demo-generate] media: ${located.length} projets, ${mairieImages.length} images mairie en pool`);
   step('media', 'start', 'Recherche des illustrations des projets', 'Chaque image est choisie par l\'IA selon le sujet');
   const images = await inChunks(located, 3, async (p) => {
     const c = centroidOf(p.geometry);
-    const candidates = await gatherImageCandidates(p, state.commune.nom, c.lat, c.lng);
+    const candidates = await gatherImageCandidates(p, state.commune.nom, c.lat, c.lng, mairieImages);
     return pickBestImageWithAI(p, state.commune.nom, candidates);
   });
   let illustrated = 0;
+  const usedCovers = new Set(); // pas deux fois la même image sur des fiches différentes
   for (let i = 0; i < located.length; i++) {
     // Pas de photo de repli hors sujet : sans illustration pertinente, on
     // n'en met aucune (une vignette qui ne colle pas casse la crédibilité)
     const img = images[i];
-    if (img) {
+    if (img && !usedCovers.has(img.url)) {
+      usedCovers.add(img.url);
       located[i].coverSrc = img.url;
       located[i].coverCredit = img.credit;
       illustrated++;
@@ -1134,6 +1124,7 @@ async function coreMedia(send, step, state) {
       send({ type: 'media-item', title: located[i].title, credit: img.credit, coverSrc: img.url, lat: c.lat, lng: c.lng });
     }
   }
+  console.log(`[demo-generate] media: ${illustrated}/${located.length} illustrés`);
   step('media', illustrated ? 'done' : 'skip', 'Illustrations trouvées', `${illustrated}/${located.length} projets illustrés (image choisie par l'IA)`);
 
   state.located = located;
@@ -1462,6 +1453,7 @@ export default async (req, context) => {
         try { controller.enqueue(encoder.encode(`: ping ${Date.now() - t0}\n\n`)); } catch { /* flux fermé */ }
       }, 5000);
 
+      console.log(`[demo-generate] >>> phase=${phase} cible=${villeParam || insee}`);
       try {
         if (phase === 'ai') {
           await runAi(send, step, villeParam);
@@ -1511,11 +1503,32 @@ export default async (req, context) => {
           }
         }
       } catch (err) {
-        console.error('[demo-generate]', err);
+        console.error(`[demo-generate] ERREUR phase=${phase} cible=${villeParam || insee} ::`, err?.stack || err?.message || err);
+        // Anti-boucle : au-dela de MAX_PHASE_ATTEMPTS echecs sur une meme phase,
+        // on declare l'instance en echec pour ne plus la relancer indefiniment
+        let retryable = true;
+        if (villeParam) {
+          try {
+            const inst = await getInstance({ ville: villeParam });
+            const attempts = ((inst?.payload && inst.payload._attempts) || 0) + 1;
+            console.warn(`[demo-generate] echec phase=${phase} tentative ${attempts}/${MAX_PHASE_ATTEMPTS} sur ${villeParam}`);
+            if (attempts >= MAX_PHASE_ATTEMPTS) {
+              await updateInstance(villeParam, { status: 'failed', payload: null });
+              retryable = false;
+              console.error(`[demo-generate] ${villeParam} declaree en ECHEC apres ${attempts} tentatives sur phase=${phase}`);
+            } else if (inst?.payload) {
+              await updateInstance(villeParam, { payload: { ...inst.payload, _attempts: attempts } });
+            }
+          } catch (e2) {
+            console.error('[demo-generate] anti-boucle KO ::', e2?.message);
+          }
+        }
         send({
           type: 'error',
-          message: 'Un imprévu est survenu pendant la génération. Réessayez, ou passez nous voir pour une démo guidée.',
-          retryable: true,
+          message: retryable
+            ? 'Un imprévu est survenu pendant la génération. Nouvelle tentative...'
+            : "La génération n'a pas pu aboutir pour cette commune. Réessayez plus tard, ou passez nous voir pour une démo guidée.",
+          retryable,
           // Détail technique uniquement si le diagnostic est activé côté env
           ...(process.env.DEMO_DEBUG === '1' ? { debug: String(err?.message || err).slice(0, 180) } : {}),
         });
