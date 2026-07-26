@@ -101,11 +101,12 @@ const FINAL_SCHEMA = {
           category_slug: { type: 'string', enum: Object.keys(CATEGORIES) },
           status: { type: 'string', enum: Object.keys(STATUS_LABELS) },
           place: { type: 'string', description: 'Lieu géocodable le plus précis (rue, quartier, équipement), vide si inconnu' },
+          address: { type: 'string', description: 'Adresse postale EXACTE du projet SI elle figure telle quelle dans les sources (ex : "12 rue Voltaire" ou "avenue des Belges"). Recopie-la fidèlement. Chaîne vide si aucune adresse n\'est écrite dans les sources - N\'INVENTE JAMAIS d\'adresse.' },
           geo_query: { type: 'string', description: 'Requête optimale pour localiser CE projet sur OpenStreetMap dans la commune : adresse (n° + rue) si connue, sinon le nom EXACT de l\'équipement (ex : "Centre nautique Robert Sautin") ou du quartier/lieu-dit tel qu\'il apparaît sur une carte. Chaîne vide seulement si aucun lieu n\'est identifiable.' },
           source_url: { type: 'string' },
           confidence: { type: 'string', enum: ['haute', 'moyenne', 'basse'] },
         },
-        required: ['title', 'description', 'category_slug', 'status', 'place', 'geo_query', 'source_url', 'confidence'],
+        required: ['title', 'description', 'category_slug', 'status', 'place', 'address', 'geo_query', 'source_url', 'confidence'],
       },
     },
   },
@@ -681,6 +682,7 @@ async function selectProjects(commune, candidates, bundle, onTitle) {
 - category_slug (catégorie dominante) : urbanisme (ZAC, aménagement large), renovation-urbaine (réhabilitation de quartier/logement social), mobilite (voirie, transport, pistes cyclables, gare), environnement (nature, eau, énergie), equipement-public (école, gymnase, médiathèque, hôpital), patrimoine (monument, église, château), economique (zone d'activité, commerces), logement, cadre-de-vie (espaces publics, parcs, places).
 - description : 2 à 4 phrases sobres et factuelles, dates si connues, zéro superlatif, en français impeccable.
 - place : le lieu géocodable le plus précis mentionné (rue, quartier, équipement), chaîne vide sinon.
+- address : LIS ATTENTIVEMENT le texte des sources et recopie l'adresse postale exacte du projet si elle y figure (numéro + rue, ou nom de rue seul). Chaîne vide si aucune adresse n'est écrite. N'invente jamais.
 - geo_query : la MEILLEURE requête pour localiser ce projet sur une carte OpenStreetMap dans la commune. Adresse précise (n° + rue) si elle figure dans les sources, sinon le nom EXACT de l'équipement ou du quartier/lieu-dit. C'est ce texte qui sera envoyé au géocodeur : sois précis, fidèle au nom réel, sans le mot "projet" ni de verbe (écris "Centre nautique Robert Sautin", pas "Rénovation du centre nautique").
 - source_url : reprends l'URL de la source qui atteste le projet.`;
   const user = `CANDIDATS :\n${JSON.stringify(candidates, null, 1)}\n\nSOURCES (pour vérification) :\n\n${bundle.slice(0, 30000)}`;
@@ -743,14 +745,17 @@ function centroidOf(geometry) {
   };
 }
 
-// BAN (adresses officielles), scopé sur la commune : rapide, sans quota
+// BAN (adresses officielles), scopé sur la commune : rapide, sans quota.
+// Seuil de score élevé (0.6) : BAN renvoie sinon une rue au nom VOISIN (ex
+// "Docteur Boyer" pour "Docteur Rollet") - un placement faussement précis à la
+// mauvaise adresse est pire qu'un repli honnête. On exige une vraie correspondance.
 async function banGeocode(q, commune, bbox) {
   try {
     const u = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&citycode=${commune.code}&limit=1`;
     const r = await fetchWithTimeout(u);
     if (r.ok) {
       const f = (await r.json()).features?.[0];
-      if (f && f.properties?.score > 0.35 && geometryInBbox(f.geometry, bbox)) {
+      if (f && f.properties?.score >= 0.6 && geometryInBbox(f.geometry, bbox)) {
         return { geometry: f.geometry, method: 'adresse' };
       }
     }
@@ -758,7 +763,10 @@ async function banGeocode(q, commune, bbox) {
   return null;
 }
 
-// Géocodage complet d'une requête : Nominatim (emprises/tracés réels) puis BAN
+// Géocodage complet d'une requête : Nominatim (emprises/tracés réels) puis BAN.
+// best-of-6 : on garde l'ordre de pertinence de Nominatim mais on descend
+// jusqu'au 1er résultat réellement DANS la commune et son emprise (un homonyme
+// mieux classé ailleurs ne fait plus rater le bon résultat).
 async function geocodeOne(q, commune, bbox) {
   try {
     const u = new URL('https://nominatim.openstreetmap.org/search');
@@ -766,16 +774,17 @@ async function geocodeOne(q, commune, bbox) {
     u.searchParams.set('format', 'jsonv2');
     u.searchParams.set('polygon_geojson', '1');
     u.searchParams.set('countrycodes', 'fr');
-    u.searchParams.set('limit', '1');
+    u.searchParams.set('limit', '6');
     const r = await fetchWithTimeout(u.toString(), { headers: UA }, 7000);
     if (r.ok) {
-      const hit = (await r.json())[0];
-      if (hit?.geojson && (hit.display_name || '').toLowerCase().includes(commune.nom.toLowerCase().slice(0, 8))) {
+      const commLc = commune.nom.toLowerCase().slice(0, 8);
+      for (const hit of await r.json()) {
         const g = hit.geojson;
-        if (['Polygon', 'MultiPolygon', 'LineString', 'MultiLineString'].includes(g.type) && geometryInBbox(g, bbox)) {
+        if (!g || !(hit.display_name || '').toLowerCase().includes(commLc) || !geometryInBbox(g, bbox)) continue;
+        if (['Polygon', 'MultiPolygon', 'LineString', 'MultiLineString'].includes(g.type)) {
           return { geometry: g, method: g.type.includes('Line') ? 'trace' : 'emprise' };
         }
-        if (g.type === 'Point' && geometryInBbox(g, bbox)) return { geometry: g, method: 'adresse' };
+        if (g.type === 'Point') return { geometry: g, method: 'adresse' };
       }
     }
   } catch { /* Nominatim indisponible : BAN ensuite */ }
@@ -807,11 +816,11 @@ function scatterInCommune(center, bbox, index) {
 async function locateProject(project, commune, bbox, index, allowNetwork = true) {
   const center = { lng: commune.centre.coordinates[0], lat: commune.centre.coordinates[1] };
   if (allowNetwork) {
-    // Requêtes de géocodage fournies par l'IA (geo_query optimisée, puis place),
-    // dédoublonnées en gardant l'ordre
+    // Adresse postale exacte des sources d'abord (la plus fiable), puis la
+    // requête optimisée geo_query, puis le lieu ; dédoublonnées en gardant l'ordre
     const seen = new Set();
     const queries = [];
-    for (const q of [project.geo_query, project.place]) {
+    for (const q of [project.address, project.geo_query, project.place]) {
       const t = String(q || '').trim();
       if (t.length >= 3 && !seen.has(t.toLowerCase())) { seen.add(t.toLowerCase()); queries.push(t); }
     }
@@ -1514,31 +1523,29 @@ export default async (req, context) => {
         } else if (phase === 'create') {
           await runCreate(send, step, villeParam);
         } else {
-          // Idempotence : reprendre là où une génération précédente s'est arrêtée
-          let already = await getInstance({ commune_insee: insee });
-          // Échec définitif frais : réponse immédiate sans re-brûler d'appels IA ;
-          // au-delà de 7 jours, on repart de zéro (de nouvelles sources existent)
-          if (already?.status === 'failed') {
-            const ageMs = Date.now() - new Date(already.created_at).getTime();
-            if (ageMs < 7 * 24 * 3600 * 1000) {
-              step('resolve', 'done', 'Commune reconnue', already.commune_nom);
-              send({ type: 'error', message: `Les sources publiques ne suffisent pas encore pour une carte fidèle de ${already.commune_nom}. Avec vos documents, la carte complète se monte en quelques jours : parlons-en.` });
-              controller.close();
-              return;
-            }
-            await deleteWhere('demo_instances', { ville: `eq.${already.ville}` });
-            already = null;
-          }
+          // Idempotence / reprise :
+          //  - carte prête -> on la montre (on n'y touche plus : sécurité clients)
+          //  - brouillon RÉCENT (< 15 min, génération en cours) -> reprise
+          //  - échec, ou brouillon ancien/abandonné -> on repart de ZÉRO (aucun
+          //    verrou : une commune non terminée doit toujours être relançable)
+          const already = await getInstance({ commune_insee: insee });
           const RESUME = { 'draft-sources': 'ai', 'draft-ai': 'locate', 'draft-locate': 'media', 'draft-media': 'redact', 'draft': 'create' };
+          const ageMin = already ? (Date.now() - new Date(already.created_at).getTime()) / 60000 : Infinity;
+
           if (already?.status === 'ready') {
             step('resolve', 'done', 'Commune reconnue', already.commune_nom);
             step('exists', 'done', 'Espace déjà généré', 'On vous y emmène');
             send({ type: 'done', url: `/?city=${already.ville}`, ville: already.ville, communeNom: already.commune_nom, existing: true });
-          } else if (RESUME[already?.status]) {
+          } else if (already && RESUME[already.status] && ageMin < 15) {
             step('resolve', 'done', 'Commune reconnue', already.commune_nom);
             step('exists', 'done', 'Analyse déjà engagée', 'Reprise là où elle s\'était arrêtée');
             send({ type: 'phase', next: RESUME[already.status], ville: already.ville });
           } else {
+            // Échec ou brouillon abandonné : on efface pour repartir proprement
+            if (already) {
+              console.log(`[demo-generate] redémarrage de zéro pour ${insee} (ancien statut ${already.status}, ${Math.round(ageMin)} min)`);
+              await deleteWhere('demo_instances', { ville: `eq.${already.ville}` });
+            }
             const ipHash = (await sha256Hex(context?.ip || 'inconnu')).slice(0, 24);
             const kioskOk = process.env.DEMO_KIOSK_KEY
               && url.searchParams.get('k') === process.env.DEMO_KIOSK_KEY;
@@ -1564,9 +1571,13 @@ export default async (req, context) => {
             const attempts = ((inst?.payload && inst.payload[key]) || 0) + 1;
             console.warn(`[demo-generate] echec phase=${phase} tentative ${attempts}/${MAX_PHASE_ATTEMPTS} sur ${villeParam}`);
             if (attempts >= MAX_PHASE_ATTEMPTS) {
-              await updateInstance(villeParam, { status: 'failed', payload: null });
+              // Echec transitoire repete (429, reseau...) : on arrete la boucle de
+              // reprise pour cette session SANS verrouiller la commune (pas de
+              // status 'failed') ; compteur remis a zero pour un futur essai.
+              // Le verrou 7 jours reste reserve aux sources insuffisantes (runPhase).
+              if (inst?.payload) await updateInstance(villeParam, { payload: { ...inst.payload, [key]: 0 } });
               retryable = false;
-              console.error(`[demo-generate] ${villeParam} declaree en ECHEC apres ${attempts} tentatives sur phase=${phase}`);
+              console.error(`[demo-generate] ${villeParam} : arret des reprises apres ${attempts} echecs sur phase=${phase} (commune NON verrouillee)`);
             } else if (inst?.payload) {
               await updateInstance(villeParam, { payload: { ...inst.payload, [key]: attempts } });
             }
