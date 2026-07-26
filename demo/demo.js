@@ -232,7 +232,9 @@
     ai1: 1, ai2: 1,
     geo: 2,
     media: 3, articles: 3,
-    exists: 4, create: 4, covers: 4, publish: 4,
+    create: 4, covers: 4, publish: 4,
+    // 'exists' volontairement absent : lors d'une reprise, ce step precede un
+    // retour a une phase anterieure ; le mapper a 4 bloquerait le stepper monotone
   };
   let curStage = -1;
 

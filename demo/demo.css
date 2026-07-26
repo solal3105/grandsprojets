@@ -42,7 +42,7 @@ body:not(.has-map) #map { display: none; }
 
 .kiosk__brand { display: flex; justify-content: center; margin-bottom: 2.5vh; }
 .kiosk__logo {
-  height: clamp(38px, 5vh, 56px);
+  height: clamp(56px, 8vh, 88px);
   filter: drop-shadow(0 6px 22px rgba(0, 0, 0, 0.7));
 }
 
@@ -138,13 +138,6 @@ body:not(.has-map) #map { display: none; }
 .search__suggestions .s-name { font-weight: 600; }
 .search__suggestions .s-meta { color: var(--text); font-size: 0.9rem; white-space: nowrap; }
 
-.kiosk__hint {
-  margin-top: 4.5vh;
-  font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.55);
-  max-width: 640px;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
-}
 
 /* ─── Écran génération : HUD immersif flottant sur la carte ─── */
 
@@ -596,7 +589,6 @@ body:not(.has-map) #map { display: none; }
 }
 .btn--primary:hover { transform: scale(1.05); }
 .btn--ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--border); }
-.panel .btn--ghost { margin-top: 14px; }
 .btn--ghost:hover { border-color: var(--ink); }
 
 .done__qr {
@@ -663,7 +655,7 @@ body:not(.has-map) #map { display: none; }
   overflow: hidden;
   text-overflow: ellipsis;
   box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
-  animation: feedIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: findingIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   transition: opacity 0.7s ease, max-width 0.7s ease, padding 0.7s ease;
 }
 .fx-pin-wrap.is-collapsed .fx-pin-label { opacity: 0; max-width: 0; padding: 6px 0; border-width: 0; }
@@ -680,8 +672,6 @@ body:not(.has-map) #map { display: none; }
 @media (max-width: 720px) {
   .done__stats { grid-template-columns: repeat(2, 1fr); }
   .done__qr { flex-direction: column; text-align: center; }
-  .finding__title { max-width: 200px; }
-  .panel { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

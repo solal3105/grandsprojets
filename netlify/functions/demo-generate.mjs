@@ -73,8 +73,8 @@ const CANDIDATES_SCHEMA = {
         additionalProperties: false,
         properties: {
           title: { type: 'string' },
-          summary: { type: 'string' },
-          evidence_quote: { type: 'string', description: 'Citation exacte, copiée mot pour mot depuis une source fournie' },
+          summary: { type: 'string', description: 'Résumé factuel du projet, 25 mots maximum' },
+          evidence_quote: { type: 'string', description: 'Citation exacte copiée mot pour mot depuis une source, une seule phrase, 200 caractères maximum' },
           source_url: { type: 'string', description: 'URL de la source fournie qui contient la citation' },
           place: { type: 'string', description: 'Lieu mentionné (rue, quartier, équipement), vide sinon' },
         },
@@ -166,8 +166,11 @@ async function fetchWithTimeout(url, opts = {}, ms = FETCH_TIMEOUT_MS) {
   }
 }
 
-// Garde anti-SSRF : jamais de fetch sortant vers du privé/loopback
-const PRIVATE_HOST_RE = /^(localhost$|.*\.local$|.*\.internal$|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.|\[?::1)/i;
+// Garde anti-SSRF : jamais de fetch sortant vers du privé/loopback. IPv4 en
+// formes alternatives (décimal/hex/octal) déjà normalisées par new URL(). IPv6
+// couvert : loopback ::1, unspecified ::, IPv4-mapped ::ffff:, ULA fc00::/7,
+// link-local fe80::/10
+const PRIVATE_HOST_RE = /^(localhost$|.*\.local$|.*\.internal$|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|0\.|\[?::1|\[?::$|\[?::ffff:|\[?f[cd][0-9a-f]{2}:|\[?fe[89ab][0-9a-f]:)/i;
 function isSafePublicUrl(u) {
   try {
     const p = new URL(u);
@@ -184,7 +187,8 @@ async function fetchCapped(url, opts = {}, ms = FETCH_TIMEOUT_MS, maxBytes = 500
   const t = setTimeout(() => ctrl.abort(), ms);
   try {
     const r = await fetch(url, { ...opts, signal: ctrl.signal });
-    if (!r.ok || !r.body) return null;
+    // Revalide l'hôte final : une redirection a pu mener vers du privé
+    if (!r.ok || !r.body || !isSafePublicUrl(r.url)) return null;
     const reader = r.body.getReader();
     const chunks = [];
     let total = 0;
@@ -324,14 +328,23 @@ function collectPdfLinks(html, baseUrl, out) {
   }
 }
 
+// Contenu d'une meta-balise (og:image, twitter:image, og:description...), quel
+// que soit l'ordre des attributs name/property et content
+function metaContent(html, key) {
+  const k = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`<meta[^>]+(?:name|property)=["']${k}["'][^>]+content=["']([^"']+)["']`, 'i').exec(html)?.[1]
+    || new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:name|property)=["']${k}["']`, 'i').exec(html)?.[1]
+    || null;
+}
+
 // Écarte les images qui ne sont jamais des illustrations de projet (logos,
 // icônes, pixels de tracking, boutons de partage, SVG)
 const IMG_SKIP_RE = /(\.svg|sprite|logo|icone?|\bicon\b|avatar|pixel|placeholder|1x1|blank|spacer|button|share|facebook|twitter|instagram|linkedin|youtube|banner|bandeau|drapeau)/i;
 
-// Moissonne les images d'une page (og:image + images de contenu de taille
-// plausible) : les pages "grands projets" des mairies portent les vrais
-// visuels des projets, la meilleure source d'illustrations
-function collectImages(html, baseUrl, out, cap = 16) {
+// URLs d'images d'une page : image principale (og/twitter) en tete, puis images
+// de contenu <img> (data-src ou src). Absolues, filtrees, dedupliquees.
+function extractImageUrls(html, baseUrl, cap = 16) {
+  const out = [];
   const push = (src) => {
     if (!src || out.length >= cap) return;
     try {
@@ -339,12 +352,20 @@ function collectImages(html, baseUrl, out, cap = 16) {
       if (/^https?:/.test(abs) && !IMG_SKIP_RE.test(abs) && !out.includes(abs)) out.push(abs);
     } catch { /* src invalide */ }
   };
-  const og = /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i.exec(html);
-  push(og?.[1]);
-  // srcset ou src, en privilégiant les grandes images (souvent des visuels)
+  push(metaContent(html, 'og:image') || metaContent(html, 'og:image:secure_url') || metaContent(html, 'twitter:image'));
   const imgRe = /<img\b[^>]*?(?:data-src|src)=["']([^"']+)["'][^>]*>/gi;
   let m; let n = 0;
   while ((m = imgRe.exec(html)) !== null && n < 14) { push(m[1]); n++; }
+  return out;
+}
+
+// Moissonne les images d'une page dans `out` (accumulé sur plusieurs pages) :
+// les pages "grands projets" des mairies portent les vrais visuels des projets
+function collectImages(html, baseUrl, out, cap = 16) {
+  for (const url of extractImageUrls(html, baseUrl, cap)) {
+    if (out.length >= cap) break;
+    if (!out.includes(url)) out.push(url);
+  }
 }
 
 async function inspectMairieSite(siteUrl, onFinding) {
@@ -455,7 +476,7 @@ async function fetchLocalNews(communeNom, departement, onFinding) {
     if (!page) return;
     item.finalUrl = page.url;
     const html = page.data;
-    const ogDesc = /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/.exec(html)?.[1];
+    const ogDesc = metaContent(html, 'og:description');
     const body = stripHtml(html);
     item.text = [(ogDesc || ''), body.slice(0, 2500)].filter(Boolean).join(' | ');
     onFinding?.({ kind: 'article', title: item.title.replace(/ - [^-]+$/, ''), domain: hostOf(item.finalUrl || item.link) || item.source, date: item.date });
@@ -488,8 +509,9 @@ async function fetchBoamp(communeNom, onFinding) {
 
 /* ─── IA : API Responses (retry réseau, appel structuré + variante streamée) ─── */
 
-// POST vers l'API Responses, avec retry sur erreur réseau ("fetch failed")
-async function postOpenAI(body, timeoutMs = 120000, tries = 2) {
+// POST vers l'API Responses, avec retry sur erreur réseau ("fetch failed") et
+// backoff croissant : survit aux coupures de socket transitoires (bursts)
+async function postOpenAI(body, timeoutMs = 120000, tries = 3) {
   let lastErr;
   for (let i = 0; i < tries; i++) {
     try {
@@ -500,8 +522,9 @@ async function postOpenAI(body, timeoutMs = 120000, tries = 2) {
       }, timeoutMs);
     } catch (e) {
       lastErr = e;
-      console.warn(`[demo-generate] OpenAI fetch échec (${e?.message}), retry ${i + 1}/${tries}`);
-      await sleep(500);
+      // e.cause.code precise la nature (ECONNRESET socket, ENOTFOUND dns...)
+      console.warn(`[demo-generate] OpenAI fetch échec (${e?.message}${e?.cause?.code ? '/' + e.cause.code : ''}), retry ${i + 1}/${tries}`);
+      await sleep(500 * (i + 1));
     }
   }
   throw lastErr;
@@ -514,28 +537,60 @@ function outputTextOf(data) {
     || '';
 }
 
-// Appel structuré non streamé : renvoie l'objet JSON validé (json_schema strict)
-async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs = 120000) {
+// Watchdog d'inactivité : annule le flux si aucun chunk n'arrive dans idleMs
+// (fetchWithTimeout ne borne que les en-têtes ; un corps figé pendrait l'invocation)
+function idleCanceller(reader, idleMs = 30000) {
+  let t;
+  return {
+    arm: () => { clearTimeout(t); t = setTimeout(() => { try { reader.cancel(); } catch { /* déjà clos */ } }, idleMs); },
+    clear: () => clearTimeout(t),
+  };
+}
+
+// Lit tout le corps en texte, borné par un watchdog d'inactivité
+async function readBody(r, idleMs = 30000) {
+  if (!r.body) return r.text();
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  const wd = idleCanceller(reader, idleMs);
+  let out = '';
+  try {
+    wd.arm();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      wd.arm();
+      out += dec.decode(value, { stream: true });
+    }
+  } finally { wd.clear(); }
+  return out;
+}
+
+// Appel structuré non streamé : renvoie l'objet JSON validé (json_schema strict).
+// Température basse par défaut : taches de fidélité (extraction, jugement)
+async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs = 120000, temperature = 0.2) {
   const r = await postOpenAI({
     model: OPENAI_MODEL,
     input,
     text: { format: { type: 'json_schema', name: schemaName, schema, strict: true } },
     max_output_tokens: maxTokens,
+    temperature,
   }, timeoutMs);
   if (!r.ok) throw new Error(`IA indisponible (${r.status})`);
-  const text = outputTextOf(await r.json());
+  const text = outputTextOf(JSON.parse(await readBody(r)));
   if (!text) throw new Error('Réponse IA vide');
   return JSON.parse(text);
 }
 
 // Passe streamée : diffuse les titres au fil de l'eau (onTitle) pour le direct
-async function callOpenAIStreamed(system, user, schemaName, schema, maxTokens, onTitle) {
+async function callOpenAIStreamed(system, user, schemaName, schema, maxTokens, onTitle, temperature = 0.2) {
   const r = await postOpenAI({
     model: OPENAI_MODEL,
     stream: true,
     input: [{ role: 'system', content: system }, { role: 'user', content: user }],
     text: { format: { type: 'json_schema', name: schemaName, schema, strict: true } },
     max_output_tokens: maxTokens,
+    temperature,
   }, 120000);
   if (!r.ok) {
     const errText = await r.text().catch(() => '');
@@ -544,34 +599,41 @@ async function callOpenAIStreamed(system, user, schemaName, schema, maxTokens, o
 
   const reader = r.body.getReader();
   const dec = new TextDecoder();
+  const wd = idleCanceller(reader, 30000);
   let buf = '';
   let full = '';
   let titlesSeen = 0;
   const TITLE_RE = /"title"\s*:\s*"((?:[^"\\]|\\.)+)"/g;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    let idx;
-    while ((idx = buf.indexOf('\n')) >= 0) {
-      const line = buf.slice(0, idx).trim();
-      buf = buf.slice(idx + 1);
-      if (!line.startsWith('data:')) continue;
-      const payload = line.slice(5).trim();
-      if (!payload || payload === '[DONE]') continue;
-      try {
-        const ev = JSON.parse(payload);
-        if (ev.type === 'response.output_text.delta' && ev.delta) {
-          full += ev.delta;
-          const titles = [...full.matchAll(TITLE_RE)];
-          for (; titlesSeen < titles.length; titlesSeen++) {
-            onTitle?.(titles[titlesSeen][1].replace(/\\(["\\])/g, '$1'));
+  try {
+    wd.arm();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      wd.arm();
+      buf += dec.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, idx).trim();
+        buf = buf.slice(idx + 1);
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === '[DONE]') continue;
+        try {
+          const ev = JSON.parse(payload);
+          if (ev.type === 'response.output_text.delta' && ev.delta) {
+            full += ev.delta;
+            const titles = [...full.matchAll(TITLE_RE)];
+            for (; titlesSeen < titles.length; titlesSeen++) {
+              onTitle?.(titles[titlesSeen][1].replace(/\\(["\\])/g, '$1'));
+            }
+          } else if (ev.type === 'response.output_text.done' && ev.text) {
+            full = ev.text;
           }
-        } else if (ev.type === 'response.output_text.done' && ev.text) {
-          full = ev.text;
-        }
-      } catch { /* ligne partielle : suite au prochain chunk */ }
+        } catch { /* ligne partielle : suite au prochain chunk */ }
+      }
     }
+  } finally {
+    wd.clear();
   }
   if (!full) throw new Error('Réponse IA vide');
   return JSON.parse(full);
@@ -579,12 +641,12 @@ async function callOpenAIStreamed(system, user, schemaName, schema, maxTokens, o
 
 // Passe texte : streamée (titres en direct), avec repli non streamé si le flux
 // échoue ou revient vide (aléa transitoire) - jamais d'interruption de démo
-async function callOpenAIResilient(system, user, schemaName, schema, maxTokens, onTitle) {
+async function callOpenAIResilient(system, user, schemaName, schema, maxTokens, onTitle, temperature = 0.2) {
   try {
-    return await callOpenAIStreamed(system, user, schemaName, schema, maxTokens, onTitle);
+    return await callOpenAIStreamed(system, user, schemaName, schema, maxTokens, onTitle, temperature);
   } catch (e) {
     console.error('[demo-generate] repli IA non streamé après :', e.message);
-    return openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }], schemaName, schema, maxTokens);
+    return openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }], schemaName, schema, maxTokens, 120000, temperature);
   }
 }
 
@@ -606,7 +668,7 @@ async function extractCandidates(commune, bundle, onTitle) {
   const system = `Tu dépouilles des sources web au sujet de la commune de ${commune.nom}. Extrais TOUS les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES concernant cette commune précise (jusqu'à 24, sois exhaustif : ne laisse passer aucun projet réel mentionné dans les sources). Pour chacun : une citation exacte copiée mot pour mot d'une source (evidence_quote) et l'URL de cette source (source_url, obligatoirement une URL présente entre crochets dans les sources). Ignore : événements, politique, faits divers, autres communes, généralités sans projet.`;
   // Résilient : le flux OpenAI revient parfois vide (aléa constaté) -> une
   // passe non streamée en secours plutôt que d'interrompre toute la démo
-  const out = await callOpenAIResilient(system, `SOURCES :\n\n${bundle}`, 'candidats', CANDIDATES_SCHEMA, 5000, onTitle);
+  const out = await callOpenAIResilient(system, `SOURCES :\n\n${bundle}`, 'candidats', CANDIDATES_SCHEMA, 8000, onTitle);
   return out.candidates || [];
 }
 
@@ -615,12 +677,14 @@ async function selectProjects(commune, candidates, bundle, onTitle) {
 - Uniquement des projets physiques et localisables DANS la commune, actuels (en cours, récents ou annoncés).
 - Ne fusionne que deux entrées qui désignent EXACTEMENT le même projet au même endroit. Un parking, une résidence rénovée, un équipement (piscine, EHPAD, crématorium, médiathèque), une voie réaménagée, un espace public sont des projets DISTINCTS, même situés dans le même quartier.
 - confidence "haute" si la citation atteste clairement le projet ; "moyenne" si l'information est réelle mais partielle ; "basse" seulement si douteux (il sera écarté).
+- status : "livre" si inauguré/achevé, "en-cours" si travaux engagés, "a-l-etude" si concertation/projet annoncé non démarré, "inconnu" si indéterminable.
+- category_slug (catégorie dominante) : urbanisme (ZAC, aménagement large), renovation-urbaine (réhabilitation de quartier/logement social), mobilite (voirie, transport, pistes cyclables, gare), environnement (nature, eau, énergie), equipement-public (école, gymnase, médiathèque, hôpital), patrimoine (monument, église, château), economique (zone d'activité, commerces), logement, cadre-de-vie (espaces publics, parcs, places).
 - description : 2 à 4 phrases sobres et factuelles, dates si connues, zéro superlatif, en français impeccable.
 - place : le lieu géocodable le plus précis mentionné (rue, quartier, équipement), chaîne vide sinon.
 - geo_query : la MEILLEURE requête pour localiser ce projet sur une carte OpenStreetMap dans la commune. Adresse précise (n° + rue) si elle figure dans les sources, sinon le nom EXACT de l'équipement ou du quartier/lieu-dit. C'est ce texte qui sera envoyé au géocodeur : sois précis, fidèle au nom réel, sans le mot "projet" ni de verbe (écris "Centre nautique Robert Sautin", pas "Rénovation du centre nautique").
 - source_url : reprends l'URL de la source qui atteste le projet.`;
   const user = `CANDIDATS :\n${JSON.stringify(candidates, null, 1)}\n\nSOURCES (pour vérification) :\n\n${bundle.slice(0, 30000)}`;
-  const out = await callOpenAIResilient(system, user, 'selection_finale', FINAL_SCHEMA, 4200, onTitle);
+  const out = await callOpenAIResilient(system, user, 'selection_finale', FINAL_SCHEMA, 6000, onTitle);
   return out.projects || [];
 }
 
@@ -635,13 +699,18 @@ async function writeArticles(commune, projects, pdfs, onTitle) {
     source_url: p.source_url,
     source_media: hostOf(p.source_url),
   })), null, 1)}\n\nDOCUMENTS PDF DISPONIBLES :\n${pdfs.length ? pdfs.map((p) => `- [${p.label}](${p.url})`).join('\n') : '(aucun)'}`;
-  const out = await callOpenAIResilient(system, user, 'articles_projets', ARTICLES_SCHEMA, 5500, onTitle);
+  const out = await callOpenAIResilient(system, user, 'articles_projets', ARTICLES_SCHEMA, 9000, onTitle, 0.4);
   return out.articles || [];
 }
+
+// Formats rejetes par la vision gpt-4o : un seul suffit a faire echouer TOUT
+// l'appel (png/jpeg/webp/gif uniquement acceptes)
+const VISION_UNSUPPORTED_RE = /\.(svg|avif|tiff?|ico|bmp|heic|heif)(\?|#|$)/i;
 
 // Couleur dominante du logo par vision IA : quand la mairie n'expose pas de
 // meta theme-color, l'espace prend quand même la couleur de la commune
 async function dominantColorFromLogo(logoUrl) {
+  if (!logoUrl || VISION_UNSUPPORTED_RE.test(logoUrl)) return null; // .ico/.svg : vision echouerait
   try {
     const out = await openAIStructured([{
       role: 'user',
@@ -714,24 +783,9 @@ async function geocodeOne(q, commune, bbox) {
   return banGeocode(q, commune, bbox);
 }
 
-async function locateProject(project, commune, bbox, index) {
-  const center = { lng: commune.centre.coordinates[0], lat: commune.centre.coordinates[1] };
-
-  // Requêtes de géocodage fournies par l'IA (geo_query optimisée pour la carte,
-  // puis place mentionné dans les sources), dédoublonnées en gardant l'ordre
-  const seen = new Set();
-  const queries = [];
-  for (const q of [project.geo_query, project.place]) {
-    const t = String(q || '').trim();
-    if (t.length >= 3 && !seen.has(t.toLowerCase())) { seen.add(t.toLowerCase()); queries.push(t); }
-  }
-  for (const q of queries) {
-    const hit = await geocodeOne(q, commune, bbox);
-    if (hit) return hit;
-  }
-
-  // Dernier recours : répartir dans l'emprise RÉELLE de la commune (spirale
-  // d'angle d'or) au lieu d'empiler les points sur le centre-ville
+// Répartition de repli dans l'emprise RÉELLE de la commune (spirale d'angle
+// d'or) au lieu d'empiler les points sur le centre-ville
+function scatterInCommune(center, bbox, index) {
   if (bbox) {
     const halfW = (bbox.maxLng - bbox.minLng) * 0.30;
     const halfH = (bbox.maxLat - bbox.minLat) * 0.30;
@@ -747,6 +801,26 @@ async function locateProject(project, commune, bbox, index) {
     geometry: { type: 'Point', coordinates: [center.lng + 0.004 * Math.cos(angle), center.lat + 0.003 * Math.sin(angle)] },
     method: 'centre',
   };
+}
+
+// allowNetwork=false (budget de temps dépassé) : repli direct, aucun appel réseau
+async function locateProject(project, commune, bbox, index, allowNetwork = true) {
+  const center = { lng: commune.centre.coordinates[0], lat: commune.centre.coordinates[1] };
+  if (allowNetwork) {
+    // Requêtes de géocodage fournies par l'IA (geo_query optimisée, puis place),
+    // dédoublonnées en gardant l'ordre
+    const seen = new Set();
+    const queries = [];
+    for (const q of [project.geo_query, project.place]) {
+      const t = String(q || '').trim();
+      if (t.length >= 3 && !seen.has(t.toLowerCase())) { seen.add(t.toLowerCase()); queries.push(t); }
+    }
+    for (const q of queries) {
+      const hit = await geocodeOne(q, commune, bbox);
+      if (hit) return hit;
+    }
+  }
+  return scatterInCommune(center, bbox, index);
 }
 
 /* ─── Illustrations libres (Wikimedia Commons), pertinence jugée par l'IA ─── */
@@ -790,46 +864,28 @@ const commonsCandidatesAt = (lat, lng, radius) =>
 const commonsTextCandidates = (query) =>
   commonsQuery({ generator: 'search', gsrsearch: query, gsrnamespace: 6, gsrlimit: 6 });
 
-// Images de la SOURCE du projet (article de presse, page mairie) : og:image
-// et images de contenu. Ce sont les plus pertinentes car elles illustrent
-// littéralement le projet. Démo : la licence n'est pas un critère ici.
+// Images de la SOURCE du projet (article de presse, page mairie) : les plus
+// pertinentes car elles illustrent littéralement le projet. Démo : la licence
+// n'est pas un critère ici. L'image og/principale (index 0) est mise en avant.
 async function sourceImageCandidates(url) {
-  const out = [];
   const page = await fetchCapped(url, { headers: UA }, 6000, 500000);
-  if (!page) return out;
-  const html = page.data;
-  const base = page.url;
-  const credit = `Source : ${hostOf(base) || 'web'}`;
-  const push = (src, title) => {
-    if (!src) return;
-    try {
-      const abs = new URL(src, base).toString();
-      if (/^https?:/.test(abs) && !IMG_SKIP_RE.test(abs) && !out.some((o) => o.url === abs)) {
-        out.push({ url: abs, title, credit });
-      }
-    } catch { /* src invalide */ }
-  };
-  const og = /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i.exec(html)
-    || /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i.exec(html)
-    || /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i.exec(html);
-  push(og?.[1], 'illustration de la source');
-  const imgRe = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
-  let m; let n = 0;
-  while ((m = imgRe.exec(html)) !== null && n < 6) {
-    push(m[1], 'image de la source');
-    n++;
-  }
-  return out.slice(0, 5);
+  if (!page) return [];
+  const credit = `Source : ${hostOf(page.url) || 'web'}`;
+  return extractImageUrls(page.data, page.url, 5)
+    .map((u, i) => ({ url: u, title: i === 0 ? 'illustration de la source' : 'image de la source', credit }));
 }
 
 // Candidats autour du projet : d'abord les images de sa source (les plus
 // pertinentes), puis le geosearch Commons, complété par une recherche texte
 // si besoin. Dédupliqués, plafonnés. Le juge vision tranche ensuite.
 async function gatherImageCandidates(project, communeNom, lat, lng, mairieImages = []) {
-  const fromSource = project.source_url ? await sourceImageCandidates(project.source_url) : [];
+  // Les deux collectes independantes en parallele (un RTT economise par projet)
+  const [fromSource, near] = await Promise.all([
+    project.source_url ? sourceImageCandidates(project.source_url) : Promise.resolve([]),
+    commonsCandidatesAt(lat, lng, 300),
+  ]);
   // Images des pages "grands projets" de la mairie : souvent les vrais visuels
   const fromMairie = mairieImages.slice(0, 8).map((url) => ({ url, title: 'Visuel du site de la mairie', credit: `Source : ${communeNom}` }));
-  const near = await commonsCandidatesAt(lat, lng, 300);
   const wide = (fromSource.length + near.length) >= 4 ? [] : await commonsCandidatesAt(lat, lng, 750);
   let pool = [...fromSource, ...fromMairie, ...near, ...wide];
   if (pool.length < 3) {
@@ -850,20 +906,23 @@ async function gatherImageCandidates(project, communeNom, lat, lng, mairieImages
 // précis, ou aucune (-1). C'est le juge de pertinence : mieux vaut rien qu'une
 // image hors sujet. Coût vision assumé, la crédibilité de la démo prime.
 async function pickBestImageWithAI(project, communeNom, candidates) {
-  if (!candidates.length) return null;
+  // Ecarte les formats que la vision rejette : un seul suffirait a faire
+  // echouer TOUT l'appel et a perdre tous les autres candidats
+  const usable = candidates.filter((c) => !VISION_UNSUPPORTED_RE.test(c.url));
+  if (!usable.length) return null;
   try {
     const content = [{
       type: 'input_text',
-      text: `Projet urbain à ${communeNom} : "${project.title}". ${project.description || ''}${project.place ? ` Lieu concerné : ${project.place}.` : ''}\n\nVoici ${candidates.length} photo(s) numérotée(s) de 0 à ${candidates.length - 1}. Choisis l'index de celle qui illustre le mieux CE lieu ou CE projet (le bâtiment, la rue, le quartier ou l'équipement concerné, ou une vue représentative du secteur). Si aucune ne correspond vraiment, réponds -1. Ne choisis jamais par défaut : une photo hors sujet est pire que pas de photo.`,
+      text: `Projet urbain à ${communeNom} : "${project.title}". ${project.description || ''}${project.place ? ` Lieu concerné : ${project.place}.` : ''}\n\nVoici ${usable.length} photo(s) numérotée(s) de 0 à ${usable.length - 1}. Choisis l'index de celle qui illustre le mieux CE lieu ou CE projet (le bâtiment, la rue, le quartier ou l'équipement concerné, ou une vue représentative du secteur). Si aucune ne correspond vraiment, réponds -1. Ne choisis jamais par défaut : une photo hors sujet est pire que pas de photo.`,
     }];
-    candidates.forEach((c, i) => {
+    usable.forEach((c, i) => {
       content.push({ type: 'input_text', text: `Image ${i} - ${c.title}` });
       content.push({ type: 'input_image', image_url: c.url });
     });
     const out = await openAIStructured([{ role: 'user', content }], 'choix_image', IMAGE_CHOICE_SCHEMA, 60, 30000);
     const idx = out.best_index;
-    if (typeof idx !== 'number' || idx < 0 || idx >= candidates.length) return null;
-    return candidates[idx];
+    if (typeof idx !== 'number' || idx < 0 || idx >= usable.length) return null;
+    return usable[idx];
   } catch { return null; }
 }
 
@@ -957,36 +1016,43 @@ async function coreSources(send, step, insee) {
   step('resolve', 'done', 'Commune reconnue',
     `${commune.nom} · ${commune.departement?.nom || ''} · ${(commune.population || 0).toLocaleString('fr-FR')} habitants`);
 
+  // Les trois collectes sont independantes (presse/BOAMP ne dependent pas de la
+  // mairie) : menees en parallele pour ne pas additionner leurs latences
   step('mairie', 'start', 'Visite du site officiel de la mairie');
-  const site = await findMairieWebsite(insee);
-  let mairie = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [] };
-  if (site) {
-    mairie = await inspectMairieSite(site, finding);
-    // Identité visuelle : theme-color du site, sinon couleur dominante du logo
-    if (!mairie.themeColor && mairie.logoUrl) {
-      mairie.themeColor = await dominantColorFromLogo(mairie.logoUrl);
-    }
-    if (mairie.host) {
-      finding({ kind: 'logo', title: mairie.host, iconUrl: mairie.logoUrl, color: mairie.themeColor });
-    }
-    const bits = [];
-    if (mairie.host) bits.push(mairie.host);
-    if (mairie.logoUrl) bits.push('logo récupéré');
-    if (mairie.themeColor) bits.push('couleurs de la commune extraites');
-    if (mairie.pages.length > 1) bits.push(`${mairie.pages.length - 1} page(s) projets lue(s)`);
-    if (mairie.pdfs.length) bits.push(`${mairie.pdfs.length} document(s) officiel(s)`);
-    step('mairie', mairie.host ? 'done' : 'skip', 'Site officiel de la mairie', bits.join(' · ') || 'non exploitable');
-  } else {
-    step('mairie', 'skip', 'Site officiel de la mairie', "non renseigné dans l'annuaire officiel");
-  }
-
   step('news', 'start', 'Lecture de la presse locale');
-  const news = await fetchLocalNews(commune.nom, commune.departement?.nom, finding);
-  step('news', news.length ? 'done' : 'skip', 'Presse locale', `${news.length} article(s) récents analysés`);
-
   step('boamp', 'start', 'Consultation des marchés publics (BOAMP)');
-  const boamp = await fetchBoamp(commune.nom, finding);
-  step('boamp', boamp.length ? 'done' : 'skip', 'Marchés publics', `${boamp.length} avis trouvé(s)`);
+
+  const [mairie, news, boamp] = await Promise.all([
+    (async () => {
+      const site = await findMairieWebsite(insee);
+      if (!site) {
+        step('mairie', 'skip', 'Site officiel de la mairie', "non renseigné dans l'annuaire officiel");
+        return { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [] };
+      }
+      const m = await inspectMairieSite(site, finding);
+      // Identité visuelle : theme-color du site, sinon couleur dominante du logo
+      if (!m.themeColor && m.logoUrl) m.themeColor = await dominantColorFromLogo(m.logoUrl);
+      if (m.host) finding({ kind: 'logo', title: m.host, iconUrl: m.logoUrl, color: m.themeColor });
+      const bits = [];
+      if (m.host) bits.push(m.host);
+      if (m.logoUrl) bits.push('logo récupéré');
+      if (m.themeColor) bits.push('couleurs de la commune extraites');
+      if (m.pages.length > 1) bits.push(`${m.pages.length - 1} page(s) projets lue(s)`);
+      if (m.pdfs.length) bits.push(`${m.pdfs.length} document(s) officiel(s)`);
+      step('mairie', m.host ? 'done' : 'skip', 'Site officiel de la mairie', bits.join(' · ') || 'non exploitable');
+      return m;
+    })(),
+    (async () => {
+      const n = await fetchLocalNews(commune.nom, commune.departement?.nom, finding);
+      step('news', n.length ? 'done' : 'skip', 'Presse locale', `${n.length} article(s) récents analysés`);
+      return n;
+    })(),
+    (async () => {
+      const b = await fetchBoamp(commune.nom, finding);
+      step('boamp', b.length ? 'done' : 'skip', 'Marchés publics', `${b.length} avis trouvé(s)`);
+      return b;
+    })(),
+  ]);
 
   if (!mairie.pages.length && !news.length && !boamp.length) {
     send({ type: 'error', message: `Pas assez de sources publiques exploitables pour ${commune.nom}. Passez nous voir : on prépare la carte avec vous, avec vos documents.` });
@@ -1068,8 +1134,13 @@ async function coreGeo(send, step, state) {
   step('geo', 'start', 'Localisation des projets', 'Emprises réelles OpenStreetMap, adresses officielles BAN');
   const located = [];
   const METHOD_LABELS = { emprise: 'emprise réelle trouvée', trace: 'tracé réel trouvé', adresse: 'adresse précise', centre: 'position approchée dans la commune' };
+  // Budget de temps : Nominatim (1 req/s) etant lent, on borne la phase pour
+  // ne jamais faire expirer l'invocation ; au-dela, repli reparti sans reseau
+  const GEO_BUDGET_MS = 32000;
+  const geoStart = Date.now();
   for (let i = 0; i < projects.length; i++) {
-    const loc = await locateProject(projects[i], communeShim, bbox, i);
+    const allowNetwork = Date.now() - geoStart < GEO_BUDGET_MS;
+    const loc = await locateProject(projects[i], communeShim, bbox, i, allowNetwork);
     const c = centroidOf(loc.geometry);
     // Plafond aussi au stockage : une emprise Nominatim géante retombe en point
     if (JSON.stringify(loc.geometry).length >= 15000) {
@@ -1104,7 +1175,7 @@ async function coreMedia(send, step, state) {
   const mairieImages = state.mairie?.images || [];
   console.log(`[demo-generate] media: ${located.length} projets, ${mairieImages.length} images mairie en pool`);
   step('media', 'start', 'Recherche des illustrations des projets', 'Chaque image est choisie par l\'IA selon le sujet');
-  const images = await inChunks(located, 3, async (p) => {
+  const images = await inChunks(located, 6, async (p) => {
     const c = centroidOf(p.geometry);
     const candidates = await gatherImageCandidates(p, state.commune.nom, c.lat, c.lng, mairieImages);
     return pickBestImageWithAI(p, state.commune.nom, candidates);
@@ -1134,15 +1205,11 @@ async function coreMedia(send, step, state) {
 }
 
 async function coreRedact(send, step, state) {
-  const communeShim = {
-    nom: state.commune.nom,
-    code: state.commune.code,
-    centre: { coordinates: [state.commune.lng, state.commune.lat] },
-  };
   step('articles', 'start', 'Rédaction des articles de présentation', 'Un article sourcé par projet, avec les documents officiels');
   let articles = [];
   try {
-    articles = await writeArticles(communeShim, state.located, state.mairie.pdfs, (title) => send({ type: 'article-item', title }));
+    // writeArticles ne lit que commune.nom : state.commune suffit
+    articles = await writeArticles(state.commune, state.located, state.mairie.pdfs, (title) => send({ type: 'article-item', title }));
   } catch (e) {
     console.error('[demo-generate] articles :', e.message);
   }
@@ -1195,55 +1262,28 @@ async function runSources(send, step, insee, ipHash) {
   send({ type: 'phase', next: 'ai', ville });
 }
 
-async function runAi(send, step, ville) {
+// Wrapper commun des phases intermediaires : charge le brouillon a l'etat
+// attendu, execute le coeur, sauvegarde, annonce la phase suivante. Si le coeur
+// renonce (state null : sources insuffisantes en ai), echec definitif propre.
+async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase }) {
   const instance = await getInstance({ ville });
-  if (!instance?.payload || instance.status !== 'draft-sources') {
+  if (!instance?.payload || instance.status !== expect) {
     send({ type: 'error', message: 'Analyse introuvable : relancez la génération.' });
     return;
   }
-  const state = await coreAi(send, step, instance.payload);
+  const state = await core(send, step, instance.payload);
   if (!state) {
-    // Échec définitif (sources insuffisantes) : statut failed, plus aucun
-    // appel IA ne sera refait pour cette commune tant que le brouillon vit
     await updateInstance(ville, { status: 'failed', payload: null });
     return;
   }
-  await updateInstance(ville, { status: 'draft-ai', payload: state });
-  send({ type: 'phase', next: 'locate', ville });
+  await updateInstance(ville, { status: nextStatus, payload: state });
+  send({ type: 'phase', next: nextPhase, ville });
 }
 
-async function runLocate(send, step, ville) {
-  const instance = await getInstance({ ville });
-  if (!instance?.payload || instance.status !== 'draft-ai') {
-    send({ type: 'error', message: 'Analyse introuvable : relancez la génération.' });
-    return;
-  }
-  const state = await coreGeo(send, step, instance.payload);
-  await updateInstance(ville, { status: 'draft-locate', payload: state });
-  send({ type: 'phase', next: 'media', ville });
-}
-
-async function runMedia(send, step, ville) {
-  const instance = await getInstance({ ville });
-  if (!instance?.payload || instance.status !== 'draft-locate') {
-    send({ type: 'error', message: 'Analyse introuvable : relancez la génération.' });
-    return;
-  }
-  const state = await coreMedia(send, step, instance.payload);
-  await updateInstance(ville, { status: 'draft-media', payload: state });
-  send({ type: 'phase', next: 'redact', ville });
-}
-
-async function runRedact(send, step, ville) {
-  const instance = await getInstance({ ville });
-  if (!instance?.payload || instance.status !== 'draft-media') {
-    send({ type: 'error', message: 'Analyse introuvable : relancez la génération.' });
-    return;
-  }
-  const state = await coreRedact(send, step, instance.payload);
-  await updateInstance(ville, { status: 'draft', payload: state });
-  send({ type: 'phase', next: 'create', ville });
-}
+const runAi = (send, step, ville) => runPhase(send, step, ville, { expect: 'draft-sources', core: coreAi, nextStatus: 'draft-ai', nextPhase: 'locate' });
+const runLocate = (send, step, ville) => runPhase(send, step, ville, { expect: 'draft-ai', core: coreGeo, nextStatus: 'draft-locate', nextPhase: 'media' });
+const runMedia = (send, step, ville) => runPhase(send, step, ville, { expect: 'draft-locate', core: coreMedia, nextStatus: 'draft-media', nextPhase: 'redact' });
+const runRedact = (send, step, ville) => runPhase(send, step, ville, { expect: 'draft-media', core: coreRedact, nextStatus: 'draft', nextPhase: 'create' });
 
 /* ─── Phase CREATE : matérialisation du brouillon (invocation courte) ─── */
 
@@ -1301,9 +1341,8 @@ async function runCreate(send, step, ville) {
   step('covers', 'done', 'Illustrations installées', `${coverUrls.filter(Boolean).length}/${located.length}`);
 
   step('publish', 'start', 'Publication des fiches');
-  const rows = [];
-  for (let i = 0; i < located.length; i++) {
-    const p = located[i];
+  // Uploads geojson + markdown par lots (inChunks préserve l'ordre : rows[i] = located[i])
+  const rows = await inChunks(located.map((p, i) => ({ p, i })), 5, async ({ p, i }) => {
     const slug = slugs[i];
     const fc = {
       type: 'FeatureCollection',
@@ -1324,7 +1363,7 @@ async function runCreate(send, step, ville) {
 
     createItem(`Fiche publiée : ${p.title}`);
     const statusLabel = STATUS_LABELS[p.status] || '';
-    rows.push({
+    return {
       ville,
       project_name: p.title,
       category: CATEGORIES[p.category_slug] || 'urbanisme',
@@ -1337,8 +1376,8 @@ async function runCreate(send, step, ville) {
       markdown_url: markdownUrl,
       tags: statusLabel ? [statusLabel] : null,
       approved: true,
-    });
-  }
+    };
+  });
   const inserted = await insertRows('contribution_uploads', rows, { returning: true }) || [];
 
   const dossierRows = [];
@@ -1518,15 +1557,18 @@ export default async (req, context) => {
         let retryable = true;
         if (villeParam) {
           try {
+            // Compteur PAR PHASE : deux erreurs transitoires sur des phases
+            // differentes ne doivent pas s'additionner pour tuer la generation
+            const key = `_attempts_${phase}`;
             const inst = await getInstance({ ville: villeParam });
-            const attempts = ((inst?.payload && inst.payload._attempts) || 0) + 1;
+            const attempts = ((inst?.payload && inst.payload[key]) || 0) + 1;
             console.warn(`[demo-generate] echec phase=${phase} tentative ${attempts}/${MAX_PHASE_ATTEMPTS} sur ${villeParam}`);
             if (attempts >= MAX_PHASE_ATTEMPTS) {
               await updateInstance(villeParam, { status: 'failed', payload: null });
               retryable = false;
               console.error(`[demo-generate] ${villeParam} declaree en ECHEC apres ${attempts} tentatives sur phase=${phase}`);
             } else if (inst?.payload) {
-              await updateInstance(villeParam, { payload: { ...inst.payload, _attempts: attempts } });
+              await updateInstance(villeParam, { payload: { ...inst.payload, [key]: attempts } });
             }
           } catch (e2) {
             console.error('[demo-generate] anti-boucle KO ::', e2?.message);
