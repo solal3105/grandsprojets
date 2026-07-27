@@ -14,3 +14,6 @@ _home
 tests/.auth/
 test-results/
 playwright-report/
+
+# Rapports exportes (regenerables depuis le .md source)
+docs/*.pdf
