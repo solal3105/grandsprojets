@@ -375,9 +375,7 @@
     bumpCounter('illustres');
     tick('photo', msg.title, msg.generique ? 'illustration générique du type d\'ouvrage' : 'illustration trouvée');
     if (hasFx && typeof msg.lat === 'number' && msg.coverSrc) {
-      // Une illustration générique porte sa mention SUR la carte : sans elle,
-      // rien ne la distinguait d'une photo du projet pendant la démo
-      window.MapFX.attachPhoto(msg.lat, msg.lng, msg.coverSrc, msg.generique);
+      window.MapFX.attachPhoto(msg.lat, msg.lng, msg.coverSrc);
     }
   }
 

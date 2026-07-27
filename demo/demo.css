@@ -769,22 +769,3 @@ body:not(.has-map) #map { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .quote, .flyover { transition: none; }
 }
-
-/* ─── Illustration générique : elle doit se voir comme telle ─────────────── */
-.fx-photo--generique { position: relative; }
-.fx-photo--generique img { filter: saturate(0.75) contrast(0.95); }
-.fx-photo__tag {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 3px 6px;
-  font-size: 9.5px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  text-align: center;
-  color: #0a1120;
-  background: rgba(255, 215, 130, 0.92);
-  border-radius: 0 0 6px 6px;
-  pointer-events: none;
-}

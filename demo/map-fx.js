@@ -482,12 +482,11 @@
     },
 
     // Photo trouvée : posée sur la carte à l'emplacement du projet
-    attachPhoto(lat, lng, url, generique) {
+    attachPhoto(lat, lng, url) {
       if (!ok || !url) return;
       const el = document.createElement('div');
-      el.className = `fx-photo${generique ? ' fx-photo--generique' : ''}`;
-      el.innerHTML = `<img src="${String(url).replace(/"/g, '')}" alt="" onerror="this.parentNode.remove()">`
-        + (generique ? '<span class="fx-photo__tag">illustration générique</span>' : '');
+      el.className = 'fx-photo';
+      el.innerHTML = `<img src="${String(url).replace(/"/g, '')}" alt="" onerror="this.parentNode.remove()">`;
       photoMarkers.push(new maplibregl.Marker({ element: el, anchor: 'bottom', offset: [0, -14] }).setLngLat([lng, lat]).addTo(map));
       setTimeout(() => el.classList.add('is-small'), 6500);
     },
