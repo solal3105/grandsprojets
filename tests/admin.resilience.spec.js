@@ -134,13 +134,23 @@ test.describe('9 - Résilience & edge cases', () => {
       await page.locator('#twc-enabled').check({ force: true });
       await clearToasts(page);
       await page.locator('button[type="submit"]').click();
-      await page.waitForTimeout(2000);
+      // Attendre la confirmation de sauvegarde, pas un délai fixe : le toast
+      // n'est émis qu'après l'écriture Supabase. Une attente en dur de 2 s
+      // rendait le test instable sur machine chargée (l'écriture n'était pas
+      // finie, le lien profond retombait sur l'état vide).
+      await expect(successToast(page, 'Configuration sauvegardée')).toBeVisible({ timeout: 15000 });
     }
 
     // Navigate to a non-existent chantier UUID
     await clearToasts(page);
     await page.goto('/admin/travaux/00000000-0000-0000-0000-000000000000/');
     await page.waitForSelector('#adm-splash', { state: 'detached', timeout: 15000 });
+
+    // Garde-fou : si le module n'est pas actif, l'état vide court-circuite le
+    // lien profond et aucun toast n'est jamais émis. Échouer ici plutôt que
+    // sur un timeout de 10 s qui ne dit pas pourquoi.
+    await expect(page.getByRole('heading', { name: 'Module Travaux non configuré' }))
+      .toHaveCount(0, { timeout: 5000 });
 
     // Should show error toast and redirect to /admin/travaux/
     const errorMsg = errorToast(page, 'introuvable').or(errorToast(page, 'chargement'));
