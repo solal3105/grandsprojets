@@ -475,12 +475,81 @@ async function fetchPages(links, out, onFinding) {
     collectPdfLinks(sp.page.data, sp.page.url, out.pdfs);
     collectImages(sp.page.data, sp.page.url, out.images);
     if (sp.text.length > 400 && !out.urls.includes(sp.link.url)) {
-      out.pages.push({ url: sp.link.url, title: sp.link.label, text: sp.text });
+      // Les images sont AUSSI gardees par page : c'est le seul moyen de
+      // rattacher une photo au bon projet. Versees dans un pool indifferencie,
+      // elles n'etaient que du remplissage que le juge visuel rejetait.
+      out.pages.push({
+        url: sp.link.url,
+        title: sp.link.label,
+        text: sp.text,
+        images: extractImageUrls(sp.page.data, sp.page.url, 6),
+      });
       out.urls.push(sp.link.url);
       onFinding?.({ kind: 'page', title: sp.link.label, domain: out.host });
     }
   }
   return fetched;
+}
+
+/* Vrai logo de la commune, plutot qu'une favicon.
+   Une apple-touch-icon est carree, basse definition et souvent reduite a un
+   monogramme. Mesure sur trois sites : les logos se trouvent entre 6 et 40 Ko
+   dans le HTML, alors que la recherche etait bornee aux 6 000 premiers
+   caracteres et ne trouvait donc JAMAIS rien. On elargit la fenetre et on
+   classe les candidats, car un meme site expose souvent plusieurs variantes
+   dont une version blanche destinee aux fonds sombres, inutilisable ici. */
+const LOGO_MAUVAISE_VARIANTE = /blanc|white|negatif|negative|inverse|dark|footer|mono|print/i;
+// Logos de labels, de partenaires et de publications municipales : ils portent
+// le mot « logo » mais ne sont pas l'identite de la commune (releve : « Ville
+// Active et Sportive » sur Tassin, le magazine « Vannes & vous » sur Vannes).
+const LOGO_PARASITE = /thumbnail|vignette|csm_|label|partenaire|sponsor|certifi|magazine|journal|active|sportive|fleuri|handicap|qualite|charte|prix|trophee/i;
+
+function findSiteLogo(html, baseUrl) {
+  const zone = html.slice(0, 60000);
+  const hits = [];
+  for (const tag of zone.match(/<img[^>]+>/gi) || []) {
+    // La position prime : le logo d'identite est dans l'en-tete, les logos de
+    // labels et de partenaires arrivent plus bas dans la page.
+    const at = zone.indexOf(tag);
+    const alt = /alt=["']([^"']*)["']/i.exec(tag)?.[1] || '';
+    const cls = /class=["']([^"']*)["']/i.exec(tag)?.[1] || '';
+    // srcset : on prend la plus grande definition proposee
+    const srcset = /srcset=["']([^"']+)["']/i.exec(tag)?.[1];
+    const fromSet = srcset
+      ? srcset.split(',').map((s) => s.trim().split(/\s+/)).sort((a, b) => (parseInt(b[1], 10) || 0) - (parseInt(a[1], 10) || 0))[0]?.[0]
+      : null;
+    const src = fromSet || /(?:data-src|src)=["']([^"']+)["']/i.exec(tag)?.[1];
+    if (!src || /^data:/i.test(src)) continue;
+    const hay = `${src} ${alt} ${cls}`;
+    if (!/logo|blason|armoirie/i.test(hay)) continue;
+
+    const w = parseInt(/width=["']?(\d+)/i.exec(tag)?.[1] || '0', 10);
+    const h = parseInt(/height=["']?(\d+)/i.exec(tag)?.[1] || '0', 10);
+    let score = 100;
+    // Decroissance douce avec la position : elle doit departager deux logos
+    // credibles, pas eliminer un logo legitime place tard dans le HTML (mesure :
+    // celui d'Oyonnax se trouve a 35 Ko et une penalite trop raide l'ecartait)
+    score -= Math.min(at / 1500, 60);
+    if (LOGO_PARASITE.test(hay)) score -= 90;
+    // Variante blanche : destinee aux fonds sombres, elle serait invisible sur
+    // l'interface. Penalite forte pour qu'elle ne gagne jamais contre une
+    // version couleur, et qu'a defaut on repasse sur l'icone du site.
+    if (LOGO_MAUVAISE_VARIANTE.test(hay)) score -= 120;
+    if (/small|mini|mobile|icon/i.test(hay)) score -= 30;
+    // Un logo utilisable fait au moins ~100 px de large
+    score += Math.min(w, 400) / 4;
+    if (w && w < 60) score -= 40;
+    if (h && w && w / h > 6) score -= 20; // banniere etiree, pas un logo
+    hits.push({ src, score });
+  }
+  // Seuil : sous ce niveau, aucun candidat n'est meilleur que l'icone declaree
+  // du site (apple-touch-icon), qui est au moins la marque de la commune
+  hits.sort((a, b) => b.score - a.score);
+  for (const hit of hits) {
+    if (hit.score < 40) break;
+    try { return new URL(hit.src, baseUrl).toString(); } catch { /* url invalide */ }
+  }
+  return null;
 }
 
 async function inspectMairieSite(siteUrl, onFinding) {
@@ -510,37 +579,20 @@ async function inspectMairieSite(siteUrl, onFinding) {
     if (!/icon/.test(rel)) continue;
     const href = /href=["']([^"']+)["']/.exec(m[0])?.[1];
     if (!href) continue;
-    const sizes = /sizes=["'](\d+)/.exec(m[0])?.[1];
-    iconCandidates.push({ href, score: (rel.includes('apple-touch') ? 1000 : 0) + (sizes ? parseInt(sizes, 10) : 16) });
+    // La DEFINITION prime, pas le type de balise : privilegier systematiquement
+    // apple-touch-icon faisait preferer un 120x120 a un android-chrome 512x512
+    // declare juste a cote (releve sur Vannes). A defaut d'attribut sizes, la
+    // definition se lit souvent dans le nom du fichier (…-512x512.png).
+    const declared = parseInt(/sizes=["'](\d+)/.exec(m[0])?.[1] || '0', 10);
+    const fromName = parseInt(/(\d{2,4})x\1|[-_](\d{2,4})\.(png|webp|jpg)/i.exec(href)?.[1]
+      || /[-_](\d{2,4})\.(png|webp|jpg)/i.exec(href)?.[1] || '0', 10);
+    const size = declared || fromName || (rel.includes('apple-touch') ? 180 : 32);
+    iconCandidates.push({ href, score: size });
   }
   iconCandidates.sort((a, b) => b.score - a.score);
 
-  // Le vrai logo de la commune est une <img> de l'en-tête, pas une favicon :
-  // une apple-touch-icon est carrée, basse définition et souvent réduite à un
-  // monogramme. On cherche donc d'abord une image dont l'URL, l'alt ou la
-  // classe annonce un logo, en tête de page (les 6000 premiers caractères
-  // couvrent l'en-tête sans risquer d'attraper un logo de partenaire en pied).
-  const headerLogo = (() => {
-    const head = html.slice(0, 6000);
-    const imgRe = /<img[^>]+>/gi;
-    let tag;
-    const hits = [];
-    while ((tag = imgRe.exec(head)) !== null) {
-      const t = tag[0];
-      const src = /(?:data-src|src)=["']([^"']+)["']/i.exec(t)?.[1];
-      if (!src || /^data:/i.test(src)) continue;
-      const hay = `${src} ${/alt=["']([^"']*)["']/i.exec(t)?.[1] || ''} ${/class=["']([^"']*)["']/i.exec(t)?.[1] || ''}`.toLowerCase();
-      if (!/logo|blason|armoirie/.test(hay)) continue;
-      // Un SVG reste acceptable ici (affiché tel quel), contrairement au pool
-      // d'illustrations où la vision IA le rejette
-      hits.push({ src, score: /logo/.test(hay) ? 2 : 1 });
-    }
-    hits.sort((a, b) => b.score - a.score);
-    if (!hits.length) return null;
-    try { return new URL(hits[0].src, finalUrl).toString(); } catch { return null; }
-  })();
-
-  out.logoUrl = headerLogo || new URL(iconCandidates[0]?.href || '/favicon.ico', finalUrl).toString();
+  out.logoUrl = findSiteLogo(html, finalUrl)
+    || new URL(iconCandidates[0]?.href || '/favicon.ico', finalUrl).toString();
   // Le finding logo est émis par coreSources, une fois la couleur résolue
   // (meta theme-color, sinon couleur dominante du logo par vision IA)
 
@@ -623,6 +675,54 @@ const BOAMP_SERVICE_DE_PROJET = /ma[iî]trise d['’ ]?o?euvre|\bmoe\b|concours|
 const BOAMP_MAX_AGE_MONTHS = 36;
 const BOAMP_MAX_ROWS = 20;
 
+/* Le BOAMP ne se resume pas a un intitule : le champ `donnees` porte l'avis
+   complet. Trois formats coexistent selon l'anciennete (eForms europeen,
+   FNSimple francais, schema legacy), d'ou la recherche par motif de cle plutot
+   que par chemin fixe. Mesure sur Tassin : 17 avis sur 20 exposent une vraie
+   description, et 12 sur 20 une ADRESSE POSTALE de lieu d'execution.
+   C'est simultanement la matiere qui manquait aux articles et l'adresse qui
+   manquait au geocodage. */
+const BOAMP_DESC_RE = /natureMarche\.description|ProcurementProject\.cbc:Description|OBJET_COMPLET|objetComplet/i;
+const BOAMP_LIEU_RE = /lieuExecution|lieuExecutionLivraison|RealizedLocation/i;
+const BOAMP_LOT_RE = /lots\.lot\.\d+\.intitule|ProcurementProjectLot\.\d+\..*cbc:Name/i;
+
+// Les valeurs arrivent doublement echappees (&amp;lt;br/&amp;gt;)
+function unescapeBoamp(s) {
+  return String(s || '')
+    .replace(/&amp;lt;|&lt;/g, '<')
+    .replace(/&amp;gt;|&gt;/g, '>')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&[a-z#0-9]+;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function boampDetails(donnees) {
+  let blob = donnees;
+  if (typeof blob === 'string') { try { blob = JSON.parse(blob); } catch { return {}; } }
+  if (!blob || typeof blob !== 'object') return {};
+  const desc = new Set(); const lieux = new Set(); const lots = new Set();
+  const walk = (x, path = '', depth = 0) => {
+    if (depth > 12 || !x || typeof x !== 'object') return;
+    for (const [k, v] of Object.entries(x)) {
+      const key = path ? `${path}.${k}` : k;
+      if (typeof v === 'string') {
+        if (BOAMP_DESC_RE.test(key) && v.length > 40) desc.add(unescapeBoamp(v));
+        else if (BOAMP_LIEU_RE.test(key) && v.length > 5) lieux.add(unescapeBoamp(v));
+        else if (BOAMP_LOT_RE.test(key) && v.length > 5) lots.add(unescapeBoamp(v));
+      } else if (v && typeof v === 'object') walk(v, key, depth + 1);
+    }
+  };
+  walk(blob);
+  // Le lieu le plus long est le plus complet (numero + rue + code postal)
+  const lieu = [...lieux].filter((l) => !/^country$/i.test(l)).sort((a, b) => b.length - a.length)[0] || '';
+  return {
+    description: [...desc].sort((a, b) => b.length - a.length)[0]?.slice(0, 700) || '',
+    lieu: lieu.slice(0, 160),
+    lots: [...lots].slice(0, 6),
+  };
+}
+
 async function fetchBoamp(communeNom, onFinding) {
   try {
     const url = new URL('https://boamp-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/boamp/records');
@@ -638,8 +738,8 @@ async function fetchBoamp(communeNom, onFinding) {
     url.searchParams.set('where', `search(objet, "${communeNom.replace(/"/g, '')}") and dateparution > date'${cutoff}'`);
     url.searchParams.set('order_by', 'dateparution desc');
     url.searchParams.set('limit', '60');
-    url.searchParams.set('select', 'objet,dateparution,url_avis,nature_libelle,nomacheteur,descripteur_libelle,type_marche');
-    const r = await fetchWithTimeout(url.toString());
+    url.searchParams.set('select', 'objet,dateparution,url_avis,nature_libelle,nomacheteur,descripteur_libelle,type_marche,donnees');
+    const r = await fetchWithTimeout(url.toString(), {}, 15000);
     if (!r.ok) return [];
     const data = await r.json();
     const rows = (data.results || [])
@@ -651,6 +751,7 @@ async function fetchBoamp(communeNom, onFinding) {
         acheteur: String(rec.nomacheteur || ''),
         themes: Array.isArray(rec.descripteur_libelle) ? rec.descripteur_libelle.slice(0, 4).join(', ') : '',
         marche: (Array.isArray(rec.type_marche) ? rec.type_marche.join(' ') : String(rec.type_marche || '')).toUpperCase(),
+        ...boampDetails(rec.donnees),
       }))
       .filter((x) => x.title && !BOAMP_NOT_A_PROJECT.test(x.title))
       .filter((x) => x.marche.includes('TRAVAUX') || BOAMP_SERVICE_DE_PROJET.test(x.title));
@@ -864,8 +965,14 @@ function buildSourcesBundle({ mairie, news, boamp }) {
   if (boamp.length) {
     // La date est explicitement qualifiée : sans cela, le rédacteur la reprenait
     // comme un début ou une fin de travaux dans la section « Calendrier ».
-    push('MARCHÉS PUBLICS DE TRAVAUX (BOAMP). La date est celle de PARUTION DE L\'AVIS, ce n\'est ni un début ni une fin de chantier. « Résultat de marché » signifie que le marché est attribué, donc que les travaux sont engagés ou proches de l\'être :\n'
-      + boamp.map((b) => `- [${b.link}] avis paru le ${b.date} | ${b.nature || 'Avis'} | maître d'ouvrage : ${b.acheteur || 'non précisé'}${b.themes ? ` | thèmes : ${b.themes}` : ''}\n  Objet : ${b.title}`).join('\n'));
+    push('MARCHÉS PUBLICS DE TRAVAUX (BOAMP). La date est celle de PARUTION DE L\'AVIS, ce n\'est ni un début ni une fin de chantier. « Résultat de marché » signifie que le marché est attribué, donc que les travaux sont engagés ou proches de l\'être. Le champ « Lieu d\'exécution » est l\'adresse OFFICIELLE du chantier déclarée par le maître d\'ouvrage : recopie-la telle quelle dans le champ address du projet correspondant :\n'
+      + boamp.map((b) => [
+        `- [${b.link}] avis paru le ${b.date} | ${b.nature || 'Avis'} | maître d'ouvrage : ${b.acheteur || 'non précisé'}${b.themes ? ` | thèmes : ${b.themes}` : ''}`,
+        `  Objet : ${b.title}`,
+        b.lieu ? `  Lieu d'exécution : ${b.lieu}` : '',
+        b.description ? `  Description : ${b.description}` : '',
+        b.lots?.length ? `  Lots : ${b.lots.join(' ; ')}` : '',
+      ].filter(Boolean).join('\n')).join('\n'));
   }
   for (const n of news) {
     push(`ARTICLE DE PRESSE [${n.finalUrl || n.link}] (${n.source || hostOf(n.finalUrl || n.link)}, ${n.date}) :\nTitre : ${n.title}\n${n.text || '(contenu non accessible, titre seul)'}`);
@@ -894,7 +1001,7 @@ async function selectProjects(commune, candidates, bundle, onTitle) {
 - category_slug (catégorie dominante) : urbanisme (ZAC, aménagement large), renovation-urbaine (réhabilitation de quartier/logement social), mobilite (voirie, transport, pistes cyclables, gare), environnement (nature, eau, énergie), equipement-public (école, gymnase, médiathèque, hôpital, mairie, centre technique municipal, poste de police, tout bâtiment porté par la collectivité pour un service public), patrimoine (monument, église, château), economique (zone d'activité, commerces, immobilier d'entreprise privé), logement, cadre-de-vie (espaces publics, parcs, places). En cas d'hésitation entre economique et equipement-public, tranche par le maître d'ouvrage : une opération portée par la commune relève de equipement-public.
 - description : 2 à 4 phrases sobres et factuelles, dates si connues, zéro superlatif, en français impeccable.
 - place : le lieu géocodable le plus précis mentionné (rue, quartier, équipement), chaîne vide sinon.
-- address : LIS ATTENTIVEMENT le texte des sources et recopie l'adresse postale exacte du projet si elle y figure (numéro + rue, ou nom de rue seul). Chaîne vide si aucune adresse n'est écrite. N'invente jamais.
+- address : LIS ATTENTIVEMENT le texte des sources et recopie l'adresse postale exacte du projet si elle y figure (numéro + rue, ou nom de rue seul). Pour un projet issu d'un marché public, le champ « Lieu d'exécution » de l'avis EST cette adresse : recopie-la, en retirant seulement le code postal et le nom de la commune. Chaîne vide si aucune adresse n'est écrite nulle part. N'invente jamais.
 - geo_query : la MEILLEURE requête pour localiser ce projet sur une carte OpenStreetMap dans la commune. Adresse précise (n° + rue) si elle figure dans les sources, sinon le nom EXACT de l'équipement ou du quartier/lieu-dit. C'est ce texte qui sera envoyé au géocodeur : sois précis, fidèle au nom réel, sans le mot "projet" ni de verbe (écris "Centre nautique Robert Sautin", pas "Rénovation du centre nautique"). Ne laisse JAMAIS ce champ vide : à défaut de lieu identifié, donne le nom de l'équipement, de la rue ou du quartier concerné.
 - source_url : reprends l'URL de la source qui atteste le projet.`;
   const user = `CANDIDATS :\n${JSON.stringify(candidates, null, 1)}\n\nSOURCES (pour vérification) :\n\n${bundle.slice(0, BUNDLE_VERIFY_CHARS)}`;
@@ -1074,7 +1181,11 @@ function locationQueries(project) {
 /* ─── Illustrations libres (Wikimedia Commons), pertinence jugée par l'IA ─── */
 
 // Pré-filtre bon marché : jamais de blason/logo/carte/SVG envoyé à la vision
-const COMMONS_BLOCKLIST = /(blason|logo|coat[_ ]of[_ ]arms|carte|\bmap\b|\bplan\b|flag|drapeau|armoiries|diagram|\.svg|\.tif|\.pdf)/i;
+// La recherche texte de Commons remonte massivement des ouvrages numerises :
+// chercher « Lycee Lesage Vannes » y rend des bulletins archeologiques du XIXe
+// siecle. On exige donc une extension d'image et on ecarte les scans.
+const COMMONS_BLOCKLIST = /(blason|logo|coat[_ ]of[_ ]arms|carte|\bmap\b|\bplan\b|flag|drapeau|armoiries|diagram|bulletin|revue|histoire de|\(IA |archive\.org|manuscrit|gravure|estampe|\.svg|\.tif|\.pdf|\.djvu)/i;
+const COMMONS_IMAGE_EXT = /\.(jpe?g|png|webp|gif)$/i;
 
 // Mappe une réponse Commons (query.pages) en candidats {url,title,credit},
 // filtrés par la blocklist (blasons, logos, cartes...)
@@ -1085,6 +1196,7 @@ function commonsPagesToCandidates(data) {
     if (!info?.thumburl) continue;
     const meta = info.extmetadata || {};
     const title = String(page.title || '').replace(/^File:/i, '');
+    if (!COMMONS_IMAGE_EXT.test(title)) continue;
     if (COMMONS_BLOCKLIST.test(`${title} ${stripHtml(meta.Categories?.value || '')}`)) continue;
     const artist = stripHtml(meta.Artist?.value || '').slice(0, 60) || 'auteur inconnu';
     const license = meta.LicenseShortName?.value || 'licence libre';
@@ -1126,7 +1238,40 @@ async function sourceImageCandidates(url) {
 // Candidats autour du projet : d'abord les images de sa source (les plus
 // pertinentes), puis le geosearch Commons, complété par une recherche texte
 // si besoin. Dédupliqués, plafonnés. Le juge vision tranche ensuite.
-async function gatherImageCandidates(project, communeNom, lat, lng, mairieImages = []) {
+/* Images de la page de la mairie qui parle DE CE projet.
+   Wikimedia Commons ne contient pas les equipements municipaux francais
+   (verifie : chercher « Lycee Lesage Vannes » y rend des scans de bulletins
+   archeologiques du XIXe siecle). La seule source qui publie des visuels des
+   projets d'une commune, c'est le site de cette commune. Encore faut-il
+   rattacher chaque photo au bon projet plutot que de tout verser en vrac. */
+function mairiePageImages(project, pages = []) {
+  const mots = [...new Set(
+    unaccentLower(`${project.geo_query || ''} ${project.place || ''} ${project.title || ''}`)
+      .split(/[^a-z0-9]+/).filter((w) => w.length >= 5 && !GENERIC_PROJECT_WORDS.test(w))
+  )];
+  if (!mots.length) return [];
+  let best = null;
+  for (const page of pages) {
+    if (!page.images?.length) continue;
+    const hay = unaccentLower(`${page.title || ''} ${page.text || ''}`);
+    const score = mots.filter((m) => hay.includes(m)).length;
+    if (score && (!best || score > best.score)) best = { page, score };
+  }
+  // Au moins deux mots distinctifs en commun : un seul mot est trop souvent
+  // un hasard (le nom d'une rue passante cite dans une page sans rapport)
+  if (!best || best.score < 2) return [];
+  return best.page.images.map((url) => ({
+    url,
+    title: `Visuel de la page « ${best.page.title} »`,
+    credit: `Source : ${communeHost(best.page.url)}`,
+  }));
+}
+
+const unaccentLower = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const GENERIC_PROJECT_WORDS = /^(projet|travaux|amenagement|renovation|construction|extension|rehabilitation|demolition|reconstruction|creation|requalification|vegetalisation|batiment|centre|espace|locaux|groupe|nouvelle|nouveau|commune|ville)$/;
+const communeHost = (u) => { try { return new URL(u).host; } catch { return 'la mairie'; } };
+
+async function gatherImageCandidates(project, communeNom, lat, lng, mairieImages = [], mairiePages = []) {
   // Les deux collectes independantes en parallele (un RTT economise par projet)
   const [fromSource, near] = await Promise.all([
     project.source_url ? sourceImageCandidates(project.source_url) : Promise.resolve([]),
@@ -1136,15 +1281,18 @@ async function gatherImageCandidates(project, communeNom, lat, lng, mairieImages
   // issus du BOAMP, dont la source ne porte aucune photo. Elle etait censee se
   // declencher sous 3 candidats, mais les 8 images de remplissage de la mairie
   // rendaient cette condition inatteignable : elle ne partait donc JAMAIS.
-  const byName = fromSource.length ? [] : await commonsTextCandidates(
+  // Page de la mairie consacree a ce projet : la source la plus susceptible de
+  // porter un vrai visuel du projet, avant tout recours a Commons
+  const fromPage = mairiePageImages(project, mairiePages);
+  const byName = (fromSource.length + fromPage.length) ? [] : await commonsTextCandidates(
     `${project.place || project.geo_query || project.title} ${communeNom}`.trim()
   );
   // Images des pages "grands projets" de la mairie : souvent les vrais visuels,
   // mais generiques - elles ferment la marche pour ne pas noyer les candidats
   // reellement lies au projet (le juge vision ne voit que 8 images au total).
   const fromMairie = mairieImages.slice(0, 6).map((url) => ({ url, title: 'Visuel du site de la mairie', credit: `Source : ${communeNom}` }));
-  const wide = (fromSource.length + near.length + byName.length) >= 4 ? [] : await commonsCandidatesAt(lat, lng, 750);
-  const pool = [...fromSource, ...byName, ...near, ...wide, ...fromMairie];
+  const wide = (fromSource.length + fromPage.length + near.length + byName.length) >= 4 ? [] : await commonsCandidatesAt(lat, lng, 750);
+  const pool = [...fromSource, ...fromPage, ...byName, ...near, ...wide, ...fromMairie];
   const seen = new Set();
   const all = [];
   for (const c of pool) {
@@ -1424,7 +1572,15 @@ async function coreAi(send, step, state) {
   }
   const boampByUrl = new Map(boamp.map((b) => [
     b.link,
-    `Marché public de travaux. Objet : ${b.title}. Maître d'ouvrage : ${b.acheteur || 'non précisé'}. ${b.nature || 'Avis'} paru le ${b.date} (date de parution de l'avis, ce n'est ni un début ni une fin de chantier).${b.themes ? ` Thèmes : ${b.themes}.` : ''}`,
+    [
+      `Marché public de travaux. Objet : ${b.title}.`,
+      `Maître d'ouvrage : ${b.acheteur || 'non précisé'}.`,
+      `${b.nature || 'Avis'} paru le ${b.date} (date de parution de l'avis, ce n'est ni un début ni une fin de chantier).`,
+      b.lieu ? `Lieu d'exécution : ${b.lieu}.` : '',
+      b.description ? `Description officielle : ${b.description}` : '',
+      b.lots?.length ? `Lots : ${b.lots.join(' ; ')}.` : '',
+      b.themes ? `Thèmes : ${b.themes}.` : '',
+    ].filter(Boolean).join(' '),
   ]));
   for (const p of projects) {
     const quote = candidates.find((c) => c.title === p.title)?.evidence_quote || '';
@@ -1439,8 +1595,13 @@ async function coreAi(send, step, state) {
     }
   }
 
-  // Le paquet de sources ne sert plus : on allège le brouillon
-  state.mairie.pages = [];
+  // Le paquet de sources ne sert plus : on allège le brouillon. On garde
+  // toutefois un index reduit des pages (titre, images, debut de texte) : la
+  // phase illustrations, qui tourne plus tard, en a besoin pour rattacher une
+  // photo de la mairie au bon projet.
+  state.mairie.pages = mairie.pages
+    .filter((p) => p.images?.length)
+    .map((p) => ({ url: p.url, title: p.title, images: p.images.slice(0, 6), text: (p.text || '').slice(0, 1500) }));
   state.news = [];
   return state;
 }
@@ -1536,8 +1697,13 @@ async function coreMedia(send, step, state) {
   // bac a sable de fonctions partaient en UND_ERR_CONNECT_TIMEOUT en rafale
   const images = await inChunks(located, 4, async (p) => {
     const c = centroidOf(p.geometry);
-    const candidates = await gatherImageCandidates(p, state.commune.nom, c.lat, c.lng, mairieImages);
-    return pickBestImageWithAI(p, state.commune.nom, candidates);
+    const candidates = await gatherImageCandidates(p, state.commune.nom, c.lat, c.lng, mairieImages, state.mairie?.pages || []);
+    const choix = await pickBestImageWithAI(p, state.commune.nom, candidates);
+    if (process.env.DEMO_DUMP) {
+      const origines = candidates.map((x) => (/wikimedia|wikipedia/.test(x.url) ? 'commons' : 'site')).join(',');
+      console.log(`[demo-media] "${p.title}" : ${candidates.length} candidats [${origines}] -> ${choix ? 'RETENU ' + choix.title : 'aucun'}`);
+    }
+    return choix;
   });
   let illustrated = 0;
   const usedCovers = new Set(); // pas deux fois la même image sur des fiches différentes
