@@ -47,6 +47,17 @@ window.SearchModule = (() => {
     });
     _panel.addEventListener('click', (e) => e.stopPropagation());
 
+    // Échap ferme le panneau quel que soit l'élément focalisé. Écouter sur
+    // _input seul ratait deux cas : le focus n'arrive qu'à la frame suivante
+    // (voir _open) et un clic dans le panneau l'en retire. La classe est la
+    // source de vérité de l'état ouvert, y compris quand toggleManager ferme
+    // les panneaux sans émettre d'événement (_closeAllMenus).
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (!_panel?.classList.contains('dock-panel--open')) return;
+      window.toggleManager?.setState('search', false);
+    });
+
     window.toggleManager?.on('search', (open) => open ? _open() : _close());
     window.toggleManager?.markReady('search');
   }
@@ -100,9 +111,9 @@ window.SearchModule = (() => {
       e.preventDefault();
       const target = _focusIdx >= 0 ? items[_focusIdx] : items[0];
       target?.click();
-    } else if (e.key === 'Escape') {
-      window.toggleManager?.setState('search', false);
     }
+    // Échap est traité au niveau document (voir init) : la touche doit fermer
+    // le panneau même quand le focus a quitté le champ.
   }
 
   function _highlightItem(items) {

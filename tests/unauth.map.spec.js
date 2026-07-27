@@ -465,6 +465,21 @@ test.describe('0.8 - Recherche d\'adresse', () => {
     const emptyState = page.locator('.search-status--empty');
     await expect(emptyState).toBeVisible({ timeout: 10000 });
   });
+
+  test('0.8.8 - RÉGRESSION Escape ferme le panneau sans focus dans le champ', async ({ page }) => {
+    await waitForMapBoot(page);
+    await page.locator('#search-toggle').click();
+    await expect(page.locator('#search-overlay')).toHaveClass(/dock-panel--open/);
+
+    // Un clic dans le panneau hors du champ retire le focus de l'input sans
+    // fermer le panneau (le clic est stoppé par searchmodule). L'écoute Échap
+    // portait sur l'input seul : la touche ne fermait alors plus rien.
+    await page.locator('#search-overlay .dock-panel__title').click();
+    await expect(page.locator('#address-search')).not.toBeFocused();
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#search-overlay')).not.toHaveClass(/dock-panel--open/, { timeout: 3000 });
+  });
 });
 
 // ─────────────────────────────────────────────────────────
