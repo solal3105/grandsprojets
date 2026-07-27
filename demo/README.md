@@ -36,6 +36,29 @@ fiches (consultation_dossiers). Durée totale : 2 à 4 minutes par commune.
 - SEO : villes `essai-*` exclues du sitemap et du llms.txt, hubs et fiches en
   noindex
 - Modèle IA : `gpt-4o` (surchargable via la variable d'env `DEMO_OPENAI_MODEL`)
+- Coût IA : chaque appel journalise ses tokens (`[demo-tokens] <schéma> input= output= total=`).
+  Une génération complète coûte environ 60 000 tokens pour 12 projets
+
+## Développer en local
+
+`netlify dev` injecte dans les fonctions la **passerelle IA de Netlify**
+(`OPENAI_BASE_URL=<site>/.netlify/ai` + un jeton de passerelle **à la place** de
+la clé du compte). Si cette passerelle n'est pas provisionnée, tous les appels
+IA échouent en local (`UND_ERR_CONNECT_TIMEOUT`) alors que la production
+fonctionne. Deux variables permettent de viser l'API OpenAI directe :
+
+```bash
+DEMO_OPENAI_KEY="$OPENAI_API_KEY" \
+DEMO_DUMP=1 \
+netlify dev --port 3001
+```
+
+- `DEMO_OPENAI_KEY` : clé utilisée à la place de celle injectée ; bascule aussi
+  l'URL sur `https://api.openai.com` (surchargeable par `DEMO_OPENAI_BASE_URL`)
+- `DEMO_DUMP=1` : déverse les artefacts complets (projets localisés,
+  illustrations, articles) dans les logs sous `[demo-dump]`, seule façon de les
+  inspecter quand la clé service Supabase manque et que la phase de création
+  est court-circuitée
 
 ## Désinstallation complète
 

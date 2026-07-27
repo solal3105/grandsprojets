@@ -21,13 +21,36 @@
    ============================================================================ */
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
-const OPENAI_RESPONSES_URL = (process.env.OPENAI_BASE_URL?.replace(/\/$/, '') || 'https://api.openai.com') + '/v1/responses';
+// `netlify dev` injecte dans les fonctions la passerelle IA de Netlify
+// (OPENAI_BASE_URL = <site>/.netlify/ai + un jeton de passerelle a la place de
+// la cle du compte). Si cette passerelle n'est pas provisionnee, TOUS les
+// appels echouent en local alors que la production fonctionne. DEMO_OPENAI_KEY
+// permet de viser l'API OpenAI directe pour developper et auditer.
+const DEMO_OPENAI_KEY = process.env.DEMO_OPENAI_KEY || null;
+const OPENAI_BASE_URL = (DEMO_OPENAI_KEY
+  ? (process.env.DEMO_OPENAI_BASE_URL || 'https://api.openai.com')
+  : (process.env.OPENAI_BASE_URL || 'https://api.openai.com')).replace(/\/$/, '');
+const OPENAI_RESPONSES_URL = `${OPENAI_BASE_URL}/v1/responses`;
+const openaiKey = () => DEMO_OPENAI_KEY || process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.DEMO_OPENAI_MODEL || 'gpt-4o';
 
 const VILLE_PREFIX = 'essai-';
 const MAX_PER_IP_PER_DAY = 15;
 const MAX_GLOBAL_PER_DAY = 80;
 const MAX_PHASE_ATTEMPTS = 2; // au-dela, la phase est declaree en echec (anti-boucle)
+// Profondeur de collecte sur le site de la mairie. Mesure faite sur Tassin :
+// passer de 5 a 24 pages triple la duree et le cout d'extraction pour ZERO
+// projet supplementaire (la profondeur 2 remoissonne surtout la navigation).
+// On garde donc un plafond modeste, mais sur les MEILLEURES pages : c'est le
+// classement des liens, pas leur nombre, qui apporte le gain.
+const MAIRIE_PAGES = 8;
+const PAGE_TEXT_CHARS = 5000;
+// Extrait de source transmis au redacteur pour chaque projet : sans lui, les
+// puces "concretes" des articles etaient integralement inventees.
+const SOURCE_EXCERPT_CHARS = 1800;
+// Plafond de telechargement d'une illustration. Au-dela on ABANDONNE l'image :
+// fetchCapped tronque, et une image tronquee s'affiche amputee.
+const COVER_MAX_BYTES = 8000000;
 const FETCH_TIMEOUT_MS = 8000;
 const UA = { 'User-Agent': 'Mozilla/5.0 (compatible; OpenProjetsDemo/1.0; +https://openprojets.com/demo/)' };
 
@@ -91,7 +114,9 @@ const FINAL_SCHEMA = {
   properties: {
     projects: {
       type: 'array',
-      maxItems: 12,
+      // 12 plafonnait le rappel sur les communes bien dotees : l'audit a montre
+      // des projets reels ecartes faute de place, pas faute de preuve.
+      maxItems: 18,
       items: {
         type: 'object',
         additionalProperties: false,
@@ -231,6 +256,12 @@ function stripHtml(html) {
   return String(html || '')
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    // Les pages sont plafonnees au telechargement : quand la coupure tombe au
+    // milieu d'un <script>, sa balise fermante manque, les regex ci-dessus ne
+    // matchent plus et tout le JavaScript ressortait comme du "texte source"
+    // (releve : un extrait d'article de presse commencant par "use strict").
+    .replace(/<script[\s\S]*$/i, ' ')
+    .replace(/<style[\s\S]*$/i, ' ')
     .replace(/<nav[\s\S]*?<\/nav>/gi, ' ')
     .replace(/<footer[\s\S]*?<\/footer>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
@@ -329,6 +360,17 @@ function collectPdfLinks(html, baseUrl, out) {
   }
 }
 
+// Detecte un texte qui est en fait du code : une page dont le corps utile n'a
+// pas ete recupere (coquille JavaScript, script tronque). Le ratio de symboles
+// de programmation est sans ambiguite face a de la prose francaise.
+function looksLikeCode(text) {
+  const t = String(text || '').slice(0, 4000);
+  if (t.length < 200) return false;
+  if (/^\s*["']use strict["']/.test(t)) return true;
+  const symbols = (t.match(/[{};=<>()]/g) || []).length;
+  return symbols / t.length > 0.06;
+}
+
 // Contenu d'une meta-balise (og:image, twitter:image, og:description...), quel
 // que soit l'ordre des attributs name/property et content
 function metaContent(html, key) {
@@ -369,6 +411,78 @@ function collectImages(html, baseUrl, out, cap = 16) {
   }
 }
 
+/* Collecte des pages projets du site de la mairie.
+   Deux niveaux : les pages repérées depuis l'accueil, puis les pages filles des
+   index (« Les grands projets » liste une page par projet). Les liens sont
+   classés par force du signal avant d'être plafonnés. */
+
+const PROJECT_LINK_RE = /(projet|travaux|urbanisme|amenagement|aménagement|chantier|grand[s-]?projet|cadre[ -]de[ -]vie|renovation|rénovation|equipement|équipement|construction|amenager|concertation|mobilit|logement|ecoquartier|écoquartier|zac)/i;
+
+// Un lien nommé « grands projets » ou « ZAC » vaut mieux qu'un « logement » de
+// menu : le score départage avant le plafonnement.
+const LINK_SCORES = [
+  [/grand[s-]?\s?projet|projets?[ -]structurant|nos[ -]projets|projet[ -]de[ -]ville/i, 60],
+  [/zac|ecoquartier|écoquartier|amenagement|aménagement|requalification/i, 40],
+  [/urbanisme|renovation|rénovation|construction|chantier/i, 30],
+  [/travaux|concertation|equipement|équipement/i, 20],
+  [/cadre[ -]de[ -]vie|mobilit|logement/i, 10],
+];
+
+// Pages de service qui contiennent un mot-cle sans jamais decrire de projet
+// (« Numeros utiles » remontait ainsi dans la collecte elargie)
+const LINK_PENALTIES = /numero|utile|contact|annuaire|horaire|demarche|etat[ -]civil|scolaire|cantine|agenda|actualite|newsletter|mentions|plan[ -]du[ -]site|recrutement|emploi|marche[ -]public|deliberation|conseil[ -]municipal/i;
+
+function scoreProjectLink(link) {
+  const hay = `${link.url} ${link.label}`;
+  let score = 0;
+  for (const [re, pts] of LINK_SCORES) if (re.test(hay)) score += pts;
+  if (LINK_PENALTIES.test(hay)) score -= 45;
+  // Une page de contenu (chemin profond) porte plus d'information qu'une
+  // rubrique de premier niveau
+  try { score += Math.min(new URL(link.url).pathname.split('/').filter(Boolean).length, 4) * 3; } catch { /* url deja validee */ }
+  return score;
+}
+
+// Extrait les liens internes évoquant un projet, en évitant les doublons avec
+// ce qui est déjà connu (`known`)
+function collectProjectLinks(html, baseUrl, host, outLinks, known = []) {
+  const aRe = /<a[^>]+href=["']([^"'#]+)["'][^>]*>([\s\S]{0,120}?)<\/a>/gi;
+  let m;
+  while ((m = aRe.exec(html)) !== null && outLinks.length < 90) {
+    const href = m[1];
+    const label = stripHtml(m[2]);
+    if (!PROJECT_LINK_RE.test(`${href} ${label}`)) continue;
+    try {
+      const abs = new URL(href, baseUrl);
+      if (abs.host !== host) continue;
+      if (/\.(pdf|jpe?g|png|gif|zip|docx?|xlsx?)$/i.test(abs.pathname)) continue;
+      const u = abs.toString();
+      if (outLinks.some((l) => l.url === u) || known.some((l) => l.url === u)) continue;
+      outLinks.push({ url: u, label: label.slice(0, 80) || abs.pathname });
+    } catch { /* href invalide */ }
+  }
+}
+
+// Télécharge un lot de pages en parallèle et les verse dans `out`
+async function fetchPages(links, out, onFinding) {
+  const fetched = await inChunks(links, 6, async (link) => {
+    const page = await fetchCapped(link.url, { headers: UA }, 6000, 400000);
+    if (!page) return null;
+    return { link, page, text: stripHtml(page.data).slice(0, PAGE_TEXT_CHARS) };
+  });
+  for (const sp of fetched) {
+    if (!sp) continue;
+    collectPdfLinks(sp.page.data, sp.page.url, out.pdfs);
+    collectImages(sp.page.data, sp.page.url, out.images);
+    if (sp.text.length > 400 && !out.urls.includes(sp.link.url)) {
+      out.pages.push({ url: sp.link.url, title: sp.link.label, text: sp.text });
+      out.urls.push(sp.link.url);
+      onFinding?.({ kind: 'page', title: sp.link.label, domain: out.host });
+    }
+  }
+  return fetched;
+}
+
 async function inspectMairieSite(siteUrl, onFinding) {
   const out = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [] };
   const home = await fetchCapped(siteUrl, { headers: UA }, FETCH_TIMEOUT_MS, 500000);
@@ -400,42 +514,44 @@ async function inspectMairieSite(siteUrl, onFinding) {
     iconCandidates.push({ href, score: (rel.includes('apple-touch') ? 1000 : 0) + (sizes ? parseInt(sizes, 10) : 16) });
   }
   iconCandidates.sort((a, b) => b.score - a.score);
-  out.logoUrl = new URL(iconCandidates[0]?.href || '/favicon.ico', finalUrl).toString();
+
+  // Le vrai logo de la commune est une <img> de l'en-tête, pas une favicon :
+  // une apple-touch-icon est carrée, basse définition et souvent réduite à un
+  // monogramme. On cherche donc d'abord une image dont l'URL, l'alt ou la
+  // classe annonce un logo, en tête de page (les 6000 premiers caractères
+  // couvrent l'en-tête sans risquer d'attraper un logo de partenaire en pied).
+  const headerLogo = (() => {
+    const head = html.slice(0, 6000);
+    const imgRe = /<img[^>]+>/gi;
+    let tag;
+    const hits = [];
+    while ((tag = imgRe.exec(head)) !== null) {
+      const t = tag[0];
+      const src = /(?:data-src|src)=["']([^"']+)["']/i.exec(t)?.[1];
+      if (!src || /^data:/i.test(src)) continue;
+      const hay = `${src} ${/alt=["']([^"']*)["']/i.exec(t)?.[1] || ''} ${/class=["']([^"']*)["']/i.exec(t)?.[1] || ''}`.toLowerCase();
+      if (!/logo|blason|armoirie/.test(hay)) continue;
+      // Un SVG reste acceptable ici (affiché tel quel), contrairement au pool
+      // d'illustrations où la vision IA le rejette
+      hits.push({ src, score: /logo/.test(hay) ? 2 : 1 });
+    }
+    hits.sort((a, b) => b.score - a.score);
+    if (!hits.length) return null;
+    try { return new URL(hits[0].src, finalUrl).toString(); } catch { return null; }
+  })();
+
+  out.logoUrl = headerLogo || new URL(iconCandidates[0]?.href || '/favicon.ico', finalUrl).toString();
   // Le finding logo est émis par coreSources, une fois la couleur résolue
   // (meta theme-color, sinon couleur dominante du logo par vision IA)
 
   const links = [];
-  const aRe = /<a[^>]+href=["']([^"'#]+)["'][^>]*>([\s\S]{0,120}?)<\/a>/gi;
-  while ((m = aRe.exec(html)) !== null && links.length < 90) {
-    const href = m[1];
-    const label = stripHtml(m[2]).toLowerCase();
-    const target = `${href} ${label}`.toLowerCase();
-    if (/(projet|travaux|urbanisme|amenagement|aménagement|chantier|grand[s-]?projet|cadre[ -]de[ -]vie|renovation|rénovation|equipement|équipement|construction|amenager|concertation|mobilit|logement|ecoquartier|écoquartier|zac)/.test(target)) {
-      try {
-        const abs = new URL(href, finalUrl);
-        if (abs.host === finalUrl.host && !links.some((l) => l.url === abs.toString())) {
-          links.push({ url: abs.toString(), label: stripHtml(m[2]).slice(0, 80) || abs.pathname });
-        }
-      } catch { /* href invalide */ }
-    }
-  }
-  // Sous-pages projets en parallèle : 5 pages ne doivent pas rallonger la phase
-  const subPages = await inChunks(links.slice(0, 5), 5, async (link) => {
-    const page = await fetchCapped(link.url, { headers: UA }, 6000, 400000);
-    if (!page) return null;
-    const text = stripHtml(page.data).slice(0, 5000);
-    return { link, page, text };
-  });
-  for (const sp of subPages) {
-    if (!sp) continue;
-    collectPdfLinks(sp.page.data, sp.page.url, out.pdfs);
-    collectImages(sp.page.data, sp.page.url, out.images);
-    if (sp.text.length > 400) {
-      out.pages.push({ url: sp.link.url, title: sp.link.label, text: sp.text });
-      out.urls.push(sp.link.url);
-      onFinding?.({ kind: 'page', title: sp.link.label, domain: out.host });
-    }
-  }
+  collectProjectLinks(html, finalUrl, finalUrl.host, links);
+  // Les liens sont classés avant d'être coupés : une page « Grands projets »
+  // vaut mieux qu'une entrée de menu « logement ». Auparavant on prenait les 5
+  // PREMIERS liens du HTML, donc surtout la navigation, en laissant de côté les
+  // pages de fond. C'est le principal facteur limitant du nombre de projets.
+  links.sort((a, b) => scoreProjectLink(b) - scoreProjectLink(a));
+  await fetchPages(links.slice(0, MAIRIE_PAGES), out, onFinding);
   for (const pdf of out.pdfs.slice(0, 6)) {
     onFinding?.({ kind: 'pdf', title: pdf.label, domain: 'PDF officiel' });
   }
@@ -479,18 +595,50 @@ async function fetchLocalNews(communeNom, departement, onFinding) {
     const html = page.data;
     const ogDesc = metaContent(html, 'og:description');
     const body = stripHtml(html);
-    item.text = [(ogDesc || ''), body.slice(0, 2500)].filter(Boolean).join(' | ');
+    // Google News sert une coquille JavaScript plutot que l'article : sans ce
+    // garde-fou, du code se retrouvait presente a l'IA comme le texte de la
+    // source, et servait de base a la redaction de la fiche.
+    item.text = [(ogDesc || ''), looksLikeCode(body) ? '' : body.slice(0, 2500)].filter(Boolean).join(' | ');
     onFinding?.({ kind: 'article', title: item.title.replace(/ - [^-]+$/, ''), domain: hostOf(item.finalUrl || item.link) || item.source, date: item.date });
   });
   return items;
 }
 
+// Marches qui n'ont aucune traduction physique sur une carte : les ecarter a la
+// source ameliore la pertinence ET evite de payer des tokens pour du bruit
+// (releve sur Tassin : fournitures scolaires, nettoyage des batiments).
+// Le champ type_marche=TRAVAUX ecarte deja fournitures et services par
+// construction. Il reste l'entretien courant, qui est un marche de travaux mais
+// pas un projet : rien a montrer sur une carte.
+const BOAMP_NOT_A_PROJECT = /entretien (et |courant|des|du )|r[eé]parations? courante|maintenance|v[eé]rification p[eé]riodique|contr[oô]le r[eé]glementaire|balayage|fauchage|d[eé]neigement|curage/i;
+
+// Un marche de SERVICES peut annoncer un projet a son stade le plus neuf :
+// concours d'architecte, mission OPC, etude de faisabilite. Les ecarter parce
+// qu'ils ne sont pas classes TRAVAUX rendait invisibles les operations les plus
+// recentes de la commune (mesure sur Tassin : le batiment du Sauze et le depot
+// de Montcelard, tous deux de juin 2026, disparaissaient).
+const BOAMP_SERVICE_DE_PROJET = /ma[iî]trise d['’ ]?o?euvre|\bmoe\b|concours|\bopc\b|ordonnancement|[ée]tude de faisabilit|programmation urbaine|assistance [àa] ma[iî]trise d['’ ]?ouvrage|\bamo\b/i;
+
+// Au-dela, un avis ne renseigne plus l'etat du chantier : il devient archive.
+const BOAMP_MAX_AGE_MONTHS = 36;
+const BOAMP_MAX_ROWS = 20;
+
 async function fetchBoamp(communeNom, onFinding) {
   try {
     const url = new URL('https://boamp-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/boamp/records');
-    url.searchParams.set('where', `search(objet, "${communeNom.replace(/"/g, '')}")`);
+    // Fenetre de recence : sans elle, limit=40 remontait jusqu'en 2018 et des
+    // marches de 2020 s'affichaient « En cours » sur la carte. Un avis de plus
+    // de 3 ans ne dit plus rien de l'etat actuel du chantier.
+    const cutoff = new Date(Date.now() - BOAMP_MAX_AGE_MONTHS * 30.44 * 24 * 3600 * 1000)
+      .toISOString().slice(0, 10);
+    // Pas de filtre type_marche cote API : il est applique en JS pour pouvoir
+    // rattraper les marches de SERVICES qui annoncent un projet a son stade le
+    // plus neuf (concours de maitrise d'oeuvre, mission OPC, etude). Les filtrer
+    // en amont rendait invisibles les operations les PLUS recentes.
+    url.searchParams.set('where', `search(objet, "${communeNom.replace(/"/g, '')}") and dateparution > date'${cutoff}'`);
     url.searchParams.set('order_by', 'dateparution desc');
-    url.searchParams.set('limit', '10');
+    url.searchParams.set('limit', '60');
+    url.searchParams.set('select', 'objet,dateparution,url_avis,nature_libelle,nomacheteur,descripteur_libelle,type_marche');
     const r = await fetchWithTimeout(url.toString());
     if (!r.ok) return [];
     const data = await r.json();
@@ -499,8 +647,32 @@ async function fetchBoamp(communeNom, onFinding) {
         title: String(rec.objet || '').slice(0, 240),
         date: String(rec.dateparution || ''),
         link: rec.url_avis || 'https://www.boamp.fr/',
+        nature: String(rec.nature_libelle || ''),
+        acheteur: String(rec.nomacheteur || ''),
+        themes: Array.isArray(rec.descripteur_libelle) ? rec.descripteur_libelle.slice(0, 4).join(', ') : '',
+        marche: (Array.isArray(rec.type_marche) ? rec.type_marche.join(' ') : String(rec.type_marche || '')).toUpperCase(),
       }))
-      .filter((x) => x.title);
+      .filter((x) => x.title && !BOAMP_NOT_A_PROJECT.test(x.title))
+      .filter((x) => x.marche.includes('TRAVAUX') || BOAMP_SERVICE_DE_PROJET.test(x.title));
+    // Un meme marche reparait a plusieurs dates (avis initial, rectificatif,
+    // resultat). On garde l'occurrence la plus informative : un « Resultat de
+    // marche » prouve que le contrat est attribue, donc que le chantier suit.
+    const best = new Map();
+    for (const x of rows) {
+      const k = x.title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 70);
+      const prev = best.get(k);
+      const score = /r[eé]sultat|attribution/i.test(x.nature) ? 2 : 1;
+      if (!prev || score > prev.score) best.set(k, { ...x, score });
+    }
+    // Plafond : la liste BOAMP est tres compacte (une ligne par avis) et
+    // saturait a elle seule le quota de candidats de l'IA, evincant la presse
+    // et les pages de la mairie (mesure : 17 fiches sur 18 issues du BOAMP,
+    // ZERO de la presse alors que 22 articles avaient ete lus).
+    const deduped = [...best.values()]
+      .sort((a, b) => (a.date < b.date ? 1 : -1))
+      .slice(0, BOAMP_MAX_ROWS);
+    rows.length = 0;
+    rows.push(...deduped);
     rows.slice(0, 7).forEach((x) => onFinding?.({ kind: 'boamp', title: x.title.slice(0, 110), date: x.date }));
     return rows;
   } catch {
@@ -512,23 +684,36 @@ async function fetchBoamp(communeNom, onFinding) {
 
 // POST vers l'API Responses, avec retry sur erreur réseau ("fetch failed") et
 // backoff croissant : survit aux coupures de socket transitoires (bursts)
-async function postOpenAI(body, timeoutMs = 120000, tries = 3) {
+async function postOpenAI(body, timeoutMs = 120000, tries = 5) {
   let lastErr;
   for (let i = 0; i < tries; i++) {
     try {
       return await fetchWithTimeout(OPENAI_RESPONSES_URL, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${openaiKey()}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }, timeoutMs);
     } catch (e) {
       lastErr = e;
       // e.cause.code precise la nature (ECONNRESET socket, ENOTFOUND dns...)
       console.warn(`[demo-generate] OpenAI fetch échec (${e?.message}${e?.cause?.code ? '/' + e.cause.code : ''}), retry ${i + 1}/${tries}`);
-      await sleep(500 * (i + 1));
+      // Backoff exponentiel plafonne : sur UND_ERR_CONNECT_TIMEOUT en rafale
+      // (plusieurs appels concurrents), un recul de 500 ms retombait dans la
+      // meme fenetre de congestion et les 3 tentatives partaient ensemble.
+      await sleep(Math.min(1000 * 2 ** i, 8000) + Math.floor(Math.random() * 400));
     }
   }
   throw lastErr;
+}
+
+// Coût IA : chaque appel logge ses tokens sous le nom de son schéma. Les 6
+// phases étant des invocations distinctes, le total d'une génération se
+// reconstitue en additionnant ces lignes dans les logs serveur.
+function logUsage(label, usage) {
+  if (!usage) return;
+  const i = usage.input_tokens ?? 0;
+  const o = usage.output_tokens ?? 0;
+  console.log(`[demo-tokens] ${label} input=${i} output=${o} total=${i + o}`);
 }
 
 // Texte de sortie d'une réponse (deux emplacements possibles selon le format)
@@ -578,7 +763,9 @@ async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs 
     temperature,
   }, timeoutMs);
   if (!r.ok) throw new Error(`IA indisponible (${r.status})`);
-  const text = outputTextOf(JSON.parse(await readBody(r)));
+  const data = JSON.parse(await readBody(r));
+  logUsage(schemaName, data.usage);
+  const text = outputTextOf(data);
   if (!text) throw new Error('Réponse IA vide');
   return JSON.parse(text);
 }
@@ -629,6 +816,8 @@ async function callOpenAIStreamed(system, user, schemaName, schema, maxTokens, o
             }
           } else if (ev.type === 'response.output_text.done' && ev.text) {
             full = ev.text;
+          } else if (ev.type === 'response.completed') {
+            logUsage(schemaName, ev.response?.usage);
           }
         } catch { /* ligne partielle : suite au prochain chunk */ }
       }
@@ -651,22 +840,41 @@ async function callOpenAIResilient(system, user, schemaName, schema, maxTokens, 
   }
 }
 
+// Budget de caracteres du paquet envoye a l'IA. Sans plafond, l'elargissement
+// de la collecte ferait grimper le cout d'extraction proportionnellement au
+// nombre de pages ; on borne donc, en servant d'abord les sources a plus fort
+// rendement (pages officielles, puis avis de marches, puis presse).
+const BUNDLE_MAX_CHARS = 120000;
+const BUNDLE_VERIFY_CHARS = 45000;
+
 function buildSourcesBundle({ mairie, news, boamp }) {
   const parts = [];
+  let budget = BUNDLE_MAX_CHARS;
+  const push = (text) => {
+    if (budget <= 0) return;
+    parts.push(text.length > budget ? text.slice(0, budget) : text);
+    budget -= text.length;
+  };
+
   for (const p of mairie.pages) {
-    parts.push(`SOURCE OFFICIELLE [${p.url}] (${p.title}) :\n${p.text}`);
+    push(`SOURCE OFFICIELLE [${p.url}] (${p.title}) :\n${p.text}`);
+  }
+  // Les avis BOAMP passent avant la presse : tres compacts et tres denses en
+  // projets reels, ils doivent aussi survivre a la troncature de verification
+  if (boamp.length) {
+    // La date est explicitement qualifiée : sans cela, le rédacteur la reprenait
+    // comme un début ou une fin de travaux dans la section « Calendrier ».
+    push('MARCHÉS PUBLICS DE TRAVAUX (BOAMP). La date est celle de PARUTION DE L\'AVIS, ce n\'est ni un début ni une fin de chantier. « Résultat de marché » signifie que le marché est attribué, donc que les travaux sont engagés ou proches de l\'être :\n'
+      + boamp.map((b) => `- [${b.link}] avis paru le ${b.date} | ${b.nature || 'Avis'} | maître d'ouvrage : ${b.acheteur || 'non précisé'}${b.themes ? ` | thèmes : ${b.themes}` : ''}\n  Objet : ${b.title}`).join('\n'));
   }
   for (const n of news) {
-    parts.push(`ARTICLE DE PRESSE [${n.finalUrl || n.link}] (${n.source || hostOf(n.finalUrl || n.link)}, ${n.date}) :\nTitre : ${n.title}\n${n.text || '(contenu non accessible, titre seul)'}`);
-  }
-  if (boamp.length) {
-    parts.push('MARCHÉS PUBLICS BOAMP :\n' + boamp.map((b) => `- [${b.link}] (${b.date}) ${b.title}`).join('\n'));
+    push(`ARTICLE DE PRESSE [${n.finalUrl || n.link}] (${n.source || hostOf(n.finalUrl || n.link)}, ${n.date}) :\nTitre : ${n.title}\n${n.text || '(contenu non accessible, titre seul)'}`);
   }
   return parts.join('\n\n---\n\n');
 }
 
 async function extractCandidates(commune, bundle, onTitle) {
-  const system = `Tu dépouilles des sources web au sujet de la commune de ${commune.nom}. Extrais TOUS les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES concernant cette commune précise (jusqu'à 24, sois exhaustif : ne laisse passer aucun projet réel mentionné dans les sources). Pour chacun : une citation exacte copiée mot pour mot d'une source (evidence_quote) et l'URL de cette source (source_url, obligatoirement une URL présente entre crochets dans les sources). Ignore : événements, politique, faits divers, autres communes, généralités sans projet.`;
+  const system = `Tu dépouilles des sources web au sujet de la commune de ${commune.nom}. Extrais TOUS les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES concernant cette commune précise (jusqu'à 24, sois exhaustif : ne laisse passer aucun projet réel mentionné dans les sources). Les sources sont de trois natures : pages officielles de la mairie, articles de presse, avis de marchés publics. Dépouille les TROIS avec la même attention : la liste de marchés publics est compacte et facile à moissonner, mais un projet raconté dans un article de presse ou sur une page de la mairie compte autant. Ne remplis pas ta liste avec les seuls marchés publics. Pour chacun : une citation exacte copiée mot pour mot d'une source (evidence_quote) et l'URL de cette source (source_url, obligatoirement une URL présente entre crochets dans les sources). Un projet intercommunal (ligne de transport, piste cyclable structurante, ouvrage d'art) compte dès qu'une partie touche cette commune. Un projet contesté ou polémique compte aussi : c'est l'aménagement physique qui t'intéresse, pas le débat. Ignore seulement : événements, élections, faits divers, projets situés entièrement dans une AUTRE commune, généralités sans projet.`;
   // Résilient : le flux OpenAI revient parfois vide (aléa constaté) -> une
   // passe non streamée en secours plutôt que d'interrompre toute la démo
   const out = await callOpenAIResilient(system, `SOURCES :\n\n${bundle}`, 'candidats', CANDIDATES_SCHEMA, 8000, onTitle);
@@ -674,24 +882,37 @@ async function extractCandidates(commune, bundle, onTitle) {
 }
 
 async function selectProjects(commune, candidates, bundle, onTitle) {
-  const system = `Tu es un rédacteur territorial exigeant. À partir des candidats extraits et des sources, compose la sélection finale des projets de ${commune.nom}. Retiens CHAQUE projet réel et distinct attesté par les sources : si 10 projets distincts sont vérifiés, rends-en 10 (jusqu'à 12). Ne vise pas un chiffre rond, ne résume pas la liste, n'élague pas les projets modestes. Règles :
-- Uniquement des projets physiques et localisables DANS la commune, actuels (en cours, récents ou annoncés).
+  const system = `Tu es un rédacteur territorial exigeant. À partir des candidats extraits et des sources, compose la sélection finale des projets de ${commune.nom}. Retiens CHAQUE projet réel et distinct attesté par les sources : si 14 projets distincts sont vérifiés, rends-en 14 (jusqu'à 18). Ne vise pas un chiffre rond, ne résume pas la liste, n'élague pas les projets modestes. Règles :
+- Uniquement des projets physiques et localisables, actuels (en cours, récents ou annoncés), qui touchent le territoire de la commune. Un projet à cheval sur plusieurs communes (ligne de transport, piste cyclable structurante, ouvrage d'art, opération intercommunale) COMPTE dès lors qu'une partie se trouve dans la commune : retiens-le en décrivant la portion locale. Un projet de logements ou d'équipement fait débat ? Il compte quand même : c'est le projet physique qui t'intéresse, pas la polémique.
 - Ne fusionne que deux entrées qui désignent EXACTEMENT le même projet au même endroit. Un parking, une résidence rénovée, un équipement (piscine, EHPAD, crématorium, médiathèque), une voie réaménagée, un espace public sont des projets DISTINCTS, même situés dans le même quartier.
 - confidence "haute" si la citation atteste clairement le projet ; "moyenne" si l'information est réelle mais partielle ; "basse" seulement si douteux (il sera écarté).
-- status : "livre" si inauguré/achevé, "en-cours" si travaux engagés, "a-l-etude" si concertation/projet annoncé non démarré, "inconnu" si indéterminable.
-- category_slug (catégorie dominante) : urbanisme (ZAC, aménagement large), renovation-urbaine (réhabilitation de quartier/logement social), mobilite (voirie, transport, pistes cyclables, gare), environnement (nature, eau, énergie), equipement-public (école, gymnase, médiathèque, hôpital), patrimoine (monument, église, château), economique (zone d'activité, commerces), logement, cadre-de-vie (espaces publics, parcs, places).
+- status : nous sommes le ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}. "livre" si inauguré/achevé, "en-cours" si travaux engagés, "a-l-etude" si concertation ou projet annoncé non démarré, "inconnu" si indéterminable. Règle stricte, dans cet ordre :
+  1. "livre" UNIQUEMENT si une source affirme explicitement que c'est terminé, inauguré, livré ou ouvert au public. Jamais par déduction à partir d'une date : annoncer livré un équipement qui ne l'est pas décrédibilise toute la carte.
+  2. sinon "en-cours" si les travaux sont engagés, ou si un marché de TRAVAUX a été publié il y a plus d'un an sans mention d'achèvement.
+  3. sinon "a-l-etude" pour un projet annoncé, en concertation, ou dont seul le marché de maîtrise d'oeuvre est lancé (concours d'architecte, mission OPC, étude de faisabilité).
+  4. "inconnu" si rien ne permet de trancher.
+- category_slug (catégorie dominante) : urbanisme (ZAC, aménagement large), renovation-urbaine (réhabilitation de quartier/logement social), mobilite (voirie, transport, pistes cyclables, gare), environnement (nature, eau, énergie), equipement-public (école, gymnase, médiathèque, hôpital, mairie, centre technique municipal, poste de police, tout bâtiment porté par la collectivité pour un service public), patrimoine (monument, église, château), economique (zone d'activité, commerces, immobilier d'entreprise privé), logement, cadre-de-vie (espaces publics, parcs, places). En cas d'hésitation entre economique et equipement-public, tranche par le maître d'ouvrage : une opération portée par la commune relève de equipement-public.
 - description : 2 à 4 phrases sobres et factuelles, dates si connues, zéro superlatif, en français impeccable.
 - place : le lieu géocodable le plus précis mentionné (rue, quartier, équipement), chaîne vide sinon.
 - address : LIS ATTENTIVEMENT le texte des sources et recopie l'adresse postale exacte du projet si elle y figure (numéro + rue, ou nom de rue seul). Chaîne vide si aucune adresse n'est écrite. N'invente jamais.
-- geo_query : la MEILLEURE requête pour localiser ce projet sur une carte OpenStreetMap dans la commune. Adresse précise (n° + rue) si elle figure dans les sources, sinon le nom EXACT de l'équipement ou du quartier/lieu-dit. C'est ce texte qui sera envoyé au géocodeur : sois précis, fidèle au nom réel, sans le mot "projet" ni de verbe (écris "Centre nautique Robert Sautin", pas "Rénovation du centre nautique").
+- geo_query : la MEILLEURE requête pour localiser ce projet sur une carte OpenStreetMap dans la commune. Adresse précise (n° + rue) si elle figure dans les sources, sinon le nom EXACT de l'équipement ou du quartier/lieu-dit. C'est ce texte qui sera envoyé au géocodeur : sois précis, fidèle au nom réel, sans le mot "projet" ni de verbe (écris "Centre nautique Robert Sautin", pas "Rénovation du centre nautique"). Ne laisse JAMAIS ce champ vide : à défaut de lieu identifié, donne le nom de l'équipement, de la rue ou du quartier concerné.
 - source_url : reprends l'URL de la source qui atteste le projet.`;
-  const user = `CANDIDATS :\n${JSON.stringify(candidates, null, 1)}\n\nSOURCES (pour vérification) :\n\n${bundle.slice(0, 30000)}`;
+  const user = `CANDIDATS :\n${JSON.stringify(candidates, null, 1)}\n\nSOURCES (pour vérification) :\n\n${bundle.slice(0, BUNDLE_VERIFY_CHARS)}`;
   const out = await callOpenAIResilient(system, user, 'selection_finale', FINAL_SCHEMA, 6000, onTitle);
   return out.projects || [];
 }
 
-async function writeArticles(commune, projects, pdfs, onTitle) {
-  const system = `Tu es un rédacteur territorial. Pour CHAQUE projet fourni (index conservé), écris un article markdown de 150 à 250 mots destiné aux habitants de ${commune.nom} : 2 phrases d'introduction, une section "## Ce qui change" (2 à 4 puces concrètes), une section "## Calendrier" seulement si des dates sont connues. Si un des documents PDF fournis correspond CLAIREMENT au projet, ajoute une section "## Documents" avec le lien markdown ; sinon aucune section Documents. Termine toujours par : *Fiche générée automatiquement à partir de sources publiques : [NOM_DU_MEDIA](URL_SOURCE).* Ton sobre et factuel, aucun superlatif, rien d'inventé au-delà des informations fournies.`;
+// Rédaction par lots de 3 : un appel qui échoue (flux tronqué, coupure réseau)
+// ne coûtait auparavant TOUS les articles de la commune. Les lots sont
+// indépendants et tolérants à l'échec, l'index global est réattribué après coup.
+const ARTICLES_BATCH = 3;
+
+async function writeArticlesBatch(commune, projects, offset, pdfs, onTitle) {
+  const system = `Tu es un rédacteur territorial. Pour CHAQUE projet fourni (index conservé), écris un article markdown de 150 à 250 mots destiné aux habitants de ${commune.nom}.
+
+RÈGLE ABSOLUE : tu ne disposes que du champ "extrait_source" de chaque projet. Chaque affirmation de ton article doit pouvoir se lire dans cet extrait ou dans la description. N'ajoute AUCUN détail technique qui n'y figure pas : pas d'éclairage LED, pas de matériaux, pas de nombre de places, pas d'essences d'arbres, pas de dispositifs inventés. Si l'extrait est pauvre, écris un article court : mieux vaut trois lignes exactes que quinze lignes plausibles. Ne contredis jamais l'intention de la source (si elle dit "limiter le trafic", n'écris pas "améliorer la fluidité").
+
+Structure : 2 phrases d'introduction, une section "## Ce qui change" avec 2 à 4 puces tirées de l'extrait, une section "## Calendrier" UNIQUEMENT si l'extrait donne une date de CHANTIER (début, fin, livraison, inauguration). Une date de parution d'avis de marché n'est PAS un calendrier de travaux : dans ce cas, pas de section Calendrier du tout. Si un document PDF fourni correspond CLAIREMENT au projet, ajoute "## Documents" avec le lien markdown. Termine toujours par : *Fiche générée automatiquement à partir de sources publiques : [NOM_DU_MEDIA](URL_SOURCE).* Ton sobre et factuel, aucun superlatif.`;
   const user = `PROJETS :\n${JSON.stringify(projects.map((p, i) => ({
     index: i,
     title: p.title,
@@ -700,9 +921,29 @@ async function writeArticles(commune, projects, pdfs, onTitle) {
     place: p.place,
     source_url: p.source_url,
     source_media: hostOf(p.source_url),
+    extrait_source: p.source_excerpt || '(aucun extrait disponible : reste sur la description, sans ajouter de détail)',
   })), null, 1)}\n\nDOCUMENTS PDF DISPONIBLES :\n${pdfs.length ? pdfs.map((p) => `- [${p.label}](${p.url})`).join('\n') : '(aucun)'}`;
-  const out = await callOpenAIResilient(system, user, 'articles_projets', ARTICLES_SCHEMA, 9000, onTitle, 0.4);
-  return out.articles || [];
+  const out = await callOpenAIResilient(system, user, 'articles_projets', ARTICLES_SCHEMA, 4000, onTitle, 0.4);
+  // L'index renvoyé est local au lot : on le replace dans la numérotation globale
+  return (out.articles || [])
+    .filter((a) => a && typeof a.markdown === 'string' && a.markdown.trim())
+    .map((a) => ({ ...a, index: offset + (typeof a.index === 'number' ? a.index : 0) }));
+}
+
+async function writeArticles(commune, projects, pdfs, onTitle) {
+  const batches = [];
+  for (let i = 0; i < projects.length; i += ARTICLES_BATCH) {
+    batches.push({ items: projects.slice(i, i + ARTICLES_BATCH), offset: i });
+  }
+  const results = await inChunks(batches, 2, async ({ items, offset }) => {
+    try {
+      return await writeArticlesBatch(commune, items, offset, pdfs, onTitle);
+    } catch (e) {
+      console.error(`[demo-generate] articles lot ${offset} :`, e.message);
+      return [];
+    }
+  });
+  return results.flat();
 }
 
 // Formats rejetes par la vision gpt-4o : un seul suffit a faire echouer TOUT
@@ -767,7 +1008,7 @@ async function banGeocode(q, commune, bbox) {
 // best-of-6 : on garde l'ordre de pertinence de Nominatim mais on descend
 // jusqu'au 1er résultat réellement DANS la commune et son emprise (un homonyme
 // mieux classé ailleurs ne fait plus rater le bon résultat).
-async function geocodeOne(q, commune, bbox) {
+async function nominatimLookup(q, commune, bbox) {
   try {
     const u = new URL('https://nominatim.openstreetmap.org/search');
     u.searchParams.set('q', `${q}, ${commune.nom}`);
@@ -776,6 +1017,7 @@ async function geocodeOne(q, commune, bbox) {
     u.searchParams.set('countrycodes', 'fr');
     u.searchParams.set('limit', '6');
     const r = await fetchWithTimeout(u.toString(), { headers: UA }, 7000);
+    if (!r.ok) console.warn(`[demo-generate] nominatim http=${r.status} pour "${q}"`);
     if (r.ok) {
       const commLc = commune.nom.toLowerCase().slice(0, 8);
       for (const hit of await r.json()) {
@@ -787,9 +1029,10 @@ async function geocodeOne(q, commune, bbox) {
         if (g.type === 'Point') return { geometry: g, method: 'adresse' };
       }
     }
-  } catch { /* Nominatim indisponible : BAN ensuite */ }
-  await sleep(1050); // politique d'usage Nominatim : 1 requête/seconde
-  return banGeocode(q, commune, bbox);
+  } catch (e) {
+    console.warn(`[demo-generate] nominatim échec "${q}" :: ${e?.message}${e?.cause?.code ? '/' + e.cause.code : ''}`);
+  }
+  return null;
 }
 
 // Répartition de repli dans l'emprise RÉELLE de la commune (spirale d'angle
@@ -812,24 +1055,20 @@ function scatterInCommune(center, bbox, index) {
   };
 }
 
-// allowNetwork=false (budget de temps dépassé) : repli direct, aucun appel réseau
-async function locateProject(project, commune, bbox, index, allowNetwork = true) {
-  const center = { lng: commune.centre.coordinates[0], lat: commune.centre.coordinates[1] };
-  if (allowNetwork) {
-    // Adresse postale exacte des sources d'abord (la plus fiable), puis la
-    // requête optimisée geo_query, puis le lieu ; dédoublonnées en gardant l'ordre
-    const seen = new Set();
-    const queries = [];
-    for (const q of [project.address, project.geo_query, project.place]) {
-      const t = String(q || '').trim();
-      if (t.length >= 3 && !seen.has(t.toLowerCase())) { seen.add(t.toLowerCase()); queries.push(t); }
-    }
-    for (const q of queries) {
-      const hit = await geocodeOne(q, commune, bbox);
-      if (hit) return hit;
-    }
+// Requêtes de localisation d'un projet, de la plus fiable à la plus faible :
+// adresse postale relevée dans la source, requête optimisée par l'IA, lieu,
+// puis le titre nettoyé de son verbe (l'IA laisse parfois les autres vides).
+function locationQueries(project) {
+  const fromTitle = String(project.title || '')
+    .replace(/^(r[eé]am[eé]nagement|am[eé]nagement|construction|r[eé]novation|r[eé]habilitation|extension|d[eé]molition|reconstruction|cr[eé]ation|installation|requalification|v[eé]g[eé]talisation|ouverture|restructuration|renouvellement|modification|transfert|r[eé]fection)\s+(de\s+la|de\s+l['’]|du|des|de|d['’]|d'|un|une)?\s*/i, '')
+    .trim();
+  const seen = new Set();
+  const out = [];
+  for (const q of [project.address, project.geo_query, project.place, fromTitle]) {
+    const t = String(q || '').trim();
+    if (t.length >= 3 && !seen.has(t.toLowerCase())) { seen.add(t.toLowerCase()); out.push(t); }
   }
-  return scatterInCommune(center, bbox, index);
+  return out;
 }
 
 /* ─── Illustrations libres (Wikimedia Commons), pertinence jugée par l'IA ─── */
@@ -893,14 +1132,19 @@ async function gatherImageCandidates(project, communeNom, lat, lng, mairieImages
     project.source_url ? sourceImageCandidates(project.source_url) : Promise.resolve([]),
     commonsCandidatesAt(lat, lng, 300),
   ]);
-  // Images des pages "grands projets" de la mairie : souvent les vrais visuels
-  const fromMairie = mairieImages.slice(0, 8).map((url) => ({ url, title: 'Visuel du site de la mairie', credit: `Source : ${communeNom}` }));
-  const wide = (fromSource.length + near.length) >= 4 ? [] : await commonsCandidatesAt(lat, lng, 750);
-  let pool = [...fromSource, ...fromMairie, ...near, ...wide];
-  if (pool.length < 3) {
-    const q = `${project.place || project.title} ${communeNom}`.trim();
-    pool = [...pool, ...await commonsTextCandidates(q)];
-  }
+  // Recherche Commons par mots-cles : c'est la seule voie pour les projets
+  // issus du BOAMP, dont la source ne porte aucune photo. Elle etait censee se
+  // declencher sous 3 candidats, mais les 8 images de remplissage de la mairie
+  // rendaient cette condition inatteignable : elle ne partait donc JAMAIS.
+  const byName = fromSource.length ? [] : await commonsTextCandidates(
+    `${project.place || project.geo_query || project.title} ${communeNom}`.trim()
+  );
+  // Images des pages "grands projets" de la mairie : souvent les vrais visuels,
+  // mais generiques - elles ferment la marche pour ne pas noyer les candidats
+  // reellement lies au projet (le juge vision ne voit que 8 images au total).
+  const fromMairie = mairieImages.slice(0, 6).map((url) => ({ url, title: 'Visuel du site de la mairie', credit: `Source : ${communeNom}` }));
+  const wide = (fromSource.length + near.length + byName.length) >= 4 ? [] : await commonsCandidatesAt(lat, lng, 750);
+  const pool = [...fromSource, ...byName, ...near, ...wide, ...fromMairie];
   const seen = new Set();
   const all = [];
   for (const c of pool) {
@@ -926,7 +1170,10 @@ async function pickBestImageWithAI(project, communeNom, candidates) {
     }];
     usable.forEach((c, i) => {
       content.push({ type: 'input_text', text: `Image ${i} - ${c.title}` });
-      content.push({ type: 'input_image', image_url: c.url });
+      // detail 'low' : 85 tokens par image au lieu de ~1100 en détail auto.
+      // Juger « cette photo montre-t-elle ce parking / cette rue » ne demande
+      // pas la pleine résolution, et ce juge concentrait la moitié du coût IA.
+      content.push({ type: 'input_image', image_url: c.url, detail: 'low' });
     });
     const out = await openAIStructured([{ role: 'user', content }], 'choix_image', IMAGE_CHOICE_SCHEMA, 60, 30000);
     const idx = out.best_index;
@@ -1112,6 +1359,40 @@ async function coreAi(send, step, state) {
   projects = projects.filter((p) =>
     p.confidence !== 'basse' && (allowedUrls.has(p.source_url) || allowedHosts.has(hostOf(p.source_url)))
   );
+
+  // Cohérence statut / description : le modèle produisait des fiches marquées
+  // « À l'étude » dont la description dit « est en construction » ou « sont en
+  // cours ». La contradiction est visible par l'habitant, sur la pastille de la
+  // fiche. La description prime, elle est tirée des sources.
+  let realigned = 0;
+  for (const p of projects) {
+    const d = (p.description || '').toLowerCase();
+    if (/\b(est|sont) (achev|termin|inaugur|livr|ouvert)/.test(d) && p.status !== 'livre') {
+      p.status = 'livre'; realigned++;
+    } else if (/en cours|en construction|d[ée]marr|engag[ée]s?\b|chantier ouvert/.test(d) && p.status === 'a-l-etude') {
+      p.status = 'en-cours'; realigned++;
+    }
+  }
+  if (realigned) console.log(`[demo-generate] statuts réalignés sur la description : ${realigned}`);
+
+  // Dédoublonnage après sélection : le modèle scinde parfois un même avis en
+  // deux fiches (relevé : « Aménagements d'une rue-jardin ET végétalisation des
+  // abords du parking de l'Horloge » rendu en deux projets, même source, même
+  // lieu, statuts contradictoires). Deux fiches qui partagent leur source ET
+  // leur lieu de géocodage désignent le même chantier.
+  const seenPair = new Set();
+  const beforeDedup = projects.length;
+  projects = projects.filter((p) => {
+    const loc = (p.geo_query || p.place || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    if (!loc) return true;
+    const key = `${p.source_url}|${loc}`;
+    if (seenPair.has(key)) return false;
+    seenPair.add(key);
+    return true;
+  });
+  if (projects.length < beforeDedup) {
+    console.log(`[demo-generate] doublons source+lieu écartés : ${beforeDedup - projects.length}`);
+  }
   console.log(`[demo-generate] ai2 -> ${projects.length} projets retenus (${beforeFilter} avant filtre source, ${candidates.length} candidats)`);
 
   if (projects.length < 3) {
@@ -1124,6 +1405,40 @@ async function coreAi(send, step, state) {
   state.projects = projects;
   state.stats.words = words;
   state.stats.candidates = candidates.length;
+
+  // Extrait de source PAR PROJET, conservé pour la rédaction. Sans lui, le
+  // rédacteur ne recevait que titre + description et devait quand même
+  // produire « 2 à 4 puces concrètes » : il les inventait toutes (éclairage
+  // LED, zones ombragées, technologies de communication...). On garde donc la
+  // fenêtre de texte autour de la citation qui atteste le projet.
+  const byUrl = new Map();
+  for (const p of mairie.pages) byUrl.set(p.url, p.text);
+  for (const n of news) {
+    // Google News sert une coquille sans le texte de l'article : le titre reste
+    // alors la seule matiere reelle, et il est souvent explicite (« Projet de
+    // 43 logements sociaux : la Ville est contre »). Mieux vaut ce titre qu'un
+    // extrait vide qui laisserait le redacteur sans aucun appui.
+    const t = n.text || `Titre de presse : ${n.title}${n.source ? ` (${n.source}` : ''}${n.date ? `, ${n.date})` : n.source ? ')' : ''}`;
+    byUrl.set(n.link, t);
+    if (n.finalUrl) byUrl.set(n.finalUrl, t);
+  }
+  const boampByUrl = new Map(boamp.map((b) => [
+    b.link,
+    `Marché public de travaux. Objet : ${b.title}. Maître d'ouvrage : ${b.acheteur || 'non précisé'}. ${b.nature || 'Avis'} paru le ${b.date} (date de parution de l'avis, ce n'est ni un début ni une fin de chantier).${b.themes ? ` Thèmes : ${b.themes}.` : ''}`,
+  ]));
+  for (const p of projects) {
+    const quote = candidates.find((c) => c.title === p.title)?.evidence_quote || '';
+    const full = byUrl.get(p.source_url) || boampByUrl.get(p.source_url) || '';
+    if (full) {
+      // Fenêtre centrée sur la citation quand on la retrouve, début sinon
+      const at = quote ? full.indexOf(quote.slice(0, 40)) : -1;
+      const from = at > 0 ? Math.max(0, at - 700) : 0;
+      p.source_excerpt = full.slice(from, from + SOURCE_EXCERPT_CHARS);
+    } else if (quote) {
+      p.source_excerpt = quote;
+    }
+  }
+
   // Le paquet de sources ne sert plus : on allège le brouillon
   state.mairie.pages = [];
   state.news = [];
@@ -1141,15 +1456,48 @@ async function coreGeo(send, step, state) {
   };
 
   step('geo', 'start', 'Localisation des projets', 'Emprises réelles OpenStreetMap, adresses officielles BAN');
-  const located = [];
   const METHOD_LABELS = { emprise: 'emprise réelle trouvée', trace: 'tracé réel trouvé', adresse: 'adresse précise', centre: 'position approchée dans la commune' };
-  // Budget de temps : Nominatim (1 req/s) etant lent, on borne la phase pour
-  // ne jamais faire expirer l'invocation ; au-dela, repli reparti sans reseau
-  const GEO_BUDGET_MS = 32000;
-  const geoStart = Date.now();
+  const hits = Array.from({ length: projects.length }, () => null);
+  const queries = projects.map(locationQueries);
+
+  /* Deux passes, parce qu'une seule boucle sequentielle ne tenait pas la
+     charge : a 18 projets et jusqu'a 4 requetes chacun au rythme impose par
+     Nominatim (1 req/s), le budget de 32 s s'epuisait des les premiers projets
+     et TOUS les suivants basculaient en position fabriquee (mesure sur
+     Oyonnax : 15 punaises inventees sur 18).
+
+     Passe 1, Nominatim, sequentielle et bornee : seule source d'emprises et de
+     traces reels, donc on lui reserve le budget, mais UNE requete par projet.
+     Passe 2, BAN, en parallele : officielle, scopee sur la commune, sans quota,
+     donc elle rattrape tout le reste en une poignee de secondes. */
+  const NOMINATIM_BUDGET_MS = 30000;
+  const t0 = Date.now();
   for (let i = 0; i < projects.length; i++) {
-    const allowNetwork = Date.now() - geoStart < GEO_BUDGET_MS;
-    const loc = await locateProject(projects[i], communeShim, bbox, i, allowNetwork);
+    if (!queries[i].length) continue;
+    if (Date.now() - t0 > NOMINATIM_BUDGET_MS) break;
+    hits[i] = await nominatimLookup(queries[i][0], communeShim, bbox);
+    // Le rythme appartient a la boucle, pas a la fonction : place dans le
+    // lookup, il n'etait applique qu'en cas d'echec, et 18 succes d'affilee
+    // auraient viole la politique d'usage (1 requete/seconde).
+    await sleep(1050);
+  }
+
+  const pending = projects.map((_, i) => i).filter((i) => !hits[i] && queries[i].length);
+  if (pending.length) {
+    const rescued = await inChunks(pending, 8, async (i) => {
+      for (const q of queries[i]) {
+        const hit = await banGeocode(q, communeShim, bbox);
+        if (hit) return { i, hit };
+      }
+      return null;
+    });
+    for (const r of rescued) if (r) hits[r.i] = r.hit;
+  }
+
+  const located = [];
+  for (let i = 0; i < projects.length; i++) {
+    const center = { lng: communeShim.centre.coordinates[0], lat: communeShim.centre.coordinates[1] };
+    const loc = hits[i] || scatterInCommune(center, bbox, i);
     const c = centroidOf(loc.geometry);
     // Plafond aussi au stockage : une emprise Nominatim géante retombe en point
     if (JSON.stringify(loc.geometry).length >= 15000) {
@@ -1184,19 +1532,32 @@ async function coreMedia(send, step, state) {
   const mairieImages = state.mairie?.images || [];
   console.log(`[demo-generate] media: ${located.length} projets, ${mairieImages.length} images mairie en pool`);
   step('media', 'start', 'Recherche des illustrations des projets', 'Chaque image est choisie par l\'IA selon le sujet');
-  const images = await inChunks(located, 6, async (p) => {
+  // Concurrence 4 : a 6 appels vision simultanes, les connexions sortantes du
+  // bac a sable de fonctions partaient en UND_ERR_CONNECT_TIMEOUT en rafale
+  const images = await inChunks(located, 4, async (p) => {
     const c = centroidOf(p.geometry);
     const candidates = await gatherImageCandidates(p, state.commune.nom, c.lat, c.lng, mairieImages);
     return pickBestImageWithAI(p, state.commune.nom, candidates);
   });
   let illustrated = 0;
   const usedCovers = new Set(); // pas deux fois la même image sur des fiches différentes
+  // Les CMS servent la même photo sous plusieurs URL (vignettes de cache
+  // suffixées d'une empreinte : "web-parking-3d6e6237.png" et
+  // "web-parking-450dc1de.png"). Comparer les URL brutes laissait donc passer
+  // des doublons, et une photo de parking se retrouvait sur un projet de rue.
+  const coverKey = (u) => {
+    try {
+      const p = decodeURIComponent(new URL(u).pathname).toLowerCase();
+      const file = p.slice(p.lastIndexOf('/') + 1);
+      return file.replace(/-[0-9a-f]{6,}(?=\.[a-z0-9]+$)/, '').replace(/[\s_]+/g, '-');
+    } catch { return u; }
+  };
   for (let i = 0; i < located.length; i++) {
     // Pas de photo de repli hors sujet : sans illustration pertinente, on
     // n'en met aucune (une vignette qui ne colle pas casse la crédibilité)
     const img = images[i];
-    if (img && !usedCovers.has(img.url)) {
-      usedCovers.add(img.url);
+    if (img && !usedCovers.has(coverKey(img.url))) {
+      usedCovers.add(coverKey(img.url));
       located[i].coverSrc = img.url;
       located[i].coverCredit = img.credit;
       illustrated++;
@@ -1252,6 +1613,25 @@ async function runSources(send, step, insee, ipHash) {
     const s3 = await coreGeo(send, step, s2);
     const s4 = await coreMedia(send, step, s3);
     await coreRedact(send, step, s4);
+    // Audit local : DEMO_DUMP=1 déverse les artefacts complets (projets
+    // localisés, illustrations retenues, articles rédigés) dans les logs
+    // serveur, seule façon de les inspecter sans persistance Supabase.
+    if (process.env.DEMO_DUMP) {
+      console.log('[demo-dump] ' + JSON.stringify({
+        commune: s4.commune,
+        mairie: {
+          host: s4.mairie?.host,
+          logoUrl: s4.mairie?.logoUrl,
+          themeColor: s4.mairie?.themeColor,
+          pages: s4.mairie?.pages?.map((p) => ({ url: p.url, title: p.title, chars: p.text?.length })),
+          pdfs: s4.mairie?.pdfs?.map((p) => p.url),
+          imagesCount: s4.mairie?.images?.length,
+        },
+        stats: s4.stats,
+        located: s4.located,
+        articles: s4.articles,
+      }));
+    }
     send({
       type: 'error',
       message: 'Environnement local sans clé service Supabase : la création de l\'espace est désactivée ici. En production, cette étape fonctionne.',
@@ -1339,10 +1719,21 @@ async function runCreate(send, step, ville) {
   const coverUrls = await inChunks(located.map((p, i) => ({ p, i })), 3, async ({ p, i }) => {
     if (!p.coverSrc) return null;
     try {
-      const img = await fetchCapped(p.coverSrc, { headers: UA }, FETCH_TIMEOUT_MS, 4500000, true);
+      const img = await fetchCapped(p.coverSrc, { headers: UA }, FETCH_TIMEOUT_MS, COVER_MAX_BYTES, true);
       if (!img) return null;
+      // fetchCapped TRONQUE au plafond au lieu d'abandonner : un PNG de 6,9 Mo
+      // ressortait amputé de son dernier tiers, sans marqueur de fin, et
+      // s'affichait à moitié vide. Mieux vaut aucune illustration qu'une image
+      // coupée en deux sur la fiche.
+      const declared = Number(img.headers.get('content-length') || 0);
+      if (img.data.byteLength >= COVER_MAX_BYTES || (declared && declared > COVER_MAX_BYTES)) {
+        console.warn(`[demo-generate] cover ignorée (trop lourde, ${declared || img.data.byteLength} octets) : ${p.title}`);
+        return null;
+      }
       const ct = img.headers.get('content-type') || 'image/jpeg';
-      const url = await uploadToStorage(`demo/${ville}/${slugs[i]}-cover.jpg`, img.data, ct);
+      // L'extension suit le type réel : tout était nommé .jpg, y compris des PNG
+      const ext = /png/.test(ct) ? 'png' : /webp/.test(ct) ? 'webp' : /gif/.test(ct) ? 'gif' : 'jpg';
+      const url = await uploadToStorage(`demo/${ville}/${slugs[i]}-cover.${ext}`, img.data, ct);
       send({ type: 'cover-item', title: p.title });
       return url;
     } catch { return null; }
