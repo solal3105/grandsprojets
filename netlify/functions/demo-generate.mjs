@@ -314,6 +314,45 @@ function bboxOfContour(contour) {
   return { minLng: minLng - dLng, minLat: minLat - dLat, maxLng: maxLng + dLng, maxLat: maxLat + dLat };
 }
 
+/* Etendue d'une geometrie, en kilometres (largeur, hauteur).
+   Sert a refuser une emprise trop vaste pour designer un projet : la requete
+   « Vannes, Vannes » rend a Nominatim le CONTOUR ADMINISTRATIF de la commune,
+   9,9 x 8,2 km, qui passait tous les controles precedents (son nom contient
+   celui de la commune, et il tient forcement dans sa propre boite). Un projet
+   etale sur toute sa commune ne dit rien a personne. */
+function geometryExtentKm(geometry) {
+  let minLng = Infinity; let minLat = Infinity; let maxLng = -Infinity; let maxLat = -Infinity;
+  const walk = (coords) => {
+    if (typeof coords[0] === 'number') {
+      minLng = Math.min(minLng, coords[0]); maxLng = Math.max(maxLng, coords[0]);
+      minLat = Math.min(minLat, coords[1]); maxLat = Math.max(maxLat, coords[1]);
+    } else coords.forEach(walk);
+  };
+  if (geometry?.coordinates) walk(geometry.coordinates);
+  if (!isFinite(minLng)) return { w: 0, h: 0 };
+  const midLat = (minLat + maxLat) / 2;
+  return {
+    w: (maxLng - minLng) * 111.32 * Math.cos((midLat * Math.PI) / 180),
+    h: (maxLat - minLat) * 111.32,
+  };
+}
+
+// Une emprise de projet credible ne depasse pas ce gabarit, ni cette part de
+// l'etendue de la commune. Au-dela, ce n'est plus un projet : c'est un secteur.
+const PROJECT_MAX_EXTENT_KM = 1.6;
+const PROJECT_MAX_SHARE = 0.30;
+
+function extentAcceptable(geometry, bbox) {
+  const e = geometryExtentKm(geometry);
+  if (e.w > PROJECT_MAX_EXTENT_KM || e.h > PROJECT_MAX_EXTENT_KM) return false;
+  if (bbox) {
+    const c = geometryExtentKm({ coordinates: [[[bbox.minLng, bbox.minLat], [bbox.maxLng, bbox.maxLat]]] });
+    if (c.w && e.w / c.w > PROJECT_MAX_SHARE) return false;
+    if (c.h && e.h / c.h > PROJECT_MAX_SHARE) return false;
+  }
+  return true;
+}
+
 function geometryInBbox(geometry, bbox) {
   if (!bbox) return true;
   let ok = true;
@@ -1323,6 +1362,9 @@ async function nominatimLookup(q, commune, bbox) {
       for (const hit of await r.json()) {
         const g = hit.geojson;
         if (!g || !(hit.display_name || '').toLowerCase().includes(commLc) || !geometryInBbox(g, bbox)) continue;
+        // Le contour de la commune coche toutes les cases precedentes : c'est
+        // sa TAILLE qui le trahit, pas son nom ni sa position.
+        if (!extentAcceptable(g, bbox)) continue;
         if (['Polygon', 'MultiPolygon', 'LineString', 'MultiLineString'].includes(g.type)) {
           return { geometry: g, method: g.type.includes('Line') ? 'trace' : 'emprise' };
         }
@@ -2064,7 +2106,9 @@ async function coreGeo(send, step, state) {
       for (const i of sansPosition) {
         const mots = distinctiveWords(`${projects[i].geo_query || ''} ${projects[i].place || ''} ${projects[i].title}`);
         if (!mots.length) continue;
-        const q = quartiers.find((qt) => mots.some((m) => qt.cle.includes(m)));
+        // Un IRIS trop vaste designe un secteur, pas un projet : on ne le pose
+        // pas sur la carte plutot que d'etaler une fiche sur un demi-quartier
+        const q = quartiers.find((qt) => mots.some((m) => qt.cle.includes(m)) && extentAcceptable(qt.geometry, bbox));
         if (q) { hits[i] = { geometry: q.geometry, method: 'quartier' }; rattrapes++; }
       }
       if (rattrapes) console.log(`[demo-generate] quartiers IRIS : ${rattrapes} projet(s) situe(s)`);
@@ -2107,12 +2151,27 @@ async function coreGeo(send, step, state) {
      centre-ville, indiscernable d'une vraie punaise : une carte qui invente
      des emplacements devant un elu qui connait sa commune coute plus cher
      qu'une carte moins fournie. */
+  /* Deux projets ne peuvent pas occuper le MEME point. Cela arrivait des que
+     deux fiches partageaient une adresse vague ou le meme equipement : les
+     punaises se superposaient exactement, ce qui donne l'impression d'un bug
+     et masque un projet derriere l'autre. La seconde fiche est ecartee : on
+     prefere une carte plus courte a une carte qui ment sur les emplacements. */
+  const occupees = [];
+  const POSITION_MIN_M = 45;
+
   const located = [];
   let abandonnes = 0;
+  let superposes = 0;
   for (let i = 0; i < projects.length; i++) {
     const loc = hits[i];
     if (!loc) { abandonnes++; continue; }
     const c = centroidOf(loc.geometry);
+    if (occupees.some((o) => haversineM(o, c) < POSITION_MIN_M)) {
+      superposes++;
+      abandonnes++;
+      continue;
+    }
+    occupees.push(c);
     // Plafond aussi au stockage : une emprise Nominatim géante retombe en point
     if (JSON.stringify(loc.geometry).length >= 15000) {
       loc.geometry = { type: 'Point', coordinates: [c.lng, c.lat] };
@@ -2175,7 +2234,7 @@ async function coreGeo(send, step, state) {
   }
 
   const exacts = located.filter((p) => p.method !== 'quartier').length;
-  console.log(`[demo-generate] geo ${state.commune.nom}: ${located.length} situés (${exacts} à l'adresse, ${located.length - exacts} au quartier), ${abandonnes} écarté(s) faute de localisation`);
+  console.log(`[demo-generate] geo ${state.commune.nom}: ${located.length} situés (${exacts} à l'adresse, ${located.length - exacts} au quartier), ${abandonnes} écarté(s) dont ${superposes} en doublon de position`);
   step('geo', 'done', 'Projets localisés',
     `${located.length} projet(s) situé(s)${abandonnes ? `, ${abandonnes} écarté(s) faute d'emplacement identifiable` : ''}`);
   // Ce qu'on REFUSE est aussi un argument : l'écran l'affiche comme un gage de
