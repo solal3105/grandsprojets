@@ -115,9 +115,23 @@
           style: STYLE_URL,
           ...FRANCE_A,
           interactive: false,
-          attributionControl: { compact: true },
+          attributionControl: false, // pastille de credits masquee sur le kiosque
           fadeDuration: 200,
         });
+
+        // #map est cree alors qu'il est encore en display:none (body sans
+        // .has-map) : MapLibre le dimensionne a 0x0 et la carte reste minuscule
+        // jusqu'a un resize manuel. Un ResizeObserver resynchronise le canvas
+        // des que le conteneur devient visible (ajout de .has-map) ou change de
+        // taille.
+        try {
+          const _mapEl = document.getElementById('map');
+          if (_mapEl && typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(() => {
+              try { map.resize(); } catch { /* carte detruite */ }
+            }).observe(_mapEl);
+          }
+        } catch { /* ResizeObserver indisponible : trackResize gerera le window */ }
         // Recadrage en attente : un point arrivé pendant un mouvement rejoue
         // le recadrage dès la fin, pour toujours converger vers "tous les points"
         map.on('moveend', () => {
