@@ -66,6 +66,21 @@
         </span>
       </div>
 
+      <!-- La preuve : la phrase exacte relevée dans la source qui atteste le
+           projet. C'est ce qui distingue un recensement d'une génération. -->
+      <figure id="quote" class="quote" hidden>
+        <blockquote id="quote-text" class="quote__text"></blockquote>
+        <figcaption id="quote-media" class="quote__media"></figcaption>
+      </figure>
+
+      <!-- Ce que l'on refuse d'afficher, faute de preuve suffisante -->
+      <p id="rejected" class="rejected" hidden></p>
+
+      <!-- Titre du projet survolé pendant le survol final -->
+      <div id="flyover" class="flyover" hidden>
+        <span id="flyover-title" class="flyover__title"></span>
+      </div>
+
       <!-- Compteurs cumulés du recensement + ticker : une seule ligne lisible -->
       <div id="counters" class="counters" aria-hidden="true"></div>
       <div id="ticker" class="ticker" aria-live="polite">

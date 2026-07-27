@@ -57,12 +57,65 @@
 
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  // Hauteur des volumes de projet, en metres. Assez haut pour se lire en vue
+  // inclinee au-dessus des batiments extrudes du fond de carte (~10 a 30 m).
+  const PROJECT_VOLUME_M = 90;
+  const BEAM_RADIUS_M = 26;
+  // Une couleur par nature de source : quand deux ou trois arcs convergent sur
+  // la meme punaise, on lit d'un coup d'oeil que le projet est recoupe.
+  const SOURCE_COLORS = {
+    mairie: '#5eead4',   // officiel
+    marche: '#fbbf24',   // marche public
+    presse: '#a78bfa',   // presse
+    document: '#60a5fa', // PDF officiel
+  };
+  let volumeLayers = [];
+  let beamCount = 0;
+
+  // Petit disque geodesique, en degres, pour extruder un faisceau au-dessus
+  // d'un projet ponctuel (la longitude est corrigee de la latitude)
+  function discAround(lng, lat, rayonM, cotes = 14) {
+    const dLat = rayonM / 111320;
+    const dLng = dLat / Math.max(Math.cos((lat * Math.PI) / 180), 0.2);
+    const ring = [];
+    for (let i = 0; i <= cotes; i++) {
+      const a = (i / cotes) * 2 * Math.PI;
+      ring.push([lng + dLng * Math.cos(a), lat + dLat * Math.sin(a)]);
+    }
+    return { type: 'Polygon', coordinates: [ring] };
+  }
+
   // Emprise englobant une liste de [lng, lat]
   function boundsOf(coords) {
     return coords.reduce(
       (acc, c) => [[Math.min(acc[0][0], c[0]), Math.min(acc[0][1], c[1])], [Math.max(acc[1][0], c[0]), Math.max(acc[1][1], c[1])]],
       [[Infinity, Infinity], [-Infinity, -Infinity]]
     );
+  }
+
+  /* Faisceau vertical au-dessus d'un projet ponctuel. Deux volumes concentriques
+     translucides montent ensemble : le noyau donne l'intensite, la gaine le
+     halo. Sans cela, une adresse restait une punaise plate au milieu de reliefs
+     et de batiments en volume. */
+  function beamAt(lng, lat) {
+    if (!map) return;
+    const id = `fx-beam-${beamCount++}`;
+    try {
+      map.addSource(id, { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: discAround(lng, lat, BEAM_RADIUS_M) } });
+      map.addLayer({
+        id: `${id}-core`, type: 'fill-extrusion', source: id,
+        paint: {
+          'fill-extrusion-color': accent,
+          'fill-extrusion-opacity': 0.5,
+          'fill-extrusion-height': 0,
+          'fill-extrusion-height-transition': { duration: 1200, delay: 100 },
+        },
+      });
+      requestAnimationFrame(() => {
+        try { map.setPaintProperty(`${id}-core`, 'fill-extrusion-height', PROJECT_VOLUME_M * 1.5); } catch { /* retiree */ }
+      });
+      volumeLayers.push(`${id}-core`);
+    } catch { /* style occupe : le projet garde son epingle */ }
   }
 
   function supportsWebGL() {
@@ -306,22 +359,28 @@
       if (scanMarker) { scanMarker.remove(); scanMarker = null; }
     },
 
-    // Arc de collecte : une source trouvée converge vers la commune
-    pulseSource() {
+    /* Arc de collecte : une source converge vers un point.
+       `kind` colore le trait selon la nature de la source et `target` permet de
+       faire converger PLUSIEURS arcs sur la punaise d'un meme projet : c'est le
+       recoupement multi-sources rendu visible, deux ou trois traits de couleurs
+       differentes qui se rejoignent au meme endroit. */
+    pulseSource(kind, target) {
       if (!ok || !communeCenter || prefersReduced) return;
+      const to = target && Number.isFinite(target.lng) ? [target.lng, target.lat] : [communeCenter.lng, communeCenter.lat];
       const angle = Math.random() * 2 * Math.PI;
       const dist = 0.02 + Math.random() * 0.025; // ~2 à 5 km
-      const from = [communeCenter.lng + dist * Math.cos(angle), communeCenter.lat + dist * 0.72 * Math.sin(angle)];
+      const from = [to[0] + dist * Math.cos(angle), to[1] + dist * 0.72 * Math.sin(angle)];
       const id = `fx-arc-${arcCount++}`;
+      const color = SOURCE_COLORS[kind] || accent;
       try {
         map.addSource(id, {
           type: 'geojson',
-          data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [from, [communeCenter.lng, communeCenter.lat]] }, properties: {} },
+          data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [from, to] }, properties: {} },
         });
         map.addLayer({
           id, type: 'line', source: id,
           paint: {
-            'line-color': accent, 'line-width': 2.4, 'line-blur': 2,
+            'line-color': color, 'line-width': 2.4, 'line-blur': 2,
             'line-opacity': 0, 'line-opacity-transition': { duration: 350 },
           },
         });
@@ -343,6 +402,10 @@
       if (!ok) return;
       projectCoords.push([lng, lat]);
 
+      /* L'emprise ne s'allume plus a plat : elle SORT DE TERRE. Un volume
+         extrude monte de 0 a sa hauteur en une seconde, ce qui donne au projet
+         une presence physique dans le relief plutot qu'une tache de couleur.
+         Le contour lumineux reste, il porte la lecture au sol. */
       if (geometry && geometry.type !== 'Point') {
         const id = `fx-shape-${shapeCount++}`;
         try {
@@ -352,7 +415,23 @@
               id: `${id}-fill`, type: 'fill', source: id,
               paint: { 'fill-color': accent, 'fill-opacity': 0, 'fill-opacity-transition': { duration: 900 } },
             });
-            requestAnimationFrame(() => map.setPaintProperty(`${id}-fill`, 'fill-opacity', 0.28));
+            map.addLayer({
+              id: `${id}-3d`, type: 'fill-extrusion', source: id,
+              paint: {
+                'fill-extrusion-color': accent,
+                'fill-extrusion-opacity': 0.42,
+                'fill-extrusion-height': 0,
+                'fill-extrusion-base': 0,
+                'fill-extrusion-height-transition': { duration: 1100, delay: 120 },
+              },
+            });
+            requestAnimationFrame(() => {
+              try {
+                map.setPaintProperty(`${id}-fill`, 'fill-opacity', 0.22);
+                map.setPaintProperty(`${id}-3d`, 'fill-extrusion-height', PROJECT_VOLUME_M);
+              } catch { /* couche retiree */ }
+            });
+            volumeLayers.push(`${id}-3d`);
           }
           map.addLayer({
             id: `${id}-line`, type: 'line', source: id,
@@ -363,6 +442,10 @@
           });
           requestAnimationFrame(() => map.setPaintProperty(`${id}-line`, 'line-opacity', 0.95));
         } catch { /* la géométrie tombera en épingle */ }
+      } else {
+        // Projet ponctuel : pas d'emprise a lever, donc un FAISCEAU vertical
+        // pour qu'il ait lui aussi du volume et se voie de loin en vue inclinee
+        beamAt(lng, lat);
       }
 
       const el = document.createElement('div');
@@ -399,13 +482,49 @@
     },
 
     // Photo trouvée : posée sur la carte à l'emplacement du projet
-    attachPhoto(lat, lng, url) {
+    attachPhoto(lat, lng, url, generique) {
       if (!ok || !url) return;
       const el = document.createElement('div');
-      el.className = 'fx-photo';
-      el.innerHTML = `<img src="${String(url).replace(/"/g, '')}" alt="" onerror="this.parentNode.remove()">`;
+      el.className = `fx-photo${generique ? ' fx-photo--generique' : ''}`;
+      el.innerHTML = `<img src="${String(url).replace(/"/g, '')}" alt="" onerror="this.parentNode.remove()">`
+        + (generique ? '<span class="fx-photo__tag">illustration générique</span>' : '');
       photoMarkers.push(new maplibregl.Marker({ element: el, anchor: 'bottom', offset: [0, -14] }).setLngLat([lng, lat]).addTo(map));
       setTimeout(() => el.classList.add('is-small'), 6500);
+    },
+
+    /* Survol final. Trois minutes de montee meritent mieux qu'un recadrage :
+       la camera plonge sur les projets les plus marquants l'un apres l'autre,
+       tourne autour, puis remonte en vue d'ensemble. C'est le moment ou le
+       visiteur sort son telephone. `onFocus` laisse l'ecran afficher le titre
+       et la photo du projet survole. */
+    tour(points, onFocus, onDone) {
+      if (!ok || !points?.length) { onDone?.(); return; }
+      if (prefersReduced) { this.finale(); onDone?.(); return; }
+      mode = 'focus';
+      const etapes = points.slice(0, 3);
+      let i = 0;
+      const suivant = () => {
+        if (i >= etapes.length) {
+          onFocus?.(null);
+          this.finale();
+          setTimeout(() => onDone?.(), 2600);
+          return;
+        }
+        const p = etapes[i];
+        onFocus?.(p);
+        map.flyTo({
+          center: [p.lng, p.lat],
+          zoom: 16.2,
+          pitch: 62,
+          bearing: (i * 47) % 360,
+          duration: 3200,
+          curve: 1.5,
+          essential: true,
+        });
+        i++;
+        setTimeout(suivant, 4600);
+      };
+      suivant();
     },
 
     // Recadrage final : vue d'ensemble douce sur tous les projets
@@ -436,12 +555,20 @@
       projectCoords = [];
       communeCenter = null;
       for (let i = 0; i < shapeCount; i++) {
-        for (const suffix of ['-fill', '-line']) {
+        // '-3d' inclus : sans lui, les volumes de la commune precedente
+        // restaient plantes dans le paysage au passage a la suivante
+        for (const suffix of ['-fill', '-line', '-3d']) {
           try { if (map.getLayer(`fx-shape-${i}${suffix}`)) map.removeLayer(`fx-shape-${i}${suffix}`); } catch { /* absente */ }
         }
         try { if (map.getSource(`fx-shape-${i}`)) map.removeSource(`fx-shape-${i}`); } catch { /* absente */ }
       }
       shapeCount = 0;
+      for (let i = 0; i < beamCount; i++) {
+        try { if (map.getLayer(`fx-beam-${i}-core`)) map.removeLayer(`fx-beam-${i}-core`); } catch { /* absente */ }
+        try { if (map.getSource(`fx-beam-${i}`)) map.removeSource(`fx-beam-${i}`); } catch { /* absente */ }
+      }
+      beamCount = 0;
+      volumeLayers = [];
       for (const id of ['fx-contour', 'fx-contour-glow']) {
         try { if (map.getLayer(id)) map.removeLayer(id); } catch { /* absente */ }
       }

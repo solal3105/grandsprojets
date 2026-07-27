@@ -1290,7 +1290,13 @@ async function banGeocode(q, commune, bbox) {
     const r = await fetchWithTimeout(u);
     if (r.ok) {
       const f = (await r.json()).features?.[0];
-      if (f && f.properties?.score >= 0.6 && geometryInBbox(f.geometry, bbox)) {
+      /* type='municipality' est la commune ELLE-MEME : la BAN rend ce resultat
+         des que la requete ne correspond a aucune adresse (« Différents
+         bâtiments de la ville de », « Tassin et Lyon »). On obtenait alors le
+         centre communal, presente comme une « adresse précise » : exactement la
+         position fabriquee que tout le reste du systeme s'interdit. */
+      const type = f?.properties?.type;
+      if (f && type !== 'municipality' && f.properties?.score >= 0.6 && geometryInBbox(f.geometry, bbox)) {
         return { geometry: f.geometry, method: 'adresse' };
       }
     }
@@ -2151,6 +2157,12 @@ async function coreGeo(send, step, state) {
       lat: c.lat,
       lng: c.lng,
       geometry: p.geometry.type !== 'Point' ? p.geometry : null,
+      // La PREUVE : la phrase exacte relevée dans la source, et d'où elle vient.
+      // C'est ce qui distingue un recensement d'une génération de texte, et
+      // l'écran ne l'affichait pas alors qu'elle était déjà produite.
+      quote: String(p.evidence_quote || '').slice(0, 220),
+      media: hostOf(p.source_url) || '',
+      sources: (p.sources || []).map((s) => s.type),
     });
   }
 
@@ -2166,6 +2178,9 @@ async function coreGeo(send, step, state) {
   console.log(`[demo-generate] geo ${state.commune.nom}: ${located.length} situés (${exacts} à l'adresse, ${located.length - exacts} au quartier), ${abandonnes} écarté(s) faute de localisation`);
   step('geo', 'done', 'Projets localisés',
     `${located.length} projet(s) situé(s)${abandonnes ? `, ${abandonnes} écarté(s) faute d'emplacement identifiable` : ''}`);
+  // Ce qu'on REFUSE est aussi un argument : l'écran l'affiche comme un gage de
+  // rigueur, là où tout le monde ne montre que ce qu'il a trouvé.
+  if (abandonnes) send({ type: 'rejected', kind: 'position', count: abandonnes });
 
   state.located = located;
   state.projects = [];
@@ -2244,11 +2259,15 @@ async function coreMedia(send, step, state) {
       illustrated++;
       const c = centroidOf(located[i].geometry);
       // coverSrc + coordonnées : le front pose la photo directement sur la carte
-      send({ type: 'media-item', title: located[i].title, credit: img.credit, coverSrc: img.url, lat: c.lat, lng: c.lng });
+      send({ type: 'media-item', title: located[i].title, credit: img.credit, coverSrc: img.url, lat: c.lat, lng: c.lng, generique: Boolean(img.generique) });
     }
   }
   console.log(`[demo-generate] media: ${illustrated}/${located.length} illustrés`);
   step('media', illustrated ? 'done' : 'skip', 'Illustrations trouvées', `${illustrated}/${located.length} projets illustrés (image choisie par l'IA)`);
+  // Refuser une photo hors sujet est une décision, pas un échec : on l'affiche
+  if (located.length - illustrated > 0) {
+    send({ type: 'rejected', kind: 'photo', count: located.length - illustrated });
+  }
 
   state.located = located;
   state.stats.illustrated = illustrated;

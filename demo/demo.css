@@ -681,3 +681,110 @@ body:not(.has-map) #map { display: none; }
   .fx-sonar i { animation: none; opacity: 0.7; }
   .step.is-current .step__dot { animation: none; }
 }
+
+/* ─── La preuve : citation exacte relevée dans la source ───────────────────
+   Posée au-dessus du ticker, elle reste 5 s puis s'efface. C'est la pièce qui
+   transforme « une IA a produit une liste » en « nous avons lu cette phrase ». */
+.quote {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  z-index: 6;
+  margin: 0;
+  width: min(680px, 90vw);
+  padding: 16px 22px 13px;
+  background: rgba(9, 13, 24, 0.78);
+  backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 3px solid var(--accent, #ff4d6a);
+  border-radius: 14px;
+  box-shadow: 0 24px 70px -20px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, 14px) scale(0.98);
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.quote.is-on { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.quote__text {
+  margin: 0;
+  font-size: 16.5px;
+  line-height: 1.5;
+  color: #eaf0ff;
+  font-style: italic;
+  letter-spacing: 0.1px;
+}
+.quote__media {
+  margin-top: 8px;
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent, #ff4d6a);
+  opacity: 0.9;
+}
+
+/* ─── Ce que l'on refuse : gage de rigueur, pas aveu de faiblesse ───────── */
+.rejected {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 8px;
+  z-index: 5;
+  margin: 0;
+  font-size: 12.5px;
+  color: rgba(215, 226, 250, 0.62);
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  text-align: center;
+  max-width: 92vw;
+}
+
+/* ─── Survol final : le titre du projet que la caméra vient voir ────────── */
+.flyover {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 6;
+  transform: translate(-50%, -50%) scale(0.94);
+  opacity: 0;
+  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  text-align: center;
+}
+.flyover.is-on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.flyover__title {
+  display: inline-block;
+  padding: 14px 28px;
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: clamp(22px, 3.4vw, 40px);
+  font-weight: 600;
+  color: #fff;
+  background: rgba(9, 13, 24, 0.62);
+  backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  box-shadow: 0 30px 80px -24px rgba(0, 0, 0, 0.9), inset 0 1.5px 0 rgba(255, 255, 255, 0.14);
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quote, .flyover { transition: none; }
+}
+
+/* ─── Illustration générique : elle doit se voir comme telle ─────────────── */
+.fx-photo--generique { position: relative; }
+.fx-photo--generique img { filter: saturate(0.75) contrast(0.95); }
+.fx-photo__tag {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 3px 6px;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  color: #0a1120;
+  background: rgba(255, 215, 130, 0.92);
+  border-radius: 0 0 6px 6px;
+  pointer-events: none;
+}

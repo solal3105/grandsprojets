@@ -177,6 +177,9 @@
     ['illustres', 'illustrés'],
   ];
   let counters = {};
+  // Projets survolés au final, et ce qu'on a refusé d'afficher
+  let tourPoints = [];
+  const rejected = {};
 
   function bumpCounter(key, value) {
     counters[key] = value !== undefined ? value : (counters[key] || 0) + 1;
@@ -314,16 +317,67 @@
   function onGeoItem(g) {
     bumpCounter('localises');
     tick('pin', g.title, g.label || g.method);
+    // La PREUVE : la phrase exacte relevée dans la source. C'est ce qui fait la
+    // différence entre « une IA a produit une liste » et « nous avons lu ceci ».
+    if (g.quote) showQuote(g.quote, g.media);
     if (hasFx && typeof g.lat === 'number') {
-      window.MapFX.addProject({ lat: g.lat, lng: g.lng, geometry: g.geometry, precise: g.method !== 'centre', title: g.title });
+      window.MapFX.addProject({ lat: g.lat, lng: g.lng, geometry: g.geometry, precise: true, title: g.title });
+      tourPoints.push({ lat: g.lat, lng: g.lng, title: g.title, surface: g.geometry ? 2 : 1 });
+      // Un arc par source qui atteste le projet, coloré selon sa nature : ils
+      // convergent sur la punaise, le recoupement devient visible
+      (g.sources || []).forEach((kind, i) => {
+        setTimeout(() => window.MapFX.pulseSource(kind, { lat: g.lat, lng: g.lng }), i * 220);
+      });
     }
+  }
+
+  /* Bandeau de preuve : la citation reste affichée quelques secondes, le temps
+     d'être lue, puis s'efface. Un seul bandeau à l'écran, le plus récent. */
+  let quoteTimer = null;
+  function showQuote(texte, media) {
+    const box = $('quote');
+    if (!box) return;
+    $('quote-text').textContent = `« ${texte} »`;
+    $('quote-media').textContent = media ? `relevé sur ${media}` : 'source publique';
+    box.hidden = false;
+    requestAnimationFrame(() => box.classList.add('is-on'));
+    clearTimeout(quoteTimer);
+    quoteTimer = setTimeout(() => {
+      box.classList.remove('is-on');
+      setTimeout(() => { box.hidden = true; }, 600);
+    }, 5200);
+  }
+
+  // Titre du projet que la caméra vient survoler, en grand au centre
+  function showFlyover(p) {
+    const el = $('flyover');
+    if (!el) return;
+    if (!p) { el.classList.remove('is-on'); setTimeout(() => { el.hidden = true; }, 600); return; }
+    $('flyover-title').textContent = p.title || '';
+    el.hidden = false;
+    requestAnimationFrame(() => el.classList.add('is-on'));
+  }
+
+  // Ce qu'on REFUSE : un projet sans emplacement vérifiable, une photo hors
+  // sujet. L'afficher est un gage de rigueur que personne d'autre ne donne.
+  function onRejected(msg) {
+    const el = $('rejected');
+    if (!el) return;
+    rejected[msg.kind] = msg.count;
+    const bouts = [];
+    if (rejected.position) bouts.push(`${rejected.position} projet${rejected.position > 1 ? 's' : ''} écarté${rejected.position > 1 ? 's' : ''}, emplacement non vérifiable`);
+    if (rejected.photo) bouts.push(`${rejected.photo} fiche${rejected.photo > 1 ? 's' : ''} sans photo : aucune image du projet trouvée`);
+    el.textContent = bouts.join('  ·  ');
+    el.hidden = !bouts.length;
   }
 
   function onMediaItem(msg) {
     bumpCounter('illustres');
-    tick('photo', msg.title, 'illustration trouvée');
+    tick('photo', msg.title, msg.generique ? 'illustration générique du type d\'ouvrage' : 'illustration trouvée');
     if (hasFx && typeof msg.lat === 'number' && msg.coverSrc) {
-      window.MapFX.attachPhoto(msg.lat, msg.lng, msg.coverSrc);
+      // Une illustration générique porte sa mention SUR la carte : sans elle,
+      // rien ne la distinguait d'une photo du projet pendant la démo
+      window.MapFX.attachPhoto(msg.lat, msg.lng, msg.coverSrc, msg.generique);
     }
   }
 
@@ -356,6 +410,7 @@
       else if (msg.type === 'create-item') tick('fusee', msg.label, '');
       else if (msg.type === 'projects') onProjects(msg.items || []);
       else if (msg.type === 'geo-item') onGeoItem(msg);
+      else if (msg.type === 'rejected') onRejected(msg);
       else if (msg.type === 'phase') {
         es.close(); es = null;
         setPill($('hud-label').textContent || 'Analyse en cours...', 'Étape suivante...', false);
@@ -455,10 +510,25 @@
       $('done-stats').hidden = true;
     }
 
-    if (hasFx) window.MapFX.finale();
     finishStages();
     setProgress(100);
-    show('done');
+
+    /* Survol final avant l'écran de fin. La caméra plonge sur les projets les
+       plus marquants, titre affiché en grand, puis remonte en vue d'ensemble.
+       Sans lui, trois minutes de montée retombaient sur un recadrage statique.
+       L'écran de fin n'apparaît qu'après, ou tout de suite si rien à survoler. */
+    const phares = tourPoints
+      .slice()
+      .sort((a, b) => b.surface - a.surface)
+      .slice(0, 3);
+
+    const terminer = () => { showFlyover(null); show('done'); };
+    if (hasFx && phares.length && !msg.existing) {
+      window.MapFX.tour(phares, showFlyover, terminer);
+    } else {
+      if (hasFx) window.MapFX.finale();
+      terminer();
+    }
 
     if (KIOSK) {
       let remaining = 90;
@@ -500,6 +570,15 @@
     tickerQueue = [];
     tickerBusy = false;
     resetStages();
+    // Preuve, refus et survol : sans ce nettoyage, la commune suivante
+    // heritait de la citation et du compteur d'ecartes de la precedente
+    tourPoints = [];
+    Object.keys(rejected).forEach((k) => delete rejected[k]);
+    clearTimeout(quoteTimer);
+    ['quote', 'rejected', 'flyover'].forEach((id) => {
+      const el = $(id);
+      if (el) { el.hidden = true; el.classList.remove('is-on'); }
+    });
     $('hud-logo').hidden = true;
     $('hud-logo').removeAttribute('src');
     progressPct = 0;
