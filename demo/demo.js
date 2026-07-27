@@ -342,7 +342,11 @@
       else if (msg.type === 'phase') console.log('%c[demo] → phase suivante : ' + msg.next, 'color:#8B5CF6;font-weight:600', msg.ville);
       else if (msg.type === 'error') console.warn(`[demo] ERREUR ${msg.retryable ? '(nouvelle tentative)' : '(definitive)'} :`, msg.message, msg.debug || '');
       else if (msg.type === 'done') console.log('%c[demo] ✓ TERMINÉ', 'color:#22c583;font-weight:600', `${msg.projectsCount ?? ''} projets`, msg.url);
-      if (msg.type === 'step' || msg.type === 'phase') resumeAttempts = 0;
+      // Compteur remis à zéro sur une PHASE achevée seulement. Le remettre sur
+      // chaque `step` permettait une boucle sans fin : une phase qui échoue
+      // toujours après avoir émis ses premières étapes rechargeait son crédit
+      // de reprises à chaque tentative.
+      if (msg.type === 'phase') resumeAttempts = 0;
       if (msg.type === 'step') onStep(msg);
       else if (msg.type === 'finding') onFinding(msg);
       else if (msg.type === 'ai-item') onAiItem(msg);

@@ -20,6 +20,8 @@
    llms.txt, noindex (voir demo/README.md pour la désinstallation complète).
    ============================================================================ */
 
+import zlib from 'node:zlib';
+
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
 // `netlify dev` injecte dans les fonctions la passerelle IA de Netlify
 // (OPENAI_BASE_URL = <site>/.netlify/ai + un jeton de passerelle a la place de
@@ -33,6 +35,13 @@ const OPENAI_BASE_URL = (DEMO_OPENAI_KEY
 const OPENAI_RESPONSES_URL = `${OPENAI_BASE_URL}/v1/responses`;
 const openaiKey = () => DEMO_OPENAI_KEY || process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.DEMO_OPENAI_MODEL || 'gpt-4o';
+/* Modele des taches de vision. Contre-intuitivement, il ne faut PAS y mettre
+   un modele leger : mesure faite, le juge d'image passe de 953 a 13 565 tokens
+   d'entree par appel sur gpt-4o-mini, qui facture les images a un tarif de
+   tokens bien plus eleve. Le gain de prix unitaire ne compense pas ce facteur
+   quatorze. On reste donc sur le modele principal, en gardant la variable pour
+   pouvoir en changer sans toucher au code. */
+const OPENAI_VISION_MODEL = process.env.DEMO_OPENAI_VISION_MODEL || OPENAI_MODEL;
 
 const VILLE_PREFIX = 'essai-';
 const MAX_PER_IP_PER_DAY = 15;
@@ -51,6 +60,10 @@ const PAGE_TEXT_CHARS = 5000;
 // Extrait de source transmis au redacteur pour chaque projet : sans lui, les
 // puces "concretes" des articles etaient integralement inventees.
 const SOURCE_EXCERPT_CHARS = 1800;
+// Lecture des PDF officiels : plafonds de telechargement et de texte retenu
+const PDF_MAX_FILES = 3;
+const PDF_MAX_BYTES = 3500000;
+const PDF_TEXT_CHARS = 6000;
 // Plafond de telechargement d'une illustration. Au-dela on ABANDONNE l'image :
 // fetchCapped tronque, et une image tronquee s'affiche amputee.
 const COVER_MAX_BYTES = 8000000;
@@ -69,7 +82,6 @@ const CATEGORIES = {
   'cadre-de-vie': 'cadre de vie',
 };
 
-const STATUS_LABELS = { 'a-l-etude': "À l'étude", 'en-cours': 'En cours', 'livre': 'Livré', 'inconnu': '' };
 
 // Icônes Font Awesome et couleurs des catégories créées avec chaque espace
 // (mêmes colonnes que les villes réelles : category_icons.category_styles)
@@ -87,30 +99,11 @@ const CATEGORY_META = {
 
 /* ─── Schémas de sortie IA ─── */
 
-const CANDIDATES_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    candidates: {
-      type: 'array',
-      maxItems: 24,
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          title: { type: 'string' },
-          summary: { type: 'string', description: 'Résumé factuel du projet, 25 mots maximum' },
-          evidence_quote: { type: 'string', description: 'Citation exacte copiée mot pour mot depuis une source, une seule phrase, 200 caractères maximum' },
-          source_url: { type: 'string', description: 'URL de la source fournie qui contient la citation' },
-          place: { type: 'string', description: 'Lieu mentionné (rue, quartier, équipement), vide sinon' },
-        },
-        required: ['title', 'summary', 'evidence_quote', 'source_url', 'place'],
-      },
-    },
-  },
-  required: ['candidates'],
-};
-
+/* Un SEUL schema de sortie. Le corpus etait auparavant lu deux fois par l'IA :
+   une passe d'extraction de candidats, puis une passe de selection qui le
+   relisait pour verifier. C'etait le premier poste de tokens de la generation
+   (~25 000 + ~16 000 en entree). La citation obligatoire, qui etait la vraie
+   valeur de la premiere passe, est simplement remontee ici. */
 const FINAL_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -127,14 +120,14 @@ const FINAL_SCHEMA = {
           title: { type: 'string', description: 'Nom court et propre du projet, sans le nom de la commune' },
           description: { type: 'string', description: '2 à 4 phrases factuelles en français, dates si connues, aucun superlatif' },
           category_slug: { type: 'string', enum: Object.keys(CATEGORIES) },
-          status: { type: 'string', enum: Object.keys(STATUS_LABELS) },
           place: { type: 'string', description: 'Lieu géocodable le plus précis (rue, quartier, équipement), vide si inconnu' },
           address: { type: 'string', description: 'Adresse postale EXACTE du projet SI elle figure telle quelle dans les sources (ex : "12 rue Voltaire" ou "avenue des Belges"). Recopie-la fidèlement. Chaîne vide si aucune adresse n\'est écrite dans les sources - N\'INVENTE JAMAIS d\'adresse.' },
           geo_query: { type: 'string', description: 'Requête optimale pour localiser CE projet sur OpenStreetMap dans la commune : adresse (n° + rue) si connue, sinon le nom EXACT de l\'équipement (ex : "Centre nautique Robert Sautin") ou du quartier/lieu-dit tel qu\'il apparaît sur une carte. Chaîne vide seulement si aucun lieu n\'est identifiable.' },
           source_url: { type: 'string' },
+          evidence_quote: { type: 'string', description: 'Citation exacte copiée MOT POUR MOT depuis la source citée, une seule phrase, 200 caractères maximum. C\'est la preuve que le projet existe : si tu ne peux pas citer, ne retiens pas le projet.' },
           confidence: { type: 'string', enum: ['haute', 'moyenne', 'basse'] },
         },
-        required: ['title', 'description', 'category_slug', 'status', 'place', 'address', 'geo_query', 'source_url', 'confidence'],
+        required: ['title', 'description', 'category_slug', 'place', 'address', 'geo_query', 'source_url', 'evidence_quote', 'confidence'],
       },
     },
   },
@@ -246,6 +239,13 @@ async function fetchCapped(url, opts = {}, ms = FETCH_TIMEOUT_MS, maxBytes = 500
 
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 
+// Normalisation et vocabulaire generique, partages par le rattachement des
+// images, le dedoublonnage et la localisation
+const unaccentLower = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const GENERIC_PROJECT_WORDS = /^(projet|travaux|amenagement|renovation|construction|extension|rehabilitation|demolition|reconstruction|creation|requalification|vegetalisation|batiment|centre|espace|locaux|groupe|nouvelle|nouveau|commune|ville)$/;
+const communeHost = (u) => { try { return new URL(u).host; } catch { return 'la mairie'; } };
+
+
 function slugify(str) {
   return String(str || '')
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -347,6 +347,70 @@ async function findMairieWebsite(insee) {
     }
   } catch { /* annuaire indisponible : étape sautée */ }
   return null;
+}
+
+/* Texte d'un PDF officiel.
+   Les communes publient leur calendrier de travaux en PDF (« Travaux a venir
+   2026 »). Ces fichiers etaient collectes et affiches en piece jointe, mais
+   jamais LUS, alors que ce sont les seules sources qui donnent des dates de
+   chantier fiables. Extraction volontairement minimale et sans dependance :
+   decompression des flux, puis lecture des chaines des operateurs de texte.
+   Elle ne gere pas les PDF scannes (images), qui n'ont de toute facon pas de
+   couche texte. */
+function pdfExtractText(buffer, maxChars = PDF_TEXT_CHARS) {
+  const brut = Buffer.from(buffer).latin1Slice(0);
+  const re = /stream\r?\n?([\s\S]*?)endstream/g;
+  let m;
+  let flux = 0;
+  let contenu = '';
+  while ((m = re.exec(brut)) !== null && flux < 60 && contenu.length < maxChars * 6) {
+    flux++;
+    const donnees = Buffer.from(m[1], 'latin1');
+    let sortie;
+    try { sortie = zlib.inflateSync(donnees); } catch {
+      try { sortie = zlib.inflateRawSync(donnees); } catch { continue; }
+    }
+    contenu += sortie.toString('latin1');
+  }
+  if (!contenu) return '';
+
+  // Chaines des operateurs Tj et TJ. Le crenage decoupe les mots en fragments :
+  // on les recolle sans separateur, les espaces reels etant dans les chaines.
+  const morceaux = [];
+  const chaineRe = /\((?:\\.|[^()\\])*\)/g;
+  let c;
+  while ((c = chaineRe.exec(contenu)) !== null) {
+    morceaux.push(c[0].slice(1, -1));
+    if (morceaux.length > 60000) break;
+  }
+  const texte = morceaux.join('')
+    .replace(/\\(\d{1,3})/g, (_, o) => String.fromCharCode(parseInt(o, 8)))
+    .replace(/\\([()\\])/g, '$1')
+    .replace(/\\[nrt]/g, ' ')
+    .replace(/[ -]/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  // Un PDF scanne rend surtout du bruit : on ne garde que du texte plausible
+  const lettres = (texte.match(/[a-zA-ZÀ-ÿ]/g) || []).length;
+  if (texte.length < 120 || lettres / texte.length < 0.55) return '';
+  return texte.slice(0, maxChars);
+}
+
+// Telecharge et lit les PDF les plus prometteurs du site de la mairie
+async function readMairiePdfs(pdfs) {
+  const cibles = pdfs
+    .filter((p) => /travaux|planning|calendrier|programme|projet|amenagement|concertation/i.test(`${p.url} ${p.label}`))
+    .slice(0, PDF_MAX_FILES);
+  if (!cibles.length) return [];
+  const lus = await inChunks(cibles, 3, async (p) => {
+    try {
+      const f = await fetchCapped(p.url, { headers: UA }, 9000, PDF_MAX_BYTES, true);
+      if (!f) return null;
+      const texte = pdfExtractText(f.data);
+      return texte ? { url: p.url, label: p.label, texte } : null;
+    } catch { return null; }
+  });
+  return lus.filter(Boolean);
 }
 
 function collectPdfLinks(html, baseUrl, out) {
@@ -728,6 +792,11 @@ const BOAMP_NOT_A_PROJECT = /entretien (et |courant|des|du )|r[eé]parations? co
 // de Montcelard, tous deux de juin 2026, disparaissaient).
 const BOAMP_SERVICE_DE_PROJET = /ma[iî]trise d['’ ]?o?euvre|\bmoe\b|concours|\bopc\b|ordonnancement|[ée]tude de faisabilit|programmation urbaine|assistance [àa] ma[iî]trise d['’ ]?ouvrage|\bamo\b/i;
 
+// Interventions de concessionnaires de reseau : elles ferment une rue mais ne
+// transforment pas le territoire, et n'ont rien a faire sur une carte de
+// projets urbains.
+const CONCESSIONNAIRE_RE = /\b(enedis|grdf|\bgrt\s?gaz\b|rte\b|orange|sfr|bouygues telecom|free\b|fibre optique|c[aâ]ble [eé]lectrique|ligne haute tension|moyenne tension|raccordement (?:au |du |des )?r[eé]seau|branchement)\b/i;
+
 // Au-dela, un avis ne renseigne plus l'etat du chantier : il devient archive.
 const BOAMP_MAX_AGE_MONTHS = 36;
 const BOAMP_MAX_ROWS = 20;
@@ -796,9 +865,13 @@ async function fetchBoamp(communeNom, departementCode, onFinding) {
     // nom commun. « Vannes » remontait des marches de vannes de vidange du Var
     // et du Gard, 13 avis hors sujet sur 25. Le departement les ecarte tous.
     const dep = /^[0-9AB]{2,3}$/i.test(String(departementCode || '')) ? String(departementCode) : null;
+    // Le BOAMP stocke « 1 » là où l'API géo dit « 01 » : sans les deux formes,
+    // le filtre ne rendait AUCUN avis pour les départements 01 à 09 (mesuré sur
+    // Oyonnax : 29 avis réels devenus 0).
+    const depVariantes = dep ? [...new Set([dep, dep.replace(/^0+/, '')])].filter(Boolean) : [];
     url.searchParams.set('where', [
       `search(objet, "${communeNom.replace(/"/g, '')}")`,
-      dep ? `code_departement like "${dep}"` : '',
+      depVariantes.length ? `(${depVariantes.map((d) => `code_departement like "${d}"`).join(' or ')})` : '',
       `dateparution > date'${cutoff}'`,
     ].filter(Boolean).join(' and '));
     url.searchParams.set('order_by', 'dateparution desc');
@@ -875,11 +948,27 @@ async function postOpenAI(body, timeoutMs = 120000, tries = 5) {
 // Coût IA : chaque appel logge ses tokens sous le nom de son schéma. Les 6
 // phases étant des invocations distinctes, le total d'une génération se
 // reconstitue en additionnant ces lignes dans les logs serveur.
+// Cumul par invocation. Chaque phase etant une invocation distincte, le total
+// d'une generation se reconstitue en additionnant les cumuls remontes dans
+// stats, ce qui evite d'avoir a eplucher les logs pour chiffrer le cout.
+const _tokens = { input: 0, output: 0, appels: 0 };
+
 function logUsage(label, usage) {
   if (!usage) return;
   const i = usage.input_tokens ?? 0;
   const o = usage.output_tokens ?? 0;
+  _tokens.input += i; _tokens.output += o; _tokens.appels += 1;
   console.log(`[demo-tokens] ${label} input=${i} output=${o} total=${i + o}`);
+}
+
+// Ajoute la consommation de CETTE invocation au cumul deja porte par l'etat
+function cumulerTokens(state) {
+  if (!state) return state;
+  state.stats = state.stats || {};
+  state.stats.tokens_in = (state.stats.tokens_in || 0) + _tokens.input;
+  state.stats.tokens_out = (state.stats.tokens_out || 0) + _tokens.output;
+  state.stats.appels_ia = (state.stats.appels_ia || 0) + _tokens.appels;
+  return state;
 }
 
 // Texte de sortie d'une réponse (deux emplacements possibles selon le format)
@@ -920,9 +1009,9 @@ async function readBody(r, idleMs = 30000) {
 
 // Appel structuré non streamé : renvoie l'objet JSON validé (json_schema strict).
 // Température basse par défaut : taches de fidélité (extraction, jugement)
-async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs = 120000, temperature = 0.2) {
+async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs = 120000, temperature = 0.2, model = OPENAI_MODEL) {
   const r = await postOpenAI({
-    model: OPENAI_MODEL,
+    model,
     input,
     text: { format: { type: 'json_schema', name: schemaName, schema, strict: true } },
     max_output_tokens: maxTokens,
@@ -1011,72 +1100,106 @@ async function callOpenAIResilient(system, user, schemaName, schema, maxTokens, 
 // nombre de pages ; on borne donc, en servant d'abord les sources a plus fort
 // rendement (pages officielles, puis avis de marches, puis presse).
 const BUNDLE_MAX_CHARS = 120000;
-const BUNDLE_VERIFY_CHARS = 45000;
+
+/* Quotas par origine. Le paquet est plafonne globalement, mais un plafond
+   unique laissait la liste des marches publics - tres compacte, une ligne par
+   avis - consommer tout le budget et evincer la prose de la presse et de la
+   mairie (mesure : 92 % des fiches issues d'une seule source sur Tassin, ZERO
+   de la presse alors que 22 articles avaient ete lus). Chaque origine dispose
+   donc de sa part reservee, et le reliquat non consomme profite aux autres. */
+const PART_MAIRIE = 0.55;
+const PART_BOAMP = 0.20;
+const PART_PRESSE = 0.25;
 
 function buildSourcesBundle({ mairie, news, boamp }) {
   const parts = [];
   let budget = BUNDLE_MAX_CHARS;
-  const push = (text) => {
-    if (budget <= 0) return;
-    parts.push(text.length > budget ? text.slice(0, budget) : text);
-    budget -= text.length;
+
+  /* Les parts sont des PLANCHERS, pas des plafonds. Traitees comme des
+     plafonds, elles faisaient fondre le corpus : une commune dont la mairie
+     n'expose que trois pages laissait 60 000 caracteres inutilises que la
+     presse ne pouvait pas reprendre, et le paquet tombait de 12 000 a 5 400
+     mots. Premiere passe : chaque origine sert sa part reservee. Seconde
+     passe : le reliquat va a qui a encore de la matiere. */
+  const groupes = [];
+  const pushGroup = (textes, reserve) => {
+    groupes.push({ textes, reserve, i: 0 });
+  };
+  const servir = (g, plafond) => {
+    let restant = Math.min(plafond, budget);
+    while (g.i < g.textes.length && restant > 0 && budget > 0) {
+      const t = g.textes[g.i];
+      const morceau = t.length > restant ? t.slice(0, restant) : t;
+      parts.push(morceau);
+      restant -= morceau.length;
+      budget -= morceau.length;
+      g.i++;
+    }
   };
 
-  for (const p of mairie.pages) {
-    push(`SOURCE OFFICIELLE [${p.url}] (${p.title}) :\n${p.text}`);
-  }
-  // Les avis BOAMP passent avant la presse : tres compacts et tres denses en
-  // projets reels, ils doivent aussi survivre a la troncature de verification
+  pushGroup(
+    mairie.pages.map((p) => `SOURCE OFFICIELLE [${p.url}] (${p.title}) :\n${p.text}`)
+      // Les PDF officiels ferment la part « mairie » : ce sont les seules
+      // sources qui portent un calendrier de chantier daté
+      .concat((mairie.pdfTextes || []).map((d) => `DOCUMENT OFFICIEL PDF [${d.url}] (${d.label}) :\n${d.texte}`)),
+    BUNDLE_MAX_CHARS * PART_MAIRIE
+  );
   if (boamp.length) {
     // La date est explicitement qualifiée : sans cela, le rédacteur la reprenait
     // comme un début ou une fin de travaux dans la section « Calendrier ».
-    push('MARCHÉS PUBLICS DE TRAVAUX (BOAMP). La date est celle de PARUTION DE L\'AVIS, ce n\'est ni un début ni une fin de chantier. « Résultat de marché » signifie que le marché est attribué, donc que les travaux sont engagés ou proches de l\'être. Le champ « Lieu d\'exécution » est l\'adresse OFFICIELLE du chantier déclarée par le maître d\'ouvrage : recopie-la telle quelle dans le champ address du projet correspondant :\n'
-      + boamp.map((b) => [
-        `- [${b.link}] avis paru le ${b.date} | ${b.nature || 'Avis'} | maître d'ouvrage : ${b.acheteur || 'non précisé'}${b.themes ? ` | thèmes : ${b.themes}` : ''}`,
-        `  Objet : ${b.title}`,
-        b.lieu ? `  Lieu d'exécution : ${b.lieu}` : '',
-        b.description ? `  Description : ${b.description}` : '',
-        b.lots?.length ? `  Lots : ${b.lots.join(' ; ')}` : '',
-      ].filter(Boolean).join('\n')).join('\n'));
+    const entete = 'MARCHÉS PUBLICS DE TRAVAUX (BOAMP). La date est celle de PARUTION DE L\'AVIS, ce n\'est ni un début ni une fin de chantier. Le champ « Lieu d\'exécution » est l\'adresse OFFICIELLE du chantier déclarée par le maître d\'ouvrage : recopie-la telle quelle dans le champ address du projet correspondant :';
+    pushGroup([entete].concat(boamp.map((b) => [
+      `- [${b.link}] avis paru le ${b.date} | ${b.nature || 'Avis'} | maître d'ouvrage : ${b.acheteur || 'non précisé'}${b.themes ? ` | thèmes : ${b.themes}` : ''}`,
+      `  Objet : ${b.title}`,
+      b.lieu ? `  Lieu d'exécution : ${b.lieu}` : '',
+      b.description ? `  Description : ${b.description}` : '',
+      b.lots?.length ? `  Lots : ${b.lots.join(' ; ')}` : '',
+    ].filter(Boolean).join('\n'))), BUNDLE_MAX_CHARS * PART_BOAMP);
   }
-  for (const n of news) {
-    push(`ARTICLE DE PRESSE [${n.finalUrl || n.link}] (${n.source || hostOf(n.finalUrl || n.link)}, ${n.date}) :\nTitre : ${n.title}\n${n.text || '(contenu non accessible, titre seul)'}`);
-  }
+  pushGroup(
+    news.map((n) => `ARTICLE DE PRESSE [${n.finalUrl || n.link}] (${n.source || hostOf(n.finalUrl || n.link)}, ${n.date}) :\nTitre : ${n.title}\n${n.text || '(contenu non accessible, titre seul)'}`),
+    BUNDLE_MAX_CHARS * PART_PRESSE
+  );
+
+  // Passe 1 : la part garantie de chaque origine
+  for (const g of groupes) servir(g, g.reserve);
+  // Passe 2 : le budget restant, a qui a encore de la matiere
+  for (const g of groupes) servir(g, budget);
+
   return parts.join('\n\n---\n\n');
 }
 
-async function extractCandidates(commune, bundle, onTitle) {
-  const system = `Tu dépouilles des sources web au sujet de la commune de ${commune.nom}. Extrais TOUS les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES concernant cette commune précise (jusqu'à 24, sois exhaustif : ne laisse passer aucun projet réel mentionné dans les sources). Les sources sont de trois natures : pages officielles de la mairie, articles de presse, avis de marchés publics. Dépouille les TROIS avec la même attention : la liste de marchés publics est compacte et facile à moissonner, mais un projet raconté dans un article de presse ou sur une page de la mairie compte autant. Ne remplis pas ta liste avec les seuls marchés publics. Pour chacun : une citation exacte copiée mot pour mot d'une source (evidence_quote) et l'URL de cette source (source_url, obligatoirement une URL présente entre crochets dans les sources). Un projet intercommunal (ligne de transport, piste cyclable structurante, ouvrage d'art) compte dès qu'une partie touche cette commune. Un projet contesté ou polémique compte aussi : c'est l'aménagement physique qui t'intéresse, pas le débat. Ignore seulement : événements, élections, faits divers, projets situés entièrement dans une AUTRE commune, généralités sans projet.`;
-  // Résilient : le flux OpenAI revient parfois vide (aléa constaté) -> une
-  // passe non streamée en secours plutôt que d'interrompre toute la démo
-  const out = await callOpenAIResilient(system, `SOURCES :\n\n${bundle}`, 'candidats', CANDIDATES_SCHEMA, 8000, onTitle);
-  return out.candidates || [];
-}
+/* Passe UNIQUE d'extraction et de selection.
+   Le corpus n'est plus lu deux fois : la citation obligatoire, seule vraie
+   valeur ajoutee de l'ancienne passe de candidats, fait partie du schema
+   final. Economie mesuree : la moitie du plus gros poste de tokens. */
+async function extractProjects(commune, bundle, onTitle) {
+  const system = `Tu es un rédacteur territorial exigeant. Tu dépouilles des sources publiques au sujet de la commune de ${commune.nom} et tu en tires la liste des projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES qui la concernent.
 
-async function selectProjects(commune, candidates, bundle, onTitle) {
-  const system = `Tu es un rédacteur territorial exigeant. À partir des candidats extraits et des sources, compose la sélection finale des projets de ${commune.nom}. Retiens CHAQUE projet réel et distinct attesté par les sources : si 14 projets distincts sont vérifiés, rends-en 14 (jusqu'à 18). Ne vise pas un chiffre rond, ne résume pas la liste, n'élague pas les projets modestes. Règles :
-- Uniquement des projets physiques et localisables, actuels (en cours, récents ou annoncés), qui touchent le territoire de la commune. Un projet à cheval sur plusieurs communes (ligne de transport, piste cyclable structurante, ouvrage d'art, opération intercommunale) COMPTE dès lors qu'une partie se trouve dans la commune : retiens-le en décrivant la portion locale. Un projet de logements ou d'équipement fait débat ? Il compte quand même : c'est le projet physique qui t'intéresse, pas la polémique.
-- Ne fusionne que deux entrées qui désignent EXACTEMENT le même projet au même endroit. Un parking, une résidence rénovée, un équipement (piscine, EHPAD, crématorium, médiathèque), une voie réaménagée, un espace public sont des projets DISTINCTS, même situés dans le même quartier.
+Sois EXHAUSTIF : retiens chaque projet réel et distinct attesté par les sources, jusqu'à 18. Ne vise pas un chiffre rond, ne résume pas la liste, n'élague pas les projets modestes.
+
+Les sources sont de trois natures : pages officielles de la mairie, articles de presse, avis de marchés publics. Dépouille les TROIS avec la même attention. La liste de marchés publics est compacte et facile à moissonner, mais un projet raconté sur une page de la mairie ou dans un article de presse compte autant : ne remplis pas ta liste avec les seuls marchés publics.
+
+Règles :
+- Uniquement des projets physiques et localisables qui touchent le territoire de la commune. Un projet à cheval sur plusieurs communes (ligne de transport, piste cyclable structurante, ouvrage d'art, opération intercommunale) COMPTE dès qu'une partie s'y trouve : décris la portion locale. Un projet contesté compte aussi : c'est l'aménagement physique qui t'intéresse, pas la polémique.
+- ÉCARTE ce qui n'est pas un aménagement du territoire : raccordement d'un concessionnaire de réseau (électricité, gaz, télécoms, fibre), entretien courant, contrat de service, achat de matériel. Écarte aussi les événements, élections, faits divers, et tout projet situé entièrement dans une AUTRE commune.
+- Ne fusionne que deux entrées qui désignent EXACTEMENT le même projet au même endroit. Un parking, une résidence rénovée, un équipement (piscine, EHPAD, médiathèque), une voie réaménagée, un espace public sont des projets DISTINCTS, même dans le même quartier.
+- evidence_quote : une citation exacte, copiée MOT POUR MOT depuis la source. C'est la preuve du projet : si tu ne peux pas citer, ne le retiens pas.
+- source_url : obligatoirement une URL présente entre crochets dans les sources fournies.
 - confidence "haute" si la citation atteste clairement le projet ; "moyenne" si l'information est réelle mais partielle ; "basse" seulement si douteux (il sera écarté).
-- status : nous sommes le ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}. "livre" si inauguré/achevé, "en-cours" si travaux engagés, "a-l-etude" si concertation ou projet annoncé non démarré, "inconnu" si indéterminable. Règle stricte, dans cet ordre :
-  1. "livre" UNIQUEMENT si une source affirme explicitement que c'est terminé, inauguré, livré ou ouvert au public. Jamais par déduction à partir d'une date : annoncer livré un équipement qui ne l'est pas décrédibilise toute la carte.
-  2. sinon "en-cours" si les travaux sont engagés, ou si un marché de TRAVAUX a été publié il y a plus d'un an sans mention d'achèvement.
-  3. sinon "a-l-etude" pour un projet annoncé, en concertation, ou dont seul le marché de maîtrise d'oeuvre est lancé (concours d'architecte, mission OPC, étude de faisabilité).
-  4. "inconnu" si rien ne permet de trancher.
-- category_slug (catégorie dominante) : urbanisme (ZAC, aménagement large), renovation-urbaine (réhabilitation de quartier/logement social), mobilite (voirie, transport, pistes cyclables, gare), environnement (nature, eau, énergie), equipement-public (école, gymnase, médiathèque, hôpital, mairie, centre technique municipal, poste de police, tout bâtiment porté par la collectivité pour un service public), patrimoine (monument, église, château), economique (zone d'activité, commerces, immobilier d'entreprise privé), logement, cadre-de-vie (espaces publics, parcs, places). En cas d'hésitation entre economique et equipement-public, tranche par le maître d'ouvrage : une opération portée par la commune relève de equipement-public.
+- category_slug (catégorie dominante) : urbanisme (ZAC, aménagement large), renovation-urbaine (réhabilitation de quartier ou de logement social), mobilite (voirie, transport, pistes cyclables, gare), environnement (nature, eau, énergie), equipement-public (école, gymnase, médiathèque, hôpital, mairie, centre technique municipal, poste de police, tout bâtiment porté par la collectivité pour un service public), patrimoine (monument, église, château), economique (zone d'activité, commerces, immobilier d'entreprise privé), logement (résidence, cité universitaire, programme de logements), cadre-de-vie (espaces publics, parcs, places). En cas d'hésitation entre economique et equipement-public, tranche par le maître d'ouvrage : une opération portée par la collectivité relève de equipement-public.
 - description : 2 à 4 phrases sobres et factuelles, dates si connues, zéro superlatif, en français impeccable.
 - place : le lieu géocodable le plus précis mentionné (rue, quartier, équipement), chaîne vide sinon.
-- address : LIS ATTENTIVEMENT le texte des sources et recopie l'adresse postale exacte du projet si elle y figure (numéro + rue, ou nom de rue seul). Pour un projet issu d'un marché public, le champ « Lieu d'exécution » de l'avis EST cette adresse : recopie-la, en retirant seulement le code postal et le nom de la commune. Chaîne vide si aucune adresse n'est écrite nulle part. N'invente jamais.
-- geo_query : la MEILLEURE requête pour localiser ce projet sur une carte OpenStreetMap dans la commune. Adresse précise (n° + rue) si elle figure dans les sources, sinon le nom EXACT de l'équipement ou du quartier/lieu-dit. C'est ce texte qui sera envoyé au géocodeur : sois précis, fidèle au nom réel, sans le mot "projet" ni de verbe (écris "Centre nautique Robert Sautin", pas "Rénovation du centre nautique"). Ne laisse JAMAIS ce champ vide : à défaut de lieu identifié, donne le nom de l'équipement, de la rue ou du quartier concerné.
-- source_url : reprends l'URL de la source qui atteste le projet.`;
-  const user = `CANDIDATS :\n${JSON.stringify(candidates, null, 1)}\n\nSOURCES (pour vérification) :\n\n${bundle.slice(0, BUNDLE_VERIFY_CHARS)}`;
-  const out = await callOpenAIResilient(system, user, 'selection_finale', FINAL_SCHEMA, 6000, onTitle);
+- address : recopie l'adresse postale exacte du projet si elle figure dans les sources (numéro + rue, ou nom de rue seul). Pour un projet issu d'un marché public, le champ « Lieu d'exécution » de l'avis EST cette adresse : recopie-la en retirant le code postal et le nom de la commune. Ignore les mentions vagues du type « différents bâtiments de la commune », qui ne sont pas des adresses. Chaîne vide si rien n'est écrit. N'invente JAMAIS.
+- geo_query : la MEILLEURE requête pour localiser CE projet sur une carte OpenStreetMap dans la commune. Adresse précise si connue, sinon le nom EXACT de l'équipement, du quartier ou du lieu-dit, sans le mot "projet" ni de verbe (écris "Centre nautique Robert Sautin", pas "Rénovation du centre nautique"). Ne laisse JAMAIS ce champ vide.`;
+  // Résilient : le flux OpenAI revient parfois vide (aléa constaté) -> une
+  // passe non streamée en secours plutôt que d'interrompre toute la démo
+  const out = await callOpenAIResilient(system, `SOURCES :\n\n${bundle}`, 'projets', FINAL_SCHEMA, 9000, onTitle);
   return out.projects || [];
 }
 
-// Rédaction par lots de 3 : un appel qui échoue (flux tronqué, coupure réseau)
-// ne coûtait auparavant TOUS les articles de la commune. Les lots sont
-// indépendants et tolérants à l'échec, l'index global est réattribué après coup.
+// Rédaction par lots : un appel qui échoue (flux tronqué, coupure réseau) ne
+// coûte que son lot, pas tous les articles de la commune.
 const ARTICLES_BATCH = 3;
 
 async function writeArticlesBatch(commune, projects, offset, pdfs, onTitle) {
@@ -1089,7 +1212,6 @@ Structure : 2 phrases d'introduction, une section "## Ce qui change" avec 2 à 4
     index: i,
     title: p.title,
     description: p.description,
-    status: STATUS_LABELS[p.status] || '',
     place: p.place,
     source_url: p.source_url,
     source_media: hostOf(p.source_url),
@@ -1133,7 +1255,7 @@ async function dominantColorFromLogo(logoUrl) {
         { type: 'input_text', text: 'Donne la couleur dominante de ce logo en hexadécimal #RRGGBB, en ignorant blanc, noir et gris. Choisis la couleur de marque la plus saturée et identitaire.' },
         { type: 'input_image', image_url: logoUrl },
       ],
-    }], 'couleur_logo', HEX_COLOR_SCHEMA, 60, 25000);
+    }], 'couleur_logo', HEX_COLOR_SCHEMA, 60, 25000, 0.2, OPENAI_VISION_MODEL);
     const hex = out.color?.toLowerCase();
     if (!/^#[0-9a-f]{6}$/.test(hex || '')) return null;
     // Écarter le quasi blanc / quasi noir : inutilisable comme couleur primaire
@@ -1223,24 +1345,74 @@ function distinctiveWords(titre) {
   )];
 }
 
-// Répartition de repli dans l'emprise RÉELLE de la commune (spirale d'angle
-// d'or) au lieu d'empiler les points sur le centre-ville
-function scatterInCommune(center, bbox, index) {
-  if (bbox) {
-    const halfW = (bbox.maxLng - bbox.minLng) * 0.30;
-    const halfH = (bbox.maxLat - bbox.minLat) * 0.30;
-    const a = index * 2.399963; // angle d'or : dispersion régulière non alignée
-    const rad = 0.35 + 0.6 * (((index * 7) % 11) / 11);
-    return {
-      geometry: { type: 'Point', coordinates: [center.lng + Math.cos(a) * halfW * rad, center.lat + Math.sin(a) * halfH * rad] },
-      method: 'centre',
-    };
+/* Quartiers statistiques IRIS de l'INSEE : la seule couche officielle qui
+   decoupe TOUTES les communes de plus de 5 000 habitants en secteurs nommes,
+   avec leur emprise. Elle donne une position honnete a la maille du quartier
+   quand aucune adresse n'est identifiable. Un seul appel par commune. */
+async function fetchIrisQuartiers(insee) {
+  try {
+    const url = new URL('https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/georef-france-iris/records');
+    url.searchParams.set('where', `com_code="${insee}"`);
+    url.searchParams.set('limit', '60');
+    url.searchParams.set('select', 'iris_name,geo_shape');
+    const r = await fetchWithTimeout(url.toString(), {}, 12000);
+    if (!r.ok) return [];
+    const data = await r.json();
+    return (data.results || []).flatMap((rec) => {
+      // iris_name arrive sous forme de tableau a un element
+      const nom = Array.isArray(rec.iris_name) ? rec.iris_name[0] : rec.iris_name;
+      const geometry = rec.geo_shape?.geometry || rec.geo_shape;
+      if (!nom || !geometry?.type) return [];
+      return [{ nom, cle: unaccentLower(nom), geometry }];
+    });
+  } catch {
+    return [];
   }
-  const angle = (index * 2 * Math.PI) / 12;
-  return {
-    geometry: { type: 'Point', coordinates: [center.lng + 0.004 * Math.cos(angle), center.lat + 0.003 * Math.sin(angle)] },
-    method: 'centre',
-  };
+}
+
+/* Dernier recours de localisation : l'IA a lu les sources et sait souvent
+   nommer un lieu geocodable que les champs structures n'ont pas rendu. Un
+   appel unique pour tous les projets restants, sur le modele leger. */
+const PLACES_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    lieux: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          index: { type: 'number' },
+          lieu: { type: 'string', description: 'Rue, place, quartier ou équipement de la commune, tel qu\'il figure sur une carte. Chaîne vide si vraiment introuvable.' },
+        },
+        required: ['index', 'lieu'],
+      },
+    },
+  },
+  required: ['lieux'],
+};
+
+async function askAiForPlaces(commune, projets) {
+  if (!projets.length) return [];
+  try {
+    const system = `Tu localises des projets urbains dans la commune de ${commune.nom}. Pour CHAQUE projet (index conservé), donne le nom du lieu le plus précis qui permette de le retrouver sur une carte de cette commune : une rue, une place, un quartier, un lieu-dit ou un équipement nommé. Écris-le tel qu'il apparaîtrait sur une carte, sans verbe ni mot « projet ». Si le texte fourni ne permet vraiment pas de situer le projet, rends une chaîne vide plutôt qu'une invention : une position fausse est pire qu'une absence.`;
+    const user = JSON.stringify(projets.map((p, i) => ({
+      index: i,
+      titre: p.title,
+      description: (p.description || '').slice(0, 300),
+      extrait: (p.source_excerpt || '').slice(0, 700),
+    })), null, 1);
+    const out = await openAIStructured(
+      [{ role: 'system', content: system }, { role: 'user', content: user }],
+      'lieux_projets', PLACES_SCHEMA, 1200, 40000, 0.1, OPENAI_VISION_MODEL
+    );
+    const parIndex = new Map((out.lieux || []).map((x) => [x.index, String(x.lieu || '').trim()]));
+    return projets.map((_, i) => parIndex.get(i) || '');
+  } catch (e) {
+    console.warn('[demo-generate] recours IA localisation :', e?.message);
+    return projets.map(() => '');
+  }
 }
 
 // Requêtes de localisation d'un projet, de la plus fiable à la plus faible :
@@ -1252,9 +1424,29 @@ function locationQueries(project) {
     .trim();
   const seen = new Set();
   const out = [];
-  for (const q of [project.address, project.geo_query, project.place, fromTitle]) {
+  for (const q of [project.address, project.geo_query, project.place, fromTitle, ...odonymesDe(project.source_excerpt)]) {
     const t = String(q || '').trim();
     if (t.length >= 3 && !seen.has(t.toLowerCase())) { seen.add(t.toLowerCase()); out.push(t); }
+  }
+  return out;
+}
+
+/* Noms de voies lus directement dans le texte des sources. On n'essayait que
+   les quatre champs produits par l'IA ; or les descriptions officielles citent
+   souvent l'adresse en toutes lettres (« avenue Charles de Gaulle », « montée
+   de Verdun »), que la BAN geocode parfaitement, sans quota. */
+// La casse est insensible sur le TYPE de voie seulement. Avec le drapeau `i`
+// global, la classe [A-Z] du nom acceptait aussi les minuscules : la regex
+// avalait la suite de la phrase (« chemin de la Raude est concerné ») et
+// attrapait « place importante pour la commune ».
+const ODONYME_RE = /\b(?:[Rr]ue|[Aa]venue|[Bb]oulevard|[Pp]lace|[Cc]hemin|[Rr]oute|[Ii]mpasse|[Aa]ll[ée]e|[Qq]uai|[Cc]ours|[Mm]ont[ée]e|[Ee]splanade|[Ss]quare|[Pp]assage)\s+(?:de\s+la\s+|de\s+l['’]|du\s+|des\s+|de\s+|d['’]|la\s+|le\s+|les\s+)?[A-ZÉÈÀÂÎÔÛ][\wÀ-ÿ'’-]*(?:\s+(?:de\s+|du\s+|des\s+|d['’]|la\s+|le\s+)?[A-ZÉÈÀÂÎÔÛ][\wÀ-ÿ'’-]*){0,2}/g;
+
+function odonymesDe(texte) {
+  const out = [];
+  for (const m of String(texte || '').match(ODONYME_RE) || []) {
+    const v = m.replace(/\s+/g, ' ').trim();
+    if (v.length >= 8 && !out.includes(v)) out.push(v);
+    if (out.length >= 3) break;
   }
   return out;
 }
@@ -1372,40 +1564,74 @@ function mairiePageImages(project, pages = []) {
   }));
 }
 
-const unaccentLower = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-const GENERIC_PROJECT_WORDS = /^(projet|travaux|amenagement|renovation|construction|extension|rehabilitation|demolition|reconstruction|creation|requalification|vegetalisation|batiment|centre|espace|locaux|groupe|nouvelle|nouveau|commune|ville)$/;
-const communeHost = (u) => { try { return new URL(u).host; } catch { return 'la mairie'; } };
 
-async function gatherImageCandidates(project, communeNom, lat, lng, mairieImages = [], mairiePages = []) {
-  // Les deux collectes independantes en parallele (un RTT economise par projet)
-  const [fromSource, near] = await Promise.all([
-    project.source_url ? sourceImageCandidates(project.source_url) : Promise.resolve([]),
-    commonsCandidatesAt(lat, lng, 300),
-  ]);
-  // Recherche Commons par mots-cles : c'est la seule voie pour les projets
-  // issus du BOAMP, dont la source ne porte aucune photo. Elle etait censee se
-  // declencher sous 3 candidats, mais les 8 images de remplissage de la mairie
-  // rendaient cette condition inatteignable : elle ne partait donc JAMAIS.
-  // Page de la mairie consacree a ce projet : la source la plus susceptible de
-  // porter un vrai visuel du projet, avant tout recours a Commons
+/* Candidats d'illustration d'UN projet, par ordre de confiance decroissante.
+   Le pool d'images generiques du site de la mairie a ete supprime : verse
+   indifferemment dans le pool de chaque projet, il produisait l'essentiel des
+   mauvaises attributions (une photo de Conleau prise sur la page d'accueil
+   servait de visuel a un square) et faisait reencoder les memes images autant
+   de fois qu'il y a de projets. Ne restent que des sources rattachables. */
+async function gatherImageCandidates(project, communeNom, lat, lng, mairiePages = [], locationSure = true) {
+  // Bloc de la page de la mairie qui parle de CE projet : la meilleure source
   const fromPage = mairiePageImages(project, mairiePages);
-  const byName = (fromSource.length + fromPage.length) ? [] : await commonsTextCandidates(
-    `${project.place || project.geo_query || project.title} ${communeNom}`.trim()
-  );
-  // Images des pages "grands projets" de la mairie : souvent les vrais visuels,
-  // mais generiques - elles ferment la marche pour ne pas noyer les candidats
-  // reellement lies au projet (le juge vision ne voit que 8 images au total).
-  const fromMairie = mairieImages.slice(0, 6).map((url) => ({ url, title: 'Visuel du site de la mairie', credit: `Source : ${communeNom}` }));
-  const wide = (fromSource.length + fromPage.length + near.length + byName.length) >= 4 ? [] : await commonsCandidatesAt(lat, lng, 750);
-  const pool = [...fromSource, ...fromPage, ...byName, ...near, ...wide, ...fromMairie];
+  // Images de la page source du projet elle-meme
+  const fromSource = project.source_url ? await sourceImageCandidates(project.source_url) : [];
+
+  // Commons n'est sollicite qu'a defaut, et seulement si la position est sure :
+  // un geosearch autour d'une position fabriquee ne rend que du hasard.
+  let commons = [];
+  if (!fromPage.length && !fromSource.length && locationSure) {
+    commons = await commonsCandidatesAt(lat, lng, 300);
+    if (commons.length < 3) {
+      commons = commons.concat(await commonsTextCandidates(
+        `${project.place || project.geo_query || project.title} ${communeNom}`.trim()
+      ));
+    }
+  }
+
   const seen = new Set();
   const all = [];
-  for (const c of pool) {
+  for (const c of [...fromPage, ...fromSource, ...commons]) {
     if (seen.has(c.url) || all.length >= 8) continue;
     seen.add(c.url);
     all.push(c);
   }
   return all;
+}
+
+/* Repli thematique : quand aucun visuel du projet n'existe, une photo
+   GENERIQUE du type d'ouvrage vaut mieux qu'une vignette vide, a condition
+   d'etre annoncee comme telle. Personne ne photographie la chaufferie d'un
+   lycee, mais une chaufferie reste parlante. Le credit dit explicitement
+   « illustration generique » pour ne jamais laisser croire a une photo du
+   projet lui-meme. */
+const THEMES_GENERIQUES = [
+  [/chaufferie|chauffage|[eé]nerg[eé]tique|chaudi[eè]re/i, 'chaufferie bois collective', 'une chaufferie'],
+  [/groupe scolaire|[eé]cole|maternelle|[eé]l[eé]mentaire/i, 'école primaire France bâtiment', 'une école'],
+  [/coll[eè]ge|lyc[eé]e/i, 'lycée France bâtiment', 'un établissement scolaire'],
+  [/cr[eè]che|multi[- ]accueil|petite enfance/i, 'crèche France bâtiment', 'une crèche'],
+  [/pont|passerelle|ouvrage d.art/i, 'pont routier France', 'un pont'],
+  [/piscine|centre nautique|bassin/i, 'piscine municipale France', 'une piscine municipale'],
+  [/gymnase|salle de sport|complexe sportif|stade/i, 'gymnase France', 'un équipement sportif'],
+  [/m[eé]diath[eè]que|biblioth[eè]que/i, 'médiathèque France bâtiment', 'une médiathèque'],
+  [/cimeti[eè]re/i, 'cimetière France allée', 'un cimetière'],
+  [/parking|stationnement/i, 'parking public France', 'un parking'],
+  [/cyclable|v[eé]lo|voie lyonnaise/i, 'piste cyclable France', 'une piste cyclable'],
+  [/assainissement|eaux us[eé]es|r[eé]seau d.eau/i, 'chantier canalisation rue France', 'un chantier de réseaux'],
+  [/march[eé]|halle/i, 'halle de marché France', 'une halle de marché'],
+  [/ehpad|maison de retraite|r[eé]sidence autonomie/i, 'EHPAD France bâtiment', 'un EHPAD'],
+  [/police|gendarmerie/i, 'poste de police municipale France', 'un poste de police'],
+  [/mairie|h[oô]tel de ville/i, 'hôtel de ville France', 'une mairie'],
+  [/logement|r[eé]sidence|habitat/i, 'immeuble logements neufs France', 'un programme de logements'],
+  [/parc|square|jardin|v[eé]g[eé]talisation/i, 'parc public France', 'un parc public'],
+];
+
+function themeGenerique(project) {
+  const hay = `${project.title || ''} ${project.description || ''}`;
+  for (const [re, requete, libelle] of THEMES_GENERIQUES) {
+    if (re.test(hay)) return { requete, libelle };
+  }
+  return null;
 }
 
 // L'IA REGARDE vraiment les photos et choisit celle qui illustre ce projet
@@ -1428,7 +1654,7 @@ async function pickBestImageWithAI(project, communeNom, candidates) {
       // pas la pleine résolution, et ce juge concentrait la moitié du coût IA.
       content.push({ type: 'input_image', image_url: c.url, detail: 'low' });
     });
-    const out = await openAIStructured([{ role: 'user', content }], 'choix_image', IMAGE_CHOICE_SCHEMA, 60, 30000);
+    const out = await openAIStructured([{ role: 'user', content }], 'choix_image', IMAGE_CHOICE_SCHEMA, 60, 30000, 0.2, OPENAI_VISION_MODEL);
     const idx = out.best_index;
     if (typeof idx !== 'number' || idx < 0 || idx >= usable.length) return null;
     return usable[idx];
@@ -1539,15 +1765,22 @@ async function coreSources(send, step, insee) {
         return { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [] };
       }
       const m = await inspectMairieSite(site, finding);
-      // Identité visuelle : theme-color du site, sinon couleur dominante du logo
-      if (!m.themeColor && m.logoUrl) m.themeColor = await dominantColorFromLogo(m.logoUrl);
+      // Identité visuelle et lecture des PDF en parallèle : deux travaux
+      // indépendants qui ne doivent pas s'additionner dans la durée de la phase
+      const [couleur, pdfsLus] = await Promise.all([
+        !m.themeColor && m.logoUrl ? dominantColorFromLogo(m.logoUrl) : Promise.resolve(null),
+        readMairiePdfs(m.pdfs || []),
+      ]);
+      if (couleur) m.themeColor = couleur;
+      m.pdfTextes = pdfsLus;
       if (m.host) finding({ kind: 'logo', title: m.host, iconUrl: m.logoUrl, color: m.themeColor });
       const bits = [];
       if (m.host) bits.push(m.host);
       if (m.logoUrl) bits.push('logo récupéré');
       if (m.themeColor) bits.push('couleurs de la commune extraites');
       if (m.pages.length > 1) bits.push(`${m.pages.length - 1} page(s) projets lue(s)`);
-      if (m.pdfs.length) bits.push(`${m.pdfs.length} document(s) officiel(s)`);
+      if (pdfsLus.length) bits.push(`${pdfsLus.length} document(s) PDF lu(s)`);
+      else if (m.pdfs.length) bits.push(`${m.pdfs.length} document(s) officiel(s)`);
       step('mairie', m.host ? 'done' : 'skip', 'Site officiel de la mairie', bits.join(' · ') || 'non exploitable');
       return m;
     })(),
@@ -1591,16 +1824,13 @@ async function coreAi(send, step, state) {
   const bundle = buildSourcesBundle({ mairie, news, boamp });
   const words = Math.round(bundle.length / 6);
 
-  console.log(`[demo-generate] ai1 depouillement ${commune.nom} : ~${words} mots`);
+  console.log(`[demo-generate] depouillement ${commune.nom} : ~${words} mots`);
   step('ai1', 'start', 'Dépouillement des sources par l\'IA', `${state.stats.sources} sources, ~${words.toLocaleString('fr-FR')} mots à lire`);
-  const candidates = await extractCandidates(commune, bundle, (title) => send({ type: 'ai-item', phase: 'ai1', title }));
-  console.log(`[demo-generate] ai1 -> ${candidates.length} candidats`);
-  step('ai1', 'done', 'Sources dépouillées', `${candidates.length} projet(s) candidat(s) repéré(s)`);
+  let projects = await extractProjects(commune, bundle, (title) => send({ type: 'ai-item', phase: 'ai1', title }));
+  console.log(`[demo-generate] -> ${projects.length} projets extraits`);
+  step('ai1', 'done', 'Sources dépouillées', `${projects.length} projet(s) repéré(s)`);
 
-  step('ai2', 'start', 'Sélection et vérification des projets', 'Chaque projet doit citer sa source mot pour mot');
-  let projects = candidates.length
-    ? await selectProjects(commune, candidates, bundle, (title) => send({ type: 'ai-item', phase: 'ai2', title }))
-    : [];
+  step('ai2', 'start', 'Vérification des projets', 'Chaque projet doit citer sa source mot pour mot');
 
   const allowedUrls = new Set([
     ...mairie.urls,
@@ -1613,20 +1843,15 @@ async function coreAi(send, step, state) {
     p.confidence !== 'basse' && (allowedUrls.has(p.source_url) || allowedHosts.has(hostOf(p.source_url)))
   );
 
-  // Cohérence statut / description : le modèle produisait des fiches marquées
-  // « À l'étude » dont la description dit « est en construction » ou « sont en
-  // cours ». La contradiction est visible par l'habitant, sur la pastille de la
-  // fiche. La description prime, elle est tirée des sources.
-  let realigned = 0;
-  for (const p of projects) {
-    const d = (p.description || '').toLowerCase();
-    if (/\b(est|sont) (achev|termin|inaugur|livr|ouvert)/.test(d) && p.status !== 'livre') {
-      p.status = 'livre'; realigned++;
-    } else if (/en cours|en construction|d[ée]marr|engag[ée]s?\b|chantier ouvert/.test(d) && p.status === 'a-l-etude') {
-      p.status = 'en-cours'; realigned++;
-    }
+  // Garde-fou concessionnaires : le prompt demande d'écarter les interventions
+  // de réseau, le modèle en laisse passer (relevé : « rénovation d'un câble
+  // électrique moyenne tension par ENEDIS » présentée comme un projet urbain).
+  // Remplacer une conduite n'est pas un aménagement du territoire.
+  const avantConcess = projects.length;
+  projects = projects.filter((p) => !CONCESSIONNAIRE_RE.test(`${p.title} ${p.description}`));
+  if (projects.length < avantConcess) {
+    console.log(`[demo-generate] interventions de concessionnaire écartées : ${avantConcess - projects.length}`);
   }
-  if (realigned) console.log(`[demo-generate] statuts réalignés sur la description : ${realigned}`);
 
   // Dédoublonnage après sélection : le modèle scinde parfois un même avis en
   // deux fiches (relevé : « Aménagements d'une rue-jardin ET végétalisation des
@@ -1646,59 +1871,114 @@ async function coreAi(send, step, state) {
   if (projects.length < beforeDedup) {
     console.log(`[demo-generate] doublons source+lieu écartés : ${beforeDedup - projects.length}`);
   }
-  console.log(`[demo-generate] ai2 -> ${projects.length} projets retenus (${beforeFilter} avant filtre source, ${candidates.length} candidats)`);
+  console.log(`[demo-generate] -> ${projects.length} projets retenus (${beforeFilter} avant filtre source)`);
 
   if (projects.length < 3) {
     send({ type: 'error', message: `Les sources publiques ne suffisent pas pour une carte fidèle de ${commune.nom} (${projects.length} projet(s) vérifié(s)). Avec vos documents, la carte complète se monte en quelques jours : parlons-en.` });
     return null;
   }
   step('ai2', 'done', 'Projets vérifiés', `${projects.length} projets attestés par les sources`);
-  send({ type: 'projects', items: projects.map((p) => ({ title: p.title, category_slug: p.category_slug, status: STATUS_LABELS[p.status] || '' })) });
+  send({ type: 'projects', items: projects.map((p) => ({ title: p.title, category_slug: p.category_slug })) });
 
   state.projects = projects;
   state.stats.words = words;
-  state.stats.candidates = candidates.length;
+  state.stats.candidates = beforeFilter;
 
-  // Extrait de source PAR PROJET, conservé pour la rédaction. Sans lui, le
-  // rédacteur ne recevait que titre + description et devait quand même
-  // produire « 2 à 4 puces concrètes » : il les inventait toutes (éclairage
-  // LED, zones ombragées, technologies de communication...). On garde donc la
-  // fenêtre de texte autour de la citation qui atteste le projet.
-  const byUrl = new Map();
-  for (const p of mairie.pages) byUrl.set(p.url, p.text);
+  /* FUSION MULTI-SOURCES.
+     Un projet n'appartient plus a une source unique : le meme chantier figure
+     souvent dans deux ou trois sources COMPLEMENTAIRES. L'avis de marche porte
+     l'adresse officielle et le maitre d'ouvrage mais une description
+     squelettique ; la page de la mairie porte le recit et les visuels mais
+     jamais d'adresse postale ; la presse porte le contexte et les dates.
+     On rassemble ici tout ce qui parle du projet, ce qui alimente d'un coup la
+     redaction (matiere reelle au lieu d'inventions), le geocodage (une adresse
+     recuperee d'une autre source) et l'attestation (plusieurs liens). */
+  const corpus = [];
+  for (const pg of mairie.pages) {
+    corpus.push({ url: pg.url, type: 'mairie', titre: pg.title || '', texte: pg.text || '' });
+  }
+  for (const d of mairie.pdfTextes || []) {
+    corpus.push({ url: d.url, type: 'document', titre: d.label || '', texte: d.texte || '' });
+  }
   for (const n of news) {
     // Google News sert une coquille sans le texte de l'article : le titre reste
     // alors la seule matiere reelle, et il est souvent explicite (« Projet de
-    // 43 logements sociaux : la Ville est contre »). Mieux vaut ce titre qu'un
-    // extrait vide qui laisserait le redacteur sans aucun appui.
-    const t = n.text || `Titre de presse : ${n.title}${n.source ? ` (${n.source}` : ''}${n.date ? `, ${n.date})` : n.source ? ')' : ''}`;
-    byUrl.set(n.link, t);
-    if (n.finalUrl) byUrl.set(n.finalUrl, t);
+    // 43 logements sociaux : la Ville est contre »).
+    const t = n.text || '';
+    corpus.push({
+      url: n.finalUrl || n.link,
+      type: 'presse',
+      titre: n.title || '',
+      texte: `Titre de presse : ${n.title}${n.source ? ` (${n.source}${n.date ? ', ' + n.date : ''})` : ''}. ${t}`.trim(),
+    });
   }
-  const boampByUrl = new Map(boamp.map((b) => [
-    b.link,
-    [
-      `Marché public de travaux. Objet : ${b.title}.`,
-      `Maître d'ouvrage : ${b.acheteur || 'non précisé'}.`,
-      `${b.nature || 'Avis'} paru le ${b.date} (date de parution de l'avis, ce n'est ni un début ni une fin de chantier).`,
-      b.lieu ? `Lieu d'exécution : ${b.lieu}.` : '',
-      b.description ? `Description officielle : ${b.description}` : '',
-      b.lots?.length ? `Lots : ${b.lots.join(' ; ')}.` : '',
-      b.themes ? `Thèmes : ${b.themes}.` : '',
-    ].filter(Boolean).join(' '),
-  ]));
+  for (const b of boamp) {
+    corpus.push({
+      url: b.link,
+      type: 'marche',
+      titre: b.title || '',
+      lieu: b.lieu || '',
+      texte: [
+        `Marché public de travaux. Objet : ${b.title}.`,
+        `Maître d'ouvrage : ${b.acheteur || 'non précisé'}.`,
+        `${b.nature || 'Avis'} paru le ${b.date} (date de parution de l'avis, ce n'est ni un début ni une fin de chantier).`,
+        b.lieu ? `Lieu d'exécution : ${b.lieu}.` : '',
+        b.description ? `Description officielle : ${b.description}` : '',
+        b.lots?.length ? `Lots : ${b.lots.join(' ; ')}.` : '',
+        b.themes ? `Thèmes : ${b.themes}.` : '',
+      ].filter(Boolean).join(' '),
+    });
+  }
+
+  let fusions = 0;
   for (const p of projects) {
-    const quote = candidates.find((c) => c.title === p.title)?.evidence_quote || '';
-    const full = byUrl.get(p.source_url) || boampByUrl.get(p.source_url) || '';
-    if (full) {
-      // Fenêtre centrée sur la citation quand on la retrouve, début sinon
-      const at = quote ? full.indexOf(quote.slice(0, 40)) : -1;
-      const from = at > 0 ? Math.max(0, at - 700) : 0;
-      p.source_excerpt = full.slice(from, from + SOURCE_EXCERPT_CHARS);
-    } else if (quote) {
-      p.source_excerpt = quote;
+    const mots = distinctiveWords(`${p.title} ${p.geo_query || ''} ${p.place || ''}`);
+    const quote = String(p.evidence_quote || '');
+
+    // La source citee par l'IA vient toujours en tete, les autres derriere,
+    // classees par nombre de mots distinctifs partages
+    const retenues = [];
+    for (const src of corpus) {
+      const estCitee = src.url === p.source_url;
+      const hay = unaccentLower(`${src.titre} ${src.texte}`);
+      const score = mots.filter((m) => hay.includes(m)).length;
+      // Deux mots distinctifs pour une source non citee : un seul est trop
+      // souvent fortuit (le nom d'une avenue passante citee ailleurs)
+      if (estCitee || score >= 2) retenues.push({ src, score: estCitee ? 99 : score });
+    }
+    retenues.sort((x, y) => y.score - x.score);
+    if (retenues.length > 1) fusions++;
+
+    // Extrait composite, borne, centre sur la citation quand on la retrouve
+    const morceaux = [];
+    let reste = SOURCE_EXCERPT_CHARS;
+    for (const { src } of retenues.slice(0, 3)) {
+      if (reste <= 0) break;
+      const at = quote ? src.texte.indexOf(quote.slice(0, 40)) : -1;
+      const from = at > 0 ? Math.max(0, at - 600) : 0;
+      const bout = src.texte.slice(from, from + Math.min(reste, 1200)).trim();
+      if (bout.length > 30) { morceaux.push(bout); reste -= bout.length; }
+    }
+    p.source_excerpt = morceaux.join('\n\n') || quote;
+    p.sources = retenues.slice(0, 3).map(({ src }) => ({ url: src.url, type: src.type }));
+
+    // Adresse recuperee d'une AUTRE source : c'est le gain principal de la
+    // fusion pour la carte. Seul un avis de marche porte une adresse officielle,
+    // et un projet trouve sur le site de la mairie n'en avait donc jamais.
+    if (!String(p.address || '').trim()) {
+      const avecLieu = retenues.find(({ src }) => src.type === 'marche' && src.lieu);
+      if (avecLieu) {
+        // On retire code postal et nom de commune, que le geocodeur ajoute deja
+        p.address = avecLieu.src.lieu
+          .replace(/\b\d{5}\b/g, ' ')
+          .replace(new RegExp(commune.nom.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), ' ')
+          .replace(/[-\s]+$/g, '')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
+      }
     }
   }
+  console.log(`[demo-generate] fusion multi-sources : ${fusions}/${projects.length} projets attestés par plusieurs sources`);
 
   // Le paquet de sources ne sert plus : on allège le brouillon. On garde
   // toutefois un index reduit des pages (titre, images, debut de texte) : la
@@ -1728,7 +2008,7 @@ async function coreGeo(send, step, state) {
   };
 
   step('geo', 'start', 'Localisation des projets', 'Emprises réelles OpenStreetMap, adresses officielles BAN');
-  const METHOD_LABELS = { emprise: 'emprise réelle trouvée', trace: 'tracé réel trouvé', adresse: 'adresse précise', centre: 'position approchée dans la commune' };
+  const METHOD_LABELS = { emprise: 'emprise réelle trouvée', trace: 'tracé réel trouvé', adresse: 'adresse précise', quartier: 'quartier identifié' };
   const hits = Array.from({ length: projects.length }, () => null);
   const queries = projects.map(locationQueries);
 
@@ -1766,26 +2046,72 @@ async function coreGeo(send, step, state) {
     for (const r of rescued) if (r) hits[r.i] = r.hit;
   }
 
+  /* Etage 3 : couche de quartiers. Beaucoup de projets ne designent pas une
+     adresse mais un secteur (« quartier de la Raude »). Les quartiers
+     statistiques IRIS de l'INSEE donnent une emprise reelle a cette maille,
+     acceptable pour situer un projet, la ou un point invente ne l'est pas. */
+  const sansPosition = projects.map((_, i) => i).filter((i) => !hits[i]);
+  if (sansPosition.length) {
+    const quartiers = await fetchIrisQuartiers(state.commune.code);
+    if (quartiers.length) {
+      let rattrapes = 0;
+      for (const i of sansPosition) {
+        const mots = distinctiveWords(`${projects[i].geo_query || ''} ${projects[i].place || ''} ${projects[i].title}`);
+        if (!mots.length) continue;
+        const q = quartiers.find((qt) => mots.some((m) => qt.cle.includes(m)));
+        if (q) { hits[i] = { geometry: q.geometry, method: 'quartier' }; rattrapes++; }
+      }
+      if (rattrapes) console.log(`[demo-generate] quartiers IRIS : ${rattrapes} projet(s) situe(s)`);
+    }
+  }
+
+  /* Etage 4, dernier recours : on redemande a l'IA. Elle a lu les sources et
+     sait souvent nommer un lieu geocodable que les champs structures n'ont pas
+     rendu. Un seul appel pour tous les projets restants. */
+  const restants = projects.map((_, i) => i).filter((i) => !hits[i]);
+  if (restants.length) {
+    const propositions = await askAiForPlaces(state.commune, restants.map((i) => projects[i]));
+    const aTester = restants
+      .map((i, k) => ({ i, lieu: propositions[k] }))
+      .filter((x) => x.lieu && x.lieu.length >= 3);
+    if (aTester.length) {
+      // BAN d'abord, en parallele et sans quota. Nominatim ensuite, en serie et
+      // au rythme impose, pour les lieux NOMMES (« quartier de la Plaine »,
+      // « Grande Vapeur ») que la BAN ne connait pas : elle n'indexe que des
+      // adresses, alors que l'IA propose souvent un toponyme.
+      const trouves = await inChunks(aTester, 8, async ({ i, lieu }) => {
+        const hit = await banGeocode(lieu, communeShim, bbox);
+        return hit ? { i, hit } : null;
+      });
+      let n = 0;
+      for (const r of trouves) if (r) { hits[r.i] = r.hit; n++; }
+
+      for (const { i, lieu } of aTester) {
+        if (hits[i]) continue;
+        const hit = await nominatimLookup(lieu, communeShim, bbox);
+        if (hit) { hits[i] = hit; n++; }
+        await sleep(1050);
+      }
+      console.log(`[demo-generate] recours IA : ${n}/${aTester.length} lieu(x) proposé(s) géocodé(s)`);
+    }
+  }
+
+  /* Les projets qu'on ne sait pas situer, meme a la maille du quartier, sont
+     RETIRES. Ils etaient auparavant poses a une position calculee autour du
+     centre-ville, indiscernable d'une vraie punaise : une carte qui invente
+     des emplacements devant un elu qui connait sa commune coute plus cher
+     qu'une carte moins fournie. */
   const located = [];
+  let abandonnes = 0;
   for (let i = 0; i < projects.length; i++) {
-    const center = { lng: communeShim.centre.coordinates[0], lat: communeShim.centre.coordinates[1] };
-    const loc = hits[i] || scatterInCommune(center, bbox, i);
+    const loc = hits[i];
+    if (!loc) { abandonnes++; continue; }
     const c = centroidOf(loc.geometry);
     // Plafond aussi au stockage : une emprise Nominatim géante retombe en point
     if (JSON.stringify(loc.geometry).length >= 15000) {
       loc.geometry = { type: 'Point', coordinates: [c.lng, c.lat] };
     }
     located.push({ ...projects[i], ...loc });
-    send({
-      type: 'geo-item',
-      title: projects[i].title,
-      method: loc.method,
-      label: METHOD_LABELS[loc.method],
-      category_slug: projects[i].category_slug,
-      lat: c.lat,
-      lng: c.lng,
-      geometry: (loc.method !== 'centre' && loc.geometry.type !== 'Point') ? loc.geometry : null,
-    });
   }
   /* Dedoublonnage APRES geocodage. La cle source+lieu ne voyait pas les
      doublons inter-sources : le meme parking de l'Horloge arrivait par la
@@ -1811,35 +2137,89 @@ async function coreGeo(send, step, state) {
     for (const i of [...doublons].sort((x, y) => y - x)) located.splice(i, 1);
   }
 
-  const precise = located.filter((p) => p.method !== 'centre').length;
-  console.log(`[demo-generate] geo ${state.commune.nom}: ${precise}/${located.length} localisés précisément`);
-  step('geo', 'done', 'Projets localisés', `${precise}/${located.length} emplacements précis`);
+  // Les punaises ne partent au navigateur qu'une fois la liste stabilisee :
+  // les envoyer avant le dedoublonnage faisait apparaitre pendant la generation
+  // des marqueurs absents de la carte finale.
+  for (const p of located) {
+    const c = centroidOf(p.geometry);
+    send({
+      type: 'geo-item',
+      title: p.title,
+      method: p.method,
+      label: METHOD_LABELS[p.method],
+      category_slug: p.category_slug,
+      lat: c.lat,
+      lng: c.lng,
+      geometry: p.geometry.type !== 'Point' ? p.geometry : null,
+    });
+  }
+
+  // Le plancher de 3 projets etait controle AVANT le geocodage. Depuis que les
+  // projets non localisables sont retires, la liste peut fondre ici : on
+  // recontrole, plutot que de livrer une carte a une ou deux punaises.
+  if (located.length < 3) {
+    send({ type: 'error', message: `Les sources publiques ne permettent pas de situer assez de projets à ${state.commune.nom} (${located.length} sur la carte). Avec vos documents, la carte complète se monte en quelques jours : parlons-en.` });
+    return null;
+  }
+
+  const exacts = located.filter((p) => p.method !== 'quartier').length;
+  console.log(`[demo-generate] geo ${state.commune.nom}: ${located.length} situés (${exacts} à l'adresse, ${located.length - exacts} au quartier), ${abandonnes} écarté(s) faute de localisation`);
+  step('geo', 'done', 'Projets localisés',
+    `${located.length} projet(s) situé(s)${abandonnes ? `, ${abandonnes} écarté(s) faute d'emplacement identifiable` : ''}`);
 
   state.located = located;
   state.projects = [];
   state.stats.verified = located.length;
-  state.stats.precise = precise;
+  state.stats.precise = exacts;
+  state.stats.abandonnes = abandonnes;
   return state;
 }
 
 // Phase ILLUSTRATIONS : candidats (sources + mairie + Commons) puis juge visuel
 async function coreMedia(send, step, state) {
   const { located } = state;
-  const mairieImages = state.mairie?.images || [];
-  console.log(`[demo-generate] media: ${located.length} projets, ${mairieImages.length} images mairie en pool`);
+  const pages = state.mairie?.pages || [];
+  console.log(`[demo-generate] media: ${located.length} projets, ${pages.length} page(s) mairie indexée(s)`);
   step('media', 'start', 'Recherche des illustrations des projets', 'Chaque image est choisie par l\'IA selon le sujet');
   // Concurrence 4 : a 6 appels vision simultanes, les connexions sortantes du
   // bac a sable de fonctions partaient en UND_ERR_CONNECT_TIMEOUT en rafale
   const images = await inChunks(located, 4, async (p) => {
     const c = centroidOf(p.geometry);
-    const candidates = await gatherImageCandidates(p, state.commune.nom, c.lat, c.lng, mairieImages, state.mairie?.pages || []);
-    const choix = await pickBestImageWithAI(p, state.commune.nom, candidates);
+    const candidates = await gatherImageCandidates(p, state.commune.nom, c.lat, c.lng, pages, true);
+    const choix = candidates.length ? await pickBestImageWithAI(p, state.commune.nom, candidates) : null;
     if (process.env.DEMO_DUMP) {
       const origines = candidates.map((x) => (/wikimedia|wikipedia/.test(x.url) ? 'commons' : 'site')).join(',');
       console.log(`[demo-media] "${p.title}" : ${candidates.length} candidats [${origines}] -> ${choix ? 'RETENU ' + choix.title : 'aucun'}`);
     }
     return choix;
   });
+
+  /* Repli thematique pour les projets restes sans visuel. Une seule recherche
+     Commons par THEME distinct, pas par projet : deux ecoles partagent la meme
+     requete. Aucune vision n'est appelee ici, la requete etant deja explicite
+     (« lycee France batiment ») et le credit annoncant l'image comme generique. */
+  const sansImage = located.map((p, i) => ({ p, i })).filter(({ i }) => !images[i]);
+  const parTheme = new Map();
+  for (const { p, i } of sansImage) {
+    const t = themeGenerique(p);
+    if (!t) continue;
+    if (!parTheme.has(t.requete)) parTheme.set(t.requete, { libelle: t.libelle, cibles: [] });
+    parTheme.get(t.requete).cibles.push(i);
+  }
+  if (parTheme.size) {
+    const themes = [...parTheme.entries()];
+    const resultats = await inChunks(themes, 4, async ([requete]) => commonsTextCandidates(requete));
+    themes.forEach(([, info], k) => {
+      const dispo = (resultats[k] || []).filter((c) => !VISION_UNSUPPORTED_RE.test(c.url));
+      // Une image differente par projet quand la recherche en offre plusieurs
+      info.cibles.forEach((idx, rang) => {
+        const c = dispo[rang % Math.max(dispo.length, 1)];
+        if (!c) return;
+        images[idx] = { ...c, credit: `Illustration générique (${info.libelle}) - ${c.credit}`, generique: true };
+      });
+    });
+    console.log(`[demo-generate] media: repli thématique appliqué sur ${themes.reduce((s, [, i2]) => s + i2.cibles.length, 0)} projet(s)`);
+  }
   let illustrated = 0;
   const usedCovers = new Set(); // pas deux fois la même image sur des fiches différentes
   // Les CMS servent la même photo sous plusieurs URL (vignettes de cache
@@ -1928,7 +2308,7 @@ async function runSources(send, step, insee, ipHash) {
           pdfs: s4.mairie?.pdfs?.map((p) => p.url),
           imagesCount: s4.mairie?.images?.length,
         },
-        stats: s4.stats,
+        stats: { ...s4.stats, tokens_in: _tokens.input, tokens_out: _tokens.output, appels_ia: _tokens.appels },
         located: s4.located,
         articles: s4.articles,
       }));
@@ -1961,7 +2341,23 @@ async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase
     send({ type: 'error', message: 'Analyse introuvable : relancez la génération.' });
     return;
   }
-  const state = await core(send, step, instance.payload);
+
+  /* Verrou de phase. Rien n'empechait deux appels concurrents sur la meme
+     ville d'executer la meme phase en parallele : le client rejoue sur
+     coupure, et chaque rejeu repayait l'IA. Le statut passe en transit AVANT
+     l'execution, ce qui fait echouer le controle `status !== expect` du second
+     appel. Le brouillon est conserve pour permettre une reprise. */
+  const enCours = `running-${nextStatus}`;
+  await updateInstance(ville, { status: enCours });
+
+  let state;
+  try {
+    state = cumulerTokens(await core(send, step, instance.payload));
+  } catch (e) {
+    // On rend la phase rejouable : sans cela l'instance resterait verrouillee
+    await updateInstance(ville, { status: expect });
+    throw e;
+  }
   if (!state) {
     await updateInstance(ville, { status: 'failed', payload: null });
     return;
@@ -2063,7 +2459,6 @@ async function runCreate(send, step, ville) {
     }
 
     createItem(`Fiche publiée : ${p.title}`);
-    const statusLabel = STATUS_LABELS[p.status] || '';
     return {
       ville,
       project_name: p.title,
@@ -2075,7 +2470,7 @@ async function runCreate(send, step, ville) {
       geojson_url: geojsonUrl,
       cover_url: coverUrls[i],
       markdown_url: markdownUrl,
-      tags: statusLabel ? [statusLabel] : null,
+      tags: null,
       approved: true,
     };
   });
@@ -2204,6 +2599,18 @@ export default async (req, context) => {
 
       console.log(`[demo-generate] >>> phase=${phase} cible=${villeParam || insee}`);
       try {
+        // Le plafond quotidien ne gardait que la premiere phase. Les cinq
+        // suivantes, qui portent l'essentiel du cout IA, etaient appelables sans
+        // aucune borne : il suffisait d'un `ville` valide pour les rejouer.
+        if (phase !== 'analyse') {
+          const global = await countToday(null, null);
+          if (global >= MAX_GLOBAL_PER_DAY * 2) {
+            send({ type: 'error', message: 'Le quota de démonstrations du jour est atteint. Contactez-nous pour une démo guidée.' });
+            clearInterval(heartbeat);
+            controller.close();
+            return;
+          }
+        }
         if (phase === 'ai') {
           await runAi(send, step, villeParam);
         } else if (phase === 'locate') {
@@ -2222,7 +2629,20 @@ export default async (req, context) => {
           //    verrou : une commune non terminée doit toujours être relançable)
           const already = await getInstance({ commune_insee: insee });
           const RESUME = { 'draft-sources': 'ai', 'draft-ai': 'locate', 'draft-locate': 'media', 'draft-media': 'redact', 'draft': 'create' };
+          // Une phase interrompue en plein vol laisse un statut de transit
+          // (verrou de runPhase). On la rejoue depuis son etat d'entree.
+          const REPRISE_TRANSIT = {
+            'running-draft-ai': ['draft-sources', 'ai'],
+            'running-draft-locate': ['draft-ai', 'locate'],
+            'running-draft-media': ['draft-locate', 'media'],
+            'running-draft': ['draft-media', 'redact'],
+          };
           const ageMin = already ? (Date.now() - new Date(already.created_at).getTime()) / 60000 : Infinity;
+          if (already && REPRISE_TRANSIT[already.status] && ageMin < 15) {
+            const [etat] = REPRISE_TRANSIT[already.status];
+            await updateInstance(already.ville, { status: etat });
+            already.status = etat;
+          }
 
           if (already?.status === 'ready') {
             step('resolve', 'done', 'Commune reconnue', already.commune_nom);

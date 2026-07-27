@@ -3,5 +3,13 @@
     "home/assets/**",
     "_home/assets/**",
     "node_modules/**"
+  ],
+  "overrides": [
+    {
+      "//": "Modules ES stricts, sans globales chargees par <script> : on peut y exiger que toute variable soit definie. Sans cette regle, supprimer une constante encore utilisee passe le lint et ne casse qu'a l'execution.",
+      "files": ["netlify/functions/**", "netlify/edge-functions/**"],
+      "env": { "node": true, "es2024": true },
+      "rules": { "no-undef": "error" }
+    }
   ]
 }

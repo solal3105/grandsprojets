@@ -2,14 +2,27 @@
 
 Écran plein format (« Tapez le nom de votre commune ») qui génère en direct
 l'espace Open Projets d'une commune à partir de sources publiques : site de la
-mairie (logo, couleur, pages projets, PDFs officiels), presse locale (Google
-News, articles lus en entier), marchés publics (BOAMP). Sélection par IA en
-deux passes avec citations obligatoires, localisation hybride (emprises
-réelles OSM/Nominatim, adresses BAN, repli centre commune), illustrations
-libres de droits (Wikimedia Commons, geosearch à l'emplacement du projet,
-crédit ajouté dans la fiche), article de présentation rédigé par fiche
-(mention d'auto-génération et source citée), dossiers PDF rattachés aux
-fiches (consultation_dossiers). Durée totale : 2 à 4 minutes par commune.
+mairie (logo, couleur, pages projets, texte des PDF officiels), presse locale
+(Google News), marchés publics de travaux (BOAMP, avis complet). Sélection par
+IA en une passe avec citation obligatoire, puis **fusion multi-sources** :
+chaque projet agrège toutes les sources qui le mentionnent, ce qui lui donne
+l'adresse officielle de l'avis de marché, le récit et les visuels de la page de
+la mairie, et le contexte de la presse. Durée : 2 à 4 minutes par commune.
+
+## Deux règles de fond
+
+**Aucune position inventée.** Un projet qu'on ne sait pas situer, au moins à la
+maille du quartier, est retiré de la carte. La localisation procède par étages :
+adresse postale (BAN), emprise ou tracé réels (Nominatim), quartier statistique
+IRIS, puis en dernier recours une requête IA qui propose un lieu géocodable.
+Une carte qui invente des emplacements devant un élu qui connaît sa commune
+coûte plus cher qu'une carte moins fournie.
+
+**Aucune affirmation hors source.** Le rédacteur ne reçoit que l'extrait des
+sources réellement collectées, avec consigne de préférer trois lignes exactes à
+quinze lignes plausibles. Une illustration n'est retenue que si elle provient du
+bloc de page consacré au projet ; à défaut, une photo générique du type
+d'ouvrage est proposée, explicitement créditée comme telle.
 
 ## URLs
 
@@ -31,13 +44,20 @@ fiches (consultation_dossiers). Durée totale : 2 à 4 minutes par commune.
   côté client en cas de coupure ; échec « sources insuffisantes » mémorisé
   en statut `failed` 7 jours (aucun re-coût IA)
 - Qualité : projet rejeté si sa source n'a pas été réellement collectée, si la
-  confiance est basse, ou s'il géocode hors du contour de la commune ;
-  moins de 3 projets vérifiés = message d'orientation vers un contact humain
+  confiance est basse, s'il géocode hors du contour de la commune, ou si aucun
+  emplacement n'est identifiable ; deux fiches dont les points sont à moins de
+  250 m et dont les titres partagent un mot distinctif sont fusionnées ;
+  moins de 3 projets situés = message d'orientation vers un contact humain
 - SEO : villes `essai-*` exclues du sitemap et du llms.txt, hubs et fiches en
   noindex
-- Modèle IA : `gpt-4o` (surchargable via la variable d'env `DEMO_OPENAI_MODEL`)
-- Coût IA : chaque appel journalise ses tokens (`[demo-tokens] <schéma> input= output= total=`).
-  Une génération complète coûte environ 60 000 tokens pour 12 projets
+- Modèle IA : `gpt-4o` (surchargable via `DEMO_OPENAI_MODEL`). Les appels de
+  vision ont leur propre variable `DEMO_OPENAI_VISION_MODEL`, qui pointe par
+  défaut sur le même modèle : **ne pas y mettre un modèle léger**, mesure faite
+  le juge d'image y passe de 953 à 13 565 tokens d'entrée par appel, ces
+  modèles facturant les images à un tarif de tokens bien plus élevé
+- Coût IA : chaque appel journalise ses tokens (`[demo-tokens] <schéma> input= output= total=`)
+  et le cumul remonte dans `stats.tokens_in` / `tokens_out`. Ordre de grandeur :
+  environ 3 500 tokens par projet publié
 
 ## Développer en local
 
