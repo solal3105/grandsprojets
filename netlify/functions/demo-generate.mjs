@@ -44,6 +44,9 @@ const MAX_PHASE_ATTEMPTS = 2; // au-dela, la phase est declaree en echec (anti-b
 // On garde donc un plafond modeste, mais sur les MEILLEURES pages : c'est le
 // classement des liens, pas leur nombre, qui apporte le gain.
 const MAIRIE_PAGES = 8;
+// Pages filles, tirees uniquement des sommaires de projets (voir le second
+// niveau de crawl dans inspectMairieSite)
+const MAIRIE_PAGES_ENFANTS = 10;
 const PAGE_TEXT_CHARS = 5000;
 // Extrait de source transmis au redacteur pour chaque projet : sans lui, les
 // puces "concretes" des articles etaient integralement inventees.
@@ -412,9 +415,10 @@ function collectImages(html, baseUrl, out, cap = 16) {
 }
 
 /* Collecte des pages projets du site de la mairie.
-   Deux niveaux : les pages repérées depuis l'accueil, puis les pages filles des
-   index (« Les grands projets » liste une page par projet). Les liens sont
-   classés par force du signal avant d'être plafonnés. */
+   Niveau 1 : les pages reperees depuis l'accueil, classees par force du signal.
+   Niveau 2 : les pages filles, mais UNIQUEMENT depuis une page qui ressemble a
+   un sommaire (fort signal, peu de texte). Declenche partout, ce second niveau
+   ne ramenait que de la navigation. */
 
 const PROJECT_LINK_RE = /(projet|travaux|urbanisme|amenagement|aménagement|chantier|grand[s-]?projet|cadre[ -]de[ -]vie|renovation|rénovation|equipement|équipement|construction|amenager|concertation|mobilit|logement|ecoquartier|écoquartier|zac)/i;
 
@@ -463,6 +467,34 @@ function collectProjectLinks(html, baseUrl, host, outLinks, known = []) {
   }
 }
 
+/* Decoupe une page en blocs {texte, images}. Un bloc = une operation sur une
+   page qui en liste plusieurs. Deux decoupages complementaires : par titres de
+   niveau 2 ou 3, et par conteneurs de carte les plus courants. Le but est
+   qu'une vignette ne puisse etre proposee que pour le projet a cote duquel elle
+   se trouve reellement. */
+function extractPageBlocks(html, baseUrl) {
+  const blocs = [];
+  const pousser = (fragment) => {
+    if (!fragment || fragment.length < 120) return;
+    const texte = stripHtml(fragment).slice(0, 700);
+    if (texte.length < 40) return;
+    const images = extractImageUrls(fragment, baseUrl, 3);
+    if (images.length) blocs.push({ texte, images });
+  };
+
+  // Decoupage par titres : le texte qui suit un <h2>/<h3> decrit ce titre
+  const parTitres = html.split(/(?=<h[23][\s>])/i);
+  if (parTitres.length > 2) for (const f of parTitres.slice(1, 40)) pousser(f);
+
+  // Decoupage par cartes : classes de conteneur les plus repandues
+  const carteRe = /<(article|li|div)[^>]*class=["'][^"']*(card|item-wrap|page-item|teaser|vignette|tuile|actu|projet)[^"']*["'][\s\S]{200,6000}?<\/\1>/gi;
+  let m;
+  let n = 0;
+  while ((m = carteRe.exec(html)) !== null && n < 40) { pousser(m[0]); n++; }
+
+  return blocs.slice(0, 40);
+}
+
 // Télécharge un lot de pages en parallèle et les verse dans `out`
 async function fetchPages(links, out, onFinding) {
   const fetched = await inChunks(links, 6, async (link) => {
@@ -482,7 +514,12 @@ async function fetchPages(links, out, onFinding) {
         url: sp.link.url,
         title: sp.link.label,
         text: sp.text,
-        images: extractImageUrls(sp.page.data, sp.page.url, 6),
+        images: extractImageUrls(sp.page.data, sp.page.url, 24),
+        // Une page « nos projets » juxtapose une carte par operation, chacune
+        // avec SA vignette. Associer les images a la page entiere donnait la
+        // photo d'un projet a son voisin (releve sur Vannes : 0 attribution
+        // correcte sur 5). On decoupe donc la page en blocs.
+        blocs: extractPageBlocks(sp.page.data, sp.page.url),
       });
       out.urls.push(sp.link.url);
       onFinding?.({ kind: 'page', title: sp.link.label, domain: out.host });
@@ -603,7 +640,27 @@ async function inspectMairieSite(siteUrl, onFinding) {
   // PREMIERS liens du HTML, donc surtout la navigation, en laissant de côté les
   // pages de fond. C'est le principal facteur limitant du nombre de projets.
   links.sort((a, b) => scoreProjectLink(b) - scoreProjectLink(a));
-  await fetchPages(links.slice(0, MAIRIE_PAGES), out, onFinding);
+  const seed = await fetchPages(links.slice(0, MAIRIE_PAGES), out, onFinding);
+
+  /* Second niveau, cible. Une page « Grands projets » n'est souvent qu'un
+     SOMMAIRE : sur Vannes elle liste 14 operations en 1 160 caracteres, chaque
+     page fille en portant 3 000 a 15 000. Sans ce niveau, on ne retenait que 5
+     des 14 projets et les articles manquaient de matiere.
+     Il est declenche seulement depuis une page a fort signal et peu de texte,
+     c'est-a-dire un index : le declencher partout ramenait surtout de la
+     navigation (mesure sur Tassin : trois fois plus lent, zero projet de plus). */
+  const index = seed
+    .filter(Boolean)
+    .filter((sp) => scoreProjectLink(sp.link) >= 45 && sp.text.length < 4000)
+    .slice(0, 2);
+  if (index.length) {
+    const enfants = [];
+    for (const sp of index) collectProjectLinks(sp.page.data, sp.page.url, finalUrl.host, enfants, links);
+    if (enfants.length) {
+      enfants.sort((a, b) => scoreProjectLink(b) - scoreProjectLink(a));
+      await fetchPages(enfants.slice(0, MAIRIE_PAGES_ENFANTS), out, onFinding);
+    }
+  }
   for (const pdf of out.pdfs.slice(0, 6)) {
     onFinding?.({ kind: 'pdf', title: pdf.label, domain: 'PDF officiel' });
   }
@@ -723,7 +780,7 @@ function boampDetails(donnees) {
   };
 }
 
-async function fetchBoamp(communeNom, onFinding) {
+async function fetchBoamp(communeNom, departementCode, onFinding) {
   try {
     const url = new URL('https://boamp-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/boamp/records');
     // Fenetre de recence : sans elle, limit=40 remontait jusqu'en 2018 et des
@@ -735,7 +792,15 @@ async function fetchBoamp(communeNom, onFinding) {
     // rattraper les marches de SERVICES qui annoncent un projet a son stade le
     // plus neuf (concours de maitrise d'oeuvre, mission OPC, etude). Les filtrer
     // en amont rendait invisibles les operations les PLUS recentes.
-    url.searchParams.set('where', `search(objet, "${communeNom.replace(/"/g, '')}") and dateparution > date'${cutoff}'`);
+    // Filtre departemental indispensable : le nom d'une commune est parfois un
+    // nom commun. « Vannes » remontait des marches de vannes de vidange du Var
+    // et du Gard, 13 avis hors sujet sur 25. Le departement les ecarte tous.
+    const dep = /^[0-9AB]{2,3}$/i.test(String(departementCode || '')) ? String(departementCode) : null;
+    url.searchParams.set('where', [
+      `search(objet, "${communeNom.replace(/"/g, '')}")`,
+      dep ? `code_departement like "${dep}"` : '',
+      `dateparution > date'${cutoff}'`,
+    ].filter(Boolean).join(' and '));
     url.searchParams.set('order_by', 'dateparution desc');
     url.searchParams.set('limit', '60');
     url.searchParams.set('select', 'objet,dateparution,url_avis,nature_libelle,nomacheteur,descripteur_libelle,type_marche,donnees');
@@ -1142,6 +1207,22 @@ async function nominatimLookup(q, commune, bbox) {
   return null;
 }
 
+// Distance approchee en metres entre deux points (suffisant a l'echelle d'une
+// commune, ou l'erreur de la projection plate est negligeable)
+function haversineM(a, b) {
+  const dLat = (b.lat - a.lat) * 111320;
+  const dLng = (b.lng - a.lng) * 111320 * Math.cos((a.lat * Math.PI) / 180);
+  return Math.sqrt(dLat * dLat + dLng * dLng);
+}
+
+// Mots d'un titre qui identifient reellement un projet (toponymes, noms
+// d'equipements), une fois retire le vocabulaire d'amenagement
+function distinctiveWords(titre) {
+  return [...new Set(
+    unaccentLower(titre).split(/[^a-z0-9]+/).filter((w) => w.length >= 5 && !GENERIC_PROJECT_WORDS.test(w))
+  )];
+}
+
 // Répartition de repli dans l'emprise RÉELLE de la commune (spirale d'angle
 // d'or) au lieu d'empiler les points sur le centre-ville
 function scatterInCommune(center, bbox, index) {
@@ -1184,7 +1265,10 @@ function locationQueries(project) {
 // La recherche texte de Commons remonte massivement des ouvrages numerises :
 // chercher « Lycee Lesage Vannes » y rend des bulletins archeologiques du XIXe
 // siecle. On exige donc une extension d'image et on ecarte les scans.
-const COMMONS_BLOCKLIST = /(blason|logo|coat[_ ]of[_ ]arms|carte|\bmap\b|\bplan\b|flag|drapeau|armoiries|diagram|bulletin|revue|histoire de|\(IA |archive\.org|manuscrit|gravure|estampe|\.svg|\.tif|\.pdf|\.djvu)/i;
+// « carte postale », « CPA » et les scans anciens s'ajoutent a la liste : une
+// carte postale de 1910 avec tramway hippomobile illustrait un amenagement
+// cyclable de 2025.
+const COMMONS_BLOCKLIST = /(blason|logo|coat[_ ]of[_ ]arms|carte postale|\bcpa\b|\bcarte\b|\bmap\b|\bplan\b|flag|drapeau|armoiries|diagram|bulletin|revue|histoire de|\(IA |archive\.org|manuscrit|gravure|estampe|lithographi|scann?[ée] par|18\d\d|19[0-4]\d|\.svg|\.tif|\.pdf|\.djvu)/i;
 const COMMONS_IMAGE_EXT = /\.(jpe?g|png|webp|gif)$/i;
 
 // Mappe une réponse Commons (query.pages) en candidats {url,title,credit},
@@ -1250,6 +1334,27 @@ function mairiePageImages(project, pages = []) {
       .split(/[^a-z0-9]+/).filter((w) => w.length >= 5 && !GENERIC_PROJECT_WORDS.test(w))
   )];
   if (!mots.length) return [];
+
+  // Priorite absolue au BLOC : sur une page qui liste plusieurs operations,
+  // seule la vignette du bloc decrivant CE projet est la bonne.
+  let meilleurBloc = null;
+  for (const page of pages) {
+    for (const bloc of page.blocs || []) {
+      const hay = unaccentLower(bloc.texte);
+      const score = mots.filter((m) => hay.includes(m)).length;
+      if (score >= 2 && (!meilleurBloc || score > meilleurBloc.score)) meilleurBloc = { page, bloc, score };
+    }
+  }
+  if (meilleurBloc) {
+    return meilleurBloc.bloc.images.map((url) => ({
+      url,
+      title: `Visuel du projet sur ${communeHost(meilleurBloc.page.url)}`,
+      credit: `Source : ${communeHost(meilleurBloc.page.url)}`,
+    }));
+  }
+
+  // A defaut, la page entiere : acceptable quand une page est consacree a un
+  // seul projet, ce qui est le cas des pages filles du second niveau de crawl
   let best = null;
   for (const page of pages) {
     if (!page.images?.length) continue;
@@ -1257,10 +1362,10 @@ function mairiePageImages(project, pages = []) {
     const score = mots.filter((m) => hay.includes(m)).length;
     if (score && (!best || score > best.score)) best = { page, score };
   }
-  // Au moins deux mots distinctifs en commun : un seul mot est trop souvent
-  // un hasard (le nom d'une rue passante cite dans une page sans rapport)
-  if (!best || best.score < 2) return [];
-  return best.page.images.map((url) => ({
+  // Au moins trois mots distinctifs : sur une page multi-projets, deux mots
+  // communs relevent trop souvent du hasard
+  if (!best || best.score < 3) return [];
+  return best.page.images.slice(0, 4).map((url) => ({
     url,
     title: `Visuel de la page « ${best.page.title} »`,
     credit: `Source : ${communeHost(best.page.url)}`,
@@ -1452,7 +1557,7 @@ async function coreSources(send, step, insee) {
       return n;
     })(),
     (async () => {
-      const b = await fetchBoamp(commune.nom, finding);
+      const b = await fetchBoamp(commune.nom, commune.departement?.code, finding);
       step('boamp', b.length ? 'done' : 'skip', 'Marchés publics', `${b.length} avis trouvé(s)`);
       return b;
     })(),
@@ -1600,8 +1705,14 @@ async function coreAi(send, step, state) {
   // phase illustrations, qui tourne plus tard, en a besoin pour rattacher une
   // photo de la mairie au bon projet.
   state.mairie.pages = mairie.pages
-    .filter((p) => p.images?.length)
-    .map((p) => ({ url: p.url, title: p.title, images: p.images.slice(0, 6), text: (p.text || '').slice(0, 1500) }));
+    .filter((p) => p.images?.length || p.blocs?.length)
+    .map((p) => ({
+      url: p.url,
+      title: p.title,
+      images: (p.images || []).slice(0, 8),
+      blocs: (p.blocs || []).slice(0, 25),
+      text: (p.text || '').slice(0, 1500),
+    }));
   state.news = [];
   return state;
 }
@@ -1676,6 +1787,30 @@ async function coreGeo(send, step, state) {
       geometry: (loc.method !== 'centre' && loc.geometry.type !== 'Point') ? loc.geometry : null,
     });
   }
+  /* Dedoublonnage APRES geocodage. La cle source+lieu ne voyait pas les
+     doublons inter-sources : le meme parking de l'Horloge arrivait par la
+     mairie et par un avis de marche, produisant deux punaises a 200 m avec des
+     statuts contradictoires (« Livre » et « En cours »). Ici on compare ce que
+     l'habitant voit : deux points proches dont les titres partagent un mot
+     distinctif designent le meme chantier. */
+  const doublons = new Set();
+  for (let i = 0; i < located.length; i++) {
+    if (doublons.has(i)) continue;
+    const a = centroidOf(located[i].geometry);
+    const motsA = distinctiveWords(located[i].title);
+    for (let j = i + 1; j < located.length; j++) {
+      if (doublons.has(j)) continue;
+      const b = centroidOf(located[j].geometry);
+      if (haversineM(a, b) > 250) continue;
+      const communs = distinctiveWords(located[j].title).filter((w) => motsA.includes(w));
+      if (communs.length) doublons.add(j);
+    }
+  }
+  if (doublons.size) {
+    console.log(`[demo-generate] doublons géographiques fusionnés : ${doublons.size}`);
+    for (const i of [...doublons].sort((x, y) => y - x)) located.splice(i, 1);
+  }
+
   const precise = located.filter((p) => p.method !== 'centre').length;
   console.log(`[demo-generate] geo ${state.commune.nom}: ${precise}/${located.length} localisés précisément`);
   step('geo', 'done', 'Projets localisés', `${precise}/${located.length} emplacements précis`);
