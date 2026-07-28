@@ -65,6 +65,13 @@ const MAIRIE_PAGES = 18;
 // niveau de crawl dans inspectMairieSite)
 const MAIRIE_PAGES_ENFANTS = 26;
 const PAGE_TEXT_CHARS = 5000;
+// Texte conserve AVANT le retrait du gabarit : il faut voir la page entiere
+// pour reconnaitre ce qui s'y repete d'une page a l'autre. La troncature a
+// PAGE_TEXT_CHARS n'intervient qu'ensuite, sur du contenu reel.
+// Mesure sur un panel de 18 communes : une page de mairie rend 5 000 a 7 000
+// caracteres de texte. 20 000 couvre tres largement, sans faire enfler le
+// calcul de gabarit, qui indexe des enchainements de mots page par page.
+const PAGE_TEXT_BRUT_CHARS = 20000;
 // Extrait de source transmis au redacteur pour chaque projet : sans lui, les
 // puces "concretes" des articles etaient integralement inventees.
 const SOURCE_EXCERPT_CHARS = 1800;
@@ -586,24 +593,78 @@ function scoreProjectLink(link) {
   return score;
 }
 
-// Extrait les liens internes évoquant un projet, en évitant les doublons avec
-// ce qui est déjà connu (`known`)
+/* Extrait les liens internes évoquant un projet, en évitant les doublons avec
+   ce qui est déjà connu (`known`).
+
+   Le libellé était borné à 120 caractères DANS LE MOTIF, ce qui ne tronquait
+   pas le libellé : cela faisait échouer le motif entier dès qu'un lien
+   contenait du balisage imbriqué (icône, span, image). Mesure sur le site de
+   Bourgoin-Jallieu : 108 liens sur 169 étaient perdus, dont la rubrique
+   « Les grands projets » qui regroupe TOUT le contenu utile de la commune.
+   La borne est désormais large et la troncature se fait après coup.
+   Les ancres sont acceptées et coupées : `page.html#section` désigne bien une
+   page, et l'ancien motif rejetait toute adresse en contenant une. */
 function collectProjectLinks(html, baseUrl, host, outLinks, known = []) {
-  const aRe = /<a[^>]+href=["']([^"'#]+)["'][^>]*>([\s\S]{0,120}?)<\/a>/gi;
+  const aRe = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]{0,3000}?)<\/a>/gi;
   let m;
   while ((m = aRe.exec(html)) !== null && outLinks.length < 90) {
-    const href = m[1];
+    const href = m[1].split('#')[0];
+    if (!href) continue;
     const label = stripHtml(m[2]);
     if (!PROJECT_LINK_RE.test(`${href} ${label}`)) continue;
     try {
       const abs = new URL(href, baseUrl);
       if (abs.host !== host) continue;
       if (/\.(pdf|jpe?g|png|gif|zip|docx?|xlsx?)$/i.test(abs.pathname)) continue;
+      abs.hash = '';
       const u = abs.toString();
       if (outLinks.some((l) => l.url === u) || known.some((l) => l.url === u)) continue;
       outLinks.push({ url: u, label: label.slice(0, 80) || abs.pathname });
     } catch { /* href invalide */ }
   }
+}
+
+/* ─── Retrait du gabarit du site (menus, bandeaux, pieds de page) ───────────
+
+   `stripHtml` ne retire que <nav> et <footer>. Les CMS de mairie construisent
+   massivement leurs menus en <div class="menu"> et <ul>, qui survivaient donc
+   au nettoyage. Comme le texte est ensuite coupe aux PREMIERS caracteres,
+   l'IA recevait surtout de la navigation. Mesure sur Bourgoin-Jallieu : les
+   900 premiers caracteres de la page « Travaux » etaient integralement du menu,
+   et la liste reelle des chantiers arrivait apres.
+
+   Methode deterministe, sans dependance et sans appel IA : un enchainement de
+   MOTS_GABARIT mots present sur la majorite des pages d'un meme site n'est pas
+   du contenu, c'est le gabarit. Mesure sur ce meme site : la page « Travaux »
+   passe de 5 159 caracteres de menu a 2 429 caracteres qui sont la vraie liste
+   des chantiers avec leurs dates. */
+const MOTS_GABARIT = 8;
+
+function retirerLeGabarit(textes) {
+  if (textes.length < 2) return textes;
+  const seuil = Math.max(2, Math.ceil(textes.length * 0.6));
+  const motsParPage = textes.map((t) => String(t || '').split(' '));
+  const compte = new Map();
+  for (const mots of motsParPage) {
+    const vus = new Set();
+    for (let i = 0; i + MOTS_GABARIT <= mots.length; i++) {
+      const cle = mots.slice(i, i + MOTS_GABARIT).join(' ');
+      if (vus.has(cle)) continue;
+      vus.add(cle);
+      compte.set(cle, (compte.get(cle) || 0) + 1);
+    }
+  }
+  return motsParPage.map((mots) => {
+    const aRetirer = new Uint8Array(mots.length);
+    for (let i = 0; i + MOTS_GABARIT <= mots.length; i++) {
+      const cle = mots.slice(i, i + MOTS_GABARIT).join(' ');
+      if ((compte.get(cle) || 0) >= seuil) aRetirer.fill(1, i, i + MOTS_GABARIT);
+    }
+    const net = mots.filter((_, i) => !aRetirer[i]).join(' ').replace(/\s+/g, ' ').trim();
+    // Garde-fou : si le retrait vide la page, c'est que le calcul s'est trompe
+    // (deux pages quasi identiques). On rend alors le texte d'origine.
+    return net.length >= 200 ? net : mots.join(' ');
+  });
 }
 
 /* Decoupe une page en blocs {texte, images}. Un bloc = une operation sur une
@@ -639,7 +700,9 @@ async function fetchPages(links, out, onFinding) {
   const fetched = await inChunks(links, 6, async (link) => {
     const page = await fetchCapped(link.url, { headers: UA }, 6000, 400000);
     if (!page) return null;
-    return { link, page, text: stripHtml(page.data).slice(0, PAGE_TEXT_CHARS) };
+    // Texte COMPLET a ce stade : la troncature n'intervient qu'apres le retrait
+    // du gabarit, sinon on couperait dans le menu et pas dans le contenu.
+    return { link, page, text: stripHtml(page.data).slice(0, PAGE_TEXT_BRUT_CHARS) };
   });
   for (const sp of fetched) {
     if (!sp) continue;
@@ -746,7 +809,9 @@ async function inspectMairieSite(siteUrl, onFinding) {
   out.host = finalUrl.host;
   out.urls.push(home.url);
   const html = home.data;
-  out.pages.push({ url: home.url, title: 'Accueil du site de la mairie', text: stripHtml(html).slice(0, 5000) });
+  // Texte complet ici aussi : le retrait du gabarit, en fin de collecte, a
+  // besoin de l'accueil pour reconnaitre le menu commun a tout le site.
+  out.pages.push({ url: home.url, title: 'Accueil du site de la mairie', text: stripHtml(html).slice(0, PAGE_TEXT_BRUT_CHARS) });
   collectPdfLinks(html, home.url, out.pdfs);
   collectImages(html, home.url, out.images);
 
@@ -796,28 +861,63 @@ async function inspectMairieSite(siteUrl, onFinding) {
   links.sort((a, b) => scoreProjectLink(b) - scoreProjectLink(a));
   const seed = await fetchPages(links.slice(0, MAIRIE_PAGES), out, onFinding);
 
-  /* Second niveau, cible. Une page « Grands projets » n'est souvent qu'un
-     SOMMAIRE : sur Vannes elle liste 14 operations en 1 160 caracteres, chaque
-     page fille en portant 3 000 a 15 000. Sans ce niveau, on ne retenait que 5
-     des 14 projets et les articles manquaient de matiere.
-     Il est declenche seulement depuis une page a fort signal et peu de texte,
-     c'est-a-dire un index : le declencher partout ramenait surtout de la
-     navigation (mesure sur Tassin : trois fois plus lent, zero projet de plus). */
-  /* Une metropole n'a pas UN sommaire de projets mais un par quartier
-     (bordeaux.fr expose « les projets du quartier X » pour huit quartiers).
-     S'arreter aux deux premiers, c'etait ne voir qu'un quart de la ville. */
-  const index = seed
-    .filter(Boolean)
-    .filter((sp) => scoreProjectLink(sp.link) >= 45 && sp.text.length < 4000)
-    .slice(0, 8);
-  if (index.length) {
+  /* Second niveau. Une page « Travaux » ou « Grands projets » n'est souvent
+     qu'un SOMMAIRE : sur Vannes elle liste 14 operations en 1 160 caracteres,
+     chaque page fille en portant 3 000 a 15 000. Sans ce niveau, on ne retenait
+     que 5 des 14 projets et les articles manquaient de matiere.
+
+     Le declencheur ne repose PLUS sur le score du libelle. Il exigeait 45
+     points, un seuil qu'une page nommee « Travaux » ne peut pas atteindre : le
+     bareme n'accorde 60 points qu'a « grands projets » et 40 a « ZAC » ou
+     « amenagement », la ou « travaux » n'en vaut que 20. Or c'est le nom le
+     PLUS COURANT pour la page qui recense les chantiers d'une commune. Mesure
+     sur Bourgoin-Jallieu : la page /travaux, qui liste 21 chantiers avec une
+     page par chantier, obtenait 23 points et n'etait donc jamais depliee.
+
+     Un sommaire se reconnait a ce qu'il EXPOSE : une page qui offre plusieurs
+     liens de projet encore inconnus en est un, quel que soit son titre. C'est
+     mesurable, et vrai sur tous les sites.
+
+     Les deux criteres se CUMULENT au lieu de se remplacer. Mesure sur un panel
+     de 18 communes : le seul critere du nombre d'enfants perdait Quincieux et
+     Hazebrouck, dont la page de projets n'expose qu'un ou deux liens mais porte
+     un titre explicite. Garder l'ancien score en second declencheur ne coute
+     rien et evite de reculer la ou ca marchait. */
+  const MIN_ENFANTS_POUR_SOMMAIRE = 3;
+  const sommaires = [];
+  for (const sp of seed.filter(Boolean)) {
+    const trouves = [];
+    collectProjectLinks(sp.page.data, sp.page.url, finalUrl.host, trouves, links);
+    if (trouves.length >= MIN_ENFANTS_POUR_SOMMAIRE || (trouves.length && scoreProjectLink(sp.link) >= 45)) {
+      sommaires.push({ sp, trouves });
+    }
+  }
+  if (sommaires.length) {
+    // Les sommaires les plus fournis d'abord, puis leurs enfants les mieux
+    // classes : une commune riche ne doit pas etre bornee par l'ordre du HTML.
+    sommaires.sort((a, b) => b.trouves.length - a.trouves.length);
     const enfants = [];
-    for (const sp of index) collectProjectLinks(sp.page.data, sp.page.url, finalUrl.host, enfants, links);
+    const vus = new Set(links.map((l) => l.url));
+    for (const { trouves } of sommaires) {
+      for (const l of trouves) {
+        if (vus.has(l.url)) continue;
+        vus.add(l.url);
+        enfants.push(l);
+      }
+    }
+    console.log(`[demo-generate] ${sommaires.length} sommaire(s) de projets, ${enfants.length} page(s) fille(s) reperee(s)`);
     if (enfants.length) {
       enfants.sort((a, b) => scoreProjectLink(b) - scoreProjectLink(a));
       await fetchPages(enfants.slice(0, MAIRIE_PAGES_ENFANTS), out, onFinding);
     }
   }
+
+  /* Retrait du gabarit, une fois TOUTES les pages du site collectees : il faut
+     plusieurs pages pour reconnaitre ce qui s'y repete. La troncature a la
+     taille transmise a l'IA n'intervient qu'ici, donc sur du contenu reel. */
+  const nets = retirerLeGabarit(out.pages.map((p) => p.text));
+  out.pages.forEach((p, i) => { p.text = (nets[i] || p.text).slice(0, PAGE_TEXT_CHARS); });
+
   for (const pdf of out.pdfs.slice(0, 6)) {
     onFinding?.({ kind: 'pdf', title: pdf.label, domain: 'PDF officiel' });
   }

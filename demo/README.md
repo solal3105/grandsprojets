@@ -138,6 +138,41 @@ Trois de ces appels ont remplacé des règles écrites en dur :
 serait du gaspillage : le classement des liens du site de la mairie, le
 nettoyage des menus de page, et l'extraction du texte des PDF.
 
+## Collecte sur le site de la commune
+
+**C'est la source la plus précieuse**, loin devant les marchés publics : elle
+seule raconte les projets. Trois défauts la bridaient, tous corrigés et mesurés
+sur un panel de 18 communes réelles.
+
+| | Avant | Après |
+|---|---|---|
+| Liens de projet repérés depuis l'accueil | 252 | **303** |
+| Pages filles atteintes au second niveau | 60 | **392** |
+| Part de menu retirée du texte envoyé à l'IA | 0 % | **jusqu'à 40 %** |
+
+1. **Extraction des liens.** Le libellé était borné à 120 caractères *dans le
+   motif*, ce qui faisait échouer le motif entier dès qu'un lien contenait du
+   balisage imbriqué. Sur Bourgoin-Jallieu, 108 liens sur 169 étaient perdus,
+   dont la rubrique « Les grands projets » qui regroupe tout le contenu utile.
+   Les adresses contenant une ancre étaient également rejetées en bloc.
+2. **Déclenchement du second niveau.** Il exigeait 45 points de score de
+   libellé. Le barème n'accorde 60 points qu'à « grands projets » et 40 à
+   « ZAC » : une page nommée « Travaux », le nom le plus courant pour la page
+   qui recense les chantiers, plafonne à 23 et n'était donc **jamais dépliée**.
+   Un sommaire se reconnaît désormais à ce qu'il expose : plusieurs liens de
+   projet encore inconnus. L'ancien score reste en second déclencheur, pour ne
+   pas reculer sur les communes où il fonctionnait.
+3. **Menus et bandeaux.** `stripHtml` ne retire que `<nav>` et `<footer>` ;
+   les CMS de mairie construisent leurs menus autrement. Comme le texte était
+   coupé aux premiers caractères, l'IA recevait surtout de la navigation. Un
+   enchaînement de 8 mots présent sur la majorité des pages d'un même site est
+   désormais retiré : déterministe, sans dépendance, sans appel IA. La
+   troncature n'intervient qu'après, donc sur du contenu réel.
+
+Limite connue : une commune dont l'accueil est rendu entièrement en JavaScript
+n'expose aucun lien dans son HTML (relevé sur Boulogne-Billancourt). Il faudrait
+un navigateur sans interface pour la lire, ce que la fonction ne fait pas.
+
 ## Développer en local
 
 `netlify dev` injecte dans les fonctions la **passerelle IA de Netlify**
