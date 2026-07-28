@@ -130,3 +130,16 @@
 # /sitemap.xml - routé directement par Netlify Functions v2 (config.path dans sitemap.mjs)
 # /llms.txt - idem (config.path dans llms-txt.mjs)
 # Pas de redirect nécessaire
+
+# ============================================
+# Écran de démo salon : jamais de feuille de style périmée
+# ============================================
+# Par défaut, les fichiers statiques sont servis avec max-age=86400 et
+# stale-while-revalidate=604800 : une correction de style met jusqu'à 24 h à
+# atteindre un navigateur, et jusqu'à 7 jours s'il se contente du périmé.
+# Sur un écran de salon déjà venu sur le site, cela garantit un affichage cassé
+# le jour J. Le trafic de cette page est négligeable, la fraîcheur prime.
+[[headers]]
+  for = "/demo/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
