@@ -169,9 +169,28 @@ sur un panel de 18 communes réelles.
    désormais retiré : déterministe, sans dépendance, sans appel IA. La
    troncature n'intervient qu'après, donc sur du contenu réel.
 
-Limite connue : une commune dont l'accueil est rendu entièrement en JavaScript
-n'expose aucun lien dans son HTML (relevé sur Boulogne-Billancourt). Il faudrait
-un navigateur sans interface pour la lire, ce que la fonction ne fait pas.
+### Limite connue : les sites protégés contre la lecture automatique
+
+Quelques sites de communes ne servent pas leur contenu à un client automatique.
+Ils renvoient une page de 220 octets qui déplace le navigateur par script vers
+une adresse à jeton en posant un cookie ; cette adresse répond `307` **avec un
+nouveau cookie** ; et la vraie page n'est rendue qu'à qui présente ce second
+cookie. Sans cookie du tout : `403 Attack detected`.
+
+Passer ce contrôle demanderait de reproduire le bocal à cookies d'un navigateur
+dans le seul but de franchir un garde-barrière que la collectivité a
+délibérément installé, et son `robots.txt` (le seul endroit où elle dirait ce
+qu'elle autorise) est lui-même derrière ce garde-barrière. **On ne le franchit
+donc pas.** On le détecte, on l'écrit dans les logs, on l'affiche à l'écran et
+on le consigne dans `demo_runs` : une carte maigre sur une grande commune
+s'explique alors d'un coup d'œil. Le recensement se poursuit sur la presse et
+les marchés publics.
+
+Mesure sur 160 communes (les 80 plus grandes, plus 80 moyennes tirées
+régulièrement entre 5 000 et 50 000 habitants) : **2 sites concernés**, Reims et
+Boulogne-Billancourt. Pour ces communes-là, le bon chemin est celui que la démo
+propose déjà en cas de sources insuffisantes : préparer la carte avec la
+collectivité, à partir de ses documents.
 
 ## Développer en local
 

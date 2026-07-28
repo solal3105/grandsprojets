@@ -15,7 +15,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
   <link href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" rel="stylesheet" />
-  <link rel="stylesheet" href="demo.css" />
+  <!-- ?v= : marque de version des fichiers de cet écran.
+       Les fichiers statiques du site sont servis avec 24 h de cache et jusqu'à
+       7 jours de contenu périmé toléré. Le HTML, lui, est toujours revalidé :
+       un navigateur récupérait donc la nouvelle page avec l'ANCIENNE feuille de
+       style, et l'écran s'affichait cassé. La règle d'en-têtes de netlify.toml
+       évite que cela se reproduise, mais seul un changement d'adresse déloge un
+       fichier déjà en cache. À INCRÉMENTER à chaque modification de demo.css,
+       demo.js ou map-fx.js. -->
+  <link rel="stylesheet" href="demo.css?v=2" />
 </head>
 <body>
   <!-- Scène WebGL : globe, plongée sur la commune, épingles (repli statique sans WebGL) -->
@@ -160,7 +168,7 @@
   </main>
 
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
-  <script src="map-fx.js"></script>
-  <script src="demo.js"></script>
+  <script src="map-fx.js?v=2"></script>
+  <script src="demo.js?v=2"></script>
 </body>
 </html>

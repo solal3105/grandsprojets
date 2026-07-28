@@ -509,6 +509,30 @@ function collectPdfLinks(html, baseUrl, out) {
   }
 }
 
+/* Page-tremplin d'une protection anti-robot.
+
+   Quelques sites de communes ne servent pas leur contenu : ils renvoient une
+   page minuscule qui deplace le navigateur par script vers une adresse a jeton,
+   en posant un cookie, puis exigent ce cookie - renouvele a chaque saut - pour
+   rendre la vraie page. Sans cookie : « 403 Attack detected ».
+
+   On NE FRANCHIT PAS ce controle. Il faudrait reproduire le bocal a cookies
+   d'un navigateur dans le seul but de passer un garde-barriere que la
+   collectivite a delibarement installe, et son robots.txt - le seul endroit ou
+   elle dirait ce qu'elle autorise - est lui-meme derriere ce garde-barriere.
+   Mesure sur 160 communes (80 plus grandes, 80 moyennes) : 2 sites concernes.
+
+   Ce qu'on fait, en revanche : le DIRE. Sans cela, la commune remonte une carte
+   maigre et personne ne sait pourquoi. */
+const TREMPLIN_RE = /(?:window\.)?location(?:\.href)?\s*=\s*['"][^'"]{1,300}['"]/i;
+
+function estPageTremplin(html) {
+  const h = String(html || '');
+  return h.length < 3000
+    && TREMPLIN_RE.test(h)
+    && !/<(article|main|nav|ul|section)\b/i.test(h);
+}
+
 // Detecte un texte qui est en fait du code : une page dont le corps utile n'a
 // pas ete recupere (coquille JavaScript, script tronque). Le ratio de symboles
 // de programmation est sans ambiguite face a de la prose francaise.
@@ -802,9 +826,19 @@ function findSiteLogo(html, baseUrl) {
 }
 
 async function inspectMairieSite(siteUrl, onFinding) {
-  const out = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [] };
+  const out = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [], bloque: false };
   const home = await fetchCapped(siteUrl, { headers: UA }, FETCH_TIMEOUT_MS, 500000);
   if (!home) return out;
+  /* Le site renvoie une page-tremplin au lieu de son contenu : inutile
+     d'insister, mais il faut le dire. Sans ce constat explicite, la commune
+     rendait une carte maigre et rien n'indiquait que sa source principale
+     n'avait jamais ete lisible. */
+  if (estPageTremplin(home.data)) {
+    out.host = new URL(home.url).host;
+    out.bloque = true;
+    console.warn(`[demo-generate] ${out.host} : lecture automatique bloquee (page-tremplin anti-robot), site de la commune ignore`);
+    return out;
+  }
   const finalUrl = new URL(home.url);
   out.host = finalUrl.host;
   out.urls.push(home.url);
@@ -2259,6 +2293,14 @@ async function coreSources(send, step, insee) {
       }
       const m = await inspectMairieSite(site, finding);
       m.position = position;
+      /* Site protege contre la lecture automatique : on le dit franchement,
+         plutot que de laisser croire a une commune sans projets. La generation
+         continue sur la presse et les marches publics. */
+      if (m.bloque) {
+        step('mairie', 'skip', 'Site officiel de la mairie',
+          `${m.host} bloque la lecture automatique · recensement poursuivi sur la presse et les marchés publics`);
+        return m;
+      }
       // Identité visuelle et lecture des PDF en parallèle : deux travaux
       // indépendants qui ne doivent pas s'additionner dans la durée de la phase
       const [identite, pdfsLus] = await Promise.all([
@@ -2301,7 +2343,7 @@ async function coreSources(send, step, insee) {
   }
 
   const sourcesCount = mairie.pages.length + news.length + (boamp.length ? 1 : 0);
-  console.log(`[demo-generate] sources ${commune.nom}: ${mairie.pages.length} pages mairie, ${news.length} articles, ${boamp.length} BOAMP, ${(mairie.images || []).length} images mairie, theme=${mairie.themeColor || 'aucun'}`);
+  console.log(`[demo-generate] sources ${commune.nom}: ${mairie.pages.length} pages mairie${mairie.bloque ? ' (SITE BLOQUE)' : ''}, ${news.length} articles, ${boamp.length} BOAMP, ${(mairie.images || []).length} images mairie, theme=${mairie.themeColor || 'aucun'}`);
   return {
     commune: {
       nom: commune.nom,
@@ -2317,7 +2359,10 @@ async function coreSources(send, step, insee) {
     mairie: { host: mairie.host, logoUrl: mairie.logoUrl, themeColor: mairie.themeColor, pdfs: mairie.pdfs, pdfTextes: mairie.pdfTextes || [], pages: mairie.pages, urls: mairie.urls, images: mairie.images },
     news,
     boamp,
-    stats: { sources: sourcesCount, news: news.length, boamp: boamp.length },
+    // `site_bloque` remonte jusqu'au journal : une carte maigre sur une grande
+    // commune s'explique alors d'un coup d'oeil, sans avoir a rejouer la
+    // generation pour comprendre.
+    stats: { sources: sourcesCount, news: news.length, boamp: boamp.length, site_bloque: Boolean(mairie.bloque) },
   };
 }
 
@@ -2926,6 +2971,8 @@ async function runSources(send, step, insee, ipHash, runState) {
       commune_nom: state.commune.nom,
       sources_count: state.stats?.sources ?? null,
       phase: 'sources',
+      // Trace durable : le site de la commune a-t-il pu etre lu ?
+      ...(state.stats?.site_bloque ? { error_message: 'site de la commune : lecture automatique bloquee' } : {}),
       tokens_in: state.stats?.tokens_in ?? 0,
       tokens_out: state.stats?.tokens_out ?? 0,
       ia_calls: state.stats?.appels_ia ?? 0,

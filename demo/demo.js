@@ -559,9 +559,12 @@
     $('btn-open').href = targetUrl;
     if (KIOSK) $('btn-open').target = '_blank';
     $('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=8&data=${encodeURIComponent(targetUrl)}`;
-    // Un espace déjà généré peut être refait : c'est le seul moyen de remontrer
-    // une commune après une amélioration du système, sans changer son lien.
-    $('btn-regen').hidden = !(msg.existing && currentCommune);
+    /* Toute commune de la démo est un espace d'ESSAI : elle doit pouvoir être
+       refaite depuis zéro à tout moment, pas seulement quand on retombe sur un
+       espace déjà généré. On remontre ainsi une commune après une amélioration
+       du système, et on rejoue une génération décevante devant le prospect,
+       sans changer le lien déjà envoyé. */
+    $('btn-regen').hidden = !currentCommune;
     resetLead();
 
     if (msg.stats) {
