@@ -17,6 +17,12 @@
   const URL_PARAMS = new URLSearchParams(window.location.search);
   const KIOSK = URL_PARAMS.get('kiosk') === '1';
   const KIOSK_KEY = URL_PARAMS.get('k') || '';
+  /* `regen=1` dans le lien demande de REFAIRE le recensement d'une commune déjà
+     générée. Le paramètre était documenté et lu par le serveur, mais la page ne
+     le transmettait jamais : le lien de relance n'avait aucun effet. Il ne vaut
+     que pour la PREMIÈRE génération de la session : taper ensuite une autre
+     commune ne doit pas la régénérer à l'insu du visiteur. */
+  let regenEnAttente = URL_PARAMS.get('regen') === '1';
   const kioskParam = KIOSK_KEY ? `&k=${encodeURIComponent(KIOSK_KEY)}` : '';
 
   let es = null;
@@ -27,6 +33,9 @@
   let typeTimer = null;
   let currentCommune = null;
   let startTime = 0;
+  // Dernier résultat livré : sert au formulaire d'adresse et à la relance
+  let lastDone = null;
+  let leadTimer = null;
 
   const hasFx = window.MapFX && window.MapFX.init();
 
@@ -366,6 +375,10 @@
     rejected[msg.kind] = msg.count;
     const bouts = [];
     if (rejected.position) bouts.push(`${rejected.position} projet${rejected.position > 1 ? 's' : ''} écarté${rejected.position > 1 ? 's' : ''}, emplacement non vérifiable`);
+    // Un doublon n'est PAS un emplacement non vérifiable : le projet était
+    // parfaitement situé, c'est la fiche qui faisait double emploi. Les
+    // confondre revenait à mentir à l'écran sur le motif du rejet.
+    if (rejected.doublon) bouts.push(`${rejected.doublon} fiche${rejected.doublon > 1 ? 's' : ''} fusionnée${rejected.doublon > 1 ? 's' : ''}, même chantier vu par deux sources`);
     if (rejected.photo) bouts.push(`${rejected.photo} fiche${rejected.photo > 1 ? 's' : ''} sans photo : aucune image du projet trouvée`);
     el.textContent = bouts.join('  ·  ');
     el.hidden = !bouts.length;
@@ -382,7 +395,24 @@
   /* ─── Génération (phases SSE enchaînées, reprise automatique) ─── */
 
   const MAX_RESUMES = 4;
+  /* Plafond DUR de reprises pour une génération, tous cycles confondus. Le
+     compteur par phase ci-dessous se recharge à chaque phase franchie, ce qui
+     est voulu pour une longue génération. Mais il rendait aussi possible une
+     boucle sans fin : une erreur relançait `phase=analyse`, le serveur
+     répondait par un événement `phase` de reprise, le compteur repartait à
+     zéro, et le cycle recommençait indéfiniment en repayant l'IA. Ce
+     second compteur, lui, n'est remis à zéro qu'au lancement d'une commune. */
+  const MAX_RESUMES_TOTAL = 12;
   let resumeAttempts = 0;
+  let resumeTotal = 0;
+  // Phase en cours, pour reprendre là où on en est plutôt que tout au début
+  let currentPhase = null;
+  let currentVille = null;
+  /* La reprise ciblée n'est tentée QU'UNE FOIS par phase. Si elle échoue, la
+     suivante repasse par la route d'analyse, seule capable de retrouver la
+     bonne phase depuis n'importe quel état et de débloquer un verrou resté en
+     place. Viser la phase en aveugle à chaque tentative supprimait ce filet. */
+  let repriseCibleeTentee = false;
 
   function openStream(url) {
     es = new EventSource(url);
@@ -398,7 +428,12 @@
       // chaque `step` permettait une boucle sans fin : une phase qui échoue
       // toujours après avoir émis ses premières étapes rechargeait son crédit
       // de reprises à chaque tentative.
-      if (msg.type === 'phase') resumeAttempts = 0;
+      if (msg.type === 'phase') {
+        resumeAttempts = 0;
+        currentPhase = msg.next;
+        currentVille = msg.ville;
+        repriseCibleeTentee = false;
+      }
       if (msg.type === 'step') onStep(msg);
       else if (msg.type === 'finding') onFinding(msg);
       else if (msg.type === 'ai-item') onAiItem(msg);
@@ -432,13 +467,22 @@
 
   function tryResume(debug) {
     if (debug) console.error('[demo-generate]', debug);
-    if (currentCommune && resumeAttempts < MAX_RESUMES) {
+    if (currentCommune && resumeAttempts < MAX_RESUMES && resumeTotal < MAX_RESUMES_TOTAL) {
       resumeAttempts++;
-      console.warn(`[demo] reprise automatique ${resumeAttempts}/${MAX_RESUMES} pour ${currentCommune.nom}`);
+      resumeTotal++;
+      console.warn(`[demo] reprise automatique ${resumeAttempts}/${MAX_RESUMES} (${resumeTotal}/${MAX_RESUMES_TOTAL} au total) pour ${currentCommune.nom}`);
       tick('fusee', 'Reconnexion...', `reprise automatique (${resumeAttempts}/${MAX_RESUMES})`);
       setTimeout(() => {
         if (!es && screens.progress.classList.contains('is-active')) {
-          openStream(`/api/demo-generate?commune=${encodeURIComponent(currentCommune.code)}${kioskParam}`);
+          /* Première tentative : viser directement la phase en cours, c'est le
+             chemin le plus court. Tentatives suivantes : repasser par la route
+             d'analyse, qui sait retrouver la bonne phase depuis n'importe quel
+             état et débloquer un verrou laissé par une invocation tuée. */
+          const cible = currentPhase && currentVille && !repriseCibleeTentee;
+          if (cible) repriseCibleeTentee = true;
+          openStream(cible
+            ? `/api/demo-generate?phase=${encodeURIComponent(currentPhase)}&ville=${encodeURIComponent(currentVille)}`
+            : `/api/demo-generate?commune=${encodeURIComponent(currentCommune.code)}${kioskParam}`);
         }
       }, 1800);
     } else {
@@ -446,10 +490,20 @@
     }
   }
 
-  function start(commune) {
+  // `regen` refait le recensement d'une commune déjà générée au lieu d'ouvrir
+  // l'espace existant. L'adresse de l'espace ne change pas.
+  function start(commune, { regen = false } = {}) {
+    const relance = regen || regenEnAttente;
+    regenEnAttente = false;
     currentCommune = commune;
     resumeAttempts = 0;
+    resumeTotal = 0;
+    currentPhase = null;
+    currentVille = null;
+    repriseCibleeTentee = false;
     startTime = Date.now();
+    lastDone = null;
+    resetLead();
     clearTimeout(debounceTimer);
     renderSuggestions([]);
     input.blur();
@@ -483,10 +537,11 @@
         .catch(() => { /* contour décoratif */ });
     }
 
-    openStream(`/api/demo-generate?commune=${encodeURIComponent(commune.code)}${kioskParam}`);
+    openStream(`/api/demo-generate?commune=${encodeURIComponent(commune.code)}${kioskParam}${relance ? '&regen=1' : ''}`);
   }
 
   function onDone(msg) {
+    lastDone = msg;
     const targetUrl = new URL(msg.url, window.location.origin).toString();
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     const elapsedTxt = elapsed >= 60 ? `${Math.floor(elapsed / 60)} min ${String(elapsed % 60).padStart(2, '0')} s` : `${elapsed} s`;
@@ -497,6 +552,10 @@
     $('btn-open').href = targetUrl;
     if (KIOSK) $('btn-open').target = '_blank';
     $('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=8&data=${encodeURIComponent(targetUrl)}`;
+    // Un espace déjà généré peut être refait : c'est le seul moyen de remontrer
+    // une commune après une amélioration du système, sans changer son lien.
+    $('btn-regen').hidden = !(msg.existing && currentCommune);
+    resetLead();
 
     if (msg.stats) {
       $('stat-sources').textContent = msg.stats.sources;
@@ -520,14 +579,66 @@
       .sort((a, b) => b.surface - a.surface)
       .slice(0, 3);
 
-    const terminer = () => { showFlyover(null); show('done'); };
+    /* Le compte à rebours n'est PAS lancé à la fin de la génération : rediriger
+       un visiteur pendant qu'il tape son adresse serait le meilleur moyen de
+       n'en récolter aucune. Il démarre quand l'étape adresse est tranchée
+       (envoyée ou passée), avec un filet de sécurité pour qu'un écran de salon
+       ne reste jamais bloqué sur une commune. Le filet part à l'affichage de
+       l'écran de fin, pas avant : le survol dure une quinzaine de secondes. */
+    startCountdown.cible = targetUrl;
+    const terminer = () => {
+      showFlyover(null);
+      show('done');
+      clearTimeout(leadTimer);
+      leadTimer = setTimeout(startCountdown, LEAD_TIMEOUT_MS);
+    };
     if (hasFx && phares.length && !msg.existing) {
       window.MapFX.tour(phares, showFlyover, terminer);
     } else {
       if (hasFx) window.MapFX.finale();
       terminer();
     }
+  }
 
+  /* ─── Récupération de l'adresse en fin de parcours ─── */
+
+  // Filet de sécurité : sans geste du visiteur, l'écran reprend son cycle.
+  const LEAD_TIMEOUT_MS = 45000;
+  const EMAIL_RE = /^[^\s@]+@[^\s@,;]+\.[a-z]{2,}$/i;
+
+  function resetLead() {
+    clearTimeout(leadTimer);
+    const form = $('lead-form');
+    if (!form) return;
+    form.hidden = false;
+    $('lead-email').value = '';
+    $('lead-email').disabled = false;
+    $('lead-submit').disabled = false;
+    $('lead-error').hidden = true;
+    $('lead-thanks').hidden = true;
+    $('countdown').textContent = '';
+  }
+
+  // Passe à la suite : le formulaire disparaît et le compte à rebours reprend
+  function closeLead(merci) {
+    clearTimeout(leadTimer);
+    const form = $('lead-form');
+    if (form) form.hidden = true;
+    $('lead-thanks').hidden = !merci;
+    startCountdown();
+  }
+
+  function startCountdown() {
+    clearTimeout(redirectTimer);
+    const targetUrl = startCountdown.cible;
+    if (!targetUrl) return;
+    /* Le formulaire disparaît AVANT que le compte à rebours ne s'affiche. Sinon
+       l'écran annonçait « Ouverture automatique dans 12 s » juste sous un champ
+       encore actif : le visiteur qui commençait à taper se faisait rediriger en
+       pleine saisie. Le filet de sécurité passe donc par le même chemin que le
+       bouton « Continuer sans laisser d'adresse ». */
+    const form = $('lead-form');
+    if (form && !form.hidden) form.hidden = true;
     if (KIOSK) {
       let remaining = 90;
       const tickDown = () => {
@@ -547,6 +658,58 @@
     }
   }
 
+  $('lead-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearTimeout(leadTimer);
+    // Un compte à rebours déjà parti ne doit pas emporter le visiteur pendant
+    // l'envoi de son adresse
+    clearTimeout(redirectTimer);
+    $('countdown').textContent = '';
+    const email = $('lead-email').value.trim();
+    if (!EMAIL_RE.test(email)) {
+      $('lead-error').textContent = 'Cette adresse ne semble pas valide.';
+      $('lead-error').hidden = false;
+      // Le filet repart : le visiteur peut aussi renoncer en ne faisant rien
+      leadTimer = setTimeout(startCountdown, LEAD_TIMEOUT_MS);
+      return;
+    }
+    $('lead-error').hidden = true;
+    $('lead-email').disabled = true;
+    $('lead-submit').disabled = true;
+    try {
+      await fetch('/api/demo-lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          ville: lastDone?.ville || '',
+          communeNom: lastDone?.communeNom || currentCommune?.nom || '',
+          communeInsee: lastDone?.communeInsee || currentCommune?.code || '',
+          projectsCount: lastDone?.projectsCount ?? null,
+          kiosk: KIOSK,
+        }),
+      });
+    } catch {
+      // Un enregistrement raté ne doit pas gâcher la fin de la démo : on
+      // remercie quand même, le visiteur a fait sa part.
+      console.warn('[demo] enregistrement de l\'adresse impossible');
+    }
+    closeLead(true);
+  });
+
+  $('lead-skip').addEventListener('click', () => closeLead(false));
+
+  /* Taper dans le champ suspend le filet ET annule un compte à rebours déjà
+     lancé : personne ne doit être redirigé en pleine saisie. Sans l'annulation
+     de `redirectTimer`, le visiteur qui revenait au champ après les 45 s se
+     faisait quand même emporter par la redirection en cours. */
+  $('lead-email').addEventListener('input', () => {
+    clearTimeout(leadTimer);
+    clearTimeout(redirectTimer);
+    $('countdown').textContent = '';
+    leadTimer = setTimeout(startCountdown, LEAD_TIMEOUT_MS);
+  });
+
   function onError(message, debug) {
     if (debug) console.error('[demo-generate]', debug);
     $('progress-error').textContent = message;
@@ -560,7 +723,12 @@
 
   function reset() {
     clearTimeout(redirectTimer);
+    clearTimeout(leadTimer);
     if (es) { es.close(); es = null; }
+    lastDone = null;
+    startCountdown.cible = null;
+    resetLead();
+    $('btn-regen').hidden = true;
     input.value = '';
     renderSuggestions([]);
     counters = {};
@@ -592,10 +760,22 @@
   $('btn-retry').addEventListener('click', reset);
   $('btn-again').addEventListener('click', reset);
 
+  // Refaire le recensement d'une commune déjà générée : l'adresse de l'espace
+  // ne change pas, ses fiches sont remplacées.
+  $('btn-regen').addEventListener('click', () => {
+    if (!currentCommune) return;
+    clearTimeout(redirectTimer);
+    clearTimeout(leadTimer);
+    start(currentCommune, { regen: true });
+  });
+
   /* ─── Lancement ─── */
 
+  // Meme motif que la fonction serveur : la lettre des codes corses est en
+  // DEUXIEME position (2A004), pas en troisieme.
+  const INSEE_RE = /^(?:\d{2}|2[AB])\d{3}$/i;
   const codeParam = URL_PARAMS.get('commune');
-  if (codeParam && /^\d{2}[0-9ABab]\d{2}$/.test(codeParam)) {
+  if (codeParam && INSEE_RE.test(codeParam)) {
     fetch(`https://geo.api.gouv.fr/communes/${codeParam.toUpperCase()}?fields=nom,code,population,centre`)
       .then((r) => (r.ok ? r.json() : null))
       .then((c) => {

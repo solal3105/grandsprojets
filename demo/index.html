@@ -111,8 +111,26 @@
           <div class="stat"><span class="stat__n" id="stat-illustrated">0</span><span class="stat__l">fiches illustrées</span></div>
         </div>
 
+        <!-- Récupération de l'adresse AVANT les boutons : c'est le seul moment
+             où le visiteur a la preuve sous les yeux. L'échappatoire existe et
+             reste discrète : personne ne doit se sentir retenu. -->
+        <form id="lead-form" class="lead">
+          <label class="lead__label" for="lead-email">Recevoir le lien de cette carte</label>
+          <div class="lead__row">
+            <input id="lead-email" class="lead__input" type="email" name="email"
+                   placeholder="prenom.nom@ville.fr" autocomplete="email"
+                   aria-label="Votre adresse e-mail" />
+            <button id="lead-submit" class="btn btn--primary" type="submit">Recevoir</button>
+          </div>
+          <p id="lead-error" class="lead__error" hidden></p>
+          <button id="lead-skip" class="lead__skip" type="button">Continuer sans laisser d'adresse</button>
+        </form>
+
+        <p id="lead-thanks" class="lead__thanks" hidden>Merci, nous vous envoyons le lien.</p>
+
         <div class="done__actions">
           <a id="btn-open" class="btn btn--primary" href="#">Découvrir l'espace</a>
+          <button id="btn-regen" class="btn btn--ghost" hidden>Refaire le recensement</button>
           <button id="btn-again" class="btn btn--ghost">Autre commune</button>
         </div>
         <div class="done__qr">

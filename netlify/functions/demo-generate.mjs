@@ -43,19 +43,27 @@ const OPENAI_MODEL = process.env.DEMO_OPENAI_MODEL || 'gpt-4o';
    pouvoir en changer sans toucher au code. */
 const OPENAI_VISION_MODEL = process.env.DEMO_OPENAI_VISION_MODEL || OPENAI_MODEL;
 
+// Code INSEE d'une commune : 5 caracteres. Metropole (69244), Corse (2A004,
+// 2B033), outre-mer (97411, 98801). La lettre corse est en 2e position.
+const INSEE_RE = /^(?:\d{2}|2[AB])\d{3}$/i;
+
 const VILLE_PREFIX = 'essai-';
 const MAX_PER_IP_PER_DAY = 15;
 const MAX_GLOBAL_PER_DAY = 80;
 const MAX_PHASE_ATTEMPTS = 2; // au-dela, la phase est declaree en echec (anti-boucle)
-// Profondeur de collecte sur le site de la mairie. Mesure faite sur Tassin :
-// passer de 5 a 24 pages triple la duree et le cout d'extraction pour ZERO
-// projet supplementaire (la profondeur 2 remoissonne surtout la navigation).
-// On garde donc un plafond modeste, mais sur les MEILLEURES pages : c'est le
-// classement des liens, pas leur nombre, qui apporte le gain.
-const MAIRIE_PAGES = 8;
+/* Profondeur de collecte sur le site de la mairie.
+   La mesure d'origine (« passer de 5 a 24 pages ne rend zero projet de plus »)
+   portait sur un crawl NON CLASSE, qui remoissonnait la navigation. Depuis que
+   les liens sont tries par force de signal, les pages supplementaires sont des
+   pages de fond, pas du menu.
+   Le plafond est desormais large, parce que le vrai probleme mesure etait
+   inverse : Bordeaux rendait 7 fiches et Montpellier 5, la ou une metropole a
+   des dizaines d'operations. Le cout IA, lui, ne suit pas : le paquet envoye au
+   modele reste borne par BUNDLE_MAX_CHARS, seule la duree reseau augmente. */
+const MAIRIE_PAGES = 18;
 // Pages filles, tirees uniquement des sommaires de projets (voir le second
 // niveau de crawl dans inspectMairieSite)
-const MAIRIE_PAGES_ENFANTS = 10;
+const MAIRIE_PAGES_ENFANTS = 26;
 const PAGE_TEXT_CHARS = 5000;
 // Extrait de source transmis au redacteur pour chaque projet : sans lui, les
 // puces "concretes" des articles etaient integralement inventees.
@@ -110,9 +118,14 @@ const FINAL_SCHEMA = {
   properties: {
     projects: {
       type: 'array',
-      // 12 plafonnait le rappel sur les communes bien dotees : l'audit a montre
-      // des projets reels ecartes faute de place, pas faute de preuve.
-      maxItems: 18,
+      /* Plus de plafond de fait. 12 puis 18 bridaient le rappel exactement la
+         ou le prospect est le plus gros : sur les 22 communes generees avant ce
+         changement, Bordeaux rendait 7 fiches et Montpellier 5. Ce n'est pas la
+         preuve qui manquait, c'est la place.
+         60 n'est plus un arbitrage produit mais une simple butee de securite
+         contre une reponse aberrante : aucune commune francaise n'a 60
+         operations attestees simultanement dans ses sources publiques. */
+      maxItems: 60,
       items: {
         type: 'object',
         additionalProperties: false,
@@ -156,14 +169,8 @@ const ARTICLES_SCHEMA = {
   required: ['articles'],
 };
 
-// Schémas des appels vision (courts)
-const HEX_COLOR_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  properties: { color: { type: 'string' } },
-  required: ['color'],
-};
-
+// Schémas des appels vision (courts). Le schéma du logo est défini avec son
+// appel, plus bas : il rend désormais le choix du logo ET sa couleur.
 const IMAGE_CHOICE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -426,7 +433,10 @@ function pdfExtractText(buffer, maxChars = PDF_TEXT_CHARS) {
     .replace(/\\(\d{1,3})/g, (_, o) => String.fromCharCode(parseInt(o, 8)))
     .replace(/\\([()\\])/g, '$1')
     .replace(/\\[nrt]/g, ' ')
-    .replace(/[ -]/g, ' ')
+    // Caracteres de controle, designes par leur categorie Unicode. Ecrits en
+    // clair dans une classe de caracteres, ils faisaient passer TOUT le fichier
+    // pour un binaire : grep et ripgrep n'y trouvaient plus rien.
+    .replace(/\p{Cc}/gu, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
   // Un PDF scanne rend surtout du bruit : on ne garde que du texte plausible
@@ -682,14 +692,24 @@ function findSiteLogo(html, baseUrl) {
     if (h && w && w / h > 6) score -= 20; // banniere etiree, pas un logo
     hits.push({ src, score });
   }
-  // Seuil : sous ce niveau, aucun candidat n'est meilleur que l'icone declaree
-  // du site (apple-touch-icon), qui est au moins la marque de la commune
+  /* Le scoring texte ne TRANCHE plus, il PRESELECTIONNE : il rend les meilleurs
+     candidats, et c'est un appel de vision qui choisit ensuite. Une liste de
+     mots relevés commune par commune (« active », « sportive », « magazine »)
+     ne peut structurellement pas voir qu'un logo est en version blanche, donc
+     invisible sur l'interface, ni qu'un fichier nommé « logo-ville-durable.png »
+     est le logo d'un label et pas celui de la commune. Un modèle qui REGARDE
+     l'image le voit. Le scoring reste indispensable en repli, car la vision
+     rejette les .svg, très fréquents sur les sites de mairie. */
   hits.sort((a, b) => b.score - a.score);
+  const retenus = [];
   for (const hit of hits) {
-    if (hit.score < 40) break;
-    try { return new URL(hit.src, baseUrl).toString(); } catch { /* url invalide */ }
+    if (hit.score < 40 || retenus.length >= 4) break;
+    try {
+      const abs = new URL(hit.src, baseUrl).toString();
+      if (!retenus.includes(abs)) retenus.push(abs);
+    } catch { /* url invalide */ }
   }
-  return null;
+  return retenus;
 }
 
 async function inspectMairieSite(siteUrl, onFinding) {
@@ -731,10 +751,15 @@ async function inspectMairieSite(siteUrl, onFinding) {
   }
   iconCandidates.sort((a, b) => b.score - a.score);
 
-  out.logoUrl = findSiteLogo(html, finalUrl)
-    || new URL(iconCandidates[0]?.href || '/favicon.ico', finalUrl).toString();
-  // Le finding logo est émis par coreSources, une fois la couleur résolue
-  // (meta theme-color, sinon couleur dominante du logo par vision IA)
+  const logoCandidats = findSiteLogo(html, finalUrl);
+  const icone = new URL(iconCandidates[0]?.href || '/favicon.ico', finalUrl).toString();
+  // L'icône du site ferme la liste : c'est le repli quand aucun logo n'est
+  // reconnaissable, et c'est au moins la marque de la commune.
+  if (!logoCandidats.includes(icone)) logoCandidats.push(icone);
+  out.logoCandidats = logoCandidats;
+  out.logoUrl = logoCandidats[0];
+  // Le finding logo est émis par coreSources, une fois que la vision a tranché
+  // entre les candidats et donné la couleur de la commune
 
   const links = [];
   collectProjectLinks(html, finalUrl, finalUrl.host, links);
@@ -752,10 +777,13 @@ async function inspectMairieSite(siteUrl, onFinding) {
      Il est declenche seulement depuis une page a fort signal et peu de texte,
      c'est-a-dire un index : le declencher partout ramenait surtout de la
      navigation (mesure sur Tassin : trois fois plus lent, zero projet de plus). */
+  /* Une metropole n'a pas UN sommaire de projets mais un par quartier
+     (bordeaux.fr expose « les projets du quartier X » pour huit quartiers).
+     S'arreter aux deux premiers, c'etait ne voir qu'un quart de la ville. */
   const index = seed
     .filter(Boolean)
     .filter((sp) => scoreProjectLink(sp.link) >= 45 && sp.text.length < 4000)
-    .slice(0, 2);
+    .slice(0, 8);
   if (index.length) {
     const enfants = [];
     for (const sp of index) collectProjectLinks(sp.page.data, sp.page.url, finalUrl.host, enfants, links);
@@ -831,14 +859,36 @@ const BOAMP_NOT_A_PROJECT = /entretien (et |courant|des|du )|r[eé]parations? co
 // de Montcelard, tous deux de juin 2026, disparaissaient).
 const BOAMP_SERVICE_DE_PROJET = /ma[iî]trise d['’ ]?o?euvre|\bmoe\b|concours|\bopc\b|ordonnancement|[ée]tude de faisabilit|programmation urbaine|assistance [àa] ma[iî]trise d['’ ]?ouvrage|\bamo\b/i;
 
-// Interventions de concessionnaires de reseau : elles ferment une rue mais ne
-// transforment pas le territoire, et n'ont rien a faire sur une carte de
-// projets urbains.
-const CONCESSIONNAIRE_RE = /\b(enedis|grdf|\bgrt\s?gaz\b|rte\b|orange|sfr|bouygues telecom|free\b|fibre optique|c[aâ]ble [eé]lectrique|ligne haute tension|moyenne tension|raccordement (?:au |du |des )?r[eé]seau|branchement)\b/i;
+/* Interventions de concessionnaires de reseau : elles ferment une rue mais ne
+   transforment pas le territoire, et n'ont rien a faire sur une carte de
+   projets urbains.
+
+   Deux motifs, pas un seul. Les marques dont le nom est aussi un nom de
+   commune ou un mot courant (Orange dans le Vaucluse, Free, RTE) ne peuvent
+   pas ecarter un projet a elles seules : « Construction d'une mediatheque a
+   Orange » etait rejete comme intervention de concessionnaire, et comme la
+   description cite presque toujours la commune, TOUS les projets d'Orange
+   tombaient. Ces marques ambigues exigent donc un mot de contexte reseau a
+   proximite. Les marques sans ambiguite gardent leur declenchement direct. */
+const CONCESSIONNAIRE_RE = /\b(enedis|grdf|grt\s?gaz|fibre optique|c[aâ]ble [eé]lectrique|ligne haute tension|moyenne tension|raccordement (?:au |du |des )?r[eé]seau|d[eé]voiement de r[eé]seaux?)\b/i;
+// Marques ambigues : il faut le mot de marque ET un mot de contexte reseau
+// dans la meme phrase (60 caracteres de part et d'autre).
+const CONCESSIONNAIRE_AMBIGU_RE = /\b(orange|sfr|bouygues telecom|free|rte)\b[\s\S]{0,60}\b(r[eé]seau|raccordement|fibre|c[aâ]ble|t[eé]l[eé]com|[eé]lectri|haute tension|antenne|op[eé]rateur)\b|\b(r[eé]seau|raccordement|fibre|c[aâ]ble|t[eé]l[eé]com|[eé]lectri|haute tension|antenne|op[eé]rateur)\b[\s\S]{0,60}\b(orange|sfr|bouygues telecom|free|rte)\b/i;
+
+/* Un projet est-il une intervention de concessionnaire ?
+   Le nom de la commune est retire du texte avant le test : sans cela, toute
+   commune homonyme d'un operateur voyait ses projets ecartes. */
+function estInterventionReseau(project, communeNom) {
+  let hay = `${project.title || ''} ${project.description || ''}`;
+  if (communeNom) {
+    hay = hay.replace(new RegExp(communeNom.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), ' ');
+  }
+  return CONCESSIONNAIRE_RE.test(hay) || CONCESSIONNAIRE_AMBIGU_RE.test(hay);
+}
 
 // Au-dela, un avis ne renseigne plus l'etat du chantier : il devient archive.
 const BOAMP_MAX_AGE_MONTHS = 36;
-const BOAMP_MAX_ROWS = 20;
+const BOAMP_MAX_ROWS = 45;
 
 /* Le BOAMP ne se resume pas a un intitule : le champ `donnees` porte l'avis
    complet. Trois formats coexistent selon l'anciennete (eForms europeen,
@@ -942,19 +992,92 @@ async function fetchBoamp(communeNom, departementCode, onFinding) {
       const score = /r[eé]sultat|attribution/i.test(x.nature) ? 2 : 1;
       if (!prev || score > prev.score) best.set(k, { ...x, score });
     }
-    // Plafond : la liste BOAMP est tres compacte (une ligne par avis) et
-    // saturait a elle seule le quota de candidats de l'IA, evincant la presse
-    // et les pages de la mairie (mesure : 17 fiches sur 18 issues du BOAMP,
-    // ZERO de la presse alors que 22 articles avaient ete lus).
-    const deduped = [...best.values()]
-      .sort((a, b) => (a.date < b.date ? 1 : -1))
-      .slice(0, BOAMP_MAX_ROWS);
+    /* Les interventions de concessionnaire sont ecartees DES MAINTENANT, pas
+       seulement a la sortie de l'IA : chaque ligne inutile consomme une place
+       dans le paquet et des tokens pour rien. */
+    let deduped = [...best.values()]
+      .filter((x) => !estInterventionReseau({ title: x.title, description: x.description }, communeNom))
+      .sort((a, b) => (a.date < b.date ? 1 : -1));
+
+    /* Plafond : la liste BOAMP est tres compacte (une ligne par avis) et
+       saturait a elle seule le quota de candidats de l'IA, evincant la presse
+       et les pages de la mairie (mesure : 17 fiches sur 18 issues du BOAMP,
+       ZERO de la presse alors que 22 articles avaient ete lus).
+       Le tri de selection etait la RECENCE PURE, ce qui evinçait une ZAC
+       majeure parue il y a quatorze mois derriere vingt refections de trottoir
+       recentes. Au-dela du plafond, un appel IA court trie par interet urbain,
+       en lisant la description officielle que le code extrayait deja sans
+       jamais s'en servir. En dessous du plafond, aucun appel : ce serait du
+       gaspillage pur. */
+    if (deduped.length > BOAMP_MAX_ROWS) {
+      deduped = await trierBoampParIa(deduped, communeNom);
+    }
+    deduped = deduped.slice(0, BOAMP_MAX_ROWS);
     rows.length = 0;
     rows.push(...deduped);
     rows.slice(0, 7).forEach((x) => onFinding?.({ kind: 'boamp', title: x.title.slice(0, 110), date: x.date }));
     return rows;
   } catch {
     return [];
+  }
+}
+
+/* Tri des avis de marches par interet urbain, quand ils sont trop nombreux.
+   Un seul appel court : environ 4 500 tokens en entree, 500 en sortie. Sa
+   latence est gratuite en temps reel, la branche BOAMP etant la plus rapide des
+   trois collectes et attendant deja les deux autres. */
+const BOAMP_TRI_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    avis: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          index: { type: 'integer' },
+          interet: {
+            type: 'integer',
+            description: '2 = opération d\'aménagement visible sur une carte (construction, réhabilitation lourde, requalification d\'espace public, ouvrage). 1 = travaux réels mais mineurs (réfection ponctuelle, mise aux normes). 0 = rien à montrer (entretien courant, marché à bons de commande, fournitures, prestation intellectuelle sans projet identifié).',
+          },
+        },
+        required: ['index', 'interet'],
+      },
+    },
+  },
+  required: ['avis'],
+};
+
+async function trierBoampParIa(rows, communeNom) {
+  try {
+    const system = `Tu tries des avis de marchés publics de la commune de ${communeNom} pour une carte des projets urbains. Pour chaque avis, dis s'il correspond à quelque chose qu'un habitant pourrait voir sur une carte.
+
+Fie-toi à la description officielle autant qu'à l'objet : un intitulé « Marché à bons de commande - voirie 2026 » dont la description décrit de l'entretien courant vaut 0, même s'il est récent. Une opération d'aménagement vaut 2 même si son avis est ancien.`;
+    const user = JSON.stringify(rows.map((x, i) => ({
+      index: i,
+      objet: x.title,
+      lieu: x.lieu || '',
+      description: (x.description || '').slice(0, 300),
+    })), null, 1);
+    const out = await openAIStructured(
+      [{ role: 'system', content: system }, { role: 'user', content: user }],
+      'tri_boamp', BOAMP_TRI_SCHEMA, 2200, 45000, 0.1
+    );
+    const scores = new Map((out.avis || []).map((a) => [a.index, Number(a.interet) || 0]));
+    const avant = rows.length;
+    // Interet decroissant, puis recence : a interet egal, l'avis recent gagne
+    const trie = rows
+      .map((x, i) => ({ x, i, interet: scores.has(i) ? scores.get(i) : 1 }))
+      .filter((r) => r.interet > 0)
+      .sort((a, b) => (b.interet - a.interet) || (a.x.date < b.x.date ? 1 : -1))
+      .map((r) => r.x);
+    console.log(`[demo-generate] tri BOAMP par l'IA : ${trie.length}/${avant} avis retenus`);
+    // Un tri qui vide tout est suspect : on garde alors l'ordre par recence
+    return trie.length >= 3 ? trie : rows;
+  } catch (e) {
+    console.warn('[demo-generate] tri BOAMP :', e?.message);
+    return rows;
   }
 }
 
@@ -991,6 +1114,16 @@ async function postOpenAI(body, timeoutMs = 120000, tries = 5) {
 // d'une generation se reconstitue en additionnant les cumuls remontes dans
 // stats, ce qui evite d'avoir a eplucher les logs pour chiffrer le cout.
 const _tokens = { input: 0, output: 0, appels: 0 };
+
+/* Remise a zero en tete de chaque invocation.
+   Ce compteur est de portee MODULE : sur un conteneur de fonction reutilise
+   (cas courant en rafale), il cumulait depuis le demarrage du conteneur, et
+   cumulerTokens reinjectait a chaque phase le total deja compte par les
+   precedentes. Le seul instrument de mesure du cout annoncait deux a quatre
+   fois la depense reelle. */
+function resetTokens() {
+  _tokens.input = 0; _tokens.output = 0; _tokens.appels = 0;
+}
 
 function logUsage(label, usage) {
   if (!usage) return;
@@ -1046,6 +1179,18 @@ async function readBody(r, idleMs = 30000) {
   return out;
 }
 
+/* Réponse coupée au plafond de sortie.
+   Distinguée d'une panne réseau, parce que le remède est l'inverse : rejouer à
+   l'identique retombe sur la même coupure et fait payer DEUX FOIS le plus gros
+   appel de la génération. Il faut relancer avec plus de place. Le cas devient
+   réel maintenant que le nombre de projets n'est plus plafonné. */
+class ReponseTronquee extends Error {
+  constructor(schemaName) {
+    super(`Réponse IA tronquée (${schemaName})`);
+    this.tronquee = true;
+  }
+}
+
 // Appel structuré non streamé : renvoie l'objet JSON validé (json_schema strict).
 // Température basse par défaut : taches de fidélité (extraction, jugement)
 async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs = 120000, temperature = 0.2, model = OPENAI_MODEL) {
@@ -1059,6 +1204,9 @@ async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs 
   if (!r.ok) throw new Error(`IA indisponible (${r.status})`);
   const data = JSON.parse(await readBody(r));
   logUsage(schemaName, data.usage);
+  if (data.status === 'incomplete' && data.incomplete_details?.reason === 'max_output_tokens') {
+    throw new ReponseTronquee(schemaName);
+  }
   const text = outputTextOf(data);
   if (!text) throw new Error('Réponse IA vide');
   return JSON.parse(text);
@@ -1085,6 +1233,7 @@ async function callOpenAIStreamed(system, user, schemaName, schema, maxTokens, o
   let buf = '';
   let full = '';
   let titlesSeen = 0;
+  let tronquee = false;
   const TITLE_RE = /"title"\s*:\s*"((?:[^"\\]|\\.)+)"/g;
   try {
     wd.arm();
@@ -1112,6 +1261,9 @@ async function callOpenAIStreamed(system, user, schemaName, schema, maxTokens, o
             full = ev.text;
           } else if (ev.type === 'response.completed') {
             logUsage(schemaName, ev.response?.usage);
+          } else if (ev.type === 'response.incomplete') {
+            logUsage(schemaName, ev.response?.usage);
+            if (ev.response?.incomplete_details?.reason === 'max_output_tokens') tronquee = true;
           }
         } catch { /* ligne partielle : suite au prochain chunk */ }
       }
@@ -1119,6 +1271,7 @@ async function callOpenAIStreamed(system, user, schemaName, schema, maxTokens, o
   } finally {
     wd.clear();
   }
+  if (tronquee) throw new ReponseTronquee(schemaName);
   if (!full) throw new Error('Réponse IA vide');
   return JSON.parse(full);
 }
@@ -1129,8 +1282,13 @@ async function callOpenAIResilient(system, user, schemaName, schema, maxTokens, 
   try {
     return await callOpenAIStreamed(system, user, schemaName, schema, maxTokens, onTitle, temperature);
   } catch (e) {
-    console.error('[demo-generate] repli IA non streamé après :', e.message);
-    return openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }], schemaName, schema, maxTokens, 120000, temperature);
+    /* Une coupure et une réponse tronquée demandent des remèdes OPPOSÉS. Sur
+       une coupure, rejouer à l'identique suffit. Sur une troncature, rejouer à
+       l'identique retombe sur la même limite et fait payer deux fois le plus
+       gros appel de la génération : il faut de la place en plus. */
+    const plafond = e?.tronquee ? Math.round(maxTokens * 1.6) : maxTokens;
+    console.error(`[demo-generate] repli IA non streamé après : ${e.message}${e?.tronquee ? ` (plafond de sortie relevé à ${plafond})` : ''}`);
+    return openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }], schemaName, schema, plafond, 120000, temperature);
   }
 }
 
@@ -1138,7 +1296,7 @@ async function callOpenAIResilient(system, user, schemaName, schema, maxTokens, 
 // de la collecte ferait grimper le cout d'extraction proportionnellement au
 // nombre de pages ; on borne donc, en servant d'abord les sources a plus fort
 // rendement (pages officielles, puis avis de marches, puis presse).
-const BUNDLE_MAX_CHARS = 120000;
+const BUNDLE_MAX_CHARS = 260000;
 
 /* Quotas par origine. Le paquet est plafonne globalement, mais un plafond
    unique laissait la liste des marches publics - tres compacte, une ligne par
@@ -1215,7 +1373,7 @@ function buildSourcesBundle({ mairie, news, boamp }) {
 async function extractProjects(commune, bundle, onTitle) {
   const system = `Tu es un rédacteur territorial exigeant. Tu dépouilles des sources publiques au sujet de la commune de ${commune.nom} et tu en tires la liste des projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES qui la concernent.
 
-Sois EXHAUSTIF : retiens chaque projet réel et distinct attesté par les sources, jusqu'à 18. Ne vise pas un chiffre rond, ne résume pas la liste, n'élague pas les projets modestes.
+Sois EXHAUSTIF : retiens CHAQUE projet réel et distinct attesté par les sources, sans aucune limite de nombre. Ne vise pas un chiffre rond, ne résume pas la liste, n'élague pas les projets modestes. Une métropole peut légitimement en compter plusieurs dizaines : une liste courte sur une grande ville est une erreur, pas une synthèse.
 
 Les sources sont de trois natures : pages officielles de la mairie, articles de presse, avis de marchés publics. Dépouille les TROIS avec la même attention. La liste de marchés publics est compacte et facile à moissonner, mais un projet raconté sur une page de la mairie ou dans un article de presse compte autant : ne remplis pas ta liste avec les seuls marchés publics.
 
@@ -1231,9 +1389,27 @@ Règles :
 - place : le lieu géocodable le plus précis mentionné (rue, quartier, équipement), chaîne vide sinon.
 - address : recopie l'adresse postale exacte du projet si elle figure dans les sources (numéro + rue, ou nom de rue seul). Pour un projet issu d'un marché public, le champ « Lieu d'exécution » de l'avis EST cette adresse : recopie-la en retirant le code postal et le nom de la commune. Ignore les mentions vagues du type « différents bâtiments de la commune », qui ne sont pas des adresses. Chaîne vide si rien n'est écrit. N'invente JAMAIS.
 - geo_query : la MEILLEURE requête pour localiser CE projet sur une carte OpenStreetMap dans la commune. Adresse précise si connue, sinon le nom EXACT de l'équipement, du quartier ou du lieu-dit, sans le mot "projet" ni de verbe (écris "Centre nautique Robert Sautin", pas "Rénovation du centre nautique"). Ne laisse JAMAIS ce champ vide.`;
+  /* Rappel des consignes APRES le corpus.
+     Les règles étaient toutes placées avant 260 000 caractères de sources, donc
+     très loin du point de génération, et le code contient la preuve qu'elles
+     lâchent : le filtre des concessionnaires en JavaScript existe parce que le
+     modèle retenait des interventions ENEDIS que la consigne lui interdit
+     explicitement. Le phénomène s'aggrave avec la taille du corpus, c'est-à-dire
+     précisément sur les métropoles, les prospects qui comptent. Environ 200
+     tokens, coût négligeable à l'échelle de cet appel. */
+  const rappel = `
+
+RAPPEL, maintenant que tu as lu les sources. Avant de répondre, vérifie chaque projet de ta liste :
+1. Est-ce un aménagement PHYSIQUE du territoire ? Un raccordement de réseau (électricité, gaz, fibre, télécoms), de l'entretien courant ou un achat de matériel n'en est pas un : retire-le.
+2. evidence_quote est-elle copiée MOT POUR MOT depuis la source citée ? Une phrase reformulée, résumée ou reconstituée n'est pas une citation : sans citation exacte, retire le projet.
+3. source_url figure-t-elle bien entre crochets dans les sources ci-dessus ?
+4. address : est-elle ÉCRITE dans les sources ? Si tu l'as déduite, devinée ou complétée, remplace-la par une chaîne vide.
+5. Deux entrées de ta liste désignent-elles vraiment deux chantiers DIFFÉRENTS ? Ne fusionne que ce qui est identique, et ne fusionne jamais deux équipements distincts d'un même quartier.
+6. Sois EXHAUSTIF : n'élague aucun projet réel et attesté pour faire court.`;
+
   // Résilient : le flux OpenAI revient parfois vide (aléa constaté) -> une
   // passe non streamée en secours plutôt que d'interrompre toute la démo
-  const out = await callOpenAIResilient(system, `SOURCES :\n\n${bundle}`, 'projets', FINAL_SCHEMA, 9000, onTitle);
+  const out = await callOpenAIResilient(system, `SOURCES :\n\n${bundle}${rappel}`, 'projets', FINAL_SCHEMA, 26000, onTitle);
   return out.projects || [];
 }
 
@@ -1283,25 +1459,67 @@ async function writeArticles(commune, projects, pdfs, onTitle) {
 // l'appel (png/jpeg/webp/gif uniquement acceptes)
 const VISION_UNSUPPORTED_RE = /\.(svg|avif|tiff?|ico|bmp|heic|heif)(\?|#|$)/i;
 
-// Couleur dominante du logo par vision IA : quand la mairie n'expose pas de
-// meta theme-color, l'espace prend quand même la couleur de la commune
-async function dominantColorFromLogo(logoUrl) {
-  if (!logoUrl || VISION_UNSUPPORTED_RE.test(logoUrl)) return null; // .ico/.svg : vision echouerait
+/* Logo de la commune ET sa couleur, en UN SEUL appel de vision.
+
+   Deux corrections en une. D'abord le choix du logo : le scoring texte ne peut
+   pas voir qu'une image est la version blanche du logo, destinee aux fonds
+   sombres et donc invisible sur l'interface claire de la carte ; un modele qui
+   regarde l'image le voit. Ensuite le cout : l'ancien appel couleur envoyait
+   une image SANS `detail: 'low'`, soit environ 1 100 tokens, alors que le meme
+   fichier documente 400 lignes plus loin que 85 tokens suffisent a juger une
+   image. Quatre candidats en detail bas coutent donc MOINS que l'ancien appel
+   a un seul candidat en pleine resolution.
+
+   Mesure a l'origine de ce changement : sur les 22 communes generees, 13
+   gardaient le vert Open Projets faute de couleur trouvee, et les 3 dont le
+   logo etait un .ico n'avaient meme pas droit a l'appel. */
+const LOGO_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    best_index: { type: 'integer', description: 'Index du vrai logo de la commune, -1 si aucune image ne l\'est' },
+    color: { type: 'string', description: 'Couleur de marque dominante du logo choisi, en #RRGGBB. Chaîne vide si le logo est uniquement blanc, noir ou gris.' },
+  },
+  required: ['best_index', 'color'],
+};
+
+async function choisirLogoEtCouleur(candidats) {
+  const usables = (candidats || []).filter((u) => u && !VISION_UNSUPPORTED_RE.test(u)).slice(0, 4);
+  if (!usables.length) return null;
   try {
-    const out = await openAIStructured([{
-      role: 'user',
-      content: [
-        { type: 'input_text', text: 'Donne la couleur dominante de ce logo en hexadécimal #RRGGBB, en ignorant blanc, noir et gris. Choisis la couleur de marque la plus saturée et identitaire.' },
-        { type: 'input_image', image_url: logoUrl },
-      ],
-    }], 'couleur_logo', HEX_COLOR_SCHEMA, 60, 25000, 0.2, OPENAI_VISION_MODEL);
-    const hex = out.color?.toLowerCase();
-    if (!/^#[0-9a-f]{6}$/.test(hex || '')) return null;
-    // Écarter le quasi blanc / quasi noir : inutilisable comme couleur primaire
-    const [rr, gg, bb] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-    if ((rr > 232 && gg > 232 && bb > 232) || (rr < 24 && gg < 24 && bb < 24)) return null;
-    return hex;
-  } catch {
+    const content = [{
+      type: 'input_text',
+      text: `Voici ${usables.length} image(s) numérotée(s) de 0 à ${usables.length - 1}, prises sur le site d'une mairie française.
+
+Choisis celle qui est le LOGO OFFICIEL DE LA COMMUNE (son nom, son blason ou sa marque). Écarte : les logos de labels et de partenaires (« Ville active et sportive », « Villes fleuries »), les couvertures de magazine municipal, les bandeaux, les pictogrammes d'interface.
+
+Écarte aussi toute version BLANCHE ou monochrome claire du logo : elle est faite pour un fond sombre et serait invisible sur une interface claire. Si la seule image disponible est blanche, choisis-la quand même mais rends une couleur vide.
+
+Réponds -1 si aucune de ces images n'est le logo de la commune.
+
+color : la couleur de marque la plus saturée et identitaire du logo choisi, en #RRGGBB, en ignorant le blanc, le noir et les gris. Chaîne vide s'il n'y en a pas.`,
+    }];
+    usables.forEach((url, i) => {
+      content.push({ type: 'input_text', text: `Image ${i}` });
+      // detail 'low' : 85 tokens par image au lieu d'environ 1 100
+      content.push({ type: 'input_image', image_url: url, detail: 'low' });
+    });
+    const out = await openAIStructured([{ role: 'user', content }], 'logo_commune', LOGO_SCHEMA, 80, 30000, 0.2, OPENAI_VISION_MODEL);
+
+    const idx = out.best_index;
+    const logoUrl = (typeof idx === 'number' && idx >= 0 && idx < usables.length) ? usables[idx] : null;
+
+    let hex = String(out.color || '').toLowerCase();
+    if (!/^#[0-9a-f]{6}$/.test(hex)) {
+      hex = null;
+    } else {
+      // Écarter le quasi blanc / quasi noir : inutilisable comme couleur primaire
+      const [rr, gg, bb] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      if ((rr > 232 && gg > 232 && bb > 232) || (rr < 24 && gg < 24 && bb < 24)) hex = null;
+    }
+    return { logoUrl, themeColor: hex };
+  } catch (e) {
+    console.warn('[demo-generate] choix du logo :', e?.message);
     return null;
   }
 }
@@ -1652,34 +1870,69 @@ async function gatherImageCandidates(project, communeNom, lat, lng, mairiePages 
    d'etre annoncee comme telle. Personne ne photographie la chaufferie d'un
    lycee, mais une chaufferie reste parlante. Le credit dit explicitement
    « illustration generique » pour ne jamais laisser croire a une photo du
-   projet lui-meme. */
-const THEMES_GENERIQUES = [
-  [/chaufferie|chauffage|[eé]nerg[eé]tique|chaudi[eè]re/i, 'chaufferie bois collective', 'une chaufferie'],
-  [/groupe scolaire|[eé]cole|maternelle|[eé]l[eé]mentaire/i, 'école primaire France bâtiment', 'une école'],
-  [/coll[eè]ge|lyc[eé]e/i, 'lycée France bâtiment', 'un établissement scolaire'],
-  [/cr[eè]che|multi[- ]accueil|petite enfance/i, 'crèche France bâtiment', 'une crèche'],
-  [/pont|passerelle|ouvrage d.art/i, 'pont routier France', 'un pont'],
-  [/piscine|centre nautique|bassin/i, 'piscine municipale France', 'une piscine municipale'],
-  [/gymnase|salle de sport|complexe sportif|stade/i, 'gymnase France', 'un équipement sportif'],
-  [/m[eé]diath[eè]que|biblioth[eè]que/i, 'médiathèque France bâtiment', 'une médiathèque'],
-  [/cimeti[eè]re/i, 'cimetière France allée', 'un cimetière'],
-  [/parking|stationnement/i, 'parking public France', 'un parking'],
-  [/cyclable|v[eé]lo|voie lyonnaise/i, 'piste cyclable France', 'une piste cyclable'],
-  [/assainissement|eaux us[eé]es|r[eé]seau d.eau/i, 'chantier canalisation rue France', 'un chantier de réseaux'],
-  [/march[eé]|halle/i, 'halle de marché France', 'une halle de marché'],
-  [/ehpad|maison de retraite|r[eé]sidence autonomie/i, 'EHPAD France bâtiment', 'un EHPAD'],
-  [/police|gendarmerie/i, 'poste de police municipale France', 'un poste de police'],
-  [/mairie|h[oô]tel de ville/i, 'hôtel de ville France', 'une mairie'],
-  [/logement|r[eé]sidence|habitat/i, 'immeuble logements neufs France', 'un programme de logements'],
-  [/parc|square|jardin|v[eé]g[eé]talisation/i, 'parc public France', 'un parc public'],
-];
+   projet lui-meme.
 
-function themeGenerique(project) {
-  const hay = `${project.title || ''} ${project.description || ''}`;
-  for (const [re, requete, libelle] of THEMES_GENERIQUES) {
-    if (re.test(hay)) return { requete, libelle };
+   Un SEUL appel IA remplace les 18 familles qui etaient ecrites en dur, et qui
+   avaient deux defauts. Couverture : giratoire, tribunal, caserne, theatre,
+   eglise, port, gare routiere, decheterie, skatepark, station d'epuration ne
+   correspondaient a aucune ligne, donc aucune image. Langue : les requetes
+   etaient en francais alors que Wikimedia Commons est indexe massivement en
+   anglais (« biomass boiler plant » rend infiniment plus que « chaufferie bois
+   collective »). Cout : environ 700 tokens en entree, un appel par generation. */
+const THEMES_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    themes: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          index: { type: 'integer', description: 'Index du projet dans la liste fournie' },
+          query_en: { type: 'string', description: 'Requête Wikimedia Commons EN ANGLAIS décrivant le TYPE d\'ouvrage, jamais le projet précis ni la commune. Exemples : "biomass boiler plant", "public swimming pool France", "roundabout France". Chaîne vide si le projet ne correspond à aucun type d\'ouvrage photographiable.' },
+          libelle_fr: { type: 'string', description: 'Le type d\'ouvrage en français, précédé de son article, pour le crédit affiché : "une chaufferie", "un giratoire", "une caserne de pompiers".' },
+        },
+        required: ['index', 'query_en', 'libelle_fr'],
+      },
+    },
+  },
+  required: ['themes'],
+};
+
+async function themesGeneriques(communeNom, projets) {
+  const vide = projets.map(() => null);
+  if (!projets.length) return vide;
+  try {
+    const system = `Pour chaque projet urbain de la commune de ${communeNom}, identifie le TYPE D'OUVRAGE qu'il produit, puis donne une requête de recherche photo EN ANGLAIS qui rendra des photos de ce type d'ouvrage sur Wikimedia Commons.
+
+Tu ne cherches PAS une photo du projet lui-même : elle n'existe pas. Tu cherches une photo d'un ouvrage du même type, qui servira d'illustration explicitement créditée comme générique.
+
+- query_en : en anglais, 2 à 5 mots, le type d'ouvrage seul. Jamais le nom du projet, jamais le nom de la commune, jamais un nom propre. Ajoute "France" seulement si l'architecture française change vraiment le résultat.
+- libelle_fr : le même type d'ouvrage en français avec son article, tel qu'il sera lu dans « Illustration générique (…) ».
+- Si le projet ne produit aucun ouvrage photographiable (une étude, une concertation, un plan), rends une chaîne vide pour query_en : mieux vaut aucune image qu'une image hors sujet.`;
+    const user = JSON.stringify(projets.map((p, i) => ({
+      index: i,
+      titre: p.title,
+      description: (p.description || '').slice(0, 200),
+    })), null, 1);
+    const out = await openAIStructured(
+      [{ role: 'system', content: system }, { role: 'user', content: user }],
+      'themes_illustration', THEMES_SCHEMA, 1400, 40000, 0.2
+    );
+    const parIndex = new Map();
+    for (const t of out.themes || []) {
+      const requete = String(t.query_en || '').trim();
+      if (requete) parIndex.set(t.index, { requete, libelle: String(t.libelle_fr || 'un ouvrage public').trim() });
+    }
+    return projets.map((_, i) => parIndex.get(i) || null);
+  } catch (e) {
+    // Aucun repli codé en dur : sans thème, la fiche reste sans photo, ce qui
+    // est le comportement honnête. Une table de 18 regex ne couvrait de toute
+    // façon qu'une partie des cas.
+    console.warn('[demo-generate] thèmes d\'illustration :', e?.message);
+    return vide;
   }
-  return null;
 }
 
 // L'IA REGARDE vraiment les photos et choisit celle qui illustre ce projet
@@ -1756,11 +2009,18 @@ async function updateInstance(ville, patch) {
   if (!r.ok) throw new Error(`Mise à jour demo_instances : ${r.status}`);
 }
 
+/* Compte le TRAVAIL du jour, pas les communes.
+   Le compteur portait sur `demo_instances`, dont la ligne est SUPPRIMÉE avant
+   d'être réinsérée à chaque redémarrage de zéro : relancer vingt fois la même
+   commune laissait le compteur à 1. Depuis qu'un bouton « Refaire le
+   recensement » existe à l'écran, c'était une porte ouverte. `demo_runs` est en
+   ajout seul : une ligne par tentative, donc une unité de quota par tentative,
+   qu'elle aboutisse ou non. */
 async function countToday(filterCol, filterVal) {
   const today = new Date().toISOString().slice(0, 10);
-  const url = new URL(`${SUPABASE_URL}/rest/v1/demo_instances`);
-  url.searchParams.set('select', 'ville');
-  url.searchParams.set('created_at', `gte.${today}`);
+  const url = new URL(`${SUPABASE_URL}/rest/v1/demo_runs`);
+  url.searchParams.set('select', 'id');
+  url.searchParams.set('started_at', `gte.${today}`);
   if (filterCol) url.searchParams.set(filterCol, `eq.${filterVal}`);
   const r = await fetchWithTimeout(url.toString(), {
     headers: { ...serviceHeaders(), Prefer: 'count=exact', Range: '0-0' },
@@ -1777,6 +2037,60 @@ async function getInstance(where) {
   if (!r.ok) return null;
   const rows = await r.json();
   return rows[0] || null;
+}
+
+/* ─── Journal des générations (demo_runs) ───────────────────────────────────
+
+   `demo_instances` porte l'ETAT COURANT d'une commune, et le chemin
+   « redémarrage de zéro » supprime sa ligne : seuls les succès survivaient.
+   Impossible, donc, de savoir combien de visiteurs se sont pris un mur, sur
+   quelle étape, ni combien de temps une démo prend réellement.
+
+   `demo_runs` est un journal en ajout seul : une ligne par tentative, ouverte
+   en `running`, close en `ready` ou `failed`. Une ligne restée `running` est
+   elle-même une information : le visiteur a fermé l'onglet en cours de route.
+
+   Règle : la télémétrie ne casse JAMAIS la démo. Tout est en try/catch, un
+   journal indisponible ne doit pas coûter une génération. */
+
+async function createRun(fields) {
+  try {
+    const rows = await insertRows('demo_runs', [fields], { returning: true });
+    return rows?.[0]?.id || null;
+  } catch (e) {
+    console.warn('[demo-generate] journal: ouverture impossible ::', e?.message);
+    return null;
+  }
+}
+
+async function patchRun(runId, patch) {
+  if (!runId) return;
+  try {
+    const r = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/demo_runs?id=eq.${encodeURIComponent(runId)}`, {
+      method: 'PATCH',
+      headers: serviceHeaders(),
+      body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() }),
+    });
+    if (!r.ok) console.warn(`[demo-generate] journal: mise à jour ${r.status}`);
+  } catch (e) {
+    console.warn('[demo-generate] journal: mise à jour impossible ::', e?.message);
+  }
+}
+
+// Clôture d'un run, en succès ou en échec. `startedAt` permet de calculer la
+// durée RÉELLE d'une génération, celle que personne ne mesurait : le
+// duration_ms de demo_instances ne couvrait que la dernière étape.
+async function closeRun(runId, status, { phase, error, projectsCount, startedAt } = {}) {
+  if (!runId) return;
+  const now = Date.now();
+  await patchRun(runId, {
+    status,
+    ...(phase ? { phase } : {}),
+    ...(error ? { error_message: String(error).slice(0, 500) } : {}),
+    ...(projectsCount != null ? { projects_count: projectsCount } : {}),
+    ended_at: new Date(now).toISOString(),
+    ...(startedAt ? { duration_ms: Math.max(0, now - startedAt) } : {}),
+  });
 }
 
 /* ─── Phase ANALYSE : recensement, IA, localisation, illustrations, articles ─── */
@@ -1815,11 +2129,16 @@ async function coreSources(send, step, insee) {
       const m = await inspectMairieSite(site, finding);
       // Identité visuelle et lecture des PDF en parallèle : deux travaux
       // indépendants qui ne doivent pas s'additionner dans la durée de la phase
-      const [couleur, pdfsLus] = await Promise.all([
-        !m.themeColor && m.logoUrl ? dominantColorFromLogo(m.logoUrl) : Promise.resolve(null),
+      const [identite, pdfsLus] = await Promise.all([
+        (m.logoCandidats || []).length ? choisirLogoEtCouleur(m.logoCandidats) : Promise.resolve(null),
         readMairiePdfs(m.pdfs || []),
       ]);
-      if (couleur) m.themeColor = couleur;
+      // La vision tranche entre les candidats du scoring texte, qui reste le
+      // repli quand elle échoue ou que tous les candidats sont des .svg.
+      if (identite?.logoUrl) m.logoUrl = identite.logoUrl;
+      // La meta theme-color du site prime : c'est la couleur que la commune a
+      // elle-même déclarée. La vision ne sert qu'à défaut.
+      if (!m.themeColor && identite?.themeColor) m.themeColor = identite.themeColor;
       m.pdfTextes = pdfsLus;
       if (m.host) finding({ kind: 'logo', title: m.host, iconUrl: m.logoUrl, color: m.themeColor });
       const bits = [];
@@ -1860,7 +2179,10 @@ async function coreSources(send, step, insee) {
       lng: commune.centre.coordinates[0],
     },
     bbox,
-    mairie: { host: mairie.host, logoUrl: mairie.logoUrl, themeColor: mairie.themeColor, pdfs: mairie.pdfs, pages: mairie.pages, urls: mairie.urls, images: mairie.images },
+    // pdfTextes VOYAGE : c'est le texte des PDF officiels, la seule source qui
+    // porte des dates de chantier. Il etait produit par readMairiePdfs puis
+    // perdu ici, donc jamais lu par l'IA alors qu'il etait deja paye.
+    mairie: { host: mairie.host, logoUrl: mairie.logoUrl, themeColor: mairie.themeColor, pdfs: mairie.pdfs, pdfTextes: mairie.pdfTextes || [], pages: mairie.pages, urls: mairie.urls, images: mairie.images },
     news,
     boamp,
     stats: { sources: sourcesCount, news: news.length, boamp: boamp.length },
@@ -1896,7 +2218,7 @@ async function coreAi(send, step, state) {
   // électrique moyenne tension par ENEDIS » présentée comme un projet urbain).
   // Remplacer une conduite n'est pas un aménagement du territoire.
   const avantConcess = projects.length;
-  projects = projects.filter((p) => !CONCESSIONNAIRE_RE.test(`${p.title} ${p.description}`));
+  projects = projects.filter((p) => !estInterventionReseau(p, commune.nom));
   if (projects.length < avantConcess) {
     console.log(`[demo-generate] interventions de concessionnaire écartées : ${avantConcess - projects.length}`);
   }
@@ -2042,11 +2364,55 @@ async function coreAi(send, step, state) {
       text: (p.text || '').slice(0, 1500),
     }));
   state.news = [];
+  // Le texte des PDF a fini son office (paquet + fusion) : il pese lourd dans
+  // le brouillon relu a chaque phase suivante. Les liens (mairie.pdfs) restent,
+  // eux servent encore au rattachement des dossiers en phase create.
+  state.mairie.pdfTextes = [];
+  state.boamp = [];
   return state;
 }
 
-// Phase LOCALISATION : localisation seule (Nominatim est lent, 1 req/s) - la
-// recherche d'illustrations, coûteuse en vision IA, part dans sa propre phase
+const METHOD_LABELS = {
+  emprise: 'emprise réelle trouvée',
+  trace: 'tracé réel trouvé',
+  adresse: 'adresse précise',
+  quartier: 'quartier identifié',
+};
+
+/* Deux fiches designent-elles le MEME chantier ?
+   L'ancien test « deux points a moins de 250 m qui partagent UN mot distinctif »
+   supprimait des projets reels : « Reamenagement de l'avenue Berthelot » et
+   « Residence Berthelot » a 200 m partagent « berthelot », et la residence
+   disparaissait sans un mot. On exige donc soit deux mots communs, soit un seul
+   mot mais a tres courte distance, ou le doute n'existe plus. */
+function memeChantier(a, b, distanceM) {
+  if (distanceM > 250) return false;
+  const communs = distinctiveWords(b.title).filter((w) => distinctiveWords(a.title).includes(w));
+  if (communs.length >= 2) return true;
+  return communs.length === 1 && distanceM < 80;
+}
+
+/* Phase LOCALISATION.
+
+   Elle est DECOUPEE EN TRANCHES : Nominatim impose un rythme d'une requete par
+   seconde, et depuis que le nombre de projets n'est plus plafonne, une commune
+   bien dotee demande plus de temps qu'une invocation ne peut en tenir. Chaque
+   invocation travaille pendant un budget borne puis rend la main ; le client
+   rappelle la meme phase, qui reprend a son curseur. Auparavant, le budget
+   epuise faisait simplement basculer TOUS les projets suivants en « non
+   localisable » (mesure sur Oyonnax : 15 punaises perdues sur 18).
+
+   Elle parle AU FIL DE L'EAU : chaque projet part a l'ecran des qu'il est
+   place. L'ancienne version n'emettait rien avant la fin du dedoublonnage,
+   soit une minute entiere pendant laquelle le bandeau restait fige devant le
+   prospect. Le dedoublonnage est desormais incremental, ce qui rend l'emission
+   immediate sans jamais afficher une punaise absente de la carte finale. */
+const PHASE_BUDGET_MS = 22000;
+const NOMINATIM_RATE_MS = 1050;
+// Filet anti-boucle : au-dela, on finalise avec ce qu'on a plutot que de
+// rappeler la phase indefiniment.
+const GEO_MAX_TOURS = 14;
+
 async function coreGeo(send, step, state) {
   const { projects, bbox } = state;
   const communeShim = {
@@ -2054,281 +2420,334 @@ async function coreGeo(send, step, state) {
     code: state.commune.code,
     centre: { coordinates: [state.commune.lng, state.commune.lat] },
   };
-
-  step('geo', 'start', 'Localisation des projets', 'Emprises réelles OpenStreetMap, adresses officielles BAN');
-  const METHOD_LABELS = { emprise: 'emprise réelle trouvée', trace: 'tracé réel trouvé', adresse: 'adresse précise', quartier: 'quartier identifié' };
-  const hits = Array.from({ length: projects.length }, () => null);
   const queries = projects.map(locationQueries);
 
-  /* Deux passes, parce qu'une seule boucle sequentielle ne tenait pas la
-     charge : a 18 projets et jusqu'a 4 requetes chacun au rythme impose par
-     Nominatim (1 req/s), le budget de 32 s s'epuisait des les premiers projets
-     et TOUS les suivants basculaient en position fabriquee (mesure sur
-     Oyonnax : 15 punaises inventees sur 18).
+  // Etat de la phase, serialisable : il voyage d'une tranche a l'autre
+  const geo = state.geo || (state.geo = {
+    etape: 'nominatim',
+    curseur: 0,
+    // Indices des projets a tenter a l'etape courante
+    aTester: projects.map((_, i) => i).filter((i) => queries[i].length),
+    // Indices encore sans position, tous etages confondus
+    reste: projects.map((_, i) => i),
+    lieuxIa: null,
+    fusionnes: 0,
+    tours: 0,
+  });
+  state.located = state.located || [];
+  geo.tours++;
 
-     Passe 1, Nominatim, sequentielle et bornee : seule source d'emprises et de
-     traces reels, donc on lui reserve le budget, mais UNE requete par projet.
-     Passe 2, BAN, en parallele : officielle, scopee sur la commune, sans quota,
-     donc elle rattrape tout le reste en une poignee de secondes. */
-  const NOMINATIM_BUDGET_MS = 30000;
-  const t0 = Date.now();
-  for (let i = 0; i < projects.length; i++) {
-    if (!queries[i].length) continue;
-    if (Date.now() - t0 > NOMINATIM_BUDGET_MS) break;
-    hits[i] = await nominatimLookup(queries[i][0], communeShim, bbox);
-    // Le rythme appartient a la boucle, pas a la fonction : place dans le
-    // lookup, il n'etait applique qu'en cas d'echec, et 18 succes d'affilee
-    // auraient viole la politique d'usage (1 requete/seconde).
-    await sleep(1050);
+  const premiereTranche = geo.tours === 1;
+  if (premiereTranche) {
+    step('geo', 'start', 'Localisation des projets', `${projects.length} projet(s) à situer, emprises réelles OpenStreetMap et adresses officielles BAN`);
+  } else {
+    step('geo', 'start', 'Localisation des projets', `${state.located.length} situé(s), ${geo.reste.length} en cours...`);
   }
 
-  const pending = projects.map((_, i) => i).filter((i) => !hits[i] && queries[i].length);
-  if (pending.length) {
-    const rescued = await inChunks(pending, 8, async (i) => {
-      for (const q of queries[i]) {
-        const hit = await banGeocode(q, communeShim, bbox);
-        if (hit) return { i, hit };
-      }
-      return null;
-    });
-    for (const r of rescued) if (r) hits[r.i] = r.hit;
-  }
-
-  /* Etage 3 : couche de quartiers. Beaucoup de projets ne designent pas une
-     adresse mais un secteur (« quartier de la Raude »). Les quartiers
-     statistiques IRIS de l'INSEE donnent une emprise reelle a cette maille,
-     acceptable pour situer un projet, la ou un point invente ne l'est pas. */
-  const sansPosition = projects.map((_, i) => i).filter((i) => !hits[i]);
-  if (sansPosition.length) {
-    const quartiers = await fetchIrisQuartiers(state.commune.code);
-    if (quartiers.length) {
-      let rattrapes = 0;
-      for (const i of sansPosition) {
-        const mots = distinctiveWords(`${projects[i].geo_query || ''} ${projects[i].place || ''} ${projects[i].title}`);
-        if (!mots.length) continue;
-        // Un IRIS trop vaste designe un secteur, pas un projet : on ne le pose
-        // pas sur la carte plutot que d'etaler une fiche sur un demi-quartier
-        const q = quartiers.find((qt) => mots.some((m) => qt.cle.includes(m)) && extentAcceptable(qt.geometry, bbox));
-        if (q) { hits[i] = { geometry: q.geometry, method: 'quartier' }; rattrapes++; }
-      }
-      if (rattrapes) console.log(`[demo-generate] quartiers IRIS : ${rattrapes} projet(s) situe(s)`);
-    }
-  }
-
-  /* Etage 4, dernier recours : on redemande a l'IA. Elle a lu les sources et
-     sait souvent nommer un lieu geocodable que les champs structures n'ont pas
-     rendu. Un seul appel pour tous les projets restants. */
-  const restants = projects.map((_, i) => i).filter((i) => !hits[i]);
-  if (restants.length) {
-    const propositions = await askAiForPlaces(state.commune, restants.map((i) => projects[i]));
-    const aTester = restants
-      .map((i, k) => ({ i, lieu: propositions[k] }))
-      .filter((x) => x.lieu && x.lieu.length >= 3);
-    if (aTester.length) {
-      // BAN d'abord, en parallele et sans quota. Nominatim ensuite, en serie et
-      // au rythme impose, pour les lieux NOMMES (« quartier de la Plaine »,
-      // « Grande Vapeur ») que la BAN ne connait pas : elle n'indexe que des
-      // adresses, alors que l'IA propose souvent un toponyme.
-      const trouves = await inChunks(aTester, 8, async ({ i, lieu }) => {
-        const hit = await banGeocode(lieu, communeShim, bbox);
-        return hit ? { i, hit } : null;
-      });
-      let n = 0;
-      for (const r of trouves) if (r) { hits[r.i] = r.hit; n++; }
-
-      for (const { i, lieu } of aTester) {
-        if (hits[i]) continue;
-        const hit = await nominatimLookup(lieu, communeShim, bbox);
-        if (hit) { hits[i] = hit; n++; }
-        await sleep(1050);
-      }
-      console.log(`[demo-generate] recours IA : ${n}/${aTester.length} lieu(x) proposé(s) géocodé(s)`);
-    }
-  }
-
-  /* Les projets qu'on ne sait pas situer, meme a la maille du quartier, sont
-     RETIRES. Ils etaient auparavant poses a une position calculee autour du
-     centre-ville, indiscernable d'une vraie punaise : une carte qui invente
-     des emplacements devant un elu qui connait sa commune coute plus cher
-     qu'une carte moins fournie. */
-  /* Deux projets ne peuvent pas occuper le MEME point. Cela arrivait des que
-     deux fiches partageaient une adresse vague ou le meme equipement : les
-     punaises se superposaient exactement, ce qui donne l'impression d'un bug
-     et masque un projet derriere l'autre. La seconde fiche est ecartee : on
-     prefere une carte plus courte a une carte qui ment sur les emplacements. */
-  const occupees = [];
-  const POSITION_MIN_M = 45;
-
-  const located = [];
-  let abandonnes = 0;
-  let superposes = 0;
-  for (let i = 0; i < projects.length; i++) {
-    const loc = hits[i];
-    if (!loc) { abandonnes++; continue; }
+  /* Accepte un projet localisé : dédoublonnage incrémental, puis émission
+     immédiate. Rend true si le projet a rejoint la carte. */
+  const accepter = (i, loc) => {
     const c = centroidOf(loc.geometry);
-    if (occupees.some((o) => haversineM(o, c) < POSITION_MIN_M)) {
-      superposes++;
-      abandonnes++;
-      continue;
-    }
-    occupees.push(c);
-    // Plafond aussi au stockage : une emprise Nominatim géante retombe en point
+    // Une emprise géante ne tient pas dans le brouillon relu à chaque tranche :
+    // elle retombe en point, comme avant, mais plus tôt.
     if (JSON.stringify(loc.geometry).length >= 15000) {
       loc.geometry = { type: 'Point', coordinates: [c.lng, c.lat] };
     }
-    located.push({ ...projects[i], ...loc });
-  }
-  /* Dedoublonnage APRES geocodage. La cle source+lieu ne voyait pas les
-     doublons inter-sources : le meme parking de l'Horloge arrivait par la
-     mairie et par un avis de marche, produisant deux punaises a 200 m avec des
-     statuts contradictoires (« Livre » et « En cours »). Ici on compare ce que
-     l'habitant voit : deux points proches dont les titres partagent un mot
-     distinctif designent le meme chantier. */
-  const doublons = new Set();
-  for (let i = 0; i < located.length; i++) {
-    if (doublons.has(i)) continue;
-    const a = centroidOf(located[i].geometry);
-    const motsA = distinctiveWords(located[i].title);
-    for (let j = i + 1; j < located.length; j++) {
-      if (doublons.has(j)) continue;
-      const b = centroidOf(located[j].geometry);
-      if (haversineM(a, b) > 250) continue;
-      const communs = distinctiveWords(located[j].title).filter((w) => motsA.includes(w));
-      if (communs.length) doublons.add(j);
-    }
-  }
-  if (doublons.size) {
-    console.log(`[demo-generate] doublons géographiques fusionnés : ${doublons.size}`);
-    for (const i of [...doublons].sort((x, y) => y - x)) located.splice(i, 1);
-  }
+    const projet = { ...projects[i], ...loc };
 
-  // Les punaises ne partent au navigateur qu'une fois la liste stabilisee :
-  // les envoyer avant le dedoublonnage faisait apparaitre pendant la generation
-  // des marqueurs absents de la carte finale.
-  for (const p of located) {
-    const c = centroidOf(p.geometry);
+    /* Une superposition exacte SANS parenté de titre, ce sont deux opérations
+       distinctes à la même adresse (deux bâtiments d'un même groupe scolaire,
+       par exemple). L'ancienne version supprimait la seconde ET la comptait
+       comme « emplacement non vérifiable » : c'était faux, elle était
+       parfaitement localisée. On les garde toutes les deux, le nombre de
+       projets n'est plus une denrée rare. Seul un vrai doublon est écarté. */
+    for (const deja of state.located) {
+      if (memeChantier(deja, projet, haversineM(centroidOf(deja.geometry), c))) {
+        geo.fusionnes++;
+        return false;
+      }
+    }
+
+    state.located.push(projet);
     send({
       type: 'geo-item',
-      title: p.title,
-      method: p.method,
-      label: METHOD_LABELS[p.method],
-      category_slug: p.category_slug,
+      title: projet.title,
+      method: projet.method,
+      label: METHOD_LABELS[projet.method],
+      category_slug: projet.category_slug,
       lat: c.lat,
       lng: c.lng,
-      geometry: p.geometry.type !== 'Point' ? p.geometry : null,
+      geometry: projet.geometry.type !== 'Point' ? projet.geometry : null,
       // La PREUVE : la phrase exacte relevée dans la source, et d'où elle vient.
-      // C'est ce qui distingue un recensement d'une génération de texte, et
-      // l'écran ne l'affichait pas alors qu'elle était déjà produite.
-      quote: String(p.evidence_quote || '').slice(0, 220),
-      media: hostOf(p.source_url) || '',
-      sources: (p.sources || []).map((s) => s.type),
+      quote: String(projet.evidence_quote || '').slice(0, 220),
+      media: hostOf(projet.source_url) || '',
+      sources: (projet.sources || []).map((s) => s.type),
     });
+    return true;
+  };
+
+  const retirerDuReste = (i) => {
+    const k = geo.reste.indexOf(i);
+    if (k >= 0) geo.reste.splice(k, 1);
+  };
+
+  const t0 = Date.now();
+  const budgetEpuise = () => Date.now() - t0 > PHASE_BUDGET_MS;
+
+  // Passe a l'etage suivant : on repart de ce qui n'a pas encore de position
+  const etapeSuivante = (nom) => {
+    geo.etape = nom;
+    geo.curseur = 0;
+    geo.aTester = geo.reste.slice();
+  };
+
+  while (geo.etape !== 'final' && !budgetEpuise() && geo.tours <= GEO_MAX_TOURS) {
+    /* Etage 1, Nominatim : seule source d'emprises et de traces reels, donc on
+       lui reserve le budget, mais UNE requete par projet et au rythme impose
+       par sa politique d'usage (1 requete/seconde). */
+    if (geo.etape === 'nominatim') {
+      if (geo.curseur >= geo.aTester.length) { etapeSuivante('ban'); continue; }
+      const i = geo.aTester[geo.curseur++];
+      if (!geo.reste.includes(i)) continue;
+      const hit = await nominatimLookup(queries[i][0], communeShim, bbox);
+      if (hit) { retirerDuReste(i); accepter(i, hit); }
+      // Le rythme appartient a la boucle, pas au lookup : place dans le lookup,
+      // il n'etait applique qu'en cas d'echec.
+      await sleep(NOMINATIM_RATE_MS);
+      continue;
+    }
+
+    /* Etage 2, BAN : officielle, scopee sur la commune, sans quota. Elle
+       rattrape tout le reste en une poignee de secondes, donc en parallele. */
+    if (geo.etape === 'ban') {
+      const lot = geo.aTester.slice(geo.curseur, geo.curseur + 8);
+      geo.curseur += lot.length;
+      if (!lot.length) { etapeSuivante('iris'); continue; }
+      const trouves = await inChunks(lot, 8, async (i) => {
+        for (const q of queries[i]) {
+          const hit = await banGeocode(q, communeShim, bbox);
+          if (hit) return { i, hit };
+        }
+        return null;
+      });
+      for (const r of trouves) {
+        if (r && geo.reste.includes(r.i)) { retirerDuReste(r.i); accepter(r.i, r.hit); }
+      }
+      continue;
+    }
+
+    /* Etage 3, quartiers IRIS de l'INSEE : beaucoup de projets ne designent pas
+       une adresse mais un secteur (« quartier de la Raude »). Cette couche
+       officielle donne une emprise REELLE a cette maille, la ou un point
+       invente ne serait pas acceptable. */
+    if (geo.etape === 'iris') {
+      const quartiers = geo.reste.length ? await fetchIrisQuartiers(state.commune.code) : [];
+      let rattrapes = 0;
+      for (const i of geo.reste.slice()) {
+        const mots = distinctiveWords(`${projects[i].geo_query || ''} ${projects[i].place || ''} ${projects[i].title}`);
+        if (!mots.length) continue;
+        // Un IRIS trop vaste designe un secteur, pas un projet
+        const q = quartiers.find((qt) => mots.some((m) => qt.cle.includes(m)) && extentAcceptable(qt.geometry, bbox));
+        if (q) { retirerDuReste(i); if (accepter(i, { geometry: q.geometry, method: 'quartier' })) rattrapes++; }
+      }
+      if (rattrapes) console.log(`[demo-generate] quartiers IRIS : ${rattrapes} projet(s) situe(s)`);
+      etapeSuivante('ia');
+      continue;
+    }
+
+    /* Etage 4, dernier recours : on redemande a l'IA. Elle a lu les sources et
+       sait souvent nommer un lieu geocodable que les champs structures n'ont
+       pas rendu. Un seul appel pour tous les projets restants. */
+    if (geo.etape === 'ia') {
+      if (!geo.lieuxIa) {
+        const restants = geo.reste.slice();
+        const propositions = restants.length ? await askAiForPlaces(state.commune, restants.map((i) => projects[i])) : [];
+        geo.lieuxIa = restants
+          .map((i, k) => ({ i, lieu: propositions[k] }))
+          .filter((x) => x.lieu && x.lieu.length >= 3);
+        // BAN d'abord, en parallele et sans quota
+        const trouves = await inChunks(geo.lieuxIa, 8, async ({ i, lieu }) => {
+          const hit = await banGeocode(lieu, communeShim, bbox);
+          return hit ? { i, hit } : null;
+        });
+        for (const r of trouves) {
+          if (r && geo.reste.includes(r.i)) { retirerDuReste(r.i); accepter(r.i, r.hit); }
+        }
+        geo.curseur = 0;
+        continue;
+      }
+      // Nominatim ensuite, en serie et au rythme impose, pour les lieux NOMMES
+      // (« quartier de la Plaine ») que la BAN n'indexe pas.
+      if (geo.curseur >= geo.lieuxIa.length) { geo.etape = 'final'; continue; }
+      const { i, lieu } = geo.lieuxIa[geo.curseur++];
+      if (!geo.reste.includes(i)) continue;
+      const hit = await nominatimLookup(lieu, communeShim, bbox);
+      if (hit) { retirerDuReste(i); accepter(i, hit); }
+      await sleep(NOMINATIM_RATE_MS);
+      continue;
+    }
   }
 
+  // Budget epuise mais travail inacheve : on rend la main, la tranche suivante
+  // reprend exactement ou celle-ci s'arrete.
+  if (geo.etape !== 'final' && geo.tours < GEO_MAX_TOURS) {
+    step('geo', 'done', 'Localisation en cours', `${state.located.length} projet(s) situé(s) jusqu'ici`);
+    state.__continue = true;
+    return state;
+  }
+  delete state.__continue;
+
+  /* Les projets qu'on ne sait pas situer, meme a la maille du quartier, sont
+     RETIRES. Ils etaient auparavant poses a une position calculee autour du
+     centre-ville, indiscernable d'une vraie punaise : une carte qui invente des
+     emplacements devant un elu qui connait sa commune coute plus cher qu'une
+     carte moins fournie. */
+  const located = state.located;
+  const abandonnes = geo.reste.length;
+
   // Le plancher de 3 projets etait controle AVANT le geocodage. Depuis que les
-  // projets non localisables sont retires, la liste peut fondre ici : on
-  // recontrole, plutot que de livrer une carte a une ou deux punaises.
+  // projets non localisables sont retires, la liste peut fondre ici.
   if (located.length < 3) {
     send({ type: 'error', message: `Les sources publiques ne permettent pas de situer assez de projets à ${state.commune.nom} (${located.length} sur la carte). Avec vos documents, la carte complète se monte en quelques jours : parlons-en.` });
     return null;
   }
 
   const exacts = located.filter((p) => p.method !== 'quartier').length;
-  console.log(`[demo-generate] geo ${state.commune.nom}: ${located.length} situés (${exacts} à l'adresse, ${located.length - exacts} au quartier), ${abandonnes} écarté(s) dont ${superposes} en doublon de position`);
+  console.log(`[demo-generate] geo ${state.commune.nom}: ${located.length} situés (${exacts} à l'adresse, ${located.length - exacts} au quartier), ${abandonnes} sans emplacement identifiable, ${geo.fusionnes} doublon(s) fusionné(s), ${geo.tours} tranche(s)`);
   step('geo', 'done', 'Projets localisés',
     `${located.length} projet(s) situé(s)${abandonnes ? `, ${abandonnes} écarté(s) faute d'emplacement identifiable` : ''}`);
-  // Ce qu'on REFUSE est aussi un argument : l'écran l'affiche comme un gage de
-  // rigueur, là où tout le monde ne montre que ce qu'il a trouvé.
+  /* Ce qu'on REFUSE est un argument, à condition de dire vrai. Les doublons
+     fusionnés ne sont PAS des « emplacements non vérifiables » : ils étaient
+     parfaitement localisés, c'est le projet qui faisait doublon. Les compter
+     ensemble revenait à mentir à l'écran sur le motif du rejet. */
   if (abandonnes) send({ type: 'rejected', kind: 'position', count: abandonnes });
+  if (geo.fusionnes) send({ type: 'rejected', kind: 'doublon', count: geo.fusionnes });
 
-  state.located = located;
   state.projects = [];
+  state.geo = null;
   state.stats.verified = located.length;
   state.stats.precise = exacts;
   state.stats.abandonnes = abandonnes;
+  state.stats.fusionnes = geo.fusionnes;
   return state;
 }
 
-// Phase ILLUSTRATIONS : candidats (sources + mairie + Commons) puis juge visuel
+/* Les CMS servent la même photo sous plusieurs URL (vignettes de cache
+   suffixées d'une empreinte : "web-parking-3d6e6237.png" et
+   "web-parking-450dc1de.png"). Comparer les URL brutes laissait passer des
+   doublons, et une photo de parking se retrouvait sur un projet de rue. */
+function coverKey(u) {
+  try {
+    const p = decodeURIComponent(new URL(u).pathname).toLowerCase();
+    const file = p.slice(p.lastIndexOf('/') + 1);
+    return file.replace(/-[0-9a-f]{6,}(?=\.[a-z0-9]+$)/, '').replace(/[\s_]+/g, '-');
+  } catch { return u; }
+}
+
+/* Phase ILLUSTRATIONS : candidats (sources + mairie + Commons) puis juge visuel.
+
+   Découpée en tranches et émettant au fil de l'eau, pour les mêmes raisons que
+   la localisation : un appel de vision par projet, quatre en parallèle, et un
+   nombre de projets désormais non plafonné. L'ancienne version n'envoyait rien
+   à l'écran avant d'avoir jugé TOUTES les images, soit un second silence de
+   près d'une minute juste après celui de la localisation. */
 async function coreMedia(send, step, state) {
-  const { located } = state;
+  const located = state.located;
   const pages = state.mairie?.pages || [];
-  console.log(`[demo-generate] media: ${located.length} projets, ${pages.length} page(s) mairie indexée(s)`);
-  step('media', 'start', 'Recherche des illustrations des projets', 'Chaque image est choisie par l\'IA selon le sujet');
+  const media = state.media || (state.media = { curseur: 0, illustrated: 0, used: [], tours: 0 });
+  media.tours++;
+
+  if (media.tours === 1) {
+    console.log(`[demo-generate] media: ${located.length} projets, ${pages.length} page(s) mairie indexée(s)`);
+    step('media', 'start', 'Recherche des illustrations des projets', 'Chaque image est choisie par l\'IA selon le sujet');
+  } else {
+    step('media', 'start', 'Recherche des illustrations', `${media.illustrated} trouvée(s), ${located.length - media.curseur} projet(s) restant(s)`);
+  }
+
+  const t0 = Date.now();
+  const used = new Set(media.used);
+
   // Concurrence 4 : a 6 appels vision simultanes, les connexions sortantes du
   // bac a sable de fonctions partaient en UND_ERR_CONNECT_TIMEOUT en rafale
-  const images = await inChunks(located, 4, async (p) => {
-    const c = centroidOf(p.geometry);
-    const candidates = await gatherImageCandidates(p, state.commune.nom, c.lat, c.lng, pages, true);
-    const choix = candidates.length ? await pickBestImageWithAI(p, state.commune.nom, candidates) : null;
-    if (process.env.DEMO_DUMP) {
-      const origines = candidates.map((x) => (/wikimedia|wikipedia/.test(x.url) ? 'commons' : 'site')).join(',');
-      console.log(`[demo-media] "${p.title}" : ${candidates.length} candidats [${origines}] -> ${choix ? 'RETENU ' + choix.title : 'aucun'}`);
+  while (media.curseur < located.length && Date.now() - t0 < PHASE_BUDGET_MS) {
+    const lot = [];
+    for (let k = 0; k < 4 && media.curseur < located.length; k++) lot.push(media.curseur++);
+    const choix = await inChunks(lot, 4, async (i) => {
+      const p = located[i];
+      const c = centroidOf(p.geometry);
+      const candidates = await gatherImageCandidates(p, state.commune.nom, c.lat, c.lng, pages, true);
+      const img = candidates.length ? await pickBestImageWithAI(p, state.commune.nom, candidates) : null;
+      if (process.env.DEMO_DUMP) {
+        const origines = candidates.map((x) => (/wikimedia|wikipedia/.test(x.url) ? 'commons' : 'site')).join(',');
+        console.log(`[demo-media] "${p.title}" : ${candidates.length} candidats [${origines}] -> ${img ? 'RETENU ' + img.title : 'aucun'}`);
+      }
+      return { i, img };
+    });
+    // Le rattachement est séquentiel : `used` interdit la même photo sur deux
+    // fiches, et cette décision ne peut pas se prendre en parallèle.
+    for (const { i, img } of choix) {
+      if (!img || used.has(coverKey(img.url))) continue;
+      used.add(coverKey(img.url));
+      located[i].coverSrc = img.url;
+      located[i].coverCredit = img.credit;
+      media.illustrated++;
+      const c = centroidOf(located[i].geometry);
+      // coverSrc + coordonnées : le front pose la photo directement sur la carte
+      send({ type: 'media-item', title: located[i].title, credit: img.credit, coverSrc: img.url, lat: c.lat, lng: c.lng, generique: false });
     }
-    return choix;
-  });
+  }
+  media.used = [...used];
+
+  if (media.curseur < located.length && media.tours < GEO_MAX_TOURS) {
+    step('media', 'done', 'Illustrations en cours', `${media.illustrated} illustration(s) trouvée(s)`);
+    state.__continue = true;
+    return state;
+  }
+  delete state.__continue;
 
   /* Repli thematique pour les projets restes sans visuel. Une seule recherche
      Commons par THEME distinct, pas par projet : deux ecoles partagent la meme
-     requete. Aucune vision n'est appelee ici, la requete etant deja explicite
-     (« lycee France batiment ») et le credit annoncant l'image comme generique. */
-  const sansImage = located.map((p, i) => ({ p, i })).filter(({ i }) => !images[i]);
-  const parTheme = new Map();
-  for (const { p, i } of sansImage) {
-    const t = themeGenerique(p);
-    if (!t) continue;
-    if (!parTheme.has(t.requete)) parTheme.set(t.requete, { libelle: t.libelle, cibles: [] });
-    parTheme.get(t.requete).cibles.push(i);
-  }
-  if (parTheme.size) {
-    const themes = [...parTheme.entries()];
-    const resultats = await inChunks(themes, 4, async ([requete]) => commonsTextCandidates(requete));
-    themes.forEach(([, info], k) => {
-      const dispo = (resultats[k] || []).filter((c) => !VISION_UNSUPPORTED_RE.test(c.url));
-      // Une image differente par projet quand la recherche en offre plusieurs
-      info.cibles.forEach((idx, rang) => {
-        const c = dispo[rang % Math.max(dispo.length, 1)];
-        if (!c) return;
-        images[idx] = { ...c, credit: `Illustration générique (${info.libelle}) - ${c.credit}`, generique: true };
-      });
+     requete. Le credit annonce explicitement l'image comme generique. */
+  const sansImage = located.map((p, i) => ({ p, i })).filter(({ p }) => !p.coverSrc);
+  if (sansImage.length) {
+    const themes = await themesGeneriques(state.commune.nom, sansImage.map(({ p }) => p));
+    const parRequete = new Map();
+    sansImage.forEach(({ i }, k) => {
+      const t = themes[k];
+      if (!t?.requete) return;
+      if (!parRequete.has(t.requete)) parRequete.set(t.requete, { libelle: t.libelle, cibles: [] });
+      parRequete.get(t.requete).cibles.push(i);
     });
-    console.log(`[demo-generate] media: repli thématique appliqué sur ${themes.reduce((s, [, i2]) => s + i2.cibles.length, 0)} projet(s)`);
-  }
-  let illustrated = 0;
-  const usedCovers = new Set(); // pas deux fois la même image sur des fiches différentes
-  // Les CMS servent la même photo sous plusieurs URL (vignettes de cache
-  // suffixées d'une empreinte : "web-parking-3d6e6237.png" et
-  // "web-parking-450dc1de.png"). Comparer les URL brutes laissait donc passer
-  // des doublons, et une photo de parking se retrouvait sur un projet de rue.
-  const coverKey = (u) => {
-    try {
-      const p = decodeURIComponent(new URL(u).pathname).toLowerCase();
-      const file = p.slice(p.lastIndexOf('/') + 1);
-      return file.replace(/-[0-9a-f]{6,}(?=\.[a-z0-9]+$)/, '').replace(/[\s_]+/g, '-');
-    } catch { return u; }
-  };
-  for (let i = 0; i < located.length; i++) {
-    // Pas de photo de repli hors sujet : sans illustration pertinente, on
-    // n'en met aucune (une vignette qui ne colle pas casse la crédibilité)
-    const img = images[i];
-    if (img && !usedCovers.has(coverKey(img.url))) {
-      usedCovers.add(coverKey(img.url));
-      located[i].coverSrc = img.url;
-      located[i].coverCredit = img.credit;
-      illustrated++;
-      const c = centroidOf(located[i].geometry);
-      // coverSrc + coordonnées : le front pose la photo directement sur la carte
-      send({ type: 'media-item', title: located[i].title, credit: img.credit, coverSrc: img.url, lat: c.lat, lng: c.lng, generique: Boolean(img.generique) });
+    if (parRequete.size) {
+      const entrees = [...parRequete.entries()];
+      const resultats = await inChunks(entrees, 4, async ([requete]) => commonsTextCandidates(requete));
+      entrees.forEach(([, info], k) => {
+        const dispo = (resultats[k] || []).filter((c) => !VISION_UNSUPPORTED_RE.test(c.url) && !used.has(coverKey(c.url)));
+        // Une image differente par projet quand la recherche en offre plusieurs
+        info.cibles.forEach((idx, rang) => {
+          const c = dispo[rang % Math.max(dispo.length, 1)];
+          if (!c || used.has(coverKey(c.url))) return;
+          used.add(coverKey(c.url));
+          located[idx].coverSrc = c.url;
+          located[idx].coverCredit = `Illustration générique (${info.libelle}) - ${c.credit}`;
+          media.illustrated++;
+          const pt = centroidOf(located[idx].geometry);
+          send({ type: 'media-item', title: located[idx].title, credit: located[idx].coverCredit, coverSrc: c.url, lat: pt.lat, lng: pt.lng, generique: true });
+        });
+      });
+      console.log(`[demo-generate] media: repli thématique appliqué sur ${entrees.reduce((s, [, i2]) => s + i2.cibles.length, 0)} projet(s)`);
     }
   }
-  console.log(`[demo-generate] media: ${illustrated}/${located.length} illustrés`);
+
+  const illustrated = media.illustrated;
+  console.log(`[demo-generate] media: ${illustrated}/${located.length} illustrés (${media.tours} tranche(s))`);
   step('media', illustrated ? 'done' : 'skip', 'Illustrations trouvées', `${illustrated}/${located.length} projets illustrés (image choisie par l'IA)`);
   // Refuser une photo hors sujet est une décision, pas un échec : on l'affiche
   if (located.length - illustrated > 0) {
     send({ type: 'rejected', kind: 'photo', count: located.length - illustrated });
   }
 
-  state.located = located;
+  state.media = null;
   state.stats.illustrated = illustrated;
   return state;
 }
@@ -2361,16 +2780,47 @@ async function saveDraft(ville, insee, communeNom, ipHash, status, state) {
   }]);
 }
 
-async function runSources(send, step, insee, ipHash) {
-  const state = await coreSources(send, step, insee);
+async function runSources(send, step, insee, ipHash, runState) {
+  // cumulerTokens n'était appelé que par runPhase : la phase sources, qui
+  // consomme pourtant de l'IA (choix du logo, tri des marchés), n'était jamais
+  // comptée et le journal sous-estimait la dépense de toute une étape.
+  const state = cumulerTokens(await coreSources(send, step, insee));
   if (!state) return;
+  // Le run voyage dans le brouillon : les cinq invocations suivantes sont des
+  // processus distincts, c'est le seul fil qui les relie a la meme generation.
+  if (runState?.id) {
+    state.run = { id: runState.id, startedAt: runState.startedAt };
+    await patchRun(runState.id, {
+      commune_nom: state.commune.nom,
+      sources_count: state.stats?.sources ?? null,
+      phase: 'sources',
+      tokens_in: state.stats?.tokens_in ?? 0,
+      tokens_out: state.stats?.tokens_out ?? 0,
+      ia_calls: state.stats?.appels_ia ?? 0,
+    });
+  }
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    // Local : pas de persistance possible, on enchaîne tout dans l'invocation
+    /* Local : pas de persistance possible, on enchaîne tout dans l'invocation.
+       Les phases découpées en tranches sont rejouées sur place tant qu'elles
+       demandent la main, exactement comme le ferait le client en production. */
+    const enchainer = async (core, s) => {
+      let courant = s;
+      for (let tour = 0; tour < GEO_MAX_TOURS && courant; tour++) {
+        courant = await core(send, step, courant);
+        if (!courant?.__continue) return courant;
+        delete courant.__continue;
+      }
+      return courant;
+    };
     const s2 = await coreAi(send, step, state);
     if (!s2) return;
-    const s3 = await coreGeo(send, step, s2);
-    const s4 = await coreMedia(send, step, s3);
+    const s3 = await enchainer(coreGeo, s2);
+    // coreGeo renonce quand trop peu de projets sont situés : il a déjà expliqué
+    // pourquoi à l'écran, on s'arrête là plutôt que de casser sur un état nul.
+    if (!s3) return;
+    const s4 = await enchainer(coreMedia, s3);
+    if (!s4) return;
     await coreRedact(send, step, s4);
     // Audit local : DEMO_DUMP=1 déverse les artefacts complets (projets
     // localisés, illustrations retenues, articles rédigés) dans les logs
@@ -2407,16 +2857,58 @@ async function runSources(send, step, insee, ipHash) {
     ville = `${VILLE_PREFIX}${slugify(state.commune.nom)}-${insee.toLowerCase()}`;
   }
   await saveDraft(ville, insee, state.commune.nom, ipHash, 'draft-sources', state);
+  if (runState?.id) await patchRun(runState.id, { ville });
   send({ type: 'phase', next: 'ai', ville });
 }
 
 // Wrapper commun des phases intermediaires : charge le brouillon a l'etat
 // attendu, execute le coeur, sauvegarde, annonce la phase suivante. Si le coeur
 // renonce (state null : sources insuffisantes en ai), echec definitif propre.
-async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase }) {
+async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase, selfPhase }, runState) {
   const instance = await getInstance({ ville });
-  if (!instance?.payload || instance.status !== expect) {
-    send({ type: 'error', message: 'Analyse introuvable : relancez la génération.' });
+  /* Le run est retrouvé AVANT tout contrôle : sans cela, un abandon sur
+     « analyse introuvable » laissait la ligne du journal en `running`, donc
+     indiscernable d'un visiteur qui ferme son onglet. Le symptôme le plus utile
+     à voir serait précisément celui qu'on ne verrait pas. */
+  if (runState && instance?.payload?.run?.id) {
+    runState.id = instance.payload.run.id;
+    runState.startedAt = instance.payload.run.startedAt || runState.startedAt;
+  }
+
+  let statut = instance?.status;
+  const ageMin = instance ? (Date.now() - new Date(instance.created_at).getTime()) / 60000 : Infinity;
+
+  /* Guérison d'un verrou resté en place. Une invocation tuée en plein vol laisse
+     le statut de transit `running-<suite>` : son catch n'a pas pu le relâcher.
+     Le client, lui, reprend désormais directement sur la phase courante au lieu
+     de repasser par la route d'analyse, qui était le seul endroit sachant
+     débloquer ce cas. Sans cette guérison ici, un simple hoquet réseau pendant
+     une tranche terminait la démo sur un échec, brouillon intact et IA déjà
+     payée. Le découpage en tranches multiplie les occasions : une métropole
+     enchaîne dix à trente invocations au lieu de six. */
+  if (instance?.payload && statut === `running-${nextStatus}` && ageMin < 15) {
+    console.warn(`[demo-generate] verrou de transit relâché sur ${ville} (${statut})`);
+    await updateInstance(ville, { status: expect });
+    statut = expect;
+  }
+
+  // La phase a déjà abouti et c'est l'annonce qui s'est perdue : on avance au
+  // lieu de refaire le travail (et de le repayer).
+  if (instance?.payload && statut === nextStatus) {
+    send({ type: 'phase', next: nextPhase, ville });
+    return;
+  }
+
+  if (!instance?.payload || statut !== expect) {
+    /* Rejouable : la route d'analyse sait retrouver la bonne phase depuis
+       n'importe quel état avancé. Marquer cette erreur définitive coupait la
+       seule protection contre une coupure réseau au milieu d'une génération. */
+    send({
+      type: 'error',
+      message: 'Reprise de l\'analyse...',
+      retryable: true,
+      debug: `phase inattendue : ${statut || 'aucune instance'} (attendu ${expect})`,
+    });
     return;
   }
 
@@ -2437,21 +2929,67 @@ async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase
     throw e;
   }
   if (!state) {
+    // Renoncement propre du cœur (sources insuffisantes) : ce n'est pas une
+    // panne, mais c'est un échec du point de vue du visiteur. Il est journalisé
+    // comme tel, sinon ces communes-là resteraient invisibles.
     await updateInstance(ville, { status: 'failed', payload: null });
+    if (runState) {
+      runState.closed = true;
+      await closeRun(runState.id, 'failed', { phase: nextPhase, error: runState.lastError || 'sources insuffisantes', startedAt: runState.startedAt });
+    }
     return;
   }
+  /* Phase INACHEVEE : le cœur a consommé son budget de temps sans finir.
+     Depuis que le nombre de projets n'est plus plafonné, la localisation d'une
+     métropole ne tient plus dans une seule invocation. On sauvegarde l'avancée,
+     on remet l'instance dans son état d'entrée, et on redemande LA MEME phase :
+     elle reprendra à son curseur. Sans cela, le budget épuisé faisait
+     simplement basculer tous les projets suivants en « non localisable ». */
+  if (state.__continue && selfPhase) {
+    delete state.__continue;
+    await updateInstance(ville, { status: expect, payload: state });
+    if (runState?.id) {
+      await patchRun(runState.id, {
+        phase: selfPhase,
+        tokens_in: state.stats?.tokens_in ?? 0,
+        tokens_out: state.stats?.tokens_out ?? 0,
+        ia_calls: state.stats?.appels_ia ?? 0,
+      });
+    }
+    send({ type: 'phase', next: selfPhase, ville });
+    return;
+  }
+
   await updateInstance(ville, { status: nextStatus, payload: state });
+  if (runState?.id) {
+    await patchRun(runState.id, {
+      phase: nextPhase,
+      tokens_in: state.stats?.tokens_in ?? 0,
+      tokens_out: state.stats?.tokens_out ?? 0,
+      ia_calls: state.stats?.appels_ia ?? 0,
+    });
+  }
   send({ type: 'phase', next: nextPhase, ville });
 }
 
-const runAi = (send, step, ville) => runPhase(send, step, ville, { expect: 'draft-sources', core: coreAi, nextStatus: 'draft-ai', nextPhase: 'locate' });
-const runLocate = (send, step, ville) => runPhase(send, step, ville, { expect: 'draft-ai', core: coreGeo, nextStatus: 'draft-locate', nextPhase: 'media' });
-const runMedia = (send, step, ville) => runPhase(send, step, ville, { expect: 'draft-locate', core: coreMedia, nextStatus: 'draft-media', nextPhase: 'redact' });
-const runRedact = (send, step, ville) => runPhase(send, step, ville, { expect: 'draft-media', core: coreRedact, nextStatus: 'draft', nextPhase: 'create' });
+const runAi = (send, step, ville, rs) => runPhase(send, step, ville, { expect: 'draft-sources', core: coreAi, nextStatus: 'draft-ai', nextPhase: 'locate' }, rs);
+const runLocate = (send, step, ville, rs) => runPhase(send, step, ville, { expect: 'draft-ai', core: coreGeo, nextStatus: 'draft-locate', nextPhase: 'media', selfPhase: 'locate' }, rs);
+const runMedia = (send, step, ville, rs) => runPhase(send, step, ville, { expect: 'draft-locate', core: coreMedia, nextStatus: 'draft-media', nextPhase: 'redact', selfPhase: 'media' }, rs);
+const runRedact = (send, step, ville, rs) => runPhase(send, step, ville, { expect: 'draft-media', core: coreRedact, nextStatus: 'draft', nextPhase: 'create' }, rs);
+
+/* Article du projet numero i, ou rien.
+   Le repli positionnel `articles[i]` a ete retire : la liste d'articles est
+   ordonnee mais TROUEE (un lot de redaction en echec est avale et rend []).
+   Prendre le i-eme element d'une liste trouee posait l'article d'un projet sur
+   la fiche d'un AUTRE. Une fiche sans article est un manque ; une fiche avec
+   l'article du voisin est une faute qu'un elu voit en trois secondes. */
+function articleDuProjet(articles, i) {
+  return (articles || []).find((a) => a && a.index === i) || null;
+}
 
 /* ─── Phase CREATE : matérialisation du brouillon (invocation courte) ─── */
 
-async function runCreate(send, step, ville) {
+async function runCreate(send, step, ville, runState) {
   const createItem = (label) => send({ type: 'create-item', label });
   const t0 = Date.now();
 
@@ -2459,6 +2997,10 @@ async function runCreate(send, step, ville) {
   if (!instance) {
     send({ type: 'error', message: 'Brouillon introuvable : relancez la génération.' });
     return;
+  }
+  if (runState && instance.payload?.run?.id) {
+    runState.id = instance.payload.run.id;
+    runState.startedAt = instance.payload.run.startedAt || runState.startedAt;
   }
   if (instance.status === 'ready') {
     send({ type: 'done', url: `/?city=${ville}`, ville, communeNom: instance.commune_nom, existing: true });
@@ -2526,7 +3068,7 @@ async function runCreate(send, step, ville) {
     const geojsonUrl = await uploadToStorage(`demo/${ville}/${slug}.geojson`, JSON.stringify(fc), 'application/json');
 
     let markdownUrl = null;
-    const article = articles.find((a) => a.index === i) || articles[i];
+    const article = articleDuProjet(articles, i);
     if (article?.markdown) {
       const credit = p.coverCredit && coverUrls[i] ? `\n\n*Illustration : ${p.coverCredit}.*` : '';
       markdownUrl = await uploadToStorage(
@@ -2556,7 +3098,7 @@ async function runCreate(send, step, ville) {
 
   const dossierRows = [];
   for (let i = 0; i < rows.length; i++) {
-    const article = articles.find((a) => a.index === i) || articles[i];
+    const article = articleDuProjet(articles, i);
     if (!article?.markdown) continue;
     const contribution = inserted.find((c) => c.slug === rows[i].slug);
     for (const pdf of mairie.pdfs || []) {
@@ -2632,9 +3174,29 @@ async function runCreate(send, step, ville) {
     projects_count: rows.length,
     duration_ms: Date.now() - t0,
   });
-  console.log(`[demo-generate] espace prêt: ${ville} (${rows.length} fiches, ${coverUrls.filter(Boolean).length} illustrées, ${Date.now() - t0}ms)`);
+  // Clôture du journal. `startedAt` remonte à la PREMIERE invocation : c'est la
+  // seule durée qui corresponde à ce que le visiteur a réellement attendu.
+  if (runState) {
+    runState.closed = true;
+    await patchRun(runState.id, {
+      tokens_in: stats?.tokens_in ?? 0,
+      tokens_out: stats?.tokens_out ?? 0,
+      ia_calls: stats?.appels_ia ?? 0,
+    });
+    await closeRun(runState.id, 'ready', { phase: 'create', projectsCount: rows.length, startedAt: runState.startedAt });
+  }
+  const totalMs = runState?.startedAt ? Date.now() - runState.startedAt : Date.now() - t0;
+  console.log(`[demo-generate] espace prêt: ${ville} (${rows.length} fiches, ${coverUrls.filter(Boolean).length} illustrées, création ${Date.now() - t0}ms, total ${Math.round(totalMs / 1000)}s)`);
   step('create', 'done', 'Espace prêt', commune.nom);
-  send({ type: 'done', url: `/?city=${ville}`, ville, communeNom: commune.nom, projectsCount: rows.length, stats });
+  send({
+    type: 'done',
+    url: `/?city=${ville}`,
+    ville,
+    communeNom: commune.nom,
+    communeInsee: instance.commune_insee,
+    projectsCount: rows.length,
+    stats,
+  });
 }
 
 /* ─── Handler SSE ─── */
@@ -2645,7 +3207,10 @@ export default async (req, context) => {
   const insee = (url.searchParams.get('commune') || '').toUpperCase();
   const villeParam = url.searchParams.get('ville') || '';
 
-  if (phase === 'analyse' && !/^\d{2}[0-9AB]\d{2}$/.test(insee)) {
+  // La lettre des codes corses est en DEUXIEME position (2A004, 2B033), pas en
+  // troisieme : l'ancien motif \d{2}[0-9AB]\d{2} refusait les 360 communes de
+  // Corse, qui partaient en 400 puis en quatre reprises identiques a l'ecran.
+  if (phase === 'analyse' && !INSEE_RE.test(insee)) {
     return new Response(JSON.stringify({ error: 'Paramètre commune invalide (code INSEE attendu)' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://openprojets.com' },
@@ -2658,13 +3223,25 @@ export default async (req, context) => {
     });
   }
 
+  // Le compteur de tokens est de portee module : sur un conteneur reutilise il
+  // cumulerait depuis le demarrage du conteneur et gonflerait le cout affiche.
+  resetTokens();
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
+      /* Suivi de la generation en cours dans le journal demo_runs. Il est
+         partage par toutes les branches : le `finally` s'en sert pour clore un
+         run reste ouvert, ce qui est precisement le cas des echecs qu'on ne
+         voyait pas. */
+      const runState = { id: null, startedAt: Date.now(), closed: false, lastError: null, definitif: false };
+
       const send = (obj) => {
         // Toute erreur envoyee au client est aussi tracee serveur : plus aucun
         // echec silencieux (meme ceux qui ne passent pas par le catch)
         if (obj.type === 'error') {
+          runState.lastError = obj.message;
+          if (obj.retryable !== true) runState.definitif = true;
           console.warn(`[demo-generate] ERREUR envoyee (${obj.retryable ? 'retry' : 'definitive'}) :: ${obj.message}${obj.debug ? ' :: ' + obj.debug : ''}`);
         }
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
@@ -2690,21 +3267,28 @@ export default async (req, context) => {
           }
         }
         if (phase === 'ai') {
-          await runAi(send, step, villeParam);
+          await runAi(send, step, villeParam, runState);
         } else if (phase === 'locate') {
-          await runLocate(send, step, villeParam);
+          await runLocate(send, step, villeParam, runState);
         } else if (phase === 'media') {
-          await runMedia(send, step, villeParam);
+          await runMedia(send, step, villeParam, runState);
         } else if (phase === 'redact') {
-          await runRedact(send, step, villeParam);
+          await runRedact(send, step, villeParam, runState);
         } else if (phase === 'create') {
-          await runCreate(send, step, villeParam);
+          await runCreate(send, step, villeParam, runState);
         } else {
           // Idempotence / reprise :
           //  - carte prête -> on la montre (on n'y touche plus : sécurité clients)
           //  - brouillon RÉCENT (< 15 min, génération en cours) -> reprise
           //  - échec, ou brouillon ancien/abandonné -> on repart de ZÉRO (aucun
           //    verrou : une commune non terminée doit toujours être relançable)
+          /* Relance volontaire : `regen=1` refait le recensement d'une commune
+             deja generee au lieu d'ouvrir l'espace existant. L'adresse de
+             l'espace ne change pas, ses fiches sont remplacees (runCreate fait
+             deja le menage avant d'inserer). C'est ce qui permet de remontrer
+             une commune apres une amelioration du systeme, et de rafraichir un
+             espace de prospection sans changer le lien deja envoye. */
+          const regen = url.searchParams.get('regen') === '1';
           const already = await getInstance({ commune_insee: insee });
           const RESUME = { 'draft-sources': 'ai', 'draft-ai': 'locate', 'draft-locate': 'media', 'draft-media': 'redact', 'draft': 'create' };
           // Une phase interrompue en plein vol laisse un statut de transit
@@ -2722,18 +3306,27 @@ export default async (req, context) => {
             already.status = etat;
           }
 
-          if (already?.status === 'ready') {
+          if (already?.status === 'ready' && !regen) {
             step('resolve', 'done', 'Commune reconnue', already.commune_nom);
             step('exists', 'done', 'Espace déjà généré', 'On vous y emmène');
-            send({ type: 'done', url: `/?city=${already.ville}`, ville: already.ville, communeNom: already.commune_nom, existing: true });
-          } else if (already && RESUME[already.status] && ageMin < 15) {
+            send({
+              type: 'done',
+              url: `/?city=${already.ville}`,
+              ville: already.ville,
+              communeNom: already.commune_nom,
+              communeInsee: already.commune_insee,
+              existing: true,
+            });
+          } else if (already && RESUME[already.status] && ageMin < 15 && !regen) {
             step('resolve', 'done', 'Commune reconnue', already.commune_nom);
             step('exists', 'done', 'Analyse déjà engagée', 'Reprise là où elle s\'était arrêtée');
             send({ type: 'phase', next: RESUME[already.status], ville: already.ville });
           } else {
-            // Échec ou brouillon abandonné : on efface pour repartir proprement
+            // Échec, brouillon abandonné, ou relance volontaire : on efface la
+            // ligne d'état pour repartir proprement. Le journal demo_runs, lui,
+            // conserve la trace de la tentative précédente.
             if (already) {
-              console.log(`[demo-generate] redémarrage de zéro pour ${insee} (ancien statut ${already.status}, ${Math.round(ageMin)} min)`);
+              console.log(`[demo-generate] ${regen ? 'relance demandée' : 'redémarrage de zéro'} pour ${insee} (ancien statut ${already.status}, ${Math.round(ageMin)} min)`);
               await deleteWhere('demo_instances', { ville: `eq.${already.ville}` });
             }
             const ipHash = (await sha256Hex(context?.ip || 'inconnu')).slice(0, 24);
@@ -2743,12 +3336,24 @@ export default async (req, context) => {
             if (global >= MAX_GLOBAL_PER_DAY || (!kioskOk && byIp >= MAX_PER_IP_PER_DAY)) {
               send({ type: 'error', message: 'Le quota de démonstrations du jour est atteint. Contactez-nous pour une démo guidée.' });
             } else {
-              await runSources(send, step, insee, ipHash);
+              // Le run est ouvert AVANT le recensement : une commune introuvable
+              // ou sans sources exploitables laisse ainsi une trace, alors
+              // qu'elle disparaissait totalement du système.
+              runState.id = await createRun({
+                commune_insee: insee,
+                commune_nom: already?.commune_nom || '',
+                ip_hash: ipHash,
+                kiosk: Boolean(kioskOk),
+                regen: Boolean(regen && already),
+                phase: 'sources',
+              });
+              await runSources(send, step, insee, ipHash, runState);
             }
           }
         }
       } catch (err) {
         console.error(`[demo-generate] ERREUR phase=${phase} cible=${villeParam || insee} ::`, err?.stack || err?.message || err);
+        runState.crashMessage = String(err?.message || err).slice(0, 300);
         // Anti-boucle : au-dela de MAX_PHASE_ATTEMPTS echecs sur une meme phase,
         // on declare l'instance en echec pour ne plus la relancer indefiniment
         let retryable = true;
@@ -2785,6 +3390,23 @@ export default async (req, context) => {
           debug: `phase=${phase} :: ${String(err?.message || err).slice(0, 200)}`,
         });
       } finally {
+        /* Cloture du journal. Trois issues possibles pour une invocation :
+           - elle a livre l'espace : runCreate a deja clos le run ;
+           - elle passe la main a la phase suivante : le run reste ouvert, c'est
+             normal, la phase suivante le reprendra ;
+           - elle s'arrete sur une erreur DEFINITIVE : c'est ici qu'on la
+             consigne. Les erreurs rejouables ne closent rien, la reprise doit
+             pouvoir aboutir.
+           Un run laisse en `running` sans suite est lui-meme une information :
+           c'est le visiteur qui a ferme l'onglet. */
+        if (runState.id && !runState.closed && runState.definitif) {
+          runState.closed = true;
+          await closeRun(runState.id, 'failed', {
+            phase,
+            error: runState.crashMessage || runState.lastError,
+            startedAt: runState.startedAt,
+          });
+        }
         clearInterval(heartbeat);
         try { controller.close(); } catch { /* déjà fermé */ }
       }
