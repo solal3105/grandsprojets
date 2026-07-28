@@ -53,7 +53,11 @@
   let arcCount = 0;
   let projectCoords = [];
   let communeCenter = null;
+  // Point d'ou partent le radar et les arcs : la mairie des qu'on la connait,
+  // le centre de la commune en attendant.
+  let sourceOrigin = null;
   let reframePending = false;
+  let recentrePending = false;
 
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -188,7 +192,10 @@
         // Recadrage en attente : un point arrivé pendant un mouvement rejoue
         // le recadrage dès la fin, pour toujours converger vers "tous les points"
         map.on('moveend', () => {
-          if (reframePending) { reframePending = false; MapFX.reframe(); }
+          // Les projets priment sur le recalage mairie : dès qu'il y en a, la
+          // vue doit les montrer tous.
+          if (reframePending) { reframePending = false; recentrePending = false; MapFX.reframe(); }
+          else if (recentrePending) MapFX.recentrerSurMairie();
         });
         map.on('style.load', () => {
           try { map.setProjection({ type: 'globe' }); } catch { /* projection plane : très bien aussi */ }
@@ -344,14 +351,47 @@
       map.isStyleLoaded() ? apply() : map.once('idle', apply);
     },
 
-    // Sonar de recensement : anneaux concentriques qui pulsent depuis la commune
+    /* Position de la MAIRIE, telle que l'annuaire officiel la donne. Le radar
+       et les arcs de collecte partaient du centre GEOMETRIQUE de la commune,
+       qui tombe régulièrement dans un champ ou une forêt : le balayage semblait
+       venir de nulle part. Ils partent désormais de l'hôtel de ville, ce qui
+       est à la fois juste et lisible pour un élu. Le point est reçu en cours de
+       route, donc le radar déjà posé est déplacé au lieu d'être recréé. */
+    setMairie({ lat, lng }) {
+      if (!ok || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      sourceOrigin = { lat, lng };
+      if (scanMarker) {
+        try { scanMarker.setLngLat([lng, lat]); } catch { /* marqueur retiré */ }
+      }
+      /* La caméra se recale sur la mairie tant qu'aucun projet n'est encore
+         posé. L'écart au centre géométrique atteint 7 km sur une grande
+         commune : le radar se serait retrouvé au bord de l'écran, voire
+         dehors. Le recalage attend la fin de la plongée en cours plutôt que
+         de la couper en plein vol. */
+      if (projectCoords.length) return;
+      if (map.isMoving()) { recentrePending = true; return; }
+      MapFX.recentrerSurMairie();
+    },
+
+    recentrerSurMairie() {
+      recentrePending = false;
+      if (!ok || !sourceOrigin || projectCoords.length) return;
+      map.easeTo({
+        center: [sourceOrigin.lng, sourceOrigin.lat],
+        duration: prefersReduced ? 0 : 1400,
+        essential: true,
+      });
+    },
+
+    // Sonar de recensement : anneaux concentriques qui pulsent depuis la mairie
     scanStart() {
-      if (!ok || !communeCenter || scanMarker) return;
+      const depart = sourceOrigin || communeCenter;
+      if (!ok || !depart || scanMarker) return;
       const el = document.createElement('div');
       el.className = 'fx-sonar';
       el.innerHTML = '<span></span><span></span><span></span><i></i>';
       scanMarker = new maplibregl.Marker({ element: el, anchor: 'center' })
-        .setLngLat([communeCenter.lng, communeCenter.lat])
+        .setLngLat([depart.lng, depart.lat])
         .addTo(map);
     },
 
@@ -365,8 +405,9 @@
        recoupement multi-sources rendu visible, deux ou trois traits de couleurs
        differentes qui se rejoignent au meme endroit. */
     pulseSource(kind, target) {
-      if (!ok || !communeCenter || prefersReduced) return;
-      const to = target && Number.isFinite(target.lng) ? [target.lng, target.lat] : [communeCenter.lng, communeCenter.lat];
+      const depart = sourceOrigin || communeCenter;
+      if (!ok || !depart || prefersReduced) return;
+      const to = target && Number.isFinite(target.lng) ? [target.lng, target.lat] : [depart.lng, depart.lat];
       const angle = Math.random() * 2 * Math.PI;
       const dist = 0.02 + Math.random() * 0.025; // ~2 à 5 km
       const from = [to[0] + dist * Math.cos(angle), to[1] + dist * 0.72 * Math.sin(angle)];
@@ -453,6 +494,9 @@
       el.style.setProperty('--pin', accent);
       el.innerHTML = `<span class="fx-pin"></span>${title ? `<span class="fx-pin-label">${String(title).replace(/[<>&]/g, '')}</span>` : ''}`;
       markers.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([lng, lat]).addTo(map));
+      // Même précaution que pour les vignettes : l'étiquette du projet est une
+      // boîte de texte, elle se verrait en haut à gauche le temps d'une trame.
+      requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('is-in')));
       setTimeout(() => el.classList.add('is-collapsed'), 6000);
 
       this.reframe();
@@ -473,22 +517,47 @@
         return;
       }
       map.fitBounds(boundsOf(projectCoords), {
-        // Padding généreux en haut (stepper + pilule) et en bas (compteurs +
-        // ticker) : les pins ne se cachent jamais derrière le HUD
+        /* Rembourrage volontairement ASYMÉTRIQUE, contrairement à la vue finale :
+           pendant la génération, le bandeau de progression mange le haut
+           (stepper, pilule) et le bas (compteurs, ticker). Les punaises ne
+           doivent jamais se cacher derrière. */
         padding: { top: 200, bottom: 190, left: 130, right: 130 },
         pitch: 32, bearing: 0, maxZoom: 14.5,
         duration: prefersReduced ? 0 : 1500, essential: true,
       });
     },
 
-    // Photo trouvée : posée sur la carte à l'emplacement du projet
+    /* Photo trouvée : posée sur la carte à l'emplacement du projet.
+
+       Elle est CHARGEE AVANT d'être posée, et reste invisible le temps que la
+       carte lui donne sa position. Sans ces deux précautions, la vignette
+       apparaissait un instant en haut à gauche de l'écran : le marqueur est
+       ajouté au conteneur avant que sa transformation ne soit appliquée, et une
+       image pas encore chargée n'a aucune dimension, ce qui provoquait un
+       second saut au moment où elle arrivait. */
     attachPhoto(lat, lng, url) {
       if (!ok || !url) return;
-      const el = document.createElement('div');
-      el.className = 'fx-photo';
-      el.innerHTML = `<img src="${String(url).replace(/"/g, '')}" alt="" onerror="this.parentNode.remove()">`;
-      photoMarkers.push(new maplibregl.Marker({ element: el, anchor: 'bottom', offset: [0, -14] }).setLngLat([lng, lat]).addTo(map));
-      setTimeout(() => el.classList.add('is-small'), 6500);
+      const img = new Image();
+      img.alt = '';
+      img.onload = () => {
+        if (!ok || !map) return;
+        const el = document.createElement('div');
+        el.className = 'fx-photo';
+        el.appendChild(img);
+        try {
+          photoMarkers.push(
+            new maplibregl.Marker({ element: el, anchor: 'bottom', offset: [0, -14] })
+              .setLngLat([lng, lat])
+              .addTo(map)
+          );
+        } catch { return; /* carte détruite entre-temps */ }
+        // Deux trames : la première laisse la carte positionner le marqueur, la
+        // seconde laisse le navigateur en tenir compte avant qu'on ne dévoile.
+        requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('is-in')));
+        setTimeout(() => el.classList.add('is-small'), 6500);
+      };
+      img.onerror = () => { /* photo indisponible : pas de vignette, c'est tout */ };
+      img.src = String(url);
     },
 
     /* Survol final. Trois minutes de montee meritent mieux qu'un recadrage :
@@ -526,18 +595,30 @@
       suivant();
     },
 
-    // Recadrage final : vue d'ensemble douce sur tous les projets
+    /* Recadrage final : vue d'ensemble sur tous les projets, VRAIMENT centrée.
+
+       Deux corrections. D'abord le pitch : `fitBounds` calcule son cadrage
+       comme si la caméra était à plat, puis applique l'inclinaison par-dessus.
+       Le résultat dérivait vers le haut de l'écran, d'autant plus que
+       l'inclinaison était forte. La vue finale se fait donc à plat, ce qui la
+       rend exacte, et c'est aussi la vue la plus lisible pour compter les
+       punaises. Ensuite le rembourrage : celui d'origine réservait 200 px en
+       haut et 190 px en bas pour le bandeau de progression, qui n'existe plus à
+       ce moment-là. Un rembourrage égal sur les quatre côtés remet les projets
+       au milieu. */
     finale() {
       if (!ok || !projectCoords.length) return;
       reframePending = false;
+      recentrePending = false;
       mode = 'focus';
       if (projectCoords.length === 1) {
-        map.easeTo({ center: projectCoords[0], zoom: 14, pitch: 34, bearing: 0, duration: prefersReduced ? 0 : 2400, essential: true });
+        map.easeTo({ center: projectCoords[0], zoom: 14, pitch: 0, bearing: 0, duration: prefersReduced ? 0 : 2400, essential: true });
         return;
       }
+      const marge = Math.round(Math.min(110, Math.max(56, map.getContainer().clientWidth * 0.07)));
       map.fitBounds(boundsOf(projectCoords), {
-        padding: { top: 200, bottom: 190, left: 120, right: 120 },
-        pitch: 30, bearing: 0, maxZoom: 14.8,
+        padding: { top: marge, bottom: marge, left: marge, right: marge },
+        pitch: 0, bearing: 0, maxZoom: 14.8,
         duration: prefersReduced ? 0 : 2800, essential: true,
       });
     },
@@ -547,12 +628,14 @@
       if (!ok) return;
       this.scanStop();
       reframePending = false;
+      recentrePending = false;
       markers.forEach((m) => m.remove());
       photoMarkers.forEach((m) => m.remove());
       markers = [];
       photoMarkers = [];
       projectCoords = [];
       communeCenter = null;
+      sourceOrigin = null;
       for (let i = 0; i < shapeCount; i++) {
         // '-3d' inclus : sans lui, les volumes de la commune precedente
         // restaient plantes dans le paysage au passage a la suivante

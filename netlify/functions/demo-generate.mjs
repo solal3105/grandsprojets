@@ -372,27 +372,53 @@ function geometryInBbox(geometry, bbox) {
   return ok;
 }
 
-async function findMairieWebsite(insee) {
+// Adresse postale de la mairie dans l'annuaire officiel : le champ `adresse`
+// porte ses coordonnees, seule position VRAIE de l'hotel de ville dont on
+// dispose sans geocodage supplementaire.
+function positionDeLAdresse(rec) {
+  let bloc = rec?.adresse;
+  if (typeof bloc === 'string') { try { bloc = JSON.parse(bloc); } catch { return null; } }
+  const a = Array.isArray(bloc) ? bloc[0] : bloc;
+  const lat = Number(a?.latitude);
+  const lng = Number(a?.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng, libelle: [a.numero_voie, a.code_postal, a.nom_commune].filter(Boolean).join(', ') };
+}
+
+/* Site ET position de la mairie, en une seule interrogation de l'annuaire.
+   La position sert au radar de l'ecran : il pulsait jusqu'ici sur le centre
+   GEOMETRIQUE de la commune, qui tombe reguliairement dans un champ ou une
+   foret. Un elu qui voit le balayage partir de sa mairie comprend tout de
+   suite d'ou on part ; un point au milieu de nulle part ne dit rien. */
+async function findMairie(insee) {
+  const vide = { site: null, position: null };
   try {
     const url = new URL('https://api-lannuaire.service-public.fr/api/explore/v2.1/catalog/datasets/api-lannuaire-administration/records');
     url.searchParams.set('where', `pivot LIKE "mairie" AND code_insee_commune = "${insee}"`);
     url.searchParams.set('limit', '3');
     const r = await fetchWithTimeout(url.toString());
-    if (!r.ok) return null;
+    if (!r.ok) return vide;
     const data = await r.json();
-    for (const rec of data.results || []) {
+    const records = data.results || [];
+    // La position est prise sur le PREMIER enregistrement qui en porte une,
+    // meme si c'est un autre que celui qui porte le site internet.
+    const position = records.map(positionDeLAdresse).find(Boolean) || null;
+    for (const rec of records) {
       const raw = rec.site_internet;
       if (!raw) continue;
+      let site = null;
       try {
         const parsed = JSON.parse(raw);
-        const site = Array.isArray(parsed) ? parsed[0]?.valeur : parsed?.valeur;
-        if (site) return site.startsWith('http') ? site : `https://${site}`;
+        site = Array.isArray(parsed) ? parsed[0]?.valeur : parsed?.valeur;
       } catch {
-        if (typeof raw === 'string' && raw.includes('.')) return raw.startsWith('http') ? raw : `https://${raw}`;
+        if (typeof raw === 'string' && raw.includes('.')) site = raw;
       }
+      if (site) return { site: site.startsWith('http') ? site : `https://${site}`, position };
     }
-  } catch { /* annuaire indisponible : étape sautée */ }
-  return null;
+    return { site: null, position };
+  } catch {
+    return vide; // annuaire indisponible : etape sautee
+  }
 }
 
 /* Texte d'un PDF officiel.
@@ -2121,12 +2147,18 @@ async function coreSources(send, step, insee) {
 
   const [mairie, news, boamp] = await Promise.all([
     (async () => {
-      const site = await findMairieWebsite(insee);
+      const { site, position } = await findMairie(insee);
+      /* La position de la mairie part IMMEDIATEMENT, avant même la visite du
+         site : c'est elle qui ancre le radar à l'écran, et le radar démarre dès
+         cette étape. Envoyée plus tard, il aurait balayé plusieurs secondes
+         depuis le centre géométrique de la commune. */
+      if (position) finding({ kind: 'mairie-position', lat: position.lat, lng: position.lng, title: position.libelle });
       if (!site) {
         step('mairie', 'skip', 'Site officiel de la mairie', "non renseigné dans l'annuaire officiel");
-        return { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [] };
+        return { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [], position };
       }
       const m = await inspectMairieSite(site, finding);
+      m.position = position;
       // Identité visuelle et lecture des PDF en parallèle : deux travaux
       // indépendants qui ne doivent pas s'additionner dans la durée de la phase
       const [identite, pdfsLus] = await Promise.all([

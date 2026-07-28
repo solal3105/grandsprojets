@@ -285,6 +285,13 @@
   }
 
   function onFinding(f) {
+    // Position officielle de la mairie : elle ancre le radar et les arcs. Elle
+    // arrive avant les autres trouvailles, donc avant que le balayage n'ait eu
+    // le temps de tourner longtemps au mauvais endroit.
+    if (f.kind === 'mairie-position') {
+      if (hasFx) window.MapFX.setMairie({ lat: f.lat, lng: f.lng });
+      return;
+    }
     if (hasFx) window.MapFX.pulseSource();
     if (f.kind === 'logo') {
       if (f.color) {

@@ -465,8 +465,15 @@ body:not(.has-map) #map { display: none; }
 }
 
 /* Photo posée sur la carte à l'emplacement du projet */
+/* La vignette naît invisible et n'apparaît qu'une fois positionnée par la
+   carte : sinon elle se voyait un instant en haut à gauche de l'écran, à
+   l'endroit par défaut d'un marqueur pas encore placé. */
 .fx-photo {
   pointer-events: none;
+  opacity: 0;
+}
+.fx-photo.is-in {
+  opacity: 1;
   animation: photoIn 0.7s cubic-bezier(0.34, 1.5, 0.64, 1);
 }
 .fx-photo img {
@@ -747,8 +754,11 @@ body:not(.has-map) #map { display: none; }
   align-items: center;
   gap: 8px;
   pointer-events: none;
+  /* Invisible tant que la carte ne l'a pas positionnée (voir .fx-photo) */
+  opacity: 0;
 }
-.fx-pin-wrap--approx { opacity: 0.8; }
+.fx-pin-wrap.is-in { opacity: 1; }
+.fx-pin-wrap.is-in.fx-pin-wrap--approx { opacity: 0.8; }
 
 .fx-pin {
   width: 18px; height: 18px;
