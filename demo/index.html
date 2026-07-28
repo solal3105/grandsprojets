@@ -112,26 +112,43 @@
         </div>
 
         <!-- Récupération de l'adresse AVANT les boutons : c'est le seul moment
-             où le visiteur a la preuve sous les yeux. L'échappatoire existe et
-             reste discrète : personne ne doit se sentir retenu. -->
-        <form id="lead-form" class="lead">
+             où le visiteur a la preuve sous les yeux. Champ et bouton forment
+             UN SEUL contrôle : deux éléments côte à côte se chevauchaient à
+             l'écran et se séparaient sur mobile. Le bouton d'envoi n'est pas
+             rouge : le seul appel à l'action rouge de l'écran reste « Découvrir
+             l'espace ». L'échappatoire existe et reste discrète : personne ne
+             doit se sentir retenu. -->
+        <!-- novalidate : `type="email"` sert au clavier des téléphones, mais sa
+             validation native bloque l'envoi AVANT notre code et affiche une
+             bulle du navigateur, dans sa langue et hors charte. Notre propre
+             message ne s'affichait donc jamais. -->
+        <form id="lead-form" class="lead" novalidate>
           <label class="lead__label" for="lead-email">Recevoir le lien de cette carte</label>
-          <div class="lead__row">
+          <div class="lead__field">
             <input id="lead-email" class="lead__input" type="email" name="email"
                    placeholder="prenom.nom@ville.fr" autocomplete="email"
                    aria-label="Votre adresse e-mail" />
-            <button id="lead-submit" class="btn btn--primary" type="submit">Recevoir</button>
+            <button id="lead-submit" class="lead__send" type="submit">Recevoir</button>
           </div>
           <p id="lead-error" class="lead__error" hidden></p>
           <button id="lead-skip" class="lead__skip" type="button">Continuer sans laisser d'adresse</button>
         </form>
 
-        <p id="lead-thanks" class="lead__thanks" hidden>Merci, nous vous envoyons le lien.</p>
+        <p id="lead-thanks" class="lead__thanks" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+          <span>Merci, le lien part sur votre adresse.</span>
+        </p>
 
+        <!-- Une seule action principale, les secondaires en dessous et plus
+             petites. À plat, les trois pastilles ne tenaient pas sur la largeur
+             de la carte et s'empilaient en escalier, la troisième centrée
+             toute seule sous les deux autres. -->
         <div class="done__actions">
           <a id="btn-open" class="btn btn--primary" href="#">Découvrir l'espace</a>
-          <button id="btn-regen" class="btn btn--ghost" hidden>Refaire le recensement</button>
-          <button id="btn-again" class="btn btn--ghost">Autre commune</button>
+          <div class="done__secondary">
+            <button id="btn-regen" class="btn btn--ghost" hidden>Refaire le recensement</button>
+            <button id="btn-again" class="btn btn--ghost">Autre commune</button>
+          </div>
         </div>
         <div class="done__qr">
           <img id="qr-img" alt="QR code vers la carte de la commune" width="200" height="200" />

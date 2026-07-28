@@ -91,6 +91,28 @@ test.describe('Démo salon - récupération de l\'adresse', () => {
     await expect(page.locator('#btn-regen')).toBeHidden();
   });
 
+  /**
+   * Non-régression : `type="email"` sert au clavier des téléphones, mais sa
+   * validation native bloque l'envoi avant notre code et affiche une bulle du
+   * navigateur, hors charte et dans sa propre langue. `novalidate` rend la main
+   * à notre message.
+   */
+  test('0.32.12 - le formulaire laisse notre propre message d\'erreur s\'afficher', async ({ page }) => {
+    await page.goto('/demo/', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#lead-form')).toHaveAttribute('novalidate', '');
+  });
+
+  /**
+   * Non-régression visuelle : un seul appel à l'action rouge sur l'écran de fin.
+   * Le bouton d'envoi de l'adresse en était un second, et les deux se
+   * disputaient le regard au milieu de l'écran.
+   */
+  test('0.32.13 - l\'écran de fin n\'a qu\'un seul bouton d\'action principal', async ({ page }) => {
+    await page.goto('/demo/', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#screen-done .btn--primary')).toHaveCount(1);
+    await expect(page.locator('#screen-done .btn--primary')).toHaveId('btn-open');
+  });
+
   test('0.32.8 - /api/demo-lead refuse une adresse invalide', async ({ request }) => {
     const resp = await request.post('/api/demo-lead', {
       data: { email: 'pas-une-adresse', ville: 'essai-vannes' },

@@ -606,6 +606,14 @@
   const LEAD_TIMEOUT_MS = 45000;
   const EMAIL_RE = /^[^\s@]+@[^\s@,;]+\.[a-z]{2,}$/i;
 
+  // Affiche ou efface le motif de refus, en accordant le champ au message
+  function setLeadError(message) {
+    const champ = document.querySelector('.lead__field');
+    $('lead-error').textContent = message || '';
+    $('lead-error').hidden = !message;
+    if (champ) champ.classList.toggle('is-error', Boolean(message));
+  }
+
   function resetLead() {
     clearTimeout(leadTimer);
     const form = $('lead-form');
@@ -614,7 +622,7 @@
     $('lead-email').value = '';
     $('lead-email').disabled = false;
     $('lead-submit').disabled = false;
-    $('lead-error').hidden = true;
+    setLeadError('');
     $('lead-thanks').hidden = true;
     $('countdown').textContent = '';
   }
@@ -667,13 +675,13 @@
     $('countdown').textContent = '';
     const email = $('lead-email').value.trim();
     if (!EMAIL_RE.test(email)) {
-      $('lead-error').textContent = 'Cette adresse ne semble pas valide.';
-      $('lead-error').hidden = false;
+      setLeadError('Cette adresse ne semble pas valide.');
+      $('lead-email').focus();
       // Le filet repart : le visiteur peut aussi renoncer en ne faisant rien
       leadTimer = setTimeout(startCountdown, LEAD_TIMEOUT_MS);
       return;
     }
-    $('lead-error').hidden = true;
+    setLeadError('');
     $('lead-email').disabled = true;
     $('lead-submit').disabled = true;
     try {
@@ -707,6 +715,9 @@
     clearTimeout(leadTimer);
     clearTimeout(redirectTimer);
     $('countdown').textContent = '';
+    // Le refus s'efface dès la première correction : le laisser affiché pendant
+    // que le visiteur retape son adresse le fait douter pour rien.
+    if (!$('lead-error').hidden) setLeadError('');
     leadTimer = setTimeout(startCountdown, LEAD_TIMEOUT_MS);
   });
 

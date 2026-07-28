@@ -570,64 +570,136 @@ body:not(.has-map) #map { display: none; }
 .stat__l { font-size: 0.74rem; color: var(--text); text-align: center; line-height: 1.3; }
 
 /* ─── Récupération de l'adresse ───
-   Placée juste après les statistiques, au moment où le visiteur a la preuve
-   sous les yeux. L'échappatoire est volontairement plus discrète que le champ,
-   sans être cachée : personne ne doit avoir l'impression d'être coincé. */
-.lead[hidden] { display: none; }
-.lead {
-  margin-top: 3.5vh;
+   Une ÉTAPE à part entière, pas un champ posé entre deux blocs : un filet la
+   sépare de ce qui précède, sinon son intitulé se lit comme la suite du texte
+   du dessus. Le champ et son bouton forment UN SEUL contrôle : côte à côte,
+   l'ombre du bouton mordait sur le champ, et sur mobile les deux se séparaient
+   en un faux second appel à l'action. Le bouton d'envoi est sombre, jamais
+   rouge : le seul rouge de l'écran doit rester « Découvrir l'espace ».
+   L'échappatoire est plus discrète que le champ, sans être cachée. */
+.lead[hidden], .lead__thanks[hidden] { display: none; }
+
+/* Le filet suit la largeur de la CARTE, pas celle du champ : cadré sur le
+   champ, il flottait au milieu, plus court que la grille de statistiques juste
+   au-dessus, et ne lisait plus comme une séparation. */
+.lead,
+.lead__thanks {
   width: 100%;
-  max-width: 520px;
+  margin-top: clamp(22px, 3.2vh, 34px);
+  padding-top: clamp(22px, 3.2vh, 34px);
+  border-top: 1px solid var(--border);
+}
+
+.lead {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 .lead__label {
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 600;
-  font-size: 1.02rem;
+  font-size: 1rem;
   color: var(--ink);
 }
-.lead__row { display: flex; gap: 10px; width: 100%; flex-wrap: wrap; justify-content: center; }
-.lead__input {
-  flex: 1 1 260px;
-  min-width: 220px;
-  font-family: inherit;
-  font-size: 1.05rem;
-  padding: 16px 20px;
-  border-radius: 999px;
-  border: 1.5px solid var(--border);
+
+/* Le contrôle unifié : la bordure appartient au conteneur, pas à ses deux
+   moitiés, donc rien ne peut plus se chevaucher ni se désolidariser. */
+.lead__field {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 460px;
+  gap: 8px;
+  padding: 5px 5px 5px 20px;
   background: #fff;
-  color: var(--ink);
-  outline: none;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
-.lead__input:focus { border-color: var(--accent); }
-.lead__row .btn { flex: 0 0 auto; padding: 16px 30px; font-size: 1.02rem; }
-.lead__error[hidden] { display: none; }
-.lead__error { font-size: 0.88rem; color: #c02638; margin: 0; }
-.lead__skip {
+.lead__field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+/* L'état d'erreur est explicite : --accent prend la couleur de la commune, qui
+   peut être bleue. Un anneau bleu au-dessus d'un message rouge ne dit rien. */
+.lead__field.is-error,
+.lead__field.is-error:focus-within {
+  border-color: #c02638;
+  box-shadow: 0 0 0 4px rgba(192, 38, 56, 0.13);
+}
+.lead__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 12px 0;
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--ink);
   background: none;
   border: none;
-  padding: 4px 8px;
+  outline: none;
+}
+.lead__input::placeholder { color: color-mix(in srgb, var(--text) 55%, transparent); }
+.lead__input:disabled { color: var(--text); }
+.lead__send {
+  flex: 0 0 auto;
+  padding: 13px 26px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: 0.98rem;
+  color: #fff;
+  background: var(--ink);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.lead__send:hover { background: #33333f; }
+.lead__send:disabled { opacity: 0.45; cursor: default; }
+
+.lead__error { margin: 0; font-size: 0.86rem; color: #c02638; }
+.lead__error[hidden] { display: none; }
+
+.lead__skip {
+  padding: 4px 10px;
   font-family: inherit;
   font-size: 0.82rem;
   color: var(--text);
-  opacity: 0.62;
+  background: none;
+  border: none;
+  opacity: 0.66;
   text-decoration: underline;
+  text-underline-offset: 3px;
   cursor: pointer;
+  transition: opacity 0.2s ease;
 }
 .lead__skip:hover { opacity: 1; }
-.lead__thanks[hidden] { display: none; }
+
+/* Le remerciement occupe la même place et la même largeur que le formulaire :
+   la carte ne saute pas au moment de l'envoi. */
 .lead__thanks {
-  margin-top: 3.5vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 600;
-  font-size: 1.02rem;
-  color: var(--accent);
+  font-size: 1rem;
+  color: var(--ok);
 }
+.lead__thanks svg { width: 20px; height: 20px; flex-shrink: 0; }
 
-.done__actions { display: flex; gap: 14px; margin-top: 3.5vh; flex-wrap: wrap; justify-content: center; }
+.done__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: clamp(22px, 3.2vh, 34px);
+}
+.done__secondary { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+/* Les actions secondaires sont plus petites que l'action principale : c'est ce
+   qui dit au visiteur où regarder. */
+.done__secondary .btn { padding: 13px 26px; font-size: 0.98rem; }
 .done__actions .btn[hidden] { display: none; }
 
 .btn {
@@ -731,6 +803,17 @@ body:not(.has-map) #map { display: none; }
 @media (max-width: 720px) {
   .done__stats { grid-template-columns: repeat(2, 1fr); }
   .done__qr { flex-direction: column; text-align: center; }
+}
+
+/* Sur écran étroit, trois pastilles de largeurs différentes s'empilaient en
+   escalier (deux sur une ligne, la troisième centrée en dessous). Des boutons
+   pleine largeur donnent une colonne franche, et le rouge reste seul en tête. */
+@media (max-width: 560px) {
+  .done__actions { align-items: stretch; width: 100%; gap: 10px; }
+  .done__secondary { flex-direction: column; width: 100%; gap: 10px; }
+  .done__actions .btn { width: 100%; text-align: center; }
+  .lead__field { padding-left: 16px; }
+  .lead__send { padding: 13px 20px; font-size: 0.94rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
