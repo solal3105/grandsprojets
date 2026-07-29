@@ -144,6 +144,19 @@ test.describe('Démo salon - message au visiteur', () => {
     expect(appels).toHaveLength(1);
   });
 
+  test('0.34.9 - le message ne renvoie pas vers les tarifs', async () => {
+    const appels = interceptor();
+
+    await envoyerMessageDemo(DONNEES);
+
+    // Un premier contact au salon ne parle pas d'argent : la page tarifs est
+    // volontairement absente des deux versions du message.
+    expect(appels[0].corps.text).not.toContain('/home/tarifs');
+    expect(appels[0].corps.html).not.toContain('/home/tarifs');
+    expect(appels[0].corps.text).toContain('/home/contact');
+    expect(appels[0].corps.html).toContain('/home/contact');
+  });
+
   test('0.34.8 - sans adresse d\'espace, aucun message n\'est tenté', async () => {
     const appels = interceptor();
 

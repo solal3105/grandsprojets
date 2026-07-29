@@ -102,7 +102,6 @@ function corpsTexte({ communeNom, spaceUrl, projectsCount }) {
     `POUR ALLER PLUS LOIN`,
     ``,
     `Fonctionnalités : ${SITE}/home/fonctionnalites`,
-    `Tarifs : ${SITE}/home/tarifs`,
     `Nous écrire : ${SITE}/home/contact`,
     ``,
     `Si vous souhaitez la même carte avec vos projets réels, écrivez-nous : la`,
@@ -163,7 +162,6 @@ function corpsHtml({ communeNom, spaceUrl, projectsCount }) {
           <h2 style="${h}">Pour aller plus loin</h2>
           <p style="${p}">
             <a href="${SITE}/home/fonctionnalites" style="color:#FF0037;">Les fonctionnalités</a> &nbsp;·&nbsp;
-            <a href="${SITE}/home/tarifs" style="color:#FF0037;">Les tarifs</a> &nbsp;·&nbsp;
             <a href="${SITE}/home/contact" style="color:#FF0037;">Nous écrire</a>
           </p>
           <p style="${p}">Si vous souhaitez la même carte avec vos projets réels, écrivez-nous : la reprise de vos documents se fait en quelques jours.</p>
