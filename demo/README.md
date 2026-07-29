@@ -78,7 +78,15 @@ l'autre selon le fournisseur retenu :
 | `BREVO_API_KEY` | Brevo (`api.brevo.com`, hébergement européen) |
 
 Deux réglages facultatifs : `DEMO_MAIL_FROM` (par défaut
-`Open Projets <bonjour@openprojets.com>`) et `DEMO_MAIL_REPLY_TO`.
+`Open Projets <bonjour@openprojets.com>`) et `DEMO_MAIL_REPLY_TO`, qui accepte
+plusieurs adresses séparées par des virgules.
+
+`DEMO_MAIL_REPLY_TO` n'est pas vraiment facultative ici : le domaine
+d'expédition n'a aucun enregistrement MX, donc une réponse envoyée à
+`bonjour@openprojets.com` n'arrive nulle part. Or le message invite le visiteur
+à répondre pour ne plus être contacté. Sans cette variable, la sortie
+d'opposition promise n'existe pas. Brevo ne retient que la première adresse de
+la liste, Resend les reçoit toutes.
 
 **Sans clé, rien n'est envoyé** : le lead est enregistré avec
 `mail_status = 'non_configure'`, l'écran remercie sans promettre de lien, et un

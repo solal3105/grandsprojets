@@ -20,7 +20,16 @@ const EXPEDITEUR_DEFAUT = 'Open Projets <bonjour@openprojets.com>';
 const SITE = 'https://openprojets.com';
 
 const from = () => process.env.DEMO_MAIL_FROM || EXPEDITEUR_DEFAUT;
-const replyTo = () => process.env.DEMO_MAIL_REPLY_TO || null;
+
+/* `DEMO_MAIL_REPLY_TO` accepte plusieurs adresses séparées par des virgules.
+   Le message invite le visiteur à répondre pour ne plus être contacté : cette
+   réponse doit tomber devant toute l'équipe, pas dans une boîte que personne ne
+   relève ce jour-là. Le domaine d'expédition n'a pas d'enregistrement MX, donc
+   sans cette liste la sortie d'opposition promise n'aboutit nulle part. */
+const replyTo = () => String(process.env.DEMO_MAIL_REPLY_TO || '')
+  .split(',')
+  .map((a) => a.trim())
+  .filter(Boolean);
 
 // « Nom <adresse@domaine> » -> { nom, adresse }, pour Brevo qui les sépare
 function decouperExpediteur(valeur) {
@@ -174,13 +183,14 @@ function corpsHtml({ communeNom, spaceUrl, projectsCount }) {
 /* ─── Expédition ─── */
 
 async function envoyerResend(destinataire, objet, texte, html) {
+  const reponses = replyTo();
   const body = {
     from: from(),
     to: [destinataire],
     subject: objet,
     text: texte,
     html,
-    ...(replyTo() ? { reply_to: replyTo() } : {}),
+    ...(reponses.length ? { reply_to: reponses } : {}),
   };
   const r = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -195,13 +205,16 @@ async function envoyerResend(destinataire, objet, texte, html) {
 
 async function envoyerBrevo(destinataire, objet, texte, html) {
   const exp = decouperExpediteur(from());
+  // Brevo n'accepte qu'une seule adresse de réponse : on garde la première de
+  // la liste. Une bascule vers Brevo perdrait donc les suivantes - à savoir.
+  const reponse = replyTo()[0] || null;
   const body = {
     sender: { name: exp.nom, email: exp.adresse },
     to: [{ email: destinataire }],
     subject: objet,
     textContent: texte,
     htmlContent: html,
-    ...(replyTo() ? { replyTo: { email: decouperExpediteur(replyTo()).adresse } } : {}),
+    ...(reponse ? { replyTo: { email: decouperExpediteur(reponse).adresse } } : {}),
   };
   const r = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
