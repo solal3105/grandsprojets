@@ -1,0 +1,270 @@
+/* ============================================================================
+   INVITATION - ESPACES D'ESSAI (?city=essai-*)
+
+   Ces espaces sont générés au salon : le visiteur arrive par QR code ou par le
+   lien reçu par mail, et rien à l'écran ne lui dit ce qu'est Open Projets ni où
+   voir un espace réellement alimenté. Cet encart comble ce trou.
+
+   Il ne peut jamais cohabiter avec #demo-banner : la bannière ne s'affiche que
+   sur ['', 'default', 'metropole-lyon'], jamais sur un essai-*. Les deux sont
+   exclusifs par ville.
+
+   Fermer ne masque pas, ça REPLIE vers une pastille : la sortie est toujours
+   réversible, contrairement à la bannière qui disparaît pour 7 jours.
+
+   Empilement : z-index 1250, soit au-dessus de la sidebar (1000) et sous la
+   fiche projet (1300), le dock-panel (1500) et le dock (1600). En mobile la
+   fiche projet occupe tout le bas de l'écran : elle doit gagner, c'est ce que
+   le visiteur regarde à ce moment-là.
+
+   Glassmorphism signature du DS (fond translucide + blur + shimmer inset).
+   Seuls les tokens locaux --ei-* sont redéfinis en dark.
+   ============================================================================ */
+
+#essai-invite {
+  /* Tokens locaux de composant (les seuls redéfinis en dark) */
+  --ei-bg: color-mix(in srgb, var(--surface-base) 75%, transparent);
+  --ei-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.12),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.95);
+  --ei-inset: var(--sb-inset, 14px);
+
+  display: none; /* montré par le script inline synchrone (délai d'entrée) */
+  position: fixed;
+  z-index: 1250;
+  left: var(--ei-inset);
+  bottom: var(--ei-inset);
+  width: 320px;
+  max-width: calc(100vw - 2 * var(--ei-inset));
+}
+
+[data-theme='dark'] #essai-invite {
+  --ei-bg: color-mix(in srgb, var(--surface-base) 82%, transparent);
+  --ei-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.065);
+}
+
+/* Les deux faces ne sont jamais visibles ensemble : le JS bascule `hidden`.
+   Sans cette règle, `hidden` ne ferait rien face au display des enfants. */
+#essai-invite [hidden] {
+  display: none !important;
+}
+
+/* ── Face dépliée : la carte ─────────────────────────────────────────────── */
+
+.essai-invite__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 18px 18px 16px;
+  background: var(--ei-bg);
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  border: 1px solid var(--border-light);
+  border-radius: 18px;
+  box-shadow: var(--ei-shadow);
+  animation: essai-invite-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.essai-invite__card.is-leaving {
+  animation: essai-invite-out 0.22s cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+/* Pattern badge du DS (référence : .etat-pill de 04-components.css) */
+.essai-invite__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  color: var(--primary);
+  background: var(--primary-alpha-12);
+  border: 1px solid var(--primary-alpha-35);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.essai-invite__title {
+  margin: 0;
+  padding-right: 26px; /* dégage la croix de fermeture */
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.essai-invite__text {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+/* ── Actions ─────────────────────────────────────────────────────────────── */
+
+.essai-invite__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.essai-invite__cta,
+.essai-invite__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  line-height: 1.2;
+}
+
+.essai-invite__cta {
+  color: #fff;
+  background: var(--primary);
+  border: 1px solid transparent;
+}
+
+.essai-invite__cta:hover {
+  background: color-mix(in srgb, var(--color-primary) 88%, black);
+}
+
+[data-theme='dark'] .essai-invite__cta:hover {
+  background: color-mix(in srgb, var(--color-primary) 115%, white);
+}
+
+.essai-invite__link {
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid var(--border-light);
+}
+
+.essai-invite__link:hover {
+  background: color-mix(in srgb, var(--surface-base) 60%, transparent);
+  border-color: var(--border-medium);
+}
+
+.essai-invite__cta i,
+.essai-invite__link i {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* ── Fermeture ───────────────────────────────────────────────────────────── */
+
+.essai-invite__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.essai-invite__close:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface-base) 60%, transparent);
+  transform: scale(1.12) rotate(90deg); /* geste de fermeture du DS */
+}
+
+/* ── Face repliée : la pastille de rappel ────────────────────────────────── */
+
+.essai-invite__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  color: var(--primary);
+  background: var(--ei-bg);
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  border: 1px solid var(--border-light);
+  border-radius: 999px;
+  box-shadow: var(--ei-shadow);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  animation: essai-invite-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.essai-invite__pill:hover {
+  transform: scale(1.08); /* hover bouton flottant du DS */
+}
+
+@keyframes essai-invite-in {
+  from { transform: translateY(12px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes essai-invite-out {
+  from { transform: translateY(0);    opacity: 1; }
+  to   { transform: translateY(12px); opacity: 0; }
+}
+
+/* ── Mobile : la sidebar devient une capsule centrée en bas ──────────────── */
+
+@media (max-width: 720px) {
+  #essai-invite {
+    /* La capsule sidebar fait ~56px et se colle en bas : on passe au-dessus.
+       La fiche projet, elle, couvre volontairement l'encart (z-index plus
+       haut) - c'est elle que le visiteur regarde. */
+    --ei-capsule: 56px;
+    left: 12px;
+    right: 12px;
+    bottom: calc(max(12px, env(safe-area-inset-bottom) + 8px) + var(--ei-capsule) + 10px);
+    width: auto;
+    max-width: none;
+  }
+
+  /* La pastille ne doit pas s'étirer sur toute la largeur */
+  .essai-invite__pill {
+    float: right;
+  }
+
+  .essai-invite__actions {
+    flex-direction: row;
+  }
+
+  .essai-invite__cta,
+  .essai-invite__link {
+    flex: 1;
+  }
+}
+
+/* ── Mouvement réduit ────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .essai-invite__card,
+  .essai-invite__card.is-leaving,
+  .essai-invite__pill {
+    animation: none;
+  }
+
+  .essai-invite__close:hover,
+  .essai-invite__pill:hover {
+    transform: none;
+  }
+}

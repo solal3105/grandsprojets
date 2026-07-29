@@ -122,6 +122,7 @@
   <link rel="stylesheet" href="styles/gp-lightbox.css" />
   <link rel="stylesheet" href="styles/gp-toast.css" />
   <link rel="stylesheet" href="styles/demo-banner.css" />
+  <link rel="stylesheet" href="styles/essai-invite.css" />
 </head>
 <body>
   <!-- ═══ Bannière démo - espace démo (metropole-lyon) uniquement ═══ -->
@@ -197,6 +198,113 @@
         banner.style.animation = 'demo-banner-out 0.3s cubic-bezier(0.4,0,1,1) both';
         setTimeout(hide, 280);
       });
+    }());
+  </script>
+
+  <!-- ═══ Invitation - espaces d'essai (?city=essai-*) uniquement ═══ -->
+  <div id="essai-invite" role="complementary" aria-label="À propos de cette carte d'essai">
+    <div class="essai-invite__card" id="essai-invite-card" hidden>
+      <button type="button" id="essai-invite-close" class="essai-invite__close" aria-label="Réduire l'encart">
+        <i class="fas fa-xmark" aria-hidden="true"></i>
+      </button>
+      <span class="essai-invite__badge">Carte d'essai</span>
+      <p class="essai-invite__title">Cette carte a été générée automatiquement</p>
+      <p class="essai-invite__text">
+        À partir des seules sources publiques, sans la commune. Un espace Open Projets, lui, est
+        alimenté par les équipes de la collectivité.
+      </p>
+      <div class="essai-invite__actions">
+        <a class="essai-invite__cta" href="https://openprojets.com/home?ref=essai-invite" target="_blank" rel="noopener noreferrer">
+          Découvrir Open Projets
+          <i class="fas fa-arrow-right" aria-hidden="true"></i>
+        </a>
+        <a class="essai-invite__link" href="https://openprojets.com/default" target="_blank" rel="noopener noreferrer">
+          Voir l'espace Métropole de Lyon
+          <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>
+        </a>
+      </div>
+    </div>
+    <button type="button" id="essai-invite-pill" class="essai-invite__pill" hidden
+            aria-label="Rouvrir les informations sur cette carte d'essai">
+      <i class="fas fa-circle-info" aria-hidden="true"></i>
+      En savoir plus
+    </button>
+  </div>
+  <script>
+    // Même architecture que la bannière démo ci-dessus : détection synchrone
+    // avant le rendu, jamais en iframe, barrière défensive post-boot qui ne
+    // peut que MASQUER. Deux différences volontaires :
+    //   - la cible est l'inverse (essai-* et non l'espace démo), les deux ne
+    //     peuvent donc jamais s'afficher ensemble ;
+    //   - fermer REPLIE vers une pastille au lieu de masquer : le visiteur de
+    //     salon doit toujours pouvoir revenir au lien, sans recharger la page.
+    (function () {
+      var ESSAI_RE = /^essai-[a-z0-9-]+$/;
+      var COLLAPSE_KEY = 'gp-essai-invite-collapsed';
+      var REVEAL_DELAY = 1500; // ms - la carte se dessine d'abord
+      var root = document.getElementById('essai-invite');
+      if (!root) return;
+      var card = document.getElementById('essai-invite-card');
+      var pill = document.getElementById('essai-invite-pill');
+
+      var killed = false;
+      var kill = function () { killed = true; root.style.display = 'none'; };
+
+      // Barrière défensive post-boot (main.js Phase 1 + popstate)
+      window.__syncEssaiInvite = function (city) {
+        if (!ESSAI_RE.test(String(city || '').toLowerCase().trim())) kill();
+      };
+
+      try { if (window.self !== window.top) return; } catch (_) { return; }
+
+      var city = '';
+      try {
+        // Un segment de path = route ville (route-config.js) → espace client
+        var seg = location.pathname.split('/').filter(Boolean)[0] || '';
+        if (seg && seg !== 'index.html') return;
+        city = String(new URLSearchParams(location.search).get('city') || '').toLowerCase().trim();
+        if (!city) city = String(localStorage.getItem('activeCity') || '').toLowerCase().trim();
+      } catch (_) { return; /* URL/storage illisible → prudence : ne rien afficher */ }
+      if (!ESSAI_RE.test(city)) return;
+
+      var replie = false;
+      try { replie = localStorage.getItem(COLLAPSE_KEY) === '1'; } catch (_) { /* no-op */ }
+
+      var replier = function () {
+        try { localStorage.setItem(COLLAPSE_KEY, '1'); } catch (_) { /* no-op */ }
+        // `animationend` ne se déclenche pas toujours en headless : repli garanti
+        var fait = false;
+        var finir = function () {
+          if (fait) return;
+          fait = true;
+          card.classList.remove('is-leaving');
+          card.hidden = true;
+          pill.hidden = false;
+        };
+        card.classList.add('is-leaving');
+        card.addEventListener('animationend', finir, { once: true });
+        setTimeout(finir, 250);
+      };
+
+      var deplier = function () {
+        try { localStorage.removeItem(COLLAPSE_KEY); } catch (_) { /* no-op */ }
+        pill.hidden = true;
+        card.hidden = false;
+      };
+
+      document.getElementById('essai-invite-close').addEventListener('click', replier);
+      pill.addEventListener('click', deplier);
+
+      var montrer = function () {
+        if (killed) return;
+        root.style.display = 'block';
+        card.hidden = replie;
+        pill.hidden = !replie;
+      };
+
+      var reduit = false;
+      try { reduit = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) { /* no-op */ }
+      if (reduit) montrer(); else setTimeout(montrer, REVEAL_DELAY);
     }());
   </script>
 

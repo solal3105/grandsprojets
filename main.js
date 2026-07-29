@@ -236,9 +236,11 @@
         if (win.CityManager) win.CityManager._activeCity = city;
       }
 
-      // Bannière démo : masquer si la ville résolue est un espace client
-      // (barrière défensive - le script inline de index.html ne voit que ?city= et localStorage)
+      // Bannière démo et invitation d'essai : masquer si la ville résolue ne
+      // correspond pas (barrières défensives - les scripts inline de index.html
+      // ne voient que ?city= et localStorage). Les deux sont exclusifs entre eux.
       try { win.__syncDemoBanner?.(city); } catch { /* no-op */ }
+      try { win.__syncEssaiInvite?.(city); } catch { /* no-op */ }
 
       // Phase 2 : un seul fetch branding (stocké dans CityManager._branding)
       await safePhase('CityManager.updateLogoForCity', () => win.CityManager?.updateLogoForCity(city));
@@ -720,6 +722,7 @@
             if (win.CityManager) win.CityManager._activeCity = nextCity;
             win.CityManager?.persistCity(nextCity);
             try { win.__syncDemoBanner?.(nextCity); } catch { /* no-op */ }
+            try { win.__syncEssaiInvite?.(nextCity); } catch { /* no-op */ }
             await win.CityManager?.updateLogoForCity(nextCity);
             try {
               await win.FilterManager?.init();
