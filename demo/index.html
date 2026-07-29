@@ -23,7 +23,7 @@
        évite que cela se reproduise, mais seul un changement d'adresse déloge un
        fichier déjà en cache. À INCRÉMENTER à chaque modification de demo.css,
        demo.js ou map-fx.js. -->
-  <link rel="stylesheet" href="demo.css?v=4" />
+  <link rel="stylesheet" href="demo.css?v=5" />
 </head>
 <body>
   <!-- Scène WebGL : globe, plongée sur la commune, épingles (repli statique sans WebGL) -->
@@ -148,7 +148,7 @@
 
         <p id="lead-thanks" class="lead__thanks" hidden>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-          <span>Merci, le lien part sur votre adresse.</span>
+          <span id="lead-thanks-texte">Merci, le lien part sur votre adresse.</span>
         </p>
 
         <!-- Second temps : découvert seulement une fois l'étape de l'adresse
@@ -173,7 +173,7 @@
   </main>
 
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
-  <script src="map-fx.js?v=4"></script>
-  <script src="demo.js?v=4"></script>
+  <script src="map-fx.js?v=5"></script>
+  <script src="demo.js?v=5"></script>
 </body>
 </html>

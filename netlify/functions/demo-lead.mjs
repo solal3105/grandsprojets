@@ -12,6 +12,8 @@
    une politique de lecture publique).
    ============================================================================ */
 
+import { envoyerMessageDemo } from './lib/demo-mail.mjs';
+
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
 
 // Même plafond d'esprit que la démo elle-même : on borne l'abus sans gêner un
@@ -119,6 +121,15 @@ export default async (req, context) => {
     }
 
     const runId = await findRunId(ville);
+    const communeNom = String(body?.communeNom || '').trim().slice(0, 120);
+    const spaceUrl = ville ? `https://openprojets.com/?city=${ville}` : null;
+
+    /* Le message part AVANT l'enregistrement, pour que son issue soit consignée
+       avec l'adresse : une ligne « envoyé » ou « échec » vaut bien mieux qu'une
+       ligne muette qu'il faudrait recouper avec les logs. L'expédition ne lève
+       jamais, elle rend son état. */
+    const mail = await envoyerMessageDemo({ email, communeNom, spaceUrl, projectsCount });
+
     const r = await fetch(`${SUPABASE_URL}/rest/v1/demo_leads`, {
       method: 'POST',
       headers: serviceHeaders(),
@@ -126,12 +137,15 @@ export default async (req, context) => {
         email,
         ville: ville || null,
         commune_insee: insee,
-        commune_nom: String(body?.communeNom || '').trim().slice(0, 120),
+        commune_nom: communeNom,
         projects_count: projectsCount,
-        space_url: ville ? `https://openprojets.com/?city=${ville}` : null,
+        space_url: spaceUrl,
         ip_hash: ipHash,
         kiosk: body?.kiosk === true,
         run_id: runId,
+        mail_status: mail.status,
+        mail_error: mail.error || null,
+        mail_sent_at: mail.status === 'envoye' ? new Date().toISOString() : null,
       }]),
     });
     if (!r.ok) {
@@ -139,8 +153,9 @@ export default async (req, context) => {
       console.error(`[demo-lead] insertion ${r.status} :: ${txt.slice(0, 200)}`);
       return json(502, { error: 'Enregistrement impossible' });
     }
-    console.log(`[demo-lead] adresse enregistrée pour ${ville || insee || 'commune inconnue'}`);
-    return json(200, { ok: true, stored: true });
+    console.log(`[demo-lead] adresse enregistrée pour ${ville || insee || 'commune inconnue'} (message : ${mail.status})`);
+    // `mailed` sert à l'écran : il ne promet un envoi que s'il a eu lieu.
+    return json(200, { ok: true, stored: true, mailed: mail.status === 'envoye' });
   } catch (e) {
     console.error('[demo-lead] échec ::', e?.message);
     return json(500, { error: 'Enregistrement impossible' });

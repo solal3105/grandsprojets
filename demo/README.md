@@ -63,6 +63,40 @@ Les deux tables sont en RLS **sans aucune politique** : elles ne sont lisibles
 que par la clé de service, côté serveur. Une adresse laissée par un élu n'a rien
 à faire derrière la clé publique.
 
+### Le message envoyé au visiteur
+
+`netlify/functions/lib/demo-mail.mjs` compose et expédie le message. Ce n'est
+pas une route : le fichier vit dans `lib/` précisément pour que Netlify ne le
+prenne pas pour une fonction.
+
+**Deux variables d'environnement à poser pour que l'envoi ait lieu**, l'une ou
+l'autre selon le fournisseur retenu :
+
+| Variable | Fournisseur |
+|---|---|
+| `RESEND_API_KEY` | Resend (`api.resend.com`) |
+| `BREVO_API_KEY` | Brevo (`api.brevo.com`, hébergement européen) |
+
+Deux réglages facultatifs : `DEMO_MAIL_FROM` (par défaut
+`Open Projets <bonjour@openprojets.com>`) et `DEMO_MAIL_REPLY_TO`.
+
+**Sans clé, rien n'est envoyé** : le lead est enregistré avec
+`mail_status = 'non_configure'`, l'écran remercie sans promettre de lien, et un
+avertissement part dans les logs. Jamais de promesse non tenue à un visiteur.
+
+Le **domaine d'expédition doit être vérifié chez le fournisseur** (SPF, DKIM),
+sinon les messages partent en indésirable ou sont refusés. C'est la seule étape
+que le code ne peut pas faire à votre place.
+
+Le contenu dit franchement que la carte a été construite **sans la
+collectivité**, à partir des seules sources publiques, et qu'elle est donc
+incomplète. Ce n'est pas de la modestie : un élu qui y trouve une erreur nous
+l'imputerait, et ce qui manque est précisément ce que la collectivité
+apporterait. Le message porte aussi la mention d'où vient l'adresse et comment
+ne plus être contacté.
+
+Suivi : `select mail_status, count(*) from demo_leads group by 1;`
+
 ## Garde-fous
 
 - Idempotence : une commune déjà générée redirige vers l'espace existant, sauf
@@ -90,9 +124,11 @@ que par la clé de service, côté serveur. Une adresse laissée par un élu n'a
   emplacement n'est identifiable ; deux fiches sont fusionnées si elles sont à
   moins de 250 m ET partagent deux mots distinctifs, ou à moins de 80 m et un
   seul (un seul mot à 250 m supprimait des projets réels : « avenue Berthelot »
-  et « résidence Berthelot ») ; deux projets DIFFÉRENTS à la même adresse sont
-  tous les deux conservés ; moins de 3 projets situés = message d'orientation
-  vers un contact humain
+  et « résidence Berthelot ») ; une position DÉJÀ OCCUPÉE écarte le projet, car
+  un emplacement partagé par plusieurs fiches n'est celui d'aucune (mesuré sur
+  Saint-Denis : cinq avis de marché sans lieu propre rabattus sur le même
+  polygone) ; moins de 3 projets situés = message d'orientation vers un contact
+  humain
 - L'écran distingue ce qui est écarté faute d'emplacement vérifiable de ce qui
   est fusionné pour cause de doublon : les confondre revenait à mentir sur le
   motif du rejet
@@ -235,9 +271,11 @@ netlify dev --port 3001
 ## Désinstallation complète
 
 1. Supprimer le dossier `demo/`
-2. Supprimer `netlify/functions/demo-generate.mjs` et
-   `netlify/functions/demo-lead.mjs` (les routes `/api/demo-generate` et
-   `/api/demo-lead` sont déclarées dans ces fichiers, rien dans netlify.toml)
+2. Supprimer `netlify/functions/demo-generate.mjs`,
+   `netlify/functions/demo-lead.mjs` et `netlify/functions/lib/demo-mail.mjs`
+   (les routes `/api/demo-generate` et `/api/demo-lead` sont déclarées dans ces
+   fichiers, rien dans netlify.toml), ainsi que la règle d'en-têtes `/demo/*`
+   de netlify.toml
 3. Retirer les 5 garde-fous marqués « essai- » : deux dans
    `netlify/functions/sitemap.mjs`, un dans `netlify/functions/llms-txt.mjs`,
    un dans `netlify/edge-functions/ville-hub.js`, un dans

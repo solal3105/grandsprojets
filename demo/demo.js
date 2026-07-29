@@ -704,8 +704,12 @@
     setLeadError('');
     $('lead-email').disabled = true;
     $('lead-submit').disabled = true;
+    /* Le remerciement dit ce qui s'est REELLEMENT passe. Promettre un lien qui
+       ne part pas serait la pire fin de demo possible : le visiteur attend un
+       message qui n'arrivera jamais. */
+    let envoye = false;
     try {
-      await fetch('/api/demo-lead', {
+      const r = await fetch('/api/demo-lead', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -717,11 +721,15 @@
           kiosk: KIOSK,
         }),
       });
+      envoye = r.ok && (await r.json().catch(() => ({}))).mailed === true;
     } catch {
       // Un enregistrement raté ne doit pas gâcher la fin de la démo : on
       // remercie quand même, le visiteur a fait sa part.
       console.warn('[demo] enregistrement de l\'adresse impossible');
     }
+    $('lead-thanks-texte').textContent = envoye
+      ? 'Merci, le lien part sur votre adresse.'
+      : 'Merci, votre adresse est bien enregistrée.';
     closeLead(true);
   });
 
