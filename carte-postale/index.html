@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Carte postale de votre commune | Open Projets</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" href="/home/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <!-- ?v= : marque de version. Les fichiers statiques du site sont servis avec
+       24 h de cache ; seul un changement d'adresse déloge un fichier déjà pris.
+       À INCRÉMENTER à chaque modification des fichiers de ce dossier. -->
+  <link rel="stylesheet" href="style.css?v=2" />
+</head>
+<body>
+  <div class="scene" aria-hidden="true">
+    <span class="scene__halo"></span>
+    <span class="scene__grain"></span>
+  </div>
+
+  <main class="studio">
+    <header class="entete">
+      <img src="/home/img/logos/square_white.png" alt="Open Projets" class="entete__logo"
+           onerror="this.style.display='none'" />
+      <span class="entete__fil">Carte postale</span>
+      <span id="entete-commune" class="entete__commune"></span>
+    </header>
+
+    <!-- ─────────────────────────────────────────────────────────────────────
+         LA CARTE POSTALE, au centre du début à la fin. On ne manipule pas une
+         carte avec un aperçu à côté : on manipule l'objet.
+         Format 10 x 15 cm, tenu par le rapport 1:1,5 de --cp-l / --cp-h.
+         ───────────────────────────────────────────────────────────────────── -->
+    <section class="plateau">
+      <div id="carte-postale" class="cp" data-etat="attente">
+        <div class="cp__objet">
+          <div class="cp__image">
+            <div id="map" class="cp__map"></div>
+            <div class="cp__voile"></div>
+            <div id="cp-attente" class="cp__attente">
+              <span class="cp__attente-titre">Votre commune,<br />vue d'une autre époque</span>
+            </div>
+            <p id="cp-inscription" class="cp__inscription"></p>
+          </div>
+
+          <!-- Bandeau : toujours le même, c'est la signature de l'objet -->
+          <div class="cp__bandeau">
+            <div class="cp__mots">
+              <img src="/home/img/logos/classic_color.png" alt="Open Projets" class="cp__logo" />
+              <p id="cp-punchline" class="cp__punchline">Votre commune a une histoire.<br />À vous d'écrire la suite.</p>
+              <p class="cp__sous">Publiez vos projets d'aménagement sur une carte publique, à vos couleurs.</p>
+              <p id="cp-tel" class="cp__tel" hidden></p>
+            </div>
+            <div class="cp__qr">
+              <img id="cp-qr-img" alt="" width="150" height="150" />
+              <span>openprojets.com<br />/demo</span>
+            </div>
+          </div>
+          <p class="cp__credit">Fond de carte © IGN, Géoplateforme</p>
+          <span class="cp__reflet" aria-hidden="true"></span>
+        </div>
+        <span class="cp__ombre" aria-hidden="true"></span>
+      </div>
+    </section>
+
+    <!-- ── Le pupitre : tous les réglages au même endroit, dans l'ordre du geste ── -->
+    <aside class="pupitre">
+      <!-- Étape 1 -->
+      <section id="etape-commune" class="bloc is-actif">
+        <h1 class="bloc__titre">Une carte postale<br />de votre commune</h1>
+        <p class="bloc__intro">Choisissez la commune, remontez le temps, imprimez.</p>
+        <div class="recherche">
+          <input id="commune" class="recherche__champ" type="text" autocomplete="off" autofocus
+                 placeholder="Nom de la commune" aria-label="Nom de la commune" />
+          <ul id="suggestions" class="recherche__liste" hidden></ul>
+        </div>
+      </section>
+
+      <!-- Étape 2 -->
+      <section id="etape-atelier" class="bloc">
+        <div class="reglage">
+          <span class="reglage__label">Époque</span>
+          <!-- Frise verticale : l'axe du temps se lit de haut en bas -->
+          <div id="frise" class="frise" role="group" aria-label="Époque du fond de carte"></div>
+          <p id="frise-etat" class="reglage__alerte" hidden></p>
+        </div>
+
+        <div class="reglage">
+          <label class="reglage__label" for="inscription">Inscription</label>
+          <input id="inscription" class="champ" type="text" maxlength="52"
+                 placeholder="Le nom de la commune" />
+          <div id="legendes" class="puces"></div>
+        </div>
+
+        <div class="reglage">
+          <span class="reglage__label">Point de vue</span>
+          <div class="segments">
+            <button class="segment" data-pitch="0" data-bearing="0" type="button">À plat</button>
+            <button class="segment is-actif" data-pitch="52" data-bearing="-18" type="button">Incliné</button>
+            <button class="segment" data-pitch="70" data-bearing="24" type="button">Rasant</button>
+          </div>
+          <p class="reglage__aide">Glissez sur la carte pour cadrer, molette pour zoomer.</p>
+        </div>
+
+        <div class="pupitre__actions">
+          <button id="btn-imprimer" class="btn btn--primaire" type="button">Imprimer</button>
+          <button id="btn-png" class="btn btn--fantome" type="button">Télécharger</button>
+          <button id="btn-autre" class="btn btn--lien" type="button">Changer de commune</button>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <!-- Sortie d'impression : uniquement l'image composée, au format réel -->
+  <div id="sortie" class="sortie" hidden><img id="sortie-img" alt="" /></div>
+
+  <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
+  <script src="epoques.js?v=2"></script>
+  <script src="scene.js?v=2"></script>
+  <script src="postcard.js?v=2"></script>
+  <script src="app.js?v=2"></script>
+</body>
+</html>

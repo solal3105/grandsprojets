@@ -1,0 +1,560 @@
+/* ============================================================================
+   CARTE POSTALE - carte-postale/style.css
+
+   Même direction artistique que /demo/ : scène sombre, verre dépoli, accent
+   Open Projets. La différence est que l'objet EST l'interface. La carte flotte
+   au centre, tous les réglages tiennent dans un pupitre unique à droite, dans
+   l'ordre du geste : l'époque, l'inscription, le point de vue, la sortie.
+
+   Format : 10 x 15 cm en portrait. --cp-l porte la largeur, la hauteur en
+   découle par le rapport 1,5. Le rendu papier est calculé à part, en 300 points
+   par pouce (voir postcard.js), à partir des mêmes proportions.
+   ============================================================================ */
+
+:root {
+  --accent: #ff4d6a;
+  --papier: #f7f5f1;
+  --encre: #12121a;
+  --gris: #5d5d6b;
+
+  /* Largeur de la carte à l'écran ; la hauteur suit le format 10 x 15 */
+  --cp-l: clamp(250px, 33vw, 440px);
+  --cp-h: calc(var(--cp-l) * 1.5);
+  /* Part de l'image dans la hauteur, le bandeau prend le reste */
+  --cp-image: 72%;
+
+  --verre: rgba(255, 255, 255, 0.055);
+  --verre-bord: rgba(255, 255, 255, 0.13);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: #070910;
+  color: #fff;
+  overflow: hidden;
+}
+
+/* ─── Décor ─── */
+
+.scene { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
+.scene::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120vw 90vh at 40% -10%, #1b2440, transparent 60%),
+    radial-gradient(80vw 70vh at 90% 100%, #2a1230, transparent 65%),
+    #070910;
+}
+.scene__halo {
+  position: absolute;
+  left: 38%; top: 50%;
+  width: 70vmin; height: 70vmin;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, var(--halo, color-mix(in srgb, var(--accent) 26%, transparent)), transparent 62%);
+  filter: blur(70px);
+  transition: background 1.1s ease;
+}
+.scene__grain {
+  position: absolute;
+  inset: -50%;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain 6s steps(6) infinite;
+  pointer-events: none;
+}
+@keyframes grain {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-2%, 1%); }
+  50% { transform: translate(1%, -2%); }
+  75% { transform: translate(2%, 1%); }
+}
+
+/* ─── Charpente ─────────────────────────────────────────────────────────────
+   Deux colonnes : la scène à gauche, le pupitre à droite. En dessous de
+   1040 px, le pupitre passe sous la carte et la page défile. */
+
+.studio {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 1fr clamp(320px, 27vw, 400px);
+  grid-template-rows: auto 1fr;
+  grid-template-areas: 'entete pupitre' 'plateau pupitre';
+  gap: 0 clamp(16px, 2.5vw, 40px);
+  padding: 18px clamp(16px, 2.5vw, 34px) clamp(16px, 2.5vh, 28px);
+}
+
+.entete { grid-area: entete; display: flex; align-items: center; gap: 12px; }
+.entete__logo { height: 30px; opacity: 0.9; }
+.entete__fil {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+.entete__commune {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+  padding-left: 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+}
+.entete__commune:empty { display: none; }
+
+.plateau {
+  grid-area: plateau;
+  display: grid;
+  place-items: center;
+  perspective: 1500px;
+  perspective-origin: 50% 45%;
+  min-height: 0;
+}
+
+/* ─── La carte postale ─── */
+
+.cp { position: relative; }
+
+.cp__objet {
+  position: relative;
+  width: var(--cp-l);
+  height: var(--cp-h);
+  background: var(--papier);
+  border-radius: 9px;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx, 5deg)) rotateY(var(--ry, -12deg));
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55) inset,
+    0 60px 120px -40px rgba(0, 0, 0, 0.95),
+    0 18px 46px -18px rgba(0, 0, 0, 0.75);
+  will-change: transform;
+}
+
+/* Pendant qu'on cadre, la carte se met À PLAT. Ce n'est pas décoratif : une
+   carte inclinée fausse les coordonnées que MapLibre lit du pointeur, et le
+   glissé dériverait. */
+.cp.is-plat .cp__objet { transform: none; }
+
+.cp__ombre {
+  position: absolute;
+  left: 8%; right: 8%;
+  bottom: -24px;
+  height: 38px;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.72), transparent 70%);
+  filter: blur(14px);
+  z-index: -1;
+}
+
+.cp__image { position: relative; height: var(--cp-image); overflow: hidden; background: #0d1420; }
+.cp__map { position: absolute; inset: 0; }
+.cp__map .maplibregl-ctrl-attrib,
+.cp__map .maplibregl-ctrl-bottom-left { display: none; }
+
+.cp__voile {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 44%;
+  background: linear-gradient(to top, rgba(6, 10, 18, 0.84), transparent);
+  pointer-events: none;
+}
+
+.cp__attente {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 24px;
+  background: linear-gradient(160deg, #16203a, #0b1020);
+  transition: opacity 0.8s ease;
+}
+.cp[data-etat='carte'] .cp__attente { opacity: 0; pointer-events: none; }
+.cp__attente-titre {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: clamp(0.95rem, 1.5vw, 1.24rem);
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.cp__inscription {
+  position: absolute;
+  left: 7%; right: 7%;
+  bottom: 5.5%;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: calc(var(--cp-l) * 0.0457);
+  line-height: 1.24;
+  color: #fff;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+/* ─── Le bandeau, invariant. Le logo y est EN COULEUR : c'est la seule note
+       vive de l'objet, et elle signe qui l'a fabriqué. ─── */
+
+.cp__bandeau {
+  height: calc(100% - var(--cp-image));
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: calc(var(--cp-l) * 0.034);
+  align-items: start;
+  padding: calc(var(--cp-l) * 0.037) calc(var(--cp-l) * 0.066) 0;
+  background: var(--papier);
+  color: var(--encre);
+}
+.cp__logo {
+  width: calc(var(--cp-l) * 0.26);
+  height: auto;
+  display: block;
+  margin-bottom: calc(var(--cp-l) * 0.026);
+}
+.cp__punchline {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: calc(var(--cp-l) * 0.0406);
+  line-height: 1.21;
+  letter-spacing: -0.01em;
+}
+.cp__sous {
+  margin-top: calc(var(--cp-l) * 0.02);
+  font-size: calc(var(--cp-l) * 0.0195);
+  line-height: 1.3;
+  color: var(--gris);
+}
+.cp__tel[hidden] { display: none; }
+.cp__tel {
+  margin-top: calc(var(--cp-l) * 0.017);
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: calc(var(--cp-l) * 0.0246);
+}
+.cp__qr {
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--cp-l) * 0.008);
+}
+.cp__qr img { width: calc(var(--cp-l) * 0.157); height: auto; display: block; }
+.cp__qr span {
+  font-size: calc(var(--cp-l) * 0.017);
+  line-height: 1.24;
+  text-align: center;
+  color: var(--gris);
+}
+.cp__credit {
+  position: absolute;
+  left: calc(var(--cp-l) * 0.066);
+  bottom: calc(var(--cp-l) * 0.018);
+  font-size: calc(var(--cp-l) * 0.0144);
+  color: color-mix(in srgb, var(--gris) 70%, transparent);
+}
+
+/* Reflet : la bande claire qui glisse selon l'inclinaison. C'est ce détail qui
+   fait lire « objet » plutôt que « rectangle ». */
+.cp__reflet {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    var(--reflet-angle, 115deg),
+    transparent 30%,
+    rgba(255, 255, 255, 0.15) 46%,
+    rgba(255, 255, 255, 0.03) 58%,
+    transparent 70%
+  );
+  mix-blend-mode: screen;
+  opacity: var(--reflet-force, 0.6);
+  transition: opacity 0.4s ease;
+}
+.cp.is-plat .cp__reflet { opacity: 0.14; }
+
+/* ─── Le pupitre ─── */
+
+.pupitre {
+  grid-area: pupitre;
+  display: flex;
+  flex-direction: column;
+  background: var(--verre);
+  backdrop-filter: blur(26px) saturate(150%);
+  border: 1px solid var(--verre-bord);
+  border-radius: 22px;
+  padding: clamp(18px, 2vw, 26px);
+  overflow-y: auto;
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.09) inset;
+}
+
+.bloc { display: none; }
+.bloc.is-actif { display: flex; flex-direction: column; gap: 20px; flex: 1; animation: monte 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes monte { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+.bloc__titre {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.3rem, 2vw, 1.7rem);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+.bloc__intro { font-size: 0.9rem; line-height: 1.55; color: rgba(255, 255, 255, 0.55); margin-top: -10px; }
+
+.recherche { position: relative; }
+.recherche__champ {
+  width: 100%;
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 15px 20px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  outline: none;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.recherche__champ::placeholder { color: rgba(255, 255, 255, 0.38); }
+.recherche__champ:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.recherche__liste[hidden] { display: none; }
+.recherche__liste {
+  position: absolute;
+  left: 0; right: 0;
+  top: calc(100% + 8px);
+  list-style: none;
+  background: rgba(14, 18, 30, 0.97);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  overflow: hidden;
+  z-index: 5;
+  box-shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.9);
+}
+.recherche__liste li {
+  padding: 11px 18px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: background 0.15s ease;
+}
+.recherche__liste li:hover,
+.recherche__liste li.is-choisi { background: rgba(255, 255, 255, 0.09); }
+.recherche__liste .n { font-weight: 600; font-size: 0.92rem; }
+.recherche__liste .m { font-size: 0.74rem; color: rgba(255, 255, 255, 0.45); }
+
+/* ─── Réglages ─── */
+
+.reglage { display: flex; flex-direction: column; gap: 9px; }
+.reglage__label {
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+.reglage__aide { font-size: 0.74rem; color: rgba(255, 255, 255, 0.34); line-height: 1.45; }
+.reglage__alerte[hidden] { display: none; }
+.reglage__alerte {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #ffc0aa;
+  background: rgba(255, 120, 80, 0.1);
+  border: 1px solid rgba(255, 120, 80, 0.24);
+  border-radius: 10px;
+  padding: 9px 12px;
+}
+
+/* Frise verticale : l'axe du temps se lit de haut en bas, avec un fil qui
+   relie les époques. Une liste de boutons ne raconterait rien. */
+.frise { display: flex; flex-direction: column; position: relative; padding-left: 20px; }
+.frise::before {
+  content: '';
+  position: absolute;
+  left: 5px; top: 12px; bottom: 12px;
+  width: 2px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.05));
+  border-radius: 2px;
+}
+.epoque {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 12px;
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.62);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.epoque::before {
+  content: '';
+  position: absolute;
+  left: -19px;
+  top: 50%;
+  width: 8px; height: 8px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.24);
+  transition: all 0.25s ease;
+}
+.epoque:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+.epoque.is-actif { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.epoque.is-actif::before {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 26%, transparent);
+  width: 10px; height: 10px; margin-top: -5px; left: -20px;
+}
+.epoque.is-vide { opacity: 0.35; }
+.epoque__an { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 0.94rem; min-width: 62px; }
+.epoque__quoi { font-size: 0.74rem; opacity: 0.7; }
+
+.champ {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.92rem;
+  padding: 11px 15px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  outline: none;
+}
+.champ:focus { border-color: var(--accent); }
+
+.puces { display: flex; gap: 6px; flex-wrap: wrap; }
+.puce {
+  border: none;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.62);
+  font-family: inherit;
+  font-size: 0.7rem;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.puce:hover { background: rgba(255, 255, 255, 0.16); color: #fff; }
+
+.segments {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 4px;
+}
+.segment {
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.62);
+  font-family: inherit;
+  font-size: 0.82rem;
+  padding: 9px 6px;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.segment:hover { color: #fff; }
+.segment.is-actif { background: rgba(255, 255, 255, 0.16); color: #fff; }
+
+/* Les actions ferment le pupitre, toujours au même endroit */
+.pupitre__actions {
+  margin-top: auto;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.btn {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 13px 22px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease, opacity 0.2s ease;
+}
+.btn--primaire {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 16px 40px -14px color-mix(in srgb, var(--accent) 75%, transparent);
+}
+.btn--primaire:hover:not(:disabled) { transform: scale(1.03); }
+.btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+.btn--fantome {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+.btn--fantome:hover:not(:disabled) { color: #fff; border-color: rgba(255, 255, 255, 0.45); }
+.btn--lien {
+  background: none;
+  color: rgba(255, 255, 255, 0.45);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-size: 0.8rem;
+  padding: 6px;
+}
+.btn--lien:hover { color: #fff; }
+
+/* ─── Impression ─────────────────────────────────────────────────────────────
+   On n'imprime PAS la page : on imprime l'image composée en 300 points par
+   pouce. Le rendu papier est donc identique au fichier téléchargé, et ne
+   dépend ni du navigateur ni de ses marges. */
+.sortie { display: none; }
+
+@media print {
+  @page { size: 100mm 150mm; margin: 0; }
+  body > *:not(.sortie) { display: none !important; }
+  .sortie {
+    display: block !important;
+    position: absolute;
+    inset: 0;
+    width: 100mm;
+    height: 150mm;
+  }
+  .sortie img { width: 100mm; height: 150mm; display: block; }
+}
+
+/* ─── Écrans étroits : une seule colonne, la page défile ─── */
+
+@media (max-width: 1040px) {
+  body { overflow: auto; }
+  :root { --cp-l: min(330px, 74vw); }
+  .studio {
+    height: auto;
+    min-height: 100%;
+    grid-template-columns: 1fr;
+    grid-template-areas: 'entete' 'plateau' 'pupitre';
+    gap: 22px;
+  }
+  .plateau { padding: 26px 0 34px; }
+  .pupitre { overflow: visible; }
+}
+
+@media (max-width: 560px) {
+  :root { --cp-l: min(300px, 84vw); }
+  .studio { padding: 14px 14px 26px; }
+  .entete__commune { padding-left: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene__grain { animation: none; }
+  .cp__objet { transition: none; }
+}
