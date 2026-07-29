@@ -137,6 +137,7 @@
     rendreSuggestions([]);
     champCommune.blur();
     carte.dataset.etat = 'carte';
+    document.body.classList.add('a-commune');
     $('entete-commune').textContent = c.nom;
     $('etape-commune').classList.remove('is-actif');
     $('etape-atelier').classList.add('is-actif');
@@ -301,6 +302,7 @@
     commune = null;
     epoque = null;
     carte.dataset.etat = 'attente';
+    document.body.classList.remove('a-commune');
     $('etape-atelier').classList.remove('is-actif');
     $('etape-commune').classList.add('is-actif');
     champCommune.value = '';

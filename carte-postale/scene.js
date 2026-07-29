@@ -33,6 +33,10 @@
      la vérité du document. */
 
   let map = null;
+  // Carte de FOND : le même paysage, à la même seconde, mais débordant l'écran.
+  // La carte postale devient alors une fenêtre de netteté découpée dans le
+  // territoire, au lieu d'un rectangle posé sur un dégradé.
+  let fond = null;
   let pret = false;
   let compteur = 0;
   let coucheActive = null;
@@ -48,6 +52,34 @@
       const c = document.createElement('canvas');
       return !!(c.getContext('webgl2') || c.getContext('webgl'));
     } catch { return false; }
+  }
+
+  /* Même geste sur la carte de fond, en plus sobre : elle est là pour situer,
+     pas pour être lue. Aucune promesse rendue : son échec ne doit jamais
+     empêcher la carte postale de se faire. */
+  function poserSurFond(id, epoque, ancienne) {
+    if (!fond) return;
+    try {
+      fond.addSource(id, { type: 'raster', tiles: epoque.tiles, tileSize: 256, maxzoom: epoque.zoomMax });
+      fond.addLayer({
+        id,
+        type: 'raster',
+        source: id,
+        paint: {
+          'raster-opacity': 0,
+          'raster-opacity-transition': { duration: prefereCalme ? 0 : 900 },
+        },
+      });
+      requestAnimationFrame(() => {
+        try { fond.setPaintProperty(id, 'raster-opacity', 1); } catch { /* retirée */ }
+      });
+      if (ancienne) {
+        setTimeout(() => {
+          try { if (fond.getLayer(ancienne)) fond.removeLayer(ancienne); } catch { /* déjà retirée */ }
+          try { if (fond.getSource(ancienne)) fond.removeSource(ancienne); } catch { /* déjà retirée */ }
+        }, prefereCalme ? 0 : 1000);
+      }
+    } catch { /* le fond est un agrément, jamais une dépendance */ }
   }
 
   const Scene = {
@@ -83,6 +115,40 @@
           Scene.ok = true;
         });
 
+        /* La carte de fond suit la principale, jamais l'inverse : elle n'est
+           pas interactive et se cale par saut instantané à chaque mouvement,
+           donc sans décalage perceptible ni risque de boucle entre les deux.
+           Elle est facultative : si le navigateur refuse un second contexte
+           WebGL, l'outil fonctionne exactement pareil, en moins joli. */
+        try {
+          fond = new maplibregl.Map({
+            container: 'map-fond',
+            style: { version: 8, sources: {}, layers: [{ id: 'fond', type: 'background', paint: { 'background-color': '#0b1120' } }] },
+            center: [2.6, 46.5],
+            zoom: 4.6,
+            interactive: false,
+            attributionControl: false,
+            fadeDuration: 260,
+          });
+          const suivre = () => {
+            if (!fond) return;
+            try {
+              fond.jumpTo({
+                center: map.getCenter(),
+                // Un cran plus large : on voit ce que la carte postale laisse
+                // hors cadre, c'est tout l'intérêt.
+                zoom: map.getZoom() - 0.85,
+                pitch: map.getPitch(),
+                bearing: map.getBearing(),
+              });
+            } catch { /* carte de fond détruite */ }
+          };
+          map.on('move', suivre);
+          map.on('moveend', suivre);
+        } catch {
+          fond = null;
+        }
+
         // Le conteneur naît à une taille, la carte postale peut changer de
         // taille ensuite : sans cela le canvas reste à ses dimensions initiales.
         if (typeof ResizeObserver !== 'undefined') {
@@ -108,6 +174,10 @@
       const id = `ign-${compteur++}`;
       const ancienneCouche = coucheActive;
       const ancienneSource = sourceActive;
+
+      // Le fond change d'époque en même temps, sinon la fenêtre et le paysage
+      // raconteraient deux histoires différentes.
+      poserSurFond(id, epoque, ancienneSource);
 
       map.addSource(id, {
         type: 'raster',

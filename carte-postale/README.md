@@ -17,6 +17,21 @@ clé d'API. Ouvrir `/carte-postale/` suffit.
    vue, on écrit l'inscription.
 5. On imprime, ou on télécharge l'image.
 
+## Le paysage derrière l'objet
+
+La **même carte**, au même endroit et à la même époque, remplit l'écran derrière
+la carte postale, floutée et assombrie, un cran plus large. L'objet devient une
+fenêtre de netteté découpée dans le territoire, au lieu d'un rectangle posé sur
+un dégradé. Changer d'époque change les deux : sinon la fenêtre et le paysage
+raconteraient deux histoires différentes.
+
+Techniquement, deux cartes MapLibre. La seconde n'est pas interactive et se cale
+par saut instantané à chaque mouvement de la première, donc sans décalage
+perceptible ni risque de boucle. Elle est **facultative** : si le navigateur
+refuse un second contexte WebGL, l'outil fonctionne exactement pareil, en moins
+joli. Les tuiles sont partagées par le cache du navigateur, le coût réseau est
+donc marginal.
+
 ## Parti pris d'interface
 
 La carte postale n'est pas un aperçu posé à côté d'un éditeur : **elle est

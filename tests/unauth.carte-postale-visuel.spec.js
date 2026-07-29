@@ -67,6 +67,9 @@ test('03 - changement d epoque : Cassini puis aujourd hui', async ({ page }) => 
   await page.locator('.epoque[data-id="cassini"]').click();
   await page.waitForTimeout(9000);
   await page.locator('#carte-postale').screenshot({ path: `${SORTIE}/03a-cassini.png` });
+  // Le fond doit avoir changé d'époque en même temps que la carte postale :
+  // sinon la fenêtre et le paysage racontent deux histoires différentes.
+  await page.screenshot({ path: `${SORTIE}/03c-cassini-page.png` });
   await page.locator('.epoque[data-id="aujourdhui"]').click();
   await page.waitForTimeout(9000);
   await page.locator('#carte-postale').screenshot({ path: `${SORTIE}/03b-aujourdhui.png` });

@@ -37,18 +37,44 @@ body {
   overflow: hidden;
 }
 
-/* ─── Décor ─── */
+/* ─── Décor ─────────────────────────────────────────────────────────────────
+   Trois plans. Au fond, la carte elle-même, floutée et assombrie. Par-dessus,
+   un voile qui la tient à sa place de décor. Devant, la carte postale, seule
+   zone nette de l'écran. */
 
-.scene { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
+.fond {
+  position: fixed;
+  /* Débordement : le flou mange les bords, on les sort du cadre */
+  inset: -40px;
+  z-index: 0;
+  filter: blur(5px) saturate(0.5) brightness(0.66) contrast(1.02);
+  transform: scale(1.06);
+  opacity: 0;
+  transition: opacity 1.6s ease;
+}
+body.a-commune .fond { opacity: 1; }
+.fond .maplibregl-ctrl-attrib,
+.fond .maplibregl-ctrl-bottom-left,
+.fond .maplibregl-ctrl-bottom-right { display: none; }
+
+.scene { position: fixed; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; }
+/* Voile : dégradé profond aux angles, transparent au centre. Sans lui le fond
+   concurrence l'objet ; avec un aplat opaque, il disparaîtrait. */
 .scene::before {
   content: '';
   position: absolute;
   inset: 0;
   background:
+    radial-gradient(120vw 90vh at 40% -10%, rgba(27, 36, 64, 0.55), transparent 62%),
+    radial-gradient(80vw 70vh at 90% 100%, rgba(42, 18, 48, 0.6), transparent 65%),
+    radial-gradient(78vmin 78vmin at 38% 52%, transparent 24%, rgba(7, 9, 16, 0.62) 82%),
+    rgba(7, 9, 16, 0.24);
+}
+body:not(.a-commune) .scene::before { background:
     radial-gradient(120vw 90vh at 40% -10%, #1b2440, transparent 60%),
     radial-gradient(80vw 70vh at 90% 100%, #2a1230, transparent 65%),
-    #070910;
-}
+    #070910; }
+
 .scene__halo {
   position: absolute;
   left: 38%; top: 50%;
@@ -79,7 +105,7 @@ body {
 
 .studio {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   height: 100%;
   display: grid;
   grid-template-columns: 1fr clamp(320px, 27vw, 400px);
