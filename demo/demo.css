@@ -696,6 +696,11 @@ body:not(.has-map) #map { display: none; }
 }
 .lead__thanks svg { width: 20px; height: 20px; flex-shrink: 0; }
 
+/* Relance du recensement : commande de celui qui tient le stand, accessible à
+   tout moment sur l'écran de fin, y compris pendant l'étape de l'adresse. */
+.done__relance[hidden] { display: none; }
+.done__relance { margin-top: clamp(14px, 2vh, 22px); }
+
 /* Second temps de l'écran de fin : découvert une fois l'adresse tranchée. */
 .done__suite[hidden] { display: none; }
 .done__suite {

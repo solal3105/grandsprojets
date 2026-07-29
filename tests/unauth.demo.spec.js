@@ -170,14 +170,19 @@ test.describe('Démo salon - relance depuis l\'écran', () => {
     await expect(page.locator('#btn-open')).toBeVisible();
   });
 
-  test('0.33.1 - le bouton de relance est proposé après une génération neuve', async ({ page }) => {
+  /* Refaire le recensement est la commande de celui qui tient le stand, pas une
+     action de visiteur : elle ne doit PAS être derrière la question de
+     l'adresse. */
+  test('0.33.1 - le bouton de relance est accessible sans passer par l\'adresse', async ({ page }) => {
     await allerAuDone(page, DONE_NEUF);
-    await page.locator('#lead-skip').click();
+    await expect(page.locator('#lead-form')).toBeVisible();
+    await expect(page.locator('#done-suite')).toBeHidden();
     await expect(page.locator('#btn-regen')).toBeVisible();
   });
 
-  test('0.33.2 - le bouton de relance est proposé sur un espace déjà généré', async ({ page }) => {
+  test('0.33.2 - le bouton de relance reste là une fois l\'adresse tranchée', async ({ page }) => {
     await allerAuDone(page, { ...DONE_NEUF, existing: true, projectsCount: undefined, stats: undefined });
+    await expect(page.locator('#btn-regen')).toBeVisible();
     await page.locator('#lead-skip').click();
     await expect(page.locator('#btn-regen')).toBeVisible();
   });
@@ -188,7 +193,6 @@ test.describe('Démo salon - relance depuis l\'écran', () => {
    */
   test('0.33.3 - la relance repart de zéro (regen=1 transmis au serveur)', async ({ page }) => {
     await allerAuDone(page, { ...DONE_NEUF, existing: true });
-    await page.locator('#lead-skip').click();
     await page.locator('#btn-regen').click();
     await expect(page.locator('#screen-progress')).toHaveClass(/is-active/);
     const urls = await page.evaluate(() => window.__sseUrls);

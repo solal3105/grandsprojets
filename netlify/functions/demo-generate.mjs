@@ -691,6 +691,62 @@ function retirerLeGabarit(textes) {
   });
 }
 
+/* Toutes les adresses internes d'une page, sans filtre de mot-cle.
+   Sert a etablir la NAVIGATION du site depuis l'accueil : ce qui figure sur
+   l'accueil est du menu, ce qui n'apparait que sur une page de sommaire est son
+   contenu propre. */
+function collectAllInternalLinks(html, baseUrl, host, out) {
+  const aRe = /<a[^>]+href=["']([^"']+)["']/gi;
+  let m;
+  while ((m = aRe.exec(html)) !== null && out.size < 400) {
+    const href = m[1].split('#')[0];
+    if (!href) continue;
+    try {
+      const abs = new URL(href, baseUrl);
+      if (abs.host !== host) continue;
+      abs.hash = '';
+      out.add(abs.toString());
+    } catch { /* href invalide */ }
+  }
+  return out;
+}
+
+/* Entrees d'un SOMMAIRE de projets, reconnues par difference avec la navigation
+   plutot que par mot-cle. Sur une page dont on a deja etabli que c'est une liste
+   de projets, un intitule comme « Square du barachois » ne contient aucun des
+   mots attendus et etait donc perdu, alors que c'est precisement un projet. */
+const SOMMAIRE_COMPLEMENT_MAX = 12;
+
+function collectSommaireLinks(html, baseUrl, host, outLinks, navigation) {
+  const aRe = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]{0,3000}?)<\/a>/gi;
+  let m;
+  let ajoutes = 0;
+  while ((m = aRe.exec(html)) !== null && ajoutes < SOMMAIRE_COMPLEMENT_MAX && outLinks.length < 90) {
+    const href = m[1].split('#')[0];
+    if (!href) continue;
+    const label = stripHtml(m[2]).trim();
+    // Un intitule vide ou d'un seul mot court est une pagination, une fleche ou
+    // un « lire la suite » : ce n'est pas le nom d'un projet.
+    if (label.length < 6) continue;
+    // Menus secondaires et pieds de page qui varient d'une page a l'autre, donc
+    // absents de la navigation relevee sur l'accueil : « Contact », « Agenda »,
+    // « Conseil municipal »... Le meme vocabulaire que le barème de penalites.
+    if (LINK_PENALTIES.test(`${href} ${label}`)) continue;
+    try {
+      const abs = new URL(href, baseUrl);
+      if (abs.host !== host) continue;
+      if (/\.(pdf|jpe?g|png|gif|zip|docx?|xlsx?)$/i.test(abs.pathname)) continue;
+      abs.hash = '';
+      const u = abs.toString();
+      if (u === baseUrl || navigation.has(u)) continue;
+      if (outLinks.some((l) => l.url === u)) continue;
+      outLinks.push({ url: u, label: label.slice(0, 80) || abs.pathname });
+      ajoutes++;
+    } catch { /* href invalide */ }
+  }
+  return outLinks;
+}
+
 /* Decoupe une page en blocs {texte, images}. Un bloc = une operation sur une
    page qui en liste plusieurs. Deux decoupages complementaires : par titres de
    niveau 2 ou 3, et par conteneurs de carte les plus courants. Le but est
@@ -886,6 +942,11 @@ async function inspectMairieSite(siteUrl, onFinding) {
   // Le finding logo est émis par coreSources, une fois que la vision a tranché
   // entre les candidats et donné la couleur de la commune
 
+  /* La NAVIGATION du site, relevee sur l'accueil : toutes ses adresses
+     internes, sans filtre. Elle sert ensuite a distinguer, sur une page de
+     sommaire, ses entrees propres du menu qu'elle repete. */
+  const navigation = collectAllInternalLinks(html, finalUrl, finalUrl.host, new Set());
+
   const links = [];
   collectProjectLinks(html, finalUrl, finalUrl.host, links);
   // Les liens sont classés avant d'être coupés : une page « Grands projets »
@@ -923,6 +984,25 @@ async function inspectMairieSite(siteUrl, onFinding) {
     const trouves = [];
     collectProjectLinks(sp.page.data, sp.page.url, finalUrl.host, trouves, links);
     if (trouves.length >= MIN_ENFANTS_POUR_SOMMAIRE || (trouves.length && scoreProjectLink(sp.link) >= 45)) {
+      /* Sur une page RECONNUE comme sommaire de projets, chaque entrée de la
+         liste EST un projet, que son intitulé contienne un mot-clé ou non.
+         Exiger le mot-clé y perd les projets aux noms propres : sur
+         saintdenis.re, « Square du barachois » disparaissait quand « RUCH -
+         Rénovation urbaine du Chaudron » passait, pour la seule raison que le
+         second contient « rénovation ». On complète donc avec les liens ABSENTS
+         DE LA NAVIGATION du site : ce qui figure sur l'accueil est du menu, ce
+         qui n'apparaît que sur ce sommaire est son contenu.
+
+         Uniquement quand la moisson par mot-clé est MAIGRE. Mesure sur 12
+         communes : appliqué partout, ce complément ramenait 256 pages de plus
+         dont l'essentiel était du menu secondaire (Le Puy passait de 92 à 233
+         pages filles, avec « Vos lus » et « Permanence du Maire »), et ce bruit
+         serait venu occuper les places des vraies pages projets. Restreint aux
+         sommaires pauvres, il ne se déclenche que là où il manque quelque
+         chose. */
+      if (trouves.length < MIN_ENFANTS_POUR_SOMMAIRE) {
+        collectSommaireLinks(sp.page.data, sp.page.url, finalUrl.host, trouves, navigation);
+      }
       sommaires.push({ sp, trouves });
     }
   }
@@ -2621,6 +2701,9 @@ function memeChantier(a, b, distanceM) {
    immediate sans jamais afficher une punaise absente de la carte finale. */
 const PHASE_BUDGET_MS = 22000;
 const NOMINATIM_RATE_MS = 1050;
+/* Deux fiches ne peuvent pas occuper le meme point : au-dela d'un projet, une
+   position partagee est un repli du geocodeur, pas l'adresse du chantier. */
+const POSITION_MIN_M = 45;
 // Filet anti-boucle : au-dela, on finalise avec ce qu'on a plutot que de
 // rappeler la phase indefiniment.
 const GEO_MAX_TOURS = 14;
@@ -2644,6 +2727,7 @@ async function coreGeo(send, step, state) {
     reste: projects.map((_, i) => i),
     lieuxIa: null,
     fusionnes: 0,
+    superposes: 0,
     tours: 0,
   });
   state.located = state.located || [];
@@ -2667,15 +2751,22 @@ async function coreGeo(send, step, state) {
     }
     const projet = { ...projects[i], ...loc };
 
-    /* Une superposition exacte SANS parenté de titre, ce sont deux opérations
-       distinctes à la même adresse (deux bâtiments d'un même groupe scolaire,
-       par exemple). L'ancienne version supprimait la seconde ET la comptait
-       comme « emplacement non vérifiable » : c'était faux, elle était
-       parfaitement localisée. On les garde toutes les deux, le nombre de
-       projets n'est plus une denrée rare. Seul un vrai doublon est écarté. */
     for (const deja of state.located) {
-      if (memeChantier(deja, projet, haversineM(centroidOf(deja.geometry), c))) {
-        geo.fusionnes++;
+      const d = haversineM(centroidOf(deja.geometry), c);
+      if (memeChantier(deja, projet, d)) { geo.fusionnes++; return false; }
+      /* Une position DÉJÀ OCCUPÉE n'est pas celle de ce projet-ci.
+         J'avais relâché cette règle en pensant à deux bâtiments d'un même
+         groupe scolaire. La réalité mesurée est autre : sur Saint-Denis (974),
+         CINQ fiches ont atterri sur exactement le même polygone, à la sixième
+         décimale près. Ce n'étaient pas cinq projets voisins, mais cinq avis
+         de marché sans lieu propre (« bâtiments communaux », « les écoles »,
+         « les cimetières », « voiries ») que le géocodeur a tous rabattus sur
+         le même repli. Un emplacement partagé par plusieurs projets n'est la
+         position d'aucun : c'est exactement la position fabriquée que le reste
+         du système s'interdit. Le projet est donc écarté, et compté comme
+         « emplacement non vérifiable », ce qu'il est réellement. */
+      if (d < POSITION_MIN_M) {
+        geo.superposes++;
         return false;
       }
     }
@@ -2815,7 +2906,10 @@ async function coreGeo(send, step, state) {
      emplacements devant un elu qui connait sa commune coute plus cher qu'une
      carte moins fournie. */
   const located = state.located;
-  const abandonnes = geo.reste.length;
+  /* Un projet ecarte pour position DEJA OCCUPEE est bien un projet dont on ne
+     connait pas l'emplacement : le geocodeur lui a rendu le repli d'un autre.
+     Il rejoint donc les non localisables, ce qui est exact. */
+  const abandonnes = geo.reste.length + geo.superposes;
 
   // Le plancher de 3 projets etait controle AVANT le geocodage. Depuis que les
   // projets non localisables sont retires, la liste peut fondre ici.
@@ -2825,7 +2919,7 @@ async function coreGeo(send, step, state) {
   }
 
   const exacts = located.filter((p) => p.method !== 'quartier').length;
-  console.log(`[demo-generate] geo ${state.commune.nom}: ${located.length} situés (${exacts} à l'adresse, ${located.length - exacts} au quartier), ${abandonnes} sans emplacement identifiable, ${geo.fusionnes} doublon(s) fusionné(s), ${geo.tours} tranche(s)`);
+  console.log(`[demo-generate] geo ${state.commune.nom}: ${located.length} situés (${exacts} à l'adresse, ${located.length - exacts} au quartier), ${abandonnes} sans emplacement identifiable (dont ${geo.superposes} sur une position déjà occupée), ${geo.fusionnes} doublon(s) fusionné(s), ${geo.tours} tranche(s)`);
   step('geo', 'done', 'Projets localisés',
     `${located.length} projet(s) situé(s)${abandonnes ? `, ${abandonnes} écarté(s) faute d'emplacement identifiable` : ''}`);
   /* Ce qu'on REFUSE est un argument, à condition de dire vrai. Les doublons
@@ -2841,6 +2935,7 @@ async function coreGeo(send, step, state) {
   state.stats.precise = exacts;
   state.stats.abandonnes = abandonnes;
   state.stats.fusionnes = geo.fusionnes;
+  state.stats.superposes = geo.superposes;
   return state;
 }
 
