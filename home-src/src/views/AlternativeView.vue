@@ -22,7 +22,7 @@
               v-tilt-btn
               class="group inline-flex items-center gap-2.5 bg-primary text-white text-sm font-medium px-7 py-4 rounded-full hover:bg-red-700 transition-all duration-200 shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40"
             >
-              Demander à tester gratuitement
+              Demander une démo
               <ArrowRight class="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
             </a>
             <a
@@ -198,19 +198,19 @@
       </div>
     </section>
 
-    <!-- CTA : Demander à tester gratuitement -->
+    <!-- CTA : demande de démonstration -->
     <section id="tester" class="py-24 bg-dark scroll-mt-20 relative overflow-hidden">
       <div class="absolute top-0 right-0 w-[500px] h-[500px] blob-purple blur-[160px] opacity-20 rounded-full pointer-events-none" />
       <div class="relative max-w-container mx-auto px-6">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div>
             <h2 class="font-heading font-bold text-3xl sm:text-4xl lg:text-[48px] leading-tight tracking-tight text-white">
-              Demandez à tester
+              Demandez une démonstration
               <br />
-              <span class="text-gradient">Open Projets gratuitement</span>
+              <span class="text-gradient">d'Open Projets</span>
             </h2>
             <p class="mt-6 text-white/60 text-base leading-relaxed max-w-[460px]">
-              On configure votre carte ensemble, en moins d'une heure. Démonstration personnalisée sous 48h, sans engagement.
+              On configure votre carte ensemble. Démonstration personnalisée sous 48h, sans engagement.
             </p>
             <div class="mt-10 flex flex-col gap-4">
               <div
@@ -229,7 +229,7 @@
           <DemoRequestForm
             :referrer="alt.referrer"
             :id-prefix="alt.slug"
-            submit-label="Demander à tester gratuitement"
+            submit-label="Demander une démo"
           />
         </div>
       </div>

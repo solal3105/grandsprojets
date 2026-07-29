@@ -9,8 +9,7 @@
         to="/contact"
         class="inline-flex items-center gap-2 font-medium text-white hover:text-primary transition-colors"
       >
-        Testez l'outil gratuitement
-        <span class="hidden sm:inline text-white/40 font-normal text-xs">Pas de CB, pas d'inscription</span>
+        Demander une démo
         <ArrowRight class="w-3.5 h-3.5 shrink-0" />
       </router-link>
     </div>
