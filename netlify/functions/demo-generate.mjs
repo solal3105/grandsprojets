@@ -1619,6 +1619,28 @@ async function writeArticles(commune, projects, pdfs, onTitle) {
 // l'appel (png/jpeg/webp/gif uniquement acceptes)
 const VISION_UNSUPPORTED_RE = /\.(svg|avif|tiff?|ico|bmp|heic|heif)(\?|#|$)/i;
 
+/* Nature REELLE d'un fichier image, lue dans ses premiers octets.
+   Se fier a l'en-tete `content-type` trompait dans les deux sens : un serveur
+   qui rend une page d'erreur en annoncant `image/png`, ou une image annoncee
+   en `text/plain` par un CDN mal configure. La signature binaire tranche, et
+   donne au passage la bonne extension de fichier. */
+function typeImageReel(buffer) {
+  const o = new Uint8Array(buffer, 0, Math.min(64, buffer.byteLength));
+  const debute = (...octets) => octets.every((v, i) => o[i] === v);
+  if (debute(0x89, 0x50, 0x4e, 0x47)) return { ext: 'png', ct: 'image/png' };
+  if (debute(0xff, 0xd8, 0xff)) return { ext: 'jpg', ct: 'image/jpeg' };
+  if (debute(0x47, 0x49, 0x46, 0x38)) return { ext: 'gif', ct: 'image/gif' };
+  if (debute(0x00, 0x00, 0x01, 0x00)) return { ext: 'ico', ct: 'image/x-icon' };
+  if (debute(0x52, 0x49, 0x46, 0x46) && o[8] === 0x57 && o[9] === 0x45) return { ext: 'webp', ct: 'image/webp' };
+  // SVG : du texte, qui commence par une declaration XML, un commentaire ou la
+  // balise racine, parfois apres quelques espaces ou un BOM.
+  const tete = new TextDecoder('utf-8', { fatal: false }).decode(o).replace(/^﻿/, '').trimStart().toLowerCase();
+  if (tete.startsWith('<?xml') || tete.startsWith('<svg') || tete.startsWith('<!doctype svg')) {
+    return { ext: 'svg', ct: 'image/svg+xml' };
+  }
+  return null;
+}
+
 /* Logo de la commune ET sa couleur, en UN SEUL appel de vision.
 
    Deux corrections en une. D'abord le choix du logo : le scoring texte ne peut
@@ -2356,7 +2378,20 @@ async function coreSources(send, step, insee) {
     // pdfTextes VOYAGE : c'est le texte des PDF officiels, la seule source qui
     // porte des dates de chantier. Il etait produit par readMairiePdfs puis
     // perdu ici, donc jamais lu par l'IA alors qu'il etait deja paye.
-    mairie: { host: mairie.host, logoUrl: mairie.logoUrl, themeColor: mairie.themeColor, pdfs: mairie.pdfs, pdfTextes: mairie.pdfTextes || [], pages: mairie.pages, urls: mairie.urls, images: mairie.images },
+    // logoCandidats VOYAGE : la phase de création réessaie sur les suivants si
+    // le meilleur ne se télécharge pas. Sans cette liste, un délai dépassé
+    // suffisait à priver l'espace du logo de la commune.
+    mairie: {
+      host: mairie.host,
+      logoUrl: mairie.logoUrl,
+      logoCandidats: (mairie.logoCandidats || []).slice(0, 4),
+      themeColor: mairie.themeColor,
+      pdfs: mairie.pdfs,
+      pdfTextes: mairie.pdfTextes || [],
+      pages: mairie.pages,
+      urls: mairie.urls,
+      images: mairie.images,
+    },
     news,
     boamp,
     // `site_bloque` remonte jusqu'au journal : une carte maigre sur une grande
@@ -3298,21 +3333,45 @@ async function runCreate(send, step, ville, runState) {
   }
   step('publish', 'done', 'Fiches publiées', `${rows.length} projets sur la carte de ${commune.nom}`);
 
-  // Le branding en DERNIER : l'espace ne devient public qu'avec ses fiches
-  // (plus jamais d'espace fantôme si l'invocation meurt en route)
+  /* Le branding en DERNIER : l'espace ne devient public qu'avec ses fiches
+     (plus jamais d'espace fantôme si l'invocation meurt en route).
+
+     Le logo est tenté sur TOUS les candidats retenus, pas seulement le
+     meilleur. Une seule tentative, sans repli et sans trace, faisait perdre le
+     logo sur un simple délai dépassé ou un refus passager du serveur de la
+     mairie, alors que trois autres adresses attendaient. Relevé en base : 7
+     espaces sur 27 sans logo, dont deux communes dont le logo se télécharge
+     parfaitement quand on rejoue la séquence. */
   let logoUrl = null;
-  if (mairie.logoUrl) {
+  const candidatsLogo = [mairie.logoUrl, ...(mairie.logoCandidats || [])]
+    .filter((u, i, tous) => u && tous.indexOf(u) === i)
+    .slice(0, 5);
+  for (const candidat of candidatsLogo) {
     try {
-      const img = await fetchCapped(mairie.logoUrl, { headers: UA }, FETCH_TIMEOUT_MS, 4500000, true);
-      if (img) {
-        const ct = img.headers.get('content-type') || 'image/png';
-        if (/image|icon|octet/.test(ct)) {
-          const ext = ct.includes('svg') ? 'svg' : ct.includes('jpeg') ? 'jpg' : ct.includes('ico') ? 'ico' : 'png';
-          logoUrl = await uploadToStorage(`branding/${ville}/logo.${ext}`, img.data, ct);
-          createItem('Logo de la mairie installé');
-        }
+      // Délai propre, plus large que celui du moissonnage : c'est un fichier
+      // unique et petit, pas une page de site à parcourir.
+      const img = await fetchCapped(candidat, { headers: UA }, 15000, 4500000, true);
+      if (!img) { console.warn(`[demo-generate] logo injoignable : ${candidat}`); continue; }
+      /* Le type est lu dans les OCTETS, pas dans l'en-tête déclaré. Un serveur
+         qui rend une page d'erreur en annonçant `image/png`, ou une image en
+         annonçant `text/plain`, trompait le contrôle dans un sens comme dans
+         l'autre. La signature binaire, elle, ne ment pas. */
+      const vrai = typeImageReel(img.data);
+      if (!vrai) {
+        console.warn(`[demo-generate] logo rejeté (contenu non reconnu comme image) : ${candidat}`);
+        continue;
       }
-    } catch { /* logo facultatif */ }
+      logoUrl = await uploadToStorage(`branding/${ville}/logo.${vrai.ext}`, img.data, vrai.ct);
+      createItem('Logo de la mairie installé');
+      break;
+    } catch (e) {
+      console.warn(`[demo-generate] logo échec sur ${candidat} :: ${e?.message}`);
+    }
+  }
+  if (!logoUrl) {
+    // Silencieux jusqu'ici : l'espace prenait le logo Open Projets et personne
+    // ne savait que la commune en avait un.
+    console.warn(`[demo-generate] AUCUN logo installé pour ${ville} (${candidatsLogo.length} candidat(s) essayé(s))`);
   }
 
   const population = commune.population || 0;

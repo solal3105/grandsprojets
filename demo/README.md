@@ -128,6 +128,25 @@ Trois de ces appels ont remplacé des règles écrites en dur :
   version blanche, donc invisible sur l'interface ; un motif textuel ne le peut
   pas. Il coûte moins que l'ancien appel couleur, qui envoyait une image en
   pleine résolution.
+
+### Installation du logo
+
+Le logo est tenté sur **tous** les candidats retenus, dans l'ordre, jusqu'à ce
+que l'un se télécharge. Une seule tentative, sans repli et sans trace, faisait
+perdre le logo sur un simple délai dépassé : relevé en base, 7 espaces sur 27
+sans logo, dont deux communes dont le logo se télécharge parfaitement quand on
+rejoue la séquence. Trois corrections :
+
+- **cascade** sur les candidats du scoring puis l'icône déclarée du site ;
+- **délai propre de 15 s** au lieu des 8 s du moissonnage : c'est un fichier
+  unique et petit, pas une page de site à parcourir ;
+- **type lu dans les octets**, pas dans l'en-tête déclaré. Un serveur qui rend
+  une page d'erreur en annonçant `image/png`, ou une image en annonçant
+  `text/plain`, trompait le contrôle dans un sens comme dans l'autre.
+
+Chaque échec est désormais journalisé avec son motif. Auparavant le `catch`
+était muet : l'espace prenait le logo Open Projets et personne ne savait que la
+commune en avait un.
 - `themes_illustration` remplace 18 familles d'ouvrages écrites en dur, dont les
   requêtes étaient en français alors que Wikimedia Commons est indexé en
   anglais.
