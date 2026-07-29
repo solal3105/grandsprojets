@@ -1941,12 +1941,20 @@
         maxPitch: 85
       });
 
-      // Attribution compacte en bas à gauche (crédits OSM / fond de carte).
-      // Repliée en pastille ⓘ, elle se déplie au clic - les attributions
-      // proviennent des sources (champ `attribution` de basemaps_v2 ou du style vectoriel).
+      // Attribution (crédits OSM / fond de carte). Les attributions proviennent
+      // des sources (champ `attribution` de basemaps_v2 ou du style vectoriel).
+      //
+      // Aucune option `compact` : MapLibre décide seul selon la largeur de la
+      // carte. C'est exactement ce qu'il faut ici - déplié sur grand écran, où
+      // UIModule déplace le nœud dans le panneau « Fond de carte » (une pastille
+      // à déplier n'y aurait aucun sens), et replié en ⓘ sur petit écran, où le
+      // nœud reste sur la carte.
+      //
+      // Si le déplacement échoue, les crédits restent sur la carte plutôt que de
+      // disparaître : c'est la panne acceptable, l'autre sens ne le serait pas.
       if (opts.attributionControl !== false) {
         try {
-          this._mlMap.addControl(new mlgl.AttributionControl({ compact: true }), 'bottom-left');
+          this._mlMap.addControl(new mlgl.AttributionControl(), 'bottom-left');
         } catch (e) {
           console.debug('[MapLibreCompat] Could not add attribution control:', e);
         }

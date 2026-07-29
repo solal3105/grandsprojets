@@ -992,40 +992,56 @@ test.describe('0.18 - RÉGRESSION logo mobile (cascade CSS)', () => {
 });
 
 // ═════════════════════════════════════════════════════════
-// 0.19 - Attribution fond de carte (crédits © OpenStreetMap…)
+// 0.19 - Crédits du fond de carte (© OpenStreetMap…)
 //
-// Régression : le contrôle d'attribution avait disparu lors de
-// la migration MapLibre (attributionControl: false + slot
-// bottom-left masqué en CSS). Il doit être présent en mode
-// compact (pastille ⓘ) et afficher les crédits du basemap.
+// Ces crédits ont DÉJÀ disparu une fois, lors de la migration
+// MapLibre (attributionControl: false + slot bottom-left masqué
+// en CSS) - d'où cette section.
+//
+// Ils ne sont plus SUR la carte : l'encart d'invitation occupe le
+// coin bas-gauche, ils vivent donc dans le pied du panneau
+// « Fond de carte » (voir uimodule.js), au MÊME endroit sur les
+// deux formats d'écran. L'obligation d'attribution ne change pas,
+// seul l'emplacement change : ces tests garantissent qu'ils ne
+// redisparaissent pas et qu'ils restent atteignables partout.
 // ═════════════════════════════════════════════════════════
-test.describe('0.19 - Attribution fond de carte', () => {
+test.describe('0.19 - Crédits du fond de carte', () => {
 
-  test('0.19.1 - Le contrôle d\'attribution compact est visible en bas à gauche', async ({ page }) => {
+  /** Ouvre le panneau « Fond de carte » et rend le nœud des crédits. */
+  async function ouvrirCredits(page) {
     await waitForMapBoot(page);
-    const attrib = page.locator('.maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib');
-    await expect(attrib).toBeVisible({ timeout: 15000 });
-    await expect(attrib).toHaveClass(/maplibregl-compact/);
+    const direct = page.locator('#basemap-toggle');
+    if (await direct.isVisible()) {
+      await direct.click();
+    } else {
+      // Écran étroit : le bouton part dans le menu de débordement du dock
+      await page.locator('#actions-toggle').click();
+      await page.locator('.action-item[data-toggle-key="basemap"]').click();
+    }
+    await expect(page.locator('#basemap-menu')).toBeVisible({ timeout: 15000 });
+    return page.locator('#basemap-menu .dock-panel__credits-text');
+  }
+
+  test('0.19.1 - Les crédits sont dans le pied du panneau Fond de carte', async ({ page }) => {
+    const credits = await ouvrirCredits(page);
+    await expect(credits).toBeVisible({ timeout: 15000 });
   });
 
   test('0.19.2 - Les crédits mentionnent OpenStreetMap', async ({ page }) => {
-    await waitForMapBoot(page);
-    await expect(page.locator('.maplibregl-ctrl-attrib')).toBeVisible({ timeout: 15000 });
-    // Déplier la pastille pour lire les crédits
-    await page.evaluate(() => {
-      const d = document.querySelector('details.maplibregl-ctrl-attrib');
-      if (d instanceof HTMLDetailsElement && !d.open) d.querySelector('summary')?.click();
-    });
+    const credits = await ouvrirCredits(page);
     // Les attributions arrivent avec le chargement des sources du basemap
-    await expect(page.locator('.maplibregl-ctrl-attrib-inner'))
-      .toContainText(/OpenStreetMap/i, { timeout: 20000 });
+    await expect(credits).toContainText(/OpenStreetMap/i, { timeout: 20000 });
   });
 
-  test('0.19.3 - L\'attribution reste visible en mobile (obligation OSM)', async ({ page }) => {
-    page.setViewportSize({ width: 375, height: 812 });
-    await waitForMapBoot(page);
-    const attrib = page.locator('.maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib');
-    await expect(attrib).toBeVisible({ timeout: 15000 });
+  test('0.19.3 - En mobile les crédits sont au même endroit (obligation OSM)', async ({ page }) => {
+    /* Même emplacement que sur grand écran, c'est le comportement voulu. Sur ce
+       format #basemap-toggle passe dans le menu de débordement du dock : les
+       crédits sont donc à deux niveaux, mais atteignables - c'est précisément ce
+       que ce test verrouille, l'attribution étant une obligation de licence. */
+    await page.setViewportSize({ width: 375, height: 812 });
+    const credits = await ouvrirCredits(page);
+    await expect(credits).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('#map .maplibregl-ctrl-attrib')).toBeHidden();
   });
 });
 

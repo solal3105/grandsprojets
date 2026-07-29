@@ -121,50 +121,119 @@
   <link rel="stylesheet" href="styles/hover-popup.css" />
   <link rel="stylesheet" href="styles/gp-lightbox.css" />
   <link rel="stylesheet" href="styles/gp-toast.css" />
-  <link rel="stylesheet" href="styles/demo-banner.css" />
-  <link rel="stylesheet" href="styles/essai-invite.css" />
+  <link rel="stylesheet" href="styles/gp-invite.css" />
 </head>
 <body>
-  <!-- ═══ Bannière démo - espace démo (metropole-lyon) uniquement ═══ -->
-  <div id="demo-banner" role="region" aria-label="Essai gratuit Open Projets">
-    <span class="demo-banner__label">Cette carte est une démo. La même, <strong>avec vos projets</strong> ?</span>
-    <a href="https://openprojets.com/home/contact?ref=demo-banner" target="_blank" rel="noopener noreferrer" class="demo-banner__cta">
-      Demander mon espace d'essai
-      <span class="demo-banner__hint">gratuit · sans CB · configuré avec vous en 1 h</span>
-      <i class="fas fa-arrow-right" aria-hidden="true"></i>
-    </a>
-    <button type="button" id="demo-banner-close" class="demo-banner__close" aria-label="Fermer la bannière">
-      <i class="fas fa-xmark" aria-hidden="true"></i>
+  <!-- ═══ Invitation - espaces de démonstration et d'essai ═══ -->
+  <div id="gp-invite" role="complementary" aria-label="À propos de cette carte">
+    <div class="gp-invite__card" id="gp-invite-card" hidden>
+      <button type="button" id="gp-invite-close" class="gp-invite__close" aria-label="Réduire l'encart">
+        <i class="fas fa-xmark" aria-hidden="true"></i>
+      </button>
+
+      <!-- Variante « démo » : l'espace de démonstration Métropole de Lyon -->
+      <div class="gp-invite__variant" data-variant="demo" hidden>
+        <span class="gp-invite__badge">Démonstration</span>
+        <p class="gp-invite__title">Cette carte est une démo. La même, avec vos projets ?</p>
+        <p class="gp-invite__text">
+          Un espace Open Projets porte vos couleurs et vos documents : vos équipes y ajoutent les
+          projets en quelques clics, vos habitants les consultent sans compte.
+        </p>
+        <div class="gp-invite__actions">
+          <a class="gp-invite__cta" href="https://openprojets.com/home/contact?ref=demo-banner" target="_blank" rel="noopener noreferrer">
+            Demander une démo
+            <i class="fas fa-arrow-right" aria-hidden="true"></i>
+          </a>
+          <a class="gp-invite__link" href="https://openprojets.com/home?ref=demo-banner" target="_blank" rel="noopener noreferrer">
+            Découvrir Open Projets
+            <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- Variante « essai » : les cartes générées au salon -->
+      <div class="gp-invite__variant" data-variant="essai" hidden>
+        <span class="gp-invite__badge">Carte d'essai</span>
+        <p class="gp-invite__title">Cette carte a été générée automatiquement</p>
+        <p class="gp-invite__text">
+          À partir des seules sources publiques, sans la commune. Un espace Open Projets, lui, est
+          alimenté par les équipes de la collectivité.
+        </p>
+        <div class="gp-invite__actions">
+          <a class="gp-invite__cta" href="https://openprojets.com/home?ref=essai-invite" target="_blank" rel="noopener noreferrer">
+            Découvrir Open Projets
+            <i class="fas fa-arrow-right" aria-hidden="true"></i>
+          </a>
+          <a class="gp-invite__link" href="https://openprojets.com/default" target="_blank" rel="noopener noreferrer">
+            Voir l'espace Métropole de Lyon
+            <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <button type="button" id="gp-invite-pill" class="gp-invite__pill" hidden
+            aria-label="Rouvrir les informations sur cette carte">
+      <i class="fas fa-circle-info" aria-hidden="true"></i>
+      En savoir plus
     </button>
   </div>
   <script>
     // Détection synchrone - s'exécute avant le rendu du reste du DOM.
-    // Affichée UNIQUEMENT sur l'espace démo : jamais en iframe (Phaos), jamais
-    // quand une ville cliente est résolue. Réplique fail-safe de
-    // CityManager.resolveActiveCity (path puis ?city= puis localStorage) :
-    // tout path ou ?city= non reconnu → pas de bannière (assumé : un ?city=
-    // invalide charge la démo sans bannière plutôt que de risquer l'inverse).
-    // Après boot, main.js appelle window.__syncDemoBanner(ville) - barrière
-    // défensive qui ne peut que MASQUER, jamais afficher.
-    // Fermeture persistée 7 jours (gp-demo-banner-dismissed = timestamp).
+    //
+    // Un seul encart pour deux publics qui ne se croisent jamais : l'espace de
+    // démonstration ('', default, metropole-lyon) et les cartes générées au
+    // salon (essai-*). Il remplace #demo-banner, la barre fixe qui poussait
+    // tout le layout vers le bas via --banner-h ; cette variable reste à 0px.
+    //
+    // Réplique fail-safe de CityManager.resolveActiveCity (path puis ?city=
+    // puis localStorage) : tout path ou ?city= non reconnu → rien d'affiché.
+    // Jamais en iframe (espace client Phaos). Après boot, main.js appelle
+    // window.__syncInvite(ville) - barrière défensive qui ne peut que MASQUER.
+    //
+    // Fermer REPLIE vers une pastille (gp-invite-collapsed), jamais ne masque :
+    // le visiteur doit toujours pouvoir revenir au lien sans recharger.
     (function () {
       var DEMO_CITIES = ['', 'default', 'metropole-lyon'];
-      var DISMISS_KEY = 'gp-demo-banner-dismissed';
-      var DISMISS_TTL = 7 * 24 * 3600 * 1000; // 7 jours
-      var REVEAL_DELAY = 1200; // ms - la barre arrive quand le visiteur explore déjà
-      var banner = document.getElementById('demo-banner');
-      if (!banner) return;
+      var ESSAI_RE = /^essai-[a-z0-9-]+$/;
+      var COLLAPSE_KEY = 'gp-invite-collapsed';
+      var REVEAL_DELAY = 1500; // ms - la carte se dessine d'abord
+      var root = document.getElementById('gp-invite');
+      if (!root) return;
+      var card = document.getElementById('gp-invite-card');
+      var pill = document.getElementById('gp-invite-pill');
 
-      var hidden = false;
-      var hide = function () {
-        hidden = true;
-        banner.style.display = 'none';
-        document.documentElement.style.setProperty('--banner-h', '0px');
+      // '' quand aucune variante ne s'applique (espace client)
+      var variantePour = function (city) {
+        var c = String(city || '').toLowerCase().trim();
+        if (DEMO_CITIES.indexOf(c) !== -1) return 'demo';
+        if (ESSAI_RE.test(c)) return 'essai';
+        return '';
       };
 
-      // Barrière défensive post-boot (main.js Phase 1 + popstate)
-      window.__syncDemoBanner = function (city) {
-        if (DEMO_CITIES.indexOf(String(city || '').toLowerCase().trim()) === -1) hide();
+      var killed = false;
+      var variante = ''; // '' tant qu'aucune variante ne s'applique
+      var kill = function () { killed = true; root.style.display = 'none'; };
+
+      // Ne rend jamais l'encart visible : ne laisse visible que le bloc de la
+      // variante courante, parmi ceux déjà présents dans la carte.
+      var afficherBloc = function () {
+        var blocs = card.querySelectorAll('.gp-invite__variant');
+        for (var i = 0; i < blocs.length; i++) {
+          blocs[i].hidden = blocs[i].getAttribute('data-variant') !== variante;
+        }
+      };
+
+      /* Barrière défensive post-boot (main.js Phase 1 + popstate).
+         Elle masque, ou CORRIGE le texte affiché - jamais elle ne rend visible.
+         La correction n'est pas un détail : un ?city=essai-inexistant est résolu
+         en metropole-lyon par CityManager, le visiteur est donc réellement sur
+         la démo et doit lire le message de la démo, pas celui d'une carte
+         d'essai qui n'existe pas. */
+      window.__syncInvite = function (city) {
+        var v = variantePour(city);
+        if (!v) { kill(); return; }
+        if (variante && v !== variante) { variante = v; afficherBloc(); }
       };
 
       try { if (window.self !== window.top) return; } catch (_) { return; }
@@ -176,96 +245,10 @@
         if (seg && seg !== 'index.html') return;
         city = String(new URLSearchParams(location.search).get('city') || '').toLowerCase().trim();
         if (!city) city = String(localStorage.getItem('activeCity') || '').toLowerCase().trim();
-      } catch (_) { return; /* URL/storage illisible → prudence : ne pas afficher */ }
-      if (DEMO_CITIES.indexOf(city) === -1) return;
-
-      try {
-        var ts = parseInt(localStorage.getItem(DISMISS_KEY), 10);
-        if (ts && Date.now() - ts < DISMISS_TTL) return;
-      } catch (_) { /* storage bloqué : afficher quand même */ }
-
-      // --banner-h est posé dès le premier paint (zéro décalage de layout) ;
-      // la barre reste en display:none pendant le délai (pas de focus clavier
-      // sur un élément invisible), puis apparaît avec son animation CSS.
-      document.documentElement.style.setProperty('--banner-h', '40px');
-      var reveal = function () { if (!hidden) banner.style.display = 'flex'; };
-      var reduced = false;
-      try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) { /* no-op */ }
-      if (reduced) reveal(); else setTimeout(reveal, REVEAL_DELAY);
-
-      document.getElementById('demo-banner-close').addEventListener('click', function () {
-        try { localStorage.setItem(DISMISS_KEY, String(Date.now())); } catch (_) { /* no-op */ }
-        banner.style.animation = 'demo-banner-out 0.3s cubic-bezier(0.4,0,1,1) both';
-        setTimeout(hide, 280);
-      });
-    }());
-  </script>
-
-  <!-- ═══ Invitation - espaces d'essai (?city=essai-*) uniquement ═══ -->
-  <div id="essai-invite" role="complementary" aria-label="À propos de cette carte d'essai">
-    <div class="essai-invite__card" id="essai-invite-card" hidden>
-      <button type="button" id="essai-invite-close" class="essai-invite__close" aria-label="Réduire l'encart">
-        <i class="fas fa-xmark" aria-hidden="true"></i>
-      </button>
-      <span class="essai-invite__badge">Carte d'essai</span>
-      <p class="essai-invite__title">Cette carte a été générée automatiquement</p>
-      <p class="essai-invite__text">
-        À partir des seules sources publiques, sans la commune. Un espace Open Projets, lui, est
-        alimenté par les équipes de la collectivité.
-      </p>
-      <div class="essai-invite__actions">
-        <a class="essai-invite__cta" href="https://openprojets.com/home?ref=essai-invite" target="_blank" rel="noopener noreferrer">
-          Découvrir Open Projets
-          <i class="fas fa-arrow-right" aria-hidden="true"></i>
-        </a>
-        <a class="essai-invite__link" href="https://openprojets.com/default" target="_blank" rel="noopener noreferrer">
-          Voir l'espace Métropole de Lyon
-          <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>
-        </a>
-      </div>
-    </div>
-    <button type="button" id="essai-invite-pill" class="essai-invite__pill" hidden
-            aria-label="Rouvrir les informations sur cette carte d'essai">
-      <i class="fas fa-circle-info" aria-hidden="true"></i>
-      En savoir plus
-    </button>
-  </div>
-  <script>
-    // Même architecture que la bannière démo ci-dessus : détection synchrone
-    // avant le rendu, jamais en iframe, barrière défensive post-boot qui ne
-    // peut que MASQUER. Deux différences volontaires :
-    //   - la cible est l'inverse (essai-* et non l'espace démo), les deux ne
-    //     peuvent donc jamais s'afficher ensemble ;
-    //   - fermer REPLIE vers une pastille au lieu de masquer : le visiteur de
-    //     salon doit toujours pouvoir revenir au lien, sans recharger la page.
-    (function () {
-      var ESSAI_RE = /^essai-[a-z0-9-]+$/;
-      var COLLAPSE_KEY = 'gp-essai-invite-collapsed';
-      var REVEAL_DELAY = 1500; // ms - la carte se dessine d'abord
-      var root = document.getElementById('essai-invite');
-      if (!root) return;
-      var card = document.getElementById('essai-invite-card');
-      var pill = document.getElementById('essai-invite-pill');
-
-      var killed = false;
-      var kill = function () { killed = true; root.style.display = 'none'; };
-
-      // Barrière défensive post-boot (main.js Phase 1 + popstate)
-      window.__syncEssaiInvite = function (city) {
-        if (!ESSAI_RE.test(String(city || '').toLowerCase().trim())) kill();
-      };
-
-      try { if (window.self !== window.top) return; } catch (_) { return; }
-
-      var city = '';
-      try {
-        // Un segment de path = route ville (route-config.js) → espace client
-        var seg = location.pathname.split('/').filter(Boolean)[0] || '';
-        if (seg && seg !== 'index.html') return;
-        city = String(new URLSearchParams(location.search).get('city') || '').toLowerCase().trim();
-        if (!city) city = String(localStorage.getItem('activeCity') || '').toLowerCase().trim();
       } catch (_) { return; /* URL/storage illisible → prudence : ne rien afficher */ }
-      if (!ESSAI_RE.test(city)) return;
+
+      variante = variantePour(city);
+      if (!variante) return;
 
       var replie = false;
       try { replie = localStorage.getItem(COLLAPSE_KEY) === '1'; } catch (_) { /* no-op */ }
@@ -292,11 +275,12 @@
         card.hidden = false;
       };
 
-      document.getElementById('essai-invite-close').addEventListener('click', replier);
+      document.getElementById('gp-invite-close').addEventListener('click', replier);
       pill.addEventListener('click', deplier);
 
       var montrer = function () {
         if (killed) return;
+        afficherBloc();
         root.style.display = 'block';
         card.hidden = replie;
         pill.hidden = !replie;

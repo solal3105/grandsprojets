@@ -236,11 +236,10 @@
         if (win.CityManager) win.CityManager._activeCity = city;
       }
 
-      // Bannière démo et invitation d'essai : masquer si la ville résolue ne
-      // correspond pas (barrières défensives - les scripts inline de index.html
-      // ne voient que ?city= et localStorage). Les deux sont exclusifs entre eux.
-      try { win.__syncDemoBanner?.(city); } catch { /* no-op */ }
-      try { win.__syncEssaiInvite?.(city); } catch { /* no-op */ }
+      // Encart d'invitation (démo ou essai) : masquer si la ville résolue est
+      // un espace client. Barrière défensive - le script inline de index.html
+      // ne voit que ?city= et localStorage, jamais la résolution réelle.
+      try { win.__syncInvite?.(city); } catch { /* no-op */ }
 
       // Phase 2 : un seul fetch branding (stocké dans CityManager._branding)
       await safePhase('CityManager.updateLogoForCity', () => win.CityManager?.updateLogoForCity(city));
@@ -721,8 +720,7 @@
           if (nextCity && nextCity !== currentCity) {
             if (win.CityManager) win.CityManager._activeCity = nextCity;
             win.CityManager?.persistCity(nextCity);
-            try { win.__syncDemoBanner?.(nextCity); } catch { /* no-op */ }
-            try { win.__syncEssaiInvite?.(nextCity); } catch { /* no-op */ }
+            try { win.__syncInvite?.(nextCity); } catch { /* no-op */ }
             await win.CityManager?.updateLogoForCity(nextCity);
             try {
               await win.FilterManager?.init();

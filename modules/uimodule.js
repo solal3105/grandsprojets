@@ -54,13 +54,98 @@
     return true;
   };
   
+  /* ── Crédits du fond de carte ──────────────────────────────────────────────
+     Les crédits s'affichaient en bas à gauche de la carte, là où l'encart
+     d'invitation vient les recouvrir. Ils sont désormais rendus dans le pied du
+     panneau « Fond de carte », à côté du choix qu'ils documentent - au même
+     endroit quelle que soit la largeur d'écran.
+
+     On ne déplace PAS le nœud de MapLibre dans le panneau : il arrive avec sa
+     propre structure et ses propres classes, qu'il faudrait ensuite combattre en
+     CSS. On lit son contenu et on rend NOTRE markup, aux tokens du design
+     system. MapLibre reste la source de vérité (il connaît les sources
+     réellement chargées) ; un MutationObserver nous tient à jour à chaque
+     changement de style ou de fond, ce qu'une copie figée ne ferait pas.
+
+     Le contenu est reconstruit nœud par nœud, pas injecté en innerHTML : seuls
+     le texte et les liens sont conservés, les URL passant par
+     SecurityUtils.sanitizeUrl. Les attributions viennent de `basemaps_v2` et des
+     styles distants, donc de données qu'on ne veut pas exécuter aveuglément.
+
+     Le contrôle d'origine n'est masqué qu'une fois notre rendu réussi et non
+     vide : si quoi que ce soit échoue, les crédits restent visibles sur la
+     carte. L'attribution est une obligation de licence, et ces crédits ont déjà
+     disparu une fois lors de la migration MapLibre - la section 0.19 des tests
+     est née de cet incident. */
+  let observateurCredits = null;
+
+  const sourceCredits = () => document.querySelector('.maplibregl-ctrl-attrib-inner');
+
+  // Reconstruit le contenu dans notre markup. Rend false si rien à afficher.
+  const rendreCredits = (source, cible) => {
+    const fragment = document.createDocumentFragment();
+    source.childNodes.forEach((noeud) => {
+      if (noeud.nodeType === Node.TEXT_NODE) {
+        fragment.appendChild(document.createTextNode(noeud.textContent));
+        return;
+      }
+      if (noeud.nodeName === 'A') {
+        const url = window.SecurityUtils?.sanitizeUrl?.(noeud.getAttribute('href')) || '';
+        const lien = document.createElement('a');
+        lien.textContent = noeud.textContent;
+        if (url) {
+          lien.href = url;
+          lien.target = '_blank';
+          lien.rel = 'noopener noreferrer';
+        }
+        fragment.appendChild(lien);
+        return;
+      }
+      // Tout le reste (balises inattendues d'un style distant) : texte seul
+      fragment.appendChild(document.createTextNode(noeud.textContent || ''));
+    });
+
+    if (!fragment.textContent.trim()) return false;
+    cible.replaceChildren(fragment);
+    return true;
+  };
+
+  const brancherCredits = (cible) => {
+    observateurCredits?.disconnect();
+
+    const brancher = () => {
+      const source = sourceCredits();
+      if (!source || !rendreCredits(source, cible)) return false;
+
+      // Notre rendu tient : on peut retirer celui de la carte
+      const controle = source.closest('.maplibregl-ctrl-attrib');
+      if (controle) controle.style.display = 'none';
+
+      // Changement de fond ou de style : MapLibre réécrit, on suit
+      observateurCredits = new MutationObserver(() => rendreCredits(source, cible));
+      observateurCredits.observe(source, { childList: true, subtree: true, characterData: true });
+      return true;
+    };
+
+    if (brancher()) return;
+    /* Le contrôle n'existe pas encore : la carte pose ses contrôles au `load`,
+       qui peut arriver après ce menu. Quelques essais, puis on renonce - les
+       crédits restent alors sur la carte, ce qui est la bonne panne. */
+    let essais = 0;
+    const timer = setInterval(() => {
+      if (brancher() || ++essais > 20) clearInterval(timer);
+    }, 150);
+  };
+
   // Initialisation du menu des fonds de carte
   const initBasemapMenu = (basemaps = null) => {
     const menu = basemapMenuEl;
     if (!menu) return false;
-    
+
+    // Le pied de crédits est reconstruit plus bas : l'observateur qui l'alimente
+    // est rebranché sur le nouveau nœud par brancherCredits.
     menu.innerHTML = '';
-    
+
     // Utiliser les basemaps fournis en paramètre ou ceux de window
     const availableBasemaps = basemaps || window.basemaps;
     
@@ -175,6 +260,16 @@
 
       body.appendChild(tile);
     });
+
+    // Pied : les crédits du fond de carte, sous le choix qu'ils documentent
+    const footer = document.createElement('div');
+    footer.className = 'dock-panel__credits';
+    footer.innerHTML = `
+      <span class="dock-panel__credits-label">Données</span>
+      <p class="dock-panel__credits-text"></p>
+    `;
+    menu.appendChild(footer);
+    brancherCredits(footer.querySelector('.dock-panel__credits-text'));
   };
 
   /**

@@ -489,6 +489,68 @@
   transition-duration: 0.06s;
 }
 
+/* ── Crédits du fond de carte ───────────────────────────────────────────────
+   Bloc du panneau à part entière : UIModule lit les attributions que MapLibre
+   connaît et les rend dans CE markup, aux tokens du DS. Aucun sélecteur
+   .maplibregl-* ici - rien d'étranger n'entre dans le panneau.
+
+   Les crédits restent obligatoires : ils sont sous le choix de fond qu'ils
+   documentent. Si le rendu échoue, le contrôle d'origine reste visible sur la
+   carte (voir uimodule.js). */
+
+/* Les crédits ne doivent JAMAIS dicter la largeur du menu : certains fonds
+   annoncent des sources à rallonge, et le panneau s'élargissait d'autant.
+
+   Le plafond est posé ICI et pas sur .dock-panel : le JS y écrit un min-width
+   en ligne (_positionPanelBelowDock, calé sur la largeur du dock), et min-width
+   l'emporte toujours sur max-width. Un plafond sur le panneau serait donc du
+   code mort. En bornant le bloc de crédits, on l'empêche de peser dans la
+   largeur préférée du panneau, qui reste dictée par le dock et la grille. */
+.dock-panel__credits {
+  max-width: 260px;
+  padding: 10px 12px 8px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border-light);
+}
+
+.dock-panel__credits-label {
+  display: block;
+  margin-bottom: 3px;
+  color: color-mix(in srgb, var(--text-tertiary) 70%, transparent);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dock-panel__credits-text {
+  margin: 0;
+  /* Assez estompé pour rester une mention secondaire, assez lisible pour tenir
+     son rôle : l'attribution des sources est une obligation de licence. */
+  color: color-mix(in srgb, var(--text-tertiary) 72%, transparent);
+  font-size: 10.5px;
+  line-height: 1.5;
+  /* `anywhere` et pas `break-word` : seul `anywhere` réduit aussi la largeur
+     minimale intrinsèque, donc empêche un libellé sans espace de pousser le
+     panneau au lieu de se replier. */
+  overflow-wrap: anywhere;
+}
+
+/* Vide tant que la carte n'a pas annoncé ses sources : pas de trait orphelin */
+.dock-panel__credits-text:empty {
+  display: none;
+}
+
+.dock-panel__credits-text a {
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.dock-panel__credits-text a:hover {
+  color: var(--primary);
+}
+
 /* ── Body - list layout (default) ───────────────────────────────────────── */
 
 .dock-panel__body {
