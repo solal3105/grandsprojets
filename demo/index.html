@@ -23,7 +23,7 @@
        évite que cela se reproduise, mais seul un changement d'adresse déloge un
        fichier déjà en cache. À INCRÉMENTER à chaque modification de demo.css,
        demo.js ou map-fx.js. -->
-  <link rel="stylesheet" href="demo.css?v=2" />
+  <link rel="stylesheet" href="demo.css?v=3" />
 </head>
 <body>
   <!-- Scène WebGL : globe, plongée sur la commune, épingles (repli statique sans WebGL) -->
@@ -119,19 +119,17 @@
           <div class="stat"><span class="stat__n" id="stat-illustrated">0</span><span class="stat__l">fiches illustrées</span></div>
         </div>
 
-        <!-- Récupération de l'adresse AVANT les boutons : c'est le seul moment
-             où le visiteur a la preuve sous les yeux. Champ et bouton forment
-             UN SEUL contrôle : deux éléments côte à côte se chevauchaient à
-             l'écran et se séparaient sur mobile. Le bouton d'envoi n'est pas
-             rouge : le seul appel à l'action rouge de l'écran reste « Découvrir
-             l'espace ». L'échappatoire existe et reste discrète : personne ne
-             doit se sentir retenu. -->
-        <!-- novalidate : `type="email"` sert au clavier des téléphones, mais sa
+        <!-- L'adresse est une ÉTAPE, pas un champ que l'on peut ignorer.
+             Affichée à côté d'un gros bouton rouge menant à l'espace, personne
+             ne la remplissait : le visiteur cliquait et partait. Les actions et
+             le QR code n'apparaissent donc qu'une fois cette étape tranchée,
+             envoyée ou passée. L'échappatoire reste discrète mais bien là :
+             personne ne doit se sentir retenu.
+             novalidate : `type="email"` sert au clavier des téléphones, mais sa
              validation native bloque l'envoi AVANT notre code et affiche une
-             bulle du navigateur, dans sa langue et hors charte. Notre propre
-             message ne s'affichait donc jamais. -->
+             bulle du navigateur, dans sa langue et hors charte. -->
         <form id="lead-form" class="lead" novalidate>
-          <label class="lead__label" for="lead-email">Recevoir le lien de cette carte</label>
+          <label class="lead__label" for="lead-email">Où vous envoyons-nous le lien de cette carte ?</label>
           <div class="lead__field">
             <input id="lead-email" class="lead__input" type="email" name="email"
                    placeholder="prenom.nom@ville.fr" autocomplete="email"
@@ -147,28 +145,30 @@
           <span>Merci, le lien part sur votre adresse.</span>
         </p>
 
-        <!-- Une seule action principale, les secondaires en dessous et plus
-             petites. À plat, les trois pastilles ne tenaient pas sur la largeur
-             de la carte et s'empilaient en escalier, la troisième centrée
-             toute seule sous les deux autres. -->
-        <div class="done__actions">
-          <a id="btn-open" class="btn btn--primary" href="#">Découvrir l'espace</a>
-          <div class="done__secondary">
-            <button id="btn-regen" class="btn btn--ghost" hidden>Refaire le recensement</button>
-            <button id="btn-again" class="btn btn--ghost">Autre commune</button>
+        <!-- Second temps : découvert seulement une fois l'étape de l'adresse
+             tranchée. Une seule action principale, les secondaires en dessous
+             et plus petites : à plat, les trois pastilles ne tenaient pas sur
+             la largeur de la carte et s'empilaient en escalier. -->
+        <div id="done-suite" class="done__suite" hidden>
+          <div class="done__actions">
+            <a id="btn-open" class="btn btn--primary" href="#">Découvrir l'espace</a>
+            <div class="done__secondary">
+              <button id="btn-regen" class="btn btn--ghost" hidden>Refaire le recensement</button>
+              <button id="btn-again" class="btn btn--ghost">Autre commune</button>
+            </div>
           </div>
+          <div class="done__qr">
+            <img id="qr-img" alt="QR code vers la carte de la commune" width="200" height="200" />
+            <span>Scannez pour repartir avec la carte<br />sur votre téléphone</span>
+          </div>
+          <p id="countdown" class="done__countdown"></p>
         </div>
-        <div class="done__qr">
-          <img id="qr-img" alt="QR code vers la carte de la commune" width="200" height="200" />
-          <span>Scannez pour repartir avec la carte<br />sur votre téléphone</span>
-        </div>
-        <p id="countdown" class="done__countdown"></p>
       </div>
     </section>
   </main>
 
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
-  <script src="map-fx.js?v=2"></script>
-  <script src="demo.js?v=2"></script>
+  <script src="map-fx.js?v=3"></script>
+  <script src="demo.js?v=3"></script>
 </body>
 </html>

@@ -599,8 +599,10 @@
     const terminer = () => {
       showFlyover(null);
       show('done');
-      clearTimeout(leadTimer);
-      leadTimer = setTimeout(startCountdown, LEAD_TIMEOUT_MS);
+      // Le champ prend le focus : sur un écran de salon avec clavier, c'est ce
+      // qui transforme une case affichée en question posée.
+      try { $('lead-email').focus(); } catch { /* champ absent */ }
+      armerFiletLead();
     };
     if (hasFx && phares.length && !msg.existing) {
       window.MapFX.tour(phares, showFlyover, terminer);
@@ -616,6 +618,14 @@
   const LEAD_TIMEOUT_MS = 45000;
   const EMAIL_RE = /^[^\s@]+@[^\s@,;]+\.[a-z]{2,}$/i;
 
+  /* Filet de sécurité : sans geste du visiteur, l'écran passe de lui-même à la
+     suite. Un stand ne doit jamais rester bloqué sur une question sans réponse,
+     et le visiteur suivant doit retrouver un écran utilisable. */
+  function armerFiletLead() {
+    clearTimeout(leadTimer);
+    leadTimer = setTimeout(() => closeLead(false), LEAD_TIMEOUT_MS);
+  }
+
   // Affiche ou efface le motif de refus, en accordant le champ au message
   function setLeadError(message) {
     const champ = document.querySelector('.lead__field');
@@ -629,6 +639,10 @@
     const form = $('lead-form');
     if (!form) return;
     form.hidden = false;
+    // La suite de l'écran (accès à l'espace, QR code) reste couverte tant que
+    // l'étape n'est pas tranchée : c'est ce qui fait qu'on demande vraiment
+    // l'adresse au lieu de la proposer à côté d'un bouton qui emmène ailleurs.
+    $('done-suite').hidden = true;
     $('lead-email').value = '';
     $('lead-email').disabled = false;
     $('lead-submit').disabled = false;
@@ -637,12 +651,13 @@
     $('countdown').textContent = '';
   }
 
-  // Passe à la suite : le formulaire disparaît et le compte à rebours reprend
+  // Passe à la suite : le formulaire cède la place à l'accès à l'espace
   function closeLead(merci) {
     clearTimeout(leadTimer);
     const form = $('lead-form');
     if (form) form.hidden = true;
     $('lead-thanks').hidden = !merci;
+    $('done-suite').hidden = false;
     startCountdown();
   }
 
@@ -650,13 +665,8 @@
     clearTimeout(redirectTimer);
     const targetUrl = startCountdown.cible;
     if (!targetUrl) return;
-    /* Le formulaire disparaît AVANT que le compte à rebours ne s'affiche. Sinon
-       l'écran annonçait « Ouverture automatique dans 12 s » juste sous un champ
-       encore actif : le visiteur qui commençait à taper se faisait rediriger en
-       pleine saisie. Le filet de sécurité passe donc par le même chemin que le
-       bouton « Continuer sans laisser d'adresse ». */
-    const form = $('lead-form');
-    if (form && !form.hidden) form.hidden = true;
+    // Le compte a rebours n'est jamais lance seul : il est declenche par
+    // closeLead, une fois l'etape de l'adresse tranchee.
     if (KIOSK) {
       let remaining = 90;
       const tickDown = () => {
@@ -688,7 +698,7 @@
       setLeadError('Cette adresse ne semble pas valide.');
       $('lead-email').focus();
       // Le filet repart : le visiteur peut aussi renoncer en ne faisant rien
-      leadTimer = setTimeout(startCountdown, LEAD_TIMEOUT_MS);
+      armerFiletLead();
       return;
     }
     setLeadError('');
@@ -728,7 +738,7 @@
     // Le refus s'efface dès la première correction : le laisser affiché pendant
     // que le visiteur retape son adresse le fait douter pour rien.
     if (!$('lead-error').hidden) setLeadError('');
-    leadTimer = setTimeout(startCountdown, LEAD_TIMEOUT_MS);
+    armerFiletLead();
   });
 
   function onError(message, debug) {

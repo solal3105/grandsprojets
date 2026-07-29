@@ -103,7 +103,9 @@ for (const ecran of ECRANS) {
     test(`espace déjà généré - ${ecran.nom}`, async ({ page }) => {
       await allerJusquAuDone(page, DONE_EXISTANT);
       await page.locator('.done').screenshot({ path: `${SORTIE}/${ecran.nom}-existant.png` });
-      // Le bouton de relance DOIT être là : c'est tout l'intérêt de cet état
+      // L'adresse est demandée d'abord : les actions viennent ensuite. Le bouton
+      // de relance DOIT alors être là, c'est tout l'intérêt de cet état.
+      await page.locator('#lead-skip').click();
       await expect(page.locator('#btn-regen')).toBeVisible();
     });
 

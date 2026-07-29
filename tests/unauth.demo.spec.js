@@ -157,13 +157,28 @@ test.describe('Démo salon - relance depuis l\'écran', () => {
     stats: { sources: 20, verified: 12, precise: 10, illustrated: 6 },
   };
 
+  /* L'adresse est demandée AVANT de donner accès à l'espace : les actions ne
+     sont découvertes qu'une fois l'étape tranchée. */
+  test('0.33.0 - l\'adresse est demandée avant de donner accès à l\'espace', async ({ page }) => {
+    await allerAuDone(page, DONE_NEUF);
+    await expect(page.locator('#lead-form')).toBeVisible();
+    await expect(page.locator('#done-suite')).toBeHidden();
+    await expect(page.locator('#btn-open')).toBeHidden();
+    // L'échappatoire reste accessible : personne n'est retenu
+    await page.locator('#lead-skip').click();
+    await expect(page.locator('#done-suite')).toBeVisible();
+    await expect(page.locator('#btn-open')).toBeVisible();
+  });
+
   test('0.33.1 - le bouton de relance est proposé après une génération neuve', async ({ page }) => {
     await allerAuDone(page, DONE_NEUF);
+    await page.locator('#lead-skip').click();
     await expect(page.locator('#btn-regen')).toBeVisible();
   });
 
   test('0.33.2 - le bouton de relance est proposé sur un espace déjà généré', async ({ page }) => {
     await allerAuDone(page, { ...DONE_NEUF, existing: true, projectsCount: undefined, stats: undefined });
+    await page.locator('#lead-skip').click();
     await expect(page.locator('#btn-regen')).toBeVisible();
   });
 
@@ -173,6 +188,7 @@ test.describe('Démo salon - relance depuis l\'écran', () => {
    */
   test('0.33.3 - la relance repart de zéro (regen=1 transmis au serveur)', async ({ page }) => {
     await allerAuDone(page, { ...DONE_NEUF, existing: true });
+    await page.locator('#lead-skip').click();
     await page.locator('#btn-regen').click();
     await expect(page.locator('#screen-progress')).toHaveClass(/is-active/);
     const urls = await page.evaluate(() => window.__sseUrls);
