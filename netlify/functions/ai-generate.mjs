@@ -40,6 +40,7 @@ import {
   OPENAI_RESPONSES_URL,
   getCorsHeaders,
   errResp,
+  preflightResp,
   friendlyAIError,
   getAuthedUser,
   relayOpenAIStream,
@@ -48,7 +49,7 @@ import {
 export default async function handler(req) {
   const corsHeaders = getCorsHeaders(req);
 
-  if (req.method === 'OPTIONS') return new Response('', { status: 204, headers: corsHeaders });
+  if (req.method === 'OPTIONS') return preflightResp(corsHeaders);
   if (req.method !== 'POST') return errResp(405, 'Method not allowed', corsHeaders);
 
   const authed = await getAuthedUser(req);

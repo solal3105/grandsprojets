@@ -80,7 +80,8 @@ async function findRunId(ville) {
 }
 
 export default async (req, context) => {
-  if (req.method === 'OPTIONS') return new Response('', { status: 204, headers: CORS });
+  // Corps null obligatoire : un 204 avec un corps fait lever le constructeur Response.
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (req.method !== 'POST') return json(405, { error: 'Méthode non autorisée' });
 
   let body;

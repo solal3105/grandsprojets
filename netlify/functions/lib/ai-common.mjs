@@ -40,6 +40,15 @@ export function errResp(status, error, corsHeaders) {
 }
 
 /**
+ * Reponse au preflight CORS.
+ * Le corps DOIT etre null : un statut 204 avec un corps, meme vide, fait lever
+ * un TypeError au constructeur Response, et le preflight repond alors 500.
+ */
+export function preflightResp(corsHeaders) {
+  return new Response(null, { status: 204, headers: corsHeaders });
+}
+
+/**
  * Message utilisateur (français) pour une erreur du service IA.
  * @param {number} status - Statut HTTP OpenAI/passerelle (0 si inconnu)
  * @param {string} raw - Corps d'erreur brut (JSON OpenAI ou texte)

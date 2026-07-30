@@ -23,6 +23,7 @@ import {
   OPENAI_RESPONSES_URL,
   getCorsHeaders,
   errResp,
+  preflightResp,
   friendlyAIError,
   getAuthedUser,
   isAdminForVille,
@@ -143,7 +144,7 @@ function buildUserPrompt({ ville, zone, layers, stats, sample }) {
 export default async function handler(req) {
   const corsHeaders = getCorsHeaders(req);
 
-  if (req.method === 'OPTIONS') return new Response('', { status: 204, headers: corsHeaders });
+  if (req.method === 'OPTIONS') return preflightResp(corsHeaders);
   if (req.method !== 'POST') return errResp(405, 'Method not allowed', corsHeaders);
 
   const user = await getAuthedUser(req);
