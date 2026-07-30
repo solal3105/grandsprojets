@@ -257,6 +257,24 @@ function _mergeCouches(result, rows, sampled, codeOf) {
   });
 }
 
+/**
+ * Surface de vérification des chiffres du rapport.
+ *
+ * Ces fonctions portent l'intégralité des décomptes et le recalage des sujets
+ * sur leur source réelle. Sans cette exposition, elles ne seraient atteignables
+ * qu'en passant par un appel IA complet, donc jamais vérifiées : un décompte
+ * faux ne se voit pas, le rapport reste plausible. Rien d'autre ne les importe.
+ */
+export const _internals = {
+  textOf: _textOf,
+  titleOf: _titleOf,
+  extraOf: _extraOf,
+  breakdown: _breakdown,
+  zoneStats: _zoneStats,
+  orderedPoints: _orderedPoints,
+  mergeCouches: _mergeCouches,
+};
+
 /* ── Appel IA ──────────────────────────────────────────────────── */
 
 async function _runAnalysis() {

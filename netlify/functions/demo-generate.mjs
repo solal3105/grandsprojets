@@ -206,7 +206,10 @@ async function fetchWithTimeout(url, opts = {}, ms = FETCH_TIMEOUT_MS) {
 // formes alternatives (décimal/hex/octal) déjà normalisées par new URL(). IPv6
 // couvert : loopback ::1, unspecified ::, IPv4-mapped ::ffff:, ULA fc00::/7,
 // link-local fe80::/10
-const PRIVATE_HOST_RE = /^(localhost$|.*\.local$|.*\.internal$|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|0\.|\[?::1|\[?::$|\[?::ffff:|\[?f[cd][0-9a-f]{2}:|\[?fe[89ab][0-9a-f]:)/i;
+// Le point final est autorise en DNS : `localhost.` resout comme `localhost`,
+// et `intranet.local.` comme `intranet.local`. Sans le `\.?` chaque motif
+// d'hote se contournait en ajoutant un point.
+const PRIVATE_HOST_RE = /^(localhost\.?$|.*\.local\.?$|.*\.internal\.?$|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|0\.|\[?::1|\[?::$|\[?::ffff:|\[?f[cd][0-9a-f]{2}:|\[?fe[89ab][0-9a-f]:)/i;
 function isSafePublicUrl(u) {
   try {
     const p = new URL(u);
@@ -3768,3 +3771,34 @@ export default async (req, context) => {
 };
 
 export const config = { path: '/api/demo-generate' };
+
+/**
+ * Primitives exposées pour vérification directe.
+ *
+ * Ce module est le tunnel de démo : il parcourt des sites de mairie, des PDFs
+ * et de la presse. Ses gardes (URL publique uniquement, bornes géographiques,
+ * type d'image réel) ne sont atteignables autrement qu'en lançant une
+ * génération complète, donc jamais vérifiés. Rien d'autre ne les importe.
+ */
+export const _internals = {
+  INSEE_RE,
+  isSafePublicUrl,
+  slugify,
+  stripHtml,
+  hostOf,
+  communeHost,
+  unaccentLower,
+  bboxOfContour,
+  geometryExtentKm,
+  extentAcceptable,
+  geometryInBbox,
+  centroidOf,
+  haversineM,
+  typeImageReel,
+  looksLikeCode,
+  estPageTremplin,
+  scoreProjectLink,
+  unescapeBoamp,
+  odonymesDe,
+  distinctiveWords,
+};

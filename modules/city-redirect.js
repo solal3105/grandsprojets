@@ -65,9 +65,16 @@
         card.setAttribute('role', 'listitem');
         card.style.animationDelay = `${120 + i * 60}ms`;
 
-        const safeName = win.SecurityUtils?.escapeHtml(city.name) || city.name;
-        const initial = city.name.charAt(0).toUpperCase();
-        const safeLogoUrl = city.logo ? (win.SecurityUtils?.sanitizeUrl(city.logo) || city.logo) : null;
+        // Nom, code et logo viennent de city_branding : ce sont des données
+        // d'administration, jamais du contenu de confiance. sanitizeUrl seul ne
+        // suffit pas ici, il laisse passer « x" onerror=… » qu'il prend pour une
+        // URL relative : c'est escapeAttribute qui ferme l'attribut.
+        const esc = win.SecurityUtils.escapeHtml;
+        const safeName = esc(city.name);
+        const initial = esc(city.name.charAt(0).toUpperCase());
+        const safeCode = esc(city.code);
+        const logoUrl = city.logo ? win.SecurityUtils.sanitizeUrl(city.logo) : '';
+        const safeLogoUrl = logoUrl ? win.SecurityUtils.escapeAttribute(logoUrl) : null;
 
         card.innerHTML = `
           <div class="cs-card-logo">
@@ -77,7 +84,7 @@
           </div>
           <div class="cs-card-body">
             <div class="cs-card-name">${safeName}</div>
-            <div class="cs-card-code">${city.code}</div>
+            <div class="cs-card-code">${safeCode}</div>
           </div>
           <div class="cs-card-arrow"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></div>
         `;

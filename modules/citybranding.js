@@ -56,7 +56,9 @@
   applyFavicon(faviconUrl) {
     if (typeof document === 'undefined') return;
     const DEFAULT = '/img/logos/favicon.png';
-    const href = faviconUrl || DEFAULT;
+    // L'URL vient de city_branding : une valeur rejetée retombe sur le favicon
+    // par défaut plutôt que d'être posée telle quelle dans un href.
+    const href = (faviconUrl && win.SecurityUtils?.sanitizeUrl(faviconUrl)) || DEFAULT;
 
     let icon = document.querySelector('link[rel="icon"]');
     if (icon) {

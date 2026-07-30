@@ -147,6 +147,26 @@ function errResp(status, msg, corsHeaders) {
   });
 }
 
+/**
+ * Primitives de sécurité exposées pour vérification directe.
+ *
+ * La limite de débit n'est pas observable via `netlify dev` : le serveur de dev
+ * recharge le module à chaque requête, donc le compteur en mémoire repart de
+ * zéro et la limite ne se déclenche jamais en local. En production, l'instance
+ * reste chaude et le compteur tient. La tester ici est le seul moyen.
+ */
+export const _internals = {
+  decodeJwt,
+  base64urlToBuffer,
+  detectAzureEnv,
+  extractEmail,
+  checkRateLimit,
+  rateLimitMap,
+  RATE_LIMIT_MAX,
+  RATE_LIMIT_WINDOW_MS,
+  AZURE_ENVS,
+};
+
 // ── Handler principal ────────────────────────────────────────────────────────
 export default async function handler(req) {
   const corsHeaders = getCorsHeaders(req);

@@ -81,8 +81,18 @@
       return true;
       
     } catch (err) {
+      // Même seuil que la branche ci-dessus : un refresh qui LÈVE (réseau coupé)
+      // est un échec comme un autre. Sans ce contrôle, le compteur montait sans
+      // fin et le basculement en mode non-connecté n'arrivait jamais - soit
+      // exactement l'écran blanc que ce module existe pour éviter.
       console.debug('[Auth] Erreur refresh:', err.message);
       refreshFailCount++;
+      if (refreshFailCount >= MAX_REFRESH_FAILURES) {
+        console.error('[Auth] Trop d\'échecs de refresh, abandon');
+        cachedSession = null;
+        stopRefreshTimer();
+        handleSessionLost();
+      }
       return false;
     } finally {
       isRefreshing = false;
