@@ -724,40 +724,12 @@
       return this;
     }
     getLatLng() { return this._latlng; }
-    setIcon(icon) {
-      this.options.icon = icon;
-      if (this._mlMarker) {
-        const el = this._createEl();
-        this._mlMarker.getElement().replaceWith(el);
-        // La nouvelle icône peut avoir un ancrage différent
-        this._mlMarker.setOffset(this._getAnchor());
-      }
-      return this;
-    }
     setOpacity(val) {
       if (this._mlMarker) this._mlMarker.getElement().style.opacity = val;
       return this;
     }
     getElement() {
       return this._mlMarker ? this._mlMarker.getElement() : null;
-    }
-    bindTooltip(content, options) {
-      this._tooltipContent = content;
-      this._tooltipOptions = options || {};
-      return this;
-    }
-    openTooltip() {
-      if (!this._tooltipContent || !this._map) return this;
-      if (this._tooltip) this._tooltip.remove();
-      this._tooltip = new Tooltip(this._tooltipOptions);
-      this._tooltip.setContent(typeof this._tooltipContent === 'function' ? this._tooltipContent(this) : this._tooltipContent);
-      this._tooltip.setLatLng(this._latlng);
-      this._tooltip.addTo(this._map);
-      return this;
-    }
-    closeTooltip() {
-      if (this._tooltip) { this._tooltip.remove(); this._tooltip = null; }
-      return this;
     }
     bindPopup(content, options) {
       this._popupContent = content;
@@ -781,15 +753,6 @@
     }
     closePopup() {
       if (this._popup) { this._popup.remove(); this._popup = null; }
-      return this;
-    }
-    togglePopup() {
-      if (this._popup && this._popup.isOpen()) this.closePopup();
-      else this.openPopup();
-      return this;
-    }
-    setZIndexOffset(offset) {
-      if (this._mlMarker) this._mlMarker.getElement().style.zIndex = offset;
       return this;
     }
     toGeoJSON() {
@@ -891,11 +854,6 @@
         } catch {}
       }
       this.fire('remove');
-      return this;
-    }
-    setUrl(url) {
-      this._urlTemplate = url;
-      if (this._map) { this.remove(); this.addTo(this._map); }
       return this;
     }
     getAttribution() { return this.options.attribution; }
@@ -1168,35 +1126,6 @@
     }
     getElement() { return null; }
     toGeoJSON() { return this._geojson || null; }
-    bindTooltip(content, options) {
-      this._tooltipContent = content;
-      this._tooltipOptions = options || {};
-      // Auto-show on hover unless permanent
-      if (!this._tooltipOptions.permanent) {
-        this.on('mouseover', (e) => {
-          if (!this._map) return;
-          const latlng = e.latlng || (this._latlngs && this._latlngs[0]);
-          if (!latlng) return;
-          this.openTooltip(latlng);
-        });
-        this.on('mouseout', () => { this.closeTooltip(); });
-      }
-      return this;
-    }
-    openTooltip(latlng) {
-      if (!this._tooltipContent || !this._map) return this;
-      if (this._activeTooltip) this._activeTooltip.remove();
-      this._activeTooltip = new Tooltip(this._tooltipOptions);
-      const text = typeof this._tooltipContent === 'function' ? this._tooltipContent(this) : this._tooltipContent;
-      this._activeTooltip.setContent(text);
-      this._activeTooltip.setLatLng(latlng);
-      this._activeTooltip.addTo(this._map);
-      return this;
-    }
-    closeTooltip() {
-      if (this._activeTooltip) { this._activeTooltip.remove(); this._activeTooltip = null; }
-      return this;
-    }
     bindPopup(content, options) { this._popupContent = content; this._popupOptions = options; return this; }
     openPopup() { return this; }
     closePopup() { return this; }
@@ -1223,30 +1152,6 @@
       instance._geojson = feature;
       instance.feature = feature;
       return instance;
-    }
-    setLatLngs(latlngs) {
-      this._latlngs = latlngs.map(ll => toLatLng(ll));
-      this._geojson.geometry.coordinates = this._latlngs.map(ll => [ll.lng, ll.lat]);
-      if (this._map) {
-        const mlMap = this._map._mlMap || this._map;
-        
-        // If using pool, update via pool
-        if (this._usingPool && L._sourcePool) {
-          L._sourcePool.removeFeature(mlMap, this);
-          L._sourcePool.addFeature(mlMap, 'LineString', this._geojson, this._style, this);
-        } else {
-          // Update individual source
-          const src = mlMap.getSource(this._sourceId);
-          if (src) src.setData(this._geojson);
-        }
-      }
-      return this;
-    }
-    getLatLngs() {
-      if (!this._latlngs) {
-        this._latlngs = (this._geojson.geometry.coordinates || []).map(c => L.latLng(c[1], c[0]));
-      }
-      return this._latlngs;
     }
     _getAllCoords() { return this._geojson.geometry.coordinates; }
     _addToMap(mlMap) {
@@ -1398,16 +1303,6 @@
       this._style = Object.assign({ color: _defaultColor, fillColor: _defaultColor, fillOpacity: 0.2, opacity: 1 }, opts);
       this._geojson = this._createCircleGeoJSON();
     }
-    setRadius(r) {
-      this._radius = r;
-      this._geojson = this._createCircleGeoJSON();
-      if (this._map) {
-        const mlMap = this._map._mlMap || this._map;
-        const src = mlMap.getSource(this._sourceId);
-        if (src) src.setData(this._geojson);
-      }
-      return this;
-    }
     setLatLng(latlng) {
       this._center = toLatLng(latlng);
       this._geojson = this._createCircleGeoJSON();
@@ -1494,7 +1389,6 @@
       }
       return this;
     }
-    hasLayer(layer) { return this._layers.indexOf(layer) >= 0; }
     clearLayers() {
       this._layers.forEach(l => { if (l.remove) l.remove(); });
       this._layers = [];
@@ -1818,7 +1712,6 @@
     eachLayer(fn) { this._layers.forEach(fn); return this; }
     getLayers() { return this._layers.slice(); }
     getFeatureCount() { return this._featureCount; }
-    hasLayer(layer) { return this._layers.indexOf(layer) >= 0; }
 
     // ── Mutation ──
     addLayer(layer) {
@@ -1855,13 +1748,6 @@
             } catch {}
           }
         }
-      }
-      return this;
-    }
-    resetStyle(layer) {
-      if (layer && this.options.style) {
-        const s = typeof this.options.style === 'function' ? this.options.style(layer.feature) : this.options.style;
-        if (layer.setStyle) layer.setStyle(s);
       }
       return this;
     }
@@ -2116,26 +2002,7 @@
       ];
     }
 
-    _getForestHeightExpr() {
-      return ['match', ['get', 'subclass'],
-        ['forest', 'wood'],                                           22,
-        ['park', 'garden', 'village_green', 'recreation_ground'],    14,
-        ['scrub', 'heath', 'fell', 'shrubbery'],                     9,
-        ['grassland', 'meadow', 'grass', 'flowerbed', 'wet_meadow'], 3,
-        18,
-      ];
-    }
 
-    // Height of understory = base of canopy
-    _getForestBaseExpr() {
-      return ['match', ['get', 'subclass'],
-        ['forest', 'wood'],                                           7,
-        ['park', 'garden', 'village_green', 'recreation_ground'],    5,
-        ['scrub', 'heath', 'fell', 'shrubbery'],                     3,
-        ['grassland', 'meadow', 'grass', 'flowerbed', 'wet_meadow'], 1,
-        6,
-      ];
-    }
 
     _addForest3DLayers() {
       const mlMap = this._mlMap;
@@ -2403,9 +2270,6 @@
       if (layer.remove) layer.remove();
       return this;
     }
-    hasLayer(layer) {
-      return this._layers.indexOf(layer) >= 0;
-    }
     eachLayer(fn) {
       this._layers.forEach(fn);
       return this;
@@ -2420,24 +2284,7 @@
 
     // Misc
     invalidateSize() { this._mlMap.resize(); return this; }
-    whenReady(fn) {
-      if (this._mlMap.loaded()) { fn({ target: this }); }
-      else { this._mlMap.on('load', () => fn({ target: this })); }
-      return this;
-    }
     getContainer() { return this._mlMap.getContainer(); }
-    getSize() {
-      const c = this._mlMap.getContainer();
-      return { x: c.clientWidth, y: c.clientHeight };
-    }
-    latLngToContainerPoint(latlng) {
-      const ll = toLatLng(latlng);
-      return this._mlMap.project([ll.lng, ll.lat]);
-    }
-    containerPointToLatLng(point) {
-      const ll = this._mlMap.unproject(point);
-      return { lat: ll.lat, lng: ll.lng };
-    }
     project(latlng) {
       const ll = toLatLng(latlng);
       return this._mlMap.project([ll.lng, ll.lat]);
@@ -2448,10 +2295,6 @@
     }
     remove() {
       this._mlMap.remove();
-    }
-    getPixelBounds() {
-      const size = this.getSize();
-      return { min: { x: 0, y: 0 }, max: { x: size.x, y: size.y } };
     }
   }
 

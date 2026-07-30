@@ -50,7 +50,6 @@
     return p.project_name || p.name || '';
   }
   function isInteractive(f) { const p = f.properties||{}; return !!(p.project_name && p.category) || isTravauxProps(p); }
-  function _isContrib(f) { const p = f.properties||{}; return !!(p.project_name && p.category); }
   function isTravaux(f) { const p = f.properties||{}; return isTravauxProps(p); }
 
   // Image preload cache - précharge les cover_url en arrière-plan

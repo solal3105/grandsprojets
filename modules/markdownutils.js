@@ -20,18 +20,6 @@
     });
   }
 
-  function _loadStyleOnce(href) {
-    return new Promise((resolve) => {
-      if (document.querySelector(`link[rel="stylesheet"][href="${href}"]`)) return resolve();
-      const l = document.createElement('link');
-      l.rel = 'stylesheet';
-      l.href = href;
-      l.crossOrigin = 'anonymous';
-      l.referrerPolicy = 'no-referrer';
-      l.onload = resolve;
-      document.head.appendChild(l);
-    });
-  }
 
   async function loadDeps() {
     // marked (robust loading with CDN fallbacks - use specific versions to avoid CORS redirects)
@@ -62,8 +50,6 @@
     if (!window.DOMPurify) {
       await loadScriptOnce('https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js');
     }
-
-    // Le CSS markdown est maintenant géré par gp-markdown-content.css
   }
 
   // -------- Pré-traitement markdown pour directives custom --------

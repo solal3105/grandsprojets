@@ -103,17 +103,6 @@ window.DataModule = (function() {
 		return baseStyle;
 	}
 
-	function _safeSetStyle(layer, style) {
-		if (layer && typeof layer.setStyle === 'function') {
-			layer.setStyle(style);
-		} else if (layer && typeof layer.eachLayer === 'function') {
-			layer.eachLayer(innerLayer => {
-				if (typeof innerLayer.setStyle === 'function') {
-					innerLayer.setStyle(style);
-				}
-			});
-		}
-	}
 
 	const _esc = window.SecurityUtils.escapeHtml;
 

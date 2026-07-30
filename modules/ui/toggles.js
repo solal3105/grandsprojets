@@ -201,12 +201,6 @@ class ToggleManager {
     if (counter) { counter.textContent = count; counter.style.display = count > 0 ? 'flex' : 'none'; }
   }
 
-  setSpecialState(key, specialState) {
-    const t = this.toggles.get(key);
-    if (!t) return;
-    if (t.config.states) t.config.states.forEach(s => t.element.classList.remove(s));
-    if (specialState && specialState !== 'default') t.element.classList.add(specialState);
-  }
 
   markReady(key) {
     const t = this.toggles.get(key);
@@ -216,13 +210,6 @@ class ToggleManager {
     }
   }
 
-  markNotReady(key) {
-    const t = this.toggles.get(key);
-    if (t) {
-      t.element.setAttribute('data-ready', 'false');
-      this.scheduleRecalculate();
-    }
-  }
 
   setVisible(key, visible) {
     const t = this.toggles.get(key);
@@ -233,12 +220,6 @@ class ToggleManager {
     this._updateGroupVisibility();
   }
 
-  isVisible(key) {
-    const t = this.toggles.get(key);
-    if (!t) return false;
-    const s = window.getComputedStyle(t.element);
-    return s.display !== 'none' && s.visibility !== 'hidden';
-  }
 
   /**
    * Get the minimum left edge the dock is allowed to reach.

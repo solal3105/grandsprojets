@@ -25,9 +25,6 @@
       this._bindActions();
     },
 
-    refreshAuth() {
-      this._updateAuthState();
-    },
 
     /**
      * Génère dynamiquement les boutons modules depuis win._cityModules
