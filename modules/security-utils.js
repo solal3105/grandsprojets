@@ -62,6 +62,59 @@
       
       console.warn('[SecurityUtils] URL dangereuse bloquée:', url);
       return '';
+    },
+
+    /**
+     * Valide un code ville (colonne `ville` : city_branding, layers, contribution_uploads…).
+     * SOURCE DE VÉRITÉ unique - ne pas réécrire cette expression ailleurs.
+     * Les chiffres sont autorisés : `test-e2e` existe en base, et rien n'interdit
+     * `paris-14` ou `essai-lyon7`. Une variante qui les refuserait ferait diverger
+     * la persistance (localStorage) de la résolution (CityManager).
+     * Le pendant serveur est dans netlify/functions/_shared/ (même expression).
+     * @param {string} code
+     * @returns {boolean}
+     */
+    isValidCityCode: function(code) {
+      return /^[a-z0-9-]+$/i.test(String(code ?? '').trim());
+    },
+
+    /**
+     * Slugifie un texte. RÉPLIQUE EXACTE de la fonction Postgres `public.slugify()`,
+     * qui est la source de vérité : c'est le trigger `trg_contribution_slugs` qui
+     * remplit `contribution_uploads.slug` et `.category_slug`, colonnes lues par
+     * l'edge function SEO pour construire les URLs /fiche/{ville}/{cat}/{slug}.
+     *
+     *   substring(
+     *     regexp_replace(
+     *       regexp_replace(lower(unaccent(input)), '[^a-z0-9]+', '-', 'g'),
+     *       '^-|-$', '', 'g'),
+     *     1, 60)
+     *
+     * Toute divergence ici produit des chemins Storage qui ne correspondent plus
+     * aux slugs publics. Ne pas réécrire cette fonction ailleurs.
+     *
+     * `normalize('NFD')` ne décompose que les caractères précomposés, pas les
+     * ligatures : `unaccent('Cœur')` donne « Coeur » là où NFD seul laisse « C_ur ».
+     * Deux projets en base sont concernés (« Sacré-Cœur », « Cœur de Ville »), d'où
+     * la table de correspondance ci-dessous, relevée sur `unaccent()` lui-même.
+     * @param {string} input
+     * @returns {string}
+     */
+    slugify: function(input) {
+      return String(input ?? '')
+        .replace(/[œŒ]/g, 'oe')
+        .replace(/[æÆ]/g, 'ae')
+        .replace(/ß/g, 'ss')
+        .replace(/[øØ]/g, 'o')
+        .replace(/[łŁ]/g, 'l')
+        .replace(/[đĐðÐ]/g, 'd')
+        .replace(/[þÞ]/g, 'th')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 60);
     }
   };
 

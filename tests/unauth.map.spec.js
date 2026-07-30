@@ -1141,3 +1141,101 @@ test.describe('0.20 - RÉGRESSION ancrage des markers', () => {
     expect(Math.round(lift)).toBe(40);
   });
 });
+
+// ─────────────────────────────────────────────────────────
+// 0.21 - Contrat d'enrichissement serveur ↔ client
+//
+// Contexte : audit DRY (2026-07). Chaque domaine a deux chemins de données qui
+// doivent produire les mêmes propriétés : l'agrégateur Netlify, et le repli N+1
+// client qui prend le relais si la fonction ne répond pas. Les deux copies du
+// code travaux avaient divergé (le client injectait `approved` et `created_by`,
+// pas le serveur) sans que rien ne le signale : le repli ne se déclenche qu'en
+// incident, donc l'écart ne se voit jamais en développement.
+// Les deux chemins partagent désormais modules/feature-enrich.js.
+// ─────────────────────────────────────────────────────────
+test.describe('0.21 - Contrat d\'enrichissement des features', () => {
+
+  test('0.21.1 - Le module partagé est chargé par la carte', async ({ page }) => {
+    await waitForMapBoot(page);
+    const api = await page.evaluate(() => Object.keys(window.FeatureEnrich || {}).sort());
+    expect(api).toEqual([
+      'CONTRIBUTION_COLUMNS', 'TRAVAUX_COLUMNS',
+      'enrichContribution', 'enrichGeoJSON', 'enrichTravaux',
+    ]);
+  });
+
+  test('0.21.2 - Serveur et repli client produisent les mêmes propriétés (contributions)', async ({ page }) => {
+    await waitForMapBoot(page);
+
+    const r = await page.evaluate(async () => {
+      const ville = window.CityManager?.getActiveCity() || 'metropole-lyon';
+
+      // Chemin serveur : la fonction Netlify
+      const srv = await (await fetch(`/.netlify/functions/contributions-geojson?ville=${ville}`)).json();
+      const propsServeur = Object.keys(srv.features?.[0]?.properties || {});
+
+      // Chemin client : on applique l'enrichisseur partagé sur une feature nue,
+      // avec la même ligne source que celle qu'aurait chargée le repli N+1.
+      const projet = {
+        id: 1, project_name: 'X', category: 'c', cover_url: null, description: null,
+        markdown_url: null, ville, official_url: null, tags: null,
+      };
+      const f = window.FeatureEnrich.enrichContribution({ type: 'Feature', properties: {} }, projet);
+      const propsClient = Object.keys(f.properties);
+
+      return { propsServeur, propsClient, n: srv.features?.length || 0 };
+    });
+
+    expect(r.n, 'aucune contribution à comparer').toBeGreaterThan(0);
+    // Le serveur peut porter des propriétés venant du fichier GeoJSON source :
+    // on vérifie que TOUT ce que le client injecte est aussi injecté par le serveur.
+    for (const k of r.propsClient) {
+      expect(r.propsServeur, `le serveur n'injecte pas "${k}"`).toContain(k);
+    }
+  });
+
+  test('0.21.3 - Les colonnes sélectionnées couvrent ce que l\'enrichisseur lit', async ({ page }) => {
+    await waitForMapBoot(page);
+
+    const r = await page.evaluate(() => {
+      const FE = window.FeatureEnrich;
+      // Une ligne où chaque colonne déclarée vaut son propre nom : si l'enrichisseur
+      // lit une colonne absente du SELECT, la propriété correspondante sort vide.
+      const faux = (cols) => Object.fromEntries(cols.split(',').map(c => [c, c]));
+
+      const c = FE.enrichContribution({ type: 'Feature', properties: {} }, faux(FE.CONTRIBUTION_COLUMNS));
+      const t = FE.enrichTravaux({ type: 'Feature', properties: {} }, faux(FE.TRAVAUX_COLUMNS));
+
+      return {
+        contribVides: Object.entries(c.properties).filter(([, v]) => v === '' || v === undefined).map(([k]) => k),
+        travauxVides: Object.entries(t.properties).filter(([, v]) => v === '' || v === undefined).map(([k]) => k),
+      };
+    });
+
+    // code_insee est vide par construction ; commune/adresse dérivent de localisation
+    expect(r.contribVides).toEqual([]);
+    expect(r.travauxVides).toEqual(['code_insee']);
+  });
+
+  test('0.21.4 - created_by n\'est jamais exposé dans un GeoJSON public', async ({ page }) => {
+    await waitForMapBoot(page);
+    const r = await page.evaluate(async () => {
+      const out = {};
+      for (const [nom, fn] of [['contributions', 'contributions-geojson'], ['travaux', 'travaux-geojson']]) {
+        const j = await (await fetch(`/.netlify/functions/${fn}?ville=keolis`)).json();
+        out[nom] = (j.features || []).some(f => 'created_by' in (f.properties || {}));
+      }
+      // Et l'enrichisseur travaux du client ne doit pas l'injecter non plus
+      const f = window.FeatureEnrich.enrichTravaux(
+        { type: 'Feature', properties: {} },
+        { id: 1, name: 'x', created_by: 'uuid-secret' }
+      );
+      out.client = 'created_by' in f.properties;
+      return out;
+    });
+
+    expect(r.contributions).toBe(false);
+    expect(r.travaux).toBe(false);
+    expect(r.client).toBe(false);
+  });
+});

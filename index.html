@@ -463,13 +463,18 @@
         crossorigin="anonymous" referrerpolicy="no-referrer" id="css-fa-solid" media="print" />
   <script src="modules/css-loader.js"></script>
 
+  <!-- Échappement HTML / URL et validation : dépendance de tous les modules ci-dessous,
+       donc chargé en premier. Aucun module ne doit prévoir de repli si elle manque. -->
+  <script defer src="modules/security-utils.js"></script>
+  <!-- Contrat d'enrichissement des features, partagé avec les fonctions Netlify
+       (datamodule et supabaseservice l'utilisent pour leur repli N+1) -->
+  <script defer src="modules/feature-enrich.js"></script>
   <!-- Supabase client via CDN -->
-  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.103.0/dist/umd/supabase.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js"></script>
   <script defer src="modules/auth.js"></script>
   <script defer src="modules/sidebar.js"></script>
   <script defer src="modules/nav-panel.js"></script>
   <script defer src="modules/travaux/travaux-views.js"></script>
-  <script defer src="modules/security-utils.js"></script>
   <!-- MapLibre GL JS -->
   <script defer src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin="anonymous"></script>
   <script defer src="modules/maplibre-compat.js"></script>

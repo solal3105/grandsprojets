@@ -16,74 +16,28 @@
    les séquences $ ($&, $`, $') comme motifs de remplacement JavaScript.
    ============================================================================ */
 
-const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
-const BASE_ORIGIN = 'https://openprojets.com';
+// Helpers partagés avec fiche-ssr.js (échappement, troncature, markdown, URLs,
+// accès PostgREST). Voir netlify/edge-functions/_lib/seo.js.
+import {
+  BASE_ORIGIN,
+  escAttr,
+  escHtml,
+  truncate,
+  humanize,
+  stripMarkdown,
+  safeUrl,
+  absUrl,
+  safeHexColor,
+  fetchRows,
+  SUPABASE_URL,
+} from './_lib/seo.js';
+
+// Storage : seules les URLs de notre propre projet Supabase sont servies
+const SUPABASE_HOST = new URL(SUPABASE_URL).host;
 
 // Plafond de rendu : au-delà, la liste est tronquée aux plus récents et un
 // lien renvoie vers la carte interactive (seule 'france' dépasse aujourd'hui)
 const MAX_PROJECTS = 200;
-
-/* ─── Helpers ─── */
-
-const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' };
-
-function escAttr(str) {
-  return String(str || '').replace(/[&"<>]/g, c => ESC_MAP[c]);
-}
-
-function escHtml(str) {
-  return String(str || '').replace(/[&<>"']/g, c => ESC_MAP[c]);
-}
-
-/** Tronque un texte à ~maxLen caractères sur une coupure de mot */
-function truncate(text, maxLen = 160) {
-  if (!text || text.length <= maxLen) return text || '';
-  const cut = text.lastIndexOf(' ', maxLen);
-  return text.slice(0, cut > 0 ? cut : maxLen) + '…';
-}
-
-/** Transforme un slug en label lisible : "metropole-lyon" → "Metropole Lyon" */
-function humanize(slug) {
-  return String(slug || '')
-    .replace(/-/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase());
-}
-
-/** Supprime les marqueurs markdown pour obtenir du texte brut */
-function stripMarkdown(text) {
-  if (!text) return '';
-  return text
-    .replace(/!\[.*?\]\(.*?\)/g, '')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/#{1,6}\s*/g, '')
-    .replace(/(\*\*|__)(.*?)\1/g, '$2')
-    .replace(/(\*|_)(.*?)\1/g, '$2')
-    .replace(/`{1,3}[^`]*`{1,3}/g, '')
-    .replace(/>\s*/g, '')
-    .replace(/[-*+]\s+/g, '')
-    .replace(/\n{2,}/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function safeUrl(url) {
-  const u = String(url || '').trim();
-  if (/^(https?:|mailto:|#)/i.test(u)) return u;
-  // Chemins relatifs au site - mais pas les URLs protocol-relative (//host)
-  if (u.startsWith('/') && !/^\/[/\\]/.test(u)) return u;
-  return '';
-}
-
-/** URL absolue http(s) - pour og:image (les scrapers ignorent le relatif) */
-function absUrl(url) {
-  const u = safeUrl(url);
-  if (!u) return '';
-  if (u.startsWith('/')) return BASE_ORIGIN + u;
-  return /^https?:/i.test(u) ? u : '';
-}
-
-const SUPABASE_HOST = new URL(SUPABASE_URL).host;
 
 /** URL de fichier Storage : restreinte à l'hôte Supabase (le geojson est
     fetché par le client - empêche un geojson_url forgé de baliser un tiers) */
@@ -113,12 +67,6 @@ function safeIconClass(cls) {
   return /^[a-z0-9 -]{1,60}$/i.test(c) ? c : 'fa-solid fa-layer-group';
 }
 
-/** Valide une couleur hex venant de la base */
-function safeHexColor(color) {
-  const c = String(color || '').trim();
-  return /^#[0-9A-Fa-f]{6}$/.test(c) ? c : '';
-}
-
 /** Mêmes exclusions que sitemap.mjs - entrées de test e2e */
 function isTestEntry(name, cat) {
   const n = String(name || '').toLowerCase();
@@ -144,21 +92,6 @@ function safeShellHeaders(response) {
 }
 
 /* ─── Supabase REST ─── */
-
-const supaHeaders = {
-  apikey: SUPABASE_ANON_KEY,
-  Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-  Accept: 'application/json',
-};
-
-async function fetchRows(path, params) {
-  const url = new URL(`/rest/v1/${path}`, SUPABASE_URL);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  const resp = await fetch(url.toString(), { headers: supaHeaders });
-  if (!resp.ok) return [];
-  const rows = await resp.json();
-  return Array.isArray(rows) ? rows : [];
-}
 
 function fetchProjects(ville) {
   return fetchRows('contribution_uploads', {

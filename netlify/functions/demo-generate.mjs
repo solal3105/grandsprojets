@@ -260,9 +260,20 @@ const GENERIC_PROJECT_WORDS = /^(projet|travaux|amenagement|renovation|construct
 const communeHost = (u) => { try { return new URL(u).host; } catch { return 'la mairie'; } };
 
 
+// Réplique de la fonction Postgres public.slugify (source de vérité pour la colonne
+// `slug`). Copie assumée : ce runtime Node ne peut pas importer modules/security-utils.js.
+// Toute évolution doit être répercutée aux deux endroits.
 function slugify(str) {
   return String(str || '')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    // Ligatures : NFD ne les décompose pas, unaccent() si (Cœur -> Coeur)
+    .replace(/[\u0153\u0152]/g, 'oe')
+    .replace(/[\u00e6\u00c6]/g, 'ae')
+    .replace(/\u00df/g, 'ss')
+    .replace(/[\u00f8\u00d8]/g, 'o')
+    .replace(/[\u0142\u0141]/g, 'l')
+    .replace(/[\u0111\u0110\u00f0\u00d0]/g, 'd')
+    .replace(/[\u00fe\u00de]/g, 'th')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')

@@ -280,15 +280,8 @@
    */
   const showDetailPanel = (layerName, feature, options = {}) => {
     const { updateHistory = true } = options;
-    // Utilitaire local de slugification (harmonisé avec les autres modules)
-    const slugify = (str) => String(str || '')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .trim()
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-');
+    // Slugification partagée (réplique de la fonction Postgres public.slugify)
+    const slugify = (str) => window.SecurityUtils.slugify(str);
     
     // Vérifier si NavigationModule est disponible
     if (window.NavigationModule?.showProjectDetail) {

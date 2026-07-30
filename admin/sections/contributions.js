@@ -1289,14 +1289,11 @@ function _renderRecap(body) {
   `).join('');
 }
 
+// Slugification partagée (réplique de la fonction Postgres public.slugify, qui
+// remplit la colonne `slug`). Le nom du fichier uploadé suit donc exactement le
+// slug public du projet.
 function _slugify(str) {
-  return (str || 'projet')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 60);
+  return window.SecurityUtils.slugify(str || 'projet') || 'projet';
 }
 
 function _renderOnePage(container) {

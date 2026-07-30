@@ -10,8 +10,8 @@
   function open(imageUrl, alt) {
     if (!imageUrl) return;
 
-    const safeSrc = win.SecurityUtils ? win.SecurityUtils.sanitizeUrl(imageUrl) : imageUrl;
-    const safeAlt = win.SecurityUtils ? win.SecurityUtils.escapeAttribute(alt || '') : (alt || '');
+    const safeSrc = win.SecurityUtils.sanitizeUrl(imageUrl);
+    const safeAlt = win.SecurityUtils.escapeAttribute(alt || '');
 
     if (!_overlay) {
       _overlay = document.createElement('div');

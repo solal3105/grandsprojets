@@ -26,7 +26,9 @@
     });
   }
 
-  const esc = s => win.SecurityUtils?.escapeHtml(s) ?? String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  // security-utils.js est chargé avant ce module dans index.html : pas de repli.
+  // L'ancien repli n'échappait pas l'apostrophe, donc protégeait moins que l'original.
+  const esc = win.SecurityUtils.escapeHtml;
 
   function buildTimeline(container, allFeatures, TM) {
     let tlMin = null, tlMax = null;

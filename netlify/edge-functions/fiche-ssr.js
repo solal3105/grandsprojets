@@ -12,53 +12,19 @@
    les interactions, le markdown, etc.
    ============================================================================ */
 
-const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
-const BASE_ORIGIN = 'https://openprojets.com';
-
-/* ─── Helpers ─── */
-
-const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' };
-
-function escAttr(str) {
-  return String(str || '').replace(/[&"<>]/g, c => ESC_MAP[c]);
-}
-
-function escHtml(str) {
-  return String(str || '').replace(/[&<>"']/g, c => ESC_MAP[c]);
-}
-
-/** Tronque un texte à ~maxLen caractères sur une coupure de mot */
-function truncate(text, maxLen = 160) {
-  if (!text || text.length <= maxLen) return text || '';
-  const cut = text.lastIndexOf(' ', maxLen);
-  return text.slice(0, cut > 0 ? cut : maxLen) + '…';
-}
-
-/** Transforme un slug en label lisible : "mobilite" → "Mobilite", "sport-culture" → "Sport Culture" */
-function humanizeCategory(slug) {
-  if (!slug) return '';
-  return slug
-    .replace(/-/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase());
-}
-
-/** Supprime les marqueurs markdown pour obtenir du texte brut */
-function stripMarkdown(text) {
-  if (!text) return '';
-  return text
-    .replace(/!\[.*?\]\(.*?\)/g, '')        // images
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // liens → texte seul
-    .replace(/#{1,6}\s*/g, '')               // titres
-    .replace(/(\*\*|__)(.*?)\1/g, '$2')      // gras
-    .replace(/(\*|_)(.*?)\1/g, '$2')         // italique
-    .replace(/`{1,3}[^`]*`{1,3}/g, '')       // code inline/bloc
-    .replace(/>\s*/g, '')                    // blockquotes
-    .replace(/[-*+]\s+/g, '')               // listes
-    .replace(/\n{2,}/g, ' ')                // sauts de ligne multiples
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+// Helpers partagés avec ville-hub.js (échappement, troncature, markdown, URLs,
+// accès PostgREST). Voir netlify/edge-functions/_lib/seo.js.
+import {
+  BASE_ORIGIN,
+  escAttr,
+  escHtml,
+  truncate,
+  humanize as humanizeCategory,
+  stripMarkdown,
+  safeUrl,
+  safeHexColor,
+  fetchRows,
+} from './_lib/seo.js';
 
 /* ─── Markdown → HTML (rendu serveur, sans dépendance) ───
    Sous-ensemble de ce que rend le client (marked + DOMPurify) : titres,
@@ -66,14 +32,6 @@ function stripMarkdown(text) {
    directives ::content-image / ::banner. Tout le texte est échappé avant
    parsing - le HTML brut éventuel du markdown est affiché comme texte,
    pas interprété (équivalent strict de la sanitisation côté client). */
-
-function safeUrl(url) {
-  const u = String(url || '').trim();
-  if (/^(https?:|mailto:|#)/i.test(u)) return u;
-  // Chemins relatifs au site - mais pas les URLs protocol-relative (//host)
-  if (u.startsWith('/') && !/^\/[/\\]/.test(u)) return u;
-  return '';
-}
 
 function stripFrontMatter(rawMd) {
   const fm = rawMd.match(/^---\s*\r?\n([\s\S]*?)\r?\n---\s*/);
@@ -276,78 +234,48 @@ function mdToHtml(rawMd) {
   return out.join('\n');
 }
 
-/* ─── Supabase REST helpers ─── */
+/* ─── Supabase REST helpers (fetchRows partagé avec ville-hub) ─── */
 
-const supaHeaders = {
-  apikey: SUPABASE_ANON_KEY,
-  Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-  Accept: 'application/json',
-};
-
-async function fetchProjectBySlug(villeSlug, categorySlug, projSlug) {
-  const url = new URL('/rest/v1/contribution_uploads', SUPABASE_URL);
-  url.searchParams.set(
-    'select',
-    'project_name,description,cover_url,official_url,geojson_url,markdown_url,category,category_slug,slug,ville,created_at'
-  );
-  url.searchParams.set('category_slug', `eq.${categorySlug}`);
-  url.searchParams.set('slug', `eq.${projSlug}`);
-  url.searchParams.set('ville', `eq.${villeSlug}`);
-  url.searchParams.set('approved', 'eq.true');
-  url.searchParams.set('limit', '1');
-
-  const resp = await fetch(url.toString(), { headers: supaHeaders });
-  if (!resp.ok) return null;
-  const rows = await resp.json();
-  return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+function fetchProjectBySlug(villeSlug, categorySlug, projSlug) {
+  return fetchRows('contribution_uploads', {
+    select: 'project_name,description,cover_url,official_url,geojson_url,markdown_url,category,category_slug,slug,ville,created_at',
+    category_slug: `eq.${categorySlug}`,
+    slug: `eq.${projSlug}`,
+    ville: `eq.${villeSlug}`,
+    approved: 'eq.true',
+    limit: '1',
+  }).then(rows => rows[0] || null);
 }
 
-/** Récupère le label d'une catégorie depuis category_icons pour une ville donnée */
-async function fetchCategoryLabel(category, ville) {
-  if (!category) return humanizeCategory(category);
-  const url = new URL('/rest/v1/category_icons', SUPABASE_URL);
-  url.searchParams.set('select', 'category');
-  url.searchParams.set('category', `eq.${category}`);
-  if (ville) url.searchParams.set('ville', `eq.${ville}`);
-  url.searchParams.set('limit', '1');
-
-  try {
-    const resp = await fetch(url.toString(), { headers: supaHeaders });
-    if (!resp.ok) return humanizeCategory(category);
-    const rows = await resp.json();
-    // La table n'a pas de colonne label - le nom de la catégorie EST le label
-    // On retourne une version humanisée
-    if (rows?.[0]?.category) return humanizeCategory(rows[0].category);
-  } catch { /* fallback */ }
-  return humanizeCategory(category);
+/** Label d'une catégorie : la table n'a pas de colonne label, le nom EST le label */
+function fetchCategoryLabel(category, ville) {
+  if (!category) return Promise.resolve(humanizeCategory(category));
+  return fetchRows('category_icons', {
+    select: 'category',
+    category: `eq.${category}`,
+    ...(ville ? { ville: `eq.${ville}` } : {}),
+    limit: '1',
+  }).then(rows => humanizeCategory(rows[0]?.category || category));
 }
 
-async function fetchRelatedProjects(category, excludeName) {
-  const url = new URL('/rest/v1/contribution_uploads', SUPABASE_URL);
-  url.searchParams.set('select', 'project_name,description,cover_url,slug,category_slug,ville');
-  url.searchParams.set('category', `eq.${category}`);
-  url.searchParams.set('approved', 'eq.true');
-  url.searchParams.set('project_name', `neq.${excludeName}`);
-  url.searchParams.set('limit', '6');
-  url.searchParams.set('order', 'created_at.desc');
-
-  const resp = await fetch(url.toString(), { headers: supaHeaders });
-  if (!resp.ok) return [];
-  const rows = await resp.json();
-  return Array.isArray(rows) ? rows : [];
+function fetchRelatedProjects(category, excludeName) {
+  return fetchRows('contribution_uploads', {
+    select: 'project_name,description,cover_url,slug,category_slug,ville',
+    category: `eq.${category}`,
+    approved: 'eq.true',
+    project_name: `neq.${excludeName}`,
+    limit: '6',
+    order: 'created_at.desc',
+  });
 }
 
-async function fetchCityBranding(ville) {
-  if (!ville) return null;
-  const url = new URL('/rest/v1/city_branding', SUPABASE_URL);
-  url.searchParams.set('select', 'brand_name,primary_color,logo_url');
-  url.searchParams.set('ville', `eq.${ville.toLowerCase()}`);
-  url.searchParams.set('limit', '1');
-
-  const resp = await fetch(url.toString(), { headers: supaHeaders });
-  if (!resp.ok) return null;
-  const rows = await resp.json();
-  return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+function fetchCityBranding(ville) {
+  if (!ville) return Promise.resolve(null);
+  return fetchRows('city_branding', {
+    select: 'brand_name,primary_color,logo_url',
+    ville: `eq.${ville.toLowerCase()}`,
+    limit: '1',
+  }).then(rows => rows[0] || null);
 }
 
 /** Télécharge l'article markdown du projet (URL publique Supabase Storage) */
@@ -665,7 +593,17 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
     () => jsonLdBlock
   );
 
-  // 7. Contenu sémantique SSR - injecter juste après <body>
+  // 7. Couleur de marque de la ville (même traitement que ville-hub).
+  // Sans ça, la page est servie avec le vert par défaut du fichier statique puis
+  // corrigée par fiche-v2.js après le fetch branding : barre de navigateur et
+  // accents affichent brièvement la marque d'une autre collectivité.
+  const brandColor = safeHexColor(cityBrand?.primary_color);
+  if (brandColor) {
+    html = html.replace(/(<meta\s+name="theme-color"\s+content=")[^"]*"/, (_, p1) => `${p1}${brandColor}"`);
+    html = html.replace('</head>', () => `  <style id="fv2-brand">:root { --color-primary: ${brandColor}; }</style>\n</head>`);
+  }
+
+  // 8. Contenu sémantique SSR - injecter juste après <body>
   const ssrBlock = buildSsrContentBlock(project, category, catLabel, related, cityBrand, structureName, articleHtml);
   html = html.replace('<body>', () => `<body>\n${ssrBlock}`);
 

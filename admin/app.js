@@ -10,7 +10,7 @@ import { renderDiagnostic, destroyDiagnostic } from './sections/diagnostic.js';
 import { renderStructure } from './sections/structure.js';
 import { renderVilles } from './sections/villes.js';
 import { renderModules } from './sections/modules.js';
-import { toast } from './components/ui.js';
+import { toast, esc } from './components/ui.js';
 import { initTheme } from './theme.js';
 
 async function boot() {
@@ -88,8 +88,9 @@ async function boot() {
 
   } catch (err) {
     console.error('[admin/app] Boot failed:', err);
-    const _esc = window.SecurityUtils ? window.SecurityUtils.escapeHtml : (s => String(s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
-    if (splash) splash.innerHTML = `<div style="color:var(--color-danger);text-align:center;padding:40px;"><p style="font-size:18px;font-weight:600;">Erreur de chargement</p><p style="margin-top:8px;">${_esc(err.message)}</p><a href="/admin/" style="color:var(--primary);margin-top:16px;display:inline-block;">Réessayer</a></div>`;
+    // `esc` vient du module admin déjà importé : pas de dépendance à une globale
+    // qui pourrait manquer précisément quand le boot échoue.
+    if (splash) splash.innerHTML = `<div style="color:var(--color-danger);text-align:center;padding:40px;"><p style="font-size:18px;font-weight:600;">Erreur de chargement</p><p style="margin-top:8px;">${esc(err.message)}</p><a href="/admin/" style="color:var(--primary);margin-top:16px;display:inline-block;">Réessayer</a></div>`;
     toast('Erreur de démarrage - vérifiez votre connexion', 'error');
   }
 }

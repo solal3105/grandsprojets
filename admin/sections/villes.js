@@ -389,7 +389,9 @@ function _bindCityForm(container, existing) {
 
     const ville = container.querySelector('#cf-ville')?.value?.trim()?.toLowerCase();
     if (!ville) { toast('Code ville obligatoire', 'error'); btn.disabled = false; btn.innerHTML = origHTML; return; }
-    if (!/^[a-z0-9_-]+$/.test(ville)) { toast('Code ville : lettres minuscules, chiffres, tirets uniquement', 'error'); btn.disabled = false; btn.innerHTML = origHTML; return; }
+    // Validateur partagé (SecurityUtils.isValidCityCode) : l'ancienne regex locale
+    // acceptait `_`, que le message d'erreur n'a jamais annoncé et que la carte rejette.
+    if (!window.SecurityUtils.isValidCityCode(ville)) { toast('Code ville : lettres minuscules, chiffres, tirets uniquement', 'error'); btn.disabled = false; btn.innerHTML = origHTML; return; }
 
     const brandName = container.querySelector('#cf-brand-name')?.value?.trim();
     if (!brandName) { toast('Nom affiché obligatoire', 'error'); btn.disabled = false; btn.innerHTML = origHTML; return; }

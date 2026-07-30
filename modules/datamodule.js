@@ -287,29 +287,15 @@ window.DataModule = (function() {
 								if (!response.ok) return [];
 								const geoData = await response.json();
 								
-								// Enrichir les features avec les métadonnées du projet
-								// (même set de champs que netlify/functions/contributions-geojson.mjs
-								// pour que le fallback N+1 client-side soit interchangeable)
-								const enrichFeature = (f) => {
-									if (!f.properties) f.properties = {};
-									f.properties.id = project.id;
-									f.properties.project_name = project.project_name;
-									f.properties.category = project.category;
-									f.properties.cover_url = project.cover_url || '';
-									f.properties.description = project.description || '';
-									f.properties.markdown_url = project.markdown_url || '';
-									f.properties.ville = project.ville;
-									f.properties.official_url = project.official_url || '';
-									f.properties.tags = project.tags || [];
-									return f;
-								};
-								
-								if (geoData.type === 'FeatureCollection' && geoData.features) {
-									return geoData.features.map(enrichFeature);
-								} else if (geoData.type === 'Feature') {
-									return [enrichFeature(geoData)];
-								}
-								return [];
+								// Enrichissement partagé avec netlify/functions/contributions-geojson.mjs :
+								// ce repli N+1 doit produire exactement les mêmes propriétés que
+								// l'agrégateur serveur, sinon la carte change de comportement selon
+								// que la fonction Netlify répond ou non. Voir modules/feature-enrich.js.
+								return window.FeatureEnrich.enrichGeoJSON(
+									geoData,
+									window.FeatureEnrich.enrichContribution,
+									project
+								);
 							} catch (error) {
 								console.debug(`[DataModule] Erreur GeoJSON ${project.project_name}:`, error);
 								return [];

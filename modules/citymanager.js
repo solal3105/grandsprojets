@@ -268,7 +268,7 @@
           enabledCities.map(c => this.getCityBrandingSafe(c))
         );
 
-        const _esc = win.SecurityUtils ? win.SecurityUtils.escapeHtml : (s => String(s || ''));
+        const _esc = win.SecurityUtils.escapeHtml;
         const itemsHtml = enabledCities.map((cityCode, idx) => {
           const isActive = String(cityCode).toLowerCase() === String(activeCity).toLowerCase();
           const b = brandings[idx] || {};

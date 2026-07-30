@@ -17,16 +17,18 @@
  *   [DONE]               - fin du stream
  */
 
-const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
+// Socle partagé avec ai-generate.mjs : CORS, auth JWT, vérification du rôle admin,
+// messages d'erreur IA, et le relais SSE. Voir netlify/functions/lib/ai-common.mjs.
+import {
+  OPENAI_RESPONSES_URL,
+  getCorsHeaders,
+  errResp,
+  friendlyAIError,
+  getAuthedUser,
+  isAdminForVille,
+  relayOpenAIStream,
+} from './lib/ai-common.mjs';
 
-// Passerelle IA Netlify : quand elle est active, OPENAI_API_KEY est un jeton
-// de passerelle valable uniquement sur OPENAI_BASE_URL (jamais api.openai.com).
-const OPENAI_RESPONSES_URL = (process.env.OPENAI_BASE_URL?.replace(/\/$/, '') || 'https://api.openai.com') + '/v1/responses';
-
-// Prompt issu d'un banc d'essai itératif (3 rounds × 4 zones réelles, juges +
-// métriques déterministes) : corrélations exactes 0 % → 100 %, résumé chiffré
-// 0/4 → 4/4, couverture 83 % → 89 %, verbatims 100 %.
 const SYSTEM_PROMPT = `Tu es un analyste qui dépouille des relevés de terrain. Ta mission est unique : LIRE les points d'une zone et RESTITUER, SOURCE PAR SOURCE, ce qu'ils disent. Tu ne notes rien, tu ne hiérarchises rien, tu ne recommandes rien.
 
 MÉTHODE :
@@ -92,85 +94,6 @@ const MAX_POINTS = 300;
 // des sources tout en gardant leurs points dans le prompt donnerait au modèle un
 // inventaire qui ment sur son propre contenu.
 const MAX_LAYERS = 40;
-
-const ALLOWED_ORIGINS = [
-  'https://openprojets.com',
-  'http://localhost:3001',
-  'http://localhost:8888',
-];
-
-function getCorsHeaders(req) {
-  const origin = req.headers.get('origin') || '';
-  return {
-    'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  };
-}
-
-function errResp(status, error, corsHeaders) {
-  return new Response(JSON.stringify({ error }), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
-
-/**
- * Message utilisateur (français) pour une erreur du service IA.
- * @param {number} status - Statut HTTP OpenAI/passerelle (0 si inconnu)
- * @param {string} raw - Corps d'erreur brut (JSON OpenAI ou texte)
- */
-function friendlyAIError(status, raw) {
-  let code = '';
-  let msg = '';
-  try {
-    const parsed = JSON.parse(raw);
-    code = parsed.error?.code || parsed.error?.type || '';
-    msg = parsed.error?.message || '';
-  } catch { msg = String(raw || ''); }
-  const s = Number(status) || 0;
-  if (code === 'insufficient_quota' || /quota|billing|credit/i.test(`${code} ${msg}`)) {
-    return 'Crédits du service IA épuisés - vérifiez la facturation OpenAI ou les crédits de la passerelle IA Netlify.';
-  }
-  if (s === 429 || code === 'rate_limit_exceeded') return 'Service IA saturé (limite de débit atteinte) - réessayez dans quelques instants.';
-  if (s === 401 || s === 403) return 'Authentification au service IA refusée - clé API ou jeton de passerelle IA Netlify invalide ou expiré.';
-  if (s === 402) return 'Crédits du service IA épuisés - vérifiez la facturation.';
-  if (s === 404 || code === 'model_not_found') return 'Modèle IA indisponible - vérifiez la configuration.';
-  if (s === 400) return 'Requête refusée par le service IA - réessayez ; si le problème persiste, réduisez la zone.';
-  if (s >= 500) return 'Service IA temporairement indisponible - réessayez dans quelques instants.';
-  return `Service IA indisponible${s ? ` (HTTP ${s})` : ''} - réessayez.`;
-}
-
-/** Vérifie le JWT Supabase et retourne l'utilisateur (ou null). */
-async function getAuthedUser(req) {
-  const authHeader = req.headers.get('authorization') || '';
-  const token = authHeader.replace(/^Bearer\s+/i, '');
-  if (!token) return null;
-  try {
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY },
-    });
-    if (!res.ok) return null;
-    const user = await res.json();
-    return user?.id ? { id: user.id, token } : null;
-  } catch { return null; }
-}
-
-/** L'utilisateur est-il admin de cette ville (ou admin global) ? Lecture de son propre profil sous RLS. */
-async function isAdminForVille(user, ville) {
-  try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}&select=role,ville`,
-      { headers: { 'Authorization': `Bearer ${user.token}`, 'apikey': SUPABASE_ANON_KEY } }
-    );
-    if (!res.ok) return false;
-    const rows = await res.json();
-    const profile = Array.isArray(rows) ? rows[0] : null;
-    if (!profile || profile.role !== 'admin') return false;
-    const villes = Array.isArray(profile.ville) ? profile.ville : [];
-    return villes.includes('global') || villes.includes(ville);
-  } catch { return false; }
-}
 
 const clip = (v, max) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 const clipBlock = (v, max) => String(v ?? '').trim().slice(0, max); // préserve les retours à la ligne
@@ -311,97 +234,28 @@ export default async function handler(req) {
       return errResp(502, friendlyAIError(openaiRes.status, errText), corsHeaders);
     }
 
-    // ── Traduction des événements Responses API → notre format SSE ──
-    const { readable, writable } = new TransformStream();
-    const writer = writable.getWriter();
-    const enc = (s) => new TextEncoder().encode(s);
-
-    (async () => {
-      const reader = openaiRes.body.getReader();
-      _streamReader = reader; // expose pour le timeout
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let doneSent = false;
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed.startsWith('data: ')) continue;
-            const data = trimmed.slice(6);
-
-            if (data === '[DONE]') {
-              if (!doneSent) { await writer.write(enc('data: [DONE]\n\n')); doneSent = true; }
-              continue;
-            }
-
-            try {
-              const ev = JSON.parse(data);
-
-              // Chunk du JSON de diagnostic
-              if (ev.type === 'response.output_text.delta' && ev.delta) {
-                await writer.write(enc(`data: ${JSON.stringify({ content: ev.delta })}\n\n`));
-              }
-
-              // Erreur API OpenAI (ex: quota dépassé)
-              if (ev.type === 'error') {
-                console.error('[ai-diagnostic] OpenAI stream error:', JSON.stringify(ev.error || {}));
-                const msg = friendlyAIError(0, JSON.stringify({ error: ev.error }));
-                await writer.write(enc(`data: ${JSON.stringify({ error: msg })}\n\n`));
-                if (!doneSent) { await writer.write(enc('data: [DONE]\n\n')); doneSent = true; }
-                return;
-              }
-
-              // Réponse tronquée (max_output_tokens atteint) : JSON inutilisable
-              if (ev.type === 'response.incomplete') {
-                await writer.write(enc(`data: ${JSON.stringify({ error: 'Analyse incomplète (réponse tronquée). Réduisez la zone et réessayez.' })}\n\n`));
-                if (!doneSent) { await writer.write(enc('data: [DONE]\n\n')); doneSent = true; }
-                return;
-              }
-
-              // Fin
-              if ((ev.type === 'response.completed' || ev.type === 'response.failed') && !doneSent) {
-                console.log(`[ai-diagnostic] Terminé - type=${ev.type} en ${Date.now() - t0}ms`);
-                clearTimeout(timeoutId);
-                await writer.write(enc('data: [DONE]\n\n'));
-                doneSent = true;
-              }
-
-            } catch (parseErr) {
-              console.warn('[ai-diagnostic] Erreur parse event:', parseErr.message, '| data:', data.slice(0, 200));
-            }
-          }
+    // Relais SSE : squelette partagé, seuls les événements propres au diagnostic
+    // (JSON strict, réponse tronquée) sont traités ici.
+    return relayOpenAIStream(openaiRes, {
+      tag: 'ai-diagnostic',
+      corsHeaders,
+      conseil400: 'si le problème persiste, réduisez la zone',
+      setReader: (r) => { _streamReader = r; },
+      clearTimeoutFn: () => clearTimeout(timeoutId),
+      onEvent: async (ev, emit) => {
+        // Chunk du JSON de diagnostic
+        if (ev.type === 'response.output_text.delta' && ev.delta) {
+          await emit({ content: ev.delta });
         }
-      } catch (err) {
-        console.error('[ai-diagnostic] Stream error:', err.name, err.message);
-      } finally {
-        clearTimeout(timeoutId);
-        _streamReader = null;
-        try {
-          if (_timedOut && !doneSent) {
-            await writer.write(enc(`data: ${JSON.stringify({ error: 'Analyse interrompue (délai dépassé). Réduisez la zone et réessayez.' })}\n\n`));
-          }
-          if (!doneSent) await writer.write(enc('data: [DONE]\n\n'));
-          await writer.close();
-        } catch { /* writer déjà fermé */ }
-      }
-    })();
-
-    return new Response(readable, {
-      status: 200,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
+        // Réponse tronquée (max_output_tokens atteint) : JSON inutilisable
+        if (ev.type === 'response.incomplete') {
+          await emit({ error: 'Analyse incomplète (réponse tronquée). Réduisez la zone et réessayez.' });
+          return 'stop';
+        }
       },
+      onTimeoutMessage: () => _timedOut
+        ? 'Analyse interrompue (délai dépassé). Réduisez la zone et réessayez.'
+        : null,
     });
 
   } catch (err) {

@@ -107,7 +107,7 @@ const EventBindings = (() => {
           detailPanel.style.display = 'block';
           detailPanel.dataset.category = category;
           
-          const safeProjectName = window.SecurityUtils ? window.SecurityUtils.escapeHtml(projectName) : projectName;
+          const safeProjectName = window.SecurityUtils.escapeHtml(projectName);
           detailContent.innerHTML = `# ${safeProjectName}\n\nAucun détail disponible pour ce projet.`;
         }
       }

@@ -85,9 +85,9 @@
         }
       }
       
-      // 3. Vérifier activeCity
+      // 3. Vérifier activeCity (validateur partagé - voir SecurityUtils.isValidCityCode)
       const activeCity = localStorage.getItem('activeCity');
-      if (activeCity && !/^[a-z-]+$/i.test(activeCity)) {
+      if (activeCity && !win.SecurityUtils.isValidCityCode(activeCity)) {
         localStorage.removeItem('activeCity');
         issues.push(`activeCity invalide "${activeCity}" → supprimée`);
         fixed++;

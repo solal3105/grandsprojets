@@ -1560,3 +1560,59 @@ test.describe('0.28 - Fiche → hub ville', () => {
     expect(href).toContain(`city=${VALID_CITY}`);
   });
 });
+
+// ─────────────────────────────────────────────────────────
+// 0.29 - Couleur de marque servie par le SSR
+//
+// Contexte : audit DRY (2026-07). `fiche/index.html` code en dur
+// <meta name="theme-color" content="#14AE5C"> (le vert de Lyon), et seul
+// fiche-v2.js le corrigeait, après le fetch branding. Toute fiche s'affichait
+// donc brièvement avec la marque d'une autre collectivité, barre de navigateur
+// mobile comprise. ville-hub faisait déjà l'injection côté serveur ; fiche-ssr
+// la fait désormais aussi.
+// ─────────────────────────────────────────────────────────
+test.describe('0.29 - Fiche : couleur de marque servie par le SSR', () => {
+
+  /** Couleur de marque de la ville, lue en base (source de vérité). */
+  async function brandColorOf(page, ville) {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => !!window.__supabaseClient, { timeout: 15000 });
+    return page.evaluate(async (v) => {
+      const { data } = await window.__supabaseClient
+        .from('city_branding').select('primary_color').eq('ville', v).maybeSingle();
+      return data?.primary_color || null;
+    }, ville);
+  }
+
+  test('0.29.1 - Le theme-color servi est celui de la ville, pas le vert par défaut', async ({ page }) => {
+    test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville indisponible');
+    const couleur = await brandColorOf(page, VALID_CITY);
+    test.skip(!couleur || !/^#[0-9A-Fa-f]{6}$/.test(couleur), 'Ville sans couleur de marque valide');
+
+    // HTML brut, avant tout JavaScript : c'est bien le SSR qu'on teste
+    const html = await (await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY))).text();
+    const servi = html.match(/name="theme-color"\s+content="([^"]*)"/)?.[1];
+
+    expect(servi?.toUpperCase()).toBe(couleur.toUpperCase());
+  });
+
+  test('0.29.2 - La couleur primaire est posée en CSS dès le SSR (pas de flash)', async ({ page }) => {
+    test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville indisponible');
+    const couleur = await brandColorOf(page, VALID_CITY);
+    test.skip(!couleur || !/^#[0-9A-Fa-f]{6}$/.test(couleur), 'Ville sans couleur de marque valide');
+
+    const html = await (await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY))).text();
+    expect(html).toContain('id="fv2-brand"');
+    expect(html.match(/id="fv2-brand">:root \{ --color-primary: ([^;]*);/)?.[1]?.toUpperCase())
+      .toBe(couleur.toUpperCase());
+  });
+
+  test('0.29.3 - Une couleur invalide en base n\'est jamais injectée', async ({ page }) => {
+    // safeHexColor() n'accepte que #RRGGBB : une valeur bidon doit être ignorée,
+    // pas recopiée telle quelle dans le HTML (injection de style).
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    const html = await (await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY))).text();
+    const style = html.match(/id="fv2-brand">:root \{ --color-primary: ([^;]*);/)?.[1];
+    if (style) expect(style).toMatch(/^#[0-9A-Fa-f]{6}$/);
+  });
+});

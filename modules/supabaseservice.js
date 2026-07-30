@@ -15,21 +15,11 @@
     win.__supabaseClient = supabaseClient;
   }
  
-  // Helper: slugify (réutilisé pour les chemins Storage)
-  const slugify = (str) => String(str || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[\u2018\u2019\u2032]/g, "'")
-    .replace(/[\u201C\u201D\u2033]/g, '"')
-    .replace(/[\u2013\u2014]/g, '-')
-    .replace(/["'`´]/g, '')
-    .replace(/&/g, ' et ')
-    .replace(/[^a-zA-Z0-9\s-/]/g, '')
-    .replace(/\s*\/\s*/g, '-')
-    .replace(/[-_]+/g, '-')
-    .replace(/\s+/g, '-')
-    .trim()
-    .toLowerCase();
+  // Chemins Storage : même slugification que la colonne `slug` (fonction Postgres
+  // public.slugify, répliquée par SecurityUtils.slugify). L'ancienne variante locale
+  // traduisait `&` en « et » et ne tronquait pas à 60 : un projet contenant `&` avait
+  // un chemin de stockage qui ne correspondait plus à son slug public.
+  const slugify = (str) => win.SecurityUtils.slugify(str);
 
   // Formats jamais recompressés : un canvas rasteriserait le vectoriel et ne
   // garderait que la première frame d'un GIF animé.
@@ -97,9 +87,11 @@
     
     // Vide après trim = invalide
     if (!v) return '';
-    
-    // Valider avec regex: lettres, chiffres et tirets uniquement
-    return /^[a-z0-9-]+$/i.test(v) ? v : '';
+
+    // Validateur partagé - jamais de regex locale ici. Toutes les pages qui chargent
+    // ce module chargent aussi security-utils.js (carte, admin, fiche) : pas de repli,
+    // une absence doit lever plutôt que valider trop largement.
+    return win.SecurityUtils.isValidCityCode(v) ? v : '';
   }
 
   // Helper: get active city (toujours une ville, jamais null/vide)
@@ -2207,29 +2199,13 @@
               }
               const geojson = await response.json();
             
-              // Normaliser les propriétés de chaque feature
+              // Enrichissement partagé avec netlify/functions/travaux-geojson.mjs :
+              // ce repli N+1 doit produire exactement les mêmes propriétés que
+              // l'agrégateur serveur. Voir modules/feature-enrich.js.
+              // `created_by` a été retiré : UUID d'utilisateur, aucun consommateur,
+              // et ces GeoJSON sont servis publiquement.
               if (geojson.features && Array.isArray(geojson.features)) {
-                geojson.features.forEach(feature => {
-                  if (!feature.properties) feature.properties = {};
-                
-                  // Injecter les propriétés du chantier
-                  feature.properties.chantier_id = chantier.id;
-                  feature.properties.project_name = chantier.name;
-                  feature.properties.nature_travaux = chantier.nature || '';
-                  feature.properties.etat = chantier.etat || '';
-                  feature.properties.date_debut = chantier.date_debut || '';
-                  feature.properties.date_fin = chantier.date_fin || '';
-                  feature.properties.last_update = chantier.last_update || '';
-                  feature.properties.description = chantier.description || '';
-                  feature.properties.icon = chantier.icon || 'fa-solid fa-helmet-safety';
-                  feature.properties.approved = chantier.approved;
-                  feature.properties.created_by = chantier.created_by;
-                
-                  const loc = chantier.localisation || '';
-                  feature.properties.commune = loc;
-                  feature.properties.adresse = loc;
-                  feature.properties.code_insee = '';
-                });
+                geojson.features.forEach(feature => win.FeatureEnrich.enrichTravaux(feature, chantier));
               }
             
               return geojson;

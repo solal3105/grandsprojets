@@ -537,10 +537,10 @@ const NavigationModule = (() => {
     // Utiliser les données de contribution_uploads en priorité
     const coverCandidate = cover_url || attrs.cover || extractFirstImageSrc(html);
     const icons = { velo: 'fa-bicycle', mobilite: 'fa-train-tram', urbanisme: 'fa-building' };
-    const safeName = window.SecurityUtils ? window.SecurityUtils.escapeHtml(projectName) : projectName;
+    const safeName = window.SecurityUtils.escapeHtml(projectName);
 
     // Chips
-    const _esc = window.SecurityUtils ? window.SecurityUtils.escapeHtml : (s => String(s || ''));
+    const _esc = window.SecurityUtils.escapeHtml;
     const chips = [];
     if (attrs.from || attrs.to) chips.push(`<span class="detail-chip"><i class="fa-solid fa-route"></i>${_esc(attrs.from || '')}${attrs.to ? ` → ${_esc(attrs.to)}` : ''}</span>`);
     if (attrs.trafic) chips.push(`<span class="detail-chip"><i class="fa-solid fa-car"></i>${_esc(attrs.trafic)}</span>`);
@@ -600,7 +600,7 @@ const NavigationModule = (() => {
 
   }catch(e){
     console.error('[NavigationModule] Error in showProjectDetail:', e);
-    const safeProjectName = window.SecurityUtils ? window.SecurityUtils.escapeHtml(projectName) : projectName;
+    const safeProjectName = window.SecurityUtils.escapeHtml(projectName);
     panel.innerHTML=`<h3>${safeProjectName}</h3><p>Aucun détail disponible.</p>`;
   }
 
