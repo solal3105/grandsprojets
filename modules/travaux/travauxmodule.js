@@ -1,6 +1,9 @@
 // modules/TravauxModule.js
 void (() => {
 
+  // security-utils.js est chargé avant ce module dans index.html : pas de repli.
+  const esc = window.SecurityUtils.escapeHtml;
+
   // ─── Constants ────────────────────────────────────────────────
   const LAYER_NAME = 'travaux';
   const TS_MIN = 0;              // sentinel: started in the distant past
@@ -165,13 +168,6 @@ void (() => {
     return { values, counts };
   }
 
-  function optionsHTML(values, counts) {
-    return values
-      .map(v => `<option value="${v}">${v} (${counts[v]})</option>`)
-      .join('');
-  }
-
-
   // ─── Badges ───────────────────────────────────────────────────
   function renderBadges(container, criteria, els, onChange) {
     container.innerHTML = '';
@@ -184,7 +180,9 @@ void (() => {
       badge.role = 'button';
       const text = `${labels[key] || key}: ${val}`;
       badge.setAttribute('aria-label', `Retirer filtre ${text}`);
-      badge.innerHTML = `${text} <i class='fa-solid fa-xmark'></i>`;
+      // `val` vient de la colonne nature_travaux / commune / etat : c'est du
+      // contenu de base, il doit être échappé avant d'entrer en innerHTML.
+      badge.innerHTML = `${esc(text)} <i class='fa-solid fa-xmark'></i>`;
       const remove = () => {
         if (key === 'nature_travaux') {
           if (els.natureCtrl) els.natureCtrl.setValue('');
@@ -233,7 +231,6 @@ void (() => {
     LAYER_NAME,
     enrichTimestamps,
     uniqueSorted,
-    optionsHTML,
     computeHistogram,
     renderHistogramSVG,
     applyStructuralFilter,
