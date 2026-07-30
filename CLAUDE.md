@@ -33,7 +33,7 @@ Build home : `cd home-src && npm ci && npm run build` → output dans `/home/`.
 - `main.js` (à la racine du repo, pas dans `modules/`) orchestre l'init en phases **0→9**, avec sous-phases : 0a (SSO Phaos), 0b (health-check localStorage), 2.5 (branding), 5.5 (layers par défaut)
 
 ### `window.L` N'EST PAS Leaflet
-`maplibre-compat.js` expose un shim `window.L` (API Leaflet → MapLibre GL JS en interne). Ne jamais importer Leaflet. Pour les couches performantes, utiliser `maplibre-renderer.js`.
+`maplibre-compat.js` expose un shim `window.L` (API Leaflet → MapLibre GL JS en interne). Ne jamais importer Leaflet. Les couches GeoJSON passent par `datamodule.js` (`createGeoJsonLayer`) et `layerregistry.js`.
 
 ### SSO Phaos (iframe Azure AD B2C)
 Quand la carte tourne dans une iframe Phaos (`window.self !== window.top`), `modules/phaos-auth.js` intercepte l'init : il attend le token Azure B2C envoyé par `postMessage` (origines strictement allowlistées dans `PHAOS_ORIGINS` - c'est le garde-fou de sécurité), l'échange contre une session Supabase via `/api/auth/token`, puis débloque `main.js` (Phase 0a). Hors iframe : aucun effet. Doc complète : `phaos-integration.md` à la racine.
@@ -122,8 +122,8 @@ La carte publique utilise un **système de modules enregistrables** piloté par 
 
 ### Couleurs - 3 couches (ne pas bypasser)
 1. **Tokens** : `--color-primary #14AE5C`, `--color-danger #EF4444`, `--color-info #2563EB`, `--color-warning #F59E0B`, `--color-success #10B981` + `--gray-50`→`--gray-900` (`--primary` existe comme alias de `--color-primary`)
-2. **Variantes alpha** : `--primary-alpha-12` (fond), `--primary-alpha-35` (bordure) - via `color-mix()` (toute l'échelle alpha-06→alpha-55 existe dans `00-colors.css`)
-3. **Alias sémantiques** (à utiliser dans tout nouveau CSS) : `--text-primary/secondary/tertiary`, `--surface-base/raised/overlay`, `--border-light/medium/strong`
+2. **Variantes alpha** : `--primary-alpha-12` (fond), `--primary-alpha-35` (bordure) - via `color-mix()`. `00-colors.css` ne contient **que les paliers réellement consommés** (audit code mort 2026-07) : un palier manquant s'ajoute au fichier, on n'invente pas un `var()` qui n'existe pas.
+3. **Alias sémantiques** (à utiliser dans tout nouveau CSS) : `--text-primary/secondary/tertiary`, `--surface-base/raised/overlay`, `--border-light/medium`
 
 **Pattern badge/pill** : `color: var(--primary); background: var(--primary-alpha-12); border: 1px solid var(--primary-alpha-35); border-radius: 999px;` (référence : `.etat-pill` dans `04-components.css`)
 
@@ -199,7 +199,7 @@ setTimeout(hide, 250); // fallback headless
 ### Couverture - lacunes connues (≈450 tests / 21 fichiers)
 La suite couvre l'**admin**, la **carte publique** (UI/navigation) et la **fiche** (`unauth.fiche.spec.js` : boot, canonical, og:url, JSON-LD). Aucun test sur :
 
-**Carte publique** : `feature-interactions.js` (markers), vues de `modules/travaux/`, `lightbox.js`, `geolocation.js`, `layerregistry.js` / `maplibre-renderer.js`, `datamodule.js`, `citybranding.js` / `citymanager.js`
+**Carte publique** : `feature-interactions.js` (markers), vues de `modules/travaux/`, `lightbox.js`, `geolocation.js`, `layerregistry.js`, `datamodule.js`, `citybranding.js` / `citymanager.js`
 
 **Home Vue SPA** : toutes les vues (`HomeView`, `HelpView`, `FeaturesView`, etc.) - aucun test E2E
 

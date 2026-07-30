@@ -7,7 +7,7 @@
  * - bâtiments 3D via les tuiles vectorielles OpenFreeMap (même source et même
  *   rendu que le mode 3D de la carte publique et du Diagnostic terrain) ;
  * - tracé stylé par la config `category_styles` de la catégorie (couleur, épaisseur,
- *   opacité, pointillés, remplissage), mêmes défauts que maplibre-renderer.js.
+ *   opacité, pointillés, remplissage).
  */
 
 const BUILDINGS_SOURCE_URL = 'https://tiles.openfreemap.org/planet';
@@ -93,7 +93,7 @@ function _addBuildings(map, theme) {
   });
 }
 
-/** Couches du tracé - mêmes défauts que maplibre-renderer.addGeoJSONLayers. */
+/** Couches du tracé (remplissage polygone, ligne, points). */
 function _addTrackLayers(map, geojson, styles, fallbackColor) {
   const s = styles || {};
   const color = s.color || fallbackColor;
@@ -163,7 +163,7 @@ function _collectCoords(g, out) {
   }
 }
 
-export function geojsonBounds(geojson) {
+function geojsonBounds(geojson) {
   const coords = [];
   _collectCoords(geojson, coords);
   if (!coords.length) return null;

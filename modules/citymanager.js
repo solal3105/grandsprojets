@@ -124,14 +124,6 @@
       return this._branding;
     },
 
-    /**
-     * Stocke le branding (appelé par main.js Phase 2)
-     * @param {Object|null} branding
-     */
-    setBranding(branding) {
-      this._branding = branding || null;
-    },
-
     selectLogoForTheme(branding, theme) {
       if (!branding) return null;
       if (theme === 'dark' && branding.dark_logo_url) return branding.dark_logo_url;

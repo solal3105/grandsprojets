@@ -86,7 +86,7 @@ export function distinctValues(features, field, cap = 12) {
 }
 
 /** URL de chargement d'une couche selon son type de source. */
-export function layerDataUrl(layer) {
+function layerDataUrl(layer) {
   if (layer.source_type === 'internal') {
     const src = INTERNAL_SOURCES[layer.source_ref];
     if (!src) return null;

@@ -251,17 +251,6 @@ html[data-theme='dark'] .adm-mobile-header::after {
 }
 .adm-mobile-header__toggle:active { transform: scale(0.92); transition-duration: 0.08s; }
 
-.adm-mobile-header__title {
-  flex: 1;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: var(--gray-800);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .adm-mobile-header__logo {
   flex: 1;
   display: flex;
@@ -388,20 +377,6 @@ html[data-theme='dark'] .adm-sidebar__city-select {
 }
 .adm-sidebar__city-select option { background: var(--surface-raised); color: var(--text-primary); }
 
-/* ── City context bar ── */
-/* ── Mobile city chip ── */
-.adm-mobile-city-chip {
-  display: inline-block;
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
-  background: rgba(var(--adm-primary-rgb), 0.18);
-  color: rgb(var(--adm-primary-rgb));
-  border: 1px solid rgba(var(--adm-primary-rgb), 0.3);
-  border-radius: 100px;
-  padding: 1px 8px;
-  margin-left: 6px;
-  vertical-align: middle;
-}
-
 /* ── Navigation ── */
 .adm-sidebar__nav {
   flex: 1;
@@ -413,13 +388,6 @@ html[data-theme='dark'] .adm-sidebar__city-select {
   scrollbar-width: none;
 }
 .adm-sidebar__nav::-webkit-scrollbar { display: none; }
-
-/* Section label above a group */
-.adm-nav-section-label {
-  font-size: 9px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 1.2px; color: var(--text-disabled);
-  padding: 10px 10px 4px;
-}
 
 .adm-nav-item {
   display: flex;
@@ -535,7 +503,6 @@ html[data-theme='dark'] .adm-sidebar__city-select {
 /* Press */
 .adm-nav-item:active { transform: scale(0.96); transition-duration: 0.08s; }
 
-
 .adm-nav-item[hidden] { display: none; }
 
 /* ── Map card ── */
@@ -606,7 +573,6 @@ html[data-theme='dark'] .adm-sidebar__city-select {
   color: rgba(var(--adm-primary-rgb), 0.7);
   transform: translate(2px, -2px);
 }
-
 
 /* ── User area ── */
 .adm-sidebar__user {
@@ -801,8 +767,6 @@ html[data-theme='dark'] .adm-sidebar__city-select {
 .adm-btn--sm { padding: 7px 12px; font-size: 13px; border-radius: 8px; }
 .adm-btn--sm i { font-size: 12px; }
 
-.adm-btn--lg { padding: 12px 24px; font-size: 15px; border-radius: var(--adm-radius); }
-
 .adm-btn--icon {
   width: 38px; height: 38px;
   padding: 0;
@@ -828,91 +792,15 @@ html[data-theme='dark'] .adm-sidebar__city-select {
   border-color: var(--adm-glass-border-hover);
 }
 
-.adm-card__header {
-  padding: 18px 24px;
-  border-bottom: 1px solid var(--adm-glass-border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.adm-card__title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--gray-900);
-  display: flex; align-items: center; gap: 10px;
-  letter-spacing: -0.01em;
-}
-.adm-card__title i { color: var(--gray-400); font-size: 15px; }
-
 .adm-card__body { padding: 24px; }
-
-.adm-card__footer {
-  padding: 14px 24px;
-  border-top: 1px solid var(--adm-glass-border);
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
 
 /* ============================================================================
    TABLES
    ============================================================================ */
 
-.adm-table-wrap {
-  overflow-x: auto;
-  background: var(--adm-glass);
-  backdrop-filter: blur(var(--adm-blur));
-  -webkit-backdrop-filter: blur(var(--adm-blur));
-  border: 1px solid var(--adm-glass-border);
-  border-radius: var(--adm-radius-lg);
-  box-shadow: var(--adm-shadow);
-}
-
-.adm-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-.adm-table th {
-  text-align: left;
-  padding: 14px 20px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  color: var(--gray-500);
-  background: var(--adm-glass-inner);
-  border-bottom: 1px solid var(--adm-glass-border);
-  white-space: nowrap;
-  user-select: none;
-}
-.adm-table th[data-sortable] { cursor: pointer; }
-.adm-table th[data-sortable]:hover { color: var(--gray-700); }
-.adm-table th .sort-icon { margin-left: 4px; font-size: 10px; }
-
-.adm-table td {
-  padding: 14px 20px;
-  border-bottom: 1px solid rgba(0,0,0,0.04);
-  color: var(--gray-700);
-  vertical-align: middle;
-}
 html[data-theme='dark'] .adm-table td {
   border-bottom-color: rgba(255,255,255,0.04);
 }
-.adm-table tr:last-child td { border-bottom: none; }
-.adm-table tr { transition: background var(--adm-transition); }
-.adm-table tr:hover td { background: var(--adm-glass-inner); }
-
-.adm-table__empty {
-  text-align: center;
-  padding: 56px 16px;
-  color: var(--gray-400);
-}
-.adm-table__empty i { font-size: 32px; display: block; margin-bottom: 12px; opacity: 0.5; }
 
 /* ============================================================================
    BADGES - Pill-shaped with subtle glow
@@ -1297,10 +1185,7 @@ html[data-theme='dark'] .adm-toast {
   animation: admSkeletonShimmer 1.5s ease-in-out infinite;
   border-radius: var(--adm-radius-sm);
 }
-.adm-skeleton--text { height: 14px; width: 60%; margin-bottom: 10px; }
-.adm-skeleton--title { height: 22px; width: 40%; margin-bottom: 14px; }
 .adm-skeleton--card { height: 88px; margin-bottom: 14px; border-radius: var(--adm-radius); }
-.adm-skeleton--stat { height: 96px; border-radius: var(--adm-radius-lg); }
 
 /* ============================================================================
    LIST ITEMS (contributions, travaux) - Glass rows with hover glow
@@ -1490,22 +1375,6 @@ html[data-theme='dark'] .adm-user-row {
    BRANDING SECTION
    ============================================================================ */
 
-.adm-branding-preview {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 24px;
-  background: var(--adm-glass-inner);
-  border-radius: var(--adm-radius);
-  margin-bottom: 24px;
-  border: 1px solid var(--adm-glass-border);
-}
-
-.adm-branding-preview__logo {
-  max-height: 48px;
-  width: auto;
-}
-
 /* ============================================================================
    TOGGLE GRID - Glass toggle items
    ============================================================================ */
@@ -1598,17 +1467,6 @@ html[data-theme='dark'] .adm-user-row {
    INLINE FORM (categories create/edit)
    ============================================================================ */
 
-.adm-inline-form {
-  background: var(--adm-glass);
-  backdrop-filter: blur(var(--adm-blur));
-  -webkit-backdrop-filter: blur(var(--adm-blur));
-  border: 1px solid rgba(var(--adm-primary-rgb), 0.2);
-  border-radius: var(--adm-radius-lg);
-  padding: 24px;
-  margin-bottom: 20px;
-  box-shadow: var(--adm-shadow), 0 0 24px rgba(var(--adm-primary-rgb), 0.05);
-}
-
 /* ============================================================================
    ANIMATIONS
    ============================================================================ */
@@ -1636,7 +1494,6 @@ html[data-theme='dark'] .adm-user-row {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
-
 
 @keyframes admSlideUp {
   from { opacity: 0; transform: translateY(16px); }
@@ -1701,35 +1558,6 @@ html[data-theme='dark'] .adm-user-row {
 /* ============================================================================
    TRAVAUX - Custom components
    ============================================================================ */
-
-/* Quick stats bar */
-.tw-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.tw-stat {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  background: var(--adm-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--adm-glass-border);
-  border-radius: var(--adm-radius);
-  box-shadow: var(--adm-shadow-sm);
-  font-size: 13px;
-}
-.tw-stat i { font-size: 15px; opacity: 0.7; }
-.tw-stat--success i { color: var(--success); }
-.tw-stat--info    i { color: var(--info); }
-.tw-stat--neutral i { color: var(--gray-500); }
-.tw-stat--warning i { color: var(--warning); }
-.tw-stat__count { font-size: 18px; font-weight: 700; color: var(--gray-900); line-height: 1; }
-.tw-stat__label { color: var(--gray-500); font-size: 11px; }
 
 /* Row icon (colored icon box instead of plain gray) */
 .tw-row-icon {
@@ -1875,18 +1703,6 @@ html[data-theme='dark'] .twc-url-notice { color: var(--warning); }
 }
 .twc-empty-layers i { opacity: 0.4; flex-shrink: 0; }
 
-/* Toggle row (label + switch) - generic admin variant */
-.adm-toggle-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  cursor: pointer;
-  user-select: none;
-}
-.adm-toggle-row__title { font-size: 14px; font-weight: 600; color: var(--gray-900); }
-.adm-toggle-row__desc  { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
-
 /* Switch toggle */
 .adm-switch { position: relative; display: inline-flex; }
 .adm-switch input {
@@ -1921,13 +1737,6 @@ html[data-theme='dark'] .twc-url-notice { color: var(--warning); }
 .adm-switch--lg .adm-switch__track { width: 56px; height: 30px; }
 .adm-switch--lg .adm-switch__track::after { width: 22px; height: 22px; top: 4px; left: 4px; }
 .adm-switch--lg input:checked + .adm-switch__track::after { transform: translateX(26px); }
-
-/* Card subtitle */
-.adm-card__subtitle {
-  font-size: 12px;
-  color: var(--gray-500);
-  margin-top: 2px;
-}
 
 /* Responsive */
 @media (max-width: 900px) {
@@ -2830,13 +2639,6 @@ html[data-theme='dark'] .cw-collapsible__trigger:hover {
 }
 .cw-footer__submit i {
   font-size: 13px;
-}
-
-/* ── Footer actions group: Assistant + Publier side by side ── */
-.cw-footer__actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
 }
 
 /* ── Draw panel toolbar (used by _renderDrawPanel) ── */
@@ -5112,7 +4914,6 @@ html[data-theme='dark'] .dg-seg button.is-active { background: rgba(255, 255, 25
 }
 .dg-sel-clear:hover { background: var(--black-alpha-12); color: var(--gray-800); }
 
-
 .dg-analyze-btn {
   width: 100%;
   display: flex; align-items: center; justify-content: center; gap: 9px;
@@ -5152,8 +4953,6 @@ html[data-theme='dark'] .dg-seg button.is-active { background: rgba(255, 255, 25
   border-left: 3px solid var(--gray-300);
 }
 
-
-.dg-icards { display: flex; flex-direction: column; gap: 9px; }
 .dg-ins__refs { display: flex; flex-wrap: wrap; gap: 3px; }
 .dg-ref {
   border: none; border-radius: 6px; padding: 0 6px;
@@ -5308,11 +5107,6 @@ html[data-theme='dark'] .dg-seg button.is-active { background: rgba(255, 255, 25
 }
 .dg-analyze-btn:disabled:hover { transform: none; box-shadow: none; }
 
-/* ── Sujets (« ce que disent les points ») - aucune notation, un décompte ── */
-.dg-section-label {
-  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.7px;
-  color: var(--gray-400); margin: 14px 2px 8px;
-}
 .dg-sujet {
   display: flex; flex-direction: column; gap: 6px;
   padding: 11px 12px;

@@ -360,17 +360,6 @@ body { margin: 0; }
   z-index: 0;
 }
 
-/* Old photo bg - kept for potential reuse but inactive */
-.fv2-hero__bg {
-  position: absolute;
-  inset: -4%;
-  width: 108%;
-  height: 108%;
-  object-fit: cover;
-  animation: fv2KenBurns 25s ease-in-out alternate infinite;
-  will-change: transform;
-}
-
 @keyframes fv2KenBurns {
   from { transform: scale(1) translate(0, 0); }
   to   { transform: scale(1.03) translate(-.3%, -.6%); }
@@ -403,58 +392,6 @@ body { margin: 0; }
   max-width: var(--fv2-body-max);
   margin: 0 auto;
   padding: calc(var(--fv2-topbar-h) + 32px) 28px 48px;
-}
-
-/* City brand badge - glass pill, always legible regardless of hero bg */
-.fv2-hero__city-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 16px 8px 8px;
-  border-radius: 100px;
-  background: rgba(0, 0, 0, 0.32);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  margin-bottom: 20px;
-  opacity: 0;
-  transform: translateY(-6px);
-  transition: opacity .4s var(--fv2-ease), transform .4s var(--fv2-ease);
-}
-
-.fv2-hero__city-badge.is-loaded {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.fv2-hero__city-badge__logo {
-  height: 30px;
-  width: auto;
-  max-width: 72px;
-  object-fit: contain;
-  /* No filter - the dark glass pill provides contrast for any logo color */
-  border-radius: 6px;
-}
-
-.fv2-hero__city-badge__name {
-  font-size: .78rem;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.92);
-  white-space: nowrap;
-  letter-spacing: -.01em;
-}
-
-/* Empty hero (no cover photo) - light glass badge */
-.fv2-hero--empty .fv2-hero__city-badge {
-  background: var(--surface-raised);
-  border-color: var(--border-light);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 2px 12px rgba(0,0,0,.06);
-}
-
-.fv2-hero--empty .fv2-hero__city-badge__name {
-  color: var(--text-primary);
 }
 
 /* Meta */
@@ -521,19 +458,6 @@ body { margin: 0; }
 .fv2-hero:hover .fv2-hero__expand { opacity: 1; transform: scale(1); }
 .fv2-hero__expand:hover { background: rgba(255,255,255,.20); transform: scale(1.08); }
 @media (hover: none) { .fv2-hero__expand { opacity: 1; transform: scale(1); } }
-
-/* Hero - no cover */
-.fv2-hero--empty {
-  min-height: auto;
-  max-height: none;
-  background:
-    radial-gradient(ellipse at 30% 100%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 60%),
-    linear-gradient(135deg,
-      color-mix(in srgb, var(--primary) 6%, var(--surface-base)),
-      var(--surface-base) 50%,
-      color-mix(in srgb, var(--primary) 3%, var(--surface-base)));
-  border-bottom: 1px solid var(--border-light);
-}
 
 .fv2-hero--empty .fv2-hero__title {
   color: var(--text-primary);
@@ -684,20 +608,6 @@ body { margin: 0; }
 .fv2-section-title i {
   color: var(--primary);
   font-size: .68rem;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   MAP - Glassmorphism container
-   ═══════════════════════════════════════════════════════════════════════════ */
-.fv2-map-glass {
-  position: relative;
-  border-radius: var(--fv2-radius);
-  overflow: hidden;
-  background: var(--fv2-glass-bg);
-  backdrop-filter: blur(var(--fv2-glass-blur)) saturate(var(--fv2-glass-saturate));
-  -webkit-backdrop-filter: blur(var(--fv2-glass-blur)) saturate(var(--fv2-glass-saturate));
-  border: 1px solid var(--fv2-glass-border);
-  box-shadow: var(--fv2-glass-shadow);
 }
 
 .fv2-block--bleed .fv2-map-glass {

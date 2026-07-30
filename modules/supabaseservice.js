@@ -1317,8 +1317,18 @@
      */
     initAllData: async function() {
       const svc = this;
-      // Repérer toutes les méthodes commençant par 'fetch' (sauf celles à exclure de l'auto-chargement)
-      const exclude = ['fetchAllProjects', 'fetchProjectsByCategory', 'fetchProjectByCategoryAndName', 'fetchMyTravaux'];
+      // Repérer toutes les méthodes commençant par 'fetch' (sauf celles à exclure de l'auto-chargement).
+      // Deux motifs d'exclusion :
+      //  - fetchers à paramètres : appelés sans argument ils retournent immédiatement (garde en
+      //    tête de fonction) et n'injectent qu'un tableau vide que personne ne lit ;
+      //  - fetchUIToggles : catalogue des contrôles, consommé uniquement par l'admin
+      //    (admin/sections/structure.js). L'auto-charger ici coûtait une requête à chaque
+      //    boot de la carte publique pour un résultat jamais lu.
+      const exclude = [
+        'fetchAllProjects', 'fetchProjectsByCategory', 'fetchProjectByCategoryAndName',
+        'fetchMyTravaux', 'fetchProjectBySlug', 'fetchCityTravaux',
+        'fetchDiagnosticLayers', 'fetchDiagnosticReports', 'fetchUIToggles',
+      ];
       const fetchers = Object
         .entries(svc)
         .filter(([key, fn]) => key.startsWith('fetch') && typeof fn === 'function')

@@ -14,7 +14,7 @@ import { syncLayerRender, setLayerVisibility, removeLayerRender, updateHeatmap, 
  * Complète les couleurs par catégorie manquantes d'une couche (mode category)
  * à partir des valeurs réellement présentes dans les données.
  */
-export function ensureCategoryColors(layer, features) {
+function ensureCategoryColors(layer, features) {
   const style = layer.style || {};
   if (style.mode !== 'category' || !style.category_field) return;
   const colors = { ...style.cat_colors };

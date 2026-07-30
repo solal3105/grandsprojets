@@ -948,9 +948,9 @@ test.describe('0.17 - Résilience init (banner)', () => {
 // 0.18 - RÉGRESSION : logo mobile (.mobile-fixed-logo)
 //
 // Le logo fixe en haut à gauche doit être VISIBLE en mobile
-// et CACHÉ en desktop. Régression du bug cascade CSS où
-// 03-navigation.css (chargé après 08-responsive.css) écrasait
-// le display:flex du @media avec un display:none de même
+// et CACHÉ en desktop. Régression du bug cascade CSS où une
+// feuille chargée après celle du responsive écrasait le
+// display:flex du @media avec un display:none de même
 // spécificité.
 // ═════════════════════════════════════════════════════════
 test.describe('0.18 - RÉGRESSION logo mobile (cascade CSS)', () => {

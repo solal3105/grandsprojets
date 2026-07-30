@@ -298,14 +298,6 @@
     },
     
     /**
-     * Retourne la session en cache (synchrone)
-     * @returns {Object|null}
-     */
-    getCachedSession: function() {
-      return cachedSession;
-    },
-
-    /**
      * Récupère la session depuis Supabase (async)
      * @returns {Promise<{data: {session: Object|null}, error: Error|null}>}
      */
@@ -317,32 +309,6 @@
       } catch (e) {
         console.debug('[Auth] getSession error:', e);
         return { data: { session: null }, error: e };
-      }
-    },
-
-    /**
-     * Récupère la session avec refresh automatique si nécessaire
-     * Ne redirige JAMAIS - retourne simplement la session ou null
-     * @returns {Promise<{session: Object|null, refreshed: boolean}>}
-     */
-    getSessionWithRefresh: async function() {
-      try {
-        const { data } = await client.auth.getSession();
-        
-        if (data?.session) {
-          cachedSession = data.session;
-          return { session: data.session, refreshed: false };
-        }
-        
-        // Pas de session, tenter un refresh
-        const refreshed = await refreshSession();
-        return { 
-          session: cachedSession, 
-          refreshed: refreshed 
-        };
-      } catch (e) {
-        console.debug('[Auth] getSessionWithRefresh error:', e);
-        return { session: null, refreshed: false };
       }
     },
 
@@ -412,24 +378,6 @@
       }
     },
 
-    /**
-     * Vérifie l'authentification et redirige vers login si non connecté
-     */
-    requireAuthOrRedirect: async function(loginUrl) {
-      try {
-        const { data: { session } } = await this.getSession();
-        if (!session?.user) {
-          win.location.href = loginUrl || '/login/';
-          return null;
-        }
-        return session;
-      } catch (e) {
-        console.debug('[auth] auth check failed, redirecting:', e);
-        win.location.href = loginUrl || '/login/';
-        return null;
-      }
-    },
-    
     /**
      * Force un refresh de la session (utile pour les tests)
      */

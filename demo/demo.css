@@ -138,7 +138,6 @@ body:not(.has-map) #map { display: none; }
 .search__suggestions .s-name { font-weight: 600; }
 .search__suggestions .s-meta { color: var(--text); font-size: 0.9rem; white-space: nowrap; }
 
-
 /* ─── Écran génération : HUD immersif flottant sur la carte ─── */
 
 .screen--hud { position: static; }

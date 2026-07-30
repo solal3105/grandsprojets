@@ -200,7 +200,6 @@ test.describe('0.8 - Échappement : pas de repli fail-open', () => {
       '/modules/carte/carte-nav.js',
       '/modules/citymanager.js',
       '/modules/navigationmodule.js',
-      '/modules/eventbindings.js',
       '/modules/lightbox.js',
       '/modules/travaux/travaux-views.js',
     ];

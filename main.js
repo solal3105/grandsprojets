@@ -510,8 +510,7 @@
         loadScript('modules/searchmodule.js'),
         loadScript('modules/geolocation.js'),
         loadScript('modules/feature-interactions.js'),
-        loadScript('modules/navigationmodule.js'),
-        loadScript('modules/eventbindings.js')
+        loadScript('modules/navigationmodule.js')
       ]);
 
       // Initialiser SearchModule maintenant qu'il est chargé

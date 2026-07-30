@@ -6,7 +6,7 @@
 const LABELS = { dark: 'Mode clair', light: 'Mode sombre' };
 const ICONS  = { dark: 'fa-solid fa-sun', light: 'fa-solid fa-moon' };
 
-export function currentTheme() {
+function currentTheme() {
   return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
 }
 
