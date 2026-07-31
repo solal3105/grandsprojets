@@ -60,7 +60,7 @@ const MAX_PHASE_ATTEMPTS = 2; // au-dela, la phase est declaree en echec (anti-b
    inverse : Bordeaux rendait 7 fiches et Montpellier 5, la ou une metropole a
    des dizaines d'operations. Le cout IA, lui, ne suit pas : le paquet envoye au
    modele reste borne par BUNDLE_MAX_CHARS, seule la duree reseau augmente. */
-const MAIRIE_PAGES = 18;
+const MAIRIE_PAGES = 30;
 // Pages filles, tirees uniquement des sommaires de projets (voir le second
 // niveau de crawl dans inspectMairieSite)
 const MAIRIE_PAGES_ENFANTS = 26;
@@ -406,12 +406,25 @@ function positionDeLAdresse(rec) {
   return { lat, lng, libelle: [a.numero_voie, a.code_postal, a.nom_commune].filter(Boolean).join(', ') };
 }
 
+/* L'annuaire officiel se trompe parfois de coordonnees.
+   Mesure sur Gex (01173) : le champ `adresse` porte le bon libelle, « 77 rue
+   de l'Horloge, 01170, Gex », et la position 45.696793 / 4.885262, qui est
+   celle de la mairie de VENISSIEUX, a 300 km de la. Le radar de l'ecran
+   partait donc a l'autre bout de la France devant le prospect.
+   La commune a un contour officiel : une position hors de ce contour n'est pas
+   celle de sa mairie, quel que soit ce qu'affirme la fiche. */
+function positionDansLaCommune(position, bbox) {
+  if (!position) return false;
+  if (!bbox) return true;
+  return geometryInBbox({ type: 'Point', coordinates: [position.lng, position.lat] }, bbox);
+}
+
 /* Site ET position de la mairie, en une seule interrogation de l'annuaire.
    La position sert au radar de l'ecran : il pulsait jusqu'ici sur le centre
    GEOMETRIQUE de la commune, qui tombe reguliairement dans un champ ou une
    foret. Un elu qui voit le balayage partir de sa mairie comprend tout de
    suite d'ou on part ; un point au milieu de nulle part ne dit rien. */
-async function findMairie(insee) {
+async function findMairie(insee, bbox = null) {
   const vide = { site: null, position: null };
   try {
     const url = new URL('https://api-lannuaire.service-public.fr/api/explore/v2.1/catalog/datasets/api-lannuaire-administration/records');
@@ -421,9 +434,16 @@ async function findMairie(insee) {
     if (!r.ok) return vide;
     const data = await r.json();
     const records = data.results || [];
-    // La position est prise sur le PREMIER enregistrement qui en porte une,
-    // meme si c'est un autre que celui qui porte le site internet.
-    const position = records.map(positionDeLAdresse).find(Boolean) || null;
+    /* La position est prise sur le PREMIER enregistrement qui en porte une ET
+       qui tombe dans la commune, meme si c'est un autre que celui qui porte le
+       site internet. Une fiche dont les coordonnees designent une autre commune
+       est ecartee : mieux vaut aucun ancrage, le radar reste alors sur le
+       centre communal, qu'un radar qui balaye a 300 km. */
+    const positions = records.map(positionDeLAdresse).filter(Boolean);
+    const position = positions.find((p) => positionDansLaCommune(p, bbox)) || null;
+    if (!position && positions.length) {
+      console.warn(`[demo-generate] annuaire ${insee} : position hors commune ecartee (${positions[0].lat}, ${positions[0].lng}) pour « ${positions[0].libelle} »`);
+    }
     for (const rec of records) {
       const raw = rec.site_internet;
       if (!raw) continue;
@@ -598,41 +618,28 @@ function collectImages(html, baseUrl, out, cap = 16) {
   }
 }
 
-/* Collecte des pages projets du site de la mairie.
-   Niveau 1 : les pages reperees depuis l'accueil, classees par force du signal.
-   Niveau 2 : les pages filles, mais UNIQUEMENT depuis une page qui ressemble a
-   un sommaire (fort signal, peu de texte). Declenche partout, ce second niveau
-   ne ramenait que de la navigation. */
+/* Collecte des pages du site de la mairie.
+   Niveau 1 : les pages de l'accueil. Niveau 2 : les pages filles des sommaires.
+   Dans les deux cas, c'est un appel IA qui choisit quoi ouvrir.
 
-const PROJECT_LINK_RE = /(projet|travaux|urbanisme|amenagement|aménagement|chantier|grand[s-]?projet|cadre[ -]de[ -]vie|renovation|rénovation|equipement|équipement|construction|amenager|concertation|mobilit|logement|ecoquartier|écoquartier|zac)/i;
+   AUCUN FILTRE PAR MOT-CLE ICI, ET IL NE FAUT PAS EN REINTRODUIRE.
+   La selection reposait sur une liste de mots (« projet », « travaux »,
+   « urbanisme »...), un bareme de points et une liste de penalites. Un
+   vocabulaire fige ne peut pas predire ce que contient une page : la mairie de
+   Conflans publiait « Les pistes de padel debarquent en ville », qui ne
+   contient aucun de ces mots, et cette page portait la seule phrase donnant le
+   lieu de l'operation (« au stade Claude-Fichot, derriere les courts de tennis
+   couverts »). Elle etait ecartee trois fois : absente du motif d'entree,
+   penalisee au bareme parce que son adresse contient « actualites », et
+   rejetee par le filet de rattrapage qui reprenait la meme liste. Resultat :
+   une punaise posee a un kilometre du vrai site.
 
-// Un lien nommé « grands projets » ou « ZAC » vaut mieux qu'un « logement » de
-// menu : le score départage avant le plafonnement.
-const LINK_SCORES = [
-  [/grand[s-]?\s?projet|projets?[ -]structurant|nos[ -]projets|projet[ -]de[ -]ville/i, 60],
-  [/zac|ecoquartier|écoquartier|amenagement|aménagement|requalification/i, 40],
-  [/urbanisme|renovation|rénovation|construction|chantier/i, 30],
-  [/travaux|concertation|equipement|équipement/i, 20],
-  [/cadre[ -]de[ -]vie|mobilit|logement/i, 10],
-];
+   Chaque mot ajoute a une telle liste deplace le probleme sans le resoudre.
+   Le choix des pages a ouvrir est donc rendu a un appel IA court. */
+const LIEN_LABEL_MAX = 80;
 
-// Pages de service qui contiennent un mot-cle sans jamais decrire de projet
-// (« Numeros utiles » remontait ainsi dans la collecte elargie)
-const LINK_PENALTIES = /numero|utile|contact|annuaire|horaire|demarche|etat[ -]civil|scolaire|cantine|agenda|actualite|newsletter|mentions|plan[ -]du[ -]site|recrutement|emploi|marche[ -]public|deliberation|conseil[ -]municipal/i;
-
-function scoreProjectLink(link) {
-  const hay = `${link.url} ${link.label}`;
-  let score = 0;
-  for (const [re, pts] of LINK_SCORES) if (re.test(hay)) score += pts;
-  if (LINK_PENALTIES.test(hay)) score -= 45;
-  // Une page de contenu (chemin profond) porte plus d'information qu'une
-  // rubrique de premier niveau
-  try { score += Math.min(new URL(link.url).pathname.split('/').filter(Boolean).length, 4) * 3; } catch { /* url deja validee */ }
-  return score;
-}
-
-/* Extrait les liens internes évoquant un projet, en évitant les doublons avec
-   ce qui est déjà connu (`known`).
+/* Extrait les liens internes d'une page, sans aucun jugement sur leur contenu,
+   en evitant les doublons avec ce qui est deja connu (`known`).
 
    Le libellé était borné à 120 caractères DANS LE MOTIF, ce qui ne tronquait
    pas le libellé : cela faisait échouer le motif entier dès qu'un lien
@@ -642,22 +649,25 @@ function scoreProjectLink(link) {
    La borne est désormais large et la troncature se fait après coup.
    Les ancres sont acceptées et coupées : `page.html#section` désigne bien une
    page, et l'ancien motif rejetait toute adresse en contenant une. */
-function collectProjectLinks(html, baseUrl, host, outLinks, known = []) {
+function collectPageLinks(html, baseUrl, host, outLinks, known = []) {
   const aRe = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]{0,3000}?)<\/a>/gi;
   let m;
-  while ((m = aRe.exec(html)) !== null && outLinks.length < 90) {
+  while ((m = aRe.exec(html)) !== null && outLinks.length < 250) {
     const href = m[1].split('#')[0];
     if (!href) continue;
-    const label = stripHtml(m[2]);
-    if (!PROJECT_LINK_RE.test(`${href} ${label}`)) continue;
+    const label = stripHtml(m[2]).trim();
+    // Un intitule vide ou d'un seul mot court est une fleche de pagination ou
+    // un « lire la suite » : il ne designe rien pour qui doit choisir.
+    if (label.length < 4) continue;
     try {
       const abs = new URL(href, baseUrl);
       if (abs.host !== host) continue;
       if (/\.(pdf|jpe?g|png|gif|zip|docx?|xlsx?)$/i.test(abs.pathname)) continue;
       abs.hash = '';
       const u = abs.toString();
+      if (u === baseUrl) continue;
       if (outLinks.some((l) => l.url === u) || known.some((l) => l.url === u)) continue;
-      outLinks.push({ url: u, label: label.slice(0, 80) || abs.pathname });
+      outLinks.push({ url: u, label: label.slice(0, LIEN_LABEL_MAX) || abs.pathname });
     } catch { /* href invalide */ }
   }
 }
@@ -725,40 +735,196 @@ function collectAllInternalLinks(html, baseUrl, host, out) {
   return out;
 }
 
-/* Entrees d'un SOMMAIRE de projets, reconnues par difference avec la navigation
-   plutot que par mot-cle. Sur une page dont on a deja etabli que c'est une liste
-   de projets, un intitule comme « Square du barachois » ne contient aucun des
-   mots attendus et etait donc perdu, alors que c'est precisement un projet. */
-const SOMMAIRE_COMPLEMENT_MAX = 12;
+/* Le SITEMAP du site, quand il existe.
 
-function collectSommaireLinks(html, baseUrl, host, outLinks, navigation) {
-  const aRe = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]{0,3000}?)<\/a>/gi;
-  let m;
-  let ajoutes = 0;
-  while ((m = aRe.exec(html)) !== null && ajoutes < SOMMAIRE_COMPLEMENT_MAX && outLinks.length < 90) {
-    const href = m[1].split('#')[0];
-    if (!href) continue;
-    const label = stripHtml(m[2]).trim();
-    // Un intitule vide ou d'un seul mot court est une pagination, une fleche ou
-    // un « lire la suite » : ce n'est pas le nom d'un projet.
-    if (label.length < 6) continue;
-    // Menus secondaires et pieds de page qui varient d'une page a l'autre, donc
-    // absents de la navigation relevee sur l'accueil : « Contact », « Agenda »,
-    // « Conseil municipal »... Le meme vocabulaire que le barème de penalites.
-    if (LINK_PENALTIES.test(`${href} ${label}`)) continue;
-    try {
-      const abs = new URL(href, baseUrl);
-      if (abs.host !== host) continue;
-      if (/\.(pdf|jpe?g|png|gif|zip|docx?|xlsx?)$/i.test(abs.pathname)) continue;
-      abs.hash = '';
-      const u = abs.toString();
-      if (u === baseUrl || navigation.has(u)) continue;
-      if (outLinks.some((l) => l.url === u)) continue;
-      outLinks.push({ url: u, label: label.slice(0, 80) || abs.pathname });
-      ajoutes++;
-    } catch { /* href invalide */ }
+   Amorcer le crawl sur l'accueil revient a ne voir que le present. Mesure sur
+   Conflans : l'accueil expose 95 liens, aucun ne mene a l'article des pistes de
+   padel, qui portait pourtant la seule phrase donnant le lieu de l'operation.
+   L'article n'etait pas non plus sur les trois premieres pages du fil
+   d'actualites, qui en liste dix par page. Il aurait fallu paginer a l'aveugle.
+   Le sitemap du meme site rend 280 actualites et 90 pages en deux requetes, et
+   l'article y figure avec sa date de derniere modification. */
+const SITEMAP_CHEMINS = ['/sitemap.xml', '/sitemap_index.xml', '/wp-sitemap.xml'];
+const SITEMAP_SOUS_MAX = 6;
+const SITEMAP_URLS_MAX = 400;
+const SITEMAP_MAX_BYTES = 3000000;
+
+// Entrees d'un sitemap ou d'un index de sitemaps : {url, lastmod}
+function lireSitemap(xml) {
+  const out = [];
+  // Le decoupage par balise fermante evite qu'un <lastmod> soit rattache a
+  // l'entree suivante, ce qu'un motif unique sur tout le document ferait.
+  for (const bloc of String(xml || '').split(/<\/(?:url|sitemap)>/i)) {
+    const loc = /<loc>\s*([^<\s]+)\s*<\/loc>/i.exec(bloc)?.[1];
+    if (!loc) continue;
+    out.push({
+      url: loc.replace(/&amp;/g, '&'),
+      lastmod: /<lastmod>\s*([^<\s]+)/i.exec(bloc)?.[1] || '',
+    });
+    if (out.length >= 3000) break;
   }
-  return outLinks;
+  return out;
+}
+
+const estUnSitemap = (u) => /\.xml(\?|$)/i.test(u);
+
+async function fetchSitemapUrls(baseUrl) {
+  for (const chemin of SITEMAP_CHEMINS) {
+    let r;
+    try {
+      r = await fetchCapped(new URL(chemin, baseUrl).toString(), { headers: UA }, 12000, SITEMAP_MAX_BYTES);
+    } catch { continue; }
+    if (!r) continue;
+    const entrees = lireSitemap(r.data);
+    if (!entrees.length) continue;
+
+    // Index de sitemaps : les entrees pointent vers d'autres fichiers .xml
+    const sous = entrees.filter((e) => estUnSitemap(e.url)).slice(0, SITEMAP_SOUS_MAX);
+    if (sous.length) {
+      const lots = await inChunks(sous, 3, async (s) => {
+        const rr = await fetchCapped(s.url, { headers: UA }, 12000, SITEMAP_MAX_BYTES);
+        return rr ? lireSitemap(rr.data) : [];
+      });
+      const toutes = lots.flat().filter((e) => !estUnSitemap(e.url));
+      if (toutes.length) return toutes;
+    }
+    const directes = entrees.filter((e) => !estUnSitemap(e.url));
+    if (directes.length) return directes;
+  }
+  return [];
+}
+
+// Intitule lisible tire du dernier segment d'une adresse : le slug d'un CMS est
+// une phrase (« les-pistes-de-padel-debarquent-en-ville »), pas un identifiant.
+function libelleDuChemin(u) {
+  try {
+    const seg = new URL(u).pathname.split('/').filter(Boolean).pop() || '';
+    return decodeURIComponent(seg).replace(/[-_]+/g, ' ').trim().slice(0, LIEN_LABEL_MAX);
+  } catch { return ''; }
+}
+
+/* Choix des pages a ouvrir, confie a l'IA.
+
+   Un appel court par niveau de crawl : la liste des liens (intitule + chemin),
+   et l'IA rend les index a ouvrir, du plus prometteur au moins prometteur.
+   Elle lit un intitule comme un humain le lit, ce qu'aucune liste de mots ne
+   sait faire : « Les pistes de padel debarquent en ville » est evidemment une
+   operation d'amenagement, « Inscriptions cantine » evidemment pas.
+
+   Environ 3 000 tokens en entree pour 200 liens, une centaine en sortie. La
+   latence est absorbee : cette branche attend de toute facon la presse et les
+   marches publics, qui tournent en parallele. */
+const LIENS_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    ouvrir: {
+      type: 'array',
+      maxItems: 40,
+      description: "Index des pages à ouvrir, de la plus prometteuse à la moins prometteuse. Tableau vide si aucune page du lot ne peut décrire une opération.",
+      items: { type: 'integer' },
+    },
+  },
+  required: ['ouvrir'],
+};
+
+/* Un modele a qui l'on soumet 500 lignes d'un coup et qui doit en rendre 30
+   rate les entrees du milieu, quel que soit leur interet. Mesure sur Conflans :
+   sur les 495 candidats en un seul appel, l'article des pistes de padel n'est
+   pas retenu ; sur le lot de 120 qui le contient, il l'est, en troisieme
+   position sur trois. Le decoupage n'est pas une optimisation de cout, c'est ce
+   qui rend le rappel utilisable. */
+const LIENS_LOT_MAX = 120;
+
+async function choisirLiensParIa(liens, communeNom, max, contexte) {
+  if (!liens.length) return [];
+  if (liens.length <= LIENS_LOT_MAX) return choisirDansUnLot(liens, communeNom, max, contexte);
+
+  const lots = [];
+  for (let i = 0; i < liens.length; i += LIENS_LOT_MAX) lots.push(liens.slice(i, i + LIENS_LOT_MAX));
+  const parLot = await inChunks(lots, 4, (lot) => choisirDansUnLot(lot, communeNom, max, contexte));
+
+  /* Fusion en tourniquet : le premier choix de chaque lot, puis le deuxieme de
+     chacun, et ainsi de suite. Aucun lot ne peut monopoliser les places, et
+     l'ordre de sortie reflete le rang attribue par l'IA dans son propre lot.
+     Cet ordre compte au-dela du crawl : le paquet envoye a l'extraction est
+     plafonne, et les dernieres pages lues en sont ecartees. */
+  const out = [];
+  const vus = new Set();
+  for (let rang = 0; out.length < max; rang++) {
+    let ajout = false;
+    for (const choix of parLot) {
+      const l = choix?.[rang];
+      if (!l || vus.has(l.url)) continue;
+      vus.add(l.url);
+      out.push(l);
+      ajout = true;
+      if (out.length >= max) break;
+    }
+    if (!ajout) break;
+  }
+  console.log(`[demo-generate] liens : ${out.length} page(s) retenue(s) sur ${liens.length} par l'IA (${lots.length} lots)`);
+  return out;
+}
+
+/* Classement de REPLI, quand l'IA n'est pas joignable. Purement structurel :
+   aucun vocabulaire, seulement la forme de l'adresse et de l'intitule.
+
+   Prendre les liens dans l'ordre du document ouvrait le menu, « Annuaires »
+   en tete (mesure sur Conflans, en local sans acces au modele). Une page de
+   CONTENU a un chemin plus profond qu'une rubrique de premier niveau, et un
+   intitule redige plutot qu'un mot unique. Ce n'est pas un jugement sur le
+   sujet de la page, c'est une observation sur sa place dans le site. */
+function rangStructurel(lien) {
+  let score = 0;
+  try {
+    const segments = new URL(lien.url).pathname.split('/').filter(Boolean);
+    score += Math.min(segments.length, 4) * 10;
+  } catch { /* url deja validee a la collecte */ }
+  score += Math.min(String(lien.label || '').trim().split(/\s+/).length, 8);
+  return score;
+}
+
+async function choisirDansUnLot(liens, communeNom, max, contexte) {
+  const repliStructurel = () => [...liens]
+    .sort((a, b) => rangStructurel(b) - rangStructurel(a))
+    .slice(0, max);
+  try {
+    const system = `Tu prépares le recensement des opérations d'aménagement de la commune de ${communeNom} à partir de son site officiel. ${contexte}
+
+Retiens les pages susceptibles de DÉCRIRE ou de LISTER une opération qui transforme physiquement le territoire : construction, réhabilitation, requalification d'espace public, équipement, voirie, logement, aménagement paysager. Une actualité municipale qui annonce un chantier ou l'ouverture d'un équipement compte autant qu'une rubrique « Grands projets » : c'est souvent elle qui donne le lieu exact.
+
+Écarte les pages de service et de vie quotidienne : démarches administratives, état civil, inscriptions, menus, agenda culturel, contacts, annuaire, recrutement, mentions légales, comptes rendus de conseil municipal.
+
+Juge sur l'intitulé et le chemin, pas sur la présence d'un mot particulier. Au plus ${max} index, les plus prometteurs d'abord. Dans le doute sur une page qui pourrait décrire une opération, retiens-la : une page inutile coûte peu, une page manquée fait disparaître un projet de la carte.`;
+    const user = JSON.stringify(
+      liens.map((l, i) => ({ index: i, intitule: l.label, chemin: cheminDe(l.url) })),
+      null, 0
+    );
+    const out = await openAIStructured(
+      [{ role: 'system', content: system }, { role: 'user', content: user }],
+      'liens_a_ouvrir', LIENS_SCHEMA, 600, 40000, 0.1
+    );
+    const choisis = [...new Set(out.ouvrir || [])]
+      .filter((i) => Number.isInteger(i) && i >= 0 && i < liens.length)
+      .slice(0, max)
+      .map((i) => liens[i]);
+    // Une reponse vide n'est pas un verdict exploitable : sur un site dont tous
+    // les intitules sont opaques, mieux vaut ouvrir des pages au hasard que de
+    // rendre une commune sans aucune source.
+    if (!choisis.length) return repliStructurel();
+    console.log(`[demo-generate] liens : ${choisis.length} page(s) retenue(s) sur ${liens.length} par l'IA`);
+    return choisis;
+  } catch (e) {
+    console.warn(`[demo-generate] choix des liens indisponible, repli sur l'ordre du document :: ${e?.message}`);
+    return repliStructurel();
+  }
+}
+
+// Chemin lisible d'une adresse, pour donner a l'IA la structure du site sans
+// lui faire payer le domaine repete a chaque ligne
+function cheminDe(u) {
+  try { return new URL(u).pathname; } catch { return u; }
 }
 
 /* Decoupe une page en blocs {texte, images}. Un bloc = une operation sur une
@@ -802,7 +968,11 @@ async function fetchPages(links, out, onFinding) {
     if (!sp) continue;
     collectPdfLinks(sp.page.data, sp.page.url, out.pdfs);
     collectImages(sp.page.data, sp.page.url, out.images);
-    if (sp.text.length > 400 && !out.urls.includes(sp.link.url)) {
+    /* Une page servie en coquille JavaScript n'a pas de contenu : sans ce
+       test, du code se retrouvait présenté à l'IA comme le texte d'une source
+       officielle. Le garde-fou existait pour les articles de presse, qui ne
+       sont plus téléchargés ; le risque, lui, subsiste sur les CMS de mairie. */
+    if (sp.text.length > 400 && !looksLikeCode(sp.text) && !out.urls.includes(sp.link.url)) {
       // Les images sont AUSSI gardees par page : c'est le seul moyen de
       // rattacher une photo au bon projet. Versees dans un pool indifferencie,
       // elles n'etaient que du remplissage que le juge visuel rejetait.
@@ -895,7 +1065,7 @@ function findSiteLogo(html, baseUrl) {
   return retenus;
 }
 
-async function inspectMairieSite(siteUrl, onFinding) {
+async function inspectMairieSite(siteUrl, communeNom, onFinding) {
   const out = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [], bloque: false };
   const home = await fetchCapped(siteUrl, { headers: UA }, FETCH_TIMEOUT_MS, 500000);
   if (!home) return out;
@@ -961,83 +1131,71 @@ async function inspectMairieSite(siteUrl, onFinding) {
      sommaire, ses entrees propres du menu qu'elle repete. */
   const navigation = collectAllInternalLinks(html, finalUrl, finalUrl.host, new Set());
 
+  /* Niveau 1 : les liens de l'accueil COMPLETES PAR LE SITEMAP sont proposes a
+     l'IA, qui choisit lesquels ouvrir. L'accueil apporte les intitules rediges,
+     le sitemap apporte tout ce que l'accueil ne montre plus. Aucun tri prealable
+     par vocabulaire. */
   const links = [];
-  collectProjectLinks(html, finalUrl, finalUrl.host, links);
-  // Les liens sont classés avant d'être coupés : une page « Grands projets »
-  // vaut mieux qu'une entrée de menu « logement ». Auparavant on prenait les 5
-  // PREMIERS liens du HTML, donc surtout la navigation, en laissant de côté les
-  // pages de fond. C'est le principal facteur limitant du nombre de projets.
-  links.sort((a, b) => scoreProjectLink(b) - scoreProjectLink(a));
-  const seed = await fetchPages(links.slice(0, MAIRIE_PAGES), out, onFinding);
+  collectPageLinks(html, finalUrl, finalUrl.host, links);
+  const depuisAccueil = links.length;
 
-  /* Second niveau. Une page « Travaux » ou « Grands projets » n'est souvent
-     qu'un SOMMAIRE : sur Vannes elle liste 14 operations en 1 160 caracteres,
-     chaque page fille en portant 3 000 a 15 000. Sans ce niveau, on ne retenait
-     que 5 des 14 projets et les articles manquaient de matiere.
+  const sitemap = await fetchSitemapUrls(home.url);
+  if (sitemap.length) {
+    const connus = new Set(links.map((l) => l.url));
+    const duSitemap = sitemap
+      .filter((e) => {
+        try {
+          const p = new URL(e.url);
+          return p.host === finalUrl.host
+            && !connus.has(e.url)
+            && !/\.(pdf|jpe?g|png|gif|zip|docx?|xlsx?)$/i.test(p.pathname)
+            && p.pathname !== '/';
+        } catch { return false; }
+      })
+      // Le plus recent d'abord : c'est structurel, pas un jugement sur le sujet.
+      // Au-dela du plafond, une page ancienne a peu de chances de decrire une
+      // operation encore en cours.
+      .sort((a, b) => String(b.lastmod).localeCompare(String(a.lastmod)))
+      .slice(0, SITEMAP_URLS_MAX)
+      .map((e) => ({ url: e.url, label: libelleDuChemin(e.url) }));
+    links.push(...duSitemap);
+  }
+  console.log(`[demo-generate] candidats : ${depuisAccueil} de l'accueil + ${links.length - depuisAccueil} du sitemap`);
 
-     Le declencheur ne repose PLUS sur le score du libelle. Il exigeait 45
-     points, un seuil qu'une page nommee « Travaux » ne peut pas atteindre : le
-     bareme n'accorde 60 points qu'a « grands projets » et 40 a « ZAC » ou
-     « amenagement », la ou « travaux » n'en vaut que 20. Or c'est le nom le
-     PLUS COURANT pour la page qui recense les chantiers d'une commune. Mesure
-     sur Bourgoin-Jallieu : la page /travaux, qui liste 21 chantiers avec une
-     page par chantier, obtenait 23 points et n'etait donc jamais depliee.
+  const aOuvrir = await choisirLiensParIa(
+    links, communeNom, MAIRIE_PAGES,
+    "Voici les liens de la page d'accueil du site officiel, complétés par les adresses publiées dans son sitemap. Pour ces dernières, l'intitulé est tiré de l'adresse elle-même."
+  );
+  const seed = await fetchPages(aOuvrir, out, onFinding);
+
+  /* Second niveau. Une page « Travaux », « Grands projets » ou « Actualites »
+     n'est souvent qu'un SOMMAIRE : sur Vannes elle liste 14 operations en
+     1 160 caracteres, chaque page fille en portant 3 000 a 15 000. Sans ce
+     niveau, on ne retenait que 5 des 14 projets.
 
      Un sommaire se reconnait a ce qu'il EXPOSE : une page qui offre plusieurs
-     liens de projet encore inconnus en est un, quel que soit son titre. C'est
-     mesurable, et vrai sur tous les sites.
-
-     Les deux criteres se CUMULENT au lieu de se remplacer. Mesure sur un panel
-     de 18 communes : le seul critere du nombre d'enfants perdait Quincieux et
-     Hazebrouck, dont la page de projets n'expose qu'un ou deux liens mais porte
-     un titre explicite. Garder l'ancien score en second declencheur ne coute
-     rien et evite de reculer la ou ca marchait. */
+     liens encore inconnus en est un, quel que soit son titre. C'est mesurable,
+     et vrai sur tous les sites. Les entrees deja presentes dans la NAVIGATION
+     relevee sur l'accueil sont du menu repete, pas du contenu propre. */
   const MIN_ENFANTS_POUR_SOMMAIRE = 3;
-  const sommaires = [];
+  const enfants = [];
+  const vus = new Set(links.map((l) => l.url));
+  let sommaires = 0;
   for (const sp of seed.filter(Boolean)) {
     const trouves = [];
-    collectProjectLinks(sp.page.data, sp.page.url, finalUrl.host, trouves, links);
-    if (trouves.length >= MIN_ENFANTS_POUR_SOMMAIRE || (trouves.length && scoreProjectLink(sp.link) >= 45)) {
-      /* Sur une page RECONNUE comme sommaire de projets, chaque entrée de la
-         liste EST un projet, que son intitulé contienne un mot-clé ou non.
-         Exiger le mot-clé y perd les projets aux noms propres : sur
-         saintdenis.re, « Square du barachois » disparaissait quand « RUCH -
-         Rénovation urbaine du Chaudron » passait, pour la seule raison que le
-         second contient « rénovation ». On complète donc avec les liens ABSENTS
-         DE LA NAVIGATION du site : ce qui figure sur l'accueil est du menu, ce
-         qui n'apparaît que sur ce sommaire est son contenu.
-
-         Uniquement quand la moisson par mot-clé est MAIGRE. Mesure sur 12
-         communes : appliqué partout, ce complément ramenait 256 pages de plus
-         dont l'essentiel était du menu secondaire (Le Puy passait de 92 à 233
-         pages filles, avec « Vos lus » et « Permanence du Maire »), et ce bruit
-         serait venu occuper les places des vraies pages projets. Restreint aux
-         sommaires pauvres, il ne se déclenche que là où il manque quelque
-         chose. */
-      if (trouves.length < MIN_ENFANTS_POUR_SOMMAIRE) {
-        collectSommaireLinks(sp.page.data, sp.page.url, finalUrl.host, trouves, navigation);
-      }
-      sommaires.push({ sp, trouves });
-    }
+    collectPageLinks(sp.page.data, sp.page.url, finalUrl.host, trouves, links);
+    const propres = trouves.filter((l) => !navigation.has(l.url) && !vus.has(l.url));
+    if (propres.length < MIN_ENFANTS_POUR_SOMMAIRE) continue;
+    sommaires++;
+    for (const l of propres) { vus.add(l.url); enfants.push(l); }
   }
-  if (sommaires.length) {
-    // Les sommaires les plus fournis d'abord, puis leurs enfants les mieux
-    // classes : une commune riche ne doit pas etre bornee par l'ordre du HTML.
-    sommaires.sort((a, b) => b.trouves.length - a.trouves.length);
-    const enfants = [];
-    const vus = new Set(links.map((l) => l.url));
-    for (const { trouves } of sommaires) {
-      for (const l of trouves) {
-        if (vus.has(l.url)) continue;
-        vus.add(l.url);
-        enfants.push(l);
-      }
-    }
-    console.log(`[demo-generate] ${sommaires.length} sommaire(s) de projets, ${enfants.length} page(s) fille(s) reperee(s)`);
-    if (enfants.length) {
-      enfants.sort((a, b) => scoreProjectLink(b) - scoreProjectLink(a));
-      await fetchPages(enfants.slice(0, MAIRIE_PAGES_ENFANTS), out, onFinding);
-    }
+  if (enfants.length) {
+    console.log(`[demo-generate] ${sommaires} sommaire(s), ${enfants.length} page(s) fille(s) reperee(s)`);
+    const fillesAOuvrir = await choisirLiensParIa(
+      enfants, communeNom, MAIRIE_PAGES_ENFANTS,
+      'Voici les entrées listées par les pages de sommaire déjà ouvertes. Chaque entrée est un contenu propre du site, pas une rubrique de menu.'
+    );
+    await fetchPages(fillesAOuvrir, out, onFinding);
   }
 
   /* Retrait du gabarit, une fois TOUTES les pages du site collectees : il faut
@@ -1082,19 +1240,23 @@ async function fetchLocalNews(communeNom, departement, onFinding) {
     } catch { /* flux indisponible */ }
   }
 
-  await inChunks(items.slice(0, 13), 4, async (item) => {
-    const page = await fetchCapped(item.link, { headers: UA }, 6000, 400000);
-    if (!page) return;
-    item.finalUrl = page.url;
-    const html = page.data;
-    const ogDesc = metaContent(html, 'og:description');
-    const body = stripHtml(html);
-    // Google News sert une coquille JavaScript plutot que l'article : sans ce
-    // garde-fou, du code se retrouvait presente a l'IA comme le texte de la
-    // source, et servait de base a la redaction de la fiche.
-    item.text = [(ogDesc || ''), looksLikeCode(body) ? '' : body.slice(0, 2500)].filter(Boolean).join(' | ');
-    onFinding?.({ kind: 'article', title: item.title.replace(/ - [^-]+$/, ''), domain: hostOf(item.finalUrl || item.link) || item.source, date: item.date });
-  });
+  /* On NE TELECHARGE PLUS le corps des articles.
+
+     Le lien d'un item Google News est une redirection encodee qui ne resout
+     plus vers le media : mesure sur Conflans, les 22 articles rendent 200 OK
+     et 580 Ko du shell JavaScript de Google (« window.WIZ_global_data »), zero
+     caractere d'article. Le garde-fou looksLikeCode les rejetait correctement,
+     si bien que les 13 telechargements etaient integralement perdus : jusqu'a
+     400 Ko et 6 s chacun, pour un texte toujours vide. La balise
+     <description> du flux ne contient, elle, que le titre repete.
+
+     Restent les TITRES, qui sont la vraie valeur de cette source et sont
+     souvent explicites (« Ce que l'on sait de la renovation du groupe scolaire
+     Paul Bert », « L'hotel de ville est en pleine renovation »). Ils
+     corroborent ce que la mairie et les marches publics annoncent. */
+  for (const item of items.slice(0, 13)) {
+    onFinding?.({ kind: 'article', title: item.title.replace(/ - [^-]+$/, ''), domain: item.source || hostOf(item.link), date: item.date });
+  }
   return items;
 }
 
@@ -1813,6 +1975,37 @@ function centroidOf(geometry) {
   };
 }
 
+/* Le lieu trouvé porte-t-il un mot du lieu cherché ?
+
+   C'est le seul contrôle qui interroge la PERTINENCE du résultat, là où les
+   trois garde-fous existants ne testent que sa géographie. Les annuaires font
+   de la correspondance approchée : interrogés sur « Hôtel de Ville », ils
+   rendent volontiers un arrêt de bus « Centre Ville - Jean Jaurès », qui est
+   dans la commune, de taille normale, sur une position libre, et n'a rien à
+   voir. Mesuré sur Conflans : c'était la dernière punaise fausse de la carte.
+
+   La comparaison ignore les mots trop courts et le vocabulaire d'aménagement,
+   « ville » et « centre » compris : sans cela, « Hôtel de Ville » et « Centre
+   Ville » se ressembleraient. Quand la requête ne contient que des mots
+   génériques, on ne rejette rien : il n'y a alors rien à comparer, et un refus
+   serait arbitraire. */
+const MOT_SIGNIFICATIF_MIN = 4;
+
+function motsSignificatifs(s) {
+  return new Set(
+    unaccentLower(s).split(/[^a-z0-9]+/)
+      .filter((w) => w.length >= MOT_SIGNIFICATIF_MIN && !GENERIC_PROJECT_WORDS.test(w))
+  );
+}
+
+function nomCoherent(requete, nomTrouve) {
+  const cherches = motsSignificatifs(requete);
+  if (!cherches.size) return true;
+  const trouves = motsSignificatifs(nomTrouve);
+  for (const mot of cherches) if (trouves.has(mot)) return true;
+  return false;
+}
+
 // BAN (adresses officielles), scopé sur la commune : rapide, sans quota.
 // Seuil de score élevé (0.6) : BAN renvoie sinon une rue au nom VOISIN (ex
 // "Docteur Boyer" pour "Docteur Rollet") - un placement faussement précis à la
@@ -1829,7 +2022,8 @@ async function banGeocode(q, commune, bbox) {
          centre communal, presente comme une « adresse précise » : exactement la
          position fabriquee que tout le reste du systeme s'interdit. */
       const type = f?.properties?.type;
-      if (f && type !== 'municipality' && f.properties?.score >= 0.6 && geometryInBbox(f.geometry, bbox)) {
+      if (f && type !== 'municipality' && f.properties?.score >= 0.6 && geometryInBbox(f.geometry, bbox)
+        && nomCoherent(q, f.properties.label || '')) {
         return { geometry: f.geometry, method: 'adresse' };
       }
     }
@@ -1849,13 +2043,35 @@ async function nominatimLookup(q, commune, bbox) {
     u.searchParams.set('polygon_geojson', '1');
     u.searchParams.set('countrycodes', 'fr');
     u.searchParams.set('limit', '6');
+    // Le detail d'adresse permet de comparer la COMMUNE du resultat, et non
+    // de chercher son nom quelque part dans le libelle complet (voir plus bas)
+    u.searchParams.set('addressdetails', '1');
     const r = await fetchWithTimeout(u.toString(), { headers: UA }, 7000);
     if (!r.ok) console.warn(`[demo-generate] nominatim http=${r.status} pour "${q}"`);
     if (r.ok) {
       const commLc = commune.nom.toLowerCase().slice(0, 8);
       for (const hit of await r.json()) {
         const g = hit.geojson;
-        if (!g || !(hit.display_name || '').toLowerCase().includes(commLc) || !geometryInBbox(g, bbox)) continue;
+        if (!g || !geometryInBbox(g, bbox)) continue;
+        /* La commune du resultat, lue dans le DETAIL d'adresse. Chercher le nom
+           de la commune dans le libelle entier se fait piegeer par les echelons
+           administratifs superieurs : « Chemin de Dessus Perdtemps, Echenevex,
+           Gex, Ain » contient « Gex » parce que Gex est l'ARRONDISSEMENT, et
+           l'ecole Perdtemps se retrouvait a 3,5 km, dans la commune voisine.
+           Repli sur l'ancien test quand le detail ne porte aucune commune, ce
+           qui arrive sur certaines emprises. */
+        const adr = hit.address || {};
+        const communeTrouvee = adr.municipality || adr.city || adr.town || adr.village || adr.hamlet || '';
+        const memeCommune = communeTrouvee
+          ? unaccentLower(communeTrouvee) === unaccentLower(commune.nom)
+          : (hit.display_name || '').toLowerCase().includes(commLc);
+        if (!memeCommune) continue;
+        /* Le resultat doit porter un mot du lieu cherche. Sans ce test,
+           « Hotel de Ville » rendait l'arret de bus « Centre Ville - Jean
+           Jaures ». On compare au NOM de l'objet et a son adresse, pas au
+           display_name entier : celui-ci finit par le nom de la commune, du
+           departement et du pays, ce qui ferait passer n'importe quoi. */
+        if (!nomCoherent(q, `${hit.name || ''} ${(hit.display_name || '').split(',').slice(0, 3).join(' ')}`)) continue;
         // Le contour de la commune coche toutes les cases precedentes : c'est
         // sa TAILLE qui le trahit, pas son nom ni sa position.
         if (!extentAcceptable(g, bbox)) continue;
@@ -1957,40 +2173,128 @@ async function askAiForPlaces(commune, projets) {
   }
 }
 
-// Requêtes de localisation d'un projet, de la plus fiable à la plus faible :
-// adresse postale relevée dans la source, requête optimisée par l'IA, lieu,
-// puis le titre nettoyé de son verbe (l'IA laisse parfois les autres vides).
+/* Requêtes de localisation d'un projet, de la plus fiable à la plus faible :
+   adresse postale relevée dans la source, requête optimisée par l'IA, lieu,
+   lieux nommés lus littéralement dans le texte, et le titre en DERNIER.
+
+   Le titre était en quatrième position, donc devant les lieux réellement écrits
+   dans la source. Or c'est la formulation la plus faible de toutes : un titre
+   d'opération décrit ce qu'on fait, pas où. « Construction des pistes de
+   padel », soumis tel quel à un annuaire, ne pouvait rendre qu'un résultat au
+   hasard, et l'étage Nominatim n'essaie QUE la première formulation de cette
+   liste. C'est la position dans ce tableau qui a produit la punaise fausse de
+   Conflans, pas le géocodeur. */
 function locationQueries(project) {
   const fromTitle = String(project.title || '')
     .replace(/^(r[eé]am[eé]nagement|am[eé]nagement|construction|r[eé]novation|r[eé]habilitation|extension|d[eé]molition|reconstruction|cr[eé]ation|installation|requalification|v[eé]g[eé]talisation|ouverture|restructuration|renouvellement|modification|transfert|r[eé]fection)\s+(de\s+la|de\s+l['’]|du|des|de|d['’]|d'|un|une)?\s*/i, '')
     .trim();
   const seen = new Set();
   const out = [];
-  for (const q of [project.address, project.geo_query, project.place, fromTitle, ...odonymesDe(project.source_excerpt)]) {
+  /* Chaque champ de l'IA est suivi de sa forme sans mot generique.
+
+     Les lieux LUS DANS LE TEXTE ne servent que si l'IA n'a designe aucun lieu.
+     Un nom de rue ou d'equipement present sur la page est trop souvent une
+     mention incidente, sans rapport avec le projet : mesure sur Conflans, le
+     gymnase Pierre Ruquet, simplement cite dans un avis, servait d'emplacement
+     a la requalification du secteur Paul-Brard ; mesure sur Gex, la place
+     Gambetta, citee pour un autre chantier de la meme page, servait
+     d'emplacement au boulodrome Perdtemps.
+
+     Quand l'IA a nomme un lieu, sa designation fait foi : si ce lieu est
+     introuvable dans les annuaires, le projet part sans emplacement, ce qui est
+     le resultat honnete. On ne se rabat pas sur un lieu voisin. */
+  const aUnLieuNomme = [project.address, project.geo_query, project.place]
+    .some((x) => motsSignificatifs(String(x || '')).size > 0);
+  const candidats = [
+    project.address,
+    project.geo_query, sansPrefixeGenerique(project.geo_query),
+    project.place, sansPrefixeGenerique(project.place),
+    ...(aUnLieuNomme ? [] : odonymesDe(project.source_excerpt)),
+    fromTitle, sansPrefixeGenerique(fromTitle),
+  ];
+  for (const q of candidats) {
     const t = String(q || '').trim();
-    if (t.length >= 3 && !seen.has(t.toLowerCase())) { seen.add(t.toLowerCase()); out.push(t); }
+    if (t.length < 3 || seen.has(t.toLowerCase())) continue;
+    /* Une formulation sans AUCUN mot distinctif n'est pas un lieu, et un
+       annuaire interroge la-dessus repond toujours quelque chose : ce quelque
+       chose est du hasard. Mesure sur Gex : le nettoyage de l'adresse d'un avis
+       de marche transformait « Ville de Gex » en « Ville de », qui partait en
+       requete de rang 0 et posait le camping Les Genets sur l'ecole de musique.
+       Le meme test protege de « travaux », « batiment communal », « la ville ». */
+    if (!motsSignificatifs(t).size) continue;
+    seen.add(t.toLowerCase());
+    out.push(t);
   }
   return out;
 }
 
-/* Noms de voies lus directement dans le texte des sources. On n'essayait que
+/* Lieux nommes lus directement dans le texte des sources. On n'essayait que
    les quatre champs produits par l'IA ; or les descriptions officielles citent
-   souvent l'adresse en toutes lettres (« avenue Charles de Gaulle », « montée
-   de Verdun »), que la BAN geocode parfaitement, sans quota. */
-// La casse est insensible sur le TYPE de voie seulement. Avec le drapeau `i`
+   souvent le lieu en toutes lettres (« avenue Charles de Gaulle », « montée
+   de Verdun »), que la BAN geocode parfaitement, sans quota.
+
+   Les EQUIPEMENTS comptent autant que les voies. Le motif ne connaissait que
+   les types de voie, et ratait donc « au stade Claude-Fichot, derriere les
+   courts de tennis couverts » : la phrase exacte que la mairie de Conflans
+   publiait pour ses pistes de padel, et qui aurait suffi a les placer. Un
+   equipement nomme est meme un meilleur candidat qu'une rue : il designe un
+   objet unique, la ou une rue peut faire un kilometre. */
+// La casse est insensible sur le TYPE de lieu seulement. Avec le drapeau `i`
 // global, la classe [A-Z] du nom acceptait aussi les minuscules : la regex
 // avalait la suite de la phrase (« chemin de la Raude est concerné ») et
 // attrapait « place importante pour la commune ».
-const ODONYME_RE = /\b(?:[Rr]ue|[Aa]venue|[Bb]oulevard|[Pp]lace|[Cc]hemin|[Rr]oute|[Ii]mpasse|[Aa]ll[ée]e|[Qq]uai|[Cc]ours|[Mm]ont[ée]e|[Ee]splanade|[Ss]quare|[Pp]assage)\s+(?:de\s+la\s+|de\s+l['’]|du\s+|des\s+|de\s+|d['’]|la\s+|le\s+|les\s+)?[A-ZÉÈÀÂÎÔÛ][\wÀ-ÿ'’-]*(?:\s+(?:de\s+|du\s+|des\s+|d['’]|la\s+|le\s+)?[A-ZÉÈÀÂÎÔÛ][\wÀ-ÿ'’-]*){0,2}/g;
+const VOIE_TYPES = '[Rr]ue|[Aa]venue|[Bb]oulevard|[Pp]lace|[Cc]hemin|[Rr]oute|[Ii]mpasse|[Aa]ll[ée]e|[Qq]uai|[Cc]ours|[Mm]ont[ée]e|[Ee]splanade|[Ss]quare|[Pp]assage';
+const EQUIPEMENT_TYPES = '[Ss]tade|[Gg]ymnase|[Cc]omplexe sportif|[Pp]iscine|[Cc]entre nautique|[Cc]entre aquatique'
+  + '|[Gg]roupe scolaire|[EÉeé]cole [éeE]l[ée]mentaire|[EÉeé]cole maternelle|[EÉeé]cole|[Cc]oll[èe]ge|[Ll]yc[ée]e|[Cc]r[èe]che'
+  + '|[Mm][ée]diath[èe]que|[Bb]iblioth[èe]que|[Cc]onservatoire|[Tt]h[ée][âa]tre'
+  + '|[Ss]alle des f[êe]tes|[Ss]alle polyvalente|[Ss]alle|[Hh]alle|[Mm]arch[ée] couvert'
+  + '|[Pp]arc|[Jj]ardin|[Cc]imeti[èe]re|[Rr][ée]sidence|[Hh][ôo]tel de ville';
+/* Types de ZONE. Ils ne servent PAS a reperer un lieu dans le texte, seulement
+   a retirer le mot generique d'une requete : « Quartier Paul-Brard » et
+   « Secteur Paul-Brard » rendent ZERO resultat chez Nominatim, « Paul-Brard »
+   rend « Cite Paul Brard » au premier rang. */
+const ZONE_TYPES = '[Qq]uartier|[Ss]ecteur|[Cc]it[ée]|[EÉeé]coquartier|[ÎIîi]lot|[Dd]omaine|ZAC|[Zz]one d\'activit[ée]s?';
+const ARTICLE_RE = "(?:de\\s+la\\s+|de\\s+l['’]|du\\s+|des\\s+|de\\s+|d['’]|la\\s+|le\\s+|les\\s+)?";
+const ODONYME_RE = new RegExp(
+  `\\b(?:${VOIE_TYPES}|${EQUIPEMENT_TYPES})\\s+${ARTICLE_RE}`
+  + `[A-ZÉÈÀÂÎÔÛ][\\wÀ-ÿ'’-]*(?:\\s+(?:de\\s+|du\\s+|des\\s+|d['’]|la\\s+|le\\s+)?[A-ZÉÈÀÂÎÔÛ][\\wÀ-ÿ'’-]*){0,2}`,
+  'g'
+);
+/* Le prefixe generique d'un EQUIPEMENT, a retirer pour obtenir le nom propre
+   seul. La commune et OpenStreetMap ne s'accordent pas sur ce mot : Conflans
+   ecrit « stade Claude-Fichot », OSM enregistre « Complexe Sportif Claude
+   Fichot ». Interroge avec le prefixe, l'annuaire ne rend RIEN ; avec le nom
+   propre seul, il rend l'equipement au premier rang, avec ou sans trait
+   d'union. Verifie aussi sur « theatre Simone Signoret ».
+   Les VOIES n'y passent pas : « de Verdun » seul est inexploitable, la ou
+   « montee de Verdun » designe une voie precise. */
+const PREFIXE_GENERIQUE_RE = new RegExp(`^(?:${EQUIPEMENT_TYPES}|${ZONE_TYPES})\\s+${ARTICLE_RE}`);
+
+/* Une requete debarrassee de son mot generique, ou chaine vide s'il n'y en a
+   pas. S'applique aussi aux champs produits par l'IA : c'est elle qui ecrit
+   « Quartier Paul-Brard », et cette forme ne trouve rien. Jamais sur une VOIE :
+   « Maurice-Berteaux » seul serait plus ambigu que « rue Maurice-Berteaux ». */
+function sansPrefixeGenerique(q) {
+  const t = String(q || '').trim();
+  const nu = t.replace(PREFIXE_GENERIQUE_RE, '').trim();
+  return nu && nu !== t ? nu : '';
+}
+const ODONYMES_MAX = 4;
 
 function odonymesDe(texte) {
   const out = [];
+  const pousser = (v) => {
+    const t = String(v).replace(/\s+/g, ' ').trim();
+    if (t.length >= 6 && !out.includes(t)) out.push(t);
+  };
   for (const m of String(texte || '').match(ODONYME_RE) || []) {
-    const v = m.replace(/\s+/g, ' ').trim();
-    if (v.length >= 8 && !out.includes(v)) out.push(v);
-    if (out.length >= 3) break;
+    // La forme complete d'abord : c'est la plus specifique.
+    pousser(m);
+    const nu = sansPrefixeGenerique(m);
+    if (nu) pousser(nu);
+    if (out.length >= ODONYMES_MAX) break;
   }
-  return out;
+  return out.slice(0, ODONYMES_MAX);
 }
 
 /* ─── Illustrations libres (Wikimedia Commons), pertinence jugée par l'IA ─── */
@@ -2397,7 +2701,7 @@ async function coreSources(send, step, insee) {
 
   const [mairie, news, boamp] = await Promise.all([
     (async () => {
-      const { site, position } = await findMairie(insee);
+      const { site, position } = await findMairie(insee, bbox);
       /* La position de la mairie part IMMEDIATEMENT, avant même la visite du
          site : c'est elle qui ancre le radar à l'écran, et le radar démarre dès
          cette étape. Envoyée plus tard, il aurait balayé plusieurs secondes
@@ -2407,7 +2711,7 @@ async function coreSources(send, step, insee) {
         step('mairie', 'skip', 'Site officiel de la mairie', "non renseigné dans l'annuaire officiel");
         return { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [], position };
       }
-      const m = await inspectMairieSite(site, finding);
+      const m = await inspectMairieSite(site, commune.nom, finding);
       m.position = position;
       /* Site protege contre la lecture automatique : on le dit franchement,
          plutot que de laisser croire a une commune sans projets. La generation
@@ -2721,6 +3025,24 @@ const POSITION_MIN_M = 45;
 // Filet anti-boucle : au-dela, on finalise avec ce qu'on a plutot que de
 // rappeler la phase indefiniment.
 const GEO_MAX_TOURS = 14;
+/* Nombre de formulations tentees par projet a l'etage Nominatim.
+   Une seule ne suffit pas : la premiere est souvent la forme complete
+   (« stade Claude-Fichot »), que l'annuaire ne connait pas sous ce nom, quand
+   la seconde est le nom propre seul (« Claude-Fichot »), qui rend l'equipement.
+   Les essais sont ordonnes par RANG, pas par projet : tous les projets tentent
+   leur meilleure formulation avant qu'aucun n'en tente une seconde, pour qu'un
+   budget de tranche epuise ne prive personne de son premier essai. */
+const NOMINATIM_ESSAIS = 2;
+
+function essaisNominatim(queries) {
+  const paires = [];
+  for (let rang = 0; rang < NOMINATIM_ESSAIS; rang++) {
+    for (let i = 0; i < queries.length; i++) {
+      if (queries[i].length > rang) paires.push([i, rang]);
+    }
+  }
+  return paires;
+}
 
 async function coreGeo(send, step, state) {
   const { projects, bbox } = state;
@@ -2735,8 +3057,9 @@ async function coreGeo(send, step, state) {
   const geo = state.geo || (state.geo = {
     etape: 'nominatim',
     curseur: 0,
-    // Indices des projets a tenter a l'etape courante
-    aTester: projects.map((_, i) => i).filter((i) => queries[i].length),
+    /* A l'etage Nominatim, des paires [indice de projet, rang de formulation].
+       Les etages suivants remplacent ce tableau par de simples indices. */
+    aTester: essaisNominatim(queries),
     // Indices encore sans position, tous etages confondus
     reste: projects.map((_, i) => i),
     lieuxIa: null,
@@ -2824,9 +3147,10 @@ async function coreGeo(send, step, state) {
        par sa politique d'usage (1 requete/seconde). */
     if (geo.etape === 'nominatim') {
       if (geo.curseur >= geo.aTester.length) { etapeSuivante('ban'); continue; }
-      const i = geo.aTester[geo.curseur++];
-      if (!geo.reste.includes(i)) continue;
-      const hit = await nominatimLookup(queries[i][0], communeShim, bbox);
+      const [i, rang] = geo.aTester[geo.curseur++];
+      // Le projet a pu etre place par un essai precedent
+      if (!geo.reste.includes(i) || !queries[i][rang]) continue;
+      const hit = await nominatimLookup(queries[i][rang], communeShim, bbox);
       if (hit) { retirerDuReste(i); accepter(i, hit); }
       // Le rythme appartient a la boucle, pas au lookup : place dans le lookup,
       // il n'etait applique qu'en cas d'echec.
@@ -3797,7 +4121,13 @@ export const _internals = {
   typeImageReel,
   looksLikeCode,
   estPageTremplin,
-  scoreProjectLink,
+  collectPageLinks,
+  essaisNominatim,
+  sansPrefixeGenerique,
+  nomCoherent,
+  rangStructurel,
+  positionDansLaCommune,
+  locationQueries,
   unescapeBoamp,
   odonymesDe,
   distinctiveWords,

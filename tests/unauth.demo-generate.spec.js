@@ -18,7 +18,8 @@ const {
   INSEE_RE, isSafePublicUrl, slugify, stripHtml, hostOf, communeHost, unaccentLower,
   bboxOfContour, geometryExtentKm, extentAcceptable, geometryInBbox,
   centroidOf, haversineM, typeImageReel, looksLikeCode, estPageTremplin,
-  scoreProjectLink, unescapeBoamp, odonymesDe, distinctiveWords,
+  collectPageLinks, unescapeBoamp, odonymesDe, distinctiveWords, essaisNominatim,
+  sansPrefixeGenerique, locationQueries, nomCoherent, rangStructurel, positionDansLaCommune,
 } = _internals;
 
 test.describe('0.64 - Démo : garde contre les requêtes vers le réseau interne', () => {
@@ -223,12 +224,39 @@ test.describe('0.67 - Démo : tri du contenu récolté', () => {
     expect(estPageTremplin('')).toBe(false);
   });
 
-  test('0.67.4 - scoreProjectLink favorise les pages profondes', () => {
-    const superficiel = scoreProjectLink({ url: 'https://ville.fr/actualites', label: 'Actualités' });
-    const profond = scoreProjectLink({ url: 'https://ville.fr/projets/urbanisme/place-centrale', label: 'Projet place centrale' });
-    expect(profond).toBeGreaterThan(superficiel);
-    // Une URL invalide ne fait pas tomber le calcul
-    expect(Number.isFinite(scoreProjectLink({ url: 'pas une url', label: '' }))).toBe(true);
+  test("0.67.4 - RÉGRESSION Conflans : la collecte de liens ne juge plus par mot-clé", () => {
+    // Le tri par vocabulaire (« projet », « travaux »...) plus un barème de
+    // pénalités écartait « Les pistes de padel débarquent en ville », seule
+    // page qui donnait le lieu de l'opération. Le choix revient désormais à un
+    // appel IA : la collecte, elle, ne doit plus rien filtrer.
+    const html = `
+      <a href="/actualites/les-pistes-de-padel-debarquent-en-ville/">Les pistes de padel débarquent en ville</a>
+      <a href="/grands-projets/">Les grands projets</a>
+      <a href="/demarches/etat-civil">État civil</a>
+      <a href="/doc.pdf">Rapport annuel</a>
+      <a href="https://autre-site.fr/x">Ailleurs</a>
+      <a href="/x">.</a>`;
+    const out = [];
+    collectPageLinks(html, 'https://ville.fr/', 'ville.fr', out);
+    const urls = out.map((l) => l.url);
+
+    // La page de l'actualité est collectée au même titre que les autres
+    expect(urls).toContain('https://ville.fr/actualites/les-pistes-de-padel-debarquent-en-ville/');
+    expect(urls).toContain('https://ville.fr/grands-projets/');
+    // Une page de service reste collectée : c'est l'IA qui tranchera, pas une liste
+    expect(urls).toContain('https://ville.fr/demarches/etat-civil');
+    // Les seules exclusions restent structurelles
+    expect(urls.some((u) => u.endsWith('.pdf'))).toBe(false);
+    expect(urls.some((u) => u.includes('autre-site.fr'))).toBe(false);
+    expect(urls).not.toContain('https://ville.fr/x');
+  });
+
+  test('0.67.4b - collectPageLinks dédoublonne et respecte les liens déjà connus', () => {
+    const html = `
+      <a href="/a">Page A</a><a href="/a">Page A bis</a><a href="/b">Page B</a>`;
+    const out = [];
+    collectPageLinks(html, 'https://ville.fr/', 'ville.fr', out, [{ url: 'https://ville.fr/b' }]);
+    expect(out.map((l) => l.url)).toEqual(['https://ville.fr/a']);
   });
 
   test('0.67.5 - unescapeBoamp désencode le double échappement des annonces', () => {
@@ -238,14 +266,213 @@ test.describe('0.67 - Démo : tri du contenu récolté', () => {
     expect(unescapeBoamp(null)).toBe('');
   });
 
-  test('0.67.6 - odonymesDe relève au plus trois voies', () => {
+  test('0.67.6 - odonymesDe relève au plus quatre lieux, sans doublon', () => {
     const out = odonymesDe('Travaux avenue Jean Jaures, rue de la Republique, boulevard des Belges et place Bellecour.');
     expect(out.length).toBeGreaterThan(0);
-    expect(out.length).toBeLessThanOrEqual(3);
-    for (const v of out) expect(v.length).toBeGreaterThanOrEqual(8);
-    // Pas de doublon
+    expect(out.length).toBeLessThanOrEqual(4);
+    // Une VOIE n'est relevée que sous sa forme complète : « de Verdun » seul
+    // est inexploitable, là où « montée de Verdun » désigne une voie précise.
+    for (const v of out) expect(v).toMatch(/^(avenue|rue|boulevard|place) /);
     expect(new Set(out).size).toBe(out.length);
     expect(odonymesDe('')).toEqual([]);
+  });
+
+  test("0.67.6b - RÉGRESSION Conflans : un équipement nommé est relevé comme un lieu", () => {
+    // La mairie de Conflans écrivait le lieu en toutes lettres dans son
+    // actualité. Le motif ne connaissait que les types de VOIE, donc « stade
+    // Claude-Fichot » n'était jamais relevé, et la seule formulation restante
+    // était le titre « pistes de padel ». Punaise posée à 1 km du vrai site.
+    const phrase = 'Aménagement de 3 pistes de padel en plein air au stade Claude-Fichot, derrière les courts de tennis couverts.';
+    const lieux = odonymesDe(phrase);
+    expect(lieux).toContain('stade Claude-Fichot');
+
+    /* Et le NOM PROPRE SEUL, en second. La commune et OpenStreetMap ne
+       s'accordent pas sur le mot générique : Conflans écrit « stade
+       Claude-Fichot », OSM enregistre « Complexe Sportif Claude Fichot ».
+       Mesuré sur l'annuaire réel : la forme complète ne rend RIEN, le nom
+       propre seul rend l'équipement au premier rang. Sans cette seconde forme,
+       le projet reste sans emplacement malgré une source parfaitement claire. */
+    expect(lieux).toContain('Claude-Fichot');
+    expect(lieux.indexOf('stade Claude-Fichot')).toBeLessThan(lieux.indexOf('Claude-Fichot'));
+
+    // Les autres familles d'équipements municipaux, même motif
+    expect(odonymesDe('Réhabilitation du groupe scolaire Jean Moulin.')).toEqual(
+      expect.arrayContaining(['groupe scolaire Jean Moulin', 'Jean Moulin'])
+    );
+    expect(odonymesDe('Le théâtre Simone Signoret entame sa rénovation.')).toEqual(
+      expect.arrayContaining(['théâtre Simone Signoret', 'Simone Signoret'])
+    );
+
+    // Le garde-fou de casse tient toujours : sans majuscule, ce n'est pas un nom
+    expect(odonymesDe('Le stade est une place importante pour la commune.')).toEqual([]);
+  });
+
+  test("0.67.4d - RÉGRESSION Gex : une position d'annuaire hors commune est écartée", () => {
+    /* L'annuaire officiel de l'État donne pour « Mairie - Gex » (01173) le bon
+       libellé, « 77 rue de l'Horloge, 01170, Gex », et les coordonnées
+       45.696793 / 4.885262, qui sont celles de la mairie de VÉNISSIEUX, à
+       300 km. Le radar de l'écran partait donc à l'autre bout de la France
+       devant le prospect. La donnée fausse vient de la source, pas du code :
+       le contour officiel de la commune est le seul juge disponible. */
+    const bboxGex = { minLng: 5.98, minLat: 46.30, maxLng: 6.12, maxLat: 46.40 };
+    const annuaire = { lat: 45.696793, lng: 4.885262, libelle: "77 rue de l'Horloge, 01170, Gex" };
+    expect(positionDansLaCommune(annuaire, bboxGex)).toBe(false);
+
+    // Une position réellement dans la commune passe
+    expect(positionDansLaCommune({ lat: 46.3515, lng: 6.0488 }, bboxGex)).toBe(true);
+    // Sans contour connu, on ne rejette rien : il n'y a rien à opposer
+    expect(positionDansLaCommune(annuaire, null)).toBe(true);
+    expect(positionDansLaCommune(null, bboxGex)).toBe(false);
+  });
+
+  test("0.67.4c - Le repli sans IA classe par forme, jamais par vocabulaire", () => {
+    /* Quand le modèle n'est pas joignable, l'ordre du document ouvrait le menu :
+       « Annuaires » en tête (mesuré en local, où Netlify Dev refuse d'injecter
+       la clé). Une page de contenu a un chemin plus profond et un intitulé
+       rédigé qu'une rubrique de premier niveau. Aucun mot n'est jugé. */
+    const menu = { url: 'https://ville.fr/annuaires/', label: 'Annuaires' };
+    const contenu = { url: 'https://ville.fr/ma-ville/grands-projets/paul-brard/', label: 'En savoir plus' };
+    expect(rangStructurel(contenu)).toBeGreaterThan(rangStructurel(menu));
+
+    // Un intitulé rédigé départage deux pages de même profondeur
+    const court = { url: 'https://ville.fr/a/b/', label: 'Voir' };
+    const redige = { url: 'https://ville.fr/a/c/', label: 'Les pistes de padel débarquent en ville' };
+    expect(rangStructurel(redige)).toBeGreaterThan(rangStructurel(court));
+
+    // Une adresse invalide ne fait pas tomber le calcul
+    expect(Number.isFinite(rangStructurel({ url: 'pas une url', label: '' }))).toBe(true);
+  });
+
+  test('0.67.6g - RÉGRESSION Conflans : le lieu trouvé doit porter un mot du lieu cherché', () => {
+    /* Seul contrôle de PERTINENCE de la chaîne : les trois garde-fous
+       existants ne testent que la géographie du résultat. Les dix paires
+       ci-dessous sont des mesures réelles sur Conflans, les trois dernières
+       étant les punaises fausses que ce test doit désormais empêcher. */
+    for (const [cherche, trouve] of [
+      ['Groupe scolaire Paul Bert', 'École élémentaire Paul Bert Rue Paul Bert'],
+      ['Théâtre Simone-Signoret', 'Théâtre Simone Signoret Place Auguste Romagné'],
+      ['Rue Maurice-Berteaux', '47 Rue Maurice Berteaux Vieux Conflans'],
+      ['Déchèterie de Conflans-Sainte-Honorine', 'Déchèterie communale de Conflans-Sainte-Honorine'],
+      ['Place de la Liberté, Chennevières', '9 Place de la Liberté Chennevières'],
+      ['Paul-Brard', '1 Avenue Paul Brard Cité Paul Brard'],
+      ['Claude-Fichot', 'Complexe Sportif Claude Fichot Chemin des Grandes Terres'],
+    ]) {
+      expect(nomCoherent(cherche, trouve), `${cherche} <-> ${trouve}`).toBe(true);
+    }
+    for (const [cherche, trouve] of [
+      // Un arrêt de bus rendu pour « Hôtel de Ville » : « ville » et « centre »
+      // sont du vocabulaire d'aménagement, ils ne font pas correspondance.
+      ['Hôtel de Ville', 'Centre Ville - Jean Jaurès Avenue Jean Jaurès'],
+      ['Secteur Paul-Brard', 'Gymnase Pierre Ruquet N 184 Les Roches'],
+      ['Quartier Paul-Brard', '20B Quai de Gaillon Plateau du Moulin'],
+    ]) {
+      expect(nomCoherent(cherche, trouve), `${cherche} <-> ${trouve}`).toBe(false);
+    }
+
+    // Une requête sans aucun mot distinctif ne peut rien départager : on ne
+    // rejette pas, un refus serait arbitraire.
+    expect(nomCoherent('travaux', "n'importe quoi")).toBe(true);
+    expect(nomCoherent('', 'Gymnase Pierre Ruquet')).toBe(true);
+  });
+
+  test("0.67.6h - RÉGRESSION Gex : une formulation sans mot distinctif n'est jamais géocodée", () => {
+    /* Le nettoyage de l'adresse d'un avis de marché retire le nom de la commune,
+       et transformait « Ville de Gex » en « Ville de ». Partie en requête de
+       rang 0, elle posait le camping Les Genêts sur l'école de musique. Un
+       annuaire interrogé sans nom de lieu répond toujours quelque chose. */
+    const qs = locationQueries({
+      title: 'Réaménagement du bloc sanitaire du camping Les Genêts',
+      address: 'Ville de',
+      geo_query: 'Camping Les Genêts',
+      place: 'Camping Les Genêts',
+      source_excerpt: '',
+    });
+    expect(qs).not.toContain('Ville de');
+    expect(qs[0]).toBe('Camping Les Genêts');
+
+    // Un projet dont aucune formulation ne porte de lieu n'a plus de requête du
+    // tout : il sera écarté de la carte, ce qui est le résultat honnête.
+    expect(locationQueries({
+      title: 'Travaux', address: 'la ville', geo_query: '', place: '', source_excerpt: '',
+    })).toEqual([]);
+  });
+
+  test('0.67.6e - RÉGRESSION Conflans : le mot générique est retiré des requêtes', () => {
+    // Mesuré sur l'annuaire réel : « Quartier Paul-Brard » et « Secteur
+    // Paul-Brard » rendent ZÉRO résultat, « Paul-Brard » rend « Cité Paul
+    // Brard » au premier rang. Le mot générique vient de l'IA elle-même.
+    expect(sansPrefixeGenerique('Quartier Paul-Brard')).toBe('Paul-Brard');
+    expect(sansPrefixeGenerique('Secteur Paul-Brard')).toBe('Paul-Brard');
+    expect(sansPrefixeGenerique('Stade Claude-Fichot')).toBe('Claude-Fichot');
+
+    // Jamais sur une VOIE : « Maurice-Berteaux » seul est plus ambigu que la
+    // rue entière, et la BAN géocode parfaitement la forme complète.
+    expect(sansPrefixeGenerique('Rue Maurice-Berteaux')).toBe('');
+    expect(sansPrefixeGenerique('Place du Général-Leclerc')).toBe('');
+    // Rien à retirer, rien à ajouter
+    expect(sansPrefixeGenerique('Paul-Brard')).toBe('');
+    expect(sansPrefixeGenerique('')).toBe('');
+  });
+
+  test('0.67.6f - RÉGRESSION : une mention incidente du texte ne sert jamais de lieu', () => {
+    /* Deux mesures, deux communes, même cause. À Conflans, le gymnase Pierre
+       Ruquet, simplement CITÉ dans un avis de marché, servait d'emplacement à
+       la requalification du secteur Paul-Brard, à 2 km. À Gex, la place
+       Gambetta, citée pour un autre chantier de la même page, servait
+       d'emplacement au boulodrome Perdtemps.
+
+       Quand l'IA a nommé un lieu, sa désignation fait foi : on ne se rabat
+       jamais sur un nom lu ailleurs dans la page. */
+    const qs = locationQueries({
+      title: 'Réhabilitation des espaces publics du secteur Paul-Brard',
+      address: '',
+      geo_query: 'Secteur Paul-Brard',
+      place: 'Secteur Paul-Brard',
+      source_excerpt: 'REQUALIFICATION DES ESPACES PUBLICS DU SECTEUR PAUL BRARD. Le gymnase Pierre Ruquet reste ouvert.',
+    });
+    expect(qs[0]).toBe('Secteur Paul-Brard');
+    expect(qs[1]).toBe('Paul-Brard');
+    expect(qs).not.toContain('gymnase Pierre Ruquet');
+
+    // Le boulodrome de Gex : la place Gambetta de la même page ne doit pas servir
+    const gex = locationQueries({
+      title: 'Travaux au boulodrome Perdtemps',
+      address: '',
+      geo_query: 'Boulodrome Perdtemps',
+      place: 'Boulodrome Perdtemps',
+      source_excerpt: 'La Ville a entamé la restauration de la barrière située place Gambetta.',
+    });
+    expect(gex).not.toContain('place Gambetta');
+
+    /* En revanche, quand l'IA ne nomme AUCUN lieu, le texte reste la seule
+       matière disponible : c'est ainsi que « stade Claude-Fichot » a été
+       retrouvé pour les pistes de padel de Conflans. */
+    const sansChamp = locationQueries({
+      title: 'Construction des pistes de padel',
+      address: '', geo_query: '', place: '',
+      source_excerpt: 'aménagement de 3 pistes de padel au stade Claude-Fichot, derrière les courts de tennis.',
+    });
+    expect(sansChamp).toContain('stade Claude-Fichot');
+    expect(sansChamp).toContain('Claude-Fichot');
+
+    // Une adresse postale relevée dans la source reste prioritaire sur tout
+    const avecAdresse = locationQueries({
+      title: 'Requalification de la rue Maurice-Berteaux',
+      address: 'Rue Maurice Berteaux',
+      geo_query: 'Rue Maurice-Berteaux',
+      place: '',
+      source_excerpt: '',
+    });
+    expect(avecAdresse[0]).toBe('Rue Maurice Berteaux');
+  });
+
+  test("0.67.6d - RÉGRESSION Conflans : l'étage Nominatim tente deux formulations", () => {
+    // Il n'en tentait qu'une, et c'est la forme complète qui arrive en premier.
+    // Les essais sont ordonnés par RANG, pas par projet : chaque projet tente
+    // sa meilleure formulation avant qu'aucun n'en tente une seconde, pour
+    // qu'un budget de tranche épuisé ne prive personne de son premier essai.
+    expect(essaisNominatim([['a', 'b', 'c'], ['x'], []])).toEqual([[0, 0], [1, 0], [0, 1]]);
+    expect(essaisNominatim([])).toEqual([]);
   });
 
   test('0.67.7 - distinctiveWords écarte les mots vides', () => {
