@@ -45,6 +45,11 @@ const PAGES = {
     description: 'Guides d\'utilisation et documentation pour administrateurs et contributeurs Open Projets.',
     canonical: `${BASE}/aide`,
   },
+  '/confidentialite': {
+    title: 'Confidentialité et mesure d\'audience - Open Projets',
+    description: 'Ce qu\'Open Projets mesure sur ses espaces, ce qu\'il ne mesure pas, et comment refuser cette mesure en un clic depuis votre navigateur.',
+    canonical: `${BASE}/confidentialite`,
+  },
   '/alternative-panneaupocket': {
     title: 'Alternative à PanneauPocket : la carte des projets urbains | Open Projets',
     description: 'Vous utilisez PanneauPocket pour vos alertes ? Open Projets le complète avec une carte interactive de vos projets et chantiers, consultable sans application.',
@@ -247,6 +252,7 @@ export const config = {
     '/home/a-propos',
     '/home/contact',
     '/home/aide',
+    '/home/confidentialite',
     '/home/alternative-panneaupocket',
     '/home/alternative-cityall-lumiplan',
     '/home/alternative-neocity',

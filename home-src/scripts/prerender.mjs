@@ -35,6 +35,7 @@ const STATIC_ROUTES = [
   '/a-propos',
   '/contact',
   '/aide',
+  '/confidentialite',
   '/alternative-panneaupocket',
   '/alternative-cityall-lumiplan',
   '/alternative-neocity',

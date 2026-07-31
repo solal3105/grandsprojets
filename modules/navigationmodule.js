@@ -397,7 +397,13 @@ const NavigationModule = (() => {
   }, 100);
   
   _lastShownProject = projectKey;
-  
+
+  // Consultation d'un projet : l'événement métier central de la carte publique.
+  window.OPAnalytics?.capture('project_opened', {
+    project_name: projectName,
+    category: category || null,
+  });
+
   // Stop any in-flight map animation (e.g. hover-triggered fitBounds) before
   // starting our own sequence - otherwise the collapse easeTo will cancel it
   // mid-flight, producing a visible zoom-out glitch.

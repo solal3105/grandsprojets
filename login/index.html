@@ -24,6 +24,7 @@
     })();
   </script>
   <link rel="stylesheet" href="/login/login.css">
+  <script defer src="/modules/analytics.js" data-op-space="login"></script>
 </head>
 <body>
   <!-- Aurores d'arrière-plan -->
@@ -148,6 +149,7 @@
 
     githubBtn.addEventListener('click', async () => {
       try {
+        window.OPAnalytics?.capture('login_github_started');
         setStatus('Redirection vers GitHub…');
         githubBtn.disabled = true;
         const redirectUrl = window.location.origin + '/';
@@ -211,6 +213,13 @@
 
           const errorMsg = error.message || '';
 
+          // Un motif classé, jamais le message brut : Supabase y recopie parfois
+          // l'adresse saisie, qui n'a rien à faire dans un outil de mesure.
+          const reason = /not found|Signups not allowed/i.test(errorMsg) ? 'compte_inconnu'
+            : /after \d+ seconds|rate limit|too many/i.test(errorMsg) ? 'trop_de_tentatives'
+              : 'erreur_technique';
+          window.OPAnalytics?.capture('login_link_failed', { reason });
+
           if (errorMsg.includes('User not found') || errorMsg.includes('not found') || errorMsg.includes('Signups not allowed')) {
             setStatus("Cet email n'est pas enregistré. Contactez l'administrateur de votre organisation pour obtenir un accès.", 'error');
           } else if (errorMsg.includes('can only request this after') || errorMsg.includes('seconds')) {
@@ -225,6 +234,7 @@
             setStatus("Échec de l'envoi du lien. Réessayez plus tard.", 'error');
           }
         } else {
+          window.OPAnalytics?.capture('login_link_sent');
           setStatus('Email envoyé ! Vérifiez votre boîte de réception.', 'success');
           rateLimitDelay = 60000;
         }

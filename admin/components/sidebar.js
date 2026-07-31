@@ -100,6 +100,9 @@ function _bindLogout() {
       const client = window.AuthModule?.getClient();
       if (client) await client.auth.signOut();
     } catch (e) { console.warn('[admin-sidebar] signOut', e); }
+    // Poste partagé : sans ce reset, la session suivante serait attribuée au
+    // compte qui vient de se déconnecter.
+    window.OPAnalytics?.reset();
     window.location.href = '/login/';
   });
 }

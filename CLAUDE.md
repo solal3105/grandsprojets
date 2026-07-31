@@ -108,6 +108,23 @@ La carte publique utilise un **système de modules enregistrables** piloté par 
 - `domain-redirect` (toutes les routes), `fiche-ssr` (pré-rendu SEO de `/fiche/` et `/fiche/*/*/*`), `home-seo` (meta SSR des pages home)
 - Routées via `[[edge_functions]]` dans `netlify.toml` - pas de détection automatique par chemin
 
+### Mesure d'audience (`modules/analytics.js`)
+Module PostHog **partagé par les 8 espaces**, chargé par une balise
+`<script defer src="/modules/analytics.js" data-op-space="<espace>">`. Expose
+`window.OPAnalytics` (`capture`, `pageview`, `identify`, `reset`, `setCity`,
+`optOut`). Toujours appeler en optional chaining : un bloqueur de traceurs
+peut empêcher le chargement, aucune fonctionnalité ne doit en dépendre.
+- Clé projet et région : **une seule constante** en tête du module + le proxy
+  inverse `/ph/*` de **`_redirects`** (pas `netlify.toml` : ses règles sont
+  évaluées APRÈS celles de `_redirects`, dont le catch-all `/*` absorberait tout).
+- SPA (admin, home) : `data-op-pageview="manual"`, les pages vues sont émises
+  par le routeur. Le home injecte sa balise via le plugin `sharedAnalytics` de
+  `home-src/vite.config.js` (sinon Vite préfixerait l'URL par `/home/`).
+- Se désactive tout seul sous `navigator.webdriver` : la suite Playwright et le
+  prérendu du home n'émettent jamais rien (couvert par `tests/unauth.analytics.spec.js`).
+- Refus visiteur : `/home/confidentialite` ou `?tracking=off` sur n'importe quelle URL.
+- Doc complète : `docs/analytics.md`. GA4 reste en place en parallèle.
+
 ## Supabase
 - Client instancié une seule fois sur `win.__supabaseClient` (partagé `auth.js` + `supabaseservice.js`)
 - `window.supabaseService` = couche données centralisée - toute requête passe par là
@@ -196,8 +213,8 @@ setTimeout(hide, 250); // fallback headless
 - **Drag-drop reorder** : interactions Playwright DnD complexes
 - **SSO Phaos** : l'échange de token Azure B2C réel (l'intégration iframe est testée avec token factice dans `unauth.phaos-iframe.spec.js`)
 
-### Couverture - lacunes connues (≈450 tests / 21 fichiers)
-La suite couvre l'**admin**, la **carte publique** (UI/navigation) et la **fiche** (`unauth.fiche.spec.js` : boot, canonical, og:url, JSON-LD). Aucun test sur :
+### Couverture - lacunes connues (compte réel : `ls tests/*.spec.js | wc -l`)
+La suite couvre l'**admin**, la **carte publique** (UI/navigation), la **fiche** (`unauth.fiche.spec.js` : boot, canonical, og:url, JSON-LD) et la **mesure d'audience** (`unauth.analytics.spec.js` : chargement par espace, garde-fous, refus visiteur). Aucun test sur :
 
 **Carte publique** : `feature-interactions.js` (markers), vues de `modules/travaux/`, `lightbox.js`, `geolocation.js`, `layerregistry.js`, `datamodule.js`, `citybranding.js` / `citymanager.js`
 

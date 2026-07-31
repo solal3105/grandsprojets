@@ -37,6 +37,14 @@
             <li v-for="item in legalLinks" :key="item">
               <span class="text-sm text-white/70">{{ item }}</span>
             </li>
+            <li>
+              <router-link
+                to="/confidentialite"
+                class="text-sm text-white/70 hover:text-white transition-colors"
+              >
+                Confidentialité et mesure d'audience
+              </router-link>
+            </li>
           </ul>
         </div>
       </div>

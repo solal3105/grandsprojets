@@ -59,6 +59,9 @@ function _dispatch(pathname) {
 
   _currentSection = section;
 
+  // L'admin est une SPA : sans cet appel, PostHog ne verrait que la page d'entrée.
+  window.OPAnalytics?.pageview({ section });
+
   // Update active nav item
   document.querySelectorAll('.adm-nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.section === section);

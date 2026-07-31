@@ -130,10 +130,20 @@ async function handleSubmit() {
 
     supabase.functions.invoke('clever-endpoint', { body: insertedData }).catch(() => {})
 
+    // La conversion du site vitrine. `referrer` dit d'où vient la demande
+    // (page d'accueil, page alternative, bannière de la carte...), l'identité
+    // du demandeur reste dans contact_requests et n'est pas envoyée ici.
+    window.OPAnalytics?.capture('contact_request_submitted', {
+      referrer: props.referrer,
+      has_phone: !!form.phone,
+      has_message: !!form.message,
+    })
+
     submitted.value = true
     Object.assign(form, { name: '', email: '', phone: '', organization: '', message: '' })
   } catch (err) {
     console.error('[DemoRequestForm] Error:', err)
+    window.OPAnalytics?.capture('contact_request_failed', { referrer: props.referrer })
     errorMsg.value = 'Une erreur est survenue. Veuillez réessayer ou nous contacter directement.'
   } finally {
     submitting.value = false

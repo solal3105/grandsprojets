@@ -310,6 +310,10 @@
 
   /* ═══════════════ INIT ═══════════════ */
   function init() {
+    // La ville est injectée par l'edge function ville-hub dans le conteneur.
+    const ville = el.content?.dataset.ville || '';
+    if (ville) window.OPAnalytics?.setCity(ville);
+
     window.ThemeManager?.init?.();
     bindTheme();
     bindShare();
@@ -317,6 +321,11 @@
     initBranding();
     bindTags();
     bindSearch();
+    // Départ vers une fiche : mesure le taux de clic réel du hub d'une ville.
+    el.grid?.addEventListener('click', (e) => {
+      const card = e.target.closest('.vh-card');
+      if (card) window.OPAnalytics?.capture('city_project_clicked', { category: card.dataset.cat || null });
+    });
     // La carte enrichit après le premier rendu : on ne bloque pas le LCP
     if ('requestIdleCallback' in window) {
       requestIdleCallback(initHeroMap, { timeout: 2000 });

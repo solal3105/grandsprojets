@@ -12,7 +12,7 @@
             <span class="text-gradient-green"> pour l'intérêt public</span>
           </h1>
           <p class="mt-8 text-gray-text text-base sm:text-lg leading-relaxed max-w-[540px]">
-            Développé à Lyon, hébergé en Europe, code public. Open Projets est conçu par une Société à Mission française - sans traceurs, sans ambiguïté sur vos données.
+            Développé à Lyon, hébergé en Europe, code public. Open Projets est conçu par une Société à Mission française - sans publicité, sans ambiguïté sur vos données.
           </p>
         </div>
       </div>
@@ -164,11 +164,11 @@ const pillars = [
   {
     icon: ShieldCheck,
     title: 'Données souveraines',
-    desc: 'Hébergement en Europe, zéro traceur, zéro publicité. Vos données appartiennent à votre collectivité - exportables et auditables à tout moment. Conformité RGPD native.',
+    desc: 'Hébergement en Europe, zéro publicité, zéro revente de données. Notre mesure d\'audience est hébergée dans l\'UE et refusable en un clic. Vos données appartiennent à votre collectivité - exportables et auditables à tout moment.',
     bgClass: 'bg-green/10',
     iconClass: 'text-green',
     accentGradient: 'linear-gradient(to right, #5AAB7D, #2563EB)',
-    tags: ['Hébergement UE', 'Zéro traceur', 'RGPD natif'],
+    tags: ['Hébergement UE', 'Zéro publicité', 'RGPD natif'],
   },
   {
     icon: GitBranch,

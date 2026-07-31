@@ -22,6 +22,7 @@ const ROUTES = [
   { path: '/home/contact', repere: /contact/i },
   { path: '/home/aide', repere: /aide|guide|question/i },
   { path: '/home/ressources', repere: /ressource/i },
+  { path: '/home/confidentialite', repere: /confidentialit|mesure d'audience/i },
   { path: '/home/alternative-panneaupocket', repere: /panneaupocket/i },
   { path: '/home/alternative-cityall-lumiplan', repere: /cityall|lumiplan/i },
   { path: '/home/alternative-neocity', repere: /neocity/i },

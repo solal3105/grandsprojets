@@ -510,6 +510,13 @@
     repriseCibleeTentee = false;
     startTime = Date.now();
     lastDone = null;
+    window.OPAnalytics?.capture('demo_generation_started', {
+      municipality: commune.nom,
+      municipality_insee: commune.code,
+      population: commune.population || null,
+      kiosk: KIOSK,
+      regen: relance,
+    });
     resetLead();
     clearTimeout(debounceTimer);
     renderSuggestions([]);
@@ -549,9 +556,20 @@
 
   function onDone(msg) {
     lastDone = msg;
+    // L'espace généré porte le même identifiant de ville que les autres espaces :
+    // sans cet appel, le tunnel de démo serait invisible dans une analyse par ville.
+    window.OPAnalytics?.setCity(msg.ville);
     const targetUrl = new URL(msg.url, window.location.origin).toString();
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     const elapsedTxt = elapsed >= 60 ? `${Math.floor(elapsed / 60)} min ${String(elapsed % 60).padStart(2, '0')} s` : `${elapsed} s`;
+    window.OPAnalytics?.capture('demo_generation_completed', {
+      municipality: msg.communeNom || currentCommune?.nom || null,
+      municipality_insee: msg.communeInsee || currentCommune?.code || null,
+      projects_count: msg.projectsCount ?? null,
+      duration_seconds: elapsed,
+      existing: !!msg.existing,
+      kiosk: KIOSK,
+    });
     $('done-commune').textContent = msg.communeNom || currentCommune?.nom || '';
     $('done-detail').textContent = msg.existing
       ? 'Cet espace avait déjà été généré : le voici.'
@@ -727,6 +745,13 @@
       // remercie quand même, le visiteur a fait sa part.
       console.warn('[demo] enregistrement de l\'adresse impossible');
     }
+    // Le lead de la démo salon : l'événement le plus important du tunnel.
+    // Seul le fait qu'une adresse ait été laissée est mesuré, jamais l'adresse.
+    window.OPAnalytics?.capture('demo_lead_submitted', {
+      municipality: lastDone?.communeNom || currentCommune?.nom || null,
+      mailed: envoye,
+      kiosk: KIOSK,
+    });
     $('lead-thanks-texte').textContent = envoye
       ? 'Merci, le lien part sur votre adresse.'
       : 'Merci, votre adresse est bien enregistrée.';
@@ -751,6 +776,13 @@
 
   function onError(message, debug) {
     if (debug) console.error('[demo-generate]', debug);
+    window.OPAnalytics?.capture('demo_generation_failed', {
+      municipality: currentCommune?.nom || null,
+      municipality_insee: currentCommune?.code || null,
+      phase: currentPhase || null,
+      resume_attempts: resumeTotal,
+      kiosk: KIOSK,
+    });
     $('progress-error').textContent = message;
     $('hud-error').hidden = false;
     $('hud-label').textContent = 'Génération interrompue';
@@ -798,6 +830,11 @@
 
   $('btn-retry').addEventListener('click', reset);
   $('btn-again').addEventListener('click', reset);
+  // Liaison unique : posée dans onDone(), elle s'empilait à chaque génération
+  // et un seul clic émettait autant d'événements que de communes déjà jouées.
+  $('btn-open').addEventListener('click', () => {
+    window.OPAnalytics?.capture('demo_space_opened', { municipality: lastDone?.communeNom || null });
+  });
 
   // Refaire le recensement d'une commune déjà générée : l'adresse de l'espace
   // ne change pas, ses fiches sont remplacées.

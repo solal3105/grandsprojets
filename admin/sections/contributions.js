@@ -1502,7 +1502,10 @@ function _renderOnePage(container) {
                 <span class="adm-switch__track"></span>
               </label>
             </button>
-            <div class="cw-collapsible__content cw-editor-wrap" id="cw-md-body" ${_wiz.markdownText ? '' : 'hidden'}>
+            <!-- data-op-noreplay : l'editeur Toast UI ecrit dans un
+                 contenteditable, que le masquage des champs de formulaire de la
+                 mesure d'audience ne couvre pas. Exclu de l'enregistrement. -->
+            <div class="cw-collapsible__content cw-editor-wrap" id="cw-md-body" data-op-noreplay ${_wiz.markdownText ? '' : 'hidden'}>
               <div id="cw-editor"></div>
             </div>
           </div>

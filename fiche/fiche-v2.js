@@ -863,6 +863,14 @@
     // La ville est celle de la contribution en DB (contribution_uploads.ville → city_branding)
     const ville = data.ville || villeSlug || null;
 
+    // Une fiche réellement consultée, avec sa ville : c'est la mesure qui dit à
+    // une collectivité quels projets intéressent ses habitants.
+    window.OPAnalytics?.setCity(ville);
+    window.OPAnalytics?.capture('project_page_viewed', {
+      project_name: data.project_name || null,
+      category: data.category || null,
+    });
+
     // City branding + DataModule styles init in parallel
     await Promise.all([
       loadBranding(ville),

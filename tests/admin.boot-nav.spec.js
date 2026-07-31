@@ -32,6 +32,14 @@ test.describe('0.2 - Login et initialisation (admin)', () => {
     await expect(page.locator('#adm-user-role')).toHaveText('Admin');
   });
 
+  // L'admin est le seul espace hors de portée de unauth.analytics.spec.js : sa
+  // balise de mesure ne peut être vérifiée qu'ici, session ouverte.
+  test('0.2.5 - Mesure d\'audience chargée avec l\'espace "admin" et pages vues manuelles', async ({ page }) => {
+    await waitForBoot(page);
+    expect(await page.evaluate(() => window.OPAnalytics?.space())).toBe('admin');
+    expect(await page.getAttribute('script[data-op-space]', 'data-op-pageview')).toBe('manual');
+  });
+
 });
 
 // ─────────────────────────────────────────────────────────

@@ -24,6 +24,15 @@ async function boot() {
     const ok = await store.init();
     if (!ok) return; // redirected to /login/
 
+    // 1 bis. Rattacher la mesure d'audience au compte : côté admin, savoir QUELLE
+    // collectivité utilise quelle section est le seul angle qui a du sens.
+    window.OPAnalytics?.identify(store.user?.id, {
+      email: store.user?.email || null,
+      role: store.role || null,
+      city: store.city || null,
+    });
+    window.OPAnalytics?.setCity(store.city);
+
     // 2. Sidebar (city selector, user info, role visibility)
     await initSidebar();
 
@@ -48,6 +57,7 @@ async function boot() {
 
     // Re-render current section when city changes
     store.subscribe(() => {
+      window.OPAnalytics?.setCity(store.city);
       _loadAndApplyBrandColor();
       const section = router.currentSection || 'contributions';
       const handler = {

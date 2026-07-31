@@ -65,6 +65,16 @@ const routes = [
     },
   },
   {
+    path: '/confidentialite',
+    name: 'confidentialite',
+    component: () => import('@/views/ConfidentialiteView.vue'),
+    meta: {
+      title: 'Confidentialité et mesure d\'audience - Open Projets',
+      description: 'Ce qu\'Open Projets mesure sur ses espaces, ce qu\'il ne mesure pas, et comment refuser cette mesure en un clic depuis votre navigateur.',
+      canonical: `${BASE}/confidentialite`,
+    },
+  },
+  {
     path: '/ressources',
     name: 'ressources',
     component: () => import('@/views/RessourcesView.vue'),
@@ -177,6 +187,9 @@ router.afterEach((to) => {
       page_path: to.fullPath,
     })
   }
+  // Idem pour PostHog : la balise est en mode manuel (voir vite.config.js),
+  // sans cet appel seule la toute première page serait comptée.
+  window.OPAnalytics?.pageview({ route: to.name || to.path })
 })
 
 export default router

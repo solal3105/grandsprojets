@@ -180,6 +180,9 @@
       this._bindAction('logout', async () => {
         if (win.AuthModule?.signOut) {
           await win.AuthModule.signOut();
+          // Poste partagé : sans ce reset, la navigation suivante resterait
+          // attribuée au compte qui vient de se déconnecter.
+          win.OPAnalytics?.reset();
           win.location.href = '/';
         } else {
           win.location.href = '/logout';

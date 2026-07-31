@@ -9,6 +9,7 @@
   <link rel="icon" type="image/png" href="/img/logos/favicon.png" sizes="32x32">
   <link rel="apple-touch-icon" href="/img/logos/favicon.png">
   <link rel="stylesheet" href="/styles/00-colors.css">
+  <script defer src="/modules/analytics.js" data-op-space="logout"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -244,6 +245,7 @@
       try {
         if (!window.AuthModule) throw new Error('AuthModule indisponible');
         await window.AuthModule.signOut();
+        window.OPAnalytics?.reset();
         statusEl.className = 'done';
         statusEl.innerHTML = '\u2705 D\u00e9connect\u00e9 avec succ\u00e8s. Redirection\u2026';
         titleEl.textContent = '\u00c0 bient\u00f4t !';

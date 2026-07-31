@@ -29,6 +29,12 @@
 /modules/*
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800
 
+# Exception : ce fichier porte la configuration de confidentialité (refus du
+# visiteur, masquage, garde-fous). Avec la règle ci-dessus, un navigateur aurait
+# pu servir une version périmée pendant 7 jours après une correction.
+/modules/analytics.js
+  Cache-Control: public, max-age=300, must-revalidate
+
 /*.css
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800
 

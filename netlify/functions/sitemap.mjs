@@ -66,6 +66,7 @@ export default async (_request, _context) => {
       { path: '/home/a-propos', priority: '0.9' },
       { path: '/home/contact', priority: '0.9' },
       { path: '/home/aide', priority: '0.8' },
+      { path: '/home/confidentialite', priority: '0.3' },
       { path: '/home/alternative-panneaupocket', priority: '0.9' },
       { path: '/home/alternative-cityall-lumiplan', priority: '0.9' },
       { path: '/home/alternative-neocity', priority: '0.9' },

@@ -48,6 +48,10 @@
   function = "home-seo"
 
 [[edge_functions]]
+  path = "/home/confidentialite"
+  function = "home-seo"
+
+[[edge_functions]]
   path = "/home/alternative-panneaupocket"
   function = "home-seo"
 
@@ -93,6 +97,10 @@
 # ============================================
 # Redirections sous-domaines → ?city=
 # ============================================
+
+# Mesure d'audience PostHog : le proxy inverse /ph/* est déclaré dans
+# `_redirects`, pas ici. Les règles de `_redirects` sont évaluées AVANT celles
+# de ce fichier, et son catch-all `/* -> /index.html` absorberait les requêtes.
 
 # SSO Phaos - URL propre pour la fonction d'échange de token
 [[redirects]]

@@ -212,7 +212,6 @@
       // PHASE 1 : Modules de base
       // Chacun protégé individuellement : une panne réseau sur une ville
       // ou un échec analytics ne doit jamais bloquer le boot.
-      safePhase('AnalyticsModule.init', () => win.AnalyticsModule?.init());
       safePhase('ThemeManager.init', () => win.ThemeManager?.init());
       await safePhase('CityManager.loadValidCities', () => win.CityManager?.loadValidCities());
 
@@ -235,6 +234,10 @@
         city = 'metropole-lyon';
         if (win.CityManager) win.CityManager._activeCity = city;
       }
+
+      // La ville résolue fait autorité : elle corrige la lecture au plus tôt
+      // faite par le module de mesure (paramètre ?city= ou localStorage).
+      safePhase('OPAnalytics.setCity', () => win.OPAnalytics?.setCity(city));
 
       // Encart d'invitation (démo ou essai) : masquer si la ville résolue est
       // un espace client. Barrière défensive - le script inline de index.html
@@ -719,6 +722,9 @@
           if (nextCity && nextCity !== currentCity) {
             if (win.CityManager) win.CityManager._activeCity = nextCity;
             win.CityManager?.persistCity(nextCity);
+            // La super-propriété `city` est persistante : sans cette mise à
+            // jour, les événements suivants resteraient sur l'ancienne ville.
+            win.OPAnalytics?.setCity(nextCity);
             try { win.__syncInvite?.(nextCity); } catch { /* no-op */ }
             await win.CityManager?.updateLogoForCity(nextCity);
             try {

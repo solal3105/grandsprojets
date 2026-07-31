@@ -25,7 +25,9 @@ export async function getContribution(id) {
 }
 
 export async function approveContribution(id, approved) {
-  return svc().setContributionApproved(id, approved);
+  const result = await svc().setContributionApproved(id, approved);
+  window.OPAnalytics?.capture('contribution_approved', { approved: !!approved });
+  return result;
 }
 
 export async function deleteContribution(id) {
@@ -37,7 +39,10 @@ export async function updateContribution(id, patch) {
 }
 
 export async function createContributionRow(projectName, category, meta, description, officialUrl, tags) {
-  return svc().createContributionRow(projectName, category, requireCity(), meta, description, officialUrl, tags);
+  const row = await svc().createContributionRow(projectName, category, requireCity(), meta, description, officialUrl, tags);
+  // Un projet créé par le client lui-même : la métrique d'activation d'un compte.
+  window.OPAnalytics?.capture('contribution_created', { category: category || null });
+  return row;
 }
 
 export async function uploadGeoJSON(file, category, projectName, rowId) {

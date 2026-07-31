@@ -164,6 +164,10 @@
 
       const prevModule = this._currentModule;
       this._currentModule = mod;
+
+      // Quel module (carte, travaux...) une ville fait-elle réellement vivre ?
+      win.OPAnalytics?.capture('module_opened', { module: mod });
+
       this._currentCategory = null;
       this._panel.setAttribute('data-module', mod);
       this._setLevel(2);
@@ -202,6 +206,11 @@
 
       this._currentCategory = category;
       this._setLevel(3);
+
+      win.OPAnalytics?.capture('category_opened', {
+        module: this._currentModule || null,
+        category,
+      });
 
       const label = opts.label || category;
       this._headerTitle.textContent = label;

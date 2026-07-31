@@ -31,6 +31,17 @@
 # Hub ville - pré-rendu edge (ville-hub) - DOIT être avant le catch-all /*
 /ville/*            /ville/index.html     200
 
+# Mesure d'audience PostHog - proxy inverse - DOIT être avant le catch-all /*
+# Les règles de ce fichier sont évaluées AVANT celles de netlify.toml : déclarées
+# uniquement dans netlify.toml, elles seraient absorbées par le catch-all et le
+# navigateur recevrait la carte en text/html à la place de la librairie.
+# Ordre du plus spécifique au plus général, l'évaluation s'arrête au premier match.
+# Projet US : remplacer eu-assets/eu par us-assets/us (et UI_HOST dans
+# modules/analytics.js).
+/ph/static/*        https://eu-assets.i.posthog.com/static/:splat   200!
+/ph/array/*         https://eu-assets.i.posthog.com/array/:splat    200!
+/ph/*               https://eu.i.posthog.com/:splat                 200!
+
 # Fallback : toute autre route non définie redirige vers la racine
 # (sera géré par le JavaScript côté client si c'est une ville valide)
 /*                  /index.html           200
