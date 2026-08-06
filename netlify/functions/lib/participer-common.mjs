@@ -32,6 +32,15 @@ export const STATUTS_CLOS = new Set(['resolu', 'rejete', 'hors_competence', 'dou
 // les autres (retrait_demande, depublication, suppression) restent internes
 export const PUBLIC_EVENT_TYPES = new Set(['creation', 'statut', 'publication']);
 
+/* Colonnes d'un signalement qu'un navigateur a le droit de voir. Miroir exact
+   des privilèges par colonne accordés à `authenticated` en base, et de
+   PARTICIPER_COLUMNS de modules/supabaseservice.js. Toute réponse d'API qui
+   renvoie une ligne DOIT passer par cette projection : le serveur travaille
+   avec la clé de service, qui voit aussi email, ip_hash et les jetons. */
+export const TEAM_COLUMNS = 'id,ville,reference,category_key,statut_key,description,'
+  + 'photo_path,photo_url,lat,lng,adresse,email_confirmed,published,doublon_de,'
+  + 'created_at,updated_at,confirmed_at,closed_at,anonymized_at';
+
 export const BUCKET_PHOTOS = 'participer-photos';
 // Les photos publiées sont copiées dans le bucket public existant, sous un
 // préfixe dédié : une URL stable, servie comme n'importe quel asset
@@ -89,7 +98,11 @@ export async function svcInsert(table, rows) {
   return r.json();
 }
 
-/** UPDATE PostgREST filtré. Rend les lignes modifiées. */
+/**
+ * UPDATE PostgREST filtré. Rend les lignes modifiées.
+ * `filters.select` projette la représentation renvoyée : sans lui, PostgREST
+ * rend TOUTES les colonnes vues par la clé de service, jetons compris.
+ */
 export async function svcUpdate(table, filters, patch) {
   const url = new URL(`${SUPABASE_URL}/rest/v1/${table}`);
   for (const [k, v] of Object.entries(filters)) url.searchParams.set(k, v);

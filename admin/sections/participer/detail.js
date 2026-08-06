@@ -17,6 +17,8 @@ import { statutPill, categoryChip, stOf, catOf, safeColor } from './data.js';
 const EVENT_LABELS = {
   creation: 'Signalement déposé',
   publication: 'Publié sur la carte',
+  depublication: 'Retiré de la carte',
+  suppression: 'Signalement supprimé',
   retrait_demande: 'Demande de retrait reçue',
   anonymisation: 'Données personnelles effacées',
 };
@@ -204,8 +206,9 @@ function _bindActions(content, row, ref, { onChange, close }) {
     }
     try {
       const res = await api.participerAction('set_statut', row.id, { statut_key: statutKey, message_public: message });
-      const notifie = stOf(ref, statutKey)?.notify && row.email_confirmed;
-      toast(`Statut appliqué${notifie ? ' - l\'habitant est prévenu par email' : ''}`, 'success');
+      // Le serveur seul sait si le message est réellement parti (adresse
+      // confirmée, statut notifiant, anonymisation déjà passée)
+      toast(`Statut appliqué${res.notifie ? ' - l\'habitant est prévenu par email' : ''}`, 'success');
       refresh(res.signalement);
     } catch (e) {
       toast(e.message || 'Opération impossible', 'error');

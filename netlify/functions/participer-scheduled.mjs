@@ -53,9 +53,20 @@ async function purgeUnconfirmed() {
   return rows.length;
 }
 
+/** Une ville en échec ne doit pas priver les suivantes de leur anonymisation. */
+async function forEachVille(settingsRows, nom, fn) {
+  for (const s of settingsRows) {
+    try {
+      await fn(s);
+    } catch (e) {
+      console.error(`[participer-scheduled] ${nom} ${s.ville} ::`, e?.message);
+    }
+  }
+}
+
 async function anonymize(settingsRows) {
   let total = 0;
-  for (const s of settingsRows) {
+  await forEachVille(settingsRows, 'anonymisation', async (s) => {
     const seuil = isoMonthsAgo(s.retention_mois ?? 12);
     const maj = await svcUpdate('participer_signalements', {
       ville: `eq.${s.ville}`,
@@ -68,22 +79,23 @@ async function anonymize(settingsRows) {
     });
     total += maj.length;
 
-    // Les demandes de retrait portent le contact d'un tiers : même rétention
+    /* Les demandes de retrait portent le contact d'un tiers : même rétention.
+       Sans filtre sur les colonnes elles-mêmes, sinon une demande sans email
+       garderait son empreinte de connexion indéfiniment. */
     await svcUpdate('participer_events', {
       ville: `eq.${s.ville}`,
       type: 'eq.retrait_demande',
       created_at: `lt.${seuil}`,
-      contact_email: 'not.is.null',
     }, { contact_email: null, author_ip_hash: null });
-  }
+  });
   return total;
 }
 
 async function alertUntreated(settingsRows) {
   let sent = 0;
-  for (const s of settingsRows) {
-    if (!s.notify_email) continue;
-    if (s.last_alert_at && s.last_alert_at > isoDaysAgo(DAYS_BETWEEN_ALERTS)) continue;
+  await forEachVille(settingsRows, 'alerte', async (s) => {
+    if (!s.notify_email) return;
+    if (s.last_alert_at && s.last_alert_at > isoDaysAgo(DAYS_BETWEEN_ALERTS)) return;
     const enAttente = await svcSelect('participer_signalements', {
       select: 'id',
       ville: `eq.${s.ville}`,
@@ -91,7 +103,7 @@ async function alertUntreated(settingsRows) {
       email_confirmed: 'eq.true',
       created_at: `lt.${isoDaysAgo(s.alerte_jours ?? 7)}`,
     });
-    if (!enAttente.length) continue;
+    if (!enAttente.length) return;
     const mail = await mailMairie({
       to: s.notify_email,
       subject: `${enAttente.length} signalement(s) en attente de traitement`,
@@ -101,10 +113,10 @@ async function alertUntreated(settingsRows) {
       ],
     });
     // Jalonner sur un envoi échoué supprimerait l'alerte pour 6 jours de plus
-    if (mail.status !== 'envoye') continue;
+    if (mail.status !== 'envoye') return;
     await svcUpdate('participer_settings', { ville: `eq.${s.ville}` }, { last_alert_at: new Date().toISOString() });
     sent += 1;
-  }
+  });
   return sent;
 }
 
@@ -117,12 +129,20 @@ export default async () => {
     const settingsRows = await svcSelect('participer_settings', {
       select: 'ville,notify_email,alerte_jours,retention_mois,last_alert_at',
     });
-    /* Séquentiel et non Promise.all : chaque tâche doit s'exécuter même si la
-       précédente échoue partiellement, et une purge concurrente d'une
-       anonymisation compliquerait la lecture des journaux. */
-    const purged = await purgeUnconfirmed();
-    const anonymized = await anonymize(settingsRows);
-    const alerts = await alertUntreated(settingsRows);
+    /* Chaque tâche est isolée : une purge en échec ne doit pas priver le module
+       de son anonymisation (obligation de rétention) ni de son alerte
+       anti « module fantôme ». Les échecs sont tracés, jamais silencieux. */
+    const run = async (nom, tache) => {
+      try {
+        return await tache();
+      } catch (e) {
+        console.error(`[participer-scheduled] ${nom} en échec ::`, e?.message);
+        return `échec (${e?.message || 'inconnu'})`;
+      }
+    };
+    const purged = await run('purge', () => purgeUnconfirmed());
+    const anonymized = await run('anonymisation', () => anonymize(settingsRows));
+    const alerts = await run('alertes', () => alertUntreated(settingsRows));
     console.log(`[participer-scheduled] purges=${purged} anonymisés=${anonymized} alertes=${alerts}`);
     return new Response('ok', { status: 200 });
   } catch (e) {

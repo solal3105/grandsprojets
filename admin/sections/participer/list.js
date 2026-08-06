@@ -141,8 +141,10 @@ async function _loadRows(container) {
       }
     }
   } catch (e) {
+    // Une file illisible n'est PAS une file vide : le dire franchement
     console.error('[admin/participer]', e);
-    body.innerHTML = `<div class="adm-card" style="padding:20px;color:var(--color-danger);">Erreur : ${esc(e.message)}</div>`;
+    body.innerHTML = `<div class="adm-card" style="padding:20px;color:var(--color-danger);">Liste illisible : ${esc(e.message)}</div>`;
+    if (pagination) pagination.innerHTML = '';
   }
 }
 

@@ -15,7 +15,7 @@
 
 import { getCorsHeaders, preflightResp, getAuthedUser, getProfile } from './lib/http.mjs';
 import {
-  VILLE_RE, STATUT_KEYS, STATUTS_CLOS, BUCKET_PHOTOS, BUCKET_PUBLIC, SITE,
+  VILLE_RE, STATUT_KEYS, STATUTS_CLOS, TEAM_COLUMNS, BUCKET_PHOTOS, BUCKET_PUBLIC, SITE,
   jsonResp, hasServiceKey,
   svcSelect, svcUpdate, svcDelete, insertEvent,
   storageDownload, storageUpload, storageDelete, storageSignedUrl, publicStorageUrl,
@@ -29,12 +29,13 @@ const ACTIONS_ADMIN = new Set(['publish', 'unpublish', 'delete']);
 // Chemin de la copie publique d'une photo dans le bucket `uploads`
 const publicPhotoPath = (photoPath) => `participer/${photoPath}`;
 
+/** @returns {Promise<boolean>} l'habitant a-t-il réellement été prévenu ? */
 async function notifyStatusChange(row, statutKey, message, settings) {
-  if (!row.email || !row.email_confirmed) return;
+  if (!row.email || !row.email_confirmed) return false;
   const statuts = await loadStatuts(row.ville);
   const st = statuts.find((s) => s.statut_key === statutKey);
-  if (!st?.notify) return;
-  await mailStatut({
+  if (!st?.notify) return false;
+  const mail = await mailStatut({
     to: row.email,
     reference: row.reference,
     statutLabel: st.label,
@@ -42,6 +43,7 @@ async function notifyStatusChange(row, statutKey, message, settings) {
     suiviUrl: `${SITE}/?city=${row.ville}&participer_suivi=${row.suivi_token}`,
     replyTo: settings?.notify_email || null,
   });
+  return mail.status === 'envoye';
 }
 
 export default async (req) => {
@@ -90,8 +92,10 @@ export default async (req) => {
         const statutKey = String(body?.statut_key || '');
         if (!STATUT_KEYS.includes(statutKey)) return jsonResp(400, { error: 'Statut invalide' }, cors);
         const message = String(body?.message_public || '').trim().slice(0, 1000) || null;
-        // Le rejet engage la responsabilité éditoriale : admin, motif obligatoire
-        if (statutKey === 'rejete') {
+        /* Le rejet engage la responsabilité éditoriale : admin, motif
+           obligatoire. Seule la TRANSITION est gardée : un contributeur doit
+           pouvoir ajouter un message sur un dossier déjà rejeté. */
+        if (statutKey === 'rejete' && row.statut_key !== 'rejete') {
           if (!isAdmin) return jsonResp(403, { error: 'Le rejet est réservé aux administrateurs' }, cors);
           if (!message) return jsonResp(400, { error: 'Un motif est obligatoire pour un rejet' }, cors);
         }
@@ -113,14 +117,14 @@ export default async (req) => {
             patch.doublon_de = duplicateOf;
           }
         }
-        const [updated] = await svcUpdate('participer_signalements', { id: `eq.${id}` }, patch);
+        const [updated] = await svcUpdate('participer_signalements', { id: `eq.${id}`, select: TEAM_COLUMNS }, patch);
         await insertEvent({
           signalementId: id, ville, type: 'statut',
           oldStatut: row.statut_key, newStatut: statutKey,
           messagePublic: message, author: user.id,
         });
-        await notifyStatusChange(row, statutKey, message, ctx.settings);
-        return jsonResp(200, { ok: true, signalement: updated }, cors);
+        const notifie = await notifyStatusChange(row, statutKey, message, ctx.settings);
+        return jsonResp(200, { ok: true, signalement: updated, notifie }, cors);
       }
 
       case 'publish': {
@@ -131,7 +135,7 @@ export default async (req) => {
           await storageUpload(BUCKET_PUBLIC, publicPhotoPath(row.photo_path), bytes, contentType);
           photoUrl = publicStorageUrl(publicPhotoPath(row.photo_path));
         }
-        const [updated] = await svcUpdate('participer_signalements', { id: `eq.${id}` }, {
+        const [updated] = await svcUpdate('participer_signalements', { id: `eq.${id}`, select: TEAM_COLUMNS }, {
           published: true,
           photo_url: photoUrl,
         });
@@ -141,7 +145,7 @@ export default async (req) => {
 
       case 'unpublish': {
         if (row.photo_path) await storageDelete(BUCKET_PUBLIC, [publicPhotoPath(row.photo_path)]);
-        const [updated] = await svcUpdate('participer_signalements', { id: `eq.${id}` }, {
+        const [updated] = await svcUpdate('participer_signalements', { id: `eq.${id}`, select: TEAM_COLUMNS }, {
           published: false,
           photo_url: null,
         });
@@ -154,17 +158,17 @@ export default async (req) => {
           await storageDelete(BUCKET_PHOTOS, [row.photo_path]);
           await storageDelete(BUCKET_PUBLIC, [publicPhotoPath(row.photo_path)]);
         }
-        /* Trace AVANT la suppression, et sans lien vers la ligne : la clé
-           étrangère passe à NULL au lieu d'effacer l'événement, sinon plus
-           personne ne sait qui a supprimé quoi (ni le contrôle interne, ni une
-           demande d'accès de l'habitant). */
+        await svcDelete('participer_signalements', { id: `eq.${id}` });
+        /* Trace APRÈS la suppression effective, sans lien vers la ligne (elle
+           n'existe plus) : la référence dans le message est le seul identifiant
+           qui survive. Sans cette trace, plus personne ne sait qui a supprimé
+           quoi, ni pour le contrôle interne ni face à une demande d'accès. */
         await insertEvent({
-          signalementId: id, ville, type: 'suppression',
+          signalementId: null, ville, type: 'suppression',
           oldStatut: row.statut_key,
           messagePublic: row.reference,
           author: user.id,
         });
-        await svcDelete('participer_signalements', { id: `eq.${id}` });
         return jsonResp(200, { ok: true }, cors);
       }
 

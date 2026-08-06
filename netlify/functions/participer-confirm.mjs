@@ -34,6 +34,10 @@ export default async (req) => {
     });
     if (!row) return redirect(`${SITE}/?participer=lien-invalide`);
 
+    // Module désactivé entre-temps : ne pas confirmer vers un suivi qui répondra 404
+    const ctx = await loadContext(row.ville);
+    if (!ctx.enabled) return redirect(`${SITE}/?participer=module-inactif`);
+
     const suiviUrl = `${SITE}/?city=${row.ville}&participer_suivi=${row.suivi_token}`;
     if (row.email_confirmed) return redirect(suiviUrl);
 
@@ -47,15 +51,15 @@ export default async (req) => {
     }, {
       email_confirmed: true,
       confirmed_at: new Date().toISOString(),
-      // Le lien de confirmation ne doit servir qu'une fois : on fait tourner le
-      // jeton plutôt que de le laisser valable dans une boîte mail
-      confirm_token: crypto.randomUUID(),
     });
+    /* Le jeton n'est PAS renouvelé : le lien reçu par email doit continuer de
+       mener à la page de suivi quand l'habitant le rouvre. Le filtre
+       email_confirmed=eq.false suffit à le rendre inopérant une deuxième fois
+       (0 ligne modifiée = on redirige sans rien réexpédier). */
     if (!updated.length) return redirect(suiviUrl);
 
     await insertEvent({ signalementId: row.id, ville: row.ville, type: 'creation', newStatut: 'nouveau' });
 
-    const ctx = await loadContext(row.ville);
     await mailAccuse({ to: row.email, reference: row.reference, suiviUrl, replyTo: ctx.settings?.notify_email || null });
 
     if (ctx.settings?.notify_email) {

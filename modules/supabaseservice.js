@@ -2759,20 +2759,25 @@
           .order('created_at', { ascending: false })
           .range((page - 1) * pageSize, page * pageSize - 1);
         if (Array.isArray(statutKeys) && statutKeys.length) query = query.in('statut_key', statutKeys);
-        // La virgule et les parenthèses sont la grammaire de `.or()` : sans ce
-        // nettoyage, une adresse française (« 12, rue... ») casse la requête -
-        // et une saisie hostile réécrit le prédicat.
-        const terme = String(search).replace(/[,()"\\%_]/g, ' ').trim();
-        if (terme) query = query.or(`reference.ilike."%${terme}%",description.ilike."%${terme}%",adresse.ilike."%${terme}%"`);
-        const { data, error, count } = await query;
-        if (error) {
-          console.debug('[supabaseService] Erreur fetchParticiperSignalements:', error);
-          return { rows: [], total: 0 };
+        /* La virgule et les parenthèses sont la grammaire de `.or()` : sans ce
+           nettoyage, une adresse française (« 12, rue... ») casse la requête et
+           une saisie hostile réécrit le prédicat. On les remplace par le joker
+           `%` et non par une espace, sinon « 12, rue » ne retrouverait plus
+           « 12, rue de la Paix ». */
+        const terme = String(search).replace(/[,()"\\%_]/g, '%').trim();
+        if (terme && terme.replace(/%/g, '')) {
+          query = query.or(`reference.ilike."%${terme}%",description.ilike."%${terme}%",adresse.ilike."%${terme}%"`);
         }
+        const { data, error, count } = await query;
+        /* On lève au lieu de rendre une liste vide : sous le régime de
+           privilèges par colonne, une erreur de droits ressemblerait sinon à
+           une file réellement vide, et l'agent conclurait que le signalement
+           qu'il cherche a disparu. */
+        if (error) throw new Error(error.message);
         return { rows: data || [], total: count || 0 };
       } catch (e) {
         console.error('[supabaseService] fetchParticiperSignalements exception:', e);
-        return { rows: [], total: 0 };
+        throw e;
       }
     },
 
@@ -2920,23 +2925,18 @@
       }
     },
 
+    /* Lève en cas d'échec de lecture : une ville sans réglages (data null) et
+       une lecture impossible sont deux situations opposées, et les confondre
+       ferait écraser la configuration réelle par les valeurs par défaut. */
     fetchParticiperSettings: async function(ville) {
-      try {
-        if (!ville) return null;
-        const { data, error } = await supabaseClient
-          .from('participer_settings')
-          .select('*')
-          .eq('ville', ville)
-          .maybeSingle();
-        if (error) {
-          console.debug('[supabaseService] Erreur fetchParticiperSettings:', error);
-          return null;
-        }
-        return data;
-      } catch (e) {
-        console.error('[supabaseService] fetchParticiperSettings exception:', e);
-        return null;
-      }
+      if (!ville) return null;
+      const { data, error } = await supabaseClient
+        .from('participer_settings')
+        .select('*')
+        .eq('ville', ville)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return data;
     },
 
     upsertParticiperSettings: async function(ville, patch) {
