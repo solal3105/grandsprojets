@@ -5292,3 +5292,286 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
 /* Pastille de la bascule « bâtiments en relief » : reprend le dégradé
    d'élévation du bâti, assombri pour rester lisible à 10px sur le dock. */
 .dg-swatch--3d { background: linear-gradient(135deg, #b9c2cc 0%, #8fa8bd 55%, #5d7a94 100%); }
+
+/* ============================================================================
+   SECTION PARTICIPER (signalements citoyens)
+   ============================================================================ */
+
+/* Actions de l'en-tête de page (boutons config/export à droite du titre) */
+.adm-page-header__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Compteur dans un onglet (file « À traiter ») */
+.adm-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-left: 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.adm-tab-count--warn {
+  color: #fff;
+  background: var(--color-danger);
+}
+
+/* Pill de statut - couleur du statut posée inline via --ptadm-color */
+.ptadm-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--ptadm-color, var(--color-info));
+  background: color-mix(in srgb, var(--ptadm-color, var(--color-info)) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ptadm-color, var(--color-info)) 35%, transparent);
+}
+
+/* Chip de catégorie avec icône */
+.ptadm-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ptadm-cat i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--ptadm-color, var(--color-info));
+  background: color-mix(in srgb, var(--ptadm-color, var(--color-info)) 12%, transparent);
+}
+
+/* File de traitement */
+.ptadm-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.ptadm-ref {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  margin-left: 6px;
+}
+
+.ptadm-camera {
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+/* Détail (panneau latéral) */
+.ptadm-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ptadm-detail__pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ptadm-detail__meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.ptadm-detail__desc {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+}
+
+.ptadm-detail__desc--empty {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.ptadm-detail__photo img {
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+}
+
+.ptadm-detail__photo[hidden] {
+  display: none;
+}
+
+.ptadm-detail__addr {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.ptadm-detail__map {
+  height: 180px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+}
+
+.ptadm-detail__map[hidden] {
+  display: none;
+}
+
+.ptadm-detail__label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+
+.ptadm-detail__events,
+.ptadm-detail__actions,
+.ptadm-detail__admin {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+}
+
+.ptadm-event {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.ptadm-event__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  margin-top: 5px;
+  flex-shrink: 0;
+  background: var(--color-info);
+}
+
+.ptadm-event--alert .ptadm-event__dot {
+  background: var(--color-danger);
+}
+
+.ptadm-event__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ptadm-event__title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ptadm-event__date {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.ptadm-event__msg {
+  margin-top: 4px;
+  padding: 7px 10px;
+  border-left: 3px solid var(--border-medium);
+  border-radius: 0 8px 8px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  background: var(--surface-raised);
+}
+
+.ptadm-detail__admin-btns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Configuration */
+.ptadm-config {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ptadm-config__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.ptadm-switch-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.ptadm-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ptadm-color {
+  padding: 2px;
+  height: 38px;
+  max-width: 80px;
+  cursor: pointer;
+}
+
+/* La file reste utilisable sur téléphone : l'agent traite depuis le terrain */
+@media (max-width: 640px) {
+  .ptadm-row {
+    flex-wrap: wrap;
+  }
+
+  .adm-page-header__actions {
+    width: 100%;
+  }
+
+  .ptadm-config__grid {
+    grid-template-columns: 1fr;
+  }
+}

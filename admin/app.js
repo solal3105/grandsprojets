@@ -3,6 +3,7 @@ import { router } from './router.js';
 import * as api from './api.js';
 import { initSidebar } from './components/sidebar.js';
 import { renderContributions } from './sections/contributions.js';
+import { renderParticiper } from './sections/participer.js';
 import { renderCategories } from './sections/categories.js';
 import { renderUsers } from './sections/users.js';
 import { renderTravaux } from './sections/travaux.js';
@@ -47,6 +48,7 @@ async function boot() {
     router.setContainer(main);
 
     router.define('contributions',  (c, p) => renderContributions(c, p));
+    router.define('participer',     (c, p) => renderParticiper(c, p));
     router.define('categories',     (c, p) => renderCategories(c, p));
     router.define('utilisateurs',   (c, p) => renderUsers(c, p));
     router.define('travaux',        (c, p) => renderTravaux(c, p));
@@ -62,6 +64,7 @@ async function boot() {
       const section = router.currentSection || 'contributions';
       const handler = {
         contributions: renderContributions,
+        participer: renderParticiper,
         categories: renderCategories,
         utilisateurs: renderUsers,
         travaux: renderTravaux,

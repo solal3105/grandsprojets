@@ -15,6 +15,11 @@ const MODULE_TEMPLATES = {
     icon_class: 'fa-solid fa-helmet-safety',
     description: 'Chantiers, travaux en cours et informations voirie',
   },
+  participer: {
+    label: 'Participer',
+    icon_class: 'fa-solid fa-bullhorn',
+    description: 'Signalements des habitants - dépôt sans compte, modération, suivi par email',
+  },
 };
 
 /* ── State ──────────────────────────────────────────────────────── */
@@ -235,6 +240,12 @@ function _showAddDialog(container) {
           config: {},
         });
         if (error) throw error;
+        // Participer : la ville reçoit ses 7 statuts et 6 catégories de départ
+        // (idempotent, personnalisables ensuite dans /admin/participer/)
+        if (key === 'participer') {
+          const seed = await api.seedParticiper();
+          if (seed.error) toast('Module ajouté, mais seed impossible : ' + seed.error.message, 'warning');
+        }
         toast(`Module "${tpl.label}" ajouté`, 'success');
         _showList(container);
         await _loadModules(container);

@@ -240,3 +240,58 @@ export async function getDiagnosticReports(limit) {
 export async function deleteDiagnosticReport(id) {
   return svc().deleteDiagnosticReport(requireCity(), id);
 }
+
+// ── Participer (signalements citoyens) ────────────────────────────
+
+export async function listParticiperSignalements(opts) {
+  return svc().fetchParticiperSignalements(requireCity(), opts);
+}
+
+export async function getParticiperPendingCount() {
+  return svc().fetchParticiperPendingCount(requireCity());
+}
+
+export async function getParticiperEvents(signalementId) {
+  return svc().fetchParticiperEvents(signalementId);
+}
+
+export async function getParticiperCategories() {
+  return svc().fetchParticiperCategories(requireCity());
+}
+
+export async function upsertParticiperCategory(cat) {
+  return svc().upsertParticiperCategory(requireCity(), cat);
+}
+
+export async function deleteParticiperCategory(id) {
+  return svc().deleteParticiperCategory(requireCity(), id);
+}
+
+export async function getParticiperStatuts() {
+  return svc().fetchParticiperStatuts(requireCity());
+}
+
+export async function updateParticiperStatut(id, patch) {
+  return svc().updateParticiperStatut(requireCity(), id, patch);
+}
+
+export async function getParticiperSettings() {
+  return svc().fetchParticiperSettings(requireCity());
+}
+
+export async function saveParticiperSettings(patch) {
+  return svc().upsertParticiperSettings(requireCity(), patch);
+}
+
+export async function seedParticiper(ville) {
+  // Appelé aussi depuis la section Modules AVANT sélection de ville active
+  return svc().participerSeedVille(ville || requireCity());
+}
+
+/** Mutation d'un signalement via la fonction serveur (rôle revérifié côté serveur). */
+export async function participerAction(action, id, extra = {}) {
+  const result = await svc().participerAction({ action, id, ville: requireCity(), ...extra });
+  if (action === 'publish') window.OPAnalytics?.capture('participer_published', {});
+  if (action === 'set_statut') window.OPAnalytics?.capture('participer_status_changed', { statut: extra.statut_key || null });
+  return result;
+}

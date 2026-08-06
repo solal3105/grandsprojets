@@ -2717,6 +2717,253 @@
         console.error('[supabaseService] deleteDiagnosticReport exception:', e);
         return { success: false, error: e };
       }
+    },
+
+    /* ═══════════════════════════════════════════════════════════════
+       PARTICIPER (signalements citoyens)
+       Lecture directe sous RLS (réservée à l'équipe de la ville par les
+       policies). Toute MUTATION d'un signalement passe par la fonction
+       serveur /api/participer/update (participerAction) : rôle revérifié
+       côté serveur, événement et email expédiés dans le même appel.
+       ═══════════════════════════════════════════════════════════════ */
+
+    /**
+     * Signalements confirmés d'une ville, paginés, pour la file de traitement.
+     * Les dépôts non confirmés par email n'existent pour personne.
+     * @returns {Promise<{rows: Array, total: number}>}
+     */
+    fetchParticiperSignalements: async function(ville, opts = {}) {
+      const { statutKeys = null, page = 1, pageSize = 20, search = '' } = opts;
+      try {
+        if (!ville) return { rows: [], total: 0 };
+        let query = supabaseClient
+          .from('participer_signalements')
+          .select('*', { count: 'exact' })
+          .eq('ville', ville)
+          .eq('email_confirmed', true)
+          .order('created_at', { ascending: false })
+          .range((page - 1) * pageSize, page * pageSize - 1);
+        if (Array.isArray(statutKeys) && statutKeys.length) query = query.in('statut_key', statutKeys);
+        if (search) query = query.or(`reference.ilike.%${search}%,description.ilike.%${search}%,adresse.ilike.%${search}%`);
+        const { data, error, count } = await query;
+        if (error) {
+          console.debug('[supabaseService] Erreur fetchParticiperSignalements:', error);
+          return { rows: [], total: 0 };
+        }
+        return { rows: data || [], total: count || 0 };
+      } catch (e) {
+        console.error('[supabaseService] fetchParticiperSignalements exception:', e);
+        return { rows: [], total: 0 };
+      }
+    },
+
+    /** Nombre de signalements confirmés encore au statut « nouveau ». */
+    fetchParticiperPendingCount: async function(ville) {
+      try {
+        if (!ville) return 0;
+        const { count, error } = await supabaseClient
+          .from('participer_signalements')
+          .select('id', { count: 'exact', head: true })
+          .eq('ville', ville)
+          .eq('statut_key', 'nouveau')
+          .eq('email_confirmed', true);
+        return error ? 0 : (count || 0);
+      } catch {
+        return 0;
+      }
+    },
+
+    /** Historique complet d'un signalement (tous types, vue équipe). */
+    fetchParticiperEvents: async function(signalementId) {
+      try {
+        if (!signalementId) return [];
+        const { data, error } = await supabaseClient
+          .from('participer_events')
+          .select('*')
+          .eq('signalement_id', signalementId)
+          .order('created_at', { ascending: true });
+        if (error) {
+          console.debug('[supabaseService] Erreur fetchParticiperEvents:', error);
+          return [];
+        }
+        return data || [];
+      } catch (e) {
+        console.error('[supabaseService] fetchParticiperEvents exception:', e);
+        return [];
+      }
+    },
+
+    fetchParticiperCategories: async function(ville) {
+      try {
+        if (!ville) return [];
+        const { data, error } = await supabaseClient
+          .from('participer_categories')
+          .select('*')
+          .eq('ville', ville)
+          .order('sort_order', { ascending: true });
+        if (error) {
+          console.debug('[supabaseService] Erreur fetchParticiperCategories:', error);
+          return [];
+        }
+        return data || [];
+      } catch (e) {
+        console.error('[supabaseService] fetchParticiperCategories exception:', e);
+        return [];
+      }
+    },
+
+    /**
+     * Crée ou met à jour une catégorie de signalement.
+     * @param {Object} cat - cat.id présent = mise à jour
+     * @returns {Promise<{data: Object|null, error: Error|null}>}
+     */
+    upsertParticiperCategory: async function(ville, cat) {
+      try {
+        if (!ville || !cat?.label) return { data: null, error: new Error('ville et label requis') };
+        const row = {
+          label: cat.label,
+          icon_class: cat.icon_class || 'fa-solid fa-circle-exclamation',
+          color: cat.color || '#14AE5C',
+          help_text: cat.help_text ?? null,
+          sort_order: cat.sort_order ?? 0,
+          enabled: cat.enabled !== undefined ? cat.enabled : true,
+        };
+        let query;
+        if (cat.id) {
+          query = supabaseClient.from('participer_categories').update(row).eq('id', cat.id).eq('ville', ville);
+        } else {
+          if (!cat.category_key) return { data: null, error: new Error('category_key requis') };
+          query = supabaseClient.from('participer_categories').insert({ ...row, ville, category_key: cat.category_key });
+        }
+        const { data, error } = await query.select().single();
+        return { data, error };
+      } catch (e) {
+        console.error('[supabaseService] upsertParticiperCategory exception:', e);
+        return { data: null, error: e };
+      }
+    },
+
+    deleteParticiperCategory: async function(ville, id) {
+      try {
+        if (!ville || !id) return { success: false, error: new Error('ville et id requis') };
+        const { error } = await supabaseClient
+          .from('participer_categories')
+          .delete()
+          .eq('id', id)
+          .eq('ville', ville);
+        return { success: !error, error: error || null };
+      } catch (e) {
+        console.error('[supabaseService] deleteParticiperCategory exception:', e);
+        return { success: false, error: e };
+      }
+    },
+
+    fetchParticiperStatuts: async function(ville) {
+      try {
+        if (!ville) return [];
+        const { data, error } = await supabaseClient
+          .from('participer_statuts')
+          .select('*')
+          .eq('ville', ville)
+          .order('sort_order', { ascending: true });
+        if (error) {
+          console.debug('[supabaseService] Erreur fetchParticiperStatuts:', error);
+          return [];
+        }
+        return data || [];
+      } catch (e) {
+        console.error('[supabaseService] fetchParticiperStatuts exception:', e);
+        return [];
+      }
+    },
+
+    /** Met à jour l'AFFICHAGE d'un statut (libellé, couleur, ordre, notification) - la clé machine est immuable. */
+    updateParticiperStatut: async function(ville, id, patch) {
+      try {
+        if (!ville || !id) return { data: null, error: new Error('ville et id requis') };
+        const row = {};
+        for (const key of ['label', 'color', 'sort_order', 'notify']) {
+          if (patch[key] !== undefined) row[key] = patch[key];
+        }
+        const { data, error } = await supabaseClient
+          .from('participer_statuts')
+          .update(row)
+          .eq('id', id)
+          .eq('ville', ville)
+          .select()
+          .single();
+        return { data, error };
+      } catch (e) {
+        console.error('[supabaseService] updateParticiperStatut exception:', e);
+        return { data: null, error: e };
+      }
+    },
+
+    fetchParticiperSettings: async function(ville) {
+      try {
+        if (!ville) return null;
+        const { data, error } = await supabaseClient
+          .from('participer_settings')
+          .select('*')
+          .eq('ville', ville)
+          .maybeSingle();
+        if (error) {
+          console.debug('[supabaseService] Erreur fetchParticiperSettings:', error);
+          return null;
+        }
+        return data;
+      } catch (e) {
+        console.error('[supabaseService] fetchParticiperSettings exception:', e);
+        return null;
+      }
+    },
+
+    upsertParticiperSettings: async function(ville, patch) {
+      try {
+        if (!ville) return { data: null, error: new Error('ville requise') };
+        const { data, error } = await supabaseClient
+          .from('participer_settings')
+          .upsert({ ...patch, ville }, { onConflict: 'ville' })
+          .select()
+          .single();
+        return { data, error };
+      } catch (e) {
+        console.error('[supabaseService] upsertParticiperSettings exception:', e);
+        return { data: null, error: e };
+      }
+    },
+
+    /** Seed idempotent des statuts/catégories/réglages par défaut d'une ville. */
+    participerSeedVille: async function(ville) {
+      try {
+        if (!ville) return { success: false, error: new Error('ville requise') };
+        const { error } = await supabaseClient.rpc('participer_seed_ville', { p_ville: ville });
+        return { success: !error, error: error || null };
+      } catch (e) {
+        console.error('[supabaseService] participerSeedVille exception:', e);
+        return { success: false, error: e };
+      }
+    },
+
+    /**
+     * Mutation d'un signalement via la fonction serveur (JWT de la session).
+     * @param {Object} payload - { action, ville, id, ...paramètres de l'action }
+     * @throws {Error} message d'erreur lisible renvoyé par le serveur
+     */
+    participerAction: async function(payload) {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) throw new Error('Non authentifié');
+      const r = await fetch('/api/participer/update', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body.error || `HTTP ${r.status}`);
+      return body;
     }
   };
 })(window);
