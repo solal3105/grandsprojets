@@ -103,6 +103,27 @@ test.describe('16.1 Participer - carte publique', () => {
     await page.locator('.nav-panel__item[data-section="participer-explorer"]').click();
     await expect(page.locator('.pt-explorer, .nav-panel__empty').first()).toBeVisible({ timeout: 15000 });
   });
+
+  /* Non-régression : le détail s'ouvre dans le panneau #project-detail. Une
+     variable manquante dans le rendu du suivi a déjà fait échouer l'ouverture
+     en silence, sans que le rendu de la liste ne le révèle. */
+  test('16.1.6 cliquer un signalement ouvre son détail', async ({ page, request }) => {
+    test.skip(!(await serviceConfigured(request)), SKIP_MSG);
+    const erreurs = [];
+    page.on('pageerror', (e) => erreurs.push(e.message));
+
+    await openParticiperPanel(page);
+    await page.locator('.nav-panel__item[data-section="participer-explorer"]').click();
+    const premier = page.locator('.pt-item').first();
+    await expect(premier).toBeVisible({ timeout: 15000 });
+    await premier.click();
+
+    const detail = page.locator('#project-detail');
+    await expect(detail).toBeVisible({ timeout: 15000 });
+    await expect(detail.locator('.detail-hero--participer')).toBeVisible();
+    await expect(detail.locator('.pt-statut-pill')).toBeVisible();
+    expect(erreurs).toEqual([]);
+  });
 });
 
 test.describe('16.2 Participer - endpoints publics', () => {

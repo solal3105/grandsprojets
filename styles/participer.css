@@ -230,9 +230,9 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 8px 13px;
+  padding: 7px 12px;
   border-radius: 999px;
-  font-size: 0.78rem;
+  font-size: 0.77rem;
   font-weight: 600;
   font-family: inherit;
   text-align: left;
@@ -374,8 +374,10 @@
   position: sticky;
   bottom: 0;
   margin: 0 -18px -24px;
-  padding: 14px 18px 18px;
-  background: linear-gradient(to top, var(--surface-base) 72%, transparent);
+  /* Le fondu monte haut : sous le bouton, le contenu qui défile doit
+     s'effacer progressivement plutôt que d'être coupé net. */
+  padding: 26px 18px 18px;
+  background: linear-gradient(to top, var(--surface-base) 58%, transparent 100%);
 }
 
 .pt-submit {

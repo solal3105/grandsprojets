@@ -463,7 +463,12 @@
       </div>`;
   }
 
-  function openParticiperModal({ own, signalement: s, events }) {
+  /**
+   * @param {Object} data - réponse de /detail
+   * @param {Array} [statuts] - référentiel des statuts de la ville, pour colorer
+   *   les étapes du suivi ; l'appelant le tient de la configuration en cache
+   */
+  function openParticiperModal({ own, signalement: s, events }, statuts) {
     const panel = document.getElementById('project-detail');
     if (!panel) return;
 
@@ -552,11 +557,23 @@
     });
   }
 
+  /** Statuts de la ville, depuis la configuration déjà en cache. Jamais bloquant. */
+  async function _statutsOf(city) {
+    try {
+      return (await loadConfig(city))?.statuts || [];
+    } catch {
+      return [];
+    }
+  }
+
   async function openDetailById(city, id) {
     try {
-      const data = await apiGet(`/detail?ville=${encodeURIComponent(city)}&id=${encodeURIComponent(id)}`);
+      const [data, statuts] = await Promise.all([
+        apiGet(`/detail?ville=${encodeURIComponent(city)}&id=${encodeURIComponent(id)}`),
+        _statutsOf(city),
+      ]);
       capture('participer_detail_opened', { ville: city });
-      openParticiperModal(data);
+      openParticiperModal(data, statuts);
     } catch (e) {
       win.Toast?.show(e.message || 'Signalement introuvable', 'error');
     }
@@ -565,7 +582,7 @@
   async function openSuivi(token) {
     try {
       const data = await apiGet(`/detail?token=${encodeURIComponent(token)}`);
-      openParticiperModal(data);
+      openParticiperModal(data, await _statutsOf(activeCity()));
       const [lng, lat] = [data.signalement.lng, data.signalement.lat];
       if (lat != null) { try { win.MapModule?.map?.flyTo([lat, lng], 16); } catch { /* zoom conservé */ } }
     } catch (e) {

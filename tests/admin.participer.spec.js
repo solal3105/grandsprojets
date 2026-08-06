@@ -82,7 +82,7 @@ test.describe('17.2 - Réglages', () => {
 
   test('17.2.1 - La page affiche tous les paramètres', async ({ page }) => {
     await waitForBoot(page, '/admin/participer/config/');
-    await expect(page.locator('.adm-page-title')).toContainText('Réglages', { timeout: 15000 });
+    await expect(page.locator('.cw-header__title')).toContainText('Réglages', { timeout: 15000 });
     for (const id of ['ptcfg-intro', 'ptcfg-success', 'ptcfg-email', 'ptcfg-paused', 'ptcfg-quota-email', 'ptcfg-quota-ip', 'ptcfg-alerte', 'ptcfg-retention']) {
       await expect(page.locator(`#${id}`)).toHaveCount(1);
     }
@@ -104,7 +104,7 @@ test.describe('17.3 - Catégories', () => {
 
   test('17.3.1 - Les catégories seedées sont listées', async ({ page }) => {
     await waitForBoot(page, '/admin/participer/categories/');
-    await expect(page.locator('.adm-page-title')).toContainText('Catégories', { timeout: 15000 });
+    await expect(page.locator('.cw-header__title')).toContainText('Catégories', { timeout: 15000 });
     await expect(page.locator('#ptcat-list .adm-list-item').first()).toBeVisible({ timeout: 15000 });
     expect(await page.locator('#ptcat-list .adm-list-item').count()).toBeGreaterThanOrEqual(6);
   });
@@ -144,7 +144,7 @@ test.describe('17.4 - Statuts', () => {
 
   test('17.4.1 - Les 7 statuts sont listés', async ({ page }) => {
     await waitForBoot(page, '/admin/participer/statuts/');
-    await expect(page.locator('.adm-page-title')).toContainText('statuts', { timeout: 15000 });
+    await expect(page.locator('.cw-header__title')).toContainText('statuts', { timeout: 15000 });
     await expect(page.locator('#ptst-list .adm-list-item')).toHaveCount(7, { timeout: 15000 });
   });
 
