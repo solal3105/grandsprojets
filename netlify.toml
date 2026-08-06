@@ -151,3 +151,60 @@
   for = "/demo/*"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
+
+# ============================================
+# Le code de l'application doit revalider
+# ============================================
+# Hors du home, aucun fichier JS/CSS n'a de nom versionné : `main.js` reste
+# `main.js` d'un déploiement à l'autre. Avec le cache par défaut
+# (max-age=86400 + stale-while-revalidate=604800), un visiteur déjà venu
+# continue d'exécuter l'ANCIEN code pendant 24 h, et jusqu'à 7 jours s'il se
+# contente du périmé - alors que `index.html`, lui, revalide à chaque fois.
+# Un nouveau module se retrouve donc annoncé par un HTML à jour mais servi par
+# des scripts périmés : bouton présent, fonctionnalité absente. C'est
+# exactement ce qui s'est produit à la mise en ligne du module Participer.
+#
+# `must-revalidate` ne retélécharge rien : le navigateur envoie une requête
+# conditionnelle et reçoit un 304 vide tant que le fichier n'a pas changé.
+#
+# Le home est exclu : son build Vite produit des noms hachés
+# (`index-VQTl2WDf.js`), qui peuvent et doivent rester en cache longtemps.
+[[headers]]
+  for = "/main.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/modules/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/styles/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/admin/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/fiche/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/login/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/carte-postale/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/ville/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
