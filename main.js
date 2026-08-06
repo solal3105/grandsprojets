@@ -456,6 +456,7 @@
           win.NavPanel.init();
           win.CarteNav?.register();
           win.TravauxNav?.register();
+          win.ParticiperNav?.register();
         });
       }
       const contributionsByCategory = {};
@@ -531,6 +532,12 @@
         if ((win._cityModules || []).some(m => m.module_key === 'travaux' && m.enabled)) {
           DataModule.preloadLayer('travaux');
         }
+      }
+
+      // Précharger la config participer (le deep-link de suivi et l'ouverture
+      // du module n'attendent alors plus le réseau)
+      if ((win._cityModules || []).some(m => m.module_key === 'participer' && m.enabled)) {
+        win.ParticiperViews?.loadConfig?.(activeCity)?.catch?.(() => {});
       }
       
       
@@ -703,6 +710,11 @@
       } catch (e) {
         console.debug('[Main] Erreur affichage projet initial:', e);
       }
+
+      // Lien de suivi d'un signalement (?participer_suivi=) et retours du
+      // parcours de confirmation - le jeton a déjà été retiré de l'URL par
+      // participer-views.js au chargement
+      win.ParticiperViews?.handleUrlParams?.();
 
       /**
        * Gestion de la navigation (boutons précédent/suivant du navigateur)

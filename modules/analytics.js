@@ -129,13 +129,21 @@
   // ── Nettoyage des propriétés ───────────────────────────────────────────────
   // Un lien de connexion Supabase revient avec le jeton d'accès dans le
   // fragment (#access_token=...). PostHog enregistrerait l'URL complète : ce
-  // jeton ne doit jamais sortir du navigateur.
+  // jeton ne doit jamais sortir du navigateur. Même règle pour le jeton de
+  // suivi personnel d'un signalement (?participer_suivi=) : le paramètre est
+  // conservé (utile aux analyses) mais sa valeur est masquée.
   const URL_PROPS = ['$current_url', '$referrer', '$initial_current_url', '$initial_referrer'];
+  const MASKED_PARAMS = ['participer_suivi'];
 
   function sanitizeProperties(properties) {
     for (const key of URL_PROPS) {
-      const value = properties[key];
-      if (typeof value === 'string' && value) properties[key] = value.split('#')[0];
+      let value = properties[key];
+      if (typeof value !== 'string' || !value) continue;
+      value = value.split('#')[0];
+      for (const param of MASKED_PARAMS) {
+        value = value.replace(new RegExp('([?&]' + param + '=)[^&]*'), '$1masque');
+      }
+      properties[key] = value;
     }
     return properties;
   }
