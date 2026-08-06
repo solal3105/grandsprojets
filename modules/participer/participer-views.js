@@ -10,7 +10,10 @@
   const API = '/api/participer';
   const LAYER_NAME = 'participer';
 
-  const esc = (s) => win.SecurityUtils?.escapeHtml?.(s) ?? String(s ?? '');
+  /* Pas de repli : un échappement qui se dégrade en fonction identité quand la
+     bibliothèque manque ouvre l'injection au lieu de la fermer. security-utils
+     est chargé avant ce fichier dans index.html, l'absence est un bug à voir. */
+  const esc = win.SecurityUtils.escapeHtml;
   const safeColor = (c) => (/^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : 'var(--color-info)');
   // La classe d'icône vient de la base : elle est normalisée ET échappée, car
   // elle finit dans une valeur d'attribut
@@ -210,6 +213,9 @@
       return;
     }
 
+    // Durée de conservation réelle de la ville : la mention légale doit dire
+    // ce que la collectivité a réglé, pas une valeur figée dans le code.
+    const retentionMois = Number(settings.retention_mois) || 12;
     const intro = settings.intro_text
       || 'Signalez un problème ou une idée à votre collectivité, sans créer de compte.';
 
@@ -257,7 +263,7 @@
           <span class="pt-label">Pour vous tenir informé</span>
           <input class="pt-input" type="email" id="pt-email" maxlength="180" placeholder="Votre email (jamais public)" autocomplete="email" required>
           <input class="pt-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-          <p class="pt-legal">Votre adresse sert uniquement à confirmer puis suivre ce signalement. Elle n'est jamais publiée et sera supprimée au plus tard 12 mois après la clôture. <a href="/home/confidentialite" target="_blank" rel="noopener">En savoir plus</a></p>
+          <p class="pt-legal">Votre adresse sert uniquement à confirmer puis suivre ce signalement. Elle n'est jamais publiée et sera supprimée au plus tard ${retentionMois} mois après la clôture. <a href="/home/confidentialite" target="_blank" rel="noopener">En savoir plus</a></p>
         </div>
 
         <p class="pt-urgence"><i class="fa-solid fa-triangle-exclamation"></i><span>En cas de danger immédiat, n'utilisez pas ce formulaire : appelez le 112.</span></p>

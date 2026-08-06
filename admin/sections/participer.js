@@ -12,6 +12,7 @@
    ============================================================================ */
 
 import { store } from '../store.js';
+import { emptyState } from '../components/ui.js';
 import { renderList } from './participer/list.js';
 import { renderConfig, renderCategoriesAdmin, renderStatutsAdmin } from './participer/config.js';
 
@@ -20,12 +21,11 @@ export async function renderParticiper(container, params) {
      personnelles de citoyens - le masquage du menu ne suffit pas, et la RLS
      reste la barrière finale. */
   if (!store.isAdmin && !store.isInvited) {
-    container.innerHTML = `
-      <div class="adm-empty">
-        <div class="adm-empty__icon"><i class="fa-solid fa-lock"></i></div>
-        <div class="adm-empty__title">Accès réservé</div>
-        <div class="adm-empty__text">Cette section est réservée à l'équipe de la collectivité.</div>
-      </div>`;
+    container.replaceChildren(emptyState({
+      icon: 'fa-solid fa-lock',
+      title: 'Accès réservé',
+      text: "Cette section est réservée à l'équipe de la collectivité.",
+    }));
     return;
   }
 

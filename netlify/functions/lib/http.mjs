@@ -10,6 +10,9 @@
 export const SUPABASE_URL = process.env.SUPABASE_URL || 'https://wqqsuybmyqemhojsamgq.supabase.co';
 export const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
 
+/** Même règle que SecurityUtils.isValidCityCode côté navigateur. */
+export const isValidCityCode = (code) => /^[a-z0-9-]+$/i.test(String(code ?? '').trim());
+
 const ALLOWED_ORIGINS = [
   'https://openprojets.com',
   'http://localhost:3001',

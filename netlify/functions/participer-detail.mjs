@@ -11,7 +11,8 @@
    ============================================================================ */
 
 import {
-  VILLE_RE, UUID_RE, PUBLIC_GET_CORS, PUBLIC_EVENT_TYPES, BUCKET_PHOTOS,
+  isValidCityCode,
+  UUID_RE, PUBLIC_GET_CORS, PUBLIC_EVENT_TYPES, BUCKET_PHOTOS,
   jsonResp, hasServiceKey,
   svcSelect, loadContext, loadCategories, loadStatuts, publicProps, storageSignedUrl,
 } from './lib/participer-common.mjs';
@@ -53,7 +54,7 @@ export default async (req) => {
     } else {
       const ville = params.get('ville') || '';
       const id = params.get('id') || '';
-      if (!VILLE_RE.test(ville) || !UUID_RE.test(id)) return jsonResp(400, { error: 'Paramètres invalides' });
+      if (!isValidCityCode(ville) || !UUID_RE.test(id)) return jsonResp(400, { error: 'Paramètres invalides' });
       [row] = await svcSelect('participer_signalements', {
         select: SELECT, ville: `eq.${ville}`, id: `eq.${id}`, published: 'eq.true', limit: '1',
       });

@@ -7,7 +7,8 @@
    ============================================================================ */
 
 import {
-  VILLE_RE, PUBLIC_GET_CORS, jsonResp, hasServiceKey,
+  isValidCityCode,
+  PUBLIC_GET_CORS, jsonResp, hasServiceKey,
   svcSelect, loadContext, loadCategories, loadStatuts, publicProps,
 } from './lib/participer-common.mjs';
 
@@ -18,7 +19,7 @@ export default async (req) => {
   if (req.method !== 'GET') return jsonResp(405, { error: 'Méthode non autorisée' });
 
   const ville = new URL(req.url).searchParams.get('ville') || '';
-  if (!VILLE_RE.test(ville)) return jsonResp(400, { error: 'Paramètre ville invalide' });
+  if (!isValidCityCode(ville)) return jsonResp(400, { error: 'Paramètre ville invalide' });
   if (!hasServiceKey()) return jsonResp(503, { error: 'Service indisponible' });
 
   try {

@@ -7,9 +7,9 @@
    public) et transmise à la mairie, qui doit répondre sous un mois.
    ============================================================================ */
 
-import { getCorsHeaders, preflightResp } from './lib/http.mjs';
+import { isValidCityCode, getCorsHeaders, preflightResp } from './lib/http.mjs';
 import {
-  VILLE_RE, EMAIL_RE, UUID_RE, jsonResp, hasServiceKey, hashIp,
+  EMAIL_RE, UUID_RE, jsonResp, hasServiceKey, hashIp,
   svcSelect, svcCount, insertEvent, loadContext, mailMairie,
 } from './lib/participer-common.mjs';
 
@@ -40,7 +40,7 @@ export default async (req, context) => {
   const id = String(body?.id || '').trim();
   const motif = String(body?.motif || '').trim().slice(0, 500);
   const contact = String(body?.email || '').trim().slice(0, 180);
-  if (!VILLE_RE.test(ville) || !UUID_RE.test(id)) return jsonResp(400, { error: 'Paramètres invalides' }, cors);
+  if (!isValidCityCode(ville) || !UUID_RE.test(id)) return jsonResp(400, { error: 'Paramètres invalides' }, cors);
   if (!motif) return jsonResp(400, { error: 'Précisez le motif de la demande' }, cors);
   if (contact && !EMAIL_RE.test(contact)) return jsonResp(400, { error: 'Adresse e-mail invalide' }, cors);
   if (!hasServiceKey()) return jsonResp(503, { error: 'Service indisponible' }, cors);

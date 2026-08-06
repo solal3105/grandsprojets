@@ -13,9 +13,9 @@
    La responsabilité éditoriale (ce qui devient public) reste à l'admin.
    ============================================================================ */
 
-import { getCorsHeaders, preflightResp, getAuthedUser, getProfile } from './lib/http.mjs';
+import { isValidCityCode, getCorsHeaders, preflightResp, getAuthedUser, getProfile } from './lib/http.mjs';
 import {
-  VILLE_RE, UUID_RE, STATUT_KEYS, STATUTS_CLOS, TEAM_COLUMNS, BUCKET_PHOTOS, BUCKET_PUBLIC, SITE,
+  UUID_RE, STATUT_KEYS, STATUTS_CLOS, TEAM_COLUMNS, BUCKET_PHOTOS, BUCKET_PUBLIC, SITE,
   jsonResp, hasServiceKey,
   svcSelect, svcUpdate, svcDelete, insertEvent,
   storageDownload, storageUpload, storageDelete, storageSignedUrl, publicStorageUrl,
@@ -66,7 +66,7 @@ export default async (req) => {
   const ville = String(body?.ville || '').trim();
   const id = String(body?.id || '').trim();
   const action = String(body?.action || '').trim();
-  if (!VILLE_RE.test(ville) || !UUID_RE.test(id)) return jsonResp(400, { error: 'Paramètres invalides' }, cors);
+  if (!isValidCityCode(ville) || !UUID_RE.test(id)) return jsonResp(400, { error: 'Paramètres invalides' }, cors);
 
   // Rôle revérifié côté serveur : le gating de l'interface ne protège rien
   const profile = await getProfile(user);

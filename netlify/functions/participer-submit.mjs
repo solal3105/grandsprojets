@@ -12,9 +12,9 @@
    après compression cliente, module activable/suspendable par ville.
    ============================================================================ */
 
-import { getCorsHeaders, preflightResp } from './lib/http.mjs';
+import { isValidCityCode, getCorsHeaders, preflightResp } from './lib/http.mjs';
 import {
-  VILLE_RE, EMAIL_RE, PHOTO_MIMES, PHOTO_MAX_BYTES, BUCKET_PHOTOS, SITE,
+  EMAIL_RE, PHOTO_MIMES, PHOTO_MAX_BYTES, BUCKET_PHOTOS, SITE,
   jsonResp, hasServiceKey, hashIp, loadContext, loadCategories,
   svcInsert, svcCount, svcDelete, svcRpc, storageUpload, storageDelete,
   mailConfirmation,
@@ -42,7 +42,7 @@ export default async (req, context) => {
   // requête mal formée est refusée pour ce qu'elle est, que la base soit
   // joignable ou non. C'est aussi ce qui rend le contrat testable sans clés.
   const ville = String(body?.ville || '').trim();
-  if (!VILLE_RE.test(ville)) return jsonResp(400, { error: 'Paramètre ville invalide' }, cors);
+  if (!isValidCityCode(ville)) return jsonResp(400, { error: 'Paramètre ville invalide' }, cors);
 
   const email = String(body?.email || '').trim().slice(0, 180);
   if (!EMAIL_RE.test(email)) return jsonResp(400, { error: 'Adresse e-mail invalide' }, cors);

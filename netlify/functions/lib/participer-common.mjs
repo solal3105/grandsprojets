@@ -11,7 +11,7 @@
    et l'email du signaleur ne sort JAMAIS vers le public.
    ============================================================================ */
 
-import { SUPABASE_URL } from './http.mjs';
+import { SUPABASE_URL, isValidCityCode } from './http.mjs';
 import { envoyerEmail, echapperHtml, EXPEDITEUR_DEFAUT } from './mail.mjs';
 
 export { echapperHtml };
@@ -19,7 +19,8 @@ export { echapperHtml };
 // Adresse publique du site : Netlify fournit URL (site de prod ou netlify dev)
 export const SITE = (process.env.URL || 'https://openprojets.com').replace(/\/$/, '');
 
-export const VILLE_RE = /^[a-z0-9-]+$/i;
+// Validation du code ville : la règle du projet, pas une copie locale
+export { isValidCityCode };
 // Volontairement permissif : ne pas rejeter une adresse réelle mal formée à la
 // marge (même esprit que demo-lead).
 export const EMAIL_RE = /^[^\s@]+@[^\s@,;]+\.[a-z]{2,}$/i;
@@ -44,6 +45,10 @@ export const PUBLIC_EVENT_TYPES = new Set(['creation', 'statut', 'publication'])
 export const TEAM_COLUMNS = 'id,ville,reference,category_key,statut_key,description,'
   + 'photo_path,photo_url,lat,lng,adresse,email_confirmed,published,doublon_de,'
   + 'created_at,updated_at,confirmed_at,closed_at,anonymized_at';
+
+/* Délai au terme duquel un dépôt jamais confirmé est purgé. Exporté : la
+   fonction planifiée l'applique, le message de confirmation l'annonce. */
+export const PURGE_AFTER_DAYS = 7;
 
 export const BUCKET_PHOTOS = 'participer-photos';
 // Les photos publiées sont copiées dans le bucket public existant, sous un
@@ -241,6 +246,9 @@ export function publicSettings(settings) {
     success_text: settings?.success_text || null,
     paused: settings?.paused === true,
     pause_message: settings?.pause_message || null,
+    // La mention légale affichée à l'habitant annonce cette durée : codée en
+    // dur côté navigateur, elle mentirait dès qu'une ville change son réglage.
+    retention_mois: settings?.retention_mois ?? 12,
   };
 }
 
@@ -375,13 +383,13 @@ export function mailConfirmation({ to, confirmUrl, replyTo }) {
       'Pour le transmettre, confirmez votre adresse en ouvrant ce lien :',
       confirmUrl,
       '',
-      'Sans confirmation sous 7 jours, le signalement sera supprimé.',
+      `Sans confirmation sous ${PURGE_AFTER_DAYS} jours, le signalement sera supprimé.`,
       "Si vous n'êtes pas à l'origine de ce dépôt, ignorez simplement ce message.",
     ].join('\n'),
     html: `<p style="${P}">Bonjour,</p>
 <p style="${P}">Vous venez de déposer un signalement sur la carte participative de votre collectivité. Pour le transmettre, confirmez votre adresse :</p>
 ${bouton(confirmUrl, 'Confirmer mon signalement')}
-<p style="${P}">Sans confirmation sous 7 jours, le signalement sera supprimé. Si vous n'êtes pas à l'origine de ce dépôt, ignorez simplement ce message.</p>`,
+<p style="${P}">Sans confirmation sous ${PURGE_AFTER_DAYS} jours, le signalement sera supprimé. Si vous n'êtes pas à l'origine de ce dépôt, ignorez simplement ce message.</p>`,
   });
 }
 

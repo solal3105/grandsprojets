@@ -14,11 +14,10 @@
    ============================================================================ */
 
 import {
-  BUCKET_PHOTOS, hasServiceKey,
+  BUCKET_PHOTOS, PURGE_AFTER_DAYS, hasServiceKey,
   svcSelect, svcUpdate, svcDelete, storageDelete, mailMairie,
 } from './lib/participer-common.mjs';
 
-const PURGE_AFTER_DAYS = 7;
 const DAYS_BETWEEN_ALERTS = 6;
 // Une URL PostgREST porte ~37 octets par identifiant : au-delà, la requête est
 // rejetée et la purge ne passerait plus jamais

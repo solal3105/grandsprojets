@@ -10,15 +10,15 @@ import { store } from '../../store.js';
 import * as api from '../../api.js';
 import { esc, toast, confirm, slidePanel, emptyState } from '../../components/ui.js';
 import { renderIconField, bindIconField } from '../../components/icon-picker.js';
-import { invalidateRefData, safeColor, subPageHeader, COULEUR_DEFAUT } from './data.js';
+import { invalidateRefData, safeColor, subPageHeader } from './data.js';
 
 function _gateAdmin(container) {
   if (store.isAdmin) return true;
-  container.innerHTML = `
-    <div class="adm-empty">
-      <div class="adm-empty__icon"><i class="fa-solid fa-lock"></i></div>
-      <div class="adm-empty__title">Réservé aux administrateurs</div>
-    </div>`;
+  container.replaceChildren(emptyState({
+    icon: 'fa-solid fa-lock',
+    title: 'Réservé aux administrateurs',
+    text: 'La configuration du module est réservée aux administrateurs de la collectivité.',
+  }));
   return false;
 }
 
@@ -35,12 +35,11 @@ export async function renderConfig(container) {
   try {
     settings = (await api.getParticiperSettings()) || {};
   } catch (e) {
-    container.innerHTML = `
-      <div class="adm-empty">
-        <div class="adm-empty__icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
-        <div class="adm-empty__title">Réglages illisibles</div>
-        <div class="adm-empty__text">${esc(e.message)} - rechargez la page.</div>
-      </div>`;
+    container.replaceChildren(emptyState({
+      icon: 'fa-solid fa-triangle-exclamation',
+      title: 'Réglages illisibles',
+      text: `${e.message} - rechargez la page.`,
+    }));
     return;
   }
 
@@ -53,19 +52,10 @@ export async function renderConfig(container) {
   const num = (id, value, min, max) => `<input class="cw-field__input" type="number" id="${id}" value="${value}" min="${min}" max="${max}">`;
 
   container.innerHTML = `
-    <div class="cw-header">
-      <div class="cw-header__top">
-        <a href="/admin/participer/" class="cw-back-link" data-section="participer">
-          <i class="fa-solid fa-arrow-left"></i><span>Participer</span>
-        </a>
-      </div>
-      <div class="cw-header__main">
-        <div class="cw-header__text">
-          <h1 class="cw-header__title">Réglages du module</h1>
-          <p class="cw-header__subtitle">Comment les habitants déposent, et comment vous êtes prévenu.</p>
-        </div>
-      </div>
-    </div>
+    ${subPageHeader({
+      title: 'Réglages du module',
+      subtitle: 'Comment les habitants déposent, et comment vous êtes prévenu.',
+    })}
 
     <div class="cw-sections">
       <section class="cw-section">
@@ -311,12 +301,11 @@ async function _renderCategoryList(container) {
   });
 }
 
-const _slugify = (s) => String(s || '')
-  .toLowerCase()
-  .normalize('NFD').replace(/[̀-ͯ]/g, '')
-  .replace(/[^a-z0-9]+/g, '-')
-  .replace(/^-+|-+$/g, '')
-  .slice(0, 40);
+/* Délégué à la slugification du projet : elle seule traite les ligatures
+   (« Cœur » donne « coeur », là où une décomposition simple laisse « c-ur ») et
+   reste alignée sur la fonction Postgres du même nom. La clé de catégorie est
+   plafonnée à 40 caractères comme son champ de saisie. */
+const _slugify = (s) => window.SecurityUtils.slugify(s).slice(0, 40);
 
 function _openCategoryForm(cat, onSaved) {
   const isNew = !cat;
@@ -340,7 +329,7 @@ function _openCategoryForm(cat, onSaved) {
         </div>
         <div class="cw-field">
           <label class="cw-field__label" for="ptc-color">Couleur</label>
-          <input type="color" class="ptadm-color" id="ptc-color" value="${safeColor(cat?.color || COULEUR_DEFAUT)}">
+          <input type="color" class="ptadm-color" id="ptc-color" value="${safeColor(cat?.color)}">
         </div>
         <div class="cw-field">
           <label class="cw-field__label" for="ptc-help">Texte d'aide</label>
@@ -377,7 +366,7 @@ function _openCategoryForm(cat, onSaved) {
       category_key: categoryKey,
       label,
       icon_class: content.querySelector('#ptc-icon')?.value || 'fa-solid fa-circle-exclamation',
-      color: content.querySelector('#ptc-color')?.value || COULEUR_DEFAUT,
+      color: content.querySelector('#ptc-color')?.value || null,
       help_text: content.querySelector('#ptc-help')?.value.trim() || null,
       sort_order: parseInt(content.querySelector('#ptc-order')?.value, 10) || 0,
       enabled: cat?.enabled !== undefined ? cat.enabled : true,

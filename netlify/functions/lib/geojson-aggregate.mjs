@@ -10,6 +10,7 @@
  */
 
 import { enrichGeoJSON } from '../../../modules/feature-enrich.js';
+import { isValidCityCode } from './http.mjs';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://wqqsuybmyqemhojsamgq.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
@@ -28,9 +29,6 @@ const SUPABASE_HEADERS = {
 };
 
 const EMPTY_FC = JSON.stringify({ type: 'FeatureCollection', features: [] });
-
-/** Même règle que SecurityUtils.isValidCityCode côté navigateur. */
-const isValidCityCode = (code) => /^[a-z0-9-]+$/i.test(String(code ?? '').trim());
 
 const json = (statusCode, body) => ({ statusCode, headers: CORS_HEADERS, body });
 
