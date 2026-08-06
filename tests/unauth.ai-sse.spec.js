@@ -97,13 +97,11 @@ function relaisDiagnostic(relay, flux, { timedOut = false } = {}) {
   });
 }
 
-let relay, friendlyAIError;
-
-test.beforeAll(async () => {
-  const mod = await import('../netlify/functions/lib/ai-common.mjs');
-  relay = mod.relayOpenAIStream;
-  friendlyAIError = mod.friendlyAIError;
-});
+/* Import STATIQUE volontaire (pattern de unauth.demo-mail.spec.js) : depuis
+   que ai-common importe lib/http.mjs, l'import dynamique en beforeAll fait
+   échouer le transformateur de Playwright (« exports is not defined in ES
+   module scope »), alors que le graphe statique se compile correctement. */
+import { relayOpenAIStream as relay, friendlyAIError } from '../netlify/functions/lib/ai-common.mjs';
 
 test.describe('0.30 - Relais SSE partagé des fonctions IA', () => {
 

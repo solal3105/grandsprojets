@@ -11,7 +11,10 @@
 
 // Aides HTTP génériques (CORS, réponses, JWT, rôle) : extraites dans http.mjs,
 // ré-exportées ici pour que ai-generate et ai-diagnostic n'aient rien à changer.
-export { getCorsHeaders, errResp, preflightResp, getAuthedUser, isAdminForVille } from './http.mjs';
+// Import puis export en deux temps : le transformateur de Playwright compile
+// mal la forme `export ... from` quand un spec importe ce fichier en Node.
+import { getCorsHeaders, errResp, preflightResp, getAuthedUser, isAdminForVille } from './http.mjs';
+export { getCorsHeaders, errResp, preflightResp, getAuthedUser, isAdminForVille };
 
 // Passerelle IA Netlify : quand elle est active, OPENAI_API_KEY est un jeton
 // de passerelle valable uniquement sur OPENAI_BASE_URL (jamais api.openai.com).
