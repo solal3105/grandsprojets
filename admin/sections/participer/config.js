@@ -75,7 +75,6 @@ export async function renderConfig(container) {
             <h2 class="cw-section__title">Ce que voit l'habitant</h2>
             <p class="cw-section__desc">Les textes affichés sur la carte publique</p>
           </div>
-          <span class="cw-optional-badge">Facultatif</span>
         </div>
         <div class="cw-section__body">
           ${field('ptcfg-intro', 'Introduction du formulaire', 'Affichée en tête du panneau « Signaler ». Laissez vide pour le texte par défaut.',
@@ -259,12 +258,14 @@ async function _renderCategoryList(container) {
           ${cat.help_text ? esc(cat.help_text) : ''}
         </div>
       </div>
-      <label class="adm-switch" title="${cat.enabled ? 'Proposée aux habitants' : 'Masquée du formulaire'}">
-        <input type="checkbox" data-toggle="${esc(cat.id)}" ${cat.enabled ? 'checked' : ''}>
-        <span class="adm-switch__track"></span>
-      </label>
-      <button class="adm-btn adm-btn--ghost adm-btn--icon" data-edit="${esc(cat.id)}" aria-label="Modifier"><i class="fa-solid fa-pen"></i></button>
-      <button class="adm-btn adm-btn--ghost adm-btn--icon" data-delete="${esc(cat.id)}" aria-label="Supprimer"><i class="fa-solid fa-trash"></i></button>
+      <div class="adm-list-item__actions">
+        <label class="adm-switch" title="${cat.enabled ? 'Proposée aux habitants' : 'Masquée du formulaire'}">
+          <input type="checkbox" data-toggle="${esc(cat.id)}" ${cat.enabled ? 'checked' : ''}>
+          <span class="adm-switch__track"></span>
+        </label>
+        <button class="adm-btn adm-btn--ghost adm-btn--icon" data-edit="${esc(cat.id)}" aria-label="Modifier"><i class="fa-solid fa-pen"></i></button>
+        <button class="adm-btn adm-btn--ghost adm-btn--icon ptadm-delete" data-delete="${esc(cat.id)}" aria-label="Supprimer"><i class="fa-solid fa-trash"></i></button>
+      </div>
     </div>`).join('');
 
   body.addEventListener('click', async (e) => {
@@ -419,7 +420,9 @@ export async function renderStatutsAdmin(container) {
                   ${st.notify ? '<span class="ptadm-notify"><i class="fa-solid fa-envelope"></i> prévient l\'habitant</span>' : '<span class="ptadm-notify ptadm-notify--off"><i class="fa-solid fa-envelope-open"></i> sans email</span>'}
                 </div>
               </div>
-              <button class="adm-btn adm-btn--ghost adm-btn--icon" data-edit="${esc(st.id)}" aria-label="Modifier"><i class="fa-solid fa-pen"></i></button>
+              <div class="adm-list-item__actions">
+                <button class="adm-btn adm-btn--ghost adm-btn--icon" data-edit="${esc(st.id)}" aria-label="Modifier"><i class="fa-solid fa-pen"></i></button>
+              </div>
             </div>`).join('')}
         </div>
       </section>

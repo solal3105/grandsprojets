@@ -8,8 +8,8 @@
 
 import { store } from '../../store.js';
 import * as api from '../../api.js';
-import { esc, toast, skeletonTable, renderPagination, emptyState, formatRelativeDate } from '../../components/ui.js';
-import { loadRefData, statutPill, categoryChip, STATUTS_CLOS } from './data.js';
+import { esc, toast, skeletonTable, renderPagination, emptyState, formatRelativeDate, truncate } from '../../components/ui.js';
+import { loadRefData, statutPill, categoryIcon, categoryLabel, STATUTS_CLOS } from './data.js';
 import { openDetail } from './detail.js';
 
 const TABS = [
@@ -108,17 +108,18 @@ async function _loadRows(container) {
       <div class="adm-card">
         ${rows.map((row) => `
           <button class="adm-list-item ptadm-row" data-id="${esc(row.id)}">
+            ${categoryIcon(ref, row.category_key)}
             <div class="adm-list-item__info">
-              <div class="adm-list-item__name">${categoryChip(ref, row.category_key)} <span class="ptadm-ref">${esc(row.reference)}</span></div>
+              <div class="adm-list-item__name">${esc(categoryLabel(ref, row.category_key))} <span class="ptadm-ref">${esc(row.reference)}</span></div>
               <div class="adm-list-item__meta">
-                ${esc(formatRelativeDate(row.created_at))}
-                ${row.adresse ? ` · ${esc(row.adresse)}` : ''}
-                ${row.description ? ` · ${esc(String(row.description).slice(0, 80))}` : ''}
+                <span>${esc(formatRelativeDate(row.created_at))}</span>
+                ${row.adresse ? `<span>${esc(row.adresse)}</span>` : ''}
+                ${row.description ? `<span class="ptadm-row__desc">${esc(truncate(row.description, 80))}</span>` : ''}
               </div>
             </div>
             ${row.photo_path ? '<i class="fa-solid fa-camera ptadm-camera" title="Photo jointe"></i>' : ''}
-            <span class="adm-badge ${row.published ? 'adm-badge--success' : 'adm-badge--neutral'}">${row.published ? 'Publié' : 'Non publié'}</span>
             ${statutPill(ref, row.statut_key)}
+            <span class="adm-badge ${row.published ? 'adm-badge--success' : 'adm-badge--neutral'}">${row.published ? 'Publié' : 'Non publié'}</span>
           </button>`).join('')}
       </div>`;
 
@@ -187,7 +188,7 @@ async function _exportCsv() {
       ['reference', 'categorie', 'statut', 'description', 'adresse', 'lat', 'lng', 'publie', 'cree_le', 'clos_le'].join(';'),
       ...rows.map((r) => [
         cell(r.reference),
-        cell(ref.categories.find((c) => c.category_key === r.category_key)?.label || r.category_key),
+        cell(categoryLabel(ref, r.category_key)),
         cell(ref.statuts.find((s) => s.statut_key === r.statut_key)?.label || r.statut_key),
         cell(r.description),
         cell(r.adresse),

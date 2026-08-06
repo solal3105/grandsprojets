@@ -46,12 +46,22 @@ export function statutPill(ref, statutKey) {
   return `<span class="ptadm-pill" style="--ptadm-color:${color}">${esc(st?.label || statutKey)}</span>`;
 }
 
-/** Chip de catégorie avec son icône. */
+/** Chip de catégorie : icône et libellé ensemble. */
 export function categoryChip(ref, categoryKey) {
   const cat = catOf(ref, categoryKey);
-  const color = safeColor(cat?.color);
-  return `<span class="ptadm-cat" style="--ptadm-color:${color}"><i class="${esc(cat?.icon_class || 'fa-solid fa-circle-exclamation')}"></i> ${esc(cat?.label || categoryKey)}</span>`;
+  return `<span class="ptadm-cat" style="--ptadm-color:${safeColor(cat?.color)}"><i class="${esc(cat?.icon_class || 'fa-solid fa-circle-exclamation')}"></i> ${esc(cat?.label || categoryKey)}</span>`;
 }
+
+/**
+ * Icône seule, à poser en frère de `.adm-list-item__info` : dans une ligne de
+ * liste, le visuel tient sa colonne et le texte s'aligne dessous.
+ */
+export function categoryIcon(ref, categoryKey) {
+  const cat = catOf(ref, categoryKey);
+  return `<span class="ptadm-cat ptadm-cat--icon" style="--ptadm-color:${safeColor(cat?.color)}"><i class="${esc(cat?.icon_class || 'fa-solid fa-circle-exclamation')}"></i></span>`;
+}
+
+export const categoryLabel = (ref, categoryKey) => catOf(ref, categoryKey)?.label || categoryKey;
 
 /**
  * En-tête commun des sous-pages de configuration, sur le patron des autres

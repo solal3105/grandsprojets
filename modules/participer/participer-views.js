@@ -380,7 +380,7 @@
     container.innerHTML = `
       <div class="pt-explorer pt-view">
         <div class="pt-section">
-          <div class="pt-explorer__count"><strong>${features.length}</strong> signalement${features.length > 1 ? 's' : ''} sur la carte</div>
+          <div class="pt-explorer__count" id="pt-count"></div>
           <div class="pt-filters">
             <button class="pt-filter is-active" data-statut="">Tous</button>
             ${statutsPresents.map((s) => `
@@ -391,10 +391,19 @@
       </div>`;
 
     const list = container.querySelector('#pt-list');
+    const compteur = container.querySelector('#pt-count');
     const renderList = (statutKey) => {
       const items = statutKey
         ? features.filter((f) => f.properties.statut_key === statutKey)
         : features;
+      // Le compteur suit le filtre : sinon il contredit la liste affichée
+      if (compteur) {
+        const libelle = statutKey
+          ? (config.statuts || []).find((s2) => s2.statut_key === statutKey)?.label || ''
+          : '';
+        compteur.innerHTML = `<strong>${items.length}</strong> signalement${items.length > 1 ? 's' : ''}`
+          + (libelle ? ` ${esc(libelle.toLowerCase())}` : ' sur la carte');
+      }
       list.innerHTML = items.map((f) => {
         const p = f.properties;
         const date = p.created_at ? new Date(p.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
@@ -406,7 +415,7 @@
               ${p.description ? `<span class="pt-item__desc">${esc(p.description)}</span>` : ''}
               <span class="pt-item__foot">
                 <span class="pt-statut-pill" style="--pt-color:${safeColor(p.statut_color)}">${esc(p.statut_label)}</span>
-                <span class="pt-item__meta">${date}</span>
+                <span class="pt-item__meta">${esc(p.reference)}${date ? ` · ${date}` : ''}</span>
               </span>
             </span>
           </button>`;
@@ -481,9 +490,11 @@
         <button id="detail-close-btn" class="detail-close-floating" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="detail-scroll-body">
-        <div class="detail-hero detail-hero--participer" style="--pt-color:${color}">
+        <div class="detail-hero ${s.photo_url ? '' : 'detail-hero--participer'}" style="--pt-color:${color}">
+          ${s.photo_url
+            ? `<img class="detail-hero__img" src="${esc(s.photo_url)}" alt="Photo du signalement" loading="eager">`
+            : `<i class="${safeIcon(s.category_icon)} pt-hero-icon"></i>`}
           <div class="detail-hero__grad"></div>
-          <i class="${safeIcon(s.category_icon)} pt-hero-icon"></i>
         </div>
         <div class="detail-content-wrap">
           ${own && s.email_confirmed === false ? `
@@ -504,7 +515,6 @@
             <span class="pt-statut-pill" style="--pt-color:${safeColor(s.statut_color)};flex-shrink:0">${esc(s.statut_label)}</span>
           </div>
           ${s.adresse ? `<div class="detail-chips"><span class="detail-chip"><i class="fa-solid fa-location-dot"></i>${esc(s.adresse)}</span></div>` : ''}
-          ${s.photo_url ? `<img class="pt-detail-photo" src="${esc(s.photo_url)}" alt="Photo du signalement" loading="lazy">` : ''}
           ${s.description ? `<p class="detail-description" style="margin-top:14px">${esc(s.description)}</p>` : ''}
           ${_eventsTimeline(events, statuts)}
           ${own ? `

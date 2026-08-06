@@ -5348,7 +5348,9 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
-  color: var(--ptadm-color, var(--color-info));
+  /* Texte assombri, fond inchangé : une teinte chaude venue de la base posée
+     telle quelle sur son propre voile passe sous le seuil de lisibilité. */
+  color: color-mix(in srgb, var(--ptadm-color, var(--color-info)) 78%, black);
   background: color-mix(in srgb, var(--ptadm-color, var(--color-info)) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--ptadm-color, var(--color-info)) 35%, transparent);
 }
@@ -5371,16 +5373,20 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
   color: var(--gray-900);
 }
 
+.ptadm-cat--icon {
+  gap: 0;
+}
+
 .ptadm-cat i {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 10px;
+  border-radius: var(--adm-radius-sm);
   font-size: 13px;
   flex-shrink: 0;
-  color: var(--ptadm-color, var(--color-info));
+  color: color-mix(in srgb, var(--ptadm-color, var(--color-info)) 78%, black);
   background: color-mix(in srgb, var(--ptadm-color, var(--color-info)) 12%, transparent);
 }
 
@@ -5404,7 +5410,7 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
 }
 
 .ptadm-notify--off {
-  color: var(--gray-400);
+  color: var(--gray-500);
 }
 
 /* Ligne désactivée : présente, mais visiblement hors service */
@@ -5431,11 +5437,18 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   font-size: 11px;
   font-weight: 500;
-  color: var(--gray-400);
+  color: var(--gray-500);
+}
+
+.ptadm-row__desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .ptadm-camera {
-  color: var(--gray-400);
+  color: var(--gray-500);
   font-size: 13px;
 }
 
@@ -5465,7 +5478,7 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
 .ptadm-detail__meta {
   margin-top: -8px;
   font-size: 12px;
-  color: var(--gray-400);
+  color: var(--gray-500);
 }
 
 .ptadm-detail__desc {
@@ -5486,7 +5499,7 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
   width: 100%;
   max-height: 280px;
   object-fit: cover;
-  border-radius: 14px;
+  border-radius: var(--adm-radius);
   display: block;
 }
 
@@ -5510,7 +5523,7 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
 
 .ptadm-detail__map {
   height: 170px;
-  border-radius: 14px;
+  border-radius: var(--adm-radius);
   overflow: hidden;
   border: 1px solid var(--adm-glass-border);
 }
@@ -5538,16 +5551,18 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
 
 .ptadm-block__title {
   margin: 0;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--gray-700);
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--gray-500);
 }
 
 .ptadm-block__hint {
   margin: -4px 0 0;
   font-size: 12px;
   line-height: 1.5;
-  color: var(--gray-400);
+  color: var(--gray-500);
 }
 
 /* Statut et validation sur une ligne : c'est un geste, pas un formulaire */
@@ -5598,7 +5613,7 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
   position: absolute;
   left: 4px;
   top: 14px;
-  bottom: 0;
+  bottom: -5px;
   width: 1.5px;
   background: var(--black-alpha-04);
 }
@@ -5646,14 +5661,14 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
 .ptadm-event__date {
   font-size: 11px;
   font-weight: 400;
-  color: var(--gray-400);
+  color: var(--gray-500);
 }
 
 .ptadm-event__msg {
   margin-top: 6px;
   padding: 8px 12px;
   border-left: 3px solid color-mix(in srgb, var(--ptadm-color, var(--color-info)) 40%, transparent);
-  border-radius: 0 10px 10px 0;
+  border-radius: 0 var(--adm-radius-sm) var(--adm-radius-sm) 0;
   font-size: 13px;
   line-height: 1.55;
   color: var(--gray-700);
@@ -5705,9 +5720,12 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
   cursor: pointer;
 }
 
-/* Listes à plat dans une cw-section : la section porte déjà le cadre */
+/* Listes à plat dans une cw-section : la section porte déjà le cadre.
+   Le `gap` hérité de .cw-section__body s'ajouterait APRÈS chaque séparateur et
+   décollerait le trait de la ligne suivante. */
 .cw-section__body--flush {
   padding: 0;
+  gap: 0;
 }
 
 .cw-section__body--flush .adm-list-item:last-child {
@@ -5731,11 +5749,11 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
 
 /* ── Dark ────────────────────────────────────────────────────────────────── */
 
-[data-theme='dark'] .ptadm-cat,
-[data-theme='dark'] .ptadm-event__title,
-[data-theme='dark'] .ptadm-detail__desc,
-[data-theme='dark'] .ptadm-switch-row__text strong {
-  color: var(--gray-900);
+/* Sur fond sombre, la couleur venue de la base doit s'éclaircir et non
+   s'assombrir : même règle que côté carte. */
+[data-theme='dark'] .ptadm-pill,
+[data-theme='dark'] .ptadm-cat i {
+  color: color-mix(in srgb, var(--ptadm-color, var(--color-info)) 60%, white);
 }
 
 [data-theme='dark'] .ptadm-color {
