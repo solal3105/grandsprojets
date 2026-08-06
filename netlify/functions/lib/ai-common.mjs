@@ -9,44 +9,14 @@
  * mot pour mot. Seuls diffèrent les événements écoutés et les messages.
  */
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://wqqsuybmyqemhojsamgq.supabase.co';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
+// Aides HTTP génériques (CORS, réponses, JWT, rôle) : extraites dans http.mjs,
+// ré-exportées ici pour que ai-generate et ai-diagnostic n'aient rien à changer.
+export { getCorsHeaders, errResp, preflightResp, getAuthedUser, isAdminForVille } from './http.mjs';
 
 // Passerelle IA Netlify : quand elle est active, OPENAI_API_KEY est un jeton
 // de passerelle valable uniquement sur OPENAI_BASE_URL (jamais api.openai.com).
 export const OPENAI_RESPONSES_URL =
   (process.env.OPENAI_BASE_URL?.replace(/\/$/, '') || 'https://api.openai.com') + '/v1/responses';
-
-const ALLOWED_ORIGINS = [
-  'https://openprojets.com',
-  'http://localhost:3001',
-  'http://localhost:8888',
-];
-
-export function getCorsHeaders(req) {
-  const origin = req.headers.get('origin') || '';
-  return {
-    'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  };
-}
-
-export function errResp(status, error, corsHeaders) {
-  return new Response(JSON.stringify({ error }), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
-
-/**
- * Reponse au preflight CORS.
- * Le corps DOIT etre null : un statut 204 avec un corps, meme vide, fait lever
- * un TypeError au constructeur Response, et le preflight repond alors 500.
- */
-export function preflightResp(corsHeaders) {
-  return new Response(null, { status: 204, headers: corsHeaders });
-}
 
 /**
  * Message utilisateur (français) pour une erreur du service IA.
@@ -73,43 +43,6 @@ export function friendlyAIError(status, raw, conseil400 = '') {
   if (s === 400) return `Requête refusée par le service IA - réessayez${conseil400 ? ` ; ${conseil400}` : ''}.`;
   if (s >= 500) return 'Service IA temporairement indisponible - réessayez dans quelques instants.';
   return `Service IA indisponible${s ? ` (HTTP ${s})` : ''} - réessayez.`;
-}
-
-/**
- * Vérifie le JWT Supabase de la requête.
- * @param {Request} req
- * @returns {Promise<{id: string, token: string}|null>} l'utilisateur, ou null
- */
-export async function getAuthedUser(req) {
-  const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-  if (!token) return null;
-  try {
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY },
-    });
-    if (!res.ok) return null;
-    const user = await res.json();
-    return user?.id ? { id: user.id, token } : null;
-  } catch { return null; }
-}
-
-/**
- * L'utilisateur est-il admin de cette ville (ou admin global) ?
- * Lecture de son propre profil sous RLS.
- */
-export async function isAdminForVille(user, ville) {
-  try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}&select=role,ville`,
-      { headers: { 'Authorization': `Bearer ${user.token}`, 'apikey': SUPABASE_ANON_KEY } }
-    );
-    if (!res.ok) return false;
-    const rows = await res.json();
-    const profile = Array.isArray(rows) ? rows[0] : null;
-    if (!profile || profile.role !== 'admin') return false;
-    const villes = Array.isArray(profile.ville) ? profile.ville : [];
-    return villes.includes('global') || villes.includes(ville);
-  } catch { return false; }
 }
 
 /**
