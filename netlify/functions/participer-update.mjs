@@ -48,10 +48,12 @@ export default async (req) => {
   const cors = { ...getCorsHeaders(req), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
   if (req.method === 'OPTIONS') return preflightResp(cors);
   if (req.method !== 'POST') return jsonResp(405, { error: 'Méthode non autorisée' }, cors);
-  if (!hasServiceKey()) return jsonResp(503, { error: 'Service indisponible' }, cors);
 
+  // L'authentification se vérifie avec la clé anonyme : un appel non authentifié
+  // reçoit 401 même si la clé de service manque (contexte netlify dev)
   const user = await getAuthedUser(req);
   if (!user) return jsonResp(401, { error: 'Non authentifié' }, cors);
+  if (!hasServiceKey()) return jsonResp(503, { error: 'Service indisponible' }, cors);
 
   let body;
   try {

@@ -147,6 +147,11 @@ Non testable en E2E : placement du point (WebGL), parcours complet
 dépôt → confirmation → modération (exige la boucle email réelle) - le contrat
 serveur de chaque étape est couvert unitairement à défaut.
 
+En local, `netlify dev` n'injecte pas `SUPABASE_SERVICE_ROLE_KEY` (même limite
+que demo-generate) : les tests qui en dépendent SAUTENT explicitement au lieu
+d'échouer. Pour les exécuter en local, ajouter la clé dans un fichier `.env` à
+la racine (chargé par netlify dev, jamais commité).
+
 ## Reste à faire (V2, hors périmètre V1)
 
 Soutiens « moi aussi », suggestion de doublons au dépôt, actions depuis
