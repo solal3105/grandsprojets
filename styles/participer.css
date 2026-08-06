@@ -151,6 +151,21 @@
   border-color: rgba(255, 255, 255, 0.1);
 }
 
+/* Sur fond sombre, une couleur de marque saturée posée sur son propre voile à
+   12 % devient illisible : on l'éclaircit, comme le fait le reste du projet. */
+[data-theme='dark'] .pt-locate__btn,
+[data-theme='dark'] .pt-cat.is-active,
+[data-theme='dark'] .pt-cat.is-active i,
+[data-theme='dark'] .pt-filter.is-active,
+[data-theme='dark'] .pt-statut-pill {
+  color: color-mix(in srgb, var(--pt-color, var(--color-primary)) 60%, white);
+}
+
+[data-theme='dark'] .pt-locate__btn {
+  color: color-mix(in srgb, var(--color-primary) 60%, white);
+  border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
+}
+
 /* ── Étape 1 : localisation ──────────────────────────────────────────────── */
 
 .pt-locate {
@@ -378,6 +393,18 @@
      s'effacer progressivement plutôt que d'être coupé net. */
   padding: 26px 18px 18px;
   background: linear-gradient(to top, var(--surface-base) 58%, transparent 100%);
+}
+
+/* Sous 720px le panneau porte déjà son propre bouton « Voir la carte » en
+   pied : deux boutons pleine largeur empilés se disputeraient le geste. Le
+   nôtre reprend sa place à la fin du formulaire. */
+@media (max-width: 720px) {
+  .pt-submit-bar {
+    position: static;
+    margin: 0;
+    padding: 4px 0 0;
+    background: none;
+  }
 }
 
 .pt-submit {

@@ -5714,6 +5714,21 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
   border-bottom: none;
 }
 
+/* Une ligne de statut ne porte qu'une pastille et deux mentions : la hauteur
+   d'une ligne de contribution y sonnerait creux. */
+.cw-section__body--flush .adm-list-item {
+  padding: 12px 20px;
+}
+
+/* Portée volontairement limitée aux listes de ce module : `.adm-list-item__meta`
+   est partagé par toutes les sections de l'admin. */
+.cw-section__body--flush .adm-list-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 /* ── Dark ────────────────────────────────────────────────────────────────── */
 
 [data-theme='dark'] .ptadm-cat,
