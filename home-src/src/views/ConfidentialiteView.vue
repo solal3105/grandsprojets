@@ -119,6 +119,30 @@
         </div>
       </div>
     </section>
+
+    <!-- Signalements citoyens (module Participer) -->
+    <section class="py-24 bg-gray-bg">
+      <div class="max-w-container mx-auto px-6">
+        <div class="max-w-[768px]">
+          <h2 class="font-heading font-bold text-3xl sm:text-4xl leading-tight tracking-tight text-dark">
+            Si vous déposez un signalement sur une carte
+          </h2>
+          <p class="mt-6 text-gray-text leading-relaxed">
+            Certaines collectivités activent un module de signalement sur leur
+            carte : vous pouvez y décrire un problème ou une idée, avec un point
+            sur la carte, une photo et votre adresse email. Voici ce que devient
+            chacune de ces informations.
+          </p>
+
+          <dl class="mt-10 space-y-8">
+            <div v-for="item in participer" :key="item.term">
+              <dt class="font-heading font-semibold text-lg text-dark">{{ item.term }}</dt>
+              <dd class="mt-2 text-gray-text leading-relaxed">{{ item.desc }}</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -220,6 +244,25 @@ const details = [
   {
     term: 'Les enregistrements de navigation ont des limites que nous assumons',
     desc: 'Ils reproduisent ce qui s\'affiche à l\'écran : le texte des pages en fait partie, seules vos saisies sont masquées. Ils sont désactivés lorsque la carte est intégrée dans le site d\'une collectivité, où vous ne pourriez pas exprimer votre refus depuis cette page.',
+  },
+]
+
+const participer = [
+  {
+    term: 'Votre adresse email n\'est jamais publiée',
+    desc: 'Elle sert uniquement à confirmer votre dépôt puis à vous informer de son traitement. Elle n\'apparaît ni sur la carte, ni dans les exports, et elle est effacée automatiquement au plus tard 12 mois après la clôture du signalement, comme l\'empreinte technique de connexion qui borne les abus.',
+  },
+  {
+    term: 'Rien n\'est public avant validation par la collectivité',
+    desc: 'Votre description et votre photo ne deviennent visibles sur la carte qu\'après vérification par un agent : c\'est la collectivité qui est responsable de ce qu\'elle publie. Les métadonnées de vos photos, dont la position exacte de la prise de vue, sont supprimées dès l\'envoi.',
+  },
+  {
+    term: 'La collectivité est responsable de ce traitement',
+    desc: 'Le signalement citoyen relève de la mission d\'intérêt public de la collectivité qui a activé le module ; Open Projets héberge et traite ces données pour son compte, dans l\'Union européenne. Pour exercer vos droits, adressez-vous à la collectivité concernée ou écrivez-nous depuis la page contact.',
+  },
+  {
+    term: 'Chacun peut demander le retrait d\'un contenu publié',
+    desc: 'Chaque signalement publié porte un bouton « demander le retrait de ce contenu » : si un contenu vous concerne, la demande est transmise directement à la collectivité, qui doit répondre sous un mois.',
   },
 ]
 </script>
