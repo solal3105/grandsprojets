@@ -139,7 +139,7 @@
     _updateSubmitState(container);
   }
 
-  function _bindMapClick(container) {
+  function _bindMapClick() {
     _draft.placing = true;
     if (_mapClickBound) return;
     const map = win.MapModule?.map;
@@ -239,7 +239,7 @@
         <div class="pt-feedback" id="pt-feedback" role="alert" hidden></div>
       </form>`;
 
-    _bindMapClick(container);
+    _bindMapClick();
 
     container.querySelector('#pt-geoloc')?.addEventListener('click', () => {
       if (!navigator.geolocation) return;
