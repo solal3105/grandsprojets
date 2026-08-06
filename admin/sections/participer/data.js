@@ -53,14 +53,24 @@ export function categoryChip(ref, categoryKey) {
   return `<span class="ptadm-cat" style="--ptadm-color:${color}"><i class="${esc(cat?.icon_class || 'fa-solid fa-circle-exclamation')}"></i> ${esc(cat?.label || categoryKey)}</span>`;
 }
 
-/** En-tête commun des sous-pages de configuration. */
-export function subPageHeader({ icon, title, subtitle }) {
+/**
+ * En-tête commun des sous-pages de configuration, sur le patron des autres
+ * formulaires admin (cw-header + cw-back-link).
+ */
+export function subPageHeader({ title, subtitle, action = '' }) {
   return `
-    <a href="/admin/participer/" data-section="participer" class="cw-back-link"><i class="fa-solid fa-arrow-left"></i> Retour à la file</a>
-    <div class="adm-page-header">
-      <div>
-        <h1 class="adm-page-title"><i class="${icon}"></i> ${esc(title)}</h1>
-        <p class="adm-page-subtitle">${esc(subtitle)}</p>
+    <div class="cw-header">
+      <div class="cw-header__top">
+        <a href="/admin/participer/" class="cw-back-link" data-section="participer">
+          <i class="fa-solid fa-arrow-left"></i><span>Participer</span>
+        </a>
+      </div>
+      <div class="cw-header__main">
+        <div class="cw-header__text">
+          <h1 class="cw-header__title">${esc(title)}</h1>
+          <p class="cw-header__subtitle">${esc(subtitle)}</p>
+        </div>
+        ${action}
       </div>
     </div>`;
 }

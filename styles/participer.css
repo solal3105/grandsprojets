@@ -1,12 +1,17 @@
 /* ============================================================================
    MODULE PARTICIPER - carte publique
    Formulaire de dépôt, explorateur, markers, modal détail.
-   Préfixe pt- ; chaque couleur passe par --pt-color (posée inline depuis la
-   base) ou par les alias sémantiques. Transitions locales : rien ici n'est
-   dans l'allowlist de 01-base.css.
+
+   Aligné sur le vocabulaire du panneau de navigation (09-nav-panel.css) :
+   padding de niveau 3 à 18px, champs à rayon 14px et padding 11px 14px,
+   labels de section en petites capitales. Préfixe `pt-`.
+
+   Les couleurs de catégorie et de statut viennent de la base : elles arrivent
+   par la variable locale `--pt-color`, jamais en dur. Transitions déclarées
+   localement (rien ici n'est dans l'allowlist de 01-base.css).
    ============================================================================ */
 
-/* ── Markers ── */
+/* ── Markers ─────────────────────────────────────────────────────────────── */
 
 .pt-marker-container {
   background: none;
@@ -24,7 +29,7 @@
   border: 2.5px solid var(--pt-color, var(--color-info));
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   cursor: pointer;
-  transition: transform 0.3s ease-in-out;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .pt-marker i {
@@ -33,7 +38,7 @@
 }
 
 .pt-marker:hover {
-  transform: scale(1.15);
+  transform: scale(1.12);
 }
 
 .pt-marker--draft {
@@ -45,17 +50,18 @@
 
 @keyframes pt-pulse {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.12); }
+  50% { transform: scale(1.1); }
 }
 
-/* ── Pill de statut (pattern badge du design system) ── */
+/* ── Pastille de statut (pattern badge du design system) ─────────────────── */
 
 .pt-statut-pill {
   display: inline-flex;
   align-items: center;
+  gap: 5px;
   padding: 3px 10px;
   border-radius: 999px;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 600;
   white-space: nowrap;
   color: var(--pt-color, var(--color-info));
@@ -63,102 +69,156 @@
   border: 1px solid color-mix(in srgb, var(--pt-color, var(--color-info)) 35%, transparent);
 }
 
-/* ── Formulaire ── */
+.pt-statut-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentcolor;
+  flex-shrink: 0;
+}
 
-.pt-form {
+/* ── Structure commune des vues du panneau ───────────────────────────────── */
+
+.pt-view {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 4px 2px 12px;
+  gap: 18px;
+  padding: 18px 18px 24px;
+}
+
+.pt-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Même signature que .np-filter-label du panneau travaux */
+.pt-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
 }
 
 .pt-intro {
-  margin: 0 0 4px;
-  font-size: 0.82rem;
-  line-height: 1.5;
+  margin: 0;
+  font-size: 0.83rem;
+  line-height: 1.55;
   color: var(--text-secondary);
 }
 
-.pt-step {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 6px;
-  font-size: 0.8rem;
-  font-weight: 700;
+/* ── Champs ──────────────────────────────────────────────────────────────── */
+
+.pt-input {
+  width: 100%;
+  /* Sans cette ligne, le padding s'ajoute à la largeur et le champ déborde
+     du panneau de 340px. */
+  box-sizing: border-box;
+  padding: 11px 14px;
+  border-radius: 14px;
+  font-size: 0.85rem;
+  font-family: inherit;
   color: var(--text-primary);
+  background: var(--surface-base);
+  border: 1px solid var(--border-light);
+  outline: none;
+  transition: border-color 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
 }
 
-.pt-step__num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  color: var(--color-primary);
-  background: var(--primary-alpha-12);
-  border: 1px solid var(--primary-alpha-35);
+.pt-input::placeholder {
+  color: var(--text-tertiary);
 }
+
+.pt-input:hover {
+  border-color: var(--border-medium);
+}
+
+.pt-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--primary-alpha-12);
+}
+
+.pt-textarea {
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.55;
+}
+
+[data-theme='dark'] .pt-input {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Étape 1 : localisation ──────────────────────────────────────────────── */
 
 .pt-locate {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  padding: 16px 14px;
+  border-radius: 16px;
+  text-align: center;
+  color: var(--text-secondary);
+  background: var(--surface-raised);
+  border: 1.5px dashed var(--border-medium);
+  transition: border-color 0.3s ease-in-out, background 0.3s ease-in-out;
+}
+
+.pt-locate__icon {
+  font-size: 1.35rem;
+  color: var(--text-tertiary);
+  transition: color 0.3s ease-in-out;
+}
+
+.pt-locate__text {
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.pt-locate__hint {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
 }
 
 .pt-locate__btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 12px;
-  border-radius: 11px;
-  font-size: 0.78rem;
+  margin-top: 2px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 0.76rem;
   font-weight: 600;
+  font-family: inherit;
   color: var(--color-primary);
   background: var(--primary-alpha-12);
   border: 1px solid var(--primary-alpha-35);
   cursor: pointer;
-  transition: background 0.3s ease-in-out;
+  transition: background 0.3s ease-in-out, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .pt-locate__btn:hover {
   background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  transform: scale(1.03);
 }
 
-.pt-locate__hint {
-  font-size: 0.74rem;
-  color: var(--text-tertiary);
+/* Point posé : la zone confirme d'elle-même, sans message séparé */
+.pt-locate.is-set {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--color-success) 45%, transparent);
+  background: color-mix(in srgb, var(--color-success) 8%, transparent);
 }
 
-.pt-locate__hint.is-set {
+.pt-locate.is-set .pt-locate__icon {
   color: var(--color-success);
-  font-weight: 600;
 }
 
-.pt-input {
-  width: 100%;
-  padding: 9px 12px;
-  border-radius: 11px;
-  font-size: 0.82rem;
-  font-family: inherit;
-  color: var(--text-primary);
-  background: var(--surface-raised);
-  border: 1px solid var(--border-light);
-  transition: border-color 0.3s ease-in-out;
-}
-
-.pt-input:focus {
-  outline: none;
-  border-color: var(--color-primary);
-}
-
-.pt-textarea {
-  resize: vertical;
-  min-height: 60px;
-}
+/* ── Étape 2 : catégories ────────────────────────────────────────────────── */
 
 .pt-cats {
   display: flex;
@@ -169,78 +229,102 @@
 .pt-cat {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 11px;
+  gap: 7px;
+  padding: 8px 13px;
   border-radius: 999px;
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   font-weight: 600;
+  font-family: inherit;
+  text-align: left;
   color: var(--text-secondary);
   background: var(--surface-raised);
   border: 1px solid var(--border-light);
   cursor: pointer;
-  transition: all 0.3s ease-in-out;
+  transition: color 0.3s ease-in-out, background 0.3s ease-in-out, border-color 0.3s ease-in-out;
 }
 
+/* Icônes neutres au repos : six couleurs de catégorie côte à côte forment une
+   mosaïque illisible. La couleur ne sert qu'à désigner le choix retenu. */
 .pt-cat i {
-  color: var(--pt-color, var(--text-tertiary));
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+  transition: color 0.3s ease-in-out;
 }
 
 .pt-cat:hover {
-  border-color: color-mix(in srgb, var(--pt-color, var(--color-primary)) 35%, transparent);
+  border-color: var(--border-medium);
+  color: var(--text-primary);
 }
 
 .pt-cat.is-active {
   color: var(--pt-color, var(--color-primary));
   background: color-mix(in srgb, var(--pt-color, var(--color-primary)) 12%, transparent);
-  border-color: color-mix(in srgb, var(--pt-color, var(--color-primary)) 35%, transparent);
+  border-color: color-mix(in srgb, var(--pt-color, var(--color-primary)) 40%, transparent);
 }
 
+.pt-cat.is-active i {
+  color: var(--pt-color, var(--color-primary));
+}
+
+/* ── Étape 3 : photo ─────────────────────────────────────────────────────── */
+
 .pt-photo {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 8px 12px;
-  border-radius: 11px;
-  font-size: 0.78rem;
+  padding: 11px 14px;
+  border-radius: 14px;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-secondary);
   background: var(--surface-raised);
-  border: 1px dashed var(--border-medium);
+  border: 1.5px dashed var(--border-medium);
   cursor: pointer;
-  transition: border-color 0.3s ease-in-out;
+  transition: border-color 0.3s ease-in-out, color 0.3s ease-in-out;
 }
 
 .pt-photo:hover {
   border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .pt-photo-preview {
   position: relative;
   width: fit-content;
+  max-width: 100%;
 }
 
 .pt-photo-preview img {
-  max-width: 100%;
-  max-height: 140px;
-  border-radius: 11px;
   display: block;
+  max-width: 100%;
+  max-height: 150px;
+  border-radius: 14px;
 }
 
 .pt-photo-remove {
   position: absolute;
   top: -8px;
   right: -8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 24px;
   height: 24px;
   border-radius: 999px;
+  font-size: 11px;
   color: #fff;
   background: var(--color-danger);
-  border: none;
+  border: 2px solid var(--surface-base);
   cursor: pointer;
-  font-size: 12px;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Honeypot : hors écran, jamais display:none (certains robots le détectent) */
+.pt-photo-remove:hover {
+  transform: scale(1.12);
+}
+
+/* Piège à robots : hors écran, jamais display:none (certains le détectent) */
 .pt-hp {
   position: absolute;
   left: -9999px;
@@ -250,56 +334,82 @@
   pointer-events: none;
 }
 
+/* ── Mentions et envoi ───────────────────────────────────────────────────── */
+
 .pt-legal {
   margin: 0;
   font-size: 0.7rem;
-  line-height: 1.45;
+  line-height: 1.5;
   color: var(--text-tertiary);
 }
 
 .pt-legal a {
   color: var(--color-primary);
+  text-decoration: underline;
 }
 
 .pt-urgence {
   display: flex;
-  align-items: center;
-  gap: 7px;
+  align-items: flex-start;
+  gap: 8px;
   margin: 0;
-  font-size: 0.72rem;
-  font-weight: 600;
+  padding: 9px 12px;
+  border-radius: 12px;
+  font-size: 0.73rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 28%, transparent);
+}
+
+.pt-urgence i {
+  margin-top: 1px;
   color: var(--color-warning);
+  flex-shrink: 0;
+}
+
+/* Collant : sur mobile le formulaire dépasse la hauteur du panneau, le bouton
+   d'envoi ne doit jamais sortir de portée. */
+.pt-submit-bar {
+  position: sticky;
+  bottom: 0;
+  margin: 0 -18px -24px;
+  padding: 14px 18px 18px;
+  background: linear-gradient(to top, var(--surface-base) 72%, transparent);
 }
 
 .pt-submit {
-  padding: 11px 16px;
-  border-radius: 12px;
-  font-size: 0.85rem;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 0.87rem;
   font-weight: 700;
+  font-family: inherit;
   color: #fff;
   background: var(--color-primary);
   border: none;
   cursor: pointer;
-  transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+  transition: opacity 0.3s ease-in-out, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .pt-submit:hover:not(:disabled) {
-  transform: scale(1.02);
+  transform: translateY(-1px);
 }
 
 .pt-submit:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .pt-submit--small {
-  padding: 8px 12px;
-  font-size: 0.78rem;
+  width: auto;
+  padding: 9px 14px;
+  font-size: 0.79rem;
 }
 
 .pt-feedback {
-  padding: 9px 12px;
-  border-radius: 11px;
+  padding: 10px 13px;
+  border-radius: 12px;
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--color-danger);
@@ -307,30 +417,40 @@
   border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
 }
 
+/* ── Écran de confirmation ───────────────────────────────────────────────── */
+
 .pt-success {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 28px 14px;
+  gap: 12px;
+  padding: 40px 20px;
   text-align: center;
 }
 
-.pt-success i {
-  font-size: 2.2rem;
+.pt-success__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 999px;
+  font-size: 1.6rem;
   color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
 }
 
 .pt-success h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.05rem;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
 .pt-success p {
   margin: 0;
-  font-size: 0.8rem;
-  line-height: 1.55;
+  font-size: 0.82rem;
+  line-height: 1.6;
   color: var(--text-secondary);
 }
 
@@ -338,19 +458,15 @@
   color: var(--color-warning);
 }
 
-/* ── Explorateur ── */
-
-.pt-explorer {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 4px 2px 12px;
-}
+/* ── Explorateur ─────────────────────────────────────────────────────────── */
 
 .pt-explorer__count {
   font-size: 0.78rem;
-  font-weight: 700;
   color: var(--text-secondary);
+}
+
+.pt-explorer__count strong {
+  color: var(--text-primary);
 }
 
 .pt-filters {
@@ -360,21 +476,27 @@
 }
 
 .pt-filter {
-  padding: 4px 10px;
+  padding: 5px 11px;
   border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 600;
+  font-family: inherit;
   color: var(--text-secondary);
   background: var(--surface-raised);
   border: 1px solid var(--border-light);
   cursor: pointer;
-  transition: all 0.3s ease-in-out;
+  transition: color 0.3s ease-in-out, background 0.3s ease-in-out, border-color 0.3s ease-in-out;
+}
+
+.pt-filter:hover {
+  border-color: var(--border-medium);
+  color: var(--text-primary);
 }
 
 .pt-filter.is-active {
   color: var(--pt-color, var(--color-primary));
   background: color-mix(in srgb, var(--pt-color, var(--color-primary)) 12%, transparent);
-  border-color: color-mix(in srgb, var(--pt-color, var(--color-primary)) 35%, transparent);
+  border-color: color-mix(in srgb, var(--pt-color, var(--color-primary)) 40%, transparent);
 }
 
 .pt-list {
@@ -386,29 +508,32 @@
 .pt-item {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 11px;
   width: 100%;
-  padding: 10px;
+  padding: 12px;
   border-radius: 16px;
   text-align: left;
+  font-family: inherit;
   background: var(--surface-raised);
   border: 1px solid var(--border-light);
   cursor: pointer;
-  transition: border-color 0.3s ease-in-out, transform 0.3s ease-in-out;
+  transition: border-color 0.3s ease-in-out, transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
 }
 
 .pt-item:hover {
   border-color: var(--primary-alpha-35);
   transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
 }
 
 .pt-item__icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  font-size: 0.85rem;
   flex-shrink: 0;
   color: var(--pt-color, var(--color-info));
   background: color-mix(in srgb, var(--pt-color, var(--color-info)) 12%, transparent);
@@ -417,25 +542,36 @@
 .pt-item__body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   flex: 1;
   min-width: 0;
 }
 
+/* Le titre garde sa ligne : la pastille de statut vit sous lui, sinon un
+   libellé long casse la mise en page de la carte. */
 .pt-item__title {
-  font-size: 0.8rem;
+  font-size: 0.83rem;
   font-weight: 700;
+  line-height: 1.3;
   color: var(--text-primary);
 }
 
 .pt-item__desc {
-  font-size: 0.74rem;
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.pt-item__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
 }
 
 .pt-item__meta {
@@ -443,45 +579,113 @@
   color: var(--text-tertiary);
 }
 
-/* ── Modal détail ── */
+/* ── Modal détail ────────────────────────────────────────────────────────── */
+
+/* Même construction que .detail-hero--travaux (04-components.css) : sans ce
+   modificateur, .detail-hero reste un bloc vide de 220px et l'icône se pose
+   en haut à gauche au lieu d'être centrée.
+   La variante travaux s'appuie sur `--surface-elevated`, qui n'est défini dans
+   aucun fichier de tokens : son dégradé est donc invalide et son fond
+   transparent. On s'appuie ici sur `--surface-raised`, qui existe en clair
+   comme en sombre. */
+.detail-hero--participer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--pt-color, var(--color-primary)) 20%, var(--surface-raised)) 0%,
+    var(--surface-raised) 100%
+  );
+}
+
+.detail-hero--participer .detail-hero__grad {
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--pt-color, var(--color-primary)) 12%, transparent) 0%,
+    transparent 60%
+  );
+}
+
+.pt-hero-icon {
+  font-size: 3.5rem;
+  color: var(--pt-color, var(--color-primary));
+  opacity: 0.82;
+  filter: drop-shadow(0 4px 20px color-mix(in srgb, var(--pt-color, var(--color-primary)) 38%, transparent));
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+
+.detail-hero--participer:hover .pt-hero-icon {
+  transform: scale(1.08);
+}
 
 .pt-detail-photo {
   width: 100%;
   max-height: 260px;
   object-fit: cover;
   border-radius: 16px;
-  margin-top: 14px;
+  margin-top: 16px;
 }
 
+/* ── Suivi (historique) ──────────────────────────────────────────────────── */
+
 .pt-timeline {
-  margin-top: 18px;
+  margin-top: 20px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 2px;
 }
 
 .pt-timeline__label {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 0.78rem;
+  margin-bottom: 10px;
+  font-size: 0.68rem;
   font-weight: 700;
-  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
 }
 
 .pt-timeline__item {
+  position: relative;
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: flex-start;
+  padding-bottom: 14px;
+}
+
+/* Filet reliant les étapes, interrompu après la dernière */
+.pt-timeline__item::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 14px;
+  bottom: 0;
+  width: 1.5px;
+  background: var(--border-light);
+}
+
+.pt-timeline__item:last-child {
+  padding-bottom: 0;
+}
+
+.pt-timeline__item:last-child::before {
+  display: none;
 }
 
 .pt-timeline__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
+  position: relative;
+  z-index: 1;
+  width: 9px;
+  height: 9px;
   margin-top: 5px;
+  border-radius: 999px;
   flex-shrink: 0;
-  background: var(--color-primary);
+  background: var(--pt-color, var(--color-info));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pt-color, var(--color-info)) 18%, transparent);
 }
 
 .pt-timeline__body {
@@ -506,12 +710,12 @@
 }
 
 .pt-timeline__msg {
-  margin: 6px 0 0;
-  padding: 8px 12px;
-  border-left: 3px solid var(--primary-alpha-35);
-  border-radius: 0 11px 11px 0;
+  margin: 7px 0 0;
+  padding: 9px 13px;
+  border-left: 3px solid color-mix(in srgb, var(--pt-color, var(--color-primary)) 40%, transparent);
+  border-radius: 0 12px 12px 0;
   font-size: 0.78rem;
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--text-secondary);
   background: var(--surface-raised);
 }
@@ -519,31 +723,44 @@
 .pt-own-note {
   display: flex;
   align-items: center;
-  gap: 7px;
-  margin: 18px 0 0;
-  font-size: 0.72rem;
+  gap: 8px;
+  margin: 20px 0 0;
+  padding: 10px 13px;
+  border-radius: 12px;
+  font-size: 0.73rem;
+  line-height: 1.45;
   color: var(--text-tertiary);
+  background: var(--surface-raised);
 }
 
 .pt-retrait {
   margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
 }
 
 .pt-retrait__toggle {
-  background: none;
-  border: none;
   padding: 0;
   font-size: 0.72rem;
+  font-family: inherit;
   color: var(--text-tertiary);
+  background: none;
+  border: none;
   text-decoration: underline;
   cursor: pointer;
+  transition: color 0.3s ease-in-out;
+}
+
+.pt-retrait__toggle:hover {
+  color: var(--text-secondary);
 }
 
 .pt-retrait__form {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 /* Nos display:flex écraseraient l'attribut hidden sans ces règles */

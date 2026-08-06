@@ -44,50 +44,137 @@ export async function renderConfig(container) {
     return;
   }
 
-  const field = (id, label, tip, input) => `
+  const field = (id, label, tip, input, optional = true) => `
     <div class="cw-field">
-      <label class="cw-field__label" for="${id}">${label}</label>
+      <label class="cw-field__label" for="${id}">${label}${optional ? ' <span class="cw-optional">facultatif</span>' : ''}</label>
       ${input}
       ${tip ? `<div class="cw-field__tip">${tip}</div>` : ''}
     </div>`;
-  const num = (id, value, min, max) => `<input class="adm-input" type="number" id="${id}" value="${value}" min="${min}" max="${max}">`;
+  const num = (id, value, min, max) => `<input class="cw-field__input" type="number" id="${id}" value="${value}" min="${min}" max="${max}">`;
 
   container.innerHTML = `
-    ${subPageHeader({
-      icon: 'fa-solid fa-gear',
-      title: 'Réglages Participer',
-      subtitle: `Fonctionnement du module pour ${store.city}`,
-    })}
-    <div class="adm-card ptadm-config">
-      ${field('ptcfg-intro', 'Texte d\'introduction du formulaire', 'Affiché en tête du panneau « Signaler » sur la carte publique.',
-        `<textarea class="adm-input" id="ptcfg-intro" rows="2" maxlength="500">${esc(settings.intro_text || '')}</textarea>`)}
-      ${field('ptcfg-success', 'Message de confirmation', 'Affiché après l\'envoi du formulaire (avant la confirmation par email).',
-        `<textarea class="adm-input" id="ptcfg-success" rows="2" maxlength="500">${esc(settings.success_text || '')}</textarea>`)}
-      ${field('ptcfg-email', 'Email de la collectivité', 'Reçoit les nouveaux signalements, les alertes et les demandes de retrait. Sert aussi d\'adresse de réponse aux emails envoyés aux habitants.',
-        `<input class="adm-input" type="email" id="ptcfg-email" maxlength="180" value="${esc(settings.notify_email || '')}">`)}
-
-      <div class="cw-field">
-        <div class="ptadm-switch-row">
-          <label class="adm-switch">
-            <input type="checkbox" id="ptcfg-paused" ${settings.paused ? 'checked' : ''}>
-            <span class="adm-switch__track"></span>
-          </label>
-          <span><strong>Mode pause</strong> - suspendre les nouveaux dépôts (congés, vacance de poste, période électorale). La carte et le suivi restent visibles.</span>
+    <div class="cw-header">
+      <div class="cw-header__top">
+        <a href="/admin/participer/" class="cw-back-link" data-section="participer">
+          <i class="fa-solid fa-arrow-left"></i><span>Participer</span>
+        </a>
+      </div>
+      <div class="cw-header__main">
+        <div class="cw-header__text">
+          <h1 class="cw-header__title">Réglages du module</h1>
+          <p class="cw-header__subtitle">Comment les habitants déposent, et comment vous êtes prévenu.</p>
         </div>
-        <textarea class="adm-input" id="ptcfg-pause-msg" rows="2" maxlength="300" placeholder="Message affiché à la place du formulaire">${esc(settings.pause_message || '')}</textarea>
       </div>
+    </div>
 
-      <div class="ptadm-config__grid">
-        ${field('ptcfg-quota-email', 'Dépôts max / jour / email', '', num('ptcfg-quota-email', settings.quota_email_jour ?? 5, 1, 100))}
-        ${field('ptcfg-quota-ip', 'Dépôts max / jour / connexion', '', num('ptcfg-quota-ip', settings.quota_ip_jour ?? 20, 1, 500))}
-        ${field('ptcfg-alerte', 'Alerte « non traité » (jours)', 'Email de rappel si des signalements restent sans traitement.', num('ptcfg-alerte', settings.alerte_jours ?? 7, 1, 90))}
-        ${field('ptcfg-retention', 'Effacement des données perso (mois après clôture)', 'Email et empreinte de connexion effacés automatiquement.', num('ptcfg-retention', settings.retention_mois ?? 12, 1, 60))}
-      </div>
+    <div class="cw-sections">
+      <section class="cw-section">
+        <div class="cw-section__header">
+          <div class="cw-section__icon"><i class="fa-solid fa-comment-dots"></i></div>
+          <div class="cw-section__titles">
+            <h2 class="cw-section__title">Ce que voit l'habitant</h2>
+            <p class="cw-section__desc">Les textes affichés sur la carte publique</p>
+          </div>
+          <span class="cw-optional-badge">Facultatif</span>
+        </div>
+        <div class="cw-section__body">
+          ${field('ptcfg-intro', 'Introduction du formulaire', 'Affichée en tête du panneau « Signaler ». Laissez vide pour le texte par défaut.',
+            `<textarea class="cw-field__textarea" id="ptcfg-intro" rows="2" maxlength="500" placeholder="Signalez un problème ou une idée à votre collectivité, sans créer de compte.">${esc(settings.intro_text || '')}</textarea>`)}
+          ${field('ptcfg-success', 'Message après envoi', 'Affiché juste après l\'envoi, avant que l\'habitant ne confirme son adresse.',
+            `<textarea class="cw-field__textarea" id="ptcfg-success" rows="2" maxlength="500" placeholder="Ouvrez l'email que nous venons de vous envoyer et confirmez votre signalement.">${esc(settings.success_text || '')}</textarea>`)}
+        </div>
+      </section>
 
-      <div class="cw-footer">
-        <button class="adm-btn adm-btn--secondary" id="ptcfg-seed"><i class="fa-solid fa-rotate-left"></i> Restaurer catégories et statuts par défaut</button>
-        <button class="adm-btn adm-btn--primary" id="ptcfg-save"><i class="fa-solid fa-check"></i> Enregistrer</button>
-      </div>
+      <section class="cw-section">
+        <div class="cw-section__header">
+          <div class="cw-section__icon"><i class="fa-solid fa-bell"></i></div>
+          <div class="cw-section__titles">
+            <h2 class="cw-section__title">Vos notifications</h2>
+            <p class="cw-section__desc">Où arrivent les signalements et les rappels</p>
+          </div>
+        </div>
+        <div class="cw-section__body">
+          ${field('ptcfg-email', 'Email de la collectivité',
+            'Reçoit chaque nouveau signalement, les rappels de non-traitement et les demandes de retrait. Sert aussi d\'adresse de réponse aux messages envoyés aux habitants.',
+            `<input class="cw-field__input" type="email" id="ptcfg-email" maxlength="180" placeholder="participation@ma-commune.fr" value="${esc(settings.notify_email || '')}">`)}
+          ${field('ptcfg-alerte', 'Me rappeler après (jours)',
+            'Un signalement laissé sans réponse détruit la confiance : passé ce délai, vous recevez un rappel.',
+            num('ptcfg-alerte', settings.alerte_jours ?? 7, 1, 90), false)}
+        </div>
+      </section>
+
+      <section class="cw-section">
+        <div class="cw-section__header">
+          <div class="cw-section__icon"><i class="fa-solid fa-circle-pause"></i></div>
+          <div class="cw-section__titles">
+            <h2 class="cw-section__title">Suspendre les dépôts</h2>
+            <p class="cw-section__desc">Congés, vacance de poste, période électorale</p>
+          </div>
+        </div>
+        <div class="cw-section__body">
+          <div class="cw-field">
+            <div class="ptadm-switch-row">
+              <label class="adm-switch">
+                <input type="checkbox" id="ptcfg-paused" ${settings.paused ? 'checked' : ''}>
+                <span class="adm-switch__track"></span>
+              </label>
+              <div class="ptadm-switch-row__text">
+                <strong>Mode pause</strong>
+                <span>Le formulaire est remplacé par un message. La carte et les pages de suivi restent consultables.</span>
+              </div>
+            </div>
+          </div>
+          ${field('ptcfg-pause-msg', 'Message affiché à la place du formulaire', '',
+            `<textarea class="cw-field__textarea" id="ptcfg-pause-msg" rows="2" maxlength="300" placeholder="Les signalements reprendront le 1er septembre.">${esc(settings.pause_message || '')}</textarea>`)}
+        </div>
+      </section>
+
+      <section class="cw-section">
+        <div class="cw-section__header">
+          <div class="cw-section__icon"><i class="fa-solid fa-shield-halved"></i></div>
+          <div class="cw-section__titles">
+            <h2 class="cw-section__title">Garde-fous</h2>
+            <p class="cw-section__desc">Limites anti-abus et durée de conservation</p>
+          </div>
+        </div>
+        <div class="cw-section__body">
+          <div class="ptadm-config__grid">
+            ${field('ptcfg-quota-email', 'Dépôts max par jour et par adresse', '', num('ptcfg-quota-email', settings.quota_email_jour ?? 5, 1, 100), false)}
+            ${field('ptcfg-quota-ip', 'Dépôts max par jour et par connexion', '', num('ptcfg-quota-ip', settings.quota_ip_jour ?? 20, 1, 500), false)}
+          </div>
+          ${field('ptcfg-retention', 'Effacer les données personnelles après (mois)',
+            'Une fois le signalement clos, l\'adresse email de l\'habitant et son empreinte de connexion sont effacées automatiquement. Le contenu publié, lui, reste en ligne.',
+            num('ptcfg-retention', settings.retention_mois ?? 12, 1, 60), false)}
+        </div>
+      </section>
+
+      <section class="cw-section">
+        <div class="cw-section__header">
+          <div class="cw-section__icon"><i class="fa-solid fa-rotate-left"></i></div>
+          <div class="cw-section__titles">
+            <h2 class="cw-section__title">Valeurs par défaut</h2>
+            <p class="cw-section__desc">Recréer les catégories et statuts manquants</p>
+          </div>
+        </div>
+        <div class="cw-section__body">
+          <div class="cw-field">
+            <div class="cw-field__tip">Vos personnalisations existantes sont conservées : seuls les éléments supprimés sont recréés.</div>
+            <button class="adm-btn adm-btn--secondary" id="ptcfg-seed" style="align-self:flex-start">
+              <i class="fa-solid fa-rotate-left"></i> Restaurer les valeurs par défaut
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="cw-footer">
+      <a href="/admin/participer/" class="cw-footer__cancel" data-section="participer">
+        <i class="fa-solid fa-arrow-left"></i> Retour
+      </a>
+      <button type="button" class="cw-footer__submit" id="ptcfg-save">
+        <span>Enregistrer les réglages</span>
+        <i class="fa-solid fa-check"></i>
+      </button>
     </div>`;
 
   container.querySelector('#ptcfg-save')?.addEventListener('click', async () => {
@@ -133,14 +220,15 @@ export async function renderCategoriesAdmin(container) {
 
   container.innerHTML = `
     ${subPageHeader({
-      icon: 'fa-solid fa-tags',
       title: 'Catégories de signalement',
-      subtitle: 'Ce que les habitants peuvent signaler - libellé, icône, couleur, ordre',
+      subtitle: 'Ce que les habitants peuvent signaler. Six à dix entrées suffisent : au-delà, le choix devient dissuasif.',
+      action: '<button class="adm-btn adm-btn--primary" id="ptcat-add"><i class="fa-solid fa-plus"></i> Ajouter</button>',
     })}
-    <div class="adm-page-header__actions" style="margin-bottom:12px;">
-      <button class="adm-btn adm-btn--primary" id="ptcat-add"><i class="fa-solid fa-plus"></i> Ajouter une catégorie</button>
-    </div>
-    <div class="adm-card" id="ptcat-list"></div>`;
+    <div class="cw-sections">
+      <section class="cw-section">
+        <div class="cw-section__body cw-section__body--flush" id="ptcat-list"></div>
+      </section>
+    </div>`;
 
   container.querySelector('#ptcat-add')?.addEventListener('click', () => _openCategoryForm(null, () => renderCategoriesAdmin(container)));
   await _renderCategoryList(container);
@@ -162,11 +250,14 @@ async function _renderCategoryList(container) {
   }
 
   body.innerHTML = categories.map((cat) => `
-    <div class="adm-list-item">
+    <div class="adm-list-item ${cat.enabled ? '' : 'ptadm-row--off'}">
       <span class="ptadm-cat" style="--ptadm-color:${safeColor(cat.color)}"><i class="${esc(cat.icon_class)}"></i></span>
       <div class="adm-list-item__info">
         <div class="adm-list-item__name">${esc(cat.label)}</div>
-        <div class="adm-list-item__meta">${esc(cat.category_key)}${cat.help_text ? ` · ${esc(cat.help_text)}` : ''}</div>
+        <div class="adm-list-item__meta">
+          <code class="ptadm-key">${esc(cat.category_key)}</code>
+          ${cat.help_text ? esc(cat.help_text) : ''}
+        </div>
       </div>
       <label class="adm-switch" title="${cat.enabled ? 'Proposée aux habitants' : 'Masquée du formulaire'}">
         <input type="checkbox" data-toggle="${esc(cat.id)}" ${cat.enabled ? 'checked' : ''}>
@@ -234,12 +325,12 @@ function _openCategoryForm(cat, onSaved) {
       <div class="ptadm-form">
         <div class="cw-field">
           <label class="cw-field__label" for="ptc-label">Libellé <span class="cw-required">*</span></label>
-          <input class="adm-input" id="ptc-label" maxlength="80" value="${esc(cat?.label || '')}" placeholder="Ex : Cheminement coupé ou dangereux">
+          <input class="cw-field__input" id="ptc-label" maxlength="80" value="${esc(cat?.label || '')}" placeholder="Ex : Cheminement coupé ou dangereux">
         </div>
         ${isNew ? `
         <div class="cw-field">
           <label class="cw-field__label" for="ptc-key">Clé technique <span class="cw-required">*</span></label>
-          <input class="adm-input" id="ptc-key" maxlength="40" placeholder="cheminement" pattern="[a-z0-9-]+">
+          <input class="cw-field__input" id="ptc-key" maxlength="40" placeholder="cheminement" pattern="[a-z0-9-]+">
           <div class="cw-field__tip">Minuscules, chiffres et tirets. Définitive après création.</div>
         </div>` : ''}
         <div class="cw-field">
@@ -248,15 +339,15 @@ function _openCategoryForm(cat, onSaved) {
         </div>
         <div class="cw-field">
           <label class="cw-field__label" for="ptc-color">Couleur</label>
-          <input type="color" class="adm-input ptadm-color" id="ptc-color" value="${safeColor(cat?.color || COULEUR_DEFAUT)}">
+          <input type="color" class="ptadm-color" id="ptc-color" value="${safeColor(cat?.color || COULEUR_DEFAUT)}">
         </div>
         <div class="cw-field">
           <label class="cw-field__label" for="ptc-help">Texte d'aide</label>
-          <input class="adm-input" id="ptc-help" maxlength="160" value="${esc(cat?.help_text || '')}" placeholder="Affiché au survol de la catégorie">
+          <input class="cw-field__input" id="ptc-help" maxlength="160" value="${esc(cat?.help_text || '')}" placeholder="Affiché au survol de la catégorie">
         </div>
         <div class="cw-field">
           <label class="cw-field__label" for="ptc-order">Ordre d'affichage</label>
-          <input class="adm-input" type="number" id="ptc-order" value="${cat?.sort_order ?? 0}" min="0" max="99">
+          <input class="cw-field__input" type="number" id="ptc-order" value="${cat?.sort_order ?? 0}" min="0" max="99">
         </div>
       </div>`,
     footer: `<button class="adm-btn adm-btn--primary" id="ptc-save"><i class="fa-solid fa-check"></i> ${isNew ? 'Créer' : 'Enregistrer'}</button>`,
@@ -312,20 +403,26 @@ export async function renderStatutsAdmin(container) {
 
   container.innerHTML = `
     ${subPageHeader({
-      icon: 'fa-solid fa-list-check',
       title: 'Affichage des statuts',
-      subtitle: 'Libellés, couleurs et notifications - le cycle de vie lui-même est fixe',
+      subtitle: 'Le cycle de vie est fixe : vous en choisissez les mots, les couleurs et les notifications.',
     })}
-    <div class="adm-card" id="ptst-list">
-      ${statuts.length ? '' : '<div style="padding:20px;color:var(--text-secondary);">Aucun statut - restaurez les valeurs par défaut depuis les réglages.</div>'}
-      ${statuts.map((st) => `
-        <div class="adm-list-item">
-          <span class="ptadm-pill" style="--ptadm-color:${safeColor(st.color)}">${esc(st.label)}</span>
-          <div class="adm-list-item__info">
-            <div class="adm-list-item__meta">${esc(st.statut_key)}${st.notify ? ' · notifie l\'habitant par email' : ' · sans notification'}</div>
-          </div>
-          <button class="adm-btn adm-btn--ghost adm-btn--icon" data-edit="${esc(st.id)}" aria-label="Modifier"><i class="fa-solid fa-pen"></i></button>
-        </div>`).join('')}
+    <div class="cw-sections">
+      <section class="cw-section">
+        <div class="cw-section__body cw-section__body--flush" id="ptst-list">
+          ${statuts.length ? '' : '<div class="cw-field__tip" style="padding:20px;">Aucun statut. Restaurez les valeurs par défaut depuis les réglages.</div>'}
+          ${statuts.map((st) => `
+            <div class="adm-list-item">
+              <span class="ptadm-pill" style="--ptadm-color:${safeColor(st.color)}">${esc(st.label)}</span>
+              <div class="adm-list-item__info">
+                <div class="adm-list-item__meta">
+                  <code class="ptadm-key">${esc(st.statut_key)}</code>
+                  ${st.notify ? '<span class="ptadm-notify"><i class="fa-solid fa-envelope"></i> prévient l\'habitant</span>' : '<span class="ptadm-notify ptadm-notify--off"><i class="fa-solid fa-envelope-open"></i> sans email</span>'}
+                </div>
+              </div>
+              <button class="adm-btn adm-btn--ghost adm-btn--icon" data-edit="${esc(st.id)}" aria-label="Modifier"><i class="fa-solid fa-pen"></i></button>
+            </div>`).join('')}
+        </div>
+      </section>
     </div>`;
 
   container.querySelector('#ptst-list')?.addEventListener('click', (e) => {
@@ -343,15 +440,15 @@ function _openStatutForm(st, onSaved) {
       <div class="ptadm-form">
         <div class="cw-field">
           <label class="cw-field__label" for="pts-label">Libellé affiché <span class="cw-required">*</span></label>
-          <input class="adm-input" id="pts-label" maxlength="60" value="${esc(st.label)}">
+          <input class="cw-field__input" id="pts-label" maxlength="60" value="${esc(st.label)}">
         </div>
         <div class="cw-field">
           <label class="cw-field__label" for="pts-color">Couleur</label>
-          <input type="color" class="adm-input ptadm-color" id="pts-color" value="${safeColor(st.color)}">
+          <input type="color" class="ptadm-color" id="pts-color" value="${safeColor(st.color)}">
         </div>
         <div class="cw-field">
           <label class="cw-field__label" for="pts-order">Ordre d'affichage</label>
-          <input class="adm-input" type="number" id="pts-order" value="${st.sort_order ?? 0}" min="0" max="99">
+          <input class="cw-field__input" type="number" id="pts-order" value="${st.sort_order ?? 0}" min="0" max="99">
         </div>
         <div class="cw-field">
           <div class="ptadm-switch-row">

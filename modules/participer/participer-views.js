@@ -136,10 +136,16 @@
       });
       _draft.marker = win.L.marker([lat, lng], { icon }).addTo(map);
     }
-    const hint = container?.querySelector('#pt-loc-hint');
-    if (hint) {
-      hint.innerHTML = `<i class="fa-solid fa-circle-check"></i> Point placé - touchez la carte pour le déplacer`;
-      hint.classList.add('is-set');
+    // La zone de localisation confirme elle-même : pas de message séparé
+    const zone = container?.querySelector('#pt-locate');
+    if (zone) {
+      zone.classList.add('is-set');
+      const icone = zone.querySelector('#pt-locate-icon');
+      if (icone) icone.className = 'fa-solid fa-circle-check pt-locate__icon';
+      const texte = zone.querySelector('#pt-locate-text');
+      if (texte) texte.textContent = 'Point placé sur la carte';
+      const aide = zone.querySelector('#pt-locate-hint');
+      if (aide) aide.textContent = 'Touchez la carte à nouveau pour le déplacer';
     }
     _updateSubmitState(container);
   }
@@ -205,46 +211,61 @@
     }
 
     const intro = settings.intro_text
-      || 'Un problème, une idée sur l\'espace public ? Signalez-le à votre collectivité en moins de 2 minutes, sans créer de compte.';
+      || 'Signalez un problème ou une idée à votre collectivité, sans créer de compte.';
 
     container.innerHTML = `
-      <form class="pt-form" novalidate>
+      <form class="pt-form pt-view" novalidate>
         <p class="pt-intro">${esc(intro)}</p>
 
-        <div class="pt-step"><span class="pt-step__num">1</span><span>Où ?</span></div>
-        <div class="pt-locate">
-          <button type="button" class="pt-locate__btn" id="pt-geoloc"><i class="fa-solid fa-location-crosshairs"></i> Ma position</button>
-          <div class="pt-locate__hint" id="pt-loc-hint"><i class="fa-solid fa-hand-pointer"></i> Touchez la carte pour placer le point</div>
-        </div>
-        <input class="pt-input" id="pt-adresse" maxlength="300" placeholder="Adresse ou précision (facultatif)" autocomplete="off">
-
-        <div class="pt-step"><span class="pt-step__num">2</span><span>Quoi ?</span></div>
-        <div class="pt-cats" id="pt-cats">
-          ${(config.categories || []).map((c) => `
-            <button type="button" class="pt-cat" data-key="${esc(c.category_key)}" style="--pt-color:${safeColor(c.color)}" title="${esc(c.help_text || '')}">
-              <i class="${safeIcon(c.icon_class)}"></i><span>${esc(c.label)}</span>
-            </button>`).join('')}
+        <div class="pt-section">
+          <span class="pt-label">Où</span>
+          <div class="pt-locate" id="pt-locate">
+            <i class="fa-solid fa-location-dot pt-locate__icon" id="pt-locate-icon"></i>
+            <span class="pt-locate__text" id="pt-locate-text">Touchez la carte pour placer le point</span>
+            <span class="pt-locate__hint" id="pt-locate-hint">Zoomez pour viser l'endroit exact</span>
+            <button type="button" class="pt-locate__btn" id="pt-geoloc">
+              <i class="fa-solid fa-location-crosshairs"></i> Utiliser ma position
+            </button>
+          </div>
+          <input class="pt-input" id="pt-adresse" maxlength="300" placeholder="Adresse ou précision (facultatif)" autocomplete="off">
         </div>
 
-        <div class="pt-step"><span class="pt-step__num">3</span><span>Précisez (facultatif)</span></div>
-        <textarea class="pt-input pt-textarea" id="pt-desc" maxlength="1000" rows="3" placeholder="Décrivez en quelques mots"></textarea>
-        <label class="pt-photo" id="pt-photo-label">
-          <input type="file" id="pt-photo" accept="image/*" hidden>
-          <i class="fa-solid fa-camera"></i><span id="pt-photo-text">Ajouter une photo</span>
-        </label>
-        <div class="pt-photo-preview" id="pt-photo-preview" hidden>
-          <img alt="Aperçu de la photo">
-          <button type="button" class="pt-photo-remove" aria-label="Retirer la photo"><i class="fa-solid fa-xmark"></i></button>
+        <div class="pt-section">
+          <span class="pt-label">Quoi</span>
+          <div class="pt-cats" id="pt-cats">
+            ${(config.categories || []).map((c) => `
+              <button type="button" class="pt-cat" data-key="${esc(c.category_key)}" style="--pt-color:${safeColor(c.color)}" title="${esc(c.help_text || '')}">
+                <i class="${safeIcon(c.icon_class)}"></i><span>${esc(c.label)}</span>
+              </button>`).join('')}
+          </div>
         </div>
 
-        <div class="pt-step"><span class="pt-step__num">4</span><span>Pour vous tenir informé</span></div>
-        <input class="pt-input" type="email" id="pt-email" maxlength="180" placeholder="Votre email (jamais public)" autocomplete="email" required>
-        <input class="pt-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-        <p class="pt-legal">Votre adresse sert uniquement à confirmer et suivre ce signalement. Elle n'est jamais publiée et sera supprimée au plus tard 12 mois après la clôture. <a href="/home/confidentialite" target="_blank" rel="noopener">En savoir plus</a></p>
-        <p class="pt-urgence"><i class="fa-solid fa-triangle-exclamation"></i> En cas de danger immédiat, n'utilisez pas ce formulaire : appelez le 112.</p>
+        <div class="pt-section">
+          <span class="pt-label">Précisions <span style="text-transform:none;letter-spacing:0;font-weight:400">(facultatif)</span></span>
+          <textarea class="pt-input pt-textarea" id="pt-desc" maxlength="1000" rows="3" placeholder="Décrivez la situation en quelques mots"></textarea>
+          <label class="pt-photo" id="pt-photo-label">
+            <input type="file" id="pt-photo" accept="image/*" hidden>
+            <i class="fa-solid fa-camera"></i><span id="pt-photo-text">Ajouter une photo</span>
+          </label>
+          <div class="pt-photo-preview" id="pt-photo-preview" hidden>
+            <img alt="Aperçu de la photo">
+            <button type="button" class="pt-photo-remove" aria-label="Retirer la photo"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+        </div>
 
-        <button type="submit" class="pt-submit" id="pt-submit" disabled>Envoyer mon signalement</button>
+        <div class="pt-section">
+          <span class="pt-label">Pour vous tenir informé</span>
+          <input class="pt-input" type="email" id="pt-email" maxlength="180" placeholder="Votre email (jamais public)" autocomplete="email" required>
+          <input class="pt-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <p class="pt-legal">Votre adresse sert uniquement à confirmer puis suivre ce signalement. Elle n'est jamais publiée et sera supprimée au plus tard 12 mois après la clôture. <a href="/home/confidentialite" target="_blank" rel="noopener">En savoir plus</a></p>
+        </div>
+
+        <p class="pt-urgence"><i class="fa-solid fa-triangle-exclamation"></i><span>En cas de danger immédiat, n'utilisez pas ce formulaire : appelez le 112.</span></p>
+
         <div class="pt-feedback" id="pt-feedback" role="alert" hidden></div>
+        <div class="pt-submit-bar">
+          <button type="submit" class="pt-submit" id="pt-submit" disabled>Envoyer mon signalement</button>
+        </div>
       </form>`;
 
     _bindMapClick();
@@ -319,8 +340,8 @@
           || 'Dernière étape : ouvrez l\'email que nous venons de vous envoyer et confirmez votre signalement. Pensez à vérifier vos indésirables.';
         container.innerHTML = `
           <div class="pt-success">
-            <i class="fa-solid fa-envelope-circle-check"></i>
-            <h3>Presque fini !</h3>
+            <span class="pt-success__icon"><i class="fa-solid fa-envelope-circle-check"></i></span>
+            <h3>Presque terminé</h3>
             <p>${esc(success)}</p>
           </div>`;
         _resetDraft();
@@ -357,12 +378,14 @@
       .filter((s) => features.some((f) => f.properties.statut_key === s.statut_key));
 
     container.innerHTML = `
-      <div class="pt-explorer">
-        <div class="pt-explorer__count">${features.length} signalement${features.length > 1 ? 's' : ''}</div>
-        <div class="pt-filters">
-          <button class="pt-filter is-active" data-statut="">Tous</button>
-          ${statutsPresents.map((s) => `
-            <button class="pt-filter" data-statut="${esc(s.statut_key)}" style="--pt-color:${safeColor(s.color)}">${esc(s.label)}</button>`).join('')}
+      <div class="pt-explorer pt-view">
+        <div class="pt-section">
+          <div class="pt-explorer__count"><strong>${features.length}</strong> signalement${features.length > 1 ? 's' : ''} sur la carte</div>
+          <div class="pt-filters">
+            <button class="pt-filter is-active" data-statut="">Tous</button>
+            ${statutsPresents.map((s) => `
+              <button class="pt-filter" data-statut="${esc(s.statut_key)}" style="--pt-color:${safeColor(s.color)}">${esc(s.label)}</button>`).join('')}
+          </div>
         </div>
         <div class="pt-list" id="pt-list"></div>
       </div>`;
@@ -380,10 +403,12 @@
             <span class="pt-item__icon" style="--pt-color:${safeColor(p.category_color)}"><i class="${safeIcon(p.category_icon)}"></i></span>
             <span class="pt-item__body">
               <span class="pt-item__title">${esc(p.category_label)}</span>
-              ${p.description ? `<span class="pt-item__desc">${esc(String(p.description).slice(0, 90))}</span>` : ''}
-              <span class="pt-item__meta">${esc(p.reference)}${date ? ` · ${date}` : ''}</span>
+              ${p.description ? `<span class="pt-item__desc">${esc(p.description)}</span>` : ''}
+              <span class="pt-item__foot">
+                <span class="pt-statut-pill" style="--pt-color:${safeColor(p.statut_color)}">${esc(p.statut_label)}</span>
+                <span class="pt-item__meta">${date}</span>
+              </span>
             </span>
-            <span class="pt-statut-pill" style="--pt-color:${safeColor(p.statut_color)}">${esc(p.statut_label)}</span>
           </button>`;
       }).join('') || '<div class="nav-panel__empty"><span>Rien dans ce statut</span></div>';
     };
@@ -415,7 +440,7 @@
     publication: 'Publié sur la carte',
   };
 
-  function _eventsTimeline(events) {
+  function _eventsTimeline(events, statuts) {
     if (!events?.length) return '';
     return `
       <div class="pt-timeline">
@@ -423,8 +448,11 @@
         ${events.map((ev) => {
           const date = ev.created_at ? new Date(ev.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
           const label = ev.type === 'statut' ? (ev.statut_label || ev.new_statut) : (EVENT_LABELS[ev.type] || ev.type);
+          // Chaque étape porte la couleur du statut qu'elle instaure : la
+          // progression se lit d'un coup d'oeil dans la colonne des pastilles
+          const couleur = safeColor(statuts?.find((s) => s.statut_key === ev.new_statut)?.color);
           return `
-            <div class="pt-timeline__item">
+            <div class="pt-timeline__item" style="--pt-color:${couleur}">
               <span class="pt-timeline__dot"></span>
               <div class="pt-timeline__body">
                 <div class="pt-timeline__title">${esc(label)}<span class="pt-timeline__date">${esc(date)}</span></div>
@@ -448,9 +476,9 @@
         <button id="detail-close-btn" class="detail-close-floating" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="detail-scroll-body">
-        <div class="detail-hero" style="--cat-color:${color}">
+        <div class="detail-hero detail-hero--participer" style="--pt-color:${color}">
           <div class="detail-hero__grad"></div>
-          <div class="detail-hero__travaux-icon"><i class="${safeIcon(s.category_icon)}"></i></div>
+          <i class="${safeIcon(s.category_icon)} pt-hero-icon"></i>
         </div>
         <div class="detail-content-wrap">
           ${own && s.email_confirmed === false ? `
@@ -464,17 +492,16 @@
             <span>Transmis à votre collectivité - visible sur la carte après modération</span>
           </div>` : ''}
           <div class="detail-title-row">
-            <span class="detail-cat-icon" style="--cat-color:${color}"><i class="${safeIcon(s.category_icon)}"></i></span>
             <div style="flex:1;min-width:0">
               <h3 class="detail-title">${esc(s.category_label)}</h3>
-              <div class="detail-description" style="margin:4px 0 0">${esc(s.reference)}${date ? ` · ${date}` : ''}</div>
+              <div class="detail-description" style="margin:6px 0 0">${esc(s.reference)}${date ? ` · ${date}` : ''}</div>
             </div>
             <span class="pt-statut-pill" style="--pt-color:${safeColor(s.statut_color)};flex-shrink:0">${esc(s.statut_label)}</span>
           </div>
           ${s.adresse ? `<div class="detail-chips"><span class="detail-chip"><i class="fa-solid fa-location-dot"></i>${esc(s.adresse)}</span></div>` : ''}
           ${s.photo_url ? `<img class="pt-detail-photo" src="${esc(s.photo_url)}" alt="Photo du signalement" loading="lazy">` : ''}
           ${s.description ? `<p class="detail-description" style="margin-top:14px">${esc(s.description)}</p>` : ''}
-          ${_eventsTimeline(events)}
+          ${_eventsTimeline(events, statuts)}
           ${own ? `
           <p class="pt-own-note"><i class="fa-solid fa-user-lock"></i> Cette page de suivi est personnelle : conservez l'email qui y mène.</p>` : `
           <div class="pt-retrait">

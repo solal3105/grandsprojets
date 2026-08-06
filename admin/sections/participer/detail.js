@@ -67,52 +67,62 @@ function _bodyHtml(row, ref) {
     .map((s) => `<option value="${esc(s.statut_key)}" ${s.statut_key === row.statut_key ? 'selected' : ''}>${esc(s.label)}</option>`)
     .join('');
 
+  void st;
   return `
     <div class="ptadm-detail">
-      <div class="ptadm-detail__pills">
+      <div class="ptadm-detail__head">
         ${categoryChip(ref, row.category_key)}
-        ${statutPill(ref, row.statut_key)}
-        <span class="adm-badge ${row.published ? 'adm-badge--success' : 'adm-badge--neutral'}">${row.published ? 'Publié' : 'Non publié'}</span>
+        <div class="ptadm-detail__pills">
+          ${statutPill(ref, row.statut_key)}
+          <span class="adm-badge ${row.published ? 'adm-badge--success' : 'adm-badge--neutral'}">${row.published ? 'Publié' : 'Non publié'}</span>
+        </div>
       </div>
 
       <div class="ptadm-detail__meta">
         Déposé le ${esc(formatDate(row.created_at))}
         ${row.closed_at ? ` · clos le ${esc(formatDate(row.closed_at))}` : ''}
-        ${row.anonymized_at ? ' · anonymisé' : ''}
+        ${row.anonymized_at ? ' · données personnelles effacées' : ''}
       </div>
 
-      ${row.description ? `<p class="ptadm-detail__desc">${esc(row.description)}</p>` : '<p class="ptadm-detail__desc ptadm-detail__desc--empty">Aucune description.</p>'}
+      ${row.description ? `<p class="ptadm-detail__desc">${esc(row.description)}</p>` : '<p class="ptadm-detail__desc ptadm-detail__desc--empty">Aucune description fournie.</p>'}
 
       <div class="ptadm-detail__photo" id="ptadm-photo" hidden>
         <img alt="Photo du signalement">
       </div>
 
-      ${row.adresse ? `<div class="ptadm-detail__addr"><i class="fa-solid fa-location-dot"></i> ${esc(row.adresse)}</div>` : ''}
-      <div class="ptadm-detail__map" id="ptadm-map"></div>
+      <div class="ptadm-detail__place">
+        ${row.adresse ? `<div class="ptadm-detail__addr"><i class="fa-solid fa-location-dot"></i> ${esc(row.adresse)}</div>` : ''}
+        <div class="ptadm-detail__map" id="ptadm-map"></div>
+      </div>
 
-      <div class="ptadm-detail__events" id="ptadm-events">
-        <div class="ptadm-detail__label"><i class="fa-solid fa-timeline"></i> Historique</div>
+      <section class="ptadm-block" id="ptadm-events">
+        <h3 class="ptadm-block__title">Historique</h3>
         <div class="adm-skeleton adm-skeleton--card"></div>
-      </div>
+      </section>
 
-      <div class="ptadm-detail__actions">
-        <div class="ptadm-detail__label"><i class="fa-solid fa-arrow-right-arrow-left"></i> Changer le statut</div>
-        <select class="adm-input" id="ptadm-statut">${statutOptions}</select>
-        <textarea class="adm-input" id="ptadm-message" rows="2" maxlength="1000"
-          placeholder="Message public pour l'habitant (envoyé par email${st?.notify === false ? ' si le statut le prévoit' : ''}, visible sur la page de suivi)"></textarea>
-        <button class="adm-btn adm-btn--primary" id="ptadm-apply"><i class="fa-solid fa-check"></i> Appliquer</button>
-      </div>
+      <section class="ptadm-block">
+        <h3 class="ptadm-block__title">Faire avancer</h3>
+        <div class="ptadm-form-row">
+          <select class="cw-field__input ptadm-select" id="ptadm-statut">${statutOptions}</select>
+          <button class="adm-btn adm-btn--primary" id="ptadm-apply">Appliquer</button>
+        </div>
+        <textarea class="cw-field__textarea ptadm-message" id="ptadm-message" rows="3" maxlength="1000"
+          placeholder="Message pour l'habitant : ce qui va être fait, sous quel délai. Il le recevra par email et le verra sur sa page de suivi."></textarea>
+      </section>
 
       ${store.isAdmin ? `
-      <div class="ptadm-detail__admin">
-        <div class="ptadm-detail__label"><i class="fa-solid fa-shield-halved"></i> Modération</div>
+      <section class="ptadm-block ptadm-block--moderation">
+        <h3 class="ptadm-block__title">Modération</h3>
+        <p class="ptadm-block__hint">${row.published
+          ? 'Ce contenu est visible de tous sur la carte publique.'
+          : 'Le texte et la photo ne sont visibles que de votre équipe tant que vous ne publiez pas.'}</p>
         <div class="ptadm-detail__admin-btns">
           ${row.published
-            ? '<button class="adm-btn adm-btn--secondary" id="ptadm-unpublish"><i class="fa-solid fa-eye-slash"></i> Dépublier</button>'
+            ? '<button class="adm-btn adm-btn--secondary" id="ptadm-unpublish"><i class="fa-solid fa-eye-slash"></i> Retirer de la carte</button>'
             : '<button class="adm-btn adm-btn--primary" id="ptadm-publish"><i class="fa-solid fa-eye"></i> Publier sur la carte</button>'}
-          <button class="adm-btn adm-btn--danger" id="ptadm-delete"><i class="fa-solid fa-trash"></i> Supprimer</button>
+          <button class="adm-btn adm-btn--ghost ptadm-delete" id="ptadm-delete"><i class="fa-solid fa-trash"></i> Supprimer</button>
         </div>
-      </div>` : ''}
+      </section>` : ''}
     </div>`;
 }
 
@@ -147,8 +157,11 @@ async function _loadEvents(content, row, ref) {
       const label = ev.type === 'statut'
         ? (stOf(ref, ev.new_statut)?.label || ev.new_statut)
         : (EVENT_LABELS[ev.type] || ev.type);
+      // La pastille porte la couleur du statut instauré : l'avancement se lit
+      // dans la colonne de gauche sans avoir à relire les libellés
+      const couleur = safeColor(stOf(ref, ev.new_statut)?.color);
       return `
-        <div class="ptadm-event ${ev.type === 'retrait_demande' ? 'ptadm-event--alert' : ''}">
+        <div class="ptadm-event ${ev.type === 'retrait_demande' ? 'ptadm-event--alert' : ''}" style="--ptadm-color:${couleur}">
           <span class="ptadm-event__dot"></span>
           <div class="ptadm-event__body">
             <div class="ptadm-event__title">${esc(label)}<span class="ptadm-event__date">${esc(formatDate(ev.created_at))}</span></div>
@@ -156,7 +169,7 @@ async function _loadEvents(content, row, ref) {
           </div>
         </div>`;
     }).join('');
-    box.innerHTML = `<div class="ptadm-detail__label"><i class="fa-solid fa-timeline"></i> Historique</div>${items || '<div class="ptadm-detail__meta">Aucun événement.</div>'}`;
+    box.innerHTML = `<h3 class="ptadm-block__title">Historique</h3>${items || '<div class="ptadm-detail__meta">Aucun événement.</div>'}`;
   } catch {
     box.innerHTML = '';
   }
@@ -170,7 +183,7 @@ async function _loadMiniMap(content, row, ref) {
     return await createMiniMap({
       container: box,
       center: [row.lng, row.lat],
-      zoom: 16,
+      zoom: 16.5,
       geojson: {
         type: 'FeatureCollection',
         features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [row.lng, row.lat] }, properties: {} }],

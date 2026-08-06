@@ -859,6 +859,9 @@ html[data-theme='dark'] .adm-table td {
   width: 100%;
   padding: 11px 14px;
   font-size: 14px;
+  /* Sans cette ligne, un <textarea> hérite du monospace de la feuille du
+     navigateur : les champs de texte long s'affichaient en chasse fixe. */
+  font-family: inherit;
   color: var(--gray-900);
   background: var(--adm-glass-inner);
   border: 1px solid var(--adm-glass-border);
@@ -5295,9 +5298,14 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
 
 /* ============================================================================
    SECTION PARTICIPER (signalements citoyens)
+
+   S'appuie sur le vocabulaire admin existant : cw-header / cw-section pour les
+   pages de configuration, adm-list-item pour les listes, adm-slide-panel pour
+   le détail. Les classes ptadm-* n'ajoutent que ce qui manque, et les couleurs
+   de catégorie ou de statut arrivent par --ptadm-color, jamais en dur.
    ============================================================================ */
 
-/* Actions de l'en-tête de page (boutons config/export à droite du titre) */
+/* Actions dans l'en-tête d'une page */
 .adm-page-header__actions {
   display: flex;
   gap: 8px;
@@ -5329,11 +5337,13 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
   display: none;
 }
 
-/* Pill de statut - couleur du statut posée inline via --ptadm-color */
+/* ── Pastilles et chips ──────────────────────────────────────────────────── */
+
 .ptadm-pill {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
+  gap: 6px;
+  padding: 4px 11px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
@@ -5343,57 +5353,106 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
   border: 1px solid color-mix(in srgb, var(--ptadm-color, var(--color-info)) 35%, transparent);
 }
 
-/* Chip de catégorie avec icône */
+.ptadm-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentcolor;
+  flex-shrink: 0;
+}
+
 .ptadm-cat {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
+  gap: 9px;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--gray-900);
 }
 
 .ptadm-cat i {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  font-size: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  font-size: 13px;
+  flex-shrink: 0;
   color: var(--ptadm-color, var(--color-info));
   background: color-mix(in srgb, var(--ptadm-color, var(--color-info)) 12%, transparent);
 }
 
-/* File de traitement */
+/* Clé machine : c'est de la donnée technique, elle se lit comme telle */
+.ptadm-key {
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+  color: var(--gray-500);
+  background: var(--black-alpha-04);
+}
+
+.ptadm-notify {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--color-success);
+}
+
+.ptadm-notify--off {
+  color: var(--gray-400);
+}
+
+/* Ligne désactivée : présente, mais visiblement hors service */
+.ptadm-row--off .ptadm-cat,
+.ptadm-row--off .adm-list-item__name {
+  opacity: 0.5;
+}
+
+/* ── File de traitement ──────────────────────────────────────────────────── */
+
 .ptadm-row {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   text-align: left;
+  font-family: inherit;
   background: none;
   border: none;
   cursor: pointer;
 }
 
 .ptadm-ref {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  margin-left: 6px;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--gray-400);
 }
 
 .ptadm-camera {
-  color: var(--text-tertiary);
+  color: var(--gray-400);
   font-size: 13px;
 }
 
-/* Détail (panneau latéral) */
+/* ── Détail (panneau latéral) ────────────────────────────────────────────── */
+
 .ptadm-detail {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
+}
+
+.ptadm-detail__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .ptadm-detail__pills {
@@ -5404,20 +5463,22 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
 }
 
 .ptadm-detail__meta {
+  margin-top: -8px;
   font-size: 12px;
-  color: var(--text-tertiary);
+  color: var(--gray-400);
 }
 
 .ptadm-detail__desc {
   margin: 0;
-  font-size: 14px;
-  line-height: 1.55;
-  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--gray-900);
   white-space: pre-wrap;
 }
 
 .ptadm-detail__desc--empty {
-  color: var(--text-tertiary);
+  font-size: 14px;
+  color: var(--gray-400);
   font-style: italic;
 }
 
@@ -5425,7 +5486,7 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
   width: 100%;
   max-height: 280px;
   object-fit: cover;
-  border-radius: 12px;
+  border-radius: 14px;
   display: block;
 }
 
@@ -5433,63 +5494,138 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
   display: none;
 }
 
+.ptadm-detail__place {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .ptadm-detail__addr {
   display: flex;
   align-items: center;
   gap: 7px;
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--gray-500);
 }
 
 .ptadm-detail__map {
-  height: 180px;
-  border-radius: 12px;
+  height: 170px;
+  border-radius: 14px;
   overflow: hidden;
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--adm-glass-border);
 }
 
 .ptadm-detail__map[hidden] {
   display: none;
 }
 
-.ptadm-detail__label {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-tertiary);
+/* Une vignette de 170px n'a pas la place d'afficher les commandes de la carte */
+.ptadm-detail__map .maplibregl-ctrl-bottom-left,
+.ptadm-detail__map .maplibregl-ctrl-bottom-right,
+.ptadm-detail__map .maplibregl-ctrl-top-right {
+  display: none;
 }
 
-.ptadm-detail__events,
-.ptadm-detail__actions,
-.ptadm-detail__admin {
+/* ── Blocs du panneau ────────────────────────────────────────────────────── */
+
+.ptadm-block {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-light);
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--black-alpha-04);
 }
 
-.ptadm-event {
+.ptadm-block__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gray-700);
+}
+
+.ptadm-block__hint {
+  margin: -4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--gray-400);
+}
+
+/* Statut et validation sur une ligne : c'est un geste, pas un formulaire */
+.ptadm-form-row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
+  align-items: center;
+}
+
+.ptadm-select {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.ptadm-message {
+  min-height: 76px;
+}
+
+.ptadm-detail__admin-btns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* La suppression est irréversible : discrète au repos, franche au survol */
+.ptadm-delete {
+  color: var(--danger);
+}
+
+.ptadm-delete:hover {
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+/* ── Historique ──────────────────────────────────────────────────────────── */
+
+.ptadm-event {
+  position: relative;
+  display: flex;
+  gap: 12px;
   align-items: flex-start;
+  padding-bottom: 14px;
+}
+
+.ptadm-event::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 14px;
+  bottom: 0;
+  width: 1.5px;
+  background: var(--black-alpha-04);
+}
+
+.ptadm-event:last-child {
+  padding-bottom: 0;
+}
+
+.ptadm-event:last-child::before {
+  display: none;
 }
 
 .ptadm-event__dot {
-  width: 8px;
-  height: 8px;
+  position: relative;
+  z-index: 1;
+  width: 9px;
+  height: 9px;
   border-radius: 999px;
   margin-top: 5px;
   flex-shrink: 0;
-  background: var(--color-info);
+  background: var(--ptadm-color, var(--color-info));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ptadm-color, var(--color-info)) 18%, transparent);
 }
 
 .ptadm-event--alert .ptadm-event__dot {
   background: var(--color-danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-danger) 20%, transparent);
 }
 
 .ptadm-event__body {
@@ -5504,69 +5640,96 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
   flex-wrap: wrap;
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--gray-900);
 }
 
 .ptadm-event__date {
   font-size: 11px;
   font-weight: 400;
-  color: var(--text-tertiary);
+  color: var(--gray-400);
 }
 
 .ptadm-event__msg {
-  margin-top: 4px;
-  padding: 7px 10px;
-  border-left: 3px solid var(--border-medium);
-  border-radius: 0 8px 8px 0;
+  margin-top: 6px;
+  padding: 8px 12px;
+  border-left: 3px solid color-mix(in srgb, var(--ptadm-color, var(--color-info)) 40%, transparent);
+  border-radius: 0 10px 10px 0;
   font-size: 13px;
-  line-height: 1.5;
-  color: var(--text-secondary);
-  background: var(--surface-raised);
+  line-height: 1.55;
+  color: var(--gray-700);
+  background: var(--black-alpha-04);
 }
 
-.ptadm-detail__admin-btns {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-/* Configuration */
-.ptadm-config {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
+/* ── Configuration ───────────────────────────────────────────────────────── */
 
 .ptadm-config__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
 }
 
 .ptadm-switch-row {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
+}
+
+.ptadm-switch-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   font-size: 13px;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
+  line-height: 1.5;
+  color: var(--gray-500);
+}
+
+.ptadm-switch-row__text strong {
+  font-size: 14px;
+  color: var(--gray-900);
 }
 
 .ptadm-form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
+/* Sélecteur de couleur : une pastille, pas un champ de saisie */
 .ptadm-color {
-  padding: 2px;
+  width: 52px;
   height: 38px;
-  max-width: 80px;
+  padding: 3px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--adm-radius-sm);
+  background: var(--white);
   cursor: pointer;
 }
 
-/* La file reste utilisable sur téléphone : l'agent traite depuis le terrain */
+/* Listes à plat dans une cw-section : la section porte déjà le cadre */
+.cw-section__body--flush {
+  padding: 0;
+}
+
+.cw-section__body--flush .adm-list-item:last-child {
+  border-bottom: none;
+}
+
+/* ── Dark ────────────────────────────────────────────────────────────────── */
+
+[data-theme='dark'] .ptadm-cat,
+[data-theme='dark'] .ptadm-event__title,
+[data-theme='dark'] .ptadm-detail__desc,
+[data-theme='dark'] .ptadm-switch-row__text strong {
+  color: var(--gray-900);
+}
+
+[data-theme='dark'] .ptadm-color {
+  background: var(--adm-glass-inner);
+  border-color: var(--adm-glass-border);
+}
+
+/* ── Mobile : la file se traite depuis le terrain ────────────────────────── */
+
 @media (max-width: 640px) {
   .ptadm-row {
     flex-wrap: wrap;
@@ -5578,5 +5741,10 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
 
   .ptadm-config__grid {
     grid-template-columns: 1fr;
+  }
+
+  .ptadm-form-row {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
