@@ -11,12 +11,11 @@
    ============================================================================ */
 
 import {
-  VILLE_RE, PUBLIC_GET_CORS, PUBLIC_EVENT_TYPES, BUCKET_PHOTOS,
+  VILLE_RE, UUID_RE, PUBLIC_GET_CORS, PUBLIC_EVENT_TYPES, BUCKET_PHOTOS,
   jsonResp, hasServiceKey,
   svcSelect, loadContext, loadCategories, loadStatuts, publicProps, storageSignedUrl,
 } from './lib/participer-common.mjs';
 
-const TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SELECT = 'id,ville,reference,category_key,statut_key,description,photo_path,photo_url,lat,lng,adresse,published,email_confirmed,created_at,updated_at';
 
 async function loadEvents(row, statuts) {
@@ -48,13 +47,13 @@ export default async (req) => {
     let row;
     let own = false;
     if (token) {
-      if (!TOKEN_RE.test(token)) return jsonResp(400, { error: 'Lien de suivi invalide' });
+      if (!UUID_RE.test(token)) return jsonResp(400, { error: 'Lien de suivi invalide' });
       [row] = await svcSelect('participer_signalements', { select: SELECT, suivi_token: `eq.${token}`, limit: '1' });
       own = true;
     } else {
       const ville = params.get('ville') || '';
       const id = params.get('id') || '';
-      if (!VILLE_RE.test(ville) || !TOKEN_RE.test(id)) return jsonResp(400, { error: 'Paramètres invalides' });
+      if (!VILLE_RE.test(ville) || !UUID_RE.test(id)) return jsonResp(400, { error: 'Paramètres invalides' });
       [row] = await svcSelect('participer_signalements', {
         select: SELECT, ville: `eq.${ville}`, id: `eq.${id}`, published: 'eq.true', limit: '1',
       });

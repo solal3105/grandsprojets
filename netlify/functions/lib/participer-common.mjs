@@ -23,6 +23,10 @@ export const VILLE_RE = /^[a-z0-9-]+$/i;
 // Volontairement permissif : ne pas rejeter une adresse réelle mal formée à la
 // marge (même esprit que demo-lead).
 export const EMAIL_RE = /^[^\s@]+@[^\s@,;]+\.[a-z]{2,}$/i;
+/* Identifiants et jetons du module : tous des UUID. Une seule expression, ici,
+   plutôt qu'une copie par fonction - le repo a déjà payé le prix de trois
+   validateurs de code ville divergents. */
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const STATUT_KEYS = ['nouveau', 'pris_en_compte', 'en_cours', 'resolu', 'rejete', 'hors_competence', 'doublon'];
 // Statuts qui clôturent un signalement (déclenchent closed_at, donc le départ

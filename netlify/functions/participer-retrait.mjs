@@ -9,11 +9,10 @@
 
 import { getCorsHeaders, preflightResp } from './lib/http.mjs';
 import {
-  VILLE_RE, EMAIL_RE, jsonResp, hasServiceKey, hashIp,
+  VILLE_RE, EMAIL_RE, UUID_RE, jsonResp, hasServiceKey, hashIp,
   svcSelect, svcCount, insertEvent, loadContext, mailMairie,
 } from './lib/participer-common.mjs';
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Borne par signalement et par jour : de quoi exercer un droit, pas de quoi inonder
 const MAX_PER_REPORT_PER_DAY = 5;
 /* Borne par demandeur : les identifiants des signalements publiés sont

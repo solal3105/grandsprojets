@@ -15,7 +15,7 @@
 
 import { getCorsHeaders, preflightResp, getAuthedUser, getProfile } from './lib/http.mjs';
 import {
-  VILLE_RE, STATUT_KEYS, STATUTS_CLOS, TEAM_COLUMNS, BUCKET_PHOTOS, BUCKET_PUBLIC, SITE,
+  VILLE_RE, UUID_RE, STATUT_KEYS, STATUTS_CLOS, TEAM_COLUMNS, BUCKET_PHOTOS, BUCKET_PUBLIC, SITE,
   jsonResp, hasServiceKey,
   svcSelect, svcUpdate, svcDelete, insertEvent,
   storageDownload, storageUpload, storageDelete, storageSignedUrl, publicStorageUrl,
@@ -23,7 +23,6 @@ import {
   mailStatut,
 } from './lib/participer-common.mjs';
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ACTIONS_ADMIN = new Set(['publish', 'unpublish', 'delete']);
 
 // Chemin de la copie publique d'une photo dans le bucket `uploads`

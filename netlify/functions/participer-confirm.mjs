@@ -11,12 +11,10 @@
    ============================================================================ */
 
 import {
-  SITE, jsonResp, hasServiceKey,
+  SITE, UUID_RE, jsonResp, hasServiceKey,
   svcSelect, svcUpdate, insertEvent, loadContext, loadCategories,
   mailAccuse, mailMairie,
 } from './lib/participer-common.mjs';
-
-const TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const redirect = (url) => new Response(null, { status: 302, headers: { Location: url, 'Cache-Control': 'no-store' } });
 
@@ -24,7 +22,7 @@ export default async (req) => {
   if (req.method !== 'GET') return jsonResp(405, { error: 'Méthode non autorisée' });
 
   const token = new URL(req.url).searchParams.get('token') || '';
-  if (!TOKEN_RE.test(token) || !hasServiceKey()) return redirect(`${SITE}/?participer=lien-invalide`);
+  if (!UUID_RE.test(token) || !hasServiceKey()) return redirect(`${SITE}/?participer=lien-invalide`);
 
   try {
     const [row] = await svcSelect('participer_signalements', {
