@@ -10,7 +10,9 @@
     return (win._cityModules || []).find((m) => m.module_key === 'participer') || {};
   }
 
-  const _city = () => win.getActiveCity?.() ?? win.activeCity;
+  // Règle du projet : la ville active a trois sources possibles, seul
+  // supabaseService.getActiveCity() les arbitre (avec son repli metropole-lyon)
+  const _city = () => win.supabaseService?.getActiveCity?.();
 
   /** L'utilisateur fait-il partie de l'équipe de la ville (admin ou contributeur) ? */
   function _isTeamMember() {

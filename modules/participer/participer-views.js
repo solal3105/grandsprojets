@@ -12,9 +12,14 @@
 
   const esc = (s) => win.SecurityUtils?.escapeHtml?.(s) ?? String(s ?? '');
   const safeColor = (c) => (/^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : 'var(--color-info)');
-  const safeIcon = (i) => (win.normalizeIconClass ? win.normalizeIconClass(i, 'fa-circle-exclamation')
+  // La classe d'icône vient de la base : elle est normalisée ET échappée, car
+  // elle finit dans une valeur d'attribut
+  const safeIcon = (i) => esc(win.normalizeIconClass
+    ? win.normalizeIconClass(i, 'fa-circle-exclamation')
     : 'fa-solid fa-circle-exclamation');
-  const activeCity = () => win.getActiveCity?.() ?? win.activeCity;
+  // Règle du projet : la ville active a trois sources possibles, seul
+  // supabaseService.getActiveCity() les arbitre (avec son repli metropole-lyon)
+  const activeCity = () => win.supabaseService?.getActiveCity?.();
   const capture = (event, props) => win.OPAnalytics?.capture?.(event, props);
 
   /* Jeton de suivi : capturé au chargement puis retiré de la barre d'adresse
@@ -144,10 +149,13 @@
     if (_mapClickBound) return;
     const map = win.MapModule?.map;
     if (!map) return;
-    // Un seul écouteur pour toute la vie de la page : le drapeau `placing`
-    // le neutralise dès que le formulaire n'est plus affiché (pas de off() sur le shim)
+    /* Un seul écouteur pour toute la vie de la page (le shim n'expose pas de
+       off()). Le drapeau `placing` ne suffit pas : changer de module par la
+       barre latérale n'appelle pas onClose, l'état du panneau fait donc foi. */
     map.on('click', (e) => {
       if (!_draft.placing || !e?.latlng) return;
+      const state = win.NavPanel?.getState?.();
+      if (state && (state.module !== 'participer' || state.category !== 'participer-signaler')) return;
       _setPoint(e.latlng.lat, e.latlng.lng, _formContainer());
     });
     _mapClickBound = true;
@@ -474,6 +482,7 @@
             <form class="pt-retrait__form" id="pt-retrait-form" hidden>
               <textarea class="pt-input pt-textarea" id="pt-retrait-motif" maxlength="500" rows="2" placeholder="Pourquoi ce contenu doit-il être retiré ?" required></textarea>
               <input class="pt-input" type="email" id="pt-retrait-email" maxlength="180" placeholder="Votre email pour la réponse (facultatif)">
+              <input class="pt-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
               <button type="submit" class="pt-submit pt-submit--small">Transmettre à la collectivité</button>
             </form>
           </div>`}
@@ -506,6 +515,7 @@
           id: s.id,
           motif,
           email: panel.querySelector('#pt-retrait-email')?.value.trim() || null,
+          website: panel.querySelector('#pt-retrait-form .pt-hp')?.value || '',
         });
         win.Toast?.show('Demande transmise à la collectivité', 'success');
         panel.querySelector('.pt-retrait').innerHTML = '<p class="pt-own-note"><i class="fa-solid fa-circle-check"></i> Demande transmise - réponse sous un mois.</p>';

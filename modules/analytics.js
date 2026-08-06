@@ -141,7 +141,7 @@
       if (typeof value !== 'string' || !value) continue;
       value = value.split('#')[0];
       for (const param of MASKED_PARAMS) {
-        value = value.replace(new RegExp('([?&]' + param + '=)[^&]*'), '$1masque');
+        value = value.replace(new RegExp('([?&]' + param + '=)[^&]*', 'g'), '$1masque');
       }
       properties[key] = value;
     }

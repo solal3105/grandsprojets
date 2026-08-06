@@ -29,7 +29,7 @@ export const STATUT_KEYS = ['nouveau', 'pris_en_compte', 'en_cours', 'resolu', '
 // du compte à rebours d'anonymisation)
 export const STATUTS_CLOS = new Set(['resolu', 'rejete', 'hors_competence', 'doublon']);
 // Types d'événements montrés au public et à l'habitant sur sa page de suivi ;
-// les autres (retrait_demande, anonymisation) restent internes
+// les autres (retrait_demande, depublication, suppression) restent internes
 export const PUBLIC_EVENT_TYPES = new Set(['creation', 'statut', 'publication']);
 
 export const BUCKET_PHOTOS = 'participer-photos';
@@ -256,7 +256,10 @@ export function publicProps(row, categories, statuts) {
 
 /* ─── Événements ─── */
 
-export async function insertEvent({ signalementId, ville, type, oldStatut = null, newStatut = null, messagePublic = null, author = null }) {
+export async function insertEvent({
+  signalementId, ville, type, oldStatut = null, newStatut = null,
+  messagePublic = null, contactEmail = null, authorIpHash = null, author = null,
+}) {
   await svcInsert('participer_events', {
     signalement_id: signalementId,
     ville,
@@ -264,6 +267,10 @@ export async function insertEvent({ signalementId, ville, type, oldStatut = null
     old_statut: oldStatut,
     new_statut: newStatut,
     message_public: messagePublic,
+    // Données personnelles d'un tiers (demande de retrait) : colonnes dédiées,
+    // jamais servies au navigateur, effacées par la passe d'anonymisation
+    contact_email: contactEmail,
+    author_ip_hash: authorIpHash,
     author,
   });
 }

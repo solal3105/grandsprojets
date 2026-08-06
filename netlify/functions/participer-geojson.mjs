@@ -8,8 +8,10 @@
 
 import {
   VILLE_RE, PUBLIC_GET_CORS, jsonResp, hasServiceKey,
-  svcSelect, loadCategories, loadStatuts, publicProps,
+  svcSelect, loadContext, loadCategories, loadStatuts, publicProps,
 } from './lib/participer-common.mjs';
+
+const EMPTY_FC = { type: 'FeatureCollection', features: [] };
 
 export default async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: PUBLIC_GET_CORS });
@@ -20,6 +22,11 @@ export default async (req) => {
   if (!hasServiceKey()) return jsonResp(503, { error: 'Service indisponible' });
 
   try {
+    // Désactiver le module doit retirer les contenus citoyens de la carte,
+    // pas seulement son bouton
+    const ctx = await loadContext(ville);
+    if (!ctx.enabled) return jsonResp(200, EMPTY_FC);
+
     const [rows, categories, statuts] = await Promise.all([
       svcSelect('participer_signalements', {
         select: 'id,reference,category_key,statut_key,description,photo_url,lat,lng,adresse,created_at,updated_at',

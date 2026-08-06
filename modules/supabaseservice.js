@@ -25,6 +25,16 @@
   // garderait que la première frame d'un GIF animé.
   const IMAGE_COMPRESS_SKIP = ['image/svg+xml', 'image/gif', 'image/x-icon', 'image/vnd.microsoft.icon'];
 
+  /* Colonnes d'un signalement servies au navigateur. Jamais `*` : email,
+     ip_hash et les jetons ne doivent pas quitter le serveur (le jeton de suivi
+     est un porteur permanent). Des privilèges par colonne le garantissent
+     aussi côté base, pour toute requête forgée hors de ce fichier. */
+  const PARTICIPER_COLUMNS = 'id,ville,reference,category_key,statut_key,description,'
+    + 'photo_path,photo_url,lat,lng,adresse,email_confirmed,published,doublon_de,'
+    + 'created_at,updated_at,confirmed_at,closed_at,anonymized_at';
+
+  const PARTICIPER_EVENT_COLUMNS = 'id,signalement_id,ville,type,old_statut,new_statut,message_public,author,created_at';
+
   /**
    * Compress an image before uploading it to Storage.
    * Returns null when the file must be uploaded untouched: vector, animated,
@@ -2725,6 +2735,11 @@
        policies). Toute MUTATION d'un signalement passe par la fonction
        serveur /api/participer/update (participerAction) : rôle revérifié
        côté serveur, événement et email expédiés dans le même appel.
+
+       Colonnes explicites, jamais `*` : email, ip_hash et les jetons ne
+       doivent jamais atteindre un navigateur (le jeton de suivi est un
+       porteur permanent). Des privilèges par colonne le garantissent aussi
+       côté base, pour une requête forgée hors de ce fichier.
        ═══════════════════════════════════════════════════════════════ */
 
     /**
@@ -2738,13 +2753,17 @@
         if (!ville) return { rows: [], total: 0 };
         let query = supabaseClient
           .from('participer_signalements')
-          .select('*', { count: 'exact' })
+          .select(PARTICIPER_COLUMNS, { count: 'exact' })
           .eq('ville', ville)
           .eq('email_confirmed', true)
           .order('created_at', { ascending: false })
           .range((page - 1) * pageSize, page * pageSize - 1);
         if (Array.isArray(statutKeys) && statutKeys.length) query = query.in('statut_key', statutKeys);
-        if (search) query = query.or(`reference.ilike.%${search}%,description.ilike.%${search}%,adresse.ilike.%${search}%`);
+        // La virgule et les parenthèses sont la grammaire de `.or()` : sans ce
+        // nettoyage, une adresse française (« 12, rue... ») casse la requête -
+        // et une saisie hostile réécrit le prédicat.
+        const terme = String(search).replace(/[,()"\\%_]/g, ' ').trim();
+        if (terme) query = query.or(`reference.ilike."%${terme}%",description.ilike."%${terme}%",adresse.ilike."%${terme}%"`);
         const { data, error, count } = await query;
         if (error) {
           console.debug('[supabaseService] Erreur fetchParticiperSignalements:', error);
@@ -2779,7 +2798,7 @@
         if (!signalementId) return [];
         const { data, error } = await supabaseClient
           .from('participer_events')
-          .select('*')
+          .select(PARTICIPER_EVENT_COLUMNS)
           .eq('signalement_id', signalementId)
           .order('created_at', { ascending: true });
         if (error) {
@@ -2820,14 +2839,16 @@
     upsertParticiperCategory: async function(ville, cat) {
       try {
         if (!ville || !cat?.label) return { data: null, error: new Error('ville et label requis') };
+        // Icône et couleur omises quand elles ne sont pas fournies : les
+        // valeurs par défaut sont celles de la table, pas une copie ici
         const row = {
           label: cat.label,
-          icon_class: cat.icon_class || 'fa-solid fa-circle-exclamation',
-          color: cat.color || '#14AE5C',
           help_text: cat.help_text ?? null,
           sort_order: cat.sort_order ?? 0,
           enabled: cat.enabled !== undefined ? cat.enabled : true,
         };
+        if (cat.icon_class) row.icon_class = cat.icon_class;
+        if (cat.color) row.color = cat.color;
         let query;
         if (cat.id) {
           query = supabaseClient.from('participer_categories').update(row).eq('id', cat.id).eq('ville', ville);

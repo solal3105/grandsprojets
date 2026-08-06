@@ -32,7 +32,7 @@ sort JAMAIS vers le public (ni GeoJSON, ni détail, ni export CSV).
 | `participer_statuts` | Affichage des 7 statuts par ville : libellé, couleur, ordre, notification email |
 | `participer_settings` | Réglages par ville : textes, email mairie, pause, quotas, alerte, rétention |
 | `participer_signalements` | Les dépôts : position (lat/lng), catégorie, statut, email, jetons, publication |
-| `participer_events` | Historique horodaté : création, statuts, publication, demandes de retrait |
+| `participer_events` | Historique horodaté : création, statuts, publication, dépublication, suppression, demandes de retrait |
 | `participer_compteurs` | Compteur de références par ville/année (`TES-2026-0042`) |
 
 - **7 clés machine de statut FIXES** (CHECK en base) : `nouveau`,
@@ -44,6 +44,15 @@ sort JAMAIS vers le public (ni GeoJSON, ni détail, ni export CSV).
 - Storage : bucket privé `participer-photos` (aucune policy, clé service
   uniquement, URL signées) ; à la publication la photo est copiée dans le
   bucket public `uploads` sous `participer/<ville>/`.
+- **Privilèges par colonne** (et pas seulement RLS) : `authenticated` n'a le
+  droit de lire ni `email`, ni `ip_hash`, ni `confirm_token`, ni `suivi_token`
+  sur `participer_signalements`, ni `contact_email`/`author_ip_hash` sur
+  `participer_events`. La policy RLS laisse passer tout membre d'équipe d'une
+  ville (`is_contributor_for_ville` ne teste aucun rôle) : sans ces grants, un
+  compte contributeur pouvait lire le jeton de suivi, qui est un porteur
+  permanent. Le serveur passe par la clé de service, non concernée.
+- `participer_events.signalement_id` est nullable avec `ON DELETE SET NULL` :
+  la trace de suppression survit à la suppression du signalement.
 
 ## Fonctions Netlify (routes `/api/participer/*`)
 
@@ -56,7 +65,7 @@ sort JAMAIS vers le public (ni GeoJSON, ni détail, ni export CSV).
 | `participer-confirm.mjs` | GET `/confirm?token=` | public (double opt-in, redirige vers le suivi) |
 | `participer-update.mjs` | POST `/update` | JWT + rôle revérifié serveur |
 | `participer-retrait.mjs` | POST `/retrait` | public (droit d'effacement, consigné + email mairie) |
-| `participer-scheduled.mjs` | planifiée `@daily` | purge non-confirmés (7 j), anonymisation (rétention par ville), alerte anti « module fantôme » |
+| `participer-scheduled.mjs` | planifiée `@daily` | purge non-confirmés (7 j, par lots de 100), anonymisation (rétention par ville, signalements + contacts de retrait), alerte anti « module fantôme » (jalonnée seulement si l'email part) |
 
 Socle partagé : `lib/participer-common.mjs` (PostgREST/Storage clé service,
 contexte ville, événements, hash d'IP salé, emails du module),
@@ -123,8 +132,10 @@ Pour un hébergement européen des emails citoyens, configurer `BREVO_API_KEY`
 
 ## RGPD - engagements tenus par le code
 
-- Email jamais public, jamais exporté ; effacé (avec le hash d'IP) N mois
-  après clôture (`retention_mois`, défaut 12) par la fonction planifiée.
+- Email jamais public, jamais exporté, jamais servi à un navigateur (grants
+  par colonne) ; effacé avec le hash d'IP N mois après clôture
+  (`retention_mois`, défaut 12) par la fonction planifiée, de même que le
+  contact laissé dans une demande de retrait.
 - Rien de textuel ni photo n'est public avant modération (`published`).
 - EXIF supprimés au dépôt ; photos privées jusqu'à publication.
 - Bouton public « demander le retrait de ce contenu » sur chaque signalement

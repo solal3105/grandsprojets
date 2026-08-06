@@ -5,8 +5,9 @@
    Scheduled Function, pas de pg_cron) :
      1. PURGE des dépôts jamais confirmés après 7 jours (ligne + photo) ;
      2. ANONYMISATION des signalements clos depuis plus de `retention_mois`
-        (réglage par ville) : email et hash d'IP effacés, le contenu publié
-        reste (il n'est pas nominatif) ;
+        (réglage par ville) : email et hash d'IP effacés, plus les contacts
+        laissés dans les demandes de retrait. Le contenu publié reste (il
+        n'est pas nominatif) ;
      3. ALERTE anti « module fantôme » : si des signalements confirmés restent
         au statut « nouveau » au-delà de `alerte_jours`, la mairie reçoit un
         rappel (au plus un tous les 6 jours, jalonné par last_alert_at).
@@ -17,35 +18,48 @@ import {
   svcSelect, svcUpdate, svcDelete, storageDelete, mailMairie,
 } from './lib/participer-common.mjs';
 
-const JOURS_AVANT_PURGE = 7;
-const JOURS_ENTRE_ALERTES = 6;
+const PURGE_AFTER_DAYS = 7;
+const DAYS_BETWEEN_ALERTS = 6;
+// Une URL PostgREST porte ~37 octets par identifiant : au-delà, la requête est
+// rejetée et la purge ne passerait plus jamais
+const DELETE_BATCH = 100;
 
-const isoIlYaJours = (jours) => new Date(Date.now() - jours * 86400000).toISOString();
+const isoDaysAgo = (days) => new Date(Date.now() - days * 86400000).toISOString();
 
-function isoIlYaMois(mois) {
+/** N mois en arrière, sans le débordement de `setMonth` en fin de mois
+    (31 mars moins 1 mois donnerait le 3 mars). */
+function isoMonthsAgo(months) {
   const d = new Date();
-  d.setMonth(d.getMonth() - mois);
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - months);
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, lastDay));
   return d.toISOString();
 }
 
-async function purgerNonConfirmes() {
+async function purgeUnconfirmed() {
   const rows = await svcSelect('participer_signalements', {
     select: 'id,photo_path',
     email_confirmed: 'eq.false',
-    created_at: `lt.${isoIlYaJours(JOURS_AVANT_PURGE)}`,
+    created_at: `lt.${isoDaysAgo(PURGE_AFTER_DAYS)}`,
   });
   if (!rows.length) return 0;
   await storageDelete(BUCKET_PHOTOS, rows.map((r) => r.photo_path).filter(Boolean));
-  await svcDelete('participer_signalements', { id: `in.(${rows.map((r) => r.id).join(',')})` });
+  for (let i = 0; i < rows.length; i += DELETE_BATCH) {
+    const ids = rows.slice(i, i + DELETE_BATCH).map((r) => r.id);
+    await svcDelete('participer_signalements', { id: `in.(${ids.join(',')})` });
+  }
   return rows.length;
 }
 
-async function anonymiser(settingsRows) {
+async function anonymize(settingsRows) {
   let total = 0;
   for (const s of settingsRows) {
+    const seuil = isoMonthsAgo(s.retention_mois ?? 12);
     const maj = await svcUpdate('participer_signalements', {
       ville: `eq.${s.ville}`,
-      closed_at: `lt.${isoIlYaMois(s.retention_mois ?? 12)}`,
+      closed_at: `lt.${seuil}`,
       anonymized_at: 'is.null',
     }, {
       email: null,
@@ -53,24 +67,32 @@ async function anonymiser(settingsRows) {
       anonymized_at: new Date().toISOString(),
     });
     total += maj.length;
+
+    // Les demandes de retrait portent le contact d'un tiers : même rétention
+    await svcUpdate('participer_events', {
+      ville: `eq.${s.ville}`,
+      type: 'eq.retrait_demande',
+      created_at: `lt.${seuil}`,
+      contact_email: 'not.is.null',
+    }, { contact_email: null, author_ip_hash: null });
   }
   return total;
 }
 
-async function alerter(settingsRows) {
-  let envoyees = 0;
+async function alertUntreated(settingsRows) {
+  let sent = 0;
   for (const s of settingsRows) {
     if (!s.notify_email) continue;
-    if (s.last_alert_at && s.last_alert_at > isoIlYaJours(JOURS_ENTRE_ALERTES)) continue;
+    if (s.last_alert_at && s.last_alert_at > isoDaysAgo(DAYS_BETWEEN_ALERTS)) continue;
     const enAttente = await svcSelect('participer_signalements', {
       select: 'id',
       ville: `eq.${s.ville}`,
       statut_key: 'eq.nouveau',
       email_confirmed: 'eq.true',
-      created_at: `lt.${isoIlYaJours(s.alerte_jours ?? 7)}`,
+      created_at: `lt.${isoDaysAgo(s.alerte_jours ?? 7)}`,
     });
     if (!enAttente.length) continue;
-    await mailMairie({
+    const mail = await mailMairie({
       to: s.notify_email,
       subject: `${enAttente.length} signalement(s) en attente de traitement`,
       lignes: [
@@ -78,10 +100,12 @@ async function alerter(settingsRows) {
         `Un signalement sans réponse détruit la confiance des habitants : un simple passage en « pris en compte » suffit à la maintenir.`,
       ],
     });
+    // Jalonner sur un envoi échoué supprimerait l'alerte pour 6 jours de plus
+    if (mail.status !== 'envoye') continue;
     await svcUpdate('participer_settings', { ville: `eq.${s.ville}` }, { last_alert_at: new Date().toISOString() });
-    envoyees += 1;
+    sent += 1;
   }
-  return envoyees;
+  return sent;
 }
 
 export default async () => {
@@ -93,12 +117,13 @@ export default async () => {
     const settingsRows = await svcSelect('participer_settings', {
       select: 'ville,notify_email,alerte_jours,retention_mois,last_alert_at',
     });
-    const [purges, anonymises, alertes] = [
-      await purgerNonConfirmes(),
-      await anonymiser(settingsRows),
-      await alerter(settingsRows),
-    ];
-    console.log(`[participer-scheduled] purges=${purges} anonymisés=${anonymises} alertes=${alertes}`);
+    /* Séquentiel et non Promise.all : chaque tâche doit s'exécuter même si la
+       précédente échoue partiellement, et une purge concurrente d'une
+       anonymisation compliquerait la lecture des journaux. */
+    const purged = await purgeUnconfirmed();
+    const anonymized = await anonymize(settingsRows);
+    const alerts = await alertUntreated(settingsRows);
+    console.log(`[participer-scheduled] purges=${purged} anonymisés=${anonymized} alertes=${alerts}`);
     return new Response('ok', { status: 200 });
   } catch (e) {
     console.error('[participer-scheduled] ::', e?.message);

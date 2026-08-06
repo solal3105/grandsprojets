@@ -13,13 +13,13 @@
 import {
   VILLE_RE, PUBLIC_GET_CORS, PUBLIC_EVENT_TYPES, BUCKET_PHOTOS,
   jsonResp, hasServiceKey,
-  svcSelect, loadCategories, loadStatuts, publicProps, storageSignedUrl,
+  svcSelect, loadContext, loadCategories, loadStatuts, publicProps, storageSignedUrl,
 } from './lib/participer-common.mjs';
 
 const TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SELECT = 'id,ville,reference,category_key,statut_key,description,photo_path,photo_url,lat,lng,adresse,published,email_confirmed,created_at,updated_at';
 
-async function chargerEvents(row, statuts) {
+async function loadEvents(row, statuts) {
   const events = await svcSelect('participer_events', {
     select: 'type,new_statut,message_public,created_at',
     signalement_id: `eq.${row.id}`,
@@ -61,6 +61,10 @@ export default async (req) => {
     }
     if (!row) return jsonResp(404, { error: 'Signalement introuvable' });
 
+    // Module désactivé : plus aucun contenu servi, y compris par lien de suivi
+    const ctx = await loadContext(row.ville);
+    if (!ctx.enabled) return jsonResp(404, { error: 'Signalement introuvable' });
+
     const [categories, statuts] = await Promise.all([loadCategories(row.ville), loadStatuts(row.ville)]);
     const signalement = {
       ...publicProps(row, categories, statuts),
@@ -75,7 +79,7 @@ export default async (req) => {
     }
     if (own) signalement.email_confirmed = row.email_confirmed;
 
-    return jsonResp(200, { own, signalement, events: await chargerEvents(row, statuts) });
+    return jsonResp(200, { own, signalement, events: await loadEvents(row, statuts) });
   } catch (e) {
     console.error('[participer-detail] ::', e?.message);
     return jsonResp(500, { error: 'Erreur interne' });

@@ -28,18 +28,28 @@ const CHECKLIST_PUBLICATION = 'Avant de publier, vérifiez : aucun visage ni pla
 
 export function openDetail(row, ref, { onChange } = {}) {
   let mini = null;
+  let closed = false;
 
   const handle = slidePanel.open({
     title: row.reference,
     body: _bodyHtml(row, ref),
-    onClose: () => { try { mini?.destroy?.(); } catch { /* carte déjà détruite */ } },
+    onClose: () => {
+      closed = true;
+      try { mini?.destroy?.(); } catch { /* carte déjà détruite */ }
+    },
   });
   if (!handle) return;
   const { content } = handle;
 
   _loadPhoto(content, row);
   _loadEvents(content, row, ref);
-  _loadMiniMap(content, row, ref).then((m) => { mini = m; });
+  /* La carte est instanciée tout de suite mais la promesse ne se résout qu'au
+     chargement du fond : refermer avant laisserait un contexte WebGL vivant, et
+     le navigateur en recycle après une quinzaine. */
+  _loadMiniMap(content, row, ref).then((m) => {
+    if (closed) { try { m?.destroy?.(); } catch { /* déjà détruite */ } }
+    else mini = m;
+  });
   _bindActions(content, row, ref, { onChange, close: handle.close });
 }
 
@@ -47,8 +57,11 @@ export function openDetail(row, ref, { onChange } = {}) {
 
 function _bodyHtml(row, ref) {
   const st = stOf(ref, row.statut_key);
+  /* Le rejet est réservé aux admins, mais un contributeur doit voir le statut
+     courant d'un signalement déjà rejeté : sans cette exception, le select
+     retomberait sur « Reçu » et un clic sur Appliquer rouvrirait le dossier. */
   const statutOptions = ref.statuts
-    .filter((s) => store.isAdmin || s.statut_key !== 'rejete')
+    .filter((s) => store.isAdmin || s.statut_key !== 'rejete' || s.statut_key === row.statut_key)
     .map((s) => `<option value="${esc(s.statut_key)}" ${s.statut_key === row.statut_key ? 'selected' : ''}>${esc(s.label)}</option>`)
     .join('');
 
@@ -191,7 +204,7 @@ function _bindActions(content, row, ref, { onChange, close }) {
     }
     try {
       const res = await api.participerAction('set_statut', row.id, { statut_key: statutKey, message_public: message });
-      const notifie = stOf(ref, statutKey)?.notify && row.email;
+      const notifie = stOf(ref, statutKey)?.notify && row.email_confirmed;
       toast(`Statut appliqué${notifie ? ' - l\'habitant est prévenu par email' : ''}`, 'success');
       refresh(res.signalement);
     } catch (e) {

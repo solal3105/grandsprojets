@@ -9,15 +9,20 @@
 
 import { getCorsHeaders, preflightResp } from './lib/http.mjs';
 import {
-  VILLE_RE, EMAIL_RE, jsonResp, hasServiceKey,
+  VILLE_RE, EMAIL_RE, jsonResp, hasServiceKey, hashIp,
   svcSelect, svcCount, insertEvent, loadContext, mailMairie,
 } from './lib/participer-common.mjs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Borne par signalement et par jour : de quoi exercer un droit, pas de quoi inonder
-const MAX_DEMANDES_JOUR = 5;
+const MAX_PER_REPORT_PER_DAY = 5;
+/* Borne par demandeur : les identifiants des signalements publiés sont
+   énumérables via /geojson, donc le plafond par signalement ne suffit pas -
+   sans celui-ci, un script transforme la route en relais de courrier vers la
+   mairie depuis notre domaine d'expédition. */
+const MAX_PER_IP_PER_DAY = 10;
 
-export default async (req) => {
+export default async (req, context) => {
   const cors = { ...getCorsHeaders(req), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
   if (req.method === 'OPTIONS') return preflightResp(cors);
   if (req.method !== 'POST') return jsonResp(405, { error: 'Méthode non autorisée' }, cors);
@@ -28,6 +33,9 @@ export default async (req) => {
   } catch {
     return jsonResp(400, { error: 'Corps de requête invalide' }, cors);
   }
+
+  // Honeypot : invisible pour un humain, rempli par un robot
+  if (String(body?.website || '').trim()) return jsonResp(200, { ok: true }, cors);
 
   const ville = String(body?.ville || '').trim();
   const id = String(body?.id || '').trim();
@@ -46,15 +54,23 @@ export default async (req) => {
     if (!row) return jsonResp(404, { error: 'Signalement introuvable' }, cors);
 
     const today = new Date().toISOString().slice(0, 10);
-    const dejaFaites = await svcCount('participer_events', {
-      signalement_id: `eq.${id}`, type: 'eq.retrait_demande', created_at: `gte.${today}`,
-    });
-    if (dejaFaites >= MAX_DEMANDES_JOUR) return jsonResp(429, { error: 'Demande déjà transmise' }, cors);
+    const ipHash = await hashIp(context?.ip);
+    const [onSameReport, byIp] = await Promise.all([
+      svcCount('participer_events', { signalement_id: `eq.${id}`, type: 'eq.retrait_demande', created_at: `gte.${today}` }),
+      svcCount('participer_events', { ville: `eq.${ville}`, type: 'eq.retrait_demande', author_ip_hash: `eq.${ipHash}`, created_at: `gte.${today}` }),
+    ]);
+    if (onSameReport >= MAX_PER_REPORT_PER_DAY || byIp >= MAX_PER_IP_PER_DAY) {
+      return jsonResp(429, { error: 'Demande déjà transmise' }, cors);
+    }
 
-    // Le motif reste interne : le type retrait_demande n'est jamais servi au public
+    /* Le motif reste interne (le type retrait_demande n'est jamais servi au
+       public) et le contact du demandeur va dans sa colonne dédiée : c'est une
+       donnée personnelle de tiers, soumise à la même rétention. */
     await insertEvent({
       signalementId: id, ville, type: 'retrait_demande',
-      messagePublic: contact ? `${motif} (contact : ${contact})` : motif,
+      messagePublic: motif,
+      contactEmail: contact || null,
+      authorIpHash: ipHash,
     });
 
     const ctx = await loadContext(ville);

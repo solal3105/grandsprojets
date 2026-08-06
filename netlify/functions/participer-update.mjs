@@ -27,9 +27,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const ACTIONS_ADMIN = new Set(['publish', 'unpublish', 'delete']);
 
 // Chemin de la copie publique d'une photo dans le bucket `uploads`
-const cheminPublic = (photoPath) => `participer/${photoPath}`;
+const publicPhotoPath = (photoPath) => `participer/${photoPath}`;
 
-async function notifierStatut(row, statutKey, message, settings) {
+async function notifyStatusChange(row, statutKey, message, settings) {
   if (!row.email || !row.email_confirmed) return;
   const statuts = await loadStatuts(row.ville);
   const st = statuts.find((s) => s.statut_key === statutKey);
@@ -69,9 +69,9 @@ export default async (req) => {
 
   // Rôle revérifié côté serveur : le gating de l'interface ne protège rien
   const profile = await getProfile(user);
-  const rattache = profile && (profile.villes.includes('global') || profile.villes.includes(ville));
-  const isAdmin = rattache && profile.role === 'admin';
-  if (!rattache) return jsonResp(403, { error: 'Réservé à l\'équipe de cette ville' }, cors);
+  const isTeamMember = profile && (profile.villes.includes('global') || profile.villes.includes(ville));
+  const isAdmin = isTeamMember && profile.role === 'admin';
+  if (!isTeamMember) return jsonResp(403, { error: 'Réservé à l\'équipe de cette ville' }, cors);
   if (ACTIONS_ADMIN.has(action) && !isAdmin) return jsonResp(403, { error: 'Réservé aux administrateurs' }, cors);
 
   try {
@@ -98,26 +98,29 @@ export default async (req) => {
         const patch = {
           statut_key: statutKey,
           closed_at: STATUTS_CLOS.has(statutKey) ? new Date().toISOString() : null,
+          // Requalifier un doublon en autre chose doit couper le lien, sinon la
+          // ligne continue de pointer un signalement qu'elle ne double plus
+          ...(statutKey === 'doublon' ? {} : { doublon_de: null }),
         };
         if (statutKey === 'doublon') {
-          const doublonDe = String(body?.doublon_de || '');
-          if (doublonDe) {
-            if (!UUID_RE.test(doublonDe) || doublonDe === id) return jsonResp(400, { error: 'Doublon invalide' }, cors);
-            const [original] = await svcSelect('participer_signalements', {
-              select: 'id', id: `eq.${doublonDe}`, ville: `eq.${ville}`, limit: '1',
+          const duplicateOf = String(body?.doublon_de || '');
+          if (duplicateOf) {
+            if (!UUID_RE.test(duplicateOf) || duplicateOf === id) return jsonResp(400, { error: 'Doublon invalide' }, cors);
+            const [sourceRow] = await svcSelect('participer_signalements', {
+              select: 'id', id: `eq.${duplicateOf}`, ville: `eq.${ville}`, limit: '1',
             });
-            if (!original) return jsonResp(400, { error: 'Signalement d\'origine introuvable' }, cors);
-            patch.doublon_de = doublonDe;
+            if (!sourceRow) return jsonResp(400, { error: 'Signalement d\'origine introuvable' }, cors);
+            patch.doublon_de = duplicateOf;
           }
         }
-        const [maj] = await svcUpdate('participer_signalements', { id: `eq.${id}` }, patch);
+        const [updated] = await svcUpdate('participer_signalements', { id: `eq.${id}` }, patch);
         await insertEvent({
           signalementId: id, ville, type: 'statut',
           oldStatut: row.statut_key, newStatut: statutKey,
           messagePublic: message, author: user.id,
         });
-        await notifierStatut(row, statutKey, message, ctx.settings);
-        return jsonResp(200, { ok: true, signalement: maj }, cors);
+        await notifyStatusChange(row, statutKey, message, ctx.settings);
+        return jsonResp(200, { ok: true, signalement: updated }, cors);
       }
 
       case 'publish': {
@@ -125,31 +128,42 @@ export default async (req) => {
         let photoUrl = row.photo_url;
         if (row.photo_path && !photoUrl) {
           const { bytes, contentType } = await storageDownload(BUCKET_PHOTOS, row.photo_path);
-          await storageUpload(BUCKET_PUBLIC, cheminPublic(row.photo_path), bytes, contentType);
-          photoUrl = publicStorageUrl(cheminPublic(row.photo_path));
+          await storageUpload(BUCKET_PUBLIC, publicPhotoPath(row.photo_path), bytes, contentType);
+          photoUrl = publicStorageUrl(publicPhotoPath(row.photo_path));
         }
-        const [maj] = await svcUpdate('participer_signalements', { id: `eq.${id}` }, {
+        const [updated] = await svcUpdate('participer_signalements', { id: `eq.${id}` }, {
           published: true,
           photo_url: photoUrl,
         });
         await insertEvent({ signalementId: id, ville, type: 'publication', author: user.id });
-        return jsonResp(200, { ok: true, signalement: maj }, cors);
+        return jsonResp(200, { ok: true, signalement: updated }, cors);
       }
 
       case 'unpublish': {
-        if (row.photo_path) await storageDelete(BUCKET_PUBLIC, [cheminPublic(row.photo_path)]);
-        const [maj] = await svcUpdate('participer_signalements', { id: `eq.${id}` }, {
+        if (row.photo_path) await storageDelete(BUCKET_PUBLIC, [publicPhotoPath(row.photo_path)]);
+        const [updated] = await svcUpdate('participer_signalements', { id: `eq.${id}` }, {
           published: false,
           photo_url: null,
         });
-        return jsonResp(200, { ok: true, signalement: maj }, cors);
+        await insertEvent({ signalementId: id, ville, type: 'depublication', author: user.id });
+        return jsonResp(200, { ok: true, signalement: updated }, cors);
       }
 
       case 'delete': {
         if (row.photo_path) {
           await storageDelete(BUCKET_PHOTOS, [row.photo_path]);
-          await storageDelete(BUCKET_PUBLIC, [cheminPublic(row.photo_path)]);
+          await storageDelete(BUCKET_PUBLIC, [publicPhotoPath(row.photo_path)]);
         }
+        /* Trace AVANT la suppression, et sans lien vers la ligne : la clé
+           étrangère passe à NULL au lieu d'effacer l'événement, sinon plus
+           personne ne sait qui a supprimé quoi (ni le contrôle interne, ni une
+           demande d'accès de l'habitant). */
+        await insertEvent({
+          signalementId: id, ville, type: 'suppression',
+          oldStatut: row.statut_key,
+          messagePublic: row.reference,
+          author: user.id,
+        });
         await svcDelete('participer_signalements', { id: `eq.${id}` });
         return jsonResp(200, { ok: true }, cors);
       }

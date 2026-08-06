@@ -162,17 +162,23 @@ async function _injectPendingCount(container) {
    Volontairement SANS email ni hash d'IP : l'export circule (services
    techniques, prestataires), les données personnelles n'y ont pas leur place. */
 
+const EXPORT_MAX = 1000;
+
 async function _exportCsv() {
   try {
     const ref = await loadRefData(store.city);
     const tab = TABS.find((t) => t.key === state.tab) || TABS[0];
-    const { rows } = await api.listParticiperSignalements({
+    const { rows, total } = await api.listParticiperSignalements({
       statutKeys: tab.statuts,
       page: 1,
-      pageSize: 1000,
+      pageSize: EXPORT_MAX,
       search: state.search,
     });
     if (!rows.length) { toast('Rien à exporter', 'info'); return; }
+    // Un export tronqué en silence se lit comme un export complet
+    if (total > rows.length) {
+      toast(`Export limité aux ${rows.length} plus récents sur ${total} - filtrez pour le reste`, 'warning');
+    }
 
     const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const lignes = [

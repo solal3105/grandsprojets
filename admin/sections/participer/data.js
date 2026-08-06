@@ -12,7 +12,12 @@ import { esc } from '../../components/ui.js';
 // Statuts qui clôturent un signalement (miroir de participer-common.mjs côté serveur)
 export const STATUTS_CLOS = ['resolu', 'rejete', 'hors_competence', 'doublon'];
 
-export const safeColor = (c) => (/^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : '#6B7280');
+/* Les couleurs sont des DONNÉES (colonne `color`) : ces deux valeurs ne sont
+   que les replis quand la base ne dit rien, alignés sur les défauts SQL. */
+export const COULEUR_DEFAUT = '#14AE5C';
+const COULEUR_NEUTRE = '#6B7280';
+
+export const safeColor = (c) => (/^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : COULEUR_NEUTRE);
 
 let _ref = { city: null, categories: [], statuts: [] };
 

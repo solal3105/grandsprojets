@@ -10,7 +10,7 @@ import { store } from '../../store.js';
 import * as api from '../../api.js';
 import { esc, toast, confirm, slidePanel, emptyState } from '../../components/ui.js';
 import { renderIconField, bindIconField } from '../../components/icon-picker.js';
-import { invalidateRefData, safeColor, subPageHeader } from './data.js';
+import { invalidateRefData, safeColor, subPageHeader, COULEUR_DEFAUT } from './data.js';
 
 function _gateAdmin(container) {
   if (store.isAdmin) return true;
@@ -28,7 +28,21 @@ function _gateAdmin(container) {
 
 export async function renderConfig(container) {
   if (!_gateAdmin(container)) return;
-  const settings = (await api.getParticiperSettings()) || {};
+
+  /* Une lecture en échec rendrait un formulaire vide, dont l'enregistrement
+     écraserait la configuration réelle de la ville : on refuse d'afficher. */
+  let settings;
+  try {
+    settings = (await api.getParticiperSettings()) || {};
+  } catch (e) {
+    container.innerHTML = `
+      <div class="adm-empty">
+        <div class="adm-empty__icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div class="adm-empty__title">Réglages illisibles</div>
+        <div class="adm-empty__text">${esc(e.message)} - rechargez la page.</div>
+      </div>`;
+    return;
+  }
 
   const field = (id, label, tip, input) => `
     <div class="cw-field">
@@ -196,6 +210,9 @@ async function _renderCategoryList(container) {
       toggle.checked = !toggle.checked;
       toast('Erreur : ' + error.message, 'error');
     } else {
+      // Sans cette mise à jour, ouvrir ensuite le formulaire de la même ligne
+      // réenverrait l'ancienne valeur et réactiverait la catégorie en silence
+      cat.enabled = toggle.checked;
       invalidateRefData();
       toast(toggle.checked ? 'Catégorie proposée aux habitants' : 'Catégorie masquée', 'success');
     }
@@ -231,7 +248,7 @@ function _openCategoryForm(cat, onSaved) {
         </div>
         <div class="cw-field">
           <label class="cw-field__label" for="ptc-color">Couleur</label>
-          <input type="color" class="adm-input ptadm-color" id="ptc-color" value="${safeColor(cat?.color || '#14AE5C')}">
+          <input type="color" class="adm-input ptadm-color" id="ptc-color" value="${safeColor(cat?.color || COULEUR_DEFAUT)}">
         </div>
         <div class="cw-field">
           <label class="cw-field__label" for="ptc-help">Texte d'aide</label>
@@ -268,7 +285,7 @@ function _openCategoryForm(cat, onSaved) {
       category_key: categoryKey,
       label,
       icon_class: content.querySelector('#ptc-icon')?.value || 'fa-solid fa-circle-exclamation',
-      color: content.querySelector('#ptc-color')?.value || '#14AE5C',
+      color: content.querySelector('#ptc-color')?.value || COULEUR_DEFAUT,
       help_text: content.querySelector('#ptc-help')?.value.trim() || null,
       sort_order: parseInt(content.querySelector('#ptc-order')?.value, 10) || 0,
       enabled: cat?.enabled !== undefined ? cat.enabled : true,

@@ -88,13 +88,13 @@ export default async (req, context) => {
     // Quotas journaliers, comptés sur la ville (les réglages sont par ville)
     const ipHash = await hashIp(context?.ip);
     const today = new Date().toISOString().slice(0, 10);
-    const [parIp, parEmail] = await Promise.all([
+    const [byIp, byEmail] = await Promise.all([
       svcCount('participer_signalements', { ville: `eq.${ville}`, ip_hash: `eq.${ipHash}`, created_at: `gte.${today}` }),
       svcCount('participer_signalements', { ville: `eq.${ville}`, email: `eq.${email.toLowerCase()}`, created_at: `gte.${today}` }),
     ]);
-    const quotaIp = ctx.settings?.quota_ip_jour ?? 20;
-    const quotaEmail = ctx.settings?.quota_email_jour ?? 5;
-    if (parIp >= quotaIp || parEmail >= quotaEmail) {
+    const quotaByIp = ctx.settings?.quota_ip_jour ?? 20;
+    const quotaByEmail = ctx.settings?.quota_email_jour ?? 5;
+    if (byIp >= quotaByIp || byEmail >= quotaByEmail) {
       return jsonResp(429, { error: 'Trop de signalements aujourd\'hui - réessayez demain' }, cors);
     }
 
@@ -105,24 +105,34 @@ export default async (req, context) => {
       await storageUpload(BUCKET_PHOTOS, photoPath, photo.bytes, photo.mime);
     }
 
-    const reference = await svcRpc('participer_next_reference', { p_ville: ville });
-    const [row] = await svcInsert('participer_signalements', {
-      id,
-      ville,
-      reference,
-      category_key: categoryKey,
-      description,
-      photo_path: photoPath,
-      lat,
-      lng,
-      adresse,
-      email: email.toLowerCase(),
-      ip_hash: ipHash,
-    });
+    /* Si la référence ou l'insertion échoue après l'envoi de la photo, celle-ci
+       n'est référencée par aucune ligne : plus rien ne la purgera jamais, alors
+       que c'est la photo d'un habitant. */
+    let row;
+    try {
+      const reference = await svcRpc('participer_next_reference', { p_ville: ville });
+      [row] = await svcInsert('participer_signalements', {
+        id,
+        ville,
+        reference,
+        category_key: categoryKey,
+        description,
+        photo_path: photoPath,
+        lat,
+        lng,
+        adresse,
+        email: email.toLowerCase(),
+        ip_hash: ipHash,
+      });
+    } catch (e) {
+      if (photoPath) await storageDelete(BUCKET_PHOTOS, [photoPath]);
+      throw e;
+    }
 
     /* Sans le message de confirmation, le dépôt est un orphelin invisible de
        tous : mieux vaut le refuser franchement que laisser l'habitant croire
        qu'il a signalé quelque chose. */
+    const reference = row.reference;
     const confirmUrl = `${SITE}/api/participer/confirm?token=${row.confirm_token}`;
     const mail = await mailConfirmation({ to: email, confirmUrl, replyTo: ctx.settings?.notify_email || null });
     if (mail.status !== 'envoye') {

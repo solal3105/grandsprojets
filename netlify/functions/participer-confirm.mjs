@@ -37,10 +37,22 @@ export default async (req) => {
     const suiviUrl = `${SITE}/?city=${row.ville}&participer_suivi=${row.suivi_token}`;
     if (row.email_confirmed) return redirect(suiviUrl);
 
-    await svcUpdate('participer_signalements', { id: `eq.${row.id}` }, {
+    /* Confirmation atomique : le filtre email_confirmed=false fait de cet
+       UPDATE le point de sérialisation. Deux clics rapprochés (préchargement
+       de lien, antivirus de messagerie) ne dupliquent donc ni l'événement de
+       création ni les emails. */
+    const updated = await svcUpdate('participer_signalements', {
+      id: `eq.${row.id}`,
+      email_confirmed: 'eq.false',
+    }, {
       email_confirmed: true,
       confirmed_at: new Date().toISOString(),
+      // Le lien de confirmation ne doit servir qu'une fois : on fait tourner le
+      // jeton plutôt que de le laisser valable dans une boîte mail
+      confirm_token: crypto.randomUUID(),
     });
+    if (!updated.length) return redirect(suiviUrl);
+
     await insertEvent({ signalementId: row.id, ville: row.ville, type: 'creation', newStatut: 'nouveau' });
 
     const ctx = await loadContext(row.ville);

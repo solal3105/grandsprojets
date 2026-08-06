@@ -5324,6 +5324,11 @@ html[data-theme='dark'] .dg-couche .dg-sujet { background: rgba(255, 255, 255, 0
   background: var(--color-danger);
 }
 
+/* Notre display:inline-flex écraserait l'attribut hidden posé par list.js */
+.adm-tab-count[hidden] {
+  display: none;
+}
+
 /* Pill de statut - couleur du statut posée inline via --ptadm-color */
 .ptadm-pill {
   display: inline-flex;

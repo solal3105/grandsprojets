@@ -47,7 +47,26 @@ test.describe('17.1 - File de traitement', () => {
     }
   });
 
-  test('17.1.3 - Le changement d\'onglet recharge la liste', async ({ page }) => {
+  /* Non-régression : la policy RLS laisse passer tout membre d'équipe d'une
+     ville. Seuls des privilèges par colonne empêchent un compte de lire
+     l'email d'un habitant et son jeton de suivi (porteur permanent). */
+  test('17.1.3 - La base refuse de servir email et jetons à un compte connecté', async ({ page }) => {
+    await goToList(page);
+    const res = await page.evaluate(async () => {
+      const client = window.AuthModule?.getClient();
+      const out = {};
+      for (const col of ['email', 'ip_hash', 'suivi_token', 'confirm_token']) {
+        const { error } = await client.from('participer_signalements').select(col).limit(1);
+        out[col] = Boolean(error);
+      }
+      const { error: safeErr } = await client.from('participer_signalements').select('id,reference').limit(1);
+      out.lectureNormale = !safeErr;
+      return out;
+    });
+    expect(res).toEqual({ email: true, ip_hash: true, suivi_token: true, confirm_token: true, lectureNormale: true });
+  });
+
+  test('17.1.4 - Le changement d\'onglet recharge la liste', async ({ page }) => {
     await goToList(page);
     await page.locator('.adm-tab', { hasText: 'Tous' }).click();
     await expect(page.locator('.adm-tab', { hasText: 'Tous' })).toHaveClass(/active/);
