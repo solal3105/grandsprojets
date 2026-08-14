@@ -127,6 +127,9 @@
     }
   };
 
+  // Cache mémoire du branding par ville (voir getCityBranding)
+  const _brandingCache = new Map();
+
   // Helper: consomme un prefetch early-fetch si la ville correspond (ou si city===null = pas de check ville)
   const consumePrefetch = async (key, activeCity, validate) => {
     if (!win.__earlyFetches?.[key]) return null;
@@ -648,8 +651,19 @@
 
 
     /**
-     * Récupère tous les projets depuis contribution_uploads
-     * @returns {Promise<Array<{project_name:string, category:string, geojson_url:string, cover_url:string, markdown_url:string, meta:string, description:string}>>}
+     * Récupère tous les projets depuis contribution_uploads.
+     *
+     * Colonnes limitées à ce que les trois consommateurs lisent réellement :
+     * la liste des catégories (main.js, nav-panel.js) n'a besoin que de
+     * `category`, et le repli N+1 de datamodule n'utilise que `geojson_url`
+     * plus ce qu'exige `enrichContribution`. `id` manquait, ce qui privait les
+     * features du repli de leur identifiant ; `description`, `markdown_url`,
+     * `meta` et `ville` n'avaient aucun lecteur et pesaient l'essentiel des
+     * 52 Ko de la réponse.
+     *
+     * Doit rester synchrone avec la requête `contributions` de early-fetch,
+     * sinon le prefetch renvoie des lignes incomplètes.
+     * @returns {Promise<Array<{id:number, project_name:string, category:string, geojson_url:string, cover_url:string}>>}
      */
     fetchAllProjects: async function() {
       const activeCity = getActiveCity();
@@ -660,7 +674,7 @@
 
       let q = supabaseClient
         .from('contribution_uploads')
-        .select('project_name, category, geojson_url, cover_url, markdown_url, meta, description, ville')
+        .select('id, project_name, category, geojson_url, cover_url')
         .eq('ville', activeCity)
         .order('created_at', { ascending: false });
       q = await applyVisibilityFilter(q);
@@ -869,21 +883,37 @@
         const v = String(ville || '').trim();
         if (!v) return null;
 
-        const early = await consumePrefetch('branding', v, e => e != null);
-        if (early) return Array.isArray(early) ? early[0] || null : early;
+        // Mémoïsation par ville. Le branding de la ville active était demandé
+        // trois fois par boot (CityManager.updateLogoForCity, renderCityMenu,
+        // CityBrandingModule.init), chacune repartant sur le réseau parce que
+        // le prefetch n'est consommable qu'une fois. On mémoïse la PROMESSE :
+        // les appels concurrents partagent la même requête au lieu d'en lancer
+        // trois. Le branding ne change pas en cours de session.
+        if (_brandingCache.has(v)) return _brandingCache.get(v);
 
-        const { data, error } = await supabaseClient
-          .from('city_branding')
-          .select('*')
-          .eq('ville', v)
-          .limit(1)
-          .maybeSingle();
-        
-        if (error) {
-          console.debug('[supabaseService] getCityBranding error:', error);
-          return null;
-        }
-        return data || null;
+        const p = (async () => {
+          const early = await consumePrefetch('branding', v, e => e != null);
+          if (early) return Array.isArray(early) ? early[0] || null : early;
+
+          const { data, error } = await supabaseClient
+            .from('city_branding')
+            .select('*')
+            .eq('ville', v)
+            .limit(1)
+            .maybeSingle();
+
+          if (error) {
+            console.debug('[supabaseService] getCityBranding error:', error);
+            return null;
+          }
+          return data || null;
+        })();
+
+        // Un échec ne doit pas être mémorisé définitivement : on retire l'entrée
+        // pour qu'une navigation ultérieure puisse retenter.
+        p.catch(() => _brandingCache.delete(v));
+        _brandingCache.set(v, p);
+        return p;
       } catch (e) {
         console.debug('[supabaseService] getCityBranding exception:', e);
         return null;
@@ -899,20 +929,32 @@
     getValidCities: async function() {
       try {
         const norm = (v) => String(v || '').toLowerCase().trim();
-        const set = new Set();
-
-        // Lancer les 3 sources en parallèle
-        const [brandingRes, layersRes, contribRes] = await Promise.allSettled([
-          supabaseClient.from('city_branding').select('ville'),
-          supabaseClient.from('layers').select('ville'),
-          supabaseClient.from('contribution_uploads').select('ville')
-        ]);
-
-        for (const res of [brandingRes, layersRes, contribRes]) {
+        const collect = (set, res) => {
           if (res.status === 'fulfilled' && !res.value.error && Array.isArray(res.value.data)) {
             res.value.data.forEach(r => { const v = norm(r && r.ville); if (v) set.add(v); });
           }
-        }
+          return set;
+        };
+
+        // `city_branding` est la source de référence : toute ville exploitée y a
+        // une ligne. Les deux autres sources ne sont qu'un filet de sécurité et
+        // partaient systématiquement, alors que cet appel est attendu en Phase 1
+        // et bloque donc la résolution de la ville. `contribution_uploads` était
+        // le pire des trois : une ligne renvoyée par contribution, juste pour en
+        // extraire un nom de ville constant.
+        const set = new Set();
+        const rows = await consumePrefetch('validCities', null, Array.isArray)
+          || (await supabaseClient.from('city_branding').select('ville')).data;
+        (rows || []).forEach(r => { const v = norm(r && r.ville); if (v) set.add(v); });
+        if (set.size) return Array.from(set);
+
+        // Base sans branding renseigné : on retombe sur l'union des deux autres.
+        const [layersRes, contribRes] = await Promise.allSettled([
+          supabaseClient.from('layers').select('ville'),
+          supabaseClient.from('contribution_uploads').select('ville')
+        ]);
+        collect(set, layersRes);
+        collect(set, contribRes);
 
         return Array.from(set);
       } catch (e) {

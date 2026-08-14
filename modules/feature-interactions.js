@@ -615,7 +615,11 @@
         } else if (win.UIModule?.showDetailPanel) {
           win.UIModule.showDetailPanel(p.category, { properties: p, geometry: feature.geometry });
         } else if (win.NavigationModule?.showProjectDetail) {
-          win.NavigationModule.showProjectDetail(p.project_name, p.category, null, p);
+          // Sans 4e argument : les properties d'une feature ne portent plus que
+          // id/project_name/category/cover_url, les passer en `enrichedProps`
+          // afficherait un détail amputé de sa description et de son article.
+          // showProjectDetail recharge alors la ligne complète par nom.
+          win.NavigationModule.showProjectDetail(p.project_name, p.category, null);
         }
         return;
       }

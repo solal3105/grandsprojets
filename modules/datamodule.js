@@ -110,7 +110,8 @@ window.DataModule = (function() {
 	async function preloadAllContributions(ville) {
 		if (_contribPreloaded) return;
 		try {
-			// Consommer le prefetch si la ville correspond (lancé dès early-fetch.js)
+			// Consommer le prefetch si la ville correspond (lancé par le bloc
+			// de prefetch inline en tête d'index.html)
 			let data = null;
 			if (window.__earlyFetches?.contribGeojson && window.__earlyCity === ville) {
 				try {

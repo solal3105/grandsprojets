@@ -102,7 +102,50 @@
   }
   </script>
   <script src="modules/theme-init.js"></script>
-  <script src="modules/early-fetch.js"></script>
+  <!--
+    Prefetch critique Supabase - INLINE et non pas <script src>.
+    Ces requêtes ouvrent le chemin critique : tant qu'elles ne sont pas parties,
+    rien d'autre ne peut avancer. En fichier externe, elles attendaient d'abord
+    le téléchargement du fichier lui-même, soit ~135 ms de retard mesurés sur
+    chacune. Inline, elles partent au parsing du HTML.
+    Contrepartie assumée : ce bloc duplique la logique de résolution de ville de
+    CityManager.resolveActiveCity, volontairement dans sa version la plus simple
+    (?city= puis localStorage puis metropole-lyon). main.js corrige ensuite avec
+    la résolution complète, et un prefetch dont la ville ne correspond pas est
+    simplement ignoré par consumePrefetch.
+  -->
+  <script>
+    ;(function() {
+      var SB  = 'https://wqqsuybmyqemhojsamgq.supabase.co/rest/v1';
+      var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
+      var hdrs = { apikey: KEY, Authorization: 'Bearer ' + KEY };
+
+      var sp   = new URLSearchParams(location.search);
+      var city = sp.get('city');
+      if (!city || city === 'default') {
+        try { city = localStorage.getItem('activeCity'); } catch { /* noop */ }
+      }
+      city = city || 'metropole-lyon';
+      var vc = encodeURIComponent(city);
+
+      function get(url) {
+        return fetch(url, { headers: hdrs }).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; });
+      }
+
+      window.__earlyFetches = {
+        basemaps:       get(SB + '/basemaps_v2?select=*&active=eq.true&order=sort_order.asc'),
+        branding:       get(SB + '/city_branding?select=*&ville=eq.' + vc + '&limit=1'),
+        validCities:    get(SB + '/city_branding?select=ville'),
+        cityModules:    get(SB + '/city_modules?select=*&ville=eq.' + vc + '&order=sort_order.asc'),
+        layersConfig:   get(SB + '/layers?select=name,url,style,is_default,ville,icon,icon_color&ville=eq.' + vc),
+        categoryIcons:  get(SB + '/category_icons?select=category,icon_class,display_order,layers_to_display,category_styles,ville,available_tags&ville=eq.' + vc + '&order=display_order.asc'),
+        // Colonnes alignées sur supabaseService.fetchAllProjects
+        contributions:  get(SB + '/contribution_uploads?select=id,project_name,category,geojson_url,cover_url&ville=eq.' + vc + '&approved=eq.true&order=created_at.desc'),
+        contribGeojson: fetch('/.netlify/functions/contributions-geojson?ville=' + vc).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; })
+      };
+      window.__earlyCity = city;
+    })();
+  </script>
   <!-- Inline critical CSS - safe deferral of non-visible component CSS -->
   <style>.nav-panel{visibility:hidden;pointer-events:none}.nav-panel.open{visibility:visible;pointer-events:auto}.nav-panel__scrim{display:none}.toggle-dock{position:fixed;top:calc(16px + var(--banner-h,0px));right:16px;z-index:1600}.toggle-dock__btn[data-ready="false"]:not([style*="display"]){display:none!important}.dock-panel{display:none}.mobile-fixed-logo{display:none}#project-detail{display:none}</style>
   <!-- Render-blocking CSS - above-the-fold critical -->

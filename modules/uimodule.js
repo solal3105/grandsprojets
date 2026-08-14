@@ -321,7 +321,9 @@
             const params = new URLSearchParams();
             params.set('cat', catForUrl);
             params.set('project', projSlug);
-            const cityForUrl = props.ville || new URLSearchParams(location.search).get('city') || window.supabaseService?.getActiveCity?.() || '';
+            // `props.ville` n'est plus injecté sur les features (une seule ville
+            // par carte, l'information était constante et recopiée N fois).
+            const cityForUrl = new URLSearchParams(location.search).get('city') || window.supabaseService?.getActiveCity?.() || '';
             if (cityForUrl) params.set('city', cityForUrl);
             const newUrl = `${location.pathname}?${params.toString()}`;
             history.pushState({ cat: catForUrl, project: projSlug, city: cityForUrl }, '', newUrl);
@@ -341,7 +343,10 @@
           }
         }
 
-        window.NavigationModule.showProjectDetail(projectName, category, null, props);
+        // Pas de 4e argument : voir feature-interactions._openFeature. Les
+        // properties d'une feature ne portent plus les champs riches, c'est
+        // showProjectDetail qui recharge la ligne complète.
+        window.NavigationModule.showProjectDetail(projectName, category, null);
       } else {
         console.debug('[UIModule] No project name found');
       }

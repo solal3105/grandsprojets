@@ -15,11 +15,29 @@ import { isValidCityCode } from './http.mjs';
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://wqqsuybmyqemhojsamgq.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
 
-const CORS_HEADERS = {
+const BASE_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Content-Type': 'application/json',
-  'Cache-Control': 'no-store',
+};
+
+/** Préflight et erreurs : jamais mis en cache. */
+const CORS_HEADERS = { ...BASE_HEADERS, 'Cache-Control': 'no-store' };
+
+/**
+ * Réponses 200 : uniquement des données publiques (`approved=true`), qui changent
+ * quelques fois par semaine. En `no-store`, chaque visiteur déclenchait une
+ * exécution froide refaisant 1 requête PostgREST plus N téléchargements Storage,
+ * soit 0,7 à 1,2 s de TTFB mesuré sur trois appels consécutifs. Le CDN sert
+ * désormais la quasi-totalité des appels, et `stale-while-revalidate` fait que
+ * même la première requête après expiration ne paie pas l'agrégation.
+ * Contrepartie : une contribution fraîchement approuvée met jusqu'à 5 min à
+ * apparaître, ce qui reste sous le TTL de 10 min du cache client de datamodule.
+ */
+const CACHE_HEADERS = {
+  ...BASE_HEADERS,
+  'Cache-Control': 'public, max-age=60',
+  'Netlify-CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=86400',
 };
 
 const SUPABASE_HEADERS = {
@@ -31,6 +49,7 @@ const SUPABASE_HEADERS = {
 const EMPTY_FC = JSON.stringify({ type: 'FeatureCollection', features: [] });
 
 const json = (statusCode, body) => ({ statusCode, headers: CORS_HEADERS, body });
+const jsonCached = (body) => ({ statusCode: 200, headers: CACHE_HEADERS, body });
 
 /**
  * Construit un handler d'agrégation GeoJSON.
@@ -65,7 +84,7 @@ export function createGeoJSONAggregator({ table, select, enrich, batchSize = 25 
       }
 
       const rows = await resp.json();
-      if (!rows.length) return json(200, EMPTY_FC);
+      if (!rows.length) return jsonCached(EMPTY_FC);
 
       // Lots : serveur → Storage est du réseau interne, mais on évite quand même
       // d'ouvrir N connexions simultanées sur une ville qui a beaucoup de lignes.
@@ -87,7 +106,7 @@ export function createGeoJSONAggregator({ table, select, enrich, batchSize = 25 
         for (const features of results) allFeatures.push(...features);
       }
 
-      return json(200, JSON.stringify({ type: 'FeatureCollection', features: allFeatures }));
+      return jsonCached(JSON.stringify({ type: 'FeatureCollection', features: allFeatures }));
     } catch (e) {
       return json(500, JSON.stringify({ error: 'Erreur interne', message: e.message }));
     }

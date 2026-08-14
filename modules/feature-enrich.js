@@ -31,7 +31,49 @@
   'use strict';
 
   /**
+   * Décimales conservées sur les coordonnées.
+   * Les sources produisent du 4.916739860490708 (15 décimales, soit 0,1 micron)
+   * là où 6 décimales valent 11 cm, très en dessous de ce qu'un rendu
+   * cartographique distingue. Les décimales excédentaires pesaient 94 Ko sur le
+   * seul agrégat des contributions de metropole-lyon.
+   *
+   * L'arrondi est fait dans les deux enrichisseurs plutôt que dans enrichGeoJSON,
+   * parce que le repli client des travaux appelle `enrichTravaux` directement :
+   * le placer plus haut aurait fait diverger les deux chemins travaux, ce que ce
+   * fichier existe précisément pour empêcher.
+   */
+  const COORD_PRECISION = 6;
+
+  /** Arrondit récursivement une géométrie GeoJSON, en place. */
+  function roundCoords(c) {
+    if (!Array.isArray(c)) return c;
+    if (typeof c[0] === 'number') {
+      for (let i = 0; i < c.length; i++) {
+        if (typeof c[i] === 'number') c[i] = +c[i].toFixed(COORD_PRECISION);
+      }
+      return c;
+    }
+    for (let i = 0; i < c.length; i++) roundCoords(c[i]);
+    return c;
+  }
+
+  /**
    * Propriétés injectées sur chaque feature d'une contribution.
+   *
+   * Strictement les quatre champs que la carte lit sur une feature :
+   *   id           → ouverture du détail (NavigationModule.showProjectDetailById)
+   *   project_name → titre du survol, clé de regroupement multi-features
+   *   category     → icône du marqueur, routage du clic
+   *   cover_url    → vignette du survol et préchargement des images
+   *
+   * Tout le reste (description, markdown_url, official_url, tags, ville) était
+   * recopié sur CHAQUE feature du projet : « Voie Lyonnaise 10 » compte 85
+   * features, donc 85 copies de sa description. Sur metropole-lyon cela faisait
+   * 218 Ko de doublons purs et 55 % du poids de l'agrégat, pour des champs que
+   * seul le panneau de détail utilise - or il recharge de toute façon la ligne
+   * complète via getContributionById / fetchProjectByCategoryAndName au moment
+   * du clic. Ne rien rajouter ici sans un consommateur réel côté feature.
+   *
    * @param {Object} feature - feature GeoJSON, mutée sur place
    * @param {Object} project - ligne contribution_uploads
    * @returns {Object} la feature
@@ -43,11 +85,7 @@
     p.project_name = project.project_name;
     p.category = project.category;
     p.cover_url = project.cover_url || '';
-    p.description = project.description || '';
-    p.markdown_url = project.markdown_url || '';
-    p.ville = project.ville;
-    p.official_url = project.official_url || '';
-    p.tags = project.tags || [];
+    roundCoords(feature.geometry && feature.geometry.coordinates);
     return feature;
   }
 
@@ -76,11 +114,12 @@
     p.commune = loc;
     p.adresse = loc;
     p.code_insee = '';
+    roundCoords(feature.geometry && feature.geometry.coordinates);
     return feature;
   }
 
   /** Colonnes que chaque chemin de données DOIT sélectionner pour enrichir. */
-  const CONTRIBUTION_COLUMNS = 'id,project_name,category,cover_url,description,markdown_url,ville,official_url,tags,geojson_url';
+  const CONTRIBUTION_COLUMNS = 'id,project_name,category,cover_url,geojson_url';
   const TRAVAUX_COLUMNS = 'id,name,nature,etat,date_debut,date_fin,last_update,description,icon,localisation,approved,geojson_url';
 
   /**

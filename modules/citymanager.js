@@ -268,8 +268,12 @@
           const logo = (document.documentElement.getAttribute('data-theme') === 'dark' && b.dark_logo_url) 
             ? b.dark_logo_url 
             : (b.logo_url || '');
-          const logoHtml = logo 
-            ? `<img src="${_esc(logo)}" alt="${displayName}" class="city-menu-logo" />`
+          // `loading="lazy"` : le menu est fermé au chargement, donc ses logos ne
+          // sont téléchargés qu'à sa première ouverture. Sans cet attribut, le
+          // boot tirait le logo de CHAQUE espace configuré, dont un PNG de 1,4 Mo
+          // pour un menu que la plupart des visiteurs n'ouvrent jamais.
+          const logoHtml = logo
+            ? `<img src="${_esc(logo)}" alt="${displayName}" class="city-menu-logo" loading="lazy" decoding="async" />`
             : `<i class="fas fa-building"></i>`;
 
           return `

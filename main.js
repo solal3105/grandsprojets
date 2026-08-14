@@ -246,8 +246,12 @@
 
       // Phase 2 : un seul fetch branding (stocké dans CityManager._branding)
       await safePhase('CityManager.updateLogoForCity', () => win.CityManager?.updateLogoForCity(city));
-      await safePhase('CityManager.initCityMenu', () => win.CityManager?.initCityMenu(city));
-      win.toggleManager?.markReady('city');
+      // Le menu des espaces est fermé au chargement et personne n'attend son
+      // contenu : le construire hors du chemin critique évite d'y ajouter les
+      // requêtes de branding des autres villes (280 ms mesurés). Le toggle n'est
+      // marqué prêt qu'une fois le menu peuplé, pour ne pas ouvrir un menu vide.
+      safePhase('CityManager.initCityMenu', () => win.CityManager?.initCityMenu(city))
+        .then(() => win.toggleManager?.markReady('city'));
 
       // PHASE 2.5 : Appliquer le branding (couleur, favicon, toggles) sans re-fetcher
       if (win.CityBrandingModule) {
@@ -482,27 +486,32 @@
       
       const layersToLoad = [...new Set([...defaultLayers, ...categoryLayers])];
       
+      // Chaque couche est dessinée dès que SES données arrivent, sans barrière
+      // commune : la carte se peuple progressivement au lieu d'attendre la plus
+      // lente. L'affichage n'a lieu que si l'utilisateur n'a pas ouvert un module
+      // entre-temps - dans ce cas c'est le module qui pilote ses propres couches.
+      const drawIfIdle = (layer) => (data) => {
+        if (!data || win.NavPanel?.isOpen()) return;
+        try { DataModule.createGeoJsonLayer(layer, data); }
+        catch (e) { console.debug(`[main] Failed to create GeoJSON layer "${layer}":`, e); }
+      };
+
+      const loadAndDraw = (layer) => DataModule.preloadLayer(layer)
+        .then(drawIfIdle(layer))
+        .catch(err => { console.error(`[Main] Erreur chargement layer "${layer}":`, err); });
+
+      // Les catégories de contributions sortent toutes du même agrégat : il faut
+      // que son préchargement soit résolu avant, sinon `fetchLayerData` retombe
+      // sur le repli N+1. Les couches URL/WFS ne dépendent de rien et partent
+      // immédiatement, au lieu d'attendre l'agrégat comme auparavant.
+      const contribCategories = layersToLoad.filter(l => categoryLayers.includes(l));
+      const urlLayers = layersToLoad.filter(l => !categoryLayers.includes(l));
+
       try {
-        // Attendre le préchargement lancé au début de Phase 5 (consomme le early-fetch)
-        await contribPreloadPromise;
-
-        // Précharger les layers restants (URL-based + fallback contributions non cachées)
-        await Promise.all(layersToLoad.map(layer =>
-          DataModule.preloadLayer(layer).catch(err => {
-            console.error(`[Main] Erreur chargement layer "${layer}":`, err);
-            return null;
-          })
-        ));
-
-        // Afficher les couches seulement si l'utilisateur n'a pas encore ouvert un module.
-        // Si NavPanel est déjà actif, le module se charge de l'affichage de ses propres couches.
-        if (!win.NavPanel?.isOpen()) {
-          for (const layer of layersToLoad) {
-            if (DataModule.layerData[layer]) {
-              try { DataModule.createGeoJsonLayer(layer, DataModule.layerData[layer]); } catch (e) { console.debug(`[main] Failed to create GeoJSON layer "${layer}":`, e); }
-            }
-          }
-        }
+        await Promise.all([
+          ...urlLayers.map(loadAndDraw),
+          contribPreloadPromise.then(() => Promise.all(contribCategories.map(loadAndDraw))),
+        ]);
       } catch (err) {
         console.error('[Main] Erreur lors du chargement des layers:', err);
       }
@@ -526,13 +535,20 @@
       await safePhase('FilterManager.init', () => win.FilterManager?.init());
       win.toggleManager?.markReady('filters');
 
-      if (DataModule.preloadLayer) {
-        Object.keys(urlMap).forEach(layer => DataModule.preloadLayer(layer));
-        // Preload travaux immediately for instant toggle
-        if ((win._cityModules || []).some(m => m.module_key === 'travaux' && m.enabled)) {
-          DataModule.preloadLayer('travaux');
-        }
-      }
+      // Aucun préchargement des couches non affichées.
+      //
+      // Cette phase préchargeait TOUTES les couches URL de la ville plus travaux,
+      // pour rendre leur premier affichage instantané. Sur metropole-lyon cela
+      // représentait 42 Mo de GeoJSON WFS (dont 21,6 Mo pour la seule couche bus)
+      // téléchargés par chaque visiteur, alors que seules `tramway` et
+      // `metroFuniculaire` sont `is_default` et donc réellement affichées.
+      // data.grandlyon.com ne sert aucune compression : ces octets sont bruts.
+      //
+      // Tous les chemins d'affichage chargent déjà à la demande et gèrent le cas
+      // non caché : carte-nav (ouverture d'une catégorie), travaux-nav (ouverture
+      // du module), FilterManager (clic sur un filtre), NavigationModule. Le seul
+      // effet du retrait est que le premier affichage d'une couche lourde attend
+      // son téléchargement, ce qui était déjà le cas sur un cache froid.
 
       // Précharger la config participer (le deep-link de suivi et l'ouverture
       // du module n'attendent alors plus le réseau)
