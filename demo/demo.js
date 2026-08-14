@@ -35,6 +35,11 @@
   let startTime = 0;
   // Dernier résultat livré : sert au formulaire d'adresse et à la relance
   let lastDone = null;
+  /* Le web public ne documente aucun projet de la commune. Il n'y a alors pas
+     de résultat livré, mais l'adresse est quand même recueillie : ce drapeau
+     distingue « zéro projet trouvé » de « génération jamais arrivée au bout »,
+     que `lastDone` seul confondrait. */
+  let sansProjet = false;
   let leadTimer = null;
 
   const hasFx = window.MapFX && window.MapFX.init();
@@ -391,6 +396,31 @@
     el.hidden = !bouts.length;
   }
 
+  /* Avertissement de carte courte. Le visiteur apprend AVANT l'arrivée que sa
+     carte comptera peu de projets : ne le dire qu'à l'écran de fin, où son
+     adresse e-mail lui est demandée, reviendrait à lui faire payer une
+     surprise. La génération, elle, continue normalement. */
+  function showNotice(message) {
+    const el = $('hud-notice');
+    if (!el || !message) return;
+    el.textContent = message;
+    el.hidden = false;
+  }
+
+  /* Remet l'écran de fin dans sa présentation par défaut, celle d'une carte
+     publiée. Sans ce nettoyage, une commune dont le web ne dit rien laisserait
+     son titre, sa loupe et ses libellés de formulaire à la commune suivante. */
+  function resetIssue() {
+    sansProjet = false;
+    const notice = $('hud-notice');
+    if (notice) { notice.hidden = true; notice.textContent = ''; }
+    $('done-card').classList.remove('done--vide');
+    $('done-titre-avant').textContent = 'La carte de ';
+    $('done-titre-apres').textContent = ' est prête';
+    $('lead-label').textContent = 'Votre adresse e-mail pour ouvrir cette carte';
+    $('lead-submit').textContent = 'Accéder';
+  }
+
   function onMediaItem(msg) {
     bumpCounter('illustres');
     tick('photo', msg.title, msg.generique ? 'illustration générique du type d\'ouvrage' : 'illustration trouvée');
@@ -457,10 +487,11 @@
         openStream(`/api/demo-generate?phase=${encodeURIComponent(msg.next)}&ville=${encodeURIComponent(msg.ville)}`);
       }
       else if (msg.type === 'done') { es.close(); es = null; onDone(msg); }
+      else if (msg.type === 'notice') showNotice(msg.message);
       else if (msg.type === 'error') {
         es.close(); es = null;
         if (msg.retryable) tryResume(msg.debug);
-        else onError(msg.message, msg.debug);
+        else onError(msg.message, msg.debug, msg.kind);
       }
     };
     es.onerror = () => {
@@ -537,6 +568,7 @@
     $('hud-logo').hidden = true;
     $('hud-logo').removeAttribute('src');
     $('hud-error').hidden = true;
+    resetIssue();
     show('progress');
 
     if (hasFx && commune.centre) {
@@ -552,6 +584,20 @@
     }
 
     openStream(`/api/demo-generate?commune=${encodeURIComponent(commune.code)}${kioskParam}${relance ? '&regen=1' : ''}`);
+  }
+
+  /* Trois situations, trois textes. Sur une carte courte, le compte rendu de
+     performance (« 2 projets recensés, vérifiés et publiés en 1 min 40 »)
+     sonnerait comme un aveu. On dit alors ce que le web public documente, puis
+     ce que les documents de la commune permettraient d'y ajouter : le manque
+     appartient aux sources en ligne, jamais à la commune. */
+  function detailDeFin(msg, elapsedTxt) {
+    if (msg.existing) return 'Cet espace avait déjà été généré : le voici.';
+    if (!msg.courte) return `${msg.projectsCount} projets recensés, vérifiés et publiés en ${elapsedTxt}.`;
+    const trouve = msg.projectsCount > 1 ? `${msg.projectsCount} projets documentés` : 'un seul projet documenté';
+    return `Nous avons trouvé ${trouve} dans les sources publiques de votre commune. `
+      + 'Vous en menez certainement davantage, et vos délibérations, votre PLU et vos marchés en cours '
+      + 'nous permettront de les ajouter à cette carte en quelques jours.';
   }
 
   function onDone(msg) {
@@ -571,9 +617,7 @@
       kiosk: KIOSK,
     });
     $('done-commune').textContent = msg.communeNom || currentCommune?.nom || '';
-    $('done-detail').textContent = msg.existing
-      ? 'Cet espace avait déjà été généré : le voici.'
-      : `${msg.projectsCount} projets recensés, vérifiés et publiés en ${elapsedTxt}.`;
+    $('done-detail').textContent = detailDeFin(msg, elapsedTxt);
     $('btn-open').href = targetUrl;
     if (KIOSK) $('btn-open').target = '_blank';
     $('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=8&data=${encodeURIComponent(targetUrl)}`;
@@ -755,7 +799,10 @@
           ville: lastDone?.ville || '',
           communeNom: lastDone?.communeNom || currentCommune?.nom || '',
           communeInsee: lastDone?.communeInsee || currentCommune?.code || '',
-          projectsCount: lastDone?.projectsCount ?? null,
+          /* Zéro projet documenté est une information, pas une absence de
+             mesure : la relance commerciale doit savoir qu'elle s'adresse à une
+             commune dont la carte reste entièrement à construire. */
+          projectsCount: lastDone?.projectsCount ?? (sansProjet ? 0 : null),
           kiosk: KIOSK,
         }),
       });
@@ -792,15 +839,50 @@
     armerFiletLead();
   });
 
-  function onError(message, debug) {
+  /* Le web public ne documente aucun projet de la commune. Ce parcours ne se
+     termine PAS sur l'écran d'échec : il rejoint l'écran de fin dans une autre
+     présentation. C'était le seul chemin qui laissait repartir un visiteur sans
+     rien lui demander, alors que sa commune est précisément celle à qui une
+     carte manque le plus. */
+  function onSansProjet(message) {
+    sansProjet = true;
+    resetLead();
+    $('done-card').classList.add('done--vide');
+    $('done-titre-avant').textContent = 'Les projets de ';
+    $('done-commune').textContent = currentCommune?.nom || '';
+    $('done-titre-apres').textContent = ' ne sont pas encore documentés en ligne';
+    $('done-detail').textContent = message;
+    $('done-stats').hidden = true;
+    $('btn-regen').hidden = !currentCommune;
+    $('lead-label').textContent = 'Votre adresse e-mail pour que nous préparions votre carte';
+    $('lead-submit').textContent = 'Envoyer';
+    /* Ici l'adresse est DEMANDÉE, elle n'est pas exigée. Aucun espace n'attend
+       derrière, et retenir un visiteur devant une porte qui n'ouvre sur rien
+       serait un marché de dupes : la sortie reste donc offerte d'emblée. */
+    $('done-suite').hidden = false;
+    if (hasFx) { window.MapFX.scanStop(); window.MapFX.orbitStop(); }
+    finishStages();
+    setProgress(100);
+    show('done');
+    try { $('lead-email').focus(); } catch { /* champ absent */ }
+    armerFiletLead();
+  }
+
+  function onError(message, debug, kind) {
     if (debug) console.error('[demo-generate]', debug);
     window.OPAnalytics?.capture('demo_generation_failed', {
       municipality: currentCommune?.nom || null,
       municipality_insee: currentCommune?.code || null,
       phase: currentPhase || null,
+      // Sans ce motif, l'analyse confond une panne technique avec une commune
+      // dont le web public ne dit rien : deux situations sans rapport.
+      reason: kind || 'technique',
       resume_attempts: resumeTotal,
       kiosk: KIOSK,
     });
+    /* Aucune panne n'a eu lieu : ni bandeau rouge, ni croix, ni « Recommencer »
+       qui rejouerait la même recherche pour le même résultat. */
+    if (kind === 'sans-projet') { onSansProjet(message); return; }
     $('progress-error').textContent = message;
     $('hud-error').hidden = false;
     $('hud-label').textContent = 'Génération interrompue';
@@ -830,6 +912,7 @@
     tourPoints = [];
     Object.keys(rejected).forEach((k) => delete rejected[k]);
     clearTimeout(quoteTimer);
+    resetIssue();
     ['quote', 'rejected', 'flyover'].forEach((id) => {
       const el = $(id);
       if (el) { el.hidden = true; el.classList.remove('is-on'); }

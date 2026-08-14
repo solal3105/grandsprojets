@@ -259,3 +259,144 @@ test.describe('Démo salon - endpoint d\'enregistrement de l\'adresse', () => {
     expect(resp.status()).toBe(405);
   });
 });
+
+/**
+ * La rareté n'arrête plus la génération. Une carte d'un ou deux projets se
+ * construit quand même, prévenue à l'avance, et une commune dont le web public
+ * ne dit rien rejoint l'écran de fin au lieu de l'écran d'échec : c'était le
+ * seul chemin qui laissait repartir un visiteur sans rien lui demander.
+ *
+ * Section : 0.34 - Cartes courtes et communes sans projet documenté
+ */
+test.describe('Démo salon - cartes courtes', () => {
+  const COMMUNE = { nom: 'Oyonnax', code: '01283', population: 22000, centre: { type: 'Point', coordinates: [5.655, 46.257] } };
+  const SANS_PROJET = {
+    type: 'error',
+    kind: 'sans-projet',
+    message: "Les sources publiques ne documentent aujourd'hui aucun projet d'Oyonnax. Vos documents internes nous suffisent pour la construire en quelques jours.",
+  };
+
+  // Le flux SSE est remplacé par un double : aucun test ici ne lance de vraie
+  // génération, ni n'appelle OpenAI.
+  async function lancerFlux(page) {
+    await page.addInitScript(() => {
+      class FauxEventSource {
+        constructor(url) {
+          this.url = url;
+          window.__sse = this;
+          (window.__sseUrls = window.__sseUrls || []).push(url);
+        }
+        close() { /* le double ne tient aucune connexion */ }
+      }
+      window.EventSource = FauxEventSource;
+      window.__envoyer = (o) => window.__sse?.onmessage?.({ data: JSON.stringify(o) });
+    });
+    await page.route('**/geo.api.gouv.fr/**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(route.request().url().includes('communes?nom=') ? [COMMUNE] : COMMUNE),
+    }));
+    await page.route('**/api.qrserver.com/**', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: '' }));
+    await page.goto('/demo/', { waitUntil: 'domcontentloaded' });
+    await page.locator('#commune-input').fill('Oyonnax');
+    await page.locator('#suggestions li').first().click();
+    await page.waitForFunction(() => window.__sse);
+  }
+
+  const envoyer = (page, msg) => page.evaluate((m) => window.__envoyer(m), msg);
+
+  /* L'avertissement prévient AVANT l'arrivée : le dire seulement à l'écran de
+     fin, où l'adresse e-mail est demandée, ferait payer une surprise. */
+  test('0.34.1 - l\'avertissement de carte courte n\'interrompt pas la génération', async ({ page }) => {
+    await lancerFlux(page);
+    await envoyer(page, { type: 'notice', message: "Nous n'avons trouvé que 2 projets documentés." });
+    await expect(page.locator('#hud-notice')).toBeVisible();
+    await expect(page.locator('#hud-notice')).toContainText('2 projets documentés');
+    // Rien n'est interrompu : ni bandeau d'erreur, ni changement d'écran
+    await expect(page.locator('#hud-error')).toBeHidden();
+    await expect(page.locator('#screen-progress')).toHaveClass(/is-active/);
+  });
+
+  /* Sur une carte courte, « 2 projets recensés, vérifiés et publiés en 1 min 40 »
+     sonnerait comme un aveu. */
+  test('0.34.2 - l\'écran de fin d\'une carte courte remplace le compte rendu de performance', async ({ page }) => {
+    await lancerFlux(page);
+    await envoyer(page, {
+      type: 'done', url: '/?city=essai-oyonnax', ville: 'essai-oyonnax',
+      communeNom: 'Oyonnax', communeInsee: '01283', projectsCount: 2, courte: true,
+      stats: { sources: 38, verified: 2, precise: 2, illustrated: 1 },
+    });
+    await expect(page.locator('#screen-done')).toHaveClass(/is-active/, { timeout: 15000 });
+    await expect(page.locator('#done-detail')).toContainText('2 projets documentés dans les sources publiques');
+    await expect(page.locator('#done-detail')).not.toContainText('publiés en');
+    // La carte EXISTE : c'est une réussite, la coche et le titre ne changent pas
+    await expect(page.locator('#done-card')).not.toHaveClass(/done--vide/);
+    await expect(page.locator('#done-titre-apres')).toHaveText(' est prête');
+  });
+
+  test('0.34.3 - une carte fournie garde son compte rendu habituel', async ({ page }) => {
+    await lancerFlux(page);
+    await envoyer(page, {
+      type: 'done', url: '/?city=essai-oyonnax', ville: 'essai-oyonnax',
+      communeNom: 'Oyonnax', communeInsee: '01283', projectsCount: 12,
+      stats: { sources: 38, verified: 12, precise: 12, illustrated: 8 },
+    });
+    await expect(page.locator('#screen-done')).toHaveClass(/is-active/, { timeout: 15000 });
+    await expect(page.locator('#done-detail')).toContainText('12 projets recensés');
+    await expect(page.locator('#done-detail')).not.toContainText('sources publiques de votre commune');
+  });
+
+  /* Aucun projet documenté n'est pas une panne : ni bandeau rouge, ni croix, ni
+     « Recommencer » qui rejouerait la même recherche pour le même résultat. */
+  test('0.34.4 - une commune sans projet documenté rejoint l\'écran de fin', async ({ page }) => {
+    await lancerFlux(page);
+    await envoyer(page, SANS_PROJET);
+    await expect(page.locator('#screen-done')).toHaveClass(/is-active/, { timeout: 15000 });
+    await expect(page.locator('#hud-error')).toBeHidden();
+    await expect(page.locator('#done-card')).toHaveClass(/done--vide/);
+    await expect(page.locator('#done-detail')).toContainText('ne documentent aujourd\'hui aucun projet');
+    await expect(page.locator('#done-titre-apres')).toHaveText(' ne sont pas encore documentés en ligne');
+    await expect(page.locator('#done-commune')).toHaveText('Oyonnax');
+  });
+
+  /* Sans espace généré, promettre un accès serait mentir. Et comme rien
+     n'attend derrière l'adresse, la sortie reste offerte d'emblée. */
+  test('0.34.5 - sans espace, ni accès ni QR code, mais une sortie toujours ouverte', async ({ page }) => {
+    await lancerFlux(page);
+    await envoyer(page, SANS_PROJET);
+    await expect(page.locator('#screen-done')).toHaveClass(/is-active/, { timeout: 15000 });
+    await expect(page.locator('#btn-open')).toBeHidden();
+    await expect(page.locator('#qr-img')).toBeHidden();
+    // L'adresse est demandée, pas exigée : le formulaire et la sortie coexistent
+    await expect(page.locator('#lead-form')).toBeVisible();
+    await expect(page.locator('#done-suite')).toBeVisible();
+    await expect(page.locator('#btn-again')).toBeVisible();
+    await expect(page.locator('#done-stats')).toBeHidden();
+  });
+
+  test('0.34.6 - une vraie panne garde l\'écran d\'échec et son bouton de reprise', async ({ page }) => {
+    await lancerFlux(page);
+    await envoyer(page, { type: 'error', message: 'La génération a échoué.' });
+    await expect(page.locator('#hud-error')).toBeVisible();
+    await expect(page.locator('#btn-retry')).toBeVisible();
+    await expect(page.locator('#screen-progress')).toHaveClass(/is-active/);
+    await expect(page.locator('#done-card')).not.toHaveClass(/done--vide/);
+  });
+
+  /**
+   * Non-régression : sans nettoyage, la commune suivante héritait du titre, de
+   * la loupe et des libellés de la commune sans projet.
+   */
+  test('0.34.7 - la commune suivante retrouve un écran neuf', async ({ page }) => {
+    await lancerFlux(page);
+    await envoyer(page, { type: 'notice', message: 'Deux projets seulement.' });
+    await envoyer(page, SANS_PROJET);
+    await expect(page.locator('#done-card')).toHaveClass(/done--vide/);
+    await page.locator('#btn-again').click();
+    await expect(page.locator('#screen-input')).toHaveClass(/is-active/);
+    await expect(page.locator('#done-card')).not.toHaveClass(/done--vide/);
+    await expect(page.locator('#hud-notice')).toBeHidden();
+    await expect(page.locator('#done-titre-apres')).toHaveText(' est prête');
+    await expect(page.locator('#lead-submit')).toHaveText('Accéder');
+  });
+});

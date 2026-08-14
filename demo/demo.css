@@ -508,6 +508,32 @@ body:not(.has-map) #map { display: none; }
 }
 .hud-error .btn { margin-top: 20px; color: #fff; border-color: rgba(255, 255, 255, 0.3); }
 
+/* Avertissement de carte courte. Même verre sombre que le ticker, mais teinté
+   de la couleur de la commune plutôt que du rouge de l'erreur : la génération
+   continue, rien n'est interrompu. Il se pose au-dessus du ticker, qui reste
+   lisible, et accompagne le visiteur jusqu'à l'écran de fin. */
+.hud-notice[hidden] { display: none; }
+.hud-notice {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 92px;
+  z-index: 5;
+  margin: 0;
+  max-width: min(720px, 92vw);
+  padding: 14px 26px;
+  background: rgba(9, 13, 24, 0.86);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 20px;
+  color: rgba(233, 240, 255, 0.94);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  text-align: center;
+  box-shadow: 0 22px 60px -20px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  animation: tickerIn 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* ─── Écran final : le recensement est fait, l'espace attend ─── */
 
 #screen-done { justify-content: center; }
@@ -538,6 +564,33 @@ body:not(.has-map) #map { display: none; }
   box-shadow: 0 24px 60px -18px rgba(34, 197, 131, 0.6);
 }
 .done__check svg { width: 40px; height: 40px; }
+
+/* Emblème de l'issue « aucun projet documenté en ligne ». Il reprend
+   exactement le gabarit de la coche, pour que les deux issues pèsent le même
+   poids à l'écran : seule la couleur change, et elle reste sobre parce que
+   cette issue n'est pas une panne. */
+.done__loupe {
+  width: 84px; height: 84px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  margin-bottom: 3vh;
+  animation: pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 24px 60px -18px rgba(16, 16, 20, 0.55);
+}
+.done__loupe svg { width: 38px; height: 38px; }
+
+/* Une seule des deux issues s'affiche, la classe du bloc tranche. */
+.done .done__loupe { display: none; }
+.done--vide .done__check { display: none; }
+.done--vide .done__loupe { display: grid; }
+
+/* Sans espace généré, le bouton d'accès et le QR code n'ont plus d'objet :
+   les laisser serait promettre une carte qui n'existe pas. */
+.done--vide #btn-open,
+.done--vide .done__qr { display: none; }
 
 .done__title {
   font-family: 'Space Grotesk', sans-serif;

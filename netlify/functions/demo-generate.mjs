@@ -2750,7 +2750,7 @@ async function coreSources(send, step, insee) {
   ]);
 
   if (!mairie.pages.length && !news.length && !boamp.length) {
-    send({ type: 'error', message: `Pas assez de sources publiques exploitables pour ${commune.nom}. Passez nous voir : on prépare la carte avec vous, avec vos documents.` });
+    send({ type: 'error', kind: 'sans-projet', message: messageSansProjet(commune.nom) });
     return null;
   }
 
@@ -2789,6 +2789,46 @@ async function coreSources(send, step, insee) {
     // generation pour comprendre.
     stats: { sources: sourcesCount, news: news.length, boamp: boamp.length, site_bloque: Boolean(mairie.bloque) },
   };
+}
+
+/* En dessous de ce nombre de projets situes, la carte est COURTE. Ce seuil ne
+   commande PLUS l'arret de la generation : il commande seulement ce que
+   l'ecran annonce au visiteur. Une carte d'un seul projet reste une carte de
+   sa commune, ce qui vaut infiniment mieux qu'un ecran de texte. */
+const CARTE_COURTE = 3;
+
+/* Une commune dont le web ne parle pas n'est pas un echec de la demonstration,
+   c'est le constat qui justifie la carte. Le texte ne dit donc jamais que la
+   commune manque de projets, mais que les SOURCES PUBLIQUES n'en documentent
+   pas, puis il enchaine sur ce que ses propres documents permettraient. */
+/* « de Angers », « de Le Havre » et « de Les Fins » sont fautifs : la
+   preposition se contracte avec l'article et s'elide devant une voyelle. Ces
+   textes portent un nom de commune choisi par le visiteur, la faute serait donc
+   sous ses yeux, sur son propre nom de commune. */
+function deLaCommune(nom) {
+  const n = String(nom || '').trim();
+  if (!n) return '';
+  if (n.startsWith('Le ')) return `du ${n.slice(3)}`;
+  if (n.startsWith('Les ')) return `des ${n.slice(4)}`;
+  if (/^[aeiouyàâäéèêëîïôöùûü]/i.test(n)) return `d'${n}`;
+  return `de ${n}`;
+}
+
+function messageSansProjet(nom) {
+  return `Les sources publiques ne documentent aujourd'hui aucun projet ${deLaCommune(nom)}. `
+    + "Beaucoup de communes se trouvent dans cette situation, et c'est précisément ce qu'une carte vient corriger. "
+    + 'Vos documents internes nous suffisent pour la construire en quelques jours.';
+}
+
+/* Annonce faite AVANT l'arrivee, pour que le visiteur ne decouvre pas la
+   brievete de sa carte a l'ecran de fin. Le nombre annonce ici est definitif :
+   il est calcule apres le geocodage, seule etape qui peut encore reduire la
+   liste. Annoncer plus tot exposerait a se contredire d'un ecran a l'autre. */
+function messageCarteCourte(nom, n) {
+  const trouve = n > 1 ? `que ${n} projets documentés` : "qu'un seul projet documenté";
+  return `Nous n'avons trouvé ${trouve} dans les sources publiques ${deLaCommune(nom)}. `
+    + `Nous construisons la carte avec ${n > 1 ? 'ces projets' : 'ce projet'}, `
+    + 'et vos propres documents nous permettront de la compléter.';
 }
 
 async function coreAi(send, step, state) {
@@ -2845,8 +2885,11 @@ async function coreAi(send, step, state) {
   }
   console.log(`[demo-generate] -> ${projects.length} projets retenus (${beforeFilter} avant filtre source)`);
 
-  if (projects.length < 3) {
-    send({ type: 'error', message: `Les sources publiques ne suffisent pas pour une carte fidèle de ${commune.nom} (${projects.length} projet(s) vérifié(s)). Avec vos documents, la carte complète se monte en quelques jours : parlons-en.` });
+  /* Seul le vide arrete la generation. Un ou deux projets attestes suffisent a
+     monter une carte, et la brievete sera annoncee apres le geocodage, quand le
+     compte sera definitif. */
+  if (!projects.length) {
+    send({ type: 'error', kind: 'sans-projet', message: messageSansProjet(commune.nom) });
     return null;
   }
   step('ai2', 'done', 'Projets vérifiés', `${projects.length} projets attestés par les sources`);
@@ -3279,11 +3322,21 @@ async function coreGeo(send, step, state) {
      Il rejoint donc les non localisables, ce qui est exact. */
   const abandonnes = geo.reste.length + geo.superposes;
 
-  // Le plancher de 3 projets etait controle AVANT le geocodage. Depuis que les
-  // projets non localisables sont retires, la liste peut fondre ici.
-  if (located.length < 3) {
-    send({ type: 'error', message: `Les sources publiques ne permettent pas de situer assez de projets à ${state.commune.nom} (${located.length} sur la carte). Avec vos documents, la carte complète se monte en quelques jours : parlons-en.` });
+  /* Seul le vide arrete la generation : sans un projet situe, il n'y a rien a
+     poser sur la carte. Un ou deux projets, eux, font une carte courte, pas un
+     echec. */
+  if (!located.length) {
+    send({ type: 'error', kind: 'sans-projet', message: messageSansProjet(state.commune.nom) });
     return null;
+  }
+
+  /* Le compte devient DEFINITIF ici, le geocodage etant la derniere etape qui
+     puisse reduire la liste. C'est donc le moment d'annoncer une carte courte :
+     assez tot pour que les illustrations et la redaction restent a venir, et
+     assez tard pour ne pas annoncer un nombre qui se contredirait ensuite. */
+  const carteCourte = located.length < CARTE_COURTE;
+  if (carteCourte) {
+    send({ type: 'notice', message: messageCarteCourte(state.commune.nom, located.length) });
   }
 
   // Toutes les positions retenues sont precises : l'etage quartier n'existe plus
@@ -3294,8 +3347,11 @@ async function coreGeo(send, step, state) {
   /* Ce qu'on REFUSE est un argument, à condition de dire vrai. Les doublons
      fusionnés ne sont PAS des « emplacements non vérifiables » : ils étaient
      parfaitement localisés, c'est le projet qui faisait doublon. Les compter
-     ensemble revenait à mentir à l'écran sur le motif du rejet. */
-  if (abandonnes) {
+     ensemble revenait à mentir à l'écran sur le motif du rejet.
+     Cet argument ne tient QUE sur une carte fournie : afficher cinq rejets
+     au-dessus de deux projets retenus insiste sur ce qui manque au lieu de
+     valoriser ce qui a été trouvé. Sur une carte courte, on se tait. */
+  if (abandonnes && !carteCourte) {
     send({
       type: 'rejected',
       kind: 'position',
@@ -3305,7 +3361,7 @@ async function coreGeo(send, step, state) {
       titles: [...geo.reste.map((i) => projects[i].title), ...geo.titresSuperposes].slice(0, 12),
     });
   }
-  if (geo.fusionnes) {
+  if (geo.fusionnes && !carteCourte) {
     send({ type: 'rejected', kind: 'doublon', count: geo.fusionnes, titles: geo.titresFusionnes.slice(0, 12) });
   }
 
@@ -3908,6 +3964,10 @@ async function runCreate(send, step, ville, runState) {
     communeNom: commune.nom,
     communeInsee: instance.commune_insee,
     projectsCount: rows.length,
+    /* Le seuil de la carte courte n'est defini QU'ICI : l'ecran recoit un
+       booleen deja tranche, il n'a pas a connaitre le nombre qui le declenche.
+       Le compte fait foi est celui des fiches reellement publiees. */
+    courte: rows.length < CARTE_COURTE,
     stats,
   });
 }
@@ -4176,4 +4236,8 @@ export const _internals = {
   unescapeBoamp,
   odonymesDe,
   distinctiveWords,
+  CARTE_COURTE,
+  deLaCommune,
+  messageSansProjet,
+  messageCarteCourte,
 };

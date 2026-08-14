@@ -21,6 +21,7 @@ const {
   collectPageLinks, unescapeBoamp, odonymesDe, distinctiveWords, essaisNominatim,
   sansPrefixeGenerique, locationQueries, nomCoherent, rangStructurel, positionDansLaCommune,
   migrerEtatGeo, METHOD_LABELS, communeDuResultat,
+  CARTE_COURTE, deLaCommune, messageSansProjet, messageCarteCourte,
 } = _internals;
 
 test.describe('0.64 - Démo : garde contre les requêtes vers le réseau interne', () => {
@@ -603,6 +604,82 @@ test.describe("0.68 - Démo : validation des paramètres de l'endpoint", () => {
     for (const v of ['', 'lyon', 'essai-LYON', 'essai-lyon/../x', '<script>']) {
       const res = await request.get(`/api/demo-generate?phase=carte&ville=${encodeURIComponent(v)}`);
       expect(res.status(), v).toBe(400);
+    }
+  });
+
+});
+
+/**
+ * Ce que la machine DIT quand elle trouve peu de choses. Ces deux textes sont
+ * lus par un maire sur un stand : ils ne doivent jamais imputer le manque à la
+ * commune, mais aux sources publiques, et enchaîner sur ce que ses propres
+ * documents permettraient.
+ */
+test.describe('0.69 - Démo : les textes de la rareté', () => {
+
+  test('0.69.1 - Le seuil de carte courte vaut 3 et ne vit qu\'au serveur', () => {
+    expect(CARTE_COURTE).toBe(3);
+  });
+
+  /**
+   * Non-régression de fond : le texte ne dit pas que la commune manque de
+   * projets, il dit que les SOURCES PUBLIQUES n'en documentent pas.
+   */
+  test('0.69.2 - Le message d\'absence n\'impute rien à la commune', () => {
+    const m = messageSansProjet('Nouan-le-Fuzelier');
+    // Le sujet de la phrase est « les sources publiques », jamais la commune
+    expect(m.startsWith('Les sources publiques ne documentent')).toBe(true);
+    expect(m).toContain('aucun projet de Nouan-le-Fuzelier');
+    // Vocabulaire de l'échec, proscrit sur cet écran
+    for (const mot of ['insuffisant', 'pas assez', 'échec', 'invisible', 'interrompu']) {
+      expect(m.toLowerCase(), mot).not.toContain(mot);
+    }
+    // La sortie est toujours une proposition, jamais un constat sec
+    expect(m).toContain('quelques jours');
+  });
+
+  test('0.69.3 - L\'avertissement de carte courte s\'accorde en nombre', () => {
+    const un = messageCarteCourte('Edern', 1);
+    expect(un).toContain("qu'un seul projet documenté");
+    expect(un).toContain('avec ce projet');
+    expect(un).not.toContain('projets documentés');
+
+    const deux = messageCarteCourte('Edern', 2);
+    expect(deux).toContain('que 2 projets documentés');
+    expect(deux).toContain('avec ces projets');
+  });
+
+  /**
+   * Le nom de la commune est celui que le visiteur vient de taper : une faute
+   * d'élision se lirait sur son propre nom de commune, à côté du logo.
+   */
+  test('0.69.5 - La préposition s\'élide et se contracte avec l\'article', () => {
+    expect(deLaCommune('Nouan-le-Fuzelier')).toBe('de Nouan-le-Fuzelier');
+    expect(deLaCommune('Angers')).toBe("d'Angers");
+    expect(deLaCommune('Oyonnax')).toBe("d'Oyonnax");
+    expect(deLaCommune('Édern')).toBe("d'Édern");
+    expect(deLaCommune('Le Havre')).toBe('du Havre');
+    expect(deLaCommune('Les Fins')).toBe('des Fins');
+    // L'article féminin ne se contracte pas : « de La Rochelle » est correct
+    expect(deLaCommune('La Rochelle')).toBe('de La Rochelle');
+    expect(deLaCommune('')).toBe('');
+  });
+
+  test('0.69.6 - Les deux messages emploient la forme élidée', () => {
+    expect(messageSansProjet('Angers')).toContain("aucun projet d'Angers");
+    expect(messageCarteCourte('Le Havre', 2)).toContain('sources publiques du Havre');
+  });
+
+  /**
+   * L'avertissement annonce une carte, pas une panne : il promet la suite au
+   * lieu de la refuser.
+   */
+  test('0.69.4 - L\'avertissement annonce que la carte se construit quand même', () => {
+    const m = messageCarteCourte('Les Fins', 2);
+    expect(m).toContain('Nous construisons la carte');
+    expect(m).toContain('vos propres documents');
+    for (const mot of ['impossible', 'échec', 'pas assez']) {
+      expect(m.toLowerCase(), mot).not.toContain(mot);
     }
   });
 

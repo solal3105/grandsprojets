@@ -139,11 +139,25 @@ Suivi : `select mail_status, count(*) from demo_leads group by 1;`
   et « résidence Berthelot ») ; une position DÉJÀ OCCUPÉE écarte le projet, car
   un emplacement partagé par plusieurs fiches n'est celui d'aucune (mesuré sur
   Saint-Denis : cinq avis de marché sans lieu propre rabattus sur le même
-  polygone) ; moins de 3 projets situés = message d'orientation vers un contact
-  humain
+  polygone)
+- **La rareté n'arrête plus la génération** : un seul projet situé suffit à
+  monter la carte, parce qu'un point sur la carte de sa commune vaut mieux
+  qu'un écran de texte. Sous `CARTE_COURTE` (3) projets situés, un événement
+  `notice` est émis juste après le géocodage, seul moment où le compte est
+  définitif, et l'écran de fin remplace son compte rendu de performance par
+  l'argument de la carte à construire (`courte: true` dans l'événement `done`).
+  Le vide, lui, reste un arrêt : aucune source exploitable, aucun projet
+  attesté ou aucun projet situé envoient un `error` de motif `sans-projet`
+- **Aucun projet documenté n'est pas une panne** : l'écran d'échec rouge est
+  réservé aux vraies pannes. Le motif `sans-projet` mène à l'écran de fin dans
+  sa variante `done--vide` (loupe au lieu de la coche, ni bouton d'accès ni QR
+  code) où l'adresse est demandée sans être exigée, la sortie restant offerte
+  puisqu'aucun espace n'attend derrière. Le motif remonte à PostHog dans
+  `demo_generation_failed.reason`
 - L'écran distingue ce qui est écarté faute d'emplacement vérifiable de ce qui
   est fusionné pour cause de doublon : les confondre revenait à mentir sur le
-  motif du rejet
+  motif du rejet. Sur une carte courte, ce décompte est tu : afficher cinq
+  rejets au-dessus de deux projets retenus insiste sur ce qui manque
 - SEO : villes `essai-*` exclues du sitemap et du llms.txt, hubs et fiches en
   noindex
 - Modèle IA : `gpt-4o` (surchargable via `DEMO_OPENAI_MODEL`). Les appels de
