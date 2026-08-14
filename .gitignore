@@ -17,3 +17,13 @@ playwright-report/
 
 # Rapports exportes (regenerables depuis le .md source)
 docs/*.pdf
+
+# Outils d'agents locaux (configuration propre a chaque poste)
+.codex/
+AGENTS.md
+
+# Rapports d'audit ponctuels : instantanes de travail, regenerables
+audit-*.md
+
+# Cahier des charges : la source HTML est suivie, le PDF est un export
+docs/cahier-des-charges/*.pdf

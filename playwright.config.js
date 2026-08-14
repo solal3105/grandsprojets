@@ -4,6 +4,16 @@ import dotenv from 'dotenv';
 
 dotenv.config({ path: '.env.test' });
 
+/* Le port reste 3001 par defaut, c'est celui de `npm run dev`. La variable
+   d'environnement sert quand ce port est deja pris par un autre projet :
+   `reuseExistingServer` ferait alors tourner toute la suite contre la mauvaise
+   application, et les echecs obtenus ne voudraient rien dire.
+   ATTENTION : les specs Phaos attendent l'origine `http://localhost:3001`, qui
+   est celle inscrite dans PHAOS_ORIGINS. Un port different ne convient donc
+   qu'aux specs qui ne touchent pas au SSO. */
+const PORT = process.env.PW_PORT || '3001';
+const BASE_URL = `http://localhost:${PORT}`;
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
@@ -13,7 +23,7 @@ export default defineConfig({
   reporter: [['html', { open: 'never' }], ['list']],
 
   use: {
-    baseURL: 'http://localhost:3001',
+    baseURL: BASE_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'on-first-retry',
@@ -79,8 +89,8 @@ export default defineConfig({
 
   // Démarre le serveur netlify dev automatiquement si pas déjà lancé
   webServer: {
-    command: 'netlify dev --port 3001',
-    url: 'http://localhost:3001',
+    command: `netlify dev --port ${PORT}`,
+    url: BASE_URL,
     reuseExistingServer: true,
     timeout: 120000,
   },

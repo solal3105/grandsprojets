@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Open Projets - Cahier des charges fonctionnel</title>
+<style>
+  :root{
+    --red:#FF0037;
+    --orange:#FF9500;
+    --ink:#12141A;
+    --body:#3E434E;
+    --muted:#767C89;
+    --line:#E4E6EA;
+    --line-strong:#1A1C22;
+    --card:#FAFAFA;
+    --green:#0FA968;
+    --blue:#3B5BDB;
+    --amber:#E8A317;
+    --slate:#5A6068;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:"Avenir Next","Avenir",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    font-size:9.5pt;
+    line-height:1.44;
+    color:var(--body);
+    -webkit-font-smoothing:antialiased;
+  }
+  p{margin:0 0 7px;}
+  strong{color:var(--ink);font-weight:600;}
+  table{border-collapse:collapse;width:100%;}
+
+  /* ---------- Couverture ---------- */
+  .cover{min-height:240mm;display:flex;flex-direction:column;}
+  .cover__logo{width:132px;height:auto;margin-bottom:auto;}
+  .rule{width:150px;height:5px;border-radius:3px;background:linear-gradient(90deg,var(--red) 0%,var(--orange) 100%);margin:0 0 26px;}
+  .eyebrow{
+    font-size:8.4pt;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--red);margin:0 0 14px;
+  }
+  .cover__title{
+    font-size:31pt;line-height:1.12;font-weight:700;color:var(--ink);letter-spacing:-.015em;margin:0 0 18px;max-width:15.5cm;
+  }
+  .cover__sub{font-size:12pt;line-height:1.5;color:var(--muted);max-width:12.6cm;margin:0 0 42px;}
+  .cover__meta{border-top:1px solid var(--line);padding-top:16px;display:flex;gap:34px;}
+  .cover__meta div{flex:0 0 auto;}
+  .cover__meta dt{font-size:8pt;color:var(--muted);margin-bottom:3px;}
+  .cover__meta dd{margin:0;font-size:10pt;font-weight:600;color:var(--ink);}
+
+  /* ---------- Structure ---------- */
+  .section{break-before:page;}
+  .section--flow{break-before:auto;}
+  .section__num{font-size:9pt;font-weight:700;color:var(--red);letter-spacing:.06em;margin:0 0 4px;}
+  h1{font-size:19pt;font-weight:700;color:var(--ink);letter-spacing:-.01em;margin:0 0 8px;line-height:1.18;}
+  .lede{font-size:10.2pt;line-height:1.45;color:var(--muted);max-width:15.4cm;margin:0 0 13px;}
+  h2{font-size:11.2pt;font-weight:700;color:var(--ink);margin:17px 0 8px;letter-spacing:-.005em;break-after:avoid;}
+  h2:first-of-type{margin-top:14px;}
+  h3{font-size:10.4pt;font-weight:700;color:var(--ink);margin:18px 0 8px;break-after:avoid;}
+  .hr-top{border:0;border-top:3px solid var(--line-strong);margin:0 0 16px;}
+
+  /* ---------- Sommaire ---------- */
+  .toc{margin:0;padding:0;list-style:none;}
+  .toc li{display:flex;align-items:baseline;gap:14px;padding:6px 0;border-bottom:1px solid var(--line);}
+  .toc li:last-child{border-bottom:0;}
+  .toc__n{flex:0 0 26px;font-weight:700;color:var(--red);font-size:10.5pt;}
+  .toc__t{flex:1 1 auto;color:var(--ink);font-size:10pt;}
+  .toc__d{flex:0 0 auto;color:var(--muted);font-size:8.9pt;text-align:right;}
+
+  /* ---------- Listes ---------- */
+  ul.bullets{list-style:none;margin:0 0 4px;padding:0;}
+  ul.bullets > li{position:relative;padding-left:15px;margin-bottom:5.5px;break-inside:avoid;}
+  ul.bullets > li::before{
+    content:"";position:absolute;left:0;top:6px;width:5px;height:5px;border-radius:50%;background:var(--red);
+  }
+  ul.plain{list-style:none;margin:0;padding:0;}
+  ul.plain > li{position:relative;padding-left:14px;margin-bottom:5px;break-inside:avoid;}
+  ul.plain > li::before{content:"";position:absolute;left:0;top:7px;width:4px;height:4px;border-radius:50%;background:var(--muted);}
+
+  /* ---------- Cartes ---------- */
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:5px 0 3px;}
+  .card{
+    border:1px solid var(--line);border-radius:9px;padding:11px 13px;break-inside:avoid;background:#fff;
+  }
+  .card h4{margin:0 0 5px;font-size:9.8pt;font-weight:700;color:var(--ink);}
+  .card p{margin:0;font-size:9.1pt;line-height:1.45;color:var(--body);}
+  .note{
+    background:var(--card);border-radius:9px;padding:12px 14px;margin:13px 0 3px;break-inside:avoid;
+    font-size:9.2pt;line-height:1.5;
+  }
+  .note p:last-child{margin-bottom:0;}
+  .note--edge{background:#fff;border-left:3px solid var(--red);border-radius:0;padding:2px 0 2px 15px;}
+
+  /* ---------- Acteurs ---------- */
+  .actor{border-left:3px solid var(--red);padding:1px 0 1px 14px;margin:0 0 12px;break-inside:avoid;}
+  .actor--b{border-color:var(--blue);}
+  .actor--a{border-color:var(--amber);}
+  .actor--g{border-color:var(--green);}
+  .actor--s{border-color:var(--slate);}
+  .actor__role{font-size:7.8pt;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 2px;}
+  .actor__name{font-size:10.4pt;font-weight:700;color:var(--ink);margin:0 0 4px;}
+  .actor p{margin:0;font-size:9.2pt;line-height:1.5;}
+
+  /* ---------- Chiffres ---------- */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 3px;}
+  .stat{border:1px solid var(--line);border-radius:9px;padding:13px 9px;text-align:center;break-inside:avoid;}
+  .stat b{display:block;font-size:23pt;font-weight:700;color:var(--red);line-height:1;margin-bottom:7px;}
+  .stat span{font-size:9pt;color:var(--muted);line-height:1.4;display:block;}
+
+  /* ---------- Tableaux ---------- */
+  .tbl{margin:10px 0 5px;font-size:8.9pt;}
+  .tbl thead{display:table-header-group;}
+  .tbl th{
+    text-align:left;font-size:7.8pt;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+    padding:0 10px 7px 0;border-bottom:2px solid var(--line-strong);vertical-align:bottom;
+  }
+  .tbl td{padding:6.8px 10px 6.8px 0;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.45;}
+  .tbl tr{break-inside:avoid;}
+  .tbl td:first-child{color:var(--ink);font-weight:600;padding-right:14px;}
+  .tbl--free td:first-child{font-weight:400;color:var(--body);}
+
+  .pill{
+    display:inline-block;border-radius:999px;padding:2px 10px;font-size:8.6pt;font-weight:600;white-space:nowrap;
+    border:1px solid;
+  }
+  .pill--green{color:var(--green);border-color:#B7E4CE;background:#EFFAF4;}
+  .pill--amber{color:#B87A00;border-color:#F2DBA5;background:#FDF7E8;}
+  .pill--red{color:var(--red);border-color:#FBC4CF;background:#FFF1F4;}
+  .pill--grey{color:var(--slate);border-color:var(--line);background:#F7F7F8;}
+  .pill--blue{color:var(--blue);border-color:#C5CFF5;background:#F0F3FE;}
+
+  /* ---------- Logigramme ---------- */
+  .legend{display:flex;flex-wrap:wrap;gap:16px;margin:3px 0 13px;font-size:8.8pt;color:var(--body);}
+  .legend span{display:flex;align-items:center;gap:6px;}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
+  .flow{margin:0 0 6px;}
+  .frow{display:grid;grid-template-columns:1fr 1.75fr 1fr;gap:0 12px;align-items:center;}
+  .step{
+    border:1px solid var(--line);border-left:3px solid var(--red);border-radius:7px;padding:8px 12px;background:#fff;break-inside:avoid;
+  }
+  .step--b{border-left-color:var(--blue);}
+  .step--a{border-left-color:var(--amber);}
+  .step--g{border-left-color:var(--green);}
+  .step--s{border-left-color:var(--slate);}
+  .step__who{font-size:7.4pt;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:0 0 2px;}
+  .step__t{font-size:9.7pt;font-weight:700;color:var(--ink);margin:0 0 2px;}
+  .step p{margin:0;font-size:8.4pt;line-height:1.38;color:var(--body);}
+  .aside{
+    border:1px solid var(--line);border-radius:999px;padding:7px 13px;text-align:center;background:#FAFAFA;break-inside:avoid;
+  }
+  .aside b{display:block;font-size:8.8pt;color:var(--ink);font-weight:700;}
+  .aside span{font-size:8pt;color:var(--muted);}
+  .aside--out{border-color:#FBC4CF;background:#FFF6F8;}
+  .aside--out b{color:var(--red);}
+  .aside--back{border-color:#F2DBA5;background:#FDF9F0;}
+  .aside--back b{color:#B87A00;}
+  .arrow{grid-column:2;display:flex;flex-direction:column;align-items:center;padding:3px 0;}
+  .arrow i{display:block;width:1px;height:11px;background:#C9CCD2;}
+  .arrow em{font-style:normal;font-size:8pt;color:var(--muted);margin-top:2px;}
+
+  /* ---------- Architecture de l'offre ---------- */
+  .arch{margin:12px 0 4px;break-inside:avoid;}
+  .arch__mods{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;}
+  .mod{border:1px solid var(--line);border-top:3px solid var(--blue);border-radius:8px;padding:10px 11px;background:#fff;}
+  .mod--t{border-top-color:var(--amber);}
+  .mod--p{border-top-color:var(--blue);}
+  .mod--d{border-top-color:var(--green);}
+  .mod__k{font-size:7.2pt;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:0 0 1px;}
+  .mod__n{font-size:10pt;font-weight:700;color:var(--ink);margin:0 0 4px;}
+  .mod ul{margin:0;padding:0;list-style:none;}
+  .mod li{font-size:8.2pt;line-height:1.34;padding-left:9px;position:relative;margin-bottom:3px;color:var(--body);}
+  .mod li:last-child{margin-bottom:0;}
+  .mod li::before{content:"";position:absolute;left:0;top:5px;width:3px;height:3px;border-radius:50%;background:#B9BDC5;}
+  .mod li b{color:var(--ink);font-weight:600;}
+  .arch__plugs{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;}
+  .arch__plugs i{display:block;height:11px;width:1px;background:#C9CCD2;margin:0 auto;}
+  .arch__base{border:1.5px solid var(--line-strong);border-radius:8px;padding:11px 13px;background:#FAFAFA;}
+  .arch__base h5{margin:0 0 7px;font-size:7.6pt;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--ink);}
+  .arch__row{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;}
+  .arch__row div{font-size:8.2pt;line-height:1.34;color:var(--body);}
+  .arch__row b{display:block;color:var(--ink);font-size:8.8pt;margin-bottom:1px;}
+  .arch__foot{margin:8px 0 0;padding-top:7px;border-top:1px solid var(--line);font-size:8.2pt;color:var(--muted);}
+  .caption{font-size:8.6pt;color:var(--muted);margin:7px 0 0;}
+
+  /* ---------- Organigramme ---------- */
+  .org{margin:10px 0 16px;break-inside:avoid;}
+  .obox{border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:#fff;text-align:center;}
+  .obox b{display:block;font-size:9.4pt;color:var(--ink);line-height:1.25;}
+  .obox span{display:block;font-size:8pt;color:var(--muted);line-height:1.32;margin-top:2px;}
+  .obox--ed{border-color:#D6D9DE;background:#F7F7F8;}
+  .obox--co{border:1.5px solid var(--red);}
+  .obox--a{border-top:3px solid var(--amber);}
+  .obox--g{border-top:3px solid var(--green);}
+  .obox--b{border-top:3px solid var(--blue);}
+  .org__mid{max-width:8.4cm;margin:0 auto;}
+  .org__link{display:flex;flex-direction:column;align-items:center;padding:2px 0;}
+  .org__link i{display:block;width:1px;height:8px;background:#C9CCD2;}
+  .org__link em{font-style:normal;font-size:7.8pt;color:var(--muted);padding:1px 0;}
+  .org__three{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:start;}
+
+  /* ---------- Sorties en eventail ---------- */
+  .fan{margin:10px 0 4px;break-inside:avoid;}
+  .fan__in{max-width:7cm;margin:0 auto;border:1.5px solid var(--red);border-radius:8px;padding:7px 10px;text-align:center;}
+  .fan__in b{font-size:9.6pt;color:var(--ink);}
+  .fan__in span{display:block;font-size:8pt;color:var(--muted);margin-top:1px;}
+  .fan__out{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;}
+  .fan__out div{border:1px solid var(--line);border-radius:6px;padding:6px 4px;text-align:center;font-size:7.6pt;line-height:1.26;color:var(--body);background:#fff;}
+  .fan__out b{display:block;color:var(--ink);font-size:8.3pt;margin-bottom:1px;}
+
+  /* ---------- Bandes de visibilite ---------- */
+  .band{border:1px solid var(--line);border-left:4px solid var(--green);border-radius:8px;padding:9px 12px;margin-bottom:8px;break-inside:avoid;}
+  .band--int{border-left-color:var(--amber);}
+  .band--never{border-left-color:var(--red);}
+  .band b{display:block;font-size:9.4pt;color:var(--ink);margin-bottom:2px;}
+  .band p{margin:0;font-size:8.6pt;line-height:1.4;color:var(--body);}
+  .band em{font-style:normal;color:var(--muted);}
+
+  /* ---------- Bande des etapes ---------- */
+  .steps7{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin:9px 0 0;break-inside:avoid;}
+  .steps7 div{border:1px solid var(--line);border-radius:6px;padding:6px 4px;text-align:center;font-size:7.7pt;line-height:1.25;color:var(--ink);background:#fff;}
+  .steps7 div.clos{background:#FAFAFA;color:var(--muted);}
+  .steps7 div i{display:block;font-style:normal;font-size:6.8pt;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:2px;}
+
+  /* ---------- Degrade d'avancement ---------- */
+  .grad{margin:8px 0 2px;break-inside:avoid;}
+  .grad__bar{display:block;height:7px;border-radius:4px;background:linear-gradient(90deg,#E5484D 0%,#F0932B 52%,#0FA968 100%);}
+  .grad__lbl{display:grid;grid-template-columns:repeat(3,1fr);margin-top:4px;font-size:8.1pt;color:var(--muted);}
+  .grad__lbl span:nth-child(2){text-align:center;}
+  .grad__lbl span:last-child{text-align:right;}
+
+  /* ---------- Etiquettes de sous-section ---------- */
+  .tag{display:inline-block;font-size:7.2pt;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+    border-radius:3px;padding:2px 6px;margin-right:7px;vertical-align:middle;position:relative;top:-1px;}
+  .tag--socle{background:var(--ink);color:#fff;}
+  .tag--mod{background:#fff;color:var(--red);border:1px solid #FBC4CF;}
+
+  /* ---------- Divers ---------- */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .kicker{font-size:9.2pt;color:var(--muted);margin:-3px 0 10px;break-after:avoid;}
+  .tight li{margin-bottom:6px;}
+  .end{border-top:3px solid var(--line-strong);margin-top:20px;padding-top:12px;font-size:8.8pt;color:var(--muted);}
+  .end strong{color:var(--ink);}
+</style>
+</head>
+<body>
+
+<!-- ============ COUVERTURE ============ -->
+<section class="cover">
+  <img class="cover__logo" src="../../home/img/logos/classic_color.png" alt="Open Projets">
+  <div class="rule"></div>
+  <p class="eyebrow">Cahier des charges fonctionnel</p>
+  <h1 class="cover__title">Carte des projets, participation des habitants, travaux et diagnostic de terrain</h1>
+  <p class="cover__sub">Un espace public unique où la collectivité montre ce qu'elle construit, informe sur ses chantiers, recueille les signalements de ses habitants et lit son territoire.</p>
+  <div class="cover__meta">
+    <div><dt>Solution</dt><dd>Open Projets</dd></div>
+    <div><dt>Version</dt><dd>1.0</dd></div>
+    <div><dt>Date</dt><dd>Août 2026</dd></div>
+    <div><dt>Éditeur</dt><dd>Open Projets, France</dd></div>
+  </div>
+</section>
+
+<!-- ============ SOMMAIRE + 01 ============ -->
+<section class="section">
+  <hr class="hr-top">
+  <p class="eyebrow">Sommaire</p>
+  <ul class="toc">
+    <li><span class="toc__n">1</span><span class="toc__t">Objet du document</span><span class="toc__d">Ce que couvre ce cahier des charges</span></li>
+    <li><span class="toc__n">2</span><span class="toc__t">Le besoin</span><span class="toc__d">Ce que la plateforme change concrètement</span></li>
+    <li><span class="toc__n">3</span><span class="toc__t">Le socle et les trois modules</span><span class="toc__d">Ce que vous prenez, ce que vous ajoutez</span></li>
+    <li><span class="toc__n">4</span><span class="toc__t">Les acteurs</span><span class="toc__d">Qui fait quoi, et ce que chacun voit</span></li>
+    <li><span class="toc__n">5</span><span class="toc__t">Les parcours</span><span class="toc__d">Un projet publié, un signalement traité</span></li>
+    <li><span class="toc__n">6</span><span class="toc__t">Les fonctions, une par une</span><span class="toc__d">Le socle, puis les trois modules</span></li>
+    <li><span class="toc__n">7</span><span class="toc__t">Ce que la plateforme produit</span><span class="toc__d">Pages publiques, flux, exports, rapports</span></li>
+    <li><span class="toc__n">8</span><span class="toc__t">La relation aux habitants</span><span class="toc__d">Ce qui leur est montré, ce qui leur est écrit</span></li>
+    <li><span class="toc__n">9</span><span class="toc__t">Le paramétrage par la collectivité</span><span class="toc__d">Ce que vous réglez seuls, ce qui passe par nous</span></li>
+    <li><span class="toc__n">10</span><span class="toc__t">Confiance, données et sécurité</span><span class="toc__d">Cloisonnement, sous-traitants, réversibilité</span></li>
+    <li><span class="toc__n">11</span><span class="toc__t">Mise en service et accompagnement</span><span class="toc__d">Du premier échange à la première publication</span></li>
+    <li><span class="toc__n">12</span><span class="toc__t">Périmètre</span><span class="toc__d">Ce qui est inclus, ce qui ne l'est pas</span></li>
+    <li><span class="toc__n">13</span><span class="toc__t">Annexes</span><span class="toc__d">Statuts, rôles, glossaire</span></li>
+  </ul>
+
+  <div style="margin-top:34px">
+    <hr class="hr-top">
+    <p class="section__num">01</p>
+    <h1>Objet du document</h1>
+    <p class="lede">Décrire, en langage métier, les fonctions attendues d'un outil de publication cartographique des projets urbains, de participation des habitants, de suivi des chantiers et de diagnostic de terrain, et la façon dont Open Projets y répond.</p>
+    <p>Il énonce, fonction par fonction, ce qu'une collectivité peut attendre sur ce périmètre : ce que voit un habitant, ce que fait un agent, ce qui se règle sans développement, ce que la plateforme produit en sortie, et les conditions d'accès aux données. Il peut à ce titre servir de grille de lecture commune pour comparer plusieurs solutions.</p>
+    <p>Le vocabulaire employé est celui du métier. Les points techniques ne sont abordés que lorsqu'ils conditionnent une décision : protection des données des habitants, cloisonnement entre collectivités, formats de sortie, conditions de réversibilité. Sauf mention contraire, les fonctions décrites sont disponibles à ce jour ; la section 12 précise ce qui reste hors périmètre, et chaque section signale ses limites plutôt que de les laisser deviner.</p>
+
+    <div class="cards" style="margin-top:16px">
+      <div class="card">
+        <h4>Ce que le document engage</h4>
+        <p>Le périmètre fonctionnel, les rôles, les règles de publication, les formats produits, les engagements de confidentialité et de réversibilité.</p>
+      </div>
+      <div class="card">
+        <h4>Ce qu'il ne fixe pas</h4>
+        <p>Les conditions financières, le calendrier contractuel et les engagements de service, qui font l'objet d'une proposition séparée, ajustée à votre organisation.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 02 LE BESOIN ============ -->
+<section class="section">
+  <hr class="hr-top">
+  <p class="section__num">02</p>
+  <h1>Le besoin</h1>
+  <p class="lede">Une collectivité produit en permanence de l'information localisée : des projets, des chantiers, des signalements, des données de terrain. Cette information existe, mais elle est dispersée dans des documents qui ne se situent nulle part.</p>
+
+  <h2>Ce que l'on observe</h2>
+  <div class="cards">
+    <div class="card">
+      <h4>Les projets sont racontés, jamais situés</h4>
+      <p>Une délibération, un article de magazine municipal, un plan en annexe d'un PDF. L'habitant lit le nom d'une rue et n'arrive pas à voir où cela se passe, ni ce qui est prévu à côté de chez lui.</p>
+    </div>
+    <div class="card">
+      <h4>L'information travaux arrive après le chantier</h4>
+      <p>Le panneau est posé, la rue est fermée, et la page du site est publiée trois jours plus tard. Personne ne dispose d'une vue d'ensemble de ce qui est ouvert cette semaine sur le territoire.</p>
+    </div>
+    <div class="card">
+      <h4>Les signalements entrent par cinq canaux</h4>
+      <p>L'accueil, une adresse de contact générique, les réseaux sociaux, le téléphone, un élu de quartier. Ils atterrissent dans un tableur, et l'habitant n'a aucun retour sur ce qu'il a signalé.</p>
+    </div>
+    <div class="card">
+      <h4>Les données du territoire ne se croisent pas</h4>
+      <p>Le SIG d'un côté, les signalements de l'autre, les projets ailleurs. Regarder un carrefour précis suppose d'ouvrir trois outils et de recopier à la main.</p>
+    </div>
+  </div>
+
+  <h2>Ce que la plateforme change</h2>
+  <ul class="bullets">
+    <li><strong>Une carte publique, une adresse, aucun compte.</strong> L'habitant ouvre l'adresse de sa collectivité et voit immédiatement les projets, les chantiers et les signalements publiés, sur ordinateur comme sur téléphone. Rien à installer, rien à créer.</li>
+    <li><strong>Une page par projet, à sa propre adresse.</strong> Chaque projet a un lien lisible, partageable dans une lettre d'information comme sur un panneau, et lisible par les moteurs de recherche. Ce lien est stable et ne dépend d'aucun réseau social.</li>
+    <li><strong>Un signalement daté de bout en bout.</strong> L'habitant dépose, confirme son adresse, suit l'avancement sur une page privée et reçoit un message à chaque étape. Le service voit une file de traitement, pas une boîte de réception.</li>
+    <li><strong>Les chantiers sur la même carte que les projets.</strong> Un curseur de dates permet de voir le territoire tel qu'il sera dans trois semaines, et de repérer deux chantiers voisins la même semaine.</li>
+    <li><strong>Une lecture de terrain, zone par zone.</strong> On entoure un carrefour ou un quartier sur la carte, et l'outil restitue ce que disent les points qui s'y trouvent, source par source, avec les citations et le renvoi vers chaque point.</li>
+    <li><strong>Tout se règle depuis l'administration.</strong> Les thématiques, les couleurs, les icônes, les modules affichés, les textes vus par l'habitant, les délais : ce sont des réglages, pas des développements.</li>
+  </ul>
+
+</section>
+
+<!-- ============ 03 SOCLE ET MODULES ============ -->
+<section class="section">
+  <hr class="hr-top">
+  <p class="section__num">03</p>
+  <h1>Le socle et les trois modules</h1>
+  <p class="lede">Ce que vous prenez au départ, et ce que vous pouvez ajouter ensuite. Le découpage n'est pas commercial : il correspond à ce que la plateforme active réellement, collectivité par collectivité.</p>
+
+  <div class="arch">
+    <div class="arch__mods">
+      <div class="mod mod--t">
+        <p class="mod__k">Module</p>
+        <p class="mod__n">Travaux</p>
+        <ul>
+          <li><b>Pour l'habitant :</b> les chantiers sur la carte, une chronologie à curseur de dates, trois filtres.</li>
+          <li><b>Pour l'agent :</b> saisie des chantiers, ou branchement d'un flux de chantiers existant.</li>
+          <li>Un bouton de plus dans la barre latérale.</li>
+        </ul>
+      </div>
+      <div class="mod mod--p">
+        <p class="mod__k">Module</p>
+        <p class="mod__n">Participation</p>
+        <ul>
+          <li><b>Pour l'habitant :</b> déposer un signalement sur la carte, suivre son dossier, être informé par courriel.</li>
+          <li><b>Pour l'agent :</b> une file de traitement, sept étapes, publication décidée au cas par cas.</li>
+          <li>Un bouton de plus dans la barre latérale.</li>
+        </ul>
+      </div>
+      <div class="mod mod--d">
+        <p class="mod__k">Module</p>
+        <p class="mod__n">Diagnostic de terrain</p>
+        <ul>
+          <li><b>Pour l'habitant :</b> rien. Le module ne sort jamais de l'administration.</li>
+          <li><b>Pour l'agent :</b> croiser ses sources sur une zone tracée à main levée, produire un rapport.</li>
+          <li>Une rubrique de plus dans l'administration.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="arch__plugs"><i></i><i></i><i></i></div>
+    <div class="arch__base">
+      <h5>Le socle, toujours inclus</h5>
+      <div class="arch__row">
+        <div><b>La carte publique</b>Une adresse, aucun compte, à vos couleurs.</div>
+        <div><b>Les fiches projets</b>Une page par projet, à son adresse propre, référencée.</div>
+        <div><b>La page publique</b>Tous vos projets regroupés, filtrables, sur une seule page.</div>
+        <div><b>L'administration</b>Saisie, validation, thématiques, comptes, identité visuelle.</div>
+      </div>
+      <p class="arch__foot">Et avec eux : vos thématiques et leurs couleurs, vos comptes agents, vos flux de données ouverts et le référencement de vos pages.</p>
+    </div>
+  </div>
+  <p class="caption">Un module s'active ou se retire collectivité par collectivité, sans toucher au reste. Le socle, lui, ne se démonte pas : c'est ce qui porte les modules.</p>
+
+  <h2>Ce que cela implique concrètement</h2>
+  <ul class="bullets tight">
+    <li><strong>Le socle ne dépend d'aucun module.</strong> Une collectivité qui ne veut que montrer ses projets n'active rien d'autre : elle a sa carte, ses fiches, sa page publique et son administration, et sa barre latérale ne porte qu'un seul bouton.</li>
+    <li><strong>Un module s'ajoute quand vous êtes prêts.</strong> L'activation se fait sur votre espace en service, sans interruption et sans reprise de l'existant. Une commune peut ouvrir sa carte au printemps et la participation à l'automne.</li>
+    <li><strong>Un module se retire sans effacer ce qui a été saisi.</strong> Désactiver rend le bouton et les contenus invisibles du public ; les dossiers, eux, restent dans l'administration et réapparaissent tels quels si vous le réactivez.</li>
+    <li><strong>Deux modules parlent à l'habitant, un seul parle à vos agents.</strong> Travaux et Participation ajoutent chacun une entrée sur la carte publique. Le diagnostic de terrain, lui, ne sort jamais de l'administration : il n'ajoute rien à ce que voit l'habitant.</li>
+  </ul>
+</section>
+
+<!-- ============ 03 LES ACTEURS ============ -->
+<section class="section">
+  <hr class="hr-top">
+  <p class="section__num">04</p>
+  <h1>Les acteurs</h1>
+  <p class="lede">Cinq profils, des responsabilités distinctes. La responsabilité éditoriale de ce qui devient public reste toujours à la collectivité.</p>
+
+  <div class="org">
+    <div class="org__mid">
+      <div class="obox obox--ed"><b>Open Projets, éditeur</b><span>Ouvre l'espace, active les modules, règle le cadrage</span></div>
+      <div class="org__link"><i></i><em>met l'espace à disposition</em><i></i></div>
+      <div class="obox obox--co"><b>La collectivité</b><span>Administrateur. Décide de ce qui devient public.</span></div>
+    </div>
+    <div class="org__three" style="margin-top:2px">
+      <div class="org__link"><i></i><em>invite et valide</em><i></i></div>
+      <div class="org__link"><i></i><em>publie</em><i></i></div>
+      <div class="org__link"><i></i><em>modère et répond</em><i></i></div>
+    </div>
+    <div class="org__three">
+      <div class="obox obox--a"><b>Agents contributeurs</b><span>Proposent des contenus, soumis à validation</span></div>
+      <div class="obox obox--g"><b>L'espace public</b><span>Carte, fiches, page de la collectivité</span></div>
+      <div class="obox obox--b"><b>Les habitants</b><span>Consultent, signalent, demandent un retrait</span></div>
+    </div>
+  </div>
+
+  <div class="actor">
+    <p class="actor__role">Administrateur</p>
+    <p class="actor__name">La collectivité</p>
+    <p>Elle publie les projets et les chantiers, valide ce que proposent ses agents, modère les signalements, gère les comptes de son équipe, règle son identité visuelle et conduit les diagnostics. Rien ne devient public sans son geste.</p>
+  </div>
+
+  <div class="actor actor--a">
+    <p class="actor__role">Contributeur</p>
+    <p class="actor__name">Les agents et les partenaires invités</p>
+    <p>Un agent de service, un prestataire ou un délégataire prépare des projets et des chantiers, et fait avancer un signalement en écrivant à l'habitant. Ce qu'il crée reste en attente tant qu'un administrateur ne l'a pas approuvé. Il ne peut ni publier, ni rejeter, ni supprimer.</p>
+  </div>
+
+  <div class="actor actor--b">
+    <p class="actor__role">Public</p>
+    <p class="actor__name">Les habitants et les usagers</p>
+    <p>Ils consultent la carte, ouvrent la fiche d'un projet, suivent un chantier, déposent un signalement et suivent leur dossier depuis un lien reçu par courriel, sans compte et sans application. Toute personne peut par ailleurs demander le retrait d'un contenu publié qui la concerne.</p>
+  </div>
+
+  <div class="actor actor--g">
+    <p class="actor__role">Consultation intégrée</p>
+    <p class="actor__name">Un portail agent existant</p>
+    <p>Une collectivité qui dispose déjà d'un portail interne peut y afficher sa carte dans une fenêtre intégrée : l'agent est reconnu par le compte de son portail, sans deuxième mot de passe ni second annuaire. Le dispositif repose sur une liste de portails autorisés, déclarés à l'avance.</p>
+  </div>
+
+  <div class="actor actor--s">
+    <p class="actor__role">Éditeur</p>
+    <p class="actor__name">Open Projets</p>
+    <p>Nous ouvrons l'espace, activons les modules retenus, réglons le cadrage de la carte et branchons vos couches existantes. Ces opérations nous sont réservées et sont faites avec vous à la mise en service, puis à la demande. La section 9 dit ce que vous réglez seuls.</p>
+  </div>
+
+  <div class="note">
+    <p><strong>Une personne, plusieurs collectivités.</strong> Un même agent peut être rattaché à plusieurs espaces, par exemple une intercommunalité et une commune membre. Il bascule de l'un à l'autre depuis le même compte, et l'interface change de logo et de couleur, ce qui évite de saisir sur le mauvais espace.</p>
+  </div>
+</section>
+
+<!-- ============ 04 LES PARCOURS ============ -->
+<section class="section">
+  <hr class="hr-top">
+  <p class="section__num">05</p>
+  <h1>Les parcours</h1>
+  <p class="lede">Deux parcours structurent l'usage quotidien : celui d'un projet que la collectivité publie, et celui d'un signalement qu'un habitant dépose. Les autres modules s'y raccrochent.</p>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--amber)"></i>Agent contributeur</span>
+    <span><i class="dot" style="background:var(--red)"></i>Collectivité</span>
+    <span><i class="dot" style="background:var(--blue)"></i>Habitant</span>
+    <span><i class="dot" style="background:var(--green)"></i>Public, automatique</span>
+  </div>
+
+  <h2>5.1 &middot; Le parcours d'un projet</h2>
+  <div class="flow">
+    <div class="frow">
+      <div></div>
+      <div class="step step--a">
+        <p class="step__who">Agent</p>
+        <p class="step__t">Création du projet</p>
+        <p>Nom, thématique, résumé, photo de couverture, emprise dessinée sur la carte ou fichier importé, lien officiel, documents à télécharger, article de présentation.</p>
+      </div>
+      <div></div>
+    </div>
+    <div class="arrow"><i></i><em>soumis</em><i></i></div>
+    <div class="frow">
+      <div class="aside aside--back"><b>Correction</b><span>l'agent reprend sa fiche</span></div>
+      <div class="step">
+        <p class="step__who">Collectivité</p>
+        <p class="step__t">Validation et publication</p>
+        <p>Un administrateur relit, puis publie d'un clic depuis la liste ou depuis la fiche. Un projet créé par un administrateur peut être publié immédiatement.</p>
+      </div>
+      <div class="aside"><b>En attente</b><span>invisible du public</span></div>
+    </div>
+    <div class="arrow"><i></i><em>publié</em><i></i></div>
+    <div class="frow">
+      <div></div>
+      <div class="step step--g">
+        <p class="step__who">Automatique</p>
+        <p class="step__t">Mise en ligne sur quatre supports</p>
+        <p>Le projet apparaît sur la carte, obtient sa page dédiée à une adresse lisible, rejoint la page publique de la collectivité, et son adresse est déclarée aux moteurs de recherche.</p>
+      </div>
+      <div></div>
+    </div>
+    <div class="arrow"><i></i><em>consulté</em><i></i></div>
+    <div class="frow">
+      <div></div>
+      <div class="step step--b">
+        <p class="step__who">Habitant</p>
+        <p class="step__t">Découverte et partage</p>
+        <p>Il trouve le projet en explorant la carte, par une recherche en ligne, ou par un lien reçu. Il consulte les documents, copie l'adresse de la page et la transmet.</p>
+      </div>
+      <div></div>
+    </div>
+  </div>
+
+  <h2>5.2 &middot; Le parcours d'un signalement</h2>
+  <div class="flow">
+    <div class="frow">
+      <div></div>
+      <div class="step step--b">
+        <p class="step__who">Habitant</p>
+        <p class="step__t">Dépôt sur la carte</p>
+        <p>Un point posé au doigt, une catégorie, une précision facultative, une photo, une adresse de courriel. Aucun compte, aucun nom, aucun téléphone demandé.</p>
+      </div>
+      <div></div>
+    </div>
+    <div class="arrow"><i></i><em>lien de confirmation envoyé</em><i></i></div>
+    <div class="frow">
+      <div class="aside aside--out"><b>Sans confirmation</b><span>effacé au bout de 7 jours</span></div>
+      <div class="step step--b">
+        <p class="step__who">Habitant</p>
+        <p class="step__t">Confirmation de l'adresse</p>
+        <p>Tant que le lien reçu par courriel n'est pas ouvert, le signalement n'entre dans aucune file et n'existe pour personne. C'est la vérification de l'adresse et le garde-fou anti-robot.</p>
+      </div>
+      <div class="aside"><b>Accusé de réception</b><span>référence et lien de suivi</span></div>
+    </div>
+    <div class="arrow"><i></i><em>entre dans la file</em><i></i></div>
+    <div class="frow">
+      <div class="aside aside--back"><b>Message à l'habitant</b><span>à chaque étape choisie</span></div>
+      <div class="step">
+        <p class="step__who">Collectivité</p>
+        <p class="step__t">Traitement</p>
+        <p>L'agent fait avancer le dossier parmi sept étapes et écrit, s'il le souhaite, un message destiné à l'habitant. Chaque geste est daté et signé de son auteur.</p>
+      </div>
+      <div class="aside aside--out"><b>Non retenu</b><span>motif écrit obligatoire</span></div>
+    </div>
+    <div class="arrow"><i></i><em>décision de publication</em><i></i></div>
+    <div class="frow">
+      <div></div>
+      <div class="step">
+        <p class="step__who">Collectivité</p>
+        <p class="step__t">Publication sur la carte, ou non</p>
+        <p>Rien n'est visible du public tant qu'un administrateur n'a pas publié. Une liste de vérification rappelle les points à contrôler avant de valider : visages, plaques, données personnelles dans le texte.</p>
+      </div>
+      <div></div>
+    </div>
+    <div class="arrow"><i></i><em>dossier clos</em><i></i></div>
+    <div class="frow">
+      <div></div>
+      <div class="step step--g">
+        <p class="step__who">Automatique</p>
+        <p class="step__t">Effacement des données personnelles</p>
+        <p>Au terme du délai fixé par la collectivité, douze mois par défaut, l'adresse de courriel de l'habitant est effacée. Le contenu publié, qui n'est pas nominatif, reste en ligne.</p>
+      </div>
+      <div></div>
+    </div>
+  </div>
+
+  <div class="cards" style="margin-top:20px">
+    <div class="card">
+      <h4>Les travaux suivent le même principe</h4>
+      <p>Un chantier se saisit comme un projet, avec ses dates et son emprise, et se publie de la même façon. Une collectivité qui publie déjà un flux de chantiers peut le brancher directement, sans ressaisie : la carte lit alors la source existante.</p>
+    </div>
+    <div class="card">
+      <h4>Le diagnostic ne sort jamais de l'administration</h4>
+      <p>Les couches d'analyse et les rapports ne sont visibles que des administrateurs de la collectivité. Rien de ce qui est produit dans le diagnostic n'apparaît sur la carte publique.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 05 LES FONCTIONS ============ -->
+<section class="section">
+  <hr class="hr-top">
+  <p class="section__num">06</p>
+  <h1>Les fonctions, une par une</h1>
+  <p class="lede">Le socle d'abord, puis chacun des trois modules. Un module s'active collectivité par collectivité et se retire sans rien démonter d'autre.</p>
+
+  <h2><span class="tag tag--socle">Socle</span>6.1 &middot; La carte publique</h2>
+  <p class="kicker">La page d'accueil de votre espace, telle que la voit un habitant qui arrive.</p>
+  <ul class="bullets tight">
+    <li><strong>Une navigation en trois temps.</strong> Le visiteur choisit un module, puis une thématique, puis un projet. Un fil d'Ariane et la touche Échap permettent de remonter d'un cran, sans jamais perdre la carte de vue.</li>
+    <li><strong>Les repères parlent avant le clic.</strong> Le survol d'un tracé affiche une vignette avec la photo, le nom et la thématique ; le clic ouvre un panneau latéral, une feuille en bas d'écran sur téléphone. Là où des projets se superposent, une grille permet de choisir lequel ouvrir.</li>
+    <li><strong>Huit fonds de carte, dont trois vues aériennes.</strong> Quatre plans, une vue aérienne récente et deux photographies aériennes historiques des années 1950-1965 et 1965-1980 : comparer un quartier d'hier et d'aujourd'hui en réunion publique se fait en deux clics. Un bouton bascule par ailleurs la carte en relief, avec les bâtiments en volume.</li>
+    <li><strong>Recherche d'adresse et localisation.</strong> La recherche s'appuie sur la base d'adresses de l'État et propose six suggestions, priorisées autour de la vue affichée. Un bouton centre la carte sur la position de l'appareil.</li>
+    <li><strong>Allumer et éteindre les thématiques.</strong> Un panneau liste les thématiques réellement alimentées, chacune avec son icône et sa couleur, et compte celles qui sont affichées.</li>
+    <li><strong>Mode sombre et adaptation au téléphone.</strong> L'interface suit le réglage clair ou sombre de l'appareil. Sur petit écran, la barre latérale devient une capsule en bas de l'écran et les panneaux des tiroirs.</li>
+    <li><strong>Elle s'affiche même quand quelque chose échoue.</strong> Si les filtres, la recherche ou la localisation échouent, la carte reste utilisable. Un contrôle automatique répare aussi les états locaux corrompus d'un navigateur bloqué.</li>
+  </ul>
+
+  <h2><span class="tag tag--socle">Socle</span>6.2 &middot; La fiche projet</h2>
+  <p class="kicker">La page dédiée d'un projet, à une adresse du type openprojets.com/fiche/ma-ville/mobilite/nom-du-projet</p>
+  <ul class="bullets tight">
+    <li><strong>Une adresse lisible et partageable.</strong> Le nom de la collectivité, la thématique et le nom du projet apparaissent en clair dans le lien, construit automatiquement.</li>
+    <li><strong>Un bandeau d'ouverture avec l'emprise du projet.</strong> Le tracé s'affiche sur une carte de situation qui tourne lentement autour du site, aux couleurs de la thématique.</li>
+    <li><strong>Un article de présentation rédigé par la collectivité.</strong> Titres, listes, tableaux, liens, images : le texte se rédige dans un éditeur visuel dans l'administration. C'est là que se racontent le calendrier, les objectifs, les partenaires et les impacts.</li>
+    <li><strong>Les documents à consulter.</strong> Dossier de concertation, plans, délibération : les PDF rattachés se consultent dans la page et se téléchargent.</li>
+    <li><strong>Aux couleurs de la collectivité, dès le premier affichage.</strong> Logo, couleur institutionnelle et icône d'onglet sont appliqués avant même la fin du chargement : le visiteur ne voit jamais brièvement une autre identité.</li>
+    <li><strong>Construite pour être trouvée.</strong> Titre, description, image de partage et données structurées sont produits par le serveur : moteurs de recherche et messageries lisent la page entière sans exécuter le moindre script.</li>
+    <li><strong>Ce qu'elle ne fait pas.</strong> Il n'y a ni bloc de calendrier structuré, ni galerie photo, ni commentaire, ni formulaire de contact sur la fiche. Le calendrier se raconte dans le texte de l'article, les photos supplémentaires s'y insèrent une à une, et la participation est traitée par le module dédié.</li>
+  </ul>
+</section>
+
+<section class="section">
+  <p class="eyebrow" style="color:var(--muted)">06 &middot; Les fonctions, une par une (suite)</p>
+  <hr style="border:0;border-top:1px solid var(--line);margin:0 0 22px">
+
+  <h2 style="margin-top:0"><span class="tag tag--socle">Socle</span>6.3 &middot; L'espace d'administration</h2>
+  <ul class="bullets tight">
+    <li><strong>Un poste de travail dans le navigateur.</strong> Liste des projets avec recherche, filtres et tri, formulaire unique en cinq blocs, panneau de détail reprenant la fiche telle qu'elle sera publiée, mode sombre, et une interface utilisable sur téléphone.</li>
+    <li><strong>Dessiner sans logiciel de cartographie.</strong> Trois outils, un point, une ligne, une zone, avec annulation du dernier point ou du dernier élément et un récapitulatif de ce qui est enregistré. Un agent sans compétence SIG situe son projet en deux minutes.</li>
+    <li><strong>Les images sont préparées toutes seules.</strong> Toute image déposée est redimensionnée et allégée avant d'être stockée, selon son usage. Aucun agent n'a à préparer ses visuels.</li>
+    <li><strong>Une aide à la rédaction.</strong> Un assistant propose un résumé ou un article complet à partir du nom du projet, de sa thématique et de son lien officiel, avec une recherche en ligne activable et les sources consultées affichées et cliquables. Il propose, il ne publie jamais : l'insertion et l'enregistrement restent des gestes de l'agent.</li>
+    <li><strong>Les thématiques se règlent en autonomie.</strong> Nom, icône choisie dans une bibliothèque de 112 pictogrammes, couleur, épaisseur et style du trait, remplissage des zones, ordre d'affichage par glisser-déposer, avec un aperçu en direct du rendu sur la carte.</li>
+    <li><strong>Les comptes de l'équipe.</strong> Invitation par adresse professionnelle avec choix du rôle, promotion ou rétrogradation d'un collaborateur, annuaire des comptes de la structure.</li>
+  </ul>
+
+  <h2><span class="tag tag--mod">Module</span>6.4 &middot; Travaux</h2>
+  <p class="kicker">Les chantiers de la collectivité, sur la même carte que ses projets.</p>
+  <ul class="bullets tight">
+    <li><strong>Une chronologie avec curseur de dates.</strong> Le curseur couvre la période du premier au dernier chantier, jour par jour, et un histogramme montre les pics d'activité. On voit combien de chantiers seront ouverts à une date donnée.</li>
+    <li><strong>Trois filtres alimentés par les données.</strong> Nature des travaux, commune ou secteur, état d'avancement. Les valeurs proposées sont celles réellement saisies, avec le nombre de chantiers pour chacune.</li>
+    <li><strong>Une fiche de chantier complète.</strong> Nom, localisation, état, nature, barre d'avancement, durée en jours, dates en toutes lettres, description et liste des adresses concernées.</li>
+    <li><strong>Deux sources au choix, sans développement.</strong> Soit les chantiers sont saisis dans l'outil, avec dessin ou import de l'emprise, soit la collectivité branche l'adresse d'un flux qu'elle publie déjà. En mode flux, la saisie manuelle est désactivée et l'écran le dit clairement.</li>
+    <li><strong>Ce qu'il ne fait pas.</strong> Le module publie et montre des chantiers. Il ne gère ni arrêté de circulation, ni permission de voirie, ni coordination de concessionnaires, et n'envoie aucun message aux riverains : l'information est disponible sur la carte, elle n'est pas poussée. Ces sujets relèvent d'un produit distinct.</li>
+  </ul>
+  <p style="font-size:9.2pt;margin:12px 0 0"><strong>La couleur du tracé suit l'avancement</strong>, calculée à partir des dates de début et de fin. Aucun agent n'a à la mettre à jour.</p>
+  <div class="grad">
+    <span class="grad__bar"></span>
+    <div class="grad__lbl"><span>Au démarrage</span><span>À mi-parcours</span><span>À l'approche de la fin</span></div>
+  </div>
+</section>
+
+<section class="section">
+  <p class="eyebrow" style="color:var(--muted)">06 &middot; Les fonctions, une par une (suite)</p>
+  <hr style="border:0;border-top:1px solid var(--line);margin:0 0 22px">
+
+  <h2 style="margin-top:0"><span class="tag tag--mod">Module</span>6.5 &middot; Participation</h2>
+  <p class="kicker">Un habitant signale, la collectivité répond, tout est daté.</p>
+  <ul class="bullets tight">
+    <li><strong>Un dépôt sans compte, en quatre gestes.</strong> Poser un point sur la carte ou utiliser sa position, choisir une catégorie, préciser si besoin, laisser une adresse de courriel.</li>
+    <li><strong>La photo est nettoyée dans le téléphone.</strong> Avant tout envoi, l'image est recompressée et vidée de ses métadonnées, dont la position de la prise de vue. L'original ne quitte jamais l'appareil.</li>
+    <li><strong>Une adresse vérifiée avant tout.</strong> Le dossier n'entre dans la file qu'après ouverture du lien de confirmation. Si le message ne peut pas partir, le dépôt est annulé et l'habitant en est averti, plutôt que de le laisser croire qu'il a signalé quelque chose.</li>
+    <li><strong>Une référence et une page de suivi.</strong> Chaque dossier reçoit un numéro lisible au format ABC-2026-0042 et un lien privé qui ouvre la carte sur son propre signalement, avec l'historique horodaté des étapes.</li>
+    <li><strong>Une file de traitement, pas une boîte de réception.</strong> Quatre onglets, un compteur des dossiers jamais traités, une recherche plein texte, et une fiche complète avec photo, mini-carte et historique.</li>
+    <li><strong>Faire avancer et répondre en un geste.</strong> L'agent choisit l'étape et écrit un message : le statut change, l'historique s'enrichit, la page de suivi se met à jour et le courriel part si l'étape est réglée pour prévenir.</li>
+    <li><strong>Rien n'est public sans décision.</strong> La publication est un geste distinct, réservé aux administrateurs, précédé d'une liste de vérification. Un contenu publié à tort se retire immédiatement, et la copie publique de la photo est effacée.</li>
+    <li><strong>Une relance automatique du service.</strong> Chaque jour, la plateforme vérifie si des dossiers dorment au-delà du délai que vous avez fixé, et envoie un rappel au service.</li>
+    <li><strong>Un droit de retrait ouvert à tous.</strong> Toute personne visée par un contenu publié, même sans compte, peut en demander le retrait en indiquant un motif. La demande est consignée en interne, jamais affichée, et transmise au service avec le rappel du délai de réponse d'un mois.</li>
+  </ul>
+
+  <h2><span class="tag tag--mod">Module</span>6.6 &middot; Diagnostic de terrain</h2>
+  <p class="kicker">Réservé aux administrateurs : un outil d'aide à la décision, pas de communication.</p>
+  <ul class="bullets tight">
+    <li><strong>Toutes les sources sur une même carte.</strong> Signalements des habitants, projets et chantiers déjà saisis, fichiers métier déposés, jeux de données ouverts branchés par une adresse. Un tableur de points géolocalisés devient une couche.</li>
+    <li><strong>Une zone d'étude tracée à main levée.</strong> On entoure un carrefour, un tronçon ou un îlot. L'écran annonce aussitôt le nombre de points retenus, l'emprise et la répartition par source.</li>
+    <li><strong>Une restitution source par source.</strong> Pour chaque source de la zone : une synthèse, puis les sujets qui reviennent, avec les numéros des points qui les justifient et des citations reproduites mot pour mot.</li>
+    <li><strong>Les chiffres sont calculés, pas rédigés.</strong> Nombre de points, répartition par source et points rattachés à chaque sujet sont calculés à partir des données. Une source figure toujours au rapport avec son décompte exact, même si l'analyse l'a laissée de côté, et les renvois vers des points inexistants sont écartés.</li>
+    <li><strong>Vérifiable en deux clics.</strong> Sous chaque sujet, des pastilles numérotées renvoient aux points concernés : les survoler les allume sur la carte, cliquer y déplace la vue. Toute affirmation du rapport se contrôle sans quitter l'écran.</li>
+    <li><strong>Un rapport imprimable, conservé.</strong> Plan de la zone, quatre indicateurs, composition, restitution par source, annexe des points cités, et une section « Méthode et limites » imprimée dans chaque document. Le rapport est enregistré automatiquement et se rouvre depuis un historique.</li>
+    <li><strong>Ce que l'outil ne fait pas, et le dit dans le rapport.</strong> Il ne note pas, ne hiérarchise pas, ne recommande rien, ne compare pas deux dates et ne calcule aucun croisement entre sources. Il restitue et compte ; l'interprétation revient aux services.</li>
+  </ul>
+</section>
+
+<!-- ============ 06 CE QUE LA PLATEFORME PRODUIT ============ -->
+<section class="section">
+  <hr class="hr-top">
+  <p class="section__num">07</p>
+  <h1>Ce que la plateforme produit</h1>
+  <p class="lede">Ce qu'une collectivité peut sortir de l'outil, dans quel format et avec quel contenu.</p>
+
+  <div class="fan">
+    <div class="fan__in"><b>Un projet saisi une fois</b><span>par un agent, dans l'administration</span></div>
+    <div class="org__link"><i></i><em>alimente automatiquement</em><i></i></div>
+    <div class="fan__out">
+      <div><b>La carte</b>emprise et vignette</div>
+      <div><b>Sa fiche</b>page dédiée</div>
+      <div><b>La page ville</b>liste et filtres</div>
+      <div><b>Le flux ouvert</b>GeoJSON public</div>
+      <div><b>Le plan de site</b>moteurs de recherche</div>
+      <div><b>L'export</b>formats ouverts</div>
+    </div>
+  </div>
+  <p class="caption">Aucune de ces sorties ne se ressaisit : elles décrivent le même enregistrement et se corrigent en corrigeant la fiche.</p>
+
+  <table class="tbl">
+    <thead><tr><th style="width:32%">Livrable</th><th>Format et contenu</th></tr></thead>
+    <tbody>
+      <tr><td>La page publique de la collectivité</td><td>Une page à l'adresse openprojets.com/ville/votre-code, qui liste les projets publiés en vignettes, avec filtre par thématique, recherche et carte du territoire. Construite par le serveur, lisible sans script, référencée.</td></tr>
+      <tr><td>La fiche d'un projet</td><td>Une page à son adresse propre, avec son article, ses documents et sa carte de situation. Elle s'imprime dans une mise en page allégée.</td></tr>
+      <tr><td>Trois flux de données ouverts</td><td>Trois adresses publiques renvoyant au format GeoJSON, tracés compris, les projets publiés, les chantiers validés et les signalements publiés. Elles s'ouvrent dans un logiciel de cartographie ou se consomment depuis un autre site. Le flux des signalements est filtré par une liste explicite d'informations diffusables : ni adresse de courriel, ni empreinte technique, ni lien de suivi.</td></tr>
+      <tr><td>L'export des signalements</td><td>Un fichier tableur ouvrable directement dans Excel en français, dix colonnes : référence, catégorie, statut, description, adresse, coordonnées, publication, dates de dépôt et de clôture. Sans aucune donnée personnelle, par choix. Plafonné à 1 000 lignes, avec avertissement en cas de troncature.</td></tr>
+      <tr><td>Le rapport de diagnostic</td><td>Un document A4 imprimable en PDF : couverture, plan de la zone, indicateurs, composition, restitution par source avec citations, annexe des points cités, méthode et limites.</td></tr>
+      <tr><td>Le plan de site et l'index pour les assistants</td><td>Deux fichiers produits automatiquement, qui déclarent aux moteurs de recherche et aux assistants conversationnels vos pages et vos fiches projets.</td></tr>
+      <tr><td>Les guides d'utilisation</td><td>Deux guides imprimables, un par profil, issus du centre d'aide en ligne.</td></tr>
+      <tr><td>Les fichiers déposés</td><td>Tracés, articles, images et PDF restent accessibles par leur adresse directe, dans des formats ouverts.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <p><strong>Une limite à connaître.</strong> Le plan de site transmis aux moteurs ne retient que les projets qui portent un article de présentation. Un projet publié sans article reste consultable et partageable par son lien, sans être proposé dans les résultats de recherche : écrire l'article est ce qui rend un projet trouvable.</p>
+  </div>
+
+  <div class="note note--edge" style="margin-top:18px">
+    <p><strong>Il n'existe pas aujourd'hui de bouton d'export global.</strong> La récupération se fait voie par voie, par les sorties ci-dessus. Un export complet de votre patrimoine vous est remis sur simple demande, sans frais, dans ces mêmes formats ouverts : c'est un engagement de l'éditeur, pas encore une fonction en libre-service.</p>
+  </div>
+</section>
+
+<!-- ============ 07 LA RELATION AUX HABITANTS ============ -->
+<section class="section">
+  <hr class="hr-top">
+  <p class="section__num">08</p>
+  <h1>La relation aux habitants</h1>
+  <p class="lede">Ce qui leur est montré, ce qui leur est écrit et ce qu'ils peuvent demander. Une collectivité engage sa parole à travers ces messages : ils sont donc décrits ici.</p>
+
+  <div class="cards">
+    <div class="card">
+      <h4>Ce que voit le public</h4>
+      <p>Les projets et les chantiers publiés avec leur emprise et leurs dates, les fiches détaillées, et les signalements que la collectivité a choisi de publier, avec leur statut et l'historique de leur traitement.</p>
+    </div>
+    <div class="card">
+      <h4>Ce qu'il ne voit pas</h4>
+      <p>Les projets en attente de validation, les signalements non publiés, l'adresse de courriel d'un habitant, les photos avant modération, les échanges internes, les diagnostics et leurs rapports.</p>
+    </div>
+  </div>
+
+  <h2>Les quatre messages envoyés</h2>
+  <table class="tbl tbl--free">
+    <thead><tr><th style="width:30%">Message</th><th>Ce qu'il dit</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Confirmation</strong><br><span style="color:var(--muted)">à l'habitant, immédiat</span></td><td>Demande d'ouvrir le lien pour confirmer le signalement, en précisant que sans confirmation sous sept jours le dépôt sera supprimé.</td></tr>
+      <tr><td><strong>Accusé de réception</strong><br><span style="color:var(--muted)">à l'habitant, après confirmation</span></td><td>Donne la référence du dossier et le lien vers la page de suivi personnelle.</td></tr>
+      <tr><td><strong>Changement d'étape</strong><br><span style="color:var(--muted)">à l'habitant, si l'étape le prévoit</span></td><td>Nomme la nouvelle étape, reprend le message écrit par l'agent et renvoie vers la page de suivi. La collectivité décide étape par étape si ce message part.</td></tr>
+      <tr><td><strong>Alerte service</strong><br><span style="color:var(--muted)">à la collectivité</span></td><td>Signale un nouveau dépôt confirmé, une demande de retrait reçue, ou des dossiers sans réponse au-delà du délai fixé.</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:9.4pt;color:var(--muted);margin-top:2px">Les réponses des habitants sont routées vers l'adresse du service que vous indiquez : un habitant qui répond écrit à sa collectivité, jamais à un agent nommé.</p>
+
+  <h2>Ce qui est affiché à l'habitant, sans possibilité de le retirer</h2>
+  <ul class="bullets tight">
+    <li><strong>Le rappel d'urgence.</strong> En cas de danger immédiat, appeler les secours plutôt que d'utiliser le formulaire.</li>
+    <li><strong>Le sort de son adresse de courriel.</strong> La mention affiche la durée de conservation réglée par la collectivité et renvoie vers la politique de confidentialité.</li>
+    <li><strong>Le fait que rien n'est public avant validation.</strong> Le message affiché après l'envoi et la page de suivi le rappellent tant que le dossier n'est pas publié.</li>
+  </ul>
+
+  <h2>Les textes que vous écrivez</h2>
+  <ul class="plain tight">
+    <li>Le texte d'introduction affiché en tête du formulaire.</li>
+    <li>Le message affiché juste après l'envoi, avant la confirmation.</li>
+    <li>Le message affiché à la place du formulaire pendant une suspension des dépôts.</li>
+    <li>Le nom de chacune des sept étapes, tel que l'habitant le lira.</li>
+    <li>Les catégories de signalement proposées, avec leur libellé et leur texte d'aide.</li>
+  </ul>
+
+  <div class="note">
+    <p><strong>L'information des riverains est disponible, elle n'est pas poussée.</strong> Un habitant trouve un chantier sur la carte et consulte ses dates, mais la plateforme n'envoie aucune alerte de proximité. Seul le module de signalement écrit aux habitants, et uniquement à ceux qui ont déposé un dossier.</p>
+  </div>
+</section>
+
+<!-- ============ 08 PARAMÉTRAGE ============ -->
+<section class="section">
+  <hr class="hr-top">
+  <p class="section__num">09</p>
+  <h1>Le paramétrage par la collectivité</h1>
+  <p class="lede">L'essentiel de ce qui se voit à l'écran est un réglage, pas un développement. Voici la ligne entre ce que vous réglez seuls et ce qui passe par l'éditeur.</p>
+
+  <h2>Ce que vous réglez seuls, depuis l'administration</h2>
+  <ul class="bullets tight">
+    <li><strong>Votre identité visuelle.</strong> Nom affiché, logo clair, logo sombre, icône d'onglet, couleur principale. La couleur se propage à la carte, aux fiches, à la page publique et à l'espace d'administration lui-même.</li>
+    <li><strong>Les boutons proposés à l'habitant.</strong> Neuf commandes de la carte s'activent une par une : filtres, fond de carte, mode sombre, recherche d'adresse, localisation, sélecteur d'espace, informations, connexion, vue en relief.</li>
+    <li><strong>Le fond de carte affiché au premier chargement</strong>, choisi dans le catalogue.</li>
+    <li><strong>Vos thématiques.</strong> Création, renommage, suppression, icône, couleur, style de tracé, remplissage, ordre d'affichage, et les couches complémentaires qu'une thématique allume.</li>
+    <li><strong>Vos contenus.</strong> Projets, chantiers, articles, documents, photos, tracés, et la décision de publier ou non.</li>
+    <li><strong>Vos comptes.</strong> Invitation d'un agent par adresse professionnelle, choix et changement de son rôle.</li>
+    <li><strong>Le module de signalement dans son entier.</strong> Catégories, libellés et couleurs des sept étapes, déclenchement des courriels étape par étape, textes vus par l'habitant, adresse du service, plafonds de dépôt, délai de relance, durée de conservation des données personnelles, suspension des dépôts d'un clic.</li>
+    <li><strong>La source de vos chantiers</strong>, saisie interne ou flux existant, avec les couches qui s'affichent avec le module.</li>
+    <li><strong>Vos couches de diagnostic.</strong> Ajout, nom, groupe, origine, couleur, contenu de la fiche au clic et affichage par défaut.</li>
+    <li><strong>La liste des espaces proposés au visiteur</strong>, pour une collectivité qui en gère plusieurs.</li>
+  </ul>
+
+  <h2>Ce qui passe par l'éditeur</h2>
+  <p>Ces opérations sont faites avec vous à la mise en service, puis à la demande, sans frais et sans délai de traitement.</p>
+  <ul class="plain tight">
+    <li>L'ouverture et la suppression d'un espace.</li>
+    <li>L'activation ou le retrait d'un module.</li>
+    <li>Le cadrage d'ouverture de la carte sur votre territoire, centre et niveau de zoom.</li>
+    <li>Le branchement d'une couche cartographique externe, par exemple un flux de votre service SIG.</li>
+    <li>L'attribution d'une adresse dédiée ou d'un raccourci de communication.</li>
+  </ul>
+
+  <div class="note">
+    <p><strong>Ce qui ne demande aucun paramétrage.</strong> Les règles de publication, les sept étapes de traitement d'un signalement, les modèles de courriel, les formats produits et les pages publiques sont livrés prêts à l'emploi. Il n'y a pas de moteur de circuit de validation à configurer, pas de modèle de message à écrire, pas de gabarit de page à maintenir.</p>
+  </div>
+
+  <div class="note note--edge" style="margin-top:18px">
+    <p><strong>Une limite assumée.</strong> Les sept étapes de traitement d'un signalement se renomment mais ne s'ajoutent pas et ne se suppriment pas. C'est ce qui garantit que les filtres, les compteurs et les exports veulent dire la même chose d'une année sur l'autre, et d'un service à l'autre.</p>
+  </div>
+</section>
+
+<!-- ============ 09 CONFIANCE ============ -->
+<section class="section">
+  <hr class="hr-top">
+  <p class="section__num">10</p>
+  <h1>Confiance, données et sécurité</h1>
+  <p class="lede">Trois questions se posent toujours : qui voit quoi, qui tient l'outil, et que se passe-t-il si nous partons. Voici nos réponses, y compris là où elles sont inconfortables.</p>
+
+  <h2>Où vivent vos données</h2>
+  <div class="band">
+    <b>Public : ce que voit tout le monde</b>
+    <p>Les projets et les chantiers que vous avez publiés, leurs fiches, votre page de collectivité, les signalements que vous avez choisi de publier, et les trois flux de données ouverts. <em>Publié veut dire public : c'est le but de l'outil.</em></p>
+  </div>
+  <div class="band band--int">
+    <b>Interne : ce que voient vos agents, et eux seuls</b>
+    <p>Les contenus en attente de validation, la file de traitement des signalements et leurs historiques, les photos avant modération, les couches et les rapports de diagnostic, les comptes de votre équipe. <em>Rien de tout cela n'apparaît sur la carte.</em></p>
+  </div>
+  <div class="band band--never">
+    <b>Jamais transmis à un navigateur, pas même à vos agents</b>
+    <p>L'adresse de courriel d'un habitant, l'empreinte technique de sa connexion et son lien de suivi privé. <em>Ce n'est pas l'écran qui les masque : la base de données refuse de les transmettre à un compte connecté, quel que soit l'appel.</em></p>
+  </div>
+
+  <h2>Qui voit quoi</h2>
+  <table class="tbl">
+    <thead><tr><th style="width:30%">Élément</th><th>Collectivité</th><th>Agent contributeur</th><th>Public</th></tr></thead>
+    <tbody>
+      <tr><td>Projets et chantiers publiés</td><td>Tous les siens</td><td>Tous les siens</td><td>Oui, par nature</td></tr>
+      <tr><td>Projets en attente de validation</td><td>Tous les siens</td><td>Les siens et ceux déjà validés</td><td>Non affichés</td></tr>
+      <tr><td>Signalements des habitants</td><td>Tous les siens, avec historique</td><td>Tous les siens, avec historique</td><td>Ceux qu'elle a publiés</td></tr>
+      <tr><td>Adresse de courriel d'un habitant</td><td>Non</td><td>Non</td><td>Non</td></tr>
+      <tr><td>Photo d'un signalement non publié</td><td>Par lien temporaire de 10 minutes</td><td>Par lien temporaire de 10 minutes</td><td>Non</td></tr>
+      <tr><td>Diagnostics et rapports</td><td>Les siens</td><td>Non</td><td>Non</td></tr>
+      <tr><td>Comptes de l'équipe</td><td>Ceux de sa structure</td><td>Non</td><td>Non</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Ce qui est verrouillé par le serveur, et non par l'affichage</h2>
+  <ul class="bullets tight">
+    <li><strong>L'adresse de courriel d'un habitant est hors de portée, y compris pour vos agents.</strong> Ce n'est pas l'écran qui la masque : la base de données elle-même refuse de la transmettre à un compte connecté, quel que soit l'appel. Il en va de même de l'empreinte technique de connexion et des liens de suivi privés. Un agent ne peut donc ni l'exporter, ni la recopier, ni la transmettre.</li>
+    <li><strong>Les signalements et leur historique sont inaccessibles sans autorisation.</strong> Un appel direct au service de données, sans compte, ne rapporte rien.</li>
+    <li><strong>Les couches et les rapports de diagnostic sont cloisonnés par collectivité</strong> au niveau de la base, en lecture comme en écriture.</li>
+    <li><strong>Un chantier proposé par un contributeur ne peut pas s'auto-publier.</strong> La règle est portée par la base : le statut est forcé en attente pour tout compte qui n'est pas administrateur.</li>
+    <li><strong>Un projet proposé par un contributeur non plus.</strong> La base impose le statut en attente à la création et interdit de le modifier ensuite.</li>
+    <li><strong>Les photos des habitants sont privées avant publication</strong>, dans un espace fermé sans adresse publique. Elles ne deviennent accessibles qu'au moment où vous publiez, et la copie publique est effacée dès que vous retirez le contenu.</li>
+  </ul>
+
+  <h2>Accès et traçabilité</h2>
+  <ul class="bullets tight">
+    <li><strong>Aucune inscription libre.</strong> Un agent entre par un lien de connexion reçu sur son adresse professionnelle, après invitation par un administrateur de sa collectivité. Il n'y a pas de mot de passe à gérer, à faire tourner, ni à se faire dérober.</li>
+    <li><strong>Une session qui se renouvelle seule.</strong> Elle est vérifiée toutes les quatre minutes et renouvelée dix minutes avant son échéance, y compris au retour sur l'onglet. Après trois échecs, l'application repasse proprement en mode non connecté au lieu de rester bloquée.</li>
+    <li><strong>Un historique qui n'est pas réécrit.</strong> Chaque étape du traitement d'un signalement est datée et signée de son auteur. La trace d'une suppression survit à la suppression elle-même, avec la référence du dossier et l'identité de l'agent : la question « qui a supprimé quoi » a toujours une réponse.</li>
+    <li><strong>Une limite à connaître.</strong> Cette traçabilité complète existe pour les signalements des habitants. Pour les projets, les chantiers et les thématiques, chaque contenu porte son auteur et sa date de création, mais il n'existe pas d'écran retraçant qui a modifié quoi et quand.</li>
+  </ul>
+
+  <h2>Conservation et effacement</h2>
+  <ul class="plain tight">
+    <li>Un dépôt dont l'adresse n'a jamais été confirmée est effacé au bout de sept jours, avec sa photo, sans trace.</li>
+    <li>Une fois un dossier clos, l'adresse de courriel et l'empreinte de connexion sont effacées au terme du délai que vous fixez, douze mois par défaut, réglable de un à soixante mois.</li>
+    <li>Le même délai s'applique aux coordonnées laissées dans une demande de retrait.</li>
+    <li>Ces opérations sont automatiques et quotidiennes ; la fiche de traitement signale qu'un effacement a eu lieu.</li>
+    <li>Le contenu publié, qui n'est pas nominatif, reste en ligne.</li>
+  </ul>
+</section>
+
+<section class="section section--flow">
+  <h2>Qui tient l'outil</h2>
+  <div class="cards">
+    <div class="card">
+      <h4>Une équipe française, sans intermédiaire</h4>
+      <p>La solution est conçue, développée et exploitée par une équipe française, éditée par une société à mission inscrite au registre du commerce de Lyon. Pas d'intégrateur, pas de revendeur, pas de support de premier niveau externalisé. La personne qui écrit le code est celle que vous avez au téléphone.</p>
+    </div>
+    <div class="card">
+      <h4>Une qualité vérifiée avant chaque livraison</h4>
+      <p>Le produit est accompagné de 911 vérifications automatisées qui rejouent les parcours réels : un habitant sur la carte, un agent dans l'espace de gestion, un contributeur invité. Elles sont relancées avant mise en ligne sur les zones touchées, et intégralement pour un changement transversal.</p>
+    </div>
+    <div class="card">
+      <h4>Les services tiers sont documentés</h4>
+      <p>Une plateforme cartographique s'appuie nécessairement sur des services extérieurs : hébergement, base de données, fonds de carte, base d'adresses de l'État, messagerie, mesure d'audience. La liste complète, avec ce qui transite et où, vous est remise et tenue à jour. C'est la pièce qu'attend votre délégué à la protection des données.</p>
+    </div>
+    <div class="card">
+      <h4>Ce que nous ne prétendons pas</h4>
+      <p>Aucune certification d'hébergement, aucune qualification de sécurité, aucun audit d'accessibilité formel n'est acquis à ce jour. Nous préférons l'écrire ici que de laisser un badge le suggérer. Les besoins de mise en conformité de votre marché sont à cadrer avec nous en amont.</p>
+    </div>
+  </div>
+
+  <h2>La mesure d'usage</h2>
+  <ul class="bullets tight">
+    <li><strong>Vous savez ce qui est consulté.</strong> Vingt et un indicateurs d'usage sont mesurés : quels projets sont ouverts et combien de fois, quelles thématiques vivent réellement, combien de signalements sont déposés et publiés. Ces chiffres vous sont restitués sur demande ; il n'existe pas encore de tableau de bord dans votre espace.</li>
+    <li><strong>Aucune bannière de cookies sur votre carte.</strong> La mesure est de première partie, sans suivi du visiteur sur d'autres sites et sans partage publicitaire.</li>
+    <li><strong>Le refus du visiteur est respecté sans qu'il ait à le demander.</strong> Si son navigateur émet un signal de refus, rien n'est mesuré. Il peut aussi refuser en un clic depuis une page dédiée, ou par un paramètre ajouté à n'importe quelle adresse.</li>
+    <li><strong>Les données sensibles sont retirées avant tout envoi.</strong> Un jeton présent dans une adresse, un lien de suivi personnel : leur valeur est masquée avant d'atteindre l'outil de mesure. Aucun profil individuel n'est créé pour un visiteur non connecté.</li>
+  </ul>
+
+  <h2>Et si vous partez</h2>
+  <div class="note note--edge">
+    <p style="font-size:11pt;color:var(--ink);font-weight:600;margin:0">Vos données vous appartiennent, à toute heure, sans négociation et sans frais.</p>
+  </div>
+  <ul class="bullets tight" style="margin-top:14px">
+    <li><strong>Export sur simple demande.</strong> L'intégralité de vos projets, chantiers, signalements, historiques, articles, tracés, images et documents vous est remise dans des formats ouverts et lisibles sans notre outil : GeoJSON pour les emprises, texte pour les articles, tableur pour les signalements, PDF pour les documents et les rapports.</li>
+    <li><strong>Aucun format propriétaire.</strong> Vos emprises sont décrites dans un format cartographique standard, vos articles sont du texte simple, vos historiques sont du texte daté. Rien n'est enfermé.</li>
+    <li><strong>Aucune dépendance à votre système d'information.</strong> Rien à installer sur vos postes, rien à ouvrir sur votre réseau, rien à demander à votre direction informatique. Un navigateur et une adresse professionnelle suffisent.</li>
+    <li><strong>Aucune adhérence imposée entre modules.</strong> Vous pouvez n'activer que la carte, ajouter la participation six mois plus tard, et arrêter les travaux sans démonter le reste.</li>
+    <li><strong>Ce que la réversibilité ne couvre pas.</strong> Le code de la plateforme n'est pas cédé et ne peut pas être exploité de façon autonome par la collectivité : Open Projets est un service, pas un logiciel livré. La réversibilité porte sur vos données, intégralement, pas sur l'outil.</li>
+  </ul>
+</section>
+
+<!-- ============ 10 MISE EN SERVICE ============ -->
+<section class="section">
+  <hr class="hr-top">
+  <p class="section__num">11</p>
+  <h1>Mise en service et accompagnement</h1>
+  <p class="lede">Il n'y a pas de projet informatique à conduire. Il y a un espace à ouvrir, une arborescence à décider, et des contenus à publier.</p>
+
+  <table class="tbl">
+    <thead><tr><th style="width:18%">Étape</th><th style="width:44%">Ce qui se passe</th><th>Ce que ça demande à vos équipes</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>1. Cadrage</td>
+        <td>Un échange sur vos cas réels : ce que vous voulez montrer, comment vous nommez vos thématiques, quels modules vous activez, qui saisira.</td>
+        <td>Une réunion.</td>
+      </tr>
+      <tr>
+        <td>2. Ouverture</td>
+        <td>Création de votre espace, réglage de la carte sur votre territoire, dépôt de vos logos et de votre couleur, activation des modules retenus.</td>
+        <td>Vos logos et votre couleur. Nous faisons le reste.</td>
+      </tr>
+      <tr>
+        <td>3. Structuration</td>
+        <td>Création de vos thématiques avec leurs icônes et leurs couleurs, branchement de vos couches existantes si vous en avez, réglage des textes et des délais du module de signalement.</td>
+        <td>Une demi-journée, avec nous.</td>
+      </tr>
+      <tr>
+        <td>4. Premiers contenus</td>
+        <td>Saisie des premiers projets et des premiers chantiers. C'est l'étape qui demande le plus de temps, et nous la faisons avec vous sur les premières fiches.</td>
+        <td>Le temps de saisie, variable selon le volume.</td>
+      </tr>
+      <tr>
+        <td>5. Prise en main</td>
+        <td>Une session par profil : administrateurs, agents contributeurs. L'outil se prend en main en une demi-heure et un centre d'aide en ligne reprend chaque écran pas à pas.</td>
+        <td>Une demi-journée au total.</td>
+      </tr>
+      <tr>
+        <td>6. Ouverture au public</td>
+        <td>Communication de l'adresse de votre espace, mise en place des liens depuis votre site et des QR codes si vous en utilisez. Nous restons en appui rapproché les premières semaines.</td>
+        <td>Rien de plus que votre communication habituelle.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <p><strong>La saisie initiale est le vrai coût d'entrée, et nous le disons.</strong> Il n'existe pas d'import en masse : une collectivité qui arrive avec quarante projets dans un tableur les saisit un par un, avec l'aide à la rédaction pour les textes et l'import de fichier ou le dessin direct pour les emprises. Nous préparons avec vous les premières fiches, et vous voyez alors combien de temps prend réellement la suivante. C'est aussi ce qui permet de démarrer petit : dix projets bien faits valent mieux qu'un catalogue vide.</p>
+  </div>
+
+  <div class="cards" style="margin-top:18px">
+    <div class="card">
+      <h4>Aucune reprise de l'existant imposée</h4>
+      <p>Vous démarrez sur les projets en cours et les nouveaux. Ce qui vit ailleurs peut y rester : il n'y a ni migration forcée, ni double saisie durable à prévoir.</p>
+    </div>
+    <div class="card">
+      <h4>Un accompagnement en direct</h4>
+      <p>Par courriel et par téléphone, sans plateforme d'assistance intermédiaire. Votre demande arrive directement chez les personnes qui peuvent la traiter.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 11 PÉRIMÈTRE ============ -->
+<section class="section">
+  <hr class="hr-top">
+  <p class="section__num">12</p>
+  <h1>Périmètre</h1>
+  <p class="lede">Dire ce que l'outil ne fait pas vaut mieux que de le laisser deviner.</p>
+
+  <div class="cards">
+    <div class="card">
+      <h4>Inclus</h4>
+      <p style="font-size:7.6pt;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:9px 0 4px">Socle</p>
+      <ul class="plain tight" style="margin:0;font-size:9.3pt">
+        <li>Carte publique de la collectivité, à ses couleurs</li>
+        <li>Fiche détaillée et référencée par projet</li>
+        <li>Page publique regroupant tous les projets</li>
+        <li>Espace d'administration complet</li>
+        <li>Flux de données ouverts et exports</li>
+        <li>Aide à la rédaction des fiches</li>
+        <li>Mesure d'usage restituée sur demande</li>
+      </ul>
+      <p style="font-size:7.6pt;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px">Modules</p>
+      <ul class="plain tight" style="margin:0;font-size:9.3pt">
+        <li>Travaux : chronologie, filtres, flux externe</li>
+        <li>Participation : dépôt, traitement, courriels, retrait</li>
+        <li>Diagnostic de terrain : zone d'étude et rapports</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Hors périmètre à ce jour</h4>
+      <ul class="plain tight" style="margin-top:8px;font-size:9.5pt">
+        <li>Alerte de proximité aux riverains d'un chantier</li>
+        <li>Arrêtés de circulation et permissions de voirie</li>
+        <li>Import en masse de projets depuis un tableur</li>
+        <li>Interface de programmation en écriture</li>
+        <li>Formats Shapefile, KML et GPX à l'import</li>
+        <li>Vote, commentaire ou budget participatif</li>
+        <li>Version multilingue de l'interface</li>
+        <li>Fonctionnement hors connexion</li>
+        <li>Historique des versions d'une fiche projet</li>
+        <li>Tableau de bord d'audience dans votre espace</li>
+      </ul>
+      <p style="font-size:9pt;color:var(--muted);margin-top:10px">Ces points peuvent être étudiés, mais ne sont pas promis dans ce document.</p>
+    </div>
+  </div>
+
+  <h2>Nos engagements</h2>
+  <table class="tbl">
+    <tbody>
+      <tr><td style="width:26%">Support</td><td>Réponse sous un jour ouvré, par courriel ou par téléphone, directement auprès de l'équipe qui développe l'outil.</td></tr>
+      <tr><td>Correction d'un blocage</td><td>Traitement prioritaire, correction livrée dès qu'elle est prête, sans attendre une version majeure.</td></tr>
+      <tr><td>Évolutions</td><td>Les demandes des collectivités utilisatrices sont arbitrées avec elles, et les évolutions livrées profitent à tout le monde.</td></tr>
+      <tr><td>Réversibilité</td><td>Export complet de vos données sur simple demande, sans frais, en formats ouverts.</td></tr>
+      <tr><td>Confidentialité</td><td>Aucune donnée cédée, revendue, ni exploitée à d'autres fins que le service rendu.</td></tr>
+      <tr><td>Transparence</td><td>Liste des services tiers mobilisés, tenue à jour et remise sur demande. Les limites connues du produit vous sont dites avant la signature, pas après.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ 12 ANNEXES ============ -->
+<section class="section">
+  <hr class="hr-top">
+  <p class="section__num">13</p>
+  <h1>Annexes</h1>
+
+  <h2>Les sept étapes d'un signalement</h2>
+  <div class="steps7">
+    <div><i>Ouvert</i>Reçu</div>
+    <div><i>Ouvert</i>Pris en compte</div>
+    <div><i>Ouvert</i>En cours</div>
+    <div class="clos"><i>Clôture</i>Résolu</div>
+    <div class="clos"><i>Clôture</i>Non retenu</div>
+    <div class="clos"><i>Clôture</i>Hors compétence</div>
+    <div class="clos"><i>Clôture</i>Doublon</div>
+  </div>
+  <p class="caption">Quatre des sept étapes clôturent le dossier et lancent le compte à rebours d'effacement des données personnelles. Le nombre d'étapes est fixe ; leur nom, leur couleur et l'envoi du courriel se règlent.</p>
+  <table class="tbl">
+    <thead><tr><th style="width:24%">Étape</th><th>Ce qu'elle signifie</th><th style="width:22%">Qui doit agir</th></tr></thead>
+    <tbody>
+      <tr><td><span class="pill pill--grey">Reçu</span></td><td>Le dépôt est confirmé et attend une première lecture. Aucun message n'est envoyé par défaut.</td><td>La collectivité</td></tr>
+      <tr><td><span class="pill pill--blue">Pris en compte</span></td><td>Le service a vu le dossier et l'a qualifié.</td><td>La collectivité</td></tr>
+      <tr><td><span class="pill pill--amber">En cours de traitement</span></td><td>Une intervention est engagée ou programmée.</td><td>La collectivité</td></tr>
+      <tr><td><span class="pill pill--green">Résolu</span></td><td>Le sujet est traité. Le dossier est clos et le compte à rebours d'effacement démarre.</td><td>Personne</td></tr>
+      <tr><td><span class="pill pill--red">Non retenu</span></td><td>La demande n'est pas retenue. Un motif écrit est obligatoire et cette décision est réservée aux administrateurs.</td><td>Personne</td></tr>
+      <tr><td><span class="pill pill--grey">Hors compétence</span></td><td>Le sujet relève d'une autre autorité. Le dossier est clos.</td><td>Personne</td></tr>
+      <tr><td><span class="pill pill--grey">Doublon</span></td><td>Un dossier identique existe déjà. Le dossier est clos, sans message par défaut.</td><td>Personne</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:9.4pt;color:var(--muted);margin-top:2px">Les libellés, les couleurs, l'ordre et le déclenchement du courriel se règlent étape par étape. Le nombre d'étapes, lui, est fixe.</p>
+
+  <h2>Les états d'un chantier</h2>
+  <table class="tbl">
+    <thead><tr><th style="width:24%">État</th><th>Ce qu'il signifie</th></tr></thead>
+    <tbody>
+      <tr><td>À venir</td><td>Le chantier est identifié, sans date de démarrage arrêtée.</td></tr>
+      <tr><td>Prévu</td><td>Les dates sont posées, les travaux n'ont pas commencé.</td></tr>
+      <tr><td>En cours</td><td>Les travaux sont en cours d'exécution. Le tracé se colore selon l'avancement.</td></tr>
+      <tr><td>Terminé</td><td>Les travaux sont achevés.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Les rôles</h2>
+  <table class="tbl">
+    <thead><tr><th style="width:24%">Rôle</th><th>Ce qu'il peut faire</th></tr></thead>
+    <tbody>
+      <tr><td>Contributeur</td><td>Créer des projets et des chantiers soumis à validation, consulter et faire avancer les signalements, écrire à l'habitant, exporter la file.</td></tr>
+      <tr><td>Administrateur</td><td>Tout ce qui précède, plus : valider et publier, retirer de la carte, rejeter avec motif, supprimer, gérer les thématiques, l'identité visuelle, les comptes et le diagnostic de terrain.</td></tr>
+      <tr><td>Éditeur</td><td>Ouvrir un espace, activer les modules, régler le cadrage de la carte, brancher une couche externe, attribuer une adresse dédiée.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Glossaire</h2>
+  <table class="tbl">
+    <thead><tr><th style="width:26%">Terme</th><th>Définition retenue dans ce document</th></tr></thead>
+    <tbody>
+      <tr><td>Espace</td><td>Le périmètre d'une collectivité dans la plateforme : sa carte, ses contenus, ses thématiques, ses comptes et son identité visuelle. Une collectivité peut en gérer plusieurs.</td></tr>
+      <tr><td>Projet</td><td>Une opération que la collectivité publie sur sa carte : un aménagement, un équipement, une opération d'urbanisme. Il porte un nom, une thématique, une emprise et, s'il le mérite, un article de présentation.</td></tr>
+      <tr><td>Thématique</td><td>La famille à laquelle un projet appartient, avec son icône et sa couleur sur la carte. Elle est définie par la collectivité, pas par l'outil. L'administration la nomme catégorie.</td></tr>
+      <tr><td>Emprise, ou tracé</td><td>La forme dessinée sur la carte pour situer un projet ou un chantier : un point, une ligne ou une zone. Elle se dessine à la souris ou s'importe.</td></tr>
+      <tr><td>Fiche projet</td><td>La page publique dédiée à un projet, à sa propre adresse, référencée par les moteurs de recherche.</td></tr>
+      <tr><td>Chantier</td><td>Une intervention sur l'espace public avec ses dates et son état d'avancement. L'administration le nomme travaux.</td></tr>
+      <tr><td>Signalement</td><td>Un dépôt d'un habitant sur la carte : un problème constaté ou une idée. L'administration le nomme Participer.</td></tr>
+      <tr><td>Publication</td><td>Le geste par lequel un administrateur rend un contenu visible du public. Rien n'est public sans lui.</td></tr>
+      <tr><td>Couche</td><td>Un jeu de données géographiques affiché sur la carte : un réseau, un zonage, un patrimoine. Elle peut être stockée dans la plateforme ou lue en direct depuis un flux existant.</td></tr>
+      <tr><td>Zone d'étude</td><td>Le contour tracé à main levée dans le diagnostic de terrain, sur lequel porte une analyse et un rapport.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="end">
+    <p style="color:var(--ink);font-size:11pt;font-weight:700;margin-bottom:6px">Pour aller plus loin</p>
+    <p style="margin-bottom:16px">La suite logique de ce document est une démonstration conduite sur vos propres cas : vos thématiques, trois de vos projets, un signalement réel. Comptez une heure.</p>
+    <p style="margin:0"><strong>Open Projets</strong> &middot; Cartographie des projets urbains, participation des habitants, suivi des chantiers et diagnostic de terrain pour les collectivités.<br>contact@openprojets.com &middot; openprojets.com</p>
+  </div>
+</section>
+
+</body>
+</html>
