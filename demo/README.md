@@ -47,11 +47,15 @@ d'ouvrage est proposée, explicitement créditée comme telle.
 
 ## Ce qu'on récolte
 
-- **Adresse en fin de parcours** : l'écran de fin propose de recevoir le lien de
-  la carte, avec une échappatoire discrète (« Continuer sans laisser
-  d'adresse »). Le compte à rebours de redirection ne démarre qu'une fois
-  l'étape tranchée, avec un filet de 45 s pour qu'un écran de salon ne reste
-  jamais bloqué. Route `POST /api/demo-lead`, table `demo_leads`.
+- **Adresse en fin de parcours, obligatoire** : l'accès à l'espace (bouton
+  « Découvrir l'espace » et QR code) reste masqué tant qu'une adresse valide
+  n'a pas été envoyée. Il n'y a plus d'échappatoire à l'écran. Celui qui tient
+  le stand dispose d'une porte de service : taper `vazy` dans le champ ouvre
+  l'espace sans adresse, sans enregistrement et sans remerciement
+  (`LEAD_BYPASS` dans `demo.js`). Le compte à rebours de redirection ne démarre
+  qu'une fois l'espace déverrouillé ; en mode kiosque, 120 s sans frappe
+  ramènent l'écran à l'accueil (le visiteur est parti, l'espace n'est pas
+  déverrouillé pour autant). Route `POST /api/demo-lead`, table `demo_leads`.
 - **Journal des générations** : table `demo_runs`, une ligne par tentative,
   ouverte en `running` puis close en `ready` ou `failed`, avec l'étape atteinte,
   le motif d'échec, la durée RÉELLE (de la première invocation à la dernière) et

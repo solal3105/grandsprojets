@@ -23,7 +23,7 @@
        évite que cela se reproduise, mais seul un changement d'adresse déloge un
        fichier déjà en cache. À INCRÉMENTER à chaque modification de demo.css,
        demo.js ou map-fx.js. -->
-  <link rel="stylesheet" href="demo.css?v=6" />
+  <link rel="stylesheet" href="demo.css?v=7" />
   <script defer src="/modules/analytics.js" data-op-space="demo"></script>
 </head>
 <body>
@@ -120,25 +120,25 @@
           <div class="stat"><span class="stat__n" id="stat-illustrated">0</span><span class="stat__l">fiches illustrées</span></div>
         </div>
 
-        <!-- L'adresse est une ÉTAPE, pas un champ que l'on peut ignorer.
-             Affichée à côté d'un gros bouton rouge menant à l'espace, personne
-             ne la remplissait : le visiteur cliquait et partait. Les actions et
-             le QR code n'apparaissent donc qu'une fois cette étape tranchée,
-             envoyée ou passée. L'échappatoire reste discrète mais bien là :
-             personne ne doit se sentir retenu.
+        <!-- L'adresse est le PÉAGE de l'espace, pas un champ que l'on peut
+             ignorer. Affichée à côté d'un gros bouton rouge menant à l'espace,
+             personne ne la remplissait : le visiteur cliquait et partait. Les
+             actions et le QR code n'apparaissent donc qu'une fois une adresse
+             valide envoyée. Celui qui tient le stand garde une porte de
+             service : le code de contournement saisi dans ce même champ (voir
+             LEAD_BYPASS dans demo.js).
              novalidate : `type="email"` sert au clavier des téléphones, mais sa
              validation native bloque l'envoi AVANT notre code et affiche une
              bulle du navigateur, dans sa langue et hors charte. -->
         <form id="lead-form" class="lead" novalidate>
-          <label class="lead__label" for="lead-email">Où vous envoyons-nous le lien de cette carte ?</label>
+          <label class="lead__label" for="lead-email">Votre adresse e-mail pour ouvrir cette carte</label>
           <div class="lead__field">
             <input id="lead-email" class="lead__input" type="email" name="email"
                    placeholder="prenom.nom@ville.fr" autocomplete="email"
-                   aria-label="Votre adresse e-mail" />
-            <button id="lead-submit" class="lead__send" type="submit">Recevoir</button>
+                   aria-label="Votre adresse e-mail" required />
+            <button id="lead-submit" class="lead__send" type="submit">Accéder</button>
           </div>
           <p id="lead-error" class="lead__error" hidden></p>
-          <button id="lead-skip" class="lead__skip" type="button">Continuer sans laisser d'adresse</button>
         </form>
 
         <!-- Refaire le recensement n'est PAS une action de visiteur : c'est la
@@ -174,7 +174,7 @@
   </main>
 
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
-  <script src="map-fx.js?v=6"></script>
-  <script src="demo.js?v=6"></script>
+  <script src="map-fx.js?v=7"></script>
+  <script src="demo.js?v=7"></script>
 </body>
 </html>

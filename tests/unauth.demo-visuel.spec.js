@@ -103,9 +103,10 @@ for (const ecran of ECRANS) {
     test(`espace déjà généré - ${ecran.nom}`, async ({ page }) => {
       await allerJusquAuDone(page, DONE_EXISTANT);
       await page.locator('.done').screenshot({ path: `${SORTIE}/${ecran.nom}-existant.png` });
-      // L'adresse est demandée d'abord : les actions viennent ensuite. Le bouton
+      // L'adresse est exigée d'abord : les actions viennent ensuite. Le bouton
       // de relance DOIT alors être là, c'est tout l'intérêt de cet état.
-      await page.locator('#lead-skip').click();
+      await page.locator('#lead-email').fill('vazy');
+      await page.locator('#lead-submit').click();
       await expect(page.locator('#btn-regen')).toBeVisible();
     });
 
@@ -129,9 +130,10 @@ for (const ecran of ECRANS) {
       await page.locator('.done').screenshot({ path: `${SORTIE}/${ecran.nom}-erreur.png` });
     });
 
-    test(`adresse passée - ${ecran.nom}`, async ({ page }) => {
+    test(`espace ouvert par le code de service - ${ecran.nom}`, async ({ page }) => {
       await allerJusquAuDone(page, DONE_NEUF);
-      await page.locator('#lead-skip').click();
+      await page.locator('#lead-email').fill('vazy');
+      await page.locator('#lead-submit').click();
       await expect(page.locator('#lead-form')).toBeHidden();
       await page.waitForTimeout(400);
       await page.locator('.done').screenshot({ path: `${SORTIE}/${ecran.nom}-passe.png` });

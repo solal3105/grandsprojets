@@ -609,9 +609,9 @@
 
     /* Le compte à rebours n'est PAS lancé à la fin de la génération : rediriger
        un visiteur pendant qu'il tape son adresse serait le meilleur moyen de
-       n'en récolter aucune. Il démarre quand l'étape adresse est tranchée
-       (envoyée ou passée), avec un filet de sécurité pour qu'un écran de salon
-       ne reste jamais bloqué sur une commune. Le filet part à l'affichage de
+       n'en récolter aucune. Il démarre une fois l'adresse donnée, avec un filet
+       de sécurité pour qu'un écran de salon ne reste jamais planté sur une
+       commune que plus personne ne regarde. Le filet part à l'affichage de
        l'écran de fin, pas avant : le survol dure une quinzaine de secondes. */
     startCountdown.cible = targetUrl;
     const terminer = () => {
@@ -632,16 +632,24 @@
 
   /* ─── Récupération de l'adresse en fin de parcours ─── */
 
-  // Filet de sécurité : sans geste du visiteur, l'écran reprend son cycle.
-  const LEAD_TIMEOUT_MS = 45000;
+  // Filet de sécurité : sans geste du visiteur, l'écran de salon reprend son cycle.
+  const LEAD_ABANDON_MS = 120000;
   const EMAIL_RE = /^[^\s@]+@[^\s@,;]+\.[a-z]{2,}$/i;
+  /* Porte de service de celui qui tient le stand : ce code tapé dans le champ
+     de l'adresse ouvre l'espace sans adresse ni envoi. Il ne s'affiche nulle
+     part et n'est comparé qu'en entier, pour qu'une vraie adresse contenant
+     le mot parte bien en lead. */
+  const LEAD_BYPASS = 'vazy';
 
-  /* Filet de sécurité : sans geste du visiteur, l'écran passe de lui-même à la
-     suite. Un stand ne doit jamais rester bloqué sur une question sans réponse,
-     et le visiteur suivant doit retrouver un écran utilisable. */
+  /* Filet de sécurité : le visiteur est parti sans répondre. L'écran de salon
+     doit alors se rendre au visiteur suivant, mais il ne DÉVERROUILLE pas
+     l'espace pour autant : l'adresse est la condition d'accès, l'attente ne
+     peut pas en tenir lieu. Hors kiosque, la page reste simplement sur la
+     question, personne n'a besoin qu'on la lui reprenne. */
   function armerFiletLead() {
     clearTimeout(leadTimer);
-    leadTimer = setTimeout(() => closeLead(false), LEAD_TIMEOUT_MS);
+    if (!KIOSK) return;
+    leadTimer = setTimeout(reset, LEAD_ABANDON_MS);
   }
 
   // Affiche ou efface le motif de refus, en accordant le champ au message
@@ -657,8 +665,8 @@
     const form = $('lead-form');
     if (!form) return;
     form.hidden = false;
-    // La suite de l'écran (accès à l'espace, QR code) reste couverte tant que
-    // l'étape n'est pas tranchée : c'est ce qui fait qu'on demande vraiment
+    // La suite de l'écran (accès à l'espace, QR code) reste couverte tant
+    // qu'aucune adresse n'est donnée : c'est ce qui fait qu'on demande vraiment
     // l'adresse au lieu de la proposer à côté d'un bouton qui emmène ailleurs.
     $('done-suite').hidden = true;
     $('lead-email').value = '';
@@ -669,7 +677,9 @@
     $('countdown').textContent = '';
   }
 
-  // Passe à la suite : le formulaire cède la place à l'accès à l'espace
+  /* Déverrouille l'espace : le formulaire cède la place à l'accès et au QR
+     code. Deux entrées seulement, une adresse valide envoyée ou le code de
+     service du stand. */
   function closeLead(merci) {
     clearTimeout(leadTimer);
     const form = $('lead-form');
@@ -684,7 +694,7 @@
     const targetUrl = startCountdown.cible;
     if (!targetUrl) return;
     // Le compte a rebours n'est jamais lance seul : il est declenche par
-    // closeLead, une fois l'etape de l'adresse tranchee.
+    // closeLead, une fois l'espace deverrouille.
     if (KIOSK) {
       let remaining = 90;
       const tickDown = () => {
@@ -712,8 +722,18 @@
     clearTimeout(redirectTimer);
     $('countdown').textContent = '';
     const email = $('lead-email').value.trim();
+    /* Porte de service : rien n'est enregistré, rien n'est mesuré, l'espace
+       s'ouvre. C'est ce qui permet de montrer la suite de la démo sans salir
+       la table des leads avec une adresse de service. */
+    if (email.toLowerCase() === LEAD_BYPASS) {
+      setLeadError('');
+      closeLead(false);
+      return;
+    }
     if (!EMAIL_RE.test(email)) {
-      setLeadError('Cette adresse ne semble pas valide.');
+      setLeadError(email
+        ? 'Cette adresse ne semble pas valide.'
+        : 'Votre adresse e-mail est nécessaire pour ouvrir la carte.');
       $('lead-email').focus();
       // Le filet repart : le visiteur peut aussi renoncer en ne faisant rien
       armerFiletLead();
@@ -757,8 +777,6 @@
       : 'Merci, votre adresse est bien enregistrée.';
     closeLead(true);
   });
-
-  $('lead-skip').addEventListener('click', () => closeLead(false));
 
   /* Taper dans le champ suspend le filet ET annule un compte à rebours déjà
      lancé : personne ne doit être redirigé en pleine saisie. Sans l'annulation

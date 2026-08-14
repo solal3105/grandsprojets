@@ -666,6 +666,9 @@ body:not(.has-map) #map { display: none; }
 .lead__error { margin: 0; font-size: 0.86rem; color: #c02638; }
 .lead__error[hidden] { display: none; }
 
+/* Lien discret sous le formulaire. L'échappatoire du visiteur a disparu (une
+   adresse est exigée pour ouvrir l'espace) : seul le bouton de relance du
+   stand porte encore ce style. */
 .lead__skip {
   padding: 4px 10px;
   font-family: inherit;

@@ -79,14 +79,15 @@ test.describe('Démo salon - /demo/', () => {
 });
 
 test.describe('Démo salon - récupération de l\'adresse', () => {
-  test('0.32.7 - le formulaire d\'adresse est présent avec son échappatoire', async ({ page }) => {
+  test('0.32.7 - le formulaire d\'adresse est présent et sans échappatoire', async ({ page }) => {
     await page.goto('/demo/', { waitUntil: 'domcontentloaded' });
     // L'écran de fin est masqué tant qu'aucune génération n'a abouti, mais son
     // contenu doit exister dans le document.
     await expect(page.locator('#lead-form')).toHaveCount(1);
     await expect(page.locator('#lead-email')).toHaveCount(1);
-    await expect(page.locator('#lead-skip')).toHaveCount(1);
-    await expect(page.locator('#lead-skip')).toContainText('sans laisser');
+    // L'adresse conditionne l'accès à l'espace : plus aucun bouton ne permet
+    // de passer l'étape.
+    await expect(page.locator('#lead-skip')).toHaveCount(0);
     // Le bouton de relance n'apparaît que sur une commune déjà générée
     await expect(page.locator('#btn-regen')).toBeHidden();
   });
@@ -157,17 +158,48 @@ test.describe('Démo salon - relance depuis l\'écran', () => {
     stats: { sources: 20, verified: 12, precise: 10, illustrated: 6 },
   };
 
-  /* L'adresse est demandée AVANT de donner accès à l'espace : les actions ne
-     sont découvertes qu'une fois l'étape tranchée. */
-  test('0.33.0 - l\'adresse est demandée avant de donner accès à l\'espace', async ({ page }) => {
+  /* L'adresse CONDITIONNE l'accès à l'espace : les actions ne sont découvertes
+     qu'une fois une adresse valide envoyée. */
+  test('0.33.0 - l\'adresse est exigée avant de donner accès à l\'espace', async ({ page }) => {
+    await page.route('**/api/demo-lead', (route) => route.fulfill({
+      status: 200, contentType: 'application/json', body: '{"ok":true,"mailed":true}',
+    }));
     await allerAuDone(page, DONE_NEUF);
     await expect(page.locator('#lead-form')).toBeVisible();
     await expect(page.locator('#done-suite')).toBeHidden();
     await expect(page.locator('#btn-open')).toBeHidden();
-    // L'échappatoire reste accessible : personne n'est retenu
-    await page.locator('#lead-skip').click();
+
+    // Champ vide puis adresse invalide : l'espace reste fermé dans les deux cas
+    await page.locator('#lead-submit').click();
+    await expect(page.locator('#lead-error')).toBeVisible();
+    await expect(page.locator('#done-suite')).toBeHidden();
+    await page.locator('#lead-email').fill('pas-une-adresse');
+    await page.locator('#lead-submit').click();
+    await expect(page.locator('#lead-error')).toBeVisible();
+    await expect(page.locator('#done-suite')).toBeHidden();
+
+    await page.locator('#lead-email').fill('maire@oyonnax.fr');
+    await page.locator('#lead-submit').click();
     await expect(page.locator('#done-suite')).toBeVisible();
     await expect(page.locator('#btn-open')).toBeVisible();
+  });
+
+  /* Porte de service du stand : le code saisi dans le champ de l'adresse ouvre
+     l'espace sans adresse et SANS enregistrer de lead. */
+  test('0.33.4 - le code de service ouvre l\'espace sans enregistrer d\'adresse', async ({ page }) => {
+    let appels = 0;
+    await page.route('**/api/demo-lead', (route) => {
+      appels += 1;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+    });
+    await allerAuDone(page, DONE_NEUF);
+    await page.locator('#lead-email').fill('VaZy');
+    await page.locator('#lead-submit').click();
+    await expect(page.locator('#done-suite')).toBeVisible();
+    await expect(page.locator('#lead-form')).toBeHidden();
+    // Pas de remerciement : rien n'a été envoyé, rien n'a été promis
+    await expect(page.locator('#lead-thanks')).toBeHidden();
+    expect(appels, 'le code de service ne doit rien enregistrer').toBe(0);
   });
 
   /* Refaire le recensement est la commande de celui qui tient le stand, pas une
@@ -180,10 +212,12 @@ test.describe('Démo salon - relance depuis l\'écran', () => {
     await expect(page.locator('#btn-regen')).toBeVisible();
   });
 
-  test('0.33.2 - le bouton de relance reste là une fois l\'adresse tranchée', async ({ page }) => {
+  test('0.33.2 - le bouton de relance reste là une fois l\'espace déverrouillé', async ({ page }) => {
     await allerAuDone(page, { ...DONE_NEUF, existing: true, projectsCount: undefined, stats: undefined });
     await expect(page.locator('#btn-regen')).toBeVisible();
-    await page.locator('#lead-skip').click();
+    await page.locator('#lead-email').fill('vazy');
+    await page.locator('#lead-submit').click();
+    await expect(page.locator('#done-suite')).toBeVisible();
     await expect(page.locator('#btn-regen')).toBeVisible();
   });
 
