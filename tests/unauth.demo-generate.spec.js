@@ -20,6 +20,7 @@ const {
   centroidOf, haversineM, typeImageReel, looksLikeCode, estPageTremplin,
   collectPageLinks, unescapeBoamp, odonymesDe, distinctiveWords, essaisNominatim,
   sansPrefixeGenerique, locationQueries, nomCoherent, rangStructurel, positionDansLaCommune,
+  migrerEtatGeo, METHOD_LABELS, communeDuResultat,
 } = _internals;
 
 test.describe('0.64 - Démo : garde contre les requêtes vers le réseau interne', () => {
@@ -464,6 +465,77 @@ test.describe('0.67 - Démo : tri du contenu récolté', () => {
       source_excerpt: '',
     });
     expect(avecAdresse[0]).toBe('Rue Maurice Berteaux');
+  });
+
+  test("0.67.14 - RÉGRESSION : la commune d'un résultat ne se lit pas dans municipality", () => {
+    /* Sur les données françaises de Nominatim, `municipality` porte
+       l'ARRONDISSEMENT et non la commune. Deux mesures réelles le prouvent, et
+       les lire dans le mauvais ordre produisait deux bugs opposés :
+       tous les résultats de Conflans étaient rejetés, et un chemin d'une
+       commune voisine était accepté pour Gex. */
+    const claudeFichot = { address: {
+      leisure: 'Complexe Sportif Claude Fichot', road: 'Chemin des Grandes Terres',
+      suburb: 'Chennevières', town: 'Conflans-Sainte-Honorine',
+      municipality: 'Saint-Germain-en-Laye', county: 'Yvelines',
+    } };
+    expect(communeDuResultat(claudeFichot)).toBe('Conflans-Sainte-Honorine');
+
+    const perdtempsHorsCommune = { address: {
+      road: 'Chemin de Dessus-Perdtemps', village: 'Échenevex', municipality: 'Gex', county: 'Ain',
+    } };
+    expect(communeDuResultat(perdtempsHorsCommune)).toBe('Échenevex');
+    expect(communeDuResultat(perdtempsHorsCommune)).not.toBe('Gex');
+
+    // Une place réellement dans Gex reste reconnue
+    expect(communeDuResultat({ address: { city: 'Gex', municipality: 'Gex' } })).toBe('Gex');
+
+    // Sans champ de commune, la fonction rend une chaîne vide : l'appelant se
+    // rabat alors sur le libellé complet plutôt que de rejeter à l'aveugle.
+    expect(communeDuResultat({ address: { municipality: 'Gex' } })).toBe('');
+    expect(communeDuResultat({})).toBe('');
+    expect(communeDuResultat(null)).toBe('');
+  });
+
+  test('0.67.12 - Aucun repli à la maille du quartier', () => {
+    /* L'étage IRIS posait le projet sur l'emprise d'un secteur statistique
+       entier : une tache de plusieurs centaines de mètres à la place d'un
+       chantier ponctuel (mesuré sur Vénissieux, ligne T10 et Grand Parilly).
+       Les trois méthodes restantes sont toutes précises. Ce test empêche de
+       réintroduire un niveau approximatif sans s'en rendre compte. */
+    expect(Object.keys(METHOD_LABELS).sort()).toEqual(['adresse', 'emprise', 'trace']);
+    expect(Object.keys(METHOD_LABELS)).not.toContain('quartier');
+  });
+
+  test("0.67.13 - RÉGRESSION : un brouillon d'une version antérieure se reprend sans planter", () => {
+    /* L'état de la phase de localisation voyage en base entre les tranches.
+       Une mise en production tombant au milieu d'une génération faisait
+       échouer la reprise : `.push` sur un tableau absent, et surtout
+       destructuration de `aTester` qui contenait de simples indices avant de
+       contenir des paires [projet, rang]. */
+    const queries = [['Rue Maurice Berteaux'], ['Stade Claude-Fichot', 'Claude-Fichot']];
+
+    const ancien = { etape: 'nominatim', curseur: 1, aTester: [0, 1], reste: [0, 1] };
+    migrerEtatGeo(ancien, queries);
+    expect(Array.isArray(ancien.titresFusionnes)).toBe(true);
+    expect(Array.isArray(ancien.titresSuperposes)).toBe(true);
+    // Reconstruit en paires, et le curseur repart du début pour ne rien sauter
+    expect(ancien.aTester.every((x) => Array.isArray(x))).toBe(true);
+    expect(ancien.curseur).toBe(0);
+    expect(() => { const [i, rang] = ancien.aTester[0]; return i + rang; }).not.toThrow();
+
+    // Un état DÉJÀ au nouveau format n'est pas rejoué : le curseur est préservé
+    const neuf = { etape: 'nominatim', curseur: 3, aTester: essaisNominatim(queries), reste: [1], titresFusionnes: ['x'], titresSuperposes: [] };
+    migrerEtatGeo(neuf, queries);
+    expect(neuf.curseur).toBe(3);
+    expect(neuf.titresFusionnes).toEqual(['x']);
+
+    // Les étages suivants stockent de simples indices : on n'y touche pas
+    const ban = { etape: 'ban', curseur: 2, aTester: [0, 1], reste: [0] };
+    migrerEtatGeo(ban, queries);
+    expect(ban.aTester).toEqual([0, 1]);
+    expect(ban.curseur).toBe(2);
+
+    expect(() => migrerEtatGeo(null, queries)).not.toThrow();
   });
 
   test("0.67.6d - RÉGRESSION Conflans : l'étage Nominatim tente deux formulations", () => {

@@ -2031,6 +2031,24 @@ async function banGeocode(q, commune, bbox) {
   return null;
 }
 
+/* La COMMUNE d'un résultat Nominatim, lue dans son détail d'adresse.
+
+   `municipality` en est exclu, et c'est tout l'objet de cette fonction : sur
+   les données françaises, ce champ porte l'ARRONDISSEMENT, pas la commune.
+   Mesures réelles :
+     Complexe Sportif Claude Fichot -> town « Conflans-Sainte-Honorine »,
+                                       municipality « Saint-Germain-en-Laye »
+     Chemin de Dessus-Perdtemps     -> village « Échenevex »,
+                                       municipality « Gex »
+   Lire `municipality` en premier rejetait donc TOUS les résultats de Conflans,
+   et acceptait un chemin d'une commune voisine pour Gex. Les deux erreurs sont
+   corrigées par le même choix : la commune est dans city, town, village ou
+   hamlet, jamais ailleurs. */
+function communeDuResultat(hit) {
+  const a = hit?.address || {};
+  return a.city || a.town || a.village || a.hamlet || '';
+}
+
 // Géocodage complet d'une requête : Nominatim (emprises/tracés réels) puis BAN.
 // best-of-6 : on garde l'ordre de pertinence de Nominatim mais on descend
 // jusqu'au 1er résultat réellement DANS la commune et son emprise (un homonyme
@@ -2060,8 +2078,7 @@ async function nominatimLookup(q, commune, bbox) {
            l'ecole Perdtemps se retrouvait a 3,5 km, dans la commune voisine.
            Repli sur l'ancien test quand le detail ne porte aucune commune, ce
            qui arrive sur certaines emprises. */
-        const adr = hit.address || {};
-        const communeTrouvee = adr.municipality || adr.city || adr.town || adr.village || adr.hamlet || '';
+        const communeTrouvee = communeDuResultat(hit);
         const memeCommune = communeTrouvee
           ? unaccentLower(communeTrouvee) === unaccentLower(commune.nom)
           : (hit.display_name || '').toLowerCase().includes(commLc);
@@ -2101,31 +2118,6 @@ function distinctiveWords(titre) {
   return [...new Set(
     unaccentLower(titre).split(/[^a-z0-9]+/).filter((w) => w.length >= 5 && !GENERIC_PROJECT_WORDS.test(w))
   )];
-}
-
-/* Quartiers statistiques IRIS de l'INSEE : la seule couche officielle qui
-   decoupe TOUTES les communes de plus de 5 000 habitants en secteurs nommes,
-   avec leur emprise. Elle donne une position honnete a la maille du quartier
-   quand aucune adresse n'est identifiable. Un seul appel par commune. */
-async function fetchIrisQuartiers(insee) {
-  try {
-    const url = new URL('https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/georef-france-iris/records');
-    url.searchParams.set('where', `com_code="${insee}"`);
-    url.searchParams.set('limit', '60');
-    url.searchParams.set('select', 'iris_name,geo_shape');
-    const r = await fetchWithTimeout(url.toString(), {}, 12000);
-    if (!r.ok) return [];
-    const data = await r.json();
-    return (data.results || []).flatMap((rec) => {
-      // iris_name arrive sous forme de tableau a un element
-      const nom = Array.isArray(rec.iris_name) ? rec.iris_name[0] : rec.iris_name;
-      const geometry = rec.geo_shape?.geometry || rec.geo_shape;
-      if (!nom || !geometry?.type) return [];
-      return [{ nom, cle: unaccentLower(nom), geometry }];
-    });
-  } catch {
-    return [];
-  }
 }
 
 /* Dernier recours de localisation : l'IA a lu les sources et sait souvent
@@ -2858,7 +2850,19 @@ async function coreAi(send, step, state) {
     return null;
   }
   step('ai2', 'done', 'Projets vérifiés', `${projects.length} projets attestés par les sources`);
-  send({ type: 'projects', items: projects.map((p) => ({ title: p.title, category_slug: p.category_slug })) });
+  /* La CITATION voyage avec chaque projet attesté. L'écran en fait la matière
+     de sa pièce de papier : c'est la phrase relevée dans la source qui prouve
+     que le projet existe, et c'est elle qui distingue un recensement d'une
+     liste produite par une IA. */
+  send({
+    type: 'projects',
+    items: projects.map((p) => ({
+      title: p.title,
+      category_slug: p.category_slug,
+      quote: String(p.evidence_quote || '').slice(0, 180),
+      media: hostOf(p.source_url) || '',
+    })),
+  });
 
   state.projects = projects;
   state.stats.words = words;
@@ -2982,11 +2986,13 @@ async function coreAi(send, step, state) {
   return state;
 }
 
+/* Trois methodes, toutes precises. Le niveau « quartier identifie » a ete
+   retire avec l'etage IRIS : une emprise de secteur statistique n'est pas la
+   position d'un projet. */
 const METHOD_LABELS = {
   emprise: 'emprise réelle trouvée',
   trace: 'tracé réel trouvé',
   adresse: 'adresse précise',
-  quartier: 'quartier identifié',
 };
 
 /* Deux fiches designent-elles le MEME chantier ?
@@ -3034,6 +3040,25 @@ const GEO_MAX_TOURS = 14;
    budget de tranche epuise ne prive personne de son premier essai. */
 const NOMINATIM_ESSAIS = 2;
 
+/* Brouillon ecrit par une version anterieure du code.
+   L'etat de la phase de localisation voyage en base entre les tranches, et une
+   mise en production peut tomber au milieu d'une generation. Les champs absents
+   doivent etre recrees, sinon un `.push` sur `undefined` fait echouer la
+   reprise. De meme, `aTester` contenait de simples indices avant de contenir
+   des paires [projet, rang] : le destructurer sur un nombre leve une exception
+   et la generation se terminait en echec, brouillon intact et IA deja payee. */
+function migrerEtatGeo(geo, queries) {
+  if (!geo) return geo;
+  if (!Array.isArray(geo.titresFusionnes)) geo.titresFusionnes = [];
+  if (!Array.isArray(geo.titresSuperposes)) geo.titresSuperposes = [];
+  if (!Array.isArray(geo.aTester)) geo.aTester = [];
+  if (geo.etape === 'nominatim' && geo.aTester.length && !Array.isArray(geo.aTester[0])) {
+    geo.aTester = essaisNominatim(queries);
+    geo.curseur = 0;
+  }
+  return geo;
+}
+
 function essaisNominatim(queries) {
   const paires = [];
   for (let rang = 0; rang < NOMINATIM_ESSAIS; rang++) {
@@ -3065,8 +3090,16 @@ async function coreGeo(send, step, state) {
     lieuxIa: null,
     fusionnes: 0,
     superposes: 0,
+    /* Les TITRES des projets ecartes, pas seulement leur nombre. L'ecran de
+       generation les affiche : « voila ce que nous avons refuse de vous
+       montrer, et pourquoi » est un argument, un compteur anonyme n'en est
+       pas un. */
+    titresFusionnes: [],
+    titresSuperposes: [],
     tours: 0,
   });
+
+  migrerEtatGeo(geo, queries);
   state.located = state.located || [];
   geo.tours++;
 
@@ -3090,7 +3123,11 @@ async function coreGeo(send, step, state) {
 
     for (const deja of state.located) {
       const d = haversineM(centroidOf(deja.geometry), c);
-      if (memeChantier(deja, projet, d)) { geo.fusionnes++; return false; }
+      if (memeChantier(deja, projet, d)) {
+        geo.fusionnes++;
+        geo.titresFusionnes.push(projet.title);
+        return false;
+      }
       /* Une position DÉJÀ OCCUPÉE n'est pas celle de ce projet-ci.
          J'avais relâché cette règle en pensant à deux bâtiments d'un même
          groupe scolaire. La réalité mesurée est autre : sur Saint-Denis (974),
@@ -3104,6 +3141,7 @@ async function coreGeo(send, step, state) {
          « emplacement non vérifiable », ce qu'il est réellement. */
       if (d < POSITION_MIN_M) {
         geo.superposes++;
+        geo.titresSuperposes.push(projet.title);
         return false;
       }
     }
@@ -3163,7 +3201,7 @@ async function coreGeo(send, step, state) {
     if (geo.etape === 'ban') {
       const lot = geo.aTester.slice(geo.curseur, geo.curseur + 8);
       geo.curseur += lot.length;
-      if (!lot.length) { etapeSuivante('iris'); continue; }
+      if (!lot.length) { etapeSuivante('ia'); continue; }
       const trouves = await inChunks(lot, 8, async (i) => {
         for (const q of queries[i]) {
           const hit = await banGeocode(q, communeShim, bbox);
@@ -3177,26 +3215,18 @@ async function coreGeo(send, step, state) {
       continue;
     }
 
-    /* Etage 3, quartiers IRIS de l'INSEE : beaucoup de projets ne designent pas
-       une adresse mais un secteur (« quartier de la Raude »). Cette couche
-       officielle donne une emprise REELLE a cette maille, la ou un point
-       invente ne serait pas acceptable. */
-    if (geo.etape === 'iris') {
-      const quartiers = geo.reste.length ? await fetchIrisQuartiers(state.commune.code) : [];
-      let rattrapes = 0;
-      for (const i of geo.reste.slice()) {
-        const mots = distinctiveWords(`${projects[i].geo_query || ''} ${projects[i].place || ''} ${projects[i].title}`);
-        if (!mots.length) continue;
-        // Un IRIS trop vaste designe un secteur, pas un projet
-        const q = quartiers.find((qt) => mots.some((m) => qt.cle.includes(m)) && extentAcceptable(qt.geometry, bbox));
-        if (q) { retirerDuReste(i); if (accepter(i, { geometry: q.geometry, method: 'quartier' })) rattrapes++; }
-      }
-      if (rattrapes) console.log(`[demo-generate] quartiers IRIS : ${rattrapes} projet(s) situe(s)`);
-      etapeSuivante('ia');
-      continue;
-    }
+    /* L'etage des quartiers IRIS de l'INSEE a ete RETIRE.
 
-    /* Etage 4, dernier recours : on redemande a l'IA. Elle a lu les sources et
+       Il posait le projet sur l'emprise d'un secteur statistique entier, ce qui
+       revient a colorier un quartier de plusieurs centaines de metres pour un
+       chantier ponctuel. Mesure sur Venissieux : la ligne de tramway T10 et
+       Grand Parilly - Puisoz etaient rendus ainsi. Devant un elu qui connait
+       son territoire, une tache large affichee a la place d'un projet precis se
+       lit comme une approximation, pas comme une information.
+       Un projet qu'on ne sait situer qu'a la maille du quartier est desormais
+       ecarte, comme tous les autres emplacements non verifiables. */
+
+    /* Dernier recours : on redemande a l'IA. Elle a lu les sources et
        sait souvent nommer un lieu geocodable que les champs structures n'ont
        pas rendu. Un seul appel pour tous les projets restants. */
     if (geo.etape === 'ia') {
@@ -3256,16 +3286,28 @@ async function coreGeo(send, step, state) {
     return null;
   }
 
-  const exacts = located.filter((p) => p.method !== 'quartier').length;
-  console.log(`[demo-generate] geo ${state.commune.nom}: ${located.length} situés (${exacts} à l'adresse, ${located.length - exacts} au quartier), ${abandonnes} sans emplacement identifiable (dont ${geo.superposes} sur une position déjà occupée), ${geo.fusionnes} doublon(s) fusionné(s), ${geo.tours} tranche(s)`);
+  // Toutes les positions retenues sont precises : l'etage quartier n'existe plus
+  const exacts = located.length;
+  console.log(`[demo-generate] geo ${state.commune.nom}: ${located.length} situés, ${abandonnes} sans emplacement identifiable (dont ${geo.superposes} sur une position déjà occupée), ${geo.fusionnes} doublon(s) fusionné(s), ${geo.tours} tranche(s)`);
   step('geo', 'done', 'Projets localisés',
     `${located.length} projet(s) situé(s)${abandonnes ? `, ${abandonnes} écarté(s) faute d'emplacement identifiable` : ''}`);
   /* Ce qu'on REFUSE est un argument, à condition de dire vrai. Les doublons
      fusionnés ne sont PAS des « emplacements non vérifiables » : ils étaient
      parfaitement localisés, c'est le projet qui faisait doublon. Les compter
      ensemble revenait à mentir à l'écran sur le motif du rejet. */
-  if (abandonnes) send({ type: 'rejected', kind: 'position', count: abandonnes });
-  if (geo.fusionnes) send({ type: 'rejected', kind: 'doublon', count: geo.fusionnes });
+  if (abandonnes) {
+    send({
+      type: 'rejected',
+      kind: 'position',
+      count: abandonnes,
+      // Les projets restes sans emplacement, plus ceux rabattus sur une
+      // position deja prise : les deux relevent du meme motif.
+      titles: [...geo.reste.map((i) => projects[i].title), ...geo.titresSuperposes].slice(0, 12),
+    });
+  }
+  if (geo.fusionnes) {
+    send({ type: 'rejected', kind: 'doublon', count: geo.fusionnes, titles: geo.titresFusionnes.slice(0, 12) });
+  }
 
   state.projects = [];
   state.geo = null;
@@ -4123,6 +4165,9 @@ export const _internals = {
   estPageTremplin,
   collectPageLinks,
   essaisNominatim,
+  migrerEtatGeo,
+  communeDuResultat,
+  METHOD_LABELS,
   sansPrefixeGenerique,
   nomCoherent,
   rangStructurel,
